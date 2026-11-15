@@ -148,19 +148,21 @@ describe("Device.useFindModal", () => {
       return scanner;
     };
 
-    const scan = async (scanner: task.Task, answer: CommandAnswer = {}) => {
-      const { answered } = await answerNextCommand(client, scanner, {
-        ...answer,
-        type: "scan",
-      });
-      // The button stays disabled until the scanner loads.
-      const button = await waitFor(() => {
+    // The button is disabled until the scanner loads and while a scan runs.
+    const findScanNow = async (): Promise<HTMLElement> =>
+      await waitFor(() => {
         const b = findButton("Scan now");
         if (b.getAttribute("aria-disabled") === "true")
           throw new Error("Scan now is disabled");
         return b;
       });
-      fireEvent.click(button);
+
+    const scan = async (scanner: task.Task, answer: CommandAnswer = {}) => {
+      const { answered } = await answerNextCommand(client, scanner, {
+        ...answer,
+        type: "scan",
+      });
+      fireEvent.click(await findScanNow());
       await answered;
     };
 
@@ -180,7 +182,9 @@ describe("Device.useFindModal", () => {
       const scanner = await renderScan(1, 0);
       await screen.findByText("Scan complete");
       await scan(scanner, { variant: "error", message: "Failed to scan" });
-      await waitFor(() => expect(screen.queryByText("Scan complete")).toBeNull());
+      expect(await screen.findByText("Failed to scan")).toBeTruthy();
+      await findScanNow();
+      expect(screen.queryByText("Scan complete")).toBeNull();
     });
   });
 

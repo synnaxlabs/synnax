@@ -344,12 +344,15 @@ export const Find = ({
     setScanning(true);
     setScanned([]);
     try {
-      await Promise.all(
+      const replies = await Promise.all(
         targets.map((s) =>
           s.executeCommandSync({ type: SCAN_COMMAND, timeout: SCAN_TIMEOUT }),
         ),
       );
-      setScanned(targets.map((s) => s.rack));
+      // The scanner state shows a scan that failed.
+      setScanned(
+        targets.filter((_, i) => replies[i].variant === "success").map((s) => s.rack),
+      );
     } catch (e) {
       handleError(e, `Failed to scan for ${name} hardware`);
     }
