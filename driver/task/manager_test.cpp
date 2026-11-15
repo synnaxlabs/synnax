@@ -2908,6 +2908,7 @@ TEST_F(ShutdownTest, WithPendingOps) {
         join.wait_for((5 * x::telem::SECOND).chrono()),
         std::future_status::ready
     );
+    EXPECT_FALSE(manager->worker_detached());
 }
 
 /// @brief Task that blocks forever on stop() - used to test shutdown timeout.
@@ -2999,6 +3000,7 @@ TEST_F(ShutdownTest, TimeoutDetachesStuckWorkers) {
         join.wait_for((3 * x::telem::SECOND).chrono()),
         std::future_status::ready
     );
+    EXPECT_TRUE(manager->worker_detached());
 
     // Release the blocking stop so the detached thread can exit cleanly
     f->release_all();

@@ -504,10 +504,10 @@ void Manager::stop_workers() {
             w.thread.join();
         else {
             // C++ cannot kill a thread, and waiting forever would hang shutdown. The
-            // worker keeps using this Manager, which must outlive it: the Rack keeps
-            // one Manager until the process exits.
+            // worker keeps using this Manager, which must outlive it.
             LOG(WARNING) << "worker thread did not finish in time, detaching";
             w.thread.detach();
+            this->detached = true;
         }
     }
     this->workers.clear();
@@ -777,6 +777,7 @@ void Manager::execute_op(
             }
             this->clear_deploy(entry);
             this->statuses->drop(op.task_key);
+            this->ctx->forget(op.task_key);
             // The row is gone from the cluster, so the entry goes unconditionally.
             std::lock_guard lock{this->mu};
             this->entries.erase(op.task_key);

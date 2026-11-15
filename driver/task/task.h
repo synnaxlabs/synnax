@@ -260,6 +260,18 @@ public:
         last = op;
         return joined;
     }
+
+    /// @brief forgets the last cancelled operation of task. Call it once the task is
+    /// deleted.
+    void forget(const synnax::task::Key &task) {
+        std::lock_guard lock{this->operations_mu};
+        const auto it = this->cancelled.find(task);
+        if (it == this->cancelled.end()) return;
+        const auto op = this->operations.find(it->second->cmd.key);
+        if (op != this->operations.end() && op->second == it->second)
+            this->operations.erase(op);
+        this->cancelled.erase(it);
+    }
 };
 
 /// @brief the cmd_key given to configure_task when no command drives the configure,
@@ -428,6 +440,10 @@ public:
     /// @brief stops the task manager, halting all tasks and freeing resources.
     void stop();
 
+    /// @returns true once a stop left a stuck worker running. The worker still uses
+    /// this Manager, so the Manager must not be freed.
+    [[nodiscard]] bool worker_detached() const { return this->detached; }
+
 private:
     /// @brief the rack this manager belongs to.
     synnax::rack::Rack rack;
@@ -509,6 +525,8 @@ private:
     std::vector<Worker> workers;
     /// @brief thread that checks the step limits of running operations.
     std::thread monitor_thread;
+    /// @brief true once stop_workers detached a worker that did not finish.
+    std::atomic<bool> detached{false};
     /// @brief controls worker and monitor thread lifecycle.
     x::breaker::Breaker breaker{x::breaker::Config{.name = "task.manager"}};
     /// @brief the number of runs started, which names the current run.

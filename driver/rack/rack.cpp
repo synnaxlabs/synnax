@@ -31,7 +31,11 @@ bool Rack::should_exit(
 }
 
 Rack::~Rack() {
-    stop();
+    this->stop();
+    // A detached worker still uses the task manager, so it lives until the process
+    // exits.
+    if (this->task_manager != nullptr && this->task_manager->worker_detached())
+        static_cast<void>(this->task_manager.release());
 }
 
 void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) {
@@ -53,8 +57,8 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
         std::lock_guard lock{this->mu};
         // A stop that came first sees no task manager, so none starts.
         if (!this->breaker.running()) return;
-        // One task manager lives until the process exits, so a worker that it detached
-        // never outlives it. A Core outage only reopens its streamer.
+        // One task manager serves every run, so a worker that it detached never
+        // outlives it. A Core outage only reopens its streamer.
         this->task_manager = std::make_unique<task::Manager>(
             cfg.rack,
             client,
