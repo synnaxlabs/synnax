@@ -138,4 +138,58 @@ var _ = Describe("Handler", func() {
 			)).Error().To(MatchError(ContainSubstring("out of range")))
 		},
 	)
+
+	It(
+		"Should reject a created device whose status variant is unknown",
+		func(ctx SpecContext) {
+			transport.NIDeviceCreate.BindHandler(func(
+				_ context.Context,
+				req device.CreateRequest,
+			) (device.CreateResponse, error) {
+				req.Devices[0].Status = &svcdevice.Status{Variant: "bogus"}
+				return device.CreateResponse(req), nil
+			})
+			pbDev := MustSucceed(devicepb.DeviceToPB(svcdevice.Device{Key: uuid.New()}))
+			Expect(grpcdevice.NewNIDeviceCreateServiceClient(conn).Exec(
+				ctx,
+				&grpcdevice.CreateRequest{Devices: []*devicepb.Device{pbDev}},
+			)).Error().To(MatchError(ContainSubstring("unrecognized status.Variant")))
+		},
+	)
+
+	It("Should reject an update with an invalid device key", func(ctx SpecContext) {
+		Expect(grpcdevice.NewNIDeviceUpdateServiceClient(conn).Exec(
+			ctx,
+			&grpcdevice.UpdateRequest{Key: "not-a-uuid"},
+		)).Error().To(MatchError(ContainSubstring("invalid uuid")))
+	})
+
+	It(
+		"Should reject a configuration update with an out of range port",
+		func(ctx SpecContext) {
+			Expect(grpcdevice.NewNIDeviceUpdateServiceClient(conn).Exec(
+				ctx,
+				&grpcdevice.UpdateRequest{
+					Key: uuid.New().String(),
+					Update: &devicepb.Update{Variant: &devicepb.Update_Configuration{
+						Configuration: &devicepb.Configuration{
+							CounterInput: map[uint32]*devicepb.CounterInputChannels{
+								65536: {},
+							},
+						},
+					}},
+				},
+			)).Error().To(MatchError(ContainSubstring("out of range")))
+		},
+	)
+
+	It("Should reject a delete with an invalid device key", func(ctx SpecContext) {
+		Expect(grpcdevice.NewNIDeviceDeleteServiceClient(conn).Exec(
+			ctx,
+			&grpcdevice.DeleteRequest{
+				Keys: []string{uuid.New().String(), "not-a-uuid"},
+			},
+		),
+		).Error().To(MatchError(ContainSubstring("invalid uuid")))
+	})
 })
