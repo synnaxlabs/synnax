@@ -24,11 +24,15 @@
 #include "client/cpp/rack/key.h"
 #include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/field.h"
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
 #include "x/cpp/uuid/uuid.h"
+
+#include "core/pkg/api/ni/device/pb/ni_device.pb.h"
+#include "core/pkg/service/ni/device/pb/ni_device.pb.h"
 
 namespace synnax::ni::device {
 
@@ -58,6 +62,13 @@ struct CommandStatePair {
 
     static CommandStatePair parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::CommandStatePair;
+    [[nodiscard]] std::
+        pair<::service::ni_device::pb::CommandStatePair, x::errors::Error>
+        to_proto() const;
+    static std::pair<CommandStatePair, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::CommandStatePair &pb);
 };
 
 /// @brief AnalogInputPorts holds the channels that a device reads analog input into.
@@ -72,6 +83,13 @@ struct AnalogInputPorts {
 
     static AnalogInputPorts parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::AnalogInputPorts;
+    [[nodiscard]] std::
+        pair<::service::ni_device::pb::AnalogInputPorts, x::errors::Error>
+        to_proto() const;
+    static std::pair<AnalogInputPorts, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::AnalogInputPorts &pb);
 };
 
 /// @brief AnalogOutputChannels holds the channels of one analog output port.
@@ -85,6 +103,13 @@ struct AnalogOutputChannels {
 
     static AnalogOutputChannels parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::AnalogOutputChannels;
+    [[nodiscard]] std::
+        pair<::service::ni_device::pb::AnalogOutputChannels, x::errors::Error>
+        to_proto() const;
+    static std::pair<AnalogOutputChannels, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::AnalogOutputChannels &pb);
 };
 
 /// @brief CounterInputChannels holds the channels of one counter input.
@@ -96,6 +121,13 @@ struct CounterInputChannels {
 
     static CounterInputChannels parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::CounterInputChannels;
+    [[nodiscard]] std::
+        pair<::service::ni_device::pb::CounterInputChannels, x::errors::Error>
+        to_proto() const;
+    static std::pair<CounterInputChannels, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::CounterInputChannels &pb);
 };
 
 /// @brief DigitalInputChannels holds the channels of one digital input port.
@@ -107,6 +139,13 @@ struct DigitalInputChannels {
 
     static DigitalInputChannels parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::DigitalInputChannels;
+    [[nodiscard]] std::
+        pair<::service::ni_device::pb::DigitalInputChannels, x::errors::Error>
+        to_proto() const;
+    static std::pair<DigitalInputChannels, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::DigitalInputChannels &pb);
 };
 
 /// @brief Identity holds the device fields that the scanner owns.
@@ -126,6 +165,12 @@ struct Identity {
 
     static Identity parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::Identity;
+    [[nodiscard]] std::pair<::service::ni_device::pb::Identity, x::errors::Error>
+    to_proto() const;
+    static std::pair<Identity, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::Identity &pb);
 };
 
 /// @brief Where is a filter that selects NI devices.
@@ -176,6 +221,12 @@ struct Where {
 
     static Where parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::Where;
+    [[nodiscard]] std::pair<::service::ni_device::pb::Where, x::errors::Error>
+    to_proto() const;
+    static std::pair<Where, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::Where &pb);
 };
 
 /// @brief StatusDetails identifies the device and rack that a status pertains to.
@@ -187,6 +238,12 @@ struct StatusDetails {
 
     static StatusDetails parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::StatusDetails;
+    [[nodiscard]] std::pair<::service::ni_device::pb::StatusDetails, x::errors::Error>
+    to_proto() const;
+    static std::pair<StatusDetails, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::StatusDetails &pb);
 };
 
 /// @brief Cursor is a position in an order of devices: the sort value and the key of a
@@ -197,6 +254,12 @@ struct Cursor {
 
     static Cursor parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::ni_device::pb::Cursor;
+    [[nodiscard]] std::pair<::api::ni_device::pb::Cursor, x::errors::Error>
+    to_proto() const;
+    static std::pair<Cursor, x::errors::Error>
+    from_proto(const ::api::ni_device::pb::Cursor &pb);
 };
 
 /// @brief DigitalOutputChannels holds the channels of one digital output port.
@@ -208,6 +271,13 @@ struct DigitalOutputChannels {
 
     static DigitalOutputChannels parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::DigitalOutputChannels;
+    [[nodiscard]] std::
+        pair<::service::ni_device::pb::DigitalOutputChannels, x::errors::Error>
+        to_proto() const;
+    static std::pair<DigitalOutputChannels, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::DigitalOutputChannels &pb);
 };
 
 using Status = ::synnax::status::Status<StatusDetails>;
@@ -251,6 +321,12 @@ struct RetrieveRequest {
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::ni_device::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::ni_device::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::ni_device::pb::RetrieveRequest &pb);
 };
 
 /// @brief Configuration holds the device fields that the user owns.
@@ -273,6 +349,12 @@ struct Configuration {
 
     static Configuration parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::Configuration;
+    [[nodiscard]] std::pair<::service::ni_device::pb::Configuration, x::errors::Error>
+    to_proto() const;
+    static std::pair<Configuration, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::Configuration &pb);
 };
 
 /// @brief Device is an NI module in a chassis, or a standalone USB or PCIe device.
@@ -311,6 +393,12 @@ struct Device {
 
     static Device parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::Device;
+    [[nodiscard]] std::pair<::service::ni_device::pb::Device, x::errors::Error>
+    to_proto() const;
+    static std::pair<Device, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::Device &pb);
 };
 
 /// @brief IdentityUpdate writes the fields that the scanner owns.
@@ -319,6 +407,12 @@ struct IdentityUpdate : public Identity {
 
     static IdentityUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::Identity;
+    [[nodiscard]] std::pair<::service::ni_device::pb::Identity, x::errors::Error>
+    to_proto() const;
+    static std::pair<IdentityUpdate, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::Identity &pb);
 };
 
 /// @brief ConfigurationUpdate replaces the fields that the user owns. A client sends
@@ -328,6 +422,12 @@ struct ConfigurationUpdate : public Configuration {
 
     static ConfigurationUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::Configuration;
+    [[nodiscard]] std::pair<::service::ni_device::pb::Configuration, x::errors::Error>
+    to_proto() const;
+    static std::pair<ConfigurationUpdate, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::Configuration &pb);
 };
 
 /// @brief Update is a write to one field group of a device.
@@ -335,6 +435,10 @@ using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
 
 Update parse_update(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Update &value);
+[[nodiscard]] std::pair<::service::ni_device::pb::Update, x::errors::Error>
+to_proto(const Update &value);
+std::pair<Update, x::errors::Error>
+update_from_proto(const ::service::ni_device::pb::Update &pb);
 
 /// @brief RetrieveResponse holds the devices a RetrieveRequest selects.
 struct RetrieveResponse {
@@ -343,6 +447,12 @@ struct RetrieveResponse {
 
     static RetrieveResponse parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::ni_device::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::ni_device::pb::RetrieveResponse, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveResponse, x::errors::Error>
+    from_proto(const ::api::ni_device::pb::RetrieveResponse &pb);
 };
 
 const synnax::resource::ID TYPE_RESOURCE_ID("ni_device", "");

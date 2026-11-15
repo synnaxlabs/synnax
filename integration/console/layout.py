@@ -23,7 +23,7 @@ from playwright.sync_api import (
 
 import synnax as sy
 from console.context_menu import ContextMenu
-from console.notifications import NotificationsClient
+from console.notifications import NotificationsClient, click_past
 from console.tree import Tree
 
 AriaRole = Literal[
@@ -427,13 +427,7 @@ class LayoutClient:
             .locator("button")
             .first
         )
-        button.wait_for(state="attached", timeout=300)
-        try:
-            button.click(timeout=5000)
-        except PlaywrightTimeoutError:
-            # Toasts stack over the bottom of a form and swallow the click.
-            self.notifications.close_all()
-            button.click(timeout=5000)
+        click_past(button)
 
     def click_checkbox(self, checkbox_label: str) -> None:
         """Click a checkbox by label."""
@@ -443,13 +437,7 @@ class LayoutClient:
             .locator("input[type='checkbox']")
             .first
         )
-        checkbox.wait_for(state="attached", timeout=300)
-        try:
-            checkbox.click(timeout=5000)
-        except PlaywrightTimeoutError:
-            # Toasts stack over the bottom of a form and swallow the click.
-            self.notifications.close_all()
-            checkbox.click(timeout=5000)
+        click_past(checkbox)
 
     def get_toggle(self, toggle_label: str) -> bool:
         """Get the value of a toggle by label."""

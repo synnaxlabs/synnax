@@ -80,8 +80,7 @@ describe("Controls.Controls", () => {
       { client, values: runningValues({ configHash: "stale" }) },
     );
     await screen.findByText("Configuring task");
-    const redeploy = screen.getByText("Redeploy").closest("button");
-    assert(redeploy != null);
+    const redeploy = screen.getByRole("button", { name: "Redeploy" });
     expect(redeploy.getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(await findIconButton(container, "stop"));
     expect(onStop).toHaveBeenCalledTimes(1);

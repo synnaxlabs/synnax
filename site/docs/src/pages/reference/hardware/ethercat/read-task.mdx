@@ -491,6 +491,21 @@ Set another name in **Channel**.
 </Problem.Fix>
 </Problem.Item>
 
+<Problem.Item message={"... has an identifier that gives the same channel names as ..."}>
+<Problem.Cause>
+
+Two modules have the same identifier, such as `do4`. The message names the slot of each
+module.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Right-click one of the modules, select **Configure**, and change its
+[identifier](/reference/hardware/devices#identifiers).
+
+</Problem.Fix>
+</Problem.Item>
+
 <Problem.Item message={["Slave ... uses the index channel ...", "A channel named ... already exists and is not an index"]}>
 <Problem.Cause>
 

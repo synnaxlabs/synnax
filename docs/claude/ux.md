@@ -41,6 +41,9 @@ one job. Pick the step by its job:
 Non-modal dialogs and menus use `--pluto-gray-l1-l2`, halfway between l1 and l2. Modals
 keep the modal surface.
 
+A card on an l1 page uses l0, the same as the shell islands. Settings on the project
+splash is one: its page is l1, so its nav and cards are l0.
+
 Hover moves one fill step from rest, and press moves one more. Disabled text is
 `--pluto-text-disabled`. A disabled outlined control (an input, a select trigger, an
 outlined button) has fill l2 and border l4, and its caret has the disabled text color.
@@ -106,6 +109,9 @@ lighter step or the base step in dark mode.
   docs ("?"), the Settings gear, then the Core badge, the order Jira and Confluence use.
 - The left bar holds toolbars only. Settings is a tab, not a toolbar, so its gear never
   goes in the left bar.
+- The islands of a pre-workspace surface, such as login or the project splash, are not
+  the top bar. Their right end is the Core island, then the island of the theme toggle.
+  On the project splash, the Settings gear shares the island of the theme toggle.
 
 ### Toolbar search
 
@@ -311,6 +317,15 @@ bound, a log precision, or the line plot X channel.
 - The item whose submenu is open stays lit (l4). Only one item is lit at a time. A
   highlight follows the pointer with no fade.
 - The search in a submenu is a line of text over a hairline, with no box.
+- Typing in an open context menu or the filter menu filters its items, as in Linear. The
+  first printable key starts the filter and shows it as a line over a hairline at the
+  top. Items whose text does not match hide, and so do dividers with no match on one
+  side. With no match, one muted line says "No matches". Backspace edits the filter. Esc
+  clears it, then closes the menu. Every menu is at least 32rem (192 px) wide, filtering
+  or not. The first match takes the focus, and the arrow keys and Enter act on the items
+  that show. A submenu matches on its `textValue`, and the filter never hides its
+  content. Keys typed into a field, such as the search of a picker, never reach the
+  filter.
 - Every explorer filters through `View.Filter`: one menu item for each property, which
   opens its picker as a submenu. A chip opens the same picker below the chip.
 - Values have 4 px corners. A picked value tints, with no checkbox, and picked values

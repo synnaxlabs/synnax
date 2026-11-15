@@ -13,9 +13,7 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
@@ -121,44 +119,18 @@ func (p MovePayload) Handle(state Schematic) (Schematic, error) {
 	return apply(state, patch.Move(p))
 }
 
-// apply applies a path action to the schematic's name, group, or project, or to the
-// config of a node or edge. An action on a node or edge that does not exist does
-// nothing, and any other path into a node or edge is rejected.
+// apply applies a path action to the schematic's name, group, or project, to the config
+// or parent of a node, or to the config of an edge. Any other path fails, except that a
+// path through a node or edge that does not exist does nothing.
 func apply[A patch.Action](state Schematic, a A) (Schematic, error) {
 	c, err := patch.Begin(a)
 	if err != nil {
-		return Schematic{}, err
-	}
-	if err = checkPath(c); err != nil {
 		return Schematic{}, err
 	}
 	if err = state.Patch(c); err != nil {
 		return Schematic{}, err
 	}
 	return state, nil
-}
-
-// checkPath returns an error wrapping validate.ErrValidation unless the path at c names
-// the schematic's name, group, or project, goes into the config of a node or edge, or
-// names the parent of a node.
-func checkPath(c patch.Cursor) error {
-	switch c.Segment() {
-	case "nodes", "edges":
-		if key := c.Next(); !key.Done() {
-			field := key.Next()
-			if !field.Done() && (field.Segment() == "config" ||
-				c.Segment() == "nodes" && field.Segment() == "parent") {
-				return nil
-			}
-		}
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"[Schematic] - a path into %s must go into the config of one entry or "+
-				"name the parent of a node",
-			c.Segment(),
-		)
-	}
-	return nil
 }
 
 func newSetAction(s patch.Set) Action { return NewSetAction(SetPayload(s)) }

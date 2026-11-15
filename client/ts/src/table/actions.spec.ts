@@ -141,6 +141,69 @@ describe("table path actions", () => {
   });
 });
 
+describe("table edits after an insert in one batch", () => {
+  const text = (value: string): table.CellConfig =>
+    table.cellConfigZ.parse({ variant: "text", value });
+  const create = (): table.Table =>
+    table.tableZ.parse({
+      name: "Readings",
+      columns: [{ key: "k0" }, { key: "k1" }],
+      rows: [
+        {
+          key: "r0",
+          cells: [
+            { key: "a", config: text("A") },
+            { key: "b", config: text("B") },
+          ],
+        },
+        {
+          key: "r1",
+          cells: [
+            { key: "c", config: text("C") },
+            { key: "d", config: text("D") },
+          ],
+        },
+      ],
+    });
+  const setValue = (row: string, key: string, value: string) =>
+    table.set({ path: ["rows", row, "cells", key, "config", "value"], value });
+
+  it("should edit a cell of a row inserted earlier in the batch", () => {
+    const insert = table.addRow({
+      index: 2,
+      key: "r2",
+      size: 36,
+      cells: [{ key: "e", config: text("Old") }],
+    });
+    // A dispatch applies the actions before the last one alone to encode the batch.
+    table.reduceAll(create(), [insert]);
+    const { next } = table.reduceAll(create(), [insert, setValue("r2", "e", "New")]);
+    expect(next.rows[2].cells[0].config).toEqual(text("New"));
+  });
+
+  it("should edit one replica of a cell template without changing the others", () => {
+    const { next } = table.reduceAll(create(), [
+      table.addRow({
+        index: 2,
+        key: "r2",
+        size: 36,
+        cellTemplate: { key: "t", config: text("Old") },
+      }),
+      setValue("r2", "t-0000", "New"),
+    ]);
+    expect(next.rows[2].cells.map((c) => c.config)).toEqual([text("New"), text("Old")]);
+  });
+
+  it("should edit one erased cell without changing the others", () => {
+    const { next } = table.reduceAll(create(), [
+      table.eraseCells({ cells: ["a", "d"], template: text("") }),
+      setValue("r0", "a", "New"),
+    ]);
+    expect(next.rows[0].cells[0].config).toEqual(text("New"));
+    expect(next.rows[1].cells[1].config).toEqual(text(""));
+  });
+});
+
 describe("table setChanged", () => {
   const text = (value: string, extra: object = {}): table.CellConfig =>
     table.cellConfigZ.parse({ variant: "text", value, ...extra });
