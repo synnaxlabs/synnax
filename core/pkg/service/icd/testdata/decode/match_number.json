@@ -1,0 +1,61 @@
+{
+  "description": "A number match rule compares by value.",
+  "payload": {
+    "format": "json",
+    "fields": [
+      {
+        "key": "00000000-0000-4000-8000-000000000001",
+        "name": "temp",
+        "scale": 1,
+        "offset": 0,
+        "units": "",
+        "pointer": "/temp",
+        "type": "float"
+      }
+    ],
+    "match": {
+      "pointer": "/id",
+      "value": 7
+    }
+  },
+  "bindings": [
+    {
+      "field": "00000000-0000-4000-8000-000000000001",
+      "data_type": "float64"
+    }
+  ],
+  "cases": [
+    {
+      "document": {
+        "id": 7.0,
+        "temp": 3
+      },
+      "samples": [
+        3
+      ]
+    },
+    {
+      "document": {
+        "id": 7,
+        "temp": 4
+      },
+      "samples": [
+        4
+      ]
+    },
+    {
+      "document": {
+        "id": "7",
+        "temp": 3
+      },
+      "unmatched": true
+    },
+    {
+      "document": {
+        "id": 8,
+        "temp": 3
+      },
+      "unmatched": true
+    }
+  ]
+}
