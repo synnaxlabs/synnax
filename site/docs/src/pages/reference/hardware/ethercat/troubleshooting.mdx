@@ -271,6 +271,42 @@ Wait a few seconds for the next scan, then configure the task again.
 </Problem.Fix>
 </Problem.Body>
 
+### `Slaves ... and ... are both at position ... on ...`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Core holds two modules at one position on the port, and the Console cannot tell
+which one is on the network. This occurs when the task uses both modules, or when
+neither module has a serial number. A module with a serial number that moved to the
+position of a saved module does not give this error.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Delete the module that the message names, or the one that is not on the network. A
+deleted module loses its saved settings.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Slaves ... and ... have the same serial number ...`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Core holds two modules on the port with the same vendor, product code, and serial
+number, so both are the same module.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Delete the module that the message names, or the one that is not on the network. A
+deleted module loses its saved settings.
+
+</Problem.Fix>
+</Problem.Body>
+
 ### `Slave ... maps ... input and ... output bits, but its discovered PDO entries hold ... and ...`
 
 <Problem.Body>

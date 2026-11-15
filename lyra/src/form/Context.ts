@@ -56,6 +56,12 @@ export interface BindFunc {
   (props: Listener): destructor.Destructor;
 }
 
+/** Options for {@link ContextValue.focus}. */
+export interface FocusOptions {
+  /** Returns false instead of throwing when nothing takes focus. */
+  optional?: boolean;
+}
+
 /** Whether the form takes edits, or renders flat and inert. */
 export type Mode = "normal" | "preview";
 
@@ -101,22 +107,32 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
    */
   addCheck: (path: deep.Target<unknown>, schema: z.ZodType) => destructor.Destructor;
   /**
-   * Asks the field at the path to take focus. The field decides what that means: a
-   * select can open its list.
+   * Asks the part of the form that shows the path to take focus: a handler at the path,
+   * else a field at the path, else the nearest handler above the path. A handler
+   * decides what focus means: a select can open its list, and a list can select the
+   * entry that the path names.
    *
-   * @throws {Error} if no field at the path takes focus.
+   * @returns whether a handler or a field took focus.
+   * @throws {Error} if nothing takes focus and the call is not optional.
    */
-  focus: (path: deep.Target<unknown>) => void;
+  focus: (path: deep.Target<unknown>, opts?: FocusOptions) => boolean;
   /**
-   * Runs the handler when {@link ContextValue.focus} names the path. A later handler
-   * for the same path replaces it.
+   * Runs the handler with the path that {@link ContextValue.focus} names, when the
+   * handler is the one that takes it. A later handler for the same path replaces it.
    *
    * @returns a function that removes the handler.
    */
   addFocusHandler: (
     path: deep.Target<unknown>,
-    handler: () => void,
+    handler: (path: string) => void,
   ) => destructor.Destructor;
+  /**
+   * Adds a field that shows the status at the path, so {@link ContextValue.focus} finds
+   * it.
+   *
+   * @returns a function that removes the field.
+   */
+  addField: (path: deep.Target<unknown>) => destructor.Destructor;
   /** Takes the current values as the baseline, clearing the touched flag. */
   setCurrentStateAsInitialValues: () => void;
   getStatuses: () => Status.Crude[];

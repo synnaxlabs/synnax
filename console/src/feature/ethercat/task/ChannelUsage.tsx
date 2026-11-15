@@ -10,9 +10,10 @@
 import "@/feature/ethercat/task/ChannelUsage.css";
 
 import { channel, query } from "@synnaxlabs/client";
+import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, License } from "@synnaxlabs/pluto";
-import { primitive, unique } from "@synnaxlabs/x";
+import { type deep, primitive, unique } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type SlaveDevice } from "@/feature/ethercat/device/types";
@@ -112,7 +113,8 @@ const createsText = (data: number, indexes: number): string => {
 export interface ChannelUsageProps {
   indexOptions: IndexOptions;
   pdoType: PDOType;
-  channels: TaskChannel[];
+  /** The path of the channels of the task in the form. */
+  path: deep.Target<TaskChannel[]>;
   /** The slaves that the channels use, or undefined while they load. */
   slaves: SlaveDevice[] | undefined;
 }
@@ -124,9 +126,10 @@ export interface ChannelUsageProps {
 export const ChannelUsage = ({
   indexOptions,
   pdoType,
-  channels,
+  path,
   slaves,
 }: ChannelUsageProps): ReactElement | null => {
+  const channels = Form.useFieldValue(path);
   const keys = mappedKeys(slaves ?? []);
   const { data: mapped } = Channel.useResultMultiple(
     keys.length === 0 ? null : query.keysRequest(keys),

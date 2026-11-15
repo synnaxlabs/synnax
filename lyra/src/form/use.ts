@@ -233,13 +233,37 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     ref.current.notify();
   };
 
-  const focusHandlersRef = useInitializerRef(() => new Map<string, () => void>());
+  const focusHandlersRef = useInitializerRef(
+    () => new Map<string, (path: string) => void>(),
+  );
+  const fieldsRef = useInitializerRef(() => new Map<string, number>());
 
-  const focus: ContextValue["focus"] = (target) => {
+  const focus: ContextValue["focus"] = (target, opts) => {
     const path = String(target);
-    const handler = focusHandlersRef.current.get(path);
-    if (handler == null) throw new Error(`Field ${path} does not take focus`);
-    handler();
+    const handlers = focusHandlersRef.current;
+    const parts = path.split(".");
+    for (let n = parts.length; n > 0; n--) {
+      const handler = handlers.get(parts.slice(0, n).join("."));
+      if (handler != null) {
+        handler(path);
+        return true;
+      }
+      // A field shows only the status at its own path.
+      if (n === parts.length && fieldsRef.current.has(path)) return true;
+    }
+    if (opts?.optional === true) return false;
+    throw new Error(`Field ${path} does not take focus`);
+  };
+
+  const addField: ContextValue["addField"] = (target) => {
+    const path = String(target);
+    const fields = fieldsRef.current;
+    fields.set(path, (fields.get(path) ?? 0) + 1);
+    return () => {
+      const count = (fields.get(path) ?? 1) - 1;
+      if (count === 0) fields.delete(path);
+      else fields.set(path, count);
+    };
   };
 
   const addFocusHandler: ContextValue["addFocusHandler"] = (target, handler) => {
@@ -289,6 +313,7 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     addCheck,
     focus,
     addFocusHandler,
+    addField,
     reset,
     setCurrentStateAsInitialValues,
     getStatuses: () => ref.current.getStatuses(),

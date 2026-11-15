@@ -11,6 +11,7 @@ import { ethercat } from "@synnaxlabs/client";
 import { DataType, unique } from "@synnaxlabs/x";
 import { type z } from "zod";
 
+import { clashProblem, findClash } from "@/feature/ethercat/device/identifier";
 import { check, fill, findInput } from "@/feature/ethercat/device/settings";
 import {
   canSwitch,
@@ -21,6 +22,7 @@ import {
 } from "@/feature/ethercat/device/setup";
 import {
   type SlaveDevice,
+  type SlaveOnRack,
   type SlaveProperties,
 } from "@/feature/ethercat/device/types";
 import {
@@ -127,11 +129,11 @@ const settingProblem = (
 /** @returns the step that tells the user which of the two devices to delete. */
 const deleteStep = (
   slave: SlaveDevice,
-  other: SlaveDevice,
-  onRack: SlaveDevice[],
+  other: SlaveOnRack,
+  onRack: SlaveOnRack[],
 ): string => {
-  const connected = (d: SlaveDevice): boolean =>
-    onRack.find((o) => o.key === d.key)?.status?.details.connected === true;
+  const connected = ({ key }: { key: string }): boolean =>
+    onRack.find((o) => o.key === key)?.connected === true;
   const slaveConnected = connected(slave);
   if (slaveConnected === connected(other))
     return "Delete the one that is not on the network.";
@@ -140,17 +142,24 @@ const deleteStep = (
 };
 
 /**
- * @returns why the slave cannot start because another device on the rack is at its
- * network and position, or null. The problem names the device that is not connected,
- * which the user deletes.
+ * @returns why the slave cannot start because another slave on the rack is at its
+ * network and position, or null. The Driver binds a slave by its serial number, so the
+ * problem holds only when the task uses both slaves or neither has a serial number. The
+ * problem names the device that is not connected, which the user deletes.
  */
-const positionProblem = (slave: SlaveDevice, onRack: SlaveDevice[]): string | null => {
-  const { network, position } = slave.properties;
+const positionProblem = (
+  slave: SlaveDevice,
+  used: SlaveDevice[],
+  onRack: SlaveOnRack[],
+): string | null => {
+  const { network, position, serial } = slave.properties;
   const other = onRack.find(
     (o) =>
       o.key !== slave.key &&
       o.properties.network === network &&
-      o.properties.position === position,
+      o.properties.position === position &&
+      (used.some(({ key }) => key === o.key) ||
+        (serial === 0 && o.properties.serial === 0)),
   );
   if (other == null) return null;
   return (
@@ -166,7 +175,7 @@ const positionProblem = (slave: SlaveDevice, onRack: SlaveDevice[]): string | nu
  * problem, as the Driver cannot tell its module apart. The Driver keeps a serial number
  * unique on one network only, so two networks can each hold a module with it.
  */
-const serialProblem = (slave: SlaveDevice, onRack: SlaveDevice[]): string | null => {
+const serialProblem = (slave: SlaveDevice, onRack: SlaveOnRack[]): string | null => {
   const { network, vendorId, productCode, serial } = slave.properties;
   if (serial === 0) return null;
   const other = onRack.find(
@@ -184,12 +193,21 @@ const serialProblem = (slave: SlaveDevice, onRack: SlaveDevice[]): string | null
   );
 };
 
+/** @returns why the slave cannot start while another slave has its identifier. */
+const identifierProblem = (
+  slave: SlaveDevice,
+  onRack: SlaveOnRack[],
+): string | null => {
+  const other = findClash(slave, onRack);
+  return other == null ? null : clashProblem(slave, other);
+};
+
 /** @returns what the user must do when other software sets up the slave, or null. */
 const setupStep = (slave: SlaveDevice): string | null => {
   const reader = setUpBy(slave.properties);
   if (reader == null) return null;
   const step = canSwitch(slave.properties)
-    ? "Switch it to Synnax"
+    ? "In Configure, switch it to Synnax"
     : `Set it up for Synnax in ${reader}`;
   const state = `Slave ${slave.name} is set up for ${reader}.`;
   return `${state} ${step} before you start the task.`;
@@ -232,13 +250,16 @@ const problemsOf = (
   pdoType: PDOType,
   { channels, startupParameters = [] }: CheckedConfig,
   slaves: SlaveDevice[],
-  onRack: SlaveDevice[],
+  onRack: SlaveOnRack[],
 ): Problem[] => {
   const used = slaves.filter((s) => channels.some((ch) => ch.device === s.key));
   const taskWide = [
     networkProblem(used),
     ...used.map(
-      (slave) => positionProblem(slave, onRack) ?? serialProblem(slave, onRack),
+      (slave) =>
+        positionProblem(slave, used, onRack) ??
+        serialProblem(slave, onRack) ??
+        identifierProblem(slave, onRack),
     ),
   ].filter((p): p is string => p != null);
   const enabled = Map.groupBy(
@@ -273,18 +294,18 @@ const problemsOf = (
 
 /**
  * Checks the channels of a task against their slaves as the user edits: one network for
- * every slave, no other device at the position or with the serial number of a slave, a
- * configured device for each channel, and for each enabled channel its entry and, on
- * inputs, the settings of the input it reads. It warns of a slave with an enabled
- * channel that other software sets up. A channel whose slave has not loaded is not
- * checked, so a deploy runs {@link checkSlaves} too.
+ * every slave, no other slave with the position, serial number, or identifier of a
+ * slave, a configured device for each channel, and for each enabled channel its entry
+ * and, on inputs, the settings of the input it reads. It warns of a slave with an
+ * enabled channel that other software sets up. A channel whose slave has not loaded is
+ * not checked, so a deploy runs {@link checkSlaves} too.
  * @param slaves - The slaves that the channels of the task use.
- * @param onRack - The slaves on the rack of the task, with their statuses.
+ * @param onRack - The slaves on the rack of the task.
  */
 export const slavesZ = (
   pdoType: PDOType,
   slaves: SlaveDevice[],
-  onRack: SlaveDevice[],
+  onRack: SlaveOnRack[],
 ): z.ZodType =>
   Task.check<CheckedConfig>((config, report) =>
     problemsOf(pdoType, config, slaves, onRack).forEach(({ path, message, variant }) =>
@@ -300,7 +321,7 @@ export const checkSlaves = (
   pdoType: PDOType,
   config: CheckedConfig,
   slaves: SlaveDevice[],
-  onRack: SlaveDevice[],
+  onRack: SlaveOnRack[],
 ): void => {
   const problem = problemsOf(pdoType, config, slaves, onRack).find(
     ({ variant }) => variant == null,

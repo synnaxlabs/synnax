@@ -25,7 +25,8 @@ export const HARDWARE: Device.Hardware = {
   location: { shape: "slot" },
   Configure,
   checks: [
-    "The Driver can open the adapter. On Linux, this needs root or CAP_NET_RAW.",
+    "The Driver can open the adapter. On Windows, this needs Npcap, installed with " +
+      "the default options. On Linux, it needs root or CAP_NET_RAW.",
     "The slaves have power and a cable to that adapter.",
   ],
 };

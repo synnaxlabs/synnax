@@ -98,11 +98,13 @@ export const ListAndDetailsChannelItem = <K extends string>({
   const hasIcon = icon != null;
   const item = deep.widen(path);
   const disabled = Form.useFieldValue(item.disabled);
+  const failed = Form.useStatuses(path).some(({ variant }) => variant === "error");
   const channelNameProps = getChannelNameProps(hasIcon);
   const portStyle: CSSProperties = { width: `${portMaxChars * 1.25}rem` };
   return (
     <Select.Item
       {...rest}
+      status={failed ? "error" : undefined}
       justify="between"
       align="center"
       className={CSS.cls(

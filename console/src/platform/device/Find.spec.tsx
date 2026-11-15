@@ -7,16 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, task } from "@synnaxlabs/client";
+import { device, task, TimeStamp } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/platform/device";
-import { createRunningRack, createTestDevice } from "@/platform/device/testutil";
+import {
+  createRunningRack,
+  createTestDevice,
+  startRackHeartbeat,
+} from "@/platform/device/testutil";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
-import { createTaskStatus } from "@/platform/task/testutil";
+import { answerNextCommand, createTaskStatus } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -100,6 +104,67 @@ describe("Device.useFindModal", () => {
     });
   });
 
+  describe("Scan now", () => {
+    const renderScan = async (connected: number, disconnected: number) => {
+      const hardware = { ...createHardware(), scanType: "ethercat_scan" };
+      const rack = await createRunningRack(client, hardware.key);
+      // The Core clears the connected mark of a device on a silent rack.
+      await startRackHeartbeat(client, rack);
+      const scanner = await rack.createTask({
+        name: uniqueName("scanner"),
+        type: hardware.scanType,
+        config: {},
+        internal: true,
+      });
+      const create = async (marked: boolean) => {
+        const dev = await createTestDevice(client, {
+          make: hardware.make,
+          rack: rack.key,
+        });
+        if (marked)
+          await client.statuses.set({
+            owner: device.resourceID(dev.key),
+            name: dev.name,
+            variant: "success",
+            message: "Device connected",
+            time: TimeStamp.now(),
+            details: { rack: rack.key, connected: true },
+          });
+        return dev;
+      };
+      const devices = [
+        ...(await Promise.all(Array.from({ length: connected }, () => create(true)))),
+        ...(await Promise.all(
+          Array.from({ length: disconnected }, () => create(false)),
+        )),
+      ];
+      await renderModalOpener(Device.useFindModal, [{ hardware }], { client });
+      await screen.findByText(devices[0].name);
+      const { answered } = await answerNextCommand(client, scanner, { type: "scan" });
+      // The button stays disabled until the scanner loads.
+      const button = await waitFor(() => {
+        const b = findButton("Scan now");
+        if (b.getAttribute("aria-disabled") === "true")
+          throw new Error("Scan now is disabled");
+        return b;
+      });
+      fireEvent.click(button);
+      await answered;
+    };
+
+    it("should say how many devices are connected after a scan", async () => {
+      await renderScan(1, 1);
+      expect(await screen.findByText("Scan complete")).toBeTruthy();
+      expect(screen.getByText("1 Test device connected.")).toBeTruthy();
+    });
+
+    it("should say that no device is connected after a scan", async () => {
+      await renderScan(0, 1);
+      expect(await screen.findByText("Scan complete")).toBeTruthy();
+      expect(screen.getByText("No Test devices connected.")).toBeTruthy();
+    });
+  });
+
   it("should list only the devices the filter accepts", async () => {
     const hardware = createHardware();
     const rack = await createRunningRack(client, hardware.key);
@@ -115,6 +180,31 @@ describe("Device.useFindModal", () => {
     await renderModalOpener(Device.useFindModal, [{ hardware, filter }], { client });
     await screen.findByText(accepted.name);
     expect(screen.queryByText(rejected.name)).toBeNull();
+  });
+
+  it("should list slots in the order of the bus", async () => {
+    const hardware: Device.Hardware = {
+      ...createHardware(),
+      location: { shape: "slot" },
+    };
+    const rack = await createRunningRack(client, hardware.key);
+    const create = async (location: string, configured: boolean) =>
+      await createTestDevice(client, {
+        make: hardware.make,
+        configured,
+        rack: rack.key,
+        location,
+      });
+    const tenth = await create("eth0.Slot 10", false);
+    const first = await create("eth0.Slot 1", true);
+    const second = await create("eth0.Slot 2", false);
+    await renderModalOpener(Device.useFindModal, [{ hardware }], { client });
+    await screen.findByText(tenth.name);
+    const names = [first, second, tenth].map(({ name }) => name);
+    const shown = screen
+      .getAllByText((content) => names.includes(content))
+      .map((el) => el.textContent);
+    expect(shown).toEqual(names);
   });
 
   it("should say the integration is off when a running Driver does not have it", async () => {
