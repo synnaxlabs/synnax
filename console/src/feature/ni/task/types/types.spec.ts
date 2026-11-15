@@ -466,6 +466,20 @@ describe("deploy configs", () => {
       }),
     );
   });
+
+  it("should report a channel with no device when no channel is enabled", () => {
+    const issues = NI.Task.deployAnalogReadConfigZ
+      .safeParse(
+        NI.Task.ANALOG_READ_SCHEMAS.config.parse({
+          channels: [{ ...NI.Task.createAIChannel(), key: "0", disabled: true }],
+        }),
+      )
+      .error?.issues.map(({ path, message }) => ({ path, message }));
+    expect(issues).toEqual([
+      { path: ["channels"], message: "At least one enabled channel is required" },
+      { path: ["channels", 0, "device"], message: "Device is required" },
+    ]);
+  });
 });
 
 describe("default ranges", () => {
