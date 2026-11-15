@@ -20,10 +20,21 @@ const width = (el: Element | null): number =>
 const part = (item: Element, name: string): Element | null =>
   item.querySelector(`:scope > .${CSS.BE("range-item", name)}`);
 
+// The width a name cell's content takes in full: the name, and its parent's path where
+// the item shows one.
+const content = (cell: Element | null): number => {
+  if (cell == null) return 0;
+  const parts = Array.from(cell.children);
+  const gap = parseFloat(getComputedStyle(cell).columnGap) || 0;
+  return (
+    parts.reduce((total, p) => total + p.scrollWidth, 0) + gap * (parts.length - 1)
+  );
+};
+
 /**
  * Sets `--console-range-labels-room` on the list to the room its labels column can
  * take: what the items leave once every name has its full width, up to a cap. Refits
- * when the list resizes or its items change.
+ * when the list resizes or its items or their names change.
  */
 const fit = (list: HTMLElement | null): void => {
   if (list == null) return;
@@ -43,11 +54,7 @@ const fit = (list: HTMLElement | null): void => {
     parseFloat(cs.paddingLeft) +
     parseFloat(cs.paddingRight);
   const names = Math.max(
-    ...items.map(
-      (item) =>
-        width(part(item, "indent")) +
-        (part(item, "name")?.firstElementChild?.scrollWidth ?? 0),
-    ),
+    ...items.map((item) => width(part(item, "indent")) + content(part(item, "name"))),
   );
   const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
   const room = width(first) - rest - Math.min(names, NAME_CAP * rem);
@@ -76,8 +83,13 @@ export const useLabelsRoom = (ref: RefObject<HTMLElement | null>): void => {
         observed.add(item);
         resize.observe(item);
       });
-    const mutations = new MutationObserver(observe);
-    mutations.observe(list, { childList: true, subtree: true });
+    // A name or a parent's path that loads or changes leaves the items' widths as they
+    // were, so only the content tells.
+    const mutations = new MutationObserver(() => {
+      observe();
+      fit(list);
+    });
+    mutations.observe(list, { childList: true, subtree: true, characterData: true });
     observe();
     return () => {
       resize.disconnect();
