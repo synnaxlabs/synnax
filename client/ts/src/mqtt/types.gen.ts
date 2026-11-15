@@ -14,7 +14,12 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { device } from "@/device";
+import { icd } from "@/icd";
 import { task } from "@/task";
+
+export const QO_S = ["at_most_once", "at_least_once", "exactly_once"] as const;
+export const qoSZ = z.enum(QO_S);
+export type QoS = z.infer<typeof qoSZ>;
 
 export const SPARKPLUG_DATA_TYPES = [
   "int8",
@@ -33,10 +38,6 @@ export const SPARKPLUG_DATA_TYPES = [
 ] as const;
 export const sparkplugDataTypeZ = z.enum(SPARKPLUG_DATA_TYPES);
 export type SparkplugDataType = z.infer<typeof sparkplugDataTypeZ>;
-
-export const QO_S = ["at_most_once", "at_least_once", "exactly_once"] as const;
-export const qoSZ = z.enum(QO_S);
-export type QoS = z.infer<typeof qoSZ>;
 
 /** ReadField is a single value extracted from the JSON payload of a topic. */
 export const readFieldZ = z.object({
@@ -73,6 +74,15 @@ export const baseReadEntryZ = z.object({
   disabled: z.boolean().default(false),
 });
 export interface BaseReadEntry extends z.infer<typeof baseReadEntryZ> {}
+
+/** ICDBinding writes the value of one message field to a channel. */
+export const icdBindingZ = z.object({
+  /** field is the key of the message field to read. */
+  field: icd.fieldKeyZ,
+  /** channel is the channel the field's value is written to. */
+  channel: channel.keyZ.default(0),
+});
+export interface ICDBinding extends z.infer<typeof icdBindingZ> {}
 
 /** ChannelField is the command channel value placed into the payload of a target. */
 export const channelFieldZ = z.object({
@@ -212,6 +222,20 @@ export const READ_ENTRY_SCHEMAS: {
   sparkplug: sparkplugReadEntryZ,
 };
 
+/** ICDReadMessage reads the documents of one ICD message. */
+export const icdReadMessageZ = z.object({
+  /** message is the key of the ICD message to read. */
+  message: icd.messageKeyZ,
+  /**
+   * index is the key of the field whose channel indexes the others. When absent the
+   * task stamps samples on arrival.
+   */
+  index: icd.fieldKeyZ.optional(),
+  /** bindings are the fields the task writes to channels. */
+  bindings: icdBindingZ.array().default(() => []),
+});
+export interface ICDReadMessage extends z.infer<typeof icdReadMessageZ> {}
+
 /** StaticWriteField places a fixed value in the payload. */
 export const staticWriteFieldZ = baseWriteFieldZ.extend({
   type: z.literal("static"),
@@ -270,6 +294,31 @@ export const readConfigZ = task.persistConfigZ.extend({
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
+/** ICDReadEntry reads the ICD messages of one topic. */
+export const icdReadEntryZ = z.object({
+  /** key uniquely identifies the entry within the task. */
+  key: z.string().default(id.create),
+  /** disabled is true when the entry is excluded from the task. */
+  disabled: z.boolean().default(false),
+  /** topic is the topic to subscribe to. It holds no wildcards. */
+  topic: z.string().default(""),
+  /** qos is the quality of service of the subscription. */
+  qos: qoSZ.default("at_most_once"),
+  /**
+   * retainedIgnored is true when the task drops the retained message that the broker
+   * sends on subscribe.
+   */
+  retainedIgnored: z.boolean().default(false),
+  /** icd is the key of the ICD that holds the messages of the topic. */
+  icd: icd.keyZ,
+  /**
+   * messages are the messages the topic carries. Each document is read as the first
+   * message whose match rule it meets.
+   */
+  messages: icdReadMessageZ.array().default(() => []),
+});
+export interface ICDReadEntry extends z.infer<typeof icdReadEntryZ> {}
+
 /** PlainWriteTarget publishes a JSON payload to one topic. */
 export const plainWriteTargetZ = baseWriteTargetZ.extend({
   type: z.literal("plain"),
@@ -326,6 +375,12 @@ export const WRITE_TARGET_SCHEMAS: {
   plain: plainWriteTargetZ,
   sparkplug: sparkplugWriteTargetZ,
 };
+
+export const icdReadConfigZ = task.persistConfigZ.extend({
+  device: device.keyZ.default(""),
+  entries: icdReadEntryZ.array().default(() => []),
+});
+export interface ICDReadConfig extends z.infer<typeof icdReadConfigZ> {}
 
 export const writeConfigZ = task.startConfigZ.extend({
   device: device.keyZ.default(""),

@@ -44,6 +44,26 @@ func decodeReadConfig(
 	return ReadConfig{}, imex.NewErrUnsupportedVersion("mqtt.ReadConfig", version, Latest)
 }
 
+// ICDReadConfigLadder decodes ICDReadConfig bodies stamped at any exported version and
+// migrates them to the current shape.
+var ICDReadConfigLadder = imex.Ladder[ICDReadConfig]{
+	First:  v1.Version,
+	Latest: Latest,
+	Decode: decodeICDReadConfig,
+}
+
+func decodeICDReadConfig(
+	ctx context.Context,
+	version imex.Version,
+	data msgpack.EncodedJSON,
+) (ICDReadConfig, error) {
+	switch version {
+	case v1.Version:
+		return imex.DecodeBlob[ICDReadConfig](data, "mqtt.ICDReadConfig", version)
+	}
+	return ICDReadConfig{}, imex.NewErrUnsupportedVersion("mqtt.ICDReadConfig", version, Latest)
+}
+
 // WriteConfigLadder decodes WriteConfig bodies stamped at any exported version and
 // migrates them to the current shape.
 var WriteConfigLadder = imex.Ladder[WriteConfig]{

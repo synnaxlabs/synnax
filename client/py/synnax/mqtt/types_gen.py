@@ -16,8 +16,17 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, JsonValue
 
-from synnax import channel as channel_, device as device_, task
+from synnax import channel as channel_, device as device_, icd as icd_, task
 from x import payload, telem
+
+QO_S_AT_MOST_ONCE: Literal["at_most_once"] = "at_most_once"
+
+QO_S_AT_LEAST_ONCE: Literal["at_least_once"] = "at_least_once"
+
+QO_S_EXACTLY_ONCE: Literal["exactly_once"] = "exactly_once"
+
+
+QoS = Literal["at_most_once", "at_least_once", "exactly_once"]
 
 SPARKPLUG_DATA_TYPE_INT8: Literal["int8"] = "int8"
 
@@ -61,15 +70,6 @@ SparkplugDataType = Literal[
     "string",
     "date_time",
 ]
-
-QO_S_AT_MOST_ONCE: Literal["at_most_once"] = "at_most_once"
-
-QO_S_AT_LEAST_ONCE: Literal["at_least_once"] = "at_least_once"
-
-QO_S_EXACTLY_ONCE: Literal["exactly_once"] = "exactly_once"
-
-
-QoS = Literal["at_most_once", "at_least_once", "exactly_once"]
 
 
 class ReadField(BaseModel):
@@ -116,6 +116,18 @@ class BaseReadEntry(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class ICDBinding(BaseModel):
+    """Writes the value of one message field to a channel.
+
+    Attributes:
+        field: Is the key of the message field to read.
+        channel: Is the channel the field's value is written to.
+    """
+
+    field: icd_.FieldKey
+    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
 
 
 class ChannelField(BaseModel):
@@ -245,6 +257,21 @@ ReadEntry = Annotated[
 ]
 
 
+class ICDReadMessage(BaseModel):
+    """Reads the documents of one ICD message.
+
+    Attributes:
+        message: Is the key of the ICD message to read.
+        index: Is the key of the field whose channel indexes the others. When absent the
+            task stamps samples on arrival.
+        bindings: Are the fields the task writes to channels.
+    """
+
+    message: icd_.MessageKey
+    index: icd_.FieldKey | None = None
+    bindings: list[ICDBinding] = Field(default_factory=list)
+
+
 class StaticWriteField(BaseWriteField):
     """Places a fixed value in the payload."""
 
@@ -310,6 +337,34 @@ class ReadConfig(task.PersistConfig):
         return hash(self.key)
 
 
+class ICDReadEntry(BaseModel):
+    """Reads the ICD messages of one topic.
+
+    Attributes:
+        key: Uniquely identifies the entry within the task.
+        disabled: Is true when the entry is excluded from the task.
+        topic: Is the topic to subscribe to. It holds no wildcards.
+        qos: Is the quality of service of the subscription.
+        retained_ignored: Is true when the task drops the retained message that the
+            broker sends on subscribe.
+        icd: Is the key of the ICD that holds the messages of the topic.
+        messages: Are the messages the topic carries. Each document is read as the first
+            message whose match rule it meets.
+    """
+
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    disabled: bool = False
+    topic: str = ""
+    qos: QoS = "at_most_once"
+    retained_ignored: bool = False
+    icd: icd_.Key
+    messages: list[ICDReadMessage] = Field(default_factory=list)
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
 class PlainWriteTarget(BaseWriteTarget):
     """Publishes a JSON payload to one topic."""
 
@@ -340,6 +395,23 @@ WriteTarget = Annotated[
     PlainWriteTarget | SparkplugWriteTarget,
     Field(discriminator="type"),
 ]
+
+
+class ICDReadConfig(task.PersistConfig):
+    """Configures an MQTT ICD read task, which parses the payloads of topics with ICD
+    messages and writes their fields to channels.
+
+    Attributes:
+        device: Is the key of the broker device to read from.
+        entries: Contains the topics to read.
+    """
+
+    device: device_.Key = ""
+    entries: list[ICDReadEntry] = Field(default_factory=list)
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class WriteConfig(task.StartConfig):

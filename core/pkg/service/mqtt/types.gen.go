@@ -91,6 +91,19 @@ type SparkplugReadEntry = versions.SparkplugReadEntry
 // tags on a broker device and writes their values to Synnax channels.
 type ReadConfig = versions.ReadConfig
 
+// ICDBinding writes the value of one message field to a channel.
+type ICDBinding = versions.ICDBinding
+
+// ICDReadMessage reads the documents of one ICD message.
+type ICDReadMessage = versions.ICDReadMessage
+
+// ICDReadEntry reads the ICD messages of one topic.
+type ICDReadEntry = versions.ICDReadEntry
+
+// ICDReadConfig configures an MQTT ICD read task, which parses the payloads of topics
+// with ICD messages and writes their fields to channels.
+type ICDReadConfig = versions.ICDReadConfig
+
 // ChannelField is the command channel value placed into the payload of a target.
 type ChannelField = versions.ChannelField
 

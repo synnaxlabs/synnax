@@ -72,9 +72,33 @@ type readField struct {
 	dataType telem.DataType
 }
 
+// topicSubscription is a topic that a read task subscribes to.
+type topicSubscription struct {
+	topic           string
+	qos             byte
+	retainedIgnored bool
+}
+
+func (s topicSubscription) subscribed() topicSubscription { return s }
+
+// topicSample holds the samples that one message on a topic gives.
+type topicSample struct {
+	// index is the index channel of keys. Zero for virtual channels.
+	index  channel.Key
+	keys   channel.Keys
+	series []telem.Series
+	stamp  telem.TimeStamp
+}
+
+// topicReader converts the messages of one subscribed topic into samples.
+type topicReader interface {
+	subscribed() topicSubscription
+	convert(msg message) (topicSample, error)
+}
+
 // readTopic is one plain read entry, ready to convert payloads into frames.
 type readTopic struct {
-	topic  string
+	topicSubscription
 	fields []readField
 	// keys are the channels of one frame: the index, when there is one, then the
 	// fields that are not the index.
@@ -83,10 +107,8 @@ type readTopic struct {
 	index channel.Key
 	// indexField is the position in fields of the field that gives the timestamp.
 	// It is -1 when the sample takes its arrival time.
-	indexField      int
-	qos             byte
-	retainedIgnored bool
-	extractor       *xjson.Extractor
+	indexField int
+	extractor  *xjson.Extractor
 	// values[i] is the value of fields[i] in the last payload.
 	values []jsontext.Value
 	// text holds a payload that is not JSON as a JSON string.
@@ -100,10 +122,12 @@ func newReadTopic(
 	channels map[channel.Key]channel.Channel,
 ) (*readTopic, error) {
 	t := &readTopic{
-		topic:           entry.Topic,
-		qos:             qosLevel(entry.Qos),
-		retainedIgnored: entry.RetainedIgnored,
-		indexField:      -1,
+		topicSubscription: topicSubscription{
+			topic:           entry.Topic,
+			qos:             qosLevel(entry.Qos),
+			retainedIgnored: entry.RetainedIgnored,
+		},
+		indexField: -1,
 	}
 	if err := validateTopic(entry.Topic); err != nil {
 		return nil, err
@@ -233,9 +257,9 @@ func (t *readTopic) extract(payload []byte) error {
 // convert turns one payload into one sample for each channel of the topic, as a series
 // in the order of keys. It converts every field or none, because a frame that writes to
 // an index must hold every channel of that index.
-func (t *readTopic) convert(msg message) ([]telem.Series, telem.TimeStamp, error) {
+func (t *readTopic) convert(msg message) (topicSample, error) {
 	if err := t.extract(msg.payload); err != nil {
-		return nil, 0, err
+		return topicSample{}, err
 	}
 	var (
 		stamp  = msg.received
@@ -246,11 +270,13 @@ func (t *readTopic) convert(msg message) ([]telem.Series, telem.TimeStamp, error
 	}
 	for i, f := range t.fields {
 		if t.values[i] == nil {
-			return nil, 0, errors.Newf("field %s: no value at %s", f.name, f.pointer)
+			return topicSample{}, errors.Newf(
+				"field %s: no value at %s", f.name, f.pointer,
+			)
 		}
 		data, err := f.decoder.Append(nil, t.values[i])
 		if err != nil {
-			return nil, 0, errors.Wrapf(err, "field %s", f.name)
+			return topicSample{}, errors.Wrapf(err, "field %s", f.name)
 		}
 		if i == t.indexField {
 			stamp = telem.TimeStamp(telem.ByteOrder.Uint64(data))
@@ -261,7 +287,7 @@ func (t *readTopic) convert(msg message) ([]telem.Series, telem.TimeStamp, error
 	if t.index != 0 {
 		series[0].Data = telem.ByteOrder.AppendUint64(nil, uint64(stamp))
 	}
-	return series, stamp, nil
+	return topicSample{index: t.index, keys: t.keys, series: series, stamp: stamp}, nil
 }
 
 // batch gathers the samples of many messages into one frame, with one series for each
@@ -301,7 +327,7 @@ func (b *batch) result() driver.Batch {
 // readSource is the driver.Source of an MQTT read task.
 type readSource struct {
 	pool   *pool
-	topics map[string]*readTopic
+	topics map[string]topicReader
 	// tags holds the Sparkplug B tags of the task.
 	tags map[tagID]readTag
 	// lastStamp is the last timestamp of each index channel, stored or written by any
@@ -416,7 +442,8 @@ func (r *reader) subscribe(ctx context.Context) error {
 		return err
 	}
 	for _, t := range r.topics {
-		if err := r.attachment.subscribe(ctx, t.topic, t.qos); err != nil {
+		sub := t.subscribed()
+		if err := r.attachment.subscribe(ctx, sub.topic, sub.qos); err != nil {
 			return err
 		}
 	}
@@ -611,32 +638,36 @@ func (r *reader) degrade(now time.Time, err error) {
 // none.
 func (r *reader) convert(now time.Time, msg message, b *batch) {
 	t, ok := r.topics[msg.topic]
-	if !ok || (msg.retained && t.retainedIgnored) {
+	if !ok {
+		return
+	}
+	sub := t.subscribed()
+	if msg.retained && sub.retainedIgnored {
 		return
 	}
 	r.skips.Read()
-	series, stamp, err := t.convert(msg)
+	s, err := t.convert(msg)
 	if err != nil {
-		r.skips.Skip(now, fmt.Sprintf("Message on topic %s: %s", t.topic, err))
+		r.skips.Skip(now, fmt.Sprintf("Message on topic %s: %s", sub.topic, err))
 		return
 	}
-	if t.index != 0 {
+	if s.index != 0 {
 		// An index takes timestamps in rising order only. A retained message repeats a
 		// value that the task may have, so a stale one is no loss.
-		if stamp <= r.lastStamp[t.index] {
+		if s.stamp <= r.lastStamp[s.index] {
 			if !msg.retained {
 				r.skips.Skip(now, fmt.Sprintf(
 					"Message on topic %s: its timestamp is not after the last one "+
 						"written",
-					t.topic,
+					sub.topic,
 				))
 			}
 			return
 		}
-		r.lastStamp[t.index] = stamp
+		r.lastStamp[s.index] = s.stamp
 	}
-	for i, key := range t.keys {
-		b.append(key, series[i].DataType, series[i].Data)
+	for i, key := range s.keys {
+		b.append(key, s.series[i].DataType, s.series[i].Data)
 	}
 }
 

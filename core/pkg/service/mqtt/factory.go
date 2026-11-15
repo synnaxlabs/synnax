@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -59,6 +60,10 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// ICD retrieves the ICDs that ICD read tasks parse payloads with.
+	//
+	// [REQUIRED]
+	ICD *icd.Service
 	alamos.Instrumentation
 	// QueueSize is the count of messages that the queue of one read task holds
 	// before it drops the oldest.
@@ -106,6 +111,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.ICD = override.Nil(c.ICD, other.ICD)
 	c.QueueSize = override.Numeric(c.QueueSize, other.QueueSize)
 	c.RebirthInterval = override.Numeric(c.RebirthInterval, other.RebirthInterval)
 	c.BirthGrace = override.Numeric(c.BirthGrace, other.BirthGrace)
@@ -122,6 +128,7 @@ func (c FactoryConfig) Validate() error {
 	v.NotNil("channel", c.Channel)
 	v.NotNil("framer", c.Framer)
 	v.NotNil("status", c.Status)
+	v.NotNil("icd", c.ICD)
 	v.Positive("queue_size", c.QueueSize)
 	v.Positive("rebirth_interval", c.RebirthInterval)
 	v.Ternary(
@@ -257,6 +264,8 @@ func (f *Factory) ConfigureTask(
 	switch t.Type {
 	case ReadTaskType:
 		configured, autoStart, err = f.configureRead(ctx, t)
+	case ICDReadTaskType:
+		configured, autoStart, err = f.configureICDRead(ctx, t)
 	case WriteTaskType:
 		configured, autoStart, err = f.configureWrite(ctx, t)
 	case ScanTaskType:
@@ -394,7 +403,7 @@ func (f *Factory) configureRead(
 		broker:     dev.Key,
 		queueSize:  f.cfg.QueueSize,
 		birthGrace: f.cfg.BirthGrace,
-		topics:     make(map[string]*readTopic),
+		topics:     make(map[string]topicReader),
 		tags:       make(map[tagID]readTag),
 		lastStamp:  make(map[channel.Key]telem.TimeStamp),
 		framer:     f.cfg.Framer,
@@ -458,8 +467,20 @@ func (f *Factory) configureRead(
 			indexes = append(indexes, index)
 		}
 	}
+	rt, err := f.openRead(t, src, writerKeys, indexes, cfg.DataSavingDisabled)
+	return rt, cfg.AutoStart, err
+}
+
+// openRead opens the read task of src, which writes to writerKeys. indexes holds the
+// index channels of writerKeys.
+func (f *Factory) openRead(
+	t task.Task,
+	src *readSource,
+	writerKeys, indexes channel.Keys,
+	dataSavingDisabled bool,
+) (autoStarter, error) {
 	mode := framer.WriterModePersistStream
-	if cfg.DataSavingDisabled {
+	if dataSavingDisabled {
 		mode = framer.WriterModeStreamOnly
 	} else {
 		src.stored = indexes
@@ -475,9 +496,9 @@ func (f *Factory) configureRead(
 		Mode:            mode,
 	})
 	if err != nil {
-		return nil, cfg.AutoStart, err
+		return nil, err
 	}
-	return rt, cfg.AutoStart, nil
+	return rt, nil
 }
 
 // enabledTarget returns the command channel and the name of a target. ok is false

@@ -1056,6 +1056,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Channel:         l.Channel,
 		Framer:          l.Framer,
 		Status:          l.Status,
+		ICD:             l.ICD,
 	})
 	if !ok(err, mqttFactory) {
 		return nil, err

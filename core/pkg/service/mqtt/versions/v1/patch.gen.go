@@ -138,6 +138,96 @@ func (et *EdgeTag) HashContent(h *content.Hash) {
 	}
 }
 
+// HashContent writes the content of the value to h, without its keys.
+func (icdb *ICDBinding) HashContent(h *content.Hash) {
+	h.Bytes(icdb.Field[:])
+	h.Uint(uint64(icdb.Channel))
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (icdrc *ICDReadConfig) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&icdrc.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
+	case "auto_start":
+		return patch.Value(&icdrc.PersistConfig.StartConfig.AutoStart, c.Next())
+	case "data_saving_disabled":
+		return patch.Value(&icdrc.PersistConfig.DataSavingDisabled, c.Next())
+	case "device":
+		return patch.Value(&icdrc.Device, c.Next())
+	case "entries":
+		return patch.List(&icdrc.Entries, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (icdrc *ICDReadConfig) HashContent(h *content.Hash) {
+	h.Bool(icdrc.PersistConfig.StartConfig.AutoStart)
+	h.Bool(icdrc.PersistConfig.DataSavingDisabled)
+	h.String(icdrc.Device)
+	h.Len(len(icdrc.Entries))
+	for i0 := range icdrc.Entries {
+		icdrc.Entries[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (icdre *ICDReadEntry) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&icdre.Key, c.Next())
+	case "disabled":
+		return patch.Value(&icdre.Disabled, c.Next())
+	case "topic":
+		return patch.Value(&icdre.Topic, c.Next())
+	case "qos":
+		return patch.Defaulted(&icdre.Qos, c.Next(), func(def *ICDReadEntry) {
+			icdre.Qos = def.Qos
+		})
+	case "retained_ignored":
+		return patch.Value(&icdre.RetainedIgnored, c.Next())
+	case "icd":
+		return patch.Value(&icdre.ICD, c.Next())
+	case "messages":
+		return patch.Value(&icdre.Messages, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// PatchKey returns the key that paths name the value by in a list.
+func (icdre *ICDReadEntry) PatchKey() string { return icdre.Key }
+
+// HashContent writes the content of the value to h, without its keys.
+func (icdre *ICDReadEntry) HashContent(h *content.Hash) {
+	h.Bool(icdre.Disabled)
+	h.String(icdre.Topic)
+	h.String(string(icdre.Qos))
+	h.Bool(icdre.RetainedIgnored)
+	h.Bytes(icdre.ICD[:])
+	h.Len(len(icdre.Messages))
+	for i0 := range icdre.Messages {
+		icdre.Messages[i0].HashContent(h)
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (icdrm *ICDReadMessage) HashContent(h *content.Hash) {
+	h.Bytes(icdrm.Message[:])
+	if icdrm.Index == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.Bytes((*icdrm.Index)[:])
+	}
+	h.Len(len(icdrm.Bindings))
+	for i0 := range icdrm.Bindings {
+		icdrm.Bindings[i0].HashContent(h)
+	}
+}
+
 // Patch applies the path action at c, which is not done, to the value.
 func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {

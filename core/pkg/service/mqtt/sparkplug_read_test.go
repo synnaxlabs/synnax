@@ -66,7 +66,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 			Device:  deviceSvc,
 			Channel: channelSvc,
 			Framer:  framerSvc,
-			DB:      db, Status: statusSvc,
+			DB:      db, Status: statusSvc, ICD: icdSvc,
 			RebirthInterval: testRebirthInterval,
 			BirthGrace:      testBirthGrace,
 		}))

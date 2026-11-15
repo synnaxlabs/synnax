@@ -75,6 +75,7 @@ var _ = Describe("Service", func() {
 			}
 			Expect(types).To(ConsistOf(
 				mqtt.ReadTaskType,
+				mqtt.ICDReadTaskType,
 				mqtt.WriteTaskType,
 				mqtt.ScanTaskType,
 				mqtt.EdgeTaskType,

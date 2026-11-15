@@ -27,6 +27,8 @@ import (
 const (
 	// ReadTaskType is the type of a task that reads topics and Sparkplug B tags.
 	ReadTaskType = "mqtt_read"
+	// ICDReadTaskType is the type of a task that reads topics with ICD messages.
+	ICDReadTaskType = "mqtt_icd_read"
 	// WriteTaskType is the type of a task that publishes to topics and commands
 	// Sparkplug B tags.
 	WriteTaskType = "mqtt_write"
@@ -70,6 +72,8 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	// Read stores mqtt_read task configuration records.
 	Read *config.Service[ReadConfig]
+	// ICDRead stores mqtt_icd_read task configuration records.
+	ICDRead *config.Service[ICDReadConfig]
 	// Write stores mqtt_write task configuration records.
 	Write *config.Service[WriteConfig]
 	// Scan stores mqtt_scan task configuration records.
@@ -103,6 +107,21 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			ValidateEntry:   (*ReadConfig).Validate,
 		},
 	); !ok(err, s.Read) {
+		return nil, err
+	}
+	if s.ICDRead, err = config.OpenService(
+		ctx, config.ServiceConfig[ICDReadConfig]{
+			DB:              cfg.DB,
+			References:      icdReadConfigReferences(),
+			Instrumentation: cfg.Instrumentation,
+			Type:            ICDReadTaskType,
+			Ladder:          versions.ICDReadConfigLadder,
+			SetEntryKey:     (*ICDReadConfig).SetKey,
+			PatchEntry:      (*ICDReadConfig).Patch,
+			HashEntry:       (*ICDReadConfig).HashContent,
+			ValidateEntry:   (*ICDReadConfig).Validate,
+		},
+	); !ok(err, s.ICDRead) {
 		return nil, err
 	}
 	if s.Write, err = config.OpenService(
@@ -158,5 +177,5 @@ func (s *Service) Close() error { return s.closer.Close() }
 
 // Stores returns the config stores the service owns, for registry assembly.
 func (s *Service) Stores() []config.Store {
-	return []config.Store{s.Read, s.Write, s.Scan, s.Edge}
+	return []config.Store{s.Read, s.ICDRead, s.Write, s.Scan, s.Edge}
 }

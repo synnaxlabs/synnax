@@ -12,10 +12,12 @@
 package mqtt
 
 import (
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 )
 
@@ -98,6 +100,81 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 							v4.Channel = 0
 						}
 						e.Entries[i3].Variant = v4
+					}
+				}
+			},
+		}),
+	}
+}
+
+// icdReadConfigReferences returns the references of ICDReadConfig.
+func icdReadConfigReferences() []gorp.Reference[uuid.UUID, ICDReadConfig] {
+	return []gorp.Reference[uuid.UUID, ICDReadConfig]{
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ICDReadConfig, device.Key]{
+			Name:     "device",
+			Table:    "device",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *ICDReadConfig) []device.Key {
+				var targets []device.Key
+				if e.Device != "" {
+					targets = append(targets, e.Device)
+				}
+				return targets
+			},
+			Detach: func(e *ICDReadConfig, t device.Key) {
+				if e.Device == t {
+					e.Device = ""
+				}
+			},
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ICDReadConfig, icd.Key]{
+			Name:     "entries.icd",
+			Table:    "icd",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *ICDReadConfig) []icd.Key {
+				var targets []icd.Key
+				for _, v1 := range e.Entries {
+					targets = append(targets, v1.ICD)
+				}
+				return targets
+			},
+			Detach: func(e *ICDReadConfig, t icd.Key) {
+				e.Entries = slices.DeleteFunc(e.Entries, func(v2 ICDReadEntry) bool {
+					if v2.ICD == t {
+						return true
+					}
+					return false
+				})
+			},
+		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ICDReadConfig, channel.Key]{
+			Name:     "entries.messages.bindings.channel",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *ICDReadConfig) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Entries {
+					for _, v2 := range v1.Messages {
+						for _, v3 := range v2.Bindings {
+							if v3.Channel != 0 {
+								targets = append(targets, v3.Channel)
+							}
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *ICDReadConfig, t channel.Key) {
+				for i4 := range e.Entries {
+					for i5 := range e.Entries[i4].Messages {
+						for i6 := range e.Entries[i4].Messages[i5].Bindings {
+							if e.Entries[i4].Messages[i5].Bindings[i6].Channel == t {
+								e.Entries[i4].Messages[i5].Bindings[i6].Channel = 0
+							}
+						}
 					}
 				}
 			},

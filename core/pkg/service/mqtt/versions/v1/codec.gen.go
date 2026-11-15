@@ -15,6 +15,7 @@ import (
 	"encoding/json/v2"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
@@ -294,6 +295,208 @@ func (et *EdgeTag) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			et.CommandChannelName = &hv
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (icdb ICDBinding) EncodeOrc(w *orc.Writer) error {
+	w.Write(icdb.Field[:])
+	w.Uint32(uint32(icdb.Channel))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (icdb *ICDBinding) DecodeOrc(r *orc.Reader) error {
+	if _, err := r.Read(icdb.Field[:]); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		icdb.Channel = channel.Key(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (icdrc ICDReadConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(icdrc.Key[:])
+	w.Bool(icdrc.AutoStart)
+	w.Bool(icdrc.DataSavingDisabled)
+	w.String(icdrc.Device)
+	w.Bool(icdrc.Entries != nil)
+	if icdrc.Entries != nil {
+		w.Uint32(uint32(len(icdrc.Entries)))
+		for i := range icdrc.Entries {
+			if err := icdrc.Entries[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (icdrc *ICDReadConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(icdrc.Key[:]); err != nil {
+		return err
+	}
+	if icdrc.AutoStart, err = r.Bool(); err != nil {
+		return err
+	}
+	if icdrc.DataSavingDisabled, err = r.Bool(); err != nil {
+		return err
+	}
+	if icdrc.Device, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			icdrc.Entries = make([]ICDReadEntry, n)
+			for i := range icdrc.Entries {
+				if err = icdrc.Entries[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (icdre ICDReadEntry) EncodeOrc(w *orc.Writer) error {
+	w.String(icdre.Key)
+	w.Bool(icdre.Disabled)
+	w.String(icdre.Topic)
+	w.String(string(icdre.Qos))
+	w.Bool(icdre.RetainedIgnored)
+	w.Write(icdre.ICD[:])
+	w.Bool(icdre.Messages != nil)
+	if icdre.Messages != nil {
+		w.Uint32(uint32(len(icdre.Messages)))
+		for i := range icdre.Messages {
+			if err := icdre.Messages[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (icdre *ICDReadEntry) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if icdre.Key, err = r.String(); err != nil {
+		return err
+	}
+	if icdre.Disabled, err = r.Bool(); err != nil {
+		return err
+	}
+	if icdre.Topic, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		icdre.Qos = QoS(rawV)
+	}
+	if icdre.RetainedIgnored, err = r.Bool(); err != nil {
+		return err
+	}
+	if _, err := r.Read(icdre.ICD[:]); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			icdre.Messages = make([]ICDReadMessage, n)
+			for i := range icdre.Messages {
+				if err = icdre.Messages[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (icdrm ICDReadMessage) EncodeOrc(w *orc.Writer) error {
+	w.Write(icdrm.Message[:])
+	if icdrm.Index != nil {
+		w.Bool(true)
+		w.Write((*icdrm.Index)[:])
+	} else {
+		w.Bool(false)
+	}
+	w.Bool(icdrm.Bindings != nil)
+	if icdrm.Bindings != nil {
+		w.Uint32(uint32(len(icdrm.Bindings)))
+		for i := range icdrm.Bindings {
+			if err := icdrm.Bindings[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (icdrm *ICDReadMessage) DecodeOrc(r *orc.Reader) error {
+	if _, err := r.Read(icdrm.Message[:]); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv icd.FieldKey
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			icdrm.Index = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			icdrm.Bindings = make([]ICDBinding, n)
+			for i := range icdrm.Bindings {
+				if err = icdrm.Bindings[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil
