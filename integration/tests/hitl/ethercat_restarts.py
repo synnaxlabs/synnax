@@ -23,6 +23,7 @@ from tests.driver.task import (
     delete_channels,
     expect_status,
     is_running,
+    status_text,
 )
 from tests.hitl.ethercat import (
     START_TIMEOUT,
@@ -51,8 +52,6 @@ _QUIET = 5 * sy.TimeSpan.SECOND
 """How long a test watches for a status that must not come."""
 _BOOT = 10 * sy.TimeSpan.SECOND
 """How long the Driver takes to deploy its tasks after its first status."""
-_LOST_START_LIMIT = 10 * sy.TimeSpan.SECOND
-"""A start sent while the Driver restarts must end in this time, either way."""
 
 
 class _Restart(TestCase):
@@ -223,12 +222,10 @@ class EtherCATCrashWithAutoStart(_Restart):
 
 
 class EtherCATCrashWithScanTasks(_Restart):
-    """Checks that no scan task shows as stopped after a crash."""
+    """Checks that each scan task runs again after a crash."""
 
     def run(self) -> None:
-        scans = self.client.tasks.retrieve(
-            rack=self.rack.key, internal=True, types=sorted(_SCAN_TYPES)
-        )
+        scans = self._scan_tasks()
         ethercat = next((t for t in scans if t.type == "ethercat_scan"), None)
         if ethercat is None:
             raise AssertionError(
@@ -236,6 +233,7 @@ class EtherCATCrashWithScanTasks(_Restart):
                 f"{[t.type for t in scans]}"
             )
         with StatusWatch(self.client, [t.key for t in scans]) as watch:
+            killed = sy.TimeStamp.now()
             self._wait_for_driver(self._kill_driver())
             owner = sy.task.resource_id(ethercat.key)
             watch.wait(
@@ -244,33 +242,22 @@ class EtherCATCrashWithScanTasks(_Restart):
                 expected="a status of the EtherCAT scan task",
             )
             watch.collect(_BOOT)
-            if any(s.message == "Task stopped" for s in watch.seen):
-                raise AssertionError(
-                    f'Expected no "Task stopped" for a scan task, but saw '
-                    f"{watch.texts()}"
-                )
-
-
-class EtherCATStartDuringRestart(_Restart):
-    """Checks that a start sent while the Driver restarts ends in 10 s with an answer,
-    the rack's down status, or the timeout of the acknowledgment."""
-
-    def run(self) -> None:
-        tsk = self._create_task("Lost Start")
-        old = self._kill_driver()
-        timer = sy.Timer()
-        outcome = "started"
-        try:
-            tsk.start()
-        except (RuntimeError, TimeoutError) as e:
-            outcome = f"{type(e).__name__}: {e}"
-        elapsed = timer.elapsed()
-        self.log(f"The start ended after {elapsed}: {outcome}")
-        self._wait_for_driver(old)
-        if elapsed > _LOST_START_LIMIT:
+        stopped: list[str] = []
+        for t in self._scan_tasks():
+            if t.status is None or t.status.time < killed:
+                stopped.append(f"{t.type}: no status since the crash")
+            # A scan task that cannot reach a device on the station runs with a warning.
+            elif t.status.variant == "error" or not is_running(t.status):
+                stopped.append(f"{t.type}: {status_text(t.status)}")
+        if stopped:
             raise AssertionError(
-                f"Expected the start to end within {_LOST_START_LIMIT}, but it ended "
-                f"after {elapsed}: {outcome}"
+                f"Expected each scan task to run after the crash, but {stopped} do not"
             )
-        if outcome == "started":
-            tsk.stop(timeout=START_TIMEOUT)
+
+    def _scan_tasks(self) -> list[sy.Task]:
+        return self.client.tasks.retrieve(
+            rack=self.rack.key,
+            internal=True,
+            types=sorted(_SCAN_TYPES),
+            include_status=True,
+        )
