@@ -27,6 +27,10 @@ import (
 // the user it uses.
 func OwnedTables() []string { return []string{string(resource.TypePanel)} }
 
+// OwnedPlaces returns the tables that the owner of a draft panel can place it in with
+// only retrieve on the target: its project. A group still needs update.
+func OwnedPlaces() []string { return []string{string(resource.TypeProject)} }
+
 // ServiceConfig is the configuration for the panel API service.
 type ServiceConfig struct {
 	// Panel stores and retrieves panels.

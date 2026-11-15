@@ -41,10 +41,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	binder = MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:    db,
-		RBAC:  svc.RBAC,
-		Held:  apiauth.HeldTables(),
-		Owned: apipanel.OwnedTables(),
+		DB:          db,
+		RBAC:        svc.RBAC,
+		Held:        apiauth.HeldTables(),
+		Owned:       apipanel.OwnedTables(),
+		OwnedPlaces: apipanel.OwnedPlaces(),
 	}))
 })
 

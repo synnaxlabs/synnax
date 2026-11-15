@@ -40,12 +40,14 @@ type Returns interface {
 // every write and returns a zero response. The subject of the request needs:
 //
 //   - create on a new record, update on a changed record, and delete on a deleted
-//     record, cascades and detaches included;
+//     record, cascades and detaches included. An owned record (ServiceConfig.Owned)
+//     that the subject owns before and after the change needs none of these;
 //   - for a changed record with no resource type, update on the record that it is
 //     placed in, its owner. A held record (ServiceConfig.Held) needs the action of the
 //     change on its owner instead, unless the subject is that owner;
 //   - update on the target of each place link added or removed, except a link to the
-//     owner;
+//     owner. For an owned record, a target in ServiceConfig.OwnedPlaces needs only
+//     retrieve;
 //   - retrieve on the target of each use link added;
 //   - retrieve on each source of a request that implements Copy;
 //   - retrieve on each record that a response implementing Returns holds and the
@@ -165,7 +167,7 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 				continue
 			}
 			action := addedLinkAction(l.Kind)
-			if owned {
+			if owned && s.ownedPlace(l) {
 				action = access.ActionRetrieve
 			}
 			if err := need(action, l.Target); err != nil {
@@ -179,7 +181,7 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 				continue
 			}
 			action := access.ActionUpdate
-			if owned {
+			if owned && s.ownedPlace(l) {
 				action = access.ActionRetrieve
 			}
 			if err := need(action, l.Target); err != nil {
@@ -229,6 +231,11 @@ func (s *Service) owned(c gorp.Change, subject resource.ID) bool {
 		c.Removed...,
 	)
 	return usesSubject(c.Links) && usesSubject(before)
+}
+
+// ownedPlace reports whether l places an owned record in a table of OwnedPlaces.
+func (s *Service) ownedPlace(l gorp.Link) bool {
+	return l.Kind == gorp.Place && slices.Contains(s.cfg.OwnedPlaces, l.Target.Table)
 }
 
 // ownerOf returns the record that the record of c is placed in. It returns an error

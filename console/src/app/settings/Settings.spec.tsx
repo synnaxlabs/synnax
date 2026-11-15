@@ -171,6 +171,19 @@ describe("Settings", () => {
     expect(await screen.findByRole("heading", { name: "Labels" })).toBeTruthy();
   });
 
+  it("should offer the gear and Open settings to a Viewer", async () => {
+    const viewer = await roles.get("Viewer");
+    const { wrapper } = await createConsoleWrapper({ client: viewer });
+    render(<Settings.Button />, { wrapper });
+    expect(await screen.findByRole("button", { name: "Settings" })).toBeTruthy();
+    const { openCommandPalette } = await renderPalette({
+      commands: Settings.COMMANDS,
+      client: viewer,
+    });
+    await openCommandPalette();
+    expect(await screen.findByText("Open settings")).toBeTruthy();
+  });
+
   it("should offer Edit labels to an Engineer", async () => {
     const visible = findCommand(Settings.COMMANDS, "Edit labels").useVisible;
     assertDefined(visible);

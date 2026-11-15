@@ -24,6 +24,7 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
@@ -963,11 +964,45 @@ var _ = Describe("Owned records", func() {
 		})).To(Succeed())
 		grant(ctx, owner, access.ActionRetrieve, proj.ResourceID())
 	})
-	createDraft := func(ctx context.Context, by, of user.User) (panel.Panel, error) {
-		p := panel.Panel{Name: "draft", Project: &proj.Key, Owner: &of.Key}
-		return p, write(ctx, by, func(ctx context.Context, tx gorp.Tx) error {
+	createDraftIn := func(
+		ctx context.Context,
+		by, of user.User,
+		g *group.Key,
+	) (panel.Panel, error) {
+		p := panel.Panel{
+			Key:     uuid.New(),
+			Name:    "draft",
+			Project: &proj.Key,
+			Group:   g,
+			Owner:   &of.Key,
+		}
+		if err := write(ctx, by, func(ctx context.Context, tx gorp.Tx) error {
 			return svc.Panel.NewWriter(tx).Create(ctx, &p)
-		})
+		}); err != nil {
+			return panel.Panel{}, err
+		}
+		return p, nil
+	}
+	createDraft := func(ctx context.Context, by, of user.User) (panel.Panel, error) {
+		return createDraftIn(ctx, by, of, nil)
+	}
+	createGroup := func(ctx context.Context) group.Group {
+		g := group.Group{Name: "shared", Parent: new(proj.ResourceID())}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Group.NewWriter(tx).Create(ctx, &g)
+		})).To(Succeed())
+		return g
+	}
+	setGroup := func(key panel.Key, to *group.Key) apply {
+		return func(ctx context.Context, tx gorp.Tx) error {
+			return gorp.NewUpdate[panel.Key, panel.Panel]().
+				Where(gorp.MatchKeys[panel.Key, panel.Panel](key)).
+				Change(func(_ gorp.Context, p panel.Panel) panel.Panel {
+					p.Group = to
+					return p
+				}).
+				Exec(ctx, tx)
+		}
 	}
 	setOwner := func(key panel.Key, to *user.Key) apply {
 		return func(ctx context.Context, tx gorp.Tx) error {
@@ -1000,13 +1035,44 @@ var _ = Describe("Owned records", func() {
 	)
 
 	It("Should require retrieve on the project of an own draft", func(ctx SpecContext) {
-		_, err := createDraft(ctx, other, other)
-		Expect(err).To(denied(other, access.ActionRetrieve, proj.ResourceID()))
+		Expect(createDraft(ctx, other, other)).
+			Error().To(denied(other, access.ActionRetrieve, proj.ResourceID()))
 	})
 
 	It("Should require create to make a draft for another user", func(ctx SpecContext) {
-		p, err := createDraft(ctx, owner, other)
-		Expect(err).To(denied(owner, access.ActionCreate, p.ResourceID()))
+		Expect(createDraft(ctx, owner, other)).
+			Error().To(MatchError(access.ErrDenied))
+	})
+
+	It("Should require update on a group to put an own draft in it", func(
+		ctx SpecContext,
+	) {
+		g := createGroup(ctx)
+		grant(ctx, owner, access.ActionRetrieve, g.ResourceID())
+		Expect(createDraftIn(ctx, owner, owner, &g.Key)).
+			Error().To(denied(owner, access.ActionUpdate, g.ResourceID()))
+		p := MustSucceed(createDraft(ctx, owner, owner))
+		Expect(write(ctx, owner, setGroup(p.Key, &g.Key))).
+			To(denied(owner, access.ActionUpdate, g.ResourceID()))
+	})
+
+	It("Should require update on a group to take an own draft out of it", func(
+		ctx SpecContext,
+	) {
+		g := createGroup(ctx)
+		grant(ctx, owner, access.ActionRetrieve, g.ResourceID())
+		p := panel.Panel{
+			Key:     uuid.New(),
+			Name:    "draft",
+			Project: &proj.Key,
+			Group:   &g.Key,
+			Owner:   &owner.Key,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Panel.NewWriter(tx).Create(ctx, &p)
+		})).To(Succeed())
+		Expect(write(ctx, owner, setGroup(p.Key, nil))).
+			To(denied(owner, access.ActionUpdate, g.ResourceID()))
 	})
 
 	It(

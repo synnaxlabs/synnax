@@ -46,8 +46,10 @@ import { Session } from "@/session";
 
 const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
   const ids = panel.resourceID(keys);
-  const hasUpdatePermission = Access.useUpdateGranted(ids);
-  const hasDeletePermission = Access.useDeleteGranted(ids);
+  // The owner of a draft can change it with no access on it.
+  const owned = Panel.useOwned({ key: keys.length === 1 ? keys[0] : null });
+  const canUpdate = Access.useUpdateGranted(ids) || owned;
+  const canDelete = Access.useDeleteGranted(ids) || owned;
   const confirm = Modals.useConfirmDelete({ type: "Panel" });
   const dispatch = useDispatch();
   const client = Synnax.use();
@@ -72,10 +74,10 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
   const [key] = keys;
   return (
     <CMenu.Menu>
-      {hasUpdatePermission && keys.length === 1 && (
+      {canUpdate && keys.length === 1 && (
         <CMenu.RenameItem onClick={() => Text.edit(PCSS.B(`tab-${key}`))} />
       )}
-      {hasUpdatePermission && keys.length === 1 && (
+      {canUpdate && keys.length === 1 && (
         <Menu.Item itemKey="change-icon" onClick={() => openIconPicker(key)}>
           <Icon.FillColor />
           Change icon
@@ -93,7 +95,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
         </Menu.Item>
       )}
       <Menu.Divider />
-      {hasDeletePermission && <CMenu.DeleteItem onClick={() => del(keys)} />}
+      {canDelete && <CMenu.DeleteItem onClick={() => del(keys)} />}
       <Menu.Divider />
       <CMenu.ReloadConsoleItem />
     </CMenu.Menu>
