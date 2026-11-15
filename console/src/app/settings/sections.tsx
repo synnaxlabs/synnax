@@ -62,7 +62,7 @@ const Certificates = (): ReactElement => {
 const useCertificatesVisible = (): boolean =>
   Access.useRetrieveGranted(certificate.TYPE_RESOURCE_ID);
 
-const General = (): ReactElement => (
+const About = (): ReactElement => (
   <>
     <Core.Settings />
     <Version.Settings />
@@ -123,7 +123,7 @@ export const GROUPS: Settings.Group[] = [
     key: "core",
     name: "Core",
     sections: [
-      { key: "general", name: "General", icon: <Icon.Core />, Content: General },
+      { key: "about", name: "About", icon: <Icon.About />, Content: About },
       ...(DESKTOP
         ? []
         : [

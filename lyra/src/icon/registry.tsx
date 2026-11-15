@@ -80,6 +80,7 @@ import {
   LuChartColumn,
   LuChartNoAxesGantt,
   LuFileBadge,
+  LuInfo,
   LuKeyRound,
   LuLock,
   LuLockOpen,
@@ -375,6 +376,7 @@ export const License = wrapSVGIcon(LuBadgeCheck, "license");
 export const UsageData = wrapSVGIcon(LuChartColumn, "usage-data");
 export const Secret = wrapSVGIcon(LuSquareAsterisk, "secret");
 export const APIKey = wrapSVGIcon(LuKeyRound, "api-key");
+export const About = wrapSVGIcon(LuInfo, "about");
 export const Certificate = wrapSVGIcon(LuFileBadge, "certificate");
 export const Project = wrapSVGIcon(MdWorkspacesFilled, "project");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
@@ -653,6 +655,7 @@ const icons = {
   Unlock,
   Secret,
   APIKey,
+  About,
   Certificate,
   Project,
   Box,

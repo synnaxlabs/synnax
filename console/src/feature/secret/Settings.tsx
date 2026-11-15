@@ -10,19 +10,15 @@
 import "@/feature/secret/Settings.css";
 
 import { certificate, secret } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { useNow } from "@synnaxlabs/lyra/hooks";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
-import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Certificate, type Flux, Secret } from "@synnaxlabs/pluto";
+import { Access, Certificate, Secret } from "@synnaxlabs/pluto";
 import { TimeSpan, type TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useEffect, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { CertificatesMenu, SecretsMenu } from "@/feature/secret/ContextMenu";
 import { type SelectCertificate, UsedByPopover } from "@/feature/secret/UsedBy";
@@ -30,114 +26,59 @@ import { CSS } from "@/platform/css";
 import { Secret as PlatformSecret } from "@/platform/secret";
 import { Settings as PlatformSettings } from "@/platform/settings";
 
-interface TableProps<K extends string, E extends { key: K }> {
-  list: Flux.UseListReturn<K, E>;
-  columns: List.Column[];
-  noun: string;
-  action?: ReactNode;
-  menu: Menu.ContextMenuProps["menu"];
-  /** An item to select and scroll to once the list holds it. */
-  selected?: K;
-  /** Called once the list shows the item in `selected`. */
-  onShowSelected?: () => void;
-  children: List.ItemsProps<K>["children"];
-}
-
-interface ScrollToProps<K extends string> {
-  data: K[];
-  itemKey?: K;
-  onShow?: () => void;
-}
-
-const ScrollTo = <K extends string>({
-  data,
-  itemKey,
-  onShow,
-}: ScrollToProps<K>): null => {
-  const { scrollToIndex } = List.useScroller<K>();
-  const index = itemKey == null ? -1 : data.indexOf(itemKey);
-  useEffect(() => {
-    if (index === -1) return;
-    scrollToIndex(index);
-    onShow?.();
-  }, [itemKey, index !== -1]);
-  return null;
-};
-
-const Table = <K extends string, E extends { key: K }>({
-  list,
-  columns,
-  noun,
-  action,
-  menu,
-  selected: initial,
-  onShowSelected,
-  children,
-}: TableProps<K, E>): ReactElement => {
-  const { data, getItem, subscribe, more, search, answered } = list;
-  const [term, setTerm] = useState("");
-  const [selected, setSelected] = useState<K[]>(initial == null ? [] : [initial]);
-  const [prevInitial, setPrevInitial] = useState(initial);
-  if (initial !== prevInitial) {
-    setPrevInitial(initial);
-    if (initial != null) setSelected([initial]);
-  }
-  const menuProps = Menu.useContextMenu();
-  const handleSearch = (next: string): void => {
-    setTerm(next);
-    search(next);
-  };
-  return (
-    <Select.Frame<K, E>
-      multiple
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      onFetchMore={more}
-      value={selected}
-      onChange={setSelected}
-    >
-      <Menu.ContextMenu menu={menu} {...menuProps} />
-      <ScrollTo data={data} itemKey={initial} onShow={onShowSelected} />
-      <Flex.Box y gap="medium">
-        <Flex.Box x align="center" justify="between" gap="medium">
-          <Input.Text
-            value={term}
-            onChange={handleSearch}
-            placeholder={`Search ${noun}`}
-            startContent={<Icon.Search />}
-            className={CSS.BE("secret-settings", "search")}
-          />
-          {action}
-        </Flex.Box>
-        <PlatformSettings.Card flush>
-          <List.Columns columns={columns}>
-            <List.Headings checkable />
-            <List.Scroll onContextMenu={menuProps.open}>
-              <List.Items<K>
-                emptyContent={
-                  answered && (
-                    <Flex.Box center className={CSS.BE("secret-settings", "empty")}>
-                      <Text.Text color={9}>No {noun}</Text.Text>
-                    </Flex.Box>
-                  )
-                }
-              >
-                {children}
-              </List.Items>
-            </List.Scroll>
-          </List.Columns>
-        </PlatformSettings.Card>
-      </Flex.Box>
-    </Select.Frame>
-  );
-};
-
 const SECRET_COLUMNS: List.Column[] = [
   { name: "Name", width: "1fr" },
-  { name: "Value", width: "34rem" },
+  { name: "Value", width: "1.5fr" },
   { name: "Used by", width: "14rem" },
 ];
+
+const CreateSecret = ({
+  onClose,
+  onCreated,
+}: PlatformSettings.CreateItemProps<secret.Key>): ReactElement => {
+  const [name, setName] = useState("");
+  const [value, setValue] = useState("");
+  const { update, variant } = Secret.useCreate({
+    afterSuccess: ({ data }) => onCreated(data.key),
+  });
+  const save = (): void => {
+    if (name.trim() === "" || variant === "loading") return;
+    update({ name: name.trim(), source: "stored", value });
+  };
+  const onKeyDown = PlatformSettings.createKeyDown(save, onClose);
+  return (
+    <PlatformSettings.CreateFrame>
+      <List.Cell>
+        <Input.Text
+          value={name}
+          onChange={setName}
+          onKeyDown={onKeyDown}
+          placeholder="Secret name"
+          aria-label="Secret name"
+          autoFocus
+        />
+      </List.Cell>
+      <List.Cell>
+        <Input.Text
+          value={value}
+          onChange={setValue}
+          onKeyDown={onKeyDown}
+          type="password"
+          autoComplete="off"
+          placeholder="Value"
+          aria-label="Value"
+        />
+      </List.Cell>
+      <List.Cell>
+        <PlatformSettings.CreateActions
+          onSave={save}
+          onCancel={onClose}
+          status={variant}
+        />
+      </List.Cell>
+    </PlatformSettings.CreateFrame>
+  );
+};
 
 interface SecretItemProps extends List.ItemProps<secret.Key> {
   onSelectCertificate: SelectCertificate;
@@ -149,6 +90,7 @@ const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
   const canUpdate = Access.useUpdateGranted(secret.resourceID(itemKey));
   const { update: rename } = Secret.useRename();
   const [element, setElement] = useState<HTMLElement | null>(null);
+  const fresh = PlatformSettings.useFreshClass(itemKey);
   if (s == null) return null;
   return (
     <Select.Item<secret.Key>
@@ -157,7 +99,7 @@ const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
       checkable
       align="center"
       aria-label={s.name}
-      className={CSS.BE("secret-settings", "item")}
+      className={CSS.cls(CSS.BE("secret-settings", "item"), fresh)}
     >
       <List.Cells>
         <List.Cell>
@@ -199,27 +141,20 @@ export interface SecretsProps {
  */
 export const Secrets = ({ onSelectCertificate }: SecretsProps): ReactElement => {
   const list = Secret.useList({ pageSize: 100 });
-  const openCreate = PlatformSecret.useCreateModal();
   const canCreate = Access.useCreateGranted(secret.TYPE_RESOURCE_ID);
   return (
-    <Table<secret.Key, secret.Secret>
+    <PlatformSettings.Table<secret.Key, secret.Secret>
       list={list}
       columns={SECRET_COLUMNS}
       noun="secrets"
       menu={secretsMenu}
-      action={
-        canCreate && (
-          <Button.Button variant="filled" onClick={() => void openCreate()}>
-            <Icon.Add />
-            Create secret
-          </Button.Button>
-        )
-      }
+      createLabel={canCreate ? "Create secret" : undefined}
+      renderCreate={(p) => <CreateSecret {...p} />}
     >
       {({ key, ...p }) => (
         <SecretItem key={key} {...p} onSelectCertificate={onSelectCertificate} />
       )}
-    </Table>
+    </PlatformSettings.Table>
   );
 };
 
@@ -289,7 +224,7 @@ export const Certificates = ({
   const list = Certificate.useList({ pageSize: 100 });
   const now = useNow(nextMinute);
   return (
-    <Table<certificate.Key, certificate.Certificate>
+    <PlatformSettings.Table<certificate.Key, certificate.Certificate>
       list={list}
       columns={CERTIFICATE_COLUMNS}
       noun="certificates"
@@ -298,6 +233,6 @@ export const Certificates = ({
       onShowSelected={onShowSelected}
     >
       {({ key, ...p }) => <CertificateItem key={key} {...p} now={now} />}
-    </Table>
+    </PlatformSettings.Table>
   );
 };

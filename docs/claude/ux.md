@@ -422,6 +422,13 @@ bound, a log precision, or the line plot X channel.
 - Secrets and certificates are two record tables in Settings, not a toolbar. A secret
   shows where its value comes from and a "Used by" count that opens what uses it. A
   certificate shows when it is valid.
+- The Settings lists share `Settings.Table`: search and a filled create button above,
+  headings, checkable items, and a right-click menu.
+- Create in place when every field you set is a column, such as a label or a secret. The
+  create item opens at the top with check and X buttons, and Enter and Esc. It stays
+  open and empty after each create, and the new item fades in under it.
+- Use a modal when the item needs a field the list does not show, such as a user's
+  password, or when the create returns a value to copy, such as an API key's token.
 - A record table names its columns in a band above the items. Explorers have no
   headings.
 - Declare the columns once with `List.Columns`. Each item lays out its own grid, so give

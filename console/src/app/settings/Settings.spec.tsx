@@ -84,7 +84,7 @@ const useOpenVisible = (): boolean | undefined => Settings.COMMANDS[0].useVisibl
 describe("Settings", () => {
   it("should open the page of each section", async () => {
     await renderSettings();
-    const sections = ["Profile", "API keys", "Appearance", "Storage", "General"];
+    const sections = ["Profile", "API keys", "Appearance", "Storage", "About"];
     for (const name of [
       ...sections,
       "Users",

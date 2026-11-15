@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/credential/Keys";
+export * from "@/platform/credential/KeyTable";
 export * from "@/platform/credential/Password";
 export * from "@/platform/credential/Token";
+export * from "@/platform/credential/useCreateKeyModal";
 export * from "@/platform/credential/useModal";

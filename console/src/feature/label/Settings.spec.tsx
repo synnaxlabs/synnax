@@ -94,6 +94,20 @@ describe("Label.Settings", () => {
       .toBe(1);
   });
 
+  it("should keep the create item open and empty after a create", async () => {
+    await renderLabels();
+    await clickAndSettle("Create label");
+    const name = uniqueName("label");
+    fireEvent.change(await screen.findByPlaceholderText("Label name"), {
+      target: { value: name },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    });
+    await screen.findByText(name);
+    expect(screen.getByPlaceholderText("Label name")).toHaveProperty("value", "");
+  });
+
   it("should rename a label from its menu", async () => {
     const l = await createLabel();
     await renderLabels();

@@ -7,21 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/user/Members.css";
-
 import { access, user } from "@synnaxlabs/client";
 import { Badge } from "@synnaxlabs/lyra/badge";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, User } from "@synnaxlabs/pluto";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Credential } from "@/platform/credential";
@@ -152,57 +148,23 @@ const menu = Component.renderProp(MembersMenu);
  * their sign-in, or deletes them.
  */
 export const Members = (): ReactElement => {
-  const { data, getItem, subscribe, more, search } = Flux.useList(
-    (client) => client.users,
-    { name: "users", query: { order: { field: "name" } }, pageSize: 100 },
-  );
-  const [term, setTerm] = useState("");
-  const [selected, setSelected] = useState<user.Key[]>([]);
-  const menuProps = Menu.useContextMenu();
+  const list = Flux.useList((client) => client.users, {
+    name: "users",
+    query: { order: { field: "name" } },
+    pageSize: 100,
+  });
   const openRegister = PlatformUser.useRegisterModal();
   const canCreate = Access.useCreateGranted(user.TYPE_RESOURCE_ID);
-  const handleSearch = (next: string): void => {
-    setTerm(next);
-    search(next);
-  };
   return (
-    <Select.Frame<user.Key, user.User>
-      multiple
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      onFetchMore={more}
-      value={selected}
-      onChange={setSelected}
+    <PlatformSettings.Table<user.Key, user.User>
+      list={list}
+      columns={COLUMNS}
+      noun="users"
+      menu={menu}
+      createLabel={canCreate ? "Register user" : undefined}
+      onCreate={() => openRegister()}
     >
-      <Menu.ContextMenu menu={menu} {...menuProps} />
-      <Flex.Box y gap="medium">
-        <Flex.Box x align="center" justify="between" gap="medium">
-          <Input.Text
-            value={term}
-            onChange={handleSearch}
-            placeholder="Search users"
-            startContent={<Icon.Search />}
-            className={CSS.BE("user-members", "search")}
-          />
-          {canCreate && (
-            <Button.Button variant="filled" onClick={() => openRegister()}>
-              <Icon.Add />
-              Register user
-            </Button.Button>
-          )}
-        </Flex.Box>
-        <PlatformSettings.Card flush>
-          <List.Columns columns={COLUMNS}>
-            <List.Headings checkable />
-            <List.Scroll onContextMenu={menuProps.open}>
-              <List.Items<user.Key>>
-                {({ key, ...p }) => <Member key={key} {...p} />}
-              </List.Items>
-            </List.Scroll>
-          </List.Columns>
-        </PlatformSettings.Card>
-      </Flex.Box>
-    </Select.Frame>
+      {({ key, ...p }) => <Member key={key} {...p} />}
+    </PlatformSettings.Table>
   );
 };

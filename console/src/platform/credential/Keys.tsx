@@ -95,11 +95,24 @@ export interface KeysProps {
   subject: resource.ID;
 }
 
+export interface UseKeyActionsReturn {
+  canCreate: boolean;
+  canDelete: boolean;
+  create: (name: string) => void;
+  createVariant: status.Variant;
+  remove: (keys: auth.APIKeyKey[]) => void;
+  /** The last key created here, whose token shows once. */
+  created: Credential.CreateKeyResult | null;
+}
+
 /**
- * Lists the subject's API keys, with their live sessions, and creates and deletes keys
- * as the user's access allows. A new key's token shows once, until the next create.
+ * Creates and deletes the subject's API keys as the user's access allows. A key created
+ * after the caller unmounts is deleted, since its token can never show.
  */
-export const Keys = ({ subject }: KeysProps): ReactElement => {
+export const useKeyActions = (
+  subject: resource.ID,
+  afterCreate?: () => void,
+): UseKeyActionsReturn => {
   const client = Synnax.use();
   const { data: currentKey } = User.useResultKey({});
   // The Core checks permissions only for another subject's keys.
@@ -111,7 +124,6 @@ export const Keys = ({ subject }: KeysProps): ReactElement => {
   const invalidateSessions = Credential.useInvalidateSessions();
   const refreshKeys = Credential.useRefreshKeys();
   const refreshSessions = Credential.useRefreshSessions();
-  const [name, setName] = useState("");
   const [created, setCreated] = useState<Credential.CreateKeyResult | null>(null);
   // These reads have no live updates, so a change made here fetches them again.
   const refresh = () => {
@@ -132,7 +144,7 @@ export const Keys = ({ subject }: KeysProps): ReactElement => {
         return;
       }
       setCreated(data);
-      setName("");
+      afterCreate?.();
       refresh();
     },
   });
@@ -151,12 +163,30 @@ export const Keys = ({ subject }: KeysProps): ReactElement => {
       invalidateSessions(query);
     };
   }, []);
+  return {
+    canCreate,
+    canDelete,
+    create: (name) => create.update({ subject, name }),
+    createVariant: create.variant,
+    remove: (keys) => keys.forEach((k) => del.update(k)),
+    created,
+  };
+};
+
+/**
+ * Lists the subject's API keys, with their live sessions, and creates and deletes keys
+ * as the user's access allows. A new key's token shows once, until the next create.
+ */
+export const Keys = ({ subject }: KeysProps): ReactElement => {
+  const [name, setName] = useState("");
+  const { canCreate, canDelete, create, createVariant, remove, created } =
+    useKeyActions(subject, () => setName(""));
   return (
     <Flex.Box y>
       <Flex.Box y className={CSS.BE("credential", "keys")}>
         <KeyList
           subject={subject}
-          onDelete={canDelete ? (k) => del.update(k) : undefined}
+          onDelete={canDelete ? (k) => remove([k]) : undefined}
         />
       </Flex.Box>
       {canCreate && (
@@ -165,8 +195,8 @@ export const Keys = ({ subject }: KeysProps): ReactElement => {
           <Button.Button
             className={CSS.BE("credential", "action")}
             variant="filled"
-            status={status.keepVariants(create.variant, "loading")}
-            onClick={() => create.update({ subject, name })}
+            status={status.keepVariants(createVariant, "loading")}
+            onClick={() => create(name)}
           >
             <Icon.Add />
             Create key
