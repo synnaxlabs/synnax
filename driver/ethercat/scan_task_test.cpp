@@ -2092,9 +2092,9 @@ TEST_F(EtherCATScanModeTest, SetStandaloneReportsASaveWithNoResponseAsNotConfirm
     EXPECT_EQ(status.message, "Switched Test Slave to Synnax with no confirmed save");
     EXPECT_EQ(
         status.description,
-        "The device in slot 1 did not confirm the save of the switch, so it can go back "
-        "to its saved mode when its power restarts. Failed to write 0x8020:02: no "
-        "response."
+        "The device in slot 1 did not confirm the save of the switch, so it can go "
+        "back to its saved mode when its power restarts. Failed to write 0x8020:02: "
+        "no response."
     );
 }
 
