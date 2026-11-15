@@ -332,7 +332,7 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 		walk = func(ref resolution.TypeRef) {
 			if ref.TypeParam == nil {
 				if ns, name, found := strings.Cut(ref.Name, "."); found {
-					if versionNSRe.MatchString(ns) || ns == f.Chain.Resource {
+					if versionNSRe.MatchString(ns) {
 						locals = append(locals, name)
 					} else {
 						into.Add(ns)
@@ -352,7 +352,7 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 	walkValue = func(v resolution.ExpressionValue, into set.Set[string]) {
 		if v.Kind == resolution.ValueKindIdent {
 			if ns, _, found := strings.Cut(v.IdentValue, "."); found &&
-				!versionNSRe.MatchString(ns) && ns != f.Chain.Resource {
+				!versionNSRe.MatchString(ns) {
 				into.Add(ns)
 			}
 		}
@@ -691,7 +691,7 @@ func localRefNames(f *versions.File, ref resolution.TypeRef) []string {
 	walk = func(ref resolution.TypeRef) {
 		if ref.TypeParam == nil {
 			if ns, name, found := strings.Cut(ref.Name, "."); found {
-				if versionNSRe.MatchString(ns) || ns == f.Chain.Resource {
+				if versionNSRe.MatchString(ns) {
 					names = append(names, name)
 				}
 			}
