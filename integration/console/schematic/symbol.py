@@ -16,6 +16,7 @@ from playwright.sync_api import FloatRect, Locator, Page
 
 import synnax as sy
 from console.layout import LayoutClient
+from console.notifications import click_past
 from x.control import Authority
 from x.notation import Notation
 
@@ -134,28 +135,26 @@ class Symbol(ABC):
         """
 
     def _disable_edit_mode(self) -> None:
-        self.notifications.close_all()
         disable_btn = self.page.get_by_role(
             "button", name="Disable editing", exact=True
         )
         if disable_btn.count() > 0:
-            disable_btn.click()
+            click_past(disable_btn)
             self.page.get_by_role("button", name="Enable editing", exact=True).wait_for(
                 state="visible", timeout=3000
             )
 
     def _enable_edit_mode(self) -> None:
-        self.notifications.close_all()
         enable_editing_link = self.page.get_by_text("enable editing", exact=False)
         if enable_editing_link.count() > 0:
-            enable_editing_link.click()
+            click_past(enable_editing_link)
             self.page.get_by_role(
                 "button", name="Disable editing", exact=True
             ).wait_for(state="visible", timeout=2000)
             return
         enable_btn = self.page.get_by_role("button", name="Enable editing", exact=True)
         if enable_btn.count() > 0:
-            enable_btn.click()
+            click_past(enable_btn)
 
     def click(self) -> None:
         """Click the symbol to select it."""
@@ -278,10 +277,5 @@ class Symbol(ABC):
         return {}
 
     def open_properties_tab(self) -> None:
-        """Open the symbol Properties tab.
-
-        Toasts stack over the tab strip and swallow coordinate clicks, so the
-        click is dispatched on the tab itself.
-        """
-        self.notifications.close_all()
-        self.page.get_by_text("Properties").dispatch_event("click")
+        """Open the symbol Properties tab."""
+        click_past(self.page.get_by_text("Properties"))
