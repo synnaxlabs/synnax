@@ -59,5 +59,8 @@ const OWNED_CHANNELS: Record<string, (config: unknown) => channel.Key[]> = {
  * @returns the keys of the channels that the Start of the task creates. A task of a
  * type that names channels it does not own, such as a Sift upload, returns none.
  */
-export const ownedChannelsOf = ({ type, config }: task.Task): channel.Key[] =>
+export const ownedChannelsOf = ({
+  type,
+  config,
+}: Pick<task.Payload, "type" | "config">): channel.Key[] =>
   OWNED_CHANNELS[type]?.(config) ?? [];

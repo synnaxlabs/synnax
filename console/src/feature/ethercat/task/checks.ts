@@ -52,6 +52,17 @@ const onlyReaderStep = (props: SlaveProperties): string => {
 };
 
 /**
+ * @returns why the task cannot start with the device of the channel, or null. slave is
+ * the device, or undefined when it has not loaded.
+ */
+const deviceProblem = (ch: Channel, slave: SlaveDevice | undefined): string | null => {
+  if (ch.device === "") return "A channel has no device. Pick a device.";
+  if (slave?.configured === false)
+    return `${slave.name} is not configured. Configure it to start the task.`;
+  return null;
+};
+
+/**
  * @returns why the task cannot start with the enabled channel on the slave, or null.
  * channels holds the enabled channels of the task on the slave, ch among them.
  */
@@ -213,8 +224,9 @@ interface Problem {
 
 /**
  * @returns why the task cannot start on its slaves: task-wide problems at the channel
- * list, and each problem of an enabled channel at that channel. A channel whose slave
- * is not in slaves is not checked.
+ * list, a problem with the device of each channel at its device, and each other problem
+ * of an enabled channel at that channel. Of a channel whose slave is not in slaves,
+ * only a missing device is checked.
  */
 const problemsOf = (
   pdoType: PDOType,
@@ -245,8 +257,13 @@ const problemsOf = (
     problems.push({ path: ["channels"], message: steps.join(" "), variant: "warning" });
   channels.forEach((ch, i) => {
     const slave = used.find((s) => s.key === ch.device);
+    let message = deviceProblem(ch, slave);
+    if (message != null) {
+      problems.push({ path: ["channels", i, "device"], message });
+      return;
+    }
     if (slave == null || ch.disabled) return;
-    let message = entryProblem(slave, enabled.get(ch.device) ?? [], ch, pdoType);
+    message = entryProblem(slave, enabled.get(ch.device) ?? [], ch, pdoType);
     if (message == null && pdoType === "inputs" && hasEntry(ch))
       message = settingProblem(slave, ch, startupParameters);
     if (message != null) problems.push({ path: ["channels", i], message });
@@ -256,11 +273,11 @@ const problemsOf = (
 
 /**
  * Checks the channels of a task against their slaves as the user edits: one network for
- * every slave, no other device at the position or with the serial number of a slave,
- * and for each enabled channel its entry and, on inputs, the settings of the input it
- * reads. It warns of a slave with an enabled channel that other software sets up. A
- * channel whose slave has not loaded is not checked, so a deploy runs
- * {@link checkSlaves} too.
+ * every slave, no other device at the position or with the serial number of a slave, a
+ * configured device for each channel, and for each enabled channel its entry and, on
+ * inputs, the settings of the input it reads. It warns of a slave with an enabled
+ * channel that other software sets up. A channel whose slave has not loaded is not
+ * checked, so a deploy runs {@link checkSlaves} too.
  * @param slaves - The slaves that the channels of the task use.
  * @param onRack - The slaves on the rack of the task, with their statuses.
  */

@@ -45,6 +45,7 @@ cc_library(
         "read_task.h",
         "scan_task.cpp",
         "scan_task.h",
+        "steps.h",
         "write_task.h",
     ],
     hdrs = [
@@ -68,6 +69,7 @@ cc_library(
         "//driver/task",
         "//driver/transform",
         "//x/cpp/breaker",
+        "//x/cpp/defer",
         "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/lib",

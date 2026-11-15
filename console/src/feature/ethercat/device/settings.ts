@@ -105,8 +105,8 @@ export const findInput = (
   description?.channels.find((c) => c.entries.some((e) => sameAddress(e, address)));
 
 /**
- * @returns the value at the address: the one in values, else the value that the slave
- * held at the scan or the default of the first field there.
+ * @returns the value at the address: the one in values, else the shortest form of the
+ * value that the slave held at the scan, or the default of the first field there.
  * @throws {Error} if no field and no value is at the address.
  */
 export const valueAt = (fields: Field[], values: Value[], address: Address): number => {
@@ -115,7 +115,7 @@ export const valueAt = (fields: Field[], values: Value[], address: Address): num
   const field = fields.find((f) => sameAddress(f, address));
   if (field == null)
     throw new Error(`No setting is at ${ethercat.formatAddress(address)}`);
-  return field.value ?? field.default;
+  return field.value == null ? field.default : shortestValue(field, field.value);
 };
 
 const holds = (fields: Field[], values: Value[], condition: Condition): boolean => {
@@ -166,18 +166,25 @@ export const fill = (fields: Field[], values: Value[]): ethercat.StartupParamete
 };
 
 /**
- * @returns the shortest text that reads back as the value of the field.
+ * @returns the value with the fewest digits that the field stores as the value.
  * @throws {RangeError} when the value is not finite.
  */
-export const valueText = ({ dataType }: Field, value: number): string => {
+const shortestValue = ({ dataType }: Field, value: number): number => {
   if (!Number.isFinite(value)) throw new RangeError(`${value} is not a finite value`);
-  if (!DataType.FLOAT32.equals(dataType)) return value.toString();
+  if (!DataType.FLOAT32.equals(dataType)) return value;
   // A typed value or a catalog limit is a float64 that float32 can fail to hold.
   const stored = Math.fround(value);
   let digits = 1;
   while (Math.fround(Number(value.toPrecision(digits))) !== stored) digits++;
-  return Number(value.toPrecision(digits)).toString();
+  return Number(value.toPrecision(digits));
 };
+
+/**
+ * @returns the shortest text that reads back as the value of the field.
+ * @throws {RangeError} when the value is not finite.
+ */
+export const valueText = (field: Field, value: number): string =>
+  shortestValue(field, value).toString();
 
 /** A value that a change of another field moved, and the text that says so. */
 export interface Note extends Address {

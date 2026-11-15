@@ -368,7 +368,8 @@ TEST_F(EtherCATWriteTest, InvalidSlaveDevice) {
 }
 
 /// @brief it should start a write task that the Factory configures, with the bus at the
-/// execution rate of the task.
+/// execution rate of the task, and send only the steps that the start reached before it
+/// answers the start.
 TEST_F(EtherCATWriteTest, FactoryStartsAWriteTaskAtItsExecutionRate) {
     const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
     auto cfg = this->create_base_config();
@@ -388,10 +389,30 @@ TEST_F(EtherCATWriteTest, FactoryStartsAWriteTaskAtItsExecutionRate) {
     auto [write_task, ok] = factory.configure_task(this->ctx, task, "", this->cancel);
     ASSERT_TRUE(ok);
     ASSERT_NE(write_task, nullptr);
-    synnax::task::Command start{.task = task.key, .type = "start"};
+    synnax::task::Command start{.task = task.key, .type = "start", .key = "start_cmd"};
     write_task->exec(start, this->cancel);
-    ASSERT_EVENTUALLY_GE(this->ctx->snapshot().size(), 1);
-    EXPECT_EQ(this->ctx->snapshot()[0].message, "Started task");
+    ASSERT_EVENTUALLY_EQ_F(
+        [&] {
+            const auto sent = this->ctx->snapshot();
+            return sent.empty() ? std::string() : sent.back().message;
+        },
+        std::string("Started task")
+    );
+    const auto statuses = this->ctx->snapshot();
+    std::vector<std::string> messages;
+    for (const auto &status: statuses) {
+        messages.push_back(status.message);
+        EXPECT_EQ(status.details.cmd, "start_cmd");
+    }
+    // Only the latest step waits to be sent, so the sender can skip the scan.
+    const std::vector<std::string> every{
+        "Scanning eth0",
+        "Starting eth0",
+        "Started task"
+    };
+    const std::vector<std::string> latest{"Starting eth0", "Started task"};
+    ASSERT_TRUE(messages == every || messages == latest) << messages.size();
+    EXPECT_EQ(statuses[statuses.size() - 2].variant, synnax::status::VARIANT_LOADING);
     EXPECT_EQ(this->mock_master->plan().period, x::telem::MILLISECOND * 4);
     synnax::task::Command stop{.task = task.key, .type = "stop"};
     write_task->exec(stop, this->cancel);
@@ -443,7 +464,7 @@ TEST_F(EtherCATWriteTest, SinkStartBehindAnotherStartFailsAtTheStartTimeout) {
     this->mock_master->release_activate();
     starter.join();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "Another task is still starting on eth0.");
+    EXPECT_EQ(err.data, "Another task is still using eth0.");
     ASSERT_NIL(first->stop());
 }
 
@@ -469,6 +490,65 @@ TEST_F(EtherCATWriteTest, SinkWritesTheStopValueWhenTheTaskStops) {
     ASSERT_NIL(sink.stop());
     EXPECT_FALSE(this->engine->running());
     EXPECT_EQ(this->mock_master->get_output<int16_t>(0), -3);
+}
+
+/// @brief it should hold a warning when the bus did not apply the startup parameters of
+/// a slave that another program sets up.
+TEST_F(EtherCATWriteTest, SinkHoldsAWarningForSkippedStartupSettings) {
+    this->mock_master->set_settings(
+        1,
+        {{"mode", {{"shared", true}, {"shared_with", "DewesoftX"}}}}
+    );
+    engine::Config engine_cfg;
+    engine_cfg.slave_configs = [this] {
+        return std::pair{
+            std::vector{engine::SavedSlave{
+                .identity =
+                    {
+                        .position = 1,
+                        .vendor_id = 0x1,
+                        .product_code = 0x2,
+                        .serial = SLAVE_SERIAL,
+                        .name = "Test Slave",
+                    },
+                .config =
+                    {.startup_parameters =
+                         {
+                             {.index = 0x8040,
+                              .sub_index = 1,
+                              .data_type = x::telem::UINT16_T,
+                              .value = 6},
+                         }},
+            }},
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<engine::Engine>(
+        NETWORK_INTERFACE,
+        this->mock_master,
+        engine_cfg
+    );
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    cfg["channels"].push_back(
+        create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
+    );
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+
+    auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
+    EXPECT_EQ(
+        sink.held_warning(),
+        (common::Warning{
+            .message = "Skipped startup settings",
+            .description = "Slave 1 (Test Slave) is set up for DewesoftX, so Synnax "
+                           "did not apply its 1 startup setting. Remove it, or switch "
+                           "the device to Synnax in Configure.",
+        })
+    );
+    ASSERT_NIL(sink.stop());
 }
 
 /// @brief it should hold a warning while its slave is lost, tell when the slave

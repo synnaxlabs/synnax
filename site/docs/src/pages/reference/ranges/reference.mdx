@@ -84,13 +84,12 @@ Each stage change in the Console sets a time:
 | From        | Select            | Change                                                               |
 | ----------- | ----------------- | -------------------------------------------------------------------- |
 | To do       | **Start**         | The start becomes now. The end stays.                                |
-| To do       | **Complete**      | The end becomes now. A start in the future also becomes now.         |
-| In progress | **Complete**      | The end becomes now.                                                 |
+| To do       | **Stop**          | The end becomes now. A start in the future also becomes now.         |
+| In progress | **Stop**          | The end becomes now.                                                 |
 | In progress | **Move to to do** | The start moves to the end. A range with no end loses its start too. |
 | Completed   | **Reopen**        | The end is removed. The start stays.                                 |
 
-In the range explorer, the **Start** and **Stop** menu items make the same changes as
-**Start** and **Complete**.
+In the range explorer, the **Start** and **Stop** menu items make the same changes.
 
 On the timeline, **Unschedule** clears the start and the end, and **Remove end** clears
 the end. When you move the start past the end, the end moves with it and the range keeps

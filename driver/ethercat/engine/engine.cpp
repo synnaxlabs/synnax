@@ -38,6 +38,18 @@ const x::telem::Rate MAX_CYCLE_RATE(10000);
 const auto SUPERVISOR_INTERVAL = x::telem::MILLISECOND * 100;
 /// @brief how often a call that needs the stopped bus tries mu again.
 const auto LOCK_POLL_INTERVAL = x::telem::MILLISECOND * 10;
+/// @brief how long each step of a start may run before the task warns.
+const auto WAIT_STEP_LIMIT = x::telem::SECOND * 10;
+const auto SCAN_STEP_LIMIT = x::telem::SECOND * 10;
+const auto ACTIVATE_STEP_LIMIT = x::telem::SECOND * 30;
+const auto RESET_STEP_LIMIT = x::telem::SECOND * 10;
+/// @brief how long a retry step may run past its wait.
+const auto RETRY_STEP_SLACK = x::telem::SECOND * 10;
+
+/// @brief sends step to the report of start, if it has one.
+void report(const Engine::Start &start, const Engine::Step &step) {
+    if (start.report) start.report(step);
+}
 
 /// @brief returns the error of an open whose cancel stopped before the bus started. The
 /// task answers a start that ends with it as stopped.
@@ -57,11 +69,11 @@ x::errors::Error start_late_error(const std::string &network) {
 }
 
 /// @brief returns the error of a start whose deadline passed while or after it waited
-/// for another start.
+/// for another task.
 x::errors::Error start_blocked_error(const std::string &network) {
     return x::errors::Error(
         errors::ACTIVATION_ERROR,
-        "Another task is still starting on " + network + "."
+        "Another task is still using " + network + "."
     );
 }
 /// @brief the length of the sample buffer of each reader, in seconds of samples.
@@ -172,9 +184,7 @@ void advise_switch(
         refusal.advice = "Restart the power of the device.";
         return;
     }
-    const auto mode = props.settings->value("mode", x::json::json::object());
-    auto program = mode.value("shared_with", "");
-    if (program.empty()) program = mode.value("only_read_by", "");
+    const auto program = props.shared_with();
     if (program.empty()) return;
     refusal.advice = std::format(
         "{}The device is set up for {}. In Configure, switch the device to Synnax.",
@@ -198,6 +208,33 @@ x::errors::Error left_out_error(
     );
     if (!refusal.advice.empty()) msg.append(" ").append(refusal.advice);
     return x::errors::Error(errors::STATE_CHANGE_REFUSED, msg);
+}
+
+/// @brief returns a sentence for each slave of bus that another program sets up and
+/// that has startup parameters in counts, keyed by position.
+std::string unapplied(
+    const std::vector<slave::DiscoveryResult> &bus,
+    const std::map<uint16_t, size_t> &counts
+) {
+    std::string text;
+    for (const auto &s: bus) {
+        const auto &props = s.properties;
+        const auto it = counts.find(props.position);
+        if (it == counts.end() || it->second == 0 || !props.shared()) continue;
+        const bool one = it->second == 1;
+        if (!text.empty()) text += ' ';
+        text += std::format(
+            "Slave {} ({}) is set up for {}, so Synnax did not apply its {} startup "
+            "setting{}. Remove {}, or switch the device to Synnax in Configure.",
+            props.position,
+            props.name,
+            props.shared_with(),
+            it->second,
+            one ? "" : "s",
+            one ? "it" : "them"
+        );
+    }
+    return text;
 }
 }
 
@@ -643,6 +680,25 @@ x::errors::Error Engine::start_locked(
                 if (const auto it = plan.slaves.find(s.properties.position);
                     it != plan.slaves.end() && s.properties.shared())
                     it->second.startup_parameters.clear();
+            const auto starting = std::ranges::count_if(
+                this->slaves,
+                [&plan](const slave::DiscoveryResult &s) {
+                    const auto it = plan.slaves.find(s.properties.position);
+                    return it == plan.slaves.end() || it->second.enabled;
+                }
+            );
+            report(
+                start,
+                {
+                    .message = "Starting " + this->network_name,
+                    .description = std::format(
+                        "Bringing {} slave{} to OP.",
+                        starting,
+                        starting == 1 ? "" : "s"
+                    ),
+                    .limit = ACTIVATE_STEP_LIMIT,
+                }
+            );
             auto activation = this->master->activate(plan, start_cycle);
             err = activation.err;
             if (!err) break;
@@ -665,6 +721,24 @@ x::errors::Error Engine::start_locked(
                     LOG(WARNING)
                         << "[ethercat] slave " << pos << " on " << this->iface << " "
                         << refusal.reason << ", starting again with it reset";
+                    const auto s = std::ranges::find_if(
+                        this->slaves,
+                        [pos](const auto &d) { return d.properties.position == pos; }
+                    );
+                    report(
+                        start,
+                        {
+                            .message = std::format(
+                                "Resetting slave {} ({})",
+                                pos,
+                                s == this->slaves.end() ? "" : s->properties.name
+                            ),
+                            .description = errors::sentence("It " + refusal.reason) +
+                                           " Starting " + this->network_name +
+                                           " again with it reset.",
+                            .limit = RESET_STEP_LIMIT,
+                        }
+                    );
                     continue;
                 }
                 leaving.insert({pos, refusal});
@@ -711,6 +785,16 @@ x::errors::Error Engine::start_locked(
             return start_error(err, refused, this->left_out);
         LOG(WARNING) << "[ethercat] failed to start " << this->iface
                      << ", trying again in " << wait << ": " << err.message();
+        const auto why = errors::sentence(err.data);
+        report(
+            start,
+            {
+                .message = "Retrying the start",
+                .description = (why.empty() ? "" : why + " ") + "Trying again in " +
+                               wait.to_string() + ".",
+                .limit = wait + RETRY_STEP_SLACK,
+            }
+        );
         start.cancel.wait_for(wait);
     }
     this->slaves = this->image.slaves;
@@ -1049,10 +1133,33 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     const auto [mhz, rate_err] = this->rate_locked(reads, writes);
     if (rate_err) return {{}, rate_err};
     const bool started = !this->running();
+    std::set<uint16_t> positions;
     if (started) {
         if (configs_err) return {{}, configs_err};
         if (auto err = this->start_locked(mhz, saved, settings, start))
             return {{}, err};
+        // The start planned on this scan, so the plan finds the same slaves.
+        auto [configs, plan_err] = this->plan_locked(saved, {});
+        if (plan_err) {
+            this->stop_locked();
+            return {{}, plan_err};
+        }
+        this->device_configs = std::move(configs);
+        for (const auto &[pos, _]: this->device_configs)
+            positions.insert(pos);
+    } else {
+        for (const auto &entry: entries)
+            positions.insert(entry.slave_position);
+    }
+    for (const auto &[pos, _]: settings)
+        positions.insert(pos);
+    std::map<uint16_t, size_t> counts;
+    for (const auto pos: positions) {
+        const auto it = this->device_configs.find(pos);
+        auto cfg = it == this->device_configs.end() ? slave::Config{} : it->second;
+        if (const auto params = settings.find(pos); params != settings.end())
+            cfg.add_startup_parameters(params->second);
+        counts[pos] = cfg.startup_parameters.size();
     }
     auto [offsets, err] = this->offsets_locked(entries);
     if (err) {
@@ -1070,14 +1177,25 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
             if (auto write_err = this->master->write(pos, params))
                 return {{}, write_err};
         }
-    return {{.mhz = mhz, .offsets = std::move(offsets)}, x::errors::NIL};
+    return {
+        {
+            .mhz = mhz,
+            .offsets = std::move(offsets),
+            .unapplied = unapplied(this->slaves, counts),
+        },
+        x::errors::NIL
+    };
 }
 
-Engine::Start Engine::begin_start(x::breaker::Breaker &cancel) const {
+Engine::Start Engine::begin_start(
+    x::breaker::Breaker &cancel,
+    std::function<void(const Step &)> report
+) const {
     return {
         .deadline = this->config.host_clock.steady() +
                     this->config.start_timeout.chrono(),
         .cancel = cancel,
+        .report = std::move(report),
     };
 }
 
@@ -1111,6 +1229,7 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
         samples_per_read
     );
     input->settings = settings;
+    input->unapplied = std::move(joined.unapplied);
     this->inputs.push_back(input);
     this->publish_schedule_locked(joined.mhz);
     return {std::make_unique<Reader>(*this, std::move(input)), x::errors::NIL};
@@ -1151,6 +1270,7 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
         .rate = execution_rate,
         .offsets = std::move(joined.offsets),
         .stop_values = std::move(stop_values),
+        .unapplied = std::move(joined.unapplied),
         .slaves = std::vector<Output::Slave>(slaves.size()),
         .changed = std::move(changed),
     });
@@ -1189,6 +1309,11 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
 Engine::discover(const Start &start) {
     std::unique_lock lock(this->mu, std::defer_lock);
     if (auto err = this->lock_for(lock, start)) return {{}, err};
+    if (!this->running())
+        report(
+            start,
+            {.message = "Scanning " + this->network_name, .limit = SCAN_STEP_LIMIT}
+        );
     return this->discover_locked();
 }
 
@@ -1223,7 +1348,17 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::redisco
 
 x::errors::Error
 Engine::lock_for(std::unique_lock<std::mutex> &lock, const Start &start) const {
-    while (!lock.try_lock()) {
+    // A wait of one poll is a short hold, such as a notify of the cycle thread.
+    for (int polls = 0; !lock.try_lock(); polls++) {
+        if (polls == 1)
+            report(
+                start,
+                {
+                    .message = "Waiting for another task",
+                    .description = "Another task is using " + this->network_name + ".",
+                    .limit = WAIT_STEP_LIMIT,
+                }
+            );
         start.blocked = true;
         if (!start.cancel.running()) return start_canceled_error(this->network_name);
         if (this->config.host_clock.steady() >= start.deadline)

@@ -33,7 +33,6 @@ export interface DialogProps extends Flex.BoxProps<"div"> {}
 export const Dialog = ({
   ref: propsRef,
   style,
-  background = 0,
   className,
   bordered = true,
   rounded = "small",
@@ -68,7 +67,6 @@ export const Dialog = ({
       pack
       ref={combinedRef}
       y
-      background={background}
       className={CSS.cls(
         CSS.BE("dialog", "dialog"),
         CSS.loc(targetCorner.x),

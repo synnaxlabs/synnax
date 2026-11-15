@@ -9,6 +9,7 @@
 
 import "@/menu/Sub.css";
 
+import { type xy } from "@synnaxlabs/x";
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -29,11 +30,24 @@ import { SubContext, useSubContext, useSubmenusContext } from "@/menu/submenus";
 import { type position } from "@/position";
 
 const MENU_ITEM = '[role="menuitem"]';
+const LIST = '[role="listbox"]';
 
-// The content opens beside the item, on the side that has room.
+// The content opens beside the item, on the side that has room. It laps 4 px over the
+// menu edge: padding 6 + border 1 - frame offset 3.
 const LOCATION: position.LocationPreference = {
   targetCorner: { y: "top" },
   dialogCorner: { y: "top" },
+};
+
+// The list area of the content sits level with the item that opens it. It starts below
+// the search of a selection, or at the padding of a menu.
+const alignOffset = (dialog: HTMLElement): xy.XY => {
+  const list = dialog.querySelector(LIST);
+  const y =
+    list == null
+      ? dialog.clientTop + parseFloat(getComputedStyle(dialog).paddingTop)
+      : list.getBoundingClientRect().top - dialog.getBoundingClientRect().top;
+  return { x: 0, y };
 };
 
 /** Props for {@link Sub}. */
@@ -99,6 +113,7 @@ export const Sub = ({ itemKey, children }: SubProps): ReactElement => {
       <Dialog.Frame
         variant="floating"
         location={LOCATION}
+        alignOffset={alignOffset}
         {...frame(itemKey)}
         className={CSS.B("menu-sub")}
         onPointerMove={handlePointerMove}
