@@ -1624,6 +1624,94 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
+			"Should not overwrite a running status written while it copies an outage",
+			func(ctx SpecContext) {
+				// Every stored rack goes silent first, so only the outage below is
+				// copied.
+				now := telem.Now().Add(telem.Hour)
+				frozenNow.Store(int64(now))
+				DeferCleanup(func() { frozenNow.Store(0) })
+				Eventually(func(g Gomega) {
+					silent := []rack.Key{testRack.Key, rackService.EmbeddedKey}
+					for _, k := range silent {
+						var s rack.Status
+						g.Expect(stat.NewRetrieve[rack.StatusDetails]().
+							Where(
+								status.MatchOwners[rack.StatusDetails](k.ResourceID()),
+							).
+							Entry(&s).
+							Exec(ctx, db)).To(Succeed())
+						g.Expect(s.Message).To(Equal("Driver not running"))
+					}
+				}).Should(Succeed())
+				r := rack.Rack{Name: "copied rack"}
+				t := &task.Task{Type: testType, Name: "Copied Task"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := rackService.NewWriter(tx).Create(ctx, &r); err != nil {
+						return err
+					}
+					t.Rack = r.Key
+					return svc.NewWriter(tx).Create(ctx, t)
+				})).To(Succeed())
+				setRunning := func(at telem.TimeStamp, hash string) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return stat.NewWriter(tx).Set(ctx, &task.Status{
+							Owner:   new(t.ResourceID()),
+							Name:    t.Name,
+							Time:    at,
+							Variant: status.VariantSuccess,
+							Message: "Task started",
+							Details: task.StatusDetails{
+								Running:    true,
+								Rack:       r.Key,
+								ConfigHash: hash,
+							},
+						})
+					})).To(Succeed())
+				}
+				setRunning(now, "old")
+				// Once the outage commits, a held transaction blocks the copy. The
+				// Driver's report then queues behind the copy's read, which is where a
+				// copy that reads and writes in two transactions lets it in.
+				reported := make(chan struct{})
+				var once sync.Once
+				DeferCleanup(stat.Observe().OnChange(func(
+					_ context.Context,
+					changes gorp.TxReader[status.Key, status.Status[any]],
+				) {
+					for ch := range changes {
+						if ch.Value.Owner == nil || *ch.Value.Owner != r.ResourceID() ||
+							ch.Value.Message != "Driver not running" {
+							continue
+						}
+						once.Do(func() {
+							held := make(chan struct{})
+							go func() {
+								defer GinkgoRecover()
+								tx := db.OpenTx()
+								close(held)
+								time.Sleep(50 * time.Millisecond)
+								go func() {
+									defer GinkgoRecover()
+									defer close(reported)
+									setRunning(now.Add(telem.Millisecond), "new")
+								}()
+								time.Sleep(50 * time.Millisecond)
+								Expect(tx.Close()).To(Succeed())
+							}()
+							<-held
+						})
+					}
+				}))
+				frozenNow.Store(int64(now.Add(rackService.HealthCheckInterval)))
+				Eventually(reported).Should(BeClosed())
+				Consistently(func(g Gomega) {
+					g.Expect(retrieveStatus(ctx, t).Details.ConfigHash).To(Equal("new"))
+				}, 100*time.Millisecond, 5*time.Millisecond).Should(Succeed())
+			},
+		)
+
+		It(
 			"Should fail a task that was starting when its rack went silent",
 			func(ctx SpecContext) {
 				// The rack and its tasks commit together, so the rack cannot go silent
