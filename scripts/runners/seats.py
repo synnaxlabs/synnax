@@ -38,9 +38,12 @@ def seat_labels(tags: dict[str, str]) -> set[str]:
 
 def limited(tags: dict[str, str], *, now: sy.TimeStamp) -> bool:
     """Whether the login of a seat is at a usage limit that has not reset by now. The
-    `limited-until` tag holds the reset time in Unix seconds."""
-    until = tags.get("limited-until")
-    return until is not None and sy.TimeStamp(int(until) * sy.TimeSpan.SECOND) > now
+    `limited-until` tag holds the reset time in Unix seconds. Agents can write the tag,
+    so a value that is not a whole number counts as no limit."""
+    until = tags.get("limited-until", "")
+    if not until.isdecimal():
+        return False
+    return sy.TimeStamp(int(until) * sy.TimeSpan.SECOND) > now
 
 
 class Seats:

@@ -35,6 +35,10 @@ provider "aws" {
       owner   = "runners"
     }
   }
+  # A seat writes this tag at a usage limit, so an apply must keep it.
+  ignore_tags {
+    keys = ["limited-until"]
+  }
 }
 
 data "aws_ssm_parameter" "ubuntu" {

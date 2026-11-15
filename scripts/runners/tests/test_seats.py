@@ -210,3 +210,10 @@ class TestSeats:
         client.elapsed += sy.TimeSpan.HOUR + sy.TimeSpan.SECOND
         s.step(queued=[JOB], found=found)
         assert aws.started == [CLAUDE]
+
+    def test_should_ignore_a_malformed_limit(self, client: Client) -> None:
+        aws = Instances()
+        found = {CLAUDE: seat("stopped")}
+        found[CLAUDE]["tags"]["limited-until"] = "1795266000.0"
+        seats(client, aws).step(queued=[JOB], found=found)
+        assert aws.started == [CLAUDE]
