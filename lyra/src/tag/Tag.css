@@ -23,8 +23,9 @@
     --pluto-hover-border-color: var(--pluto-gray-l6);
     --pluto-active-border-color: var(--pluto-gray-l6);
 
-    /* The face it shows now, hovered or pressed too. */
+    /* The face and outline it shows now, hovered or pressed too. */
     --lyra-tag-face: var(--pluto-btn-bg);
+    --lyra-tag-edge: var(--pluto-btn-border-color);
 
     border-radius: var(--pluto-border-radius-small);
     width: fit-content;

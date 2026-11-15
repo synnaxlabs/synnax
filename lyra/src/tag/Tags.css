@@ -244,7 +244,7 @@
 /* A lit group brightens its outlines and its count's text. */
 @container style(--lyra-tags-lit: 1) {
     .lyra-tags--stepped > .lyra-flex.lyra-btn.lyra-tag {
-        border-color: var(--pluto-gray-l8);
+        --pluto-border-color: var(--pluto-gray-l8);
     }
 
     .lyra-tags--stepped > .lyra-tags__more[data-count] {
@@ -287,9 +287,12 @@
         border-color: transparent;
         background: none;
         box-shadow: none;
-        color: var(--pluto-gray-l9);
         clip-path: inset(-4px -15px -4px -4px);
-        transition: color 0.15s;
+
+        /* A hovered tag shows its name as a full tag does. */
+        &:where(:not(:hover)) {
+            color: var(--pluto-gray-l9);
+        }
 
         &::before {
             position: absolute;
@@ -298,16 +301,11 @@
             bottom: -1px;
             left: -1px;
             width: calc(100% + 17px);
-            border: var(--pluto-border-l6);
+            border: var(--pluto-border-width) solid var(--lyra-tag-edge);
             border-radius: var(--pluto-border-radius-small);
-            background: var(--pluto-btn-bg);
+            background: var(--lyra-tag-face);
             box-shadow: var(--pluto-shadow-lift);
             content: "";
-            transition: border-color 0.15s;
-        }
-
-        &:hover {
-            color: var(--pluto-gray-l11);
         }
 
         /* The name runs on under the next tag, whose face cuts it. */
@@ -322,13 +320,11 @@
         z-index: 2;
         flex: 0 0 var(--lyra-tag-full);
         margin-right: calc(var(--lyra-tag-shrunk) - var(--lyra-tag-full));
-        color: var(--pluto-gray-l11);
         clip-path: none;
         animation: lyra-tags-lift 0.1s ease-out;
 
         &::before {
             width: calc(100% + 2px);
-            border-color: var(--pluto-gray-l9);
         }
     }
 
@@ -348,13 +344,9 @@
     }
 }
 
-/* A lit group brightens its stacked faces and names. */
+/* A lit group brightens its names, stacked ones too. */
 @container style(--lyra-tags-lit: 1) {
     .lyra-tags--stepped > .lyra-flex.lyra-btn.lyra-tag {
         color: var(--pluto-gray-l11);
-
-        &::before {
-            border-color: var(--pluto-gray-l8);
-        }
     }
 }

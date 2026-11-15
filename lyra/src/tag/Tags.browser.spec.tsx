@@ -178,6 +178,43 @@ describe("Tags", () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
+  it("should give a stacked tag the hover of a full tag", async () => {
+    const group = (width: number): ReactElement => (
+      <div data-testid="frame" style={{ display: "flex", width: `${width}px` }}>
+        <Tag.Tags onCountClick={() => {}}>
+          {LABELS.map((label) => (
+            <Tag.Tag key={label} color="#3774d0">
+              {label}
+            </Tag.Tag>
+          ))}
+        </Tag.Tags>
+      </div>
+    );
+    const { container } = await renderThemed(
+      <>
+        {group(1000)}
+        {group(330)}
+      </>,
+    );
+    const [wide, narrow] = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-testid=frame]"),
+    );
+    await expect.poll(() => stacked(narrow)).toBe(true);
+    // A stacked tag paints its face and outline on a pseudo-element.
+    const look = (tag: HTMLElement, face: boolean): string[] => {
+      const box = getComputedStyle(tag, face ? "::before" : undefined);
+      return [box.borderTopColor, box.backgroundColor, getComputedStyle(tag).color];
+    };
+    const hovered = async (tag: HTMLElement, face: boolean): Promise<string[]> => {
+      await userEvent.hover(tag);
+      return look(tag, face);
+    };
+    const full = await hovered(visible(wide)[0], false);
+    const shown = visible(narrow).filter(hasName);
+    expect(await hovered(shown[0], true)).toEqual(full);
+    expect(await hovered(shown[shown.length - 1], true)).toEqual(full);
+  });
+
   it("should keep its width as it hides tags", async () => {
     const { container } = await renderThemed(
       <div style={{ display: "flex", width: "1000px" }}>
