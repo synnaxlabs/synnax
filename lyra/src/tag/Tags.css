@@ -312,7 +312,7 @@
             width: calc(100% + 17px);
             border: var(--pluto-border-l6);
             border-radius: var(--pluto-border-radius-small);
-            background: var(--pluto-gray-l0);
+            background: var(--pluto-btn-bg);
             box-shadow: var(--pluto-shadow-lift);
             content: "";
             transition: border-color 0.15s;

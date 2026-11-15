@@ -14,13 +14,18 @@
     --lyra-tag-dot: 1.5rem;
 }
 
-/* The flex class outranks the bordered rule in Box.css, which would otherwise tie with
-   this one and leave the border color to load order. */
+/* A tag rests on the surface, and keeps that face on hover and press unless it is a
+   click of its own. */
 .lyra-flex.lyra-btn.lyra-tag {
-    border: var(--pluto-border-l6);
+    --pluto-bg: var(--pluto-gray-l0);
+    --pluto-hover-bg: var(--pluto-gray-l0);
+    --pluto-active-bg: var(--pluto-gray-l0);
+    --pluto-border-color: var(--pluto-gray-l6);
+    --pluto-hover-border-color: var(--pluto-gray-l6);
+    --pluto-active-border-color: var(--pluto-gray-l6);
+
     border-radius: var(--pluto-border-radius-small);
     width: fit-content;
-    background: var(--pluto-gray-l0);
     max-width: 200px;
     overflow: hidden;
     white-space: nowrap;

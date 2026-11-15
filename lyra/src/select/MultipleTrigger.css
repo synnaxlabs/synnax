@@ -43,3 +43,52 @@
         pointer-events: auto;
     }
 }
+
+/* Each of its tags and its count is a button of its own, so each takes the outlined
+   button's hover and press. The room around them stays at rest. */
+.lyra-btn.lyra-dialog__trigger.lyra-tags:is(.lyra-btn--shadow, .lyra-btn--text) {
+    --pluto-hover-bg: var(--pluto-bg);
+    --pluto-active-bg: var(--pluto-bg);
+    --pluto-hover-border-color: var(--pluto-border-color);
+    --pluto-active-border-color: var(--pluto-border-color);
+
+    & > .lyra-flex.lyra-btn.lyra-tag {
+        --pluto-hover-bg: var(--pluto-fill-hover);
+        --pluto-active-bg: var(--pluto-fill-press);
+        --pluto-hover-border-color: var(--pluto-gray-l8);
+        --pluto-active-border-color: var(--pluto-gray-l8);
+
+        /* Its close shows on hover, over the hovered face. */
+        & .lyra-btn.lyra-tag__close {
+            --pluto-bg: var(--pluto-fill-hover);
+            --pluto-hover-bg: var(--pluto-fill-hover);
+            --pluto-active-bg: var(--pluto-fill-hover);
+        }
+    }
+
+    & > .lyra-tags__more:hover {
+        border-color: var(--pluto-gray-l8);
+        background-color: var(--pluto-fill-hover);
+    }
+
+    & > .lyra-tags__more:active {
+        background-color: var(--pluto-fill-press);
+    }
+
+    /* A stepped count paints its face under its dots instead. */
+    &.lyra-tags--stepped > .lyra-tags__more {
+        &:hover,
+        &:active {
+            border-color: transparent;
+            background: none;
+        }
+
+        &:hover::before {
+            background-color: var(--pluto-fill-hover);
+        }
+
+        &:active::before {
+            background-color: var(--pluto-fill-press);
+        }
+    }
+}
