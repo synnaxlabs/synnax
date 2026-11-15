@@ -9,6 +9,7 @@
 
 import { NotFoundError, schematic } from "@synnaxlabs/client";
 import { TimeSpan } from "@synnaxlabs/x";
+import { fireEvent } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { GroupBox } from "@/schematic/node/groupBox";
@@ -25,6 +26,8 @@ import {
   STATIC_SPECS,
   symbolKey,
 } from "@/schematic/node/registry";
+import { renderForm } from "@/testutil";
+import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const createSymbol = (variant: string, stateKeys: string[]): schematic.symbol.Symbol =>
   schematic.symbol.symbolZ.parse({
@@ -240,4 +243,83 @@ describe("Schematic.Node.changeConfig", () => {
     const config = createConfig({ variant: "tank" });
     expect(() => changeConfig(config, { variant: "not-a-symbol" } as never)).toThrow();
   });
+});
+
+describe("Schematic.Node.REGISTRY forms", () => {
+  it.each([
+    {
+      variant: "circle",
+      tab: undefined,
+      label: "Radius",
+      field: "radius",
+      typed: "80.6",
+      expected: 81,
+    },
+    {
+      variant: "gauge",
+      tab: "style",
+      label: "Bar width",
+      field: "barWidth",
+      typed: "9.6",
+      expected: 10,
+    },
+    {
+      variant: "text_box",
+      tab: undefined,
+      label: "Wrap width",
+      field: "inlineSize",
+      typed: "80.6",
+      expected: 81,
+    },
+    {
+      variant: "box",
+      tab: undefined,
+      label: "Border radius",
+      field: "borderRadius",
+      typed: "80.6",
+      expected: 81,
+    },
+    {
+      variant: "value",
+      tab: "style",
+      label: "Width",
+      field: "inlineSize",
+      typed: "80.6",
+      expected: 81,
+    },
+    {
+      variant: "value",
+      tab: "telemetry",
+      label: "Averaging window",
+      field: "rollingAverage",
+      typed: "80.6",
+      expected: 81,
+    },
+    {
+      variant: "scale",
+      tab: "telemetry",
+      label: "Averaging window",
+      field: "rollingAverage",
+      typed: "80.6",
+      expected: 81,
+    },
+  ] as const)(
+    "should store a whole $label for a $variant",
+    ({ variant, tab, label, field, typed, expected }) => {
+      const { Form } = REGISTRY[variant];
+      const { container, value } = renderForm(
+        <Form tab={tab} />,
+        createConfig({ variant }),
+        schematic.nodeConfigZ,
+        createSynnaxWrapper({ client: null }),
+      );
+      const input = Array.from(container.querySelectorAll(".lyra-input__item"))
+        .find((el) => el.querySelector("label")?.textContent?.trim() === label)
+        ?.querySelector("input");
+      if (input == null) throw new Error(`expected a ${label} input`);
+      fireEvent.change(input, { target: { value: typed } });
+      fireEvent.blur(input);
+      expect(value(field)).toBe(expected);
+    },
+  );
 });
