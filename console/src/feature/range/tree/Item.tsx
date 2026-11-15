@@ -256,6 +256,13 @@ const compactStart = (start: TimeStamp, now: TimeStamp): string => {
   });
 };
 
+// The start an item shows on hover once its column hides.
+const startHint = (timeRange: TimeRange): string | undefined => {
+  if (!scheduled(timeRange)) return undefined;
+  const day = Telem.Text.describeDay(timeRange.start, TimeStamp.now());
+  return `Starts ${day} ${Telem.Text.formatTime(timeRange.start, TimeSpan.MINUTE)}`;
+};
+
 /** The start of a range and how long it ran, or how long it has run so far. */
 const When = ({ range }: { range: ranger.Range }): ReactElement => {
   const now = Ranger.useClock(range.timeRange);
@@ -349,11 +356,7 @@ const Base = ({
       role="listitem"
       className={CSS.cls(CSS.B("range-item"), className)}
       aria-label={range.name}
-      data-start={
-        scheduled(range.timeRange)
-          ? `Starts ${Telem.Text.describeDay(range.timeRange.start, TimeStamp.now())} ${Telem.Text.formatTime(range.timeRange.start, TimeSpan.MINUTE)}`
-          : undefined
-      }
+      data-start={startHint(range.timeRange)}
       checkable
       onActivate={() => open(itemKey)}
     >
