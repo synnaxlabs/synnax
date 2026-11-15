@@ -20,7 +20,6 @@ import { Docs } from "@/feature/docs";
 import { Embedded } from "@/feature/embedded";
 import { Framer } from "@/feature/framer";
 import { Import } from "@/feature/import";
-import { License } from "@/feature/license";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { Panel } from "@/feature/panel";
@@ -44,7 +43,6 @@ const COMMANDS: Command.Command[] = [
   ...Docs.COMMANDS,
   ...Framer.COMMANDS,
   ...Import.COMMANDS,
-  ...License.COMMANDS,
   ...LinePlot.COMMANDS,
   ...Log.COMMANDS,
   ...Panel.COMMANDS,

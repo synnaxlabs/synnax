@@ -136,7 +136,9 @@ describe("Secret.Secrets", () => {
     const value = screen.getByPlaceholderText("Value");
     expect(value).toHaveProperty("type", "password");
     fireEvent.change(value, { target: { value: "hunter2" } });
-    fireEvent.click(findButton("Create"));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    });
     const [created] = await waitFor(async () => {
       const named = await retrieveByName(name);
       expect(named).toHaveLength(1);

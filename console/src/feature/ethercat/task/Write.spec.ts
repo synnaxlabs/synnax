@@ -108,6 +108,22 @@ describe("Write", () => {
     expect(screen.getByRole("option", { name: /^Output/ })).toBeTruthy();
   });
 
+  it("should not name the channels of a slave without an identifier", async () => {
+    const slave = await createSlaveDevice(
+      client,
+      testRack.key,
+      { identifier: "", network: "eth0", pdos: createPDOs() },
+      false,
+    );
+    await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+    });
+    // The entry name shows once the channel loads the slave.
+    expect(await screen.findAllByText("Control")).not.toHaveLength(0);
+    expect(screen.queryByText("_Control_cmd")).toBeNull();
+  });
+
   it("should label a selected output channel by its PDO and entry names", async () => {
     const slave = await createRepeatedNameSlave(client, testRack.key);
     const { outputs } = createRepeatedNamePDOs();

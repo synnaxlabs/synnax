@@ -10,3 +10,4 @@
 export * from "@/platform/settings/Frame";
 export * from "@/platform/settings/Page";
 export * from "@/platform/settings/section";
+export * from "@/platform/settings/Table";

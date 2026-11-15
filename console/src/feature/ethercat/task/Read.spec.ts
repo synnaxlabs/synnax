@@ -172,6 +172,7 @@ const createSharedSlave = async () =>
 const MEASUREMENT = { index: 0x8040, subIndex: 1, dataType: "uint16", name: "" };
 const RANGE = { index: 0x8040, subIndex: 3, dataType: "uint16", name: "" };
 const EXCITATION = { index: 0x8040, subIndex: 0x1c, dataType: "float32", name: "" };
+const POLARITY = { index: 0x8040, subIndex: 0x21, dataType: "uint16", name: "" };
 
 describe("Read", () => {
   it("should render channels from the task row's config with their port labels", async () => {
@@ -546,6 +547,49 @@ describe("Read", () => {
       expect(
         screen.queryByText("Excitation voltage changed from 24 V to 12 V."),
       ).toBeNull(),
+    );
+  });
+
+  it("should start a held voltage past the limit of its field at the limit", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+      settings: createExcitationDescription({
+        polarity: 1,
+        voltage: Math.fround(19.796932),
+      }),
+    });
+    const { container, draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    const note = "Excitation voltage changed from 19.796932 V to 12 V.";
+    // A problem would hide the note.
+    expect(await screen.findByText(note)).toBeTruthy();
+    expect(screen.getByLabelText<HTMLInputElement>("Excitation voltage").value).toBe(
+      "12",
+    );
+    const deployed = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    expect(deployed.config.startupParameters).toEqual([
+      {
+        device: slave.key,
+        parameters: [
+          { ...POLARITY, value: 1 },
+          { ...EXCITATION, value: 12 },
+        ],
+      },
+    ]);
+    // The task now holds 12 V, so nothing moved it.
+    await waitFor(() => expect(screen.queryByText(note)).toBeNull());
+    expect(screen.getByLabelText<HTMLInputElement>("Excitation voltage").value).toBe(
+      "12",
     );
   });
 
@@ -1216,6 +1260,58 @@ describe("Read", () => {
     const [bound, disabled] = created.config.channels;
     expect(bound.channel).not.toBe(0);
     expect(disabled).toMatchObject({ type: "unresolved", pdo: "Input", channel: 0 });
+  });
+
+  it("should show why a channel with no device cannot run", async () => {
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createReadChannel([])],
+    });
+    expect(
+      await screen.findByText("A channel has no device. Pick a device."),
+    ).toBeTruthy();
+  });
+
+  it("should show why a disabled channel with no device stops a start", async () => {
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [{ ...EtherCAT.Task.createReadChannel([]), disabled: true }],
+    });
+    expect(
+      await screen.findByText("A channel has no device. Pick a device."),
+    ).toBeTruthy();
+  });
+
+  describe("a slave that is not configured", () => {
+    const renderUnconfigured = async (): Promise<string> => {
+      const slave = await createSlaveDevice(
+        client,
+        testRack.key,
+        { identifier: "", network: "eth0", pdos: createPDOs() },
+        false,
+      );
+      await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
+      });
+      return slave.name;
+    };
+
+    it("should show why its channel cannot run", async () => {
+      const name = await renderUnconfigured();
+      expect(
+        await screen.findByText(
+          `${name} is not configured. Configure it to start the task.`,
+        ),
+      ).toBeTruthy();
+    });
+
+    it("should not name its channel without an identifier", async () => {
+      await renderUnconfigured();
+      // The entry name shows once the channel loads the slave.
+      expect(await screen.findAllByText("Status")).not.toHaveLength(0);
+      expect(screen.queryByText("_Status")).toBeNull();
+    });
   });
 
   it("should show why a channel with no entry cannot run", async () => {
@@ -2250,22 +2346,6 @@ describe("Read", () => {
     expect(
       await screen.findByText("At least one enabled channel is required"),
     ).toBeTruthy();
-  });
-
-  it("should surface an error when a slave is not configured", async () => {
-    const slave = await createSlaveDevice(
-      client,
-      testRack.key,
-      { identifier: createIdentifier(), network: "eth0", pdos: createPDOs() },
-      false,
-    );
-    const { container, statuses } = await renderRead({
-      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
-    });
-    await clickDeploy(container);
-    await awaitStatus(statuses, /Failed to/);
-    await awaitStatus(statuses, /is not configured/);
   });
 
   it("should create the task with one channel", async () => {

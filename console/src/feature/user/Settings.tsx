@@ -89,11 +89,5 @@ export const ProfileSettings = (): ReactElement | null => {
 export const KeySettings = (): ReactElement | null => {
   const { data: key } = User.useResultKey({});
   if (key == null) return null;
-  return (
-    <PlatformSettings.Card>
-      <PlatformSettings.Body>
-        <Credential.Keys subject={user.resourceID(key)} />
-      </PlatformSettings.Body>
-    </PlatformSettings.Card>
-  );
+  return <Credential.KeyTable subject={user.resourceID(key)} />;
 };

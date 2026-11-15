@@ -39,6 +39,15 @@ describe("Settings.Frame", () => {
     expect(screen.queryByText("Alpha page")).toBeNull();
   });
 
+  it("should head the page with the name and icon of its section", async () => {
+    const groups: Settings.Group[] = [
+      { key: "first", name: "First", sections: [createSection("Alpha")] },
+    ];
+    await renderWithConsole(<Settings.Frame groups={groups} />);
+    const heading = screen.getByRole("heading", { name: "Alpha" });
+    expect(heading.querySelector("svg")).not.toBeNull();
+  });
+
   it("should hide the sections the user cannot use and the groups left empty", async () => {
     const groups: Settings.Group[] = [
       {

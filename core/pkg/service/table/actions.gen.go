@@ -75,8 +75,8 @@ type AddRowPayload struct {
 	CellTemplate *Cell   `json:"cell_template,omitzero" msgpack:"cell_template,omitempty"`
 }
 
-// RemoveRowPayload removes the row with the given key. All cells referenced by the
-// removed row are also dropped from the cells map. No-op if no row has the key.
+// RemoveRowPayload removes the row with the given key and its cells. No-op if no row
+// has the key.
 type RemoveRowPayload struct {
 	Key string `json:"key" msgpack:"key"`
 }
@@ -92,9 +92,8 @@ type RemoveRowPayload struct {
 //
 // Derived replica keys come from the template's key with the last four hex digits
 // replaced by the row index. Bootstrapped rows derive their keys from the column's key
-// the same way. Cells whose row index exceeds the row count are added to the cells map
-// but not referenced by any row. Out-of-range indices clamp to the end of every row's
-// cells list.
+// the same way. Cells whose index exceeds the row count are dropped. Out-of-range
+// indices clamp to the end of every row's cells list.
 type AddColPayload struct {
 	Index        uint32  `json:"index" msgpack:"index"`
 	Key          string  `json:"key" msgpack:"key"`
@@ -103,8 +102,8 @@ type AddColPayload struct {
 	CellTemplate *Cell   `json:"cell_template,omitzero" msgpack:"cell_template,omitempty"`
 }
 
-// RemoveColPayload removes the column with the given key. All cells in that column
-// (across every row) are dropped from the cells map. No-op if no column has the key.
+// RemoveColPayload removes the column with the given key and its cell in every row.
+// No-op if no column has the key.
 type RemoveColPayload struct {
 	Key string `json:"key" msgpack:"key"`
 }
@@ -139,8 +138,8 @@ type MoveColPayload struct {
 	To  uint32 `json:"to" msgpack:"to"`
 }
 
-// SetCellPayload replaces the cell at cell.key with the provided value. No-op if no
-// cell with that key exists in the table.
+// SetCellPayload replaces the config of the cell with the key cell.key. No-op if no row
+// holds a cell with that key.
 type SetCellPayload struct {
 	Cell Cell `json:"cell" msgpack:"cell"`
 }
@@ -148,23 +147,26 @@ type SetCellPayload struct {
 // EraseCellsPayload erases the cells whose keys are in cells. Any row whose every cell
 // is in the selection is removed entirely; same for columns. Cells that survive that
 // row/column removal have their config replaced with the template, keeping their
-// original keys. Cells in the selection whose keys are not in the table's cells map are
-// silently skipped.
+// original keys. Keys that no row holds are skipped.
 type EraseCellsPayload struct {
 	Cells    []string   `json:"cells" msgpack:"cells"`
 	Template CellConfig `json:"template" msgpack:"template"`
 }
 
-// SetPayload replaces the value at a path in the table.
+// SetPayload replaces the value at a path in the table's name, group, or project, or in
+// the config of a cell. No-op when no row holds the cell.
 type SetPayload patch.Set
 
-// RemovePayload removes an entry from a list or a field from an object in the table.
+// RemovePayload removes the table's group or project, or an entry or field in the
+// config of a cell. No-op when no row holds the cell.
 type RemovePayload patch.Remove
 
-// InsertPayload adds an entry to a list in the table's cells.
+// InsertPayload adds an entry to a list in the config of a cell. No-op when no row
+// holds the cell.
 type InsertPayload patch.Insert
 
-// MovePayload moves an entry in a list in the table's cells.
+// MovePayload moves an entry in a list in the config of a cell. No-op when no row holds
+// the cell.
 type MovePayload patch.Move
 
 // Action is a discriminated union for all Table mutations. Type names

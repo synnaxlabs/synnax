@@ -694,14 +694,14 @@ export class Client extends query.Retriever<
    */
   private optimisticStatus(cmd: Command, key: status.Key): Status {
     // Carry the last known deploy info forward: zeroing it would make this
-    // optimistic status claim the task deployed with an empty config/rack.
+    // optimistic status claim the task deployed with an empty config/rack. The status
+    // data has a shape only the task type knows, so this status carries none.
     const latest = this.latestStatusOf(cmd.task);
     const owner = resourceID(cmd.task);
     const details = {
       cmd: "",
       configHash: latest?.details.configHash ?? "",
       rack: latest?.details.rack ?? 0,
-      data: {},
     };
     const cached = this.store.get(cmd.task);
     const name = cached?.name ?? latest?.name ?? "";

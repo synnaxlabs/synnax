@@ -100,7 +100,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   );
   const dataTypes = useDataTypes(slave == null ? [] : [slave]);
   const named =
-    slave != null &&
+    slave?.configured === true &&
     dataTypes != null &&
     hasEntry(ch) &&
     entryAt(slave.properties.pdos.inputs, ch) != null;

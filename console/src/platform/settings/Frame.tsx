@@ -52,7 +52,15 @@ export const Frame = ({ groups }: FrameProps): ReactElement => {
   const section = sections.find(({ key }) => key === selected) ?? sections[0];
   return (
     <Flex.Box x full empty className={CSS.B("settings")}>
-      <nav aria-label="Settings" className={CSS.BE("settings", "nav")}>
+      <Flex.Box
+        el="nav"
+        aria-label="Settings"
+        empty
+        bordered
+        rounded="huge"
+        background={1}
+        className={CSS.BE("settings", "nav")}
+      >
         <Menu.Menu value={section?.key} onChange={setSelected}>
           {visible.map(({ key, name, sections }) => (
             <Flex.Box
@@ -77,9 +85,17 @@ export const Frame = ({ groups }: FrameProps): ReactElement => {
             </Flex.Box>
           ))}
         </Menu.Menu>
-      </nav>
+      </Flex.Box>
       <div className={CSS.BE("settings", "page")}>
-        {section != null && <section.Content />}
+        {section != null && (
+          <Flex.Box y className={CSS.BE("settings", "content")}>
+            <Text.Text level="h3" gap="medium">
+              {section.icon}
+              {section.name}
+            </Text.Text>
+            <section.Content />
+          </Flex.Box>
+        )}
       </div>
     </Flex.Box>
   );
