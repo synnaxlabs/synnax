@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
-#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -18,7 +17,6 @@
 #include <optional>
 #include <set>
 #include <string>
-#include <thread>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -59,35 +57,6 @@ const dc::OpMode DC_SECOND{
     .assign_activate = 0x0700,
     .sync0_cycle = 1000000000,
 };
-
-/// @brief a host clock whose time moves forward only while a loop sleeps on it, for as
-/// long as the sleep takes, or on a skip. A spec then sets the time between two checks.
-struct SkippingClock {
-    std::shared_ptr<std::atomic<int64_t>>
-        elapsed = std::make_shared<std::atomic<int64_t>>(0);
-    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-
-    [[nodiscard]] x::loop::HostClock host() const {
-        return x::loop::HostClock(
-            x::loop::Clock{
-                .now =
-                    [start = this->start, elapsed = this->elapsed] {
-                        return start + std::chrono::nanoseconds(elapsed->load());
-                    },
-                .sleep =
-                    [elapsed = this->elapsed](const x::telem::TimeSpan span) {
-                        std::this_thread::sleep_for(span.chrono());
-                        elapsed->fetch_add(span.nanoseconds());
-                    },
-            }
-        );
-    }
-
-    /// @brief moves the time forward by span at once.
-    void skip(const x::telem::TimeSpan span) const {
-        this->elapsed->fetch_add(span.nanoseconds());
-    }
-};
 }
 
 class SOEMMasterTest : public ::testing::Test {
@@ -103,37 +72,61 @@ protected:
     master::Image image;
     /// @brief the result of the latest activate().
     master::Activation activation;
-    /// @brief the time from the send of a frame to its receive in cycle.
-    std::chrono::microseconds cycle_gap{100};
+    /// @brief the time from the send of a frame to its receive in cycle().
+    x::telem::TimeSpan cycle_gap = x::telem::MICROSECOND * 100;
+    /// @brief whether each sleep on clock runs cycle() first, like a bus that cycles
+    /// while the master waits.
+    bool cycling = false;
+    /// @brief the clock time at which a sleep on clock stops brk.
+    std::optional<x::telem::TimeSpan> stop_at;
+    /// @brief the time on clock, which moves forward only on a sleep or a skip().
+    x::telem::TimeSpan elapsed;
+    /// @brief the clock of the master and the mock.
+    x::loop::HostClock clock = x::loop::HostClock(
+        x::loop::Clock{
+            .now =
+                [this, start = std::chrono::steady_clock::now()] {
+                    return start + this->elapsed.chrono();
+                },
+            .sleep =
+                [this](const x::telem::TimeSpan span) {
+                    if (this->cycling) this->cycle();
+                    this->skip(span);
+                    if (this->stop_at && this->elapsed >= *this->stop_at)
+                        this->brk.stop();
+                },
+        }
+    );
 
     void SetUp() override {
-        // A loaded Windows host can take over 100 ms to cycle two frames.
-        this->create_master(x::telem::SECOND);
+        this->create_master(x::telem::MILLISECOND * 50);
         this->brk.start();
     }
 
     /// @brief replaces the master with one on a new mock that gives the DC clocks
-    /// dc_settle_timeout to settle and the slaves state_change_timeout to change state,
-    /// which includes the wait for two frames in SAFE-OP. The master waits on clock.
+    /// dc_settle_timeout to settle and the slaves init_timeout to return to INIT.
     void create_master(
         const x::telem::TimeSpan dc_settle_timeout,
-        const x::telem::TimeSpan state_change_timeout = x::telem::SECOND,
-        const x::loop::HostClock &clock = {}
+        const x::telem::TimeSpan init_timeout = x::telem::MILLISECOND * 100
     ) {
         auto api = std::make_unique<MockAPI>();
         this->mock = api.get();
+        this->mock->clock = this->clock;
         this->master = std::make_unique<Master>(
             std::move(api),
             "eth0",
             Config{
                 .pre_op_timeout = x::telem::MILLISECOND * 100,
-                .state_change_timeout = state_change_timeout,
-                .init_timeout = x::telem::MILLISECOND * 100,
+                .state_change_timeout = x::telem::MILLISECOND * 100,
+                .init_timeout = init_timeout,
                 .dc_settle_timeout = dc_settle_timeout,
-                .clock = clock,
+                .clock = this->clock,
             }
         );
     }
+
+    /// @brief moves the time on clock forward by span at once.
+    void skip(const x::telem::TimeSpan span) { this->elapsed += span; }
 
     void TearDown() override { this->brk.stop(); }
 
@@ -224,31 +217,26 @@ protected:
         this->mock->state_change_requests.clear();
     }
 
-    /// @brief exchanges process data until cycling turns false. Like the engine, it
-    /// receives each frame cycle_gap after it sends it.
-    void cycle(const std::atomic<bool> &cycling) {
-        while (cycling.load()) {
-            static_cast<void>(this->master->send());
-            std::this_thread::sleep_for(this->cycle_gap);
-            static_cast<void>(this->master->receive());
-        }
+    /// @brief exchanges process data once. Like the engine, it receives the frame
+    /// cycle_gap after it sends it.
+    void cycle() {
+        static_cast<void>(this->master->send());
+        this->skip(this->cycle_gap);
+        static_cast<void>(this->master->receive());
     }
 
-    /// @brief activates the master with a bus cycle that exchanges process data on its
-    /// own thread until activate returns. Calls on_start as the cycle starts.
+    /// @brief activates the master with a bus cycle that exchanges process data from
+    /// its start until activate returns. Calls on_start as the cycle starts.
     x::errors::Error activate(const std::function<void()> &on_start = nullptr) {
-        std::atomic<bool> cycling = true;
-        std::thread cycle;
         this->activation = this->master->activate(
             {.period = this->period, .slaves = this->configs},
             [&](const master::Image &image) {
                 this->image = image;
                 if (on_start) on_start();
-                cycle = std::thread([&] { this->cycle(cycling); });
+                this->cycling = true;
             }
         );
-        cycling = false;
-        if (cycle.joinable()) cycle.join();
+        this->cycling = false;
         return this->activation.err;
     }
 
@@ -260,14 +248,11 @@ protected:
         return health;
     }
 
-    /// @brief runs supervise() while a bus cycle exchanges process data on its own
-    /// thread.
+    /// @brief runs supervise() while a bus cycle exchanges process data.
     std::vector<slave::Health> supervise_while_cycling() {
-        std::atomic<bool> cycling = true;
-        std::thread cycle([&] { this->cycle(cycling); });
+        this->cycling = true;
         auto health = this->supervise();
-        cycling = false;
-        cycle.join();
+        this->cycling = false;
         return health;
     }
 
@@ -275,25 +260,18 @@ protected:
     /// clock that does not settle in 10 s, and stops the breaker 100 ms in. A bus cycle
     /// exchanges process data meanwhile when cycling is true.
     /// @returns how long supervise() took.
-    std::chrono::steady_clock::duration stop_during_restore(const bool cycling) {
+    x::telem::TimeSpan stop_during_restore(const bool cycling) {
         this->create_master(x::telem::SECOND * 10);
         this->initialize_with_dc_slave({DC_ONLY});
         this->activate_master();
         this->mock->slave_infos[0].state = EC_STATE_INIT;
         this->mock->register_values[{1, 0x092C}] = 20'000;
-        std::atomic<bool> running = cycling;
-        std::thread cycle([&] { this->cycle(running); });
-        std::thread stop([this] {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            this->brk.stop();
-        });
-        const auto start = std::chrono::steady_clock::now();
+        const auto start = this->elapsed;
+        this->stop_at = start + x::telem::MILLISECOND * 100;
+        this->cycling = cycling;
         this->supervise();
-        const auto elapsed = std::chrono::steady_clock::now() - start;
-        stop.join();
-        running = false;
-        cycle.join();
-        return elapsed;
+        this->cycling = false;
+        return this->elapsed - start;
     }
 
     /// @brief activates the master with two DC slaves named 16xAO that list modes. The
@@ -1362,7 +1340,6 @@ TEST_F(SOEMMasterTest, ActivateWaitsForAStateChangeOnTheConfigClock) {
 /// @brief it should not report a refusal or its AL status when a slave stays in PRE-OP
 /// without the error flag, even if an old AL status code remains.
 TEST_F(SOEMMasterTest, ActivateSafeOpTimeoutIsNotARefusal) {
-    this->create_master(x::telem::SECOND, x::telem::MILLISECOND * 100);
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
@@ -1487,7 +1464,7 @@ TEST_F(SOEMMasterTest, ActivateMarksARefusalWithAnInvalidDCSync) {
 /// refusal of a slave that reports an invalid input or output configuration.
 TEST_F(SOEMMasterTest, ActivateGivesTheModeRestartAdviceWithAnInvalidConfiguration) {
     for (const uint16_t code: {0x001D, 0x001E}) {
-        this->create_master(x::telem::SECOND);
+        this->create_master(x::telem::MILLISECOND * 50);
         this->add_pending_and_refusing_slaves(code);
         ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
         EXPECT_EQ(this->activation.refusals.at(2).advice, slave::MODE_RESTART_ADVICE);
@@ -1664,8 +1641,7 @@ TEST_F(SOEMMasterTest, ActivateHoldsProcessDataUntilSAFEOP) {
     this->mock->ibytes = 4;
     this->mock->context.slavelist[1].hasdc = 1;
     this->mock->statecheck_pending_polls[EC_STATE_SAFE_OP] = 3;
-    // The cycle thread can start after SAFE-OP on a loaded host.
-    ASSERT_NIL(this->activate([this] { ASSERT_NIL(this->master->send()); }));
+    ASSERT_NIL(this->activate());
     EXPECT_GT(this->mock->sync_dc_count, 0);
     ASSERT_FALSE(this->mock->send_states.empty());
     for (const auto state: this->mock->send_states)
@@ -1693,7 +1669,6 @@ TEST_F(SOEMMasterTest, ReceiveBeforeSAFEOPReportsAShortfall) {
 /// @brief it should fail a send before SAFE-OP and the receive after it when the
 /// reference clock frame does not come back, so no caller reads a stale DC time.
 TEST_F(SOEMMasterTest, SendAndReceiveFailWhenTheReferenceClockFrameIsLost) {
-    this->create_master(x::telem::SECOND, x::telem::MILLISECOND * 100);
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
@@ -1723,7 +1698,6 @@ TEST_F(SOEMMasterTest, ActivateMapsTheSlavesWithoutASAFEOPRequest) {
 /// @brief it should fail activation without a request for OP when no frame passes the
 /// slaves in SAFE-OP, since a slave with outputs refuses OP until one does.
 TEST_F(SOEMMasterTest, ActivateRequestsOPOnlyAfterAFramePassesInSAFEOP) {
-    this->create_master(x::telem::SECOND, x::telem::MILLISECOND * 100);
     this->initialize_with_slave();
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
@@ -2082,9 +2056,9 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenADCClockDoesNotSettle) {
     EXPECT_EQ(
         err.data,
         "the clock of slave 1 (16xAO) is " + x::telem::TimeSpan(20'000).to_string() +
-            " off the reference clock after " + x::telem::SECOND.to_string() +
-            ". It must be within " + (x::telem::MICROSECOND * 10).to_string() +
-            " before SYNC0 starts."
+            " off the reference clock after " +
+            (x::telem::MILLISECOND * 50).to_string() + ". It must be within " +
+            (x::telem::MICROSECOND * 10).to_string() + " before SYNC0 starts."
     );
     EXPECT_EQ(this->mock->register_writes.size(), 2);
     EXPECT_TRUE(this->mock->state_change_requests.empty());
@@ -2094,7 +2068,6 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenADCClockDoesNotSettle) {
 /// no frame carries the reference clock to the slaves, since the clock difference of a
 /// slave keeps its old value until one does.
 TEST_F(SOEMMasterTest, ActivateReadsTheClockDifferenceOnlyAfterAFrame) {
-    this->create_master(x::telem::MILLISECOND * 50);
     this->initialize_with_dc_slave({DC_ONLY});
     const auto err = this->master->activate({.period = PERIOD}, no_cycle).err;
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
@@ -2244,8 +2217,6 @@ TEST_F(SOEMMasterTest, ReceiveNegativeWkc) {
 /// back, but only while a frame came back less than a second before, even when the
 /// sends fail.
 TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
-    const SkippingClock clock;
-    this->create_master(x::telem::SECOND, x::telem::SECOND, clock.host());
     this->mock->usb_interfaces.insert("eth0");
     this->mock->adapter_names["eth0"] = "Ethernet 2";
     this->initialize_with_slave();
@@ -2253,7 +2224,7 @@ TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
     ASSERT_NIL(this->master->send());
     ASSERT_NIL(this->master->receive());
     this->mock->receive_return = -1;
-    clock.skip(x::telem::SECOND - x::telem::MILLISECOND);
+    this->skip(x::telem::SECOND - x::telem::MILLISECOND);
     ASSERT_NIL(this->master->send());
     const auto late = this->master->receive();
     ASSERT_OCCURRED_AS(late, errors::CYCLIC_ERROR);
@@ -2263,7 +2234,7 @@ TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
         "frames back. Use a PCIe or onboard Ethernet adapter, or lower the rate of the "
         "fastest task on the network"
     );
-    clock.skip(x::telem::MILLISECOND);
+    this->skip(x::telem::MILLISECOND);
     this->mock->send_return = 0;
     ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
     const auto dead = this->master->receive();
@@ -2676,7 +2647,7 @@ TEST_F(SOEMMasterTest, CheckRestoresTheReferenceClockFromTheNextDCSlave) {
 TEST_F(SOEMMasterTest, CheckRestoresTheOnlyDCSlaveFromTheDCTimeOfTheLatestFrame) {
     this->initialize_with_dc_slave({DC_ONLY});
     this->mock->host_dc_offset = 7'000'000'000;
-    this->cycle_gap = std::chrono::milliseconds(10);
+    this->cycle_gap = x::telem::MILLISECOND * 10;
     this->activate_master();
     this->mock->register_writes.clear();
     this->mock->slave_infos[0].state = EC_STATE_INIT;
@@ -2843,8 +2814,6 @@ TEST_F(SOEMMasterTest, CheckFailsTheRestoreWhenARunningDCSlaveDoesNotAnswer) {
 /// @brief it should stop reporting a restore failure once the clock of the slave is
 /// restored.
 TEST_F(SOEMMasterTest, CheckClearsTheRestoreFailureOnceTheClockIsRestored) {
-    const SkippingClock clock;
-    this->create_master(x::telem::SECOND, x::telem::SECOND, clock.host());
     this->activate_two_dc_slaves({DC_ONLY});
     this->mock->slave_infos[0].state = EC_STATE_OPERATIONAL;
     this->mock->slave_infos[1].state = EC_STATE_INIT;
@@ -2855,7 +2824,7 @@ TEST_F(SOEMMasterTest, CheckClearsTheRestoreFailureOnceTheClockIsRestored) {
         "no slave latched its receive time"
     );
     this->mock->latch_return = 1;
-    clock.skip(x::telem::MILLISECOND * 100);
+    this->skip(x::telem::MILLISECOND * 100);
     this->supervise_while_cycling();
     const auto health = this->supervise();
     EXPECT_FALSE(health[1].faulted);
@@ -2883,7 +2852,7 @@ TEST_F(SOEMMasterTest, CheckIgnoresTheDCTimeOfAFrameWithAWorkingCounterMismatch)
 /// @brief it should end the restore of a DC slave whose clock does not settle once the
 /// breaker stops, well before the settle timeout.
 TEST_F(SOEMMasterTest, CheckEndsAClockRestoreOnceTheBreakerStops) {
-    EXPECT_LT(this->stop_during_restore(true), std::chrono::seconds(1));
+    EXPECT_LT(this->stop_during_restore(true), x::telem::SECOND);
     EXPECT_EQ(
         this->supervise()[0].dc_restore_error,
         "the bus stopped before the clocks "
@@ -2894,7 +2863,7 @@ TEST_F(SOEMMasterTest, CheckEndsAClockRestoreOnceTheBreakerStops) {
 /// @brief it should end the restore of a DC slave that waits for a frame once the
 /// breaker stops, well before the settle timeout.
 TEST_F(SOEMMasterTest, CheckEndsAFrameWaitOfAClockRestoreOnceTheBreakerStops) {
-    EXPECT_LT(this->stop_during_restore(false), std::chrono::seconds(1));
+    EXPECT_LT(this->stop_during_restore(false), x::telem::SECOND);
     EXPECT_EQ(
         this->supervise()[0].dc_restore_error,
         "the bus stopped before the clocks "
@@ -2943,18 +2912,16 @@ TEST_F(SOEMMasterTest, CheckSetsNoClockFromASlaveThatCameBackWithoutARestore) {
 /// @brief it should wait 100 ms before the next clock restore of a slave whose restore
 /// failed, and twice as long after each next failure.
 TEST_F(SOEMMasterTest, CheckWaitsLongerBeforeEachClockRestoreThatFails) {
-    const SkippingClock clock;
-    this->create_master(x::telem::SECOND, x::telem::SECOND, clock.host());
     this->initialize_with_dc_slave({DC_ONLY});
     this->activate_master();
     this->mock->latch_return = 0;
     const auto restores_after = [&](const x::telem::TimeSpan wait) {
         const int before = this->mock->latch_count;
         this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
-        clock.skip(wait - x::telem::MILLISECOND);
+        this->skip(wait - x::telem::MILLISECOND);
         this->supervise();
         EXPECT_EQ(this->mock->latch_count, before);
-        clock.skip(x::telem::MILLISECOND);
+        this->skip(x::telem::MILLISECOND);
         this->supervise();
         EXPECT_EQ(this->mock->latch_count, before + 1);
     };
@@ -2969,15 +2936,13 @@ TEST_F(SOEMMasterTest, CheckWaitsLongerBeforeEachClockRestoreThatFails) {
 /// @brief it should wait at most 10 s between the clock restores of a slave whose
 /// restores fail.
 TEST_F(SOEMMasterTest, CheckWaitsAtMostTenSecondsBetweenClockRestores) {
-    const SkippingClock clock;
-    this->create_master(x::telem::SECOND, x::telem::SECOND, clock.host());
     this->initialize_with_dc_slave({DC_ONLY});
     this->activate_master();
     this->mock->latch_return = 0;
     for (int i = 0; i < 10; ++i) {
         this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
         this->supervise();
-        clock.skip(x::telem::SECOND * 10);
+        this->skip(x::telem::SECOND * 10);
     }
     EXPECT_EQ(this->mock->latch_count, 10);
 }
@@ -2985,14 +2950,12 @@ TEST_F(SOEMMasterTest, CheckWaitsAtMostTenSecondsBetweenClockRestores) {
 /// @brief it should restore the clock of a slave at once after the slave reaches OP,
 /// and wait 100 ms after the next failure.
 TEST_F(SOEMMasterTest, CheckStartsTheClockRestoreWaitAgainOnceASlaveReachesOp) {
-    const SkippingClock clock;
-    this->create_master(x::telem::SECOND, x::telem::SECOND, clock.host());
     this->initialize_with_dc_slave({DC_ONLY});
     this->activate_master();
     this->mock->latch_return = 0;
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->supervise();
-    clock.skip(x::telem::MILLISECOND * 100);
+    this->skip(x::telem::MILLISECOND * 100);
     this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
     this->supervise();
     EXPECT_EQ(this->mock->latch_count, 2);
@@ -3001,7 +2964,7 @@ TEST_F(SOEMMasterTest, CheckStartsTheClockRestoreWaitAgainOnceASlaveReachesOp) {
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->supervise();
     EXPECT_EQ(this->mock->latch_count, 3);
-    clock.skip(x::telem::MILLISECOND * 100);
+    this->skip(x::telem::MILLISECOND * 100);
     this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
     this->supervise();
     EXPECT_EQ(this->mock->latch_count, 4);
@@ -3032,26 +2995,13 @@ TEST_F(SOEMMasterTest, DeactivateRequestsInitState) {
 /// @brief it should give the slaves init_timeout, not state_change_timeout, to return
 /// to INIT.
 TEST_F(SOEMMasterTest, DeactivateWaitsTheInitTimeoutForInit) {
-    auto api = std::make_unique<MockAPI>();
-    this->mock = api.get();
-    this->master = std::make_unique<Master>(
-        std::move(api),
-        "eth0",
-        Config{
-            .pre_op_timeout = x::telem::MILLISECOND * 100,
-            .state_change_timeout = x::telem::SECOND,
-            .init_timeout = x::telem::MILLISECOND * 1500,
-        }
-    );
+    this->create_master(x::telem::MILLISECOND * 50, x::telem::MILLISECOND * 300);
     this->initialize_with_slave();
     this->activate_master();
     this->mock->statecheck_overrides[EC_STATE_INIT] = EC_STATE_SAFE_OP;
-    const auto start = std::chrono::steady_clock::now();
+    const auto start = this->elapsed;
     this->master->deactivate();
-    EXPECT_GE(
-        std::chrono::steady_clock::now() - start,
-        std::chrono::milliseconds(1500)
-    );
+    EXPECT_GE(this->elapsed - start, x::telem::MILLISECOND * 300);
 }
 
 /// @brief it should wait for INIT when a slave still shows the error flag of a fault in

@@ -8,8 +8,8 @@
 # included in the file licenses/APL.txt.
 
 # Runs Claude Code or Codex on an agent runner through scripts/agent/run. Each agent
-# writes to GitHub as its own GitHub App, never as a person. Callers must grant
-# `id-token: write`, which starts a stopped runner through AWS.
+# writes to GitHub as its own GitHub App, never as a person. The fleet controller starts
+# a stopped runner for the queued job.
 name: Agent
 
 on:
@@ -78,45 +78,7 @@ permissions:
   contents: read
 
 jobs:
-  start:
-    name: Start a runner
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-    steps:
-      - name: Assume the runner start role
-        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
-        with:
-          role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
-          aws-region: us-east-1
-
-      # Idle runners stop themselves, so a job starts one stopped runner of its agent.
-      # Only one of two concurrent starts sees an instance's previous state as stopped,
-      # so the other tries again. The job waits for any runner when none is stopped.
-      - name: Start a stopped runner
-        env:
-          AGENT: ${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }}
-        run: |
-          for _ in 1 2 3; do
-            seats=$(aws ec2 describe-instances --output text \
-              --filters Name=tag:project,Values=synnax-agents \
-              Name=tag:pool,Values=agent "Name=tag:agent,Values=$AGENT" \
-              Name=instance-state-name,Values=pending,running,stopping,stopped \
-              --query 'Reservations[].Instances[].[InstanceId,State.Name]')
-            if [ -z "$seats" ]; then
-              echo "::error::The agent pool has no seat for $AGENT"
-              exit 1
-            fi
-            mapfile -t stopped < <(awk '$2 == "stopped" { print $1 }' <<< "$seats")
-            if [ ${#stopped[@]} -eq 0 ]; then exit 0; fi
-            id=$(shuf -n 1 -e "${stopped[@]}")
-            previous=$(aws ec2 start-instances --instance-ids "$id" --output text \
-              --query 'StartingInstances[0].PreviousState.Name')
-            if [ "$previous" = stopped ]; then exit 0; fi
-          done
-
   run:
-    needs: start
     name: Run (${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }})
     # A seat holds the login of one agent CLI, and its runners carry that agent's label.
     runs-on:
