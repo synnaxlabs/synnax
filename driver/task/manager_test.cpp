@@ -3265,7 +3265,7 @@ public:
     }
 };
 
-/// @brief it should detach a worker stuck in a deploy once the shutdown timeout passes.
+/// @brief it should shut down soon after the shutdown timeout while a deploy is stuck.
 TEST_F(ShutdownTest, StuckWorkerDetach) {
     auto factory = std::make_unique<StuckWorkerFactory>();
     auto *f = factory.get();
