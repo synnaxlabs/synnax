@@ -65,8 +65,9 @@ Built-in named colors are normal records with fixed keys. The Core makes them at
 startup, as it makes built-in roles
 (`core/pkg/service/access/rbac/builtin/provision.go:102-162`). A user can edit a
 built-in. The Core stores only the changed fields, and "Restore default" deletes them. A
-release updates each field the user did not change. A built-in is named by what it does
-("Breaker, red closed"), never by a standard.
+release updates each field the user did not change. A built-in cannot be deleted, as a
+built-in role cannot (`core/pkg/service/access/rbac/role/writer.go:101-112`). A built-in
+is named by what it does ("Breaker, red closed"), never by a standard.
 
 The Console's own look keeps the Lyra theme, so an edit to the built-in "Error" never
 changes Console buttons. Error, warning, and grays are in both places and can differ.
@@ -89,13 +90,15 @@ same hook.
 
 An enum is the state map. Each entry holds a generated `key`, one exact `float64`
 `value` that selects and buttons write, a `name`, an `abnormal` flag (false by default),
-and an optional `color.Ref`. Two color conventions for one set of states need two enums.
-A site difference goes through the named colors that the entries reference.
+and an optional `color.Ref`. Values are unique in an enum, and the writer refuses a
+duplicate. Two color conventions for one set of states need two enums. A site difference
+goes through the named colors that the entries reference.
 
 A state symbol has an optional `enum` reference with `@ref on_delete restrict`. A custom
 drawing's default enum uses the same rule. The delete dialog lists the users from
 `resource.Dependents` (`core/pkg/service/resource/resource.go:61-74`) and offers
-"Replace with...", which moves every user to another enum and then deletes.
+"Replace with...", which moves every user to another enum and then deletes. A built-in
+enum cannot be deleted, so a default enum that only a Pluto file names always exists.
 
 ### 4.3 State symbols
 
@@ -113,15 +116,19 @@ symbol that uses it by default.
 A value that matches no entry shows one unknown look and the raw value. The look is one
 Core-wide setting that points at a named color, by default the built-in "Unknown".
 
-The light keeps its threshold (`pluto/src/schematic/node/common/telem/telem.ts:16`) and
-gets the built-in "Light" enum (Off 0, On 1). Its `stroke_color` and `staleness_color`
-stay look colors.
+A two-state symbol (a valve, a pump, or any built-in drawing with two states) keeps
+today's 0.9 to 1.1 threshold (`DEFAULT_THRESHOLD`,
+`pluto/src/schematic/node/common/telem/telem.ts:16`). The threshold maps the value to 1
+or 0 before the enum, as the light's threshold does. A symbol with more than two states
+matches exact values. The light gets the built-in "Light" enum (Off 0, On 1). Its
+`stroke_color` and `staleness_color` stay look colors.
 
 ### 4.4 Series colors
 
 Eight built-in named colors, each with a light and a dark value, replace the 14. A new
 line gets the first series color that no other line in its plot uses, and stores its
-key. A user can pick any color.
+key. Past eight lines, it gets the series color used least in its plot, and a tie goes
+to the first in order. A user can pick any color.
 
 ### 4.5 Editor checks
 
@@ -133,19 +140,23 @@ an entry that is not `abnormal`.
 
 The schematic cutover is one migration in one release:
 
-- Each inline state list becomes an enum. Exact duplicates share one. Lists that differ
-  stay separate, and "Replace with..." merges them later.
+- Each inline state list becomes an enum. Lists with the same set of (value, name,
+  color) share one, with keys and order ignored. Lists that differ stay separate, and
+  "Replace with..." merges them later. When a list repeats a value, the first entry
+  stays.
 - A symbol gets an `enum` key when it had its own state list or its own state colors.
   The old fields are removed.
-- In a custom symbol, the regions move up to the drawing. A region with one color in
-  each state keeps it as a look color. A region whose color changes gets a mark, and its
-  colors move to the entries. When two changing regions differ in one state, the first
-  wins and the Core logs the symbol name.
+- In a custom symbol, each state takes its position as its value (0, 1, 2, and so on).
+  The regions move up to the drawing. A region with one color in each state keeps it as
+  a look color. A region whose color changes gets a mark, and its colors move to the
+  entries. When two changing regions differ in one state, the first wins and the Core
+  logs the symbol name.
 - Each light `on_color` moves to the On entry of an enum.
 - The upgrade runs as a composition migration, as panels do
-  (`core/pkg/service/panel/versions/v0/composition.go:41-55`). An import creates its
-  enums with the same rules in the transaction of its write closure
-  (`core/pkg/service/schematic/imex.go:45-64`).
+  (`core/pkg/service/panel/versions/v0/composition.go:41-55`). An import passes the old
+  state lists beside the converted schematic, and its write step
+  (`core/pkg/service/schematic/imex.go:45-64`) makes the enums with the same function as
+  the upgrade.
 
 Until the cutover, an in-memory adapter reads stored custom symbols in the new format.
 The cutover deletes it.
@@ -238,17 +249,22 @@ no settings store. In phase 29, the Driver writes range colors
 8. **An enum in use refuses the delete**: A symbol with no enum loses its states.
 9. **Built-ins are editable, with sparse changes**: Copy-to-edit makes each site keep a
    copy. Overwrite at startup erases edits on each release.
-10. **Built-in colors do not color the Console**: The trade is real: shipped error red
+10. **Built-ins cannot be deleted**: Only edited and restored, as built-in roles. The
+    trade is real: a site cannot remove a shipped color it never uses. It can only
+    rename or recolor it.
+11. **Built-in colors do not color the Console**: The trade is real: shipped error red
     is in two places and can drift.
-11. **One migration at upgrade**: A manual "Make enum" action keeps two code paths.
-12. **The plot migration writes fixed colors**: Series keys by position recolor old
+12. **One migration at upgrade**: A manual "Make enum" action keeps two code paths.
+13. **The plot migration writes fixed colors**: Series keys by position recolor old
     plots, because 8 colors replace 14.
-13. **Built-ins keep a vibrant look**: Gray until abnormal changes every schematic.
-14. **Exact values and a light threshold**: Selects and buttons write one value. Ranges
-    belong to the `limit` type.
-15. **The default enum is on the drawing**: A setting for each drawing is a second place
+14. **Built-ins keep a vibrant look**: Gray until abnormal changes every schematic.
+15. **Exact values, and a threshold for two-state symbols**: Selects and buttons write
+    one value, so an entry is one value. Valves, pumps, and lights keep today's
+    threshold, so noisy feedback still reads as on or off. Ranges belong to the `limit`
+    type.
+16. **The default enum is on the drawing**: A setting for each drawing is a second place
     for the same fact.
-16. **Consolidation before the cutover**: The cutover then changes 3 behaviors, not each
+17. **Consolidation before the cutover**: The cutover then changes 3 behaviors, not each
     variant.
 
 ## 8 Open questions
