@@ -26,11 +26,13 @@ const NAME = `.${CSS.BE("range-item", "name")}`;
 const holdsItem = (node: Node): boolean =>
   node instanceof Element && (node.matches(ITEM) || node.querySelector(ITEM) != null);
 
-// Whether a change adds or removes items, or changes a name or a parent's path. Other
-// text, such as the duration of a running range, leaves the room as it was.
+// Whether a change adds or removes items or an item's cells, or changes a name or a
+// parent's path. Other text, such as the duration of a running range, leaves the room
+// as it was.
 const changesRoom = (r: MutationRecord): boolean => {
   const el = r.target instanceof Element ? r.target : r.target.parentElement;
   if (el?.closest(NAME) != null) return true;
+  if (r.type === "childList" && el?.matches(ITEM) === true) return true;
   return [...r.addedNodes, ...r.removedNodes].some(holdsItem);
 };
 
