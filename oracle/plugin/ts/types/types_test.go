@@ -449,7 +449,8 @@ var _ = Describe("TS Types Plugin", func() {
 				}
 			`
 				resp := MustGenerate(source, "config", loader, typesPlugin)
-				ExpectContent(resp, "types.gen.ts").ToContain("rate: rateZ.max(100)")
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("rate: rateZ.check(z.lte(100))")
 			},
 		)
 
