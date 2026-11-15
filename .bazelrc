@@ -240,6 +240,13 @@ build:sanitize-ci --config=sanitize
 build:sanitize-ci --test_output=errors
 build:sanitize-ci --test_summary=detailed
 
+# ===== Coverage =====
+#
+# Under coverage, GCC writes a .gcno file for every compile, but Bazel declares it only
+# for instrumented targets. A local compile of a target outside the filter then fails
+# when an earlier run left a read-only .gcno at that path. The sandbox drops the file.
+coverage:linux --strategy=CppCompile=sandboxed
+
 # ===== clang-tidy =====
 #
 # bazel build --config=clang-tidy <targets> lints every C++ source and header in the
