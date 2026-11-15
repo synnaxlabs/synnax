@@ -17,29 +17,16 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
-	createRange := func(ctx SpecContext, tx gorp.Tx) ranger.Range {
-		GinkgoHelper()
-		r := ranger.Range{
-			Name:      "run",
-			TimeRange: telem.SecondTS.SpanRange(telem.Second),
-		}
-		Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-		return r
-	}
-
 	Describe("Create", func() {
 		It("Should create a Schematic", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
@@ -53,8 +40,8 @@ var _ = Describe("Writer", func() {
 				tx := DeferClose(db.OpenTx())
 				var s schematic.Schematic
 				Expect(json.Unmarshal([]byte(
-					`{"name":"valves","nodes":[{"key":"v1"}],"configs":{"v1":`+
-						`{"variant":"valve"`+scale+`}}}`,
+					`{"name":"valves","nodes":[{"key":"v1","config":`+
+						`{"variant":"valve"`+scale+`}}]}`,
 				), &s)).To(Succeed())
 				s.Project = &proj.Key
 				Expect(svc.NewWriter(tx).Create(ctx, &s)).To(matcher)
@@ -65,7 +52,11 @@ var _ = Describe("Writer", func() {
 				`,"scale":0`,
 				SatisfyAll(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("configs.v1.scale: must be positive")),
+					MatchError(
+						ContainSubstring(
+							"nodes.0.config.scale: must be positive, got 0",
+						),
+					),
 				),
 			),
 		)
@@ -75,8 +66,8 @@ var _ = Describe("Writer", func() {
 				tx := DeferClose(db.OpenTx())
 				var s schematic.Schematic
 				Expect(json.Unmarshal([]byte(
-					`{"name":"gauges","nodes":[{"key":"g1"}],"configs":{"g1":`+
-						config+`}}`,
+					`{"name":"gauges","nodes":[{"key":"g1","config":`+
+						config+`}]}`,
 				), &s)).To(Succeed())
 				s.Project = &proj.Key
 				Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
@@ -85,7 +76,7 @@ var _ = Describe("Writer", func() {
 					Where(schematic.MatchKeys(s.Key)).
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
-				gauge, ok := res.Configs["g1"].Variant.(schematic.GaugeElementConfig)
+				gauge, ok := res.Nodes[0].Config.Variant.(schematic.GaugeNodeConfig)
 				Expect(ok).To(BeTrue())
 				Expect(gauge.Bounds).To(Equal(expected))
 			},
@@ -114,10 +105,9 @@ var _ = Describe("Writer", func() {
 			stored := schematic.Schematic{Project: &proj.Key, Name: "stored"}
 			Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
 			again := schematic.Schematic{
-				Key:      stored.Key,
-				Project:  &proj.Key,
-				Name:     "refused",
-				Snapshot: true,
+				Key:     stored.Key,
+				Project: &proj.Key,
+				Name:    "refused",
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &again)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
@@ -187,27 +177,6 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("Apply of a project move", func() {
-		It(
-			"Should reject moving a range's snapshot into a project",
-			func(ctx SpecContext) {
-				tx := DeferClose(db.OpenTx())
-				rng := createRange(ctx, tx)
-				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
-				var snap schematic.Schematic
-				Expect(
-					svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, &rng.Key, &snap),
-				).To(Succeed())
-				Expect(
-					svc.NewWriter(tx).Apply(ctx, snap.Key, setProject(proj.Key)),
-				).Error().To(MatchError(
-					ContainSubstring(
-						"must belong to exactly one of a project and a range",
-					),
-				))
-			},
-		)
-
 		It("Should move the schematic into the project", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
 			dest := project.Project{Name: "destination"}
@@ -264,8 +233,8 @@ var _ = Describe("Writer", func() {
 			BeforeEach(func(ctx SpecContext) {
 				stored = schematic.Schematic{}
 				Expect(json.Unmarshal([]byte(
-					`{"name":"stored","nodes":[{"key":"v1"}],`+
-						`"configs":{"v1":{"variant":"valve","scale":0}}}`,
+					`{"name":"stored","nodes":[{"key":"v1",`+
+						`"config":{"variant":"valve","scale":0}}]}`,
 				), &stored)).To(Succeed())
 				stored.Key = uuid.New()
 				stored.Project = &proj.Key
@@ -288,7 +257,7 @@ var _ = Describe("Writer", func() {
 			) {
 				Expect(dispatch(ctx, stored.Key, "session-1", []schematic.Action{
 					schematic.NewSetAction(schematic.SetPayload{
-						Path:  []string{"configs", "v1", "label", "label"},
+						Path:  []string{"nodes", "v1", "config", "label", "label"},
 						Value: "Inlet",
 					}),
 				})).To(Succeed())
@@ -298,18 +267,18 @@ var _ = Describe("Writer", func() {
 				var cpy schematic.Schematic
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).
-						Copy(ctx, stored.Key, "copy", true, nil, &cpy)
+						Copy(ctx, stored.Key, "copy", &cpy)
 				})).To(Succeed())
 				Expect(cpy.Key).ToNot(Equal(stored.Key))
-				Expect(cpy.Configs).To(HaveKey("v1"))
+				Expect(cpy.Nodes).To(Equal(stored.Nodes))
 			})
 		})
 
 		It("Should reject a dispatch that sets a zero scale", func(ctx SpecContext) {
 			var s schematic.Schematic
 			Expect(json.Unmarshal([]byte(
-				`{"name":"valves","nodes":[{"key":"v1"}],`+
-					`"configs":{"v1":{"variant":"valve"}}}`,
+				`{"name":"valves","nodes":[{"key":"v1",`+
+					`"config":{"variant":"valve"}}]}`,
 			), &s)).To(Succeed())
 			s.Project = &proj.Key
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -317,12 +286,14 @@ var _ = Describe("Writer", func() {
 			})).To(Succeed())
 			Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{
 				schematic.NewSetAction(schematic.SetPayload{
-					Path:  []string{"configs", "v1", "scale"},
+					Path:  []string{"nodes", "v1", "config", "scale"},
 					Value: 0.0,
 				}),
 			})).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("configs.v1.scale: must be positive")),
+				MatchError(
+					ContainSubstring("nodes.0.config.scale: must be positive, got 0"),
+				),
 			))
 		})
 
@@ -331,8 +302,8 @@ var _ = Describe("Writer", func() {
 		) {
 			var s schematic.Schematic
 			Expect(json.Unmarshal([]byte(
-				`{"name":"valves","nodes":[{"key":"v1"}],`+
-					`"configs":{"v1":{"variant":"valve"}}}`,
+				`{"name":"valves","nodes":[{"key":"v1",`+
+					`"config":{"variant":"valve"}}]}`,
 			), &s)).To(Succeed())
 			s.Project = &proj.Key
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -340,8 +311,8 @@ var _ = Describe("Writer", func() {
 			})).To(Succeed())
 			var edited schematic.Schematic
 			Expect(json.Unmarshal([]byte(
-				`{"name":"valves","nodes":[{"key":"v1"}],`+
-					`"configs":{"v1":{"variant":"valve","scale":0}}}`,
+				`{"name":"valves","nodes":[{"key":"v1",`+
+					`"config":{"variant":"valve","scale":0}}]}`,
 			), &edited)).To(Succeed())
 			edited.Key = s.Key
 			edited.Project = &proj.Key
@@ -349,7 +320,185 @@ var _ = Describe("Writer", func() {
 				return svc.NewWriter(tx).Create(ctx, &edited)
 			})).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("configs.v1.scale: must be positive")),
+				MatchError(
+					ContainSubstring("nodes.0.config.scale: must be positive, got 0"),
+				),
+			))
+		})
+
+		DescribeTable("Should reject a create whose config has no variant",
+			func(ctx SpecContext, s schematic.Schematic, msg string) {
+				s.Project = &proj.Key
+				s.Name = "unconfigured"
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
+			},
+			Entry(
+				"on a node",
+				schematic.Schematic{Nodes: []schematic.Node{{Key: "n1"}}},
+				"nodes.0.config.variant: required",
+			),
+			Entry(
+				"on an edge",
+				schematic.Schematic{
+					Nodes: []schematic.Node{
+						{Key: "n1", Config: groupCfg()},
+						{Key: "n2", Config: groupCfg()},
+					},
+					Edges: []schematic.Edge{{
+						Key:    "e1",
+						Source: schematic.Handle{Node: "n1"},
+						Target: schematic.Handle{Node: "n2"},
+					}},
+				},
+				"edges.0.config.variant: required",
+			),
+		)
+
+		Describe("A dispatch to a stored valve", func() {
+			var s schematic.Schematic
+			BeforeEach(func(ctx SpecContext) {
+				s = schematic.Schematic{}
+				Expect(json.Unmarshal([]byte(
+					`{"name":"valves","nodes":[`+
+						`{"key":"v0","config":{"variant":"tank"}},`+
+						`{"key":"v1","config":{"variant":"valve"}}]}`,
+				), &s)).To(Succeed())
+				s.Project = &proj.Key
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
+			})
+
+			DescribeTable("Should be rejected when it",
+				func(ctx SpecContext, a schematic.Action, msg string) {
+					Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{a})).
+						To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring(msg)),
+						))
+				},
+				Entry(
+					"clears the config",
+					schematic.NewSetAction(schematic.SetPayload{
+						Path: []string{"nodes", "v1", "config"},
+					}),
+					"[nodes, v1, config]: the document requires a value",
+				),
+				Entry(
+					"sets a node with no config",
+					schematic.NewSetNodeAction(schematic.SetNodePayload{
+						Node: schematic.Node{Key: "v1"},
+					}),
+					"nodes.1.config.variant: required",
+				),
+				Entry(
+					"sets a value that fails the config's schema",
+					schematic.NewSetAction(schematic.SetPayload{
+						Path:  []string{"nodes", "v0", "config", "level"},
+						Value: "h9",
+					}),
+					"nodes.0.config.level: invalid level: h9",
+				),
+			)
+		})
+
+		Describe("A dispatch to a stored group", func() {
+			var s schematic.Schematic
+			BeforeEach(func(ctx SpecContext) {
+				s = schematic.Schematic{}
+				Expect(json.Unmarshal([]byte(
+					`{"name":"groups","nodes":[`+
+						`{"key":"g1","config":{"variant":"group_box"}},`+
+						`{"key":"g2","config":{"variant":"group_box"},"parent":"g1"},`+
+						`{"key":"v1","config":{"variant":"valve"}}]}`,
+				), &s)).To(Succeed())
+				s.Project = &proj.Key
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
+			})
+			setParent := func(key, parent string) schematic.Action {
+				return schematic.NewSetAction(schematic.SetPayload{
+					Path:  []string{"nodes", key, "parent"},
+					Value: parent,
+				})
+			}
+
+			It("Should accept a parent that is a group box", func(ctx SpecContext) {
+				Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					setParent("v1", "g2"),
+				})).To(Succeed())
+			})
+
+			It("Should promote the children of a removed group", func(ctx SpecContext) {
+				Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					setParent("v1", "g2"),
+					schematic.NewRemoveNodeAction(
+						schematic.RemoveNodePayload{Key: "g2"},
+					),
+				})).To(Succeed())
+				var res schematic.Schematic
+				Expect(svc.NewRetrieve().
+					Where(schematic.MatchKeys(s.Key)).
+					Entry(&res).
+					Exec(ctx, db)).To(Succeed())
+				Expect(res.Nodes[1].Key).To(Equal("v1"))
+				Expect(res.Nodes[1].Parent).To(HaveValue(Equal("g1")))
+			})
+
+			DescribeTable("Should be rejected when it",
+				func(ctx SpecContext, a schematic.Action, msg string) {
+					Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{a})).
+						To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring(msg)),
+						))
+				},
+				Entry(
+					"sets a parent that is not a group box",
+					setParent("g1", "v1"),
+					"nodes.0.parent: v1 is not a group box of the schematic",
+				),
+				Entry(
+					"sets a parent that is not a node",
+					setParent("v1", "ghost"),
+					"nodes.2.parent: ghost is not a group box of the schematic",
+				),
+				Entry(
+					"sets a node as its own parent",
+					setParent("g1", "g1"),
+					"nodes.0.parent: the parents of g1 form a cycle",
+				),
+				Entry(
+					"closes a cycle of parents",
+					setParent("g1", "g2"),
+					"nodes.0.parent: the parents of g1 form a cycle",
+				),
+			)
+		})
+
+		It("Should reject a create whose parent is not a group box", func(
+			ctx SpecContext,
+		) {
+			var s schematic.Schematic
+			Expect(json.Unmarshal([]byte(
+				`{"name":"valves","nodes":[`+
+					`{"key":"v0","config":{"variant":"valve"}},`+
+					`{"key":"v1","config":{"variant":"valve"},"parent":"v0"}]}`,
+			), &s)).To(Succeed())
+			s.Project = &proj.Key
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &s)
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					ContainSubstring("nodes.1.parent: v0 is not a group box"),
+				),
 			))
 		})
 
@@ -403,7 +552,7 @@ var _ = Describe("Writer", func() {
 				Project: &proj.Key,
 				Name:    "test",
 				Nodes: []schematic.Node{
-					{Key: "n1", Position: spatial.XY{X: 0, Y: 0}},
+					{Key: "n1", Config: tankCfg("", "")},
 				},
 			}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -440,12 +589,14 @@ var _ = Describe("Writer", func() {
 							Node: schematic.Node{
 								Key:      "n1",
 								Position: spatial.XY{X: 1, Y: 2},
+								Config:   tankCfg("", ""),
 							},
 						}),
 						schematic.NewSetNodeAction(schematic.SetNodePayload{
 							Node: schematic.Node{
 								Key:      "n2",
 								Position: spatial.XY{X: 3, Y: 4},
+								Config:   tankCfg("", ""),
 							},
 						}),
 						schematic.NewAddEdgeAction(schematic.AddEdgePayload{
@@ -453,6 +604,7 @@ var _ = Describe("Writer", func() {
 								Key:    "e1",
 								Source: schematic.Handle{Node: "n1"},
 								Target: schematic.Handle{Node: "n2"},
+								Config: pipeCfg(""),
 							},
 						}),
 					}),
@@ -466,125 +618,6 @@ var _ = Describe("Writer", func() {
 				).To(Succeed())
 				Expect(res.Nodes).To(HaveLen(2))
 				Expect(res.Edges).To(HaveLen(1))
-			},
-		)
-		It(
-			"Should reject non-Rename Dispatch on a snapshot schematic",
-			func(ctx SpecContext) {
-				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &s)
-				})).To(Succeed())
-				var snap schematic.Schematic
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, nil, &snap)
-				})).To(Succeed())
-				Expect(
-					dispatch(ctx, snap.Key, "session-1", []schematic.Action{
-						schematic.NewRemoveNodeAction(
-							schematic.RemoveNodePayload{Key: "n1"},
-						),
-					}),
-				).To(MatchError(validate.ErrValidation))
-			},
-		)
-		It(
-			"Should allow a set of the name on a snapshot schematic",
-			func(ctx SpecContext) {
-				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &s)
-				})).To(Succeed())
-				var snap schematic.Schematic
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, nil, &snap)
-				})).To(Succeed())
-				Expect(
-					dispatch(ctx, snap.Key, "session-1", []schematic.Action{
-						schematic.NewSetAction(schematic.SetPayload{
-							Path:  []string{"name"},
-							Value: "renamed-snap",
-						}),
-					}),
-				).To(Succeed())
-				var res schematic.Schematic
-				Expect(
-					svc.NewRetrieve().
-						Where(schematic.MatchKeys(snap.Key)).
-						Entry(&res).
-						Exec(ctx, db),
-				).To(Succeed())
-				Expect(res.Name).To(Equal("renamed-snap"))
-			},
-		)
-		It(
-			"Should allow a move of a snapshot schematic into and out of a group",
-			func(ctx SpecContext) {
-				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &s)
-				})).To(Succeed())
-				var snap schematic.Schematic
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, nil, &snap)
-				})).To(Succeed())
-				g := group.Group{Name: "snapshots", Parent: new(proj.ResourceID())}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return groupSvc.NewWriter(tx).Create(ctx, &g)
-				})).To(Succeed())
-				retrieveGroup := func() *group.Key {
-					GinkgoHelper()
-					var res schematic.Schematic
-					Expect(svc.NewRetrieve().
-						Where(schematic.MatchKeys(snap.Key)).
-						Entry(&res).
-						Exec(ctx, db)).To(Succeed())
-					return res.Group
-				}
-				Expect(dispatch(ctx, snap.Key, "session-1", []schematic.Action{
-					setGroup(g.Key),
-				})).To(Succeed())
-				Expect(retrieveGroup()).To(Equal(&g.Key))
-				Expect(dispatch(ctx, snap.Key, "session-1", []schematic.Action{
-					removeGroup,
-				})).To(Succeed())
-				Expect(retrieveGroup()).To(BeNil())
-			},
-		)
-		It(
-			"Should reject Dispatch on a snapshot when an action does not set the name",
-			func(ctx SpecContext) {
-				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &s)
-				})).To(Succeed())
-				var snap schematic.Schematic
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, nil, &snap)
-				})).To(Succeed())
-				Expect(
-					dispatch(ctx, snap.Key, "session-1", []schematic.Action{
-						schematic.NewSetAction(schematic.SetPayload{
-							Path:  []string{"name"},
-							Value: "renamed-snap",
-						}),
-						schematic.NewSetAction(schematic.SetPayload{
-							Path:  []string{"configs", "n1"},
-							Value: map[string]any{"variant": "valve"},
-						}),
-					}),
-				).To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("cannot dispatch set on snapshot")),
-				))
-				var res schematic.Schematic
-				Expect(
-					svc.NewRetrieve().
-						Where(schematic.MatchKeys(snap.Key)).
-						Entry(&res).
-						Exec(ctx, db),
-				).To(Succeed())
-				Expect(res.Name).To(Equal("snap"))
 			},
 		)
 		It(
@@ -622,7 +655,7 @@ var _ = Describe("Writer", func() {
 				s := schematic.Schematic{
 					Project: &proj.Key,
 					Name:    "drag-storm",
-					Nodes:   []schematic.Node{{Key: "pump"}},
+					Nodes:   []schematic.Node{{Key: "pump", Config: tankCfg("", "")}},
 				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &s)
@@ -666,12 +699,14 @@ var _ = Describe("Writer", func() {
 							Node: schematic.Node{
 								Key:      "pump",
 								Position: spatial.XY{X: 0, Y: 0},
+								Config:   tankCfg("", ""),
 							},
 						}),
 						schematic.NewSetNodeAction(schematic.SetNodePayload{
 							Node: schematic.Node{
 								Key:      "valve",
 								Position: spatial.XY{X: 100, Y: 0},
+								Config:   tankCfg("", ""),
 							},
 						}),
 						schematic.NewAddEdgeAction(
@@ -685,11 +720,18 @@ var _ = Describe("Writer", func() {
 									Node:  "valve",
 									Param: "in",
 								},
+								Config: pipeCfg(""),
 							}},
 						),
-						schematic.NewSetConfigAction(schematic.SetConfigPayload{
-							Key:    "pump",
-							Config: tankCfg("Main Pump", ""),
+						schematic.NewSetAction(schematic.SetPayload{
+							Path: []string{
+								"nodes",
+								"pump",
+								"config",
+								"label",
+								"label",
+							},
+							Value: "Main Pump",
 						}),
 					}),
 				).To(Succeed())
@@ -702,7 +744,7 @@ var _ = Describe("Writer", func() {
 				).To(Succeed())
 				Expect(res.Nodes).To(HaveLen(2))
 				Expect(res.Edges).To(HaveLen(1))
-				Expect(res.Configs["pump"]).To(Equal(tankCfg("Main Pump", "")))
+				Expect(res.Nodes[0].Config).To(Equal(tankCfg("Main Pump", "")))
 			},
 		)
 
@@ -718,7 +760,7 @@ var _ = Describe("Writer", func() {
 				DeferCleanup(disconnect)
 				actions := []schematic.Action{
 					schematic.NewSetNodeAction(schematic.SetNodePayload{
-						Node: schematic.Node{Key: "n1"},
+						Node: schematic.Node{Key: "n1", Config: tankCfg("", "")},
 					}),
 					schematic.NewSetNodePositionAction(schematic.SetNodePositionPayload{
 						Key:      "n1",
@@ -752,7 +794,7 @@ var _ = Describe("Writer", func() {
 				DeferCleanup(svc.OnAction(rec.Record))
 				action := []schematic.Action{
 					schematic.NewSetNodeAction(schematic.SetNodePayload{
-						Node: schematic.Node{Key: "n1"},
+						Node: schematic.Node{Key: "n1", Config: tankCfg("", "")},
 					}),
 				}
 				for range 3 {
@@ -764,30 +806,6 @@ var _ = Describe("Writer", func() {
 				Expect(seen).To(HaveLen(3))
 				Expect(seen[1].Seq).To(BeNumerically(">", seen[0].Seq))
 				Expect(seen[2].Seq).To(BeNumerically(">", seen[1].Seq))
-			},
-		)
-
-		It(
-			"Should not notify subscribers when Dispatch is rejected on a snapshot",
-			func(ctx SpecContext) {
-				s := schematic.Schematic{Project: &proj.Key, Name: "snap-test"}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &s)
-				})).To(Succeed())
-				var snap schematic.Schematic
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, nil, &snap)
-				})).To(Succeed())
-				rec := &Recorder[schematic.Key, schematic.Action]{}
-				DeferCleanup(svc.OnAction(rec.Record))
-				Expect(
-					dispatch(ctx, snap.Key, "client-xyz", []schematic.Action{
-						schematic.NewRemoveNodeAction(
-							schematic.RemoveNodePayload{Key: "n1"},
-						),
-					}),
-				).To(MatchError(validate.ErrValidation))
-				Expect(rec.Snapshot()).To(BeEmpty())
 			},
 		)
 
@@ -817,82 +835,11 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 				var cpy schematic.Schematic
 				Expect(
-					svc.NewWriter(tx).Copy(ctx, s.Key, "test2", false, nil, &cpy),
+					svc.NewWriter(tx).Copy(ctx, s.Key, "test2", &cpy),
 				).To(Succeed())
 				Expect(cpy.Key).ToNot(Equal(s.Key))
 				Expect(cpy.Name).To(Equal("test2"))
 				Expect(cpy.Project).To(HaveValue(Equal(proj.Key)))
-				Expect(cpy.Range).To(BeNil())
-			},
-		)
-		It("Should copy a snapshot into a range", func(ctx SpecContext) {
-			tx := DeferClose(db.OpenTx())
-			rng := createRange(ctx, tx)
-			s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
-			var snap schematic.Schematic
-			Expect(
-				svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, &rng.Key, &snap),
-			).To(Succeed())
-			var res []schematic.Schematic
-			Expect(svc.NewRetrieve().
-				Where(schematic.MatchRanges(rng.Key)).
-				Entries(&res).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(HaveLen(1))
-			Expect(res[0].Key).To(Equal(snap.Key))
-			Expect(res[0].Project).To(BeNil())
-			Expect(res[0].Snapshot).To(BeTrue())
-		})
-		It("Should delete a range's snapshots with the range", func(ctx SpecContext) {
-			tx := DeferClose(db.OpenTx())
-			rng := createRange(ctx, tx)
-			s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
-			var snap schematic.Schematic
-			Expect(
-				svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, &rng.Key, &snap),
-			).To(Succeed())
-			Expect(rangerSvc.NewWriter(tx).Delete(ctx, rng.Key)).To(Succeed())
-			Expect(svc.NewRetrieve().
-				Where(schematic.MatchKeys(snap.Key)).
-				Entry(&schematic.Schematic{}).
-				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-			Expect(svc.NewRetrieve().
-				Where(schematic.MatchKeys(s.Key)).
-				Entry(&schematic.Schematic{}).
-				Exec(ctx, tx)).To(Succeed())
-		})
-		It("Should reject a range that does not exist", func(ctx SpecContext) {
-			tx := DeferClose(db.OpenTx())
-			s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
-			missing := uuid.New()
-			Expect(
-				svc.NewWriter(tx).
-					Copy(ctx, s.Key, "snap", true, &missing, &schematic.Schematic{}),
-			).To(MatchError(ContainSubstring(
-				"range: range " + missing.String() + " does not exist",
-			)))
-		})
-		It(
-			"Should copy a Schematic into a snapshot that cannot be modified",
-			func(ctx SpecContext) {
-				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &s)
-				})).To(Succeed())
-				var cpy schematic.Schematic
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Copy(ctx, s.Key, "test2", true, nil, &cpy)
-				})).To(Succeed())
-				Expect(
-					dispatch(ctx, cpy.Key, "session-1", []schematic.Action{
-						schematic.NewSetNodeAction(schematic.SetNodePayload{
-							Node: schematic.Node{Key: "n1"},
-						}),
-					}),
-				).To(MatchError(validate.ErrValidation))
 			},
 		)
 	})

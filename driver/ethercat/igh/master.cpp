@@ -219,16 +219,44 @@ x::errors::Error Master::initialize() {
     return x::errors::NIL;
 }
 
-std::pair<size_t, x::errors::Error> Master::count_slaves() {
+std::pair<master::Change, x::errors::Error> Master::changed() {
     if (!this->initialized)
-        return {0, x::errors::Error(errors::MASTER_INIT_ERROR, "not initialized")};
+        return {{}, x::errors::Error(errors::MASTER_INIT_ERROR, "not initialized")};
     ec_master_info_t info;
     if (this->api->master(this->ec_master, &info) < 0)
         return {
-            0,
+            {},
             x::errors::Error(errors::MASTER_INIT_ERROR, "failed to get master info")
         };
-    return {info.slave_count, x::errors::NIL};
+    if (info.slave_count != this->cached_slaves.size())
+        return {master::Change{.stale = true}, x::errors::NIL};
+    // IgH scans the bus again by itself, so its slave info is current.
+    for (const auto &slave: this->cached_slaves) {
+        const auto &props = slave.properties;
+        ec_slave_info_t slave_info;
+        if (const int ret = this->api->master_get_slave(
+                this->ec_master,
+                static_cast<uint16_t>(props.position - 1),
+                &slave_info
+            );
+            ret != 0)
+            return {
+                {},
+                x::errors::Error(
+                    errors::MASTER_INIT_ERROR,
+                    std::format(
+                        "failed to read slave {}: {}",
+                        props.position,
+                        reason(ret)
+                    )
+                )
+            };
+        if (slave_info.vendor_id != props.vendor_id ||
+            slave_info.product_code != props.product_code ||
+            slave_info.revision_number != props.revision)
+            return {master::Change{.stale = true}, x::errors::NIL};
+    }
+    return {{}, x::errors::NIL};
 }
 
 x::errors::Error
@@ -246,7 +274,7 @@ Master::download(const slave::Properties &slave, const slave::StartupParameter &
         ) >= 0)
         return x::errors::NIL;
     return x::errors::Error(
-        errors::STARTUP_PARAMETER_ERROR,
+        errors::startup_parameter_error(abort_code),
         "slave " + std::to_string(slave.position) + " (" + slave.name +
             ") rejected startup parameter " + param.to_string() + ": " +
             errors::sdo_abort_reason(abort_code)
@@ -284,7 +312,7 @@ x::errors::Error Master::write(
                 &abort_code
             ) < 0)
             return x::errors::Error(
-                errors::STARTUP_PARAMETER_ERROR,
+                errors::startup_parameter_error(abort_code),
                 "slave " + std::to_string(position) + " (" + slave.name +
                     ") failed to read startup parameter " + param.to_string() + ": " +
                     errors::sdo_abort_reason(abort_code)
@@ -299,6 +327,14 @@ x::errors::Error Master::write(
             );
     }
     return x::errors::NIL;
+}
+
+std::pair<uint32_t, x::errors::Error>
+Master::read(const uint16_t position, const uint16_t index, const uint8_t sub_index) {
+    return sdo_reader(*this->api, this->ec_master, ring_position(position))(
+        index,
+        sub_index
+    );
 }
 
 x::errors::Error Master::add_startup_parameters(
@@ -490,9 +526,12 @@ void Master::deactivate() {
     this->cached_slaves.clear();
     this->input_sz = 0;
     this->output_sz = 0;
+    this->full_working_counter.reset();
+    this->latest_shortfall.reset();
 }
 
 x::errors::Error Master::receive() {
+    this->latest_shortfall.reset();
     if (!this->activated)
         return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
 
@@ -517,20 +556,28 @@ x::errors::Error Master::receive() {
     }
 
     // IgH reports a zero working counter for an empty domain, which exchanges no data.
-    if ((this->output_sz > 0 && this->output_domain_state.wc_state == EC_WC_ZERO) ||
-        (this->input_sz > 0 && this->input_domain_state.wc_state == EC_WC_ZERO))
+    const bool zero = (this->output_sz > 0 &&
+                       this->output_domain_state.wc_state == EC_WC_ZERO) ||
+                      (this->input_sz > 0 &&
+                       this->input_domain_state.wc_state == EC_WC_ZERO);
+    const bool incomplete = this->output_domain_state.wc_state == EC_WC_INCOMPLETE ||
+                            this->input_domain_state.wc_state == EC_WC_INCOMPLETE;
+    const uint32_t wkc = this->output_domain_state.working_counter +
+                         this->input_domain_state.working_counter;
+    if (!zero && !incomplete) {
+        this->full_working_counter = wkc;
+        return x::errors::NIL;
+    }
+    if (this->full_working_counter && wkc < *this->full_working_counter)
+        this->latest_shortfall = *this->full_working_counter - wkc;
+    if (zero)
         return x::errors::Error(errors::WORKING_COUNTER_ERROR, "no slaves responded");
-
-    if (this->output_domain_state.wc_state == EC_WC_INCOMPLETE ||
-        this->input_domain_state.wc_state == EC_WC_INCOMPLETE)
-        return x::errors::Error(
-            errors::WORKING_COUNTER_ERROR,
-            "incomplete working counter: output " +
-                std::to_string(this->output_domain_state.working_counter) + ", input " +
-                std::to_string(this->input_domain_state.working_counter)
-        );
-
-    return x::errors::NIL;
+    return x::errors::Error(
+        errors::WORKING_COUNTER_ERROR,
+        "incomplete working counter: output " +
+            std::to_string(this->output_domain_state.working_counter) + ", input " +
+            std::to_string(this->input_domain_state.working_counter)
+    );
 }
 
 x::errors::Error Master::send() {
@@ -679,6 +726,8 @@ void Master::register_pdo_entries(
     ec_slave_config_t *sc,
     master::Image &image
 ) {
+    // A slave adds 1 to the datagram of each domain that holds one of its entries.
+    master::WorkingCounterShare share;
     const auto add = [&](const pdo::Properties &pdo, ec_domain_t *domain) {
         if (pdo.is_padding()) return;
         const pdo::Key key{slave.position, pdo.index, pdo.sub_index, pdo.is_input};
@@ -711,11 +760,17 @@ void Master::register_pdo_entries(
             static_cast<uint8_t>(bit),
             pdo.bit_length
         };
+        if (domain == this->output_domain)
+            share.outputs = 1;
+        else
+            share.inputs = 1;
     };
     for (const auto &pdo: slave.output_pdos)
         add(pdo, this->output_domain);
     for (const auto &pdo: slave.input_pdos)
         add(pdo, this->input_domain);
+    if (share != master::WorkingCounterShare{})
+        image.working_counter_shares[slave.position] = share;
 }
 
 x::errors::Error

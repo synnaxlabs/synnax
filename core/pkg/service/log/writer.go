@@ -60,9 +60,8 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given log, assigning a new key when l.Key is zero. The log must
-// belong to exactly one of a project and a range. A log in a group belongs to the
-// project that holds the group. Create returns an error wrapping validate.ErrValidation
-// when a log with l.Key exists.
+// belong to a project. A log in a group belongs to the project that holds the group.
+// Create returns an error wrapping validate.ErrValidation when a log with l.Key exists.
 func (w Writer) Create(ctx context.Context, l *Log) error {
 	if l.Key == uuid.Nil() {
 		l.Key = uuid.New()
@@ -77,7 +76,7 @@ func (w Writer) Create(ctx context.Context, l *Log) error {
 	if err := validateWrite(*l); err != nil {
 		return err
 	}
-	if err := project.ValidateOwner(l.Project, l.Range); err != nil {
+	if err := project.CheckMember(l.Project); err != nil {
 		return err
 	}
 	if err := w.table.NewCreate().Exclusive().Entry(l).Exec(ctx, w.tx); err != nil {
@@ -102,10 +101,10 @@ func (w Writer) setProject(ctx context.Context, p project.Key, keys ...Key) erro
 				return e.Project == nil || *e.Project != p, nil
 			}),
 		)).
-		ChangeErr(func(_ gorp.Context, e Log) (Log, error) {
+		Change(func(_ gorp.Context, e Log) Log {
 			moved = append(moved, e.Key)
 			e.Project = &p
-			return e, project.ValidateOwner(e.Project, e.Range)
+			return e
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
@@ -170,7 +169,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			if err = validateWrite(next); err != nil {
 				return Log{}, err
 			}
-			return next, project.ValidateOwner(next.Project, next.Range)
+			return next, project.CheckMember(next.Project)
 		}).Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}

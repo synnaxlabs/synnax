@@ -38,7 +38,10 @@ TEST(RackFactoriesTest, DeletesLegacyNIScanner) {
         std::make_shared<x::thread::rt::Manager>()
     );
     const auto ctx = std::make_shared<task::MockContext>(client);
-    auto tasks = factory->configure_initial_tasks(ctx, rack);
+    x::breaker::Breaker cancel;
+    cancel.start();
+    auto tasks = factory->configure_initial_tasks(ctx, rack, cancel);
+    cancel.stop();
     for (const auto &[_, tsk]: tasks)
         if (tsk != nullptr) tsk->stop(false);
     ASSERT_OCCURRED_AS_P(rack.tasks.retrieve(scanner.key), x::errors::NOT_FOUND);
@@ -59,17 +62,21 @@ TEST(RackFactoriesTest, RackListsOnlyBuiltIntegrations) {
 
 /// @brief it should fail a start of an NI task and name the platforms that run it.
 TEST(RackFactoriesTest, NITaskNamesThePlatforms) {
+    x::breaker::Breaker cancel;
     const Config cfg;
     const auto factory = cfg.new_factory(
         nullptr,
         std::make_shared<x::thread::rt::Manager>()
     );
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    cancel.start();
     const auto [tsk, handled] = factory->configure_task(
         ctx,
         synnax::task::Task{.name = "t", .type = ni::ANALOG_READ_TASK_TYPE},
-        "start-cmd"
+        "start-cmd",
+        cancel
     );
+    cancel.stop();
     EXPECT_TRUE(handled);
     EXPECT_EQ(tsk, nullptr);
     const auto statuses = ctx->snapshot();

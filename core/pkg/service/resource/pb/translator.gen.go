@@ -139,6 +139,12 @@ func TypeToPB(v resource.Type) (Type, error) {
 		return Type_TYPE_OPCUA_SERVER, nil
 	case resource.TypeArcDirectory:
 		return Type_TYPE_ARC_DIRECTORY, nil
+	case resource.TypeSecret:
+		return Type_TYPE_SECRET, nil
+	case resource.TypeCertificate:
+		return Type_TYPE_CERTIFICATE, nil
+	case resource.TypeICD:
+		return Type_TYPE_ICD, nil
 	default:
 		return 0, errors.Newf("unrecognized resource.Type value: %v", v)
 	}
@@ -213,6 +219,12 @@ func TypeFromPB(v Type) (resource.Type, error) {
 		return resource.TypeOpcuaServer, nil
 	case Type_TYPE_ARC_DIRECTORY:
 		return resource.TypeArcDirectory, nil
+	case Type_TYPE_SECRET:
+		return resource.TypeSecret, nil
+	case Type_TYPE_CERTIFICATE:
+		return resource.TypeCertificate, nil
+	case Type_TYPE_ICD:
+		return resource.TypeICD, nil
 	default:
 		return resource.Type(""), errors.Newf("unrecognized Type value: %v", v)
 	}

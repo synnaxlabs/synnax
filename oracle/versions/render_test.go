@@ -121,6 +121,20 @@ var _ = Describe("Render", func() {
 		}
 	})
 
+	It("Should keep escaped whitespace in a string default", func(ctx SpecContext) {
+		table := analyzeFixture(ctx, `
+Framing struct {
+	delimiter string = "\n"
+	line_end string = "\r\n"
+}
+`)
+		rendered := versions.Render(declsOf(table), versions.RenderOptions{})
+		again := analyzeFixture(ctx, MustSucceed(formatter.Format(rendered)))
+		fields := MustBeOk(again.Get("test.Framing")).Form.(resolution.StructForm).Fields
+		Expect(fields[0].Default.StringValue).To(Equal("\n"))
+		Expect(fields[1].Default.StringValue).To(Equal("\r\n"))
+	})
+
 	It("Should preserve unknown expressions and @doc through a round trip", func(
 		ctx SpecContext,
 	) {

@@ -138,7 +138,7 @@ var _ = Describe("Service", func() {
 		It("Should return the read validation error for an invalid endpoint", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"endpoints": []any{map[string]any{"method": "BOGUS"}},
 			})).Error().To(MatchError(ContainSubstring("invalid method: BOGUS")))
 		})
@@ -146,7 +146,7 @@ var _ = Describe("Service", func() {
 		It("Should return the write validation error for an invalid endpoint", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Write.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Write.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"endpoints": []any{map[string]any{"method": "BOGUS"}},
 			})).Error().To(MatchError(ContainSubstring("invalid method: BOGUS")))
 		})
@@ -154,7 +154,7 @@ var _ = Describe("Service", func() {
 
 	DescribeTable("Should reject a scan config whose rate is not positive",
 		func(ctx SpecContext, rate float64) {
-			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"rate": rate,
 			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
 		},
@@ -164,7 +164,7 @@ var _ = Describe("Service", func() {
 
 	DescribeTable("Should reject a read config whose rate is not positive",
 		func(ctx SpecContext, rate float64) {
-			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"rate": rate,
 			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
 		},

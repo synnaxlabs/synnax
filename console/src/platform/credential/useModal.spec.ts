@@ -20,12 +20,12 @@ import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { useModal } from "@/platform/credential/useModal";
-import { findButton, findDismissButton, openModal } from "@/platform/modals/testutil";
+import { findButton, openModal } from "@/platform/modals/testutil";
 import {
   CaptureStatuses,
+  clickAndSettle,
   createTestClientWithGrants,
-  getIconButton,
-  getIconButtons,
+  openContextMenu,
   uniqueName,
 } from "@/testutil";
 
@@ -34,6 +34,13 @@ const type = async (placeholder: string, value: string): Promise<void> => {
   fireEvent.change(await screen.findByPlaceholderText(placeholder), {
     target: { value },
   });
+};
+
+// Fills and submits the create modal over the dialog.
+const createKey = async (name: string): Promise<void> => {
+  fireEvent.click(await screen.findByText("Create key"));
+  await type("Key name", name);
+  fireEvent.click(findButton("Create"));
 };
 
 const expectPassword = async (username: string, password: string): Promise<void> => {
@@ -62,19 +69,21 @@ describe("useModal", () => {
     await openModal(useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
     const name = uniqueName("key");
-    await type("Key name", name);
-    fireEvent.click(findButton("Create key"));
-    await screen.findByText(name);
+    await createKey(name);
+    await screen.findByText(`Copy the key for ${name}`);
+    expect(screen.getByText(/^syk_/)).toBeTruthy();
     const [created] = await client.auth.retrieveKeys([id]);
     expect(created.name).toEqual(name);
-    expect(screen.getByDisplayValue(/^syk_/)).toBeTruthy();
-    fireEvent.click(getIconButton(document.body, "delete"));
+    fireEvent.click(findButton("Done"));
+    await waitFor(() => expect(screen.queryByText(/^syk_/)).toBeNull());
+    await openContextMenu(name);
+    await clickAndSettle("Delete");
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await screen.findByText("No API keys");
-    expect(screen.queryByDisplayValue(/^syk_/)).toBeNull();
     expect(await client.auth.retrieveKeys([id])).toHaveLength(0);
   });
 
-  it("should delete a key whose creation ends after the dialog closes", async () => {
+  it("should delete a key whose creation ends after its modal closes", async () => {
     const client = createTestClient();
     const { key: role } = await createEmptyRole(client);
     const subject = await client.users.create({
@@ -95,9 +104,8 @@ describe("useModal", () => {
     });
     await openModal(useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
-    await type("Key name", uniqueName("key"));
-    fireEvent.click(findButton("Create key"));
-    fireEvent.click(findDismissButton());
+    await createKey(uniqueName("key"));
+    fireEvent.click(findButton("Cancel"));
     release();
     await waitFor(() => expect(createdKey).toBeDefined());
     await waitFor(async () =>
@@ -131,9 +139,8 @@ describe("useModal", () => {
       extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
     });
     await screen.findByText("No API keys");
-    await type("Key name", uniqueName("key"));
-    fireEvent.click(findButton("Create key"));
-    fireEvent.click(findDismissButton());
+    await createKey(uniqueName("key"));
+    fireEvent.click(findButton("Cancel"));
     release();
     await waitFor(() =>
       expect(statuses.map((s) => s.message)).toContain(
@@ -150,9 +157,8 @@ describe("useModal", () => {
     await screen.findByText("No API keys");
     expect(screen.queryByPlaceholderText("New password")).toBeNull();
     const name = uniqueName("key");
-    await type("Key name", name);
-    fireEvent.click(findButton("Create key"));
-    await screen.findByText(name);
+    await createKey(name);
+    await screen.findByText(`Copy the key for ${name}`);
     expect(await client.auth.retrieveKeys([id])).toHaveLength(1);
   });
 
@@ -166,8 +172,8 @@ describe("useModal", () => {
     await openModal(useModal, { client: viewer, params: { subject: id } });
     await screen.findByText(name);
     expect(screen.queryByText("Create key")).toBeNull();
-    expect(screen.queryByPlaceholderText("Key name")).toBeNull();
-    expect(getIconButtons(document.body, "delete")).toHaveLength(0);
+    await openContextMenu(name);
+    expect(screen.queryByText("Delete")).toBeNull();
   });
 
   it("should offer a rack key to a caller who may change the rack", async () => {

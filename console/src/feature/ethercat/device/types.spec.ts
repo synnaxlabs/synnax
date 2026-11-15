@@ -122,9 +122,9 @@ describe("slavePropertiesZ", () => {
       write: { channels: { "28672_1": 8, state_28672_1: 9, state_28672_2: 10 } },
     });
     expect(parsed.read.channels).toEqual([
-      { index: 0x6000, subIndex: 1, scaled: false, channel: 5 },
-      { index: 0x6000, subIndex: 1, scaled: true, channel: 6 },
-      { index: 0x6000, subIndex: 2, scaled: false, channel: 7 },
+      { index: 0x6000, subIndex: 1, scaled: false, calibrated: false, channel: 5 },
+      { index: 0x6000, subIndex: 1, scaled: true, calibrated: false, channel: 6 },
+      { index: 0x6000, subIndex: 2, scaled: false, calibrated: false, channel: 7 },
     ]);
     expect(parsed.write.channels).toEqual([
       { index: 0x7000, subIndex: 1, command: 8, state: 9 },
@@ -138,7 +138,7 @@ describe("slavePropertiesZ", () => {
       write: { channels: { autoOutputState: 8 } },
     });
     expect(parsed.read.channels).toEqual([
-      { index: 0x6000, subIndex: 1, scaled: false, channel: 5 },
+      { index: 0x6000, subIndex: 1, scaled: false, calibrated: false, channel: 5 },
     ]);
     expect(parsed.write.channels).toEqual([]);
   });

@@ -22,4 +22,18 @@ constexpr int DEFAULT_CALIBRATION_HANDLE = 3;
 constexpr const char *DEFAULT_CALIBRATION_SERIAL = "470000003";
 /// @brief the value that every read of the fake library returns.
 constexpr double READ_VALUE = 1.5;
+/// @brief a device handle whose first LATE_SCANS_EMPTY_READS stream reads return
+/// LJME_NO_SCANS_RETURNED.
+constexpr int LATE_SCANS_HANDLE = 4;
+constexpr int LATE_SCANS_EMPTY_READS = 3;
+/// @brief a device handle whose first stream read returns LJME_NO_SCANS_RETURNED, and
+/// whose next reads return LJME_NO_RESPONSE_BYTES_RECEIVED.
+constexpr int LOST_STREAM_HANDLE = 5;
+/// @brief a device handle whose first STALLED_STREAM_EMPTY_READS stream reads return
+/// LJME_NO_SCANS_RETURNED, for at least five seconds.
+constexpr int STALLED_STREAM_HANDLE = 6;
+constexpr int STALLED_STREAM_EMPTY_READS = 5000;
+/// @brief the name of a fake function, bool(), that blocks until a stream read of
+/// STALLED_STREAM_HANDLE returns no scans. It returns false if none does in 5 seconds.
+constexpr const char *WAIT_FOR_STALLED_READ = "Fake_WaitForStalledRead";
 }

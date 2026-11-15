@@ -43,6 +43,10 @@
         grid-column: 2 / -1;
     }
 
+    .lyra-form-section__body > .lyra-form-section__aligned {
+        grid-column: 2 / -1;
+    }
+
     /* A number or a duration holds a short value, so it keeps its control width. */
     .lyra-input__item
         > .lyra-input-label

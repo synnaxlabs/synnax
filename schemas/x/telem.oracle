@@ -115,12 +115,14 @@ Window union on variant {
 
 Rate float64 {
     @cpp hand
-    @doc value """
+    @doc value    """
         is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition
-        frequencies and calculate sample counts over time intervals.
+        frequencies and calculate sample counts over time intervals. A rate is never
+        negative.
     """
     @py hand
     @ts hand
+    @validate min 0
 }
 
 Size int64 {

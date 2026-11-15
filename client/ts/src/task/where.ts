@@ -10,7 +10,4 @@
 import { type Lines } from "@/task/where.gen";
 
 /** The typed lines of a task Where. Only the Core can check which Arc a task runs. */
-export const LINES: Lines = {
-  ranges: ({ range }, keys) => range != null && keys.includes(range),
-  arcs: null,
-};
+export const LINES: Lines = { arcs: null };

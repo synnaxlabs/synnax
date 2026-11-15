@@ -25,8 +25,6 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
@@ -47,8 +45,6 @@ var (
 	groupSvc   *group.Service
 	statusSvc  *status.Service
 	rbacSvc    *rbac.Service
-	rangeSvc   *ranger.Service
-	aliasSvc   *alias.Service
 	userSvc    *user.Service
 	apiSvc     *apichannel.Service
 	dist       testutil.Node
@@ -63,8 +59,12 @@ var (
 		apichannel.DispatchResponse,
 	]
 	retrieveChannels freighter.UnaryHandler[
-		apichannel.AliasedRetrieveRequest,
+		apichannel.RetrieveRequest,
 		apichannel.RetrieveResponse,
+	]
+	countLimited freighter.UnaryHandler[
+		apichannel.CountLimitedRequest,
+		apichannel.CountLimitedResponse,
 	]
 	author user.User
 )
@@ -75,13 +75,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = dist.DB
 	svc := MustOpen(svctestutil.OpenLayer(ctx, dist))
 	channelSvc, groupSvc, statusSvc, rbacSvc = svc.Channel, svc.Group, svc.Status, svc.RBAC
-	rangeSvc, aliasSvc, userSvc = svc.Ranger, svc.Alias, svc.User
+	userSvc = svc.User
 	apiSvc = MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
 		DB:      db,
 		RBAC:    rbacSvc,
 		Channel: channelSvc,
 		Status:  statusSvc,
-		Alias:   aliasSvc,
 	}))
 	binder := MustSucceed(
 		bind.NewService(bind.ServiceConfig{
@@ -94,6 +93,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	deleteChannels = bind.Write(binder, apiSvc.Delete)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	retrieveChannels = bind.Read(binder, apiSvc.Retrieve)
+	countLimited = bind.Read(binder, apiSvc.CountLimited)
 	author = MustSucceed(
 		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: "test"}),
 	)

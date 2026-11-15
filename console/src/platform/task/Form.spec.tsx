@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, type Synnax, task } from "@synnaxlabs/client";
+import { device, rack, type Synnax, task } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { deep, TimeRange, TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { type Status } from "@synnaxlabs/lyra/status";
+import { deep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type FC } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -25,10 +26,11 @@ import {
   awaitCommand,
   clickDeploy,
   commitFieldInput,
-  renderTaskFormHook,
+  createTaskStatus,
   renderTaskFormTab,
+  reportTaskRunning,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { findIconButton, uniqueName } from "@/testutil";
 
 const path = deep.path<Task.Values<typeof schemas>>();
 
@@ -164,24 +166,6 @@ describe("wrapForm", () => {
     ).toBeNull();
   });
 
-  it("should show the range of a snapshot", async () => {
-    const client = createTestClient();
-    const source = await createTask(client);
-    const range = await client.ranges.create({
-      name: uniqueName("rng"),
-      timeRange: new TimeRange(1, 2),
-    });
-    const snap = await client.tasks.copy(
-      source.key,
-      uniqueName("snap"),
-      true,
-      range.key,
-    );
-    await renderTaskFormTab(createRenderer(), { client, taskKey: snap.key });
-    await waitFor(() => expect(screen.getByText("Snapshotted to")).toBeTruthy());
-    expect(screen.getByText(range.name)).toBeTruthy();
-  });
-
   describe("rack", () => {
     it("should load it from the retrieved task", async () => {
       const client = createTestClient();
@@ -251,6 +235,57 @@ describe("wrapForm", () => {
         expect(screen.getByText("device-status:Device is required")).toBeTruthy(),
       );
       expect(configured).toBe(false);
+    });
+
+    it("should show an error that no field shows in a toast", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      const statuses: Status.NotificationSpec[] = [];
+      const { container } = await renderTaskFormTab(
+        createRenderer({ deployConfigZ: requiredDeviceZ }),
+        {
+          client,
+          taskKey: draft.key,
+          onStatuses: (next) => {
+            statuses.length = 0;
+            statuses.push(...next);
+          },
+        },
+      );
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to start task",
+            description: "Device is required",
+          }),
+        ),
+      );
+    });
+
+    it("should leave an error to the field that shows it", async () => {
+      const DeviceField: FC = () => <PForm.Field path={path.config.device} />;
+      DeviceField.displayName = "DeviceField";
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      const statuses: Status.NotificationSpec[] = [];
+      const { container } = await renderTaskFormTab(
+        createRenderer({ Form: DeviceField, deployConfigZ: requiredDeviceZ }),
+        {
+          client,
+          taskKey: draft.key,
+          onStatuses: (next) => {
+            statuses.length = 0;
+            statuses.push(...next);
+          },
+        },
+      );
+      await clickDeploy(container);
+      expect(await screen.findByText("Device is required")).toBeTruthy();
+      await act(async () => {});
+      expect(statuses).not.toContainEqual(
+        expect.objectContaining({ message: "Failed to start task" }),
+      );
     });
 
     it("should put an error of a keyed list entry on the field of that entry", async () => {
@@ -671,21 +706,139 @@ describe("wrapForm", () => {
       }
       expect(onConfigure).not.toHaveBeenCalled();
     });
-  });
-});
 
-describe("useIsSnapshot", () => {
-  it("should return the value of the snapshot field", async () => {
-    const { result } = await renderTaskFormHook({ snapshot: true }, (ctx) =>
-      Task.useIsSnapshot(ctx),
-    );
-    expect(result.current.value).toBe(true);
-  });
+    it("should start again after a start that got no response", async () => {
+      const client = createTestClient();
+      const running = await client.racks.create({ name: uniqueName("rack") });
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: running.key });
+      // The rack reports a running Driver, so the client waits for a reply.
+      const beat = async () =>
+        await client.statuses.set({
+          owner: rack.resourceID(running.key),
+          name: "Rack Status",
+          variant: "success",
+          message: "Driver is running",
+          time: TimeStamp.now(),
+          details: { running: true },
+        });
+      await beat();
+      const heartbeat = setInterval(() => void beat(), 1000);
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      vi.useFakeTimers({
+        toFake: ["setTimeout", "clearTimeout"],
+        shouldAdvanceTime: true,
+      });
+      try {
+        const { container } = await renderTaskFormTab(createRenderer(), {
+          client,
+          taskKey: draft.key,
+        });
+        await clickDeploy(container);
+        await awaitCommand(streamer, draft.key);
+        await screen.findByText("Sending start command");
+        await act(
+          async () =>
+            await vi.advanceTimersByTimeAsync(TimeSpan.seconds(10).milliseconds),
+        );
+        await screen.findByText("No response to the start command");
+        await clickDeploy(container);
+        expect((await awaitCommand(streamer, draft.key)).type).toBe("start");
+      } finally {
+        vi.useRealTimers();
+        clearInterval(heartbeat);
+        streamer.close();
+      }
+    });
 
-  it("should return false for a non-snapshot task", async () => {
-    const { result } = await renderTaskFormHook({ snapshot: false }, (ctx) =>
-      Task.useIsSnapshot(ctx),
-    );
-    expect(result.current.value).toBe(false);
+    it("should start a task whose status fails its status data schema", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const { container } = await renderTaskFormTab(createRenderer(), {
+          client,
+          taskKey: draft.key,
+        });
+        // The status data of the task type requires running.
+        await client.statuses.set(
+          createTaskStatus({
+            owner: task.resourceID(draft.key),
+            message: "Task stopped",
+            details: { data: {} },
+          }),
+        );
+        await screen.findByText("Task stopped");
+        await clickDeploy(container);
+        expect((await awaitCommand(streamer, draft.key)).type).toBe("start");
+      } finally {
+        streamer.close();
+      }
+    });
+
+    it("should not start a redeploy that a stop cancels while it configures", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      let release = (): void => {};
+      const released = new Promise<void>((resolve) => (release = resolve));
+      const Renderer = createRenderer({
+        onConfigure: async (_client, config) => {
+          await released;
+          return [config, 0];
+        },
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const { container } = await renderTaskFormTab(Renderer, {
+          client,
+          taskKey: draft.key,
+        });
+        await reportTaskRunning(client, draft, "stale");
+        await act(async () =>
+          fireEvent.click(await screen.findByRole("button", { name: "Redeploy" })),
+        );
+        await screen.findByText("Configuring task");
+        fireEvent.click(await findIconButton(container, "stop"));
+        expect((await awaitCommand(streamer, draft.key)).type).toBe("stop");
+        release();
+        await waitFor(() => expect(screen.queryByText("Configuring task")).toBeNull());
+        // A start sent after the stop would come before this second stop.
+        fireEvent.click(await findIconButton(container, "stop"));
+        expect((await awaitCommand(streamer, draft.key)).type).toBe("stop");
+      } finally {
+        streamer.close();
+      }
+    });
+
+    it("should show that a start configures until its command goes out", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      let release = (): void => {};
+      const released = new Promise<void>((resolve) => (release = resolve));
+      const Renderer = createRenderer({
+        onConfigure: async (_client, config) => {
+          await released;
+          return [config, 0];
+        },
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const { container } = await renderTaskFormTab(Renderer, {
+          client,
+          taskKey: draft.key,
+        });
+        await clickDeploy(container);
+        await screen.findByText("Configuring task");
+        expect(
+          within(container)
+            .getByRole("button", { name: "Start" })
+            .getAttribute("aria-disabled"),
+        ).toBe("true");
+        release();
+        expect((await awaitCommand(streamer, draft.key)).type).toBe("start");
+        await waitFor(() => expect(screen.queryByText("Configuring task")).toBeNull());
+      } finally {
+        streamer.close();
+      }
+    });
   });
 });

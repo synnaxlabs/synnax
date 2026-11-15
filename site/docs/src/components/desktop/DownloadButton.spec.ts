@@ -32,10 +32,20 @@ const text = (node: Element): string =>
     .trim();
 
 const RELEASES: Release[] = [
-  { tag_name: "desktop/v1.1.0-rc.1", prerelease: true, draft: false },
-  { tag_name: "desktop/v1.0.0", prerelease: false, draft: false },
-  { tag_name: "desktop/v1.0.0-rc.2", prerelease: true, draft: false },
-  { tag_name: "console/v0.60.0", prerelease: false, draft: false },
+  {
+    tag_name: "desktop/v1.1.0-rc.1",
+    prerelease: true,
+    draft: false,
+    published_at: null,
+  },
+  { tag_name: "desktop/v1.0.0", prerelease: false, draft: false, published_at: null },
+  {
+    tag_name: "desktop/v1.0.0-rc.2",
+    prerelease: true,
+    draft: false,
+    published_at: null,
+  },
+  { tag_name: "console/v0.60.0", prerelease: false, draft: false, published_at: null },
 ];
 
 const DOWNLOAD = "https://github.com/synnaxlabs/synnax/releases/download/desktop";

@@ -71,7 +71,10 @@ func (c Config) distribution() framer.IteratorConfig {
 
 func (c Config) validate() error {
 	v := validate.New("iterator.config")
-	v.Exec(c.Reduction.Validate)
+	// A read without a reduction keeps every sample.
+	if c.Reduction.Variant != nil {
+		v.Exec(c.Reduction.Validate)
+	}
 	return v.Error()
 }
 

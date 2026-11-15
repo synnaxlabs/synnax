@@ -10,7 +10,10 @@
 import { describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
-import { createSettingsDescription } from "@/feature/ethercat/testutil";
+import {
+  createExcitationDescription,
+  createSettingsDescription,
+} from "@/feature/ethercat/testutil";
 
 const { Settings } = EtherCAT.Device;
 const { sameAddress } = Settings;
@@ -25,7 +28,7 @@ const fields = channel.settings;
 describe("Settings", () => {
   describe("fill", () => {
     it("should give each address one value in field order, from the defaults", () => {
-      expect(Settings.fill(fields, [])).toEqual([
+      expect(Settings.fill(fields, []).values).toEqual([
         { ...MEASUREMENT, dataType: "uint16", value: 0, name: "" },
         { ...RANGE, dataType: "uint16", value: 0, name: "" },
         { ...EXCITATION, dataType: "float32", value: 0, name: "" },
@@ -36,17 +39,45 @@ describe("Settings", () => {
       const held = fields.map((f) =>
         sameAddress(f, MEASUREMENT) ? { ...f, value: 6 } : f,
       );
-      expect(Settings.fill(held, []).map(({ value }) => value)).toEqual([6, 0, 0]);
+      expect(Settings.fill(held, []).values.map(({ value }) => value)).toEqual([
+        6, 0, 0,
+      ]);
       expect(
-        Settings.fill(held, [{ ...MEASUREMENT, value: 1 }]).map(({ value }) => value),
+        Settings.fill(held, [{ ...MEASUREMENT, value: 1 }]).values.map(
+          ({ value }) => value,
+        ),
       ).toEqual([1, 0, 0]);
     });
 
+    it("should start a float32 field from the text of the value the card holds", () => {
+      const held = fields.map((f) =>
+        sameAddress(f, EXCITATION) ? { ...f, value: Math.fround(19.796932) } : f,
+      );
+      expect(Settings.fill(held, []).values.map(({ value }) => value)).toEqual([
+        0, 0, 19.796932,
+      ]);
+    });
+
+    it("should start a held value past the limit of a shown field at the limit", () => {
+      const excitation = createExcitationDescription({
+        polarity: 1,
+        voltage: Math.fround(12.000228),
+      }).channels[0].settings;
+      const { values, notes } = Settings.fill(excitation, []);
+      expect(values.map(({ value }) => value)).toEqual([1, 12]);
+      expect(notes).toEqual([
+        {
+          ...EXCITATION,
+          message: "Excitation voltage changed from 12.000228 V to 12 V.",
+        },
+      ]);
+    });
+
     it("should drop a value at an address that no field names", () => {
-      const settings = Settings.fill(fields, [
+      const { values } = Settings.fill(fields, [
         { index: 0x8041, subIndex: 1, value: 6 },
       ]);
-      expect(settings.map(({ value }) => value)).toEqual([0, 0, 0]);
+      expect(values.map(({ value }) => value)).toEqual([0, 0, 0]);
     });
   });
 
@@ -70,39 +101,96 @@ describe("Settings", () => {
         value: 6,
         name: "",
       };
-      expect(Settings.set(fields, [other], RANGE, 1)).toContainEqual(other);
+      expect(Settings.set(fields, [other], RANGE, 1).values).toContainEqual(other);
     });
 
     it("should give a shown field its default when its value is not an option", () => {
-      const voltage = Settings.set(fields, [], RANGE, 4);
-      const current = Settings.set(fields, voltage, MEASUREMENT, 1);
+      const voltage = Settings.set(fields, [], RANGE, 4).values;
+      const current = Settings.set(fields, voltage, MEASUREMENT, 1).values;
       expect(current.find((s) => Settings.sameAddress(s, RANGE))?.value).toBe(0);
     });
 
     it("should keep a value that the new options hold", () => {
-      const voltage = Settings.set(fields, [], RANGE, 1);
-      const current = Settings.set(fields, voltage, MEASUREMENT, 1);
+      const voltage = Settings.set(fields, [], RANGE, 1).values;
+      const current = Settings.set(fields, voltage, MEASUREMENT, 1).values;
       expect(current.find((s) => Settings.sameAddress(s, RANGE))?.value).toBe(1);
     });
 
     it("should give a hidden field its default when its value is outside its limits", () => {
-      const bridge = Settings.set(fields, [], MEASUREMENT, 6);
-      const high = Settings.set(fields, bridge, EXCITATION, 30);
-      const voltage = Settings.set(fields, high, MEASUREMENT, 0);
+      const bridge = Settings.set(fields, [], MEASUREMENT, 6).values;
+      const high = Settings.set(fields, bridge, EXCITATION, 30).values;
+      const voltage = Settings.set(fields, high, MEASUREMENT, 0).values;
       expect(voltage.find((s) => Settings.sameAddress(s, EXCITATION))?.value).toBe(0);
     });
 
     it("should keep a value of a hidden field that is inside its limits", () => {
-      const bridge = Settings.set(fields, [], MEASUREMENT, 6);
-      const low = Settings.set(fields, bridge, EXCITATION, 10);
-      const voltage = Settings.set(fields, low, MEASUREMENT, 0);
+      const bridge = Settings.set(fields, [], MEASUREMENT, 6).values;
+      const low = Settings.set(fields, bridge, EXCITATION, 10).values;
+      const voltage = Settings.set(fields, low, MEASUREMENT, 0).values;
       expect(voltage.find((s) => Settings.sameAddress(s, EXCITATION))?.value).toBe(10);
+    });
+  });
+
+  describe("set, when the polarity picks the excitation voltage field", () => {
+    const excitation = createExcitationDescription().channels[0].settings;
+    const POLARITY = { index: 0x8040, subIndex: 0x21 };
+    const voltageOf = ({ values }: EtherCAT.Device.Settings.Change) =>
+      values.find((v) => sameAddress(v, EXCITATION))?.value;
+
+    it("should move a voltage above the limit of the new field to it, with a note", () => {
+      const unipolar = Settings.set(excitation, [], EXCITATION, 24);
+      const bipolar = Settings.set(excitation, unipolar.values, POLARITY, 1);
+      expect(voltageOf(bipolar)).toBe(12);
+      expect(bipolar.notes).toEqual([
+        { ...EXCITATION, message: "Excitation voltage changed from 24 V to 12 V." },
+      ]);
+    });
+
+    it("should name a typed voltage that float32 cannot hold in the note", () => {
+      const unipolar = Settings.set(excitation, [], EXCITATION, 13.3);
+      const bipolar = Settings.set(excitation, unipolar.values, POLARITY, 1);
+      expect(voltageOf(bipolar)).toBe(12);
+      expect(bipolar.notes).toEqual([
+        { ...EXCITATION, message: "Excitation voltage changed from 13.3 V to 12 V." },
+      ]);
+    });
+
+    it("should note a held voltage that the new field moves to its limit", () => {
+      const held = createExcitationDescription({ voltage: 24 }).channels[0].settings;
+      const bipolar = Settings.set(held, [], POLARITY, 1);
+      expect(voltageOf(bipolar)).toBe(12);
+      expect(bipolar.notes).toEqual([
+        { ...EXCITATION, message: "Excitation voltage changed from 24 V to 12 V." },
+      ]);
+    });
+
+    it("should keep a voltage inside the limit of the new field", () => {
+      const unipolar = Settings.set(excitation, [], EXCITATION, 10);
+      const bipolar = Settings.set(excitation, unipolar.values, POLARITY, 1);
+      expect(voltageOf(bipolar)).toBe(10);
+      expect(bipolar.notes).toEqual([]);
+    });
+
+    it("should not move a voltage that the user sets above the limit", () => {
+      const bipolar = Settings.set(excitation, [], POLARITY, 1);
+      const high = Settings.set(excitation, bipolar.values, EXCITATION, 20);
+      expect(voltageOf(high)).toBe(20);
+      expect(high.notes).toEqual([]);
+    });
+  });
+
+  describe("valueText", () => {
+    it("should throw for a value that is not finite", () => {
+      const voltage = createExcitationDescription().channels[0].settings[1];
+      expect(() => Settings.valueText(voltage, NaN)).toThrow(
+        new RangeError("NaN is not a finite value"),
+      );
     });
   });
 
   describe("visibleFields", () => {
     it("should show the fields whose conditions hold", () => {
-      const bridge = Settings.set(fields, [], MEASUREMENT, 6);
+      const bridge = Settings.set(fields, [], MEASUREMENT, 6).values;
       expect(Settings.visibleFields(fields, bridge).map((f) => f.name)).toEqual([
         "Measurement",
         "Range",
@@ -117,22 +205,22 @@ describe("Settings", () => {
 
   describe("check", () => {
     it("should report a broken requirement at the address it names", () => {
-      const bridge = Settings.set(fields, [], MEASUREMENT, 6);
+      const bridge = Settings.set(fields, [], MEASUREMENT, 6).values;
       expect(Settings.check(channel, bridge)).toEqual([
         { ...EXCITATION, message: "A bridge needs an excitation voltage above 0 V." },
       ]);
     });
 
     it("should report a value outside the limits of its field", () => {
-      const bridge = Settings.set(fields, [], MEASUREMENT, 6);
-      const high = Settings.set(fields, bridge, EXCITATION, 30);
+      const bridge = Settings.set(fields, [], MEASUREMENT, 6).values;
+      const high = Settings.set(fields, bridge, EXCITATION, 30).values;
       expect(Settings.check(channel, high)).toEqual([
         { ...EXCITATION, message: "Excitation voltage must be from 0 to 24 V." },
       ]);
     });
 
     it("should not check the limits of a hidden field", () => {
-      const high = Settings.set(fields, [], EXCITATION, 30);
+      const high = Settings.set(fields, [], EXCITATION, 30).values;
       expect(Settings.check(channel, high)).toEqual([]);
     });
   });

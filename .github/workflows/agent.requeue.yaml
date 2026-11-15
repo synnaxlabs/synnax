@@ -1,0 +1,96 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Runs an agent job again when its seat stopped at the usage limit of its login. The
+# fleet controller then starts another seat for it. When every seat of the agent is at
+# its limit, or the run was already tried three times, this workflow fails instead.
+# Release runs are left to a person.
+
+name: Agent - Requeue
+
+on:
+  workflow_run:
+    workflows:
+      - Agent - Bug hunt
+      - Agent - Console QA
+      - Agent - Lint
+      - Agent - Nightly
+      - Agent - Shepherd
+      - Agent - Task
+      - Dispatch - Agents
+      - Nightly
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  requeue:
+    name: Requeue
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN: ${{ github.event.workflow_run.id }}
+      ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+    steps:
+      # agent.yaml runs this step only when the agent stopped at a usage limit. Only one
+      # job of a run can run again at a time, so the first one goes.
+      - name: Find a job that a usage limit stopped
+        id: job
+        run: |
+          jobs="repos/$GITHUB_REPOSITORY/actions/runs/$RUN/jobs?filter=latest"
+          gh api --paginate "$jobs" \
+            --jq '.jobs[] | select(.conclusion == "failure") | select(any(.steps[];
+              .name == "Leave the pool until the usage limit resets" and
+              .conclusion == "success")) | "\(.id) \(.name)"' > "$RUNNER_TEMP/jobs"
+          read -r id name < "$RUNNER_TEMP/jobs" || exit 0
+          agent=$(grep -oP 'Run \(\K[a-z]+(?=\)$)' <<< "$name")
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          echo "agent=$agent" >> "$GITHUB_OUTPUT"
+          if [ "$ATTEMPT" -ge 3 ]; then
+            echo "::error::$name stopped at a usage limit in attempt $ATTEMPT." \
+              "It does not run again."
+            exit 1
+          fi
+
+      - name: Assume the runner start role
+        if: steps.job.outputs.id
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
+        with:
+          role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Run the job again on a seat with usage left
+        if: steps.job.outputs.id
+        env:
+          AGENT: ${{ steps.job.outputs.agent }}
+          JOB: ${{ steps.job.outputs.id }}
+        run: |
+          limit="Tags[?Key=='limited-until']|[0].Value"
+          resets=$(aws ec2 describe-instances --output text \
+            --filters Name=tag:project,Values=synnax-agents \
+            Name=tag:pool,Values=agent "Name=tag:agent,Values=$AGENT" \
+            Name=instance-state-name,Values=pending,running,stopping,stopped \
+            --query "Reservations[].Instances[].[$limit]")
+          if [ -z "$resets" ]; then
+            echo "::error::The agent pool has no seat for $AGENT"
+            exit 1
+          fi
+          now=$(date +%s)
+          if ! awk -v now="$now" '$1 == "None" || $1 <= now { found = 1 }
+            END { exit !found }' <<< "$resets"; then
+            first=$(sort -n <<< "$resets" | head -1)
+            echo "::error::Every $AGENT seat is at its usage limit. The first" \
+              "resets at $(date -u -d "@$first" '+%F %R UTC'). Run the job again then."
+            exit 1
+          fi
+          gh api -X POST "repos/$GITHUB_REPOSITORY/actions/jobs/$JOB/rerun" --silent

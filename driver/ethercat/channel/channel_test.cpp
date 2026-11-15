@@ -172,6 +172,49 @@ nlohmann::json write_unresolved(const std::string &pdo) {
     };
 }
 
+/// @brief returns the config of a calibrated read channel at the entry.
+nlohmann::json calibrated_entry(
+    const uint16_t index,
+    const uint8_t sub_index,
+    const std::string &type
+) {
+    auto j = read_entry(index, sub_index, type);
+    j["calibrated"] = true;
+    return j;
+}
+
+/// @brief returns a slave whose catalog calibrates the input 0x6030:01 with the gain at
+/// 0x8040:15 and the offset at 0x8040:14. The slave sends samples of data_type there.
+slave::Properties calibrated_slave(
+    const x::telem::DataType &data_type,
+    const std::string &calibration_type = "int32"
+) {
+    slave::Properties slave{.position = 2, .name = "SIRIUS"};
+    slave.input_pdos.push_back(
+        {.pdo_index = 0x1A30,
+         .index = 0x6030,
+         .sub_index = 1,
+         .bit_length = 32,
+         .is_input = true,
+         .name = "CH1",
+         .data_type = data_type}
+    );
+    slave.settings = x::json::json{
+        {"channels",
+         {{{"entries",
+            {{{"index", 0x6030},
+              {"sub_index", 1},
+              {"calibration",
+               {{"data_type", calibration_type},
+                {"index", 0x8040},
+                {"gain_sub_index", 0x15},
+                {"offset_sub_index", 0x14},
+                {"divisor", 256},
+                {"raw_offset", true}}}}}}}}},
+    };
+    return slave;
+}
+
 std::unique_ptr<Input> input(const slave::Properties &slave, x::json::Parser &p) {
     return make_input(::synnax::ethercat::parse_read_channel(p), slave, p);
 }
@@ -207,6 +250,91 @@ TEST(Input, BindsAUniqueEntryWithBitLengthFromTheSlave) {
     ASSERT_EQ(ch->entry.sub_index, 0x11);
     ASSERT_EQ(ch->entry.bit_length, 16);
     ASSERT_EQ(ch->entry.data_type, x::telem::UINT16_T);
+}
+
+/// @brief it should give an integer input the calibration of its catalog, and decode
+/// its samples in the data type of the calibration.
+TEST(Input, TakesTheCalibrationOfTheCatalogForIntegerSamples) {
+    const auto slave = calibrated_slave(x::telem::UINT32_T);
+    auto parser = x::json::Parser(calibrated_entry(0x6030, 1, "uint32"));
+    const auto ch = input(slave, parser);
+    ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
+    ASSERT_TRUE(ch->calibration.has_value());
+    const auto &calibration = ch->calibration.value();
+    EXPECT_EQ(calibration.index, 0x8040);
+    EXPECT_EQ(calibration.gain_sub_index, 0x15);
+    EXPECT_EQ(calibration.offset_sub_index, 0x14);
+    EXPECT_EQ(ch->entry.data_type, x::telem::INT32_T);
+}
+
+/// @brief it should not calibrate an input that sends float samples.
+TEST(Input, LeavesFloatSamplesUncalibrated) {
+    const auto slave = calibrated_slave(x::telem::FLOAT32_T);
+    auto parser = x::json::Parser(calibrated_entry(0x6030, 1, "float32"));
+    const auto ch = input(slave, parser);
+    ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
+    EXPECT_FALSE(ch->calibration.has_value());
+    EXPECT_EQ(ch->entry.data_type, x::telem::FLOAT32_T);
+}
+
+/// @brief it should leave the samples of a channel raw when the channel is not
+/// calibrated, as a task from before calibrations is.
+TEST(Input, LeavesAnUncalibratedChannelRaw) {
+    const auto slave = calibrated_slave(x::telem::UINT32_T);
+    auto parser = x::json::Parser(read_entry(0x6030, 1, "uint32"));
+    const auto ch = input(slave, parser);
+    ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
+    EXPECT_FALSE(ch->calibration.has_value());
+    EXPECT_EQ(ch->entry.data_type, x::telem::UINT32_T);
+}
+
+/// @brief it should report a calibrated channel whose entry the catalog does not
+/// calibrate.
+TEST(Input, ReportsACalibratedChannelThatTheCatalogDoesNotCalibrate) {
+    auto slave = calibrated_slave(x::telem::INT32_T);
+    slave.settings.reset();
+    auto parser = x::json::Parser(calibrated_entry(0x6030, 1, "int32"));
+    const auto ch = input(slave, parser);
+    const auto [path, message] = only_error(parser);
+    EXPECT_EQ(path, "calibrated");
+    EXPECT_EQ(
+        message,
+        "the catalog gives no calibration for entry 0x6030:01 on slave SIRIUS"
+    );
+    EXPECT_EQ(ch, nullptr);
+}
+
+/// @brief it should report a catalog calibration whose data type does not fit the
+/// entry.
+TEST(Input, ReportsACalibrationThatDoesNotFitTheEntry) {
+    const auto slave = calibrated_slave(x::telem::INT32_T, "int16");
+    auto parser = x::json::Parser(calibrated_entry(0x6030, 1, "int32"));
+    const auto ch = input(slave, parser);
+    const auto [path, message] = only_error(parser);
+    EXPECT_EQ(path, "index");
+    EXPECT_EQ(
+        message,
+        "the catalog gives int16 samples for entry 0x6030:01 on slave SIRIUS, but the "
+        "entry holds 32 bits"
+    );
+    EXPECT_EQ(ch, nullptr);
+}
+
+/// @brief it should turn a gain and a raw offset into a line: (raw / 256 + offset) *
+/// gain.
+TEST(Calibration, ScalesARawOffsetByTheGain) {
+    const Calibration c{.divisor = 256, .raw_offset = true};
+    const auto [slope, offset] = c.line(2, 3);
+    EXPECT_DOUBLE_EQ(slope, 2.0 / 256);
+    EXPECT_DOUBLE_EQ(offset, 6);
+}
+
+/// @brief it should turn a gain and a physical offset into a line: raw * gain + offset.
+TEST(Calibration, AddsAPhysicalOffsetAfterTheGain) {
+    const Calibration c{};
+    const auto [slope, offset] = c.line(0.5F, -1.25F);
+    EXPECT_DOUBLE_EQ(slope, 0.5);
+    EXPECT_DOUBLE_EQ(offset, -1.25);
 }
 
 /// @brief it should report a data type that is wider than the entry.

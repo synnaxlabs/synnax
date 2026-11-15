@@ -22,14 +22,12 @@ Each entry starts from what you see, then gives the cause and the fix.
 <Problem.Body>
 <Problem.Cause>
 
-Your role is Viewer, or the schematic is a snapshot. A viewer cannot control hardware,
-and nobody can control a snapshot.
+Your role is Viewer. A viewer cannot control hardware.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Ask an administrator for the Operator role or higher. For a snapshot, open the schematic
-that the snapshot came from.
+Ask an administrator for the Operator role or higher.
 
 </Problem.Fix>
 </Problem.Body>
@@ -99,8 +97,7 @@ that used a deleted channel.
 <Problem.Body>
 <Problem.Cause>
 
-Your role is Operator, or the schematic is a snapshot. Operators cannot edit schematics,
-so they write at authority 1.
+Your role is Operator. Operators cannot edit schematics, so they write at authority 1.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -341,21 +338,6 @@ No channel, variable, or function has that name. Channel names are case sensitiv
 <Problem.Fix>
 
 Create the channel, or correct the name.
-
-</Problem.Fix>
-</Problem.Body>
-
-### `numeric conditions are deprecated; use an explicit comparison like x != 0`
-
-<Problem.Body>
-<Problem.Cause>
-
-A number is used as a condition, such as `start_cmd => press`.
-
-</Problem.Cause>
-<Problem.Fix>
-
-Compare it: `start_cmd == 1 => press`.
 
 </Problem.Fix>
 </Problem.Body>

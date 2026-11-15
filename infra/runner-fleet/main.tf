@@ -177,18 +177,34 @@ resource "aws_iam_role_policy" "runner_power" {
   role = aws_iam_role.sandbox.id
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Sid      = "SandboxRunnerPower"
-      Effect   = "Allow"
-      Action   = ["ec2:StartInstances", "ec2:StopInstances"]
-      Resource = "arn:aws:ec2:*:${local.account}:instance/*"
-      Condition = {
-        StringEquals = {
-          "aws:userid"               = local.sandbox_session
-          "ec2:ResourceTag/RunnerOS" = local.runner_os
+    Statement = [
+      {
+        Sid      = "SandboxRunnerPower"
+        Effect   = "Allow"
+        Action   = ["ec2:StartInstances", "ec2:StopInstances"]
+        Resource = "arn:aws:ec2:*:${local.account}:instance/*"
+        Condition = {
+          StringEquals = {
+            "aws:userid"               = local.sandbox_session
+            "ec2:ResourceTag/RunnerOS" = local.runner_os
+          }
         }
-      }
-    }]
+      },
+      # An agent seat stops itself, so the controller only starts it.
+      {
+        Sid      = "SandboxSeatStart"
+        Effect   = "Allow"
+        Action   = "ec2:StartInstances"
+        Resource = "arn:aws:ec2:*:${local.account}:instance/*"
+        Condition = {
+          StringEquals = {
+            "aws:userid"              = local.sandbox_session
+            "ec2:ResourceTag/project" = "synnax-agents"
+            "ec2:ResourceTag/pool"    = "agent"
+          }
+        }
+      },
+    ]
   })
 }
 
@@ -305,6 +321,25 @@ resource "aws_iam_role_policy" "deny_runner_secrets" {
   })
 }
 
+import {
+  to = aws_iam_role_policy.runner_agent_read
+  id = "EC2-SSM-Role:RunnerAgentRead"
+}
+
+# The agent on a runner reads its API key and its deployed commit from this path.
+resource "aws_iam_role_policy" "runner_agent_read" {
+  name = "RunnerAgentRead"
+  role = aws_iam_role.runner.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "ssm:GetParameter"
+      Resource = "arn:aws:ssm:${var.region}:${local.account}:parameter/runner-agents/*"
+    }]
+  })
+}
+
 # Inline policies and managed attachments not declared here show up as drift, and an
 # apply removes them.
 
@@ -326,8 +361,11 @@ resource "aws_iam_role_policy_attachments_exclusive" "sandbox" {
 }
 
 resource "aws_iam_role_policies_exclusive" "runner" {
-  role_name    = aws_iam_role.runner.name
-  policy_names = [aws_iam_role_policy.deny_runner_secrets.name]
+  role_name = aws_iam_role.runner.name
+  policy_names = [
+    aws_iam_role_policy.deny_runner_secrets.name,
+    aws_iam_role_policy.runner_agent_read.name,
+  ]
 }
 
 resource "aws_iam_role_policy_attachments_exclusive" "runner" {

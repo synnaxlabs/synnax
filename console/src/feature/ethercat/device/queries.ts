@@ -7,27 +7,58 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, status } from "@synnaxlabs/client";
+import { device, status, type task } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
-import { array, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
+import { array, deep, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
+import {
+  MAKE,
+  SLAVE_MODEL,
+  SLAVE_SCHEMAS,
+  type SlaveDevice,
+  type SlaveOnRack,
+  toSlaveOnRack,
+} from "@/feature/ethercat/device/types";
 import {
   type Channel,
   READ_TYPE,
   SCAN_TYPE,
   WRITE_TYPE,
 } from "@/feature/ethercat/task/types";
+import { Device as PlatformDevice } from "@/platform/device";
 
 export const { useResult: useResultSlave } = Device.createRetrieve(SLAVE_SCHEMAS);
 
-const { use: useSlaves, useResult: useResultSlaves } =
-  Device.createRetrieveMultiple(SLAVE_SCHEMAS);
+const {
+  use: useSlaves,
+  useResult: useResultSlaves,
+  createResultSelector,
+} = Device.createRetrieveMultiple(SLAVE_SCHEMAS);
 
 /** The slaves the keys name, or undefined until they resolve or on failure. */
 export const useSlavesByKeys = (keys: device.Key[]): SlaveDevice[] | undefined =>
   useResultSlaves(keys.length === 0 ? null : { where: { key: { in: keys } } }).data;
+
+// A status heartbeat changes no slave unless it connects or disconnects.
+const useResultSlavesOnRack = createResultSelector(
+  (slaves) => slaves.map(toSlaveOnRack),
+  deep.equal,
+);
+
+/**
+ * The slaves on the rack, or undefined until they resolve, on failure, or without a
+ * rack.
+ */
+export const useSlavesOnRack = (rack: number | undefined): SlaveOnRack[] | undefined =>
+  useResultSlavesOnRack(
+    rack == null
+      ? null
+      : {
+          where: { make: { eq: MAKE }, model: { eq: SLAVE_MODEL }, rack: { eq: rack } },
+          includeStatus: true,
+        },
+  ).data;
 
 export interface EnabledState {
   allEnabled: boolean;
@@ -97,12 +128,28 @@ export interface SetStandaloneParams {
   slave: SlaveDevice;
 }
 
+export interface SetStandaloneResult extends SetStandaloneParams {
+  /** The answer of the Driver to the switch, which says what the user does next. */
+  answer: task.Status;
+}
+
+/**
+ * How long a switch waits for the Driver. Writes to several slaves can be slow. It ends
+ * before the default 60 s operation timeout of the Driver, whose error reply would read
+ * as a refusal while the switch still runs.
+ */
+const SWITCH_TIMEOUT = TimeSpan.seconds(50);
+
 /**
  * Stops each EtherCAT task that runs on the network of the slave, then switches the
- * slave to Synnax only. The slave changes after its power restarts. When a stop or the
- * switch fails, starts the tasks again.
+ * slave to Synnax only. When a stop fails or the Driver refuses the switch, starts the
+ * tasks again. Else the tasks stay stopped, and the answer tells the user to start
+ * them.
  */
-export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandaloneParams>({
+export const { useUpdate: useSetStandalone } = Flux.createUpdate<
+  SetStandaloneParams,
+  SetStandaloneResult
+>({
   name: "EtherCAT slave",
   verbs: SWITCH,
   update: async ({ client, data }) => {
@@ -126,7 +173,14 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandalonePa
     const tasks = running.filter((t) =>
       devicesOf(t.config).some((k) => onNetwork.has(k)),
     );
-    let switched = false;
+    const scanTask = await client.tasks.retrieve({ type: SCAN_TYPE, rack, one: true });
+    const restart = async (): Promise<void> => {
+      // A task that fails to start shows its own error.
+      await Promise.allSettled(
+        tasks.map(async (t) => await t.executeCommandSync({ type: "start" })),
+      );
+    };
+    let stopped = false;
     try {
       await Promise.all(
         tasks.map(async (t) => {
@@ -134,25 +188,34 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandalonePa
           if (res.variant === "error") throw status.toError(res);
         }),
       );
-      const scanTask = await client.tasks.retrieve({
-        type: SCAN_TYPE,
-        rack,
-        one: true,
-      });
-      const res = await scanTask.executeCommandSync({
+      stopped = true;
+    } finally {
+      if (!stopped) await restart();
+    }
+    const res = await scanTask
+      .executeCommandSync({
         type: SET_STANDALONE_COMMAND,
         args: { device: key },
-        timeout: TimeSpan.seconds(30),
+        timeout: SWITCH_TIMEOUT,
+      })
+      .catch((e: unknown) => {
+        const then =
+          tasks.length === 0 ? "" : " Start your tasks again after you check it.";
+        throw new Error(`The switch may still be running. Check the device.${then}`, {
+          cause: e,
+        });
       });
-      if (res.variant === "error") throw status.toError(res);
-      switched = true;
-    } finally {
-      // A task that fails to start shows its own error.
-      if (!switched)
-        await Promise.allSettled(
-          tasks.map(async (t) => await t.executeCommandSync({ type: "start" })),
-        );
+    if (res.variant === "error") {
+      await restart();
+      throw status.toError(res);
     }
-    return data;
+    // The scan task writes the properties and status of each device at a scan. It also
+    // scans every 5 s, so a failed scan command only delays them.
+    await scanTask
+      .executeCommand({ type: PlatformDevice.SCAN_COMMAND })
+      .catch(() => undefined);
+    if (tasks.length === 0) return { ...data, answer: res };
+    const description = `${res.description} Start your tasks again.`.trimStart();
+    return { ...data, answer: { ...res, description } };
   },
 });

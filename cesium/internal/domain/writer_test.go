@@ -27,6 +27,7 @@ import (
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	timetestutil "github.com/synnaxlabs/x/time/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -796,12 +797,16 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It(
 					"Should persist to disk every subsequent call after the set time interval",
 					func(ctx SpecContext) {
-						By("Replacing the DB with a recorder-wrapped FS")
+						By(
+							"Replacing the DB with a recorder-wrapped FS and a test clock",
+						)
 						Expect(db.Close()).To(Succeed())
 						rec := NewRecorder(fs)
+						clock := timetestutil.NewClock(time.Unix(0, 0))
 						db = MustOpen(domain.Open(domain.Config{
 							FS:              rec,
 							Instrumentation: PanicLogger(),
+							Clock:           clock,
 						}))
 
 						By("Opening a writer")
@@ -834,10 +839,23 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						).
 							To(BeZero())
 
-						By("Sleeping for some time")
-						time.Sleep(time.Duration(50 * telem.Millisecond))
+						By(
+							"Asserting a commit just before the interval does not persist",
+						)
+						clock.Advance(49 * time.Millisecond)
+						MustSucceed(w.Write([]byte{16, 17}))
+						Expect(w.Commit(ctx, 27*telem.SecondTS+1)).To(Succeed())
+						Expect(
+							rec.Count(
+								MatchOp(OpWrite, OpWriteAt),
+								MatchName("index.domain"),
+							),
+						).
+							To(BeZero())
+
+						clock.Advance(time.Millisecond)
 						rec.Reset()
-						MustSucceed(w.Write([]byte{16, 17, 18, 19, 20}))
+						MustSucceed(w.Write([]byte{18, 19, 20}))
 						Expect(w.Commit(ctx, 30*telem.SecondTS+1)).To(Succeed())
 
 						By("Asserting the post-interval commit wrote the index file")

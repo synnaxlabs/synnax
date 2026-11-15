@@ -70,7 +70,7 @@ line.
 - The client tabs apply to both editions, because a script on the same computer connects
   to Synnax Desktop. Mark content Enterprise only when it needs a remote Core, users, or
   TLS. Use an `Edition.Enterprise` block for such content inside a page, such as the
-  users toolbar.
+  Users page of Settings.
 
 ## Presentation
 

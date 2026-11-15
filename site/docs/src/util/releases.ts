@@ -74,6 +74,8 @@ const releaseZ = z.object({
   tag_name: z.string(),
   draft: z.boolean(),
   prerelease: z.boolean(),
+  /** An ISO 8601 time, or null on a draft. */
+  published_at: z.string().nullable(),
 });
 const listingZ = z.array(releaseZ);
 
@@ -202,6 +204,21 @@ export class Releases {
    */
   async trains(product: Product): Promise<string[]> {
     return trains(await this.list(), product);
+  }
+
+  /**
+   * Returns when the stable release of a product version was published, or null if the
+   * version has no stable release.
+   * @param version - The version without the tag prefix, such as `0.59.0`.
+   * @throws {Error} if the API is unreachable.
+   */
+  async publishedAt(product: Product, version: string): Promise<Date | null> {
+    const name = tag(product, version);
+    if (parse(name)?.candidate !== false) return null;
+    const release = (await this.list()).find(
+      ({ tag_name, draft, prerelease }) => tag_name === name && !draft && !prerelease,
+    );
+    return release?.published_at == null ? null : new Date(release.published_at);
   }
 
   private list(): Promise<Release[]> {

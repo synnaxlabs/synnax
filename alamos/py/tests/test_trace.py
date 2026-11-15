@@ -17,7 +17,6 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from alamos import Instrumentation, Tracer, trace
-from alamos.instrumentation import Traceable
 
 
 class TestTrace:
@@ -45,9 +44,6 @@ class TestTrace:
 
         class Foo:
             instrumentation: Instrumentation
-
-            def _(self) -> Traceable:
-                return self
 
             def __init__(self, ins: Instrumentation):
                 self.instrumentation = ins

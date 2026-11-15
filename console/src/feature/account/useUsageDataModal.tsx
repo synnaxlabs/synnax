@@ -16,11 +16,10 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
+import { USAGE_DATA_URL } from "@/feature/account/UsageDataSettings";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
-
-const USAGE_DATA_URL = "https://www.synnaxlabs.com/privacy#desktop-usage-data";
 
 const UsageData = (): ReactElement => {
   const allowed = Session.Account.useSelectAnalyticsAllowed();

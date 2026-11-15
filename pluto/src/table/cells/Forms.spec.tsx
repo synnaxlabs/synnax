@@ -76,6 +76,27 @@ describe("ValueForm", () => {
       fireEvent.blur(input!);
       expect(methods.get(path.rollingAverage).value).toBe(7);
     });
+
+    const typePrecision = (getByText: (text: string) => HTMLElement, value: string) => {
+      const input = getByText("Precision")
+        .closest(".lyra-input__item")
+        ?.querySelector("input");
+      expect(input).not.toBeNull();
+      fireEvent.change(input!, { target: { value } });
+      fireEvent.blur(input!);
+    };
+
+    it("should round a typed fractional precision to a whole number", () => {
+      const { getByText } = renderTelemetryTab();
+      typePrecision(getByText, "4.6");
+      expect(methods.get(path.precision).value).toBe(5);
+    });
+
+    it("should clamp a typed precision to 17", () => {
+      const { getByText } = renderTelemetryTab();
+      typePrecision(getByText, "40");
+      expect(methods.get(path.precision).value).toBe(17);
+    });
   });
 
   describe("redline tab", () => {
@@ -206,7 +227,7 @@ describe("ValueForm", () => {
     it("should show the fill below the lowest band once one is set", () => {
       const { getByText } = renderTab("Redline");
       fireEvent.click(getByText("Add band"));
-      act(() => methods.set(path.fillColor, [0, 255, 0, 1]));
+      act(() => methods.set(path.fillColor, [0, 255, 0, 255]));
       expect(getByText("Fill")).toBeDefined();
     });
   });

@@ -26,6 +26,7 @@
 namespace driver::modbus {
 /// @brief it should successfully test connection to Modbus device.
 TEST(ScanTask, testConnection) {
+    x::breaker::Breaker cancel;
     auto slave = testutil::Slave(testutil::SlaveConfig{.port = 1664});
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
@@ -55,7 +56,9 @@ TEST(ScanTask, testConnection) {
         .args = cmd_args
     };
 
-    scan_task->exec(cmd);
+    cancel.start();
+    scan_task->exec(cmd, cancel);
+    cancel.stop();
     ASSERT_EQ(ctx->statuses.size(), 1);
     auto first = ctx->statuses[0];
     EXPECT_EQ(first.variant, synnax::status::VARIANT_SUCCESS);

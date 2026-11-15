@@ -12,6 +12,7 @@ import { Notification } from "@/platform/version/Notification";
 
 export * from "@/platform/version/Badge";
 export * from "@/platform/version/Notification";
+export * from "@/platform/version/Update";
 export * from "@/platform/version/Updater";
 export * from "@/platform/version/useInfoModal";
 

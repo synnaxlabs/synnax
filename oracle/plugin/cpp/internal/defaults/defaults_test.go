@@ -132,5 +132,20 @@ var _ = Describe("Renderer", func() {
 			Expect(renderer.EnumVariant(variant("Mode", "on"))).
 				To(Equal("::synnax::task::Mode::On"))
 		})
+
+		It("Should include the header of a variant from another namespace", func() {
+			var included []string
+			renderer.Namespace = "other"
+			renderer.Include = func(path string) { included = append(included, path) }
+			renderer.EnumVariant(variant("Color", "deep_red"))
+			Expect(included).To(Equal([]string{"client/cpp/task/types.gen.h"}))
+		})
+
+		It("Should not include a header for a variant in the same namespace", func() {
+			var included []string
+			renderer.Include = func(path string) { included = append(included, path) }
+			renderer.EnumVariant(variant("Color", "deep_red"))
+			Expect(included).To(BeEmpty())
+		})
 	})
 })

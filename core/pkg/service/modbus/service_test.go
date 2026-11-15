@@ -154,7 +154,7 @@ var _ = Describe("Service", func() {
 			) {
 				key := uuid.New()
 				write := func(bit int) error {
-					_, err := store().Prepare(ctx, db, key, msgpack.EncodedJSON{
+					_, err := store().Prepare(ctx, db, key, "", msgpack.EncodedJSON{
 						"channels": []any{map[string]any{
 							"type":    channelType,
 							"key":     "chan-1",
@@ -194,7 +194,7 @@ var _ = Describe("Service", func() {
 				dataType string,
 				msg string,
 			) {
-				Expect(store().Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				Expect(store().Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 					"channels": []any{map[string]any{
 						"type":          channelType,
 						"key":           "chan-1",
@@ -239,9 +239,13 @@ var _ = Describe("Service", func() {
 
 		DescribeTable("Should accept every numeric register value type",
 			func(ctx SpecContext, store func() config.Store, dataType string) {
-				MustSucceed(store().Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
-					"channels": []any{register(map[string]any{"data_type": dataType})},
-				}))
+				MustSucceed(
+					store().Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
+						"channels": []any{
+							register(map[string]any{"data_type": dataType}),
+						},
+					}),
+				)
 			},
 			Entry("int8 read", func() config.Store { return svc.Read }, "int8"),
 			Entry("uint8 read", func() config.Store { return svc.Read }, "uint8"),
@@ -486,7 +490,7 @@ var _ = Describe("Service", func() {
 
 	DescribeTable("Should reject a scan config whose rate is not positive",
 		func(ctx SpecContext, rate float64) {
-			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"rate": rate,
 			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
 		},
@@ -497,7 +501,7 @@ var _ = Describe("Service", func() {
 	DescribeTable(
 		"Should reject a read config with an invalid rate",
 		func(ctx SpecContext, sampleRate, streamRate float64, msg string) {
-			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"sample_rate": sampleRate,
 				"stream_rate": streamRate,
 			})).Error().To(MatchError(ContainSubstring(msg)))
@@ -522,7 +526,7 @@ var _ = Describe("Service", func() {
 	// sample rate. The Driver refuses it on start.
 	It("Should store a read config whose stream rate is above its sample rate",
 		func(ctx SpecContext) {
-			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"sample_rate": 10.0,
 				"stream_rate": 20.0,
 			})).Error().ToNot(HaveOccurred())

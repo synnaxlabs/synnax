@@ -353,15 +353,17 @@ class Table(ConsolePage):
 
     def set_toolbar_size(self, label: str) -> None:
         """Click one of the toolbar's Size buttons (XL/L/M/S/XS)."""
-        self.layout.show_visualization_toolbar()
-        self.page.get_by_text(label, exact=True).first.click()
+        toolbar = self.layout.show_visualization_toolbar()
+        toolbar.get_by_text(label, exact=True).first.click()
 
     def get_toolbar_size(self) -> str | None:
         """Return the selected Size button label, or None when no size is
         active (multi-cell anchor has no level or selected cells disagree)."""
-        self.layout.show_visualization_toolbar()
+        toolbar = self.layout.show_visualization_toolbar()
         try:
-            return self.layout.get_selected_button(list(self.SIZE_LABELS))
+            return self.layout.get_selected_button(
+                list(self.SIZE_LABELS), scope=toolbar
+            )
         except RuntimeError:
             return None
 

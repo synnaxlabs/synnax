@@ -29,8 +29,8 @@ type registeredTable interface {
 	exists(ctx context.Context, snap Snapshot, k string) (bool, error)
 	// deleteKeys deletes the entries with the text keys keys as a cascade.
 	deleteKeys(ctx context.Context, tx Tx, keys []string) error
-	// detach removes the targets of ops from the entry with the text key k and writes
-	// it back as a detach.
+	// detach removes or inlines the targets of ops in the entry with the text key k and
+	// writes it back as a detach.
 	detach(ctx context.Context, tx Tx, k string, ops []detachOp) error
 }
 
@@ -45,7 +45,7 @@ type registeredReference interface {
 	dependents(ctx context.Context, snap Snapshot, target Target) ([]string, error)
 }
 
-// detachOp removes target from the reference at index ref of an entry.
+// detachOp removes or inlines target in the reference at index ref of an entry.
 type detachOp struct {
 	ref    int
 	target Target
@@ -208,8 +208,8 @@ type deletePlan struct {
 	requested set.Set[string]
 	// cascades holds the text keys of the other entries to delete, by table name.
 	cascades map[string]set.Set[string]
-	// detaches holds the targets to remove from each entry the delete keeps. An entry
-	// leaves detaches when the plan adds it to cascades.
+	// detaches holds the targets to remove or inline in each entry the delete keeps. An
+	// entry leaves detaches when the plan adds it to cascades.
 	detaches map[Target][]detachOp
 	// size is the number of entries the plan deletes.
 	size int
@@ -257,9 +257,9 @@ func (p *deletePlan) cascade(t Target) bool {
 // plan returns the effect of deleting the entries with the text keys keys from the
 // table named table. It walks the references that point at each deleted entry: Cascade
 // adds the referencing entry to the delete, Restrict fails unless the delete removes
-// the referencing entry too, and Detach removes the target from a referencing entry
-// the delete keeps. plan reads only; it changes nothing. It fails when the delete would
-// delete or rewrite more than limit entries.
+// the referencing entry too, and Detach and Inline remove or replace the target in a
+// referencing entry the delete keeps. plan reads only; it changes nothing. It fails
+// when the delete would delete or rewrite more than limit entries.
 func (r *registry) plan(
 	ctx context.Context,
 	tx Tx,
@@ -344,7 +344,7 @@ func (r *registry) plan(
 							}
 						}
 					}
-				case Detach:
+				case Detach, Inline:
 					if p.contains(dep) {
 						continue
 					}
@@ -368,7 +368,8 @@ func (r *registry) plan(
 }
 
 // apply carries out what p adds to the delete that the caller asked for: it detaches
-// first, then cascades. It leaves the entries the caller asked to delete in place.
+// first, then cascades, so each Inline reads a target that still exists. It leaves the
+// entries the caller asked to delete in place.
 func (r *registry) apply(ctx context.Context, tx Tx, p *deletePlan) error {
 	for dep, ops := range p.detaches {
 		t, err := r.table(dep.Table)

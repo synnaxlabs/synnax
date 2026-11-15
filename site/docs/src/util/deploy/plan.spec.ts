@@ -12,8 +12,9 @@ import { describe, expect, it } from "vitest";
 import { type Lookups, plan } from "@/util/deploy/plan";
 
 const NEWEST: Record<string, string> = {
-  "0.62": "0.62.0",
-  "0.61": "0.61.1",
+  "0.63": "0.63.0",
+  "0.62": "0.62.1",
+  "0.61": "0.61.0",
   "0.60": "0.60.1",
 };
 
@@ -30,35 +31,35 @@ const lookups = (
 describe("plan", () => {
   it("should build next from main and each train from its newest tag", async () => {
     expect(
-      await plan(["next", "latest", "previous"], {}, lookups(["0.62", "0.61"])),
+      await plan(["next", "latest", "previous"], {}, lookups(["0.63", "0.62"])),
     ).toEqual([
       { version: "next", ref: "main", host: "next.docs.synnaxlabs.com" },
-      { version: "0.62", ref: "core/v0.62.0", host: "docs.synnaxlabs.com" },
-      { version: "0.61", ref: "core/v0.61.1", host: "v0-61.docs.synnaxlabs.com" },
+      { version: "0.63", ref: "core/v0.63.0", host: "docs.synnaxlabs.com" },
+      { version: "0.62", ref: "core/v0.62.1", host: "v0-62.docs.synnaxlabs.com" },
     ]);
   });
 
   it("should build a train from a branch that holds its newest tag", async () => {
-    const branches = { "release/core-0.61": ["core/v0.61.0", "core/v0.61.1"] };
-    expect(await plan(["0.61"], {}, lookups(["0.62", "0.61"], branches))).toEqual([
+    const branches = { "release/0.62": ["core/v0.62.0", "core/v0.62.1"] };
+    expect(await plan(["0.62"], {}, lookups(["0.63", "0.62"], branches))).toEqual([
       {
-        version: "0.61",
-        ref: "release/core-0.61",
-        host: "v0-61.docs.synnaxlabs.com",
+        version: "0.62",
+        ref: "release/0.62",
+        host: "v0-62.docs.synnaxlabs.com",
       },
     ]);
   });
 
   it("should build a train from its newest tag when the branch lacks it", async () => {
-    const branches = { "release/core-0.61": ["core/v0.61.0"] };
-    const [{ ref }] = await plan(["0.61"], {}, lookups(["0.62", "0.61"], branches));
-    expect(ref).toEqual("core/v0.61.1");
+    const branches = { "release/0.62": ["core/v0.62.0"] };
+    const [{ ref }] = await plan(["0.62"], {}, lookups(["0.63", "0.62"], branches));
+    expect(ref).toEqual("core/v0.62.1");
   });
 
-  it("should build 0.60 from its docs branch", async () => {
-    const branches = { "release/core-0.60": ["core/v0.60.1"] };
-    const [{ ref }] = await plan(["0.60"], {}, lookups(["0.61", "0.60"], branches));
-    expect(ref).toEqual("release/docs-0.60");
+  it.each(["0.60", "0.61"])("should build %s from its docs branch", async (train) => {
+    const branches = { [`release/${train}`]: [`core/v${NEWEST[train]}`] };
+    const [{ ref }] = await plan([train], {}, lookups(["0.61", "0.60"], branches));
+    expect(ref).toEqual(`release/docs-${train}`);
   });
 
   it("should deploy a version once", async () => {

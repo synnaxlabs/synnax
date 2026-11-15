@@ -219,7 +219,7 @@ export const deviceStatus = (
   name,
   variant: "success" as const,
   message,
-  details: { rack: rackKey },
+  details: { rack: rackKey, connected: true },
 });
 
 /**

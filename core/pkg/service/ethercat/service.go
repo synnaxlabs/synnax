@@ -100,9 +100,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			ResolveEntry: func(
 				ctx context.Context,
 				snap gorp.Snapshot,
+				_ string,
 				c *ReadConfig,
-			) error {
-				return v3.ResolveReadConfig(ctx, snap, slaves, c)
+			) (func(context.Context, gorp.Tx) error, error) {
+				return nil, v3.ResolveReadConfig(ctx, snap, slaves, c)
 			},
 			ValidateEntry: func(c *ReadConfig) error {
 				v := validate.New("ethercat.ReadConfig")
@@ -133,9 +134,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			ResolveEntry: func(
 				ctx context.Context,
 				snap gorp.Snapshot,
+				_ string,
 				c *WriteConfig,
-			) error {
-				return v3.ResolveWriteConfig(ctx, snap, slaves, c)
+			) (func(context.Context, gorp.Tx) error, error) {
+				return nil, v3.ResolveWriteConfig(ctx, snap, slaves, c)
 			},
 			ValidateEntry: (*WriteConfig).Validate,
 		},

@@ -117,6 +117,15 @@ public:
     /// Has no effect before the first wait(), which always lasts one interval.
     void shift(const telem::TimeSpan &offset) { this->last += offset.chrono(); }
 
+    /// @brief sleeps for dur without spinning. On Windows 10 1803 and later, the sleep
+    /// waits on a high-resolution timer, so it does not round up to the system tick.
+    void sleep(const telem::TimeSpan &dur) {
+        if (this->clock)
+            this->clock->sleep(dur);
+        else
+            this->step(dur);
+    }
+
     /// @brief Fine-grained sleep that ends early when the breaker stops.
     /// @returns false if the breaker stopped before or during the sleep.
     bool precise_sleep(const telem::TimeSpan &dur, const breaker::Breaker &breaker) {
@@ -142,7 +151,7 @@ private:
             if (!running()) return;
             const auto start = hs_clock::now();
             if (telem::TimeSpan(end - start) <= sleep_estimate) break;
-            this->step();
+            this->step(RESOLUTION);
             const auto curr_end = hs_clock::now();
             const auto elapsed_ns = std::chrono::duration_cast<nanos>(curr_end - start)
                                         .count();
@@ -174,10 +183,9 @@ private:
     /// @brief creates the OS state of a sleep step.
     static ImplPtr make_impl();
 
-    /// @brief blocks for one step of a precise sleep. On Windows 10 1803 and later,
-    /// the step waits on a high-resolution timer, so it does not round up to the
-    /// system tick.
-    void step();
+    /// @brief blocks for dur. On Windows 10 1803 and later, the step waits on a
+    /// high-resolution timer, so it does not round up to the system tick.
+    void step(const telem::TimeSpan &dur);
 
     telem::TimeSpan interval;
     std::optional<Clock> clock;

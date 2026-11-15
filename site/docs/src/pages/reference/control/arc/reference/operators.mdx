@@ -166,11 +166,8 @@ To mix types, cast one side. See [casts](/reference/control/arc/reference/types#
 ## Truthiness
 
 Before `=>`, a number is true when it is not zero. A `str` is true when it is not empty.
-A number before `=>` or in an `if` condition gives a warning:
-
-```text
-numeric conditions are deprecated; use an explicit comparison like x != 0
-```
+A non-boolean value before `=>` or in an `if` condition gives the warning
+[ARC2005](/reference/control/arc/reference/errors#arc2005).
 
 In an `if`, a number works only when its type has 32 bits or less. An `i64`, `u64`,
 `f32`, or `f64` condition compiles with the warning, then fails to load with

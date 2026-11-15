@@ -7,59 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { HTTPClient, type UnaryClient, WebSocketClient } from "@synnaxlabs/freighter";
 import {
-  EOF,
-  HTTPClient,
-  type UnaryClient,
-  WebSocketClient,
-} from "@synnaxlabs/freighter";
-import { binary, Series, TimeSpan, TimeStamp, url, uuid } from "@synnaxlabs/x";
+  binary,
+  type record,
+  Series,
+  TimeSpan,
+  TimeStamp,
+  url,
+  uuid,
+} from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
+import { z } from "zod";
 
-import { type channel } from "@/channel";
 import { framer } from "@/framer";
-import { label } from "@/label";
 import { query } from "@/query";
-import { ranger } from "@/ranger";
 import { status } from "@/status";
 import { task } from "@/task";
-import { TEST_CORE_ADDRESS } from "@/testutil";
-
-/** A change stream that delivers the frames the spec pushes, in push order. */
-class PushStreamer implements framer.Streamer {
-  keys: channel.Key[] = [];
-  private readonly frames: framer.Frame[] = [];
-  private done = false;
-
-  push(frame: framer.Frame): void {
-    this.frames.push(frame);
-  }
-
-  async update(): Promise<void> {}
-
-  close(): void {
-    this.done = true;
-  }
-
-  async next(): Promise<IteratorResult<framer.Frame>> {
-    while (!this.done) {
-      const frame = this.frames.shift();
-      if (frame != null) return { done: false, value: frame };
-      await new Promise((resolve) => setTimeout(resolve, 5));
-    }
-    return { done: true, value: undefined };
-  }
-
-  async read(): Promise<framer.Frame> {
-    const res = await this.next();
-    if (res.done) throw new EOF();
-    return res.value;
-  }
-
-  [Symbol.asyncIterator](): AsyncIterator<framer.Frame> {
-    return this;
-  }
-}
+import { PushStreamer, TEST_CORE_ADDRESS } from "@/testutil";
 
 // Every request fails, so the cache holds only what the stream delivers.
 const unary: UnaryClient = {
@@ -78,7 +43,6 @@ const createStreamedClient = async (recordCap?: number) => {
     recordCap,
   });
   onTestFinished(async () => await cache.close());
-  const labels = new label.Client({ unary, cache, relabel: {} });
   const coreURL = new url.URL(TEST_CORE_ADDRESS);
   const frames = new framer.Client({
     stream: new WebSocketClient(coreURL, binary.JSON_CODEC),
@@ -86,21 +50,8 @@ const createStreamedClient = async (recordCap?: number) => {
     file: new HTTPClient(coreURL, binary.JSON_CODEC),
     retrieveChannels: async () => [],
   });
-  const ranges = new ranger.Client({
-    unary,
-    cache,
-    labels,
-    framer: frames,
-    channels: async () => [],
-  });
   const statuses = new status.Client({ unary, cache });
-  const tasks = new task.Client({
-    unary,
-    framer: frames,
-    ranges,
-    cache,
-    statuses,
-  });
+  const tasks = new task.Client({ unary, framer: frames, cache, statuses });
   await cache.ensureStreaming();
   return { stream, tasks, statuses };
 };
@@ -164,6 +115,61 @@ describe("task.Client", () => {
         }),
       );
       await expect.poll(cachedMessage).toBe("Task configured");
+    });
+  });
+
+  describe("parse", () => {
+    const schemas = {
+      type: z.literal("pagerduty_alert"),
+      config: z.object({
+        routingKey: z.string(),
+        severity: z.string().default("high"),
+      }),
+      statusData: z.any().optional(),
+    };
+    const KEY = "3f6b2a1c-7d8e-4f90-a1b2-c3d4e5f6a7b8";
+    const untyped = (tasks: task.Client, config: record.Unknown): task.Task =>
+      tasks.sugar({
+        key: KEY,
+        rack: 0,
+        name: "alert",
+        type: "pagerduty_alert",
+        config,
+        configHash: "",
+        internal: false,
+      });
+
+    it("should fill schema defaults on an untyped task", async () => {
+      const { tasks } = await createStreamedClient();
+      const parsed = tasks.parse(untyped(tasks, { routingKey: "abc" }), schemas);
+      expect(query.isLive(parsed) && parsed.config).toEqual({
+        routingKey: "abc",
+        severity: "high",
+      });
+    });
+
+    it("should return the same instance for the same task and schemas", async () => {
+      const { tasks } = await createStreamedClient();
+      const cached = untyped(tasks, { routingKey: "abc" });
+      expect(tasks.parse(cached, schemas)).toBe(tasks.parse(cached, schemas));
+    });
+
+    it("should return undefined for a task that fails to parse", async () => {
+      const { tasks } = await createStreamedClient();
+      expect(tasks.parse(untyped(tasks, { routingKey: 1 }), schemas)).toBeUndefined();
+    });
+
+    it("should parse the corpse of a deleted task into one stable wrapper", async () => {
+      const { tasks } = await createStreamedClient();
+      const deleted = new query.Deleted(
+        untyped(tasks, { routingKey: "abc" }),
+        TimeStamp.now(),
+      );
+      const parsed = tasks.parse(deleted, schemas);
+      expect(query.Deleted.matches(parsed) && parsed.corpse.config.severity).toBe(
+        "high",
+      );
+      expect(tasks.parse(deleted, schemas)).toBe(parsed);
     });
   });
 

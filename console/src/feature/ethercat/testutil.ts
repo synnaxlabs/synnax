@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ethercat, type Synnax } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
+import { device, type ethercat, type Synnax } from "@synnaxlabs/client";
+import { id, TimeStamp } from "@synnaxlabs/x";
 
 import { type Description } from "@/feature/ethercat/device/settings";
 import {
@@ -90,6 +90,54 @@ export const STRAIN_SAMPLE_ENTRY: ethercat.PDOEntry = {
   subIndex: 1,
   bitLength: 32,
   dataType: "uint32",
+};
+
+/**
+ * Builds the catalog of a strain input that {@link STRAIN_ENTRY} reads, whose
+ * excitation polarity picks one of two excitation voltage fields at 0x8040:1C: up to 24
+ * V when unipolar (0) and up to 12 V when bipolar (1). held holds the values that the
+ * card holds at the scan.
+ */
+export const createExcitationDescription = (
+  held: { polarity?: number; voltage?: number } = {},
+): Description => {
+  const polarity = { index: 0x8040, subIndex: 0x21 };
+  const voltage = {
+    index: 0x8040,
+    subIndex: 0x1c,
+    name: "Excitation voltage",
+    dataType: "float32",
+    default: 0,
+    value: held.voltage,
+    unit: "V",
+    min: 0,
+  };
+  return {
+    device: [],
+    channels: [
+      {
+        entries: [{ index: STRAIN_ENTRY.index, subIndex: STRAIN_ENTRY.subIndex }],
+        settings: [
+          {
+            ...polarity,
+            name: "Excitation polarity",
+            dataType: "uint16",
+            default: 0,
+            value: held.polarity,
+            unit: "",
+            options: [
+              { value: 0, name: "Unipolar" },
+              { value: 1, name: "Bipolar" },
+            ],
+            visibleWhen: [],
+          },
+          { ...voltage, max: 24, visibleWhen: [{ ...polarity, values: [0] }] },
+          { ...voltage, max: 12, visibleWhen: [{ ...polarity, values: [1] }] },
+        ],
+        requires: [],
+      },
+    ],
+  };
 };
 
 /**
@@ -185,12 +233,31 @@ export const createSettingsDescription = (): Description => {
 };
 
 /**
+ * Builds the catalog fields of {@link createSettingsDescription}, with the gain at
+ * 0x8040:15 and the offset at 0x8040:14 calibrating the samples of
+ * {@link STRAIN_ENTRY}.
+ */
+export const createCalibratedDescription = (): Description => {
+  const description = createSettingsDescription();
+  description.channels[0].entries[0].calibration = {
+    dataType: "int32",
+    index: 0x8040,
+    gainSubIndex: 0x15,
+    offsetSubIndex: 0x14,
+    divisor: 1,
+    rawOffset: false,
+  };
+  return description;
+};
+
+/**
  * Builds the catalog of {@link createSettingsDescription} for a card in which only
  * DewesoftX reads {@link STRAIN_SAMPLE_ENTRY}. A shared card is one that DewesoftX also
  * sets up, and a scan gives it the write that switches it to Synnax only.
  */
 export const createDewesoftXSettings = (
   shared: boolean,
+  bus: 1 | 2 = 1,
 ): NonNullable<SlaveProperties["settings"]> => {
   const description = createSettingsDescription();
   return {
@@ -209,6 +276,8 @@ export const createDewesoftXSettings = (
       subIndex: 9,
       value: shared ? 1 : 0,
       shared,
+      ...(shared ? { sharedWith: "DewesoftX" } : {}),
+      bus,
       switch: shared
         ? [{ index: 0x8020, subIndex: 9, dataType: "uint16", value: 0, name: "" }]
         : [],
@@ -244,7 +313,9 @@ export const createUnresolvedWriteChannel = (
 
 /**
  * Creates an EtherCAT slave device on the live Core. `properties` are merged over
- * ZERO_SLAVE_PROPERTIES; `properties.name` doubles as the device name when set.
+ * ZERO_SLAVE_PROPERTIES; `properties.name` doubles as the device name when set. Each
+ * slave gets a random position unless `properties.position` sets one, since two slaves
+ * at one position on a network cannot run in a task.
  */
 export const createSlaveDevice = async (
   client: Synnax,
@@ -262,10 +333,29 @@ export const createSlaveDevice = async (
       make: MAKE,
       model: SLAVE_MODEL,
       configured,
-      properties: { ...ZERO_SLAVE_PROPERTIES, ...properties },
+      properties: {
+        ...ZERO_SLAVE_PROPERTIES,
+        position: Math.floor(Math.random() * 2 ** 31),
+        ...properties,
+      },
     },
     SLAVE_SCHEMAS,
   );
+};
+
+/** Gives the slave the status that a scan gives a slave that the Driver reaches. */
+export const createReachedStatus = async (
+  client: Synnax,
+  slave: SlaveDevice,
+): Promise<void> => {
+  await client.statuses.set({
+    owner: device.resourceID(slave.key),
+    name: slave.name,
+    variant: "success",
+    message: "Discovered",
+    time: TimeStamp.now(),
+    details: { rack: slave.rack, connected: true },
+  });
 };
 
 /** Creates a slave on eth0 whose eight channels repeat the same entry names. */

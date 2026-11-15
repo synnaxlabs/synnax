@@ -24,7 +24,7 @@ import { Device } from "@/platform/device";
 
 const root = deep.path<{ config: { channels: Channel[] } }>();
 
-export interface SelectSlaveProps {
+export interface SelectSlaveProps extends Pick<Device.SelectProps, "onChange"> {
   /** Path to the slave device field in the form. */
   path: deep.Target<device.Key>;
 }
@@ -32,7 +32,7 @@ export interface SelectSlaveProps {
 const filterByNetwork = (d: device.Device, network: string) =>
   network === "" || (d.properties as SlaveProperties | undefined)?.network === network;
 
-export const SelectSlave = ({ path }: SelectSlaveProps): ReactElement => {
+export const SelectSlave = ({ path, onChange }: SelectSlaveProps): ReactElement => {
   const channels = Form.useFieldValue(root.config.channels) ?? [];
   const network = useCommonNetwork(channels);
   const configure = Device.useConfigureModal();
@@ -41,14 +41,15 @@ export const SelectSlave = ({ path }: SelectSlaveProps): ReactElement => {
   return (
     <Device.Select
       path={path}
-      label="Slave device"
+      label="Device"
       onConfigure={(deviceKey) => configure({ deviceKey, hardware: HARDWARE })}
-      emptyContent="No EtherCAT slaves discovered"
+      emptyContent="No EtherCAT devices discovered"
       make={MAKE}
       model={SLAVE_MODEL}
       icon={HARDWARE.icon}
       locationFormat={HARDWARE.location}
       filter={filter}
+      onChange={onChange}
       connect={{
         title: HARDWARE.title,
         open: () => find({ hardware: HARDWARE, filter }),

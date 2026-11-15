@@ -9,6 +9,7 @@
 
 import { type PropsWithChildren, type ReactElement } from "react";
 
+import { Settings } from "@/app/settings";
 import { Account } from "@/feature/account";
 import { Auth } from "@/feature/auth";
 import { Embedded } from "@/feature/embedded";
@@ -21,7 +22,7 @@ const ConsoleGuard = ({ children }: PropsWithChildren): ReactElement => (
     <Version.Guard>
       <License.Guard>
         <Auth.ConnectionGuard>
-          <Project.Guard>{children}</Project.Guard>
+          <Project.Guard Settings={Settings.Splash}>{children}</Project.Guard>
         </Auth.ConnectionGuard>
       </License.Guard>
     </Version.Guard>
@@ -31,7 +32,7 @@ const ConsoleGuard = ({ children }: PropsWithChildren): ReactElement => (
 const DesktopGuard = ({ children }: PropsWithChildren): ReactElement => (
   <Account.Guard>
     <Embedded.Guard>
-      <Project.Guard>{children}</Project.Guard>
+      <Project.Guard Settings={Settings.Splash}>{children}</Project.Guard>
     </Embedded.Guard>
   </Account.Guard>
 );

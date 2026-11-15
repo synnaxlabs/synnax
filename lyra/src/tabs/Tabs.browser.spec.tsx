@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 
+import { Icon } from "@/icon";
 import { computed, renderThemed, resolve } from "@/styletest";
 import { Tabs } from "@/tabs";
 
@@ -17,21 +18,34 @@ const renderTabs = async (
   variant?: Tabs.Variant,
 ): Promise<{
   tab: (name: string) => Element;
+  icon: (name: string) => Element;
   strip: Element;
   panel: (text: string) => Element | null;
 }> => {
   const { getByRole, getByText } = await renderThemed(
     <Tabs.Frame initialValue="a">
       <Tabs.Selector variant={variant}>
-        <Tabs.Tab itemKey="a">Tab A</Tabs.Tab>
-        <Tabs.Tab itemKey="b">Tab B</Tabs.Tab>
+        <Tabs.Tab itemKey="a">
+          <Icon.Range />
+          Tab A
+        </Tabs.Tab>
+        <Tabs.Tab itemKey="b">
+          <Icon.Range />
+          Tab B
+        </Tabs.Tab>
       </Tabs.Selector>
       <Tabs.Content itemKey="a">Content A</Tabs.Content>
       <Tabs.Content itemKey="b">Content B</Tabs.Content>
     </Tabs.Frame>,
   );
+  const tab = (name: string): Element => getByRole("tab", { name }).element();
   return {
-    tab: (name) => getByRole("tab", { name }).element(),
+    tab,
+    icon: (name) => {
+      const svg = tab(name).querySelector(":scope > .lyra-icon");
+      if (svg == null) throw new Error(`${name} draws no icon`);
+      return svg;
+    },
     strip: getByRole("tablist").element(),
     panel: (text) => getByText(text).query(),
   };
@@ -83,5 +97,31 @@ describe("Tabs", () => {
     expect(tab("Tab A").getBoundingClientRect().width).toBe(
       tab("Tab B").getBoundingClientRect().width,
     );
+  });
+
+  describe("text variant", () => {
+    it("should draw no outline on a tab at rest", async () => {
+      const { tab } = await renderTabs("text");
+      expect(computed(tab("Tab B"), "box-shadow")).toBe("none");
+    });
+
+    it("should outline a selected tab with an inset l6 line", async () => {
+      const { tab } = await renderTabs("text");
+      const shadow = computed(tab("Tab A"), "box-shadow");
+      expect(shadow).toContain("inset");
+      expect(shadow).toContain(resolve("var(--pluto-gray-l6)"));
+    });
+
+    it("should draw the icon of a selected tab at l9", async () => {
+      const { icon } = await renderTabs("text");
+      expect(computed(icon("Tab A"), "color")).toBe(resolve("var(--pluto-gray-l9)"));
+    });
+
+    it("should draw a tab's icon at the small text size", async () => {
+      const { icon } = await renderTabs("text");
+      expect(computed(icon("Tab B"), "height")).toBe(
+        resolve("var(--pluto-small-size)", "height"),
+      );
+    });
   });
 });

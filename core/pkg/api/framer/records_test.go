@@ -24,11 +24,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -128,31 +126,6 @@ var _ = Describe("Change channels", func() {
 		})).To(Succeed())
 		return r
 	}
-	newChannel := func(ctx SpecContext) channel.Channel {
-		GinkgoHelper()
-		c := channel.Channel{
-			Name:     UniqueChannelName(),
-			DataType: telem.Float32T,
-			Virtual:  true,
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Channel.NewWriter(tx).Create(ctx, &c)
-		})).To(Succeed())
-		return c
-	}
-	// setAliases aliases c on each range in one commit.
-	setAliases := func(ctx SpecContext, c channel.Channel, ranges ...ranger.Range) {
-		GinkgoHelper()
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			w := svc.Alias.NewWriter(tx)
-			for _, r := range ranges {
-				if err := w.Set(ctx, r.Key, c.Key(), "change-channel"); err != nil {
-					return err
-				}
-			}
-			return nil
-		})).To(Succeed())
-	}
 	pairs := func(ranges ...ranger.Range) []kv.Pair {
 		out := make([]kv.Pair, len(ranges))
 		for i, r := range ranges {
@@ -251,39 +224,6 @@ var _ = Describe("Change channels", func() {
 						w := svc.KV.NewWriter(tx)
 						for _, p := range pairs(readable, denied) {
 							if err := w.Delete(ctx, p.Range, p.Key); err != nil {
-								return err
-							}
-						}
-						return nil
-					})).To(Succeed())
-				}
-			},
-		),
-		Entry(
-			"a range alias set",
-			"sy_range_alias_set",
-			func(ctx SpecContext) (resource.ID, change) {
-				GinkgoHelper()
-				readable, denied, c := newRange(ctx), newRange(ctx), newChannel(ctx)
-				return alias.ResourceID(readable.Key, c.Key()), func(ctx SpecContext) {
-					GinkgoHelper()
-					setAliases(ctx, c, readable, denied)
-				}
-			},
-		),
-		Entry(
-			"a range alias delete",
-			"sy_range_alias_delete",
-			func(ctx SpecContext) (resource.ID, change) {
-				GinkgoHelper()
-				readable, denied, c := newRange(ctx), newRange(ctx), newChannel(ctx)
-				setAliases(ctx, c, readable, denied)
-				return alias.ResourceID(readable.Key, c.Key()), func(ctx SpecContext) {
-					GinkgoHelper()
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						w := svc.Alias.NewWriter(tx)
-						for _, r := range []ranger.Range{readable, denied} {
-							if err := w.Delete(ctx, r.Key, c.Key()); err != nil {
 								return err
 							}
 						}

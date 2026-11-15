@@ -114,18 +114,22 @@ describe("Input.DateTime", () => {
   });
 
   it("should walk the readings of a phrase with the arrow keys", () => {
-    const onChange = vi.fn();
-    const { container } = render(<Input.DateTime value={VALUE} onChange={onChange} />);
-    const field = open(container);
-    type(field, "2h");
-    fireEvent.keyDown(field, { key: "ArrowDown" });
-    const before = TimeStamp.now().nanoseconds;
-    fireEvent.keyDown(field, { key: "Enter" });
-    const committed = onChange.mock.calls[0][0] as number;
-    // The second reading of a bare duration is that long ago.
-    expect(Math.abs(before - 2 * HOUR - committed)).toBeLessThan(
-      Number(TimeSpan.SECOND.valueOf()),
-    );
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date(2026, 7, 23, 14, 5));
+      const onChange = vi.fn();
+      const { container } = render(
+        <Input.DateTime value={VALUE} onChange={onChange} />,
+      );
+      const field = open(container);
+      type(field, "2h");
+      fireEvent.keyDown(field, { key: "ArrowDown" });
+      fireEvent.keyDown(field, { key: "Enter" });
+      // The second reading of a bare duration is that long ago.
+      expect(onChange).toHaveBeenCalledWith(local(2026, 7, 23, 12, 5));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("should read a bare duration from the other end of the range first", () => {
@@ -205,21 +209,25 @@ describe("Input.DateTime", () => {
   });
 
   it("should highlight a reading the pointer enters", () => {
-    const onChange = vi.fn();
-    const { container } = render(<Input.DateTime value={VALUE} onChange={onChange} />);
-    const field = open(container);
-    type(field, "2h");
-    const readings = screen
-      .getAllByRole("menuitem")
-      .filter((item) => item.classList.contains("lyra-time-editor__suggestion"));
-    fireEvent.mouseEnter(readings[1]);
-    expect(readings[1].classList.contains("lyra--selected")).toBe(true);
-    const before = TimeStamp.now().nanoseconds;
-    fireEvent.keyDown(field, { key: "Enter" });
-    const committed = onChange.mock.calls[0][0] as number;
-    expect(Math.abs(before - 2 * HOUR - committed)).toBeLessThan(
-      Number(TimeSpan.SECOND.valueOf()),
-    );
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date(2026, 7, 23, 14, 5));
+      const onChange = vi.fn();
+      const { container } = render(
+        <Input.DateTime value={VALUE} onChange={onChange} />,
+      );
+      const field = open(container);
+      type(field, "2h");
+      const readings = screen
+        .getAllByRole("menuitem")
+        .filter((item) => item.classList.contains("lyra-time-editor__suggestion"));
+      fireEvent.mouseEnter(readings[1]);
+      expect(readings[1].classList.contains("lyra--selected")).toBe(true);
+      fireEvent.keyDown(field, { key: "Enter" });
+      expect(onChange).toHaveBeenCalledWith(local(2026, 7, 23, 12, 5));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("should not show float noise in a reading anchored on a form value", () => {

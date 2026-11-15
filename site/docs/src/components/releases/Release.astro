@@ -12,17 +12,27 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import "@/styles/release-diagrams.css";
-import { type Release, releaseAnchor, releaseLinks } from "@/util/releaseNotes";
+import {
+    type Release,
+    releaseAnchor,
+    releaseDate,
+    releaseLinks,
+} from "@/util/releaseNotes";
 
 interface Props extends Release {
     title: string;
     breakingChanges?: boolean;
 }
 
-const { date, version, title, breakingChanges, desktopVersion } = Astro.props;
+const { version, title, breakingChanges, desktopVersion } = Astro.props;
+let { date } = Astro.props;
+if (date == null) {
+    const publishedAt = await Astro.locals.releases.publishedAt("core", version);
+    if (publishedAt != null) date = releaseDate(publishedAt);
+}
 const majorMinor = (v: string) => v.split(".").slice(0, 2).join(".");
 const firstPart = majorMinor(version);
-const links = releaseLinks(Astro.props);
+const links = releaseLinks({ ...Astro.props, date });
 ---
 
 <div class="release-frame">

@@ -284,9 +284,11 @@ func (l *LinePlot) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (l LinePlot) Validate() error {
 	v := validate.New("LinePlot")
-	v.NotEmptyString("name", l.Name)
 	v.Exec(func() error { return validate.PathedError(l.Title.Validate(), "title") })
 	v.Exec(func() error { return validate.PathedError(l.Legend.Validate(), "legend") })
+	for i := range l.Ranges {
+		v.Exec(func() error { return validate.PathedError(l.Ranges[i].Validate(), "ranges", strconv.Itoa(i)) })
+	}
 	v.Exec(func() error { return validate.PathedError(l.Axes.Validate(), "axes") })
 	for i := range l.Lines {
 		v.Exec(func() error { return validate.PathedError(l.Lines[i].Validate(), "lines", strconv.Itoa(i)) })

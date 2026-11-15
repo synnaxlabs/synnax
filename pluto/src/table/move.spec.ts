@@ -22,14 +22,12 @@ const createTable = (): table.Table => ({
   rows: RANGE.map((y) => ({
     key: `r${y}`,
     size: 40 + y,
-    cells: RANGE.map((x) => `${y}${x}`),
+    cells: RANGE.map((x) => ({
+      key: `${y}${x}`,
+      config: table.cellConfigZ.parse({ variant: "text" }),
+    })),
   })),
   columns: RANGE.map((x) => ({ key: `c${x}`, size: 80 + x })),
-  cells: Object.fromEntries(
-    RANGE.flatMap((y) =>
-      RANGE.map((x) => [`${y}${x}`, table.cellConfigZ.parse({ variant: "text" })]),
-    ),
-  ),
 });
 
 // Every selection of the five, at every slot it can land in.

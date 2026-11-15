@@ -178,7 +178,7 @@ var _ = Describe("Service", func() {
 		It("Should return the validation error for an invalid QoS", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"entries": []any{map[string]any{"type": "plain", "qos": "twice"}},
 			})).Error().
 				To(MatchError(ContainSubstring("twice")))
@@ -187,7 +187,7 @@ var _ = Describe("Service", func() {
 		It("Should return the validation error for an unknown entry type", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"entries": []any{map[string]any{"type": "amqp"}},
 			})).Error().
 				To(MatchError(ContainSubstring("amqp")))
@@ -196,7 +196,7 @@ var _ = Describe("Service", func() {
 
 	DescribeTable("Should reject a scan config whose rate is not positive",
 		func(ctx SpecContext, rate float64) {
-			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"rate": rate,
 			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
 		},

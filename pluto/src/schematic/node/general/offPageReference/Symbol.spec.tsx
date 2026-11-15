@@ -37,7 +37,7 @@ describe("OffPageReference", () => {
       // The source var carries the alpha channel so transparency survives the
       // transform.
       expect(arrow?.style.getPropertyValue("--pluto-symbol-color")).toBe(
-        `${color.rgbString("#3774d0")}, ${color.aValue("#3774d0")}`,
+        `${color.rgbString("#3774d0")}, ${color.opacity("#3774d0")}`,
       );
     });
 
@@ -54,7 +54,7 @@ describe("OffPageReference", () => {
     it("should pass a fully transparent color through as a choice", () => {
       const { container } = render(
         <ThemeWrapper>
-          <OffPageReference fillColor={color.ZERO} />
+          <OffPageReference fillColor={color.TRANSPARENT} />
         </ThemeWrapper>,
       );
       const arrow = container.querySelector<HTMLElement>(".pluto-arrow");

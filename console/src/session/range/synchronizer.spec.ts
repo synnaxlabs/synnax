@@ -25,7 +25,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Session } from "@/session";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import { createConsoleWrapper, selectRange, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -74,10 +74,10 @@ describe("Range.SYNCHRONIZERS", () => {
     renderHook(() => Session.Synchronizer.use(Session.Range.SYNCHRONIZERS), {
       wrapper,
     });
-    expect(Session.Range.selectState(store.getState(), range.key)).toBeDefined();
+    expect(selectRange(store.getState(), range.key)).toBeDefined();
     await client.ranges.delete(range.key);
     await waitFor(() => {
-      expect(Session.Range.selectState(store.getState(), range.key)).toBeUndefined();
+      expect(selectRange(store.getState(), range.key)).toBeUndefined();
     });
   });
 

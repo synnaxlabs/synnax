@@ -8,8 +8,9 @@
 # included in the file licenses/APL.txt.
 
 # One EC2 instance per agent CLI login (a seat), each with several GitHub Actions
-# runners that share the login. A job starts a stopped instance through GitHub OIDC,
-# and an idle instance stops itself, so its disk keeps the build caches warm.
+# runners that share the login. The fleet controller starts a stopped agent seat, and a
+# review job starts a stopped review seat through GitHub OIDC. An idle instance stops
+# itself, so its disk keeps the build caches warm.
 
 terraform {
   required_version = ">= 1.10"
@@ -34,6 +35,10 @@ provider "aws" {
       project = "synnax-agents"
       owner   = "runners"
     }
+  }
+  # A seat writes this tag at a usage limit, so an apply must keep it.
+  ignore_tags {
+    keys = ["limited-until"]
   }
 }
 
@@ -119,6 +124,28 @@ resource "aws_iam_role_policy" "deny_runner_secrets" {
         "arn:aws:ssm:*:${local.account}:parameter/runners",
         "arn:aws:ssm:*:${local.account}:parameter/runners/*",
       ]
+    }]
+  })
+}
+
+# Lets a seat record when the usage limit of its login resets, which keeps the fleet
+# controller from starting it until then.
+resource "aws_iam_role_policy" "limited_until" {
+  name = "TagLimitedUntil"
+  role = aws_iam_role.runner.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "ec2:CreateTags"
+      Resource = "arn:aws:ec2:${var.region}:${local.account}:instance/*"
+      Condition = {
+        StringEquals = {
+          "aws:ResourceTag/project" = "synnax-agents"
+          "aws:ResourceTag/pool"    = "agent"
+        }
+        "ForAllValues:StringEquals" = { "aws:TagKeys" = ["limited-until"] }
+      }
     }]
   })
 }

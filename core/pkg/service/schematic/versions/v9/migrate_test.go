@@ -25,7 +25,8 @@ import (
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	v9 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
-	"github.com/synnaxlabs/x/color"
+	color "github.com/synnaxlabs/x/color/versions/v0"
+	colorv1 "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -331,6 +332,7 @@ var _ = Describe("Config typing", func() {
 		Entry("array", []any{0.0, 0.0, 0.0, 0.0}),
 		Entry("hex", "#00000000"),
 		Entry("object", map[string]any{"r": 0.0, "g": 0.0, "b": 0.0, "a": 0.0}),
+		Entry("object without an alpha", map[string]any{"r": 0.0, "g": 0.0, "b": 0.0}),
 		Entry("null", nil),
 	)
 
@@ -548,8 +550,8 @@ var _ = Describe("Config typing", func() {
 					map[string]any{"key": "c", "color": "#ff0000", "position": 1.0},
 				},
 			})
-			Expect(cfg.Redline).To(Equal(color.Scale{
-				Bands: []color.Band{
+			Expect(cfg.Redline).To(Equal(colorv1.Scale{
+				Bands: []colorv1.Band{
 					{Key: "a", Threshold: 100, Color: green},
 					{Key: "b", Threshold: 150, Color: yellow},
 					{Key: "c", Threshold: 200, Color: red},
@@ -566,7 +568,7 @@ var _ = Describe("Config typing", func() {
 					map[string]any{"key": "a", "color": "#00ff00", "position": 0.0},
 					map[string]any{"key": "b", "color": "#ff0000", "position": 1.0},
 				},
-			}).Redline.Bands).To(Equal([]color.Band{
+			}).Redline.Bands).To(Equal([]colorv1.Band{
 				{Key: "a", Threshold: 100, Color: green},
 				{Key: "b", Threshold: 200, Color: red},
 			}))
@@ -591,7 +593,7 @@ var _ = Describe("Config typing", func() {
 				"gradient": []any{
 					map[string]any{"key": "a", "color": "#ff0000", "position": 0.25},
 				},
-			}).Redline.Bands).To(Equal([]color.Band{{Key: "a", Threshold: 0.25, Color: red}}))
+			}).Redline.Bands).To(Equal([]colorv1.Band{{Key: "a", Threshold: 0.25, Color: red}}))
 		})
 
 		It("Should keep a transparent band and leave the background absent", func(
@@ -603,7 +605,7 @@ var _ = Describe("Config typing", func() {
 					map[string]any{"key": "a", "color": "#00000000", "position": 0.0},
 				},
 			})
-			Expect(cfg.Redline.Bands).To(Equal([]color.Band{{Key: "a"}}))
+			Expect(cfg.Redline.Bands).To(Equal([]colorv1.Band{{Key: "a"}}))
 			Expect(cfg.FillColor).To(BeNil())
 		})
 
@@ -613,7 +615,7 @@ var _ = Describe("Config typing", func() {
 			Expect(lift(ctx, map[string]any{
 				"bounds":   map[string]any{"lower": 0.0, "upper": 1.0},
 				"gradient": []any{},
-			}).Redline).To(Equal(color.Scale{Bands: []color.Band{}}))
+			}).Redline).To(Equal(colorv1.Scale{Bands: []colorv1.Band{}}))
 		})
 
 		It("Should reject a value config whose redline cannot be read", func(

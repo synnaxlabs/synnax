@@ -294,7 +294,7 @@ var _ = Describe("check against the shipped release", func() {
 
 		It("Should compare main with the newest patch on its newest train", func() {
 			git("tag", "core/v0.1.0")
-			git("checkout", "-q", "-b", "release/core-0.1")
+			git("checkout", "-q", "-b", "release/0.1")
 			commit(channel, keyedChannel)
 			git("tag", "core/v0.1.1")
 			git("checkout", "-q", "main")
@@ -306,10 +306,10 @@ var _ = Describe("check against the shipped release", func() {
 		It("Should compare a release branch with the newest patch on its train",
 			func() {
 				git("tag", "core/v0.1.0")
-				git("branch", "release/core-0.1")
+				git("branch", "release/0.1")
 				commit(channel, keyedChannel)
 				git("tag", "core/v0.2.0")
-				git("checkout", "-q", "release/core-0.1")
+				git("checkout", "-q", "release/0.1")
 				succeed("check", "--gates=versions")
 			},
 		)

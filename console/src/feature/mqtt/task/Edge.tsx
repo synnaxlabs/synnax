@@ -108,7 +108,13 @@ const TagListItem = (props: Task.ChannelListItemProps) => {
         showHelpText={false}
         className={CSS.B("field-data-type")}
       />
-      <Flex.Box x align="center" grow justify="end">
+      <Flex.Box
+        x
+        align="center"
+        grow
+        justify="end"
+        className={CSS.BE("mqtt-tag", "command")}
+      >
         {commandChannel === 0 && commandChannelName == null ? (
           <Text.Text level="small" color={9}>
             No command channel

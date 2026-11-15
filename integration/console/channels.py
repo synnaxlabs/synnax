@@ -14,6 +14,7 @@ from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError,
 import synnax as sy
 from console.base import ResourceClient
 from console.layout import LayoutClient
+from console.notifications import click_past
 
 
 class Spec(TypedDict, total=False):
@@ -49,29 +50,24 @@ class ChannelClient(ResourceClient):
 
     # ── Private Helpers ──────────────────────────────────────────────────
 
-    def _ctx_menu_action(
-        self, name: str, action: str, *, exact: bool = True
-    ) -> Locator:
+    def _ctx_menu_action(self, name: str, action: str) -> Locator:
         """Show channels, find item, perform context menu action, return item."""
         self.show_channels()
         item = self._find_channel_item(name)
         if item is None:
             raise ValueError(f"Channel {name} not found")
-        self.ctx_menu.action(item, action, exact=exact)
+        self.ctx_menu.action(item, action)
         return item
 
-    def _find_channel_item(
-        self, name: str, retry_with_refresh: bool = True
-    ) -> Locator | None:
-        """Find a channel item in the list by name.
+    def _find_channel_item(self, name: str) -> Locator | None:
+        """Find a channel item in the list by name. When it is missing, refresh the
+        channels pane and try again, since the list can be stale.
 
         :param name: The channel name to find.
-        :param retry_with_refresh: If True and channel not found, refresh the
-            channels pane and try again (handles cases where list is stale).
         :returns: The channel item Locator, or None if not found.
         """
         item = self.tree.find_by_name(self.ITEM_PREFIX, str(name))
-        if item is None and retry_with_refresh:
+        if item is None:
             self.hide_channels()
             self.layout.sleep(100)
             self.show_channels()
@@ -239,11 +235,10 @@ class ChannelClient(ResourceClient):
         sy.sleep(0.2)
         self.layout.type_text(expression)
 
-        self.notifications.close_all()
         save_btn = self.layout.locator("button").filter(has_text="Save").first
         if save_btn.count() == 0:
             save_btn = self.layout.locator("button").filter(has_text="Create").first
-        save_btn.click()
+        click_past(save_btn)
 
         try:
             name_input.wait_for(state="hidden", timeout=3000)
@@ -285,30 +280,6 @@ class ChannelClient(ResourceClient):
         self.layout.locator("button").filter(has_text="Save").first.click()
         self.layout.wait_for_hidden(editor)
 
-        self.hide_channels()
-
-    def set_alias(self, *, name: str, alias: str) -> None:
-        """Set an alias for a channel under the active range via context menu.
-
-        Note: Requires an active range to be set before calling this method.
-
-        :param name: The name of the channel to set an alias for.
-        :param alias: The alias to set for the channel.
-        """
-        self._ctx_menu_action(name, "Set alias under", exact=False)
-        self.layout.type_text(alias)
-        self.layout.press_enter()
-        self.layout.wait_for_selector_hidden("input.lyra-text--editable")
-        self.hide_channels()
-
-    def clear_alias(self, name: str) -> None:
-        """Clear an alias for a channel under the active range via context menu.
-
-        Note: Requires an active range to be set before calling this method.
-
-        :param name: The name of the channel to clear the alias for.
-        """
-        self._ctx_menu_action(name, "Remove alias under", exact=False)
         self.hide_channels()
 
     def hard_reload(self) -> None:
@@ -541,15 +512,17 @@ class ChannelClient(ResourceClient):
             raise ValueError(f"Channel {name} not found")
 
         self.layout.delete_with_confirmation(item)
-
-        for i, notification in enumerate(self.notifications.check()):
-            message = notification.message
-            description = notification.description
-            if message == "Failed to delete Channel" and name in description:
-                self.notifications.close(notification_index=i)
-                raise RuntimeError(f"{message} {name}, {description}")
-
-        self.tree.wait_for_removal(self.ITEM_PREFIX, name, exact=True)
+        try:
+            self.tree.wait_for_removal(self.ITEM_PREFIX, name, exact=True)
+        except PlaywrightTimeoutError as e:
+            failure = (
+                self.layout.page.get_by_role("status")
+                .filter(has_text="Failed to delete Channel")
+                .filter(has_text=name)
+            )
+            if failure.count() > 0:
+                raise RuntimeError(failure.first.inner_text()) from e
+            raise
         self.hide_channels()
 
     def list_all(self) -> list[str]:

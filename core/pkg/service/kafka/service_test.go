@@ -171,7 +171,7 @@ var _ = Describe("Service", func() {
 
 		It("Should return the read validation error for an invalid start offset",
 			func(ctx SpecContext) {
-				Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 					"start_offset": "bogus",
 				})).Error().To(MatchError(ContainSubstring("invalid start_offset: bogus")))
 			},
@@ -179,7 +179,7 @@ var _ = Describe("Service", func() {
 
 		It("Should return the write validation error for an invalid record key",
 			func(ctx SpecContext) {
-				Expect(svc.Write.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				Expect(svc.Write.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 					"record_key": "bogus",
 				})).Error().To(MatchError(ContainSubstring("invalid record_key: bogus")))
 			},
@@ -188,7 +188,7 @@ var _ = Describe("Service", func() {
 
 	DescribeTable("Should reject a scan config whose rate the Driver cannot run",
 		func(ctx SpecContext, rate float64, msg string) {
-			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"rate": rate,
 			})).Error().To(MatchError(ContainSubstring(msg)))
 		},

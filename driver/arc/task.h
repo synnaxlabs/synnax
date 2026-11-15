@@ -369,10 +369,10 @@ public:
         return control_stopped && acq_stopped && runtime_stopped;
     }
 
-    void exec(synnax::task::Command &cmd) override {
-        if (cmd.type == "start")
+    void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
+        if (cmd.type == synnax::task::START_CMD_TYPE)
             this->start(cmd.key);
-        else if (cmd.type == "stop")
+        else if (cmd.type == synnax::task::STOP_CMD_TYPE)
             this->stop(cmd.key, true);
         else
             LOG(WARNING) << "[arc] unknown command type: " << cmd.type;

@@ -190,6 +190,8 @@ func (erc *EntryReadChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&erc.SubIndex, c.Next())
 	case "data_type":
 		return patch.Value(&erc.DataType, c.Next())
+	case "calibrated":
+		return patch.Value(&erc.Calibrated, c.Next())
 	case "scale":
 		if c = c.Next(); c.Done() {
 			return patch.Defaulted(&erc.Scale, c, func(def *EntryReadChannel) {
@@ -211,6 +213,7 @@ func (erc *EntryReadChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(erc.Index))
 	h.Uint(uint64(erc.SubIndex))
 	h.String(string(erc.DataType))
+	h.Bool(erc.Calibrated)
 	erc.Scale.HashContent(h)
 }
 

@@ -17,7 +17,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { deep, type direction, type record } from "@synnaxlabs/x";
-import { cloneElement, type CSSProperties, type JSX } from "react";
+import { cloneElement, type CSSProperties, type JSX, type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 import { ChannelName, type ChannelNameProps } from "@/platform/task/ChannelName";
@@ -42,7 +42,7 @@ export interface ListAndDetailsIconProps {
 export interface ListAndDetailsChannelItemProps<
   K extends record.Key,
 > extends List.ItemProps<K> {
-  port: string | number;
+  port: ReactNode;
   portMaxChars: number;
   icon?: ListAndDetailsIconProps;
   canTare: boolean;
@@ -98,24 +98,36 @@ export const ListAndDetailsChannelItem = <K extends string>({
   const hasIcon = icon != null;
   const item = deep.widen(path);
   const disabled = Form.useFieldValue(item.disabled);
+  const failed = Form.useStatuses(path).some(({ variant }) => variant === "error");
   const channelNameProps = getChannelNameProps(hasIcon);
   const portStyle: CSSProperties = { width: `${portMaxChars * 1.25}rem` };
   return (
     <Select.Item
       {...rest}
+      status={failed ? "error" : undefined}
       justify="between"
       align="center"
       className={CSS.cls(
         CSS.B("channel-item"),
         disabled && CSS.BM("channel-item", "disabled"),
+        failed && CSS.BM("channel-item", "error"),
       )}
     >
       <Flex.Box
         direction={nameDirection}
         gap="small"
         align={nameDirection === "x" ? "center" : "start"}
+        className={CSS.BE("channel-item", "label")}
       >
-        <Text.Text color={9} weight={500} style={portStyle}>
+        {/* A lone port element is not an icon, so the port is never square. */}
+        <Text.Text
+          color={9}
+          weight={500}
+          style={portStyle}
+          className={CSS.BE("channel-item", "port")}
+          overflow="fade"
+          square={false}
+        >
           {port}
         </Text.Text>
         {hasIcon && (

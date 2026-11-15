@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -132,6 +133,43 @@ class TestReleaseNotes:
         notes = harness.run("driver/v0.1.1", "abc", "c.yml")
         assert notes.startswith("## What's Changed")
 
+    def test_cuts_a_body_over_the_github_limit(self, tmp_path: Path) -> None:
+        entries = "".join(
+            f"* Fix read number {i} by @someone in {PULL}/{i}\n" for i in range(3000)
+        )
+        changelog = (
+            "**Full Changelog**: https://github.com/synnaxlabs/synnax/compare/a...b"
+        )
+        body = f"## What's Changed\n### Driver\n{entries}\n{changelog}\n"
+        assert len(body) > 125_000
+        notes = Harness(path=tmp_path, body=body).run("driver/v0.1.1", "abc", "c.yml")
+        assert len(notes) <= 125_000
+        assert notes.startswith("## What's Changed\n### Driver\n* Fix read number 0 ")
+        assert "\n* " in notes.split("_The list is cut short")[0][-200:]
+        assert "\n\n\n" not in notes
+        assert notes.endswith(f"{changelog}\n")
+        assert all(
+            re.fullmatch(rf"\* Fix read number (\d+) by @someone in {PULL}/\1", line)
+            for line in notes.splitlines()
+            if line.startswith("* ")
+        )
+
+    def test_ends_a_cut_list_with_an_entry(self, tmp_path: Path) -> None:
+        changelog = (
+            "**Full Changelog**: https://github.com/synnaxlabs/synnax/compare/a...b"
+        )
+        endings = set()
+        for width in range(10, 60):
+            category = f"### {'C' * width}\n* Fix a read by @someone in {PULL}/1\n"
+            body = f"## What's Changed\n{category * 3000}\n{changelog}\n"
+            path = tmp_path / str(width)
+            path.mkdir()
+            notes = Harness(path=path, body=body).run("driver/v0.1.1", "abc", "c.yml")
+            kept = notes.split("\n\n_The list is cut short")[0].splitlines()
+            assert kept[-1].startswith("* ")
+            endings.add(kept[-2][:3])
+        assert endings == {"###"}
+
     def test_fails_in_a_shallow_clone(self, harness: Harness, tmp_path: Path) -> None:
         harness.commit("more")
         shallow = tmp_path / "shallow"
@@ -179,7 +217,7 @@ ONLY_STAGE = f"""## What's Changed
 
 class Train(Harness):
     """Main holds a stall fix (#11), a leak fix (#12), and a stage fix (#14) after
-    core/v0.60.0. The checkout is release/core-0.60 at core/v0.60.0."""
+    core/v0.60.0. The checkout is release/0.60 at core/v0.60.0."""
 
     def __init__(self, *, path: Path) -> None:
         super().__init__(path=path, body=MINOR)
@@ -187,7 +225,7 @@ class Train(Harness):
         self.stall = self.commit("Fix a stall (#11)")
         self.leak = self.commit("Fix a leak (#12)")
         self.stage = self.commit("Fix a stage (#14)")
-        self.git("checkout", "-q", "-b", "release/core-0.60", "core/v0.60.0")
+        self.git("checkout", "-q", "-b", "release/0.60", "core/v0.60.0")
 
     def serve_message(self, sha: str, message: str = "") -> None:
         """Serves the message of a commit that is not in the clone."""
@@ -260,7 +298,7 @@ class TestCherryPicks:
         assert f"### Core\n* Fix a stall by @someone in {PULL}/11" in notes
 
     def test_keeps_a_fix_the_previous_tag_does_not_hold(self, train: Train) -> None:
-        train.git("checkout", "-q", "-b", "release/core-0.59", "main~3")
+        train.git("checkout", "-q", "-b", "release/0.59", "main~3")
         train.git("cherry-pick", "-x", train.stall)
         train.git("tag", "core/v0.59.2")
         notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.0")
@@ -281,7 +319,7 @@ class TestCherryPicks:
     def test_leaves_out_a_fix_picked_from_a_kept_pr_branch(self, train: Train) -> None:
         train.git("checkout", "-q", "-b", "fix-stall", "main~3")
         branch = train.commit("Fix a stall")
-        train.git("checkout", "-q", "release/core-0.60")
+        train.git("checkout", "-q", "release/0.60")
         train.git("cherry-pick", "-x", branch)
         train.git("tag", "core/v0.60.1")
         train.gh.serve(f"api */commits/{branch}/pulls", MERGED_11)
@@ -303,13 +341,13 @@ class TestCherryPicks:
         assert notes.strip() == MINOR.strip()
 
     def test_leaves_out_a_fix_picked_from_an_older_train(self, train: Train) -> None:
-        train.git("checkout", "-q", "-b", "release/core-0.59", "core/v0.60.0")
+        train.git("checkout", "-q", "-b", "release/0.59", "core/v0.60.0")
         older = train.commit("Pick the stall fix (0.59.2) (#20)")
         train.gh.serve(
             "api */pulls/20/commits",
             [picked("Fix a stall (#11)", train.stall, "a" * 40)],
         )
-        train.git("checkout", "-q", "release/core-0.60")
+        train.git("checkout", "-q", "release/0.60")
         train.commit("Pick the stall fix (0.60.1) (#21)")
         train.git("tag", "core/v0.60.1")
         train.gh.serve(
@@ -427,7 +465,7 @@ class TestCherryPicks:
         train.git("checkout", "-q", "-b", "later", "main")
         train.git("revert", "--no-edit", train.stall)
         revert = train.git("rev-parse", "HEAD")
-        train.git("checkout", "-q", "release/core-0.60")
+        train.git("checkout", "-q", "release/0.60")
         train.git("cherry-pick", "-x", train.stall)
         train.git("cherry-pick", "-x", revert)
         train.git("tag", "core/v0.60.1")
@@ -443,7 +481,7 @@ class TestCherryPicks:
         revert = train.git("rev-parse", "HEAD")
         train.git("revert", "--no-edit", revert)
         reland = train.git("rev-parse", "HEAD")
-        train.git("checkout", "-q", "release/core-0.60")
+        train.git("checkout", "-q", "release/0.60")
         train.git("cherry-pick", "-x", train.stall)
         train.git("cherry-pick", "-x", revert)
         train.git("cherry-pick", "-x", reland)
@@ -458,7 +496,7 @@ class TestCherryPicks:
         train.git("checkout", "-q", "main")
         train.git("revert", "--no-edit", train.stall)
         revert = train.git("rev-parse", "HEAD")
-        train.git("checkout", "-q", "release/core-0.60")
+        train.git("checkout", "-q", "release/0.60")
         train.git("cherry-pick", "-x", train.stall)
         train.git("cherry-pick", "-x", revert)
         train.git("cherry-pick", "-x", train.stall)
@@ -525,7 +563,7 @@ class TestCherryPicks:
         revert = train.commit(
             f'Revert "Fix a stall (#11)" (#16)\n\nThis reverts commit {train.stall}.'
         )
-        train.git("checkout", "-q", "release/core-0.60")
+        train.git("checkout", "-q", "release/0.60")
         train.git("cherry-pick", "-x", train.stall)
         train.git("cherry-pick", "-x", revert)
         train.git("tag", "core/v0.60.1")
@@ -542,7 +580,7 @@ class TestCherryPicks:
         reland = train.commit(
             f"Re-land the stall fix (#17)\n\nThis reverts commit {revert}."
         )
-        train.git("checkout", "-q", "release/core-0.60")
+        train.git("checkout", "-q", "release/0.60")
         for commit in (train.stall, revert, reland):
             train.git("cherry-pick", "-x", commit)
         train.git("tag", "core/v0.60.1")
@@ -604,7 +642,7 @@ class TestCherryPicks:
         revert = train.commit(
             f"Revert a stall fix (#16)\n\nThis reverts commit {base}."
         )
-        train.git("checkout", "-q", "release/core-0.60")
+        train.git("checkout", "-q", "release/0.60")
         train.git("cherry-pick", "-x", revert)
         train.git("tag", "core/v0.60.1")
         train.gh.serve("api */releases/generate-notes", {"body": WITH_REVERTS})

@@ -25,6 +25,9 @@ ROUTING_KEY = "12345678901234567890123456789012"  # Example key, replace with yo
 
 client = sy.Synnax()
 
+# Store the routing key as a secret, which the task names by its key
+routing_key = client.secrets.set(name="Example routing key", value=ROUTING_KEY)
+
 # Create a status to watch
 STATUS_KEY = "example-pagerduty-status"
 client.statuses.set(
@@ -39,7 +42,7 @@ client.statuses.set(
 # Create the PagerDuty alert task
 alert_task = sy.pagerduty.AlertTask(
     name="Example PagerDuty Alert",
-    routing_key=ROUTING_KEY,
+    routing_key=routing_key.key,
     auto_start=False,
     alerts=[
         sy.pagerduty.Alert(

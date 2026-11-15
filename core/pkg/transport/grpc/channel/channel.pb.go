@@ -131,7 +131,6 @@ func (x *CreateResponse) GetChannels() []*pb.Channel {
 type RetrieveRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Request       *pb.RetrieveRequest    `protobuf:"bytes,5,opt,name=request,proto3" json:"request,omitempty"`
-	RangeKey      *string                `protobuf:"bytes,6,opt,name=range_key,json=rangeKey,proto3,oneof" json:"range_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -171,13 +170,6 @@ func (x *RetrieveRequest) GetRequest() *pb.RetrieveRequest {
 		return x.Request
 	}
 	return nil
-}
-
-func (x *RetrieveRequest) GetRangeKey() string {
-	if x != nil && x.RangeKey != nil {
-		return *x.RangeKey
-	}
-	return ""
 }
 
 type DeleteRequest struct {
@@ -249,12 +241,9 @@ const file_core_pkg_transport_grpc_channel_channel_proto_rawDesc = "" +
 	"\bchannels\x18\x01 \x03(\v2\x17.api.channel.pb.ChannelR\bchannels\x125\n" +
 	"\x17retrieve_if_name_exists\x18\x02 \x01(\bR\x14retrieveIfNameExists\"E\n" +
 	"\x0eCreateResponse\x123\n" +
-	"\bchannels\x18\x01 \x03(\v2\x17.api.channel.pb.ChannelR\bchannels\"\xa1\x01\n" +
+	"\bchannels\x18\x01 \x03(\v2\x17.api.channel.pb.ChannelR\bchannels\"\x82\x01\n" +
 	"\x0fRetrieveRequest\x129\n" +
-	"\arequest\x18\x05 \x01(\v2\x1f.api.channel.pb.RetrieveRequestR\arequest\x12 \n" +
-	"\trange_key\x18\x06 \x01(\tH\x00R\brangeKey\x88\x01\x01B\f\n" +
-	"\n" +
-	"_range_keyJ\x04\b\x01\x10\x05R\bnode_keyR\x04keysR\x05namesR\x06search\"`\n" +
+	"\arequest\x18\x05 \x01(\v2\x1f.api.channel.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\x05J\x04\b\x06\x10\aR\bnode_keyR\x04keysR\x05namesR\x06searchR\trange_key\"`\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names\x12%\n" +
@@ -312,7 +301,6 @@ func file_core_pkg_transport_grpc_channel_channel_proto_init() {
 	if File_core_pkg_transport_grpc_channel_channel_proto != nil {
 		return
 	}
-	file_core_pkg_transport_grpc_channel_channel_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

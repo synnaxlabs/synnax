@@ -23,8 +23,8 @@ if condition { ... } else if condition { ... } else { ... }
 ```
 
 The braces are necessary. The `else if` and `else` clauses are optional. The condition
-is a `bool`. A numeric condition compiles with the warning
-`numeric conditions are deprecated; use an explicit comparison like x != 0`.
+is a `bool`. A numeric condition gives the warning
+[ARC2005](/reference/control/arc/reference/errors#arc2005).
 
 ```arc bodies="band"
 func band(v f64) i64 {

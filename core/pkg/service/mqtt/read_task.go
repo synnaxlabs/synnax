@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -207,7 +208,7 @@ func newReadTopic(
 }
 
 // enums returns entries in the form xjson takes.
-func enums(entries []EnumEntry) []xjson.Enum {
+func enums(entries []payload.EnumEntry) []xjson.Enum {
 	out := make([]xjson.Enum, len(entries))
 	for i, e := range entries {
 		out[i] = xjson.NewEnum(e.Label, e.Value)

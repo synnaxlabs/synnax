@@ -51,7 +51,7 @@ func (g versionsGate) Run(
 	}
 	chains, resolver := res.Chains, res.Versions
 	if env.Shipped != nil {
-		checkShipped(ctx, &r, chains, resolver, *env.Shipped)
+		checkShipped(ctx, &r, env.RepoRoot, chains, resolver, *env.Shipped)
 	}
 	if len(chains) == 0 || resolver == nil {
 		return r
@@ -938,6 +938,12 @@ func ruleDrift(live, frozen resolution.Type, goRules bool) []string {
 	var drift []string
 	if goRules && goRulesKey(live) != goRulesKey(frozen) {
 		drift = append(drift, "@go method rules on "+live.Name)
+	}
+	for _, d := range []string{"validate", "default"} {
+		if exprsKey(live.Domains[d].Expressions) !=
+			exprsKey(frozen.Domains[d].Expressions) {
+			drift = append(drift, "@"+d+" on "+live.Name)
+		}
 	}
 	lf, ok := live.Form.(resolution.StructForm)
 	if !ok {

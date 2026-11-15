@@ -121,6 +121,54 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 	)
 
 	It(
+		"Should validate an optional enum only when it is present",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Level enum {
+				h1 = "h1"
+				h2 = "h2"
+			}
+
+			Cfg struct {
+				level Level?
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (c Cfg) Validate() error {",
+				"if c.Level != nil {",
+				`v.Ternaryf("level", !c.Level.IsValid(), "invalid level: %v", *c.Level)`,
+			)
+		},
+	)
+
+	It(
+		"Should validate an optional enum of a union variant only when it is present",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Level enum {
+				h1 = "h1"
+				h2 = "h2"
+			}
+
+			Shape union on type {
+				first { level Level? }
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToBeValidGoSource().ToContain(
+				"func (f FirstShape) Validate() error {",
+				"if f.Level != nil {",
+				`v.Ternaryf("level", !f.Level.IsValid(), "invalid level: %v", *f.Level)`,
+			)
+		},
+	)
+
+	It(
 		"Should widen the receiver when the type name would collide with the validator",
 		func(ctx SpecContext) {
 			source := `
@@ -140,6 +188,28 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				"func (vo Volume) Validate() error {",
 				`v := validate.New("Volume")`,
 				"!vo.Level.IsValid()",
+			)
+		},
+	)
+
+	It(
+		"Should widen the receiver when the type name would collide with a loop index",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Item struct {
+				name string = "a"
+			}
+
+			Index struct {
+				items Item[] = []
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (in *Index) ApplyDefaults() {",
+				"in.Items[i].ApplyDefaults()",
 			)
 		},
 	)
@@ -696,6 +766,159 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			},
 		)
 
+		It("Should apply the rules of a field's alias type", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Decimal = float64 {
+					@validate min 0
+					@validate max 1
+				}
+
+				Cfg struct {
+					size Decimal
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`v.GreaterThanEq("size", c.Size, 0)`,
+				`v.LessThanEq("size", c.Size, 1)`,
+			)
+		})
+
+		It(
+			"Should apply the rules of each type in a distinct and alias chain",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Rate float64 {
+					@validate min 0
+				}
+
+				Hz = Rate {
+					@validate max 100
+				}
+
+				Cfg struct {
+					rate Hz
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					`v.GreaterThanEq("rate", c.Rate, 0)`,
+					`v.LessThanEq("rate", c.Rate, 100)`,
+				)
+			},
+		)
+
+		It(
+			"Should merge a field's rules with its type's rules",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Decimal = float64 {
+					@validate min 0
+					@validate max 1
+				}
+
+				Cfg struct {
+					size Decimal {
+						@validate gt 0
+					}
+					loose Decimal {
+						@validate max 5
+					}
+					tight Decimal {
+						@validate max 0.5
+					}
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					`v.GreaterThan("size", c.Size, 0)`,
+					`v.LessThanEq("size", c.Size, 1)`,
+					`v.LessThanEq("loose", c.Loose, 1)`,
+					`v.LessThanEq("tight", c.Tight, 0.5)`,
+				).ToNotContain(
+					`v.GreaterThanEq("size", c.Size, 0)`,
+					`v.LessThanEq("loose", c.Loose, 5)`,
+					`v.LessThanEq("tight", c.Tight, 1)`,
+				)
+			},
+		)
+
+		It(
+			"Should keep a field's minimum length when its type is required",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Name = string {
+					@validate required
+				}
+
+				Cfg struct {
+					name Name {
+						@validate min_length 3
+					}
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain(`v.MinLength("name", c.Name, 3)`).
+					ToNotContain(`v.NotEmptyString("name"`)
+			},
+		)
+
+		It(
+			"Should leave type rules on an inherited field to the embedded parent",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Rate float64 {
+					@validate min 0
+				}
+
+				Base struct {
+					rate Rate = 1
+				}
+
+				Cfg struct extends Base {
+					rate Rate = 5
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain(
+						`v.GreaterThanEq("rate", b.Rate, 0)`,
+						"v.Exec(c.Base.Validate)",
+					).
+					ToNotContain(`v.GreaterThanEq("rate", c.Rate, 0)`)
+			},
+		)
+
+		It("Should require a field whose type is required", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Name = string {
+					@validate required
+				}
+
+				Cfg struct {
+					name     Name
+					nickname Name?
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(`v.NotEmptyString("name", c.Name)`).
+				ToNotContain(`v.NotEmptyString("nickname"`)
+		})
+
 		It("Should emit GreaterThan for a numeric gt", func(ctx SpecContext) {
 			source := `
 				@go output "core/pkg/service/x"
@@ -895,7 +1118,9 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
 					"func (u Scale) Validate() error {",
-					"return variant.Validate()",
+					`v.Ternary("type", u.Variant == nil, "required")`,
+					"case LinearScale:",
+					"v.Exec(variant.Validate)",
 				)
 			},
 		)
@@ -907,6 +1132,116 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				ExpectContent(resp, "types.gen.go").ToContain(
 					"func (c *Container) ApplyDefaults() {",
 					"c.Scale.ApplyDefaults()",
+				)
+			},
+		)
+	})
+
+	Describe("Union without a variant", func() {
+		const source = `
+			@go output "core/pkg/service/x"
+
+			Window union on variant {
+				tumbling {}
+				sliding {}
+			}
+
+			Windows = Window[]
+
+			Rate struct { hz int32 = 1 }
+
+			Rates = Rate[]
+
+			Holder struct { window Window }
+
+			Shape union on kind {
+				grid {
+					cells Windows[]
+					rates Rates[]
+				}
+				held Holder
+			}
+
+			Container struct {
+				window    Window
+				fallback  Window?
+				windows   Window[]
+				named     Windows
+				grid      Windows[]
+				by_name   map<string, Window>
+				rates     Rates
+				rate_grid Rates[]
+			}
+		`
+
+		It(
+			"Should reject a union without a variant when no variant validates",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (u Window) Validate() error {\n" +
+						"\tv := validate.New(\"Window\")\n" +
+						"\tv.Ternary(\"variant\", u.Variant == nil, \"required\")\n" +
+						"\treturn v.Error()\n}",
+				)
+			},
+		)
+
+		It(
+			"Should validate required, optional, array, and aliased array union fields",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (c Container) Validate() error {",
+					`validate.PathedError(c.Window.Validate(), "window")`,
+					"if c.Fallback != nil {",
+					`validate.PathedError(c.Fallback.Validate(), "fallback")`,
+					`validate.PathedError(c.Windows[i].Validate(), "windows", `+
+						`strconv.Itoa(i))`,
+					`validate.PathedError(c.Named[i].Validate(), "named", `+
+						`strconv.Itoa(i))`,
+					"for j := range c.Grid[i] {",
+					`validate.PathedError(c.Grid[i][j].Validate(), "grid", `+
+						`strconv.Itoa(i), strconv.Itoa(j))`,
+					`validate.PathedError(value.Validate(), "by_name", key)`,
+				)
+			},
+		)
+
+		It(
+			"Should apply defaults through aliased and nested arrays",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (c *Container) ApplyDefaults() {",
+					"c.Rates[i].ApplyDefaults()",
+					"c.RateGrid[i][j].ApplyDefaults()",
+				)
+			},
+		)
+
+		It(
+			"Should recurse nested arrays in an inline variant",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (g GridShape) Validate() error {",
+					`validate.PathedError(g.Cells[i][j].Validate(), "cells", `+
+						`strconv.Itoa(i), strconv.Itoa(j))`,
+					"func (g *GridShape) ApplyDefaults() {",
+					"g.Rates[i][j].ApplyDefaults()",
+				)
+			},
+		)
+
+		It(
+			"Should validate a variant whose payload holds a union",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (h HeldShape) Validate() error {",
+					"v.Exec(h.Holder.Validate)",
+					"case HeldShape:",
 				)
 			},
 		)

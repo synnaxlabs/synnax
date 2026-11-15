@@ -10,6 +10,8 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -17,6 +19,7 @@
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/telem.h"
 
 #include "driver/common/scan_task.h"
 #include "driver/ethercat/ethercat.h"
@@ -74,8 +77,8 @@ public:
     [[nodiscard]] common::ScannerConfig config() const override;
 
     /// @brief periodic scan method to discover networks and slaves. Returns
-    /// common::PARTIAL_SCAN_ERROR, naming each interface it could not scan, with the
-    /// slaves of the others.
+    /// common::PARTIAL_SCAN_ERROR, naming each interface it could not scan or whose
+    /// replies a filter blocks, with the slaves of the others.
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const common::ScannerContext &ctx) override;
 
@@ -95,21 +98,67 @@ private:
     synnax::task::Task task;
     ScanTaskConfig cfg;
     std::shared_ptr<engine::Pool> pool;
-    /// @brief the scan count at which to probe again each interface that had no slaves.
-    std::unordered_map<std::string, size_t> next_probes;
+    /// @brief when to probe again an interface that had no slaves.
+    struct Probe {
+        /// @brief the scan count at which to probe the interface.
+        size_t due = 0;
+        /// @brief why the interface had no slaves, which each scan reports until the
+        /// next probe, or empty when the user cannot fix it.
+        std::string failure;
+    };
+    /// @brief the next probe of each interface that had no slaves.
+    std::unordered_map<std::string, Probe> next_probes;
     /// @brief the scan count at which to discover again each interface with an enabled
     /// slave whose PDO discovery failed.
     std::unordered_map<std::string, size_t> next_rediscoveries;
+    /// @brief the slaves on one interface that the scan cannot add: those with no
+    /// identity, and those with an unread serial number and no stored device.
+    struct Unidentified {
+        /// @brief the positions of the slaves unidentified at the last rediscovery.
+        std::set<uint16_t> seen;
+        /// @brief the failure of each slave unidentified at each of the last two
+        /// rediscoveries. A restart clears by the next rediscovery, so only these are
+        /// reported.
+        std::map<uint16_t, std::string> reported;
+    };
+    /// @brief the unidentified slaves on each interface.
+    std::unordered_map<std::string, Unidentified> unidentified;
+    /// @brief guards switch_times, which set_standalone() writes while a scan reads it.
+    mutable std::mutex switch_mu;
+    /// @brief the time of the last switch to Synnax only of each slave, keyed by device
+    /// key. Each scan writes it to the properties of the device, so that the scan is
+    /// their only writer.
+    std::unordered_map<std::string, x::telem::TimeStamp> switch_times;
 
-    /// @brief creates a slave device for the given slave, and returns whether its saved
-    /// config enables it. The status names any invalid property, and otherwise reflects
-    /// the slave's live state when health holds an entry for it.
+    /// @brief creates the slave device with key for the given slave on the master with
+    /// master_key and network_name, and returns whether its saved config enables it.
+    /// The status names any invalid property, and otherwise reflects the slave's live
+    /// state when health holds an entry for it.
     [[nodiscard]] std::pair<synnax::device::Device, bool> create_slave_device(
         const slave::DiscoveryResult &slave,
+        const std::string &key,
         const std::vector<slave::Health> &health,
         const std::string &master_key,
+        const std::string &network_name,
         const common::ScannerContext &scan_ctx
     ) const;
+
+    /// @brief returns the device key of each slave with an identity on the master
+    /// with master_key, in the order of slaves, and adds each key to kept. A slave
+    /// takes the stored device with its identity: its vendor, product, and serial
+    /// number, or with serial number 0, its network and position. Else a slave with a
+    /// serial number takes the stored device of its model at its position saved with
+    /// no serial number, as before the Driver read CoE serial numbers. Else it gets a
+    /// new key that no stored device holds. A slave whose serial number the master
+    /// could not read takes only the stored device of its model at its position, and
+    /// else gets an empty key. No slave takes a device in kept. stored holds the
+    /// properties of each stored slave device by key.
+    [[nodiscard]] static std::vector<std::string> slave_keys(
+        const std::vector<slave::DiscoveryResult> &slaves,
+        const std::string &master_key,
+        const std::map<std::string, slave::Properties> &stored,
+        std::set<std::string> &kept
+    );
 
     /// @brief gets base properties from existing device or returns empty JSON.
     static nlohmann::json get_existing_properties(
@@ -125,7 +174,7 @@ private:
     void test_interface(const synnax::task::Command &cmd) const;
 
     /// @brief handles the set_standalone command.
-    void set_standalone(const synnax::task::Command &cmd) const;
+    void set_standalone(const synnax::task::Command &cmd);
 };
 
 }

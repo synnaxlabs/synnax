@@ -142,7 +142,7 @@ class TestReview:
         assert harness.run()[0] == "pending"
 
     def test_ignores_a_review_for_another_base(self, harness: Harness) -> None:
-        harness.reviews("head", review(key="42:release/core-0.57"))
+        harness.reviews("head", review(key="42:release/0.57"))
         assert harness.run()[0] == "pending"
 
     def test_ignores_a_review_of_another_pull_request(self, harness: Harness) -> None:
@@ -189,7 +189,7 @@ class TestFork:
         harness.reviews("head")
         assert harness.run() == (
             "failure",
-            "Sedosaur does not review forks, so an admin merges this one",
+            "Sedosaur does not review forks: reopen it from a branch here",
         )
 
     def test_fails_a_deleted_fork(self, harness: Harness) -> None:

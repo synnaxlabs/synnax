@@ -16,9 +16,20 @@ from synnax.cli.console.protocol import (
     Print,
     Prompt,
     R,
-    assign_default_ask_type,
 )
 from synnax.cli.console.rich import Rich
+
+
+def _assign_default_ask_type(
+    *, type_: type[R] | None, choices: list[R] | None, default: R | None
+) -> type[R] | type[str]:
+    if type_ is not None:
+        return type_
+    if choices is not None:
+        return type(choices[0])
+    if default is not None:
+        return type(default)
+    return str
 
 
 class Entry(BaseModel, Generic[R]):
@@ -115,7 +126,7 @@ class MockPrompt:
         default: R | None = None,
         password: bool = False,
     ) -> R | None:
-        resolved_type = assign_default_ask_type(
+        resolved_type = _assign_default_ask_type(
             type_=type_, choices=choices, default=default
         )
         response: R | None = (

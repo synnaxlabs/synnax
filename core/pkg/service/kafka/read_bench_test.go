@@ -34,10 +34,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -326,7 +326,7 @@ func createBenchGroups(ctx context.Context, sc benchScenario) []benchGroup {
 }
 
 func benchRecords(groups []benchGroup, sc benchScenario) []kafka.ReadRecord {
-	unixNs := http.TimeFormatUnixNs
+	unixNs := payload.TimeFormatUnixNs
 	recs := make([]kafka.ReadRecord, len(groups))
 	for gi, g := range groups {
 		rec := kafka.ReadRecord{Key: fmt.Sprintf("r%d", gi), RecordKey: g.key}

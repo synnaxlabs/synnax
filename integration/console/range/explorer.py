@@ -100,6 +100,20 @@ class Explorer(Surface):
             lst.evaluate("el => { el.scrollTop += el.clientHeight * 0.8; }")
             self.layout.page.wait_for_timeout(150)
 
+    def expand(self, name: str) -> None:
+        """Show the child ranges of a range under it in the tree layout. The caret shows
+        once the range has a child.
+
+        :param name: The name of the parent range.
+        """
+        item = self.get_item(name)
+        expand_btn = item.get_by_role("button", name="Expand", exact=True)
+        collapse_btn = item.get_by_role("button", name="Collapse", exact=True)
+        expand_btn.or_(collapse_btn).wait_for(state="visible", timeout=5000)
+        if expand_btn.is_visible():
+            expand_btn.click()
+        collapse_btn.wait_for(state="visible", timeout=5000)
+
     def get_item_time(self, name: str) -> str:
         """Get the displayed time text from an explorer range item.
 
@@ -222,7 +236,7 @@ class Explorer(Surface):
         """
         item = self.get_item(parent_name)
         item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(item, "Create child range")
+        self.ctx_menu.action(item, "Start child range")
         self.fill_create_modal(child_name)
 
     def search(self, term: str) -> None:
@@ -242,11 +256,3 @@ class Explorer(Surface):
         :param label_name: The name of the label to select.
         """
         self.views.select_filter("Labels", label_name)
-
-    def clear_label_filter(self, label_name: str) -> None:
-        """Remove a label from the active filter by clicking its chip close
-        button.
-
-        :param label_name: The name of the label chip to remove.
-        """
-        self.views.clear_filter(label_name)

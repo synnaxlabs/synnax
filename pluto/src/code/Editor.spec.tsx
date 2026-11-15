@@ -9,7 +9,7 @@
 
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
@@ -128,6 +128,14 @@ const createFakeModel = (initial: string, language: string, uri?: unknown) => {
 
 type FakeModel = ReturnType<typeof createFakeModel>;
 
+const SEVERITY = { Hint: 1, Info: 2, Warning: 4, Error: 8 } as const;
+
+interface Marker {
+  severity: number;
+  source?: string;
+  code?: string;
+}
+
 const createFakeEditor = (model: FakeModel) => {
   const content = makeEmitter<{ changes: unknown[] }>();
   const keyDown = makeEmitter<{ browserEvent: KeyboardEvent }>();
@@ -145,8 +153,26 @@ const createFakeEditor = (model: FakeModel) => {
   let position = { lineNumber: 1, column: 1 };
   let selection: Range | null = null;
   const decorationSets: unknown[][] = [];
+  // Monaco renders its hover in this element of the editor's DOM node.
+  const domNode = document.createElement("div");
+  const widgets = domNode.appendChild(document.createElement("div"));
+  widgets.className = "overflowingContentWidgets";
   const editor = {
     getModel: () => model,
+    getDomNode: () => domNode,
+    // Renders a marker row for each detail, as monaco's hover does. A marker with no
+    // source and no code has no detail.
+    showHover: (...details: (string | null)[]): HTMLElement[] =>
+      details.map((detail) => {
+        const row = widgets.appendChild(document.createElement("div"));
+        row.className = "hover-row";
+        const marker = row.appendChild(document.createElement("div"));
+        marker.className = "marker hover-contents";
+        marker.appendChild(document.createElement("span")).textContent = "message";
+        if (detail != null)
+          marker.appendChild(document.createElement("span")).textContent = detail;
+        return marker;
+      }),
     createDecorationsCollection: vi.fn(() => ({
       set: (next: unknown[]) => decorationSets.push(next),
       clear: vi.fn(),
@@ -188,7 +214,9 @@ const createFakeMonaco = () => {
   let lastEditor: FakeEditor | null = null;
   let lastCreatedModel: FakeModel | null = null;
   let lastInputArea: HTMLTextAreaElement | null = null;
+  let markers: Marker[] = [];
   const editor = {
+    getModelMarkers: vi.fn(() => markers),
     create: vi.fn(
       (
         container: HTMLElement,
@@ -225,6 +253,10 @@ const createFakeMonaco = () => {
     Uri: { parse: vi.fn((raw: string) => ({ raw, toString: () => raw })) },
     KeyMod: { CtrlCmd: 2048, Shift: 1024 },
     KeyCode: { KeyP: 46 },
+    MarkerSeverity: { ...SEVERITY, 1: "Hint", 2: "Info", 4: "Warning", 8: "Error" },
+    setMarkers: (next: Marker[]) => {
+      markers = next;
+    },
     CancellationTokenSource: class {
       token = { isCancellationRequested: false };
       cancel = vi.fn();
@@ -768,6 +800,73 @@ describe("Editor", () => {
       renderWithSubscriber(callback);
       pressEscape(document.body);
       expect(presses(callback)).toBe(1);
+    });
+  });
+
+  describe("hover severity", () => {
+    const SOURCE = "arc-analyzer";
+    const WARNING: Marker = { severity: SEVERITY.Warning, source: SOURCE, code: "W1" };
+    const ERROR: Marker = { severity: SEVERITY.Error, source: SOURCE, code: "E1" };
+
+    const hoverSeverities = async (
+      markers: Marker[],
+      ...details: (string | null)[]
+    ): Promise<(string | undefined)[]> => {
+      renderEditor();
+      monaco.setMarkers(markers);
+      const rows = monaco.editorInstance.showHover(...details);
+      await waitFor(() => expect(rows[0].dataset.severity).toBeDefined());
+      return rows.map((row) => row.dataset.severity);
+    };
+
+    it("should color a warning that has a code as a warning", async () => {
+      expect(await hoverSeverities([WARNING], `${SOURCE}(W1)`)).toEqual(["warning"]);
+    });
+
+    it("should color a warning that has no code as an error", async () => {
+      const markers = [{ severity: SEVERITY.Warning, source: SOURCE }];
+      expect(await hoverSeverities(markers, SOURCE)).toEqual(["error"]);
+    });
+
+    it("should color a marker that has no source and no code as an error", async () => {
+      const markers = [{ severity: SEVERITY.Warning }];
+      expect(await hoverSeverities(markers, null)).toEqual(["error"]);
+    });
+
+    it("should color two warnings as warnings", async () => {
+      const second = { ...WARNING, code: "W2" };
+      expect(
+        await hoverSeverities([WARNING, second], `${SOURCE}(W1)`, `${SOURCE}(W2)`),
+      ).toEqual(["warning", "warning"]);
+    });
+
+    it("should color a warning next to an error as an error", async () => {
+      expect(
+        await hoverSeverities([WARNING, ERROR], `${SOURCE}(W1)`, `${SOURCE}(E1)`),
+      ).toEqual(["error", "error"]);
+    });
+
+    it("should color a warning next to a row that has no code as an error", async () => {
+      const markers = [WARNING, { severity: SEVERITY.Warning, source: SOURCE }];
+      expect(await hoverSeverities(markers, `${SOURCE}(W1)`, SOURCE)).toEqual([
+        "error",
+        "error",
+      ]);
+    });
+
+    it("should color an info marker as info", async () => {
+      const markers = [{ severity: SEVERITY.Info, source: SOURCE, code: "I1" }];
+      expect(await hoverSeverities(markers, `${SOURCE}(I1)`)).toEqual(["info"]);
+    });
+
+    it("should stop watching the hover on unmount", async () => {
+      const { unmount } = renderEditor();
+      const editor = monaco.editorInstance;
+      unmount();
+      monaco.setMarkers([WARNING]);
+      const [row] = editor.showHover(`${SOURCE}(W1)`);
+      await act(async () => {});
+      expect(row.dataset.severity).toBeUndefined();
     });
   });
 

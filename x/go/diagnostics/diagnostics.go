@@ -13,6 +13,7 @@ package diagnostics
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -58,6 +59,14 @@ type HintProvider interface {
 	GetHint() string
 }
 
+// Fix is a change to the source that resolves a diagnostic.
+type Fix struct {
+	// Title names the change.
+	Title string `json:"title"`
+	// Edits are the replacements that make the change together.
+	Edits []protocol.TextEdit `json:"edits"`
+}
+
 // Diagnostic represents a single compiler diagnostic message.
 type Diagnostic struct {
 	Code     ErrorCode                               `json:"code"`
@@ -65,7 +74,11 @@ type Diagnostic struct {
 	Severity protocol.DiagnosticSeverity             `json:"severity"`
 	Range    protocol.Range                          `json:"range"`
 	Notes    []protocol.DiagnosticRelatedInformation `json:"notes"`
-	cause    error
+	// Fixes each resolve the diagnostic on their own.
+	Fixes []Fix `json:"fixes"`
+	cause error
+	// hinted is set when the first note is the hint of cause.
+	hinted bool
 }
 
 // SetRange sets the Range from an ANTLR parser rule context.
@@ -108,6 +121,7 @@ func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
 				d.Notes,
 				protocol.DiagnosticRelatedInformation{Message: hint},
 			)
+			d.hinted = true
 		}
 	}
 	return d
@@ -151,6 +165,35 @@ func (d Diagnostic) WithNote(note string) Diagnostic {
 	if note != "" {
 		d.Notes = append(d.Notes, protocol.DiagnosticRelatedInformation{Message: note})
 	}
+	return d
+}
+
+// WithFix attaches a fix that changes the code at ctx to newText, and its hint note.
+func (d Diagnostic) WithFix(ctx antlr.ParserRuleContext, newText string) Diagnostic {
+	var at Diagnostic
+	at.SetRange(ctx)
+	start, stop := ctx.GetStart(), ctx.GetStop()
+	note := protocol.DiagnosticRelatedInformation{Message: fmt.Sprintf(
+		"hint: change `%s` to `%s`",
+		start.GetInputStream().GetText(start.GetStart(), stop.GetStop()),
+		newText,
+	)}
+	if at.Range != d.Range {
+		note.Location.Range = at.Range
+	}
+	if d.hinted {
+		d.Notes, d.hinted = slices.Clone(d.Notes[1:]), false
+	}
+	d.Notes = append(d.Notes, note)
+	return d.WithEdits(
+		fmt.Sprintf("Change to `%s`", newText),
+		protocol.TextEdit{Range: at.Range, NewText: newText},
+	)
+}
+
+// WithEdits returns a copy of the diagnostic with a fix of the title and edits.
+func (d Diagnostic) WithEdits(title string, edits ...protocol.TextEdit) Diagnostic {
+	d.Fixes = append(d.Fixes, Fix{Title: title, Edits: edits})
 	return d
 }
 

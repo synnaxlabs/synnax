@@ -130,6 +130,9 @@ preloadTimeLanguage();
 beforeAll(() => {
   vi.stubGlobal("ResizeObserver", SizeFiringResizeObserver);
   vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
+  // jsdom implements no pointer capture.
+  HTMLElement.prototype.setPointerCapture = () => {};
+  HTMLElement.prototype.releasePointerCapture = () => {};
   Object.defineProperty(Element.prototype, "getBoundingClientRect", {
     configurable: true,
     writable: true,

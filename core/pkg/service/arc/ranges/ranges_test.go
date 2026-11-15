@@ -99,11 +99,8 @@ func nodeCtx(ctx context.Context) node.Context {
 	return node.Context{Context: ctx, MarkChanged: func(int) {}}
 }
 
-// matchesColor reports whether a diagnostic message is a color.FromCSS rejection.
-func matchesColor(msg string) bool {
-	return strings.Contains(msg, "hex value") ||
-		strings.Contains(msg, "invalid hex color")
-}
+// matchesColor reports whether a diagnostic message is a color.Parse rejection.
+func matchesColor(msg string) bool { return strings.Contains(msg, "invalid color") }
 
 func retrieveRange(ctx context.Context, key string) (ranger.Range, error) {
 	uid, err := uuid.Parse(key)
@@ -367,7 +364,7 @@ var _ = Describe("createNode.Next", func() {
 
 			newKey := state.Output(0).Unmarshal[string]()[0]
 			r := MustSucceed(retrieveRange(ctx, newKey))
-			Expect(*r.Color).To(Equal(MustSucceed(color.FromCSS("#DF6D38"))))
+			Expect(*r.Color).To(Equal(MustSucceed(color.Parse("#DF6D38"))))
 			Expect(rep.get()).To(BeEmpty())
 		},
 	)
@@ -378,7 +375,7 @@ var _ = Describe("createNode.Next", func() {
 		n.Next(nodeCtx(ctx))
 		newKey := state.Output(0).Unmarshal[string]()[0]
 		r := MustSucceed(retrieveRange(ctx, newKey))
-		Expect(*r.Color).To(Equal(MustSucceed(color.FromCSS("rgb(223, 109, 56)"))))
+		Expect(*r.Color).To(Equal(MustSucceed(color.Parse("rgb(223, 109, 56)"))))
 		Expect(rep.get()).To(BeEmpty())
 	})
 

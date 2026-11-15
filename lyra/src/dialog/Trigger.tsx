@@ -19,10 +19,8 @@ import { useCombinedRefs } from "@/hooks";
 import { type Icon } from "@/icon";
 
 /** Props for {@link Trigger}. */
-export interface TriggerProps extends Omit<Button.ButtonProps, "variant"> {
+export interface TriggerProps extends Button.ButtonProps {
   hideCaret?: boolean;
-  /** "shadow" draws no box at rest, for a field in a list item. */
-  variant?: Button.Variant | "shadow";
 }
 
 /**
@@ -35,7 +33,6 @@ export const Trigger = ({
   className,
   hideCaret = false,
   children,
-  variant: triggerVariant,
   preview,
   ...rest
 }: TriggerProps): ReactElement => {
@@ -51,17 +48,12 @@ export const Trigger = ({
   return (
     <Button.Button
       ref={combinedRef}
-      className={CSS.cls(
-        CSS.BE("dialog", "trigger"),
-        triggerVariant === "shadow" && CSS.M("shadow"),
-        className,
-      )}
+      className={CSS.cls(CSS.BE("dialog", "trigger"), className)}
       onClick={(e) => {
         onClick?.(e);
         toggle();
       }}
       full="x"
-      variant={triggerVariant === "shadow" ? "outlined" : triggerVariant}
       preview={preview}
       aria-haspopup={opensDialog ? "dialog" : undefined}
       aria-expanded={opensDialog ? visible : undefined}

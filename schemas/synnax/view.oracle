@@ -9,6 +9,7 @@
 
 import "schemas/synnax/ranger"
 import "schemas/synnax/status"
+import "schemas/x/color"
 import "schemas/x/filter"
 import "schemas/x/patch"
 
@@ -27,10 +28,44 @@ Type enum {
     @doc value "names the resource that a view lists."
 }
 
+RangeSort enum {
+    newest = "newest" {
+        @doc value "puts the range that starts latest first."
+    }
+    oldest = "oldest" {
+        @doc value "puts the range that starts earliest first."
+    }
+    name   = "name" {
+        @doc value "puts the ranges in order of name."
+    }
+
+    @doc value "is the order of the ranges in a range view."
+}
+
+RangeLayout enum {
+    tree     = "tree" {
+        @doc value "shows each range under the range it is nested in."
+    }
+    list     = "list" {
+        @doc value "shows the ranges in one flat list."
+    }
+    timeline = "timeline" {
+        @doc value "shows the ranges as lanes over a time axis."
+    }
+
+    @doc value "is how a range view shows its ranges."
+}
+
 View union on type Type extends Base {
     range {
-        where ranger.Where? {
+        where  ranger.Where? {
             @doc value "selects the ranges the view shows. An absent where shows all."
+        }
+        sort   RangeSort = newest {
+            @doc value "is the order of the ranges."
+        }
+        layout RangeLayout = tree {
+            @doc value "is how the view lays out the ranges."
         }
 
         @doc value "is a saved view of ranges."
@@ -72,15 +107,24 @@ View union on type Type extends Base {
 }
 
 Base struct {
-    key  Key = create {
+    key   Key = create {
         @doc value "is the unique identifier for this view."
         @key
     }
-    name string {
+    name  string       {
         @doc value         "is a human-readable name for the view."
         @index sorted
         @search
         @validate required
+    }
+    icon  string?      {
+        @doc value """
+            is the key of the icon that marks the view in lists. When null, the Console
+            draws its default view icon.
+        """
+    }
+    color color.Color? {
+        @doc value "is the color of the view's icon. When null, the theme picks it."
     }
 
     @doc value  "carries the fields shared by every view variant."

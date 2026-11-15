@@ -26,7 +26,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
-	"github.com/synnaxlabs/x/color"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"github.com/synnaxlabs/x/telem"

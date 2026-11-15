@@ -100,6 +100,12 @@ func (r Retrieve[D]) SkipMissingKeys() Retrieve[D] {
 	return r
 }
 
+// WherePrefix restricts results to statuses whose key starts with prefix.
+func (r Retrieve[D]) WherePrefix(prefix string) Retrieve[D] {
+	r.gorp = r.gorp.WherePrefix([]byte(prefix))
+	return r
+}
+
 // Entries binds a slice that Retrieve will fill results into.
 func (r Retrieve[D]) Entries(s *[]Status[D]) Retrieve[D] {
 	r.gorp = r.gorp.Entries(s)

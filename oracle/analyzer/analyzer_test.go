@@ -1058,6 +1058,78 @@ Node union on variant {
 		)
 	})
 
+	Describe("Pattern rules", func() {
+		DescribeTable(
+			"Should reject a second pattern on a value",
+			func(ctx SpecContext, source, want string) {
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("on a field whose type sets one", `
+				Name = string { @validate pattern "^[a-z]+$" }
+				Entry struct {
+					value Name { @validate pattern "^[a-c]+$" }
+				}
+			`, "test.Entry.value has a pattern rule, but its type already sets one"),
+			Entry("on an override of an inherited field whose type sets one", `
+				Name = string { @validate pattern "^[a-z]+$" }
+				Parent struct {
+					value Name
+				}
+				Entry struct extends Parent {
+					value { @validate pattern "^[a-c]+$" }
+				}
+			`, "test.Entry.value has a pattern rule, but its type already sets one"),
+			Entry("on a field inherited from a generic parent", `
+				Name = string { @validate pattern "^[a-z]+$" }
+				Parent struct<T> {
+					value T { @validate pattern "^a" }
+				}
+				Entry struct extends Parent<Name> {}
+			`, "test.Entry.value has a pattern rule, but its type already sets one"),
+			Entry("on a type whose target sets one", `
+				Name = string { @validate pattern "^[a-z]+$" }
+				Short = Name { @validate pattern "^[a-c]+$" }
+			`, "test.Short has a pattern rule, but its type already sets one"),
+		)
+
+		It("Should report an inherited pattern conflict once", func(ctx SpecContext) {
+			_, diag := Analyze(ctx, `
+				Name = string { @validate pattern "^[a-z]+$" }
+				Parent struct {
+					value Name { @validate pattern "^a" }
+				}
+				Entry struct extends Parent {}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(
+				diag.String(),
+			).To(ContainSubstring("test.Parent.value has a pattern rule"))
+			Expect(diag.String()).ToNot(ContainSubstring("test.Entry.value"))
+		})
+
+		DescribeTable(
+			"Should accept one pattern on a value",
+			func(ctx SpecContext, source string) {
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry("on a field whose type sets none", `
+				Name = string
+				Entry struct {
+					value Name { @validate pattern "^[a-c]+$" }
+				}
+			`),
+			Entry("on a type that a field uses", `
+				Name = string { @validate pattern "^[a-z]+$" }
+				Entry struct {
+					value Name { @validate max_length 8 }
+				}
+			`),
+		)
+	})
+
 	Describe("Length rules", func() {
 		DescribeTable(
 			"Should reject a length rule on a field that is not a string",

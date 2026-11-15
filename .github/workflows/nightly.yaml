@@ -53,24 +53,14 @@ jobs:
       TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
-  notify:
-    name: Notify Slack
+  # Only this run saves the Go caches of most modules, and a failed run saves some.
+  prune:
+    name: Prune older caches
     needs: ci
-    if: failure()
-    runs-on: ubuntu-latest
-    permissions: {}
-    steps:
-      - name: Post the failure to Slack
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
-          RUN_URL:
-            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
-            github.run_id }}
-        run: |
-          curl --fail --silent --show-error \
-            --header "Content-Type: application/json" \
-            --data "{\"text\": \"Nightly CI failed: $RUN_URL\"}" \
-            "$SLACK_WEBHOOK_URL"
+    if: ${{ !cancelled() }}
+    permissions:
+      actions: write
+    uses: ./.github/workflows/prune.caches.yaml
 
   triage-prompt:
     name: Write the triage prompt
@@ -110,7 +100,6 @@ jobs:
     permissions:
       actions: read
       contents: write
-      id-token: write
       issues: write
       pull-requests: write
     uses: ./.github/workflows/agent.yaml

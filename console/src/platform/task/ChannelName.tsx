@@ -30,7 +30,6 @@ import {
   StateIcon,
 } from "@/platform/task/ChannelState";
 import { useIsPreview } from "@/platform/task/useIsPreview";
-import { Session } from "@/session";
 
 export interface ChannelNameProps extends optional.Optional<
   Omit<Text.MaybeEditableProps, "value" | "onChange">,
@@ -160,8 +159,7 @@ const Resolved = ({
 }: ResolvedProps) => {
   const canRename = Access.useUpdateGranted(clientChannel.TYPE_RESOURCE_ID);
   const { update } = Channel.useRename();
-  const range = Session.Range.useSelectSelectedKey();
-  const result = Channel.useResultAlias({ key: channel, rangeKey: range ?? undefined });
+  const result = Channel.useResultName({ key: channel });
   if (result.variant === "success") {
     const handleRename =
       deploy === "never" || !canRename

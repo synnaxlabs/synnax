@@ -98,17 +98,28 @@
             display: block !important;
             z-index: 1;
 
-            &::before {
+            &::before,
+            &::after {
                 content: "";
                 position: absolute;
                 top: 50%;
                 left: 50%;
+                translate: -50% -50%;
+                border-radius: 50%;
+            }
+
+            /* The hit target. The dot inside it stays small. */
+            &::before {
                 width: 1.5rem;
                 height: 1.5rem;
-                translate: -50% -50%;
                 border: 2px solid transparent;
-                border-radius: 50%;
                 pointer-events: all;
+            }
+
+            &::after {
+                width: 1rem;
+                height: 1rem;
+                border: var(--pluto-border-thick-width) solid transparent;
             }
         }
 
@@ -130,23 +141,23 @@
         }
 
         & .react-flow__node.draggable:hover {
-            .react-flow__handle::before {
+            .react-flow__handle::after {
                 border-color: var(--pluto-primary-z);
                 background: var(--pluto-text-color);
             }
 
-            .react-flow__handle:hover::before {
+            .react-flow__handle:hover::after {
                 background: var(--pluto-primary-z);
             }
         }
 
         & .react-flow__container:has(.react-flow__connectionline) {
-            & .react-flow__handle::before {
+            & .react-flow__handle::after {
                 border-color: var(--pluto-primary-z);
                 background: var(--pluto-text-color);
             }
 
-            & .react-flow__handle:hover::before {
+            & .react-flow__handle:hover::after {
                 background: var(--pluto-primary-z);
             }
         }

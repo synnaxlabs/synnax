@@ -40,7 +40,7 @@ export const ColorField = ({
 };
 
 /** @returns no fill, the fill most symbols paint while their fill color is absent. */
-export const noFillFallback: ColorFallback = () => color.ZERO;
+export const noFillFallback: ColorFallback = () => color.TRANSPARENT;
 
 export interface FillFieldProps extends Omit<ColorFieldProps, "path"> {}
 

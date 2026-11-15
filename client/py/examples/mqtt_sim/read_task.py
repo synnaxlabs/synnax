@@ -28,6 +28,7 @@ import numpy as np
 
 import synnax as sy
 from synnax import mqtt
+from x import payload
 
 client = sy.Synnax()
 
@@ -84,8 +85,8 @@ tsk = mqtt.ReadTask(
                     data_type=sy.DataType.UINT8,
                     name="Running",
                     enum_values=[
-                        mqtt.EnumEntry(label="idle", value=0),
-                        mqtt.EnumEntry(label="running", value=1),
+                        payload.EnumEntry(label="idle", value=0),
+                        payload.EnumEntry(label="running", value=1),
                     ],
                 ),
             ],

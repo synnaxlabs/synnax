@@ -10,6 +10,7 @@
 package versions_test
 
 import (
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -28,25 +29,56 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		return MustSucceed(versions.DecodeImExEnvelope(ctx, LoadEnvelope(path)))
 	}
 
-	valveConfig := func(s versions.Schematic, node string) versions.ValveElementConfig {
+	nodeConfig := func(s versions.Schematic, key string) versions.NodeConfig {
 		GinkgoHelper()
-		cfg, ok := s.Configs[node].Variant.(versions.ValveElementConfig)
+		i := slices.IndexFunc(
+			s.Nodes,
+			func(n versions.Node) bool { return n.Key == key },
+		)
+		Expect(i).ToNot(Equal(-1))
+		return s.Nodes[i].Config
+	}
+
+	valveConfig := func(s versions.Schematic, node string) versions.ValveNodeConfig {
+		GinkgoHelper()
+		cfg, ok := nodeConfig(s, node).Variant.(versions.ValveNodeConfig)
 		Expect(ok).To(BeTrue())
 		return cfg
 	}
 
+	gaugeConfig := func(s versions.Schematic, node string) versions.GaugeNodeConfig {
+		GinkgoHelper()
+		cfg, ok := nodeConfig(s, node).Variant.(versions.GaugeNodeConfig)
+		Expect(ok).To(BeTrue())
+		return cfg
+	}
+
+	expectDefaultPipe := func(s versions.Schematic) {
+		GinkgoHelper()
+		Expect(s.Edges).To(HaveLen(1))
+		Expect(s.Edges[0].Config).To(Equal(versions.EdgeConfig{
+			Variant: versions.PipeEdgeConfig{
+				SegmentedEdgeConfig: versions.SegmentedEdgeConfig{
+					Segments: []versions.Segment{},
+				},
+			},
+		}))
+	}
+
+	expectNode := func(s versions.Schematic, key string, pos spatial.XY, z int16) {
+		GinkgoHelper()
+		Expect(s.Nodes).To(HaveLen(1))
+		Expect(s.Nodes[0].Key).To(Equal(key))
+		Expect(s.Nodes[0].Position).To(Equal(pos))
+		Expect(s.Nodes[0].ZIndex).To(Equal(z))
+	}
+
 	It("Should lift a v8 envelope", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_v8.json")
-		Expect(sch.Snapshot).To(BeTrue())
-		Expect(sch.Nodes).To(Equal([]versions.Node{
-			{Key: "n1", Position: spatial.XY{X: 1, Y: 2}, ZIndex: 4},
-		}))
-		Expect(sch.Edges).To(Equal([]versions.Edge{{
-			Key:    "e1",
-			Source: versions.Handle{Node: "n1", Param: "out"},
-			Target: versions.Handle{Node: "n2", Param: "in"},
-		}}))
-		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveElementConfig{
+		expectNode(sch, "n1", spatial.XY{X: 1, Y: 2}, 4)
+		// The file's only edge has no config and connects to a node it lacks.
+		Expect(sch.Edges).To(BeEmpty())
+		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveNodeConfig{
 			Label: versions.LabelConfig{
 				Level:         "h5",
 				Orientation:   "top",
@@ -60,18 +92,27 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		}))
 	})
 
+	It("Should lift a v11 envelope, moving configs onto nodes and edges", func(
+		ctx SpecContext,
+	) {
+		sch := decode(ctx, "testdata/import_v11.json")
+		Expect(sch.Nodes).To(HaveLen(2))
+		Expect(valveConfig(sch, "n1").Scale).To(Equal(2.0))
+		Expect(nodeConfig(sch, "n2").Variant).
+			To(BeAssignableToTypeOf(versions.TankNodeConfig{}))
+		Expect(sch.Edges).To(HaveLen(1))
+		pipe, ok := sch.Edges[0].Config.Variant.(versions.PipeEdgeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(pipe.StrokeColor).
+			To(HaveValue(Equal(MustSucceed(color.Parse("#ff0000")))))
+	})
+
 	It("Should lift a v7 envelope, dropping measured", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_v7.json")
-		Expect(sch.Snapshot).To(BeTrue())
-		Expect(sch.Nodes).To(Equal([]versions.Node{
-			{Key: "n1", Position: spatial.XY{X: 1, Y: 2}, ZIndex: 4},
-		}))
-		Expect(sch.Edges).To(Equal([]versions.Edge{{
-			Key:    "e1",
-			Source: versions.Handle{Node: "n1", Param: "out"},
-			Target: versions.Handle{Node: "n2", Param: "in"},
-		}}))
-		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveElementConfig{
+		expectNode(sch, "n1", spatial.XY{X: 1, Y: 2}, 4)
+		// The file's only edge has no config and connects to a node it lacks.
+		Expect(sch.Edges).To(BeEmpty())
+		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveNodeConfig{
 			Label: versions.LabelConfig{
 				Level:         "h5",
 				Orientation:   "top",
@@ -88,7 +129,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 	DescribeTable("Should restate a legacy scale as a vertical bar without its gutter",
 		func(ctx SpecContext, path string) {
 			sch := decode(ctx, path)
-			cfg, ok := sch.Configs["s1"].Variant.(versions.ScaleElementConfig)
+			cfg, ok := nodeConfig(sch, "s1").Variant.(versions.ScaleNodeConfig)
 			Expect(ok).To(BeTrue())
 			Expect(cfg.Orientation).To(BeEquivalentTo("top"))
 			Expect(cfg.Dimensions).To(Equal(spatial.Dimensions{Width: 34, Height: 160}))
@@ -99,20 +140,17 @@ var _ = Describe("DecodeImExEnvelope", func() {
 
 	It("Should decode the camelCase Console export", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_typed_console.json")
-		Expect(sch.Snapshot).To(BeFalse())
 		Expect(sch.Nodes[0].ZIndex).To(Equal(int16(4)))
-		Expect(sch.Edges[0].Source).
-			To(Equal(versions.Handle{Node: "n1", Param: "out"}))
+		Expect(sch.Edges).To(BeEmpty())
 		Expect(valveConfig(sch, "n1").OnClickDelay).To(HaveValue(Equal(2.0)))
 	})
 
 	It("Should lift a Console state through the legacy chain", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_v3_state.json")
 		Expect(sch.Nodes[0].ZIndex).To(Equal(int16(3)))
-		Expect(sch.Edges[0].Source).To(Equal(versions.Handle{Node: "n1", Param: "a"}))
-		Expect(sch.Edges[0].Target).To(Equal(versions.Handle{Node: "n2", Param: "b"}))
+		Expect(sch.Edges).To(BeEmpty())
 		Expect(valveConfig(sch, "n1").StrokeColor).
-			To(HaveValue(Equal(MustSucceed(color.FromHex("#ff0000")))))
+			To(HaveValue(Equal(MustSucceed(color.Parse("#ff0000")))))
 	})
 
 	// The fixtures below are schematics a shipped Console exported.
@@ -120,7 +158,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		func(ctx SpecContext, path string, nodes int) {
 			s := decode(ctx, path)
 			Expect(s.Nodes).To(HaveLen(nodes))
-			Expect(s.Snapshot).To(BeFalse())
 			// The Console's per-node render state — id, type, selected, measured — does
 			// not survive: a stored node keeps only key, position, and z-index.
 			for _, n := range s.Nodes {
@@ -134,15 +171,11 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			"testdata/import_console_v5_typed.json", 2),
 	)
 
-	It("Should keep each node's element config keyed by node", func(
-		ctx SpecContext,
-	) {
+	It("Should move each node's config onto the node", func(ctx SpecContext) {
 		s := decode(ctx, "testdata/import_console_v3_typed.json")
-		Expect(s.Configs).To(SatisfyAll(
-			HaveKey("fTQJC5PIv7u"),
-			HaveKey("0hBxSpgF0u6"),
-			HaveKey("KJl7SWknO4T"),
-		))
+		for _, key := range []string{"fTQJC5PIv7u", "0hBxSpgF0u6", "KJl7SWknO4T"} {
+			Expect(nodeConfig(s, key).Variant).ToNot(BeNil())
+		}
 	})
 
 	It("Should carry a node's position and stacking order", func(ctx SpecContext) {
@@ -162,12 +195,9 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(s.Nodes[0].Key).To(Equal("n1"))
 		Expect(s.Nodes[0].Position.X).To(Equal(120.0))
 		Expect(s.Nodes[0].ZIndex).To(BeEquivalentTo(2))
-		Expect(s.Edges).To(HaveLen(1))
-		Expect(s.Edges[0].Source.Node).To(Equal("n1"))
-		Expect(s.Edges[0].Source.Param).To(Equal("outlet"))
-		Expect(s.Edges[0].Target.Param).To(Equal("inlet"))
-		Expect(s.Configs).To(HaveKey("n1"))
-		Expect(s.Snapshot).To(BeFalse())
+		// The state's only edge carries no data bag, so it gets the default pipe.
+		expectDefaultPipe(s)
+		Expect(nodeConfig(s, "n1").Variant).ToNot(BeNil())
 	})
 
 	It("Should lift the Console state that added a legend", func(ctx SpecContext) {
@@ -175,8 +205,9 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		// the document must survive the version bump untouched.
 		s := decode(ctx, "testdata/import_v1_state.json")
 		Expect(s.Nodes).To(HaveLen(2))
-		Expect(s.Edges).To(HaveLen(1))
-		Expect(s.Configs).To(SatisfyAll(HaveKey("n1"), HaveKey("n2")))
+		expectDefaultPipe(s)
+		Expect(nodeConfig(s, "n1").Variant).ToNot(BeNil())
+		Expect(nodeConfig(s, "n2").Variant).ToNot(BeNil())
 	})
 
 	DescribeTable("Should keep an explicit zero and default an omitted field", func(
@@ -184,14 +215,10 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		path string,
 	) {
 		sch := decode(ctx, path)
-		gauge := func(node string) versions.GaugeElementConfig {
-			GinkgoHelper()
-			cfg, ok := sch.Configs[node].Variant.(versions.GaugeElementConfig)
-			Expect(ok).To(BeTrue())
-			return cfg
-		}
-		Expect(gauge("g1").Bounds).To(Equal(spatial.Bounds{Lower: -10, Upper: 0}))
-		Expect(gauge("g2").Bounds).To(Equal(spatial.Bounds{Lower: 0, Upper: 100}))
+		Expect(gaugeConfig(sch, "g1").Bounds).
+			To(Equal(spatial.Bounds{Lower: -10, Upper: 0}))
+		Expect(gaugeConfig(sch, "g2").Bounds).
+			To(Equal(spatial.Bounds{Lower: 0, Upper: 100}))
 	},
 		Entry("current version", "testdata/import_v10_zeros.json"),
 		Entry("older version", "testdata/import_v8_zeros.json"),
@@ -205,9 +232,8 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		valve := valveConfig(sch, "v1")
 		Expect(valve.Scale).To(Equal(1.0))
 		Expect(valve.StalenessTimeout).To(BeZero())
-		gauge, ok := sch.Configs["g1"].Variant.(versions.GaugeElementConfig)
-		Expect(ok).To(BeTrue())
-		Expect(gauge.Bounds).To(Equal(spatial.Bounds{Lower: -10, Upper: 0}))
+		Expect(gaugeConfig(sch, "g1").Bounds).
+			To(Equal(spatial.Bounds{Lower: -10, Upper: 0}))
 	},
 		Entry("current version", "testdata/import_v10_zero_scale.json"),
 		Entry("older version", "testdata/import_v8_zero_scale.json"),

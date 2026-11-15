@@ -117,6 +117,11 @@ func generatePyFile(
 	if len(structs) > 0 {
 		data.imports.addPydantic("BaseModel")
 	}
+	for _, typ := range slices.Concat(structs, enums, typeDefs, unions) {
+		if getPyName(typ) == "Field" {
+			data.imports.field = "PydanticField"
+		}
+	}
 
 	skip := func(typ resolution.Type) bool { return omit.IsSkipped(typ, "py") }
 	rawKeyFields := key.Collect(structs, table, skip)
@@ -609,8 +614,8 @@ func typeDefBaseToPython(
 	}
 	// Handle Map type
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := typeToPython(typeRef.TypeArgs[0], table, data)
-		valueType := typeToPython(typeRef.TypeArgs[1], table, data)
+		keyType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
+		valueType := boundedArgToPython(typeRef.TypeArgs[1], table, data)
 		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
 	}
 	// Try to resolve another typedef
@@ -861,7 +866,7 @@ func processStruct(
 				// Find the field type from parent
 				for _, pf := range parentFields {
 					if pf.Name == omittedName {
-						data.imports.addPydantic("Field")
+						data.imports.addField()
 						// Run the inherited field through the normal field
 						// pipeline so it keeps its real type, default, and
 						// validation; processField adds exclude=True because the
@@ -979,9 +984,8 @@ func processField(
 	}
 
 	baseType := typeToPython(field.Type, table, data)
-	validateDomain := field.Domains["validate"]
 	fieldConstraints := collectValidation(
-		validateDomain,
+		validation.FieldRules(field, table),
 		field.Default,
 		field.Type,
 		table,
@@ -1065,8 +1069,9 @@ func optionalInPython(field resolution.Field) bool {
 	return field.Optional || domain.HasExprFromField(field, "py", "optional")
 }
 
-// orderBounds moves the lower bounds and then le to the end of constraints, so the
-// output does not depend on which bounds a schema states and which its type implies.
+// orderBounds moves the lower bounds, then le, then allow_inf_nan to the end of
+// constraints, so the output does not depend on which bounds a schema states and which
+// its type implies.
 func orderBounds(constraints []string) {
 	rank := func(c string) int {
 		switch {
@@ -1074,6 +1079,8 @@ func orderBounds(constraints []string) {
 			return 1
 		case strings.HasPrefix(c, "le="):
 			return 2
+		case c == "allow_inf_nan=False":
+			return 3
 		default:
 			return 0
 		}
@@ -1117,9 +1124,9 @@ func buildDefault(
 
 	if optional {
 		if hasConstraints {
-			data.imports.addPydantic("Field")
 			return fmt.Sprintf(
-				" = Field(default=None, %s)",
+				" = %s(default=None, %s)",
+				data.imports.addField(),
 				strings.Join(constraints, ", "),
 			)
 		}
@@ -1133,29 +1140,30 @@ func buildDefault(
 		if len(constraints) == 1 && strings.HasPrefix(constraints[0], "default=") {
 			return " = " + strings.TrimPrefix(constraints[0], "default=")
 		}
-		data.imports.addPydantic("Field")
-		return fmt.Sprintf(" = Field(%s)", strings.Join(constraints, ", "))
+		return fmt.Sprintf(
+			" = %s(%s)",
+			data.imports.addField(),
+			strings.Join(constraints, ", "),
+		)
 	}
 
 	return ""
 }
 
 func collectValidation(
-	domain resolution.Domain,
+	rules *validation.Rules,
 	defaultVal *resolution.ExpressionValue,
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
 	data *templateData,
 ) []string {
-	rules := validation.Parse(domain)
 	if validation.IsEmpty(rules) && defaultVal == nil {
 		return nil
 	}
 	var constraints []string
-	isString := resolution.IsPrimitive(typeRef.Name) &&
-		resolution.IsStringPrimitive(typeRef.Name)
-	isNumber := resolution.IsPrimitive(typeRef.Name) &&
-		resolution.IsNumberPrimitive(typeRef.Name)
+	primitive := key.ResolvePrimitive(typeRef, table)
+	isString := resolution.IsStringPrimitive(primitive)
+	isNumber := resolution.IsNumberPrimitive(primitive)
 	if isString {
 		if rules.MinLength != nil {
 			constraints = append(
@@ -1191,6 +1199,10 @@ func collectValidation(
 			} else {
 				constraints = append(constraints, fmt.Sprintf("le=%f", rules.Max.Float))
 			}
+		}
+		isFloat := primitive == "float32" || primitive == "float64"
+		if isFloat && len(constraints) > 0 {
+			constraints = append(constraints, "allow_inf_nan=False")
 		}
 	}
 	if defaultVal != nil {
@@ -1621,6 +1633,28 @@ func sizedIntBounds(
 	return b, ok
 }
 
+// boundedArgToPython returns the Python type of a map key or value. A sized integer
+// carries its range in its type, since the bounds of a field do not reach into a dict.
+func boundedArgToPython(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	pyType := typeToPython(typeRef, table, data)
+	bounds, ok := sizedIntBounds(typeRef, table)
+	if !ok {
+		return pyType
+	}
+	data.imports.addTyping("Annotated")
+	data.imports.addPydantic("Field")
+	return fmt.Sprintf(
+		"Annotated[%s, Field(ge=%s, le=%s)]",
+		pyType,
+		bounds.min,
+		bounds.max,
+	)
+}
+
 // importLocalHand imports name from typ's `@py include` module when typ is
 // hand-written or omitted in the namespace being generated, since the generated file
 // declares no such type. It returns the name to reference, which is an alias when the
@@ -1707,8 +1741,8 @@ func typeToPython(
 
 	// Handle Map type
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := typeToPython(typeRef.TypeArgs[0], table, data)
-		valueType := typeToPython(typeRef.TypeArgs[1], table, data)
+		keyType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
+		valueType := boundedArgToPython(typeRef.TypeArgs[1], table, data)
 		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
 	}
 
@@ -1812,8 +1846,8 @@ func typeRefToPythonAlias(
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
 		return fmt.Sprintf(
 			"dict[%s, %s]",
-			typeToPython(typeRef.TypeArgs[0], table, data),
-			typeToPython(typeRef.TypeArgs[1], table, data),
+			boundedArgToPython(typeRef.TypeArgs[0], table, data),
+			boundedArgToPython(typeRef.TypeArgs[1], table, data),
 		)
 	}
 	resolved, ok := typeRef.Resolve(table)
@@ -1941,7 +1975,10 @@ type importManager struct {
 	typeVarDefault bool
 	enum           []string
 	pydantic       []string
-	synnax         []string
+	// field is the name pydantic's Field is imported as. It differs from "Field" when
+	// the file declares a type of that name.
+	field  string
+	synnax []string
 	// resource holds imports from synnax.resource.
 	resource []string
 	// codec holds imports from x.codec.
@@ -1955,6 +1992,7 @@ type importManager struct {
 func newImportManager() *importManager {
 	return &importManager{
 		reserved: make(set.Set[string]),
+		field:    "Field",
 	}
 }
 
@@ -1985,6 +2023,12 @@ func (m *importManager) addPydantic(name string) {
 	if !lo.Contains(m.pydantic, name) {
 		m.pydantic = append(m.pydantic, name)
 	}
+}
+
+// addField imports pydantic's Field and returns the name to call it by.
+func (m *importManager) addField() string {
+	m.addPydantic("Field")
+	return m.field
 }
 
 func (m *importManager) addSynnax(name string) {
@@ -2142,8 +2186,15 @@ func (d *templateData) TypingImports() []string {
 	}
 	return append(slices.Clone(d.imports.typing), "TypeVar")
 }
-func (d *templateData) EnumImports() []string     { return d.imports.enum }
-func (d *templateData) PydanticImports() []string { return d.imports.pydantic }
+func (d *templateData) EnumImports() []string { return d.imports.enum }
+func (d *templateData) PydanticImports() []string {
+	return lo.Map(d.imports.pydantic, func(name string, _ int) string {
+		if name == "Field" && d.imports.field != name {
+			return name + " as " + d.imports.field
+		}
+		return name
+	})
+}
 func (d *templateData) SynnaxImports() []string   { return d.imports.synnax }
 func (d *templateData) ResourceImports() []string { return d.imports.resource }
 func (d *templateData) CodecImports() []string    { return d.imports.codec }
@@ -2488,7 +2539,7 @@ class {{ .ClassName }}({{ range $i, $p := .Parents }}{{ if $i }}, {{ end }}{{ $p
 {{ end -}}
 {{ .Name }} = Annotated[
     {{ range $i, $v := .Variants }}{{ if $i }} | {{ end }}{{ $v.ClassName }}{{ end }},
-    Field(discriminator="{{ .DiscName }}"),
+    {{ .Field }}(discriminator="{{ .DiscName }}"),
 ]
 {{- end }}
 {{- end }}
