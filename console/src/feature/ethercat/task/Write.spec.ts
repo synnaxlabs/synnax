@@ -108,6 +108,31 @@ describe("Write", () => {
     expect(screen.getByRole("option", { name: /^Output/ })).toBeTruthy();
   });
 
+  it("should select a channel with no device when a start finds it", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const { container } = await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [
+        EtherCAT.Task.createWriteChannel([]),
+        EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY),
+      ],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x7000:01/ }));
+    await clickDeploy(container);
+    const [empty] = screen
+      .getAllByRole("option")
+      .filter((o) => !/0x7000:01/.test(o.textContent));
+    await waitFor(() => expect(empty.getAttribute("aria-selected")).toBe("true"));
+    expect(empty.classList.contains("lyra--status-error")).toBe(true);
+    expect(
+      await screen.findByText("A channel has no device. Pick a device."),
+    ).toBeTruthy();
+  });
+
   it("should not name the channels of a slave without an identifier", async () => {
     const slave = await createSlaveDevice(
       client,

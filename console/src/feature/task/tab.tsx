@@ -24,7 +24,7 @@ import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
 import { Sift } from "@/feature/sift";
-import { getIcon, ownedChannelsOf } from "@/feature/task/types";
+import { devicesOf, getIcon, ownedChannelsOf } from "@/feature/task/types";
 import { Panel } from "@/platform/panel";
 import { type Task } from "@/platform/task";
 
@@ -98,6 +98,14 @@ export const TAB: Panel.Tab = {
       if (kept.length < owned.length)
         throw new Error(
           "The task uses channels that were deleted. Create the task again.",
+        );
+    }
+    const devices = devicesOf(corpse.payload);
+    if (devices.length > 0) {
+      const kept = await client.devices.retrieve(query.keysRequest(devices));
+      if (kept.length < devices.length)
+        throw new Error(
+          "The task uses devices that were deleted. Create the task again.",
         );
     }
     // The status goes with the instance, not the row: a restored task has
