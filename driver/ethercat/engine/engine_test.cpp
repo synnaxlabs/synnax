@@ -1709,8 +1709,8 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnStart) {
 }
 
 /// @brief it should write no settings to a slave that another program sets up on a
-/// running bus, and warn each reader of that slave of its skipped settings, with a
-/// reader setting that replaces a device setting counted once.
+/// running bus, and warn only the readers of that slave of its skipped settings, with
+/// a reader setting that replaces a device setting counted once.
 TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnARunningBus) {
     auto shared = io_slave(1);
     shared.settings = SHARED_SETTINGS;
@@ -1768,7 +1768,7 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnARunningBus) {
     const std::string one = "Slave 1 (Slave1) is set up for DewesoftX, so Synnax did "
                             "not apply its 1 startup setting. Remove it, or switch the "
                             "device to Synnax in Configure.";
-    EXPECT_EQ(first->unapplied(), one);
+    EXPECT_EQ(first->unapplied(), "");
     EXPECT_EQ(second->unapplied(), one);
     EXPECT_EQ(replacing->unapplied(), one);
     EXPECT_EQ(

@@ -326,14 +326,14 @@ private:
         const Settings &settings,
         const Start &start
     );
-    /// @brief returns the settings of each slave on the latest scan, keyed by position,
-    /// with the startup parameters of settings. A slave in left_out is disabled.
+    /// @brief returns the Configure settings of each slave on the latest scan, keyed by
+    /// position. A slave in left_out is disabled.
     /// @returns errors::SLAVE_CONFIG_ERROR when two saved slaves that find one slave on
     /// the scan have different settings, or errors::ACTIVATION_ERROR when the serial
     /// number of that slave is unread and one of the two has a serial number, since a
     /// new scan can tell them apart.
     [[nodiscard]] std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>
-    plan_locked(const std::vector<SavedSlave> &saved, const Settings &settings) const;
+    plan_locked(const std::vector<SavedSlave> &saved) const;
     void stop_locked();
     /// @brief returns err, the error of the last pass of a failed start, as a sentence,
     /// then a sentence for each slave in left_out. The error ends with each distinct

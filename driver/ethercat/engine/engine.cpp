@@ -687,7 +687,10 @@ x::errors::Error Engine::start_locked(
         if (!err) {
             this->slaves = std::move(slaves);
             this->track_restarts_locked(std::exchange(restarted, {}));
-            std::tie(plan.slaves, err) = this->plan_locked(saved, settings);
+            std::tie(this->device_configs, err) = this->plan_locked(saved);
+            plan.slaves = this->device_configs;
+            for (const auto &[pos, params]: settings)
+                plan.slaves[pos].add_startup_parameters(params);
             // The next scan reads the serial numbers again.
             if (err.matches(errors::ACTIVATION_ERROR)) this->master->deactivate();
         }
@@ -869,10 +872,8 @@ void Engine::stop_locked() {
     this->slave_health.clear();
 }
 
-std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> Engine::plan_locked(
-    const std::vector<SavedSlave> &saved,
-    const Settings &settings
-) const {
+std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>
+Engine::plan_locked(const std::vector<SavedSlave> &saved) const {
     std::vector<slave::Identity> identities;
     identities.reserve(saved.size());
     for (const auto &s: saved)
@@ -939,8 +940,6 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> Engine::plan_lock
             )
         };
     }
-    for (const auto &[pos, params]: settings)
-        configs[pos].add_startup_parameters(params);
     for (const auto &[pos, _]: this->left_out)
         configs[pos].enabled = false;
     return {configs, x::errors::NIL};
@@ -1156,24 +1155,14 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     const auto [mhz, rate_err] = this->rate_locked(reads, writes);
     if (rate_err) return {{}, rate_err};
     const bool started = !this->running();
-    std::set<uint16_t> positions;
     if (started) {
         if (configs_err) return {{}, configs_err};
         if (auto err = this->start_locked(mhz, saved, settings, start))
             return {{}, err};
-        // The start planned on this scan, so the plan finds the same slaves.
-        auto [configs, plan_err] = this->plan_locked(saved, {});
-        if (plan_err) {
-            this->stop_locked();
-            return {{}, plan_err};
-        }
-        this->device_configs = std::move(configs);
-        for (const auto &[pos, _]: this->device_configs)
-            positions.insert(pos);
-    } else {
-        for (const auto &entry: entries)
-            positions.insert(entry.slave_position);
     }
+    std::set<uint16_t> positions;
+    for (const auto &entry: entries)
+        positions.insert(entry.slave_position);
     for (const auto &[pos, _]: settings)
         positions.insert(pos);
     std::map<uint16_t, size_t> counts;
