@@ -321,6 +321,22 @@ jobs:
             ${{ steps.key.outputs.sum }}
             ${{ steps.key.outputs.module }}
 
+      # Go refreshes the mtime of a cache entry it uses only when that mtime is over an
+      # hour old, so each entry of a cache saved less than an hour ago looks used.
+      # Moving every restored mtime two hours back makes each use refresh it.
+      - name: Back-date the Go build cache
+        if: >-
+          ${{ github.ref == 'refs/heads/main' && matrix.shard == 1 &&
+          steps.cache.outputs.cache-matched-key != '' && (inputs.cached ||
+          !startsWith(steps.cache.outputs.cache-matched-key, 'go-test-')) }}
+        shell: bash
+        env:
+          BUILD: ${{ steps.key.outputs.build }}
+        run: |
+          cd "$BUILD"
+          find . -type f -exec perl -e \
+            '$t = time - 7200; utime($t, $t, @ARGV) == @ARGV or die "utime: $!"' {} +
+
       - name: Mark the start of the build
         id: start
         shell: bash
@@ -413,12 +429,12 @@ jobs:
         working-directory: ${{ inputs.directory }}
 
       # Each save holds every entry it restored, so stale builds pile up until their
-      # extraction fills the disk. Go refreshes the mtime of an entry it uses, unless
-      # that mtime is less than an hour old, so an entry older than an hour before the
-      # build did not serve this run. A size budget below the size of one build deletes
-      # entries that the run used. A failed run used only a part of the cache, so only
-      # a run that passes trims and saves. A Ginkgo run that restored a go test cache
-      # saves nothing, because the warm run keeps that cache at the head of main.
+      # extraction fills the disk. An entry that did not serve this run keeps its
+      # back-dated mtime, which is over an hour before the build. A size budget below
+      # the size of one build deletes entries that the run used. A failed run used only
+      # a part of the cache, so only a run that passes trims and saves. A Ginkgo run
+      # that restored a go test cache saves nothing, because the warm run keeps that
+      # cache at the head of main.
       - name: Trim the Go build cache
         if: >-
           ${{ success() && github.ref == 'refs/heads/main' && matrix.shard == 1 &&
