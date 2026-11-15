@@ -62,8 +62,8 @@ const createConfirmDelete = (
 /**
  * Prompts for confirmation before deleting resources. One item is named; two or more
  * collapse to a count, keeping the message bounded however large the selection. With an
- * option, the prompt shows it as a checkbox and resolves with its state, or null when the
- * user cancels.
+ * option, the prompt shows it as a checkbox and resolves with its state, or null when
+ * the user cancels.
  */
 export const useConfirmDelete = ({
   type,
