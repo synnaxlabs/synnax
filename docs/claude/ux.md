@@ -33,10 +33,13 @@ one job. Pick the step by its job:
 
 | Steps        | Band    | Jobs                                               |
 | ------------ | ------- | -------------------------------------------------- |
-| l0, l1, l2   | Surface | canvas; panes and cards; dialogs, menus, toolbars  |
+| l0, l1, l2   | Surface | canvas; panes and cards; toolbars                  |
 | l3, l4, l5   | Fill    | rest; hover; press                                 |
 | l6, l7, l8   | Border  | separator; control border; strong border           |
 | l9, l10, l11 | Text    | secondary text and icons; body text; emphatic text |
+
+Non-modal dialogs and menus use `--pluto-gray-l1-l2`, halfway between l1 and l2. Modals
+keep the modal surface.
 
 Hover moves one fill step from rest, and press moves one more. Disabled text is
 `--pluto-text-disabled`. A disabled outlined control (an input, a select trigger, an
@@ -296,7 +299,7 @@ bound, a log precision, or the line plot X channel.
   its values.
 - The filter menu, its submenus, and the pickers of a filter chip use the context menu
   surface: an l6 border, the large radius, 6 px padding, and the overlay shadow.
-- Menus and select dialogs share one fill, `--pluto-gray-l1-l2`. A select keeps its
+- Menus and non-modal dialogs share one fill, `--pluto-gray-l1-l2`. A select keeps its
   bordered search and its framed list.
 - A submenu opens 100 ms after the pointer stops on its item, and at once on a click or
   ArrowRight. ArrowLeft and Esc close one level. While the pointer moves toward an open
