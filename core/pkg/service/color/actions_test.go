@@ -68,5 +68,18 @@ var _ = Describe("Reduce", func() {
 			color.NewRemoveAction(color.RemovePayload{Key: "light"}),
 			"[light]: the document requires a value",
 		),
+		Entry(
+			"an insert into a list the named color does not declare",
+			color.NewInsertAction(color.InsertPayload{
+				Path:  []string{"tags"},
+				Value: map[string]any{"key": "a"},
+			}),
+			"[tags]: the path names no editable field",
+		),
+		Entry(
+			"a move in a list the named color does not declare",
+			color.NewMoveAction(color.MovePayload{Path: []string{"tags"}, Key: "a"}),
+			"[tags]: the path names no editable field",
+		),
 	)
 })
