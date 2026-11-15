@@ -124,9 +124,13 @@
     min-width: 0;
     overflow: hidden;
 
+    /* Only its tags and count take clicks, not the room they leave empty. */
+    pointer-events: none;
+
     & > .lyra-tag,
     & > .lyra-tags__more {
         order: -1;
+        pointer-events: auto;
     }
 
     /* A step change snaps, so a tag never animates its face. */
