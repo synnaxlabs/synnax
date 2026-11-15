@@ -9,7 +9,7 @@
 
 import "@/menu/Sub.css";
 
-import { xy } from "@synnaxlabs/x";
+import { type xy } from "@synnaxlabs/x";
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -30,7 +30,7 @@ import { SubContext, useSubContext, useSubmenusContext } from "@/menu/submenus";
 import { type position } from "@/position";
 
 const MENU_ITEM = '[role="menuitem"]';
-const ITEM = `${MENU_ITEM}, [role="option"]`;
+const LIST = '[role="listbox"]';
 
 // The content opens beside the item, on the side that has room. The item sits inside
 // the padding of its menu, so the content laps over the edge of the menu.
@@ -39,14 +39,15 @@ const LOCATION: position.LocationPreference = {
   dialogCorner: { y: "top" },
 };
 
-// The first item of the content sits level with the item that opens it.
+// The list area of the content sits level with the item that opens it. It starts below
+// the search of a selection, or at the padding of a menu.
 const alignOffset = (dialog: HTMLElement): xy.XY => {
-  const item = dialog.querySelector<HTMLElement>(ITEM);
-  if (item == null) return xy.ZERO;
-  let top = dialog.clientTop;
-  for (let el = item; el !== dialog; el = el.offsetParent as HTMLElement)
-    top += el.offsetTop;
-  return { x: 0, y: top };
+  const list = dialog.querySelector(LIST);
+  const y =
+    list == null
+      ? dialog.clientTop + parseFloat(getComputedStyle(dialog).paddingTop)
+      : list.getBoundingClientRect().top - dialog.getBoundingClientRect().top;
+  return { x: 0, y };
 };
 
 /** Props for {@link Sub}. */
