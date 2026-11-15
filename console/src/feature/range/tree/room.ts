@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type RefObject, useLayoutEffect, useState } from "react";
+import { type RefCallback, useState } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -63,7 +63,12 @@ const fit = (list: HTMLElement | null): void => {
   if (list.style.getPropertyValue("--console-range-labels-room") !== value)
     list.style.setProperty("--console-range-labels-room", value);
 };
-export const useLabelsRoom = (ref: RefObject<HTMLElement | null>): void => {
+
+/**
+ * @returns a ref for a range list. Each list it attaches to keeps its labels room
+ * fitted until it unmounts, so a list that mounts again fits again.
+ */
+export const useLabelsRoom = (): RefCallback<HTMLElement> => {
   // Made before the tags' observer, so it reads widths before the tags write theirs.
   const [resize] = useState(
     () =>
@@ -71,8 +76,7 @@ export const useLabelsRoom = (ref: RefObject<HTMLElement | null>): void => {
         fit(entry.target.closest<HTMLElement>(`.${CSS.BE("range-tree", "list")}`)),
       ),
   );
-  useLayoutEffect(() => {
-    const list = ref.current;
+  return (list) => {
     if (list == null) return;
     // Fitting as each item first lays out reads widths with no extra layout.
     resize.observe(list);
@@ -95,5 +99,5 @@ export const useLabelsRoom = (ref: RefObject<HTMLElement | null>): void => {
       resize.disconnect();
       mutations.disconnect();
     };
-  }, [ref, resize]);
+  };
 };

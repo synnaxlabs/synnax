@@ -17,7 +17,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tag } from "@synnaxlabs/lyra/tag";
-import { type ReactElement, type ReactNode, useRef } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { ContextMenu } from "@/feature/range/tree/ContextMenu";
 import {
@@ -123,8 +123,7 @@ export const Layout = ({
   caretless = false,
 }: LayoutProps): ReactElement => {
   const menuProps = Menu.useContextMenu();
-  const listRef = useRef<HTMLDivElement | null>(null);
-  useLabelsRoom(listRef);
+  const listRef = useLabelsRoom();
   const content =
     layout === "timeline" ? (
       <Timeline
