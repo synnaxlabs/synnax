@@ -74,6 +74,15 @@ TEST(WriterStream, ReturnsStatusOfEndedStream) {
     ASSERT_OCCURRED_AS(writer.close(), freighter::UNREACHABLE);
 }
 
+/// @brief it should return the failed send error when the Core ended the stream with
+/// no error.
+TEST(WriterStream, ReturnsSendErrorOfStreamEndedWithoutError) {
+    const auto client = ended_client(freighter::ERR_EOF);
+    auto writer = ASSERT_NIL_P(client.open_writer(WriterConfig{}));
+    ASSERT_OCCURRED_AS_P(writer.commit(), freighter::STREAM_CLOSED);
+    ASSERT_OCCURRED_AS(writer.close(), freighter::STREAM_CLOSED);
+}
+
 /// @brief it should keep a permanent error that the Core ended the stream with.
 TEST(WriterStream, ReturnsPermanentErrorOfEndedStream) {
     const auto client = ended_client(x::errors::VALIDATION);
