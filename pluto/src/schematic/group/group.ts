@@ -160,12 +160,12 @@ export const fanOutMoves = (
   current: schematic.Schematic,
   actions: schematic.Action[],
 ): schematic.Action[] => {
-  const { nodes } = current;
-  const configs = schematic.configsOf(current);
   const moved = new Set<string>();
   for (const a of actions)
     if (a.type === "set_node_position") moved.add(a.setNodePosition.key);
   if (moved.size === 0) return actions;
+  const { nodes } = current;
+  const configs = schematic.configsOf(current);
   const nodeByKey = new Map(nodes.map((n) => [n.key, n]));
   const out = [...actions];
   for (const action of actions) {

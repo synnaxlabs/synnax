@@ -85,8 +85,8 @@ func MigrateEdge(ctx context.Context, old v12.Edge) (Edge, error) {
 	return autoMigrateEdge(ctx, old)
 }
 
-// convert decodes the config stored under key into dst. It returns false when no
-// config is stored under key, or when the stored config is of the Other element kind.
+// convert decodes the config stored under key into dst. It returns false when no config
+// is stored under key, or when the stored config is of the Other element kind.
 func convert[Other, C any](
 	configs map[string]v12.ElementConfig,
 	key string,
@@ -167,15 +167,21 @@ var Migration = migrate.NewEntry("v62_color_bytes_configs_on_nodes", MigrateSche
 // MigrateNodeConfig lifts a v12 node config to v13. See MigrateSchematic for colors.
 func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, error) {
 	cfg, err := autoMigrateNodeConfig(ctx, old)
+	if err != nil {
+		return NodeConfig{}, err
+	}
 	clearThemeColors(reflect.ValueOf(&cfg).Elem())
-	return cfg, err
+	return cfg, nil
 }
 
 // MigrateEdgeConfig lifts a v12 edge config to v13. See MigrateSchematic for colors.
 func MigrateEdgeConfig(ctx context.Context, old v12.EdgeConfig) (EdgeConfig, error) {
 	cfg, err := autoMigrateEdgeConfig(ctx, old)
+	if err != nil {
+		return EdgeConfig{}, err
+	}
 	clearThemeColors(reflect.ValueOf(&cfg).Elem())
-	return cfg, err
+	return cfg, nil
 }
 
 // MigrateStaticSymbolConfig lifts a v12 static symbol config to v13.

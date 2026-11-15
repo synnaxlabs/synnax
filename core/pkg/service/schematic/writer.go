@@ -66,7 +66,7 @@ func (w Writer) create(ctx context.Context, s, source *Schematic) error {
 	if source != nil {
 		stored = source.Nodes
 	}
-	if err := validateConfigs(stored, *s); err != nil {
+	if err := validateScales(stored, *s); err != nil {
 		return err
 	}
 	if err := project.CheckMember(s.Project); err != nil {
@@ -164,8 +164,6 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	var added []Action
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
 		ChangeErr(func(_ gorp.Context, prev Schematic) (Schematic, error) {
-			// Reduce can edit nodes in place, so keep the stored ones.
-			stored := slices.Clone(prev.Nodes)
 			next, err := Reduce(prev, acts...)
 			if err != nil {
 				return Schematic{}, err
@@ -186,7 +184,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			if err = next.Validate(); err != nil {
 				return Schematic{}, err
 			}
-			if err = validateConfigs(stored, next); err != nil {
+			if err = validateScales(prev.Nodes, next); err != nil {
 				return Schematic{}, err
 			}
 			return next, project.CheckMember(next.Project)
@@ -197,11 +195,11 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	return added, nil
 }
 
-// validateConfigs returns an error wrapping validate.ErrValidation when a node config
+// validateScales returns an error wrapping validate.ErrValidation when a node config
 // of next carries a scale that is not positive and differs from the scale of the stored
 // node. A zero scale sizes a symbol to nothing. A stored scale that the write keeps
 // passes, so a stored zero does not block an edit to another field.
-func validateConfigs(stored []Node, next Schematic) error {
+func validateScales(stored []Node, next Schematic) error {
 	for i, n := range next.Nodes {
 		scale, ok := scaleOf(n.Config.Variant)
 		if !ok || scale > 0 {

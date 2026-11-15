@@ -37,6 +37,7 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 const path = deep.path<schematic.TankNodeConfig>();
 const display = deep.path<schematic.StringDisplayNodeConfig>();
 const element = deep.path<z.infer<typeof schematic.elementConfigZ>>();
+const pipePath = deep.path<schematic.PipeEdgeConfig>();
 
 const client = createTestClient();
 
@@ -989,10 +990,10 @@ describe("schematic queries", () => {
       vi.restoreAllMocks();
     });
 
-    const renderForm = async (key: schematic.Key) =>
+    const renderForm = async (key: schematic.Key, elKey = "n1") =>
       await renderHookSuspended(
         ({ elKey }: { elKey: string }) => Schematic.useConfigForm({ key, elKey }),
-        { wrapper: Wrapper, initialProps: { elKey: "n1" } },
+        { wrapper: Wrapper, initialProps: { elKey } },
       );
 
     // A fresh client reads the Core. A streaming client's cache can lag a dispatch.
@@ -1086,6 +1087,28 @@ describe("schematic queries", () => {
       });
       expect(await fetchStoredConfig(schem.key, "n1")).toMatchObject({
         scaleVisible: true,
+      });
+    });
+
+    it("should send an edge edit as a path action into the edge's config", async () => {
+      const red: color.RGBA = [255, 0, 0, 1];
+      const schem = await createTestSchematic(proj.key);
+      const { result } = await renderForm(schem.key, "e1");
+      const send = spyOnSend(client);
+      act(() => result.current.form.set(pipePath.strokeColor, red));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      const [, req] =
+        send.mock.calls.find(([target]) => target === "/schematic/dispatch") ?? [];
+      expect(req).toMatchObject({
+        actions: [
+          {
+            type: "set",
+            set: { path: ["edges", "e1", "config", "stroke_color"] },
+          },
+        ],
+      });
+      expect(await fetchStoredConfig(schem.key, "e1")).toMatchObject({
+        strokeColor: red,
       });
     });
 

@@ -760,7 +760,7 @@ var _ = Describe("Reducer", func() {
 			))
 		})
 
-		It("Should reject the removed set_config action", func() {
+		It("Should reject a set_config action", func() {
 			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
 			Expect(schematic.Reduce(state, schematic.Action{Type: "set_config"})).
 				Error().To(SatisfyAll(

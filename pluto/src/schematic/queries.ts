@@ -295,12 +295,13 @@ export const useGroup = (): ((selected: readonly string[]) => string[] | null) =
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
   return (selected) => {
-    const s = client?.schematics.watch({ key }).getCached();
+    if (client == null) return null;
+    const s = client.schematics.watch({ key }).getCached();
     if (!query.isLive(s)) return null;
     const result = Group.createActions({
       selected,
       nodes: s.nodes,
-      configs: schematic.configsOf(s),
+      configs: client.schematics.configsOf(s),
     });
     if (result == null) return null;
     dispatch(result.actions);
@@ -318,9 +319,10 @@ export const useUngroup = (): ((selected: readonly string[]) => string[] | null)
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
   return (selected) => {
-    const s = client?.schematics.watch({ key }).getCached();
+    if (client == null) return null;
+    const s = client.schematics.watch({ key }).getCached();
     if (!query.isLive(s)) return null;
-    const result = Group.ungroupActions(selected, schematic.configsOf(s));
+    const result = Group.ungroupActions(selected, client.schematics.configsOf(s));
     if (result == null) return null;
     dispatch(result.actions);
     return result.freed;
