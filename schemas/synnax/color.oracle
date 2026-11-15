@@ -78,6 +78,12 @@ Named struct {
 Where filter Named {
     key
     name
+    groups  group.Key[] {
+        @doc value "matches the named colors in any of the given palettes."
+    }
+    grouped bool        {
+        @doc value "matches the named colors in a palette, or in no palette when false."
+    }
 
     @doc value         "is a filter that selects named colors."
     @go request_output "core/pkg/api/color"

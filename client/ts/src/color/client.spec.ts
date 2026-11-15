@@ -169,6 +169,23 @@ describe("color.Client", () => {
       ).toBeUndefined();
     });
 
+    it("should retrieve the named colors of a palette", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: `palette-${id.create()}`,
+      });
+      const [inPalette, loose] = await Promise.all([createNamed(), createNamed()]);
+      await client.batch.send(moveRequests(inPalette, palette));
+      const reader = createTestClient();
+      const grouped = await reader.colors.retrieve({ groups: [palette.key] });
+      expect(grouped.map((n) => n.key)).toEqual([inPalette.key]);
+      const ungrouped = await reader.colors.retrieve({
+        key: [inPalette.key, loose.key],
+        grouped: false,
+      });
+      expect(ungrouped.map((n) => n.key)).toEqual([loose.key]);
+    });
+
     it("should refuse a move into a group of another scope", async () => {
       const channels = await client.groups.create({
         scope: "channel",

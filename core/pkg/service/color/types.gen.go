@@ -13,6 +13,7 @@ package color
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/color/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/x/filter"
 )
 
@@ -57,4 +58,8 @@ type Where struct {
 	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
 	// Name selects by name.
 	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Groups matches the named colors in any of the given palettes.
+	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
+	// Grouped matches the named colors in a palette, or in no palette when false.
+	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
 }

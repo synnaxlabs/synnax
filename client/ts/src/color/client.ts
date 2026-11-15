@@ -107,8 +107,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Na
         list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (named, req) => matches(named, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+        matches: (named, req) => matches(group.MEMBER_LINES, named, req.where),
+        serverComputed: (req) => serverComputed(group.MEMBER_LINES, req.where),
       },
     });
     this.unary = unary;

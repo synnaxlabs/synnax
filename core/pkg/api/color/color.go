@@ -77,7 +77,7 @@ type CreateResponse struct {
 }
 
 // Create creates the named colors. It returns a validation error when a color is not
-// valid or a named color with its key exists.
+// valid, its group cannot hold a named color, or a named color with its key exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,

@@ -56,6 +56,8 @@ export type Where = {
   not?: Where;
   key?: filter.Set<typeof keyZ>;
   name?: filter.String;
+  groups?: group.Key[];
+  grouped?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -74,6 +76,10 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   key: filter.setZ(keyZ).optional(),
   /** name selects by name. */
   name: filter.stringZ.optional(),
+  /** groups matches the named colors in any of the given palettes. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the named colors in a palette, or in no palette when false. */
+  grouped: z.boolean().optional(),
 });
 
 /**
