@@ -123,22 +123,20 @@ class CoreRestart(TestCase):
         return self._scratch.tasks.retrieve(key, include_status=True).status
 
     def _expect_running(self, key: sy.task.Key, since: sy.TimeStamp) -> None:
-        """Fail unless the Driver writes a running status for the task after since.
-        The Core keeps the status from before its restart, so an older one proves
-        nothing."""
+        """Fail unless a running status for the task is written after since. The
+        Core keeps the status from before its restart, so an older one proves
+        nothing, and can write a stopped one of its own before the Driver's."""
         last: sy.task.Status | None = None
 
         def fresh() -> bool | None:
             nonlocal last
             last = self._status_of(key)
-            if last is None or last.time <= since:
+            if last is None or last.time <= since or last.details is None:
                 return None
-            if last.details is None or not last.details.running:
-                self.fail(f"the Arc task is not running after the restart: {last}")
-            return True
+            return True if last.details.running else None
 
         if sy.poll(fresh, timeout=STATUS_TIMEOUT, interval=0.1) is None:
-            self.fail(f"the Driver wrote no task status after the restart: {last}")
+            self.fail(f"no running task status after the restart: {last}")
 
     def _start(self, task: sy.task.Task) -> None:
         task.execute_command("start")

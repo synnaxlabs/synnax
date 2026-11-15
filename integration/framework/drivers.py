@@ -58,8 +58,8 @@ class Process:
         assert stdin is not None
         try:
             stdin.write(b"STOP\n")
-        except BrokenPipeError:
-            # The Driver already exited.
+        except OSError:
+            # The Driver already exited. Windows raises EINVAL, not a broken pipe.
             pass
         stdin.close()
         try:
