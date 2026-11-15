@@ -43,7 +43,7 @@ def limited(tags: dict[str, str], *, now: sy.TimeStamp) -> bool:
     until = tags.get("limited-until", "")
     if not until.isdecimal():
         return False
-    return sy.TimeStamp(int(until) * sy.TimeSpan.SECOND) > now
+    return int(until) > int(now) // int(sy.TimeSpan.SECOND)
 
 
 class Seats:

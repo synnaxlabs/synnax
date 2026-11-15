@@ -217,3 +217,12 @@ class TestSeats:
         found[CLAUDE]["tags"]["limited-until"] = "1795266000.0"
         seats(client, aws).step(queued=[JOB], found=found)
         assert aws.started == [CLAUDE]
+
+    def test_should_keep_a_seat_stopped_for_a_limit_past_the_timestamp_range(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        found = {CLAUDE: seat("stopped")}
+        found[CLAUDE]["tags"]["limited-until"] = "9" * 30
+        seats(client, aws).step(queued=[JOB], found=found)
+        assert aws.started == []
