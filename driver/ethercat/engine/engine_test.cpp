@@ -3222,6 +3222,35 @@ TEST_F(EngineTest, OtherReadersKeepTheirSamplesWhileASlaveRecovers) {
     EXPECT_EQ(kept->warning(), "");
 }
 
+/// @brief it should keep the reason of a failed cycle through later short cycles within
+/// the outage, since those drop no sample of the slaves in OP.
+TEST_F(EngineTest, FailedCycleWarningKeepsItsReasonThroughAnOutage) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto receives = this->master->call_count("receive");
+    this->master->inject_receive_error(
+        x::errors::Error(errors::CYCLIC_ERROR, "process data receive failed")
+    );
+    ASSERT_EVENTUALLY_GE(this->master->call_count("receive"), receives + 3);
+    this->master->clear_injected_errors();
+    this->master->set_slave_state(1, slave::State::INIT);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 &&
+        this->engine->health()[1].state == slave::State::INIT
+    );
+    this->master->set_shortfall(3);
+    const auto short_since = x::telem::TimeStamp::now();
+    ASSERT_EVENTUALLY_TRUE(
+        x::telem::TimeStamp(this->read_times(*reader, 1).at<int64_t>(0)) > short_since
+    );
+    EXPECT_EQ(reader->warning(), "Bus cycles failed: process data receive failed.");
+}
+
 /// @brief it should tell a writer once when its slave leaves OP and once when it
 /// returns, and end the return warning at the next transaction.
 TEST_F(EngineTest, WriterWarnsWhileItsSlaveIsOutOfOP) {

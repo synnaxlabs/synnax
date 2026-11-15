@@ -522,7 +522,7 @@ void Engine::run() {
                           << " after " << receive_failures << " failures";
                 receive_failures = 0;
             }
-        } else if (!shortfall(err)) {
+        } else if (out == nullptr && !shortfall(err)) {
             if (receive_failures++ == 0)
                 LOG(WARNING) << "[ethercat] cycle failed on " << this->iface << ": "
                              << err.message();
