@@ -1105,27 +1105,6 @@ class LayoutClient:
         finally:
             cdp.detach()
 
-    def show_toolbar(self, shortcut_key: str, *, item_prefix: str) -> None:
-        """Show a navigation toolbar using keyboard shortcut.
-
-        :param shortcut_key: The keyboard shortcut (e.g., "d", "u", "r").
-        :param item_prefix: The ID prefix of items in the panel (e.g., "rack:",
-            "role:").
-        """
-        items = self.page.locator(f"div[id^='{item_prefix}']")
-        if items.count() > 0 and items.first.is_visible():
-            return
-        # Right after login the nav item may still be hidden (its permission
-        # query is loading), which swallows the shortcut, so retry the press.
-        for attempt in range(3):
-            self.press_key(shortcut_key)
-            try:
-                items.first.wait_for(state="visible", timeout=3000)
-                return
-            except PlaywrightTimeoutError:
-                if attempt == 2:
-                    raise
-
     def get_list_item(self, selector: str, *, name: str) -> Locator:
         """Get a list item locator by CSS selector filtered by text content."""
         return self.page.locator(selector).filter(has_text=name).first
