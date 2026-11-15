@@ -17,7 +17,7 @@ import (
 )
 
 // CollectReferenced collects unique enums referenced by struct fields that belong
-// to the same namespace as the referencing structs. Cross-namespace enums are
+// to the same schema file as the referencing structs. Enums of other schemas are
 // excluded because they should be imported rather than generated locally.
 // Returns a deduplicated slice of enum types based on QualifiedName.
 func CollectReferenced(
@@ -26,9 +26,9 @@ func CollectReferenced(
 ) []resolution.Type {
 	seen := make(set.Set[string])
 	var enums []resolution.Type
-	namespaces := make(set.Set[string])
+	files := make(set.Set[string])
 	for _, s := range structs {
-		namespaces.Add(s.Namespace)
+		files.Add(s.FilePath)
 	}
 	for _, s := range structs {
 		form, ok := s.Form.(resolution.StructForm)
@@ -36,30 +36,30 @@ func CollectReferenced(
 			continue
 		}
 		for _, f := range form.Fields {
-			collectEnumsFromTypeRef(f.Type, table, seen, &enums, namespaces)
+			collectEnumsFromTypeRef(f.Type, table, seen, &enums, files)
 		}
 	}
 	return enums
 }
 
 // collectEnumsFromTypeRef recursively collects enums from a type reference,
-// filtering to only include enums whose namespace is in the allowed set.
+// filtering to only include enums whose schema file is in the allowed set.
 func collectEnumsFromTypeRef(
 	ref resolution.TypeRef,
 	table *resolution.Table,
 	seen set.Set[string],
 	enums *[]resolution.Type,
-	namespaces set.Set[string],
+	files set.Set[string],
 ) {
 	// Check type args first (for generic types like Array<EnumType>)
 	for _, arg := range ref.TypeArgs {
-		collectEnumsFromTypeRef(arg, table, seen, enums, namespaces)
+		collectEnumsFromTypeRef(arg, table, seen, enums, files)
 	}
 
 	// Handle type parameters with defaults (e.g., V extends Variant = Variant)
 	// When a field has a type param, check if it has a default and collect from that
 	if ref.IsTypeParam() && ref.TypeParam != nil && ref.TypeParam.HasDefault() {
-		collectEnumsFromTypeRef(*ref.TypeParam.Default, table, seen, enums, namespaces)
+		collectEnumsFromTypeRef(*ref.TypeParam.Default, table, seen, enums, files)
 		return
 	}
 
@@ -69,7 +69,7 @@ func collectEnumsFromTypeRef(
 	}
 	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
 		if !seen.Contains(resolved.QualifiedName) &&
-			namespaces.Contains(resolved.Namespace) {
+			files.Contains(resolved.FilePath) {
 			seen.Add(resolved.QualifiedName)
 			*enums = append(*enums, resolved)
 		}
