@@ -152,7 +152,6 @@ export const Tags = ({
   useEffect(() => () => batch?.dispose(), [batch]);
   const [fold, setFold] = useState<Fold>({ hidden: [], count: "none" });
   const elRef = useRef<HTMLDivElement | null>(null);
-  const groupRef = useRef<Group | null>(null);
   const combinedRef = useCombinedRefs(ref, elRef);
   useLayoutEffect(() => {
     const el = elRef.current;
@@ -161,12 +160,8 @@ export const Tags = ({
       const next = { hidden, count };
       setFold((prev) => (sameFold(prev, next) ? prev : next));
     });
-    groupRef.current = group;
     batch.add(group);
-    return () => {
-      batch.remove(group);
-      groupRef.current = null;
-    };
+    return () => batch.remove(group);
   }, [batch, size]);
   useLayoutEffect(() => {
     const el = elRef.current;
