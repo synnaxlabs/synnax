@@ -91,7 +91,7 @@
         "level": 1,
         "on": "YES"
       },
-      "error": "out of range"
+      "error": "field mode: invalid number \"1e999\""
     }
   ]
 }

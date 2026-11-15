@@ -204,7 +204,7 @@ func newJSONField(f icd.JSONField, dt telem.DataType) (jsonField, error) {
 		}
 		if v.Default != nil {
 			if fallback, err = appendFloat(nil, float64(*v.Default)); err != nil {
-				return jsonField{}, err
+				return jsonField{}, errors.Wrap(err, "default")
 			}
 		}
 	case icd.IntegerJSONField:
@@ -304,7 +304,7 @@ func boolSample(v bool) uint8 {
 // appendFloat appends v to dst as a JSON number.
 func appendFloat(dst []byte, v float64) (jsontext.Value, error) {
 	if math.IsNaN(v) || math.IsInf(v, 0) {
-		return nil, errors.Wrapf(validate.ErrValidation, "default %v is not finite", v)
+		return nil, errors.Wrapf(validate.ErrValidation, "%v is not finite", v)
 	}
 	return strconv.AppendFloat(dst, v, 'g', -1, 64), nil
 }
@@ -345,7 +345,7 @@ func (f *jsonField) checkKind(raw jsontext.Value) error {
 	}
 	n, err := strconv.ParseFloat(string(raw), 64)
 	if err != nil {
-		return errors.Wrap(validate.ErrValidation, err.Error())
+		return errors.Wrapf(validate.ErrValidation, "invalid number %q", raw)
 	}
 	if n != math.Trunc(n) {
 		return errors.Wrapf(validate.ErrValidation, "%s is not an integer", raw)
