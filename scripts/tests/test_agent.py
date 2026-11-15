@@ -28,7 +28,9 @@ from agent.agent import (
     instructions,
     main,
     parse,
+    private_env,
     render_body,
+    return_logins,
     run_agent,
     skill_prompt,
     stored_names,
@@ -367,9 +369,11 @@ class TestMain:
 
 PRIVATE_AGENT = """#!/bin/sh
 echo "secret on stderr" >&2
-printf '{"type": "result", "is_error": false, "result": "%s"}\\n' \\
-    "secret report token=$GH_TOKEN summary=$GITHUB_STEP_SUMMARY"
+printf '{"type": "result", "is_error": false, "result": "%s"}\\n' \
+    "secret report token=$GH_TOKEN summary=$GITHUB_STEP_SUMMARY \
+login=$(cat "$CLAUDE_CONFIG_DIR/.credentials.json")"
 echo "$CLAUDE_CONFIG_DIR" > "$STATE_FILE"
+echo refreshed > "$CLAUDE_CONFIG_DIR/.credentials.json"
 """
 
 
@@ -410,6 +414,10 @@ class TestPrivateReport:
         runner_temp = tmp_path / "runner"
         runner_temp.mkdir()
         monkeypatch.setenv("RUNNER_TEMP", str(runner_temp))
+        login = tmp_path / "claude"
+        login.mkdir()
+        (login / ".credentials.json").write_text("seat")
+        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(login))
         capfd.readouterr()
         argv = ["--prompt", "Audit", "--agent", "claude", "--bin", str(agent)]
         assert main([*argv, "--output", "report", "--recipient", str(key)]) == 0
@@ -420,11 +428,41 @@ class TestPrivateReport:
         plain = subprocess.run(
             [*gpg, "--decrypt"], input=armor, capture_output=True, text=True
         ).stdout
-        assert plain == "secret report token= summary="
+        assert plain == "secret report token= summary= login=seat"
         state = Path((tmp_path / "state").read_text().strip())
         assert state.is_relative_to(runner_temp)
         assert not state.exists()
         assert not (tmp_path / "summary").exists()
+        assert (login / ".credentials.json").read_text() == "refreshed\n"
+
+    def test_should_keep_a_seat_login_that_another_job_refreshed(
+        self, tmp_path: Path
+    ) -> None:
+        seat = tmp_path / "seat"
+        seat.mkdir()
+        (seat / ".credentials.json").write_text("first")
+        out = tmp_path / "out"
+        out.mkdir()
+        env = {"CLAUDE_CONFIG_DIR": str(seat), "CODEX_HOME": str(tmp_path / "codex")}
+        _, logins = private_env(env, out=out)
+        (seat / ".credentials.json").write_text("other job")
+        return_logins(logins)
+        assert (seat / ".credentials.json").read_text() == "other job"
+
+    def test_should_return_a_login_that_replaced_its_link(self, tmp_path: Path) -> None:
+        seat = tmp_path / "seat"
+        seat.mkdir()
+        (seat / ".credentials.json").write_text("first")
+        out = tmp_path / "out"
+        out.mkdir()
+        env = {"CLAUDE_CONFIG_DIR": str(seat), "CODEX_HOME": str(tmp_path / "codex")}
+        private, logins = private_env(env, out=out)
+        link = Path(private["CLAUDE_CONFIG_DIR"]) / ".credentials.json"
+        replacement = link.with_name("new")
+        replacement.write_text("refreshed")
+        replacement.replace(link)
+        return_logins(logins)
+        assert (seat / ".credentials.json").read_text() == "refreshed"
 
 
 class TestDelivery:

@@ -36,8 +36,8 @@ time, in Unix seconds, as the `limited-until` step output and exits with LIMITED
 
 Environment: AGENT_DEFAULT picks the agent when --agent is absent. GH_TOKEN is the
 GitHub App installation token for `gh` and for Git pushes. AGENT_GIT_NAME and
-AGENT_GIT_EMAIL are the bot identity for commits. CLAUDE_CODE_OAUTH_TOKEN or a Codex
-login authenticates the CLI. pr and comment need a clean checkout.
+AGENT_GIT_EMAIL are the bot identity for commits. A Claude Code or Codex login
+authenticates the CLI. pr and comment need a clean checkout.
 """
 
 import argparse
@@ -339,18 +339,56 @@ def run_cli(
     return message
 
 
-def private_env(env: dict[str, str], *, out: Path) -> dict[str, str]:
+# Per CLI: the variable that names its state directory, the default directory under the
+# home, the private directory under out, the login files, and the other files it needs.
+STATE = (
+    ("CLAUDE_CONFIG_DIR", ".claude", "claude", (".credentials.json",), ()),
+    ("CODEX_HOME", ".codex", "codex", ("auth.json",), ("config.toml",)),
+)
+
+# A private link to a seat login file, the seat file, and its contents then.
+Login = tuple[Path, Path, bytes]
+
+
+def private_env(
+    env: dict[str, str], *, out: Path
+) -> tuple[dict[str, str], list[Login]]:
     """Returns env with no GitHub token or step output files, and with the CLI state
-    of the agent in out, so no later job on the runner can read the session."""
-    codex = out / "codex"
-    codex.mkdir()
-    home = Path(env.get("CODEX_HOME") or Path.home() / ".codex")
-    for name in ("auth.json", "config.toml"):
-        if (home / name).is_file():
-            shutil.copy(home / name, codex / name)
+    of the agent in out, so no later job on the runner can read the session. Each CLI
+    login is a link to the seat's file, so the session reads a refresh by another job.
+    The CLI writes its own refresh by replacing the link, so call return_logins when the
+    session ends."""
+    private = {}
+    logins = []
+    for var, default, name, login_files, other_files in STATE:
+        private[var] = out / name
+        private[var].mkdir()
+        home = Path(env.get(var) or Path.home() / default)
+        for file in login_files:
+            if (home / file).is_file():
+                (private[var] / file).symlink_to(home / file)
+                logins.append(
+                    (private[var] / file, home / file, (home / file).read_bytes())
+                )
+        for file in other_files:
+            if (home / file).is_file():
+                shutil.copy(home / file, private[var] / file)
     hidden = {"GH_TOKEN", "GITHUB_TOKEN", "GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY"}
     kept = {k: v for k, v in env.items() if k not in hidden}
-    return {**kept, "CLAUDE_CONFIG_DIR": str(out / "claude"), "CODEX_HOME": str(codex)}
+    return {**kept, **{var: str(path) for var, path in private.items()}}, logins
+
+
+def return_logins(logins: list[Login]) -> None:
+    """Writes back to the seat each login that the session changed by replacing the link
+    with a new file, such as a refreshed OAuth token. A refresh can spend the seat's
+    refresh token, so the seat must keep the new one."""
+    for link, seat, before in logins:
+        if link.is_symlink() or link.read_bytes() == before:
+            continue
+        fd, staged = tempfile.mkstemp(dir=seat.parent, prefix=f"{seat.name}.")
+        os.close(fd)
+        shutil.copy(link, staged)
+        Path(staged).replace(seat)
 
 
 def encrypt(text: str, *, recipient: Path) -> str:
@@ -507,14 +545,18 @@ def deliver(argv: Sequence[str]) -> int:
     prompt = f"{prompt}\n\nHow to deliver:\n{instructions(opts, out=out)}"
     cmd = agent_command(opts, prompt=prompt, out=out)
     if opts.recipient is not None:
+        logins: list[Login] = []
         try:
-            env_private = {**private_env(env, out=out), "AGENT_OUT_DIR": str(out)}
-            stdout = run_cli(opts, cmd, env=env_private, quiet=True)
+            env_private, logins = private_env(env, out=out)
+            stdout = run_cli(
+                opts, cmd, env={**env_private, "AGENT_OUT_DIR": str(out)}, quiet=True
+            )
             message = read(out / "last-message.md") or stdout.strip()
             write_output(
                 env, name="report", value=encrypt(message, recipient=opts.recipient)
             )
         finally:
+            return_logins(logins)
             shutil.rmtree(out)
         return 0
     # A report agent delivers its own work, so it gets Git push access as the App.
