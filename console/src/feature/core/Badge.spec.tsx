@@ -33,6 +33,7 @@ import {
   createConsoleWrapper,
   createStatusConsoleWrapper,
   renderWithConsole,
+  UNLICENSED_STATUS,
 } from "@/testutil";
 
 const CORE_KEY = "core-key";
@@ -83,6 +84,18 @@ describe("Core.Badge", () => {
     expect(
       within(tooltip).getByText("Cannot reach Core at localhost:9090"),
     ).toBeTruthy();
+  });
+
+  it("should label a Core that answers without a license as unlicensed", async () => {
+    const { wrapper } = await createStatusConsoleWrapper({
+      client: null,
+      status: UNLICENSED_STATUS,
+    });
+    const { container } = render(<Core.Badge />, { wrapper });
+    hoverCoreBadge(container);
+    const tooltip = await screen.findByRole("tooltip");
+    expect(within(tooltip).getByText("Unlicensed")).toBeTruthy();
+    expect(within(tooltip).queryByText("Unreachable")).toBeNull();
   });
 
   it("should show the logged-in user's name in the trigger", async () => {
