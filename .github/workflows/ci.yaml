@@ -443,6 +443,7 @@ jobs:
       cached: ${{ github.event_name == 'pull_request' }}
       coverage_flag: core
       directory: core
+      os_specific: true
       macos: *full
       shards: 3
       warmed: true
@@ -1173,6 +1174,7 @@ jobs:
     with:
       coverage_flag: x-go
       directory: x/go
+      os_specific: true
       macos: *full
       windows: *full
     secrets:

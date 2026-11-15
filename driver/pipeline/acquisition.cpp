@@ -9,8 +9,6 @@
 
 #include "absl/log/log.h"
 
-#include "client/cpp/errors/errors.h"
-
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 
@@ -84,14 +82,13 @@ bool Acquisition::run_once() {
     this->writer_config.err_on_unauthorized = this->err_on_unauthorized;
     auto [writer, writer_err] = this->factory->open_writer(this->writer_config);
     if (writer_err) {
-        if (synnax::errors::is_temporarily_unavailable(writer_err) &&
-            this->breaker.wait(writer_err.message()))
-            return true;
+        if (this->wait_for_core(writer_err)) return true;
         LOG(ERROR) << "[acquisition] failed to open writer: " << writer_err.message();
         this->source->stopped_with_err(writer_err);
         this->breaker.stop();
         return false;
     }
+    this->breaker.reset_unlimited();
     this->source->writer_opened();
     x::errors::Error source_err;
     x::telem::Frame fr(0);
@@ -141,9 +138,7 @@ bool Acquisition::run_once() {
         this->breaker.reset();
     }
     writer_err = writer->close();
-    if (synnax::errors::is_temporarily_unavailable(writer_err) &&
-        this->breaker.wait(writer_err.message()))
-        return true;
+    if (this->wait_for_core(writer_err)) return true;
     if (source_err && !source_err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
         this->source->stopped_with_err(source_err);
     else if (writer_err)

@@ -240,7 +240,7 @@ func (ss *ServerStream[RQ, RS]) Receive() (RQ, error) {
 	case msg := <-ss.requests:
 		// Any error message means the Stream should die.
 		if msg.err.Type != errors.TypeEmpty {
-			ss.receiveErr = errors.Decode(ss.ctx, msg.err)
+			ss.receiveErr = errors.Decode(msg.err)
 			return types.Zero[RQ](), ss.receiveErr
 		}
 		return msg.payload, nil
@@ -252,9 +252,9 @@ func (ss *ServerStream[RQ, RS]) exec(
 	handler func(context.Context, freighter.ServerStream[RQ, RS]) error,
 ) {
 	err := handler(ctx, ss)
-	errPayload := errors.Encode(ctx, err, true)
+	errPayload := errors.Encode(err, true)
 	if errPayload.Type == errors.TypeNil {
-		errPayload = errors.Encode(ctx, freighter.EOF, true)
+		errPayload = errors.Encode(freighter.EOF, true)
 	}
 	close(ss.serverClosed)
 	// A client that abandons the stream stops receiving, so the final error can have
@@ -326,7 +326,7 @@ func (cs *ClientStream[RQ, RS]) Receive() (RS, error) {
 		// stream (i.e. serverClosed chan is serverClosed), so we don't need explicitly
 		// listen for its closure.
 		if msg.err.Type != errors.TypeEmpty {
-			cs.receiveErr = errors.Decode(cs.ctx, msg.err)
+			cs.receiveErr = errors.Decode(msg.err)
 			cs.receiveFailed.Store(true)
 			return types.Zero[RS](), cs.receiveErr
 		}
@@ -344,7 +344,7 @@ func (cs *ClientStream[RQ, RS]) CloseSend() error {
 	// A returned server or a cancelled context leaves the EOF nowhere to go. Drop it
 	// rather than parking the caller for good on a full request buffer.
 	select {
-	case cs.requests <- message[RQ]{err: errors.Encode(cs.ctx, freighter.EOF, true)}:
+	case cs.requests <- message[RQ]{err: errors.Encode(freighter.EOF, true)}:
 	case <-cs.serverClosed:
 	case <-cs.ctx.Done():
 	}

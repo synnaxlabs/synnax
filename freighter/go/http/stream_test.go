@@ -12,6 +12,7 @@ package http_test
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	ws "github.com/fasthttp/websocket"
@@ -107,6 +108,36 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				Expect(res.StatusCode).To(Equal(http.StatusUpgradeRequired))
 			},
 		)
+	})
+
+	Describe("Message size limit", func() {
+		It("Should fail a stream whose peer sends a message past the limit", func(
+			ctx SpecContext,
+		) {
+			router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+				StreamWriteDeadline:    testutil.WriteDeadline,
+				StreamMessageSizeLimit: 64,
+			}))
+			ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
+				"/",
+			)
+			received := make(chan error, 1)
+			ownServer.BindHandler(func(
+				_ context.Context,
+				stream freighter.ServerStream[testutil.Request, testutil.Response],
+			) error {
+				_, err := stream.Receive()
+				received <- err
+				return err
+			})
+			ownApp, ownAddr := serveRouter(router)
+			DeferCleanup(func() { Expect(ownApp.Shutdown()).To(Succeed()) })
+			stream := MustSucceed(client.Stream(ctx, ownAddr))
+			Expect(stream.Send(testutil.Request{Message: strings.Repeat("a", 128)})).
+				To(Succeed())
+			Eventually(received).Should(Receive(MatchError(freighter.ErrStreamClosed)))
+			Expect(stream.CloseSend()).To(Succeed())
+		})
 	})
 
 	Describe("WithAdditionalCodec", func() {

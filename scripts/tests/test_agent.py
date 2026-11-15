@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import base64
+import json
 import shutil
 import subprocess
 import sys
@@ -18,6 +19,7 @@ from pathlib import Path
 import pytest
 
 from agent.agent import (
+    LIMITED,
     Options,
     agent_command,
     branch_name,
@@ -26,7 +28,9 @@ from agent.agent import (
     instructions,
     main,
     parse,
+    private_env,
     render_body,
+    return_logins,
     run_agent,
     skill_prompt,
     stored_names,
@@ -132,6 +136,7 @@ class TestAgentCommand:
         )
         cmd = agent_command(opts, prompt="p", out=tmp_path)
         assert cmd[:2] == ["claude", "-p"]
+        assert cmd[cmd.index("--output-format") + 1] == "stream-json"
         assert cmd[-1] == "p"
         assert "--dangerously-skip-permissions" in cmd
         assert cmd[cmd.index("--max-turns") + 1] == "40"
@@ -189,14 +194,14 @@ class TestRenderBody:
 
 
 FAKE_AGENT = """#!/usr/bin/env python3
-import os, pathlib
+import json, os, pathlib
 out = pathlib.Path(os.environ["AGENT_OUT_DIR"])
 pathlib.Path("fixed.txt").write_text("fixed")
 (out / "title.txt").write_text("SY-1: Fix the thing")
 (out / "issue.txt").write_text("SY-1")
 (out / "labels.txt").write_text("review/bot")
 (out / "images" / "shot.png").write_bytes(b"png")
-print("Done.")
+print(json.dumps({"type": "result", "is_error": False, "result": "Done."}))
 """
 
 
@@ -222,11 +227,29 @@ def git(root: Path, *args: str) -> str:
     return subprocess.check_output(cmd, text=True).strip()
 
 
+# Prints its argument as the result of a Claude Code stream-json run.
+RESULT = """printf '{"type": "result", "is_error": false, "result": "%s"}\\n'"""
+
+
 def fake_agent(tmp_path: Path) -> list[str]:
     fake = tmp_path / "fake-agent"
     fake.write_text(FAKE_AGENT)
     fake.chmod(0o755)
     return ["--prompt", "Fix the thing", "--agent", "claude", "--bin", str(fake)]
+
+
+def limited_agent(tmp_path: Path, *, status: str, failed: bool, code: int) -> list[str]:
+    """A fake Claude Code that reports a rate limit status, then its result."""
+    info = {"status": status, "resetsAt": 1795266000, "rateLimitType": "five_hour"}
+    events = [
+        {"type": "rate_limit_event", "rate_limit_info": info},
+        {"type": "result", "is_error": failed, "result": "Stopped."},
+    ]
+    fake = tmp_path / "limited-agent"
+    lines = "\n".join(json.dumps(e) for e in events)
+    fake.write_text(f"#!/bin/sh\ncat << 'EOF'\n{lines}\nEOF\nexit {code}\n")
+    fake.chmod(0o755)
+    return ["--prompt", "Fix it", "--agent", "claude", "--bin", str(fake)]
 
 
 class TestMain:
@@ -267,7 +290,7 @@ class TestMain:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         idle = tmp_path / "idle-agent"
-        idle.write_text("#!/bin/sh\necho Nothing to fix.\n")
+        idle.write_text(f"#!/bin/sh\n{RESULT} 'Nothing to fix.'\n")
         idle.chmod(0o755)
         output = tmp_path / "github_output"
         monkeypatch.setenv("GITHUB_OUTPUT", str(output))
@@ -285,7 +308,7 @@ class TestMain:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         agent = tmp_path / "env-agent"
-        agent.write_text('#!/bin/sh\necho "auth=$GIT_CONFIG_KEY_0"\n')
+        agent.write_text(f'#!/bin/sh\n{RESULT} "auth=$GIT_CONFIG_KEY_0"\n')
         agent.chmod(0o755)
         argv = ["--prompt", "Hunt", "--agent", "claude", "--bin", str(agent)]
         assert main([*argv, "--output", "report"]) == 0
@@ -301,6 +324,34 @@ class TestMain:
             out=tmp_path,
         )
         assert "never push" in dry
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
+    def test_should_exit_limited_with_the_reset_time_at_a_usage_limit(
+        self, repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "github_output"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+        argv = limited_agent(tmp_path, status="rejected", failed=True, code=1)
+        assert main(argv) == LIMITED
+        lines = output.read_text().splitlines()
+        assert lines[0].startswith("limited-until<<EOF_")
+        assert lines[1] == "1795266000"
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
+    def test_should_fail_on_an_error_that_no_limit_caused(
+        self, repo: Path, tmp_path: Path
+    ) -> None:
+        argv = limited_agent(tmp_path, status="allowed", failed=True, code=1)
+        with pytest.raises(subprocess.CalledProcessError):
+            main(argv)
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
+    def test_should_deliver_a_run_that_a_limit_did_not_stop(
+        self, repo: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        argv = limited_agent(tmp_path, status="rejected", failed=False, code=0)
+        assert main([*argv, "--output", "report"]) == 0
+        assert capsys.readouterr().out == "Stopped.\n"
 
     def test_should_reject_a_dirty_checkout(self, repo: Path, tmp_path: Path) -> None:
         (repo / "stray.txt").write_text("not the agent's")
@@ -318,8 +369,11 @@ class TestMain:
 
 PRIVATE_AGENT = """#!/bin/sh
 echo "secret on stderr" >&2
-echo "secret report token=$GH_TOKEN summary=$GITHUB_STEP_SUMMARY"
+printf '{"type": "result", "is_error": false, "result": "%s"}\\n' \
+    "secret report token=$GH_TOKEN summary=$GITHUB_STEP_SUMMARY \
+login=$(cat "$CLAUDE_CONFIG_DIR/.credentials.json")"
 echo "$CLAUDE_CONFIG_DIR" > "$STATE_FILE"
+echo refreshed > "$CLAUDE_CONFIG_DIR/.credentials.json"
 """
 
 
@@ -360,6 +414,10 @@ class TestPrivateReport:
         runner_temp = tmp_path / "runner"
         runner_temp.mkdir()
         monkeypatch.setenv("RUNNER_TEMP", str(runner_temp))
+        login = tmp_path / "claude"
+        login.mkdir()
+        (login / ".credentials.json").write_text("seat")
+        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(login))
         capfd.readouterr()
         argv = ["--prompt", "Audit", "--agent", "claude", "--bin", str(agent)]
         assert main([*argv, "--output", "report", "--recipient", str(key)]) == 0
@@ -370,11 +428,41 @@ class TestPrivateReport:
         plain = subprocess.run(
             [*gpg, "--decrypt"], input=armor, capture_output=True, text=True
         ).stdout
-        assert plain == "secret report token= summary="
+        assert plain == "secret report token= summary= login=seat"
         state = Path((tmp_path / "state").read_text().strip())
         assert state.is_relative_to(runner_temp)
         assert not state.exists()
         assert not (tmp_path / "summary").exists()
+        assert (login / ".credentials.json").read_text() == "refreshed\n"
+
+    def test_should_keep_a_seat_login_that_another_job_refreshed(
+        self, tmp_path: Path
+    ) -> None:
+        seat = tmp_path / "seat"
+        seat.mkdir()
+        (seat / ".credentials.json").write_text("first")
+        out = tmp_path / "out"
+        out.mkdir()
+        env = {"CLAUDE_CONFIG_DIR": str(seat), "CODEX_HOME": str(tmp_path / "codex")}
+        _, logins = private_env(env, out=out)
+        (seat / ".credentials.json").write_text("other job")
+        return_logins(logins)
+        assert (seat / ".credentials.json").read_text() == "other job"
+
+    def test_should_return_a_login_that_replaced_its_link(self, tmp_path: Path) -> None:
+        seat = tmp_path / "seat"
+        seat.mkdir()
+        (seat / ".credentials.json").write_text("first")
+        out = tmp_path / "out"
+        out.mkdir()
+        env = {"CLAUDE_CONFIG_DIR": str(seat), "CODEX_HOME": str(tmp_path / "codex")}
+        private, logins = private_env(env, out=out)
+        link = Path(private["CLAUDE_CONFIG_DIR"]) / ".credentials.json"
+        replacement = link.with_name("new")
+        replacement.write_text("refreshed")
+        replacement.replace(link)
+        return_logins(logins)
+        assert (seat / ".credentials.json").read_text() == "refreshed"
 
 
 class TestDelivery:
