@@ -199,3 +199,5 @@ def test_seat_with_ssm_offline_is_not_asked() -> None:
     ]
     sends = [c for c in aws.calls if c[:2] == ["ssm", "send-command"]]
     assert sends[0][-1:] == ["i-2"]
+    asked = [c for c in aws.calls if c[1] == "describe-instance-information"]
+    assert len(asked) == 1

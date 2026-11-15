@@ -148,7 +148,8 @@ def check(
     """Returns whether no seat is signed out, and one line for each seat."""
     found = seats(aws)
     checked = f"{now:%Y-%m-%dT%H:%MZ}"
-    reachable = [s for s in found if s.running and s.id in online(aws)]
+    up = online(aws)
+    reachable = [s for s in found if s.running and s.id in up]
     answers: dict[str, str] = {}
     for agent in sorted({s.agent for s in reachable}):
         ids = [s.id for s in reachable if s.agent == agent]
