@@ -198,9 +198,7 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<
       throw status.toError(res);
     }
     if (tasks.length === 0) return { ...data, answer: res };
-    const description = [res.description, "Start your tasks again."]
-      .filter((s) => s != null)
-      .join(" ");
+    const description = `${res.description} Start your tasks again.`.trimStart();
     return { ...data, answer: { ...res, description } };
   },
 });

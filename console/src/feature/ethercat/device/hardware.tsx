@@ -18,6 +18,8 @@ import {
 import { SCAN_TYPE } from "@/feature/ethercat/task/types";
 import { type Device } from "@/platform/device";
 
+const locationZ = slavePropertiesZ.pick({ networkName: true, position: true });
+
 export const HARDWARE: Device.Hardware = {
   key: INTEGRATION_KEY,
   name: "EtherCAT",
@@ -33,9 +35,7 @@ export const HARDWARE: Device.Hardware = {
     "The slaves have power and a cable to that adapter.",
   ],
   formatLocation: (device) => {
-    const { networkName, position } = slavePropertiesZ
-      .pick({ networkName: true, position: true })
-      .parse(device.properties);
+    const { networkName, position } = locationZ.parse(device.properties);
     return networkName == null ? device.location : `${networkName}, slot ${position}`;
   },
 };

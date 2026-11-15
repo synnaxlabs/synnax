@@ -150,7 +150,7 @@ const DeviceStatusNote = ({
     variant="warning"
     title={deviceStatus.message}
   >
-    {deviceStatus.description != null && <Detail>{deviceStatus.description}</Detail>}
+    {deviceStatus.description !== "" && <Detail>{deviceStatus.description}</Detail>}
   </SwitchNote>
 );
 

@@ -58,6 +58,8 @@ const modeZ = z.object({
   index: z.number(),
   subIndex: z.number(),
   value: z.number(),
+  /** Whether the catalog lists no entry for the value. */
+  unlisted: z.boolean().optional(),
   /** Whether other software also sets up the slave. */
   shared: z.boolean(),
   /** The software that sets up the slave while Synnax still reads its data. */
