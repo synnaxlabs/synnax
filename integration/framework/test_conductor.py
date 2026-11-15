@@ -556,7 +556,13 @@ All matching is case-insensitive substring.
     parser.add_argument(
         "--core-binary",
         type=Path,
-        help="Core binary that starts the Cores that --cores adds",
+        help="Core binary that starts the Cores that --cores adds and the Cores of "
+        "tests that restart one",
+    )
+    parser.add_argument(
+        "--driver-binary",
+        type=Path,
+        help="Standalone Driver binary for tests that restart a Core under a Driver",
     )
     parser.add_argument(
         "--browsers",
@@ -579,6 +585,8 @@ All matching is case-insensitive substring.
         headed=args.headed,
         slow_mo=args.slow_mo,
         driver_rack=args.driver or DEFAULT_OPTIONS.driver_rack,
+        core_binary=args.core_binary,
+        driver_binary=args.driver_binary,
     )
     server_log_path = Path(os.environ.get("SYNNAX_SERVER_LOG", server_log.DEFAULT_PATH))
 

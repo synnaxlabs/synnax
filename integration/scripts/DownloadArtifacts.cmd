@@ -18,6 +18,7 @@ rem binaries are already in place (a re-run keeps the run id but can rebuild the
 if "%REF_RUN_ID%"=="" goto :not_cached
 if not exist "%USERPROFILE%\synnax-binaries\.run-id" goto :not_cached
 if not exist "%USERPROFILE%\synnax-binaries\synnax.exe" goto :not_cached
+if not exist "%USERPROFILE%\synnax-binaries\synnax-driver.exe" goto :not_cached
 findstr /x /c:"%REF_RUN_ID%-%GITHUB_RUN_ATTEMPT%" "%USERPROFILE%\synnax-binaries\.run-id" >nul 2>nul
 if %errorlevel% equ 0 (
     echo Binaries for run %REF_RUN_ID% already present, skipping download
@@ -171,6 +172,19 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+rem A test that restarts its Core runs this Driver apart from the Core.
+echo "Downloading synnax-driver-windows artifact..."
+"%ProgramFiles%\Git\bin\bash.exe" .github/scripts/download_run_artifacts.sh %REF_RUN_ID% "synnax-driver-windows" driver-binaries
+if %errorlevel% neq 0 (
+    echo Error: Failed to download the Driver artifact
+    exit /b 1
+)
+dir /b .\driver-binaries\synnax-driver-windows\synnax-driver-v*.exe >nul 2>nul
+if %errorlevel% neq 0 (
+    echo Error: No synnax-driver executable found in driver-binaries directory
+    dir /s .\driver-binaries
+    exit /b 1
+)
 
 rem Setup Binaries (Windows)
 echo Setting up binaries...
@@ -196,6 +210,15 @@ if not exist "%USERPROFILE%\synnax-binaries\synnax.exe" (
 )
 
 echo Synnax binary ready at %USERPROFILE%\synnax-binaries\synnax.exe
+
+for %%f in (.\driver-binaries\synnax-driver-windows\synnax-driver-v*.exe) do (
+    copy /Y "%%f" "%USERPROFILE%\synnax-binaries\synnax-driver.exe"
+)
+if not exist "%USERPROFILE%\synnax-binaries\synnax-driver.exe" (
+    echo Error: synnax-driver.exe not found in synnax-binaries after copy
+    exit /b 1
+)
+echo Driver binary ready at %USERPROFILE%\synnax-binaries\synnax-driver.exe
 dir "%USERPROFILE%\synnax-binaries\synnax*"
 
 >"%USERPROFILE%\synnax-binaries\.run-id" echo %REF_RUN_ID%-%GITHUB_RUN_ATTEMPT%

@@ -150,3 +150,30 @@ class TestStart:
                 count=1,
                 log_dir=tmp_path,
             )
+
+
+class TestProcess:
+    def test_restart(self, binary: Path, first_port: int, tmp_path: Path) -> None:
+        """Should start the Core again with the same arguments and wait for its new
+        ready line."""
+        core = cores.Core(
+            connection=SynnaxConnection(port=first_port),
+            log_path=tmp_path / "core.log",
+        )
+        process = cores.Process(
+            binary=binary, core=core, persisted=True, driver_disabled=True
+        )
+        try:
+            process.wait_ready()
+            first = process._popen
+            process.restart()
+            assert first.returncode == 0
+            assert process._popen.poll() is None
+            lines = core.log_path.read_text().splitlines()
+            args = [line for line in lines if line.startswith("start")]
+            assert len(args) == 2
+            assert args[0] == args[1]
+            assert "--no-driver" in args[0]
+            assert " -m" not in args[0]
+        finally:
+            cores.stop([process])
