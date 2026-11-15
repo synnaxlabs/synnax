@@ -531,7 +531,8 @@ private:
     x::breaker::Breaker breaker{x::breaker::Config{.name = "task.manager"}};
     /// @brief the number of runs started, which names the current run.
     std::atomic<uint64_t> runs{0};
-    /// @brief the first run that deployed the tasks of this rack, 0 before it.
+    /// @brief the first run that served, 0 before it. A run up to it deploys the tasks
+    /// that the previous Driver left.
     std::atomic<uint64_t> boot_run{0};
 
     /// @brief protects entries, op_queue, and streamer.

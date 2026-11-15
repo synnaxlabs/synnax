@@ -407,10 +407,12 @@ TEST_F(EtherCATWriteTest, StopDuringAStartSendsNoStatusForTheStart) {
     second_task->exec(start, canceled);
     this->mock_master->release_activate();
     starter.join();
-    for (const auto &status: this->ctx->snapshot())
-        if (status.details.cmd == "b")
+    for (const auto &status: this->ctx->snapshot()) {
+        if (status.details.cmd == "b") {
             EXPECT_EQ(status.variant, synnax::status::VARIANT_LOADING)
                 << status.message;
+        }
+    }
     synnax::task::Command stop{.task = first.key, .type = "stop"};
     first_task->exec(stop, this->cancel);
 }

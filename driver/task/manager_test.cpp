@@ -1003,6 +1003,14 @@ TEST_F(TaskManagerTest, BootStopsATaskLeftRunning) {
 /// @brief a factory whose tasks start at boot, as an auto-start task does.
 class AutoStartTaskFactory final : public Factory {
 public:
+    /// @brief true to block the first configure until released.
+    std::atomic<bool> held{false};
+    std::atomic<bool> released{false};
+    std::atomic<int> configures{0};
+    std::atomic<bool> stuck{false};
+    /// @brief the task whose configure blocks. Read it once stuck is true.
+    synnax::task::Key stuck_key;
+
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::task::Task &task,
@@ -1010,6 +1018,12 @@ public:
         x::breaker::Breaker &
     ) override {
         if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        if (this->held && ++this->configures == 1) {
+            this->stuck_key = task.key;
+            this->stuck = true;
+            while (!this->released)
+                std::this_thread::sleep_for((10 * x::telem::MILLISECOND).chrono());
+        }
         auto echo = std::make_unique<MockEchoTask>(ctx, task);
         if (cmd_key == NO_COMMAND) {
             synnax::task::Status status;
@@ -1188,6 +1202,73 @@ TEST_F(TaskManagerTest, BootAfterFailedRunsSaysTheDriverRestarted) {
     ASSERT_NIL(rack.tasks.create(task));
     store_status(client, task, synnax::status::VARIANT_LOADING, "Starting task", false);
     start_piped_manager(std::make_unique<QuietEchoTaskFactory>(), {}, true);
+    std::this_thread::sleep_for((500 * x::telem::MILLISECOND).chrono());
+    pipe->resume();
+    ASSERT_TRUE(wait_for_run(1));
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) {
+            return s.message == "Failed to start task";
+        }
+    );
+    EXPECT_EQ(
+        s.description,
+        "The Driver restarted while the task was starting. Start the task again."
+    );
+}
+
+/// @brief cuts the Core connection in the first run, after the task retrieve and before
+/// the streamer opens. A configure waits for the cut.
+class CutAtBootFactory final : public Factory {
+    std::unique_ptr<CorePipe> &pipe;
+
+public:
+    std::atomic<bool> cut{false};
+
+    explicit CutAtBootFactory(std::unique_ptr<CorePipe> &pipe): pipe(pipe) {}
+
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>>
+    configure_initial_tasks(
+        const std::shared_ptr<Context> &,
+        const synnax::rack::Rack &,
+        x::breaker::Breaker &
+    ) override {
+        if (!this->cut) {
+            this->pipe->pause();
+            this->pipe->cut();
+            this->cut = true;
+        }
+        return {};
+    }
+
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::task::Task &task,
+        const std::string &,
+        x::breaker::Breaker &
+    ) override {
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        while (!this->cut)
+            std::this_thread::sleep_for((10 * x::telem::MILLISECOND).chrono());
+        return {std::make_unique<MockEchoTask>(ctx, task, true), true};
+    }
+};
+
+/// @brief it should say that the Driver restarted when its first run lost the Core
+/// after the task retrieve, before it served.
+TEST_F(TaskManagerTest, BootAfterARunThatNeverServedSaysTheDriverRestarted) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    store_status(client, task, synnax::status::VARIANT_LOADING, "Starting task", false);
+    auto factory = std::make_unique<CutAtBootFactory>(this->pipe);
+    auto *f = factory.get();
+    start_piped_manager(std::move(factory));
+    EVENTUALLY([&] { return f->cut.load(); }, [] { return "the first run never cut"; });
     std::this_thread::sleep_for((500 * x::telem::MILLISECOND).chrono());
     pipe->resume();
     ASSERT_TRUE(wait_for_run(1));
@@ -2255,6 +2336,49 @@ TEST_F(TaskManagerTest, StopAnswersAStartQueuedBehindABusyWorker) {
     EXPECT_EQ(finals.at("queued-start"), 1);
     EXPECT_EQ(finals.at("queued-stop"), 1);
     EXPECT_EQ(f->configures.load(), 1);
+}
+
+/// @brief it should run a stop after the boot deploy that waits in the queue, so a task
+/// that starts at boot does not run after the stop is answered.
+TEST_F(TaskManagerTest, StopRunsAfterAQueuedBootDeploy) {
+    auto factory = std::make_unique<AutoStartTaskFactory>();
+    auto *f = factory.get();
+    f->held = true;
+    auto a = synnax::task::Task{
+        .rack = rack.key,
+        .name = "a",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(a));
+    auto b = synnax::task::Task{
+        .rack = rack.key,
+        .name = "b",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(b));
+    x::defer::defer release([f] { f->released = true; });
+    start_manager(std::move(factory), {.worker_count = 1});
+    EVENTUALLY([&] { return f->stuck.load(); }, [] { return "configure never ran"; });
+    // Boot deploys run in no set order, so the task whose deploy waits is found here.
+    const auto queued = f->stuck_key == a.key ? b : a;
+    send_start(client, queued, "queued-start");
+    send_stop(client, queued, "queued-stop");
+    const auto start = WAIT_FOR_TASK_STATUS(
+        streamer,
+        queued,
+        [](const synnax::task::Status &s) { return s.details.cmd == "queued-start"; }
+    );
+    EXPECT_EQ(start.message, "Stopped task");
+    f->released = true;
+    std::vector<synnax::task::Status> got;
+    WAIT_FOR_TASK_STATUS(streamer, queued, [&](const synnax::task::Status &s) {
+        got.push_back(s);
+        return s.details.cmd == "queued-stop";
+    });
+    EXPECT_TRUE(std::ranges::any_of(got, [](const synnax::task::Status &s) {
+        return s.message == "Started task";
+    }));
+    EXPECT_NE(got.back().description, "The stop cancelled the start.");
 }
 
 /// @brief it should cancel the start that a worker runs and answer a second start of

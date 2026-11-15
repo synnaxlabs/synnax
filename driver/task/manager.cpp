@@ -121,7 +121,6 @@ x::errors::Error Manager::configure_initial_tasks() {
         synnax::task::RetrieveOptions{.include_status = true}
     );
     if (tasks_err) return tasks_err;
-    if (this->boot_run == 0) this->boot_run = this->runs.load();
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
     size_t queued = 0;
     {
@@ -212,6 +211,7 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
     if (const auto err = this->open_streamer()) return err;
     // A nil error with no streamer means stop() won a race with the open.
     if (this->streamer == nullptr) return x::errors::NIL;
+    if (this->boot_run == 0) this->boot_run = this->runs.load();
     // Read after the streamer opens so a transfer arriving during the read is held by
     // the stream instead of lost; the read loop then applies it on top.
     this->retrieve_initial_control_states();
@@ -364,9 +364,14 @@ void Manager::process_stop(const synnax::task::Command &cmd) {
                 answers.push_back(std::move(status));
                 return true;
             });
-        // No worker holds the entry, so its instance is safe to read. With no instance,
-        // the stop has nothing left to do.
-        if (!answers.empty() && running == nullptr && entry->instance == nullptr) {
+        // A queued deploy with no command, such as the boot deploy, can still start the
+        // task, so the stop runs after it.
+        const bool queued = std::ranges::any_of(this->op_queue, [&](const Op &op) {
+            return op.task_key == cmd.task;
+        });
+        // No worker holds the entry, so its instance is safe to read.
+        if (!answers.empty() && !queued && running == nullptr &&
+            entry->instance == nullptr) {
             auto status = cancelled_start_status(cmd.task, name, hash);
             status.details.cmd = cmd.key;
             answers.push_back(std::move(status));
@@ -833,7 +838,7 @@ void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
     auto status = *tsk.status;
     status.time = x::telem::TimeStamp::now();
     status.details.running = false;
-    const std::string cause = this->runs == this->boot_run
+    const std::string cause = this->boot_run == 0 || this->runs == this->boot_run
                                 ? "The Driver restarted"
                                 : "The Driver lost its connection to the Core";
     if (loading && status.message == STOPPING_MESSAGE) {

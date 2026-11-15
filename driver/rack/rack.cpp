@@ -34,8 +34,9 @@ Rack::~Rack() {
     this->stop();
     // A detached worker still uses the task manager, so it lives until the process
     // exits.
-    if (this->task_manager != nullptr && this->task_manager->worker_detached())
-        static_cast<void>(this->task_manager.release());
+    if (this->task_manager != nullptr && this->task_manager->worker_detached()) {
+        [[maybe_unused]] const auto *const leaked = this->task_manager.release();
+    }
 }
 
 void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) {
