@@ -17,6 +17,8 @@ mod keychain;
 mod supervisor;
 #[cfg(not(feature = "desktop"))]
 mod updater;
+#[cfg(target_os = "linux")]
+mod webgl;
 
 #[cfg(target_os = "macos")]
 use device_query::{DeviceEvents, DeviceEventsHandler, DeviceQuery, DeviceState, MouseState};
@@ -64,6 +66,8 @@ fn main() {
         supervisor::commands::supervisor_save_api_key,
         install::install_info,
     ]);
+    #[cfg(target_os = "linux")]
+    let builder = builder.plugin(webgl::init());
     builder
         .plugin(prevent)
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
@@ -90,10 +94,11 @@ fn main() {
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
-            // An AppImage installs no desktop file, so the app registers its scheme. A
-            // host without the desktop tools only loses synnax:// links.
+            // The .deb registers synnax:// in its desktop file, but an AppImage installs
+            // none, so it registers the scheme itself. A host without the desktop tools
+            // only loses synnax:// links.
             #[cfg(target_os = "linux")]
-            {
+            if std::env::var_os("APPIMAGE").is_some() {
                 use tauri_plugin_deep_link::DeepLinkExt;
                 if let Err(e) = app.deep_link().register_all() {
                     eprintln!("failed to register the synnax:// scheme: {e}");
