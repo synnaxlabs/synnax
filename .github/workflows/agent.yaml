@@ -53,6 +53,10 @@ on:
           nothing of the report reaches the log or the step summary."
         type: string
         default: ""
+      private:
+        description: "Whether the job fails when recipient is empty"
+        type: boolean
+        default: false
     outputs:
       pr-url:
         description: "URL of the PR the agent opened, pushed to, or commented on"
@@ -162,7 +166,13 @@ jobs:
           LABELS: ${{ inputs.labels }}
           BUDGET: ${{ inputs.timeout-minutes }}
           RECIPIENT: ${{ inputs.recipient }}
+          PRIVATE: ${{ inputs.private }}
         run: |
+          # With no recipient, the report would reach the public log.
+          if [ "$PRIVATE" = true ] && [ -z "$RECIPIENT" ]; then
+            echo "::error::The report is private, but the recipient key is empty."
+            exit 1
+          fi
           args=(--agent "$AGENT" --output "$OUTPUT" --prompt "$PROMPT")
           # Leave ten minutes for setup and delivery. Deliver to GitHub before the App
           # token expires, an hour after it was minted.
