@@ -112,12 +112,25 @@ describe("Custom.useRender theme band", () => {
   });
 });
 
-// A 40 by 20 drawing with a 10 by 10 marker in its top left corner.
-const ORIENTED_SPEC: schematic.symbol.Spec = {
+const BODY = '<rect width="40" height="20"/>';
+const MARKER = '<rect class="marker" width="10" height="10"/>';
+
+// Markup of a 40 by 20 drawing with a 10 by 10 marker in its top left corner.
+const DRAWINGS: [string, string][] = [
+  ["shapes", `${BODY}${MARKER}`],
+  ["shapes beside a group", `<g>${BODY}</g>${MARKER}`],
+  ["shapes with a group only in defs", `<defs><g>${BODY}</g></defs>${MARKER}`],
+  [
+    "a moved group",
+    `${BODY}<g transform="translate(10 10)"><rect class="marker" x="-10" y="-10" width="10" height="10"/></g>`,
+  ],
+];
+
+const createOrientedSpec = (drawing: string): schematic.symbol.Spec => ({
   ...SPEC,
-  svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20"><rect width="40" height="20"/><rect class="marker" width="10" height="10"/></svg>',
+  svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20">${drawing}</svg>`,
   states: [],
-};
+});
 
 // Where the marker's center lands as a fraction of the symbol's box, turned as a
 // built-in symbol turns.
@@ -139,6 +152,7 @@ const CONTAINERS: [string, FC<ContainerProps>][] = [
 ];
 
 const renderMarkerCenter = async (
+  spec: schematic.symbol.Spec,
   Container: FC<ContainerProps>,
   orientation: location.Outer,
 ): Promise<xy.XY> => {
@@ -147,7 +161,7 @@ const renderMarkerCenter = async (
       orientation,
       activeState: "base",
       externalScale: 1,
-      spec: ORIENTED_SPEC,
+      spec,
     }),
   );
   const { container } = await render(
@@ -159,7 +173,8 @@ const renderMarkerCenter = async (
     throw new Error("custom symbol not mounted");
   const matrix = marker.getScreenCTM();
   if (matrix == null) throw new Error("marker has no screen matrix");
-  const center = new DOMPoint(5, 5).matrixTransform(matrix);
+  const { x, y, width, height } = marker.getBBox();
+  const center = new DOMPoint(x + width / 2, y + height / 2).matrixTransform(matrix);
   const box = svg.getBoundingClientRect();
   return {
     x: (center.x - box.left) / box.width,
@@ -168,14 +183,17 @@ const renderMarkerCenter = async (
 };
 
 describe("Custom.useRender orientation", () => {
-  describe.each(CONTAINERS)("%s symbol", (_, Container) => {
-    it.each(location.OUTER_LOCATIONS)(
-      "should turn the drawing to %s",
-      async (orientation) => {
-        const center = await renderMarkerCenter(Container, orientation);
-        expect(center.x).toBeCloseTo(MARKER_CENTERS[orientation].x, 3);
-        expect(center.y).toBeCloseTo(MARKER_CENTERS[orientation].y, 3);
-      },
-    );
+  describe.each(DRAWINGS)("%s", (_, drawing) => {
+    const spec = createOrientedSpec(drawing);
+    describe.each(CONTAINERS)("%s symbol", (_, Container) => {
+      it.each(location.OUTER_LOCATIONS)(
+        "should turn the drawing to %s",
+        async (orientation) => {
+          const center = await renderMarkerCenter(spec, Container, orientation);
+          expect(center.x).toBeCloseTo(MARKER_CENTERS[orientation].x, 3);
+          expect(center.y).toBeCloseTo(MARKER_CENTERS[orientation].y, 3);
+        },
+      );
+    });
   });
 });

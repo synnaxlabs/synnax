@@ -110,10 +110,10 @@ const selectState = ({
  */
 export const isValidSVG = (svg: string): boolean => Region.parseSVG(svg) != null;
 
-// buildSVG records the parsed element's base dimensions, ensures its contents are
-// wrapped in a single <g>, mounts it into the container, and notifies onMount. The
-// element starts from raw markup, so every derived attribute (state colors, dimensions,
-// orientation, stroke scaling) must be re-applied by the caller afterwards.
+// buildSVG records the parsed element's base dimensions, wraps its contents in one new
+// <g> for the stylesheet to turn, mounts it into the container, and notifies onMount.
+// The element starts from raw markup, so every derived attribute (state colors,
+// dimensions, orientation, stroke scaling) must be re-applied by the caller afterwards.
 const buildSVG = (
   container: HTMLElement,
   state: RenderState,
@@ -138,16 +138,9 @@ const buildSVG = (
     };
   else state.baseDims = { width: 100, height: 100 };
 
-  const existingG = svgElement.querySelector("g");
-  if (!existingG) {
-    const gElement = doc.createElementNS("http://www.w3.org/2000/svg", "g");
-    const children = Array.from(svgElement.children);
-    children.forEach((child) => svgElement.removeChild(child));
-    children.forEach((child) => {
-      if (child !== gElement) gElement.appendChild(child);
-    });
-    svgElement.appendChild(gElement);
-  }
+  const g = doc.createElementNS("http://www.w3.org/2000/svg", "g");
+  while (svgElement.firstChild != null) g.appendChild(svgElement.firstChild);
+  svgElement.append(g);
   container.appendChild(svgElement);
   onMount?.(svgElement);
 };
