@@ -10,14 +10,21 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { EdgeSelectable } from "@/feature/mqtt/task/Edge";
+import { ICDReadSelectable } from "@/feature/mqtt/task/ICDRead";
 import { ReadSelectable } from "@/feature/mqtt/task/Read";
 import { PREFIX } from "@/feature/mqtt/task/types";
 import { WriteSelectable } from "@/feature/mqtt/task/Write";
+import { FLAGS } from "@/flags";
 import { type Task } from "@/platform/task";
 
 export const INTEGRATION: Task.Integration = {
   prefix: PREFIX,
   name: "MQTT",
   icon: <Icon.Logo.MQTT />,
-  selectables: [ReadSelectable, WriteSelectable, EdgeSelectable],
+  selectables: [
+    ReadSelectable,
+    WriteSelectable,
+    EdgeSelectable,
+    ...(FLAGS.icdTasks ? [ICDReadSelectable] : []),
+  ],
 };

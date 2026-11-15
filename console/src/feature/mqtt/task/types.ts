@@ -417,3 +417,46 @@ export const SCAN_SCHEMAS = {
     .union([mqtt.sampleResultZ, browseResultZ, browseSparkplugResultZ])
     .nullish(),
 } as const satisfies task.Schemas;
+
+export const ICD_READ_TYPE = `${PREFIX}_icd_read`;
+
+export interface ICDReadEntry extends mqtt.ICDReadEntry {}
+
+const validateTopics = (ctx: z.core.ParsePayload<ICDReadEntry[]>) => {
+  if (ctx.value.every(({ disabled }) => disabled))
+    ctx.issues.push({
+      code: "custom",
+      input: ctx.value,
+      message: "At least one topic must be enabled",
+      path: [],
+    });
+  const seen = new Set<string>();
+  ctx.value.forEach(({ disabled, topic }, i) => {
+    if (disabled) return;
+    if (seen.has(topic))
+      ctx.issues.push({
+        code: "custom",
+        input: ctx.value,
+        message: `Topic "${topic}" is already read by another entry`,
+        path: [i, "topic"],
+      });
+    seen.add(topic);
+  });
+};
+
+const deployICDReadEntryZ = mqtt.icdReadEntryZ.extend({ topic: deployTopicZ });
+
+export const deployICDReadConfigZ = mqtt.icdReadConfigZ.extend({
+  device: Task.deviceKeyZ,
+  entries: mqtt.icdReadEntryZ
+    .array()
+    .check(validateEnabled(deployICDReadEntryZ), validateTopics),
+});
+
+export const ICD_READ_SCHEMAS = {
+  type: z.literal(ICD_READ_TYPE),
+  config: mqtt.icdReadConfigZ,
+  statusData: z.unknown().optional(),
+} as const satisfies task.Schemas;
+
+export type ICDReadSchemas = typeof ICD_READ_SCHEMAS;

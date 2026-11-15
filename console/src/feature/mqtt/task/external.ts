@@ -8,13 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import { Edge } from "@/feature/mqtt/task/Edge";
+import { ICDRead } from "@/feature/mqtt/task/ICDRead";
 import { Read } from "@/feature/mqtt/task/Read";
-import { EDGE_TYPE, READ_TYPE, WRITE_TYPE } from "@/feature/mqtt/task/types";
+import {
+  EDGE_TYPE,
+  ICD_READ_TYPE,
+  READ_TYPE,
+  WRITE_TYPE,
+} from "@/feature/mqtt/task/types";
 import { Write } from "@/feature/mqtt/task/Write";
+import { FLAGS } from "@/flags";
 import { type Task } from "@/platform/task";
 
 export * from "@/feature/mqtt/task/commands";
 export * from "@/feature/mqtt/task/Edge";
+export * from "@/feature/mqtt/task/ICDRead";
 export * from "@/feature/mqtt/task/integration";
 export * from "@/feature/mqtt/task/Read";
 export * from "@/feature/mqtt/task/types";
@@ -24,4 +32,5 @@ export const FORMS: Task.Forms = {
   [READ_TYPE]: Read,
   [WRITE_TYPE]: Write,
   [EDGE_TYPE]: Edge,
+  ...(FLAGS.icdTasks ? { [ICD_READ_TYPE]: ICDRead } : {}),
 };
