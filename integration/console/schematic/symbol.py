@@ -174,7 +174,7 @@ class Symbol(ABC):
         self.layout.show_visualization_toolbar()
         style_tab = self.page.get_by_text("Style", exact=True).first
         style_tab.wait_for(state="visible", timeout=5000)
-        style_tab.click()
+        click_past(style_tab)
         self.layout.fill_input_field("Label", label)
         self.label = label
 
@@ -184,7 +184,7 @@ class Symbol(ABC):
 
     def set_channel(self, *, section: str, channel_name: str) -> None:
         if channel_name is not None:
-            self.layout.click(self.channel_trigger(section))
+            click_past(self.channel_trigger(section))
             self.layout.select_from_dropdown(
                 channel_name, placeholder="Search", exact=True
             )

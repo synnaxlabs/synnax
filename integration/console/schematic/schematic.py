@@ -415,7 +415,7 @@ class Schematic(ConsolePage):
             if legend_toggle.count() > 0:
                 current_state = legend_toggle.is_checked()
                 if current_state != show_control_legend:
-                    legend_toggle.click()
+                    click_past(legend_toggle)
 
     # The control and edit toggles name themselves by the action they offer, so
     # the visible label doubles as the state: a "Release control" button means
