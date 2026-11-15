@@ -12,42 +12,51 @@ import { useInitializerRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { color, dimensions, direction, type location } from "@synnaxlabs/x";
 import { type RefCallback, useLayoutEffect, useRef } from "react";
 
+import { CSS } from "@/css";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Region } from "@/schematic/node/common/region";
 
-const ORIGINAL_STROKE_ATTRIBUTE = "data-original-stroke";
 const ORIGINAL_FILL_ATTRIBUTE = "data-original-fill";
 
 const iterElements = (
   state: schematic.symbol.State,
   svgElement: Element,
-  fn: (el: Element, region: schematic.symbol.Region) => void,
+  fn: (el: SVGElement, region: schematic.symbol.Region) => void,
 ) => {
   state.regions.forEach((region) => {
     region.selectors.forEach((selector) => {
-      const elements = svgElement.querySelectorAll(selector);
+      const elements = svgElement.querySelectorAll<SVGElement>(selector);
       elements.forEach((el) => fn(el, region));
     });
   });
 };
 
-const applyOriginalAttributes = (el: Element) => {
-  const prevStroke = el.getAttribute(ORIGINAL_STROKE_ATTRIBUTE);
-  const prevFill = el.getAttribute(ORIGINAL_FILL_ATTRIBUTE);
-  if (prevStroke != null) el.setAttribute("stroke", prevStroke);
-  if (prevFill != null) el.setAttribute("fill", prevFill);
+// The theme band paints the stroke, as on built-in symbols. The fill stays as stored,
+// as on the tank and the cylinder.
+const setStroke = (el: SVGElement, strokeColor: color.Color | undefined) => {
+  const seed = color.rgbaString(strokeColor);
+  if (seed == null) {
+    el.classList.remove(CSS.symbolColored);
+    el.style.removeProperty(Primitive.SYMBOL_COLOR);
+    return;
+  }
+  el.classList.add(CSS.symbolColored);
+  el.style.setProperty(Primitive.SYMBOL_COLOR, seed);
 };
 
-const storeOriginalAttributes = (el: Element) => {
-  if (!el.hasAttribute(ORIGINAL_STROKE_ATTRIBUTE)) {
-    const originalStroke = el.getAttribute("stroke");
-    if (originalStroke != null)
-      el.setAttribute(ORIGINAL_STROKE_ATTRIBUTE, originalStroke);
-  }
+const setFill = (el: SVGElement, fillColor: color.Color | undefined) => {
   if (!el.hasAttribute(ORIGINAL_FILL_ATTRIBUTE)) {
     const originalFill = el.getAttribute("fill");
     if (originalFill != null) el.setAttribute(ORIGINAL_FILL_ATTRIBUTE, originalFill);
   }
+  const fill =
+    fillColor != null ? color.hex(fillColor) : el.getAttribute(ORIGINAL_FILL_ATTRIBUTE);
+  if (fill != null) el.setAttribute("fill", fill);
+};
+
+const clearState = (el: SVGElement) => {
+  setStroke(el, undefined);
+  setFill(el, undefined);
 };
 
 const applyState = (
@@ -55,23 +64,10 @@ const applyState = (
   state: schematic.symbol.State,
   prevState?: schematic.symbol.State | null,
 ) => {
-  if (prevState != null) iterElements(prevState, svgElement, applyOriginalAttributes);
-  iterElements(state, svgElement, (el, region) => {
-    storeOriginalAttributes(el);
-
-    const { strokeColor, fillColor } = region;
-
-    if (strokeColor != null) el.setAttribute("stroke", color.hex(strokeColor));
-    else {
-      const originalStroke = el.getAttribute(ORIGINAL_STROKE_ATTRIBUTE);
-      if (originalStroke != null) el.setAttribute("stroke", originalStroke);
-    }
-
-    if (fillColor != null) el.setAttribute("fill", color.hex(fillColor));
-    else {
-      const originalFill = el.getAttribute(ORIGINAL_FILL_ATTRIBUTE);
-      if (originalFill != null) el.setAttribute("fill", originalFill);
-    }
+  if (prevState != null) iterElements(prevState, svgElement, clearState);
+  iterElements(state, svgElement, (el, { strokeColor, fillColor }) => {
+    setStroke(el, strokeColor);
+    setFill(el, fillColor);
   });
 };
 
