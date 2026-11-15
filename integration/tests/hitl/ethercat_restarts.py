@@ -233,6 +233,7 @@ class EtherCATCrashWithScanTasks(_Restart):
                 f"{[t.type for t in scans]}"
             )
         with StatusWatch(self.client, [t.key for t in scans]) as watch:
+            killed = sy.TimeStamp.now()
             self._wait_for_driver(self._kill_driver())
             owner = sy.task.resource_id(ethercat.key)
             watch.wait(
@@ -241,14 +242,14 @@ class EtherCATCrashWithScanTasks(_Restart):
                 expected="a status of the EtherCAT scan task",
             )
             watch.collect(_BOOT)
-        # A scan task that cannot reach a device on the station runs with a warning.
-        if stopped := [
-            f"{t.type}: {'no status' if t.status is None else status_text(t.status)}"
-            for t in self._scan_tasks()
-            if t.status is None
-            or t.status.variant == "error"
-            or not is_running(t.status)
-        ]:
+        stopped: list[str] = []
+        for t in self._scan_tasks():
+            if t.status is None or t.status.time < killed:
+                stopped.append(f"{t.type}: no status since the crash")
+            # A scan task that cannot reach a device on the station runs with a warning.
+            elif t.status.variant == "error" or not is_running(t.status):
+                stopped.append(f"{t.type}: {status_text(t.status)}")
+        if stopped:
             raise AssertionError(
                 f"Expected each scan task to run after the crash, but {stopped} do not"
             )
