@@ -147,6 +147,8 @@ class Symbol(ABC):
             )
 
     def _enable_edit_mode(self) -> None:
+        # Callers then click or drag the symbol through the hit test.
+        self.notifications.close_all()
         enable_editing_link = self.page.get_by_text("enable editing", exact=False)
         if enable_editing_link.count() > 0:
             click_past(enable_editing_link)
