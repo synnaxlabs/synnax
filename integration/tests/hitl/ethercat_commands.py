@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 """Start and stop commands on EtherCAT tasks on the HITL station: an auto-start task and
-a stop that meets a start that fails."""
+a stop sent while a start fails."""
 
 import re
 
@@ -116,8 +116,9 @@ class EtherCATAutoStartCommand(_Command):
 
 
 class EtherCATStopKeepsStartError(_Command):
-    """Checks that a start that fails on its own while a stop waits keeps its error, and
-    that the stop answers with that error."""
+    """Checks that a stop sent during the try that fails a start keeps the start's
+    error, and that the stop answers with that error. The statuses do not tell whether
+    the stop met the open start or came after the failure."""
 
     def run(self) -> None:
         tsk = self._create_task(
