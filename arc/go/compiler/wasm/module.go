@@ -50,8 +50,9 @@ type Global struct {
 
 // LoopBudgetExport names the exported i64 global that counts the loop iterations and
 // function calls a guest can still run. Each takes one, and the guest traps when it
-// takes the last one. A host sets the global before it calls the guest.
-const LoopBudgetExport = "loop_budget"
+// takes the last one. A host sets the global before it calls the guest. The '$' keeps
+// the name apart from function exports, which are Arc identifiers.
+const LoopBudgetExport = "$loop_budget"
 
 // dataSegment represents a data segment to be placed in linear memory
 type dataSegment struct {
