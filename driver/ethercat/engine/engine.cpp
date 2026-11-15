@@ -361,12 +361,15 @@ Engine::out_of_op(const uint16_t position, const std::string &name, const bool s
     return std::format("Slave {} ({}) is not in OP.", position, name);
 }
 
-bool Engine::Input::lose(const Outage &out) {
+bool Engine::Input::lose(
+    const std::vector<uint16_t> &positions,
+    const std::vector<uint16_t> &silent
+) {
     bool any = false;
     for (auto &slave: this->slaves)
-        if (std::ranges::binary_search(out.positions, slave.position)) {
+        if (std::ranges::binary_search(positions, slave.position)) {
             slave.silent.store(
-                std::ranges::binary_search(out.silent, slave.position),
+                std::ranges::binary_search(silent, slave.position),
                 std::memory_order_relaxed
             );
             slave.lost.store(true, std::memory_order_release);
@@ -381,6 +384,7 @@ void Engine::run() {
     Outage outage;
     outage.positions.reserve(this->image.slaves.size());
     outage.silent.reserve(this->image.slaves.size());
+    outage.inputless.reserve(this->image.slaves.size());
     uint64_t outage_version = 0;
     // How far the time of the latest full cycle ran ahead of its send. A short cycle
     // keeps it, since its DC time can be stale.
@@ -469,10 +473,36 @@ void Engine::run() {
         auto latched_at = sent_at;
         const auto err = this->master->receive();
         const bool starting = this->starting.load(std::memory_order_acquire);
-        // After the slaves reach OP, a short frame can miss the reference clock, and
-        // SOEM repeats the last DC time.
-        const auto dc = (!err || shortfall(err)) ? this->master->dc_time()
-                                                 : std::nullopt;
+        // A full cycle drops the inputs of the slaves that give none, since a slave
+        // below SAFE-OP can keep its share of the working counter. A cycle short by
+        // what the slaves out of OP can miss drops the inputs of each of them.
+        const std::vector<uint16_t> *dropped = nullptr;
+        if (!starting) {
+            if (this->outage_version.load(std::memory_order_acquire) !=
+                outage_version) {
+                std::lock_guard lock(this->outage_mu);
+                outage = this->outage;
+                outage_version = this->outage_version.load(std::memory_order_relaxed);
+            }
+            if (!err) {
+                if (!outage.inputless.empty()) dropped = &outage.inputless;
+            } else if (
+                const auto missed = this->master->shortfall();
+                err.matches(errors::WORKING_COUNTER_ERROR) && missed &&
+                *missed >= outage.least_shortfall && *missed <= outage.shortfall
+            ) {
+                dropped = &outage.positions;
+                latched_at = sent_at + lead;
+                host_timed = true;
+            }
+        }
+        // After the slaves reach OP, a short frame carries the DC time only when it
+        // passes a reference clock in OP. SOEM repeats the last DC time otherwise.
+        const auto &ref = this->image.reference_clock;
+        const bool timed = !err || shortfall(err) ||
+                           (dropped != nullptr && ref &&
+                            std::ranges::find(*dropped, *ref) == dropped->end());
+        const auto dc = timed ? this->master->dc_time() : std::nullopt;
         if (dc && phase) {
             timer.shift(phase->update(*dc));
             if (!starting && phase->lost() && late_frames++ == 0)
@@ -495,7 +525,7 @@ void Engine::run() {
                           << " after " << receive_failures << " failures";
                 receive_failures = 0;
             }
-        } else if (!shortfall(err)) {
+        } else if (dropped == nullptr && !shortfall(err)) {
             if (receive_failures++ == 0)
                 LOG(WARNING) << "[ethercat] cycle failed on " << this->iface << ": "
                              << err.message();
@@ -507,22 +537,6 @@ void Engine::run() {
                 this->cycle_err = err;
             }
         }
-        // A cycle short by exactly what the slaves out of OP miss drops only their
-        // inputs.
-        const Outage *out = nullptr;
-        if (!starting && err.matches(errors::WORKING_COUNTER_ERROR)) {
-            if (this->outage_version.load(std::memory_order_acquire) !=
-                outage_version) {
-                std::lock_guard lock(this->outage_mu);
-                outage = this->outage;
-                outage_version = this->outage_version.load(std::memory_order_relaxed);
-            }
-            if (this->master->shortfall() == outage.shortfall) {
-                out = &outage;
-                latched_at = sent_at + lead;
-                host_timed = true;
-            }
-        }
         const uint8_t *inputs = this->image.inputs.data();
         for (const auto &[input, decimation]: sched->inputs) {
             if (input->countdown > 0) {
@@ -530,9 +544,9 @@ void Engine::run() {
                 continue;
             }
             input->countdown = decimation - 1;
-            if (err && out == nullptr)
+            if (err && dropped == nullptr)
                 input->failed_samples.fetch_add(1, std::memory_order_relaxed);
-            else if (!err || !input->lose(*out))
+            else if (dropped == nullptr || !input->lose(*dropped, outage.silent))
                 input->push(inputs, latched_at);
         }
 
@@ -587,12 +601,16 @@ void Engine::supervise() {
             if (h.refusal || (!h.lost && h.state == slave::State::OP)) continue;
             next.positions.push_back(h.position);
             if (h.lost) next.silent.push_back(h.position);
+            // Recovery takes a slave in SAFE-OP whose clock restore failed back to
+            // PRE-OP after the publish.
+            const bool inputs = !h.lost && h.state == slave::State::SAFE_OP &&
+                                h.dc_restore_error.empty();
+            if (!inputs) next.inputless.push_back(h.position);
             const auto &shares = this->image.working_counter_shares;
-            if (const auto it = shares.find(h.position); it != shares.end())
-                next.shortfall += it->second.outputs +
-                                  (!h.lost && h.state == slave::State::SAFE_OP
-                                       ? 0
-                                       : it->second.inputs);
+            if (const auto it = shares.find(h.position); it != shares.end()) {
+                next.least_shortfall += it->second.outputs;
+                next.shortfall += it->second.outputs + (inputs ? 0 : it->second.inputs);
+            }
         }
         if (!restarted.empty()) {
             const auto now = this->config.host_clock.now();
@@ -602,11 +620,15 @@ void Engine::supervise() {
                     restarted.end()) {
                     LOG(INFO) << "[ethercat] slave " << s.properties.position << " on "
                               << this->iface << " restarted";
-                    this->restarts[restart_key(s.properties)] = now;
+                    this->restarts[restart_key(s.properties)] = {
+                        .at = now,
+                        .position = s.properties.position,
+                    };
                 }
         }
         std::ranges::sort(next.positions);
         std::ranges::sort(next.silent);
+        std::ranges::sort(next.inputless);
         if (next != published) {
             std::lock_guard outputs_lock(this->outputs_mu);
             {
@@ -623,6 +645,9 @@ void Engine::supervise() {
             this->slave_health = health;
         }
         last = std::move(health);
+        // Recovering after the publish keeps the samples of the other readers while a
+        // slave recovers.
+        this->master->recover(this->bus);
         this->bus.wait_for(SUPERVISOR_INTERVAL);
     }
 }
@@ -671,7 +696,10 @@ x::errors::Error Engine::start_locked(
         if (!err) {
             this->slaves = std::move(slaves);
             this->track_restarts_locked(std::exchange(restarted, {}));
-            std::tie(plan.slaves, err) = this->plan_locked(saved, settings);
+            std::tie(this->device_configs, err) = this->plan_locked(saved);
+            plan.slaves = this->device_configs;
+            for (const auto &[pos, params]: settings)
+                plan.slaves[pos].add_startup_parameters(params);
             // The next scan reads the serial numbers again.
             if (err.matches(errors::ACTIVATION_ERROR)) this->master->deactivate();
         }
@@ -767,7 +795,14 @@ x::errors::Error Engine::start_locked(
                             .name = s.properties.name,
                             .refusal = it->second,
                         };
-                continue;
+                const auto now = clock.steady();
+                longest_try = std::max(
+                    longest_try,
+                    x::telem::TimeSpan(now - try_started)
+                );
+                // The deadline check below fails a pass whose next try cannot end in
+                // time.
+                if (now + longest_try.chrono() <= start.deadline) continue;
             }
         }
         const auto now = clock.steady();
@@ -846,10 +881,8 @@ void Engine::stop_locked() {
     this->slave_health.clear();
 }
 
-std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> Engine::plan_locked(
-    const std::vector<SavedSlave> &saved,
-    const Settings &settings
-) const {
+std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>
+Engine::plan_locked(const std::vector<SavedSlave> &saved) const {
     std::vector<slave::Identity> identities;
     identities.reserve(saved.size());
     for (const auto &s: saved)
@@ -916,8 +949,6 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> Engine::plan_lock
             )
         };
     }
-    for (const auto &[pos, params]: settings)
-        configs[pos].add_startup_parameters(params);
     for (const auto &[pos, _]: this->left_out)
         configs[pos].enabled = false;
     return {configs, x::errors::NIL};
@@ -1133,24 +1164,14 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     const auto [mhz, rate_err] = this->rate_locked(reads, writes);
     if (rate_err) return {{}, rate_err};
     const bool started = !this->running();
-    std::set<uint16_t> positions;
     if (started) {
         if (configs_err) return {{}, configs_err};
         if (auto err = this->start_locked(mhz, saved, settings, start))
             return {{}, err};
-        // The start planned on this scan, so the plan finds the same slaves.
-        auto [configs, plan_err] = this->plan_locked(saved, {});
-        if (plan_err) {
-            this->stop_locked();
-            return {{}, plan_err};
-        }
-        this->device_configs = std::move(configs);
-        for (const auto &[pos, _]: this->device_configs)
-            positions.insert(pos);
-    } else {
-        for (const auto &entry: entries)
-            positions.insert(entry.slave_position);
     }
+    std::set<uint16_t> positions;
+    for (const auto &entry: entries)
+        positions.insert(entry.slave_position);
     for (const auto &[pos, _]: settings)
         positions.insert(pos);
     std::map<uint16_t, size_t> counts;
@@ -1400,18 +1421,25 @@ Engine::configure(const slave::Properties &slave, const Parameters &parameters) 
     if (lock_err) return lock_err;
     const auto [slaves, err] = this->rediscover_locked();
     if (err) return err;
-    const auto found = std::ranges::find_if(slaves, [&slave](const auto &s) {
-        const auto &p = s.properties;
-        return p.vendor_id == slave.vendor_id && p.product_code == slave.product_code &&
-               p.serial == slave.serial &&
-               (slave.serial != 0 || p.position == slave.position);
-    });
-    if (found == slaves.end())
+    const slave::Identity identity{
+        .position = slave.position,
+        .vendor_id = slave.vendor_id,
+        .product_code = slave.product_code,
+        .serial = slave.serial,
+        .name = slave.name,
+    };
+    const auto position = slave::locate({identity}, slaves).front();
+    if (!position)
         return x::errors::Error(
             errors::SLAVE_CONFIG_ERROR,
             slave.name + " is not on " + this->network_name +
                 ". Check its power and cabling."
         );
+    const auto found = std::ranges::find(
+        slaves,
+        *position,
+        [](const slave::DiscoveryResult &s) { return s.properties.position; }
+    );
     const auto [params, params_err] = parameters(*found);
     if (params_err) return params_err;
     if (params.empty()) return x::errors::NIL;
@@ -1478,12 +1506,29 @@ void Engine::track_restarts_locked(const std::set<uint16_t> &restarted) {
     decltype(this->restarts) found;
     for (auto &slave: this->slaves) {
         const auto &props = slave.properties;
-        const auto key = restart_key(props);
-        const auto it = this->restarts.find(key);
+        auto key = restart_key(props);
+        auto it = this->restarts.find(key);
+        const bool unread = slave.status.serial_unread();
+        // An unread serial number differs from the read one, so a slave with one, or
+        // with one at its last discovery, is the slave of its model at its position.
+        if (unread || it == this->restarts.end())
+            if (const auto earlier = std::ranges::find_if(
+                    this->restarts,
+                    [&props, unread](const auto &entry) {
+                        return (unread || entry.second.unread) &&
+                               std::get<0>(entry.first) == props.vendor_id &&
+                               std::get<1>(entry.first) == props.product_code &&
+                               entry.second.position == props.position;
+                    }
+                );
+                earlier != this->restarts.end()) {
+                if (unread) key = earlier->first;
+                it = earlier;
+            }
         const auto at = it == this->restarts.end() || restarted.contains(props.position)
                           ? now
-                          : it->second;
-        found[key] = at;
+                          : it->second.at;
+        found[key] = {.at = at, .position = props.position, .unread = unread};
         slave.restarted_at = at;
     }
     this->restarts = std::move(found);

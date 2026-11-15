@@ -10,9 +10,15 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { Configure } from "@/feature/ethercat/device/Configure";
-import { INTEGRATION_KEY, MAKE } from "@/feature/ethercat/device/types";
+import {
+  INTEGRATION_KEY,
+  MAKE,
+  slavePropertiesZ,
+} from "@/feature/ethercat/device/types";
 import { SCAN_TYPE } from "@/feature/ethercat/task/types";
 import { type Device } from "@/platform/device";
+
+const locationZ = slavePropertiesZ.pick({ networkName: true, position: true });
 
 export const HARDWARE: Device.Hardware = {
   key: INTEGRATION_KEY,
@@ -29,4 +35,8 @@ export const HARDWARE: Device.Hardware = {
       "the default options. On Linux, it needs root or CAP_NET_RAW.",
     "The slaves have power and a cable to that adapter.",
   ],
+  formatLocation: (device) => {
+    const { networkName, position } = locationZ.parse(device.properties);
+    return networkName == null ? device.location : `${networkName}, slot ${position}`;
+  },
 };

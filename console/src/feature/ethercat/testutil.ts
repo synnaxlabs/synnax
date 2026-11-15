@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ethercat, type Synnax } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
+import { device, type ethercat, type Synnax } from "@synnaxlabs/client";
+import { id, TimeStamp } from "@synnaxlabs/x";
 
 import { type Description } from "@/feature/ethercat/device/settings";
 import {
@@ -341,6 +341,21 @@ export const createSlaveDevice = async (
     },
     SLAVE_SCHEMAS,
   );
+};
+
+/** Gives the slave the status that a scan gives a slave that the Driver reaches. */
+export const createReachedStatus = async (
+  client: Synnax,
+  slave: SlaveDevice,
+): Promise<void> => {
+  await client.statuses.set({
+    owner: device.resourceID(slave.key),
+    name: slave.name,
+    variant: "success",
+    message: "Discovered",
+    time: TimeStamp.now(),
+    details: { rack: slave.rack, connected: true },
+  });
 };
 
 /** Creates a slave on eth0 whose eight channels repeat the same entry names. */

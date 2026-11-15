@@ -134,7 +134,14 @@ func (t *Table[K, E]) detach(
 		return err
 	}
 	for _, op := range ops {
-		t.references[op.ref].detachTarget(&e, op.target)
+		ref := t.references[op.ref]
+		if ref.onDeletePolicy() != Inline {
+			ref.detachTarget(&e, op.target)
+			continue
+		}
+		if err = ref.inlineTarget(ctx, tx, &e, op.target); err != nil {
+			return err
+		}
 	}
 	w := t.writer(tx, false)
 	w.derived = true

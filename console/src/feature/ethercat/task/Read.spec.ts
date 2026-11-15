@@ -32,6 +32,7 @@ import {
   createExcitationDescription,
   createIdentifier,
   createPDOs,
+  createReachedStatus,
   createRepeatedNamePDOs,
   createRepeatedNameSlave,
   createSettingsDescription,
@@ -161,13 +162,16 @@ const createCalibratedSlave = async () =>
   });
 
 /** Creates a slave that DewesoftX sets up and that sends no data only it reads. */
-const createSharedSlave = async () =>
-  await createSlaveDevice(client, testRack.key, {
+const createSharedSlave = async () => {
+  const slave = await createSlaveDevice(client, testRack.key, {
     identifier: createIdentifier(),
     network: "eth0",
     pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
     settings: createDewesoftXSettings(true),
   });
+  await createReachedStatus(client, slave);
+  return slave;
+};
 
 const MEASUREMENT = { index: 0x8040, subIndex: 1, dataType: "uint16", name: "" };
 const RANGE = { index: 0x8040, subIndex: 3, dataType: "uint16", name: "" };
@@ -709,6 +713,7 @@ describe("Read", () => {
         pdos: { inputs: [STRAIN_SAMPLE_ENTRY], outputs: [] },
         settings: createDewesoftXSettings(shared),
       });
+      await createReachedStatus(client, slave);
       await renderRead({
         ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
         channels: [{ ...EtherCAT.Task.createReadChannel([]), device: slave.key }],

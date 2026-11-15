@@ -159,7 +159,7 @@ void Operation::check(const x::telem::TimeStamp now) {
             status.owner = synnax::task::resource_id(this->task);
             status.name = this->name;
             status.variant = synnax::status::VARIANT_LOADING;
-            status.message = "Stopping task";
+            status.message = STOPPING_MESSAGE;
             status.description = "Cancelling the start.";
             status.details.config_hash = this->config_hash;
             out.emplace_back(std::move(status), std::vector{this->stopping->key});
