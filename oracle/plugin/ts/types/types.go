@@ -1361,6 +1361,20 @@ func importNamespace(namespace, outputPath string, data *templateData) string {
 	return ident
 }
 
+// qualifier imports the module that declares typ, a type from another schema, and
+// returns the name that the file gives the module.
+func qualifier(
+	typ resolution.Type,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	outputPath := output.GetPath(typ, "ts")
+	if _, isEnum := typ.Form.(resolution.EnumForm); isEnum {
+		outputPath = enum.FindOutputPath(typ, table, "ts")
+	}
+	return importNamespace(typ.Namespace, outputPath, data)
+}
+
 // FieldName converts a field identifier to camelCase using the naive conversion the
 // JSON codec's snake/camel round-trip relies on, preserving only a trailing acronym run
 // of two or more uppercase letters in the source ("ClientXY" -> "clientXY", "EntityID"
@@ -2321,14 +2335,14 @@ func (p *Plugin) typeRefToTSInternal(
 			)
 		}
 		if resolved.FilePath != data.FilePath {
-			return fmt.Sprintf("%s.%s", resolved.Namespace, typeName)
+			return qualifier(resolved, table, data) + "." + typeName
 		}
 		return typeName
 
 	case resolution.EnumForm:
 		enumName := domain.GetName(resolved, "ts")
 		if resolved.FilePath != data.FilePath {
-			return fmt.Sprintf("%s.%s", resolved.Namespace, enumName)
+			return qualifier(resolved, table, data) + "." + enumName
 		}
 		return enumName
 
@@ -2360,14 +2374,14 @@ func (p *Plugin) typeRefToTSInternal(
 			)
 		}
 		if resolved.FilePath != data.FilePath {
-			return fmt.Sprintf("%s.%s", resolved.Namespace, typeName)
+			return qualifier(resolved, table, data) + "." + typeName
 		}
 		return typeName
 
 	case resolution.UnionForm:
 		typeName := domain.GetName(resolved, "ts")
 		if resolved.FilePath != data.FilePath {
-			return fmt.Sprintf("%s.%s", resolved.Namespace, typeName)
+			return qualifier(resolved, table, data) + "." + typeName
 		}
 		return typeName
 
@@ -2584,7 +2598,7 @@ func (p *Plugin) typeRefToZodSchemaType(
 
 	var prefix string
 	if resolved.FilePath != data.FilePath {
-		prefix = resolved.Namespace + "."
+		prefix = qualifier(resolved, table, data) + "."
 	}
 
 	tsName := domain.GetName(resolved, "ts")
@@ -3121,7 +3135,8 @@ func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) 
 	enumName := domain.GetName(ev.Type, "ts")
 	variantRef := fmt.Sprintf("%s.%s", enumName, ev.Variant.Name)
 	if ev.Type.FilePath != data.FilePath {
-		variantRef = fmt.Sprintf("%s.%s", ev.Type.Namespace, variantRef)
+		ns := qualifier(ev.Type, data.Request.Resolutions, data)
+		variantRef = ns + "." + variantRef
 	}
 	return variantRef
 }

@@ -31,9 +31,9 @@ type Renderer struct {
 	Table *resolution.Table
 	// TypeName returns the C++ spelling of a type reference.
 	TypeName func(resolution.TypeRef) string
-	// Namespace is the schema namespace of the generated file.
-	Namespace string
-	// Include, when set, receives the header of each cross-namespace enum that a
+	// FilePath is the schema file of the generated file.
+	FilePath string
+	// Include, when set, receives the header of each enum from another schema that a
 	// default references.
 	Include func(path string)
 }
@@ -107,7 +107,7 @@ func (r Renderer) EnumVariant(ev validation.EnumVariant) string {
 			cppnaming.ScreamingSnake(ev.Variant.Name),
 		)
 	}
-	if ev.Type.Namespace != r.Namespace {
+	if ev.Type.FilePath != r.FilePath {
 		targetOutputPath := enum.FindOutputPath(ev.Type, r.Table, "cpp")
 		if targetOutputPath != "" {
 			if r.Include != nil {
