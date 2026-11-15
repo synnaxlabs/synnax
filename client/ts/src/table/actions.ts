@@ -60,10 +60,11 @@ const move = <T>(items: T[], from: number, to: number): void => {
 };
 
 // expandTemplate returns count replicas of template with keys derived via deriveKey.
+// Each replica holds its own copy of the config, as an edit to one changes it in place.
 const expandTemplate = (template: Cell, count: number): Cell[] =>
   Array.from({ length: count }, (_, i) => ({
     key: deriveKey(template.key, i),
-    config: template.config,
+    config: structuredClone(template.config),
   }));
 
 const ROWS_FIELD = "rows";
@@ -84,8 +85,7 @@ const applyPath = (state: Draft<Table>, action: patch.Action): HandlerResult => 
 const keysOf = (cells: Cell[]): string[] => cells.map((c) => c.key);
 
 // setConfig replaces the config of the cell with the key, and returns the replaced
-// config. It replaces the whole cell, as an earlier action in the batch can leave a
-// frozen cell in the draft. Returns undefined when no row holds the cell.
+// config. Returns undefined when no row holds the cell.
 const setConfig = (
   state: Draft<Table>,
   key: string,
@@ -95,7 +95,7 @@ const setConfig = (
     const i = row.cells.findIndex((c) => c.key === key);
     if (i === -1) continue;
     const prev = actions.snapshotDraft(row.cells[i].config);
-    row.cells[i] = { key, config };
+    row.cells[i].config = config;
     return prev;
   }
   return undefined;
@@ -281,7 +281,7 @@ const handlers: Handlers = {
       targets.push(key, ...keysOf(cells));
     }
     for (const key of selected) {
-      const oldConfig = setConfig(state, key, payload.template);
+      const oldConfig = setConfig(state, key, structuredClone(payload.template));
       if (oldConfig == null) continue;
       inverse.push(setCell({ cell: { key, config: oldConfig } }));
       targets.push(key);
@@ -291,7 +291,12 @@ const handlers: Handlers = {
   ...actions.createPathHandlers(applyPath),
 };
 
-export const reduceAll = createReduceAll(handlers);
+const reduce = createReduceAll(handlers);
+
+// The handlers put the objects of an action into the state, where a later action in
+// the batch edits them in place. A copy keeps the caller's actions unchanged.
+export const reduceAll = (state: Table, batch: Action[]) =>
+  reduce(state, structuredClone(batch));
 
 export interface SetChangedArgs {
   /** The key of the row that holds the cell. */
