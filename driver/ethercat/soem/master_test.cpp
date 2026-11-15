@@ -2143,6 +2143,27 @@ TEST_F(SOEMMasterTest, DCSyncReportsEachSlaveThatRunsSYNC0) {
     EXPECT_EQ(this->image.dc_sync, (std::vector{regs, regs}));
 }
 
+/// @brief it should name the first slave with a clock as the reference clock.
+TEST_F(SOEMMasterTest, ImageNamesTheFirstSlaveWithAClockAsTheReferenceClock) {
+    MockSlaveInfo plain;
+    plain.state = EC_STATE_PRE_OP;
+    this->add_slave(plain);
+    MockSlaveInfo dc = plain;
+    dc.hasdc = true;
+    this->add_slave(dc);
+    this->add_slave(dc);
+    ASSERT_NIL_P(this->master->scan());
+    ASSERT_NIL(this->activate());
+    EXPECT_EQ(this->image.reference_clock, 2);
+}
+
+/// @brief it should name no reference clock when no slave has a clock.
+TEST_F(SOEMMasterTest, ImageNamesNoReferenceClockWithoutDC) {
+    this->initialize_with_slave();
+    ASSERT_NIL(this->activate());
+    EXPECT_EQ(this->image.reference_clock, std::nullopt);
+}
+
 /// @brief it should report no DC sync when the PDI owns the sync unit of the slave.
 TEST_F(SOEMMasterTest, DCSyncIsEmptyWhenThePDIOwnsTheSyncUnit) {
     this->initialize_with_dc_slave(

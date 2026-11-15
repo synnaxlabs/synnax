@@ -790,6 +790,7 @@ master::Image Master::image() {
     for (const auto &[pos, regs]: session.dc_setups)
         if (regs.sync0_cycle > 0 && (regs.assign_activate & dc::PDI_SYNC_UNIT) == 0)
             image.dc_sync.push_back(regs);
+    if (session.has_dc) image.reference_clock = this->record(0).DCnext;
     image.slaves = this->slave_list;
     const auto *base = this->iomap.data();
     for (const auto &slave: this->slave_list) {

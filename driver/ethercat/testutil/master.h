@@ -64,6 +64,7 @@ class Master final : public master::Master {
     bool restarts_hidden = false;
     std::optional<x::telem::TimeSpan> dc_step;
     std::vector<dc::Registers> syncs;
+    std::optional<uint16_t> reference_clock;
     /// @brief how many times as fast as the host clock the distributed clock runs, or
     /// nullopt when it does not follow the host clock.
     std::optional<double> host_dc_rate;
@@ -620,6 +621,7 @@ public:
                 .outputs = {this->output_iomap.data(), this->output_sz},
                 .offsets = this->pdo_offset_cache,
                 .dc_sync = this->syncs,
+                .reference_clock = this->reference_clock,
                 .slaves = this->slave_list,
                 .working_counter_shares = this->shares,
             };
@@ -751,6 +753,12 @@ public:
         std::lock_guard lock(this->mu);
         this->host_dc_rate = rate;
         this->host_dc_start.reset();
+    }
+
+    /// @brief sets the reference clock of the image that the next activate() gives.
+    void set_reference_clock(const uint16_t position) {
+        std::lock_guard lock(this->mu);
+        this->reference_clock = position;
     }
 
     /// @brief sets the DC registers of the image that the next activate() gives.

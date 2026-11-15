@@ -440,6 +440,50 @@ TEST_F(EngineLockTest, ShortFramesAfterTheStartDoNotMoveTheCycle) {
     EXPECT_LT(this->share_in_phase(), 0.8);
 }
 
+/// @brief it should lock the cycle to the distributed clock while a slave other than
+/// the reference clock is out of OP.
+TEST_F(EngineLockTest, LocksTheCycleWhileAnotherSlaveIsOut) {
+    this->master->add_slave(io_slave(1));
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    this->master->set_host_dc(1.005);
+    this->master->set_reference_clock(0);
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    this->master->set_shortfall(3);
+    this->master->record_dc(FRAMES);
+    EXPECT_GT(this->share_in_phase(), 0.8);
+}
+
+/// @brief it should not move the cycle while the reference clock is out of OP, as its
+/// DC time can be frozen or reset.
+TEST_F(EngineLockTest, ShortFramesWhileTheReferenceClockIsOutDoNotMoveTheCycle) {
+    this->master->add_slave(io_slave(1));
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    this->master->set_host_dc(1.005);
+    this->master->set_reference_clock(1);
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    this->master->set_shortfall(3);
+    this->master->record_dc(FRAMES);
+    EXPECT_LT(this->share_in_phase(), 0.8);
+}
+
 /// @brief it should return no samples and no error when the breaker stops.
 TEST_F(EngineTest, ReadReturnsNilWhenBreakerStopped) {
     const auto reader = ASSERT_NIL_P(this->engine->open_reader(

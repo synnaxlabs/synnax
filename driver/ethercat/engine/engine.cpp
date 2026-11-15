@@ -469,10 +469,31 @@ void Engine::run() {
         auto latched_at = sent_at;
         const auto err = this->master->receive();
         const bool starting = this->starting.load(std::memory_order_acquire);
-        // After the slaves reach OP, a short frame can miss the reference clock, and
-        // SOEM repeats the last DC time.
-        const auto dc = (!err || shortfall(err)) ? this->master->dc_time()
-                                                 : std::nullopt;
+        // A cycle short by what the slaves out of OP can miss drops only their inputs.
+        const Outage *out = nullptr;
+        if (!starting && err.matches(errors::WORKING_COUNTER_ERROR)) {
+            if (this->outage_version.load(std::memory_order_acquire) !=
+                outage_version) {
+                std::lock_guard lock(this->outage_mu);
+                outage = this->outage;
+                outage_version = this->outage_version.load(std::memory_order_relaxed);
+            }
+            if (const auto missed = this->master->shortfall();
+                missed && *missed >= outage.least_shortfall &&
+                *missed <= outage.shortfall) {
+                out = &outage;
+                latched_at = sent_at + lead;
+                host_timed = true;
+            }
+        }
+        // After the slaves reach OP, a short frame carries the DC time only when it
+        // passes a reference clock in OP. SOEM repeats the last DC time otherwise.
+        const auto &ref = this->image.reference_clock;
+        const bool timed = !err || shortfall(err) ||
+                           (out != nullptr && ref &&
+                            std::ranges::find(out->positions, *ref) ==
+                                out->positions.end());
+        const auto dc = timed ? this->master->dc_time() : std::nullopt;
         if (dc && phase) {
             timer.shift(phase->update(*dc));
             if (!starting && phase->lost() && late_frames++ == 0)
@@ -505,23 +526,6 @@ void Engine::run() {
                 stored_err = err;
                 std::lock_guard lock(this->cycle_err_mu);
                 this->cycle_err = err;
-            }
-        }
-        // A cycle short by what the slaves out of OP can miss drops only their inputs.
-        const Outage *out = nullptr;
-        if (!starting && err.matches(errors::WORKING_COUNTER_ERROR)) {
-            if (this->outage_version.load(std::memory_order_acquire) !=
-                outage_version) {
-                std::lock_guard lock(this->outage_mu);
-                outage = this->outage;
-                outage_version = this->outage_version.load(std::memory_order_relaxed);
-            }
-            if (const auto missed = this->master->shortfall();
-                missed && *missed >= outage.least_shortfall &&
-                *missed <= outage.shortfall) {
-                out = &outage;
-                latched_at = sent_at + lead;
-                host_timed = true;
             }
         }
         const uint8_t *inputs = this->image.inputs.data();

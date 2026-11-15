@@ -77,6 +77,9 @@ struct Image {
     /// @brief the DC registers of each enabled slave whose SYNC0 events the master
     /// starts.
     std::vector<dc::Registers> dc_sync;
+    /// @brief the position of the slave whose clock dc_time() reads, or nullopt when
+    /// dc_time() reads none.
+    std::optional<uint16_t> reference_clock;
     /// @brief the slaves with the layouts that their startup parameters set.
     std::vector<slave::DiscoveryResult> slaves;
     /// @brief what each enabled slave adds to the working counter of a full cycle,
