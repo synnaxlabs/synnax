@@ -19,6 +19,7 @@ import {
   createEmptyRole,
   createPanelProject,
   createTestClient,
+  RoleClients,
 } from "@synnaxlabs/client/testutil";
 import { color, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
@@ -1752,6 +1753,50 @@ describe("Panel queries", () => {
       ]);
       expect(leafTabKeys(src.root)).toEqual([]);
       expect(leafTabKeys(dst.root)).toEqual([open.key]);
+    });
+  });
+
+  describe("useCanEdit", () => {
+    const roles = new RoleClients(client);
+
+    const renderCanEdit = async (as: typeof client, key: panel.Key) => {
+      const Synnax = await createAsyncSynnaxWrapper({ client: as });
+      const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <Synnax>
+          <Panel.Scope.Provider value={key}>{children}</Panel.Scope.Provider>
+        </Synnax>
+      );
+      return renderHook(
+        () => ({
+          edit: Panel.useCanEdit(),
+          loaded: Panel.useResult({ key }).data != null,
+        }),
+        { wrapper: Wrapper },
+      );
+    };
+
+    it("should let a Viewer edit its own draft", async () => {
+      const viewer = await roles.get("Viewer");
+      const me = (await viewer.users.current.retrieve()).key;
+      const draft = await viewer.panels.create({
+        name: "draft",
+        project: await createPanelProject(client),
+        owner: me,
+      });
+      const { result } = await renderCanEdit(viewer, draft.key);
+      await waitFor(() => expect(result.current.edit).toBe(true));
+    });
+
+    it("should not let a Viewer edit a shared panel", async () => {
+      const viewer = await roles.get("Viewer");
+      const shared = await client.panels.create({
+        name: "shared",
+        project: await createPanelProject(client),
+      });
+      const { result } = await renderCanEdit(viewer, shared.key);
+      await waitFor(() => expect(result.current.loaded).toBe(true));
+      await act(async () => {});
+      expect(result.current.edit).toBe(false);
     });
   });
 });

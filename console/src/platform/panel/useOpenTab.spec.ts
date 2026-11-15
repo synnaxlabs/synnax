@@ -569,6 +569,23 @@ describe("Panel.useCanOpenTab", () => {
     },
   );
 
+  it.each<BuiltInRole>(["Viewer", "Operator"])(
+    "should allow both on a draft of a %s",
+    async (role) => {
+      const as = await roles.get(role);
+      const me = (await as.users.current.retrieve()).key;
+      const draft = await as.panels.create({
+        name: uniqueName("draft"),
+        root: viewLeaf(uuid.create(), "seed"),
+        project: await testProject(),
+        owner: me,
+      });
+      const { result } = await renderCan(as, draft.key);
+      await waitFor(() => expect(result.current.edit).toBe(true));
+      expect(result.current.open).toBe(true);
+    },
+  );
+
   it("should allow both for an engineer", async () => {
     const existing = await createServerPanel(client, viewLeaf(uuid.create(), "seed"));
     const { result } = await renderCan(await roles.get("Engineer"), existing.key);
