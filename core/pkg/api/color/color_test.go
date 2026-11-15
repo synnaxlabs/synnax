@@ -206,6 +206,18 @@ var _ = Describe("Retrieve by name", func() {
 			To(BeEmpty())
 	})
 
+	It("Should return a path error for an invalid regex", func(ctx SpecContext) {
+		Expect(retrieve(AuthedCtx(ctx, u), apicolor.RetrieveRequest{
+			Where: &color.Where{Name: &filter.String{Regex: new("(a")}},
+		})).Error().To(SatisfyAll(
+			BeAssignableToTypeOf(validate.PathError{}),
+			MatchError(
+				"where.name.regex: error parsing regexp: missing closing ): `(a`: "+
+					"validation error",
+			),
+		))
+	})
+
 	It("Should refuse a cursor with no name in an order by name", func(
 		ctx SpecContext,
 	) {
