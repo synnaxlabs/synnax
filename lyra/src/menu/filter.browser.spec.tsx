@@ -79,9 +79,9 @@ const openContextMenu = async (onChange = vi.fn()): Promise<HTMLElement> => {
 const displays = (selector: string): string[] =>
   Array.from(document.querySelectorAll(selector)).map((el) => computed(el, "display"));
 
-// A filtered menu narrows to its items, but never below the menu floor.
+// A filtered menu keeps the width of the menu floor.
 const expectFloor = (menu: Element): void => {
-  expect(computed(menu, "min-width")).toBe(resolve("24rem", "min-width"));
+  expect(computed(menu, "min-width")).toBe(resolve("32rem", "min-width"));
   expect(menu.getBoundingClientRect().width).toBe(
     parseFloat(computed(menu, "min-width")),
   );
@@ -107,7 +107,7 @@ describe("menu filter", () => {
       expect(computed(line, "border-bottom-width")).toBe("1px");
     });
 
-    it("should narrow no further than the menu floor as items hide", async () => {
+    it("should keep the menu floor as items hide", async () => {
       const menu = await openContextMenu();
       await userEvent.keyboard("ren");
       await expect.poll(() => page.getByRole("menuitem").elements().length).toBe(1);

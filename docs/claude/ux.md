@@ -309,10 +309,10 @@ bound, a log precision, or the line plot X channel.
   first printable key starts the filter and shows it as a line over a hairline at the
   top. Items whose text does not match hide, and so do dividers with no match on one
   side. With no match, one muted line says "No matches". Backspace edits the filter. Esc
-  clears it, then closes the menu. A menu narrows as items hide, but never below 24rem
-  (144 px), just under the narrowest menu. The first match takes the focus, and the
-  arrow keys and Enter act on the items that show. A submenu matches on the text of its
-  item. Keys typed into a field, such as the search of a picker, never reach the filter.
+  clears it, then closes the menu. Every menu is at least 32rem (192 px) wide, filtering
+  or not. The first match takes the focus, and the arrow keys and Enter act on the items
+  that show. A submenu matches on its `textValue`. Keys typed into a field, such as the
+  search of a picker, never reach the filter.
 - Every explorer filters through `View.Filter`: one menu item for each property, which
   opens its picker as a submenu. A chip opens the same picker below the chip.
 - Values have 4 px corners. A picked value tints, with no checkbox, and picked values
