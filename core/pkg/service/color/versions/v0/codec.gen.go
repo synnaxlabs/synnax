@@ -12,6 +12,7 @@
 package v0
 
 import (
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
@@ -29,6 +30,12 @@ func (nv Named) EncodeOrc(w *orc.Writer) error {
 		if err := nv.Dark.EncodeOrc(w); err != nil {
 			return err
 		}
+	} else {
+		w.Bool(false)
+	}
+	if nv.Group != nil {
+		w.Bool(true)
+		w.Write((*nv.Group)[:])
 	} else {
 		w.Bool(false)
 	}
@@ -58,6 +65,19 @@ func (nv *Named) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			nv.Dark = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv group.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			nv.Group = &hv
 		}
 	}
 	return nil

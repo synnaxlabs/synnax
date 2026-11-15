@@ -13,8 +13,11 @@ import (
 	"context"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Writer creates, changes, and deletes named colors in a transaction.
@@ -32,13 +35,23 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates a named color and gives it a key if it has none. It returns an error
-// wrapping validate.ErrValidation when the color is not valid or a named color with the
-// key exists. The commit broadcasts a create action that holds the stored color.
+// wrapping validate.ErrValidation when the color is not valid, its group cannot hold a
+// named color, or a named color with the key exists. The commit broadcasts a create
+// action that holds the stored color.
 func (w Writer) Create(ctx context.Context, n *Named) error {
 	if n.Key == uuid.Nil() {
 		n.Key = uuid.New()
 	}
 	if err := n.Validate(); err != nil {
+		return err
+	}
+	if err := group.CheckMember(
+		ctx,
+		w.tx,
+		n.Group,
+		resource.TypeColor,
+		nil,
+	); err != nil {
 		return err
 	}
 	if err := w.table.NewCreate().Exclusive().Entry(n).Exec(ctx, w.tx); err != nil {
@@ -60,8 +73,8 @@ func (w Writer) CreateMany(ctx context.Context, named []Named) error {
 
 // Apply applies the actions to the named color with the given key, and the commit
 // broadcasts them. It returns an error wrapping validate.ErrValidation when an action
-// is a create or the result is not valid, and an error wrapping query.ErrNotFound when
-// no named color has the key.
+// is a create, the result is not valid, or the new group cannot hold a named color, and
+// an error wrapping query.ErrNotFound when no named color has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	if err := w.apply(ctx, key, acts); err != nil {
 		return err
@@ -80,6 +93,18 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
 				return Named{}, err
 			}
 			if err = next.Validate(); err != nil {
+				return Named{}, err
+			}
+			if lo.FromPtr(next.Group) == lo.FromPtr(n.Group) {
+				return next, nil
+			}
+			if err = group.CheckMember(
+				ctx,
+				w.tx,
+				next.Group,
+				resource.TypeColor,
+				nil,
+			); err != nil {
 				return Named{}, err
 			}
 			return next, nil

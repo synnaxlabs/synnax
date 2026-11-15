@@ -11,13 +11,15 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from synnax import group as group_
 from synnax.resource import ID
 from x import color, filter
+from x.filter import shorthand
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
@@ -48,12 +50,14 @@ class Named(BaseModel):
         name: Is the name of the color.
         light: Is the color in the light theme.
         dark: Is the color in the dark theme. When absent, the theme derives it.
+        group: Is the palette that holds the color, if any.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     light: color.Color
     dark: color.Color | None = None
+    group: group_.Key | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -69,6 +73,8 @@ class Where(BaseModel):
         not_: Matches when the child does not match.
         key: Selects by key.
         name: Selects by name.
+        groups: Matches the named colors in any of the given palettes.
+        grouped: Matches the named colors in a palette, or in no palette when false.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -78,6 +84,13 @@ class Where(BaseModel):
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
     name: filter.String | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+
+    @field_validator("groups", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
 # WhereInput is a Where written as a partial record.
@@ -90,6 +103,8 @@ WhereInput = TypedDict(
         "not": "WhereInput",
         "key": filter.SetInput[Key],
         "name": filter.StringInput,
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
     },
     total=False,
 )

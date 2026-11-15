@@ -22,6 +22,8 @@ func (n *Named) Patch(c patch.Cursor) error {
 		return patch.Value(&n.Light, c.Next())
 	case "dark":
 		return patch.OptionalValue(&n.Dark, c.Next())
+	case "group":
+		return patch.OptionalValue(&n.Group, c.Next())
 	default:
 		return c.UnknownField()
 	}

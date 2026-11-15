@@ -15,6 +15,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/set"
 )
@@ -36,6 +37,7 @@ type Retrieve struct {
 // instead of relying on package-level state.
 type indexes struct {
 	name   *gorp.SortedIndex[Key, Named, string]
+	group  *gorp.KeyReference[Key, Named, group.Key]
 	search *gorp.SearchIndex[Key, Named]
 }
 
@@ -48,6 +50,19 @@ func newIndexes() indexes {
 			"name",
 			func(e *Named) string { return compare.TextKey(string(e.Name)) },
 		),
+		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Named, group.Key]{
+			Name:     "group",
+			Table:    "group",
+			OnDelete: gorp.Detach,
+			Kind:     gorp.Place,
+			Targets: func(e *Named) []group.Key {
+				if e.Group == nil {
+					return nil
+				}
+				return []group.Key{*e.Group}
+			},
+			Detach: func(e *Named, _ group.Key) { e.Group = nil },
+		}),
 		search: gorp.NewSearchIndex[Key, Named](
 			"search",
 			func(e *Named) []string {
@@ -63,6 +78,14 @@ func (i indexes) all() []gorp.Index[Key, Named] {
 	return []gorp.Index[Key, Named]{
 		i.name,
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Named] {
+	return []gorp.Reference[Key, Named]{
+		i.group,
 	}
 }
 
@@ -174,6 +197,38 @@ func MatchNames(vals ...string) Filter {
 			}),
 		)
 	}
+}
+
+// MatchGroups returns a filter for nameds
+// whose Group matches any of the provided
+// values.
+func MatchGroups(vals ...group.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Named] {
+		return r.indexes.group.Filter(vals...)
+	}
+}
+
+// MatchHasGroup returns a filter for nameds whose
+// Group holds a target when has is true, and holds none when has is false.
+func MatchHasGroup(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Named] {
+		return r.indexes.group.FilterHolding(has)
+	}
+}
+
+// setGroup returns an update that sets the Group of the
+// nameds with keys to v.
+func setGroup(
+	table *gorp.Table[Key, Named],
+	v *group.Key,
+	keys ...Key,
+) gorp.Update[Key, Named] {
+	return table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Named](keys...)).
+		Change(func(_ gorp.Context, e Named) Named {
+			e.Group = v
+			return e
+		})
 }
 
 // Where applies the provided filter to the query, binding it to the Retrieve

@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/group"
 import "schemas/x/color"
 import "schemas/x/filter"
 import "schemas/x/patch"
 
 @go output "core/pkg/service/color"
 @py output "client/py/synnax/color"
+@ts output "client/ts/src/color"
 
 Key = uuid {
     @doc value "is the key of a named color."
@@ -38,6 +40,13 @@ Named struct {
         @doc value "is the color in the dark theme. When absent, the theme derives it."
         @patch
     }
+    group group.Key?   {
+        @doc value     "is the palette that holds the color, if any."
+        @group scope   color
+        @patch
+        @ref kind      place
+        @ref on_delete detach
+    }
 
     action Create {
         named Named
@@ -56,6 +65,7 @@ Named struct {
 
     action Move = patch.Move
 
+    @create
     @doc value     """
         is a color with a name. A record that uses it holds its key, so an edit to the
         color changes each user.
@@ -69,6 +79,12 @@ Named struct {
 Where filter Named {
     key
     name
+    groups  group.Key[] {
+        @doc value "matches the named colors in any of the given palettes."
+    }
+    grouped bool        {
+        @doc value "matches the named colors in a palette, or in no palette when false."
+    }
 
     @doc value         "is a filter that selects named colors."
     @go request_output "core/pkg/api/color"
