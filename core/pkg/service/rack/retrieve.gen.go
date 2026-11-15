@@ -58,6 +58,11 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Rack, _ group.Key) { e.Group = nil },
+			Retarget: func(e *Rack, from, to group.Key) {
+				if e.Group != nil && *e.Group == from {
+					*e.Group = to
+				}
+			},
 		}),
 		role: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Rack, role.Key]{
 			Name:     "role",
@@ -66,6 +71,11 @@ func newIndexes() indexes {
 			Kind:     gorp.Use,
 			Targets: func(e *Rack) []role.Key {
 				return []role.Key{e.Role}
+			},
+			Retarget: func(e *Rack, from, to role.Key) {
+				if e.Role == from {
+					e.Role = to
+				}
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Rack](

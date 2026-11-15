@@ -39,6 +39,11 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					e.Device = ""
 				}
 			},
+			Retarget: func(e *ReadConfig, from, to device.Key) {
+				if e.Device == from {
+					e.Device = to
+				}
+			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
 			Name:     "channels.channel",
@@ -58,6 +63,13 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				for i2 := range e.Channels {
 					if e.Channels[i2].Channel == t {
 						e.Channels[i2].Channel = 0
+					}
+				}
+			},
+			Retarget: func(e *ReadConfig, from, to channel.Key) {
+				for i3 := range e.Channels {
+					if e.Channels[i3].Channel == from {
+						e.Channels[i3].Channel = to
 					}
 				}
 			},
@@ -85,6 +97,11 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					e.Device = ""
 				}
 			},
+			Retarget: func(e *WriteConfig, from, to device.Key) {
+				if e.Device == from {
+					e.Device = to
+				}
+			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, WriteConfig, channel.Key]{
 			Name:     "channels.cmd_channel",
@@ -104,6 +121,13 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				for i2 := range e.Channels {
 					if e.Channels[i2].CmdChannel == t {
 						e.Channels[i2].CmdChannel = 0
+					}
+				}
+			},
+			Retarget: func(e *WriteConfig, from, to channel.Key) {
+				for i3 := range e.Channels {
+					if e.Channels[i3].CmdChannel == from {
+						e.Channels[i3].CmdChannel = to
 					}
 				}
 			},
