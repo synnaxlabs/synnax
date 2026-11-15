@@ -35,6 +35,11 @@ export interface TagsProps extends Button.ButtonProps<"div"> {
    * take the pointer, and each tag and the count lights on hover and press.
    */
   onCountClick?: (e: MouseEvent<HTMLElement>) => void;
+  /**
+   * What the tags are, in the singular and the plural. With it, a count with no tags
+   * beside it names the total, such as "3 labels". Without it, the count reads "+3".
+   */
+  noun?: { one: string; other: string };
 }
 
 interface Hidden {
@@ -78,15 +83,17 @@ const HiddenList = ({ groupRef }: GroupProps): ReactElement => {
   );
 };
 
-interface MoreProps extends GroupProps, Pick<TagsProps, "onCountClick"> {}
+interface MoreProps extends GroupProps, Pick<TagsProps, "onCountClick" | "noun"> {}
 
 /** The count of a group. Its styles show the number its step hides. */
-const More = ({ groupRef, onCountClick }: MoreProps): ReactElement => (
+const More = ({ groupRef, onCountClick, noun }: MoreProps): ReactElement => (
   <Tooltip.Dialog>
     <HiddenList groupRef={groupRef} />
     <Text.Text
       level="small"
       className={CSS.BE("tags", "more")}
+      data-one={noun?.one}
+      data-other={noun?.other}
       // A count that acts keeps its click from the group, as a tag does.
       onClick={
         onCountClick == null
@@ -134,6 +141,7 @@ export const Tags = ({
   size = "medium",
   className,
   onCountClick,
+  noun,
   ...rest
 }: TagsProps) => {
   const shared = useContext(StepContext);
@@ -171,7 +179,7 @@ export const Tags = ({
       {...rest}
     >
       {children}
-      <More groupRef={elRef} onCountClick={onCountClick} />
+      <More groupRef={elRef} onCountClick={onCountClick} noun={noun} />
     </Button.Button>
   );
 };

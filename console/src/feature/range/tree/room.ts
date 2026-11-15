@@ -57,7 +57,7 @@ const fit = (list: HTMLElement | null): void => {
     ...items.map((item) => width(part(item, "indent")) + content(part(item, "name"))),
   );
   const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-  const room = width(first) - rest - Math.min(names, NAME_CAP * rem);
+  const room = Math.max(0, width(first) - rest - Math.min(names, NAME_CAP * rem));
   // A change styles every item again, so set it only when it changes.
   const value = `${room}px`;
   if (list.style.getPropertyValue("--console-range-labels-room") !== value)

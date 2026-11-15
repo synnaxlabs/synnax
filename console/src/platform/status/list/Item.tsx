@@ -25,6 +25,8 @@ import { Button } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
+const LABELS: Tag.TagsProps["noun"] = { one: "label", other: "labels" };
+
 export interface ItemProps extends List.ItemProps<status.Key> {}
 
 export const Item = (props: ItemProps): ReactElement | null => {
@@ -74,7 +76,11 @@ export const Item = (props: ItemProps): ReactElement | null => {
       </Flex.Box>
       <Flex.Box x align="center" className={CSS.BE("status", "list-item-meta")}>
         {item.labels.length > 0 && (
-          <Tag.Tags variant="text" className={CSS.BE("status", "list-item-labels")}>
+          <Tag.Tags
+            variant="text"
+            noun={LABELS}
+            className={CSS.BE("status", "list-item-labels")}
+          >
             <Label.Tags keys={item.labels} />
           </Tag.Tags>
         )}

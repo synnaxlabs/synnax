@@ -14,6 +14,7 @@ import { page, userEvent } from "vitest/browser";
 import { Button } from "@/button";
 import { type Component } from "@/component";
 import { Dialog } from "@/dialog";
+import { Haul } from "@/haul";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
@@ -315,6 +316,10 @@ interface ChipsOptions {
   icon?: Icon.ReactElement;
   // The size of the trigger's own buttons.
   size?: Component.Size;
+  preview?: boolean;
+  haulType?: string;
+  // A drag that runs while the trigger shows.
+  dragging?: Haul.DraggingState;
 }
 
 interface ChipsProps extends ChipsOptions {
@@ -332,6 +337,9 @@ const Chips = ({
   sinks = false,
   icon,
   size,
+  preview,
+  haulType,
+  dragging,
 }: ChipsProps): ReactElement => {
   const [value, setValue] = useState(initial);
   const frame = (
@@ -342,6 +350,8 @@ const Chips = ({
           variant={variant}
           icon={icon}
           size={size}
+          preview={preview}
+          haulType={haulType}
           aria-label="Labels"
         />
         <Select.Dialog>
@@ -355,9 +365,11 @@ const Chips = ({
     </Dialog.Frame>
   );
   return (
-    <div style={{ width: `${width}px`, marginLeft: "180px" }}>
-      {stepped ? <Tag.StepProvider>{frame}</Tag.StepProvider> : frame}
-    </div>
+    <Haul.Provider value={dragging}>
+      <div style={{ width: `${width}px`, marginLeft: "180px" }}>
+        {stepped ? <Tag.StepProvider>{frame}</Tag.StepProvider> : frame}
+      </div>
+    </Haul.Provider>
   );
 };
 
@@ -793,14 +805,37 @@ describe("Select", () => {
 
     it("should take no clicks in the room around its tags", async () => {
       for (const variant of ["shadow", "text"] as const) {
-        const trigger = await renderChips(variant, 800);
+        const trigger = await renderChips(variant, 200, { initial: ["Pass"] });
         const room = trigger.getBoundingClientRect();
         const hit = document.elementFromPoint(
           room.right - 5,
           room.top + room.height / 2,
         );
+        expect(hit).not.toBeNull();
         expect(trigger.contains(hit)).toBe(false);
       }
+    });
+
+    it("should take a drop anywhere on it while a drag it can take runs", async () => {
+      const trigger = await renderChips("shadow", 200, {
+        initial: ["Pass"],
+        haulType: "label",
+        dragging: {
+          source: { key: "list", type: "label" },
+          items: [{ key: "New", type: "label" }],
+        },
+      });
+      const room = trigger.getBoundingClientRect();
+      const hit = document.elementFromPoint(room.right - 5, room.top + room.height / 2);
+      expect(hit).toBe(trigger);
+    });
+
+    it("should open from no tag of a preview", async () => {
+      const trigger = await renderChips("text", 200, { preview: true });
+      // A preview reads as disabled, which a user can still click.
+      chip(trigger, "Pass").click();
+      await new Promise(requestAnimationFrame);
+      expect(document.querySelector(".lyra-dialog__dialog")).toBeNull();
     });
 
     describe("dialog opened at a tag", () => {

@@ -963,5 +963,17 @@ describe("range/explorer/Explorer", () => {
       expect(screen.getByText("Tree")).toBeTruthy();
       expect(screen.queryByText("List")).toBeNull();
     });
+
+    it("should give a reader's labels the room of the labels column", async () => {
+      const { labeled } = await createLabeled(uniqueToken());
+      await renderExplorer(await createReader());
+      const item = (await screen.findByText(labeled.name)).closest(
+        ".console-range-item",
+      );
+      expect(item).not.toBeNull();
+      expect(
+        item?.querySelector(".console-range-item__labels > .console-range-item__tags"),
+      ).not.toBeNull();
+    });
   });
 });

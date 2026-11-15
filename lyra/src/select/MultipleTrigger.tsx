@@ -28,6 +28,7 @@ import { Input } from "@/input";
 import { List } from "@/list";
 import { useContext, useItemState, useSelected } from "@/select/Context";
 import { Label } from "@/select/Label";
+import { plural } from "@/select/placeholder";
 import { useIsFixed } from "@/select/registry";
 import { preventEnterWhileOpen } from "@/select/use";
 import { Tag } from "@/tag";
@@ -93,6 +94,8 @@ export interface MultipleTriggerProps<
   icon?: Icon.ReactElement;
   /** Names the trigger. The tags alone never say what they are. */
   "aria-label"?: string;
+  /** Singular name of what the tags are, such as "label", for a count of them. */
+  resourceName?: string;
   /** Whether to show only a count instead of one tag per entry. */
   hideTags?: boolean;
   children?: RenderProp<MultipleTagProps<K>>;
@@ -134,6 +137,7 @@ export const MultipleTrigger = <
   preview,
   icon,
   "aria-label": ariaLabel,
+  resourceName,
   hideTags = false,
   children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
   renderIcon,
@@ -177,7 +181,7 @@ export const MultipleTrigger = <
     preventEnterWhileOpen(e, visible);
   // A shadow or text trigger reads as its tags, and each part opens it beside itself.
   const openAt =
-    variant === "shadow" || variant === "text"
+    preview !== true && (variant === "shadow" || variant === "text")
       ? (e: MouseEvent<HTMLElement>): void => toggleAt(e.currentTarget)
       : undefined;
 
@@ -211,6 +215,11 @@ export const MultipleTrigger = <
       aria-label={ariaLabel}
       onClick={toggle}
       onCountClick={openAt}
+      noun={
+        resourceName == null
+          ? undefined
+          : { one: resourceName, other: plural(resourceName) }
+      }
       onKeyDown={handleKeyDown}
       {...dropProps}
       className={CSS.cls(

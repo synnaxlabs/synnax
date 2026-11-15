@@ -166,14 +166,18 @@ const RIGHT_EDGE: position.LocationPreference = {
   dialogCorner: { x: "right" },
 };
 
+const LABELS: Tag.TagsProps["noun"] = { one: "label", other: "labels" };
+
 /** The labels of a range. Clicking them opens the label picker. */
 const Labels = ({ range, preview }: RangeProps): ReactElement | null => {
   const { update } = PLabel.useEditFor();
   if (preview)
     return range.labels.length === 0 ? null : (
-      <Tag.Tags variant="text" justify="end" className={CSS.BE("range-item", "labels")}>
-        <PLabel.Tags keys={range.labels} size="tiny" />
-      </Tag.Tags>
+      <span className={CSS.BE("range-item", "labels")}>
+        <Tag.Tags variant="text" noun={LABELS} className={CSS.BE("range-item", "tags")}>
+          <PLabel.Tags keys={range.labels} size="tiny" />
+        </Tag.Tags>
+      </span>
     );
   const handleChange = (next: label.Key[]): void =>
     update({
@@ -182,7 +186,12 @@ const Labels = ({ range, preview }: RangeProps): ReactElement | null => {
       removed: range.labels.filter((key) => !next.includes(key)),
     });
   return (
-    <Field className={CSS.BE("range-item", "labels")}>
+    <Field
+      className={CSS.cls(
+        CSS.BE("range-item", "labels"),
+        CSS.BEM("range-item", "labels", "editable"),
+      )}
+    >
       <Label.SelectMultiple
         zIndex={100}
         location={RIGHT_EDGE}

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { Fragment, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 
@@ -16,6 +16,7 @@ import { renderThemed } from "@/styletest";
 import { Tag } from "@/tag";
 
 const LABELS = ["Hotfire", "Stand 2", "Pass", "Calibration", "Cold flow", "Anomaly"];
+const NOUN: Tag.TagsProps["noun"] = { one: "label", other: "labels" };
 
 const renderTags = async (): Promise<HTMLElement> => {
   const { container } = await renderThemed(
@@ -236,9 +237,9 @@ describe("Tags", () => {
   });
 });
 
-const renderGroup = (labels: string[]): ReactElement => (
+const renderGroup = (labels: string[], noun?: Tag.TagsProps["noun"]): ReactElement => (
   <div data-testid="group" style={{ display: "flex", width: "100%" }}>
-    <Tag.Tags>
+    <Tag.Tags noun={noun}>
       {labels.map((label) => (
         <Tag.Tag key={label} color="#3774d0">
           {label}
@@ -253,8 +254,8 @@ const renderStepped = async (width: number): Promise<HTMLElement[]> => {
   const { container } = await renderThemed(
     <div data-testid="list" style={{ width: `${width}px` }}>
       <Tag.StepProvider>
-        {renderGroup(LABELS)}
-        {renderGroup(LABELS.slice(0, 3))}
+        {renderGroup(LABELS, NOUN)}
+        {renderGroup(LABELS.slice(0, 3), NOUN)}
       </Tag.StepProvider>
     </div>,
   );
@@ -329,6 +330,58 @@ describe("Stepped tags", () => {
     );
     expect(named(all)).toEqual([]);
     expect(dots(all)).toEqual(LABELS.slice(0, 3));
+  });
+
+  it("should count with +N when it is not told what its tags are", async () => {
+    const { container } = await renderThemed(
+      <div style={{ width: "150px" }}>
+        <Tag.StepProvider>{renderGroup(LABELS)}</Tag.StepProvider>
+      </div>,
+    );
+    const all = container.querySelector<HTMLElement>("[data-testid=group]")!;
+    await expect.poll(() => count(all)).toBe(`+${LABELS.length}`);
+    expect(dots(all)).toEqual(LABELS.slice(0, 3));
+  });
+
+  it("should fit the other groups again when a group goes", async () => {
+    const list = (groups: string[][]): ReactElement => (
+      <div style={{ width: "150px" }}>
+        <Tag.StepProvider>
+          {groups.map((labels) => (
+            <Fragment key={labels.length}>{renderGroup(labels)}</Fragment>
+          ))}
+        </Tag.StepProvider>
+      </div>
+    );
+    const { container, rerender } = await renderThemed(list([LABELS, ["Pass"]]));
+    const last = (): HTMLElement =>
+      Array.from(container.querySelectorAll<HTMLElement>("[data-testid=group]")).at(
+        -1,
+      )!;
+    await expect.poll(() => count(last())).not.toBeNull();
+    await rerender(list([["Pass"]]));
+    await expect.poll(() => named(last())).toEqual(["Pass"]);
+    expect(count(last())).toBeNull();
+  });
+
+  it("should keep a hovered tag lifted as text beside its group changes", async () => {
+    const { container } = await renderThemed(
+      <div style={{ width: "330px" }}>
+        <Tag.StepProvider>
+          {renderGroup(LABELS)}
+          <span data-testid="clock">0</span>
+        </Tag.StepProvider>
+      </div>,
+    );
+    const all = container.querySelector<HTMLElement>("[data-testid=group]")!;
+    await expect.poll(() => stacked(all)).toBe(true);
+    const [first] = visible(all);
+    await userEvent.hover(first);
+    await expect.poll(() => first.hasAttribute("data-lifted")).toBe(true);
+    container.querySelector("[data-testid=clock]")!.firstChild!.nodeValue = "1";
+    await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);
+    expect(first.hasAttribute("data-lifted")).toBe(true);
   });
 
   it("should show the first tags as dots and a count when the total does not fit", async () => {

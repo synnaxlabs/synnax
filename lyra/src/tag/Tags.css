@@ -45,6 +45,11 @@
 
     pointer-events: none;
 
+    /* A drag it can take drops anywhere on the group. */
+    &.lyra-haul-drop-region {
+        pointer-events: auto;
+    }
+
     & > :is(.lyra-btn:not([data-dot]), .lyra-tags__more) {
         pointer-events: auto;
     }
@@ -154,13 +159,13 @@
             color: var(--pluto-gray-l9);
         }
 
-        /* With no tags beside it, the count names the total. */
-        &[data-alone]::after {
-            content: attr(data-count) " labels";
+        /* With no tags beside it, a count told what its tags are names the total. */
+        &[data-alone][data-other]::after {
+            content: attr(data-count) " " attr(data-other);
         }
 
-        &[data-alone][data-count="1"]::after {
-            content: "1 label";
+        &[data-alone][data-one][data-count="1"]::after {
+            content: "1 " attr(data-one);
         }
     }
 

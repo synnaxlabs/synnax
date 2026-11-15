@@ -236,8 +236,11 @@ export class Steps {
     });
     if (changed.length > 0) this.flush(true);
   });
-  // Groups mount and their tags load as the list scrolls.
-  private readonly mutations = new MutationObserver(() => this.request());
+  // Tags load as the list scrolls. A change outside every group, such as a clock that
+  // ticks beside one, leaves the step as it was.
+  private readonly mutations = new MutationObserver((records) => {
+    if (records.some((r) => this.holds(r.target))) this.request();
+  });
   private readonly onFonts = (): void => {
     this.fits.clear();
     this.template = null;
@@ -270,6 +273,13 @@ export class Steps {
   private drop(): void {
     this.lifted?.removeAttribute(LIFTED);
     this.lifted = null;
+  }
+
+  // Whether a node is in one of the groups.
+  private holds(node: Node): boolean {
+    for (let n: Node | null = node; n != null; n = n.parentNode)
+      if (this.groups.has(n as HTMLElement)) return true;
+    return false;
   }
 
   /** Watches root, which holds the groups or is the one group, for changes to tags. */
@@ -332,11 +342,13 @@ export class Steps {
     this.flush();
   }
 
+  /** Stops fitting a group. The rest fit again, as it may have set their step. */
   remove(el: HTMLElement): void {
     this.groups.delete(el);
     this.fits.delete(el);
     this.widths.delete(el);
     this.resize.unobserve(el);
+    this.request();
   }
 
   private request(): void {
