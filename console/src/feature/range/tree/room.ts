@@ -20,6 +20,20 @@ const width = (el: Element | null): number =>
 const part = (item: Element, name: string): Element | null =>
   item.querySelector(`:scope > .${CSS.BE("range-item", name)}`);
 
+const ITEM = `.${CSS.B("range-item")}`;
+const NAME = `.${CSS.BE("range-item", "name")}`;
+
+const holdsItem = (node: Node): boolean =>
+  node instanceof Element && (node.matches(ITEM) || node.querySelector(ITEM) != null);
+
+// Whether a change adds or removes items, or changes a name or a parent's path. Other
+// text, such as the duration of a running range, leaves the room as it was.
+const changesRoom = (r: MutationRecord): boolean => {
+  const el = r.target instanceof Element ? r.target : r.target.parentElement;
+  if (el?.closest(NAME) != null) return true;
+  return [...r.addedNodes, ...r.removedNodes].some(holdsItem);
+};
+
 // The width a name cell's content takes in full: the name, and its parent's path where
 // the item shows one.
 const content = (cell: Element | null): number => {
@@ -38,7 +52,7 @@ const content = (cell: Element | null): number => {
  */
 const fit = (list: HTMLElement | null): void => {
   if (list == null) return;
-  const items = Array.from(list.querySelectorAll(`.${CSS.B("range-item")}`));
+  const items = Array.from(list.querySelectorAll(ITEM));
   if (items.length === 0) return;
   const [first] = items;
   const cs = getComputedStyle(first);
@@ -82,14 +96,15 @@ export const useLabelsRoom = (): RefCallback<HTMLElement> => {
     resize.observe(list);
     const observed = new WeakSet<Element>();
     const observe = (): void =>
-      list.querySelectorAll(`.${CSS.B("range-item")}`).forEach((item) => {
+      list.querySelectorAll(ITEM).forEach((item) => {
         if (observed.has(item)) return;
         observed.add(item);
         resize.observe(item);
       });
     // A name or a parent's path that loads or changes leaves the items' widths as they
     // were, so only the content tells.
-    const mutations = new MutationObserver(() => {
+    const mutations = new MutationObserver((records) => {
+      if (!records.some(changesRoom)) return;
       observe();
       fit(list);
     });
