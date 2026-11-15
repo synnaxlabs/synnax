@@ -25,7 +25,9 @@ import (
 
 // Binding names a field of a message and the data type of the channel it feeds.
 type Binding struct {
-	Field    icd.FieldKey
+	// Field is the key of the message field to read.
+	Field icd.FieldKey
+	// DataType is the data type of the channel that the field writes to.
 	DataType telem.DataType
 }
 
@@ -34,8 +36,8 @@ type Binding struct {
 type JSON struct {
 	fields    []jsonField
 	extractor *xjson.Extractor
-	// values holds the match value, when there is a match rule, then one value for
-	// each field.
+	// values holds the match value, when there is a match rule, then one value for each
+	// field.
 	values []jsontext.Value
 	match  *jsonMatch
 	// lengths holds the length of each sample slice before a Decode, to undo it.
@@ -63,8 +65,8 @@ type jsonField struct {
 	scratch []byte
 	// sample converts a JSON value to a sample of the channel's data type.
 	sample *xjson.Decoder
-	// fallback is the sample used when a document has no value, or nil when the
-	// field requires one.
+	// fallback is the sample used when a document has no value, or nil when the field
+	// requires one.
 	fallback []byte
 }
 
@@ -159,7 +161,7 @@ func toFloat(v any) (float64, bool) {
 }
 
 // converts reports whether a field of kind k converts to samples of dt. A number or
-// boolean also converts to a float, and a boolean to any integer.
+// boolean also converts to a float, and an unsigned number or boolean to any integer.
 func converts(k payload.Kind, dt telem.DataType) bool {
 	dk, ok := payload.KindOf(dt)
 	if !ok {
@@ -328,8 +330,8 @@ func (f *jsonField) decode(dst []byte, raw jsontext.Value) ([]byte, error) {
 	return f.sample.Append(dst, f.scratch)
 }
 
-// checkKind rejects a JSON number that the field's kind cannot hold, such as 1.5 for
-// an integer field that writes to a float channel.
+// checkKind rejects a JSON number that the field's kind cannot hold, such as 1.5 for an
+// integer field that writes to a float channel.
 func (f *jsonField) checkKind(raw jsontext.Value) error {
 	if raw.Kind() != '0' {
 		return nil
@@ -356,10 +358,10 @@ func (f *jsonField) checkKind(raw jsontext.Value) error {
 	return nil
 }
 
-// Decode appends one sample for each binding to samples, which holds one slice for
-// each binding, in binding order. It returns
-// false, appending nothing, when doc does not match the message. It returns an error,
-// appending nothing, when doc is not JSON or a field's value does not convert.
+// Decode appends one sample for each binding to samples, which holds one slice for each
+// binding, in binding order. It returns false, appending nothing, when doc does not
+// match the message. It returns an error, appending nothing, when doc is not JSON or a
+// field's value does not convert.
 func (j *JSON) Decode(doc []byte, samples [][]byte) (bool, error) {
 	if err := j.extractor.Extract(doc, j.values); err != nil {
 		return false, errors.Wrap(validate.ErrValidation, err.Error())
