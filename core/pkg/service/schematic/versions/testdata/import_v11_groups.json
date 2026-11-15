@@ -1,0 +1,18 @@
+{
+  "version": 11,
+  "type": "schematic",
+  "key": "11111111-2222-3333-4444-555555555555",
+  "name": "Server v11 groups",
+  "snapshot": false,
+  "nodes": [
+    { "key": "g1", "position": { "x": 0, "y": 0 }, "z_index": -1 },
+    { "key": "g2", "position": { "x": 0, "y": 0 }, "z_index": -1 },
+    { "key": "n1", "position": { "x": 1, "y": 2 }, "z_index": 0 }
+  ],
+  "edges": [],
+  "configs": {
+    "g1": { "variant": "group_box", "members": ["g2", "n1", "ghost"] },
+    "g2": { "variant": "group_box", "members": ["g1", "n1"] },
+    "n1": { "variant": "valve" }
+  }
+}

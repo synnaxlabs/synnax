@@ -15,6 +15,7 @@ import { type ReactElement } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { type Config } from "@/schematic/node/groupBox/config";
+import { MembersProvider } from "@/schematic/node/groupBox/context";
 import { Symbol } from "@/schematic/node/groupBox/Symbol";
 import { type NodeProps } from "@/schematic/node/spec";
 
@@ -29,24 +30,26 @@ const initialNodes: Node[] = [
   },
 ];
 
+const MEMBERS = new Map([["g1", ["m1", "m2"]]]);
+
 const renderSymbol = (
   props: Partial<NodeProps<Config>> = {},
+  members: ReadonlyMap<string, string[]> = MEMBERS,
 ): ReturnType<typeof render> =>
   render(
     <ReactFlowProvider initialNodes={initialNodes}>
       <Haul.Provider>
-        <div data-id="g1">
-          <Symbol
-            nodeKey="g1"
-            selected={false}
-            onConfigChange={vi.fn()}
-            config={{
-              ...schematic.groupBoxNodeConfigZ.parse({ variant: "group_box" }),
-              members: ["m1", "m2"],
-            }}
-            {...props}
-          />
-        </div>
+        <MembersProvider value={members}>
+          <div data-id="g1">
+            <Symbol
+              nodeKey="g1"
+              selected={false}
+              onConfigChange={vi.fn()}
+              config={schematic.groupBoxNodeConfigZ.parse({ variant: "group_box" })}
+              {...props}
+            />
+          </div>
+        </MembersProvider>
       </Haul.Provider>
     </ReactFlowProvider>,
   );
@@ -73,9 +76,7 @@ describe("GroupBox.Symbol", () => {
   });
 
   it("should fall back to the padding rectangle without members", () => {
-    const { container } = renderSymbol({
-      config: schematic.groupBoxNodeConfigZ.parse({ variant: "group_box" }),
-    });
+    const { container } = renderSymbol({}, new Map());
     expect(box(container).style.width).toBe("40px");
     expect(box(container).style.height).toBe("60px");
   });
@@ -96,17 +97,16 @@ describe("GroupBox.Symbol", () => {
     const { container, getByText } = render(
       <ReactFlowProvider initialNodes={initialNodes}>
         <Haul.Provider>
-          <div data-id="g1">
-            <Symbol
-              nodeKey="g1"
-              selected={false}
-              onConfigChange={vi.fn()}
-              config={{
-                ...schematic.groupBoxNodeConfigZ.parse({ variant: "group_box" }),
-                members: ["m1", "m2"],
-              }}
-            />
-          </div>
+          <MembersProvider value={MEMBERS}>
+            <div data-id="g1">
+              <Symbol
+                nodeKey="g1"
+                selected={false}
+                onConfigChange={vi.fn()}
+                config={schematic.groupBoxNodeConfigZ.parse({ variant: "group_box" })}
+              />
+            </div>
+          </MembersProvider>
           <Resize label="grow" nodes={resized({ width: 80, height: 90 })} />
           <Resize label="shrink" nodes={resized({ width: 10, height: 10 })} />
         </Haul.Provider>
