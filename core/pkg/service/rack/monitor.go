@@ -55,7 +55,9 @@ type monitor struct {
 	disconnectStatusObserver observe.Disconnect
 	alamos.Instrumentation
 	mu struct {
-		racks       map[Key]rackState
+		racks map[Key]rackState
+		// taskTimes holds the time on the last status seen for each task.
+		taskTimes   map[status.Key]telem.TimeStamp
 		handlers    map[int]SuspectHandler
 		nextHandler int
 		sync.Mutex
@@ -196,7 +198,7 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 func (m *monitor) copyOutages(ctx context.Context) {
 	type copyJob struct {
 		rack     Key
-		outage   Status
+		outage   *Status
 		handlers map[int]SuspectHandler
 	}
 	m.mu.Lock()
@@ -207,7 +209,7 @@ func (m *monitor) copyOutages(ctx context.Context) {
 		}
 		job := copyJob{
 			rack:     k,
-			outage:   *state.outage,
+			outage:   state.outage,
 			handlers: make(map[int]SuspectHandler),
 		}
 		for h := range state.pending {
@@ -223,7 +225,7 @@ func (m *monitor) copyOutages(ctx context.Context) {
 	for _, job := range jobs {
 		var copied []int
 		for h, handler := range job.handlers {
-			if err := handler(ctx, job.outage); err != nil {
+			if err := handler(ctx, *job.outage); err != nil {
 				m.L.Error(
 					"failed to copy rack outage",
 					zap.String("rack", job.outage.Name),
@@ -234,7 +236,10 @@ func (m *monitor) copyOutages(ctx context.Context) {
 			copied = append(copied, h)
 		}
 		m.mu.Lock()
-		m.mu.racks[job.rack].pending.Remove(copied...)
+		// A report during the copy ends the outage. A later outage has its own copies.
+		if state := m.mu.racks[job.rack]; state.outage == job.outage {
+			state.pending.Remove(copied...)
+		}
 		m.mu.Unlock()
 	}
 }
@@ -253,15 +258,19 @@ func (m *monitor) handleChange(
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for ch := range t {
+		if ch.Kind == gorp.ChangeDelete {
+			delete(m.mu.taskTimes, ch.Key)
+			continue
+		}
 		owner := ch.Value.Owner
-		if ch.Kind == gorp.ChangeDelete || owner == nil {
+		if owner == nil {
 			continue
 		}
 		switch owner.Type {
 		case resource.TypeRack:
 			m.handleRackStatus(*owner, ch.Value)
 		case resource.TypeTask:
-			m.handleTaskStatus(ch.Value)
+			m.handleTaskStatus(ch.Key, ch.Value)
 		}
 	}
 }
@@ -281,24 +290,32 @@ func (m *monitor) handleRackStatus(owner resource.ID, stat status.Status[any]) {
 	m.mu.racks[key] = state
 }
 
-// handleTaskStatus counts a running task status as a report from the rack that runs
-// the task. A Driver that reconnects reports its tasks before its first heartbeat, and
-// an outage written in that gap would overwrite the newer task statuses.
-func (m *monitor) handleTaskStatus(stat status.Status[any]) {
+// handleTaskStatus counts a new running task status as a report from the rack that
+// runs the task, so it ends an outage of the rack. A Driver that reconnects reports its
+// tasks before its first heartbeat. A write that keeps the time of the last status
+// seen, such as a rename, is not a report.
+func (m *monitor) handleTaskStatus(key status.Key, stat status.Status[any]) {
+	prev, seen := m.mu.taskTimes[key]
+	m.mu.taskTimes[key] = stat.Time
+	if seen && prev == stat.Time {
+		return
+	}
 	fields, _ := stat.Details.(map[string]any)
 	if running, _ := fields["running"].(bool); !running {
 		return
 	}
-	key, ok := rackKeyField(fields["rack"])
+	rackKey, ok := rackKeyField(fields["rack"])
 	if !ok {
 		return
 	}
-	state, known := m.mu.racks[key]
-	if !known || state.outage != nil {
+	state, known := m.mu.racks[rackKey]
+	if !known {
 		return
 	}
-	state.lastUpdated = m.svc.Now()
-	m.mu.racks[key] = state
+	m.mu.racks[rackKey] = rackState{
+		lastUpdated: m.svc.Now(),
+		statusTime:  state.statusTime,
+	}
 }
 
 // rackKeyField returns the rack key that a decoded status details field holds. The
@@ -339,6 +356,7 @@ func openMonitor(
 	}
 	now := svc.Now()
 	s.mu.racks = make(map[Key]rackState, len(racks))
+	s.mu.taskTimes = make(map[status.Key]telem.TimeStamp)
 	s.mu.handlers = make(map[int]SuspectHandler)
 	for _, r := range racks {
 		s.mu.racks[r.Key] = rackState{lastUpdated: now}
