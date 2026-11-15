@@ -177,3 +177,24 @@ jobs:
             args+=(--recipient "$RUNNER_TEMP/recipient.asc")
           fi
           "$RUNNER_TEMP/agent/run" "${args[@]}"
+
+      # The runners of a seat share its login, so at a usage limit every job on the
+      # seat fails. The seat tags the time the limit resets, which keeps the fleet
+      # controller from starting it, then stops. The delay lets this job report first.
+      - name: Leave the pool until the usage limit resets
+        if: failure() && steps.agent.outputs.limited-until != ''
+        env:
+          UNTIL: ${{ steps.agent.outputs.limited-until }}
+        run: |
+          imds=http://169.254.169.254/latest
+          token=$(curl -fsS -X PUT "$imds/api/token" \
+            -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
+          meta() {
+            curl -fsS -H "X-aws-ec2-metadata-token: $token" "$imds/meta-data/$1"
+          }
+          uvx --from awscli==1.46.2 aws ec2 create-tags \
+            --region "$(meta placement/region)" --resources "$(meta instance-id)" \
+            --tags "Key=limited-until,Value=$UNTIL"
+          sudo systemd-run --on-active=30 systemctl poweroff
+          echo "::error::The seat is at its usage limit until" \
+            "$(date -u -d "@$UNTIL" '+%F %R UTC'), so it stops."
