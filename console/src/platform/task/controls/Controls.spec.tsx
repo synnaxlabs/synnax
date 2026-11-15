@@ -73,13 +73,16 @@ describe("Controls.Controls", () => {
     expect(onDeploy).not.toHaveBeenCalled();
   });
 
-  it("should keep stop enabled on a running task while it configures", async () => {
+  it("should keep only stop enabled on a running task while it configures", async () => {
     const onStop = vi.fn();
     const { container } = await renderInTaskFormWithClient(
       <Task.Controls.Controls configuring onDeploy={vi.fn()} onStop={onStop} />,
       { client, values: runningValues({ configHash: "stale" }) },
     );
     await screen.findByText("Configuring task");
+    const redeploy = screen.getByText("Redeploy").closest("button");
+    assert(redeploy != null);
+    expect(redeploy.getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(await findIconButton(container, "stop"));
     expect(onStop).toHaveBeenCalledTimes(1);
   });

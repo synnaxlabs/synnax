@@ -119,6 +119,9 @@ export const Controls = ({
         message: "Configuring task",
       })
     : taskStatus;
+  let startStopVariant = status.keepVariants(taskStatus?.variant, "loading");
+  // On a running task, a loading variant disables Redeploy and keeps Stop enabled.
+  if (configuring) startStopVariant = running ? "loading" : undefined;
 
   return (
     <Bar
@@ -126,11 +129,8 @@ export const Controls = ({
       running={running}
       drifted={drifted}
       hideActions={!canControl}
-      // Stop stays enabled on a running task while a redeploy configures.
       disabled={configuring && !running}
-      startStopVariant={
-        configuring ? undefined : status.keepVariants(taskStatus?.variant, "loading")
-      }
+      startStopVariant={startStopVariant}
       settings={<Settings />}
       onDeploy={handleDeploy}
       onStop={handleStop}
