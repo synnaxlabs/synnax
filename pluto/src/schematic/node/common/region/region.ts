@@ -8,19 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic, ValidationError } from "@synnaxlabs/client";
-import { color, id } from "@synnaxlabs/x";
+import { color, type dimensions, id } from "@synnaxlabs/x";
 import DOMPurify from "dompurify";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const LINK_ATTRIBUTES = new Set(["href", "xlink:href"]);
 
-/**
- * Parses svg into an inert element safe to mount in the document. It removes scripts,
- * event handlers, foreignObject, and links to anything outside the markup.
- * @returns the root svg element, or null when the markup is empty, malformed, or not
- * rooted in an svg element.
- */
-export const parseSVG = (svg: string): SVGSVGElement | null => {
+// parseRoot returns the unsanitized root of svg in a detached document, or null when
+// the markup is empty, malformed, or not rooted in an svg element.
+const parseRoot = (svg: string): SVGSVGElement | null => {
   if (svg.length === 0) return null;
   const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
   const root = doc.documentElement;
@@ -30,6 +26,36 @@ export const parseSVG = (svg: string): SVGSVGElement | null => {
     doc.querySelector("parsererror") != null
   )
     return null;
+  return root as unknown as SVGSVGElement;
+};
+
+/**
+ * @returns the size of the view box of svg, or null when the markup is empty,
+ * malformed, or not rooted in an svg element. It does not sanitize the markup, so it
+ * costs a small part of {@link parseSVG}.
+ */
+export const measure = (svg: string): dimensions.Dimensions | null => {
+  const root = parseRoot(svg);
+  if (root == null) return null;
+  const viewBox = root.getAttribute("viewBox");
+  if (viewBox) {
+    const [, , width, height] = viewBox.split(" ").map(Number);
+    return { width, height };
+  }
+  if (root.viewBox?.baseVal)
+    return { width: root.viewBox.baseVal.width, height: root.viewBox.baseVal.height };
+  return { width: 100, height: 100 };
+};
+
+/**
+ * Parses svg into an inert element safe to mount in the document. It removes scripts,
+ * event handlers, foreignObject, and links to anything outside the markup.
+ * @returns the root svg element, or null when the markup is empty, malformed, or not
+ * rooted in an svg element.
+ */
+export const parseSVG = (svg: string): SVGSVGElement | null => {
+  const root = parseRoot(svg);
+  if (root == null) return null;
   // A fresh instance keeps the hook off the shared default one.
   const purify = DOMPurify(window);
   purify.addHook("uponSanitizeAttribute", (_, attr) => {
@@ -44,7 +70,7 @@ export const parseSVG = (svg: string): SVGSVGElement | null => {
     // document, and the SVG profile allows none.
     SANITIZE_DOM: false,
   });
-  return root as unknown as SVGSVGElement;
+  return root;
 };
 
 /// VISUAL_ELEMENTS are the SVG tags that carry paint (fill/stroke) and therefore
