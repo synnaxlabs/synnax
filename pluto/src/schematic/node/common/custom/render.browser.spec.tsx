@@ -112,6 +112,109 @@ describe("Custom.useRender theme band", () => {
   });
 });
 
+const STALE = color.construct("#e5a50a");
+
+const COLORED_SPEC: schematic.symbol.Spec = {
+  ...SPEC,
+  svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect class="stroked" width="10" height="10" stroke="red"/><rect class="unstroked" width="5" height="5" stroke="none" fill="blue"/></svg>',
+  states: [
+    {
+      key: "base",
+      name: "Base",
+      regions: [
+        {
+          key: "stroked",
+          name: "Stroked",
+          selectors: [".stroked"],
+          strokeColor: STROKE,
+        },
+        {
+          key: "unstroked",
+          name: "Unstroked",
+          selectors: [".unstroked"],
+          strokeColor: color.TRANSPARENT,
+          fillColor: FILL,
+        },
+      ],
+    },
+  ],
+};
+
+interface ColoredProps {
+  strokeColor?: color.Crude;
+}
+
+const renderColored = async (strokeColor?: color.Crude) => {
+  const { result, rerender } = await renderHook(
+    (props?: ColoredProps) =>
+      Custom.useRender({
+        orientation: "left",
+        activeState: "base",
+        externalScale: 1,
+        spec: COLORED_SPEC,
+        strokeColor: props?.strokeColor,
+      }),
+    { initialProps: { strokeColor } },
+  );
+  const { container } = await render(
+    <Theming.Provider theme={Theming.SYNNAX_DARK}>
+      <Primitive.Div ref={result.current} />
+    </Theming.Provider>,
+  );
+  const query = (selector: string): Element => {
+    const el = container.querySelector(selector);
+    if (el == null) throw new Error(`${selector} not mounted`);
+    return el;
+  };
+  return {
+    svg: query("svg"),
+    stroked: query(".stroked"),
+    unstroked: query(".unstroked"),
+    rerender,
+  };
+};
+
+const renderColoredBuiltIn = async (strokeColor: color.Crude) => {
+  const { container } = await render(
+    <Theming.Provider theme={Theming.SYNNAX_DARK}>
+      <Primitive.SVG dimensions={{ width: 10, height: 10 }} strokeColor={strokeColor}>
+        <rect width="10" height="10" />
+      </Primitive.SVG>
+    </Theming.Provider>,
+  );
+  const svg = container.querySelector("svg");
+  const rect = container.querySelector("rect");
+  if (svg == null || rect == null) throw new Error("built-in symbol not mounted");
+  return { svg, rect };
+};
+
+describe("Custom.useRender symbol color", () => {
+  it("should paint the root svg the same as a built-in symbol", async () => {
+    const builtIn = await renderColoredBuiltIn(STALE);
+    const { svg } = await renderColored(STALE);
+    expect(computed(svg, "stroke")).toBe(computed(builtIn.svg, "stroke"));
+  });
+
+  it("should paint a stroked region the same as a built-in symbol", async () => {
+    const builtIn = await renderColoredBuiltIn(STALE);
+    const { stroked } = await renderColored(STALE);
+    expect(computed(stroked, "stroke")).toBe(computed(builtIn.rect, "stroke"));
+  });
+
+  it("should keep an unstroked region unstroked", async () => {
+    const plain = await renderColored();
+    const { unstroked } = await renderColored(STALE);
+    expect(computed(unstroked, "stroke")).toBe(computed(plain.unstroked, "stroke"));
+  });
+
+  it("should restore the region colors when the symbol color clears", async () => {
+    const builtIn = await renderColoredBuiltIn(STROKE);
+    const { stroked, rerender } = await renderColored(STALE);
+    await rerender({ strokeColor: undefined });
+    expect(computed(stroked, "stroke")).toBe(computed(builtIn.rect, "stroke"));
+  });
+});
+
 const BODY = '<rect width="40" height="20"/>';
 const MARKER = '<rect class="marker" width="10" height="10"/>';
 

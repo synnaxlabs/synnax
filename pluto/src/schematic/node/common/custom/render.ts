@@ -33,7 +33,7 @@ const iterElements = (
 
 // The theme band paints the stroke, as on built-in symbols. The fill stays as stored,
 // as on the tank and the cylinder.
-const setStroke = (el: SVGElement, strokeColor: color.Color | undefined) => {
+const setStroke = (el: SVGElement, strokeColor: color.Crude | undefined) => {
   const rgba = color.rgbaString(strokeColor);
   if (rgba == null) {
     el.classList.remove(CSS.symbolColored);
@@ -59,16 +59,29 @@ const clearState = (el: SVGElement) => {
   setFill(el, undefined);
 };
 
+// A symbol color, such as the stale color, replaces each region stroke the drawing
+// shows. A region with no stroke stays without one.
 const applyState = (
   svgElement: Element,
   state: schematic.symbol.State,
+  symbolColor: color.Crude | undefined,
   prevState?: schematic.symbol.State | null,
 ) => {
   if (prevState != null) iterElements(prevState, svgElement, clearState);
   iterElements(state, svgElement, (el, { strokeColor, fillColor }) => {
-    setStroke(el, strokeColor);
+    const shown = strokeColor != null && color.opacity(strokeColor) > 0;
+    setStroke(el, symbolColor != null && shown ? symbolColor : strokeColor);
     setFill(el, fillColor);
   });
+};
+
+// The root carries the band class as on built-in symbols, so rules that read the
+// display color, such as the toggle states, apply to the drawing.
+const applySymbolColor = (svgElement: SVGSVGElement, symbolColor?: color.Crude) => {
+  svgElement.classList.add(CSS.symbolColored);
+  const rgba = color.rgbaString(symbolColor);
+  if (rgba == null) svgElement.style.removeProperty(Primitive.SYMBOL_COLOR);
+  else svgElement.style.setProperty(Primitive.SYMBOL_COLOR, rgba);
 };
 
 export interface UseRenderParams {
@@ -78,6 +91,8 @@ export interface UseRenderParams {
   spec?: schematic.symbol.Spec;
   onMount?: (svgElement: SVGSVGElement) => void;
   stateOverrides?: schematic.symbol.State[];
+  /** The color of the whole symbol, such as the stale color. */
+  strokeColor?: color.Crude;
 }
 
 interface RenderState {
@@ -190,7 +205,7 @@ const runRender = (
   params: UseRenderParams,
   state: RenderState,
 ) => {
-  const { orientation, externalScale, spec, onMount } = params;
+  const { orientation, externalScale, spec, onMount, strokeColor } = params;
   if (spec == null) return;
   if (state.prevSvg !== spec.svg) {
     state.prevSvg = spec.svg;
@@ -205,9 +220,10 @@ const runRender = (
   }
   // Markup that failed to parse mounts nothing until it changes.
   if (state.svgElement == null) return;
+  applySymbolColor(state.svgElement, strokeColor);
   const currState = selectState(params);
   if (currState != null) {
-    applyState(state.svgElement, currState, state.prevState);
+    applyState(state.svgElement, currState, strokeColor, state.prevState);
     state.prevState = currState;
   }
   applyScale(state, orientation, spec.scale, externalScale);
@@ -223,11 +239,12 @@ const runRender = (
 /// simulated remount). The SVG updates when a param it draws changes identity, so copy
 /// the spec on change and never change it in place.
 export const useRender = (params: UseRenderParams): RefCallback<HTMLElement> => {
-  const { orientation, externalScale, spec } = params;
+  const { orientation, externalScale, spec, strokeColor } = params;
   const containerRef = useRef<HTMLElement | null>(null);
   const paramsRef = useSyncedRef(params);
   const stateRef = useInitializerRef<RenderState>(createRenderState);
   const currState = selectState(params);
+  const strokeRGBA = color.rgbaString(strokeColor);
 
   useLayoutEffect(() => {
     if (containerRef.current != null)
@@ -241,6 +258,7 @@ export const useRender = (params: UseRenderParams): RefCallback<HTMLElement> => 
     spec?.scale,
     spec?.strokeScaled,
     currState,
+    strokeRGBA,
   ]);
 
   return (el) => {

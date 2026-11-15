@@ -49,6 +49,18 @@ describe("Actuator", () => {
     expect(container.querySelector("svg rect")).toBeNull();
   });
 
+  it("should paint its stroke color on the drawing", async () => {
+    const symbol = await createSymbol(VALID_SVG);
+    const { container } = render(
+      <Actuator specKey={symbol.key} strokeColor={[255, 0, 0, 255]} />,
+      { wrapper },
+    );
+    await waitFor(() => {
+      const svg = container.querySelector("svg");
+      expect(svg?.style.getPropertyValue("--pluto-symbol-color")).toBe("255, 0, 0, 1");
+    });
+  });
+
   it("should mount the symbol once valid markup replaces it", async () => {
     const symbol = await createSymbol("<svg><rect></svg>");
     const { findByText, queryByText, container } = render(
