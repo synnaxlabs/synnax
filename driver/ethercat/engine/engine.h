@@ -201,11 +201,14 @@ private:
         /// Called only by the cycle thread.
         void push(const uint8_t *image, x::telem::TimeStamp time);
 
-        /// @brief marks each slave of the reader in out as lost, and records whether it
-        /// responds.
-        /// @returns true when the reader has a slave in out. Called only by the cycle
-        /// thread.
-        bool lose(const Outage &out);
+        /// @brief marks each slave of the reader in positions as lost, and records
+        /// whether it responds, by whether it is in silent.
+        /// @returns true when the reader has a slave in positions. Called only by the
+        /// cycle thread.
+        bool lose(
+            const std::vector<uint16_t> &positions,
+            const std::vector<uint16_t> &silent
+        );
     };
 
     /// @brief the entries of one writer and the value each takes when the writer
@@ -295,10 +298,15 @@ private:
         std::vector<uint16_t> positions;
         /// @brief the positions of the slaves that do not respond, in ascending order.
         std::vector<uint16_t> silent;
+        /// @brief the positions of the slaves that give no inputs, in ascending order:
+        /// lost, below SAFE-OP, or in SAFE-OP with a failed clock restore.
+        std::vector<uint16_t> inputless;
         /// @brief how far the slaves keep the working counter from a full cycle: the
-        /// whole share of a slave that is lost or below SAFE-OP, and the output part of
-        /// a slave in SAFE-OP.
+        /// whole share of an inputless slave, and the output part of any other.
         uint32_t shortfall = 0;
+        /// @brief the output parts alone. A slave that recovery brings to SAFE-OP gives
+        /// its inputs again before the supervisor sees its new state.
+        uint32_t least_shortfall = 0;
 
         bool operator==(const Outage &) const = default;
     };
@@ -323,14 +331,14 @@ private:
         const Settings &settings,
         const Start &start
     );
-    /// @brief returns the settings of each slave on the latest scan, keyed by position,
-    /// with the startup parameters of settings. A slave in left_out is disabled.
+    /// @brief returns the Configure settings of each slave on the latest scan, keyed by
+    /// position. A slave in left_out is disabled.
     /// @returns errors::SLAVE_CONFIG_ERROR when two saved slaves that find one slave on
     /// the scan have different settings, or errors::ACTIVATION_ERROR when the serial
     /// number of that slave is unread and one of the two has a serial number, since a
     /// new scan can tell them apart.
     [[nodiscard]] std::pair<std::map<uint16_t, slave::Config>, x::errors::Error>
-    plan_locked(const std::vector<SavedSlave> &saved, const Settings &settings) const;
+    plan_locked(const std::vector<SavedSlave> &saved) const;
     void stop_locked();
     /// @brief returns err, the error of the last pass of a failed start, as a sentence,
     /// then a sentence for each slave in left_out. The error ends with each distinct

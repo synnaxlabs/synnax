@@ -440,6 +440,50 @@ TEST_F(EngineLockTest, ShortFramesAfterTheStartDoNotMoveTheCycle) {
     EXPECT_LT(this->share_in_phase(), 0.8);
 }
 
+/// @brief it should lock the cycle to the distributed clock while a slave other than
+/// the reference clock is out of OP.
+TEST_F(EngineLockTest, LocksTheCycleWhileAnotherSlaveIsOut) {
+    this->master->add_slave(io_slave(1));
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    this->master->set_host_dc(1.005);
+    this->master->set_reference_clock(0);
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    this->master->set_shortfall(3);
+    this->master->record_dc(FRAMES);
+    EXPECT_GT(this->share_in_phase(), 0.8);
+}
+
+/// @brief it should not move the cycle while the reference clock is out of OP, as its
+/// DC time can be frozen or reset.
+TEST_F(EngineLockTest, ShortFramesWhileTheReferenceClockIsOutDoNotMoveTheCycle) {
+    this->master->add_slave(io_slave(1));
+    this->master->set_dc_sync({SYNC0_AT_10MS});
+    this->master->set_host_dc(1.005);
+    this->master->set_reference_clock(1);
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    this->master->set_shortfall(3);
+    this->master->record_dc(FRAMES);
+    EXPECT_LT(this->share_in_phase(), 0.8);
+}
+
 /// @brief it should return no samples and no error when the breaker stops.
 TEST_F(EngineTest, ReadReturnsNilWhenBreakerStopped) {
     const auto reader = ASSERT_NIL_P(this->engine->open_reader(
@@ -1665,8 +1709,8 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnStart) {
 }
 
 /// @brief it should write no settings to a slave that another program sets up on a
-/// running bus, and warn each reader of that slave of its skipped settings, with a
-/// reader setting that replaces a device setting counted once.
+/// running bus, and warn only the readers of that slave of its skipped settings, with
+/// a reader setting that replaces a device setting counted once.
 TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnARunningBus) {
     auto shared = io_slave(1);
     shared.settings = SHARED_SETTINGS;
@@ -1724,7 +1768,7 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnARunningBus) {
     const std::string one = "Slave 1 (Slave1) is set up for DewesoftX, so Synnax did "
                             "not apply its 1 startup setting. Remove it, or switch the "
                             "device to Synnax in Configure.";
-    EXPECT_EQ(first->unapplied(), one);
+    EXPECT_EQ(first->unapplied(), "");
     EXPECT_EQ(second->unapplied(), one);
     EXPECT_EQ(replacing->unapplied(), one);
     EXPECT_EQ(
@@ -2539,6 +2583,37 @@ TEST_F(EngineTest, StartStopsRetryingBeforeTheStartTimeout) {
     EXPECT_FALSE(this->engine->running());
 }
 
+/// @brief it should fail the start when a pass that leaves out a slave ends too late
+/// for one more try before the start timeout.
+TEST_F(EngineTest, StartLeavesOutNoSlaveAfterTheStartTimeout) {
+    const auto clock = x::loop::fake_clock();
+    this->master = std::make_shared<testutil::Master>(clock);
+    this->master->add_slave(io_slave(0));
+    this->master->add_slave(io_slave(1));
+    this->master->set_activate_duration(x::telem::SECOND * 25);
+    this->master->refuse(1, STALE_LAYOUT_REFUSAL);
+    auto cfg = quick_start_config();
+    cfg.host_clock = clock;
+    cfg.start_timeout = x::telem::MINUTE;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto res = this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    );
+    ASSERT_OCCURRED_AS(res.second, errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(
+        res.second.data,
+        "Failed to reach SAFE-OP: refused SAFE-OP: Invalid input configuration. The "
+        "Driver left out slave 1 because it refused SAFE-OP: Invalid input "
+        "configuration. If the mode of the device changed, restart its power."
+    );
+    // The pass that leaves out slave 1 ends at 50 s, so one more try would end at 75 s.
+    EXPECT_EQ(this->master->call_count("activate"), 2);
+    EXPECT_FALSE(this->engine->running());
+}
+
 /// @brief it should count the time that an open spends before the start, such as the
 /// read of the slave settings, against the start timeout.
 TEST_F(EngineTest, StartGetsTheRestOfTheStartTimeout) {
@@ -3103,6 +3178,79 @@ TEST_F(EngineTest, ShortCycleDropsOnlyTheSamplesOfALostSlave) {
     ASSERT_EVENTUALLY_EQ(this->read_times(*lost, 1).size(), 1);
 }
 
+/// @brief it should keep the samples of the other readers while a lost slave that
+/// recovery brought to SAFE-OP gives its inputs before the supervisor sees it there.
+TEST_F(EngineTest, ShortCycleOfARecoveredSlaveKeepsTheOtherReaders) {
+    this->master->add_slave(io_slave(1));
+    const auto kept = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->set_slave_lost(1, true);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 && this->engine->health()[1].lost
+    );
+    this->master->set_shortfall(2);
+    const auto short_since = x::telem::TimeStamp::now();
+    ASSERT_EVENTUALLY_TRUE(
+        x::telem::TimeStamp(this->read_times(*kept, 1).at<int64_t>(0)) > short_since
+    );
+    EXPECT_EQ(kept->warning(), "");
+}
+
+/// @brief it should publish the state of a slave that left OP before the slave
+/// recovers, so the other readers keep their samples while it recovers.
+TEST_F(EngineTest, OtherReadersKeepTheirSamplesWhileASlaveRecovers) {
+    this->master->add_slave(io_slave(1));
+    const auto kept = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->hold_recover();
+    x::defer::defer release([this] { this->master->release_recover(); });
+    this->master->set_slave_state(1, slave::State::INIT);
+    this->master->wait_until_recovering();
+    this->master->set_shortfall(3);
+    const auto short_since = x::telem::TimeStamp::now();
+    ASSERT_EVENTUALLY_TRUE(
+        x::telem::TimeStamp(this->read_times(*kept, 1).at<int64_t>(0)) > short_since
+    );
+    EXPECT_EQ(kept->warning(), "");
+}
+
+/// @brief it should keep the reason of a failed cycle through later short cycles within
+/// the outage, since those drop no sample of the slaves in OP.
+TEST_F(EngineTest, FailedCycleWarningKeepsItsReasonThroughAnOutage) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto receives = this->master->call_count("receive");
+    this->master->inject_receive_error(
+        x::errors::Error(errors::CYCLIC_ERROR, "process data receive failed")
+    );
+    ASSERT_EVENTUALLY_GE(this->master->call_count("receive"), receives + 3);
+    this->master->clear_injected_errors();
+    this->master->set_slave_state(1, slave::State::INIT);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 &&
+        this->engine->health()[1].state == slave::State::INIT
+    );
+    this->master->set_shortfall(3);
+    const auto short_since = x::telem::TimeStamp::now();
+    ASSERT_EVENTUALLY_TRUE(
+        x::telem::TimeStamp(this->read_times(*reader, 1).at<int64_t>(0)) > short_since
+    );
+    EXPECT_EQ(reader->warning(), "Bus cycles failed: process data receive failed.");
+}
+
 /// @brief it should tell a writer once when its slave leaves OP and once when it
 /// returns, and end the return warning at the next transaction.
 TEST_F(EngineTest, WriterWarnsWhileItsSlaveIsOutOfOP) {
@@ -3203,6 +3351,93 @@ TEST_F(EngineTest, ShortCycleNamesAResponsiveSlaveOutOfOP) {
         this->engine->health()[1].state == slave::State::SAFE_OP
     );
     this->master->set_shortfall(2);
+    ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
+    EXPECT_EQ(reader->warning(), "Slave 1 (Slave1) is not in OP.");
+}
+
+/// @brief it should drop the samples of a slave out of OP on a full cycle, since a
+/// slave below SAFE-OP can keep its share of the working counter.
+TEST_F(EngineTest, FullCycleDropsTheSamplesOfASlaveOutOfOP) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto kept = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::INIT);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 &&
+        this->engine->health()[1].state == slave::State::INIT
+    );
+    ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
+    EXPECT_EQ(reader->warning(), "Slave 1 (Slave1) is not in OP.");
+    EXPECT_EQ(this->read_times(*kept, 1).size(), 1);
+    EXPECT_EQ(kept->warning(), "");
+}
+
+/// @brief it should keep the samples of a slave in SAFE-OP on a full cycle, since a
+/// slave in SAFE-OP updates its inputs.
+TEST_F(EngineTest, FullCycleKeepsTheSamplesOfASlaveInSafeOp) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::SAFE_OP);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 &&
+        this->engine->health()[1].state == slave::State::SAFE_OP
+    );
+    const auto since = x::telem::TimeStamp::now();
+    ASSERT_EVENTUALLY_TRUE([&] {
+        const auto times = this->read_times(*reader, 1);
+        return times.size() == 1 && x::telem::TimeStamp(times.at<int64_t>(0)) > since;
+    }());
+    EXPECT_EQ(reader->warning(), "");
+}
+
+/// @brief it should keep the samples of the other readers while recovery takes a slave
+/// in SAFE-OP whose clock restore failed back to PRE-OP, and drop the samples of that
+/// slave.
+TEST_F(EngineTest, OtherReadersKeepTheirSamplesWhileAFailedClockRestoreRetries) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto kept = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::SAFE_OP);
+    this->master->fail_dc_restore(1, "clock did not settle");
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 &&
+        !this->engine->health()[1].dc_restore_error.empty()
+    );
+    this->master->set_shortfall(3);
+    const auto short_since = x::telem::TimeStamp::now();
+    ASSERT_EVENTUALLY_TRUE(
+        x::telem::TimeStamp(this->read_times(*kept, 1).at<int64_t>(0)) > short_since
+    );
+    EXPECT_EQ(kept->warning(), "");
+    this->master->set_shortfall(std::nullopt);
     ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
     EXPECT_EQ(reader->warning(), "Slave 1 (Slave1) is not in OP.");
 }

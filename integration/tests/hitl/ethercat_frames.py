@@ -19,8 +19,8 @@ from tests.hitl.ethercat import START_TIMEOUT, STGS, create_read_task, prepare_b
 
 USB_WARNING = re.compile(
     r"Bus cycles failed: process data receive failed\. .+ is a USB adapter, which can "
-    r"hold frames back\. Use a PCIe or onboard Ethernet adapter, or a lower sample "
-    r"rate\."
+    r"hold frames back\. Use a PCIe or onboard Ethernet adapter, or lower the rate of "
+    r"the fastest task on the network\."
 )
 """The adapter name comes from the station. The Driver joins other held reasons into the
 same description."""

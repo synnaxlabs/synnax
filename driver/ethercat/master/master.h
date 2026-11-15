@@ -77,6 +77,9 @@ struct Image {
     /// @brief the DC registers of each enabled slave whose SYNC0 events the master
     /// starts.
     std::vector<dc::Registers> dc_sync;
+    /// @brief the position of the slave whose clock dc_time() reads, or nullopt when
+    /// dc_time() reads none.
+    std::optional<uint16_t> reference_clock;
     /// @brief the slaves with the layouts that their startup parameters set.
     std::vector<slave::DiscoveryResult> slaves;
     /// @brief what each enabled slave adds to the working counter of a full cycle,
@@ -180,13 +183,17 @@ public:
     /// short frame can miss the reference clock and leave the previous time.
     [[nodiscard]] virtual std::optional<x::telem::TimeStamp> dc_time() const = 0;
 
-    /// @brief reads the condition of each enabled slave and asks each slave that left
-    /// OP to return to it. Takes no further recovery step once breaker stops. Safe to
-    /// call from one thread while another runs receive() and send(). Valid between
-    /// activate() and deactivate().
-    /// @returns the condition of each enabled slave before any recovery step.
+    /// @brief reads the condition of each enabled slave. Safe to call from one thread
+    /// while another runs receive() and send(). Valid between activate() and
+    /// deactivate().
+    /// @returns the condition of each enabled slave.
     [[nodiscard]] virtual std::vector<slave::Health>
     check(const x::breaker::Breaker &breaker) = 0;
+
+    /// @brief asks each slave that the latest check() found out of OP to return to it.
+    /// Takes no further step once breaker stops. Can block for seconds while a slave
+    /// restores its clock. Call it from the thread that calls check().
+    virtual void recover(const x::breaker::Breaker &breaker) = 0;
 
     /// @brief writes parameters to the slave at position, in order. On a running bus, a
     /// master that can also adds them to the startup parameters of the slave, so it
