@@ -626,6 +626,9 @@ void Engine::supervise() {
             this->slave_health = health;
         }
         last = std::move(health);
+        // Recovering after the publish keeps the samples of the other readers while a
+        // slave recovers.
+        this->master->recover(this->bus);
         this->bus.wait_for(SUPERVISOR_INTERVAL);
     }
 }

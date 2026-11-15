@@ -579,7 +579,7 @@ std::optional<x::telem::TimeStamp> Master::dc_time() const {
     return master::DC_EPOCH + x::telem::TimeSpan(this->api->context.DCtime);
 }
 
-std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
+std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
     std::lock_guard lock(this->mailbox_mu);
     this->api->readstate();
     std::vector<slave::Health> health;
@@ -608,9 +608,15 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
             h.faulted = true;
             h.startup_error = it->second.data;
         }
-        if (breaker.running()) this->recover(i, breaker);
     }
     return health;
+}
+
+void Master::recover(const x::breaker::Breaker &breaker) {
+    std::lock_guard lock(this->mailbox_mu);
+    for (int i = 1; i <= this->api->context.slavecount && breaker.running(); ++i)
+        if (this->record(i).group == ENABLED_GROUP)
+            this->recover_slave(static_cast<uint16_t>(i), breaker);
 }
 
 x::errors::Error Master::write(
@@ -641,7 +647,7 @@ void Master::update_lost(const uint16_t pos) {
     this->record(pos).islost = this->record(pos).state == EC_STATE_NONE ? 1 : 0;
 }
 
-void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
+void Master::recover_slave(const uint16_t pos, const x::breaker::Breaker &breaker) {
     auto &session = this->session.value();
     if (session.startup_failures.contains(pos)) return;
     const uint16_t state = this->record(pos).state;

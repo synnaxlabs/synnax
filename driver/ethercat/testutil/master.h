@@ -134,6 +134,13 @@ class Master final : public master::Master {
     std::condition_variable activate_cv;
     /// @brief whether each activate() blocks until release_activate().
     bool activate_held{false};
+    std::mutex recover_mu;
+    std::condition_variable recover_cv;
+    /// @brief whether a recover() that finds a slave out of OP waits for
+    /// release_recover().
+    bool recover_held{false};
+    /// @brief whether a recover() waits for release_recover().
+    bool recovering{false};
     /// @brief whether an activate() is blocked now.
     bool activating{false};
 
@@ -277,6 +284,28 @@ public:
     void set_activate_duration(const x::telem::TimeSpan span) {
         std::lock_guard lock(this->mu);
         this->activate_duration = span;
+    }
+
+    /// @brief makes a recover() that finds a slave out of OP wait for
+    /// release_recover().
+    void hold_recover() {
+        std::lock_guard lock(this->recover_mu);
+        this->recover_held = true;
+    }
+
+    /// @brief waits until a recover() waits after hold_recover().
+    void wait_until_recovering() {
+        std::unique_lock lock(this->recover_mu);
+        this->recover_cv.wait(lock, [this] { return this->recovering; });
+    }
+
+    /// @brief lets the recover() that hold_recover() holds go on.
+    void release_recover() {
+        {
+            std::lock_guard lock(this->recover_mu);
+            this->recover_held = false;
+        }
+        this->recover_cv.notify_all();
     }
 
     /// @brief makes activate() wait for release_activate(), which holds a bus start.
@@ -751,9 +780,8 @@ public:
         return x::errors::NIL;
     }
 
-    /// @brief reports each enabled slave, then returns each faulted or non-OP slave to
-    /// OP unless set_slave_transition_failure() blocks it.
-    std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override {
+    /// @brief reports each slave on the bus.
+    std::vector<slave::Health> check(const x::breaker::Breaker &) override {
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("check");
         std::vector<slave::Health> health;
@@ -775,17 +803,42 @@ public:
                 .dc_restore_error = restore_failed ? restore->second : "",
                 .startup_error = startup_failed ? startup->second : "",
             });
-            if (this->lost_slaves.contains(pos) || restore_failed || startup_failed)
-                continue;
+        }
+        return health;
+    }
+
+    /// @brief brings each slave on the bus to OP, except a lost slave, a slave with a
+    /// failed clock restore or startup, and a slave that set_slave_transition_failure()
+    /// keeps from OP. After hold_recover(), waits for release_recover() first when a
+    /// slave is out of OP.
+    void recover(const x::breaker::Breaker &breaker) override {
+        bool out = false;
+        {
+            std::lock_guard lock(this->mu);
+            for (const auto &slave: this->slave_list)
+                out = out || (this->on_bus(slave.properties.position) &&
+                              slave.status.state != slave::State::OP);
+        }
+        if (out) {
+            std::unique_lock lock(this->recover_mu);
+            this->recovering = this->recover_held;
+            this->recover_cv.notify_all();
+            this->recover_cv.wait(lock, [this] { return !this->recover_held; });
+            this->recovering = false;
+        }
+        std::lock_guard lock(this->mu);
+        for (auto &slave: this->slave_list) {
+            const auto pos = slave.properties.position;
             const auto blocked = this->state_transition_failures.find(pos);
-            if (!breaker.running() ||
+            if (!this->on_bus(pos) || this->lost_slaves.contains(pos) ||
+                this->dc_restore_errors.contains(pos) ||
+                this->startup_errors.contains(pos) || !breaker.running() ||
                 (blocked != this->state_transition_failures.end() &&
                  blocked->second == slave::State::OP))
                 continue;
             slave.status.state = slave::State::OP;
             this->faults.erase(pos);
         }
-        return health;
     }
 
     /// @brief records the write, sets each object it names until one that fail_write()
