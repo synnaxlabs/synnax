@@ -1490,25 +1490,27 @@ void Engine::track_restarts_locked(const std::set<uint16_t> &restarted) {
         const auto &props = slave.properties;
         auto key = restart_key(props);
         auto it = this->restarts.find(key);
-        // An unread serial number can differ from the last one, so the slave keeps the
-        // key of the slave of its model that was at its position.
-        if (slave.status.serial_unread())
+        const bool unread = slave.status.serial_unread();
+        // An unread serial number differs from the read one, so a slave with one, or
+        // with one at its last discovery, is the slave of its model at its position.
+        if (unread || it == this->restarts.end())
             if (const auto earlier = std::ranges::find_if(
                     this->restarts,
-                    [&props](const auto &entry) {
-                        return std::get<0>(entry.first) == props.vendor_id &&
+                    [&props, unread](const auto &entry) {
+                        return (unread || entry.second.unread) &&
+                               std::get<0>(entry.first) == props.vendor_id &&
                                std::get<1>(entry.first) == props.product_code &&
                                entry.second.position == props.position;
                     }
                 );
                 earlier != this->restarts.end()) {
-                key = earlier->first;
+                if (unread) key = earlier->first;
                 it = earlier;
             }
         const auto at = it == this->restarts.end() || restarted.contains(props.position)
                           ? now
                           : it->second.at;
-        found[key] = {.at = at, .position = props.position};
+        found[key] = {.at = at, .position = props.position, .unread = unread};
         slave.restarted_at = at;
     }
     this->restarts = std::move(found);

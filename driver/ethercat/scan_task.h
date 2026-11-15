@@ -111,15 +111,17 @@ private:
     /// @brief the scan count at which to discover again each interface with an enabled
     /// slave whose PDO discovery failed.
     std::unordered_map<std::string, size_t> next_rediscoveries;
-    /// @brief the positions of the slaves with no identity on one interface.
+    /// @brief the slaves on one interface that the scan cannot add: those with no
+    /// identity, and those with an unread serial number and no stored device.
     struct Unidentified {
-        /// @brief the slaves with no identity at the last rediscovery.
+        /// @brief the positions of the slaves unidentified at the last rediscovery.
         std::set<uint16_t> seen;
-        /// @brief the slaves with no identity at each of the last two rediscoveries.
-        /// A restart clears by the next rediscovery, so only these are reported.
-        std::set<uint16_t> reported;
+        /// @brief the failure of each slave unidentified at each of the last two
+        /// rediscoveries. A restart clears by the next rediscovery, so only these are
+        /// reported.
+        std::map<uint16_t, std::string> reported;
     };
-    /// @brief the slaves with no identity on each interface.
+    /// @brief the unidentified slaves on each interface.
     std::unordered_map<std::string, Unidentified> unidentified;
     /// @brief guards switch_times, which set_standalone() writes while a scan reads it.
     mutable std::mutex switch_mu;

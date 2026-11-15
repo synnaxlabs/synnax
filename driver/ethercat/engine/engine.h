@@ -128,6 +128,9 @@ private:
     struct Restart {
         x::telem::TimeStamp at;
         uint16_t position = 0;
+        /// @brief whether the serial number read of the slave failed at its last
+        /// discovery.
+        bool unread = false;
     };
     /// @brief the last restart of each slave in slaves.
     std::map<RestartKey, Restart> restarts;

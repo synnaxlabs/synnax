@@ -198,8 +198,11 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<
       await restart();
       throw status.toError(res);
     }
-    // The scan task writes the properties and status of each device at a scan.
-    await scanTask.executeCommand({ type: PlatformDevice.SCAN_COMMAND });
+    // The scan task writes the properties and status of each device at a scan. It also
+    // scans every 5 s, so a failed scan command only delays them.
+    await scanTask
+      .executeCommand({ type: PlatformDevice.SCAN_COMMAND })
+      .catch(() => undefined);
     if (tasks.length === 0) return { ...data, answer: res };
     const description = `${res.description} Start your tasks again.`.trimStart();
     return { ...data, answer: { ...res, description } };

@@ -3917,6 +3917,26 @@ TEST_F(EngineTest, FailedSerialReadKeepsTheRestartTime) {
     EXPECT_EQ(ASSERT_NIL_P(this->engine->rediscover())[1].restarted_at, first);
 }
 
+/// @brief it should keep the restart time of a slave whose serial number read fails at
+/// the first discovery, through the next good read.
+TEST_F(EngineTest, FirstFailedSerialReadKeepsTheRestartTime) {
+    const auto clock = x::loop::fake_clock();
+    auto read = io_slave(1);
+    read.serial = 0x1234;
+    auto unread = read;
+    unread.serial = 0;
+    this->master->add_slave(unread);
+    this->master->fail_next_serial_read(1, "failed to read 0x1018:04: no response");
+    Config cfg;
+    cfg.host_clock = clock;
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto first = clock.now();
+    EXPECT_EQ(ASSERT_NIL_P(this->engine->discover())[1].restarted_at, first);
+    clock.sleep(x::telem::SECOND);
+    this->master->replace_slave(1, read);
+    EXPECT_EQ(ASSERT_NIL_P(this->engine->rediscover())[1].restarted_at, first);
+}
+
 /// @brief it should stamp a slave that restarted since the last scan when the scan task
 /// rediscovers the bus.
 TEST_F(EngineTest, RediscoverStampsASlaveThatRestartedSinceTheLastScan) {

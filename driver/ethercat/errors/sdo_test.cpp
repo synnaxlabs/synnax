@@ -52,7 +52,7 @@ TEST(SDOFailureTest, GivesTheReasonOfEachKind) {
     );
 }
 
-/// @brief it should call only an abort about the object or its value permanent.
+/// @brief it should call permanent only a failure that a retry does not change.
 TEST(SDOFailureTest, IsPermanentOnlyForAFailureThatARetryDoesNotChange) {
     using Kind = SDOFailure::Kind;
     EXPECT_TRUE(

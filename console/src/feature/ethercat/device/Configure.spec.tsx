@@ -1016,6 +1016,13 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       );
     });
 
+    it("should hide the switch once the Driver answers, before the next scan", async () => {
+      const { statuses } = await clickSwitch();
+      await waitFor(() => expect(statuses()).toHaveLength(1));
+      expect(screen.getByText("Only DewesoftX can use this device")).toBeTruthy();
+      expect(screen.queryByText("Switch to Synnax")).toBeNull();
+    });
+
     it("should warn of a switch that the card did not save in the statuses", async () => {
       const { statuses } = await clickSwitch({
         variant: "warning",

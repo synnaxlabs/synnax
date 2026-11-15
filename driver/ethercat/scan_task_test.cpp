@@ -685,7 +685,8 @@ TEST_F(EtherCATScanTest, GivesADeviceToOneSlaveAcrossNetworks) {
 }
 
 /// @brief it should save no new device for a slave whose serial number read fails,
-/// report the slave, and discover the slaves again every sixth scan.
+/// discover the slaves again every sixth scan, and report the slave once two
+/// rediscoveries in a row fail to read it.
 TEST_F(EtherCATScanStatusTest, SkipsAndReportsASlaveWhoseSerialReadFails) {
     this->master->fail_serial_read(1, "failed to read 0x1018:04: no response");
     Devices devices;
@@ -695,6 +696,10 @@ TEST_F(EtherCATScanStatusTest, SkipsAndReportsASlaveWhoseSerialReadFails) {
             {.count = i, .devices = &devices}
         );
         EXPECT_TRUE(scanned.empty());
+        if (i < 12) {
+            ASSERT_NIL(err);
+            continue;
+        }
         ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
         EXPECT_EQ(
             err.data,

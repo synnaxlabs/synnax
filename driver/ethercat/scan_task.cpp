@@ -384,14 +384,18 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         const auto health = this->pool->health(key);
         const auto keys = slave_keys(slaves, key, stored, kept);
         bool rediscovery_needed = false;
-        std::set<uint16_t> unidentified;
+        std::map<uint16_t, std::string> unidentified;
         for (size_t i = 0; i < slaves.size(); ++i) {
             const auto &slave = slaves[i];
             if (!has_identity(slave)) {
                 LOG(WARNING) << SCAN_LOG_PREFIX << "slave " << slave.properties.position
                              << " on " << key << " has no identity, rediscovering";
                 rediscovery_needed = true;
-                unidentified.insert(slave.properties.position);
+                unidentified.emplace(
+                    slave.properties.position,
+                    "Slave " + std::to_string(slave.properties.position) + " on " +
+                        engine->name() + " gives no identity. Restart its power."
+                );
                 continue;
             }
             if (slave.status.serial_unread()) {
@@ -407,10 +411,11 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
                 rediscovery_needed = true;
                 if (keys[i].empty()) {
                     if (!slave.status.starting)
-                        failures.insert(
+                        unidentified.emplace(
+                            slave.properties.position,
                             "Slave " + std::to_string(slave.properties.position) +
-                            " on " + engine->name() + " gave no serial number (" +
-                            slave.status.serial_error + "). Restart its power."
+                                " on " + engine->name() + " gave no serial number (" +
+                                slave.status.serial_error + "). Restart its power."
                         );
                     continue;
                 }
@@ -433,21 +438,17 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         else if (rediscover) {
             auto &[seen, reported] = this->unidentified[key];
             reported.clear();
-            std::ranges::set_intersection(
-                unidentified,
-                seen,
-                std::inserter(reported, reported.begin())
-            );
-            seen = std::move(unidentified);
+            std::set<uint16_t> positions;
+            for (const auto &[position, failure]: unidentified) {
+                if (seen.contains(position)) reported.emplace(position, failure);
+                positions.insert(position);
+            }
+            seen = std::move(positions);
         }
         if (const auto it = this->unidentified.find(key);
-            it != this->unidentified.end() && !it->second.reported.empty()) {
-            for (const auto position: it->second.reported)
-                failures.insert(
-                    "Slave " + std::to_string(position) + " on " + engine->name() +
-                    " gives no identity. Restart its power."
-                );
-        }
+            it != this->unidentified.end())
+            for (const auto &[position, failure]: it->second.reported)
+                failures.insert(failure);
         if (!rediscovery_needed)
             this->next_rediscoveries.erase(key);
         else if (!scheduled || rediscover)

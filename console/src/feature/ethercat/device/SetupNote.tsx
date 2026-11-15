@@ -76,6 +76,7 @@ const SwitchNote = ({
   const {
     update,
     variant,
+    data,
     status: result,
   } = useSetStandalone({
     afterSuccess: ({ data: { answer } }) =>
@@ -85,15 +86,18 @@ const SwitchNote = ({
         description: answer.description,
       }),
   });
-  const action = switchable ? (
-    <Button.Button
-      size="small"
-      status={status.keepVariants(variant, "loading")}
-      onClick={() => update({ slave })}
-    >
-      Switch to Synnax
-    </Button.Button>
-  ) : undefined;
+  // The note shows the setup of the last scan until the next one.
+  const switched = variant === "success" && data != null;
+  const action =
+    switchable && !switched ? (
+      <Button.Button
+        size="small"
+        status={status.keepVariants(variant, "loading")}
+        onClick={() => update({ slave })}
+      >
+        Switch to Synnax
+      </Button.Button>
+    ) : undefined;
   return (
     <NoteBody {...rest} action={action}>
       {children}
