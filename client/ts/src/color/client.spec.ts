@@ -186,6 +186,21 @@ describe("color.Client", () => {
       expect(ungrouped.map((n) => n.key)).toEqual([loose.key]);
     });
 
+    it("should add a named color moved into a watched palette", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: `palette-${id.create()}`,
+      });
+      const list = client.colors.watch({ groups: [palette.key] });
+      onTestFinished(list.onChange(() => {}));
+      await list.retrieve();
+      const named = await createNamed();
+      await client.batch.send(moveRequests(named, palette));
+      await expect
+        .poll(() => list.getCached()?.records.map((n) => n.key))
+        .toEqual([named.key]);
+    });
+
     it("should refuse a move into a group of another scope", async () => {
       const channels = await client.groups.create({
         scope: "channel",
