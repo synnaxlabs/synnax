@@ -577,6 +577,61 @@ describe("Schematic toolbar Properties", () => {
     });
   });
 
+  describe("edges", () => {
+    const renderWithEdge = async () => {
+      const Harness = (): ReactElement => <Toolbar />;
+      return await renderSchematic(Harness, {
+        schematic: {
+          nodes: ["n1", "n2"].map((key) => ({
+            key,
+            position: { x: 0, y: 0 },
+            config: schematic.nodeConfigZ.parse(createBoxConfig()),
+          })),
+          edges: [
+            {
+              key: "e1",
+              source: { node: "n1", param: "out" },
+              target: { node: "n2", param: "in" },
+              config: schematic.edgeConfigZ.parse({ variant: "pipe" }),
+            },
+          ],
+        },
+        sessionState: {
+          editable: true,
+          selected: ["e1"],
+          toolbar: {
+            selectedTab: "properties",
+            selectedSymbolGroup: "general",
+            changing: false,
+          },
+        },
+      });
+    };
+
+    it("writes a stroke width edit to the edge config", async () => {
+      const { key } = await renderWithEdge();
+      const width = await screen.findByLabelText("Stroke width");
+      const send = spyOnSend(client);
+      fireEvent.change(width, { target: { value: "6" } });
+      fireEvent.blur(width);
+      await waitFor(() =>
+        expect(
+          send.mock.calls.find(([target]) => target === "/schematic/dispatch")?.[1],
+        ).toMatchObject({
+          actions: [
+            {
+              type: "set",
+              set: { path: ["edges", "e1", "config", "stroke_width"], value: 6 },
+            },
+          ],
+        }),
+      );
+      await expect
+        .poll(async () => (await retrieveConfig(key, "e1")).strokeWidth)
+        .toBe(6);
+    });
+  });
+
   describe("multiple selection", () => {
     it("hides the spacing controls for fewer than three selections", async () => {
       await renderProperties({ nodeKeys: ["n1", "n2"] });
