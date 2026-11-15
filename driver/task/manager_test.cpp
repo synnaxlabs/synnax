@@ -190,6 +190,9 @@ public:
     std::atomic<int> configures{0};
     std::atomic<int> live{0};
     std::atomic<int> max_live{0};
+    std::mutex mu;
+    /// @brief the keys of the configured tasks, in configure order.
+    std::vector<synnax::task::Key> keys;
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
@@ -198,6 +201,10 @@ public:
         x::breaker::Breaker &
     ) override {
         if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        {
+            std::lock_guard lock(this->mu);
+            this->keys.push_back(task.key);
+        }
         if (++this->configures == 1) {
             this->stuck = true;
             while (!this->released)
@@ -1380,6 +1387,41 @@ TEST_F(TaskManagerTest, TaskMovedDuringAnOutageIsRemovedAfterItsStuckWorker) {
     ASSERT_EVENTUALLY_EQ(f->live.load(), 0);
     EXPECT_EQ(f->configures.load(), 1);
     expect_no_driver_status(task, false, moved_at);
+}
+
+/// @brief it should never run an op that an earlier run queued for a task deleted
+/// during a Core outage, such as a deploy left behind a busy worker.
+TEST_F(TaskManagerTest, TaskDeletedDuringAnOutageSkipsItsQueuedDeploy) {
+    std::vector<synnax::task::Task> tasks;
+    for (const auto &name: {"a", "b"}) {
+        auto task = synnax::task::Task{
+            .rack = rack.key,
+            .name = name,
+            .type = SYNTHETIC_TASK_TYPE,
+        };
+        ASSERT_NIL(rack.tasks.create(task));
+        tasks.push_back(task);
+    }
+    auto factory = std::make_unique<StuckTaskFactory>();
+    auto *f = factory.get();
+    x::defer::defer release([f] { f->released = true; });
+    start_piped_manager(std::move(factory), {.worker_count = 1});
+    ASSERT_TRUE(wait_for_run(1));
+    ASSERT_EVENTUALLY_TRUE(f->stuck.load());
+    synnax::task::Key stuck_key;
+    {
+        std::lock_guard lock(f->mu);
+        stuck_key = f->keys[0];
+    }
+    const auto &stuck = tasks[0].key == stuck_key ? tasks[0] : tasks[1];
+    const auto &queued = tasks[0].key == stuck_key ? tasks[1] : tasks[0];
+    pipe->pause();
+    ASSERT_NIL(rack.tasks.del(queued.key));
+    pipe->resume();
+    ASSERT_TRUE(wait_for_run(2));
+    f->released = true;
+    statuses_until_command(stuck);
+    EXPECT_EQ(f->configures.load(), 1);
 }
 
 /// @returns the states of the instances that f built, in build order.

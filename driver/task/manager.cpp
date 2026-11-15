@@ -127,10 +127,14 @@ x::errors::Error Manager::configure_initial_tasks() {
         std::lock_guard<std::mutex> lock(this->mu);
         // A task deleted or moved during a Core outage sent no event here. Its remove
         // waits for a worker still on it, and the statuses of that worker drop now.
+        // Its ops that an earlier run queued, such as a deploy, must never run.
         for (const auto &[key, _]: this->entries) {
             if (std::ranges::any_of(tasks, [&](const auto &t) { return t.key == key; }))
                 continue;
             this->statuses->drop(key);
+            std::erase_if(this->op_queue, [&](const Op &op) {
+                return op.task_key == key;
+            });
             this->op_queue.push_back(Op{Op::Type::REMOVE, key, {}, {}});
         }
         for (const auto &task: tasks) {
