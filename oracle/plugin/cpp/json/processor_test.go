@@ -37,7 +37,7 @@ var _ = Describe("FieldProcessor", func() {
 		f := MustBeOk(item.Form.(resolution.StructForm).Field(field))
 		fp := &json.FieldProcessor{
 			Includes:   mgr,
-			Namespace:  "test",
+			FilePath:   item.FilePath,
 			OutputPath: "client/cpp/test",
 			Table:      req.Resolutions,
 			JSONPaths:  MustSucceed(json.ContentPaths(req)),
