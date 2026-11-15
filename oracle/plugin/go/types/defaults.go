@@ -920,10 +920,11 @@ func probeData(data *templateData) *templateData {
 
 // typeNeedsMethod reports whether the type named by ref emits the method of rule: it is
 // a union and rule.everyUnion is set, or it has a field satisfying rule.hasOwn, or a
-// nested struct field, slice/array element, map value, or union variant payload that
-// (transitively) does. Generic types and type parameters never emit a method. visited
-// guards against cycles in recursive types. Probing must not leak imports into the
-// emitted file, so rule.hasOwn runs against a scratch-import copy of data.
+// nested struct field, slice/array element, map value, union base, or union variant
+// payload that (transitively) does. Generic types and type parameters never emit a
+// method. visited guards against cycles in recursive types. Probing must not leak
+// imports into the emitted file, so rule.hasOwn runs against a scratch-import copy of
+// data.
 func typeNeedsMethod(
 	ref resolution.TypeRef,
 	data *templateData,
@@ -967,6 +968,11 @@ func typeNeedsMethod(
 	case resolution.UnionForm:
 		if rule.everyUnion {
 			return true
+		}
+		for _, base := range form.Extends {
+			if typeNeedsMethod(base, data, visited, rule) {
+				return true
+			}
 		}
 		for _, variant := range form.Variants {
 			if typeNeedsMethod(variant.Type, data, visited, rule) {

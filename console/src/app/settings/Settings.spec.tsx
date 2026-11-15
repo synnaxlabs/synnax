@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { certificate, label, panel, user } from "@synnaxlabs/client";
+import { certificate, label, user } from "@synnaxlabs/client";
 import {
   CERTIFICATE,
   createTestClient,
@@ -32,7 +32,6 @@ import { Settings } from "@/app/settings";
 import { renderSettings } from "@/app/settings/testutil";
 import { renderPalette } from "@/feature/command/testutil";
 import { findCommand } from "@/platform/command/testutil";
-import { Panel } from "@/platform/panel";
 import {
   createPanelWrapper,
   createServerPanel,
@@ -64,8 +63,6 @@ const createLimitedClient = async () => {
   await awaitGranted(limited, user.TYPE_RESOURCE_ID, "retrieve");
   return limited;
 };
-
-const useOpenVisible = (): boolean | undefined => Settings.COMMANDS[0].useVisible?.();
 
 describe("Settings", () => {
   it("should open the page of each section", async () => {
@@ -190,37 +187,29 @@ describe("Settings", () => {
   it("should withhold Show license info without a license grant", async () => {
     const gate = findCommand(Settings.COMMANDS, "Show license info").useVisible;
     assertDefined(gate);
-    // The user can open tabs, so only the missing license grant hides the command.
-    const limited = await createTestClientWithPolicy(client, {
-      name: uniqueName("policy"),
-      objects: [panel.TYPE_RESOURCE_ID],
-      actions: ["create"],
-    });
+    // The user grant resolves through the same query, so the gate has answered too.
     const { result } = await renderHookWithConsole(
-      () => ({ visible: gate(), canOpen: Panel.useCanOpenTab() }),
-      { client: limited },
+      () => ({
+        visible: gate(),
+        loaded: Access.useRetrieveGranted(user.TYPE_RESOURCE_ID),
+      }),
+      { client: await createLimitedClient() },
     );
-    await waitFor(() => expect(result.current.canOpen).toBe(true));
+    await waitFor(() => expect(result.current.loaded).toBe(true));
     expect(result.current.visible).toBe(false);
   });
 
-  it("should offer the gear and the command to a user who can open tabs", async () => {
-    const { wrapper } = await createConsoleWrapper({ client });
-    const { result } = renderHook(useOpenVisible, { wrapper });
+  it("should offer the gear and Open settings to a Viewer", async () => {
+    const viewer = await roles.get("Viewer");
+    const { wrapper } = await createConsoleWrapper({ client: viewer });
     render(<Settings.Button />, { wrapper });
     expect(await screen.findByRole("button", { name: "Settings" })).toBeTruthy();
-    await waitFor(() => expect(result.current).toBe(true));
-  });
-
-  it("should hide the gear and the command from a user who cannot open tabs", async () => {
-    const { wrapper } = await createConsoleWrapper({
-      client: await createLimitedClient(),
+    const { openCommandPalette } = await renderPalette({
+      commands: Settings.COMMANDS,
+      client: viewer,
     });
-    const { result } = renderHook(useOpenVisible, { wrapper });
-    render(<Settings.Button />, { wrapper });
-    await act(async () => {});
-    expect(result.current).toBe(false);
-    expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
+    await openCommandPalette();
+    expect(await screen.findByText("Open settings")).toBeTruthy();
   });
 
   it("should offer Edit labels to an Engineer", async () => {

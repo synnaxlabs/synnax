@@ -95,6 +95,13 @@ type RetrieveResponse struct {
 	Arcs []servicearc.Arc `json:"arcs" msgpack:"arcs"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *RetrieveResponse) ApplyDefaults() {
+	for i := range r.Arcs {
+		r.Arcs[i].ApplyDefaults()
+	}
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (r RetrieveResponse) Validate() error {

@@ -23,9 +23,17 @@ CLAUDE_2 = "i-0bbb"
 CODEX = "i-0ccc"
 
 
-def seat(state: str, *, name: str = "claude-1", pool: str = "agent") -> dict:
+def seat(
+    state: str,
+    *,
+    name: str = "claude-1",
+    pool: str = "agent",
+    until: sy.TimeStamp | None = None,
+) -> dict:
     agent = name.split("-")[0]
     tags = {"project": "synnax-agents", "pool": pool, "agent": agent, "seat": name}
+    if until is not None:
+        tags["limited-until"] = str(int(until / sy.TimeSpan.SECOND))
     return {"state": state, "region": "us-east-1", "tags": tags}
 
 
@@ -177,3 +185,44 @@ class TestSeats:
         assert client.written("log") == [["[DISABLED] seat claude-1: start"]]
         s.step(queued=[JOB], found=found)
         assert aws.started == [CLAUDE]
+
+    def test_should_start_another_seat_while_one_is_at_its_limit(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        until = sy.TimeStamp.now() + sy.TimeSpan.HOUR
+        found = {
+            CLAUDE: seat("running", until=until),
+            CLAUDE_2: seat("stopped", name="claude-2"),
+        }
+        seats(client, aws).step(queued=[JOB], found=found)
+        assert aws.started == [CLAUDE_2]
+
+    def test_should_start_a_limited_seat_once_its_limit_resets(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        s = seats(client, aws)
+        until = sy.TimeStamp.now() + sy.TimeSpan.HOUR
+        found = {CLAUDE: seat("stopped", until=until)}
+        s.step(queued=[JOB], found=found)
+        assert aws.started == []
+        client.elapsed += sy.TimeSpan.HOUR + sy.TimeSpan.SECOND
+        s.step(queued=[JOB], found=found)
+        assert aws.started == [CLAUDE]
+
+    def test_should_ignore_a_malformed_limit(self, client: Client) -> None:
+        aws = Instances()
+        found = {CLAUDE: seat("stopped")}
+        found[CLAUDE]["tags"]["limited-until"] = "1795266000.0"
+        seats(client, aws).step(queued=[JOB], found=found)
+        assert aws.started == [CLAUDE]
+
+    def test_should_keep_a_seat_stopped_for_a_limit_past_the_timestamp_range(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        found = {CLAUDE: seat("stopped")}
+        found[CLAUDE]["tags"]["limited-until"] = "9" * 30
+        seats(client, aws).step(queued=[JOB], found=found)
+        assert aws.started == []

@@ -72,6 +72,7 @@ const (
 	Type_TYPE_SECRET           Type = 33
 	Type_TYPE_CERTIFICATE      Type = 34
 	Type_TYPE_COLOR            Type = 35
+	Type_TYPE_ICD              Type = 36
 )
 
 // Enum value maps for Type.
@@ -113,6 +114,7 @@ var (
 		33: "TYPE_SECRET",
 		34: "TYPE_CERTIFICATE",
 		35: "TYPE_COLOR",
+		36: "TYPE_ICD",
 	}
 	Type_value = map[string]int32{
 		"TYPE_ARC":              0,
@@ -151,6 +153,7 @@ var (
 		"TYPE_SECRET":           33,
 		"TYPE_CERTIFICATE":      34,
 		"TYPE_COLOR":            35,
+		"TYPE_ICD":              36,
 	}
 )
 
@@ -251,7 +254,7 @@ const file_core_pkg_service_resource_pb_resource_proto_rawDesc = "" +
 	"+core/pkg/service/resource/pb/resource.proto\x12\x13service.resource.pb\"E\n" +
 	"\x02ID\x12-\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x19.service.resource.pb.TypeR\x04type\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key*\xa7\x05\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key*\xb5\x05\n" +
 	"\x04Type\x12\f\n" +
 	"\bTYPE_ARC\x10\x00\x12\x10\n" +
 	"\fTYPE_BUILTIN\x10\x01\x12\x10\n" +
@@ -295,7 +298,8 @@ const file_core_pkg_service_resource_pb_resource_proto_rawDesc = "" +
 	"\vTYPE_SECRET\x10!\x12\x14\n" +
 	"\x10TYPE_CERTIFICATE\x10\"\x12\x0e\n" +
 	"\n" +
-	"TYPE_COLOR\x10#B\xcc\x01\n" +
+	"TYPE_COLOR\x10#\x12\f\n" +
+	"\bTYPE_ICD\x10$B\xcc\x01\n" +
 	"\x17com.service.resource.pbB\rResourceProtoP\x01Z4github.com/synnaxlabs/synnax/pkg/service/resource/pb\xa2\x02\x03SRP\xaa\x02\x13Service.Resource.Pb\xca\x02\x13Service\\Resource\\Pb\xe2\x02\x1fService\\Resource\\Pb\\GPBMetadata\xea\x02\x15Service::Resource::Pbb\x06proto3"
 
 var (

@@ -10,6 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/ni/device/json.gen.h"
+#include "client/cpp/ni/device/proto.gen.h"
 #include "x/cpp/testutil/testutil.h"
 
 namespace synnax::ni::device {
@@ -70,5 +71,32 @@ TEST(Configuration, SerializesEmptyPortMapsAsObjects) {
     const auto j = Configuration{}.to_json();
     ASSERT_TRUE(j["analog_input"]["channels"].is_object());
     ASSERT_TRUE(j["digital_output"].is_object());
+}
+
+/// @brief it should round trip a device with its port maps through protobuf.
+TEST(Device, RoundTripsProto) {
+    Device dev{
+        .key = x::uuid::create(),
+        .rack = 65537,
+        .name = "Module",
+        .serial = "01A",
+        .resource_name = "{GUID}",
+        .model = "NI 9205",
+        .chassis = x::uuid::create(),
+        .identifier = "mod1",
+    };
+    dev.analog_input.channels[3] = 4;
+    dev.counter_input[2] = CounterInputChannels{.index = 8, .channel = 9};
+    dev.digital_output[1].lines[255] = CommandStatePair{.command = 13, .state = 14};
+    const auto pb = ASSERT_NIL_P(dev.to_proto());
+    const auto parsed = ASSERT_NIL_P(Device::from_proto(pb));
+    ASSERT_EQ(parsed.to_json(), dev.to_json());
+}
+
+/// @brief it should reject a line number that does not fit in a byte.
+TEST(DigitalInputChannels, RejectsOutOfRangeLineFromProto) {
+    ::service::ni_device::pb::DigitalInputChannels pb;
+    (*pb.mutable_lines())[256] = 1;
+    ASSERT_OCCURRED_AS_P(DigitalInputChannels::from_proto(pb), x::errors::VALIDATION);
 }
 }

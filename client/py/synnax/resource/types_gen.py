@@ -85,6 +85,8 @@ TYPE_CERTIFICATE: Literal["certificate"] = "certificate"
 
 TYPE_COLOR: Literal["color"] = "color"
 
+TYPE_ICD: Literal["icd"] = "icd"
+
 
 Type = Literal[
     "arc",
@@ -123,4 +125,5 @@ Type = Literal[
     "secret",
     "certificate",
     "color",
+    "icd",
 ]

@@ -27,8 +27,9 @@ import { ClosedContext } from "@/select/scope";
 /** Props for {@link Dialog}. */
 export interface DialogProps extends BaseDialog.DialogProps {
   /**
-   * The surface the dialog draws. A menu surface is a `Menu.Dialog`: its search is a
-   * line of text over a hairline, and its options take the size of menu items.
+   * The surface the dialog draws. A menu surface looks like a `Menu.Dialog`: its search
+   * is a line of text over a hairline, and its options take the size of menu items. It
+   * does not filter as the user types.
    */
   surface?: "dialog" | "menu";
 }
@@ -48,28 +49,27 @@ const Closed = ({ children }: PropsWithChildren): ReactNode => {
  * in the trigger.
  */
 export const Dialog = ({
+  ref,
   className,
   children,
   surface = "dialog",
   ...rest
 }: DialogProps): ReactNode => {
   const { visible } = BaseDialog.useContext();
+  const cls = CSS.cls(CSS.BE("select", "dialog"), className);
+  const menuSurface = Menu.useSurface(ref, cls);
   // False on the server and during hydration, since the server renders no portal.
   const hydrated = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const content = <Input.ItemBoundary>{children}</Input.ItemBoundary>;
   if (!visible) return hydrated && <Closed>{content}</Closed>;
   if (surface === "menu")
     return (
-      <Menu.Dialog {...rest} className={CSS.cls(CSS.BE("select", "dialog"), className)}>
+      <BaseDialog.Dialog {...menuSurface} {...rest}>
         {content}
-      </Menu.Dialog>
+      </BaseDialog.Dialog>
     );
   return (
-    <BaseDialog.Dialog
-      {...rest}
-      className={CSS.cls(CSS.BE("select", "dialog"), className)}
-      bordered={false}
-    >
+    <BaseDialog.Dialog ref={ref} {...rest} className={cls} bordered={false}>
       {content}
     </BaseDialog.Dialog>
   );

@@ -685,6 +685,16 @@ var _ = Describe("Path actions", func() {
 			))).To(Equal(create2x2()))
 		})
 
+		It(
+			"Should do nothing to a field of a missing row that is not editable",
+			func() {
+				Expect(table.Reduce(
+					create2x2(),
+					set([]string{"rows", "ghost", "size"}, 40),
+				)).To(Equal(create2x2()))
+			},
+		)
+
 		It("Should set the name", func() {
 			next := MustSucceed(
 				table.Reduce(create2x2(), set([]string{"name"}, "Other")),
@@ -703,19 +713,31 @@ var _ = Describe("Path actions", func() {
 				"a path to the rows",
 				[]string{"rows"},
 				[]any{},
-				"a path into rows must go into the config of one cell",
+				"[rows]: the path must go into an editable field of one entry",
+			),
+			Entry(
+				"a path to the cells of a row",
+				[]string{"rows", "r0", "cells"},
+				[]any{},
+				"[rows, r0, cells]: the path must go into an editable field of one entry",
+			),
+			Entry(
+				"a path to one cell",
+				[]string{"rows", "r0", "cells", "a"},
+				map[string]any{"key": "a"},
+				"[rows, r0, cells, a]: the path must go into an editable field of one entry",
 			),
 			Entry(
 				"a path to the size of a row",
 				[]string{"rows", "r0", "size"},
 				40,
-				"a path into rows must go into the config of one cell",
+				"[rows, r0, size]: the path names no editable field",
 			),
 			Entry(
 				"a path to the key of a cell",
 				[]string{"rows", "r0", "cells", "a", "key"},
 				"b",
-				"a path into rows must go into the config of one cell",
+				"[rows, r0, cells, a, key]: the path names no editable field",
 			),
 			Entry(
 				"a path to the columns",

@@ -23,7 +23,7 @@ from playwright.sync_api import (
 
 import synnax as sy
 from console.context_menu import ContextMenu
-from console.notifications import NotificationsClient
+from console.notifications import NotificationsClient, click_past
 from console.tree import Tree
 
 AriaRole = Literal[
@@ -427,13 +427,7 @@ class LayoutClient:
             .locator("button")
             .first
         )
-        button.wait_for(state="attached", timeout=300)
-        try:
-            button.click(timeout=5000)
-        except PlaywrightTimeoutError:
-            # Toasts stack over the bottom of a form and swallow the click.
-            self.notifications.close_all()
-            button.click(timeout=5000)
+        click_past(button)
 
     def click_checkbox(self, checkbox_label: str) -> None:
         """Click a checkbox by label."""
@@ -443,13 +437,7 @@ class LayoutClient:
             .locator("input[type='checkbox']")
             .first
         )
-        checkbox.wait_for(state="attached", timeout=300)
-        try:
-            checkbox.click(timeout=5000)
-        except PlaywrightTimeoutError:
-            # Toasts stack over the bottom of a form and swallow the click.
-            self.notifications.close_all()
-            checkbox.click(timeout=5000)
+        click_past(checkbox)
 
     def get_toggle(self, toggle_label: str) -> bool:
         """Get the value of a toggle by label."""
@@ -487,10 +475,16 @@ class LayoutClient:
             value, timeout=5000
         )
 
-    def get_selected_button(self, button_options: list[str]) -> str:
-        """Get the currently selected button from a button group (no label)."""
+    def get_selected_button(
+        self, button_options: list[str], *, scope: Locator | None = None
+    ) -> str:
+        """Get the currently selected button from a button group (no label).
+
+        :param scope: Where the button group lives. Defaults to the whole page.
+        """
+        parent = self.page if scope is None else scope
         for option in button_options:
-            text_el = self.page.get_by_text(option, exact=True).first
+            text_el = parent.get_by_text(option, exact=True).first
             if text_el.count() == 0:
                 continue
             button = text_el.locator("xpath=ancestor-or-self::button[1]").first
@@ -895,16 +889,20 @@ class LayoutClient:
         tab.click()
         self.ctx_menu.action(tab.locator("p"), "Focus", exact=False)
 
-    def show_visualization_toolbar(self) -> None:
-        """Show the bottom Component toolbar via its nav toggle."""
+    def show_visualization_toolbar(self) -> Locator:
+        """Show the bottom Component toolbar via its nav toggle.
+
+        :returns: The toolbar's drawer.
+        """
         bottom_drawer = self.page.locator(
             ".console-nav__drawer.lyra--location-bottom.lyra--visible"
         )
         if bottom_drawer.count() > 0 and bottom_drawer.is_visible():
-            return
+            return bottom_drawer
 
         self.page.get_by_role("menuitem", name="Component", exact=True).click()
         bottom_drawer.wait_for(state="visible", timeout=5000)
+        return bottom_drawer
 
     def hide_visualization_toolbar(self) -> None:
         """Hide the bottom Component toolbar via its nav toggle."""
