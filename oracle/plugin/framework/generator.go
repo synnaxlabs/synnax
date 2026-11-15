@@ -29,6 +29,9 @@ type GenerateContext struct {
 	Enums      []resolution.Type
 	TypeDefs   []resolution.Type
 	Unions     []resolution.Type
+	// FilePath is the schema file that the output renders. Two schemas with one file
+	// name share a namespace, so locality checks compare this path.
+	FilePath string
 }
 
 type FileGenerator interface {
@@ -160,6 +163,7 @@ func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 			ctx := &GenerateContext{
 				Namespace:  structs[0].Namespace,
+				FilePath:   structs[0].FilePath,
 				OutputPath: outputPath,
 				Structs:    structs,
 				Enums:      enums,
@@ -225,6 +229,7 @@ func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 				ctx := &GenerateContext{
 					Namespace:  namespace,
+					FilePath:   unions[0].FilePath,
 					OutputPath: outputPath,
 					Enums:      enums,
 					TypeDefs:   typeDefs,
@@ -264,6 +269,7 @@ func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 				ctx := &GenerateContext{
 					Namespace:  enums[0].Namespace,
+					FilePath:   enums[0].FilePath,
 					OutputPath: outputPath,
 					Structs:    nil,
 					Enums:      enums,
@@ -298,6 +304,7 @@ func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 				}
 				ctx := &GenerateContext{
 					Namespace:  typeDefs[0].Namespace,
+					FilePath:   typeDefs[0].FilePath,
 					OutputPath: outputPath,
 					Structs:    nil,
 					Enums:      nil,
