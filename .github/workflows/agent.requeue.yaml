@@ -81,6 +81,10 @@ jobs:
             Name=tag:pool,Values=agent "Name=tag:agent,Values=$AGENT" \
             Name=instance-state-name,Values=pending,running,stopping,stopped \
             --query "Reservations[].Instances[].[$limit]")
+          if [ -z "$resets" ]; then
+            echo "::error::The agent pool has no seat for $AGENT"
+            exit 1
+          fi
           now=$(date +%s)
           if ! awk -v now="$now" '$1 == "None" || $1 <= now { found = 1 }
             END { exit !found }' <<< "$resets"; then
