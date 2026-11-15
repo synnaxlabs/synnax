@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { computed } from "@synnaxlabs/lyra/styletest";
+import { computed, resolve } from "@synnaxlabs/lyra/styletest";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
@@ -95,13 +95,13 @@ describe("Custom.useRender theme band", () => {
     it("should paint a region stroke the same as a built-in symbol stroke", async () => {
       const builtIn = computed(await renderBuiltIn(theme), "stroke");
       const { stroke: custom } = await renderCustom(theme);
-      expect(custom).not.toBe("rgb(207, 209, 212)");
+      expect(custom).not.toBe(resolve(color.hex(STROKE), "stroke"));
       expect(custom).toBe(builtIn);
     });
 
     it("should paint a region fill as stored", async () => {
       const { fill } = await renderCustom(theme);
-      expect(fill).toBe("rgb(255, 255, 255)");
+      expect(fill).toBe(resolve(color.hex(FILL), "fill"));
     });
   });
 });

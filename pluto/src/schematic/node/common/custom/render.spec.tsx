@@ -351,7 +351,7 @@ describe("Custom.useRender", () => {
       expect(rect.getAttribute("fill")).toBe("#00ff0033");
     });
 
-    it("should store original attributes before applying state", () => {
+    it("should keep the stroke attribute and store the original fill", () => {
       const container = document.createElement("div");
       const spec = createMockSpec();
 
