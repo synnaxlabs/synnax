@@ -11,9 +11,6 @@
 
 .console-settings__card {
     padding: 0 3rem;
-    background: var(--pluto-gray-l1);
-    border: var(--pluto-border);
-    border-radius: var(--pluto-border-radius-medium);
 }
 
 .console-settings__card--flush {

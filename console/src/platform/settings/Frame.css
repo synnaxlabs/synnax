@@ -16,9 +16,6 @@
     margin: 2rem 0 2rem 2rem;
     overflow-y: auto;
     overscroll-behavior: contain;
-    background: var(--pluto-gray-l1);
-    border: var(--pluto-border);
-    border-radius: var(--pluto-border-radius-huge);
 }
 
 .console-settings__nav-group + .console-settings__nav-group {

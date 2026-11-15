@@ -33,6 +33,7 @@ import {
   clickAndSettle,
   commitTextEdit,
   createConsoleWrapper,
+  openContextMenu,
   uniqueName,
 } from "@/testutil";
 
@@ -61,12 +62,6 @@ const search = async (term: string, count = 1): Promise<void> => {
     target: { value: term },
   });
   await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(count));
-};
-
-const openMenu = async (name: string): Promise<void> => {
-  await act(async () => {
-    fireEvent.contextMenu(await screen.findByText(name));
-  });
 };
 
 const deleted = async (key: label.Key): Promise<boolean> => {
@@ -112,7 +107,7 @@ describe("Label.Settings", () => {
     const l = await createLabel();
     await renderLabels();
     await search(l.name);
-    await openMenu(l.name);
+    await openContextMenu(l.name);
     await clickAndSettle("Rename");
     const name = uniqueName("renamed");
     commitTextEdit(await awaitTextEditingElement(), name);
@@ -147,7 +142,7 @@ describe("Label.Settings", () => {
     screen
       .getAllByRole("checkbox", { name: "Select" })
       .forEach((box) => fireEvent.click(box));
-    await openMenu(a.name);
+    await openContextMenu(a.name);
     expect(screen.queryByText("Rename")).toBeNull();
     await clickAndSettle("Delete");
     await act(async () => {
@@ -189,7 +184,7 @@ describe("Label.Settings", () => {
     await renderLabels(limited);
     await search(l.name);
     const line = screen.getByRole("option", { name: l.name });
-    await openMenu(l.name);
+    await openContextMenu(l.name);
     // Delete proves the menu's grants answered, so the missing Rename is the gate.
     expect(await screen.findByText("Delete")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();

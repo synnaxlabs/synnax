@@ -32,20 +32,18 @@ const SECRET_COLUMNS: List.Column[] = [
   { name: "Used by", width: "14rem" },
 ];
 
-const CreateSecret = ({
-  onClose,
-  onCreated,
-}: PlatformSettings.CreateItemProps<secret.Key>): ReactElement => {
+const CreateSecret = (): ReactElement => {
+  const { created } = PlatformSettings.useCreate();
   const [name, setName] = useState("");
   const [value, setValue] = useState("");
   const { update, variant } = Secret.useCreate({
-    afterSuccess: ({ data }) => onCreated(data.key),
+    afterSuccess: ({ data }) => created(data.key),
   });
   const save = (): void => {
     if (name.trim() === "" || variant === "loading") return;
     update({ name: name.trim(), source: "stored", value });
   };
-  const onKeyDown = PlatformSettings.createKeyDown(save, onClose);
+  const onKeyDown = PlatformSettings.useCreateKeyDown(save);
   return (
     <PlatformSettings.CreateFrame>
       <List.Cell>
@@ -70,11 +68,7 @@ const CreateSecret = ({
         />
       </List.Cell>
       <List.Cell>
-        <PlatformSettings.CreateActions
-          onSave={save}
-          onCancel={onClose}
-          status={variant}
-        />
+        <PlatformSettings.CreateActions onSave={save} status={variant} />
       </List.Cell>
     </PlatformSettings.CreateFrame>
   );
@@ -149,7 +143,7 @@ export const Secrets = ({ onSelectCertificate }: SecretsProps): ReactElement => 
       noun="secrets"
       menu={secretsMenu}
       createLabel={canCreate ? "Create secret" : undefined}
-      renderCreate={(p) => <CreateSecret {...p} />}
+      create={<CreateSecret />}
     >
       {({ key, ...p }) => (
         <SecretItem key={key} {...p} onSelectCertificate={onSelectCertificate} />

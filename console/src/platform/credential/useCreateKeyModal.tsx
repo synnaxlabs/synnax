@@ -11,17 +11,17 @@ import "@/platform/credential/useCreateKeyModal.css";
 
 import { type auth, type resource, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
-import { Credential } from "@synnaxlabs/pluto";
-import { type ReactElement, useState } from "react";
+import { Credential, Synnax } from "@synnaxlabs/pluto";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 
-import { Clipboard } from "@/platform/clipboard";
+import { Code } from "@/platform/code";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
@@ -42,11 +42,28 @@ interface NameProps extends CloseProps {
 }
 
 const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
   const [name, setName] = useState("");
   const query = { subject };
   const refreshKeys = Credential.useRefreshKeys();
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const { update, variant } = Credential.useCreateKey({
     afterSuccess: ({ data }) => {
+      // A key whose create ends after the modal closes can never show its token.
+      if (!mounted.current) {
+        handleError(async () => {
+          await client?.auth.deleteKeys(data.key.key);
+          refreshKeys(query);
+        }, "Failed to delete an unused API key");
+        return;
+      }
       refreshKeys(query);
       onCreated(data);
     },
@@ -103,48 +120,25 @@ interface TokenProps extends CloseProps {
   created: Credential.CreateKeyResult;
 }
 
-const Token = ({ created, close }: TokenProps): ReactElement => {
-  const copy = Clipboard.useCopy();
-  const [copied, setCopied] = useState(false);
-  const handleCopy = (): void => {
-    copy(created.token, "API key", created.key.name);
-    setCopied(true);
-  };
-  return (
-    <>
-      <Modal.Body className={CSS.BE("create-key", "token")}>
-        <Text.Text level="h4">{`Copy the key for ${created.key.name}`}</Text.Text>
-        <Text.Text color={9}>
-          The Core shows it only once. Store it somewhere safe, such as a password
-          manager.
-        </Text.Text>
-        <Flex.Box x align="center" gap="medium" className={CSS.BE("create-key", "box")}>
-          <Text.Text className={CSS.BE("create-key", "value")} grow>
-            {created.token}
-          </Text.Text>
-          <Button.Button
-            variant={copied ? "outlined" : "filled"}
-            onClick={handleCopy}
-            autoFocus
-          >
-            {copied ? <Icon.Check /> : <Icon.Copy />}
-            {copied ? "Copied" : "Copy"}
-          </Button.Button>
-        </Flex.Box>
-      </Modal.Body>
-      <Modal.Footer>
-        <Nav.Bar.End x align="center">
-          <Button.Button
-            variant={copied ? "filled" : "outlined"}
-            onClick={() => close(created.key.key)}
-          >
-            Done
-          </Button.Button>
-        </Nav.Bar.End>
-      </Modal.Footer>
-    </>
-  );
-};
+const Token = ({ created, close }: TokenProps): ReactElement => (
+  <>
+    <Modal.Body className={CSS.BE("create-key", "token")}>
+      <Text.Text level="h4">{`Copy the key for ${created.key.name}`}</Text.Text>
+      <Text.Text color={9}>
+        The Core shows it only once. Store it somewhere safe, such as a password
+        manager.
+      </Text.Text>
+      <Code.Snippet label="API key" code={[[created.token]]} primary />
+    </Modal.Body>
+    <Modal.Footer>
+      <Nav.Bar.End x align="center">
+        <Button.Button variant="outlined" onClick={() => close(created.key.key)}>
+          Done
+        </Button.Button>
+      </Nav.Bar.End>
+    </Modal.Footer>
+  </>
+);
 
 const Content = ({
   subject,

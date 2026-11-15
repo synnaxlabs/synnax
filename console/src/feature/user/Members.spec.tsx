@@ -34,6 +34,7 @@ import {
   clickAndSettle,
   commitTextEdit,
   createConsoleWrapper,
+  openContextMenu,
   queryIcon,
   uniqueName,
 } from "@/testutil";
@@ -74,12 +75,6 @@ const search = async (term: string, count = 1): Promise<void> => {
     target: { value: term },
   });
   await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(count));
-};
-
-const openMenu = async (name: string): Promise<void> => {
-  await act(async () => {
-    fireEvent.contextMenu(await screen.findByText(name));
-  });
 };
 
 const confirmDelete = async (): Promise<void> => {
@@ -137,7 +132,7 @@ describe("User.Members", () => {
     const u = await createUser("Operator");
     await renderMembers();
     await search(u.name);
-    await openMenu(u.name);
+    await openContextMenu(u.name);
     await clickAndSettle("Rename");
     const name = uniqueName("renamed");
     commitTextEdit(await awaitTextEditingElement(), name);
@@ -148,7 +143,7 @@ describe("User.Members", () => {
     const u = await createUser("Operator");
     await renderMembers();
     await search(u.name);
-    await openMenu(u.name);
+    await openContextMenu(u.name);
     await confirmDelete();
     await expect.poll(async () => await deleted(u.key)).toBe(true);
   });
@@ -160,7 +155,7 @@ describe("User.Members", () => {
     await renderMembers();
     await search(prefix, 2);
     selectAll();
-    await openMenu(a.name);
+    await openContextMenu(a.name);
     await confirmDelete();
     await expect.poll(async () => await deleted(a.key)).toBe(true);
     await expect.poll(async () => await deleted(b.key)).toBe(true);
@@ -181,7 +176,7 @@ describe("User.Members", () => {
     await renderMembers();
     await search(prefix, 2);
     selectAll();
-    await openMenu(a.name);
+    await openContextMenu(a.name);
     expect(await screen.findByText("Delete")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
     expect(screen.queryByText("Manage sign-in")).toBeNull();
@@ -193,7 +188,7 @@ describe("User.Members", () => {
     await client.auth.createKey({ subject: user.resourceID(u.key), name });
     await renderMembers();
     await search(u.name);
-    await openMenu(u.name);
+    await openContextMenu(u.name);
     await clickAndSettle("Manage sign-in");
     expect(await screen.findByText(name)).toBeTruthy();
   });
@@ -221,7 +216,7 @@ describe("User.Members", () => {
     await renderMembers(as);
     await search(root.name);
     const line = screen.getByRole("option", { name: root.name });
-    await openMenu(root.name);
+    await openContextMenu(root.name);
     expect(await screen.findByText("Manage sign-in")).toBeTruthy();
     expect(screen.queryByText("Delete")).toBeNull();
     const picker = within(line).getByRole("button", { name: /Owner/ });
@@ -242,7 +237,7 @@ describe("User.Members", () => {
       const { owner, as } = await loginAsOwner();
       await renderMembers(as);
       await search(owner.name);
-      await openMenu(owner.name);
+      await openContextMenu(owner.name);
       expect(await screen.findByText("Manage sign-in")).toBeTruthy();
       expect(screen.queryByText("Delete")).toBeNull();
     });
@@ -253,10 +248,10 @@ describe("User.Members", () => {
       const peer = await createUser("Operator", `${username}-peer`);
       await renderMembers(as);
       await search(username, 2);
-      await openMenu(peer.name);
+      await openContextMenu(peer.name);
       expect(await screen.findByText("Delete")).toBeTruthy();
       selectAll();
-      await openMenu(peer.name);
+      await openContextMenu(peer.name);
       expect(await screen.findByText("Reload Console")).toBeTruthy();
       expect(screen.queryByText("Delete")).toBeNull();
     });

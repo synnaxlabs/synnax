@@ -7,38 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { license, user } from "@synnaxlabs/client";
+import { type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
-import { Access } from "@synnaxlabs/pluto";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { renderPalette } from "@/feature/command/testutil";
 import { License } from "@/feature/license";
 import { findPortalLink, HANDOFF_CODE } from "@/feature/license/testutil";
-import { findCommand } from "@/platform/command/testutil";
 import { License as PlatformLicense } from "@/platform/license";
 import { findButton } from "@/platform/modals/testutil";
-import {
-  assertDefined,
-  createTestClientWithGrants,
-  renderHookWithConsole,
-} from "@/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
-describe("License Commands", () => {
+const renderInfo = async (client: Synnax): Promise<void> => {
+  const { wrapper } = await createConsoleWrapper({ client });
+  render(<License.Info />, { wrapper });
+};
+
+describe("License.Info", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("should open the license info dialog", async () => {
+  it("should show the license of the active Core", async () => {
     const client = createTestClient();
     const { license: lic } = await client.license.retrieve();
     if (lic == null) throw new Error("test Core has no license");
-    const { openCommandPalette, selectCommand } = await renderPalette({
-      commands: License.COMMANDS,
-      client,
-    });
-    await openCommandPalette();
-    await selectCommand("Show license info");
+    await renderInfo(client);
     expect(
       await screen.findByText(`${PlatformLicense.editionLabel(lic)} license`),
     ).toBeTruthy();
@@ -49,12 +42,7 @@ describe("License Commands", () => {
     const writeText = stubClipboardWriteText();
     const client = createTestClient();
     const info = await client.license.retrieve();
-    const { openCommandPalette, selectCommand } = await renderPalette({
-      commands: License.COMMANDS,
-      client,
-    });
-    await openCommandPalette();
-    await selectCommand("Show license info");
+    await renderInfo(client);
     await screen.findByText(/^License /);
     fireEvent.click(findButton("Copy diagnostics"));
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
@@ -67,12 +55,7 @@ describe("License Commands", () => {
     const writeText = stubClipboardWriteText();
     const client = createTestClient();
     const info = await client.license.retrieve();
-    const { openCommandPalette, selectCommand } = await renderPalette({
-      commands: License.COMMANDS,
-      client,
-    });
-    await openCommandPalette();
-    await selectCommand("Show license info");
+    await renderInfo(client);
     const button = findButton("Copy fingerprint");
     await waitFor(() => expect(button.getAttribute("aria-disabled")).toBeNull());
     fireEvent.click(button);
@@ -89,45 +72,9 @@ describe("License Commands", () => {
   it("should offer a new license key from the portal", async () => {
     const client = createTestClient();
     const { fingerprint } = await client.license.retrieve();
-    const { openCommandPalette, selectCommand } = await renderPalette({
-      commands: License.COMMANDS,
-      client,
-    });
-    await openCommandPalette();
-    await selectCommand("Show license info");
+    await renderInfo(client);
     const url = new URL(await findPortalLink("Get a new key on the portal"));
     expect(url.searchParams.get("fingerprint")).toBe(fingerprint.join(","));
     expect(url.searchParams.get("handoff")).toMatch(HANDOFF_CODE);
-  });
-
-  it("should hide the license info command without a Core", async () => {
-    const { openCommandPalette } = await renderPalette({ commands: License.COMMANDS });
-    await openCommandPalette();
-    expect(screen.queryByText("Show license info")).toBeNull();
-  });
-
-  it("should offer the license info command with a retrieve grant", async () => {
-    const gate = findCommand(License.COMMANDS, "Show license info").useVisible;
-    assertDefined(gate);
-    const client = await createTestClientWithGrants(createTestClient(), {
-      retrieve: [license.RESOURCE_ID],
-    });
-    const { result } = await renderHookWithConsole(gate, { client });
-    await waitFor(() => expect(result.current).toBe(true));
-  });
-
-  it("should withhold the license info command without a grant", async () => {
-    const gate = findCommand(License.COMMANDS, "Show license info").useVisible;
-    assertDefined(gate);
-    const client = await createTestClientWithGrants(createTestClient());
-    const { result } = await renderHookWithConsole(
-      () => ({
-        visible: gate(),
-        loaded: Access.useRetrieveGranted(user.TYPE_RESOURCE_ID),
-      }),
-      { client },
-    );
-    await waitFor(() => expect(result.current.loaded).toBe(true));
-    expect(result.current.visible).toBe(false);
   });
 });

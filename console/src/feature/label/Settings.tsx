@@ -68,22 +68,20 @@ const Item = (props: List.ItemProps<label.Key>): ReactElement => {
   );
 };
 
-const CreateLabel = ({
-  onClose,
-  onCreated,
-}: PlatformSettings.CreateItemProps<label.Key>): ReactElement => {
+const CreateLabel = (): ReactElement => {
+  const { created } = PlatformSettings.useCreate();
   const { form, save, variant } = Label.useCreateForm({
     query: null,
     afterSave: ({ value }) => {
       const { key } = value();
       if (key == null) throw new UnexpectedError("Label key is null");
-      onCreated(key);
+      created(key);
     },
   });
   const handleSave = (): void => {
     if (variant !== "loading") save();
   };
-  const onKeyDown = PlatformSettings.createKeyDown(handleSave, onClose);
+  const onKeyDown = PlatformSettings.useCreateKeyDown(handleSave);
   return (
     <PlatformSettings.CreateFrame>
       <List.Cell>
@@ -104,11 +102,7 @@ const CreateLabel = ({
                 />
               )}
             </Form.Field>
-            <PlatformSettings.CreateActions
-              onSave={handleSave}
-              onCancel={onClose}
-              status={variant}
-            />
+            <PlatformSettings.CreateActions onSave={handleSave} status={variant} />
           </Flex.Box>
         </Form.Form>
       </List.Cell>
@@ -164,7 +158,7 @@ export const Settings = (): ReactElement => {
       noun="labels"
       menu={menu}
       createLabel={canCreate ? "Create label" : undefined}
-      renderCreate={(p) => <CreateLabel {...p} />}
+      create={<CreateLabel />}
     >
       {({ key, ...p }) => <Item key={key} {...p} />}
     </PlatformSettings.Table>

@@ -22,6 +22,7 @@ import {
   clickAndSettle,
   type ConsolePreloadedState,
   createConsoleWrapper,
+  openContextMenu,
   uniqueName,
 } from "@/testutil";
 
@@ -135,10 +136,7 @@ describe("User.KeySettings", () => {
         <Modals.Stack />
       </>,
     );
-    const item = await screen.findByText(key.name);
-    await act(async () => {
-      fireEvent.contextMenu(item);
-    });
+    await openContextMenu(key.name);
     await clickAndSettle("Delete");
     const confirm = await screen.findByRole("button", { name: "Delete" });
     await act(async () => {

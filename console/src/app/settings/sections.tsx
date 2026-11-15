@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { LABELS_SECTION } from "@/app/settings/tab";
+import { LABELS_SECTION, LICENSE_SECTION } from "@/app/settings/tab";
 import { Account } from "@/feature/account";
 import { Core } from "@/feature/core";
 import { Label } from "@/feature/label";
@@ -86,12 +86,12 @@ const CONSOLE: Settings.Section[] = [
   },
 ];
 
-// Desktop runs a single-user embedded Core, so its account is the Synnax account that
-// the machine signs in with.
+// An embedded Core has one user, so its account is the Synnax account that the machine
+// signs in with.
 const ACCOUNT: Settings.Group = {
   key: "account",
   name: "Account",
-  sections: DESKTOP
+  sections: Session.Runtime.CORE_EMBEDDED
     ? [
         {
           key: "usage_data",
@@ -124,7 +124,7 @@ export const GROUPS: Settings.Group[] = [
     name: "Core",
     sections: [
       { key: "about", name: "About", icon: <Icon.About />, Content: About },
-      ...(DESKTOP
+      ...(Session.Runtime.CORE_EMBEDDED
         ? []
         : [
             {
@@ -157,7 +157,7 @@ export const GROUPS: Settings.Group[] = [
         useVisible: useCertificatesVisible,
       },
       {
-        key: "license",
+        key: LICENSE_SECTION,
         name: "License",
         icon: <Icon.License />,
         Content: License.Info,

@@ -25,14 +25,19 @@ export interface CardProps extends PropsWithChildren {
 export const Card = ({ title, flush = false, children }: CardProps): ReactElement => (
   <Flex.Box y gap="medium">
     {title != null && <Text.Text level="h5">{title}</Text.Text>}
-    <div
+    <Flex.Box
+      y
+      empty
+      bordered
+      rounded="medium"
+      background={1}
       className={CSS.cls(
         CSS.BE("settings", "card"),
         flush && CSS.BEM("settings", "card", "flush"),
       )}
     >
       {children}
-    </div>
+    </Flex.Box>
   </Flex.Box>
 );
 

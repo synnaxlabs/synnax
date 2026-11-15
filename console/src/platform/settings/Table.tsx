@@ -17,7 +17,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Text } from "@synnaxlabs/lyra/text";
+import { Status } from "@synnaxlabs/lyra/status";
 import { type record } from "@synnaxlabs/x";
 import {
   createContext,
@@ -44,15 +44,28 @@ export interface TableData<
   more?: () => void;
   /** False until the first answer, so the empty text does not flash while loading. */
   answered?: boolean;
+  /** The status of the list query. An error shows in place of the items. */
+  status?: status.Status;
 }
 
-/** Props for the item that creates items in place in a {@link Table}. */
-export interface CreateItemProps<K extends record.Key> {
-  /** Closes the item. */
-  onClose: () => void;
+/** What the create item of a {@link Table} uses to finish. */
+export interface CreateContextValue {
+  /** Closes the create item. */
+  close: () => void;
   /** Lists a new item under the create item, which then starts empty for the next. */
-  onCreated: (key: K) => void;
+  created: (key: record.Key) => void;
 }
+
+const CreateContext = createContext<CreateContextValue | null>(null);
+CreateContext.displayName = "Settings.Create";
+
+/** Returns the callbacks of the create item. Throws outside the create of a Table. */
+export const useCreate = (): CreateContextValue => {
+  const ctx = use(CreateContext);
+  if (ctx == null)
+    throw new Error("Settings.useCreate must be inside the create of a Table");
+  return ctx;
+};
 
 export interface TableProps<K extends record.Key, E extends record.Keyed<K>> {
   list: TableData<K, E>;
@@ -63,10 +76,10 @@ export interface TableProps<K extends record.Key, E extends record.Keyed<K>> {
   /** The create button's text, such as "Create label". Omit when the user cannot. */
   createLabel?: string;
   /**
-   * Renders an item that creates in place, used when every field it takes is a column.
-   * Without it, the create button calls `onCreate`.
+   * An item that creates in place, used when every field it takes is a column. It
+   * finishes through {@link useCreate}. Without it, the create button calls `onCreate`.
    */
-  renderCreate?: (props: CreateItemProps<K>) => ReactNode;
+  create?: ReactNode;
   /** Opens a modal that creates an item, and resolves with its key or null. */
   onCreate?: () => Promise<K | null> | void;
   /** An item to select and scroll to once the list holds it. */
@@ -112,10 +125,10 @@ export const CreateFrame = ({ children }: PropsWithChildren): ReactElement => (
   </div>
 );
 
-/** Returns a key handler that saves on Enter and closes on Escape. */
-export const createKeyDown =
-  (save: () => void, close: () => void) =>
-  (e: KeyboardEvent): void => {
+/** Returns a key handler for a field of the create item: Enter saves, Escape closes. */
+export const useCreateKeyDown = (save: () => void): ((e: KeyboardEvent) => void) => {
+  const { close } = useCreate();
+  return (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
       save();
@@ -124,42 +137,46 @@ export const createKeyDown =
       close();
     }
   };
+};
 
 export interface CreateActionsProps {
   onSave: () => void;
-  onCancel: () => void;
   /** The status of the create request, which shows on the confirm button. */
   status?: status.Variant;
 }
 
 /** The confirm and cancel buttons of a create item, at the end of its last column. */
-export const CreateActions = ({
-  onSave,
-  onCancel,
-  status,
-}: CreateActionsProps): ReactElement => (
-  <Flex.Box x gap="small" justify="end" className={CSS.BE("settings-table", "actions")}>
-    <Button.Button
-      variant="filled"
-      size="small"
-      tooltip="Create"
-      aria-label="Create"
-      status={status === "loading" ? "loading" : undefined}
-      onClick={onSave}
+export const CreateActions = ({ onSave, status }: CreateActionsProps): ReactElement => {
+  const { close } = useCreate();
+  return (
+    <Flex.Box
+      x
+      gap="small"
+      justify="end"
+      className={CSS.BE("settings-table", "actions")}
     >
-      <Icon.Check />
-    </Button.Button>
-    <Button.Button
-      variant="text"
-      size="small"
-      tooltip="Cancel"
-      aria-label="Cancel"
-      onClick={onCancel}
-    >
-      <Icon.Close />
-    </Button.Button>
-  </Flex.Box>
-);
+      <Button.Button
+        variant="filled"
+        size="small"
+        tooltip="Create"
+        aria-label="Create"
+        status={status === "loading" ? "loading" : undefined}
+        onClick={onSave}
+      >
+        <Icon.Check />
+      </Button.Button>
+      <Button.Button
+        variant="text"
+        size="small"
+        tooltip="Cancel"
+        aria-label="Cancel"
+        onClick={close}
+      >
+        <Icon.Close />
+      </Button.Button>
+    </Flex.Box>
+  );
+};
 
 /**
  * A searchable list of items on the columns of a Settings page, with a create action
@@ -172,13 +189,21 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
   noun,
   menu,
   createLabel,
-  renderCreate,
+  create,
   onCreate,
   selected: initial,
   onShowSelected,
   children,
 }: TableProps<K, E>): ReactElement => {
-  const { data, getItem, subscribe, more, search, answered = true } = list;
+  const {
+    data,
+    getItem,
+    subscribe,
+    more,
+    search,
+    answered = true,
+    status: query,
+  } = list;
   const [term, setTerm] = useState("");
   const [selected, setSelected] = useState<K[]>(initial == null ? [] : [initial]);
   const [prevInitial, setPrevInitial] = useState(initial);
@@ -189,16 +214,16 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
   const [creating, setCreating] = useState<"open" | "closing" | null>(null);
   // A new round remounts the create item, so it starts empty after each create.
   const [round, setRound] = useState(0);
-  const [fresh, setFresh] = useState<K[]>([]);
+  const [fresh, setFresh] = useState<record.Key[]>([]);
   const menuProps = Menu.useContextMenu();
   const handleSearch = (next: string): void => {
     setTerm(next);
     search(next);
   };
-  const markFresh = (key: K): void =>
+  const markFresh = (key: record.Key): void =>
     setFresh((prev) => [key, ...prev.filter((k) => k !== key)]);
   const handleCreate = (): void => {
-    if (renderCreate != null) {
+    if (create != null) {
       setCreating("open");
       return;
     }
@@ -206,13 +231,16 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
       if (key != null) markFresh(key);
     });
   };
-  const handleCreated = (key: K): void => {
+  const handleCreated = (key: record.Key): void => {
     markFresh(key);
     setRound((r) => r + 1);
   };
   const handleClose = (): void => setCreating((c) => (c == null ? null : "closing"));
-  const present = new Set(data);
-  const freshShown = fresh.filter((k) => present.has(k));
+  const present = new Map<record.Key, K>(data.map((k) => [k, k]));
+  const freshShown = fresh.flatMap((k) => {
+    const shown = present.get(k);
+    return shown == null ? [] : [shown];
+  });
   const freshSet = new Set<record.Key>(freshShown);
   const ordered =
     freshShown.length === 0
@@ -253,7 +281,7 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
         <Card flush>
           <List.Columns columns={columns}>
             <List.Headings checkable />
-            {creating != null && renderCreate != null && (
+            {creating != null && create != null && (
               <div
                 className={CSS.cls(
                   CSS.BE("settings-table", "reveal"),
@@ -266,9 +294,9 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
                 }}
               >
                 <div>
-                  <Fragment key={round}>
-                    {renderCreate({ onClose: handleClose, onCreated: handleCreated })}
-                  </Fragment>
+                  <CreateContext value={{ close: handleClose, created: handleCreated }}>
+                    <Fragment key={round}>{create}</Fragment>
+                  </CreateContext>
                 </div>
               </div>
             )}
@@ -276,11 +304,24 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
               <List.Scroll onContextMenu={menuProps.open}>
                 <List.Items<K>
                   emptyContent={
-                    answered &&
-                    creating == null && (
-                      <Flex.Box center className={CSS.BE("settings-table", "empty")}>
-                        <Text.Text color={9}>No {noun}</Text.Text>
-                      </Flex.Box>
+                    query?.variant === "error" ? (
+                      <Status.Summary
+                        center
+                        status={query}
+                        className={CSS.BE("settings-table", "empty")}
+                      />
+                    ) : (
+                      answered &&
+                      creating == null && (
+                        <Status.Summary
+                          center
+                          variant="disabled"
+                          hideIcon
+                          className={CSS.BE("settings-table", "empty")}
+                        >
+                          No {noun}
+                        </Status.Summary>
+                      )
                     )
                   }
                 >

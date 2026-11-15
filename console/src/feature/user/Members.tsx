@@ -26,20 +26,6 @@ import { Modals } from "@/platform/modals";
 import { Settings as PlatformSettings } from "@/platform/settings";
 import { User as PlatformUser } from "@/platform/user";
 
-interface SetRoleParams {
-  key: user.Key;
-  role: access.role.Key;
-}
-
-const { useUpdate: useSetRole } = Flux.createUpdate<SetRoleParams>({
-  name: "user role",
-  verbs: { present: "change", past: "changed", participle: "changing" },
-  update: async ({ client, data }) => {
-    await client.users.setRole(data.key, data.role);
-    return data;
-  },
-});
-
 const COLUMNS: List.Column[] = [
   { name: "Name", width: "1fr" },
   { name: "Role", width: "30rem", field: true },
@@ -52,7 +38,7 @@ const Member = (props: List.ItemProps<user.Key>): ReactElement | null => {
   const canUpdate = Access.useUpdateGranted(user.resourceID(itemKey));
   const canSetRole = Access.useUpdateGranted(access.role.TYPE_RESOURCE_ID);
   const { update: rename } = User.useRename();
-  const { update: setRole } = useSetRole();
+  const { update: setRole } = User.useSetRole();
   if (item == null) return null;
   const self = item.key === selfKey;
   // Until the current user is known, any line could be theirs, so every line locks.
