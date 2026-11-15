@@ -299,7 +299,7 @@ TEST_F(SOEMTest, SDOReadFailsOnAnAbortOfAnotherObject) {
 
 /// @brief it should fail an expedited SDO write with an unexpected frame error when the
 /// abort is for another object.
-TEST_F(SOEMTest, SDOWriteFailsOnAnAbortOfAnotherObject) {
+TEST_F(SOEMTest, ExpeditedSDOWriteFailsOnAnAbortOfAnotherObject) {
     this->slave.respond = [] {
         return std::vector<Bytes>{abort_reply(0x8040, 1, NO_OBJECT)};
     };

@@ -190,14 +190,6 @@ END_TIMER_PERIOD_PER_SESSION = (
 """,
 )
 
-OSAL_KEEPS_TIMER_PERIOD = (
-    """#include <inttypes.h>
-#include <timeapi.h>
-""",
-    """#include <inttypes.h>
-""",
-)
-
 OSAL_REQUESTS_NO_TIMER_PERIOD = (
     """   {
       timeBeginPeriod(1);
@@ -222,7 +214,7 @@ PATCHES = {
         READ_LATE_FRAMES,
         READ_LATE_SECONDARY_FRAMES,
     ],
-    "osal.c": [OSAL_KEEPS_TIMER_PERIOD, OSAL_REQUESTS_NO_TIMER_PERIOD],
+    "osal.c": [OSAL_REQUESTS_NO_TIMER_PERIOD],
 }
 
 source, output = sys.argv[1:]
