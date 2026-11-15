@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button } from "@synnaxlabs/lyra/button";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import {
   type ComponentType,
   type PropsWithChildren,
@@ -32,13 +34,21 @@ type UnselectedProps = Pick<GuardProps, "Settings">;
 
 const Unselected = ({ Settings }: UnselectedProps): ReactNode => {
   const [settingsOpen, setSettingsOpen] = useState(false);
-  if (Settings != null && settingsOpen)
-    return <Settings onBack={() => setSettingsOpen(false)} />;
-  return (
-    <Splash
-      onOpenSettings={Settings != null ? () => setSettingsOpen(true) : undefined}
-    />
+  if (Settings == null) return <Splash />;
+  if (settingsOpen) return <Settings onBack={() => setSettingsOpen(false)} />;
+  const gear = (
+    <Button.Button
+      onClick={() => setSettingsOpen(true)}
+      variant="text"
+      size="medium"
+      textColor={9}
+      tooltip="Settings"
+      aria-label="Settings"
+    >
+      <Icon.Settings />
+    </Button.Button>
   );
+  return <Splash actions={gear} />;
 };
 
 export const Guard = ({ children, Settings }: GuardProps): ReactNode => {

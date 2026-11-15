@@ -28,6 +28,7 @@ describe("Settings.Splash", () => {
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     expect(await screen.findByRole("navigation", { name: "Settings" })).toBeDefined();
     expect(querySplash(container)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Projects" }));
     expect(screen.queryByRole("navigation", { name: "Settings" })).toBeNull();
     expect(querySplash(container)).not.toBeNull();

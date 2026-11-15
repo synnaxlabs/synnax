@@ -8,14 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { Button } from "@synnaxlabs/lyra/button";
-import { Flex } from "@synnaxlabs/lyra/flex";
-import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement, Suspense } from "react";
 
 import { type Project } from "@/feature/project";
 import { Shell } from "@/feature/shell";
 import { Panel } from "@/platform/panel";
+import { Settings as PlatformSettings } from "@/platform/settings";
 import { Session } from "@/session";
 
 const Settings = Panel.lazyComponent(
@@ -27,18 +26,20 @@ const Settings = Panel.lazyComponent(
 export const Splash = ({ onBack }: Project.SettingsProps): ReactElement => {
   const activeCore = Session.Core.useSelectSelected();
   return (
-    <Shell.Frame wide connection={Session.Runtime.CORE_EMBEDDED ? null : activeCore}>
-      <Flex.Box y grow empty>
-        <Header.Header gap="small" x>
-          <Button.Button variant="text" textColor={9} size="medium" onClick={onBack}>
-            <Icon.Arrow.Left />
-            Projects
-          </Button.Button>
-        </Header.Header>
+    <Shell.Page
+      connection={Session.Runtime.CORE_EMBEDDED ? null : activeCore}
+      start={
+        <Button.Button variant="text" textColor={9} size="medium" onClick={onBack}>
+          <Icon.Arrow.Left />
+          Projects
+        </Button.Button>
+      }
+    >
+      <PlatformSettings.CardBackgroundContext value={0}>
         <Suspense fallback={null}>
           <Settings />
         </Suspense>
-      </Flex.Box>
-    </Shell.Frame>
+      </PlatformSettings.CardBackgroundContext>
+    </Shell.Page>
   );
 };

@@ -66,9 +66,9 @@
         height 0.25s ease;
 }
 
-.console-shell__card.console--wide {
-    width: clamp(420px, 100vw - 24rem, 960px);
-    height: clamp(480px, 100vh - 24rem, 640px);
+/* Clears the islands: their 2rem inset and 6rem height. */
+.console-shell__page {
+    padding-top: 8rem;
 }
 
 /* Keeps sub-250ms transients faint by fading them in. */
