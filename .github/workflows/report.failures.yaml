@@ -69,8 +69,10 @@ jobs:
           # Earlier scheduled runs, newest first.
           posted=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs" \
             -X GET -f event=schedule -f created="<$CREATED" -F per_page=100 |
-            jq --arg day "${CREATED:0:10}" '
-              def failed: .conclusion | IN("failure", "timed_out", "startup_failure");
+            jq --arg day "${CREATED:0:10}" --argjson self "$self" '
+              def failed: .conclusion
+                | if $self then . == "startup_failure"
+                  else IN("failure", "timed_out", "startup_failure") end;
               .workflow_runs as $runs
               | ($runs[0] // {} | failed)
                 and any($runs[]; failed and .created_at[:10] == $day)')
