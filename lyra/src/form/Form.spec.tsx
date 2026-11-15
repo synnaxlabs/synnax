@@ -421,6 +421,82 @@ describe("Form", () => {
       expect(() => ctx.focus(path.name)).toThrow(NO_FOCUS);
       expect(handler).not.toHaveBeenCalled();
     });
+    it("should run the nearest handler above the path with the path", () => {
+      const handler = vi.fn();
+      const { result } = renderHook(
+        () => {
+          Form.useFocusHandler(path.nested, handler);
+          return Form.useContext();
+        },
+        { wrapper },
+      );
+      expect(result.current.focus(path.nested.ssn)).toBe(true);
+      expect(handler).toHaveBeenCalledExactlyOnceWith("nested.ssn");
+    });
+    it("should take focus at a field that shows the path", () => {
+      const withField = ({ children }: PropsWithChildren): ReactElement => (
+        <FormContainer>
+          <Form.Field path={path.nested.ssn} />
+          {children}
+        </FormContainer>
+      );
+      const handler = vi.fn();
+      const { result } = renderHook(
+        () => {
+          Form.useFocusHandler(path.nested, handler);
+          return Form.useContext();
+        },
+        { wrapper: withField },
+      );
+      expect(result.current.focus(path.nested.ssn)).toBe(true);
+      expect(handler).not.toHaveBeenCalled();
+    });
+    it("should run a handler at the path before a field at the path", () => {
+      const withField = ({ children }: PropsWithChildren): ReactElement => (
+        <FormContainer>
+          <Form.Field path={path.name} />
+          {children}
+        </FormContainer>
+      );
+      const handler = vi.fn();
+      const { result } = renderHook(
+        () => {
+          Form.useFocusHandler(path.name, handler);
+          return Form.useContext();
+        },
+        { wrapper: withField },
+      );
+      result.current.focus(path.name);
+      expect(handler).toHaveBeenCalledExactlyOnceWith("name");
+    });
+    it("should not take focus at a hidden field", () => {
+      const withHidden = ({ children }: PropsWithChildren): ReactElement => (
+        <FormContainer>
+          <Form.Field path={path.name} visible={false} />
+          {children}
+        </FormContainer>
+      );
+      const { result } = renderHook(() => Form.useContext(), { wrapper: withHidden });
+      expect(() => result.current.focus(path.name)).toThrow(NO_FOCUS);
+    });
+    it("should return false when nothing takes an optional focus", () => {
+      const { result } = renderHook(() => Form.useContext(), { wrapper });
+      expect(result.current.focus(path.name, { optional: true })).toBe(false);
+    });
+    it("should take focus at a status display only while it is mounted", () => {
+      const { result, unmount } = renderHook(
+        () => {
+          Form.useStatusDisplay(path.nested);
+          return Form.useContext();
+        },
+        { wrapper },
+      );
+      const ctx = result.current;
+      expect(ctx.focus(path.nested, { optional: true })).toBe(true);
+      expect(ctx.focus(path.nested.ssn, { optional: true })).toBe(false);
+      unmount();
+      expect(ctx.focus(path.nested, { optional: true })).toBe(false);
+    });
     it("should keep a newer handler when an older one is removed", () => {
       const { result } = renderHook(() => Form.useContext(), { wrapper });
       const older = vi.fn();

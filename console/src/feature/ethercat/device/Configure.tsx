@@ -23,6 +23,7 @@ import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { deep, strings, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
+import { clashMessage, findClash } from "@/feature/ethercat/device/identifier";
 import { SetupNote } from "@/feature/ethercat/device/SetupNote";
 import { SlaveSettings } from "@/feature/ethercat/device/SlaveSettings";
 import { StartupParameters } from "@/feature/ethercat/device/StartupParameters";
@@ -260,13 +261,24 @@ const useForm = PDevice.createForm(SLAVE_SCHEMAS, INITIAL_VALUES);
 
 // A check reports issues without making the form invalid, so its errors stop the save.
 const beforeSave = async ({
+  client,
   getStatuses,
   set,
+  setStatus,
+  value,
 }: Flux.FormBeforeSaveParams<
   PDevice.RetrieveQuery,
   PDevice.FormSchema<typeof SLAVE_SCHEMAS>
 >): Promise<boolean> => {
   if (getStatuses().some(({ variant }) => variant === "error")) return false;
+  const other = findClash(value(), await client.devices.retrieve({}));
+  if (other != null) {
+    setStatus(path.properties.identifier, {
+      variant: "error",
+      message: clashMessage(other),
+    });
+    return false;
+  }
   set(path.configured, true);
   return true;
 };
@@ -281,6 +293,7 @@ const NAME_INPUT_PROPS = {
 const General = (): ReactElement => {
   const name = Form.useFieldValue(path.name);
   const { set } = Form.useContext();
+  const ideas = strings.createShortIdentifiers(name ?? "");
   return (
     <Form.Section title="General">
       <Form.TextField
@@ -293,19 +306,30 @@ const General = (): ReactElement => {
         <Text.Text level="small" color={9}>
           A short prefix for every channel on this device.
         </Text.Text>
-        <Flex.Box x align="center" wrap>
-          <Icon.Bolt />
-          {strings.createShortIdentifiers(name ?? "").map((id) => (
-            <Button.Button
-              key={id}
-              onClick={() => set(path.properties.identifier, id)}
-              size="small"
-              variant="text"
+        {ideas.length > 0 && (
+          // The ideas wrap apart from the icon, so the icon never sits alone on a line.
+          <Flex.Box x align="start" gap="small">
+            <Flex.Box
+              x
+              align="center"
+              className={CSS.BE("ethercat-configure", "ideas-icon")}
             >
-              {id}
-            </Button.Button>
-          ))}
-        </Flex.Box>
+              <Icon.Bolt />
+            </Flex.Box>
+            <Flex.Box x align="center" wrap>
+              {ideas.map((id) => (
+                <Button.Button
+                  key={id}
+                  onClick={() => set(path.properties.identifier, id)}
+                  size="small"
+                  variant="text"
+                >
+                  {id}
+                </Button.Button>
+              ))}
+            </Flex.Box>
+          </Flex.Box>
+        )}
       </Flex.Box>
     </Form.Section>
   );

@@ -137,11 +137,40 @@ const ScannerState = ({
   return null;
 };
 
+const byConfigured = (a: device.Device, b: device.Device): number =>
+  Number(a.configured) - Number(b.configured);
+
+// A slot is a bus position, so the devices list in the order of the bus.
+const bySlot = (a: device.Device, b: device.Device): number =>
+  a.location.localeCompare(b.location, undefined, { numeric: true });
+
 const isScanning = (r: rack.Rack, scanner: task.Task | undefined): boolean =>
   isReady(r) &&
   scanner != null &&
   !isScanDisabled(scanner) &&
   scanner.status?.variant !== "error";
+
+const connectedText = (count: number, name: string): string => {
+  if (count === 0) return `No ${name} devices connected.`;
+  return `${count} ${name} device${count === 1 ? "" : "s"} connected.`;
+};
+
+interface ScanResultProps {
+  devices: device.Device[];
+  name: string;
+}
+
+/** Says how many of the devices are connected after a scan. */
+const ScanResult = ({ devices, name }: ScanResultProps): ReactElement => {
+  const count = devices.filter((d) => d.status?.details.connected === true).length;
+  return (
+    <State
+      variant={count > 0 ? "success" : "warning"}
+      message="Scan complete"
+      description={connectedText(count, name)}
+    />
+  );
+};
 
 interface DeviceItemProps extends Pick<Hardware, "formatLocation"> {
   device: device.Device;
@@ -191,6 +220,8 @@ interface RackCardProps extends Pick<Hardware, "formatLocation"> {
   scanner: task.Task | undefined;
   devices: device.Device[];
   name: string;
+  /** Whether a Scan now of this rack finished. */
+  scanned: boolean;
   onConfigure: (key: device.Key) => void;
 }
 
@@ -199,6 +230,7 @@ const RackCard = ({
   scanner,
   devices,
   name,
+  scanned,
   formatLocation,
   onConfigure,
 }: RackCardProps): ReactElement => (
@@ -218,6 +250,7 @@ const RackCard = ({
       </Header.Actions>
     </Pane.Header>
     <ScannerState rack={r} scanner={scanner} name={name} />
+    {scanned && <ScanResult devices={devices} name={name} />}
     {devices.map((d) => (
       <DeviceItem
         key={d.key}
@@ -270,7 +303,17 @@ export interface FindProps {
  * action to scan now, and what to check when the hardware is missing.
  */
 export const Find = ({
-  hardware: { key, name, title, icon, make, scanType, checks, formatLocation },
+  hardware: {
+    key,
+    name,
+    title,
+    icon,
+    make,
+    scanType,
+    checks,
+    location,
+    formatLocation,
+  },
   rack: rackKey,
   filter,
   onBack,
@@ -289,20 +332,26 @@ export const Find = ({
     .filter(
       (d) => racks?.some((r) => r.key === d.rack) === true && (filter?.(d) ?? true),
     )
-    .toSorted((a, b) => Number(a.configured) - Number(b.configured));
+    .toSorted(location.shape === "slot" ? bySlot : byConfigured);
   const handleError = Status.useErrorHandler();
   const [scanning, setScanning] = useState(false);
+  const [scanned, setScanned] = useState<rack.Key[]>([]);
   const targets = (scanners ?? []).filter(
     (s) =>
       !isScanDisabled(s) && racks?.some((r) => r.key === s.rack && isReady(r)) === true,
   );
   const scan = async () => {
     setScanning(true);
+    setScanned([]);
     try {
-      await Promise.all(
+      const replies = await Promise.all(
         targets.map((s) =>
           s.executeCommandSync({ type: SCAN_COMMAND, timeout: SCAN_TIMEOUT }),
         ),
+      );
+      // The scanner state shows a scan that failed.
+      setScanned(
+        targets.filter((_, i) => replies[i].variant === "success").map((s) => s.rack),
       );
     } catch (e) {
       handleError(e, `Failed to scan for ${name} hardware`);
@@ -344,6 +393,7 @@ export const Find = ({
             scanner={scanners?.find((s) => s.rack === r.key)}
             devices={found.filter((d) => d.rack === r.key)}
             name={name}
+            scanned={scanned.includes(r.key)}
             formatLocation={formatLocation}
             onConfigure={onConfigure}
           />
