@@ -168,9 +168,11 @@ class CoreRestart(TestCase):
                 channels=[START, PRESSURE],
                 enable_auto_commit=True,
             ) as w:
+                # The Arc reads a channel with no value as 0, which would leave the
+                # stage at once.
+                w.write({PRESSURE: HIGH})
                 w.write({START: 1})
                 self._read_until(streamer, HELD, STATUS_TIMEOUT)
-                w.write({PRESSURE: HIGH})
 
         self.log("Restarting the Core")
         stopped = sy.TimeStamp.now()
