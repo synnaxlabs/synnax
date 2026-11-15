@@ -135,6 +135,8 @@ class Symbol(ABC):
         """
 
     def _disable_edit_mode(self) -> None:
+        # Callers press or hold the symbol next, which goes through the hit test.
+        self.notifications.close_all()
         disable_btn = self.page.get_by_role(
             "button", name="Disable editing", exact=True
         )
