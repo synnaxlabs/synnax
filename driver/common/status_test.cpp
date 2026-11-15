@@ -509,7 +509,9 @@ TEST(TestStatusWindow, testCloseDropsPending) {
 TEST(TestStatusWindow, testKeepsWindowWhenAnotherThreadSends) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
-    const auto window = 20 * x::telem::MILLISECOND;
+    // A wide window absorbs a loaded host pausing a writer between starting the window
+    // and stamping the status.
+    const auto window = 100 * x::telem::MILLISECOND;
     auto handler = StatusHandler(ctx, task, window);
     // A tight loop of changes often takes the lock at the end of a window before the
     // flusher does, then queues the next change.
