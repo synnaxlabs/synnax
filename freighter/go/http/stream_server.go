@@ -95,7 +95,8 @@ type streamServer[RQ, RS freighter.Payload] struct {
 	wg      *sync.WaitGroup
 	path    string
 	freighter.MiddlewareCollector
-	writeDeadline time.Duration
+	writeDeadline    time.Duration
+	messageSizeLimit int64
 }
 
 // Report describes the stream server's protocol and the content types it can negotiate
@@ -165,6 +166,7 @@ func (s *streamServer[RQ, RS]) handleSocket(
 		handlerCtx context.Context
 	)
 	defer close(exited)
+	c.SetReadLimit(s.messageSizeLimit)
 	stream := &serverStream[RQ, RS]{streamCore: newStreamCore[RQ, RS](
 		streamCoreConfig{
 			writeDeadline: s.writeDeadline,
