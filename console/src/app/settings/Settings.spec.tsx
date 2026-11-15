@@ -29,15 +29,14 @@ import { Suspense } from "react";
 import { assert, describe, expect, it } from "vitest";
 
 import { Settings } from "@/app/settings";
+import { renderSettings } from "@/app/settings/testutil";
 import { renderPalette } from "@/feature/command/testutil";
-import { Secret } from "@/feature/secret";
 import { findCommand } from "@/platform/command/testutil";
 import {
   createPanelWrapper,
   createServerPanel,
   primePanel,
 } from "@/platform/panel/testutil";
-import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 import {
   assertDefined,
@@ -65,24 +64,10 @@ const createLimitedClient = async () => {
   return limited;
 };
 
-const renderSettings = async (as = client) => {
-  const { Content } = Settings.TABS.settings;
-  const { wrapper } = await createConsoleWrapper({ client: as });
-  render(
-    <Tree.Provider items={Secret.TREE_ITEMS}>
-      <Suspense fallback={null}>
-        <Content />
-      </Suspense>
-    </Tree.Provider>,
-    { wrapper },
-  );
-  return { wrapper };
-};
-
 describe("Settings", () => {
   it("should open the page of each section", async () => {
     await renderSettings();
-    const sections = ["Profile", "API keys", "Appearance", "Storage", "General"];
+    const sections = ["Profile", "API keys", "Appearance", "Storage", "About"];
     for (const name of [
       ...sections,
       "Users",
@@ -169,6 +154,49 @@ describe("Settings", () => {
     await openCommandPalette();
     await selectCommand("Edit labels");
     expect(await screen.findByRole("heading", { name: "Labels" })).toBeTruthy();
+  });
+
+  it("should show the License page when Show license info runs", async () => {
+    const existing = await createServerPanel(client, {
+      variant: "leaf",
+      tabs: [{ variant: "view", key: uuid.create(), type: "other" }],
+    });
+    const { wrapper, store } = await createPanelWrapper({
+      client,
+      panelKey: existing.key,
+    });
+    await primePanel(wrapper, existing.key);
+    const { Content } = Settings.TABS.settings;
+    render(
+      <Suspense fallback={null}>
+        <Content />
+      </Suspense>,
+      { wrapper },
+    );
+    expect(await screen.findByRole("heading", { name: "Profile" })).toBeTruthy();
+    const { openCommandPalette, selectCommand } = await renderPalette({
+      commands: Settings.COMMANDS,
+      client,
+      store,
+    });
+    await openCommandPalette();
+    await selectCommand("Show license info");
+    expect(await screen.findByRole("heading", { name: "License" })).toBeTruthy();
+  });
+
+  it("should withhold Show license info without a license grant", async () => {
+    const gate = findCommand(Settings.COMMANDS, "Show license info").useVisible;
+    assertDefined(gate);
+    // The user grant resolves through the same query, so the gate has answered too.
+    const { result } = await renderHookWithConsole(
+      () => ({
+        visible: gate(),
+        loaded: Access.useRetrieveGranted(user.TYPE_RESOURCE_ID),
+      }),
+      { client: await createLimitedClient() },
+    );
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    expect(result.current.visible).toBe(false);
   });
 
   it("should offer the gear and Open settings to a Viewer", async () => {

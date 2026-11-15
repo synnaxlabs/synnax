@@ -15,18 +15,6 @@ import { type PropsWithChildren, type ReactElement, type ReactNode } from "react
 
 import { CSS } from "@/platform/css";
 
-export interface PageProps extends PropsWithChildren {
-  title: string;
-}
-
-/** Lays out one section of Settings: its title, then its groups. */
-export const Page = ({ title, children }: PageProps): ReactElement => (
-  <Flex.Box y className={CSS.BE("settings", "content")}>
-    <Text.Text level="h3">{title}</Text.Text>
-    {children}
-  </Flex.Box>
-);
-
 export interface CardProps extends PropsWithChildren {
   title?: string;
   /** Drops the card's inner padding, for content that pads itself, such as a tree. */
@@ -37,14 +25,19 @@ export interface CardProps extends PropsWithChildren {
 export const Card = ({ title, flush = false, children }: CardProps): ReactElement => (
   <Flex.Box y gap="medium">
     {title != null && <Text.Text level="h5">{title}</Text.Text>}
-    <div
+    <Flex.Box
+      y
+      empty
+      bordered
+      rounded="medium"
+      background={1}
       className={CSS.cls(
         CSS.BE("settings", "card"),
         flush && CSS.BEM("settings", "card", "flush"),
       )}
     >
       {children}
-    </div>
+    </Flex.Box>
   </Flex.Box>
 );
 

@@ -41,6 +41,15 @@ Node struct {
             actions.
         """
     }
+    config   NodeConfig {
+        @doc value "is the symbol the node draws and its settings."
+    }
+    parent   string?    {
+        @doc value """
+            is the key of the group box node that contains the node. Absent when the
+            node is at the top level.
+        """
+    }
 
     @doc value  "is a diagram node representing a symbol in the schematic."
     @go marshal
@@ -62,14 +71,17 @@ Handle struct {
 }
 
 Edge struct {
-    key    string {
+    key    string     {
         @doc value "is the unique edge identifier within the schematic."
     }
-    source Handle {
+    source Handle     {
         @doc value "is the source endpoint of the edge."
     }
-    target Handle {
+    target Handle     {
         @doc value "is the target endpoint of the edge."
+    }
+    config EdgeConfig {
+        @doc value "is the style of the connection and the path it traces."
     }
 
     @doc value  "is a connection between two nodes in the schematic."
@@ -113,8 +125,8 @@ EdgeConfig union on variant {
     data      SegmentedEdgeConfig
 
     @doc value  """
-        is the per-edge configuration stored in the schematic configs map. The variant
-        selects the visual style of the connection.
+        is the configuration of one edge. The variant selects the visual style of the
+        connection.
     """
     @go marshal
 }
@@ -877,10 +889,7 @@ NodeConfig union on variant {
         @doc value "is the configuration for user-defined static symbols."
     }
     group_box {
-        members string[] = [] {
-            @doc value "lists the keys of the symbols the group contains."
-        }
-        locked  bool = false {
+        locked bool = false {
             @doc value "pins the group and its members in place."
         }
 
@@ -891,16 +900,8 @@ NodeConfig union on variant {
     }
 
     @doc value  """
-        is the per-node configuration stored in the schematic configs map. The variant
-        selects the symbol rendered for the node and the fields that accompany it.
-    """
-    @go marshal
-}
-
-ElementConfig union on variant extends NodeConfig, EdgeConfig {
-    @doc value  """
-        is the per-element configuration stored in the schematic configs map: a node
-        config or an edge config, discriminated by variant.
+        is the configuration of one node. The variant selects the symbol rendered for
+        the node and the fields that accompany it.
     """
     @go marshal
 }
@@ -910,33 +911,31 @@ Schematic struct {
         @doc value "is the unique identifier for this schematic."
         @key
     }
-    name    string                     {
+    name    string       {
         @doc value         "is a human-readable name for the schematic."
         @index sorted
+        @patch
         @search
         @validate required
     }
     nodes   Node[] = [] {
         @doc value "contains all diagram nodes in the schematic."
+        @patch
     }
     edges   Edge[] = [] {
         @doc value "contains all connections between nodes."
+        @patch
     }
-    configs map<string, ElementConfig> = {} {
-        @doc value        """
-            contains per-element configuration keyed by node or edge key. The variant of
-            each value selects the symbol or edge style it configures.
-        """
-        @ts preserve_keys
-    }
-    group   group.Key?                 {
+    group   group.Key?   {
         @doc value     "is the group the schematic sits in, if any."
         @group scope   project
+        @patch
         @ref kind      place
         @ref on_delete detach
     }
-    project project.Key?               {
+    project project.Key? {
         @doc value     "is the project that holds the schematic."
+        @patch
         @ref kind      place
         @ref on_delete cascade
     }
@@ -958,13 +957,11 @@ Schematic struct {
     }
 
     action SetNode {
-        node   Node
-        config ElementConfig?
+        node Node
 
         @doc value """
             inserts the node if no node with the same key exists, otherwise replaces the
-            existing node in place. A present config replaces the entry stored under the
-            node's key in the schematic configs map.
+            existing node and its config in place.
         """
     }
 
@@ -972,8 +969,9 @@ Schematic struct {
         key string
 
         @doc value """
-            removes the node, its config, and the edges that connect to it and their
-            configs. No-op when no node has the key.
+            removes the node and the edges that connect to it. The children of a removed
+            group box move to the parent of the group box. No-op when no node has the
+            key.
         """
     }
 
@@ -989,44 +987,35 @@ Schematic struct {
     action RemoveEdge {
         key string
 
-        @doc value "removes the edge with the given key and its config, if present."
-    }
-
-    action SetConfig {
-        key    string
-        config ElementConfig
-
-        @doc value """
-            replaces the config entry stored under the given node or edge key. No-op
-            when no node or edge has the key.
-        """
+        @doc value "removes the edge with the given key, if present."
     }
 
     action Set = patch.Set {
         @doc value """
-            replaces the value at a path in the schematic's name or element configs.
-            No-op when no node or edge has the config's key.
+            replaces the value at a path in the schematic's name, group, or project, or
+            in the config of a node or edge. No-op when no node or edge has the key.
         """
     }
 
     action Remove = patch.Remove {
         @doc value """
             removes an entry from a list or a field from an object in the schematic's
-            element configs. No-op when no node or edge has the config's key.
+            group or project, or in the config of a node or edge. No-op when no node or
+            edge has the key.
         """
     }
 
     action Insert = patch.Insert {
         @doc value """
-            adds an entry to a list in the schematic's element configs. No-op when no
-            node or edge has the config's key.
+            adds an entry to a list in the config of a node or edge. No-op when no node
+            or edge has the key.
         """
     }
 
     action Move = patch.Move {
         @doc value """
-            moves an entry in a list in the schematic's element configs. No-op when no
-            node or edge has the config's key.
+            moves an entry in a list in the config of a node or edge. No-op when no node
+            or edge has the key.
         """
     }
 

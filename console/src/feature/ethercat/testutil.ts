@@ -95,9 +95,12 @@ export const STRAIN_SAMPLE_ENTRY: ethercat.PDOEntry = {
 /**
  * Builds the catalog of a strain input that {@link STRAIN_ENTRY} reads, whose
  * excitation polarity picks one of two excitation voltage fields at 0x8040:1C: up to 24
- * V when unipolar (0) and up to 12 V when bipolar (1).
+ * V when unipolar (0) and up to 12 V when bipolar (1). held holds the values that the
+ * card holds at the scan.
  */
-export const createExcitationDescription = (): Description => {
+export const createExcitationDescription = (
+  held: { polarity?: number; voltage?: number } = {},
+): Description => {
   const polarity = { index: 0x8040, subIndex: 0x21 };
   const voltage = {
     index: 0x8040,
@@ -105,6 +108,7 @@ export const createExcitationDescription = (): Description => {
     name: "Excitation voltage",
     dataType: "float32",
     default: 0,
+    value: held.voltage,
     unit: "V",
     min: 0,
   };
@@ -119,6 +123,7 @@ export const createExcitationDescription = (): Description => {
             name: "Excitation polarity",
             dataType: "uint16",
             default: 0,
+            value: held.polarity,
             unit: "",
             options: [
               { value: 0, name: "Unipolar" },

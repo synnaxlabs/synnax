@@ -39,7 +39,7 @@ export const useAddNode = () => {
       if (query.isLive(sym)) config.label.label = sym.name;
     }
     dispatch(
-      schematic.setNode({ node: { key, position: position ?? xy.ZERO }, config }),
+      schematic.setNode({ node: { key, position: position ?? xy.ZERO, config } }),
     );
   };
 };
@@ -67,8 +67,9 @@ export const useChangeSymbol = () => {
     const s = client?.schematics.watch({ key }).getCached();
     if (client == null || !query.isLive(s)) return;
     const actions = keys.flatMap((k) => {
-      const config = s.configs[k];
-      if (!Node.isConfig(config)) throw new Error(`Element ${k} is not a symbol`);
+      const config = s.nodes.find((n) => n.key === k)?.config;
+      if (config == null || !Node.isConfig(config))
+        throw new Error(`Element ${k} is not a symbol`);
       const next = Node.changeConfig(config, input);
       if (Node.symbolKey(next) === Node.symbolKey(config)) return [];
       if (
@@ -77,7 +78,7 @@ export const useChangeSymbol = () => {
         config.label.label === defaultLabel(client, config)
       )
         next.label.label = defaultLabel(client, next) ?? next.label.label;
-      return [schematic.setConfig({ key: k, config: next })];
+      return schematic.setChanged({ key: k, base: config, next });
     });
     if (actions.length > 0) dispatch(actions);
   };

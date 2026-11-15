@@ -46,8 +46,8 @@ type Segment = v9.Segment
 // SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
 type SegmentedEdgeConfig = v9.SegmentedEdgeConfig
 
-// EdgeConfig is the per-edge configuration stored in the schematic configs map. The
-// variant selects the visual style of the connection.
+// EdgeConfig is the configuration of one edge. The variant selects the visual style of
+// the connection.
 type EdgeConfig = v9.EdgeConfig
 
 // EdgeConfigVariant is implemented by every EdgeConfig variant.
@@ -3512,8 +3512,8 @@ type GroupBoxNodeConfig struct {
 
 func (GroupBoxNodeConfig) isNodeConfigVariant() {}
 
-// NodeConfig is the per-node configuration stored in the schematic configs map. The
-// variant selects the symbol rendered for the node and the fields that accompany it.
+// NodeConfig is the configuration of one node. The variant selects the symbol rendered
+// for the node and the fields that accompany it.
 type NodeConfig struct {
 	Variant NodeConfigVariant
 }
