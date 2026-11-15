@@ -57,6 +57,22 @@ describe("edge Base", () => {
     );
   });
 
+  it("should draw at the default stroke width when given none", () => {
+    const { container } = renderEdge(<Base.Base path="M0 0 L10 10" />);
+    expect(queryPath(container).style.strokeWidth).toBe(`${Base.DEFAULT_STROKE_WIDTH}`);
+  });
+
+  it("should draw at the given stroke width", () => {
+    const { container } = renderEdge(<Base.Base path="M0 0 L10 10" strokeWidth={6} />);
+    expect(queryPath(container).style.strokeWidth).toBe("6");
+  });
+
+  it("should keep the hit area wider than the widest stroke", () => {
+    const { container } = renderEdge(<Base.Base path="M0 0 L10 10" strokeWidth={20} />);
+    const hitArea = container.querySelector(".react-flow__edge-interaction");
+    expect(Number(hitArea?.getAttribute("stroke-width"))).toBeGreaterThan(20);
+  });
+
   it("should stroke a CSS variable string directly and skip the transform", () => {
     const { container } = renderEdge(
       <Base.Base path="M0 0 L10 10" color="var(--pluto-error-z)" />,
