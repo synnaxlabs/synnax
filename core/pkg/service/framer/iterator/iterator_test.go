@@ -11,6 +11,7 @@ package iterator_test
 
 import (
 	"context"
+	"encoding/json/v2"
 	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -2559,21 +2560,47 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				}},
 				"aggregation: invalid aggregation: median",
 			),
+			Entry(
+				"a limit without an aggregation",
+				iterator.Config{Reduction: telem.Reduction{
+					Variant: telem.LimitReduction{PointLimit: 10},
+				}},
+				"aggregation: invalid aggregation: ",
+			),
 		)
 
-		It("Should reduce to min and max when a limit names no aggregation", func(
-			ctx SpecContext,
-		) {
-			v := read(ctx, iteratorSvc, iterator.Config{
-				Keys:   []channel.Key{sensorCh.Key()},
-				Bounds: bounds,
-				Reduction: telem.Reduction{
-					Variant: telem.LimitReduction{PointLimit: 10},
-				},
-			}).Get(sensorCh.Key())
-			Expect(v.Series).To(HaveLen(1))
-			Expect(v.Series[0].Unmarshal[float32]()).To(Equal(groupEnds(ramp(1), 20)))
-		})
+		// decode decodes a reduction from JSON, as a client request does.
+		decode := func(data string) telem.Reduction {
+			GinkgoHelper()
+			var r telem.Reduction
+			Expect(json.Unmarshal([]byte(data), &r)).To(Succeed())
+			return r
+		}
+
+		It("Should reduce to min and max when a decoded limit omits the aggregation",
+			func(ctx SpecContext) {
+				v := read(ctx, iteratorSvc, iterator.Config{
+					Keys:      []channel.Key{sensorCh.Key()},
+					Bounds:    bounds,
+					Reduction: decode(`{"variant":"limit","point_limit":10}`),
+				}).Get(sensorCh.Key())
+				Expect(v.Series).To(HaveLen(1))
+				Expect(v.Series[0].Unmarshal[float32]()).
+					To(Equal(groupEnds(ramp(1), 20)))
+			},
+		)
+
+		It("Should reject a decoded limit with an explicit empty aggregation",
+			func(ctx SpecContext) {
+				Expect(iteratorSvc.Open(ctx, iterator.Config{
+					Keys:   []channel.Key{sensorCh.Key()},
+					Bounds: bounds,
+					Reduction: decode(
+						`{"variant":"limit","point_limit":10,"aggregation":""}`,
+					),
+				})).Error().To(MatchError(ContainSubstring("invalid aggregation")))
+			},
+		)
 
 		It("Should reduce concrete channels in storage", func(ctx SpecContext) {
 			fr := read(ctx, iteratorSvc, aggregated(indexCh.Key(), sensorCh.Key()))
