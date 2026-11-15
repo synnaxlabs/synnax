@@ -63,8 +63,10 @@ class System:
 def drain(system: System, *, sleep: Callable[[float], None] = time.sleep) -> None:
     """Stops each idle runner service until none runs, then powers off."""
     while units := system.units():
-        for unit in sorted(units - system.busy()):
-            system.stop(unit)
+        # A stop can take seconds, so each runner is checked right before its stop.
+        for unit in sorted(units):
+            if unit not in system.busy():
+                system.stop(unit)
         sleep(INTERVAL)
     system.poweroff()
 
