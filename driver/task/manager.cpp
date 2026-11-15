@@ -125,12 +125,8 @@ x::errors::Error Manager::configure_initial_tasks() {
     size_t queued = 0;
     {
         std::lock_guard<std::mutex> lock(this->mu);
-        // The ops of an earlier run are for its stuck workers. This run's deploys and
-        // removes stop their instances instead, and a remove does it silently.
-        this->op_queue.clear();
-        // An entry left by a worker of an earlier run that is still stuck holds a task
-        // that may have left this Driver. Its removal waits for that worker, and the
-        // statuses that the worker sends are dropped now.
+        // A task deleted or moved during a Core outage sent no event here. Its remove
+        // waits for a worker still on it, and the statuses of that worker drop now.
         for (const auto &[key, _]: this->entries) {
             if (std::ranges::any_of(tasks, [&](const auto &t) { return t.key == key; }))
                 continue;
@@ -148,7 +144,7 @@ x::errors::Error Manager::configure_initial_tasks() {
             queued++;
         }
     }
-    if (queued > 0) this->cv.notify_all();
+    this->cv.notify_all();
     VLOG(1) << "configuring initial tasks from factories";
     auto initial_tasks = this->factory->configure_initial_tasks(
         this->ctx,
@@ -181,25 +177,23 @@ void Manager::stop() {
 }
 
 x::errors::Error Manager::run(const std::function<void()> &on_started) {
-    if (this->exit_early) {
-        VLOG(1) << "exiting early";
-        return x::errors::NIL;
+    x::errors::Error err = x::errors::NIL;
+    if (!this->exit_early) {
+        ++this->runs;
+        if (!this->breaker.running()) this->start_workers();
+        err = this->serve(on_started);
     }
-    this->start_workers();
-    const auto err = this->serve(on_started);
-    // Workers run the shutdown of each task, so they stop last. The next run starts
-    // with no statuses and no control states, so it trusts nothing from before the
-    // outage, such as the status of a task deleted during it.
     // Only stop ends the Driver. Any other end of serve is a lost Core connection, and
-    // the next run connects again.
-    this->stop_all_tasks(
-        this->exit_early ? "The Driver stopped"
-                         : "The Driver lost its connection to the Core"
-    );
-    this->stop_workers();
-    this->statuses->clear();
-    this->control_states->set({});
+    // the tasks run on until the next run reconciles them.
+    if (this->exit_early) this->close();
     return err;
+}
+
+void Manager::close() {
+    if (!this->breaker.running()) return;
+    // Workers run the shutdown of each task, so they stop last.
+    this->stop_all_tasks();
+    this->stop_workers();
 }
 
 x::errors::Error Manager::serve(const std::function<void()> &on_started) {
@@ -212,6 +206,11 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
     // A nil error with no streamer means stop() won a race with the open.
     if (this->streamer == nullptr) return x::errors::NIL;
     if (this->boot_run == 0) this->boot_run = this->runs.load();
+    // An earlier run may have failed to write statuses, and the Core marks the tasks
+    // of a silent rack as stopped, which is false for the tasks that ran on.
+    if (this->runs > 1)
+        if (const auto err = this->statuses->resend())
+            LOG(WARNING) << "failed to send task statuses again: " << err;
     // Read after the streamer opens so a transfer arriving during the read is held by
     // the stream instead of lost; the read loop then applies it on top.
     this->retrieve_initial_control_states();
@@ -438,13 +437,13 @@ void Manager::process_start(const synnax::task::Command &cmd) {
     this->cv.notify_one();
 }
 
-void Manager::stop_all_tasks(const std::string &cause) {
+void Manager::stop_all_tasks() {
     {
         std::lock_guard<std::mutex> lock(this->mu);
         this->op_queue.clear();
         for (auto &[key, entry]: this->entries) {
             if (!entry) continue;
-            if (entry->op != nullptr) entry->op->cancel(cause);
+            if (entry->op != nullptr) entry->op->cancel("The Driver stopped");
             this->op_queue.push_back(Op{Op::Type::SHUTDOWN, key, {}, {}});
         }
     }
@@ -466,8 +465,6 @@ void Manager::stop_all_tasks(const std::string &cause) {
         }
         std::this_thread::sleep_for((50 * x::telem::MILLISECOND).chrono());
     }
-    // The entry of a worker stuck past the deadline stays, so the next run waits for
-    // that worker before it deploys or removes the task.
     std::lock_guard<std::mutex> lock(this->mu);
     std::erase_if(this->entries, [](const auto &e) { return !e.second->processing; });
 }
@@ -483,12 +480,11 @@ void Manager::process_task_delete(const x::telem::Series &series) {
 
 void Manager::start_workers() {
     this->breaker.start();
-    const auto run = ++this->runs;
     for (size_t i = 0; i < this->worker_count; i++) {
         auto done = std::make_shared<std::atomic<bool>>(false);
         this->workers.push_back(
-            {std::thread([this, done, run] {
-                 this->worker_loop(run);
+            {std::thread([this, done] {
+                 this->worker_loop();
                  *done = true;
              }),
              done}
@@ -519,11 +515,8 @@ void Manager::stop_workers() {
     if (this->monitor_thread.joinable()) this->monitor_thread.join();
 }
 
-void Manager::worker_loop(const uint64_t run) {
-    // A worker detached by an earlier run exits once its op returns.
-    const auto serving = [this, run] {
-        return this->breaker.running() && this->runs == run;
-    };
+void Manager::worker_loop() {
+    const auto serving = [this] { return this->breaker.running(); };
     while (serving()) {
         std::unique_lock<std::mutex> lock(this->mu);
         // Wait until there's work we can actually process - not just ops in the queue,
@@ -696,11 +689,20 @@ void Manager::execute_op(
                     break;
                 }
             } else {
+                std::string deployed;
+                {
+                    std::lock_guard entry_lock{entry->mu};
+                    deployed = entry->deployed_hash;
+                }
+                // The instance ran on through a lost Core connection, so it keeps its
+                // status too.
+                if (entry->instance != nullptr && deployed == tsk.config_hash) return;
                 operation.set_task(tsk.name, tsk.config_hash);
                 this->announce_start(tsk.key, operation);
             }
             if (entry->instance != nullptr) {
-                entry->instance->stop(true);
+                // No start follows a boot deploy, so the old instance reports its stop.
+                entry->instance->stop(op.task.key.is_nil());
                 entry->instance = nullptr;
             }
             LOG(INFO) << "configuring task " << tsk;
