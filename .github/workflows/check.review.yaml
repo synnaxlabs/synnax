@@ -11,28 +11,20 @@
 # finished Greptile review of the head with a 5/5 score, and for review/human an
 # approval. The job itself always succeeds: a pull request that still waits gets a
 # pending status, not a failed run and its email. The check_run trigger re-reports the
-# gate when the Greptile review lands after the push, the edited trigger when Greptile
-# writes its score into the description, the label triggers when the tier changes, and
-# the workflow_run trigger when a review lands. The relay behind that trigger runs from
-# the pull request, so a merge group judges its pull request again and fails anything
-# short of success. Runs for one pull request queue behind each other instead of
-# cancelling, so a run never posts a verdict older than one already posted. Every
-# trigger runs a workflow from a branch of the repository, never from the pull request,
-# and the base-ref checkout takes the script from the base branch, so a pull request
-# cannot edit the gate it is judged by; no pull request code runs here.
+# gate when the Greptile review lands after the push, and the workflow_run trigger when
+# a review lands. The relay behind that trigger runs from the pull request, so a merge
+# group judges its pull request again and fails anything short of success. Pull request
+# events reach the gate only through the Relay, which dispatches the default branch's
+# copy, so this branch never writes the gate for them. Runs for one pull request queue
+# behind each other instead of cancelling, so a run never posts a verdict older than one
+# already posted. Every trigger runs a workflow from a branch of the repository, never
+# from the pull request, and the base-ref checkout takes the script from the base
+# branch, so a pull request cannot edit the gate it is judged by; no pull request code
+# runs here.
 
 name: Check - Review
 
 on:
-  pull_request_target:
-    types:
-      - opened
-      - reopened
-      - synchronize
-      - edited
-      - ready_for_review
-      - labeled
-      - unlabeled
   check_run:
     types:
       - completed
