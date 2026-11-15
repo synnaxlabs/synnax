@@ -131,8 +131,8 @@ const SWITCH_TIMEOUT = TimeSpan.seconds(50);
 /**
  * Stops each EtherCAT task that runs on the network of the slave, then switches the
  * slave to Synnax only. When a stop fails or the Driver refuses the switch, starts the
- * tasks again. When the Driver gives no answer, the switch may still run, so the tasks
- * stay stopped.
+ * tasks again. Else the tasks stay stopped, and the answer tells the user to start
+ * them.
  */
 export const { useUpdate: useSetStandalone } = Flux.createUpdate<
   SetStandaloneParams,
@@ -197,6 +197,10 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<
       await restart();
       throw status.toError(res);
     }
-    return { ...data, answer: res };
+    if (tasks.length === 0) return { ...data, answer: res };
+    const description = [res.description, "Start your tasks again."]
+      .filter((s) => s != null)
+      .join(" ");
+    return { ...data, answer: { ...res, description } };
   },
 });

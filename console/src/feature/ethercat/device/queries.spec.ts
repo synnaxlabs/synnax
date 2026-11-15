@@ -505,6 +505,41 @@ describe("useSetStandalone", () => {
     return { commands, switched };
   };
 
+  it("should tell the user to start the stopped tasks again after a switch", async () => {
+    const r = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const slave = await createSlaveDevice(r.key, { network: "eth0" });
+    const read = await createReadTask(r, slave.key);
+    const scan = await r.createTask({
+      name: uniqueName("ecat_scan"),
+      type: EtherCAT.Task.SCAN_TYPE,
+      config: {},
+    });
+    await reportTaskRunning(client, read);
+    const driver = await answerCommandsUntil([read, scan], "set_standalone", {
+      set_standalone: {
+        message: "Switched the card to Synnax only",
+        description: "The device in slot 1 runs Synnax only now.",
+      },
+    });
+    let answer: task.Status | undefined;
+    const { result } = renderHook(
+      () =>
+        EtherCAT.Device.useSetStandalone({
+          afterSuccess: ({ data }) => {
+            answer = data.answer;
+          },
+        }),
+      { wrapper },
+    );
+    await act(async () => {
+      await result.current.updateAsync({ slave });
+    });
+    await driver.answered;
+    expect(answer?.description).toEqual(
+      "The device in slot 1 runs Synnax only now. Start your tasks again.",
+    );
+  });
+
   it("should start the stopped tasks again when the switch fails", async () => {
     const result = await switchWithAnswers({
       set_standalone: { variant: "error", message: "Slave 3 refused the switch" },
