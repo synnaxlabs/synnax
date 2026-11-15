@@ -601,15 +601,15 @@ void Engine::supervise() {
             if (h.refusal || (!h.lost && h.state == slave::State::OP)) continue;
             next.positions.push_back(h.position);
             if (h.lost) next.silent.push_back(h.position);
-            if (h.lost || h.state != slave::State::SAFE_OP)
-                next.inputless.push_back(h.position);
+            // Recovery takes a slave in SAFE-OP whose clock restore failed back to
+            // PRE-OP after the publish.
+            const bool inputs = !h.lost && h.state == slave::State::SAFE_OP &&
+                                h.dc_restore_error.empty();
+            if (!inputs) next.inputless.push_back(h.position);
             const auto &shares = this->image.working_counter_shares;
             if (const auto it = shares.find(h.position); it != shares.end()) {
                 next.least_shortfall += it->second.outputs;
-                next.shortfall += it->second.outputs +
-                                  (!h.lost && h.state == slave::State::SAFE_OP
-                                       ? 0
-                                       : it->second.inputs);
+                next.shortfall += it->second.outputs + (inputs ? 0 : it->second.inputs);
             }
         }
         if (!restarted.empty()) {

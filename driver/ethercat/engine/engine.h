@@ -298,12 +298,11 @@ private:
         std::vector<uint16_t> positions;
         /// @brief the positions of the slaves that do not respond, in ascending order.
         std::vector<uint16_t> silent;
-        /// @brief the positions of the slaves that give no inputs, lost or below
-        /// SAFE-OP, in ascending order.
+        /// @brief the positions of the slaves that give no inputs, in ascending order:
+        /// lost, below SAFE-OP, or in SAFE-OP with a failed clock restore.
         std::vector<uint16_t> inputless;
         /// @brief how far the slaves keep the working counter from a full cycle: the
-        /// whole share of a slave that is lost or below SAFE-OP, and the output part of
-        /// a slave in SAFE-OP.
+        /// whole share of an inputless slave, and the output part of any other.
         uint32_t shortfall = 0;
         /// @brief the output parts alone. A slave that recovery brings to SAFE-OP gives
         /// its inputs again before the supervisor sees its new state.

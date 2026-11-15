@@ -3407,6 +3407,41 @@ TEST_F(EngineTest, FullCycleKeepsTheSamplesOfASlaveInSafeOp) {
     EXPECT_EQ(reader->warning(), "");
 }
 
+/// @brief it should keep the samples of the other readers while recovery takes a slave
+/// in SAFE-OP whose clock restore failed back to PRE-OP, and drop the samples of that
+/// slave.
+TEST_F(EngineTest, OtherReadersKeepTheirSamplesWhileAFailedClockRestoreRetries) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto kept = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::SAFE_OP);
+    this->master->fail_dc_restore(1, "clock did not settle");
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 &&
+        !this->engine->health()[1].dc_restore_error.empty()
+    );
+    this->master->set_shortfall(3);
+    const auto short_since = x::telem::TimeStamp::now();
+    ASSERT_EVENTUALLY_TRUE(
+        x::telem::TimeStamp(this->read_times(*kept, 1).at<int64_t>(0)) > short_since
+    );
+    EXPECT_EQ(kept->warning(), "");
+    this->master->set_shortfall(std::nullopt);
+    ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
+    EXPECT_EQ(reader->warning(), "Slave 1 (Slave1) is not in OP.");
+}
+
 /// @brief it should drop the samples of every reader when the working counter falls
 /// further short than the slaves out of OP explain.
 TEST_F(EngineTest, ShortCycleBeyondTheLostSlavesFailsEveryReader) {
