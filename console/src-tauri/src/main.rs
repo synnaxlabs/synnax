@@ -35,6 +35,13 @@ use tauri_plugin_prevent_default::KeyboardShortcut;
 use tauri_plugin_prevent_default::ModifierKey::MetaKey;
 
 fn main() {
+    // WebKitGTK's DMABUF renderer draws a black window when the WebKitGTK bundled in an
+    // AppImage runs on the host's graphics stack.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("APPIMAGE").is_some() {
+        // SAFETY: no other thread runs yet.
+        unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
+    }
     let prevent = tauri_plugin_prevent_default::Builder::new()
         .shortcut(KeyboardShortcut::with_modifiers("W", &[MetaKey]))
         .build();
@@ -101,7 +108,10 @@ fn main() {
             if std::env::var_os("APPIMAGE").is_some() {
                 use tauri_plugin_deep_link::DeepLinkExt;
                 if let Err(e) = app.deep_link().register_all() {
-                    eprintln!("failed to register the synnax:// scheme: {e}");
+                    eprintln!(
+                        "failed to register the synnax:// scheme: {e}. Install \
+                         desktop-file-utils and xdg-utils to open synnax:// links."
+                    );
                 }
             }
             #[cfg(target_os = "macos")]
