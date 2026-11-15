@@ -76,6 +76,7 @@ import {
   IoTime,
 } from "react-icons/io5";
 import {
+  LuChartColumn,
   LuChartNoAxesGantt,
   LuFileBadge,
   LuKeyRound,
@@ -369,6 +370,7 @@ export const Ungroup = wrapSVGIcon(LuUngroup, "ungroup");
 export const Lock = wrapSVGIcon(LuLock, "lock");
 export const Unlock = wrapSVGIcon(LuLockOpen, "unlock");
 export const License = wrapSVGIcon(LuFileBadge, "license");
+export const UsageData = wrapSVGIcon(LuChartColumn, "usage-data");
 export const Secret = wrapSVGIcon(LuKeyRound, "secret");
 export const Certificate = wrapSVGIcon(LuFileBadge, "certificate");
 export const Project = wrapSVGIcon(MdWorkspacesFilled, "project");
@@ -619,6 +621,7 @@ const icons = {
   TimeOutline,
   Acquire,
   Analyze,
+  UsageData,
   Concepts,
   Visualize,
   Panel,

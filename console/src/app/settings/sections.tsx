@@ -22,34 +22,10 @@ import { Secret } from "@/feature/secret";
 import { Theme } from "@/feature/theme";
 import { User } from "@/feature/user";
 import { Version } from "@/feature/version";
-import { Settings } from "@/platform/settings";
+import { type Settings } from "@/platform/settings";
 import { Session } from "@/session";
 
-const Profile = (): ReactElement => (
-  <Settings.Page title="Profile">
-    <User.ProfileSettings />
-  </Settings.Page>
-);
-
-const APIKeys = (): ReactElement => (
-  <Settings.Page title="API keys">
-    <User.KeySettings />
-  </Settings.Page>
-);
-
-const Users = (): ReactElement => (
-  <Settings.Page title="Users">
-    <User.Members />
-  </Settings.Page>
-);
-
 const useUsersVisible = (): boolean => Access.useUpdateGranted(user.TYPE_RESOURCE_ID);
-
-const Labels = (): ReactElement => (
-  <Settings.Page title="Labels">
-    <Label.Settings />
-  </Settings.Page>
-);
 
 const useLabelsVisible = (): boolean => Access.useUpdateGranted(label.TYPE_RESOURCE_ID);
 
@@ -58,15 +34,13 @@ const CERTIFICATES_SECTION = "certificates";
 const Secrets = (): ReactElement => {
   const dispatch = Session.useDispatch();
   return (
-    <Settings.Page title="Secrets">
-      <Secret.Secrets
-        onSelectCertificate={(item) =>
-          dispatch(
-            Session.Nav.selectSettingsSection({ section: CERTIFICATES_SECTION, item }),
-          )
-        }
-      />
-    </Settings.Page>
+    <Secret.Secrets
+      onSelectCertificate={(item) =>
+        dispatch(
+          Session.Nav.selectSettingsSection({ section: CERTIFICATES_SECTION, item }),
+        )
+      }
+    />
   );
 };
 
@@ -76,86 +50,75 @@ const useSecretsVisible = (): boolean =>
 const Certificates = (): ReactElement => {
   const dispatch = Session.useDispatch();
   return (
-    <Settings.Page title="Certificates">
-      <Secret.Certificates
-        selected={Session.Nav.useSelectSettingsItem()}
-        onShowSelected={() =>
-          dispatch(Session.Nav.selectSettingsSection({ section: CERTIFICATES_SECTION }))
-        }
-      />
-    </Settings.Page>
+    <Secret.Certificates
+      selected={Session.Nav.useSelectSettingsItem()}
+      onShowSelected={() =>
+        dispatch(Session.Nav.selectSettingsSection({ section: CERTIFICATES_SECTION }))
+      }
+    />
   );
 };
 
 const useCertificatesVisible = (): boolean =>
   Access.useRetrieveGranted(certificate.TYPE_RESOURCE_ID);
 
-const Appearance = (): ReactElement => (
-  <Settings.Page title="Appearance">
-    <Theme.Settings />
-  </Settings.Page>
-);
-
-const UsageData = (): ReactElement => (
-  <Settings.Page title="Usage data">
-    <Account.UsageDataSettings />
-  </Settings.Page>
-);
-
-const Storage = (): ReactElement => (
-  <Settings.Page title="Storage">
-    <Persist.Settings />
-  </Settings.Page>
-);
-
 const General = (): ReactElement => (
-  <Settings.Page title="General">
+  <>
     <Core.Settings />
     <Version.Settings />
-  </Settings.Page>
-);
-
-const LicenseSection = (): ReactElement => (
-  <Settings.Page title="License">
-    <License.Info />
-  </Settings.Page>
+  </>
 );
 
 const useLicenseVisible = (): boolean => Access.useRetrieveGranted(license.RESOURCE_ID);
 
-const PREFERENCES: Settings.Section[] = [
+const CONSOLE: Settings.Section[] = [
   {
     key: "appearance",
     name: "Appearance",
     icon: <Icon.DarkMode />,
-    Content: Appearance,
+    Content: Theme.Settings,
   },
-  ...(DESKTOP
+  {
+    key: "storage",
+    name: "Storage",
+    icon: <Icon.Database />,
+    Content: Persist.Settings,
+  },
+];
+
+// Desktop runs a single-user embedded Core, so its account is the Synnax account that
+// the machine signs in with.
+const ACCOUNT: Settings.Group = {
+  key: "account",
+  name: "Account",
+  sections: DESKTOP
     ? [
         {
           key: "usage_data",
           name: "Usage data",
-          icon: <Icon.Analyze />,
-          Content: UsageData,
+          icon: <Icon.UsageData />,
+          Content: Account.UsageDataSettings,
         },
       ]
-    : []),
-  { key: "storage", name: "Storage", icon: <Icon.Database />, Content: Storage },
-];
-
-// Desktop runs a single-user embedded Core, so it has no accounts to manage.
-const ACCOUNT: Settings.Group = {
-  key: "account",
-  name: "Account",
-  sections: [
-    { key: "profile", name: "Profile", icon: <Icon.User />, Content: Profile },
-    { key: "api_keys", name: "API keys", icon: <Icon.Lock />, Content: APIKeys },
-  ],
+    : [
+        {
+          key: "profile",
+          name: "Profile",
+          icon: <Icon.User />,
+          Content: User.ProfileSettings,
+        },
+        {
+          key: "api_keys",
+          name: "API keys",
+          icon: <Icon.Lock />,
+          Content: User.KeySettings,
+        },
+      ],
 };
 
 export const GROUPS: Settings.Group[] = [
-  ...(DESKTOP ? [] : [ACCOUNT]),
-  { key: "preferences", name: "Preferences", sections: PREFERENCES },
+  ACCOUNT,
+  { key: "console", name: "Console", sections: CONSOLE },
   {
     key: "core",
     name: "Core",
@@ -168,7 +131,7 @@ export const GROUPS: Settings.Group[] = [
               key: "users",
               name: "Users",
               icon: <Icon.User />,
-              Content: Users,
+              Content: User.Members,
               useVisible: useUsersVisible,
             },
           ]),
@@ -176,7 +139,7 @@ export const GROUPS: Settings.Group[] = [
         key: LABELS_SECTION,
         name: "Labels",
         icon: <Icon.Label />,
-        Content: Labels,
+        Content: Label.Settings,
         useVisible: useLabelsVisible,
       },
       {
@@ -197,7 +160,7 @@ export const GROUPS: Settings.Group[] = [
         key: "license",
         name: "License",
         icon: <Icon.License />,
-        Content: LicenseSection,
+        Content: License.Info,
         useVisible: useLicenseVisible,
       },
     ],

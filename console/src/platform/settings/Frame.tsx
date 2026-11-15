@@ -79,7 +79,15 @@ export const Frame = ({ groups }: FrameProps): ReactElement => {
         </Menu.Menu>
       </nav>
       <div className={CSS.BE("settings", "page")}>
-        {section != null && <section.Content />}
+        {section != null && (
+          <Flex.Box y className={CSS.BE("settings", "content")}>
+            <Text.Text level="h3" gap="medium">
+              {section.icon}
+              {section.name}
+            </Text.Text>
+            <section.Content />
+          </Flex.Box>
+        )}
       </div>
     </Flex.Box>
   );
