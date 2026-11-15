@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { color as xcolor, id, uuid } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 
 import { color } from "@/color";
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
+import { resource } from "@/resource";
 import { createTestClient, expectDeleted, expectLive, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
@@ -138,6 +139,29 @@ describe("color.Client", () => {
           return query.isLive(cached) ? cached.name : undefined;
         })
         .toBe(named.name);
+    });
+  });
+
+  describe("resource search", () => {
+    it("should keep a subscribed search of named colors current", async () => {
+      const list = client.resources.watch({
+        searchTerm: "",
+        types: ["color"],
+        limit: 1000,
+      });
+      onTestFinished(list.onChange(() => {}));
+      await list.retrieve();
+      const named = await createNamed();
+      const key = resource.idToString(color.resourceID(named.key));
+      const nameOf = () => list.getCached()?.records.find((r) => r.key === key)?.name;
+      await expect.poll(nameOf).toBe(named.name);
+      await client.colors.dispatch(
+        named.key,
+        color.set({ path: ["name"], value: "Re" }),
+      );
+      await expect.poll(nameOf).toBe("Re");
+      await client.colors.delete(named.key);
+      await expect.poll(nameOf).toBeUndefined();
     });
   });
 
