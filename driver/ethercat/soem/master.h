@@ -156,6 +156,10 @@ class Master final : public master::Master {
         x::errors::Error late_frame_err;
         /// @brief the sent_at of the latest frame that came back.
         std::optional<std::chrono::steady_clock::time_point> frame_sent_at;
+        /// @brief DIAG: when the first check of this run came.
+        std::optional<std::chrono::steady_clock::time_point> diag_since;
+        /// @brief DIAG: whether check() dropped the slave of SYNNAX_DIAG_DROP_SLAVE.
+        bool diag_dropped = false;
     };
     /// @brief the current bus run, or nullopt between deactivate() and activate().
     std::optional<Session> session;
