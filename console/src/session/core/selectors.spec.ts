@@ -19,7 +19,7 @@ const KEY_A = CORE_A.key;
 const KEY_B = CORE_B.key;
 
 const stateWith = (cores: Core.Core[], selected?: string): Core.SliceState => ({
-  version: 0,
+  version: 1,
   selected,
   cores: Object.fromEntries(cores.map((c) => [c.key, c])),
 });

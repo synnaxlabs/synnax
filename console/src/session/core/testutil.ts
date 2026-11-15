@@ -42,7 +42,7 @@ export const createCoreState = (
   selected?: string,
 ): ConsolePreloadedState => ({
   [SLICE_NAME]: {
-    version: 0,
+    version: 1,
     selected,
     cores: Object.fromEntries(cores.map((c) => [c.key, c])),
   },
