@@ -361,12 +361,15 @@ Engine::out_of_op(const uint16_t position, const std::string &name, const bool s
     return std::format("Slave {} ({}) is not in OP.", position, name);
 }
 
-bool Engine::Input::lose(const Outage &out) {
+bool Engine::Input::lose(
+    const std::vector<uint16_t> &positions,
+    const std::vector<uint16_t> &silent
+) {
     bool any = false;
     for (auto &slave: this->slaves)
-        if (std::ranges::binary_search(out.positions, slave.position)) {
+        if (std::ranges::binary_search(positions, slave.position)) {
             slave.silent.store(
-                std::ranges::binary_search(out.silent, slave.position),
+                std::ranges::binary_search(silent, slave.position),
                 std::memory_order_relaxed
             );
             slave.lost.store(true, std::memory_order_release);
@@ -381,6 +384,7 @@ void Engine::run() {
     Outage outage;
     outage.positions.reserve(this->image.slaves.size());
     outage.silent.reserve(this->image.slaves.size());
+    outage.inputless.reserve(this->image.slaves.size());
     uint64_t outage_version = 0;
     // How far the time of the latest full cycle ran ahead of its send. A short cycle
     // keeps it, since its DC time can be stale.
@@ -469,10 +473,10 @@ void Engine::run() {
         auto latched_at = sent_at;
         const auto err = this->master->receive();
         const bool starting = this->starting.load(std::memory_order_acquire);
-        // The slaves out of OP lose their inputs on a full cycle too, since a slave
+        // A full cycle drops the inputs of the slaves that give none, since a slave
         // below SAFE-OP can keep its share of the working counter. A cycle short by
-        // what they can miss drops only their inputs.
-        const Outage *out = nullptr;
+        // what the slaves out of OP can miss drops the inputs of each of them.
+        const std::vector<uint16_t> *dropped = nullptr;
         if (!starting) {
             if (this->outage_version.load(std::memory_order_acquire) !=
                 outage_version) {
@@ -481,13 +485,13 @@ void Engine::run() {
                 outage_version = this->outage_version.load(std::memory_order_relaxed);
             }
             if (!err) {
-                if (!outage.positions.empty()) out = &outage;
+                if (!outage.inputless.empty()) dropped = &outage.inputless;
             } else if (
                 const auto missed = this->master->shortfall();
                 err.matches(errors::WORKING_COUNTER_ERROR) && missed &&
                 *missed >= outage.least_shortfall && *missed <= outage.shortfall
             ) {
-                out = &outage;
+                dropped = &outage.positions;
                 latched_at = sent_at + lead;
                 host_timed = true;
             }
@@ -496,9 +500,8 @@ void Engine::run() {
         // passes a reference clock in OP. SOEM repeats the last DC time otherwise.
         const auto &ref = this->image.reference_clock;
         const bool timed = !err || shortfall(err) ||
-                           (out != nullptr && ref &&
-                            std::ranges::find(out->positions, *ref) ==
-                                out->positions.end());
+                           (dropped != nullptr && ref &&
+                            std::ranges::find(*dropped, *ref) == dropped->end());
         const auto dc = timed ? this->master->dc_time() : std::nullopt;
         if (dc && phase) {
             timer.shift(phase->update(*dc));
@@ -522,7 +525,7 @@ void Engine::run() {
                           << " after " << receive_failures << " failures";
                 receive_failures = 0;
             }
-        } else if (out == nullptr && !shortfall(err)) {
+        } else if (dropped == nullptr && !shortfall(err)) {
             if (receive_failures++ == 0)
                 LOG(WARNING) << "[ethercat] cycle failed on " << this->iface << ": "
                              << err.message();
@@ -541,9 +544,9 @@ void Engine::run() {
                 continue;
             }
             input->countdown = decimation - 1;
-            if (err && out == nullptr)
+            if (err && dropped == nullptr)
                 input->failed_samples.fetch_add(1, std::memory_order_relaxed);
-            else if (out == nullptr || !input->lose(*out))
+            else if (dropped == nullptr || !input->lose(*dropped, outage.silent))
                 input->push(inputs, latched_at);
         }
 
@@ -598,6 +601,8 @@ void Engine::supervise() {
             if (h.refusal || (!h.lost && h.state == slave::State::OP)) continue;
             next.positions.push_back(h.position);
             if (h.lost) next.silent.push_back(h.position);
+            if (h.lost || h.state != slave::State::SAFE_OP)
+                next.inputless.push_back(h.position);
             const auto &shares = this->image.working_counter_shares;
             if (const auto it = shares.find(h.position); it != shares.end()) {
                 next.least_shortfall += it->second.outputs;
@@ -620,6 +625,7 @@ void Engine::supervise() {
         }
         std::ranges::sort(next.positions);
         std::ranges::sort(next.silent);
+        std::ranges::sort(next.inputless);
         if (next != published) {
             std::lock_guard outputs_lock(this->outputs_mu);
             {

@@ -3383,6 +3383,30 @@ TEST_F(EngineTest, FullCycleDropsTheSamplesOfASlaveOutOfOP) {
     EXPECT_EQ(kept->warning(), "");
 }
 
+/// @brief it should keep the samples of a slave in SAFE-OP on a full cycle, since a
+/// slave in SAFE-OP updates its inputs.
+TEST_F(EngineTest, FullCycleKeepsTheSamplesOfASlaveInSafeOp) {
+    this->master->add_slave(io_slave(1));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::SAFE_OP);
+    ASSERT_EVENTUALLY_TRUE(
+        this->engine->health().size() == 2 &&
+        this->engine->health()[1].state == slave::State::SAFE_OP
+    );
+    const auto since = x::telem::TimeStamp::now();
+    ASSERT_EVENTUALLY_TRUE([&] {
+        const auto times = this->read_times(*reader, 1);
+        return times.size() == 1 && x::telem::TimeStamp(times.at<int64_t>(0)) > since;
+    }());
+    EXPECT_EQ(reader->warning(), "");
+}
+
 /// @brief it should drop the samples of every reader when the working counter falls
 /// further short than the slaves out of OP explain.
 TEST_F(EngineTest, ShortCycleBeyondTheLostSlavesFailsEveryReader) {

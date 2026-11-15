@@ -201,11 +201,14 @@ private:
         /// Called only by the cycle thread.
         void push(const uint8_t *image, x::telem::TimeStamp time);
 
-        /// @brief marks each slave of the reader in out as lost, and records whether it
-        /// responds.
-        /// @returns true when the reader has a slave in out. Called only by the cycle
-        /// thread.
-        bool lose(const Outage &out);
+        /// @brief marks each slave of the reader in positions as lost, and records
+        /// whether it responds, by whether it is in silent.
+        /// @returns true when the reader has a slave in positions. Called only by the
+        /// cycle thread.
+        bool lose(
+            const std::vector<uint16_t> &positions,
+            const std::vector<uint16_t> &silent
+        );
     };
 
     /// @brief the entries of one writer and the value each takes when the writer
@@ -295,6 +298,9 @@ private:
         std::vector<uint16_t> positions;
         /// @brief the positions of the slaves that do not respond, in ascending order.
         std::vector<uint16_t> silent;
+        /// @brief the positions of the slaves that give no inputs, lost or below
+        /// SAFE-OP, in ascending order.
+        std::vector<uint16_t> inputless;
         /// @brief how far the slaves keep the working counter from a full cycle: the
         /// whole share of a slave that is lost or below SAFE-OP, and the output part of
         /// a slave in SAFE-OP.
