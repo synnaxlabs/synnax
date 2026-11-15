@@ -18,7 +18,7 @@ import { computed, renderThemed, resolve } from "@/styletest";
 import { Triggers } from "@/triggers";
 
 const Labels = (): ReactElement => (
-  <Menu.Sub itemKey="labels">
+  <Menu.Sub itemKey="labels" textValue="Labels">
     <Menu.SubTrigger>Labels</Menu.SubTrigger>
     <Select.Frame<string, undefined>
       multiple

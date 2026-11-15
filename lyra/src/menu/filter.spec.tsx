@@ -31,7 +31,7 @@ const ITEMS = (
     <Menu.Item itemKey="favorite" textValue="Favorite">
       <Icon.StarFilled />
     </Menu.Item>
-    <Menu.Sub itemKey="color">
+    <Menu.Sub itemKey="color" textValue="Color">
       <Menu.SubTrigger>Color</Menu.SubTrigger>
       <Menu.Dialog>
         <Menu.Menu>
@@ -41,6 +41,8 @@ const ITEMS = (
     </Menu.Sub>
   </Menu.Menu>
 );
+
+const StageTrigger = (): ReactElement => <Menu.SubTrigger>Stage</Menu.SubTrigger>;
 
 const ContextMenu = ({ items }: { items: ReactElement }): ReactElement => {
   const ctx = Menu.useContextMenu();
@@ -127,7 +129,25 @@ describe("menu filter", () => {
       expect(shown()).toEqual([]);
     });
 
-    it("should match a submenu on the text of its item", () => {
+    it("should match a submenu on its textValue when a component wraps its item", () => {
+      open(
+        <Menu.Menu>
+          <Menu.Sub itemKey="stage" textValue="Stage">
+            <StageTrigger />
+            <Menu.Dialog>
+              <Menu.Menu>
+                <Menu.Item itemKey="done">Done</Menu.Item>
+              </Menu.Menu>
+            </Menu.Dialog>
+          </Menu.Sub>
+          <Menu.Item itemKey="rename">Rename</Menu.Item>
+        </Menu.Menu>,
+      );
+      type("sta");
+      expect(shown()).toEqual(["Stage"]);
+    });
+
+    it("should match a submenu on its textValue", () => {
       open();
       type("col");
       expect(shown()).toEqual(["Color"]);

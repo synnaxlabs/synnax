@@ -20,7 +20,7 @@ import { computed, renderThemed, resolve } from "@/styletest";
 const OPTIONS = ["alpha", "beta"];
 
 const Labels = (): ReactElement => (
-  <Menu.Sub itemKey="labels">
+  <Menu.Sub itemKey="labels" textValue="Labels">
     <Menu.SubTrigger>Labels</Menu.SubTrigger>
     <Select.Frame<string, undefined>
       multiple
@@ -42,7 +42,7 @@ const Labels = (): ReactElement => (
 );
 
 const Stage = (): ReactElement => (
-  <Menu.Sub itemKey="stage">
+  <Menu.Sub itemKey="stage" textValue="Stage">
     <Menu.SubTrigger>Stage</Menu.SubTrigger>
     <Select.Frame<string, undefined> multiple value={[]} onChange={() => {}}>
       <Select.Dialog surface="menu" aria-label="Stage">
@@ -59,7 +59,7 @@ const Stage = (): ReactElement => (
 );
 
 const Move = (): ReactElement => (
-  <Menu.Sub itemKey="move">
+  <Menu.Sub itemKey="move" textValue="Move">
     <Menu.SubTrigger>Move</Menu.SubTrigger>
     <Menu.Dialog aria-label="Move">
       <Menu.Menu>
