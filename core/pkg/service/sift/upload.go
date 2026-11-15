@@ -290,6 +290,11 @@ func (u *uploader) schedule(ctx context.Context) error {
 	slices.SortFunc(pending, func(a, b UploadStatus) int {
 		return cmp.Compare(a.Key, b.Key)
 	})
+	// An upload that Close cancels wakes the uploader as it exits. Starting it again
+	// would overwrite its saved status.
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	for _, s := range pending {
 		dev := s.Details.Device
 		if _, busy := u.running[dev]; busy {
