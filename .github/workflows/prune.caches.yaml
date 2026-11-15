@@ -21,10 +21,6 @@ jobs:
   go:
     name: Go
     runs-on: ubuntu-latest
-    # Two runs at once would delete the same cache, and the second delete fails.
-    concurrency:
-      group: prune-caches
-      cancel-in-progress: false
     permissions:
       actions: write
     steps:
@@ -39,6 +35,14 @@ jobs:
             | group_by(.key | sub("-[0-9a-f]{64}-[0-9]+$"; ""))[]
             | sort_by(.createdAt)[:-1][]
             | .id
+        # GitHub evicts older caches too, so one can be gone before its delete.
+        shell: bash
         run: |
           gh cache list --ref refs/heads/main --key go- --limit 1000 \
-            --json id,key,createdAt --jq "$OLDER" | xargs -r -n1 gh cache delete
+            --json id,key,createdAt --jq "$OLDER" |
+            while read -r id; do
+              if ! error=$(gh api -X DELETE "repos/$GH_REPO/actions/caches/$id" 2>&1)
+              then
+                grep -q "HTTP 404" <<< "$error" || { echo "$error"; exit 1; }
+              fi
+            done
