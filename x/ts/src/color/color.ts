@@ -337,21 +337,14 @@ export const over = (fg: Crude, bg: Crude, opacity: number): Color => {
 };
 
 /**
- * @returns the contrast ratio between this color and the given color. The contrast
- * ratio is a number between 1 and 21, where 1 is the lowest contrast and 21 is the
- * highest.
- * @param a - The first color to compare.
- * @param b - The second color to compare.
- * @returns The contrast ratio between the two colors.
- *
+ * @returns the WCAG contrast ratio between two colors, from 1 for equal luminance to 21
+ * for black and white. The order of the colors does not matter.
  * @see https://www.accessibility-developer-guide.com/knowledge/colours-and-contrast/how-to-calculate/
  */
 export const contrast = (a: Crude, b: Crude): number => {
-  const a_ = construct(a);
-  const b_ = construct(b);
-  const l1 = luminance(a_);
-  const l2 = luminance(b_);
-  return (Math.max(l1, l2) + 0.5) / (Math.min(l1, l2) + 0.5);
+  const l1 = luminance(a);
+  const l2 = luminance(b);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
 };
 
 /**
