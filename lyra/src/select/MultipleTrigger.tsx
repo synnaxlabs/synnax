@@ -10,7 +10,12 @@
 import "@/select/MultipleTrigger.css";
 
 import { array, type color, primitive, type record, unique } from "@synnaxlabs/x";
-import { type KeyboardEvent, type ReactElement, type ReactNode } from "react";
+import {
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 
 import { Button } from "@/button";
 import { Caret } from "@/caret";
@@ -103,11 +108,15 @@ export const staticCanDrop = <K extends record.Key>(
   return f.length > 0 && !f.every((h) => value.includes(h.key as K));
 };
 
+// The parts of a trigger that reads as its tags, each of which opens it.
+const CHIP = `.${CSS.B("tag")}, .${CSS.BE("tags", "more")}`;
+
 /**
  * The button of a {@link Multiple} selection, showing one removable tag per entry. A
- * shadow trigger reads as its tags, and any click on it opens it, so its tags have no
- * remove buttons. In a list item, an empty shadow trigger shows its placeholder on
- * hover only.
+ * shadow or text trigger reads as its tags: each tag and the count opens the dialog
+ * beside itself, and the room around them takes no clicks. A shadow trigger's tags
+ * have no remove buttons. In a list item, an empty shadow trigger shows its
+ * placeholder on hover only.
  */
 export const MultipleTrigger = <
   K extends record.Key,
@@ -129,7 +138,7 @@ export const MultipleTrigger = <
   const value = useSelected<K>();
   const { setSelected } = useContext<K>();
   const { getItem } = List.useUtilContext<K, E>();
-  const { toggle, visible, triggerRef } = Dialog.useContext();
+  const { toggle, toggleAt, visible, triggerRef } = Dialog.useContext();
   const canDrop = (hauled: Haul.DraggingState) =>
     staticCanDrop(hauled, haulType, array.toArray(value), disabled);
   const { startDrag, ...dropProps } = Haul.useDragAndDrop({
@@ -161,6 +170,12 @@ export const MultipleTrigger = <
   const itemStatus = Input.useItemStatus({});
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void =>
     preventEnterWhileOpen(e, visible);
+  const handleClick = (e: MouseEvent<HTMLElement>): void => {
+    const chip = variant === "outlined" ? null : (e.target as Element).closest(CHIP);
+    if (chip instanceof HTMLElement && chip.parentElement === e.currentTarget)
+      return toggleAt(chip);
+    toggle();
+  };
 
   if (hideTags) {
     if (preview === true) return null;
@@ -190,9 +205,7 @@ export const MultipleTrigger = <
       role="button"
       tabIndex={showAddButton || preview === true ? undefined : 0}
       aria-label={ariaLabel}
-      onClick={() => {
-        if (!showAddButton) toggle();
-      }}
+      onClick={handleClick}
       onKeyDown={handleKeyDown}
       {...dropProps}
       className={CSS.cls(
@@ -203,7 +216,6 @@ export const MultipleTrigger = <
       )}
       variant={variant}
       preview={preview}
-      preventClick={showAddButton}
       grow
       {...itemStatus}
     >
@@ -237,7 +249,11 @@ export const MultipleTrigger = <
         />
       )}
       {showAddButton && (
-        <Button.Button ref={triggerRef} variant="text" onClick={toggle}>
+        <Button.Button
+          ref={triggerRef}
+          variant="text"
+          onClick={(e) => toggleAt(e.currentTarget)}
+        >
           <Icon.Add color={9} />
         </Button.Button>
       )}

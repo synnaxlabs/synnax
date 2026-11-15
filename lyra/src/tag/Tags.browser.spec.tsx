@@ -87,9 +87,9 @@ describe("Tags", () => {
   });
 });
 
-const renderGroup = (labels: string[], onClick?: () => void): ReactElement => (
+const renderGroup = (labels: string[]): ReactElement => (
   <div data-testid="group" style={{ display: "flex", width: "100%" }}>
-    <Tag.Tags onClick={onClick}>
+    <Tag.Tags>
       {labels.map((label) => (
         <Tag.Tag key={label} color="#3774d0">
           {label}
@@ -232,37 +232,5 @@ describe("Stepped tags", () => {
     expect(dots(all)).toEqual(LABELS.slice(0, 3));
     expect(dots(three)).toEqual(LABELS.slice(0, 3));
     expect(count(all)).toBe(`${LABELS.length} labels`);
-  });
-
-  it("should take clicks on its tags and count, not on the room they leave", async () => {
-    let clicks = 0;
-    const onClick = (): void => {
-      clicks++;
-    };
-    const { container } = await renderThemed(
-      <div style={{ width: "1000px" }}>
-        <Tag.StepProvider>{renderGroup(LABELS.slice(0, 2), onClick)}</Tag.StepProvider>
-        <div style={{ width: "150px" }}>
-          <Tag.StepProvider>{renderGroup(LABELS, onClick)}</Tag.StepProvider>
-        </div>
-      </div>,
-    );
-    const [wide, narrow] = Array.from(
-      container.querySelectorAll<HTMLElement>("[data-testid=group]"),
-    );
-    await expect.poll(() => count(narrow)).toBe(`${LABELS.length} labels`);
-    await expect.poll(() => named(wide)).toEqual(LABELS.slice(0, 2));
-    const tags = wide.querySelector<HTMLElement>(`.${CSS.B("tags")}`)!;
-    const first = visible(wide)[0];
-    const room = tags.getBoundingClientRect();
-    expect(first.getBoundingClientRect().left - room.left).toBeGreaterThan(100);
-    const empty = document.elementFromPoint(room.left + 5, room.top + room.height / 2);
-    expect(tags.contains(empty)).toBe(false);
-    await userEvent.click(first);
-    expect(clicks).toBe(1);
-    await userEvent.click(
-      narrow.querySelector<HTMLElement>(`.${CSS.BE("tags", "more")}`)!,
-    );
-    expect(clicks).toBe(2);
   });
 });

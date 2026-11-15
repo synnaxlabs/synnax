@@ -91,6 +91,11 @@ export interface ContextValue {
   close: () => void;
   open: () => void;
   toggle: () => void;
+  /**
+   * Opens the dialog against `target`, a part of the trigger such as one of its tags,
+   * or closes it when it is already open there.
+   */
+  toggleAt: (target: HTMLElement) => void;
   visible: boolean;
   variant: Variant;
   /** The corner of the trigger the dialog opens from. */
@@ -108,6 +113,7 @@ const [Context, useContext] = context.create<ContextValue>({
     location: location.BOTTOM_LEFT,
     open: () => {},
     toggle: () => {},
+    toggleAt: () => {},
     variant: "floating",
     visible: false,
     triggerRef: () => {},
@@ -249,9 +255,23 @@ export const Frame = ({
   // Read through a ref, so a caller's onVisibleChange can change identity without
   // re-subscribing the outside-click and Escape listeners below.
   const setVisibleRef = useSyncedRef(setVisible);
+  // The part of the trigger the dialog opened against, if not the whole frame.
+  const [openedAt, setOpenedAt] = useState<HTMLElement | null>(null);
   const close = () => setVisibleRef.current(false);
-  const open = () => setVisibleRef.current(true);
-  const toggle = () => setVisibleRef.current((prev) => !prev);
+  const open = () => {
+    setOpenedAt(null);
+    setVisibleRef.current(true);
+  };
+  const toggle = () => {
+    setOpenedAt(null);
+    setVisibleRef.current((prev) => !prev);
+  };
+  const toggleAt = (target: HTMLElement) => {
+    if (visible && openedAt === target) return close();
+    setOpenedAt(target);
+    setVisibleRef.current(true);
+  };
+  const anchorEl = anchor ?? openedAt;
 
   const id = useId();
   const visibleRef = useSyncedRef(visible);
@@ -270,9 +290,11 @@ export const Frame = ({
     useState<State>({ ...ZERO_STATE, modalPosition: propsModalPosition });
 
   const calculatePosition = () => {
-    const targetEl = anchor ?? targetRef.current;
+    const targetEl = anchorEl ?? targetRef.current;
     if (targetEl == null || dialogRef.current == null || !visibleRef.current) return;
     const target = box.construct(targetEl);
+    // The tag it opened at can go as the dialog changes the value. It stays put then.
+    if (box.areaIsZero(target) && targetEl === openedAt) return;
     if (box.areaIsZero(target) && variant !== "modal") return close();
 
     // Layout size, not the painted box: the entrance animation scales the dialog.
@@ -369,7 +391,7 @@ export const Frame = ({
   const combinedTargetRef = useCombinedRefs(targetRef, resizeTargetRef);
 
   const resizeAnchorRef = useResize(calculatePosition, { enabled: visible });
-  useEffect(() => resizeAnchorRef(anchor ?? null), [anchor, resizeAnchorRef]);
+  useEffect(() => resizeAnchorRef(anchorEl), [anchorEl, resizeAnchorRef]);
 
   useEffect(() => {
     const frame = targetRef.current;
@@ -469,6 +491,7 @@ export const Frame = ({
     close,
     open,
     toggle,
+    toggleAt,
     visible,
     onPointerEnter,
     variant,

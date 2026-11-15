@@ -294,6 +294,65 @@ const ShadowTags = ({ value }: { value: string[] }): ReactElement => (
   </List.Item>
 );
 
+const NAMES = ["Hotfire", "Stand 2", "Pass", "Calibration", "Cold flow", "Anomaly"];
+
+// A trigger that reads as its tags, past a gutter so its dialog never meets the edge.
+interface ChipsProps {
+  variant: "shadow" | "text";
+  width: number;
+}
+
+const Chips = ({ variant, width }: ChipsProps): ReactElement => {
+  const [value, setValue] = useState(NAMES);
+  return (
+    <div style={{ width: `${width}px`, marginLeft: "200px" }}>
+      <Dialog.Frame>
+        <Select.Frame<string, undefined> multiple value={value} onChange={setValue}>
+          <Select.MultipleTrigger variant={variant} aria-label="Labels" />
+          <Select.Dialog>
+            {NAMES.map((name) => (
+              <Select.Item key={name} itemKey={name}>
+                {name}
+              </Select.Item>
+            ))}
+          </Select.Dialog>
+        </Select.Frame>
+      </Dialog.Frame>
+    </div>
+  );
+};
+
+const renderChips = async (
+  variant: ChipsProps["variant"],
+  width: number,
+): Promise<HTMLElement> => {
+  const { container } = await renderThemed(<Chips variant={variant} width={width} />);
+  return container.querySelector<HTMLElement>(".lyra-dialog__trigger")!;
+};
+
+const chip = (trigger: HTMLElement, name: string): HTMLElement =>
+  Array.from(trigger.querySelectorAll<HTMLElement>(":scope > .lyra-tag")).find(
+    (tag) => tag.textContent === name,
+  )!;
+
+// Whether the open dialog lines up with an edge of the element and sits just above or
+// below it.
+const besides = (el: Element): boolean => {
+  const dialog = document
+    .querySelector(".lyra-dialog__dialog")!
+    .getBoundingClientRect();
+  const box = el.getBoundingClientRect();
+  const x = Math.min(
+    Math.abs(dialog.left - box.left),
+    Math.abs(dialog.right - box.right),
+  );
+  const y = Math.min(
+    Math.abs(dialog.top - box.bottom),
+    Math.abs(dialog.bottom - box.top),
+  );
+  return x < 2 && y < 6;
+};
+
 const renderSearchless = async (
   multiple: boolean,
 ): Promise<ReturnType<typeof vi.fn>> => {
@@ -525,6 +584,59 @@ describe("Select", () => {
       expect(computed(placeholder, "opacity")).toBe("0");
       await userEvent.hover(item);
       expect(computed(placeholder, "opacity")).toBe("1");
+    });
+  });
+
+  describe("trigger that reads as its tags", () => {
+    it("should open beside the tag that was clicked", async () => {
+      const trigger = await renderChips("shadow", 800);
+      await userEvent.click(chip(trigger, "Pass"));
+      await expect.poll(() => besides(chip(trigger, "Pass"))).toBe(true);
+      await userEvent.click(chip(trigger, "Hotfire"));
+      await expect.poll(() => besides(chip(trigger, "Hotfire"))).toBe(true);
+      await userEvent.click(chip(trigger, "Hotfire"));
+      await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("should stay open when the tag it opened at goes", async () => {
+      const trigger = await renderChips("shadow", 800);
+      await userEvent.click(chip(trigger, "Pass"));
+      await userEvent.click(page.getByRole("option", { name: "Pass" }));
+      await expect.poll(() => chip(trigger, "Pass")).toBeUndefined();
+      await expect.element(page.getByRole("dialog")).toBeVisible();
+    });
+
+    it("should open beside its count", async () => {
+      const trigger = await renderChips("shadow", 200);
+      const more = (): HTMLElement | null =>
+        trigger.querySelector<HTMLElement>(":scope > .lyra-tags__more");
+      await expect.poll(more).not.toBeNull();
+      const count = more();
+      assert(count != null);
+      await userEvent.click(count);
+      await expect.poll(() => besides(count)).toBe(true);
+    });
+
+    it("should open beside its add button", async () => {
+      const trigger = await renderChips("text", 800);
+      const add = trigger.querySelector<HTMLElement>(
+        ":scope > .lyra-btn:not(.lyra-tag)",
+      );
+      assert(add != null);
+      await userEvent.click(add);
+      await expect.poll(() => besides(add)).toBe(true);
+    });
+
+    it("should take no clicks in the room around its tags", async () => {
+      for (const variant of ["shadow", "text"] as const) {
+        const trigger = await renderChips(variant, 800);
+        const room = trigger.getBoundingClientRect();
+        const hit = document.elementFromPoint(
+          room.right - 5,
+          room.top + room.height / 2,
+        );
+        expect(trigger.contains(hit)).toBe(false);
+      }
     });
   });
 

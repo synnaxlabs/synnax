@@ -22,8 +22,24 @@
     color: inherit;
 }
 
-/* Any click on a shadow trigger opens it, so its tags drop their remove buttons. The
-   dialog removes them instead. */
+/* A click on a shadow trigger's tag opens it, so its tags drop their remove buttons.
+   The dialog removes them instead. */
 .lyra-dialog__trigger.lyra-btn--shadow .lyra-tag__close {
     display: none;
+}
+
+/* A trigger that reads as its tags takes clicks only on its tags, its count, its add
+   button, and its placeholder, not on the room around them. */
+.lyra-dialog__trigger.lyra-tags:is(.lyra-btn--shadow, .lyra-btn--text) {
+    pointer-events: none;
+
+    &
+        > :is(
+            .lyra-tag:not([data-dot]),
+            .lyra-tags__more,
+            .lyra-btn:not(.lyra-tag),
+            .lyra-select-multiple-trigger-placeholder
+        ) {
+        pointer-events: auto;
+    }
 }
