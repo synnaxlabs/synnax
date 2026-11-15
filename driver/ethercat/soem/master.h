@@ -162,6 +162,7 @@ class Master final : public master::Master {
     /// @brief keeps the mailbox exchanges of check(), write(), and read() apart, and
     /// guards the startup parameters in the session plan while the bus runs.
     std::mutex mailbox_mu;
+    int64_t diag_first_sync0 = 0;
 
 public:
     /// @brief constructs a SOEM master with injected API, interface name, and config.

@@ -459,6 +459,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     start_cycle(this->image());
     // The caller leaves out a refused slave only when the image maps another one.
     if (!unidentified.empty()) return refuse_unidentified();
+    this->diag_first_sync0 = 0;
     LOG(INFO) << "[DIAG] cycle started, starting DC";
     if (auto err = this->start_dc()) return {.err = err};
     LOG(INFO) << "[DIAG] DC started, DC time " << this->api->context.DCtime
@@ -482,6 +483,14 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
                 "failed to reach OP: no process data passed the slaves in SAFE-OP"
             )
         };
+    {
+        const auto until = this->cfg.clock.steady() + std::chrono::microseconds(timeout);
+        while (this->api->context.DCtime < this->diag_first_sync0 &&
+               this->cfg.clock.steady() < until)
+            this->cfg.clock.sleep(STATE_POLL_INTERVAL);
+        LOG(INFO) << "[DIAG] waited for the second SYNC0 of each slave ("
+                  << this->diag_first_sync0 << ")";
+    }
     LOG(INFO) << "[DIAG] frames passed in SAFE-OP, DC time "
               << this->api->context.DCtime << ", requesting OP";
     auto op = this->request_state(EC_STATE_OPERATIONAL, timeout);
@@ -1325,6 +1334,7 @@ x::errors::Error Master::start_sync(const DCSetup &setup) {
         return err;
     if (auto err = this->write_dc_register(pos, ECT_REG_DCSTART0, start)) return err;
     if (auto err = this->write_dc_register(pos, ECT_REG_DCSYNCACT, act)) return err;
+    this->diag_first_sync0 = std::max(this->diag_first_sync0, start + cycle);
     LOG(INFO) << std::format(
         "[ethercat] slave {} ({}) runs DC sync: AssignActivate 0x{:04X}, SYNC0 "
         "cycle {} ns, SYNC1 register {} ns, first SYNC0 at {} ns",
