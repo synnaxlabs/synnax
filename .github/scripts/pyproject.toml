@@ -11,7 +11,7 @@
 name = "synnax-ci-scripts"
 version = "0.0.0"
 description = "Synnax CI scripts"
-requires-python = ">=3.12,<4"
+requires-python = ">=3.13,<4"
 dependencies = [
     "psutil>=7.2.2,<8",
     "pyyaml>=6.0.2,<7",
