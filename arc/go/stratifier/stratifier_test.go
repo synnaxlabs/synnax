@@ -68,7 +68,7 @@ func collectNodes(members []ir.Member, out *[]ir.Node) {
 // prog.Root after stratification.
 func run(ctx context.Context, prog ir.IR) ir.Scope {
 	diag := &diagnostics.Diagnostics{}
-	diag = stratifier.Stratify(ctx, &prog, diag)
+	diag = stratifier.Stratify(&prog, diag)
 	ExpectWithOffset(1, diag.Ok()).To(BeTrue(), diag.String())
 	return prog.Root
 }
@@ -239,7 +239,7 @@ var _ = Describe("Stratify", func() {
 				[]ir.Edge{edge("a", "b"), edge("b", "a")},
 			)
 			diag := &diagnostics.Diagnostics{}
-			diag = stratifier.Stratify(ctx, &prog, diag)
+			diag = stratifier.Stratify(&prog, diag)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring("cycle detected"))
 		})
@@ -254,7 +254,7 @@ var _ = Describe("Stratify", func() {
 				[]ir.Edge{edge("a", "b"), edge("b", "c"), edge("c", "a")},
 			)
 			diag := &diagnostics.Diagnostics{}
-			diag = stratifier.Stratify(ctx, &prog, diag)
+			diag = stratifier.Stratify(&prog, diag)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring("cycle detected"))
 		})
