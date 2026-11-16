@@ -169,10 +169,12 @@ jobs:
         if: runner.os != 'Linux' && inputs.core_image != ''
         shell: bash
         working-directory: ${{ runner.temp }}
+        timeout-minutes: 3
         run: |
           for _ in $(seq 1 60); do
-            if curl -fsS -o /dev/null -X POST -H "Content-Type: application/json" \
-              -d '{}' http://localhost:9090/api/v1/connectivity/check; then
+            if curl -fsS -o /dev/null --max-time 5 -X POST \
+              -H "Content-Type: application/json" -d '{}' \
+              http://localhost:9090/api/v1/connectivity/check; then
               exit 0
             fi
             sleep 1
