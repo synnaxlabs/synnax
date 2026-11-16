@@ -126,11 +126,7 @@ func (codec) Decode(data []byte, value any) error {
 		// The extra byte past the budget distinguishes an archive exactly at the limit
 		// from one over it.
 		contents, err := io.ReadAll(io.LimitReader(rc, remaining+1))
-		if err != nil {
-			err = errors.Combine(err, rc.Close())
-			return encoding.SugarDecodingError(value, err)
-		}
-		if err := rc.Close(); err != nil {
+		if err = errors.Combine(err, rc.Close()); err != nil {
 			return encoding.SugarDecodingError(value, err)
 		}
 		if int64(len(contents)) > remaining {
