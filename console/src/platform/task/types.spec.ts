@@ -121,6 +121,18 @@ describe("Hardware Task Types", () => {
         }
       });
 
+      it("should report duplicate channel values on channels with names", () => {
+        const channels: z.infer<typeof readChannelZ>[] = [
+          { ...ZERO_READ_CHANNEL, key: "channel1", channel: 1, name: "a" },
+          { ...ZERO_READ_CHANNEL, key: "channel2", channel: 1, name: "b" },
+        ];
+        const issues = readChannelsArrayZ.safeParse(channels).error?.issues;
+        expect(issues?.map(({ path }) => path)).toEqual([
+          [0, "channel"],
+          [1, "channel"],
+        ]);
+      });
+
       it("should not report errors for valid read channels", () => {
         const channels: z.infer<typeof readChannelZ>[] = [
           { ...ZERO_READ_CHANNEL, key: "channel1", channel: 1 },
@@ -359,6 +371,36 @@ describe("Hardware Task Types", () => {
               (issue) => issue.message === "Name state is used for multiple channels",
             ),
           ).toBe(true);
+      });
+
+      it("should check every field of a channel whose cmd name is new", () => {
+        const channels: z.infer<typeof writeChannelZ>[] = [
+          {
+            ...ZERO_WRITE_CHANNEL,
+            key: "channel1",
+            cmdChannel: 1,
+            stateChannel: 2,
+            cmdChannelName: "cmd1",
+            stateChannelName: "state",
+          },
+          {
+            ...ZERO_WRITE_CHANNEL,
+            key: "channel2",
+            cmdChannel: 1,
+            stateChannel: 2,
+            cmdChannelName: "cmd2",
+            stateChannelName: "state",
+          },
+        ];
+        const issues = writeChannelsArrayZ.safeParse(channels).error?.issues;
+        expect(issues?.map(({ path }) => path)).toEqual([
+          [0, "cmdChannel"],
+          [1, "cmdChannel"],
+          [0, "stateChannelName"],
+          [1, "stateChannelName"],
+          [0, "stateChannel"],
+          [1, "stateChannel"],
+        ]);
       });
 
       it("should accept channels that have no channel fields", () => {
