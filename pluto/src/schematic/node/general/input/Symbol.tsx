@@ -73,7 +73,7 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.InputNodeConfig>): ReactElement => {
   const sink = Telem.stringSink(commandChannel);
-  const source = telem.streamChannelStringValue({ channel: commandChannel ?? 0 });
+  const source = telem.streamChannelStringValue({ channel: commandChannel });
   const { set, value } = InputTelem.use({ aetherKey: nodeKey, sink, source });
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
     onConfigChange({ inlineSize }),
@@ -92,7 +92,6 @@ export const Symbol = ({
         size={size}
         inlineSize={inlineSize}
         readback={
-          stateChannel != null &&
           stateChannel !== 0 && (
             <Readback
               nodeKey={nodeKey}
