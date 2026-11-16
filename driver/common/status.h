@@ -278,9 +278,8 @@ inline std::string config_err_description(const x::errors::Error &err) {
 /// @brief a utility function that appropriately handles configuration errors and
 /// communicates them back to Synnax in the standard format. cmd_key is the start
 /// command driving the deploy, empty at boot. A failed configure writes an error
-/// status, except at boot for a task whose stored status is from another rack. A
-/// successful configure writes no status: the start that follows it answers the
-/// command.
+/// status, except at boot for a task that another rack runs. A successful configure
+/// writes no status: the start that follows it answers the command.
 inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
@@ -298,9 +297,8 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
         status.description = config_err_description(res.second);
         // Ack the start so a waiting caller resolves with the failure, not a timeout.
         status.details.cmd = cmd_key;
-        // A task moved here runs on its old Driver until a start arrives. A status
-        // with no rack is one the Core wrote when it created the task.
-        const bool moved = task.status.has_value() && task.status->details.rack != 0 &&
+        // A task moved here runs on its old Driver until a start arrives.
+        const bool moved = task.status.has_value() && task.status->details.running &&
                            task.status->details.rack != task.rack;
         if (cmd_key == driver::task::NO_COMMAND && moved)
             LOG(WARNING) << "[driver] failed to configure task " << task.name << ": "
