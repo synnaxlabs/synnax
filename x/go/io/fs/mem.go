@@ -165,32 +165,36 @@ func (y *MemFS) Remove(fullName string) error {
 
 // Rename implements FS.Rename.
 func (y *MemFS) Rename(oldName, newName string) error {
-	var n *memNode
-	if err := y.walk(oldName, func(dir *memNode, frag string, final bool) error {
+	var (
+		target     *memNode
+		targetFrag string
+	)
+	if err := y.walk(newName, func(dir *memNode, frag string, final bool) error {
 		if !final {
 			return nil
 		}
 		if frag == "" {
 			return errors.New("memfs: empty file name")
 		}
-		n = dir.children[frag]
-		delete(dir.children, frag)
+		target, targetFrag = dir, frag
 		return nil
 	}); err != nil {
 		return err
 	}
-	if n == nil {
-		return &os.PathError{Op: "open", Path: oldName, Err: os.ErrNotExist}
-	}
-	return y.walk(newName, func(dir *memNode, frag string, final bool) error {
+	return y.walk(oldName, func(dir *memNode, frag string, final bool) error {
 		if !final {
 			return nil
 		}
 		if frag == "" {
 			return errors.New("memfs: empty file name")
 		}
-		dir.children[frag] = n
-		n.name = frag
+		n := dir.children[frag]
+		if n == nil {
+			return &os.PathError{Op: "open", Path: oldName, Err: os.ErrNotExist}
+		}
+		delete(dir.children, frag)
+		target.children[targetFrag] = n
+		n.name = targetFrag
 		return nil
 	})
 }

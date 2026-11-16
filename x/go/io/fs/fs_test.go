@@ -555,6 +555,13 @@ var _ = Describe("FS", func() {
 					Entry("missing file", "missing.json"),
 					Entry("missing parent directory", "missing/a.json"),
 				)
+				It("Should keep the source when the target is missing", func() {
+					f := MustSucceed(fs.Open("a.txt", os.O_CREATE))
+					Expect(f.Close()).To(Succeed())
+					Expect(fs.Rename("a.txt", "missing/b.txt")).
+						To(MatchError(os.ErrNotExist))
+					Expect(fs.Exists("a.txt")).To(BeTrue())
+				})
 			})
 			Describe("Truncate", func() {
 				It(
