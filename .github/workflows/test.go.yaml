@@ -55,7 +55,7 @@ on:
       os_specific:
         description:
           Whether the module has code that only some operating systems build. Lint then
-          runs for Windows and macOS as well as Linux on every run.
+          skips the type-check for Windows and macOS, which a full run lints instead.
         required: false
         type: boolean
         default: false
@@ -88,10 +88,10 @@ env:
 
 jobs:
   # Every GOOS lints on Ubuntu, because the Windows runner does not have the disk space
-  # for a cold lint. A module with OS-specific code lints each GOOS in its own job,
-  # which keeps each runner's cache to one GOOS. Other modules lint only for Linux, and
-  # that job also type-checks for Windows and macOS. Without a limit, a hung lint holds
-  # the runner for up to 6 hours.
+  # for a cold lint. A full run lints each GOOS in its own job, which keeps each
+  # runner's cache to one GOOS. Other runs lint only for Linux, and that job also
+  # type-checks a module with no OS-specific code for Windows and macOS. Without a
+  # limit, a hung lint holds the runner for up to 6 hours.
   lint:
     name: Lint (${{ matrix.goos }})
     runs-on: ubuntu-latest
@@ -99,10 +99,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Code that builds the same on every operating system lints the same, so only a
-        # module with OS-specific code, or a full run, lints for Windows and macOS.
         goos:
-          ${{ fromJSON((inputs.os_specific || inputs.windows || inputs.macos) &&
+          ${{ fromJSON((inputs.windows || inputs.macos) &&
           '["linux", "windows", "darwin"]' || '["linux"]') }}
     steps:
       # Lint reports only issues since the merge base with origin/main, so it needs
