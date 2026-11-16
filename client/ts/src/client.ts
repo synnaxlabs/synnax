@@ -27,6 +27,7 @@ import { auth } from "@/auth";
 import { batch } from "@/batch";
 import { certificate } from "@/certificate";
 import { channel } from "@/channel";
+import { color } from "@/color";
 import { connection } from "@/connection";
 import { control } from "@/control";
 import { device } from "@/device";
@@ -144,7 +145,7 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
     certificate.DELETE_CHANNEL_NAME,
   ),
   channel: changes(channel.SET_CHANNEL_NAME, channel.DELETE_CHANNEL_NAME),
-  color: null,
+  color: changes(color.ACTION_CHANNEL_NAME, color.DELETE_CHANNEL_NAME),
   device: changes(device.ACTION_CHANNEL_NAME, device.DELETE_CHANNEL_NAME),
   ethercat_master: null,
   ethercat_slave: null,
@@ -200,6 +201,7 @@ export default class Synnax extends framer.Client {
   readonly resources: resource.Client;
   readonly projects: project.Client;
   readonly labels: label.Client;
+  readonly colors: color.Client;
   readonly license: license.Client;
   readonly statuses: status.Client;
   readonly tasks: task.Client;
@@ -328,6 +330,7 @@ export default class Synnax extends framer.Client {
           this.statuses.relabel(key, update),
       },
     });
+    this.colors = new color.Client({ unary, cache });
     this.statuses = new status.Client({ unary, cache });
     this.ranges = new ranger.Client({
       framer: this,
