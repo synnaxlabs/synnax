@@ -150,7 +150,10 @@ TEST(StatusCacheTest, SetIfAbsentSkipsATaskWithAStatus) {
     };
     ASSERT_NIL(cache.set_if_absent(replacement));
     EXPECT_EQ(transport->sent().size(), 1);
-    EXPECT_EQ(cache.latest(task.key)->message, "Started task");
+    EXPECT_EQ(
+        cache.latest(task.key).value_or(synnax::task::Status{}).message,
+        "Started task"
+    );
 }
 
 /// @brief it should write a status set after set_if_absent after its write, even while
