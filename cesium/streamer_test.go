@@ -55,8 +55,8 @@ var _ = Describe("Streamer Behavior", func() {
 				fs fs.FS
 			)
 			BeforeAll(func() {
-				ctx := GinkgoT().Context()
 				ShouldNotLeakGoroutines()
+				ctx := GinkgoT().Context()
 				fs = openFS()
 				db = mustOpenDBOnFS(ctx, fs)
 			})
@@ -599,8 +599,8 @@ var _ = Describe("Virtual Channel Streaming", func() {
 		Context("FS: "+fsName, Ordered, func() {
 			var db *cesium.DB
 			BeforeAll(func() {
-				ctx := GinkgoT().Context()
 				ShouldNotLeakGoroutines()
+				ctx := GinkgoT().Context()
 				db = mustOpenDBOnFS(ctx, openFS())
 			})
 
@@ -630,4 +630,25 @@ var _ = Describe("Virtual Channel Streaming", func() {
 			})
 		})
 	}
+})
+
+var _ = Describe("Streamer lifetime", func() {
+	It("Should close a streamer after the DB context ends", func(ctx SpecContext) {
+		life, cancel := context.WithCancel(ctx)
+		db := mustOpenDBOnFS(life, FileSystems["memFS"]())
+		key := GenerateChannelKey()
+		Expect(db.CreateChannel(ctx, cesium.Channel{
+			Name:     "boulder",
+			Key:      key,
+			Virtual:  true,
+			DataType: telem.StringT,
+		})).To(Succeed())
+		_, _, closer := openStreamer(ctx, db, cesium.StreamerConfig{
+			Channels: []cesium.ChannelKey{key},
+		})
+		cancel()
+		closed := make(chan error, 1)
+		go func() { closed <- closer.Close() }()
+		Eventually(closed).Should(Receive(Succeed()))
+	})
 })

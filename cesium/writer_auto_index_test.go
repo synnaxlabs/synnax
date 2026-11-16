@@ -30,8 +30,8 @@ var _ = Describe("Writer AutoIndex", func() {
 				fs fs.FS
 			)
 			BeforeAll(func() {
-				ctx := GinkgoT().Context()
 				ShouldNotLeakGoroutines()
+				ctx := GinkgoT().Context()
 				fs = openFS()
 				db = DeferClose(openDBOnFS(ctx, fs))
 			})

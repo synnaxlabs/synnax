@@ -51,8 +51,8 @@ var _ = Describe("Writer Behavior", func() {
 				fs fs.FS
 			)
 			BeforeAll(func() {
-				ctx := GinkgoT().Context()
 				ShouldNotLeakGoroutines()
+				ctx := GinkgoT().Context()
 				fs = openFS()
 				db = mustOpenDBOnFS(ctx, fs)
 			})
@@ -5651,12 +5651,11 @@ func openObservedStreamer(
 	}
 }
 
-var _ = Describe("Writer lifetime", func() {
-	It("Should release control within a deadline when the DB context ends", func(
+var _ = Describe("Writer close", func() {
+	It("Should report the control release on a live, bounded context", func(
 		ctx SpecContext,
 	) {
-		life, cancel := context.WithCancel(ctx)
-		db := mustOpenDBOnFS(life, FileSystems["memFS"]())
+		db := mustOpenDBOnFS(ctx, FileSystems["memFS"]())
 		key := GenerateChannelKey()
 		Expect(db.CreateChannel(ctx, cesium.Channel{
 			Name:     "boulder",
@@ -5681,8 +5680,7 @@ var _ = Describe("Writer lifetime", func() {
 			Channels:       []cesium.ChannelKey{key},
 			ControlSubject: control.Subject{Key: "1", Name: "boulder"},
 		}))
-		cancel()
-		Eventually(releases).Should(Receive(Equal(release{bounded: true})))
 		Expect(w.Close()).To(Succeed())
+		Eventually(releases).Should(Receive(Equal(release{bounded: true})))
 	})
 })

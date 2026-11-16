@@ -31,8 +31,8 @@ import (
 // Open opens a Cesium database on the specified directory. If the directory is not
 // empty, Open attempts to parse its subdirectories into Cesium channels. If any of the
 // subdirectories are not in the Cesium format, an error is logged and Open continues
-// execution. ctx is the lifetime of the DB: when it ends, the DB stops its relay,
-// garbage collection, writers, and iterators.
+// execution. ctx is the lifetime of the DB: when it ends, the DB stops its relay and
+// garbage collection.
 func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	o, err := newOptions(dirname, opts...)
 	if err != nil {
@@ -89,7 +89,6 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 		ctx,
 		signal.WithInstrumentation(o.Instrumentation),
 	)
-	db.life = sCtx
 	db.relay = openRelay(sCtx, o)
 	db.startGC(sCtx, o)
 	db.shutdown = signal.NewHardShutdown(sCtx, cancel)

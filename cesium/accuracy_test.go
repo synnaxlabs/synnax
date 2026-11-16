@@ -24,8 +24,8 @@ var _ = Describe("Accuracy", func() {
 			var db *cesium.DB
 
 			BeforeAll(func() {
-				ctx := GinkgoT().Context()
 				ShouldNotLeakGoroutines()
+				ctx := GinkgoT().Context()
 				db = mustOpenDBOnFS(ctx, openFS())
 			})
 			Context("Single Channel", func() {

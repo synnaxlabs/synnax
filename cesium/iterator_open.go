@@ -29,7 +29,7 @@ func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
 		// return early to prevent panic in wrapStreamIterator
 		return nil, err
 	}
-	return wrapStreamIterator(db.life, internal), nil
+	return wrapStreamIterator(internal), nil
 }
 
 func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {

@@ -190,8 +190,8 @@ var _ = Describe("Alignment", func() {
 						Expect(w.Close()).To(Succeed())
 					}
 					BeforeAll(func() {
-						ctx := GinkgoT().Context()
 						ShouldNotLeakGoroutines()
+						ctx := GinkgoT().Context()
 						db = mustOpenDBOnFS(
 							ctx,
 							openFS(),

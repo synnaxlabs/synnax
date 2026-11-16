@@ -147,6 +147,22 @@ var _ = Describe("Delta", func() {
 			Expect(outputTwo.Outlet()).To(BeClosed())
 		})
 
+		It("Should accept connections after it recovers from a panic", func() {
+			delta := NewDynamicDeltaMultiplier[int](0, Instrumentation("dev"))
+			delta.InFrom(inputOne)
+			ctx, cancel := signal.Isolated()
+			defer cancel()
+			delta.Flow(ctx, RecoverWithErrOnPanic(), WithRetryOnPanic())
+			delta.Connect(outputOne)
+			// A send on the closed inlet panics.
+			outputOne.Close()
+			Eventually(inputOne.Inlet()).Should(BeSent(1))
+			Eventually(inputOne.Inlet()).Should(BeSent(2))
+			delta.Connect(outputTwo)
+			Eventually(inputOne.Inlet()).Should(BeSent(3))
+			Eventually(outputTwo.Outlet()).Should(Receive(Equal(3)))
+		})
+
 		Describe("Timeout", func() {
 			It(
 				"Should allow the delta to operate normally if a consumer receives within the timeout",

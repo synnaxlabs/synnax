@@ -65,8 +65,8 @@ var _ = Describe("Control", func() {
 					keys   []cesium.ChannelKey
 				)
 				BeforeAll(func() {
-					ctx := GinkgoT().Context()
 					ShouldNotLeakGoroutines()
+					ctx := GinkgoT().Context()
 					db = DeferClose(mustOpenDBOnFS(ctx, fs))
 				})
 				BeforeEach(func(ctx SpecContext) {
@@ -338,8 +338,8 @@ var _ = Describe("Control", func() {
 					return telem.UnaryFrame(idx, telem.NewSeriesSecondsTSV(seconds...))
 				}
 				BeforeAll(func() {
-					ctx := GinkgoT().Context()
 					ShouldNotLeakGoroutines()
+					ctx := GinkgoT().Context()
 					db = DeferClose(mustOpenDBOnFS(ctx, fs))
 				})
 				BeforeEach(func(ctx SpecContext) { idx = createIndex(ctx) })
@@ -492,8 +492,8 @@ var _ = Describe("Control", func() {
 			Describe("Nominal", func() {
 				var db *cesium.DB
 				BeforeAll(func() {
-					ctx := GinkgoT().Context()
 					ShouldNotLeakGoroutines()
+					ctx := GinkgoT().Context()
 					db = mustOpenDBOnFS(ctx, fs)
 				})
 

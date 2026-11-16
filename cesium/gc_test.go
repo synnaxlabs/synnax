@@ -47,8 +47,8 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 			Context("Threshold = 0", Ordered, func() {
 				BeforeAll(func() {
-					ctx := GinkgoT().Context()
 					ShouldNotLeakGoroutines()
+					ctx := GinkgoT().Context()
 					fs = openFS()
 					db = MustOpen(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
@@ -153,8 +153,8 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 			Context("Threshold != 0", Ordered, func() {
 				BeforeAll(func() {
-					ctx := GinkgoT().Context()
 					ShouldNotLeakGoroutines()
+					ctx := GinkgoT().Context()
 					fs = openFS()
 					db = MustOpen(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
@@ -276,8 +276,8 @@ var _ = Describe("Garbage collection", Ordered, func() {
 			})
 			Context("Multiple files", func() {
 				BeforeAll(func() {
-					ctx := GinkgoT().Context()
 					ShouldNotLeakGoroutines()
+					ctx := GinkgoT().Context()
 					fs = openFS()
 					db = MustOpen(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{

@@ -176,40 +176,52 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 		if d.timeout > 0 {
 			timer = time.NewTimer(d.timeout)
 		}
+		// returned stays false while a panic unwinds, since the routine may run again.
+		returned := false
 		defer func() {
 			if timer != nil && !timer.Stop() {
 				<-timer.C
 			}
-			d.stop()
+			if returned {
+				d.stop()
+			} else {
+				d.disconnectAll()
+			}
 		}()
-		for {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case inlets := <-d.connections:
-				d.connect(inlets)
-			case inlets := <-d.disconnections:
-				d.disconnect(inlets)
-			case res, ok := <-d.In.Outlet():
-				if !ok {
-					return nil
+		err := d.run(ctx, timer)
+		returned = true
+		return err
+	}, o.Signal...)
+}
+
+func (d *DynamicDeltaMultiplier[V]) run(ctx context.Context, timer *time.Timer) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case inlets := <-d.connections:
+			d.connect(inlets)
+		case inlets := <-d.disconnections:
+			d.disconnect(inlets)
+		case res, ok := <-d.In.Outlet():
+			if !ok {
+				return nil
+			}
+			var err error
+			if timer != nil {
+				timer.Reset(d.timeout)
+				err = d.Source.SendToEachWithTimeout(ctx, res, d.timeout, timer)
+			} else {
+				err = d.Source.SendToEach(ctx, res)
+			}
+			if err != nil {
+				if !errors.Is(err, timeout.ErrTimeout) {
+					return err
 				}
-				var err error
-				if timer != nil {
-					timer.Reset(d.timeout)
-					err = d.Source.SendToEachWithTimeout(ctx, res, d.timeout, timer)
-				} else {
-					err = d.Source.SendToEach(ctx, res)
-				}
-				if err != nil {
-					if !errors.Is(err, timeout.ErrTimeout) {
-						return err
-					}
-					d.L.Warn(fmt.Sprintf("delta: %s", err))
-				}
+				d.L.Warn(fmt.Sprintf("delta: %s", err))
 			}
 		}
-	}, o.Signal...)
+	}
 }
 
 // disconnectAll closes all connected inlets and clears the output streams.

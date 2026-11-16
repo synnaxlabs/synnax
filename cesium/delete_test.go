@@ -39,8 +39,8 @@ var _ = Describe("Delete", func() {
 				fs fs.FS
 			)
 			BeforeAll(func() {
-				ctx := GinkgoT().Context()
 				ShouldNotLeakGoroutines()
+				ctx := GinkgoT().Context()
 				fs = openFS()
 				db = mustOpenDBOnFS(ctx, fs)
 			})

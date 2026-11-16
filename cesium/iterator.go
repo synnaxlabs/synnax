@@ -33,8 +33,8 @@ type Iterator struct {
 	closed   bool
 }
 
-func wrapStreamIterator(life context.Context, internal *streamIterator) *Iterator {
-	ctx, cancel := signal.WithCancel(life)
+func wrapStreamIterator(internal *streamIterator) *Iterator {
+	ctx, cancel := signal.Isolated()
 	req, res := confluence.Attach(internal, 1)
 	internal.Flow(
 		ctx,
@@ -104,8 +104,7 @@ func (i *Iterator) SetBounds(bounds telem.TimeRange) {
 func (i *Iterator) Value() Frame { return i.frame }
 
 // Close closes the iterator and returns the error that stopped it, unless a seek or
-// SetBounds has cleared that error since. Closing a closed iterator, or one whose DB
-// lifetime ended, returns nil.
+// SetBounds has cleared that error since. Closing a closed iterator returns nil.
 func (i *Iterator) Close() error {
 	if i.closed {
 		return nil
@@ -114,7 +113,7 @@ func (i *Iterator) Close() error {
 	i.inlet.Close()
 	err := i.wg.Wait()
 	i.shutdown()
-	return errors.Skip(err, context.Canceled)
+	return err
 }
 
 // exec sends req and returns its acknowledgement.
