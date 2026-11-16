@@ -48,6 +48,11 @@ describe("compare", () => {
         input: ["a2", "a.1", "a-3", "a_4"],
         expected: ["a.1", "a2", "a-3", "a_4"],
       },
+      {
+        name: "empty strings first",
+        input: ["b", "", "a"],
+        expected: ["", "a", "b"],
+      },
     ];
     SPECS.forEach((spec) => {
       it(spec.name, () => {

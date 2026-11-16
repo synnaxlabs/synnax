@@ -167,10 +167,8 @@ export const isEqualTo = (n: number): boolean => n === EQUAL;
 export const stringsWithNumbers = (a: string, b: string): number => {
   const alphaNumericRegex = /([a-zA-Z]+)|(\d+)/g;
 
-  const aParts = a.replace(/[\s_.-]+/g, "").match(alphaNumericRegex);
-  const bParts = b.replace(/[\s_.-]+/g, "").match(alphaNumericRegex);
-
-  if (!aParts || !bParts) return 0;
+  const aParts = a.replace(/[\s_.-]+/g, "").match(alphaNumericRegex) ?? [];
+  const bParts = b.replace(/[\s_.-]+/g, "").match(alphaNumericRegex) ?? [];
 
   for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
     const aPart = aParts[i];
