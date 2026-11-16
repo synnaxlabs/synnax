@@ -8,9 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 """
-This example demonstrates how to write data to an index channel and its corresponding
-data channels in Synnax in a streaming fashion. Streaming data is ideal for live
-applications, such as data acquisition from a sensor.
+This example demonstrates how to stream data to data channels in Synnax with
+auto_index, so the Core writes the timestamps of their index channel. Streaming data is
+ideal for live applications, such as data acquisition from a sensor.
 """
 
 import numpy as np
