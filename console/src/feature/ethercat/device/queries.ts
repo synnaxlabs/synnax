@@ -228,3 +228,53 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<
     return { ...data, answer: { ...res, description } };
   },
 });
+
+export interface ReplaceParams {
+  /** The disconnected slave that keeps its key, name, settings, and tasks. */
+  old: SlaveDevice;
+  /** The new slave whose module the old slave takes. The replace deletes it. */
+  slave: SlaveDevice;
+}
+
+export interface ReplaceResult extends ReplaceParams {
+  /** The EtherCAT tasks that the replace stopped. They stay stopped. */
+  stopped: task.Task[];
+}
+
+const REPLACE: verbs.Verbs = {
+  present: "replace",
+  past: "replaced",
+  participle: "replacing",
+};
+
+/**
+ * Gives the old slave the serial number, network, and position of the new slave, so
+ * the next scan finds the module as the old slave. Then deletes the new slave. Stops
+ * each EtherCAT task that runs on the network first, and leaves the tasks stopped.
+ * @throws {Error} if a task fails to stop. The slaves then stay as they are.
+ */
+export const { useUpdate: useReplace } = Flux.createUpdate<
+  ReplaceParams,
+  ReplaceResult
+>({
+  name: "EtherCAT slave",
+  verbs: REPLACE,
+  update: async ({ client, data }) => {
+    const { old, slave } = data;
+    const stopped = await stopTasksOnNetwork(client, old);
+    // A scan between the two writes would make the new slave again if the delete went
+    // first.
+    await client.devices.dispatch(old.key, [
+      device.set({ path: ["properties", "serial"], value: slave.properties.serial }),
+      device.set({ path: ["properties", "network"], value: slave.properties.network }),
+      device.set({
+        path: ["properties", "position"],
+        value: slave.properties.position,
+      }),
+      // The Driver stores this property in snake case. The switch was of the old module.
+      device.set({ path: ["properties", "switched_at"], value: 0 }),
+    ]);
+    await client.devices.delete(slave.key);
+    return { ...data, stopped };
+  },
+});
