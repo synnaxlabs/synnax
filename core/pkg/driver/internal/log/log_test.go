@@ -332,6 +332,12 @@ var _ = Describe("PipeToLogger", func() {
 			)).To(Equal("driver: version `GLIBC_2.39' not found (required by driver)"))
 		})
 
+		It("Should return a loader error with brackets in its prefix", func() {
+			Expect(lastError(
+				"dyld[1234]: Library not loaded: @rpath/libfoo.dylib\n",
+			)).To(Equal("dyld[1234]: Library not loaded: @rpath/libfoo.dylib"))
+		})
+
 		It("Should not return a continuation line of an info line", func() {
 			Expect(lastError(
 				"I20260208 14:34:21.000000 0x1 rack.cpp:50] running\n" +

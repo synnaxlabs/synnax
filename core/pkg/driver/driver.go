@@ -293,8 +293,8 @@ type Driver struct {
 	// closeErr stores the result of the single close() invocation for subsequent Close
 	// calls to return.
 	closeErr error
-	// lastErr holds the last error that a Driver process printed before it exited, so a
-	// start that times out names why.
+	// lastErr holds the last error that the latest Driver process printed before it
+	// exited on its own, so a start that times out names why.
 	lastErr atomic.Pointer[string]
 }
 
@@ -428,6 +428,7 @@ func (d *Driver) runOnce(
 	policy *restart.Policy,
 	startedOnce *sync.Once,
 ) (restart.Action, error) {
+	d.lastErr.Store(nil)
 	cmd, tempFiles, err := d.setupCmd(ctx)
 	for _, f := range tempFiles {
 		defer func() {
@@ -484,13 +485,13 @@ func (d *Driver) runOnce(
 		signal.WithKey("wait"),
 		signal.RecoverWithErrOnPanic())
 	err = internalSCtx.Wait()
-	if output := cmp.Or(stderrErr, stdoutErr); output != "" && err != nil {
-		d.lastErr.Store(&output)
-		err = errors.Wrap(err, output)
-	}
 	// A canceled context means Close stopped the process: the exit is expected, not a
 	// crash, so it must not count toward the restart policy.
 	expected := ctx.Err() != nil
+	if output := cmp.Or(stderrErr, stdoutErr); !expected && output != "" && err != nil {
+		d.lastErr.Store(&output)
+		err = errors.Wrap(err, output)
+	}
 	if !expected {
 		d.cfg.L.Warn("embedded Driver process exited unexpectedly", zap.Error(err))
 	}

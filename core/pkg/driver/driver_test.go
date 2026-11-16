@@ -203,6 +203,21 @@ var _ = Describe("Open", func() {
 		)
 
 		It(
+			"Should report a timeout for a Driver that logs an error and does not exit",
+			func(ctx SpecContext) {
+				Expect(os.Setenv("MOCK_LOG_ERROR", "1")).To(Succeed())
+				defer func() { Expect(os.Unsetenv("MOCK_LOG_ERROR")).To(Succeed()) }()
+				Expect(os.Setenv("MOCK_DELAY_MS", "2000")).To(Succeed())
+				defer func() { Expect(os.Unsetenv("MOCK_DELAY_MS")).To(Succeed()) }()
+				logger, _ := newTestLogger()
+				Expect(driver.Open(ctx, mockConfig(logger), driver.Config{
+					StartTimeout: 500 * time.Millisecond,
+					StopTimeout:  100 * time.Millisecond,
+				})).Error().To(MatchError(ContainSubstring("timed out")))
+			},
+		)
+
+		It(
 			"Should name the loader error of a Driver that cannot load",
 			func(ctx SpecContext) {
 				Expect(os.Setenv("MOCK_LOADER_ERROR", "1")).To(Succeed())

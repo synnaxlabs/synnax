@@ -34,6 +34,15 @@ func isCrashBanner(line string) bool {
 			strings.Contains(line, " terminated: unhandled exception"))
 }
 
+// isFormatted reports whether line starts with the Driver's log prefix: a level byte,
+// then a timestamp or a space.
+func isFormatted(line string) bool {
+	if len(line) < 2 || !strings.ContainsRune("DIWEF", rune(line[0])) {
+		return false
+	}
+	return line[1] == ' ' || (line[1] >= '0' && line[1] <= '9')
+}
+
 // ParsedLine holds the parsed components of a single driver log line.
 type ParsedLine struct {
 	Level   byte
@@ -135,10 +144,10 @@ func PipeToLogger(
 			continue
 		}
 		p := ParseLine(line, caller)
-		if strings.IndexByte(line, ']') != -1 {
+		if isFormatted(line) {
 			formatted = true
 		} else if !formatted {
-			lastErr = strings.Clone(p.Message)
+			lastErr = strings.Clone(strings.TrimSpace(line))
 		}
 
 		if p.Caller != caller {

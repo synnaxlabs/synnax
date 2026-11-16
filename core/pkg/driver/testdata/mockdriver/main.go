@@ -119,6 +119,10 @@ func main() {
 		}
 	}
 
+	if os.Getenv("MOCK_LOG_ERROR") == "1" {
+		fmt.Fprintln(os.Stdout, "E [mock] [main.go] task failed to configure")
+	}
+
 	if delayStr := os.Getenv("MOCK_DELAY_MS"); delayStr != "" {
 		if ms, err := strconv.Atoi(delayStr); err == nil && ms > 0 {
 			time.Sleep(time.Duration(ms) * time.Millisecond)
