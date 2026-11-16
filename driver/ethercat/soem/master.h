@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <concepts>
@@ -110,6 +111,21 @@ class Master final : public master::Master {
         size_t failures = 0;
     };
 
+    /// @brief a send() that no receive() took.
+    struct Cycle {
+        /// @brief the Config::clock time of the send.
+        std::chrono::steady_clock::time_point sent_at;
+        /// @brief what receive() returns for a send that held process data back, or
+        /// NIL.
+        x::errors::Error held_err;
+        /// @brief whether the process data frames of the send went out.
+        bool sent = false;
+        /// @brief the index of each AL status read frame of the send.
+        std::array<uint8_t, MAX_STATE_FRAMES> state_frames{};
+        /// @brief the number of state_frames in use.
+        size_t state_frame_count = 0;
+    };
+
     /// @brief the state of one bus run, from activate() to deactivate().
     struct Session {
         /// @brief the plan that activate() got.
@@ -123,9 +139,9 @@ class Master final : public master::Master {
         /// @brief the enabled slaves with inputs, in ascending order. Each cycle reads
         /// their AL status after its process data.
         std::vector<uint16_t> state_reads;
-        /// @brief the index of each AL status read frame of the latest send() that no
-        /// receive() read. Only the cycle uses it.
-        std::vector<uint8_t> state_frames;
+        /// @brief the sends that no receive() took, oldest first. Only the cycle uses
+        /// it.
+        std::vector<Cycle> cycles;
         /// @brief what inputless() returns. Only the cycle uses it.
         std::vector<uint16_t> inputless;
         /// @brief whether the enabled slaves' frames carry the reference clock time.
@@ -146,17 +162,12 @@ class Master final : public master::Master {
         std::set<uint16_t> unrestored_clocks;
         /// @brief the latest DC time that moved forward, in nanoseconds.
         int64_t last_dc_time = NO_DC_FRAME;
-        /// @brief the Config::clock time of the last process data send.
-        std::chrono::steady_clock::time_point sent_at;
         /// @brief the DC time minus the Config::clock time, in nanoseconds, at the send
         /// of the frame that gave last_dc_time.
         std::atomic<int64_t> host_dc_offset{NO_DC_FRAME};
         /// @brief whether the cycle holds process data back. A frame then carries only
         /// the reference clock time.
         std::atomic<bool> process_data_held{false};
-        /// @brief what receive returns after a send that held process data back, or NIL
-        /// after a send that did not. Only the cycle uses it.
-        x::errors::Error held_err;
         /// @brief what shortfall() returns. Only the cycle uses it.
         std::optional<uint32_t> shortfall;
         /// @brief the working counter of the latest mismatch, and what receive()
@@ -225,10 +236,10 @@ public:
     [[nodiscard]] std::span<const uint16_t> inputless() const override;
 
 private:
-    /// @brief reads the AL status frames in session.state_frames, waiting up to timeout
+    /// @brief reads and frees the AL status frames of cycle, waiting up to timeout
     /// microseconds for each. Adds each slave that is below SAFE-OP, or that did not
     /// answer in a frame that came back, to session.inputless.
-    void read_states(Session &session, int timeout);
+    void read_states(Session &session, const Cycle &cycle, int timeout);
 
     /// @brief returns the record of the slave at pos in the SOEM slave table. Record 0
     /// describes the whole bus.

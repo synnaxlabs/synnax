@@ -165,6 +165,13 @@ public:
     size_t state_read_count = 0;
     /// @brief the number of next AL status read frames that do not come back.
     int lost_state_reads = 0;
+    /// @brief the timeout of the latest receive_state_read call, in microseconds.
+    int state_read_timeout = -1;
+    /// @brief the process data sends in flight, oldest first, with the DC time that
+    /// each carries when host_dc_offset is set.
+    std::deque<std::optional<int64_t>> processdata_in_flight;
+    /// @brief the number of drop_processdata calls.
+    int drop_count = 0;
     int sync_dc_count = 0;
     /// @brief the working counter sync_dc returns.
     int sync_dc_return = 1;
@@ -357,17 +364,32 @@ public:
     }
 
     int send_processdata(uint8_t group) override {
-        if (this->host_dc_offset) this->context.DCtime = now() + *this->host_dc_offset;
         this->send_count++;
         this->send_states.push_back(this->read_state.load());
         this->processdata_groups.push_back(group);
+        if (this->send_return > 0)
+            this->processdata_in_flight.push_back(
+                this->host_dc_offset ? std::optional(now() + *this->host_dc_offset)
+                                     : std::nullopt
+            );
         return this->send_return;
     }
 
     int receive_processdata(uint8_t group, int) override {
         this->receive_count++;
         this->processdata_groups.push_back(group);
+        if (this->processdata_in_flight.empty()) return EC_NOFRAME;
+        if (this->receive_return < 0) return this->receive_return;
+        if (const auto dc = this->processdata_in_flight.front())
+            this->context.DCtime = *dc;
+        this->processdata_in_flight.pop_front();
         return this->receive_return;
+    }
+
+    void drop_processdata() override {
+        this->drop_count++;
+        if (!this->processdata_in_flight.empty())
+            this->processdata_in_flight.pop_front();
     }
 
     uint8_t send_state_read(const std::span<const uint16_t> slaves) override {
@@ -381,8 +403,9 @@ public:
     bool receive_state_read(
         const uint8_t idx,
         const std::span<uint16_t> states,
-        int
+        const int timeout
     ) override {
+        this->state_read_timeout = timeout;
         const auto slaves = this->state_read_frames.at(idx);
         this->state_read_frames.erase(idx);
         if (this->lost_state_reads > 0) {
