@@ -240,10 +240,14 @@ describe("Embedded.Guard API key for scripts", () => {
     const { commands } = mockSupervisor(() => live, handlers);
     await renderGuard();
     await waitFor(() => expect(deleteKeys).toHaveBeenCalled());
+    const revoke = deleteKeys.mock.results[0].value;
+    deleteKeys.mockRestore();
+    // The forget would run right after the revoke settles, so wait for both to settle.
+    await expect(revoke).rejects.toThrow("Core restarted");
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(commands).not.toHaveBeenCalledWith("supervisor_forget_legacy_api_key");
     expect(commands).not.toHaveBeenCalledWith("supervisor_save_api_key");
     expect(file.legacy).toBe(token);
-    deleteKeys.mockRestore();
     await client.auth.deleteKeys(key.key);
   });
 
