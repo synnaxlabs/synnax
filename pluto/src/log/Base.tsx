@@ -18,7 +18,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box, type link, runtime, strings, xy } from "@synnaxlabs/x";
+import { box, deep, type link, runtime, strings, xy } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { CSS } from "@/css";
@@ -180,8 +180,8 @@ export const Base = ({
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
 
-  // A link from an earlier draw can sit over other text now.
-  const hoveredLink = links.find((l) => l === hovered);
+  // A link that moved since the hover can sit over other text now.
+  const hoveredLink = links.find((l) => deep.equal(l, hovered));
 
   const mouseYToEntryIndex = (clientY: number): number => {
     if (computedLineHeight <= 0) return 0;

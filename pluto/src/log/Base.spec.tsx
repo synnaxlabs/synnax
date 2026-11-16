@@ -542,14 +542,24 @@ describe("log/Base", () => {
         expect(screen.queryByRole("tooltip")).toBeNull();
       });
 
-      it("should hide the underline of a link from an earlier draw", () => {
+      it("should keep the hover on a link that did not move", () => {
         setupLinks();
         const { container, rerender } = renderLog();
         fireEvent.mouseMove(getLogDiv(container), ON_RUN);
-        setupLinks([RUN, FILE]);
+        const tooltip = screen.getByRole("tooltip");
+        // Each state from the worker arrives as a copy.
+        setupLinks(structuredClone([RUN, FILE]));
         rerender(<Base />);
         expect(underlines(container)).toHaveLength(1);
-        setupLinks([{ ...RUN }, { ...FILE }]);
+        expect(getLogDiv(container).classList.contains(HOVERED)).toBe(true);
+        expect(screen.getByRole("tooltip")).toBe(tooltip);
+      });
+
+      it("should hide the underline of a link that moved", () => {
+        setupLinks();
+        const { container, rerender } = renderLog();
+        fireEvent.mouseMove(getLogDiv(container), ON_RUN);
+        setupLinks([{ ...RUN, regions: [box.construct(140, 64, 200, 16)] }, FILE]);
         rerender(<Base />);
         expect(underlines(container)).toEqual([]);
         expect(getLogDiv(container).classList.contains(HOVERED)).toBe(false);
