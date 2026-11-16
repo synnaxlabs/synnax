@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -4132,13 +4133,12 @@ var _ = Describe("Writer Behavior", func() {
 						live := openLive(ctx)
 						Expect(live.Write(frame(10, 12))).To(BeTrue())
 						Expect(live.EndDomain(idx)).To(BeTrue())
-						Expect(live.Write(frame(11))).Error().To(And(
-							MatchError(domain.ErrWriteConflict),
-							MatchError(ContainSubstring(
-								"cannot start writer because there is already data",
-							)),
-						))
-						Expect(live.Close()).To(MatchError(domain.ErrWriteConflict))
+						behind := And(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring("must not be before")),
+						)
+						Expect(live.Write(frame(11))).Error().To(behind)
+						Expect(live.Close()).To(behind)
 					},
 				)
 			})
@@ -4232,7 +4232,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(err).To(MatchError(ContainSubstring("same length")))
 				})
 
-				Specify("Commit error across many channels", func(ctx SpecContext) {
+				Specify("Index error across many channels", func(ctx SpecContext) {
 					var (
 						idxKey   = GenerateChannelKey()
 						channels = []cesium.Channel{{
@@ -4272,14 +4272,14 @@ var _ = Describe("Writer Behavior", func() {
 					write(10*telem.SecondTS, 11*telem.SecondTS)
 					MustCommit(w)
 					write(5*telem.SecondTS, 6*telem.SecondTS)
-					matchOneCommitError := And(
+					matchOneError := And(
 						MatchError(validate.ErrValidation),
 						WithTransform(func(err error) int {
-							return strings.Count(err.Error(), "must not be less than")
+							return strings.Count(err.Error(), "must not be before")
 						}, Equal(1)),
 					)
-					Expect(w.Commit()).Error().To(matchOneCommitError)
-					Expect(w.Close()).To(matchOneCommitError)
+					Expect(w.Commit()).Error().To(matchOneError)
+					Expect(w.Close()).To(matchOneError)
 				})
 
 				Context("Missing Channel", func() {
@@ -4534,6 +4534,115 @@ var _ = Describe("Writer Behavior", func() {
 							w.Close(),
 						).To(MatchError(ContainSubstring("does not exist in the index")))
 					})
+				})
+				Context("Index Behind Written Data", func() {
+					var (
+						idx, data cesium.ChannelKey
+						keys      []cesium.ChannelKey
+					)
+					BeforeEach(func(ctx SpecContext) {
+						idx, data = GenerateChannelKey(), GenerateChannelKey()
+						keys = []cesium.ChannelKey{idx, data}
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Name:     "Ingrid",
+								Key:      idx,
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							},
+							cesium.Channel{
+								Name:     "Hector",
+								Key:      data,
+								Index:    idx,
+								DataType: telem.Int64T,
+							},
+						)).To(Succeed())
+					})
+					open := func(
+						ctx SpecContext,
+						start telem.TimeStamp,
+						subject string,
+						auth control.Authority,
+					) *cesium.Writer {
+						GinkgoHelper()
+						return MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels:       keys,
+							Start:          start,
+							Sync:           new(true),
+							ControlSubject: control.Subject{Key: subject},
+							Authorities:    []control.Authority{auth},
+						}))
+					}
+					frame := func(stamps ...telem.TimeStamp) cesium.Frame {
+						values := make([]int64, len(stamps))
+						for i, s := range stamps {
+							values[i] = int64(s)
+						}
+						return telem.MultiFrame(keys, []telem.Series{
+							telem.NewSeriesSecondsTSV(slices.Clone(stamps)...),
+							telem.NewSeriesV(values...),
+						})
+					}
+					behind := And(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("must not be before")),
+					)
+					expectStored := func(ctx SpecContext, stamps ...telem.TimeStamp) {
+						GinkgoHelper()
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
+						Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(
+							telem.NewSeriesSecondsTSV(slices.Clone(stamps)...),
+						))
+					}
+					It(
+						"Should reject a backfill behind the data of a live writer",
+						func(ctx SpecContext) {
+							live := open(ctx, 100*telem.SecondTS, "live", 100)
+							Expect(live.Write(frame(100, 101))).To(BeTrue())
+							MustCommit(live)
+							backfill := open(ctx, 10*telem.SecondTS, "backfill", 200)
+							Expect(backfill.Write(frame(10, 11))).Error().To(behind)
+							Expect(backfill.Close()).To(behind)
+							Expect(live.Write(frame(102, 103))).To(BeTrue())
+							MustCommit(live)
+							Expect(live.Close()).To(Succeed())
+							expectStored(ctx, 100, 101, 102, 103)
+						},
+					)
+					It("Should allow equal timestamps", func(ctx SpecContext) {
+						w := open(ctx, 10*telem.SecondTS, "writer", 100)
+						Expect(w.Write(frame(10, 10))).To(BeTrue())
+						Expect(w.Write(frame(10, 11))).To(BeTrue())
+						MustCommit(w)
+						Expect(w.Close()).To(Succeed())
+						expectStored(ctx, 10, 10, 10, 11)
+					})
+					DescribeTable(
+						"Should reject a single writer whose index goes back",
+						func(ctx SpecContext, prior, rejected []telem.TimeStamp) {
+							w := open(ctx, 10*telem.SecondTS, "writer", 100)
+							if len(prior) > 0 {
+								Expect(w.Write(frame(prior...))).To(BeTrue())
+								MustCommit(w)
+							}
+							Expect(w.Write(frame(rejected...))).Error().To(behind)
+							Expect(w.Close()).To(behind)
+							if len(prior) > 0 {
+								expectStored(ctx, prior...)
+							}
+						},
+						Entry(
+							"in one frame",
+							nil,
+							[]telem.TimeStamp{10, 12, 11},
+						),
+						Entry(
+							"in a frame that starts before the last sample",
+							[]telem.TimeStamp{10, 11},
+							[]telem.TimeStamp{5, 12},
+						),
+					)
 				})
 			})
 
