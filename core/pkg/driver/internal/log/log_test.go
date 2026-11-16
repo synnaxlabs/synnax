@@ -335,6 +335,20 @@ var _ = Describe("PipeToLogger", func() {
 			Expect(calls).To(Equal(1))
 		})
 
+		It("Should report running on a crash banner", func() {
+			calls := 0
+			log.PipeToLogger(
+				io.NopCloser(strings.NewReader(
+					"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***\n",
+				)),
+				logger,
+				nil,
+				nil,
+				func() { calls++ },
+			)
+			Expect(calls).To(Equal(1))
+		})
+
 		It("Should not report running for a loader error", func() {
 			calls := 0
 			log.PipeToLogger(

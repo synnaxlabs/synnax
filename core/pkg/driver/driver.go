@@ -160,8 +160,9 @@ func (c Config) format(apiKey string) map[string]any {
 	}
 }
 
-// ErrNotLoaded marks the error of a Driver process that exited before it printed its
-// first log line, such as one the dynamic loader refuses. A restart cannot fix it.
+// ErrNotLoaded marks the error of a Driver that exited before any of its processes
+// printed a first log line, such as one the dynamic loader refuses. A restart cannot
+// fix it.
 var ErrNotLoaded = errors.New("embedded Driver did not load")
 
 var (
@@ -298,8 +299,8 @@ type Driver struct {
 	// closeErr stores the result of the single close() invocation for subsequent Close
 	// calls to return.
 	closeErr error
-	// running is closed once a Driver process prints its first log line, which shows
-	// that it loaded.
+	// running is closed once a Driver process prints its first log line or crash dump,
+	// which shows that it loaded.
 	running     chan struct{}
 	runningOnce sync.Once
 	// lastErr holds the last error that the latest Driver process printed before it
@@ -432,12 +433,22 @@ func (d *Driver) supervise(ctx context.Context, policy *restart.Policy) error {
 		default:
 			// restart.Stop: a launch failure or a Driver that never loaded (an expected
 			// exit was caught above).
+			d.cfg.L.Error("stopped embedded Driver", zap.Error(err))
 			return err
 		}
 	}
 }
 
 func (d *Driver) markRunning() { d.runningOnce.Do(func() { close(d.running) }) }
+
+func (d *Driver) loaded() bool {
+	select {
+	case <-d.running:
+		return true
+	default:
+		return false
+	}
+}
 
 // runOnce launches the Driver subprocess, pipes its output, and blocks until it exits.
 // Its deferred temp-file and context cleanup run before it returns, so a supervisor
@@ -488,12 +499,7 @@ func (d *Driver) runOnce(
 	var (
 		stdoutErr, stderrErr string
 		reads                sync.WaitGroup
-		loaded               atomic.Bool
 	)
-	onRunning := func() {
-		loaded.Store(true)
-		d.markRunning()
-	}
 	reads.Add(2)
 	internalSCtx.Go(func(context.Context) error {
 		stdoutErr = log.PipeToLogger(
@@ -501,7 +507,7 @@ func (d *Driver) runOnce(
 			d.cfg.L,
 			d.started,
 			startedOnce,
-			onRunning,
+			d.markRunning,
 		)
 		reads.Done()
 		return nil
@@ -516,7 +522,7 @@ func (d *Driver) runOnce(
 			d.cfg.L,
 			d.started,
 			startedOnce,
-			onRunning,
+			d.markRunning,
 		)
 		reads.Done()
 		return nil
@@ -539,7 +545,7 @@ func (d *Driver) runOnce(
 		d.lastErr.Store(&output)
 		err = errors.Wrap(err, output)
 	}
-	if !expected && !loaded.Load() {
+	if !expected && !d.loaded() {
 		if err == nil {
 			err = errors.New("exited")
 		}
