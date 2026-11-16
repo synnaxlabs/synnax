@@ -486,13 +486,37 @@ func (r *avgNode) Next(ctx node.Context) {
 	r.Emit(ctx, 0)
 }
 
+// avgTimeStamp sums offsets from the running average, since a sum of raw epoch
+// timestamps overflows int64 after a few samples.
+func avgTimeStamp(input telem.Series, prevCount int64, output *telem.Series) int64 {
+	inputLen := input.Len()
+	if inputLen == 0 {
+		return prevCount
+	}
+	if output.Len() == 0 {
+		prevCount = 0
+	}
+	output.Resize(1)
+	if prevCount == 0 {
+		output.SetValueAt(0, input.ValueAt[telem.TimeStamp](0))
+	}
+	base := output.ValueAt[telem.TimeStamp](0)
+	var offsetSum telem.TimeSpan
+	for i := range int(inputLen) {
+		offsetSum += telem.TimeSpan(input.ValueAt[telem.TimeStamp](i) - base)
+	}
+	totalCount := prevCount + inputLen
+	output.SetValueAt(0, base.Add(offsetSum/telem.TimeSpan(totalCount)))
+	return totalCount
+}
+
 var (
 	ops = map[string]map[telem.DataType]reductionFn{
 		avgSymbolName: {
 			telem.Float64T:   op.AvgF64,
 			telem.Float32T:   op.AvgF32,
 			telem.Int64T:     op.AvgI64,
-			telem.TimestampT: op.AvgI64,
+			telem.TimestampT: avgTimeStamp,
 			telem.Int32T:     op.AvgI32,
 			telem.Int16T:     op.AvgI16,
 			telem.Int8T:      op.AvgI8,
