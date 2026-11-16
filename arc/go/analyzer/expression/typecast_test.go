@@ -11,6 +11,8 @@ package expression_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 )
 
 var _ = Describe("Type Casts", func() {
@@ -503,5 +505,28 @@ var _ = Describe("Type Casts", func() {
 				}
 			`, nil, "cannot cast")
 		})
+
+		It("Should reject a cast to a channel type", func(ctx SpecContext) {
+			expectFailure(ctx, `
+				func testFunc() {
+					y := chan f64(1.0)
+				}
+			`, nil, "cannot cast")
+		})
+
+		It(
+			"Should reject a cast of a series channel to a scalar",
+			func(ctx SpecContext) {
+				expectFailure(ctx, `
+				func testFunc() {
+					y := f64(readings)
+				}
+			`, []symbol.Symbol{{
+					Name: "readings",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.Series(types.F64())),
+				}}, "cannot cast series f64 to f64")
+			},
+		)
 	})
 })
