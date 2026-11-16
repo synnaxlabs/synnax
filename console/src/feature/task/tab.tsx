@@ -90,6 +90,7 @@ export const TAB: Panel.Tab = {
   Content,
   Name,
   Icon,
+  iconKey: "task",
   restore: async ({ client, resource }) => {
     const corpse = query.requireCorpse(client.tasks.watch(resource.key).getCached());
     const owned = unique.unique(ownedChannelsOf(corpse.payload));

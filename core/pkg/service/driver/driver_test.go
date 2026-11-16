@@ -405,7 +405,7 @@ var _ = Describe("Driver", func() {
 	Describe("Task Management", func() {
 		It("should configure on start command, not on create", func(ctx SpecContext) {
 			var (
-				configuredTask atomic.Value
+				configuredTask atomic.Pointer[mockTask]
 				taskKey        atomic.Value
 			)
 			factory := &mockFactory{
@@ -436,7 +436,7 @@ var _ = Describe("Driver", func() {
 			Eventually(
 				func() bool { return configuredTask.Load() != nil },
 			).Should(BeTrue())
-			Expect(configuredTask.Load().(*mockTask).key).To(Equal(t.Key))
+			Expect(configuredTask.Load().key).To(Equal(t.Key))
 		})
 
 		It(
@@ -2288,7 +2288,7 @@ var _ = Describe("Driver", func() {
 			func(ctx SpecContext) {
 				var (
 					execCalled  atomic.Bool
-					receivedCmd atomic.Value
+					receivedCmd atomic.Pointer[task.Command]
 					taskKey     atomic.Value
 				)
 				factory := &mockFactory{
@@ -2301,7 +2301,7 @@ var _ = Describe("Driver", func() {
 							key: t.Key,
 							execFunc: func(_ context.Context, cmd task.Command) error {
 								if t.Key == taskKey.Load() {
-									receivedCmd.Store(cmd)
+									receivedCmd.Store(&cmd)
 									execCalled.Store(true)
 								}
 								return nil
@@ -2330,7 +2330,7 @@ var _ = Describe("Driver", func() {
 					func() bool { return execCalled.Load() },
 					time.Second*2,
 				).Should(BeTrue())
-				stored := receivedCmd.Load().(task.Command)
+				stored := receivedCmd.Load()
 				Expect(stored.Type).To(Equal("start"))
 				Expect(stored.Key).To(Equal("cmd-1"))
 			},
@@ -2340,7 +2340,7 @@ var _ = Describe("Driver", func() {
 			"should route non-start commands to the live instance",
 			func(ctx SpecContext) {
 				var (
-					receivedCmd atomic.Value
+					receivedCmd atomic.Pointer[task.Command]
 					taskKey     atomic.Value
 				)
 				factory := &mockFactory{
@@ -2353,7 +2353,7 @@ var _ = Describe("Driver", func() {
 							key: t.Key,
 							execFunc: func(_ context.Context, cmd task.Command) error {
 								if t.Key == taskKey.Load() && cmd.Type == "stop" {
-									receivedCmd.Store(cmd)
+									receivedCmd.Store(&cmd)
 								}
 								return nil
 							},
@@ -2377,7 +2377,7 @@ var _ = Describe("Driver", func() {
 					func() bool { return receivedCmd.Load() != nil },
 					time.Second*2,
 				).Should(BeTrue())
-				Expect(receivedCmd.Load().(task.Command).Key).To(Equal("cmd-2"))
+				Expect(receivedCmd.Load().Key).To(Equal("cmd-2"))
 			},
 		)
 

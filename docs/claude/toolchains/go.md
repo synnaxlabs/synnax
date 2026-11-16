@@ -16,7 +16,10 @@ Modules reference siblings via relative-path `replace` directives in each `go.mo
 - Exports: `cd x/go && go run ./cmd/exports ../../core ../../x/go ...` prints the
   exported identifiers that no other package's non-test code uses. Unexport them, or
   move a helper that other packages' tests need into a `testutil` package. Pass every
-  module that can import the package.
+  module that can import the package. CI passes `-base` with a checkout of the target
+  branch, so it fails on the findings that a change adds. It also fails on every finding
+  of a module and usage (`unused` or `tests-only`) that `.github/exports-go.json` lists.
+  A PR that brings a pair to zero adds it there.
 - Test: **always `ginkgo`, never `go test`**. `ginkgo` (package), `ginkgo -r`
   (recursive), `ginkgo -v`, `ginkgo --focus "Name"`.
 
@@ -69,8 +72,8 @@ and third-party error packages. Use `errors.New(msg)`, `errors.Newf(format, ...)
 If callers (including tests) will branch on an error condition, represent it as an
 exported package-level `var Err<Condition>` — never a one-off `errors.New` that forces
 substring matching. **Reuse existing sentinels first** by wrapping them
-(`query.ErrNotFound`, `validate.ErrValidation`, `freighter.EOF`) — this keeps
-`errors.Is` matching for both the specific and general shape:
+(`query.ErrNotFound`, `validate.ErrValidation`, `freighter.ErrStreamClosed`) — this
+keeps `errors.Is` matching for both the specific and general shape:
 
 ```go
 var ErrNotFound = errors.Wrap(query.ErrNotFound, "channel not found")
@@ -96,9 +99,9 @@ return v.Error()
 ```
 
 This generalizes: wrap the best-fitting existing general-purpose error
-(`validate.ErrValidation`, `query.ErrNotFound`, `freighter.EOF`, ...) instead of a fresh
-one-off. Introduce a new error type only when none fits, and justify it in conversation,
-not a comment.
+(`validate.ErrValidation`, `query.ErrNotFound`, `freighter.ErrStreamClosed`, ...)
+instead of a fresh one-off. Introduce a new error type only when none fits, and justify
+it in conversation, not a comment.
 
 ### Rule 5: No throwaway debug scripts
 

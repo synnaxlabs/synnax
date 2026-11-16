@@ -90,10 +90,12 @@ func (r *recordSlots) AppendSlot(dst []byte, field int) ([]byte, error) {
 		return append(dst, r.wc.name...), nil
 	case slotTimestamp:
 		return xjson.AppendTimeStamp(dst, r.ts, s.format), nil
-	default:
+	case slotUUID:
 		dst = append(dst, '"')
 		dst, err := uuid.New().AppendText(dst)
 		return append(dst, '"'), err
+	default:
+		return nil, errors.Newf("unknown slot kind %d", s.kind)
 	}
 }
 

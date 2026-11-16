@@ -59,6 +59,14 @@ var _ = Describe("Start", func() {
 		Entry("SIGTERM", syscall.SIGTERM),
 	)
 
+	It("Should write the error that ends it as the first line of stderr", func() {
+		session, _, _ := launchCore("--session-idle-timeout", "-1s")
+		Eventually(session, 30*time.Second).Should(gexec.Exit())
+		Expect(session.ExitCode()).ToNot(BeZero())
+		first, _, _ := bytes.Cut(session.Err.Contents(), []byte("\n"))
+		Expect(string(first)).To(ContainSubstring("session_idle_timeout"))
+	})
+
 	It("Should exit at once when a second signal arrives during shutdown", func() {
 		session, _, addr := startCore()
 		holdShutdown(addr)

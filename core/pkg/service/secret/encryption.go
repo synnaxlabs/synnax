@@ -153,7 +153,7 @@ func loadDataKey(
 	db *gorp.DB,
 	outer cipher.AEAD,
 ) (EncryptionKey, error) {
-	sealed, closer, err := db.Get(ctx, dataKeyKey)
+	sealed, closer, err := db.Get(dataKeyKey)
 	if errors.Is(err, query.ErrNotFound) {
 		dataKey := NewEncryptionKey()
 		sealed = outer.Seal(nil, nil, dataKey[:], dataKeyKey)

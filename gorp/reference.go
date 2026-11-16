@@ -385,27 +385,22 @@ func (r *reference[K, E, T]) bind(owner string, position int) {
 	r.owner, r.position = owner, position
 }
 
-//nolint:unused
 func (r *reference[K, E, T]) populate() (func(E), func(error)) {
 	insert, finish := r.store.Populate()
 	return func(entry E) { insert(entry.GorpKey(), r.targetsOf(&entry)) },
 		func(err error) { finish(populateErr(r.name, err)) }
 }
 
-//nolint:unused
 func (r *reference[K, E, T]) set(entry E) {
 	r.store.Set(entry.GorpKey(), r.targetsOf(&entry))
 }
 
-//nolint:unused
 func (r *reference[K, E, T]) delete(key K) { r.store.Delete(key) }
 
-//nolint:unused
 func (r *reference[K, E, T]) stageSet(tx Tx, entry E) {
 	r.store.Stage(tx.txIdentity(), entry.GorpKey(), r.targetsOf(&entry))
 }
 
-//nolint:unused
 func (r *reference[K, E, T]) stageDelete(tx Tx, key K) {
 	r.store.StageDelete(tx.txIdentity(), key)
 }

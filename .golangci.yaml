@@ -9,18 +9,67 @@
 
 version: "2"
 linters:
+  default: all
   enable:
-    - ginkgolinter
-    - modernize
-    - revive
     - must
     - set
     - goroutineleak
     - suiteconfig
     - errmatch
     - teardown
-    - depguard
-    - forbidigo
+  disable:
+    # Deprecated: replaced by exhaustruct_v5, gomodguard_v2, and wsl_v5.
+    - exhaustruct
+    - gomodguard
+    - wsl
+    # Our style differs.
+    - cyclop # gocognit measures complexity better.
+    - gocyclo # gocognit measures complexity better.
+    - dogsled # Calls such as runtime.Caller need several blanks.
+    - dupl # Table-driven specs repeat on purpose.
+    - dupword # Arc and Oracle spec sources repeat words on purpose.
+    - embeddedstructfieldcheck # Embedded fields go where they read best.
+    - err113 # depguard already routes errors through x/errors.
+    - errname # The namespace names the type: diagnostics.Diagnostics.
+    - exhaustruct_v5 # Zero values are meaningful defaults.
+    - funcorder # Methods follow reading order, not export status.
+    - gomoddirectives # Sibling replace directives link the modules.
+    - goconst # Repeated literals in specs and codegen read better inline.
+    - gosmopolitan # Specs check Unicode text on purpose.
+    - interfacebloat # Iterator and config interfaces are wide by design.
+    - ireturn # Constructors return interfaces for runtime polymorphism.
+    - lll # golines enforces 88 columns.
+    - mnd # Literal numbers are clear in context.
+    - musttag # It does not see encoding/json/v2 MarshalJSONTo methods.
+    - nilnil # go/analysis, LSP handlers, and optional values return nil, nil.
+    - nlreturn # gofumpt sets our blank lines.
+    - noinlineerr # if err := f(); err != nil is idiomatic.
+    - nonamedreturns # Named results let a defer set the error.
+    - paralleltest # Ginkgo runs specs in parallel, not t.Parallel.
+    - protogetter # We read fields of messages we know are not nil.
+    - spancheck # alamos Tracer.Trace returns its span for the caller to end.
+    - tagliatelle # Wire formats set the tag case.
+    - varnamelen # Short names in small scopes are idiomatic Go.
+    - wrapcheck # x/errors decides where to wrap.
+    - wsl_v5 # gofumpt sets our blank lines.
+    # Not yet adopted. Each issue tracks the work to enable it.
+    - containedctx # SY-6109
+    - contextcheck # SY-6109
+    - exhaustive # SY-6106
+    - fatcontext # SY-6109
+    - forcetypeassert # SY-6105
+    - funlen # SY-6110
+    - gochecknoglobals # SY-6107
+    - gochecknoinits # SY-6108
+    - gocognit # SY-6110
+    - gocritic # SY-6115
+    - gosec # SY-3843
+    - maintidx # SY-6110
+    - nestif # SY-6110
+    - noctx # SY-6109
+    - prealloc # SY-6115
+    - recvcheck # SY-6111
+    - unparam # SY-6112
   settings:
     depguard:
       rules:
@@ -46,6 +95,11 @@ linters:
       force-expect-to: true
       validate-async-intervals: true
       force-tonot: true
+    misspell:
+      # Specs use these typos on purpose.
+      ignore-rules:
+        - performnace
+        - teh
     govet:
       enable-all: true
       disable:

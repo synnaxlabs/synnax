@@ -34,7 +34,7 @@ func NormalizeKeys[K gorp.Key, E gorp.Entry[K]](legacyTypeName string) gorp.Migr
 		normalizeKeysKey,
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) (err error) {
 			codec := key.NewCodec[K](key.Prefix[E]())
-			oldPrefix, err := key.LegacyPrefix(ctx, legacyTypeName)
+			oldPrefix, err := key.LegacyPrefix(legacyTypeName)
 			if err != nil {
 				return err
 			}

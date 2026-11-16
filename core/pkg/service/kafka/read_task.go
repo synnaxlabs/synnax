@@ -434,8 +434,10 @@ func resetOffset(start StartOffset) kgo.Offset {
 		return kgo.NewOffset().AtStart()
 	case StartOffsetNone:
 		return kgo.NoResetOffset()
-	default:
+	case StartOffsetLatest:
 		return kgo.NewOffset().AtEnd()
+	default:
+		panic(fmt.Sprintf("unknown start offset %q", start))
 	}
 }
 
@@ -637,7 +639,12 @@ func (t *readTask) lastStored(
 func (t *readTask) consume(ctx context.Context) error {
 	for {
 		fetches := t.poll(ctx)
-		if ctx.Err() != nil || fetches.IsClientClosed() {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+		if fetches.IsClientClosed() {
 			return nil
 		}
 		var fatal, transient error
@@ -812,7 +819,7 @@ func (t *readTask) convert(rec *kgo.Record) {
 	}
 	for i, fld := range g.fields {
 		if g.values[i] == nil {
-			t.skip(r, fmt.Sprintf("Record has no value at %s", fld.Pointer))
+			t.skip(r, "Record has no value at "+fld.Pointer)
 			g.truncate(r.pos)
 			return
 		}

@@ -75,6 +75,18 @@ describe("Label.Select", () => {
     expect(onChange.mock.calls[0][0]).toEqual([]);
   });
 
+  it("should keep the tag that first opens it, so it can open beside it", async () => {
+    const label = await client.labels.create({
+      name: uniqueName("label"),
+      color: "#FF0000",
+    });
+    await renderSelect(<Label.SelectMultiple value={[label.key]} onChange={vi.fn()} />);
+    const tag = await screen.findByText(label.name);
+    fireEvent.click(tag);
+    await screen.findByPlaceholderText("Search labels...");
+    expect(tag.isConnected).toBe(true);
+  });
+
   it("should keep its class name before it first opens", async () => {
     const { container } = await renderSelect(
       <Label.SelectMultiple value={[]} onChange={vi.fn()} className="labels" />,

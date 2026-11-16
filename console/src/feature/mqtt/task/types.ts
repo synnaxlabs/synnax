@@ -52,7 +52,13 @@ const validateEnabled =
       const result = strict.safeParse(item);
       if (result.success) return;
       for (const { message, path } of result.error.issues)
-        ctx.issues.push({ code: "custom", input: item, message, path: [i, ...path] });
+        ctx.issues.push({
+          continue: true,
+          code: "custom",
+          input: item,
+          message,
+          path: [i, ...path],
+        });
     });
 
 export const READ_TYPE = `${PREFIX}_read`;
@@ -70,6 +76,7 @@ const validateEnumLabels = (ctx: z.core.ParsePayload<payload.EnumEntry[]>) => {
   ctx.value.forEach(({ label }, i) => {
     if (seen.has(label))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: ctx.value,
         message: `Duplicate enum label "${label}"`,
@@ -100,6 +107,7 @@ const validateReadEntry = (ctx: z.core.ParsePayload<PlainReadEntry>) => {
     if (field.disabled) return;
     if (mixed && isVariable(field))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: value,
         message:
@@ -108,6 +116,7 @@ const validateReadEntry = (ctx: z.core.ParsePayload<PlainReadEntry>) => {
       });
     if (pointers.has(field.pointer))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: value,
         message: `Pointer "${field.pointer}" is already used by another field`,
@@ -118,6 +127,7 @@ const validateReadEntry = (ctx: z.core.ParsePayload<PlainReadEntry>) => {
       field.key === value.index || DataType.TIMESTAMP.equals(field.dataType);
     if (isTimestamp && field.timeFormat == null)
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: value,
         message: "A timestamp field requires a time format",
@@ -156,6 +166,7 @@ type Item =
 const validateItems = (label: string) => (ctx: z.core.ParsePayload<Item[]>) => {
   if (ctx.value.every(({ disabled }) => disabled))
     ctx.issues.push({
+      continue: true,
       code: "custom",
       input: ctx.value,
       message: `At least one ${label} must be enabled`,
@@ -171,6 +182,7 @@ const validateItems = (label: string) => (ctx: z.core.ParsePayload<Item[]>) => {
     if (name === "") return;
     if (seen[item.type].has(key))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: ctx.value,
         message: `Duplicate ${field} "${name}"`,
@@ -209,6 +221,7 @@ const validateChannelField = (ctx: z.core.ParsePayload<ChannelField>) => {
   const { value } = ctx;
   if (value.enumValues.length > 0 && value.jsonType !== "string")
     ctx.issues.push({
+      continue: true,
       code: "custom",
       input: value,
       message: "Enum values require the string JSON type",
@@ -218,6 +231,7 @@ const validateChannelField = (ctx: z.core.ParsePayload<ChannelField>) => {
   value.enumValues.forEach((entry, i) => {
     if (seen.has(entry.value))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: value,
         message: `Duplicate enum value ${entry.value}`,
@@ -237,6 +251,7 @@ const validateWriteTarget = (ctx: z.core.ParsePayload<PlainWriteTarget>) => {
   if (channel.pointer === "") {
     if (fields.length > 0)
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: value,
         message:
@@ -250,6 +265,7 @@ const validateWriteTarget = (ctx: z.core.ParsePayload<PlainWriteTarget>) => {
     if (field.pointer === "") return;
     if (pointers.some((pointer) => overlaps(pointer, field.pointer)))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: value,
         message: `Pointer "${field.pointer}" overlaps another field`,
@@ -316,6 +332,7 @@ const deployEdgeTagZ = mqtt.edgeTagZ.extend({
 const validateEdgeTags = (ctx: z.core.ParsePayload<EdgeTag[]>) => {
   if (ctx.value.every(({ disabled }) => disabled))
     ctx.issues.push({
+      continue: true,
       code: "custom",
       input: ctx.value,
       message: "At least one tag must be enabled",
@@ -326,6 +343,7 @@ const validateEdgeTags = (ctx: z.core.ParsePayload<EdgeTag[]>) => {
     if (disabled || name === "") return;
     if (seen.has(name))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: ctx.value,
         message: `Duplicate name "${name}"`,

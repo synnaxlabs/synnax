@@ -58,8 +58,10 @@ func (s refStep) id() string {
 		return "[]"
 	case stepVariant:
 		return "|" + s.union.QualifiedName + "." + s.variant
-	default:
+	case stepField, stepLeaf:
 		return s.field
+	default:
+		panic(fmt.Sprintf("unknown step kind %d", s.kind))
 	}
 }
 
@@ -555,6 +557,8 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 					rd.info.ElemGoType,
 					rd.target(k),
 				)
+			case leafRequired:
+				panic("detach walk reached a required leaf")
 			}
 		})
 		return b.String(), nil

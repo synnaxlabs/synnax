@@ -170,11 +170,23 @@ func failure(uri string, err error) error {
 				reason,
 			),
 		}
-	default:
-		return driver.Failure{
-			Message:     "Sift rejected the request",
-			Description: st.Message() + ".",
-		}
+	case codes.OK,
+		codes.Canceled,
+		codes.Unknown,
+		codes.InvalidArgument,
+		codes.NotFound,
+		codes.AlreadyExists,
+		codes.ResourceExhausted,
+		codes.FailedPrecondition,
+		codes.Aborted,
+		codes.OutOfRange,
+		codes.Unimplemented,
+		codes.Internal,
+		codes.DataLoss:
+	}
+	return driver.Failure{
+		Message:     "Sift rejected the request",
+		Description: st.Message() + ".",
 	}
 }
 

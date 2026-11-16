@@ -53,7 +53,7 @@ type MigrateConfig struct {
 func Migrate(ctx context.Context, cfg MigrateConfig) (err error) {
 	tx := cfg.DB.OpenTx()
 	defer func() { err = errors.Combine(err, tx.Close()) }()
-	applied, err := readAppliedMigrations(ctx, tx, cfg.Namespace)
+	applied, err := readAppliedMigrations(tx, cfg.Namespace)
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func (m movedMigration) Run(
 	tx Tx,
 	ins alamos.Instrumentation,
 ) error {
-	applied, err := readAppliedMigrations(ctx, tx, m.from)
+	applied, err := readAppliedMigrations(tx, m.from)
 	if err != nil || applied.Contains(m.Key()) {
 		return err
 	}
@@ -143,11 +143,10 @@ func migrationKeys(migrations []Migration) []string {
 // readAppliedMigrations reads the set of applied migration names from the KV store.
 // Names are stored as a JSON string array.
 func readAppliedMigrations(
-	ctx context.Context,
 	tx Tx,
 	namespace string,
 ) (applied set.Set[string], err error) {
-	b, closer, err := tx.Get(ctx, key.Migrations(namespace))
+	b, closer, err := tx.Get(key.Migrations(namespace))
 	if err != nil {
 		if errors.Is(err, query.ErrNotFound) {
 			return make(set.Set[string]), nil

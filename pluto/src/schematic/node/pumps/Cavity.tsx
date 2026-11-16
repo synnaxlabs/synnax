@@ -10,17 +10,27 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
-import { Primitive } from "@/schematic/node/common/primitive";
+import { Custom } from "@/schematic/node/common/custom";
+import { type Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
+import svg from "@/schematic/node/pumps/Cavity.svg?raw";
 
 export interface CavityProps extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
-const DIMENSIONS = { width: 64, height: 64 };
+const SPEC = Custom.createBuiltIn({
+  variant: "actuator",
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.03125, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 0.96875, y: 0.5 }, orientation: "right" },
+    { key: "3", position: { x: 0.5, y: 0.03125 }, orientation: "top" },
+    { key: "4", position: { x: 0.5, y: 0.96875 }, orientation: "bottom" },
+  ],
+});
 
 export const Cavity = ({
-  strokeColor,
   className,
+  strokeColor,
   orientation = "left",
   scale,
   ...rest
@@ -30,40 +40,12 @@ export const Cavity = ({
     className={CSS.cls(CSS.B("cavity-pump"), className)}
     orientation={orientation}
   >
-    <Handle.Rectangle
-      orientation={orientation}
-      left={3.125}
-      top={3.125}
-      right={96.875}
-      bottom={96.875}
-    />
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Circle cx="32" cy="32" r="30" />
-      <Primitive.Line
-        x1="32"
-        y1="2"
-        x2="62"
-        y2="32"
-        className={CSS.cls(CSS.M("detail"), className)}
-      />
-      <Primitive.Line
-        x1="32"
-        y1="62"
-        x2="62"
-        y2="32"
-        className={CSS.cls(CSS.M("detail"), className)}
-      />
-      <Primitive.Path
-        d="M 17 26 C 17 20.6667 23 20.6667 23 26 C 23 31.3333 29 31.3333 29 26 C 29 20.6667 35 20.6667 35 26"
-        strokeLinecap="round"
-        transform="translate(6, 6)"
-        className={CSS.cls(CSS.M("detail"), className)}
-      />
-    </Primitive.SVG>
+    />
   </Toggle.Button>
 );

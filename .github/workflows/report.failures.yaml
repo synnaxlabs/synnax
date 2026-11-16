@@ -20,6 +20,7 @@ on:
       - Agent - Lint
       - Agent - Nightly
       - Agent - Shepherd
+      - Check - Go exports
       - Check - Rulesets
       - Check - Runners
       - CodeQL

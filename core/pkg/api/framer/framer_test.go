@@ -105,6 +105,18 @@ var _ = Describe("Framer", func() {
 		})).To(Succeed())
 		return ch
 	}
+	createIndex := func(ctx SpecContext) channel.Channel {
+		GinkgoHelper()
+		ch := channel.Channel{
+			Name:     UniqueChannelName(),
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Channel.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
+		return ch
+	}
 	createCalculated := func(ctx SpecContext, input channel.Channel) channel.Channel {
 		GinkgoHelper()
 		ch := channel.Channel{
@@ -153,15 +165,42 @@ var _ = Describe("Framer", func() {
 			},
 		)
 
-		It("Should return the error of an iterator that fails", func(ctx SpecContext) {
-			index := channel.Channel{
-				Name:     UniqueChannelName(),
-				DataType: telem.TimestampT,
-				IsIndex:  true,
-			}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.Channel.NewWriter(tx).Create(ctx, &index)
+		It("Should acknowledge an iterator command", func(ctx SpecContext) {
+			index := createIndex(ctx)
+			w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
+				Start: telem.SecondTS,
+				Keys:  channel.Keys{index.Key()},
+			}))
+			Expect(w.Write(frame.NewUnary(
+				index.Key(),
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+			))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			client, server := freightertestutil.NewStreams[
+				apiframer.IteratorRequest,
+				apiframer.IteratorResponse,
+			](ctx)
+			done := make(chan error, 1)
+			go func() { done <- apiSvc.Iterate(rootCtx(ctx), server) }()
+			Expect(client.Send(apiframer.IteratorRequest{
+				Keys:   channel.Keys{index.Key()},
+				Bounds: telem.TimeRangeMax,
 			})).To(Succeed())
+			Expect(client.Receive()).To(HaveField("Ack", BeTrue()))
+			Expect(client.Send(apiframer.IteratorRequest{
+				Command: apiframer.IteratorCommandSeekFirst,
+			})).To(Succeed())
+			Expect(client.Receive()).To(And(
+				HaveField("Command", apiframer.IteratorCommandSeekFirst),
+				HaveField("Ack", BeTrue()),
+				HaveField("Error", Equal(errors.Payload{Type: errors.TypeNil})),
+			))
+			Expect(client.CloseSend()).To(Succeed())
+			Eventually(done).WithTimeout(5 * time.Second).Should(Receive(BeNil()))
+		})
+
+		It("Should return the error of an iterator that fails", func(ctx SpecContext) {
+			index := createIndex(ctx)
 			data := channel.Channel{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
@@ -476,6 +515,38 @@ var _ = Describe("Framer", func() {
 			})).To(Succeed())
 			Expect(client.Receive()).
 				To(HaveField("Command", svcframer.WriterCommandOpen))
+			Expect(client.CloseSend()).To(Succeed())
+			Eventually(done).WithTimeout(5 * time.Second).Should(Receive(BeNil()))
+		})
+
+		It("Should acknowledge a commit", func(ctx SpecContext) {
+			index := createIndex(ctx)
+			client, server := newStreams(ctx)
+			done := make(chan error, 1)
+			go func() { done <- apiSvc.Write(rootCtx(ctx), server) }()
+			Expect(client.Send(apiframer.WriterRequest{
+				Config: apiframer.WriterConfig{
+					Keys:  channel.Keys{index.Key()},
+					Start: telem.SecondTS,
+				},
+			})).To(Succeed())
+			Expect(client.Receive()).
+				To(HaveField("Command", svcframer.WriterCommandOpen))
+			Expect(client.Send(apiframer.WriterRequest{
+				Command: apiframer.WriterCommandWrite,
+				Frame: frame.NewUnary(
+					index.Key(),
+					telem.NewSeriesSecondsTSV(1, 2, 3),
+				),
+			})).To(Succeed())
+			Expect(client.Send(apiframer.WriterRequest{
+				Command: apiframer.WriterCommandCommit,
+			})).To(Succeed())
+			Expect(client.Receive()).To(And(
+				HaveField("Command", apiframer.WriterCommandCommit),
+				HaveField("Err", Equal(errors.Payload{Type: errors.TypeNil})),
+				HaveField("End", 3*telem.SecondTS+1),
+			))
 			Expect(client.CloseSend()).To(Succeed())
 			Eventually(done).WithTimeout(5 * time.Second).Should(Receive(BeNil()))
 		})

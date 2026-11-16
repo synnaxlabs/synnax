@@ -219,7 +219,8 @@ var _ = Describe("Service", func() {
 				},
 			}))
 			writeData := MustSucceed(svc.Write.Read(ctx, db, write.Key))
-			channels := writeData["channels"].([]any)
+			channels, ok := writeData["channels"].([]any)
+			Expect(ok).To(BeTrue())
 			Expect(channels[0]).To(HaveKeyWithValue("type", "entry"))
 			Expect(channels[0]).To(HaveKeyWithValue("index", float64(0x7000)))
 			Expect(channels[0]).To(HaveKeyWithValue("stop_value", float64(0)))
@@ -290,7 +291,8 @@ var _ = Describe("Service", func() {
 				Device: devices,
 			}))
 			readData := MustSucceed(svc.Read.Read(ctx, db, read.Key))
-			channels := readData["channels"].([]any)
+			channels, ok := readData["channels"].([]any)
+			Expect(ok).To(BeTrue())
 			Expect(channels[0]).To(HaveKeyWithValue("type", "entry"))
 			Expect(channels[0]).To(HaveKeyWithValue("index", float64(0x6000)))
 		})
@@ -316,7 +318,9 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"channels": channels,
 			}))
-			return MustSucceed(svc.Read.Read(ctx, db, key))["channels"].([]any)
+			stored, ok := MustSucceed(svc.Read.Read(ctx, db, key))["channels"].([]any)
+			Expect(ok).To(BeTrue())
+			return stored
 		}
 
 		It("Should store a decoded read config under the given key", func(
@@ -407,7 +411,9 @@ var _ = Describe("Service", func() {
 					"pdo":    "Output",
 				}},
 			}))
-			channels := MustSucceed(svc.Write.Read(ctx, db, key))["channels"].([]any)
+			data := MustSucceed(svc.Write.Read(ctx, db, key))
+			channels, ok := data["channels"].([]any)
+			Expect(ok).To(BeTrue())
 			Expect(channels[0]).To(HaveKeyWithValue("type", "entry"))
 			Expect(channels[0]).To(HaveKeyWithValue("index", float64(0x7000)))
 		})

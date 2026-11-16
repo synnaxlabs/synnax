@@ -28,8 +28,8 @@ import { ClosedContext } from "@/select/scope";
 export interface DialogProps extends BaseDialog.DialogProps {
   /**
    * The surface the dialog draws. A menu surface looks like a `Menu.Dialog`: its search
-   * is a line of text over a hairline, and its options take the size of menu items. It
-   * does not filter as the user types.
+   * spans the top, and its options take the size of menu items. It does not filter as
+   * the user types.
    */
   surface?: "dialog" | "menu";
 }

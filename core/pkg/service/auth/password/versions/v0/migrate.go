@@ -52,7 +52,7 @@ func subjectsByUsername(
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 	subjects := make(map[string]resource.ID)
 	for iter.First(); iter.Valid(); iter.Next() {
-		u := iter.Value(ctx)
+		u := iter.Value()
 		if err = iter.Error(); err != nil {
 			return nil, err
 		}
@@ -77,7 +77,7 @@ func move(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err erro
 		usernames []string
 	)
 	for iter.First(); iter.Valid(); iter.Next() {
-		old := iter.Value(ctx)
+		old := iter.Value()
 		if err = iter.Error(); err != nil {
 			return err
 		}

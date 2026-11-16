@@ -112,11 +112,11 @@ var _ = Describe("storage", func() {
 					Expect(l.Close()).To(Succeed())
 					l = MustOpen(storage.OpenLayer(ctx, cfg))
 					for _, key := range deleted {
-						Expect(l.KV.Get(ctx, []byte(key))).Error().
+						Expect(l.KV.Get([]byte(key))).Error().
 							To(MatchError(query.ErrNotFound))
 					}
 					for _, key := range kept {
-						value, closer := MustSucceed2(l.KV.Get(ctx, []byte(key)))
+						value, closer := MustSucceed2(l.KV.Get([]byte(key)))
 						Expect(value).To(Equal([]byte("value")))
 						Expect(closer.Close()).To(Succeed())
 					}

@@ -25,6 +25,8 @@ type Config struct{ Mode Mode }
 
 type Mode int
 
+func (Mode) Error() string { return "mode" }
+
 type Shape interface{ Area() int }
 
 type Square struct{}
@@ -49,6 +51,8 @@ const (
 	Red Color = iota
 	Green
 )
+
+func (Color) String() string { return "color" }
 
 type hidden struct{}
 

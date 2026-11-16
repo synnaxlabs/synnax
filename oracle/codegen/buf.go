@@ -37,6 +37,13 @@ const bufGenerateStampKey = "buf-generate"
 // buf-version bumps and hand edits when the input proto contents have not changed.
 const bufOutputStampKey = "buf-output"
 
+// RunBufGenerateResult is the outcome of RunBufGenerate.
+type RunBufGenerateResult struct {
+	// Cached is true when both input and output stamps matched and no `buf generate`
+	// invocation was needed.
+	Cached bool
+}
+
 // RunBufGenerate runs `buf generate` if and only if BOTH of the following match the
 // previous successful run:
 //
@@ -51,12 +58,6 @@ const bufOutputStampKey = "buf-output"
 // changedProtos contains repo-relative paths to generated `.proto` files that the
 // format step actually wrote. When non-empty the run is scoped via `--path` so protoc
 // only runs over the slice that changed.
-type RunBufGenerateResult struct {
-	// Cached is true when both input and output stamps matched and no `buf generate`
-	// invocation was needed.
-	Cached bool
-}
-
 func RunBufGenerate(
 	ctx context.Context,
 	repoRoot string,

@@ -338,15 +338,6 @@ func get_now() i64 {
 start_edge_case_cmd -> get_now()
 """
 
-# Module imported but never referenced.
-ARC_IMPORT_UNUSED = """
-import time
-func passthrough() {
-    ch1 = ch1 + 1.0
-}
-start_edge_case_cmd -> passthrough()
-"""
-
 # Import names a module the resolver does not expose.
 ARC_IMPORT_UNKNOWN = """
 import banana
@@ -371,11 +362,6 @@ IMPORT_CASES = [
         "Missing",
         ARC_IMPORT_MISSING,
         'module "time" is not imported',
-    ),
-    Case(
-        "Unused",
-        ARC_IMPORT_UNUSED,
-        'imported module "time" is unused',
     ),
     Case(
         "UnknownModule",

@@ -12,13 +12,8 @@ package testutil
 import (
 	"strings"
 
-	"github.com/onsi/gomega/format"
 	"github.com/synnaxlabs/x/errors"
 )
-
-func init() {
-	format.RegisterCustomFormatter(formatErrorWithStack)
-}
 
 // formatErrorWithStack is a custom Gomega formatter that extracts and displays
 // stack traces from cockroachdb/errors when formatting errors in test assertions.

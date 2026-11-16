@@ -30,7 +30,7 @@ var _ = Describe("Migrations", func() {
 			"v2_typed_symbol",
 			"v61_add_group",
 			"v61_schematic_symbol_group_membership",
-			"v61_color_alpha_byte",
+			"v62_color_alpha_byte",
 		}))
 	})
 })

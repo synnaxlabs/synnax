@@ -578,7 +578,7 @@ var _ = Describe("Stream task", func() {
 
 		It("Should not make a run of a range that loses the task label before its run",
 			func(ctx SpecContext) {
-				server.FailRuns(grpcstatus.Error(codes.InvalidArgument, "bad name"))
+				server.RejectRuns(grpcstatus.Error(codes.InvalidArgument, "bad name"))
 				start(ctx, streamConfig(l.Key))
 				rng := endedRange(ctx, l.Key)
 				Eventually(taskStatus).WithArguments(ctx, t).
@@ -588,6 +588,7 @@ var _ = Describe("Stream task", func() {
 					HaveField("Variant", status.VariantSuccess),
 					HaveField("Message", "Started task"),
 				))
+				server.RejectRuns(nil)
 				Consistently(server.Runs).
 					WithTimeout(200 * time.Millisecond).
 					Should(BeEmpty())
@@ -643,7 +644,7 @@ var _ = Describe("Stream task", func() {
 				start(ctx, streamConfig(l.Key))
 				rng := endedRange(ctx, l.Key, cold.Key)
 				Eventually(server.Runs).Should(HaveLen(1))
-				server.FailRunUpdates(
+				server.RejectRunUpdates(
 					grpcstatus.Error(codes.InvalidArgument, "bad tags"),
 				)
 				removeLabel(ctx, rng)
@@ -658,6 +659,7 @@ var _ = Describe("Stream task", func() {
 				Consistently(taskStatus).WithArguments(ctx, t).
 					WithTimeout(200 * time.Millisecond).
 					Should(HaveField("Message", "Failed to set Sift run"))
+				server.RejectRunUpdates(nil)
 				rename := ranger.NewSetAction(ranger.SetPayload{
 					Path:  []string{"name"},
 					Value: "renamed",
@@ -726,7 +728,7 @@ var _ = Describe("Stream task", func() {
 
 		It("Should skip a run that Sift rejects until its range changes",
 			func(ctx SpecContext) {
-				server.FailRuns(grpcstatus.Error(codes.InvalidArgument, "bad name"))
+				server.RejectRuns(grpcstatus.Error(codes.InvalidArgument, "bad name"))
 				start(ctx, streamConfig(l.Key))
 				rng := endedRange(ctx, l.Key)
 				Eventually(taskStatus).WithArguments(ctx, t).Should(SatisfyAll(
@@ -743,6 +745,7 @@ var _ = Describe("Stream task", func() {
 					Should(BeEmpty())
 				Expect(taskStatus(ctx, t)).
 					To(HaveField("Message", "Failed to set Sift run"))
+				server.RejectRuns(nil)
 				rename := ranger.NewSetAction(ranger.SetPayload{
 					Path:  []string{"name"},
 					Value: "renamed",

@@ -140,7 +140,7 @@ export const Swatch = ({
   const swatch = (
     <Chip
       disabled={onChange == null && onClick == null}
-      onClick={(e) => (onChange != null ? handleVisibleChange(true) : onClick?.(e))}
+      onClick={(e) => (onChange != null ? handleVisibleChange(!visible) : onClick?.(e))}
       onChange={
         onChange == null
           ? undefined

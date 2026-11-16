@@ -10,7 +10,6 @@
 package alamos
 
 import (
-	"context"
 	"slices"
 
 	"github.com/synnaxlabs/x/config"
@@ -71,7 +70,7 @@ func NewLogger(configs ...LoggerConfig) (*Logger, error) {
 	return l, nil
 }
 
-// Zap returns the underlying zap Logger
+// Zap returns the underlying zap Logger.
 func (l *Logger) Zap() *zap.Logger {
 	return l.zap
 }
@@ -203,7 +202,7 @@ func (c customCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 			if !ok {
 				continue
 			}
-			if errors.Expected(context.Background(), err) {
+			if errors.Expected(err) {
 				if !unexpected {
 					entry.Stack = ""
 				}

@@ -100,6 +100,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
           icon={icon}
           placeholder={placeholder}
           aria-label={caseconv.capitalize(plural(resourceName))}
+          resourceName={resourceName}
           disabled={disabled}
           preview={preview}
           {...triggerProps}

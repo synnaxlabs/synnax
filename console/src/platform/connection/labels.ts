@@ -9,12 +9,37 @@
 
 import { type connection } from "@synnaxlabs/client";
 
-/** How each connection variant reads to the user. */
-export const STATUS_LABELS: Record<connection.Status["variant"], string> = {
+/** How each non-error connection variant reads to the user. */
+export const VARIANT_LABELS: Record<connection.NonErrorStatus["variant"], string> = {
   success: "Connected",
   info: "Connected",
   loading: "Connecting",
   warning: "Reconnecting",
-  error: "Unreachable",
   disabled: "Disconnected",
 };
+
+const reasonLabel = (reason: connection.Reason): string => {
+  switch (reason) {
+    case "unreachable":
+      return "Unreachable";
+    case "auth":
+      return "Unauthenticated";
+    case "incompatible":
+      return "Incompatible";
+    case "unlicensed":
+      return "Unlicensed";
+    default: {
+      const unknown: never = reason;
+      throw new Error(`unknown connection reason: ${String(unknown)}`);
+    }
+  }
+};
+
+/**
+ * Returns the short label for a connection status. An error status reads as the reason
+ * the connection failed.
+ */
+export const label = (status: connection.Status): string =>
+  status.variant === "error"
+    ? reasonLabel(status.details.reason)
+    : VARIANT_LABELS[status.variant];

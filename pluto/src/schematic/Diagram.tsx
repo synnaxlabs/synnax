@@ -104,14 +104,14 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
       if (sourceNode == null || targetNode == null) return;
       const source = resolveEndpoint(sourceNode.internals, edge.source.param);
       const target = resolveEndpoint(targetNode.internals, edge.target.param);
-      if (source == null || target == null) return;
       const cfg = configs.get(edge.key) as Edge.Config | undefined;
+      if (source == null || target == null || cfg == null) return;
       const segments = Edge.Segmented.build({
         source,
         target,
         sourceBox: internalNodeBox(sourceNode),
         targetBox: internalNodeBox(targetNode),
-        middleSegments: cfg?.segments ?? [],
+        middleSegments: cfg.segments,
       });
       const points = Edge.Segmented.segmentsToPoints(
         source.position,
@@ -119,7 +119,10 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
         zoom,
         true,
       );
-      if (points.length >= 2) polylines.push({ key: edge.key, points, order });
+      if (points.length < 2) return;
+      const { strokeWidth } = cfg;
+      const width = Edge.resolveSpec(cfg.variant).renderedWidth(strokeWidth);
+      polylines.push({ key: edge.key, points, order, strokeWidth, width });
     });
     jumpStore.commit(Edge.Jumps.findCrossings(polylines));
   };

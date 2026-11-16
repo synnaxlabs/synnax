@@ -29,6 +29,7 @@ const TAB: Panel.Tab = {
     "Toolbar",
   ),
   Icon: TypeIcon,
+  iconKey: "arc",
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Name: Panel.createEditableTabName(
     { useEnsure: Arc.useEnsure, useName: Arc.useName, useRename: Arc.useRename },

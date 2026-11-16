@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -45,6 +46,9 @@ type Options struct {
 	FileNamePattern string
 	GenerateTypes   bool
 }
+
+const orNumericString = ".or(z.string().refine((v) => !isNaN(Number(v)))" +
+	".transform(Number))"
 
 func DefaultOptions() Options {
 	return Options{
@@ -124,6 +128,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			}
 			content, err := p.generateFile(
 				structs[0].Namespace,
+				structs[0].FilePath,
 				outputPath,
 				structs,
 				enums,
@@ -171,6 +176,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			)
 			content, err := p.generateFile(
 				namespace,
+				unions[0].FilePath,
 				outputPath,
 				nil,
 				enums,
@@ -199,6 +205,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		content, err := p.generateFile(
 			enums[0].Namespace,
+			enums[0].FilePath,
 			outputPath,
 			nil,
 			enums,
@@ -234,6 +241,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			}
 			content, err := p.generateFile(
 				typeDefs[0].Namespace,
+				typeDefs[0].FilePath,
 				outputPath,
 				nil,
 				enums,
@@ -289,8 +297,11 @@ func hasNonPrimitiveDependency(typ resolution.Type) bool {
 	return false
 }
 
+// generateFile renders one types file. When two modules export a name that the file
+// imports, it renders the file again with aliases.
 func (p *Plugin) generateFile(
 	namespace string,
+	filePath string,
 	outputPath string,
 	structs []resolution.Type,
 	enums []resolution.Type,
@@ -298,10 +309,46 @@ func (p *Plugin) generateFile(
 	unions []resolution.Type,
 	req *plugin.Request,
 ) ([]byte, error) {
+	content, conflicts, err := p.renderFile(
+		namespace, filePath, outputPath, structs, enums, typeDefs, unions, req, nil,
+	)
+	if err != nil || len(conflicts) == 0 {
+		return content, err
+	}
+	aliases := imports.Aliases(conflicts)
+	content, conflicts, err = p.renderFile(
+		namespace, filePath, outputPath, structs, enums, typeDefs, unions, req, aliases,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if len(conflicts) > 0 {
+		return nil, errors.Newf(
+			"unresolvable import name conflicts in %s: %v", outputPath, conflicts,
+		)
+	}
+	return content, nil
+}
+
+// renderFile renders one types file, importing each name that aliases holds under its
+// alias. It returns the names that two modules export to the file.
+func (p *Plugin) renderFile(
+	namespace string,
+	filePath string,
+	outputPath string,
+	structs []resolution.Type,
+	enums []resolution.Type,
+	typeDefs []resolution.Type,
+	unions []resolution.Type,
+	req *plugin.Request,
+	aliases map[imports.Key]string,
+) ([]byte, map[string][]string, error) {
 	data := &templateData{
 		Namespace:       namespace,
+		FilePath:        filePath,
 		OutputPath:      outputPath,
 		Request:         req,
+		aliases:         aliases,
 		Enums:           make([]enumData, 0, len(enums)),
 		TypeDefs:        make([]typeDefData, 0, len(typeDefs)),
 		SortedDecls:     make([]sortedDeclData, 0),
@@ -408,18 +455,18 @@ func (p *Plugin) generateFile(
 
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(data.missingIncludes) > 0 {
 		missing := data.missingIncludes.Slice()
 		slices.Sort(missing)
-		return nil, errors.Newf(
+		return nil, nil, errors.Newf(
 			"types with no generated TypeScript declaration need a @ts include "+
 				"module: %s",
 			strings.Join(missing, ", "),
 		)
 	}
-	return buf.Bytes(), nil
+	return buf.Bytes(), data.Conflicts(), nil
 }
 
 func findFieldTypeOverride(
@@ -563,10 +610,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 				zodType = result.ZodType
 			}
 			if toNumber {
-				zodType = fmt.Sprintf(
-					"%s.or(z.string().refine((v) => !isNaN(Number(v))).transform(Number))",
-					zodType,
-				)
+				zodType += orNumericString
 			}
 			if toString {
 				zodType = fmt.Sprintf(
@@ -595,7 +639,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 				}
 				zodType = fmt.Sprintf("z.tuple([%s])", strings.Join(elements, ", "))
 			} else {
-				zodType = fmt.Sprintf("%s.array().default(() => [])", elemZod)
+				zodType = elemZod + ".array().default(() => [])"
 			}
 		} else {
 			zodType = p.typeDefBaseToZod(&form.Base, data)
@@ -614,10 +658,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			zodType = result.ZodType
 		}
 		if toNumber {
-			zodType = fmt.Sprintf(
-				"%s.or(z.string().refine((v) => !isNaN(Number(v))).transform(Number))",
-				zodType,
-			)
+			zodType += orNumericString
 		}
 		if toString {
 			zodType = fmt.Sprintf(
@@ -646,7 +687,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 				}
 				zodType = fmt.Sprintf("z.tuple([%s])", strings.Join(elements, ", "))
 			} else {
-				zodType = fmt.Sprintf("%s.array().default(() => [])", elemZod)
+				zodType = elemZod + ".array().default(() => [])"
 			}
 		} else {
 			zodType = p.typeDefBaseToZod(&form.Target, data)
@@ -800,7 +841,7 @@ func (p *Plugin) processStruct(
 				}
 				sd.AliasOf = fmt.Sprintf("z.tuple([%s])", strings.Join(elements, ", "))
 			} else {
-				sd.AliasOf = fmt.Sprintf("%s.array().default(() => [])", elemZod)
+				sd.AliasOf = elemZod + ".array().default(() => [])"
 			}
 		} else {
 			sd.AliasOf = p.typeRefToZod(&aliasForm.Target, table, data)
@@ -929,7 +970,7 @@ func (p *Plugin) processStruct(
 			schemaName := casing.CamelAcronym(parentTSName) + "Z"
 			importLocalHand(parentType, schemaName, data)
 
-			if parentType.Namespace != data.Namespace {
+			if parentType.FilePath != data.FilePath {
 				ns := importNamespace(
 					parentType.Namespace,
 					output.GetPath(parentType, "ts"),
@@ -1302,14 +1343,34 @@ func importNamespace(namespace, outputPath string, data *templateData) string {
 	}
 	ident := casing.CamelAcronym(namespace)
 	if strings.HasPrefix(data.OutputPath, outputPath+"/") {
-		data.AddNamespaceImport(
-			paths.CalculateImport(data.OutputPath, outputPath+"/types.gen"),
-			ident,
-		)
+		path := paths.CalculateImport(data.OutputPath, outputPath+"/types.gen")
+		if alias, ok := data.aliases[imports.Key{Path: path, Name: ident}]; ok {
+			ident = alias
+		}
+		data.AddNamespaceImport(path, ident)
 		return ident
 	}
-	data.AddImport(paths.CalculateImport(data.OutputPath, outputPath), ident)
+	path := paths.CalculateImport(data.OutputPath, outputPath)
+	if alias, ok := data.aliases[imports.Key{Path: path, Name: ident}]; ok {
+		data.AddAliasedImport(path, ident, alias)
+		return alias
+	}
+	data.AddImport(path, ident)
 	return ident
+}
+
+// qualifier imports the module that declares typ, a type from another schema, and
+// returns the name that the file gives the module.
+func qualifier(
+	typ resolution.Type,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	outputPath := output.GetPath(typ, "ts")
+	if _, isEnum := typ.Form.(resolution.EnumForm); isEnum {
+		outputPath = enum.FindOutputPath(typ, table, "ts")
+	}
+	return importNamespace(typ.Namespace, outputPath, data)
 }
 
 // FieldName converts a field identifier to camelCase using the naive conversion the
@@ -1363,7 +1424,7 @@ func parentSchemaName(
 	parent, _ := ref.Resolve(table)
 	name := casing.CamelAcronym(domain.GetName(parent, "ts")) + "Z"
 	importLocalHand(parent, name, data)
-	if parent.Namespace != data.Namespace {
+	if parent.FilePath != data.FilePath {
 		ns := importNamespace(parent.Namespace, output.GetPath(parent, "ts"), data)
 		name = ns + "." + name
 	}
@@ -1414,7 +1475,7 @@ func (p *Plugin) createNewRefForField(
 		return "", false
 	}
 	newName := "New"
-	if resolved.Namespace != data.Namespace {
+	if resolved.FilePath != data.FilePath {
 		ns := importNamespace(resolved.Namespace, output.GetPath(resolved, "ts"), data)
 		newName = ns + ".New"
 	}
@@ -1447,7 +1508,7 @@ func (p *Plugin) detailsSchemaRef(
 		data,
 	)
 	prefix := ""
-	if resolved.Namespace != data.Namespace {
+	if resolved.FilePath != data.FilePath {
 		ns := importNamespace(resolved.Namespace, output.GetPath(resolved, "ts"), data)
 		prefix = ns + "."
 	}
@@ -1455,7 +1516,7 @@ func (p *Plugin) detailsSchemaRef(
 	if len(params) > 0 {
 		return fmt.Sprintf("ReturnType<typeof %s>", schema), true
 	}
-	return fmt.Sprintf("typeof %s", schema), true
+	return "typeof " + schema, true
 }
 
 func coalesceTSType(tsType string, typeParams []typeParamData) string {
@@ -1611,7 +1672,7 @@ func enumNames(
 	declared, _ := ref.Resolve(table)
 	typeName = domain.GetName(declared, "ts")
 	schema = casing.CamelAcronym(typeName) + "Z"
-	if declared.Namespace == data.Namespace {
+	if declared.FilePath == data.FilePath {
 		return typeName, schema, true
 	}
 	outputPath := output.GetPath(declared, "ts")
@@ -1832,7 +1893,7 @@ func (p *Plugin) processField(
 		} else {
 			// The server omits a nil ("not loaded") array, so a missing array
 			// defaults to []; an allocated empty array still arrives as [].
-			arrayZod := fmt.Sprintf("%s.array()", fd.ZodType)
+			arrayZod := fd.ZodType + ".array()"
 			fd.ZodSchemaType = fmt.Sprintf(
 				"z.ZodDefault<z.ZodArray<%s>>",
 				fd.ZodSchemaType,
@@ -1846,7 +1907,7 @@ func (p *Plugin) processField(
 					p.tsDefaultLiteral(field.Type, *field.Default, table, data),
 				)
 			} else {
-				fd.ZodType = fmt.Sprintf("%s.default(() => [])", arrayZod)
+				fd.ZodType = arrayZod + ".default(() => [])"
 			}
 		}
 	} else if isMap {
@@ -2105,7 +2166,7 @@ func (p *Plugin) typeRefToZodInternal(
 				schemaName += "()"
 			}
 		}
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			ns := importNamespace(
 				resolved.Namespace,
 				output.GetPath(resolved, "ts"),
@@ -2117,7 +2178,7 @@ func (p *Plugin) typeRefToZodInternal(
 
 	case resolution.EnumForm:
 		enumName := casing.CamelAcronym(domain.GetName(resolved, "ts")) + "Z"
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			ns := importNamespace(
 				resolved.Namespace,
 				enum.FindOutputPath(resolved, table, "ts"),
@@ -2129,7 +2190,7 @@ func (p *Plugin) typeRefToZodInternal(
 
 	case resolution.DistinctForm:
 		schemaName := casing.CamelAcronym(domain.GetName(resolved, "ts")) + "Z"
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			ns := importNamespace(
 				resolved.Namespace,
 				output.GetPath(resolved, "ts"),
@@ -2142,7 +2203,7 @@ func (p *Plugin) typeRefToZodInternal(
 	case resolution.AliasForm:
 		if !form.IsGeneric() {
 			schemaName := casing.CamelAcronym(domain.GetName(resolved, "ts")) + "Z"
-			if resolved.Namespace != data.Namespace {
+			if resolved.FilePath != data.FilePath {
 				ns := importNamespace(
 					resolved.Namespace,
 					output.GetPath(resolved, "ts"),
@@ -2162,7 +2223,7 @@ func (p *Plugin) typeRefToZodInternal(
 
 	case resolution.UnionForm:
 		schemaName := casing.CamelAcronym(domain.GetName(resolved, "ts")) + "Z"
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			ns := importNamespace(
 				resolved.Namespace,
 				output.GetPath(resolved, "ts"),
@@ -2271,21 +2332,21 @@ func (p *Plugin) typeRefToTSInternal(
 				),
 			)
 		}
-		if resolved.Namespace != data.Namespace {
-			return fmt.Sprintf("%s.%s", resolved.Namespace, typeName)
+		if resolved.FilePath != data.FilePath {
+			return qualifier(resolved, table, data) + "." + typeName
 		}
 		return typeName
 
 	case resolution.EnumForm:
 		enumName := domain.GetName(resolved, "ts")
-		if resolved.Namespace != data.Namespace {
-			return fmt.Sprintf("%s.%s", resolved.Namespace, enumName)
+		if resolved.FilePath != data.FilePath {
+			return qualifier(resolved, table, data) + "." + enumName
 		}
 		return enumName
 
 	case resolution.DistinctForm:
 		distinctName := domain.GetName(resolved, "ts")
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			ns := importNamespace(
 				resolved.Namespace,
 				output.GetPath(resolved, "ts"),
@@ -2310,15 +2371,15 @@ func (p *Plugin) typeRefToTSInternal(
 				),
 			)
 		}
-		if resolved.Namespace != data.Namespace {
-			return fmt.Sprintf("%s.%s", resolved.Namespace, typeName)
+		if resolved.FilePath != data.FilePath {
+			return qualifier(resolved, table, data) + "." + typeName
 		}
 		return typeName
 
 	case resolution.UnionForm:
 		typeName := domain.GetName(resolved, "ts")
-		if resolved.Namespace != data.Namespace {
-			return fmt.Sprintf("%s.%s", resolved.Namespace, typeName)
+		if resolved.FilePath != data.FilePath {
+			return qualifier(resolved, table, data) + "." + typeName
 		}
 		return typeName
 
@@ -2534,8 +2595,8 @@ func (p *Plugin) typeRefToZodSchemaType(
 	}
 
 	var prefix string
-	if resolved.Namespace != data.Namespace {
-		prefix = resolved.Namespace + "."
+	if resolved.FilePath != data.FilePath {
+		prefix = qualifier(resolved, table, data) + "."
 	}
 
 	tsName := domain.GetName(resolved, "ts")
@@ -2605,7 +2666,7 @@ func isInXPackage(outputPath string) bool {
 // hand-written or omitted in the namespace being generated, since the generated file
 // declares no such type. A missing module is recorded so generation fails.
 func importLocalHand(typ resolution.Type, ident string, data *templateData) {
-	if typ.Namespace != data.Namespace || !omit.IsSkipped(typ, "ts") {
+	if typ.FilePath != data.FilePath || !omit.IsSkipped(typ, "ts") {
 		return
 	}
 	module := domain.GetStringFromType(typ, "ts", "include")
@@ -2699,8 +2760,12 @@ func (p *Plugin) applyValidation(
 		effectiveType = tsTypeOverride
 	} else if !resolution.IsPrimitive(effectiveType) {
 		// A named numeric or string type (e.g. a distinct Key over uint32) carries its
-		// constraints on the underlying primitive, so classify by that base.
-		if base := resolution.PrimitiveBase(typeRef, table); base != "" {
+		// constraints on the underlying primitive, so classify by that base. A
+		// hand-written schema may not be a zod number, so it keeps its own name.
+		resolved, ok := typeRef.Resolve(table)
+		handWritten := ok && omit.IsSkipped(resolved, "ts")
+		base := resolution.PrimitiveBase(typeRef, table)
+		if base != "" && !handWritten {
 			effectiveType = base
 		}
 	}
@@ -2777,6 +2842,26 @@ func (p *Plugin) applyValidation(
 			}
 		}
 	}
+	// A hand-written number schema such as telem.numericTimeSpanZ, used directly or
+	// through a @ts type override, has no .min or .max, so its bounds go through
+	// checks.
+	if !isNumber && tsTypeOverride != "number" &&
+		!resolution.IsPrimitive(effectiveType) &&
+		resolution.IsNumberPrimitive(resolution.PrimitiveBase(typeRef, table)) {
+		var checks []string
+		if rules.Min != nil {
+			checks = append(checks, "z.gte("+boundLiteral(*rules.Min)+")")
+		}
+		if rules.GT != nil {
+			checks = append(checks, "z.gt("+boundLiteral(*rules.GT)+")")
+		}
+		if rules.Max != nil {
+			checks = append(checks, "z.lte("+boundLiteral(*rules.Max)+")")
+		}
+		if len(checks) > 0 {
+			zodType = fmt.Sprintf("%s.check(%s)", zodType, strings.Join(checks, ", "))
+		}
+	}
 	if defaultVal != nil {
 		switch defaultVal.Kind {
 		case resolution.ValueKindString:
@@ -2802,7 +2887,7 @@ func (p *Plugin) applyValidation(
 				zodType = fmt.Sprintf(
 					"%s.default(%s)",
 					zodType,
-					tsStringLiteral(fmt.Sprintf("%d", defaultVal.IntValue)),
+					tsStringLiteral(strconv.FormatInt(defaultVal.IntValue, 10)),
 				)
 				break
 			}
@@ -2812,7 +2897,7 @@ func (p *Plugin) applyValidation(
 					typeRef,
 					table,
 					data,
-					fmt.Sprintf("%d", defaultVal.IntValue),
+					strconv.FormatInt(defaultVal.IntValue, 10),
 					defaultVal.IntValue == 0,
 				)
 			}
@@ -2844,7 +2929,7 @@ func (p *Plugin) applyValidation(
 			if defaultVal.IdentValue == "now" &&
 				telem.IsTimeStamp(typeRef, table, "ts") {
 				addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
-				zodType = fmt.Sprintf("%s.default(() => TimeStamp.now())", zodType)
+				zodType = zodType + ".default(() => TimeStamp.now())"
 			}
 			// Handle "create" for auto-generating keys. uuid keys generate a UUID via
 			// uuid.create(); string keys generate a short id via id.create(). uuid is a
@@ -2854,10 +2939,10 @@ func (p *Plugin) applyValidation(
 			if defaultVal.IdentValue == "create" {
 				if primitive == "uuid" {
 					addXImport(data, xImport{name: "uuid", submodule: "uuid"})
-					zodType = fmt.Sprintf("%s.default(uuid.create)", zodType)
+					zodType = zodType + ".default(uuid.create)"
 				} else if isString || primitive == "string" {
 					addXImport(data, xImport{name: "id", submodule: "id"})
-					zodType = fmt.Sprintf("%s.default(id.create)", zodType)
+					zodType = zodType + ".default(id.create)"
 				}
 			}
 			if ev, ok := validation.ResolveEnumVariant(
@@ -2989,11 +3074,11 @@ func (p *Plugin) tsDefaultLiteral(
 	case resolution.ValueKindString:
 		return tsStringLiteral(val.StringValue)
 	case resolution.ValueKindInt:
-		return fmt.Sprintf("%d", val.IntValue)
+		return strconv.FormatInt(val.IntValue, 10)
 	case resolution.ValueKindFloat:
 		return fmt.Sprintf("%f", val.FloatValue)
 	case resolution.ValueKindBool:
-		return fmt.Sprintf("%t", val.BoolValue)
+		return strconv.FormatBool(val.BoolValue)
 	case resolution.ValueKindIdent:
 		if ev, ok := validation.ResolveEnumVariant(val.IdentValue, typeRef, table); ok {
 			return p.enumVariantToTS(ev, data)
@@ -3071,8 +3156,9 @@ func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) 
 	}
 	enumName := domain.GetName(ev.Type, "ts")
 	variantRef := fmt.Sprintf("%s.%s", enumName, ev.Variant.Name)
-	if ev.Type.Namespace != data.Namespace {
-		variantRef = fmt.Sprintf("%s.%s", ev.Type.Namespace, variantRef)
+	if ev.Type.FilePath != data.FilePath {
+		ns := qualifier(ev.Type, data.Request.Resolutions, data)
+		variantRef = ns + "." + variantRef
 	}
 	return variantRef
 }
@@ -3089,9 +3175,14 @@ type templateData struct {
 	SortedDecls      []sortedDeclData
 	CurrentDeclIndex int
 	GenerateTypes    bool
+	// FilePath is the schema file that this file renders. A type is local when it comes
+	// from this file: two schemas with one file name share a namespace.
+	FilePath string
 	// missingIncludes holds the hand-written types referenced in this namespace that
 	// declare no `@ts include` module.
 	missingIncludes set.Set[string]
+	// aliases holds the alias of each imported name that two modules export.
+	aliases map[imports.Key]string
 }
 
 type sortedDeclData struct {
@@ -3715,3 +3806,10 @@ export const TYPE_RESOURCE_ID = resourceID({{ .Resource.KeyZeroValue }});
 {{- end }}
 `),
 )
+
+func boundLiteral(n validation.Number) string {
+	if n.IsInt {
+		return strconv.FormatInt(n.Int, 10)
+	}
+	return fmt.Sprint(n.Float)
+}

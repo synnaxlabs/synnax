@@ -15,6 +15,7 @@ from playwright.sync_api import Locator, expect
 import synnax as sy
 from console.channels import ChannelClient
 from console.layout import LayoutClient
+from console.notifications import click_past
 from console.page import ConsolePage, PageType
 
 Axis = Literal["x1", "y1", "y2"]
@@ -94,9 +95,8 @@ class Plot(ConsolePage):
 
         :returns: The CSV file contents as a string.
         """
-        self.notifications.close_all()
         self.layout.show_visualization_toolbar()
-        self.page.get_by_role("button", name="Download as CSV", exact=True).click()
+        click_past(self.page.get_by_role("button", name="Download as CSV", exact=True))
 
         self.page.get_by_text("Download data for").wait_for(
             state="visible", timeout=5000
@@ -120,8 +120,7 @@ class Plot(ConsolePage):
 
         :param title: The new title for the plot
         """
-        self.notifications.close_all()
-        self.page.get_by_role("tab", name="Properties", exact=True).click(timeout=5000)
+        click_past(self.page.get_by_role("tab", name="Properties", exact=True))
 
         title_input = (
             self.page.locator("label:has-text('Title')")
@@ -137,8 +136,7 @@ class Plot(ConsolePage):
 
         :param thickness: Stroke width (1-10)
         """
-        self.notifications.close_all()
-        self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
+        click_past(self.page.get_by_role("tab", name="Lines", exact=True))
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         if lines_container.count() == 0:
@@ -161,8 +159,7 @@ class Plot(ConsolePage):
 
         :param label: New label for the line
         """
-        self.notifications.close_all()
-        self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
+        click_past(self.page.get_by_role("tab", name="Lines", exact=True))
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         lines_container.wait_for(state="visible", timeout=5000)
@@ -179,8 +176,7 @@ class Plot(ConsolePage):
 
         :returns: The current stroke width
         """
-        self.notifications.close_all()
-        self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
+        click_past(self.page.get_by_role("tab", name="Lines", exact=True))
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         line_item = lines_container.locator(".lyra-list__item").first
@@ -192,9 +188,8 @@ class Plot(ConsolePage):
 
         :returns: List of line label strings.
         """
-        self.notifications.close_all()
         self.layout.show_visualization_toolbar()
-        self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
+        click_past(self.page.get_by_role("tab", name="Lines", exact=True))
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         line_items = lines_container.locator(".lyra-list__item")

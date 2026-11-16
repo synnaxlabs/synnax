@@ -113,9 +113,9 @@ var _ = Describe("ServiceConfig", func() {
 		}
 	}
 	DescribeTable("Should fail when a service is missing",
-		func(clear func(*apisecret.ServiceConfig), msg string) {
+		func(unset func(*apisecret.ServiceConfig), msg string) {
 			cfg := full()
-			clear(&cfg)
+			unset(&cfg)
 			Expect(cfg.Validate()).To(MatchError(msg))
 		},
 		Entry("secret", func(c *apisecret.ServiceConfig) { c.Secret = nil },

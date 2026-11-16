@@ -85,6 +85,15 @@ type refPair struct {
 
 func (p refPair) GorpKey() string { return strconv.Itoa(int(p.Rack)) + "/" + p.Name }
 
+// refBadge holds a label through each of two references.
+type refBadge struct {
+	Key   string
+	Front string
+	Back  string
+}
+
+func (b refBadge) GorpKey() string { return b.Key }
+
 type refSwatch struct {
 	Key   string
 	Group string
@@ -964,7 +973,7 @@ var _ = Describe("Reference", func() {
 	})
 
 	Describe("Delete size", func() {
-		BeforeEach(func(ctx SpecContext) { open(ctx, gorp.WithMaxDeleteSize(2)) })
+		BeforeEach(func(ctx SpecContext) { open(ctx, gorp.WithMaxChangeSize(2)) })
 
 		It(
 			"Should refuse a delete that cascades past the limit",
@@ -1125,7 +1134,7 @@ var _ = Describe("Reference", func() {
 			written := refDevice{Key: "a", Rack: 1, Labels: []string{"l2"}}
 			Expect(rewritten).To(Equal([]refDevice{written}))
 			Expect(commits).To(HaveLen(1))
-			Expect(slices.Collect(devices.Changes(ctx, commits[0]))).To(Equal(
+			Expect(slices.Collect(devices.Changes(commits[0]))).To(Equal(
 				[]gorp.EntryChange[string, refDevice]{{
 					Key:     "a",
 					Value:   written,
@@ -1204,9 +1213,12 @@ var _ = Describe("Reference", func() {
 				{Key: "s1", Owner: &refOwner{Table: "device", Key: "a"}},
 				{Key: "s2", Owner: &refOwner{Table: "device", Key: "b"}},
 			}).Exec(ctx, db)).To(Succeed())
-			Expect(devices.Retarget(ctx, db, "a", "b")).To(MatchError(ContainSubstring(
-				"owner: status s2 already references device b",
-			)))
+			Expect(devices.Retarget(ctx, db, "a", "b")).To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"owner: status s2 already references device b",
+				)),
+			))
 		})
 
 		It("Should refuse a rewrite that changes the key of a holder", func(
@@ -1242,27 +1254,85 @@ var _ = Describe("Reference", func() {
 			))
 		})
 
+		It("Should rewrite a holder once when two references hold the target", func(
+			ctx SpecContext,
+		) {
+			open(ctx, gorp.WithMaxChangeSize(1))
+			var rewritten []refBadge
+			badges := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refBadge]{
+				DB:   db,
+				Name: "badge",
+				References: []gorp.Reference[string, refBadge]{
+					gorp.NewKeyReference(
+						gorp.KeyReferenceConfig[string, refBadge, string]{
+							Name:     "front",
+							Table:    "label",
+							OnDelete: gorp.Restrict,
+							Kind:     gorp.Use,
+							Targets: func(b *refBadge) []string {
+								return []string{b.Front}
+							},
+							Retarget: func(b *refBadge, _, to string) { b.Front = to },
+						},
+					),
+					gorp.NewKeyReference(
+						gorp.KeyReferenceConfig[string, refBadge, string]{
+							Name:     "back",
+							Table:    "label",
+							OnDelete: gorp.Restrict,
+							Kind:     gorp.Use,
+							Targets: func(b *refBadge) []string {
+								return []string{b.Back}
+							},
+							Retarget: func(b *refBadge, _, to string) { b.Back = to },
+						},
+					),
+				},
+				OnRewrite: func(_ context.Context, _ gorp.Tx, b refBadge) error {
+					rewritten = append(rewritten, b)
+					return nil
+				},
+			}))
+			createLabels(ctx, "l1", "l2")
+			Expect(badges.NewCreate().
+				Entry(&refBadge{Key: "a", Front: "l1", Back: "l1"}).
+				Exec(ctx, db)).To(Succeed())
+			Expect(labels.Retarget(ctx, db, "l1", "l2")).To(Succeed())
+			moved := refBadge{Key: "a", Front: "l2", Back: "l2"}
+			Expect(rewritten).To(Equal([]refBadge{moved}))
+			var b refBadge
+			Expect(badges.NewRetrieve().
+				Where(gorp.MatchKeys[string, refBadge]("a")).
+				Entry(&b).
+				Exec(ctx, db)).To(Succeed())
+			Expect(b).To(Equal(moved))
+		})
+
 		It("Should refuse a rewrite that forms a cycle", func(ctx SpecContext) {
 			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
 			Expect(createDevice(ctx, refDevice{Key: "b", Rack: 1, Parent: "a"})).
 				To(Succeed())
-			Expect(devices.Retarget(ctx, db, "a", "b")).To(MatchError(ContainSubstring(
-				"parent: device b would form a cycle",
-			)))
+			Expect(devices.Retarget(ctx, db, "a", "b")).To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("parent: device b would form a cycle")),
+			))
 			Expect(retrieveDevice(ctx, "b").Parent).To(Equal("a"))
 		})
 
 		It("Should refuse a retarget that rewrites more than the limit", func(
 			ctx SpecContext,
 		) {
-			open(ctx, gorp.WithMaxDeleteSize(1))
+			open(ctx, gorp.WithMaxChangeSize(1))
 			createRack(ctx, 1)
 			createLabels(ctx, "l1", "l2")
 			createLabeled(ctx, "a", "l1")
 			createLabeled(ctx, "b", "l1")
-			Expect(labels.Retarget(ctx, db, "l1", "l2")).To(MatchError(ContainSubstring(
-				"retargeting label l1 would change more than 1 entries",
-			)))
+			Expect(labels.Retarget(ctx, db, "l1", "l2")).To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"retargeting label l1 would change more than 1 entries",
+				)),
+			))
 		})
 	})
 
@@ -1637,7 +1707,7 @@ var _ = Describe("Reference closure", func() {
 	It(
 		"Should not detach a target from an entry the delete removes",
 		func(ctx SpecContext) {
-			open(ctx, gorp.Detach, gorp.WithMaxDeleteSize(3))
+			open(ctx, gorp.Detach, gorp.WithMaxChangeSize(3))
 			Expect(deleteProject(ctx)).To(Succeed())
 			Expect(schematicExists(ctx)).To(BeFalse())
 		},

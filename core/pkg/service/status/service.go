@@ -49,7 +49,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// Validate implements config.Config
+// Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.status")
 	v.NotNil("db", c.DB)
@@ -91,10 +91,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			References:      s.indexes.references(),
 			Instrumentation: cfg.Instrumentation,
 			Migrations:      versions.Migrations,
-			// A label delete or retarget rewrites each status that holds the label,
-			// which no status write does, so the service sets the status as written.
-			// The device, rack, and channel tables need no hook, as a group delete
-			// refuses a group that holds members.
+			// A delete or retarget of a target rewrites the status, which no status
+			// write does, so the service sets the status as written. The device, rack,
+			// and channel tables need no hook, as a group delete refuses a group that
+			// holds members.
 			OnRewrite: func(_ context.Context, tx gorp.Tx, st Status[any]) error {
 				s.state.Dispatcher().
 					Attach(tx, st.Key, NewSetAction(SetPayload{Status: st}))
@@ -118,11 +118,8 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Status[any]]] 
 }
 
 // Changes returns the changes that c made to statuses.
-func (s *Service) Changes(
-	ctx context.Context,
-	c gorp.Commit,
-) gorp.TxReader[Key, Status[any]] {
-	return s.table.Changes(ctx, c)
+func (s *Service) Changes(c gorp.Commit) gorp.TxReader[Key, Status[any]] {
+	return s.table.Changes(c)
 }
 
 // Actions returns the action batches that Writer attaches to its transactions.

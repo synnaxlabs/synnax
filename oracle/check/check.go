@@ -36,7 +36,7 @@ import (
 // (`--gates=format,analyze`), exit codes, and JSON output.
 type Checker interface {
 	Name() string
-	Run(context.Context, *pipeline.Result, Env) GateReport
+	Run(ctx context.Context, result *pipeline.Result, env Env) GateReport
 }
 
 // Env carries everything a Checker needs that is not part of the pipeline Result.
@@ -204,6 +204,7 @@ func Run(
 		case StatusFail:
 			report.TotalRun++
 			report.TotalFailed++
+		case StatusSkipped:
 		}
 	}
 	report.Elapsed = telem.Since(start)

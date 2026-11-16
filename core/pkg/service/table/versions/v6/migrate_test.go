@@ -21,6 +21,7 @@ import (
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	colorv1 "github.com/synnaxlabs/x/color/versions/v1"
 	colorv2 "github.com/synnaxlabs/x/color/versions/v2"
+	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -60,11 +61,13 @@ var _ = Describe("Migration", func() {
 			n := func(r uint8) *colorv2.Color { return &colorv2.Color{R: r, A: expected} }
 			cells := got.Rows[0].Cells
 			Expect(cells[0].Key).To(Equal("text"))
-			text := cells[0].Config.Variant.(v6.TextCellConfig)
+			text, ok := cells[0].Config.Variant.(v6.TextCellConfig)
+			Expect(ok).To(BeTrue())
 			Expect(text.FillColor).To(Equal(n(1)))
 			Expect(text.TextColor).To(Equal(n(2)))
 			Expect(cells[1].Key).To(Equal("value"))
-			value := cells[1].Config.Variant.(v6.ValueCellConfig)
+			value, ok := cells[1].Config.Variant.(v6.ValueCellConfig)
+			Expect(ok).To(BeTrue())
 			Expect(value.FillColor).To(Equal(n(3)))
 			Expect(value.TextColor).To(Equal(n(4)))
 			Expect(value.StalenessColor).To(Equal(n(5)))
@@ -90,7 +93,7 @@ var _ = Describe("MigrateTable", func() {
 	}
 	empty := func(key string) v6.Cell {
 		c := v6.Cell{Key: key, Config: v6.CellConfig{Variant: v6.TextCellConfig{}}}
-		c.Config.ApplyDefaults()
+		c.Config = defaults.Fill(c.Config)
 		return c
 	}
 	cols := func(n int) []v5.Column {
@@ -198,7 +201,8 @@ var _ = Describe("MigrateTable", func() {
 				},
 			},
 		}))
-		Expect(out.Rows[0].Cells[0].Config.Variant.(v6.TextCellConfig).FillColor).
-			To(Equal(&colorv2.Color{R: 1, A: 128}))
+		text, ok := out.Rows[0].Cells[0].Config.Variant.(v6.TextCellConfig)
+		Expect(ok).To(BeTrue())
+		Expect(text.FillColor).To(Equal(&colorv2.Color{R: 1, A: 128}))
 	})
 })
