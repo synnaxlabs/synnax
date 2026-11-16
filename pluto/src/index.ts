@@ -14,6 +14,7 @@ export { Arc } from "@/arc";
 export { Certificate } from "@/certificate";
 export { Channel } from "@/channel";
 export { Code } from "@/code";
+export { Color } from "@/color";
 export { Credential } from "@/credential";
 export { Device } from "@/device";
 export { Direction } from "@/direction";
