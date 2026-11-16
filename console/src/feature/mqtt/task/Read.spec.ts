@@ -304,6 +304,31 @@ describe("MQTT read form", () => {
     );
   });
 
+  it("should open one Add data dialog for a double click", async () => {
+    await renderRead();
+    const button = await screen.findByRole("button", { name: "Add data" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    await screen.findByRole("dialog");
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  });
+
+  it("should give the ICD a default name while the task has none", async () => {
+    const { dev, draft } = await renderRead();
+    const name = await screen.findByLabelText("Name");
+    fireEvent.change(name, { target: { value: "" } });
+    fireEvent.blur(name);
+    await addField(dev.rack, TOPIC, "temperature");
+    const [entry] = await waitFor(async () => {
+      const entries = await retrieveEntries(draft.key);
+      expect(entries).toHaveLength(1);
+      return entries;
+    });
+    expect((await client.icds.retrieve(plainOf(entry).icd)).name).toBe(
+      "MQTT read task",
+    );
+  });
+
   it("should show the format of a topic from the ICD of its entry", async () => {
     const kiln = await createEntry({
       topic: "plant/kiln",
@@ -566,6 +591,28 @@ describe("MQTT read form", () => {
       );
     });
 
+    it("should stop reading the time of a field that is no longer a timestamp", async () => {
+      const timeCh = await createTimeChannel();
+      const time = createTimeField();
+      const temperature = createField("temperature", "float");
+      const entry = await createEntry({
+        fields: [time, temperature],
+        index: time.key,
+        bound: { [time.key]: timeCh.key, [temperature.key]: 0 },
+      });
+      const { draft } = await renderRead({
+        entries: [entry],
+        beforeRender: () =>
+          retype(entry, { ...createField("time", "float"), key: time.key }, "float"),
+      });
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[0]).messages[0]).toEqual({
+          message: entry.messages[0].message,
+          bindings: [{ field: temperature.key, channel: 0, dataType: "" }],
+        }),
+      );
+    });
+
     it("should stop reading a field that leaves the message format", async () => {
       const temperature = createField("temperature", "float");
       const pressure = createField("pressure", "float");
@@ -641,7 +688,7 @@ describe("MQTT read form", () => {
       };
       let dialog = await browseTag();
       fireEvent.click(dialog.getByRole("checkbox", { name: "Record flow" }));
-      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 tag" }));
       await screen.findByText("Edge node");
       await waitFor(async () =>
         expect(await retrieveEntries(draft.key)).toMatchObject([
@@ -661,6 +708,36 @@ describe("MQTT read form", () => {
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
       await act(async () => {});
       expect(screen.getAllByRole("option", { name: /flow/ })).toHaveLength(1);
+    });
+
+    it("should count picked fields and tags apart on the add button", async () => {
+      const { dev } = await renderRead();
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddData();
+      const topic = {
+        topic: TOPIC,
+        payload: '{"temperature": 1}',
+        fields: [{ pointer: "/temperature", type: "number", sample: "1" }],
+        retained: true,
+      };
+      await scanner.answer({ data: { topics: [topic], truncated: false } });
+      fireEvent.click(
+        await dialog.findByRole("checkbox", { name: "Record temperature" }),
+      );
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+      expect(dialog.getByRole("button", { name: "Add 1 field" })).toBeTruthy();
+      await scanner.answer({
+        data: { nodes: [{ group: "plant", edgeNode: "line1", devices: [] }], tags: [] },
+      });
+      const tag = { device: "", name: "flow", dataType: "float", value: "1" };
+      await scanner.answer({
+        data: { nodes: [], tags: [{ ...tag, supported: true }] },
+      });
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Record flow" }));
+      expect(
+        dialog.getByRole("button", { name: "Add 1 field and 1 tag" }),
+      ).toBeTruthy();
+      scanner.close();
     });
 
     it("should lock the data type of a tag to that of its channel", async () => {
@@ -783,6 +860,45 @@ describe("MQTT read form", () => {
           expect.objectContaining({
             message: "Failed to start task",
             description: expect.stringContaining(`In ${TOPIC}, mode: a string`),
+          }),
+        ),
+      );
+      expect(await retrieveTopicProps(dev.key)).toBeUndefined();
+    });
+
+    it("should refuse a read of a string field on the time of the payload", async () => {
+      const time = createTimeField();
+      const { container, dev, statuses } = await renderRead({
+        fields: [time, createField("mode", "string")],
+        index: time.key,
+      });
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to start task",
+            description: expect.stringContaining(`In ${TOPIC}, mode: a string`),
+          }),
+        ),
+      );
+      expect(await retrieveTopicProps(dev.key)).toBeUndefined();
+    });
+
+    it("should refuse a topic whose message is gone", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const { container, dev, statuses } = await renderRead({
+        entries: [entry],
+        beforeRender: () => removeMessage(entry),
+      });
+      await screen.findByText("Message not found");
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to start task",
+            description: `The message format of ${TOPIC} is missing or not JSON`,
           }),
         ),
       );
