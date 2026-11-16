@@ -399,10 +399,10 @@ func createFixtureTargets(
 					}
 				case string:
 					if k == "device" && key != "" {
-						devices.Add(device.Key(key))
+						devices.Add(key)
 					}
 					if k == "status" && key != "" {
-						statuses.Add(status.Key(key))
+						statuses.Add(key)
 					}
 				}
 				walk(f)
@@ -594,14 +594,14 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			if neverExported(t) {
 				continue
 			}
-			Expect(fixtures.Contains(string(t))).To(
+			Expect(fixtures.Contains(t)).To(
 				BeTrue(), "registered config type %q has no legacy fixture", t,
 			)
 		}
 		for f := range fixtures {
 			owned := false
 			for _, t := range configs.Types() {
-				if strings.HasPrefix(f, string(t)) {
+				if strings.HasPrefix(f, t) {
 					owned = true
 					break
 				}

@@ -380,16 +380,14 @@ const JSX_TOGGLE_DRAWING = (
   </Primitive.SVG>
 );
 
-const hover = async (button: Element): Promise<void> => await userEvent.hover(button);
-
 const press = async (button: Element): Promise<void> => {
   button.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
   await expect.poll(() => button.classList.contains("pluto--pressed")).toBe(true);
 };
 
 const TOGGLE_STATES: [string, boolean, (button: Element) => Promise<void>][] = [
-  ["hovered", false, hover],
-  ["hovered enabled", true, hover],
+  ["hovered", false, userEvent.hover],
+  ["hovered enabled", true, userEvent.hover],
   ["pressed", false, press],
   ["pressed enabled", true, press],
 ];

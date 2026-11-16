@@ -61,7 +61,7 @@ Channel struct {
 		// The live source carries the version-owned marshal tag textually,
 		// exactly as the merged live projection emits it.
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), `
+			`
 @go output "core/pkg/service/channel"
 
 Key = uuid {
@@ -129,7 +129,7 @@ Thing struct {
 		)
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), `
+			`
 @go output "core/thing"
 
 Thing struct {
@@ -227,7 +227,6 @@ Log struct {
 		chains := MustSucceed(versions.Discover(root))
 		loader := analyzer.NewStandardFileLoader(root)
 		table, diag := analyzer.Analyze(
-			GinkgoT().Context(),
 			[]string{"schemas/x/color", "schemas/synnax/log"},
 			loader,
 		)
@@ -322,7 +321,6 @@ Log struct {
 		chains := MustSucceed(versions.Discover(root))
 		loader := analyzer.NewStandardFileLoader(root)
 		table, diag := analyzer.Analyze(
-			GinkgoT().Context(),
 			[]string{"schemas/x/color", "schemas/synnax/log"},
 			loader,
 		)
@@ -432,7 +430,6 @@ Log struct {
 			chains := MustSucceed(versions.Discover(root))
 			loader := analyzer.NewStandardFileLoader(root)
 			table, diag := analyzer.Analyze(
-				GinkgoT().Context(),
 				[]string{
 					"schemas/x/color",
 					"schemas/synnax/note",
@@ -572,7 +569,6 @@ func pinRequest(frozen bool) *plugin.Request {
 	chains := MustSucceed(versions.Discover(root))
 	loader := analyzer.NewStandardFileLoader(root)
 	table, diag := analyzer.Analyze(
-		GinkgoT().Context(),
 		[]string{"schemas/x/color", "schemas/synnax/log"},
 		loader,
 	)

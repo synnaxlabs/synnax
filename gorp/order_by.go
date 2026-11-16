@@ -76,8 +76,6 @@ func (q SortedQuery[K, E, V]) After(value V, key K) SortedQuery[K, E, V] {
 // stageDelete) are invisible to ordered iteration; only SortedIndex.Filter and
 // FilterRange merge the per-tx delta. A failed populate leaves the index empty for the
 // walk.
-//
-//nolint:unused
 func (q SortedQuery[K, E, V]) walk(
 	keys keyset.Set[K],
 	batch int,
@@ -114,7 +112,6 @@ func (q SortedQuery[K, E, V]) walk(
 	}
 }
 
-//nolint:unused
 func (q SortedQuery[K, E, V]) sort(entries []E) []E {
 	compareKeys := key.Order[K]()
 	compare := func(a, b index.Entry[K, V]) int {

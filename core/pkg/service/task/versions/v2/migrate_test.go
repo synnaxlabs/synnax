@@ -156,7 +156,7 @@ var _ = Describe("Migrations", func() {
 			Expect(resourceExists(ctx, db, task.ResourceID(migrated.Key))).To(BeTrue())
 			Expect(resourceExists(ctx, db, legacyID)).To(BeFalse())
 
-			staged, closer := MustSucceed2(db.Get(ctx, v2.LegacyKeyKVKey(legacyKey)))
+			staged, closer := MustSucceed2(db.Get(v2.LegacyKeyKVKey(legacyKey)))
 			Expect(string(staged)).To(Equal(migrated.Key.String()))
 			Expect(closer.Close()).To(Succeed())
 		},
@@ -454,12 +454,12 @@ var _ = Describe("Migrations", func() {
 				Where(task.MatchNames("Bogus Task")).
 				Exists(ctx, db)).To(BeFalse())
 			rekeyed, rekeyCloser := MustSucceed2(
-				db.Get(ctx, v2.LegacyKeyKVKey(bogusTask.Key)),
+				db.Get(v2.LegacyKeyKVKey(bogusTask.Key)),
 			)
 			bogusKey := MustSucceed(uuid.Parse(string(rekeyed)))
 			Expect(rekeyCloser.Close()).To(Succeed())
 			staged, closer := MustSucceed2(
-				db.Get(ctx, v3.QuarantineKVKey(bogusKey)),
+				db.Get(v3.QuarantineKVKey(bogusKey)),
 			)
 			Expect(string(staged)).To(ContainSubstring("Bogus Task"))
 			Expect(closer.Close()).To(Succeed())
@@ -469,12 +469,12 @@ var _ = Describe("Migrations", func() {
 					Where(task.MatchNames(retired.Name)).
 					Exists(ctx, db)).To(BeFalse())
 				rekeyed, rekeyCloser := MustSucceed2(
-					db.Get(ctx, v2.LegacyKeyKVKey(retired.Key)),
+					db.Get(v2.LegacyKeyKVKey(retired.Key)),
 				)
 				retiredKey := MustSucceed(uuid.Parse(string(rekeyed)))
 				Expect(rekeyCloser.Close()).To(Succeed())
 				blob, blobCloser := MustSucceed2(
-					db.Get(ctx, v3.QuarantineKVKey(retiredKey)),
+					db.Get(v3.QuarantineKVKey(retiredKey)),
 				)
 				Expect(string(blob)).To(ContainSubstring(retired.Name))
 				Expect(blobCloser.Close()).To(Succeed())

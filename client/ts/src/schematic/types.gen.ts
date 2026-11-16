@@ -15,6 +15,7 @@ import {
   filter,
   notation,
   spatial,
+  telem,
   text,
   uuid,
   zod,
@@ -81,7 +82,7 @@ export const labelConfigZ = z.object({
   /**
    * maxInlineSize is the maximum inline size of the label in pixels before wrapping.
    */
-  maxInlineSize: z.number().default(150),
+  maxInlineSize: zod.uint16.min(1).default(150),
   /** align is the alignment of the label text within its box. */
   align: flexAlignmentZ.default("center"),
 });
@@ -137,11 +138,10 @@ export interface Page extends z.infer<typeof pageZ> {}
  * channel.
  */
 export const stalenessConfigZ = z.object({
-  /**
-   * stalenessTimeout is the duration in seconds after which the value is considered
-   * stale.
-   */
-  stalenessTimeout: z.number().default(5),
+  /** stalenessTimeout is the span after which the value is considered stale. */
+  stalenessTimeout: telem.numericTimeSpanZ
+    .check(z.gte(1000000000), z.lte(9007199254740991))
+    .default(5000000000),
   /** stalenessColor is the color applied when the value is stale. */
   stalenessColor: color.colorZ.optional(),
 });
@@ -154,8 +154,8 @@ export interface StalenessConfig extends z.infer<typeof stalenessConfigZ> {}
 export const numericTelemConfigZ = z.object({
   /** channel is the channel whose value the symbol displays. */
   channel: channel.keyZ.optional(),
-  /** rollingAverage is the sample window for rolling-average smoothing. */
-  rollingAverage: z.int32().optional(),
+  /** rollingAverage is the number of samples in the rolling average. */
+  rollingAverage: zod.uint16.min(1).default(1),
   /** precision is the number of decimal places shown, from 0 to 17. Absent shows 2. */
   precision: zod.uint8.max(17).optional(),
   /** notation is the numeric notation used to format the value. */
@@ -193,6 +193,8 @@ export const segmentedEdgeConfigZ = z.object({
    * the source handle to the target handle.
    */
   segments: segmentZ.array().default(() => []),
+  /** strokeWidth is the stroke width of the edge in pixels. */
+  strokeWidth: zod.uint8.min(1).max(20).default(2),
 });
 export interface SegmentedEdgeConfig extends z.infer<typeof segmentedEdgeConfigZ> {}
 
@@ -355,7 +357,9 @@ export const toggleConfigZ = labeledConfigZ
     stateChannel: channel.keyZ.optional(),
     commandChannel: channel.keyZ.optional(),
     control: controlStateConfigZ.optional(),
-    onClickDelay: z.number().default(0),
+    onClickDelay: telem.numericTimeSpanZ
+      .check(z.gte(0), z.lte(2147483647000000))
+      .default(0),
   });
 export interface ToggleConfig extends z.infer<typeof toggleConfigZ> {}
 
@@ -575,9 +579,9 @@ export const boxNodeConfigZ = labeledConfigZ.extend({
   /** dimensions is the rendered size of the box in pixels. */
   dimensions: spatial.dimensionsZ.prefault({ width: 125, height: 200 }),
   /** borderRadius is the uniform corner radius of the box in pixels. */
-  borderRadius: z.number().default(3),
+  borderRadius: zod.uint16.default(3),
   /** strokeWidth is the border stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  strokeWidth: zod.uint8.max(20).default(2),
 });
 export interface BoxNodeConfig extends z.infer<typeof boxNodeConfigZ> {}
 
@@ -586,10 +590,10 @@ export const buttonNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("button"),
   /** size is the rendered size preset of the button. */
   size: componentSizeZ.default("medium"),
-  /** level is the typography level of the button text. */
-  level: text.levelZ.optional(),
-  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
-  onClickDelay: z.number().default(0),
+  /** onClickDelay is the debounce delay applied to clicks. */
+  onClickDelay: telem.numericTimeSpanZ
+    .check(z.gte(0), z.lte(2147483647000000))
+    .default(0),
   /** commandChannel is the channel button presses are written to. */
   commandChannel: channel.keyZ.optional(),
   /** mode is the actuation behavior of the button. */
@@ -605,13 +609,13 @@ export interface ButtonNodeConfig extends z.infer<typeof buttonNodeConfigZ> {}
 export const circleNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("circle"),
   /** radius is the radius of the circle in pixels. */
-  radius: z.number().default(20),
+  radius: zod.uint16.default(20),
   /** strokeColor is the border color of the circle. */
   strokeColor: color.colorZ.optional(),
   /** fillColor is the fill color of the circle. */
   fillColor: color.colorZ.optional(),
   /** strokeWidth is the border stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  strokeWidth: zod.uint8.max(20).default(2),
 });
 export interface CircleNodeConfig extends z.infer<typeof circleNodeConfigZ> {}
 
@@ -628,7 +632,7 @@ export const gaugeNodeConfigZ = labeledConfigZ
     /** bounds is the numeric range displayed by the gauge. */
     bounds: spatial.boundsZ().prefault({ lower: 0, upper: 100 }),
     /** barWidth is the thickness of the gauge arc in pixels. */
-    barWidth: z.number().default(10),
+    barWidth: zod.uint16.default(10),
     /** location is the anchor of the value within the gauge. */
     location: spatial.locationXYZ.prefault({ x: "left", y: "center" }),
     /** units is the unit suffix displayed after the value. */
@@ -654,9 +658,11 @@ export const inputNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).ex
   /** disabled indicates whether the input rejects interaction. */
   disabled: z.boolean().default(false),
   /** inlineSize is the width of the field in pixels, not counting the Set button. */
-  inlineSize: z.number().default(150),
-  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
-  onClickDelay: z.number().default(0),
+  inlineSize: zod.uint16.default(150),
+  /** onClickDelay is the debounce delay applied to clicks. */
+  onClickDelay: telem.numericTimeSpanZ
+    .check(z.gte(0), z.lte(2147483647000000))
+    .default(0),
   /** control is the control state display configuration. */
   control: controlStateConfigZ.optional(),
 });
@@ -689,7 +695,7 @@ export const lineNodeConfigZ = z.object({
   /** end is the second endpoint, offset from the node position. */
   end: spatial.xyZ.prefault({ x: 100, y: 0 }),
   /** strokeWidth is the stroke width of the line in pixels. */
-  strokeWidth: z.number().default(2),
+  strokeWidth: zod.uint8.min(1).max(20).default(2),
 });
 export interface LineNodeConfig extends z.infer<typeof lineNodeConfigZ> {}
 
@@ -705,8 +711,11 @@ export const offPageReferenceNodeConfigZ = labeledConfigZ.extend({
   fillColor: color.colorZ.optional(),
   /** page is the page this reference links to. */
   page: pageZ.optional(),
-  /** dblClickNavDisabled stops double-clicking from navigating to the linked page. */
-  dblClickNavDisabled: z.boolean().default(false),
+  /**
+   * doubleClickNavigationDisabled stops double-clicking from navigating to the linked
+   * page.
+   */
+  doubleClickNavigationDisabled: z.boolean().default(false),
 });
 export interface OffPageReferenceNodeConfig extends z.infer<
   typeof offPageReferenceNodeConfigZ
@@ -716,19 +725,19 @@ export interface OffPageReferenceNodeConfig extends z.infer<
 export const polygonNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("polygon"),
   /** numSides is the number of sides of the polygon. */
-  numSides: z.number().default(6),
+  numSides: zod.uint8.min(3).default(6),
   /** sideLength is the length of each side in pixels. */
-  sideLength: z.number().default(20),
+  sideLength: zod.uint16.default(20),
   /** rotation is the rotation of the polygon in degrees. */
   rotation: z.number().default(0),
-  /** cornerRounding is the corner rounding radius in pixels. */
-  cornerRounding: z.number().default(0),
+  /** borderRadius is the corner radius of the polygon in pixels. */
+  borderRadius: zod.uint16.default(0),
   /** strokeColor is the border color of the polygon. */
   strokeColor: color.colorZ.optional(),
   /** fillColor is the fill color of the polygon. */
   fillColor: color.colorZ.optional(),
   /** strokeWidth is the border stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  strokeWidth: zod.uint8.max(20).default(2),
 });
 export interface PolygonNodeConfig extends z.infer<typeof polygonNodeConfigZ> {}
 
@@ -744,13 +753,15 @@ export const selectNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).e
   /** fillColor is the fill color of the Set button, which the select border follows. */
   fillColor: color.colorZ.optional(),
   /** inlineSize is the width of the field in pixels, not counting the Set button. */
-  inlineSize: z.number().default(100),
+  inlineSize: zod.uint16.default(100),
   /** options is the set of selectable states. */
   options: stateMappingZ.array().default(() => []),
   /** disabled indicates whether the select rejects interaction. */
   disabled: z.boolean().default(false),
-  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
-  onClickDelay: z.number().default(0),
+  /** onClickDelay is the debounce delay applied to clicks. */
+  onClickDelay: telem.numericTimeSpanZ
+    .check(z.gte(0), z.lte(2147483647000000))
+    .default(0),
   /** control is the control state display configuration. */
   control: controlStateConfigZ.optional(),
 });
@@ -798,9 +809,11 @@ export const setpointNodeConfigZ = labeledConfigZ
     /** disabled indicates whether the setpoint rejects interaction. */
     disabled: z.boolean().default(false),
     /** inlineSize is the width of the field in pixels, not counting the Set button. */
-    inlineSize: z.number().default(100),
-    /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
-    onClickDelay: z.number().default(0),
+    inlineSize: zod.uint16.default(100),
+    /** onClickDelay is the debounce delay applied to clicks. */
+    onClickDelay: telem.numericTimeSpanZ
+      .check(z.gte(0), z.lte(2147483647000000))
+      .default(0),
     /** control is the control state display configuration. */
     control: controlStateConfigZ.optional(),
   });
@@ -816,7 +829,7 @@ export const stateIndicatorNodeConfigZ = labeledConfigZ
     /** strokeColor is the border color of the indicator. */
     strokeColor: color.colorZ.optional(),
     /** inlineSize is the inline size of the indicator in pixels. */
-    inlineSize: z.number().default(100),
+    inlineSize: zod.uint16.default(100),
     /** options is the set of displayable states. */
     options: stateMappingZ.array().default(() => []),
     /** size is the rendered size preset of the indicator. */
@@ -841,7 +854,7 @@ export const stringDisplayNodeConfigZ = labeledConfigZ
       .array()
       .default(() => []),
     /** inlineSize is the inline size of the display in pixels. */
-    inlineSize: z.number().default(100),
+    inlineSize: zod.uint16.default(100),
     /** channel is the channel whose string value the symbol displays. */
     channel: channel.keyZ.optional(),
     /** level is the typography level of the displayed text. */
@@ -861,8 +874,8 @@ export const textBoxNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("text_box"),
   /** textColor is the text color. */
   textColor: color.colorZ.optional(),
-  /** width is the rendered width of the text box in pixels. */
-  width: z.number().default(75),
+  /** inlineSize is the rendered inline size of the text box in pixels. */
+  inlineSize: zod.uint16.default(75),
   /** align is the alignment of the text within the box. */
   align: flexAlignmentZ.default("center"),
   /** autoFitDisabled stops the box from resizing to fit its content. */
@@ -901,7 +914,7 @@ export const valueNodeConfigZ = labeledConfigZ
     /** units is the unit suffix displayed after the value. */
     units: z.string().default(""),
     /** inlineSize is the inline size of the value in pixels. */
-    inlineSize: z.number().default(70),
+    inlineSize: zod.uint16.default(70),
     /** level is the typography level of the displayed value. */
     level: text.levelZ.default("h4"),
     /** location is the anchor of the value within the symbol. */

@@ -33,6 +33,16 @@
     background: var(--console-range-timeline-bg);
 }
 
+/* The room above the first lane, as a tree keeps above its first item. Its track
+   carries the axis lines and now through it. */
+.console-range-timeline__gap {
+    display: flex;
+    flex-shrink: 0;
+    height: 1rem;
+    margin: 0 -1rem;
+    padding: 0 3rem 0 calc(2rem + var(--console-range-timeline-label));
+}
+
 .console-range-timeline__label {
     flex: 0 0 var(--console-range-timeline-label);
     gap: 1rem;

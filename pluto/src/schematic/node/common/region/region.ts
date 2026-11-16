@@ -146,12 +146,13 @@ const getElementColors = (element: SVGElement): ColorPair => {
 const getColorPairKey = (colorPair: ColorPair): string =>
   `${color.hex(colorPair.stroke)}|${color.hex(colorPair.fill)}`;
 
-const generateSelector = (element: SVGElement): string => {
-  if (element.id) return `#${element.id}`;
+/** Returns a CSS selector that matches the element within its SVG. */
+export const selector = (element: SVGElement): string => {
+  if (element.id) return `#${CSS.escape(element.id)}`;
   const dataRegionId = element.getAttribute("data-region-id");
-  if (dataRegionId) return `[data-region-id="${dataRegionId}"]`;
+  if (dataRegionId) return `[data-region-id="${CSS.escape(dataRegionId)}"]`;
   if (element.classList.length > 0)
-    return `.${Array.from(element.classList).join(".")}`;
+    return `.${Array.from(element.classList, CSS.escape).join(".")}`;
   const tagName = element.tagName.toLowerCase();
   const parent = element.parentElement;
   if (!parent) return tagName;
@@ -165,7 +166,7 @@ const generateSelector = (element: SVGElement): string => {
     parent.tagName.toLowerCase() === "svg"
       ? ""
       : parent instanceof SVGElement
-        ? `${generateSelector(parent)} > `
+        ? `${selector(parent)} > `
         : "";
   return `${parentSelector}${tagName}:nth-of-type(${index})`;
 };
@@ -184,7 +185,7 @@ export const extract = (svgElement: SVGElement): schematic.symbol.Region[] => {
     groups.get(key)!.elements.push(element);
   });
   return Array.from(groups.values()).map((group, index) => {
-    const selectors = group.elements.map(generateSelector);
+    const selectors = group.elements.map(selector);
     const uniqueSelectors = Array.from(new Set(selectors));
     const regionIndex = index + 1;
     const region: schematic.symbol.Region = {
@@ -205,8 +206,8 @@ export const extract = (svgElement: SVGElement): schematic.symbol.Region[] => {
  */
 export const paint = (svg: string, selectors: string[]): ColorPair => {
   const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
-  for (const selector of selectors) {
-    const el = doc.querySelector(selector);
+  for (const sel of selectors) {
+    const el = doc.querySelector(sel);
     if (el != null)
       return {
         stroke: normalizeColor(el.getAttribute("stroke")),
