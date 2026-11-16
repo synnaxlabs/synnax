@@ -210,8 +210,8 @@ const createICD = async (
 
 interface AddTopicsParams {
   client: Synnax;
-  /** The ICD that takes the messages of new topics. */
-  icdKey: icd.Key;
+  /** The form of the ICD that takes the messages of new topics. */
+  format: Format;
   entries: ICDReadEntry[];
   drafts: Draft[];
 }
@@ -219,21 +219,20 @@ interface AddTopicsParams {
 /**
  * Appends each draft's fields to the message format of its topic, in the ICD of its
  * entry. A topic with no format gets a new message, named after the topic, in the ICD
- * of its entry, or in the ICD that takes new topics.
+ * of its entry, or in the ICD of the form. Edits to the ICD of the form go through the
+ * form.
  * @returns the entries of the topics that the task does not read yet.
  */
 const addTopics = async ({
   client,
-  icdKey,
+  format,
   entries,
   drafts,
 }: AddTopicsParams): Promise<ICDReadEntry[]> => {
-  const messages = await retrieveMessages(client, [
-    icdKey,
-    ...entries.map((e) => e.icd),
-  ]);
+  const messages = await readMessages(client, format, entries);
   const actions = new Map<icd.Key, icd.Action[]>();
   const inserterOf = (key: icd.Key): Inserter => {
+    if (key === format.key) return format.form;
     const held = actions.get(key) ?? [];
     actions.set(key, held);
     return {
@@ -242,20 +241,22 @@ const addTopics = async ({
     };
   };
   const added: ICDReadEntry[] = [];
-  for (const { topic, fields } of drafts) {
-    const entry = entries.find((e) => e.topic === topic);
-    const key = entry?.icd ?? icdKey;
-    const message = entry == null ? undefined : messageOf(messages, entry);
-    if (message != null) {
-      appendFields(inserterOf(key), message, fields);
-      continue;
+  format.form.batch(() => {
+    for (const { topic, fields } of drafts) {
+      const entry = entries.find((e) => e.topic === topic);
+      const key = entry?.icd ?? format.key;
+      const message = entry == null ? undefined : messageOf(messages, entry);
+      if (message != null) {
+        appendFields(inserterOf(key), message, fields);
+        continue;
+      }
+      const held = messages.get(key) ?? [];
+      const created = createMessage(topic, fields);
+      inserterOf(key).insert(PICD.formPath.messages, created, held.at(-1)?.key);
+      messages.set(key, [...held, created]);
+      if (entry == null) added.push(entryOf(key, topic, created.key));
     }
-    const held = messages.get(key) ?? [];
-    const created = createMessage(topic, fields);
-    inserterOf(key).insert(PICD.formPath.messages, created, held.at(-1)?.key);
-    messages.set(key, [...held, created]);
-    if (entry == null) added.push(entryOf(key, topic, created.key));
-  }
+  });
   for (const [key, held] of actions) await client.icds.dispatch(key, held);
   return added;
 };
@@ -445,7 +446,7 @@ const Topics: FC<TopicsProps> = ({ device, format, selected, onSelect }) => {
       const added =
         format == null
           ? await createICD(client, ctx.get(root.name).value, drafts)
-          : await addTopics({ client, icdKey: format.key, entries, drafts });
+          : await addTopics({ client, format, entries, drafts });
       push(added);
       const first = entries.find((e) => e.topic === drafts[0].topic) ?? added[0];
       onSelect([first.key]);

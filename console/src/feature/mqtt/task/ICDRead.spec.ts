@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd, mqtt } from "@synnaxlabs/client";
+import { icd, mqtt, type rack } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { DataType, type payload, uuid } from "@synnaxlabs/x";
@@ -118,6 +118,22 @@ const retrieveEntries = async (key: string) =>
 const deploy = async (container: HTMLElement, key: string) =>
   await deployAndAwaitTask(client, container, key, MQTT.Task.ICD_READ_SCHEMAS);
 
+/** Adds the number at /name in the topic through the Add data dialog. */
+const addField = async (rack: rack.Key, topic: string, name: string) => {
+  const scanner = await openScanner(client, rack);
+  const dialog = await openAddData();
+  const scanned = {
+    topic,
+    payload: `{"${name}": 1}`,
+    fields: [{ pointer: `/${name}`, type: "number", sample: "1" }],
+    retained: true,
+  };
+  await scanner.answer({ data: { topics: [scanned], truncated: false } });
+  scanner.close();
+  fireEvent.click(await dialog.findByRole("checkbox", { name: `Record ${name}` }));
+  fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+};
+
 const retrieveTopicProps = async (key: string) =>
   (await client.devices.retrieve({ key, schemas: MQTT.Device.SCHEMAS })).properties
     .read[TOPIC];
@@ -185,6 +201,27 @@ describe("MQTT ICD read form", () => {
     fireEvent.click(await screen.findByRole("option", { name: /plant\/kiln/ }));
     await screen.findByDisplayValue("pressure");
     expect(screen.queryByDisplayValue("temperature")).toBeNull();
+  });
+
+  it("should add fields to a topic in the ICD of its entry", async () => {
+    const kiln = await createEntry({
+      topic: "plant/kiln",
+      fields: [createField("pressure", "float")],
+    });
+    const { dev } = await renderICDRead({
+      fields: [createField("temperature", "float")],
+      entries: [kiln],
+    });
+    await screen.findByDisplayValue("temperature");
+    await addField(dev.rack, "plant/kiln", "flow");
+    await waitFor(async () =>
+      expect((await client.icds.retrieve(kiln.icd)).messages).toMatchObject([
+        {
+          key: kiln.messages[0].message,
+          payload: { fields: [{ pointer: "/pressure" }, { pointer: "/flow" }] },
+        },
+      ]),
+    );
   });
 
   it("should disable and enable a topic through the context menu", async () => {
