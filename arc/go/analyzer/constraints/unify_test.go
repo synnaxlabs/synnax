@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 )
 
 var _ = Describe("Type Unification", func() {
@@ -798,8 +799,8 @@ var _ = Describe("Type Unification", func() {
 				err,
 			).To(MatchError(ContainSubstring("str is not compatible with i32")))
 
-			ue, ok := err.(*constraints.UnificationError)
-			Expect(ok).To(BeTrue(), "expected UnificationError")
+			var ue *constraints.UnificationError
+			Expect(errors.As(err, &ue)).To(BeTrue(), "expected UnificationError")
 			Expect(ue.Message).To(ContainSubstring("is not compatible with"))
 		})
 
@@ -815,8 +816,8 @@ var _ = Describe("Type Unification", func() {
 				err,
 			).To(MatchError(ContainSubstring("f64 is not compatible with i64")))
 
-			ue, ok := err.(*constraints.UnificationError)
-			Expect(ok).To(BeTrue())
+			var ue *constraints.UnificationError
+			Expect(errors.As(err, &ue)).To(BeTrue())
 			Expect(ue.Hint).To(ContainSubstring("use"))
 			Expect(ue.Hint).To(ContainSubstring("to convert"))
 		})

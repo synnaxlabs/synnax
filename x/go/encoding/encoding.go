@@ -53,7 +53,7 @@ type Codec interface {
 // result wraps base, so errors.Is matches base and the errors it wraps.
 func SugarDecodingError(value any, base error) error {
 	if base == nil {
-		return base
+		return nil
 	}
 	t := reflect.TypeOf(value)
 	if t != nil && t.Kind() == reflect.Pointer {
@@ -65,7 +65,7 @@ func SugarDecodingError(value any, base error) error {
 // SugarEncodingError adds additional context to encoding errors.
 func SugarEncodingError(value any, base error) error {
 	if base == nil {
-		return base
+		return nil
 	}
 	val := reflect.ValueOf(value)
 	main := errors.Wrapf(

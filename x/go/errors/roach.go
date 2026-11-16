@@ -35,13 +35,18 @@ func roachDecode(pld Payload) (error, bool) {
 	if pld.Type != TypeRoach {
 		return nil, false
 	}
-	e := &errors.EncodedError{}
-	b, err := hex.DecodeString(pld.Data)
+	e, ok := unmarshalRoach(pld.Data)
+	if !ok {
+		return nil, false
+	}
+	return errors.DecodeError(context.Background(), e), true
+}
+
+func unmarshalRoach(data string) (errors.EncodedError, bool) {
+	var e errors.EncodedError
+	b, err := hex.DecodeString(data)
 	if err != nil {
-		return nil, false
+		return e, false
 	}
-	if err := e.Unmarshal(b); err != nil {
-		return nil, false
-	}
-	return errors.DecodeError(context.Background(), *e), true
+	return e, e.Unmarshal(b) == nil
 }

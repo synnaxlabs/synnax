@@ -151,7 +151,7 @@ type clientStream[RQ, RS freighter.Payload] struct {
 
 // Send implements the freighter.ClientStream interface.
 func (s *clientStream[RQ, RS]) Send(req RQ) error {
-	if s.peerCloseErr != nil {
+	if s.peerClosed() {
 		return freighter.EOF
 	}
 	if s.sendClosed {
@@ -171,7 +171,7 @@ func (s *clientStream[RQ, RS]) Receive() (RS, error) {
 
 // CloseSend implements the freighter.ClientStream interface.
 func (s *clientStream[RQ, RS]) CloseSend() error {
-	if s.peerCloseErr != nil || s.sendClosed {
+	if s.peerClosed() || s.sendClosed {
 		return nil
 	}
 	s.sendClosed = true
