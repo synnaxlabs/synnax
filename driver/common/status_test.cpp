@@ -636,8 +636,9 @@ TEST(TestHandleConfigErr, testErrorAtBootWritesError) {
     x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     synnax::task::Task task{.rack = 1, .name = "task1", .type = "ni_analog_read"};
-    // The status that the Core writes when it creates a task has no rack.
+    // A stopped status of another rack, such as one an old Driver left.
     task.status = synnax::task::Status{};
+    task.status->details.rack = 2;
     cancel.start();
     auto [tsk, handled] = handle_config_err(
         ctx,
@@ -663,6 +664,7 @@ TEST(TestHandleConfigErr, testErrorAtBootOfAMovedTaskSilent) {
     synnax::task::Task task{.rack = 1, .name = "task1", .type = "ni_analog_read"};
     task.status = synnax::task::Status{};
     task.status->details.rack = 2;
+    task.status->details.running = true;
     cancel.start();
     auto [tsk, handled] = handle_config_err(
         ctx,

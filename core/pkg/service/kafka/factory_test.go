@@ -78,16 +78,15 @@ var _ = Describe("Factory", func() {
 			Entry("an explicit zero", 0.0),
 		)
 
-		It("Should only log an invalid config when no command waits on it",
+		It("Should write an error status for an invalid config at boot",
 			func(ctx SpecContext) {
 				t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{})
 				Expect(f.ConfigureTask(ctx, t, driver.NoCommand)).Error().
 					To(MatchError(validate.ErrValidation))
-				var stat task.Status
-				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
-					Entry(&stat).
-					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+				stat := taskStatus(ctx, t)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to configure task"))
+				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
 			},
 		)
 
