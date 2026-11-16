@@ -8,8 +8,10 @@
 # included in the file licenses/APL.txt.
 
 version: "2"
-# Reports only issues in lines changed since the merge base with main. It stays until
-# the existing complexity findings reach zero (SY-6110).
+# Reports only issues on lines changed since the merge base with main, so a function
+# that grows without a change to its func line is not caught. Pass
+# --new-from-merge-base= to lint the whole module. The setting stays until the existing
+# complexity findings reach zero (SY-6110).
 issues:
   new-from-merge-base: origin/main
 linters:

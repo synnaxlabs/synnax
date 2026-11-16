@@ -235,14 +235,21 @@ jobs:
           # the paths resolve, which the action adds only to a lint it runs itself.
           problem-matchers: true
 
+      # The config reports only lines changed since the merge base, which the
+      # complexity linters need until their old findings are split (SY-6110). Every
+      # other linter reports the whole module, so the merge queue and main still catch
+      # a finding on a line no change touched.
       - name: Lint
         working-directory: ${{ inputs.directory }}
         env:
           CGO_ENABLED: "0"
           GOOS: ${{ matrix.goos }}
+          COMPLEXITY: funlen,gocognit,maintidx,nestif
         run: |
           ./custom-gcl config verify
-          ./custom-gcl run --path-mode=abs
+          ./custom-gcl run --path-mode=abs --new-from-merge-base= \
+            --disable "$COMPLEXITY"
+          ./custom-gcl run --path-mode=abs --enable-only "$COMPLEXITY"
 
       # Each save holds every entry it restored, so stale builds pile up until their
       # extraction fills the disk. Go and golangci-lint refresh an entry's mtime when
