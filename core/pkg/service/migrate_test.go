@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	rangerv0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
@@ -339,4 +340,134 @@ var _ = Describe("Metrics upgrade", func() {
 			Expect(ch.Group).To(HaveValue(Equal(metrics.Key)), ch.Name)
 		}
 	})
+})
+
+var _ = Describe("Group drop report", func() {
+	It("Should report each channel that the upgrade removed from a group",
+		func(ctx SpecContext) {
+			n := testutil.NewNode(ctx)
+			legacyDB := gorp.Wrap(n.DB.KV(), gorp.WithCodec(msgpack.Codec))
+			chs := MustSucceed(n.Channel.Allocate(ctx, []distchannel.Channel{
+				{
+					Name:        "oil_temp",
+					Leaseholder: node.KeyFree,
+					DataType:    telem.Float32T,
+					Virtual:     true,
+				},
+				{
+					Name:        "water_temp",
+					Leaseholder: node.KeyFree,
+					DataType:    telem.Float32T,
+					Virtual:     true,
+				},
+			}))
+			var (
+				channels = groupv0.Group{Key: uuid.New(), Name: "Channels"}
+				devices  = groupv0.Group{Key: uuid.New(), Name: "Devices"}
+				// Cryomech sorts before Alpha by key, so a pick by key keeps Cryomech.
+				cryomech = groupv0.Group{
+					Key:  uuid.MustParse("00000000-0000-4000-8000-000000000001"),
+					Name: "Cryomech",
+				}
+				alpha = groupv0.Group{
+					Key:  uuid.MustParse("ffffffff-ffff-4fff-bfff-ffffffffffff"),
+					Name: "Alpha",
+				}
+				compressors = groupv0.Group{Key: uuid.New(), Name: "Compressors"}
+				id          = func(g groupv0.Group) resource.ID {
+					return resource.ID{Type: resource.TypeGroup, Key: g.Key.String()}
+				}
+				oil = resource.ID{
+					Type: resource.TypeChannel,
+					Key:  chs[0].Key().String(),
+				}
+				water = resource.ID{
+					Type: resource.TypeChannel,
+					Key:  chs[1].Key().String(),
+				}
+				groups = []groupv0.Group{
+					channels,
+					devices,
+					cryomech,
+					alpha,
+					compressors,
+				}
+				res  = []ontology.Resource{{ID: oil}, {ID: water}}
+				recs []channelv0.Channel
+			)
+			for _, ch := range chs {
+				recs = append(recs, channelv0.Channel{
+					Name:        ch.Name,
+					Leaseholder: ch.Leaseholder,
+					DataType:    telemv0.DataType(ch.DataType),
+					LocalKey:    ch.LocalKey,
+					Virtual:     ch.Virtual,
+				})
+			}
+			for _, g := range groups {
+				res = append(res, ontology.Resource{ID: id(g)})
+			}
+			Expect(gorp.WrapWriter[channelv0.Key, channelv0.Channel](legacyDB).
+				Set(ctx, recs...)).To(Succeed())
+			Expect(gorp.WrapWriter[groupv0.Key, groupv0.Group](legacyDB).
+				Set(ctx, groups...)).To(Succeed())
+			Expect(gorp.WrapWriter[string, ontology.Resource](n.DB).
+				Set(ctx, res...)).To(Succeed())
+			Expect(gorp.WrapWriter[string, ontology.Relationship](n.DB).Set(
+				ctx,
+				parentOf(ontology.RootID, id(channels)),
+				parentOf(ontology.RootID, id(devices)),
+				parentOf(id(channels), id(cryomech)),
+				parentOf(id(channels), id(alpha)),
+				parentOf(id(devices), id(compressors)),
+				parentOf(id(cryomech), oil),
+				parentOf(id(alpha), oil),
+				parentOf(id(compressors), water),
+			)).To(Succeed())
+			layer := MustOpen(svctestutil.OpenLayer(ctx, n))
+
+			By("Keeping a channel of several groups in the first group by name")
+			var migrated []channel.Channel
+			Expect(layer.Channel.NewRetrieve().
+				Where(channel.MatchNames("oil_temp", "water_temp")).
+				Entries(&migrated).
+				Exec(ctx, n.DB)).To(Succeed())
+			groupOf := make(map[string]*group.Key, len(migrated))
+			for _, ch := range migrated {
+				groupOf[ch.Name] = ch.Group
+			}
+			Expect(groupOf["oil_temp"]).To(HaveValue(Equal(alpha.Key)))
+			Expect(groupOf["water_temp"]).To(BeNil())
+
+			By("Writing a warning status for each removal")
+			var statuses []status.Status[any]
+			Expect(layer.Status.NewRetrieve[any]().
+				Entries(&statuses).
+				Exec(ctx, n.DB)).To(Succeed())
+			type report struct{ name, message, description string }
+			var reports []report
+			for _, s := range statuses {
+				if s.Message == "Removed channel from group" {
+					Expect(s.Variant).To(Equal(status.VariantWarning))
+					reports = append(reports, report{s.Name, s.Message, s.Description})
+				}
+			}
+			Expect(reports).To(ConsistOf(
+				report{
+					name:    "Cryomech",
+					message: "Removed channel from group",
+					description: `A channel can now be in only one group, so the ` +
+						`upgrade kept channel "oil_temp" in group "Alpha", the first ` +
+						`of its groups by name, and removed it from group ` +
+						`"Cryomech". Drag the channel into "Cryomech" to move it back.`,
+				},
+				report{
+					name:    "Compressors",
+					message: "Removed channel from group",
+					description: `The upgrade removed channel "water_temp" from group ` +
+						`"Compressors", because that group cannot hold a channel.`,
+				},
+			))
+		},
+	)
 })

@@ -241,13 +241,13 @@ var _ = Describe("Group migrations", func() {
 	})
 
 	It(
-		"Should keep a device in a first group under its rack",
+		"Should keep a device of several groups in the first group by name",
 		func(ctx SpecContext) {
 			migrate(
 				ctx,
 				map[uuid.UUID]string{
 					devices: "Devices",
-					first:   "Rack",
+					first:   "Bench",
 					second:  "Loose",
 				},
 				both,

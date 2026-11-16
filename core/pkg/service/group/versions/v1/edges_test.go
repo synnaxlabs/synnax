@@ -11,6 +11,7 @@ package v1_test
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -55,6 +56,14 @@ func edges(ctx context.Context, db *gorp.DB) []ontology.Relationship {
 	return out
 }
 
+func retype(
+	e ontology.Relationship,
+	t ontology.RelationshipType,
+) ontology.Relationship {
+	e.Type = t
+	return e
+}
+
 func groupID(k uuid.UUID) resource.ID {
 	return resource.ID{Type: resource.TypeGroup, Key: k.String()}
 }
@@ -64,8 +73,8 @@ var _ = Describe("ParentMigration", func() {
 		db       *gorp.DB
 		channels = uuid.New()
 		users    = uuid.New()
-		a        = uuid.New()
-		b        = uuid.New()
+		a        = uuid.MustParse("ffffffff-ffff-4fff-bfff-ffffffffffff")
+		b        = uuid.MustParse("00000000-0000-4000-8000-000000000001")
 		inUsers  = uuid.New()
 		ranges   = uuid.New()
 		inRanges = uuid.New()
@@ -227,10 +236,6 @@ var _ = Describe("ParentMigration", func() {
 				"member":     member.String(),
 			}
 		}
-		second, secondName := b, "B"
-		if groupID(b).String() < groupID(a).String() {
-			second, secondName = a, "A"
-		}
 		var got []map[string]any
 		for _, e := range logs.FilterMessage(
 			"dropped a member from a group that cannot hold it",
@@ -241,17 +246,55 @@ var _ = Describe("ParentMigration", func() {
 			dropped(mixed, "Mixed", channel),
 			dropped(mixed, "Mixed", schem),
 			dropped(inProj, "In Project", channel),
-			dropped(second, secondName, twoGrps),
+			dropped(b, "B", twoGrps),
 			dropped(inTasks, "Task Folder", task),
 		))
 	})
 
 	It(
-		"Should delete the parent edges into groups and keep the rest",
+		"Should keep a member of several groups only in the first group by name",
 		func(ctx SpecContext) {
-			Expect(edges(ctx, db)).To(ConsistOf(
-				append([]ontology.Relationship{toProj, toRanges, inRange}, members...),
+			Expect(edges(ctx, db)).To(ContainElements(
+				parentOf(groupID(a), twoGrps),
+				retype(parentOf(groupID(a), twoGrps), v1.RelationshipTypeKept),
+				retype(parentOf(groupID(b), twoGrps), v1.RelationshipTypeDropped),
 			))
+			Expect(edges(ctx, db)).ToNot(ContainElement(parentOf(groupID(b), twoGrps)))
+		},
+	)
+
+	It(
+		"Should delete the parent edges into groups and mark each dropped member",
+		func(ctx SpecContext) {
+			kept := slices.DeleteFunc(
+				slices.Clone(members),
+				func(e ontology.Relationship) bool {
+					return e == parentOf(groupID(b), twoGrps)
+				},
+			)
+			Expect(edges(ctx, db)).To(ConsistOf(append(
+				[]ontology.Relationship{
+					toProj,
+					toRanges,
+					inRange,
+					retype(parentOf(groupID(a), twoGrps), v1.RelationshipTypeKept),
+					retype(
+						parentOf(groupID(mixed), channel),
+						v1.RelationshipTypeDropped,
+					),
+					retype(parentOf(groupID(mixed), schem), v1.RelationshipTypeDropped),
+					retype(
+						parentOf(groupID(inProj), channel),
+						v1.RelationshipTypeDropped,
+					),
+					retype(parentOf(groupID(b), twoGrps), v1.RelationshipTypeDropped),
+					retype(
+						parentOf(groupID(inTasks), task),
+						v1.RelationshipTypeDropped,
+					),
+				},
+				kept...,
+			)))
 		},
 	)
 })
@@ -371,7 +414,13 @@ var _ = Describe("MembersMigration", func() {
 				"group_name": top.Name,
 				"member":     logID(1).String(),
 			}))
-			Expect(edges(ctx, db)).To(ConsistOf(parentOf(project, logID(3))))
+			Expect(edges(ctx, db)).To(ConsistOf(
+				parentOf(project, logID(3)),
+				retype(
+					parentOf(groupID(top.Key), logID(1)),
+					v1.RelationshipTypeDropped,
+				),
+			))
 		},
 	)
 

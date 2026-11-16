@@ -10,8 +10,10 @@
 package v1
 
 import (
+	"cmp"
 	"context"
 	"slices"
+	"strings"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -53,6 +55,16 @@ var memberScopes = map[resource.Type]resource.Type{
 	resource.TypeSchematicSymbol: resource.TypeSchematicSymbol,
 }
 
+const (
+	// RelationshipTypeDropped marks the edge from a group to a member that the
+	// migrations of this version removed from it. The edge stays until the ontology is
+	// dropped, so a later migration can report the removal.
+	RelationshipTypeDropped ontology.RelationshipType = "v61_dropped_member"
+	// RelationshipTypeKept marks the edge from the group that kept a member that was in
+	// several groups.
+	RelationshipTypeKept ontology.RelationshipType = "v61_kept_member"
+)
+
 // legacyRangesRoot names the built-in root of the legacy range groups. The range
 // migration reads the edges under it, so ParentMigration keeps them.
 const legacyRangesRoot = "Ranges"
@@ -63,8 +75,10 @@ const legacyRangesRoot = "Ranges"
 // builtin scope, as do the legacy range groups. A group under a project, a rack, or a
 // root in builtinScopes gets the scope they give. Any other group at the top of a chain
 // gets no parent and the one scope that the members under it imply. The migration logs
-// each group with no such scope and gives it the builtin scope. It also logs each
-// membership outside the built-in roots that the member migrations drop.
+// each group with no such scope and gives it the builtin scope. A member in several
+// groups that can hold it stays only in the group that comes first by name. The
+// migration logs each membership outside the built-in roots that the member migrations
+// drop, and marks it with RelationshipTypeDropped.
 var ParentMigration = migrate.New("v61_group_parent_and_scope", migrateParents)
 
 // placement is the scope that ParentMigration gives a group.
@@ -222,7 +236,22 @@ func migrateParents(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation)
 		}
 		return parent.Type == resource.TypeGroup && underRanges(parent.Key, visited)
 	}
-	kept := set.New[resource.ID]()
+	var (
+		members    []resource.ID
+		candidates = make(map[resource.ID][]ontology.Relationship)
+		duplicates []ontology.Relationship
+		staged     []ontology.Relationship
+	)
+	drop := func(e ontology.Relationship) {
+		g := byKey[e.From.Key]
+		ins.L.Warn(
+			"dropped a member from a group that cannot hold it",
+			zap.Stringer("group", g.Key),
+			zap.String("group_name", g.Name),
+			zap.Stringer("member", e.To),
+		)
+		staged = append(staged, retype(e, RelationshipTypeDropped))
+	}
 	for _, e := range edges {
 		if e.From.Type != resource.TypeGroup || e.To.Type == resource.TypeGroup {
 			continue
@@ -233,23 +262,51 @@ func migrateParents(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation)
 			underRanges(e.From.Key, set.New[string]()) {
 			continue
 		}
-		// The member migrations keep only the first group of a member.
-		if s, ok := memberScopes[e.To.Type]; ok && s == g.Scope &&
-			!kept.Contains(e.To) {
-			kept.Add(e.To)
+		if s, ok := memberScopes[e.To.Type]; !ok || s != g.Scope {
+			drop(e)
 			continue
 		}
-		ins.L.Warn(
-			"dropped a member from a group that cannot hold it",
-			zap.Stringer("group", g.Key),
-			zap.String("group_name", g.Name),
-			zap.Stringer("member", e.To),
-		)
+		if _, ok := candidates[e.To]; !ok {
+			members = append(members, e.To)
+		}
+		candidates[e.To] = append(candidates[e.To], e)
+	}
+	for _, m := range members {
+		c := candidates[m]
+		if len(c) < 2 {
+			continue
+		}
+		slices.SortFunc(c, func(a, b ontology.Relationship) int {
+			return cmp.Or(
+				strings.Compare(byKey[a.From.Key].Name, byKey[b.From.Key].Name),
+				strings.Compare(a.From.Key, b.From.Key),
+			)
+		})
+		staged = append(staged, retype(c[0], RelationshipTypeKept))
+		for _, e := range c[1:] {
+			drop(e)
+		}
+		duplicates = append(duplicates, c[1:]...)
 	}
 	converted := slices.DeleteFunc(into, func(e ontology.Relationship) bool {
 		return underRanges(e.To.Key, set.New[string]())
 	})
-	return ontology.DeleteRelationships(ctx, tx, converted...)
+	if err = ontology.DeleteRelationships(
+		ctx,
+		tx,
+		append(converted, duplicates...)...,
+	); err != nil {
+		return err
+	}
+	return gorp.WrapWriter[string, ontology.Relationship](tx).Set(ctx, staged...)
+}
+
+func retype(
+	e ontology.Relationship,
+	t ontology.RelationshipType,
+) ontology.Relationship {
+	e.Type = t
+	return e
 }
 
 // MembersConfig configures a migration that moves the members of type Type out of the
@@ -271,7 +328,8 @@ type MembersConfig[K gorp.Key, E gorp.Entry[K]] struct {
 
 // NewMembersMigration returns a migration that sets the group of each member from the
 // parent edge that points at it from a group whose scope holds Type. It then deletes
-// every parent edge from a group to a member.
+// every parent edge from a group to a member, and marks each member that Holds rejects
+// with RelationshipTypeDropped.
 func NewMembersMigration[K gorp.Key, E gorp.Entry[K]](
 	cfg MembersConfig[K, E],
 ) gorp.Migration {
@@ -329,7 +387,7 @@ func migrateMembers[K gorp.Key, E gorp.Entry[K]](
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	var owners []ontology.Relationship
+	var staged []ontology.Relationship
 	for i := range members {
 		id := gorp.FormatKey(members[i].GorpKey())
 		g := memberGroups[id]
@@ -344,6 +402,11 @@ func migrateMembers[K gorp.Key, E gorp.Entry[K]](
 				zap.String("group_name", g.Name),
 				zap.Stringer("member", resource.ID{Type: cfg.Type, Key: id}),
 			)
+			staged = append(staged, ontology.Relationship{
+				From: groupID(g.Key.String()),
+				Type: RelationshipTypeDropped,
+				To:   resource.ID{Type: cfg.Type, Key: id},
+			})
 			continue
 		}
 		cfg.SetGroup(&members[i], g.Key)
@@ -351,7 +414,7 @@ func migrateMembers[K gorp.Key, E gorp.Entry[K]](
 			continue
 		}
 		if top != nil && top.Type == resource.TypeProject {
-			owners = append(owners, ontology.Relationship{
+			staged = append(staged, ontology.Relationship{
 				From: *top,
 				Type: ontology.RelationshipTypeParentOf,
 				To:   resource.ID{Type: cfg.Type, Key: id},
@@ -364,7 +427,7 @@ func migrateMembers[K gorp.Key, E gorp.Entry[K]](
 	if err = ontology.DeleteRelationships(ctx, tx, edges...); err != nil {
 		return err
 	}
-	return gorp.WrapWriter[string, ontology.Relationship](tx).Set(ctx, owners...)
+	return gorp.WrapWriter[string, ontology.Relationship](tx).Set(ctx, staged...)
 }
 
 // TopParent returns the parent of the group at the top of g's chain, if it has one.
