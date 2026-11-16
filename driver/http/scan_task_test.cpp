@@ -117,6 +117,14 @@ TEST(HTTPScanTask, ExpectedResponseConfigMissingBoth) {
     EXPECT_FALSE(parser.ok());
 }
 
+TEST(HTTPScanTask, ExpectedResponseConfigMalformedPointer) {
+    auto j = x::json::json{{"pointer", "status"}, {"expected_value", "ok"}};
+    auto parser = x::json::Parser(j);
+    const ExpectedResponseConfig cfg(parser);
+    ASSERT_FALSE(parser.ok());
+    EXPECT_NE(parser.error().data.find("pointer"), std::string::npos);
+}
+
 TEST(HTTPScanTask, HealthCheckConfigParsesAllFields) {
     auto j = x::json::json{
         {"method", "POST"},
