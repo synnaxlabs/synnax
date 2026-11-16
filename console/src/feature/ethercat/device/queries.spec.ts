@@ -728,4 +728,31 @@ describe("useReplace", () => {
     expect((await driver.answered).map((c) => c.type)).toEqual(["stop"]);
     expect(stopped).toEqual([read.key]);
   });
+
+  it("should change neither slave when a task fails to stop", async () => {
+    const r = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const old = await createSlaveDevice(r.key, { network: "eth0", position: 3 });
+    const slave = await createSlave(
+      client,
+      r.key,
+      { network: "eth0", position: 5 },
+      false,
+    );
+    const read = await createReadTask(r, old.key);
+    await reportTaskRunning(client, read);
+    const driver = await answerCommandsUntil([read], "start", {
+      stop: { variant: "error", message: "Failed to stop" },
+    });
+    const { result } = renderHook(() => EtherCAT.Device.useReplace(), { wrapper });
+    await act(async () => {
+      expect(await result.current.updateAsync({ old, slave })).toBe(false);
+    });
+    expect((await driver.answered).map((c) => c.type)).toEqual(["stop", "start"]);
+    const kept = await client.devices.retrieve({
+      key: old.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    expect(kept.properties.position).toEqual(3);
+    expect((await client.devices.retrieve({ key: slave.key })).key).toEqual(slave.key);
+  });
 });
