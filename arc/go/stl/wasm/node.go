@@ -186,9 +186,11 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			}
 			stringResults[i] = make([]string, 0, maxLength)
 		} else {
-			n.Output(i).Resize(maxLength)
+			out := n.Output(i)
+			*out = out.Resized(maxLength)
 		}
-		n.OutputTime(i).Resize(maxLength)
+		outTime := n.OutputTime(i)
+		*outTime = outTime.Resized(maxLength)
 	}
 	// Copy alignment and time range from inputs to outputs.
 	// Alignments are summed to guarantee uniqueness across different input sources.
@@ -306,9 +308,11 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			out := n.Output(j)
 			out.Data = telem.NewSeriesV(stringResults[j]...).Data
 		} else {
-			n.Output(j).Resize(int64(n.offsets[j]))
+			out := n.Output(j)
+			*out = out.Resized(int64(n.offsets[j]))
 		}
-		n.OutputTime(j).Resize(int64(n.offsets[j]))
+		outTime := n.OutputTime(j)
+		*outTime = outTime.Resized(int64(n.offsets[j]))
 		if n.offsets[j] > 0 {
 			n.Emit(ctx, j)
 		}
