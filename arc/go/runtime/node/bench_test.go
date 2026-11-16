@@ -22,7 +22,6 @@ import (
 )
 
 func BenchmarkRefreshInputsSingleInput(b *testing.B) {
-	ctx := context.Background()
 	g := graph.Graph{
 		Nodes: graph.Nodes{
 			{Key: "source"},
@@ -33,12 +32,7 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 			"target": {"type": "target"},
 		},
 		Functions: []ir.Function{
-			{
-				Key: "source",
-				Outputs: types.Params{
-					{Name: ir.DefaultOutputParam, Type: types.F32()},
-				},
-			},
+			f32Source("source"),
 			{
 				Key: "target",
 				Inputs: types.Params{
@@ -53,11 +47,7 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 			},
 		},
 	}
-	inter, diagnostics := graph.Analyze(ctx, g, nil)
-	if !diagnostics.Ok() {
-		b.Fatalf("Failed to analyze graph: %s", diagnostics.String())
-	}
-	s := node.New(inter)
+	s := analyzeBenchGraph(b, g)
 	sourceNode := s.Node("source")
 	targetNode := s.Node("target")
 	*sourceNode.Output(0) = telem.NewSeriesV[float32](0)
@@ -74,7 +64,6 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 }
 
 func BenchmarkRefreshInputsStaleInput(b *testing.B) {
-	ctx := context.Background()
 	g := graph.Graph{
 		Nodes: graph.Nodes{{Key: "fresh"}, {Key: "stale"}, {Key: "target"}},
 		Inputs: map[string]msgpack.EncodedJSON{
@@ -83,18 +72,8 @@ func BenchmarkRefreshInputsStaleInput(b *testing.B) {
 			"target": {"type": "target"},
 		},
 		Functions: []ir.Function{
-			{
-				Key: "fresh",
-				Outputs: types.Params{
-					{Name: ir.DefaultOutputParam, Type: types.F32()},
-				},
-			},
-			{
-				Key: "stale",
-				Outputs: types.Params{
-					{Name: ir.DefaultOutputParam, Type: types.F32()},
-				},
-			},
+			f32Source("fresh"),
+			f32Source("stale"),
 			{
 				Key: "target",
 				Inputs: types.Params{
@@ -114,11 +93,7 @@ func BenchmarkRefreshInputsStaleInput(b *testing.B) {
 			},
 		},
 	}
-	inter, diagnostics := graph.Analyze(ctx, g, nil)
-	if !diagnostics.Ok() {
-		b.Fatalf("Failed to analyze graph: %s", diagnostics.String())
-	}
-	s := node.New(inter)
+	s := analyzeBenchGraph(b, g)
 	freshNode, staleNode := s.Node("fresh"), s.Node("stale")
 	targetNode := s.Node("target")
 	*freshNode.Output(0) = telem.NewSeriesV[float32](0)
@@ -134,5 +109,21 @@ func BenchmarkRefreshInputsStaleInput(b *testing.B) {
 		if !targetNode.RefreshInputs() {
 			b.Fatal("Failed to refresh inputs")
 		}
+	}
+}
+
+func analyzeBenchGraph(b *testing.B, g graph.Graph) *node.ProgramState {
+	b.Helper()
+	inter, diagnostics := graph.Analyze(context.Background(), g, nil)
+	if !diagnostics.Ok() {
+		b.Fatalf("Failed to analyze graph: %s", diagnostics.String())
+	}
+	return node.New(inter)
+}
+
+func f32Source(key string) ir.Function {
+	return ir.Function{
+		Key:     key,
+		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
 	}
 }

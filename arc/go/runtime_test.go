@@ -77,6 +77,63 @@ func newModuleRuntimeHarness(
 	channelDigests ...channels.Digest,
 ) *runtimeHarness {
 	GinkgoHelper()
+	prog := compileModuleProgram(ctx, source, modules, channelSyms)
+	nodeState := node.New(prog.IR)
+	channelState := channels.NewProgramState(channelDigests)
+	authorityState := &control.ProgramState{}
+	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+	hosts := newHarnessHosts(ctx, wasmRT, channelState, authorityState)
+	factory := hosts.factory
+
+	h := &runtimeHarness{
+		channelState:   channelState,
+		authorityState: authorityState,
+		nodeState:      nodeState,
+		wasmRT:         wasmRT,
+		timeMod:        hosts.time,
+	}
+
+	if len(prog.WASM) > 0 {
+		guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))
+		hosts.strings.SetMemory(guest.Memory())
+		hosts.errors.SetMemory(guest.Memory())
+		h.closers = append(h.closers, func(ctx context.Context) error {
+			return guest.Close(ctx)
+		})
+		factory = append(factory, &wasm.Module{
+			Module:        guest,
+			Memory:        guest.Memory(),
+			Strings:       hosts.stringsState,
+			NodeKeySetter: hosts.stateful,
+		})
+	}
+
+	nodes := make(map[string]node.Node)
+	for _, irNode := range prog.Nodes {
+		n := MustSucceed(factory.Create(node.Config{
+			Node:    irNode,
+			Program: prog,
+			State:   nodeState.Node(irNode.Key),
+		}))
+		nodes[irNode.Key] = n
+	}
+
+	h.scheduler = MustSucceed(scheduler.New(prog.IR, nodes))
+
+	h.closers = append(h.closers, func(ctx context.Context) error {
+		return wasmRT.Close(ctx)
+	})
+
+	return h
+}
+
+func compileModuleProgram(
+	ctx context.Context,
+	source string,
+	modules map[string]string,
+	channelSyms []symbol.Symbol,
+) arc.Program {
+	GinkgoHelper()
 	ambient := func() []*symbol.Symbol {
 		stlSyms := stl.NewSymbols()
 		syms := make([]*symbol.Symbol, 0, len(stlSyms)+len(channelSyms))
@@ -98,28 +155,43 @@ func newModuleRuntimeHarness(
 		Ambient: ambient,
 	})
 	root := symbol.NewRoot(nil, ambient(), symbol.WithModules(loader))
-	prog := MustSucceed(arc.CompileText(ctx, arc.Text{Raw: source}, root))
+	return MustSucceed(arc.CompileText(ctx, arc.Text{Raw: source}, root))
+}
 
-	nodeState := node.New(prog.IR)
-	channelState := channels.NewProgramState(channelDigests)
+// harnessHosts holds the STL host modules that a harness program runs against.
+type harnessHosts struct {
+	stringsState *stlstrings.ProgramState
+	time         *time.Host
+	stateful     *stateful.Host
+	strings      *stlstrings.Host
+	errors       *stlerrors.Host
+	factory      node.CompoundFactory
+}
+
+func newHarnessHosts(
+	ctx context.Context,
+	wasmRT wazero.Runtime,
+	channelState *channels.ProgramState,
+	authorityState *control.ProgramState,
+) harnessHosts {
+	GinkgoHelper()
 	seriesState := series.NewProgramState()
-	stringsState := stlstrings.NewProgramState()
-	authorityState := &control.ProgramState{}
-
-	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
-
-	timeMod := MustSucceed(time.NewHost(ctx, wasmRT, stringsState, discardReport))
-	channelMod := MustSucceed(channels.NewHost(ctx, wasmRT, channelState, stringsState))
-	statefulMod := MustSucceed(stateful.NewHost(ctx, wasmRT, seriesState, stringsState))
+	h := harnessHosts{stringsState: stlstrings.NewProgramState()}
+	h.time = MustSucceed(time.NewHost(ctx, wasmRT, h.stringsState, discardReport))
+	channelMod := MustSucceed(
+		channels.NewHost(ctx, wasmRT, channelState, h.stringsState),
+	)
+	h.stateful = MustSucceed(
+		stateful.NewHost(ctx, wasmRT, seriesState, h.stringsState),
+	)
 	MustSucceed(series.NewHost(ctx, wasmRT, seriesState))
-	stringsMod := MustSucceed(stlstrings.NewHost(ctx, wasmRT, stringsState, nil))
+	h.strings = MustSucceed(stlstrings.NewHost(ctx, wasmRT, h.stringsState, nil))
 	mathMod := MustSucceed(stlmath.NewHost(ctx, wasmRT))
-	errorsMod := MustSucceed(stlerrors.NewHost(ctx, wasmRT, nil))
-
-	factory := node.CompoundFactory{
+	h.errors = MustSucceed(stlerrors.NewHost(ctx, wasmRT, nil))
+	h.factory = node.CompoundFactory{
 		channelMod,
-		statefulMod,
-		timeMod,
+		h.stateful,
+		h.time,
 		selector.NewHost(),
 		constant.NewHost(),
 		variable.NewHost(),
@@ -128,46 +200,6 @@ func newModuleRuntimeHarness(
 		control.NewHost(authorityState),
 		mathMod,
 	}
-
-	h := &runtimeHarness{
-		channelState:   channelState,
-		authorityState: authorityState,
-		nodeState:      nodeState,
-		wasmRT:         wasmRT,
-	}
-
-	if len(prog.WASM) > 0 {
-		guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))
-		stringsMod.SetMemory(guest.Memory())
-		errorsMod.SetMemory(guest.Memory())
-		h.closers = append(h.closers, func(ctx context.Context) error {
-			return guest.Close(ctx)
-		})
-		factory = append(factory, &wasm.Module{
-			Module:        guest,
-			Memory:        guest.Memory(),
-			Strings:       stringsState,
-			NodeKeySetter: statefulMod,
-		})
-	}
-
-	nodes := make(map[string]node.Node)
-	for _, irNode := range prog.Nodes {
-		n := MustSucceed(factory.Create(node.Config{
-			Node:    irNode,
-			Program: prog,
-			State:   nodeState.Node(irNode.Key),
-		}))
-		nodes[irNode.Key] = n
-	}
-
-	h.scheduler = MustSucceed(scheduler.New(prog.IR, nodes))
-	h.timeMod = timeMod
-
-	h.closers = append(h.closers, func(ctx context.Context) error {
-		return wasmRT.Close(ctx)
-	})
-
 	return h
 }
 

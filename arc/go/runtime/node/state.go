@@ -60,104 +60,145 @@ func New(inter ir.IR) *ProgramState {
 // It initializes alignment buffers and watermark tracking for the node's
 // inputs.
 func (s *ProgramState) Node(key string) *State {
-	var (
-		n            = s.ir.Nodes.Get(key)
-		inputs       = make([]ir.Edge, len(n.Inputs))
-		alignedData  = make([]telem.Series, len(n.Inputs))
-		alignedTime  = make([]telem.Series, len(alignedData))
-		accumulated  = make([]inputEntry, len(n.Inputs))
-		literal      = make([]bool, len(n.Inputs))
-		inputSources = make([]*value, len(n.Inputs))
-		isReference  = make([]bool, len(n.Inputs))
-	)
-	for i := range alignedData {
-		alignedTime[i] = telem.Series{DataType: telem.TimestampT}
+	n := s.ir.Nodes.Get(key)
+	nd := &State{params: n.Inputs, nodeOutputs: s.outputs, progRev: &s.rev}
+	if !s.bindInputs(nd, key, n.Inputs) {
+		s.appendTriggerInputs(nd, key, n.Inputs)
+	}
+	nd.rearm = s.rearmRules(key, n.Inputs, nd.ir.inputs)
+	nd.stale = make([]bool, len(nd.ir.inputs))
+	nd.outputCache = make([]*value, len(n.Outputs))
+	for i, p := range n.Outputs {
+		nd.outputCache[i] = s.outputs[ir.Handle{Node: key, Param: p.Name}]
+	}
+	nd.inputIndex = make(map[string]int, len(n.Inputs))
+	for i, p := range n.Inputs {
+		nd.inputIndex[p.Name] = i
+	}
+	nd.ir.outputs = lo.Map(n.Outputs, func(item types.Param, _ int) ir.Handle {
+		return ir.Handle{Node: key, Param: item.Name}
+	})
+	for i := range nd.literal {
+		if !nd.literal[i] && !nd.isReference[i] {
+			nd.edgeFed = true
+			break
+		}
+	}
+	return nd
+}
+
+// bindInputs fills one input slot per parameter and reports whether an edge feeds
+// any data input.
+func (s *ProgramState) bindInputs(nd *State, key string, params types.Params) bool {
+	count := len(params)
+	nd.ir.inputs = make([]ir.Edge, count)
+	nd.aligned.data = make([]telem.Series, count)
+	nd.aligned.time = make([]telem.Series, count)
+	nd.accumulated = make([]inputEntry, count)
+	nd.literal = make([]bool, count)
+	nd.inputSources = make([]*value, count)
+	nd.isReference = make([]bool, count)
+	for i := range nd.aligned.time {
+		nd.aligned.time[i] = telem.Series{DataType: telem.TimestampT}
 	}
 	hasEdgeFed := false
-	for i, p := range n.Inputs {
+	for i, p := range params {
+		target := ir.Handle{Node: key, Param: p.Name}
 		// A channel input is a reference resolved by key in the host functions, not
 		// a value stream. It carries no data series and never gates execution.
 		if p.Type.Kind == types.KindChan {
-			isReference[i] = true
-			if edge, found := s.ir.Edges.FindByTarget(
-				ir.Handle{Node: key, Param: p.Name},
-			); found {
-				inputs[i] = edge
-				inputSources[i] = s.outputs[edge.Source]
+			nd.isReference[i] = true
+			if edge, found := s.ir.Edges.FindByTarget(target); found {
+				nd.ir.inputs[i] = edge
+				nd.inputSources[i] = s.outputs[edge.Source]
 			}
 			continue
 		}
 		// A var input names its variable's node in Type.Name. It binds that
 		// node's output slot directly: no edge, never gates or wakes.
 		if p.Type.Kind == types.KindVarRef {
-			isReference[i] = true
+			nd.isReference[i] = true
 			src := ir.Handle{Node: p.Type.Name, Param: ir.DefaultOutputParam}
-			inputs[i] = ir.Edge{
-				Source: src,
-				Target: ir.Handle{Node: key, Param: p.Name},
-			}
-			inputSources[i] = s.outputs[src]
+			nd.ir.inputs[i] = ir.Edge{Source: src, Target: target}
+			nd.inputSources[i] = s.outputs[src]
 			continue
 		}
-		edge, found := s.ir.Edges.FindByTarget(
-			ir.Handle{Node: key, Param: p.Name},
+		edge, found := s.ir.Edges.FindByTarget(target)
+		if !found {
+			s.bindLiteralInput(nd, i, target, p)
+			continue
+		}
+		hasEdgeFed = true
+		nd.ir.inputs[i] = edge
+		nd.aligned.data[i] = telem.Series{
+			DataType: s.outputs[edge.Source].data.DataType,
+		}
+		nd.inputSources[i] = s.outputs[edge.Source]
+	}
+	return hasEdgeFed
+}
+
+// bindLiteralInput feeds an input with no edge from a synthetic source that holds
+// its default value.
+func (s *ProgramState) bindLiteralInput(
+	nd *State,
+	i int,
+	target ir.Handle,
+	p types.Param,
+) {
+	syntheticSource := ir.Handle{
+		Node:  "__default_" + target.Node + "_" + p.Name,
+		Param: ir.DefaultOutputParam,
+	}
+	nd.ir.inputs[i] = ir.Edge{Source: syntheticSource, Target: target}
+	data := telem.NewSeriesFromAny(types.DecodeValue(p.Value, p.Type), p.Type.ToTelem())
+	time := telem.NewSeriesV[telem.TimeStamp](0)
+	nd.aligned.data[i] = data
+	nd.aligned.time[i] = time
+	nd.accumulated[i] = inputEntry{data: data, time: time}
+	nd.literal[i] = true
+	if _, exists := s.outputs[syntheticSource]; !exists {
+		s.outputs[syntheticSource] = &value{data: data, time: time}
+	}
+	nd.inputSources[i] = s.outputs[syntheticSource]
+}
+
+// appendTriggerInputs registers a node's trigger edges as gating-only entries. A
+// node with no edge-fed data input never re-arms on its own, so each fire re-runs
+// it exactly once. SY-4495: registering unconditionally would make multi-trigger
+// nodes await fresh values on every trigger before running.
+func (s *ProgramState) appendTriggerInputs(
+	nd *State,
+	key string,
+	params types.Params,
+) {
+	for _, e := range s.ir.Edges {
+		if e.Target.Node != key {
+			continue
+		}
+		if _, ok := params.Get(e.Target.Param); ok {
+			continue
+		}
+		nd.ir.inputs = append(nd.ir.inputs, e)
+		nd.aligned.data = append(nd.aligned.data, telem.Series{})
+		nd.aligned.time = append(
+			nd.aligned.time,
+			telem.Series{DataType: telem.TimestampT},
 		)
-		if found {
-			hasEdgeFed = true
-			inputs[i] = edge
-			alignedData[i] = telem.Series{
-				DataType: s.outputs[edge.Source].data.DataType,
-			}
-			inputSources[i] = s.outputs[edge.Source]
-		} else {
-			syntheticSource := ir.Handle{
-				Node:  "__default_" + key + "_" + p.Name,
-				Param: ir.DefaultOutputParam,
-			}
-			inputs[i] = ir.Edge{
-				Source: syntheticSource,
-				Target: ir.Handle{Node: key, Param: p.Name},
-			}
-			data := telem.NewSeriesFromAny(
-				types.DecodeValue(p.Value, p.Type),
-				p.Type.ToTelem(),
-			)
-			time := telem.NewSeriesV[telem.TimeStamp](0)
-			alignedData[i] = data
-			alignedTime[i] = time
-			accumulated[i] = inputEntry{data: data, time: time}
-			literal[i] = true
-			if _, exists := s.outputs[syntheticSource]; !exists {
-				s.outputs[syntheticSource] = &value{data: data, time: time}
-			}
-			inputSources[i] = s.outputs[syntheticSource]
-		}
+		nd.accumulated = append(nd.accumulated, inputEntry{})
+		nd.inputSources = append(nd.inputSources, s.outputs[e.Source])
+		nd.isReference = append(nd.isReference, false)
+		nd.literal = append(nd.literal, false)
 	}
+}
 
-	// A node with no edge-fed data input never re-arms on its own; its trigger
-	// edges register as gating-only entries so each fire re-runs it exactly once.
-	// SY-4495: registering unconditionally would make multi-trigger nodes await
-	// fresh values on every trigger before running.
-	if !hasEdgeFed {
-		for _, e := range s.ir.Edges {
-			if e.Target.Node != key {
-				continue
-			}
-			if _, ok := n.Inputs.Get(e.Target.Param); ok {
-				continue
-			}
-			inputs = append(inputs, e)
-			alignedData = append(alignedData, telem.Series{})
-			alignedTime = append(alignedTime, telem.Series{DataType: telem.TimestampT})
-			accumulated = append(accumulated, inputEntry{})
-			inputSources = append(inputSources, s.outputs[e.Source])
-			isReference = append(isReference, false)
-			literal = append(literal, false)
-		}
-	}
-
-	// Register reads re-arm on fresh values; deref reads on post-entry values;
-	// self-write feeders on Reset only.
+// rearmRules picks each input's re-arm rule. Register reads re-arm on fresh
+// values; deref reads on post-entry values; self-write feeders on Reset only.
+func (s *ProgramState) rearmRules(
+	key string,
+	params types.Params,
+	inputs []ir.Edge,
+) []rearmRule {
 	rearm := make([]rearmRule, len(inputs))
 	for i := range inputs {
 		srcNode, found := s.ir.Nodes.Find(inputs[i].Source.Node)
@@ -169,70 +210,32 @@ func (s *ProgramState) Node(key string) *State {
 		if len(srcNode.Inputs) > 0 && srcNode.Inputs[0].Value == nil {
 			rearm[i] = rearmOnArrival
 		}
-		for _, e := range s.ir.Edges {
-			if e.Target.Node == srcNode.Key && e.Source.Node == key {
-				rearm[i] = rearmOnReset
-				break
-			}
-		}
-	}
-
-	// A node that feeds a register it reads by var ref is an entry one-shot:
-	// its trigger entries latch on Reset, matching the edge-fed read latch.
-	selfWrite := false
-	for _, p := range n.Inputs {
-		if p.Type.Kind != types.KindVarRef {
-			continue
-		}
-		for _, e := range s.ir.Edges {
-			if e.Source.Node == key && e.Target.Node == p.Type.Name {
-				selfWrite = true
-				break
-			}
-		}
-	}
-	if selfWrite {
-		for i := len(n.Inputs); i < len(inputs); i++ {
+		if s.feeds(key, srcNode.Key) {
 			rearm[i] = rearmOnReset
 		}
 	}
-
-	outputCache := make([]*value, len(n.Outputs))
-	for i, p := range n.Outputs {
-		handle := ir.Handle{Node: key, Param: p.Name}
-		outputCache[i] = s.outputs[handle]
+	// A node that feeds a register it reads by var ref is an entry one-shot: its
+	// trigger entries latch on Reset, matching the edge-fed read latch.
+	for _, p := range params {
+		if p.Type.Kind != types.KindVarRef || !s.feeds(key, p.Type.Name) {
+			continue
+		}
+		for i := len(params); i < len(inputs); i++ {
+			rearm[i] = rearmOnReset
+		}
+		break
 	}
+	return rearm
+}
 
-	inputIndex := make(map[string]int, len(n.Inputs))
-	for i, p := range n.Inputs {
-		inputIndex[p.Name] = i
-	}
-
-	nd := &State{}
-	nd.ir.inputs = inputs
-	nd.rearm = rearm
-	nd.stale = make([]bool, len(inputs))
-	nd.inputIndex = inputIndex
-	nd.params = n.Inputs
-	nd.ir.outputs = lo.Map(n.Outputs, func(item types.Param, _ int) ir.Handle {
-		return ir.Handle{Node: key, Param: item.Name}
-	})
-	nd.aligned.data = alignedData
-	nd.aligned.time = alignedTime
-	nd.nodeOutputs = s.outputs
-	nd.accumulated = accumulated
-	nd.inputSources = inputSources
-	nd.outputCache = outputCache
-	nd.isReference = isReference
-	nd.literal = literal
-	for i := range literal {
-		if !literal[i] && !isReference[i] {
-			nd.edgeFed = true
-			break
+// feeds reports whether an edge runs from the source node to the target node.
+func (s *ProgramState) feeds(source, target string) bool {
+	for _, e := range s.ir.Edges {
+		if e.Source.Node == source && e.Target.Node == target {
+			return true
 		}
 	}
-	nd.progRev = &s.rev
-	return nd
+	return false
 }
 
 type inputEntry struct {
