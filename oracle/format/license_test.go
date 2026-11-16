@@ -167,6 +167,13 @@ var _ = Describe("License", func() {
 		},
 	)
 
+	It("Should fail for a file outside the repository root", func(ctx SpecContext) {
+		l := MustSucceed(format.NewLicense(repoRoot, 2026, nil))
+		outside := filepath.Join(filepath.Dir(repoRoot), "foo.go")
+		Expect(l.Format(ctx, []byte("package x\n"), outside)).Error().
+			To(MatchError(ContainSubstring("escapes")))
+	})
+
 	Describe("Year", func() {
 		var path string
 		BeforeEach(func() { path = filepath.Join(repoRoot, "foo.gen.go") })

@@ -129,8 +129,13 @@ var _ = Describe("Paths", func() {
 			link := filepath.Join(GinkgoT().TempDir(), "link")
 			Expect(os.Symlink(dir, link)).To(Succeed())
 			Expect(paths.WriteFile("a.txt", dir, []byte("hi"), 0o644)).To(Succeed())
+			Expect(
+				paths.WriteFile(filepath.Join(link, "b.txt"), dir, []byte("b"), 0o644),
+			).
+				To(Succeed())
 			Expect(paths.ReadFile(filepath.Join(link, "a.txt"), dir)).
 				To(Equal([]byte("hi")))
+			Expect(paths.ReadFile("b.txt", dir)).To(Equal([]byte("b")))
 		})
 
 		It("Should reject a symlink inside the root that leads out of it", func() {
