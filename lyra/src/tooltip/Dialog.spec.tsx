@@ -182,6 +182,17 @@ describe("Tooltip.Dialog", () => {
       expect(getTooltip()).toBeNull();
     });
 
+    it("should close when the cursor leaves before the open renders", () => {
+      const { btn } = mountButton();
+      hover(btn);
+      act(() => {
+        vi.advanceTimersByTime(PAST_DELAY.milliseconds);
+        unhover(btn);
+      });
+      advance(PAST_CLOSE);
+      expect(getTooltip()).toBeNull();
+    });
+
     it("should close immediately on pointer down", () => {
       const { btn } = mountButton();
       hover(btn);
