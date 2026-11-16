@@ -1185,6 +1185,45 @@ var _ = Describe("Graph", func() {
 			)
 
 			It(
+				"Should auto-fix a calc when a deleted calculated dependency is recreated",
+				func(ctx SpecContext) {
+					openGraph(ctx)
+					createDep(ctx, "rc_unres_calc_dep_base")
+					dep := channel.Channel{
+						Name:       "rc_unres_calc_dep",
+						Virtual:    true,
+						Expression: "return rc_unres_calc_dep_base * 2",
+					}
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, &dep)
+					})).To(Succeed())
+					calc := channel.Channel{
+						Name:       "rc_unres_calc_dep_top",
+						Virtual:    true,
+						Expression: "return rc_unres_calc_dep + 1",
+					}
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, &calc)
+					})).To(Succeed())
+
+					By("Deleting the calculated dependency")
+					deleteDep(ctx, "rc_unres_calc_dep")
+					expectStatus(ctx, calc.Key())
+
+					By("Recreating the calculated dependency")
+					dep = channel.Channel{
+						Name:       "rc_unres_calc_dep",
+						Virtual:    true,
+						Expression: "return rc_unres_calc_dep_base * 2",
+					}
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, &dep)
+					})).To(Succeed())
+					eventuallyExpectNoStatus(ctx, calc.Key())
+				},
+			)
+
+			It(
 				"Should auto-fix a chain when a deleted base is recreated",
 				func(ctx SpecContext) {
 					openGraph(ctx)
