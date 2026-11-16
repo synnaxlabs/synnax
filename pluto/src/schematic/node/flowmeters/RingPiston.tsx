@@ -10,13 +10,20 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
+import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { Label } from "@/schematic/node/flowmeters/Label";
 import { type Props } from "@/schematic/node/flowmeters/props";
+import svg from "@/schematic/node/flowmeters/RingPiston.svg?raw";
 
-const DIMENSIONS = { width: 71, height: 36 };
-const LABELS = { x: 56, y: 29 };
+const SPEC = Custom.createBuiltIn({
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.016667, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 0.98, y: 0.5 }, orientation: "right" },
+    { key: "3", position: { x: 0.5, y: 0.05714 }, orientation: "top" },
+    { key: "4", position: { x: 0.5, y: 0.94386 }, orientation: "bottom" },
+  ],
+});
 
 export const RingPiston = ({
   id,
@@ -30,46 +37,12 @@ export const RingPiston = ({
     {...rest}
     className={CSS.cls(CSS.B("flowmeter-RingPiston"), className)}
   >
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={1.6667}
-        top={50}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={98}
-        top={50}
-        id="2"
-      />
-      <Handle.Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={5.714}
-        id="3"
-      />
-      <Handle.Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
-    </Handle.Boundary>
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Primitive.Circle cx="36.5" cy="17.5" r="10.5" strokeWidth="2" />
-      <Primitive.Circle cx="36.5" cy="21.5" r="6.5" strokeWidth="2" />
-      <Label position={LABELS} strokeColor={strokeColor} />
-    </Primitive.SVG>
+    />
   </Primitive.Div>
 );

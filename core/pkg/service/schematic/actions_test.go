@@ -687,16 +687,18 @@ var _ = Describe("Payload decoding", func() {
 	}
 
 	It("Should fill the defaults a node config omits", func() {
-		cfg := decodeConfig(`{"variant": "switch"}`).
+		cfg, ok := decodeConfig(`{"variant": "switch"}`).
 			Variant.(schematic.SwitchNodeConfig)
+		Expect(ok).To(BeTrue())
 		Expect(cfg.Scale).To(BeEquivalentTo(1))
 		Expect(cfg.StalenessTimeout).To(Equal(5 * telem.Second))
 		Expect(cfg.Label.Level).To(BeEquivalentTo("h5"))
 	})
 
 	It("Should keep a zero the payload carries", func() {
-		cfg := decodeConfig(`{"variant": "line", "end": {"x": 0, "y": 40}}`).
+		cfg, ok := decodeConfig(`{"variant": "line", "end": {"x": 0, "y": 40}}`).
 			Variant.(schematic.LineNodeConfig)
+		Expect(ok).To(BeTrue())
 		Expect(cfg.End).To(Equal(spatial.XY{X: 0, Y: 40}))
 		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))
 	})
@@ -754,7 +756,8 @@ var _ = Describe("Payload decoding", func() {
 	)
 
 	It("Should fill the wrap width a payload omits", func() {
-		cfg := decodeConfig(`{"variant": "button"}`).Variant.(schematic.ButtonNodeConfig)
+		cfg, ok := decodeConfig(`{"variant": "button"}`).Variant.(schematic.ButtonNodeConfig)
+		Expect(ok).To(BeTrue())
 		Expect(cfg.Label.MaxInlineSize).To(BeEquivalentTo(150))
 	})
 
@@ -769,19 +772,22 @@ var _ = Describe("Payload decoding", func() {
 	)
 
 	It("Should keep an empty string the payload carries", func() {
-		cfg := decodeConfig(`{"variant": "value", "units": ""}`).
+		cfg, ok := decodeConfig(`{"variant": "value", "units": ""}`).
 			Variant.(schematic.ValueNodeConfig)
+		Expect(ok).To(BeTrue())
 		Expect(cfg.Units).To(Equal(""))
 	})
 
 	It("Should keep a zero precision", func() {
-		cfg := decodeConfig(`{"variant": "value", "precision": 0}`).
+		cfg, ok := decodeConfig(`{"variant": "value", "precision": 0}`).
 			Variant.(schematic.ValueNodeConfig)
+		Expect(ok).To(BeTrue())
 		Expect(cfg.Precision).To(HaveValue(BeZero()))
 	})
 
 	It("Should leave an omitted precision absent", func() {
-		cfg := decodeConfig(`{"variant": "value"}`).Variant.(schematic.ValueNodeConfig)
+		cfg, ok := decodeConfig(`{"variant": "value"}`).Variant.(schematic.ValueNodeConfig)
+		Expect(ok).To(BeTrue())
 		Expect(cfg.Precision).To(BeNil())
 	})
 

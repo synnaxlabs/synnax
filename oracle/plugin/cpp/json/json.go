@@ -970,6 +970,11 @@ func (p *Plugin) compositeFallback(
 	switch field.Default.Kind {
 	case resolution.ValueKindStruct, resolution.ValueKindArray:
 		return cppType + p.defaultRenderer(data).Literal(field.Type, *field.Default)
+	case resolution.ValueKindString,
+		resolution.ValueKindInt,
+		resolution.ValueKindFloat,
+		resolution.ValueKindBool,
+		resolution.ValueKindIdent:
 	}
 	return ""
 }
@@ -1320,6 +1325,10 @@ func isScalarDefault(val *resolution.ExpressionValue) bool {
 		resolution.ValueKindInt,
 		resolution.ValueKindFloat:
 		return true
+	case resolution.ValueKindBool,
+		resolution.ValueKindIdent,
+		resolution.ValueKindArray,
+		resolution.ValueKindStruct:
 	}
 	return false
 }
@@ -1381,6 +1390,8 @@ func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string 
 			return "x::telem::TimeStamp::now()"
 		}
 		// Other unresolvable idents have no C++ rendering; the field stays required.
+		return ""
+	case resolution.ValueKindArray:
 		return ""
 	}
 	return ""

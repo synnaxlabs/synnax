@@ -345,7 +345,14 @@ func (r Retrieve[K, E]) Count(
 		}
 		return len(r.entries.All()), nil
 	}
+	return r.countScan(ctx, snap)
+}
 
+// countScan counts the matching records by iterating over every entry in the table.
+func (r Retrieve[K, E]) countScan(
+	ctx context.Context,
+	snap Snapshot,
+) (count int, err error) {
 	reader := wrapReader[K, E](snap, r.keyPrefix)
 	iter, err := reader.OpenIterator(
 		IterOptions{prefix: r.prefix, after: r.encodedAfter()},

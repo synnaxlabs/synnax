@@ -2150,8 +2150,9 @@ Tag struct {
 })
 
 // generateMove builds a node chain whose v1 moves fields onto the types of a shared
-// resource. It returns the generated v1 migration, or the error Generate returns.
-func generateMove(shared, nodeV0, nodeV1, live string) (string, error) {
+// resource. hand, when given, is the hand-written migrate.go of node v1. It returns the
+// generated v1 migration, or the error Generate returns.
+func generateMove(shared, nodeV0, nodeV1, live string, hand ...string) (string, error) {
 	GinkgoHelper()
 	root := GinkgoT().TempDir()
 	write := func(rel, content string) {
@@ -2159,6 +2160,10 @@ func generateMove(shared, nodeV0, nodeV1, live string) (string, error) {
 		full := filepath.Join(root, rel)
 		Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
 		Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+	}
+	Expect(len(hand)).To(BeNumerically("<=", 1))
+	if len(hand) == 1 {
+		write("core/pkg/service/node/versions/v1/migrate.go", hand[0])
 	}
 	write("schemas/synnax/versions/shared/v0.oracle", shared)
 	write("schemas/synnax/shared.oracle", "@go output \"core/pkg/service/shared\"\n\n"+
@@ -2406,6 +2411,47 @@ Mode enum {
 			"reading, err := migrateNodeReading(ctx, old.Reading)",
 		),
 	)
+
+	It("Should call a hand-written step that returns no error without a check", func() {
+		content := MustSucceed(generateMove(
+			strings.Replace(types, "unix = \"unix\"", "unix_ms = \"unix_ms\"", 1),
+			nodeV0,
+			nodeV1,
+			live,
+			`package v1
+
+func migrateNodeFormat(_ context.Context, old v0.Format) shared.Format {
+	return shared.Format(old)
+}
+
+func migrateNodeOther(_ context.Context, old v0.Format) (shared.Format, error) {
+	return shared.Format(old), nil
+}
+`,
+		))
+		Expect(
+			content,
+		).To(ContainSubstring("format := migrateNodeFormat(ctx, old.Format)"))
+		Expect(content).ToNot(ContainSubstring("format, err :="))
+	})
+
+	It("Should check the error of a hand-written step that returns one", func() {
+		content := MustSucceed(generateMove(
+			strings.Replace(types, "unix = \"unix\"", "unix_ms = \"unix_ms\"", 1),
+			nodeV0,
+			nodeV1,
+			live,
+			`package v1
+
+func migrateNodeFormat(_ context.Context, old v0.Format) (shared.Format, error) {
+	return shared.Format(old), nil
+}
+`,
+		))
+		Expect(
+			content,
+		).To(ContainSubstring("format, err := migrateNodeFormat(ctx, old.Format)"))
+	})
 
 	It("Should require a hand-written step when a moved field turns optional", func() {
 		content := MustSucceed(generateMove(

@@ -248,8 +248,11 @@ func (i Info) err() error {
 			return errors.Wrap(ErrExpired, i.Warning)
 		}
 		return ErrExpired
+	case StateOk:
+		return nil
+	default:
+		return errors.Newf("unknown license state %q", i.State)
 	}
-	return nil
 }
 
 // checkFit returns ErrFingerprint when lic is bound to other machines, and ErrEdition
@@ -590,6 +593,7 @@ func (s *Service) logState() {
 		}
 	case StateExpired:
 		s.cfg.L.Error(info.err().Error())
+	case StateMissing:
 	}
 }
 

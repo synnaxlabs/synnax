@@ -446,11 +446,13 @@ func (d *Driver) supervise(ctx context.Context, policy *restart.Policy) error {
 			err = errors.Wrap(err, "embedded Driver exceeded restart limit")
 			d.cfg.L.Error("giving up on embedded Driver", zap.Error(err))
 			return err
-		default:
-			// restart.Stop: a launch failure or a Driver that never loaded (an expected
-			// exit was caught above).
+		case restart.Stop:
+			// A launch failure or a Driver that never loaded (an expected exit was
+			// caught above).
 			d.cfg.L.Error("stopped embedded Driver", zap.Error(err))
 			return err
+		default:
+			return errors.Newf("unknown restart action %d", action)
 		}
 	}
 }

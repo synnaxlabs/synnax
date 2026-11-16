@@ -653,8 +653,9 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		if !ok {
 			return config
 		}
-		Expect(config[fields.key]).To(BeAssignableToTypeOf(""))
-		key := uuid.MustParse(config[fields.key].(string))
+		rawKey, ok := config[fields.key].(string)
+		Expect(ok).To(BeTrue())
+		key := uuid.MustParse(rawKey)
 		values := MustSucceed(secretSvc.Reveal(ctx, db, key))
 		delete(config, fields.key)
 		config[fields.plain] = string(values[key])
