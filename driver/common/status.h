@@ -277,16 +277,16 @@ inline std::string config_err_description(const x::errors::Error &err) {
 
 /// @brief a utility function that appropriately handles configuration errors and
 /// communicates them back to Synnax in the standard format. cmd_key is the start
-/// command driving the deploy, empty at boot. A boot configure that does not
-/// auto-start logs its failures instead of reporting them. A successful configure
-/// writes no status: the start that follows it answers the command.
+/// command driving the deploy, empty at boot. A failed configure writes an error
+/// status, except at boot for a task whose stored status is from another rack. A
+/// successful configure writes no status: the start that follows it answers the
+/// command.
 inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
     std::pair<common::ConfigureResult, x::errors::Error> res,
     const std::string &cmd_key
 ) {
-    const bool boot = cmd_key == driver::task::NO_COMMAND;
     if (res.second) {
         synnax::task::Status status;
         status.owner = synnax::task::resource_id(task.key);
@@ -298,7 +298,11 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
         status.description = config_err_description(res.second);
         // Ack the start so a waiting caller resolves with the failure, not a timeout.
         status.details.cmd = cmd_key;
-        if (boot && !res.first.auto_start)
+        // A task moved here runs on its old Driver until a start arrives. A status
+        // with no rack is one the Core wrote when it created the task.
+        const bool moved = task.status.has_value() && task.status->details.rack != 0 &&
+                           task.status->details.rack != task.rack;
+        if (cmd_key == driver::task::NO_COMMAND && moved)
             LOG(WARNING) << "[driver] failed to configure task " << task.name << ": "
                          << res.second;
         else

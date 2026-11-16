@@ -462,6 +462,60 @@ TEST_F(TaskManagerTest, DeployOnStart) {
     ASSERT_EQ(s.details.rack, rack.key);
 }
 
+/// @brief a task that writes no status of its own, as a task that does not auto-start.
+class QuietTask final : public Task {
+public:
+    [[nodiscard]] std::string name() const override { return "quiet"; }
+    void exec(synnax::task::Command &) override {}
+    void stop(bool) override {}
+};
+
+class QuietTaskFactory final : public Factory {
+public:
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
+        const std::shared_ptr<Context> &,
+        const synnax::task::Task &task,
+        const std::string &
+    ) override {
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        return {std::make_unique<QuietTask>(), true};
+    }
+};
+
+/// @brief it should stop a running task that the Core marked as stopped responding
+/// while the Driver was down, so the status of the outage does not stay.
+TEST_F(TaskManagerTest, BootStopsATaskTheCoreMarkedAsStoppedResponding) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    synnax::task::Status stored;
+    stored.key = "stored-" + task.key.to_string();
+    stored.owner = synnax::task::resource_id(task.key);
+    stored.name = task.name;
+    stored.variant = synnax::status::VARIANT_WARNING;
+    stored.message = "Task stopped responding";
+    stored.time = x::telem::TimeStamp::now();
+    stored.details.rack = rack.key;
+    stored.details.config_hash = task.config_hash;
+    ASSERT_NIL(client->statuses.set(stored));
+    start_manager(std::make_unique<QuietTaskFactory>());
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) { return s.message == "Task stopped"; }
+    );
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(
+        s.description,
+        "The Driver restarted or lost its connection to the Core while the task was "
+        "running. Start the task again."
+    );
+    EXPECT_FALSE(s.details.running);
+}
+
 TEST_F(TaskManagerTest, NoConfigureOnCreate) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{
