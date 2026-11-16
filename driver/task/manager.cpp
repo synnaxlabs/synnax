@@ -838,7 +838,7 @@ void Manager::execute_op(
     // cancelled one is answered by the stop that cancelled it, or by the next run.
     if (op.type == Op::Type::DEPLOY && !op.task.key.is_nil() &&
         operation.token().running())
-        this->replace_stored_status(op.task, entry->instance != nullptr);
+        this->replace_interrupted_status(op.task);
 }
 
 void Manager::announce_start(const synnax::task::Key &key, Operation &operation) {
@@ -855,10 +855,7 @@ void Manager::announce_start(const synnax::task::Key &key, Operation &operation)
     operation.step(status, this->op_timeout);
 }
 
-void Manager::replace_stored_status(
-    const synnax::task::Task &tsk,
-    const bool configured
-) {
+void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
     // A task that answered its own deploy, such as with an auto-start, owns its status.
     if (!tsk.status.has_value() || this->statuses->latest(tsk.key).has_value()) return;
     // A task moved here runs on its old Driver until a start arrives.
@@ -867,21 +864,13 @@ void Manager::replace_stored_status(
     // disables Start and Stop while a start is loading. One that stops a running task
     // leaves it shown as running, with no data.
     const bool loading = tsk.status->variant == synnax::status::VARIANT_LOADING;
+    // The Core marks a running task as stopped responding while its Driver is down.
+    const bool running = tsk.status->details.running ||
+                         tsk.status->message == STOPPED_RESPONDING_MESSAGE;
+    if (!loading && !running) return;
     auto status = *tsk.status;
     status.time = x::telem::TimeStamp::now();
     status.details.running = false;
-    if (!loading && !tsk.status->details.running) {
-        // Any other stored status, such as the one the Core writes while the Driver is
-        // down, says nothing about the instance this deploy built.
-        if (!configured) return;
-        status.variant = synnax::status::VARIANT_SUCCESS;
-        status.message = "Task configured";
-        status.description.clear();
-        status.details.cmd.clear();
-        status.details.config_hash = tsk.config_hash;
-        this->ctx->set_status(status);
-        return;
-    }
     const std::string cause = this->boot_run == 0 || this->runs == this->boot_run
                                 ? "The Driver restarted"
                                 : "The Driver lost its connection to the Core";
