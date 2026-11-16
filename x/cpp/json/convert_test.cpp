@@ -1405,6 +1405,7 @@ TEST(ToSampleValue, StringToTimestampISO8601MonthThirteen) {
     );
 }
 
+/// @brief it should reject an ISO 8601 day past the end of its month.
 TEST(ToSampleValue, StringToTimestampISO8601DayPastEndOfMonth) {
     for (const auto *input:
          {"2023-02-29T00:00:00Z",
@@ -1422,6 +1423,7 @@ TEST(ToSampleValue, StringToTimestampISO8601DayPastEndOfMonth) {
         );
 }
 
+/// @brief it should accept an ISO 8601 date on the last day of its month.
 TEST(ToSampleValue, StringToTimestampISO8601LastDayOfMonth) {
     for (const auto *input:
          {"2024-02-29T00:00:00Z",
