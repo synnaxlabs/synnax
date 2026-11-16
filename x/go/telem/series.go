@@ -385,24 +385,30 @@ func (s Series) DataString() string {
 	case BooleanT:
 		return truncateAndFormatSlice(s.Unmarshal[bool]())
 	case TimestampT:
-		first, last := xslices.Truncate(s.Unmarshal[TimeStamp](), maxDisplayValues)
-		firstDeltas := make([]string, len(first)-1)
-		for i := 1; i < len(first); i++ {
-			firstDeltas[i-1] = "+" + TimeSpan(first[i]-first[0]).String()
-		}
-		firstDeltaStr := strings.Trim(fmt.Sprintf("%v", firstDeltas), "[]")
-		if len(last) == 0 {
-			return fmt.Sprintf("[%s %v]", first[0], firstDeltaStr)
-		}
-		lastDeltas := make([]string, len(last))
-		for i := range last {
-			lastDeltas[i] = "+" + TimeSpan(last[i]-first[0]).String()
-		}
-		lastDeltaStr := strings.Trim(fmt.Sprintf("%v", lastDeltas), "[]")
-		return fmt.Sprintf("[%s %v ... %v]", first[0], firstDeltaStr, lastDeltaStr)
+		return formatTimeStampDeltas(s.Unmarshal[TimeStamp]())
 	default:
 		return fmt.Sprintf("%v", s.Data)
 	}
+}
+
+// formatTimeStampDeltas formats the first timestamp in full and every other timestamp
+// as its offset from the first.
+func formatTimeStampDeltas(data []TimeStamp) string {
+	first, last := xslices.Truncate(data, maxDisplayValues)
+	firstDeltas := make([]string, len(first)-1)
+	for i := 1; i < len(first); i++ {
+		firstDeltas[i-1] = "+" + TimeSpan(first[i]-first[0]).String()
+	}
+	firstDeltaStr := strings.Trim(fmt.Sprintf("%v", firstDeltas), "[]")
+	if len(last) == 0 {
+		return fmt.Sprintf("[%s %v]", first[0], firstDeltaStr)
+	}
+	lastDeltas := make([]string, len(last))
+	for i := range last {
+		lastDeltas[i] = "+" + TimeSpan(last[i]-first[0]).String()
+	}
+	lastDeltaStr := strings.Trim(fmt.Sprintf("%v", lastDeltas), "[]")
+	return fmt.Sprintf("[%s %v ... %v]", first[0], firstDeltaStr, lastDeltaStr)
 }
 
 // AlignmentBounds is a set of lower and upper bounds for the alignment of a
