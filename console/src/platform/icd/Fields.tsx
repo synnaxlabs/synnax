@@ -18,7 +18,8 @@ import { DataType, deep, payload, type record, uuid } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
-import { Options } from "@/platform/icd/Options";
+import { EnumValues } from "@/platform/icd/EnumValues";
+import { isMappable, Optional, Options } from "@/platform/icd/Options";
 import { Task } from "@/platform/task";
 
 type Field = icd.BinaryField | icd.TextField | icd.JSONField;
@@ -542,7 +543,10 @@ export interface JSONFieldProps {
   actions?: ReactNode;
 }
 
-/** Edits one field of a JSON message: its name, pointer, type, and conversion. */
+/**
+ * Edits one field of a JSON message: its name, pointer, type, and conversion, then its
+ * default and enum mapping when its kind has them.
+ */
 export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
   const field = Form.useFieldValue(path);
@@ -551,37 +555,45 @@ export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
     if (next !== type) set(path, withJSONType(get(path).value, next));
   };
   return (
-    <Form.Section title="Field" actions={actions}>
-      <Form.TextField path={path.name} label="Name" padHelpText={false} />
-      <Form.TextField
-        path={path.pointer}
-        label="Pointer"
-        padHelpText={false}
-        inputProps={POINTER_INPUT_PROPS}
-      />
-      <Input.Item label="Type" padHelpText={false}>
-        <Select.Simple<JSONType>
-          resourceName="type"
-          value={type}
-          onChange={handleType}
-          variant="floating"
-          allowNone={false}
-          preview={mode === "preview"}
-        >
-          {Object.entries(JSON_TYPE_NAMES).map(([key, name]) => (
-            <Select.Item key={key} itemKey={key}>
-              {name}
-            </Select.Item>
-          ))}
-        </Select.Simple>
-      </Input.Item>
-      {isNumberKind(type) && (
-        <>
-          <Form.NumericField path={path.scale} label="Scale" padHelpText={false} />
-          <Form.NumericField path={path.offset} label="Offset" padHelpText={false} />
-        </>
+    <>
+      <Form.Section title="Field" actions={actions}>
+        <Form.TextField path={path.name} label="Name" padHelpText={false} />
+        <Form.TextField
+          path={path.pointer}
+          label="Pointer"
+          padHelpText={false}
+          inputProps={POINTER_INPUT_PROPS}
+        />
+        <Input.Item label="Type" padHelpText={false}>
+          <Select.Simple<JSONType>
+            resourceName="type"
+            value={type}
+            onChange={handleType}
+            variant="floating"
+            allowNone={false}
+            preview={mode === "preview"}
+          >
+            {Object.entries(JSON_TYPE_NAMES).map(([key, name]) => (
+              <Select.Item key={key} itemKey={key}>
+                {name}
+              </Select.Item>
+            ))}
+          </Select.Simple>
+        </Input.Item>
+        {isNumberKind(type) && (
+          <>
+            <Form.NumericField path={path.scale} label="Scale" padHelpText={false} />
+            <Form.NumericField path={path.offset} label="Offset" padHelpText={false} />
+          </>
+        )}
+        <Form.TextField path={path.units} label="Units" padHelpText={false} />
+        {isMappable(field) && <Optional path={path} field={field} />}
+      </Form.Section>
+      {isMappable(field) && (
+        <Form.Section title="Enum mapping">
+          <EnumValues path={path} />
+        </Form.Section>
       )}
-      <Form.TextField path={path.units} label="Units" padHelpText={false} />
-    </Form.Section>
+    </>
   );
 };
