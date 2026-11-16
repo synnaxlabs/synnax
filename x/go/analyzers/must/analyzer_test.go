@@ -52,6 +52,12 @@ var _ = Describe("Analyzer", func() {
 		}
 	})
 
+	It("Should qualify MustSucceed with a testutil import that has no dot", func() {
+		analysistest.RunWithSuggestedFixes(
+			GinkgoT(), analysistest.TestData(), must.Analyzer, "namedimport",
+		)
+	})
+
 	It("Should add testutil import when it does not exist", func() {
 		testdata := analysistest.TestData()
 		results := analysistest.Run(
