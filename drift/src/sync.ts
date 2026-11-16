@@ -8,13 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
-import { dimensions, unique } from "@synnaxlabs/x";
+import { dimensions, errors, unique } from "@synnaxlabs/x";
 
 import { group, groupEnd, log } from "@/debug";
 import { type MainChecker, type Manager, type Properties } from "@/runtime";
 import {
   runtimeSetWindowProps,
   type RuntimeSetWindowProsPayload,
+  setWindowError,
+  type SetWindowErrorPayload,
   type SliceState,
 } from "@/state";
 import {
@@ -25,6 +27,10 @@ import {
 } from "@/window";
 
 type RequiredRuntime = Manager & MainChecker & Properties;
+
+type SyncDispatch = Dispatch<
+  PayloadAction<RuntimeSetWindowProsPayload | SetWindowErrorPayload>
+>;
 
 const purgeWinStateToProps = (
   window: WindowState & { prerenderLabel?: string },
@@ -45,7 +51,7 @@ const purgeWinStateToProps = (
 
 export const syncInitial = async (
   state: SliceState,
-  dispatch: Dispatch<PayloadAction<RuntimeSetWindowProsPayload>>,
+  dispatch: SyncDispatch,
   runtime: RequiredRuntime,
   debug: boolean,
 ): Promise<void> => {
@@ -62,7 +68,7 @@ export const syncInitial = async (
   for (const label of allLabels)
     if (!runtimeLabels.includes(label) && runtime.isMain()) {
       log(debug, "state window not in runtime, creating", label);
-      await createRuntimeWindow(runtime, label, state.windows[label], debug);
+      await createRuntimeWindow(runtime, dispatch, label, state.windows[label], debug);
     } else if (!nonMain.includes(label)) {
       log(debug, "runtime window not in state, closing", label);
       // We're safe to close the window even if we're not in the main runtime
@@ -82,11 +88,12 @@ export const syncInitial = async (
 export const sync = async (
   prev: SliceState,
   next: SliceState,
+  dispatch: SyncDispatch,
   runtime: RequiredRuntime,
   debug: boolean,
 ): Promise<void> => {
   log(debug, "sync", prev, next);
-  if (runtime.isMain()) await syncMain(prev, next, runtime, debug);
+  if (runtime.isMain()) await syncMain(prev, next, dispatch, runtime, debug);
   const prevWin = prev.windows[runtime.label()];
   const nextWin = next.windows[runtime.label()];
   if (prevWin == null || nextWin == null) return;
@@ -253,6 +260,7 @@ const syncCurrent = async (
 const syncMain = async (
   prev: SliceState,
   next: SliceState,
+  dispatch: SyncDispatch,
   runtime: RequiredRuntime,
   debug: boolean,
 ): Promise<void> => {
@@ -275,17 +283,24 @@ const syncMain = async (
     }
   if (isMain && added.length > 0)
     for (const label of added)
-      await createRuntimeWindow(runtime, label, next.windows[label], debug);
+      await createRuntimeWindow(runtime, dispatch, label, next.windows[label], debug);
 };
 
+// A failed create is recorded on the window's own state, so it does not stop the
+// windows after it from being created.
 const createRuntimeWindow = async (
   runtime: Manager,
+  dispatch: SyncDispatch,
   label: string,
   window: WindowState & { prerenderLabel?: string },
   debug: boolean,
 ): Promise<void> => {
   log(debug, "createWindow", window);
-  return await runtime.create(label, purgeWinStateToProps(window));
+  try {
+    await runtime.create(label, purgeWinStateToProps(window));
+  } catch (err) {
+    dispatch(setWindowError({ key: label, message: errors.fromUnknown(err).message }));
+  }
 };
 
 const closeRuntimeWindow = async (

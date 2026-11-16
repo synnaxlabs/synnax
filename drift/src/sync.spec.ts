@@ -10,10 +10,10 @@
 import { deep } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { ZERO_SLICE_STATE } from "@/state";
+import { setWindowError, ZERO_SLICE_STATE } from "@/state";
 import { sync } from "@/sync";
 import { MockRuntime } from "@/testutil";
-import { type WindowProps, type WindowState } from "@/window";
+import { INITIAL_WINDOW_STATE, type WindowProps, type WindowState } from "@/window";
 
 describe("sync", () => {
   const TESTS: Array<[keyof WindowState, keyof WindowProps, any, any]> = [
@@ -39,8 +39,31 @@ describe("sync", () => {
       const nextState = deep.copy(ZERO_SLICE_STATE);
       const win = nextState.windows[runtime.label()];
       nextState.windows[runtime.label()] = { ...win, [keyToSet]: valueToSet };
-      await sync(ZERO_SLICE_STATE, nextState, runtime, false);
+      await sync(ZERO_SLICE_STATE, nextState, (a) => a, runtime, false);
       expect(runtime.props[keyToCheck]).toStrictEqual(expectedValue);
     });
+  });
+
+  it("should record a failed create on the window and create the rest", async () => {
+    const runtime = new MockRuntime(true, { key: "main" });
+    runtime.createErrors.child = new Error("label already exists");
+    const nextState = deep.copy(ZERO_SLICE_STATE);
+    nextState.windows.child = { ...INITIAL_WINDOW_STATE, key: "child" };
+    nextState.windows.other = { ...INITIAL_WINDOW_STATE, key: "other" };
+    const dispatched: unknown[] = [];
+    await sync(
+      ZERO_SLICE_STATE,
+      nextState,
+      (a) => {
+        dispatched.push(a);
+        return a;
+      },
+      runtime,
+      false,
+    );
+    expect(dispatched).toEqual([
+      setWindowError({ key: "child", message: "label already exists" }),
+    ]);
+    expect(Object.keys(runtime.hasCreated)).toEqual(["other"]);
   });
 });
