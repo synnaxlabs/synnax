@@ -68,6 +68,8 @@ lighter step or the base step in dark mode.
   step.
 - A custom icon looks precise, never cartoony: about 1.5-unit strokes on a 24 grid,
   square ends, corner radii of 1 unit or less, and filled shapes cut by clean gaps.
+- An icon centers on its ink, not its box. A star moves up 3.6% of its box, so it lines
+  up with the text and the icons next to it.
 
 ### Type
 
