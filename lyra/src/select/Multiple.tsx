@@ -93,6 +93,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
         allowNone={allowNone}
         replaceOnSingle={replaceOnSingle}
         virtual={virtual}
+        selectedFirst
       >
         <MultipleTrigger<K, E>
           haulType={haulType}
