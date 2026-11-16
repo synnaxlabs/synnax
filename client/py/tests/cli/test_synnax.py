@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from synnax.cli.synnax import parser
+from synnax.cli import parser
 
 
 def run_sy(*args: str, home: Path) -> subprocess.CompletedProcess[str]:
