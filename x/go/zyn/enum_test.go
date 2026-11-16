@@ -65,6 +65,28 @@ var _ = Describe("Enum", func() {
 			Expect(zyn.Enum(1, 2, 3).Parse(int64(1), &dest)).To(Succeed())
 			Expect(dest).To(Equal(1))
 		})
+		Specify("whole float to int", func() {
+			var dest int
+			Expect(zyn.Enum(1, 2, 3).Parse(2.0, &dest)).To(Succeed())
+			Expect(dest).To(Equal(2))
+		})
+		Specify("fractional float to int", func() {
+			var dest int
+			Expect(zyn.Enum(1, 2).Parse(1.9, &dest)).
+				To(MatchError(validate.ErrValidation))
+			Expect(dest).To(BeZero())
+		})
+		Specify("int to string", func() {
+			var dest string
+			Expect(zyn.Enum("a", "b").Parse(97, &dest)).
+				To(MatchError(validate.ErrValidation))
+			Expect(dest).To(BeEmpty())
+		})
+		Specify("string enum into int destination", func() {
+			var dest int
+			Expect(zyn.Enum("a", "b").Parse(5, &dest)).
+				To(MatchError(validate.ErrValidation))
+		})
 		Specify("incompatible channel destination", func() {
 			var dest chan string
 			Expect(zyn.Enum("a", "b", "c").Parse("a", &dest)).
