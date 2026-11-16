@@ -214,8 +214,12 @@ public:
             return {synnax::status::Status<Details>{}, errors::paged_one_error()};
         auto [statuses, err] = this->retrieve<Details>(where, options);
         if (err) return {synnax::status::Status<Details>{}, err};
-        if (const auto
-                one_err = errors::check_one("status", where.to_json(), statuses.size()))
+        if (const auto one_err = errors::check_one(
+                "status",
+                where.to_json(),
+                options.search_term,
+                statuses.size()
+            ))
             return {synnax::status::Status<Details>{}, one_err};
         return {std::move(statuses[0]), x::errors::NIL};
     }
