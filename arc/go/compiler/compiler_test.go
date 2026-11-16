@@ -1562,7 +1562,7 @@ var _ = Describe("Compiler", func() {
 		output := MustSucceed(compile(ctx, fmt.Sprintf(`
 			func dog() {b i64} f64 {
 				return %s
-			}`, expr), nil))
+			}`, expr)))
 		mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 		dog := mod.ExportedFunction("dog")
 		Expect(dog).ToNot(BeNil())

@@ -116,7 +116,7 @@ func (h *benchHarness) notify(method string, params any) {
 
 // pump reads messages until pred matches, transparently answering server-to-client
 // requests (e.g. workspace/semanticTokens/refresh) so the server never blocks.
-func (h *benchHarness) pump(pred func(msg map[string]any) bool) map[string]any {
+func (h *benchHarness) pump(pred func(msg map[string]any) bool) {
 	h.b.Helper()
 	for {
 		raw, err := h.stream.Receive()
@@ -134,7 +134,7 @@ func (h *benchHarness) pump(pred func(msg map[string]any) bool) map[string]any {
 			continue
 		}
 		if pred(msg) {
-			return msg
+			return
 		}
 	}
 }
