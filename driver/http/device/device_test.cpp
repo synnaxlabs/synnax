@@ -393,6 +393,7 @@ TEST(BuildRequestTest, MergesURLAndPath) {
     EXPECT_EQ(r.verify_ssl, true);
 }
 
+/// @brief it should append the request path to the base URL's path.
 TEST(BuildRequestTest, AppendsPathToBasePath) {
     auto conn = ConnectionConfig(
         x::json::Parser(json{{"base_url", "http://example.com/v2"}})
@@ -401,6 +402,7 @@ TEST(BuildRequestTest, AppendsPathToBasePath) {
     EXPECT_EQ(build_request(conn, req).url, "http://example.com/v2/api/data");
 }
 
+/// @brief it should join a base path with a trailing slash using one slash.
 TEST(BuildRequestTest, AppendsPathToBasePathWithTrailingSlash) {
     auto conn = ConnectionConfig(
         x::json::Parser(json{{"base_url", "http://example.com/v2/"}})
