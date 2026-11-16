@@ -24,7 +24,9 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"go.lsp.dev/protocol"
 )
 
 // freshenKey derives a unique freshening prefix from a call site's AST node so
@@ -336,14 +338,22 @@ func consultTrigger[T antlr.ParserRuleContext](
 		}
 		if err := atypes.Check(ctx.Constraints, targetParam.Type, upstreamType, ctx.AST,
 			"upstream connection to func '"+name+"'"); err != nil {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			d := diagnostics.Errorf(
 				ctx.AST,
 				"upstream value type %s does not match func '%s' trigger parameter '%s' type %s",
 				upstreamType,
 				name,
 				target,
 				targetParam.Type,
-			))
+			)
+			var hinted diagnostics.HintProvider
+			if errors.As(err, &hinted) && hinted.GetHint() != "" {
+				d.Notes = append(
+					d.Notes,
+					protocol.DiagnosticRelatedInformation{Message: hinted.GetHint()},
+				)
+			}
+			ctx.Diagnostics.Add(d)
 		}
 	}
 }
