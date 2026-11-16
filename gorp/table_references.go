@@ -159,7 +159,7 @@ func (t *Table[K, E]) delete(ctx context.Context, tx Tx, keys []K) error {
 		for i, k := range keys {
 			formatted[i] = FormatKey(k)
 		}
-		plan, err := t.db.registry.plan(ctx, tx, t.name, formatted, t.db.MaxChangeSize)
+		plan, err := t.db.registry.plan(ctx, tx, t.name, formatted, t.db.MaxDeleteSize)
 		if err != nil {
 			return err
 		}

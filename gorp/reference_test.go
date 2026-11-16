@@ -973,7 +973,7 @@ var _ = Describe("Reference", func() {
 	})
 
 	Describe("Delete size", func() {
-		BeforeEach(func(ctx SpecContext) { open(ctx, gorp.WithMaxChangeSize(2)) })
+		BeforeEach(func(ctx SpecContext) { open(ctx, gorp.WithMaxDeleteSize(2)) })
 
 		It(
 			"Should refuse a delete that cascades past the limit",
@@ -1257,7 +1257,7 @@ var _ = Describe("Reference", func() {
 		It("Should rewrite a holder once when two references hold the target", func(
 			ctx SpecContext,
 		) {
-			open(ctx, gorp.WithMaxChangeSize(1))
+			open(ctx, gorp.WithMaxDeleteSize(1))
 			var rewritten []refBadge
 			badges := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refBadge]{
 				DB:   db,
@@ -1322,7 +1322,7 @@ var _ = Describe("Reference", func() {
 		It("Should refuse a retarget that rewrites more than the limit", func(
 			ctx SpecContext,
 		) {
-			open(ctx, gorp.WithMaxChangeSize(1))
+			open(ctx, gorp.WithMaxDeleteSize(1))
 			createRack(ctx, 1)
 			createLabels(ctx, "l1", "l2")
 			createLabeled(ctx, "a", "l1")
@@ -1707,7 +1707,7 @@ var _ = Describe("Reference closure", func() {
 	It(
 		"Should not detach a target from an entry the delete removes",
 		func(ctx SpecContext) {
-			open(ctx, gorp.Detach, gorp.WithMaxChangeSize(3))
+			open(ctx, gorp.Detach, gorp.WithMaxDeleteSize(3))
 			Expect(deleteProject(ctx)).To(Succeed())
 			Expect(schematicExists(ctx)).To(BeFalse())
 		},

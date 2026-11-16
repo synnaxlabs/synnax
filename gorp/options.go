@@ -26,11 +26,11 @@ func WithCodec(codec encoding.Codec) Option {
 	return func(opts *options) { opts.Codec = codec }
 }
 
-// WithMaxChangeSize sets the most entries that one Delete or Retarget may delete or
+// WithMaxDeleteSize sets the most entries that one Delete or Retarget may delete or
 // rewrite once references cascade, detach, and retarget. A larger change fails before
 // it changes anything. The default is 1 << 20.
-func WithMaxChangeSize(n int) Option {
-	return func(opts *options) { opts.MaxChangeSize = n }
+func WithMaxDeleteSize(n int) Option {
+	return func(opts *options) { opts.MaxDeleteSize = n }
 }
 
 // WithInstrumentation sets the instrumentation that the DB logs to.
@@ -43,15 +43,15 @@ func WithInstrumentation(ins alamos.Instrumentation) Option {
 type options struct {
 	// Codec encodes and decodes entries to and from the underlying KV.
 	encoding.Codec
-	// MaxChangeSize is the most entries that one Delete or Retarget may change.
-	MaxChangeSize int
+	// MaxDeleteSize is the most entries that one Delete or Retarget may change.
+	MaxDeleteSize int
 	// Instrumentation is where the DB logs.
 	Instrumentation alamos.Instrumentation
 }
 
 var defaultOptions = options{
 	Codec:         encoding.NewDecodeFallbackCodec(orc.Codec, msgpack.Codec),
-	MaxChangeSize: 1 << 20,
+	MaxDeleteSize: 1 << 20,
 }
 
 func newOptions(opts []Option) options {
@@ -64,6 +64,6 @@ func newOptions(opts []Option) options {
 
 func overrideOptions(o options) options {
 	o.Codec = override.Nil(defaultOptions.Codec, o.Codec)
-	o.MaxChangeSize = override.Numeric(defaultOptions.MaxChangeSize, o.MaxChangeSize)
+	o.MaxDeleteSize = override.Numeric(defaultOptions.MaxDeleteSize, o.MaxDeleteSize)
 	return o
 }
