@@ -298,6 +298,15 @@ func (t *table) readField(row int, cells []string) (BinaryField, error) {
 	if err != nil {
 		return BinaryField{}, err
 	}
+	if bitLength < 1 || bitLength > maxBitLength {
+		return BinaryField{}, rowErrorf(
+			row,
+			columnBitLength,
+			"%d is not 1 to %d",
+			bitLength,
+			maxBitLength,
+		)
+	}
 	f.StartBit, f.BitLength = uint16(startBit), uint8(bitLength)
 	switch s := strings.ToLower(t.cell(cells, columnByteOrder)); s {
 	case "", "little_endian", "intel":
