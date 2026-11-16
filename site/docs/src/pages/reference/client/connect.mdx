@@ -207,10 +207,11 @@ nothing, and exits with code 1. Run `sy login` again to change the values.
 `sy login` never saves the key in a file. When the session has no keychain, the command
 fails and saves nothing. See [Connect without a keychain](#connect-without-a-keychain).
 
-With no saved login, `sy.Synnax()` connects to
-[Synnax Desktop](#connect-to-synnax-desktop). When neither is saved, it raises
+With no host, `sy.Synnax()` first reads the
+[environment variables](#connect-with-environment-variables), then the saved login, then
+[Synnax Desktop](#connect-to-synnax-desktop). When none of them is set, it raises
 `sy.ValidationError`. When you give no host and no API key, the client ignores the other
-arguments and uses the saved login.
+arguments.
 
 <Divider.Divider x />
 
@@ -368,8 +369,9 @@ A Node.js script does not exit until you close the client.
 <Field.List>
 
 <Field.Item name="host" id="python-host" type="str">
-  The hostname or IP address of the Core. With no host, the client uses the values that
-  `sy login` saved, or Synnax Desktop.
+  The hostname or IP address of the Core. With no host, the client uses the `SYNNAX_*`
+  environment variables, the values that `sy login` saved, or Synnax Desktop, in that
+  order.
 </Field.Item>
 
 <Field.Item name="port" id="python-port" type="int">

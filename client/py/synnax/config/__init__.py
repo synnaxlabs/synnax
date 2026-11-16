@@ -55,6 +55,12 @@ _TRUE = ("1", "true", "yes")
 _FALSE = ("", "0", "false", "no")
 
 
+# Values from env files and secrets often carry a trailing newline, and an empty value
+# usually means an unset variable in Docker Compose or CI.
+def _env(env: Mapping[str, str], name: str) -> str:
+    return env.get(name, "").strip()
+
+
 def load_env_options(env: Mapping[str, str]) -> Options | None:
     """Loads the options in the SYNNAX_HOST, SYNNAX_PORT, SYNNAX_API_KEY,
     SYNNAX_SECURE, and SYNNAX_CA_CERT environment variables.
@@ -62,17 +68,18 @@ def load_env_options(env: Mapping[str, str]) -> Options | None:
     :param env: The environment variables, such as os.environ.
     :returns: The options, or None if SYNNAX_HOST and SYNNAX_API_KEY are not set.
     :raises ValidationError: If SYNNAX_HOST or SYNNAX_API_KEY is set without the
-        other, or if SYNNAX_PORT or SYNNAX_SECURE is not valid.
+        other, or if SYNNAX_PORT or SYNNAX_SECURE is not valid. Values are stripped,
+        and an empty value counts as unset.
     """
-    host = env.get("SYNNAX_HOST", "")
-    api_key = env.get("SYNNAX_API_KEY", "")
+    host = _env(env, "SYNNAX_HOST")
+    api_key = _env(env, "SYNNAX_API_KEY")
     if not host and not api_key:
         return None
     if not host:
         raise ValidationError("set SYNNAX_HOST with SYNNAX_API_KEY")
     if not api_key:
         raise ValidationError("set SYNNAX_API_KEY with SYNNAX_HOST")
-    raw_port = env.get("SYNNAX_PORT", "9090")
+    raw_port = _env(env, "SYNNAX_PORT") or "9090"
     try:
         port = int(raw_port)
     except ValueError:
@@ -81,12 +88,12 @@ def load_env_options(env: Mapping[str, str]) -> Options | None:
         raise ValidationError(
             f"SYNNAX_PORT must be a port from 1 to 65535, not {raw_port!r}"
         )
-    raw_secure = env.get("SYNNAX_SECURE", "")
+    raw_secure = _env(env, "SYNNAX_SECURE")
     if raw_secure.lower() not in _TRUE + _FALSE:
         raise ValidationError(
             f"SYNNAX_SECURE must be true or false, not {raw_secure!r}"
         )
-    ca_cert = env.get("SYNNAX_CA_CERT") or None
+    ca_cert = _env(env, "SYNNAX_CA_CERT") or None
     return Options(
         host=host,
         port=port,

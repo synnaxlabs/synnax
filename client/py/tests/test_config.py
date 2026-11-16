@@ -116,6 +116,29 @@ class TestLoadEnvOptions:
         assert (opts.port, opts.secure) == (9091, True)
         assert opts.ca_cert == str(Path("~/ca.crt").expanduser())
 
+    def test_strips_values(self) -> None:
+        """Should strip whitespace, such as the newline that ends a secret file."""
+        opts = load_env_options(
+            {
+                "SYNNAX_HOST": " core.lab\n",
+                "SYNNAX_API_KEY": "syk_env\n",
+                "SYNNAX_SECURE": "true ",
+            }
+        )
+        assert opts == Options(
+            host="core.lab", port=9090, api_key="syk_env", secure=True
+        )
+
+    def test_empty_port_is_default(self) -> None:
+        """Should use port 9090 when SYNNAX_PORT is set but empty."""
+        opts = load_env_options({**ENV, "SYNNAX_PORT": ""})
+        assert opts is not None
+        assert opts.port == 9090
+
+    def test_blank_host_is_unset(self) -> None:
+        """Should treat a host of only whitespace as unset."""
+        assert load_env_options({"SYNNAX_HOST": "  "}) is None
+
     @pytest.mark.parametrize(
         ("value", "secure"),
         [("1", True), ("yes", True), ("0", False), ("false", False), ("", False)],
@@ -292,3 +315,28 @@ class TestDesktopConnection:
         )
         assert result.returncode != 0
         assert DESKTOP_NOT_RUNNING_MSG in result.stderr
+
+
+class TestEnvConnection:
+    def test_synnax_reads_the_environment(self, tmp_path: Path) -> None:
+        """Should connect to the Core that the SYNNAX_* variables name."""
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            port = int(s.getsockname()[1])
+        env = {
+            **{k: v for k, v in os.environ.items() if not k.startswith("SYNNAX_")},
+            "HOME": str(tmp_path),
+            "USERPROFILE": str(tmp_path),
+            "SYNNAX_HOST": "127.0.0.1",
+            "SYNNAX_PORT": str(port),
+            "SYNNAX_API_KEY": "syk_env",
+        }
+        result = subprocess.run(
+            [sys.executable, "-c", "import synnax as sy; sy.Synnax(max_retries=0)"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode != 0
+        assert f"127.0.0.1:{port}" in result.stderr

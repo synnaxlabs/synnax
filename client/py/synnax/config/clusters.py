@@ -27,8 +27,18 @@ KEYCHAIN_UNAVAILABLE_MSG = (
     "instead."
 )
 
-# The errors that keyring raises when this session cannot use the keychain at all.
-_UNAVAILABLE = (NoKeyringError, InitError, KeyringLocked)
+# keyring's Windows backend raises a pywintypes.error, which is not a KeyringError, with
+# this code when the session has no credential store, such as over SSH.
+_ERROR_NO_SUCH_LOGON_SESSION = 1312
+
+
+def _unavailable(e: Exception) -> bool:
+    """Returns whether e means that this session cannot use the keychain at all."""
+    return (
+        isinstance(e, (NoKeyringError, InitError, KeyringLocked))
+        or getattr(e, "winerror", None) == _ERROR_NO_SUCH_LOGON_SESSION
+    )
+
 
 _PASSWORD_SERVICE = "synnax"
 _API_KEY_SERVICE = "synnax.api_key"
@@ -61,7 +71,9 @@ class Clusters:
         opts = c["options"]
         try:
             return self._get(key, opts)
-        except _UNAVAILABLE as e:
+        except Exception as e:
+            if not _unavailable(e):
+                raise
             raise ConfigurationError(
                 f"Cannot read the login saved for {opts['host']}:{opts['port']}. "
                 + KEYCHAIN_UNAVAILABLE_MSG
@@ -91,7 +103,9 @@ class Clusters:
         """
         try:
             self._set(c, key)
-        except _UNAVAILABLE as e:
+        except Exception as e:
+            if not _unavailable(e):
+                raise
             raise ConfigurationError(KEYCHAIN_UNAVAILABLE_MSG) from e
 
     def _set(self, c: Cluster, key: str) -> None:
