@@ -144,12 +144,11 @@ var _ = Describe("MultiListener", func() {
 	It("Should close earlier listeners when a later listener fails to bind", func() {
 		// A first server holds the port on every interface, the same way the second
 		// binds it.
-		occupier := MustSucceed(server.Serve(server.Config{
+		occupier := MustOpen(server.Serve(server.Config{
 			Debug:     new(false),
 			Security:  server.SecurityConfig{Insecure: new(true)},
 			Listeners: []server.Listener{{Address: "localhost:0"}},
 		}))
-		DeferCleanup(occupier.Close)
 		occupiedAddr := occupier.Addresses()[0]
 		Expect(server.Serve(server.Config{
 			Debug:    new(false),
