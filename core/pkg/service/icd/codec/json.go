@@ -145,9 +145,9 @@ func newJSONMessage(m JSONMessage) (jsonMessage, error) {
 	return msg, nil
 }
 
-// converts reports whether a field of kind k converts to samples of dt. A number or
+// Converts reports whether a field of kind k converts to samples of dt. A number or
 // boolean also converts to a float, and an unsigned number or boolean to any integer.
-func converts(k payload.Kind, dt telem.DataType) bool {
+func Converts(k payload.Kind, dt telem.DataType) bool {
 	dk, ok := payload.KindOf(dt)
 	if !ok {
 		return false
@@ -246,7 +246,7 @@ func newJSONField(f icd.JSONField, dt telem.DataType) (jsonField, error) {
 	default:
 		return jsonField{}, errors.Wrap(validate.ErrValidation, "type is required")
 	}
-	if !converts(field.kind, dt) {
+	if !Converts(field.kind, dt) {
 		return jsonField{}, errors.Wrapf(
 			validate.ErrValidation,
 			"cannot write %s values to %s channels",
