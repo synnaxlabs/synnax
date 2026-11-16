@@ -9,7 +9,6 @@
 
 import json
 import os
-import re
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
@@ -158,6 +157,7 @@ def record(head: str, score: int = 5) -> dict[str, Any]:
         "pr": 7,
         "head": head,
         "base": "b" * 40,
+        "at": "2026-11-06T10:00:00+00:00",
         "policy": "c" * 40,
         "usage": {"cost_usd": 0.5, "duration_ms": 60_000},
         "review": {
@@ -188,11 +188,12 @@ def limited(utilization: float, at: str) -> dict[str, Any]:
     return r
 
 
-def summary(head: str) -> dict[str, Any]:
+def summary(head: str, run: int, repo: str = REPO) -> dict[str, Any]:
     """A revision of the pull request body by Sedosaur after it reviews a commit."""
     return edit(
         "Fixes A.\n\n<!-- sedosaur_comment -->\n"
-        f"Reviewed [{head[:7]}](https://github.com/o/r/commit/{head})\n"
+        f"<sub>Reviews (1) · Last reviewed commit: [Fix](https://github.com/o/r/commit/"
+        f"{head}) · [Run](https://github.com/{repo}/actions/runs/{run})</sub>\n"
         "<!-- /sedosaur_comment -->",
         "sedosaur",
     )
@@ -244,29 +245,13 @@ class FakeGH:
             thread(201, "sedosaur", "Leaks a handle too", 12, head),
         ]
         self.pulls: list[dict[str, Any]] = []
-        self.check_runs: dict[str, list[dict[str, Any]]] = {}
-        self.artifacts: dict[int, list[dict[str, Any]]] = {}
+        self.artifacts: list[dict[str, Any]] = []
         self.records: dict[int, dict[str, Any]] = {}
         self.downloads: list[int] = []
 
-    def review(
-        self,
-        run: int,
-        rec: dict[str, Any],
-        *,
-        created: str = "2026-11-06T10:00:00Z",
-        **kw: Any,
-    ) -> None:
-        """Adds a Sedosaur review run that kept a record, newer than every other."""
-        self.edits.insert(0, summary(rec["head"]))
-        self.check_runs.setdefault(rec["head"], []).append(
-            {
-                "slug": "sedosaur",
-                "external_id": f"{rec['pr']}:main",
-                "details_url": f"https://github.com/o/r/actions/runs/{run}/job/1",
-            }
-        )
-        self.artifacts[run] = [artifact(created, run, **kw)]
+    def review(self, run: int, rec: dict[str, Any]) -> None:
+        """Adds a Sedosaur review run, newer than every other, and its record."""
+        self.edits.insert(0, summary(rec["head"], run))
         self.records[run] = rec
 
     def __call__(self, *args: str, stdin: str | None = None) -> str:
@@ -287,27 +272,21 @@ class FakeGH:
             into = Path(args[args.index("--dir") + 1])
             (into / "review.json").write_text(json.dumps(self.records[run]))
             return ""
-        path = args[1]
-        if m := re.fullmatch(rf"repos/{REPO}/commits/(\w+)/check-runs\?.*", path):
-            listed = self.check_runs.get(m[1], [])
-        elif m := re.fullmatch(
-            rf"repos/{REPO}/actions/runs/(\d+)/artifacts\?name=sedosaur-review", path
+        if args[:2] == (
+            "api",
+            f"repos/{REPO}/actions/artifacts?name=sedosaur-review&per_page=100",
         ):
-            listed = self.artifacts.get(int(m[1]), [])
-        elif (
-            path == f"repos/{REPO}/actions/artifacts?name=sedosaur-review&per_page=100"
-        ):
-            listed = [a for run in sorted(self.artifacts) for a in self.artifacts[run]]
-        else:
-            raise AssertionError(f"unexpected gh call: {args}")
-        return "".join(f"{json.dumps(a)}\n" for a in listed)
+            return "".join(f"{json.dumps(a)}\n" for a in self.artifacts)
+        raise AssertionError(f"unexpected gh call: {args}")
 
 
 def pairs(gh: FakeGH, repo: "Repo", recs: list[dict[str, Any]]) -> list[compare.Pair]:
     """Pairs records that runs 1, 2, and so on kept, oldest first."""
     for run, rec in enumerate(recs, 1):
         gh.review(run, rec)
-    return compare.pairs(gh, repo.git, REPO, SINCE)
+    cache = repo.clone.parent / "records"
+    cache.mkdir()
+    return compare.pairs(gh, repo.git, REPO, SINCE, cache)
 
 
 def t(**kw: Any) -> compare.Thread:
@@ -449,67 +428,67 @@ class TestPrs:
         assert compare.prs(gh, REPO, SINCE) == [9, 7]
 
 
-class TestRecords:
-    """Tests downloading the records of Sedosaur's reviews."""
+class TestSedosaurReviews:
+    """Tests reading Sedosaur's reviews from the revisions of a pull request body."""
 
-    def test_should_download_only_the_newest_record_of_a_commit(self) -> None:
-        gh = FakeGH()
-        gh.review(1, record(HEAD, score=2))
-        gh.review(2, record(HEAD, score=4))
-        gh.review(3, record("d" * 40))
-        recs = compare.records(gh, REPO, 7, [HEAD], SINCE)
-        assert recs[HEAD]["review"]["score"] == 4
-        assert gh.downloads == [2]
+    def test_should_read_the_newest_run_of_each_commit_oldest_first(self) -> None:
+        a, b = "a" * 40, "b" * 40
+        edits = [summary(a, 3), summary(b, 2), summary(a, 1)]
+        assert list(compare.sedosaur_reviews(edits, REPO).items()) == [(b, 2), (a, 3)]
 
-    def test_should_skip_a_run_with_no_record(self) -> None:
-        gh = FakeGH()
-        gh.review(1, record(HEAD, score=2))
-        gh.review(2, record(HEAD, score=4))
-        gh.artifacts[2] = []
-        recs = compare.records(gh, REPO, 7, [HEAD], SINCE)
-        assert recs[HEAD]["review"]["score"] == 2
-
-    def test_should_skip_a_review_of_another_pull_request(self) -> None:
-        gh = FakeGH()
-        gh.review(1, record(HEAD))
-        assert compare.records(gh, REPO, 8, [HEAD], SINCE) == {}
-
-    @pytest.mark.parametrize(
-        "kw",
-        [
-            {"repository": 99},
-            {"branch": "pat/main"},
-            {"expired": True},
-            {"created": "2026-11-04T10:00:00Z"},
-        ],
-    )
-    def test_should_skip_a_record_from_a_fork_another_branch_old_or_expired(
-        self, kw: dict[str, Any]
+    def test_should_ignore_a_revision_by_a_person_or_another_repository(
+        self,
     ) -> None:
+        person = summary(HEAD, 1)
+        person["editor"]["__typename"] = "User"
+        edits = [person, summary(HEAD, 2, "fork/r")]
+        assert compare.sedosaur_reviews(edits, REPO) == {}
+
+
+class TestRecord:
+    """Tests reading the record of a Sedosaur review."""
+
+    def test_should_download_a_record_once(self, tmp_path: Path) -> None:
         gh = FakeGH()
-        gh.review(1, record(HEAD), **kw)
-        assert compare.records(gh, REPO, 7, [HEAD], SINCE) == {}
-        assert gh.downloads == []
+        gh.records[1] = record(HEAD)
+        assert compare.record(gh, REPO, 1, tmp_path) == record(HEAD)
+        assert compare.record(gh, REPO, 1, tmp_path) == record(HEAD)
+        assert gh.downloads == [1]
 
 
 class TestLimits:
     """Tests finding the newest record of the usage limits."""
 
-    def test_should_take_the_newest_record_with_limits(self) -> None:
+    def test_should_take_the_newest_record_with_limits(self, tmp_path: Path) -> None:
         gh = FakeGH()
-        gh.review(1, limited(0.2, "2026-11-05T09:00:00+00:00"))
-        gh.review(2, limited(0.81, NOON), created="2026-11-06T11:00:00Z")
         empty = limited(0.5, NOON)
         empty["usage"]["limits"] = {}
-        gh.review(3, empty, created="2026-11-06T12:00:00Z")
-        newest = compare.limits(gh, REPO, SINCE)
+        gh.records = {
+            1: limited(0.2, "2026-11-05T09:00:00+00:00"),
+            2: limited(0.81, NOON),
+            3: empty,
+        }
+        gh.artifacts = [
+            artifact("2026-11-06T12:00:00Z", 3),
+            artifact("2026-11-06T10:00:00Z", 1),
+            artifact("2026-11-06T11:00:00Z", 2),
+        ]
+        newest = compare.limits(gh, REPO, SINCE, tmp_path)
         assert newest is not None
         assert newest["usage"]["limits"]["seven_day"]["utilization"] == 0.81
 
-    def test_should_return_none_when_no_record_holds_limits(self) -> None:
+    def test_should_skip_a_record_from_a_fork_another_branch_old_or_expired(
+        self, tmp_path: Path
+    ) -> None:
         gh = FakeGH()
-        gh.review(1, record(HEAD))
-        assert compare.limits(gh, REPO, SINCE) is None
+        gh.artifacts = [
+            artifact("2026-11-06T10:00:00Z", 1, repository=99),
+            artifact("2026-11-06T10:00:00Z", 2, branch="pat/main"),
+            artifact("2026-11-06T10:00:00Z", 3, expired=True),
+            artifact("2026-11-04T10:00:00Z", 4),
+        ]
+        assert compare.limits(gh, REPO, SINCE, tmp_path) is None
+        assert gh.downloads == []
 
 
 class TestPairs:
@@ -530,11 +509,30 @@ class TestPairs:
         ]
         assert p.matches == [(0, 0)]
 
+    def test_should_download_only_the_records_of_paired_commits(
+        self, repo: Repo
+    ) -> None:
+        gh = FakeGH(repo.head)
+        pairs(gh, repo, [record(repo.head), record("d" * 40)])
+        assert gh.downloads == [1]
+
     def test_should_count_the_newest_record_of_a_commit(self, repo: Repo) -> None:
         gh = FakeGH(repo.head)
         recs = [record(repo.head, score=2), record(repo.head, score=4)]
         [p] = pairs(gh, repo, recs)
         assert p.scores == (4, 4)
+        assert gh.downloads == [2]
+
+    def test_should_skip_a_record_from_before_the_window(self, repo: Repo) -> None:
+        old = record(repo.head)
+        old["at"] = "2026-11-04T10:00:00+00:00"
+        assert pairs(FakeGH(repo.head), repo, [old]) == []
+
+    def test_should_skip_a_pull_request_one_reviewer_missed(self, repo: Repo) -> None:
+        gh = FakeGH(repo.head)
+        gh.pulls = [pull(7, NOON, [edit("", "sedosaur")])]
+        assert pairs(gh, repo, [record(repo.head)]) == []
+        assert gh.downloads == []
 
     def test_should_take_a_resolve_without_a_fix_as_noise(self, repo: Repo) -> None:
         repo.commit({"c.go": "2\n"})
