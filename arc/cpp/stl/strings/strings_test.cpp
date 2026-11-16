@@ -462,6 +462,8 @@ TEST(StrModule, FormatF32MatchesGoFmtSprintf) {
     EXPECT_EQ(call_format<float>(f, "call_format_f32", 1.5f, "010.1f"), "00000001.5");
     EXPECT_EQ(call_format<float>(f, "call_format_f32", 1.5f, "+.1f"), "+1.5");
     EXPECT_EQ(call_format<float>(f, "call_format_f32", -1.5f, ".1f"), "-1.5");
+    EXPECT_EQ(call_format<float>(f, "call_format_f32", 0.1f, "g"), "0.1");
+    EXPECT_EQ(call_format<float>(f, "call_format_f32", 1e-7f, "G"), "1E-07");
 }
 
 TEST(StrModule, FormatF64MatchesGoFmtSprintf) {
