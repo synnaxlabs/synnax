@@ -490,6 +490,15 @@ var _ = Describe("Write task", func() {
 						"topic plant/+/set: must not hold the wildcards + or #"
 				},
 			),
+			Entry("an unknown QoS",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.Float64T)
+					target := plainTarget("plant/x", ch, "", "number")
+					target["qos"] = "bogus"
+					return writeConfig(dev, target),
+						`target plant/x: qos: unknown value "bogus"`
+				},
+			),
 			Entry("a channel that does not exist",
 				func(context.Context) (msgpack.EncodedJSON, string) {
 					ch := channel.Channel{Name: "missing", DataType: telem.Float64T}
