@@ -21,6 +21,21 @@ const renderSVG = (props: Icon.IconProps): SVGSVGElement => {
 };
 
 describe("Icon", () => {
+  describe("createFromPath", () => {
+    it("should fill the path in the icon's color under the icon's name", () => {
+      const Glyph = Icon.createFromPath("glyph", "M2,2h20v20h-20z");
+      const { container } = render(<Glyph color="#dc136c" />);
+      const svg = container.querySelector("svg");
+      expect(svg?.getAttribute("class")).toContain(CSS.BM("icon", "glyph"));
+      expect(svg?.getAttribute("viewBox")).toEqual("0 0 24 24");
+      expect(svg?.getAttribute("fill")).toEqual("currentColor");
+      expect(svg?.getAttribute("color")).toEqual("#dc136c");
+      expect(container.querySelector("path")?.getAttribute("d")).toEqual(
+        "M2,2h20v20h-20z",
+      );
+    });
+  });
+
   describe("tint", () => {
     it("should leave the icon's color alone without a color", () => {
       const svg = renderSVG(Icon.tint());
