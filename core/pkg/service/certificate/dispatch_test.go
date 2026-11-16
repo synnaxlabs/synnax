@@ -22,6 +22,12 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+func set(path string, value any) certificate.Action {
+	return certificate.NewSetAction(
+		certificate.SetPayload{Path: []string{path}, Value: value},
+	)
+}
+
 var _ = Describe("Dispatch", func() {
 	type frame = actions.Scoped[certificate.Key, certificate.Action]
 	var (
@@ -32,11 +38,6 @@ var _ = Describe("Dispatch", func() {
 		return e.write(ctx, func(w certificate.Writer) error {
 			return fn(w.WithDispatchKey("dk"))
 		})
-	}
-	set := func(path string, value any) certificate.Action {
-		return certificate.NewSetAction(
-			certificate.SetPayload{Path: []string{path}, Value: value},
-		)
 	}
 	apply := func(ctx context.Context, acts ...certificate.Action) error {
 		return write(ctx, func(w certificate.Writer) error {

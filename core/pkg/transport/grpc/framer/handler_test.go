@@ -40,20 +40,13 @@ type deleteServer = fgrpc.UnaryServer[
 	*emptypb.Empty,
 ]
 
-func createVirtualChannels(ctx context.Context, dt telem.DataType, n int) channel.Keys {
+func createVirtualChannel(ctx context.Context, dt telem.DataType) channel.Keys {
 	GinkgoHelper()
-	chs := make([]channel.Channel, n)
-	for i := range chs {
-		chs[i] = channel.Channel{
-			Name:     UniqueChannelName(),
-			DataType: dt,
-			Virtual:  true,
-		}
-	}
+	ch := channel.Channel{Name: UniqueChannelName(), DataType: dt, Virtual: true}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		return channelSvc.NewWriter(tx).CreateMany(ctx, &chs)
+		return channelSvc.NewWriter(tx).Create(ctx, &ch)
 	})).To(Succeed())
-	return channel.KeysFromChannels(chs)
+	return channel.Keys{ch.Key()}
 }
 
 // newClientCodec returns a codec that matches the one the server builds for keys.
@@ -74,17 +67,14 @@ func serve[RQ, RS freighter.Payload](
 	var (
 		requests = make(chan RQ, count)
 		errs     = make(chan error, 1)
-		// stop ends the stream cleanly, so the client still reads io.EOF.
-		stop = func(err error) error {
-			errs <- err
-			return nil
-		}
 	)
 	srv.BindHandler(func(_ context.Context, s freighter.ServerStream[RQ, RS]) error {
 		for range count {
 			req, err := s.Receive()
 			if err != nil {
-				return stop(err)
+				errs <- err
+				// Ending the stream cleanly lets the client still read io.EOF.
+				return nil
 			}
 			requests <- req
 		}
@@ -138,7 +128,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 		It("Should decode a codec buffer after an open command", func(
 			ctx SpecContext,
 		) {
-			keys := createVirtualChannels(ctx, telem.Int32T, 1)
+			keys := createVirtualChannel(ctx, telem.Int32T)
 			requests, _ := serve(transport.FrameWriter, 2)
 			buf := MustSucceed(newClientCodec(ctx, keys).Encode(
 				ctx,
@@ -169,7 +159,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 		})
 
 		It("Should decode a protobuf frame", func(ctx SpecContext) {
-			keys := createVirtualChannels(ctx, telem.Int32T, 1)
+			keys := createVirtualChannel(ctx, telem.Int32T)
 			requests, _ := serve(transport.FrameWriter, 1)
 			fr := frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](4, 5, 6)})
 			exchange(
@@ -191,7 +181,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 		It("Should fail to receive a buffer that does not decode", func(
 			ctx SpecContext,
 		) {
-			keys := createVirtualChannels(ctx, telem.Int32T, 1)
+			keys := createVirtualChannel(ctx, telem.Int32T)
 			_, errs := serve(transport.FrameWriter, 2)
 			exchange(
 				MustSucceed(client.Exec(ctx)),
@@ -256,7 +246,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 		It("Should encode frames with the codec once a request names keys", func(
 			ctx SpecContext,
 		) {
-			keys := createVirtualChannels(ctx, telem.Int64T, 1)
+			keys := createVirtualChannel(ctx, telem.Int64T)
 			requests, _ := serve(transport.FrameStreamer, 1, framer.StreamerResponse{
 				Frame: frame.NewMulti(
 					keys,
@@ -282,7 +272,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 		It("Should keep the codec when a later request names no keys", func(
 			ctx SpecContext,
 		) {
-			keys := createVirtualChannels(ctx, telem.Int64T, 1)
+			keys := createVirtualChannel(ctx, telem.Int64T)
 			serve(transport.FrameStreamer, 2, framer.StreamerResponse{
 				Frame: frame.NewMulti(
 					keys,
@@ -304,7 +294,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 		It("Should send a protobuf frame before a request names keys", func(
 			ctx SpecContext,
 		) {
-			keys := createVirtualChannels(ctx, telem.Int64T, 1)
+			keys := createVirtualChannel(ctx, telem.Int64T)
 			serve(transport.FrameStreamer, 1, framer.StreamerResponse{
 				Frame: frame.NewMulti(
 					keys,
@@ -341,7 +331,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 			func(ctx SpecContext, keyed bool) {
 				var req grpcframer.StreamerRequest
 				if keyed {
-					req.Keys = createVirtualChannels(ctx, telem.Int64T, 1).Uint32()
+					req.Keys = createVirtualChannel(ctx, telem.Int64T).Uint32()
 				}
 				serve(transport.FrameStreamer, 1, framer.StreamerResponse{Ack: true})
 				res := exchange(MustSucceed(client.Exec(ctx)), 1, &req)[0]
@@ -369,7 +359,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 		It("Should encode data with the codec after a request names keys", func(
 			ctx SpecContext,
 		) {
-			keys := createVirtualChannels(ctx, telem.Int32T, 1)
+			keys := createVirtualChannel(ctx, telem.Int32T)
 			requests, _ := serve(transport.FrameIterator, 1, framer.IteratorResponse{
 				Variant: framer.IteratorResponseVariantData,
 				Command: framer.IteratorCommandNext,
@@ -395,7 +385,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 		})
 
 		It("Should send an ack without a buffer", func(ctx SpecContext) {
-			keys := createVirtualChannels(ctx, telem.Int32T, 1)
+			keys := createVirtualChannel(ctx, telem.Int32T)
 			serve(transport.FrameIterator, 1, framer.IteratorResponse{
 				Variant: framer.IteratorResponseVariantAck,
 				Command: framer.IteratorCommandNext,
@@ -410,7 +400,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 		})
 
 		It("Should send empty data without a buffer", func(ctx SpecContext) {
-			keys := createVirtualChannels(ctx, telem.Int32T, 1)
+			keys := createVirtualChannel(ctx, telem.Int32T)
 			serve(transport.FrameIterator, 1, framer.IteratorResponse{
 				Variant: framer.IteratorResponseVariantData,
 				Command: framer.IteratorCommandNext,
@@ -424,7 +414,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 		It("Should send a protobuf frame when no request names keys", func(
 			ctx SpecContext,
 		) {
-			keys := createVirtualChannels(ctx, telem.Int32T, 1)
+			keys := createVirtualChannel(ctx, telem.Int32T)
 			requests, _ := serve(transport.FrameIterator, 1, framer.IteratorResponse{
 				Variant: framer.IteratorResponseVariantData,
 				Command: framer.IteratorCommandNext,

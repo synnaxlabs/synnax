@@ -784,11 +784,7 @@ var _ = Describe("Service", func() {
 				ctx SpecContext,
 			) {
 				key := []byte("reconcile_test_performance")
-				reconcile = func(
-					ctx context.Context,
-					tx gorp.Tx,
-					c *arctask.Config,
-				) error {
+				reconcile = func(_ context.Context, tx gorp.Tx, c *arctask.Config) error {
 					v, closer, err := tx.Get(key)
 					if err != nil {
 						return err
