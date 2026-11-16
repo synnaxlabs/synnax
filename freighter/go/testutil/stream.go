@@ -110,7 +110,7 @@ func (ss *StreamServer[RQ, RS]) exec(
 	return ss.Exec(
 		ctx,
 		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
-			go srv.exec(ctx, h)
+			go srv.exec(md, h)
 			return freighter.Context{
 				Target:   ss.address,
 				Protocol: protocol,

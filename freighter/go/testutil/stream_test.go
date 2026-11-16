@@ -97,6 +97,31 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			Eventually(sent).Should(Receive(MatchError(freighter.EOF)))
 		}
 	})
+
+	It("Should pass the context from server middleware to the handler", func(
+		ctx SpecContext,
+	) {
+		type key struct{}
+		srv, dialer := testutil.NewStreamPair[testutil.Request, testutil.Response]()
+		srv.Use(freighter.MiddlewareFunc(func(
+			ctx freighter.Context,
+			next freighter.Next,
+		) (freighter.Context, error) {
+			ctx.Context = context.WithValue(ctx.Context, key{}, "value")
+			return next(ctx)
+		}))
+		values := make(chan any, 1)
+		srv.BindHandler(func(
+			ctx context.Context,
+			_ freighter.ServerStream[testutil.Request, testutil.Response],
+		) error {
+			values <- ctx.Value(key{})
+			return nil
+		})
+		stream := MustSucceed(dialer.Stream(ctx, "localhost:0"))
+		Eventually(values).Should(Receive(Equal("value")))
+		Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+	})
 })
 
 // Go picks at random between the ready cases of a select, so a cancelled context and
