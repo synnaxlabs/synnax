@@ -67,7 +67,7 @@ var _ = Describe("Versioning", func() {
 			GinkgoHelper()
 			table := resolution.NewTable()
 			diag := analyzer.AnalyzeSeeded(
-				ctx, source, "schemas/synnax/channel.oracle", "channel",
+				source, "schemas/synnax/channel.oracle", "channel",
 				analyzer.NewStandardFileLoader(root), table,
 			)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
@@ -109,7 +109,7 @@ Wire struct {
 			func(ctx SpecContext) {
 				table := analyzeLive(ctx, live)
 				entries, members := MustSucceed2(
-					versioning.Survey(ctx, table, res),
+					versioning.Survey(table, res),
 				)
 				Expect(entries).To(Equal(map[string]int{"out": 0}))
 				Expect(members.Contains("channel.Channel")).To(BeTrue())
@@ -118,7 +118,7 @@ Wire struct {
 
 		It("Should return nothing without a resolver", func(ctx SpecContext) {
 			table := analyzeLive(ctx, live)
-			entries, members := MustSucceed2(versioning.Survey(ctx, table, nil))
+			entries, members := MustSucceed2(versioning.Survey(table, nil))
 			Expect(entries).To(BeEmpty())
 			Expect(members).To(BeEmpty())
 		})
@@ -127,7 +127,7 @@ Wire struct {
 			func(ctx SpecContext) {
 				table := analyzeLive(ctx, live)
 				rewritten, pathMap, members, err := versioning.RewriteCurrent(
-					ctx, table, res,
+					table, res,
 				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pathMap).To(Equal(map[string]string{"out": "out/versions/v0"}))
@@ -160,7 +160,7 @@ Note struct {
 	text string
 }
 `)
-				rewritten, _, _, err := versioning.RewriteCurrent(ctx, table, res)
+				rewritten, _, _, err := versioning.RewriteCurrent(table, res)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(omit.IsType(rewritten.MustGet("channel.Channel"), "go")).
 					To(BeFalse())
@@ -170,7 +170,7 @@ Note struct {
 
 		It("Should return the table unchanged with no chains", func(ctx SpecContext) {
 			table := analyzeLive(ctx, live)
-			rewritten, pathMap, _, err := versioning.RewriteCurrent(ctx, table, nil)
+			rewritten, pathMap, _, err := versioning.RewriteCurrent(table, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rewritten).To(BeIdenticalTo(table))
 			Expect(pathMap).To(BeEmpty())
@@ -193,7 +193,7 @@ Note struct {
 		analyzeLive := func(ctx context.Context) *resolution.Table {
 			GinkgoHelper()
 			table := resolution.NewTable()
-			diag := analyzer.AnalyzeSeeded(ctx, `
+			diag := analyzer.AnalyzeSeeded(`
 import "schemas/x/color"
 
 @go output "out"
@@ -275,7 +275,7 @@ Channel struct {
 		It("Should resolve a reference through the version its declaring file imports",
 			func(ctx SpecContext) {
 				table := analyzeLive(ctx)
-				pins := MustSucceed(versioning.NewPins(ctx, table, res))
+				pins := MustSucceed(versioning.NewPins(table, res))
 				Expect(MustBeOk(pins.Path("channel.Note", color(table)))).
 					To(Equal("colorout/versions/v0"))
 				Expect(MustBeOk(pins.Path("channel.Channel", color(table)))).
@@ -285,7 +285,7 @@ Channel struct {
 		It("Should resolve a current declaration through its schema's current pins",
 			func(ctx SpecContext) {
 				table := analyzeLive(ctx)
-				pins := MustSucceed(versioning.NewPins(ctx, table, res))
+				pins := MustSucceed(versioning.NewPins(table, res))
 				Expect(MustBeOk(pins.CurrentPath(
 					"schemas/synnax/channel", color(table),
 				))).To(Equal("colorout/versions/v1"))
@@ -294,7 +294,7 @@ Channel struct {
 		It("Should not resolve a reference its declaring file does not pin",
 			func(ctx SpecContext) {
 				table := analyzeLive(ctx)
-				pins := MustSucceed(versioning.NewPins(ctx, table, res))
+				pins := MustSucceed(versioning.NewPins(table, res))
 				note := MustBeOk(table.Get("channel.Note"))
 				Expect(pins.Path("channel.Channel", note)).Error().To(BeFalse())
 				Expect(pins.Path("channel.Unknown", color(table))).Error().To(BeFalse())
@@ -304,14 +304,14 @@ Channel struct {
 
 		It("Should resolve nothing without a resolver", func(ctx SpecContext) {
 			table := analyzeLive(ctx)
-			pins := MustSucceed(versioning.NewPins(ctx, table, nil))
+			pins := MustSucceed(versioning.NewPins(table, nil))
 			Expect(pins.Path("channel.Note", color(table))).Error().To(BeFalse())
 		})
 
 		It("Should return the error from reading a surface", func(ctx SpecContext) {
 			table := analyzeLive(ctx)
 			write("schemas/synnax/versions/channel/v1.oracle", "Channel struct {")
-			Expect(versioning.NewPins(ctx, table, res)).Error().
+			Expect(versioning.NewPins(table, res)).Error().
 				To(MatchError(ContainSubstring("mismatched input '<EOF>'")))
 		})
 	})

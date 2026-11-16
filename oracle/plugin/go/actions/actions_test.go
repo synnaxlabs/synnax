@@ -60,7 +60,7 @@ var _ = Describe("Go Actions Plugin", func() {
 						name string
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, p)
+				resp := MustGenerate(source, "user", loader, p)
 				Expect(resp.Files).To(BeEmpty())
 			})
 		})
@@ -86,7 +86,7 @@ var _ = Describe("Go Actions Plugin", func() {
 						}
 					}
 				`
-				resp := MustGenerate(ctx, source, "shape", loader, p)
+				resp := MustGenerate(source, "shape", loader, p)
 				Expect(resp.Files).To(HaveLen(1))
 				ExpectContent(resp, "actions.gen.go").ToContain(
 					"package shape",
@@ -118,7 +118,7 @@ var _ = Describe("Go Actions Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "counter", loader, p)
+					resp := MustGenerate(source, "counter", loader, p)
 					ExpectContent(resp, "actions.gen.go").
 						ToContain(
 							"\n// ActionTypeSetValue is the Type of an Action that carries " +
@@ -144,7 +144,7 @@ var _ = Describe("Go Actions Plugin", func() {
 						}
 					}
 				`
-				resp := MustGenerate(ctx, source, "counter", loader, p)
+				resp := MustGenerate(source, "counter", loader, p)
 				Expect(resp.Files).To(HaveLen(1))
 
 				content := ExpectContent(resp, "actions.gen.go")
@@ -202,7 +202,7 @@ var _ = Describe("Go Actions Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "counter", loader, p)
+					resp := MustGenerate(source, "counter", loader, p)
 					ExpectContent(resp, "actions.gen.go").
 						ToContain(
 							"type RenamePayload struct {",
@@ -239,7 +239,7 @@ var _ = Describe("Go Actions Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "counter", loader, p)
+					resp := MustGenerate(source, "counter", loader, p)
 					ExpectContent(resp, "actions.gen.go").
 						ToContain(
 							"// SetPayload replaces the value at a path.\n"+
@@ -279,7 +279,7 @@ var _ = Describe("Go Actions Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "counter", loader, p)
+					resp := MustGenerate(source, "counter", loader, p)
 					ExpectContent(resp, "actions.gen.go").
 						ToContain(
 							"// SetPayload replaces a value in the counter.\n" +
@@ -306,7 +306,7 @@ var _ = Describe("Go Actions Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "report", loader, p)
+					resp := MustGenerate(source, "report", loader, p)
 					ExpectContent(resp, "actions.gen.go").ToContain(
 						"Report Report[any, any] `json:\"report\" msgpack:\"report\"`",
 						"// Action is a discriminated union for all Report mutations.",
@@ -330,7 +330,7 @@ var _ = Describe("Go Actions Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "board", loader, p)
+					resp := MustGenerate(source, "board", loader, p)
 					ExpectContent(resp, "actions.gen.go").
 						ToContain(
 							`ActionTypeSetNodePosition = "set_node_position"`,
@@ -354,7 +354,7 @@ var _ = Describe("Go Actions Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "bag", loader, p)
+					resp := MustGenerate(source, "bag", loader, p)
 					content := string(resp.Files[0].Content)
 					Expect(content).ToNot(ContainSubstring("*[]"))
 					Expect(content).ToNot(ContainSubstring("*msgpack.EncodedJSON"))

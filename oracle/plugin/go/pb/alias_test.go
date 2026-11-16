@@ -85,7 +85,6 @@ var _ = Describe("Go PB aliases", func() {
 		func(ctx SpecContext, use string, expected ...string) {
 			loader := NewMockFileLoader().Add("schemas/base", aliasBase)
 			resp := MustGenerate(
-				ctx,
 				aliasHead+use,
 				"test",
 				loader,

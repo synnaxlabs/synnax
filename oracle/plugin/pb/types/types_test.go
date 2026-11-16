@@ -79,7 +79,7 @@ var _ = Describe("Plugin", func() {
 	Describe("Generate", func() {
 		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
 			AddFilterSchema(loader)
-			resp := MustGenerate(ctx, ThingFilter, "thing", loader, p)
+			resp := MustGenerate(ThingFilter, "thing", loader, p)
 			ExpectContent(resp, "thing/pb/thing.proto").ToContain(
 				"message WhereList {\n  repeated Where values = 1;",
 				"WhereList and = 1;",
@@ -92,7 +92,7 @@ var _ = Describe("Plugin", func() {
 			ctx SpecContext,
 		) {
 			AddFilterSchema(loader)
-			resp := MustGenerate(ctx, ThingFilter, "thing", loader, p)
+			resp := MustGenerate(ThingFilter, "thing", loader, p)
 			ExpectContent(resp, "thing/pb/thing.proto").
 				ToContain(
 					"message UuidList {\n  repeated string values = 1;\n}",
@@ -104,7 +104,7 @@ var _ = Describe("Plugin", func() {
 
 		It("Should name the list message of each generic use", func(ctx SpecContext) {
 			AddFilterSchema(loader)
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				import "schemas/x/filter"
 
 				@go output "core/pkg/service/thing"
@@ -128,7 +128,6 @@ var _ = Describe("Plugin", func() {
 			ctx SpecContext,
 		) {
 			resp := MustGenerate(
-				ctx,
 				"@go output \"x/go/filter\"\n@pb\n"+FilterSchema,
 				"filter",
 				loader,
@@ -174,7 +173,7 @@ var _ = Describe("Plugin", func() {
 					rk
 				}
 			`
-			resp := MustGenerate(ctx, source, "dev", loader, p)
+			resp := MustGenerate(source, "dev", loader, p)
 			ExpectContent(resp, "dev/pb/dev.proto").ToContain(
 				"message KeyList {\n  repeated uint64 values = 1;\n}",
 				"message RkKeyList {\n  repeated uint32 values = 1;\n}",
@@ -195,7 +194,7 @@ var _ = Describe("Plugin", func() {
 					}
 				`)
 			}
-			req := MustGenerateRequest(ctx, `
+			req := MustGenerateRequest(`
 				import "schemas/first"
 				import "schemas/second"
 
@@ -227,7 +226,7 @@ var _ = Describe("Plugin", func() {
 						subject string
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, p)
+				resp := MustGenerate(source, "test", loader, p)
 				ExpectContent(resp, "test.proto").
 					ToContain(
 						"string key = 1;",
@@ -249,7 +248,7 @@ var _ = Describe("Plugin", func() {
 							field ` + oracleType + `
 						}
 					`
-					resp := MustGenerate(ctx, source, "test", loader, p)
+					resp := MustGenerate(source, "test", loader, p)
 					ExpectContent(
 						resp,
 						"test.proto",
@@ -275,7 +274,7 @@ var _ = Describe("Plugin", func() {
 						key uuid
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, p)
+				resp := MustGenerate(source, "test", loader, p)
 				ExpectContent(resp, "test.proto").ToContain("string key = 1;")
 			})
 
@@ -302,7 +301,7 @@ var _ = Describe("Plugin", func() {
 						axis_key AxisKey
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, p)
+					resp := MustGenerate(source, "test", loader, p)
 					content := ExpectContent(resp, "test.proto")
 					content.ToContain("enum AxisKey")
 					// The union enum gets its own positional numbering starting at 0,
@@ -321,7 +320,7 @@ var _ = Describe("Plugin", func() {
 						data record
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, p)
+				resp := MustGenerate(source, "test", loader, p)
 				ExpectContent(resp, "test.proto").
 					ToContain(
 						`import "google/protobuf/struct.proto";`,
@@ -669,7 +668,7 @@ var _ = Describe("Plugin", func() {
 						@pb omit
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, p)
+				resp := MustGenerate(source, "user", loader, p)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`message User`))
 				Expect(content).NotTo(ContainSubstring(`InternalState`))
@@ -695,7 +694,7 @@ var _ = Describe("Plugin", func() {
 						status Status
 					}
 				`
-				resp := MustGenerate(ctx, source, "status", loader, p)
+				resp := MustGenerate(source, "status", loader, p)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`enum Status`))
 				Expect(content).NotTo(ContainSubstring(`DebugLevel`))
@@ -718,7 +717,7 @@ var _ = Describe("Plugin", func() {
 						@pb omit
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, p)
+					resp := MustGenerate(source, "task", loader, p)
 					Expect(resp.Files).To(HaveLen(1))
 					Expect(
 						resp.Files[0].Path,
@@ -902,7 +901,7 @@ var _ = Describe("Plugin", func() {
 						value string
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, p)
+				resp := MustGenerate(source, "test", loader, p)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring("message MyProtoMessage"))
 				Expect(content).NotTo(ContainSubstring("OriginalName"))
@@ -1124,7 +1123,7 @@ var _ = Describe("Plugin", func() {
 						age int32
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, p)
+				resp := MustGenerate(source, "user", loader, p)
 				content := string(resp.Files[0].Content)
 				Expect(
 					content,
@@ -1152,7 +1151,7 @@ var _ = Describe("Plugin", func() {
 						small = "small"
 					}
 				`)
-					resp := MustGenerateMulti(ctx, loader, p)
+					resp := MustGenerateMulti(loader, p)
 					Expect(resp.Files).To(HaveLen(1))
 					Expect(resp.Files[0].Path).To(Equal("x/go/text/pb/text.proto"))
 					content := string(resp.Files[0].Content)
@@ -1187,7 +1186,7 @@ var _ = Describe("Plugin", func() {
 						kind color.Kind
 					}
 				`)
-				resp := MustGenerateMulti(ctx, loader, p)
+				resp := MustGenerateMulti(loader, p)
 				ExpectContent(resp, "core/pkg/service/color/pb/color.proto").
 					ToContain(
 						`import "x/go/color/pb/color.proto";`,
@@ -1225,7 +1224,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 				none NoneParams
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, p)
+			resp := MustGenerate(source, "ni", loader, p)
 			ExpectContent(resp, "ni.proto").
 				ToContain(
 					"message Scale {",
@@ -1250,7 +1249,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 				ai_voltage VoltageFields
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, p)
+			resp := MustGenerate(source, "ni", loader, p)
 			ExpectContent(resp, "ni.proto").
 				ToContain(
 					"message AIChannel {",
@@ -1283,7 +1282,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 				ai_voltage VoltageFields
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, p)
+			resp := MustGenerate(source, "ni", loader, p)
 			ExpectContent(resp, "ni.proto").
 				ToContain(
 					".hw.pb.BaseAIChan base_ai_chan = 1;",
@@ -1307,7 +1306,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 				}
 			}
 		`
-			req := MustGenerateRequest(ctx, source, "ni", loader)
+			req := MustGenerateRequest(source, "ni", loader)
 			Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 				`union "AIChannel" variant "ai_temp_builtin" omits inherited field(s) [port], which protobuf cannot express`,
 			)))
@@ -1331,7 +1330,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 				temp Builtin
 			}
 		`
-			req := MustGenerateRequest(ctx, source, "ni", loader)
+			req := MustGenerateRequest(source, "ni", loader)
 			Expect(p.Generate(req)).Error().To(MatchError(
 				`failed to generate core/pkg/hw/ni/pb: union "AIChannel" ` +
 					`variant "temp" omits inherited field(s) [port], which ` +
@@ -1354,7 +1353,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 				empty {}
 			}
 		`
-		resp := MustGenerate(ctx, source, "panel", loader, p)
+		resp := MustGenerate(source, "panel", loader, p)
 		ExpectContent(resp, "panel.proto").
 			ToContain(
 				"message TabViewPayload {",
@@ -1386,7 +1385,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 				customScale Scale
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, p)
+			resp := MustGenerate(source, "ni", loader, p)
 			ExpectContent(resp, "ni.proto").
 				ToContain("Scale custom_scale = 1;")
 		},
@@ -1414,7 +1413,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 				custom_scale scale.Scale
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, p)
+		resp := MustGenerate(source, "ni", loader, p)
 		ExpectContent(resp, "ni.proto").
 			ToContain(
 				`import "core/pkg/service/scale/pb/scale.proto";`,

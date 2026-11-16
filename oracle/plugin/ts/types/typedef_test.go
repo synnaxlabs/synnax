@@ -38,7 +38,7 @@ var _ = Describe("Type Definition Generation", func() {
 					@validate { min_length 3 }
 				}
 			`
-				resp := MustGenerate(ctx, source, "slug", loader, p)
+				resp := MustGenerate(source, "slug", loader, p)
 				content := MustContentOf(resp, "types.gen.ts")
 				Expect(content).To(ContainSubstring(".check(zod.minLength(3))"))
 			},
@@ -54,7 +54,7 @@ var _ = Describe("Type Definition Generation", func() {
 					@ts to_number
 				}
 			`
-				resp := MustGenerate(ctx, source, "count", loader, p)
+				resp := MustGenerate(source, "count", loader, p)
 				content := MustContentOf(resp, "types.gen.ts")
 				Expect(content).To(ContainSubstring("countZ"))
 			},
@@ -70,7 +70,7 @@ var _ = Describe("Type Definition Generation", func() {
 					@ts to_string
 				}
 			`
-				resp := MustGenerate(ctx, source, "id", loader, p)
+				resp := MustGenerate(source, "id", loader, p)
 				content := MustContentOf(resp, "types.gen.ts")
 				Expect(content).To(ContainSubstring("ID"))
 			},
@@ -95,7 +95,7 @@ var _ = Describe("Type Definition Generation", func() {
 					cjc CJC = const_val
 				}
 			`
-				resp := MustGenerate(ctx, source, "cjc", loader, p)
+				resp := MustGenerate(source, "cjc", loader, p)
 				content := MustContentOf(resp, "types.gen.ts")
 				Expect(content).To(ContainSubstring(
 					`prefault({ source: "const_val" })`,
@@ -113,7 +113,7 @@ var _ = Describe("Type Definition Generation", func() {
 
 				Tags = string[]
 			`
-				resp := MustGenerate(ctx, source, "tags", loader, p)
+				resp := MustGenerate(source, "tags", loader, p)
 				content := MustContentOf(resp, "types.gen.ts")
 				Expect(
 					content,
@@ -142,7 +142,7 @@ var _ = Describe("Type Definition Generation", func() {
 					@ts concrete_types
 				}
 			`
-				resp := MustGenerate(ctx, source, "details", loader, p)
+				resp := MustGenerate(source, "details", loader, p)
 				content := MustContentOf(resp, "types.gen.ts")
 				Expect(content).To(ContainSubstring("thing: typeof aliasedZ;"))
 			},

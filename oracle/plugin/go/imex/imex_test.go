@@ -30,7 +30,7 @@ import (
 // the request the plugin reads it through: the chain dates the resource's
 // export history and supplies its current version.
 func chainRequestFor(
-	ctx context.Context, root, resource, live string, chain map[int]string,
+	root, resource, live string, chain map[int]string,
 ) *plugin.Request {
 	GinkgoHelper()
 	dir := filepath.Join(root, "schemas", "synnax", "versions", resource)
@@ -43,7 +43,7 @@ func chainRequestFor(
 	loader := analyzer.NewStandardFileLoader(root)
 	table := resolution.NewTable()
 	diag := analyzer.AnalyzeSeeded(
-		ctx, live, "schemas/synnax/"+resource+".oracle", resource, loader, table,
+		live, "schemas/synnax/"+resource+".oracle", resource, loader, table,
 	)
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
 	return &plugin.Request{
@@ -56,10 +56,10 @@ func chainRequestFor(
 }
 
 func chainRequest(
-	ctx context.Context, root, live string, chain map[int]string,
+	root, live string, chain map[int]string,
 ) *plugin.Request {
 	GinkgoHelper()
-	return chainRequestFor(ctx, root, "log", live, chain)
+	return chainRequestFor(root, "log", live, chain)
 }
 
 // logChain is one version file's persisted Log surface. imex marks an exported version.
@@ -138,7 +138,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 					name string
 				}
 			`
-				resp := MustGenerate(ctx, source, "log", loader, p)
+				resp := MustGenerate(source, "log", loader, p)
 				Expect(resp.Files).To(BeEmpty())
 			},
 		)
@@ -147,7 +147,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 			"Should emit the current version constant and Latest",
 			func(ctx SpecContext) {
 				req := chainRequest(
-					ctx, GinkgoT().TempDir(), liveLog,
+					GinkgoT().TempDir(), liveLog,
 					map[int]string{3: logChain(true)},
 				)
 				resp := MustSucceed(p.Generate(req))
@@ -211,7 +211,7 @@ Log struct {
 }
 `
 				req := chainRequest(
-					ctx, GinkgoT().TempDir(), live, map[int]string{3: logChain(true)},
+					GinkgoT().TempDir(), live, map[int]string{3: logChain(true)},
 				)
 				resp := MustSucceed(p.Generate(req))
 				ExpectContent(resp, "core/pkg/service/log/imex.gen.go").
@@ -243,7 +243,7 @@ Log union on type extends Base {
 					"Log union on type extends Base {\n\tinfo {}\n\tfailure {\n" +
 					"\t\tcode int32\n\t}\n\t@go imex\n}\n"
 				req := chainRequest(
-					ctx, GinkgoT().TempDir(), live, map[int]string{0: chain},
+					GinkgoT().TempDir(), live, map[int]string{0: chain},
 				)
 				resp := MustSucceed(p.Generate(req))
 				ExpectContent(resp, "core/pkg/service/log/imex.gen.go").
@@ -275,7 +275,7 @@ Log union on type extends Base {
 					"Log union on type extends Base {\n\tinfo {}\n\tfailure {\n" +
 					"\t\t-name\n\t}\n\t@go imex\n}\n"
 				req := chainRequest(
-					ctx, GinkgoT().TempDir(), live, map[int]string{0: chain},
+					GinkgoT().TempDir(), live, map[int]string{0: chain},
 				)
 				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 					"log.Log: an exported union needs one base that every variant " +
@@ -301,7 +301,7 @@ Log union on type extends Base {
 				}
 				_ = diskLoader
 				req := chainRequest(
-					ctx, tmpDir, liveLog, map[int]string{3: logChain(true)},
+					tmpDir, liveLog, map[int]string{3: logChain(true)},
 				)
 				resp := MustSucceed(p.Generate(req))
 				Expect(resp.Files).To(HaveLen(3))
@@ -344,7 +344,7 @@ Log struct {
 	name string
 }
 `
-				req := chainRequest(ctx, tmpDir, live, map[int]string{
+				req := chainRequest(tmpDir, live, map[int]string{
 					1: logChain(true),
 					2: logChain(false),
 				})
@@ -367,7 +367,7 @@ Log struct {
 					0o755,
 				)).To(Succeed())
 			}
-			req := chainRequest(ctx, tmpDir, liveLog, map[int]string{
+			req := chainRequest(tmpDir, liveLog, map[int]string{
 				1: logChain(true),
 				2: "Log = v1.Log\n",
 			})
@@ -394,7 +394,7 @@ Log struct {
 }
 `
 				req := chainRequest(
-					ctx, tmpDir, live, map[int]string{1: logChain(true)},
+					tmpDir, live, map[int]string{1: logChain(true)},
 				)
 				resp := MustSucceed(p.Generate(req))
 				Expect(resp.Files).To(HaveLen(3))
@@ -413,7 +413,6 @@ Symbol struct {
 }
 `
 			req := chainRequestFor(
-				ctx,
 				GinkgoT().TempDir(),
 				"symbol",
 				live,
@@ -466,7 +465,7 @@ Symbol struct {
 					[]byte("package v3\n\nfunc MigrateLog() {}\n"),
 					0o644,
 				)).To(Succeed())
-				req := chainRequest(ctx, tmpDir, liveLog, map[int]string{
+				req := chainRequest(tmpDir, liveLog, map[int]string{
 					2: logChain(true),
 					3: logChain(true),
 				})
@@ -501,7 +500,7 @@ Symbol struct {
 						0o755,
 					)).To(Succeed())
 				}
-				req := chainRequest(ctx, tmpDir, liveLog, map[int]string{
+				req := chainRequest(tmpDir, liveLog, map[int]string{
 					2: logChain(true),
 					3: "Log = v2.Log\n",
 				})
@@ -523,7 +522,7 @@ Symbol struct {
 		It(
 			"Should error when a version redeclares the type without a migrate step",
 			func(ctx SpecContext) {
-				req := chainRequest(ctx, GinkgoT().TempDir(), liveLog, map[int]string{
+				req := chainRequest(GinkgoT().TempDir(), liveLog, map[int]string{
 					2: logChain(true),
 					3: logChain(true),
 				})
@@ -538,7 +537,7 @@ Symbol struct {
 			"Should floor at the current version when earlier versions lack the marker",
 			func(ctx SpecContext) {
 				tmpDir := GinkgoT().TempDir()
-				req := chainRequest(ctx, tmpDir, liveLog, map[int]string{
+				req := chainRequest(tmpDir, liveLog, map[int]string{
 					2: logChain(false),
 					3: logChain(true),
 				})
@@ -555,7 +554,7 @@ Symbol struct {
 		It(
 			"Should error when an exported version's file marks no type",
 			func(ctx SpecContext) {
-				req := chainRequest(ctx, GinkgoT().TempDir(), liveLog, map[int]string{
+				req := chainRequest(GinkgoT().TempDir(), liveLog, map[int]string{
 					3: logChain(false),
 				})
 				Expect(p.Generate(req)).Error().To(MatchError(
@@ -571,7 +570,7 @@ Symbol struct {
 				ResourceImportPath: "github.com/acme/portable/resource",
 			})
 			req := chainRequest(
-				ctx, GinkgoT().TempDir(), liveLog,
+				GinkgoT().TempDir(), liveLog,
 				map[int]string{3: logChain(true)},
 			)
 			resp := MustSucceed(custom.Generate(req))
@@ -600,7 +599,7 @@ Symbol struct {
 					[]byte("package v3\n\nfunc MigrateLog( {\n"),
 					0o644,
 				)).To(Succeed())
-				req := chainRequest(ctx, tmpDir, liveLog, map[int]string{
+				req := chainRequest(tmpDir, liveLog, map[int]string{
 					2: logChain(true),
 					3: logChain(true),
 				})
@@ -621,7 +620,7 @@ Symbol struct {
 					@go imex
 				}
 			`
-			req := MustGenerateRequest(ctx, source, "log", loader)
+			req := MustGenerateRequest(source, "log", loader)
 			Expect(p.Generate(req)).Error().To(MatchError(
 				ContainSubstring("@go imex without a version chain"),
 			))
@@ -654,7 +653,7 @@ ScanConfig struct {
 				ctx context.Context, root string, chain map[int]string,
 			) *plugin.Request {
 				GinkgoHelper()
-				return chainRequestFor(ctx, root, "modbus", liveConfigs, chain)
+				return chainRequestFor(root, "modbus", liveConfigs, chain)
 			}
 
 			It("Should emit a ladder per type and no Export", func(ctx SpecContext) {
@@ -778,7 +777,7 @@ ReadConfig struct {
 						v2Path = "core/pkg/service/modbus/versions/v2/imex.gen.go"
 					)
 					before := MustSucceed(p.Generate(chainRequestFor(
-						ctx, GinkgoT().TempDir(), "modbus", liveRead,
+						GinkgoT().TempDir(), "modbus", liveRead,
 						map[int]string{
 							1: readOnly,
 							2: "ReadConfig = v1.ReadConfig\n",
@@ -828,7 +827,7 @@ ReadConfig struct {
 						configRequest(ctx, GinkgoT().TempDir(), chain),
 					))
 					readOnly := MustSucceed(p.Generate(chainRequestFor(
-						ctx, GinkgoT().TempDir(), "modbus", liveRead, chain,
+						GinkgoT().TempDir(), "modbus", liveRead, chain,
 					)))
 					ExpectContent(both, v1Path).ToContain(
 						"// Version is the portable schema version of the shapes this " +
@@ -860,7 +859,7 @@ ScanConfig struct {
 }
 `
 					req := chainRequestFor(
-						ctx, GinkgoT().TempDir(), "modbus", live, map[int]string{
+						GinkgoT().TempDir(), "modbus", live, map[int]string{
 							1: "ReadConfig struct {\n\tkey uuid @key\n\trate int32\n\n" +
 								"\t@go imex\n}\n\nScanConfig struct {\n\tkey uuid @key\n\n" +
 								"\t@go imex body\n}\n",
@@ -897,7 +896,6 @@ OtherConfig struct {
 }
 `
 				diag := analyzer.AnalyzeSeeded(
-					ctx,
 					liveOther,
 					"schemas/synnax/other.oracle",
 					"other",
@@ -928,7 +926,7 @@ Sibling struct {
 }
 `
 				req := chainRequest(
-					ctx, GinkgoT().TempDir(), live,
+					GinkgoT().TempDir(), live,
 					map[int]string{3: logChain(true)},
 				)
 				Expect(p.Generate(req)).Error().To(MatchError(

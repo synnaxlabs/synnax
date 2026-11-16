@@ -48,7 +48,7 @@ var _ = Describe("Extract", func() {
 
 	extract := func(ctx SpecContext, records string) (*group.Data, error) {
 		GinkgoHelper()
-		table, diag := Analyze(ctx, `
+		table, diag := Analyze(`
 			import "schemas/group"
 		`+records, "records", loader)
 		Expect(diag.Ok()).To(BeTrue(), diag.String)
@@ -268,7 +268,7 @@ var _ = Describe("Extract", func() {
 	})
 
 	It("Should skip a type in a version file", func(ctx SpecContext) {
-		table, diag := Analyze(ctx, `
+		table, diag := Analyze(`
 			import "schemas/group"
 		`+rack("@group scope device"), "schemas/records/versions/rack/v1", loader)
 		Expect(diag.Ok()).To(BeTrue(), diag.String)

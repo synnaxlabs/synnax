@@ -21,7 +21,7 @@ import (
 var _ = Describe("Indirect", func() {
 	DescribeTable("Should report whether a field holds its parent through an indirect",
 		func(ctx SpecContext, field string, expected bool) {
-			req := MustGenerateRequest(ctx, `
+			req := MustGenerateRequest(`
 				@cpp output "out"
 
 				Leaf struct {

@@ -218,7 +218,7 @@ Channel struct {
 }
 `,
 			})
-			f := MustSucceed(r.File(ctx, "schemas/synnax/channel", 1))
+			f := MustSucceed(r.File("schemas/synnax/channel", 1))
 			Expect(f.Aliases).To(HaveKeyWithValue(
 				"Key", versions.Alias{Version: 0, Name: "Key"},
 			))
@@ -241,7 +241,7 @@ Channel struct {
 }
 `,
 			})
-			f := MustSucceed(r.File(ctx, "schemas/synnax/channel", 0))
+			f := MustSucceed(r.File("schemas/synnax/channel", 0))
 			Expect(f.Pins).To(HaveKeyWithValue("schemas/x/telem", 0))
 			ch := MustBeOk(f.Table.Get("v0.Channel"))
 			Expect(ch.Namespace).To(Equal("v0"))
@@ -267,7 +267,7 @@ Channel struct {
 }
 `,
 			})
-			f := MustSucceed(r.File(ctx, "schemas/synnax/channel", 0))
+			f := MustSucceed(r.File("schemas/synnax/channel", 0))
 			Expect(f.Live).To(ContainElement("telem"))
 			Expect(f.LivePaths).To(ContainElement("schemas/x/telem"))
 			Expect(f.Pins).To(BeEmpty())
@@ -305,7 +305,7 @@ Arc struct {
 }
 `,
 			})
-			f := MustSucceed(r.File(ctx, "schemas/synnax/arc", 0))
+			f := MustSucceed(r.File("schemas/synnax/arc", 0))
 			arc := MustBeOk(f.Table.Get("v0.Arc"))
 			field := arc.Form.(resolution.StructForm).Fields[2]
 			Expect(MustBeOk(field.Type.Resolve(f.Table)).QualifiedName).
@@ -326,7 +326,7 @@ Arc struct {
 }
 `,
 			})
-			f := MustSucceed(r.File(ctx, "schemas/synnax/arc", 0))
+			f := MustSucceed(r.File("schemas/synnax/arc", 0))
 			Expect(f.Pins).ToNot(HaveKey("schemas/arc/program"))
 			arc := MustBeOk(f.Table.Get("v0.Arc"))
 			Expect(arc.Namespace).To(Equal("v0"))
@@ -360,7 +360,7 @@ Channel struct {
 }
 `,
 			})
-			f := MustSucceed(r.File(ctx, "schemas/synnax/channel", 0))
+			f := MustSucceed(r.File("schemas/synnax/channel", 0))
 			node := MustBeOk(f.Table.Get("x/node@v0.Node"))
 			Expect(node.Namespace).To(Equal("x/node@v0"))
 			Expect(MustBeOk(f.Table.Get("x/telem@v0.TimeStamp")).Namespace).
@@ -392,7 +392,7 @@ Schematic struct {
 `,
 			})
 			Expect(
-				r.File(ctx, "schemas/synnax/schematic", 1),
+				r.File("schemas/synnax/schematic", 1),
 			).Error().
 				To(MatchError(And(
 					ContainSubstring("schemas/synnax/versions/schematic/v1.oracle"),
@@ -419,7 +419,7 @@ B struct {
 }
 `,
 			})
-			Expect(r.File(ctx, "schemas/synnax/a", 0)).Error().
+			Expect(r.File("schemas/synnax/a", 0)).Error().
 				To(MatchError(ContainSubstring("version dependency cycle")))
 		})
 
@@ -427,7 +427,7 @@ B struct {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
 			})
-			Expect(r.File(ctx, "schemas/x/node", 0)).Error().
+			Expect(r.File("schemas/x/node", 0)).Error().
 				To(MatchError(ContainSubstring("no version chain for schemas/x/node")))
 		})
 
@@ -437,7 +437,7 @@ B struct {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
 			})
-			Expect(r.File(ctx, "schemas/x/telem", 3)).Error().
+			Expect(r.File("schemas/x/telem", 3)).Error().
 				To(MatchError(ContainSubstring("schemas/x/telem has no version 3")))
 		})
 
@@ -445,7 +445,7 @@ B struct {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp struct {{{\n",
 			})
-			Expect(r.File(ctx, "schemas/x/telem", 0)).Error().
+			Expect(r.File("schemas/x/telem", 0)).Error().
 				To(MatchError(ContainSubstring("failed to parse")))
 		})
 
@@ -455,7 +455,7 @@ B struct {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "Key = uuid\nKey = string\n",
 			})
-			Expect(r.File(ctx, "schemas/x/telem", 0)).Error().
+			Expect(r.File("schemas/x/telem", 0)).Error().
 				To(MatchError(ContainSubstring("analysis of")))
 		})
 
@@ -470,7 +470,7 @@ B struct {
 			Expect(os.Remove(filepath.Join(
 				root, "schemas/x/versions/telem/v0.oracle",
 			))).To(Succeed())
-			Expect(r.File(ctx, "schemas/x/telem", 0)).Error().
+			Expect(r.File("schemas/x/telem", 0)).Error().
 				To(MatchError(ContainSubstring("failed to load")))
 		})
 
@@ -502,7 +502,7 @@ Channel struct {
 }
 `,
 			})
-			f := MustSucceed(r.File(ctx, "schemas/synnax/channel", 0))
+			f := MustSucceed(r.File("schemas/synnax/channel", 0))
 			Expect(MustBeOk(f.Table.Get("telem.TimeStamp")).Namespace).
 				To(Equal("telem"))
 		})
@@ -552,7 +552,7 @@ Channel struct {
 }
 `,
 			})
-			f := MustSucceed(r.File(ctx, "schemas/synnax/channel", 0))
+			f := MustSucceed(r.File("schemas/synnax/channel", 0))
 			for _, name := range []string{
 				"Kind", "Leaf", "Node", "Span", "Ref", "Wrapper",
 			} {
@@ -592,7 +592,7 @@ Name = string
 			ctx SpecContext,
 		) {
 			r := definerFixture()
-			ns, name, ok := r.Definer(ctx, "schemas/synnax/channel", 1, "Name")
+			ns, name, ok := r.Definer("schemas/synnax/channel", 1, "Name")
 			Expect(ok).To(BeTrue())
 			Expect(ns).To(Equal("synnax/channel@v1"))
 			Expect(name).To(Equal("Name"))
@@ -602,7 +602,7 @@ Name = string
 			ctx SpecContext,
 		) {
 			r := definerFixture()
-			ns, name, ok := r.Definer(ctx, "schemas/synnax/channel", 1, "Key")
+			ns, name, ok := r.Definer("schemas/synnax/channel", 1, "Key")
 			Expect(ok).To(BeTrue())
 			Expect(ns).To(Equal("synnax/channel@v0"))
 			Expect(name).To(Equal("Key"))
@@ -612,7 +612,7 @@ Name = string
 			ctx SpecContext,
 		) {
 			r := definerFixture()
-			_, _, ok := r.Definer(ctx, "schemas/synnax/channel", 0, "Name")
+			_, _, ok := r.Definer("schemas/synnax/channel", 0, "Name")
 			Expect(ok).To(BeFalse())
 		})
 
@@ -620,7 +620,7 @@ Name = string
 			ctx SpecContext,
 		) {
 			r := definerFixture()
-			_, _, ok := r.Definer(ctx, "schemas/x/telem", 0, "TimeStamp")
+			_, _, ok := r.Definer("schemas/x/telem", 0, "TimeStamp")
 			Expect(ok).To(BeFalse())
 		})
 	})
@@ -633,7 +633,7 @@ Name = string
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
 				"schemas/x/versions/telem/v1.oracle": "// gone\n",
 			})
-			Expect(r.Ended(ctx, "schemas/x/telem")).To(BeTrue())
+			Expect(r.Ended("schemas/x/telem")).To(BeTrue())
 		})
 
 		It("Should report a chain with a declaring last version as live", func(
@@ -642,7 +642,7 @@ Name = string
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
 			})
-			Expect(r.Ended(ctx, "schemas/x/telem")).To(BeFalse())
+			Expect(r.Ended("schemas/x/telem")).To(BeFalse())
 		})
 
 		It("Should reject a tombstone before the chain's last version", func(
@@ -653,7 +653,7 @@ Name = string
 				"schemas/x/versions/telem/v1.oracle": "// gone\n",
 				"schemas/x/versions/telem/v2.oracle": "TimeStamp = int64\n",
 			})
-			Expect(r.File(ctx, "schemas/x/telem", 1)).Error().To(MatchError(
+			Expect(r.File("schemas/x/telem", 1)).Error().To(MatchError(
 				ContainSubstring("only the last version file may be a tombstone"),
 			))
 		})
@@ -664,7 +664,7 @@ Name = string
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "// gone\n",
 			})
-			Expect(r.Ended(ctx, "schemas/x/telem")).Error().To(MatchError(
+			Expect(r.Ended("schemas/x/telem")).Error().To(MatchError(
 				ContainSubstring("delete the chain directory"),
 			))
 		})
@@ -673,7 +673,7 @@ Name = string
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
 			})
-			Expect(r.Ended(ctx, "schemas/x/node")).Error().
+			Expect(r.Ended("schemas/x/node")).Error().
 				To(MatchError(ContainSubstring("no version chain for schemas/x/node")))
 		})
 	})
@@ -699,7 +699,7 @@ Channel struct {
 }
 `,
 			})
-			surf := MustSucceed(r.Surface(ctx, "schemas/synnax/channel", 1))
+			surf := MustSucceed(r.Surface("schemas/synnax/channel", 1))
 			Expect(surf).To(HaveLen(2))
 			Expect(surf["Key"].Version).To(Equal(0))
 			Expect(surf["Channel"].Version).To(Equal(1))
@@ -719,7 +719,7 @@ Legacy struct {
 Key = v0.Key
 `,
 			})
-			surf := MustSucceed(r.Surface(ctx, "schemas/synnax/channel", 1))
+			surf := MustSucceed(r.Surface("schemas/synnax/channel", 1))
 			Expect(surf).To(HaveKey("Key"))
 			Expect(surf).ToNot(HaveKey("Legacy"))
 		})
@@ -732,7 +732,7 @@ Key = v0.Key
 				"schemas/synnax/versions/channel/v1.oracle": "Key = v0.Key\n",
 				"schemas/synnax/versions/channel/v2.oracle": "Key = v1.Key\n",
 			})
-			surf := MustSucceed(r.Surface(ctx, "schemas/synnax/channel", 2))
+			surf := MustSucceed(r.Surface("schemas/synnax/channel", 2))
 			Expect(surf).To(HaveKey("Key"))
 			Expect(surf["Key"].Version).To(Equal(0))
 		})
@@ -744,7 +744,7 @@ Key = v0.Key
 				"schemas/synnax/versions/channel/v0.oracle": "Key = uuid\n",
 				"schemas/synnax/versions/channel/v1.oracle": "Key = v0.Key\nName = v0.Name\n",
 			})
-			Expect(r.Surface(ctx, "schemas/synnax/channel", 1)).Error().
+			Expect(r.Surface("schemas/synnax/channel", 1)).Error().
 				To(MatchError(ContainSubstring("unresolved type: v0.Name")))
 		})
 
@@ -767,11 +767,11 @@ Key = int64 {
 `,
 			})
 			live := "schemas/synnax/channel"
-			Expect(MustSucceed(r.Surface(ctx, live, 0))["Key"].Doc).
+			Expect(MustSucceed(r.Surface(live, 0))["Key"].Doc).
 				To(Equal("unique channel identifier"))
-			Expect(MustSucceed(r.Surface(ctx, live, 1))["Key"].Doc).
+			Expect(MustSucceed(r.Surface(live, 1))["Key"].Doc).
 				To(Equal("unique channel identifier"))
-			Expect(MustSucceed(r.Surface(ctx, live, 2))["Key"].Doc).
+			Expect(MustSucceed(r.Surface(live, 2))["Key"].Doc).
 				To(Equal("now numeric"))
 		})
 	})
@@ -792,7 +792,7 @@ Key = string
 			})
 			table := resolution.NewTable()
 			Expect(r.SurfaceInto(
-				ctx, table, "schemas/synnax/channel", 1, "channel@v1",
+				table, "schemas/synnax/channel", 1, "channel@v1",
 			)).To(Succeed())
 			t := MustBeOk(table.Get("channel@v1.Key"))
 			Expect(doc.Get(t.Domains)).To(Equal("unique channel identifier"))
@@ -811,7 +811,7 @@ Key = string
 				QualifiedName: "channel@v0.Existing",
 			})).To(Succeed())
 			Expect(r.SurfaceInto(
-				ctx, table, "schemas/synnax/channel", 0, "channel@v0",
+				table, "schemas/synnax/channel", 0, "channel@v0",
 			)).To(Succeed())
 			_, ok := table.Get("channel@v0.Key")
 			Expect(ok).To(BeFalse())
@@ -833,7 +833,7 @@ Proof union on method Method {
 			})
 			table := resolution.NewTable()
 			Expect(r.SurfaceInto(
-				ctx, table, "schemas/synnax/auth", 0, "auth@v0",
+				table, "schemas/synnax/auth", 0, "auth@v0",
 			)).To(Succeed())
 			form := MustBeOk(table.Get("auth@v0.Proof")).Form.(resolution.UnionForm)
 			Expect(form.Enum.Name).To(Equal("auth@v0.Method"))
@@ -862,7 +862,7 @@ Node union on variant extends v0.Node {
 			})
 			table := resolution.NewTable()
 			Expect(r.SurfaceInto(
-				ctx, table, "schemas/synnax/channel", 1, "channel@v1",
+				table, "schemas/synnax/channel", 1, "channel@v1",
 			)).To(Succeed())
 			box := MustBeOk(table.Get("channel@v1.NodeBoxPayload"))
 			width := MustBeOk(lo.Find(
@@ -877,7 +877,7 @@ Node union on variant extends v0.Node {
 				"schemas/synnax/versions/channel/v0.oracle": "Key struct {{{\n",
 			})
 			Expect(r.SurfaceInto(
-				ctx, resolution.NewTable(), "schemas/synnax/channel", 0, "channel@v0",
+				resolution.NewTable(), "schemas/synnax/channel", 0, "channel@v0",
 			)).Error().To(MatchError(ContainSubstring("failed to parse")))
 		})
 	})

@@ -41,7 +41,7 @@ func NewVersionsGate() Checker { return versionsGate{} }
 func (versionsGate) Name() string { return "versions" }
 
 func (g versionsGate) Run(
-	ctx context.Context, res *pipeline.Result, env Env,
+	_ context.Context, res *pipeline.Result, env Env,
 ) GateReport {
 	start := telem.Now()
 	r := GateReport{Gate: g.Name(), Status: StatusPass}
@@ -51,20 +51,19 @@ func (g versionsGate) Run(
 	}
 	chains, resolver := res.Chains, res.Versions
 	if env.Shipped != nil {
-		checkShipped(ctx, &r, env.RepoRoot, chains, resolver, *env.Shipped)
+		checkShipped(&r, env.RepoRoot, chains, resolver, *env.Shipped)
 	}
 	if len(chains) == 0 || resolver == nil {
 		return r
 	}
 	for _, livePath := range slices.Sorted(maps.Keys(chains)) {
-		checkChain(ctx, &r, res, env, resolver, chains[livePath])
+		checkChain(&r, res, env, resolver, chains[livePath])
 	}
 	return r
 }
 
 // checkChain runs the drift and minimality checks for one chain.
 func checkChain(
-	ctx context.Context,
 	r *GateReport,
 	res *pipeline.Result,
 	env Env,
@@ -109,7 +108,7 @@ func checkChain(
 
 	// Import placement: every versioned dependency is pinned.
 	for _, k := range chain.Numbers {
-		fk, err := resolver.File(ctx, livePath, k)
+		fk, err := resolver.File(livePath, k)
 		if err != nil {
 			r.fail(Finding{
 				Path:     chain.FilePath(k) + ".oracle",
@@ -118,7 +117,7 @@ func checkChain(
 			})
 			return
 		}
-		if err := checkImportPlacement(ctx, r, resolver, chain, fk); err != nil {
+		if err := checkImportPlacement(r, resolver, chain, fk); err != nil {
 			r.fail(Finding{
 				Path:     chain.FilePath(k) + ".oracle",
 				Severity: SeverityError,
@@ -130,12 +129,12 @@ func checkChain(
 
 	// Pin currency: every pin the current surface's stored reference graph crosses must
 	// target its dependency chain's current version.
-	checkPinCurrency(ctx, r, resolver, chain)
+	checkPinCurrency(r, resolver, chain)
 
 	// Rule parity: the current package's alias of a frozen type is that frozen type, so
 	// the Go rules come from the definer's version file while the other languages read
 	// the live file.
-	checkAliasedRules(ctx, r, res, resolver, chain)
+	checkAliasedRules(r, res, resolver, chain)
 
 	// Minimality: every redeclaration must differ structurally from its resolved
 	// predecessor.
@@ -143,7 +142,7 @@ func checkChain(
 		if i == 0 || k > current {
 			continue
 		}
-		fk, err := resolver.File(ctx, livePath, k)
+		fk, err := resolver.File(livePath, k)
 		if err != nil {
 			r.fail(Finding{
 				Path:     chain.FilePath(k) + ".oracle",
@@ -152,7 +151,7 @@ func checkChain(
 			})
 			return
 		}
-		surf, err := resolver.Surface(ctx, livePath, chain.Numbers[i-1])
+		surf, err := resolver.Surface(livePath, chain.Numbers[i-1])
 		if err != nil {
 			r.fail(Finding{
 				Path:     chain.FilePath(k) + ".oracle",
@@ -175,7 +174,7 @@ func checkChain(
 				changed.Add(t.QualifiedName)
 				continue
 			}
-			definer, err := resolver.File(ctx, livePath, def.Version)
+			definer, err := resolver.File(livePath, def.Version)
 			if err != nil {
 				r.fail(Finding{
 					Path:     chain.FilePath(k) + ".oracle",
@@ -270,7 +269,6 @@ func (r *GateReport) fail(f Finding) {
 // it references. A version package renders each reference against the pinned version,
 // so a live import would let the dependency's next version move the package.
 func checkImportPlacement(
-	ctx context.Context,
 	r *GateReport,
 	resolver *versions.Resolver,
 	chain versions.Chain,
@@ -293,7 +291,7 @@ func checkImportPlacement(
 		if _, versioned := resolver.Chains()[depLive]; !versioned {
 			continue
 		}
-		ended, err := resolver.Ended(ctx, depLive)
+		ended, err := resolver.Ended(depLive)
 		if err != nil {
 			return err
 		}
@@ -459,14 +457,13 @@ var versionNSRe = regexp.MustCompile(`^v(0|[1-9][0-9]*)$`)
 // defining version at both the pin and the dependency's current version — the two
 // shapes are one declaration, so the lag is nominal.
 func checkPinCurrency(
-	ctx context.Context,
 	r *GateReport,
 	resolver *versions.Resolver,
 	chain versions.Chain,
 ) {
 	chains := resolver.Chains()
 	livePath := chain.LivePath()
-	surf, err := resolver.Surface(ctx, livePath, chain.Current())
+	surf, err := resolver.Surface(livePath, chain.Current())
 	if err != nil {
 		r.fail(Finding{
 			Path:     chain.FilePath(chain.Current()) + ".oracle",
@@ -483,7 +480,7 @@ func checkPinCurrency(
 			return
 		}
 		visited.Add(key)
-		f, err := resolver.File(ctx, livePath, n)
+		f, err := resolver.File(livePath, n)
 		if err != nil {
 			return
 		}
@@ -494,7 +491,7 @@ func checkPinCurrency(
 		stored := make(set.Set[string])
 		locals := storedRefs(f, t, stored)
 		for _, l := range locals {
-			depNS, depName, defined := resolver.Definer(ctx, livePath, n, l)
+			depNS, depName, defined := resolver.Definer(livePath, n, l)
 			if !defined {
 				continue
 			}
@@ -511,7 +508,7 @@ func checkPinCurrency(
 				if !ok {
 					continue
 				}
-				if ended, err := resolver.Ended(ctx, depLive); err == nil && ended {
+				if ended, err := resolver.Ended(depLive); err == nil && ended {
 					r.fail(Finding{
 						Path:     chain.FilePath(chain.Current()) + ".oracle",
 						Severity: SeverityError,
@@ -531,7 +528,7 @@ func checkPinCurrency(
 				}
 				if pv != depChain.Current() &&
 					!pinAliasCurrent(
-						ctx, resolver, depLive, pv, depChain.Current(),
+						resolver, depLive, pv, depChain.Current(),
 						membersOf(f, ns, false),
 					) {
 					r.fail(Finding{
@@ -559,7 +556,7 @@ func checkPinCurrency(
 	for _, name := range slices.Sorted(maps.Keys(surf)) {
 		visit(livePath, surf[name].Version, name)
 	}
-	checkOmittedPinCurrency(ctx, r, resolver, chain)
+	checkOmittedPinCurrency(r, resolver, chain)
 }
 
 // checkOmittedPinCurrency fails a pin that an omitted field of a current-surface member
@@ -567,13 +564,12 @@ func checkPinCurrency(
 // earlier version file that the current one aliases. The current package types those
 // fields at the pin, and the Core assigns the dependency's root type to them.
 func checkOmittedPinCurrency(
-	ctx context.Context,
 	r *GateReport,
 	resolver *versions.Resolver,
 	chain versions.Chain,
 ) {
 	path := chain.FilePath(chain.Current()) + ".oracle"
-	surf, err := resolver.Surface(ctx, chain.LivePath(), chain.Current())
+	surf, err := resolver.Surface(chain.LivePath(), chain.Current())
 	if err != nil {
 		r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
 		return
@@ -583,7 +579,7 @@ func checkOmittedPinCurrency(
 		byVersion[def.Version] = append(byVersion[def.Version], name)
 	}
 	for _, n := range slices.Sorted(maps.Keys(byVersion)) {
-		f, err := resolver.File(ctx, chain.LivePath(), n)
+		f, err := resolver.File(chain.LivePath(), n)
 		if err != nil {
 			r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
 			return
@@ -623,7 +619,7 @@ func checkOmittedPinCurrency(
 			}
 			pv := f.Pins[depLive]
 			if pv == depChain.Current() || pinAliasCurrent(
-				ctx, resolver, depLive, pv, depChain.Current(), omitted,
+				resolver, depLive, pv, depChain.Current(), omitted,
 			) {
 				continue
 			}
@@ -710,18 +706,17 @@ func localRefNames(f *versions.File, ref resolution.TypeRef) []string {
 // dependency chain. When it does, the pinned and current shapes are one declaration and
 // the lag is nominal.
 func pinAliasCurrent(
-	ctx context.Context,
 	resolver *versions.Resolver,
 	depLive string,
 	pinned, current int,
 	members []string,
 ) bool {
 	for _, member := range members {
-		curNS, _, ok := resolver.Definer(ctx, depLive, current, member)
+		curNS, _, ok := resolver.Definer(depLive, current, member)
 		if !ok {
 			return false
 		}
-		pinNS, _, ok := resolver.Definer(ctx, depLive, pinned, member)
+		pinNS, _, ok := resolver.Definer(depLive, pinned, member)
 		if !ok {
 			return false
 		}
@@ -786,7 +781,6 @@ var aliasedGoRules = set.New("to_any", "fields", "imports")
 // and the live type's @validate, @default, or @go method rules differ from the
 // definer's. Inline variant payloads of an aliased union count as aliased.
 func checkAliasedRules(
-	ctx context.Context,
 	r *GateReport,
 	res *pipeline.Result,
 	resolver *versions.Resolver,
@@ -794,7 +788,7 @@ func checkAliasedRules(
 ) {
 	livePath, current := chain.LivePath(), chain.Current()
 	path := chain.FilePath(current) + ".oracle"
-	ended, err := resolver.Ended(ctx, livePath)
+	ended, err := resolver.Ended(livePath)
 	if err != nil {
 		r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
 		return
@@ -802,7 +796,7 @@ func checkAliasedRules(
 	if ended {
 		return
 	}
-	surf, err := resolver.Surface(ctx, livePath, current)
+	surf, err := resolver.Surface(livePath, current)
 	if err != nil {
 		r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
 		return
@@ -813,7 +807,7 @@ func checkAliasedRules(
 		if def.Version == current {
 			continue
 		}
-		definer, err := resolver.File(ctx, livePath, def.Version)
+		definer, err := resolver.File(livePath, def.Version)
 		if err != nil {
 			r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
 			return
@@ -859,7 +853,7 @@ func checkAliasedRules(
 			continue
 		}
 		visited.Add(key)
-		depFile, err := resolver.File(ctx, p.livePath, p.version)
+		depFile, err := resolver.File(p.livePath, p.version)
 		if err != nil {
 			r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
 			return
@@ -867,7 +861,7 @@ func checkAliasedRules(
 		for _, next := range slices.Sorted(maps.Keys(depFile.Pins)) {
 			queue = append(queue, pin{p.origin, depFile.Pins[next], next})
 		}
-		ended, err := resolver.Ended(ctx, p.livePath)
+		ended, err := resolver.Ended(p.livePath)
 		if err != nil {
 			r.fail(Finding{Path: path, Severity: SeverityError, Message: err.Error()})
 			return

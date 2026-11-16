@@ -29,7 +29,7 @@ var _ = Describe("FieldProcessor", func() {
 		source string,
 	) (*types.FieldProcessor, resolution.Type) {
 		GinkgoHelper()
-		req := MustGenerateRequest(ctx, source, "test", loader)
+		req := MustGenerateRequest(source, "test", loader)
 		item := req.Resolutions.MustGet("test.Item")
 		fp := types.NewFieldProcessor(
 			"test",

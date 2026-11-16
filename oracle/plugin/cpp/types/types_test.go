@@ -50,7 +50,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						key uint32
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, cppPlugin)
+				resp := MustGenerate(source, "test", loader, cppPlugin)
 				ExpectContent(resp, "types.gen.h").
 					ToContain("namespace " + expectedNamespace + " {")
 			},
@@ -89,7 +89,7 @@ var _ = Describe("C++ Types Plugin", func() {
 	Describe("Generate", func() {
 		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
 			AddFilterSchema(loader)
-			resp := MustGenerate(ctx, ThingFilter, "thing", loader, cppPlugin)
+			resp := MustGenerate(ThingFilter, "thing", loader, cppPlugin)
 			ExpectContent(resp, "thing/types.gen.h").
 				ToContain(
 					"std::optional<std::vector<Where>> and_;",
@@ -118,7 +118,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					active bool
 				}
 			`
-			resp := MustGenerate(ctx, source, "thing", loader, cppPlugin)
+			resp := MustGenerate(source, "thing", loader, cppPlugin)
 			ExpectContent(resp, "thing/types.gen.h").ToContain(
 				`#include "x/cpp/filter/field.h"`,
 				"::x::filter::Field<::x::filter::Ordered<std::uint32_t>> key;",
@@ -130,7 +130,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It("Should combine filters with &&, ||, and !", func(ctx SpecContext) {
 			AddFilterSchema(loader)
-			resp := MustGenerate(ctx, ThingFilter, "thing", loader, cppPlugin)
+			resp := MustGenerate(ThingFilter, "thing", loader, cppPlugin)
 			ExpectContent(resp, "thing/types.gen.h").ToContain(
 				"friend Where operator&&(Where a, Where b) {",
 				"w.and_->push_back(std::move(a));",
@@ -143,7 +143,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It("Should give a retrieve request its options", func(ctx SpecContext) {
 			AddFilterSchema(loader)
-			resp := MustGenerate(ctx, ThingFilter, "thing", loader, cppPlugin)
+			resp := MustGenerate(ThingFilter, "thing", loader, cppPlugin)
 			ExpectContent(resp, "thing/types.gen.h").ToContain(
 				"struct RetrieveOptions {\n"+
 					"    /// @brief after starts the things strictly past this position in their order.\n"+
@@ -170,7 +170,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					name string?
 				}
 			`
-			resp := MustGenerate(ctx, source, "thing", loader, cppPlugin)
+			resp := MustGenerate(source, "thing", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
 				ToContain("std::optional<std::string> name;").
 				ToNotContain("operator&&", "x/cpp/filter/field.h")
@@ -188,7 +188,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						subject string
 					}
 				`
-				resp := MustGenerate(ctx, source, "auth", loader, cppPlugin)
+				resp := MustGenerate(source, "auth", loader, cppPlugin)
 				ExpectContent(resp, "types.gen.h").
 					ToContain("std::string subject;").
 					ToNotContain("hash")
@@ -207,7 +207,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						active bool
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, cppPlugin)
+				resp := MustGenerate(source, "user", loader, cppPlugin)
 				Expect(resp.Files).To(HaveLen(1))
 
 				ExpectContent(resp, "types.gen.h").
@@ -247,7 +247,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						light color.Color
 					}
 				`)
-				resp := MustGenerateMulti(ctx, loader, cppPlugin)
+				resp := MustGenerateMulti(loader, cppPlugin)
 				Expect(resp.Files).To(HaveLen(1))
 				ExpectContent(resp, "x/cpp/color/types.gen.h").
 					ToContain("struct Color {").
@@ -280,7 +280,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						kind color.Kind
 					}
 				`)
-				resp := MustGenerateMulti(ctx, loader, cppPlugin)
+				resp := MustGenerateMulti(loader, cppPlugin)
 				ExpectContent(resp, "client/cpp/color/types.gen.h").
 					ToContain(
 						`#include "x/cpp/color/types.gen.h"`,
@@ -301,7 +301,7 @@ var _ = Describe("C++ Types Plugin", func() {
 							field ` + oracleType + `
 						}
 					`
-					resp := MustGenerate(ctx, source, "test", loader, cppPlugin)
+					resp := MustGenerate(source, "test", loader, cppPlugin)
 					ExpectContent(resp, "types.gen.h").ToContain(expectedFieldDecl)
 				},
 				Entry("string", "string", "std::string field;"),
@@ -344,7 +344,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						status ChannelStatus?
 					}
 				`
-				resp := MustGenerate(ctx, channelSource, "channel", loader, cppPlugin)
+				resp := MustGenerate(channelSource, "channel", loader, cppPlugin)
 
 				content := MustContentOf(resp, "client/cpp/channel/types.gen.h")
 				Expect(content).To(ContainSubstring(`std::monostate`))
@@ -363,7 +363,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					embedded bool?
 				}
 			`
-			table, diag := Analyze(ctx, source, "rack", loader)
+			table, diag := Analyze(source, "rack", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -390,7 +390,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					parent uint32?
 				}
 			`
-			table, diag := Analyze(ctx, source, "rack", loader)
+			table, diag := Analyze(source, "rack", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -415,7 +415,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					values int32[]
 				}
 			`
-			table, diag := Analyze(ctx, source, "rack", loader)
+			table, diag := Analyze(source, "rack", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -441,7 +441,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					tags string[]?
 				}
 			`
-			table, diag := Analyze(ctx, source, "rack", loader)
+			table, diag := Analyze(source, "rack", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -466,7 +466,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					tags string[]?
 				}
 			`
-			table, diag := Analyze(ctx, source, "rack", loader)
+			table, diag := Analyze(source, "rack", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -491,7 +491,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					config record
 				}
 			`
-			table, diag := Analyze(ctx, source, "task", loader)
+			table, diag := Analyze(source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -514,7 +514,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					metadata map<string, string>
 				}
 			`
-			table, diag := Analyze(ctx, source, "task", loader)
+			table, diag := Analyze(source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -547,7 +547,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					-task_counter
 				}
 			`
-				table, diag := Analyze(ctx, source, "rack", loader)
+				table, diag := Analyze(source, "rack", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -586,7 +586,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					device      string = ""
 				}
 			`
-				resp := MustGenerate(ctx, source, "opc", loader, cppPlugin)
+				resp := MustGenerate(source, "opc", loader, cppPlugin)
 				content := MustContentOf(resp, "types.gen.h")
 				Expect(content).To(ContainSubstring(
 					`struct ReadConfig : public BaseRead {`,
@@ -618,7 +618,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					port int32 = 4
 				}
 			`
-				resp := MustGenerate(ctx, source, "opc", loader, cppPlugin)
+				resp := MustGenerate(source, "opc", loader, cppPlugin)
 				content := MustContentOf(resp, "types.gen.h")
 				// C++ cannot restate an inherited member's type, so Child flattens.
 				Expect(content).To(ContainSubstring("struct Child {"))
@@ -669,7 +669,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "auth", loader, cppPlugin)
+					resp := MustGenerate(source, "auth", loader, cppPlugin)
 					ExpectContent(resp, "types.gen.h").
 						ToContain(
 							"struct AIChan : public Base {",
@@ -683,7 +683,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It("Should declare the inherited fields", func(ctx SpecContext) {
 				resp := MustGenerate(
-					ctx, schema("@cpp omit", "rate float64"), "auth", loader, cppPlugin,
+					schema("@cpp omit", "rate float64"), "auth", loader, cppPlugin,
 				)
 				ExpectContent(resp, "types.gen.h").
 					ToContain(
@@ -698,7 +698,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It("Should leave out a removed field", func(ctx SpecContext) {
 				resp := MustGenerate(
-					ctx, schema("@cpp omit", "-secret"), "auth", loader, cppPlugin,
+					schema("@cpp omit", "-secret"), "auth", loader, cppPlugin,
 				)
 				ExpectContent(resp, "types.gen.h").
 					ToContain("struct Shape {", "std::string name").
@@ -707,7 +707,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It("Should inherit from a parent that generates", func(ctx SpecContext) {
 				resp := MustGenerate(
-					ctx, schema("", "rate float64"), "auth", loader, cppPlugin,
+					schema("", "rate float64"), "auth", loader, cppPlugin,
 				)
 				ExpectContent(resp, "types.gen.h").
 					ToContain("struct Shape : public Record {")
@@ -724,7 +724,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					name string
 				}
 			`
-			table, diag := Analyze(ctx, source, "rack", loader)
+			table, diag := Analyze(source, "rack", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -752,7 +752,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					}
 				}
 			`
-			table, diag := Analyze(ctx, source, "channel", loader)
+			table, diag := Analyze(source, "channel", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -779,7 +779,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					channels Map<uint32, uint8>
 				}
 			`
-				table, diag := Analyze(ctx, source, "ir", loader)
+				table, diag := Analyze(source, "ir", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -811,7 +811,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					@cpp hand
 				}
 			`
-			table, diag := Analyze(ctx, source, "rack", loader)
+			table, diag := Analyze(source, "rack", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -834,7 +834,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					details D
 				}
 			`
-			table, diag := Analyze(ctx, source, "status", loader)
+			table, diag := Analyze(source, "status", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -860,7 +860,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					details D
 				}
 			`
-				table, diag := Analyze(ctx, source, "status", loader)
+				table, diag := Analyze(source, "status", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -888,7 +888,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					details D
 				}
 			`
-				table, diag := Analyze(ctx, source, "status", loader)
+				table, diag := Analyze(source, "status", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -916,7 +916,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					details D?
 				}
 			`
-			table, diag := Analyze(ctx, source, "status", loader)
+			table, diag := Analyze(source, "status", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -940,7 +940,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					details D
 				}
 			`
-			table, diag := Analyze(ctx, source, "status", loader)
+			table, diag := Analyze(source, "status", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -977,7 +977,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					@cpp name "Status"
 				}
 			`
-			table, diag := Analyze(ctx, source, "status", loader)
+			table, diag := Analyze(source, "status", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String)
 
 			req := &plugin.Request{
@@ -1004,7 +1004,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Status = StatusDetails
 			`
-			table, diag := Analyze(ctx, source, "rack", loader)
+			table, diag := Analyze(source, "rack", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1026,7 +1026,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					wasm bytes
 				}
 			`
-			table, diag := Analyze(ctx, source, "module", loader)
+			table, diag := Analyze(source, "module", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1050,7 +1050,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Params Param[]
 			`
-			table, diag := Analyze(ctx, source, "types", loader)
+			table, diag := Analyze(source, "types", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1085,7 +1085,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					outputs Params
 				}
 			`
-				table, diag := Analyze(ctx, source, "types", loader)
+				table, diag := Analyze(source, "types", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1117,7 +1117,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Params Param[]
 			`
-				table, diag := Analyze(ctx, source, "types", loader)
+				table, diag := Analyze(source, "types", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1148,7 +1148,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Params Param[]
 			`
-				table, diag := Analyze(ctx, source, "types", loader)
+				table, diag := Analyze(source, "types", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1190,7 +1190,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Params Param[]
 			`
-				table, diag := Analyze(ctx, source, "types", loader)
+				table, diag := Analyze(source, "types", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1227,7 +1227,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					variant Variant
 				}
 			`
-				table, diag := Analyze(ctx, source, "status", loader)
+				table, diag := Analyze(source, "status", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1268,7 +1268,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					axis_key AxisKey
 				}
 			`
-				table, diag := Analyze(ctx, source, "lineplot", loader)
+				table, diag := Analyze(source, "lineplot", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				resp := MustSucceed(
@@ -1292,7 +1292,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					right Node?
 				}
 			`
-				table, diag := Analyze(ctx, source, "types", loader)
+				table, diag := Analyze(source, "types", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1324,7 +1324,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					a A?
 				}
 			`
-				resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+				resp := MustGenerate(source, "types", loader, cppPlugin)
 				ExpectContent(resp, "types.gen.h").
 					ToContain(
 						`x::mem::indirect<B> b;`,
@@ -1351,7 +1351,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					nodes Node[]
 				}
 			`
-				resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+				resp := MustGenerate(source, "types", loader, cppPlugin)
 				ExpectContent(resp, "types.gen.h").
 					ToContain(`x::mem::indirect<Parent> parent;`).
 					ToNotContain(`std::optional<Parent>`)
@@ -1372,7 +1372,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 				BWrap B
 			`
-				resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+				resp := MustGenerate(source, "types", loader, cppPlugin)
 				ExpectContent(resp, "types.gen.h").
 					ToContain(
 						`x::mem::indirect<BWrap> b;`,
@@ -1401,7 +1401,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					unit Unit?
 				}
 			`
-				table, diag := Analyze(ctx, source, "types", loader)
+				table, diag := Analyze(source, "types", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1450,7 +1450,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					status RackStatus?
 				}
 			`
-				table, diag := Analyze(ctx, rackSource, "rack", loader)
+				table, diag := Analyze(rackSource, "rack", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 
 				req := &plugin.Request{
@@ -1482,7 +1482,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					name string
 				}
 			`
-				table, diag := Analyze(ctx, source, "user", loader)
+				table, diag := Analyze(source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1511,7 +1511,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						ripe bool
 					}
 				`
-				table, diag := Analyze(ctx, source, "animals", loader)
+				table, diag := Analyze(source, "animals", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1538,7 +1538,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						mango bool
 					}
 				`
-				table, diag := Analyze(ctx, source, "order", loader)
+				table, diag := Analyze(source, "order", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1581,7 +1581,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						name string
 					}
 				`
-					resp := MustGenerate(ctx, source, "control", loader, cppPlugin)
+					resp := MustGenerate(source, "control", loader, cppPlugin)
 
 					// The Concurrency enum should be generated even though Subject
 					// doesn't reference it - they're in the same namespace
@@ -1611,7 +1611,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						key uint32
 					}
 				`
-					resp := MustGenerate(ctx, source, "status", loader, cppPlugin)
+					resp := MustGenerate(source, "status", loader, cppPlugin)
 
 					ExpectContent(resp, "types.gen.h").
 						ToContain(
@@ -1653,7 +1653,6 @@ var _ = Describe("C++ Types Plugin", func() {
 					}
 				`
 					table, diag := Analyze(
-						ctx,
 						channelSource,
 						"channel",
 						loader,
@@ -1704,7 +1703,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						concurrency Concurrency
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, cppPlugin)
+					resp := MustGenerate(source, "channel", loader, cppPlugin)
 
 					ExpectContent(resp, "types.gen.h").
 						ToContain(
@@ -1739,7 +1738,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						rack rack.Key
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
+					resp := MustGenerate(source, "task", loader, cppPlugin)
 
 					ExpectContent(resp, "types.gen.h").
 						ToContain(`#include "client/cpp/rack/key.h"`).
@@ -1771,7 +1770,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						summary status.Summary
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
+					resp := MustGenerate(source, "task", loader, cppPlugin)
 
 					ExpectContent(resp, "types.gen.h").
 						ToContain(`#include "client/cpp/status/summary.h"`).
@@ -1797,7 +1796,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						rack rack.Key
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
+					resp := MustGenerate(source, "task", loader, cppPlugin)
 
 					ExpectContent(resp, "types.gen.h").
 						ToContain(`#include "client/cpp/rack/types.gen.h"`)
@@ -1821,7 +1820,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						color Color
 					}
 				`
-					resp := MustGenerate(ctx, source, "color", loader, cppPlugin)
+					resp := MustGenerate(source, "color", loader, cppPlugin)
 
 					ExpectContent(resp, "types.gen.h").
 						ToContain(`#include "x/cpp/color/color.h"`)
@@ -1844,7 +1843,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						color Color
 					}
 				`
-					resp := MustGenerate(ctx, source, "color", loader, cppPlugin)
+					resp := MustGenerate(source, "color", loader, cppPlugin)
 
 					ExpectContent(resp, "types.gen.h").
 						ToNotContain(`#include "x/cpp/color/color.h"`)
@@ -1861,7 +1860,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 					Channels uint32[]
 				`
-					resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+					resp := MustGenerate(source, "types", loader, cppPlugin)
 
 					ExpectContent(resp, "types.gen.h").
 						ToContain(
@@ -1890,7 +1889,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 					Params Param[]
 				`
-					resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+					resp := MustGenerate(source, "types", loader, cppPlugin)
 
 					ExpectContent(resp, "types.gen.h").
 						ToContain(
@@ -1908,7 +1907,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 					Channels uint32[]
 				`
-					resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+					resp := MustGenerate(source, "types", loader, cppPlugin)
 
 					ExpectContent(resp, "types.gen.h").
 						ToContain(
@@ -1936,7 +1935,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 					Params Param[]
 				`
-					resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+					resp := MustGenerate(source, "types", loader, cppPlugin)
 
 					ExpectContent(resp, "types.gen.h").
 						ToContain(
@@ -1953,7 +1952,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 					Channels uint32[]
 				`
-					resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+					resp := MustGenerate(source, "types", loader, cppPlugin)
 
 					ExpectContent(resp, "types.gen.h").
 						ToContain(
@@ -1984,7 +1983,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						age int32
 					}
 				`
-					resp := MustGenerate(ctx, source, "user", loader, cppPlugin)
+					resp := MustGenerate(source, "user", loader, cppPlugin)
 
 					ExpectContent(resp, "types.gen.h").
 						ToContain(
@@ -2009,7 +2008,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						@doc value "is a list of node keys."
 					}
 				`
-					resp := MustGenerate(ctx, source, "node", loader, cppPlugin)
+					resp := MustGenerate(source, "node", loader, cppPlugin)
 
 					ExpectContent(resp, "types.gen.h").
 						ToContain(
@@ -2037,7 +2036,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						mode Mode = ModeAutomatic
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					resp := MustGenerate(source, "config", loader, cppPlugin)
 					ExpectContent(resp, "types.gen.h").
 						ToContain(`Mode mode = Mode::Automatic`)
 				},
@@ -2059,7 +2058,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						override Mode?
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					resp := MustGenerate(source, "config", loader, cppPlugin)
 					ExpectContent(resp, "types.gen.h").
 						ToContain(`Mode mode = {};`, `std::optional<Mode> override;`)
 				},
@@ -2080,7 +2079,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						units Units = volts
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					resp := MustGenerate(source, "config", loader, cppPlugin)
 					content := ExpectContent(resp, "types.gen.h")
 					content.ToContain(`units = UNITS_VOLTS`)
 					content.ToNotContain(`Units::Volts`)
@@ -2099,7 +2098,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						label       string = "dflt"
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					resp := MustGenerate(source, "config", loader, cppPlugin)
 					ExpectContent(resp, "types.gen.h").
 						ToContain(
 							`bool enabled = false;`,
@@ -2139,7 +2138,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						stream_rate telem.Rate = 2.5
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					resp := MustGenerate(source, "config", loader, cppPlugin)
 					ExpectContent(resp, "out/types.gen.h").
 						ToContain(
 							`duration = ::x::telem::TimeSpan(0);`,
@@ -2169,7 +2168,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						start telem.TimeStamp?
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					resp := MustGenerate(source, "config", loader, cppPlugin)
 					ExpectContent(resp, "out/types.gen.h").
 						ToContain("std::optional<::x::telem::TimeStamp> start;")
 				},
@@ -2195,7 +2194,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						label     string = "dflt"
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					resp := MustGenerate(source, "config", loader, cppPlugin)
 					ExpectContent(resp, "out/types.gen.h").
 						ToContain(
 							`data_type = ::x::telem::DataType("float32");`,
@@ -2228,7 +2227,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						retries units.Count = 3
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					resp := MustGenerate(source, "config", loader, cppPlugin)
 					ExpectContent(resp, "out/types.gen.h").
 						ToContain(
 							`limit = ::x::units::Voltage(5.500000);`,
@@ -2257,7 +2256,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						time telem.TimeStamp = now
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					resp := MustGenerate(source, "config", loader, cppPlugin)
 					content := ExpectContent(resp, "out/types.gen.h")
 					content.ToContain(
 						`std::string key;`,
@@ -2287,7 +2286,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						mode wiring.Mode = rse
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, cppPlugin)
+					resp := MustGenerate(source, "channel", loader, cppPlugin)
 					ExpectContent(resp, "client/cpp/channel/types.gen.h").ToContain(
 						`#include "client/cpp/wiring/types.gen.h"`,
 						`std::string mode = ::synnax::wiring::MODE_RSE;`,
@@ -2315,7 +2314,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						mode wiring.Mode
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, cppPlugin)
+					resp := MustGenerate(source, "channel", loader, cppPlugin)
 					ExpectContent(resp, "client/cpp/channel/types.gen.h").
 						ToContain(`std::string mode;`).
 						ToNotContain(`#include "client/cpp/wiring/types.gen.h"`)
@@ -2344,7 +2343,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						concurrency control.Concurrency = control.ConcurrencyExclusive
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, cppPlugin)
+					resp := MustGenerate(source, "channel", loader, cppPlugin)
 					ExpectContent(resp, "types.gen.h").
 						ToContain(`::x::control::Concurrency concurrency = ::x::control::Concurrency::Exclusive`)
 				},
@@ -2359,7 +2358,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						vals  float64[] = [1.5, 2.5]
 					}
 				`
-				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+				resp := MustGenerate(source, "config", loader, cppPlugin)
 				content := MustContentOf(resp, "types.gen.h")
 				Expect(content).To(ContainSubstring(`empty = {}`))
 				Expect(content).To(ContainSubstring(`vals = {1.500000, 2.500000}`))
@@ -2380,7 +2379,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						p Point = { x = 1, y = 2 }
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					resp := MustGenerate(source, "config", loader, cppPlugin)
 					content := MustContentOf(resp, "types.gen.h")
 					Expect(content).To(ContainSubstring(`p = {.x = 1, .y = 2}`))
 				},
@@ -2416,7 +2415,7 @@ var _ = Describe("C++ Union Generation", func() {
 				@doc value "determines how raw values are transformed."
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			resp := MustGenerate(source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
 				ToContain(
 					`struct LinearScale : public LinearParams {`,
@@ -2451,7 +2450,7 @@ var _ = Describe("C++ Union Generation", func() {
 				@resource type "view"
 			}
 		`
-		resp := MustGenerate(ctx, source, "view", loader, cppPlugin)
+		resp := MustGenerate(source, "view", loader, cppPlugin)
 		ExpectContent(resp, "types.gen.h").
 			ToContain(
 				`const synnax::resource::ID TYPE_RESOURCE_ID("view", "");`,
@@ -2475,7 +2474,7 @@ var _ = Describe("C++ Union Generation", func() {
 				@resource type "view"
 			}
 		`
-		resp := MustGenerate(ctx, source, "view", loader, cppPlugin)
+		resp := MustGenerate(source, "view", loader, cppPlugin)
 		ExpectContent(resp, "types.gen.h").
 			ToContain(`resource_id(const x::uuid::UUID& key)`)
 	})
@@ -2495,7 +2494,7 @@ var _ = Describe("C++ Union Generation", func() {
 				password Credentials
 			}
 		`
-			resp := MustGenerate(ctx, source, "auth", loader, cppPlugin)
+			resp := MustGenerate(source, "auth", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
 				ToContain(
 					`constexpr const char* METHOD_PASSWORD = "password";`,
@@ -2525,7 +2524,7 @@ var _ = Describe("C++ Union Generation", func() {
 				password Credentials
 			}
 		`
-		resp := MustGenerate(ctx, source, "login", loader, cppPlugin)
+		resp := MustGenerate(source, "login", loader, cppPlugin)
 		ExpectContent(resp, "types.gen.h").
 			ToContain(`#include "client/cpp/auth/types.gen.h"`, `METHOD_PASSWORD;`)
 	})
@@ -2546,7 +2545,7 @@ var _ = Describe("C++ Union Generation", func() {
 				empty {}
 			}
 		`
-			resp := MustGenerate(ctx, source, "panel", loader, cppPlugin)
+			resp := MustGenerate(source, "panel", loader, cppPlugin)
 			content := ExpectContent(resp, "types.gen.h")
 			content.ToContain(
 				`struct ViewTab : public TabBase, public Labeled {`,
@@ -2572,7 +2571,7 @@ var _ = Describe("C++ Union Generation", func() {
 				}
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			resp := MustGenerate(source, "ni", loader, cppPlugin)
 			content := ExpectContent(resp, "types.gen.h")
 			content.ToContain(`struct DigitalInputDIChannel {`)
 			content.ToNotContain(`struct DigitalInputDIChannel : {`)
@@ -2598,7 +2597,7 @@ var _ = Describe("C++ Union Generation", func() {
 				}
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			resp := MustGenerate(source, "ni", loader, cppPlugin)
 			content := MustContentOf(resp, "types.gen.h")
 			Expect(content).To(ContainSubstring("struct AITempBuiltinChannel {"))
 			Expect(content).
@@ -2619,7 +2618,7 @@ var _ = Describe("C++ Union Generation", func() {
 				ai_voltage VoltageFields
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			resp := MustGenerate(source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
 				ToContain(
 					`struct AIVoltageChannel : public BaseAIChan, public VoltageFields {`,
@@ -2645,7 +2644,7 @@ var _ = Describe("C++ Union Generation", func() {
 				ai_current { units string }
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			resp := MustGenerate(source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
 				ToContain(
 					"[[nodiscard]] inline const BaseAIChan& " +
@@ -2676,7 +2675,7 @@ var _ = Describe("C++ Union Generation", func() {
 				ai_voltage VoltageFields
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			resp := MustGenerate(source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "ni/types.gen.h").
 				ToContain(
 					"inline const ::x::common::BaseAIChan& " +
@@ -2688,7 +2687,7 @@ var _ = Describe("C++ Union Generation", func() {
 	DescribeTable(
 		"Should not emit a base accessor without one base every variant shares",
 		func(ctx SpecContext, source string) {
-			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			resp := MustGenerate(source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
 				ToContain("using AIChannel = std::variant<").
 				ToNotContain(" base(")
@@ -2745,7 +2744,7 @@ var _ = Describe("C++ Union Generation", func() {
 				DI { port string = "DIO4" }
 			}
 		`
-			resp := MustGenerate(ctx, source, "labjack", loader, cppPlugin)
+			resp := MustGenerate(source, "labjack", loader, cppPlugin)
 			// A derived struct cannot restate a base member's initializer, and
 			// declaring the member again would hide the base's from every
 			// reference held through a base type.
@@ -2778,7 +2777,7 @@ var _ = Describe("C++ Union Generation", func() {
 				ai_voltage VoltageFields
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			resp := MustGenerate(source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "ni/types.gen.h").
 				ToContain(
 					`#include "x/cpp/common/types.gen.h"`,
@@ -2807,7 +2806,7 @@ var _ = Describe("C++ Union Generation", func() {
 				customScale Scale
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			resp := MustGenerate(source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
 				ToContain(`Scale custom_scale;`)
 		},
@@ -2831,7 +2830,7 @@ var _ = Describe("C++ Union Generation", func() {
 				customScale Scale = none
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			resp := MustGenerate(source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
 				ToContain(`Scale custom_scale = NoneScale{};`)
 		},
@@ -2872,7 +2871,7 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 				custom_scale scale.Scale
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			resp := MustGenerate(source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
 				ToContain(
 					`#include "client/cpp/scale/types.gen.h"`,
@@ -2897,7 +2896,7 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 				none NoneParams
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			resp := MustGenerate(source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
 				ToContain("/// @brief LinearScale a linear scale.", "struct LinearScale : public LinearParams {")
 		},
@@ -2916,7 +2915,7 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 				@cpp output "client/cpp/task/common"
 			}
 		`
-			resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
+			resp := MustGenerate(source, "task", loader, cppPlugin)
 			taskContent := ExpectContent(resp, "client/cpp/task/types.gen.h")
 			taskContent.ToContain("namespace synnax::task {", "struct Task {")
 			taskContent.ToNotContain("struct BaseConfig {")
@@ -2943,7 +2942,7 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 
 			Transition struct { target Target }
 			`
-			resp := MustGenerate(ctx, source, "ir", loader, cppPlugin)
+			resp := MustGenerate(source, "ir", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
 				ToContain(
 					"using proto_type = ::arc::ir::pb::TargetExitPayload;",
@@ -2980,7 +2979,7 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 
 			Graph struct { node Node }
 			`
-			resp := MustGenerate(ctx, source, "ir", loader, cppPlugin)
+			resp := MustGenerate(source, "ir", loader, cppPlugin)
 			ExpectContent(resp, "ir/types.gen.h").ToContain(
 				"using proto_type = ::service::hw::pb::Valve;",
 				`#include "core/pkg/service/hw/pb/hw.pb.h"`,

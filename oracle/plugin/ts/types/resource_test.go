@@ -38,7 +38,7 @@ var _ = Describe("Resource Generation", func() {
 				@resource type "policy"
 			}
 		`
-		resp := MustGenerate(ctx, source, "policy", loader, p)
+		resp := MustGenerate(source, "policy", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
 				`resource.createIDFactory`,
@@ -58,7 +58,7 @@ var _ = Describe("Resource Generation", func() {
 				@resource type "label"
 			}
 		`
-		resp := MustGenerate(ctx, source, "label", loader, p)
+		resp := MustGenerate(source, "label", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
 				`"label"`,
@@ -77,7 +77,7 @@ var _ = Describe("Resource Generation", func() {
 				@resource type "item"
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`"item"`)
 	})
@@ -99,7 +99,7 @@ var _ = Describe("Resource Generation", func() {
 				@resource type "item"
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(`"item"`)
 		},
@@ -124,7 +124,7 @@ var _ = Describe("Resource Generation", func() {
 				@resource type "view"
 			}
 		`
-		resp := MustGenerate(ctx, source, "view", loader, p)
+		resp := MustGenerate(source, "view", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
 				`export const resourceID = resource.createIDFactory<Key>("view");`,
@@ -154,7 +154,7 @@ var _ = Describe("Resource Generation", func() {
 				@resource type "view"
 			}
 		`
-			resp := MustGenerate(ctx, source, "view", loader, p)
+			resp := MustGenerate(source, "view", loader, p)
 			ExpectContent(resp, "out/types.gen.ts").
 				ToContain(`export const resourceID = resource.createIDFactory<Key>("view");`)
 		},
@@ -171,7 +171,7 @@ var _ = Describe("Resource Generation", func() {
 				name string
 			}
 		`
-			resp := MustGenerate(ctx, source, "plain", loader, p)
+			resp := MustGenerate(source, "plain", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(content).ToNot(ContainSubstring("resourceID"))
 		},

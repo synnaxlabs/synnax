@@ -25,7 +25,7 @@ var _ = Describe("Transient types", func() {
 	It(
 		"Should generate unversioned typedefs at the package root",
 		func(ctx SpecContext) {
-			resp := chainGenerate(ctx, goPlugin, map[string]string{
+			resp := chainGenerate(goPlugin, map[string]string{
 				"schemas/synnax/thing.oracle": `
 @go output "out"
 Key uint32 {
@@ -70,7 +70,7 @@ Entry struct {
 	It(
 		"Should reference versioned types locally, never through versions/vN",
 		func(ctx SpecContext) {
-			resp := chainGenerate(ctx, goPlugin, map[string]string{
+			resp := chainGenerate(goPlugin, map[string]string{
 				"schemas/synnax/dep.oracle": `
 @go output "dep"
 Item struct {

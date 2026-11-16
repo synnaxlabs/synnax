@@ -28,7 +28,7 @@ var _ = Describe("Matcher", func() {
 
 	table := func(ctx SpecContext, source string) *resolution.Table {
 		GinkgoHelper()
-		req := MustGenerateRequest(ctx, `
+		req := MustGenerateRequest(`
 			import "schemas/x/filter"
 
 			@go output "core/pkg/service/thing"

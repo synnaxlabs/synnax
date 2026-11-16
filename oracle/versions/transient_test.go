@@ -62,7 +62,7 @@ Span int64
 Ref = A
 `,
 		})
-		f := MustSucceed(r.File(ctx, "schemas/synnax/task", 0))
+		f := MustSucceed(r.File("schemas/synnax/task", 0))
 		transient := f.Transient()
 		Expect(transient.Slice()).To(ConsistOf(
 			"Details", "State", "Payload", "A", "B", "Span", "Ref",
@@ -86,7 +86,7 @@ Details struct {
 }
 `,
 		})
-		f := MustSucceed(r.File(ctx, "schemas/synnax/task", 0))
+		f := MustSucceed(r.File("schemas/synnax/task", 0))
 		Expect(f.Transient()).To(BeEmpty())
 	})
 
@@ -110,7 +110,7 @@ Details struct {
 }
 `,
 		})
-		f := MustSucceed(r.File(ctx, "schemas/synnax/task", 0))
+		f := MustSucceed(r.File("schemas/synnax/task", 0))
 		Expect(f.Transient()).To(BeEmpty())
 	})
 
@@ -137,7 +137,7 @@ Details struct {
 }
 `,
 		})
-		f := MustSucceed(r.File(ctx, "schemas/synnax/task", 0))
+		f := MustSucceed(r.File("schemas/synnax/task", 0))
 		Expect(f.Transient().Slice()).To(ConsistOf("Details"))
 	})
 })

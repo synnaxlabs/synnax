@@ -64,7 +64,7 @@ var _ = Describe("C++ PB Plugin", func() {
 	Describe("Generate", func() {
 		It("Should translate the recursive Where of a filter", func(ctx SpecContext) {
 			AddFilterSchema(loader)
-			resp := MustGenerate(ctx, ThingFilter, "thing", loader, pbPlugin)
+			resp := MustGenerate(ThingFilter, "thing", loader, pbPlugin)
 			ExpectContent(resp, "thing/proto.gen.h").ToContain(
 				"auto* wrapper = pb.mutable_and_();\n        for (const auto& item : *this->and_) {",
 				"auto [v, err] = this->not_->to_proto();",
@@ -78,7 +78,7 @@ var _ = Describe("C++ PB Plugin", func() {
 			"Should translate each generic use over a plain value through free functions",
 			func(ctx SpecContext) {
 				AddFilterSchema(loader)
-				resp := MustGenerate(ctx, ThingFilter, "thing", loader, pbPlugin)
+				resp := MustGenerate(ThingFilter, "thing", loader, pbPlugin)
 				ExpectContent(resp, "thing/proto.gen.h").
 					ToContain(
 						"inline std::pair<::service::thing::pb::UuidSet, x::errors::Error> "+
@@ -113,7 +113,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					first First<string>
 				}
 			`
-				resp := MustGenerate(ctx, source, "thing", loader, pbPlugin)
+				resp := MustGenerate(source, "thing", loader, pbPlugin)
 				ExpectContent(resp, "thing/proto.gen.h").ToContain(
 					"inline std::pair<pb::StringFirst, x::errors::Error> " +
 						"string_first_to_proto(const First<std::string>& self);\n" +
@@ -140,7 +140,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					maybe filter.Set<uuid>[]?
 				}
 			`
-				resp := MustGenerate(ctx, source, "thing", loader, pbPlugin)
+				resp := MustGenerate(source, "thing", loader, pbPlugin)
 				ExpectContent(resp, "thing/proto.gen.h").
 					ToContain(
 						"for (const auto& item : this->sets) {\n"+
@@ -173,7 +173,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					sets map<string, filter.Set<uuid>>
 				}
 			`
-				resp := MustGenerate(ctx, source, "thing", loader, pbPlugin)
+				resp := MustGenerate(source, "thing", loader, pbPlugin)
 				ExpectContent(resp, "thing/proto.gen.h").
 					ToContain(
 						"auto [pb_v, err] = uuid_set_to_proto(v);",
@@ -204,7 +204,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					level filter.Set<Level>?
 				}
 			`
-				resp := MustGenerate(ctx, source, "thing", loader, pbPlugin)
+				resp := MustGenerate(source, "thing", loader, pbPlugin)
 				ExpectContent(resp, "thing/proto.gen.h").ToContain(
 					"kind_set_to_proto(const ::x::filter::Set<std::string>& self) {",
 					"if (self.eq.has_value()) {\n        auto [v, err] = kind_to_pb(*self.eq);",
@@ -230,7 +230,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						subject string
 					}
 				`
-					resp := MustGenerate(ctx, source, "auth", loader, pbPlugin)
+					resp := MustGenerate(source, "auth", loader, pbPlugin)
 					ExpectContent(resp, "proto.gen.h").
 						ToContain("subject").
 						ToNotContain("hash")
@@ -260,7 +260,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						outputs Params
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 					Expect(resp.Files).To(HaveLen(1))
 
 					ExpectContent(resp, "proto.gen.h").
@@ -299,7 +299,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						outputs Params
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -329,7 +329,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						inputs Params
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -359,7 +359,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						items Item[]
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -380,7 +380,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						names string[]
 					}
 				`
-				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(source, "types", loader, pbPlugin)
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(
@@ -400,7 +400,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						keys Key[]
 					}
 				`
-				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(source, "types", loader, pbPlugin)
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(
 						"pb.add_keys(item.to_string());",
@@ -424,7 +424,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						data_types DataType[]
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
 							"pb.add_data_types(item.to_proto());",
@@ -449,7 +449,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						variants Variant[]
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
 							"auto [v, err] = variant_to_pb(item);",
@@ -479,7 +479,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						unit Unit?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -511,7 +511,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						right Node?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -554,7 +554,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						constraint Type?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 					Expect(resp.Files).To(HaveLen(1))
 
 					ExpectContent(resp, "proto.gen.h").
@@ -591,7 +591,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						variant Variant
 					}
 				`
-					resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+					resp := MustGenerate(source, "status", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -621,7 +621,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						name string
 					}
 				`
-					resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+					resp := MustGenerate(source, "status", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain("variant_to_pb", "variant_from_pb")
@@ -644,7 +644,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						variant Variant
 					}
 				`
-					resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+					resp := MustGenerate(source, "status", loader, pbPlugin)
 					content := MustContentOf(resp, "proto.gen.h")
 
 					// ToPB should not silently return a default for unknown values
@@ -675,7 +675,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						kind Kind
 					}
 				`
-					resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+					resp := MustGenerate(source, "status", loader, pbPlugin)
 					content := MustContentOf(resp, "proto.gen.h")
 
 					// Int enum struct field backward conversion should check for errors
@@ -699,7 +699,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						variant Variant
 					}
 				`
-					resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+					resp := MustGenerate(source, "status", loader, pbPlugin)
 					content := MustContentOf(resp, "proto.gen.h")
 
 					// from_proto should check for errors from enum conversion
@@ -724,7 +724,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						variant Variant
 					}
 				`
-					resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+					resp := MustGenerate(source, "status", loader, pbPlugin)
 					content := MustContentOf(resp, "proto.gen.h")
 
 					// to_proto should return pair and check for errors from enum
@@ -748,7 +748,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						value any
 					}
 				`
-				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(source, "types", loader, pbPlugin)
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(
@@ -767,7 +767,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						value any?
 					}
 				`
-				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(source, "types", loader, pbPlugin)
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(
@@ -793,7 +793,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						extra record?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -835,7 +835,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						` + field + `
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 					ExpectContent(resp, "proto.gen.h").ToContain(
 						"auto [key, key_err] = x::pb::narrow<"+keyType+">(k);",
 						"if (key_err) return {{}, key_err};",
@@ -861,7 +861,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						write map<uint32, string>
 					}
 				`
-				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(source, "types", loader, pbPlugin)
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(
@@ -894,7 +894,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						configs map<string, record>
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -933,7 +933,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						strata Strata
 					}
 				`
-					resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+					resp := MustGenerate(source, "ir", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -968,7 +968,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						rows Row[]
 					}
 				`
-					resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+					resp := MustGenerate(source, "ir", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -1003,7 +1003,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						strata Strata
 					}
 				`
-					resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+					resp := MustGenerate(source, "ir", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -1033,7 +1033,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						data Grid
 					}
 				`
-					resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+					resp := MustGenerate(source, "ir", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -1063,7 +1063,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						cells Grid
 					}
 				`
-					resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+					resp := MustGenerate(source, "ir", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -1101,7 +1101,7 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					Channels uint32[]
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					// No proto.gen.h should be generated for array-only schemas
 					Expect(resp.Files).To(BeEmpty())
@@ -1122,7 +1122,7 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					Params Param[]
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					// Should generate proto for Param struct only
 					ExpectContent(resp, "proto.gen.h").
@@ -1147,7 +1147,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						name string
 					}
 				`
-				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(source, "types", loader, pbPlugin)
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(
@@ -1171,7 +1171,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						variant Variant
 					}
 				`
-					resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+					resp := MustGenerate(source, "status", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -1192,7 +1192,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						name string
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToNotContain(
@@ -1214,7 +1214,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						data record
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain("x::json")
@@ -1232,7 +1232,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						data record?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain("has_value()")
@@ -1252,7 +1252,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						payload any
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain("x::json")
@@ -1270,7 +1270,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						payload bytes
 					}
 				`
-				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(source, "types", loader, pbPlugin)
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain("payload")
@@ -1290,7 +1290,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						parent uuid?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain("has_value()").
@@ -1319,7 +1319,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						item Custom
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain("to_proto()").
@@ -1343,7 +1343,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						extra int32
 					}
 				`
-				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(source, "types", loader, pbPlugin)
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain("Base::to_proto()").
@@ -1379,7 +1379,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						info common.Info
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+				resp := MustGenerate(source, "task", loader, pbPlugin)
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain("to_proto()").
@@ -1399,7 +1399,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						key uuid
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+					resp := MustGenerate(source, "task", loader, pbPlugin)
 
 					ExpectContent(resp, "task/proto.gen.h").
 						ToContain(`#include "client/cpp/common/proto.gen.h"`)
@@ -1421,7 +1421,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						info InfoRef
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+					resp := MustGenerate(source, "task", loader, pbPlugin)
 
 					ExpectContent(resp, "task/proto.gen.h").
 						ToContain(
@@ -1447,7 +1447,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						info InfoRef?
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+					resp := MustGenerate(source, "task", loader, pbPlugin)
 
 					ExpectContent(resp, "task/proto.gen.h").
 						ToContain(
@@ -1471,7 +1471,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						infos common.Info[]?
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+					resp := MustGenerate(source, "task", loader, pbPlugin)
 
 					ExpectContent(resp, "task/proto.gen.h").
 						ToContain(
@@ -1495,7 +1495,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						infos common.Info[]
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+					resp := MustGenerate(source, "task", loader, pbPlugin)
 
 					ExpectContent(resp, "task/proto.gen.h").
 						ToContain(
@@ -1519,7 +1519,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						infos map<string, common.Info>
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+					resp := MustGenerate(source, "task", loader, pbPlugin)
 
 					ExpectContent(resp, "task/proto.gen.h").
 						ToContain(
@@ -1543,7 +1543,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						groups common.Infos[]
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+					resp := MustGenerate(source, "task", loader, pbPlugin)
 
 					ExpectContent(resp, "task/proto.gen.h").
 						ToContain(
@@ -1557,7 +1557,7 @@ var _ = Describe("C++ PB Plugin", func() {
 
 		Context("invalid output paths", func() {
 			It("Should propagate json collection errors", func(ctx SpecContext) {
-				req := MustGenerateRequest(ctx, `
+				req := MustGenerateRequest(`
 					@cpp output "../escape"
 
 					Bad struct { name string }
@@ -1580,7 +1580,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						device = "device"
 					}
 				`
-					resp := MustGenerate(ctx, source, "resource", loader, pbPlugin)
+					resp := MustGenerate(source, "resource", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(`#include "client/cpp/resource/types.gen.h"`).
@@ -1614,7 +1614,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						time_range telem.TimeRange
 					}
 				`
-					resp := MustGenerate(ctx, source, "ranger", loader, pbPlugin)
+					resp := MustGenerate(source, "ranger", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(`#include "x/cpp/telem/types.gen.h"`).
@@ -1641,7 +1641,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						device = "device"
 					}
 				`
-					resp := MustGenerate(ctx, source, "resource", loader, pbPlugin)
+					resp := MustGenerate(source, "resource", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(`#include "client/cpp/resource/types.gen.h"`).
@@ -1675,7 +1675,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						time_range telem.TimeRange
 					}
 				`
-					resp := MustGenerate(ctx, source, "ranger", loader, pbPlugin)
+					resp := MustGenerate(source, "ranger", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(`#include "x/cpp/telem/types.gen.h"`).
@@ -1715,7 +1715,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						side geo.Side
 					}
 				`
-					resp := MustGenerate(ctx, source, "marker", loader, pbPlugin)
+					resp := MustGenerate(source, "marker", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -1754,7 +1754,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						stop color.Stop
 					}
 				`)
-				resp := MustGenerateMulti(ctx, loader, pbPlugin)
+				resp := MustGenerateMulti(loader, pbPlugin)
 				ExpectContent(resp, "client/cpp/color/proto.gen.h").
 					ToContain(
 						`#include "x/cpp/color/proto.gen.h"`,
@@ -1775,7 +1775,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						values map<string, string>
 					}
 				`
-				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(source, "types", loader, pbPlugin)
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain("mutable_values()")
@@ -1794,7 +1794,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						id NodeID
 					}
 				`
-				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+				resp := MustGenerate(source, "types", loader, pbPlugin)
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain("id")
@@ -1813,7 +1813,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						priority Priority
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -1838,7 +1838,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						hash Hash
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -1863,7 +1863,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						key string
 					}
 				`
-					resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+					resp := MustGenerate(source, "status", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -1887,7 +1887,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						@pb name "Channels"
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -1915,7 +1915,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						@pb name "Items"
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					resp := MustGenerate(source, "types", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -1941,7 +1941,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						details Details
 					}
 				`
-					resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+					resp := MustGenerate(source, "status", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -1980,7 +1980,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						details Details?
 					}
 				`
-					resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+					resp := MustGenerate(source, "status", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
@@ -2008,7 +2008,7 @@ var _ = Describe("C++ PB Plugin", func() {
 			DescribeTable(
 				"Should convert a use through its own message unless an Any holds it",
 				func(ctx SpecContext, arg, expected string) {
-					resp := MustGenerate(ctx, `
+					resp := MustGenerate(`
 					@cpp output "x/cpp/status"
 					@pb output "x/go/status/pb"
 
@@ -2066,7 +2066,7 @@ var _ = Describe("C++ PB Plugin unions", func() {
 	It(
 		"Should convert a union field through the union's free functions",
 		func(ctx SpecContext) {
-			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			resp := MustGenerate(source, "ir", loader, pbPlugin)
 			ExpectContent(resp, "proto.gen.h").
 				ToContain(
 					"auto [v, err] = ::arc::ir::to_proto(this->target);",
@@ -2080,7 +2080,7 @@ var _ = Describe("C++ PB Plugin unions", func() {
 	It(
 		"Should translate each variant against its payload message",
 		func(ctx SpecContext) {
-			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			resp := MustGenerate(source, "ir", loader, pbPlugin)
 			ExpectContent(resp, "proto.gen.h").
 				ToContain(
 					"ExitTarget::to_proto() const {",
@@ -2099,7 +2099,7 @@ var _ = Describe("C++ PB Plugin unions", func() {
 	It(
 		"Should dispatch between the std::variant and the oneof",
 		func(ctx SpecContext) {
-			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			resp := MustGenerate(source, "ir", loader, pbPlugin)
 			ExpectContent(resp, "proto.gen.h").
 				ToContain(
 					"inline std::pair<::arc::ir::pb::Target, x::errors::Error> "+
@@ -2134,7 +2134,7 @@ var _ = Describe("C++ PB Plugin unions", func() {
 				spare Field?
 			}
 			`
-			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			resp := MustGenerate(source, "ir", loader, pbPlugin)
 			ExpectContent(resp, "proto.gen.h").
 				ToContain(
 					"auto [base, base_err] = static_cast<const Base&>(v).to_proto();",
@@ -2174,7 +2174,7 @@ var _ = Describe("C++ PB Plugin unions", func() {
 				valve hw.Valve
 			}
 			`
-			resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+			resp := MustGenerate(source, "ir", loader, pbPlugin)
 			ExpectContent(resp, "ir/proto.gen.h").ToContain(
 				"inline std::pair<::service::hw::pb::Valve, x::errors::Error> "+
 					"ValveNode::to_proto() const {",
