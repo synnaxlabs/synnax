@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -52,7 +53,7 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Name).To(Equal("exported"))
 
 			decoded := MustSucceed(
-				WireRoundTrip(env).Decode[schematic.Schematic](ctx),
+				WireRoundTrip(env).Decode[schematic.Schematic](),
 			)
 			Expect(decoded.Name).To(Equal("exported"))
 		})
@@ -121,7 +122,7 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Nodes[0].ZIndex).To(Equal(int16(4)))
 				cfg, ok := res.Nodes[0].Config.Variant.(schematic.ValveNodeConfig)
 				Expect(ok).To(BeTrue())
-				Expect(cfg.OnClickDelay).To(HaveValue(Equal(2.0)))
+				Expect(cfg.OnClickDelay).To(Equal(2 * telem.Millisecond))
 			},
 		)
 

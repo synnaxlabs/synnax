@@ -17,7 +17,7 @@
 # ]
 # ///
 
-"""Stops the EC2 instance behind a runner, unless GitHub has a job assigned to it.
+"""Stops the EC2 instance behind a runner that GitHub shows offline with no job.
 
     uv run ec2_off.py windows-build-bot-i-0f44
 
@@ -32,10 +32,10 @@ from github import GitHub
 
 
 def run(runner: str, *, aws: AWS, github: GitHub) -> str | None:
-    # The scaler decides on a status that trails GitHub by seconds, in which time an
-    # idle runner can take a job.
-    if github.busy(runner):
-        return f"{runner}: busy, stop skipped"
+    # An online runner can take a job before the instance goes down, so its runner is
+    # stopped first, with <runner>_gh_cmd.
+    if not github.offline(runner):
+        return f"{runner}: online or busy, stop skipped"
     iid, info = aws.instance(runner)
     aws.ec2[info["region"]].stop_instances(InstanceIds=[iid])
     return None

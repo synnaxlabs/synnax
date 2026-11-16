@@ -538,7 +538,7 @@ describe("createDocumentForm", () => {
     },
   );
 
-  it("should guard a write inside a union on the value that picks its option", async () => {
+  describe("a union", () => {
     // A Modbus write channel is a union on its type.
     const unionSchema = z.object({
       name: z.string(),
@@ -568,33 +568,76 @@ describe("createDocumentForm", () => {
       useEnsure,
       toValues: ({ payload: { name, config } }) => ({ name, config }) as UnionValues,
     });
-    const t = await testRack.createTask({
-      name: `document-${id.create()}`,
-      type: "modbus_write",
-      config: { channels: [{ type: "coil", key: "a", address: 1 }] },
-    });
-    const { result } = await renderHookSuspended(
-      () => useUnionForm({ query: { key: t.key } }),
-      { wrapper },
-    );
-    const send = spyOnSend(formClient);
-    act(() => result.current.form.set(unionPath.config.channels.a.address, 2));
-    await act(async () => expect(await result.current.flush()).toBe(true));
-    const [, req] =
-      send.mock.calls.find(([target]) => target === "/task/dispatch") ?? [];
-    expect(req).toMatchObject({
-      actions: [
-        {
-          type: "set",
-          set: {
-            path: ["config", "channels", "a", "address"],
-            guards: [{ path: ["config", "channels", "a", "type"], value: "coil" }],
+
+    const renderUnionForm = async () => {
+      const t = await testRack.createTask({
+        name: `document-${id.create()}`,
+        type: "modbus_write",
+        config: { channels: [{ type: "coil", key: "a", address: 1 }] },
+      });
+      const { result } = await renderHookSuspended(
+        () => useUnionForm({ query: { key: t.key } }),
+        { wrapper },
+      );
+      return { t, result };
+    };
+
+    it("should guard a write inside a union on the value that picks its option", async () => {
+      const { t, result } = await renderUnionForm();
+      const send = spyOnSend(formClient);
+      act(() => result.current.form.set(unionPath.config.channels.a.address, 2));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(dispatchedActions(send)).toMatchObject([
+        [
+          {
+            type: "set",
+            set: {
+              path: ["config", "channels", "a", "address"],
+              guards: [{ path: ["config", "channels", "a", "type"], value: "coil" }],
+            },
           },
-        },
-      ],
+        ],
+      ]);
+      expect((await fetchStored(t.key)).config).toMatchObject({
+        channels: [{ key: "a", address: 2 }],
+      });
     });
-    expect((await fetchStored(t.key)).config).toMatchObject({
-      channels: [{ key: "a", address: 2 }],
+
+    it("should send a value that picks another member", async () => {
+      const { t, result } = await renderUnionForm();
+      const send = spyOnSend(formClient);
+      act(() =>
+        result.current.form.set(unionPath.config.channels.a.type, "holding_register"),
+      );
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(dispatchedActions(send)).toMatchObject([
+        [
+          {
+            type: "set",
+            set: {
+              path: ["config", "channels", "a", "type"],
+              value: "holding_register",
+              guards: [{ path: ["config", "channels", "a", "type"], value: "coil" }],
+            },
+          },
+        ],
+      ]);
+      expect((await fetchStored(t.key)).config).toMatchObject({
+        channels: [{ key: "a", type: "holding_register", address: 1 }],
+      });
+    });
+
+    it("should hold a value that picks no member", async () => {
+      const { t, result } = await renderUnionForm();
+      const send = spyOnSend(formClient);
+      act(() =>
+        result.current.form.set<string>(unionPath.config.channels.a.type, "bogus"),
+      );
+      await act(async () => expect(await result.current.flush()).toBe(false));
+      expect(countDispatches(send)).toBe(0);
+      expect((await fetchStored(t.key)).config).toMatchObject({
+        channels: [{ key: "a", type: "coil" }],
+      });
     });
   });
 

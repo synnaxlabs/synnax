@@ -1900,7 +1900,7 @@ func BenchmarkJSONDecode(b *testing.B) {
 	}
 }
 
-// Benchmark alignment compression with single series (no benefit expected)
+// Benchmark alignment compression with single series (no benefit expected).
 func BenchmarkAlignmentCompression_SingleSeries(b *testing.B) {
 	keys := channel.Keys{1}
 	dataTypes := []telem.DataType{telem.Int32T}
@@ -1916,7 +1916,7 @@ func BenchmarkAlignmentCompression_SingleSeries(b *testing.B) {
 	})
 }
 
-// Benchmark alignment compression with two contiguous series
+// Benchmark alignment compression with two contiguous series.
 func BenchmarkAlignmentCompression_TwoContiguous(b *testing.B) {
 	keys := channel.Keys{1}
 	dataTypes := []telem.DataType{telem.Int32T}
@@ -1938,7 +1938,7 @@ func BenchmarkAlignmentCompression_TwoContiguous(b *testing.B) {
 	})
 }
 
-// Benchmark alignment compression with many contiguous series (best case)
+// Benchmark alignment compression with many contiguous series (best case).
 func BenchmarkAlignmentCompression_ManyContiguous(b *testing.B) {
 	keys := channel.Keys{1}
 	dataTypes := []telem.DataType{telem.Int32T}
@@ -1965,7 +1965,7 @@ func BenchmarkAlignmentCompression_ManyContiguous(b *testing.B) {
 	})
 }
 
-// Benchmark alignment compression with mixed contiguous/non-contiguous
+// Benchmark alignment compression with mixed contiguous/non-contiguous.
 func BenchmarkAlignmentCompression_MixedContiguity(b *testing.B) {
 	keys := channel.Keys{1}
 	dataTypes := []telem.DataType{telem.Int32T}
@@ -2000,7 +2000,7 @@ func BenchmarkAlignmentCompression_MixedContiguity(b *testing.B) {
 	})
 }
 
-// Benchmark alignment compression with multiple channels
+// Benchmark alignment compression with multiple channels.
 func BenchmarkAlignmentCompression_MultiChannel(b *testing.B) {
 	keys := channel.Keys{1, 2, 3}
 	dataTypes := []telem.DataType{telem.Int32T, telem.Float32T, telem.Uint8T}
@@ -2042,7 +2042,7 @@ func BenchmarkAlignmentCompression_MultiChannel(b *testing.B) {
 	})
 }
 
-// Benchmark bandwidth savings - measure encoded size
+// Benchmark bandwidth savings - measure encoded size.
 func BenchmarkAlignmentCompression_BandwidthSavings(b *testing.B) {
 	keys := channel.Keys{1}
 	dataTypes := []telem.DataType{telem.Int32T}

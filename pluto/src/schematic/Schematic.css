@@ -70,16 +70,6 @@
         border: var(--pluto-border-width) solid transparent !important;
     }
 
-    .react-flow__edge {
-        & .react-flow__edge-path {
-            stroke-width: 2px !important;
-
-            &.lyra--thin {
-                stroke-width: 1px !important;
-            }
-        }
-    }
-
     .react-flow__edges {
         z-index: 6 !important;
     }

@@ -138,6 +138,126 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(t.Occurred()).To(BeTrue())
 					},
 				)
+				Describe("Order", func() {
+					open := func(
+						ctx SpecContext,
+						cfg unary.WriterConfig,
+					) *unary.Writer {
+						GinkgoHelper()
+						w, _ := MustSucceed2(db.OpenWriter(ctx, cfg))
+						return w
+					}
+					config := func(
+						start telem.TimeStamp,
+						key string,
+						authority control.Authority,
+					) unary.WriterConfig {
+						return unary.WriterConfig{
+							Start:     start,
+							Subject:   control.Subject{Key: key},
+							Authority: authority,
+						}
+					}
+					outOfOrder := SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("index out of order")),
+					)
+					expectStored := func(ctx SpecContext, s telem.Series) {
+						GinkgoHelper()
+						f := MustSucceed(ReadUnary(ctx, db, telem.TimeRangeMax))
+						Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(s))
+					}
+					DescribeTable(
+						"Should reject an index series that goes back",
+						func(ctx SpecContext, prior, rejected telem.Series) {
+							w := open(ctx, config(10*telem.SecondTS, "foo", 1))
+							if prior.Len() > 0 {
+								MustSucceed(w.Write(prior))
+								MustSucceed(w.Commit(ctx))
+							}
+							Expect(w.Write(rejected)).Error().To(outOfOrder)
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(20)))
+							Expect(MustSucceed(w.Commit(ctx))).
+								To(Equal(20*telem.SecondTS + 1))
+							MustSucceed(w.Close())
+							expectStored(ctx, telem.NewSeriesV(append(
+								prior.Unmarshal[telem.TimeStamp](),
+								20*telem.SecondTS,
+							)...))
+						},
+						Entry(
+							"inside one series",
+							telem.Series{DataType: telem.TimestampT},
+							telem.NewSeriesSecondsTSV(10, 12, 11),
+						),
+						Entry(
+							"behind the last sample written",
+							telem.NewSeriesSecondsTSV(10, 11),
+							telem.NewSeriesSecondsTSV(5, 12),
+						),
+					)
+					It("Should allow equal timestamps", func(ctx SpecContext) {
+						w := open(ctx, config(10*telem.SecondTS, "foo", 1))
+						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 10)))
+						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11)))
+						Expect(MustSucceed(w.Commit(ctx))).
+							To(Equal(11*telem.SecondTS + 1))
+						MustSucceed(w.Close())
+						expectStored(ctx, telem.NewSeriesSecondsTSV(10, 10, 10, 11))
+					})
+					It(
+						"Should not check the order of stream only writes",
+						func(ctx SpecContext) {
+							live := open(ctx, config(10*telem.SecondTS, "live", 1))
+							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10)))
+							MustSucceed(live.Commit(ctx))
+							cfg := config(10*telem.SecondTS, "stream", 2)
+							cfg.Persist = new(false)
+							stream := open(ctx, cfg)
+							MustSucceed(stream.Write(telem.NewSeriesSecondsTSV(100)))
+							MustSucceed(stream.Write(telem.NewSeriesSecondsTSV(99)))
+							MustSucceed(stream.Close())
+							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(11)))
+							Expect(MustSucceed(live.Commit(ctx))).
+								To(Equal(11*telem.SecondTS + 1))
+							MustSucceed(live.Close())
+							expectStored(ctx, telem.NewSeriesSecondsTSV(10, 11))
+						},
+					)
+					It(
+						"Should reject a writer that writes behind the data of another",
+						func(ctx SpecContext) {
+							live := open(ctx, config(100*telem.SecondTS, "live", 1))
+							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(100, 101)))
+							MustSucceed(live.Commit(ctx))
+							high := open(ctx, config(10*telem.SecondTS, "high", 2))
+							Expect(high.Write(telem.NewSeriesSecondsTSV(10, 11))).
+								Error().To(outOfOrder)
+							MustSucceed(high.Close())
+							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(102, 103)))
+							Expect(MustSucceed(live.Commit(ctx))).
+								To(Equal(103*telem.SecondTS + 1))
+							MustSucceed(live.Close())
+							expectStored(
+								ctx,
+								telem.NewSeriesSecondsTSV(100, 101, 102, 103),
+							)
+						},
+					)
+					It(
+						"Should commit to the last sample of any writer after a handoff",
+						func(ctx SpecContext) {
+							live := open(ctx, config(10*telem.SecondTS, "live", 1))
+							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							high := open(ctx, config(10*telem.SecondTS, "high", 2))
+							Expect(MustSucceed(high.Commit(ctx))).
+								To(Equal(11*telem.SecondTS + 1))
+							MustSucceed(high.Close())
+							MustSucceed(live.Close())
+							expectStored(ctx, telem.NewSeriesSecondsTSV(10, 11))
+						},
+					)
+				})
 				Describe("EndDomain", func() {
 					open := func(
 						ctx SpecContext,
@@ -449,10 +569,28 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							w := openBounded(ctx, 1*telem.SecondTS)
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1)))
 							Expect(
-								w.CommitWithEnd(ctx, 10*telem.SecondTS),
+								w.CommitWithEnd(ctx, 10*telem.SecondTS, nil),
 							).To(Succeed())
 							MustSucceed(w.Close())
 							MustSucceed(live.Close())
+						},
+					)
+					It(
+						"Should hide a commit in a group until the group publishes",
+						func(ctx SpecContext) {
+							var g domain.Group
+							w := openBounded(ctx, 1*telem.SecondTS)
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1)))
+							Expect(
+								w.CommitWithEnd(ctx, 2*telem.SecondTS, &g),
+							).To(Succeed())
+							it := DeferClose(MustSucceed(db.OpenIterator(
+								unary.IterRange(telem.TimeRangeMax),
+							)))
+							Expect(it.SeekFirst(ctx)).To(BeFalse())
+							g.Publish()
+							Expect(it.SeekFirst(ctx)).To(BeTrue())
+							MustSucceed(w.Close())
 						},
 					)
 					It(

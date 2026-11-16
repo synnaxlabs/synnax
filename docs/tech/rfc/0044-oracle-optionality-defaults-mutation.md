@@ -139,11 +139,11 @@ wire.
 
 Each language expresses the baseline naturally:
 
-| Language           | How defaults apply                                                                                                                                                      |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TypeScript, Python | Zod's `parse` and pydantic fill omitted fields.                                                                                                                         |
-| Go                 | a generated `ApplyDefaults` fills any field still at its zero value, walking into nested structs. Go needs this because a zeroed struct carries no defaults on its own. |
-| C++                | defaults live in the struct as member initializers, so a default-constructed value already holds them; decoding overlays the present fields.                            |
+| Language           | How defaults apply                                                                                                                                                                                                                     |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TypeScript, Python | Zod's `parse` and pydantic fill omitted fields.                                                                                                                                                                                        |
+| Go                 | generated decode hooks set the defaults before they read the input, so an absent field takes its default and an explicit zero stays. `defaults.Fill` fills the zero fields of a value from a source that cannot tell absent from zero. |
+| C++                | defaults live in the struct as member initializers, so a default-constructed value already holds them; decoding overlays the present fields.                                                                                           |
 
 ### 5.1 Where it happens
 
@@ -263,8 +263,8 @@ appeared.
 1. Language: remove `??`, let `?` mean nullable, and add the `@create` and `@output`
    markers.
 2. Add the build-time invariant check, with a clear error and the suggested fix.
-3. Generate Go's `ApplyDefaults`, and confirm the C++ JSON decoder leaves absent fields
-   at their defaults.
+3. Generate Go's decode-time defaults, and confirm the C++ JSON decoder leaves absent
+   fields at their defaults.
 4. Generate the server's normalize step (strip `@output`, fill defaults, validate) and
    wire it into the create, dispatch, and migration paths.
 5. Derive `New` from `@create` and `@output`: a `z.input` type in TypeScript, a pydantic
@@ -311,12 +311,13 @@ type ValueCell struct {
     Author    user.Key
 }
 
-func (c ValueCell) ApplyDefaults() ValueCell {
-    if c.Notation == "" { c.Notation = notation.NotationStandard }
-    if c.Rolling == 0   { c.Rolling = 1 }
+// SetDefaults runs before a decode reads its input, so an absent field keeps its
+// default and an explicit zero stays.
+func (c *ValueCell) SetDefaults() {
+    c.Notation = notation.NotationStandard
+    c.Rolling = 1
     // Key is assigned at the boundary; Precision and Color are nullable with no static
     // default, so they are left nil for the consumer to derive.
-    return c
 }
 
 func (c ValueCell) Validate() error {
@@ -327,8 +328,8 @@ func (c ValueCell) Validate() error {
 }
 ```
 
-The create handler becomes `decode → ApplyDefaults → Validate`, with `author` stripped
-and set by the server.
+The create handler becomes `decode → Validate`, with `author` stripped and set by the
+server. The decode fills the defaults.
 
 Generated TypeScript, where `New` is the derived input: `author` is dropped, defaulted
 fields are optional, and nullable fields may be left out.
@@ -344,7 +345,7 @@ What changes from today:
 
 - The hand-written `New` struct and its per-language annotations are replaced by
   `@create` on the type and `@output` on `author`.
-- Go gains `ApplyDefaults` and `Validate`. The migration that used to write
+- Go gains decode-time defaults and `Validate`. The migration that used to write
   `notation: ""` now fills the default, and `Validate` rejects an invalid value instead
   of storing it.
 - `precision` moves from `??` to a nullable `?` because `0` is a real choice, while

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Reader wraps a key-value reader to provide a strongly typed interface for reading
@@ -64,7 +65,7 @@ func (r *Reader[K, E]) get(
 	key K,
 	entry *E,
 ) ([]byte, io.Closer, error) {
-	b, closer, err := r.snap.Get(ctx, r.keyCodec.Encode(key))
+	b, closer, err := r.snap.Get(r.keyCodec.Encode(key))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -72,6 +73,17 @@ func (r *Reader[K, E]) get(
 		return nil, nil, errors.Combine(err, closer.Close())
 	}
 	return b, closer, nil
+}
+
+func (r *Reader[K, E]) has(key K) (bool, error) {
+	_, closer, err := r.snap.Get(r.keyCodec.Encode(key))
+	if errors.Is(err, query.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, closer.Close()
 }
 
 // IterOptions configures a Reader iterator.
@@ -118,7 +130,7 @@ func (r Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, e
 	}
 	return func(yield func(E) bool) {
 		for i.First(); i.Valid(); i.Next() {
-			v := i.Value(ctx)
+			v := i.Value()
 			if v == nil {
 				continue
 			}
@@ -147,7 +159,7 @@ type Iterator[E any] struct {
 // Value returns the decoded value from the iterator. Iterate.Alive must be true
 // for calls to return a valid value. The returned pointer is reused across calls,
 // so callers must copy the value if they need it to persist.
-func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
+func (k *Iterator[E]) Value() (entry *E) {
 	if k.value == nil {
 		k.value = new(E)
 	}

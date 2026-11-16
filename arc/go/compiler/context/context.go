@@ -29,7 +29,7 @@ type LoopEntry struct {
 	ContinueDepth int
 }
 
-// Context maintains compilation state across all code generation
+// Context maintains compilation state across all code generation.
 type Context[ASTNode antlr.ParserRuleContext] struct {
 	context.Context
 	AST      ASTNode

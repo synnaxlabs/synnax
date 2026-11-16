@@ -2379,7 +2379,7 @@ func mustParseExpression(expr string) parser.IExpressionContext {
 	return MustSucceed(parser.ParseExpression(expr))
 }
 
-// AST Navigation Helpers - traverse the parse tree to access specific nodes
+// AST Navigation Helpers - traverse the parse tree to access specific nodes.
 func getPrimaryLiteral(expr parser.IExpressionContext) parser.ILiteralContext {
 	primary := parser.GetPrimaryExpression(expr)
 	return primary.Literal()

@@ -168,6 +168,8 @@ func (db *DB) Delete(
 	var removedSize int64
 	for i := startDomain; i <= endDomain; i++ {
 		removedSize += int64(db.idx.mu.pointers[i].size)
+		// Readers see what the delete leaves at once, also of an unpublished commit.
+		db.idx.report(db.idx.unprotectedReveal(db.idx.mu.pointers[i].Start))
 	}
 
 	// Remove old pointers.

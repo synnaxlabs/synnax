@@ -267,7 +267,7 @@ func (f *Factory) ConfigureTask(
 		return nil, driver.ErrTaskNotHandled
 	}
 	if err != nil {
-		f.reporter.Report(ctx, t, cmdKey, autoStart, err)
+		f.reporter.Report(ctx, t, cmdKey, err)
 		return nil, err
 	}
 	// A successful configure writes no status: the start that follows it answers the
