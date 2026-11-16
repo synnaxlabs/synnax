@@ -97,10 +97,10 @@ type readTask struct {
 	client *kgo.Client
 	// closer releases the consumer, nil once released.
 	closer io.Closer
-	// sCtx is the consumer's context. A consumer that fails cancels it.
+	// sCtx is the consumer's context. A consumer that panics or fails without a report
+	// cancels it.
 	sCtx signal.Context
-	// failed is set before the consumer reports its failure. sCtx only cancels once the
-	// consumer exits, after the report.
+	// failed is set before the consumer reports its failure.
 	failed atomic.Bool
 	// skips counts the records of the current run that the task reads and skips.
 	skips *driver.Skips
@@ -399,8 +399,8 @@ func (t *readTask) start(ctx context.Context, cmdKey string) (err, answerErr err
 	return nil, nil
 }
 
-// stop returns the error that ended the consumer, and the error of the status write
-// that answers cmdKey.
+// stop returns the error that ended the consumer and that no status reports, and the
+// error of the status write that answers cmdKey.
 func (t *readTask) stop(
 	ctx context.Context,
 	cmdKey string,
@@ -522,16 +522,7 @@ func (t *readTask) open(ctx context.Context) (err error) {
 		xio.CloserFunc(t.closeClient),
 		xio.CloserFunc(func() error {
 			defer cancelWriter()
-			err := stopConsumer.Close()
-			// The status of a failed consumer already reports why it ended.
-			if err != nil && t.failed.Load() {
-				t.factoryCfg.L.Warn("kafka consumer failed",
-					zap.Stringer("task", t.task.Key),
-					zap.Error(err),
-				)
-				return nil
-			}
-			return err
+			return stopConsumer.Close()
 		}),
 	}
 	return nil
@@ -568,6 +559,9 @@ func (t *readTask) checkCommitted(ctx context.Context, cl *kgo.Client) error {
 // closeWriter releases the task's channels. It runs as the consumer exits, for any
 // reason, once no write is in progress.
 func (t *readTask) closeWriter() error {
+	if t.writer == nil {
+		return nil
+	}
 	err := t.writer.Close()
 	t.writer = nil
 	return err
@@ -705,12 +699,17 @@ func (t *readTask) poll(ctx context.Context) kgo.Fetches {
 	return t.client.PollFetches(ctx)
 }
 
-// fail reports the error that stops the consumer and returns it. A start that follows
-// the status replaces the consumer instead of acknowledging the failure.
+// fail reports the error that stops the consumer. It returns the error only when the
+// report fails, so a stop does not report a failure the status already shows. A start
+// that follows the status replaces the consumer instead of acknowledging the failure.
 func (t *readTask) fail(ctx context.Context, message string, err error) error {
 	t.failed.Store(true)
-	t.setStatus(ctx, driver.NoCommand, status.VariantError, false, message, err.Error())
-	return err
+	if sendErr := t.status.Send(
+		ctx, driver.NoCommand, status.VariantError, false, message, err.Error(),
+	); sendErr != nil {
+		return errors.Combine(err, sendErr)
+	}
+	return nil
 }
 
 // unavailable are the broker errors for a broker or coordinator that is down or
@@ -775,6 +774,8 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 	t.reportSkips(ctx, time.Now())
 	if keys > 0 {
 		if _, err := t.writer.Write(t.frame(keys, size)); err != nil {
+			// A failed write closes the writer, and err holds its close error.
+			t.writer = nil
 			return errors.Wrap(err, "writing records")
 		}
 	}
