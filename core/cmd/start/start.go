@@ -482,8 +482,7 @@ func BootupCore(
 }
 
 // detachAfterOpen returns a context that ends with ctx until the returned function
-// runs, and lives on after that. ctx ends when shutdown starts, so a layer opens on it
-// to keep
+// runs, then lives on. ctx ends when shutdown starts, so a layer opens on it to keep
 // its Gorp tables until the layer closes.
 func detachAfterOpen(ctx context.Context) (context.Context, func() bool) {
 	detached, cancel := context.WithCancel(context.WithoutCancel(ctx))
