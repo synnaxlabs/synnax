@@ -149,17 +149,24 @@ func (f *formatter) emitCommentsBefore(tokenIdx int) {
 }
 
 // commentsBefore returns, in source order, the comments between tokenIdx and the
-// previous token that is neither a comment nor a newline.
+// previous token that is neither a comment nor a newline. It excludes trailing
+// comments on the line of that previous token.
 func (f *formatter) commentsBefore(tokenIdx int) []antlr.Token {
-	var comments []antlr.Token
+	var comments, pending []antlr.Token
 	for i := tokenIdx - 1; i >= 0; i-- {
 		tok := f.tokens.Get(i)
 		if tok.GetChannel() == hiddenChan {
-			comments = append(comments, tok)
-		} else if tok.GetTokenType() != parser.OracleLexerNEWLINE {
+			pending = append(pending, tok)
+			continue
+		}
+		if tok.GetTokenType() != parser.OracleLexerNEWLINE {
+			pending = nil
 			break
 		}
+		comments = append(comments, pending...)
+		pending = nil
 	}
+	comments = append(comments, pending...)
 	slices.Reverse(comments)
 	return comments
 }
@@ -178,11 +185,9 @@ func (f *formatter) formatSchema(ctx parser.ISchemaContext) {
 		f.newline()
 	}
 
-	// Format imports in alphabetical order. Comments in the import region are emitted
-	// up front so reordering cannot drop or duplicate them.
+	// Format imports in alphabetical order.
 	imports := ctx.AllImportStmt()
 	if len(imports) > 0 {
-		f.emitCommentsBefore(imports[len(imports)-1].GetStart().GetTokenIndex())
 		sorted := make([]parser.IImportStmtContext, len(imports))
 		copy(sorted, imports)
 		sort.Slice(sorted, func(i, j int) bool {
@@ -1123,9 +1128,8 @@ func domainCommand(content parser.IDomainContentContext) string {
 }
 
 // sortDomainLines returns the lines ordered by domain name, then leading command
-// ("@go marshal" before "@go migrate"), with a stable sort. A group with an attached
-// comment keeps source order: emission tracks a comment watermark, and reordering
-// across a comment would drop it.
+// ("@go marshal" before "@go migrate"), with a stable sort. A group with an unwritten
+// comment keeps source order, so the comment stays beside the lines it describes.
 func (f *formatter) sortDomainLines[T domainLine](domains []T) []T {
 	if len(domains) < 2 {
 		return domains
