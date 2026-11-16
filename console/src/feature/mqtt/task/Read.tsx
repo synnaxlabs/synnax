@@ -68,6 +68,8 @@ import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<ReadSchemas>>();
 
+const DEFAULT_NAME = "MQTT read task";
+
 const plainPath = (key: string) =>
   deep.variant(root.config.entries[key], "type", "plain");
 
@@ -279,6 +281,9 @@ interface AddTopicsResult {
 
 /** @returns the bindings of the fields of a draft that the task reads. */
 type Bind = (draft: Draft, fields: icd.JSONField[]) => ReadBinding[];
+
+/** @returns the name of the ICD of a task named name. */
+const icdName = (name: string): string => (name.trim() === "" ? DEFAULT_NAME : name);
 
 /** Creates an ICD with a message for each draft, and the entries that read them. */
 const createICD = async (
@@ -790,7 +795,7 @@ const Entries: FC<EntriesProps> = ({ device, format, selected, onSelect }) => {
         drafts.length === 0
           ? { added: [], held: [] }
           : format == null
-            ? await createICD(client, ctx.get(root.name).value, drafts, bind)
+            ? await createICD(client, icdName(ctx.get(root.name).value), drafts, bind)
             : await addTopics({ client, format, entries: plain, drafts, bind });
       push([...added, ...tags]);
       grown.forEach(({ key, message, bindings }) => {
@@ -960,7 +965,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
 }) => {
   const cfg = READ_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "MQTT read task", type: READ_TYPE, config: cfg };
+  return { name: DEFAULT_NAME, type: READ_TYPE, config: cfg };
 };
 
 /**
@@ -1126,7 +1131,7 @@ export const useCreateRead = Task.createUseCreate({
 
 export const ReadSelectable: Selector.Selectable = {
   type: READ_TYPE,
-  title: "MQTT read task",
+  title: DEFAULT_NAME,
   label: "Read",
   icon: <Icon.Logo.MQTT />,
   useOnSelect: useCreateRead,

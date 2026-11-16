@@ -304,6 +304,22 @@ describe("MQTT read form", () => {
     );
   });
 
+  it("should give the ICD a default name while the task has none", async () => {
+    const { dev, draft } = await renderRead();
+    const name = await screen.findByLabelText("Name");
+    fireEvent.change(name, { target: { value: "" } });
+    fireEvent.blur(name);
+    await addField(dev.rack, TOPIC, "temperature");
+    const [entry] = await waitFor(async () => {
+      const entries = await retrieveEntries(draft.key);
+      expect(entries).toHaveLength(1);
+      return entries;
+    });
+    expect((await client.icds.retrieve(plainOf(entry).icd)).name).toBe(
+      "MQTT read task",
+    );
+  });
+
   it("should show the format of a topic from the ICD of its entry", async () => {
     const kiln = await createEntry({
       topic: "plant/kiln",
