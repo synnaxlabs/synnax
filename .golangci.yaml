@@ -57,7 +57,6 @@ linters:
     - contextcheck # SY-6109
     - exhaustive # SY-6106
     - fatcontext # SY-6109
-    - forcetypeassert # SY-6105
     - funlen # SY-6110
     - gochecknoglobals # SY-6107
     - gochecknoinits # SY-6108
