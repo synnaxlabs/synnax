@@ -50,6 +50,7 @@ linters:
     - wrapcheck # x/errors decides where to wrap.
     - wsl_v5 # gofumpt sets our blank lines.
     # Not yet adopted. Each issue tracks the work to enable it.
+    - bodyclose # SY-6111
     - containedctx # SY-6109
     - contextcheck # SY-6109
     - errorlint # SY-6111
@@ -76,6 +77,7 @@ linters:
     - prealloc # SY-6115
     - predeclared # SY-6115
     - recvcheck # SY-6111
+    - spancheck # SY-6111
     - unconvert # SY-6114
     - unparam # SY-6112
   settings:

@@ -198,7 +198,7 @@ func fetch(
 	if err != nil {
 		return nil, errors.Combine(err, r.Close())
 	}
-	res, err := http.DefaultClient.Do(req) //nolint:bodyclose // r closes it
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, errors.Combine(err, r.Close())
 	}
