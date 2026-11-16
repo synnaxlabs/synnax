@@ -537,7 +537,7 @@ var _ = Describe("License", func() {
 		state := func(svc *license.Service) func() license.State {
 			return func() license.State { return svc.Retrieve().State }
 		}
-		mark := func(ctx SpecContext) func() int64 {
+		mark := func() func() int64 {
 			return func() int64 {
 				GinkgoHelper()
 				raw, closer := MustSucceed2(db.Get([]byte("highWater")))
@@ -572,9 +572,9 @@ var _ = Describe("License", func() {
 		)
 		It("should never move the recorded time back", func(ctx SpecContext) {
 			svc := open(ctx, clocked, license.ServiceConfig{Key: sign(newLicense())})
-			Expect(mark(ctx)()).To(Equal(now.UnixNano()))
+			Expect(mark()()).To(Equal(now.UnixNano()))
 			clock.Store(now.Add(-2 * day).UnixNano())
-			Consistently(mark(ctx)).
+			Consistently(mark()).
 				WithTimeout(100 * time.Millisecond).
 				Should(Equal(now.UnixNano()))
 			Expect(svc.Close()).To(Succeed())

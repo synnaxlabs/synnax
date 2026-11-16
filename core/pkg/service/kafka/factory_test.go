@@ -54,7 +54,7 @@ var _ = Describe("Factory", func() {
 	})
 
 	Describe("InitialTasks", func() {
-		It("Should return the scan task", func(ctx SpecContext) {
+		It("Should return the scan task", func() {
 			tasks := f.InitialTasks()
 			Expect(tasks).To(HaveLen(1))
 			Expect(tasks[0].Type).To(Equal(kafka.ScanTaskType))

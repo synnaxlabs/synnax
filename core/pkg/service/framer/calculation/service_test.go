@@ -196,7 +196,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				bases []channel.Channel
 				calcs []channel.Channel
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
 				bases = []channel.Channel{
 					{
 						Name:     UniqueChannelName(),
@@ -554,7 +554,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				bases []channel.Channel
 				calcs []channel.Channel
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
 				calc1Name := UniqueChannelName()
 				bases = []channel.Channel{{
 					Name:     UniqueChannelName(),
@@ -762,7 +762,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					To(telem.MatchSeriesDataV[int64](7))
 			}
 
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
 				base = channel.Channel{
 					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
