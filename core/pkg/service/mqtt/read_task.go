@@ -22,13 +22,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
-	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
-	xjson "github.com/synnaxlabs/x/json"
-	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -63,19 +62,6 @@ func validateTopic(topic string) error {
 	return nil
 }
 
-// readField is one value to extract from a payload.
-type readField struct {
-	decoder *xjson.Decoder
-	name    string
-	pointer xjson.Pointer
-	channel channel.Key
-	// dataType is the data type of the channel, which the Core is the authority on.
-	dataType telem.DataType
-	// fill is the sample written when the payload has no value. Nil when the field
-	// requires one.
-	fill []byte
-}
-
 // topicSubscription is a topic that a read task subscribes to.
 type topicSubscription struct {
 	topic           string
@@ -101,188 +87,208 @@ type topicReader interface {
 	convert(msg message) (topicSample, error)
 }
 
-// readTopic is one plain read entry, ready to convert payloads into frames.
-type readTopic struct {
-	topicSubscription
-	fields []readField
+// topicMessage reads the documents of one ICD message into its bound channels.
+type topicMessage struct {
+	name string
 	// keys are the channels of one frame: the index, when there is one, then the
-	// fields that are not the index.
+	// bound channels that are not the index.
 	keys channel.Keys
-	// index is the index channel of every field. Zero for virtual channels.
+	// index is the index channel of every binding. Zero for virtual channels.
 	index channel.Key
-	// indexField is the position in fields of the field that gives the timestamp.
+	// indexField is the position in bindings of the field that gives the timestamp.
 	// It is -1 when the sample takes its arrival time.
 	indexField int
-	extractor  *xjson.Extractor
-	// values[i] is the value of fields[i] in the last payload.
-	values []jsontext.Value
+	dataTypes  []telem.DataType
+}
+
+// readTopic reads the topic of one plain entry, whose documents are each one of several
+// ICD messages.
+type readTopic struct {
+	topicSubscription
+	messages []*topicMessage
+	decoder  *codec.JSON
+	// samples holds, for each message, the sample of each binding in the last
+	// document that message matched.
+	samples [][][]byte
 	// text holds a payload that is not JSON as a JSON string.
 	text []byte
 }
 
-// newReadTopic validates entry against channels, which holds every channel that a
-// field of the entry names.
+var _ topicReader = (*readTopic)(nil)
+
+// newReadTopic validates entry against ic, the ICD it names, and channels, which holds
+// every channel that a binding of the entry names.
 func newReadTopic(
 	entry PlainReadEntry,
+	ic icd.ICD,
 	channels map[channel.Key]channel.Channel,
 ) (*readTopic, error) {
+	if err := validateTopic(entry.Topic); err != nil {
+		return nil, err
+	}
 	t := &readTopic{
 		topic:           entry.Topic,
 		qos:             qosLevel(entry.Qos),
 		retainedIgnored: entry.RetainedIgnored,
-		indexField:      -1,
 	}
-	if err := validateTopic(entry.Topic); err != nil {
-		return nil, err
-	}
-	indexSet := false
-	for _, rf := range entry.Fields {
-		f := rf.Base()
-		if f.Disabled {
-			continue
-		}
-		path := "field " + f.Name + " of topic " + entry.Topic
-		ch, ok := channels[f.Channel]
-		if !ok {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"%s: channel %d does not exist",
-				path,
-				f.Channel,
-			)
-		}
-		pointer, err := xjson.ParsePointer(f.Pointer)
-		if err != nil {
-			return nil, errors.Wrap(err, path)
-		}
-		if ch.DataType == telem.BytesT && len(pointer) == 0 {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"%s: a bytes channel requires a JSON pointer", path,
-			)
-		}
-		field := readField{
-			name:     f.Name,
-			pointer:  pointer,
-			channel:  f.Channel,
-			dataType: ch.DataType,
-		}
-		r := v2.ReadOf(rf)
-		if err = r.Check(ch.DataType, ch.IsIndex); err != nil {
-			return nil, errors.Wrapf(err, "%s: channel %s", path, ch.Name)
-		}
-		xf, err := r.Field(ch.DataType)
-		if err != nil {
-			return nil, errors.Wrap(err, path)
-		}
-		field.fill, _ = r.Fill(ch.DataType)
-		if field.decoder, err = xjson.NewDecoder(xf); err != nil {
-			return nil, errors.Wrapf(err, "%s: channel %s", path, ch.Name)
-		}
-		if !indexSet {
-			t.index, indexSet = ch.Index(), true
-		} else if ch.Index() != t.index {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"%s: every channel of a topic must share one index channel", path,
-			)
-		}
-		if f.Key == entry.Index {
-			if !ch.IsIndex {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"%s: the index field must write to an index channel", path,
-				)
-			}
-			t.indexField = len(t.fields)
-		} else if ch.IsIndex {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"%s: only the index field can write to an index channel", path,
-			)
-		}
-		t.fields = append(t.fields, field)
-	}
-	if len(t.fields) == 0 {
+	if len(entry.Messages) == 0 {
 		return nil, errors.Wrapf(
-			validate.ErrValidation, "topic %s has no enabled fields", entry.Topic,
+			validate.ErrValidation, "topic %s reads no messages", entry.Topic,
 		)
 	}
-	if entry.Index != "" && t.indexField == -1 {
-		return nil, errors.Wrapf(
-			validate.ErrValidation,
-			"topic %s: index field %s does not exist or is disabled",
-			entry.Topic, entry.Index,
-		)
-	}
-	if t.index != 0 {
-		t.keys = append(t.keys, t.index)
-	}
-	pointers := make([]xjson.Pointer, len(t.fields))
-	for i, f := range t.fields {
-		pointers[i] = f.pointer
-		if i != t.indexField {
-			t.keys = append(t.keys, f.channel)
+	decoded := make([]codec.JSONMessage, len(entry.Messages))
+	for i, rm := range entry.Messages {
+		m, err := newTopicMessage(rm, ic, channels, &decoded[i])
+		if err != nil {
+			return nil, errors.Wrapf(err, "topic %s", entry.Topic)
 		}
+		t.messages = append(t.messages, m)
+		t.samples = append(t.samples, make([][]byte, len(decoded[i].Bindings)))
 	}
-	t.extractor = xjson.NewExtractor(pointers)
-	t.values = make([]jsontext.Value, len(t.fields))
+	var err error
+	if t.decoder, err = codec.NewJSON(decoded); err != nil {
+		return nil, errors.Wrapf(err, "topic %s", entry.Topic)
+	}
 	return t, nil
 }
 
-// extract finds the value of each field in msg, a payload. A payload that is not JSON
-// is taken as a bare string, such as ON.
-func (t *readTopic) extract(msg []byte) error {
-	err := t.extractor.Extract(msg, t.values)
-	if err == nil ||
-		jsontext.Value(msg).IsValid(jsontext.AllowDuplicateNames(true)) {
-		return err
+// newTopicMessage validates rm and fills decoded with what the decoder needs to read
+// it.
+func newTopicMessage(
+	rm ReadMessage,
+	ic icd.ICD,
+	channels map[channel.Key]channel.Channel,
+	decoded *codec.JSONMessage,
+) (*topicMessage, error) {
+	var msg *icd.Message
+	for i := range ic.Messages {
+		if ic.Messages[i].Key == rm.Message {
+			msg = &ic.Messages[i]
+			break
+		}
 	}
-	if t.text, err = jsontext.AppendQuote(t.text[:0], msg); err != nil {
-		return err
+	if msg == nil {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"message %s does not exist in ICD %s", rm.Message, ic.Name,
+		)
 	}
-	return t.extractor.Extract(t.text, t.values)
+	payload, ok := msg.Payload.Variant.(icd.JSONPayload)
+	if !ok {
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "message %s is not a JSON message", msg.Name,
+		)
+	}
+	if len(rm.Bindings) == 0 {
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "message %s binds no fields", msg.Name,
+		)
+	}
+	m := &topicMessage{name: msg.Name, indexField: -1}
+	bindings := make([]codec.Binding, len(rm.Bindings))
+	indexSet := false
+	for i, b := range rm.Bindings {
+		ch, ok := channels[b.Channel]
+		if !ok {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"message %s: channel %d does not exist", msg.Name, b.Channel,
+			)
+		}
+		bindings[i] = codec.Binding{Field: b.Field, DataType: ch.DataType}
+		m.dataTypes = append(m.dataTypes, ch.DataType)
+		if !indexSet {
+			m.index, indexSet = ch.Index(), true
+		} else if ch.Index() != m.index {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"message %s: every channel must share one index channel", msg.Name,
+			)
+		}
+		isIndexField := rm.Index != nil && *rm.Index == b.Field
+		switch {
+		case isIndexField && !ch.IsIndex:
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"message %s: the index field must write to an index channel",
+				msg.Name,
+			)
+		case !isIndexField && ch.IsIndex:
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"message %s: only the index field can write to an index channel",
+				msg.Name,
+			)
+		case isIndexField:
+			m.indexField = i
+		}
+	}
+	if rm.Index != nil && m.indexField == -1 {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"message %s: the index field has no channel", msg.Name,
+		)
+	}
+	*decoded = codec.JSONMessage{Name: msg.Name, Payload: payload, Bindings: bindings}
+	if m.index != 0 {
+		m.keys = append(m.keys, m.index)
+	}
+	for i, b := range rm.Bindings {
+		if i != m.indexField {
+			m.keys = append(m.keys, b.Channel)
+		}
+	}
+	return m, nil
 }
 
-// convert turns one payload into one sample for each channel of the topic, as a series
-// in the order of keys. It converts every field or none, because a frame that writes to
-// an index must hold every channel of that index.
+// convert reads msg as the message whose match rule its document meets. A payload that
+// is not JSON is read as a bare string, such as ON.
 func (t *readTopic) convert(msg message) (topicSample, error) {
-	if err := t.extract(msg.payload); err != nil {
+	for _, samples := range t.samples {
+		for i := range samples {
+			samples[i] = samples[i][:0]
+		}
+	}
+	i, ok, err := t.decoder.Decode(msg.payload, t.samples)
+	if err != nil &&
+		!jsontext.Value(msg.payload).IsValid(jsontext.AllowDuplicateNames(true)) {
+		if t.text, err = jsontext.AppendQuote(t.text[:0], msg.payload); err != nil {
+			return topicSample{}, err
+		}
+		i, ok, err = t.decoder.Decode(t.text, t.samples)
+	}
+	if err != nil {
 		return topicSample{}, err
 	}
-	var (
-		stamp  = msg.received
-		series = make([]telem.Series, 0, len(t.keys))
-	)
-	if t.index != 0 {
-		series = append(series, telem.Series{DataType: telem.TimestampT})
+	if !ok {
+		return topicSample{}, errors.New("the payload matches no message")
 	}
-	for i, f := range t.fields {
-		var data []byte
-		if payload.Absent(t.values[i], f.dataType) {
-			if f.fill == nil {
-				return topicSample{}, errors.Newf(
-					"field %s: no value at %s", f.name, f.pointer,
-				)
-			}
-			data = f.fill
-		} else {
-			var err error
-			if data, err = f.decoder.Append(nil, t.values[i]); err != nil {
-				return topicSample{}, errors.Wrapf(err, "field %s", f.name)
-			}
-		}
-		if i == t.indexField {
-			stamp = telem.TimeStamp(telem.ByteOrder.Uint64(data))
+	return t.messages[i].sample(t.samples[i], msg.received), nil
+}
+
+// sample builds a topic sample from the samples of each binding in one document,
+// stamped received when the message has no index field.
+func (m *topicMessage) sample(samples [][]byte, received telem.TimeStamp) topicSample {
+	s := topicSample{
+		index:  m.index,
+		keys:   m.keys,
+		series: make([]telem.Series, 0, len(m.keys)),
+		stamp:  received,
+	}
+	if m.index != 0 {
+		s.series = append(s.series, telem.Series{DataType: telem.TimestampT})
+	}
+	for i, data := range samples {
+		if i == m.indexField {
+			s.stamp = telem.TimeStamp(telem.ByteOrder.Uint64(data))
 			continue
 		}
-		series = append(series, telem.Series{DataType: f.dataType, Data: data})
+		s.series = append(s.series, telem.Series{DataType: m.dataTypes[i], Data: data})
 	}
-	if t.index != 0 {
-		series[0].Data = telem.ByteOrder.AppendUint64(nil, uint64(stamp))
+	if m.index != 0 {
+		s.series[0].Data = telem.ByteOrder.AppendUint64(nil, uint64(s.stamp))
 	}
-	return topicSample{index: t.index, keys: t.keys, series: series, stamp: stamp}, nil
+	return s
 }
 
 // batch gathers the samples of many messages into one frame, with one series for each

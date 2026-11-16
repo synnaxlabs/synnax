@@ -92,12 +92,10 @@ var _ = Describe("ResolveReadConfig", func() {
 	var (
 		found    map[channel.Key]v2.Channel
 		channels v2.Channels
-		made     []icd.ICD
-		create   v2.CreateICD
 		changes  []string
 	)
 	BeforeEach(func() {
-		found, made, changes = nil, nil, nil
+		found, changes = nil, nil
 		channels = func(
 			context.Context,
 			gorp.Snapshot,
@@ -105,29 +103,21 @@ var _ = Describe("ResolveReadConfig", func() {
 		) (map[channel.Key]v2.Channel, error) {
 			return found, nil
 		}
-		create = func(_ context.Context, _ gorp.Tx, ic icd.ICD) error {
-			made = append(made, ic)
-			return nil
-		}
 	})
 
-	// resolve resolves cfg for the task "Plant", runs the write it returns, and returns
-	// the ICD that the write creates.
+	// resolve resolves cfg for the task "Plant" and returns the ICD to create.
 	resolve := func(ctx SpecContext, cfg *v2.ReadConfig) icd.ICD {
 		GinkgoHelper()
-		write := MustSucceed(v2.ResolveReadConfig(
+		ic, ok := MustSucceed2(v2.ResolveReadConfig(
 			ctx,
 			nil,
 			channels,
-			create,
 			"Plant",
 			cfg,
 			func(_, change string) { changes = append(changes, change) },
 		))
-		Expect(write).ToNot(BeNil())
-		Expect(write(ctx, nil)).To(Succeed())
-		Expect(made).To(HaveLen(1))
-		return made[0]
+		Expect(ok).To(BeTrue())
+		return ic
 	}
 
 	// lift resolves one entry that holds old, and returns the field of old in the new
@@ -506,32 +496,18 @@ var _ = Describe("ResolveReadConfig", func() {
 		},
 	)
 
-	It("Should return no write when the config holds no inline entries",
+	It("Should resolve nothing when the config holds no inline entries",
 		func(ctx SpecContext) {
 			cfg := v2.ReadConfig{Entries: []v2.ReadEntry{
 				{Variant: v2.PlainReadEntry{Topic: "plant/a"}},
 				{Variant: v2.SparkplugReadEntry{Tag: "speed"}},
 			}}
 			before := cfg
-			Expect(v2.ResolveReadConfig(
-				ctx, nil, channels, create, "Plant", &cfg, func(_, _ string) {},
-			)).To(BeNil())
-			Expect(cfg).To(Equal(before))
-		},
-	)
-
-	It("Should return the error of the ICD create from its write",
-		func(ctx SpecContext) {
-			create = func(context.Context, gorp.Tx, icd.ICD) error {
-				return errors.New("create failed")
-			}
-			cfg := inlineConfig(
-				inlineEntry(0, "plant/a", "", storedField(telem.Float64T)),
-			)
-			write := MustSucceed(v2.ResolveReadConfig(
-				ctx, nil, channels, create, "Plant", &cfg, func(_, _ string) {},
+			_, ok := MustSucceed2(v2.ResolveReadConfig(
+				ctx, nil, channels, "Plant", &cfg, func(_, _ string) {},
 			))
-			Expect(write(ctx, nil)).To(MatchError("create failed"))
+			Expect(ok).To(BeFalse())
+			Expect(cfg).To(Equal(before))
 		},
 	)
 })

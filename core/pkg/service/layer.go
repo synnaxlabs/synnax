@@ -853,6 +853,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("mqtt"),
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
+		ICD:             l.ICD,
 	}); !ok(err, l.MQTT) {
 		return nil, err
 	}

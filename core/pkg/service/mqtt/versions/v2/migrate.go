@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
+	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/errors"
@@ -169,22 +170,25 @@ func MigrateReadConfig(ctx context.Context, old v1.ReadConfig) (ReadConfig, erro
 	return cfg, nil
 }
 
-// noteLift returns the note that logs each change the v1 lift makes to a field of the
-// config with key.
-func noteLift(ins alamos.Instrumentation, key uuid.UUID) func(field, change string) {
-	return func(field, change string) {
+// CreateICD creates ic through tx.
+type CreateICD func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error
+
+// NoteLift returns the note for ResolveReadConfig that logs each change to a field of
+// the config with key through ins.
+func NoteLift(ins alamos.Instrumentation, key uuid.UUID) func(path, change string) {
+	return func(path, change string) {
 		ins.L.Warn(
 			"changed an MQTT read field to v2",
 			zap.Stringer("config", key),
-			zap.String("field", field),
+			zap.String("field", path),
 			zap.String("change", change),
 		)
 	}
 }
 
 // NewReadMigration returns the migration that lifts stored v1 read configs to v2. It
-// resolves each config as ResolveReadConfig does, with the name of its task, and logs
-// each change to a field.
+// resolves each config as ResolveReadConfig does, with the name of its task, creates
+// the ICD with create, and logs each change to a field.
 func NewReadMigration(channels Channels, create CreateICD) gorp.Migration {
 	return migrate.New(
 		"v62_mqtt_read_icd",
@@ -208,7 +212,7 @@ func NewReadMigration(channels Channels, create CreateICD) gorp.Migration {
 					create,
 					names[old.Key],
 					old,
-					noteLift(ins, old.Key),
+					NoteLift(ins, old.Key),
 				); err != nil {
 					return errors.Wrapf(err, "config %s", old.Key)
 				}
@@ -231,11 +235,11 @@ func migrateStored(
 	if err != nil {
 		return ReadConfig{}, err
 	}
-	write, err := ResolveReadConfig(ctx, tx, channels, create, name, &cfg, note)
-	if err != nil || write == nil {
+	ic, ok, err := ResolveReadConfig(ctx, tx, channels, name, &cfg, note)
+	if err != nil || !ok {
 		return cfg, err
 	}
-	return cfg, write(ctx, tx)
+	return cfg, create(ctx, tx, ic)
 }
 
 // taskNames returns the name of the task of each config of cfgs, read through tx.

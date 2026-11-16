@@ -43,32 +43,28 @@ type Channels func(
 	keys []channel.Key,
 ) (map[channel.Key]Channel, error)
 
-// CreateICD creates ic through tx.
-type CreateICD func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error
-
 // ResolveReadConfig moves the fields of the inline entries of cfg into a new ICD named
 // name, with one JSON message for each entry, named after its topic, and adds each
-// entry back to the entries of cfg, read from its message. It returns the write that
-// creates the ICD with create, or nil when cfg holds no inline entries. A field takes
-// the kind of its channel, read through snap with channels, and binds no channel when
-// that channel does not exist. A disabled field gets no binding. note receives the
-// path and each change of a field.
+// entry back to the entries of cfg, read from its message. It returns the ICD, which
+// the caller must create, and false when cfg holds no inline entries. A field takes the
+// kind of its channel, read through snap with channels, and binds no channel when that
+// channel does not exist. A disabled field gets no binding. note receives the path and
+// each change of a field.
 func ResolveReadConfig(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	channels Channels,
-	create CreateICD,
 	name string,
 	cfg *ReadConfig,
 	note func(path, change string),
-) (func(context.Context, gorp.Tx) error, error) {
+) (icd.ICD, bool, error) {
 	if cfg.Inline == nil {
-		return nil, nil
+		return icd.ICD{}, false, nil
 	}
 	staged := cfg.Inline.Entries
 	found, err := inlineChannels(ctx, snap, channels, staged)
 	if err != nil {
-		return nil, err
+		return icd.ICD{}, false, err
 	}
 	ic := icd.ICD{
 		Key:      uuid.New(),
@@ -94,9 +90,7 @@ func ResolveReadConfig(
 		)
 	}
 	cfg.Inline = nil
-	return func(ctx context.Context, tx gorp.Tx) error {
-		return create(ctx, tx, ic)
-	}, nil
+	return ic, true, nil
 }
 
 // liftEntry returns the message that holds the fields of e, with no name, and the read
