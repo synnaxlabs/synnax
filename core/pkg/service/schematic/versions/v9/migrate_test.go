@@ -1112,7 +1112,8 @@ var _ = Describe("ScaleMigration", func() {
 		Expect(scaleOf("negative")).To(Equal(1.0))
 		Expect(scaleOf("kept")).To(Equal(3.0))
 	})
-	DescribeTable("Should give the schema default to a non-finite number",
+	DescribeTable(
+		"Should reset a non-finite scale to 1 and keep a config with no scale",
 		func(ctx SpecContext, f float64) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			var scaled v9.SwitchElementConfig
@@ -1144,12 +1145,8 @@ var _ = Describe("ScaleMigration", func() {
 				Entry(&got).Exec(ctx, db)).To(Succeed())
 			Expect(got.Configs["scale"].Variant.(v9.SwitchElementConfig).Scale).
 				To(Equal(1.0))
-			polygon := MustSucceed(v9.DecodeElementConfig(
-				MustSucceed(v9.ElementConfigFields(got.Configs["polygon"])),
-			)).Variant.(v9.PolygonElementConfig)
-			Expect(polygon.NumSides).To(Equal(6.0))
-			Expect(polygon.SideLength).To(Equal(30.0))
-			Expect(polygon.Rotation).To(BeZero())
+			Expect(DeepEqual(got.Configs["polygon"], stored.Configs["polygon"])).
+				To(BeTrue())
 		},
 		Entry("NaN", math.NaN()),
 		Entry("positive infinity", math.Inf(1)),
