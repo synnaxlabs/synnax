@@ -97,7 +97,7 @@ def seats(client: Client, aws: Instances, store: Secrets | None = None) -> Seats
         channels=Channels(client=core(client), enabled=False),
         channel="log",
     )
-    store = store or secrets("claude-1", "claude-2", "codex-1")
+    store = store or secrets("claude-1", "claude-2")
     logins = Logins(secrets=cast(Any, store), role=ROLE)
     return Seats(aws=cast(AWS, aws), logins=logins, log=log)
 
@@ -281,6 +281,42 @@ class TestSeats:
         found = {CLAUDE: seat("stopped"), CLAUDE_2: seat("running", name="claude-2")}
         seats(client, aws, store).step(queued=[{"seat-claude-1"}], found=found)
         assert aws.tags[CLAUDE] == {"login": "claude-2"}
+
+    def test_should_start_a_codex_seat_on_its_own_login(self, client: Client) -> None:
+        aws = Instances()
+        seats(client, aws).step(
+            queued=[{"self-hosted", "agent-codex"}],
+            found={CODEX: seat("stopped", name="codex-1")},
+        )
+        assert aws.started == [CODEX]
+        assert aws.tags == {}
+        assert client.written("log") == [["seat codex-1: start requested"]]
+
+    def test_should_keep_a_limited_codex_seat_stopped_until_the_reset(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        s = seats(client, aws)
+        until = sy.TimeStamp.now() + sy.TimeSpan.HOUR
+        found = {CODEX: seat("stopped", name="codex-1", until=until)}
+        s.step(queued=[{"agent-codex"}], found=found)
+        assert aws.started == []
+        assert aws.deleted == []
+        client.elapsed += sy.TimeSpan.HOUR + sy.TimeSpan.SECOND
+        s.step(queued=[{"agent-codex"}], found=found)
+        assert aws.started == [CODEX]
+
+    def test_should_start_another_codex_seat_while_one_is_limited(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        until = sy.TimeStamp.now() + sy.TimeSpan.HOUR
+        found = {
+            CODEX: seat("running", name="codex-1", until=until),
+            "i-0eee": seat("stopped", name="codex-2"),
+        }
+        seats(client, aws).step(queued=[{"agent-codex"}], found=found)
+        assert aws.started == ["i-0eee"]
 
     def test_should_pick_only_a_login_of_the_seats_agent(self, client: Client) -> None:
         aws = Instances()

@@ -31,6 +31,9 @@ GENERIC = {"self-hosted", "linux", "x64"}
 UP = ("pending", "running", "stopping")
 # The longest usage limit of a Claude subscription is a week.
 MAX_RESET = 8 * 24 * 3600
+# Agents whose seats run on a shared login. A seat of any other agent holds its own
+# login, and its `limited-until` tag keeps it stopped until the limit resets.
+SHARED = {"claude"}
 
 
 def seat_labels(tags: dict[str, str]) -> set[str]:
@@ -56,9 +59,18 @@ def pick(logins: dict[str, Login], *, agent: str, now: int) -> Login | None:
     return min(usable, key=lambda login: (len(login.holders), login.name), default=None)
 
 
+def seat_limited(tags: dict[str, str], *, now: int) -> bool:
+    """Whether a seat that holds its own login is at a usage limit that has not reset
+    by now. Agents can write the tag, so a value that is not a whole number counts as
+    no limit."""
+    until = tags.get("limited-until", "")
+    return until.isdecimal() and int(until) > now
+
+
 class Seats:
     """A queued job starts one stopped seat that carries its labels, on a usable
-    login, unless a seat that carries them is already up on a login with usage left.
+    shared login for a Claude seat, unless a seat that carries them is already up with
+    usage left. A seat that holds its own login starts once its limit resets.
     A seat that is stopping starts once it has stopped. While disabled, each decision
     is logged once, marked [DISABLED], and nothing is written."""
 
@@ -85,6 +97,10 @@ class Seats:
             iid: labels
             for iid, info in sorted(found.items())
             if (labels := seat_labels(info["tags"]))
+            and (
+                info["tags"]["agent"] in SHARED
+                or not seat_limited(info["tags"], now=seconds)
+            )
         }
         if enabled:
             self.settle(seats, logins=logins, found=found, now=seconds)
@@ -114,13 +130,15 @@ class Seats:
             if last is not None and now.span(last) < RECOMMAND_DELAY:
                 continue
             name = self.name(iid, found=found)
-            login = pick(logins, agent=found[iid]["tags"]["agent"], now=seconds)
-            if login is None:
-                if iid not in self.unserved:
-                    self.log(f"{name}: no usable login")
-                self.unserved.add(iid)
-                continue
-            self.unserved.discard(iid)
+            login = None
+            if found[iid]["tags"]["agent"] in SHARED:
+                login = pick(logins, agent=found[iid]["tags"]["agent"], now=seconds)
+                if login is None:
+                    if iid not in self.unserved:
+                        self.log(f"{name}: no usable login")
+                    self.unserved.add(iid)
+                    continue
+                self.unserved.discard(iid)
             # Stamped before the calls, so a failure waits out the delay.
             self.started[iid] = now
             try:
@@ -128,7 +146,8 @@ class Seats:
             except Exception as e:
                 self.log.error(f"{name} start", e)
                 continue
-            self.log(f"{name}: start requested on login {login.name}")
+            on = f" on login {login.name}" if login else ""
+            self.log(f"{name}: start requested{on}")
 
     def settle(
         self,
@@ -143,7 +162,7 @@ class Seats:
         for iid in seats:
             info = found[iid]
             until = info["tags"].get("limited-until")
-            if until is None:
+            if until is None or info["tags"]["agent"] not in SHARED:
                 continue
             login = logins.get(info["tags"].get("login", ""))
             # Agents can write the seat's tag, so a value that is not a whole number
@@ -178,11 +197,14 @@ class Seats:
             except Exception as e:
                 self.log.error(f"login {login.name} release", e)
 
-    def start(self, iid: str, *, login: Login, info: dict) -> None:
-        """Hands the login to the stopped seat iid, then starts it."""
+    def start(self, iid: str, *, login: Login | None, info: dict) -> None:
+        """Hands the login, if any, to the stopped seat iid, then starts it."""
         ec2 = self.aws.ec2[info["region"]]
-        ec2.create_tags(Resources=[iid], Tags=[{"Key": "login", "Value": login.name}])
-        self.logins.hold(login, holders=[*login.holders, self.logins.holder(iid)])
+        if login is not None:
+            ec2.create_tags(
+                Resources=[iid], Tags=[{"Key": "login", "Value": login.name}]
+            )
+            self.logins.hold(login, holders=[*login.holders, self.logins.holder(iid)])
         ec2.start_instances(InstanceIds=[iid])
 
     def limited(self, info: dict, *, logins: dict[str, Login], now: int) -> bool:
