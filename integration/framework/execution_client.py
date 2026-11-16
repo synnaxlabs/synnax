@@ -531,9 +531,7 @@ class ExecutionClient:
         return test
 
     def _create_bundle_dir(self, test: Test) -> Path:
-        bundle = self._run_dir / "tests" / test.test_name
-        if test.name and test.name != test.test_name.split("/")[-1]:
-            bundle /= test.name
+        bundle = self._run_dir / "tests" / str(test)
         bundle.mkdir(parents=True, exist_ok=True)
         test.bundle_dir = str(bundle)
         return bundle

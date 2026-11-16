@@ -358,11 +358,14 @@ class TestExecutionClient:
             execution.run(loaded)
 
     def test_bundle_dirs(self, cases_dir: Path) -> None:
-        """Should give each test its own bundle when two cases share a file name."""
+        """Should give each test its own bundle when two cases share a file name or
+        a name matches a deeper case path."""
         (cases_dir / "lanes_spec" / "sub").mkdir()
         source = HOLD_CASE.replace("{HELD}", "set()")
         (cases_dir / "lanes_spec" / "sub" / "plain.py").write_text(source)
-        parameters = {"hold": 0.0, "record": "record.jsonl"}
+        (cases_dir / "lanes_spec" / "plain").mkdir()
+        (cases_dir / "lanes_spec" / "plain" / "sub.py").write_text(source)
+        parameters = {"hold": 0.0, "record": "record.jsonl", "fails_once": ""}
         execution, loaded, results = client(
             cases_dir,
             {
@@ -370,11 +373,24 @@ class TestExecutionClient:
                 "tests": [
                     {"case": "lanes_spec/plain", "parameters": parameters},
                     {"case": "lanes_spec/sub/plain", "parameters": parameters},
+                    {
+                        "case": "lanes_spec/plain",
+                        "name": "sub",
+                        "parameters": parameters,
+                    },
+                    {"case": "lanes_spec/plain/sub", "parameters": parameters},
                 ],
             },
         )
         execution.run(loaded)
-        assert len({t.bundle_dir for t in results}) == 2
+        tests = cases_dir.parent / "run" / "tests"
+        assert {Path(t.bundle_dir).relative_to(tests).as_posix() for t in results} == {
+            "lanes_spec/plain",
+            "lanes_spec/sub/plain",
+            "lanes_spec/plain (sub)",
+            "lanes_spec/plain/sub",
+        }
+        assert all(t.status == STATUS.PASSED for t in results)
 
     def test_retry_with_peers(self, cases_dir: Path) -> None:
         """Should run the whole asynchronous sequence again for a failed test, and
