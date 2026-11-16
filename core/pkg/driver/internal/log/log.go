@@ -138,7 +138,7 @@ func PipeToLogger(
 		line := unsafe.String(unsafe.SliceData(b), len(b))
 		if crashLines == nil && isCrashBanner(line) {
 			crashLines = make([]string, 0, 32)
-			lastErr = strings.TrimSpace(line)
+			lastErr = strings.Clone(strings.TrimSpace(line))
 		}
 		if crashLines != nil {
 			// strings.Clone is required: the scanner reuses its buffer across
