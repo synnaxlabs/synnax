@@ -29,7 +29,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Channel, ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { DataType, deep, type payload, primitive, unique, uuid } from "@synnaxlabs/x";
-import { type FC, useEffect, useState } from "react";
+import { type FC, useEffect, useRef, useState } from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
@@ -67,6 +67,8 @@ import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<ReadSchemas>>();
+
+const DEFAULT_NAME = "MQTT read task";
 
 const plainPath = (key: string) =>
   deep.variant(root.config.entries[key], "type", "plain");
@@ -182,6 +184,7 @@ const DISCOVER_KIND: Kind<Addition> = {
   title: "Add data",
   hint: "Select the values to read. Each one becomes a field of the message format.",
   noun: "field",
+  tagNoun: "tag",
   create: ({ topics, tags }) => [
     ...[...topics].map(([topic, { leaves, pointers }]) =>
       createDraft(
@@ -197,18 +200,36 @@ const DISCOVER_KIND: Kind<Addition> = {
 
 const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
 
-/** @returns the bindings of fields, each to the channel the device stores for it. */
+/** @returns the channels that the bindings and tags of entries write. */
+const writtenChannels = (entries: ReadEntry[]): Set<channel.Key> => {
+  const written = new Set(
+    entries.flatMap((e) =>
+      isPlain(e)
+        ? e.messages.flatMap(({ bindings }) => bindings.map((b) => b.channel))
+        : [e.channel],
+    ),
+  );
+  written.delete(0);
+  return written;
+};
+
+/**
+ * @returns the bindings of fields, each to the channel the device stores for it. A
+ * field whose stored channel is in written gets no channel, as the Core refuses a
+ * channel that two bindings write. Adds the channels it binds to written.
+ */
 const bindingsOf = (
   stored: Stored,
   topic: string,
   fields: icd.JSONField[],
+  written: Set<channel.Key>,
 ): ReadBinding[] =>
-  fields.map(({ key, pointer }) =>
-    mqtt.readBindingZ.parse({
-      field: key,
-      channel: stored[topic]?.channels[pointer] ?? 0,
-    }),
-  );
+  fields.map(({ key, pointer }) => {
+    const ch = stored[topic]?.channels[pointer] ?? 0;
+    if (written.has(ch)) return mqtt.readBindingZ.parse({ field: key });
+    if (ch !== 0) written.add(ch);
+    return mqtt.readBindingZ.parse({ field: key, channel: ch });
+  });
 
 /** Inserts entries into the lists of one ICD. */
 type Inserter = Pick<FormatForm, "insert">;
@@ -261,6 +282,9 @@ interface AddTopicsResult {
 
 /** @returns the bindings of the fields of a draft that the task reads. */
 type Bind = (draft: Draft, fields: icd.JSONField[]) => ReadBinding[];
+
+/** @returns the name of the ICD of a task named name. */
+const icdName = (name: string): string => (name.trim() === "" ? DEFAULT_NAME : name);
 
 /** Creates an ICD with a message for each draft, and the entries that read them. */
 const createICD = async (
@@ -496,7 +520,7 @@ interface BindingProps {
 
 /** Reads a field into a channel, or not, and names the channel. */
 const Binding: FC<BindingProps> = ({ path, field, prefix, stored }) => {
-  const { set } = PForm.useContext();
+  const { get, set } = PForm.useContext();
   const isPreview = Task.useIsPreview();
   const read = path.messages[0];
   const topic = PForm.useFieldValue(path.topic);
@@ -511,7 +535,15 @@ const Binding: FC<BindingProps> = ({ path, field, prefix, stored }) => {
     set(
       read.bindings,
       on
-        ? [...bindings, ...bindingsOf(stored, topic, [field])]
+        ? [
+            ...bindings,
+            ...bindingsOf(
+              stored,
+              topic,
+              [field],
+              writtenChannels(get(root.config.entries).value),
+            ),
+          ]
         : bindings.filter(({ field: key }) => key !== field.key),
     );
   let tooltip = READ_TOOLTIP;
@@ -738,48 +770,59 @@ const Entries: FC<EntriesProps> = ({ device, format, selected, onSelect }) => {
   const entries = PForm.useFieldValue(root.config.entries);
   const current = selected.at(0);
 
+  // Adds run one at a time, so a second click cannot make a second ICD.
+  const adding = useRef(false);
+  const add = async () => {
+    if (client == null) throw new DisconnectedError();
+    const plain = entries.filter(isPlain);
+    const messages = await readMessages(client, format, plain);
+    const held = entries.map((e): Addition =>
+      isPlain(e)
+        ? { ...createDraft(e.topic), fields: jsonFields(messageOf(messages, e)) }
+        : e,
+    );
+    const additions = await discover({ device, entries: held });
+    if (additions == null || additions.length === 0) return;
+    const drafts = additions.filter(isDraft);
+    const tags = additions.filter((a): a is SparkplugReadEntry => !isDraft(a));
+    const written = writtenChannels(entries);
+    const bind: Bind = ({ topic, bound }, fields) =>
+      bindingsOf(
+        device.properties.read,
+        topic,
+        fields.filter(({ key }) => bound.includes(key)),
+        written,
+      );
+    const { added, held: grown } =
+      drafts.length === 0
+        ? { added: [], held: [] }
+        : format == null
+          ? await createICD(client, icdName(ctx.get(root.name).value), drafts, bind)
+          : await addTopics({ client, format, entries: plain, drafts, bind });
+    push([...added, ...tags]);
+    grown.forEach(({ key, message, bindings }) => {
+      const read = plainPath(key).messages[0];
+      // The index and bindings of a deleted message name fields it no longer has.
+      if (message != null)
+        ctx.set(read, mqtt.readMessageZ.parse({ message, bindings }));
+      else ctx.set(read.bindings, [...ctx.get(read.bindings).value, ...bindings]);
+    });
+    const first = additions[0];
+    const firstKey = isDraft(first)
+      ? (
+          entries.find((e) => isPlain(e) && e.topic === first.topic) ??
+          added.find((e) => e.topic === first.topic)
+        )?.key
+      : first.key;
+    if (firstKey != null) onSelect([firstKey]);
+  };
   const handleAdd = () =>
     handleError(async () => {
-      if (client == null) throw new DisconnectedError();
-      const plain = entries.filter(isPlain);
-      const messages = await readMessages(client, format, plain);
-      const held = entries.map((e): Addition =>
-        isPlain(e)
-          ? { ...createDraft(e.topic), fields: jsonFields(messageOf(messages, e)) }
-          : e,
-      );
-      const additions = await discover({ device, entries: held });
-      if (additions == null || additions.length === 0) return;
-      const drafts = additions.filter(isDraft);
-      const tags = additions.filter((a): a is SparkplugReadEntry => !isDraft(a));
-      const bind: Bind = ({ topic, bound }, fields) =>
-        bindingsOf(
-          device.properties.read,
-          topic,
-          fields.filter(({ key }) => bound.includes(key)),
-        );
-      const { added, held: grown } =
-        drafts.length === 0
-          ? { added: [], held: [] }
-          : format == null
-            ? await createICD(client, ctx.get(root.name).value, drafts, bind)
-            : await addTopics({ client, format, entries: plain, drafts, bind });
-      push([...added, ...tags]);
-      grown.forEach(({ key, message, bindings }) => {
-        const read = plainPath(key).messages[0];
-        // The index and bindings of a deleted message name fields it no longer has.
-        if (message != null)
-          ctx.set(read, mqtt.readMessageZ.parse({ message, bindings }));
-        else ctx.set(read.bindings, [...ctx.get(read.bindings).value, ...bindings]);
+      if (adding.current) return;
+      adding.current = true;
+      await add().finally(() => {
+        adding.current = false;
       });
-      const first = additions[0];
-      const firstKey = isDraft(first)
-        ? (
-            entries.find((e) => isPlain(e) && e.topic === first.topic) ??
-            added.find((e) => e.topic === first.topic)
-          )?.key
-        : first.key;
-      if (firstKey != null) onSelect([firstKey]);
     }, "Failed to add data");
 
   const setEnabled = (keys: string[], enabled: boolean) =>
@@ -932,7 +975,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
 }) => {
   const cfg = READ_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "MQTT read task", type: READ_TYPE, config: cfg };
+  return { name: DEFAULT_NAME, type: READ_TYPE, config: cfg };
 };
 
 /**
@@ -990,13 +1033,15 @@ const configureTag = async (
 
 /**
  * Gives each field that a topic reads a channel: the one it has, the one the device
- * stores for its pointer, or a new one of the binding's data type.
+ * stores for its pointer unless written holds it, or a new one of the binding's data
+ * type. Adds the channels it binds to written.
  */
 const configureTopic = async (
   client: Synnax,
   dev: Device,
   entry: PlainReadEntry,
   fields: icd.JSONField[],
+  written: Set<channel.Key>,
 ): Promise<void> => {
   const [read] = entry.messages;
   const index = fields.find(({ key }) => key === read.index)?.key;
@@ -1004,7 +1049,11 @@ const configureTopic = async (
   const bindingOf = (f: icd.JSONField): ReadBinding =>
     read.bindings.find(({ field }) => field === f.key) ??
     mqtt.readBindingZ.parse({ field: f.key });
-  // A field with no channel takes the one the device stores for its pointer.
+  // A field with no channel takes the one the device stores for its pointer, unless
+  // another binding writes it.
+  for (const f of fields)
+    if (bindingOf(f).channel === 0 && written.has(stored[f.pointer]))
+      delete stored[f.pointer];
   const reused = fields.map((f) => bindingOf(f).channel || (stored[f.pointer] ?? 0));
   const live = new Map(
     (await client.channels.retrieve(reused)).map((ch) => [ch.key, ch]),
@@ -1041,6 +1090,7 @@ const configureTopic = async (
     namePrefix: prefix,
     indexKey: index ?? "",
   });
+  channels.forEach(({ channel }) => written.add(channel));
   entry.messages[0] = {
     message: read.message,
     index,
@@ -1064,8 +1114,9 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   }));
   const before = deep.copy(dev.properties);
   try {
+    const written = writtenChannels(config.entries);
     for (const { entry, fields } of formats)
-      await configureTopic(client, dev, entry, fields);
+      await configureTopic(client, dev, entry, fields, written);
     for (const entry of enabled)
       if (entry.type === "sparkplug") await configureTag(client, dev, entry);
   } finally {
@@ -1090,7 +1141,7 @@ export const useCreateRead = Task.createUseCreate({
 
 export const ReadSelectable: Selector.Selectable = {
   type: READ_TYPE,
-  title: "MQTT read task",
+  title: DEFAULT_NAME,
   label: "Read",
   icon: <Icon.Logo.MQTT />,
   useOnSelect: useCreateRead,

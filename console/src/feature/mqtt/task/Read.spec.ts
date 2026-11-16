@@ -204,6 +204,19 @@ const addField = async (rackKey: rack.Key, topic: string, name: string) => {
   fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
 };
 
+/** Moves a field of the entry's message to the pointer /name, in the ICD. */
+const repoint = async (
+  { icd: key, messages }: MQTT.Task.PlainReadEntry,
+  field: icd.JSONField,
+  name: string,
+) => {
+  const path = ["messages", messages[0].message, "payload", "fields"];
+  await client.icds.dispatch(key, [
+    icd.remove({ path, key: field.key }),
+    icd.insert({ path, value: { ...field, name, pointer: `/${name}` } }),
+  ]);
+};
+
 const retrieveTopicProps = async (key: string) =>
   (await client.devices.retrieve({ key, schemas: MQTT.Device.SCHEMAS })).properties
     .read[TOPIC];
@@ -270,6 +283,50 @@ describe("MQTT read form", () => {
       { field: temperature.key, channel: 0, dataType: "" },
     ]);
     expect(await retrieveEntries(draft.key)).toHaveLength(1);
+  });
+
+  it("should add a topic by name", async () => {
+    const { draft } = await renderRead();
+    const dialog = await openAddData();
+    fireEvent.click(dialog.getByRole("button", { name: "Add a topic by name" }));
+    const topic = await screen.findByPlaceholderText("plant/line1/telemetry");
+    await waitFor(async () =>
+      expect(await retrieveEntries(draft.key)).toMatchObject([
+        { type: "plain", topic: "" },
+      ]),
+    );
+    fireEvent.change(topic, { target: { value: "plant/kiln" } });
+    fireEvent.blur(topic);
+    await waitFor(async () =>
+      expect(await retrieveEntries(draft.key)).toMatchObject([
+        { type: "plain", topic: "plant/kiln" },
+      ]),
+    );
+  });
+
+  it("should open one Add data dialog for a double click", async () => {
+    await renderRead();
+    const button = await screen.findByRole("button", { name: "Add data" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    await screen.findByRole("dialog");
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  });
+
+  it("should give the ICD a default name while the task has none", async () => {
+    const { dev, draft } = await renderRead();
+    const name = await screen.findByLabelText("Name");
+    fireEvent.change(name, { target: { value: "" } });
+    fireEvent.blur(name);
+    await addField(dev.rack, TOPIC, "temperature");
+    const [entry] = await waitFor(async () => {
+      const entries = await retrieveEntries(draft.key);
+      expect(entries).toHaveLength(1);
+      return entries;
+    });
+    expect((await client.icds.retrieve(plainOf(entry).icd)).name).toBe(
+      "MQTT read task",
+    );
   });
 
   it("should show the format of a topic from the ICD of its entry", async () => {
@@ -534,6 +591,28 @@ describe("MQTT read form", () => {
       );
     });
 
+    it("should stop reading the time of a field that is no longer a timestamp", async () => {
+      const timeCh = await createTimeChannel();
+      const time = createTimeField();
+      const temperature = createField("temperature", "float");
+      const entry = await createEntry({
+        fields: [time, temperature],
+        index: time.key,
+        bound: { [time.key]: timeCh.key, [temperature.key]: 0 },
+      });
+      const { draft } = await renderRead({
+        entries: [entry],
+        beforeRender: () =>
+          retype(entry, { ...createField("time", "float"), key: time.key }, "float"),
+      });
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[0]).messages[0]).toEqual({
+          message: entry.messages[0].message,
+          bindings: [{ field: temperature.key, channel: 0, dataType: "" }],
+        }),
+      );
+    });
+
     it("should stop reading a field that leaves the message format", async () => {
       const temperature = createField("temperature", "float");
       const pressure = createField("pressure", "float");
@@ -609,7 +688,7 @@ describe("MQTT read form", () => {
       };
       let dialog = await browseTag();
       fireEvent.click(dialog.getByRole("checkbox", { name: "Record flow" }));
-      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 tag" }));
       await screen.findByText("Edge node");
       await waitFor(async () =>
         expect(await retrieveEntries(draft.key)).toMatchObject([
@@ -629,6 +708,36 @@ describe("MQTT read form", () => {
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
       await act(async () => {});
       expect(screen.getAllByRole("option", { name: /flow/ })).toHaveLength(1);
+    });
+
+    it("should count picked fields and tags apart on the add button", async () => {
+      const { dev } = await renderRead();
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddData();
+      const topic = {
+        topic: TOPIC,
+        payload: '{"temperature": 1}',
+        fields: [{ pointer: "/temperature", type: "number", sample: "1" }],
+        retained: true,
+      };
+      await scanner.answer({ data: { topics: [topic], truncated: false } });
+      fireEvent.click(
+        await dialog.findByRole("checkbox", { name: "Record temperature" }),
+      );
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+      expect(dialog.getByRole("button", { name: "Add 1 field" })).toBeTruthy();
+      await scanner.answer({
+        data: { nodes: [{ group: "plant", edgeNode: "line1", devices: [] }], tags: [] },
+      });
+      const tag = { device: "", name: "flow", dataType: "float", value: "1" };
+      await scanner.answer({
+        data: { nodes: [], tags: [{ ...tag, supported: true }] },
+      });
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Record flow" }));
+      expect(
+        dialog.getByRole("button", { name: "Add 1 field and 1 tag" }),
+      ).toBeTruthy();
+      scanner.close();
     });
 
     it("should lock the data type of a tag to that of its channel", async () => {
@@ -656,6 +765,27 @@ describe("MQTT read form", () => {
       fireEvent.blur(name);
       await clickFailedDeploy(container);
       expect(await retrieveTopicProps(dev.key)).toBeUndefined();
+    });
+
+    it.each([
+      ["", "Topic is required"],
+      ["plant/+", "Topic must not hold the wildcards + or #"],
+    ])("should save the topic %j and refuse it on deploy", async (value, error) => {
+      const { container, draft } = await renderRead({
+        fields: [createField("temperature", "float")],
+      });
+      const topic = await screen.findByDisplayValue(TOPIC);
+      fireEvent.change(topic, { target: { value } });
+      fireEvent.blur(topic);
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[0]).topic).toBe(value),
+      );
+      await clickDeploy(container);
+      const help = await screen.findByText(error);
+      expect(help.closest(".lyra-input-help-text")).not.toBeNull();
+      expect(help.closest(".lyra-input__item")).toBe(
+        topic.closest(".lyra-input__item"),
+      );
     });
 
     it("should put the deploy errors of a tag on its fields", async () => {
@@ -730,6 +860,45 @@ describe("MQTT read form", () => {
           expect.objectContaining({
             message: "Failed to start task",
             description: expect.stringContaining(`In ${TOPIC}, mode: a string`),
+          }),
+        ),
+      );
+      expect(await retrieveTopicProps(dev.key)).toBeUndefined();
+    });
+
+    it("should refuse a read of a string field on the time of the payload", async () => {
+      const time = createTimeField();
+      const { container, dev, statuses } = await renderRead({
+        fields: [time, createField("mode", "string")],
+        index: time.key,
+      });
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to start task",
+            description: expect.stringContaining(`In ${TOPIC}, mode: a string`),
+          }),
+        ),
+      );
+      expect(await retrieveTopicProps(dev.key)).toBeUndefined();
+    });
+
+    it("should refuse a topic whose message is gone", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const { container, dev, statuses } = await renderRead({
+        entries: [entry],
+        beforeRender: () => removeMessage(entry),
+      });
+      await screen.findByText("Message not found");
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to start task",
+            description: `The message format of ${TOPIC} is missing or not JSON`,
           }),
         ),
       );
@@ -829,6 +998,45 @@ describe("MQTT read form", () => {
         { field: timeField.key, channel: time.key, dataType: "" },
         { field: temperature.key, channel: temperatureCh.key, dataType: "" },
         { field: count.key, channel: replaced.key, dataType: "" },
+      ]);
+    });
+
+    it("should not reuse a stored channel that another field reads", async () => {
+      const time = await createTimeChannel();
+      const ch = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        index: time.key,
+      });
+      const temperature = createField("temperature", "float");
+      const entry = await createEntry({
+        fields: [temperature],
+        bound: { [temperature.key]: ch.key },
+      });
+      const { container, dev, draft, statuses } = await renderRead({
+        entries: [entry],
+        beforeRender: () => repoint(entry, temperature, "oven"),
+        properties: {
+          read: { [TOPIC]: { index: time.key, channels: { "/temperature": ch.key } } },
+        },
+      });
+      await screen.findByDisplayValue(ch.name);
+      await addField(dev.rack, TOPIC, "temperature");
+      const added = await waitFor(async () => {
+        const bindings = await retrieveBindings(draft.key);
+        expect(bindings).toEqual([
+          { field: temperature.key, channel: ch.key, dataType: "" },
+          { field: expect.any(String), channel: 0, dataType: "" },
+        ]);
+        return bindings[1].field;
+      });
+      expect(statuses).toEqual([]);
+      const created = await deploy(container, draft.key);
+      const { channels } = await retrieveTopicProps(dev.key);
+      expect(channels["/temperature"]).not.toBe(ch.key);
+      expect(plainOf(created.config.entries[0]).messages[0].bindings).toEqual([
+        { field: temperature.key, channel: ch.key, dataType: "" },
+        { field: added, channel: channels["/temperature"], dataType: "" },
       ]);
     });
 
