@@ -823,7 +823,6 @@ func analyzeInputRoutingTable(
 			break
 		}
 	}
-
 	if nextFunc == nil {
 		ctx.Diagnostics.Add(
 			diagnostics.Errorf(
@@ -833,55 +832,57 @@ func analyzeInputRoutingTable(
 		)
 		return
 	}
-
 	fnType, fnName := resolveFunc(ctx, nextFunc)
 	if fnType == nil {
 		return
 	}
-
 	for _, entry := range ctx.AST.AllRoutingEntry() {
-		flowNodes := entry.AllFlowNode()
-		if len(flowNodes) == 0 {
-			ctx.Diagnostics.Add(
-				diagnostics.Errorf(
-					entry,
-					"routing entry must have at least one target",
-				),
-			)
-			continue
-		}
+		analyzeInputRoutingEntry(ctx, entry, fnType, fnName)
+	}
+}
 
-		lastNode := flowNodes[len(flowNodes)-1]
-		if lastNode.Identifier() == nil {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				lastNode,
-				"last element in input routing entry must be a parameter name (identifier)",
-			))
-			continue
-		}
-
-		paramName := parser.IdentifierName(lastNode.Identifier())
-
-		paramType, exists := fnType.Type.Inputs.Get(paramName)
-		if !exists {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				lastNode,
-				"func '%s' does not have parameter '%s'",
-				fnName,
-				paramName,
-			))
-			continue
-		}
-
-		// Analyze the flow chain: source (entry.IDENTIFIER) -> processing nodes ->
-		// parameter For type checking, we need to verify the output type of the chain
-		// matches paramType TODO: Implement full type checking for the flow chain See
-		// https://linear.app/synnax/issue/SY-3176/implement-full-type-checking-for-arc-flow-statements
-		_ = paramType
-
-		for i := range len(flowNodes) - 1 {
-			analyzeNode(ctx.Child(flowNodes[i]), nil, false)
-		}
+func analyzeInputRoutingEntry(
+	ctx context.Context[parser.IRoutingTableContext],
+	entry parser.IRoutingEntryContext,
+	fnType *symbol.Symbol,
+	fnName string,
+) {
+	flowNodes := entry.AllFlowNode()
+	if len(flowNodes) == 0 {
+		ctx.Diagnostics.Add(
+			diagnostics.Errorf(
+				entry,
+				"routing entry must have at least one target",
+			),
+		)
+		return
+	}
+	lastNode := flowNodes[len(flowNodes)-1]
+	if lastNode.Identifier() == nil {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			lastNode,
+			"last element in input routing entry must be a parameter name (identifier)",
+		))
+		return
+	}
+	paramName := parser.IdentifierName(lastNode.Identifier())
+	paramType, exists := fnType.Type.Inputs.Get(paramName)
+	if !exists {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			lastNode,
+			"func '%s' does not have parameter '%s'",
+			fnName,
+			paramName,
+		))
+		return
+	}
+	// Analyze the flow chain: source (entry.IDENTIFIER) -> processing nodes ->
+	// parameter For type checking, we need to verify the output type of the chain
+	// matches paramType TODO: Implement full type checking for the flow chain See
+	// https://linear.app/synnax/issue/SY-3176/implement-full-type-checking-for-arc-flow-statements
+	_ = paramType
+	for i := range len(flowNodes) - 1 {
+		analyzeNode(ctx.Child(flowNodes[i]), nil, false)
 	}
 }
 
@@ -894,73 +895,93 @@ func analyzeRoutingTargetWithParam(
 	targetParam *string,
 ) {
 	if fn := ctx.AST.Function(); fn != nil {
-		fnType, fnName := resolveFunc(ctx, fn)
-		if fnType == nil {
-			return
-		}
-		if fnType.Exec == symbol.ExecWASM {
-			analyzeWASMCall(ctx.Child(fn), fnType, fnName)
-			return
-		}
-
-		args := inputArguments(ctx, fn)
-		AnalyzeComputedArgs(ctx, args)
-		var externallySatisfied []string
-		if fnType.Trigger.Target != "" {
-			externallySatisfied = append(externallySatisfied, fnType.Trigger.Target)
-		}
-		expression.AnalyzeCall(
-			ctx,
-			fnName,
-			fnType.Type,
-			args,
-			fnType.AnalyzeArguments,
-			fn,
-			fnType.Trigger.Target,
-			externallySatisfied...,
-		)
-
-		if targetParam != nil {
-			var outputType types.Type
-			if outType, ok := fnType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
-				outputType = outType.Type
-			} else if len(fnType.Type.Outputs) > 0 {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
-					ctx.AST,
-					"func '%s' has named outputs and requires explicit output selection",
-					fnName,
-				))
-				return
-			}
-
-			if param, exists := nextFuncType.Inputs.Get(*targetParam); exists {
-				if err := atypes.Check(ctx.Constraints, outputType, param.Type, ctx.AST,
-					"routing table parameter mapping"); err != nil {
-					ctx.Diagnostics.Add(diagnostics.Errorf(
-						ctx.AST,
-						"type mismatch: func %s output type %s does not match target parameter %s type %s",
-						fnName,
-						outputType,
-						*targetParam,
-						param,
-					))
-					return
-				}
-			}
-		} else {
-			consultTrigger(
-				ctx,
-				fnType,
-				fnType.Type,
-				fnName,
-				sourceType,
-				suppliedNames(args, fnType.Type, fnType.Trigger.Target),
-			)
-		}
+		analyzeRoutingTargetFunc(ctx, fn, sourceType, nextFuncType, targetParam)
 	} else if idNode := ctx.AST.Identifier(); idNode != nil {
 		analyzeIdentifier(ctx.Child(idNode), prevNode, isLastNode)
 	} else if expr := ctx.AST.Expression(); expr != nil {
 		AnalyzeSingleExpression(ctx.Child(expr))
+	}
+}
+
+func analyzeRoutingTargetFunc(
+	ctx context.Context[parser.IFlowNodeContext],
+	fn parser.IFunctionContext,
+	sourceType types.Type,
+	nextFuncType types.Type,
+	targetParam *string,
+) {
+	fnType, fnName := resolveFunc(ctx, fn)
+	if fnType == nil {
+		return
+	}
+	if fnType.Exec == symbol.ExecWASM {
+		analyzeWASMCall(ctx.Child(fn), fnType, fnName)
+		return
+	}
+	args := inputArguments(ctx, fn)
+	AnalyzeComputedArgs(ctx, args)
+	var externallySatisfied []string
+	if fnType.Trigger.Target != "" {
+		externallySatisfied = append(externallySatisfied, fnType.Trigger.Target)
+	}
+	expression.AnalyzeCall(
+		ctx,
+		fnName,
+		fnType.Type,
+		args,
+		fnType.AnalyzeArguments,
+		fn,
+		fnType.Trigger.Target,
+		externallySatisfied...,
+	)
+	if targetParam != nil {
+		checkFuncParamMapping(ctx, fnType, fnName, nextFuncType, *targetParam)
+		return
+	}
+	consultTrigger(
+		ctx,
+		fnType,
+		fnType.Type,
+		fnName,
+		sourceType,
+		suppliedNames(args, fnType.Type, fnType.Trigger.Target),
+	)
+}
+
+// checkFuncParamMapping type-checks fnType's default output against the parameter
+// it maps to on the func after the table.
+func checkFuncParamMapping(
+	ctx context.Context[parser.IFlowNodeContext],
+	fnType *symbol.Symbol,
+	fnName string,
+	nextFuncType types.Type,
+	targetParam string,
+) {
+	var outputType types.Type
+	if outType, ok := fnType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
+		outputType = outType.Type
+	} else if len(fnType.Type.Outputs) > 0 {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"func '%s' has named outputs and requires explicit output selection",
+			fnName,
+		))
+		return
+	}
+	param, exists := nextFuncType.Inputs.Get(targetParam)
+	if !exists {
+		return
+	}
+	if err := atypes.Check(ctx.Constraints, outputType, param.Type, ctx.AST,
+		"routing table parameter mapping"); err != nil {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"type mismatch: func %s output type %s does not match target parameter %s type %s",
+			fnName,
+			outputType,
+			targetParam,
+			param,
+		))
 	}
 }
 
