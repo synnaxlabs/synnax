@@ -12,17 +12,21 @@ import {
   trace,
   type Tracer as OtelTracer,
 } from "@opentelemetry/api";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { instrumentation } from "@/dev";
 import { type Instrumentation, Tracer } from "@/index";
 
-// Records the name of each span that ends.
-const createTracer = (ended: string[]): OtelTracer => {
+// Records the name of each span that ends and each duration a span sets.
+const createTracer = (ended: string[], durations: number[] = []): OtelTracer => {
   const base = trace.getTracer("test");
   const startSpan = (name: string): OtelSpan => {
     const span = base.startSpan(name);
     span.end = () => ended.push(name);
+    span.setAttribute = (key, value) => {
+      if (key === "duration") durations.push(value as number);
+      return span;
+    };
     return span;
   };
   return {
@@ -89,6 +93,37 @@ describe("Trace", () => {
       });
       await expect(done).rejects.toThrow("failed");
       expect(ended).toEqual(["async"]);
+    });
+  });
+  describe("duration", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+    it("should time overlapping spans with the same key separately", () => {
+      const now = vi.spyOn(performance, "now");
+      const durations: number[] = [];
+      const tracer = new Tracer(createTracer([], durations));
+      now.mockReturnValue(0);
+      const endFirst = tracer.prod("span");
+      now.mockReturnValue(10);
+      const endSecond = tracer.prod("span");
+      now.mockReturnValue(15);
+      endFirst();
+      now.mockReturnValue(40);
+      endSecond();
+      expect(durations).toEqual([15, 30]);
+    });
+    it("should time nested calls of a function with the same key separately", () => {
+      const now = vi.spyOn(performance, "now");
+      const durations: number[] = [];
+      const tracer = new Tracer(createTracer([], durations));
+      now.mockReturnValue(0);
+      tracer.prod("span", () => {
+        now.mockReturnValue(5);
+        tracer.prod("span", () => now.mockReturnValue(7));
+        now.mockReturnValue(20);
+      });
+      expect(durations).toEqual([2, 20]);
     });
   });
 });
