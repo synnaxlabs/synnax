@@ -66,9 +66,9 @@ class SSM:
 
 @pytest.fixture
 def ssm(monkeypatch: pytest.MonkeyPatch) -> SSM:
-    monkeypatch.delenv("GH_TOKEN", raising=False)
+    monkeypatch.delenv("GH_APP_KEY", raising=False)
     monkeypatch.delenv("SYNNAX_PASSWORD", raising=False)
-    return SSM({"/runners/gh-token": "stored"})
+    return SSM({"/runners/gh-app-key": "stored"})
 
 
 class TestSecret:
@@ -77,13 +77,13 @@ class TestSecret:
     def test_should_prefer_the_environment(
         self, ssm: SSM, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("GH_TOKEN", "from-env")
-        assert secret("GH_TOKEN", store=ssm) == "from-env"
+        monkeypatch.setenv("GH_APP_KEY", "from-env")
+        assert secret("GH_APP_KEY", store=ssm) == "from-env"
         assert ssm.requests == []
 
     def test_should_read_the_decrypted_parameter(self, ssm: SSM) -> None:
-        assert secret("GH_TOKEN", store=ssm) == "stored"
-        assert ssm.requests == [("/runners/gh-token", True)]
+        assert secret("GH_APP_KEY", store=ssm) == "stored"
+        assert ssm.requests == [("/runners/gh-app-key", True)]
 
     def test_should_raise_when_the_parameter_is_missing(self, ssm: SSM) -> None:
         with pytest.raises(ClientError):

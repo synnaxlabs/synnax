@@ -20,10 +20,13 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// fakeToken is a minimal antlr.Token with a fixed line, column, and text.
+// fakeToken is a minimal antlr.Token with a fixed line, column, and text. source is the
+// code the token is in, and start and stop are its first and last index there.
 type fakeToken struct {
 	line, column int
 	text         string
+	source       string
+	start, stop  int
 }
 
 var _ antlr.Token = (*fakeToken)(nil)
@@ -31,8 +34,8 @@ var _ antlr.Token = (*fakeToken)(nil)
 func (t *fakeToken) GetSource() *antlr.TokenSourceCharStreamPair { return nil }
 func (t *fakeToken) GetTokenType() int                           { return 0 }
 func (t *fakeToken) GetChannel() int                             { return 0 }
-func (t *fakeToken) GetStart() int                               { return 0 }
-func (t *fakeToken) GetStop() int                                { return 0 }
+func (t *fakeToken) GetStart() int                               { return t.start }
+func (t *fakeToken) GetStop() int                                { return t.stop }
 func (t *fakeToken) GetLine() int                                { return t.line }
 func (t *fakeToken) GetColumn() int                              { return t.column }
 func (t *fakeToken) GetText() string                             { return t.text }
@@ -40,8 +43,10 @@ func (t *fakeToken) SetText(text string)                         { t.text = text
 func (t *fakeToken) GetTokenIndex() int                          { return 0 }
 func (t *fakeToken) SetTokenIndex(int)                           {}
 func (t *fakeToken) GetTokenSource() antlr.TokenSource           { return nil }
-func (t *fakeToken) GetInputStream() antlr.CharStream            { return nil }
-func (t *fakeToken) String() string                              { return t.text }
+func (t *fakeToken) GetInputStream() antlr.CharStream {
+	return antlr.NewInputStream(t.source)
+}
+func (t *fakeToken) String() string { return t.text }
 
 // ruleCtxAt builds a parser rule context spanning the given tokens; stop may be nil.
 func ruleCtxAt(start, stop antlr.Token) antlr.ParserRuleContext {
@@ -76,6 +81,12 @@ var _ = Describe("Diagnostics", func() {
 		var d diagnostics.Diagnostics
 		d.Add(diagnostics.Error(context.Canceled, nil))
 		Expect(d).To(MatchError(context.Canceled))
+	})
+
+	It("Should drop a diagnostic whose cause was already reported", func() {
+		var d diagnostics.Diagnostics
+		d.Add(diagnostics.Error(errors.Wrap(diagnostics.ErrReported, "follow-up"), nil))
+		Expect(d.Empty()).To(BeTrue())
 	})
 
 	Describe("Deduplication", func() {
@@ -772,6 +783,140 @@ var _ = Describe("Diagnostics", func() {
 			})
 			str := d.String()
 			Expect(str).To(ContainSubstring("4:10 note: related to this"))
+		})
+
+		Describe("Kind", func() {
+			kind := diagnostics.Kind{
+				Code:     "TEST004",
+				Severity: protocol.DiagnosticSeverityWarning,
+				Message:  "'%s' is deprecated, use '%s' instead",
+			}
+
+			It("Should make a diagnostic of the kind at the context", func() {
+				d := kind.At(
+					ruleCtxAt(
+						&fakeToken{line: 3, column: 4, text: "now"},
+						&fakeToken{line: 3, column: 4, text: "now"},
+					),
+					"now",
+					"time.now",
+				)
+				Expect(d.Code).To(Equal(diagnostics.ErrorCode("TEST004")))
+				Expect(d.Severity).To(Equal(protocol.DiagnosticSeverityWarning))
+				Expect(
+					d.Message,
+				).To(Equal("'now' is deprecated, use 'time.now' instead"))
+				Expect(d.Range).To(Equal(protocol.Range{
+					Start: protocol.Position{Line: 2, Character: 4},
+					End:   protocol.Position{Line: 2, Character: 7},
+				}))
+			})
+		})
+
+		Describe("Kind.Wrap", func() {
+			It("Should give the diagnostic of an error the code and severity", func() {
+				kind := diagnostics.Kind{
+					Code:     "TEST005",
+					Severity: protocol.DiagnosticSeverityWarning,
+				}
+				d := kind.Wrap(
+					hintedError{msg: "type mismatch", hint: "hint: use f64(value)"},
+					ruleCtxAt(&fakeToken{line: 3, column: 4, text: "x"}, nil),
+				)
+				Expect(d.Code).To(Equal(diagnostics.ErrorCode("TEST005")))
+				Expect(d.Severity).To(Equal(protocol.DiagnosticSeverityWarning))
+				Expect(d.Message).To(Equal("type mismatch"))
+				Expect(
+					d.Range.Start,
+				).To(Equal(protocol.Position{Line: 2, Character: 4}))
+				Expect(d.Notes).To(Equal([]protocol.DiagnosticRelatedInformation{
+					{Message: "hint: use f64(value)"},
+				}))
+			})
+		})
+
+		Describe("WithEdits", func() {
+			It("Should add a fix with the title and the edits", func() {
+				edits := []protocol.TextEdit{
+					{NewText: "import time\n\n"},
+					{
+						Range: protocol.Range{
+							Start: protocol.Position{Line: 2, Character: 4},
+							End:   protocol.Position{Line: 2, Character: 7},
+						},
+						NewText: "time.now",
+					},
+				}
+				d := diagnostics.Errorf(nil, "deprecated").
+					WithEdits("Replace 'now' with 'time.now'", edits...)
+				Expect(d.Fixes).To(Equal([]diagnostics.Fix{
+					{Title: "Replace 'now' with 'time.now'", Edits: edits},
+				}))
+				Expect(d.Notes).To(BeEmpty())
+			})
+		})
+
+		Describe("WithFix", func() {
+			const source = "if x + 1 { }"
+			var (
+				first = &fakeToken{
+					line:   1,
+					column: 3,
+					text:   "x",
+					source: source,
+					start:  3,
+				}
+				last = &fakeToken{
+					line: 1, column: 7, text: "1", source: source, start: 7, stop: 7,
+				}
+				at = protocol.Range{
+					Start: protocol.Position{Character: 3},
+					End:   protocol.Position{Character: 8},
+				}
+			)
+
+			It("Should add a fix and a hint at the range of the diagnostic", func() {
+				ctx := ruleCtxAt(first, last)
+				d := diagnostics.Warningf(ctx, "numeric").WithFix(ctx, "x + 1 != 0")
+				Expect(d.Fixes).To(Equal([]diagnostics.Fix{{
+					Title: "Change to `x + 1 != 0`",
+					Edits: []protocol.TextEdit{{Range: at, NewText: "x + 1 != 0"}},
+				}}))
+				Expect(d.Notes).To(Equal([]protocol.DiagnosticRelatedInformation{
+					{Message: "hint: change `x + 1` to `x + 1 != 0`"},
+				}))
+			})
+
+			It("Should place the hint of a fix at another range", func() {
+				d := diagnostics.Warningf(ruleCtxAt(first, nil), "numeric").
+					WithFix(ruleCtxAt(first, last), "x + 1 != 0")
+				Expect(d.Fixes).To(Equal([]diagnostics.Fix{{
+					Title: "Change to `x + 1 != 0`",
+					Edits: []protocol.TextEdit{{Range: at, NewText: "x + 1 != 0"}},
+				}}))
+				Expect(d.Notes).To(Equal([]protocol.DiagnosticRelatedInformation{{
+					Message:  "hint: change `x + 1` to `x + 1 != 0`",
+					Location: protocol.Location{Range: at},
+				}}))
+			})
+
+			It("Should take the place of the hint from the error", func() {
+				ctx := ruleCtxAt(first, last)
+				d := diagnostics.Error(hintedError{msg: "m", hint: "use f64(value)"}, ctx).
+					WithFix(ctx, "f64(x + 1)")
+				Expect(d.Notes).To(Equal([]protocol.DiagnosticRelatedInformation{
+					{Message: "hint: change `x + 1` to `f64(x + 1)`"},
+				}))
+			})
+
+			It("Should keep each fix", func() {
+				ctx := ruleCtxAt(first, last)
+				d := diagnostics.Warningf(ctx, "numeric").
+					WithFix(ctx, "x + 1 != 0").
+					WithFix(ctx, "true")
+				Expect(d.Fixes).To(HaveLen(2))
+				Expect(d.Notes).To(HaveLen(2))
+			})
 		})
 
 		It("Should skip empty note", func() {

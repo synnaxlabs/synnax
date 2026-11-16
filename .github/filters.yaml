@@ -130,13 +130,6 @@ arc_go:
   - *arc_go_module
   - "**/*.arc"
 
-aspen: &aspen
-  - *alamos_go
-  - *freighter_go
-  - *go
-  - *x_go
-  - aspen/**
-
 freighter_integration: &freighter_integration
   - *alamos_go
   - *freighter_go
@@ -147,7 +140,6 @@ freighter_integration: &freighter_integration
 core: &core
   - *alamos_go
   - *arc_go_module
-  - *aspen
   - *cesium
   - *freighter_go
   - *go
@@ -232,6 +224,7 @@ site_common: &site_common
 
 docs:
   - *arc_ts
+  - arc/go/analyzer/codes/codes.gen.json
   - *client_ts
   - *lyra
   - *site_common
@@ -293,6 +286,8 @@ exports_go:
   - *core
   - *freighter_integration
   - *oracle
+  - .github/exports-go.json
+  - .github/scripts/go_affected.py
 
 exports_py:
   - *client_py
@@ -357,11 +352,19 @@ driver: &driver
 
 soem:
   - *cpp
+  - vendor/open62541/codegen.bzl
   - vendor/soem/**
 
 # Every path that changes a C++ CodeQL analysis.
 codeql_cpp:
   - *driver
+  - .github/workflows/codeql.yaml
+
+# Every path that changes a Rust CodeQL analysis.
+codeql_rust:
+  - "**/*.rs"
+  - "**/Cargo.lock"
+  - "**/Cargo.toml"
   - .github/workflows/codeql.yaml
 
 buildifier:
@@ -404,7 +407,7 @@ protobuf:
 ci_scripts:
   - *py
   - .github/scripts/**
-  - .github/workflows/ci.yaml
+  - .github/workflows/**
   - deploy/preview/**
   - scripts/common/**
 

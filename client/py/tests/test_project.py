@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import cast
 from uuid import uuid4
 
+import pydantic
 import pytest
 
 import synnax as sy
@@ -62,6 +63,15 @@ class TestProject:
         projects = client.projects.retrieve(keys=[p1.key, p2.key])
         assert len(projects) == 2
 
+    def test_retrieve_by_group(self, client: sy.Synnax) -> None:
+        """Should filter the projects by group."""
+        p = client.projects.create(name="Ungrouped")
+        g = client.groups.create("Empty", scope="project")
+        assert client.projects.retrieve(groups=g.key) == []
+        ungrouped = client.projects.retrieve(key=[p.key], grouped=False)
+        assert [r.key for r in ungrouped] == [p.key]
+        assert client.projects.retrieve(key=[p.key], grouped=True) == []
+
     def test_retrieve_where(self, client: sy.Synnax) -> None:
         """Should keep projects that match a filter tree and the given keys."""
         p1 = client.projects.create(name="Where A")
@@ -89,6 +99,26 @@ class TestProject:
 
         assert_eventually(check)
 
+    def test_retrieve_key_list(self, client: sy.Synnax) -> None:
+        """Should return a list for a list of keys, even with one key."""
+        a = client.projects.create(name="A")
+        res = client.projects.retrieve(key=[a.key])
+        assert [r.key for r in res] == [a.key]
+
+    def test_retrieve_plain_key_beside_fields(self, client: sy.Synnax) -> None:
+        """Should return one project for a plain key beside other fields."""
+        a = client.projects.create(name="A")
+        assert client.projects.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
+        with pytest.raises(NotFoundError, match=r"Found no project where .+"):
+            client.projects.retrieve(key=a.key, not_={"key": a.key})
+
+    def test_retrieve_or(self, client: sy.Synnax) -> None:
+        """Should retrieve the projects that match any filter in or_."""
+        a = client.projects.create(name="A")
+        b = client.projects.create(name="B")
+        res = client.projects.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
+
     def test_rename(self, client: sy.Synnax) -> None:
         """Should rename a project."""
         p = client.projects.create(name="Before Rename")
@@ -103,7 +133,7 @@ class TestProject:
     def test_retrieve_rejects_author(self, client: sy.Synnax) -> None:
         """Should reject the removed author filter."""
         retrieve = cast(Callable[..., object], client.projects.retrieve)
-        with pytest.raises(TypeError):
+        with pytest.raises(pydantic.ValidationError, match="author"):
             retrieve(author=uuid4())
 
     def test_delete(self, client: sy.Synnax) -> None:
@@ -137,7 +167,7 @@ def _create_log(client: sy.Synnax, tmp_path: Path, proj: sy.Project, name: str) 
             }
         )
     )
-    client.imex.import_(path, parent=sy.project.ontology_id(proj.key))
+    client.imex.import_(path, parent=sy.project.resource_id(proj.key))
 
 
 def _member_names(bundle: Path) -> set[str]:
@@ -167,10 +197,6 @@ class TestProjectExportImport:
         assert imported.key != src.key
         assert imported.name == name
         assert client.projects.retrieve(key=imported.key).name == name
-        children = client.ontology.retrieve_children(
-            sy.project.ontology_id(imported.key)
-        )
-        assert [child.type for child in children] == ["log"] * len(log_names)
         reexported = tmp_path / "reexported.zip"
         client.projects.export(imported.key, reexported)
         assert _member_names(reexported) == log_names

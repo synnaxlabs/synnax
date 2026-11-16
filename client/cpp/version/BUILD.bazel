@@ -7,14 +7,13 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# The client version is the VERSION manifest, bumped with the other packages.
+# The Driver ships the client, so the client carries the SYNNAX_DRIVER_VERSION define.
 genrule(
     name = "version",
-    srcs = ["VERSION"],
     outs = ["version.h"],
     cmd = """
         echo '#pragma once' > $@ &&
-        echo '#define SYNNAX_CLIENT_VERSION \"'$$(cat $(execpath VERSION))'\"' >> $@
+        echo '#define SYNNAX_CLIENT_VERSION \"$(SYNNAX_DRIVER_VERSION)\"' >> $@
     """,
     visibility = ["//visibility:public"],
 )

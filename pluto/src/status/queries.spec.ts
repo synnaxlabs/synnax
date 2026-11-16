@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, NotFoundError, ontology, query, status } from "@synnaxlabs/client";
+import { NotFoundError, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { expectAlways } from "@synnaxlabs/x/testutil";
@@ -30,412 +30,81 @@ describe("Status queries", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
-  describe("useList", () => {
-    it("should update an item read by key when it changes", async () => {
-      const item = await client.statuses.set({
-        key: uuid.create(),
-        name: "original",
-        variant: "info",
-        message: "test",
-        time: TimeStamp.now(),
-      });
-      const { result } = renderHook(
-        () => {
-          const list = Status.useList({ useCachedList: false });
-          return Flux.useListItem({
-            subscribe: list.subscribe,
-            getItem: list.getItem,
-            key: item.key,
-          });
-        },
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current?.name).toEqual("original"));
-      await act(async () => {
-        await client.statuses.set({ ...item, name: "updated" });
-      });
-      await waitFor(() => expect(result.current?.name).toEqual("updated"));
-    });
-
-    it("should return a list of status keys", async () => {
-      const status1 = await client.statuses.set({
-        name: "Status 1",
-        key: "list-test-1",
-        variant: "info",
-        message: "First status",
-        time: TimeStamp.now(),
-      });
-      const status2 = await client.statuses.set({
-        name: "Status 2",
-        key: "list-test-2",
-        variant: "success",
-        message: "Second status",
-        time: TimeStamp.now(),
-      });
-
-      const { result } = renderHook(() => Status.useList(), { wrapper });
-
-      act(() => {
-        result.current.retrieve({});
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-      expect(result.current.data).toContain(status1.key);
-      expect(result.current.data).toContain(status2.key);
-    });
-
-    it("should get individual statuses using getItem", async () => {
-      const testStatus = await client.statuses.set({
-        name: "Test Status",
-        key: "item-test",
-        variant: "warning",
-        message: "Test message",
-        description: "Test description",
-        time: TimeStamp.now(),
-      });
-
-      const { result } = renderHook(() => Status.useList(), { wrapper });
-
-      act(() => {
-        result.current.retrieve({});
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const retrievedStatus = result.current.getItem(testStatus.key);
-      expect(retrievedStatus?.key).toEqual(testStatus.key);
-      expect(retrievedStatus?.name).toEqual("Test Status");
-      expect(retrievedStatus?.variant).toEqual("warning");
-      expect(retrievedStatus?.message).toEqual("Test message");
-      expect(retrievedStatus?.description).toEqual("Test description");
-    });
-
-    it("should filter statuses by specific keys", async () => {
-      const keys = ["filter-1", "filter-2", "filter-3"];
-      await Promise.all(
-        keys.map((key, i) =>
-          client.statuses.set({
-            name: `Filter ${i}`,
-            key,
-            variant: "info",
-            message: `Message ${i}`,
-            time: TimeStamp.now(),
-          }),
-        ),
-      );
-
-      const { result } = renderHook(() => Status.useList(), { wrapper });
-
-      act(() => {
-        result.current.retrieve({ where: { key: { in: keys.slice(0, 2) } } });
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toHaveLength(2);
-      expect(result.current.data).toContain(keys[0]);
-      expect(result.current.data).toContain(keys[1]);
-      expect(result.current.data).not.toContain(keys[2]);
-    });
-
-    it("should filter statuses by labels", async () => {
-      const label = await client.labels.create({
+  describe("list", () => {
+    it("should list the statuses with a label", async () => {
+      const lbl = await client.labels.create({
         name: "Filter Label",
         color: "#000000",
       });
-      await client.statuses.set({
-        name: "Filter Status",
-        key: "filter-label-test",
-        variant: "info",
-        message: "Filter label test",
-        time: TimeStamp.now(),
-      });
-      await client.labels.label(status.ontologyID("filter-label-test"), [label.key]);
-
-      const { result } = renderHook(
-        () => Status.useList({ initialQuery: { where: { labels: [label.key] } } }),
-        { wrapper },
-      );
-      act(() => {
-        result.current.retrieve({ where: { labels: [label.key] } });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toHaveLength(1);
-      expect(result.current.data).toContain("filter-label-test");
-      await client.statuses.set({
-        name: "Unlabeled Status",
-        key: "unlabeled-status-test",
-        variant: "info",
-        message: "Unlabeled status test",
-        time: TimeStamp.now(),
-      });
-      act(() => {
-        result.current.retrieve({ where: { labels: [label.key] } });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).not.toContain("unlabeled-status-test");
-      await client.statuses.set({
-        name: "Labeled Status",
-        key: "labeled-status-test",
-        variant: "info",
-        message: "Labeled status test",
-        time: TimeStamp.now(),
-      });
-      await client.labels.label(status.ontologyID("labeled-status-test"), [label.key]);
-      act(() => {
-        result.current.retrieve({ where: { labels: [label.key] } });
-      });
-      await waitFor(() => expect(result.current.data.length).toEqual(2));
-      expect(result.current.data).toContain("labeled-status-test");
-    });
-
-    it("should filter statuses by variants", async () => {
-      const prefix = `variant-${Date.now()}`;
-      await client.statuses.set([
+      const [labeled] = await client.statuses.set([
         {
-          name: "Success Status",
-          key: `${prefix}-success`,
-          variant: "success",
-          message: "ok",
-          time: TimeStamp.now(),
-        },
-        {
-          name: "Error Status",
-          key: `${prefix}-error`,
-          variant: "error",
-          message: "fail",
-          time: TimeStamp.now(),
-        },
-        {
-          name: "Warning Status",
-          key: `${prefix}-warning`,
-          variant: "warning",
-          message: "warn",
-          time: TimeStamp.now(),
-        },
-      ]);
-
-      const { result } = renderHook(
-        () =>
-          Status.useList({
-            initialQuery: {
-              where: {
-                key: {
-                  in: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`],
-                },
-                variant: { in: ["error"] },
-              },
-            },
-          }),
-        { wrapper },
-      );
-      act(() => {
-        result.current.retrieve({
-          where: {
-            key: { in: [`${prefix}-success`, `${prefix}-error`, `${prefix}-warning`] },
-            variant: { in: ["error"] },
-          },
-        });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toHaveLength(1);
-      expect(result.current.data).toContain(`${prefix}-error`);
-      expect(result.current.data).not.toContain(`${prefix}-success`);
-      expect(result.current.data).not.toContain(`${prefix}-warning`);
-    });
-
-    it("should filter statuses by multiple variants", async () => {
-      const prefix = `variant-multi-${Date.now()}`;
-      await client.statuses.set([
-        {
-          name: "Info Status",
-          key: `${prefix}-info`,
+          name: "Labeled",
+          key: uuid.create(),
           variant: "info",
-          message: "info",
+          message: "labeled",
           time: TimeStamp.now(),
         },
         {
-          name: "Error Status",
-          key: `${prefix}-error`,
-          variant: "error",
-          message: "error",
-          time: TimeStamp.now(),
-        },
-        {
-          name: "Success Status",
-          key: `${prefix}-success`,
-          variant: "success",
-          message: "success",
+          name: "Unlabeled",
+          key: uuid.create(),
+          variant: "info",
+          message: "unlabeled",
           time: TimeStamp.now(),
         },
       ]);
-
+      await client.labels.label(status.resourceID(labeled.key), [lbl.key]);
       const { result } = renderHook(
         () =>
-          Status.useList({
-            initialQuery: {
-              where: {
-                key: { in: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`] },
-                variant: { in: ["info", "success"] },
-              },
-            },
+          Flux.useList((c) => c.statuses, {
+            name: "statuses",
+            query: { where: { labels: [lbl.key] } },
           }),
         { wrapper },
       );
-      act(() => {
-        result.current.retrieve({
-          where: {
-            key: { in: [`${prefix}-info`, `${prefix}-error`, `${prefix}-success`] },
-            variant: { in: ["info", "success"] },
-          },
-        });
+      act(() => result.current.more());
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data).toEqual([labeled.key]);
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toHaveLength(2);
-      expect(result.current.data).toContain(`${prefix}-info`);
-      expect(result.current.data).toContain(`${prefix}-success`);
-      expect(result.current.data).not.toContain(`${prefix}-error`);
     });
 
-    it("should reactively include a status when its variant changes to match the filter", async () => {
+    it("should add a status whose variant changes to match the filter", async () => {
       const prefix = `variant-listen-${Date.now()}`;
+      const keys = [`${prefix}-error`, `${prefix}-warning`];
       await client.statuses.set([
         {
           name: "Error Status",
-          key: `${prefix}-error`,
+          key: keys[0],
           variant: "error",
           message: "fail",
           time: TimeStamp.now(),
         },
         {
           name: "Warning Status",
-          key: `${prefix}-warning`,
+          key: keys[1],
           variant: "warning",
           message: "warn",
           time: TimeStamp.now(),
         },
       ]);
-
       const { result } = renderHook(
         () =>
-          Status.useList({
-            initialQuery: {
-              where: {
-                key: { in: [`${prefix}-error`, `${prefix}-warning`] },
-                variant: { in: ["error"] },
-              },
-            },
+          Flux.useList((c) => c.statuses, {
+            name: "statuses",
+            query: { where: { key: { in: keys }, variant: { in: ["error"] } } },
           }),
         { wrapper },
       );
-      act(() => {
-        result.current.retrieve({
-          where: {
-            key: { in: [`${prefix}-error`, `${prefix}-warning`] },
-            variant: { in: ["error"] },
-          },
-        });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toHaveLength(1);
-      expect(result.current.data).toContain(`${prefix}-error`);
-
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.data).toEqual([keys[0]]));
       await client.statuses.set({
         name: "Warning Status",
-        key: `${prefix}-warning`,
+        key: keys[1],
         variant: "error",
         message: "now an error",
         time: TimeStamp.now(),
       });
-
-      act(() => {
-        result.current.retrieve({
-          where: {
-            key: { in: [`${prefix}-error`, `${prefix}-warning`] },
-            variant: { in: ["error"] },
-          },
-        });
-      });
-      await waitFor(() => expect(result.current.data).toHaveLength(2));
-      expect(result.current.data).toContain(`${prefix}-warning`);
-    });
-
-    it("should reactively remove a status when its variant changes away from the filter", async () => {
-      const prefix = `variant-remove-${Date.now()}`;
-      await client.statuses.set([
-        {
-          name: "Error One",
-          key: `${prefix}-error-1`,
-          variant: "error",
-          message: "first error",
-          time: TimeStamp.now(),
-        },
-        {
-          name: "Error Two",
-          key: `${prefix}-error-2`,
-          variant: "error",
-          message: "second error",
-          time: TimeStamp.now(),
-        },
-      ]);
-
-      const { result } = renderHook(
-        () =>
-          Status.useList({
-            initialQuery: {
-              where: {
-                key: { in: [`${prefix}-error-1`, `${prefix}-error-2`] },
-                variant: { in: ["error"] },
-              },
-            },
-          }),
-        { wrapper },
-      );
-      act(() => {
-        result.current.retrieve({
-          where: {
-            key: { in: [`${prefix}-error-1`, `${prefix}-error-2`] },
-            variant: { in: ["error"] },
-          },
-        });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toHaveLength(2);
-
-      await client.statuses.set({
-        name: "Error Two",
-        key: `${prefix}-error-2`,
-        variant: "warning",
-        message: "now a warning",
-        time: TimeStamp.now(),
-      });
-
-      await waitFor(() => expect(result.current.data).toHaveLength(1));
-      expect(result.current.data).toContain(`${prefix}-error-1`);
-      expect(result.current.data).not.toContain(`${prefix}-error-2`);
-    });
-
-    it("should handle pagination with limit and offset", async () => {
-      await Promise.all(
-        Array.from({ length: 5 }).map((_, i) =>
-          client.statuses.set({
-            name: `Page Status ${i}`,
-            key: `page-${i}-${Date.now()}`,
-            variant: "info",
-            message: `Message ${i}`,
-            time: TimeStamp.now(),
-          }),
-        ),
-      );
-
-      const { result } = renderHook(() => Status.useList(), { wrapper });
-
-      act(() => {
-        result.current.retrieve({ limit: 2 });
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
+      await waitFor(() => expect(result.current.data).toEqual(keys));
     });
   });
 
@@ -485,153 +154,6 @@ describe("Status queries", () => {
       });
 
       expect(order).toEqual([`optimistic:${stat.key}`, "success"]);
-    });
-  });
-
-  describe("useSet", () => {
-    it("should set a single status", async () => {
-      const { result } = renderHook(() => Status.useSet(), { wrapper });
-
-      await act(async () => {
-        await result.current.updateAsync({
-          statuses: {
-            name: "Set Hook Test",
-            key: "set-hook-test",
-            variant: "loading",
-            message: "Testing set hook",
-            time: TimeStamp.now(),
-          },
-        });
-      });
-
-      const created = await client.statuses.retrieve("set-hook-test");
-      expect(created.name).toEqual("Set Hook Test");
-      expect(created.variant).toEqual("loading");
-    });
-
-    it("should set multiple statuses", async () => {
-      const { result } = renderHook(() => Status.useSet(), { wrapper });
-
-      await act(async () => {
-        await result.current.updateAsync({
-          statuses: [
-            {
-              name: "Batch 1",
-              key: "batch-hook-1",
-              variant: "info",
-              message: "First",
-              time: TimeStamp.now(),
-            },
-            {
-              name: "Batch 2",
-              key: "batch-hook-2",
-              variant: "success",
-              message: "Second",
-              time: TimeStamp.now(),
-            },
-          ],
-        });
-      });
-
-      const statuses = await client.statuses.retrieve({
-        where: { key: { in: ["batch-hook-1", "batch-hook-2"] } },
-      });
-      expect(statuses).toHaveLength(2);
-    });
-
-    it("should set status with parent", async () => {
-      const parentGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: "Parent Group",
-      });
-      const parentOntologyID = group.ontologyID(parentGroup.key);
-
-      const { result } = renderHook(() => Status.useSet(), { wrapper });
-
-      await act(async () => {
-        await result.current.updateAsync({
-          statuses: {
-            name: "Child Status",
-            key: "child-hook-test",
-            variant: "info",
-            message: "Has parent",
-            time: TimeStamp.now(),
-          },
-          parent: parentOntologyID,
-        });
-      });
-
-      const resources = await client.ontology.children.retrieve({
-        ids: parentOntologyID,
-      });
-
-      const statusResource = resources.find((r) => r.id.key === "child-hook-test");
-      expect(statusResource).toBeDefined();
-    });
-
-    it("should run afterOptimistic before a single set commits", async () => {
-      const key = `optimistic-set-${id.create()}`;
-      const order: string[] = [];
-      const { result } = renderHook(
-        () =>
-          Status.useSet({
-            afterOptimistic: () => {
-              order.push("optimistic");
-            },
-            afterSuccess: () => {
-              order.push("success");
-            },
-          }),
-        { wrapper },
-      );
-
-      await act(async () => {
-        await result.current.updateAsync({
-          statuses: {
-            name: "Optimistic Set",
-            key,
-            variant: "info",
-            message: "Testing optimistic set",
-            time: TimeStamp.now(),
-          },
-        });
-      });
-
-      expect(order).toEqual(["optimistic", "success"]);
-    });
-
-    it("should run afterOptimistic before a batch set commits", async () => {
-      const keys = [
-        `optimistic-batch-${id.create()}`,
-        `optimistic-batch-${id.create()}`,
-      ];
-      const order: string[] = [];
-      const { result } = renderHook(
-        () =>
-          Status.useSet({
-            afterOptimistic: () => {
-              order.push("optimistic");
-            },
-            afterSuccess: () => {
-              order.push("success");
-            },
-          }),
-        { wrapper },
-      );
-
-      await act(async () => {
-        await result.current.updateAsync({
-          statuses: keys.map((key, i) => ({
-            name: `Optimistic Batch ${i}`,
-            key,
-            variant: "info" as const,
-            message: "Testing optimistic batch set",
-            time: TimeStamp.now(),
-          })),
-        });
-      });
-
-      expect(order).toEqual(["optimistic", "success"]);
     });
   });
 
@@ -687,54 +209,6 @@ describe("Status queries", () => {
 
       await waitFor(() => expect(result.current?.name).toEqual("Updated"));
       expect(result.current?.variant).toEqual("warning");
-    });
-  });
-
-  describe("real-time updates", () => {
-    it("should update list when new status is created", async () => {
-      const { result } = renderHook(() => Status.useList(), { wrapper });
-
-      act(() => {
-        result.current.retrieve({});
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      const initialCount = result.current.data.length;
-
-      const newStatus = await client.statuses.set({
-        name: "Real-time Test",
-        key: `realtime-${Date.now()}`,
-        variant: "success",
-        message: "Created after hook",
-        time: TimeStamp.now(),
-      });
-
-      await waitFor(() => expect(result.current.data).toContain(newStatus.key));
-      expect(result.current.data.length).toBeGreaterThan(initialCount);
-    });
-
-    it("should remove from list when status is deleted", async () => {
-      const toDelete = await client.statuses.set({
-        name: "Will be deleted",
-        key: `delete-realtime-${Date.now()}`,
-        variant: "error",
-        message: "Delete me",
-        time: TimeStamp.now(),
-      });
-
-      const { result } = renderHook(() => Status.useList(), { wrapper });
-
-      act(() => {
-        result.current.retrieve({});
-      });
-
-      await waitFor(() => expect(result.current.data).toContain(toDelete.key));
-
-      await act(async () => {
-        await client.statuses.delete(toDelete.key);
-      });
-
-      await waitFor(() => expect(result.current.data).not.toContain(toDelete.key));
     });
   });
 
@@ -885,7 +359,63 @@ describe("Status queries", () => {
         () => Status.use({ key: result.current.form.value().key }),
         { wrapper },
       );
-      await waitFor(() => expect(q.result.current?.labels).toEqual([label1, label2]));
+      await waitFor(() =>
+        expect(q.result.current?.labels).toEqual([label1.key, label2.key]),
+      );
+    });
+
+    it("should replace the labels of an existing status on save", async () => {
+      const kept = await client.labels.create({ name: "Kept", color: "#FF0000" });
+      const dropped = await client.labels.create({ name: "Dropped", color: "#00FF00" });
+      const added = await client.labels.create({ name: "Added", color: "#0000FF" });
+      const key = uuid.create();
+      await client.statuses.set({
+        name: "Labeled",
+        key,
+        variant: "info",
+        message: "Labeled",
+        time: TimeStamp.now(),
+        labels: [kept.key, dropped.key],
+      });
+      const { result } = await renderHookSuspended(
+        () => Status.useForm({ query: { key } }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => {
+        result.current.form.set(path.labels, [kept.key, added.key]);
+      });
+      await act(async () => {
+        await result.current.saveAsync();
+      });
+      const stored = await createTestClient().statuses.retrieve({ key });
+      expect(stored.labels.toSorted()).toEqual([kept.key, added.key].toSorted());
+    });
+
+    it("should keep the status unchanged when its label change fails", async () => {
+      const key = uuid.create();
+      await client.statuses.set({
+        name: "Unchanged",
+        key,
+        variant: "info",
+        message: "Before",
+        time: TimeStamp.now(),
+      });
+      const { result } = await renderHookSuspended(
+        () => Status.useForm({ query: { key } }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => {
+        result.current.form.set(path.message, "After");
+        result.current.form.set(path.labels, [uuid.create()]);
+      });
+      await act(async () => {
+        await result.current.saveAsync();
+      });
+      expect(result.current.variant).toEqual("error");
+      const stored = await createTestClient().statuses.retrieve({ key });
+      expect(stored.message).toEqual("Before");
     });
 
     it("should update form when status changes externally", async () => {
@@ -1005,7 +535,7 @@ describe("Status queries", () => {
         message: "Testing labels",
         time: TimeStamp.now(),
       });
-      await client.labels.label(status.ontologyID(key), [label1.key]);
+      await client.labels.label(status.resourceID(key), [label1.key]);
       const { result } = await renderHookSuspended(
         () => Status.useForm({ query: { key } }),
         { wrapper },
@@ -1021,13 +551,8 @@ describe("Status queries", () => {
         result.current.save();
       });
       await waitFor(async () => {
-        const labels = await client.labels.retrieve({
-          where: { for: status.ontologyID(key) },
-        });
-        const labelKeys = labels.map((l) => l.key);
-        expect(labelKeys).not.toContain(label1.key);
-        expect(labelKeys).toContain(label2.key);
-        expect(labelKeys).toContain(label3.key);
+        const { labels } = await createTestClient().statuses.retrieve(key);
+        expect(labels.toSorted()).toEqual([label2.key, label3.key].toSorted());
       });
     });
 
@@ -1055,13 +580,13 @@ describe("Status queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.form.value().labels).toEqual([]);
       await act(async () => {
-        await client.labels.label(status.ontologyID(key), [label1.key]);
+        await client.labels.label(status.resourceID(key), [label1.key]);
       });
       await waitFor(() =>
         expect(result.current.form.value().labels).toContain(label1.key),
       );
       await act(async () => {
-        await client.labels.label(status.ontologyID(key), [label2.key]);
+        await client.labels.label(status.resourceID(key), [label2.key]);
       });
       await waitFor(() => {
         const labels = result.current.form.value().labels;
@@ -1069,7 +594,7 @@ describe("Status queries", () => {
         expect(labels).toContain(label2.key);
       });
       await act(async () => {
-        await client.labels.remove(status.ontologyID(key), [label1.key]);
+        await client.labels.remove(status.resourceID(key), [label1.key]);
       });
       await waitFor(() => {
         const labels = result.current.form.value().labels;
@@ -1194,7 +719,7 @@ describe("Status queries", () => {
       });
 
       const statuses = await client.statuses.retrieve({
-        where: { key: { in: [status1.key, status2.key] } },
+        key: [status1.key, status2.key],
       });
 
       expect(statuses).toHaveLength(2);
@@ -1221,16 +746,12 @@ describe("Status queries", () => {
       await client.statuses.retrieve(status1.key);
 
       const statuses = await client.statuses.retrieve({
-        where: { key: { in: [status1.key, status2.key] } },
+        key: [status1.key, status2.key],
       });
 
       expect(statuses).toHaveLength(2);
       expect(statuses.map((s) => s.key)).toContain(status1.key);
       expect(statuses.map((s) => s.key)).toContain(status2.key);
-      const cached = client.statuses.getCached({
-        where: { key: { in: [status1.key, status2.key] } },
-      });
-      expect(query.isLive(cached)).toBe(true);
     });
 
     it("should return all cached statuses when all are cached", async () => {
@@ -1249,12 +770,10 @@ describe("Status queries", () => {
         time: TimeStamp.now(),
       });
 
-      await client.statuses.retrieve({
-        where: { key: { in: [status1.key, status2.key] } },
-      });
+      await client.statuses.retrieve({ key: [status1.key, status2.key] });
 
       const statuses = await client.statuses.retrieve({
-        where: { key: { in: [status1.key, status2.key] } },
+        key: [status1.key, status2.key],
       });
 
       expect(statuses).toHaveLength(2);

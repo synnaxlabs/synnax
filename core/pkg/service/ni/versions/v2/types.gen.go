@@ -14,6 +14,7 @@ package v2
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Units enumerates the engineering units for NI analog channel values.
@@ -662,6 +664,14 @@ func (u CJC) Source() CJCType {
 	return ""
 }
 
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u CJC) Validate() error {
+	v := validate.New("CJC")
+	v.Ternary("source", u.Variant == nil, "required")
+	return v.Error()
+}
+
 // VelocityUnits are the engineering units for a velocity measurement.
 type VelocityUnits string
 
@@ -762,17 +772,11 @@ type LinearScale struct {
 
 func (LinearScale) isScaleVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LinearScale) ApplyDefaults() {
-	if l.Slope == 0 {
-		l.Slope = 1
-	}
-	if l.PreScaledUnits == "" {
-		l.PreScaledUnits = UnitsVolts
-	}
-	if l.ScaledUnits == "" {
-		l.ScaledUnits = "Volts"
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LinearScale) SetDefaults() {
+	l.Slope = 1
+	l.PreScaledUnits = UnitsVolts
+	l.ScaledUnits = "Volts"
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -801,14 +805,24 @@ type MapScale struct {
 
 func (MapScale) isScaleVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (m *MapScale) ApplyDefaults() {
-	if m.PreScaledUnits == "" {
-		m.PreScaledUnits = UnitsVolts
-	}
-	if m.ScaledUnits == "" {
-		m.ScaledUnits = "Volts"
-	}
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (m *MapScale) SetDefaults() {
+	m.SetUngroupedDefaults()
+	m.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (m *MapScale) SetUngroupedDefaults() {
+	m.PreScaledUnits = UnitsVolts
+	m.ScaledUnits = "Volts"
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (m *MapScale) DefaultGroups() {
 	if m.PreScaledMin == 0 && m.PreScaledMax == 0 {
 		m.PreScaledMax = 1
 	}
@@ -839,14 +853,10 @@ type TableScale struct {
 
 func (TableScale) isScaleVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TableScale) ApplyDefaults() {
-	if t.PreScaledUnits == "" {
-		t.PreScaledUnits = UnitsVolts
-	}
-	if t.ScaledUnits == "" {
-		t.ScaledUnits = "Volts"
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TableScale) SetDefaults() {
+	t.PreScaledUnits = UnitsVolts
+	t.ScaledUnits = "Volts"
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -871,14 +881,10 @@ type PolynomialScale struct {
 
 func (PolynomialScale) isScaleVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PolynomialScale) ApplyDefaults() {
-	if p.PreScaledUnits == "" {
-		p.PreScaledUnits = UnitsVolts
-	}
-	if p.ScaledUnits == "" {
-		p.ScaledUnits = "Volts"
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PolynomialScale) SetDefaults() {
+	p.PreScaledUnits = UnitsVolts
+	p.ScaledUnits = "Volts"
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -960,6 +966,7 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ScaleType `json:"type"`
 			LinearScale
 		}
+		v.LinearScale.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -969,15 +976,18 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ScaleType `json:"type"`
 			MapScale
 		}
+		v.MapScale.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.MapScale.DefaultGroups()
 		u.Variant = v.MapScale
 	case TableScaleType:
 		var v struct {
 			Type ScaleType `json:"type"`
 			TableScale
 		}
+		v.TableScale.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -987,6 +997,7 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ScaleType `json:"type"`
 			PolynomialScale
 		}
+		v.PolynomialScale.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -1027,39 +1038,22 @@ func (u Scale) Type() ScaleType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *Scale) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case LinearScale:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case MapScale:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case TableScale:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case PolynomialScale:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Scale) Validate() error {
+	v := validate.New("Scale")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case LinearScale:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case MapScale:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case TableScale:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case PolynomialScale:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // MinMaxVal bounds the expected signal range in scaled units.
@@ -1070,8 +1064,22 @@ type MinMaxVal struct {
 	MaxVal float64 `json:"max_val" msgpack:"max_val"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (m *MinMaxVal) ApplyDefaults() {
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (m *MinMaxVal) SetDefaults() {
+	m.SetUngroupedDefaults()
+	m.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (m *MinMaxVal) SetUngroupedDefaults() {
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (m *MinMaxVal) DefaultGroups() {
 	if m.MinVal == 0 && m.MaxVal == 0 {
 		m.MaxVal = 1
 	}
@@ -1083,11 +1091,9 @@ type Terminal struct {
 	TerminalConfig TerminalConfig `json:"terminal_config" msgpack:"terminal_config"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *Terminal) ApplyDefaults() {
-	if t.TerminalConfig == "" {
-		t.TerminalConfig = TerminalConfigCfgDefault
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (t *Terminal) SetDefaults() {
+	t.TerminalConfig = TerminalConfigCfgDefault
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1112,11 +1118,9 @@ type CurrentExcitation struct {
 	CurrentExcitVal float64 `json:"current_excit_val" msgpack:"current_excit_val"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CurrentExcitation) ApplyDefaults() {
-	if c.CurrentExcitSource == "" {
-		c.CurrentExcitSource = ExcitationSourceInternal
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CurrentExcitation) SetDefaults() {
+	c.CurrentExcitSource = ExcitationSourceInternal
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1135,11 +1139,9 @@ type VoltageExcitation struct {
 	VoltageExcitVal float64 `json:"voltage_excit_val" msgpack:"voltage_excit_val"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (vo *VoltageExcitation) ApplyDefaults() {
-	if vo.VoltageExcitSource == "" {
-		vo.VoltageExcitSource = ExcitationSourceInternal
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (vo *VoltageExcitation) SetDefaults() {
+	vo.VoltageExcitSource = ExcitationSourceInternal
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1158,14 +1160,10 @@ type Bridge struct {
 	NominalBridgeResistance float64 `json:"nominal_bridge_resistance" msgpack:"nominal_bridge_resistance"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *Bridge) ApplyDefaults() {
-	if b.BridgeConfig == "" {
-		b.BridgeConfig = BridgeConfigFullBridge
-	}
-	if b.NominalBridgeResistance == 0 {
-		b.NominalBridgeResistance = 1
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (b *Bridge) SetDefaults() {
+	b.BridgeConfig = BridgeConfigFullBridge
+	b.NominalBridgeResistance = 1
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1186,11 +1184,9 @@ type BridgePolynomial struct {
 	ElectricalUnits ElectricalUnits `json:"electrical_units" msgpack:"electrical_units"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BridgePolynomial) ApplyDefaults() {
-	if b.ElectricalUnits == "" {
-		b.ElectricalUnits = ElectricalUnitsMVoltsPerVolt
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BridgePolynomial) SetDefaults() {
+	b.ElectricalUnits = ElectricalUnitsMVoltsPerVolt
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1207,11 +1203,9 @@ type Resistance struct {
 	ResistanceConfig ResistanceConfig `json:"resistance_config" msgpack:"resistance_config"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *Resistance) ApplyDefaults() {
-	if r.ResistanceConfig == "" {
-		r.ResistanceConfig = ResistanceConfigWire2
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (r *Resistance) SetDefaults() {
+	r.ResistanceConfig = ResistanceConfigWire2
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1232,11 +1226,9 @@ type Table struct {
 	PhysicalVals []float64 `json:"physical_vals" msgpack:"physical_vals"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *Table) ApplyDefaults() {
-	if t.ElectricalUnits == "" {
-		t.ElectricalUnits = ElectricalUnitsMVoltsPerVolt
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (t *Table) SetDefaults() {
+	t.ElectricalUnits = ElectricalUnitsMVoltsPerVolt
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1262,11 +1254,23 @@ type TwoPointLin struct {
 	SecondPhysicalVal float64 `json:"second_physical_val" msgpack:"second_physical_val"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TwoPointLin) ApplyDefaults() {
-	if t.ElectricalUnits == "" {
-		t.ElectricalUnits = ElectricalUnitsMVoltsPerVolt
-	}
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (t *TwoPointLin) SetDefaults() {
+	t.SetUngroupedDefaults()
+	t.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (t *TwoPointLin) SetUngroupedDefaults() {
+	t.ElectricalUnits = ElectricalUnitsMVoltsPerVolt
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (t *TwoPointLin) DefaultGroups() {
 	if t.FirstElectricalVal == 0 && t.SecondElectricalVal == 0 {
 		t.SecondElectricalVal = 1
 	}
@@ -1289,12 +1293,9 @@ type CustomScale struct {
 	CustomScale Scale `json:"custom_scale" msgpack:"custom_scale"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CustomScale) ApplyDefaults() {
-	if c.CustomScale.Variant == nil {
-		c.CustomScale.Variant = NoneScale{}
-	}
-	c.CustomScale.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CustomScale) SetDefaults() {
+	c.CustomScale.Variant = NoneScale{}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1411,11 +1412,26 @@ type AIVoltageChannel struct {
 
 func (AIVoltageChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIVoltageChannel) ApplyDefaults() {
-	a.MinMaxVal.ApplyDefaults()
-	a.Terminal.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIVoltageChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIVoltageChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Terminal.SetDefaults()
+	a.CustomScale.SetDefaults()
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIVoltageChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1443,18 +1459,29 @@ type AIAccelChannel struct {
 
 func (AIAccelChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIAccelChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = AccelUnitsG
-	}
-	if a.SensitivityUnits == "" {
-		a.SensitivityUnits = AccelSensitivityUnitsMVoltsPerG
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Terminal.ApplyDefaults()
-	a.CurrentExcitation.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIAccelChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIAccelChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Terminal.SetDefaults()
+	a.CurrentExcitation.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = AccelUnitsG
+	a.SensitivityUnits = AccelSensitivityUnitsMVoltsPerG
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIAccelChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1482,15 +1509,28 @@ type AIBridgeChannel struct {
 
 func (AIBridgeChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIBridgeChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = ElectricalUnitsMVoltsPerVolt
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Bridge.ApplyDefaults()
-	a.VoltageExcitation.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIBridgeChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIBridgeChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = ElectricalUnitsMVoltsPerVolt
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIBridgeChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1518,17 +1558,28 @@ type AICurrentChannel struct {
 
 func (AICurrentChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AICurrentChannel) ApplyDefaults() {
-	if a.ShuntResistorLoc == "" {
-		a.ShuntResistorLoc = ShuntResistorLocationDefault
-	}
-	if a.ExtShuntResistorVal == 0 {
-		a.ExtShuntResistorVal = 1
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Terminal.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AICurrentChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AICurrentChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Terminal.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.ShuntResistorLoc = ShuntResistorLocationDefault
+	a.ExtShuntResistorVal = 1
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AICurrentChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1557,19 +1608,30 @@ type AIForceBridgeTableChannel struct {
 
 func (AIForceBridgeTableChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIForceBridgeTableChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = ForceUnitsNewtons
-	}
-	if a.PhysicalUnits == "" {
-		a.PhysicalUnits = ForceUnitsNewtons
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Bridge.ApplyDefaults()
-	a.VoltageExcitation.ApplyDefaults()
-	a.Table.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIForceBridgeTableChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIForceBridgeTableChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.Table.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = ForceUnitsNewtons
+	a.PhysicalUnits = ForceUnitsNewtons
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIForceBridgeTableChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1602,19 +1664,31 @@ type AIForceBridgeTwoPointLinChannel struct {
 
 func (AIForceBridgeTwoPointLinChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIForceBridgeTwoPointLinChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = ForceUnitsNewtons
-	}
-	if a.PhysicalUnits == "" {
-		a.PhysicalUnits = ForceUnitsNewtons
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Bridge.ApplyDefaults()
-	a.VoltageExcitation.ApplyDefaults()
-	a.TwoPointLin.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIForceBridgeTwoPointLinChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIForceBridgeTwoPointLinChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.TwoPointLin.SetUngroupedDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = ForceUnitsNewtons
+	a.PhysicalUnits = ForceUnitsNewtons
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIForceBridgeTwoPointLinChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
+	a.TwoPointLin.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1646,18 +1720,29 @@ type AIForceIEPEChannel struct {
 
 func (AIForceIEPEChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIForceIEPEChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = ForceUnitsNewtons
-	}
-	if a.SensitivityUnits == "" {
-		a.SensitivityUnits = ForceSensitivityUnitsMVoltsPerNewton
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Terminal.ApplyDefaults()
-	a.CurrentExcitation.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIForceIEPEChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIForceIEPEChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Terminal.SetDefaults()
+	a.CurrentExcitation.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = ForceUnitsNewtons
+	a.SensitivityUnits = ForceSensitivityUnitsMVoltsPerNewton
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIForceIEPEChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1686,11 +1771,11 @@ type AIMicrophoneChannel struct {
 
 func (AIMicrophoneChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIMicrophoneChannel) ApplyDefaults() {
-	a.Terminal.ApplyDefaults()
-	a.CurrentExcitation.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AIMicrophoneChannel) SetDefaults() {
+	a.Terminal.SetDefaults()
+	a.CurrentExcitation.SetDefaults()
+	a.CustomScale.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1719,19 +1804,30 @@ type AIPressureBridgeTableChannel struct {
 
 func (AIPressureBridgeTableChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIPressureBridgeTableChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = PressureUnitsPoundsPerSquareInch
-	}
-	if a.PhysicalUnits == "" {
-		a.PhysicalUnits = PressureUnitsPoundsPerSquareInch
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Bridge.ApplyDefaults()
-	a.VoltageExcitation.ApplyDefaults()
-	a.Table.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIPressureBridgeTableChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIPressureBridgeTableChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.Table.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = PressureUnitsPoundsPerSquareInch
+	a.PhysicalUnits = PressureUnitsPoundsPerSquareInch
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIPressureBridgeTableChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1764,19 +1860,31 @@ type AIPressureBridgeTwoPointLinChannel struct {
 
 func (AIPressureBridgeTwoPointLinChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIPressureBridgeTwoPointLinChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = PressureUnitsPoundsPerSquareInch
-	}
-	if a.PhysicalUnits == "" {
-		a.PhysicalUnits = PressureUnitsPoundsPerSquareInch
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Bridge.ApplyDefaults()
-	a.VoltageExcitation.ApplyDefaults()
-	a.TwoPointLin.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIPressureBridgeTwoPointLinChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIPressureBridgeTwoPointLinChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.TwoPointLin.SetUngroupedDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = PressureUnitsPoundsPerSquareInch
+	a.PhysicalUnits = PressureUnitsPoundsPerSquareInch
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIPressureBridgeTwoPointLinChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
+	a.TwoPointLin.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1803,12 +1911,27 @@ type AIResistanceChannel struct {
 
 func (AIResistanceChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIResistanceChannel) ApplyDefaults() {
-	a.MinMaxVal.ApplyDefaults()
-	a.Resistance.ApplyDefaults()
-	a.CurrentExcitation.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIResistanceChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIResistanceChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Resistance.SetDefaults()
+	a.CurrentExcitation.SetDefaults()
+	a.CustomScale.SetDefaults()
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIResistanceChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1837,17 +1960,28 @@ type AIRTDChannel struct {
 
 func (AIRTDChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIRTDChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = TemperatureUnitsDegC
-	}
-	if a.RtdType == "" {
-		a.RtdType = RTDTypePt3750
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Resistance.ApplyDefaults()
-	a.CurrentExcitation.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIRTDChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIRTDChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Resistance.SetDefaults()
+	a.CurrentExcitation.SetDefaults()
+	a.Units = TemperatureUnitsDegC
+	a.RtdType = RTDTypePt3750
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIRTDChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1883,14 +2017,27 @@ type AIStrainGaugeChannel struct {
 
 func (AIStrainGaugeChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIStrainGaugeChannel) ApplyDefaults() {
-	if a.StrainConfig == "" {
-		a.StrainConfig = StrainConfigFullBridgeI
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.VoltageExcitation.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIStrainGaugeChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIStrainGaugeChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.StrainConfig = StrainConfigFullBridgeI
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIStrainGaugeChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1921,11 +2068,9 @@ type AITempBuiltinChannel struct {
 
 func (AITempBuiltinChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AITempBuiltinChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = TemperatureUnitsDegC
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AITempBuiltinChannel) SetDefaults() {
+	a.Units = TemperatureUnitsDegC
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1950,18 +2095,27 @@ type AIThermocoupleChannel struct {
 
 func (AIThermocoupleChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIThermocoupleChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = TemperatureUnitsDegC
-	}
-	if a.ThermocoupleType == "" {
-		a.ThermocoupleType = ThermocoupleTypeJ
-	}
-	if a.Cjc.Variant == nil {
-		a.Cjc.Variant = BuiltInCJC{}
-	}
-	a.MinMaxVal.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIThermocoupleChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIThermocoupleChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Units = TemperatureUnitsDegC
+	a.ThermocoupleType = ThermocoupleTypeJ
+	a.Cjc.Variant = BuiltInCJC{}
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIThermocoupleChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1970,6 +2124,7 @@ func (a AIThermocoupleChannel) Validate() error {
 	v := validate.New("AIThermocoupleChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("thermocouple_type", !a.ThermocoupleType.IsValid(), "invalid thermocouple_type: %v", a.ThermocoupleType)
+	v.Exec(func() error { return validate.PathedError(a.Cjc.Validate(), "cjc") })
 	return v.Error()
 }
 
@@ -1989,19 +2144,30 @@ type AITorqueBridgeTableChannel struct {
 
 func (AITorqueBridgeTableChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AITorqueBridgeTableChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = TorqueUnitsNewtonMeters
-	}
-	if a.PhysicalUnits == "" {
-		a.PhysicalUnits = TorqueUnitsNewtonMeters
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Bridge.ApplyDefaults()
-	a.VoltageExcitation.ApplyDefaults()
-	a.Table.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AITorqueBridgeTableChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AITorqueBridgeTableChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.Table.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = TorqueUnitsNewtonMeters
+	a.PhysicalUnits = TorqueUnitsNewtonMeters
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AITorqueBridgeTableChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2034,19 +2200,31 @@ type AITorqueBridgeTwoPointLinChannel struct {
 
 func (AITorqueBridgeTwoPointLinChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AITorqueBridgeTwoPointLinChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = TorqueUnitsNewtonMeters
-	}
-	if a.PhysicalUnits == "" {
-		a.PhysicalUnits = TorqueUnitsNewtonMeters
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Bridge.ApplyDefaults()
-	a.VoltageExcitation.ApplyDefaults()
-	a.TwoPointLin.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AITorqueBridgeTwoPointLinChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AITorqueBridgeTwoPointLinChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.TwoPointLin.SetUngroupedDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = TorqueUnitsNewtonMeters
+	a.PhysicalUnits = TorqueUnitsNewtonMeters
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AITorqueBridgeTwoPointLinChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
+	a.TwoPointLin.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2078,18 +2256,29 @@ type AIVelocityIEPEChannel struct {
 
 func (AIVelocityIEPEChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIVelocityIEPEChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = VelocityUnitsMetersPerSecond
-	}
-	if a.SensitivityUnits == "" {
-		a.SensitivityUnits = VelocitySensitivityUnitsMVoltsPerMmPerSecond
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Terminal.ApplyDefaults()
-	a.CurrentExcitation.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIVelocityIEPEChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIVelocityIEPEChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Terminal.SetDefaults()
+	a.CurrentExcitation.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = VelocityUnitsMetersPerSecond
+	a.SensitivityUnits = VelocitySensitivityUnitsMVoltsPerMmPerSecond
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIVelocityIEPEChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2124,18 +2313,29 @@ type AIAccel4WireDCVoltageChannel struct {
 
 func (AIAccel4WireDCVoltageChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIAccel4WireDCVoltageChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = AccelUnitsG
-	}
-	if a.SensitivityUnits == "" {
-		a.SensitivityUnits = AccelSensitivityUnitsMVoltsPerG
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Terminal.ApplyDefaults()
-	a.VoltageExcitation.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIAccel4WireDCVoltageChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIAccel4WireDCVoltageChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Terminal.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = AccelUnitsG
+	a.SensitivityUnits = AccelSensitivityUnitsMVoltsPerG
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIAccel4WireDCVoltageChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2165,17 +2365,28 @@ type AIAccelChargeChannel struct {
 
 func (AIAccelChargeChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIAccelChargeChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = AccelUnitsG
-	}
-	if a.SensitivityUnits == "" {
-		a.SensitivityUnits = AccelChargeSensitivityUnitsPicoCoulombsPerG
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Terminal.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIAccelChargeChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIAccelChargeChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Terminal.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = AccelUnitsG
+	a.SensitivityUnits = AccelChargeSensitivityUnitsPicoCoulombsPerG
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIAccelChargeChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2201,14 +2412,27 @@ type AIChargeChannel struct {
 
 func (AIChargeChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIChargeChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = ChargeUnitsCoulombs
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Terminal.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIChargeChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIChargeChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Terminal.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = ChargeUnitsCoulombs
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIChargeChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2235,17 +2459,28 @@ type AICurrentRMSChannel struct {
 
 func (AICurrentRMSChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AICurrentRMSChannel) ApplyDefaults() {
-	if a.ShuntResistorLoc == "" {
-		a.ShuntResistorLoc = ShuntResistorLocationDefault
-	}
-	if a.ExtShuntResistorVal == 0 {
-		a.ExtShuntResistorVal = 1
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Terminal.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AICurrentRMSChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AICurrentRMSChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Terminal.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.ShuntResistorLoc = ShuntResistorLocationDefault
+	a.ExtShuntResistorVal = 1
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AICurrentRMSChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2274,19 +2509,30 @@ type AIForceBridgePolynomialChannel struct {
 
 func (AIForceBridgePolynomialChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIForceBridgePolynomialChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = ForceUnitsNewtons
-	}
-	if a.PhysicalUnits == "" {
-		a.PhysicalUnits = ForceUnitsNewtons
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Bridge.ApplyDefaults()
-	a.VoltageExcitation.ApplyDefaults()
-	a.BridgePolynomial.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIForceBridgePolynomialChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIForceBridgePolynomialChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.BridgePolynomial.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = ForceUnitsNewtons
+	a.PhysicalUnits = ForceUnitsNewtons
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIForceBridgePolynomialChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2315,10 +2561,25 @@ type AIFreqVoltageChannel struct {
 
 func (AIFreqVoltageChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIFreqVoltageChannel) ApplyDefaults() {
-	a.MinMaxVal.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIFreqVoltageChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIFreqVoltageChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.CustomScale.SetDefaults()
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIFreqVoltageChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2346,19 +2607,30 @@ type AIPressureBridgePolynomialChannel struct {
 
 func (AIPressureBridgePolynomialChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIPressureBridgePolynomialChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = PressureUnitsPoundsPerSquareInch
-	}
-	if a.PhysicalUnits == "" {
-		a.PhysicalUnits = PressureUnitsPoundsPerSquareInch
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Bridge.ApplyDefaults()
-	a.VoltageExcitation.ApplyDefaults()
-	a.BridgePolynomial.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIPressureBridgePolynomialChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIPressureBridgePolynomialChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.BridgePolynomial.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = PressureUnitsPoundsPerSquareInch
+	a.PhysicalUnits = PressureUnitsPoundsPerSquareInch
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIPressureBridgePolynomialChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2392,14 +2664,27 @@ type AIThermistorIexChannel struct {
 
 func (AIThermistorIexChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIThermistorIexChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = TemperatureUnitsDegC
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Resistance.ApplyDefaults()
-	a.CurrentExcitation.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIThermistorIexChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIThermistorIexChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Resistance.SetDefaults()
+	a.CurrentExcitation.SetDefaults()
+	a.Units = TemperatureUnitsDegC
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIThermistorIexChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2432,14 +2717,27 @@ type AIThermistorVexChannel struct {
 
 func (AIThermistorVexChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIThermistorVexChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = TemperatureUnitsDegC
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Resistance.ApplyDefaults()
-	a.VoltageExcitation.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIThermistorVexChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIThermistorVexChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Resistance.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.Units = TemperatureUnitsDegC
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIThermistorVexChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2469,19 +2767,30 @@ type AITorqueBridgePolynomialChannel struct {
 
 func (AITorqueBridgePolynomialChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AITorqueBridgePolynomialChannel) ApplyDefaults() {
-	if a.Units == "" {
-		a.Units = TorqueUnitsNewtonMeters
-	}
-	if a.PhysicalUnits == "" {
-		a.PhysicalUnits = TorqueUnitsNewtonMeters
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Bridge.ApplyDefaults()
-	a.VoltageExcitation.ApplyDefaults()
-	a.BridgePolynomial.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AITorqueBridgePolynomialChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AITorqueBridgePolynomialChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Bridge.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.BridgePolynomial.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.Units = TorqueUnitsNewtonMeters
+	a.PhysicalUnits = TorqueUnitsNewtonMeters
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AITorqueBridgePolynomialChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2507,11 +2816,26 @@ type AIVoltageRMSChannel struct {
 
 func (AIVoltageRMSChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIVoltageRMSChannel) ApplyDefaults() {
-	a.MinMaxVal.ApplyDefaults()
-	a.Terminal.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIVoltageRMSChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIVoltageRMSChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Terminal.SetDefaults()
+	a.CustomScale.SetDefaults()
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIVoltageRMSChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2539,15 +2863,28 @@ type AIVoltageWithExcitChannel struct {
 
 func (AIVoltageWithExcitChannel) isAIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIVoltageWithExcitChannel) ApplyDefaults() {
-	if a.BridgeConfig == "" {
-		a.BridgeConfig = BridgeConfigFullBridge
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Terminal.ApplyDefaults()
-	a.VoltageExcitation.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AIVoltageWithExcitChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AIVoltageWithExcitChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.Terminal.SetDefaults()
+	a.VoltageExcitation.SetDefaults()
+	a.CustomScale.SetDefaults()
+	a.BridgeConfig = BridgeConfigFullBridge
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AIVoltageWithExcitChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -2752,69 +3089,84 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIVoltageChannel
 		}
+		v.AIVoltageChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIVoltageChannel.DefaultGroups()
 		u.Variant = v.AIVoltageChannel
 	case AIAccelChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIAccelChannel
 		}
+		v.AIAccelChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIAccelChannel.DefaultGroups()
 		u.Variant = v.AIAccelChannel
 	case AIBridgeChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIBridgeChannel
 		}
+		v.AIBridgeChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIBridgeChannel.DefaultGroups()
 		u.Variant = v.AIBridgeChannel
 	case AICurrentChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AICurrentChannel
 		}
+		v.AICurrentChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AICurrentChannel.DefaultGroups()
 		u.Variant = v.AICurrentChannel
 	case AIForceBridgeTableChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIForceBridgeTableChannel
 		}
+		v.AIForceBridgeTableChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIForceBridgeTableChannel.DefaultGroups()
 		u.Variant = v.AIForceBridgeTableChannel
 	case AIForceBridgeTwoPointLinChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIForceBridgeTwoPointLinChannel
 		}
+		v.AIForceBridgeTwoPointLinChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIForceBridgeTwoPointLinChannel.DefaultGroups()
 		u.Variant = v.AIForceBridgeTwoPointLinChannel
 	case AIForceIEPEChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIForceIEPEChannel
 		}
+		v.AIForceIEPEChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIForceIEPEChannel.DefaultGroups()
 		u.Variant = v.AIForceIEPEChannel
 	case AIMicrophoneChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIMicrophoneChannel
 		}
+		v.AIMicrophoneChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2824,51 +3176,62 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIPressureBridgeTableChannel
 		}
+		v.AIPressureBridgeTableChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIPressureBridgeTableChannel.DefaultGroups()
 		u.Variant = v.AIPressureBridgeTableChannel
 	case AIPressureBridgeTwoPointLinChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIPressureBridgeTwoPointLinChannel
 		}
+		v.AIPressureBridgeTwoPointLinChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIPressureBridgeTwoPointLinChannel.DefaultGroups()
 		u.Variant = v.AIPressureBridgeTwoPointLinChannel
 	case AIResistanceChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIResistanceChannel
 		}
+		v.AIResistanceChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIResistanceChannel.DefaultGroups()
 		u.Variant = v.AIResistanceChannel
 	case AIRTDChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIRTDChannel
 		}
+		v.AIRTDChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIRTDChannel.DefaultGroups()
 		u.Variant = v.AIRTDChannel
 	case AIStrainGaugeChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIStrainGaugeChannel
 		}
+		v.AIStrainGaugeChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIStrainGaugeChannel.DefaultGroups()
 		u.Variant = v.AIStrainGaugeChannel
 	case AITempBuiltinChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AITempBuiltinChannel
 		}
+		v.AITempBuiltinChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -2878,144 +3241,176 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AIChannelType `json:"type"`
 			AIThermocoupleChannel
 		}
+		v.AIThermocoupleChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIThermocoupleChannel.DefaultGroups()
 		u.Variant = v.AIThermocoupleChannel
 	case AITorqueBridgeTableChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AITorqueBridgeTableChannel
 		}
+		v.AITorqueBridgeTableChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AITorqueBridgeTableChannel.DefaultGroups()
 		u.Variant = v.AITorqueBridgeTableChannel
 	case AITorqueBridgeTwoPointLinChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AITorqueBridgeTwoPointLinChannel
 		}
+		v.AITorqueBridgeTwoPointLinChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AITorqueBridgeTwoPointLinChannel.DefaultGroups()
 		u.Variant = v.AITorqueBridgeTwoPointLinChannel
 	case AIVelocityIEPEChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIVelocityIEPEChannel
 		}
+		v.AIVelocityIEPEChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIVelocityIEPEChannel.DefaultGroups()
 		u.Variant = v.AIVelocityIEPEChannel
 	case AIAccel4WireDCVoltageChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIAccel4WireDCVoltageChannel
 		}
+		v.AIAccel4WireDCVoltageChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIAccel4WireDCVoltageChannel.DefaultGroups()
 		u.Variant = v.AIAccel4WireDCVoltageChannel
 	case AIAccelChargeChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIAccelChargeChannel
 		}
+		v.AIAccelChargeChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIAccelChargeChannel.DefaultGroups()
 		u.Variant = v.AIAccelChargeChannel
 	case AIChargeChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIChargeChannel
 		}
+		v.AIChargeChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIChargeChannel.DefaultGroups()
 		u.Variant = v.AIChargeChannel
 	case AICurrentRMSChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AICurrentRMSChannel
 		}
+		v.AICurrentRMSChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AICurrentRMSChannel.DefaultGroups()
 		u.Variant = v.AICurrentRMSChannel
 	case AIForceBridgePolynomialChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIForceBridgePolynomialChannel
 		}
+		v.AIForceBridgePolynomialChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIForceBridgePolynomialChannel.DefaultGroups()
 		u.Variant = v.AIForceBridgePolynomialChannel
 	case AIFreqVoltageChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIFreqVoltageChannel
 		}
+		v.AIFreqVoltageChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIFreqVoltageChannel.DefaultGroups()
 		u.Variant = v.AIFreqVoltageChannel
 	case AIPressureBridgePolynomialChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIPressureBridgePolynomialChannel
 		}
+		v.AIPressureBridgePolynomialChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIPressureBridgePolynomialChannel.DefaultGroups()
 		u.Variant = v.AIPressureBridgePolynomialChannel
 	case AIThermistorIexChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIThermistorIexChannel
 		}
+		v.AIThermistorIexChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIThermistorIexChannel.DefaultGroups()
 		u.Variant = v.AIThermistorIexChannel
 	case AIThermistorVexChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIThermistorVexChannel
 		}
+		v.AIThermistorVexChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIThermistorVexChannel.DefaultGroups()
 		u.Variant = v.AIThermistorVexChannel
 	case AITorqueBridgePolynomialChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AITorqueBridgePolynomialChannel
 		}
+		v.AITorqueBridgePolynomialChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AITorqueBridgePolynomialChannel.DefaultGroups()
 		u.Variant = v.AITorqueBridgePolynomialChannel
 	case AIVoltageRMSChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIVoltageRMSChannel
 		}
+		v.AIVoltageRMSChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIVoltageRMSChannel.DefaultGroups()
 		u.Variant = v.AIVoltageRMSChannel
 	case AIVoltageWithExcitChannelType:
 		var v struct {
 			Type AIChannelType `json:"type"`
 			AIVoltageWithExcitChannel
 		}
+		v.AIVoltageWithExcitChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AIVoltageWithExcitChannel.DefaultGroups()
 		u.Variant = v.AIVoltageWithExcitChannel
 	default:
 		return errors.Wrapf(
@@ -3094,169 +3489,74 @@ func (u AIChannel) Type() AIChannelType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *AIChannel) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case AIVoltageChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIAccelChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIBridgeChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AICurrentChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIForceBridgeTableChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIForceBridgeTwoPointLinChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIForceIEPEChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIMicrophoneChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIPressureBridgeTableChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIPressureBridgeTwoPointLinChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIResistanceChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIRTDChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIStrainGaugeChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AITempBuiltinChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIThermocoupleChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AITorqueBridgeTableChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AITorqueBridgeTwoPointLinChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIVelocityIEPEChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIAccel4WireDCVoltageChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIAccelChargeChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIChargeChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AICurrentRMSChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIForceBridgePolynomialChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIFreqVoltageChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIPressureBridgePolynomialChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIThermistorIexChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIThermistorVexChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AITorqueBridgePolynomialChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIVoltageRMSChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AIVoltageWithExcitChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u AIChannel) Validate() error {
+	v := validate.New("AIChannel")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case AIVoltageChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIAccelChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIBridgeChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AICurrentChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIForceBridgeTableChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIForceBridgeTwoPointLinChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIForceIEPEChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIMicrophoneChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIPressureBridgeTableChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIPressureBridgeTwoPointLinChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIResistanceChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIRTDChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIStrainGaugeChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AITempBuiltinChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIThermocoupleChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AITorqueBridgeTableChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AITorqueBridgeTwoPointLinChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIVelocityIEPEChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIAccel4WireDCVoltageChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIAccelChargeChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIChargeChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AICurrentRMSChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIForceBridgePolynomialChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIFreqVoltageChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIPressureBridgePolynomialChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIThermistorIexChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIThermistorVexChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AITorqueBridgePolynomialChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIVoltageRMSChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AIVoltageWithExcitChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // CIEdge selects the signal edge a counter responds to.
@@ -3524,11 +3824,9 @@ type ZIndex struct {
 	TerminalZ string `json:"terminal_z" msgpack:"terminal_z"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (z *ZIndex) ApplyDefaults() {
-	if z.ZIndexPhase == "" {
-		z.ZIndexPhase = ZIndexPhaseAHighBHigh
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (z *ZIndex) SetDefaults() {
+	z.ZIndexPhase = ZIndexPhaseAHighBHigh
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3609,29 +3907,34 @@ type CIFrequencyChannel struct {
 
 func (CIFrequencyChannel) isCIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CIFrequencyChannel) ApplyDefaults() {
-	if c.Units == "" {
-		c.Units = CIFreqUnitsHz
-	}
-	if c.Edge == "" {
-		c.Edge = CIEdgeRising
-	}
-	if c.MeasMethod == "" {
-		c.MeasMethod = CIMeasMethodDynamicAvg
-	}
-	if c.MeasTime == 0 {
-		c.MeasTime = 6e-06
-	}
-	if c.Divisor == 0 {
-		c.Divisor = 4
-	}
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (c *CIFrequencyChannel) SetDefaults() {
+	c.SetUngroupedDefaults()
+	c.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (c *CIFrequencyChannel) SetUngroupedDefaults() {
+	c.CustomScale.SetDefaults()
+	c.MinMaxVal.SetUngroupedDefaults()
+	c.Units = CIFreqUnitsHz
+	c.Edge = CIEdgeRising
+	c.MeasMethod = CIMeasMethodDynamicAvg
+	c.MeasTime = 6e-06
+	c.Divisor = 4
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (c *CIFrequencyChannel) DefaultGroups() {
 	if c.MinVal == 0 && c.MaxVal == 0 {
 		c.MinVal = 2
 		c.MaxVal = 100
 	}
-	c.CustomScale.ApplyDefaults()
-	c.MinMaxVal.ApplyDefaults()
+	c.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3660,14 +3963,10 @@ type CIEdgeCountChannel struct {
 
 func (CIEdgeCountChannel) isCIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CIEdgeCountChannel) ApplyDefaults() {
-	if c.ActiveEdge == "" {
-		c.ActiveEdge = CIEdgeRising
-	}
-	if c.CountDirection == "" {
-		c.CountDirection = CICountDirectionCountUp
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CIEdgeCountChannel) SetDefaults() {
+	c.ActiveEdge = CIEdgeRising
+	c.CountDirection = CICountDirectionCountUp
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3700,29 +3999,34 @@ type CIPeriodChannel struct {
 
 func (CIPeriodChannel) isCIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CIPeriodChannel) ApplyDefaults() {
-	if c.Units == "" {
-		c.Units = CITimeUnitsSeconds
-	}
-	if c.StartingEdge == "" {
-		c.StartingEdge = CIEdgeRising
-	}
-	if c.MeasMethod == "" {
-		c.MeasMethod = CIMeasMethodDynamicAvg
-	}
-	if c.MeasTime == 0 {
-		c.MeasTime = 0.001
-	}
-	if c.Divisor == 0 {
-		c.Divisor = 4
-	}
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (c *CIPeriodChannel) SetDefaults() {
+	c.SetUngroupedDefaults()
+	c.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (c *CIPeriodChannel) SetUngroupedDefaults() {
+	c.CustomScale.SetDefaults()
+	c.MinMaxVal.SetUngroupedDefaults()
+	c.Units = CITimeUnitsSeconds
+	c.StartingEdge = CIEdgeRising
+	c.MeasMethod = CIMeasMethodDynamicAvg
+	c.MeasTime = 0.001
+	c.Divisor = 4
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (c *CIPeriodChannel) DefaultGroups() {
 	if c.MinVal == 0 && c.MaxVal == 0 {
 		c.MinVal = 1e-06
 		c.MaxVal = 0.1
 	}
-	c.CustomScale.ApplyDefaults()
-	c.MinMaxVal.ApplyDefaults()
+	c.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3751,20 +4055,31 @@ type CIPulseWidthChannel struct {
 
 func (CIPulseWidthChannel) isCIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CIPulseWidthChannel) ApplyDefaults() {
-	if c.Units == "" {
-		c.Units = CITimeUnitsSeconds
-	}
-	if c.StartingEdge == "" {
-		c.StartingEdge = CIEdgeRising
-	}
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (c *CIPulseWidthChannel) SetDefaults() {
+	c.SetUngroupedDefaults()
+	c.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (c *CIPulseWidthChannel) SetUngroupedDefaults() {
+	c.CustomScale.SetDefaults()
+	c.MinMaxVal.SetUngroupedDefaults()
+	c.Units = CITimeUnitsSeconds
+	c.StartingEdge = CIEdgeRising
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (c *CIPulseWidthChannel) DefaultGroups() {
 	if c.MinVal == 0 && c.MaxVal == 0 {
 		c.MinVal = 1e-06
 		c.MaxVal = 0.1
 	}
-	c.CustomScale.ApplyDefaults()
-	c.MinMaxVal.ApplyDefaults()
+	c.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3790,17 +4105,30 @@ type CISemiPeriodChannel struct {
 
 func (CISemiPeriodChannel) isCIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CISemiPeriodChannel) ApplyDefaults() {
-	if c.Units == "" {
-		c.Units = CITimeUnitsSeconds
-	}
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (c *CISemiPeriodChannel) SetDefaults() {
+	c.SetUngroupedDefaults()
+	c.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (c *CISemiPeriodChannel) SetUngroupedDefaults() {
+	c.CustomScale.SetDefaults()
+	c.MinMaxVal.SetUngroupedDefaults()
+	c.Units = CITimeUnitsSeconds
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (c *CISemiPeriodChannel) DefaultGroups() {
 	if c.MinVal == 0 && c.MaxVal == 0 {
 		c.MinVal = 1e-06
 		c.MaxVal = 0.1
 	}
-	c.CustomScale.ApplyDefaults()
-	c.MinMaxVal.ApplyDefaults()
+	c.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3831,23 +4159,32 @@ type CITwoEdgeSepChannel struct {
 
 func (CITwoEdgeSepChannel) isCIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CITwoEdgeSepChannel) ApplyDefaults() {
-	if c.Units == "" {
-		c.Units = CITimeUnitsSeconds
-	}
-	if c.FirstEdge == "" {
-		c.FirstEdge = CIEdgeRising
-	}
-	if c.SecondEdge == "" {
-		c.SecondEdge = CIEdgeFalling
-	}
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (c *CITwoEdgeSepChannel) SetDefaults() {
+	c.SetUngroupedDefaults()
+	c.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (c *CITwoEdgeSepChannel) SetUngroupedDefaults() {
+	c.CustomScale.SetDefaults()
+	c.MinMaxVal.SetUngroupedDefaults()
+	c.Units = CITimeUnitsSeconds
+	c.FirstEdge = CIEdgeRising
+	c.SecondEdge = CIEdgeFalling
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (c *CITwoEdgeSepChannel) DefaultGroups() {
 	if c.MinVal == 0 && c.MaxVal == 0 {
 		c.MinVal = 1e-06
 		c.MaxVal = 1
 	}
-	c.CustomScale.ApplyDefaults()
-	c.MinMaxVal.ApplyDefaults()
+	c.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3880,22 +4217,31 @@ type CIVelocityLinearChannel struct {
 
 func (CIVelocityLinearChannel) isCIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CIVelocityLinearChannel) ApplyDefaults() {
-	if c.Units == "" {
-		c.Units = CILinearVelocityUnitsMPerS
-	}
-	if c.DecodingType == "" {
-		c.DecodingType = CIDecodingTypeX4
-	}
-	if c.DistPerPulse == 0 {
-		c.DistPerPulse = 0.001
-	}
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (c *CIVelocityLinearChannel) SetDefaults() {
+	c.SetUngroupedDefaults()
+	c.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (c *CIVelocityLinearChannel) SetUngroupedDefaults() {
+	c.CustomScale.SetDefaults()
+	c.MinMaxVal.SetUngroupedDefaults()
+	c.Units = CILinearVelocityUnitsMPerS
+	c.DecodingType = CIDecodingTypeX4
+	c.DistPerPulse = 0.001
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (c *CIVelocityLinearChannel) DefaultGroups() {
 	if c.MinVal == 0 && c.MaxVal == 0 {
 		c.MaxVal = 1
 	}
-	c.CustomScale.ApplyDefaults()
-	c.MinMaxVal.ApplyDefaults()
+	c.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3927,22 +4273,31 @@ type CIVelocityAngularChannel struct {
 
 func (CIVelocityAngularChannel) isCIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CIVelocityAngularChannel) ApplyDefaults() {
-	if c.Units == "" {
-		c.Units = CIAngularVelocityUnitsRpm
-	}
-	if c.DecodingType == "" {
-		c.DecodingType = CIDecodingTypeX4
-	}
-	if c.PulsesPerRev == 0 {
-		c.PulsesPerRev = 24
-	}
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (c *CIVelocityAngularChannel) SetDefaults() {
+	c.SetUngroupedDefaults()
+	c.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (c *CIVelocityAngularChannel) SetUngroupedDefaults() {
+	c.CustomScale.SetDefaults()
+	c.MinMaxVal.SetUngroupedDefaults()
+	c.Units = CIAngularVelocityUnitsRpm
+	c.DecodingType = CIDecodingTypeX4
+	c.PulsesPerRev = 24
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (c *CIVelocityAngularChannel) DefaultGroups() {
 	if c.MinVal == 0 && c.MaxVal == 0 {
 		c.MaxVal = 1
 	}
-	c.CustomScale.ApplyDefaults()
-	c.MinMaxVal.ApplyDefaults()
+	c.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -3976,19 +4331,13 @@ type CIPositionLinearChannel struct {
 
 func (CIPositionLinearChannel) isCIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CIPositionLinearChannel) ApplyDefaults() {
-	if c.Units == "" {
-		c.Units = CILinearPositionUnitsMeters
-	}
-	if c.DecodingType == "" {
-		c.DecodingType = CIDecodingTypeX4
-	}
-	if c.DistPerPulse == 0 {
-		c.DistPerPulse = 1e-06
-	}
-	c.CustomScale.ApplyDefaults()
-	c.ZIndex.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CIPositionLinearChannel) SetDefaults() {
+	c.CustomScale.SetDefaults()
+	c.ZIndex.SetDefaults()
+	c.Units = CILinearPositionUnitsMeters
+	c.DecodingType = CIDecodingTypeX4
+	c.DistPerPulse = 1e-06
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -4023,19 +4372,13 @@ type CIPositionAngularChannel struct {
 
 func (CIPositionAngularChannel) isCIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CIPositionAngularChannel) ApplyDefaults() {
-	if c.Units == "" {
-		c.Units = CIAngularPositionUnitsDegrees
-	}
-	if c.DecodingType == "" {
-		c.DecodingType = CIDecodingTypeX4
-	}
-	if c.PulsesPerRev == 0 {
-		c.PulsesPerRev = 24
-	}
-	c.CustomScale.ApplyDefaults()
-	c.ZIndex.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CIPositionAngularChannel) SetDefaults() {
+	c.CustomScale.SetDefaults()
+	c.ZIndex.SetDefaults()
+	c.Units = CIAngularPositionUnitsDegrees
+	c.DecodingType = CIDecodingTypeX4
+	c.PulsesPerRev = 24
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -4062,17 +4405,30 @@ type CIDutyCycleChannel struct {
 
 func (CIDutyCycleChannel) isCIChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CIDutyCycleChannel) ApplyDefaults() {
-	if c.ActiveEdge == "" {
-		c.ActiveEdge = CIEdgeRising
-	}
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (c *CIDutyCycleChannel) SetDefaults() {
+	c.SetUngroupedDefaults()
+	c.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (c *CIDutyCycleChannel) SetUngroupedDefaults() {
+	c.CustomScale.SetDefaults()
+	c.MinMaxVal.SetUngroupedDefaults()
+	c.ActiveEdge = CIEdgeRising
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (c *CIDutyCycleChannel) DefaultGroups() {
 	if c.MinVal == 0 && c.MaxVal == 0 {
 		c.MinVal = 2
 		c.MaxVal = 10000
 	}
-	c.CustomScale.ApplyDefaults()
-	c.MinMaxVal.ApplyDefaults()
+	c.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -4180,15 +4536,18 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CIChannelType `json:"type"`
 			CIFrequencyChannel
 		}
+		v.CIFrequencyChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.CIFrequencyChannel.DefaultGroups()
 		u.Variant = v.CIFrequencyChannel
 	case CIEdgeCountChannelType:
 		var v struct {
 			Type CIChannelType `json:"type"`
 			CIEdgeCountChannel
 		}
+		v.CIEdgeCountChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4198,60 +4557,73 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CIChannelType `json:"type"`
 			CIPeriodChannel
 		}
+		v.CIPeriodChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.CIPeriodChannel.DefaultGroups()
 		u.Variant = v.CIPeriodChannel
 	case CIPulseWidthChannelType:
 		var v struct {
 			Type CIChannelType `json:"type"`
 			CIPulseWidthChannel
 		}
+		v.CIPulseWidthChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.CIPulseWidthChannel.DefaultGroups()
 		u.Variant = v.CIPulseWidthChannel
 	case CISemiPeriodChannelType:
 		var v struct {
 			Type CIChannelType `json:"type"`
 			CISemiPeriodChannel
 		}
+		v.CISemiPeriodChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.CISemiPeriodChannel.DefaultGroups()
 		u.Variant = v.CISemiPeriodChannel
 	case CITwoEdgeSepChannelType:
 		var v struct {
 			Type CIChannelType `json:"type"`
 			CITwoEdgeSepChannel
 		}
+		v.CITwoEdgeSepChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.CITwoEdgeSepChannel.DefaultGroups()
 		u.Variant = v.CITwoEdgeSepChannel
 	case CIVelocityLinearChannelType:
 		var v struct {
 			Type CIChannelType `json:"type"`
 			CIVelocityLinearChannel
 		}
+		v.CIVelocityLinearChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.CIVelocityLinearChannel.DefaultGroups()
 		u.Variant = v.CIVelocityLinearChannel
 	case CIVelocityAngularChannelType:
 		var v struct {
 			Type CIChannelType `json:"type"`
 			CIVelocityAngularChannel
 		}
+		v.CIVelocityAngularChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.CIVelocityAngularChannel.DefaultGroups()
 		u.Variant = v.CIVelocityAngularChannel
 	case CIPositionLinearChannelType:
 		var v struct {
 			Type CIChannelType `json:"type"`
 			CIPositionLinearChannel
 		}
+		v.CIPositionLinearChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4261,6 +4633,7 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CIChannelType `json:"type"`
 			CIPositionAngularChannel
 		}
+		v.CIPositionAngularChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4270,9 +4643,11 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type CIChannelType `json:"type"`
 			CIDutyCycleChannel
 		}
+		v.CIDutyCycleChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.CIDutyCycleChannel.DefaultGroups()
 		u.Variant = v.CIDutyCycleChannel
 	default:
 		return errors.Wrapf(
@@ -4313,74 +4688,36 @@ func (u CIChannel) Type() CIChannelType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *CIChannel) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case CIFrequencyChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CIEdgeCountChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CIPeriodChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CIPulseWidthChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CISemiPeriodChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CITwoEdgeSepChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CIVelocityLinearChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CIVelocityAngularChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CIPositionLinearChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CIPositionAngularChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case CIDutyCycleChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u CIChannel) Validate() error {
+	v := validate.New("CIChannel")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case CIFrequencyChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIEdgeCountChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIPeriodChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIPulseWidthChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CISemiPeriodChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CITwoEdgeSepChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIVelocityLinearChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIVelocityAngularChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIPositionLinearChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIPositionAngularChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case CIDutyCycleChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -4522,10 +4859,25 @@ type AOCurrentChannel struct {
 
 func (AOCurrentChannel) isAOChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AOCurrentChannel) ApplyDefaults() {
-	a.MinMaxVal.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AOCurrentChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AOCurrentChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.CustomScale.SetDefaults()
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AOCurrentChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -4551,11 +4903,9 @@ type AOFuncGenChannel struct {
 
 func (AOFuncGenChannel) isAOChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AOFuncGenChannel) ApplyDefaults() {
-	if a.WaveType == "" {
-		a.WaveType = WaveTypeSine
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AOFuncGenChannel) SetDefaults() {
+	a.WaveType = WaveTypeSine
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -4575,10 +4925,25 @@ type AOVoltageChannel struct {
 
 func (AOVoltageChannel) isAOChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AOVoltageChannel) ApplyDefaults() {
-	a.MinMaxVal.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
+// SetDefaults sets every field outside a default group to its schema default. Each
+// default group takes its defaults only when all of its members are zero.
+func (a *AOVoltageChannel) SetDefaults() {
+	a.SetUngroupedDefaults()
+	a.DefaultGroups()
+}
+
+// SetUngroupedDefaults sets every field that has a schema default outside a default
+// group to that default.
+func (a *AOVoltageChannel) SetUngroupedDefaults() {
+	a.MinMaxVal.SetUngroupedDefaults()
+	a.CustomScale.SetDefaults()
+}
+
+// DefaultGroups sets the defaults of each default group whose members are all zero, in
+// this type and in the types it embeds or holds. A group with a non-zero member keeps
+// its values.
+func (a *AOVoltageChannel) DefaultGroups() {
+	a.MinMaxVal.DefaultGroups()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -4645,15 +5010,18 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AOChannelType `json:"type"`
 			AOCurrentChannel
 		}
+		v.AOCurrentChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AOCurrentChannel.DefaultGroups()
 		u.Variant = v.AOCurrentChannel
 	case AOFuncGenChannelType:
 		var v struct {
 			Type AOChannelType `json:"type"`
 			AOFuncGenChannel
 		}
+		v.AOFuncGenChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -4663,9 +5031,11 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type AOChannelType `json:"type"`
 			AOVoltageChannel
 		}
+		v.AOVoltageChannel.SetUngroupedDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
+		v.AOVoltageChannel.DefaultGroups()
 		u.Variant = v.AOVoltageChannel
 	default:
 		return errors.Wrapf(
@@ -4690,34 +5060,20 @@ func (u AOChannel) Type() AOChannelType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *AOChannel) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case AOCurrentChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AOFuncGenChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AOVoltageChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u AOChannel) Validate() error {
+	v := validate.New("AOChannel")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case AOCurrentChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AOFuncGenChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AOVoltageChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -4794,18 +5150,35 @@ type AnalogReadConfig struct {
 	Channels []AIChannel `json:"channels" msgpack:"channels"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AnalogReadConfig) ApplyDefaults() {
-	a.ReadConfig.ApplyDefaults()
-	for i := range a.Channels {
-		a.Channels[i].ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AnalogReadConfig) SetDefaults() {
+	a.ReadConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (a *AnalogReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain AnalogReadConfig
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
 	}
+	return json.UnmarshalDecode(dec, (*plain)(a))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (a *AnalogReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain AnalogReadConfig
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
+	}
+	return dec.Decode((*plain)(a))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (a AnalogReadConfig) Validate() error {
 	v := validate.New("AnalogReadConfig")
+	v.Exec(a.ReadConfig.Validate)
 	for i := range a.Channels {
 		v.Exec(func() error { return validate.PathedError(a.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -4820,18 +5193,35 @@ type CounterReadConfig struct {
 	Channels []CIChannel `json:"channels" msgpack:"channels"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *CounterReadConfig) ApplyDefaults() {
-	c.ReadConfig.ApplyDefaults()
-	for i := range c.Channels {
-		c.Channels[i].ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (c *CounterReadConfig) SetDefaults() {
+	c.ReadConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (c *CounterReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain CounterReadConfig
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
 	}
+	return json.UnmarshalDecode(dec, (*plain)(c))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (c *CounterReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain CounterReadConfig
+	if reflect.ValueOf(*c).IsZero() {
+		c.SetDefaults()
+	}
+	return dec.Decode((*plain)(c))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (c CounterReadConfig) Validate() error {
 	v := validate.New("CounterReadConfig")
+	v.Exec(c.ReadConfig.Validate)
 	for i := range c.Channels {
 		v.Exec(func() error { return validate.PathedError(c.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -4845,11 +5235,17 @@ type WriteConfig struct {
 	StateRate telem.Rate `json:"state_rate" msgpack:"state_rate"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteConfig) ApplyDefaults() {
-	if w.StateRate == 0 {
-		w.StateRate = 10
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (w *WriteConfig) SetDefaults() {
+	w.StateRate = 10
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteConfig) Validate() error {
+	v := validate.New("WriteConfig")
+	v.GreaterThan("state_rate", w.StateRate, 0)
+	return v.Error()
 }
 
 // AnalogWriteConfig configures an NI analog write task.
@@ -4859,18 +5255,35 @@ type AnalogWriteConfig struct {
 	Channels []AOChannel `json:"channels" msgpack:"channels"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AnalogWriteConfig) ApplyDefaults() {
-	a.WriteConfig.ApplyDefaults()
-	for i := range a.Channels {
-		a.Channels[i].ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AnalogWriteConfig) SetDefaults() {
+	a.WriteConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (a *AnalogWriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain AnalogWriteConfig
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
 	}
+	return json.UnmarshalDecode(dec, (*plain)(a))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (a *AnalogWriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain AnalogWriteConfig
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
+	}
+	return dec.Decode((*plain)(a))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (a AnalogWriteConfig) Validate() error {
 	v := validate.New("AnalogWriteConfig")
+	v.Exec(a.WriteConfig.Validate)
 	for i := range a.Channels {
 		v.Exec(func() error { return validate.PathedError(a.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -4886,9 +5299,36 @@ type DigitalReadConfig struct {
 	Channels []DIChannel `json:"channels" msgpack:"channels"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (d *DigitalReadConfig) ApplyDefaults() {
-	d.ReadConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (d *DigitalReadConfig) SetDefaults() {
+	d.ReadConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (d *DigitalReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain DigitalReadConfig
+	if reflect.ValueOf(*d).IsZero() {
+		d.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(d))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (d *DigitalReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain DigitalReadConfig
+	if reflect.ValueOf(*d).IsZero() {
+		d.SetDefaults()
+	}
+	return dec.Decode((*plain)(d))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d DigitalReadConfig) Validate() error {
+	v := validate.New("DigitalReadConfig")
+	v.Exec(d.ReadConfig.Validate)
+	return v.Error()
 }
 
 // DigitalWriteConfig configures an NI digital write task.
@@ -4898,9 +5338,36 @@ type DigitalWriteConfig struct {
 	Channels []DOChannel `json:"channels" msgpack:"channels"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (d *DigitalWriteConfig) ApplyDefaults() {
-	d.WriteConfig.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (d *DigitalWriteConfig) SetDefaults() {
+	d.WriteConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (d *DigitalWriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain DigitalWriteConfig
+	if reflect.ValueOf(*d).IsZero() {
+		d.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(d))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (d *DigitalWriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain DigitalWriteConfig
+	if reflect.ValueOf(*d).IsZero() {
+		d.SetDefaults()
+	}
+	return dec.Decode((*plain)(d))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d DigitalWriteConfig) Validate() error {
+	v := validate.New("DigitalWriteConfig")
+	v.Exec(d.WriteConfig.Validate)
+	return v.Error()
 }
 
 // ScanConfig configures the NI device scanner task.
@@ -4910,10 +5377,35 @@ type ScanConfig struct {
 	IgnoredModels []string `json:"ignored_models" msgpack:"ignored_models"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScanConfig) ApplyDefaults() {
-	if s.IgnoredModels == nil {
-		s.IgnoredModels = []string{"^cRIO.*", "^nown.*"}
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScanConfig) SetDefaults() {
+	s.ScanConfig.SetDefaults()
+	s.IgnoredModels = []string{"^cRIO.*", "^nown.*"}
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ScanConfig
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
 	}
-	s.ScanConfig.ApplyDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(s))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ScanConfig
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return dec.Decode((*plain)(s))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.Exec(s.ScanConfig.Validate)
+	return v.Error()
 }

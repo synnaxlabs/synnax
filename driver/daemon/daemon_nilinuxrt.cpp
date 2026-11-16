@@ -18,6 +18,8 @@
 #include <signal.h>
 #include <sys/stat.h>
 
+#include "x/cpp/env/env.h"
+
 #include "driver/daemon/common.h"
 #include "driver/daemon/daemon.h"
 
@@ -25,6 +27,7 @@ namespace fs = std::filesystem;
 
 namespace driver::daemon {
 const std::string INIT_SCRIPT_PATH = "/etc/init.d/synnax-driver";
+const std::string BINARY_PATH = "/usr/local/bin/synnax-driver";
 const std::string DRIVER_PID_FILE = "/var/run/synnax-driver/synnax-driver.pid";
 
 auto INIT_SCRIPT_TEMPLATE = R"###(#!/bin/sh
@@ -241,6 +244,14 @@ x::errors::Error setup_pid_file() {
     return x::errors::NIL;
 }
 
+bool installed() {
+    return fs::exists(INIT_SCRIPT_PATH);
+}
+
+x::errors::Error load_env() {
+    return x::env::load_file(ENV_FILE);
+}
+
 x::errors::Error install_service() {
     // Check if service exists and is running
     LOG(INFO) << "checking for existing service";
@@ -256,7 +267,7 @@ x::errors::Error install_service() {
 
     if (auto err = create_system_user()) return err;
     if (auto err = create_env_file()) return err;
-    if (auto err = install_binary()) return err;
+    if (auto err = install_binary("/proc/self/exe", BINARY_PATH, 0, 0)) return err;
 
     if (auto err = setup_pid_file()) {
         LOG(ERROR) << "failed to setup PID file: " << err.message();
@@ -354,16 +365,18 @@ void notify_watchdog() {
     // No-op for NILinuxRT as it doesn't have native watchdog support
 }
 
-void run(const Config &config) {
+int run(const Config &config) {
     update_status(Status::INITIALIZING, "Starting daemon");
     update_status(Status::READY, "Daemon ready");
+    int code = 1;
     try {
-        config.callback();
+        code = config.callback();
     } catch (const std::exception &e) {
         update_status(Status::ERROR_, e.what());
         LOG(ERROR) << "Application error: " << e.what();
     }
     update_status(Status::STOPPING, "Stopping daemon");
+    return code;
 }
 
 x::errors::Error check_stranded_processes() {

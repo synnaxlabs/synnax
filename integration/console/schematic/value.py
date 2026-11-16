@@ -9,6 +9,7 @@
 
 import re
 
+from console.notifications import click_past
 from console.schematic.symbol import Properties, Symbol
 from x.notation import Notation
 
@@ -38,15 +39,14 @@ class Value(Symbol):
     ):
         """Initialize a value symbol with configuration.
 
-        Args:
-            label: Display label for the symbol
-            channel_name: Channel name for the value display
-            notation: Number notation format (optional)
-            precision: Decimal precision (optional)
-            averaging_window: Averaging window size (optional)
-            stale_color: Color for stale data (optional)
-            stale_timeout: Timeout for stale data in milliseconds (optional)
-            symbol_type: The type of symbol (default: "Value")
+        :param label: Display label for the symbol
+        :param channel_name: Channel name for the value display
+        :param notation: Number notation format (optional)
+        :param precision: Decimal precision (optional)
+        :param averaging_window: Averaging window size (optional)
+        :param stale_color: Color for stale data (optional)
+        :param stale_timeout: Timeout for stale data in milliseconds (optional)
+        :param symbol_type: The type of symbol (default: "Value")
         """
         super().__init__(label=label, symbol_type=symbol_type, rotatable=False)
         self.channel_name = channel_name
@@ -86,7 +86,7 @@ class Value(Symbol):
 
         # Navigate to Properties > Telemetry tab
         self.open_properties_tab()
-        self.page.get_by_text("Telemetry").click()
+        click_past(self.page.get_by_text("Telemetry"))
 
         if channel_name is not None:
             self.set_channel(section="Source", channel_name=channel_name)

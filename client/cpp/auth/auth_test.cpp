@@ -111,8 +111,7 @@ TEST(TestAuth, LoginInvalidCredentials) {
     auto mock_client = freighter::testutil::UnaryClient<int, int>{1, x::errors::NIL};
     mock_client.use(mw);
     auto v = 1;
-    auto [r, err] = mock_client.send("", v);
-    ASSERT_OCCURRED_AS(err, ERR_INVALID_CREDENTIALS);
+    ASSERT_OCCURRED_AS_P(mock_client.send("", v), ERR_INVALID_CREDENTIALS);
 }
 
 /// @brief it should retry authentication if the authentication token is invalid.

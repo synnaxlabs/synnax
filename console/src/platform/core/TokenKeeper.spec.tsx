@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createEmptyRole, createTestClient } from "@synnaxlabs/client/testutil";
 import { Synnax } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
@@ -75,11 +75,9 @@ describe("Core.TokenKeeper", () => {
   it("should save the new token after the user sets its own password", async () => {
     const calls = recordKeychain();
     const username = `keeper-${id.create()}`;
-    await createTestClient().users.create({
-      username,
-      password: "old",
-      name: "Keeper",
-    });
+    const admin = createTestClient();
+    const { key: role } = await createEmptyRole(admin);
+    await admin.users.create({ username, password: "old", name: "Keeper", role });
     const core = createCore("Local", { username, password: "old" });
     const grabbed: { client?: Client | null } = {};
     const Grab = (): null => {

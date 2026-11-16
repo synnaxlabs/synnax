@@ -30,19 +30,19 @@ type File struct {
 // may have multiple formatters; they run in the order they were registered
 // (e.g. prettier first, then eslint --fix).
 type Registry struct {
-	byExt map[string][]Formatter
+	byExt map[string][]formatter
 }
 
 // NewRegistry creates an empty Registry.
 func NewRegistry() *Registry {
-	return &Registry{byExt: make(map[string][]Formatter)}
+	return &Registry{byExt: make(map[string][]formatter)}
 }
 
 // Register appends a formatter for the given extension. The extension must
 // include the leading dot (e.g. ".go", ".cpp"). When a file matches multiple
 // formatters, they run sequentially in registration order, each receiving
 // the previous formatter's output.
-func (r *Registry) Register(ext string, f Formatter) {
+func (r *Registry) Register(ext string, f formatter) {
 	r.byExt[ext] = append(r.byExt[ext], f)
 }
 

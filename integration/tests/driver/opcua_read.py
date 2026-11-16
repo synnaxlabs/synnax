@@ -71,7 +71,7 @@ class OPCUAReadBool(OPCUAReadTaskCase):
 
 class OPCUAReadArray(OPCUAReadTaskCase):
     task_name = "OPCUA Read Array"
-    array_mode = True
+    sampling: sy.opcua.Sampling = sy.opcua.ArraySampling(size=5)
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]:
@@ -95,7 +95,7 @@ class OPCUAReadTimestamp(OPCUAReadTaskCase):
     """Test reading server timestamps as the task index (is_index)."""
 
     task_name = "OPCUA Read Timestamp"
-    array_mode = True
+    sampling: sy.opcua.Sampling = sy.opcua.ArraySampling(size=5)
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]:
@@ -196,16 +196,15 @@ class OPCUATLSDriverCertificateReadFloat(OPCUASecuredReadTaskCase):
     def test_pins_server_certificate(self) -> None:
         """The Driver saves the certificate that the server presented to the device."""
         self.log("Testing: Pin the server certificate")
-        timer = sy.Timer()
-        while True:
-            pinned = pinned_certificate(
+        pinned = sy.poll(
+            lambda: pinned_certificate(
                 self.client.devices.retrieve(name=self.device_name)
-            )
-            if pinned is not None:
-                break
-            if timer.elapsed() > PIN_TIMEOUT:
-                self.fail("The Driver did not pin the server certificate")
-            sy.sleep(0.5)
+            ),
+            timeout=PIN_TIMEOUT,
+            interval=0.5,
+        )
+        if pinned is None:
+            self.fail("The Driver did not pin the server certificate")
         expected = ssl.PEM_cert_to_DER_cert(read_server_certificate())
         assert pinned == expected, "The Driver pinned another server certificate"
 

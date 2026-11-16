@@ -43,7 +43,8 @@ export interface Result {
   ancestors: string[];
 }
 
-// The index marks each matched word on its own, so a matched phrase joins into one mark.
+// The index marks each matched word on its own, so a matched phrase joins into one
+// mark.
 const joinMarks = (html: string): string => html.replace(/<\/b>(\s+)<b>/g, "$1");
 
 const locate = (href: string): Pick<Result, "section" | "path" | "ancestors"> => {

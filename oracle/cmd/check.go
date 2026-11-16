@@ -13,7 +13,9 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"time"
 
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/oracle/check"
@@ -82,13 +84,13 @@ Examples:
 	return cmd
 }
 
-func runCheck(cmd *cobra.Command, _ []string) error {
+func runCheck(cmd *cobra.Command, _ []string) (err error) {
 	ctx := cmd.Context()
 
-	gates, _ := cmd.Flags().GetStringSlice(checkGatesFlag)
-	outputFormat, _ := cmd.Flags().GetString(checkFormatFlag)
-	includeDiffs, _ := cmd.Flags().GetBool(checkDiffFlag)
-	warningsAsErrors, _ := cmd.Flags().GetBool(checkWarningsAsErrorsFlag)
+	gates := lo.Must(cmd.Flags().GetStringSlice(checkGatesFlag))
+	outputFormat := lo.Must(cmd.Flags().GetString(checkFormatFlag))
+	includeDiffs := lo.Must(cmd.Flags().GetBool(checkDiffFlag))
+	warningsAsErrors := lo.Must(cmd.Flags().GetBool(checkWarningsAsErrorsFlag))
 	verbose := viper.GetBool(verboseFlag)
 
 	if outputFormat != string(check.FormatText) &&
@@ -150,10 +152,21 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 		cache = loadCheckCache(repoRoot)
 	}
 
+	var shipped *check.Release
+	if wantedGates.has("versions") {
+		var release check.Release
+		if release, err = extractRelease(ctx, repoRoot); err != nil {
+			return err
+		}
+		defer func() { err = errors.Combine(err, os.RemoveAll(release.Root)) }()
+		shipped = &release
+	}
+
 	checkers := buildCheckers(formatters, cache, warningsAsErrors)
 	report := check.Run(ctx, result, check.Env{
 		RepoRoot:     repoRoot,
 		IncludeDiffs: includeDiffs,
+		Shipped:      shipped,
 	}, checkers, gates)
 
 	if err := check.Render(
@@ -192,7 +205,7 @@ func buildCheckers(
 }
 
 func buildCheckFormatters(repoRoot string) (*format.Registry, error) {
-	return format.Default(repoRoot)
+	return format.Default(repoRoot, time.Now().Year(), nil)
 }
 
 func loadCheckCache(repoRoot string) *format.Cache {

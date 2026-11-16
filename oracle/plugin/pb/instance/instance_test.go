@@ -21,6 +21,7 @@ import (
 
 const source = `
 import "schemas/x/filter"
+import "schemas/x/order"
 
 Key uuid
 
@@ -51,7 +52,7 @@ Thing struct {
 	none      filter.Set<nil>
 	anything  filter.Set<any>
 	labels    filter.Set<map<string, Detail>>
-	direction filter.Ordered<filter.Direction>
+	direction filter.Ordered<order.Direction>
 	name      filter.String
 	box       Box<int32>
 	pair      Pair<int32, int64>
@@ -60,16 +61,27 @@ Thing struct {
 
 var _ = Describe("Of", func() {
 	var table *resolution.Table
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
 		loader := testutil.NewMockFileLoader()
 		testutil.AddFilterSchema(loader)
-		table = testutil.MustGenerateRequest(ctx, source, "thing", loader).Resolutions
+		loader.Add("schemas/x/order", `
+@go output "x/go/order"
+@pb
+
+Direction enum {
+	asc  = "asc"
+	desc = "desc"
+}
+`)
+		table = testutil.MustGenerateRequest(source, "thing", loader).Resolutions
 	})
 	fieldOf := func(typeName, fieldName string) resolution.Field {
 		GinkgoHelper()
 		typ := MustBeOk(table.Get(typeName))
+		form, ok := typ.Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
 		return MustBeOk(lo.Find(
-			typ.Form.(resolution.StructForm).Fields,
+			form.Fields,
 			func(f resolution.Field) bool { return f.Name == fieldName },
 		))
 	}
@@ -115,7 +127,7 @@ var _ = Describe("Of", func() {
 			"thing",
 			table,
 		))
-		Expect(inst.Name).To(Equal("FilterDirectionOrdered"))
+		Expect(inst.Name).To(Equal("OrderDirectionOrdered"))
 	})
 
 	It("Should name a use over a map after the map's type arguments", func() {

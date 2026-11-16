@@ -16,6 +16,9 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/legacy"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -29,6 +32,9 @@ type ServiceConfig struct {
 	// DB is the database config records are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
+	// Secret stores the routing key of each alert task.
+	// [REQUIRED]
+	Secret *secret.Service
 	alamos.Instrumentation
 }
 
@@ -37,6 +43,7 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Secret = override.Nil(c.Secret, other.Secret)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -45,6 +52,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("pagerduty.service")
 	v.NotNil("db", c.DB)
+	v.NotNil("secret", c.Secret)
 	return v.Error()
 }
 
@@ -52,6 +60,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	// Alert stores pagerduty_alert task configuration records.
 	Alert  *config.Service[TaskConfig]
+	create v2.CreateSecret
 	closer xio.MultiCloser
 }
 
@@ -63,18 +72,37 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{}
+	create := createSecret(cfg.Secret)
+	s = &Service{create: create}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.Alert, err = config.OpenService(
 		ctx, config.ServiceConfig[TaskConfig]{
 			DB:              cfg.DB,
+			References:      taskConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
 			Type:            AlertTaskType,
 			LegacyVersion:   legacy.LastVersion,
 			Ladder:          versions.TaskConfigLadder,
 			Legacy:          &legacy.Alert,
-			SetEntryKey:     (*TaskConfig).SetKey,
+			Migrations: []gorp.Migration{
+				v1.StatusKeysMigration,
+				v2.Migration,
+			},
+			SetEntryKey: (*TaskConfig).SetKey,
+			PatchEntry:  (*TaskConfig).Patch,
+			HashEntry:   (*TaskConfig).HashContent,
+			ResolveEntry: func(
+				ctx context.Context,
+				snap gorp.Snapshot,
+				name string,
+				c *TaskConfig,
+			) (func(context.Context, gorp.Tx) error, error) {
+				if err := checkStored(ctx, snap, cfg.Secret, c.RoutingKey); err != nil {
+					return nil, err
+				}
+				return v2.ResolveTaskConfig(create, name, c), nil
+			},
 		},
 	); !ok(err, s.Alert) {
 		return nil, err
@@ -89,4 +117,46 @@ func (s *Service) Close() error { return s.closer.Close() }
 // Stores returns the config stores the service owns, for registry assembly.
 func (s *Service) Stores() []config.Store {
 	return []config.Store{s.Alert}
+}
+
+// checkStored refuses a routing key that names a file secret, since the Core cannot
+// read a file. The config references refuse a key that names no secret.
+func checkStored(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	svc *secret.Service,
+	key *secret.Key,
+) error {
+	if key == nil {
+		return nil
+	}
+	var found []secret.Secret
+	if err := svc.NewRetrieve().
+		Where(secret.MatchKeys(*key)).
+		SkipMissingKeys().
+		Entries(&found).
+		Exec(ctx, snap); err != nil {
+		return err
+	}
+	v := validate.New("pagerduty.task_config")
+	for _, s := range found {
+		_, file := s.Variant.(secret.FileSecret)
+		v.Ternary("routing_key", file, "must be a stored secret, not a file")
+	}
+	return v.Error()
+}
+
+func createSecret(svc *secret.Service) v2.CreateSecret {
+	return func(
+		ctx context.Context,
+		tx gorp.Tx,
+		key secret.Key,
+		name string,
+		value []byte,
+	) error {
+		s := secret.Secret{Variant: secret.StoredSecret{
+			Base: secret.Base{Key: key, Name: name},
+		}}
+		return svc.NewWriter(tx).Set(ctx, &s, value)
+	}
 }

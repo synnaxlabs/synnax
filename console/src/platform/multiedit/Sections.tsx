@@ -12,7 +12,7 @@ import "@/platform/multiedit/Sections.css";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Notation, Staleness } from "@synnaxlabs/pluto";
-import { type color, type notation, TimeSpan } from "@synnaxlabs/x";
+import { type color, notation, TimeSpan } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -29,14 +29,13 @@ export const ColorsSection = ({ children }: PropsWithChildren): ReactElement => 
   </Form.Section>
 );
 
-const checkStalenessTimeout = (span: TimeSpan): string | null =>
-  span.lessThan(TimeSpan.SECOND) ? "Timeout must be 1s or more" : null;
-const PRECISION_BOUNDS = { lower: 0, upper: 10 };
-
 export interface StalenessSectionProps {
   /** The staleness color of each element that has the field. */
   colors: ColorValue[];
+  /** The timeout, in `unit`. */
   timeout?: number;
+  /** The unit of the stored timeout. Defaults to nanoseconds. */
+  unit?: TimeSpan;
   onColorChange: (value?: color.Color) => void;
   onTimeoutChange: (value: number) => void;
 }
@@ -44,7 +43,8 @@ export interface StalenessSectionProps {
 /** Edits the staleness color and timeout of several elements. */
 export const StalenessSection = ({
   colors,
-  timeout = Staleness.DEFAULT_TIMEOUT,
+  timeout,
+  unit = TimeSpan.NANOSECOND,
   onColorChange,
   onTimeoutChange,
 }: StalenessSectionProps): ReactElement => (
@@ -53,9 +53,13 @@ export const StalenessSection = ({
     <Input.Item label="Timeout" align="start" padHelpText={false}>
       <Input.TimeSpan
         inline
-        value={Number(TimeSpan.seconds(timeout).valueOf())}
-        onChange={(ns) => onTimeoutChange(new TimeSpan(ns).seconds)}
-        check={checkStalenessTimeout}
+        value={
+          timeout == null
+            ? Staleness.DEFAULT_TIMEOUT
+            : Number(unit.mult(timeout).valueOf())
+        }
+        onChange={(ns) => onTimeoutChange(ns / Number(unit.valueOf()))}
+        check={Staleness.checkTimeout}
       />
     </Input.Item>
   </Form.Section>
@@ -70,20 +74,21 @@ export interface NumberFormatSectionProps {
 
 /** Edits the notation and precision of several elements. */
 export const NumberFormatSection = ({
-  notation = "standard",
+  notation: selected = "standard",
   precision = 2,
   onNotationChange,
   onPrecisionChange,
 }: NumberFormatSectionProps): ReactElement => (
   <Form.Section title="Number format">
     <Input.Item label="Notation" align="start" padHelpText={false}>
-      <Notation.Select value={notation} onChange={onNotationChange} />
+      <Notation.Select value={selected} onChange={onNotationChange} />
     </Input.Item>
     <Input.Item label="Precision" align="start" padHelpText={false}>
       <Input.Numeric
-        bounds={PRECISION_BOUNDS}
         value={precision}
         onChange={onPrecisionChange}
+        integer
+        bounds={notation.PRECISION_BOUNDS}
       />
     </Input.Item>
   </Form.Section>

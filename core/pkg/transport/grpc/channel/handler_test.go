@@ -11,13 +11,13 @@ package channel_test
 
 import (
 	"context"
-	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/channel/pb"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	grpcchannel "github.com/synnaxlabs/synnax/pkg/transport/grpc/channel"
@@ -31,25 +31,24 @@ import (
 var _ = Describe("Retrieve", func() {
 	var (
 		client   grpcchannel.ChannelRetrieveServiceClient
-		received channel.AliasedRetrieveRequest
+		received channel.RetrieveRequest
 		response channel.RetrieveResponse
 	)
 
 	BeforeEach(func() {
 		client = grpcchannel.NewChannelRetrieveServiceClient(conn)
-		received = channel.AliasedRetrieveRequest{}
+		received = channel.RetrieveRequest{}
 		response = channel.RetrieveResponse{}
 		transport.ChannelRetrieve.BindHandler(func(
 			_ context.Context,
-			req channel.AliasedRetrieveRequest,
+			req channel.RetrieveRequest,
 		) (channel.RetrieveResponse, error) {
 			received = req
 			return response, nil
 		})
 	})
 
-	It("Should decode a filter tree and a range", func(ctx SpecContext) {
-		rangeKey := uuid.New()
+	It("Should decode a filter tree", func(ctx SpecContext) {
 		req := channel.RetrieveRequest{
 			Where: &svcchannel.Where{
 				Or: []svcchannel.Where{
@@ -70,13 +69,9 @@ var _ = Describe("Retrieve", func() {
 			IncludeStatus: true,
 		}
 		MustSucceed(client.Exec(ctx, &grpcchannel.RetrieveRequest{
-			Request:  MustSucceed(pb.RetrieveRequestToPB(req)),
-			RangeKey: new(rangeKey.String()),
+			Request: MustSucceed(pb.RetrieveRequestToPB(req)),
 		}))
-		Expect(received).To(Equal(channel.AliasedRetrieveRequest{
-			Request:  req,
-			RangeKey: &rangeKey,
-		}))
+		Expect(received).To(Equal(req))
 	})
 
 	It("Should reject a request that sends the reserved keys field", func(
@@ -84,6 +79,18 @@ var _ = Describe("Retrieve", func() {
 	) {
 		b := protowire.AppendTag(nil, 2, protowire.VarintType)
 		b = protowire.AppendVarint(b, 1048577)
+		var decoded grpcchannel.RetrieveRequest
+		Expect(proto.Unmarshal(b, &decoded)).To(Succeed())
+		Expect(client.Exec(ctx, &decoded)).Error().To(MatchError(ContainSubstring(
+			"sy.validation---grpc.channel.RetrieveRequest has unknown fields",
+		)))
+	})
+
+	It("Should reject a request that sends the reserved range key field", func(
+		ctx SpecContext,
+	) {
+		b := protowire.AppendTag(nil, 6, protowire.BytesType)
+		b = protowire.AppendString(b, "a3c0b7a6-0a52-4a8e-9f2f-6c1f0e4a9d10")
 		var decoded grpcchannel.RetrieveRequest
 		Expect(proto.Unmarshal(b, &decoded)).To(Succeed())
 		Expect(client.Exec(ctx, &decoded)).Error().To(MatchError(ContainSubstring(
@@ -114,6 +121,8 @@ var _ = Describe("Retrieve", func() {
 				Variant: status.VariantSuccess,
 				Message: "Calculation running",
 				Time:    telem.TimeStamp(1),
+				// The protobuf encoding has no nil list, so it decodes an empty one.
+				Labels: []label.Key{},
 			},
 		}
 		response = channel.RetrieveResponse{Channels: []channel.Channel{ch}}

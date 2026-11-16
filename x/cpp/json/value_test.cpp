@@ -44,24 +44,21 @@ TEST(FromValue, NullValue) {
 
 TEST(ToValue, StringRoundTrip) {
     const json j = "test_string";
-    const auto [pb, err] = to_value(j);
-    ASSERT_NIL(err);
+    const auto pb = ASSERT_NIL_P(to_value(j));
     const auto result = ASSERT_NIL_P(from_value(pb));
     ASSERT_EQ(result, "test_string");
 }
 
 TEST(ToValue, NumberRoundTrip) {
     const json j = 99.9;
-    const auto [pb, err] = to_value(j);
-    ASSERT_NIL(err);
+    const auto pb = ASSERT_NIL_P(to_value(j));
     const auto result = ASSERT_NIL_P(from_value(pb));
     ASSERT_DOUBLE_EQ(result.get<double>(), 99.9);
 }
 
 TEST(ToValue, ObjectRoundTrip) {
     const json j = {{"key", "value"}, {"num", 123}};
-    const auto [pb, err] = to_value(j);
-    ASSERT_NIL(err);
+    const auto pb = ASSERT_NIL_P(to_value(j));
     const auto result = ASSERT_NIL_P(from_value(pb));
     ASSERT_EQ(result["key"], "value");
     ASSERT_EQ(result["num"], 123);

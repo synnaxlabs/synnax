@@ -12,7 +12,7 @@
 # Prints the work a pull request needs before it is done, one item per line, and
 # nothing when it is done. Usage: shepherd_work.sh <pr>. The items are "conflict", "ci
 # <run id>" for a failed CI run on the head, "threads <count>" for review threads that
-# need action, and "outside-diff" for open Greptile findings outside the diff.
+# need action, and "outside-diff" for open Sedosaur findings outside the diff.
 
 set -euo pipefail
 
@@ -49,7 +49,7 @@ if [ "$THREADS" -gt 0 ]; then
     echo "threads $THREADS"
 fi
 
-OUTSIDE=$("$HERE/greptile_outside_diff.sh" "$PR")
+OUTSIDE=$("$HERE/outside_diff.sh" "$PR")
 if [ -n "$OUTSIDE" ]; then
     echo outside-diff
 fi

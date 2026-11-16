@@ -72,4 +72,15 @@ testPropertiesSchema("NI", NI.Device.propertiesZ, NI.Device.ZERO_PROPERTIES, [
       digitalOutput: { portCount: 0, lineCounts: [], stateIndex: 0, channels: {} },
     },
   ],
+  [
+    "hardware with product fields and without rates, negatives, or defaults",
+    {
+      identifier: "Dev1",
+      hardware: {
+        productCategory: "m_series_daq",
+        productType: "PCI-6221",
+        analogInputs: [{ port: 0, terminalConfigs: ["RSE"], types: ["ai_voltage"] }],
+      },
+    },
+  ],
 ]);

@@ -18,7 +18,7 @@ const RegisterCommand = Command.create({
   name: "Register user",
   icon: <PUser.CreateIcon />,
   useOnSelect: PlatformUser.useRegisterModal,
-  useVisible: () => Access.useCreateGranted(user.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(user.TYPE_RESOURCE_ID),
 });
 
 export const COMMANDS = [RegisterCommand];

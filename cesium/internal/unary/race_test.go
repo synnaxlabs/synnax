@@ -43,7 +43,7 @@ var _ = Describe("Unary racing", func() {
 				), MustSucceed(
 					fs.Sub("data"),
 				)
-				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+				indexDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:        indexFS,
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -55,7 +55,7 @@ var _ = Describe("Unary racing", func() {
 					FileSize:        1 * telem.Byte,
 					Instrumentation: PanicLogger(),
 				}))
-				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+				dataDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:        dataFS,
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -69,10 +69,6 @@ var _ = Describe("Unary racing", func() {
 				},
 				))
 				dataDB.SetIndex(indexDB.Index())
-			})
-			AfterEach(func() {
-				Expect(indexDB.Close()).To(Succeed())
-				Expect(dataDB.Close()).To(Succeed())
 			})
 
 			Describe("Multiple deletes", func() {

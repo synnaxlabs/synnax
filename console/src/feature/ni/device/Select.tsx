@@ -13,7 +13,7 @@ import { Device } from "@/platform/device";
 
 export interface SelectProps extends Omit<
   Device.SelectProps,
-  "onConfigure" | "emptyContent" | "make" | "connect" | "icon"
+  "onConfigure" | "emptyContent" | "make" | "connect" | "icon" | "locationFormat"
 > {}
 
 export const Select = (props: SelectProps) => {
@@ -26,6 +26,7 @@ export const Select = (props: SelectProps) => {
       emptyContent="No NI devices connected"
       make={MAKE}
       icon={HARDWARE.icon}
+      locationFormat={HARDWARE.location}
       connect={{ title: HARDWARE.title, open: () => find({ hardware: HARDWARE }) }}
     />
   );

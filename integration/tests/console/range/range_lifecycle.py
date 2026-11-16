@@ -11,6 +11,8 @@ import random
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
+from playwright.sync_api import expect
+
 import synnax as sy
 from console.case import ConsoleCase
 from console.plot import Plot
@@ -116,7 +118,7 @@ class RangeLifecycle(ConsoleCase):
         # Child Ranges
         self.test_navigate_to_child_range()
         self.test_create_child_range_from_overview()
-        self.test_change_child_range_stage()
+        self.test_stop_child_range()
 
     def test_open_range_toolbar(self) -> None:
         """Test opening the ranges toolbar."""
@@ -155,12 +157,14 @@ class RangeLifecycle(ConsoleCase):
 
     def test_create_range_with_parent(self) -> None:
         """Test creating a range with a parent range."""
+        assert self.staged_range_name is not None
         self.log("Testing: Create range with parent")
         self.child_range_name = f"ChildRange_{self.rand_suffix}"
         self.console.ranges.create(
             self.child_range_name, persisted=True, parent=self.staged_range_name
         )
         self.console.ranges.explorer.open()
+        self.console.ranges.explorer.expand(self.staged_range_name)
         assert self.console.ranges.explorer.exists(self.child_range_name), (
             "Child range should exist in explorer"
         )
@@ -288,12 +292,10 @@ class RangeLifecycle(ConsoleCase):
 
         # The overview form autosaves on a debounce, so poll until the last
         # edit reaches the server before asserting.
-        rng = self.client.ranges.retrieve(name=self.labeled_range_name)
-        for _ in range(9):
-            if sy.TimeStamp(rng.time_range.end).datetime(UTC).day == 2:
-                break
-            sy.sleep(0.5)
-            rng = self.client.ranges.retrieve(name=self.labeled_range_name)
+        rng = self.wait_for_range(
+            self.labeled_range_name,
+            done=lambda r: sy.TimeStamp(r.time_range.end).datetime(UTC).day == 2,
+        )
         start_utc = sy.TimeStamp(rng.time_range.start).datetime(UTC)
         end_utc = sy.TimeStamp(rng.time_range.end).datetime(UTC)
         assert start_utc.year == 2024, (
@@ -328,28 +330,38 @@ class RangeLifecycle(ConsoleCase):
     def retrieve_renamed(self, name: str) -> sy.Range:
         """Retrieve a range by its new name, polling while the debounced
         autosave of the rename lands."""
-        for _ in range(10):
+
+        def retrieve() -> sy.Range | None:
             try:
                 return self.client.ranges.retrieve(name=name)
             except sy.NotFoundError:
-                sy.sleep(0.5)
-        return self.client.ranges.retrieve(name=name)
+                return None
+
+        rng = sy.poll(retrieve, timeout=5, interval=0.5)
+        return rng if rng is not None else self.client.ranges.retrieve(name=name)
 
     def assert_range_spans_now(self, name: str) -> None:
         """Poll until the range's time range spans now.
 
         Stage edits autosave on a debounce, so an immediate read races them.
         """
-        rng = self.client.ranges.retrieve(name=name)
+
+        def spans_now(rng: sy.Range) -> bool:
+            return rng.time_range.start < int(sy.TimeStamp.now()) < rng.time_range.end
+
+        rng = self.wait_for_range(name, done=spans_now)
         now = int(sy.TimeStamp.now())
-        for _ in range(9):
-            if rng.time_range.start < now < rng.time_range.end:
-                break
-            sy.sleep(0.5)
-            rng = self.client.ranges.retrieve(name=name)
-            now = int(sy.TimeStamp.now())
         assert rng.time_range.start < now, f"'{name}' start should be in the past"
         assert rng.time_range.end > now, f"'{name}' end should be in the future"
+
+    def assert_range_ended(self, name: str) -> None:
+        """Poll until the range's end is in the past."""
+
+        def ended(rng: sy.Range) -> bool:
+            return rng.time_range.end < int(sy.TimeStamp.now())
+
+        rng = self.wait_for_range(name, done=ended)
+        assert ended(rng), f"'{name}' end should be in the past"
 
     def test_change_stage_in_overview(self) -> None:
         """Test changing stage in the range overview (which also changes times)."""
@@ -367,13 +379,13 @@ class RangeLifecycle(ConsoleCase):
     ) -> sy.Range:
         """Poll until the range satisfies ``done``, since overview edits
         autosave on a debounce."""
-        rng = self.client.ranges.retrieve(name=name)
-        for _ in range(10):
-            if done(rng):
-                break
-            sy.sleep(0.5)
+
+        def retrieve() -> sy.Range | None:
             rng = self.client.ranges.retrieve(name=name)
-        return rng
+            return rng if done(rng) else None
+
+        rng = sy.poll(retrieve, timeout=5, interval=0.5)
+        return rng if rng is not None else self.client.ranges.retrieve(name=name)
 
     def test_set_planned_end_in_overview(self) -> None:
         """Test setting a planned end on a running range in the overview."""
@@ -447,10 +459,8 @@ class RangeLifecycle(ConsoleCase):
 
         self.console.ranges.overview.add_label(self.second_label_name)
 
-        labels = self.console.ranges.overview.get_labels()
-        assert self.second_label_name in labels, (
-            f"Label '{self.second_label_name}' should be in overview"
-        )
+        overview = self.console.ranges.overview
+        expect(overview.label(self.second_label_name)).to_be_visible(timeout=5000)
 
     def test_remove_label_in_overview(self) -> None:
         """Test removing a label from a range in the overview."""
@@ -462,10 +472,8 @@ class RangeLifecycle(ConsoleCase):
 
         self.console.ranges.overview.remove_label(self.second_label_name)
 
-        labels = self.console.ranges.overview.get_labels()
-        assert self.second_label_name not in labels, (
-            f"Label '{self.second_label_name}' should be removed from overview"
-        )
+        overview = self.console.ranges.overview
+        expect(overview.label(self.second_label_name)).to_be_hidden(timeout=5000)
 
     def test_rename_range_from_tab(self) -> None:
         """Test renaming a range from the tab name."""
@@ -517,12 +525,11 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.overview.wait_for(self.labeled_range_name)
 
         self.console.ranges.overview.copy_python_code()
-        notifications = self.console.notifications.check(timeout=10)
-        messages = [n.message for n in notifications]
-        assert "Copied Python code to clipboard" in messages, (
-            "Should show Python code copied notification"
+        key = self.client.ranges.retrieve(name=self.labeled_range_name).key
+        clipboard = self.console.layout.read_clipboard()
+        assert clipboard == f'rng = client.ranges.retrieve(key="{key}")', (
+            f"Clipboard should hold the Python code, got '{clipboard}'"
         )
-        self.console.notifications.close_all()
 
     def test_copy_typescript_code(self) -> None:
         """Test copying TypeScript code from the range overview."""
@@ -533,12 +540,11 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.overview.wait_for(self.labeled_range_name)
 
         self.console.ranges.overview.copy_typescript_code()
-        notifications = self.console.notifications.check(timeout=2)
-        messages = [n.message for n in notifications]
-        assert "Copied TypeScript code to clipboard" in messages, (
-            "Should show TypeScript code copied notification"
+        key = self.client.ranges.retrieve(name=self.labeled_range_name).key
+        clipboard = self.console.layout.read_clipboard()
+        assert clipboard == f'const rng = await client.ranges.retrieve("{key}");', (
+            f"Clipboard should hold the TypeScript code, got '{clipboard}'"
         )
-        self.console.notifications.close_all()
 
     def test_copy_link(self) -> None:
         """Test copying link from the range overview."""
@@ -549,12 +555,11 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.overview.wait_for(self.labeled_range_name)
 
         self.console.ranges.overview.copy_link()
-        notifications = self.console.notifications.check(timeout=2)
-        messages = [n.message for n in notifications]
-        assert "Copied link to clipboard" in messages, (
-            "Should show link copied notification"
+        key = self.client.ranges.retrieve(name=self.labeled_range_name).key
+        clipboard = self.console.layout.read_clipboard()
+        assert f"range/{key}" in clipboard, (
+            f"Clipboard should hold a link to the range, got '{clipboard}'"
         )
-        self.console.notifications.close_all()
 
     def test_download_csv(self) -> None:
         """Test downloading CSV data from the range overview."""
@@ -625,19 +630,20 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.overview.create_child_range(self.new_child_range_name)
 
         self.console.ranges.explorer.open()
+        self.console.ranges.explorer.expand(self.staged_range_name)
         assert self.console.ranges.explorer.exists(self.new_child_range_name), (
             "New child range should appear in explorer"
         )
 
-    def test_change_child_range_stage(self) -> None:
-        """Test changing the stage of a child range from the parent overview."""
+    def test_stop_child_range(self) -> None:
+        """Test stopping a running child range from the parent overview, which moves it
+        to Completed by ending it now."""
         assert self.staged_range_name is not None
         assert self.child_range_name is not None
-        self.log("Testing: Change child range stage")
+        self.log("Testing: Stop child range")
         self.console.ranges.overview.open(self.staged_range_name)
         self.console.ranges.overview.wait_for(self.staged_range_name)
-
-        self.console.ranges.overview.set_child_range_stage(
-            self.child_range_name, "In progress"
-        )
         self.assert_range_spans_now(self.child_range_name)
+
+        self.console.ranges.overview.stop_child_range(self.child_range_name)
+        self.assert_range_ended(self.child_range_name)

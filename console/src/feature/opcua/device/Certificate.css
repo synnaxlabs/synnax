@@ -28,6 +28,7 @@
 
 .console-opc-certificate__value {
     overflow-wrap: anywhere;
+    -webkit-user-select: text;
     user-select: text;
 }
 

@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -30,10 +31,10 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Symbol, error) 
 		sym, err = autoDecodeEnvelope(ctx, env)
 	} else {
 		var body msgpack.EncodedJSON
-		if body, err = env.Decode[msgpack.EncodedJSON](ctx); err == nil {
+		if body, err = env.Decode[msgpack.EncodedJSON](); err == nil {
 			if err = imex.RequireFields(body, "a symbol", "data.svg"); err == nil {
 				var d legacy.Data
-				if d, err = env.Decode[legacy.Data](ctx); err == nil {
+				if d, err = env.Decode[legacy.Data](); err == nil {
 					sym, err = liftFirst(
 						ctx, v2.Symbol{Data: v2.SpecFromConsole(d.Spec)},
 					)
@@ -43,6 +44,15 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Symbol, error) 
 	}
 	if err != nil {
 		return Symbol{}, err
+	}
+	// A Console export lifts through Go code that cannot tell an absent field from a
+	// zero one, so its zero fields take their defaults.
+	if env.Version <= legacy.LastVersion {
+		sym = defaults.Fill(sym)
+	}
+	// A zero scale draws the symbol at size zero, so an import takes the default.
+	if sym.Data.Scale <= 0 {
+		sym.Data.Scale = 1
 	}
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.

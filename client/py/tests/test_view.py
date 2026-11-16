@@ -62,6 +62,31 @@ class TestView:
         assert renamed.name == "After Rename"
         assert renamed.where == where
 
+    def test_style(self, client: sy.Synnax) -> None:
+        """Should store the icon, color, sort, and layout of a view."""
+        v = client.views.create(
+            RangeView(
+                name="Styled",
+                icon="star",
+                color=sy.Color("#ff0000"),
+                sort="oldest",
+                layout="timeline",
+            )
+        )
+        retrieved = client.views.retrieve(key=v.key)
+        assert isinstance(retrieved, RangeView)
+        assert retrieved.icon == "star"
+        assert retrieved.color == sy.Color("#ff0000")
+        assert retrieved.sort == "oldest"
+        assert retrieved.layout == "timeline"
+        client.views.dispatch(
+            v.key, view.set(view.SetPayload(path=["sort"], value="name"))
+        )
+        updated = client.views.retrieve(key=v.key)
+        assert isinstance(updated, RangeView)
+        assert updated.sort == "name"
+        assert updated.icon == "star"
+
     def test_create_multiple(self, client: sy.Synnax) -> None:
         """Should create multiple views of different types."""
         views = client.views.create(
@@ -142,6 +167,33 @@ class TestView:
         res = client.views.retrieve(keys=[v.key for v in views], types=["range"])
         assert len(res) == 1
         assert res[0].name == "Range"
+
+    def test_retrieve_by_name(self, client: sy.Synnax) -> None:
+        """Should return one view for a plain name."""
+        v = client.views.create(RangeView(name=str(uuid4())))
+        assert client.views.retrieve(name=v.name) == v
+
+    def test_retrieve_type_list(self, client: sy.Synnax) -> None:
+        """Should return a list for a list of types, even with one type."""
+        views = client.views.create(
+            [RangeView(name="Range"), StatusView(name="Status")]
+        )
+        res = client.views.retrieve(key=[v.key for v in views], type=["status"])
+        assert [r.name for r in res] == ["Status"]
+
+    def test_retrieve_plain_key_beside_fields(self, client: sy.Synnax) -> None:
+        """Should return one view for a plain key beside other fields."""
+        v = client.views.create(RangeView(name=str(uuid4())))
+        assert client.views.retrieve(key=v.key, type="range") == v
+        with pytest.raises(sy.NotFoundError, match=r"Found no view where .+"):
+            client.views.retrieve(key=v.key, type="status")
+
+    def test_retrieve_or(self, client: sy.Synnax) -> None:
+        """Should retrieve the views that match any filter in or_."""
+        a = client.views.create(RangeView(name=str(uuid4())))
+        b = client.views.create(StatusView(name=str(uuid4())))
+        res = client.views.retrieve(or_=[{"name": a.name}, {"key": [b.key]}])
+        assert {r.key for r in res} == {a.key, b.key}
 
     def test_delete(self, client: sy.Synnax) -> None:
         """Should delete a view."""

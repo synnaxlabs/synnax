@@ -16,8 +16,8 @@
 #include <unordered_map>
 #include <utility>
 
-#include "client/cpp/label/json.gen.h"
-#include "client/cpp/label/proto.gen.h"
+#include "client/cpp/resource/proto.gen.h"
+#include "client/cpp/resource/types.gen.h"
 #include "client/cpp/status/json.gen.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
@@ -64,6 +64,27 @@ variant_from_pb(::service::status::pb::Variant pb) {
             return {VARIANT_DISABLED, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized Variant protobuf value")};
+    }
+}
+
+inline std::pair<::api::status::pb::OrderField, x::errors::Error>
+order_field_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::api::status::pb::OrderField> kMap = {
+        {ORDER_FIELD_NAME, ::api::status::pb::ORDER_FIELD_NAME},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized OrderField value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+order_field_from_pb(::api::status::pb::OrderField pb) {
+    switch (pb) {
+        case ::api::status::pb::ORDER_FIELD_NAME:
+            return {ORDER_FIELD_NAME, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized OrderField protobuf value")};
     }
 }
 
@@ -170,13 +191,13 @@ Status<Details>::to_proto() const {
             }
         }
     }
-    if (this->labels.has_value()) {
-        auto *wrapper = pb.mutable_labels();
-        for (const auto &item: *this->labels) {
-            auto [v, err] = item.to_proto();
-            if (err) return {{}, err};
-            *wrapper->add_values() = v;
-        }
+    for (const auto &item: this->labels) {
+        pb.add_labels(item.to_string());
+    }
+    if (this->owner.has_value()) {
+        auto [v, err] = this->owner->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_owner() = v;
     }
     return {pb, x::errors::NIL};
 }
@@ -207,13 +228,15 @@ Status<Details>::from_proto(const ::service::status::pb::Status &pb) {
         else
             cpp.details = Details::parse(x::json::Parser(v));
     }
-    if (pb.has_labels()) {
-        cpp.labels.emplace();
-        if (auto err = x::pb::from_proto_repeated<::synnax::label::Label>(
-                *cpp.labels,
-                pb.labels().values()
-            ))
-            return {{}, err};
+    for (const auto &item: pb.labels()) {
+        auto [v, err] = x::uuid::UUID::parse(item);
+        if (err) return {{}, err};
+        cpp.labels.push_back(v);
+    }
+    if (pb.has_owner()) {
+        auto [v, err] = ::synnax::resource::ID::from_proto(pb.owner());
+        if (err) return {{}, err};
+        cpp.owner = v;
     }
     return {cpp, x::errors::NIL};
 }
@@ -258,6 +281,14 @@ Where::to_proto() const {
             wrapper->add_values(item.to_string());
         }
     }
+    if (this->owners.has_value()) {
+        auto *wrapper = pb.mutable_owners();
+        for (const auto &item: *this->owners) {
+            auto [v, err] = item.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
+    }
     return {pb, x::errors::NIL};
 }
 
@@ -297,6 +328,52 @@ Where::from_proto(const ::service::status::pb::Where &pb) {
             cpp.labels->push_back(v);
         }
     }
+    if (pb.has_owners()) {
+        cpp.owners.emplace();
+        if (auto err = x::pb::from_proto_repeated<::synnax::resource::ID>(
+                *cpp.owners,
+                pb.owners().values()
+            ))
+            return {{}, err};
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::status::pb::Cursor, x::errors::Error> Cursor::to_proto() const {
+    ::api::status::pb::Cursor pb;
+    pb.set_key(this->key);
+    if (this->name.has_value()) pb.set_name(*this->name);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Cursor, x::errors::Error>
+Cursor::from_proto(const ::api::status::pb::Cursor &pb) {
+    Cursor cpp;
+    cpp.key = pb.key();
+    if (pb.has_name()) cpp.name = pb.name();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::status::pb::Order, x::errors::Error> Order::to_proto() const {
+    ::api::status::pb::Order pb;
+    {
+        auto [v, err] = order_field_to_pb(this->field);
+        if (err) return {{}, err};
+        pb.set_field(v);
+    }
+    pb.set_descending(this->descending);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Order, x::errors::Error>
+Order::from_proto(const ::api::status::pb::Order &pb) {
+    Order cpp;
+    {
+        auto [v, err] = order_field_from_pb(pb.field());
+        if (err) return {{}, err};
+        cpp.field = v;
+    }
+    cpp.descending = pb.descending();
     return {cpp, x::errors::NIL};
 }
 
@@ -309,9 +386,17 @@ RetrieveRequest::to_proto() const {
         *pb.mutable_where() = v;
     }
     pb.set_search_term(this->search_term);
+    if (this->order.has_value()) {
+        auto [v, err] = this->order->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_order() = v;
+    }
+    if (this->after.has_value()) {
+        auto [v, err] = this->after->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_after() = v;
+    }
     if (this->limit.has_value()) pb.set_limit(*this->limit);
-    pb.set_offset(this->offset);
-    pb.set_include_labels(this->include_labels);
     return {pb, x::errors::NIL};
 }
 
@@ -324,9 +409,17 @@ RetrieveRequest::from_proto(const ::api::status::pb::RetrieveRequest &pb) {
         cpp.where = v;
     }
     cpp.search_term = pb.search_term();
+    if (pb.has_order()) {
+        auto [v, err] = Order::from_proto(pb.order());
+        if (err) return {{}, err};
+        cpp.order = v;
+    }
+    if (pb.has_after()) {
+        auto [v, err] = Cursor::from_proto(pb.after());
+        if (err) return {{}, err};
+        cpp.after = v;
+    }
     if (pb.has_limit()) cpp.limit = pb.limit();
-    cpp.offset = pb.offset();
-    cpp.include_labels = pb.include_labels();
     return {cpp, x::errors::NIL};
 }
 

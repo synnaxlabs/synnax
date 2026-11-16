@@ -44,6 +44,7 @@ describe("Button", () => {
     it.each([
       ["outlined", "--pluto-fill-hover", "--pluto-gray-l8"],
       ["filled", "--pluto-primary-p1", "--pluto-primary-p1"],
+      ["shadow", "--pluto-fill-hover", "--pluto-gray-l7"],
     ] as const)(
       "should paint a hovered %s button from its hover tokens",
       async (variant, bg, bc) => {
@@ -53,6 +54,25 @@ describe("Button", () => {
         expect(border(el)).toBe(resolve(`var(${bc})`));
       },
     );
+
+    it("should draw a shadow button with no box at rest", async () => {
+      const el = await renderButton({ variant: "shadow" });
+      expect(background(el)).toBe(resolve("transparent"));
+      expect(border(el)).toBe(resolve("transparent"));
+      expect(computed(el, "border-top-style")).toBe("solid");
+    });
+
+    it("should keep the box of an open shadow button", async () => {
+      const el = await renderButton({ variant: "shadow", "aria-expanded": true });
+      expect(background(el)).toBe(resolve("var(--pluto-fill-hover)"));
+      expect(border(el)).toBe(resolve("var(--pluto-gray-l7)"));
+    });
+
+    it("should color only the text of a shadow button with a status", async () => {
+      const el = await renderButton({ variant: "shadow", status: "error" });
+      expect(computed(el, "color")).toBe(resolve("var(--pluto-error-p1)"));
+      expect(border(el)).toBe(resolve("transparent"));
+    });
 
     it("should leave a text button transparent and without a border", async () => {
       const el = await renderButton({ variant: "text" });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type primitive, zod } from "@synnaxlabs/x";
+import { array, filter, type primitive, zod } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { MultipleFoundError, NotFoundError, ValidationError } from "@/errors";
@@ -78,19 +78,32 @@ export const analyzeParams = <
   } as ParamAnalysisResult<T, K>;
 };
 
-export const checkForMultipleOrNoResults = <T, R>(
+/**
+ * Checks that a retrieve of one record found exactly one.
+ * @param name - The name of the record type, such as "range".
+ * @param request - The request that the retrieve sent. The errors describe its search
+ * term and filter.
+ * @param results - The records that the retrieve found.
+ * @param isSingle - Whether the retrieve was for one record. If false, nothing is
+ * checked.
+ * @throws {NotFoundError} if results is empty.
+ * @throws {MultipleFoundError} if results holds more than one record.
+ */
+export const checkForMultipleOrNoResults = <R>(
   name: string,
-  params: T | T[],
+  { where, searchTerm }: { where?: object; searchTerm?: string },
   results: R[],
   isSingle: boolean,
 ): void => {
-  if (!isSingle) return;
-  if (results.length === 0)
-    throw new NotFoundError(`${name} not found matching ${JSON.stringify(params)}`);
-  if (results.length > 1)
-    throw new MultipleFoundError(
-      `Expected one ${name} matching ${JSON.stringify(params)}, but found ${results.length}`,
-    );
+  if (!isSingle || results.length === 1) return;
+  const description = where == null ? "" : filter.describe(where);
+  let clause = description === "" ? "" : ` where ${description}`;
+  if (searchTerm != null && searchTerm !== "")
+    clause = ` matching ${JSON.stringify(searchTerm)}${clause}`;
+  if (results.length === 0) throw new NotFoundError(`Found no ${name}${clause}`);
+  throw new MultipleFoundError(
+    `Expected one ${name}${clause}, but found ${results.length}`,
+  );
 };
 
 /**

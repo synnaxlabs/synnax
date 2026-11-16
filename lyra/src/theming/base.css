@@ -148,14 +148,17 @@ th,
     --pluto-selected-subtle-border-color: var(--pluto-gray-l7);
     --pluto-selected-subtle-color: var(--pluto-gray-l11);
 
-    /* List tier: rows (list, menu, tree). Text color is deliberately untouched,
-       since rows carry multi-color content. */
-    --pluto-selected-list-bg: oklch(from var(--pluto-gray-l5-70) l calc(c + 0.025) h);
+    /* List tier: rows (list, menu, tree). Text color is deliberately untouched, since
+       rows carry multi-color content. The hue is fixed: Chrome 157 reads a near-neutral
+       gray as having no hue, which draws as red. */
+    --pluto-selected-list-bg: oklch(
+        from var(--pluto-gray-l5-70) l calc(c + 0.025) 261deg
+    );
     --pluto-selected-list-hover-bg: oklch(
-        from var(--pluto-gray-l5-85) l calc(c + 0.025) h
+        from var(--pluto-gray-l5-85) l calc(c + 0.025) 261deg
     );
     --pluto-selected-list-active-bg: oklch(
-        from var(--pluto-gray-l6) l calc(c + 0.025) h
+        from var(--pluto-gray-l6) l calc(c + 0.025) 261deg
     );
     --pluto-selected-list-border-color: transparent;
 

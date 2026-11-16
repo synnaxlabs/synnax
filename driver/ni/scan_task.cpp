@@ -24,6 +24,7 @@
 #include "absl/log/log.h"
 
 #include "driver/common/scan_task.h"
+#include "driver/ni/alias.h"
 #include "driver/ni/probe.h"
 #include "driver/ni/scan_task.h"
 #include "errors/errors.h"
@@ -115,21 +116,16 @@ Scanner::parse_device(NISysCfgResourceHandle resource) {
         return {Device(), SKIP_DEVICE_ERR};
     }
     VLOG(1) << SCAN_LOG_PREFIX << "resource name: " << property_value_buf;
-    dev.resource_name = property_value_buf;
-    if (dev.resource_name.size() > 2)
-        dev.resource_name = dev.resource_name.substr(1, dev.resource_name.size() - 2);
+    dev.resource_name = trim_resource_name(property_value_buf);
     if (is_simulated) dev.key = dev.resource_name;
 
     dev.status = synnax::device::Status{
-        .key = synnax::device::status_key(dev),
         .name = dev.name,
         .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Device present",
         .time = x::telem::TimeStamp::now(),
-        .details = synnax::device::StatusDetails{
-            .rack = dev.rack,
-            .device = dev.key,
-        }
+        .details = synnax::device::StatusDetails{.rack = dev.rack, .connected = true},
+        .owner = synnax::device::resource_id(dev.key),
     };
 
     // Chassis/link properties (non-fatal; missing = empty/false).
@@ -244,7 +240,7 @@ Scanner::scan(const common::ScannerContext &ctx) {
         this->read_hardware(dev, ctx);
         auto sy_dev = dev.to_synnax();
         if (auto it = parent_keys.find(dev.key); it != parent_keys.end())
-            sy_dev.parent = synnax::device::ontology_id(it->second);
+            sy_dev.parent = it->second;
         devices.push_back(std::move(sy_dev));
     }
     return {devices, close_err};

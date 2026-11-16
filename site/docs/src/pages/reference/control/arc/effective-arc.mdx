@@ -69,8 +69,7 @@ and show it with a state indicator on the schematic. See
 ### Compare values explicitly
 
 Write `start_cmd == 1`, not `start_cmd`. A number used as a condition works, but the
-compiler warns:
-`numeric conditions are deprecated; use an explicit comparison like x != 0`.
+compiler gives the warning [ARC2005](/reference/control/arc/reference/errors#arc2005).
 
 ### Use `=>` for conditions and `->` for values
 

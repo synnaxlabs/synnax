@@ -58,7 +58,6 @@ const TooltipsToggleButton = (): ReactElement => {
 };
 
 export const Controls = memo((): ReactElement => {
-  const isSnapshot = Schematic.useIsSnapshot();
   const isAcquired = Session.Schematic.useSelectControlIsAcquired();
   const { canEdit, isCurrentlyEditable } = Session.Schematic.useSelectEditable();
   const canControl = Framer.useCanCommand();
@@ -69,7 +68,7 @@ export const Controls = memo((): ReactElement => {
       <TooltipsToggleButton />
       <Flex.Box x pack className={CSS.cls(isAcquired && Vis.CONTROLS_PINNED_CLASS)}>
         {canEdit && <Diagram.Controls.ToggleEdit disabled={isAcquired} />}
-        {!isSnapshot && canControl && <ControlToggleButton />}
+        {canControl && <ControlToggleButton />}
       </Flex.Box>
     </Vis.Controls>
   );

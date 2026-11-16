@@ -1,0 +1,39 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/resource/v0"
+import "schemas/synnax/versions/secret/v0"
+import "schemas/x/versions/telem/v0"
+
+Key = uuid {
+    @doc value "is a unique identifier for a grant."
+}
+
+Grant struct {
+    key        Key = create {
+        @doc value "is the unique identifier for this grant."
+        @key
+    }
+    subject    resource.ID     {
+        @doc value "is the subject that may read the secrets."
+    }
+    secrets    secret.Key[]    {
+        @doc value "are the secrets the subject may read."
+    }
+    expires_at telem.TimeStamp {
+        @doc value "is when the grant stops working, if no read has used it."
+    }
+
+    @doc value  """
+        lets a subject read secrets once, such as for a rack to test a connection before
+        the device that uses them is saved.
+    """
+    @go marshal
+    @go migrate
+}

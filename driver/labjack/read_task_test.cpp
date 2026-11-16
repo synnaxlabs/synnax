@@ -82,7 +82,6 @@ TEST(TestReadChannelParse, testTCChan) {
         {"range", 0},
         {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}},
         {"thermocouple_type", "K"},
-        {"neg_chan", 199},
         {"units", "K"},
         {"cjc_source", "TEMPERATURE_DEVICE_K"},
         {"cjc_slope", 1},
@@ -98,7 +97,7 @@ TEST(TestReadChannelParse, testTCChan) {
     ASSERT_EQ(tc_chan->synnax_key, 0);
     ASSERT_EQ(tc_chan->type, LJM_ttK);
     ASSERT_EQ(tc_chan->pos_chan, 3);
-    ASSERT_EQ(tc_chan->neg_chan, 199);
+    ASSERT_EQ(tc_chan->neg_chan, LJM_GND);
     ASSERT_EQ(tc_chan->units, LJM_KELVIN);
     ASSERT_EQ(tc_chan->cjc_source, DEVICE_CJC_SOURCE);
     ASSERT_EQ(tc_chan->cjc_slope, 1);
@@ -109,23 +108,23 @@ TEST(TestReadChannelParse, testTCChan) {
 std::unique_ptr<InputChan> parse_thermocouple(
     const std::string &port,
     const std::string &cjc_source,
-    const int neg_chan = 199,
-    const std::string &units = "K"
+    const std::string &units = "K",
+    const std::optional<std::uint16_t> neg_chan = std::nullopt
 ) {
-    const x::json::json cfg{
+    x::json::json cfg{
         {"port", port},
         {"channel", 1},
         {"type", "thermocouple"},
         {"thermocouple_type", "K"},
-        {"neg_chan", neg_chan},
         {"units", units},
         {"cjc_source", cjc_source},
         {"cjc_slope", 1},
         {"cjc_offset", 0}
     };
+    if (neg_chan.has_value()) cfg["neg_chan"] = *neg_chan;
     auto p = x::json::Parser(cfg);
     auto chan = parse_input_chan(p);
-    EXPECT_FALSE(p.error()) << p.error();
+    EXPECT_NIL(p.error());
     return chan;
 }
 
@@ -140,8 +139,24 @@ std::unique_ptr<InputChan> parse_analog(const double range) {
     };
     auto p = x::json::Parser(cfg);
     auto chan = parse_input_chan(p);
-    EXPECT_FALSE(p.error()) << p.error();
+    EXPECT_NIL(p.error());
     return chan;
+}
+
+/// @brief it should read an analog channel with no negative channel against ground.
+TEST(TestReadChannelParse, testAIChanAbsentNegChanIsGround) {
+    const x::json::json cfg{
+        {"port", "AIN0"},
+        {"channel", 1},
+        {"type", "analog"},
+        {"range", 10},
+    };
+    auto p = x::json::Parser(cfg);
+    const auto chan = parse_input_chan(p);
+    ASSERT_NIL(p.error());
+    const auto *const ai = dynamic_cast<AIChan *>(chan.get());
+    ASSERT_NE(ai, nullptr);
+    ASSERT_EQ(ai->neg_chan, LJM_GND);
 }
 
 /// @brief it should reject an analog channel with a max voltage of zero.
@@ -249,7 +264,7 @@ TEST(TestReadChannelApply, testT8Thermocouple) {
 /// @brief it should turn off the thermocouple feature of the device, and set the
 /// thermocouple range and the negative channel on a T7.
 TEST(TestReadChannelApply, testT7Thermocouple) {
-    const auto chan = parse_thermocouple("AIN2", "TEMPERATURE_DEVICE_K", 3);
+    const auto chan = parse_thermocouple("AIN2", "TEMPERATURE_DEVICE_K", "K", 3);
     const auto dev = std::make_shared<device::Mock>();
     ASSERT_NIL(chan->apply(dev, T7));
     const std::map<std::string, double> expected{
@@ -306,11 +321,11 @@ std::pair<double, x::errors::Error> temperature(
 /// the channel.
 TEST(TestThermocoupleTemperature, testConvertsToUnits) {
     const device::Mock dev;
-    const auto kelvin = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, 199, "K");
+    const auto kelvin = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, "K");
     EXPECT_DOUBLE_EQ(ASSERT_NIL_P(temperature(kelvin, dev, 0.001, 300)), 325);
-    const auto celsius = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, 199, "C");
+    const auto celsius = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, "C");
     EXPECT_DOUBLE_EQ(ASSERT_NIL_P(temperature(celsius, dev, 0.001, 300)), 51.85);
-    const auto fahrenheit = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, 199, "F");
+    const auto fahrenheit = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, "F");
     EXPECT_NEAR(ASSERT_NIL_P(temperature(fahrenheit, dev, 0.001, 300)), 125.33, 1e-9);
 }
 
@@ -427,21 +442,6 @@ TEST(TestReadChannelParse, testInvalidChannelType) {
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
-/// @brief it should derive the backlog threshold from the sample rate when the
-/// count is zero.
-TEST(TestBacklogWarnOnCount, testZeroDerivesFromSampleRate) {
-    const x::json::json cfg{{"device_scan_backlog_warn_on_count", 0}};
-    auto p = x::json::Parser(cfg);
-    const auto count = parse_backlog_warn_on_count(
-        p,
-        "device_scan_backlog_warn_on_count",
-        x::telem::HERTZ * 50,
-        2
-    );
-    ASSERT_NIL(p.error());
-    ASSERT_EQ(count, 100);
-}
-
 /// @brief it should derive the backlog threshold when the count is absent.
 TEST(TestBacklogWarnOnCount, testAbsentDerivesFromSampleRate) {
     const auto cfg = x::json::json::object();
@@ -470,9 +470,9 @@ TEST(TestBacklogWarnOnCount, testExplicitCountKept) {
     ASSERT_EQ(count, 7);
 }
 
-x::json::json basic_read_task_config() {
+x::json::json basic_read_task_config(const std::string &device) {
     return {
-        {"device", "230227d9-02aa-47e4-b370-0d590add1bc1"},
+        {"device", device},
         {"sample_rate", 10},
         {"stream_rate", 5},
         {"data_saving_disabled", false},
@@ -486,7 +486,6 @@ x::json::json basic_read_task_config() {
                {"range", 0},
                {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}},
                {"thermocouple_type", "K"},
-               {"neg_chan", 199},
                {"units", "K"},
                {"cjc_source", "TEMPERATURE_DEVICE_K"},
                {"cjc_slope", 1},
@@ -512,7 +511,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
-        .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
+        .key = make_unique_channel_name("labjack"),
         .rack = rack.key,
         .location = "dev1",
         .make = "labjack",
@@ -538,7 +537,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
         true
     ));
 
-    auto j = basic_read_task_config();
+    auto j = basic_read_task_config(dev.key);
     j["channels"][0]["channel"] = tc_ch.key;
     j["channels"][1]["channel"] = di_ch.key;
     j["channels"][2]["channel"] = ai_ch.key;
@@ -561,7 +560,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_EQ(tc_chan->synnax_key, tc_ch.key);
     ASSERT_EQ(tc_chan->type, LJM_ttK);
     ASSERT_EQ(tc_chan->pos_chan, 0);
-    ASSERT_EQ(tc_chan->neg_chan, 199);
+    ASSERT_EQ(tc_chan->neg_chan, LJM_GND);
     ASSERT_EQ(tc_chan->units, LJM_KELVIN);
     ASSERT_EQ(tc_chan->cjc_source, DEVICE_CJC_SOURCE);
     ASSERT_EQ(tc_chan->cjc_slope, 1);
@@ -586,7 +585,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
-        .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
+        .key = make_unique_channel_name("labjack"),
         .rack = rack.key,
         .location = "dev1",
         .make = "labjack",
@@ -603,7 +602,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     ));
 
     // Create a config with an invalid channel type
-    auto j = basic_read_task_config();
+    auto j = basic_read_task_config(dev.key);
     j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
           {"disabled", false},
@@ -624,7 +623,7 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto dev = synnax::device::Device{
-        .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
+        .key = make_unique_channel_name("labjack"),
         .rack = rack.key,
         .location = "dev1",
         .make = "labjack",
@@ -638,7 +637,7 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
         true
     ));
 
-    auto j = basic_read_task_config();
+    auto j = basic_read_task_config(dev.key);
     j["data_saving_disabled"] = false;
     j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
@@ -661,6 +660,8 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
 
 class SourceClaimTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     std::unique_ptr<ReadTaskConfig> cfg;
     std::shared_ptr<device::MockManager> devs;
 
@@ -670,7 +671,7 @@ protected:
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
         auto rack = ASSERT_NIL_P(client->racks.create("cat"));
         auto dev = synnax::device::Device{
-            .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
+            .key = make_unique_channel_name("labjack"),
             .rack = rack.key,
             .location = "dev1",
             .make = "labjack",
@@ -683,7 +684,7 @@ protected:
             x::telem::FLOAT64_T,
             true
         ));
-        auto j = basic_read_task_config();
+        auto j = basic_read_task_config(dev.key);
         if (thermocouple)
             j["channels"] = x::json::json::array(
                 {{{"port", "AIN0"},
@@ -694,7 +695,6 @@ protected:
                   {"range", 0},
                   {"scale", {{"type", "none"}}},
                   {"thermocouple_type", "K"},
-                  {"neg_chan", 199},
                   {"units", "K"},
                   {"cjc_source", "TEMPERATURE_DEVICE_K"},
                   {"cjc_slope", 1},
@@ -724,12 +724,12 @@ TEST_F(SourceClaimTest, testUnarySourceClaimsDeviceOnStart) {
     UnarySource source(devs, std::move(*cfg));
     EXPECT_EQ(devs->acquire_call_count, 0);
     EXPECT_EQ(devs->dev.use_count(), 1);
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     EXPECT_EQ(devs->acquire_call_count, 1);
     EXPECT_EQ(devs->dev.use_count(), 2);
     ASSERT_NIL(source.stop());
     EXPECT_EQ(devs->dev.use_count(), 1);
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     EXPECT_EQ(devs->acquire_call_count, 2);
     ASSERT_NIL(source.stop());
 }
@@ -740,9 +740,9 @@ TEST_F(SourceClaimTest, testUnarySourceAcquireFailureRetriesOnNextStart) {
     parse_config(true);
     devs->acquire_errors = {UNREACHABLE};
     UnarySource source(devs, std::move(*cfg));
-    ASSERT_OCCURRED_AS(source.start(), ljm::UNREACHABLE);
+    ASSERT_OCCURRED_AS(source.start("start_cmd", this->cancel), ljm::UNREACHABLE);
     EXPECT_EQ(devs->dev.use_count(), 1);
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     EXPECT_EQ(devs->acquire_call_count, 2);
     ASSERT_NIL(source.stop());
 }
@@ -753,12 +753,12 @@ TEST_F(SourceClaimTest, testStreamSourceClaimsDeviceOnStart) {
     StreamSource source(devs, std::move(*cfg));
     EXPECT_EQ(devs->acquire_call_count, 0);
     EXPECT_EQ(devs->dev.use_count(), 1);
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     EXPECT_EQ(devs->acquire_call_count, 1);
     EXPECT_EQ(devs->dev.use_count(), 2);
     ASSERT_NIL(source.stop());
     EXPECT_EQ(devs->dev.use_count(), 1);
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     EXPECT_EQ(devs->acquire_call_count, 2);
     ASSERT_NIL(source.stop());
 }
@@ -769,9 +769,9 @@ TEST_F(SourceClaimTest, testStreamSourceAcquireFailureRetriesOnNextStart) {
     parse_config(false);
     devs->acquire_errors = {UNREACHABLE};
     StreamSource source(devs, std::move(*cfg));
-    ASSERT_OCCURRED_AS(source.start(), ljm::UNREACHABLE);
+    ASSERT_OCCURRED_AS(source.start("start_cmd", this->cancel), ljm::UNREACHABLE);
     EXPECT_EQ(devs->dev.use_count(), 1);
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     EXPECT_EQ(devs->acquire_call_count, 2);
     ASSERT_NIL(source.stop());
 }
@@ -780,7 +780,7 @@ TEST_F(SourceClaimTest, testStreamSourceAcquireFailureRetriesOnNextStart) {
 TEST_F(SourceClaimTest, testStreamSourceRestartReclaimsDevice) {
     parse_config(false);
     StreamSource source(devs, std::move(*cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     EXPECT_EQ(devs->acquire_call_count, 1);
     ASSERT_NIL(source.restart());
     EXPECT_EQ(devs->acquire_call_count, 2);
@@ -800,7 +800,7 @@ TEST_F(SourceClaimTest, testStreamSourceRestartOpensAFreshHandle) {
         return std::make_shared<device::Mock>();
     };
     StreamSource source(devs, std::move(*cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     EXPECT_EQ(opens, 1);
     ASSERT_NIL(source.restart());
     EXPECT_EQ(opens, 2);
@@ -816,7 +816,7 @@ TEST_F(SourceClaimTest, testStreamSourceReadReclaimsAfterFailedRestart) {
         x::errors::Error(ljm::CRITICAL_ERROR, "device not found")
     };
     StreamSource source(devs, std::move(*cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     ASSERT_OCCURRED_AS(source.restart(), ljm::CRITICAL_ERROR);
 
     x::breaker::Breaker breaker(x::breaker::default_config("read"));
@@ -836,7 +836,7 @@ TEST_F(SourceClaimTest, testStreamSourceFailedRestartHoldsNoDevice) {
     const auto mock = std::make_shared<device::Mock>();
     devs->dev = mock;
     StreamSource source(devs, std::move(*cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     EXPECT_EQ(mock.use_count(), 3);
     mock->set_should_fail(true);
     ASSERT_OCCURRED_AS(source.restart(), x::errors::Error("mock failure"));
@@ -853,15 +853,15 @@ TEST_F(SourceClaimTest, testStreamSourceSecondStartLeavesFirstStreamRunning) {
     devs->dev = mock;
     StreamSource first(devs, std::move(*first_cfg));
     StreamSource second(devs, std::move(*cfg));
-    ASSERT_NIL(first.start());
+    ASSERT_NIL(first.start("start_cmd", this->cancel));
     const auto writes = mock->write_count();
     EXPECT_GT(writes, 0);
-    ASSERT_OCCURRED_AS(second.start(), ljm::STREAM_IS_ACTIVE);
+    ASSERT_OCCURRED_AS(second.start("start_cmd", this->cancel), ljm::STREAM_IS_ACTIVE);
     EXPECT_EQ(mock->write_count(), writes);
     ASSERT_NIL(second.stop());
-    ASSERT_OCCURRED_AS(second.start(), ljm::STREAM_IS_ACTIVE);
+    ASSERT_OCCURRED_AS(second.start("start_cmd", this->cancel), ljm::STREAM_IS_ACTIVE);
     ASSERT_NIL(first.stop());
-    ASSERT_NIL(second.start());
+    ASSERT_NIL(second.start("start_cmd", this->cancel));
     ASSERT_NIL(second.stop());
 }
 
@@ -882,7 +882,7 @@ TEST_F(SourceClaimTest, testUnarySourceReconnectsAfterTemporaryError) {
     devs->dev = mock;
     mock->read_errors = {UNREACHABLE};
     UnarySource source(devs, std::move(*cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     const auto writes = mock->write_count();
     x::telem::Frame fr(0);
     ASSERT_OCCURRED_AS(read_once(source, fr).error, ljm::UNREACHABLE);
@@ -901,7 +901,7 @@ TEST_F(SourceClaimTest, testUnarySourceReadsSamplesPerChan) {
     mock->read_values = {{"AIN0", 1.5}};
     devs->dev = mock;
     UnarySource source(devs, std::move(*cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     x::telem::Frame fr(0);
     ASSERT_NIL(read_once(source, fr).error);
     ASSERT_EQ(fr.size(), 1);
@@ -921,7 +921,7 @@ TEST_F(SourceClaimTest, testUnarySourceWarnsOfDefaultCalibration) {
     mock->invalid_calibration = true;
     devs->dev = mock;
     UnarySource source(devs, std::move(*cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     x::telem::Frame fr(0);
     const auto res = read_once(source, fr);
     ASSERT_NIL(res.error);
@@ -939,7 +939,7 @@ TEST_F(SourceClaimTest, testStreamSourceWarnsOfDefaultCalibration) {
     mock->invalid_calibration = true;
     devs->dev = mock;
     StreamSource source(devs, std::move(*cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     x::telem::Frame fr(0);
     auto res = read_once(source, fr);
     ASSERT_NIL(res.error);
@@ -961,7 +961,7 @@ TEST_F(SourceClaimTest, testStreamSourceRestartsAfterTemporaryError) {
     mock->stream_read_errors = {UNREACHABLE};
     devs->dev = mock;
     StreamSource source(devs, std::move(*cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     x::telem::Frame fr(0);
     ASSERT_OCCURRED_AS(read_once(source, fr).error, ljm::UNREACHABLE);
     EXPECT_FALSE(mock->is_streaming());
@@ -980,7 +980,7 @@ TEST_F(SourceClaimTest, testStreamSourceDropsSkippedScans) {
     mock->stream_data = {LJM_DUMMY_VALUE, 2};
     devs->dev = mock;
     StreamSource source(devs, std::move(*cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     x::telem::Frame fr(0);
     const auto res = read_once(source, fr);
     ASSERT_NIL(res.error);
@@ -999,7 +999,7 @@ TEST_F(SourceClaimTest, testStreamSourceWritesNothingWhenEveryScanSkipped) {
     mock->stream_data = {LJM_DUMMY_VALUE, LJM_DUMMY_VALUE};
     devs->dev = mock;
     StreamSource source(devs, std::move(*cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     x::telem::Frame fr(0);
     const auto res = read_once(source, fr);
     ASSERT_NIL(res.error);
@@ -1010,6 +1010,8 @@ TEST_F(SourceClaimTest, testStreamSourceWritesNothingWhenEveryScanSkipped) {
 
 class ReadTaskTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     std::shared_ptr<synnax::Synnax> client = std::make_shared<synnax::Synnax>(
         new_test_client()
     );
@@ -1036,7 +1038,6 @@ protected:
             {"type", "thermocouple"},
             {"scale", {{"type", "none"}}},
             {"thermocouple_type", "K"},
-            {"neg_chan", 199},
             {"units", "K"},
             {"cjc_source", cjc_source},
             {"cjc_slope", 1},
@@ -1077,9 +1078,8 @@ protected:
             .name = "my_device",
         };
         const auto create_err = this->client->devices.create(device);
-        EXPECT_FALSE(create_err) << create_err;
-        auto j = basic_read_task_config();
-        j["device"] = device.key;
+        EXPECT_NIL(create_err);
+        auto j = basic_read_task_config(device.key);
         j["channels"] = channels;
         j["sample_rate"] = sample_rate;
         j["stream_rate"] = stream_rate;
@@ -1176,7 +1176,7 @@ TEST_F(ReadTaskTest, testUnarySourceConverts) {
     );
     this->dev->read_values = {{"AIN0", 0.001}, {"TEMPERATURE_DEVICE_K", 300}};
     UnarySource source(this->devs, std::move(cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     x::telem::Frame fr(0);
     const auto res = read_once(source, fr);
     ASSERT_NIL(res.error);
@@ -1195,7 +1195,7 @@ TEST_F(ReadTaskTest, testUnarySourceWarnsOutOfRange) {
     );
     this->dev->read_values = {{"AIN0", 9.9}, {"TEMPERATURE_DEVICE_K", 300}};
     UnarySource source(this->devs, std::move(cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     x::telem::Frame fr(0);
     const auto res = read_once(source, fr);
     ASSERT_NIL(res.error);
@@ -1218,7 +1218,7 @@ TEST_F(ReadTaskTest, testStreamSourceConverts) {
     );
     this->dev->stream_data = {0.001, 300, 0.002, 301};
     StreamSource source(this->devs, std::move(cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     x::telem::Frame fr(0);
     ASSERT_NIL(read_once(source, fr).error);
     ASSERT_EQ(fr.size(), 1);
@@ -1236,7 +1236,7 @@ TEST_F(ReadTaskTest, testT8OldFirmware) {
     );
     this->dev->read_values["FIRMWARE_VERSION"] = 1.0025;
     StreamSource source(this->devs, std::move(cfg));
-    const auto err = source.start();
+    const auto err = source.start("start_cmd", this->cancel);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
         err.data,
@@ -1253,7 +1253,7 @@ TEST_F(ReadTaskTest, testT8OldLJM) {
     );
     this->dev->library_version = 1.2302;
     StreamSource source(this->devs, std::move(cfg));
-    const auto err = source.start();
+    const auto err = source.start("start_cmd", this->cancel);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
         err.data,
@@ -1279,7 +1279,7 @@ TEST_F(ReadTaskTest, testStreamSourceKeepsGapOfSkippedScan) {
     auto cfg = ASSERT_NIL_P(this->parse(T7, x::json::json::array({channel}), 20, 5));
     this->dev->stream_data = {1, LJM_DUMMY_VALUE, 3, 4};
     StreamSource source(this->devs, std::move(cfg));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     x::telem::Frame fr(0);
     ASSERT_NIL(read_once(source, fr).error);
     ASSERT_EQ(fr.size(), 2);

@@ -191,7 +191,9 @@ type Channel struct {
 	Operations []*Operation `protobuf:"bytes,10,rep,name=operations,proto3" json:"operations,omitempty"`
 	// expression is an Arc expression for calculated channels. If set, the channel is
 	// automatically configured as virtual.
-	Expression    string `protobuf:"bytes,11,opt,name=expression,proto3" json:"expression,omitempty"`
+	Expression string `protobuf:"bytes,11,opt,name=expression,proto3" json:"expression,omitempty"`
+	// group is the group the channel sits in, if any.
+	Group         *string `protobuf:"bytes,12,opt,name=group,proto3,oneof" json:"group,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -299,6 +301,13 @@ func (x *Channel) GetOperations() []*Operation {
 func (x *Channel) GetExpression() string {
 	if x != nil {
 		return x.Expression
+	}
+	return ""
+}
+
+func (x *Channel) GetGroup() string {
+	if x != nil && x.Group != nil {
+		return *x.Group
 	}
 	return ""
 }
@@ -647,27 +656,27 @@ func (x *TelemDataTypeSet) GetIn() *TelemDataTypeList {
 	return nil
 }
 
-type StringList struct {
+type GroupKeyList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *StringList) Reset() {
-	*x = StringList{}
+func (x *GroupKeyList) Reset() {
+	*x = GroupKeyList{}
 	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *StringList) String() string {
+func (x *GroupKeyList) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*StringList) ProtoMessage() {}
+func (*GroupKeyList) ProtoMessage() {}
 
-func (x *StringList) ProtoReflect() protoreflect.Message {
+func (x *GroupKeyList) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -679,12 +688,12 @@ func (x *StringList) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use StringList.ProtoReflect.Descriptor instead.
-func (*StringList) Descriptor() ([]byte, []int) {
+// Deprecated: Use GroupKeyList.ProtoReflect.Descriptor instead.
+func (*GroupKeyList) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *StringList) GetValues() []string {
+func (x *GroupKeyList) GetValues() []string {
 	if x != nil {
 		return x.Values
 	}
@@ -715,10 +724,10 @@ type Where struct {
 	// virtual matches virtual channels that are not calculated, or every other channel
 	// when false.
 	Virtual *bool `protobuf:"varint,10,opt,name=virtual,proto3,oneof" json:"virtual,omitempty"`
-	// name_patterns matches channels whose name matches any of the given patterns. A
-	// valid channel name matches exactly, and any other pattern is a regular expression,
-	// anchored when unanchored.
-	NamePatterns  *StringList `protobuf:"bytes,11,opt,name=name_patterns,json=namePatterns,proto3" json:"name_patterns,omitempty"`
+	// groups matches the channels in any of the given groups.
+	Groups *GroupKeyList `protobuf:"bytes,11,opt,name=groups,proto3" json:"groups,omitempty"`
+	// grouped matches the channels in a group, or in no group when false.
+	Grouped       *bool `protobuf:"varint,12,opt,name=grouped,proto3,oneof" json:"grouped,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -823,11 +832,18 @@ func (x *Where) GetVirtual() bool {
 	return false
 }
 
-func (x *Where) GetNamePatterns() *StringList {
+func (x *Where) GetGroups() *GroupKeyList {
 	if x != nil {
-		return x.NamePatterns
+		return x.Groups
 	}
 	return nil
+}
+
+func (x *Where) GetGrouped() bool {
+	if x != nil && x.Grouped != nil {
+		return *x.Grouped
+	}
+	return false
 }
 
 var File_core_pkg_service_channel_pb_channel_proto protoreflect.FileDescriptor
@@ -838,7 +854,7 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\tOperation\x125\n" +
 	"\x04type\x18\x01 \x01(\x0e2!.service.channel.pb.OperationTypeR\x04type\x12#\n" +
 	"\rreset_channel\x18\x02 \x01(\rR\fresetChannel\x12\x1a\n" +
-	"\bduration\x18\x03 \x01(\x03R\bduration\"\x87\x03\n" +
+	"\bduration\x18\x03 \x01(\x03R\bduration\"\xac\x03\n" +
 	"\aChannel\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vleaseholder\x18\x02 \x01(\rR\vleaseholder\x12\x1b\n" +
@@ -856,7 +872,9 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"operations\x12\x1e\n" +
 	"\n" +
 	"expression\x18\v \x01(\tR\n" +
-	"expression\">\n" +
+	"expression\x12\x19\n" +
+	"\x05group\x18\f \x01(\tH\x00R\x05group\x88\x01\x01B\b\n" +
+	"\x06_group\">\n" +
 	"\tWhereList\x121\n" +
 	"\x06values\x18\x01 \x03(\v2\x19.service.channel.pb.WhereR\x06values\"!\n" +
 	"\aKeyList\x12\x16\n" +
@@ -877,10 +895,9 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\x10TelemDataTypeSet\x12\x13\n" +
 	"\x02eq\x18\x01 \x01(\tH\x00R\x02eq\x88\x01\x01\x125\n" +
 	"\x02in\x18\x02 \x01(\v2%.service.channel.pb.TelemDataTypeListR\x02inB\x05\n" +
-	"\x03_eq\"$\n" +
-	"\n" +
-	"StringList\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"\xb1\x05\n" +
+	"\x03_eq\"&\n" +
+	"\fGroupKeyList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\xd1\x05\n" +
 	"\x05Where\x12/\n" +
 	"\x03and\x18\x01 \x01(\v2\x1d.service.channel.pb.WhereListR\x03and\x12-\n" +
 	"\x02or\x18\x02 \x01(\v2\x1d.service.channel.pb.WhereListR\x02or\x120\n" +
@@ -892,8 +909,9 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\bis_index\x18\b \x01(\v2\x11.x.filter.pb.BoolH\x05R\aisIndex\x88\x01\x01\x122\n" +
 	"\binternal\x18\t \x01(\v2\x11.x.filter.pb.BoolH\x06R\binternal\x88\x01\x01\x12\x1d\n" +
 	"\avirtual\x18\n" +
-	" \x01(\bH\aR\avirtual\x88\x01\x01\x12C\n" +
-	"\rname_patterns\x18\v \x01(\v2\x1e.service.channel.pb.StringListR\fnamePatternsB\x06\n" +
+	" \x01(\bH\aR\avirtual\x88\x01\x01\x128\n" +
+	"\x06groups\x18\v \x01(\v2 .service.channel.pb.GroupKeyListR\x06groups\x12\x1d\n" +
+	"\agrouped\x18\f \x01(\bH\bR\agrouped\x88\x01\x01B\x06\n" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\a\n" +
 	"\x05_nameB\x0e\n" +
@@ -903,7 +921,9 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\t_is_indexB\v\n" +
 	"\t_internalB\n" +
 	"\n" +
-	"\b_virtual*\x8f\x01\n" +
+	"\b_virtualB\n" +
+	"\n" +
+	"\b_grouped*\x8f\x01\n" +
 	"\rOperationType\x12\x16\n" +
 	"\x12OPERATION_TYPE_MIN\x10\x00\x12\x16\n" +
 	"\x12OPERATION_TYPE_MAX\x10\x01\x12\x16\n" +
@@ -937,7 +957,7 @@ var file_core_pkg_service_channel_pb_channel_proto_goTypes = []any{
 	(*NodeKeySet)(nil),        // 7: service.channel.pb.NodeKeySet
 	(*TelemDataTypeList)(nil), // 8: service.channel.pb.TelemDataTypeList
 	(*TelemDataTypeSet)(nil),  // 9: service.channel.pb.TelemDataTypeSet
-	(*StringList)(nil),        // 10: service.channel.pb.StringList
+	(*GroupKeyList)(nil),      // 10: service.channel.pb.GroupKeyList
 	(*Where)(nil),             // 11: service.channel.pb.Where
 	(pb.Concurrency)(0),       // 12: x.control.pb.Concurrency
 	(*pb1.String)(nil),        // 13: x.filter.pb.String
@@ -960,7 +980,7 @@ var file_core_pkg_service_channel_pb_channel_proto_depIdxs = []int32{
 	9,  // 13: service.channel.pb.Where.data_type:type_name -> service.channel.pb.TelemDataTypeSet
 	14, // 14: service.channel.pb.Where.is_index:type_name -> x.filter.pb.Bool
 	14, // 15: service.channel.pb.Where.internal:type_name -> x.filter.pb.Bool
-	10, // 16: service.channel.pb.Where.name_patterns:type_name -> service.channel.pb.StringList
+	10, // 16: service.channel.pb.Where.groups:type_name -> service.channel.pb.GroupKeyList
 	17, // [17:17] is the sub-list for method output_type
 	17, // [17:17] is the sub-list for method input_type
 	17, // [17:17] is the sub-list for extension type_name
@@ -973,6 +993,7 @@ func file_core_pkg_service_channel_pb_channel_proto_init() {
 	if File_core_pkg_service_channel_pb_channel_proto != nil {
 		return
 	}
+	file_core_pkg_service_channel_pb_channel_proto_msgTypes[1].OneofWrappers = []any{}
 	file_core_pkg_service_channel_pb_channel_proto_msgTypes[4].OneofWrappers = []any{}
 	file_core_pkg_service_channel_pb_channel_proto_msgTypes[6].OneofWrappers = []any{}
 	file_core_pkg_service_channel_pb_channel_proto_msgTypes[8].OneofWrappers = []any{}

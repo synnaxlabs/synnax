@@ -16,6 +16,6 @@ export const useLink = (): Link.Handler => {
   const openTab = Panel.useOpenTab();
   return async ({ client, key }) => {
     const retrieved = await client.tasks.retrieve({ key });
-    openTab({ variant: "resource", resource: task.ontologyID(retrieved.key) });
+    openTab({ variant: "resource", resource: task.resourceID(retrieved.key) });
   };
 };

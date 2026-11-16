@@ -17,7 +17,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestStatusV2(t *testing.T) {
+func TestStatusV1(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Service Status v1 Suite", SuiteConfig())
 }

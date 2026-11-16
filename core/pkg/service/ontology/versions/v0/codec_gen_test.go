@@ -17,26 +17,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
-	Describe("ID", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v0.ID) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.ID
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v0.ID{Type: v0.ResourceType("arc"), Key: "test_2"}),
-			Entry("zero values", v0.ID{Type: v0.ResourceType(""), Key: ""}),
-		)
-	})
 	Describe("Relationship", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v0.Relationship) {
@@ -49,14 +35,14 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.Relationship{
-				From: v0.ID{Type: v0.ResourceType("arc"), Key: "test_3"},
+				From: resource.ID{Type: resource.Type("arc"), Key: "test_3"},
 				Type: v0.RelationshipType("test_4"),
-				To:   v0.ID{Type: v0.ResourceType("arc"), Key: "test_7"},
+				To:   resource.ID{Type: resource.Type("arc"), Key: "test_7"},
 			}),
 			Entry("zero values", v0.Relationship{
-				From: v0.ID{Type: v0.ResourceType(""), Key: ""},
+				From: resource.ID{Type: resource.Type(""), Key: ""},
 				Type: v0.RelationshipType(""),
-				To:   v0.ID{Type: v0.ResourceType(""), Key: ""},
+				To:   resource.ID{Type: resource.Type(""), Key: ""},
 			}),
 		)
 	})
@@ -71,34 +57,17 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v0.Resource{ID: v0.ID{Type: v0.ResourceType("arc"), Key: "test_3"}}),
-			Entry("zero values", v0.Resource{ID: v0.ID{Type: v0.ResourceType(""), Key: ""}}),
+			Entry("fully populated", v0.Resource{ID: resource.ID{Type: resource.Type("arc"), Key: "test_3"}}),
+			Entry("zero values", v0.Resource{ID: resource.ID{Type: resource.Type(""), Key: ""}}),
 		)
 	})
 })
 
-func BenchmarkEncodeDecodeID(b *testing.B) {
-	seed := v0.ID{Type: v0.ResourceType("arc"), Key: "test_2"}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v0.ID
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeRelationship(b *testing.B) {
 	seed := v0.Relationship{
-		From: v0.ID{Type: v0.ResourceType("arc"), Key: "test_3"},
+		From: resource.ID{Type: resource.Type("arc"), Key: "test_3"},
 		Type: v0.RelationshipType("test_4"),
-		To:   v0.ID{Type: v0.ResourceType("arc"), Key: "test_7"},
+		To:   resource.ID{Type: resource.Type("arc"), Key: "test_7"},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -116,7 +85,7 @@ func BenchmarkEncodeDecodeRelationship(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeResource(b *testing.B) {
-	seed := v0.Resource{ID: v0.ID{Type: v0.ResourceType("arc"), Key: "test_3"}}
+	seed := v0.Resource{ID: resource.ID{Type: resource.Type("arc"), Key: "test_3"}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -132,51 +101,12 @@ func BenchmarkEncodeDecodeResource(b *testing.B) {
 	}
 }
 
-func FuzzDecodeID(f *testing.F) {
-	{
-		seed := v0.ID{Type: v0.ResourceType("arc"), Key: "test_2"}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.ID{Type: v0.ResourceType(""), Key: ""}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.ID
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v0.ID
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
 func FuzzDecodeRelationship(f *testing.F) {
 	{
 		seed := v0.Relationship{
-			From: v0.ID{Type: v0.ResourceType("arc"), Key: "test_3"},
+			From: resource.ID{Type: resource.Type("arc"), Key: "test_3"},
 			Type: v0.RelationshipType("test_4"),
-			To:   v0.ID{Type: v0.ResourceType("arc"), Key: "test_7"},
+			To:   resource.ID{Type: resource.Type("arc"), Key: "test_7"},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -186,9 +116,9 @@ func FuzzDecodeRelationship(f *testing.F) {
 	}
 	{
 		seed := v0.Relationship{
-			From: v0.ID{Type: v0.ResourceType(""), Key: ""},
+			From: resource.ID{Type: resource.Type(""), Key: ""},
 			Type: v0.RelationshipType(""),
-			To:   v0.ID{Type: v0.ResourceType(""), Key: ""},
+			To:   resource.ID{Type: resource.Type(""), Key: ""},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -220,7 +150,7 @@ func FuzzDecodeRelationship(f *testing.F) {
 
 func FuzzDecodeResource(f *testing.F) {
 	{
-		seed := v0.Resource{ID: v0.ID{Type: v0.ResourceType("arc"), Key: "test_3"}}
+		seed := v0.Resource{ID: resource.ID{Type: resource.Type("arc"), Key: "test_3"}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -228,7 +158,7 @@ func FuzzDecodeResource(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Resource{ID: v0.ID{Type: v0.ResourceType(""), Key: ""}}
+		seed := v0.Resource{ID: resource.ID{Type: resource.Type(""), Key: ""}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

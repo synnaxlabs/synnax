@@ -9,25 +9,34 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
+import { Configure } from "@/feature/ethercat/device/Configure";
 import {
-  INTEGRATION,
+  INTEGRATION_KEY,
   MAKE,
-  ZERO_SLAVE_PROPERTIES,
+  slavePropertiesZ,
 } from "@/feature/ethercat/device/types";
 import { SCAN_TYPE } from "@/feature/ethercat/task/types";
 import { type Device } from "@/platform/device";
 
+const locationZ = slavePropertiesZ.pick({ networkName: true, position: true });
+
 export const HARDWARE: Device.Hardware = {
-  key: INTEGRATION,
+  key: INTEGRATION_KEY,
   name: "EtherCAT",
   title: "EtherCAT network",
   description: "Slaves on an EtherCAT network adapter.",
   icon: <Icon.Logo.EtherCAT />,
   make: MAKE,
   scanType: SCAN_TYPE,
-  zeroProperties: ZERO_SLAVE_PROPERTIES,
+  location: { shape: "slot" },
+  Configure,
   checks: [
-    "The Driver can open the adapter. On Linux, this needs root or CAP_NET_RAW.",
+    "The Driver can open the adapter. On Windows, this needs Npcap, installed with " +
+      "the default options. On Linux, it needs root or CAP_NET_RAW.",
     "The slaves have power and a cable to that adapter.",
   ],
+  formatLocation: (device) => {
+    const { networkName, position } = locationZ.parse(device.properties);
+    return networkName == null ? device.location : `${networkName}, slot ${position}`;
+  },
 };

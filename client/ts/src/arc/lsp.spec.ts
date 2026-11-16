@@ -33,7 +33,10 @@ type LSPReceiver = {
 
 const MAX_DRAIN = 50;
 
-/** Drains messages from the stream until a JSON-RPC response with the expected id arrives. */
+/**
+ * Drains messages from the stream until a JSON-RPC response with the expected id
+ * arrives.
+ */
 const receiveResponse = async (
   stream: LSPReceiver,
   expectedId: number,
@@ -75,7 +78,10 @@ const receiveResponses = async (
   return responses;
 };
 
-/** Drains messages from the stream until a JSON-RPC notification with the expected method arrives. */
+/**
+ * Drains messages from the stream until a JSON-RPC notification with the expected
+ * method arrives.
+ */
 const receiveNotification = async (
   stream: LSPReceiver,
   expectedMethod: string,
@@ -107,7 +113,7 @@ describe("Arc LSP", () => {
       },
     };
 
-    stream.send({ content: JSON.stringify(initializeRequest) });
+    await stream.send({ content: JSON.stringify(initializeRequest) });
 
     const msg = await receiveResponse(stream, 1);
     expect(msg.jsonrpc).toBe("2.0");
@@ -139,11 +145,11 @@ describe("Arc LSP", () => {
       },
     };
 
-    stream.send({ content: JSON.stringify(initializeRequest) });
+    await stream.send({ content: JSON.stringify(initializeRequest) });
     const initMsg = await receiveResponse(stream, 1);
     if ("error" in initMsg) throw new Error(`LSP error: ${initMsg.error.message}`);
 
-    stream.send({
+    await stream.send({
       content: JSON.stringify({
         jsonrpc: "2.0",
         method: "initialized",
@@ -151,7 +157,7 @@ describe("Arc LSP", () => {
       }),
     });
 
-    stream.send({
+    await stream.send({
       content: JSON.stringify({
         jsonrpc: "2.0",
         method: "textDocument/didOpen",
@@ -192,11 +198,11 @@ describe("Arc LSP", () => {
       },
     };
 
-    stream.send({ content: JSON.stringify(initializeRequest) });
+    await stream.send({ content: JSON.stringify(initializeRequest) });
     const initMsg = await receiveResponse(stream, 1);
     if ("error" in initMsg) throw new Error(`LSP error: ${initMsg.error.message}`);
 
-    stream.send({
+    await stream.send({
       content: JSON.stringify({
         jsonrpc: "2.0",
         method: "initialized",
@@ -204,7 +210,7 @@ describe("Arc LSP", () => {
       }),
     });
 
-    stream.send({
+    await stream.send({
       content: JSON.stringify({
         jsonrpc: "2.0",
         method: "textDocument/didOpen",
@@ -231,7 +237,7 @@ describe("Arc LSP", () => {
       },
     };
 
-    stream.send({ content: JSON.stringify(hoverRequest) });
+    await stream.send({ content: JSON.stringify(hoverRequest) });
 
     const responseMsg = await receiveResponse(stream, 2);
     expect(responseMsg.jsonrpc).toBe("2.0");
@@ -261,7 +267,7 @@ describe("Arc LSP", () => {
       },
     };
 
-    stream.send({ content: JSON.stringify(initializeRequest) });
+    await stream.send({ content: JSON.stringify(initializeRequest) });
     const initMsg = await receiveResponse(stream, 1);
     if ("error" in initMsg) throw new Error(`LSP error: ${initMsg.error.message}`);
 
@@ -282,7 +288,7 @@ describe("Arc LSP", () => {
       },
     ];
 
-    for (const req of requests) stream.send({ content: JSON.stringify(req) });
+    for (const req of requests) await stream.send({ content: JSON.stringify(req) });
 
     const responses = await receiveResponses(
       stream,
@@ -317,7 +323,7 @@ describe("Arc LSP", () => {
       params: { data: "test" },
     };
 
-    stream.send({ content: JSON.stringify(testMessage) });
+    await stream.send({ content: JSON.stringify(testMessage) });
 
     const parsed = await receiveResponse(stream, 999);
     expect(parsed.jsonrpc).toBe("2.0");
@@ -352,7 +358,7 @@ describe("Arc LSP", () => {
       },
     };
 
-    stream.send({ content: JSON.stringify(initializeRequest) });
+    await stream.send({ content: JSON.stringify(initializeRequest) });
     const initMsg = await receiveResponse(stream, 1);
     if ("error" in initMsg) throw new Error(`LSP error: ${initMsg.error.message}`);
 
@@ -362,7 +368,7 @@ describe("Arc LSP", () => {
       expect(capabilities).toHaveProperty("semanticTokensProvider");
     }
 
-    stream.send({
+    await stream.send({
       content: JSON.stringify({
         jsonrpc: "2.0",
         method: "initialized",
@@ -371,7 +377,7 @@ describe("Arc LSP", () => {
     });
 
     const arcCode = "func add() {x i32, y i32} i32 {\n  return x + y\n}";
-    stream.send({
+    await stream.send({
       content: JSON.stringify({
         jsonrpc: "2.0",
         method: "textDocument/didOpen",
@@ -397,7 +403,7 @@ describe("Arc LSP", () => {
       },
     };
 
-    stream.send({ content: JSON.stringify(semanticTokensRequest) });
+    await stream.send({ content: JSON.stringify(semanticTokensRequest) });
 
     const tokenMsg = await receiveResponse(stream, 2);
     expect(tokenMsg.jsonrpc).toBe("2.0");
@@ -435,11 +441,11 @@ describe("Arc LSP", () => {
         },
       };
 
-      stream.send({ content: JSON.stringify(initializeRequest) });
+      await stream.send({ content: JSON.stringify(initializeRequest) });
       const initMsg = await receiveResponse(stream, 1);
       if ("error" in initMsg) throw new Error(`LSP error: ${initMsg.error.message}`);
 
-      stream.send({
+      await stream.send({
         content: JSON.stringify({
           jsonrpc: "2.0",
           method: "initialized",
@@ -450,7 +456,7 @@ describe("Arc LSP", () => {
       const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
       const blockURI = `arc://block/test123#${encoded}`;
 
-      stream.send({
+      await stream.send({
         content: JSON.stringify({
           jsonrpc: "2.0",
           method: "textDocument/didOpen",
@@ -497,11 +503,11 @@ describe("Arc LSP", () => {
         },
       };
 
-      stream.send({ content: JSON.stringify(initializeRequest) });
+      await stream.send({ content: JSON.stringify(initializeRequest) });
       const initMsg = await receiveResponse(stream, 1);
       if ("error" in initMsg) throw new Error(`LSP error: ${initMsg.error.message}`);
 
-      stream.send({
+      await stream.send({
         content: JSON.stringify({
           jsonrpc: "2.0",
           method: "initialized",
@@ -512,7 +518,7 @@ describe("Arc LSP", () => {
       const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
       const blockURI = `arc://block/syntax-error#${encoded}`;
 
-      stream.send({
+      await stream.send({
         content: JSON.stringify({
           jsonrpc: "2.0",
           method: "textDocument/didOpen",
@@ -564,11 +570,11 @@ describe("Arc LSP", () => {
         },
       };
 
-      stream.send({ content: JSON.stringify(initializeRequest) });
+      await stream.send({ content: JSON.stringify(initializeRequest) });
       const initMsg = await receiveResponse(stream, 1);
       if ("error" in initMsg) throw new Error(`LSP error: ${initMsg.error.message}`);
 
-      stream.send({
+      await stream.send({
         content: JSON.stringify({
           jsonrpc: "2.0",
           method: "initialized",
@@ -579,7 +585,7 @@ describe("Arc LSP", () => {
       const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
       const blockURI = `arc://block/multiline#${encoded}`;
 
-      stream.send({
+      await stream.send({
         content: JSON.stringify({
           jsonrpc: "2.0",
           method: "textDocument/didOpen",
@@ -625,11 +631,11 @@ describe("Arc LSP", () => {
         },
       };
 
-      stream.send({ content: JSON.stringify(initializeRequest) });
+      await stream.send({ content: JSON.stringify(initializeRequest) });
       const initMsg = await receiveResponse(stream, 1);
       if ("error" in initMsg) throw new Error(`LSP error: ${initMsg.error.message}`);
 
-      stream.send({
+      await stream.send({
         content: JSON.stringify({
           jsonrpc: "2.0",
           method: "initialized",
@@ -640,7 +646,7 @@ describe("Arc LSP", () => {
       const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
       const blockURI = `arc://block/change-test#${encoded}`;
 
-      stream.send({
+      await stream.send({
         content: JSON.stringify({
           jsonrpc: "2.0",
           method: "textDocument/didOpen",
@@ -657,7 +663,7 @@ describe("Arc LSP", () => {
 
       await receiveNotification(stream, "textDocument/publishDiagnostics");
 
-      stream.send({
+      await stream.send({
         content: JSON.stringify({
           jsonrpc: "2.0",
           method: "textDocument/didChange",
@@ -697,11 +703,11 @@ describe("Arc LSP", () => {
         },
       };
 
-      stream.send({ content: JSON.stringify(initializeRequest) });
+      await stream.send({ content: JSON.stringify(initializeRequest) });
       const initMsg = await receiveResponse(stream, 1);
       if ("error" in initMsg) throw new Error(`LSP error: ${initMsg.error.message}`);
 
-      stream.send({
+      await stream.send({
         content: JSON.stringify({
           jsonrpc: "2.0",
           method: "initialized",
@@ -712,7 +718,7 @@ describe("Arc LSP", () => {
       // Block URI without metadata fragment - expression won't be wrapped
       const invalidBlockURI = "arc://block/no-metadata";
 
-      stream.send({
+      await stream.send({
         content: JSON.stringify({
           jsonrpc: "2.0",
           method: "textDocument/didOpen",

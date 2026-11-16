@@ -141,15 +141,27 @@ func bareLines(typ resolution.Type, table *resolution.Table) set.Set[string] {
 
 func newMatcher(f resolution.Field, table *resolution.Table) Matcher {
 	goName := naming.GetFieldName(f)
+	isArray := f.Type.Name == "Array" && len(f.Type.TypeArgs) == 1
 	switch {
+	case plugindomain.HasDomainFromField(f, "ref"):
+		return Matcher{Field: f, Func: RefFunc(goName, isArray), Kind: Variadic}
 	case key.ResolvePrimitive(f.Type, table) == "bool":
 		return Matcher{Field: f, Func: "Match" + goName, Kind: Single}
-	case f.Type.Name == "Array" && len(f.Type.TypeArgs) == 1:
+	case isArray:
 		return Matcher{Field: f, Func: "Match" + Singular(goName), Kind: Element}
 	case plugindomain.HasExprFromField(f, "filter", "scalar"):
 		return Matcher{Field: f, Func: "Match" + goName, Kind: Single}
 	}
 	return Matcher{Field: f, Func: "Match" + Plural(goName), Kind: Variadic}
+}
+
+// RefFunc returns the name of the matcher of the @ref field goName, which matches the
+// entries that hold any of a set of targets.
+func RefFunc(goName string, slice bool) string {
+	if slice {
+		goName = Singular(goName)
+	}
+	return "Match" + Plural(goName)
 }
 
 // Plural returns the plural form of a name. A name that is already plural

@@ -12,6 +12,7 @@
 from playwright.sync_api import Locator
 
 from console.layout import LayoutClient
+from console.notifications import click_past
 from console.page import PageType
 from console.task_page import TaskPage
 
@@ -24,6 +25,8 @@ READ_TYPE_NAMES = {
     "discrete_input": "Discrete input",
     "holding_register": "Holding register",
     "input_register": "Input register",
+    "holding_register_string": "Holding register string",
+    "input_register_string": "Input register string",
     "holding_register_bit": "Holding register bit",
     "input_register_bit": "Input register bit",
 }
@@ -56,9 +59,7 @@ class ModbusTask(TaskPage):
             return
         modal = self.page.locator(LayoutClient.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
-        # Toasts stack over the modal footer and swallow the click.
-        self.notifications.close_all()
-        modal.get_by_role("button", name="Connect", exact=True).click()
+        click_past(modal.get_by_role("button", name="Connect", exact=True))
         modal.wait_for(state="hidden", timeout=15000)
 
     def add_channel(

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, table } from "@synnaxlabs/client";
+import { resource, table } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Mosaic, Table as Base } from "@synnaxlabs/pluto";
@@ -34,9 +34,11 @@ const useDelete = Tree.createUseDelete({
 
 const useRename = Tree.createUseRename({
   useUpdate: Base.useRename,
-  ontologyID: table.ontologyID,
+  resourceID: table.resourceID,
   convertKey: String,
 });
+
+const retrieve: Tree.Retrieve = async (c, key) => await c.tables.retrieve(key);
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
@@ -67,15 +69,16 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </>
       )}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {isSingle && (
         <>
           <Export.ContextMenuItem onClick={() => handleExport(firstID)} />
           <Link.CopyContextMenuItem
             onClick={() =>
-              handleLink({ name: getResource(firstID).name, ontologyID: firstID })
+              handleLink({ name: getResource(firstID).name, resourceID: firstID })
             }
           />
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
         </>
       )}
       <Menu.Divider />
@@ -86,12 +89,18 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const TreeItem = Tree.createItem({
+/** Lists the tables that sit in a group. */
+export const GROUP_MEMBER: Group.Member = {
   type: "table",
+  children: (client, key) =>
+    Tree.createSource(client.tables, { groups: [key] }, Tree.toResource("table")),
+};
+
+const TreeItem = Tree.createItem({
+  linkable: true,
   icon: <Icon.Table />,
-  hasChildren: false,
   useOnSelect: Panel.useOpenResource,
-  haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
+  haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(resource.idToString(id))],
   ContextMenu: TreeContextMenu,
 });
 

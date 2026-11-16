@@ -91,7 +91,7 @@ describe("License", () => {
   ])("%s access", (_, Component) => {
     it("should show the license with a retrieve grant on it", async () => {
       const granted = await createTestClientWithGrants(client, {
-        retrieve: [license.ONTOLOGY_ID],
+        retrieve: [license.RESOURCE_ID],
       });
       const { license: lic } = await client.license.retrieve();
       if (lic == null) throw new Error("test Core has no license");

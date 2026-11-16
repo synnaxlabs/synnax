@@ -15,6 +15,3 @@ var _ gorp.Entry[SessionKey] = Session{}
 
 // GorpKey implements gorp.Entry.
 func (s Session) GorpKey() SessionKey { return s.Key }
-
-// SetOptions implements gorp.Entry.
-func (Session) SetOptions() []any { return nil }

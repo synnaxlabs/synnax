@@ -166,7 +166,7 @@ func (fc *fileController) tryAcquireWriter(
 		}
 		return w.fileKey, size, w, true, nil
 	}
-	if _, err := fc.gcWriters(); err != nil {
+	if err := fc.gcWriters(); err != nil {
 		return 0, 0, nil, false, err
 	}
 	_, err := fc.gcReaders()
@@ -253,6 +253,9 @@ func (fc *fileController) newWriter(
 		return w, size, span.Error(err)
 	}
 
+	if fc.counter.Value() >= math.MaxUint16 {
+		return nil, 0, span.Error(ErrFileLimit)
+	}
 	nextCtr, err := fc.counter.Add(1)
 	if err != nil {
 		return nil, 0, span.Error(err)
@@ -393,26 +396,23 @@ func (fc *fileController) gcReaders() (successful bool, err error) {
 }
 
 // gcWriters closes all open writers to oversize files.
-func (fc *fileController) gcWriters() (bool, error) {
+func (fc *fileController) gcWriters() error {
 	fc.writers.Lock()
 	defer fc.writers.Unlock()
-	collected := false
 	for k, w := range fc.writers.open {
 		s, err := fc.FS.Stat(fileKeyToName(k))
 		if err != nil {
-			return collected, err
+			return err
 		}
-
 		if s.Size() >= int64(fc.FileSize) && w.tryAcquire() {
 			err = w.HardClose()
 			delete(fc.writers.open, k)
-			collected = true
 			if err != nil {
-				return collected, err
+				return err
 			}
 		}
 	}
-	return collected, nil
+	return nil
 }
 
 // closeIdleWriter closes one idle writer handle so that a reader can use its place. A

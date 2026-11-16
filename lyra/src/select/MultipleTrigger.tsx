@@ -10,7 +10,12 @@
 import "@/select/MultipleTrigger.css";
 
 import { array, type color, primitive, type record, unique } from "@synnaxlabs/x";
-import { type KeyboardEvent, type ReactElement, type ReactNode } from "react";
+import {
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 
 import { Button } from "@/button";
 import { Caret } from "@/caret";
@@ -23,6 +28,7 @@ import { Input } from "@/input";
 import { List } from "@/list";
 import { useContext, useItemState, useSelected } from "@/select/Context";
 import { Label } from "@/select/Label";
+import { plural } from "@/select/placeholder";
 import { useIsFixed } from "@/select/registry";
 import { preventEnterWhileOpen } from "@/select/use";
 import { Tag } from "@/tag";
@@ -31,7 +37,6 @@ import { Text } from "@/text";
 export interface MultipleEntry<K extends record.Key> extends record.KeyedNamed<K> {
   icon?: Icon.ReactElement;
   color?: color.Crude;
-  alias?: string;
 }
 
 export interface MultipleTagProps<K extends record.Key> extends Omit<
@@ -47,18 +52,18 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
   itemKey,
   icon,
   onDragStart,
+  onClick,
   renderIcon,
 }: MultipleTagProps<K>): ReactElement | null => {
   const fixed = useIsFixed(itemKey);
   const item = List.useItem<K, E>(itemKey);
   const { onSelect } = useItemState(itemKey);
-  let label: string = itemKey.toString();
-  if (primitive.isNonZero(item?.alias)) label = item.alias;
-  else if (primitive.isNonZero(item?.name)) label = item.name;
+  const label = primitive.isNonZero(item?.name) ? item.name : itemKey.toString();
   const resolvedIcon = fixed ? undefined : (renderIcon?.(item) ?? item?.icon ?? icon);
   return (
     <Tag.Tag
       onClose={onSelect}
+      onClick={onClick}
       onDragStart={() => onDragStart(itemKey)}
       draggable
       size="small"
@@ -77,7 +82,10 @@ const multipleTag = renderProp(MultipleTag);
 export interface MultipleTriggerProps<
   K extends record.Key,
   E extends record.Keyed<K> | undefined = MultipleEntry<K> | undefined,
-> extends Pick<Button.ButtonProps, "variant" | "disabled" | "preview" | "className"> {
+> extends Pick<
+  Button.ButtonProps,
+  "variant" | "disabled" | "preview" | "className" | "size"
+> {
   /** Haul item type this trigger accepts as a drop. Empty accepts nothing. */
   haulType?: string;
   /** Builds the haul item for an entry dragged out of the trigger. */
@@ -86,13 +94,17 @@ export interface MultipleTriggerProps<
   icon?: Icon.ReactElement;
   /** Names the trigger. The tags alone never say what they are. */
   "aria-label"?: string;
+  /** Singular name of what the tags are, such as "label", for a count of them. */
+  resourceName?: string;
   /** Whether to show only a count instead of one tag per entry. */
   hideTags?: boolean;
   children?: RenderProp<MultipleTagProps<K>>;
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
 }
 
-/** @returns whether a drag carries at least one entry of the type not already selected. */
+/**
+ * @returns whether a drag carries at least one entry of the type not already selected.
+ */
 export const staticCanDrop = <K extends record.Key>(
   { items: entities }: Haul.DraggingState,
   haulType: string,
@@ -104,7 +116,15 @@ export const staticCanDrop = <K extends record.Key>(
   return f.length > 0 && !f.every((h) => value.includes(h.key as K));
 };
 
-/** The button of a {@link Multiple} selection, showing one removable tag per entry. */
+const PLACEHOLDER_CLASS = CSS.B("select-multiple-trigger-placeholder");
+
+/**
+ * The button of a {@link Multiple} selection, showing one removable tag per entry. A
+ * shadow or text trigger reads as its tags: each tag, the count, and the placeholder of
+ * an empty trigger opens the dialog beside itself. The room around them takes no
+ * clicks. A shadow trigger's tags have no remove buttons, and in a list item, its
+ * placeholder shows on hover only.
+ */
 export const MultipleTrigger = <
   K extends record.Key,
   E extends record.Keyed<K> | undefined = MultipleEntry<K> | undefined,
@@ -117,15 +137,17 @@ export const MultipleTrigger = <
   preview,
   icon,
   "aria-label": ariaLabel,
+  resourceName,
   hideTags = false,
   children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
   renderIcon,
   className,
+  size,
 }: MultipleTriggerProps<K, E>): ReactElement | null => {
   const value = useSelected<K>();
   const { setSelected } = useContext<K>();
   const { getItem } = List.useUtilContext<K, E>();
-  const { toggle, visible } = Dialog.useContext();
+  const { toggle, toggleAt, visible, triggerRef } = Dialog.useContext();
   const canDrop = (hauled: Haul.DraggingState) =>
     staticCanDrop(hauled, haulType, array.toArray(value), disabled);
   const { startDrag, ...dropProps } = Haul.useDragAndDrop({
@@ -157,6 +179,11 @@ export const MultipleTrigger = <
   const itemStatus = Input.useItemStatus({});
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void =>
     preventEnterWhileOpen(e, visible);
+  // A shadow or text trigger reads as its tags, and each part opens it beside itself.
+  const openAt =
+    preview !== true && (variant === "shadow" || variant === "text")
+      ? (e: MouseEvent<HTMLElement>): void => toggleAt(e.currentTarget)
+      : undefined;
 
   if (hideTags) {
     if (preview === true) return null;
@@ -177,14 +204,22 @@ export const MultipleTrigger = <
 
   return (
     <Tag.Tags
+      // A ref that changes after mount never runs, so the box mounts again when the
+      // add button comes or goes.
+      key={showAddButton ? "add" : "box"}
+      ref={showAddButton ? undefined : triggerRef}
       full="x"
       // The chassis is a div, so it needs a role and a tab stop to act as a button.
       role="button"
       tabIndex={showAddButton || preview === true ? undefined : 0}
       aria-label={ariaLabel}
-      onClick={() => {
-        if (!showAddButton) toggle();
-      }}
+      onClick={toggle}
+      onCountClick={openAt}
+      noun={
+        resourceName == null
+          ? undefined
+          : { one: resourceName, other: plural(resourceName) }
+      }
       onKeyDown={handleKeyDown}
       {...dropProps}
       className={CSS.cls(
@@ -195,26 +230,50 @@ export const MultipleTrigger = <
       )}
       variant={variant}
       preview={preview}
-      preventClick={showAddButton}
       grow
       {...itemStatus}
     >
-      {value.length === 0 && (
-        <Text.Text className={CSS.B("select-multiple-trigger-placeholder")}>
-          {preview === true ? (
-            "None"
-          ) : (
-            <>
-              {icon}
-              {placeholder}
-            </>
-          )}
-        </Text.Text>
-      )}
+      {value.length === 0 &&
+        (preview !== true && (variant === "shadow" || variant === "text") ? (
+          <Button.Button
+            el="div"
+            variant="text"
+            size={size}
+            onClick={openAt}
+            reveal={variant === "shadow"}
+            className={PLACEHOLDER_CLASS}
+          >
+            {icon}
+            {placeholder}
+          </Button.Button>
+        ) : (
+          <Text.Text
+            className={CSS.cls(
+              PLACEHOLDER_CLASS,
+              variant === "shadow" && CSS.M("reveal"),
+            )}
+          >
+            {preview === true ? (
+              "None"
+            ) : (
+              <>
+                {icon}
+                {placeholder}
+              </>
+            )}
+          </Text.Text>
+        ))}
       {value.map((v) =>
-        children({ key: v, itemKey: v, onDragStart: onTagDragStart, icon, renderIcon }),
+        children({
+          key: v,
+          itemKey: v,
+          onDragStart: onTagDragStart,
+          onClick: openAt,
+          icon,
+          renderIcon,
+        }),
       )}
-      {variant !== "text" && preview !== true && (
+      {variant === "outlined" && preview !== true && (
         <Caret.Animated
           className={CSS.level("p")}
           enabled={visible}
@@ -224,7 +283,7 @@ export const MultipleTrigger = <
         />
       )}
       {showAddButton && (
-        <Button.Button variant={variant} onClick={toggle}>
+        <Button.Button ref={triggerRef} variant="text" size={size} onClick={openAt}>
           <Icon.Add color={9} />
         </Button.Button>
       )}

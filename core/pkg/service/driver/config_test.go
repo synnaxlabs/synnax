@@ -24,7 +24,7 @@ var _ = Describe("Config", func() {
 				Framer:    framerSvc,
 				Channel:   channelSvc,
 				Factories: []driver.Factory{&mockFactory{name: "test"}},
-				Host:      hostProvider,
+				HostKey:   1,
 			}
 			Expect(
 				cfg.Validate(),
@@ -38,7 +38,7 @@ var _ = Describe("Config", func() {
 				Framer:    framerSvc,
 				Channel:   channelSvc,
 				Factories: []driver.Factory{&mockFactory{name: "test"}},
-				Host:      hostProvider,
+				HostKey:   1,
 			}
 			Expect(
 				cfg.Validate(),
@@ -52,7 +52,7 @@ var _ = Describe("Config", func() {
 				Framer:    framerSvc,
 				Channel:   channelSvc,
 				Factories: []driver.Factory{&mockFactory{name: "test"}},
-				Host:      hostProvider,
+				HostKey:   1,
 			}
 			Expect(
 				cfg.Validate(),
@@ -66,14 +66,14 @@ var _ = Describe("Config", func() {
 				Task:    taskService,
 				Framer:  framerSvc,
 				Channel: channelSvc,
-				Host:    hostProvider,
+				HostKey: 1,
 			}
 			Expect(
 				cfg.Validate(),
 			).To(MatchError(ContainSubstring("factories: must be non-empty")))
 		})
 
-		It("should fail when Host is zero", func() {
+		It("should fail when HostKey is zero", func() {
 			cfg := driver.Config{
 				DB:        db,
 				Rack:      rackService,
@@ -84,7 +84,7 @@ var _ = Describe("Config", func() {
 			}
 			Expect(
 				cfg.Validate(),
-			).To(MatchError(ContainSubstring("host: must be non-nil")))
+			).To(MatchError(ContainSubstring("host_key: must be non-zero")))
 		})
 	})
 })

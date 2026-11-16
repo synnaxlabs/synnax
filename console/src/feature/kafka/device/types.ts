@@ -11,7 +11,7 @@ import { type device, kafka } from "@synnaxlabs/client";
 import { z } from "zod";
 
 export const MAKE = "kafka";
-export const INTEGRATION = "kafka";
+export const INTEGRATION_KEY = "kafka";
 const makeZ = z.literal(MAKE);
 const modelZ = z.literal("cluster");
 

@@ -141,7 +141,7 @@ const Calculated = ({
                     <Channel.SelectSingle
                       value={value}
                       onChange={(v: channel.Key | undefined) => onChange(v ?? 0)}
-                      initialQuery={BOOLEAN_QUERY}
+                      query={BOOLEAN_QUERY}
                       grow
                       allowNone
                     />

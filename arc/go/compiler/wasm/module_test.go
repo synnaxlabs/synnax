@@ -14,6 +14,9 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	"github.com/synnaxlabs/arc/compiler/wasm"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/api"
 )
 
 var _ = Describe("WASM Module", func() {
@@ -276,6 +279,22 @@ var _ = Describe("WASM Module", func() {
 		})
 	})
 
+	Describe("Globals", func() {
+		It("Should export a global with its initial value", func(ctx SpecContext) {
+			mod := wasm.NewModule()
+			idx := mod.AddGlobal(wasm.Global{Mutable: true, Init: -42})
+			mod.AddExport(wasm.LoopBudgetExport, wasm.ExportKindGlobal, idx)
+			rt := wazero.NewRuntime(ctx)
+			DeferCleanup(rt.Close)
+			guest := MustSucceed(rt.Instantiate(ctx, mod.Generate()))
+			global := guest.ExportedGlobal(wasm.LoopBudgetExport)
+			_, mutable := global.(api.MutableGlobal)
+			Expect(mutable).To(BeTrue())
+			Expect(global.Type()).To(Equal(api.ValueTypeI64))
+			Expect(int64(global.Get())).To(Equal(int64(-42)))
+		})
+	})
+
 	Describe("Memory", func() {
 		It("Should enable memory", func() {
 			mod := wasm.NewModule()
@@ -283,6 +302,15 @@ var _ = Describe("WASM Module", func() {
 			bytes := mod.Generate()
 			// Memory section ID is 0x05 - verify it's present
 			Expect(bytes).To(ContainElement(byte(0x05)))
+		})
+
+		It("Should cap memory at MaxMemoryPages", func(ctx SpecContext) {
+			mod := wasm.NewModule()
+			mod.EnableMemory()
+			mod.AddExport("memory", wasm.ExportKindMemory, 0)
+			mem := Compile(ctx, mod).ExportedMemories()["memory"]
+			Expect(mem.Min()).To(Equal(uint32(1)))
+			Expect(MustBeOk(mem.Max())).To(Equal(uint32(wasm.MaxMemoryPages)))
 		})
 
 		It("Should generate valid module without memory", func() {

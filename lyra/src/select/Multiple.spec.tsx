@@ -48,10 +48,9 @@ describe("Select.Multiple", () => {
         "data" | "value" | "onChange" | "children" | "resourceName"
       >,
     ) => {
-      const { data, getItem, retrieve } = List.useStaticData<string, TestEntry>({
+      const { data, getItem, search } = List.useStaticData<string, TestEntry>({
         data: testData,
       });
-      const { search } = List.usePager({ retrieve });
       const [value, setValue] = useState<string[]>([]);
       const handleChange = (keys: string[]) => {
         setValue(keys);
@@ -165,6 +164,17 @@ describe("Select.Multiple", () => {
     fireEvent.click(c.getByText("First Item Option"));
     fireEvent.click(c.getByLabelText("Remove First Item"));
     expect(onChange).toHaveBeenCalledWith([]);
+  });
+
+  it("should toggle the selection dialog when the user clicks a tag", () => {
+    const { SelectMultiple } = createSelectMultiple();
+    const c = render(<SelectMultiple />);
+    fireEvent.click(c.getByText("Test Items"));
+    fireEvent.click(c.getByText("First Item Option"));
+    fireEvent.click(c.getByText("First Item"));
+    expect(c.queryByText("Second Item Option")).toBeNull();
+    fireEvent.click(c.getByText("First Item"));
+    expect(c.getByText("Second Item Option")).toBeTruthy();
   });
 
   it("should allow the caller to search for an item", () => {

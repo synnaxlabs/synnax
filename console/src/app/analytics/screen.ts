@@ -35,7 +35,7 @@ export const watchScreens = ({
   let unwatchPanel: destructor.Destructor | undefined;
   const report = (): void => {
     if (key == null || tabKey == null) return;
-    const cached = client.panels.getCached(key);
+    const cached = client.panels.watch(key).getCached();
     if (cached == null || !query.isLive(cached)) return;
     const tab = panel.findTab(cached.root, tabKey);
     if (tab == null) return;
@@ -54,7 +54,7 @@ export const watchScreens = ({
       // The mosaic retrieves the panel. This only follows what lands in the cache, so
       // the first screen of a launch waits for that retrieve instead of racing it.
       unwatchPanel =
-        nextKey == null ? undefined : client.panels.onChange(nextKey, report);
+        nextKey == null ? undefined : client.panels.watch(nextKey).onChange(report);
     }
     key = nextKey;
     tabKey = nextTabKey;

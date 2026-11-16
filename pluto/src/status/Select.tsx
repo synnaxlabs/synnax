@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
+import { type status, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
@@ -16,8 +16,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { type Flux } from "@/flux";
-import { type ListParams, useList } from "@/status/queries";
+import { Flux } from "@/flux";
 
 export interface SelectProps
   extends
@@ -32,18 +31,13 @@ export interface SelectProps
       | "children"
       | "resourceName"
     >,
-    Flux.UseListParams<ListParams, status.Key, status.Status> {}
+    Omit<Flux.UseListParams<status.RetrieveMultipleParams, status.Status>, "name"> {}
 
-export const Select = ({
-  initialQuery,
-  filter,
-  ...props
-}: SelectProps): ReactElement => {
-  const { data, retrieve, subscribe, getItem, status } = useList({
-    initialQuery,
-    filter,
-  });
-  const { fetchMore, search } = List.usePager({ retrieve });
+export const Select = ({ query, filter, ...props }: SelectProps): ReactElement => {
+  const { data, getItem, subscribe, status, more, search } = Flux.useList(
+    (client: Synnax) => client.statuses,
+    { name: "statuses", query, filter },
+  );
   return (
     <Base.Single<status.Key, status.Status>
       {...props}
@@ -52,7 +46,7 @@ export const Select = ({
       subscribe={subscribe}
       getItem={getItem}
       icon={<Icon.Status />}
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
     >

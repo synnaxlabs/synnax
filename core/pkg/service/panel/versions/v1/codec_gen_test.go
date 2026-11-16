@@ -17,8 +17,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
@@ -45,7 +45,7 @@ var _ = Describe("Codec", func() {
 				Tabs: []v1.Tab{
 					{Variant: v1.ResourceTab{
 						TabBase:  fullyPopulatedTabBase,
-						Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
+						Resource: resource.ID{Type: resource.Type("arc"), Key: "test_4"},
 					}},
 				},
 			}}),
@@ -53,10 +53,10 @@ var _ = Describe("Codec", func() {
 				Direction: spatial.Direction("x"),
 				Size:      2.5,
 				First: v1.Node{Variant: v1.LeafNode{
-					Tabs: []v1.Tab{{Variant: v1.ResourceTab{TabBase: fullyPopulatedTabBase, Resource: ontology.ID{}}}},
+					Tabs: []v1.Tab{{Variant: v1.ResourceTab{TabBase: fullyPopulatedTabBase, Resource: resource.ID{}}}},
 				}},
 				Last: v1.Node{Variant: v1.LeafNode{
-					Tabs: []v1.Tab{{Variant: v1.ResourceTab{TabBase: fullyPopulatedTabBase, Resource: ontology.ID{}}}},
+					Tabs: []v1.Tab{{Variant: v1.ResourceTab{TabBase: fullyPopulatedTabBase, Resource: resource.ID{}}}},
 				}},
 			}}),
 		)
@@ -79,7 +79,7 @@ var _ = Describe("Codec", func() {
 					Tabs: []v1.Tab{
 						{Variant: v1.ResourceTab{
 							TabBase:  fullyPopulatedTabBase,
-							Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_7"},
+							Resource: resource.ID{Type: resource.Type("arc"), Key: "test_7"},
 						}},
 					},
 				}},
@@ -104,7 +104,7 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("resource variant", v1.Tab{Variant: v1.ResourceTab{
 				TabBase:  fullyPopulatedTabBase,
-				Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
+				Resource: resource.ID{Type: resource.Type("arc"), Key: "test_3"},
 			}}),
 			Entry("view variant", v1.Tab{Variant: v1.ViewTab{TabBase: fullyPopulatedTabBase, View: fullyPopulatedView}}),
 		)
@@ -131,7 +131,7 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 		Tabs: []v1.Tab{
 			{Variant: v1.ResourceTab{
 				TabBase:  fullyPopulatedTabBase,
-				Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
+				Resource: resource.ID{Type: resource.Type("arc"), Key: "test_4"},
 			}},
 		},
 	}}
@@ -158,7 +158,7 @@ func BenchmarkEncodeDecodePanel(b *testing.B) {
 			Tabs: []v1.Tab{
 				{Variant: v1.ResourceTab{
 					TabBase:  fullyPopulatedTabBase,
-					Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_7"},
+					Resource: resource.ID{Type: resource.Type("arc"), Key: "test_7"},
 				}},
 			},
 		}},
@@ -181,7 +181,7 @@ func BenchmarkEncodeDecodePanel(b *testing.B) {
 func BenchmarkEncodeDecodeTab(b *testing.B) {
 	seed := v1.Tab{Variant: v1.ResourceTab{
 		TabBase:  fullyPopulatedTabBase,
-		Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
+		Resource: resource.ID{Type: resource.Type("arc"), Key: "test_3"},
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -221,7 +221,7 @@ func FuzzDecodeNode(f *testing.F) {
 			Tabs: []v1.Tab{
 				{Variant: v1.ResourceTab{
 					TabBase:  fullyPopulatedTabBase,
-					Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
+					Resource: resource.ID{Type: resource.Type("arc"), Key: "test_4"},
 				}},
 			},
 		}}
@@ -236,10 +236,10 @@ func FuzzDecodeNode(f *testing.F) {
 			Direction: spatial.Direction("x"),
 			Size:      2.5,
 			First: v1.Node{Variant: v1.LeafNode{
-				Tabs: []v1.Tab{{Variant: v1.ResourceTab{TabBase: fullyPopulatedTabBase, Resource: ontology.ID{}}}},
+				Tabs: []v1.Tab{{Variant: v1.ResourceTab{TabBase: fullyPopulatedTabBase, Resource: resource.ID{}}}},
 			}},
 			Last: v1.Node{Variant: v1.LeafNode{
-				Tabs: []v1.Tab{{Variant: v1.ResourceTab{TabBase: fullyPopulatedTabBase, Resource: ontology.ID{}}}},
+				Tabs: []v1.Tab{{Variant: v1.ResourceTab{TabBase: fullyPopulatedTabBase, Resource: resource.ID{}}}},
 			}},
 		}}
 		w := orc.NewWriter(0)
@@ -279,7 +279,7 @@ func FuzzDecodePanel(f *testing.F) {
 				Tabs: []v1.Tab{
 					{Variant: v1.ResourceTab{
 						TabBase:  fullyPopulatedTabBase,
-						Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_7"},
+						Resource: resource.ID{Type: resource.Type("arc"), Key: "test_7"},
 					}},
 				},
 			}},
@@ -328,7 +328,7 @@ func FuzzDecodeTab(f *testing.F) {
 	{
 		seed := v1.Tab{Variant: v1.ResourceTab{
 			TabBase:  fullyPopulatedTabBase,
-			Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
+			Resource: resource.ID{Type: resource.Type("arc"), Key: "test_3"},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

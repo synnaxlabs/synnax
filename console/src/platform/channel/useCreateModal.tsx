@@ -96,7 +96,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
               <Channel.SelectSingle
                 value={value}
                 onChange={onChange}
-                initialQuery={INDEX_QUERY}
+                query={INDEX_QUERY}
                 allowNone={false}
                 zIndex={100}
               />

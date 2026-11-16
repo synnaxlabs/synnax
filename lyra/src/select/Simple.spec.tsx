@@ -102,6 +102,47 @@ describe("Select.Simple", () => {
     expect(c.queryByPlaceholderText("Search levels...")).toBeNull();
   });
 
+  describe("footer", () => {
+    const renderFooter = (onChange = vi.fn()) =>
+      render(
+        <Select.Simple<string>
+          value=""
+          onChange={onChange}
+          resourceName="Mode"
+          footer={<Select.Item itemKey="auto">Auto mode</Select.Item>}
+        >
+          <Select.Item itemKey="sm">Frame sync</Select.Item>
+          <Select.Item itemKey="dc">Clock sync</Select.Item>
+        </Select.Simple>,
+      );
+
+    it("should pin the footer outside the scrolling list", () => {
+      const c = renderFooter();
+      fireEvent.click(c.getByText("Mode"));
+      const scroll = c.baseElement.querySelector(".lyra-list__scroll");
+      expect(scroll?.contains(c.getByText("Frame sync"))).toBe(true);
+      expect(scroll?.contains(c.getByText("Auto mode"))).toBe(false);
+    });
+
+    it("should select an option in the footer", () => {
+      const onChange = vi.fn();
+      const c = renderFooter(onChange);
+      fireEvent.click(c.getByText("Mode"));
+      fireEvent.click(c.getByText("Auto mode"));
+      expect(onChange).toHaveBeenCalledWith("auto", expect.anything());
+    });
+
+    it("should keep an option in the footer when the search hides the rest", () => {
+      const c = renderFooter();
+      fireEvent.click(c.getByText("Mode"));
+      fireEvent.change(c.getByPlaceholderText("Search Modes..."), {
+        target: { value: "nothing" },
+      });
+      expect(c.getByText("Auto mode").closest("[hidden]")).toBeNull();
+      expect(c.getByText("Frame sync").closest("[hidden]")).not.toBeNull();
+    });
+  });
+
   it("should filter the list when the search box is typed into", () => {
     const c = render(<SelectSimple />);
     fireEvent.click(c.getByText("Test Item"));
@@ -140,13 +181,13 @@ describe("Select.Simple", () => {
     expect(c.getByRole("button", { name: "Test Item" })).toBeTruthy();
   });
 
-  it("should show empty content when the search hides every item", () => {
+  it("should say that no item matches when the search hides every item", () => {
     const c = render(<SelectSimple />);
     fireEvent.click(c.getByText("Test Item"));
     fireEvent.change(c.getByPlaceholderText("Search Test Items..."), {
       target: { value: "zzz" },
     });
-    expect(c.getByText("No Test Items found")).toBeTruthy();
+    expect(c.getByText('No Test Items match "zzz"')).toBeTruthy();
   });
 
   it("should name the search by searchName and the trigger by resourceName", () => {
@@ -319,21 +360,17 @@ describe("Select.Simple", () => {
     };
 
     it("should draw an outlined trigger by default", () => {
-      const { classList } = trigger();
-      expect(classList.contains("lyra-btn--outlined")).toBe(true);
-      expect(classList.contains("lyra--shadow")).toBe(false);
+      expect(trigger().classList.contains("lyra-btn--outlined")).toBe(true);
     });
 
-    it("should draw a shadow trigger on the outlined chassis", () => {
+    it("should draw a shadow trigger with the shadow variant", () => {
       const { classList } = trigger("shadow");
-      expect(classList.contains("lyra-btn--outlined")).toBe(true);
-      expect(classList.contains("lyra--shadow")).toBe(true);
+      expect(classList.contains("lyra-btn--shadow")).toBe(true);
+      expect(classList.contains("lyra-btn--outlined")).toBe(false);
     });
 
-    it("should draw a text trigger without the shadow modifier", () => {
-      const { classList } = trigger("text");
-      expect(classList.contains("lyra-btn--text")).toBe(true);
-      expect(classList.contains("lyra--shadow")).toBe(false);
+    it("should draw a text trigger with the text variant", () => {
+      expect(trigger("text").classList.contains("lyra-btn--text")).toBe(true);
     });
   });
 

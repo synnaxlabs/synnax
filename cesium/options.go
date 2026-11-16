@@ -19,6 +19,7 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -42,6 +43,7 @@ type options struct {
 	// frame before dropping it.
 	slowConsumerTimeout time.Duration
 	chunkSize           int64
+	clock               xtime.Clock
 }
 
 func (o *options) Report() alamos.Report { return alamos.Report{"dirname": o.dirname} }
@@ -101,9 +103,9 @@ func WithInstrumentation(i alamos.Instrumentation) Option {
 // WithFileSizeCap sets the FileSize parameter of the database. FileSize is the maximum
 // size, in bytes, for a writer to be created on a file. Note while that a file's size
 // may still exceed this value, it is not likely to exceed by much with frequent
-// commits. Defaults to 1GB
-func WithFileSizeCap(cap telem.Size) Option {
-	return func(o *options) { o.fileSize = cap }
+// commits. Defaults to 1GB.
+func WithFileSizeCap(size telem.Size) Option {
+	return func(o *options) { o.fileSize = size }
 }
 
 // WithRelayBufferSize sets the buffer size, in frames, of the relay's main pipe. Every
@@ -132,3 +134,7 @@ func WithSlowConsumerTimeout(timeout time.Duration) Option {
 func WithChunkSize(size int64) Option {
 	return func(o *options) { o.chunkSize = size }
 }
+
+// WithClock sets the clock that times the AutoIndexPersistInterval of each writer. It
+// must be monotonic. Defaults to xtime.Real.
+func WithClock(clock xtime.Clock) Option { return func(o *options) { o.clock = clock } }

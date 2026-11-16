@@ -20,9 +20,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   client,
+  configOf,
   createCellGrid,
+  createCellRow,
   createPreloadedState,
   renderTable,
+  ROW_KEY,
 } from "@/feature/table/testutil";
 import { Toolbar } from "@/feature/table/Toolbar";
 import { Session } from "@/session";
@@ -37,13 +40,11 @@ interface RenderToolbarOptions {
 
 const roles = new RoleClients(client);
 
-const createUncoloredGrid = (): ReturnType<typeof createCellGrid> => ({
-  ...createCellGrid(),
-  cells: {
+const createUncoloredGrid = (): ReturnType<typeof createCellGrid> =>
+  createCellRow({
     a: { variant: "text", value: "Cell A", level: "h5" },
     b: { variant: "text", value: "Cell B", level: "h5" },
-  },
-});
+  });
 
 // The role control's hex box, labeled with the role name.
 const roleInput = (label: string): HTMLInputElement => {
@@ -117,7 +118,7 @@ describe("table/Toolbar", () => {
     fireEvent.change(input, { target: { value: "Updated" } });
     await waitFor(async () => {
       const t = await client.tables.retrieve(key);
-      expect(t.cells.a).toMatchObject({ variant: "text", value: "Updated" });
+      expect(configOf(t, "a")).toMatchObject({ variant: "text", value: "Updated" });
     });
   });
 
@@ -132,7 +133,10 @@ describe("table/Toolbar", () => {
     await act(async () => {
       await remote.tables.dispatch(
         key,
-        table.set({ path: ["cells", "a", "value"], value: "Remote" }),
+        table.set({
+          path: ["rows", ROW_KEY, "cells", "a", "config", "value"],
+          value: "Remote",
+        }),
       );
     });
     expect(await screen.findByDisplayValue("Remote")).toBeDefined();
@@ -165,7 +169,7 @@ describe("table/Toolbar", () => {
     fireEvent.click(await screen.findByText("Value"));
     await waitFor(async () => {
       const t = await client.tables.retrieve(key);
-      expect(t.cells.a.variant).toBe("value");
+      expect(configOf(t, "a")?.variant).toBe("value");
     });
   });
 
@@ -178,7 +182,10 @@ describe("table/Toolbar", () => {
     fireEvent.click(await screen.findByText("Value"));
     await waitFor(async () => {
       const t = await client.tables.retrieve(key);
-      expect([t.cells.a.variant, t.cells.b.variant]).toEqual(["value", "value"]);
+      expect([configOf(t, "a")?.variant, configOf(t, "b")?.variant]).toEqual([
+        "value",
+        "value",
+      ]);
     });
   });
 
@@ -195,9 +202,7 @@ describe("table/Toolbar", () => {
     const { key, store } = await renderTable(Toolbar, {
       table: {
         name: uniqueName("table"),
-        rows: [{ size: 36, cells: ["a", "b"] }],
-        columns: [{ size: 72 }, { size: 72 }],
-        cells: { a: { variant: "value" }, b: { variant: "value" } },
+        ...createCellRow({ a: { variant: "value" }, b: { variant: "value" } }),
       },
       preloadedState: (key) =>
         createPreloadedState(key, { selectedCells: ["a"], lastSelected: "a" }),
@@ -227,7 +232,7 @@ describe("table/Toolbar", () => {
     fireEvent.change(roleInput("Fill"), { target: { value: "0000ff" } });
     await waitFor(async () => {
       const t = await client.tables.retrieve(key);
-      expect([t.cells.a, t.cells.b].map((c) => hexOf(c.fillColor))).toEqual([
+      expect(["a", "b"].map((k) => hexOf(configOf(t, k)?.fillColor))).toEqual([
         "#0000ff",
         "#0000ff",
       ]);
@@ -249,7 +254,7 @@ describe("table/Toolbar", () => {
       ).toMatchObject({
         actions: ["a", "b"].map((key) => ({
           type: "set",
-          set: { path: ["cells", key, "fill_color"] },
+          set: { path: ["rows", ROW_KEY, "cells", key, "config", "fill_color"] },
         })),
       }),
     );
@@ -278,7 +283,7 @@ describe("table/Toolbar", () => {
     fireEvent.keyDown(document.body, { code: "Escape" });
     await waitFor(async () => {
       const t = await client.tables.retrieve(key);
-      expect([t.cells.a, t.cells.b].map((c) => hexOf(c.fillColor))).toEqual([
+      expect(["a", "b"].map((k) => hexOf(configOf(t, k)?.fillColor))).toEqual([
         "#0000ff",
         "#00ff00",
       ]);
@@ -289,9 +294,10 @@ describe("table/Toolbar", () => {
     const { key, result } = await renderTable(Toolbar, {
       table: {
         name: uniqueName("table"),
-        rows: [{ size: 36, cells: ["a", "b"] }],
-        columns: [{ size: 72 }, { size: 72 }],
-        cells: { a: { variant: "text", value: "Cell A" }, b: { variant: "value" } },
+        ...createCellRow({
+          a: { variant: "text", value: "Cell A" },
+          b: { variant: "value" },
+        }),
       },
       preloadedState: (key) =>
         createPreloadedState(key, { selectedCells: ["a", "b"], lastSelected: "b" }),
@@ -303,10 +309,35 @@ describe("table/Toolbar", () => {
     fireEvent.blur(input);
     await waitFor(async () => {
       const t = await client.tables.retrieve(key);
-      expect(t.cells.b).toMatchObject({ precision: 4 });
+      expect(configOf(t, "b")).toMatchObject({ precision: 4 });
     });
     const t = await client.tables.retrieve(key);
-    expect(t.cells.a).not.toHaveProperty("precision");
+    expect(configOf(t, "a")).not.toHaveProperty("precision");
+  });
+
+  it("stores a multi-cell staleness timeout in seconds", async () => {
+    const { key } = await renderTable(Toolbar, {
+      table: {
+        name: uniqueName("table"),
+        ...createCellRow({ a: { variant: "value" }, b: { variant: "value" } }),
+      },
+      preloadedState: (key) =>
+        createPreloadedState(key, { selectedCells: ["a", "b"], lastSelected: "b" }),
+    });
+    const input = (await screen.findByText("Timeout"))
+      .closest(".lyra-input__item")
+      ?.querySelector("input");
+    assertDefined(input);
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "7s" } });
+    fireEvent.blur(input);
+    await waitFor(async () => {
+      const t = await client.tables.retrieve(key);
+      expect([configOf(t, "a"), configOf(t, "b")]).toMatchObject([
+        { stalenessTimeout: 7 },
+        { stalenessTimeout: 7 },
+      ]);
+    });
   });
 
   it("hides the value groups when only text cells are selected", async () => {
@@ -326,8 +357,8 @@ describe("table/Toolbar", () => {
     fireEvent.click(screen.getByText("M"));
     await waitFor(async () => {
       const t = await client.tables.retrieve(key);
-      expect(t.cells.a).toMatchObject({ level: "h4" });
-      expect(t.cells.b).toMatchObject({ level: "h4" });
+      expect(configOf(t, "a")).toMatchObject({ level: "h4" });
+      expect(configOf(t, "b")).toMatchObject({ level: "h4" });
     });
   });
 });

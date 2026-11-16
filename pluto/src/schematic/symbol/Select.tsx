@@ -39,22 +39,21 @@ export interface SelectSingleProps
       Select.SingleProps<schematic.symbol.Key, schematic.symbol.Symbol | undefined>,
       "data" | "resourceName" | "subscribe" | "children"
     >,
-    Flux.UseListParams<ListQuery, schematic.symbol.Key, schematic.symbol.Symbol> {}
+    Omit<Flux.UseListParams<ListQuery, schematic.symbol.Symbol>, "name"> {}
 
 export const SelectSingle = ({
   filter,
-  initialQuery,
+  query,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
+  const { data, getItem, subscribe, status, more, search } = useList({
     filter,
-    initialQuery,
+    query,
   });
-  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<schematic.symbol.Key, schematic.symbol.Symbol | undefined>
       getItem={getItem}
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
       {...rest}

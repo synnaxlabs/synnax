@@ -13,8 +13,12 @@ package v3
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
@@ -31,7 +35,7 @@ func (ce ChannelEntry) EncodeOrc(w *orc.Writer) error {
 		w.Bool(false)
 	}
 	w.String(ce.Alias)
-	if err := ce.Timestamp.EncodeOrc(w); err != nil {
+	if err := ce.TimestampConfig.EncodeOrc(w); err != nil {
 		return err
 	}
 	return nil
@@ -73,7 +77,7 @@ func (ce *ChannelEntry) DecodeOrc(r *orc.Reader) error {
 	if ce.Alias, err = r.String(); err != nil {
 		return err
 	}
-	if err = ce.Timestamp.DecodeOrc(r); err != nil {
+	if err = ce.TimestampConfig.DecodeOrc(r); err != nil {
 		return err
 	}
 	return nil
@@ -95,6 +99,25 @@ func (lv Log) EncodeOrc(w *orc.Writer) error {
 	w.Uint8(uint8(lv.TimestampPrecision))
 	w.Bool(lv.ChannelNamesHidden)
 	w.Bool(lv.TimestampsHidden)
+	w.String(string(lv.TimeZone))
+	if lv.Group != nil {
+		w.Bool(true)
+		w.Write((*lv.Group)[:])
+	} else {
+		w.Bool(false)
+	}
+	if lv.Project != nil {
+		w.Bool(true)
+		w.Write((*lv.Project)[:])
+	} else {
+		w.Bool(false)
+	}
+	if lv.Range != nil {
+		w.Bool(true)
+		w.Write((*lv.Range)[:])
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -133,6 +156,78 @@ func (lv *Log) DecodeOrc(r *orc.Reader) error {
 	}
 	if lv.TimestampsHidden, err = r.Bool(); err != nil {
 		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		lv.TimeZone = telem.TimeZone(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv group.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			lv.Group = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv project.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			lv.Project = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv ranger.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			lv.Range = &hv
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (tc TimestampConfig) EncodeOrc(w *orc.Writer) error {
+	w.String(string(tc.Format))
+	w.String(string(tc.TimeZone))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (tc *TimestampConfig) DecodeOrc(r *orc.Reader) error {
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		tc.Format = telem.TimestampFormat(rawV)
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		tc.TimeZone = telem.TimeZone(rawV)
 	}
 	return nil
 }

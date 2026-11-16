@@ -10,6 +10,7 @@
 package zyn
 
 import (
+	"encoding"
 	"reflect"
 	"strconv"
 	"uuid"
@@ -52,7 +53,7 @@ func (s StringZ) Validate(data any) error {
 }
 
 // validateDestinationValue validates that the destination is compatible with string
-// data
+// data.
 func (s StringZ) validateDestinationValue(dest reflect.Value) error {
 	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError(string(s.dataType), dest)
@@ -90,6 +91,7 @@ func UUID() StringZ { return String().UUID() }
 //   - string values
 //   - numeric values (converted to string)
 //   - boolean values (converted to string)
+//   - encoding.TextMarshaler values (converted with MarshalText)
 func (s StringZ) Dump(data any) (any, error) {
 	if data == nil {
 		if s.optional {
@@ -141,6 +143,13 @@ func (s StringZ) Dump(data any) (any, error) {
 	case reflect.Bool:
 		return strconv.FormatBool(val.Bool()), nil
 	default:
+	}
+	if m, ok := reflect.TypeAssert[encoding.TextMarshaler](val); ok {
+		text, err := m.MarshalText()
+		if err != nil {
+			return nil, err
+		}
+		return string(text), nil
 	}
 	return nil, invalidStringTypeError(val)
 }

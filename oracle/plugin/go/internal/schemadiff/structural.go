@@ -25,10 +25,10 @@ import (
 // Wire-compatible enum additions need no migration, but they are still a shape change
 // the history must record.
 func StructurallyEqual(
-	old, new resolution.Type, oldTable, newTable *resolution.Table,
+	old, next resolution.Type, oldTable, newTable *resolution.Table,
 ) bool {
 	oldEnum, oldOK := old.Form.(resolution.EnumForm)
-	newEnum, newOK := new.Form.(resolution.EnumForm)
+	newEnum, newOK := next.Form.(resolution.EnumForm)
 	if oldOK != newOK {
 		return false
 	}
@@ -43,21 +43,21 @@ func StructurallyEqual(
 			}
 		}
 	}
-	if !marshalEqual(old, new) || !defaultsEqual(old, new) ||
-		!inlinePayloadsEqual(old, new, oldTable, newTable) {
+	if !marshalEqual(old, next, oldTable, newTable) || !defaultsEqual(old, next) ||
+		!inlinePayloadsEqual(old, next, oldTable, newTable) {
 		return false
 	}
-	return SchemasEqual(old, new, oldTable, newTable)
+	return SchemasEqual(old, next, oldTable, newTable)
 }
 
 // inlinePayloadsEqual compares the inline variant payloads of two unions with
 // StructurallyEqual. An inline payload is part of its union's declaration, so its field
 // list and defaults are the union's.
 func inlinePayloadsEqual(
-	old, new resolution.Type, oldTable, newTable *resolution.Table,
+	old, next resolution.Type, oldTable, newTable *resolution.Table,
 ) bool {
 	oldForm, oldOK := old.Form.(resolution.UnionForm)
-	newForm, newOK := new.Form.(resolution.UnionForm)
+	newForm, newOK := next.Form.(resolution.UnionForm)
 	if !oldOK || !newOK {
 		return true
 	}
@@ -81,22 +81,26 @@ func inlinePayloadsEqual(
 // marshalEqual compares the codec surface schemadiff cannot see: the declared field
 // list including omitted fields, and each field's @go marshal and @go wire values. Two
 // versions with the same persisted shape still declare different Go structs when one
-// omits a field the other stores. Field types are schemadiff's concern — the two sides
-// resolve against different tables, so their qualified names never compare directly.
-func marshalEqual(old, new resolution.Type) bool {
+// omits a field the other stores. It also requires each field type to name the same
+// declaration, so a type moving to another resource is a change even when its shape
+// holds.
+func marshalEqual(
+	old, next resolution.Type,
+	oldTable, newTable *resolution.Table,
+) bool {
 	// The type-level persistence set is part of the declared shape: a version that
 	// flips a type between hand and generated, or changes its codec marker, is a
 	// real delta even when the field list is unchanged (auth v0 legacy → v1 Orc).
 	for _, expr := range []string{"hand", "marshal"} {
 		if domain.HasExprFromType(old, "go", expr) !=
-			domain.HasExprFromType(new, "go", expr) ||
+			domain.HasExprFromType(next, "go", expr) ||
 			domain.GetStringFromType(old, "go", expr) !=
-				domain.GetStringFromType(new, "go", expr) {
+				domain.GetStringFromType(next, "go", expr) {
 			return false
 		}
 	}
 	oldForm, oldOK := old.Form.(resolution.StructForm)
-	newForm, newOK := new.Form.(resolution.StructForm)
+	newForm, newOK := next.Form.(resolution.StructForm)
 	if oldOK != newOK || !oldOK {
 		return true
 	}
@@ -107,7 +111,7 @@ func marshalEqual(old, new resolution.Type) bool {
 		n := newForm.Fields[i]
 		if n.Name != f.Name ||
 			n.Optional != f.Optional ||
-			bareTypeName(n.Type) != bareTypeName(f.Type) ||
+			!sameDeclaration(f.Type, n.Type, oldTable, newTable) ||
 			domain.GetStringFromField(n, "go", "marshal") !=
 				domain.GetStringFromField(f, "go", "marshal") ||
 			domain.GetStringFromField(n, "go", "wire") !=
@@ -122,9 +126,9 @@ func marshalEqual(old, new resolution.Type) bool {
 // of the declared shape: it fills on write, so a version that adds one persists bytes
 // its predecessor never wrote. Callers run it after marshalEqual, which rejects a
 // differing form or field count.
-func defaultsEqual(old, new resolution.Type) bool {
+func defaultsEqual(old, next resolution.Type) bool {
 	oldForm, oldOK := old.Form.(resolution.StructForm)
-	newForm, newOK := new.Form.(resolution.StructForm)
+	newForm, newOK := next.Form.(resolution.StructForm)
 	if !oldOK || !newOK || len(oldForm.Fields) != len(newForm.Fields) {
 		return true
 	}
@@ -134,6 +138,48 @@ func defaultsEqual(old, new resolution.Type) bool {
 		}
 	}
 	return true
+}
+
+// sameDeclaration reports whether two references name the same declaration of the
+// same resource at every position. Each side resolves through its own table, so
+// versions of one resource compare equal.
+func sameDeclaration(
+	oldRef, newRef resolution.TypeRef, oldTable, newTable *resolution.Table,
+) bool {
+	if bareTypeName(oldRef) != bareTypeName(newRef) ||
+		len(oldRef.TypeArgs) != len(newRef.TypeArgs) {
+		return false
+	}
+	oldT, oldOK := oldRef.Resolve(oldTable)
+	newT, newOK := newRef.Resolve(newTable)
+	if oldOK && newOK && resourceOf(oldT.Namespace) != resourceOf(newT.Namespace) {
+		return false
+	}
+	for i := range oldRef.TypeArgs {
+		if !sameDeclaration(
+			oldRef.TypeArgs[i],
+			newRef.TypeArgs[i],
+			oldTable,
+			newTable,
+		) {
+			return false
+		}
+	}
+	return true
+}
+
+// resourceOf strips the version from a namespace. A version file's own namespace is
+// its bare version, such as v2, so it maps to the empty resource.
+func resourceOf(namespace string) string {
+	resource, _, _ := strings.Cut(namespace, "@v")
+	if v, ok := strings.CutPrefix(resource, "v"); ok && isDigits(v) {
+		return ""
+	}
+	return resource
+}
+
+func isDigits(s string) bool {
+	return s != "" && strings.Trim(s, "0123456789") == ""
 }
 
 // bareTypeName strips a resolved reference's namespace so declarations from different

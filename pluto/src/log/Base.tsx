@@ -56,6 +56,9 @@ const toHTMLBlob = (lines: log.Line[]): Blob => {
   return new Blob([html], { type: "text/html" });
 };
 
+const PARTIAL_DESCRIPTION =
+  "The copy holds only the lines the log keeps in memory, not every stored value.";
+
 const EMPTY_CONTENT = (
   <Status.Summary center level="h3" variant="disabled" hideIcon>
     No log entries
@@ -78,6 +81,7 @@ export const Base = ({
   channelNamesHidden,
   timestampsHidden,
   timestampPrecision,
+  timeZone,
   channels,
   emptyContent = EMPTY_CONTENT,
   color,
@@ -87,6 +91,8 @@ export const Base = ({
   enableTriggers,
   hold,
   onHold,
+  position,
+  onLeave,
   children,
   ...rest
 }: BaseProps): ReactElement | null => {
@@ -97,11 +103,14 @@ export const Base = ({
     channelNamesHidden,
     timestampsHidden,
     timestampPrecision,
+    timeZone,
     channels,
     color,
     telem,
     hold,
     onHold,
+    position,
+    onLeave,
   });
 
   const {
@@ -167,7 +176,8 @@ export const Base = ({
   // insecure context has no ClipboardItem, so it copies plain text once the lines
   // arrive, and a browser refuses that copy if the gesture has expired.
   const copyToClipboard = () => {
-    const lines = methods.selectedLines();
+    const selection = methods.selection();
+    const lines = selection.then((s) => s.lines);
     handleError(async () => {
       if (typeof ClipboardItem === "undefined")
         await clipboard.writeText(toText(await lines));
@@ -179,10 +189,10 @@ export const Base = ({
           }),
         ]);
       const { length } = await lines;
-      addStatus({
-        variant: "success",
-        message: `Copied ${length} ${length === 1 ? "line" : "lines"} to clipboard`,
-      });
+      const message = `Copied ${length} ${length === 1 ? "line" : "lines"} to clipboard`;
+      if ((await selection).partial)
+        addStatus({ variant: "warning", message, description: PARTIAL_DESCRIPTION });
+      else addStatus({ variant: "success", message });
     }, "Failed to copy to clipboard");
   };
 
@@ -213,7 +223,7 @@ export const Base = ({
   };
 
   const menuContent = () => (
-    <Menu.Menu level="small" onChange={handleMenuSelect}>
+    <Menu.Menu onChange={handleMenuSelect}>
       {undoRedo != null && (
         <>
           <Menu.UndoRedoItems {...undoRedo} />
@@ -242,6 +252,7 @@ export const Base = ({
     <Menu.ContextMenu className={menuClassName} menu={menuContent} {...menuProps}>
       <div
         ref={combinedRef}
+        role="log"
         tabIndex={-1}
         className={CSS.cls(CSS.B("log"), className)}
         onWheel={(e) => {

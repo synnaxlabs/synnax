@@ -156,7 +156,8 @@ jobs:
         run: |
           setlocal EnableDelayedExpansion
           uv run test-conductor --name tc_win ^
-            --core-binary "%USERPROFILE%\synnax-binaries\synnax.exe" !TC_ARGS!
+            --core-binary "%USERPROFILE%\synnax-binaries\synnax.exe" ^
+            --driver-binary "%USERPROFILE%\synnax-binaries\synnax-driver.exe" !TC_ARGS!
 
       - name: Test conductor (Ubuntu)
         if: runner.os == 'Linux'
@@ -173,7 +174,31 @@ jobs:
         run: |
           read -ra args <<< "$TC_ARGS"
           uv run test-conductor --name tc_unix \
-            --core-binary "$HOME/synnax-binaries/synnax" "${args[@]}"
+            --core-binary "$HOME/synnax-binaries/synnax" \
+            --driver-binary "$HOME/synnax-binaries/synnax-driver" "${args[@]}"
+
+      # A conductor that fails before its bundle holds server.log leaves no Core log.
+      # The upload below takes this copy instead. !success() also covers a job timeout.
+      - name: Copy Core log (Windows)
+        if: ${{ !success() && runner.os == 'Windows' }}
+        shell: powershell
+        run: |
+          $log = "$env:USERPROFILE\synnax-data\synnax-core.log"
+          $bundled = Test-Path integration/tests/results/run-*/server.log
+          if ((Test-Path $log) -and -not $bundled) {
+            New-Item -ItemType Directory -Force integration/tests/results | Out-Null
+            Copy-Item $log integration/tests/results/
+          }
+
+      - name: Copy Core log (Ubuntu)
+        if: ${{ !success() && runner.os == 'Linux' }}
+        run: |
+          log="$HOME/synnax-data/synnax-core.log"
+          bundled="integration/tests/results/run-*/server.log"
+          if [ -f "$log" ] && ! compgen -G "$bundled" > /dev/null; then
+            mkdir -p integration/tests/results
+            cp "$log" integration/tests/results/
+          fi
 
       # A failed measurement must not fail the tests it measured.
       - name: Report resource use

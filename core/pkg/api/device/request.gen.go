@@ -15,34 +15,103 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 
-	service "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/gorp"
+	legacydevice "github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-// Apply narrows q to the records that the request selects. A key with no record is a
+// ApplyRetrieve narrows q to the records that r selects. A key with no record is a
 // non-match, as for every other line. It returns a validate.PathError for a value that
 // no filter can hold.
-func (r RetrieveRequest) Apply(q service.Retrieve) (service.Retrieve, error) {
+//
+// ApplyRetrieve is a function, not a method, to cut compile time. As a method, it would
+// make every package that names RetrieveRequest compile each generic method of the
+// Retrieve.
+func ApplyRetrieve(r RetrieveRequest, q legacydevice.Retrieve) (legacydevice.Retrieve, error) {
 	q = q.SkipMissingKeys()
 	if r.Where != nil {
-		f, err := service.MatchWhere(*r.Where)
+		f, err := legacydevice.MatchWhere(*r.Where)
 		if err != nil {
-			return service.Retrieve{}, validate.PathedError(err, "where")
+			return legacydevice.Retrieve{}, validate.PathedError(err, "where")
 		}
 		q = q.Where(f)
 	}
 	if r.SearchTerm != "" {
-		q = q.Where(service.MatchSearch(r.SearchTerm))
+		if r.After != nil {
+			return legacydevice.Retrieve{}, validate.PathedError(
+				errors.Wrap(
+					validate.ErrValidation,
+					"a search cannot resume after a position",
+				),
+				"after",
+			)
+		}
+		if r.Order != nil {
+			return legacydevice.Retrieve{}, validate.PathedError(
+				errors.Wrap(validate.ErrValidation, "a search sorts by relevance"),
+				"order",
+			)
+		}
+		q = q.Where(legacydevice.MatchSearch(r.SearchTerm))
+	}
+	if r.Order != nil {
+		o, err := r.order()
+		if err != nil {
+			return legacydevice.Retrieve{}, err
+		}
+		q = q.OrderBy(o)
+	} else if r.After != nil {
+		q = q.After(r.After.Key)
 	}
 	if r.Limit != nil {
 		// Gorp reads a zero limit as no limit, and an empty key set matches no record.
 		if *r.Limit == 0 {
-			return q.Where(service.MatchKeys()), nil
+			return q.Where(legacydevice.MatchKeys()), nil
 		}
 		q = q.Limit(int(*r.Limit))
 	}
-	return q.Offset(int(r.Offset)), nil
+	return q, nil
+}
+
+// order returns the walk that the request's order selects, starting past the request's
+// cursor when it has one.
+func (r RetrieveRequest) order() (legacydevice.Order, error) {
+	dir := gorp.DirectionAsc
+	if r.Order.Descending {
+		dir = gorp.DirectionDesc
+	}
+	switch r.Order.Field {
+	case OrderFieldName:
+		if r.After == nil {
+			return legacydevice.OrderByName(dir), nil
+		}
+		if r.After.Name == nil {
+			return nil, validate.PathedError(
+				errors.Wrap(
+					validate.ErrValidation,
+					"is required to resume an order by name",
+				),
+				"after",
+				"name",
+			)
+		}
+		return legacydevice.OrderByNameAfter(
+			dir,
+			*r.After.Name,
+			r.After.Key,
+		), nil
+	}
+	return nil, validate.PathedError(
+		errors.Wrapf(
+			validate.ErrValidation,
+			"%q is not a field to sort by",
+			r.Order.Field,
+		),
+		"order",
+		"field",
+	)
 }
 
 // UnmarshalJSONFrom decodes the request and rejects a member that it does not declare,

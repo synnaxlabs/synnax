@@ -11,12 +11,14 @@ package grpc_test
 
 import (
 	"context"
+	"io"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	. "github.com/synnaxlabs/freighter/grpc/testutil"
@@ -104,6 +106,15 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		return server, client, addr
 	})
 
+	It("Should report the gRPC protocol and the protobuf encoding", func() {
+		for _, rep := range []alamos.Report{server.Report(), client.Report()} {
+			Expect(rep).To(Equal(alamos.Report{
+				"protocol":  "grpc",
+				"encodings": []string{"protobuf"},
+			}))
+		}
+	})
+
 	It("Should return EOF on every receive after the client closes its send side",
 		func(ctx SpecContext) {
 			server, client, addr := startPair()
@@ -120,9 +131,9 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			})
 			stream := MustSucceed(client.Stream(ctx, addr))
 			Expect(stream.CloseSend()).To(Succeed())
-			Eventually(errs).Should(Receive(MatchError(freighter.EOF)))
-			Eventually(errs).Should(Receive(MatchError(freighter.EOF)))
-			Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+			Eventually(errs).Should(Receive(MatchError(io.EOF)))
+			Eventually(errs).Should(Receive(MatchError(io.EOF)))
+			Expect(stream.Receive()).Error().To(MatchError(io.EOF))
 		},
 	)
 

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type log as clientLog } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { box, type optional, TimeSpan } from "@synnaxlabs/x";
@@ -25,6 +26,7 @@ export interface UseProps
     optional.Optional<
       Omit<
         z.input<typeof log.logStateZ>,
+        | "channels"
         | "region"
         | "scrollPosition"
         | "scrollback"
@@ -39,16 +41,23 @@ export interface UseProps
         | "computedLineHeight"
         | "channelNames"
         | "channelDataTypes"
+        | "position"
       >,
       "visible"
     >,
     Aether.ComponentProps {
+  channels?: clientLog.ChannelEntry[];
   /** Controlled pause state. When set, the log pauses scrolling while true. */
   hold?: boolean;
   /** Called when the pause state changes from inside the log: a scroll up or the H
    * trigger pauses it, scrolling back to the bottom resumes it. Controlled callers
    * must reflect the value back through hold. */
   onHold?: (hold: boolean) => void;
+  /** Where a log that mounts paused opens, as reported to onLeave. */
+  position?: string;
+  /** Called when the log unmounts, with the position of a paused view. A live log
+   * reports an empty position. */
+  onLeave?: (position: string) => void;
 }
 
 export type LogState = z.output<typeof log.logStateZ>;
@@ -56,7 +65,7 @@ export type LogState = z.output<typeof log.logStateZ>;
 export interface UseReturn {
   state: LogState;
   setState: Dispatch<SetStateAction<LogState>>;
-  methods: { selectedLines: () => Promise<log.Line[]> };
+  methods: { selection: () => Promise<log.Selection> };
 }
 
 export const use = ({
@@ -66,18 +75,18 @@ export const use = ({
   channelNamesHidden = false,
   timestampsHidden = false,
   timestampPrecision = 0,
+  timeZone = "local",
   channels: rawChannels,
   color,
   telem,
   hold,
   onHold,
+  position,
+  onLeave,
 }: UseProps): UseReturn => {
   const channels = rawChannels ?? [];
-  const numericChannels = channels
-    .map((e) => e.channel)
-    .filter((ch): ch is number => typeof ch === "number");
   const { data: retrievedChannels } = Channel.useResultMultiple({
-    where: { key: { in: numericChannels } },
+    where: { key: { in: channels.map((e) => e.channel) } },
   });
   const names: Record<string, string> = {};
   if (retrievedChannels != null)
@@ -96,6 +105,7 @@ export const use = ({
     channelNamesHidden,
     timestampsHidden,
     timestampPrecision,
+    timeZone,
     channelNames,
     channelDataTypes,
     channels,
@@ -123,6 +133,7 @@ export const use = ({
       region: box.ZERO,
       scrolling: false,
       wheelPos: 0,
+      position,
       ...memoProps,
     },
     onAetherChange: handleAetherChange,
@@ -131,6 +142,13 @@ export const use = ({
   useEffect(() => {
     setState((s) => ({ ...s, ...memoProps }));
   }, [memoProps, setState]);
+
+  const stateRef = useSyncedRef(state);
+  const onLeaveRef = useSyncedRef(onLeave);
+  useEffect(
+    () => () => onLeaveRef.current?.(stateRef.current.position),
+    [onLeaveRef, stateRef],
+  );
 
   return { state, setState, methods };
 };

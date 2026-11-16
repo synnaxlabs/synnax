@@ -10,6 +10,7 @@
 package table_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -17,8 +18,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,43 +32,45 @@ func TestTable(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db      *gorp.DB
-	proj    project.Project
-	svc     *table.Service
-	imexSvc *imex.Service
-	tx      gorp.Tx
+	db         *gorp.DB
+	groupSvc   *group.Service
+	proj       project.Project
+	projectSvc *project.Service
+	svc        *table.Service
+	imexSvc    *imex.Service
 )
 
-var (
-	_ = BeforeSuite(func(ctx SpecContext) {
-		ShouldNotLeakGoroutines()
-		db = DeferClose(gorp.Wrap(memkv.New()))
-		var (
-			otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			g   = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
-			panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
-		)
-		imexSvc = imex.NewService()
-		projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-			ImEx:     imexSvc,
-			Panel:    panelSvc,
-		}))
-		svc = MustOpen(table.OpenService(ctx, table.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			ImEx:     imexSvc,
-		}))
-		proj.Name = "test-project"
-		Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB: db,
+	}))
+	imexSvc = imex.NewService()
+	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
+		DB: db,
+	}))
+	svc = MustOpen(table.OpenService(ctx, table.ServiceConfig{
+		DB:   db,
+		ImEx: imexSvc,
+	}))
+	proj.Name = "test-project"
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return projectSvc.NewWriter(tx).Create(ctx, &proj)
+	})).To(Succeed())
+})
+
+// dispatch runs Writer.Apply in a transaction of its own.
+func dispatch(
+	ctx context.Context,
+	key table.Key,
+	dispatchKey string,
+	acts []table.Action,
+) error {
+	return db.WithTx(ctx, func(tx gorp.Tx) error {
+		_, err := svc.NewWriter(tx).
+			WithDispatchKey(dispatchKey).
+			Apply(ctx, key, acts...)
+		return err
 	})
-	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
-)
+}

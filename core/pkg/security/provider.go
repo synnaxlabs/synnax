@@ -19,33 +19,24 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// TLSProvider assembles listener TLS configurations for services that require them.
-type TLSProvider interface {
+// Provider provides security information and services for the node. It's important to
+// note that Provider itself does not implement any security mechanisms, but rather
+// provides configuration and information for other components to implement them.
+type Provider interface {
 	// TLSConfigFor combines the node-wide TLS policy with the certificate served by
 	// src, producing the tls.Config for a single listener. It returns nil in insecure
 	// mode. The returned config's behavior may change over time as src reloads its
 	// certificate.
-	TLSConfigFor(cert.Source) *tls.Config
-	// NodeClientConfig returns the tls.Config the node uses when dialing peers, backed
-	// by the node's own certificate. It returns nil in insecure mode.
-	NodeClientConfig() *tls.Config
+	TLSConfigFor(src cert.Source) *tls.Config
 	// VerifyCertHost confirms src serves a certificate valid for host, the hostname
 	// check every client performs when dialing this node. It does not check the issuer:
 	// an externally issued certificate is a valid choice. No-op in insecure mode.
 	VerifyCertHost(src cert.Source, host string) error
-	// VerifyCertCoreCA confirms src serves a certificate chaining to the Core CA. Only
-	// peers need it, since they trust that CA alone. No-op in insecure mode.
-	VerifyCertCoreCA(cert.Source) error
 	// VerifyCertTrustAnchors confirms src serves a certificate chaining to one of the
 	// Core's trust anchors, the list the embedded Driver verifies against. No-op in
 	// insecure mode.
-	VerifyCertTrustAnchors(cert.Source) error
+	VerifyCertTrustAnchors(src cert.Source) error
 }
-
-// Provider provides security information and services for the node. It's important to
-// note that Provider itself does not implement any security mechanisms, but rather
-// provides configuration and information for other components to implement them.
-type Provider interface{ TLSProvider }
 
 // ProviderConfig is the configuration for creating a new Provider.
 type ProviderConfig struct {

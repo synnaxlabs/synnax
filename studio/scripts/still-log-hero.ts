@@ -111,7 +111,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     stopAlarms = alarms.stop;
     // Set before the log first mounts: a log that changes channels while open skips
     // the first frame of each one.
-    const logs = await client.ontology.retrieve({ types: ["log"] });
+    const logs = await client.resources.search({
+      searchTerm: "Sequence Logs",
+      types: ["log"],
+    });
     const resource = logs.find((r) => r.name === "Sequence Logs");
     if (resource == null) throw new Error("the TPC world has no Sequence Logs log");
     const { key } = await client.logs.retrieve({ key: resource.id.key });

@@ -16,6 +16,7 @@ import { BaseSwatch, type BaseSwatchProps } from "@/color/BaseSwatch";
 import { Picker } from "@/color/Picker";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
+import { useCombinedRefs } from "@/hooks";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { state } from "@/state";
@@ -67,6 +68,19 @@ export type SwatchProps = RequiredValueProps | OptionalValueProps;
 interface Pending {
   value?: color.Color;
 }
+
+/** A swatch that opens the picker of its frame, which gives it the focus back. */
+const Trigger = ({ ref, ...rest }: BaseSwatchProps): ReactElement => {
+  const { triggerRef, visible } = Dialog.useContext();
+  return (
+    <BaseSwatch
+      ref={useCombinedRefs(ref, triggerRef)}
+      aria-haspopup="dialog"
+      aria-expanded={visible}
+      {...rest}
+    />
+  );
+};
 
 /** A color swatch that opens a picker when clicked. Takes a dropped color too. */
 export const Swatch = ({
@@ -122,10 +136,11 @@ export const Swatch = ({
     "aria-invalid": rest["aria-invalid"],
     "aria-describedby": rest["aria-describedby"],
   });
+  const Chip = onChange == null ? BaseSwatch : Trigger;
   const swatch = (
-    <BaseSwatch
+    <Chip
       disabled={onChange == null && onClick == null}
-      onClick={(e) => (onChange != null ? handleVisibleChange(true) : onClick?.(e))}
+      onClick={(e) => (onChange != null ? handleVisibleChange(!visible) : onClick?.(e))}
       onChange={
         onChange == null
           ? undefined
@@ -134,7 +149,7 @@ export const Swatch = ({
               onChange(c);
             }
       }
-      value={shownValue ?? fallback ?? color.ZERO}
+      value={shownValue ?? fallback ?? color.TRANSPARENT}
       className={CSS.cls(
         CSS.BM("color-swatch", "chip"),
         auto && CSS.M("auto"),
@@ -152,7 +167,7 @@ export const Swatch = ({
       hideTooltip={itemStatus.hideTooltip}
     >
       {auto && size !== "tiny" && <Icon.Auto />}
-    </BaseSwatch>
+    </Chip>
   );
   if (onChange == null) return swatch;
   return (

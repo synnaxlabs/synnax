@@ -68,8 +68,7 @@ class MosaicOperations(ConsoleCase):
     def _split_and_drag(self, direction: str) -> None:
         """Split a leaf, drag a tab to the new pane, and verify positioning.
 
-        Args:
-            direction: "horizontal" or "vertical".
+        :param direction: "horizontal" or "vertical".
         """
         console = self.console
         horizontal = direction == "horizontal"

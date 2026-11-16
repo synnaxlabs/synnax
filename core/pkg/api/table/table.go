@@ -13,12 +13,9 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -31,10 +28,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Table *table.Service
-	// RBAC enforces access control on every request.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 }
 
 var (
@@ -46,7 +39,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Table = override.Nil(c.Table, other.Table)
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
 
@@ -54,12 +46,10 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.table")
 	v.NotNil("table", c.Table)
-	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
 type Service struct {
-	access   *rbac.Service
 	internal *table.Service
 }
 
@@ -70,14 +60,12 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}
 	return &Service{
 		internal: cfg.Table,
-		access:   cfg.RBAC,
 	}, nil
 }
 
 type (
 	CreateRequest struct {
-		Tables  []table.Table `json:"tables"  msgpack:"tables"`
-		Project project.Key   `json:"project" msgpack:"project"`
+		Tables []table.Table `json:"tables" msgpack:"tables"`
 		// DispatchKey is stamped onto the create broadcasts so the sender skips its
 		// echo.
 		DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
@@ -87,21 +75,16 @@ type (
 	}
 )
 
+// Create creates the tables. It returns an error wrapping validate.ErrValidation when a
+// table with one of their keys exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeTable}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
-		CreateMany(ctx, req.Project, &req.Tables); err != nil {
+		CreateMany(ctx, &req.Tables); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Tables: req.Tables}, nil
@@ -113,41 +96,49 @@ func (s *Service) Create(
 // frame so the originator can recognize its own echo race-safely.
 type DispatchRequest = actions.DispatchRequest[table.Key, table.Action]
 
-// Dispatch applies the action sequence to the target table atomically. Subscribers to
-// the table action signals receive the sequence after the transaction commits.
+// DispatchResponse carries the actions that the Core added to a dispatch, such as a set
+// of the project that a move into a group of another project needs.
+type DispatchResponse = actions.DispatchResponse[table.Action]
+
+// Dispatch applies the action sequence to the target table in tx. Subscribers to the
+// table action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
-) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{table.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
+) (DispatchResponse, error) {
+	added, err := s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
+	if err != nil {
+		return DispatchResponse{}, err
 	}
-	return struct{}{}, s.internal.
-		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	return DispatchResponse{Actions: added}, nil
 }
 
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the tables that the top level of Where
+// selects by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, table.ResourceID)
+}
+
+// Retrieve returns the tables that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Tables))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.Tables))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: table.OntologyIDsFromTables(res.Tables),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, table.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
@@ -157,17 +148,12 @@ type DeleteRequest struct {
 	Keys []table.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete deletes the tables with the given keys. A key that matches no table is
+// ignored.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: table.OntologyIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

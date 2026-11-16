@@ -422,18 +422,16 @@ Thing struct {
 	})
 
 	It("rejects empty schema set", func(ctx SpecContext) {
-		_, err := pipeline.Run(ctx, pipeline.Options{
+		Expect(pipeline.Run(ctx, pipeline.Options{
 			RepoRoot: repoRoot,
 			Schemas:  nil,
-		})
-		Expect(err).To(MatchError(ContainSubstring("at least one schema")))
+		})).Error().To(MatchError(ContainSubstring("at least one schema")))
 	})
 
 	It("rejects empty repo root", func(ctx SpecContext) {
-		_, err := pipeline.Run(ctx, pipeline.Options{
+		Expect(pipeline.Run(ctx, pipeline.Options{
 			Schemas: []string{"schemas/x.oracle"},
-		})
-		Expect(err).To(MatchError(ContainSubstring("RepoRoot is required")))
+		})).Error().To(MatchError(ContainSubstring("RepoRoot is required")))
 	})
 })
 

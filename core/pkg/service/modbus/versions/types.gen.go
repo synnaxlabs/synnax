@@ -11,99 +11,114 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v2"
+import "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v3"
 
 // RegisterValue interprets one or more 16-bit registers as a single typed value.
-type RegisterValue = v2.RegisterValue
+type RegisterValue = v3.RegisterValue
 
 // BaseReadChannel carries the fields every Modbus read channel shares.
-type BaseReadChannel = v2.BaseReadChannel
+type BaseReadChannel = v3.BaseReadChannel
 
 // ReadChannel is a single Modbus read channel. The type field selects the register
 // space the channel reads from and the fields that accompany it.
-type ReadChannel = v2.ReadChannel
+type ReadChannel = v3.ReadChannel
 
 // ReadChannelVariant is implemented by every ReadChannel variant.
-type ReadChannelVariant = v2.ReadChannelVariant
+type ReadChannelVariant = v3.ReadChannelVariant
 
 // ReadChannelType is the "type" value that selects a variant of ReadChannel.
-type ReadChannelType = v2.ReadChannelType
+type ReadChannelType = v3.ReadChannelType
 
 const (
 	// CoilReadChannelType reads a single bit from a coil.
-	CoilReadChannelType ReadChannelType = v2.CoilReadChannelType
+	CoilReadChannelType ReadChannelType = v3.CoilReadChannelType
 	// DiscreteInputReadChannelType reads a single bit from a discrete input.
-	DiscreteInputReadChannelType ReadChannelType = v2.DiscreteInputReadChannelType
+	DiscreteInputReadChannelType ReadChannelType = v3.DiscreteInputReadChannelType
 	// HoldingRegisterReadChannelType reads a typed value from one or more holding
 	// registers.
-	HoldingRegisterReadChannelType ReadChannelType = v2.HoldingRegisterReadChannelType
+	HoldingRegisterReadChannelType ReadChannelType = v3.HoldingRegisterReadChannelType
 	// InputRegisterReadChannelType reads a typed value from one or more input
 	// registers.
-	InputRegisterReadChannelType ReadChannelType = v2.InputRegisterReadChannelType
+	InputRegisterReadChannelType ReadChannelType = v3.InputRegisterReadChannelType
+	// HoldingRegisterStringReadChannelType reads a string from consecutive holding
+	// registers.
+	HoldingRegisterStringReadChannelType ReadChannelType = v3.HoldingRegisterStringReadChannelType
+	// InputRegisterStringReadChannelType reads a string from consecutive input
+	// registers.
+	InputRegisterStringReadChannelType ReadChannelType = v3.InputRegisterStringReadChannelType
 	// HoldingRegisterBitReadChannelType reads one bit of a holding register.
-	HoldingRegisterBitReadChannelType ReadChannelType = v2.HoldingRegisterBitReadChannelType
+	HoldingRegisterBitReadChannelType ReadChannelType = v3.HoldingRegisterBitReadChannelType
 	// InputRegisterBitReadChannelType reads one bit of an input register.
-	InputRegisterBitReadChannelType ReadChannelType = v2.InputRegisterBitReadChannelType
+	InputRegisterBitReadChannelType ReadChannelType = v3.InputRegisterBitReadChannelType
 )
 
 // CoilReadChannel reads a single bit from a coil.
-type CoilReadChannel = v2.CoilReadChannel
+type CoilReadChannel = v3.CoilReadChannel
 
 // DiscreteInputReadChannel reads a single bit from a discrete input.
-type DiscreteInputReadChannel = v2.DiscreteInputReadChannel
+type DiscreteInputReadChannel = v3.DiscreteInputReadChannel
 
 // HoldingRegisterReadChannel reads a typed value from one or more holding registers.
-type HoldingRegisterReadChannel = v2.HoldingRegisterReadChannel
+type HoldingRegisterReadChannel = v3.HoldingRegisterReadChannel
 
 // InputRegisterReadChannel reads a typed value from one or more input registers.
-type InputRegisterReadChannel = v2.InputRegisterReadChannel
+type InputRegisterReadChannel = v3.InputRegisterReadChannel
+
+// HoldingRegisterStringReadChannel reads a string from consecutive holding registers.
+type HoldingRegisterStringReadChannel = v3.HoldingRegisterStringReadChannel
+
+// InputRegisterStringReadChannel reads a string from consecutive input registers.
+type InputRegisterStringReadChannel = v3.InputRegisterStringReadChannel
 
 // HoldingRegisterBitReadChannel reads one bit of a holding register.
-type HoldingRegisterBitReadChannel = v2.HoldingRegisterBitReadChannel
+type HoldingRegisterBitReadChannel = v3.HoldingRegisterBitReadChannel
 
 // InputRegisterBitReadChannel reads one bit of an input register.
-type InputRegisterBitReadChannel = v2.InputRegisterBitReadChannel
+type InputRegisterBitReadChannel = v3.InputRegisterBitReadChannel
 
 // BaseWriteChannel carries the fields every Modbus write channel shares.
-type BaseWriteChannel = v2.BaseWriteChannel
+type BaseWriteChannel = v3.BaseWriteChannel
 
 // WriteChannel is a single Modbus write channel. The type field selects the register
 // space the channel writes to and the fields that accompany it.
-type WriteChannel = v2.WriteChannel
+type WriteChannel = v3.WriteChannel
 
 // WriteChannelVariant is implemented by every WriteChannel variant.
-type WriteChannelVariant = v2.WriteChannelVariant
+type WriteChannelVariant = v3.WriteChannelVariant
 
 // WriteChannelType is the "type" value that selects a variant of WriteChannel.
-type WriteChannelType = v2.WriteChannelType
+type WriteChannelType = v3.WriteChannelType
 
 const (
 	// CoilWriteChannelType writes a single bit to a coil.
-	CoilWriteChannelType WriteChannelType = v2.CoilWriteChannelType
+	CoilWriteChannelType WriteChannelType = v3.CoilWriteChannelType
 	// HoldingRegisterWriteChannelType writes a typed value to one or more holding
 	// registers.
-	HoldingRegisterWriteChannelType WriteChannelType = v2.HoldingRegisterWriteChannelType
+	HoldingRegisterWriteChannelType WriteChannelType = v3.HoldingRegisterWriteChannelType
 	// HoldingRegisterBitWriteChannelType writes one bit of a holding register.
-	HoldingRegisterBitWriteChannelType WriteChannelType = v2.HoldingRegisterBitWriteChannelType
+	HoldingRegisterBitWriteChannelType WriteChannelType = v3.HoldingRegisterBitWriteChannelType
 )
 
 // CoilWriteChannel writes a single bit to a coil.
-type CoilWriteChannel = v2.CoilWriteChannel
+type CoilWriteChannel = v3.CoilWriteChannel
 
 // HoldingRegisterWriteChannel writes a typed value to one or more holding registers.
-type HoldingRegisterWriteChannel = v2.HoldingRegisterWriteChannel
+type HoldingRegisterWriteChannel = v3.HoldingRegisterWriteChannel
 
 // HoldingRegisterBitWriteChannel writes one bit of a holding register.
-type HoldingRegisterBitWriteChannel = v2.HoldingRegisterBitWriteChannel
+type HoldingRegisterBitWriteChannel = v3.HoldingRegisterBitWriteChannel
 
 // ReadConfig configures a Modbus read task.
-type ReadConfig = v2.ReadConfig
+type ReadConfig = v3.ReadConfig
 
 // WriteConfig configures a Modbus write task.
-type WriteConfig = v2.WriteConfig
+type WriteConfig = v3.WriteConfig
 
 // ScanConfig configures a Modbus scan task.
-type ScanConfig = v2.ScanConfig
+type ScanConfig = v3.ScanConfig
 
 // RegisterBit addresses one bit of a 16-bit register.
-type RegisterBit = v2.RegisterBit
+type RegisterBit = v3.RegisterBit
+
+// RegisterString interprets consecutive 16-bit registers as a fixed-length string.
+type RegisterString = v3.RegisterString

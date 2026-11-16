@@ -1,0 +1,25 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package v10
+
+import (
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+)
+
+var _ gorp.Entry[Key] = LinePlot{}
+
+// GorpKey implements gorp.Entry.
+func (l LinePlot) GorpKey() Key { return l.Key }
+
+// ResourceID returns the unique resource identifier for the line plot.
+func (l LinePlot) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeLineplot, Key: l.Key.String()}
+}

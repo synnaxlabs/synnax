@@ -19,7 +19,7 @@ import {
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { type Status } from "@synnaxlabs/lyra/status";
@@ -40,7 +40,7 @@ import {
   type ReactElement,
   useImperativeHandle,
 } from "react";
-import { onTestFinished } from "vitest";
+import { expect, onTestFinished } from "vitest";
 import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -67,13 +67,13 @@ import {
 const defaultClient = createTestClient();
 
 const TASK_FORM_READS = [
-  task.TYPE_ONTOLOGY_ID,
-  device.TYPE_ONTOLOGY_ID,
-  rack.TYPE_ONTOLOGY_ID,
-  channel.TYPE_ONTOLOGY_ID,
-  panel.TYPE_ONTOLOGY_ID,
-  project.TYPE_ONTOLOGY_ID,
-  group.TYPE_ONTOLOGY_ID,
+  task.TYPE_RESOURCE_ID,
+  device.TYPE_RESOURCE_ID,
+  rack.TYPE_RESOURCE_ID,
+  channel.TYPE_RESOURCE_ID,
+  panel.TYPE_RESOURCE_ID,
+  project.TYPE_RESOURCE_ID,
+  group.TYPE_RESOURCE_ID,
 ];
 
 /**
@@ -83,7 +83,7 @@ const TASK_FORM_READS = [
 export const createChannelReadOnlyClient = async (client: Client): Promise<Client> =>
   await createTestClientWithGrants(client, {
     retrieve: TASK_FORM_READS,
-    update: [task.TYPE_ONTOLOGY_ID],
+    update: [task.TYPE_RESOURCE_ID],
   });
 
 /**
@@ -99,8 +99,8 @@ export type FormRef = { current: PForm.ContextValue<z.ZodType> | null };
 
 /**
  * Renders a real pluto Form context seeded with `values` and invokes `useValue` with
- * that context. Lets form-context task hooks (useKey, useStatus, useIsRunning,
- * useIsSnapshot) be exercised in isolation without mounting the full task Form UI.
+ * that context. Lets form-context task hooks (useKey, useStatus, useIsRunning) be
+ * exercised in isolation without mounting the full task Form UI.
  */
 export const renderTaskFormHook = async <R,>(
   values: TaskFormValues,
@@ -159,9 +159,9 @@ export const createTaskStatus = (
     message: "Running smoothly",
     description: "",
     time: TimeStamp.now(),
+    labels: [],
     ...rest,
     details: {
-      task: "0",
       running: false,
       cmd: "",
       configHash: "",
@@ -180,7 +180,6 @@ const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
   key: undefined,
   name: "Test Task",
   rack: 0,
-  snapshot: false,
   configHash: "",
   status: createTaskStatus({
     variant: "disabled",
@@ -213,10 +212,10 @@ export const createSelectedPanel = async (
     name: uniqueName("panel"),
     root: { variant: "leaf", tabs },
   });
-  await client.panels.create({ ...doc, parent: await createPanelParent(client) });
+  await client.panels.create({ ...doc, project: await createPanelProject(client) });
   // Prime the query cache the way the mosaic's retrieve does, and keep the
   // answer live for the test: unsubscribed answers go stale by design.
-  onTestFinished(client.panels.onChange(doc.key, () => {}));
+  onTestFinished(client.panels.watch(doc.key).onChange(() => {}));
   await client.panels.retrieve(doc.key);
   act(() => {
     store.dispatch(
@@ -236,7 +235,7 @@ export const awaitTaskResourceTab = async ({
   panelKey,
 }: CreatedPanel): Promise<task.Key> =>
   await waitFor(() => {
-    const cached = client.panels.getCached(panelKey);
+    const cached = client.panels.watch(panelKey).getCached();
     if (!query.isLive(cached)) throw new Error("panel doc not found");
     const doc = cached;
     const tabs: panel.Tab[] = [];
@@ -249,7 +248,7 @@ export const awaitTaskResourceTab = async ({
     };
     visit(doc.root);
     const match = tabs.find(
-      (t) => t.variant === "resource" && t.resource.type === task.TYPE_ONTOLOGY_ID.type,
+      (t) => t.variant === "resource" && t.resource.type === task.TYPE_RESOURCE_ID.type,
     );
     if (match == null || match.variant !== "resource")
       throw new Error("task resource tab not found");
@@ -433,13 +432,13 @@ export const renderTaskFormTab = async (
   const tab: panel.Tab = {
     variant: "resource",
     key: uuid.create(),
-    resource: task.ontologyID(taskKey),
+    resource: task.resourceID(taskKey),
   };
   const created = await createSelectedPanel(store, client, [tab]);
   if (as !== client) {
     // The panel scopes resolve against the rendering client's cache, so prime it
     // the same way createSelectedPanel primes the creating client's.
-    onTestFinished(as.panels.onChange(created.panelKey, () => {}));
+    onTestFinished(as.panels.watch(created.panelKey).onChange(() => {}));
     await as.panels.retrieve(created.panelKey);
   }
   const result = await renderSuspended(
@@ -482,6 +481,24 @@ export const clickDeploy = async (container: HTMLElement): Promise<void> => {
   // The click can re-render form parts that still suspend on their first query.
   await act(async () => fireEvent.click(button));
 };
+
+/**
+ * Clicks Start on a task that cannot start, then waits until Start is enabled again, so
+ * a toast that the start raised has shown.
+ */
+export const clickFailedDeploy = async (container: HTMLElement): Promise<void> => {
+  await clickDeploy(container);
+  await waitFor(() => {
+    const b = within(container).getByRole("button", { name: "Start" });
+    if (b.getAttribute("aria-disabled") === "true") throw new Error("still starting");
+  });
+  await act(async () => {});
+};
+
+/** Matches the toast of a start that failed. */
+export const START_FAILURE = expect.objectContaining({
+  message: "Failed to start task",
+});
 
 /**
  * Finds the channel list row showing the text, such as a port or a channel name. The
@@ -573,8 +590,8 @@ export const reportTaskRunning = async (
 ): Promise<void> => {
   await client.statuses.set(
     createTaskStatus({
-      key: task.statusKey(tsk.key),
-      details: { task: tsk.key, running: true, configHash, rack: tsk.rack },
+      owner: task.resourceID(tsk.key),
+      details: { running: true, configHash, rack: tsk.rack },
     }),
   );
 };
@@ -588,13 +605,13 @@ export const reportTaskStopped = async (
   client: Client,
   tsk: task.Payload,
 ): Promise<void> => {
-  await client.tasks.create({
-    ...tsk,
-    status: createTaskStatus({
+  await client.statuses.set(
+    createTaskStatus({
+      owner: task.resourceID(tsk.key),
       message: "Task stopped",
-      details: { task: tsk.key, running: false, configHash: tsk.configHash },
+      details: { running: false, configHash: tsk.configHash },
     }),
-  });
+  );
 };
 
 export interface CommandAnswer extends Omit<CreateTaskStatusOverrides, "details"> {
@@ -614,13 +631,13 @@ export const answerCommand = async (
   cmd: task.Command,
   { data, ...answer }: Omit<CommandAnswer, "type"> = {},
 ): Promise<void> => {
-  await client.tasks.create({
-    ...tsk.payload,
-    status: createTaskStatus({
+  await client.statuses.set(
+    createTaskStatus({
       ...answer,
-      details: { task: tsk.key, cmd: cmd.key, rack: tsk.rack, data },
+      owner: task.resourceID(tsk.key),
+      details: { cmd: cmd.key, rack: tsk.rack, data },
     }),
-  });
+  );
 };
 
 /**

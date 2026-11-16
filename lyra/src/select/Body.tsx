@@ -16,6 +16,7 @@ import { Flex } from "@/flex";
 import { Items, type ItemsProps } from "@/select/Items";
 import { List as SelectList } from "@/select/List";
 import { plural, searchPlaceholder } from "@/select/placeholder";
+import { useTerm } from "@/select/registry";
 import { Search, type SearchProps } from "@/select/Search";
 import { Status } from "@/status";
 
@@ -38,7 +39,10 @@ export interface BodyProps<K extends record.Key>
 /** Props for {@link EmptyContent}. */
 export interface EmptyContentProps {
   resourceName: string;
-  /** A string renders as gray text. Unset, it says no items were found. */
+  /**
+   * A string renders as gray text. Unset, it says no items were found. A search term
+   * replaces it with text that says no items match the term.
+   */
   emptyContent?: ReactNode;
 }
 
@@ -47,13 +51,48 @@ export const EmptyContent = ({
   resourceName,
   emptyContent,
 }: EmptyContentProps): ReactNode => {
-  if (emptyContent != null && typeof emptyContent !== "string") return emptyContent;
+  const term = useTerm().trim();
+  if (term === "" && emptyContent != null && typeof emptyContent !== "string")
+    return emptyContent;
+  let text = emptyContent ?? `No ${plural(resourceName)} found`;
+  if (term !== "") text = `No ${plural(resourceName)} match "${term}"`;
   return (
     <Status.Summary center variant="disabled" hideIcon>
-      {emptyContent ?? `No ${plural(resourceName)} found`}
+      {text}
     </Status.Summary>
   );
 };
+
+/** Props for {@link BorderedList}. */
+export interface BorderedListProps {
+  /** Pinned below the list, inside its border. */
+  footer?: ReactNode;
+  children: ReactNode;
+}
+
+/** The option list of a select, with the footer pinned under it. */
+export const BorderedList = ({ footer, children }: BorderedListProps): ReactElement =>
+  footer == null || footer === false ? (
+    <SelectList bordered borderColor={6} grow rounded full="x">
+      {children}
+    </SelectList>
+  ) : (
+    <Flex.Box
+      y
+      empty
+      grow
+      className={CSS.BE("select", "body")}
+      bordered
+      borderColor={6}
+      rounded
+      full="x"
+    >
+      <SelectList grow full="x">
+        {children}
+      </SelectList>
+      {footer}
+    </Flex.Box>
+  );
 
 /**
  * The search field, list, and empty and error content of a data-driven selection. Use
@@ -90,29 +129,10 @@ export const Body = <K extends record.Key>({
           loading={loading}
         />
       )}
-      {footer == null || footer === false ? (
-        <SelectList bordered borderColor={6} grow rounded full="x">
-          {fixedItems}
-          <Items<K> emptyContent={empty}>{children}</Items>
-        </SelectList>
-      ) : (
-        <Flex.Box
-          y
-          empty
-          grow
-          className={CSS.BE("select", "body")}
-          bordered
-          borderColor={6}
-          rounded
-          full="x"
-        >
-          <SelectList grow full="x">
-            {fixedItems}
-            <Items<K> emptyContent={empty}>{children}</Items>
-          </SelectList>
-          {footer}
-        </Flex.Box>
-      )}
+      <BorderedList footer={footer}>
+        {fixedItems}
+        <Items<K> emptyContent={empty}>{children}</Items>
+      </BorderedList>
     </>
   );
 };

@@ -72,9 +72,9 @@ const initializeMonaco = async (languages: Language[]): Promise<Monaco> => {
 const doInitialize = async (languages: Language[]): Promise<Monaco> => {
   self.MonacoEnvironment = { getWorker };
   // Everything in this batch must load BEFORE initialize(). In particular importing
-  // vscode/localExtensionHost registers the participant that publishes the default vscode
-  // api during initialize(); deferring it past initialize() leaves the api permanently
-  // unavailable (the LSP client and token theming both depend on it).
+  // vscode/localExtensionHost registers the participant that publishes the default
+  // vscode api during initialize(); deferring it past initialize() leaves the api
+  // permanently unavailable (the LSP client and token theming both depend on it).
   const [
     ,
     { initialize },
@@ -232,7 +232,7 @@ export const usePreload = (): void => {
   }, [preload]);
 };
 
-/** useLanguage returns the registered Language descriptor for the given id, or undefined
- * if none is registered. */
+/** useLanguage returns the registered Language descriptor for the given id, or
+ * undefined if none is registered. */
 export const useLanguage = (name: string): Language | undefined =>
   useContext().getLanguage(name);

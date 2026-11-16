@@ -9,6 +9,7 @@
 
 
 import synnax as sy
+from console.notifications import click_past
 from console.schematic.symbol import Symbol, option_text
 
 
@@ -26,11 +27,10 @@ class StateIndicator(Symbol):
     ):
         """Initialize a state indicator symbol with configuration.
 
-        Args:
-            label: Display label for the symbol
-            channel_name: Channel name for the state input
-            options: List of option dicts with "name", "value", and optional "color"
-                keys
+        :param label: Display label for the symbol
+        :param channel_name: Channel name for the state input
+        :param options: List of option dicts with "name", "value", and optional "color"
+            keys
         """
         super().__init__(label=label, symbol_type="State indicator", rotatable=False)
         self.channel_name = channel_name
@@ -50,7 +50,7 @@ class StateIndicator(Symbol):
         if channel_name is not None:
             self.set_label(channel_name)
             self.open_properties_tab()
-            self.page.get_by_text("Telemetry").click()
+            click_past(self.page.get_by_text("Telemetry"))
             self.set_channel(section="State", channel_name=channel_name)
 
         if options is not None and len(options) > 0:
@@ -72,8 +72,7 @@ class StateIndicator(Symbol):
     def get_label(self) -> str:
         """Read the currently displayed state label text.
 
-        Returns:
-            The text shown inside the state indicator.
+        :returns: The text shown inside the state indicator.
         """
         self._disable_edit_mode()
         content = self.locator.locator(".pluto-state-indicator__content").first

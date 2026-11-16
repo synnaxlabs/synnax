@@ -34,7 +34,8 @@ service StatusSetByKeyOrNameService {
 }
 
 message SetRequest {
-  string parent = 1;
+  reserved 1;
+  reserved "parent";
   repeated service.status.pb.Status statuses = 2;
 }
 

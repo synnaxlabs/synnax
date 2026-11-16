@@ -13,27 +13,43 @@ import { filter, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { access } from "@/access/action";
-import { ontology } from "@/ontology";
+import { role } from "@/access/role";
+import { resource } from "@/resource";
+
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
+/** Order is a sort of policies. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
 /**
  * Policy is an access control policy that defines which actions are permitted on which
- * resources. Policies are attached to roles, and roles are assigned to users via
- * ontology relationships.
+ * resources. Each policy belongs to one role, and a subject holds the policies of each
+ * role in its roles.
  */
 export const policyZ = z.object({
   /** key is the unique identifier for this policy. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the policy. */
   name: z.string().min(1, "name is required"),
-  /** objects is the list of ontology resources this policy applies to. */
-  objects: ontology.idZ.array().default(() => []),
+  /** objects is the list of resources this policy applies to. */
+  objects: resource.idZ.array().default(() => []),
   /** actions is the list of actions this policy permits. */
   actions: access.actionZ.array().default(() => []),
   /** internal is true if this is a built-in system policy that cannot be deleted. */
   internal: z.boolean().default(false),
+  /** role is the role that grants this policy to its subjects. */
+  role: role.keyZ,
 });
 export interface Policy extends z.infer<typeof policyZ> {}
 
@@ -44,7 +60,8 @@ export type Where = {
   not?: Where;
   key?: filter.Set<typeof keyZ>;
   internal?: filter.Bool;
-  subjects?: ontology.ID[];
+  subjects?: resource.ID[];
+  roles?: role.Key[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -64,8 +81,21 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   /** internal selects by internal. */
   internal: filter.boolZ.optional(),
   /** subjects matches the policies of the roles that any of the given subjects hold. */
-  subjects: zod.nullToUndefined(ontology.idZ.array()),
+  subjects: zod.nullToUndefined(resource.idZ.array()),
+  /** roles matches the policies of any of the given roles. */
+  roles: zod.nullToUndefined(role.keyZ.array()),
 });
+
+/**
+ * Cursor is a position in an order of policies: the sort value and the key of a policy.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the policy at the position. */
+  key: keyZ,
+  /** name is the name of the policy at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
 export interface New extends z.input<typeof policyZ> {}
 
 /** RetrieveResponse holds the policies a RetrieveRequest selects. */
@@ -81,12 +111,14 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the policies that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the policies. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the policies strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most policies to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching policies to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
-export const ontologyID = ontology.createIDFactory<Key>("policy");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("policy");
+export const TYPE_RESOURCE_ID = resourceID("");

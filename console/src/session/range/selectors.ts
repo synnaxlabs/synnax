@@ -26,23 +26,13 @@ const selectAll = (state: StoreState): State[] => [
   ...selectSliceState(state).ranges,
 ];
 
-export const useGetSliceState = (): (() => SliceState) => {
-  const store = useStore<StoreState>();
-  return () => selectSliceState(store.getState());
-};
-
 const selectSelectedKey = (state: StoreState): string | undefined =>
   selectSliceState(state).selected;
 
 export const useSelectSelectedKey = (): string | undefined =>
   Select.useMemo((state: StoreState) => selectSelectedKey(state), []);
 
-export const useGetSelectedKey = (): (() => string | undefined) => {
-  const store = useStore<StoreState>();
-  return () => selectSelectedKey(store.getState());
-};
-
-export const selectState = (state: StoreState, key?: string): State | undefined => {
+const selectState = (state: StoreState, key?: string): State | undefined => {
   key ??= selectSelectedKey(state);
   return selectAll(state).find((r) => r.key === key);
 };

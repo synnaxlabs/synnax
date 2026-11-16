@@ -230,7 +230,7 @@ TEST(CreateRangeTest, NextCreatesOpenRange) {
 
     const auto key = output_key(s);
     const auto uid = ASSERT_NIL_P(x::uuid::UUID::parse(key));
-    const auto r = ASSERT_NIL_P(client->ranges.retrieve_by_key(uid));
+    const auto r = ASSERT_NIL_P(client->ranges.retrieve(uid));
     EXPECT_EQ(r.name, name);
     EXPECT_EQ(r.time_range.end, x::telem::TIME_STAMP_MAX);
 }
@@ -253,13 +253,47 @@ TEST(CreateRangeTest, NextParsesColor) {
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
 
-    const auto r = ASSERT_NIL_P(client->ranges.retrieve_by_key(
-        ASSERT_NIL_P(x::uuid::UUID::parse(output_key(s)))
-    ));
+    const auto r = ASSERT_NIL_P(
+        client->ranges.retrieve(ASSERT_NIL_P(x::uuid::UUID::parse(output_key(s))))
+    );
     ASSERT_TRUE(r.color.has_value());
     EXPECT_EQ(r.color.value().r, 0xdf);
     EXPECT_EQ(r.color.value().g, 0x6d);
     EXPECT_EQ(r.color.value().b, 0x38);
+}
+
+TEST(CreateRangeTest, NextCreatesRangeUnderParent) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    synnax::ranger::Range parent;
+    parent.name = unique_name("cpp_parent_");
+    parent.time_range = x::telem::TimeRange{
+        x::telem::TimeStamp::now(),
+        x::telem::TIME_STAMP_MAX
+    };
+    ASSERT_NIL(client->ranges.create(parent));
+    auto node = make_create_ir_node(
+        unique_name("cpp_child_"),
+        parent.key.to_string(),
+        ""
+    );
+    auto ir = build_ir(node);
+    ::arc::runtime::state::State s(
+        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
+        ::arc::runtime::errors::noop_handler
+    );
+    auto st = ASSERT_NIL_P(s.node("ranges"));
+    Module module(client, noopReporter());
+    auto created = ASSERT_NIL_P(
+        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
+    );
+
+    auto ctx = make_context();
+    ASSERT_NIL(created->next(ctx));
+
+    const auto r = ASSERT_NIL_P(
+        client->ranges.retrieve(ASSERT_NIL_P(x::uuid::UUID::parse(output_key(s))))
+    );
+    EXPECT_EQ(r.parent.value(), parent.key);
 }
 
 TEST(CreateRangeTest, NextWarnsAndDoesNotCreateOnInvalidColor) {
@@ -368,7 +402,7 @@ TEST(EndRangeTest, NextSetsEndToNow) {
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
 
-    const auto updated = ASSERT_NIL_P(client->ranges.retrieve_by_key(r.key));
+    const auto updated = ASSERT_NIL_P(client->ranges.retrieve(r.key));
     EXPECT_GE(updated.time_range.end.nanoseconds(), before.nanoseconds());
     EXPECT_LE(
         updated.time_range.end.nanoseconds(),

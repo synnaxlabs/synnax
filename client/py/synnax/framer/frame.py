@@ -32,7 +32,7 @@ class FramePayload(BaseModel):
 
     def __init__(
         self,
-        keys: list[int] | None = None,
+        keys: list[channel.Key] | None = None,
         series: list[Series] | None = None,
     ):
         if series is None:
@@ -249,7 +249,7 @@ class Frame:
             Cannot convert a frame that contains channel names to a payload.
             The following channels are invalid: {diff}
             """)
-        keys: list[int] = [k for k in self.channels if isinstance(k, int)]
+        keys: list[channel.Key] = [k for k in self.channels if isinstance(k, int)]
         return FramePayload(keys=keys, series=self.series)
 
     def to_df(self) -> DataFrame:

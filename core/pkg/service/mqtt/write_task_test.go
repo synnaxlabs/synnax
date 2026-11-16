@@ -60,6 +60,14 @@ func plainTarget(
 	}
 }
 
+// setEnumValues sets the enum values of the channel of target.
+func setEnumValues(target map[string]any, values ...any) {
+	GinkgoHelper()
+	ch, ok := target["channel"].(map[string]any)
+	Expect(ok).To(BeTrue())
+	ch["enum_values"] = values
+}
+
 func staticField(pointer, jsonType string, value any) map[string]any {
 	return map[string]any{
 		"key":       pointer,
@@ -105,7 +113,7 @@ var _ = Describe("Write task", func() {
 
 	start := func(ctx context.Context, cfg msgpack.EncodedJSON) task.Task {
 		GinkgoHelper()
-		t := newTask(rackKey, mqtt.WriteTaskType, cfg)
+		t := newTask(ctx, rackKey, mqtt.WriteTaskType, cfg)
 		configured := configure(ctx, factory, t)
 		Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 			To(Succeed())
@@ -167,6 +175,15 @@ var _ = Describe("Write task", func() {
 			},
 		)
 
+		It("Should publish bytes as base64", func(ctx SpecContext) {
+			ch := createVirtual(ctx, telem.BytesT)
+			start(ctx, writeConfig(dev, plainTarget("plant/blob", ch, "/b", "string")))
+			value := telem.NewSeriesV([]byte{0x00, 0xff, 0x3f})
+			command(ctx, ch, value, func(g Gomega) {
+				g.Expect(payloads("plant/blob")).To(ContainElement(`{"b":"AP8/"}`))
+			})
+		})
+
 		It("Should publish a timestamp as ISO 8601 when no time format is set",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.TimestampT)
@@ -183,14 +200,30 @@ var _ = Describe("Write task", func() {
 		It("Should publish the label of an enum value", func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.Uint8T)
 			target := plainTarget("plant/valve3/set", ch, "/state", "string")
-			target["channel"].(map[string]any)["enum_values"] = []any{
+			setEnumValues(
+				target,
 				map[string]any{"label": "closed", "value": 0},
 				map[string]any{"label": "open", "value": 1},
-			}
+			)
 			start(ctx, writeConfig(dev, target))
 			command(ctx, ch, telem.NewSeriesV[uint8](1), func(g Gomega) {
 				g.Expect(payloads("plant/valve3/set")).
 					To(ContainElement(`{"state":"open"}`))
+			})
+		})
+
+		It("Should publish a value outside the enum as text", func(ctx SpecContext) {
+			ch := createVirtual(ctx, telem.Uint8T)
+			target := plainTarget("plant/valve4/set", ch, "/state", "string")
+			setEnumValues(
+				target,
+				map[string]any{"label": "closed", "value": 0},
+				map[string]any{"label": "open", "value": 1},
+			)
+			start(ctx, writeConfig(dev, target))
+			command(ctx, ch, telem.NewSeriesV[uint8](5), func(g Gomega) {
+				g.Expect(payloads("plant/valve4/set")).
+					To(ContainElement(`{"state":"5"}`))
 			})
 		})
 
@@ -213,7 +246,8 @@ var _ = Describe("Write task", func() {
 					Expect(doc).To(HaveKeyWithValue("rpm", BeEquivalentTo(1200)))
 					Expect(doc).To(HaveKeyWithValue("unit", "rpm"))
 					Expect(doc).To(HaveKeyWithValue("priority", BeEquivalentTo(3)))
-					id := doc["id"].(string)
+					id, ok := doc["id"].(string)
+					Expect(ok).To(BeTrue())
 					MustSucceed(uuid.Parse(id))
 					ids = append(ids, id)
 				}
@@ -419,7 +453,7 @@ var _ = Describe("Write task", func() {
 			message string,
 		) {
 			GinkgoHelper()
-			t := newTask(rackKey, mqtt.WriteTaskType, cfg)
+			t := newTask(ctx, rackKey, mqtt.WriteTaskType, cfg)
 			Expect(factory.ConfigureTask(ctx, t, "configure")).Error().
 				To(MatchError(ContainSubstring(message)))
 			stat := taskStatus(ctx, t)
@@ -467,6 +501,15 @@ var _ = Describe("Write task", func() {
 						"topic plant/+/set: must not hold the wildcards + or #"
 				},
 			),
+			Entry("an unknown QoS",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.Float64T)
+					target := plainTarget("plant/x", ch, "", "number")
+					target["qos"] = "bogus"
+					return writeConfig(dev, target),
+						`target plant/x: qos: unknown value "bogus"`
+				},
+			),
 			Entry("a channel that does not exist",
 				func(context.Context) (msgpack.EncodedJSON, string) {
 					ch := channel.Channel{Name: "missing", DataType: telem.Float64T}
@@ -486,9 +529,10 @@ var _ = Describe("Write task", func() {
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Uint8T)
 					target := plainTarget("plant/x", ch, "/v", "number")
-					target["channel"].(map[string]any)["enum_values"] = []any{
+					setEnumValues(
+						target,
 						map[string]any{"label": "open", "value": 1},
-					}
+					)
 					return writeConfig(dev, target),
 						"target plant/x: enum values require the string JSON type"
 				},

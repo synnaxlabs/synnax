@@ -51,7 +51,7 @@ const START_RECHECK_INTERVAL = TimeSpan.seconds(30);
 const OLDER_PAGE_SIZE = 1_000;
 
 const streamMultiChannelLogPropsZ = z.object({
-  channels: z.array(channel.keyZ.or(z.string())),
+  channels: z.array(channel.keyZ),
 });
 
 export type StreamMultiChannelLogProps = z.input<typeof streamMultiChannelLogPropsZ>;
@@ -192,9 +192,7 @@ export class StreamMultiChannelLog
     this.now = now;
     this.maxEntries = maxEntries;
     this.recheckInterval = recheckInterval;
-    this._channels = this.props.channels.filter(
-      (ch): ch is number => typeof ch === "number",
-    );
+    this._channels = this.props.channels;
   }
 
   /** @returns the entries, with the worst status of the channels. */
@@ -239,6 +237,14 @@ export class StreamMultiChannelLog
     // Samples written after the read of start can be older than it.
     const start = TimeStamp.min(this.start, this.entries[0]?.timestamp ?? this.start);
     return new TimeRange(start, new TimeStamp(end));
+  }
+
+  /** Whether the entries hold the oldest stored sample of each channel. */
+  get exhausted(): boolean {
+    const metas = [...this.metas.values()];
+    return (
+      metas.length > 0 && metas.every((m) => m.exhausted && m.pending.length === 0)
+    );
   }
 
   /** Whether the entries end at the newest samples, so that new samples join them. */

@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 // Package filter generates the Go interpreter of a filter definition. MatchWhere turns
-// a Where into the service's Filter, and RetrieveRequest.Apply, generated wherever the
-// request is, narrows a Retrieve to the records a request selects. The request also
-// rejects unknown JSON members.
+// a Where into the service's Filter, and ApplyRetrieve, generated wherever the request
+// is, narrows a Retrieve to the records a request selects. The request also rejects
+// unknown JSON members.
 package filter
 
 import (
@@ -134,9 +134,9 @@ type lineData struct {
 	Path string
 	// GoName is the Where field that holds the line.
 	GoName string
-	// Func is the matcher of a bare line, or the hand-written function of a typed line.
+	// Func is the matcher of a bare line, or the function a typed line calls.
 	Func string
-	// Typed is true when the line calls a hand-written matcher.
+	// Typed is true when the line calls a matcher that takes its value.
 	Typed bool
 	// Members are the members of a bare line's operator.
 	Members []string
@@ -150,7 +150,7 @@ type lineData struct {
 	Pointer bool
 	// Variadic is true when a typed line's value is a slice passed as variadic values.
 	Variadic bool
-	// Enum is true when a bare line selects string enum values, which it validates.
+	// Enum is true when a line selects string enum values, which it validates.
 	Enum bool
 	// Text is true when a bare line's operator is filter.String.
 	Text bool
@@ -275,14 +275,18 @@ func generateFile(
 		data.Target += data.TypeArgs
 	}
 
-	form := where.Form.(resolution.StructForm)
+	form := resolution.MustForm[resolution.StructForm](where)
 	for _, line := range where.Filter.Lines {
 		field := lo.Must(form.Field(line.Name))
 		ld := lineData{Path: line.Name, GoName: naming.GetFieldName(field)}
 		if line.HasType() {
 			ld.Typed = true
 			ld.Func = "Match" + ld.GoName
-			if funcs.Contains(ld.Func) {
+			// A `@go match` names a declared matcher that takes the line's value.
+			match := plugindomain.GetStringFromField(line, "go", "match")
+			if match != "" {
+				ld.Func = match
+			} else if funcs.Contains(ld.Func) {
 				return fail(
 					"typed line %s calls %s, which the generated code already "+
 						"declares; rename the line",
@@ -293,6 +297,11 @@ func generateFile(
 			ld.Variadic = arrays.IsArray(field.Type, table) &&
 				arrays.Size(field.Type, table) == nil
 			ld.Pointer = !typemap.Nilable(field.Type, table)
+			value := field.Type
+			if ld.Variadic {
+				value = field.Type.TypeArgs[0]
+			}
+			ld.Enum = isStringEnum(value, table)
 			data.Lines = append(data.Lines, ld)
 			continue
 		}
@@ -371,6 +380,22 @@ type requestData struct {
 	Args string
 	// Search is true when the request has a search_term.
 	Search bool
+	// After is true when the request has a cursor to resume after.
+	After bool
+	// Orders holds the sorts that the request's order can select.
+	Orders []orderData
+}
+
+// orderData is a sort that a request's order can select.
+type orderData struct {
+	// Name is the sort's name on the wire.
+	Name string
+	// Const is the OrderField constant that selects the sort.
+	Const string
+	// Field is the Cursor field that holds the sort value.
+	Field string
+	// Func is the service function that returns the sort's Order.
+	Func string
 }
 
 func generateRequestFile(
@@ -401,7 +426,23 @@ func generateRequestFile(
 	)); n > 0 {
 		data.Args = "[" + strings.Join(slices.Repeat([]string{"any"}, n), ", ") + "]"
 	}
-	_, data.Search = request.Form.(resolution.StructForm).Field("search_term")
+	requestForm := resolution.MustForm[resolution.StructForm](request)
+	_, data.Search = requestForm.Field("search_term")
+	_, data.After = requestForm.Field("after")
+	fields, _ := resolution.RecordFields(target, req.Resolutions)
+	sorts, err := resolution.Sorts(fields, req.Resolutions)
+	if err != nil {
+		return nil, errors.Wrapf(err, "filter %s", where.QualifiedName)
+	}
+	for _, sort := range sorts {
+		goName := naming.ToPascalCase(sort.Name)
+		data.Orders = append(data.Orders, orderData{
+			Name:  sort.Name,
+			Const: "OrderField" + goName,
+			Field: goName,
+			Func:  "OrderBy" + goName,
+		})
+	}
 	data.AddExternal("encoding/json/jsontext")
 	data.AddExternal("encoding/json/v2")
 	data.AddExternal("github.com/vmihailenco/msgpack/v5")
@@ -413,6 +454,22 @@ func generateRequestFile(
 			gomod.DefaultModulePrefix,
 		),
 	)
+	if (data.Search && data.After) || len(data.Orders) > 0 {
+		data.AddInternal(
+			"errors",
+			gomod.ResolveImportPath(
+				"x/go/errors",
+				req.RepoRoot,
+				gomod.DefaultModulePrefix,
+			),
+		)
+	}
+	if len(data.Orders) > 0 {
+		data.AddInternal(
+			"gorp",
+			gomod.ResolveImportPath("gorp", req.RepoRoot, gomod.DefaultModulePrefix),
+		)
+	}
 	var buf bytes.Buffer
 	if err := requestTemplate.Execute(&buf, data); err != nil {
 		return nil, err
@@ -515,6 +572,24 @@ func MatchWhere{{.TypeParams}}(w Where) (Filter{{.TypeArgs}}, error) {
 		}
 {{- end}}
 {{- if .Typed}}
+{{- if and .Enum .Variadic}}
+		for i, v := range l {
+			if !v.IsValid() {
+				return nil, validate.PathedError(
+					errors.Wrapf(validate.ErrValidation, "invalid {{.Path}} %q", v),
+					"{{.Path}}",
+					strconv.Itoa(i),
+				)
+			}
+		}
+{{- else if .Enum}}
+		if !l.IsValid() {
+			return nil, validate.PathedError(
+				errors.Wrapf(validate.ErrValidation, "invalid {{.Path}} %q", *l),
+				"{{.Path}}",
+			)
+		}
+{{- end}}
 		fs = append(fs, {{.Func}}{{$.TypeArgs}}({{if .Pointer}}*{{end}}l{{if .Variadic}}...{{end}}))
 {{- else if .Text}}
 		text := *l
@@ -645,10 +720,14 @@ import (
 {{- end}}
 )
 
-// Apply narrows q to the records that the request selects. A key with no record is a
+// ApplyRetrieve narrows q to the records that r selects. A key with no record is a
 // non-match, as for every other line. It returns a validate.PathError for a value that
 // no filter can hold.
-func (r RetrieveRequest) Apply(q {{$.Service}}Retrieve{{$.Args}}) ({{$.Service}}Retrieve{{$.Args}}, error) {
+//
+// ApplyRetrieve is a function, not a method, to cut compile time. As a method, it would
+// make every package that names RetrieveRequest compile each generic method of the
+// Retrieve.
+func ApplyRetrieve(r RetrieveRequest, q {{$.Service}}Retrieve{{$.Args}}) ({{$.Service}}Retrieve{{$.Args}}, error) {
 	q = q.SkipMissingKeys()
 	if r.Where != nil {
 		f, err := {{$.Service}}MatchWhere{{$.Args}}(*r.Where)
@@ -659,7 +738,41 @@ func (r RetrieveRequest) Apply(q {{$.Service}}Retrieve{{$.Args}}) ({{$.Service}}
 	}
 {{- if .Search}}
 	if r.SearchTerm != "" {
+{{- if .After}}
+		if r.After != nil {
+			return {{$.Service}}Retrieve{{$.Args}}{}, validate.PathedError(
+				errors.Wrap(
+					validate.ErrValidation,
+					"a search cannot resume after a position",
+				),
+				"after",
+			)
+		}
+{{- end}}
+{{- if .Orders}}
+		if r.Order != nil {
+			return {{$.Service}}Retrieve{{$.Args}}{}, validate.PathedError(
+				errors.Wrap(validate.ErrValidation, "a search sorts by relevance"),
+				"order",
+			)
+		}
+{{- end}}
 		q = q.Where({{.Service}}MatchSearch(r.SearchTerm))
+	}
+{{- end}}
+{{- if .Orders}}
+	if r.Order != nil {
+		o, err := r.order()
+		if err != nil {
+			return {{$.Service}}Retrieve{{$.Args}}{}, err
+		}
+		q = q.OrderBy(o)
+	} else if r.After != nil {
+		q = q.After(r.After.Key)
+	}
+{{- else if .After}}
+	if r.After != nil {
+		q = q.After(r.After.Key)
 	}
 {{- end}}
 	if r.Limit != nil {
@@ -669,8 +782,51 @@ func (r RetrieveRequest) Apply(q {{$.Service}}Retrieve{{$.Args}}) ({{$.Service}}
 		}
 		q = q.Limit(int(*r.Limit))
 	}
-	return q.Offset(int(r.Offset)), nil
+	return q, nil
 }
+{{- if .Orders}}
+
+// order returns the walk that the request's order selects, starting past the request's
+// cursor when it has one.
+func (r RetrieveRequest) order() ({{$.Service}}Order{{$.Args}}, error) {
+	dir := gorp.DirectionAsc
+	if r.Order.Descending {
+		dir = gorp.DirectionDesc
+	}
+	switch r.Order.Field {
+{{- range .Orders}}
+	case {{.Const}}:
+		if r.After == nil {
+			return {{$.Service}}{{.Func}}(dir), nil
+		}
+		if r.After.{{.Field}} == nil {
+			return nil, validate.PathedError(
+				errors.Wrap(
+					validate.ErrValidation,
+					"is required to resume an order by {{.Name}}",
+				),
+				"after",
+				"{{.Name}}",
+			)
+		}
+		return {{$.Service}}{{.Func}}After(
+			dir,
+			*r.After.{{.Field}},
+			r.After.Key,
+		), nil
+{{- end}}
+	}
+	return nil, validate.PathedError(
+		errors.Wrapf(
+			validate.ErrValidation,
+			"%q is not a field to sort by",
+			r.Order.Field,
+		),
+		"order",
+		"field",
+	)
+}
+{{- end}}
 
 // UnmarshalJSONFrom decodes the request and rejects a member that it does not declare,
 // at any depth, so a client that sends a field the Core removed fails.

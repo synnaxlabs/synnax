@@ -55,7 +55,7 @@ func Is(err, ref error) bool { return errors.Is(err, ref) }
 //
 // As in the Go standard library, an error is considered to match a reference error if
 // it is equal to that target or if it implements a method Is(error) bool such that
-// Is(reference) returns true
+// Is(reference) returns true.
 func IsAny(err error, refs ...error) bool {
 	for _, e := range refs {
 		if Is(err, e) {
@@ -65,7 +65,7 @@ func IsAny(err error, refs ...error) bool {
 	return false
 }
 
-// Wrap wraps an error with a message prefix. A stack trace is retained
+// Wrap wraps an error with a message prefix. A stack trace is retained.
 func Wrap(err error, msg string) error { return errors.Wrap(err, msg) }
 
 // Mark returns err marked so that Is matches it against reference, with the message of
@@ -75,7 +75,7 @@ func Mark(err, reference error) error { return errors.Mark(err, reference) }
 
 // Wrapf wraps an error with a formatted message prefix. A stack trace is also retained.
 // If the format is empty, no prefix is added, but the extra arguments are still
-// processed for reportable strings
+// processed for reportable strings.
 func Wrapf(err error, format string, args ...any) error {
 	return errors.Wrapf(err, format, args...)
 }
@@ -149,6 +149,7 @@ func (t joinText) SafeFormatError(p errors.Printer) error {
 
 var (
 	stackType      = reflect.TypeOf(errors.WithStack(errors.New("")))
+	joinType       = reflect.TypeFor[*joinError]()
 	stdlibJoinType = reflect.TypeOf(stderrors.Join(errors.New("")))
 )
 
@@ -167,10 +168,8 @@ func unwrapJoin(err error) []error {
 
 // joinMembers returns the members of err if err is a Join or a standard library join.
 func joinMembers(err error) ([]error, bool) {
-	if join, ok := err.(*joinError); ok {
-		return join.members, true
-	}
-	if reflect.TypeOf(err) == stdlibJoinType {
+	switch reflect.TypeOf(err) {
+	case joinType, stdlibJoinType:
 		return err.(multiCause).Unwrap(), true
 	}
 	return nil, false

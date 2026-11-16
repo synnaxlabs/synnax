@@ -11,16 +11,20 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, TypedDict
-from typing import override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import channel as channel_
-from synnax.ontology.payload import ID
-from x import color, filter, text
-from x import notation as notation_
+from synnax import channel as channel_, group as group_, project as project_
+from synnax.resource import ID
+from x import color, filter, notation as notation_, text
+from x.filter import shorthand
+
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
 
 FLEX_ALIGNMENT_START: Literal["start"] = "start"
 
@@ -36,21 +40,6 @@ FlexAlignment = Literal["start", "center", "end", "stretch"]
 Key: TypeAlias = UUID
 
 
-class Row(BaseModel):
-    """Is a single row in a table, with a key, height, and ordered cell keys.
-
-    Attributes:
-        key: Is the unique identifier for this row within the table.
-        size: Is the height of the row in pixels.
-        cells: Is the ordered list of cell keys in this row from left to right. Each key
-            points at an entry in the table's cells map.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    size: float = Field(default=36, ge=1)
-    cells: list[str] = Field(default_factory=list)
-
-
 class Column(BaseModel):
     """Is a single column in a table, with a key and width.
 
@@ -60,7 +49,19 @@ class Column(BaseModel):
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
-    size: float = Field(default=72, ge=1)
+    size: float = Field(default=72, ge=1, allow_inf_nan=False)
+
+
+class Order(BaseModel):
+    """Is a sort of tables.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class TextCellConfig(BaseModel):
@@ -69,7 +70,7 @@ class TextCellConfig(BaseModel):
     variant: Literal["text"] = "text"
     value: str = ""
     level: text.Level = "h5"
-    weight: float = Field(default=400, ge=1, le=1000)
+    weight: float = Field(default=400, ge=1, le=1000, allow_inf_nan=False)
     align: FlexAlignment = "center"
     fill_color: color.Color | None = None
     text_color: color.Color | None = None
@@ -88,12 +89,12 @@ class ValueCellConfig(BaseModel):
     level: text.Level = "h5"
     text_color: color.Color | None = None
     units: str = ""
-    staleness_timeout: float = Field(default=5, ge=1)
+    staleness_timeout: float = Field(default=5, ge=1, allow_inf_nan=False)
     staleness_color: color.Color | None = None
 
 
-# Is the per-cell configuration stored in the table cells map. The variant selects
-# which Pluto cell component renders the cell.
+# Is the configuration of one cell. The variant selects which Pluto cell component
+# renders the cell.
 CellConfig = Annotated[
     TextCellConfig | ValueCellConfig,
     Field(discriminator="variant"),
@@ -108,6 +109,9 @@ class Where(BaseModel):
         or_: Matches when any child matches.
         not_: Matches when the child does not match.
         key: Selects by key.
+        groups: Matches the tables in any of the given groups.
+        grouped: Matches the tables in a group, or in no group when false.
+        projects: Matches the tables in any of the given projects.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -116,6 +120,14 @@ class Where(BaseModel):
     or_: list[Where] | None = Field(default=None, alias="or")
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+    projects: list[project_.Key] | None = None
+
+    @field_validator("groups", "projects", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
 # WhereInput is a Where written as a partial record.
@@ -127,23 +139,70 @@ WhereInput = TypedDict(
         "or": list["WhereInput"],
         "not": "WhereInput",
         "key": filter.SetInput[Key],
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
+        "projects": project_.Key | list[project_.Key],
     },
     total=False,
 )
 
 
+class Cursor(BaseModel):
+    """Is a position in an order of tables: the sort value and the key of a table.
+
+    Attributes:
+        key: Is the key of the table at the position.
+        name: Is the name of the table at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
+
+
 class Cell(BaseModel):
-    """Is a keyed cell configuration used by actions that address cells explicitly.
-    Inside the table state itself, cell configurations are stored in the cells map keyed
-    by cell key.
+    """Is one cell of a row, with its key and config.
 
     Attributes:
         key: Is the unique identifier for this cell within the table.
-        config: Is the cell's variant-discriminated configuration.
+        config: Is the content the cell draws and its settings.
     """
 
     key: str
     config: CellConfig
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve tables.
+
+    Attributes:
+        where: Selects the tables to retrieve. An absent where selects all of them.
+        search_term: Keeps the tables that match the term, closest match first.
+        order: Sorts the tables. An absent order sorts them by key.
+        after: Starts the tables strictly past this position in their order.
+        limit: Is the most tables to return.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+
+
+class Row(BaseModel):
+    """Is a single row in a table, with a key, height, and cells.
+
+    Attributes:
+        key: Is the unique identifier for this row within the table.
+        size: Is the height of the row in pixels.
+        cells: Are the cells of the row, from left to right.
+    """
+
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    size: float = Field(default=36, ge=1, allow_inf_nan=False)
+    cells: list[Cell] = Field(default_factory=list)
 
 
 class Table(BaseModel):
@@ -155,38 +214,20 @@ class Table(BaseModel):
         name: Is a human-readable name for the table.
         rows: Are the table rows in display order, top to bottom.
         columns: Are the table columns in display order, left to right.
-        cells: Contains all cells in the table, keyed by cell key. Cell positions are
-            derived from rows[*].cells[*] references; cells not referenced by any row
-            are orphaned and will be pruned on the next structural edit.
+        group: Is the group the table sits in, if any.
+        project: Is the project that holds the table.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str
     rows: list[Row] = Field(default_factory=list)
     columns: list[Column] = Field(default_factory=list)
-    cells: dict[str, CellConfig] = Field(default_factory=dict)
+    group: group_.Key | None = None
+    project: project_.Key | None = None
 
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class RetrieveRequest(BaseModel):
-    """Is a request to retrieve tables.
-
-    Attributes:
-        where: Selects the tables to retrieve. An absent where selects all of them.
-        search_term: Keeps the tables that match the term, closest match first.
-        limit: Is the most tables to return.
-        offset: Is the number of matching tables to skip.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    where: Where | None = None
-    search_term: str = ""
-    limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 class RetrieveResponse(BaseModel):
@@ -202,8 +243,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="table")
+TYPE_RESOURCE_ID = ID(type="table")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="table", key=str(key))

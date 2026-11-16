@@ -12,7 +12,7 @@ package panel
 import (
 	"uuid"
 
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
@@ -45,34 +45,33 @@ var errTabNotFound = errors.New("tab not found in tree")
 // tab count.
 var errIndexOutOfRange = errors.New("index out of range")
 
-// errInvalidSize is returned when a split size ratio falls outside [0, 1].
-var errInvalidSize = errors.Wrap(validate.ErrValidation, "split size must be in [0, 1]")
-
 // resourceTabTypes is the set of resource types a tab may display: the resource subset
 // of the Console renderer registry, promoted to a schema invariant.
 var resourceTabTypes = set.New(
-	ontology.ResourceTypeSchematic,
-	ontology.ResourceTypeLineplot,
-	ontology.ResourceTypeLog,
-	ontology.ResourceTypeTable,
-	ontology.ResourceTypeArc,
-	ontology.ResourceTypeTask,
-	ontology.ResourceTypeRange,
+	resource.TypeSchematic,
+	resource.TypeLineplot,
+	resource.TypeLog,
+	resource.TypeTable,
+	resource.TypeArc,
+	resource.TypeTask,
+	resource.TypeRange,
+	resource.TypeICD,
+	resource.TypeView,
 )
 
 // validateTree checks the structural invariants every persisted panel tree must uphold:
-// every node has a variant, split sizes are within [0, 1], tab keys are unique across
-// the tree, every resource backs at most one tab, and every resource tab displays a
-// type in resourceTabTypes. Called before any tree is persisted, both for
-// caller-provided trees on create and for reduced trees on dispatch.
+// every node has a variant, tab keys are unique across the tree, every resource backs
+// at most one tab, and every resource tab displays a type in resourceTabTypes. Called
+// before any tree is persisted, both for caller-provided trees on create and for
+// reduced trees on dispatch.
 func validateTree(root Node) error {
-	return validateNode(root, set.New[uuid.UUID](), set.New[ontology.ID]())
+	return validateNode(root, set.New[uuid.UUID](), set.New[resource.ID]())
 }
 
 func validateNode(
 	n Node,
 	seen set.Set[uuid.UUID],
-	seenResources set.Set[ontology.ID],
+	seenResources set.Set[resource.ID],
 ) error {
 	switch v := n.Variant.(type) {
 	case LeafNode:
@@ -104,9 +103,6 @@ func validateNode(
 		}
 		return nil
 	case SplitNode:
-		if v.Size < 0 || v.Size > 1 {
-			return errInvalidSize
-		}
 		if err := validateNode(v.First, seen, seenResources); err != nil {
 			return err
 		}
@@ -248,8 +244,8 @@ func findTabAt(n Node, path int32, tabKey uuid.UUID) (int32, int, bool) {
 }
 
 // findTabByResource walks the tree to find the tab whose resource variant
-// displays the given ontology ID. Returns the tab and ok=true when present.
-func findTabByResource(root Node, resource ontology.ID) (Tab, bool) {
+// displays the given resource ID. Returns the tab and ok=true when present.
+func findTabByResource(root Node, resource resource.ID) (Tab, bool) {
 	switch v := root.Variant.(type) {
 	case LeafNode:
 		for _, t := range v.Tabs {
@@ -396,9 +392,9 @@ func directionAndSideForLocation(
 		return spatial.DirectionY, spatial.OrderFirst, nil
 	case spatial.LocationBottom:
 		return spatial.DirectionY, spatial.OrderLast, nil
-	default:
-		return "", "", errors.New("invalid split location")
+	case spatial.LocationCenter:
 	}
+	return "", "", errors.New("invalid split location")
 }
 
 // splitLeafAt replaces the leaf at leafPath with a split node containing the

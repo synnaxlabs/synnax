@@ -34,6 +34,7 @@ export interface LogProps extends Omit<
   | "channelNamesHidden"
   | "timestampsHidden"
   | "timestampPrecision"
+  | "timeZone"
 > {}
 
 // Log is the connected log visualization. It reads the full log document from the
@@ -43,9 +44,13 @@ export interface LogProps extends Omit<
 // cache, so callers must render it within a Log.Suspended boundary.
 export const Log = ({ enableTriggers, ...rest }: LogProps): ReactElement | null => {
   const key = useKey();
-  const { channels, channelNamesHidden, timestampsHidden, timestampPrecision } = use({
-    key,
-  });
+  const {
+    channels,
+    channelNamesHidden,
+    timestampsHidden,
+    timestampPrecision,
+    timeZone,
+  } = use({ key });
   const undoRedo = useUndoRedo(key, enableTriggers);
   const telem = streamMultiChannelLog({ channels: [] });
   return (
@@ -55,6 +60,7 @@ export const Log = ({ enableTriggers, ...rest }: LogProps): ReactElement | null 
       channelNamesHidden={channelNamesHidden}
       timestampsHidden={timestampsHidden}
       timestampPrecision={timestampPrecision}
+      timeZone={timeZone}
       enableTriggers={enableTriggers}
       undoRedo={undoRedo}
       {...rest}

@@ -10,6 +10,7 @@
 package validate
 
 import (
+	"math"
 	"reflect"
 	"unicode/utf8"
 
@@ -35,6 +36,19 @@ func (v *Validator) Exec(fn func() error) {
 	}
 }
 
+// ruleError is a validation failure. It matches ErrValidation without adding the text
+// of ErrValidation to its message.
+type ruleError struct{ error }
+
+func (e ruleError) Unwrap() error { return e.error }
+
+func (ruleError) Is(target error) bool { return target == ErrValidation }
+
+// Errorf returns a validation error whose message is the formatted text alone.
+func Errorf(format string, args ...any) error {
+	return ruleError{errors.Newf(format, args...)}
+}
+
 // Ternary adds the error with the given message to the validator if the condition is
 // true.
 func (v *Validator) Ternary(path string, cond bool, msg string) bool {
@@ -42,7 +56,7 @@ func (v *Validator) Ternary(path string, cond bool, msg string) bool {
 		if !cond {
 			return nil
 		}
-		return PathedError(errors.New(msg), path)
+		return PathedError(ruleError{errors.New(msg)}, path)
 	})
 	return len(v.errs) > 0
 }
@@ -52,7 +66,7 @@ func (v *Validator) Ternaryf(field string, cond bool, format string, args ...any
 		if !cond {
 			return nil
 		}
-		return PathedError(errors.Newf(format, args...), field)
+		return PathedError(ruleError{errors.Newf(format, args...)}, field)
 	})
 	return len(v.errs) > 0
 }
@@ -72,20 +86,20 @@ func (v *Validator) NotNil(field string, value any) bool {
 }
 
 // Positive returns true and attaches an error to v if the value is not greater than
-// zero.
+// zero or is not finite.
 func (v *Validator) Positive[T types.Numeric](field string, value T) bool {
-	return v.Ternary(field, value <= 0, "must be positive")
+	return v.Ternary(field, nonFinite(value) || value <= 0, "must be positive")
 }
 
 // InBounds returns true and attaches an error to v if the value is outside the
-// half-open interval [lower, upper).
+// half-open interval [lower, upper) or is not finite.
 func (v *Validator) InBounds[T types.Numeric](
 	field string,
 	value, lower, upper T,
 ) bool {
 	return v.Ternaryf(
 		field,
-		value < lower || value >= upper,
+		nonFinite(value) || value < lower || value >= upper,
 		"must be in bounds [%v, %v)",
 		lower,
 		upper,
@@ -93,17 +107,22 @@ func (v *Validator) InBounds[T types.Numeric](
 }
 
 // GreaterThan returns true and attaches an error to v if the value is not greater than
-// the threshold.
+// the threshold or is not finite.
 func (v *Validator) GreaterThan[T types.Numeric](
 	field string,
 	value T,
 	threshold T,
 ) bool {
-	return v.Ternaryf(field, value <= threshold, "must be greater than %v", threshold)
+	return v.Ternaryf(
+		field,
+		nonFinite(value) || value <= threshold,
+		"must be greater than %v",
+		threshold,
+	)
 }
 
 // GreaterThanEq returns true and attaches an error to v if the value is less than the
-// threshold.
+// threshold or is not finite.
 func (v *Validator) GreaterThanEq[T types.Numeric](
 	field string,
 	value T,
@@ -111,14 +130,14 @@ func (v *Validator) GreaterThanEq[T types.Numeric](
 ) bool {
 	return v.Ternaryf(
 		field,
-		value < threshold,
+		nonFinite(value) || value < threshold,
 		"must be greater than or equal to %v",
 		threshold,
 	)
 }
 
 // LessThanEq returns true and attaches an error to v if the value is greater than the
-// threshold.
+// threshold or is not finite.
 func (v *Validator) LessThanEq[T types.Numeric](
 	field string,
 	value T,
@@ -126,15 +145,21 @@ func (v *Validator) LessThanEq[T types.Numeric](
 ) bool {
 	return v.Ternaryf(
 		field,
-		value > threshold,
+		nonFinite(value) || value > threshold,
 		"must be less than or equal to %v",
 		threshold,
 	)
 }
 
+func nonFinite[T types.Numeric](value T) bool {
+	f := float64(value)
+	return math.IsNaN(f) || math.IsInf(f, 0)
+}
+
 // NonZero returns true and attaches an error to v if the value is zero.
-func (v *Validator) NonZero[T types.Numeric](field string, value T) bool {
-	return v.Ternary(field, value == 0, "must be non-zero")
+func (v *Validator) NonZero[T comparable](field string, value T) bool {
+	var zero T
+	return v.Ternary(field, value == zero, "must be non-zero")
 }
 
 // NonZeroable returns true and attaches an error to v if the value reports itself as
@@ -153,24 +178,24 @@ func (v *Validator) NotEmptyString[T ~string](field string, value T) bool {
 	return v.Ternary(field, value == "", "required")
 }
 
-// MinLength returns true and attaches an error to v if the string has fewer than min
+// MinLength returns true and attaches an error to v if the string has fewer than minLen
 // Unicode code points.
-func (v *Validator) MinLength[T ~string](field string, value T, min int) bool {
+func (v *Validator) MinLength[T ~string](field string, value T, minLen int) bool {
 	return v.Ternaryf(
 		field,
-		utf8.RuneCountInString(string(value)) < min,
+		utf8.RuneCountInString(string(value)) < minLen,
 		"must be at least %d characters long",
-		min,
+		minLen,
 	)
 }
 
-// MaxLength returns true and attaches an error to v if the string has more than max
+// MaxLength returns true and attaches an error to v if the string has more than maxLen
 // Unicode code points.
-func (v *Validator) MaxLength[T ~string](field string, value T, max int) bool {
+func (v *Validator) MaxLength[T ~string](field string, value T, maxLen int) bool {
 	return v.Ternaryf(
 		field,
-		utf8.RuneCountInString(string(value)) > max,
+		utf8.RuneCountInString(string(value)) > maxLen,
 		"must be at most %d characters long",
-		max,
+		maxLen,
 	)
 }

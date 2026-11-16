@@ -10,7 +10,6 @@
 package validate
 
 import (
-	"context"
 	"encoding/json/v2"
 	"slices"
 	"strings"
@@ -85,6 +84,9 @@ func prefixPath(err error, segments []string) error {
 
 func (p PathError) Error() string { return p.joinPath() + ": " + p.Err.Error() }
 
+// Unwrap returns the error at the path, so errors.Is and errors.As see through p.
+func (p PathError) Unwrap() error { return p.Err }
+
 func NewInvalidTypeError(expected, received string) error {
 	return errors.Wrapf(
 		ErrInvalidType,
@@ -99,10 +101,10 @@ const (
 	pathErrorType = baseErrorType + ".path"
 )
 
-func encode(ctx context.Context, err error) (errors.Payload, bool) {
+func encode(err error) (errors.Payload, bool) {
 	var errPath PathError
 	if errors.As(err, &errPath) {
-		internal := errors.Encode(ctx, errPath.Err, false)
+		internal := errors.Encode(errPath.Err, false)
 		return errors.Payload{
 			Type: pathErrorType,
 			Data: string(lo.Must(json.Marshal(encodedPathError{
@@ -112,15 +114,17 @@ func encode(ctx context.Context, err error) (errors.Payload, bool) {
 		}, true
 	}
 	if errors.CheapIs(err, ErrValidation) {
-		return errors.Payload{
-			Type: baseErrorType,
-			Data: errors.MessageWithout(err, ErrValidation),
-		}, true
+		msg := errors.MessageWithout(err, ErrValidation)
+		// The bare sentinel has no message but its own.
+		if msg == "" {
+			msg = err.Error()
+		}
+		return errors.Payload{Type: baseErrorType, Data: msg}, true
 	}
 	return errors.Payload{}, false
 }
 
-func decode(ctx context.Context, p errors.Payload) (error, bool) {
+func decode(p errors.Payload) (error, bool) {
 	if !strings.HasPrefix(p.Type, baseErrorType) {
 		return nil, false
 	}
@@ -131,10 +135,10 @@ func decode(ctx context.Context, p errors.Payload) (error, bool) {
 		}
 		return PathError{
 			Path: errDecodedPath.Path,
-			Err:  errors.Decode(ctx, errDecodedPath.Error),
+			Err:  errors.Decode(errDecodedPath.Error),
 		}, true
 	}
-	return errors.Wrap(ErrValidation, p.Data), true
+	return ruleError{errors.New(p.Data)}, true
 }
 
 func init() { errors.Register(encode, decode) }

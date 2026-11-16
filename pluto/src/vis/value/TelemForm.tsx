@@ -10,7 +10,7 @@
 import { type channel } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { deep, type notation } from "@synnaxlabs/x";
+import { deep, notation } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -58,6 +58,7 @@ export const TelemForm = (): ReactElement => {
           <Input.Numeric
             value={value.rollingAverage ?? 1}
             bounds={{ lower: 1, upper: 100 }}
+            integer
             onChange={handleRollingAverageChange}
           />
         </Input.Item>
@@ -72,8 +73,9 @@ export const TelemForm = (): ReactElement => {
         <Input.Item label="Precision" padHelpText={false}>
           <Input.Numeric
             value={value.precision ?? 2}
-            bounds={{ lower: 0, upper: 10 }}
             onChange={handlePrecisionChange}
+            integer
+            bounds={notation.PRECISION_BOUNDS}
           />
         </Input.Item>
       </Form.Section>

@@ -177,6 +177,12 @@ describe("lineplot/toolbar/Data", () => {
       expect(screen.queryByText("No favorite ranges found")).toBeNull();
     });
 
+    it("says no favorite ranges match a search that finds none", async () => {
+      await renderData([]);
+      search("no such range");
+      await screen.findByText("No favorite ranges found");
+    });
+
     it("replaces the window with the live option picked", async () => {
       const { key } = await renderData([fixed(1, 2), rolling(FIVE_MIN)]);
       search("45m");

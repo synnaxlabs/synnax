@@ -85,8 +85,8 @@ private:
 };
 }
 
-/// @brief it should run the callback and report READY, watchdog liveness, and STOPPING
-/// to the service manager.
+/// @brief it should run the callback, report READY, watchdog liveness, and STOPPING to
+/// the service manager, and return the exit code of the callback.
 TEST(Daemon, testRunNotifiesServiceManager) {
     NotifySocket sock("notify");
     ASSERT_TRUE(sock.ok());
@@ -95,22 +95,25 @@ TEST(Daemon, testRunNotifiesServiceManager) {
     // The watchdog thread stops pinging once the callback returns, so observe a ping
     // before returning: an instantly-returning callback can win the race against the
     // watchdog thread's first iteration, leaving no WATCHDOG=1 on the socket.
-    config.callback = [&] { EXPECT_TRUE(sock.wait_for("WATCHDOG=1")); };
-    run(config);
+    config.callback = [&] {
+        EXPECT_TRUE(sock.wait_for("WATCHDOG=1"));
+        return 3;
+    };
+    ASSERT_EQ(run(config), 3);
     const auto &msgs = sock.drain();
     EXPECT_NE(msgs.find("READY=1"), std::string::npos);
     EXPECT_NE(msgs.find("STOPPING=1"), std::string::npos);
 }
 
-/// @brief it should report an error status when the callback throws, and still return
+/// @brief it should report an error status when the callback throws, and return 1
 /// instead of propagating.
 TEST(Daemon, testRunReportsCallbackError) {
     NotifySocket sock("error");
     ASSERT_TRUE(sock.ok());
     Config config;
     config.watchdog_interval = 1;
-    config.callback = [] { throw std::runtime_error("boom"); };
-    run(config);
+    config.callback = []() -> int { throw std::runtime_error("boom"); };
+    ASSERT_EQ(run(config), 1);
     const auto &msgs = sock.drain();
     EXPECT_NE(msgs.find("STATUS=Error: boom"), std::string::npos);
     EXPECT_NE(msgs.find("STOPPING=1"), std::string::npos);

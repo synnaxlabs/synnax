@@ -70,8 +70,12 @@ to capture against a running core (9090 unless `--port` says otherwise).
 ## Producing docs videos
 
 `videos.ts` is the production manifest: one entry per docs video, keyed by the id the
-docs site's Video component uses (the CDN serves `docs/<id>-light.mp4` /
-`docs/<id>-dark.mp4`).
+docs site's Video component uses. The CDN serves `docs/<id>/<version>-light.mp4` and
+`docs/<id>/<version>-dark.mp4`, where `<version>` hashes the pair. Upload writes each
+version to `site/docs/src/components/media/videos.json`, where the Video component finds
+it. A new version never replaces a file that a docs site serves, so you can upload a
+video before the docs that use it ship. Commit `videos.json` with the docs change. Only
+an entry here can get a version, so every new docs video needs one.
 
 ```bash
 # use `pnpm run` for flagged invocations: the bare `pnpm <script>` shorthand
@@ -83,6 +87,9 @@ pnpm run batch --list     # show what would run
 pnpm gallery              # write out/gallery.html for batch review
 pnpm run upload --dry-run # preview the CDN upload plan
 pnpm upload ranges        # push finals (needs DO_SPACES_KEY / DO_SPACES_SECRET)
+pnpm mail <hero id>       # make a letter's hero from a still
+pnpm mail <id>@<s>:<x>,<y>,<w>  # a letter's shot of a video frame, from the
+                          # capture that batch --keep-frames left
 pnpm clean                # free disk: drop capture frames, keep videos
 pnpm run clean --videos   # also drop rendered videos and stamps
 pnpm run clean --all      # remove out/ entirely

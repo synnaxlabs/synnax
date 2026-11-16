@@ -9,7 +9,7 @@
 
 import {
   DisconnectedError,
-  type label,
+  label,
   NotFoundError,
   query,
   UnexpectedError,
@@ -20,7 +20,14 @@ import {
   TEST_CLIENT_PARAMS,
 } from "@synnaxlabs/client/testutil";
 import { color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  waitFor,
+} from "@testing-library/react";
 import {
   type FC,
   type PropsWithChildren,
@@ -439,6 +446,54 @@ describe("use", () => {
         retrieve: async () => 7,
       });
       expect(await mountThroughTransition(use, "replay-settled")).toEqual([]);
+    });
+
+    it("should replay a cached read that comes before a suspending read", async () => {
+      const { use: useCached } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 3,
+        getCached: () => 3,
+      });
+      const { use: useFetched } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 4,
+      });
+      const useBoth = ({ key }: { key: string }): number =>
+        useCached({ key }) + useFetched({ key });
+      expect(await mountThroughTransition(useBoth, "replay-cached-first")).toEqual([]);
+    });
+
+    it("should replay a settled read that comes before a suspending read", async () => {
+      const { use: useSettled } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 7,
+      });
+      const { use: useFetched } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 0,
+      });
+      const key = "replay-settled-first";
+      expect(await mountThroughTransition(useSettled, key)).toEqual([]);
+      cleanup();
+      const useBoth = (q: { key: string }): number => useSettled(q) + useFetched(q);
+      expect(await mountThroughTransition(useBoth, key)).toEqual([]);
+    });
+
+    it("should replay a cached ensure that comes before a suspending read", async () => {
+      const { useEnsure } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 3,
+        getCached: () => 3,
+      });
+      const { use: useFetched } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 7,
+      });
+      const useBoth = (q: { key: string }): number => {
+        useEnsure(q);
+        return useFetched(q);
+      };
+      expect(await mountThroughTransition(useBoth, "replay-ensure-first")).toEqual([]);
     });
   });
 
@@ -1582,6 +1637,34 @@ describe("createSelector", () => {
     expect(result.current).toEqual("beta");
   });
 
+  it("passes the connected client to the projection", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const useName = harness.createSelector((data, _, c) =>
+      c === client ? data.name : "other client",
+    );
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current).toEqual("cached");
+  });
+
+  it("projects again for a new client on the same answer", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const useOwner = harness.createSelector((_, __, c) =>
+      c === client ? "first" : "second",
+    );
+    let current = client;
+    const { result, rerender } = renderHook(() => useOwner({ key: "a" }), {
+      wrapper: ({ children }) => (
+        <Wrapper>
+          <Synnax.TestProvider client={current}>{children}</Synnax.TestProvider>
+        </Wrapper>
+      ),
+    });
+    expect(result.current).toEqual("first");
+    current = createTestClient();
+    rerender();
+    expect(result.current).toEqual("second");
+  });
+
   it("refuses to mint when the definition has no cache read", () => {
     const { createSelector } = Flux.createRetrieve<{ key: string }, Data>({
       name: "Resource",
@@ -1719,6 +1802,15 @@ describe("createResultSelector", () => {
     act(() => harness.set({ name: "same", value: 2 }));
     expect(renders.mock.calls.length).toEqual(before);
     expect(result.current).toBe(first);
+  });
+
+  it("passes the connected client to the projection", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const useName = harness.createResultSelector((data, _, c) =>
+      c === client ? data.name : "other client",
+    );
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current.data).toEqual("cached");
   });
 
   it("compares slices with the provided equality", () => {
@@ -1870,8 +1962,8 @@ describe("useResult", () => {
       name: "Labels",
       retrieve,
       onChange: ({ client, query }, handler) =>
-        client.labels.onChange(query.keys, handler),
-      getCached: ({ client, query }) => client.labels.getCached(query.keys),
+        client.labels.watch(query.keys).onChange(handler),
+      getCached: ({ client, query }) => client.labels.watch(query.keys).getCached(),
     });
     const { result } = renderHook(() => useResult({ keys: [first.key, second.key] }), {
       wrapper: Wrapper,
@@ -1895,15 +1987,18 @@ describe("useResult", () => {
       name: "Labels",
       retrieve: async ({ client, query }) => await client.labels.retrieve(query.keys),
       onChange: ({ client, query }, handler) =>
-        client.labels.onChange(query.keys, handler),
-      getCached: ({ client, query }) => client.labels.getCached(query.keys),
+        client.labels.watch(query.keys).onChange(handler),
+      getCached: ({ client, query }) => client.labels.watch(query.keys).getCached(),
     });
     const { result } = renderHook(() => useResult({ keys: [first.key, second.key] }), {
       wrapper: Wrapper,
     });
     expect(result.current.variant).toEqual("success");
     const renamed = `live-a-renamed-${id.create()}`;
-    await client.labels.create({ ...first, name: renamed });
+    await client.labels.dispatch(
+      first.key,
+      label.set({ path: ["name"], value: renamed }),
+    );
     await waitFor(
       () =>
         expect(result.current.data?.map(({ name }) => name)).toEqual([

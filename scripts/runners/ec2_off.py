@@ -9,10 +9,15 @@
 
 # /// script
 # requires-python = ">=3.12,<4"
-# dependencies = ["boto3", "certifi>=2026.10.19", "synnax>=0.59,<0.60"]
+# dependencies = [
+#     "boto3",
+#     "certifi>=2026.10.19",
+#     "PyJWT[crypto]>=2.10,<3",
+#     "synnax>=0.61,<0.62",
+# ]
 # ///
 
-"""Stops the EC2 instance behind a runner, unless GitHub has a job assigned to it.
+"""Stops the EC2 instance behind a runner that GitHub shows offline with no job.
 
     uv run ec2_off.py windows-build-bot-i-0f44
 
@@ -26,21 +31,23 @@ from common import parameter_store, secret
 from github import GitHub
 
 
-def run(runner: str, *, aws: AWS, github: GitHub) -> str:
-    # The scaler decides on a status that trails GitHub by seconds, in which time an
-    # idle runner can take a job.
-    if github.busy(runner):
-        return f"{runner}: busy, stop skipped"
+def run(runner: str, *, aws: AWS, github: GitHub) -> str | None:
+    # An online runner can take a job before the instance goes down, so its runner is
+    # stopped first, with <runner>_gh_cmd.
+    if not github.offline(runner):
+        return f"{runner}: online or busy, stop skipped"
     iid, info = aws.instance(runner)
     aws.ec2[info["region"]].stop_instances(InstanceIds=[iid])
-    return f"{runner} ({info['region']}): stop requested"
+    return None
 
 
 def main() -> None:
     p = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     p.add_argument("runner", help="runner name, e.g. windows-build-bot-i-0f44")
-    github = GitHub(secret("GH_TOKEN", store=parameter_store()))
-    print(run(p.parse_args().runner, aws=AWS(), github=github))
+    store = parameter_store()
+    github = GitHub(secret("GH_APP_ID", store=store), secret("GH_APP_KEY", store=store))
+    if (skipped := run(p.parse_args().runner, aws=AWS(), github=github)) is not None:
+        print(skipped)
 
 
 if __name__ == "__main__":

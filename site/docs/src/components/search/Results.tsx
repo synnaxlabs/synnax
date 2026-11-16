@@ -27,10 +27,14 @@ import {
   type Result,
 } from "@/components/search/result";
 import { Text as DocsText } from "@/components/text";
+import { indexName } from "@/util/version";
+import { VERSION } from "@/version";
 
 const ALGOLIA_APP_ID = "YWD9T0JXCS";
 const ALGOLIA_SEARCH_ONLY_API_KEY = "1f8b0497301392c94adedf89a98afb6f";
-const ALGOLIA_URL = `https://${ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/docs_site/query`;
+const ALGOLIA_INDEX = indexName(VERSION?.name ?? null);
+const ALGOLIA_ORIGIN = `https://${ALGOLIA_APP_ID}-dsn.algolia.net`;
+const ALGOLIA_URL = `${ALGOLIA_ORIGIN}/1/indexes/${ALGOLIA_INDEX}/query`;
 const ALGOLIA_HEADERS = {
   "X-Algolia-API-Key": ALGOLIA_SEARCH_ONLY_API_KEY,
   "X-Algolia-Application-Id": ALGOLIA_APP_ID,

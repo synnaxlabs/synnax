@@ -43,25 +43,25 @@ func releasedWire() []byte {
 }
 
 var _ = Describe("Released wire format", func() {
-	It("Should decode a payload written by a released build", func(ctx SpecContext) {
+	It("Should decode a payload written by a released build", func() {
 		var lp v5.LinePlot
-		Expect(orc.Codec.Decode(ctx, releasedWire(), &lp)).To(Succeed())
+		Expect(orc.Codec.Decode(releasedWire(), &lp)).To(Succeed())
 		Expect(lp.Key).To(Equal(uuid.MustParse("251ed216-d959-4684-ac64-a8475c146697")))
 		Expect(lp.Name).To(Equal("UT Disk Free"))
 	})
 
-	It("Should re-encode the payload byte for byte", func(ctx SpecContext) {
+	It("Should re-encode the payload byte for byte", func() {
 		raw := releasedWire()
 		var lp v5.LinePlot
-		Expect(orc.Codec.Decode(ctx, raw, &lp)).To(Succeed())
-		Expect(orc.Codec.Encode(ctx, lp)).To(Equal(raw))
+		Expect(orc.Codec.Decode(raw, &lp)).To(Succeed())
+		Expect(orc.Codec.Encode(lp)).To(Equal(raw))
 	})
 
 	// The .decoded.json companion is the fixture's human-readable audit form. Run with
 	// UPDATE_DECODED=1 to regenerate it after intentionally replacing the fixture.
-	It("Should match the canonical decoded form", func(ctx SpecContext) {
+	It("Should match the canonical decoded form", func() {
 		var lp v5.LinePlot
-		Expect(orc.Codec.Decode(ctx, releasedWire(), &lp)).To(Succeed())
+		Expect(orc.Codec.Decode(releasedWire(), &lp)).To(Succeed())
 		pretty := append(
 			MustSucceed(
 				json.Marshal(lp, jsontext.WithIndent("  "), json.Deterministic(true)),
@@ -76,11 +76,11 @@ var _ = Describe("Released wire format", func() {
 		Expect(pretty).To(MatchJSON(MustSucceed(os.ReadFile(p))))
 	})
 
-	It("Should reject every truncation of the payload", func(ctx SpecContext) {
+	It("Should reject every truncation of the payload", func() {
 		raw := releasedWire()
 		for n := 3; n < len(raw); n++ {
 			var lp v5.LinePlot
-			Expect(orc.Codec.Decode(ctx, raw[:n], &lp)).
+			Expect(orc.Codec.Decode(raw[:n], &lp)).
 				To(truncatedErr, "prefix length %d", n)
 		}
 	})

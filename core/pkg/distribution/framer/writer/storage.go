@@ -12,11 +12,47 @@ package writer
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 )
+
+const (
+	storageRequestsAddr  address.Address = "requests"
+	storageResponsesAddr address.Address = "responses"
+	storageTSWriterAddr  address.Address = "ts_writer"
+)
+
+// newStorage opens a StreamWriter that writes to the storage engine.
+func (s *Service) newStorage(ctx context.Context, cfg Config) (StreamWriter, error) {
+	storageCfg := cfg.toStorage()
+	virtual, err := virtualKeys(ctx, s.cfg.TS, storageCfg.Channels)
+	if err != nil {
+		return nil, err
+	}
+	w, err := s.cfg.TS.NewStreamWriter(ctx, storageCfg)
+	if err != nil {
+		return nil, err
+	}
+	pipe := plumber.New()
+	pipe.SetSegment(storageTSWriterAddr, w)
+	reqT := &confluence.LinearTransform[Request, ts.WriterRequest]{}
+	reqT.Transform = newRequestTranslator(virtual)
+	resT := &confluence.LinearTransform[ts.WriterResponse, Response]{}
+	resT.Transform = translateResponse
+	pipe.SetSegment(storageRequestsAddr, reqT)
+	pipe.SetSegment(storageResponsesAddr, resT)
+	pipe.MustConnect[ts.WriterRequest](storageRequestsAddr, storageTSWriterAddr, 1)
+	pipe.MustConnect[ts.WriterResponse](storageTSWriterAddr, storageResponsesAddr, 1)
+	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
+	lo.Must0(seg.RouteInletTo(storageRequestsAddr))
+	lo.Must0(seg.RouteOutletFrom(storageResponsesAddr))
+	return seg, nil
+}
 
 // virtualKeys returns the keys of the virtual channels among keys.
 func virtualKeys(
@@ -101,17 +137,15 @@ func newRequestTranslator(
 	}
 }
 
-func newResponseTranslator(
-	host node.Key,
-) func(ctx context.Context, in ts.WriterResponse) (Response, bool, error) {
-	return func(ctx context.Context, in ts.WriterResponse) (Response, bool, error) {
-		return Response{
-			Command:    Command(in.Command),
-			SeqNum:     in.SeqNum,
-			NodeKey:    host,
-			End:        in.End,
-			Authorized: in.Authorized,
-			Err:        in.Err,
-		}, true, nil
-	}
+func translateResponse(
+	_ context.Context,
+	in ts.WriterResponse,
+) (Response, bool, error) {
+	return Response{
+		Command:    Command(in.Command),
+		SeqNum:     in.SeqNum,
+		End:        in.End,
+		Authorized: in.Authorized,
+		Err:        in.Err,
+	}, true, nil
 }

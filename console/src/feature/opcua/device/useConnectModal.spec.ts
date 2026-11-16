@@ -116,7 +116,9 @@ const answerGetCertificate = async (
     data: certificates,
   });
 
-/** Opens the dialog on a running rack with security on and the Driver certificate shown. */
+/**
+ * Opens the dialog on a running rack with security on and the Driver certificate shown.
+ */
 const openWithDriverCertificate = async () => {
   const rack = await createRunningRack(client, "opc");
   const scan = await createScanTask(rack);
@@ -249,6 +251,26 @@ describe("OPCUA.Device.useConnectModal", () => {
     const key = await result();
     if (key == null) throw new Error("the modal closed without a device");
     expect((await client.devices.retrieve({ key })).rack).toBe(rack.key);
+  });
+
+  it("should mark the device it connected as connected", async () => {
+    const rack = await createRunningRack(client, "opc");
+    const scan = await createScanTask(rack);
+    const { result } = await renderModalOpener(
+      OPCUA.Device.useConnectModal,
+      [{ rack: rack.key }],
+      { client },
+    );
+    fireEvent.change(screen.getByPlaceholderText("opc.tcp://localhost:4840"), {
+      target: { value: "opc.tcp://localhost:4840" },
+    });
+    const { answered } = await answerNextCommand(client, scan, TEST_CONNECTION);
+    pressSaveTrigger();
+    await answered;
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    const dev = await client.devices.retrieve({ key, includeStatus: true });
+    expect(dev.status?.details.connected).toBe(true);
   });
 
   it("should report a device it connected", async () => {

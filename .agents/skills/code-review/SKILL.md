@@ -48,10 +48,10 @@ explicit instruction in that session.
 Reviewing the wrong diff poisons every downstream finding.
 
 - **Find the real base.** Every PR targets `main`; a hotfix cherry-pick targets
-  `release/<product>-X.Y` (`gh pr view --json baseRefName`). A PR based on another
-  unmerged branch is the exception; note in one line whether the piece could have landed
-  from `main` alone. Review only what the PR actually introduces; content already merged
-  into the base washes out.
+  `release/X.Y` (`gh pr view --json baseRefName`). A PR based on another unmerged branch
+  is the exception; note in one line whether the piece could have landed from `main`
+  alone. Review only what the PR actually introduces; content already merged into the
+  base washes out.
 - **Recover renames locally.** GitHub disables rename detection on large diffs, so moves
   render as delete + add. Run `git diff -M -C <base>...<head>` before treating any "new
   file" as new code, and before mourning any "deleted" one.
@@ -138,7 +138,7 @@ Nothing is reported that has not been confirmed real. The gate between "I notice
   nothing.
 - **Read CI, never wave at it.** A non-zero CI exit is never dismissed as flaky or
   environmental without reading the actual failed assertion.
-- **Bots and humans get the same gate, in both directions.** Greptile has been wrong
+- **Bots and humans get the same gate, in both directions.** Review bots have been wrong
   (flagged accepted designs) and right (caught a real caseconv break). Verify per
   finding; never blanket-dismiss, never blanket-trust.
 - **Unverified findings are dropped.** The Question tier (Rule 7) is for verified

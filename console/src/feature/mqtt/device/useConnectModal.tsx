@@ -21,7 +21,7 @@ import { caseconv, deep } from "@synnaxlabs/x";
 import { retrieveScanTask } from "@/feature/mqtt/device/retrieveScanTask";
 import {
   type Device,
-  INTEGRATION,
+  INTEGRATION_KEY,
   MAKE,
   SCHEMAS,
   ZERO_PROPERTIES,
@@ -77,7 +77,7 @@ const beforeSave = async ({
     variant: "success",
     details: {
       rack: get(path.rack).value,
-      device: get(path.key).value,
+      connected: true,
     },
   });
   set(path.status, devStatus, { markTouched: false });
@@ -107,7 +107,7 @@ export const Connect = ({
   });
   const rackKey = Form.useFieldValue(path.rack, { ctx: form });
   const reason = PlatformDevice.useBlockedReason({
-    integration: INTEGRATION,
+    integration: INTEGRATION_KEY,
     name: "MQTT",
     rack: rackKey,
   });
@@ -152,7 +152,7 @@ export const Connect = ({
                   inputProps={KEEP_ALIVE_INPUT_PROPS}
                 />
               </Flex.Box>
-              <PlatformDevice.RackField integration={INTEGRATION} />
+              <PlatformDevice.RackField integration={INTEGRATION_KEY} />
             </Form.Section>
             <Form.Section title="Authentication">
               <Flex.Box x>
@@ -243,7 +243,10 @@ export const Connect = ({
   );
 };
 
-export const useConnectModal = PlatformDevice.createConnectModal(Connect, INTEGRATION);
+export const useConnectModal = PlatformDevice.createConnectModal(
+  Connect,
+  INTEGRATION_KEY,
+);
 
 const groupsRenderProp = Component.renderProp(
   ({ value, onChange, ...rest }: Input.Control<string[]>) => (

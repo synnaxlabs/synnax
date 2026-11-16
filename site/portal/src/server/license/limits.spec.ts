@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   channels,
+  desktopCap,
   filename,
   MAX_LABEL_LENGTH,
   MAX_NAME_LENGTH,
@@ -73,6 +74,17 @@ describe("limits", () => {
 
     it("should give any other cap as a number", () => {
       expect(channels(500)).toBe("500");
+    });
+  });
+
+  describe("desktopCap", () => {
+    it("should give 55 channels to an organization with no cap", () => {
+      expect(desktopCap({ desktopChannels: null })).toBe(55);
+    });
+
+    it("should give the cap that is set, 0 included", () => {
+      expect(desktopCap({ desktopChannels: 200 })).toBe(200);
+      expect(desktopCap({ desktopChannels: 0 })).toBe(0);
     });
   });
 });

@@ -1,0 +1,71 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/device/v0"
+import "schemas/synnax/versions/task/v2"
+
+TemperatureUnits = v2.TemperatureUnits
+
+ThermocoupleType = v2.ThermocoupleType
+
+BaseReadChannel = v2.BaseReadChannel
+
+ReadChannel union on type extends v2.ReadChannel {
+    analog {
+        neg_chan uint16? {
+            @doc value    """
+                is the AIN port of the negative input for a differential reading on T7
+                devices. When absent, the channel reads against ground.
+            """
+            @validate max 127
+        }
+    }
+    thermocouple {
+        neg_chan uint16? {
+            @doc value    """
+                is the AIN port of the thermocouple's negative lead on T7 devices. When
+                absent, the channel reads against ground.
+            """
+            @validate max 127
+        }
+    }
+}
+
+BaseWriteChannel = v2.BaseWriteChannel
+
+WriteChannel = v2.WriteChannel
+
+ReadConfig struct extends v2.ReadConfig {
+    device_scan_backlog_warn_on_count uint32? {
+        @doc value    """
+            is the device-side scan backlog above which the task reports a skew warning.
+            When absent, the Driver picks two seconds of scans.
+        """
+        @validate min 1
+    }
+    ljm_scan_backlog_warn_on_count    uint32? {
+        @doc value    """
+            is the LJM-side scan backlog above which the task reports a skew warning.
+            When absent, the Driver picks one second of scans.
+        """
+        @validate min 1
+    }
+}
+
+WriteConfig = v2.WriteConfig
+
+ScanConfig struct extends v2.ScanConfig {
+    tcp_scan_multiplier uint32 = 10 {
+        @doc value    """
+            is the number of scan cycles between TCP device scans. USB devices scan
+            every cycle; TCP scans are slower, so they run every Nth cycle.
+        """
+        @validate min 1
+    }
+}

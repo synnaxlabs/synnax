@@ -38,6 +38,11 @@ type RouterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 10 seconds.
 	StreamWriteDeadline time.Duration
+	// StreamMessageSizeLimit is the largest message in bytes that a stream server reads
+	// from a peer. A larger message fails the stream.
+	//
+	// [OPTIONAL] - Defaults to 256 MiB.
+	StreamMessageSizeLimit int64
 }
 
 var _ config.Config[RouterConfig] = RouterConfig{}
@@ -51,21 +56,27 @@ func (r RouterConfig) Override(other RouterConfig) RouterConfig {
 	r.StreamWriteDeadline = override.Numeric(
 		r.StreamWriteDeadline, other.StreamWriteDeadline,
 	)
+	r.StreamMessageSizeLimit = override.Numeric(
+		r.StreamMessageSizeLimit, other.StreamMessageSizeLimit,
+	)
 	return r
 }
 
 // NewRouter constructs a Router from the given configs. Servers registered through the
-// returned Router will be bound to a fiber.App by calling Router.BindTo. Returns an
-// error if the merged config fails to validate.
-func NewRouter(configs ...RouterConfig) (*Router, error) {
+// returned Router will be bound to a fiber.App by calling Router.BindTo. Streams end
+// when life ends. Returns an error if the merged config fails to validate.
+func NewRouter(life context.Context, configs ...RouterConfig) (*Router, error) {
 	cfg, err := config.New(
-		RouterConfig{StreamWriteDeadline: 10 * time.Second},
+		RouterConfig{
+			StreamWriteDeadline:    10 * time.Second,
+			StreamMessageSizeLimit: 256 << 20,
+		},
 		configs...,
 	)
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(life)
 	return &Router{
 		cfg:           cfg,
 		streamCtx:     ctx,
@@ -80,10 +91,9 @@ func NewRouter(configs ...RouterConfig) (*Router, error) {
 // drain.
 type Router struct {
 	cfg RouterConfig
-	// fiber doesn't manage the lifecycle of websocket connections (streams), so we need
-	// to manage them ourselves. We'll pass in a context object that gets cancelled when
-	// the app is shut down, and we'll use a WaitGroup to wait for all streams to close.
-	// streamCtx is the context object that gets cancelled when the app is shut down.
+	// fiber doesn't manage the lifecycle of websocket connections (streams), so the
+	// router cancels streamCtx when its lifetime ends or the app shuts down, and waits
+	// for streams to close on streamWg.
 	streamCtx context.Context
 	// cancelStreams cancels the streamCtx.
 	cancelStreams context.CancelFunc
@@ -94,6 +104,11 @@ type Router struct {
 }
 
 var _ BindableTransport = (*Router)(nil)
+
+// Context returns a context that ends when the router's lifetime ends, or after the app
+// it is bound to shuts down and its in-flight requests drain. Work that outlives a
+// request, such as a streamed response body, can run under it.
+func (r *Router) Context() context.Context { return r.streamCtx }
 
 // BindTo binds the router and all of its routes to the given fiber app.
 func (r *Router) BindTo(app *fiber.App) {
@@ -115,6 +130,10 @@ func (r *Router) BindTo(app *fiber.App) {
 // Report implements freighter.Transport. The Router itself is a passive container for
 // routes, so its report is empty.
 func (*Router) Report() alamos.Report { return alamos.Report{} }
+
+// StreamMessageSizeLimit returns the largest message in bytes that the router's stream
+// servers read from a peer.
+func (r *Router) StreamMessageSizeLimit() int64 { return r.cfg.StreamMessageSizeLimit }
 
 // Use installs the given middleware on every server currently registered with the
 // router. Middleware added before BindTo is called is applied to every request handled
@@ -154,6 +173,7 @@ func (r *Router) NewStreamServer[RQ, RS freighter.Payload](
 		Instrumentation:     r.cfg.Instrumentation,
 		serverCtx:           r.streamCtx,
 		writeDeadline:       r.cfg.StreamWriteDeadline,
+		messageSizeLimit:    r.cfg.StreamMessageSizeLimit,
 		wg:                  r.streamWg,
 	}
 	r.register(path, http.MethodGet, s, s.fiberHandler)
@@ -172,7 +192,6 @@ func (r *Router) NewUnaryServer[RQ, RS freighter.Payload](
 		unaryServerOptions: newUnaryServerOptions(opts),
 		path:               path,
 		Instrumentation:    r.cfg.Instrumentation,
-		serverCtx:          r.streamCtx,
 	}
 	r.register(path, http.MethodPost, us, us.fiberHandler)
 	return us

@@ -76,8 +76,8 @@ var _ = Describe("TS Filter Plugin", func() {
 			}
 		`
 
-		It("Should check the shared fields and tag of a union", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, `
+		It("Should check the shared fields and tag of a union", func() {
+			resp := MustGenerate(`
 				import "schemas/x/filter"
 
 				@ts output "client/ts/src/view"
@@ -104,8 +104,8 @@ var _ = Describe("TS Filter Plugin", func() {
 			)
 		})
 
-		It("Should check each bare line with its operator", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
+		It("Should check each bare line with its operator", func() {
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 					name
@@ -115,9 +115,9 @@ var _ = Describe("TS Filter Plugin", func() {
 			`, "thing", loader, p)
 			ExpectContent(resp, "where.gen.ts").
 				ToContain(
-					`import { filter } from "@synnaxlabs/x";`,
+					`import { compare, filter } from "@synnaxlabs/x";`,
 					`import { z } from "zod";`,
-					`import { Payload, Where } from "@/thing/types.gen";`,
+					`import { Cursor, Payload, Where } from "@/thing/types.gen";`,
 					"export const matches = (record: Payload, where?: Where): boolean => {",
 					"if (where == null) return true;",
 					" * @returns whether only the Core can check where, because it holds a "+
@@ -133,8 +133,8 @@ var _ = Describe("TS Filter Plugin", func() {
 				ToNotContain("where.key?.regex", "lines", "Lines", "@throws")
 		})
 
-		It("Should walk the tree", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
+		It("Should walk the tree", func() {
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 				}
@@ -150,8 +150,8 @@ var _ = Describe("TS Filter Plugin", func() {
 				)
 		})
 
-		It("Should take typed lines from the Lines table", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
+		It("Should take typed lines from the Lines table", func() {
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 					overlaps Span
@@ -176,10 +176,8 @@ var _ = Describe("TS Filter Plugin", func() {
 				)
 		})
 
-		It("Should read each bare line from a value, a list, or an operator", func(
-			ctx SpecContext,
-		) {
-			resp := MustGenerate(ctx, thing+`
+		It("Should read each bare line from a value, a list, or an operator", func() {
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 					name
@@ -208,10 +206,8 @@ var _ = Describe("TS Filter Plugin", func() {
 			)
 		})
 
-		It("Should read a key, a name, or a list of either as a shortcut", func(
-			ctx SpecContext,
-		) {
-			resp := MustGenerate(ctx, thing+`
+		It("Should read a key, a name, or a list of either as a shortcut", func() {
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 					name
@@ -229,28 +225,117 @@ var _ = Describe("TS Filter Plugin", func() {
 			)
 		})
 
-		It("Should take no shortcut without a name line", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
+		It(
+			"Should order positions by a sorted field, then by key",
+			func() {
+				resp := MustGenerate(`
+				import "schemas/x/filter"
+
+				@ts output "client/ts/src/thing"
+
+				Span struct {
+					start int64
+				}
+				Thing struct {
+					key        uuid   { @key }
+					name       string { @index sorted }
+					created_at int64  { @index sorted }
+					span       Span   { @index sorted start }
+
+					action Touch {
+						at int64
+					}
+
+					@ts name "Payload"
+				}
 				Where filter Thing {
 					key
 				}
 			`, "thing", loader, p)
-			ExpectContent(resp, "where.gen.ts").ToNotContain("shortcutZ")
-		})
+				ExpectContent(resp, "where.gen.ts").ToContain(
+					`import { compare, filter } from "@synnaxlabs/x";`,
+					"const compareNumbers = (a: number | bigint, b: number | bigint): number =>",
+					"export const cursor = (record: Payload, order?: Order): Cursor => {",
+					"if (order == null) return { key: record.key };",
+					`case "name":`,
+					"return { key: record.key, name: record.name };",
+					"return { key: record.key, spanStart: record.span.start };",
+					"return compare.text(a.name, b.name);",
+					"return compareNumbers(a.createdAt, b.createdAt);",
+					`throw new Error("a cursor has no span_start");`,
+					"export const compareCursors = (a: Cursor, b: Cursor, order?: Order): number => {",
+					"if (order == null) return compare.uuids(a.key, b.key);",
+					"compareValues(order.field, a, b) || compare.uuids(a.key, b.key);",
+					`export const LIST_FIELDS: readonly string[] = ["key", "name", "created_at", `+
+						`"span"];`,
+					"return order.descending ? -c : c;",
+				)
+			},
+		)
 
-		It("Should take no shortcut beside name patterns", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
+		It("Should order number keys by value", func() {
+			resp := MustGenerate(`
+				import "schemas/x/filter"
+
+				@ts output "client/ts/src/thing"
+
+				Thing struct {
+					key  uint32 { @key }
+					name string { @index sorted }
+				}
 				Where filter Thing {
 					key
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToContain(
+				"const compareNumbers = ",
+				"compareValues(order.field, a, b) || compareNumbers(a.key, b.key);",
+			)
+		})
+
+		It("Should order by key alone without a sorted field", func() {
+			resp := MustGenerate(thing+`
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").
+				ToContain(
+					"export const cursor = (record: Payload): Cursor => ({ key: record.key });",
+					"export const compareCursors = (a: Cursor, b: Cursor): number =>\n"+
+						"  compare.uuids(a.key, b.key);",
+				).
+				ToNotContain("compareNumbers", "OrderField", "LIST_FIELDS")
+		})
+
+		It("Should take no cursor for a target with no key", func() {
+			resp := MustGenerate(`
+				import "schemas/x/filter"
+
+				@ts output "client/ts/src/thing"
+
+				Thing struct {
+					name string
+				}
+				Where filter Thing {
 					name
-					name_patterns string[]
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").
+				ToNotContain("LIST_FIELDS", "compareCursors", "export const cursor")
+		})
+
+		It("Should take no shortcut without a name line", func() {
+			resp := MustGenerate(thing+`
+				Where filter Thing {
+					key
 				}
 			`, "thing", loader, p)
 			ExpectContent(resp, "where.gen.ts").ToNotContain("shortcutZ")
 		})
 
-		It("Should take no shortcut for a free-text key", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, `
+		It("Should take no shortcut for a free-text key", func() {
+			resp := MustGenerate(`
 				import "schemas/x/filter"
 
 				@ts output "client/ts/src/thing"
@@ -268,10 +353,8 @@ var _ = Describe("TS Filter Plugin", func() {
 			ExpectContent(resp, "where.gen.ts").ToNotContain("shortcutZ")
 		})
 
-		It("Should read a typed line as its type, or a list from a value", func(
-			ctx SpecContext,
-		) {
-			resp := MustGenerate(ctx, thing+`
+		It("Should read a typed line as its type, or a list from a value", func() {
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 					overlaps Span
@@ -281,13 +364,11 @@ var _ = Describe("TS Filter Plugin", func() {
 			ExpectContent(resp, "where.gen.ts").ToContain(
 				"overlaps: spanZ.exactOptional(),",
 				"spans: filter.listInputZ(spanZ).exactOptional(),",
-				`import { Payload, Where, spanZ } from "@/thing/types.gen";`,
+				`import { Cursor, Payload, Where, spanZ } from "@/thing/types.gen";`,
 			)
 		})
 
-		It("Should import a typed line's type from an ancestor as a namespace", func(
-			ctx SpecContext,
-		) {
+		It("Should import a typed line's type from an ancestor as a namespace", func() {
 			loader.Add("schemas/thing", `
 				@ts output "client/ts/src/thing"
 
@@ -295,7 +376,7 @@ var _ = Describe("TS Filter Plugin", func() {
 					start int64
 				}
 			`)
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				import "schemas/x/filter"
 				import "schemas/thing"
 
@@ -318,8 +399,8 @@ var _ = Describe("TS Filter Plugin", func() {
 			)
 		})
 
-		It("Should skip a line omitted from TypeScript", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
+		It("Should skip a line omitted from TypeScript", func() {
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 					overlaps Span { @ts omit }
@@ -328,8 +409,8 @@ var _ = Describe("TS Filter Plugin", func() {
 			ExpectContent(resp, "where.gen.ts").ToNotContain("overlaps")
 		})
 
-		It("Should read bare lines from the response type", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, `
+		It("Should read bare lines from the response type", func() {
+			resp := MustGenerate(`
 				import "schemas/x/filter"
 
 				@ts output "client/ts/src/thing"
@@ -350,16 +431,14 @@ var _ = Describe("TS Filter Plugin", func() {
 			`, "thing", loader, p)
 			ExpectContent(resp, "where.gen.ts").
 				ToContain(
-					`import { Where, Wire } from "@/thing/types.gen";`,
+					`import { Cursor, Where, Wire } from "@/thing/types.gen";`,
 					"record: Wire",
 					"!filter.matchesString(where.name, record.name)",
 				)
 		})
 
-		It("Should reject a bare line the response type does not hold", func(
-			ctx SpecContext,
-		) {
-			req := MustGenerateRequest(ctx, `
+		It("Should reject a bare line the response type does not hold", func() {
+			req := MustGenerateRequest(`
 				import "schemas/x/filter"
 
 				@ts output "client/ts/src/thing"
@@ -383,10 +462,10 @@ var _ = Describe("TS Filter Plugin", func() {
 			)))
 		})
 
-		It("Should reject a response type with a type parameter and no default", func(
-			ctx SpecContext,
-		) {
-			req := MustGenerateRequest(ctx, `
+		It(
+			"Should reject a response type with a type parameter and no default",
+			func() {
+				req := MustGenerateRequest(`
 				import "schemas/x/filter"
 
 				@ts output "client/ts/src/thing"
@@ -399,13 +478,14 @@ var _ = Describe("TS Filter Plugin", func() {
 					key
 				}
 			`, "thing", loader)
-			Expect(p.Generate(req)).Error().To(MatchError(
-				"filter thing.Where: the type parameter T of Thing needs a default, since " +
-					"the matcher names Thing with no type arguments",
-			))
-		})
+				Expect(p.Generate(req)).Error().To(MatchError(
+					"filter thing.Where: the type parameter T of Thing needs a default, since " +
+						"the matcher names Thing with no type arguments",
+				))
+			},
+		)
 
-		It("Should reject an operator member it cannot check", func(ctx SpecContext) {
+		It("Should reject an operator member it cannot check", func() {
 			loader.Add(
 				"schemas/x/filter",
 				"@ts output \"x/ts/src/filter\"\n@py output \"x/py/filter\"\n"+strings.Replace(
@@ -415,7 +495,7 @@ var _ = Describe("TS Filter Plugin", func() {
 					1,
 				),
 			)
-			req := MustGenerateRequest(ctx, thing+`
+			req := MustGenerateRequest(thing+`
 				Where filter Thing {
 					key
 				}
@@ -425,8 +505,8 @@ var _ = Describe("TS Filter Plugin", func() {
 			))
 		})
 
-		It("Should skip a filter with no TypeScript output", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, `
+		It("Should skip a filter with no TypeScript output", func() {
+			resp := MustGenerate(`
 				import "schemas/x/filter"
 
 				Thing struct {

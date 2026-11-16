@@ -40,7 +40,6 @@ func decodeProperties(dev device.Device) (Properties, error) {
 			err, "parsing properties of device %s", dev.Key,
 		)
 	}
-	props.ApplyDefaults()
 	if err := validateProperties(props); err != nil {
 		return Properties{}, err
 	}
@@ -75,6 +74,15 @@ func caPool(pem string) *x509.CertPool {
 	return pool
 }
 
+// tlsConfig returns the TLS settings of a client of props.
+func tlsConfig(props Properties) *tls.Config {
+	cfg := &tls.Config{MinVersion: tls.VersionTLS12}
+	if props.CaCertificate != "" {
+		cfg.RootCAs = caPool(props.CaCertificate)
+	}
+	return cfg
+}
+
 // clientOpts translates props into franz-go client options.
 func clientOpts(props Properties) ([]kgo.Opt, error) {
 	if err := validateProperties(props); err != nil {
@@ -82,11 +90,7 @@ func clientOpts(props Properties) ([]kgo.Opt, error) {
 	}
 	opts := []kgo.Opt{kgo.SeedBrokers(props.Brokers...)}
 	if props.TLS {
-		tlsCfg := &tls.Config{MinVersion: tls.VersionTLS12}
-		if props.CaCertificate != "" {
-			tlsCfg.RootCAs = caPool(props.CaCertificate)
-		}
-		opts = append(opts, kgo.DialTLSConfig(tlsCfg))
+		opts = append(opts, kgo.DialTLSConfig(tlsConfig(props)))
 	}
 	switch v := props.Sasl.Variant.(type) {
 	case nil, NoneSASL:

@@ -20,25 +20,15 @@ import (
 )
 
 var _ = Describe("TrackedWriteCloser", func() {
-	var (
-		fs   xfs.FS
-		file xfs.File
-	)
+	var fs xfs.FS
 
 	BeforeEach(func() {
 		fs = xfs.NewMem()
 	})
 
-	AfterEach(func() {
-		if file != nil {
-			Expect(file.Close()).To(Succeed())
-			file = nil
-		}
-	})
-
 	Describe("NewTrackedWriteCloser", func() {
 		It("should create a tracked writer at the end of an empty file", func() {
-			file = MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
+			file := MustOpen(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
 
 			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
@@ -47,7 +37,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 		})
 
 		It("should create a tracked writer at the end of an existing file", func() {
-			file = MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
+			file := MustOpen(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
 
 			// Write some initial data
 			MustSucceed(file.Write([]byte("Initial content")))
@@ -64,7 +54,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 
 	Describe("Write", func() {
 		It("should track bytes written", func() {
-			file = MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
+			file := MustOpen(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
 
 			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
@@ -82,7 +72,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 		})
 
 		It("should handle multiple sequential writes", func() {
-			file = MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
+			file := MustOpen(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
 
 			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
@@ -100,7 +90,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 		})
 
 		It("should handle empty writes", func() {
-			file = MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
+			file := MustOpen(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
 
 			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
@@ -112,7 +102,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 
 	Describe("Reset", func() {
 		It("should reset the tracked length and update offset", func() {
-			file = MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
+			file := MustOpen(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
 
 			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
@@ -133,7 +123,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 		})
 
 		It("should handle multiple resets", func() {
-			file = MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
+			file := MustOpen(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
 
 			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
@@ -156,7 +146,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 		})
 
 		It("should reset without any writes", func() {
-			file = MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
+			file := MustOpen(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
 
 			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
@@ -169,23 +159,19 @@ var _ = Describe("TrackedWriteCloser", func() {
 
 	Describe("Close", func() {
 		It("should close the underlying file", func() {
-			file = MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
+			file := MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
 
 			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
 			MustSucceed(tracked.Write([]byte("test")))
 
 			Expect(tracked.Close()).To(Succeed())
-
-			// Clear the file variable to prevent AfterEach from trying to close it
-			// again
-			file = nil
 		})
 	})
 
 	Describe("Integration tests", func() {
 		It("should handle a complete write-reset-write workflow", func() {
-			file = MustSucceed(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
+			file := MustOpen(fs.Open("test.txt", os.O_CREATE|os.O_RDWR))
 
 			// Write initial content directly to file
 			MustSucceed(file.Write([]byte("PREFIX:")))
@@ -217,7 +203,7 @@ var _ = Describe("TrackedWriteCloser", func() {
 		})
 
 		It("should track binary data correctly", func() {
-			file = MustSucceed(fs.Open("binary.dat", os.O_CREATE|os.O_RDWR))
+			file := MustOpen(fs.Open("binary.dat", os.O_CREATE|os.O_RDWR))
 
 			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 

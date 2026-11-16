@@ -209,6 +209,69 @@ func (x *DeleteRequest) GetKeys() []uint32 {
 	return nil
 }
 
+// DispatchRequest applies actions to one rack.
+type DispatchRequest struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Key         uint32                 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
+	DispatchKey string                 `protobuf:"bytes,2,opt,name=dispatch_key,json=dispatchKey,proto3" json:"dispatch_key,omitempty"`
+	// actions holds the JSON encoding of each action, in the shape the HTTP dispatch
+	// route takes, such as {"type": "set", "set": {...}}.
+	Actions       [][]byte `protobuf:"bytes,3,rep,name=actions,proto3" json:"actions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DispatchRequest) Reset() {
+	*x = DispatchRequest{}
+	mi := &file_core_pkg_transport_grpc_rack_rack_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DispatchRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DispatchRequest) ProtoMessage() {}
+
+func (x *DispatchRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_rack_rack_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DispatchRequest.ProtoReflect.Descriptor instead.
+func (*DispatchRequest) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_rack_rack_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *DispatchRequest) GetKey() uint32 {
+	if x != nil {
+		return x.Key
+	}
+	return 0
+}
+
+func (x *DispatchRequest) GetDispatchKey() string {
+	if x != nil {
+		return x.DispatchKey
+	}
+	return ""
+}
+
+func (x *DispatchRequest) GetActions() [][]byte {
+	if x != nil {
+		return x.Actions
+	}
+	return nil
+}
+
 var File_core_pkg_transport_grpc_rack_rack_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_rack_rack_proto_rawDesc = "" +
@@ -221,13 +284,19 @@ const file_core_pkg_transport_grpc_rack_rack_proto_rawDesc = "" +
 	"\x0fRetrieveRequest\x126\n" +
 	"\arequest\x18\x05 \x01(\v2\x1c.api.rack.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05R\x04keysR\x05namesR\vintegrationR\x0einclude_status\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\rR\x04keys2P\n" +
+	"\x04keys\x18\x01 \x03(\rR\x04keys\"`\n" +
+	"\x0fDispatchRequest\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\rR\x03key\x12!\n" +
+	"\fdispatch_key\x18\x02 \x01(\tR\vdispatchKey\x12\x18\n" +
+	"\aactions\x18\x03 \x03(\fR\aactions2P\n" +
 	"\x11RackCreateService\x12;\n" +
 	"\x04Exec\x12\x18.grpc.rack.CreateRequest\x1a\x19.grpc.rack.CreateResponse2X\n" +
 	"\x13RackRetrieveService\x12A\n" +
 	"\x04Exec\x12\x1a.grpc.rack.RetrieveRequest\x1a\x1d.api.rack.pb.RetrieveResponse2M\n" +
 	"\x11RackDeleteService\x128\n" +
-	"\x04Exec\x12\x18.grpc.rack.DeleteRequest\x1a\x16.google.protobuf.EmptyB\x95\x01\n" +
+	"\x04Exec\x12\x18.grpc.rack.DeleteRequest\x1a\x16.google.protobuf.Empty2Q\n" +
+	"\x13RackDispatchService\x12:\n" +
+	"\x04Exec\x12\x1a.grpc.rack.DispatchRequest\x1a\x16.google.protobuf.EmptyB\x95\x01\n" +
 	"\rcom.grpc.rackB\tRackProtoP\x01Z4github.com/synnaxlabs/synnax/pkg/transport/grpc/rack\xa2\x02\x03GRX\xaa\x02\tGrpc.Rack\xca\x02\tGrpc\\Rack\xe2\x02\x15Grpc\\Rack\\GPBMetadata\xea\x02\n" +
 	"Grpc::Rackb\x06proto3"
 
@@ -243,29 +312,32 @@ func file_core_pkg_transport_grpc_rack_rack_proto_rawDescGZIP() []byte {
 	return file_core_pkg_transport_grpc_rack_rack_proto_rawDescData
 }
 
-var file_core_pkg_transport_grpc_rack_rack_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_core_pkg_transport_grpc_rack_rack_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_core_pkg_transport_grpc_rack_rack_proto_goTypes = []any{
 	(*CreateRequest)(nil),        // 0: grpc.rack.CreateRequest
 	(*CreateResponse)(nil),       // 1: grpc.rack.CreateResponse
 	(*RetrieveRequest)(nil),      // 2: grpc.rack.RetrieveRequest
 	(*DeleteRequest)(nil),        // 3: grpc.rack.DeleteRequest
-	(*pb.Rack)(nil),              // 4: service.rack.pb.Rack
-	(*pb1.RetrieveRequest)(nil),  // 5: api.rack.pb.RetrieveRequest
-	(*pb1.RetrieveResponse)(nil), // 6: api.rack.pb.RetrieveResponse
-	(*emptypb.Empty)(nil),        // 7: google.protobuf.Empty
+	(*DispatchRequest)(nil),      // 4: grpc.rack.DispatchRequest
+	(*pb.Rack)(nil),              // 5: service.rack.pb.Rack
+	(*pb1.RetrieveRequest)(nil),  // 6: api.rack.pb.RetrieveRequest
+	(*pb1.RetrieveResponse)(nil), // 7: api.rack.pb.RetrieveResponse
+	(*emptypb.Empty)(nil),        // 8: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_rack_rack_proto_depIdxs = []int32{
-	4, // 0: grpc.rack.CreateRequest.racks:type_name -> service.rack.pb.Rack
-	4, // 1: grpc.rack.CreateResponse.racks:type_name -> service.rack.pb.Rack
-	5, // 2: grpc.rack.RetrieveRequest.request:type_name -> api.rack.pb.RetrieveRequest
+	5, // 0: grpc.rack.CreateRequest.racks:type_name -> service.rack.pb.Rack
+	5, // 1: grpc.rack.CreateResponse.racks:type_name -> service.rack.pb.Rack
+	6, // 2: grpc.rack.RetrieveRequest.request:type_name -> api.rack.pb.RetrieveRequest
 	0, // 3: grpc.rack.RackCreateService.Exec:input_type -> grpc.rack.CreateRequest
 	2, // 4: grpc.rack.RackRetrieveService.Exec:input_type -> grpc.rack.RetrieveRequest
 	3, // 5: grpc.rack.RackDeleteService.Exec:input_type -> grpc.rack.DeleteRequest
-	1, // 6: grpc.rack.RackCreateService.Exec:output_type -> grpc.rack.CreateResponse
-	6, // 7: grpc.rack.RackRetrieveService.Exec:output_type -> api.rack.pb.RetrieveResponse
-	7, // 8: grpc.rack.RackDeleteService.Exec:output_type -> google.protobuf.Empty
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
+	4, // 6: grpc.rack.RackDispatchService.Exec:input_type -> grpc.rack.DispatchRequest
+	1, // 7: grpc.rack.RackCreateService.Exec:output_type -> grpc.rack.CreateResponse
+	7, // 8: grpc.rack.RackRetrieveService.Exec:output_type -> api.rack.pb.RetrieveResponse
+	8, // 9: grpc.rack.RackDeleteService.Exec:output_type -> google.protobuf.Empty
+	8, // 10: grpc.rack.RackDispatchService.Exec:output_type -> google.protobuf.Empty
+	7, // [7:11] is the sub-list for method output_type
+	3, // [3:7] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
 	3, // [3:3] is the sub-list for extension extendee
 	0, // [0:3] is the sub-list for field type_name
@@ -282,9 +354,9 @@ func file_core_pkg_transport_grpc_rack_rack_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_rack_rack_proto_rawDesc), len(file_core_pkg_transport_grpc_rack_rack_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
-			NumServices:   3,
+			NumServices:   4,
 		},
 		GoTypes:           file_core_pkg_transport_grpc_rack_rack_proto_goTypes,
 		DependencyIndexes: file_core_pkg_transport_grpc_rack_rack_proto_depIdxs,

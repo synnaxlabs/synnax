@@ -12,7 +12,12 @@
 import { color, filter, spatial, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { group } from "@/group";
+import { resource } from "@/resource";
+
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
 
 /**
  * Region is a visual styling area within a symbol state, targeting specific SVG
@@ -46,6 +51,15 @@ export const handleZ = z.object({
 });
 export interface Handle extends z.infer<typeof handleZ> {}
 
+/** Order is a sort of symbols. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -66,6 +80,8 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
+  groups?: group.Key[];
+  grouped?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -82,7 +98,22 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
+  /** groups matches the symbols in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the symbols in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
 });
+
+/**
+ * Cursor is a position in an order of symbols: the sort value and the key of a symbol.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the symbol at the position. */
+  key: keyZ,
+  /** name is the name of the symbol at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
 
 /**
  * Spec is the complete symbol definition including geometry, states, handles, and
@@ -114,10 +145,12 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the symbols that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the symbols. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the symbols strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most symbols to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching symbols to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
@@ -132,6 +165,8 @@ export const symbolZ = z.object({
   name: z.string().min(1),
   /** data is the complete symbol specification. */
   data: specZ,
+  /** group is the group the symbol sits in, if any. */
+  group: group.keyZ.optional(),
 });
 export interface Symbol extends z.infer<typeof symbolZ> {}
 export interface New extends z.input<typeof symbolZ> {}
@@ -143,5 +178,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("schematic_symbol");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("schematic_symbol");
+export const TYPE_RESOURCE_ID = resourceID("");

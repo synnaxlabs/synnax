@@ -447,6 +447,40 @@ describe("DynamicCache", () => {
         expect(res3.flushed).toHaveLength(0);
         expect(cache.length).toBe(9);
       });
+      describe("maxBufferSize", () => {
+        // Writes one sample a millisecond, and returns the capacity of each buffer
+        // allocated before and after the 100th write.
+        const capacities = (maxBufferSize: number): [number[], number[]] => {
+          let now = TimeStamp.seconds(1);
+          const cache = new Dynamic({
+            dynamicBufferSize: TimeSpan.minutes(1),
+            maxBufferSize,
+            now: () => now,
+          });
+          const out: [number[], number[]] = [[], []];
+          for (let i = 0; i < 1000; i++) {
+            now = now.add(TimeSpan.milliseconds(1));
+            const { allocated } = cache.write(
+              new MultiSeries([f32([i]).reAlign(BigInt(i))]),
+            );
+            out[i < 100 ? 0 : 1].push(...allocated.series.map((s) => s.capacity));
+          }
+          return out;
+        };
+
+        it("should cap each buffer a span sizes", () => {
+          const [young, rated] = capacities(500);
+          expect(young.length).toBeGreaterThan(0);
+          expect(rated.length).toBeGreaterThan(0);
+          [...young, ...rated].forEach((c) => expect(c).toBeLessThanOrEqual(500));
+        });
+
+        it("should cap each buffer below the minimum size", () => {
+          const [young, rated] = capacities(40);
+          expect(rated.length).toBeGreaterThan(0);
+          [...young, ...rated].forEach((c) => expect(c).toBe(40));
+        });
+      });
     });
   });
 

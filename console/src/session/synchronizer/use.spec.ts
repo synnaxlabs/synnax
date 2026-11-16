@@ -94,6 +94,33 @@ describe("Synchronizer.use", () => {
     expect(calls).toEqual(["first:start", "first:end"]);
   });
 
+  it("should tell a reconcile that its pass ended", async () => {
+    const seen: boolean[] = [];
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const { wrapper } = await createConsoleWrapper({ client });
+    const { unmount } = renderHook(
+      () =>
+        Synchronizer.use([
+          {
+            name: "first",
+            use: () => ({
+              reconcile: async ({ ended }) => {
+                seen.push(ended());
+                await gate;
+                seen.push(ended());
+              },
+            }),
+          },
+        ]),
+      { wrapper },
+    );
+    await waitFor(() => expect(seen).toEqual([false]));
+    unmount();
+    release();
+    await waitFor(() => expect(seen).toEqual([false, true]));
+  });
+
   it("should drop a pass whose client closes while it runs", async () => {
     const error = vi.spyOn(console, "error");
     try {
@@ -200,6 +227,53 @@ describe("Synchronizer.use", () => {
     expect(calls[0]).toEqual("listen");
     unmount();
     expect(destroyed).toBe(true);
+  });
+
+  it("should tell a listener that its client closed", async () => {
+    const closing = createTestClient();
+    let ended: (() => boolean) | undefined;
+    const { wrapper } = await createConsoleWrapper({ client: closing });
+    renderHook(
+      () =>
+        Synchronizer.use([
+          {
+            name: "listener",
+            use: () => ({
+              listen: (params) => {
+                ended = params.ended;
+                return () => {};
+              },
+            }),
+          },
+        ]),
+      { wrapper },
+    );
+    await waitFor(() => expect(ended?.()).toBe(false));
+    await closing.close();
+    expect(ended?.()).toBe(true);
+  });
+
+  it("should tell a listener that it was torn down", async () => {
+    let ended: (() => boolean) | undefined;
+    const { wrapper } = await createConsoleWrapper({ client });
+    const { unmount } = renderHook(
+      () =>
+        Synchronizer.use([
+          {
+            name: "listener",
+            use: () => ({
+              listen: (params) => {
+                ended = params.ended;
+                return () => {};
+              },
+            }),
+          },
+        ]),
+      { wrapper },
+    );
+    await waitFor(() => expect(ended?.()).toBe(false));
+    unmount();
+    expect(ended?.()).toBe(true);
   });
 
   it("should report verified only after a full pass completes", async () => {

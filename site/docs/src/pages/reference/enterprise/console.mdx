@@ -33,9 +33,8 @@ Earlier versions are on the
 
 ## Add a Core
 
-The **Cores** list starts with two Cores: **Local**, a Core on this computer at
-`localhost:9090`, and **Demo**. If your Core runs on this computer on port 9090, skip to
-[log in](#log-in).
+The **Cores** list starts with **Local**, a Core on this computer at `localhost:9090`.
+If your Core runs on this computer on port 9090, skip to [log in](#log-in).
 
 1. In the **Cores** list, click **Add a Core**.
 2. Enter a name for the Core.
@@ -68,9 +67,7 @@ users get their credentials from the person who
 
 The Console uses your password once to log in and does not store it. It keeps the
 session in the operating system keychain, so it connects again without the password
-until you log out or the session expires. On Linux, the keychain is the Secret Service
-(GNOME Keyring or KWallet). Without one, the Console asks for the password on each
-launch.
+until you log out or the session expires.
 
 After you log in, the Console shows your projects. For a Core without a license, it
 shows an activation screen instead. See
@@ -89,7 +86,8 @@ Core, click <Icon.Arrow.Left /> at the top left.
 
 The browser Console keeps its session in a cookie. Browsers send this cookie to every
 port on the host, so give a Core that serves the browser Console a hostname it does not
-share with untrusted services.
+share with untrusted services. Another web page cannot show the browser Console in a
+frame.
 
 The browser Console connects to the Core that serves it. For a Core with a self-signed
 certificate, the browser warns about the certificate until you

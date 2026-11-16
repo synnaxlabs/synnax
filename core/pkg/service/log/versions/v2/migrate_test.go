@@ -25,7 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
-	"github.com/synnaxlabs/x/color"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
@@ -46,7 +46,9 @@ func loadV55(path string) v0.Log {
 	raw := MustSucceed(os.ReadFile(path))
 	var m map[string]any
 	Expect(json.Unmarshal(raw, &m)).To(Succeed())
-	key := MustSucceed(uuid.Parse(m["key"].(string)))
+	rawKey, ok := m["key"].(string)
+	Expect(ok).To(BeTrue())
+	key := MustSucceed(uuid.Parse(rawKey))
 	name, _ := m["name"].(string)
 	return v0.Log{Key: key, Name: name, Data: m}
 }

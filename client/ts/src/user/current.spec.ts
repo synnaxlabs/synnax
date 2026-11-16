@@ -32,9 +32,9 @@ describe("current", () => {
   it("should deliver the user to a subscriber that subscribed before the login", async () => {
     const fresh = createTestClient();
     const handler = vi.fn();
-    const off = fresh.users.current.onChange(handler);
+    const off = fresh.users.current.watch().onChange(handler);
     try {
-      expect(fresh.users.current.getCached()).toBeUndefined();
+      expect(fresh.users.current.watch().getCached()).toBeUndefined();
       await fresh.connect();
       expect(handler).toHaveBeenLastCalledWith(
         expect.objectContaining({ key: await signedInKey() }),
@@ -49,13 +49,13 @@ describe("current", () => {
     // Changes made while the stream is still opening are lost, so open it first.
     await viewer.connect();
     const handler = vi.fn();
-    const off = viewer.users.current.onChange(handler);
+    const off = viewer.users.current.watch().onChange(handler);
     try {
       const { key } = await viewer.users.current.retrieve();
       await client.users.rename(key, "Abigail Adams");
       await expect
         .poll(() => {
-          const cached = viewer.users.current.getCached();
+          const cached = viewer.users.current.watch().getCached();
           return query.isLive(cached) && cached.name === "Abigail Adams";
         })
         .toBe(true);
@@ -70,10 +70,10 @@ describe("current", () => {
   it("should follow a login as a different user", async () => {
     const viewer = await createTestClientWithRole(client, "Viewer");
     const handler = vi.fn();
-    const off = viewer.users.current.onChange(handler);
+    const off = viewer.users.current.watch().onChange(handler);
     try {
       viewer.reauthenticate({ username, password });
-      expect(viewer.users.current.getCached()).toBeUndefined();
+      expect(viewer.users.current.watch().getCached()).toBeUndefined();
       const u = await viewer.users.current.retrieve();
       expect(u.key).toEqual(await signedInKey());
       expect(handler).toHaveBeenLastCalledWith(u);

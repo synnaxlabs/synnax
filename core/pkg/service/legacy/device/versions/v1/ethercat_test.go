@@ -83,7 +83,11 @@ var _ = Describe("EtherCATChannelMapMigration", func() {
 	}
 	channels := func(d v1.Device, dir string) map[string]any {
 		GinkgoHelper()
-		return d.Properties[dir].(map[string]any)["channels"].(map[string]any)
+		props, ok := d.Properties[dir].(map[string]any)
+		Expect(ok).To(BeTrue())
+		chs, ok := props["channels"].(map[string]any)
+		Expect(ok).To(BeTrue())
+		return chs
 	}
 
 	It("Should key automatic and manual read channels by address", func(

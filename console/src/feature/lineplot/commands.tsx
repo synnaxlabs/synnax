@@ -18,7 +18,7 @@ const CreateCommand = Command.create({
   name: "Create line plot",
   icon: <LinePlot.CreateIcon />,
   useOnSelect: PlatformLinePlot.useCreate,
-  useVisible: () => Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(lineplot.TYPE_RESOURCE_ID),
 });
 
 export const COMMANDS = [CreateCommand];

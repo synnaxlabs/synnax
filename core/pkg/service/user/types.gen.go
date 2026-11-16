@@ -12,6 +12,7 @@
 package user
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/user/versions"
 	"github.com/synnaxlabs/x/filter"
 )
@@ -19,8 +20,8 @@ import (
 // Key is a unique identifier for a user, represented as a UUID.
 type Key = versions.Key
 
-// User is an account entity representing a person accessing the Synnax system. Users
-// can have roles assigned for permission management.
+// User is an account entity representing a person accessing the Synnax system. Each
+// user holds one role, which grants its permissions.
 type User = versions.User
 
 // Where is a filter that selects users.
@@ -35,4 +36,6 @@ type Where struct {
 	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
 	// Usernames matches the users whose password has any of the given usernames.
 	Usernames []string `json:"usernames,omitzero" msgpack:"usernames,omitempty"`
+	// Roles matches the users that hold any of the given roles.
+	Roles []role.Key `json:"roles,omitzero" msgpack:"roles,omitempty"`
 }

@@ -44,6 +44,10 @@ struct GroupField {
     /// @brief mapping of string values to numbers for enum-style parsing
     /// (e.g., "ON" -> 1, "OFF" -> 0).
     x::json::EnumMap enum_values;
+    /// @brief true when a missing value is filled with no warning.
+    bool optional = false;
+    /// @brief the sample to write for a missing value. Unset writes NaN.
+    std::optional<x::telem::SampleValue> fill_value;
 };
 
 /// @brief a group of fields that share the same index channel and must be
@@ -69,6 +73,9 @@ struct ReadTaskConfig : ::synnax::http::ReadConfig {
     std::map<synnax::channel::Key, int> software_timed_indexes;
     /// @brief mapping of channel keys to their Synnax channel definitions.
     std::map<synnax::channel::Key, synnax::channel::Channel> channels;
+    /// @brief the fill value of each field that sets one, converted to the data type
+    /// of its channel and keyed by channel.
+    std::map<synnax::channel::Key, x::telem::SampleValue> fill_values;
 
     /// @brief parses a read task config from a Synnax task definition.
     /// @param ctx the task context providing access to the Synnax client.

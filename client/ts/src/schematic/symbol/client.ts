@@ -12,44 +12,52 @@ import {
   type UnaryClient,
   type UploadBody,
 } from "@synnaxlabs/freighter";
-import { array, primitive } from "@synnaxlabs/x";
+import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { actions } from "@/actions";
 import { group } from "@/group";
 import { imex } from "@/imex";
-import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { createOf, reduceAll } from "@/schematic/symbol/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+} from "@/schematic/symbol/actions.gen";
 import {
   type Key,
   keyZ,
   type New,
-  ontologyID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
   type Symbol,
   symbolZ,
-  type Where,
 } from "@/schematic/symbol/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/schematic/symbol/where.gen";
+import {
+  compareCursors,
+  cursor,
+  LIST_FIELDS,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/schematic/symbol/where.gen";
 
-export const SET_CHANNEL_NAME = "sy_schematic_symbol_set";
+export const ACTION_CHANNEL_NAME = "sy_schematic_symbol_action_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_symbol_delete";
 
-const createReqZ = z.object({ symbols: symbolZ.array(), parent: ontology.idZ });
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
+const createReqZ = z.object({ symbols: symbolZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-// The Core knows nothing of parents, so the client resolves parent through the ontology
-// graph.
-const parentRequestZ = retrieveRequestZ.extend({
-  parent: ontology.idZ.optional(),
-});
-type Request = z.infer<typeof parentRequestZ>;
 const retrieveMultiParamsZ = z.union([
-  keyZ.array().transform((keys): Request => query.keysRequest(keys)),
-  parentRequestZ,
-  retrieveInputZ(parentRequestZ.omit({ where: true }).shape),
+  query.keysRequestZ(keyZ),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
 ]);
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
@@ -58,38 +66,20 @@ export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 const createResZ = z.object({ symbols: symbolZ.array() });
 const emptyResZ = z.object({});
-const retrieveGroupReqZ = z.object({});
-const retrieveGroupResZ = z.object({ group: group.groupZ });
 const exportGroupReqZ = z.object({ key: group.keyZ, encoding: imex.encodingZ });
 const importGroupResZ = z.object({ group: group.groupZ });
 const deleteGroupReqZ = z.object({ key: group.keyZ });
 
-export interface CreateParams extends New {
-  parent: ontology.ID;
-}
+/** A symbol to create. Its group places it; with no group it sits in none. */
+export interface CreateParams extends New {}
 
 export interface CreateMultipleParams {
   symbols: New[];
-  parent: ontology.ID;
 }
-
-const childRel = (parent: ontology.ID, key: Key): ontology.Relationship => ({
-  from: parent,
-  type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-  to: ontologyID(key),
-});
-
-const matchChildRel = (rel: ontology.Relationship, parent: ontology.ID): boolean =>
-  ontology.matchRelationship(rel, {
-    from: parent,
-    type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-    to: { type: "schematic_symbol" },
-  });
 
 export interface ClientConfig {
   unary: UnaryClient;
   file: FileTransport;
-  ontology: ontology.Client;
   cache: query.Cache;
   groupStore: query.Table<group.Key, group.Group>;
 }
@@ -97,42 +87,52 @@ export interface ClientConfig {
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Symbol> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Symbol>;
+  private readonly dispatcher: actions.Controller<Key, Symbol, Action>;
+  /** Builds requests that move symbols between groups. */
+  readonly setGroupRequest: group.MoveRequest<Key>;
 
   constructor(cfg: ClientConfig) {
-    const { cache, ontology: ontologyClient } = cfg;
+    const { cache } = cfg;
     const store = cache.createTable<Key, Symbol>({
       name: "schematicSymbols",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, symbolZ),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a symbol reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, Symbol, Action>({
+      store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
+      send: actions.sender(
+        cfg.unary,
+        "/schematic/symbol/dispatch",
+        dispatchReqZ,
+        dispatchResZ,
+      ),
+      reduce: reduceAll,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     super(cache, {
       name: "schematic symbol",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
-        fetch: async (req) => await this.fetchRequest(req),
-        matches: (sym, req) =>
-          matches(sym, req.where) &&
-          (req.parent == null || this.isChildOf(req.parent, sym.key)),
-        serverComputed: (req) => serverComputed(req.where),
-        watch: [
-          query.watch(ontologyClient.cache.relationships, (event, req: Request) => {
-            if (req.parent == null) return null;
-            const rel =
-              event.variant === "set"
-                ? event.value
-                : ontology.relationshipZ.parse(event.key);
-            if (!matchChildRel(rel, req.parent)) return null;
-            return [rel.to.key];
-          }),
-        ],
+        fetch: async (req) => await this.execRetrieve(req),
+        matches: (sym, req) => matches(group.MEMBER_LINES, sym, req.where),
+        serverComputed: (req) => serverComputed(group.MEMBER_LINES, req.where),
       },
     });
     this.cfg = cfg;
     this.store = store;
+    this.dispatcher = dispatcher;
+    this.setGroupRequest = group.createMoveRequest(
+      "/schematic/symbol/dispatch",
+      (keys, to) => group.moveCached(store, keys, to),
+    );
   }
 
   async create(options: CreateParams): Promise<Symbol>;
@@ -144,35 +144,28 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     const symbols = isMany ? options.symbols : [options];
     const res = await this.cfg.unary.send(
       "/schematic/symbol/create",
-      { symbols, parent: options.parent },
+      { symbols },
       createReqZ,
       createResZ,
     );
-    // Relationships first: parent-scoped answers check membership when the
-    // symbol write lands.
-    const rels = this.cfg.ontology.cache.relationships;
-    res.symbols.forEach((s) => {
-      const rel = childRel(options.parent, s.key);
-      rels.set(ontology.relationshipToString(rel), rel);
-    });
     this.store.set(res.symbols);
     return isMany ? res.symbols : res.symbols[0];
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => query.partialUpdate(this.store, key, { name });
-    await query.optimistic({
-      rollbacks: [rename()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/schematic/symbol/rename",
-          { key, name },
-          renameReqZ,
-          emptyResZ,
-        ),
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatch(key, set({ path: ["name"], value: name }));
+  }
+
+  /**
+   * Applies the actions to the cached symbol until the Core echoes them, and sends them
+   * to the Core to apply in one transaction. Actions hold the snake_case form that the
+   * Core stores. A refused send drops the actions from the cached symbol.
+   * @throws {Error} if the cached symbol cannot hold an action, before any send.
+   * @throws {ValidationError} if the symbol cannot hold an action.
+   * @throws {NotFoundError} if the symbol does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
@@ -190,15 +183,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
         ),
     });
     drop();
-    const cache = this.cfg.ontology.cache;
-    cache.relationships.delete(
-      keysArr.flatMap((k) =>
-        cache
-          .relationshipsTo(ontologyID(k))
-          .filter((r) => r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE)
-          .map(ontology.relationshipToString),
-      ),
-    );
   }
 
   /**
@@ -225,9 +209,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
 
   /**
    * Imports a symbol group bundle: a zip archive holding one JSON envelope per symbol
-   * beside a manifest.json naming the group. The Core creates a fresh group under the
-   * permanent symbol group and imports every member in a single transaction, so a
-   * failure leaves nothing behind.
+   * beside a manifest.json naming the group. The Core creates a fresh top-level symbol
+   * group and imports every member in a single transaction, so a failure leaves nothing
+   * behind.
    * @returns the created group.
    * @throws {ValidationError} if the manifest is missing, malformed, or of another
    * bundle kind, if two member names collide, or if a member is not a symbol.
@@ -239,41 +223,17 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
       { encoding: "ZIP" },
       importGroupResZ,
     );
-    const parent = await this.retrieveGroup();
     this.cfg.groupStore.set(res.group);
-    const rel: ontology.Relationship = {
-      from: group.ontologyID(parent.key),
-      type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-      to: group.ontologyID(res.group.key),
-    };
-    this.cfg.ontology.cache.relationships.set(ontology.relationshipToString(rel), rel);
     return res.group;
   }
 
   /**
    * Deletes the group and every symbol in it. The Core removes both in a single
-   * transaction, so a failure leaves the group and its symbols untouched. A child that
-   * is not a symbol survives: the Core moves it to the permanent symbol group.
+   * transaction, so a failure leaves the group and its symbols untouched.
    */
   async deleteGroup(key: group.Key, opts: query.WriteOptions = {}): Promise<void> {
-    const groupID = group.ontologyID(key);
-    const cache = this.cfg.ontology.cache;
-    // Read the members before the delete drops the relationships naming them.
-    const memberKeys = cache
-      .relationshipsFrom(groupID)
-      .filter((r) => matchChildRel(r, groupID))
-      .map((r) => r.to.key);
-    const drop = () => [
-      this.store.delete(memberKeys),
-      this.cfg.groupStore.delete(key),
-      // Both the relationships to the group's children and the one naming the group as
-      // its parent's child: the group and every symbol in it are gone.
-      cache.relationships.delete(
-        [...cache.relationshipsFrom(groupID), ...cache.relationshipsTo(groupID)]
-          .filter((r) => r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE)
-          .map(ontology.relationshipToString),
-      ),
-    ];
+    const memberKeys = this.store.get((s) => s.group === key).map((s) => s.key);
+    const drop = () => [this.store.delete(memberKeys), this.cfg.groupStore.delete(key)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -288,16 +248,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     drop();
   }
 
-  async retrieveGroup(): Promise<group.Group> {
-    const res = await this.cfg.unary.send(
-      "/schematic/symbol/retrieve-group",
-      {},
-      retrieveGroupReqZ,
-      retrieveGroupResZ,
-    );
-    return res.group;
-  }
-
   private async execRetrieve(req: RetrieveRequest): Promise<Symbol[]> {
     const res = await this.cfg.unary.send(
       "/schematic/symbol/retrieve",
@@ -306,40 +256,5 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
       retrieveResponseZ,
     );
     return res.symbols;
-  }
-
-  /** Resolves a parent scope to its symbol children's keys via the ontology. */
-  private async resolveChildKeys(parent: ontology.ID): Promise<Key[]> {
-    // The children space writes the parent relationships through, so
-    // membership checks in matches see them.
-    const children = await this.cfg.ontology.children.retrieve({
-      ids: parent,
-      types: ["schematic_symbol"],
-    });
-    return children.map(({ id: { key } }) => key);
-  }
-
-  private async fetchRequest({ parent, ...req }: Request): Promise<Symbol[]> {
-    if (parent == null) return await this.execRetrieve(req);
-    const keys = await this.resolveChildKeys(parent);
-    if (keys.length === 0) return [];
-    if (
-      req.where == null &&
-      primitive.isZero(req.searchTerm) &&
-      req.limit == null &&
-      primitive.isZero(req.offset)
-    )
-      return await this.store.retrieve(keys);
-    const where: Where = { key: { in: keys } };
-    return await this.execRetrieve({
-      ...req,
-      where: req.where == null ? where : { and: [req.where, where] },
-    });
-  }
-
-  private isChildOf(parent: ontology.ID, key: Key): boolean {
-    return this.cfg.ontology.cache.relationships.has(
-      ontology.relationshipToString(childRel(parent, key)),
-    );
   }
 }

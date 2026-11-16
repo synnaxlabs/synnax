@@ -27,12 +27,6 @@ var _ = Describe("SecureCredentials", func() {
 			Expect(v0.SecureCredentials{Username: "root"}.GorpKey()).To(Equal("root"))
 		})
 	})
-
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.SecureCredentials{}.SetOptions()).To(BeNil())
-		})
-	})
 })
 
 var _ = Describe("NormalizeKeys", func() {
@@ -60,7 +54,7 @@ var _ = Describe("NormalizeKeys", func() {
 				Where(gorp.MatchKeys[string, v0.SecureCredentials](e.GorpKey())).
 				Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(e))
-			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
+			Expect(db.Get(legacy)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
 })

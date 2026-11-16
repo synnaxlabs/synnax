@@ -66,8 +66,6 @@
 package types
 
 import (
-	"slices"
-
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -229,17 +227,6 @@ func paramsEqual(a, b Params) bool {
 	return true
 }
 
-var (
-	// UnsignedIntegers contains all unsigned integer types.
-	UnsignedIntegers = []Type{U8(), U16(), U32(), U64()}
-	// SignedIntegers contains all signed integer types.
-	SignedIntegers = []Type{I8(), I16(), I32(), I64()}
-	// Floats contains all floating-point types.
-	Floats = []Type{F32(), F64()}
-	// Numerics contains all numeric types (unsigned, signed, and floating-point).
-	Numerics = slices.Concat(UnsignedIntegers, SignedIntegers, Floats)
-)
-
 // FromTelem converts a telemetry data type to an Arc type.
 func FromTelem(t telem.DataType) Type {
 	switch t {
@@ -271,5 +258,38 @@ func FromTelem(t telem.DataType) Type {
 		return TimeStamp()
 	default:
 		return Type{Kind: KindInvalid}
+	}
+}
+
+// Zero returns the value a Param carries for the zero of t: 0 for numeric kinds,
+// "" for strings, false for bools. Returns nil when t has no scalar zero.
+func Zero(t Type) any {
+	switch t.Kind {
+	case KindU8:
+		return uint8(0)
+	case KindU16:
+		return uint16(0)
+	case KindU32:
+		return uint32(0)
+	case KindU64:
+		return uint64(0)
+	case KindI8:
+		return int8(0)
+	case KindI16:
+		return int16(0)
+	case KindI32:
+		return int32(0)
+	case KindI64:
+		return int64(0)
+	case KindF32:
+		return float32(0)
+	case KindF64:
+		return float64(0)
+	case KindString:
+		return ""
+	case KindBool:
+		return false
+	default:
+		return nil
 	}
 }

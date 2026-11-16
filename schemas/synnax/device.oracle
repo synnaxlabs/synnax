@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/ontology"
+import "schemas/synnax/group"
 import "schemas/synnax/rack"
 import "schemas/synnax/status"
 import "schemas/x/filter"
+import "schemas/x/patch"
 
 @cpp output "client/cpp/device"
 @go output  "core/pkg/service/legacy/device"
@@ -24,19 +25,22 @@ Key = string {
 }
 
 StatusDetails struct {
-    rack   rack.Key {
+    rack      rack.Key {
         @doc value "is the key of the rack this device belongs to."
     }
-    device Key      {
-        @doc value "is the device identifier."
+    connected bool = false {
+        @doc value """
+            is true while the Driver confirms that it can reach the device. A device
+            whose state is unknown is not connected.
+        """
     }
-    data   record?  {
+    data      record?  {
         @doc value "contains device-specific status data."
     }
 
     @doc value """
-        contains device-specific status details identifying the device and its
-        associated rack.
+        contains device-specific status details, including the rack the device belongs
+        to.
     """
 }
 
@@ -52,22 +56,23 @@ Device struct<
     Make extends string = string,
     Model extends string = string
 > {
-    key        Key          {
+    key        Key        {
         @doc value "is the unique identifier for this device."
         @key
     }
-    rack       rack.Key     {
+    rack       rack.Key   {
         @doc value         "is the key of the rack that owns this device."
-        @filter
+        @ref kind          place
+        @ref on_delete     restrict
         @validate required
     }
-    location   string       {
+    location   string     {
         @doc value         "is the physical location or address of the device."
         @filter
         @search
         @validate required
     }
-    make       Make         {
+    make       Make       {
         @doc value         """
             is the manufacturer of the device (e.g., 'LabJack', 'National Instruments').
         """
@@ -75,15 +80,16 @@ Device struct<
         @search
         @validate required
     }
-    model      Model        {
+    model      Model      {
         @doc value         "is the device model identifier."
         @filter
         @search
         @validate required
     }
-    name       string       {
+    name       string     {
         @doc value         "is a human-readable name for the device."
         @filter
+        @index sorted
         @search
         @validate required
     }
@@ -93,24 +99,60 @@ Device struct<
             for use.
         """
     }
-    properties Properties   {
+    properties Properties {
         @doc value """
             contains device-specific configuration properties stored as JSON. Structure
             varies by device make and model.
         """
     }
-    status     Status?      {
+    status     Status?    {
         @doc value  "is the current operational status of the device."
         @go marshal omit
         @include
     }
-    parent     ontology.ID? {
-        @doc value  """
-            is an optional parent resource ID for hierarchical device organization
-            (e.g., NI chassis containing modules).
+    group      group.Key? {
+        @cpp omit
+        @doc value     "is the group the device sits in, if any."
+        @group pinned
+        @group scope   device
+        @ref kind      place
+        @ref on_delete detach
+    }
+    parent     Key?       {
+        @doc value     """
+            is the key of the device that holds this device, such as the NI chassis of a
+            module. Empty for a device that sits directly on its rack.
         """
-        @go marshal omit
-        @include
+        @ref acyclic
+        @ref kind      place
+        @ref on_delete cascade
+    }
+
+    action Create {
+        device Device
+
+        @doc value """
+            replaces the device with the given created state. Emitted by the Core when a
+            device is created; clients never dispatch it.
+        """
+    }
+
+    action Set = patch.Set
+
+    action Remove = patch.Remove
+
+    action Insert = patch.Insert
+
+    action Move = patch.Move
+
+    action SetRack {
+        rack   rack.Key
+        parent Key?
+
+        @doc value """
+            moves the device to a rack, under parent when it is set, or directly on the
+            rack when it is empty. The device leaves its group.
+        """
     }
 
     @create
@@ -121,7 +163,7 @@ Device struct<
     """
     @go marshal
     @go migrate
-    @ontology type     "device"
+    @resource type     "device"
     @retrieve
     @ts concrete_types
 }
@@ -133,6 +175,25 @@ Where filter Device {
     model
     location
     rack
+    groups   group.Key[] {
+        @cpp omit
+        @doc value "matches the devices in any of the given groups."
+    }
+    grouped  bool        {
+        @cpp omit
+        @doc value "matches the devices in a group, or in no group when false."
+    }
+    parents  Key[]       {
+        @cpp omit
+        @doc value "matches the devices that any of the given devices hold."
+    }
+    nested   bool        {
+        @cpp omit
+        @doc value """
+            matches the devices that another device holds, or the devices that sit
+            directly on their rack when false.
+        """
+    }
 
     @doc value         "is a filter that selects devices."
     @go request_output "core/pkg/api/device"

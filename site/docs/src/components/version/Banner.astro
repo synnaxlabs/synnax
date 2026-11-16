@@ -1,0 +1,91 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Icon } from "@synnaxlabs/lyra/icon";
+
+import { ROOT, type Version } from "@/util/version";
+
+interface Props {
+    version: Version | null;
+}
+
+const { version } = Astro.props;
+const latest = ROOT + Astro.url.pathname;
+---
+
+{version != null && version.status !== "latest" && (
+    <aside class={`version-banner version-banner--${version.status}`}>
+        {version.status === "next" ? (
+            <Icon.Info className="version-banner__icon" />
+        ) : (
+            <Icon.Warning className="version-banner__icon" />
+        )}
+        <p>
+            {version.status === "next"
+                ? "These docs describe unreleased work."
+                : `These docs describe Synnax ${version.name}.`}{" "}
+            <a href={latest} data-origin={ROOT}>
+                Read the docs for the latest release
+            </a>
+            .
+        </p>
+    </aside>
+)}
+
+<script>
+    import { track } from "@/components/version/links";
+
+    track(".version-banner a[data-origin]");
+</script>
+
+<style>
+    .version-banner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1.5rem;
+        padding: 1.5rem var(--header-inset);
+        border-bottom: var(--pluto-border-width) solid var(--banner-border);
+        background: var(--banner-bg);
+        color: var(--pluto-gray-l10);
+        font-size: var(--pluto-small-size);
+
+        & p {
+            margin: 0;
+            color: inherit;
+        }
+
+        & a {
+            color: inherit;
+            text-decoration: underline;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 0.2em;
+        }
+
+        & :global(.version-banner__icon) {
+            flex-shrink: 0;
+            width: 2.25rem;
+            height: 2.25rem;
+            color: var(--banner-accent);
+        }
+    }
+
+    .version-banner--next {
+        --banner-bg: var(--pluto-primary-z-5);
+        --banner-border: var(--pluto-primary-z-20);
+        --banner-accent: var(--pluto-primary-z);
+    }
+
+    .version-banner--old {
+        --banner-bg: var(--pluto-warning-z-5);
+        --banner-border: var(--pluto-warning-z-20);
+        --banner-accent: var(--pluto-warning-z);
+    }
+</style>

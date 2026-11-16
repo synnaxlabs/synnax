@@ -17,7 +17,6 @@ import { Channel, LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { Session } from "@/session";
 
 const SEARCH_QUERY: Channel.ListQuery = {
   where: {
@@ -39,14 +38,13 @@ export const YAxisChannelSelect = ({
 }: YAxisChannelSelectProps): ReactElement => {
   const value = LinePlot.useYAxisChannels({ axisKey });
   const dispatch = LinePlot.useSingleDispatch();
-  const rangeKey = Session.Range.useSelectSelectedKey();
   const handleChange = (channels: channel.Key[]) =>
     dispatch(lineplot.setChannels({ axisKey, channels }));
   return (
     <Input.Item x label={LinePlot.axisLabel(axisKey)} {...rest}>
       <Channel.SelectMultiple
         value={value}
-        initialQuery={{ ...SEARCH_QUERY, rangeKey }}
+        query={SEARCH_QUERY}
         onChange={handleChange}
         full="x"
         location="top"
@@ -62,7 +60,7 @@ export interface XAxisChannelSelectProps extends Omit<
   axisKey: lineplot.XAxisKey;
 }
 
-const CHIP_CLASS = CSS.BE("line-plot", "x-time-chip");
+const BADGE_CLASS = CSS.BE("line-plot", "x-time-badge");
 
 // Key 0 means no X channel: each Y channel plots against its own index channel.
 const TIME_OPTION = (
@@ -73,14 +71,14 @@ const TIME_OPTION = (
       label={
         <>
           Time
-          <Input.AutoChip className={CHIP_CLASS} />
+          <Input.AutoBadge className={BADGE_CLASS} />
         </>
       }
     >
       <Icon.Time />
       <Text.Text>
         Time
-        <Input.AutoChip className={CHIP_CLASS} />
+        <Input.AutoBadge className={BADGE_CLASS} />
       </Text.Text>
       <Select.ItemDescription>
         Automatically uses each channel's time. Best for most needs.
@@ -95,7 +93,6 @@ export const XAxisChannelSelect = ({
 }: XAxisChannelSelectProps): ReactElement => {
   const value = LinePlot.useXAxisChannel({ axisKey });
   const dispatch = LinePlot.useSingleDispatch();
-  const rangeKey = Session.Range.useSelectSelectedKey();
   const handleChange = (channel: channel.Key | null) =>
     dispatch(lineplot.setXChannel({ axisKey, channel: channel ?? 0 }));
   return (
@@ -104,7 +101,7 @@ export const XAxisChannelSelect = ({
         value={value}
         onChange={handleChange}
         allowNone
-        initialQuery={{ ...SEARCH_QUERY, rangeKey }}
+        query={SEARCH_QUERY}
         variant="floating"
         location="top"
         icon={<Icon.Time />}

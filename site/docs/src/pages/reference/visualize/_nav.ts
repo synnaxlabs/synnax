@@ -49,5 +49,9 @@ export const VISUALIZE_NAV: Nav.PageNavNode = {
       href: "/reference/visualize/share",
       name: "Share",
     },
+    {
+      href: "/reference/visualize/code",
+      name: "In code",
+    },
   ],
 };

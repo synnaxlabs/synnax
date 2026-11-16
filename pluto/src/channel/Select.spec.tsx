@@ -56,7 +56,7 @@ describe("Channel select", () => {
     );
     const trigger = c.container.querySelector(`.${TRIGGER_CLASS}`);
     expect(trigger?.classList.contains("custom")).toBe(true);
-    expect(trigger?.classList.contains("lyra--shadow")).toBe(true);
+    expect(trigger?.classList.contains("lyra-btn--shadow")).toBe(true);
   });
 
   it("should keep the multiple select's trigger mark beside the caller's trigger props", () => {
@@ -90,7 +90,7 @@ describe("Channel select", () => {
       });
       const props = { value: 0, onChange: vi.fn(), virtual: false };
       const c = render(
-        <Channel.SelectSingle {...props} initialQuery={excluding(first.key)} />,
+        <Channel.SelectSingle {...props} query={excluding(first.key)} />,
         { wrapper: Wrapper },
       );
       fireEvent.click(c.getByRole("button"));
@@ -99,9 +99,7 @@ describe("Channel select", () => {
       await c.findByText(second.name);
       expect(c.queryByText(first.name)).toBeNull();
 
-      c.rerender(
-        <Channel.SelectSingle {...props} initialQuery={excluding(second.key)} />,
-      );
+      c.rerender(<Channel.SelectSingle {...props} query={excluding(second.key)} />);
 
       await c.findByText(first.name);
       expect(c.queryByText(second.name)).toBeNull();

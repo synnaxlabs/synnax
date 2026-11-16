@@ -49,9 +49,16 @@ every frame.
   <Fragment slot="console">
 
 1. In the devices toolbar, right-click the server and select **Create write task**.
-2. Click **Add channel**. Select the type, then enter the address. For a holding
-   register, select the **Data type**. For a holding register bit, enter the **Bit**.
-3. Click <Icon.Play /> (**Start**).
+2. The task starts with one coil channel. To add more, click **Add channel**, or click a
+   free address in the register map above the channel list.
+3. In the channel list, set the **Type** and the **Address** of each channel. For a
+   holding register, select the **Data type**. For a holding register bit, enter the
+   **Bit**.
+4. Click <Icon.Play /> (**Start**).
+
+The register map shows a lane for coils and a lane for holding registers, on one address
+scale. A hatched band marks an address that two channels use. See
+[create a Modbus read task](/reference/hardware/modbus/read-task#create-a-modbus-read-task).
 
 The Console creates a command channel and an index channel for each output. For the
 server `Pump skid PLC`, a coil at address 3 gives `Pump_skid_PLC_coil_output_3_cmd` and
@@ -123,9 +130,9 @@ await task.start();
   </Fragment>
 </Client.Tabs>
 
-The task has the options **Data saving** and **Auto start**. See
-[task options](/reference/hardware/tasks#task-options). Python `WriteTask` has no
-`data_saving_disabled` argument.
+The task has the option **Auto start**. See
+[task options](/reference/hardware/tasks#task-options). The task tab also shows **Data
+saving**, but a Modbus write task has no state channels, so it has no effect.
 
 <Divider.Divider x />
 
@@ -158,11 +165,10 @@ Writes a coil. A command of 0 turns the coil off. Any other value turns it on.
 
 Writes a number to one or more holding registers.
 
-| Setting                              | Default  | Notes                                                                                                                             |
-| ------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Data type <small>`data_type`</small> | `uint16` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`.                                   |
-| Bytes <small>`bytes_swapped`</small> | device   | `True` swaps the two bytes in each register. See [byte and word order](/reference/hardware/modbus/read-task#byte-and-word-order). |
-| Words <small>`words_swapped`</small> | device   | `True` writes the high word first. Only for 32-bit and 64-bit data types.                                                         |
+| Setting                                                    | Default     | Notes                                                                                           |
+| ---------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------- |
+| Data type <small>`data_type`</small>                       | `uint16`    | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`. |
+| Byte order <small>`bytes_swapped`, `words_swapped`</small> | From device | See [byte and word order](/reference/hardware/modbus/read-task#byte-and-word-order).            |
 
 </Channel.Type>
 

@@ -35,10 +35,9 @@ func autoMigrateLog(ctx context.Context, old v2.Log) (Log, error) {
 
 func autoMigrateChannelEntry(_ context.Context, old v2.ChannelEntry) (ChannelEntry, error) {
 	return ChannelEntry{
-		Channel:   old.Channel,
-		Color:     old.Color,
-		Notation:  old.Notation,
-		Alias:     old.Alias,
-		Timestamp: old.Timestamp,
+		Channel:  old.Channel,
+		Color:    old.Color,
+		Notation: old.Notation,
+		Alias:    old.Alias,
 	}, nil
 }

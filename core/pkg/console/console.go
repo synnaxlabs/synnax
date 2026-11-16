@@ -18,11 +18,13 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/static"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 )
 
 //go:embed fallback.html
@@ -33,6 +35,12 @@ type Config struct {
 	// FS is the filesystem containing the Console assets. When nil, the Console serves
 	// a fallback page indicating that it is not available.
 	FS fs.FS
+	// UpdateFS is the file system containing the desktop Console update: the Tauri
+	// updater manifest latest.json and the files that it names.
+	UpdateFS fs.FS
+	// Insecure is true when the Core serves HTTP without TLS. It sets the scheme of the
+	// download URLs in the update manifest when a request has no X-Forwarded-Proto.
+	Insecure *bool
 }
 
 var _ config.Config[Config] = Config{}
@@ -40,28 +48,47 @@ var _ config.Config[Config] = Config{}
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.FS = override.Nil(c.FS, other.FS)
+	c.UpdateFS = override.Nil(c.UpdateFS, other.UpdateFS)
+	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	return c
 }
 
 // Validate implements config.Config.
-func (c Config) Validate() error { return nil }
+func (c Config) Validate() error {
+	v := validate.New("console")
+	v.NotNil("insecure", c.Insecure)
+	return v.Error()
+}
 
 // Console serves the web-based console UI. When an FS is provided, it serves the
 // embedded Console assets. Otherwise, it serves a fallback page indicating that the
 // Console is not available.
-type Console struct{ fs fs.FS }
+type Console struct {
+	fs     fs.FS
+	update update
+	scheme string
+}
 
 var _ fhttp.BindableTransport = (*Console)(nil)
 
-// New creates a new Console. If no FS is provided in the config, it uses the default FS
-// from the build. When built with -tags=console, the default FS contains the embedded
-// Console assets. Otherwise, it is nil and the Console serves a fallback page.
+// New creates a new Console. A file system that the config leaves nil comes from the
+// build: with -tags=console, the embedded Console assets and update files. Otherwise,
+// the Console serves a fallback page and no update. New returns an error if Insecure is
+// nil or the update manifest cannot be parsed.
 func New(cfgs ...Config) (*Console, error) {
-	cfg, err := config.New(Config{FS: defaultFS}, cfgs...)
+	cfg, err := config.New(Config{FS: defaultFS, UpdateFS: defaultUpdateFS}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	return &Console{fs: cfg.FS}, nil
+	upd, err := openUpdate(cfg.UpdateFS)
+	if err != nil {
+		return nil, err
+	}
+	return &Console{
+		fs:     cfg.FS,
+		update: upd,
+		scheme: lo.Ternary(*cfg.Insecure, "http", "https"),
+	}, nil
 }
 
 // Cache policies for the two kinds of file the Console build emits. A hashed asset name
@@ -76,10 +103,15 @@ const (
 // Directory Vite emits content-hashed files into, at the bundle root and under pluto/.
 const hashedAssetDir = "assets"
 
-// BindTo binds the console UI service to the provided Fiber app.
+// BindTo binds the console UI service to the provided Fiber app. It serves the desktop
+// Console update manifest at /console/update/latest.json and each file that the
+// manifest names at /console/update/<name>. Both answer 404 when the Core embeds no
+// update.
 func (c *Console) BindTo(app *fiber.App) {
 	// Routes bound before the Console answer without reaching this middleware.
 	app.Use(setSecurityHeaders)
+	app.Get(updatePath+manifestName, c.sendUpdateManifest)
+	app.Get(updatePath+":name", c.sendUpdateFile)
 	sendFile := fiber.SendFile{FS: c.fs, Compress: true, CacheDuration: -1}
 	if !c.enabled() {
 		app.Get("/", func(ctx fiber.Ctx) error {

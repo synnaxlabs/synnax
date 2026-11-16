@@ -792,4 +792,60 @@ trig -> f()`, "v=false"),
 			},
 		)
 	})
+	Describe("Placeholder types", func() {
+		// run calls f with a = 2 and returns the string f writes.
+		run := func(ctx SpecContext, body string) string {
+			GinkgoHelper()
+			h := newRuntimeHarness(ctx, `
+			func double(x f32) f32 {
+				return x * 2
+			}
+			func f() {a f32} {
+				b i64 := 7
+				c i32 := 4
+				s := "x"
+				`+body+`
+			}
+			v -> f()`, channelSymbols(map[string]channelDef{
+				"v":   {types.F32(), 100},
+				"log": {types.String(), 101},
+			}),
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			h.Ingest(100, telem.NewSeriesV[float32](2))
+			h.Tick(ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			return lastString(out, 101)
+		}
+
+		DescribeTable("Should render a placeholder at its analyzed type",
+			func(ctx SpecContext, source, expected string) {
+				Expect(run(ctx, "log = "+source+"\nb = b\nc = c\ns = s")).
+					To(Equal(expected))
+			},
+			Entry("literal then variable", `f"{1 + a}"`, "3"),
+			Entry("variable then literal", `f"{a + 1}"`, "3"),
+			Entry("integer literal on an i32", `f"{c + 1}"`, "5"),
+			Entry("integer literal on an i64", `f"{1 + b}"`, "8"),
+			Entry("float literal", `f"{1.5}"`, "1.5"),
+			Entry("literal arithmetic", `f"{1.5 * 2.0}"`, "3"),
+			Entry("a call", `f"{double(a)}"`, "4"),
+			Entry("a call with a literal", `f"{double(1 + a)}"`, "6"),
+			Entry("nested", `f"{(1 + a) * (2 + a)}"`, "12"),
+			Entry("a comparison", `f"{1 < a}"`, "true"),
+			Entry(
+				"several types",
+				`f"{1 + a} {1 + b} {c} {a > 1} {s}"`,
+				"3 8 4 true x",
+			),
+			Entry("the same shape twice", `f"{1 + a}{1 + c}"`, "35"),
+			Entry("after doubled braces", `f"{{a}{1 + a}"`, "{a}3"),
+			Entry("after an escape", `f"\t{1 + a}"`, "\t3"),
+			Entry("an escaped brace doubling a brace", `f"\u007B{1 + a}}"`, "{1 + a}"),
+			Entry("after non-ASCII text", `f"°C: {1 + a}"`, "°C: 3"),
+			Entry("after CJK text", `f"温度{a + 1}温度{1 + c}"`, "温度3温度5"),
+		)
+	})
 })

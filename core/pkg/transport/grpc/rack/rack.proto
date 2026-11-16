@@ -29,6 +29,10 @@ service RackDeleteService {
   rpc Exec(DeleteRequest) returns (google.protobuf.Empty);
 }
 
+service RackDispatchService {
+  rpc Exec(DispatchRequest) returns (google.protobuf.Empty);
+}
+
 message CreateRequest {
   repeated service.rack.pb.Rack racks = 1;
 }
@@ -45,4 +49,13 @@ message RetrieveRequest {
 
 message DeleteRequest {
   repeated uint32 keys = 1;
+}
+
+// DispatchRequest applies actions to one rack.
+message DispatchRequest {
+  uint32 key = 1;
+  string dispatch_key = 2;
+  // actions holds the JSON encoding of each action, in the shape the HTTP dispatch
+  // route takes, such as {"type": "set", "set": {...}}.
+  repeated bytes actions = 3;
 }

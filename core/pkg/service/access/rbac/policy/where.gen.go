@@ -65,6 +65,9 @@ func MatchWhere(w Where) (Filter, error) {
 	if l := w.Subjects; l != nil {
 		fs = append(fs, MatchSubjects(l...))
 	}
+	if l := w.Roles; l != nil {
+		fs = append(fs, MatchRoles(l...))
+	}
 	return And(fs...), nil
 }
 

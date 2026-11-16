@@ -10,6 +10,7 @@
 #include <set>
 
 #include "client/cpp/http/json.gen.h"
+#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/strings/strings.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -23,11 +24,11 @@ namespace {
 /// @param str the type string ("number", "string", "boolean").
 /// @returns the parsed type paired with an error when the string is unknown.
 std::pair<x::json::Type, x::errors::Error> parse_json_type(const std::string &str) {
-    if (str == ::synnax::http::JSON_TYPE_NUMBER)
+    if (str == ::x::payload::JSON_TYPE_NUMBER)
         return {x::json::Type::Number, x::errors::NIL};
-    if (str == ::synnax::http::JSON_TYPE_STRING)
+    if (str == ::x::payload::JSON_TYPE_STRING)
         return {x::json::Type::String, x::errors::NIL};
-    if (str == ::synnax::http::JSON_TYPE_BOOLEAN)
+    if (str == ::x::payload::JSON_TYPE_BOOLEAN)
         return {x::json::Type::Boolean, x::errors::NIL};
     return {
         x::json::Type::Number,
@@ -39,9 +40,9 @@ std::pair<x::json::Type, x::errors::Error> parse_json_type(const std::string &st
 /// @param str the generator string ("uuid", "timestamp").
 /// @returns the parsed generator paired with an error when the string is unknown.
 std::pair<GeneratorType, x::errors::Error> parse_generator(const std::string &str) {
-    if (str == ::synnax::http::GENERATOR_TYPE_UUID)
+    if (str == ::x::payload::GENERATOR_TYPE_UUID)
         return {GeneratorType::UUID, x::errors::NIL};
-    if (str == ::synnax::http::GENERATOR_TYPE_TIMESTAMP)
+    if (str == ::x::payload::GENERATOR_TYPE_TIMESTAMP)
         return {GeneratorType::Timestamp, x::errors::NIL};
     return {
         GeneratorType::UUID,
@@ -88,7 +89,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                     "duplicate enum value " + x::json::json(entry.value).dump()
                 );
         if (!ep.channel.enum_values.empty() &&
-            ep.channel.json_type != ::synnax::http::JSON_TYPE_STRING)
+            ep.channel.json_type != ::x::payload::JSON_TYPE_STRING)
             parser.field_err(
                 "endpoints.channel.enum_values",
                 "enum values are only supported when json_type is 'string'"
@@ -164,6 +165,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
             continue;
         }
         const auto &ch = it->second;
+        cfg.cmd_names[ch.key] = ch.name;
 
         // Timestamp channels encode by time_format, not json_type.
         if (ch.data_type == x::telem::TIMESTAMP_T) continue;
@@ -208,7 +210,7 @@ WriteTaskSink::WriteTaskSink(
                 !fmt_err)
                 state.time_format = fmt;
         for (const auto &entry: ep.channel.enum_values)
-            state.enum_values.emplace(x::json::json(entry.value), entry.label);
+            state.enum_values.emplace_back(entry.value, entry.label);
         for (const auto &field: ep.fields)
             if (const auto *sf = std::get_if<::synnax::http::StaticWriteField>(
                     &field
@@ -271,6 +273,7 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
     };
 
     std::vector<PendingRequest> pending;
+    std::vector<std::string> skipped;
     for (const auto &[ch_key, series]: frame) {
         auto it = channel_to_endpoint.find(ch_key);
         if (it == channel_to_endpoint.end()) continue;
@@ -289,12 +292,17 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
                 ep.json_type,
                 enum_ptr
             );
-            if (conv_err)
-                return {
-                    conv_err.type,
-                    "failed to convert value for endpoint " +
-                        this->cfg.endpoints[ep_idx].path + ": " + conv_err.data,
-                };
+            if (conv_err) {
+                const auto reason = conv_err.data.empty()
+                                      ? "the value has no JSON form for the field"
+                                      : conv_err.data;
+                skipped.push_back(
+                    "Channel " + this->cfg.cmd_names.at(ch_key) + ": " + reason +
+                    ". Did not send " + to_string(ep.method) + " " +
+                    base_requests[ep_idx].url + ". Write a finite number."
+                );
+                continue;
+            }
             json_val = std::move(val);
         }
 
@@ -307,8 +315,6 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
             .series = series.shallow_copy(),
         });
     }
-
-    if (pending.empty()) return x::errors::NIL;
 
     std::vector<std::string> error_msgs;
     std::string first_error_type;
@@ -373,6 +379,12 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
             ": timed out"
         );
     }
+
+    if (!skipped.empty())
+        this->warn({
+            .message = "Skipped invalid command",
+            .description = x::strings::join(skipped, " "),
+        });
 
     if (error_msgs.empty()) return x::errors::NIL;
     return {first_error_type, x::strings::join(error_msgs, "; ")};

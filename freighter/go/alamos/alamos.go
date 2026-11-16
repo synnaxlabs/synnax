@@ -40,14 +40,14 @@ type Config struct {
 	Level alamos.Environment
 }
 
-// Validate implements config.Config
+// Validate implements config.Config.
 func (cfg Config) Validate() error {
 	v := validate.New("falamos.config")
 	v.NotNil("instrumentation", cfg.Instrumentation)
 	return v.Error()
 }
 
-// Override implements config.Config
+// Override implements config.Config.
 func (cfg Config) Override(other Config) Config {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.EnablePropagation = override.Nil(cfg.EnableLogging, other.EnableLogging)
@@ -100,7 +100,7 @@ func Middleware(configs ...Config) (freighter.Middleware, error) {
 		}
 
 		if *cfg.EnableTracing {
-			_ = span.EndWith(err)
+			err = span.EndWith(err)
 		}
 
 		return oCtx, err

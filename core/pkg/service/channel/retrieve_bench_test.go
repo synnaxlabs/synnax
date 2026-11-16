@@ -14,12 +14,12 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
@@ -38,54 +38,44 @@ type benchEnv struct {
 
 // newBenchEnv creates count calculated channels off one stored channel.
 func newBenchEnv(b *testing.B, count int) *benchEnv {
+	b.Helper()
 	gomega.RegisterTestingT(b)
 	node := testutil.OpenNode(b.Context())
-	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
-	if err != nil {
-		b.Fatalf("failed to open ontology: %v", err)
-	}
 	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
+		DB: node.DB,
 	})
 	if err != nil {
 		b.Fatalf("failed to open group service: %v", err)
 	}
 	labelSvc, err := label.OpenService(b.Context(), label.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB: node.DB,
 	})
 	if err != nil {
 		b.Fatalf("failed to open label service: %v", err)
 	}
 	statusSvc, err := status.OpenService(b.Context(), status.ServiceConfig{
-		DB:       node.DB,
-		Group:    groupSvc,
-		Ontology: otg,
-		Label:    labelSvc,
+		DB: node.DB,
 	})
 	if err != nil {
 		b.Fatalf("failed to open status service: %v", err)
 	}
 	svc, err := channel.OpenService(b.Context(), channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open channel service: %v", err)
 	}
-	w := svc.NewWriter(nil)
 	idx := channel.Channel{
 		Name:     "bench_time",
 		DataType: telem.TimestampT,
 		IsIndex:  true,
 	}
-	if err := w.Create(b.Context(), &idx); err != nil {
+	if err := node.DB.WithTx(b.Context(), func(tx gorp.Tx) error {
+		return svc.NewWriter(tx).Create(b.Context(), &idx)
+	}); err != nil {
 		b.Fatalf("failed to create index channel: %v", err)
 	}
 	base := channel.Channel{
@@ -93,7 +83,9 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 		DataType:   telem.Float32T,
 		LocalIndex: idx.LocalKey,
 	}
-	if err := w.Create(b.Context(), &base); err != nil {
+	if err := node.DB.WithTx(b.Context(), func(tx gorp.Tx) error {
+		return svc.NewWriter(tx).Create(b.Context(), &base)
+	}); err != nil {
 		b.Fatalf("failed to create base channel: %v", err)
 	}
 	calcs := make([]channel.Channel, count)
@@ -104,7 +96,9 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 			Expression: "return bench_base * 2",
 		}
 	}
-	if err := w.CreateMany(b.Context(), &calcs); err != nil {
+	if err := node.DB.WithTx(b.Context(), func(tx gorp.Tx) error {
+		return svc.NewWriter(tx).CreateMany(b.Context(), &calcs)
+	}); err != nil {
 		b.Fatalf("failed to create calculated channels: %v", err)
 	}
 	indexes := make([]channel.Key, len(calcs))
@@ -115,12 +109,13 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 		svc:     svc,
 		indexes: indexes,
 		closer: io.MultiCloser{
-			node, otg, groupSvc, svc, statusSvc, labelSvc,
+			node, groupSvc, svc, statusSvc, labelSvc,
 		},
 	}
 }
 
 func (e *benchEnv) close(b *testing.B) {
+	b.Helper()
 	if err := e.closer.Close(); err != nil {
 		b.Errorf("failed to close env: %v", err)
 	}
@@ -128,12 +123,13 @@ func (e *benchEnv) close(b *testing.B) {
 
 // owners resolves the calculated channels indexed by key.
 func (e *benchEnv) owners(b *testing.B, key channel.Key) []channel.Channel {
+	b.Helper()
 	var owners []channel.Channel
 	if err := e.svc.NewRetrieve().
 		Where(channel.MatchCalculated()).
-		Where(channel.MatchIndexes(key)).
+		Where(e.svc.MatchIndexes(key)).
 		Entries(&owners).
-		Exec(b.Context(), nil); err != nil {
+		Exec(b.Context(), db); err != nil {
 		b.Fatalf("failed to resolve owner: %v", err)
 	}
 	return owners
@@ -169,7 +165,7 @@ func BenchmarkMatchIndexes(b *testing.B) {
 				if err := env.svc.NewRetrieve().
 					Where(channel.MatchCalculated()).
 					Entries(&all).
-					Exec(b.Context(), nil); err != nil {
+					Exec(b.Context(), db); err != nil {
 					b.Fatalf("failed to scan: %v", err)
 				}
 				if len(all) != count {

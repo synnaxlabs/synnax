@@ -16,7 +16,6 @@
 #include <vector>
 
 #include "client/cpp/device/types.gen.h"
-#include "client/cpp/ontology/id.h"
 #include "client/cpp/rack/key.h"
 #include "client/cpp/status/json.gen.h"
 #include "x/cpp/filter/json.gen.h"
@@ -27,7 +26,7 @@ namespace synnax::device {
 inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
     return StatusDetails{
         .rack = parser.field<::synnax::rack::Key>("rack"),
-        .device = parser.field<Key>("device"),
+        .connected = parser.field<bool>("connected", false),
         .data = parser.field<std::optional<x::json::json::object_t>>("data"),
     };
 }
@@ -35,7 +34,7 @@ inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
 inline x::json::json StatusDetails::to_json() const {
     x::json::json j = x::json::json::object();
     j["rack"] = this->rack;
-    j["device"] = this->device;
+    j["connected"] = this->connected;
     if (this->data.has_value()) j["data"] = *this->data;
     return j;
 }
@@ -51,7 +50,7 @@ inline Device Device::parse(x::json::Parser parser) {
         .configured = parser.field<bool>("configured", false),
         .properties = parser.field<x::json::json::object_t>("properties"),
         .status = parser.field<std::optional<Status>>("status"),
-        .parent = parser.field<std::optional<::synnax::ontology::ID>>("parent"),
+        .parent = parser.field<std::optional<Key>>("parent"),
     };
 }
 
@@ -66,7 +65,7 @@ inline x::json::json Device::to_json() const {
     j["configured"] = this->configured;
     j["properties"] = this->properties;
     if (this->status.has_value()) j["status"] = this->status->to_json();
-    if (this->parent.has_value()) j["parent"] = this->parent->to_json();
+    if (this->parent.has_value()) j["parent"] = *this->parent;
     return j;
 }
 
@@ -100,14 +99,42 @@ inline x::json::json Where::to_json() const {
     return j;
 }
 
+inline Cursor Cursor::parse(x::json::Parser parser) {
+    return Cursor{
+        .key = parser.field<Key>("key"),
+        .name = parser.field<std::optional<std::string>>("name"),
+    };
+}
+
+inline x::json::json Cursor::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    if (this->name.has_value()) j["name"] = *this->name;
+    return j;
+}
+
+inline Order Order::parse(x::json::Parser parser) {
+    return Order{
+        .field = parser.field<std::string>("field"),
+        .descending = parser.field<bool>("descending", false),
+    };
+}
+
+inline x::json::json Order::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["field"] = this->field;
+    j["descending"] = this->descending;
+    return j;
+}
+
 inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
     return RetrieveRequest{
         .where = parser.field<std::optional<Where>>("where"),
         .search_term = parser.field<std::string>("search_term", ""),
+        .order = parser.field<std::optional<Order>>("order"),
+        .after = parser.field<std::optional<Cursor>>("after"),
         .limit = parser.field<std::optional<std::uint32_t>>("limit"),
-        .offset = parser.field<std::uint32_t>("offset", 0),
         .include_status = parser.field<bool>("include_status", false),
-        .include_parent = parser.field<bool>("include_parent", false),
     };
 }
 
@@ -115,10 +142,10 @@ inline x::json::json RetrieveRequest::to_json() const {
     x::json::json j = x::json::json::object();
     if (this->where.has_value()) j["where"] = this->where->to_json();
     j["search_term"] = this->search_term;
+    if (this->order.has_value()) j["order"] = this->order->to_json();
+    if (this->after.has_value()) j["after"] = this->after->to_json();
     if (this->limit.has_value()) j["limit"] = *this->limit;
-    j["offset"] = this->offset;
     j["include_status"] = this->include_status;
-    j["include_parent"] = this->include_parent;
     return j;
 }
 

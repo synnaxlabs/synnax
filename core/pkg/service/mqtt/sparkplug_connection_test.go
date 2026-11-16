@@ -73,7 +73,7 @@ var _ = Describe("Sparkplug B host session", func() {
 	// run configures and starts a read task.
 	run := func(ctx context.Context, cfg msgpack.EncodedJSON) (driver.Task, task.Task) {
 		GinkgoHelper()
-		t := newTask(rackKey, mqtt.ReadTaskType, cfg)
+		t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
 		configured := configure(ctx, factory, t)
 		Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 			To(Succeed())
@@ -142,7 +142,7 @@ var _ = Describe("Sparkplug B host session", func() {
 					ctx, rackKey, broker.port, hostProperties("syn/nax"),
 				)
 				_, data := createIndexed(ctx, telem.Float64T)
-				t := newTask(rackKey, mqtt.ReadTaskType, readConfig(
+				t := newTask(ctx, rackKey, mqtt.ReadTaskType, readConfig(
 					dev, plainEntry("plant/state", field("v", data[0], "")),
 				))
 				message := "invalid broker properties: sparkplug.host_id: syn/nax " +
@@ -264,11 +264,11 @@ var _ = Describe("Sparkplug B host session", func() {
 					name: "temperature", alias: 1, value: 1.5, timestamp: 1700000000000,
 				})
 				first := configure(ctx, factory, newTask(
-					rackKey, mqtt.ReadTaskType, readConfig(
+					ctx, rackKey, mqtt.ReadTaskType, readConfig(
 						dev, tagEntry("plant", "line1", "", "temperature", a[0]),
 					),
 				))
-				secondTask := newTask(rackKey, mqtt.ReadTaskType, readConfig(
+				secondTask := newTask(ctx, rackKey, mqtt.ReadTaskType, readConfig(
 					dev, tagEntry("plant", "line1", "", "temperature", b[0]),
 				))
 				second := configure(ctx, factory, secondTask)

@@ -13,6 +13,8 @@ import (
 	"context"
 	"slices"
 	"sync"
+
+	"github.com/synnaxlabs/x/set"
 )
 
 // Lookup is an exact-match index from values of type V to the primary keys of type K
@@ -25,7 +27,6 @@ type Lookup[S Scope, K, V comparable] struct {
 	forward    map[V][]K
 	reverse    map[K]V
 	overlay    overlay[S, *delta[K, V]]
-	announcements[K, V]
 }
 
 // NewLookup returns an empty Lookup that waits for its bulk load.
@@ -77,7 +78,7 @@ func (l *Lookup[S, K, V]) Stage(scope S, key K, value V) {
 		l.Set(key, value)
 		return
 	}
-	l.overlay.load(scope).set(key, value)
+	l.overlay.load(scope).set(key, []V{value})
 }
 
 // StageDelete removes key in the changes of scope. The removal applies to committed
@@ -103,19 +104,19 @@ func (l *Lookup[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 	if err := l.population.err; err != nil {
 		return nil, err
 	}
-	var committed []K
+	committed := set.New[K]()
 	for _, v := range values {
-		committed = append(committed, l.forward[v]...)
+		committed.Add(l.forward[v]...)
 	}
 	return mergeValues(&l.overlay, scope, committed, values), nil
 }
 
-// Committing returns the keys that a transaction in its commit or an announced write
-// maps to any of values. Get misses them until that write returns. The write can fail,
-// so a caller must check each key against storage. Call Committing before Get: a scope
-// leaves the overlay only after its flush, so the two reads together miss no key.
+// Committing returns the keys that a transaction in its commit maps to any of values.
+// Get misses them until the commit flushes. The commit can fail, so a caller must check
+// each key against storage. Call Committing before Get: a scope leaves the overlay only
+// after its flush, so the two reads together miss no key.
 func (l *Lookup[S, K, V]) Committing(values ...V) []K {
-	return l.appendKeys(committingKeys(&l.overlay, values), values)
+	return committingKeys(&l.overlay, values)
 }
 
 func (l *Lookup[S, K, V]) put(key K, value V) {
@@ -158,6 +159,6 @@ func (l *Lookup[S, K, V]) flush(d *delta[K, V]) {
 			l.remove(k)
 			continue
 		}
-		l.put(k, s.value)
+		l.put(k, s.values[0])
 	}
 }

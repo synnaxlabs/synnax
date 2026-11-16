@@ -11,6 +11,7 @@ import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+from tests.task_targets import TaskTargets
 
 
 @pytest.mark.mqtt
@@ -113,7 +114,9 @@ class TestMQTTReadTask:
         assert pld.type == "mqtt_read"
         assert pld.name == "Line 1"
 
-    def test_create_and_retrieve_read_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_read_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Should store a read config that the task class parses again."""
         task = sy.mqtt.ReadTask(
             device="some-broker",
@@ -126,6 +129,7 @@ class TestMQTTReadTask:
                 )
             ],
         )
+        task_targets.attach(task.config)
         created = client.tasks.create(
             name="test-mqtt-read-task",
             type="mqtt_read",
@@ -136,7 +140,9 @@ class TestMQTTReadTask:
         entry = parsed.config.entries[0]
         assert isinstance(entry, sy.mqtt.PlainReadEntry)
         assert entry.qos == "at_least_once"
-        assert entry.fields[0].channel == 1234
+        sent = task.config.entries[0]
+        assert isinstance(sent, sy.mqtt.PlainReadEntry)
+        assert entry.fields[0].channel == sent.fields[0].channel
 
 
 @pytest.mark.mqtt
@@ -208,7 +214,9 @@ class TestMQTTWriteTask:
         """Should create a task of the MQTT write type."""
         assert sy.mqtt.WriteTask(device="broker-1").to_payload().type == "mqtt_write"
 
-    def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_write_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Should store a write config that the task class parses again."""
         task = sy.mqtt.WriteTask(
             device="some-broker",
@@ -222,6 +230,7 @@ class TestMQTTWriteTask:
                 )
             ],
         )
+        task_targets.attach(task.config)
         created = client.tasks.create(
             name="test-mqtt-write-task",
             type="mqtt_write",
@@ -257,7 +266,9 @@ class TestMQTTEdgeTask:
         with pytest.raises(ValidationError, match="less than or equal to 255"):
             sy.mqtt.EdgeTask(device="broker-1", authority=256)
 
-    def test_create_and_retrieve_edge_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_edge_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Should store an edge config that the task class parses again."""
         task = sy.mqtt.EdgeTask(
             device="some-broker",
@@ -273,6 +284,7 @@ class TestMQTTEdgeTask:
                 )
             ],
         )
+        task_targets.attach(task.config)
         created = client.tasks.create(
             name="test-mqtt-edge-task",
             type="mqtt_sparkplug_edge",
@@ -282,7 +294,7 @@ class TestMQTTEdgeTask:
         assert cfg.edge_node == "Line1"
         assert cfg.authority == 150
         assert cfg.tags[0].tag_type == "float"
-        assert cfg.tags[0].command_channel == 4322
+        assert cfg.tags[0].command_channel == task.config.tags[0].command_channel
 
 
 @pytest.mark.mqtt

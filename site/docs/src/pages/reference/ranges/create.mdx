@@ -43,7 +43,7 @@ see the [reference](/reference/ranges/reference#properties).
    and labels.
 4. Click **Save to Core**.
 
-A new range starts now and has no end, so it is in progress until you complete it.
+A new range starts now and has no end, so it is in progress until you stop it.
 
 To keep the range only in this Console, click **Save locally**. A local range has no
 parent and no labels, and the ranges toolbar marks it with an **L**. To store it later,
@@ -146,11 +146,13 @@ For child ranges, aborts, and limits, see [create ranges in Arc](/reference/rang
 
   <Fragment slot="console">
 
-Set the **Parent range** in the create dialog. You can also right-click a range in the
-ranges toolbar or the range explorer and select **Create child range**, or click
+Set the **Parent range** in the create dialog. You can also do one of these steps:
 
-<Icon.Add /> in the child ranges section of the [range
-overview](/reference/ranges/find#range-overview).
+- On the [range overview](/reference/ranges/find#range-overview), click <Icon.Add />
+  (**Create child range**) in the child ranges section. A range with no child ranges
+  shows a **Child range** line instead.
+- Right-click a range in the ranges toolbar and select **Create child range**.
+- Right-click a range in the range explorer and select **Start child range**.
 
 <Video id="client/ranges/create-child" />
 
@@ -181,13 +183,13 @@ client.ranges.create(
 const childRange = await client.ranges.create({
   name: "My Child Range",
   timeRange: new TimeRange(start, end),
-  parent: parentRange,
+  parent: parentRange.key,
 });
 
 // Or create many children in one call
 await client.ranges.create([
-  { name: "Child A", timeRange: trA, parent: parentRange },
-  { name: "Child B", timeRange: trB, parent: parentRange },
+  { name: "Child A", timeRange: trA, parent: parentRange.key },
+  { name: "Child B", timeRange: trB, parent: parentRange.key },
 ]);
 ```
 

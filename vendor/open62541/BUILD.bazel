@@ -215,8 +215,21 @@ generate(
     tool = ":patch",
 )
 
-# src/client resolves the includes of the patched copy of ua_client_connect.c.
+generate(
+    name = "eventloop_posix",
+    srcs = ["open62541/arch/posix/eventloop_posix.c"],
+    outs = ["src_patched/eventloop_posix.c"],
+    arguments = [
+        "$(execpath open62541/arch/posix/eventloop_posix.c)",
+        "{out}",
+    ],
+    stem = "eventloop_posix.c",
+    tool = ":patch",
+)
+
+# arch/posix and src/client resolve the includes of the patched copies.
 PRIVATE_INCLUDES = [
+    "arch/posix",
     "deps",
     "plugins",
     "src",
@@ -256,6 +269,7 @@ cc_library(
             "open62541/src/server/ua_discovery_mdns.c",
             "open62541/src/server/ua_discovery_mdns_avahi.c",
             # Patched by patch.py
+            "open62541/arch/posix/eventloop_posix.c",
             "open62541/src/client/ua_client_connect.c",
         ],
     ) + [
@@ -265,6 +279,7 @@ cc_library(
         GENERATED + "transport_generated.c",
         GENERATED + "transport_generated.h",
         GENERATED + "types_generated.c",
+        "src_patched/eventloop_posix.c",
         "src_patched/ua_client_connect.c",
     ] + select({
         "@platforms//os:windows": [],

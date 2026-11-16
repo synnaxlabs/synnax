@@ -57,6 +57,9 @@ func MatchWhere(w Where) (Filter, error) {
 	if l := w.Usernames; l != nil {
 		fs = append(fs, MatchUsernames(l...))
 	}
+	if l := w.Roles; l != nil {
+		fs = append(fs, MatchRoles(l...))
+	}
 	return And(fs...), nil
 }
 

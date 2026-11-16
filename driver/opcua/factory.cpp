@@ -30,7 +30,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     if (err) return {std::move(result), err};
     result.auto_start = cfg.auto_start;
     std::unique_ptr<common::Source> s;
-    if (cfg.array_mode)
+    if (cfg.array())
         s = std::make_unique<ArrayReadTaskSource>(ctx->client, pool, std::move(cfg));
     else
         s = std::make_unique<UnaryReadTaskSource>(ctx->client, pool, std::move(cfg));
@@ -85,23 +85,25 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::string &cmd_key
+    const std::string &cmd_key,
+    x::breaker::Breaker &cancel
 ) {
     if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
     std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == SCAN_TASK_TYPE)
-        res = configure_scan(ctx, task, conn_pool_, store_);
+        res = configure_scan(ctx, task, this->pool, this->store);
     else if (task.type == READ_TASK_TYPE)
-        res = configure_read(ctx, task, conn_pool_);
+        res = configure_read(ctx, task, this->pool);
     else if (task.type == WRITE_TASK_TYPE)
-        res = configure_write(ctx, task, conn_pool_);
-    return common::handle_config_err(ctx, task, std::move(res), cmd_key);
+        res = configure_write(ctx, task, this->pool);
+    return common::handle_config_err(ctx, task, std::move(res), cmd_key, cancel);
 }
 
 std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
 Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::rack::Rack &rack
+    const synnax::rack::Rack &rack,
+    x::breaker::Breaker &cancel
 ) {
     common::delete_legacy_task_by_type(rack, "opcScanner", INTEGRATION_NAME);
     return common::configure_initial_factory_tasks(
@@ -110,7 +112,8 @@ Factory::configure_initial_tasks(
         rack,
         "OPC UA Scanner",
         SCAN_TASK_TYPE,
-        INTEGRATION_NAME
+        INTEGRATION_NAME,
+        cancel
     );
 }
 }

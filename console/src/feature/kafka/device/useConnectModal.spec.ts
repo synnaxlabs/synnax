@@ -119,6 +119,33 @@ describe("Kafka.Device.useConnectModal", () => {
     );
   });
 
+  it("should mark the device it connected as connected", async () => {
+    const rack = await createRunningRack(client, "kafka");
+    const scan = await rack.createTask({
+      name: uniqueName("kafka_scan"),
+      type: Kafka.Task.SCAN_TYPE,
+      config: {},
+    });
+    const { result } = await renderModalOpener(
+      Kafka.Device.useConnectModal,
+      [{ rack: rack.key }],
+      { client },
+    );
+    fireEvent.change(screen.getByPlaceholderText("Kafka cluster"), {
+      target: { value: uniqueName("kafka_cluster") },
+    });
+    fireEvent.change(screen.getByPlaceholderText("localhost:9092"), {
+      target: { value: "localhost:9092" },
+    });
+    const { answered } = await answerNextCommand(client, scan);
+    pressSaveTrigger();
+    await answered;
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    const dev = await client.devices.retrieve({ key, includeStatus: true });
+    expect(dev.status?.details.connected).toBe(true);
+  });
+
   it("should show why the connection test failed", async () => {
     const rack = await createRunningRack(client, "kafka");
     const scan = await rack.createTask({

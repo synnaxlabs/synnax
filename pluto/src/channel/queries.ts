@@ -7,16 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, type group, query, type ranger } from "@synnaxlabs/client";
-import {
-  array,
-  control,
-  deep,
-  type optional,
-  primitive,
-  TimeSpan,
-  verbs,
-} from "@synnaxlabs/x";
+import { actions, channel, DataType, query } from "@synnaxlabs/client";
+import { control, deep, primitive, scheduler, TimeSpan, verbs } from "@synnaxlabs/x";
+import { useEffect } from "react";
 import { z } from "zod";
 
 import {
@@ -27,7 +20,10 @@ import {
   type RetrieveMultipleQuery,
   type RetrieveQuery,
 } from "@/channel/aether/queries";
+import { resolveIcon } from "@/channel/resolveIcon";
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
+import { Synnax } from "@/synnax";
 
 export const formSchema = channel.payloadZ
   .required({ expression: true })
@@ -98,16 +94,6 @@ export const ZERO_FORM_VALUES: z.infer<
 export const { use, useResult, useEnsure, createSelector, createResultSelector } =
   Flux.createRetrieve<RetrieveQuery, channel.Channel>(retrieveDefinition);
 
-/** The channel's range-scoped alias when one is set, its name otherwise. */
-export const useAlias = createSelector(({ alias, name }) =>
-  primitive.isNonZero(alias) ? alias : name,
-);
-
-/** {@link useAlias} with the result contract: fetch on cold, never throw. */
-export const useResultAlias = createResultSelector(({ alias, name }) =>
-  primitive.isNonZero(alias) ? alias : name,
-);
-
 export const useResultName = createResultSelector(({ name }) => name);
 
 export const useResultIsIndex = createResultSelector(({ isIndex }) => isIndex);
@@ -126,10 +112,17 @@ export const useResultDataType = createResultSelector(
   (a, b) => a.equals(b),
 );
 
-/** The stored range-scoped alias (undefined when unset) alongside the name. */
-export const useResultAliasAndName = createResultSelector(
-  ({ alias, name }) => ({ alias, name }),
-  (a, b) => a.alias === b.alias && a.name === b.name,
+/**
+ * The icon of the channel, and whether it is internal or virtual. Compared by value: a
+ * status heartbeat is silenced.
+ */
+export const useResultKind = createResultSelector(
+  (ch) => ({
+    icon: resolveIcon(ch.payload),
+    internal: ch.internal,
+    virtual: ch.virtual,
+  }),
+  (a, b) => a.icon === b.icon && a.internal === b.internal && a.virtual === b.virtual,
 );
 
 export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
@@ -137,17 +130,49 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   channel.Channel[]
 >(retrieveMultipleDefinition);
 
+const { useResult: useResultCountLimitedQuery, useRefresh: useRefreshCountLimited } =
+  Flux.createRetrieve<Record<string, never>, number>({
+    name: "channel count",
+    retrieve: async ({ client }) => await client.channels.countLimited(),
+    retryUnreachable: true,
+  });
+
+const COUNT_REFRESH_DEBOUNCE = TimeSpan.milliseconds(100);
+
+/**
+ * @returns how many channels count against the license channel limit, fetched again
+ * after channel changes.
+ */
+export const useResultCountLimited = (): Flux.Result<number> => {
+  const client = Synnax.use();
+  const refresh = useRefreshCountLimited();
+  useEffect(() => {
+    if (client == null) return;
+    // The cache keeps the count of an earlier mount, which missed the changes since.
+    refresh({});
+    const debounced = scheduler.debounce(() => refresh({}), COUNT_REFRESH_DEBOUNCE);
+    const release = client.channels.store.subscribeBatch((events) => {
+      if (events.some(query.isChange)) debounced();
+    });
+    return () => {
+      debounced.cancel();
+      release();
+    };
+  }, [client, refresh]);
+  return useResultCountLimitedQuery({});
+};
+
 const retrieveInitialFormValues = async ({
-  query: { key, rangeKey },
+  query: { key },
   client,
 }: Flux.RetrieveParams<FormQuery>) =>
-  channelToFormValues(await client.channels.retrieve(key, { rangeKey }));
+  channelToFormValues(await client.channels.retrieve(key));
 
 const getCachedFormValues = ({
   client,
-  query: { key, rangeKey },
+  query: { key },
 }: Flux.RetrieveParams<FormQuery>) => {
-  const cached = client.channels.getCached({ key, rangeKey });
+  const cached = client.channels.watch({ key }).getCached();
   return query.isLive(cached) ? channelToFormValues(cached) : undefined;
 };
 
@@ -155,11 +180,22 @@ const updateForm = async ({
   client,
   set,
   value,
+  stored,
 }: Flux.FormUpdateParams<typeof formSchema | typeof calculatedFormSchema>) => {
   const values = value();
   if (values.requires != null) delete values.requires;
-  const ch = await client.channels.create(values);
-  set(formPath.key, ch.key);
+  if (primitive.isZero(values.key)) {
+    const ch = await client.channels.create(values);
+    set(formPath.key, ch.key);
+    return;
+  }
+  const edits: channel.Action[] = actions.diffFields(channel.payloadZ, stored, values, [
+    "expression",
+    "operations",
+  ]);
+  if (stored?.name !== values.name)
+    edits.unshift(channel.rename({ name: values.name }));
+  if (edits.length > 0) await client.channels.dispatch(values.key, edits);
 };
 
 export type FormQuery = RetrieveQuery;
@@ -167,8 +203,8 @@ export type FormQuery = RetrieveQuery;
 const formMountListeners: Flux.CreateFormParams<
   FormQuery,
   typeof formSchema | typeof calculatedFormSchema
->["mountListeners"] = ({ client, query: { key, rangeKey }, reset }) =>
-  client.channels.onChange({ key, rangeKey }, (result) => {
+>["mountListeners"] = ({ client, query: { key }, reset }) =>
+  client.channels.watch({ key }).onChange((result) => {
     if (query.isLive(result)) reset(channelToFormValues(result));
   });
 
@@ -202,17 +238,20 @@ const normalizeListQuery = <Q extends ListQuery>(query: Q): Q => ({
   where: { internal: { eq: false }, ...query.where },
 });
 
-export const useList = Flux.createList<ListQuery, channel.Key, channel.Channel>({
-  name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: normalizeListQuery,
-  retrieve: async ({ client, query }) => await client.channels.retrieve(query),
-  retrieveByKey: async ({ client, key, query: { rangeKey } }) =>
-    await client.channels.retrieve(key, { rangeKey }),
-  onChange: ({ client, query }, handler) => client.channels.onChange(query, handler),
-  onChangeByKey: ({ client, key, query: { rangeKey } }, handler) =>
-    client.channels.onChange({ key, rangeKey }, handler),
-  getCached: ({ client, query }) => client.channels.getCached(query),
-});
+/** Lists the channels that are not internal, unless the query sets `where.internal`. */
+export const useList = ({
+  query,
+  ...rest
+}: Omit<
+  Flux.UseListParams<ListQuery, channel.Channel>,
+  "itemQuery" | "name"
+> = {}): Flux.UseListReturn<channel.Key, channel.Channel> =>
+  Flux.useList((client) => client.channels, {
+    ...rest,
+    name: PLURAL_RESOURCE_NAME,
+    query: query === null ? null : normalizeListQuery(query ?? {}),
+    itemQuery: (key) => ({ key }),
+  });
 
 export const { useResult: useResultList } = Flux.createRetrieve<
   ListQuery,
@@ -220,9 +259,7 @@ export const { useResult: useResultList } = Flux.createRetrieve<
 >({
   name: PLURAL_RESOURCE_NAME,
   normalizeQuery: normalizeListQuery,
-  retrieve: async ({ client, query }) => await client.channels.retrieve(query),
-  onChange: ({ client, query }, handler) => client.channels.onChange(query, handler),
-  getCached: ({ client, query }) => client.channels.getCached(query),
+  ...flux.listReads(({ client, query }) => client.channels.watch(query)),
 });
 
 export interface RenameParams extends Pick<channel.Payload, "key" | "name"> {}
@@ -233,28 +270,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await client.channels.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
-    return data;
-  },
-});
-
-const ALIAS_RESOURCE_NAME = "channel alias";
-
-export interface UpdateAliasParams extends optional.Optional<
-  ranger.alias.Alias,
-  "range" | "channel"
-> {
-  alias: string;
-}
-
-export const { useUpdate: useUpdateAlias } = Flux.createUpdate<UpdateAliasParams>({
-  name: ALIAS_RESOURCE_NAME,
-  verbs: verbs.UPDATE,
-  update: async ({ client, data, onOptimisticComplete }) => {
-    const { range, channel, alias } = data;
-    if (range == null || channel == null) return false;
-    await client.ranges.setAlias(range, channel, alias, {
       onOptimistic: async () => await onOptimisticComplete(data),
     });
     return data;
@@ -272,32 +287,4 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
     });
     return data;
   },
-});
-
-export interface DeleteAliasParams {
-  range?: ranger.Key;
-  channels?: channel.Key | channel.Key[];
-}
-
-export const { useUpdate: useDeleteAlias } = Flux.createUpdate<DeleteAliasParams>({
-  name: ALIAS_RESOURCE_NAME,
-  verbs: verbs.DELETE,
-  update: async ({ client, data, onOptimisticComplete }) => {
-    const { range, channels } = data;
-    if (range == null || channels == null) return false;
-    await client.ranges.deleteAlias(range, array.toArray(channels), {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
-    return data;
-  },
-});
-
-type RetrieveGroupQuery = Record<string, never>;
-
-export const { use: useGroup, useResult: useResultGroup } = Flux.createRetrieve<
-  RetrieveGroupQuery,
-  group.Group
->({
-  name: "channel group",
-  retrieve: async ({ client }) => await client.channels.retrieveGroup(),
 });

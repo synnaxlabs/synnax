@@ -279,9 +279,7 @@ TEST(TelemTest, ByteStringToStringRejected) {
 namespace {
 /// @returns the variant of the command converted for a node of type target.
 UA_Variant convert(const x::telem::Series &command, const UA_DataType &target) {
-    auto [v, err] = to_variant(command, &target);
-    EXPECT_FALSE(err) << err;
-    return v;
+    return ASSERT_NIL_P(to_variant(command, &target));
 }
 
 /// @returns the error of converting the command for a node of type target.

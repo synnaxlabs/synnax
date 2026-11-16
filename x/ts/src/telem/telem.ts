@@ -719,7 +719,9 @@ export class TimeStamp
     dateComponentsZ.transform((v) => new TimeStamp(v)),
   ]);
 
-  /** @returns a positive number when a is after b, negative when before, 0 when equal. */
+  /**
+   * @returns a positive number when a is after b, negative when before, 0 when equal.
+   */
   static sort(a: TimeStamp, b: TimeStamp): number {
     return Number(a.valueOf() - b.valueOf());
   }
@@ -1507,9 +1509,10 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
     });
 
   /**
-   * Sorts two time ranges. The range with the earlier start time is considered less than
-   * the range with the later start time. If the start times are equal, the range with the
-   * earlier end time is considered less than the range with the later end time.
+   * Sorts two time ranges. The range with the earlier start time is considered less
+   * than the range with the later start time. If the start times are equal, the range
+   * with the earlier end time is considered less than the range with the later end
+   * time.
    *
    * @param a - The first time range.
    * @param b - The second time range.
@@ -1663,7 +1666,10 @@ export class DataType
     );
   }
 
-  /** @returns true if the data type can be cast to the other data type without loss of precision. */
+  /**
+   * @returns true if the data type can be cast to the other data type without loss of
+   * precision.
+   */
   canSafelyCastTo(other: DataType): boolean {
     if (this.equals(other)) return true;
     if (!this.isNumeric || !other.isNumeric) return false;
@@ -1685,7 +1691,10 @@ export class DataType
     return false;
   }
 
-  /** @returns true if the data type can be cast to the other data type, even if there is a loss of precision. */
+  /**
+   * @returns true if the data type can be cast to the other data type, even if there is
+   * a loss of precision.
+   */
   canCastTo(other: DataType): boolean {
     if (this.isNumeric && other.isNumeric) return true;
     return this.equals(other);

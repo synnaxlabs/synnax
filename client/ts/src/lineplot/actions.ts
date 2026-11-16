@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x";
+import { deep, type patch } from "@synnaxlabs/x";
+import { type Draft } from "immer";
 
 import { actions } from "@/actions";
 import {
@@ -15,11 +16,11 @@ import {
   addChannel,
   addRange,
   createReduceAll,
+  type HandlerResult,
   type Handlers,
   removeChannel,
   removeRange,
   removeRule,
-  rename,
   setAxisBounds,
   setAxisLabel,
   setAxisLabelDirection,
@@ -48,14 +49,18 @@ import {
   setXChannel,
 } from "@/lineplot/actions.gen";
 import { reconcileLines } from "@/lineplot/line";
+import { type LinePlot, linePlotZ } from "@/lineplot/types.gen";
 import { type ranger } from "@/ranger";
 
+const applyPath = (state: Draft<LinePlot>, action: patch.Action): HandlerResult =>
+  actions.applyPath(state, action, linePlotZ);
+
 // Handlers report the narrowest resource each action touches as its target,
-// type-prefixed to keep the key spaces (numeric channels, "y1" axes, uuid
-// lines/rules) from colliding within a plot's undo state. Plot-level config
-// (name, title, legend) targets the plot key itself; everything else targets
-// the specific channel/range/axis/line/rule so concurrent edits to distinct
-// resources neither coalesce nor invalidate each other's undoables.
+// type-prefixed to keep the key spaces (numeric channels, "y1" axes, uuid lines/rules)
+// from colliding within a plot's undo state. Plot-level config (title, legend) targets
+// the plot key itself, and a path action targets its path. Everything else targets the
+// specific channel/range/axis/line/rule so concurrent edits to distinct resources
+// neither coalesce nor invalidate each other's undoables.
 // rangeTarget names a range reference in undo targets: a saved range by its key, and a
 // window by its value, because windows carry no key.
 const rangeTarget = (range: ranger.Ref): string =>
@@ -67,12 +72,6 @@ const handlers: Handlers = {
   create: (state, payload) => {
     Object.assign(state, payload.linePlot);
     return { inverse: [], targets: [payload.linePlot.key] };
-  },
-
-  rename: (state, payload) => {
-    const oldName = state.name;
-    state.name = payload.name;
-    return { inverse: [rename({ name: oldName })], targets: [state.key] };
   },
 
   setTitleVisible: (state, payload) => {
@@ -440,6 +439,7 @@ const handlers: Handlers = {
     rule.position = payload.position;
     return { inverse, targets: [`rule:${payload.key}`] };
   },
+  ...actions.createPathHandlers(applyPath),
 };
 
 export const reduceAll = createReduceAll(handlers);

@@ -1,0 +1,24 @@
+{
+  "description": "A message has no name.",
+  "codec_rejects": false,
+  "problems": [
+    {
+      "path": "messages.0.name",
+      "message": "name is required"
+    }
+  ],
+  "icd": {
+    "key": "00000000-0000-4000-8000-000000000fff",
+    "name": "Fixture",
+    "messages": [
+      {
+        "key": "00000000-0000-4000-8000-000000000001",
+        "name": "",
+        "payload": {
+          "format": "binary",
+          "fields": []
+        }
+      }
+    ]
+  }
+}

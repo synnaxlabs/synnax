@@ -16,9 +16,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/testutil/vectors"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -32,7 +31,7 @@ var _ = Describe("Where", Ordered, func() {
 		tx       gorp.Tx
 	)
 	v := MustSucceed(
-		testutil.ReadVectors[status.Status[any], status.Where]("statuses"),
+		vectors.Read[status.Status[any], status.Where]("statuses"),
 	)
 	keys := lo.MapEntries(v.Records, func(
 		alias string,
@@ -43,40 +42,26 @@ var _ = Describe("Where", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustOpen(group.OpenService(
+		MustOpen(group.OpenService(
 			ctx,
-			group.ServiceConfig{DB: db, Ontology: otg},
+			group.ServiceConfig{DB: db},
 		))
 		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
+			DB: db,
 		}))
 		svc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Label:    labelSvc,
-			Group:    g,
+			DB: db,
 		}))
 		tx = DeferClose(db.OpenTx())
-		labels := make(map[label.Key]label.Label)
-		for _, s := range v.Records {
-			for _, l := range s.Labels {
-				labels[l.Key] = l
-			}
-			s.Labels = nil
-			Expect(svc.NewWriter(tx).Set(ctx, &s)).To(Succeed())
-		}
-		for _, l := range labels {
+		for _, k := range lo.Uniq(lo.FlatMap(
+			lo.Values(v.Records),
+			func(s status.Status[any], _ int) []label.Key { return s.Labels },
+		)) {
+			l := label.Label{Key: k, Name: k.String()}
 			Expect(labelSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		}
 		for _, s := range v.Records {
-			Expect(labelSvc.NewWriter(tx).Label(
-				ctx,
-				s.OntologyID(),
-				lo.Map(s.Labels, func(l label.Label, _ int) label.Key { return l.Key }),
-			)).To(Succeed())
+			Expect(svc.NewWriter(tx).Set(ctx, &s)).To(Succeed())
 		}
 	})
 
@@ -94,7 +79,7 @@ var _ = Describe("Where", Ordered, func() {
 				return keys[s.Key]
 			})).To(ConsistOf(expected))
 		},
-		lo.Map(v.Cases, func(c testutil.Case[status.Where], _ int) TableEntry {
+		lo.Map(v.Cases, func(c vectors.Case[status.Where], _ int) TableEntry {
 			return Entry(c.Name, c.Where, c.Expected)
 		}),
 	)

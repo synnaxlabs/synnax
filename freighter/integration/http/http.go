@@ -27,8 +27,9 @@ import (
 	"go.uber.org/zap"
 )
 
-func BindTo(f *fiber.App) error {
-	router, err := http.NewRouter(http.RouterConfig{
+// BindTo binds the integration endpoints to f. Streams end when life ends.
+func BindTo(life context.Context, f *fiber.App) error {
+	router, err := http.NewRouter(life, http.RouterConfig{
 		Instrumentation:     testutil.Instrumentation("freighter-integration"),
 		StreamWriteDeadline: 50 * time.Millisecond,
 	})
@@ -134,11 +135,11 @@ type truncatingEncoder struct{}
 
 func (truncatingEncoder) ContentType() string { return "application/x-truncated" }
 
-func (truncatingEncoder) Encode(context.Context, any) ([]byte, error) {
+func (truncatingEncoder) Encode(any) ([]byte, error) {
 	return nil, errors.New("truncating encoder only streams")
 }
 
-func (truncatingEncoder) EncodeStream(_ context.Context, w io.Writer, v any) error {
+func (truncatingEncoder) EncodeStream(w io.Writer, v any) error {
 	msg, ok := v.(message)
 	if !ok {
 		return errors.Newf("truncating encoder cannot encode %T", v)
@@ -281,7 +282,7 @@ func slamMessagesTimeoutCheckHandler(_ context.Context, msg message) (message, e
 func streamSendMessageAfterClientClose(_ context.Context, stream serverStream) error {
 	for {
 		msg, err := stream.Receive()
-		if errors.Is(err, freighter.EOF) {
+		if errors.Is(err, io.EOF) {
 			return stream.Send(message{Message: "Close Acknowledged"})
 		}
 		if err != nil {

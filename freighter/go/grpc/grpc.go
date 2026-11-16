@@ -43,7 +43,7 @@ func (t CompoundBindableTransport) BindTo(reg grpc.ServiceRegistrar) {
 	}
 }
 
-var Reporter = freighter.Reporter{
+var reporter = freighter.Reporter{
 	Protocol:  "grpc",
 	Encodings: []string{"protobuf"},
 }

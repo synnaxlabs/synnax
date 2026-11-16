@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Context, type UnaryClient, Unreachable } from "@synnaxlabs/freighter";
+import {
+  type Context,
+  type Middleware,
+  type UnaryClient,
+  Unreachable,
+} from "@synnaxlabs/freighter";
 import { type breaker, observe, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -20,7 +25,9 @@ import {
   AuthError,
   DisconnectedError,
   ExpiredLicenseError,
+  MissingCredentialsError,
   MissingLicenseError,
+  SessionEndedError,
 } from "@/index";
 import { license } from "@/license";
 import { query } from "@/query";
@@ -90,6 +97,68 @@ const createScriptedUnary = ({
     setFailing: (next) => (down = next),
     setClusterKey: (next) => (key = next),
     setLicense: (next) => (state = next),
+  };
+};
+
+/** A release client version on a newer minor than the 0.60 Core. */
+const CLIENT_061 = "0.61.0";
+
+interface Core060 {
+  /** Whether the Core was upgraded to {@link CLIENT_061}. */
+  upgraded: boolean;
+  /** Whether the Core stopped answering. */
+  down?: boolean;
+}
+
+/**
+ * A Core 0.60 that answers a login and a check with the shapes it sends. Responses
+ * parse after the middleware runs, as in an HTTP client. Once `core.upgraded` is set,
+ * it answers checks as a Core of {@link CLIENT_061}.
+ */
+const createCore060Unary = (core: Core060 = { upgraded: false }): UnaryClient => {
+  const responses: Record<string, unknown> = {
+    "/auth/session/create": {
+      token: "token",
+      session: {
+        key: "6f9619ff-8b86-4011-b42d-00cf4fc964ff",
+        subject: { type: "user", key: "7f9619ff-8b86-4011-b42d-00cf4fc964ff" },
+        credential: "8f9619ff-8b86-4011-b42d-00cf4fc964ff",
+        lastActive: TimeStamp.now().valueOf(),
+      },
+      user: {
+        key: "7f9619ff-8b86-4011-b42d-00cf4fc964ff",
+        username: "synnax",
+        firstName: "",
+        lastName: "",
+        rootUser: true,
+      },
+    },
+    "/connectivity/check": {
+      clusterKey: "core-060",
+      nodeVersion: "0.60.1",
+      nodeKey: 1,
+      nodeTime: TimeStamp.now().valueOf(),
+      license: "ok",
+    },
+  };
+  const middleware: Middleware[] = [];
+  const run = async (ctx: Context, i: number): Promise<Context> =>
+    i === middleware.length
+      ? ctx
+      : await middleware[i](ctx, async (next) => await run(next, i + 1));
+  return {
+    use: (...mw) => middleware.push(...mw),
+    send: async (target, _req, _reqZ, resZ, params = {}) => {
+      if (core.down === true) throw new Unreachable({ message: "server down" });
+      if (core.upgraded)
+        return resZ.parse({
+          ...(responses["/connectivity/check"] as object),
+          nodeVersion: CLIENT_061,
+          nodeTime: TimeStamp.now().valueOf(),
+        });
+      await run({ target, role: "client", protocol: "http", params }, 0);
+      return resZ.parse(responses[target]);
+    },
   };
 };
 
@@ -503,6 +572,17 @@ describe("connection", () => {
         { type: "credentials.replaced" },
       );
       expect(status.details.session).toBeUndefined();
+    });
+
+    it("should keep why a session ended when a later login has nothing to send", () => {
+      const ended = new SessionEndedError("session ended");
+      const status = apply(
+        createConfig(),
+        { type: "auth.failure", error: ended },
+        { type: "auth.failure", error: new MissingCredentialsError("no credentials") },
+      );
+      expect(reasonOf(status)).toEqual("auth");
+      expect(status.details.error).toBe(ended);
     });
 
     it("should treat an auth error from the check as an auth failure", () => {
@@ -947,6 +1027,193 @@ describe("connection", () => {
       expect(send.mock.calls.length).toBe(calls);
     });
 
+    it("should report a Core on another minor whose login fails to parse", async () => {
+      const unary = createCore060Unary();
+      const authClient = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
+      unary.use(authClient.middleware());
+      const client = createClient(unary, {
+        clientVersion: CLIENT_061,
+        tokenless: createCore060Unary(),
+      });
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
+      expect(reasonOf(status)).toBe("incompatible");
+      expect(status.details.nodeVersion).toBe("0.60.1");
+      expect(status.details.clientServerCompatible).toBe(false);
+      await client.close();
+    });
+
+    it("should report an incompatible Core again after new credentials", async () => {
+      const unary = createCore060Unary();
+      const authClient = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
+      unary.use(authClient.middleware());
+      const client = createClient(unary, {
+        clientVersion: CLIENT_061,
+        tokenless: createCore060Unary(),
+      });
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => reasonOf(s) === "incompatible",
+      );
+      client.notify({ type: "credentials.replaced" });
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
+      expect(reasonOf(status)).toBe("incompatible");
+      await client.close();
+    });
+
+    it("should lift the incompatible error once the Core is upgraded", async () => {
+      const core: Core060 = { upgraded: false };
+      const unary = createCore060Unary(core);
+      const authClient = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
+      unary.use(authClient.middleware());
+      const client = createClient(unary, {
+        clientVersion: CLIENT_061,
+        tokenless: createCore060Unary(core),
+      });
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => reasonOf(s) === "incompatible",
+      );
+      core.upgraded = true;
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "success",
+      );
+      expect(status.details.nodeVersion).toBe(CLIENT_061);
+      expect(status.details.clientServerCompatible).toBe(true);
+      await client.close();
+    });
+
+    it("should reconnect when an incompatible Core stops answering", async () => {
+      const core: Core060 = { upgraded: false };
+      const unary = createCore060Unary(core);
+      const authClient = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
+      unary.use(authClient.middleware());
+      const client = createClient(unary, {
+        clientVersion: CLIENT_061,
+        tokenless: createCore060Unary(core),
+      });
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => reasonOf(s) === "incompatible",
+      );
+      core.down = true;
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "loading",
+      );
+      expect(status.message).toBe("Reconnecting");
+      expect(status.details.nodeVersion).toBe("0.60.1");
+      expect(status.details.clientServerCompatible).toBe(false);
+      await client.close();
+    });
+
+    it("should count a downed incompatible Core from its first failure", async () => {
+      const core: Core060 = { upgraded: false };
+      const unary = createCore060Unary(core);
+      const authClient = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
+      unary.use(authClient.middleware());
+      const send = vi.spyOn(unary, "send");
+      const client = createClient(unary, {
+        clientVersion: CLIENT_061,
+        escalateAfter: 4,
+        tokenless: createCore060Unary(core),
+      });
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => reasonOf(s) === "incompatible",
+      );
+      await expect.poll(() => send.mock.calls.length).toBeGreaterThan(8);
+      core.down = true;
+      const calls = send.mock.calls.length;
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => reasonOf(s) === "unreachable",
+      );
+      expect(send.mock.calls.length - calls).toBeGreaterThanOrEqual(4);
+      await client.close();
+    });
+
+    it("should not check without auth when the Core is unreachable", async () => {
+      const tokenless = mockUnary(() => TimeStamp.now());
+      const client = createClient(failingUnary(), { escalateAfter: 2, tokenless });
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
+      expect(reasonOf(status)).toBe("unreachable");
+      expect(tokenless.send).not.toHaveBeenCalled();
+      await client.close();
+    });
+
+    it("should not check without auth when the login is rejected", async () => {
+      const unary: UnaryClient = {
+        send: vi.fn().mockRejectedValue(new AuthError("bad password")),
+        use: vi.fn(),
+      };
+      const tokenless = mockUnary(() => TimeStamp.now());
+      const client = createClient(unary, { tokenless });
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
+      expect(reasonOf(status)).toBe("auth");
+      expect(tokenless.send).not.toHaveBeenCalled();
+      await client.close();
+    });
+
+    it("should report the failed check when the Core is compatible", async () => {
+      const unary: UnaryClient = {
+        send: vi.fn().mockRejectedValue(new Error("bad response")),
+        use: vi.fn(),
+      };
+      const tokenless = mockUnary(() => TimeStamp.now());
+      const client = createClient(unary, { escalateAfter: 2, tokenless });
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
+      expect(reasonOf(status)).toBe("unreachable");
+      expect(status.details.error?.message).toBe("bad response");
+      expect(tokenless.send).toHaveBeenCalled();
+      await client.close();
+    });
+
+    it("should report the failed check when the check without auth fails", async () => {
+      const unary: UnaryClient = {
+        send: vi.fn().mockRejectedValue(new Error("bad response")),
+        use: vi.fn(),
+      };
+      const tokenless = failingUnary();
+      const client = createClient(unary, { escalateAfter: 2, tokenless });
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
+      expect(reasonOf(status)).toBe("unreachable");
+      expect(status.details.error?.message).toBe("bad response");
+      expect(tokenless.send).toHaveBeenCalled();
+      await client.close();
+    });
+
     it("should idle rather than check while parked on an auth error", async () => {
       const unary = mockUnary(() => TimeStamp.now());
       const client = createClient(unary);
@@ -1120,6 +1387,23 @@ describe("connection", () => {
       expect(checks - checksAtDenial).toBeGreaterThanOrEqual(3);
       expect(internal).toHaveLength(1);
       expect(AccessDeniedError.matches(internal[0])).toBe(true);
+      await client.close();
+    });
+
+    it("should leave a failed login on the stream to the auth status", async () => {
+      const internal: Error[] = [];
+      const ensured = vi.fn(async () => {
+        throw new AuthError("no credentials");
+      });
+      const unary = mockUnary(() => TimeStamp.now());
+      const client = createClient(unary, {
+        requiresStream: true,
+        stream: { reset: async () => {}, ensure: ensured },
+        onInternalError: (error) => internal.push(error),
+      });
+      while (ensured.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
+      await sleep(TimeSpan.milliseconds(5));
+      expect(internal).toEqual([]);
       await client.close();
     });
 

@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/filter"
+	"uuid"
 )
 
 // Key is a unique identifier for a task.
@@ -111,8 +112,8 @@ type Where struct {
 	Rack *filter.Set[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
 	// Internal selects by internal.
 	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
-	// Snapshot selects by snapshot.
-	Snapshot *filter.Bool `json:"snapshot,omitzero" msgpack:"snapshot,omitempty"`
+	// Arcs matches the tasks that run any of the Arcs with the given keys.
+	Arcs []uuid.UUID `json:"arcs,omitzero" msgpack:"arcs,omitempty"`
 }
 
 // Command is a command to execute on a task in the Driver system.

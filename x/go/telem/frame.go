@@ -75,9 +75,9 @@ func MultiFrame[K types.SizedNumeric](keys []K, series []Series) Frame[K] {
 // AllocFrame allocates a new frame with the given capacity. The capacity is the maximum
 // number of entries that can be added to the frame before it needs to be resized. The
 // frame is not initialized, so the keys and series slices will be empty. This function
-// is useful for creating a frame with a known number of entries
-func AllocFrame[K types.SizedNumeric](cap int) Frame[K] {
-	return Frame[K]{keys: make([]K, 0, cap), series: make([]Series, 0, cap)}
+// is useful for creating a frame with a known number of entries.
+func AllocFrame[K types.SizedNumeric](capacity int) Frame[K] {
+	return Frame[K]{keys: make([]K, 0, capacity), series: make([]Series, 0, capacity)}
 }
 
 // String returns a nicely formatted string representation of the frame. This function
@@ -422,7 +422,7 @@ func (f Frame[K]) KeepKeys(keys set.Set[K]) Frame[K] {
 }
 
 // notContain is defined statically so that it doesn't accidentally escape to the heap,
-// applying more pressure on GC
+// applying more pressure on GC.
 func notContains[T comparable](s []T, e T) bool { return !lo.Contains(s, e) }
 
 // ExcludeKeys filters the frame to include any keys that are NOT in the given slice,
@@ -431,7 +431,7 @@ func (f Frame[K]) ExcludeKeys(keys []K) Frame[K] {
 	if len(keys) == 0 {
 		return f
 	}
-	return f.filter(keys, len(keys), notContains)
+	return f.filter(keys, len(f.keys), notContains)
 }
 
 func (f Frame[K]) filter[S any](src S, count int, keep func(S, K) bool) Frame[K] {
@@ -444,6 +444,7 @@ func (f Frame[K]) filter[S any](src S, count int, keep func(S, K) bool) Frame[K]
 		}
 		return f
 	}
+	count = min(len(f.keys), count)
 	var (
 		fKeys   = make([]K, 0, count)
 		fSeries = make([]Series, 0, count)

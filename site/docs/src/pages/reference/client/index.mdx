@@ -15,8 +15,8 @@ export const components = mdxOverrides;
 The Synnax client libraries connect your own Python and TypeScript code to a Synnax
 Core. Use them to write, read, stream, and delete the samples of
 [channels](/reference/channels), and to set up channels, ranges, and tasks from code.
-The clients connect to a Core in [Synnax Enterprise](/reference/enterprise), or to
-Synnax Desktop on the same computer. To start, follow the
+The clients connect to Synnax Desktop on the same computer, or to a Core in
+[Synnax Enterprise](/reference/enterprise). To start, follow the
 [quick start](/reference/client/quick-start).
 
 In code, samples move in series and frames. A series holds the samples of one channel. A
@@ -125,12 +125,13 @@ in the Core, a [calculated channel](/reference/channels/calculated) needs no cod
 
 ## Operations
 
-| Operation                               | Python                                 | TypeScript                           | Use it to                           |
-| --------------------------------------- | -------------------------------------- | ------------------------------------ | ----------------------------------- |
-| [Write](/reference/client/write-data)   | `open_writer`, `write`                 | `openWriter`, `write`                | Store samples and stream them live. |
-| [Read](/reference/client/read-data)     | `read`, `read_latest`, `open_iterator` | `read`, `readLatest`, `openIterator` | Get samples that the Core stored.   |
-| [Stream](/reference/client/stream-data) | `open_streamer`, `open_async_streamer` | `openStreamer`                       | Get samples as they arrive.         |
-| [Delete](/reference/client/delete-data) | `delete`                               | `delete`                             | Remove the samples in a time range. |
+| Operation                                           | Python                                 | TypeScript                           | Use it to                           |
+| --------------------------------------------------- | -------------------------------------- | ------------------------------------ | ----------------------------------- |
+| [Write](/reference/client/write-data)               | `open_writer`, `write`                 | `openWriter`, `write`                | Store samples and stream them live. |
+| [Read](/reference/client/read-data)                 | `read`, `read_latest`, `open_iterator` | `read`, `readLatest`, `openIterator` | Get samples that the Core stored.   |
+| [Stream](/reference/client/stream-data)             | `open_streamer`, `open_async_streamer` | `openStreamer`                       | Get samples as they arrive.         |
+| [Delete](/reference/client/delete-data)             | `delete`                               | `delete`                             | Remove the samples in a time range. |
+| [Export](/reference/client/read-data#export-to-csv) | `read_csv`, `read_tdms`                | `readCSV`, `readTDMS`                | Save samples to a CSV or TDMS file. |
 
 Each operation is a method on the client.
 
@@ -138,10 +139,10 @@ Each operation is a method on the client.
 
 ## Languages
 
-| Language   | Package                                                                         | Runs on                                                  |
-| ---------- | ------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| Python     | [`synnax`](https://pypi.org/project/synnax/) on PyPI                            | Python 3.12 or later                                     |
-| TypeScript | [`@synnaxlabs/client`](https://www.npmjs.com/package/@synnaxlabs/client) on npm | Node.js 22, Chrome 122, Firefox 127, Safari 17, or later |
+| Language   | Package                                                                         | Runs on                                                    |
+| ---------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Python     | [`synnax`](https://pypi.org/project/synnax/) on PyPI                            | Python 3.12 or later                                       |
+| TypeScript | [`@synnaxlabs/client`](https://www.npmjs.com/package/@synnaxlabs/client) on npm | Node.js 22, Chrome 122, Firefox 127, Safari 17.4, or later |
 
-Use a client with the same major and minor version as your Core, such as client 0.58
-with Core 0.58. The client prints a warning when the versions differ.
+Use a client with the same major and minor version as your Core, such as client 0.61
+with Core 0.61. The client prints a warning when the versions differ.

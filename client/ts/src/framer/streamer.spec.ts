@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { EOF, Unreachable } from "@synnaxlabs/freighter";
+import { type AddressInfo } from "node:net";
+
+import { EOF, StreamClosed, Unreachable, WebSocketClient } from "@synnaxlabs/freighter";
 import {
+  array,
+  binary,
   DataType,
   errors,
   id,
@@ -16,10 +20,13 @@ import {
   sleep,
   TimeSpan,
   TimeStamp,
+  url,
 } from "@synnaxlabs/x";
-import { describe, expect, it, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
+import { type WebSocket, WebSocketServer } from "ws";
+import { z } from "zod";
 
-import { type channel } from "@/channel";
+import { channel } from "@/channel";
 import { AuthError, ExpiredTokenError, SessionEndedError } from "@/errors";
 import { framer } from "@/framer";
 import { AccessDeniedError, MissingLicenseError } from "@/index";
@@ -1587,5 +1594,95 @@ describe("Streamer", () => {
 
       expect(onDead).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("update against a local server", () => {
+  // Wire byte that marks a JSON message from the Core.
+  const LOW_PERF_SPECIAL_CHAR = 254;
+  const requestZ = z.object({
+    payload: z.object({ ackRequested: z.boolean().optional() }).optional(),
+  });
+
+  let server: WebSocketServer;
+  let connected: Promise<WebSocket>;
+
+  const retrieveChannels: framer.ChannelRetriever = async (params) =>
+    array
+      .toArray(params)
+      .map((key) =>
+        channel.payloadZ.parse({ key, name: id.create(), dataType: "float32" }),
+      );
+
+  const reply = (ws: WebSocket, msg: object): void =>
+    ws.send(
+      Buffer.concat([
+        Buffer.from([LOW_PERF_SPECIAL_CHAR]),
+        Buffer.from(JSON.stringify(msg)),
+      ]),
+    );
+
+  const replyData = (ws: WebSocket, extra: object = {}): void =>
+    reply(ws, { type: "data", payload: { frame: { keys: [], series: [] }, ...extra } });
+
+  // Calls onAckRequest for each update that asks for an ack.
+  const open = async (onAckRequest: (ws: WebSocket) => void) => {
+    const { port } = server.address() as AddressInfo;
+    const ws = new WebSocketClient(
+      new url.URL({ host: "127.0.0.1", port }),
+      new binary.JSONCodec(),
+    );
+    const codec = new binary.JSONCodec();
+    void connected.then((sock) =>
+      sock.on("message", (data: Buffer) => {
+        if (codec.decode(data, requestZ).payload?.ackRequested === true)
+          onAckRequest(sock);
+      }),
+    );
+    return await framer.openStreamer(retrieveChannels, ws, { channels: [1] });
+  };
+
+  beforeEach(async () => {
+    server = new WebSocketServer({ port: 0, host: "127.0.0.1" });
+    connected = new Promise((resolve) =>
+      server.on("connection", (ws) => {
+        reply(ws, { type: "open", payload: null });
+        ws.once("message", () => replyData(ws));
+        resolve(ws);
+      }),
+    );
+    await new Promise((resolve) => server.on("listening", resolve));
+  });
+
+  afterEach(async () => {
+    server.clients.forEach((ws) => ws.terminate());
+    await new Promise((resolve) => server.close(resolve));
+  });
+
+  it("should resolve once the Core acks the update", async () => {
+    const streamer = await open((ws) => replyData(ws, { ack: true }));
+    const reading = streamer.read();
+    await streamer.update([2], { waitForAck: true });
+    expect(streamer.keys).toEqual([2]);
+    server.clients.forEach((ws) => ws.terminate());
+    await expect(reading).rejects.toThrow(StreamClosed);
+  });
+
+  it("should reject with the read error when the stream fails first", async () => {
+    const streamer = await open((ws) => ws.terminate());
+    const reading = streamer.read();
+    await expect(streamer.update([2], { waitForAck: true })).rejects.toThrow(
+      StreamClosed,
+    );
+    await expect(reading).rejects.toThrow(StreamClosed);
+  });
+
+  it("should reject an update sent after close", async () => {
+    const streamer = await open(() => {});
+    streamer.close();
+    await expect(streamer.update([2], { waitForAck: true })).rejects.toThrow(
+      StreamClosed,
+    );
+    await expect(streamer.update([3])).rejects.toThrow(StreamClosed);
   });
 });

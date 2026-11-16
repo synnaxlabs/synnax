@@ -14,34 +14,41 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
 	var (
 		svc   *password.Service
-		w     password.Writer
-		alice ontology.ID
+		alice resource.ID
 		name  string
 	)
 	BeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
-		w = svc.NewWriter(nil)
 		alice = subject()
 		name = uuid.New().String()
-		Expect(w.Set(ctx, alice, auth.Credentials{Username: name, Password: "p"})).
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Set(ctx, alice, name, hash(svc, "p"))
+		})).
 			To(Succeed())
 	})
-	retrieve := func(ctx SpecContext, subject ontology.ID) password.Password {
+	retrieve := func(ctx SpecContext, subject resource.ID) password.Password {
 		GinkgoHelper()
 		var p password.Password
 		Expect(svc.NewRetrieve().Where(password.MatchSubjects(subject)).Entry(&p).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		return p
+	}
+	apply := func(ctx SpecContext, subject resource.ID, acts ...password.Action) error {
+		return db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Apply(ctx, subject, acts...)
+		})
 	}
 	Describe("Set", func() {
 		It("Should store one password per subject", func(ctx SpecContext) {
@@ -55,40 +62,58 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				before := retrieve(ctx, alice)
 				renamed := uuid.New().String()
-				Expect(
-					w.Set(
-						ctx,
-						alice,
-						auth.Credentials{Username: renamed, Password: "q"},
-					),
-				).
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Set(ctx, alice, renamed, hash(svc, "q"))
+				})).
 					To(Succeed())
 				after := retrieve(ctx, alice)
 				Expect(after.Key).To(Equal(before.Key))
 				Expect(after.Username).To(Equal(renamed))
 				Expect(after.Hash).ToNot(Equal(before.Hash))
 				Expect(svc.NewRetrieve().Where(password.MatchSubjects(alice)).
-					Count(ctx, nil)).To(Equal(1))
+					Count(ctx, db)).To(Equal(1))
 				MustSucceed(svc.Authenticate(ctx, proof(renamed, "q")))
 				Expect(svc.Authenticate(ctx, proof(name, "p"))).Error().
 					To(MatchError(auth.ErrInvalidCredentials))
 			},
 		)
 		It("Should reject a username another subject holds", func(ctx SpecContext) {
-			Expect(
-				w.Set(ctx, subject(), auth.Credentials{Username: name, Password: "p"}),
-			).
+			other := subject()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Set(ctx, other, name, hash(svc, "p"))
+			})).
 				To(MatchError(auth.ErrRepeatedUsername))
 		})
-		It("Should reject empty credentials", func(ctx SpecContext) {
-			Expect(w.Set(ctx, alice, auth.Credentials{Username: name})).
-				To(MatchError(ContainSubstring("password: required")))
+		It("Should reject an empty username", func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Set(ctx, alice, "", hash(svc, "p"))
+			})).
+				To(MatchError(ContainSubstring("username: required")))
+		})
+		It("Should refuse a hash proven against a password that changed", func(
+			ctx SpecContext,
+		) {
+			stale := MustSucceed(svc.HashProven(
+				ctx,
+				auth.PasswordProof{Username: name, Password: "p"},
+				"stale",
+			))
+			Expect(
+				apply(ctx, alice, password.NewSetHashAction(hash(svc, "q"))),
+			).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Set(ctx, alice, name, stale)
+			})).
+				To(MatchError(auth.ErrInvalidCredentials))
+			MustSucceed(svc.Authenticate(ctx, proof(name, "q")))
 		})
 	})
-	Describe("ChangePassword", func() {
+	Describe("Apply with NewSetHashAction", func() {
 		It("Should replace the hash and keep the username", func(ctx SpecContext) {
 			before := retrieve(ctx, alice)
-			Expect(w.ChangePassword(ctx, alice, "q")).To(Succeed())
+			Expect(
+				apply(ctx, alice, password.NewSetHashAction(hash(svc, "q"))),
+			).To(Succeed())
 			after := retrieve(ctx, alice)
 			Expect(after.Key).To(Equal(before.Key))
 			Expect(after.Username).To(Equal(name))
@@ -97,55 +122,117 @@ var _ = Describe("Writer", func() {
 			Expect(svc.Authenticate(ctx, proof(name, "p"))).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
 		})
-		It("Should reject an empty password", func(ctx SpecContext) {
-			Expect(w.ChangePassword(ctx, alice, "")).
-				To(MatchError(ContainSubstring("password: required")))
+		It("Should refuse a hash proven against a password that changed", func(
+			ctx SpecContext,
+		) {
+			stale := MustSucceed(svc.HashProven(
+				ctx,
+				auth.PasswordProof{Username: name, Password: "p"},
+				"stale",
+			))
+			Expect(
+				apply(ctx, alice, password.NewSetHashAction(hash(svc, "q"))),
+			).To(Succeed())
+			Expect(apply(ctx, alice, password.NewSetHashAction(stale))).
+				To(MatchError(auth.ErrInvalidCredentials))
+			MustSucceed(svc.Authenticate(ctx, proof(name, "q")))
 		})
 		It(
 			"Should return not found for a subject without a password",
 			func(ctx SpecContext) {
+				other := subject()
 				Expect(
-					w.ChangePassword(ctx, subject(), "q"),
+					apply(ctx, other, password.NewSetHashAction(hash(svc, "q"))),
 				).To(MatchError(query.ErrNotFound))
 			},
 		)
 	})
-	Describe("Rename", func() {
+	Describe("Apply with NewSetUsernameAction", func() {
 		It("Should change the username", func(ctx SpecContext) {
 			renamed := uuid.New().String()
-			Expect(w.Rename(ctx, alice, renamed)).To(Succeed())
+			Expect(
+				apply(ctx, alice, password.NewSetUsernameAction(renamed)),
+			).To(Succeed())
 			MustSucceed(svc.Authenticate(ctx, proof(renamed, "p")))
 			Expect(svc.Authenticate(ctx, proof(name, "p"))).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
 		})
+		It("Should reject an empty username", func(ctx SpecContext) {
+			Expect(apply(ctx, alice, password.NewSetUsernameAction(""))).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("username: required")),
+			))
+			Expect(retrieve(ctx, alice).Username).To(Equal(name))
+		})
 		It("Should reject a username another subject holds", func(ctx SpecContext) {
 			bob := subject()
 			taken := uuid.New().String()
-			Expect(w.Set(ctx, bob, auth.Credentials{Username: taken, Password: "p"})).
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Set(ctx, bob, taken, hash(svc, "p"))
+			})).
 				To(Succeed())
-			Expect(w.Rename(ctx, alice, taken)).To(MatchError(auth.ErrRepeatedUsername))
+			Expect(
+				apply(ctx, alice, password.NewSetUsernameAction(taken)),
+			).To(MatchError(auth.ErrRepeatedUsername))
 		})
 		It(
 			"Should return not found for a subject without a password",
 			func(ctx SpecContext) {
-				Expect(w.Rename(ctx, subject(), uuid.New().String())).
+				other := subject()
+				Expect(
+					apply(
+						ctx,
+						other,
+						password.NewSetUsernameAction(uuid.New().String()),
+					),
+				).
 					To(MatchError(query.ErrNotFound))
 			},
 		)
 	})
-	Describe("DeleteFor", func() {
-		It("Should remove the passwords of the given subjects", func(ctx SpecContext) {
-			bob := subject()
-			Expect(w.Set(ctx, bob, auth.Credentials{
-				Username: uuid.New().String(),
-				Password: "p",
-			})).To(Succeed())
-			Expect(w.DeleteFor(ctx, alice, bob)).To(Succeed())
-			Expect(svc.NewRetrieve().Where(password.MatchSubjects(alice, bob)).
-				Exists(ctx, nil)).To(BeFalse())
+	Describe("Apply with a hash and a username", func() {
+		It("Should change both in one call", func(ctx SpecContext) {
+			renamed := uuid.New().String()
+			Expect(apply(
+				ctx,
+				alice,
+				password.NewSetHashAction(hash(svc, "q")),
+				password.NewSetUsernameAction(renamed),
+			)).To(Succeed())
+			MustSucceed(svc.Authenticate(ctx, proof(renamed, "q")))
+			Expect(svc.Authenticate(ctx, proof(renamed, "p"))).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
 		})
-		It("Should succeed for a subject without a password", func(ctx SpecContext) {
-			Expect(w.DeleteFor(ctx, subject())).To(Succeed())
+		It("Should change neither when the username is taken", func(ctx SpecContext) {
+			bob := subject()
+			taken := uuid.New().String()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Set(ctx, bob, taken, hash(svc, "p"))
+			})).
+				To(Succeed())
+			before := retrieve(ctx, alice)
+			Expect(apply(
+				ctx,
+				alice,
+				password.NewSetHashAction(hash(svc, "q")),
+				password.NewSetUsernameAction(taken),
+			)).To(MatchError(auth.ErrRepeatedUsername))
+			Expect(retrieve(ctx, alice)).To(Equal(before))
+		})
+	})
+	Describe("Set", func() {
+		It("Should refuse a subject that does not exist", func(ctx SpecContext) {
+			missing := resource.ID{Type: resource.TypeUser, Key: uuid.New().String()}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).
+					Set(ctx, missing, uuid.New().String(), hash(svc, "p"))
+			})).To(
+				MatchError(
+					ContainSubstring(
+						"subject: user " + missing.Key + " does not exist",
+					),
+				),
+			)
 		})
 	})
 })

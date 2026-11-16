@@ -39,8 +39,7 @@ import math
 import time
 from typing import override
 
-from examples.mqtt_sim import sparkplug
-from examples.mqtt_sim import sparkplug_b_pb2 as pb
+from examples.mqtt_sim import sparkplug, sparkplug_b_pb2 as pb
 from examples.mqtt_sim.broker import Broker
 from examples.simulators.device_sim import DeviceSim
 from synnax import mqtt

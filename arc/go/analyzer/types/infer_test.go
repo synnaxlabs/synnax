@@ -15,14 +15,29 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/constraints"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// floatLiteral returns the type of an untyped float literal or constant.
+func floatLiteral() types.Type {
+	c := types.FloatConstraint()
+	return types.Variable("float", &c)
+}
+
+// integerLiteral returns the type of an untyped integer literal.
+func integerLiteral() types.Type {
+	c := types.IntegerConstraint()
+	return types.Variable("integer", &c)
+}
 
 // inferExprType is a helper that parses an expression and infers its type.
 func inferExprType(
@@ -42,6 +57,91 @@ func parseTypeFromDecl(decl string) parser.ITypeContext {
 	stmt := MustSucceed(parser.ParseStatement(decl))
 	return stmt.VariableDeclaration().LocalVariable().Type_()
 }
+
+var _ = Describe("Module constants", func() {
+	infer := func(bCtx context.Context, expr string) acontext.Context[parser.IExpressionContext] {
+		GinkgoHelper()
+		root := symbol.NewRoot(nil, stl.NewSymbols())
+		symbol.AutoImportModules(root)
+		ctx := acontext.NewRoot(bCtx, MustSucceed(parser.ParseExpression(expr)), root)
+		atypes.InferFromExpression(ctx)
+		return ctx
+	}
+
+	DescribeTable("Should give a read of an untyped variable one type",
+		func(bCtx SpecContext, constraint *types.Type, expected types.Kind) {
+			parsed := MustSucceed(parser.ParseExpression("x + x"))
+			ctx := acontext.NewRoot(bCtx, parsed, NewRoot(nil, symbol.Symbol{
+				Name: "x",
+				Kind: symbol.KindVariable,
+				Type: types.Variable("x", constraint),
+			}))
+			Expect(atypes.InferFromExpression(ctx).Kind).To(Equal(expected))
+		},
+		Entry("an integer", new(types.IntegerConstraint()), types.KindI64),
+		Entry("a float", new(types.FloatConstraint()), types.KindF64),
+		Entry("a numeric value", new(types.NumericConstraint()), types.KindVariable),
+		Entry("an unconstrained value", nil, types.KindVariable),
+	)
+
+	DescribeTable("Should reject a series element of another type",
+		func(bCtx SpecContext, expr, message string) {
+			parsed := MustSucceed(parser.ParseExpression(expr))
+			ctx := acontext.NewRoot(bCtx, parsed, NewRoot(nil, symbol.Symbol{
+				Name: "n", Kind: symbol.KindVariable, Type: types.I32(),
+			}, symbol.Symbol{
+				Name: "e",
+				Kind: symbol.KindVariable,
+				Type: types.Series(types.Variable("e", nil)),
+			}))
+			atypes.InferFromExpression(ctx)
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+		},
+		Entry("after a float", "[1.5, n]", "has incompatible type i32"),
+		Entry(
+			"after a float bound an open element",
+			"[e[0], 1.5, n]",
+			"float is not compatible with i32",
+		),
+	)
+
+	It(
+		"Should add no constraint for a read of a typed variable",
+		func(bCtx SpecContext) {
+			parsed := MustSucceed(parser.ParseExpression("x + x"))
+			ctx := acontext.NewRoot(bCtx, parsed, NewRoot(nil, symbol.Symbol{
+				Name: "x", Kind: symbol.KindVariable, Type: types.F32(),
+			}))
+			Expect(atypes.InferFromExpression(ctx)).To(Equal(types.F32()))
+			Expect(ctx.Constraints.Constraints).To(BeEmpty())
+		},
+	)
+
+	It("Should infer a float type variable", func(bCtx SpecContext) {
+		ctx := infer(bCtx, "math.inf")
+		t := atypes.InferFromExpression(ctx)
+		Expect(t.Kind).To(Equal(types.KindVariable))
+		Expect(t.Constraint.Kind).To(Equal(types.KindFloatConstant))
+	})
+
+	It("Should give each reference its own type variable", func(bCtx SpecContext) {
+		ctx := infer(bCtx, "math.inf + math.nan")
+		names := make(set.Set[string])
+		for _, t := range ctx.TypeMap {
+			if strings.HasPrefix(t.Name, "const_") {
+				names.Add(t.Name)
+			}
+		}
+		Expect(names).To(HaveLen(2))
+	})
+
+	It("Should default to f64", func(bCtx SpecContext) {
+		ctx := infer(bCtx, "math.nan")
+		t := atypes.InferFromExpression(ctx)
+		Expect(ctx.Constraints.Unify()).To(Succeed())
+		Expect(ctx.Constraints.ApplySubstitutions(t)).To(Equal(types.F64()))
+	})
+})
 
 var _ = Describe("Binary minus spacing", func() {
 	hasSpacingErr := func(expr string, cfg parser.Config) bool {
@@ -276,10 +376,47 @@ var _ = Describe("Type Inference", func() {
 				Expect(t.Kind).To(Equal(types.KindF64))
 			})
 
-			It("should handle series indexing", func(bCtx SpecContext) {
-				t := inferExprType(bCtx, testResolver, "data_series[0]")
-				Expect(t.Kind).To(Equal(types.KindI64))
-			})
+			DescribeTable(
+				"should apply each operation after the primary in order",
+				func(bCtx SpecContext, expr string, expected types.Type) {
+					testResolver = append(testResolver, symbol.Symbol{
+						Name: "series_func",
+						Kind: symbol.KindVariable,
+						Type: types.Function(types.FunctionProperties{
+							Outputs: types.Params{{Type: types.Series(types.I32())}},
+						}),
+					})
+					Expect(inferExprType(bCtx, testResolver, expr)).To(Equal(expected))
+				},
+				Entry("an index", "data_series[0]", types.I64()),
+				Entry("a slice", "data_series[1:]", types.Series(types.I64())),
+				Entry("an index after a call", "series_func()[0]", types.I32()),
+				Entry(
+					"a slice after a call",
+					"series_func()[1:]",
+					types.Series(types.I32()),
+				),
+				Entry("an index after a slice", "series_func()[1:][0]", types.I32()),
+			)
+
+			DescribeTable("should give a slice the series type",
+				func(bCtx SpecContext, expr string) {
+					Expect(inferExprType(bCtx, testResolver, expr)).
+						To(Equal(types.Series(types.I64())))
+				},
+				Entry("both bounds", "data_series[1:3]"),
+				Entry("an open start", "data_series[:2]"),
+				Entry("an open end", "data_series[1:]"),
+				Entry("a slice of a slice", "data_series[1:3][0:1]"),
+			)
+
+			It(
+				"should give an index of a slice the element type",
+				func(bCtx SpecContext) {
+					t := inferExprType(bCtx, testResolver, "data_series[1:3][0]")
+					Expect(t).To(Equal(types.I64()))
+				},
+			)
 
 			It("should handle function with no return type", func(bCtx SpecContext) {
 				testResolver = append(testResolver, symbol.Symbol{
@@ -883,6 +1020,15 @@ var _ = Describe("Type Inference", func() {
 			Entry("scalar to series", types.Series(types.I32()), types.I32(), false),
 			Entry("channel to scalar", types.I32(), types.Chan(types.I32()), false),
 			Entry("scalar to channel", types.Chan(types.I32()), types.I32(), false),
+			Entry("float constant to integer", types.I32(), floatLiteral(), false),
+			Entry("integer constant to integer", types.I32(), integerLiteral(), true),
+			Entry("float constant to float", types.F32(), floatLiteral(), true),
+			Entry("float constant into an integer series",
+				types.Series(types.I64()), types.Series(floatLiteral()), false),
+			Entry("float constant into an untyped integer series",
+				types.Series(integerLiteral()), types.Series(floatLiteral()), false),
+			Entry("integer constant into an untyped integer series",
+				types.Series(integerLiteral()), types.Series(integerLiteral()), true),
 			Entry(
 				"series to channel",
 				types.Chan(types.I32()),
@@ -900,15 +1046,76 @@ var _ = Describe("Type Inference", func() {
 		)
 	})
 
+	Describe("Bool", func() {
+		DescribeTable(
+			"Should report whether a type is bool",
+			func(t types.Type, expected bool) {
+				Expect(atypes.Bool(constraints.New(), t, nil)).To(Equal(expected))
+			},
+			Entry("a bool", types.Bool(), true),
+			Entry("a bool series", types.Series(types.Bool()), true),
+			Entry("a number", types.F32(), false),
+			Entry("an unconstrained variable", types.Variable("A", nil), true),
+			Entry(
+				"an untyped empty series",
+				types.Series(types.Variable("A", nil)),
+				true,
+			),
+		)
+
+		It("Should bind an unconstrained variable to bool", func() {
+			system := constraints.New()
+			elem := types.Variable("A", nil)
+			Expect(atypes.Bool(system, types.Series(elem), nil)).To(BeTrue())
+			Expect(system.Unify()).To(Succeed())
+			Expect(system.ApplySubstitutions(elem)).To(Equal(types.Bool()))
+		})
+	})
+
+	Describe("Numeric", func() {
+		DescribeTable(
+			"Should report whether a type is numeric",
+			func(t types.Type, expected bool) {
+				Expect(atypes.Numeric(constraints.New(), t, nil)).To(Equal(expected))
+			},
+			Entry("a number", types.F32(), true),
+			Entry("a numeric series", types.Series(types.I64()), true),
+			Entry("a bool", types.Bool(), false),
+			Entry("a string series", types.Series(types.String()), false),
+			Entry("an unconstrained variable", types.Variable("A", nil), true),
+			Entry(
+				"an untyped empty series",
+				types.Series(types.Variable("A", nil)),
+				true,
+			),
+		)
+
+		It("Should bind an unconstrained variable to a number", func() {
+			system := constraints.New()
+			elem := types.Variable("A", nil)
+			Expect(atypes.Numeric(system, types.Series(elem), nil)).To(BeTrue())
+			Expect(
+				system.AddCompatible(elem, types.Bool(), nil, "test"),
+			).To(MatchError(ContainSubstring("bool")))
+		})
+	})
+
 	Describe("LiteralAssignmentCompatible", func() {
 		DescribeTable("literal assignment",
 			func(varType, litType types.Type, expected bool) {
 				Expect(
-					atypes.LiteralAssignmentCompatible(varType, litType),
+					atypes.LiteralAssignmentCompatible(
+						constraints.New(), varType, litType, nil,
+					),
 				).To(Equal(expected))
 			},
 			Entry("same type f32", types.F32(), types.F32(), true),
 			Entry("same type i32", types.I32(), types.I32(), true),
+			Entry("float constant to integer", types.I32(), floatLiteral(), false),
+			Entry("integer constant to integer", types.I32(), integerLiteral(), true),
+			Entry("float constant to float", types.F32(), floatLiteral(), true),
+			Entry("float constant into an integer series",
+				types.Series(types.I64()), types.Series(floatLiteral()), false),
 			Entry("signed int to unsigned", types.U32(), types.I64(), true),
 			Entry("int to float", types.F64(), types.I64(), true),
 			Entry("float to wider float", types.F32(), types.F64(), true),
@@ -918,6 +1125,35 @@ var _ = Describe("Type Inference", func() {
 			Entry("scalar to series", types.Series(types.I32()), types.I32(), false),
 			Entry("channel to scalar", types.I32(), types.Chan(types.I32()), false),
 			Entry("scalar to channel", types.Chan(types.I32()), types.I32(), false),
+		)
+
+		It("Should store a typed series element at its kind, units aside", func() {
+			psi := MustSucceed(atypes.InferFromTypeContext(
+				parseTypeFromDecl("p f32 psi := 0"),
+			))
+			system := constraints.New()
+			Expect(atypes.LiteralAssignmentCompatible(
+				system, types.Series(psi), types.Series(types.F32()), nil,
+			)).To(BeTrue())
+			Expect(atypes.LiteralAssignmentCompatible(
+				system, types.Series(types.F32()), types.Series(types.F64()), nil,
+			)).To(BeFalse())
+		})
+
+		DescribeTable("Should bind a series element variable",
+			func(elem, constraint types.Type) {
+				system := constraints.New()
+				literal := types.Variable("lit", &constraint)
+				Expect(atypes.LiteralAssignmentCompatible(
+					system, types.Series(elem), types.Series(literal), nil,
+				)).To(BeTrue())
+				Expect(system.Unify()).To(Succeed())
+				Expect(system.ApplySubstitutions(literal)).To(Equal(elem))
+			},
+			Entry("float to f32", types.F32(), types.FloatConstraint()),
+			Entry("integer to f32", types.F32(), types.IntegerConstraint()),
+			Entry("integer to i32", types.I32(), types.IntegerConstraint()),
+			Entry("integer to u8", types.U8(), types.IntegerConstraint()),
 		)
 	})
 
@@ -1052,6 +1288,23 @@ var _ = Describe("Type Inference", func() {
 			},
 		)
 	})
+})
+
+var _ = Describe("Type variable names", func() {
+	DescribeTable("should name the enclosing function",
+		func(bCtx SpecContext, expr, expected string) {
+			parsed := MustSucceed(parser.ParseExpression(expr))
+			ctx := acontext.NewRoot(bCtx, parsed, NewRoot(nil))
+			fn := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "f",
+				Kind: symbol.KindFunction,
+			}))
+			t := atypes.InferFromExpression(ctx.WithScope(fn))
+			Expect(t.Unwrap().Name).To(Equal(expected))
+		},
+		Entry("numeric literal", "1.5", "lit_f_1_0"),
+		Entry("empty series literal", "[]", "series_elem_f_1_0"),
+	)
 })
 
 var _ = Describe("Series operand inference", func() {

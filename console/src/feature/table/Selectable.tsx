@@ -15,10 +15,10 @@ import { type Selector } from "@/platform/selector";
 import { Table } from "@/platform/table";
 
 export const Selectable: Selector.Selectable = {
-  type: table.TYPE_ONTOLOGY_ID.type,
+  type: table.TYPE_RESOURCE_ID.type,
   title: "Table",
   icon: <Icon.Table />,
   description: "A grid of live values",
   useOnSelect: Table.useCreate,
-  useVisible: () => Access.useCreateGranted(table.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(table.TYPE_RESOURCE_ID),
 };

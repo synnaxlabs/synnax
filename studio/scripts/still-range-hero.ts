@@ -68,7 +68,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     );
     const label = async (range: ranger.Range, labels: Label[]): Promise<void> =>
       await client.labels.label(
-        range.ontologyID,
+        range.resourceID,
         labels.map((l) => LABELS[l].key),
       );
     const runs = await Promise.all(
@@ -103,7 +103,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       name,
       color,
       timeRange: new TimeRange(start, end),
-      parent: { key: run.key },
+      parent: run.key,
     });
     await client.ranges.create([
       stage("Pressurization", "#3774D0", closed, opened),
@@ -128,9 +128,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.settle(1500);
     // Favorites join the toolbar in order, and the last one becomes the active range.
     for (const name of [CAMPAIGN, LEAK_CHECK, ...RUNS.map(([name]) => name)]) {
-      const item = page
-        .locator(`.console-range__list-item[aria-label="${name}"]`)
-        .first();
+      const item = page.getByRole("listitem", { name, exact: true }).first();
       await session.waitFor(item);
       await capture.contextMenu(
         session,

@@ -15,10 +15,12 @@ CellConfig = v2.CellConfig
 
 Row struct {
     key   string = create {
-        @doc value "is the unique identifier for this row within the table."
+        @doc value         "is the unique identifier for this row within the table."
+        @validate required
     }
     size  float64 = 36 {
-        @doc value "is the height of the row in pixels."
+        @doc value    "is the height of the row in pixels."
+        @validate min 1
     }
     cells string[] {
         @doc value """
@@ -33,10 +35,12 @@ Row struct {
 
 Column struct {
     key  string = create {
-        @doc value "is the unique identifier for this column within the table."
+        @doc value         "is the unique identifier for this column within the table."
+        @validate required
     }
     size float64 = 72 {
-        @doc value "is the width of the column in pixels."
+        @doc value    "is the width of the column in pixels."
+        @validate min 1
     }
 
     @doc value  "is a single column in a table, with a key and width."

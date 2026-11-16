@@ -224,7 +224,7 @@ export class Iterator {
   }
 
   private async execute(request: IteratorRequest): Promise<boolean> {
-    this.stream.send(request);
+    await this.stream.send(request);
     this.value = new Frame();
     while (true) {
       const res = await this.stream.receive();

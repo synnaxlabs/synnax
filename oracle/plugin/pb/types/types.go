@@ -244,13 +244,13 @@ func (p *Plugin) generateFile(
 	table *resolution.Table,
 	repoRoot string,
 ) ([]byte, error) {
-	var namespace string
+	var namespace, filePath string
 	if len(structs) > 0 {
-		namespace = structs[0].Namespace
+		namespace, filePath = structs[0].Namespace, structs[0].FilePath
 	} else if len(unions) > 0 {
-		namespace = unions[0].Namespace
+		namespace, filePath = unions[0].Namespace, unions[0].FilePath
 	} else if len(enums) > 0 {
-		namespace = enums[0].Namespace
+		namespace, filePath = enums[0].Namespace, enums[0].FilePath
 	}
 
 	data := &templateData{
@@ -258,6 +258,7 @@ func (p *Plugin) generateFile(
 		GoPackage:  deriveGoPackage(outputPath, repoRoot),
 		OutputPath: outputPath,
 		Namespace:  namespace,
+		filePath:   filePath,
 		Messages:   make([]messageData, 0, len(structs)),
 		Enums:      make([]enumData, 0, len(enums)),
 		imports:    newImportManager(),
@@ -266,7 +267,7 @@ func (p *Plugin) generateFile(
 	}
 
 	for _, e := range enums {
-		if e.Namespace == namespace && !omit.IsSkipped(e, "pb") {
+		if e.FilePath == filePath && !omit.IsSkipped(e, "pb") {
 			data.Enums = append(data.Enums, p.processEnum(e))
 		}
 	}
@@ -698,7 +699,7 @@ func (p *Plugin) processUnion(
 	entry resolution.Type,
 	data *templateData,
 ) (messageData, error) {
-	form := entry.Form.(resolution.UnionForm)
+	form := resolution.MustForm[resolution.UnionForm](entry)
 	name := getPBName(entry)
 	if name == "" {
 		name = entry.Name
@@ -801,7 +802,7 @@ func (p *Plugin) resolveStructType(
 }
 
 func (p *Plugin) resolveEnumType(resolved resolution.Type, data *templateData) string {
-	if resolved.Namespace == data.Namespace {
+	if resolved.FilePath == data.filePath {
 		return resolved.Name
 	}
 
@@ -872,6 +873,7 @@ type templateData struct {
 	GoPackage       string
 	OutputPath      string
 	Namespace       string
+	filePath        string
 	Messages        []messageData
 	Enums           []enumData
 }

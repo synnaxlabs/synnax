@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -95,14 +96,16 @@ func (p payloadSlots) AppendSlot(dst []byte, field int) ([]byte, error) {
 		return p.t.encoder.Append(dst, p.sample)
 	case slotTimestamp:
 		return xjson.AppendTimeStamp(dst, telem.Now(), s.format), nil
-	default:
+	case slotUUID:
 		dst = append(dst, '"')
 		dst, err := uuid.New().AppendText(dst)
 		return append(dst, '"'), err
+	default:
+		return nil, errors.Newf("unknown slot kind %d", s.kind)
 	}
 }
 
-func parseTimeFormat(format *TimeFormat) (xjson.TimeFormat, error) {
+func parseTimeFormat(format *payload.TimeFormat) (xjson.TimeFormat, error) {
 	if format == nil {
 		return xjson.ISO8601, nil
 	}
@@ -112,12 +115,12 @@ func parseTimeFormat(format *TimeFormat) (xjson.TimeFormat, error) {
 // newWriteTarget validates target against ch, its command channel.
 func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, error) {
 	path := "target " + target.Topic
-	t := writeTarget{
-		topic:    target.Topic,
-		qos:      qosLevel(target.Qos),
-		retained: target.Retained,
+	qos, err := qosLevel(target.Qos)
+	if err != nil {
+		return writeTarget{}, errors.Wrap(err, path)
 	}
-	if err := validateTopic(target.Topic); err != nil {
+	t := writeTarget{topic: target.Topic, qos: qos, retained: target.Retained}
+	if err = validateTopic(target.Topic); err != nil {
 		return writeTarget{}, err
 	}
 	pointer, err := xjson.ParsePointer(target.Channel.Pointer)
@@ -169,7 +172,7 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 		case GeneratedWriteField:
 			base = v.BaseWriteField
 			s.kind = slotUUID
-			if v.Generator == GeneratorTypeTimestamp {
+			if v.Generator == payload.GeneratorTypeTimestamp {
 				s.kind = slotTimestamp
 				if s.format, err = parseTimeFormat(v.TimeFormat); err != nil {
 					return writeTarget{}, errors.Wrap(err, path)
@@ -203,14 +206,14 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 }
 
 // matchesJSONType reports whether a decoded static value has the JSON type t.
-func matchesJSONType(value any, t JSONType) bool {
+func matchesJSONType(value any, t payload.JSONType) bool {
 	switch value.(type) {
 	case string:
-		return t == JSONTypeString
+		return t == payload.JSONTypeString
 	case bool:
-		return t == JSONTypeBoolean
+		return t == payload.JSONTypeBoolean
 	case int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64:
-		return t == JSONTypeNumber
+		return t == payload.JSONTypeNumber
 	default:
 		return false
 	}

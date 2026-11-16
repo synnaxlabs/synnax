@@ -11,7 +11,6 @@ package encoding
 
 import (
 	"bytes"
-	"context"
 	"io"
 
 	"github.com/synnaxlabs/x/errors"
@@ -25,26 +24,18 @@ func NewDecodeFallbackCodec(base Codec, codecs ...Codec) Codec {
 	return &decodeFallbackCodec{codecs: append([]Codec{base}, codecs...)}
 }
 
-func (f *decodeFallbackCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	return f.codecs[0].Encode(ctx, value)
+func (f *decodeFallbackCodec) Encode(value any) ([]byte, error) {
+	return f.codecs[0].Encode(value)
 }
 
-func (f *decodeFallbackCodec) EncodeStream(
-	ctx context.Context,
-	w io.Writer,
-	value any,
-) error {
-	return f.codecs[0].EncodeStream(ctx, w, value)
+func (f *decodeFallbackCodec) EncodeStream(w io.Writer, value any) error {
+	return f.codecs[0].EncodeStream(w, value)
 }
 
-func (f *decodeFallbackCodec) Decode(
-	ctx context.Context,
-	data []byte,
-	value any,
-) error {
+func (f *decodeFallbackCodec) Decode(data []byte, value any) error {
 	var errs []error
 	for _, c := range f.codecs {
-		if err := c.Decode(ctx, data, value); err != nil {
+		if err := c.Decode(data, value); err != nil {
 			errs = append(errs, err)
 		} else {
 			return nil
@@ -53,11 +44,7 @@ func (f *decodeFallbackCodec) Decode(
 	return errors.Wrap(errors.Join(errs...), "all codecs failed to decode")
 }
 
-func (f *decodeFallbackCodec) DecodeStream(
-	ctx context.Context,
-	r io.Reader,
-	value any,
-) error {
+func (f *decodeFallbackCodec) DecodeStream(r io.Reader, value any) error {
 	// We need to read out all the data here, otherwise an initial codec that fails will
 	// leave the reader in a bad state. It's not ideal, but we need to do it.
 	data, err := io.ReadAll(r)
@@ -66,7 +53,7 @@ func (f *decodeFallbackCodec) DecodeStream(
 	}
 	var errs []error
 	for _, c := range f.codecs {
-		if err = c.DecodeStream(ctx, bytes.NewReader(data), value); err != nil {
+		if err = c.DecodeStream(bytes.NewReader(data), value); err != nil {
 			errs = append(errs, err)
 		} else {
 			return nil

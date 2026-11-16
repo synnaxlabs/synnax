@@ -31,8 +31,7 @@ def _warnings_for_task(
         except ValidationError:
             continue
         if (
-            status.details is not None
-            and status.details.task == task_key
+            status.owner == sy.task.resource_id(task_key)
             and status.variant == "warning"
         ):
             yield status
@@ -43,13 +42,13 @@ class StatusRateLimit(OPCUAReadArray):
     Status rate-limit integration test.
 
     Verifies that the driver's StatusHandler (1-second window) works end-to-end.
-    Inherits OPCUAReadArray but overrides array_size to 2 so the task expects
+    Inherits OPCUAReadArray but overrides the array size to 2 so the task expects
     2-element arrays while the sim serves 5, producing a persistent "array too
     large" warning every read cycle. Asserts that no two warnings of the task come
     within one window of each other.
     """
 
-    array_size = 2
+    sampling: sy.opcua.Sampling = sy.opcua.ArraySampling(size=2)
 
     def run(self) -> None:
         if self.tsk is None:
@@ -61,16 +60,15 @@ class StatusRateLimit(OPCUAReadArray):
         warning_count = 0
         with self.client.open_streamer(["sy_status_set"]) as streamer:
             with self.tsk.run():
-                # Wait for the task to start producing data before beginning
-                # the timed window. On slow CI machines, setup overhead can
-                # consume most of a fixed window if the timer starts earlier.
-                sy.sleep(2)
+                # The window starts at the first warning, not at the task start.
                 timer = sy.Timer()
                 while timer.elapsed() < 10 * sy.TimeSpan.SECOND:
                     frame = streamer.read(timeout=1)
                     if frame is None:
                         continue
                     for status in _warnings_for_task(frame, task_key):
+                        if warning_count == 0:
+                            timer = sy.Timer()
                         warning_count += 1
                         msg = f"{status.message}: {status.description}"
                         if last is not None and status.time - last < MIN_GAP:
@@ -85,7 +83,7 @@ class StatusRateLimit(OPCUAReadArray):
         if warning_count == 0:
             self.fail(
                 "No warnings received from task in 10s. "
-                "Expected 'array too large/small' warnings due to array_size=2 "
+                "Expected 'array too large/small' warnings due to an array size of 2 "
                 "vs sim default of 5. Rate-limiter test was not exercised."
             )
         self.log(

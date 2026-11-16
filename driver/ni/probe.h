@@ -19,10 +19,10 @@
 
 namespace driver::ni {
 /// @brief reads the ports, rates, and ranges of a device from DAQmx. An attribute that
-/// the device does not support reads as empty or absent. To find what Cfg_Default gives
-/// on an analog input port, it creates a task with that port, reads the configuration
+/// the device does not support reads as empty or 0. To find what Cfg_Default gives on
+/// an analog input port, it creates a task with that port, reads the configuration
 /// back, and clears the task without starting it. A failed readback leaves that default
-/// absent and does not fail the probe; is_complete then returns false.
+/// as Cfg_Default and does not fail the probe; is_complete then returns false.
 /// @param dmx the DAQmx library.
 /// @param device the DAQmx name of the device, such as Dev1.
 /// @returns the hardware of the device, or the first error that DAQmx returns.

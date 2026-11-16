@@ -73,7 +73,7 @@ class Events:
             stamp = self.last.get(runner, self.start)
             stamps = []
             for _ in texts:
-                stamp = max(now, stamp + 1)
+                stamp = max(now, stamp + sy.TimeSpan.NANOSECOND)
                 stamps.append(stamp)
             last[runner] = stamp
             frame[channel_name(SOURCE, runner=runner)] = texts

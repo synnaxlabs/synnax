@@ -85,13 +85,9 @@ func (m *MockNode) IsOutputTruthy(idx int) bool {
 	return m.OutputTruthy[idx]
 }
 
-// markOnNext returns an OnNext callback that calls MarkChanged for the
-// given ordinal each time Next runs. Replaces the symbolic
-// MarkOnNext("name") form — the ordinal comes from the test's IR
-// declaration.
-func markOnNext(ordinal int) func(node.Context) {
-	return func(ctx node.Context) { ctx.MarkChanged(ordinal) }
-}
+// markOnNext is an OnNext callback that marks the first output changed each time Next
+// runs.
+func markOnNext(ctx node.Context) { ctx.MarkChanged(0) }
 
 // MockErrorHandler collects scheduler-reported errors for assertion.
 type MockErrorHandler struct {
@@ -112,7 +108,7 @@ func (h *MockErrorHandler) HandleError(_ context.Context, nodeKey string, err er
 
 // stratum builds a Members slice from the given member list, representing
 // one execution stratum within a parallel scope.
-func stratum(members ...ir.Member) ir.Members { return ir.Members(members) }
+func stratum(members ...ir.Member) ir.Members { return members }
 
 // parallelScope composes a parallel+gated Scope from one or more strata.
 func parallelScope(key string, strata ...ir.Members) ir.Scope {
@@ -397,7 +393,7 @@ var _ = Describe("Scheduler", func() {
 			func(ctx SpecContext) {
 				nodeA := mock("A")
 				nodeB := mock("B")
-				nodeA.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext
 				prog := programOf(
 					[]ir.Node{irNode("A", "output"), irNode("B")},
 					[]ir.Edge{continuousEdge("A", "output", "B", "input")},
@@ -1387,7 +1383,7 @@ var _ = Describe("Scheduler", func() {
 				nodeB := mock("B")
 				nodeC := mock("C")
 				// A declares two outputs ("x", "y"); only "x" (ordinal 0) fires.
-				nodeA.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext
 				prog := programOf(
 					[]ir.Node{irNode("A", "x", "y"), irNode("B"), irNode("C")},
 					[]ir.Edge{
@@ -1421,7 +1417,7 @@ var _ = Describe("Scheduler", func() {
 				nodeA := mock("A")
 				nodeB := mock("B")
 				nodeC := mock("C")
-				nodeA.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext
 				prog := programOf(
 					[]ir.Node{irNode("A", "output"), irNode("B"), irNode("C")},
 					[]ir.Edge{
@@ -1455,8 +1451,8 @@ var _ = Describe("Scheduler", func() {
 				nodeA := mock("A")
 				nodeB := mock("B")
 				nodeC := mock("C")
-				nodeA.OnNext = markOnNext(0)
-				nodeB.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext
+				nodeB.OnNext = markOnNext
 				prog := programOf(
 					[]ir.Node{
 						irNode("A", "output"),
@@ -1495,8 +1491,8 @@ var _ = Describe("Scheduler", func() {
 				nodeA := mock("A")
 				nodeB := mock("B")
 				nodeC := mock("C")
-				nodeA.OnNext = markOnNext(0)
-				nodeB.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext
+				nodeB.OnNext = markOnNext
 				prog := programOf(
 					[]ir.Node{
 						irNode("A", "output"),
@@ -1528,9 +1524,9 @@ var _ = Describe("Scheduler", func() {
 		)
 
 		It("Should execute a diamond graph's sink exactly once", func(ctx SpecContext) {
-			mock("A").OnNext = markOnNext(0)
-			mock("B").OnNext = markOnNext(0)
-			mock("C").OnNext = markOnNext(0)
+			mock("A").OnNext = markOnNext
+			mock("B").OnNext = markOnNext
+			mock("C").OnNext = markOnNext
 			nodeD := mock("D")
 			prog := programOf(
 				[]ir.Node{
@@ -1564,7 +1560,7 @@ var _ = Describe("Scheduler", func() {
 			func(ctx SpecContext) {
 				nodeA := mock("A")
 				nodeB := mock("B")
-				nodeA.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext
 				prog := programOf(
 					[]ir.Node{irNode("A", "output"), irNode("B")},
 					nil,
@@ -1671,7 +1667,7 @@ var _ = Describe("Scheduler", func() {
 				// propagate the change.
 				nodeA := mock("A")
 				nodeB := mock("B")
-				nodeA.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext
 				prog := programOf(
 					[]ir.Node{irNode("A", "output"), irNode("B")},
 					[]ir.Edge{continuousEdge("A", "output", "B", "in")},
@@ -2129,7 +2125,7 @@ var _ = Describe("Scheduler", func() {
 
 		It("Should tolerate a self-loop edge in phase 0", func(ctx SpecContext) {
 			nodeA := mock("A")
-			nodeA.OnNext = markOnNext(0)
+			nodeA.OnNext = markOnNext
 			prog := programOf(
 				[]ir.Node{irNode("A", "output")},
 				[]ir.Edge{continuousEdge("A", "output", "A", "in")},
@@ -2305,6 +2301,72 @@ var _ = Describe("Scheduler", func() {
 				)
 				Expect(nodeB.NextCalled).To(Equal(1))
 				Expect(nodeC.NextCalled).To(Equal(1))
+			},
+		)
+
+		It(
+			"Should not re-fire a once entry node when its scope re-activates",
+			func(ctx SpecContext) {
+				// Trigger marks on cycles 1 and 3; each mark activates main.
+				trigger := mock("trigger", true)
+				trigger.SuppressAutoMark = true
+				once := mock("once_node", true)
+				cycle := 0
+				trigger.OnNext = func(c node.Context) {
+					cycle++
+					c.MarkSelfChanged()
+					if cycle == 1 || cycle == 3 {
+						c.MarkChanged(0)
+					}
+				}
+				first := parallelScope(
+					"first",
+					stratum(ir.Member{NodeKey: new("once_node")}),
+				)
+				main := sequentialScope("main",
+					[]ir.Member{{Scope: &first}},
+					ir.Transition{
+						On:     ir.Handle{Node: "once_node", Param: "output"},
+						Kind:   ir.EdgeKindConditional,
+						Target: exitTarget(),
+					},
+				)
+				main.Activations = []ir.Activation{{
+					On:   ir.Handle{Node: "trigger", Param: "output"},
+					Kind: ir.EdgeKindConditional,
+				}}
+				// An entry node feeding a stateful variable's f0 is a once node.
+				register := ir.Node{
+					Key:    "reg",
+					Type:   "stateful_variable",
+					Inputs: types.Params{{Name: "f0"}},
+				}
+				mock("reg")
+				prog := programOf(
+					[]ir.Node{
+						irNode("trigger", "output"),
+						irNode("once_node", "output"),
+						register,
+					},
+					[]ir.Edge{{
+						Source: ir.Handle{Node: "once_node", Param: "output"},
+						Target: ir.Handle{Node: "reg", Param: "f0"},
+						Kind:   ir.EdgeKindContinuous,
+					}},
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(main)},
+					),
+				)
+				s := build(prog)
+				for i := 1; i <= 3; i++ {
+					s.Next(ctx, node.Cycle{
+						Elapsed: telem.TimeSpan(i) * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					})
+				}
+				Expect(once.ResetCalled).To(Equal(2), "main activated twice")
+				Expect(once.NextCalled).To(Equal(1), "a once node never re-fires")
 			},
 		)
 
@@ -2741,8 +2803,8 @@ var _ = Describe("Scheduler", func() {
 			func(ctx SpecContext) {
 				nodeA := mock("A")
 				nodeB := mock("B")
-				nodeA.OnNext = markOnNext(0)
-				nodeB.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext
+				nodeB.OnNext = markOnNext
 				prog := programOf(
 					[]ir.Node{irNode("A", "output"), irNode("B", "output")},
 					[]ir.Edge{
@@ -2782,7 +2844,7 @@ var _ = Describe("Scheduler", func() {
 			"Should not re-pass when a node marks itself through a self-loop",
 			func(ctx SpecContext) {
 				nodeA := mock("A")
-				nodeA.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext
 				prog := programOf(
 					[]ir.Node{irNode("A", "output")},
 					[]ir.Edge{continuousEdge("A", "output", "A", "in")},
@@ -2813,8 +2875,8 @@ var _ = Describe("Scheduler", func() {
 			func(ctx SpecContext) {
 				nodeA := mock("A")
 				nodeB := mock("B")
-				nodeA.OnNext = markOnNext(0)
-				nodeB.OnNext = markOnNext(0)
+				nodeA.OnNext = markOnNext
+				nodeB.OnNext = markOnNext
 				prog := programOf(
 					[]ir.Node{irNode("A", "output"), irNode("B", "output")},
 					[]ir.Edge{
@@ -3647,7 +3709,7 @@ var _ = Describe("Scheduler", func() {
 			"Should fire a transition on a falsy output only when it is continuous",
 			func(ctx SpecContext, kind ir.EdgeKind, secondRuns int) {
 				mock("trigger", true)
-				mock("first_node").OnNext = markOnNext(0)
+				mock("first_node").OnNext = markOnNext
 				second := mock("second_node")
 				build(twoStepSeq(kind)).Next(ctx, cycle)
 				Expect(second.NextCalled).To(Equal(secondRuns))
@@ -3659,7 +3721,7 @@ var _ = Describe("Scheduler", func() {
 		DescribeTable(
 			"Should activate a scope on a falsy output only when it is continuous",
 			func(ctx SpecContext, kind ir.EdgeKind, stageRuns int) {
-				mock("trigger").OnNext = markOnNext(0)
+				mock("trigger").OnNext = markOnNext
 				stage := mock("stage_node")
 				build(gatedStage(kind)).Next(ctx, cycle)
 				Expect(stage.NextCalled).To(Equal(stageRuns))

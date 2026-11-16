@@ -13,17 +13,22 @@ package channel
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
+
+// tableName names the Channel table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "channel"
 
 // Retrieve is used to retrieve Channel records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX  gorp.Tx
 	gorp    gorp.Retrieve[Key, Channel]
 	indexes indexes
 }
@@ -33,9 +38,9 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name       *gorp.LookupIndex[Key, Channel, Name]
-	localIndex *gorp.LookupIndex[Key, Channel, LocalKey]
-	search     *gorp.SearchIndex[Key, Channel]
+	name   *gorp.SortedIndex[Key, Channel, string]
+	group  *gorp.KeyReference[Key, Channel, group.Key]
+	search *gorp.SearchIndex[Key, Channel]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -43,14 +48,23 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
-		name: gorp.NewLookupIndex[Key, Channel, Name](
+		name: gorp.NewSortedIndex[Key, Channel, string](
 			"name",
-			func(e *Channel) Name { return e.Name },
+			func(e *Channel) string { return compare.TextKey(string(e.Name)) },
 		),
-		localIndex: gorp.NewLookupIndex[Key, Channel, LocalKey](
-			"local_index",
-			func(e *Channel) LocalKey { return e.LocalIndex },
-		),
+		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Channel, group.Key]{
+			Name:     "group",
+			Table:    "group",
+			OnDelete: gorp.Detach,
+			Kind:     gorp.Place,
+			Targets: func(e *Channel) []group.Key {
+				if e.Group == nil {
+					return nil
+				}
+				return []group.Key{*e.Group}
+			},
+			Detach: func(e *Channel, _ group.Key) { e.Group = nil },
+		}),
 		search: gorp.NewSearchIndex[Key, Channel](
 			"search",
 			func(e *Channel) []string {
@@ -65,8 +79,15 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, Channel] {
 	return []gorp.Index[Key, Channel]{
 		i.name,
-		i.localIndex,
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Channel] {
+	return []gorp.Reference[Key, Channel]{
+		i.group,
 	}
 }
 
@@ -75,6 +96,37 @@ func (i indexes) all() []gorp.Index[Key, Channel] {
 func MatchSearch(term string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Channel] {
 		return r.indexes.search.Filter(term)
+	}
+}
+
+// Order is a sort that OrderBy applies. An OrderBy function builds one.
+type Order func(r Retrieve) gorp.OrderQuery[Key, Channel]
+
+// OrderBy walks the channels in the order o defines.
+func (r Retrieve) OrderBy(o Order) Retrieve {
+	r.gorp = r.gorp.OrderBy(o(r))
+	return r
+}
+
+// OrderByName returns an Order by name in lower case, then by key.
+func OrderByName(dir gorp.Direction) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Channel] {
+		return r.indexes.name.Ordered(dir)
+	}
+}
+
+// OrderByNameAfter returns an Order like OrderByName that starts strictly past the
+// position of value and key.
+func OrderByNameAfter(
+	dir gorp.Direction,
+	value Name,
+	key Key,
+) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Channel] {
+		return r.indexes.name.Ordered(dir).After(
+			compare.TextKey(string(value)),
+			key,
+		)
 	}
 }
 
@@ -135,7 +187,17 @@ func MatchKeys(keys ...Key) Filter {
 // provided values.
 func MatchNames(vals ...Name) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Channel] {
-		return r.indexes.name.Filter(vals...)
+		keys := make([]string, len(vals))
+		for i, v := range vals {
+			keys[i] = compare.TextKey(string(v))
+		}
+		want := set.New(vals...)
+		return gorp.And(
+			r.indexes.name.Filter(keys...),
+			gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
+				return want.Contains(e.Name), nil
+			}),
+		)
 	}
 }
 
@@ -144,8 +206,9 @@ func MatchNames(vals ...Name) Filter {
 // provided values.
 func MatchLeaseholders(vals ...node.Key) Filter {
 	return func(Retrieve) gorp.Filter[Key, Channel] {
+		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return slices.Contains(vals, e.Leaseholder), nil
+			return want.Contains(e.Leaseholder), nil
 		})
 	}
 }
@@ -155,8 +218,9 @@ func MatchLeaseholders(vals ...node.Key) Filter {
 // provided values.
 func MatchDataTypes(vals ...telem.DataType) Filter {
 	return func(Retrieve) gorp.Filter[Key, Channel] {
+		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return slices.Contains(vals, e.DataType), nil
+			return want.Contains(e.DataType), nil
 		})
 	}
 }
@@ -179,6 +243,38 @@ func MatchInternal(v bool) Filter {
 			return e.Internal == v, nil
 		})
 	}
+}
+
+// MatchGroups returns a filter for channels
+// whose Group matches any of the provided
+// values.
+func MatchGroups(vals ...group.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Channel] {
+		return r.indexes.group.Filter(vals...)
+	}
+}
+
+// MatchHasGroup returns a filter for channels whose
+// Group holds a target when has is true, and holds none when has is false.
+func MatchHasGroup(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Channel] {
+		return r.indexes.group.FilterHolding(has)
+	}
+}
+
+// setGroup returns an update that sets the Group of the
+// channels with keys to v.
+func setGroup(
+	table *gorp.Table[Key, Channel],
+	v *group.Key,
+	keys ...Key,
+) gorp.Update[Key, Channel] {
+	return table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Channel](keys...)).
+		Change(func(_ gorp.Context, e Channel) Channel {
+			e.Group = v
+			return e
+		})
 }
 
 // Where applies the provided filter to the query, binding it to the Retrieve
@@ -208,10 +304,10 @@ func (r Retrieve) Entries(es *[]Channel) Retrieve {
 // Limit sets the maximum number of channels to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the channels to
-// return.
-func (r Retrieve) Offset(offset int) Retrieve {
-	r.gorp = r.gorp.Offset(offset)
+// After starts the query strictly past key in key order. It panics on a query with an
+// OrderBy, since an Order carries its own cursor.
+func (r Retrieve) After(key Key) Retrieve {
+	r.gorp = r.gorp.After(key)
 	return r
 }
 
@@ -222,17 +318,19 @@ func (r Retrieve) SkipMissingKeys() Retrieve {
 	return r
 }
 
-// Exec executes the query against the provided transaction.
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exec executes the query against snap. It panics when snap is nil.
+func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
+	return r.gorp.Exec(ctx, snap)
 }
 
-// Count returns the number of channels matching the query.
-func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Count returns the number of channels in snap that match
+// the query. It panics when snap is nil.
+func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error) {
+	return r.gorp.Count(ctx, snap)
 }
 
-// Exists checks whether any channels match the query.
-func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exists checks whether any channels in snap match the
+// query. It panics when snap is nil.
+func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+	return r.gorp.Exists(ctx, snap)
 }

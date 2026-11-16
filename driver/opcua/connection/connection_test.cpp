@@ -71,17 +71,14 @@ TEST(ConnectionTest, testBasicConn) {
 
     testutil::Server server(server_cfg);
     server.start();
+    ASSERT_TRUE(server.wait_until_ready());
 
     Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4849";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        connect(cfg, {}, "opc"),
-        (5 * x::telem::SECOND).chrono(),
-        (250 * x::telem::MILLISECOND).chrono()
-    );
+    auto client = ASSERT_NIL_P(connect(cfg, {}, "opc"));
     ASSERT_NE(client, nullptr);
 
     auto ser = ASSERT_NIL_P(opcua::testutil::simple_read(client, "NS=1;S=test"));

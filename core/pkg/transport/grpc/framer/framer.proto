@@ -44,7 +44,6 @@ message IteratorResponse {
   int32 variant = 1;
   int32 command = 2;
   x.telem.pb.Frame frame = 3;
-  int32 node_key = 4;
   bool ack = 5;
   int32 seq_num = 6;
   errors.PBPayload error = 7;
@@ -72,10 +71,13 @@ message WriterRequest {
 
 message WriterResponse {
   int32 command = 1;
-  int32 node_key = 2;
   int32 counter = 3;
   errors.PBPayload error = 4;
   int64 end = 5;
+  // unauthorized is true if this commit lacked control of a channel, or if a write
+  // since the last reported commit was refused. Each refusal is reported once. A Core
+  // without this field sends no value, which reads as authorized.
+  bool unauthorized = 6;
 }
 
 message StreamerRequest {

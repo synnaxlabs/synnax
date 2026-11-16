@@ -11,15 +11,14 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, TypedDict
-from typing import override as _override
+from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import ranger, status
-from synnax.ontology.payload import ID
-from x import filter
+from synnax.resource import ID
+from x import color as color_, filter
 
 TYPE_RANGE: Literal["range"] = "range"
 
@@ -28,7 +27,42 @@ TYPE_STATUS: Literal["status"] = "status"
 
 Type = Literal["range", "status"]
 
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
+
+RANGE_SORT_NEWEST: Literal["newest"] = "newest"
+
+RANGE_SORT_OLDEST: Literal["oldest"] = "oldest"
+
+RANGE_SORT_NAME: Literal["name"] = "name"
+
+
+RangeSort = Literal["newest", "oldest", "name"]
+
+RANGE_LAYOUT_TREE: Literal["tree"] = "tree"
+
+RANGE_LAYOUT_LIST: Literal["list"] = "list"
+
+RANGE_LAYOUT_TIMELINE: Literal["timeline"] = "timeline"
+
+
+RangeLayout = Literal["tree", "list", "timeline"]
+
 Key: TypeAlias = UUID
+
+
+class Order(BaseModel):
+    """Is a sort of views.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class Base(BaseModel):
@@ -37,10 +71,15 @@ class Base(BaseModel):
     Attributes:
         key: Is the unique identifier for this view.
         name: Is a human-readable name for the view.
+        icon: Is the key of the icon that marks the view in lists. When null, the
+            Console draws its default view icon.
+        color: Is the color of the view's icon. When null, the theme picks it.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str
+    icon: str | None = None
+    color: color_.Color | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -85,11 +124,25 @@ WhereInput = TypedDict(
 )
 
 
+class Cursor(BaseModel):
+    """Is a position in an order of views: the sort value and the key of a view.
+
+    Attributes:
+        key: Is the key of the view at the position.
+        name: Is the name of the view at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
+
+
 class RangeView(Base):
     """Is a saved view of ranges."""
 
     type: Literal["range"] = "range"
     where: ranger.Where | None = None
+    sort: RangeSort = "newest"
+    layout: RangeLayout = "tree"
 
 
 class StatusView(Base):
@@ -113,16 +166,18 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the views to retrieve. An absent where selects all of them.
         search_term: Keeps the views that match the term, closest match first.
+        order: Sorts the views. An absent order sorts them by key.
+        after: Starts the views strictly past this position in their order.
         limit: Is the most views to return.
-        offset: Is the number of matching views to skip.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 class RetrieveResponse(BaseModel):
@@ -138,8 +193,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="view")
+TYPE_RESOURCE_ID = ID(type="view")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="view", key=str(key))

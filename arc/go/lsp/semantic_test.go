@@ -429,21 +429,18 @@ var _ = Describe("Semantic Tokens", func() {
 		)
 
 		It(
-			"emits a placeholder span for a numeric format spec after the expression",
+			"emits one placeholder span for a numeric format spec and the close brace",
 			func(ctx SpecContext) {
 				OpenArcDocument(server, ctx, uri, `x := f"v={42:05d}"`)
 				all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 				ph := filterByType(all, tokenTypeStringPlaceholder)
-				Expect(ph).To(HaveLen(3))
+				Expect(ph).To(HaveLen(2))
 				Expect(
 					ph[0],
 				).To(Equal(decodedToken{Line: 0, StartChar: 9, Length: 1, TokenType: tokenTypeStringPlaceholder}))
 				Expect(
 					ph[1],
-				).To(Equal(decodedToken{Line: 0, StartChar: 12, Length: 4, TokenType: tokenTypeStringPlaceholder}))
-				Expect(
-					ph[2],
-				).To(Equal(decodedToken{Line: 0, StartChar: 16, Length: 1, TokenType: tokenTypeStringPlaceholder}))
+				).To(Equal(decodedToken{Line: 0, StartChar: 12, Length: 5, TokenType: tokenTypeStringPlaceholder}))
 				Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(1))
 			},
 		)
@@ -508,6 +505,76 @@ var _ = Describe("Semantic Tokens", func() {
 				Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(2))
 				Expect(filterByType(all, tokenTypeStringPlaceholder)).To(HaveLen(4))
 			},
+		)
+
+		DescribeTable(
+			"splits the body as the compiler does",
+			func(ctx SpecContext, source string, expected []decodedToken) {
+				OpenArcDocument(server, ctx, uri, source)
+				var inLit []decodedToken
+				for _, t := range decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data) {
+					if t.StartChar >= 5 {
+						inLit = append(inLit, t)
+					}
+				}
+				Expect(inLit).To(Equal(expected))
+			},
+			Entry("an escape before a placeholder", `x := f"\"\"{42}"`, []decodedToken{
+				{StartChar: 5, Length: 1, TokenType: tokenTypeFunction},
+				{StartChar: 6, Length: 1, TokenType: tokenTypeString},
+				{StartChar: 7, Length: 4, TokenType: tokenTypeString},
+				{StartChar: 11, Length: 1, TokenType: tokenTypeStringPlaceholder},
+				{StartChar: 12, Length: 2, TokenType: tokenTypeNumber},
+				{StartChar: 14, Length: 1, TokenType: tokenTypeStringPlaceholder},
+				{StartChar: 15, Length: 1, TokenType: tokenTypeString},
+			}),
+			Entry(
+				"an escaped brace that opens a placeholder",
+				`x := f"\u007B42}"`,
+				[]decodedToken{
+					{StartChar: 5, Length: 1, TokenType: tokenTypeFunction},
+					{StartChar: 6, Length: 1, TokenType: tokenTypeString},
+					{StartChar: 7, Length: 6, TokenType: tokenTypeStringPlaceholder},
+					{StartChar: 13, Length: 2, TokenType: tokenTypeNumber},
+					{StartChar: 15, Length: 1, TokenType: tokenTypeStringPlaceholder},
+					{StartChar: 16, Length: 1, TokenType: tokenTypeString},
+				},
+			),
+			Entry("an escape inside a placeholder", `x := f"{\"ab\"}"`, []decodedToken{
+				{StartChar: 5, Length: 1, TokenType: tokenTypeFunction},
+				{StartChar: 6, Length: 1, TokenType: tokenTypeString},
+				{StartChar: 7, Length: 1, TokenType: tokenTypeStringPlaceholder},
+				{StartChar: 8, Length: 6, TokenType: tokenTypeString},
+				{StartChar: 14, Length: 1, TokenType: tokenTypeStringPlaceholder},
+				{StartChar: 15, Length: 1, TokenType: tokenTypeString},
+			}),
+			Entry(
+				"non-ASCII text before a placeholder",
+				`x := f"µé {42}"`,
+				[]decodedToken{
+					{StartChar: 5, Length: 1, TokenType: tokenTypeFunction},
+					{StartChar: 6, Length: 1, TokenType: tokenTypeString},
+					{StartChar: 7, Length: 3, TokenType: tokenTypeString},
+					{StartChar: 10, Length: 1, TokenType: tokenTypeStringPlaceholder},
+					{StartChar: 11, Length: 2, TokenType: tokenTypeNumber},
+					{StartChar: 13, Length: 1, TokenType: tokenTypeStringPlaceholder},
+					{StartChar: 14, Length: 1, TokenType: tokenTypeString},
+				},
+			),
+			Entry(
+				"doubled braces around a placeholder",
+				`x := f"{{{42}}}"`,
+				[]decodedToken{
+					{StartChar: 5, Length: 1, TokenType: tokenTypeFunction},
+					{StartChar: 6, Length: 1, TokenType: tokenTypeString},
+					{StartChar: 7, Length: 2, TokenType: tokenTypeString},
+					{StartChar: 9, Length: 1, TokenType: tokenTypeStringPlaceholder},
+					{StartChar: 10, Length: 2, TokenType: tokenTypeNumber},
+					{StartChar: 12, Length: 1, TokenType: tokenTypeStringPlaceholder},
+					{StartChar: 13, Length: 2, TokenType: tokenTypeString},
+					{StartChar: 15, Length: 1, TokenType: tokenTypeString},
+				},
+			),
 		)
 
 		DescribeTable("emits the r/f/rf/fr prefix as a function-typed token",
@@ -703,6 +770,16 @@ func cat() {
 				))
 			},
 		)
+
+		It("routes export to the keyword token type", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "export func f() {}\n")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			lengths := make([]uint32, 0)
+			for _, tok := range filterByType(tokens, tokenTypeKeyword) {
+				lengths = append(lengths, tok.Length)
+			}
+			Expect(lengths).To(ConsistOf(uint32(6), uint32(4)))
+		})
 	})
 
 	Describe("variable kinds", func() {

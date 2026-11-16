@@ -235,3 +235,20 @@ var _ = Describe("EditMap", func() {
 		}, check)).Error().To(MatchError(ContainSubstring("a guard needs a path")))
 	})
 })
+
+var _ = Describe("Field", func() {
+	DescribeTable("Should return the top-level field that the action writes",
+		func(a patch.Action, field string) {
+			Expect(patch.Field(a)).To(Equal(field))
+		},
+		Entry("set", patch.Set{Path: []string{"ports", "a"}}, "ports"),
+		Entry("remove of a field", patch.Remove{Key: "name"}, "name"),
+		Entry("remove of a list entry", patch.Remove{
+			Path: []string{"ports"},
+			Key:  "a",
+		}, "ports"),
+		Entry("insert", patch.Insert{Path: []string{"ports"}}, "ports"),
+		Entry("move", patch.Move{Path: []string{"ports"}, Key: "a"}, "ports"),
+		Entry("empty path", patch.Set{}, ""),
+	)
+})

@@ -15,11 +15,10 @@ import {
   keyZ,
   type Name,
   nameZ,
-  ontologyID,
   type Payload,
   payloadZ,
+  type Where,
 } from "@/channel/types.gen";
-import { idToString } from "@/ontology/payload";
 import {
   analyzeParams as baseAnalyzeParams,
   type ParamAnalysisResult,
@@ -65,9 +64,6 @@ export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false)
 export const isCalculated = ({ virtual, expression }: Payload): boolean =>
   virtual && expression !== "";
 
-/** @returns the key of the status that reports on the given channel. */
-export const statusKey = (channel: Key): string => idToString(ontologyID(channel));
-
 /**
  * Resolves channel params into a normalized array, reporting whether the caller named
  * one channel or many, and whether by key or by name.
@@ -82,4 +78,15 @@ export const analyzeParams = (
     number: "keys",
     string: "names",
   });
+};
+
+/**
+ * @returns the filter that a retrieve of one channel sends. A string that analyzeParams
+ * reads as a number is a key.
+ */
+export const singleWhere = (channel: Key | Name): Where => {
+  const { variant, normalized } = analyzeParams(channel);
+  return variant === "keys"
+    ? { key: { eq: normalized[0] } }
+    : { name: { eq: normalized[0] } };
 };

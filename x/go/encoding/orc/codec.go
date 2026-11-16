@@ -10,7 +10,6 @@
 package orc
 
 import (
-	"context"
 	"io"
 	"sync"
 
@@ -43,12 +42,12 @@ func validateMagic(data []byte) error {
 // SelfDecoder is implemented by types that can decode themselves from ORC binary
 // format.
 type SelfDecoder interface {
-	DecodeOrc(*Reader) error
+	DecodeOrc(r *Reader) error
 }
 
 // SelfEncoder is implemented by types that can encode themselves to ORC binary format.
 type SelfEncoder interface {
-	EncodeOrc(*Writer) error
+	EncodeOrc(w *Writer) error
 }
 
 // SelfCodec is implemented by types that can both encode and decode themselves using
@@ -71,7 +70,7 @@ var Codec encoding.Codec = &codec{}
 
 type codec struct{}
 
-func (*codec) Decode(_ context.Context, data []byte, value any) error {
+func (*codec) Decode(data []byte, value any) error {
 	if err := validateMagic(data); err != nil {
 		return err
 	}
@@ -86,15 +85,15 @@ func (*codec) Decode(_ context.Context, data []byte, value any) error {
 	return err
 }
 
-func (c *codec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
+func (c *codec) DecodeStream(rd io.Reader, value any) error {
 	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
 	}
-	return c.Decode(ctx, data, value)
+	return c.Decode(data, value)
 }
 
-func (*codec) Encode(_ context.Context, value any) ([]byte, error) {
+func (*codec) Encode(value any) ([]byte, error) {
 	m, ok := value.(SelfEncoder)
 	if !ok {
 		return nil, errors.Newf("%T does not implement orc.SelfEncoder", value)
@@ -111,8 +110,8 @@ func (*codec) Encode(_ context.Context, value any) ([]byte, error) {
 	return out, nil
 }
 
-func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	data, err := c.Encode(ctx, value)
+func (c *codec) EncodeStream(w io.Writer, value any) error {
+	data, err := c.Encode(value)
 	if err != nil {
 		return err
 	}

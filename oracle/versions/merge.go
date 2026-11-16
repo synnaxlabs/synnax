@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // MergeLive derives the canonical live-file source for a versioned resource:
@@ -29,12 +30,14 @@ import (
 // from the chain's current surface, live-owned content (outputs, language bindings,
 // validation tags, wire-only declarations) carried from the existing live source. The
 // result is formatter-canonical and carries the repository license header. It returns
-// "" for an ended or history-only chain, whose live source is hand-owned.
+// "" for an ended or history-only chain, whose live source is hand-owned. It returns an
+// error wrapping validate.ErrValidation when the live source documents a declaration
+// the chain leaves undocumented, since the merge would erase that doc.
 func MergeLive(
 	ctx context.Context, r *Resolver, chain Chain, source string,
 ) (string, error) {
 	livePath := chain.LivePath()
-	surf, err := r.Surface(ctx, livePath, chain.Current())
+	surf, err := r.Surface(livePath, chain.Current())
 	if err != nil {
 		return "", err
 	}
@@ -43,7 +46,7 @@ func MergeLive(
 	if len(surf) == 0 {
 		return "", nil
 	}
-	cur, err := r.File(ctx, livePath, chain.Current())
+	cur, err := r.File(livePath, chain.Current())
 	if err != nil {
 		return "", err
 	}
@@ -52,7 +55,7 @@ func MergeLive(
 		return "", errors.Wrapf(err, "failed to parse %s.oracle", livePath)
 	}
 
-	nsToPath, err := chainNamespacePaths(ctx, r, chain)
+	nsToPath, err := chainNamespacePaths(r, chain)
 	if err != nil {
 		return "", err
 	}
@@ -61,7 +64,7 @@ func MergeLive(
 			return versionOwned(domain, expr.Name)
 		},
 		Qualifier: func(ns string) string {
-			if versionNS.MatchString(ns) || ns == chain.Resource {
+			if versionNS.MatchString(ns) {
 				return ""
 			}
 			if live, _, ok := ParseDepNS(ns); ok {
@@ -71,7 +74,7 @@ func MergeLive(
 		},
 		Resolve: func(name string) (resolution.Type, bool) {
 			for _, k := range chain.Numbers {
-				f, err := r.File(ctx, livePath, k)
+				f, err := r.File(livePath, k)
 				if err != nil {
 					continue
 				}
@@ -139,7 +142,7 @@ func MergeLive(
 		}
 		t.Domains = domains
 		for ns := range referencedNamespaces(t, opts.Resolve) {
-			if versionNS.MatchString(ns) || ns == chain.Resource {
+			if versionNS.MatchString(ns) {
 				continue
 			}
 			if live, _, ok := ParseDepNS(ns); ok {
@@ -187,13 +190,54 @@ func MergeLive(
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to format merged %s.oracle", livePath)
 	}
-	return license(ctx, r.RepoRoot(), formatted)
+	merged, err := extractLive(formatted)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to parse merged %s.oracle", livePath)
+	}
+	if err := checkErasedDocs(chain, surf, lc, merged); err != nil {
+		return "", err
+	}
+	return license(ctx, r.RepoRoot(), livePath+".oracle", formatted)
+}
+
+// checkErasedDocs fails when the merge dropped a live doc from a declaration that it
+// wrote. It does not report a doc that differs from the chain's, or one on a restated
+// inherited field: neither can be told apart from a change to the version files.
+func checkErasedDocs(
+	chain Chain, surf map[string]Definition, live, merged *liveContent,
+) error {
+	byFile := make(map[string][]string)
+	for path := range live.documented {
+		if !merged.declared.Contains(path) || merged.documented.Contains(path) {
+			continue
+		}
+		name, _, _ := strings.Cut(path, ".")
+		file := chain.FilePath(surf[name].Version) + ".oracle"
+		byFile[file] = append(byFile[file], path)
+	}
+	if len(byFile) == 0 {
+		return nil
+	}
+	lines := make([]string, 0, len(byFile))
+	for _, file := range slices.Sorted(maps.Keys(byFile)) {
+		slices.Sort(byFile[file])
+		lines = append(lines, fmt.Sprintf(
+			"move %s to %s", strings.Join(byFile[file], ", "), file,
+		))
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"%s.oracle: sync would erase @doc: the version files own docs, so %s, "+
+			"or delete the doc from the live file",
+		chain.LivePath(),
+		strings.Join(lines, "; "),
+	)
 }
 
 // chainNamespacePaths maps each dependency resource namespace a chain's files can
 // reference to its live import path, unioned across every version file.
 func chainNamespacePaths(
-	ctx context.Context, r *Resolver, chain Chain,
+	r *Resolver, chain Chain,
 ) (map[string]string, error) {
 	m := make(map[string]string)
 	add := func(livePath string) error {
@@ -207,7 +251,7 @@ func chainNamespacePaths(
 		return nil
 	}
 	for _, k := range chain.Numbers {
-		f, err := r.File(ctx, chain.LivePath(), k)
+		f, err := r.File(chain.LivePath(), k)
 		if err != nil {
 			return nil, err
 		}
@@ -270,12 +314,6 @@ func referencedNamespaces(
 	switch f := t.Form.(type) {
 	case resolution.StructForm:
 		walkFields(f.Fields)
-		for _, a := range f.Actions {
-			walkFields(a.Fields)
-			for _, e := range a.Extends {
-				walkRef(e)
-			}
-		}
 		for _, e := range f.Extends {
 			walkRef(e)
 		}
@@ -351,6 +389,10 @@ type liveContent struct {
 	order       []string
 	raw         map[string]string
 	extras      map[string]*declExtras
+	// declared and documented hold dotted paths ("Task", "Task.key", "Mode.on"): every
+	// declaration in the source, and the ones that carry a @doc.
+	declared   set.Set[string]
+	documented set.Set[string]
 }
 
 // domainNode is the shared shape of the parser's domain annotation contexts.
@@ -364,8 +406,10 @@ type domainNode interface {
 // per-declaration live-owned expression lines.
 func extractLive(source string) (*liveContent, error) {
 	lc := &liveContent{
-		raw:    make(map[string]string),
-		extras: make(map[string]*declExtras),
+		raw:        make(map[string]string),
+		extras:     make(map[string]*declExtras),
+		declared:   make(set.Set[string]),
+		documented: make(set.Set[string]),
 	}
 	if strings.TrimSpace(source) == "" {
 		return lc, nil
@@ -389,8 +433,11 @@ func extractLive(source string) (*liveContent, error) {
 		lc.fileDomains = append(lc.fileDomains, text(fd))
 	}
 
-	liveOwned := func(d domainNode, add func(line string)) {
+	liveOwned := func(d domainNode, path string, add func(line string)) {
 		name := d.IDENT().GetText()
+		if name == "doc" {
+			lc.documented.Add(path)
+		}
 		content := d.DomainContent()
 		if content == nil {
 			if !versionOwned(name, "") {
@@ -425,6 +472,7 @@ func extractLive(source string) (*liveContent, error) {
 			valueLines: make(map[string][]string),
 		}
 		lc.extras[name] = ex
+		lc.declared.Add(name)
 		addType := func(line string) { ex.typeLines = append(ex.typeLines, line) }
 
 		// collectField records a field's live-only domain lines under keyPrefix +
@@ -435,17 +483,19 @@ func extractLive(source string) (*liveContent, error) {
 			keyPrefix string,
 		) {
 			fieldName := keyPrefix + fd.IDENT().GetText()
+			path := name + "." + fieldName
+			lc.declared.Add(path)
 			add := func(line string) {
 				into.fieldLines[fieldName] = append(
 					into.fieldLines[fieldName], line,
 				)
 			}
 			for _, d := range fd.AllInlineDomain() {
-				liveOwned(d, add)
+				liveOwned(d, path, add)
 			}
 			if body := fd.FieldBody(); body != nil {
 				for _, d := range body.AllDomain() {
-					liveOwned(d, add)
+					liveOwned(d, path, add)
 				}
 			}
 		}
@@ -462,7 +512,7 @@ func extractLive(source string) (*liveContent, error) {
 					collectField(fd, ex, "")
 				}
 				for _, d := range body.AllDomain() {
-					liveOwned(d, addType)
+					liveOwned(d, name, addType)
 				}
 				for _, ad := range body.AllActionDef() {
 					ex.actionBlocks = append(ex.actionBlocks, text(ad))
@@ -470,7 +520,7 @@ func extractLive(source string) (*liveContent, error) {
 			case *parser.StructAliasContext:
 				if body := s.AliasBody(); body != nil {
 					for _, d := range body.AllDomain() {
-						liveOwned(d, addType)
+						liveOwned(d, name, addType)
 					}
 				}
 			}
@@ -480,10 +530,12 @@ func extractLive(source string) (*liveContent, error) {
 				break
 			}
 			for _, d := range body.AllDomain() {
-				liveOwned(d, addType)
+				liveOwned(d, name, addType)
 			}
 			for _, v := range body.AllEnumValue() {
 				valueName := v.IDENT().GetText()
+				path := name + "." + valueName
+				lc.declared.Add(path)
 				add := func(line string) {
 					ex.valueLines[valueName] = append(
 						ex.valueLines[valueName], line,
@@ -491,32 +543,47 @@ func extractLive(source string) (*liveContent, error) {
 				}
 				if vb := v.EnumValueBody(); vb != nil {
 					for _, d := range vb.AllDomain() {
-						liveOwned(d, add)
+						liveOwned(d, path, add)
 					}
 				}
 			}
 		case def.TypeDefDef() != nil:
 			if body := def.TypeDefDef().TypeDefBody(); body != nil {
 				for _, d := range body.AllDomain() {
-					liveOwned(d, addType)
+					liveOwned(d, name, addType)
 				}
 			}
 		case def.UnionDef() != nil:
 			if body := def.UnionDef().UnionBody(); body != nil {
 				for _, d := range body.AllDomain() {
-					liveOwned(d, addType)
+					liveOwned(d, name, addType)
 				}
 				for _, ad := range body.AllActionDef() {
 					ex.actionBlocks = append(ex.actionBlocks, text(ad))
 				}
+				ignore := func(string) {}
 				for _, v := range body.AllUnionVariant() {
-					iv, ok := v.(*parser.InlineVariantContext)
-					if !ok || iv.StructBody() == nil {
-						continue
-					}
-					prefix := iv.VariantName().GetText() + "."
-					for _, fd := range iv.StructBody().AllFieldDef() {
-						collectField(fd, ex, prefix)
+					switch uv := v.(type) {
+					case *parser.NamedVariantContext:
+						path := name + "." + uv.VariantName().GetText()
+						lc.declared.Add(path)
+						if vb := uv.UnionVariantBody(); vb != nil {
+							for _, d := range vb.AllDomain() {
+								liveOwned(d, path, ignore)
+							}
+						}
+					case *parser.InlineVariantContext:
+						path := name + "." + uv.VariantName().GetText()
+						lc.declared.Add(path)
+						if uv.StructBody() == nil {
+							continue
+						}
+						for _, d := range uv.StructBody().AllDomain() {
+							liveOwned(d, path, ignore)
+						}
+						for _, fd := range uv.StructBody().AllFieldDef() {
+							collectField(fd, ex, uv.VariantName().GetText()+".")
+						}
 					}
 				}
 			}
@@ -526,7 +593,7 @@ func extractLive(source string) (*liveContent, error) {
 					collectField(fd, ex, "")
 				}
 				for _, d := range body.AllDomain() {
-					liveOwned(d, addType)
+					liveOwned(d, name, addType)
 				}
 			}
 		}

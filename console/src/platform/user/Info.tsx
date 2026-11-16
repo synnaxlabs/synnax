@@ -18,24 +18,20 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
-const Roles = (): ReactElement | null => {
+const Role = (): ReactElement | null => {
   const { data: key } = User.useResultKey({});
-  const { data: roles } = Access.Role.useResultForUser(
+  const { data: role } = Access.Role.useResultForUser(
     key != null ? { user: key } : null,
   );
-  if (roles == null || roles.length === 0) return null;
+  if (role == null) return null;
   return (
-    <Flex.Box x wrap gap="small" className={CSS.BE("user-info", "roles")}>
-      {roles.map(({ key, name }) => (
-        <Tag.Tag key={key} size="small" icon={<Icon.Role />}>
-          {name}
-        </Tag.Tag>
-      ))}
-    </Flex.Box>
+    <Tag.Tag size="small" icon={<Icon.Role />} className={CSS.BE("user-info", "role")}>
+      {role.name}
+    </Tag.Tag>
   );
 };
 
-/** The logged-in user's name and roles, for embedding in a dialog. */
+/** The logged-in user's name and role, for embedding in a dialog. */
 export const Info = (): ReactElement => {
   const { data: name } = User.useResultName({});
   return (
@@ -44,7 +40,7 @@ export const Info = (): ReactElement => {
         <Text.Text weight={500} color={11} overflow="fade">
           {name}
         </Text.Text>
-        <Roles />
+        <Role />
       </Flex.Box>
     </Flex.Box>
   );

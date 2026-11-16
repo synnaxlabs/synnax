@@ -15,6 +15,7 @@ import { type z } from "zod";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
+import { Device } from "@/platform/device";
 import {
   awaitEditableForm,
   commitFieldInput,
@@ -163,7 +164,8 @@ describe("Write", () => {
 
   it("should seed the form from the task row's config", async () => {
     const client = createTestClient();
-    const config = createWriteConfig("dev_1", [createWriteEndpoint("ep1", "/seeded")]);
+    const dev = await createHTTPDevice(client);
+    const config = createWriteConfig(dev.key, [createWriteEndpoint("ep1", "/seeded")]);
     const draft = await createDraft(client, config);
     await renderWrite({ client, taskKey: draft.key });
     await screen.findByRole("option", { name: /\/seeded/ });
@@ -178,7 +180,8 @@ describe("Write", () => {
       dataType,
       virtual: true,
     });
-    const config = createWriteConfig("dev_1", [
+    const dev = await createHTTPDevice(client);
+    const config = createWriteConfig(dev.key, [
       createWriteEndpoint("ep1", "/cmd", { channel: ch.key }),
     ]);
     const draft = await createDraft(client, config);
@@ -286,11 +289,16 @@ describe("Write", () => {
           }),
       ),
     );
-    dev.properties = {
+    const properties = {
       ...HTTP.Device.ZERO_PROPERTIES,
       write: { "/cmd": cmdCh.key, "/other": otherCh.key },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(
+      client,
+      { key: dev.key, properties },
+      HTTP.Device.ZERO_PROPERTIES,
+      HTTP.Device.SCHEMAS,
+    );
     const draft = await createDraft(
       client,
       createWriteConfig(dev.key, [
@@ -321,11 +329,16 @@ describe("Write", () => {
       dataType: "string",
       virtual: true,
     });
-    dev.properties = {
+    const properties = {
       ...HTTP.Device.ZERO_PROPERTIES,
       write: { "/cmd": storedCh.key },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(
+      client,
+      { key: dev.key, properties },
+      HTTP.Device.ZERO_PROPERTIES,
+      HTTP.Device.SCHEMAS,
+    );
     const draft = await createDraft(
       client,
       createWriteConfig(dev.key, [
@@ -355,11 +368,16 @@ describe("Write", () => {
       dataType: "string",
       virtual: true,
     });
-    dev.properties = {
+    const properties = {
       ...HTTP.Device.ZERO_PROPERTIES,
       write: { "/stored": storedCh.key },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(
+      client,
+      { key: dev.key, properties },
+      HTTP.Device.ZERO_PROPERTIES,
+      HTTP.Device.SCHEMAS,
+    );
     const config = createWriteConfig(dev.key, [
       createWriteEndpoint("ep1", "/cmd", { channel: configuredCh.key }),
       createWriteEndpoint("ep2", "/stored"),

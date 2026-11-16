@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type log } from "@synnaxlabs/client";
+import { type log, UnexpectedError } from "@synnaxlabs/client";
 import { type Drift } from "@synnaxlabs/drift";
 import z from "zod";
 
@@ -23,6 +23,8 @@ const toolbarStateZ = z.object({
 
 const stateZ = z.object({
   hold: z.boolean().default(false),
+  /** Where the log stood when it last unmounted. A remount reads it while on hold. */
+  position: z.string().default(""),
   toolbar: toolbarStateZ.prefault({}),
 });
 export interface State extends z.infer<typeof stateZ> {}
@@ -61,6 +63,10 @@ export interface SetHoldPayload extends KeyedPayload {
   hold?: boolean;
 }
 
+export interface SetPositionPayload extends KeyedPayload {
+  position: string;
+}
+
 export interface RemovePayload {
   keys: string[];
 }
@@ -81,8 +87,20 @@ export const { actions, reducer } = createSlice({
     setHold: withSelectedState<SetHoldPayload, SliceState>(
       (state, { payload: { hold } }) => {
         state.hold = hold ?? !state.hold;
+        if (!state.hold) state.position = "";
       },
     ),
+    // A deleted log unmounts after its document goes, which must not bring it back. A
+    // log on hold always has a document.
+    setPosition: (state, { payload, type }: PayloadAction<SetPositionPayload>) => {
+      const { windowKey, key, position } = payload;
+      if (windowKey == null)
+        throw new UnexpectedError(
+          `expected windowKey to be defined in ${type} payload`,
+        );
+      const doc = state.windows[windowKey]?.[key];
+      if (doc != null) doc.position = position;
+    },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       Window.removeDocuments(state, payload.keys);
     },
@@ -90,10 +108,15 @@ export const { actions, reducer } = createSlice({
   extraReducers: Window.handleRemoved,
 });
 
-export const { create, setSelectedToolbarTab, setHold, remove } = actions;
+export const { create, setSelectedToolbarTab, setHold, setPosition, remove } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
 export const MIDDLEWARE = [
-  Window.createInjectKeyMiddleware([create, setSelectedToolbarTab, setHold]),
+  Window.createInjectKeyMiddleware([
+    create,
+    setSelectedToolbarTab,
+    setHold,
+    setPosition,
+  ]),
 ];

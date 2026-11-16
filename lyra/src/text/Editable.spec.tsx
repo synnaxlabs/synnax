@@ -46,6 +46,16 @@ describe("Editable", () => {
       expect(text.querySelector("img")).toBeNull();
     });
 
+    it("should not render a one-character value as a square", () => {
+      const c = render(<Editable value="a" onChange={vi.fn()} />);
+      expect(c.getByText("a").className).not.toContain("lyra--square");
+    });
+
+    it("should not render a read-only one-character value as a square", () => {
+      const c = render(<MaybeEditable value="a" />);
+      expect(c.getByText("a").className).not.toContain("lyra--square");
+    });
+
     it("should forward refs to the underlying element", () => {
       const ref = createRef<HTMLParagraphElement>();
       const c = render(<Editable ref={ref} value="Hello" onChange={vi.fn()} />);
@@ -385,32 +395,6 @@ describe("Editable", () => {
       text.innerText = "Hello";
       fireEvent.keyDown(text, { key: "Enter" });
       await expect(promise).resolves.toEqual(["Hello", false]);
-    });
-
-    it("resolves asyncEdit with the initialValue the caller supplies", async () => {
-      const c = render(<Editable id="aliased" value="Alias" onChange={vi.fn()} />);
-      const text = c.getByText("Alias");
-      let promise!: Promise<[string, boolean]>;
-      act(() => {
-        promise = asyncEdit("aliased", { initialValue: "RealName" });
-      });
-      expect(text.innerText).toBe("RealName");
-      fireEvent.keyDown(text, { key: "Escape" });
-      await expect(promise).resolves.toEqual(["Alias", false]);
-    });
-
-    it("treats an unchanged initialValue as a cancel", async () => {
-      const onChange = vi.fn();
-      const c = render(<Editable id="alias-kept" value="Alias" onChange={onChange} />);
-      const text = c.getByText("Alias");
-      let promise!: Promise<[string, boolean]>;
-      act(() => {
-        promise = asyncEdit("alias-kept", { initialValue: "RealName" });
-      });
-      fireEvent.keyDown(text, { key: "Enter" });
-      await expect(promise).resolves.toEqual(["Alias", false]);
-      expect(onChange).not.toHaveBeenCalled();
-      expect(text.innerText).toBe("Alias");
     });
 
     it("resolves asyncEdit with renamed=false on escape", async () => {

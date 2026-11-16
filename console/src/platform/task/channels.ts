@@ -11,7 +11,7 @@ import { channel, NotFoundError, type Synnax as Client } from "@synnaxlabs/clien
 import { DataType, errors, primitive } from "@synnaxlabs/x";
 
 /** @returns the channel with the given key, or null when it does not exist or is 0. */
-export const retrieveChannel = async (
+const retrieveChannel = async (
   client: Client,
   key: channel.Key,
 ): Promise<channel.Channel | null> => {
@@ -25,16 +25,14 @@ export const retrieveChannel = async (
 };
 
 /** @returns true when a channel with the given key exists. Never for 0. */
-export const channelExists = async (
-  client: Client,
-  key: channel.Key,
-): Promise<boolean> => (await retrieveChannel(client, key)) != null;
+const channelExists = async (client: Client, key: channel.Key): Promise<boolean> =>
+  (await retrieveChannel(client, key)) != null;
 
 /**
  * Creates a Core channel for values of dataType. A fixed-density channel gets its own
  * index named `${name}_time`; a variable-density one is virtual.
  */
-export const createChannelWithIndex = async (
+const createChannelWithIndex = async (
   client: Client,
   name: string,
   dataType: string,
@@ -108,9 +106,8 @@ export const configureReadChannels = async <F extends ReadChannelField>({
   const enabled = fields.filter(({ disabled }) => !disabled);
   const live: channel.Channel[] = [];
   const bind = async (field: F): Promise<boolean> => {
-    const ch = await retrieveChannel(client, field.channel);
-    if (ch != null) {
-      if (indexed(field)) live.push(ch);
+    if (primitive.isNonZero(field.channel)) {
+      if (indexed(field)) live.push(await client.channels.retrieve(field.channel));
       return true;
     }
     const stored = props.channels[field.pointer];
@@ -155,19 +152,18 @@ export const configureReadChannels = async <F extends ReadChannelField>({
 };
 
 /**
- * @returns the first index that still exists among those of the live channels, then
- * those of the stored channels, or 0.
+ * @returns the first index among those of the live channels, then those of the stored
+ * channels that still exist, or 0.
  */
 const recoverIndex = async (
   client: Client,
   live: channel.Channel[],
   props: ReadChannelProps,
 ): Promise<channel.Key> => {
-  for (const ch of live) if (await channelExists(client, ch.index)) return ch.index;
+  for (const ch of live) if (primitive.isNonZero(ch.index)) return ch.index;
   for (const stored of Object.values(props.channels)) {
     const ch = await retrieveChannel(client, stored);
-    if (ch == null || !(await channelExists(client, ch.index))) continue;
-    return ch.index;
+    if (ch != null && primitive.isNonZero(ch.index)) return ch.index;
   }
   return 0;
 };
@@ -195,7 +191,7 @@ export const configureCommandChannel = async (
   write: Record<string, channel.Key>,
   { propertiesKey, channel: current, name, dataType }: CommandChannelSpec,
 ): Promise<channel.Key> => {
-  if (await channelExists(client, current)) {
+  if (primitive.isNonZero(current)) {
     write[propertiesKey] = current;
     return current;
   }

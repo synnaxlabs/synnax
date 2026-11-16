@@ -76,7 +76,7 @@ describe("Status.List.Item", () => {
     const { wrapper } = await createConsoleWrapper({
       client,
       preloadedState: {
-        [Session.Status.SLICE_NAME]: { version: 0, favorites: [stat.key] },
+        [Session.Status.SLICE_NAME]: { version: 1, favorites: [stat.key] },
       },
     });
     render(<Fixture status={stat} />, { wrapper });

@@ -220,6 +220,9 @@ public:
     /// Stores the most recent writer configuration passed to open_writer.
     synnax::framer::WriterConfig config;
 
+    /// When valid, open_writer blocks until it is ready.
+    std::shared_future<void> open_gate;
+
     /// Counts how many times open_writer has been called.
     /// Atomic with release semantics so that readers who observe the incremented
     /// value are guaranteed to see the config assignment that precedes it.
@@ -245,6 +248,7 @@ public:
 
     std::pair<std::unique_ptr<pipeline::Writer>, x::errors::Error>
     open_writer(const synnax::framer::WriterConfig &config) override {
+        if (this->open_gate.valid()) this->open_gate.wait();
         this->config = config;
         this->writer_opens.fetch_add(1, std::memory_order_release);
         auto err = this->open_errors.empty() ? x::errors::NIL
@@ -274,6 +278,25 @@ public:
             set_auth_err
         );
         return {std::move(writer), err};
+    }
+};
+
+/// @brief opens writers on a live Core and counts the ones that open.
+class CoreWriterFactory final : public pipeline::WriterFactory {
+    pipeline::SynnaxWriterFactory internal;
+
+public:
+    /// @brief the number of writers that opened without an error.
+    std::atomic<size_t> writers_open = 0;
+
+    explicit CoreWriterFactory(std::shared_ptr<synnax::Synnax> client):
+        internal(std::move(client)) {}
+
+    std::pair<std::unique_ptr<pipeline::Writer>, x::errors::Error>
+    open_writer(const synnax::framer::WriterConfig &config) override {
+        auto res = this->internal.open_writer(config);
+        if (!res.second) this->writers_open.fetch_add(1, std::memory_order_release);
+        return res;
     }
 };
 

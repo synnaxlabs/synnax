@@ -233,7 +233,7 @@ describe("Mosaic", () => {
       render(
         <Harness
           onCreate={onCreate}
-          items={[Mosaic.createTabCreateHaulItem("ontology:1")]}
+          items={[Mosaic.createTabCreateHaulItem("tab:1")]}
         />,
       );
       beginDrag(leaf());
@@ -242,7 +242,7 @@ describe("Mosaic", () => {
       expect(onCreate).toHaveBeenCalledWith({
         nodeKey: 1,
         location: "center",
-        tabKeys: ["ontology:1"],
+        tabKeys: ["tab:1"],
         index: 1,
       });
     });
@@ -297,8 +297,8 @@ describe("Mosaic", () => {
         <Harness
           onCreate={onCreate}
           items={[
-            Mosaic.createTabCreateHaulItem("ontology:1"),
-            Mosaic.createTabCreateHaulItem("ontology:2"),
+            Mosaic.createTabCreateHaulItem("tab:1"),
+            Mosaic.createTabCreateHaulItem("tab:2"),
           ]}
         />,
       );
@@ -307,7 +307,7 @@ describe("Mosaic", () => {
       expect(onCreate).toHaveBeenCalledWith({
         nodeKey: 1,
         location: "left",
-        tabKeys: ["ontology:1", "ontology:2"],
+        tabKeys: ["tab:1", "tab:2"],
         index: undefined,
       });
     });

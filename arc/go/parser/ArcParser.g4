@@ -24,11 +24,11 @@ program
 topLevelItem
     : importStatement
     | authorityBlock
-    | functionDeclaration
+    | EXPORT? functionDeclaration
     | flowStatement
-    | sequenceDeclaration
-    | stageDeclaration
-    | variableDeclaration
+    | EXPORT? sequenceDeclaration
+    | EXPORT? stageDeclaration
+    | EXPORT? variableDeclaration
     | assignment
     ;
 
@@ -205,6 +205,7 @@ flowNode
 
 identifier
     : IDENTIFIER
+    | qualifiedIdentifier
     ;
 
 function

@@ -197,7 +197,7 @@ const AddDevice = ({ rack, exclude, onAdd }: AddDeviceProps): ReactElement => (
   <PDevice.SelectSingle
     value={undefined}
     onChange={(key: device.Key) => onAdd(key)}
-    initialQuery={{ where: { make: { eq: MAKE }, rack: { eq: rack } } }}
+    query={{ where: { make: { eq: MAKE }, rack: { eq: rack } } }}
     filter={(d) =>
       d.make === MAKE && d.rack === rack && d.configured && !exclude.includes(d.key)
     }

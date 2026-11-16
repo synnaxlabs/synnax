@@ -19,7 +19,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Access, Project as PProject } from "@synnaxlabs/pluto";
+import { Access, Flux } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { ContextMenu, listItem } from "@/feature/project/Selector";
@@ -44,24 +44,28 @@ const LogOutAction = (): ReactElement => {
   );
 };
 
+export interface SplashProps extends Pick<Shell.FrameProps, "actions"> {}
+
 /** Full-window project picker shown when the session has no active project. */
-export const Splash = (): ReactElement => {
+export const Splash = (props: SplashProps): ReactElement => {
   const dispatch = Session.useDispatch();
   const activeCore = Session.Core.useSelectSelected();
-  const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
-  const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_RESOURCE_ID);
+  const hasCreatePermission = Access.useCreateGranted(project.TYPE_RESOURCE_ID);
   const openCreate = PlatformProject.useCreateModal();
   const openSample = useOpenSample();
   const sampleVisible = Session.Runtime.CORE_EMBEDDED && hasCreatePermission;
-  const { data, retrieve, getItem, subscribe, answered, status } = PProject.useList();
-  const { fetchMore, search } = List.usePager({ retrieve, pageSize: 20 });
+  const { data, getItem, subscribe, answered, status, more, search } = Flux.useList(
+    (client) => client.projects,
+    { name: "projects", pageSize: 20 },
+  );
   const [searchTerm, setSearchTerm] = useState("");
 
   // The items pane only mounts once data is non-empty, so the initial fetch
   // cannot rely on its own onFetchMore.
   useEffect(() => {
-    fetchMore();
-  }, [fetchMore]);
+    more();
+  }, []);
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
@@ -85,6 +89,7 @@ export const Splash = (): ReactElement => {
     <Shell.Frame
       className={CSS.B("project-splash")}
       connection={Session.Runtime.CORE_EMBEDDED ? null : activeCore}
+      {...props}
     >
       <Menu.ContextMenu menu={contextMenu} {...menuProps} />
       <Select.Frame
@@ -92,7 +97,7 @@ export const Splash = (): ReactElement => {
         onChange={handleSelect}
         getItem={getItem}
         subscribe={subscribe}
-        onFetchMore={fetchMore}
+        onFetchMore={more}
         enableTriggers
       >
         <Flex.Box

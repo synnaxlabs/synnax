@@ -17,7 +17,7 @@ from tests.driver.ni_task import (
     NICounterReadTaskCase,
     NIDigitalReadTaskCase,
 )
-from tests.driver.task import create_channel, create_index
+from tests.driver.task import collect_samples, create_channel, create_index
 
 
 class NIAnalogReadHS(NIAnalogReadTaskCase):
@@ -173,13 +173,14 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
         self.log("Testing: Verify scaled value ranges")
         channel_keys = self._channel_keys(self.tsk)
 
-        # Collect samples for 2 seconds
+        config = self.tsk.config
         with self.tsk.run():
-            with self.client.open_streamer(channel_keys) as streamer:
-                streamer.read(timeout=30)  # wait for first frame
-            sy.sleep(0.5)
-            start = sy.TimeStamp.now()
-            sy.sleep(1)
+            start = collect_samples(
+                self.client,
+                channel_keys,
+                duration=1 * sy.TimeSpan.SECOND,
+                frame_size=int(config.sample_rate / config.stream_rate),
+            )
 
         end = sy.TimeStamp.now()
         tr = sy.TimeRange(start, end)
@@ -221,7 +222,7 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
 
             # Capture pre-tare averages
             pre_start = sy.TimeStamp.now()
-            sy.sleep(0.5)
+            sy.sleep(0.5)  # noqa: TID251 fixed sample window
             pre_end = sy.TimeStamp.now()
             pre_tr = sy.TimeRange(pre_start, pre_end)
 
@@ -243,10 +244,23 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
             self.tsk._internal.execute_command("tare", args={"keys": channel_keys})
             self.log("  Tare command sent")
 
+            largest = max(channel_keys, key=lambda k: abs(pre_avgs[k]))
+            with self.client.open_streamer([largest]) as streamer:
+
+                def tared() -> bool | None:
+                    frame = streamer.read(timeout=1)
+                    if frame is None or len(frame[largest]) == 0:
+                        return None
+                    avg = float(np.mean(np.array(frame[largest])))
+                    near_zero = abs(avg) <= abs(pre_avgs[largest]) * 0.5 + 2
+                    return True if near_zero else None
+
+                if sy.poll(tared, timeout=5, interval=0) is None:
+                    self.fail("No tared values arrived within 5 s of the tare")
+
             # Capture post-tare values
-            sy.sleep(0.5)
             post_start = sy.TimeStamp.now()
-            sy.sleep(0.5)
+            sy.sleep(0.5)  # noqa: TID251 fixed sample window
             post_end = sy.TimeStamp.now()
 
         post_tr = sy.TimeRange(post_start, post_end)

@@ -9,8 +9,7 @@
 
 from pathlib import Path
 
-from playwright.sync_api import Locator, Page
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.access import AccessClient
@@ -26,6 +25,7 @@ from console.pages import PagesClient
 from console.panels import PanelsClient
 from console.project import ProjectClient
 from console.range import Client as RangesClient
+from console.secrets import CertificateClient, SecretClient
 from console.statuses import StatusesClient
 from console.tasks import TaskClient
 
@@ -46,10 +46,12 @@ class Console:
     cluster: ClusterClient
     docs: DocsClient
     labels: LabelClient
+    certificates: CertificateClient
     layout: LayoutClient
     notifications: NotificationsClient
     devices: DevicesClient
     ranges: RangesClient
+    secrets: SecretClient
     statuses: StatusesClient
     tasks: TaskClient
     project: ProjectClient
@@ -63,7 +65,9 @@ class Console:
         self.layout = LayoutClient(page=page, results_dir=results_dir)
         self.notifications = self.layout.notifications
         self.docs = DocsClient(self.layout)
-        self.labels = LabelClient(self.layout)
+        self.labels = LabelClient(layout=self.layout, client=self.client)
+        self.secrets = SecretClient(self.layout)
+        self.certificates = CertificateClient(self.layout)
         self.devices = DevicesClient(layout=self.layout, client=self.client)
         self.arc = ArcClient(self.layout)
         self.access = AccessClient(self.layout)
@@ -74,7 +78,7 @@ class Console:
             layout=self.layout, client=self.client, project=self.project
         )
         self.panels = PanelsClient(self.layout)
-        self.ranges = RangesClient(layout=self.layout, pages=self.pages)
+        self.ranges = RangesClient(self.layout)
         self.statuses = StatusesClient(self.layout)
         self.tasks = TaskClient(self.layout)
 
@@ -130,11 +134,8 @@ class Console:
     def close_all_tabs(self, *, except_tabs: list[str] | None = None) -> None:
         """Close all tabs except specified ones.
 
-        Args:
-            except_tabs: Tab names to keep open. Defaults to ["Get Started"].
-
-        Raises:
-            RuntimeError: If tabs remain open after max iterations.
+        :param except_tabs: Tab names to keep open. Defaults to ["Get Started"].
+        :raises RuntimeError: If tabs remain open after max iterations.
         """
         if except_tabs is None:
             except_tabs = ["Get Started"]

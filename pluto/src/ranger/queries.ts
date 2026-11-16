@@ -7,23 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ontology, ranger } from "@synnaxlabs/client";
-import { type List } from "@synnaxlabs/lyra/list";
-import { deep, type NumericTimeRange, primitive, verbs } from "@synnaxlabs/x";
+import {
+  label,
+  query as clientQuery,
+  ranger,
+  type Synnax as SynnaxClient,
+} from "@synnaxlabs/client";
+import {
+  color,
+  deep,
+  destructor,
+  type NumericTimeRange,
+  primitive,
+  unique,
+  verbs,
+} from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
-import { listDefinition, type ListQuery } from "@/ranger/aether/queries";
 import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "range";
 const PLURAL_RESOURCE_NAME = "ranges";
 const KV_RESOURCE_NAME = "metadata";
 const PLURAL_KV_RESOURCE_NAME = "metadata";
-const PLURAL_CHILDREN_RESOURCE_NAME = "child ranges";
 const PARENT_RESOURCE_NAME = "parent range";
+const PLURAL_PARENT_RESOURCE_NAME = "parent ranges";
 
 export type RetrieveQuery = {
   key: ranger.Key;
@@ -39,45 +50,71 @@ export const useDeleteSynchronizer = (onDelete: (key: ranger.Key) => void): void
   useEffect(() => client?.ranges.onDelete((key) => onDelete(key)), [client]);
 };
 
-export type ListChildrenQuery = List.PagerParams & {
-  key?: ranger.Key;
-};
-
-export const useListChildren = Flux.createList<
-  ListChildrenQuery,
-  ranger.Key,
-  ranger.Range
->({
-  name: PLURAL_CHILDREN_RESOURCE_NAME,
-  retrieve: async ({ client, query: { key, limit, offset } }) => {
-    if (key == null) return [];
-    return await client.ranges.children.retrieve({ key, limit, offset });
-  },
-  retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-  onChange: ({ client, query: { key, limit, offset } }, handler) => {
-    if (key == null) return () => {};
-    return client.ranges.children.onChange({ key, limit, offset }, handler);
-  },
-  getCached: ({ client, query: { key, limit, offset } }) => {
-    if (key == null) return undefined;
-    return client.ranges.children.getCached({ key, limit, offset });
-  },
-});
-
-export type RetrieveParentQuery = {
-  id: ontology.ID;
-};
-
-export const { use: useParent, useResult: useResultParent } = Flux.createRetrieve<
-  RetrieveParentQuery,
+export const { useResult: useResultParent } = Flux.createRetrieve<
+  RetrieveQuery,
   ranger.Range | null
 >({
   name: PARENT_RESOURCE_NAME,
-  retrieve: async ({ client, query: { id } }) =>
-    await client.ranges.parent.retrieve(id),
-  onChange: ({ client, query: { id } }, handler) =>
-    client.ranges.parent.onChange(id, handler),
-  getCached: ({ client, query: { id } }) => client.ranges.parent.getCached(id),
+  retrieve: async ({ client, query: { key } }) =>
+    await client.ranges.parent.retrieve(key),
+  onChange: ({ client, query: { key } }, handler) =>
+    client.ranges.parent.watch(key).onChange(handler),
+  getCached: ({ client, query: { key } }) =>
+    client.ranges.parent.watch(key).getCached(),
+});
+
+export type AncestorsQuery = {
+  keys: ranger.Key[];
+};
+
+type Links = Record<ranger.Key, ranger.Key | null>;
+
+/** Adds the parent of each range to links, and returns the keys above that it lacks. */
+const link = (links: Links, ranges: ranger.Range[]): ranger.Key[] => {
+  ranges.forEach(({ key, parent }) => (links[key] = parent ?? null));
+  return unique.unique(
+    ranges.flatMap(({ parent }) => (parent == null || parent in links ? [] : [parent])),
+  );
+};
+
+const getCachedAncestors = (
+  client: SynnaxClient,
+  keys: ranger.Key[],
+): Links | undefined => {
+  const links: Links = {};
+  let level = keys;
+  while (level.length > 0) {
+    const ranges = client.ranges.watch(level).getCached();
+    if (!clientQuery.isLive(ranges)) return undefined;
+    level = link(links, ranges);
+  }
+  return links;
+};
+
+/**
+ * The parent of each of the ranges and of each range above them: a key maps to the key
+ * of its parent, or to null at the top. A move of one of them updates the answer.
+ */
+export const { useResult: useResultAncestors } = Flux.createRetrieve<
+  AncestorsQuery,
+  Links
+>({
+  name: PLURAL_PARENT_RESOURCE_NAME,
+  retrieve: async ({ client, query: { keys } }) => {
+    const links: Links = {};
+    let level = keys;
+    while (level.length > 0) level = link(links, await client.ranges.retrieve(level));
+    return links;
+  },
+  onChange: ({ client, query: { keys } }, handler) => {
+    const notify = () => handler(getCachedAncestors(client, keys));
+    const offSet = client.ranges.onSet(notify);
+    const offDelete = client.ranges.onDelete(notify);
+    return () => destructor.unwind(offSet, offDelete);
+  },
+  getCached: ({ client, query: { keys } }) => getCachedAncestors(client, keys),
+  // Each read builds new links, so equal links keep the answer.
+  equal: deep.equal,
 });
 
 export const { use, useEnsure, useTombstone, createSelector, useResult } =
@@ -85,8 +122,8 @@ export const { use, useEnsure, useTombstone, createSelector, useResult } =
     name: RESOURCE_NAME,
     retrieve: async ({ client, query: { key } }) => await client.ranges.retrieve(key),
     onChange: ({ client, query: { key } }, handler) =>
-      client.ranges.onChange(key, handler),
-    getCached: ({ client, query: { key } }) => client.ranges.getCached(key),
+      client.ranges.watch(key).onChange(handler),
+    getCached: ({ client, query: { key } }) => client.ranges.watch(key).getCached(),
   });
 
 export type RetrieveMultipleQuery = {
@@ -101,8 +138,8 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   retrieve: async ({ client, query: { keys } }) =>
     await client.ranges.retrieve({ key: keys }),
   onChange: ({ client, query: { keys } }, handler) =>
-    client.ranges.onChange(keys, handler),
-  getCached: ({ client, query: { keys } }) => client.ranges.getCached(keys),
+    client.ranges.watch(keys).onChange(handler),
+  getCached: ({ client, query: { keys } }) => client.ranges.watch(keys).getCached(),
 });
 
 const timeRangeZ = z
@@ -112,7 +149,7 @@ const timeRangeZ = z
   });
 
 export const createFormSchema = z.object({
-  ...ranger.payloadZ.omit({ timeRange: true }).partial({ key: true }).shape,
+  ...ranger.newZ.omit({ timeRange: true }).shape,
   labels: z.array(label.keyZ),
   parent: z.string().optional(),
   timeRange: timeRangeZ,
@@ -134,20 +171,14 @@ export const useCreateForm = Flux.createForm<null, typeof createFormSchema>({
   initialValues: ZERO_CREATE_FORM_VALUES,
   update: async ({ client, value: getValue, reset }) => {
     const value = getValue();
-    const parentKey = value.parent;
     const rng = await client.ranges.create({
       ...value,
-      parent: primitive.isNonZero(parentKey) ? { key: parentKey } : undefined,
-    });
-    await Label.setLabelsFor({
-      client,
-      data: { id: rng.ontologyID, labels: value.labels },
+      parent: primitive.isNonZero(value.parent) ? value.parent : undefined,
     });
     reset({
       ...value,
       ...rng.payload,
       timeRange: rng.timeRange.numeric,
-      labels: value.labels,
       parent: value.parent,
     });
   },
@@ -173,45 +204,35 @@ export const useForm = Flux.createDocumentForm<
   toValues: ({ name, timeRange }) => ({ name, timeRange: timeRange.numeric }),
 });
 
-export const useLabels = (key: ranger.Key | null): label.Label[] | undefined =>
-  Label.useResultLabelsOf(key == null ? null : { id: ranger.ontologyID(key) }).data;
-
-export { type ListQuery } from "@/ranger/aether/queries";
-
-export const useList = Flux.createList<ListQuery, ranger.Key, ranger.Range>({
-  ...listDefinition,
-  retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-  onChangeByKey: ({ client, key }, handler) => client.ranges.onChange(key, handler),
-});
+export const useLabels = (key: ranger.Key | null): label.Label[] | undefined => {
+  const labels = useResult(key == null ? null : { key }).data?.labels;
+  return Label.useResultMultiple(labels == null ? null : { keys: labels }).data;
+};
 
 export const metaDataFormSchema = z.object({
   pairs: z.array(z.object({ key: z.string(), value: z.string() })),
 });
 
-export type ListMetaDataQuery = {
+export type MetaDataQuery = {
   rangeKey: ranger.Key;
 };
 
-export const useListMetaData = Flux.createList<
-  ListMetaDataQuery,
-  string,
-  ranger.kv.Pair
+export const { useResult: useResultMetaData } = Flux.createRetrieve<
+  MetaDataQuery,
+  ranger.kv.Pair[]
 >({
   name: PLURAL_KV_RESOURCE_NAME,
   retrieve: async ({ client, query: { rangeKey } }) =>
     await client.ranges.kv.retrieve(rangeKey),
-  retrieveByKey: async ({ client, key, query: { rangeKey } }) => {
-    if (rangeKey == null) return undefined;
-    const kv = client.ranges.getKV(rangeKey);
-    const value = await kv.get(key);
-    return { key, value, range: rangeKey };
-  },
   onChange: ({ client, query: { rangeKey } }, handler) =>
-    client.ranges.kv.onChange(rangeKey, handler),
-  getCached: ({ client, query: { rangeKey } }) => client.ranges.kv.getCached(rangeKey),
+    client.ranges.kv.watch(rangeKey).onChange(handler),
+  getCached: ({ client, query: { rangeKey } }) =>
+    client.ranges.kv.watch(rangeKey).getCached(),
 });
 
-export const kvPairFormSchema = ranger.kv.pairZ;
+export const kvPairFormSchema = ranger.kv.pairZ.extend({
+  key: z.string().trim().min(1, "Key is required"),
+});
 
 export const kvPairFormPath = deep.path<z.infer<typeof kvPairFormSchema>>();
 
@@ -227,12 +248,13 @@ export const useCreateKVPairForm = Flux.createForm<null, typeof kvPairFormSchema
   schema: kvPairFormSchema,
   initialValues: ZERO_KV_PAIR_FORM_VALUES,
   update: async ({ client, value: getPair }) => {
-    const { key, value, range } = getPair();
+    // The form holds the text as typed, so the schema trims it.
+    const { key, value, range } = kvPairFormSchema.parse(getPair());
     await client.ranges.getKV(range).set(key, value);
   },
 });
 
-export interface DeleteKVParams extends ListMetaDataQuery {
+export interface DeleteKVParams extends MetaDataQuery {
   key: string;
 }
 
@@ -248,7 +270,7 @@ export const { useUpdate: useDeleteKV } = Flux.createUpdate<DeleteKVParams>({
   },
 });
 
-export interface SetKVParams extends ListMetaDataQuery, ranger.kv.Pair {}
+export interface SetKVParams extends MetaDataQuery, ranger.kv.Pair {}
 
 export const { useUpdate: useUpdateKV } = Flux.createUpdate<SetKVParams>({
   name: KV_RESOURCE_NAME,
@@ -286,11 +308,9 @@ export interface RenameParams extends Pick<ranger.Payload, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.ranges.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.ranges.rename(key, name);
     return data;
   },
 });
@@ -308,6 +328,25 @@ export const { useUpdate: useSetTimeRange } = Flux.createUpdate<SetTimeRangePara
     await client.ranges.dispatch(
       key,
       ranger.set({ path: ["timeRange"], value: timeRange }),
+    );
+    return data;
+  },
+});
+
+export interface SetColorParams {
+  key: ranger.Key;
+  /** The color of the range. Undefined clears it. */
+  color?: color.Color;
+}
+
+export const { useUpdate: useSetColor } = Flux.createUpdate<SetColorParams>({
+  name: RESOURCE_NAME,
+  verbs: verbs.UPDATE,
+  update: async ({ client, data }) => {
+    const { key, color: value } = data;
+    await client.ranges.dispatch(
+      key,
+      ranger.set({ path: ["color"], value: value == null ? null : color.hex(value) }),
     );
     return data;
   },
