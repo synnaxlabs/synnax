@@ -31,25 +31,34 @@ type Binding struct {
 	DataType telem.DataType
 }
 
-// JSON decodes the documents of one JSON message into samples. It is not safe for
-// concurrent use.
-type JSON struct {
-	fields    []jsonField
-	extractor *xjson.Extractor
-	// values holds the match value, when there is a match rule, then one value for each
-	// field.
-	values []jsontext.Value
-	match  *jsonMatch
-	// lengths holds the length of each sample slice before a Decode, to undo it.
-	lengths []int
+// JSONMessage is a JSON message and the fields to decode from its documents.
+type JSONMessage struct {
+	// Name identifies the message in errors.
+	Name string
+	// Payload is the layout of the message's documents.
+	Payload icd.JSONPayload
+	// Bindings name the fields to decode, in sample order.
+	Bindings []Binding
 }
 
-type jsonMatch struct {
-	text   string
-	number float64
-	isText bool
-	// unquoted is scratch space for the text of a string value.
-	unquoted []byte
+// JSON decodes documents that each belong to one of several JSON messages into samples.
+// It is not safe for concurrent use.
+type JSON struct {
+	extractor *xjson.Extractor
+	// values holds the match value, when a message has a match rule, then the value of
+	// each field of each message, in message order.
+	values   []jsontext.Value
+	messages []jsonMessage
+	router   *router
+}
+
+type jsonMessage struct {
+	name   string
+	fields []jsonField
+	// values are the values of fields, a part of JSON.values.
+	values []jsontext.Value
+	// lengths holds the length of each sample slice before a decode, to undo it.
+	lengths []int
 }
 
 type jsonField struct {
@@ -70,94 +79,69 @@ type jsonField struct {
 	fallback []byte
 }
 
-// NewJSON returns a JSON decoder for the fields of p that bindings name, in binding
-// order. It returns an error wrapping validate.ErrValidation when a binding names no
-// field of p, or a field's kind does not convert to its binding's data type.
-func NewJSON(p icd.JSONPayload, bindings []Binding) (*JSON, error) {
-	byKey := make(map[icd.FieldKey]icd.JSONField, len(p.Fields))
-	for _, f := range p.Fields {
+// NewJSON returns a JSON decoder for messages that share one source of documents. A
+// document belongs to the message whose match rule it meets, or else to the message
+// with no rule. NewJSON returns an error wrapping validate.ErrValidation when:
+//   - two match rules test different pointers
+//   - one document value can meet two match rules
+//   - two messages have no match rule
+//   - a binding names no field of its message
+//   - a field's kind does not convert to its binding's data type
+func NewJSON(messages []JSONMessage) (*JSON, error) {
+	r, err := newRouter(messages)
+	if err != nil {
+		return nil, err
+	}
+	j := &JSON{messages: make([]jsonMessage, len(messages)), router: r}
+	var pointers []xjson.Pointer
+	if r.ruled {
+		pointers = append(pointers, r.pointer)
+	}
+	for i, m := range messages {
+		if j.messages[i], err = newJSONMessage(m); err != nil {
+			return nil, errors.Wrapf(err, "message %s", m.Name)
+		}
+		for _, f := range j.messages[i].fields {
+			pointers = append(pointers, f.pointer)
+		}
+	}
+	j.extractor = xjson.NewExtractor(pointers)
+	j.values = make([]jsontext.Value, len(pointers))
+	values := j.values
+	if r.ruled {
+		values = values[1:]
+	}
+	for i := range j.messages {
+		m := &j.messages[i]
+		m.values, values = values[:len(m.fields)], values[len(m.fields):]
+	}
+	return j, nil
+}
+
+func newJSONMessage(m JSONMessage) (jsonMessage, error) {
+	byKey := make(map[icd.FieldKey]icd.JSONField, len(m.Payload.Fields))
+	for _, f := range m.Payload.Fields {
 		byKey[f.Base().Key] = f
 	}
-	j := &JSON{fields: make([]jsonField, len(bindings))}
-	pointers := make([]xjson.Pointer, 0, len(bindings)+1)
-	if p.Match != nil {
-		m, pointer, err := newJSONMatch(*p.Match)
-		if err != nil {
-			return nil, err
-		}
-		j.match = m
-		pointers = append(pointers, pointer)
+	msg := jsonMessage{
+		name:    m.Name,
+		fields:  make([]jsonField, len(m.Bindings)),
+		lengths: make([]int, len(m.Bindings)),
 	}
-	for i, b := range bindings {
+	for i, b := range m.Bindings {
 		f, ok := byKey[b.Field]
 		if !ok {
-			return nil, errors.Wrapf(
+			return jsonMessage{}, errors.Wrapf(
 				validate.ErrValidation, "field %s does not exist", b.Field,
 			)
 		}
 		field, err := newJSONField(f, b.DataType)
 		if err != nil {
-			return nil, errors.Wrapf(err, "field %s", f.Base().Name)
+			return jsonMessage{}, errors.Wrapf(err, "field %s", f.Base().Name)
 		}
-		j.fields[i] = field
-		pointers = append(pointers, field.pointer)
+		msg.fields[i] = field
 	}
-	j.extractor = xjson.NewExtractor(pointers)
-	j.values = make([]jsontext.Value, len(pointers))
-	j.lengths = make([]int, len(bindings))
-	return j, nil
-}
-
-func newJSONMatch(m icd.JSONMatch) (*jsonMatch, xjson.Pointer, error) {
-	pointer, err := xjson.ParsePointer(m.Pointer)
-	if err != nil {
-		return nil, nil, err
-	}
-	switch v := m.Value.(type) {
-	case string:
-		return &jsonMatch{text: v, isText: true}, pointer, nil
-	case nil:
-		return nil, nil, errors.Wrap(validate.ErrValidation, "match value is required")
-	}
-	n, ok := toFloat(m.Value)
-	if !ok {
-		return nil, nil, errors.Wrapf(
-			validate.ErrValidation,
-			"match value must be a string or a number, got %T",
-			m.Value,
-		)
-	}
-	return &jsonMatch{number: n}, pointer, nil
-}
-
-func toFloat(v any) (float64, bool) {
-	switch n := v.(type) {
-	case float64:
-		return n, true
-	case float32:
-		return float64(n), true
-	case int:
-		return float64(n), true
-	case int8:
-		return float64(n), true
-	case int16:
-		return float64(n), true
-	case int32:
-		return float64(n), true
-	case int64:
-		return float64(n), true
-	case uint:
-		return float64(n), true
-	case uint8:
-		return float64(n), true
-	case uint16:
-		return float64(n), true
-	case uint32:
-		return float64(n), true
-	case uint64:
-		return float64(n), true
-	}
-	return 0, false
+	return msg, nil
 }
 
 // converts reports whether a field of kind k converts to samples of dt. A number or
@@ -358,28 +342,39 @@ func (f *jsonField) checkKind(raw jsontext.Value) error {
 	return nil
 }
 
-// Decode appends one sample for each binding to samples, which holds one slice for each
-// binding, in binding order. It returns false, appending nothing, when doc does not
-// match the message. It returns an error, appending nothing, when doc is not JSON or a
-// field's value does not convert.
-func (j *JSON) Decode(doc []byte, samples [][]byte) (bool, error) {
+// Decode finds the message that doc belongs to and appends one sample for each of its
+// bindings to samples[message]. samples holds an entry for each message in NewJSON
+// order, and each entry holds one slice for each binding, in binding order. ok is
+// false, and Decode appends nothing, when doc belongs to no message. Decode returns an
+// error, appending nothing, when doc is not JSON or a value does not convert.
+func (j *JSON) Decode(
+	doc []byte,
+	samples [][][]byte,
+) (message int, ok bool, err error) {
 	if err := j.extractor.Extract(doc, j.values); err != nil {
-		return false, errors.Wrap(validate.ErrValidation, err.Error())
+		return 0, false, errors.Wrap(validate.ErrValidation, err.Error())
 	}
-	values := j.values
-	if j.match != nil {
-		if !j.match.matches(values[0]) {
-			return false, nil
-		}
-		values = values[1:]
+	var match jsontext.Value
+	if j.router.ruled {
+		match = j.values[0]
 	}
+	if message, ok, err = j.router.find(match); err != nil || !ok {
+		return 0, false, err
+	}
+	if err := j.messages[message].decode(samples[message]); err != nil {
+		return 0, false, err
+	}
+	return message, true, nil
+}
+
+func (m *jsonMessage) decode(samples [][]byte) error {
 	for i := range samples {
-		j.lengths[i] = len(samples[i])
+		m.lengths[i] = len(samples[i])
 	}
-	for i := range j.fields {
-		f := &j.fields[i]
+	for i := range m.fields {
+		f := &m.fields[i]
 		var err error
-		if values[i] == nil {
+		if m.values[i] == nil {
 			if f.fallback == nil {
 				err = errors.Wrapf(
 					validate.ErrValidation, "no value at %s", f.pointer,
@@ -389,35 +384,16 @@ func (j *JSON) Decode(doc []byte, samples [][]byte) (bool, error) {
 			}
 		} else {
 			var out []byte
-			if out, err = f.decode(samples[i], values[i]); err == nil {
+			if out, err = f.decode(samples[i], m.values[i]); err == nil {
 				samples[i] = out
 			}
 		}
 		if err != nil {
 			for k := range samples {
-				samples[k] = samples[k][:j.lengths[k]]
+				samples[k] = samples[k][:m.lengths[k]]
 			}
-			return false, errors.Wrapf(err, "field %s", f.name)
+			return errors.Wrapf(err, "message %s: field %s", m.name, f.name)
 		}
 	}
-	return true, nil
-}
-
-func (m *jsonMatch) matches(raw jsontext.Value) bool {
-	switch raw.Kind() {
-	case '"':
-		if !m.isText {
-			return false
-		}
-		var err error
-		m.unquoted, err = jsontext.AppendUnquote(m.unquoted[:0], raw)
-		return err == nil && string(m.unquoted) == m.text
-	case '0':
-		if m.isText {
-			return false
-		}
-		n, err := strconv.ParseFloat(string(raw), 64)
-		return err == nil && n == m.number
-	}
-	return false
+	return nil
 }

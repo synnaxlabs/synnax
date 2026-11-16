@@ -1,69 +1,98 @@
 {
-  "description": "A string match rule selects documents by their type field, before it reads any other field.",
-  "payload": {
-    "format": "json",
-    "fields": [
-      {
-        "key": "00000000-0000-4000-8000-000000000001",
-        "name": "temp",
-        "scale": 1,
-        "offset": 0,
-        "units": "",
-        "pointer": "/temp",
-        "type": "float"
-      }
-    ],
-    "match": {
-      "pointer": "/type",
-      "value": "status"
-    }
-  },
-  "bindings": [
+  "description": "String match rules pick the message by the text at one pointer, and a string rule matches no other JSON type.",
+  "messages": [
     {
-      "field": "00000000-0000-4000-8000-000000000001",
-      "data_type": "float64"
+      "name": "status",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ],
+        "match": {
+          "type": "string",
+          "pointer": "/type",
+          "value": "status"
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    },
+    {
+      "name": "event",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ],
+        "match": {
+          "type": "string",
+          "pointer": "/type",
+          "value": "event"
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "float64"
+        }
+      ]
     }
   ],
   "cases": [
     {
-      "document": {
-        "type": "status",
-        "temp": 3
-      },
+      "document": { "type": "status", "v": 1 },
+      "message": "status",
+      "samples": [1]
+    },
+    {
+      "document": { "type": "event", "v": 2 },
+      "message": "event",
+      "samples": [2]
+    },
+    {
+      "document": { "type": "st\u0061tus", "v": 3 },
+      "message": "status",
       "samples": [3]
     },
     {
-      "document": {
-        "type": "event",
-        "temp": 3
-      },
+      "document": { "type": "alarm", "v": 1 },
       "unmatched": true
     },
     {
-      "document": {
-        "type": 1,
-        "temp": 3
-      },
+      "document": { "type": 1, "v": 1 },
       "unmatched": true
     },
     {
-      "document": {
-        "temp": 3
-      },
+      "document": { "type": true, "v": 1 },
       "unmatched": true
     },
     {
-      "document": {
-        "type": "event"
-      },
+      "document": { "v": 1 },
       "unmatched": true
     },
     {
-      "document": {
-        "type": "st\u0061tus",
-        "temp": 4
-      },
-      "samples": [4]
+      "document": { "type": "event" },
+      "error": "message event: field v: no value at /v: validation error"
     }
   ]
 }
