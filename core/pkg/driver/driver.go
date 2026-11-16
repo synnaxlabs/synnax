@@ -336,7 +336,7 @@ func (d *Driver) start(ctx context.Context) error {
 	// (Policy.Decide); a graceful wait-then-cancel would instead deadlock against a
 	// supervisor parked in that backoff.
 	d.shutdown = signal.NewHardShutdown(sCtx, cancel)
-	policy, err := restart.New(sCtx, restart.Config{
+	policy, err := restart.New(restart.Config{
 		BaseInterval:  d.cfg.RestartBaseInterval,
 		Scale:         restartScale,
 		MaxRetries:    d.cfg.RestartMaxRetries,
@@ -477,7 +477,7 @@ func (d *Driver) runOnce(
 	if !expected {
 		d.cfg.L.Warn("embedded Driver process exited unexpectedly", zap.Error(err))
 	}
-	return policy.Decide(expected, time.Since(startedAt)), err
+	return policy.Decide(ctx, expected, time.Since(startedAt)), err
 }
 
 // resolveKey returns the API key saved by an earlier start when the Core still accepts

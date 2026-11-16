@@ -204,7 +204,7 @@ func (t *ReadTask) run(ctx context.Context, r Reader) (err error) {
 		}
 		return context.Cause(readCtx)
 	}
-	brk, err := breaker.NewBreaker(readCtx, t.cfg.Breaker)
+	brk, err := breaker.NewBreaker(t.cfg.Breaker)
 	if err != nil {
 		return err
 	}
@@ -218,7 +218,7 @@ func (t *ReadTask) run(ctx context.Context, r Reader) (err error) {
 		}
 		if errors.Is(err, ErrTemporary) {
 			t.Report(ctx, "Failed to read data", err)
-			if !brk.Wait() {
+			if !brk.Wait(readCtx) {
 				if readCtx.Err() != nil {
 					return stopped()
 				}

@@ -238,7 +238,7 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 	}
 
 	if r.useBreaker {
-		r.breaker, r.state.err = breaker.NewBreaker(r.ctx, r.breakerCfg)
+		r.breaker, r.state.err = breaker.NewBreaker(r.breakerCfg)
 		if r.state.err != nil {
 			return r.ctx, false
 		}
@@ -391,7 +391,7 @@ func (r *routine) goRun(f func(context.Context) error) {
 						}()
 						err = f(ctx)
 					}()
-					if !recovered || !r.useBreaker || !r.breaker.Wait() {
+					if !recovered || !r.useBreaker || !r.breaker.Wait(ctx) {
 						break
 					}
 				}
