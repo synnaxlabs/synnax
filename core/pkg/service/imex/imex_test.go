@@ -811,8 +811,9 @@ var _ = Describe("ImEx", func() {
 						Inner string `json:"inner"`
 					}
 					type payload struct {
-						Wrapped `       json:"wrapped"`
-						Name    string `json:"name"`
+						Wrapped `json:"wrapped"`
+
+						Name string `json:"name"`
 					}
 					env := imex.Envelope{Version: 1, Type: "log"}
 					Expect(env.Encode(payload{Inner: "v", Name: "n"})).To(Succeed())

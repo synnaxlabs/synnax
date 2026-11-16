@@ -81,6 +81,7 @@ func (e *benchEnv) openCalculator(
 	indexes, bases []channel.Channel,
 	calc *channel.Channel,
 ) *calculator.Calculator {
+	b.Helper()
 	if len(indexes) > 0 {
 		if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
 			return e.channelSvc.NewWriter(tx).CreateMany(e.ctx, &indexes)

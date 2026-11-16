@@ -43,6 +43,7 @@ type benchStreamerEnv struct {
 }
 
 func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
+	b.Helper()
 	RegisterTestingT(b)
 	node := testutil.OpenNode(b.Context())
 

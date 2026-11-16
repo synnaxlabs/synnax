@@ -38,6 +38,7 @@ type benchEnv struct {
 
 // newBenchEnv creates count calculated channels off one stored channel.
 func newBenchEnv(b *testing.B, count int) *benchEnv {
+	b.Helper()
 	gomega.RegisterTestingT(b)
 	node := testutil.OpenNode(b.Context())
 	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
