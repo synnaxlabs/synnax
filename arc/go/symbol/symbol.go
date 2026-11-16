@@ -723,43 +723,42 @@ func (s *Symbol) resolveLexical(
 // Search returns symbols matching the given prefix or fuzzy term using the
 // same traversal order as Resolve.
 func (s *Symbol) Search(ctx context.Context, term string) ([]*Symbol, error) {
-	seen := make(set.Set[string])
-	var results []*Symbol
+	results := searchResults{seen: make(set.Set[string])}
 	for _, child := range s.children {
-		if child.Internal || child.Name == "" {
-			continue
-		}
-		if matchesSearch(child.Name, term) && !seen.Contains(child.Name) {
-			results = append(results, child)
-			seen.Add(child.Name)
+		if !child.Internal && child.Name != "" && matchesSearch(child.Name, term) {
+			results.add(child)
 		}
 	}
 	if s.globalResolver != nil {
-		matches, err := s.globalResolver.Search(ctx, term)
-		if err == nil {
+		if matches, err := s.globalResolver.Search(ctx, term); err == nil {
 			for _, sym := range matches {
-				if sym.Internal {
-					continue
-				}
-				if !seen.Contains(sym.Name) {
-					results = append(results, sym)
-					seen.Add(sym.Name)
+				if !sym.Internal {
+					results.add(sym)
 				}
 			}
 		}
 	}
 	if s.Parent != nil {
-		parentResults, err := s.Parent.Search(ctx, term)
-		if err == nil {
+		if parentResults, err := s.Parent.Search(ctx, term); err == nil {
 			for _, sym := range parentResults {
-				if !seen.Contains(sym.Name) {
-					results = append(results, sym)
-					seen.Add(sym.Name)
-				}
+				results.add(sym)
 			}
 		}
 	}
-	return results, nil
+	return results.symbols, nil
+}
+
+// searchResults collects symbols, keeping the first symbol of each name.
+type searchResults struct {
+	seen    set.Set[string]
+	symbols []*Symbol
+}
+
+func (r *searchResults) add(sym *Symbol) {
+	if !r.seen.Contains(sym.Name) {
+		r.symbols = append(r.symbols, sym)
+		r.seen.Add(sym.Name)
+	}
 }
 
 func matchesSearch(name, term string) bool {

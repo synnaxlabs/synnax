@@ -176,11 +176,12 @@ func parseWithContext[T any](
 	cfg Config,
 	position Position,
 	parseFn func(*ArcParser) T,
-) (result T, _ *diagnostics.Diagnostics) {
+) (T, *diagnostics.Diagnostics) {
+	var zeroT T
 	diag := &diagnostics.Diagnostics{}
 	if len(source) > maxSourceSize {
 		diag.Add(sizeDiagnostic(source))
-		return result, diag
+		return zeroT, diag
 	}
 	var (
 		lexer              = NewLexer(source, cfg)
@@ -205,42 +206,45 @@ func parseWithContext[T any](
 	lexer.AddErrorListener(lexLis)
 	parser.RemoveErrorListeners()
 	parser.AddParseListener(limit)
-	parse := func() (exceeded *depthExceeded) {
-		defer func() {
-			if r := recover(); r != nil {
-				d, ok := r.(depthExceeded)
-				if !ok {
-					panic(r)
-				}
-				exceeded = &d
-			}
-		}()
-		limit.depth = 0
-		result = parseFn(parser)
-		return nil
-	}
 	// SLL prediction is much faster than LL, and when it reports no syntax error it
 	// returns the tree LL would. Only source that fails SLL is parsed again with LL.
 	parser.AddErrorListener(sllErr)
 	parser.GetInterpreter().SetPredictionMode(antlr.PredictionModeSLL)
-	exceeded := parse()
+	result, exceeded := parseWithinLimit(parser, limit, parseFn)
 	if exceeded == nil && sllErr.reported {
 		stream.Seek(0)
 		parser.SetTokenStream(stream)
 		parser.RemoveErrorListeners()
 		parser.AddErrorListener(errLis)
 		parser.GetInterpreter().SetPredictionMode(antlr.PredictionModeLL)
-		exceeded = parse()
+		result, exceeded = parseWithinLimit(parser, limit, parseFn)
 	}
 	if exceeded != nil {
-		var zeroT T
 		return zeroT, &diagnostics.Diagnostics{exceeded.diagnostic()}
 	}
 	if !diag.Ok() {
-		var zeroT T
 		return zeroT, diag
 	}
 	return result, nil
+}
+
+// parseWithinLimit runs parseFn, returning the depth limit's panic as exceeded.
+func parseWithinLimit[T any](
+	parser *ArcParser,
+	limit *depthLimit,
+	parseFn func(*ArcParser) T,
+) (result T, exceeded *depthExceeded) {
+	defer func() {
+		if r := recover(); r != nil {
+			d, ok := r.(depthExceeded)
+			if !ok {
+				panic(r)
+			}
+			exceeded = &d
+		}
+	}()
+	limit.depth = 0
+	return parseFn(parser), nil
 }
 
 // syntaxErrorFlag records whether a parse reported a syntax error.
