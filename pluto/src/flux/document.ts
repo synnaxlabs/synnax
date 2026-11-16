@@ -221,7 +221,13 @@ class DocumentStore<
     const target = locate(this.params.schema, values, formPath);
     if (target == null) return;
     const { schema } = this.params;
-    const field = zod.getFieldSchema(schema, formPath, { optional: true, values });
+    // The value can change the union member that holds the field, as a variant does.
+    const next = deep.copy(values);
+    deep.set(next, formPath, value);
+    const field = zod.getFieldSchema(schema, formPath, {
+      optional: true,
+      values: next,
+    });
     const valid = field == null || field.safeParse(value).success;
     let whole = value;
     if (target.rest !== "") {
