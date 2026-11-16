@@ -12,6 +12,7 @@ reply of `@sedosaur dismiss` on the thread of the finding, or for a finding outs
 diff, a comment of `@sedosaur dismiss` and its title."""
 
 import json
+import re
 from typing import Any
 
 from review.findings import Dismissal
@@ -34,9 +35,12 @@ USAGE = (
     "review, comment `@sedosaur review` on the pull request."
 )
 OUTSIDE_USAGE = (
-    "No finding outside the diff has that title. To dismiss one, comment "
-    "`@sedosaur dismiss`, its title, and a reason."
+    "No one finding outside the diff has that title. To dismiss one, comment "
+    "`@sedosaur dismiss`, its title, and a reason. When two findings share the title, "
+    "add `path:<file>` after it."
 )
+_QUOTES = "\"'\u201c\u201d\u2018\u2019"
+_PATH = re.compile(r"(?:^|\s)path:(\S+)")
 REFUSED = "Only a member can dismiss a finding, not an agent."
 DONE = "Dismissed. Later reviews of this pull request will not report it."
 PASSED = (
@@ -96,15 +100,34 @@ def _dismiss_outside(
     if text is not None and not member(reply):
         _comment(t, gh, REFUSED)
         return
-    named = [f for f in outside_findings(t, gh) if text and text.startswith(f[1])]
-    if text is None or not named:
+    named = None if text is None else _named(text, outside_findings(t, gh))
+    if named is None:
         _comment(t, gh, OUTSIDE_USAGE)
         return
-    path, title = max(named, key=lambda f: len(f[1]))
-    reason = text[len(title) :].strip().lstrip(",:;.").strip()
+    (path, title), reason = named
     d = Dismissal(path=path, title=title, reason=reason)
     passed = rescore(t, gh, [*dismissals(t, gh, found), d], key)
     _comment(t, gh, f"{record(d)}\n\n{DONE}" + (PASSED if passed else ""))
+
+
+def _named(
+    text: str, findings: set[tuple[str, str]]
+) -> tuple[tuple[str, str], str] | None:
+    """Returns the one finding whose title starts the text, and the reason after it, or
+    None. Case, backticks, and quotes around the title do not count. `path:<file>` picks
+    one of the findings that share a title."""
+    text = text.replace("`", "").strip().lstrip(_QUOTES)
+    plain = {f: f[1].replace("`", "").strip().strip(_QUOTES).strip() for f in findings}
+    hits = [f for f, p in plain.items() if text.casefold().startswith(p.casefold())]
+    size = max((len(plain[f]) for f in hits), default=0)
+    hits = [f for f in hits if len(plain[f]) == size]
+    rest = text[size:].lstrip(_QUOTES)
+    if m := _PATH.search(rest):
+        hits = [f for f in hits if f[0] == m[1]]
+        rest = rest[: m.start()] + rest[m.end() :]
+    if len(hits) != 1:
+        return None
+    return hits[0], rest.strip().lstrip(",:;.").strip()
 
 
 def _comment(t: Target, gh: GH, body: str) -> None:

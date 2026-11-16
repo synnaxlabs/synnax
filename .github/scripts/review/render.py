@@ -22,6 +22,8 @@ SUMMARY_END = "<!-- /sedosaur_comment -->"
 OUTSIDE = "<!-- sedosaur_outside_diff -->"
 LISTING_START = "<!-- sedosaur_findings "
 LISTING_END = " -->"
+RULES = "<!-- sedosaur_rules:2 -->"
+"""Marks a check run whose review counts every finding against the score."""
 # Comments on pull requests reviewed before every finding blocked mark some titles
 # " (follow-up)".
 _OUTSIDE_ITEM = re.compile(
@@ -177,14 +179,14 @@ def splice(body: str, block: str) -> str:
 
 
 def check(review: Review) -> dict[str, str]:
-    """Renders the output of the review's check run. Its text lists the findings, so a
-    dismissal can tell when none is left."""
+    """Renders the output of the review's check run. Its text carries RULES and lists
+    the findings, so a dismissal can tell when none is left."""
     counts = Counter(f.severity for f in review.findings)
     found = [f"{counts[s]} {s}" for s in SEVERITIES if counts[s]]
     return {
         "title": scored(review.score),
         "summary": f"{review.verdict}\n\nFindings: {', '.join(found) or 'none'}.",
-        "text": listing(review.findings),
+        "text": f"{RULES}\n{listing(review.findings)}",
     }
 
 

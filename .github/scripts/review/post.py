@@ -311,6 +311,12 @@ def newest(t: Target, gh: GH, commit: str, key: str) -> dict[str, Any] | None:
     return max(ours, key=lambda r: r["started_at"], default=None)
 
 
+def current(run: dict[str, Any]) -> bool:
+    """Reports whether a check run of the bot holds a review under the current rules.
+    A review under older rules can score 5 with findings open."""
+    return render.RULES in (run["output"]["text"] or "")
+
+
 def reviewed(t: Target, gh: GH) -> list[str]:
     """Returns each commit that the bot reviewed, newest first, from the revisions of
     the pull request body."""
@@ -403,7 +409,7 @@ def rescore(t: Target, gh: GH, gone: list[Dismissal], key: str) -> bool:
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
     """
     run = newest(t, gh, t.head, key)
-    if run is None or run["conclusion"] != "success":
+    if run is None or run["conclusion"] != "success" or not current(run):
         return False
     if run["output"]["title"] == render.scored(5):
         return False

@@ -65,7 +65,8 @@ def thread(
 def check_run(findings: list[list[str]] | None, **kw: Any) -> dict[str, Any]:
     text = None
     if findings is not None:
-        text = render.LISTING_START + json.dumps(findings) + render.LISTING_END
+        text = render.RULES + render.LISTING_START + json.dumps(findings)
+        text += render.LISTING_END
     run: dict[str, Any] = {
         "name": "Sedosaur Review",
         "app": {"slug": "sedosaur"},
@@ -156,10 +157,10 @@ def issue_comment(
     }
 
 
-def outside(*titles: str) -> dict[str, Any]:
-    """The bot's comment that lists findings outside the diff of b.go."""
+def outside(*titles: str, path: str = "b.go") -> dict[str, Any]:
+    """The bot's comment that lists findings outside the diff of a file."""
     items = "".join(
-        f"- <img> **{t}** [`b.go:3`](https://x)\n\n  B.\n\n" for t in titles
+        f"- <img> **{t}** [`{path}:3`](https://x)\n\n  B.\n\n" for t in titles
     )
     body = f"{render.OUTSIDE}\n\n<h3>Comments Outside Diff</h3>\n\n{items}"
     return issue_comment(5, body, kind="Bot") | {"user": {"login": "sedosaur[bot]"}}
@@ -279,6 +280,14 @@ class TestDismiss:
         assert gh.checks() == []
         assert gh.resolved == ["T1"]
 
+    def test_should_not_rescore_a_review_under_older_rules(self, gh: FakeGH) -> None:
+        gh.threads = [thread("T1", comment(2, "@sedosaur dismiss"))]
+        run = check_run([["a.go", "Samples"]])
+        run["output"]["text"] = run["output"]["text"].removeprefix(render.RULES)
+        gh.runs = [run]
+        dismiss(TARGET, gh, comment=2, key=KEY)
+        assert gh.checks() == []
+
     def test_should_refuse_an_agent(self, gh: FakeGH) -> None:
         gh.threads = [thread("T1", comment(2, "@sedosaur dismiss", kind="Bot"))]
         gh.runs = [check_run([["a.go", "Samples"]])]
@@ -322,6 +331,48 @@ class TestDismissOutside:
         ]
         assert gh.checks() == []
 
+    @pytest.mark.parametrize(
+        "body",
+        [
+            "@sedosaur dismiss old `carry` copy, meant",
+            '@sedosaur dismiss "Old carry copy": meant',
+            "@sedosaur dismiss  OLD CARRY COPY meant",
+        ],
+    )
+    def test_should_match_a_title_without_case_backticks_or_quotes(
+        self, gh: FakeGH, body: str
+    ) -> None:
+        gh.comments = [outside("Old `carry` copy"), issue_comment(9, body)]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        [answer] = gh.posted()
+        gh.comments.append(
+            {"id": 10, "user": {"login": "sedosaur[bot]"}, "body": answer}
+        )
+        assert dismissals(TARGET, gh, []) == [
+            Dismissal(path="b.go", title="Old `carry` copy", reason="meant")
+        ]
+
+    def test_should_take_the_path_of_a_shared_title(self, gh: FakeGH) -> None:
+        both = outside("Old")
+        both["body"] += outside("Old", path="c.go")["body"]
+        gh.comments = [both, issue_comment(9, "@sedosaur dismiss Old path:c.go meant")]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        [answer] = gh.posted()
+        gh.comments.append(
+            {"id": 10, "user": {"login": "sedosaur[bot]"}, "body": answer}
+        )
+        assert dismissals(TARGET, gh, []) == [
+            Dismissal(path="c.go", title="Old", reason="meant")
+        ]
+
+    def test_should_ask_for_the_path_of_a_shared_title(self, gh: FakeGH) -> None:
+        both = outside("Old")
+        both["body"] += outside("Old", path="c.go")["body"]
+        gh.comments = [both, issue_comment(9, "@sedosaur dismiss Old")]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        [answer] = gh.posted()
+        assert answer.endswith("add `path:<file>` after it.")
+
     def test_should_score_the_head_5_when_no_finding_is_left(self, gh: FakeGH) -> None:
         gh.threads = [thread("T1", comment(2, "@sedosaur dismiss"))]
         gh.comments = [outside("Old"), issue_comment(9, "@sedosaur dismiss Old")]
@@ -349,7 +400,7 @@ class TestDismissOutside:
         gh.comments = [outside("Old"), issue_comment(9, body)]
         dismiss(TARGET, gh, comment=9, key=KEY)
         [answer] = gh.posted()
-        assert answer.startswith("No finding outside the diff has that title.")
+        assert answer.startswith("No one finding outside the diff has that title.")
 
 
 class TestRecord:
