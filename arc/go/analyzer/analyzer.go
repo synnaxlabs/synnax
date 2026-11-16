@@ -150,75 +150,76 @@ type callEdgeInfo struct {
 // O(V + E) for SCC detection, then O(|SCC| * S * K * D) per SCC for exit-path
 // analysis where S = statements, K = call sites, D = AST depth.
 func detectCallCycles(edges *[]acontext.CallEdge, diag *diagnostics.Diagnostics) {
-	callGraph := make(map[string][]callEdgeInfo)
-	for _, edge := range *edges {
-		callGraph[edge.Caller.Name] = append(callGraph[edge.Caller.Name], callEdgeInfo{
-			callee:   edge.Callee.Name,
-			callSite: edge.CallSite,
-		})
-	}
-
-	for _, edges := range callGraph {
-		slices.SortFunc(edges, func(a, b callEdgeInfo) int {
-			return strings.Compare(a.callee, b.callee)
-		})
-	}
-
+	callGraph := buildCallGraph(*edges)
 	adj := make(map[string][]string)
 	for name, edgeList := range callGraph {
 		for _, e := range edgeList {
 			adj[name] = append(adj[name], e.callee)
 		}
 	}
-
-	sccs := graph.TarjanSCC(adj)
-
-	for _, scc := range sccs {
+	for _, scc := range graph.TarjanSCC(adj) {
+		if len(scc) == 1 && !callsSelf(callGraph, scc[0]) {
+			continue
+		}
 		sccSet := set.New(scc...)
-		if len(scc) == 1 {
-			hasSelfLoop := false
-			for _, e := range callGraph[scc[0]] {
-				if e.callee == scc[0] {
-					hasSelfLoop = true
-					break
-				}
-			}
-			if !hasSelfLoop {
-				continue
-			}
+		if sccHasExit(scc, sccSet, *edges) {
+			continue
 		}
+		cycle, closingSite := findCycleInSCC(scc, sccSet, callGraph)
+		chain := strings.Join(cycle, " -> ")
+		diag.Add(diagnostics.Errorf(closingSite, "circular function call: %s", chain))
+	}
+}
 
-		anySafe := false
-		for _, node := range scc {
-			var sites []antlr.ParserRuleContext
-			for _, e := range *edges {
-				if e.Caller.Name == node && sccSet.Contains(e.Callee.Name) {
-					sites = append(sites, e.CallSite)
-				}
-			}
-			if len(sites) == 0 {
-				anySafe = true
-				break
-			}
-			body := findFuncBody(sites[0])
-			if body == nil {
-				anySafe = true
-				break
-			}
-			if !blockAlwaysCalls(body, sites) {
-				anySafe = true
-				break
-			}
-		}
+// buildCallGraph maps each caller to its call edges, sorted by callee name.
+func buildCallGraph(edges []acontext.CallEdge) map[string][]callEdgeInfo {
+	callGraph := make(map[string][]callEdgeInfo)
+	for _, edge := range edges {
+		callGraph[edge.Caller.Name] = append(callGraph[edge.Caller.Name], callEdgeInfo{
+			callee:   edge.Callee.Name,
+			callSite: edge.CallSite,
+		})
+	}
+	for _, edges := range callGraph {
+		slices.SortFunc(edges, func(a, b callEdgeInfo) int {
+			return strings.Compare(a.callee, b.callee)
+		})
+	}
+	return callGraph
+}
 
-		if !anySafe {
-			cycle, closingSite := findCycleInSCC(scc, sccSet, callGraph)
-			chain := strings.Join(cycle, " -> ")
-			diag.Add(
-				diagnostics.Errorf(closingSite, "circular function call: %s", chain),
-			)
+func callsSelf(callGraph map[string][]callEdgeInfo, name string) bool {
+	for _, e := range callGraph[name] {
+		if e.callee == name {
+			return true
 		}
 	}
+	return false
+}
+
+// sccHasExit reports whether any member of the SCC has an execution path that calls
+// no other member.
+func sccHasExit(
+	scc []string,
+	sccSet set.Set[string],
+	edges []acontext.CallEdge,
+) bool {
+	for _, node := range scc {
+		var sites []antlr.ParserRuleContext
+		for _, e := range edges {
+			if e.Caller.Name == node && sccSet.Contains(e.Callee.Name) {
+				sites = append(sites, e.CallSite)
+			}
+		}
+		if len(sites) == 0 {
+			return true
+		}
+		body := findFuncBody(sites[0])
+		if body == nil || !blockAlwaysCalls(body, sites) {
+			return true
+		}
+	}
+	return false
 }
 
 // findCycleInSCC finds a simple cycle within the SCC for error reporting and returns
@@ -392,21 +393,38 @@ func analyzeTopLevelAssignment(ctx acontext.Context[parser.IAssignmentContext]) 
 
 func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 	for _, item := range ctx.AST.AllTopLevelItem() {
-		if funcDecl := item.FunctionDeclaration(); funcDecl != nil {
-			function.Analyze(ctx.Child(funcDecl))
-		} else if flowStmt := item.FlowStatement(); flowStmt != nil {
-			flow.Analyze(ctx.Child(flowStmt))
-		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
-			sequence.Analyze(ctx.Child(seqDecl))
-		} else if stageDecl := item.StageDeclaration(); stageDecl != nil {
-			sequence.AnalyzeTopLevelStage(ctx.Child(stageDecl))
-		} else if varDecl := item.VariableDeclaration(); varDecl != nil {
-			statement.AnalyzeVariableDeclaration(ctx.Child(varDecl))
-		} else if assign := item.Assignment(); assign != nil {
-			analyzeTopLevelAssignment(ctx.Child(assign))
-		}
+		analyzeTopLevelItem(ctx, item)
 	}
 	sequence.AnalyzeSynthInlines(ctx)
+}
+
+func analyzeTopLevelItem(
+	ctx acontext.Context[parser.IProgramContext],
+	item parser.ITopLevelItemContext,
+) {
+	if funcDecl := item.FunctionDeclaration(); funcDecl != nil {
+		function.Analyze(ctx.Child(funcDecl))
+		return
+	}
+	if flowStmt := item.FlowStatement(); flowStmt != nil {
+		flow.Analyze(ctx.Child(flowStmt))
+		return
+	}
+	if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
+		sequence.Analyze(ctx.Child(seqDecl))
+		return
+	}
+	if stageDecl := item.StageDeclaration(); stageDecl != nil {
+		sequence.AnalyzeTopLevelStage(ctx.Child(stageDecl))
+		return
+	}
+	if varDecl := item.VariableDeclaration(); varDecl != nil {
+		statement.AnalyzeVariableDeclaration(ctx.Child(varDecl))
+		return
+	}
+	if assign := item.Assignment(); assign != nil {
+		analyzeTopLevelAssignment(ctx.Child(assign))
+	}
 }
 
 func AnalyzeBlock(ctx acontext.Context[parser.IBlockContext]) {

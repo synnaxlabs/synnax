@@ -150,13 +150,7 @@ func desugarInlineDecls(ctx context.Context[parser.IProgramContext]) {
 	var walk func(enclosing *symbol.Symbol, node antlr.Tree)
 	walk = func(enclosing *symbol.Symbol, node antlr.Tree) {
 		if fn, ok := node.(parser.IFlowNodeContext); ok {
-			var decl antlr.ParserRuleContext
-			if s := fn.StageDeclaration(); s != nil {
-				decl = s
-			} else if s := fn.SequenceDeclaration(); s != nil {
-				decl = s
-			}
-			if decl != nil {
+			if decl := inlineBody(fn); decl != nil {
 				if synth := registerInlineBody(
 					ctx,
 					enclosing,
@@ -182,6 +176,16 @@ func desugarInlineDecls(ctx context.Context[parser.IProgramContext]) {
 		}
 	}
 	walk(ctx.Scope, ctx.AST)
+}
+
+func inlineBody(fn parser.IFlowNodeContext) antlr.ParserRuleContext {
+	if s := fn.StageDeclaration(); s != nil {
+		return s
+	}
+	if s := fn.SequenceDeclaration(); s != nil {
+		return s
+	}
+	return nil
 }
 
 // registerInlineBody registers a synth scope under parentScope for an inline

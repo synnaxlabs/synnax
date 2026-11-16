@@ -88,56 +88,65 @@ func analyzeEntry(
 	seenChannels set.Set[string],
 ) {
 	if id := entry.IDENTIFIER(); id != nil {
-		name := id.GetText()
-		if seenChannels.Contains(name) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				entry,
-				"duplicate authority for '%s'",
-				name,
-			))
-			return
-		}
-		sym, err := ctx.Resolve(name)
-		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				entry,
-				"channel '%s' not found",
-				name,
-			))
-			return
-		}
-		v, ok := parseAuthorityValue(
-			ctx.Diagnostics,
-			entry,
-			entry.INTEGER_LITERAL().GetText(),
-		)
-		if !ok {
-			return
-		}
-		seenChannels.Add(name)
-		if config.Channels == nil {
-			config.Channels = make(map[uint32]uint8)
-		}
-		config.Channels[uint32(sym.ID)] = v
-	} else {
-		if *hasDefault {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				entry,
-				"multiple default authority values",
-			))
-			return
-		}
-		v, ok := parseAuthorityValue(
-			ctx.Diagnostics,
-			entry,
-			entry.INTEGER_LITERAL().GetText(),
-		)
-		if !ok {
-			return
-		}
-		*hasDefault = true
-		config.Default = &v
+		analyzeChannelEntry(ctx, entry, id.GetText(), config, seenChannels)
+		return
 	}
+	if *hasDefault {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			entry,
+			"multiple default authority values",
+		))
+		return
+	}
+	v, ok := parseAuthorityValue(
+		ctx.Diagnostics,
+		entry,
+		entry.INTEGER_LITERAL().GetText(),
+	)
+	if !ok {
+		return
+	}
+	*hasDefault = true
+	config.Default = &v
+}
+
+func analyzeChannelEntry(
+	ctx acontext.Context[parser.IProgramContext],
+	entry parser.IAuthorityEntryContext,
+	name string,
+	config *ir.Authorities,
+	seenChannels set.Set[string],
+) {
+	if seenChannels.Contains(name) {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			entry,
+			"duplicate authority for '%s'",
+			name,
+		))
+		return
+	}
+	sym, err := ctx.Resolve(name)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			entry,
+			"channel '%s' not found",
+			name,
+		))
+		return
+	}
+	v, ok := parseAuthorityValue(
+		ctx.Diagnostics,
+		entry,
+		entry.INTEGER_LITERAL().GetText(),
+	)
+	if !ok {
+		return
+	}
+	seenChannels.Add(name)
+	if config.Channels == nil {
+		config.Channels = make(map[uint32]uint8)
+	}
+	config.Channels[uint32(sym.ID)] = v
 }
 
 func parseAuthorityValue(

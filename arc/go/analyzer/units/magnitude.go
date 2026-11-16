@@ -139,41 +139,51 @@ func CheckAssignmentScaleSafety[AST antlr.ParserRuleContext](
 		return
 	}
 
-	// Check for potential overflow (scaling up to very large values)
 	if scaleFactor > 1.0 {
-		maxVal := targetType.IntegerMaxValue()
+		checkScaleOverflow(ctx, sourceType, targetType, scaleFactor, sourceValue)
+	}
+}
 
-		// If even a value of 1 would overflow, definitely warn
-		if scaleFactor > float64(maxVal) {
+// checkScaleOverflow warns when scaling up by scaleFactor may overflow the target
+// integer type.
+func checkScaleOverflow[AST antlr.ParserRuleContext](
+	ctx context.Context[AST],
+	sourceType, targetType types.Type,
+	scaleFactor float64,
+	sourceValue *float64,
+) {
+	maxVal := targetType.IntegerMaxValue()
+
+	// If even a value of 1 would overflow, definitely warn
+	if scaleFactor > float64(maxVal) {
+		ctx.Diagnostics.Add(diagnostics.Warningf(
+			ctx.AST,
+			"unit conversion from %s to %s may overflow %s (scale factor: %.2e, max: %d)",
+			sourceType.Unit.Name,
+			targetType.Unit.Name,
+			targetType.Kind.String(),
+			scaleFactor,
+			maxVal,
+		))
+		return
+	}
+
+	// If source value is known, check if it specifically overflows
+	if sourceValue != nil {
+		convertedValue := *sourceValue * scaleFactor
+		minVal := targetType.IntegerMinValue()
+		if convertedValue > float64(maxVal) || convertedValue < float64(minVal) {
 			ctx.Diagnostics.Add(diagnostics.Warningf(
 				ctx.AST,
-				"unit conversion from %s to %s may overflow %s (scale factor: %.2e, max: %d)",
+				"value %.2g %s converts to %.2e %s, which overflows %s (range: %d to %d)",
+				*sourceValue,
 				sourceType.Unit.Name,
+				convertedValue,
 				targetType.Unit.Name,
 				targetType.Kind.String(),
-				scaleFactor,
+				minVal,
 				maxVal,
 			))
-			return
-		}
-
-		// If source value is known, check if it specifically overflows
-		if sourceValue != nil {
-			convertedValue := *sourceValue * scaleFactor
-			minVal := targetType.IntegerMinValue()
-			if convertedValue > float64(maxVal) || convertedValue < float64(minVal) {
-				ctx.Diagnostics.Add(diagnostics.Warningf(
-					ctx.AST,
-					"value %.2g %s converts to %.2e %s, which overflows %s (range: %d to %d)",
-					*sourceValue,
-					sourceType.Unit.Name,
-					convertedValue,
-					targetType.Unit.Name,
-					targetType.Kind.String(),
-					minVal,
-					maxVal,
-				))
-			}
 		}
 	}
 }
