@@ -10,7 +10,6 @@
  */
 
 .console-task-configure--mqtt_read,
-.console-task-configure--mqtt_icd_read,
 .console-task-configure--mqtt_write {
     .console-panes {
         --console-list-width: 300px;
@@ -33,6 +32,6 @@
 }
 
 /* The message format grid needs more room than a channel list. */
-.console-task-configure--mqtt_icd_read {
+.console-task-configure--mqtt_read {
     --console-task-form-max-width: 1200px;
 }

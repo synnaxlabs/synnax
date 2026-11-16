@@ -27,9 +27,9 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { Access, Channel, ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { DataType, deep, type payload, primitive, unique, uuid } from "@synnaxlabs/x";
-import { type FC, useState } from "react";
+import { type FC, useEffect, useState } from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
@@ -238,7 +238,7 @@ const appendFields = (
 
 const createMessage = (topic: string, fields: icd.JSONField[]): icd.Message => ({
   key: uuid.create(),
-  name: topic,
+  name: topic === "" ? "Untitled" : topic,
   payload: { format: "json", fields },
 });
 
@@ -337,24 +337,77 @@ const addTopics = async ({
   return result;
 };
 
+/** @returns whether the Core can read the field: a bytes field needs a pointer. */
+const isReadable = ({ type, pointer }: icd.JSONField): boolean =>
+  type !== "bytes" || pointer !== "";
+
+const isIndexable = (field?: icd.JSONField): boolean =>
+  field?.type === "timestamp" && field.default == null;
+
+/**
+ * @returns read, changed to suit the fields of its message: no binding of a field that
+ * is gone or that the Core cannot read, no data type that its field cannot convert to,
+ * and no index that is not a timestamp field. An index field with a default stays, for
+ * its error to show.
+ */
+const suit = (read: mqtt.ReadMessage, fields: icd.JSONField[]): mqtt.ReadMessage => {
+  const byKey = new Map(fields.map((f) => [f.key, f]));
+  const indexField = read.index == null ? undefined : byKey.get(read.index);
+  const index = indexField?.type === "timestamp" ? read.index : undefined;
+  const bindings = read.bindings.flatMap((b) => {
+    const field = byKey.get(b.field);
+    // The binding of a former index field writes to an index channel.
+    if (
+      field == null ||
+      !isReadable(field) ||
+      (b.field === read.index && index == null)
+    )
+      return [];
+    if (b.dataType === "" || converts(field.type, b.dataType)) return [b];
+    return [{ ...b, dataType: "" }];
+  });
+  return { message: read.message, ...(index == null ? {} : { index }), bindings };
+};
+
+/**
+ * @returns read, indexed on the field of next, or on nothing. The index field reads
+ * into the index channel that the device stores for the topic.
+ */
+const reindex = (
+  read: mqtt.ReadMessage,
+  next: string | undefined,
+  indexChannel: channel.Key,
+): mqtt.ReadMessage => {
+  const bindings = read.bindings.filter(
+    ({ field }) => field !== read.index && field !== next,
+  );
+  if (next == null) return { message: read.message, bindings };
+  const binding = mqtt.readBindingZ.parse({ field: next, channel: indexChannel });
+  return { message: read.message, index: next, bindings: [...bindings, binding] };
+};
+
 interface TimestampFieldsProps {
   path: deep.Path<PlainReadEntry>;
   /** The fields of the topic's message format. */
   fields: icd.JSONField[];
+  /** The index channel that the device stores for the topic, or 0. */
+  indexChannel: channel.Key;
 }
 
 type TimingMode = "arrival" | "payload";
 
 /** Picks where each sample of the topic gets its time. */
-const TimestampFields: FC<TimestampFieldsProps> = ({ path, fields }) => {
-  const { set } = PForm.useContext();
-  const indexPath = path.messages[0].index;
-  const held = PForm.useFieldValue(indexPath, { optional: true });
+const TimestampFields: FC<TimestampFieldsProps> = ({ path, fields, indexChannel }) => {
+  const { get, set } = PForm.useContext();
+  const readPath = path.messages[0];
+  const held = PForm.useFieldValue(readPath.index, { optional: true });
   const timestamps = fields.filter(({ type }) => type === "timestamp");
-  const index = timestamps.find(({ key }) => key === held)?.key;
-  const setIndex = (next: string | undefined) => set(indexPath, next);
+  const index = timestamps.find(({ key }) => key === held);
+  const setIndex = (next: string | undefined) =>
+    set(readPath, reindex(get(readPath).value, next, indexChannel));
   const handleMode = (mode: TimingMode) =>
     setIndex(mode === "payload" ? timestamps.at(0)?.key : undefined);
+  const invalid = index != null && !isIndexable(index);
   return (
     <>
       <Input.Item
@@ -376,9 +429,18 @@ const TimestampFields: FC<TimestampFieldsProps> = ({ path, fields }) => {
         </Select.Buttons>
       </Input.Item>
       {index != null && (
-        <Input.Item label="Field" padHelpText={false}>
+        <Input.Item
+          label="Field"
+          padHelpText={false}
+          helpText={
+            invalid
+              ? `${index.name} has a default, so it cannot be the index. Remove its default in the message format.`
+              : undefined
+          }
+          status={invalid ? "error" : undefined}
+        >
           <Select.Simple<string>
-            value={index}
+            value={index.key}
             onChange={setIndex}
             resourceName="field"
             allowNone={false}
@@ -399,13 +461,29 @@ const TimestampFields: FC<TimestampFieldsProps> = ({ path, fields }) => {
 const hiddenDataTypes = (kind: payload.Kind): DataType[] =>
   DataType.ALL.filter((dt) => !converts(kind, dt.toString()));
 
-const READ_INPUT_PROPS = {
-  tooltip: "Read the field into a channel.",
-} as const;
+const READ_TOOLTIP = "Read the field into a channel.";
+const INDEX_TOOLTIP = "The task reads the time of each sample from this field.";
+const UNREADABLE_TOOLTIP =
+  "A bytes field needs a JSON pointer. Give it one in the message format.";
 
-const INDEX_INPUT_PROPS = {
-  tooltip: "The task reads the time of each sample from this field.",
-} as const;
+interface UnbindProps {
+  path: deep.Target<channel.Key>;
+  kind: payload.Kind;
+  channel: channel.Key;
+}
+
+/**
+ * Unbinds a channel that the field's kind can no longer convert to, so deploying
+ * creates a new one.
+ */
+const Unbind = ({ path, kind, channel: key }: UnbindProps) => {
+  const { set } = PForm.useContext();
+  const dataType = Channel.useResultDataType({ key }).data?.toString();
+  useEffect(() => {
+    if (dataType != null && !converts(kind, dataType)) set(path, 0);
+  }, [dataType, kind]);
+  return null;
+};
 
 interface BindingProps {
   /** The path of the topic's entry. */
@@ -426,8 +504,9 @@ const Binding: FC<BindingProps> = ({ path, field, prefix, stored }) => {
   const index = PForm.useFieldValue(read.index, { optional: true });
   const bindings = PForm.useFieldValue(read.bindings);
   const i = bindings.findIndex(({ field: key }) => key === field.key);
-  const binding = bindings.at(i);
+  const binding = i < 0 ? undefined : bindings[i];
   const isIndex = field.key === index;
+  const readable = isReadable(field);
   const handleRead = (on: boolean) =>
     set(
       read.bindings,
@@ -435,33 +514,44 @@ const Binding: FC<BindingProps> = ({ path, field, prefix, stored }) => {
         ? [...bindings, ...bindingsOf(stored, topic, [field])]
         : bindings.filter(({ field: key }) => key !== field.key),
     );
+  let tooltip = READ_TOOLTIP;
+  if (isIndex) tooltip = INDEX_TOOLTIP;
+  else if (!readable) tooltip = UNREADABLE_TOOLTIP;
   return (
     <Flex.Box x>
       <Input.Item label={field.name} padHelpText={false}>
         <Input.Checkbox
-          value={isIndex || binding != null}
+          value={binding != null}
           onChange={handleRead}
-          disabled={isPreview || isIndex}
+          disabled={isPreview || isIndex || !readable}
           aria-label={`Read ${field.name}`}
-          {...(isIndex ? INDEX_INPUT_PROPS : READ_INPUT_PROPS)}
+          tooltip={tooltip}
         />
       </Input.Item>
       {binding != null && !isIndex && (
         <Task.Payload.DataTypeField
           path={read.bindings[i].dataType}
           channel={binding.channel}
+          defaultDataType={DEFAULT_DATA_TYPES[field.type]}
           hideDataTypes={hiddenDataTypes(field.type)}
         />
       )}
-      {(binding != null || isIndex) && (
+      {binding != null && (
         <Task.ChannelNameField
-          channel={binding?.channel ?? 0}
+          channel={binding.channel}
           defaultName={
             isIndex
               ? `${prefix}_time`
               : `${prefix}_${channel.escapeInvalidName(field.name)}`
           }
           skipped={entryDisabled}
+        />
+      )}
+      {binding != null && binding.channel !== 0 && !isPreview && (
+        <Unbind
+          path={read.bindings[i].channel}
+          kind={field.type}
+          channel={binding.channel}
         />
       )}
     </Flex.Box>
@@ -486,6 +576,14 @@ const TopicDetails: FC<TopicDetailsProps> = ({ path, format, device }) => {
   const read = entry.messages.at(0);
   const mixed = read == null ? [] : variableAmongFixed(readFields(fields, read));
   const prefix = namePrefix(device.name, entry.topic);
+  const { set } = PForm.useContext();
+  const isPreview = Task.useIsPreview();
+  // An edit of the message format can leave the read one that the Core refuses to save.
+  useEffect(() => {
+    if (isPreview || read == null || message?.payload.format !== "json") return;
+    const suited = suit(read, fields);
+    if (!deep.equal(suited, read)) set(path.messages[0], suited);
+  }, [isPreview, read, message]);
   const openEditor = () =>
     openTab({ variant: "resource", resource: icd.resourceID(entry.icd) });
   return (
@@ -506,7 +604,11 @@ const TopicDetails: FC<TopicDetailsProps> = ({ path, format, device }) => {
           />
         </PForm.Section>
         <PForm.Section title="Timestamp">
-          <TimestampFields path={path} fields={fields} />
+          <TimestampFields
+            path={path}
+            fields={fields}
+            indexChannel={device.properties.read[entry.topic]?.index ?? 0}
+          />
         </PForm.Section>
         <PForm.Section
           title="Message format"
@@ -843,7 +945,13 @@ const boundFields = (messages: Messages, entry: PlainReadEntry): icd.JSONField[]
     throw new ValidationError(
       `The message format of ${entry.topic} is missing or not JSON`,
     );
-  const fields = readFields(message.payload.fields, entry.messages[0]);
+  const [read] = entry.messages;
+  const fields = readFields(message.payload.fields, read);
+  const index = fields.find(({ key }) => key === read.index);
+  if (index != null && !isIndexable(index))
+    throw new ValidationError(
+      `In ${entry.topic}, the index field ${index.name} must be a timestamp field with no default`,
+    );
   if (fields.length === 0)
     throw new ValidationError(`The task reads no fields of ${entry.topic}`);
   const mixed = variableAmongFixed(fields);
@@ -891,28 +999,24 @@ const configureTopic = async (
   fields: icd.JSONField[],
 ): Promise<void> => {
   const [read] = entry.messages;
-  const index = fields.find(
-    ({ key, type }) => key === read.index && type === "timestamp",
-  )?.key;
+  const index = fields.find(({ key }) => key === read.index)?.key;
   const stored = dev.properties.read[entry.topic]?.channels ?? {};
-  const bound = new Map(
-    (await client.channels.retrieve(read.bindings.map((b) => b.channel))).map((ch) => [
-      ch.key,
-      ch,
-    ]),
+  const bindingOf = (f: icd.JSONField): ReadBinding =>
+    read.bindings.find(({ field }) => field === f.key) ??
+    mqtt.readBindingZ.parse({ field: f.key });
+  // A field with no channel takes the one the device stores for its pointer.
+  const reused = fields.map((f) => bindingOf(f).channel || (stored[f.pointer] ?? 0));
+  const live = new Map(
+    (await client.channels.retrieve(reused)).map((ch) => [ch.key, ch]),
   );
   const prefix = namePrefix(dev.name, entry.topic);
-  const channels = fields.map((f) => {
-    const binding = read.bindings.find(({ field }) => field === f.key) ?? {
-      dataType: "",
-      channel: 0,
-    };
+  const channels = fields.map((f, i) => {
+    const binding = bindingOf(f);
     const isIndex = f.key === index;
-    const dataType = isIndex
-      ? DataType.TIMESTAMP.toString()
-      : bindingDataType(binding, f.type);
-    const ch = bound.get(binding.channel);
-    // An edit of the field's type or index role since the last deploy needs a new
+    const suited = binding.dataType !== "" && converts(f.type, binding.dataType);
+    const dataType = suited ? binding.dataType : "";
+    const ch = live.get(reused[i]);
+    // An edit of the field's kind or index role since the last deploy needs a new
     // channel.
     const stale =
       ch != null &&
@@ -922,9 +1026,11 @@ const configureTopic = async (
       key: f.key,
       pointer: f.pointer,
       name: `${prefix}_${channel.escapeInvalidName(f.name)}`,
-      dataType,
-      channel: ch == null || stale ? 0 : ch.key,
-      binding,
+      dataType: isIndex
+        ? DataType.TIMESTAMP.toString()
+        : bindingDataType({ dataType }, f.type),
+      channel: stale ? 0 : binding.channel,
+      binding: { ...binding, dataType },
     };
   });
   await Task.configureReadChannels({
@@ -938,11 +1044,7 @@ const configureTopic = async (
   entry.messages[0] = {
     message: read.message,
     index,
-    bindings: channels.map(({ key, channel, binding }) => ({
-      field: key,
-      channel,
-      dataType: binding.dataType,
-    })),
+    bindings: channels.map(({ channel, binding }) => ({ ...binding, channel })),
   };
 };
 
