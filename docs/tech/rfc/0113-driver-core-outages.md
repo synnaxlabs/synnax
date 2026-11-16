@@ -66,8 +66,10 @@ every Core call a forwarder makes has a 10 s deadline. That covers each step of 
 the channel retrieve, a login, and the stream start (`client/cpp/framer/writer.cpp:26`,
 `client/cpp/auth/auth.h:293-297`, `freighter/cpp/grpc/grpc.h:243-244`). Each call takes
 a cancel token (NEW), made before the call starts, and a watchdog thread cancels a call
-past its deadline through it. The forwarder then spools as above. The 64 MB queue covers
-the deadline at high rates. A reachable Core too slow for the task fills it, and `write`
+past its deadline through it. The forwarder then spools as above. Login no longer holds
+the shared auth lock while it waits (`client/cpp/auth/auth.h:252-297`): callers share
+one login in flight, and each leaves at its own deadline. The 64 MB queue covers the
+deadline at high rates. A reachable Core too slow for the task fills it, and `write`
 then drops the frame and counts it.
 
 Any other Core error, such as a deleted channel, closes the forwarder; the next `write`
