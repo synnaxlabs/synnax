@@ -10,6 +10,8 @@
 package alamos_test
 
 import (
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
@@ -28,6 +30,24 @@ var _ = Describe("Trace", func() {
 			}
 			tracer := MustSucceed(alamos.NewTracer(cfg))
 			Expect(tracer).ToNot(BeNil())
+		})
+	})
+	Describe("Concurrency", func() {
+		It("Should start spans from concurrent goroutines", func(specCtx SpecContext) {
+			tracer := MustSucceed(alamos.NewTracer(alamos.TracingConfig{
+				OtelProvider:   otel.GetTracerProvider(),
+				OtelPropagator: otel.GetTextMapPropagator(),
+				Filter:         func(alamos.Environment, string) bool { return true },
+			}))
+			ins := alamos.New("concurrent", alamos.WithTracer(tracer))
+			var wg sync.WaitGroup
+			for range 2 {
+				wg.Go(func() {
+					_, sp := ins.T.Prod(specCtx, "span")
+					sp.End()
+				})
+			}
+			wg.Wait()
 		})
 	})
 	Describe("No-op", func() {

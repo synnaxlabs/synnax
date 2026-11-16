@@ -86,6 +86,7 @@ func New(key string, options ...Option) Instrumentation {
 	}
 	if ins.T != nil {
 		ins.T.meta = ins.Meta
+		ins.T.otel = ins.T.config.OtelProvider.Tracer(ins.Meta.Key)
 	}
 	if ins.R != nil {
 		ins.R.meta = ins.Meta
