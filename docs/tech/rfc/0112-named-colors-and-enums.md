@@ -63,13 +63,13 @@ stays Synnax-blind (RFC 0070 §3): it resolves a light and dark pair that its ca
 passes, and the picker shows the groups that its caller passes.
 
 Built-in named colors are normal records with fixed keys. At startup, the Core makes
-each built-in that is missing, as it makes built-in roles
-(`core/pkg/service/access/rbac/builtin/provision.go:102-162`), and never changes one
-that exists. A user can edit a built-in. A field is edited when it differs from the
-value that Synnax ships. A release that ships a new value adds a migration
-(`gorp/migrate.go`) that writes the new value only where the stored value equals the old
-one, so an edit stays. "Restore default" writes the shipped values. A built-in cannot be
-deleted, as a built-in role cannot
+each built-in that is missing, as it makes a missing built-in role
+(`core/pkg/service/access/rbac/builtin/provision.go:117-119`). Unlike a built-in role, a
+built-in that exists never changes at startup. A user can edit a built-in. A field is
+edited when it differs from the value that Synnax ships. A release that ships a new
+value adds a migration (`gorp/migrate.go`) that writes the new value only where the
+stored value equals the old one, so an edit stays. "Restore default" writes the shipped
+values. A built-in cannot be deleted, as a built-in role cannot
 (`core/pkg/service/access/rbac/role/writer.go:101-112`). A built-in is named by what it
 does ("Breaker, red closed"), never by a standard.
 
@@ -135,10 +135,11 @@ matches exact values. The light gets the built-in "Light" enum (Off 0, On 1). It
 Eight built-in named colors, each with a light and a dark value, replace the 14. Each
 value has 3:1 contrast on the canvas of its theme. Under normal vision and each color
 vision deficiency that `color.simulate` models, no two of the eight are closer than 0.05
-in OKLab, in either theme. The eight keep today's hues, and a hue moves only to pass a
-check. A new line gets the first series color that no other line in its plot uses, and
-stores its key. Past eight lines, it gets the series color used least in its plot, and a
-tie goes to the first in order. A user can pick any color.
+in OKLab, in either theme. The eight keep the hues of `#DC136C`, `#20A4F3`, `#FE5F55`,
+`#8075FF`, `#F7AEF8`, `#F18F01`, `#791E94`, and `#52FFB8` from today's list, and a hue
+moves only to pass a check. A new line gets the first series color that no other line in
+its plot uses, and stores its key. Past eight lines, it gets the series color used least
+in its plot, and a tie goes to the first in order. A user can pick any color.
 
 ### 4.5 Editor checks
 
