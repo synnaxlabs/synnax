@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -108,6 +109,29 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				Expect(res.StatusCode).To(Equal(http.StatusUpgradeRequired))
 			},
 		)
+	})
+
+	Describe("Rejected stream", func() {
+		It("Should release the stream when a server middleware rejects it", func() {
+			router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+				StreamWriteDeadline: testutil.WriteDeadline,
+			}))
+			ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
+				"/",
+			)
+			ownServer.Use(freighter.MiddlewareFunc(func(
+				ctx freighter.Context,
+				_ freighter.Next,
+			) (freighter.Context, error) {
+				return ctx, errors.New("rejected")
+			}))
+			ownApp, ownAddr := serveRouter(router)
+			DeferCleanup(func() { Expect(ownApp.Shutdown()).To(Succeed()) })
+			// A context that never ends, so only the client can release the stream.
+			Expect(client.Stream(context.Background(), ownAddr)).
+				Error().
+				To(MatchError(ContainSubstring("rejected")))
+		})
 	})
 
 	Describe("Message size limit", func() {
