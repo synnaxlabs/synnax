@@ -34,7 +34,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// Cmd represents the start command
+// Cmd represents the start command.
 var Cmd = &cobra.Command{
 	Use:     "start",
 	Short:   "Starts a Synnax Core",

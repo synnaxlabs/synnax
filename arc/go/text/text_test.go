@@ -30,14 +30,14 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// findNodeByKey finds a node by key and asserts it exists
+// findNodeByKey finds a node by key and asserts it exists.
 func findNodeByKey(nodes ir.Nodes, key string) ir.Node {
 	node, found := nodes.Find(key)
 	ExpectWithOffset(1, found).To(BeTrue(), "expected node '%s' to exist", key)
 	return node
 }
 
-// findNodeByType finds the first node by type and asserts it exists
+// findNodeByType finds the first node by type and asserts it exists.
 func findNodeByType(nodes ir.Nodes, nodeType string) ir.Node {
 	GinkgoHelper()
 	for _, n := range nodes {
@@ -49,7 +49,7 @@ func findNodeByType(nodes ir.Nodes, nodeType string) ir.Node {
 	return ir.Node{}
 }
 
-// findEdgeBySourceParam finds an edge by source parameter name
+// findEdgeBySourceParam finds an edge by source parameter name.
 func findEdgeBySourceParam(edges []ir.Edge, param string) ir.Edge {
 	GinkgoHelper()
 	for _, e := range edges {
@@ -61,7 +61,7 @@ func findEdgeBySourceParam(edges []ir.Edge, param string) ir.Edge {
 	return ir.Edge{}
 }
 
-// countNodesByType counts nodes of a specific type
+// countNodesByType counts nodes of a specific type.
 func countNodesByType(nodes ir.Nodes, nodeType string) int {
 	count := 0
 	for _, n := range nodes {

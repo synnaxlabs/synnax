@@ -278,7 +278,7 @@ func (s *System) openIntegerTarget(a, b types.Type) (types.Type, bool) {
 	return types.Type{}, false
 }
 
-// unifyTypeVariableWithVisited is the internal recursive function with cycle detection
+// unifyTypeVariableWithVisited is the internal recursive function with cycle detection.
 func (s *System) unifyTypeVariableWithVisited(
 	tv, other types.Type,
 	source Constraint,

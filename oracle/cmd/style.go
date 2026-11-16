@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	// Colors
+	// Colors.
 	purple  = lipgloss.Color("#9D4EDD")
 	pink    = lipgloss.Color("#FF6B9D")
 	cyan    = lipgloss.Color("#00D9FF")
@@ -29,7 +29,7 @@ var (
 	red     = lipgloss.Color("#FF4757")
 	dimGray = lipgloss.Color("#6B7280")
 
-	// Styles
+	// Styles.
 	successStyle = lipgloss.NewStyle().Bold(true).Foreground(green)
 	errorStyle   = lipgloss.NewStyle().Bold(true).Foreground(red)
 	infoStyle    = lipgloss.NewStyle().Foreground(cyan)
@@ -39,7 +39,7 @@ var (
 	countStyle   = lipgloss.NewStyle().Bold(true).Foreground(purple)
 )
 
-// Symbols for output
+// Symbols for output.
 const (
 	symbolSuccess = "✓"
 	symbolError   = "✗"

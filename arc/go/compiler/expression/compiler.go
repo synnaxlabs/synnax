@@ -35,7 +35,7 @@ func validateNonZero(expr parser.IPostfixExpressionContext, opName string) {
 	}
 }
 
-// Compile compiles an expression and returns its type
+// Compile compiles an expression and returns its type.
 func Compile(
 	ctx context.Context[parser.IExpressionContext],
 ) (types.Type, error) {
