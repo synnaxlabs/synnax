@@ -334,7 +334,7 @@ func translateGRPCError(err error) error {
 		return nil
 	}
 	if errors.Is(err, io.EOF) {
-		return freighter.EOF
+		return io.EOF
 	}
 	s := status.Convert(err)
 	if s.Code() == codes.Canceled {

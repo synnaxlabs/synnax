@@ -72,7 +72,7 @@ and third-party error packages. Use `errors.New(msg)`, `errors.Newf(format, ...)
 If callers (including tests) will branch on an error condition, represent it as an
 exported package-level `var Err<Condition>` — never a one-off `errors.New` that forces
 substring matching. **Reuse existing sentinels first** by wrapping them
-(`query.ErrNotFound`, `validate.ErrValidation`, `freighter.EOF`) — this keeps
+(`query.ErrNotFound`, `validate.ErrValidation`, `freighter.ErrStreamClosed`) — this keeps
 `errors.Is` matching for both the specific and general shape:
 
 ```go
@@ -99,7 +99,7 @@ return v.Error()
 ```
 
 This generalizes: wrap the best-fitting existing general-purpose error
-(`validate.ErrValidation`, `query.ErrNotFound`, `freighter.EOF`, ...) instead of a fresh
+(`validate.ErrValidation`, `query.ErrNotFound`, `freighter.ErrStreamClosed`, ...) instead of a fresh
 one-off. Introduce a new error type only when none fits, and justify it in conversation,
 not a comment.
 

@@ -11,6 +11,7 @@ package http
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/fasthttp/websocket"
@@ -136,7 +137,7 @@ func (c *streamCore[I, O]) Receive() (I, error) {
 			websocket.CloseNoStatusReceived,
 			websocket.CloseAbnormalClosure,
 		) {
-			c.peerCloseErr = freighter.EOF
+			c.peerCloseErr = io.EOF
 		} else if websocket.IsCloseError(err, contextCancelledCloseCode) {
 			c.peerCloseErr = context.Canceled
 		} else {
@@ -149,7 +150,7 @@ func (c *streamCore[I, O]) Receive() (I, error) {
 	if msg.Type == WSMessageTypeClose {
 		c.peerCloseErr = errors.Decode(msg.Err)
 		if c.peerCloseErr == nil {
-			c.peerCloseErr = freighter.EOF
+			c.peerCloseErr = io.EOF
 		}
 	}
 	return msg.Payload, c.peerCloseErr

@@ -11,6 +11,7 @@ package http
 
 import (
 	"context"
+	"io"
 	"os"
 	"sync"
 	"syscall"
@@ -252,7 +253,7 @@ func (s *serverStream[RQ, RS]) close(err error) (closeErr error) {
 		closeErr = errors.Combine(closeErr, s.streamCore.close())
 	}()
 	if err == nil {
-		err = freighter.EOF
+		err = io.EOF
 	}
 	closeCode := contextCancelledCloseCode
 	if !errors.Is(err, context.Canceled) {
