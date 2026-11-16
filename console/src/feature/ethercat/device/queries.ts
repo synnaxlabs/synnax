@@ -60,6 +60,13 @@ export const useSlavesOnRack = (rack: number | undefined): SlaveOnRack[] | undef
         },
   ).data;
 
+/** Every slave, or undefined until they resolve or on failure. */
+export const useEverySlave = (): SlaveOnRack[] | undefined =>
+  useResultSlavesOnRack({
+    where: { make: { eq: MAKE }, model: { eq: SLAVE_MODEL } },
+    includeStatus: true,
+  }).data;
+
 export interface EnabledState {
   allEnabled: boolean;
   allDisabled: boolean;
