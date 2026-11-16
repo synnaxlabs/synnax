@@ -16,7 +16,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type ReactElement, useCallback, useMemo, useState } from "react";
+import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 
 import { Nav } from "@/components/nav";
 import {
@@ -180,13 +180,15 @@ export const Results = (): ReactElement => {
   const { close, visible } = Dialog.useContext();
   const [value, setValue] = useState<string>("");
   const [data, setData] = useState<Result[]>([]);
+  const latest = useRef("");
   const handleSearch = useCallback(
     (query: string) => {
       setValue(query);
+      latest.current = query;
       if (query.length === 0) return;
       void search(query)
         .then((data) => {
-          setData(data);
+          if (query === latest.current) setData(data);
         })
         .catch(console.error);
     },
