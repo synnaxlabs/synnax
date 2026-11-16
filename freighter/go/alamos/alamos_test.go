@@ -55,4 +55,25 @@ var _ = Describe("Falamos", func() {
 			Expect(ok).To(BeTrue())
 		})
 	})
+
+	Describe("Config", func() {
+		It("Should not propagate traces when propagation is disabled", func(
+			ctx SpecContext,
+		) {
+			ins := Instrumentation("falamos", InstrumentationConfig{Trace: new(true)})
+			mw := MustSucceed(alamos.Middleware(alamos.Config{
+				Instrumentation:   ins,
+				EnablePropagation: new(false),
+			}))
+			oCtx := MustSucceed(mw.Exec(
+				freighter.Context{
+					Context: ctx,
+					Role:    freighter.RoleClient,
+					Params:  make(freighter.Params),
+				},
+				finalizer,
+			))
+			Expect(oCtx.Params).ToNot(HaveKey("alamos-traceparent"))
+		})
+	})
 })
