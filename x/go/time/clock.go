@@ -29,7 +29,7 @@ type Clock interface {
 	// RunAt schedules fn to be called at the deadline and returns a Timer that can be
 	// used to cancel the call. fn runs immediately if the deadline has already passed.
 	// If Stop is called before fn would have run, fn is not called.
-	RunAt(at time.Time, f func()) Timer
+	RunAt(deadline time.Time, fn func()) Timer
 }
 
 type real struct{}
