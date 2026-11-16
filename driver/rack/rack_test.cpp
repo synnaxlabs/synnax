@@ -98,10 +98,12 @@ TEST(RackTest, WaitsForAnUnreachableCorePastTheRetryLimit) {
         .max_interval = x::telem::MILLISECOND,
     });
     r.start(args, [&] { shut_down = true; });
-    ASSERT_EVENTUALLY_TRUE([&] {
-        const auto [r, err] = client.racks.retrieve(rack.key, {.include_status = true});
-        return !err && r.status.has_value() && r.status->details.running;
-    }());
+    const auto running = [&] {
+        const synnax::rack::RetrieveOptions opts{.include_status = true};
+        const auto [remote, err] = client.racks.retrieve(rack.key, opts);
+        return !err && remote.status.has_value() && remote.status->details.running;
+    };
+    ASSERT_EVENTUALLY_TRUE(running());
     pipe.pause();
     std::this_thread::sleep_for(std::chrono::seconds(1));
     ASSERT_FALSE(shut_down);
