@@ -43,7 +43,8 @@ Driver that restarts while the Core is down still starts with no tasks.
    devices, and Arc programs are not, because a stored copy could run a task the Core
    has since changed.
 3. **Nothing is lost silently**: Data, statuses, and ranges reach the Core with their
-   original times or are counted as dropped on the task's status.
+   original times, or the task's status reports their loss, with a count where the
+   Driver knows it.
 4. **Only an unreachable Core is an outage**: Every other Core error reaches the task's
    status as today.
 
@@ -61,9 +62,11 @@ frames in order, and reopens the live writer only after the queue is empty. Ever
 spooled frame therefore comes before the next live session, as RFC 0095 §4.4 requires.
 
 A silent network loss takes minutes to report (`freighter/cpp/grpc/grpc.h:55-63`), so
-each forwarder open and send has a 10 s deadline. A watchdog thread cancels a call past
-it through the call's gRPC context (NEW `cancel` on the freighter stream, which exists
-from the start of the open), and the forwarder spools as above. The 64 MB queue covers
+every Core call a forwarder makes has a 10 s deadline. That covers each step of an open:
+the channel retrieve, a login, and the stream start (`client/cpp/framer/writer.cpp:26`,
+`client/cpp/auth/auth.h:293-297`, `freighter/cpp/grpc/grpc.h:243-244`). Each call takes
+a cancel token (NEW), made before the call starts, and a watchdog thread cancels a call
+past its deadline through it. The forwarder then spools as above. The 64 MB queue covers
 the deadline at high rates. A reachable Core too slow for the task fills it, and `write`
 then drops the frame and counts it.
 
