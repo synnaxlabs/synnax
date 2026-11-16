@@ -8,11 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { computed, renderThemed } from "@synnaxlabs/lyra/styletest";
+import { type FC } from "react";
 import { describe, expect, it } from "vitest";
 import { server, userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
-import { Solenoid } from "@/schematic/node/valves/Solenoid";
+import { Node } from "@/schematic/node";
+
+interface SolenoidProps {
+  normallyOpen: boolean;
+  enabled: boolean;
+}
+
+const Solenoid = Node.resolveSpec("solenoid_valve").Preview as FC<SolenoidProps>;
 
 const SHAPES = "path, rect, circle, ellipse, line, polyline, polygon";
 
