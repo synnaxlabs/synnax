@@ -463,8 +463,12 @@ const Topics: FC<TopicsProps> = ({ device, format, selected, onSelect }) => {
           ? await createICD(client, ctx.get(root.name).value, drafts)
           : await addTopics({ client, format, entries, drafts });
       push(added);
+      // The index and bindings name fields of the deleted message.
       repointed.forEach(({ key, message }) =>
-        ctx.set(root.config.entries[key].messages[0].message, message),
+        ctx.set(
+          root.config.entries[key].messages[0],
+          mqtt.icdReadMessageZ.parse({ message }),
+        ),
       );
       const first = entries.find((e) => e.topic === drafts[0].topic) ?? added[0];
       onSelect([first.key]);

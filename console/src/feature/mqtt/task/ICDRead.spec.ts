@@ -239,13 +239,24 @@ describe("MQTT ICD read form", () => {
   });
 
   it("should point a topic whose message is gone at a new message", async () => {
-    const entry = await createEntry({ fields: [createField("temperature", "float")] });
+    const time = createTimeField();
+    const timeCh = await client.channels.create({
+      name: uniqueName("time"),
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+    const entry = await createEntry({
+      fields: [time, createField("temperature", "float")],
+      index: time.key,
+      bound: { [time.key]: timeCh.key },
+    });
     await removeMessage(entry);
     const { dev, draft } = await renderICDRead({ entries: [entry] });
     await screen.findByText("Message not found");
     await addField(dev.rack, TOPIC, "temperature");
     await waitFor(async () => {
       const [{ messages }] = await retrieveEntries(draft.key);
+      expect(messages).toEqual([{ message: expect.any(String), bindings: [] }]);
       expect((await client.icds.retrieve(entry.icd)).messages).toMatchObject([
         {
           key: messages[0].message,
