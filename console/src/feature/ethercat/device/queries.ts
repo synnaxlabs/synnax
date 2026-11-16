@@ -271,7 +271,7 @@ export const { useUpdate: useReplace } = Flux.createUpdate<
         path: ["properties", "position"],
         value: slave.properties.position,
       }),
-      // The Driver stores this property in snake case. The switch was of the old module.
+      // The Driver stores this key in snake case. The switch was of the old module.
       device.set({ path: ["properties", "switched_at"], value: 0 }),
     ]);
     await client.devices.delete(slave.key);
