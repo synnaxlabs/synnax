@@ -280,7 +280,8 @@ func BootupCore(
 		}
 		shutdownErr := shutDown(root, cfg.shutdownTimeout, closer)
 		err = errors.Combine(err, shutdownErr)
-		// Storage may still be closing, and the next start undoes the update.
+		// After a timeout, storage may still be closing, so the update stays. The next
+		// start undoes it and refuses the data until `synnax update retry`.
 		if update != nil && !errors.Is(shutdownErr, context.DeadlineExceeded) {
 			err = update.Undo(stop, errors.Combine(err, stop.Err()))
 		}
@@ -312,10 +313,13 @@ func BootupCore(
 		Version:              vsn,
 		UpdateBackupDisabled: cfg.updateBackupDisabled,
 	})
+	// A stop during the open must still undo the update the open started.
+	if err == nil {
+		update = storageLayer.Update
+	}
 	if !ok(err, storageLayer) {
 		return err
 	}
-	update = storageLayer.Update
 
 	distributionLayer, err := distribution.OpenLayer(
 		lifetime(),
