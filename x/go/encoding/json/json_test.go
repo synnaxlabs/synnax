@@ -159,6 +159,11 @@ var _ = Describe("Codec", func() {
 			`field "nested.limit" expects uint8, got JSON boolean`,
 		),
 		Entry(
+			"a field that is not an object",
+			`{"nested":{"limit":{}}}`,
+			`field "nested.limit" expects uint8, got JSON object`,
+		),
+		Entry(
 			"a value out of range",
 			`{"nested":{"limit":300}}`,
 			`field "nested.limit" expects uint8: value out of range`,
