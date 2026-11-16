@@ -30,18 +30,18 @@ func analyze(
 	return form, table
 }
 
-// analyzeUnion resolves source into a table and returns the named union's form and
-// one of its variants.
+// analyzeUnion resolves source into a table and returns the Chan union's form and one
+// of its variants.
 func analyzeUnion(
-	source, union, variant string,
+	source, variant string,
 ) (resolution.UnionForm, resolution.UnionVariant, *resolution.Table) {
 	GinkgoHelper()
 	table := MustGenerateRequest(source, "test", NewMockFileLoader()).Resolutions
-	typ := MustBeOk(table.Get("test." + union))
+	typ := MustBeOk(table.Get("test.Chan"))
 	form, ok := typ.Form.(resolution.UnionForm)
-	Expect(ok).To(BeTrue(), "%s is not a union", union)
+	Expect(ok).To(BeTrue(), "Chan is not a union")
 	v, ok := form.Variant(variant)
-	Expect(ok).To(BeTrue(), "%s has no variant %s", union, variant)
+	Expect(ok).To(BeTrue(), "Chan has no variant %s", variant)
 	return form, v, table
 }
 
@@ -374,7 +374,7 @@ var _ = Describe("Inheritance", func() {
 						units string = "c"
 					}
 				}
-			`, "Chan", "builtin")
+			`, "builtin")
 			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			Expect(inherited).To(HaveLen(2))
 			Expect(declared).To(BeEmpty())
@@ -395,7 +395,7 @@ var _ = Describe("Inheritance", func() {
 						units string = "c"
 					}
 				}
-			`, "Chan", "builtin")
+			`, "builtin")
 			inherited, declared := resolver.VariantBases(form, v, "cpp", table)
 			Expect(inherited).To(BeEmpty())
 			Expect(fieldNames(declared)).To(Equal([]string{"port"}))
@@ -423,7 +423,7 @@ var _ = Describe("Inheritance", func() {
 						units string = "c"
 					}
 				}
-			`, "Chan", "builtin")
+			`, "builtin")
 			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			Expect(inherited).To(HaveLen(1))
 			Expect(inherited[0].Name).To(Equal("test.Extra"))
@@ -449,7 +449,7 @@ var _ = Describe("Inheritance", func() {
 						units string = "c"
 					}
 				}
-			`, "Chan", "builtin")
+			`, "builtin")
 				inherited, declared := resolver.VariantBases(form, v, "go", table)
 				Expect(inherited).To(BeEmpty())
 				Expect(fieldNames(declared)).To(Equal([]string{"name"}))
@@ -476,7 +476,7 @@ var _ = Describe("Inheritance", func() {
 						units string = "c"
 					}
 				}
-			`, "Chan", "builtin")
+			`, "builtin")
 			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			Expect(inherited).To(HaveLen(1))
 			Expect(fieldNames(declared)).ToNot(ContainElement("name"))
@@ -494,7 +494,7 @@ var _ = Describe("Inheritance", func() {
 				Chan union on type {
 					ai extends Record<string> {}
 				}
-			`, "Chan", "ai")
+			`, "ai")
 			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			Expect(inherited).To(BeEmpty())
 			Expect(declared).To(HaveLen(1))
@@ -516,7 +516,7 @@ var _ = Describe("Inheritance", func() {
 						name string = "builtin"
 					}
 				}
-			`, "Chan", "builtin")
+			`, "builtin")
 			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			Expect(inherited).To(BeEmpty())
 			Expect(fieldNames(declared)).ToNot(ContainElement("name"))
@@ -542,7 +542,7 @@ var _ = Describe("Inheritance", func() {
 						units string = "c"
 					}
 				}
-			`, "Chan", "builtin")
+			`, "builtin")
 			base := MustBeOk(resolver.SharedBase(form, "go", table))
 			Expect(base.Name).To(Equal("test.Base"))
 		})
@@ -562,7 +562,7 @@ var _ = Describe("Inheritance", func() {
 				Chan union on type extends Base {
 					builtin extends Extra {}
 				}
-			`, "Chan", "builtin")
+			`, "builtin")
 			base := MustBeOk(resolver.SharedBase(form, "go", table))
 			Expect(base.Name).To(Equal("test.Base"))
 		})
@@ -582,7 +582,7 @@ var _ = Describe("Inheritance", func() {
 						-port
 					}
 				}
-			`, "Chan", "builtin")
+			`, "builtin")
 			Expect(resolver.SharedBase(form, "go", table)).To(BeZero())
 		})
 
@@ -601,7 +601,7 @@ var _ = Describe("Inheritance", func() {
 				Chan union on type extends Base, Extra {
 					builtin {}
 				}
-			`, "Chan", "builtin")
+			`, "builtin")
 			Expect(resolver.SharedBase(form, "go", table)).To(BeZero())
 		})
 
@@ -618,7 +618,7 @@ var _ = Describe("Inheritance", func() {
 				Chan union on type extends Base {
 					builtin {}
 				}
-			`, "Chan", "builtin")
+			`, "builtin")
 			Expect(resolver.SharedBase(form, "cpp", table)).To(BeZero())
 			base := MustBeOk(resolver.SharedBase(form, "go", table))
 			Expect(base.Name).To(Equal("test.Base"))
@@ -654,7 +654,7 @@ var _ = Describe("Inheritance", func() {
 		}
 
 		It("Should list the base fields before an inline payload", func() {
-			form, v, table := analyzeUnion(source, "Chan", "builtin")
+			form, v, table := analyzeUnion(source, "builtin")
 			fields := resolver.VariantFields(form, v, "go", table)
 			Expect(
 				owned(fields),
@@ -662,7 +662,7 @@ var _ = Describe("Inheritance", func() {
 		})
 
 		It("Should list the base fields before a named payload", func() {
-			form, v, table := analyzeUnion(source, "Chan", "scaled")
+			form, v, table := analyzeUnion(source, "scaled")
 			fields := resolver.VariantFields(form, v, "go", table)
 			Expect(owned(fields)).To(Equal([]string{"Base.port", "Gain.gain"}))
 		})
@@ -670,7 +670,7 @@ var _ = Describe("Inheritance", func() {
 		It(
 			"Should list only the base fields for a payload that does not resolve",
 			func() {
-				form, v, table := analyzeUnion(source, "Chan", "scaled")
+				form, v, table := analyzeUnion(source, "scaled")
 				v.Type = resolution.TypeRef{Name: "test.Missing"}
 				fields := resolver.VariantFields(form, v, "go", table)
 				Expect(owned(fields)).To(Equal([]string{"Base.port"}))

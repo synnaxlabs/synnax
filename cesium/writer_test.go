@@ -2538,11 +2538,11 @@ var _ = Describe("Writer Behavior", func() {
 							defer shutdown()
 
 							ts := 10 * telem.SecondTS
-							write := func(w *cesium.Writer, n int) {
+							write := func(w *cesium.Writer) {
 								GinkgoHelper()
-								stamps := make([]telem.TimeStamp, n)
-								ints := make([]int64, n)
-								for j := range n {
+								stamps := make([]telem.TimeStamp, 3)
+								ints := make([]int64, 3)
+								for j := range 3 {
 									stamps[j] = ts
 									ints[j] = int64(j)
 									ts += telem.SecondTS
@@ -2567,8 +2567,8 @@ var _ = Describe("Writer Behavior", func() {
 									control.Authority(100),
 								},
 							}))
-							write(low, 3)
-							write(low, 3)
+							write(low)
+							write(low)
 
 							By(
 								"Handing control to a higher-authority writer mid-domain",
@@ -2582,8 +2582,8 @@ var _ = Describe("Writer Behavior", func() {
 									control.Authority(200),
 								},
 							}))
-							write(high, 3)
-							write(high, 3)
+							write(high)
+							write(high)
 
 							Expect(o.paired).To(BeNumerically(">", 0),
 								"the observer never saw a multi-channel frame, so it asserted nothing")
@@ -5359,16 +5359,24 @@ var _ = Describe("Writer commit order", func() {
 			dataKey  cesium.ChannelKey
 			keys     []cesium.ChannelKey
 			// onPersist runs inside each pointer persist of a commit.
-			onPersist func() error
+			onPersist func()
+			// persistErr, when set, fails each pointer persist it returns an error for.
+			persistErr func() error
 		)
 
 		BeforeEach(func(ctx SpecContext) {
 			indexKey, dataKey = GenerateChannelKey(), GenerateChannelKey()
 			keys = []cesium.ChannelKey{indexKey, dataKey}
-			onPersist = func() error { return nil }
+			onPersist, persistErr = func() {}, nil
 			db = mustOpenDBOnFS(ctx, persistHookFS{
-				FS:        FileSystems["memFS"](),
-				onPersist: func() error { return onPersist() },
+				FS: FileSystems["memFS"](),
+				onPersist: func() error {
+					onPersist()
+					if persistErr == nil {
+						return nil
+					}
+					return persistErr()
+				},
 			})
 			Expect(db.CreateChannel(
 				ctx,
@@ -5420,12 +5428,11 @@ var _ = Describe("Writer commit order", func() {
 		It("Should show the index and data of a write together", func(ctx SpecContext) {
 			// counts holds the index and data sample counts of each read.
 			var counts [][2]int64
-			onPersist = func() error {
+			onPersist = func() {
 				counts = append(counts, [2]int64{
 					count(ctx, indexKey),
 					count(ctx, dataKey),
 				})
-				return nil
 			}
 			w := openWriter(ctx, "writer", control.AuthorityAbsolute)
 			for i := range 3 {
@@ -5444,12 +5451,11 @@ var _ = Describe("Writer commit order", func() {
 		It("Should show the index and data together across a control handoff",
 			func(ctx SpecContext) {
 				var counts [][2]int64
-				onPersist = func() error {
+				onPersist = func() {
 					counts = append(counts, [2]int64{
 						count(ctx, indexKey),
 						count(ctx, dataKey),
 					})
-					return nil
 				}
 				low := openWriter(ctx, "low", 100)
 				MustSucceed(low.Write(frame(10)))
@@ -5479,7 +5485,7 @@ var _ = Describe("Writer commit order", func() {
 			func(ctx SpecContext) {
 				errPersist := errors.New("persist failed")
 				persists := 0
-				onPersist = func() error {
+				persistErr = func() error {
 					persists++
 					// The index persists first, so this fails the data channel.
 					if persists == 2 {

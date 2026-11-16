@@ -228,10 +228,10 @@ type ChannelResolver interface {
 	// RetrieveDataTypes returns the data types of the channels with the given keys in
 	// the same order as keys. The returned slice must contain exactly one entry per
 	// key; Codec.Update returns an error if the lengths differ.
-	RetrieveDataTypes(context.Context, channel.Keys) ([]telem.DataType, error)
+	RetrieveDataTypes(ctx context.Context, keys channel.Keys) ([]telem.DataType, error)
 	// RetrieveName returns the name of the channel with the given key, or an empty
 	// string if no channel with the key exists.
-	RetrieveName(context.Context, channel.Key) string
+	RetrieveName(ctx context.Context, key channel.Key) string
 }
 
 // NewDynamic creates a new codec that can be dynamically updated by resolving channel

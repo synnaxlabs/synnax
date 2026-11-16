@@ -699,7 +699,7 @@ func (p *Plugin) processUnion(
 	entry resolution.Type,
 	data *templateData,
 ) (messageData, error) {
-	form := entry.Form.(resolution.UnionForm)
+	form := resolution.MustForm[resolution.UnionForm](entry)
 	name := getPBName(entry)
 	if name == "" {
 		name = entry.Name

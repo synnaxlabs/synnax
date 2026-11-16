@@ -36,7 +36,8 @@ var _ = Describe("Create and Output markers", func() {
 		typ := table.MustGet("x.Thing")
 		Expect(typ.Domains).To(HaveKey("create"))
 
-		form := typ.Form.(resolution.StructForm)
+		form, ok := typ.Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
 		author, ok := form.Field("author")
 		Expect(ok).To(BeTrue())
 		Expect(author.Domains).To(HaveKey("output"))
@@ -63,7 +64,8 @@ var _ = Describe("Create and Output markers", func() {
 			newType, ok := table.Get("x.New")
 			Expect(ok).To(BeTrue())
 
-			form := newType.Form.(resolution.StructForm)
+			form, ok := newType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Extends).To(HaveLen(1))
 			Expect(form.Extends[0].Name).To(Equal("x.Thing"))
 			resolved, resolvedOK := form.Extends[0].Resolve(table)
@@ -121,7 +123,8 @@ var _ = Describe("Create and Output markers", func() {
 
 			newTab, ok := table.Get("x.NewTab")
 			Expect(ok).To(BeTrue())
-			form := newTab.Form.(resolution.StructForm)
+			form, ok := newTab.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Extends).To(HaveLen(1))
 			Expect(form.Extends[0].Name).To(Equal("x.Tab"))
 			Expect(newTab.Domains).To(HaveKey("ts"))
@@ -151,10 +154,11 @@ var _ = Describe("Create and Output markers", func() {
 		`
 			table, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
-			form := MustBeOk(table.Get("x.New")).Form.(resolution.StructForm)
+			form, ok := MustBeOk(table.Get("x.New")).Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Extends).To(HaveLen(1))
 			Expect(form.Extends[0].Name).To(Equal("x.X"))
-			_, ok := table.Get("x.NewX")
+			_, ok = table.Get("x.NewX")
 			Expect(ok).To(BeFalse())
 		},
 	)
@@ -164,7 +168,8 @@ var _ = Describe("Create and Output markers", func() {
 		func(source, newBase, unionNew string) {
 			table, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
-			form := MustBeOk(table.Get("x.New")).Form.(resolution.StructForm)
+			form, ok := MustBeOk(table.Get("x.New")).Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Extends[0].Name).To(Equal(newBase))
 			MustBeOk(table.Get(unionNew))
 		},
@@ -252,7 +257,8 @@ var _ = Describe("Create and Output markers", func() {
 			Expect(diag.Ok()).To(BeTrue())
 			newType, ok := table.Get("x.New")
 			Expect(ok).To(BeTrue())
-			form := newType.Form.(resolution.StructForm)
+			form, ok := newType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Extends).To(HaveLen(1))
 			Expect(form.Extends[0].Name).To(BeElementOf("x.First", "x.Second"))
 		},

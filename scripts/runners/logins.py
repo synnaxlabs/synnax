@@ -13,9 +13,10 @@ Manager secret under PREFIX that holds a token from `claude setup-token`, stored
 the fleet controller and seat.sh write:
 
 - agent: the CLI the token is for.
-- expires: when the token expires, in Unix seconds.
+- expires: when the token expires, in Unix seconds, a LIFETIME after seat.sh stored it.
 - limited-until: when the usage limit of the login resets, in Unix seconds.
-- broken: present when a job found the token rejected.
+- broken: present when a job found the token rejected. Its value is when the job
+  started, in Unix seconds.
 - holders: the role sessions of the seats that may read the token, separated by
   spaces. A session is `<role id>:<instance id>`, the `aws:userid` of the seat.
 
@@ -32,6 +33,7 @@ PREFIX = "synnax-agents/logins/"
 SEAT_ROLE = "synnax-agent-runner"
 # A tag value holds at most 256 characters, and a holder takes 42 with its space.
 MAX_HOLDERS = 6
+LIFETIME = 365 * 24 * 3600
 
 
 @dataclass
@@ -43,6 +45,11 @@ class Login:
     limited_until: int = 0
     broken: bool = False
     holders: list[str] = field(default_factory=list)
+
+    @property
+    def stored(self) -> int:
+        """When seat.sh stored the token, in Unix seconds."""
+        return self.expires - LIFETIME
 
     def usable(self, *, now: int) -> bool:
         """Whether a seat may start on the login at now, in Unix seconds."""
@@ -114,3 +121,12 @@ class Logins:
             SecretId=login.arn, Tags=[{"Key": "limited-until", "Value": str(until)}]
         )
         login.limited_until = until
+
+    def reject(self, login: Login, *, at: int) -> None:
+        """Records that Claude rejected the token of the login on a job that started
+        at at, in Unix seconds. The login stays broken until seat.sh stores a new
+        token."""
+        self.secrets.tag_resource(
+            SecretId=login.arn, Tags=[{"Key": "broken", "Value": str(at)}]
+        )
+        login.broken = True

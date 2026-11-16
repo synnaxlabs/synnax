@@ -94,7 +94,9 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.Ok()).To(BeTrue())
 			Expect(diag.String()).To(ContainSubstring("unresolved type: filter.Key"))
 			entry := MustBeOk(table.Get("test.Entry"))
-			field := entry.Form.(resolution.StructForm).Fields[0]
+			form, ok := entry.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			field := form.Fields[0]
 			Expect(field.Type.Name).To(Equal("filter.Key"))
 		})
 
@@ -219,7 +221,9 @@ var _ = Describe("Analyzer", func() {
 			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			entry := MustBeOk(table.Get("test.Entry"))
-			field := MustBeOk(entry.Form.(resolution.StructForm).Field("value"))
+			form, ok := entry.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			field := MustBeOk(form.Field("value"))
 			Expect(field.Domains["validate"].Expressions).To(HaveExactElements(
 				HaveField("Name", "min"),
 				HaveField("Name", "max"),
@@ -542,20 +546,24 @@ Proof union on method Method {
 					resolution.UnifiedFields(panel, table), "hidden",
 				).Type.Name).To(Equal("bool"))
 				node := table.MustGet("v1.Node")
-				form := node.Form.(resolution.UnionForm)
+				form, ok := node.Form.(resolution.UnionForm)
+				Expect(ok).To(BeTrue())
 				valve := MustBeOk(form.Variant("valve"))
 				Expect(fieldNames(resolution.UnifiedVariantFields(node, valve, table))).
 					To(Equal([]string{"label", "hidden", "open"}))
 				tank := MustBeOk(form.Variant("tank"))
 				Expect(fieldNames(resolution.UnifiedVariantFields(node, tank, table))).
 					To(Equal([]string{"label", "size"}))
-				element := table.MustGet("v1.Element").Form.(resolution.UnionForm)
+				element, ok := table.MustGet("v1.Element").Form.(resolution.UnionForm)
+				Expect(ok).To(BeTrue())
 				Expect(element.Variants).To(HaveLen(3))
 				Expect(
 					MustBeOk(element.Variant("pipe")).Type.Name,
 				).To(Equal("v0.Labeled"))
 				shape := table.MustGet("v1.Shape")
-				circle := MustBeOk(shape.Form.(resolution.UnionForm).Variant("circle"))
+				shapeForm, ok := shape.Form.(resolution.UnionForm)
+				Expect(ok).To(BeTrue())
+				circle := MustBeOk(shapeForm.Variant("circle"))
 				Expect(
 					fieldNames(resolution.UnifiedVariantFields(shape, circle, table)),
 				).
@@ -987,7 +995,8 @@ Node union on variant {
 			`
 			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			form := table.MustGet("test.Session").Form.(resolution.StructForm)
+			form, ok := table.MustGet("test.Session").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			hash := MustBeOk(form.Field("hash"))
 			Expect(omit.IsField(hash, "ts")).To(BeTrue())
 			Expect(omit.IsField(hash, "py")).To(BeTrue())
@@ -1521,7 +1530,8 @@ Node union on variant {
 			`
 			table, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
-			form := table.MustGet("x.More").Form.(resolution.EnumForm)
+			form, ok := table.MustGet("x.More").Form.(resolution.EnumForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Values).To(HaveLen(2))
 			Expect(form.Values[0].Name).To(Equal("a"))
 			Expect(form.Values[1].Name).To(Equal("b"))
@@ -1538,7 +1548,8 @@ Node union on variant {
 			`
 			table, diag := Analyze(source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
-			form := table.MustGet("task.Priority").Form.(resolution.EnumForm)
+			form, ok := table.MustGet("task.Priority").Form.(resolution.EnumForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.IsIntEnum).To(BeTrue())
 			Expect(form.Values[1].IntValue()).To(Equal(int64(1)))
 		})
@@ -1621,7 +1632,8 @@ Node union on variant {
 			`
 				table, diag := Analyze(source, "x", loader)
 				Expect(diag.Ok()).To(BeTrue())
-				form := table.MustGet("x.Diamond").Form.(resolution.EnumForm)
+				form, ok := table.MustGet("x.Diamond").Form.(resolution.EnumForm)
+				Expect(ok).To(BeTrue())
 				var names []string
 				for _, v := range form.Values {
 					names = append(names, v.Name)
@@ -1639,7 +1651,8 @@ Node union on variant {
 			`
 			table, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
-			form := table.MustGet("x.A").Form.(resolution.EnumForm)
+			form, ok := table.MustGet("x.A").Form.(resolution.EnumForm)
+			Expect(ok).To(BeTrue())
 			var names []string
 			for _, v := range form.Values {
 				names = append(names, v.Name)
@@ -1667,7 +1680,8 @@ Node union on variant {
 			`)
 				table, diag := Analyze(source, "lineplot", loader)
 				Expect(diag.Ok()).To(BeTrue())
-				form := table.MustGet("lineplot.AxisKey").Form.(resolution.EnumForm)
+				form, ok := table.MustGet("lineplot.AxisKey").Form.(resolution.EnumForm)
+				Expect(ok).To(BeTrue())
 				Expect(form.Values).To(HaveLen(4))
 				Expect(form.Values[0].Name).To(Equal("x1"))
 				Expect(form.Values[3].StringValue()).To(Equal("y2"))
@@ -1694,7 +1708,8 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue())
 
 			userType := table.MustGet("user.User")
-			form := userType.Form.(resolution.StructForm)
+			form, ok := userType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			nameField, found := form.Field("name")
 			Expect(found).To(BeTrue())
 			Expect(nameField.Domains).To(HaveLen(2))
@@ -1750,7 +1765,8 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue())
 
 			rangeType := table.MustGet("ranger.Range")
-			form := rangeType.Form.(resolution.StructForm)
+			form, ok := rangeType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 
 			labelsField, _ := form.Field("labels")
 			Expect(labelsField.Type.Name).To(Equal("Array"))
@@ -1773,7 +1789,8 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue())
 
 			rangeType := table.MustGet("ranger.Range")
-			form := rangeType.Form.(resolution.StructForm)
+			form, ok := rangeType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			parentField, _ := form.Field("parent")
 			Expect(parentField.Optional).To(BeTrue())
 			Expect(parentField.Type.Name).To(Equal("uuid"))
@@ -1872,7 +1889,8 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue())
 
 			testType := table.MustGet("test.Test")
-			form := testType.Form.(resolution.StructForm)
+			form, ok := testType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			primitiveFields := []string{"a", "b", "c", "d", "e", "i", "j"}
 			for _, field := range form.Fields {
 				if slices.Contains(primitiveFields, field.Name) {
@@ -1897,7 +1915,8 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue())
 
 			viewportType := table.MustGet("viz.Viewport")
-			form := viewportType.Form.(resolution.StructForm)
+			form, ok := viewportType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			positionField, _ := form.Field("position")
 			Expect(positionField.Type.Name).To(Equal("viz.Position"))
 
@@ -1927,7 +1946,8 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue())
 
 			rangeType := table.MustGet("ranger.Range")
-			form := rangeType.Form.(resolution.StructForm)
+			form, ok := rangeType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			labelsField, _ := form.Field("labels")
 			Expect(labelsField.Type.Name).To(Equal("Array"))
 			Expect(labelsField.Type.TypeArgs[0].Name).To(Equal("label.Label"))
@@ -1955,7 +1975,8 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue())
 
 			taskType := table.MustGet("task.Task")
-			form := taskType.Form.(resolution.StructForm)
+			form, ok := taskType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			stateField, _ := form.Field("state")
 			Expect(stateField.Type.Name).To(Equal("task.TaskState"))
 
@@ -2120,7 +2141,8 @@ Node union on variant {
 			Expect(table.StructTypes()).To(HaveLen(2))
 
 			childType := table.MustGet("test.Child")
-			form := childType.Form.(resolution.StructForm)
+			form, ok := childType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Extends).To(HaveLen(1))
 			Expect(form.Extends[0].Name).To(Equal("test.Parent"))
 
@@ -2156,7 +2178,8 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
-			form := childType.Form.(resolution.StructForm)
+			form, ok := childType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.OmittedFields).To(HaveLen(1))
 			Expect(form.OmittedFields[0]).To(Equal("age"))
 
@@ -2186,7 +2209,8 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
-			form := childType.Form.(resolution.StructForm)
+			form, ok := childType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			// Child has its own name field that overrides parent
 			Expect(form.Fields).To(HaveLen(1))
 			Expect(form.Fields[0].Name).To(Equal("name"))
@@ -2302,7 +2326,8 @@ Node union on variant {
 				Expect(diag.Ok()).To(BeTrue())
 
 				child := table.MustGet("test.Child")
-				form := child.Form.(resolution.StructForm)
+				form, ok := child.Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
 				key := findField(form.Fields, "key")
 				Expect(key.Domains).To(HaveKey("doc"))
 				doc := MustBeOk(key.Domains["doc"].Expressions.Find("value"))
@@ -2334,7 +2359,8 @@ Node union on variant {
 				Expect(diag.Ok()).To(BeTrue())
 
 				child := table.MustGet("test.Child")
-				form := child.Form.(resolution.StructForm)
+				form, ok := child.Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
 				key := findField(form.Fields, "key")
 				doc := MustBeOk(key.Domains["doc"].Expressions.Find("value"))
 				Expect(
@@ -2458,7 +2484,8 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue())
 
 			rackStatusType := table.MustGet("test.RackStatus")
-			form := rackStatusType.Form.(resolution.StructForm)
+			form, ok := rackStatusType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Extends).To(HaveLen(1))
 			Expect(form.Extends[0].TypeArgs).To(HaveLen(1))
 			Expect(form.Extends[0].TypeArgs[0].Name).To(Equal("test.Details"))
@@ -2526,7 +2553,8 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue())
 
 			extendedType := table.MustGet("test.Extended")
-			form := extendedType.Form.(resolution.StructForm)
+			form, ok := extendedType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Extends).To(HaveLen(1))
 			Expect(form.Extends[0].Name).To(Equal("base.Base"))
 
@@ -2810,7 +2838,8 @@ Node union on variant {
 				Expect(diag.Ok()).To(BeTrue())
 
 				cType := table.MustGet("test.C")
-				form := cType.Form.(resolution.StructForm)
+				form, ok := cType.Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
 				Expect(form.Extends).To(HaveLen(2))
 				Expect(form.Extends[0].Name).To(Equal("test.A"))
 				Expect(form.Extends[1].Name).To(Equal("test.B"))
@@ -2949,7 +2978,8 @@ Node union on variant {
 	Describe("Action Extension", func() {
 		findAction := func(table *resolution.Table, qname, name string) resolution.Action {
 			GinkgoHelper()
-			form := table.MustGet(qname).Form.(resolution.StructForm)
+			form, ok := table.MustGet(qname).Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			for _, a := range form.Actions {
 				if a.Name == name {
 					return a
@@ -3547,7 +3577,8 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue())
 
 			containerType := table.MustGet("test.Container")
-			form := containerType.Form.(resolution.StructForm)
+			form, ok := containerType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.IsGeneric()).To(BeTrue())
 			Expect(form.TypeParams).To(HaveLen(1))
 			Expect(form.TypeParams[0].Name).To(Equal("T"))
@@ -3569,7 +3600,8 @@ Node union on variant {
 				Expect(diag.Ok()).To(BeTrue())
 
 				containerType := table.MustGet("test.NumberContainer")
-				form := containerType.Form.(resolution.StructForm)
+				form, ok := containerType.Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
 				Expect(form.TypeParams[0].Constraint).NotTo(BeNil())
 				Expect(form.TypeParams[0].Constraint.Name).To(Equal("int32"))
 			},
@@ -3588,7 +3620,8 @@ Node union on variant {
 				Expect(diag.Ok()).To(BeTrue())
 
 				stateType := table.MustGet("test.State")
-				form := stateType.Form.(resolution.StructForm)
+				form, ok := stateType.Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
 				Expect(form.TypeParams[0].Constraint).NotTo(BeNil())
 				Expect(form.TypeParams[0].Constraint.Name).To(Equal("comparable"))
 			},
@@ -3607,7 +3640,8 @@ Node union on variant {
 				Expect(diag.Ok()).To(BeTrue())
 
 				boundsType := table.MustGet("test.Bounds")
-				form := boundsType.Form.(resolution.StructForm)
+				form, ok := boundsType.Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
 				Expect(form.TypeParams[0].Constraint).NotTo(BeNil())
 				Expect(form.TypeParams[0].Constraint.Name).To(Equal("numeric"))
 				Expect(form.TypeParams[0].Default).NotTo(BeNil())
@@ -3684,7 +3718,8 @@ Node union on variant {
 				Expect(diag.Ok()).To(BeTrue())
 
 				containerType := table.MustGet("test.Container")
-				form := containerType.Form.(resolution.StructForm)
+				form, ok := containerType.Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
 				Expect(form.TypeParams[0].Default).NotTo(BeNil())
 				Expect(form.TypeParams[0].Default.Name).To(Equal("string"))
 			},
@@ -3713,7 +3748,8 @@ Node union on variant {
 			`
 				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
-				form := table.MustGet("test.Wrapper").Form.(resolution.StructForm)
+				form, ok := table.MustGet("test.Wrapper").Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
 				var got []string
 				for _, arg := range findField(form.Fields, "value").Type.TypeArgs {
 					got = append(got, arg.Name)
@@ -3745,7 +3781,8 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue())
 
 			wrapperType := table.MustGet("test.Wrapper")
-			form := wrapperType.Form.(resolution.StructForm)
+			form, ok := wrapperType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			containerField, _ := form.Field("container")
 			Expect(containerField.Type.Name).To(Equal("test.Container"))
 			Expect(containerField.Type.TypeArgs).To(HaveLen(1))
@@ -3769,7 +3806,8 @@ Node union on variant {
 				Expect(diag.Ok()).To(BeTrue())
 
 				taskType := table.MustGet("test.Task")
-				form := taskType.Form.(resolution.StructForm)
+				form, ok := taskType.Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
 
 				// Verify type params are set up correctly
 				Expect(form.IsGeneric()).To(BeTrue())
@@ -3879,7 +3917,8 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue())
 
 			configType := table.MustGet("test.Config")
-			form := configType.Form.(resolution.StructForm)
+			form, ok := configType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			settingsField, _ := form.Field("settings")
 			Expect(settingsField.Type.Name).To(Equal("Map"))
 			Expect(settingsField.Type.TypeArgs).To(HaveLen(2))
@@ -3900,7 +3939,8 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue())
 
 			nodeType := table.MustGet("test.Node")
-			form := nodeType.Form.(resolution.StructForm)
+			form, ok := nodeType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.IsRecursive).To(BeTrue())
 		})
 
@@ -3915,7 +3955,8 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue())
 
 			simpleType := table.MustGet("test.Simple")
-			form := simpleType.Form.(resolution.StructForm)
+			form, ok := simpleType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.IsRecursive).To(BeFalse())
 		})
 
@@ -3933,8 +3974,10 @@ Node union on variant {
 				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
-				aForm := table.MustGet("test.A").Form.(resolution.StructForm)
-				bForm := table.MustGet("test.B").Form.(resolution.StructForm)
+				aForm, ok := table.MustGet("test.A").Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
+				bForm, ok := table.MustGet("test.B").Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
 				Expect(aForm.IsRecursive).To(BeTrue())
 				Expect(bForm.IsRecursive).To(BeTrue())
 			},
@@ -3955,8 +3998,10 @@ Node union on variant {
 				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
-				aForm := table.MustGet("test.A").Form.(resolution.StructForm)
-				bForm := table.MustGet("test.B").Form.(resolution.StructForm)
+				aForm, ok := table.MustGet("test.A").Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
+				bForm, ok := table.MustGet("test.B").Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
 				Expect(aForm.IsRecursive).To(BeTrue())
 				Expect(bForm.IsRecursive).To(BeTrue())
 			},
@@ -3977,8 +4022,10 @@ Node union on variant {
 				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
-				aForm := table.MustGet("test.A").Form.(resolution.StructForm)
-				bForm := table.MustGet("test.B").Form.(resolution.StructForm)
+				aForm, ok := table.MustGet("test.A").Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
+				bForm, ok := table.MustGet("test.B").Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
 				Expect(aForm.IsRecursive).To(BeTrue())
 				Expect(bForm.IsRecursive).To(BeTrue())
 			},
@@ -3999,8 +4046,10 @@ Node union on variant {
 				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
-				aForm := table.MustGet("test.A").Form.(resolution.StructForm)
-				bForm := table.MustGet("test.B").Form.(resolution.StructForm)
+				aForm, ok := table.MustGet("test.A").Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
+				bForm, ok := table.MustGet("test.B").Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
 				Expect(aForm.IsRecursive).To(BeTrue())
 				Expect(bForm.IsRecursive).To(BeTrue())
 			},
@@ -4014,7 +4063,8 @@ Node union on variant {
 				"Item struct {\n\t" + fieldDecl + "\n}\n"
 			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
-			form := table.MustGet("test.Item").Form.(resolution.StructForm)
+			form, ok := table.MustGet("test.Item").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Fields).To(HaveLen(1))
 			return form.Fields[0].Default
 		}
@@ -4217,16 +4267,17 @@ Mode enum {
 				table, diag := Analyze(source, "arc", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				tr := table.MustGet("arc.Transition")
-				form := tr.Form.(resolution.StructForm)
+				form, ok := tr.Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
 				names := make([]string, len(form.Fields))
 				for i, f := range form.Fields {
 					names[i] = f.Name
 				}
 				Expect(names).To(ContainElement("on"))
 				scale := table.MustGet("arc.Scale")
-				Expect(
-					scale.Form.(resolution.UnionForm).Discriminator,
-				).To(Equal("type"))
+				scaleForm, ok := scale.Form.(resolution.UnionForm)
+				Expect(ok).To(BeTrue())
+				Expect(scaleForm.Discriminator).To(Equal("type"))
 			},
 		)
 
@@ -4256,7 +4307,8 @@ Mode enum {
 
 				scale := table.MustGet("ni.Scale")
 				Expect(scale.Name).To(Equal("Scale"))
-				form := scale.Form.(resolution.UnionForm)
+				form, ok := scale.Form.(resolution.UnionForm)
+				Expect(ok).To(BeTrue())
 				Expect(form.Discriminator).To(Equal("type"))
 				Expect(form.Variants).To(HaveLen(3))
 				Expect(form.Extends).To(BeEmpty())
@@ -4289,7 +4341,8 @@ Mode enum {
 				Expect(diag.Ok()).To(BeTrue())
 
 				el := table.MustGet("schematic.ElementConfig")
-				form := el.Form.(resolution.UnionForm)
+				form, ok := el.Form.(resolution.UnionForm)
+				Expect(ok).To(BeTrue())
 				Expect(form.Extends).To(BeEmpty())
 				Expect(form.Variants).To(HaveLen(2))
 				Expect(form.Variants[0].Name).To(Equal("tank"))
@@ -4297,7 +4350,9 @@ Mode enum {
 				Expect(form.Variants[1].Name).To(Equal("pipe"))
 
 				node := table.MustGet("schematic.NodeConfig")
-				Expect(node.Form.(resolution.UnionForm).Variants).To(HaveLen(1))
+				nodeForm, ok := node.Form.(resolution.UnionForm)
+				Expect(ok).To(BeTrue())
+				Expect(nodeForm.Variants).To(HaveLen(1))
 			},
 		)
 
@@ -4318,7 +4373,9 @@ Mode enum {
 			`
 				table, diag := Analyze(source, "schematic", loader)
 				Expect(diag.Ok()).To(BeTrue())
-				form := table.MustGet("schematic.ElementConfig").Form.(resolution.UnionForm)
+				form, ok := table.MustGet("schematic.ElementConfig").
+					Form.(resolution.UnionForm)
+				Expect(ok).To(BeTrue())
 				Expect(form.Variants).To(HaveLen(2))
 				Expect(form.Variants[1].Name).To(Equal("group"))
 				Expect(form.Included).To(HaveLen(1))
@@ -4349,7 +4406,9 @@ Mode enum {
 			`
 				table, diag := Analyze(source, "schematic", loader)
 				Expect(diag.Ok()).To(BeTrue())
-				form := table.MustGet("schematic.ElementConfig").Form.(resolution.UnionForm)
+				form, ok := table.MustGet("schematic.ElementConfig").
+					Form.(resolution.UnionForm)
+				Expect(ok).To(BeTrue())
 				Expect(form.Variants).To(HaveLen(2))
 				Expect(form.Variants[0].Name).To(Equal("tank"))
 				Expect(form.Variants[0].Type.Name).To(Equal("common.TankConfig"))
@@ -4380,7 +4439,8 @@ Mode enum {
 				table, diag := Analyze(source, "panel", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
-				form := table.MustGet("panel.Tab").Form.(resolution.UnionForm)
+				form, ok := table.MustGet("panel.Tab").Form.(resolution.UnionForm)
+				Expect(ok).To(BeTrue())
 				Expect(form.Variants).To(HaveLen(3))
 				Expect(form.Variants[0].Inline).To(BeTrue())
 				Expect(form.Variants[1].Inline).To(BeTrue())
@@ -4388,7 +4448,8 @@ Mode enum {
 
 				view := table.MustGet("panel.TabViewPayload")
 				Expect(view.Synthetic).To(BeTrue())
-				viewForm := view.Form.(resolution.StructForm)
+				viewForm, ok := view.Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
 				Expect(viewForm.Extends).To(HaveLen(1))
 				Expect(viewForm.Fields).To(HaveLen(2))
 				Expect(viewForm.Fields[0].Name).To(Equal("type"))
@@ -4404,7 +4465,9 @@ Mode enum {
 
 				empty := table.MustGet("panel.TabEmptyPayload")
 				Expect(empty.Synthetic).To(BeTrue())
-				Expect(empty.Form.(resolution.StructForm).Fields).To(BeEmpty())
+				emptyForm, ok := empty.Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
+				Expect(emptyForm.Fields).To(BeEmpty())
 				Expect(table.StructTypes()).NotTo(ContainElement(
 					HaveField("QualifiedName", "panel.TabViewPayload"),
 				))
@@ -4521,7 +4584,8 @@ Mode enum {
 				Expect(diag.Ok()).To(BeTrue())
 
 				ch := table.MustGet("ni.AIChannel")
-				form := ch.Form.(resolution.UnionForm)
+				form, ok := ch.Form.(resolution.UnionForm)
+				Expect(ok).To(BeTrue())
 				Expect(form.Extends).To(HaveLen(1))
 				Expect(form.Extends[0].Name).To(Equal("ni.BaseAIChannel"))
 
@@ -4563,7 +4627,8 @@ Mode enum {
 				Expect(diag.Ok()).To(BeTrue())
 
 				ch := table.MustGet("ni.AIChannel")
-				form := ch.Form.(resolution.UnionForm)
+				form, ok := ch.Form.(resolution.UnionForm)
+				Expect(ok).To(BeTrue())
 				Expect(form.Extends).To(HaveLen(1))
 				Expect(form.Extends[0].Name).To(Equal("common.BaseChan"))
 
@@ -4593,7 +4658,8 @@ Mode enum {
 			table, diag := Analyze(source, "ni", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
-			form := table.MustGet("ni.Scale").Form.(resolution.UnionForm)
+			form, ok := table.MustGet("ni.Scale").Form.(resolution.UnionForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Variants[0].Domains).To(HaveKey("doc"))
 			Expect(form.Variants[1].Domains).To(HaveKey("doc"))
 
@@ -4650,7 +4716,8 @@ Mode enum {
 				Expect(diag.Ok()).To(BeTrue())
 
 				ch := table.MustGet("ni.AIChannel")
-				form := ch.Form.(resolution.UnionForm)
+				form, ok := ch.Form.(resolution.UnionForm)
+				Expect(ok).To(BeTrue())
 				fields := resolution.UnifiedVariantFields(ch, form.Variants[0], table)
 				names := make([]string, len(fields))
 				for i, f := range fields {
@@ -4688,9 +4755,12 @@ Mode enum {
 				table, diag := Analyze(source, "ni", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
+				ch := table.MustGet("ni.AIChannel")
+				form, ok := ch.Form.(resolution.UnionForm)
+				Expect(ok).To(BeTrue())
 				voltageFields := resolution.UnifiedVariantFields(
-					table.MustGet("ni.AIChannel"),
-					table.MustGet("ni.AIChannel").Form.(resolution.UnionForm).Variants[0],
+					ch,
+					form.Variants[0],
 					table,
 				)
 				Expect(voltageFields).To(HaveLen(1))
@@ -5081,7 +5151,8 @@ Mode enum {
 			Expect(diag.Ok()).To(BeTrue())
 
 			mixed := table.MustGet("test.Mixed")
-			form := mixed.Form.(resolution.UnionForm)
+			form, ok := mixed.Form.(resolution.UnionForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Extends).To(HaveLen(2))
 
 			aFields := resolution.UnifiedVariantFields(mixed, form.Variants[0], table)
@@ -5098,7 +5169,8 @@ Mode enum {
 			) []string {
 				GinkgoHelper()
 				typ := table.MustGet(union)
-				form := typ.Form.(resolution.UnionForm)
+				form, ok := typ.Form.(resolution.UnionForm)
+				Expect(ok).To(BeTrue())
 				i := slices.IndexFunc(
 					form.Variants,
 					func(v resolution.UnionVariant) bool { return v.Name == variant },
@@ -5213,7 +5285,8 @@ Mode enum {
 			GinkgoHelper()
 			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
-			form := table.MustGet("test.Outer").Form.(resolution.StructForm)
+			form, ok := table.MustGet("test.Outer").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			return form.Fields[0].Default
 		}
 
@@ -5341,7 +5414,8 @@ var _ = Describe("Union enum discriminator", func() {
 		`
 		table, diag := Analyze(source, "test", loader)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
-		form := table.MustGet("test.Proof").Form.(resolution.UnionForm)
+		form, ok := table.MustGet("test.Proof").Form.(resolution.UnionForm)
+		Expect(ok).To(BeTrue())
 		Expect(form.Discriminator).To(Equal("method"))
 		Expect(form.BorrowsEnum()).To(BeTrue())
 		Expect(form.Enum.Name).To(Equal("test.Method"))
@@ -5355,7 +5429,9 @@ var _ = Describe("Union enum discriminator", func() {
 		`
 		table, diag := Analyze(source, "test", loader)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
-		Expect(table.MustGet("test.Proof").Form.(resolution.UnionForm).BorrowsEnum()).
+		form, ok := table.MustGet("test.Proof").Form.(resolution.UnionForm)
+		Expect(ok).To(BeTrue())
+		Expect(form.BorrowsEnum()).
 			To(BeFalse())
 	})
 	DescribeTable("Should reject a borrowed enum that does not fit",
@@ -5459,7 +5535,8 @@ var _ = Describe("Union enum discriminator", func() {
 			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			field := table.MustGet("test.ReadField")
-			form := field.Form.(resolution.UnionForm)
+			form, ok := field.Form.(resolution.UnionForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.BorrowsEnum()).To(BeTrue())
 			Expect(form.Enum.Name).To(Equal("payload.Kind"))
 			float := MustBeOk(form.Variant("float"))

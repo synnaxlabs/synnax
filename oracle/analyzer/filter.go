@@ -217,11 +217,23 @@ func expandFilters(c *analysisCtx) {
 	}
 }
 
+// filterDef returns the filter definition that declares where. It panics if where is
+// not a filter, which is an analyzer bug.
+func filterDef(where resolution.Type) parser.IFilterDefContext {
+	def, ok := where.AST.(parser.IFilterDefContext)
+	if !ok {
+		panic(
+			fmt.Sprintf("%s is declared by a %T, not a filter", where.Name, where.AST),
+		)
+	}
+	return def
+}
+
 func expandFilter(c *analysisCtx, typ resolution.Type) resolution.Type {
 	filter := *typ.Filter
 	filter.Lines = slices.Clone(filter.Lines)
 	typ.Filter = &filter
-	def := typ.AST.(parser.IFilterDefContext)
+	def := filterDef(typ)
 	written := def.TypeRef().GetText()
 	report := func(format string) resolution.Type {
 		c.report(diagnostics.Errorf(def, "filter %s: "+format, typ.Name, written))
@@ -251,7 +263,7 @@ func expandFilter(c *analysisCtx, typ resolution.Type) resolution.Type {
 		))
 		return typ
 	}
-	form := typ.Form.(resolution.StructForm)
+	form := resolution.MustForm[resolution.StructForm](typ)
 	typed := make(map[string]resolution.Field)
 	for _, f := range form.Fields[len(treeFields):] {
 		typed[f.Name] = f
@@ -306,9 +318,15 @@ func bareLineOperator(
 	fields []resolution.Field,
 	line resolution.Field,
 ) (resolution.TypeRef, bool) {
+	def, ok := line.AST.(parser.IFieldDefContext)
+	if !ok {
+		panic(
+			fmt.Sprintf("filter %s: line %s is a %T", filterName, line.Name, line.AST),
+		)
+	}
 	report := func(format string, args ...any) (resolution.TypeRef, bool) {
 		c.report(diagnostics.Errorf(
-			line.AST.(parser.IFieldDefContext),
+			def,
 			"filter %s: "+format,
 			append([]any{filterName}, args...)...,
 		))
@@ -435,7 +453,7 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 	if expr, ok := where.Domains["go"].Expressions.Find("request_output"); ok &&
 		(len(expr.Values) != 1 || expr.Values[0].Kind != resolution.ValueKindString) {
 		c.report(diagnostics.Errorf(
-			where.AST.(parser.IFilterDefContext),
+			filterDef(where),
 			"filter %s: @go request_output takes one path",
 			where.Name,
 		))
@@ -527,7 +545,7 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 	for _, line := range where.Filter.Lines {
 		if lo.Contains(options, casing.FieldSnake(line.Name)) {
 			c.report(diagnostics.Errorf(
-				where.AST.(parser.IFilterDefContext),
+				filterDef(where),
 				"filter %s: %q is reserved for retrieve",
 				where.Name,
 				line.Name,
@@ -550,7 +568,7 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 		t.FilePath = c.filePath
 		if _, exists := c.table.Get(t.QualifiedName); exists {
 			c.report(diagnostics.Errorf(
-				where.AST.(parser.IFilterDefContext),
+				filterDef(where),
 				"filter %s: %s derives %s, which the schema already declares",
 				where.Name,
 				where.Name,
@@ -582,7 +600,7 @@ func orderingTypes(
 	domains map[string]resolution.Domain,
 	words string,
 ) (types []resolution.Type, sorted, ok bool) {
-	def := where.AST.(parser.IFilterDefContext)
+	def := filterDef(where)
 	sorts, err := resolution.Sorts(fields, c.table)
 	if err != nil {
 		c.report(diagnostics.Errorf(def, "filter %s: %v", where.Name, err))
@@ -696,7 +714,7 @@ func retrieveResponse(
 	}
 	domains := c.fileDomains
 	if dom, ok := where.Domains["response"]; ok {
-		def := where.AST.(parser.IFilterDefContext)
+		def := filterDef(where)
 		expr, ok := dom.Expressions.Find("type")
 		if !ok || len(expr.Values) == 0 ||
 			expr.Values[0].Kind != resolution.ValueKindIdent {
