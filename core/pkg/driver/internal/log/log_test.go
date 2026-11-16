@@ -307,6 +307,46 @@ var _ = Describe("PipeToLogger", func() {
 		Expect(buffer.String()).ToNot(ContainSubstring("ERROR"))
 	})
 
+	Describe("last error", func() {
+		lastError := func(input string) string {
+			GinkgoHelper()
+			return log.PipeToLogger(
+				io.NopCloser(strings.NewReader(input)),
+				logger,
+				nil,
+				nil,
+			)
+		}
+
+		It("Should return the message of the last error line", func() {
+			Expect(lastError(
+				"E20260208 14:34:21.000000 0x1 rack.cpp:50] first\n" +
+					"E20260208 14:34:21.000000 0x1 rack.cpp:51] second\n" +
+					"I20260208 14:34:21.000000 0x1 rack.cpp:52] after\n",
+			)).To(Equal("second"))
+		})
+
+		It("Should return a line written before the first formatted line", func() {
+			Expect(lastError(
+				"driver: version `GLIBC_2.39' not found (required by driver)\n",
+			)).To(Equal("driver: version `GLIBC_2.39' not found (required by driver)"))
+		})
+
+		It("Should not return a continuation line of an info line", func() {
+			Expect(lastError(
+				"I20260208 14:34:21.000000 0x1 rack.cpp:50] running\n" +
+					"  continued\n",
+			)).To(BeEmpty())
+		})
+
+		It("Should return the banner of a crash dump", func() {
+			Expect(lastError(
+				"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***\n" +
+					"stack trace:\n",
+			)).To(Equal("*** synnax-driver crashed: SIGSEGV (segmentation fault) ***"))
+		})
+	})
+
 	Describe("crash output", func() {
 		It(
 			"Should collapse a multi-line signal crash dump into one error entry",

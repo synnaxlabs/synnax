@@ -84,15 +84,21 @@ func ParseLine(line, prevCaller string) ParsedLine {
 // log level character (D/I/W/E/F). When a line containing StartedMessage is
 // encountered, startedOnce is used to safely close the started channel exactly
 // once, even when multiple goroutines call PipeToLogger concurrently.
+//
+// PipeToLogger returns the last error the stream carried, or "" if there was none: an
+// error or fatal line, the banner of a crash dump, or a line written before the first
+// formatted line, such as a dynamic loader error.
 func PipeToLogger(
 	reader io.ReadCloser,
 	logger *alamos.Logger,
 	started chan<- struct{},
 	startedOnce *sync.Once,
-) {
+) string {
 	var (
 		caller    string
 		callerBuf []byte
+		lastErr   string
+		formatted bool
 		// crashLines buffers a crash dump once its banner is seen. A crash is terminal
 		// and its trace is raw text rather than glog-formatted, so the whole dump is
 		// accumulated and emitted as a single Error entry when the stream closes (see
@@ -120,6 +126,7 @@ func PipeToLogger(
 		line := unsafe.String(unsafe.SliceData(b), len(b))
 		if crashLines == nil && isCrashBanner(line) {
 			crashLines = make([]string, 0, 32)
+			lastErr = strings.TrimSpace(line)
 		}
 		if crashLines != nil {
 			// strings.Clone is required: the scanner reuses its buffer across
@@ -128,6 +135,11 @@ func PipeToLogger(
 			continue
 		}
 		p := ParseLine(line, caller)
+		if strings.IndexByte(line, ']') != -1 {
+			formatted = true
+		} else if !formatted {
+			lastErr = strings.Clone(p.Message)
+		}
 
 		if p.Caller != caller {
 			callerBuf = append(callerBuf[:0], p.Caller...)
@@ -154,6 +166,7 @@ func PipeToLogger(
 			namedLogger.Debug(p.Message, callerField)
 		case 'E', 'F':
 			namedLogger.Error(p.Message, callerField)
+			lastErr = strings.Clone(p.Message)
 		case 'W':
 			namedLogger.Warn(p.Message, callerField)
 		default:
@@ -166,4 +179,5 @@ func PipeToLogger(
 	if err := scanner.Err(); err != nil && !errors.Is(err, os.ErrClosed) {
 		logger.Error("Error reading from std pipe", zap.Error(err))
 	}
+	return lastErr
 }

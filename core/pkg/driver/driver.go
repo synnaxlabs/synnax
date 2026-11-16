@@ -10,6 +10,7 @@
 package driver
 
 import (
+	"cmp"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -22,6 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -291,6 +293,9 @@ type Driver struct {
 	// closeErr stores the result of the single close() invocation for subsequent Close
 	// calls to return.
 	closeErr error
+	// lastErr holds the last error that a Driver process printed before it exited, so a
+	// start that times out names why.
+	lastErr atomic.Pointer[string]
 }
 
 // Open creates and starts an embedded Driver. When the Core is built with -tags=driver,
@@ -363,7 +368,14 @@ func (d *Driver) start(ctx context.Context) error {
 		return errors.Combine(err, d.Close())
 	case <-ctx.Done():
 		closeErr := d.Close()
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		timedOut := errors.Is(ctx.Err(), context.DeadlineExceeded)
+		if last := d.lastErr.Load(); timedOut && last != nil {
+			return errors.Combine(
+				errors.Newf("embedded Driver did not start: %s", *last),
+				closeErr,
+			)
+		}
+		if timedOut {
 			return errors.Combine(
 				errors.New(
 					"timed out waiting for embedded Driver to start. This occurs either because the Driver could not reach the Core or a task took an unusual amount of time to start. Check logs above categorized 'driver' for more information.",
@@ -449,8 +461,9 @@ func (d *Driver) runOnce(
 	)
 	defer cancel()
 
+	var stdoutErr, stderrErr string
 	internalSCtx.Go(func(context.Context) error {
-		log.PipeToLogger(stdoutPipe, d.cfg.L, d.started, startedOnce)
+		stdoutErr = log.PipeToLogger(stdoutPipe, d.cfg.L, d.started, startedOnce)
 		return nil
 	},
 		signal.WithKey("stdout_pipe"),
@@ -458,7 +471,7 @@ func (d *Driver) runOnce(
 		signal.WithRetryOnPanic(),
 	)
 	internalSCtx.Go(func(context.Context) error {
-		log.PipeToLogger(stderrPipe, d.cfg.L, d.started, startedOnce)
+		stderrErr = log.PipeToLogger(stderrPipe, d.cfg.L, d.started, startedOnce)
 		return nil
 	},
 		signal.WithKey("stderr_pipe"),
@@ -471,6 +484,10 @@ func (d *Driver) runOnce(
 		signal.WithKey("wait"),
 		signal.RecoverWithErrOnPanic())
 	err = internalSCtx.Wait()
+	if output := cmp.Or(stderrErr, stdoutErr); output != "" && err != nil {
+		d.lastErr.Store(&output)
+		err = errors.Wrap(err, output)
+	}
 	// A canceled context means Close stopped the process: the exit is expected, not a
 	// crash, so it must not count toward the restart policy.
 	expected := ctx.Err() != nil

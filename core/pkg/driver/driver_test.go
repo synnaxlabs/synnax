@@ -177,7 +177,7 @@ var _ = Describe("Open", func() {
 		)
 
 		It(
-			"Should return timeout error when driver crashes on startup",
+			"Should name the error the Driver printed when it crashes on startup",
 			func(ctx SpecContext) {
 				Expect(os.Setenv("MOCK_FAIL_START", "1")).To(Succeed())
 				defer func() { Expect(os.Unsetenv("MOCK_FAIL_START")).To(Succeed()) }()
@@ -195,8 +195,25 @@ var _ = Describe("Open", func() {
 					StartTimeout:    500 * time.Millisecond,
 					StopTimeout:     500 * time.Millisecond,
 				})
-				Expect(err).To(MatchError(ContainSubstring("timed out")))
+				Expect(err).To(MatchError(
+					"embedded Driver did not start: startup failure",
+				))
 				Expect(d).To(BeNil())
+			},
+		)
+
+		It(
+			"Should name the loader error of a Driver that cannot load",
+			func(ctx SpecContext) {
+				Expect(os.Setenv("MOCK_LOADER_ERROR", "1")).To(Succeed())
+				defer func() { Expect(os.Unsetenv("MOCK_LOADER_ERROR")).To(Succeed()) }()
+				logger, _ := newTestLogger()
+				Expect(driver.Open(ctx, mockConfig(logger), driver.Config{
+					StartTimeout: 500 * time.Millisecond,
+					StopTimeout:  500 * time.Millisecond,
+				})).Error().To(MatchError(ContainSubstring(
+					"embedded Driver did not start: driver: version `GLIBC_2.39' not found",
+				)))
 			},
 		)
 
@@ -659,7 +676,9 @@ var _ = Describe("restart", func() {
 			RestartBaseInterval: time.Millisecond,
 			RestartMaxRetries:   2,
 		})
-		Expect(err).To(MatchError(ContainSubstring("exceeded restart limit")))
+		Expect(err).To(MatchError(ContainSubstring(
+			"exceeded restart limit: simulated startup crash",
+		)))
 		Expect(d).To(BeNil())
 		Expect(buffer.String()).To(ContainSubstring("exceeded restart limit"))
 	})
