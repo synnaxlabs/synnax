@@ -4565,6 +4565,7 @@ var _ = Describe("Writer Behavior", func() {
 						subject string,
 						auth control.Authority,
 					) *cesium.Writer {
+						GinkgoHelper()
 						return MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels:       keys,
 							Start:          start,
@@ -4588,6 +4589,7 @@ var _ = Describe("Writer Behavior", func() {
 						MatchError(ContainSubstring("must not be before")),
 					)
 					expectStored := func(ctx SpecContext, stamps ...telem.TimeStamp) {
+						GinkgoHelper()
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 						Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(
 							telem.NewSeriesSecondsTSV(slices.Clone(stamps)...),
@@ -4608,6 +4610,14 @@ var _ = Describe("Writer Behavior", func() {
 							expectStored(ctx, 100, 101, 102, 103)
 						},
 					)
+					It("Should allow equal timestamps", func(ctx SpecContext) {
+						w := open(ctx, 10*telem.SecondTS, "writer", 100)
+						Expect(w.Write(frame(10, 10))).To(BeTrue())
+						Expect(w.Write(frame(10, 11))).To(BeTrue())
+						MustCommit(w)
+						Expect(w.Close()).To(Succeed())
+						expectStored(ctx, 10, 10, 10, 11)
+					})
 					DescribeTable(
 						"Should reject a single writer whose index goes back",
 						func(ctx SpecContext, prior, rejected []telem.TimeStamp) {
