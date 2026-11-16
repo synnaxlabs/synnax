@@ -87,10 +87,18 @@ func ParseNumber(text []byte) (ParsedNumber, error) {
 
 // Int64 returns n when it is an integer that an int64 holds. ok is false otherwise.
 func (n ParsedNumber) Int64() (v int64, ok bool) {
-	if !n.n.integral() || !n.n.within(math.MinInt64, math.MaxInt64) {
+	switch {
+	case n.n.kind == intNumber:
+		return n.n.i, true
+	case n.n.kind == uintNumber:
+		if n.n.u > math.MaxInt64 {
+			return 0, false
+		}
+		return int64(n.n.u), true
+	case !n.n.integral() || !n.n.within(math.MinInt64, math.MaxInt64):
 		return 0, false
 	}
-	return int64(n.n.bits()), true
+	return int64(n.n.f), true
 }
 
 // Uint64 returns n when it is an integer that a uint64 holds. ok is false otherwise.

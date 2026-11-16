@@ -91,6 +91,10 @@
       "unmatched": true
     },
     {
+      "document": { "type": null, "v": 1 },
+      "unmatched": true
+    },
+    {
       "document": { "v": 1 },
       "unmatched": true
     },
