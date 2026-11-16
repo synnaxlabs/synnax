@@ -131,7 +131,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if goPath == "" {
 			continue
 		}
-		form := dt.Form.(resolution.DistinctForm)
+		form := resolution.MustForm[resolution.DistinctForm](dt)
 		goName := naming.GetGoName(dt)
 		flexByPkg[goPath] = append(flexByPkg[goPath], flexCodec{
 			GoName:   goName,

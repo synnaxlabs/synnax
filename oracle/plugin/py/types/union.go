@@ -63,7 +63,7 @@ func processUnion(
 	data *templateData,
 	keyFields []keyFieldData,
 ) unionData {
-	form := entry.Form.(resolution.UnionForm)
+	form := resolution.MustForm[resolution.UnionForm](entry)
 	field := data.imports.addField()
 	data.imports.addTyping("Annotated")
 	data.imports.addTyping("Literal")
@@ -90,7 +90,7 @@ func processUnion(
 		}
 		if payload, ok := v.Type.Resolve(table); ok {
 			if v.Inline {
-				pform := payload.Form.(resolution.StructForm)
+				pform := resolution.MustForm[resolution.StructForm](payload)
 				for _, f := range append(slices.Clone(declared), pform.Fields...) {
 					vd.Fields = append(vd.Fields,
 						processField(f, table, data, keyFields, nil))

@@ -708,7 +708,7 @@ func orderDecls(
 
 func processEnum(e resolution.Type) enumData {
 	name := naming.GetGoName(e)
-	form := e.Form.(resolution.EnumForm)
+	form := resolution.MustForm[resolution.EnumForm](e)
 	values := make([]enumValueData, 0, len(form.Values))
 	for _, v := range form.Values {
 		values = append(values, enumValueData{
@@ -770,7 +770,7 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 }
 
 func processStruct(entry resolution.Type, data *templateData) (structData, error) {
-	form := entry.Form.(resolution.StructForm)
+	form := resolution.MustForm[resolution.StructForm](entry)
 	sd := structData{
 		Name:    entry.Name,
 		Doc:     doc.Get(entry.Domains),
