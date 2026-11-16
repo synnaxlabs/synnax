@@ -279,6 +279,18 @@ describe("ICD editor", () => {
     );
   });
 
+  it("should store the type of a binary field", async () => {
+    const ic = await createICD([createMessage([createBinaryField("Temp", 0)])]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByText("Unsigned integer"));
+    fireEvent.click(await screen.findByText("Signed integer"));
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
+        { name: "Temp", kind: "integer" },
+      ]),
+    );
+  });
+
   it("should drop the scale when a JSON field stops being a number", async () => {
     const ic = await createICD([
       createJSONMessage([{ ...createJSONField("Time", "/ts"), scale: 0.1 }]),
