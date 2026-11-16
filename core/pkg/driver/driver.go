@@ -448,8 +448,7 @@ func (d *Driver) supervise(ctx context.Context, policy *restart.Policy) error {
 			return err
 		case restart.Stop:
 			// A launch failure or a Driver that never loaded (an expected exit was
-			// caught
-			// above).
+			// caught above).
 			d.cfg.L.Error("stopped embedded Driver", zap.Error(err))
 			return err
 		default:

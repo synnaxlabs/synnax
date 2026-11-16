@@ -36,17 +36,18 @@ import (
 // degradedHold is how long a read task shows a warning after it last lost data.
 const degradedHold = 5 * time.Second
 
-// qosLevel returns the MQTT quality of service level of q.
-func qosLevel(q QoS) byte {
+// qosLevel returns the MQTT quality of service level of q. It returns an error that
+// wraps validate.ErrValidation for an unknown q.
+func qosLevel(q QoS) (byte, error) {
 	switch q {
-	case QoSAtLeastOnce:
-		return 1
-	case QoSExactlyOnce:
-		return 2
 	case QoSAtMostOnce:
-		return 0
+		return 0, nil
+	case QoSAtLeastOnce:
+		return 1, nil
+	case QoSExactlyOnce:
+		return 2, nil
 	default:
-		panic(fmt.Sprintf("unknown QoS %q", q))
+		return 0, errors.Wrapf(validate.ErrValidation, "qos: unknown value %q", q)
 	}
 }
 
@@ -102,13 +103,17 @@ func newReadTopic(
 	entry PlainReadEntry,
 	channels map[channel.Key]channel.Channel,
 ) (*readTopic, error) {
+	qos, err := qosLevel(entry.Qos)
+	if err != nil {
+		return nil, err
+	}
 	t := &readTopic{
 		topic:           entry.Topic,
-		qos:             qosLevel(entry.Qos),
+		qos:             qos,
 		retainedIgnored: entry.RetainedIgnored,
 		indexField:      -1,
 	}
-	if err := validateTopic(entry.Topic); err != nil {
+	if err = validateTopic(entry.Topic); err != nil {
 		return nil, err
 	}
 	indexSet := false

@@ -115,12 +115,12 @@ func parseTimeFormat(format *payload.TimeFormat) (xjson.TimeFormat, error) {
 // newWriteTarget validates target against ch, its command channel.
 func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, error) {
 	path := "target " + target.Topic
-	t := writeTarget{
-		topic:    target.Topic,
-		qos:      qosLevel(target.Qos),
-		retained: target.Retained,
+	qos, err := qosLevel(target.Qos)
+	if err != nil {
+		return writeTarget{}, errors.Wrap(err, path)
 	}
-	if err := validateTopic(target.Topic); err != nil {
+	t := writeTarget{topic: target.Topic, qos: qos, retained: target.Retained}
+	if err = validateTopic(target.Topic); err != nil {
 		return writeTarget{}, err
 	}
 	pointer, err := xjson.ParsePointer(target.Channel.Pointer)
