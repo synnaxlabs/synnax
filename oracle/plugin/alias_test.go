@@ -332,10 +332,10 @@ func lineDiff(a, b []string) (onlyA, onlyB []string) {
 	return append(onlyA, a[i:]...), append(onlyB, b[j:]...)
 }
 
-func generateFiles(ctx SpecContext, source string, p plugin.Plugin) map[string]string {
+func generateFiles(source string, p plugin.Plugin) map[string]string {
 	GinkgoHelper()
 	loader := NewMockFileLoader().Add("schemas/base", aliasBase)
-	resp := MustGenerate(ctx, source, "test", loader, p)
+	resp := MustGenerate(source, "test", loader, p)
 	files := make(map[string]string, len(resp.Files))
 	for _, f := range resp.Files {
 		files[f.Path] = string(f.Content)
@@ -345,9 +345,9 @@ func generateFiles(ctx SpecContext, source string, p plugin.Plugin) map[string]s
 
 var _ = Describe("Aliases", func() {
 	DescribeTable("Should generate a use of an alias as a use of its target",
-		func(ctx SpecContext, newPlugin func() plugin.Plugin) {
-			aliased := generateFiles(ctx, aliasHead+aliasDecls+aliasUses, newPlugin())
-			direct := generateFiles(ctx, aliasHead+directUses(), newPlugin())
+		func(newPlugin func() plugin.Plugin) {
+			aliased := generateFiles(aliasHead+aliasDecls+aliasUses, newPlugin())
+			direct := generateFiles(aliasHead+directUses(), newPlugin())
 			Expect(aliased).To(HaveLen(len(direct)))
 			for path, content := range direct {
 				Expect(aliased).To(HaveKey(path))

@@ -71,9 +71,9 @@ var _ = Describe("Renderer", func() {
 		return renderer.Literal(field.Type, *field.Default)
 	}
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
 		loader := testutil.NewMockFileLoader()
-		table := testutil.MustGenerateRequest(ctx, source, "task", loader).Resolutions
+		table := testutil.MustGenerateRequest(source, "task", loader).Resolutions
 		task = MustBeOk(table.Lookup("task", "Task"))
 		renderer = defaults.Renderer{
 			Table:    table,

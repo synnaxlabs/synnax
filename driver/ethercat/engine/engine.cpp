@@ -914,7 +914,7 @@ Engine::plan_locked(const std::vector<SavedSlave> &saved) const {
                 [](const slave::DiscoveryResult &d) { return d.properties.position; }
             );
             (owner->second->serial != 0 || identity.serial != 0) &&
-            live != this->slaves.end() && live->status.serial_unread())
+            live != this->slaves.end() && live->serial_unread())
             return {
                 {},
                 x::errors::Error(
@@ -1508,7 +1508,7 @@ void Engine::track_restarts_locked(const std::set<uint16_t> &restarted) {
         const auto &props = slave.properties;
         auto key = restart_key(props);
         auto it = this->restarts.find(key);
-        const bool unread = slave.status.serial_unread();
+        const bool unread = slave.serial_unread();
         // An unread serial number differs from the read one, so a slave with one, or
         // with one at its last discovery, is the slave of its model at its position.
         if (unread || it == this->restarts.end())

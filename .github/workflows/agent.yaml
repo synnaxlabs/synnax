@@ -7,9 +7,10 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Runs Claude Code or Codex on an agent runner through scripts/agent/run, with the CLI
-# login of the runner's seat. Each agent writes to GitHub as its own GitHub App, never
-# as a person. The fleet controller starts a stopped runner for the queued job.
+# Runs Claude Code or Codex on an agent runner through scripts/agent/run. Claude Code
+# uses the shared login that the fleet controller gave the runner's seat, and Codex the
+# CLI login of the seat. Each agent writes to GitHub as its own GitHub App, never as a
+# person. The fleet controller starts a stopped runner for the queued job.
 name: Agent
 
 on:
@@ -157,6 +158,22 @@ jobs:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: '"./$SETUP"'
 
+      # The fleet controller started the runner on a shared Claude login, which only
+      # this runner's machine may read.
+      - name: Read the Claude login
+        if: env.AGENT == 'claude'
+        run: |
+          imds=http://169.254.169.254/latest
+          imds_token=$(curl -fsS -X PUT "$imds/api/token" \
+            -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
+          login=$(curl -fsS -H "X-aws-ec2-metadata-token: $imds_token" \
+            "$imds/meta-data/tags/instance/login")
+          token=$(uvx --from awscli==1.46.2 aws secretsmanager get-secret-value \
+            --region us-east-1 --secret-id "synnax-agents/logins/$login" \
+            --query SecretString --output text)
+          echo "::add-mask::$token"
+          echo "CLAUDE_CODE_OAUTH_TOKEN=$token" >> "$GITHUB_ENV"
+
       - name: Run the agent
         id: agent
         env:
@@ -195,10 +212,10 @@ jobs:
           "$RUNNER_TEMP/agent/run" "${args[@]}"
 
       # The runners of a seat share its login, so at a usage limit every job on the
-      # seat fails. The seat tags the time the limit resets, which keeps the fleet
-      # controller from starting it. The drain runs outside the job: each runner stops
-      # once its job ends, then the seat powers off. A later limited job on the seat
-      # leaves a running drain alone.
+      # seat fails. The seat tags the time the limit resets, and the fleet controller
+      # moves it to the login, which no seat then starts on until then. The drain runs
+      # outside the job: each runner stops once its job ends, then the seat powers off.
+      # A later limited job on the seat leaves a running drain alone.
       - name: Leave the pool until the usage limit resets
         if: failure() && steps.agent.outputs.limited-until != ''
         env:

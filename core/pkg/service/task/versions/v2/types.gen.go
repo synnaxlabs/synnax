@@ -105,16 +105,6 @@ type ReadConfig struct {
 	StreamRate telem.Rate `json:"stream_rate" msgpack:"stream_rate"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	if r.SampleRate == 0 {
-		r.SampleRate = 10
-	}
-	if r.StreamRate == 0 {
-		r.StreamRate = 5
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadConfig) SetDefaults() {
 	r.SampleRate = 10
@@ -144,13 +134,6 @@ type ScanConfig struct {
 	Rate telem.Rate `json:"rate" msgpack:"rate"`
 	// Disabled is true when scanning is paused.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScanConfig) ApplyDefaults() {
-	if s.Rate == 0 {
-		s.Rate = 0.2
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -204,13 +187,6 @@ func (l *LinearScale) SetDefaults() {
 	l.Slope = 1
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LinearScale) ApplyDefaults() {
-	if l.Slope == 0 {
-		l.Slope = 1
-	}
-}
-
 // MapScale maps a raw range linearly onto a scaled range.
 type MapScale struct {
 	// PreScaledMin is the lower bound of the raw input range.
@@ -241,17 +217,6 @@ func (m *MapScale) SetUngroupedDefaults() {
 // this type and in the types it embeds or holds. A group with a non-zero member keeps
 // its values.
 func (m *MapScale) DefaultGroups() {
-	if m.PreScaledMin == 0 && m.PreScaledMax == 0 {
-		m.PreScaledMax = 1
-	}
-	if m.ScaledMin == 0 && m.ScaledMax == 0 {
-		m.ScaledMax = 1
-	}
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults. A default
-// group takes its defaults only when all of its members are zero.
-func (m *MapScale) ApplyDefaults() {
 	if m.PreScaledMin == 0 && m.PreScaledMax == 0 {
 		m.PreScaledMax = 1
 	}
@@ -421,20 +386,6 @@ func (u Scale) Type() ScaleType {
 		return NoneScaleType
 	}
 	return ""
-}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults. A default group takes its defaults only when all of its
-// members are zero.
-func (u *Scale) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case LinearScale:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case MapScale:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or

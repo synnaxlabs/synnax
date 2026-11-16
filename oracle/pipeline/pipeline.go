@@ -133,7 +133,7 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 		r.Versions = versions.NewResolver(chains, effective)
 	}
 
-	if err := analyze(ctx, r, effective); err != nil {
+	if err := analyze(r, effective); err != nil {
 		return r, err
 	}
 
@@ -300,10 +300,10 @@ func readAndFormat(ctx context.Context, r *Result, opts Options, workers int) er
 	return nil
 }
 
-func analyze(ctx context.Context, r *Result, loader analyzer.FileLoader) error {
+func analyze(r *Result, loader analyzer.FileLoader) error {
 	// The loader already overlays the canonical in-memory bytes (formatted sources plus
 	// merged live projections), so analysis sees exactly what sync would write to disk.
-	table, diag := analyzer.Analyze(ctx, r.Schemas, loader)
+	table, diag := analyzer.Analyze(r.Schemas, loader)
 	if diag != nil {
 		r.Diagnostics.Combine(diag)
 	}

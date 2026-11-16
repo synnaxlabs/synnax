@@ -176,27 +176,22 @@ func NewLookupIndex[K Key, E Entry[K], V comparable](
 // Name implements Index.
 func (l *LookupIndex[K, E, V]) Name() string { return l.name }
 
-//nolint:unused
 func (l *LookupIndex[K, E, V]) populate() (func(E), func(error)) {
 	insert, finish := l.store.Populate()
 	return func(entry E) { insert(entry.GorpKey(), l.extract(&entry)) },
 		func(err error) { finish(populateErr(l.name, err)) }
 }
 
-//nolint:unused
 func (l *LookupIndex[K, E, V]) set(entry E) {
 	l.store.Set(entry.GorpKey(), l.extract(&entry))
 }
 
-//nolint:unused
 func (l *LookupIndex[K, E, V]) delete(key K) { l.store.Delete(key) }
 
-//nolint:unused
 func (l *LookupIndex[K, E, V]) stageSet(tx Tx, entry E) {
 	l.store.Stage(tx.txIdentity(), entry.GorpKey(), l.extract(&entry))
 }
 
-//nolint:unused
 func (l *LookupIndex[K, E, V]) stageDelete(tx Tx, key K) {
 	l.store.StageDelete(tx.txIdentity(), key)
 }
@@ -266,27 +261,22 @@ func NewSortedIndex[K Key, E Entry[K], V cmp.Ordered](
 // Name implements Index.
 func (s *SortedIndex[K, E, V]) Name() string { return s.name }
 
-//nolint:unused
 func (s *SortedIndex[K, E, V]) populate() (func(E), func(error)) {
 	insert, finish := s.store.Populate()
 	return func(entry E) { insert(entry.GorpKey(), s.extract(&entry)) },
 		func(err error) { finish(populateErr(s.name, err)) }
 }
 
-//nolint:unused
 func (s *SortedIndex[K, E, V]) set(entry E) {
 	s.store.Set(entry.GorpKey(), s.extract(&entry))
 }
 
-//nolint:unused
 func (s *SortedIndex[K, E, V]) delete(key K) { s.store.Delete(key) }
 
-//nolint:unused
 func (s *SortedIndex[K, E, V]) stageSet(tx Tx, entry E) {
 	s.store.Stage(tx.txIdentity(), entry.GorpKey(), s.extract(&entry))
 }
 
-//nolint:unused
 func (s *SortedIndex[K, E, V]) stageDelete(tx Tx, key K) {
 	s.store.StageDelete(tx.txIdentity(), key)
 }
