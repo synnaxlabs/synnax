@@ -41,8 +41,21 @@ type sendFailContext struct {
 	report   sync.Once
 }
 
-func newSendFailContext(ctx context.Context, full func() bool) *sendFailContext {
-	return &sendFailContext{Context: ctx, full: full, failed: make(chan struct{})}
+// sendFailSignal runs each routine under a sendFailContext that wraps the routine's
+// context.
+type sendFailSignal struct {
+	signal.Context
+	full   func() bool
+	failed chan struct{}
+}
+
+func (s sendFailSignal) Go(
+	f func(ctx context.Context) error,
+	opts ...signal.RoutineOption,
+) {
+	s.Context.Go(func(ctx context.Context) error {
+		return f(&sendFailContext{Context: ctx, full: s.full, failed: s.failed})
+	}, opts...)
 }
 
 func (c *sendFailContext) Done() <-chan struct{} {
@@ -1705,15 +1718,20 @@ var _ = Describe("Iterator Behavior", func() {
 							Span:    span,
 						}
 						// The ack of the seek fills responses for the data of the read.
-						failCtx := newSendFailContext(ctx, func() bool {
-							return len(requests.Outlet()) == 0 &&
-								len(responses.Outlet()) == cap(responses.Outlet())
-						})
-						sCtx := signal.Wrap(failCtx)
+						sCtx, cancel := signal.WithCancel(ctx)
+						defer cancel()
+						failed := make(chan struct{})
 						iter.InFrom(requests)
 						iter.OutTo(responses)
-						iter.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-						Eventually(failCtx.failed).Should(BeClosed())
+						iter.Flow(sendFailSignal{
+							Context: sCtx,
+							full: func() bool {
+								return len(requests.Outlet()) == 0 &&
+									len(responses.Outlet()) == cap(responses.Outlet())
+							},
+							failed: failed,
+						}, confluence.CloseOutputInletsOnExit())
+						Eventually(failed).Should(BeClosed())
 						Eventually(responses.Outlet()).Should(Receive(
 							HaveField("Command", cesium.IteratorCommandSeekFirst),
 						))

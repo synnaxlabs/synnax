@@ -348,7 +348,8 @@ var _ = Describe("Metrics", func() {
 			streamer = MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 				Keys: channel.KeysFromChannels(channels),
 			}))
-			sCtx := signal.Wrap(ctx)
+			sCtx, cancel := signal.WithCancel(ctx)
+			DeferCleanup(cancel)
 			requests, responses = confluence.Attach(streamer)
 			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 		})
