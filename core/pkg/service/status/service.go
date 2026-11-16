@@ -161,16 +161,17 @@ func (s *Service) ResolveKeyOrName(
 
 // SetTarget builds the status a by-key-or-name set should write: the first match, or a
 // new UUID-keyed status named keyOrName when nothing matched, with the new fields
-// applied. It stamps t, or now when t is zero, and clears the description, which
-// explained the previous message. It returns false when the first match is newer than
-// t, and the caller must then not write the status.
+// applied. It stamps t, or now when t is zero or later than now, and clears the
+// description, which explained the previous message. It returns false when the first
+// match is newer than t, and the caller must then not write the status.
 func SetTarget(
 	matches []Status[any],
 	keyOrName, message, variant string,
 	t telem.TimeStamp,
 ) (Status[any], bool) {
-	if t.IsZero() {
-		t = telem.Now()
+	// A clock ahead of the Core must not store a time that blocks later sets.
+	if now := telem.Now(); t.IsZero() || t.After(now) {
+		t = now
 	}
 	st := Status[any]{Key: uuid.New().String(), Name: keyOrName}
 	if len(matches) > 0 {

@@ -258,6 +258,7 @@ TEST(SetStatusTest, NextWritesResolvedKeyToOutput) {
     EXPECT_EQ(retrieved.variant, "info");
 }
 
+/// @brief it should stamp the status with the time the node runs.
 TEST(SetStatusTest, NextStampsTimeWhenItRuns) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto name = unique_name("set_time_");

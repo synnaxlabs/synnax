@@ -60,6 +60,28 @@ var _ = Describe("Dispatch", Ordered, func() {
 	})
 
 	Describe("SetByKeyOrName", func() {
+		It("Should not replace a status with a later time", func(ctx SpecContext) {
+			st := status.Status[any]{
+				Key:     uuid.New().String(),
+				Name:    "future",
+				Message: "orig",
+				Variant: status.VariantInfo,
+				Time:    telem.Now().Add(telem.Hour),
+			}
+			Expect(setStatus(ctx, &st)).To(Succeed())
+			key, multiple := MustSucceed2(
+				svc.SetByKeyOrName(ctx, st.Key, "on", string(status.VariantSuccess)),
+			)
+			Expect(key).To(Equal(st.Key))
+			Expect(multiple).To(BeFalse())
+			var stored status.Status[any]
+			Expect(svc.NewRetrieve[any]().
+				Where(status.MatchKeys[any](st.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored.Message).To(Equal("orig"))
+		})
+
 		Describe("Input validation", func() {
 			It(
 				"Should return a validation error for an unknown variant",
@@ -512,5 +534,70 @@ var _ = Describe("Failed index population", func() {
 			Entries(&matched).
 			Exec(ctx, db)).To(Succeed())
 		Expect(matched).To(HaveExactElements(HaveField("Message", "on")))
+	})
+
+})
+
+var _ = Describe("SetTarget", func() {
+	var match status.Status[any]
+	BeforeEach(func() {
+		match = status.Status[any]{
+			Key:         uuid.New().String(),
+			Name:        "pump",
+			Message:     "old",
+			Description: "why",
+			Variant:     status.VariantInfo,
+			Time:        telem.Now().Add(-10 * telem.Second),
+		}
+	})
+
+	It("Should stamp now when the time is zero", func() {
+		before := telem.Now()
+		st, newer := status.SetTarget(nil, "pump", "on", "success", 0)
+		Expect(newer).To(BeTrue())
+		Expect(st.Time).To(BeNumerically(">=", before))
+		Expect(st.Name).To(Equal("pump"))
+	})
+
+	It("Should keep a past time", func() {
+		t := match.Time.Add(telem.Second)
+		st, newer := status.SetTarget(
+			[]status.Status[any]{match}, "pump", "on", "success", t,
+		)
+		Expect(newer).To(BeTrue())
+		Expect(st.Key).To(Equal(match.Key))
+		Expect(st.Time).To(Equal(t))
+		Expect(st.Message).To(Equal("on"))
+		Expect(st.Description).To(BeEmpty())
+	})
+
+	It("Should stamp now when the time is later than now", func() {
+		before := telem.Now()
+		st, newer := status.SetTarget(
+			nil, "pump", "on", "success", before.Add(telem.Hour),
+		)
+		Expect(newer).To(BeTrue())
+		Expect(st.Time).To(BeNumerically(">=", before))
+		Expect(st.Time).To(BeNumerically("<=", telem.Now()))
+	})
+
+	It("Should write when the time equals the time of the match", func() {
+		st, newer := status.SetTarget(
+			[]status.Status[any]{match}, "pump", "on", "success", match.Time,
+		)
+		Expect(newer).To(BeTrue())
+		Expect(st.Message).To(Equal("on"))
+	})
+
+	It("Should return false and the match unchanged for an older time", func() {
+		st, newer := status.SetTarget(
+			[]status.Status[any]{match},
+			"pump",
+			"on",
+			"success",
+			match.Time.Add(-telem.Second),
+		)
+		Expect(newer).To(BeFalse())
+		Expect(st).To(Equal(match))
 	})
 })

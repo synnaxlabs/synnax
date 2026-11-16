@@ -252,8 +252,8 @@ public:
     /// @param key_or_name UUID-form key or name.
     /// @param message Message to set on the status.
     /// @param variant Variant to set on the status.
-    /// @param time When the status was set. A zero time means now. A set older than
-    /// the stored status does not replace it.
+    /// @param time When the status was set. A zero time or a time later than the
+    /// Core's clock means now. A set older than the stored status does not replace it.
     /// @returns A pair of the result (resolved key and multi-match flag) and an
     /// error where ok() is false if the status could not be set.
     [[nodiscard]] std::pair<SetByKeyOrNameResult, x::errors::Error> set_by_key_or_name(

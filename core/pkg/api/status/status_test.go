@@ -535,7 +535,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			key = uuid.New().String()
-			stored = telem.Now()
+			stored = telem.Now().Add(-10 * telem.Second)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return statusSvc.NewWriter(tx).Set(ctx, &status.Status[any]{
 					Variant: status.VariantInfo, Message: "orig", Time: stored,
@@ -543,7 +543,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 				})
 			})).To(Succeed())
 			grantOn(ctx, author.ResourceID(),
-				[]access.Action{access.ActionUpdate},
+				[]access.Action{access.ActionUpdate, access.ActionRetrieve},
 				status.ResourceID(key))
 		})
 
@@ -604,6 +604,21 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 				Expect(s.Time).To(Equal(stored))
 				Expect(s.Message).To(Equal("orig"))
 				Expect(s.Variant).To(Equal(status.VariantInfo))
+			},
+		)
+
+		It(
+			"Should deny an older set from a user with no access to the status",
+			func(ctx SpecContext) {
+				Expect(setByKeyOrName(
+					AuthedCtx(ctx, freshUser(ctx)),
+					apistatus.SetByKeyOrNameRequest{
+						KeyOrName: key,
+						Message:   "stale",
+						Variant:   status.VariantError,
+						Time:      stored.Add(-telem.Second),
+					},
+				)).Error().To(MatchError(access.ErrDenied))
 			},
 		)
 	})

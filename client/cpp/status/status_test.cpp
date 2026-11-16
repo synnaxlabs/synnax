@@ -610,7 +610,7 @@ TEST(StatusTest, SetByKeyOrNameMultiMatch) {
     EXPECT_TRUE(res.key == a.key || res.key == b.key);
 }
 
-/// @brief set_by_key_or_name keeps the time from the caller.
+/// @brief it should keep the time that the caller sets.
 TEST(StatusTest, SetByKeyOrNameKeepsTime) {
     const auto client = new_test_client();
     const auto name = unique_name("by_kon_time_");
@@ -622,7 +622,7 @@ TEST(StatusTest, SetByKeyOrNameKeepsTime) {
     EXPECT_EQ(retrieved.time, time);
 }
 
-/// @brief set_by_key_or_name stamps the current time when the time is zero.
+/// @brief it should stamp the current time when the time is zero.
 TEST(StatusTest, SetByKeyOrNameZeroTimeMeansNow) {
     const auto client = new_test_client();
     const auto name = unique_name("by_kon_zero_time_");
@@ -634,7 +634,7 @@ TEST(StatusTest, SetByKeyOrNameZeroTimeMeansNow) {
     EXPECT_GE(retrieved.time, before);
 }
 
-/// @brief set_by_key_or_name does not replace a stored status that is newer.
+/// @brief it should not replace a stored status that is newer than the set.
 TEST(StatusTest, SetByKeyOrNameOlderTimeDoesNotReplace) {
     const auto client = new_test_client();
     const auto name = unique_name("by_kon_older_");
