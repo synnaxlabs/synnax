@@ -38,8 +38,8 @@ import {
   captureBrowserDownloads,
   countEditableText,
   createTestClientWithGrants,
-  getCompositeIconButton,
-  getCompositeIconButtons,
+  getIconButton,
+  getIconButtons,
   type Grants,
   removeSaveFilePicker,
   uniqueName,
@@ -233,7 +233,7 @@ describe("Schematic toolbar Symbols", () => {
     const { key, result, store } = await renderSymbolsToolbar();
     await screen.findByText("Gauge");
     const createGroup = await waitFor(() =>
-      getCompositeIconButton(result.container, ["group", "add"]),
+      getIconButton(result.container, "group-create"),
     );
     fireEvent.click(createGroup);
     const input = await screen.findByPlaceholderText<HTMLInputElement>("Name");
@@ -284,13 +284,9 @@ describe("schematic/toolbar/Symbols permissions", () => {
     const { result } = await renderSymbolsToolbar(await createEditor());
     await screen.findByText("Gauge");
     await waitFor(() =>
-      expect(getCompositeIconButtons(result.container, ["group", "add"])).toHaveLength(
-        0,
-      ),
+      expect(getIconButtons(result.container, "group-create")).toHaveLength(0),
     );
-    expect(
-      getCompositeIconButtons(result.container, ["schematic", "add"]),
-    ).toHaveLength(0);
+    expect(getIconButtons(result.container, "schematic-create")).toHaveLength(0);
   });
 
   it("should withhold symbol and group rename from an editor who cannot update them", async () => {
@@ -317,13 +313,9 @@ describe("schematic/toolbar/Symbols permissions", () => {
     const { result } = await renderSymbolsToolbar(editor);
     await screen.findByText("Gauge");
     await waitFor(() =>
-      expect(getCompositeIconButtons(result.container, ["group", "add"])).toHaveLength(
-        1,
-      ),
+      expect(getIconButtons(result.container, "group-create")).toHaveLength(1),
     );
-    expect(
-      getCompositeIconButtons(result.container, ["schematic", "add"]),
-    ).toHaveLength(1);
+    expect(getIconButtons(result.container, "schematic-create")).toHaveLength(1);
   });
 
   const openSymbolMenu = async (as: Client) => {
