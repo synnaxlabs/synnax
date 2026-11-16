@@ -14,7 +14,7 @@ Every conductor invocation creates a single run directory under
 
 - ``server.log``      -> server stdout captured from start_core
 - ``summary.json``    -> structured per-test outcomes
-- ``tests/<name>/``   -> per-test bundle (trace.zip, sliced server.log,
+- ``tests/<case>/``   -> per-test bundle (trace.zip, sliced server.log,
                          screenshots, exports)
 
 ``ExecutionClient`` creates each test's bundle and passes it to the test case as

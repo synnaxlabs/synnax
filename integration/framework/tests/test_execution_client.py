@@ -336,3 +336,22 @@ class TestExecutionClient:
         )
         with pytest.raises(RuntimeError, match=r"^telemetry is down$"):
             execution.run(loaded)
+
+    def test_bundle_dirs(self, cases_dir: Path) -> None:
+        """Should give each test its own bundle when two cases share a file name."""
+        (cases_dir / "lanes_spec" / "sub").mkdir()
+        source = HOLD_CASE.replace("{HELD}", "set()")
+        (cases_dir / "lanes_spec" / "sub" / "plain.py").write_text(source)
+        parameters = {"hold": 0.0, "record": "record.jsonl"}
+        execution, loaded, results = client(
+            cases_dir,
+            {
+                "sequence_name": "a",
+                "tests": [
+                    {"case": "lanes_spec/plain", "parameters": parameters},
+                    {"case": "lanes_spec/sub/plain", "parameters": parameters},
+                ],
+            },
+        )
+        execution.run(loaded)
+        assert len({t.bundle_dir for t in results}) == 2
