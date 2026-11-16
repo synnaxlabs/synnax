@@ -205,8 +205,8 @@ jobs:
         run: go mod verify
 
       # Code with no build constraint can still use an API that some operating systems
-      # lack, so a module that lints only for Linux type-checks for the others. Main
-      # runs it too, so the cache it saves holds the objects that pull requests build.
+      # lack, so a module with no OS-specific code type-checks for the others. Main runs
+      # it too, so the cache it saves holds the objects that pull requests build.
       - name: Type-check for Windows and macOS
         if: >-
           ${{ !inputs.os_specific && matrix.goos == 'linux' && (github.ref ==
