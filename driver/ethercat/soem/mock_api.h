@@ -17,6 +17,7 @@
 #include <deque>
 #include <functional>
 #include <map>
+#include <mutex>
 #include <optional>
 #include <set>
 #include <span>
@@ -165,6 +166,9 @@ public:
     size_t state_read_count = 0;
     /// @brief the number of next AL status read frames that do not come back.
     int lost_state_reads = 0;
+    /// @brief guards the slave states that readstate writes and that a cycle thread
+    /// reads in receive_state_read.
+    std::mutex state_mu;
     int sync_dc_count = 0;
     /// @brief the working counter sync_dc returns.
     int sync_dc_return = 1;
@@ -389,6 +393,7 @@ public:
             this->lost_state_reads--;
             return false;
         }
+        std::lock_guard lock(this->state_mu);
         for (size_t i = 0; i < states.size(); ++i)
             states[i] = this->silent_slaves.contains(slaves.at(i))
                           ? 0
@@ -409,6 +414,7 @@ public:
     }
 
     int readstate() override {
+        std::lock_guard lock(this->state_mu);
         this->readstate_count++;
         if (this->dropped_state_reads > 0) {
             this->dropped_state_reads--;
