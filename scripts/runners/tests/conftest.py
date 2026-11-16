@@ -88,3 +88,40 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Client:
 
 def core(client: Client) -> sy.Synnax:
     return cast(sy.Synnax, client)
+
+
+class Secrets:
+    """Stands in for Secrets Manager: the tags of each secret by name. Writes fail
+    while failing is set."""
+
+    def __init__(self) -> None:
+        self.tags: dict[str, dict[str, str]] = {}
+        self.failing = False
+
+    def get_paginator(self, operation: str) -> "Secrets":
+        assert operation == "list_secrets"
+        return self
+
+    def paginate(self, Filters: list[dict]) -> list[dict]:
+        prefix = Filters[0]["Values"][0]
+        listed = [
+            {
+                "Name": name,
+                "ARN": f"arn:{name}",
+                "Tags": [{"Key": k, "Value": v} for k, v in tags.items()],
+            }
+            for name, tags in self.tags.items()
+            if name.startswith(prefix)
+        ]
+        return [{"SecretList": listed}]
+
+    def tag_resource(self, SecretId: str, Tags: list[dict]) -> None:
+        if self.failing:
+            raise PermissionError("not authorized")
+        self.tags[SecretId.removeprefix("arn:")] |= {t["Key"]: t["Value"] for t in Tags}
+
+    def untag_resource(self, SecretId: str, TagKeys: list[str]) -> None:
+        if self.failing:
+            raise PermissionError("not authorized")
+        for key in TagKeys:
+            self.tags[SecretId.removeprefix("arn:")].pop(key, None)
