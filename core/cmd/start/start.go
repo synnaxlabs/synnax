@@ -338,7 +338,8 @@ func BootupCore(
 	}
 
 	var r *http.Router
-	if r, err = http.NewRouter(http.RouterConfig{
+	// ctx ends when shutdown starts, before the server drains in-flight requests.
+	if r, err = http.NewRouter(context.WithoutCancel(ctx), http.RouterConfig{
 		Instrumentation:     cfg.Instrumentation,
 		StreamWriteDeadline: cfg.slowConsumerTimeout,
 	}); !ok(err, nil) {

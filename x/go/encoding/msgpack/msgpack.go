@@ -32,7 +32,7 @@ func (*codec) ContentType() string { return "application/msgpack" }
 func (*codec) Decode(data []byte, value any) error {
 	err := msgpack.Unmarshal(data, value)
 	if err != nil {
-		return encoding.SugarDecodingError(data, value, err)
+		return encoding.SugarDecodingError(value, err)
 	}
 	return nil
 }
@@ -43,8 +43,7 @@ func (*codec) DecodeStream(r io.Reader, value any) error {
 	err := dec.Decode(value)
 	msgpack.PutDecoder(dec)
 	if err != nil {
-		data, ioErr := io.ReadAll(r)
-		return encoding.SugarDecodingError(data, value, errors.Combine(err, ioErr))
+		return encoding.SugarDecodingError(value, err)
 	}
 	return nil
 }

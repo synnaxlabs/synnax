@@ -307,6 +307,31 @@ describe("reconcile panel order and selection", () => {
     await waitFor(() => expect(selectedPanel(store)).toEqual(panB.key));
   });
 
+  it("drops a repair whose client closes while it runs", async () => {
+    const [projA, projB] = [await createProject(), await createProject()];
+    const panA = await createProjectPanel(projA.key);
+    await createProjectPanel(projB.key);
+    const store = await createStoreWithProject(projA.key, panA.key);
+    const closing = createTestClient();
+    await renderHookWithConsole(
+      () =>
+        Session.Synchronizer.use(
+          pickSynchronizer(
+            Session.Panel.WINDOW_SYNCHRONIZERS,
+            "reconcile panel order and selection",
+          ),
+        ),
+      { client: closing, store },
+    );
+    await waitFor(() => expect(stripOrder(store)).toEqual([panA.key]));
+    await act(async () => {
+      store.dispatch(Session.Project.select(projB.key));
+      await closing.close();
+      await client.panels.retrieve({ projects: [projB.key] });
+    });
+    expect(selectedPanel(store)).toEqual(panA.key);
+  });
+
   // The membership answer arrives in UUID order, so the keys are minted sorted
   // and named in the opposite order: a name-sorted result cannot pass by luck.
   const opposedPanels = async (

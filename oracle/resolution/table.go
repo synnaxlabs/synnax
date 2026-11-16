@@ -18,14 +18,16 @@ import (
 )
 
 type Table struct {
-	Imports set.Set[string]
-	Types   []Type
+	Imports   set.Set[string]
+	redirects map[string]string
+	Types     []Type
 }
 
 func NewTable() *Table {
 	t := &Table{
-		Types:   make([]Type, 0),
-		Imports: make(set.Set[string]),
+		Types:     make([]Type, 0),
+		Imports:   make(set.Set[string]),
+		redirects: make(map[string]string),
 	}
 	t.registerBuiltins()
 	return t
@@ -80,14 +82,21 @@ func (t *Table) Add(typ Type) error {
 	return nil
 }
 
+// Redirect makes Lookup resolve the qualified name from, which the table holds no type
+// for, to the type named to.
+func (t *Table) Redirect(from, to string) { t.redirects[from] = to }
+
+// Lookup returns the type that namespace declares or redirects under name, or the
+// built-in type of that name. It never binds a type that another namespace declares.
 func (t *Table) Lookup(namespace, name string) (Type, bool) {
 	qname := namespace + "." + name
 	if typ, ok := t.Get(qname); ok {
 		return typ, true
 	}
-	return lo.Find(t.Types, func(typ Type) bool {
-		return typ.Name == name
-	})
+	if to, ok := t.redirects[qname]; ok {
+		return t.Get(to)
+	}
+	return t.Get(name)
 }
 
 func (t *Table) TypesInNamespace(ns string) []Type {

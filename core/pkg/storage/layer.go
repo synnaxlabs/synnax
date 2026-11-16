@@ -205,19 +205,19 @@ type Layer struct {
 	closer xio.MultiCloser
 }
 
-// Open opens a new storage Layer with the given configuration(s). Specified fields in
-// later configurations override those in previous configurations. If the configuration
-// is invalid, Open returns a nil Layer and the configuration error.
+// OpenLayer opens a new storage Layer with the given configuration(s). Specified fields
+// in later configurations override those in previous configurations. If the
+// configuration is invalid, OpenLayer returns a nil Layer and the configuration error.
 //
-// When LayerConfig.InMemory is false, Open acquires an exclusive lock on the directory
-// specified in LayerConfig.Dirname. If the lock cannot be acquired (commonly due to
-// another storage layer or unrelated process accessing it), then Open will return a nil
-// Layer and an error. Open then undoes an update that an earlier open did not commit,
-// and checks the version recorded in the directory against LayerConfig.Version. Before
-// a newer Core first opens the directory, Open backs up the metadata and starts a
-// Layer.Update, which it undoes if it fails after that. It returns an error when a
-// newer Core last opened the directory, when a Restore on it did not finish, or when an
-// update to LayerConfig.Version failed before.
+// When LayerConfig.InMemory is false, OpenLayer acquires an exclusive lock on the
+// directory specified in LayerConfig.Dirname. If the lock cannot be acquired (commonly
+// due to another storage layer or unrelated process accessing it), then OpenLayer will
+// return a nil Layer and an error. OpenLayer then undoes an update that an earlier open
+// did not commit, and checks the version recorded in the directory against
+// LayerConfig.Version. Before a newer Core first opens the directory, OpenLayer backs
+// up the metadata and starts a Layer.Update, which it undoes if it fails after that. It
+// returns an error when a newer Core last opened the directory, when a Restore on it
+// did not finish, or when an update to LayerConfig.Version failed before.
 //
 // If the returned error is nil, then the Layer must be closed after use. None of the
 // services in the Layer should be used after Close is called. It is the caller's

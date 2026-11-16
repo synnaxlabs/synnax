@@ -10,6 +10,8 @@
 package v9_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v9 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
@@ -18,6 +20,22 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
+
+var _ = Describe("ElementConfigFields", func() {
+	DescribeTable("Should return a non-finite number as a nil field",
+		func(f float64) {
+			fields := MustSucceed(v9.ElementConfigFields(v9.ElementConfig{
+				Variant: v9.PolygonElementConfig{SideLength: 30, Rotation: f},
+			}))
+			Expect(fields).To(HaveKeyWithValue("variant", "polygon"))
+			Expect(fields).To(HaveKeyWithValue("side_length", 30.0))
+			Expect(fields).To(HaveKeyWithValue("rotation", BeNil()))
+		},
+		Entry("NaN", math.NaN()),
+		Entry("positive infinity", math.Inf(1)),
+		Entry("negative infinity", math.Inf(-1)),
+	)
+})
 
 var _ = Describe("DecodeWithDefaults", func() {
 	It("Should fill the schema defaults of every omitted field", func() {

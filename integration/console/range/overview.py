@@ -44,15 +44,10 @@ class Overview(Surface):
         """
         if self.is_showing(name):
             return
-        # An explorer row click does not focus the range's overview tab when one is
-        # already open, so the open tab is clicked instead.
-        tab = self.layout.get_tab(name)
-        if tab.count() > 0:
-            tab.click()
-        else:
-            item = self.explorer.get_item(name)
-            item.wait_for(state="visible", timeout=5000)
-            item.click()
+        item = self.explorer.get_item(name)
+        item.wait_for(state="visible", timeout=5000)
+        # The center of the row can hold the label tags, which take the click.
+        item.get_by_text(name, exact=True).click()
         self.wait_for(name)
 
     def wait_for(self, name: str) -> None:

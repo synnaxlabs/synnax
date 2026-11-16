@@ -190,6 +190,13 @@ jobs:
           git diff --exit-code -- go.mod go.sum
           go mod tidy -diff
 
+      # golangci-lint drops each report on a line that a //nolint directive names,
+      # including a report about the directive itself, so a grep forbids them.
+      - name: Forbid //nolint directives
+        if: matrix.goos == 'linux'
+        working-directory: ${{ inputs.directory }}
+        run: "! git grep -nE '//[/ ]*nolint( |:|$)' -- '*.go'"
+
       # Each job and GOOS restores its own module cache from an earlier run, and a
       # download checks go.sum only for modules it fetches.
       - name: Verify the Go module cache

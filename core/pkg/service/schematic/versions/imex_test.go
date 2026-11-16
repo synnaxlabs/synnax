@@ -59,7 +59,8 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(s.Edges[0].Config).To(Equal(versions.EdgeConfig{
 			Variant: versions.PipeEdgeConfig{
 				SegmentedEdgeConfig: versions.SegmentedEdgeConfig{
-					Segments: []versions.Segment{},
+					Segments:    []versions.Segment{},
+					StrokeWidth: 2,
 				},
 			},
 		}))
@@ -249,6 +250,22 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(MustSucceed(versions.DecodeImExEnvelope(ctx, env)).Name).
 			To(Equal("Renamed"))
 	})
+
+	DescribeTable("Should set the wrap width of each symbol in a v10 envelope",
+		func(ctx SpecContext, key string, width uint16) {
+			sch := decode(ctx, "testdata/import_v10_button.json")
+			i := slices.IndexFunc(sch.Nodes, func(n versions.Node) bool {
+				return n.Key == key
+			})
+			Expect(i).ToNot(Equal(-1))
+			Expect(sch.Nodes[i].Config.Variant).To(HaveField(
+				"LabeledConfig.Label.MaxInlineSize", Equal(width),
+			))
+		},
+		Entry("A button with no wrap width", "n1", uint16(65535)),
+		Entry("A button with a wrap width", "n2", uint16(80)),
+		Entry("An input", "n3", uint16(150)),
+	)
 
 	It("Should reject a v8 envelope holding a config the union rejects", func(
 		ctx SpecContext,

@@ -1791,7 +1791,7 @@ func analyzeUnit(
 		)
 		var d *diagnostics.Diagnostics
 		if ok {
-			d = stratifier.Stratify(ctx, &i, aCtx.Diagnostics)
+			d = stratifier.Stratify(&i, aCtx.Diagnostics)
 		}
 		i.Nodes, i.Edges = i.Nodes[:own:own], i.Edges[:ownEdges:ownEdges]
 		if !ok {

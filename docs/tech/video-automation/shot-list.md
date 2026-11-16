@@ -10,12 +10,12 @@ to `site/docs/src/pages/`, and release notes to `site/docs/src/`.
 
 ## Prerequisites legend
 
-- **Live telemetry** (a channel actively streaming data, e.g. the demo core or a sim
-  writer): `console/ranges/plot-create`, all `console/line-plots/*`,
-  `console/logs/example`, `console/calculated-channels/create`,
-  `console/calculated-channels/edit`, `console/schematics/value`,
-  `console/schematics/valve`, all `client/resources/build-device-driver/*`, every
-  `device-drivers/*/read-task/*` and `device-drivers/task/task-basic`.
+- **Live telemetry** (a channel actively streaming data, e.g. a sim writer):
+  `console/ranges/plot-create`, all `console/line-plots/*`, `console/logs/example`,
+  `console/calculated-channels/create`, `console/calculated-channels/edit`,
+  `console/schematics/value`, `console/schematics/valve`, all
+  `client/resources/build-device-driver/*`, every `device-drivers/*/read-task/*` and
+  `device-drivers/task/task-basic`.
 - **Pre-seeded ranges**: `console/ui-overview/palette-search`,
   `console/ranges/resources`, `console/ranges/palette`, `console/ranges/create-child`,
   `console/ranges/add-meta-data`, `console/ranges/add-label`.
@@ -82,7 +82,7 @@ All on reference/get-started/sample-project.mdx.
   button in the Core Selector -> fill host/port/username/password (optionally Secure) in
   the connection dialog -> submit -> the new core appears in the list, becomes active,
   and the connection status indicator in the top-right turns connected -> requires a
-  reachable core (localhost or demo.synnaxlabs.com).
+  reachable core (localhost).
 
 ## console/workspaces
 

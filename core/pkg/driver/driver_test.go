@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -74,6 +75,10 @@ func newTestLogger() (*alamos.Logger, *syncBuffer) {
 }
 
 var rackKey = rack.NewKey(1, 1)
+
+// notLoaded matches driver.ErrNotLoaded. MatchError uses the standard errors.Is, which
+// does not see the mark.
+func notLoaded(err error) bool { return errors.Is(err, driver.ErrNotLoaded) }
 
 // mockConfig returns a config that starts the mock Driver in new directories.
 func mockConfig(logger *alamos.Logger) driver.Config {
@@ -177,7 +182,30 @@ var _ = Describe("Open", func() {
 		)
 
 		It(
-			"Should return timeout error when driver crashes on startup",
+			"Should fail when detached and the Driver cannot load",
+			func(ctx SpecContext) {
+				Expect(os.Setenv("MOCK_LOADER_ERROR", "1")).To(Succeed())
+				defer func() { Expect(os.Unsetenv("MOCK_LOADER_ERROR")).To(Succeed()) }()
+				logger, _ := newTestLogger()
+				start := time.Now()
+				Expect(driver.Open(ctx, mockConfig(logger), driver.Config{
+					Detached:     new(true),
+					StartTimeout: time.Minute,
+					StopTimeout:  500 * time.Millisecond,
+				})).Error().To(SatisfyAll(
+					MatchError(notLoaded, "driver.ErrNotLoaded"),
+					MatchError(ContainSubstring(
+						"embedded Driver did not start: driver: version `GLIBC_2.39' not found",
+					)),
+				))
+				// The first exit ends the start, with no restart and no wait for the
+				// start timeout.
+				Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second))
+			},
+		)
+
+		It(
+			"Should name the error the Driver printed when it crashes on startup",
 			func(ctx SpecContext) {
 				Expect(os.Setenv("MOCK_FAIL_START", "1")).To(Succeed())
 				defer func() { Expect(os.Unsetenv("MOCK_FAIL_START")).To(Succeed()) }()
@@ -195,8 +223,47 @@ var _ = Describe("Open", func() {
 					StartTimeout:    500 * time.Millisecond,
 					StopTimeout:     500 * time.Millisecond,
 				})
-				Expect(err).To(MatchError(ContainSubstring("timed out")))
+				Expect(err).To(MatchError(
+					"embedded Driver did not start: startup failure",
+				))
 				Expect(d).To(BeNil())
+			},
+		)
+
+		It(
+			"Should report a timeout for a Driver that logs an error and does not exit",
+			func(ctx SpecContext) {
+				Expect(os.Setenv("MOCK_LOG_ERROR", "1")).To(Succeed())
+				defer func() { Expect(os.Unsetenv("MOCK_LOG_ERROR")).To(Succeed()) }()
+				Expect(os.Setenv("MOCK_DELAY_MS", "2000")).To(Succeed())
+				defer func() { Expect(os.Unsetenv("MOCK_DELAY_MS")).To(Succeed()) }()
+				logger, _ := newTestLogger()
+				Expect(driver.Open(ctx, mockConfig(logger), driver.Config{
+					StartTimeout: 500 * time.Millisecond,
+					StopTimeout:  100 * time.Millisecond,
+				})).Error().To(MatchError(ContainSubstring("timed out")))
+			},
+		)
+
+		It(
+			"Should fail at once when the Driver cannot load",
+			func(ctx SpecContext) {
+				Expect(os.Setenv("MOCK_LOADER_ERROR", "1")).To(Succeed())
+				defer func() { Expect(os.Unsetenv("MOCK_LOADER_ERROR")).To(Succeed()) }()
+				logger, _ := newTestLogger()
+				start := time.Now()
+				Expect(driver.Open(ctx, mockConfig(logger), driver.Config{
+					StartTimeout: time.Minute,
+					StopTimeout:  500 * time.Millisecond,
+				})).Error().To(SatisfyAll(
+					MatchError(notLoaded, "driver.ErrNotLoaded"),
+					MatchError(ContainSubstring(
+						"embedded Driver did not start: driver: version `GLIBC_2.39' not found",
+					)),
+				))
+				// The first exit ends the start, with no restart and no wait for the
+				// start timeout.
+				Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second))
 			},
 		)
 
@@ -659,10 +726,58 @@ var _ = Describe("restart", func() {
 			RestartBaseInterval: time.Millisecond,
 			RestartMaxRetries:   2,
 		})
-		Expect(err).To(MatchError(ContainSubstring("exceeded restart limit")))
+		Expect(err).To(MatchError(ContainSubstring(
+			"exceeded restart limit: simulated startup crash",
+		)))
 		Expect(d).To(BeNil())
 		Expect(buffer.String()).To(ContainSubstring("exceeded restart limit"))
 	})
+
+	It(
+		"Should restart a Driver that loaded and then cannot load again",
+		func(ctx SpecContext) {
+			loaderErrFile := filepath.Join(GinkgoT().TempDir(), "loader_error")
+			Expect(os.Setenv("MOCK_LOADER_ERROR_FILE", loaderErrFile)).To(Succeed())
+			defer func() { Expect(os.Unsetenv("MOCK_LOADER_ERROR_FILE")).To(Succeed()) }()
+			Expect(os.Setenv("MOCK_EXIT_AFTER_MS", "100")).To(Succeed())
+			defer func() { Expect(os.Unsetenv("MOCK_EXIT_AFTER_MS")).To(Succeed()) }()
+			logger, buffer := newTestLogger()
+			d := openMockDriver(ctx, logger, driver.Config{
+				StartTimeout:        5 * time.Second,
+				RestartBaseInterval: time.Millisecond,
+				RestartMaxRetries:   2,
+			})
+			Expect(os.WriteFile(loaderErrFile, nil, 0o644)).To(Succeed())
+			Eventually(buffer.String, 5*time.Second).Should(ContainSubstring(
+				"exceeded restart limit: driver: version `GLIBC_2.39' not found",
+			))
+			Expect(buffer.String()).ToNot(ContainSubstring("did not start"))
+			Expect(d.Close()).To(MatchError(ContainSubstring("exceeded restart limit")))
+		},
+	)
+
+	DescribeTable(
+		"Should restart a Driver that crashes before its first log line",
+		func(ctx SpecContext, detached bool) {
+			Expect(os.Setenv("MOCK_CRASH_BANNER", "1")).To(Succeed())
+			defer func() { Expect(os.Unsetenv("MOCK_CRASH_BANNER")).To(Succeed()) }()
+			logger, _ := newTestLogger()
+			Expect(driver.Open(ctx, mockConfig(logger), driver.Config{
+				Detached:            new(detached),
+				StartTimeout:        time.Minute,
+				StopTimeout:         500 * time.Millisecond,
+				RestartBaseInterval: time.Millisecond,
+				RestartMaxRetries:   2,
+			})).Error().To(SatisfyAll(
+				Not(MatchError(notLoaded, "driver.ErrNotLoaded")),
+				MatchError(ContainSubstring(
+					"exceeded restart limit: *** driver crashed: SIGSEGV",
+				)),
+			))
+		},
+		Entry("attached", false),
+		Entry("detached", true),
+	)
 
 	It("Should launch the same binary after a restart", func(ctx SpecContext) {
 		Expect(os.Setenv("MOCK_EXIT_AFTER_MS", "100")).To(Succeed())

@@ -93,7 +93,7 @@ func (f *formatter) write(s string) { f.sb.WriteString(s) }
 func (f *formatter) writeLine(s string) { f.sb.WriteString(s); f.sb.WriteString("\n") }
 
 func (f *formatter) writeIndent() {
-	for i := 0; i < f.currentIndent; i++ {
+	for range f.currentIndent {
 		f.sb.WriteString(indent)
 	}
 }

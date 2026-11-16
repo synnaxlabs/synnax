@@ -25,6 +25,7 @@ import {
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
+import { SIZE_LEVELS } from "@/schematic/node/common/size";
 
 interface RenderProps extends Partial<
   Omit<schematic.SetpointNodeConfig, "variant" | "label" | "scale">
@@ -112,6 +113,7 @@ export const Setpoint = ({
         <BaseInput.Numeric
           ref={inputRef}
           size={size}
+          level={SIZE_LEVELS[size]}
           className={CSS.BE("symbol-field", "control")}
           value={shown ?? NaN}
           emptyValue={NaN}
@@ -129,6 +131,7 @@ export const Setpoint = ({
         >
           <BaseButton.Button
             size={size}
+            level={SIZE_LEVELS[size]}
             variant="filled"
             onClick={() => {
               if (shown == null) return;

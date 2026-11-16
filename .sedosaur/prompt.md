@@ -70,8 +70,8 @@ that causes it. Then judge how often a real deployment hits it:
   current caller makes.
 
 Report routine and uncommon bugs. Leave out a narrow bug, unless it loses or corrupts
-stored data. Report that one as a deferrable P2. A security hole is never narrow: an
-attacker can retry until a short window hits.
+stored data. Report that one as a P2. A security hole is never narrow: an attacker can
+retry until a short window hits.
 
 ## One review reports every finding
 
@@ -99,18 +99,6 @@ and the bar for a finding stays the same.
 Give the severity of the worst outcome that you traced. A narrow bug is a P2, even when
 it loses or corrupts stored data.
 
-## Deferrable findings
-
-Set `deferrable` on a finding that is real but can wait for a follow-up issue:
-
-- A narrow bug that "How likely it is" lets you report.
-- A bug with an uncommon trigger whose correct fix needs a new mechanism, such as a
-  lock, an owner, a version, a retry, or a state machine.
-
-A deferrable finding does not block merge or lower the score. Name the defect and its
-trigger so that the author can file the issue, but do not design the fix. Never set
-`deferrable` on a P0.
-
 ## Findings
 
 - `path` is relative to the root of the repository.
@@ -125,7 +113,6 @@ trigger so that the author can file the issue, but do not design the fix. Never 
   sentences.
 - `suggestion` is the exact text that replaces lines `start_line` to `line`, with the
   same indentation. Give one only when the fix is that small and you are sure of it.
-- `deferrable` is true for a finding that can wait for a follow-up issue.
 
 ## Score
 
@@ -135,7 +122,7 @@ trigger so that the author can file the issue, but do not design the fix. Never 
 - 2: has a serious problem.
 - 1: must not merge.
 
-Deferrable findings do not count. With no other finding, the score is 5.
+With no finding, the score is 5.
 
 `verdict` is one sentence that tells whether the pull request is safe to merge.
 `summary` is two to five short bullets about what the pull request changes, for a reader

@@ -16,7 +16,10 @@ Modules reference siblings via relative-path `replace` directives in each `go.mo
 - Exports: `cd x/go && go run ./cmd/exports ../../core ../../x/go ...` prints the
   exported identifiers that no other package's non-test code uses. Unexport them, or
   move a helper that other packages' tests need into a `testutil` package. Pass every
-  module that can import the package.
+  module that can import the package. CI passes `-base` with a checkout of the target
+  branch, so it fails on the findings that a change adds. It also fails on every finding
+  of a module and usage (`unused` or `tests-only`) that `.github/exports-go.json` lists.
+  A PR that brings a pair to zero adds it there.
 - Test: **always `ginkgo`, never `go test`**. `ginkgo` (package), `ginkgo -r`
   (recursive), `ginkgo -v`, `ginkgo --focus "Name"`.
 

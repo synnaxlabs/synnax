@@ -820,6 +820,33 @@ var _ = Describe("Type Unification", func() {
 			Expect(ue.Hint).To(ContainSubstring("use"))
 			Expect(ue.Hint).To(ContainSubstring("to convert"))
 		})
+
+		It("Should hint a comparison for a numeric value into a bool", func() {
+			err := constraints.New().UnifyConstraint(constraints.Constraint{
+				Left:   types.Bool(),
+				Right:  types.U8(),
+				Reason: "edge",
+			})
+			Expect(err).To(
+				MatchError(ContainSubstring("u8 is not compatible with bool")),
+			)
+			Expect(err.(*constraints.UnificationError).Hint).To(
+				Equal(constraints.BoolHint),
+			)
+		})
+
+		It("Should not hint a comparison for comparison operands", func() {
+			err := constraints.New().AddCompatible(
+				types.Bool(),
+				types.U8(),
+				nil,
+				"== operands must be compatible",
+			)
+			Expect(err).To(
+				MatchError(ContainSubstring("u8 is not compatible with bool")),
+			)
+			Expect(err.(*constraints.UnificationError).Hint).To(BeEmpty())
+		})
 	})
 
 	Describe("Complex Scenarios", func() {

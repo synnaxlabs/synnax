@@ -131,9 +131,9 @@ func decodeBundleBody(
 	env imex.Envelope,
 ) (bundleBody[color.Color], error) {
 	if env.Version >= v5.Version {
-		return env.Decode[bundleBody[color.Color]](ctx)
+		return env.Decode[bundleBody[color.Color]]()
 	}
-	old, err := env.Decode[bundleBody[colorv1.Color]](ctx)
+	old, err := env.Decode[bundleBody[colorv1.Color]]()
 	if err != nil {
 		return bundleBody[color.Color]{}, err
 	}

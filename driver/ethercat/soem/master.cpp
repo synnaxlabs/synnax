@@ -731,7 +731,10 @@ void Master::populate_slaves() {
 
 void Master::read_serial(slave::DiscoveryResult &slave) {
     const auto pos = slave.properties.position;
-    if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) == 0) return;
+    // A nonzero SII serial number is the identity of saved devices.
+    if (slave.properties.serial != 0 ||
+        (this->record(pos).mbx_proto & ECT_MBXPROT_COE) == 0)
+        return;
     clear_errors(*this->api);
     // CiA 301 gives the serial number 4 bytes, but IOLITE modules give it 8.
     uint64_t serial = 0;

@@ -14,7 +14,7 @@ package types
 type Uint12 uint16
 
 // Uint20 is a 20-bit precision unsigned integer that uses uint20 as it's underlying
-// type. It is designed to represent values with a maximum precision of 2^20 (1048576)
+// type. It is designed to represent values with a maximum precision of 2^20 (1048576).
 type Uint20 uint32
 
 // BoolToUint8 returns uint8(1) if b is true and uint8(0) if b is false.

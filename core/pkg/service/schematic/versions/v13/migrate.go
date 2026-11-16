@@ -11,13 +11,17 @@ package v13
 
 import (
 	"context"
+	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"math"
 	"reflect"
 	"slices"
 
 	"github.com/synnaxlabs/gorp/migrate"
 	v12 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
+	colorv0 "github.com/synnaxlabs/x/color/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v2"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -27,7 +31,10 @@ import (
 // configures, and each member of a group box gets the group box as its parent. A node
 // with no node config draws nothing, so it is dropped, and so is an edge whose source
 // or target is dropped. An edge with no edge config gets the default pipe, which the
-// Console drew for it before v0.55.
+// Console drew for it before v0.55. Stroke widths become whole pixels as in
+// MigrateNodeConfig and MigrateSegmentedEdgeConfig. A NaN or infinite number in a
+// config becomes the schema default of its field, and a color with such an alpha
+// becomes opaque.
 func MigrateSchematic(ctx context.Context, old v12.Schematic) (Schematic, error) {
 	s, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
@@ -69,7 +76,10 @@ func MigrateSchematic(ctx context.Context, old v12.Schematic) (Schematic, error)
 		if !ok {
 			e.Config = EdgeConfig{
 				Variant: PipeEdgeConfig{
-					SegmentedEdgeConfig: SegmentedEdgeConfig{Segments: []Segment{}},
+					SegmentedEdgeConfig: SegmentedEdgeConfig{
+						Segments:    []Segment{},
+						StrokeWidth: defaultStrokeWidth,
+					},
 				},
 			}
 		} else if e.Config, err = MigrateEdgeConfig(ctx, cfg); err != nil {
@@ -122,6 +132,37 @@ func MigrateEdge(ctx context.Context, old v12.Edge) (Edge, error) {
 	return autoMigrateEdge(ctx, old)
 }
 
+func nonFinite(f float64) bool { return math.IsNaN(f) || math.IsInf(f, 0) }
+
+// nonFiniteAbsent makes a NaN or infinite number, which JSON cannot hold, read as an
+// absent field: it encodes as null, and a null leaves the schema default in place. A
+// color with such an alpha encodes as opaque, so it stays visible.
+var nonFiniteAbsent = json.JoinOptions(
+	json.WithMarshalers(json.JoinMarshalers(
+		json.MarshalToFunc(func(enc *jsontext.Encoder, c colorv0.Color) error {
+			if !nonFinite(c.A) {
+				return errors.ErrUnsupported
+			}
+			c.A = 1
+			return json.MarshalEncode(enc, c)
+		}),
+		json.MarshalToFunc(func(enc *jsontext.Encoder, f float64) error {
+			if !nonFinite(f) {
+				return errors.ErrUnsupported
+			}
+			return enc.WriteToken(jsontext.Null)
+		}),
+	)),
+	json.WithUnmarshalers(json.UnmarshalFromFunc(
+		func(dec *jsontext.Decoder, _ *float64) error {
+			if dec.PeekKind() != jsontext.KindNull {
+				return errors.ErrUnsupported
+			}
+			return dec.SkipValue()
+		},
+	)),
+)
+
 // convert decodes the config stored under key into dst. It returns false when no config
 // is stored under key, or when the stored config is of the Other element kind.
 func convert[Other, C any](
@@ -133,15 +174,15 @@ func convert[Other, C any](
 	if !ok {
 		return false, nil
 	}
-	b, err := json.Marshal(cfg)
+	b, err := json.Marshal(cfg, nonFiniteAbsent)
 	if err != nil {
 		return false, err
 	}
-	if err = json.Unmarshal(b, dst); err == nil {
+	if err = json.Unmarshal(b, dst, nonFiniteAbsent); err == nil {
 		return true, nil
 	}
 	var other Other
-	if json.Unmarshal(b, &other) == nil {
+	if json.Unmarshal(b, &other, nonFiniteAbsent) == nil {
 		return false, nil
 	}
 	return false, err
@@ -201,14 +242,52 @@ func clearThemeColors(v reflect.Value) {
 // Migration lifts stored schematics from v12 to v13.
 var Migration = migrate.NewEntry("v62_color_bytes_configs_on_nodes", MigrateSchematic)
 
-// MigrateNodeConfig lifts a v12 node config to v13. See MigrateSchematic for colors.
+// MigrateNodeConfig lifts a v12 node config to v13. See MigrateSchematic for colors. A
+// stroke width rounds to whole pixels up to 20. A width above 0, and every line width,
+// keeps at least 1 pixel. A NaN width counts as 0. A button label migrates as in
+// MigrateLabelConfig, except that a width of 150, which did not wrap in v12, becomes
+// 65535.
 func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, error) {
 	cfg, err := autoMigrateNodeConfig(ctx, old)
 	if err != nil {
 		return NodeConfig{}, err
 	}
+	switch o := old.Variant.(type) {
+	case v12.BoxNodeConfig:
+		n := cfg.Variant.(BoxNodeConfig)
+		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
+		cfg.Variant = n
+	case v12.ButtonNodeConfig:
+		n := cfg.Variant.(ButtonNodeConfig)
+		n.Label.MaxInlineSize = migrateButtonMaxInlineSize(o.Label.MaxInlineSize)
+		cfg.Variant = n
+	case v12.CircleNodeConfig:
+		n := cfg.Variant.(CircleNodeConfig)
+		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
+		cfg.Variant = n
+	case v12.LineNodeConfig:
+		n := cfg.Variant.(LineNodeConfig)
+		n.StrokeWidth = max(migrateStrokeWidth(o.StrokeWidth), 1)
+		cfg.Variant = n
+	case v12.PolygonNodeConfig:
+		n := cfg.Variant.(PolygonNodeConfig)
+		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
+		cfg.Variant = n
+	}
 	clearThemeColors(reflect.ValueOf(&cfg).Elem())
 	return cfg, nil
+}
+
+const (
+	defaultStrokeWidth = 2
+	maxStrokeWidth     = 20
+)
+
+func migrateStrokeWidth(w float64) uint8 {
+	if math.IsNaN(w) || w <= 0 {
+		return 0
+	}
+	return uint8(min(max(math.Round(w), 1), maxStrokeWidth))
 }
 
 // MigrateEdgeConfig lifts a v12 edge config to v13. See MigrateSchematic for colors.
@@ -219,6 +298,46 @@ func MigrateEdgeConfig(ctx context.Context, old v12.EdgeConfig) (EdgeConfig, err
 	}
 	clearThemeColors(reflect.ValueOf(&cfg).Elem())
 	return cfg, nil
+}
+
+// MigrateLabeledConfig lifts a v12 labeled config to v13.
+func MigrateLabeledConfig(
+	ctx context.Context,
+	old v12.LabeledConfig,
+) (LabeledConfig, error) {
+	return autoMigrateLabeledConfig(ctx, old)
+}
+
+// MigrateLabelConfig lifts a v12 label config to v13 and keeps the label's v12 layout.
+// It rounds the wrap width to whole pixels and clamps it to 1 through 65535. A NaN
+// width becomes 150, a width of 0 becomes 1, and a negative width, which did not wrap,
+// becomes 65535.
+func MigrateLabelConfig(ctx context.Context, old v12.LabelConfig) (LabelConfig, error) {
+	cfg, err := autoMigrateLabelConfig(ctx, old)
+	if err != nil {
+		return LabelConfig{}, err
+	}
+	cfg.MaxInlineSize = migrateMaxInlineSize(old.MaxInlineSize)
+	return cfg, nil
+}
+
+const defaultMaxInlineSize = 150
+
+func migrateMaxInlineSize(w float64) uint16 {
+	if math.IsNaN(w) {
+		return defaultMaxInlineSize
+	}
+	if w < 0 {
+		return math.MaxUint16
+	}
+	return uint16(min(max(math.Round(w), 1), math.MaxUint16))
+}
+
+func migrateButtonMaxInlineSize(w float64) uint16 {
+	if w == defaultMaxInlineSize {
+		return math.MaxUint16
+	}
+	return migrateMaxInlineSize(w)
 }
 
 // MigrateStaticSymbolConfig lifts a v12 static symbol config to v13.
@@ -277,10 +396,16 @@ func MigrateToggleConfig(
 	return autoMigrateToggleConfig(ctx, old)
 }
 
-// MigrateSegmentedEdgeConfig lifts a v12 segmented edge config to v13.
+// MigrateSegmentedEdgeConfig lifts a v12 segmented edge config to v13 with the default
+// stroke width.
 func MigrateSegmentedEdgeConfig(
 	ctx context.Context,
 	old v12.SegmentedEdgeConfig,
 ) (SegmentedEdgeConfig, error) {
-	return autoMigrateSegmentedEdgeConfig(ctx, old)
+	cfg, err := autoMigrateSegmentedEdgeConfig(ctx, old)
+	if err != nil {
+		return SegmentedEdgeConfig{}, err
+	}
+	cfg.StrokeWidth = defaultStrokeWidth
+	return cfg, nil
 }

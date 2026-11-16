@@ -12,6 +12,7 @@ package v9_test
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"os"
 	"uuid"
 
@@ -1111,4 +1112,44 @@ var _ = Describe("ScaleMigration", func() {
 		Expect(scaleOf("negative")).To(Equal(1.0))
 		Expect(scaleOf("kept")).To(Equal(3.0))
 	})
+	DescribeTable(
+		"Should reset a non-finite scale to 1 and keep a config with no scale",
+		func(ctx SpecContext, f float64) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			var scaled v9.SwitchElementConfig
+			scaled.Scale = f
+			stored := v9.Schematic{
+				Key: uuid.New(),
+				Configs: map[string]v9.ElementConfig{
+					"scale": {Variant: scaled},
+					"polygon": {Variant: v9.PolygonElementConfig{
+						NumSides:   f,
+						SideLength: 30,
+						Rotation:   f,
+					}},
+				},
+			}
+			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v9.Key, v9.Schematic]{
+				DB: db,
+			}))
+			Expect(gorp.NewCreate[v9.Key, v9.Schematic]().
+				Entry(&stored).Exec(ctx, db)).To(Succeed())
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:         db,
+				Namespace:  "Schematic",
+				Migrations: []gorp.Migration{v9.ScaleMigration},
+			})).To(Succeed())
+			var got v9.Schematic
+			Expect(gorp.NewRetrieve[v9.Key, v9.Schematic]().
+				Where(gorp.MatchKeys[v9.Key, v9.Schematic](stored.Key)).
+				Entry(&got).Exec(ctx, db)).To(Succeed())
+			Expect(got.Configs["scale"].Variant.(v9.SwitchElementConfig).Scale).
+				To(Equal(1.0))
+			Expect(DeepEqual(got.Configs["polygon"], stored.Configs["polygon"])).
+				To(BeTrue())
+		},
+		Entry("NaN", math.NaN()),
+		Entry("positive infinity", math.Inf(1)),
+		Entry("negative infinity", math.Inf(-1)),
+	)
 })

@@ -262,7 +262,7 @@ var _ = Describe("NormalizeKeys", func() {
 					}
 					var lifted []legacyReKeyedEntry
 					for iter.First(); iter.Valid(); iter.Next() {
-						lifted = append(lifted, *iter.Value(ctx))
+						lifted = append(lifted, *iter.Value())
 					}
 					if err := iter.Close(); err != nil {
 						return err

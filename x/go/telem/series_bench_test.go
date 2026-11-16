@@ -12,6 +12,7 @@ package telem_test
 import (
 	"encoding/json/v2"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/synnaxlabs/x/telem"
@@ -79,7 +80,7 @@ func BenchmarkValidate(b *testing.B) {
 
 	b.Run("String", func(b *testing.B) {
 		for _, size := range []int{10, 100, 1000} {
-			b.Run(fmt.Sprintf("%d", size), func(b *testing.B) {
+			b.Run(strconv.Itoa(size), func(b *testing.B) {
 				data := make([]string, size)
 				for i := range data {
 					data[i] = fmt.Sprintf("sample-%d", i)
@@ -96,7 +97,7 @@ func BenchmarkValidate(b *testing.B) {
 
 	b.Run("JSON", func(b *testing.B) {
 		for _, size := range []int{10, 100, 1000} {
-			b.Run(fmt.Sprintf("%d", size), func(b *testing.B) {
+			b.Run(strconv.Itoa(size), func(b *testing.B) {
 				data := make([][]byte, size)
 				for i := range data {
 					var err error

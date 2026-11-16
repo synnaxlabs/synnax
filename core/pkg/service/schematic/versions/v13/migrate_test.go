@@ -11,6 +11,8 @@ package v13_test
 
 import (
 	"context"
+	"encoding/json/v2"
+	"math"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -280,6 +282,22 @@ var _ = Describe("Migrate functions", func() {
 			}
 		}),
 	)
+	DescribeTable("Should keep a black theme color with a non-finite alpha",
+		func(ctx SpecContext, a float64) {
+			out := MustSucceed(v13.MigrateSchematic(ctx, withElements(v12.Schematic{
+				Configs: map[string]v12.ElementConfig{
+					"n": {Variant: v12.ValueElementConfig{
+						TextColor: &color.Color{A: a},
+					}},
+				},
+			})))
+			Expect(configOf(out, "n").(v13.ValueNodeConfig).TextColor).
+				To(Equal(&colorv2.Color{A: 255}))
+		},
+		Entry("NaN", math.NaN()),
+		Entry("positive infinity", math.Inf(1)),
+		Entry("negative infinity", math.Inf(-1)),
+	)
 	It("Should keep the zero stroke of a value", func(ctx SpecContext) {
 		out := MustSucceed(v13.MigrateSchematic(ctx, withElements(v12.Schematic{
 			Configs: map[string]v12.ElementConfig{
@@ -332,10 +350,17 @@ var _ = Describe("MigrateSchematic config move", func() {
 		valve      = v12.ValveElementConfig{Orientation: "left", Scale: 2}
 		pipe       = v12.PipeElementConfig{Segments: []v12.Segment{}}
 		movedValve = v13.NodeConfig{
-			Variant: v13.ValveNodeConfig{Orientation: "left", Scale: 2},
+			Variant: v13.ValveNodeConfig{
+				Label:       v13.LabelConfig{MaxInlineSize: 1},
+				Orientation: "left",
+				Scale:       2,
+			},
 		}
 		movedPipe = v13.EdgeConfig{Variant: v13.PipeEdgeConfig{
-			SegmentedEdgeConfig: v13.SegmentedEdgeConfig{Segments: []v13.Segment{}},
+			SegmentedEdgeConfig: v13.SegmentedEdgeConfig{
+				Segments:    []v13.Segment{},
+				StrokeWidth: 2,
+			},
 		}}
 	)
 	node := func(key string) v12.Node {
@@ -485,6 +510,40 @@ var _ = Describe("MigrateSchematic config move", func() {
 		),
 	)
 
+	DescribeTable("Should give the schema default to a non-finite number",
+		func(ctx SpecContext, f float64) {
+			s := migrate(ctx, v12.Schematic{
+				Nodes: []v12.Node{node("n1")},
+				Edges: []v12.Edge{edge("e1", "n1", "n1")},
+				Configs: map[string]v12.ElementConfig{
+					"n1": {Variant: v12.PolygonElementConfig{
+						NumSides:    f,
+						SideLength:  30,
+						Rotation:    f,
+						StrokeColor: &color.Color{R: 1, A: f},
+						StrokeWidth: f,
+					}},
+					"e1": {Variant: v12.PipeElementConfig{
+						SegmentedEdgeConfig: v12.SegmentedEdgeConfig{
+							Segments: []v12.Segment{{Length: f}},
+						},
+					}},
+				},
+			})
+			polygon := configOf(s, "n1").(v13.PolygonNodeConfig)
+			Expect(polygon.NumSides).To(Equal(6.0))
+			Expect(polygon.SideLength).To(Equal(30.0))
+			Expect(polygon.Rotation).To(BeZero())
+			Expect(polygon.StrokeWidth).To(Equal(uint8(2)))
+			Expect(polygon.StrokeColor).To(Equal(&colorv2.Color{R: 1, A: 255}))
+			Expect(configOf(s, "e1").(v13.PipeEdgeConfig).Segments).
+				To(Equal([]v13.Segment{{}}))
+		},
+		Entry("NaN", math.NaN()),
+		Entry("positive infinity", math.Inf(1)),
+		Entry("negative infinity", math.Inf(-1)),
+	)
+
 	It("Should not change the schematic it was given", func(ctx SpecContext) {
 		old := v12.Schematic{
 			Nodes:   []v12.Node{node("n1"), node("n2")},
@@ -597,6 +656,175 @@ var _ = Describe("MigrateSchematic group parents", func() {
 			Configs: map[string]v12.ElementConfig{"g": box("a"), "a": valve},
 		}))
 		Expect(s.Nodes[0].Config.Variant).To(Equal(v13.GroupBoxNodeConfig{}))
+	})
+})
+
+var _ = Describe("MigrateNodeConfig stroke widths", func() {
+	DescribeTable("Should round and clamp a symbol stroke width",
+		func(ctx SpecContext, old v12.NodeConfigVariant, want uint8) {
+			out := MustSucceed(v13.MigrateNodeConfig(ctx, v12.NodeConfig{Variant: old}))
+			Expect(out.Variant).To(HaveField("StrokeWidth", Equal(want)))
+		},
+		Entry("box whole", v12.BoxNodeConfig{StrokeWidth: 4}, uint8(4)),
+		Entry("box fraction", v12.BoxNodeConfig{StrokeWidth: 2.6}, uint8(3)),
+		Entry("box at 0", v12.BoxNodeConfig{}, uint8(0)),
+		Entry("box at NaN", v12.BoxNodeConfig{StrokeWidth: math.NaN()}, uint8(0)),
+		Entry("box too large", v12.BoxNodeConfig{StrokeWidth: 30}, uint8(20)),
+		Entry("circle thin", v12.CircleNodeConfig{StrokeWidth: 0.4}, uint8(1)),
+		Entry("circle at 0", v12.CircleNodeConfig{}, uint8(0)),
+		Entry("line fraction", v12.LineNodeConfig{StrokeWidth: 5.5}, uint8(6)),
+		Entry("line at 0", v12.LineNodeConfig{}, uint8(1)),
+		Entry("line negative", v12.LineNodeConfig{StrokeWidth: -3}, uint8(1)),
+		Entry("line at NaN", v12.LineNodeConfig{StrokeWidth: math.NaN()}, uint8(1)),
+		Entry("polygon too large", v12.PolygonNodeConfig{StrokeWidth: 1e9}, uint8(20)),
+	)
+
+	It("Should keep a stroke width of 0 through storage", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v12.Key, v12.Schematic]{DB: db}))
+		old := withElements(v12.Schematic{
+			Key: uuid.New(),
+			Configs: map[string]v12.ElementConfig{
+				"box": {Variant: v12.BoxElementConfig{}},
+			},
+		})
+		Expect(gorp.NewCreate[v12.Key, v12.Schematic]().Entry(&old).Exec(ctx, db)).
+			To(Succeed())
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v13.Key, v13.Schematic]{
+			DB: db, Migrations: []gorp.Migration{v13.Migration},
+		}))
+		var got v13.Schematic
+		Expect(gorp.NewRetrieve[v13.Key, v13.Schematic]().
+			Where(gorp.MatchKeys[v13.Key, v13.Schematic](old.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(configOf(got, "box")).To(HaveField("StrokeWidth", BeZero()))
+	})
+})
+
+// migrateNode migrates a v12 node config decoded from raw.
+func migrateNode(ctx SpecContext, raw map[string]any) v13.NodeConfigVariant {
+	GinkgoHelper()
+	var cfg v12.NodeConfig
+	Expect(json.Unmarshal(MustSucceed(json.Marshal(raw)), &cfg)).To(Succeed())
+	return MustSucceed(v13.MigrateNodeConfig(ctx, cfg)).Variant
+}
+
+var _ = Describe("MigrateNodeConfig text", func() {
+	It("Should keep a saved button's size and wrap width", func(ctx SpecContext) {
+		Expect(migrateNode(ctx, map[string]any{
+			"variant": "button",
+			"size":    "large",
+			"label":   map[string]any{"max_inline_size": 80.0},
+		})).To(SatisfyAll(
+			HaveField("Size", Equal(v13.ComponentSizeLarge)),
+			HaveField("LabeledConfig.Label.MaxInlineSize", BeEquivalentTo(80)),
+		))
+	})
+
+	DescribeTable("Should keep the wrap width of a saved symbol",
+		func(ctx SpecContext, variant string, label map[string]any, width uint16) {
+			Expect(migrateNode(ctx, map[string]any{
+				"variant": variant,
+				"label":   label,
+			})).To(SatisfyAll(
+				HaveField("LabeledConfig.Label.MaxInlineSize", Equal(width)),
+				HaveField("LabeledConfig.Label.Label", Equal("P1")),
+			))
+		},
+		Entry("a button with no width", "button",
+			map[string]any{"label": "P1"}, uint16(65535)),
+		Entry("a button with a width of 0", "button",
+			map[string]any{"label": "P1", "max_inline_size": 0.0}, uint16(1)),
+		Entry("a button with the default", "button",
+			map[string]any{"label": "P1", "max_inline_size": 150.0}, uint16(65535)),
+		Entry("a button with a negative width", "button",
+			map[string]any{"label": "P1", "max_inline_size": -20.0}, uint16(65535)),
+		Entry("a button with a chosen width", "button",
+			map[string]any{"label": "P1", "max_inline_size": 80.0}, uint16(80)),
+		Entry("a value with no width", "value",
+			map[string]any{"label": "P1"}, uint16(150)),
+		Entry("a value with a negative width", "value",
+			map[string]any{"label": "P1", "max_inline_size": -20.0}, uint16(65535)),
+		Entry("a cap with a fractional width", "cap",
+			map[string]any{"label": "P1", "max_inline_size": 80.6}, uint16(81)),
+		Entry("a valve with a width of 0", "valve",
+			map[string]any{"label": "P1", "max_inline_size": 0.0}, uint16(1)),
+		Entry("a relief valve with a fractional width", "relief_valve",
+			map[string]any{"label": "P1", "max_inline_size": 80.6}, uint16(81)),
+	)
+
+	It("Should migrate a saved label through storage", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v12.Key, v12.Schematic]{DB: db}))
+		old := withElements(v12.Schematic{
+			Key: uuid.New(),
+			Configs: map[string]v12.ElementConfig{
+				"b": {Variant: v12.ButtonElementConfig{
+					LabeledConfig: v12.LabeledConfig{
+						Label: v12.LabelConfig{Label: "P1", MaxInlineSize: 150},
+					},
+					Size: v12.ComponentSizeHuge,
+				}},
+			},
+		})
+		Expect(gorp.NewCreate[v12.Key, v12.Schematic]().Entry(&old).Exec(ctx, db)).
+			To(Succeed())
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v13.Key, v13.Schematic]{
+			DB: db, Migrations: []gorp.Migration{v13.Migration},
+		}))
+		var got v13.Schematic
+		Expect(gorp.NewRetrieve[v13.Key, v13.Schematic]().
+			Where(gorp.MatchKeys[v13.Key, v13.Schematic](old.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(configOf(got, "b")).To(SatisfyAll(
+			HaveField("Size", Equal(v13.ComponentSizeHuge)),
+			HaveField("LabeledConfig.Label.MaxInlineSize", BeEquivalentTo(65535)),
+		))
+	})
+})
+
+var _ = Describe("MigrateLabelConfig", func() {
+	DescribeTable("Should round and clamp the wrap width", func(
+		ctx SpecContext,
+		in float64,
+		out uint16,
+	) {
+		cfg := MustSucceed(v13.MigrateLabelConfig(
+			ctx,
+			v12.LabelConfig{Label: "P1", MaxInlineSize: in},
+		))
+		Expect(cfg.MaxInlineSize).To(Equal(out))
+		Expect(cfg.Label).To(Equal("P1"))
+	},
+		Entry("whole", 80.0, uint16(80)),
+		Entry("round up", 80.6, uint16(81)),
+		Entry("round down", 80.4, uint16(80)),
+		Entry("below 1", 0.3, uint16(1)),
+		Entry("negative", -20.0, uint16(65535)),
+		Entry("negative infinite", math.Inf(-1), uint16(65535)),
+		Entry("too large", 1e9, uint16(65535)),
+		Entry("infinite", math.Inf(1), uint16(65535)),
+		Entry("zero", 0.0, uint16(1)),
+		Entry("NaN", math.NaN(), uint16(150)),
+	)
+})
+
+var _ = Describe("MigrateLabeledConfig", func() {
+	It("Should migrate the wrap width of the label", func(ctx SpecContext) {
+		cfg := MustSucceed(v13.MigrateLabeledConfig(ctx, v12.LabeledConfig{
+			Label: v12.LabelConfig{Label: "P1", MaxInlineSize: 80.6},
+		}))
+		Expect(cfg.Label.MaxInlineSize).To(BeEquivalentTo(81))
+		Expect(cfg.Label.Label).To(Equal("P1"))
+	})
+})
+
+var _ = Describe("MigrateSegmentedEdgeConfig", func() {
+	It("Should give the edge the default stroke width", func(ctx SpecContext) {
+		Expect(MustSucceed(v13.MigrateSegmentedEdgeConfig(
+			ctx,
+			v12.SegmentedEdgeConfig{},
+		)).StrokeWidth).To(BeEquivalentTo(2))
 	})
 })
 
