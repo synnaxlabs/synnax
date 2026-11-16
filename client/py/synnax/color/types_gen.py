@@ -51,6 +51,9 @@ class Named(BaseModel):
         light: Is the color in the light theme.
         dark: Is the color in the dark theme. When absent, the theme derives it.
         group: Is the palette that holds the color, if any.
+        position: Is where the color sits in its palette, as a fractional index. A
+            palette sorts its colors by position, compared by code point, and a color
+            with none comes last.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -58,6 +61,7 @@ class Named(BaseModel):
     light: color.Color
     dark: color.Color | None = None
     group: group_.Key | None = None
+    position: str | None = None
 
     @_override
     def __hash__(self) -> int:

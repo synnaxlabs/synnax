@@ -68,6 +68,8 @@ func builtins() []Named {
 			Light: xcolor.FromUint32(s.light),
 			Dark:  &dark,
 			Group: new(seriesPalette),
+			// "a0" to "a9", then "aA" to "aF".
+			Position: new("a" + string(positionDigits[i])),
 		}
 	}
 	return named

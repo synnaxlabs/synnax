@@ -44,7 +44,7 @@ func (w Writer) Create(ctx context.Context, n *Named) error {
 	if n.Key == uuid.Nil() {
 		n.Key = uuid.New()
 	}
-	if err := n.Validate(); err != nil {
+	if err := check(*n); err != nil {
 		return err
 	}
 	if err := group.CheckMember(
@@ -61,6 +61,16 @@ func (w Writer) Create(ctx context.Context, n *Named) error {
 	}
 	w.dispatcher.Attach(w.tx, n.Key, NewCreateAction(CreatePayload{Named: *n}))
 	return nil
+}
+
+func check(n Named) error {
+	if err := n.Validate(); err != nil {
+		return err
+	}
+	if n.Position == nil {
+		return nil
+	}
+	return validatePosition(*n.Position)
 }
 
 // CreateMany creates the named colors as Create does, stopping at the first error.
@@ -94,7 +104,7 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
 			if err != nil {
 				return Named{}, err
 			}
-			if err = next.Validate(); err != nil {
+			if err = check(next); err != nil {
 				return Named{}, err
 			}
 			if lo.FromPtr(next.Group) == lo.FromPtr(n.Group) {

@@ -65,6 +65,9 @@ contrast on the canvas of its theme. The first eight keep the old hues and stay 
 under each color vision deficiency. The last eight fill the hue gaps and only pass the
 contrast check, so lines past the eighth can look alike to a color-blind user.
 
+A palette lists its colors in the order that a user sets by drag, as Figma lists styles.
+A new line takes the first series color in that order that no other line uses.
+
 ### Shape and size
 
 - Lyra's rem is 6 px. Write sizes in rem with the existing tokens. Round a fractional

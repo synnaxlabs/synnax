@@ -46,6 +46,12 @@ export const namedZ = z.object({
   dark: color.colorZ.optional(),
   /** group is the palette that holds the color, if any. */
   group: group.keyZ.optional(),
+  /**
+   * position is where the color sits in its palette, as a fractional index. A palette
+   * sorts its colors by position, compared by code point, and a color with none comes
+   * last.
+   */
+  position: z.string().optional(),
 });
 export interface Named extends z.infer<typeof namedZ> {}
 

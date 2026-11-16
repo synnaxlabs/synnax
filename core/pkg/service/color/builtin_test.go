@@ -79,6 +79,14 @@ var _ = Describe("Built-in named colors", func() {
 			})))
 	})
 
+	It("Should place the series colors in order", func(ctx SpecContext) {
+		named := series(ctx, open(ctx))
+		Expect(*byName(named, "Series 1").Position).To(Equal("a0"))
+		Expect(*byName(named, "Series 10").Position).To(Equal("a9"))
+		Expect(*byName(named, "Series 11").Position).To(Equal("aA"))
+		Expect(*byName(named, "Series 16").Position).To(Equal("aF"))
+	})
+
 	It("Should give each series color a light and a dark value", func(ctx SpecContext) {
 		named := series(ctx, open(ctx))
 		blue := byName(named, "Series 2")

@@ -62,6 +62,12 @@ deviates from RFC 0061 rule 4 (`docs/tech/rfc/0061-theme-resolved-color.md:59-60
 stays Synnax-blind (RFC 0070 §3): it resolves a light and dark pair that its caller
 passes, and the picker shows the groups that its caller passes.
 
+A named color has an optional `position`, a fractional index key. A palette sorts its
+colors by position, compared by code point, and a color with none comes last. A move
+writes a key between its two neighbors, so it changes only the moved color, as in Figma
+([Figma](https://www.figma.com/blog/realtime-editing-of-ordered-sequences/)). The Core
+refuses a key that is not valid. Palettes sort by name.
+
 Built-in named colors are normal records with fixed keys. At startup, the Core makes
 each built-in that is missing, as it makes a missing built-in role
 (`core/pkg/service/access/rbac/builtin/provision.go:117-119`). Unlike a built-in role, a
@@ -141,7 +147,7 @@ hues of `#DC136C`, `#20A4F3`, `#52FFB8`, `#F18F01`, `#FE5F55`, `#8075FF`, `#F7AE
 the hue gaps and pass only the contrast check: a repeated color is a sure mix-up, and a
 near color only a possible one. A new line gets the first series color that no other
 line in its plot uses, and stores its key. Past 16 lines, it gets the series color used
-least in its plot, and a tie goes to the first in order. A user can pick any color.
+least in its plot, and a tie goes to the first by position. A user can pick any color.
 
 ### 4.5 Editor checks
 
@@ -290,6 +296,11 @@ pattern: the Core has no settings store. In phase 29, the Driver writes range co
     a swatch, and the `named` variant names a `color.Named`. The trade is real: the
     Synnax `color` schema shares its name with the x value type, so Oracle aliases one
     import where a file uses both.
+20. **Colors keep a stored position**: The series order picks the color of each new
+    line. A name order lets a rename or a new color change that pick, so a name binds
+    the color. Figma stores the order of its styles the same way. The trade is real: no
+    other record stores an order that a user sets, and the Console needs a drag to
+    reorder.
 
 ## 8 Open questions
 
