@@ -236,6 +236,125 @@ TEST(AcquisitionPipeline, ReopensWriterOnUnreachableWrite) {
     ASSERT_EQ(mock_factory->writer_opens.load(std::memory_order_acquire), 2);
 }
 
+/// @brief a source that numbers its frames from 0 and sends an authority change with
+/// the first one.
+class CountingSource final : public Source {
+    uint64_t reads = 0;
+    Authorities first;
+
+public:
+    explicit CountingSource(Authorities first = {.authorities = {42}}):
+        first(std::move(first)) {}
+
+    x::errors::Error read(
+        x::breaker::Breaker &,
+        x::telem::Frame &fr,
+        Authorities &authorities
+    ) override {
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        if (this->reads == 0) authorities = this->first;
+        fr.emplace(1, x::telem::Series(this->reads++));
+        return x::errors::NIL;
+    }
+};
+
+/// @brief it should open a reopened writer with the authorities the pipeline last set,
+/// not the ones it started with.
+TEST(AcquisitionPipeline, ReopensWriterWithLastSetAuthorities) {
+    const auto factory = std::make_shared<testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector<x::errors::Error>{},
+        std::vector{freighter::UNREACHABLE},
+        std::vector{1}
+    );
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig{.channels = {1, 2}, .authorities = {100}},
+        std::make_shared<CountingSource>(
+            Authorities{.keys = {2}, .authorities = {200}}
+        ),
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(factory->writes->size(), 2);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_EQ(factory->writer_opens.load(std::memory_order_acquire), 2);
+    EXPECT_EQ(
+        factory->config.authorities,
+        (std::vector<x::control::Authority>{100, 200})
+    );
+}
+
+/// @brief it should open the writer with its configured authorities again after a
+/// restart.
+TEST(AcquisitionPipeline, RestartOpensWriterWithConfiguredAuthorities) {
+    const auto factory = std::make_shared<testutil::WriterFactory>();
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig{.channels = {1}, .authorities = {100}},
+        std::make_shared<CountingSource>(),
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(factory->writes->size(), 1);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_EQ(factory->writer_opens.load(std::memory_order_acquire), 2);
+    ASSERT_TRUE(pipeline.stop());
+    EXPECT_EQ(factory->config.authorities, std::vector<x::control::Authority>{100});
+}
+
+/// @brief it should write a frame whose write failed to the reopened writer, so an
+/// outage the pipeline finds on a write loses no data.
+TEST(AcquisitionPipeline, WritesFailedFrameToReopenedWriter) {
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    const auto factory = std::make_shared<testutil::WriterFactory>(
+        writes,
+        std::vector<x::errors::Error>{},
+        std::vector{freighter::UNREACHABLE},
+        std::vector{1}
+    );
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig(),
+        std::make_shared<CountingSource>(),
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 3);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_EQ(factory->writer_opens.load(std::memory_order_acquire), 2);
+    const auto written = writes->snapshot();
+    for (size_t i = 0; i < 3; i++)
+        EXPECT_EQ(written[i].at<uint64_t>(1, 0), i);
+}
+
+/// @brief it should set authorities whose change failed on the reopened writer.
+TEST(AcquisitionPipeline, SetsFailedAuthoritiesOnReopenedWriter) {
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    const auto factory = std::make_shared<testutil::WriterFactory>(
+        writes,
+        std::vector<x::errors::Error>{},
+        std::vector{freighter::UNREACHABLE},
+        std::vector<int>{},
+        std::vector{freighter::UNREACHABLE}
+    );
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig(),
+        std::make_shared<CountingSource>(),
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_EQ(factory->writer_opens.load(std::memory_order_acquire), 2);
+    const auto changes = factory->authority_changes->snapshot();
+    ASSERT_EQ(changes.size(), 2);
+    EXPECT_EQ(changes[1].authorities, std::vector<x::control::Authority>{42});
+    EXPECT_EQ(writes->snapshot()[0].at<uint64_t>(1, 0), 0);
+}
+
 /// @brief it should not retry opening the writer when write returns false and the
 /// error is not unreachable.
 TEST(AcquisitionPipeline, DoesNotReopenWriterOnUnauthorizedWrite) {
