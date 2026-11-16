@@ -421,14 +421,12 @@ func (s *Server) Completion(
 		return &protocol.CompletionList{}, nil
 	}
 
-	prefix := ""
-	if int(params.Position.Character) <= len(line) {
-		start := int(params.Position.Character)
-		for start > 0 && (lsp.IsWordChar(line[start-1]) || line[start-1] == '.') {
-			start--
-		}
-		prefix = line[start:params.Position.Character]
+	col := lsp.CharacterToByte(line, params.Position.Character)
+	start := col
+	for start > 0 && (lsp.IsWordChar(line[start-1]) || line[start-1] == '.') {
+		start--
 	}
+	prefix := line[start:col]
 
 	items := s.getCompletionItems(ctx, doc, prefix, params.Position)
 

@@ -17,6 +17,17 @@ import (
 )
 
 var _ = Describe("Document", func() {
+	DescribeTable(
+		"CharacterToByte",
+		func(line string, character uint32, expected int) {
+			Expect(lsp.CharacterToByte(line, character)).To(Equal(expected))
+		},
+		Entry("an ASCII column", "abc", uint32(2), 2),
+		Entry("a column after a two-byte rune", "°C", uint32(1), 2),
+		Entry("a column after a surrogate pair", "😀x", uint32(2), 4),
+		Entry("a column past the line end", "hi", uint32(5), 2),
+	)
+
 	Describe("PositionToOffset", func() {
 		It("Should convert a position on the first line", func() {
 			Expect(
@@ -59,6 +70,15 @@ var _ = Describe("Document", func() {
 			Expect(
 				lsp.PositionToOffset(
 					"hi\nthere",
+					protocol.Position{Line: 0, Character: 5},
+				),
+			).To(Equal(2))
+		})
+
+		It("Should clamp a character past a CRLF line end before the CR", func() {
+			Expect(
+				lsp.PositionToOffset(
+					"hi\r\nthere",
 					protocol.Position{Line: 0, Character: 5},
 				),
 			).To(Equal(2))

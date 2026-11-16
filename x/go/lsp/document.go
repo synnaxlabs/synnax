@@ -33,12 +33,12 @@ func PositionToOffset(content string, pos protocol.Position) int {
 	if idx := strings.IndexByte(line, '\n'); idx >= 0 {
 		line = line[:idx]
 	}
-	return offset + characterToByte(strings.TrimSuffix(line, "\r"), pos.Character)
+	return offset + CharacterToByte(strings.TrimSuffix(line, "\r"), pos.Character)
 }
 
-// characterToByte converts a UTF-16 column in line to a byte offset, clamped to the
+// CharacterToByte converts a UTF-16 column in line to a byte offset, clamped to the
 // line length.
-func characterToByte(line string, character uint32) int {
+func CharacterToByte(line string, character uint32) int {
 	units := 0
 	for i, r := range line {
 		if units >= int(character) {
@@ -161,7 +161,7 @@ func wordSpan(
 	if !ok {
 		return "", 0, 0
 	}
-	start = characterToByte(line, pos.Character)
+	start = CharacterToByte(line, pos.Character)
 	if start >= len(line) {
 		return line, start, start
 	}

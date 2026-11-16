@@ -124,6 +124,15 @@ var _ = Describe("Completion", func() {
 		})
 	})
 
+	Describe("Non-ASCII Lines", func() {
+		It("should read the prefix in UTF-16 code units", func(ctx SpecContext) {
+			openDoc(ctx, "file:///unicode.oracle", "  é in\n")
+			list := completionFor(ctx, "file:///unicode.oracle", 0, 6)
+			Expect(labels(list.Items)).To(ContainElement("int32"))
+			Expect(labels(list.Items)).ToNot(ContainElement("import"))
+		})
+	})
+
 	Describe("Domain Name Completions", func() {
 		It("should return domain names after the @ sigil", func(ctx SpecContext) {
 			openDoc(ctx, "file:///domain.oracle", "  @\n")
