@@ -116,6 +116,8 @@ func (t *Tracer) Bench(ctx context.Context, key string) (context.Context, Span) 
 
 // Trace wraps the given context in a span with the given key and level. If the context
 // is already wrapped in a span, the span will be a child of the existing span.
+//
+//nolint:spancheck // The caller ends the span.
 func (t *Tracer) Trace(
 	ctx context.Context,
 	key string,
@@ -126,7 +128,7 @@ func (t *Tracer) Trace(
 	}
 	spanKey := t.meta.extendPath(key)
 	ctx, otel := t.otelTracer().Start(ctx, spanKey)
-	return ctx, span{ //nolint:spancheck // the caller ends the span
+	return ctx, span{
 		key:  spanKey,
 		otel: otel,
 	}
