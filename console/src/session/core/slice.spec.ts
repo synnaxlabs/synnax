@@ -138,14 +138,14 @@ describe("sliceStateZ", () => {
     secure: true,
   };
 
-  it("should drop the retired demo Core from version 0 state", () => {
+  it("should drop the retired demo Core from saved state", () => {
     const state = Core.sliceStateZ.parse({
       version: 0,
       selected: ALPHA.key,
       cores: { [ALPHA.key]: ALPHA, DEMO },
     });
     expect(state).toEqual({
-      version: 1,
+      version: 0,
       selected: ALPHA.key,
       cores: { [ALPHA.key]: ALPHA },
     });

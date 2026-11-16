@@ -57,26 +57,22 @@ const LOCAL: Core = {
   secure: false,
 };
 
-// Version 0 shipped a default Core for a public demo deployment that no longer exists.
-// A user who repointed that record at their own Core keeps it.
+// Releases through 0.61 shipped a default Core for a public demo deployment that no
+// longer exists. A user who repointed that record at their own Core keeps it.
 const RETIRED_DEMO_KEY = "DEMO";
 const RETIRED_DEMO_HOST = "demo.synnaxlabs.com";
 
 export const sliceStateZ = z
   .object({
-    version: z.literal([0, 1]).default(0),
+    version: z.literal(0).default(0),
     selected: z.string().optional(),
     cores: z.record(z.string(), coreZ).default({ [LOCAL_KEY]: LOCAL }),
   })
-  .transform(({ version, selected, cores }) => {
-    const { [RETIRED_DEMO_KEY]: demo, ...rest } = cores;
-    if (version === 1 || demo?.host !== RETIRED_DEMO_HOST)
-      return { version: 1 as const, selected, cores };
-    return {
-      version: 1 as const,
-      selected: selected === RETIRED_DEMO_KEY ? undefined : selected,
-      cores: rest,
-    };
+  .transform((state) => {
+    const { [RETIRED_DEMO_KEY]: demo, ...cores } = state.cores;
+    if (demo?.host !== RETIRED_DEMO_HOST) return state;
+    const selected = state.selected === RETIRED_DEMO_KEY ? undefined : state.selected;
+    return { ...state, selected, cores };
   });
 
 export interface SliceState extends z.infer<typeof sliceStateZ> {}

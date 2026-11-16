@@ -80,9 +80,8 @@ const cores = (legacy?: z.infer<typeof clusterZ>): Core.SliceState | undefined =
     records[key] = mapped;
   });
   const { activeCluster } = legacy;
-  // The old store predates every slice version, so the slice's upgrades apply.
+  // The slice schema drops the retired demo Core.
   const out = Core.sliceStateZ.parse({
-    version: 0,
     cores: records,
     selected:
       activeCluster != null && records[activeCluster] != null
