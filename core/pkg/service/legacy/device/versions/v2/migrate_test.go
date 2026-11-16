@@ -275,6 +275,14 @@ var _ = Describe("Group migrations", func() {
 		)
 		Expect(retrieveDevice(ctx, "a").Group).To(BeNil())
 		Expect(retrieveGroups(ctx)).To(HaveLen(2))
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			Expect(groupv1.RetrieveRemovals(ctx, tx)).To(ConsistOf(groupv1.Removal{
+				GroupName: "Loose",
+				Member:    deviceID("a"),
+				Reason:    groupv1.RemovedRackless,
+			}))
+			return nil
+		})).To(Succeed())
 	})
 
 	It("Should keep a split group that holds a child group", func(ctx SpecContext) {

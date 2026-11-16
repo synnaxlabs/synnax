@@ -56,14 +56,6 @@ func edges(ctx context.Context, db *gorp.DB) []ontology.Relationship {
 	return out
 }
 
-func retype(
-	e ontology.Relationship,
-	t ontology.RelationshipType,
-) ontology.Relationship {
-	e.Type = t
-	return e
-}
-
 func groupID(k uuid.UUID) resource.ID {
 	return resource.ID{Type: resource.TypeGroup, Key: k.String()}
 }
@@ -100,6 +92,7 @@ var _ = Describe("ParentMigration", func() {
 		rootTask = resource.ID{Type: resource.TypeTask, Key: uuid.New().String()}
 		task     = resource.ID{Type: resource.TypeTask, Key: uuid.New().String()}
 		rng      = resource.ID{Type: resource.TypeRange, Key: uuid.New().String()}
+		subProj  = resource.ID{Type: resource.TypeProject, Key: uuid.New().String()}
 		members  = []ontology.Relationship{
 			parentOf(groupID(channels), channel),
 			parentOf(groupID(inImpl), channel),
@@ -113,6 +106,7 @@ var _ = Describe("ParentMigration", func() {
 			parentOf(groupID(tasks), rootTask),
 			parentOf(groupID(inTasks), task),
 			parentOf(groupID(inRanges), rng),
+			parentOf(groupID(nested), subProj),
 		}
 		project  = resource.ID{Type: resource.TypeProject, Key: uuid.New().String()}
 		rack     = resource.ID{Type: resource.TypeRack, Key: "65537"}
@@ -247,6 +241,7 @@ var _ = Describe("ParentMigration", func() {
 			dropped(mixed, "Mixed", schem),
 			dropped(inProj, "In Project", channel),
 			dropped(b, "B", twoGrps),
+			dropped(nested, "Nested", subProj),
 			dropped(inTasks, "Task Folder", task),
 		))
 	})
@@ -254,47 +249,78 @@ var _ = Describe("ParentMigration", func() {
 	It(
 		"Should keep a member of several groups only in the first group by name",
 		func(ctx SpecContext) {
-			Expect(edges(ctx, db)).To(ContainElements(
-				parentOf(groupID(a), twoGrps),
-				retype(parentOf(groupID(a), twoGrps), v1.RelationshipTypeKept),
-				retype(parentOf(groupID(b), twoGrps), v1.RelationshipTypeDropped),
-			))
+			Expect(edges(ctx, db)).To(ContainElement(parentOf(groupID(a), twoGrps)))
 			Expect(edges(ctx, db)).ToNot(ContainElement(parentOf(groupID(b), twoGrps)))
 		},
 	)
 
 	It(
-		"Should delete the parent edges into groups and mark each dropped member",
+		"Should drop a project from a group under a project",
 		func(ctx SpecContext) {
+			Expect(edges(ctx, db)).
+				ToNot(ContainElement(parentOf(groupID(nested), subProj)))
+		},
+	)
+
+	It("Should stage each removal with the name of its group", func(ctx SpecContext) {
+		var removals []v1.Removal
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			removals, err = v1.RetrieveRemovals(ctx, tx)
+			return err
+		})).To(Succeed())
+		Expect(removals).To(ConsistOf(
+			v1.Removal{
+				GroupName: "Mixed",
+				Member:    channel,
+				Reason:    v1.RemovedWithGroup,
+			},
+			v1.Removal{
+				GroupName: "Mixed",
+				Member:    schem,
+				Reason:    v1.RemovedWithGroup,
+			},
+			v1.Removal{
+				GroupName: "In Project",
+				Member:    channel,
+				Reason:    v1.RemovedUnheld,
+			},
+			v1.Removal{
+				GroupName: "B",
+				Member:    twoGrps,
+				Reason:    v1.RemovedDuplicate,
+			},
+			v1.Removal{
+				GroupName: "Task Folder",
+				Member:    task,
+				Reason:    v1.RemovedWithGroup,
+			},
+			v1.Removal{
+				GroupName: "Nested",
+				Member:    subProj,
+				Reason:    v1.RemovedPinned,
+			},
+		))
+	})
+
+	It(
+		"Should delete the parent edges into groups and the overruled memberships",
+		func(ctx SpecContext) {
+			var parentEdges []ontology.Relationship
+			for _, e := range edges(ctx, db) {
+				if e.Type == ontology.RelationshipTypeParentOf {
+					parentEdges = append(parentEdges, e)
+				}
+			}
 			kept := slices.DeleteFunc(
 				slices.Clone(members),
 				func(e ontology.Relationship) bool {
-					return e == parentOf(groupID(b), twoGrps)
+					return e == parentOf(groupID(b), twoGrps) ||
+						e == parentOf(groupID(nested), subProj)
 				},
 			)
-			Expect(edges(ctx, db)).To(ConsistOf(append(
-				[]ontology.Relationship{
-					toProj,
-					toRanges,
-					inRange,
-					retype(parentOf(groupID(a), twoGrps), v1.RelationshipTypeKept),
-					retype(
-						parentOf(groupID(mixed), channel),
-						v1.RelationshipTypeDropped,
-					),
-					retype(parentOf(groupID(mixed), schem), v1.RelationshipTypeDropped),
-					retype(
-						parentOf(groupID(inProj), channel),
-						v1.RelationshipTypeDropped,
-					),
-					retype(parentOf(groupID(b), twoGrps), v1.RelationshipTypeDropped),
-					retype(
-						parentOf(groupID(inTasks), task),
-						v1.RelationshipTypeDropped,
-					),
-				},
-				kept...,
-			)))
+			Expect(parentEdges).To(ConsistOf(
+				append([]ontology.Relationship{toProj, toRanges, inRange}, kept...),
+			))
 		},
 	)
 })
@@ -302,8 +328,6 @@ var _ = Describe("ParentMigration", func() {
 var _ = Describe("MembersMigration", func() {
 	var (
 		db       *gorp.DB
-		holds    func(*log.Log, *resource.ID) bool
-		dropped  *observer.ObservedLogs
 		root     = v1.Group{Key: uuid.New(), Name: "Logs", Scope: resource.TypeBuiltin}
 		top      = v1.Group{Key: uuid.New(), Name: "Top", Scope: resource.TypeProject}
 		project  = resource.ID{Type: resource.TypeProject, Key: uuid.New().String()}
@@ -322,22 +346,15 @@ var _ = Describe("MembersMigration", func() {
 		}
 		migrate = func(ctx context.Context, projectOwned bool) []log.Log {
 			GinkgoHelper()
-			var core zapcore.Core
-			core, dropped = observer.New(zapcore.WarnLevel)
-			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
-				ZapLogger: zap.New(core),
-			}))
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-				DB:              db,
-				Namespace:       "log",
+				DB:        db,
+				Namespace: "log",
 				Migrations: []gorp.Migration{
 					v1.NewMembersMigration(v1.MembersConfig[log.Key, log.Log]{
 						Name:         "members",
 						Type:         resource.TypeLog,
 						SetGroup:     func(l *log.Log, g v1.Key) { l.Group = &g },
 						ProjectOwned: projectOwned,
-						Holds:        holds,
 					}),
 				},
 			})).To(Succeed())
@@ -354,7 +371,6 @@ var _ = Describe("MembersMigration", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		holds = nil
 		projTop.Parent = &project
 		projLeaf.Parent = new(groupID(projTop.Key))
 		groups := []v1.Group{root, top, projTop, projLeaf, chans}
@@ -391,36 +407,6 @@ var _ = Describe("MembersMigration", func() {
 		"Should leave a member under a group of another scope with no group",
 		func(ctx SpecContext) {
 			Expect(migrate(ctx, false)[4].Group).To(BeNil())
-		},
-	)
-
-	It(
-		"Should leave a member with no group when its group breaks the pin",
-		func(ctx SpecContext) {
-			holds = func(_ *log.Log, top *resource.ID) bool {
-				return top != nil && top.Type == resource.TypeProject
-			}
-			out := migrate(ctx, false)
-			Expect(out[1].Group).To(BeNil())
-			Expect(out[2].Group).To(Equal(&projLeaf.Key))
-			var got []map[string]any
-			for _, e := range dropped.FilterMessage(
-				"dropped a member from a group outside its pinned parent",
-			).All() {
-				got = append(got, e.ContextMap())
-			}
-			Expect(got).To(ConsistOf(map[string]any{
-				"group":      top.Key.String(),
-				"group_name": top.Name,
-				"member":     logID(1).String(),
-			}))
-			Expect(edges(ctx, db)).To(ConsistOf(
-				parentOf(project, logID(3)),
-				retype(
-					parentOf(groupID(top.Key), logID(1)),
-					v1.RelationshipTypeDropped,
-				),
-			))
 		},
 	)
 

@@ -364,14 +364,16 @@ var _ = Describe("Group drop report", func() {
 			var (
 				channels = groupv0.Group{Key: uuid.New(), Name: "Channels"}
 				devices  = groupv0.Group{Key: uuid.New(), Name: "Devices"}
-				// Cryomech sorts before Alpha by key, so a pick by key keeps Cryomech.
+				// Cryomech sorts before alpha by key and by bytes, so only a pick by
+				// name
+				// that ignores case keeps alpha.
 				cryomech = groupv0.Group{
 					Key:  uuid.MustParse("00000000-0000-4000-8000-000000000001"),
 					Name: "Cryomech",
 				}
 				alpha = groupv0.Group{
 					Key:  uuid.MustParse("ffffffff-ffff-4fff-bfff-ffffffffffff"),
-					Name: "Alpha",
+					Name: "alpha",
 				}
 				compressors = groupv0.Group{Key: uuid.New(), Name: "Compressors"}
 				id          = func(g groupv0.Group) resource.ID {
@@ -457,9 +459,9 @@ var _ = Describe("Group drop report", func() {
 					name:    "Cryomech",
 					message: "Removed channel from group",
 					description: `A channel can now be in only one group, so the ` +
-						`upgrade kept channel "oil_temp" in group "Alpha", the first ` +
-						`of its groups by name, and removed it from group ` +
-						`"Cryomech". Drag the channel into "Cryomech" to move it back.`,
+						`upgrade removed channel "oil_temp" from group "Cryomech". It ` +
+						`kept the channel in the group that comes first by name. Drag ` +
+						`the channel into "Cryomech" to move it back.`,
 				},
 				report{
 					name:    "Compressors",

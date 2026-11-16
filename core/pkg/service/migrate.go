@@ -13,17 +13,16 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -55,131 +54,104 @@ var ontologyDropMigration = migrate.New(
 	},
 )
 
-// newGroupDropReport returns a migration that writes a warning status for each member
-// that the group migrations removed from a group. It must run after the member
-// migrations and before ontologyDropMigration and the built-in group deletion.
-func newGroupDropReport(
+// removalDescriptions writes the description of a removal status for each reason a
+// migration removes a member from a group, given the member's type, the member's name,
+// and the group's name.
+var removalDescriptions = map[ontology.RelationshipType]func(
+	noun, member, group string,
+) string{
+	groupv1.RemovedDuplicate: func(noun, member, group string) string {
+		return fmt.Sprintf(
+			"A %[1]s can now be in only one group, so the upgrade removed %[1]s %[2]q "+
+				"from group %[3]q. It kept the %[1]s in the group that comes first by "+
+				"name. Drag the %[1]s into %[3]q to move it back.",
+			noun, member, group,
+		)
+	},
+	groupv1.RemovedUnheld: func(noun, member, group string) string {
+		return fmt.Sprintf(
+			"The upgrade removed %[1]s %[2]q from group %[3]q, because that group "+
+				"cannot hold a %[1]s.",
+			noun, member, group,
+		)
+	},
+	groupv1.RemovedPinned: func(noun, member, group string) string {
+		return fmt.Sprintf(
+			"The upgrade removed %[1]s %[2]q from group %[3]q, because a %[1]s cannot "+
+				"be in a group inside a project or rack.",
+			noun, member, group,
+		)
+	},
+	groupv1.RemovedWithGroup: func(noun, member, group string) string {
+		return fmt.Sprintf(
+			"The upgrade deleted group %[3]q, so %[1]s %[2]q is no longer in it.",
+			noun, member, group,
+		)
+	},
+	groupv1.RemovedRackless: func(noun, member, group string) string {
+		return fmt.Sprintf(
+			"The upgrade removed %[1]s %[2]q from group %[3]q, because the rack of the "+
+				"%[1]s does not exist.",
+			noun,
+			member,
+			group,
+		)
+	},
+}
+
+// newGroupRemovalReport returns a migration that writes a warning status for each
+// member that the group migrations removed from a group. It must run before
+// ontologyDropMigration.
+func newGroupRemovalReport(
 	res *resource.Service,
-	groups *group.Service,
 	statuses *status.Service,
 ) gorp.Migration {
 	return migrate.New(
-		"v61_report_dropped_group_members",
+		"v61_report_group_removals",
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-			return reportGroupDrops(ctx, tx, res, groups, statuses)
+			removals, err := groupv1.RetrieveRemovals(ctx, tx)
+			if err != nil || len(removals) == 0 {
+				return err
+			}
+			var ids []resource.ID
+			for _, r := range removals {
+				if res.Provides(r.Member.Type) {
+					ids = append(ids, r.Member)
+				}
+			}
+			found, err := res.Retrieve(ctx, tx, ids...)
+			if err != nil {
+				return err
+			}
+			names := make(map[resource.ID]string, len(found))
+			for _, r := range found {
+				names[r.ID] = r.Name
+			}
+			w := statuses.NewWriter(tx)
+			for _, r := range removals {
+				name, ok := names[r.Member]
+				if !ok {
+					continue
+				}
+				describe, ok := removalDescriptions[r.Reason]
+				if !ok {
+					return errors.Newf("no description for group removal %q", r.Reason)
+				}
+				noun := strings.ReplaceAll(string(r.Member.Type), "_", " ")
+				s := status.Status[any]{
+					Name:        r.GroupName,
+					Variant:     status.VariantWarning,
+					Message:     fmt.Sprintf("Removed %s from group", noun),
+					Description: describe(noun, name, r.GroupName),
+					Time:        telem.Now(),
+				}
+				if err = w.Set(ctx, &s); err != nil {
+					return err
+				}
+			}
+			return nil
 		},
 	)
-}
-
-func reportGroupDrops(
-	ctx context.Context,
-	tx gorp.Tx,
-	res *resource.Service,
-	groups *group.Service,
-	statuses *status.Service,
-) error {
-	staged, err := ontology.RetrieveRelationships(
-		ctx,
-		tx,
-		func(r ontology.Relationship) bool {
-			return r.Type == groupv1.RelationshipTypeDropped ||
-				r.Type == groupv1.RelationshipTypeKept
-		},
-	)
-	if err != nil || len(staged) == 0 {
-		return err
-	}
-	var (
-		dropped []ontology.Relationship
-		kept    = make(map[resource.ID]resource.ID)
-		ids     []resource.ID
-		keys    []group.Key
-	)
-	for _, r := range staged {
-		if r.Type == groupv1.RelationshipTypeKept {
-			kept[r.To] = r.From
-		} else {
-			dropped = append(dropped, r)
-		}
-		if res.Provides(r.To.Type) {
-			ids = append(ids, r.To)
-		}
-		key, err := uuid.Parse(r.From.Key)
-		if err != nil {
-			return err
-		}
-		keys = append(keys, key)
-	}
-	found, err := res.Retrieve(ctx, tx, ids...)
-	if err != nil {
-		return err
-	}
-	names := make(map[resource.ID]string, len(found))
-	for _, r := range found {
-		names[r.ID] = r.Name
-	}
-	var gs []group.Group
-	if err = groups.NewRetrieve().
-		Where(group.MatchKeys(keys...)).
-		Entries(&gs).
-		Exec(ctx, tx); err != nil {
-		return err
-	}
-	byID := make(map[resource.ID]group.Group, len(gs))
-	for _, g := range gs {
-		byID[g.ResourceID()] = g
-	}
-	w := statuses.NewWriter(tx)
-	for _, r := range dropped {
-		name, ok := names[r.To]
-		if !ok {
-			continue
-		}
-		g, ok := byID[r.From]
-		k, isKept := kept[r.To]
-		noun := strings.ReplaceAll(string(r.To.Type), "_", " ")
-		var description string
-		switch {
-		case !ok:
-			description = fmt.Sprintf(
-				"The upgrade deleted a group that held %[1]s %[2]q, so the %[1]s is "+
-					"no longer in it.",
-				noun, name,
-			)
-		case g.Scope == resource.TypeBuiltin:
-			description = fmt.Sprintf(
-				"The upgrade deleted group %[3]q, so %[1]s %[2]q is no longer in it.",
-				noun, name, g.Name,
-			)
-		case isKept:
-			description = fmt.Sprintf(
-				"A %[1]s can now be in only one group, so the upgrade kept %[1]s %[2]q "+
-					"in group %[3]q, the first of its groups by name, and removed it "+
-					"from group %[4]q. Drag the %[1]s into %[4]q to move it back.",
-				noun,
-				name,
-				byID[k].Name,
-				g.Name,
-			)
-		default:
-			description = fmt.Sprintf(
-				"The upgrade removed %[1]s %[2]q from group %[3]q, because that "+
-					"group cannot hold a %[1]s.",
-				noun, name, g.Name,
-			)
-		}
-		s := status.Status[any]{
-			Name:        g.Name,
-			Variant:     status.VariantWarning,
-			Message:     fmt.Sprintf("Removed %s from group", noun),
-			Description: description,
-			Time:        telem.Now(),
-		}
-		if err = w.Set(ctx, &s); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // ontologyChannelNames are the internal channels the Core announced ontology changes
