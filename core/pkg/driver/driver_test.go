@@ -756,13 +756,14 @@ var _ = Describe("restart", func() {
 		},
 	)
 
-	It(
+	DescribeTable(
 		"Should restart a Driver that crashes before its first log line",
-		func(ctx SpecContext) {
+		func(ctx SpecContext, detached bool) {
 			Expect(os.Setenv("MOCK_CRASH_BANNER", "1")).To(Succeed())
 			defer func() { Expect(os.Unsetenv("MOCK_CRASH_BANNER")).To(Succeed()) }()
 			logger, _ := newTestLogger()
 			Expect(driver.Open(ctx, mockConfig(logger), driver.Config{
+				Detached:            new(detached),
 				StartTimeout:        time.Minute,
 				StopTimeout:         500 * time.Millisecond,
 				RestartBaseInterval: time.Millisecond,
@@ -774,6 +775,8 @@ var _ = Describe("restart", func() {
 				)),
 			))
 		},
+		Entry("attached", false),
+		Entry("detached", true),
 	)
 
 	It("Should launch the same binary after a restart", func(ctx SpecContext) {

@@ -161,8 +161,8 @@ func (c Config) format(apiKey string) map[string]any {
 }
 
 // ErrNotLoaded marks the error of a Driver that exited before any of its processes
-// printed a first log line, such as one the dynamic loader refuses. A restart cannot
-// fix it.
+// printed a first log line or crash dump, such as one the dynamic loader refuses. A
+// restart cannot fix it.
 var ErrNotLoaded = errors.New("embedded Driver did not load")
 
 var (
@@ -299,8 +299,8 @@ type Driver struct {
 	// closeErr stores the result of the single close() invocation for subsequent Close
 	// calls to return.
 	closeErr error
-	// running is closed once a Driver process prints its first log line or crash dump,
-	// which shows that it loaded.
+	// running is closed once a Driver process prints its first log line, which shows
+	// that it loaded.
 	running     chan struct{}
 	runningOnce sync.Once
 	// lastErr holds the last error that the latest Driver process printed before it
@@ -499,7 +499,17 @@ func (d *Driver) runOnce(
 	var (
 		stdoutErr, stderrErr string
 		reads                sync.WaitGroup
+		// crashed is set when this run prints a crash dump before its first log line.
+		// The crash shows that it loaded, but a detached Open must not return on it.
+		crashed atomic.Bool
 	)
+	onLoaded := func(crash bool) {
+		if crash {
+			crashed.Store(true)
+		} else {
+			d.markRunning()
+		}
+	}
 	reads.Add(2)
 	internalSCtx.Go(func(context.Context) error {
 		stdoutErr = log.PipeToLogger(
@@ -507,7 +517,7 @@ func (d *Driver) runOnce(
 			d.cfg.L,
 			d.started,
 			startedOnce,
-			d.markRunning,
+			onLoaded,
 		)
 		reads.Done()
 		return nil
@@ -522,7 +532,7 @@ func (d *Driver) runOnce(
 			d.cfg.L,
 			d.started,
 			startedOnce,
-			d.markRunning,
+			onLoaded,
 		)
 		reads.Done()
 		return nil
@@ -545,7 +555,7 @@ func (d *Driver) runOnce(
 		d.lastErr.Store(&output)
 		err = errors.Wrap(err, output)
 	}
-	if !expected && !d.loaded() {
+	if !expected && !d.loaded() && !crashed.Load() {
 		if err == nil {
 			err = errors.New("exited")
 		}
