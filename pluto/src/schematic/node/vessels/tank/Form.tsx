@@ -26,16 +26,19 @@ import { Properties } from "@/vis/properties";
 const path = deep.path<schematic.TankNodeConfig>();
 const boxPath = deep.path<schematic.BoxNodeConfig>();
 
-const BoxBorderRadiusInput = Component.renderProp(
-  ({ value, onChange }: Input.Control<number | undefined>): ReactElement => (
-    <Input.Numeric
-      value={value ?? Border.DEFAULT_BOX_RADIUS}
-      onChange={onChange}
-      {...Form.DIMENSIONS_INPUT_PROPS}
-      integer
-    />
-  ),
+const BoxBorderRadiusNumeric = ({
+  value,
+  onChange,
+}: Input.Control<number | undefined>): ReactElement => (
+  <Input.Numeric
+    value={value ?? Border.DEFAULT_BOX_RADIUS}
+    onChange={onChange}
+    {...Form.DIMENSIONS_INPUT_PROPS}
+    integer
+  />
 );
+
+const BoxBorderRadiusInput = Component.renderProp(BoxBorderRadiusNumeric);
 
 export interface TankFormProps extends NodeFormProps {
   showBorderRadius?: boolean;
