@@ -2243,6 +2243,8 @@ TEST_F(TaskManagerTest, DeleteDropsStatusFromResend) {
 }
 
 #ifndef _WIN32
+const std::string STOP_CMD_TYPE = "stop";
+
 /// @returns the states of the instances that f built, in build order.
 template<typename F>
 std::vector<std::shared_ptr<TrackingTaskState>> built(F &f) {
@@ -2405,7 +2407,7 @@ class RunningTaskFactory final : public Factory {
         void exec(synnax::task::Command &cmd) override {
             ++this->state->exec_count;
             if (cmd.type == synnax::task::START_CMD_TYPE) this->running = true;
-            if (cmd.type == synnax::task::STOP_CMD_TYPE) this->running = false;
+            if (cmd.type == STOP_CMD_TYPE) this->running = false;
             report(this->ctx, this->key, this->running, cmd.key);
         }
 
@@ -2522,10 +2524,7 @@ TEST_F(TaskManagerTest, OperatorStoppedTaskStaysStoppedAcrossALostConnection) {
     start_piped_manager(std::move(factory));
     ASSERT_TRUE(wait_for_run(1));
     ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
-    send_cmd(
-        client,
-        {.task = task.key, .type = synnax::task::STOP_CMD_TYPE, .key = "stop-cmd"}
-    );
+    send_cmd(client, {.task = task.key, .type = STOP_CMD_TYPE, .key = "stop-cmd"});
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.details.cmd == "stop-cmd";
     });
