@@ -126,7 +126,19 @@ telem::SampleValue parse_rfc3339(const std::string &input) {
                                   static_cast<int64_t>(hour * 3600) +
                                   static_cast<int64_t>(minute * 60) + second -
                                   tz_offset_seconds;
-    return telem::SampleValue(telem::TimeStamp(total_seconds * 1000000000 + frac_ns));
+    // A negative time carries its fraction below zero, so whole * NS + part cannot
+    // pass the int64_t range on the way to its result.
+    constexpr int64_t NS = 1000000000;
+    constexpr int64_t MAX = std::numeric_limits<int64_t>::max();
+    constexpr int64_t MIN = std::numeric_limits<int64_t>::min();
+    const bool negative = total_seconds < 0;
+    const int64_t whole = negative ? total_seconds + 1 : total_seconds;
+    const int64_t part = negative ? frac_ns - NS : frac_ns;
+    if (whole > MAX / NS || whole < MIN / NS ||
+        (whole == MAX / NS && part > MAX % NS) ||
+        (whole == MIN / NS && part < MIN % NS))
+        iso_err("outside the range of a timestamp");
+    return telem::SampleValue(telem::TimeStamp(whole * NS + part));
 }
 
 template<typename T>
