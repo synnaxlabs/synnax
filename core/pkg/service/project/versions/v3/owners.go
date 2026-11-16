@@ -45,7 +45,8 @@ type OwnersConfig[K gorp.Key, E gorp.Entry[K]] struct {
 // counts as no edge. The migration deletes the converted edges, then deletes each
 // visualization with no owner along with its ontology resource and edges, and logs a
 // warning for each. It checks only that a project or range key is stored, so it is
-// correct for any stored shape of either.
+// correct for any stored shape of either. The project and range tables must open and
+// migrate first.
 func NewOwnersMigration[K gorp.Key, E gorp.Entry[K]](
 	cfg OwnersConfig[K, E],
 ) gorp.Migration {
