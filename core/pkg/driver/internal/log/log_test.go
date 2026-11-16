@@ -67,7 +67,7 @@ func pipeAndCollect(
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		log.PipeToLogger(r, logger, started, startedOnce)
+		log.PipeToLogger(r, logger, started, startedOnce, nil)
 	}()
 	MustSucceed(w.Write([]byte(input)))
 	Expect(w.Close()).To(Succeed())
@@ -255,11 +255,11 @@ var _ = Describe("PipeToLogger", func() {
 				done2 := make(chan struct{})
 				go func() {
 					defer close(done1)
-					log.PipeToLogger(r1, logger, started, once)
+					log.PipeToLogger(r1, logger, started, once, nil)
 				}()
 				go func() {
 					defer close(done2)
-					log.PipeToLogger(r2, logger, started, once)
+					log.PipeToLogger(r2, logger, started, once, nil)
 				}()
 				MustSucceed(w1.Write([]byte(
 					"I20260208 14:34:22.000000 0x16d327000 rack.cpp:200] started successfully\n",
@@ -291,7 +291,7 @@ var _ = Describe("PipeToLogger", func() {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			log.PipeToLogger(r, logger, nil, nil)
+			log.PipeToLogger(r, logger, nil, nil, nil)
 		}()
 		Expect(w.Close()).To(Succeed())
 		Eventually(done).Should(BeClosed())
@@ -301,7 +301,7 @@ var _ = Describe("PipeToLogger", func() {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			log.PipeToLogger(errClosedReader{}, logger, nil, nil)
+			log.PipeToLogger(errClosedReader{}, logger, nil, nil, nil)
 		}()
 		Eventually(done).Should(BeClosed())
 		Expect(buffer.String()).ToNot(ContainSubstring("ERROR"))
@@ -315,8 +315,39 @@ var _ = Describe("PipeToLogger", func() {
 				logger,
 				nil,
 				nil,
+				nil,
 			)
 		}
+
+		It("Should report running on the first formatted line only", func() {
+			calls := 0
+			log.PipeToLogger(
+				io.NopCloser(strings.NewReader(
+					"driver: loading\n"+
+						"I20260208 14:34:21.000000 0x1 rack.cpp:50] first\n"+
+						"I20260208 14:34:21.000000 0x1 rack.cpp:51] second\n",
+				)),
+				logger,
+				nil,
+				nil,
+				func() { calls++ },
+			)
+			Expect(calls).To(Equal(1))
+		})
+
+		It("Should not report running for a loader error", func() {
+			calls := 0
+			log.PipeToLogger(
+				io.NopCloser(strings.NewReader(
+					"driver: version `GLIBC_2.39' not found\n",
+				)),
+				logger,
+				nil,
+				nil,
+				func() { calls++ },
+			)
+			Expect(calls).To(BeZero())
+		})
 
 		It("Should return the message of the last error line", func() {
 			Expect(lastError(
@@ -463,7 +494,7 @@ var _ = Describe("PipeToLogger", func() {
 			done := make(chan struct{})
 			go func() {
 				defer close(done)
-				log.PipeToLogger(r, l, nil, nil)
+				log.PipeToLogger(r, l, nil, nil, nil)
 			}()
 			MustSucceed(w.Write([]byte(input)))
 			Expect(w.Close()).To(Succeed())

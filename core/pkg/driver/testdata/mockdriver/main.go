@@ -88,6 +88,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	// The real Driver logs before it registers its rack.
+	fmt.Fprintln(os.Stdout, "I [mock] [main.go] loaded")
+
 	if os.Getenv("MOCK_FAIL_START") == "1" {
 		fmt.Fprintln(os.Stdout, "E [mock] [main.go] startup failure")
 		os.Exit(1)

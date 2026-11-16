@@ -94,6 +94,8 @@ func ParseLine(line, prevCaller string) ParsedLine {
 // encountered, startedOnce is used to safely close the started channel exactly
 // once, even when multiple goroutines call PipeToLogger concurrently.
 //
+// PipeToLogger calls onRunning, if it is not nil, on the first formatted line.
+//
 // PipeToLogger returns the last error the stream carried, or "" if there was none: an
 // error or fatal line, the banner of a crash dump, or a line written before the first
 // formatted line, such as a dynamic loader error.
@@ -102,6 +104,7 @@ func PipeToLogger(
 	logger *alamos.Logger,
 	started chan<- struct{},
 	startedOnce *sync.Once,
+	onRunning func(),
 ) string {
 	var (
 		caller    string
@@ -145,6 +148,9 @@ func PipeToLogger(
 		}
 		p := ParseLine(line, caller)
 		if isFormatted(line) {
+			if !formatted && onRunning != nil {
+				onRunning()
+			}
 			formatted = true
 		} else if !formatted {
 			lastErr = strings.Clone(strings.TrimSpace(line))

@@ -293,6 +293,10 @@ type Driver struct {
 	// closeErr stores the result of the single close() invocation for subsequent Close
 	// calls to return.
 	closeErr error
+	// running is closed once a Driver process prints its first log line, which shows
+	// that it loaded.
+	running     chan struct{}
+	runningOnce sync.Once
 	// lastErr holds the last error that the latest Driver process printed before it
 	// exited on its own, so a start that times out names why.
 	lastErr atomic.Pointer[string]
@@ -307,7 +311,12 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	if err != nil {
 		return nil, err
 	}
-	d := &Driver{cfg: cfg, started: make(chan struct{}), failed: make(chan error, 1)}
+	d := &Driver{
+		cfg:     cfg,
+		started: make(chan struct{}),
+		running: make(chan struct{}),
+		failed:  make(chan error, 1),
+	}
 	if !d.enabled() {
 		if !*cfg.Enabled {
 			cfg.L.Info("embedded Driver disabled")
@@ -355,11 +364,14 @@ func (d *Driver) start(ctx context.Context) error {
 		d.failed <- err
 		return err
 	})
+	// A detached Driver cannot register its rack yet, so it never reports a start.
+	// Open waits only until it runs, which a Driver that cannot load never does.
+	ready := d.started
 	if *d.cfg.Detached {
-		return nil
+		ready = d.running
 	}
 	select {
-	case <-d.started:
+	case <-ready:
 		return nil
 	case err := <-d.failed:
 		if err == nil {
@@ -419,6 +431,8 @@ func (d *Driver) supervise(ctx context.Context, policy *restart.Policy) error {
 	}
 }
 
+func (d *Driver) markRunning() { d.runningOnce.Do(func() { close(d.running) }) }
+
 // runOnce launches the Driver subprocess, pipes its output, and blocks until it exits.
 // Its deferred temp-file and context cleanup run before it returns, so a supervisor
 // that calls runOnce in a loop neither accumulates cleanups nor grows its stack per
@@ -464,7 +478,13 @@ func (d *Driver) runOnce(
 
 	var stdoutErr, stderrErr string
 	internalSCtx.Go(func(context.Context) error {
-		stdoutErr = log.PipeToLogger(stdoutPipe, d.cfg.L, d.started, startedOnce)
+		stdoutErr = log.PipeToLogger(
+			stdoutPipe,
+			d.cfg.L,
+			d.started,
+			startedOnce,
+			d.markRunning,
+		)
 		return nil
 	},
 		signal.WithKey("stdout_pipe"),
@@ -472,7 +492,13 @@ func (d *Driver) runOnce(
 		signal.WithRetryOnPanic(),
 	)
 	internalSCtx.Go(func(context.Context) error {
-		stderrErr = log.PipeToLogger(stderrPipe, d.cfg.L, d.started, startedOnce)
+		stderrErr = log.PipeToLogger(
+			stderrPipe,
+			d.cfg.L,
+			d.started,
+			startedOnce,
+			d.markRunning,
+		)
 		return nil
 	},
 		signal.WithKey("stderr_pipe"),

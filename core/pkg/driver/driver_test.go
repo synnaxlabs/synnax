@@ -177,6 +177,22 @@ var _ = Describe("Open", func() {
 		)
 
 		It(
+			"Should fail when detached and the Driver cannot load",
+			func(ctx SpecContext) {
+				Expect(os.Setenv("MOCK_LOADER_ERROR", "1")).To(Succeed())
+				defer func() { Expect(os.Unsetenv("MOCK_LOADER_ERROR")).To(Succeed()) }()
+				logger, _ := newTestLogger()
+				Expect(driver.Open(ctx, mockConfig(logger), driver.Config{
+					Detached:     new(true),
+					StartTimeout: 500 * time.Millisecond,
+					StopTimeout:  500 * time.Millisecond,
+				})).Error().To(MatchError(ContainSubstring(
+					"embedded Driver did not start: driver: version `GLIBC_2.39' not found",
+				)))
+			},
+		)
+
+		It(
 			"Should name the error the Driver printed when it crashes on startup",
 			func(ctx SpecContext) {
 				Expect(os.Setenv("MOCK_FAIL_START", "1")).To(Succeed())
