@@ -181,10 +181,6 @@ func Start() (err error) {
 // Stop stops the Core service and waits until the Core exits. It does nothing when the
 // service is not running.
 func Stop() (err error) {
-	timeout, err := stopTimeout()
-	if err != nil {
-		return err
-	}
 	m, err := mgr.Connect()
 	if err != nil {
 		return errors.Wrap(
@@ -221,6 +217,10 @@ func Stop() (err error) {
 		if st, err = s.Control(svc.Stop); err != nil {
 			return errors.Wrap(err, "failed to stop service")
 		}
+	}
+	timeout, err := stopTimeout()
+	if err != nil {
+		return err
 	}
 	deadline := time.Now().Add(timeout)
 	for st.State != svc.Stopped {
