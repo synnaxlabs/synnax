@@ -50,7 +50,8 @@ TEST(WriterTest, RewrittenFrameReachesBusOnce) {
             server,
             bus,
             std::make_shared<control::States>(),
-            0
+            0,
+            ForwarderConfig{.breaker = {.base_interval = x::telem::MICROSECOND * 10}}
         ),
         synnax::framer::WriterConfig{.channels = {1}},
         std::make_shared<CountingSource>(),
@@ -154,6 +155,7 @@ TEST(WriterTest, InjectsGroupIntoWriterConfig) {
     auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 77);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
+    ASSERT_EVENTUALLY_EQ(mock_factory->writer_opens.load(), 1);
     ASSERT_EQ(mock_factory->config.subject.group, 77);
 }
 
@@ -166,6 +168,7 @@ TEST(WriterTest, DoesNotOverrideExistingGroup) {
         .channels = {1},
         .subject = x::control::Subject{"w", "w", 99},
     }));
+    ASSERT_EVENTUALLY_EQ(mock_factory->writer_opens.load(), 1);
     ASSERT_EQ(mock_factory->config.subject.group, 99);
 }
 
@@ -175,6 +178,7 @@ TEST(WriterTest, DoesNotInjectGroupWhenZero) {
     auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
+    ASSERT_EVENTUALLY_EQ(mock_factory->writer_opens.load(), 1);
     ASSERT_EQ(mock_factory->config.subject.group, 0);
 }
 
@@ -426,6 +430,33 @@ TEST(WriterTest, SetAuthorityRetriesAfterAnUnreachableCore) {
     ASSERT_NIL(writer->set_authority({.keys = {1}, .authorities = {200}}));
     ASSERT_TRUE(states->is_authorized(1, {"arc", "arc-1"}));
     ASSERT_EVENTUALLY_EQ(mock_factory->authority_changes->size(), 2);
+    ASSERT_EQ(mock_factory->writer_opens.load(), 2);
+    ASSERT_NIL(writer->close());
+}
+
+/// @brief it should reopen the Core writer with the authorities it last set.
+TEST(WriterTest, ReopensWithTheAuthoritiesInEffect) {
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{freighter::UNREACHABLE},
+        std::vector<int>{0}
+    );
+    WriterFactory factory(
+        mock_factory,
+        bus,
+        states,
+        0,
+        {.breaker = {.base_interval = x::telem::MICROSECOND}}
+    );
+    auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
+    ASSERT_NIL(writer->set_authority({.keys = {1}, .authorities = {200}}));
+    x::telem::Frame frame;
+    frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
+    ASSERT_NIL(writer->write(frame));
+    ASSERT_EVENTUALLY_EQ(mock_factory->writes->size(), 1);
     ASSERT_EQ(mock_factory->writer_opens.load(), 2);
     ASSERT_EQ(
         mock_factory->config.authorities,
