@@ -26,6 +26,9 @@ type index struct {
 	alamos.Instrumentation
 	mu struct {
 		pointers []pointer
+		// staged holds, by domain start, the domains that a commit in a Group changed.
+		// It is empty when no writer of a Group is open.
+		staged map[telem.TimeStamp]staged
 		sync.RWMutex
 	}
 	// persistHead is the position of the first pointer that the index file may not
@@ -35,12 +38,80 @@ type index struct {
 	totalSize   *atomic.Int64
 }
 
-// insert adds a new pointer to the index. When persist is true, the caller must persist
-// the returned write.
+// unprotectedStage records the domain at p.Start as readers see it until g publishes.
+// old is the pointer that the commit replaced, and is not set for an insert. A nil g
+// makes the domain visible at once.
+func (idx *index) unprotectedStage(p pointer, old *pointer, g *Group) {
+	prev, wasStaged := idx.mu.staged[p.Start]
+	if g == nil {
+		if wasStaged {
+			delete(idx.mu.staged, p.Start)
+		}
+		return
+	}
+	s := staged{group: g, publish: g.published.Load() + 1, inserted: old == nil}
+	if old != nil {
+		s.end, s.size = old.End, old.size
+		// Readers still see the domain as it was before an earlier unpublished commit.
+		if wasStaged && !prev.visible() {
+			s.inserted, s.end, s.size = prev.inserted, prev.end, prev.size
+		}
+	}
+	if idx.mu.staged == nil {
+		idx.mu.staged = make(map[telem.TimeStamp]staged)
+	}
+	idx.mu.staged[p.Start] = s
+}
+
+// unstage makes the domain that starts at start visible to readers as the index holds
+// it. The caller must not hold mu.
+func (idx *index) unstage(start telem.TimeStamp) {
+	idx.mu.Lock()
+	delete(idx.mu.staged, start)
+	idx.mu.Unlock()
+}
+
+// unprotectedVisible returns the first domain that readers see, from position i in the
+// direction of step, as readers see it.
+func (idx *index) unprotectedVisible(i, step int) (int, pointer, bool) {
+	for ; i >= 0 && i < len(idx.mu.pointers); i += step {
+		ptr := idx.mu.pointers[i]
+		if len(idx.mu.staged) == 0 {
+			return i, ptr, true
+		}
+		s, ok := idx.mu.staged[ptr.Start]
+		if !ok || s.visible() {
+			return i, ptr, true
+		}
+		if !s.inserted {
+			ptr.End, ptr.size = s.end, s.size
+			return i, ptr, true
+		}
+	}
+	return i, pointer{}, false
+}
+
+// notifyHistoryChangeAfter reports a history change over tr once g publishes, or at
+// once for a nil g.
+func (idx *index) notifyHistoryChangeAfter(
+	ctx context.Context,
+	tr telem.TimeRange,
+	g *Group,
+) {
+	if g == nil {
+		idx.notifyHistoryChange(ctx, tr)
+		return
+	}
+	g.changes = append(g.changes, func() { idx.notifyHistoryChange(ctx, tr) })
+}
+
+// insert adds a new pointer to the index, in g when g is not nil. When persist is true,
+// the caller must persist the returned write.
 func (idx *index) insert(
 	ctx context.Context,
 	p pointer,
 	persist bool,
+	g *Group,
 ) (preparedWrite, error) {
 	_, span := idx.T.Bench(ctx, "domain/index.insert")
 	idx.mu.Lock()
@@ -82,6 +153,7 @@ func (idx *index) insert(
 		idx.mu.pointers = slices.Insert(idx.mu.pointers, insertAt, p)
 	}
 
+	idx.unprotectedStage(p, nil, g)
 	idx.totalSize.Add(int64(p.size))
 	idx.persistHead = min(idx.persistHead, insertAt)
 	var write preparedWrite
@@ -91,7 +163,7 @@ func (idx *index) insert(
 	idx.mu.Unlock()
 	// The live stream carries domains added at the end.
 	if !appended {
-		idx.notifyHistoryChange(ctx, p.TimeRange)
+		idx.notifyHistoryChangeAfter(ctx, p.TimeRange, g)
 	}
 	return write, nil
 }
@@ -134,12 +206,13 @@ func (idx *index) timeRange() telem.TimeRange {
 	return idx.mu.pointers[0].Start.Range(idx.mu.pointers[len(idx.mu.pointers)-1].End)
 }
 
-// update replaces the pointer that starts at p.Start. When persist is true, the caller
-// must persist the returned write.
+// update replaces the pointer that starts at p.Start, in g when g is not nil. When
+// persist is true, the caller must persist the returned write.
 func (idx *index) update(
 	ctx context.Context,
 	p pointer,
 	persist bool,
+	g *Group,
 ) (preparedWrite, error) {
 	_, span := idx.T.Bench(ctx, "domain/index.update")
 	idx.mu.Lock()
@@ -184,6 +257,7 @@ func (idx *index) update(
 	} else {
 		sizeDelta := int64(p.size) - int64(oldP.size)
 		idx.mu.pointers[updateAt] = p
+		idx.unprotectedStage(p, &oldP, g)
 		idx.totalSize.Add(sizeDelta)
 	}
 
@@ -195,7 +269,7 @@ func (idx *index) update(
 	idx.mu.Unlock()
 	// The live stream carries commits to the last domain.
 	if updateAt != lastI {
-		idx.notifyHistoryChange(ctx, oldP.End.Range(p.End))
+		idx.notifyHistoryChangeAfter(ctx, oldP.End.Range(p.End), g)
 	}
 	return write, nil
 }
@@ -224,7 +298,7 @@ func (idx *index) searchLE(
 	_, span := idx.T.Bench(ctx, "domain/index.searchLE")
 	idx.read(func() {
 		i, _ = idx.unprotectedSearch(ts.SpanRange(0))
-		ptr, ok = idx.unprotectedGet(i)
+		i, ptr, ok = idx.unprotectedVisible(i, -1)
 	})
 	span.End()
 	return i, ptr, ok
@@ -246,7 +320,12 @@ func (idx *index) searchGE(
 				i += 1
 			}
 		}
-		ptr, ok = idx.unprotectedGet(i)
+		at := i
+		i, ptr, ok = idx.unprotectedVisible(i, 1)
+		// Readers do not see the part of the domain that holds ts yet.
+		if ok && exact && i == at && !ptr.End.After(ts) {
+			i, ptr, ok = idx.unprotectedVisible(i+1, 1)
+		}
 	})
 	span.End()
 	return i, ptr, ok
@@ -289,7 +368,7 @@ func (idx *index) next(end telem.TimeStamp) (i int, ptr pointer, ok bool) {
 		if !exact || idx.mu.pointers[i].Start != end {
 			i++
 		}
-		ptr, ok = idx.unprotectedGet(i)
+		i, ptr, ok = idx.unprotectedVisible(i, 1)
 	})
 	return i, ptr, ok
 }
@@ -303,16 +382,9 @@ func (idx *index) prev(start telem.TimeStamp) (i int, ptr pointer, ok bool) {
 		if i, exact = idx.unprotectedSearch(start.SpanRange(0)); exact {
 			i--
 		}
-		ptr, ok = idx.unprotectedGet(i)
+		i, ptr, ok = idx.unprotectedVisible(i, -1)
 	})
 	return i, ptr, ok
-}
-
-func (idx *index) unprotectedGet(i int) (pointer, bool) {
-	if i < 0 || i >= len(idx.mu.pointers) {
-		return pointer{}, false
-	}
-	return idx.mu.pointers[i], true
 }
 
 func (idx *index) read(f func()) {
@@ -326,5 +398,6 @@ func (idx *index) close() error {
 	defer idx.mu.Unlock()
 
 	idx.mu.pointers = nil
+	idx.mu.staged = nil
 	return idx.indexPersist.Close()
 }
