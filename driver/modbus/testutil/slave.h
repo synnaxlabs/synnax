@@ -63,6 +63,14 @@ struct SlaveConfig {
     bool serial = false;
 };
 
+/// @brief a frame that a slave sends in place of a reply.
+struct Answer {
+    /// @brief the unit, function code, and data of the frame.
+    std::vector<uint8_t> raw;
+    /// @brief added to the transaction ID of the request.
+    int tid_offset = 0;
+};
+
 /// @brief A simple mock Modbus slave server using libmodbus
 class Slave {
     modbus_t *ctx;
@@ -87,6 +95,9 @@ class Slave {
     std::condition_variable stalled_cv;
     /// @brief the units whose next reply goes out damaged. Guarded by mu.
     std::set<int> damaged;
+    /// @brief the frame that goes out in place of the next reply to each unit. Guarded
+    /// by mu.
+    std::map<int, Answer> answers;
     /// @brief the number of client connections accepted. Guarded by mu.
     std::size_t accepted_connections = 0;
     /// @brief set to ask the server loop to close every client connection.
@@ -266,6 +277,18 @@ class Slave {
         requests_by_unit[unit]++;
         request_log.push_back(function_code);
         if (this->config.silent_units.contains(unit)) return;
+        if (const auto it = this->answers.find(unit); it != this->answers.end()) {
+            const auto &[raw, tid_offset] = it->second;
+            const int tid = this->config.serial ? 0 : (query[0] << 8 | query[1]);
+            modbus_send_raw_request_tid(
+                ctx,
+                raw.data(),
+                static_cast<int>(raw.size()),
+                tid + tid_offset
+            );
+            this->answers.erase(it);
+            return;
+        }
         const auto reply = [&] {
             if (this->config.gateway_failed_units.contains(unit))
                 modbus_reply_exception(ctx, query, MODBUS_EXCEPTION_GATEWAY_TARGET);
@@ -537,6 +560,15 @@ public:
     void damage_next(const int unit) {
         std::lock_guard lock(mu);
         this->damaged.insert(unit);
+    }
+
+    /// @brief answers the next request to the unit with raw, a unit and a PDU, in place
+    /// of its reply. A TCP frame carries the transaction ID of the request plus
+    /// tid_offset.
+    void
+    answer_next(const int unit, std::vector<uint8_t> raw, const int tid_offset = 0) {
+        std::lock_guard lock(mu);
+        this->answers[unit] = {std::move(raw), tid_offset};
     }
 
     /// @brief sets whether the slave answers the unit.

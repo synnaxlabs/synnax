@@ -245,6 +245,47 @@ TEST(RTU, DemotesSilentUnitWhileOthersAnswer) {
     ASSERT_NIL(live->read_registers(device::HoldingRegister, 0, 1, &reg));
 }
 
+/// @brief it should end a request that waits for its reply soon after its device is
+/// interrupted.
+TEST(RTU, InterruptEndsWaitForReply) {
+    auto cfg = serial_slave();
+    cfg.silent_units = {3};
+    testutil::Slave slave(cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    device::Manager manager;
+    auto conn = rtu(slave, 3);
+    conn.timeout = x::telem::SECOND * 5;
+    auto dev = ASSERT_NIL_P(manager.acquire(conn));
+
+    x::errors::Error err;
+    std::thread reading([&] {
+        uint16_t reg = 0;
+        err = dev->read_registers(device::HoldingRegister, 0, 1, &reg);
+    });
+    ASSERT_EVENTUALLY_EQ(slave.unit_requests(3), 1);
+    const auto start = std::chrono::steady_clock::now();
+    dev->interrupt();
+    reading.join();
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
+    ASSERT_OCCURRED_AS(err, device::INTERRUPTED);
+}
+
+/// @brief it should fail a reply from another unit as unreachable.
+TEST(RTU, RejectsReplyFromOtherUnit) {
+    testutil::Slave slave(serial_slave());
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    device::Manager manager;
+    auto dev = ASSERT_NIL_P(manager.acquire(rtu(slave, 1)));
+
+    slave.answer_next(1, {2, 0x03, 0x02, 0x12, 0x34});
+    uint16_t reg = 0;
+    const auto err = dev->read_registers(device::HoldingRegister, 0, 1, &reg);
+    ASSERT_OCCURRED_AS(err, device::UNREACHABLE);
+    EXPECT_EQ(err.data, modbus_strerror(EMBBADSLAVE));
+}
+
 /// @brief it should leave a silence of 3.5 characters between two frames.
 TEST(RTU, WaitsFrameGapBetweenRequests) {
     testutil::Slave slave(serial_slave());
