@@ -307,7 +307,8 @@ func (s *Server) DidOpen(
 		Content:  params.TextDocument.Text,
 		metadata: metadata,
 	}
-	deb, err := debounce.New(debounce.Config{
+	// ctx ends when DidOpen returns, but analysis runs until the document closes.
+	deb, err := debounce.New(context.WithoutCancel(ctx), debounce.Config{
 		Delay:    s.cfg.DebounceDelay,
 		MaxDelay: s.cfg.MaxDebounceDelay,
 		Callback: func(ctx context.Context) { s.runAnalysis(ctx, doc, docURI) },
