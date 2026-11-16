@@ -47,7 +47,7 @@ const Readback = ({
     aetherKey: `${nodeKey}-readback`,
     box: cell.box,
     telem: telem.streamChannelStringValue({ channel }),
-    level: Primitive.readoutLevel(size),
+    level: Primitive.READOUT_LEVELS[size],
     color: theme.colors.gray.l10,
     stalenessColor,
     stalenessTimeout,

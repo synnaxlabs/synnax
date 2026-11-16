@@ -38,6 +38,7 @@ export const colorFallbacks = {
 
 const WINDOW_SIZE_INPUT_PROPS: Partial<Input.NumericProps> = {
   bounds: { lower: 1, upper: 100 },
+  integer: true,
 };
 
 const PrecisionInput = Component.renderProp(

@@ -1030,14 +1030,6 @@ type Schematic struct {
 	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *Schematic) ApplyDefaults() {
-	for key, value := range s.Configs {
-		value.ApplyDefaults()
-		s.Configs[key] = value
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (s Schematic) Validate() error {

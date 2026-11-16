@@ -94,14 +94,6 @@ func (e *EntryReadChannel) SetDefaults() {
 	e.Scale.Variant = taskv2.NoneScale{}
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (e *EntryReadChannel) ApplyDefaults() {
-	if e.Scale.Variant == nil {
-		e.Scale.Variant = taskv2.NoneScale{}
-	}
-	e.Scale.ApplyDefaults()
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (e EntryReadChannel) Validate() error {
@@ -204,16 +196,6 @@ func (u ReadChannel) Type() ReadChannelType {
 		return UnresolvedReadChannelType
 	}
 	return ""
-}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *ReadChannel) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case EntryReadChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or
@@ -426,14 +408,6 @@ type ReadConfig struct {
 	StartupParameters []SlaveStartupParameters `json:"startup_parameters" msgpack:"startup_parameters"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	r.ReadConfig.ApplyDefaults()
-	for i := range r.Channels {
-		r.Channels[i].ApplyDefaults()
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadConfig) SetDefaults() {
 	r.ReadConfig.SetDefaults()
@@ -479,16 +453,6 @@ type WriteConfig struct {
 	ExecutionRate telem.Rate `json:"execution_rate" msgpack:"execution_rate"`
 	// Channels are the channels the task drives.
 	Channels []WriteChannel `json:"channels" msgpack:"channels"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteConfig) ApplyDefaults() {
-	if w.StateRate == 0 {
-		w.StateRate = 25
-	}
-	if w.ExecutionRate == 0 {
-		w.ExecutionRate = 1000
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.

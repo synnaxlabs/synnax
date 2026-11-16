@@ -89,6 +89,7 @@ const deleteEmptied = (params: Params, state: Emptied, key: panel.Key): void => 
       await client.panels.delete(key);
     })
     .catch((e: unknown) => {
+      if (params.ended()) return;
       state.failed.add(key);
       const cached = client.panels.watch(key).getCached();
       const name = query.isLive(cached) ? cached.name : "";
@@ -105,6 +106,7 @@ const applyMembership = (
   state: Emptied,
   candidates: panel.Panel[],
 ): void => {
+  if (params.ended()) return;
   const { client, store } = params;
   // A draft holds work only while it holds a tab, so closing its last one deletes it.
   const user = cachedUser(client);
@@ -169,7 +171,9 @@ const createMembership = (
   listen: (params) => {
     const { client, store } = params;
     const repair = (): void => {
-      repairMembership(params, state).catch(console.error);
+      repairMembership(params, state).catch((e: unknown) => {
+        if (!params.ended()) console.error(e);
+      });
     };
     // The client maintains the by-project answer itself, tracking optimistic creates
     // and project changes a manual retrieve would race.

@@ -223,6 +223,19 @@ describe("Swatch", () => {
       expect(color.hex(onChange.mock.calls[0][0])).toEqual(`#${BLUE}`);
     });
 
+    it("should call onChange when a click on the swatch closes the picker", () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Color.Swatch value={RED} onChange={onChange} onlyChangeOnBlur />,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(swatchOf(c));
+      pick(c, GREEN);
+      fireEvent.click(swatchOf(c));
+      expect(onChange).toHaveBeenCalledOnce();
+      expect(color.hex(onChange.mock.calls[0][0])).toEqual(`#${GREEN}`);
+    });
+
     it("should not call onChange when the picker closes without a change", () => {
       const onChange = vi.fn();
       const c = render(

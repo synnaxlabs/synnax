@@ -61,7 +61,7 @@ Thing struct {
 
 var _ = Describe("Of", func() {
 	var table *resolution.Table
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
 		loader := testutil.NewMockFileLoader()
 		testutil.AddFilterSchema(loader)
 		loader.Add("schemas/x/order", `
@@ -73,7 +73,7 @@ Direction enum {
 	desc = "desc"
 }
 `)
-		table = testutil.MustGenerateRequest(ctx, source, "thing", loader).Resolutions
+		table = testutil.MustGenerateRequest(source, "thing", loader).Resolutions
 	})
 	fieldOf := func(typeName, fieldName string) resolution.Field {
 		GinkgoHelper()

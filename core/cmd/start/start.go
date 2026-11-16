@@ -338,7 +338,8 @@ func BootupCore(
 	}
 
 	var r *http.Router
-	if r, err = http.NewRouter(http.RouterConfig{
+	// ctx ends when shutdown starts, before the server drains in-flight requests.
+	if r, err = http.NewRouter(context.WithoutCancel(ctx), http.RouterConfig{
 		Instrumentation:     cfg.Instrumentation,
 		StreamWriteDeadline: cfg.slowConsumerTimeout,
 	}); !ok(err, nil) {
@@ -405,9 +406,7 @@ func BootupCore(
 		driver.Config{
 			Enabled:  new(!*cfg.noDriver),
 			Insecure: cfg.insecure,
-			// An unlicensed Core refuses the Driver's rack, so the Driver retries in
-			// the background.
-			Detached: new(!covered),
+			License:  serviceLayer.License,
 			Integrations: parseIntegrations(
 				cfg.enabledIntegrations,
 				cfg.disabledIntegrations,

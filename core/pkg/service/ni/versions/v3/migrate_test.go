@@ -518,7 +518,7 @@ var _ = Describe("MigrateDigitalReadConfig", func() {
 			Device:   "dev",
 			Channels: []v2.DIChannel{{Key: "a", Line: 33}},
 		}))
-		Expect(string(got.Device)).To(Equal("dev"))
+		Expect(got.Device).To(Equal("dev"))
 		Expect(got.Channels).To(Equal([]v3.DIChannel{
 			{Key: "a", Line: 31, Disabled: true},
 		}))

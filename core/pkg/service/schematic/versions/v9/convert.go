@@ -12,6 +12,8 @@ package v9
 import (
 	"cmp"
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"math"
 	"reflect"
 	"slices"
@@ -115,10 +117,21 @@ func DecodeElementConfig(raw msgpack.EncodedJSON) (ElementConfig, error) {
 	return cfg, nil
 }
 
+// nonFiniteNull encodes a NaN or infinite number, which JSON cannot hold, as null.
+var nonFiniteNull = jsonv2.WithMarshalers(jsonv2.MarshalToFunc(
+	func(enc *jsontext.Encoder, f float64) error {
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return enc.WriteToken(jsontext.Null)
+		}
+		return errors.ErrUnsupported
+	},
+))
+
 // ElementConfigFields returns a config's wire fields as an opaque map for partial
-// merging.
+// merging. A NaN or infinite number is a nil field, which decodes to the schema default
+// of the field.
 func ElementConfigFields(cfg ElementConfig) (msgpack.EncodedJSON, error) {
-	b, err := json.Marshal(cfg)
+	b, err := jsonv2.Marshal(cfg, json.DefaultOptionsV1(), nonFiniteNull)
 	if err != nil {
 		return nil, err
 	}

@@ -28,7 +28,7 @@ func Drop(migrationKey, typeName string) gorp.Migration {
 	return New(
 		migrationKey,
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-			legacy, err := key.LegacyPrefix(ctx, typeName)
+			legacy, err := key.LegacyPrefix(typeName)
 			if err != nil {
 				return err
 			}

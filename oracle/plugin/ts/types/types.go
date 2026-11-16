@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -45,6 +46,9 @@ type Options struct {
 	FileNamePattern string
 	GenerateTypes   bool
 }
+
+const orNumericString = ".or(z.string().refine((v) => !isNaN(Number(v)))" +
+	".transform(Number))"
 
 func DefaultOptions() Options {
 	return Options{
@@ -606,10 +610,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 				zodType = result.ZodType
 			}
 			if toNumber {
-				zodType = fmt.Sprintf(
-					"%s.or(z.string().refine((v) => !isNaN(Number(v))).transform(Number))",
-					zodType,
-				)
+				zodType += orNumericString
 			}
 			if toString {
 				zodType = fmt.Sprintf(
@@ -638,7 +639,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 				}
 				zodType = fmt.Sprintf("z.tuple([%s])", strings.Join(elements, ", "))
 			} else {
-				zodType = fmt.Sprintf("%s.array().default(() => [])", elemZod)
+				zodType = elemZod + ".array().default(() => [])"
 			}
 		} else {
 			zodType = p.typeDefBaseToZod(&form.Base, data)
@@ -657,10 +658,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			zodType = result.ZodType
 		}
 		if toNumber {
-			zodType = fmt.Sprintf(
-				"%s.or(z.string().refine((v) => !isNaN(Number(v))).transform(Number))",
-				zodType,
-			)
+			zodType += orNumericString
 		}
 		if toString {
 			zodType = fmt.Sprintf(
@@ -689,7 +687,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 				}
 				zodType = fmt.Sprintf("z.tuple([%s])", strings.Join(elements, ", "))
 			} else {
-				zodType = fmt.Sprintf("%s.array().default(() => [])", elemZod)
+				zodType = elemZod + ".array().default(() => [])"
 			}
 		} else {
 			zodType = p.typeDefBaseToZod(&form.Target, data)
@@ -843,7 +841,7 @@ func (p *Plugin) processStruct(
 				}
 				sd.AliasOf = fmt.Sprintf("z.tuple([%s])", strings.Join(elements, ", "))
 			} else {
-				sd.AliasOf = fmt.Sprintf("%s.array().default(() => [])", elemZod)
+				sd.AliasOf = elemZod + ".array().default(() => [])"
 			}
 		} else {
 			sd.AliasOf = p.typeRefToZod(&aliasForm.Target, table, data)
@@ -1518,7 +1516,7 @@ func (p *Plugin) detailsSchemaRef(
 	if len(params) > 0 {
 		return fmt.Sprintf("ReturnType<typeof %s>", schema), true
 	}
-	return fmt.Sprintf("typeof %s", schema), true
+	return "typeof " + schema, true
 }
 
 func coalesceTSType(tsType string, typeParams []typeParamData) string {
@@ -1895,7 +1893,7 @@ func (p *Plugin) processField(
 		} else {
 			// The server omits a nil ("not loaded") array, so a missing array
 			// defaults to []; an allocated empty array still arrives as [].
-			arrayZod := fmt.Sprintf("%s.array()", fd.ZodType)
+			arrayZod := fd.ZodType + ".array()"
 			fd.ZodSchemaType = fmt.Sprintf(
 				"z.ZodDefault<z.ZodArray<%s>>",
 				fd.ZodSchemaType,
@@ -1909,7 +1907,7 @@ func (p *Plugin) processField(
 					p.tsDefaultLiteral(field.Type, *field.Default, table, data),
 				)
 			} else {
-				fd.ZodType = fmt.Sprintf("%s.default(() => [])", arrayZod)
+				fd.ZodType = arrayZod + ".default(() => [])"
 			}
 		}
 	} else if isMap {
@@ -2762,8 +2760,12 @@ func (p *Plugin) applyValidation(
 		effectiveType = tsTypeOverride
 	} else if !resolution.IsPrimitive(effectiveType) {
 		// A named numeric or string type (e.g. a distinct Key over uint32) carries its
-		// constraints on the underlying primitive, so classify by that base.
-		if base := resolution.PrimitiveBase(typeRef, table); base != "" {
+		// constraints on the underlying primitive, so classify by that base. A
+		// hand-written schema may not be a zod number, so it keeps its own name.
+		resolved, ok := typeRef.Resolve(table)
+		handWritten := ok && omit.IsSkipped(resolved, "ts")
+		base := resolution.PrimitiveBase(typeRef, table)
+		if base != "" && !handWritten {
 			effectiveType = base
 		}
 	}
@@ -2840,6 +2842,26 @@ func (p *Plugin) applyValidation(
 			}
 		}
 	}
+	// A hand-written number schema such as telem.numericTimeSpanZ, used directly or
+	// through a @ts type override, has no .min or .max, so its bounds go through
+	// checks.
+	if !isNumber && tsTypeOverride != "number" &&
+		!resolution.IsPrimitive(effectiveType) &&
+		resolution.IsNumberPrimitive(resolution.PrimitiveBase(typeRef, table)) {
+		var checks []string
+		if rules.Min != nil {
+			checks = append(checks, "z.gte("+boundLiteral(*rules.Min)+")")
+		}
+		if rules.GT != nil {
+			checks = append(checks, "z.gt("+boundLiteral(*rules.GT)+")")
+		}
+		if rules.Max != nil {
+			checks = append(checks, "z.lte("+boundLiteral(*rules.Max)+")")
+		}
+		if len(checks) > 0 {
+			zodType = fmt.Sprintf("%s.check(%s)", zodType, strings.Join(checks, ", "))
+		}
+	}
 	if defaultVal != nil {
 		switch defaultVal.Kind {
 		case resolution.ValueKindString:
@@ -2865,7 +2887,7 @@ func (p *Plugin) applyValidation(
 				zodType = fmt.Sprintf(
 					"%s.default(%s)",
 					zodType,
-					tsStringLiteral(fmt.Sprintf("%d", defaultVal.IntValue)),
+					tsStringLiteral(strconv.FormatInt(defaultVal.IntValue, 10)),
 				)
 				break
 			}
@@ -2875,7 +2897,7 @@ func (p *Plugin) applyValidation(
 					typeRef,
 					table,
 					data,
-					fmt.Sprintf("%d", defaultVal.IntValue),
+					strconv.FormatInt(defaultVal.IntValue, 10),
 					defaultVal.IntValue == 0,
 				)
 			}
@@ -2907,7 +2929,7 @@ func (p *Plugin) applyValidation(
 			if defaultVal.IdentValue == "now" &&
 				telem.IsTimeStamp(typeRef, table, "ts") {
 				addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
-				zodType = fmt.Sprintf("%s.default(() => TimeStamp.now())", zodType)
+				zodType = zodType + ".default(() => TimeStamp.now())"
 			}
 			// Handle "create" for auto-generating keys. uuid keys generate a UUID via
 			// uuid.create(); string keys generate a short id via id.create(). uuid is a
@@ -2917,10 +2939,10 @@ func (p *Plugin) applyValidation(
 			if defaultVal.IdentValue == "create" {
 				if primitive == "uuid" {
 					addXImport(data, xImport{name: "uuid", submodule: "uuid"})
-					zodType = fmt.Sprintf("%s.default(uuid.create)", zodType)
+					zodType = zodType + ".default(uuid.create)"
 				} else if isString || primitive == "string" {
 					addXImport(data, xImport{name: "id", submodule: "id"})
-					zodType = fmt.Sprintf("%s.default(id.create)", zodType)
+					zodType = zodType + ".default(id.create)"
 				}
 			}
 			if ev, ok := validation.ResolveEnumVariant(
@@ -3052,11 +3074,11 @@ func (p *Plugin) tsDefaultLiteral(
 	case resolution.ValueKindString:
 		return tsStringLiteral(val.StringValue)
 	case resolution.ValueKindInt:
-		return fmt.Sprintf("%d", val.IntValue)
+		return strconv.FormatInt(val.IntValue, 10)
 	case resolution.ValueKindFloat:
 		return fmt.Sprintf("%f", val.FloatValue)
 	case resolution.ValueKindBool:
-		return fmt.Sprintf("%t", val.BoolValue)
+		return strconv.FormatBool(val.BoolValue)
 	case resolution.ValueKindIdent:
 		if ev, ok := validation.ResolveEnumVariant(val.IdentValue, typeRef, table); ok {
 			return p.enumVariantToTS(ev, data)
@@ -3784,3 +3806,10 @@ export const TYPE_RESOURCE_ID = resourceID({{ .Resource.KeyZeroValue }});
 {{- end }}
 `),
 )
+
+func boundLiteral(n validation.Number) string {
+	if n.IsInt {
+		return strconv.FormatInt(n.Int, 10)
+	}
+	return fmt.Sprint(n.Float)
+}

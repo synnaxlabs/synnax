@@ -352,11 +352,20 @@ func (f dbcFile) field(
 	ref signalRef,
 	key FieldKey,
 ) (BinaryField, error) {
-	if s.StartBit > math.MaxUint16 || s.Size > math.MaxUint8 {
+	if s.StartBit > math.MaxUint16 {
 		return BinaryField{}, dataErrorf(
 			"line %d: signal %s does not fit a message",
 			s.Pos.Line,
 			s.Name,
+		)
+	}
+	if s.Size < 1 || s.Size > maxBitLength {
+		return BinaryField{}, dataErrorf(
+			"line %d: signal %s has %d bits, not 1 to %d",
+			s.Pos.Line,
+			s.Name,
+			s.Size,
+			maxBitLength,
 		)
 	}
 	isFloat := false

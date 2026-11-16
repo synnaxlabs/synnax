@@ -300,8 +300,10 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 		sCtx.Go(func(ctx context.Context) error {
 			for uDB := range pending {
 				// A collection rewrites files and does not stop for ctx.
-				if ctx.Err() != nil {
+				select {
+				case <-ctx.Done():
 					return nil
+				default:
 				}
 				if err := uDB.GarbageCollect(ctx); err != nil {
 					return err

@@ -130,7 +130,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
           </Select.Simple>
         </Input.Item>
         <Base.Field
-          path={path.dblClickNavDisabled}
+          path={path.doubleClickNavigationDisabled}
           label="Click mode"
           padHelpText={false}
         >
