@@ -39,10 +39,8 @@ const (
 	// that its start makes progress. The start has no time limit, because the first
 	// start of a new version migrates the data.
 	startCheckpointInterval = 5 * time.Second
-	// stopMargin is how much longer than the Core's shutdown timeout Stop waits.
-	stopMargin       = 15 * time.Second
-	stopPollInterval = 250 * time.Millisecond
-	name             = "SynnaxCore"
+	stopPollInterval        = 250 * time.Millisecond
+	name                    = "SynnaxCore"
 )
 
 // ConfigDir returns the directory where the service config file is stored.
@@ -183,11 +181,10 @@ func Start() (err error) {
 // Stop stops the Core service and waits until the Core exits. It does nothing when the
 // service is not running.
 func Stop() (err error) {
-	shutdownTimeout, err := configuredShutdownTimeout()
+	timeout, err := stopTimeout()
 	if err != nil {
 		return err
 	}
-	stopTimeout := shutdownTimeout + stopMargin
 	m, err := mgr.Connect()
 	if err != nil {
 		return errors.Wrap(
@@ -225,10 +222,10 @@ func Stop() (err error) {
 			return errors.Wrap(err, "failed to stop service")
 		}
 	}
-	deadline := time.Now().Add(stopTimeout)
+	deadline := time.Now().Add(timeout)
 	for st.State != svc.Stopped {
 		if time.Now().After(deadline) {
-			return errors.Newf("%s did not stop within %s", name, stopTimeout)
+			return errors.Newf("%s did not stop within %s", name, timeout)
 		}
 		time.Sleep(stopPollInterval)
 		if st, err = s.Query(); err != nil {
@@ -236,21 +233,6 @@ func Stop() (err error) {
 		}
 	}
 	return nil
-}
-
-// configuredShutdownTimeout returns the shutdown timeout of the Core in the service
-// configuration. The service reads no environment variables, so neither does this.
-func configuredShutdownTimeout() (time.Duration, error) {
-	v := viper.New()
-	v.SetConfigFile(ConfigPath())
-	flag := cmdstart.Cmd.Flags().Lookup(cmdstart.FlagShutdownTimeout)
-	if err := v.BindPFlag(cmdstart.FlagShutdownTimeout, flag); err != nil {
-		return 0, err
-	}
-	if err := v.ReadInConfig(); err != nil {
-		return 0, errors.Wrap(err, "failed to read service configuration")
-	}
-	return v.GetDuration(cmdstart.FlagShutdownTimeout), nil
 }
 
 // Lookup returns the Core service on this host, or false when none is installed. It

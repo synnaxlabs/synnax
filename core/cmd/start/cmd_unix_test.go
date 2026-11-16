@@ -77,6 +77,15 @@ var _ = Describe("Start", func() {
 		Expect(session.Out).To(gbytes.Say("second stop signal"))
 	})
 
+	It("Should drain an in-flight request before it shuts down", func() {
+		session, _, addr := startCore()
+		holdShutdown(addr)
+		session.Signal(syscall.SIGTERM)
+		Consistently(session, time.Second).ShouldNot(gexec.Exit())
+		Eventually(session, 30*time.Second).Should(gexec.Exit(0))
+		Expect(session.Out).To(gbytes.Say("Synnax has shut down"))
+	})
+
 	It("Should fail once shutdown outlasts its timeout", func() {
 		session, _, addr := startCore("--shutdown-timeout", "100ms")
 		holdShutdown(addr)

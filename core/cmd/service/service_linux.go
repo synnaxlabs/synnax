@@ -47,6 +47,7 @@ func ConfigPath() string { return filepath.Join(ConfigDir(), "config.yaml") }
 
 // unit is the systemd unit of the service. systemd does not start the Core again after
 // an error that only a person can fix. LimitRTPRIO lets Arc run on a real-time thread.
+// TimeoutStopSec outlasts the shutdown timeout of the Core.
 const unit = `[Unit]
 Description=Synnax Core
 Wants=network-online.target
@@ -60,6 +61,7 @@ StateDirectory=synnax
 WorkingDirectory=%s
 ExecStart="%s" start --config "%s"
 KillSignal=SIGINT
+TimeoutStopSec=%d
 Restart=always
 RestartSec=5s
 RestartPreventExitStatus=%d %d
@@ -133,6 +135,10 @@ func install(autoStart bool) error {
 	if err = os.Chown(ConfigPath(), 0, group); err != nil {
 		return errors.Wrap(err, "failed to give the service user the config")
 	}
+	timeout, err := stopTimeout()
+	if err != nil {
+		return err
+	}
 	if err = os.WriteFile(
 		unitPath,
 		fmt.Appendf(
@@ -141,6 +147,7 @@ func install(autoStart bool) error {
 			home,
 			exePath,
 			ConfigPath(),
+			int(timeout.Seconds()),
 			exit.DataRefused,
 			exit.Config,
 		),

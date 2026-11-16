@@ -14,11 +14,13 @@ package service
 import (
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	cmdinst "github.com/synnaxlabs/synnax/cmd/instrumentation"
 	cmdstart "github.com/synnaxlabs/synnax/cmd/start"
+	"github.com/synnaxlabs/x/errors"
 	xos "github.com/synnaxlabs/x/os"
 	"github.com/synnaxlabs/x/set"
 	"gopkg.in/yaml.v3"
@@ -82,4 +84,23 @@ func resolvePaths() error {
 		}
 	}
 	return nil
+}
+
+// stopMargin is how much longer than the Core's shutdown timeout a stop waits.
+const stopMargin = 15 * time.Second
+
+// stopTimeout returns how long a stop of the service waits for the Core to exit: the
+// shutdown timeout in the service configuration plus stopMargin. The service reads no
+// environment variables, so neither does stopTimeout.
+func stopTimeout() (time.Duration, error) {
+	v := viper.New()
+	v.SetConfigFile(ConfigPath())
+	flag := cmdstart.Cmd.Flags().Lookup(cmdstart.FlagShutdownTimeout)
+	if err := v.BindPFlag(cmdstart.FlagShutdownTimeout, flag); err != nil {
+		return 0, err
+	}
+	if err := v.ReadInConfig(); err != nil {
+		return 0, errors.Wrap(err, "failed to read service configuration")
+	}
+	return v.GetDuration(cmdstart.FlagShutdownTimeout) + stopMargin, nil
 }
