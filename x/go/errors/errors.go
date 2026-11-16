@@ -159,9 +159,11 @@ func unwrapJoin(err error) []error {
 	if reflect.TypeOf(err) == stackType {
 		bare = errors.UnwrapOnce(err)
 	}
-	switch reflect.TypeOf(bare) {
-	case joinType, stdlibJoinType:
-		return bare.(multiCause).Unwrap()
+	if joined, ok := bare.(multiCause); ok {
+		switch reflect.TypeOf(bare) {
+		case joinType, stdlibJoinType:
+			return joined.Unwrap()
+		}
 	}
 	return []error{err}
 }

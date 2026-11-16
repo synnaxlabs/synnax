@@ -120,8 +120,8 @@ func (s StringZ) Dump(data any) (any, error) {
 			}
 			return val.String(), nil
 		case reflect.Array:
-			if val.Type() == reflect.TypeFor[uuid.UUID]() {
-				return val.Interface().(uuid.UUID).String(), nil
+			if id, ok := reflect.TypeAssert[uuid.UUID](val); ok {
+				return id.String(), nil
 			}
 			fallthrough
 		default:

@@ -431,7 +431,15 @@ func isNil(expr ast.Expr) bool {
 	return ok && ident.Name == "nil"
 }
 
-var errorType = types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
+var errorType = errorInterface()
+
+func errorInterface() *types.Interface {
+	i, ok := types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
+	if !ok {
+		panic("the universe error type is not an interface")
+	}
+	return i
+}
 
 // bindsOnlyError reports whether assign binds errName, of an error type, as its last
 // value and discards every other value.
@@ -508,8 +516,14 @@ func reportInlineDiagnostic(
 // assertionString prints an assertion that matchExpectErrSucceeds matched on one line,
 // so a diagnostic quotes the code in the file.
 func assertionString(fset *token.FileSet, expr ast.Expr) string {
-	call := expr.(*ast.CallExpr)
-	sel := call.Fun.(*ast.SelectorExpr)
+	call, ok := expr.(*ast.CallExpr)
+	if !ok {
+		panic("matchExpectErrSucceeds matched a non-call expression")
+	}
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok {
+		panic("matchExpectErrSucceeds matched a call without a selector")
+	}
 	return fmt.Sprintf(
 		"%s.%s(%s)",
 		nodeString(fset, sel.X),
