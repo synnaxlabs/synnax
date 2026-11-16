@@ -281,6 +281,7 @@ func (db *DB) assembleStreamWriter(
 		WriterConfig: cfg,
 		internal:     make([]*idxWriter, 0, len(domainWriters)),
 		relay:        db.relay.inlet,
+		relayStopped: db.relay.delta.Stopped(),
 		validateCommand: validate.NewInclusiveBoundsChecker(
 			WriterCommandWrite,
 			writerCommandEndDomain,

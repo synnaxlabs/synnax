@@ -117,7 +117,13 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o.AttachClosables(s.Out)
 	frames, disconnect := s.relay.connect()
 	sCtx.Go(func(ctx context.Context) error {
-		defer disconnect()
+		// The relay closes frames when it drops the connection itself.
+		connected := true
+		defer func() {
+			if connected {
+				disconnect()
+			}
+		}()
 		if s.sendOpenAck {
 			if err := signal.SendUnderContext(
 				ctx,
@@ -136,7 +142,11 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					return nil
 				}
 				s.keys = set.New(s.translateRequest(req).Channels...)
-			case rf := <-frames.Outlet():
+			case rf, ok := <-frames.Outlet():
+				if !ok {
+					connected = false
+					return ErrDBClosed
+				}
 				if !s.applyPendingRequests() {
 					return nil
 				}

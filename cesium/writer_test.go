@@ -5654,3 +5654,58 @@ func openObservedStreamer(
 		cancel()
 	}
 }
+
+var _ = Describe("Writer close", func() {
+	It("Should report the control release on a live, bounded context", func(
+		ctx SpecContext,
+	) {
+		db := mustOpenDBOnFS(ctx, FileSystems["memFS"]())
+		key := GenerateChannelKey()
+		Expect(db.CreateChannel(ctx, virtualChannel(key, "boulder"))).To(Succeed())
+		type release struct {
+			bounded bool
+			err     error
+		}
+		releases := make(chan release, 1)
+		DeferCleanup(db.OnControlUpdate(
+			func(ctx context.Context, u cesium.ControlUpdate) {
+				if u.Transfers[0].To == nil {
+					_, bounded := ctx.Deadline()
+					releases <- release{bounded: bounded, err: ctx.Err()}
+				}
+			},
+		))
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels:       []cesium.ChannelKey{key},
+			ControlSubject: control.Subject{Key: "1", Name: "boulder"},
+		}))
+		Expect(w.Close()).To(Succeed())
+		Eventually(releases).Should(Receive(Equal(release{bounded: true})))
+	})
+})
+
+var _ = Describe("Writer after the DB closes", func() {
+	It("Should not block a write once the relay stops", func(ctx SpecContext) {
+		db := mustOpenDBOnFS(
+			ctx,
+			FileSystems["memFS"](),
+			cesium.WithRelayBufferSize(1),
+		)
+		key := GenerateChannelKey()
+		Expect(db.CreateChannel(ctx, virtualChannel(key, "boulder"))).To(Succeed())
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{key},
+		}))
+		Expect(db.Close()).To(Succeed())
+		written := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			defer close(written)
+			for v := range int64(4) {
+				MustSucceed(w.Write(telem.UnaryFrame(key, telem.NewSeriesV(v))))
+			}
+			Expect(w.Close()).To(Succeed())
+		}()
+		Eventually(written).Should(BeClosed())
+	})
+})
