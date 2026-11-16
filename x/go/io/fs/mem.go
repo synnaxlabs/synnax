@@ -165,11 +165,15 @@ func (y *MemFS) Remove(fullName string) error {
 
 // Rename implements FS.Rename.
 func (y *MemFS) Rename(oldName, newName string) error {
+	y.mu.Lock()
+	defer y.mu.Unlock()
 	var (
 		target     *memNode
 		targetFrag string
+		ancestors  []*memNode
 	)
-	if err := y.walk(newName, func(dir *memNode, frag string, final bool) error {
+	if err := y.walkLocked(newName, func(dir *memNode, frag string, final bool) error {
+		ancestors = append(ancestors, dir)
 		if !final {
 			return nil
 		}
@@ -181,7 +185,7 @@ func (y *MemFS) Rename(oldName, newName string) error {
 	}); err != nil {
 		return err
 	}
-	return y.walk(oldName, func(dir *memNode, frag string, final bool) error {
+	return y.walkLocked(oldName, func(dir *memNode, frag string, final bool) error {
 		if !final {
 			return nil
 		}
@@ -191,6 +195,14 @@ func (y *MemFS) Rename(oldName, newName string) error {
 		n := dir.children[frag]
 		if n == nil {
 			return &os.PathError{Op: "open", Path: oldName, Err: os.ErrNotExist}
+		}
+		if slices.Contains(ancestors, n) {
+			return &os.LinkError{
+				Op:  "rename",
+				Old: oldName,
+				New: newName,
+				Err: errors.New("memfs: cannot move a directory into itself"),
+			}
 		}
 		delete(dir.children, frag)
 		target.children[targetFrag] = n
@@ -323,7 +335,14 @@ func (f *memNode) Sys() any { return nil }
 func (y *MemFS) walk(fullname string, f func(*memNode, string, bool) error) error {
 	y.mu.Lock()
 	defer y.mu.Unlock()
+	return y.walkLocked(fullname, f)
+}
 
+// walkLocked is walk for a caller that holds y.mu.
+func (y *MemFS) walkLocked(
+	fullname string,
+	f func(*memNode, string, bool) error,
+) error {
 	// For memfs, the current working directory is the same as the root directory, so we
 	// strip off any leading "/"s to make fullname a relative path, and the walk starts
 	// at y.root.

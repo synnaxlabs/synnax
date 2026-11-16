@@ -562,6 +562,12 @@ var _ = Describe("FS", func() {
 						To(MatchError(os.ErrNotExist))
 					Expect(fs.Exists("a.txt")).To(BeTrue())
 				})
+				It("Should keep a directory moved into its own subtree", func() {
+					Expect(fs.Sub("a")).ToNot(BeNil())
+					Expect(fs.Rename("a", "a/b")).ToNot(Succeed())
+					Expect(fs.Exists("a")).To(BeTrue())
+					Expect(fs.Exists("a/b")).To(BeFalse())
+				})
 			})
 			Describe("Truncate", func() {
 				It(
