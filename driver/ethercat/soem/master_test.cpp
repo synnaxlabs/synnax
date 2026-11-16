@@ -1145,6 +1145,17 @@ TEST_F(SOEMMasterTest, ScanReadsTheCoESerialNumber) {
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
+/// @brief it should read a serial number of 8 bytes, as IOLITE modules give.
+TEST_F(SOEMMasterTest, ScanReadsAnEightByteCoESerialNumber) {
+    auto slave = create_coe_slave(0);
+    slave.sdo_objects.clear();
+    slave.sdo_objects_64[{0x1018, 4}] = 0x000000DB21014087;
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0x000000DB21014087);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
 /// @brief it should give serial number 0 and no serial read error to a slave whose CoE
 /// identity object has no serial number.
 TEST_F(SOEMMasterTest, ScanGivesNoSerialWithoutACoESerial) {
@@ -1170,6 +1181,18 @@ TEST_F(SOEMMasterTest, ScanKeepsANonzeroSIISerialOverTheCoESerial) {
     this->add_slave(slave);
     const auto slaves = ASSERT_NIL_P(this->master->scan());
     EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should give serial number 0 to a slave whose CoE serial number is too
+/// large for the Core to store exactly.
+TEST_F(SOEMMasterTest, ScanGivesNoSerialWhenTheCoESerialIsTooLarge) {
+    auto slave = create_coe_slave(0);
+    slave.sdo_objects.clear();
+    slave.sdo_objects_64[{0x1018, 4}] = uint64_t{1} << 53;
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0);
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
