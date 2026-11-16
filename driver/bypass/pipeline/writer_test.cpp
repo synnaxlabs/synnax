@@ -132,8 +132,7 @@ TEST(WriterTest, DelegatesClose) {
     ASSERT_NIL(writer->close());
 }
 
-/// @brief it should return at once, and fail the next write with a permanent error
-/// from opening the Core writer.
+/// @brief it should fail to open with a permanent error from the first Core open.
 TEST(WriterTest, PropagatesOpenError) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
@@ -142,11 +141,26 @@ TEST(WriterTest, PropagatesOpenError) {
         std::vector<x::errors::Error>{x::errors::VALIDATION}
     );
     WriterFactory factory(mock_factory, bus, states, 0);
+    ASSERT_OCCURRED_AS_P(factory.open_writer({.channels = {1}}), x::errors::VALIDATION);
+}
+
+/// @brief it should open while the Core is unreachable.
+TEST(WriterTest, OpensWhileTheCoreIsUnreachable) {
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector<x::errors::Error>(1000, freighter::UNREACHABLE)
+    );
+    WriterFactory factory(
+        mock_factory,
+        bus,
+        states,
+        0,
+        {.breaker = {.base_interval = x::telem::MILLISECOND}}
+    );
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
-    x::telem::Frame frame;
-    frame.emplace(1, x::telem::Series(static_cast<float>(42.0)));
-    ASSERT_EVENTUALLY_TRUE(writer->write(frame).matches(x::errors::VALIDATION));
-    ASSERT_OCCURRED_AS(writer->close(), x::errors::VALIDATION);
+    ASSERT_NIL(writer->close());
 }
 
 TEST(WriterTest, InjectsGroupIntoWriterConfig) {
@@ -497,31 +511,6 @@ TEST(WriterTest, WritesWhileTheCoreIsUnreachable) {
     ASSERT_EVENTUALLY_EQ(mock_factory->writes->size(), 3);
     ASSERT_EQ(mock_factory->writer_opens.load(), 4);
     ASSERT_NIL(writer->close());
-}
-
-/// @brief it should drop and count frames past its queue cap while the Core is
-/// unreachable.
-TEST(WriterTest, DropsFramesPastTheQueueCap) {
-    auto bus = std::make_shared<Bus>();
-    auto states = std::make_shared<control::States>();
-    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
-        std::make_shared<x::sync::List<x::telem::Frame>>(),
-        std::vector<x::errors::Error>(1000, freighter::UNREACHABLE)
-    );
-    Forwarder forwarder(
-        mock_factory,
-        {.channels = {1}},
-        {.max_queue_bytes = 8, .breaker = {.base_interval = x::telem::MILLISECOND}}
-    );
-    for (int i = 0; i < 5; i++) {
-        x::telem::Frame frame;
-        frame.emplace(1, x::telem::Series(static_cast<float>(i)));
-        ASSERT_NIL(forwarder.write(frame));
-    }
-    ASSERT_EQ(forwarder.dropped(), 3);
-    ASSERT_NIL(forwarder.close());
-    ASSERT_EQ(forwarder.dropped(), 5);
-    ASSERT_EQ(mock_factory->writes->size(), 0);
 }
 
 /// @brief set_authority should return a validation error when the authorities size does

@@ -86,8 +86,9 @@ public:
     [[nodiscard]] x::errors::Error close() override { return this->forwarder->close(); }
 };
 
-/// @brief a WriterFactory that wraps writers with bus publish capability. It returns
-/// at once and opens the Core writer in the background. Injects the group identity
+/// @brief a WriterFactory that wraps writers with bus publish capability. It waits for
+/// the first Core open, and returns once it succeeds, fails for good, or finds the
+/// Core unreachable; later opens run in the background. Injects the group identity
 /// into writer configs for Core-side deduplication and threads control::States into
 /// writers for short-circuit authority updates.
 class WriterFactory final : public ::driver::pipeline::WriterFactory {
@@ -116,11 +117,17 @@ public:
         auto cfg = config;
         if (this->group != 0 && cfg.subject.group == 0) cfg.subject.group = this->group;
         this->bus->register_channels(cfg.channels);
+        auto forwarder = std::make_unique<Forwarder>(
+            this->server,
+            cfg,
+            this->forwarder
+        );
+        if (auto err = forwarder->opened()) return {nullptr, err};
         VLOG(1) << "[bus.writer_factory] opened writer for " << cfg.channels.size()
                 << " channels, group=" << this->group;
         return {
             std::make_unique<Writer>(
-                std::make_unique<Forwarder>(this->server, cfg, this->forwarder),
+                std::move(forwarder),
                 this->bus,
                 this->states,
                 cfg
