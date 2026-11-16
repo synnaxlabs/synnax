@@ -48,7 +48,8 @@ func (s goneStream[RQ, RS]) Send(RS) error { return errClientGone }
 var _ = Describe("Framer", func() {
 	Describe("Open acks", func() {
 		var index channel.Channel
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			index = channel.Channel{
 				Name:     UniqueChannelName(),
 				DataType: telem.TimestampT,
@@ -260,7 +261,8 @@ var _ = Describe("Framer", func() {
 			index channel.Channel
 			data  channel.Channel
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			index = channel.Channel{
 				Name:     UniqueChannelName(),
 				DataType: telem.TimestampT,

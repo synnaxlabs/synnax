@@ -10,6 +10,7 @@
 package log_test
 
 import (
+	"context"
 	"testing"
 	"uuid"
 
@@ -55,8 +56,9 @@ var (
 	author user.User
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
@@ -82,7 +84,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 // newUser creates a user with no policies.
-func newUser(ctx SpecContext) user.User {
+func newUser(ctx context.Context) user.User {
 	GinkgoHelper()
 	return MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
@@ -90,7 +92,7 @@ func newUser(ctx SpecContext) user.User {
 }
 
 // newCreator creates a user that may create logs in the suite project.
-func newCreator(ctx SpecContext) user.User {
+func newCreator(ctx context.Context) user.User {
 	GinkgoHelper()
 	u := newUser(ctx)
 	grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{Type: resource.TypeLog})
@@ -100,7 +102,7 @@ func newCreator(ctx SpecContext) user.User {
 
 // grant grants the action on the objects to the subject.
 func grant(
-	ctx SpecContext,
+	ctx context.Context,
 	action access.Action,
 	subject resource.ID,
 	objects ...resource.ID,

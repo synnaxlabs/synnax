@@ -90,7 +90,8 @@ var _ = Describe("Service", func() {
 			Exec(ctx, db)).To(Succeed())
 		return grants
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		clock = timetestutil.NewClock(start)
 		svc = MustOpen(grant.OpenService(ctx, grant.ServiceConfig{

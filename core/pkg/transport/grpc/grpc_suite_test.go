@@ -27,8 +27,9 @@ func TestGRPC(t *testing.T) {
 	RunSpecs(t, "Transport gRPC Suite", SuiteConfig())
 }
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	node := testutil.NewNode(ctx)
 	svc := MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiLayer = MustSucceed(api.NewLayer(api.LayerConfig{

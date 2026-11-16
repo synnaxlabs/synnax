@@ -121,8 +121,9 @@ var _ = Describe("Calculation", Ordered, func() {
 		}
 	}
 
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		dist = testutil.NewNode(ctx)
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: dist.DB,

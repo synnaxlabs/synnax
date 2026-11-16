@@ -95,7 +95,8 @@ var _ = Describe("Write task", func() {
 		factory driver.Factory
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		broker = startBroker(0)
 		broker.collect("#")
 		rackKey = createRack(ctx)

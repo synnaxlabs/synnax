@@ -42,7 +42,8 @@ var _ = Describe("Dispatch", func() {
 		Expect(write(ctx, func(w group.Writer) error { return w.Create(ctx, g) })).
 			To(Succeed())
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		moved = nil
 		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{

@@ -41,7 +41,8 @@ var _ = Describe("Service", func() {
 		svc   *config.Service[arctask.Config]
 		tasks *tasktestutil.Tasks
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		svc = MustOpen(config.OpenService(
 			ctx,
 			config.ServiceConfig[arctask.Config]{
@@ -587,7 +588,8 @@ var _ = Describe("Service", func() {
 
 	Describe("Normalize", func() {
 		var versioned *config.Service[arctask.Config]
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			versioned = MustOpen(config.OpenService(
 				ctx,
 				config.ServiceConfig[arctask.Config]{
@@ -758,7 +760,8 @@ var _ = Describe("Service", func() {
 				reconcile   func(context.Context, gorp.Tx, *arctask.Config) error
 				reconDB     *gorp.DB
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				reconDB = DeferClose(gorp.Wrap(memkv.New()))
 				reconciling = MustOpen(config.OpenService(
 					ctx,
@@ -872,7 +875,8 @@ var _ = Describe("Service", func() {
 			decoding  *config.Service[arctask.Config]
 			reconcile func(context.Context, gorp.Tx, *arctask.Config) error
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			reconcile = func(context.Context, gorp.Tx, *arctask.Config) error {
 				Fail("ran the reconcile hook in Decode")
 				return nil
@@ -965,7 +969,8 @@ var _ = Describe("Service", func() {
 
 var _ = Describe("Registry", func() {
 	var store config.Store
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		store = MustOpen(config.OpenService(
 			ctx,
 			config.ServiceConfig[arctask.Config]{
@@ -1044,7 +1049,7 @@ var _ = Describe("With a detach reference", func() {
 			},
 		)
 	}
-	openService := func(ctx SpecContext) *config.Service[arctask.Config] {
+	openService := func(ctx context.Context) *config.Service[arctask.Config] {
 		GinkgoHelper()
 		return MustOpen(config.OpenService(
 			ctx,
@@ -1061,13 +1066,14 @@ var _ = Describe("With a detach reference", func() {
 			},
 		))
 	}
-	createTarget := func(ctx SpecContext) target {
+	createTarget := func(ctx context.Context) target {
 		GinkgoHelper()
 		t := target{Key: uuid.New()}
 		Expect(targets.NewCreate().Entry(&t).Exec(ctx, ldb)).To(Succeed())
 		return t
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		ldb = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		targets = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, target]{
 			DB:   ldb,
@@ -1108,7 +1114,8 @@ var _ = Describe("With a detach reference", func() {
 			t     target
 			key   uuid.UUID
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			svc = openService(ctx)
 			tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 				DB:     ldb,

@@ -128,7 +128,8 @@ var _ = Describe("Drafts", func() {
 		theirDraft      panel.Panel
 		drafts          project.Project
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		mine, theirs = createUser(ctx), createUser(ctx)
 		tx = DeferClose(db.OpenTx())
 		drafts = project.Project{Name: "drafts"}

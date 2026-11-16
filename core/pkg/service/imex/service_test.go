@@ -265,7 +265,8 @@ var _ = Describe("Service", func() {
 		svc *imex.Service
 		ts  *testService
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		svc = imex.NewService()
 		ts = DeferClose(openTestService(ctx, db))
 		Expect(svc.RegisterImportExporter(ts)).To(Succeed())

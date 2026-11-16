@@ -46,8 +46,9 @@ var (
 	ch1, ch2, ch3, ch4, ch5, ch6, ch7, ch9, ch10, ch20, ch42, ch43, ch99 channel.Key
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{

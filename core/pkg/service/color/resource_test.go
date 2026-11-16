@@ -29,7 +29,8 @@ var _ = Describe("Resources", func() {
 		db  *gorp.DB
 		svc *color.Service
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(color.OpenService(ctx, color.ServiceConfig{DB: db}))
 	})

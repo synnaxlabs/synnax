@@ -163,8 +163,9 @@ func retrieveChannel(ctx context.Context, name string) channel.Channel {
 	return ch
 }
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	nodeFramer = node.Framer

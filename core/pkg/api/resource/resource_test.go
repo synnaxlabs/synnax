@@ -35,7 +35,8 @@ var _ = Describe("Resource", func() {
 		lbl  label.Label
 		rck  rack.Rack
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		term = "probe" + uuid.New().String()[:8]
 		lbl = label.Label{Name: term}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

@@ -39,8 +39,9 @@ var _ = Describe("Calculator", Ordered, func() {
 		channelSvc *channel.Service
 	)
 
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
@@ -1243,7 +1244,8 @@ var _ = Describe("Calculator", Ordered, func() {
 				step  uint32
 				saved bool
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				base = []channel.Channel{{
 					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,

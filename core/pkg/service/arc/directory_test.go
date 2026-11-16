@@ -75,7 +75,8 @@ var _ = Describe("Directories", func() {
 		Expect(w.Create(ctx, &a)).To(Succeed())
 		return a
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
 		r := rootDirectory(ctx, tx)

@@ -37,7 +37,7 @@ import (
 
 var _ = Describe("Writer", func() {
 	var e *env
-	BeforeEach(func(ctx SpecContext) { e = newEnv(ctx, telem.Hour) })
+	BeforeEach(func() { e = newEnv(GinkgoT().Context(), telem.Hour) })
 
 	Describe("Set", func() {
 		It("Should read the details of a stored certificate", func(ctx SpecContext) {

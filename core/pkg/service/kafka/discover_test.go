@@ -66,7 +66,8 @@ var _ = Describe("Discover", func() {
 		t  task.Task
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		t = newTask(ctx, kafka.ScanTaskType, map[string]any{})
 		dt = MustSucceed(newFactory().ConfigureTask(ctx, t, driver.NoCommand))
 		DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })

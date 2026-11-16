@@ -10,6 +10,7 @@
 package channel_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -69,8 +70,9 @@ var (
 	author user.User
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	dist = testutil.NewNode(ctx)
 	db = dist.DB
 	svc := MustOpen(svctestutil.OpenLayer(ctx, dist))
@@ -101,7 +103,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 // grantOn grants the actions on the objects to the subject.
 func grantOn(
-	ctx SpecContext,
+	ctx context.Context,
 	subject resource.ID,
 	actions []access.Action,
 	objects ...resource.ID,

@@ -73,7 +73,8 @@ var _ = Describe("Service", func() {
 		tasks   *tasktestutil.Tasks
 		db      *gorp.DB
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		// The suite's DB holds a task table of its own.
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		secrets = secrettestutil.OpenService(ctx, db)

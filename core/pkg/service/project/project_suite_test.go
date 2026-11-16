@@ -46,8 +46,9 @@ var (
 	tx           gorp.Tx
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	svc = MustOpen(project.OpenService(ctx, project.ServiceConfig{

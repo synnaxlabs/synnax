@@ -10,6 +10,7 @@
 package secret_test
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -61,7 +62,7 @@ func whereKeysWithUses(keys ...secret.Key) apisecret.RetrieveRequest {
 	return req
 }
 
-func createSecret(ctx SpecContext, name, value string) secret.Secret {
+func createSecret(ctx context.Context, name, value string) secret.Secret {
 	GinkgoHelper()
 	s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: name}}}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -82,7 +83,7 @@ func retrieveSecret(ctx SpecContext, key secret.Key) secret.Secret {
 
 // createCertificate creates a stored certificate with a private key, whose secret the
 // certificate uses.
-func createCertificate(ctx SpecContext) certificate.Certificate {
+func createCertificate(ctx context.Context) certificate.Certificate {
 	GinkgoHelper()
 	key := MustSucceed(ecdsa.GenerateKey(elliptic.P256(), rand.Reader))
 	tmpl := &x509.Certificate{
@@ -221,7 +222,8 @@ var _ = Describe("Service", func() {
 				u        user.User
 				existing secret.Secret
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				u = createUser(ctx)
 				allow(
 					ctx,
@@ -379,7 +381,8 @@ var _ = Describe("Service", func() {
 				cert certificate.Certificate
 				key  secret.Key
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				u = createUser(ctx)
 				allow(
 					ctx,

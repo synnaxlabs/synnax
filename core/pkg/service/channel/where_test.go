@@ -49,8 +49,9 @@ var _ = Describe("Where", Ordered, func() {
 	)
 	v = MustSucceed(vectors.Read[record, channel.Where]("channels"))
 
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		cfg, _ := serviceConfig(
 			ctx,
 			testutil.NewNode(ctx),

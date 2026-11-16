@@ -160,7 +160,8 @@ var _ = Describe("Service", func() {
 			obj1         resource.ID
 			obj2         resource.ID
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			tx = DeferClose(db.OpenTx())
 			policyWriter = rbacSvc.Policy.NewWriter(tx, true)
 			roleWriter = rbacSvc.Role.NewWriter(tx, true)
@@ -468,7 +469,8 @@ var _ = Describe("Service", func() {
 
 		Describe("Policies of the subject's roles", func() {
 			var held, other *policy.Policy
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				r := &role.Role{Name: "held"}
 				Expect(roleWriter.Create(ctx, r)).To(Succeed())
 				held = &policy.Policy{
@@ -514,7 +516,7 @@ var _ = Describe("Service", func() {
 
 		Describe("Own record", func() {
 			var other resource.ID
-			BeforeEach(func(ctx SpecContext) { other = createUser(ctx, tx) })
+			BeforeEach(func() { other = createUser(GinkgoT().Context(), tx) })
 			It("Should let the subject retrieve itself alone", func(ctx SpecContext) {
 				allowed := MustSucceed(rbacSvc.NewEnforcer(tx).Allowed(
 					ctx,
@@ -618,7 +620,8 @@ var _ = Describe("Service", func() {
 			subject      resource.ID
 			obj          resource.ID
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			tx = DeferClose(db.OpenTx())
 			policyWriter = rbacSvc.Policy.NewWriter(tx, true)
 			roleWriter = rbacSvc.Role.NewWriter(tx, true)
@@ -684,7 +687,8 @@ var _ = Describe("Service", func() {
 			roleWriter   role.Writer
 			subject      resource.ID
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			tx = DeferClose(db.OpenTx())
 			policyWriter = rbacSvc.Policy.NewWriter(tx, true)
 			roleWriter = rbacSvc.Role.NewWriter(tx, true)
@@ -799,7 +803,8 @@ var _ = Describe("Service", func() {
 			heldPolicy, outside policy.Policy
 			subject             resource.ID
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			tx = DeferClose(db.OpenTx())
 			held = &role.Role{Name: "held"}
 			other = &role.Role{Name: "other"}

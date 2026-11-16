@@ -10,6 +10,7 @@
 package secret_test
 
 import (
+	"context"
 	"testing"
 	"uuid"
 
@@ -56,8 +57,9 @@ var (
 	resolve freighter.UnaryHandler[apisecret.ResolveRequest, apisecret.ResolveResponse]
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
@@ -79,7 +81,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 // createUser creates a user whose role allows nothing.
-func createUser(ctx SpecContext) user.User {
+func createUser(ctx context.Context) user.User {
 	GinkgoHelper()
 	return MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
@@ -88,7 +90,7 @@ func createUser(ctx SpecContext) user.User {
 
 // allow gives the subject the actions on the objects.
 func allow(
-	ctx SpecContext,
+	ctx context.Context,
 	subject resource.ID,
 	actions []access.Action,
 	objects ...resource.ID,

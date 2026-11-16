@@ -205,7 +205,8 @@ var _ = Describe("NewLSP", func() {
 	Context("Read access", func() {
 		const docURI = uri.URI("file:///access.arc")
 		var visible, hidden channel.Channel
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			visible = channel.Channel{
 				Name:     "lsp_visible_ch",
 				DataType: telem.Float32T,
@@ -408,7 +409,8 @@ var _ = Describe("NewLSP", func() {
 
 var _ = Describe("NewRoot", func() {
 	var ch channel.Channel
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		ch = channel.Channel{
 			Name:     "new_root_ch",
 			DataType: telem.Float32T,

@@ -956,7 +956,8 @@ var _ = Describe("Owned records", func() {
 		owner, other user.User
 		proj         project.Project
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		owner, other = newUser(ctx), newUser(ctx)
 		proj = project.Project{Name: "drafts"}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

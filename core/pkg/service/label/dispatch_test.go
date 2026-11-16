@@ -33,7 +33,8 @@ var _ = Describe("Dispatch", func() {
 		svc     *label.Service
 		nominal label.Label
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,

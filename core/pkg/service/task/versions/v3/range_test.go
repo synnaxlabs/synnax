@@ -55,7 +55,8 @@ var _ = Describe("RangeMigration", func() {
 		return resource.ID{Type: resource.TypeRange, Key: k.String()}
 	}
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		stored := []v2.Task{
 			{Key: inRange, Name: "In Range", Snapshot: true},

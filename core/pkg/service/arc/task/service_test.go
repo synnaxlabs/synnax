@@ -33,7 +33,8 @@ var _ = Describe("Service", func() {
 		tasks  *tasktestutil.Tasks
 		arcKey arc.Key
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 		a := arc.Arc{

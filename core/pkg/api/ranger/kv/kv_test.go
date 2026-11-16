@@ -10,6 +10,8 @@
 package kv_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -23,7 +25,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func createRange(ctx SpecContext) ranger.Range {
+func createRange(ctx context.Context) ranger.Range {
 	GinkgoHelper()
 	r := ranger.Range{Name: "Hot fire", TimeRange: telem.NewRangeSeconds(1, 5)}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -42,7 +44,8 @@ var _ = Describe("Set", func() {
 		u user.User
 		r ranger.Range
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = createUser(ctx)
 		r = createRange(ctx)
 	})
@@ -78,7 +81,8 @@ var _ = Describe("Dispatch", func() {
 		r    ranger.Range
 		pair kv.Pair
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = createUser(ctx)
 		r = createRange(ctx)
 		pair = kv.Pair{Range: r.Key, Key: "k", Value: "stored"}
@@ -112,7 +116,8 @@ var _ = Describe("Delete", func() {
 		u user.User
 		r ranger.Range
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = createUser(ctx)
 		r = createRange(ctx)
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -148,7 +153,8 @@ var _ = Describe("Get", func() {
 		r    ranger.Range
 		pair kv.Pair
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = createUser(ctx)
 		r = createRange(ctx)
 		pair = kv.Pair{Range: r.Key, Key: "k", Value: "v"}

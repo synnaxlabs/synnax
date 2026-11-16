@@ -103,7 +103,8 @@ var _ = Describe("Graph", func() {
 		relationships  func(ctx context.Context) []v0.Relationship
 		allRelationsOf = func(v0.Relationship) bool { return true }
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = gorp.Wrap(memkv.New())
 		DeferCleanup(db.Close)
 		a = resource.ID{Type: resource.TypeGroup, Key: "a"}

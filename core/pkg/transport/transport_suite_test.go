@@ -27,8 +27,9 @@ func TestTransport(t *testing.T) {
 	RunSpecs(t, "Transport Suite", SuiteConfig())
 }
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	node := testutil.NewNode(ctx)
 	svc := MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiLayer = MustSucceed(api.NewLayer(api.LayerConfig{

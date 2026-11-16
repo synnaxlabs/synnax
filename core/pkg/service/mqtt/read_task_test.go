@@ -81,7 +81,8 @@ var _ = Describe("Read task", func() {
 		factory driver.Factory
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		broker = startBroker(0)
 		rackKey = createRack(ctx)
 		dev = createBrokerDevice(ctx, rackKey, broker.port, nil)

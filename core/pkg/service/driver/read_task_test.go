@@ -85,7 +85,8 @@ var _ = Describe("ReadTask", func() {
 		dataCh channel.Channel
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		t = task.Task{Key: uuid.New(), Name: "read-task-test", Type: "mock"}
 		createTask(ctx, t)
 		src = newQueueSource()

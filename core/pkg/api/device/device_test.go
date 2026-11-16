@@ -76,7 +76,7 @@ func newDeviceNeeds(d resource.ID) []need {
 }
 
 // statusOf returns the status that d holds.
-func statusOf(ctx SpecContext, d device.Device) resource.ID {
+func statusOf(ctx context.Context, d device.Device) resource.ID {
 	GinkgoHelper()
 	var st device.Status
 	Expect(svc.Status.NewRetrieve[device.StatusDetails]().
@@ -97,7 +97,7 @@ func newDevice(key string) device.Device {
 	}
 }
 
-func createDevice(ctx SpecContext, key string) device.Device {
+func createDevice(ctx context.Context, key string) device.Device {
 	GinkgoHelper()
 	d := newDevice(key)
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -471,7 +471,7 @@ var _ = Describe("RetrieveRequest", func() {
 })
 
 // createRackGroup creates a group under the embedded rack, where its devices can sit.
-func createRackGroup(ctx SpecContext, name string) group.Group {
+func createRackGroup(ctx context.Context, name string) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Parent: new(svc.Rack.EmbeddedKey.ResourceID())}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -648,7 +648,8 @@ var _ = Describe("Move to another rack", func() {
 		d     device.Device
 		other rack.Rack
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = createUser(ctx)
 		g = createRackGroup(ctx, "Rack move")
 		d = createDevice(ctx, "rack-move-"+uuid.New().String())

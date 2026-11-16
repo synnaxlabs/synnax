@@ -98,8 +98,9 @@ var _ = Describe("Task", Ordered, func() {
 		// frozenNow pins the clock of the rack monitor when it is not zero.
 		frozenNow atomic.Int64
 	)
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
@@ -680,7 +681,8 @@ var _ = Describe("Task", Ordered, func() {
 			})
 		}
 		var alerts *task.Task
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			alerts = &task.Task{
 				Type: testType,
 				Rack: testRack.Key,
@@ -2047,7 +2049,8 @@ var _ = Describe("Writer in concurrent transactions", func() {
 			Config: msgpack.EncodedJSON{"routing_key": routingKey(i)},
 		}
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,

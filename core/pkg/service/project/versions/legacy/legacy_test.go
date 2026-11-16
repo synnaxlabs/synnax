@@ -123,7 +123,8 @@ var _ = Describe("CreatePanels", func() {
 		proj project.Key
 		refs map[string]resource.ID
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		p := project.Project{Name: "Legacy Project"}
 		Expect(projectSvc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 		proj = p.Key

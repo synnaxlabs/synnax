@@ -40,7 +40,7 @@ import (
 // "Input", and "malformed" with PDOs that do not decode. It also returns the config
 // that opens Tasks on the services it opens.
 func openDevices(
-	ctx SpecContext,
+	ctx context.Context,
 	db *gorp.DB,
 ) (*device.Service, tasktestutil.TasksConfig) {
 	GinkgoHelper()
@@ -128,7 +128,8 @@ var _ = Describe("Service", func() {
 		tasks      *tasktestutil.Tasks
 		db         *gorp.DB
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		var tasksCfg tasktestutil.TasksConfig

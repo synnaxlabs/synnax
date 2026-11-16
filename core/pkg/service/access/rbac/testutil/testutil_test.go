@@ -34,7 +34,8 @@ var _ = Describe("Grant", func() {
 		users   *user.Service
 		rbacSvc *rbac.Service
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		passwords := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		users = MustOpen(user.OpenService(ctx, user.ServiceConfig{

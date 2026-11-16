@@ -69,8 +69,9 @@ func newFramerConfig(ctx context.Context, n testutil.Node) framer.ServiceConfig 
 	}
 }
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	node = testutil.NewNode(ctx)
 	validCfg = newFramerConfig(ctx, node)
 	channelSvc = validCfg.Channel

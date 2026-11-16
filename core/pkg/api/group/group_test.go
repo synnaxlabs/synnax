@@ -10,6 +10,7 @@
 package group_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -67,7 +68,11 @@ func exists(ctx SpecContext, key group.Key) bool {
 		Exists(ctx, db))
 }
 
-func newGroup(ctx SpecContext, scope resource.Type, parent *group.Group) group.Group {
+func newGroup(
+	ctx context.Context,
+	scope resource.Type,
+	parent *group.Group,
+) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: "group", Scope: scope}
 	if parent != nil {
@@ -155,7 +160,8 @@ var _ = Describe("Group", func() {
 
 	Describe("Delete", func() {
 		var parent, g group.Group
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			parent = newGroup(ctx, resource.TypeChannel, nil)
 			g = newGroup(ctx, resource.TypeChannel, &parent)
 		})
@@ -212,7 +218,8 @@ var _ = Describe("Group", func() {
 
 	Describe("Dispatch rename", func() {
 		var g group.Group
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			g = newGroup(ctx, resource.TypeChannel, nil)
 		})
 		renameAs := func(ctx SpecContext, u user.User) (struct{}, error) {
@@ -241,7 +248,8 @@ var _ = Describe("Group", func() {
 
 	Describe("Dispatch set parent", func() {
 		var source, dest, moved group.Group
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			source = newGroup(ctx, resource.TypeChannel, nil)
 			dest = newGroup(ctx, resource.TypeChannel, nil)
 			moved = newGroup(ctx, resource.TypeChannel, &source)
@@ -289,7 +297,8 @@ var _ = Describe("Group", func() {
 			source, dest, nested group.Group
 			sc                   schematic.Schematic
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			from, to = project.Project{Name: "From"}, project.Project{Name: "To"}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.Project.NewWriter(tx).Create(ctx, &from)
@@ -334,7 +343,8 @@ var _ = Describe("Group", func() {
 		)
 
 		Context("Holding a schematic", func() {
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				sc = schematic.Schematic{
 					Name:    "moved",
 					Project: &from.Key,
@@ -400,7 +410,8 @@ var _ = Describe("Group", func() {
 
 	Describe("Retrieve", func() {
 		var top, nested, devices group.Group
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			top = newGroup(ctx, resource.TypeChannel, nil)
 			nested = newGroup(ctx, resource.TypeChannel, &top)
 			devices = newGroup(ctx, resource.TypeDevice, nil)

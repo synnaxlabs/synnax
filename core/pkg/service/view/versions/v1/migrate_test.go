@@ -30,7 +30,8 @@ var rootID = resource.ID{Type: resource.TypeBuiltin, Key: "root"}
 
 var _ = Describe("Migration", func() {
 	var db *gorp.DB
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.View]{DB: db}))
 	})

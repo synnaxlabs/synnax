@@ -74,7 +74,8 @@ var _ = Describe("ServiceConfig", func() {
 
 var _ = Describe("Service", func() {
 	var svc *apikey.Service
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		svc = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
 	})
 	It("Should require a DB", func(ctx SpecContext) {

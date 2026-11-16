@@ -38,7 +38,8 @@ var _ = Describe("Publisher", Serial, func() {
 		requests  confluence.Inlet[framer.StreamerRequest]
 		responses confluence.Outlet[framer.StreamerResponse]
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		sigs := MustSucceed(signals.New(signals.Config{
 			DB:      db,
 			Channel: channelSvc,

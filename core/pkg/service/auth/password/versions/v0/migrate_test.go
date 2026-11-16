@@ -71,7 +71,8 @@ var _ = Describe("NewMove", func() {
 		).
 			To(Succeed())
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		alice = userv0.User{Key: uuid.New(), Username: "alice"}
 		create(ctx, "alice", "ghost")
 	})

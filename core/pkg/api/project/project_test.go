@@ -298,7 +298,8 @@ var _ = Describe("Delete", func() {
 		p project.Project
 		l log.Log
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = createUser(ctx)
 		p = createProject(ctx, "Deleted")
 		l = createLog(ctx, p.Key, "Cascaded")

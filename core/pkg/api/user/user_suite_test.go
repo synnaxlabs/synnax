@@ -54,8 +54,9 @@ var (
 	]
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
@@ -111,7 +112,7 @@ func login(ctx context.Context, username, pwd string) (auth.Identity, error) {
 	})
 }
 
-func findRoot(ctx SpecContext, svc *user.Service) user.User {
+func findRoot(ctx context.Context, svc *user.Service) user.User {
 	GinkgoHelper()
 	var u user.User
 	Expect(

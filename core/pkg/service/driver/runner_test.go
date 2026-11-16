@@ -42,7 +42,8 @@ var _ = Describe("Runner", func() {
 		return runErr
 	}
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		t = task.Task{Key: uuid.New(), Name: "runner-test", Type: "mock"}
 		createTask(ctx, t)
 		opened, runErr = 0, nil

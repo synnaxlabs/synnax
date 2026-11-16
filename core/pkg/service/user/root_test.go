@@ -126,7 +126,7 @@ func purgeUsers(ctx context.Context) {
 }
 
 var _ = Describe("ProvisionRoot", Serial, func() {
-	BeforeEach(func(ctx SpecContext) { purgeUsers(ctx) })
+	BeforeEach(func() { purgeUsers(GinkgoT().Context()) })
 	It("Should reject incomplete credentials", func(ctx SpecContext) {
 		Expect(user.ProvisionRoot(ctx, svc, passwordSvc, auth.Credentials{}, owner)).
 			Error().

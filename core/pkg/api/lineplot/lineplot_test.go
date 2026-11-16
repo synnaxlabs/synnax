@@ -10,6 +10,7 @@
 package lineplot_test
 
 import (
+	"context"
 	"strings"
 	"uuid"
 
@@ -153,7 +154,8 @@ var _ = Describe("Delete", func() {
 		u  user.User
 		lp lineplot.LinePlot
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = newUser(ctx)
 		lp = createLinePlot(ctx, "Deleted")
 	})
@@ -212,7 +214,8 @@ var _ = Describe("Dispatch", func() {
 		lp  lineplot.LinePlot
 		rec *Recorder[lineplot.Key, lineplot.Action]
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = newUser(ctx)
 		lp = createLinePlot(ctx, "Dispatched")
 		rec = &Recorder[lineplot.Key, lineplot.Action]{}
@@ -250,7 +253,7 @@ var _ = Describe("Dispatch", func() {
 })
 
 // createGroup creates a group in the suite project.
-func createGroup(ctx SpecContext, name string) group.Group {
+func createGroup(ctx context.Context, name string) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Parent: new(project.ResourceID(proj.Key))}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -259,7 +262,7 @@ func createGroup(ctx SpecContext, name string) group.Group {
 	return g
 }
 
-func createLinePlot(ctx SpecContext, name string) lineplot.LinePlot {
+func createLinePlot(ctx context.Context, name string) lineplot.LinePlot {
 	GinkgoHelper()
 	lp := defaults.Fill(lineplot.LinePlot{Project: &proj.Key, Name: name})
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -310,7 +313,8 @@ var _ = Describe("Create in a group", func() {
 			dest project.Project
 			g    group.Group
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			u = newCreator(ctx)
 			dest = project.Project{Name: "Create destination"}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -391,7 +395,8 @@ var _ = Describe("Dispatch of a move", func() {
 		destG  group.Group
 		rec    *Recorder[lineplot.Key, lineplot.Action]
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = newUser(ctx)
 		target = createLinePlot(ctx, "Moved")
 		g = createGroup(ctx, "Source")

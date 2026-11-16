@@ -52,8 +52,9 @@ var _ = Describe("Relay", func() {
 		for i, sF := range scenarios {
 			_sF := sF
 			var s scenario
-			BeforeAll(func(ctx SpecContext) {
+			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
+				ctx := GinkgoT().Context()
 				s = DeferClose(_sF(ctx))
 			})
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
@@ -566,8 +567,9 @@ var _ = Describe("Relay", func() {
 	// context cancellation mid-wait, and concurrent streamers.
 	Describe("SendOpenAck", Ordered, func() {
 		var svc testutil.Node
-		BeforeAll(func(ctx SpecContext) {
+		BeforeAll(func() {
 			ShouldNotLeakGoroutines()
+			ctx := GinkgoT().Context()
 			svc = testutil.NewNode(ctx)
 		})
 
@@ -899,8 +901,9 @@ var _ = Describe("Relay", func() {
 	// outright, since a failed tap starves every streamer demanding stored channels.
 	Describe("Unknown Keys", Ordered, func() {
 		var svc testutil.Node
-		BeforeAll(func(ctx SpecContext) {
+		BeforeAll(func() {
 			ShouldNotLeakGoroutines()
+			ctx := GinkgoT().Context()
 			svc = testutil.NewNode(ctx)
 		})
 

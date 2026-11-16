@@ -41,7 +41,8 @@ var _ = Describe("Apply", func() {
 		f.MultiplexValues = []int32{}
 		return f
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		editDB = DeferClose(gorp.Wrap(memkv.New()))
 		editSvc = MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
 			DB:   editDB,

@@ -30,7 +30,8 @@ var _ = Describe("Provision", func() {
 		policySvc *policy.Service
 		roleSvc   *role.Service
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
 			DB: db,

@@ -37,8 +37,9 @@ var _ = Describe("Where", Ordered, func() {
 		return r.Key, alias
 	})
 
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = DeferClose(openStack(ctx, db, rack.ServiceConfig{})).rack
 		for _, r := range v.Records {

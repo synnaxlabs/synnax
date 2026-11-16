@@ -54,8 +54,9 @@ var (
 	]
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	kvDB := memkv.New()
 	db = DeferClose(gorp.Wrap(kvDB))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))

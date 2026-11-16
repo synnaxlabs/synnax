@@ -135,7 +135,8 @@ var _ = Describe("SearchIndex", func() {
 		db *gorp.DB
 		p  fixture[channelEntry]
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		p = openFixture[channelEntry](ctx, db, resource.TypeChannel)
 		p.create(
@@ -195,7 +196,8 @@ var _ = Describe("TableProvider", func() {
 		db       *gorp.DB
 		channels fixture[channelEntry]
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		channels = openFixture[channelEntry](ctx, db, resource.TypeChannel)
 		channels.create(
@@ -274,7 +276,8 @@ var _ = Describe("TableProvider", func() {
 
 	Describe("Hidden", func() {
 		var provider *resource.TableProvider[string, channelEntry]
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			channels.create(
 				ctx,
 				db,

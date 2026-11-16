@@ -56,8 +56,9 @@ var _ = Describe("Writer", func() {
 			db       *gorp.DB
 			limitSvc *channel.Service
 		)
-		BeforeAll(func(ctx SpecContext) {
+		BeforeAll(func() {
 			ShouldNotLeakGoroutines()
+			ctx := GinkgoT().Context()
 			dist := testutil.NewNode(ctx)
 			db = dist.DB
 			limitSvc = openService(ctx, dist, channel.ServiceConfig{
@@ -184,7 +185,8 @@ var _ = Describe("Writer", func() {
 					})
 				}
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				one := testutil.NewNode(ctx)
 				oneDB = one.DB
 				oneSvc = openService(
@@ -283,15 +285,17 @@ var _ = Describe("Writer", func() {
 			db   *gorp.DB
 			svc  *channel.Service
 		)
-		BeforeAll(func(ctx SpecContext) {
+		BeforeAll(func() {
 			ShouldNotLeakGoroutines()
+			ctx := GinkgoT().Context()
 			dist = testutil.NewNode(ctx)
 			db = dist.DB
 			svc = openService(ctx, dist)
 		})
 		Context("Single channel", func() {
 			var ch channel.Channel
-			JustBeforeEach(func(ctx SpecContext) {
+			JustBeforeEach(func() {
+				ctx := GinkgoT().Context()
 				ch.IsIndex = true
 				ch.Name = UniqueChannelName()
 				ch.DataType = telem.TimestampT
@@ -986,7 +990,8 @@ var _ = Describe("Writer", func() {
 		})
 		Context("Calculated channel with an existing key", func() {
 			var calc channel.Channel
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				calc = channel.Channel{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Float64T,
@@ -1041,7 +1046,8 @@ var _ = Describe("Writer", func() {
 		Context("Updating a channel", func() {
 			var ch channel.Channel
 			var ch2 channel.Channel
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				ch = channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.Float64T,
@@ -1146,8 +1152,9 @@ var _ = Describe("Writer", func() {
 				db  *gorp.DB
 				svc *channel.Service
 			)
-			BeforeAll(func(ctx SpecContext) {
+			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
+				ctx := GinkgoT().Context()
 				dist := testutil.NewNode(ctx)
 				db = dist.DB
 				svc = openService(
@@ -1282,15 +1289,17 @@ var _ = Describe("Writer", func() {
 			db   *gorp.DB
 			svc  *channel.Service
 		)
-		BeforeAll(func(ctx SpecContext) {
+		BeforeAll(func() {
 			ShouldNotLeakGoroutines()
+			ctx := GinkgoT().Context()
 			dist = testutil.NewNode(ctx)
 			db = dist.DB
 			svc = openService(ctx, dist)
 		})
 		Context("Single Channel", func() {
 			var idxCh, ch channel.Channel
-			JustBeforeEach(func(ctx SpecContext) {
+			JustBeforeEach(func() {
+				ctx := GinkgoT().Context()
 				prefix := UniqueChannelName()
 				idxCh.Name = prefix + "_time"
 				idxCh.DataType = telem.TimestampT
@@ -1555,7 +1564,8 @@ var _ = Describe("Writer", func() {
 		})
 		Context("Internal Channels", func() {
 			var internalCh channel.Channel
-			JustBeforeEach(func(ctx SpecContext) {
+			JustBeforeEach(func() {
+				ctx := GinkgoT().Context()
 				internalCh = channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.TimestampT,
@@ -1640,15 +1650,17 @@ var _ = Describe("Writer", func() {
 			db   *gorp.DB
 			svc  *channel.Service
 		)
-		BeforeAll(func(ctx SpecContext) {
+		BeforeAll(func() {
 			ShouldNotLeakGoroutines()
+			ctx := GinkgoT().Context()
 			dist = testutil.NewNode(ctx)
 			db = dist.DB
 			svc = openService(ctx, dist)
 		})
 		Context("Single channel", func() {
 			var ch channel.Channel
-			JustBeforeEach(func(ctx SpecContext) {
+			JustBeforeEach(func() {
+				ctx := GinkgoT().Context()
 				ch.Virtual = true
 				ch.Name = UniqueChannelName()
 				ch.DataType = telem.Float64T
@@ -1825,7 +1837,8 @@ var _ = Describe("Writer", func() {
 			db       *gorp.DB
 			limitSvc *channel.Service
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			dist = testutil.NewNode(ctx)
 			db = dist.DB
 			limitSvc = openService(
@@ -2086,8 +2099,9 @@ var _ = Describe("Writer", func() {
 					Error().To(MatchError(ts.ErrChannelNotFound))
 			}
 		)
-		BeforeAll(func(ctx SpecContext) {
+		BeforeAll(func() {
 			ShouldNotLeakGoroutines()
+			ctx := GinkgoT().Context()
 			dist = testutil.NewNode(ctx)
 			db = dist.DB
 			svc = openService(ctx, dist)
@@ -2201,8 +2215,9 @@ var _ = Describe("Writer", func() {
 			db  *gorp.DB
 			svc *channel.Service
 		)
-		BeforeAll(func(ctx SpecContext) {
+		BeforeAll(func() {
 			ShouldNotLeakGoroutines()
+			ctx := GinkgoT().Context()
 			dist := testutil.NewNode(ctx)
 			db = dist.DB
 			svc = openService(ctx, dist)

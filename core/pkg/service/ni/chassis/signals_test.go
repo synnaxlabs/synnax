@@ -43,8 +43,9 @@ var _ = Describe("Signals", Ordered, func() {
 		rackSvc    *rack.Service
 		svc        *chassis.Service
 	)
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		node = testutil.NewNode(ctx)
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: node.DB}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: node.DB}))

@@ -454,8 +454,9 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		toCreated, toFixture map[float64]float64
 		secretSvc            *secret.Service
 	)
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{

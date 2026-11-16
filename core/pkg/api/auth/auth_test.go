@@ -166,7 +166,8 @@ var _ = Describe("ChangePassword", func() {
 		)
 		return err
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		own = auth.Credentials{Username: "own-" + uuid.New().String(), Password: "old"}
 		createUser(ctx, own.Username, own.Password)
 		ownToken = MustSucceed(
@@ -233,7 +234,8 @@ var _ = Describe("SetPassword", func() {
 	) (apiauth.PasswordSetResponse, error) {
 		return setPassword(authed(ctx, token), req)
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		bob = createUser(ctx, "bob-"+uuid.New().String(), "old")
 		bobToken = login(ctx, bob.Name, "old")
 		rootToken = login(ctx, creds.Username, creds.Password)
@@ -380,7 +382,8 @@ var _ = Describe("Middleware", func() {
 		mw    freighter.Middleware
 		token string
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		mw = apiauth.Middleware(authSvc)
 		token = MustSucceed(apiSvc.Login(requestCtx(ctx), request(
 			creds.Username,
@@ -608,7 +611,8 @@ var _ = Describe("Sessions", func() {
 			apiauth.SessionCreateRequest{Proof: passwordProof(username, pwd)},
 		))
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		bob = createUser(ctx, "bob-"+uuid.New().String(), "p")
 		bobToken = login(ctx, bob.Name, "p").Token
 		rootToken = login(ctx, creds.Username, creds.Password).Token

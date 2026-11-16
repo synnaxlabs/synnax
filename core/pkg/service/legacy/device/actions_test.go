@@ -69,7 +69,8 @@ var _ = Describe("Actions", func() {
 			Exec(ctx, db)).To(Succeed())
 		return res
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
@@ -195,7 +196,8 @@ var _ = Describe("Actions", func() {
 
 	Describe("Group", func() {
 		var g group.Group
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			g = group.Group{
 				Name:   "Pumps",
 				Parent: new(rackSvc.EmbeddedKey.ResourceID()),
@@ -307,7 +309,8 @@ var _ = Describe("Actions", func() {
 				return w.Apply(ctx, dev.Key, acts...)
 			})
 		}
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			Expect(apply(ctx, set("properties", map[string]any(stored())))).
 				To(Succeed())
 		})

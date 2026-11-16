@@ -32,8 +32,9 @@ func validServiceConfig(ctx context.Context) channel.ServiceConfig {
 
 var _ = Describe("ServiceConfig", Ordered, func() {
 	var valid channel.ServiceConfig
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		valid = validServiceConfig(ctx)
 	})
 
@@ -62,8 +63,9 @@ var _ = Describe("ServiceConfig", Ordered, func() {
 
 var _ = Describe("Service", Ordered, func() {
 	var valid channel.ServiceConfig
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		valid = validServiceConfig(ctx)
 	})
 

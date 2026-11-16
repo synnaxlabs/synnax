@@ -62,8 +62,9 @@ var (
 	clock      *timetestutil.Clock
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	node := testutil.NewNode(ctx)
 	clock = timetestutil.NewClock(time.Now())
 	db = node.DB
@@ -128,7 +129,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 // rootDirectory returns the directory that holds every Arc.
-func rootDirectory(ctx SpecContext, tx gorp.Tx) directory.Directory {
+func rootDirectory(ctx context.Context, tx gorp.Tx) directory.Directory {
 	GinkgoHelper()
 	var root directory.Directory
 	Expect(svc.NewDirectoryRetrieve().

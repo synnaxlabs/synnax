@@ -48,7 +48,8 @@ var _ = Describe("Dispatch", func() {
 		})).To(Succeed())
 		return created
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		svc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{

@@ -40,8 +40,9 @@ var (
 	imexSvc    *imex.Service
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,

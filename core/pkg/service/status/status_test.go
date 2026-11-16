@@ -43,8 +43,9 @@ var _ = Describe("Status", Ordered, func() {
 		racks    *gorp.Table[rack.Key, rack.Rack]
 		tx       gorp.Tx
 	)
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		store = memkv.New()
 		db = DeferClose(gorp.Wrap(store))
 		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
@@ -551,7 +552,8 @@ var _ = Describe("Status", Ordered, func() {
 
 	Describe("Retrieve", func() {
 		BeforeEach(openTx)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			statuses := []status.Status[any]{
 				{
 					Name:    "Status A",

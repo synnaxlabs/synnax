@@ -59,7 +59,8 @@ var _ = Describe("Scan task", func() {
 		factory driver.Factory
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		rackKey = createRack(ctx)
 		factory = newFactory(64)
 	})
@@ -585,7 +586,8 @@ var _ = Describe("Scan task", func() {
 			dev    device.Device
 		)
 
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			broker = startBroker(0)
 			dev = createBrokerDevice(ctx, rackKey, broker.port, nil)
 		})
@@ -804,7 +806,8 @@ var _ = Describe("Scan task", func() {
 			dev    device.Device
 		)
 
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			broker = startBroker(0)
 			dev = createBrokerDevice(ctx, rackKey, broker.port, nil)
 		})

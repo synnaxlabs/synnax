@@ -23,7 +23,8 @@ var _ = Describe("Service", func() {
 		svc   *task.Service
 		tasks *tasktestutil.Tasks
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB: db,
 		}))

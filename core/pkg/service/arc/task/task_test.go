@@ -103,8 +103,9 @@ var _ = Describe("Task", Ordered, func() {
 		taskSvc    *task.Service
 	)
 
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		st := DeferClose(storagetestutil.OpenLayer(ctx))
 		node := testutil.NewNode(ctx, distribution.LayerConfig{
 			Storage: &storage.Layer{KV: hookkv.Wrap(st.KV), TS: st.TS},
@@ -1020,7 +1021,8 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Task Lifecycle", func() {
 		var arcTask driver.Task
 
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			ch := &channel.Channel{
 				Name:     "lifecycle_test_ch_" + uuid.New().String()[:8],
 				Virtual:  true,

@@ -76,8 +76,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		iteratorSvc *iterator.Service
 		channelSvc  *channel.Service
 	)
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		node = testutil.NewNode(ctx)
 		iteratorSvc, channelSvc = openServices(ctx, node)
 	})
@@ -117,8 +118,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				dataCh1 *channel.Channel
 				dataCh2 *channel.Channel
 			)
-			BeforeAll(func(ctx SpecContext) {
+			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
+				ctx := GinkgoT().Context()
 				indexCh = &channel.Channel{
 					Name:     "time",
 					DataType: telem.TimestampT,
@@ -661,8 +663,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					threeDomainDataCh  *channel.Channel
 					threeDomainIdxData telem.MultiSeries
 				)
-				BeforeAll(func(ctx SpecContext) {
+				BeforeAll(func() {
 					ShouldNotLeakGoroutines()
+					ctx := GinkgoT().Context()
 					threeDomainIndexCh = &channel.Channel{
 						Name:     "three_domain_time",
 						DataType: telem.TimestampT,
@@ -2449,7 +2452,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		// createSensor creates the aggregate_time index and the aggregate_sensor
 		// channel on node, and writes the values 1 through 100 to them.
 		createSensor := func(
-			ctx SpecContext,
+			ctx context.Context,
 			node testutil.Node,
 			svc *channel.Service,
 		) (index, sensor *channel.Channel) {
@@ -2489,8 +2492,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(fw.Close()).To(Succeed())
 			return index, sensor
 		}
-		BeforeAll(func(ctx SpecContext) {
+		BeforeAll(func() {
 			ShouldNotLeakGoroutines()
+			ctx := GinkgoT().Context()
 			indexCh, sensorCh = createSensor(ctx, node, channelSvc)
 		})
 
@@ -2824,8 +2828,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				iteratorSvc *iterator.Service
 				channelSvc  *channel.Service
 			)
-			BeforeAll(func(ctx SpecContext) {
+			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
+				ctx := GinkgoT().Context()
 				store := &storage.Layer{
 					KV: DeferClose(memkv.New()),
 					TS: DeferClose(MustSucceed(cesium.Open(
@@ -3096,7 +3101,8 @@ var _ = Describe("Read failure", func() {
 		channelSvc  *channel.Service
 		node        testutil.Node
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		faulty = WrapFaultyFS(xfs.NewMem())
 		store := &storage.Layer{
 			KV: DeferClose(memkv.New()),

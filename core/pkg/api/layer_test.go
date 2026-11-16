@@ -246,7 +246,8 @@ var _ = Describe("Layer", func() {
 			rck                            rack.Rack
 			projGroup, symGroup, rackGroup group.Group
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			proj = project.Project{Name: "moved"}
 			sym = defaults.Fill(symbol.Symbol{
 				Name: "moved",

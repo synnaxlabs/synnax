@@ -64,7 +64,8 @@ var _ = Describe("StatusHandler", func() {
 		handler *driver.StatusHandler
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		t = task.Task{
 			Key:        uuid.New(),
 			Name:       "handler-test",

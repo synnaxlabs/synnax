@@ -158,7 +158,8 @@ func messageKeys(messages []icd.Message) set.Set[uuid.UUID] {
 
 var _ = Describe("Import", func() {
 	var ic icd.ICD
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		ic = icd.ICD{
 			Name: "Bus",
 			Messages: []icd.Message{

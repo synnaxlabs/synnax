@@ -35,8 +35,9 @@ func TestFramer(t *testing.T) {
 	RunSpecs(t, "Transport HTTP Framer Suite", SuiteConfig())
 }
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	svc := MustOpen(svctestutil.OpenLayer(ctx, node))

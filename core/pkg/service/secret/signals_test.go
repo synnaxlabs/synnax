@@ -35,8 +35,9 @@ var _ = Describe("Signals", Ordered, func() {
 		layer *service.Layer
 		db    *gorp.DB
 	)
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		layer = MustOpen(svctestutil.OpenLayer(ctx, node))

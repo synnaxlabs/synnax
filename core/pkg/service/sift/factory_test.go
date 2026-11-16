@@ -164,7 +164,8 @@ var _ = Describe("Factory", func() {
 			dt     driver.Task
 		)
 
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			server = MustOpen(fake.Open(fake.Config{
 				APIKey: apiKey,
 				Assets: []string{"stand", "pad"},

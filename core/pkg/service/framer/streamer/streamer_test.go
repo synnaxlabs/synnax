@@ -39,8 +39,9 @@ var _ = Describe("Streamer", Ordered, func() {
 		channelSvc  *channel.Service
 		streamerSvc *streamer.Service
 	)
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		node = testutil.NewNode(ctx)
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: node.DB,
@@ -187,7 +188,8 @@ var _ = Describe("Streamer", Ordered, func() {
 			dataCh1 *channel.Channel
 			dataCh2 *channel.Channel
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			indexCh = &channel.Channel{
 				Name:     UniqueChannelName(),
 				DataType: telem.TimestampT,

@@ -39,8 +39,9 @@ var _ = Describe("Where", Ordered, func() {
 	) (status.Key, string) {
 		return s.Key, alias
 	})
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		MustOpen(group.OpenService(
 			ctx,

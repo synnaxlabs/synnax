@@ -43,8 +43,9 @@ var _ = Describe("Visualization exports", Ordered, func() {
 		tb   table.Table
 	)
 
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		l = MustOpen(svctestutil.OpenLayer(ctx, node))

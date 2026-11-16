@@ -46,7 +46,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func openLicensed(ctx SpecContext, creds auth.Credentials) *fiber.App {
+func openLicensed(ctx context.Context, creds auth.Credentials) *fiber.App {
 	GinkgoHelper()
 	node := testutil.NewNode(ctx)
 	signer := svctestutil.NewSigner()
@@ -226,7 +226,8 @@ var _ = Describe("HTTP", func() {
 			signer svctestutil.Signer
 		)
 		creds := auth.Credentials{Username: "root", Password: "root"}
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			node := testutil.NewNode(ctx)
 			signer = svctestutil.NewSigner()
 			sec := MustSucceed(security.NewProvider(security.ProviderConfig{
@@ -372,7 +373,7 @@ var _ = Describe("HTTP", func() {
 	Describe("Session cookie", func() {
 		var app *fiber.App
 		creds := auth.Credentials{Username: "root", Password: "root"}
-		BeforeEach(func(ctx SpecContext) { app = openLicensed(ctx, creds) })
+		BeforeEach(func() { app = openLicensed(GinkgoT().Context(), creds) })
 		post := func(path string, headers map[string]string, body any) *http.Response {
 			GinkgoHelper()
 			return postJSON(app, path, headers, body)
@@ -569,7 +570,7 @@ var _ = Describe("HTTP", func() {
 	Describe("Credentials", func() {
 		var app *fiber.App
 		creds := auth.Credentials{Username: "root", Password: "root"}
-		BeforeEach(func(ctx SpecContext) { app = openLicensed(ctx, creds) })
+		BeforeEach(func() { app = openLicensed(GinkgoT().Context(), creds) })
 		call := func(path, token string, body, res any) int {
 			GinkgoHelper()
 			r := postJSON(

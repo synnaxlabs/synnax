@@ -230,7 +230,8 @@ var _ = Describe("Writer", func() {
 		)
 		Describe("A schematic that stores a zero scale", func() {
 			var stored schematic.Schematic
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				stored = schematic.Schematic{}
 				Expect(json.Unmarshal([]byte(
 					`{"name":"stored","nodes":[{"key":"v1",`+
@@ -361,7 +362,8 @@ var _ = Describe("Writer", func() {
 
 		Describe("A dispatch to a stored valve", func() {
 			var s schematic.Schematic
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				s = schematic.Schematic{}
 				Expect(json.Unmarshal([]byte(
 					`{"name":"valves","nodes":[`+
@@ -409,7 +411,8 @@ var _ = Describe("Writer", func() {
 
 		Describe("A dispatch to a stored edge", func() {
 			var s schematic.Schematic
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				s = schematic.Schematic{}
 				Expect(json.Unmarshal([]byte(
 					`{"name":"edges","nodes":[`+
@@ -486,7 +489,8 @@ var _ = Describe("Writer", func() {
 
 		Describe("A dispatch to a stored group", func() {
 			var s schematic.Schematic
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				s = schematic.Schematic{}
 				Expect(json.Unmarshal([]byte(
 					`{"name":"groups","nodes":[`+

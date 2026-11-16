@@ -30,7 +30,8 @@ var _ = Describe("Table", func() {
 		db    *gorp.DB
 		table *directory.Table
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		table = MustOpen(directory.OpenTable(ctx, directory.TableConfig{DB: db}))
 	})

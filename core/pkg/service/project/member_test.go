@@ -10,6 +10,7 @@
 package project_test
 
 import (
+	"context"
 	"fmt"
 	"uuid"
 
@@ -26,7 +27,7 @@ import (
 )
 
 // createProject creates a project and returns it.
-func createProject(ctx SpecContext) project.Project {
+func createProject(ctx context.Context) project.Project {
 	GinkgoHelper()
 	p := project.Project{Name: "Holder"}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -37,7 +38,7 @@ func createProject(ctx SpecContext) project.Project {
 
 // createGroup creates a group under parent with scope and returns it.
 func createGroup(
-	ctx SpecContext,
+	ctx context.Context,
 	parent *resource.ID,
 	scope resource.Type,
 ) group.Group {
@@ -174,7 +175,8 @@ var _ = Describe("Place", func() {
 			)
 		}
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		p, other = createProject(ctx), createProject(ctx)
 		g = createGroup(ctx, new(p.ResourceID()), resource.TypeProject)
 		otherG = createGroup(ctx, new(other.ResourceID()), resource.TypeProject)

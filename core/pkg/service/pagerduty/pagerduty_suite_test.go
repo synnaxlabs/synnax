@@ -50,8 +50,9 @@ var (
 	alertSvc  *pd.Service
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db,

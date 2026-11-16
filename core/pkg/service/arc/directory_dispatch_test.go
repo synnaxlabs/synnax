@@ -50,7 +50,8 @@ var _ = Describe("Directory dispatch", func() {
 		created = append(created, d.Key)
 		return d
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		created = nil
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			root = rootDirectory(ctx, tx).Key

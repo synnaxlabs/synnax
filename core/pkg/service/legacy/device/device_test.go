@@ -45,7 +45,8 @@ var _ = Describe("Device", func() {
 		tx       gorp.Tx
 		w        device.Writer
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: db,
 		}))
@@ -622,7 +623,8 @@ var _ = Describe("Device", func() {
 			Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
 			return g.Key
 		}
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			r := rack.Rack{Name: "Grouped Rack"}
 			Expect(rackSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 			d = device.Device{
@@ -979,7 +981,8 @@ var _ = Describe("Device", func() {
 	})
 	Describe("Group", func() {
 		var underRack group.Group
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			underRack = group.Group{
 				Name:   "Under rack",
 				Parent: new(rackSvc.EmbeddedKey.ResourceID()),
@@ -1400,7 +1403,8 @@ var _ = Describe("References", func() {
 		rackSvc *rack.Service
 		svc     *device.Service
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		labels = MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))

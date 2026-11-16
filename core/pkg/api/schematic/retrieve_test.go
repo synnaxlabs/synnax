@@ -30,7 +30,8 @@ var _ = Describe("Retrieve by page", func() {
 		paged         project.Project
 		first, second schematic.Schematic
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = newUser(ctx)
 		grantOn(
 			ctx,

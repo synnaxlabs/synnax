@@ -53,7 +53,8 @@ var _ = Describe("Stream task", func() {
 		dt     driver.Task
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		f = MustOpen(sift.OpenFactory(factoryConfig()))
 		server = MustOpen(fake.Open(fake.Config{APIKey: apiKey}))
 		dev = createDevice(ctx, sift.Properties{
@@ -288,7 +289,8 @@ var _ = Describe("Stream task", func() {
 	Describe("Runs", func() {
 		var l label.Label
 
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			l = label.Label{Name: "hotfire"}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return labelSvc.NewWriter(tx).Create(ctx, &l)

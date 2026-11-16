@@ -26,7 +26,8 @@ var _ = Describe("Service", func() {
 		racks    fixture[rackEntry]
 		svc      *resource.Service
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		channels = openFixture[channelEntry](ctx, db, resource.TypeChannel)
 		racks = openFixture[rackEntry](ctx, db, resource.TypeRack)

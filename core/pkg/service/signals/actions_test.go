@@ -96,7 +96,8 @@ var _ = Describe("Actions", func() {
 			responses confluence.Outlet[framer.StreamerResponse]
 			logs      *observer.ObservedLogs
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			var core zapcore.Core
 			core, logs = observer.New(zapcore.DPanicLevel)
 			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{

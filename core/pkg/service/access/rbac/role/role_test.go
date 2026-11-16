@@ -123,7 +123,8 @@ var _ = Describe("Writer", func() {
 
 	Describe("Delete", func() {
 		var roles []role.Role
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			roles = []role.Role{
 				{Name: "role-1", Description: "First role"},
 				{Name: "role-2", Description: "Second role"},
@@ -187,7 +188,8 @@ var _ = Describe("Retrieve", func() {
 		w     role.Writer
 		roles []role.Role
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx, true)
 		roles = []role.Role{
@@ -261,7 +263,8 @@ var _ = Describe("Retrieve", func() {
 
 	Describe("MatchInternal", func() {
 		var internalRole, regularRole role.Role
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			internalRole = role.Role{
 				Name:        "internal-role",
 				Description: "An internal role",

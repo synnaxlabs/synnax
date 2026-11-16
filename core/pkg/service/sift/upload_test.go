@@ -57,7 +57,8 @@ var _ = Describe("Upload", func() {
 		dt = MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
 	}
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		f = MustOpen(sift.OpenFactory(factoryConfig()))
 		server = MustOpen(fake.Open(fake.Config{APIKey: apiKey}))
 		t = newTask(ctx, sift.ScanTaskType, msgpack.EncodedJSON{"rate": 1})

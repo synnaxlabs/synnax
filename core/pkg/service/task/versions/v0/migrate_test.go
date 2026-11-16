@@ -30,7 +30,8 @@ var _ = Describe("Migration", func() {
 		db        *gorp.DB
 		statusSvc *status.Service
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,

@@ -165,7 +165,8 @@ var _ = Describe("Module", func() {
 		mod node.Factory
 		rep *recordingReporter
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		rep = &recordingReporter{}
 		mod = newModule(ctx, rep)
 	})
@@ -270,7 +271,8 @@ var _ = Describe("setNode.Next", func() {
 		mod node.Factory
 		rep *recordingReporter
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		rep = &recordingReporter{}
 		mod = newModule(ctx, rep)
 	})
@@ -723,7 +725,8 @@ var _ = Describe("WASM host functions", func() {
 		rep  *recordingReporter
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		rt = NewRuntime(ctx)
 		strs = stlstrings.NewProgramState()
 		rep = &recordingReporter{}

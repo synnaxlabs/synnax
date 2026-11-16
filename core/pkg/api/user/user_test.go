@@ -10,6 +10,7 @@
 package user_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -50,7 +51,7 @@ func nonRootCtx(ctx SpecContext) (freighter.Context, user.User) {
 
 // createUser creates a user that holds a role with no policies, and a password holding
 // username.
-func createUser(ctx SpecContext, username string) user.User {
+func createUser(ctx context.Context, username string) user.User {
 	GinkgoHelper()
 	u := MustSucceed(rbactestutil.CreateUser(
 		ctx,
@@ -254,7 +255,8 @@ var _ = Describe("Service", func() {
 				username, otherUsername string
 				u, other                user.User
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				username = "own-" + uuid.New().String()
 				otherUsername = "other-" + uuid.New().String()
 				u = createUser(ctx, username)

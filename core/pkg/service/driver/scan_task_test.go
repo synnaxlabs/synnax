@@ -151,7 +151,8 @@ var _ = Describe("ScanTask", func() {
 		checkTimeout time.Duration
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		r := rack.Rack{Name: "scan-task-rack"}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return rackService.NewWriter(tx).Create(ctx, &r)

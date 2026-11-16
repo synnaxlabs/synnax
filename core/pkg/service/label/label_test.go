@@ -33,8 +33,9 @@ var _ = Describe("Label", Ordered, func() {
 		w   label.Writer
 		tx  gorp.Tx
 	)
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
@@ -154,7 +155,8 @@ var _ = Describe("Label", Ordered, func() {
 		)
 	})
 	Describe("Limit", func() {
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			ls := []label.Label{
 				{Name: "page-a", Color: MustSucceed(color.Parse("#000000"))},
 				{Name: "page-b", Color: MustSucceed(color.Parse("#000000"))},

@@ -31,7 +31,8 @@ var _ = Describe("Dispatch", func() {
 		u     user.User
 		taken string
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = createUser(ctx, uuid.New().String(), "p", false)
 		taken = uuid.New().String()
 		createUser(ctx, taken, "p", false)

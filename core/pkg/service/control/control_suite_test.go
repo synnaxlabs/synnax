@@ -37,8 +37,9 @@ var (
 	controlSvc *control.Service
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	dist = testutil.NewNode(ctx)
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: dist.DB,

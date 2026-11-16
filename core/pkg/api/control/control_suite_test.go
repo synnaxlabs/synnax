@@ -56,8 +56,9 @@ var (
 	]
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	dist := testutil.NewNode(ctx)
 	db = dist.DB
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{

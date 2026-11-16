@@ -33,7 +33,8 @@ var _ = Describe("Sparkplug B browse", func() {
 		factory driver.Factory
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		broker = startBroker(0)
 		rackKey = createRack(ctx)
 		factory = newFactory(64)
@@ -184,7 +185,8 @@ var _ = Describe("Sparkplug B browse", func() {
 			node *testEdgeNode
 		)
 
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			dev = createBrokerDevice(ctx, rackKey, broker.port, nil)
 			node = startEdgeNode(broker, "plant", "line1")
 		})

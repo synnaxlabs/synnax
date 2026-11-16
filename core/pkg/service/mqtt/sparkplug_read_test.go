@@ -61,7 +61,8 @@ var _ = Describe("Sparkplug B read entries", func() {
 		node    *testEdgeNode
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		broker = startBroker(0)
 		rackKey = createRack(ctx)
 		dev = createBrokerDevice(ctx, rackKey, broker.port, nil)

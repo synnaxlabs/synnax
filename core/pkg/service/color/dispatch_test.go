@@ -31,7 +31,8 @@ var _ = Describe("Broadcasts", func() {
 		svc *color.Service
 		red xcolor.Color
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(color.OpenService(ctx, color.ServiceConfig{DB: db}))
 		red = MustSucceed(xcolor.Parse("#ff0000"))
@@ -76,7 +77,8 @@ var _ = Describe("Broadcasts", func() {
 
 	Describe("Apply", func() {
 		var n color.Named
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			n = color.Named{Name: "Breaker", Light: red}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &n)

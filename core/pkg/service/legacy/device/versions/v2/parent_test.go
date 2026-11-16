@@ -41,7 +41,8 @@ var _ = Describe("ParentMigration", func() {
 		retained []ontology.Relationship
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		stored := []v2.Device{
 			{Key: "chassis", Rack: 65537},

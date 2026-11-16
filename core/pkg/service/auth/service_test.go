@@ -58,7 +58,8 @@ var _ = Describe("ServiceConfig", func() {
 		cfg   auth.ServiceConfig
 		auths map[auth.Method]auth.Authenticator
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		pw := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		auths = map[auth.Method]auth.Authenticator{auth.MethodPassword: pw}
 		cfg = auth.ServiceConfig{
@@ -136,7 +137,8 @@ var _ = Describe("Service", func() {
 		GinkgoHelper()
 		return MustSucceed2(svc.Login(ctx, proof(username, "secret")))
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		pw = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		clock = timetestutil.NewClock(time.Unix(1_700_000_000, 0))
 		authenticators = map[auth.Method]auth.Authenticator{auth.MethodPassword: pw}
@@ -146,7 +148,8 @@ var _ = Describe("Service", func() {
 			return pw.NewWriter(tx).Set(ctx, alice, username, hash(pw, "secret"))
 		})).To(Succeed())
 	})
-	JustBeforeEach(func(ctx SpecContext) {
+	JustBeforeEach(func() {
+		ctx := GinkgoT().Context()
 		svc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
 			DB:             db,
 			Authenticators: authenticators,

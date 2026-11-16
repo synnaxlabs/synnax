@@ -56,7 +56,8 @@ var _ = Describe("Modules", func() {
 		return svc.NewRoot(tx, &channel.Lookups{}).ResolveModule(ctx, path)
 	}
 	Context("ResolveModule", func() {
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			tx = DeferClose(db.OpenTx())
 			w = svc.NewWriter(tx)
 			root = rootDirectory(ctx, tx).Key

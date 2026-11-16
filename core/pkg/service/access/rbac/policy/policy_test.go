@@ -182,7 +182,8 @@ var _ = Describe("Writer", func() {
 
 	Describe("Delete", func() {
 		var policies []policy.Policy
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			policies = []policy.Policy{
 				{
 					Role:    owner.Key,
@@ -274,7 +275,8 @@ var _ = Describe("Retriever", func() {
 		w        policy.Writer
 		policies []policy.Policy
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx, false)
 		policies = []policy.Policy{
@@ -353,7 +355,8 @@ var _ = Describe("Retriever", func() {
 
 	Describe("MatchRoles", func() {
 		var other *role.Role
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			other = &role.Role{Name: "other"}
 			Expect(roleSvc.NewWriter(tx, true).Create(ctx, other)).To(Succeed())
 			p := &policy.Policy{
@@ -397,7 +400,8 @@ var _ = Describe("Retriever", func() {
 
 	Describe("MatchInternal", func() {
 		var internalPolicy, regularPolicy policy.Policy
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			internalWriter := svc.NewWriter(tx, true)
 			internalPolicy = policy.Policy{
 				Role:     owner.Key,
@@ -444,7 +448,8 @@ var _ = Describe("Retriever", func() {
 
 	Describe("Combinators", func() {
 		var internalPolicy, regularPolicy policy.Policy
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			internalWriter := svc.NewWriter(tx, true)
 			internalPolicy = policy.Policy{
 				Role:     owner.Key,
@@ -634,7 +639,8 @@ var _ = Describe("ResolveRolesWith", func() {
 		subject            resource.ID
 		rolesOf            policy.RolesOf
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		tx = DeferClose(db.OpenTx())
 		held, other = role.Role{Name: "held"}, role.Role{Name: "other"}
 		rw := roleSvc.NewWriter(tx, true)

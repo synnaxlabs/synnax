@@ -63,8 +63,9 @@ var (
 	export freighter.UnaryHandler[apiimex.ExportRequest, apiimex.ExportResponse]
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))

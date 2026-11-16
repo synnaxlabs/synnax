@@ -10,6 +10,7 @@
 package device_test
 
 import (
+	"context"
 	"testing"
 	"uuid"
 
@@ -51,8 +52,9 @@ var (
 	]
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
@@ -73,7 +75,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 // createUser creates a user that can do nothing.
-func createUser(ctx SpecContext) user.User {
+func createUser(ctx context.Context) user.User {
 	GinkgoHelper()
 	return MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
@@ -82,7 +84,7 @@ func createUser(ctx SpecContext) user.User {
 
 // grant grants the action on the objects to the subject.
 func grant(
-	ctx SpecContext,
+	ctx context.Context,
 	action access.Action,
 	subject resource.ID,
 	objects ...resource.ID,

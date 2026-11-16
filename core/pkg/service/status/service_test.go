@@ -44,8 +44,9 @@ var _ = Describe("Dispatch", Ordered, func() {
 			return svc.NewWriter(tx).Set(ctx, st)
 		})
 	}
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		// Status labels reference the label table, so it must be open.
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{

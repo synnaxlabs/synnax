@@ -111,7 +111,8 @@ func at(line, character int) map[string]any {
 
 var _ = Describe("LSP", func() {
 	var ch channel.Channel
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		ch = channel.Channel{
 			Name:     "api_lsp_ch",
 			DataType: telem.Float32T,
@@ -150,7 +151,8 @@ var _ = Describe("LSP", func() {
 
 	Describe("Rename", func() {
 		var u user.User
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			u = MustSucceed(rbactestutil.CreateUser(
 				ctx,
 				db,

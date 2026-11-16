@@ -33,7 +33,8 @@ var _ = Describe("Where", func() {
 		return r.Key, alias
 	})
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		openTx()
 		for _, k := range lo.Uniq(lo.FlatMap(
 			lo.Values(v.Records),
@@ -68,7 +69,8 @@ var _ = Describe("Where", func() {
 
 	Describe("Time", func() {
 		var running, planned, done ranger.Range
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			now := telem.Now()
 			running = ranger.Range{
 				Name:      "Running",

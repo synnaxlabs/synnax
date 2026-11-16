@@ -73,8 +73,9 @@ func TestKafka(t *testing.T) {
 	RunSpecs(t, "Service Kafka Suite", SuiteConfig())
 }
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	st := DeferClose(storagetestutil.OpenLayer(ctx))
 	hookedKV = hookkv.Wrap(st.KV)
 	faultyFS = WrapFaultyFS(xfs.NewMem())

@@ -370,7 +370,7 @@ var _ = Describe("Service", func() {
 })
 
 // createGroup creates a group in the suite project.
-func createGroup(ctx SpecContext, name string) group.Group {
+func createGroup(ctx context.Context, name string) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Parent: new(project.ResourceID(proj.Key))}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -390,7 +390,8 @@ func retrieveSchematic(ctx SpecContext, key schematic.Key) schematic.Schematic {
 }
 
 var _ = Describe("Create in a group", func() {
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		grantOn(
 			ctx,
 			author.ResourceID(),
@@ -436,7 +437,8 @@ var _ = Describe("Create in a group", func() {
 			dest project.Project
 			g    group.Group
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			u = newUser(ctx)
 			grantOn(
 				ctx,
@@ -543,7 +545,8 @@ var _ = Describe("Owner access", func() {
 			u   user.User
 			src schematic.Schematic
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			u = newUser(ctx)
 			src = createSchematic(ctx, "Copy source")
 			grantOn(
@@ -594,7 +597,8 @@ var _ = Describe("Delete", func() {
 		u  user.User
 		sc schematic.Schematic
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = newUser(ctx)
 		sc = createSchematic(ctx, "Deleted")
 	})
@@ -656,7 +660,8 @@ var _ = Describe("Dispatch of a move", func() {
 		destG  group.Group
 		rec    *Recorder[schematic.Key, schematic.Action]
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = newUser(ctx)
 		target = createSchematic(ctx, "Moved")
 		g = createGroup(ctx, "Source")

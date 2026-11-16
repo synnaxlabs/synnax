@@ -38,7 +38,8 @@ var _ = Describe("Dispatch", func() {
 			return fn(svc.NewWriter(tx).WithDispatchKey("dk"))
 		})
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(view.OpenService(ctx, view.ServiceConfig{DB: db}))
 		v = statusView("Before")
@@ -114,7 +115,8 @@ var _ = Describe("Dispatch", func() {
 	)
 
 	Describe("Range view", func() {
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			v = rangeView("Ranges")
 			Expect(write(ctx, func(w view.Writer) error { return w.Create(ctx, &v) })).
 				To(Succeed())

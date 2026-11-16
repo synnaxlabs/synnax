@@ -10,6 +10,7 @@
 package testutil_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -75,7 +76,7 @@ var _ = Describe("Tasks", func() {
 		tasks  *tasktestutil.Tasks
 		arcKey arc.Key
 	)
-	createArc := func(ctx SpecContext) arc.Key {
+	createArc := func(ctx context.Context) arc.Key {
 		GinkgoHelper()
 		a := arc.Arc{
 			Variant: arc.AutomationArc{Base: arc.Base{
@@ -88,7 +89,8 @@ var _ = Describe("Tasks", func() {
 			To(Succeed())
 		return a.Base().Key
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 		arcKey = createArc(ctx)

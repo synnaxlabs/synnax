@@ -33,8 +33,9 @@ var _ = Describe("Group", Ordered, func() {
 		svc      *channel.Service
 		g        group.Group
 	)
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		cfg, gs := serviceConfig(ctx, node, node.DB)

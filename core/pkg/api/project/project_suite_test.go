@@ -10,6 +10,7 @@
 package project_test
 
 import (
+	"context"
 	"testing"
 	"uuid"
 
@@ -75,8 +76,9 @@ var (
 	author user.User
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
@@ -149,14 +151,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 })
 
-func createUser(ctx SpecContext) user.User {
+func createUser(ctx context.Context) user.User {
 	GinkgoHelper()
 	return MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "import-" + uuid.New().String(),
 	}))
 }
 
-func createProject(ctx SpecContext, name string) project.Project {
+func createProject(ctx context.Context, name string) project.Project {
 	GinkgoHelper()
 	p := project.Project{Name: name}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -165,7 +167,7 @@ func createProject(ctx SpecContext, name string) project.Project {
 	return p
 }
 
-func createLog(ctx SpecContext, proj project.Key, name string) log.Log {
+func createLog(ctx context.Context, proj project.Key, name string) log.Log {
 	GinkgoHelper()
 	l := defaults.Fill(log.Log{Project: &proj, Name: name})
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

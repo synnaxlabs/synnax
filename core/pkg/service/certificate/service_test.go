@@ -49,7 +49,7 @@ type env struct {
 	now     atomic.Int64
 }
 
-func newEnv(ctx SpecContext, interval telem.TimeSpan) *env {
+func newEnv(ctx context.Context, interval telem.TimeSpan) *env {
 	GinkgoHelper()
 	e := &env{}
 	e.now.Store(int64(telem.NewTimeStamp(start)))
@@ -130,7 +130,7 @@ func stored(name, pemText string) certificate.Certificate {
 }
 
 func (e *env) create(
-	ctx SpecContext,
+	ctx context.Context,
 	c certificate.Certificate,
 	privateKey []byte,
 ) certificate.Certificate {

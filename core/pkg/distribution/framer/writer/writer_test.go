@@ -42,8 +42,9 @@ var _ = Describe("Writer", func() {
 		}
 		for i, sF := range scenarios {
 			var s scenario
-			BeforeAll(func(ctx SpecContext) {
+			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
+				ctx := GinkgoT().Context()
 				s = DeferClose(sF(ctx))
 			})
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
@@ -80,8 +81,9 @@ var _ = Describe("Writer", func() {
 			idxCh channel.Channel
 			strCh channel.Channel
 		)
-		BeforeAll(func(ctx SpecContext) {
+		BeforeAll(func() {
 			ShouldNotLeakGoroutines()
+			ctx := GinkgoT().Context()
 			node := testutil.OpenNode(ctx)
 			idxCh = channel.Channel{
 				Name:     "variable_time",
@@ -164,8 +166,9 @@ var _ = Describe("Writer", func() {
 
 	Describe("Canceled Context", Ordered, func() {
 		var s scenario
-		BeforeAll(func(ctx SpecContext) {
+		BeforeAll(func() {
 			ShouldNotLeakGoroutines()
+			ctx := GinkgoT().Context()
 			s = DeferClose(storageScenario(ctx))
 		})
 		DescribeTable("Should return ErrClosed when the pipeline ends first",
@@ -208,8 +211,9 @@ var _ = Describe("Writer", func() {
 
 	Describe("Open Errors", Ordered, func() {
 		var s scenario
-		BeforeAll(func(ctx SpecContext) {
+		BeforeAll(func() {
 			ShouldNotLeakGoroutines()
+			ctx := GinkgoT().Context()
 			s = DeferClose(storageScenario(ctx))
 		})
 		It("Should return an error if no keys are provided", func(ctx SpecContext) {

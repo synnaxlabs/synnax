@@ -32,7 +32,8 @@ var _ = Describe("Retrieve", func() {
 		svc   *color.Service
 		amber color.Named
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(color.OpenService(ctx, color.ServiceConfig{DB: db}))
 		named := []color.Named{{Name: "Valve"}, {Name: "amber"}, {Name: "Breaker"}}

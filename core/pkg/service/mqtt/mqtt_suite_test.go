@@ -68,8 +68,9 @@ func TestMQTT(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	core := testutil.NewNode(ctx)
 	host = core.Identity.HostKey
 	db = core.DB

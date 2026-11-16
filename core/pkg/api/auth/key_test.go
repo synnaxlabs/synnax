@@ -85,7 +85,8 @@ var _ = Describe("API keys", func() {
 			apiauth.KeyCreateRequest{Subject: subject, Name: "ci"},
 		)
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		bob = createUser(ctx, "bob-"+uuid.New().String(), "p")
 		eng = createUser(ctx, "eng-"+uuid.New().String(), "p")
 		setBuiltinRole(ctx, eng.Key, "Engineer")

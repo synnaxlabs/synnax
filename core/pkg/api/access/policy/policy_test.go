@@ -10,6 +10,7 @@
 package policy_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,7 +32,7 @@ import (
 var policyType = resource.ID{Type: resource.TypePolicy}
 
 // createPolicy creates a policy of the role r that reads channels.
-func createPolicy(ctx SpecContext, r role.Key) policy.Policy {
+func createPolicy(ctx context.Context, r role.Key) policy.Policy {
 	GinkgoHelper()
 	p := newPolicy(r)
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -194,7 +195,8 @@ var _ = Describe("Retrieve", func() {
 			own   policy.Policy
 			other policy.Policy
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			u = createUser(ctx)
 			own = grantOn(ctx, u.ResourceID(), access.ActionUpdate, u.ResourceID())
 			other = createPolicy(ctx, createRole(ctx).Key)

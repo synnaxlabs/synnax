@@ -10,6 +10,7 @@
 package arc_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -92,8 +93,9 @@ var (
 	root directory.Key
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	node = testutil.NewNode(ctx)
 	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
@@ -150,7 +152,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // grantOn grants the action on the objects to the subject through a new policy, which
 // is deleted on spec cleanup so a grant cannot leak into later specs.
 func grantOn(
-	ctx SpecContext,
+	ctx context.Context,
 	subject resource.ID,
 	action access.Action,
 	objects ...resource.ID,

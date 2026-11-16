@@ -31,7 +31,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-func createLabel(ctx SpecContext) label.Label {
+func createLabel(ctx context.Context) label.Label {
 	GinkgoHelper()
 	l := label.Label{Name: "Nominal"}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -57,7 +57,7 @@ func labelExists(ctx SpecContext, key label.Key) bool {
 	)
 }
 
-func createRange(ctx SpecContext, labels ...label.Key) ranger.Range {
+func createRange(ctx context.Context, labels ...label.Key) ranger.Range {
 	GinkgoHelper()
 	r := ranger.Range{
 		Name:      "Hot fire",
@@ -85,7 +85,7 @@ func rangeLabels(ctx SpecContext, key ranger.Key) []label.Key {
 	return r.Labels
 }
 
-func createStatus(ctx SpecContext, labels ...label.Key) status.Status[any] {
+func createStatus(ctx context.Context, labels ...label.Key) status.Status[any] {
 	GinkgoHelper()
 	s := status.Status[any]{
 		Name:    "Alarm",
@@ -204,7 +204,8 @@ var _ = Describe("Delete", func() {
 		r ranger.Range
 		s status.Status[any]
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = createUser(ctx)
 		l = createLabel(ctx)
 		r = createRange(ctx, l.Key)

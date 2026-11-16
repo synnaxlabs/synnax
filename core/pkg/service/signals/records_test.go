@@ -117,7 +117,8 @@ var _ = Describe("Records", func() {
 
 	Describe("Set samples", func() {
 		var setName string
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			setName = nextName()
 			Expect(sigs.PublishTable(
 				ctx,

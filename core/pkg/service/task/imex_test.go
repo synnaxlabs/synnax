@@ -115,8 +115,9 @@ var _ = Describe("ImEx", Ordered, func() {
 		statusSvc *status.Service
 		secretSvc *secret.Service
 	)
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		s := openStack(ctx, "Test Rack")
 		db, svc, imexSvc, statusSvc, secretSvc, testRack = s.db, s.task, s.imex,
 			s.status, s.secret, s.rack
@@ -395,8 +396,9 @@ var _ = Describe("ImEx", Ordered, func() {
 
 	Describe("Excluded types", Ordered, func() {
 		var excluded stack
-		BeforeAll(func(ctx SpecContext) {
+		BeforeAll(func() {
 			ShouldNotLeakGoroutines()
+			ctx := GinkgoT().Context()
 			excluded = openStack(ctx, "Excluded Rack", pagerduty.AlertTaskType)
 		})
 

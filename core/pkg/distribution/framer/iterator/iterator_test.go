@@ -34,8 +34,9 @@ var _ = Describe("Iterator", func() {
 	Describe("Happy Path", Ordered, func() {
 		var s scenario
 		Describe("Iteration", func() {
-			BeforeAll(func(ctx SpecContext) {
+			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
+				ctx := GinkgoT().Context()
 				s = DeferClose(openScenario(ctx))
 				writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,

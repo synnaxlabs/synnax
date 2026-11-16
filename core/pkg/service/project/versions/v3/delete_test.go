@@ -33,7 +33,8 @@ var _ = Describe("NewDeleteMigration", func() {
 		deleted = vis{Key: uuid.New(), Name: "Deleted"}
 		stored  []vis
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		Expect(gorp.NewCreate[uuid.UUID, vis]().
 			Entries(&[]vis{kept, deleted}).

@@ -656,7 +656,8 @@ var _ = Describe("Engine", func() {
 			run ingest.Run
 		)
 
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			ch = createData(ctx, createIndex(ctx), telem.Float64T)
 			run = ingest.Run{
 				Key:       uuid.New().String(),
@@ -912,7 +913,8 @@ var _ = Describe("Engine", func() {
 				e       *ingest.Engine
 			)
 
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				release, stalled = make(chan struct{}), &atomic.Int32{}
 				e = open(ctx, channel.Keys{ch.Key()}, ingest.Config{
 					Conn: stallConn{
@@ -993,7 +995,8 @@ var _ = Describe("Engine", func() {
 			run ingest.Run
 		)
 
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			ch := createData(ctx, createIndex(ctx), telem.Float64T)
 			e = open(ctx, channel.Keys{ch.Key()})
 			run = ingest.Run{
@@ -1555,7 +1558,8 @@ var _ = Describe("Engine", func() {
 					idx, ch, other channel.Channel
 					cfg            ingest.Config
 				)
-				BeforeEach(func(ctx SpecContext) {
+				BeforeEach(func() {
+					ctx := GinkgoT().Context()
 					idx = createIndex(ctx)
 					ch = createData(ctx, idx, telem.Float64T)
 					other = createData(ctx, idx, telem.Float64T)

@@ -160,7 +160,7 @@ var _ = Describe("License", func() {
 		DeferCleanup(svc.OnChange(func(_ context.Context, key string) { keys <- key }))
 		return keys
 	}
-	open := func(ctx SpecContext, cfgs ...license.ServiceConfig) *license.Service {
+	open := func(ctx context.Context, cfgs ...license.ServiceConfig) *license.Service {
 		GinkgoHelper()
 		return MustOpen(license.OpenService(ctx, append(
 			[]license.ServiceConfig{cfg}, cfgs...,
@@ -612,7 +612,7 @@ var _ = Describe("License", func() {
 
 	Describe("Activate", func() {
 		var svc *license.Service
-		BeforeEach(func(ctx SpecContext) { svc = open(ctx) })
+		BeforeEach(func() { svc = open(GinkgoT().Context()) })
 
 		It("should accept a subscription before expiry", func(ctx SpecContext) {
 			info := MustSucceed(svc.Activate(ctx, sign(newLicense())))
@@ -878,7 +878,7 @@ var _ = Describe("License", func() {
 
 	Describe("Deactivate", func() {
 		var svc *license.Service
-		BeforeEach(func(ctx SpecContext) { svc = open(ctx) })
+		BeforeEach(func() { svc = open(GinkgoT().Context()) })
 
 		It("should leave the Core without a license", func(ctx SpecContext) {
 			lic := newLicense()

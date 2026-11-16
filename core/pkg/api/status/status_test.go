@@ -73,7 +73,8 @@ var _ = Describe("Service.Set", func() {
 			Details: details,
 		}
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		grantOn(ctx, author.ResourceID(),
 			[]access.Action{access.ActionCreate, access.ActionUpdate},
 			statusTypeOnly)
@@ -245,7 +246,7 @@ var _ = Describe("Service.Set", func() {
 
 var _ = Describe("Service.Set access", func() {
 	var u user.User
-	BeforeEach(func(ctx SpecContext) { u = freshUser(ctx) })
+	BeforeEach(func() { u = freshUser(GinkgoT().Context()) })
 	setAs := func(
 		ctx SpecContext,
 		s status.Status[any],
@@ -644,7 +645,8 @@ func createStatus(ctx SpecContext, name string) status.Status[any] {
 }
 
 var _ = Describe("Service.Retrieve", func() {
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		grantOn(ctx, author.ResourceID(),
 			[]access.Action{access.ActionRetrieve},
 			statusTypeOnly)

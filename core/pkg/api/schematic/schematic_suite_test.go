@@ -10,6 +10,7 @@
 package schematic_test
 
 import (
+	"context"
 	"testing"
 	"uuid"
 
@@ -71,8 +72,9 @@ var (
 	userSvc    *user.Service
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
@@ -131,7 +133,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 // grantOn grants the action on the objects to the subject.
 func grantOn(
-	ctx SpecContext,
+	ctx context.Context,
 	subject resource.ID,
 	action access.Action,
 	objects ...resource.ID,
@@ -143,14 +145,14 @@ func grantOn(
 }
 
 // newUser creates a user with no policies.
-func newUser(ctx SpecContext) user.User {
+func newUser(ctx context.Context) user.User {
 	GinkgoHelper()
 	return MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "user-" + uuid.New().String(),
 	}))
 }
 
-func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
+func grantUpdateOn(ctx context.Context, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionUpdate, objects...)
 }

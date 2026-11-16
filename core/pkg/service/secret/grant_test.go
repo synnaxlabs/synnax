@@ -32,7 +32,8 @@ var _ = Describe("Grants", func() {
 		password secret.Secret
 		key      secret.Key
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		e = newEnv(ctx)
 		rk = rack.Key(1).ResourceID()
 		rk2 = rack.Key(2).ResourceID()

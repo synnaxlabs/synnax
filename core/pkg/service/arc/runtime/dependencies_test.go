@@ -34,8 +34,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 		channelSvc *channel.Service
 	)
 
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{

@@ -41,7 +41,8 @@ var _ = Describe("Dispatch", func() {
 	// Dispatch commits on its own, so its ranges commit too and are deleted after each
 	// spec.
 	var hotFire ranger.Range
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		hotFire = ranger.Range{Name: "Hot fire", TimeRange: telem.NewRangeSeconds(1, 5)}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &hotFire)

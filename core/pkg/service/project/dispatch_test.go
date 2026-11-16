@@ -35,7 +35,8 @@ var _ = Describe("Dispatch", func() {
 			return fn(svc.NewWriter(tx).WithDispatchKey("dk"))
 		})
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		g = group.Group{Name: "Projects", Scope: resource.TypeProject}
 		p = project.Project{Name: "Before"}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

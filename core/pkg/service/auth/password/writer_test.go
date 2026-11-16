@@ -29,7 +29,8 @@ var _ = Describe("Writer", func() {
 		alice resource.ID
 		name  string
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		svc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		alice = subject()
 		name = uuid.New().String()

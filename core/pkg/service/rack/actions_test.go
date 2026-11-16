@@ -48,7 +48,8 @@ var _ = Describe("Actions", func() {
 			Exec(ctx, db)).To(Succeed())
 		return res
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		s = DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
 		rec = &Recorder[rack.Key, rack.Action]{}

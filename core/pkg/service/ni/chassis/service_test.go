@@ -42,7 +42,8 @@ var _ = Describe("Service", func() {
 		tx      gorp.Tx
 		rackKey rack.Key
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))

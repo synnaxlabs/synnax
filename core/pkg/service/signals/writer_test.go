@@ -29,7 +29,8 @@ var _ = Describe("Start", func() {
 		setName string
 		actName string
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		sigs = MustSucceed(signals.New(signals.Config{
 			DB:      db,
 			Channel: channelSvc,

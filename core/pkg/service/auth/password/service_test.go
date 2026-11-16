@@ -112,7 +112,8 @@ var _ = Describe("Service", func() {
 		alice    resource.ID
 		username string
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		svc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		alice = subject()
 		username = uuid.New().String()
@@ -238,7 +239,8 @@ var _ = Describe("Service", func() {
 	})
 	Describe("NewRetrieve", func() {
 		var bob resource.ID
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			bob = subject()
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).
@@ -322,7 +324,8 @@ var _ = Describe("Service", func() {
 
 var _ = Describe("Service with FIPS", func() {
 	var svc *password.Service
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		svc = MustOpen(password.OpenService(ctx, password.ServiceConfig{
 			DB:   db,
 			FIPS: new(true),

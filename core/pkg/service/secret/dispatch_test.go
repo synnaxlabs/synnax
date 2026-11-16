@@ -46,7 +46,8 @@ var _ = Describe("Dispatch", func() {
 		DeferCleanup(e.svc.Actions().OnChange(rec.Record))
 		return rec
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		e = newEnv(ctx)
 		s = e.createStored(ctx, "Before", "hunter2")
 	})

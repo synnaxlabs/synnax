@@ -37,7 +37,8 @@ var _ = Describe("Dispatch", func() {
 			})).To(Succeed())
 		})
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		r = role.Role{Name: "engineer"}
 		create(ctx, &r)
 	})

@@ -59,7 +59,8 @@ var _ = Describe("Dispatch", func() {
 			return svc.NewWriter(tx, true).Create(ctx, p)
 		})).To(Succeed())
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		editable = role.Role{Name: "editable"}
 		createRole(ctx, &editable)
 		p = policy.Policy{

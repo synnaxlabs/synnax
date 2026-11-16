@@ -30,7 +30,8 @@ var _ = Describe("Writer", func() {
 		e  *env
 		rk resource.ID
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		e = newEnv(ctx)
 		rk = rack.Key(1).ResourceID()
 	})

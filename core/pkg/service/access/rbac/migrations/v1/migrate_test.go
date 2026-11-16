@@ -36,7 +36,8 @@ var _ = Describe("User role migration", func() {
 		policies *policy.Service
 		builtins builtin.ProvisionResult
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		passwords := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		users = MustOpen(user.OpenService(ctx, user.ServiceConfig{

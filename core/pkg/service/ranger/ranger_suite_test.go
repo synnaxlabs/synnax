@@ -36,8 +36,9 @@ var (
 	labelSvc *label.Service
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,

@@ -777,7 +777,8 @@ var _ = Describe("Driver", func() {
 				configured *atomic.Int32
 				t          task.Task
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				count, key := &atomic.Int32{}, &atomic.Value{}
 				configured = count
 				openDriver(ctx, &mockFactory{

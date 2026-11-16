@@ -10,6 +10,7 @@
 package symbol_test
 
 import (
+	"context"
 	"testing"
 	"uuid"
 
@@ -74,8 +75,9 @@ var (
 	author user.User
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
@@ -129,7 +131,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 // createGroup creates a top-level symbol group. The write commits at once so the api
 // enforcers, which read committed state, observe the new resource.
-func createGroup(ctx SpecContext, name string) group.Group {
+func createGroup(ctx context.Context, name string) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Scope: resource.TypeSchematicSymbol}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -160,7 +162,7 @@ func newSymbol(name string) symbol.Symbol {
 
 // createSymbol creates a symbol in g, committing it for the same reason createGroup
 // does.
-func createSymbol(ctx SpecContext, g group.Group, name string) symbol.Symbol {
+func createSymbol(ctx context.Context, g group.Group, name string) symbol.Symbol {
 	GinkgoHelper()
 	sym := newSymbol(name)
 	sym.Group = &g.Key
@@ -173,7 +175,7 @@ func createSymbol(ctx SpecContext, g group.Group, name string) symbol.Symbol {
 // createUser creates a user to author a request. Specs granting on an object the whole
 // suite shares, such as the symbol type, take a user of their own, so the grant cannot
 // reach another spec.
-func createUser(ctx SpecContext) user.User {
+func createUser(ctx context.Context) user.User {
 	GinkgoHelper()
 	return MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "test-" + uuid.New().String(),

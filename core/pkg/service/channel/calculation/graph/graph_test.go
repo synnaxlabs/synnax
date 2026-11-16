@@ -41,8 +41,9 @@ var (
 	channelLimit atomic.Int64
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
@@ -2205,8 +2206,9 @@ var _ = Describe("Graph", func() {
 				top          channel.Channel
 			)
 
-			BeforeAll(func(ctx SpecContext) {
+			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
+				ctx := GinkgoT().Context()
 				openGraph(ctx)
 				base1 = channel.Channel{
 					Name:     "topo_dia_b1",
@@ -2279,8 +2281,9 @@ var _ = Describe("Graph", func() {
 		})
 
 		Context("Long Chain With Mid-Chain Deletion", func() {
-			BeforeAll(func(ctx SpecContext) {
+			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
+				ctx := GinkgoT().Context()
 				openGraph(ctx)
 			})
 			It(

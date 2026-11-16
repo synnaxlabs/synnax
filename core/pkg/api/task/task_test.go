@@ -94,7 +94,7 @@ func statusOf(ctx SpecContext, t task.Task) resource.ID {
 	return st.ResourceID()
 }
 
-func createTask(ctx SpecContext) task.Task {
+func createTask(ctx context.Context) task.Task {
 	GinkgoHelper()
 	t := task.Task{
 		Type: pagerduty.AlertTaskType,
@@ -199,7 +199,8 @@ var _ = Describe("Dispatch", func() {
 	// routingKey is the key of the secret that holds the routing key of an alert
 	// config.
 	const routingKey = "6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7b02"
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		s := secret.Secret{Variant: secret.StoredSecret{
 			Base: secret.Base{Key: uuid.MustParse(routingKey), Name: "Routing key"},
 		}}
@@ -711,7 +712,7 @@ func stallWrites(ctx SpecContext) {
 
 var _ = Describe("Delete", func() {
 	var u user.User
-	BeforeEach(func(ctx SpecContext) { u = createUser(ctx) })
+	BeforeEach(func() { u = createUser(GinkgoT().Context()) })
 	// deleteWith returns the delete route, bound as the API layer binds it, with the
 	// stop timeout.
 	deleteWith := func(
@@ -962,7 +963,8 @@ var _ = Describe("Copy", func() {
 		t    task.Task
 		name string
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = createUser(ctx)
 		t = createTask(ctx)
 		name = "Copy " + uuid.New().String()
@@ -1024,7 +1026,8 @@ var _ = Describe("Import", func() {
 		u    user.User
 		name string
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = createUser(ctx)
 		name = "Imported " + uuid.New().String()
 	})

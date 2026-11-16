@@ -10,6 +10,7 @@
 package policy_test
 
 import (
+	"context"
 	"testing"
 	"uuid"
 
@@ -55,8 +56,9 @@ var (
 	]
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	creds := auth.Credentials{Username: "root", Password: "p"}
@@ -85,7 +87,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 // createUser creates a user that can do nothing.
-func createUser(ctx SpecContext) user.User {
+func createUser(ctx context.Context) user.User {
 	GinkgoHelper()
 	return MustSucceed(rbactestutil.CreateUser(ctx, db, svc.RBAC, svc.User, user.User{
 		Name: "user-" + uuid.New().String(),
@@ -93,7 +95,7 @@ func createUser(ctx SpecContext) user.User {
 }
 
 // createRole creates a role that is not built in.
-func createRole(ctx SpecContext) role.Role {
+func createRole(ctx context.Context) role.Role {
 	GinkgoHelper()
 	r := role.Role{Name: "role-" + uuid.New().String()}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -105,7 +107,7 @@ func createRole(ctx SpecContext) role.Role {
 // grantOn grants the action on the objects to the subject through a new policy on its
 // own role, and returns the policy.
 func grantOn(
-	ctx SpecContext,
+	ctx context.Context,
 	subject resource.ID,
 	action access.Action,
 	objects ...resource.ID,

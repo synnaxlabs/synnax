@@ -158,14 +158,16 @@ var _ = Describe("Change propagation", Ordered, func() {
 		a := createArc(ctx, arc.TypeAutomation, "pt_a", importer)
 		return m, deploy(ctx, a)
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			root = rootDirectory(ctx, tx).Key
 			return nil
 		})).To(Succeed())
 	})
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		for name, dt := range map[string]telem.DataType{
 			"pt_trig": telem.Uint8T,
 			"pt_out":  telem.Int64T,

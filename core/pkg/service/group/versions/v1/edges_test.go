@@ -118,7 +118,8 @@ var _ = Describe("ParentMigration", func() {
 		logs     *observer.ObservedLogs
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		names := map[uuid.UUID]string{
 			channels: "Channels", users: "Users", a: "A", b: "B", inUsers: "In Users",
@@ -370,7 +371,8 @@ var _ = Describe("MembersMigration", func() {
 		}
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		projTop.Parent = &project
 		projLeaf.Parent = new(groupID(projTop.Key))

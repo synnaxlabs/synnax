@@ -41,7 +41,8 @@ var _ = Describe("SnapshotMigration", func() {
 		}
 		stored []v11.Schematic
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v11.Key, v11.Schematic]{DB: db}))
 		Expect(gorp.NewCreate[v11.Key, v11.Schematic]().

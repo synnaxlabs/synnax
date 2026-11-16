@@ -113,7 +113,8 @@ var _ = Describe("Service", func() {
 				username string
 				u        user.User
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				username = uuid.New().String()
 				u = MustSucceed(
 					w.Create(ctx, user.User{Name: uuid.New().String(), Role: member}),

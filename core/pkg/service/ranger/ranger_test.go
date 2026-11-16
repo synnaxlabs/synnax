@@ -29,7 +29,8 @@ var _ = Describe("Ranger", func() {
 	BeforeEach(openTx)
 	Describe("Derive", func() {
 		var parent, child, leaf ranger.Range
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			tr := telem.SecondTS.SpanRange(telem.Second)
 			parent = ranger.Range{Name: "Parent", TimeRange: tr}
 			Expect(w.Create(ctx, &parent)).To(Succeed())

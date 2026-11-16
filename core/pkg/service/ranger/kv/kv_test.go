@@ -36,8 +36,9 @@ var _ = Describe("KV", Ordered, func() {
 		kvSvc     *kv.Service
 		tx        gorp.Tx
 	)
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: db,
@@ -253,7 +254,8 @@ var _ = Describe("Dispatch", func() {
 			return fn(kvSvc.NewWriter(tx).WithDispatchKey("dk"))
 		})
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))

@@ -229,7 +229,8 @@ var _ = Describe("Import", func() {
 			u user.User
 			g group.Group
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			u = MustSucceed(
 				rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 					Name: "importer-" + uuid.New().String(),

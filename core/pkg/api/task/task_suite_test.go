@@ -10,6 +10,7 @@
 package task_test
 
 import (
+	"context"
 	"testing"
 	"uuid"
 
@@ -58,8 +59,9 @@ var (
 	]
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	node = testutil.NewNode(ctx)
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc := MustSucceed(apitask.NewService(apitask.ServiceConfig{
@@ -92,7 +94,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 // createUser creates a user that can do nothing.
-func createUser(ctx SpecContext) user.User {
+func createUser(ctx context.Context) user.User {
 	GinkgoHelper()
 	return MustSucceed(
 		rbactestutil.CreateUser(ctx, node.DB, svc.RBAC, svc.User, user.User{

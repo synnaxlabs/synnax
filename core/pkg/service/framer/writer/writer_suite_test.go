@@ -33,8 +33,9 @@ var (
 	writerSvc  *writer.Service
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	mockNode = testutil.NewNode(ctx)
 
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{

@@ -41,7 +41,7 @@ var (
 
 var _ = Describe("Service", func() {
 	var u user.User
-	BeforeEach(func(ctx SpecContext) { u = createUser(ctx) })
+	BeforeEach(func() { u = createUser(GinkgoT().Context()) })
 
 	// grantWrites lets u write any NI chassis, its status, and the rack it sits on.
 	grantWrites := func(ctx SpecContext, r rack.Key) {

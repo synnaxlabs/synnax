@@ -36,8 +36,9 @@ var (
 	users *gorp.Table[user.Key, user.User]
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	users = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[user.Key, user.User]{
 		DB:   db,

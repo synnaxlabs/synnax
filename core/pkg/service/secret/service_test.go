@@ -51,7 +51,7 @@ func openService(
 
 // newStore returns an env with the services that a secret service needs, and no secret
 // service.
-func newStore(ctx SpecContext) *env {
+func newStore(ctx context.Context) *env {
 	GinkgoHelper()
 	e := &env{now: telem.SecondTS * 1000}
 	e.db = DeferClose(gorp.Wrap(memkv.New()))
@@ -81,14 +81,14 @@ func (d *device) DecodeOrc(r *orc.Reader) (err error) {
 	return err
 }
 
-func newEnv(ctx SpecContext) *env {
+func newEnv(ctx context.Context) *env {
 	GinkgoHelper()
 	e := newStore(ctx)
 	e.svc = MustOpen(openService(ctx, e, secret.NewEncryptionKey()))
 	return e
 }
 
-func (e *env) createStored(ctx SpecContext, name, value string) secret.Secret {
+func (e *env) createStored(ctx context.Context, name, value string) secret.Secret {
 	GinkgoHelper()
 	s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: name}}}
 	Expect(e.write(ctx, func(w secret.Writer) error {

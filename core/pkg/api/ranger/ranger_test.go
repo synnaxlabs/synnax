@@ -229,7 +229,7 @@ var _ = Describe("RetrieveRequest", func() {
 	})
 })
 
-func createRange(ctx SpecContext) ranger.Range {
+func createRange(ctx context.Context) ranger.Range {
 	GinkgoHelper()
 	r := ranger.Range{Name: "Hot fire", TimeRange: telem.NewRangeSeconds(1, 5)}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -438,7 +438,8 @@ var _ = Describe("Create", func() {
 			parent ranger.Range
 			child  ranger.Range
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			u = createUser(ctx)
 			parent = createRange(ctx)
 			child = ranger.Range{
@@ -477,7 +478,8 @@ var _ = Describe("Create", func() {
 			l label.Label
 			r ranger.Range
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			u = createUser(ctx)
 			l = label.Label{Name: "Labeled"}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -519,7 +521,8 @@ var _ = Describe("Delete", func() {
 		parent ranger.Range
 		child  ranger.Range
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = createUser(ctx)
 		parent = createRange(ctx)
 		child = ranger.Range{
@@ -602,7 +605,8 @@ var _ = Describe("Delete cascades", func() {
 		u user.User
 		r ranger.Range
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = createUser(ctx)
 		r = createRange(ctx)
 	})
@@ -723,7 +727,8 @@ var _ = Describe("Retrieve", func() {
 			// byEnd holds the children from the earliest end to the latest.
 			byEnd []ranger.Key
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			parent = createRange(ctx)
 			child := func(name string, start, end telem.TimeStamp) ranger.Key {
 				GinkgoHelper()

@@ -186,8 +186,9 @@ var _ = Describe("Rack", Ordered, func() {
 		frozenNow atomic.Int64
 	)
 
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		s := DeferClose(openStack(ctx, db, rack.ServiceConfig{
 			HealthCheckInterval: 10 * telem.Millisecond,
@@ -613,7 +614,8 @@ var _ = Describe("Rack", Ordered, func() {
 			})
 		})
 		Describe("Search", func() {
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				Expect(writer.Create(ctx, &rack.Rack{Name: "turbopump rack"})).
 					To(Succeed())
 			})
@@ -1893,7 +1895,8 @@ var _ = Describe("Group", func() {
 		tx gorp.Tx
 		w  rack.Writer
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		s = DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
 		tx = DeferClose(db.OpenTx())
@@ -1969,7 +1972,8 @@ var _ = Describe("Writer in concurrent transactions", func() {
 		db *gorp.DB
 		s  stack
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		s = DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
 	})

@@ -22,7 +22,8 @@ import (
 
 var _ = Describe("Resources", func() {
 	var svc *view.Service
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		svc = MustOpen(view.OpenService(ctx, view.ServiceConfig{DB: db}))
 	})
 

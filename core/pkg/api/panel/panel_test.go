@@ -385,7 +385,8 @@ var _ = Describe("Service", func() {
 			u user.User
 			p panel.Panel
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			u = newUser(ctx)
 			p = createPanel(ctx, "Deleted")
 		})
@@ -440,7 +441,7 @@ var _ = Describe("Service", func() {
 })
 
 // createGroup creates a group in the suite project.
-func createGroup(ctx SpecContext, name string) group.Group {
+func createGroup(ctx context.Context, name string) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Parent: new(project.ResourceID(proj.Key))}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -496,7 +497,8 @@ var _ = Describe("Create in a group", func() {
 			dest project.Project
 			g    group.Group
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			u = newUser(ctx)
 			grantCreate(ctx, u.ResourceID())
 			dest = project.Project{Name: "Create destination"}
@@ -566,7 +568,8 @@ var _ = Describe("Dispatch of a move", func() {
 		destG  group.Group
 		rec    *Recorder[panel.Key, panel.Action]
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = newUser(ctx)
 		target = createPanel(ctx, "Moved")
 		g = createGroup(ctx, "Source")

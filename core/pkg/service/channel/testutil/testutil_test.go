@@ -41,7 +41,8 @@ var _ = Describe("CreateVirtual", func() {
 		db  *gorp.DB
 		svc *channel.Service
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{

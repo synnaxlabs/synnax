@@ -33,7 +33,8 @@ var _ = Describe("Apply of a move", func() {
 		target schematic.Schematic
 		other  schematic.Schematic
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		g = group.Group{Name: "grouped", Parent: new(project.ResourceID(proj.Key))}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return groupSvc.NewWriter(tx).Create(ctx, &g)

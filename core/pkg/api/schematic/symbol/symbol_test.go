@@ -152,7 +152,8 @@ var _ = Describe("Dispatch", func() {
 		from, to group.Group
 		sym      symbol.Symbol
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = createUser(ctx)
 		from = createGroup(ctx, "dispatch-from")
 		to = createGroup(ctx, "dispatch-to")

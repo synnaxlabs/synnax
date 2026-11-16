@@ -38,8 +38,9 @@ func TestMetrics(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	dist = testutil.NewNode(ctx)
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: dist.DB,

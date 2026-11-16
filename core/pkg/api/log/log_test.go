@@ -10,6 +10,7 @@
 package log_test
 
 import (
+	"context"
 	"strings"
 	"uuid"
 
@@ -154,7 +155,8 @@ var _ = Describe("Delete", func() {
 		u user.User
 		l log.Log
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = newUser(ctx)
 		l = createLog(ctx, "Deleted")
 	})
@@ -210,7 +212,8 @@ var _ = Describe("Dispatch", func() {
 		u user.User
 		l log.Log
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = newUser(ctx)
 		l = createLog(ctx, "Dispatched")
 	})
@@ -254,7 +257,7 @@ var _ = Describe("Dispatch", func() {
 })
 
 // createGroup creates a group in the suite project.
-func createGroup(ctx SpecContext, name string) group.Group {
+func createGroup(ctx context.Context, name string) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Parent: new(project.ResourceID(proj.Key))}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -263,7 +266,7 @@ func createGroup(ctx SpecContext, name string) group.Group {
 	return g
 }
 
-func createLog(ctx SpecContext, name string) log.Log {
+func createLog(ctx context.Context, name string) log.Log {
 	GinkgoHelper()
 	l := defaults.Fill(log.Log{Project: &proj.Key, Name: name})
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -312,7 +315,8 @@ var _ = Describe("Create in a group", func() {
 			dest project.Project
 			g    group.Group
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			u = newCreator(ctx)
 			dest = project.Project{Name: "Create destination"}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -389,7 +393,8 @@ var _ = Describe("Dispatch of a move", func() {
 		destG  group.Group
 		rec    *Recorder[log.Key, log.Action]
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = newUser(ctx)
 		target = createLog(ctx, "Moved")
 		g = createGroup(ctx, "Source")

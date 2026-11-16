@@ -10,6 +10,7 @@
 package status_test
 
 import (
+	"context"
 	"testing"
 	"uuid"
 
@@ -67,8 +68,9 @@ var (
 	]
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
@@ -113,7 +115,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 // freshUser creates a user that can do nothing. Use this for "unauthorized"
 // specs so accumulated grants on the shared author don't leak in.
-func freshUser(ctx SpecContext) user.User {
+func freshUser(ctx context.Context) user.User {
 	GinkgoHelper()
 	return MustSucceed(
 		rbactestutil.CreateUser(
@@ -128,7 +130,7 @@ func freshUser(ctx SpecContext) user.User {
 
 // grantOn grants the actions on the objects to the subject.
 func grantOn(
-	ctx SpecContext,
+	ctx context.Context,
 	subject resource.ID,
 	actions []access.Action,
 	objects ...resource.ID,

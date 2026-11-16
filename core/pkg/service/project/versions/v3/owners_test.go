@@ -80,7 +80,8 @@ var _ = Describe("OwnersMigration", func() {
 		logID    = resource.ID{Type: resource.TypeLog, Key: uuid.New().String()}
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		entries := []vis{
 			{Key: owned},

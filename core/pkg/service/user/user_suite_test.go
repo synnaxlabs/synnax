@@ -10,6 +10,7 @@
 package user_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -41,8 +42,9 @@ func TestUser(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	svc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
@@ -69,7 +71,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 // createRole creates a role named name in tx and returns its key.
-func createRole(ctx SpecContext, tx gorp.Tx, name string) role.Key {
+func createRole(ctx context.Context, tx gorp.Tx, name string) role.Key {
 	GinkgoHelper()
 	r := role.Role{Name: name}
 	Expect(roleSvc.NewWriter(tx, false).Create(ctx, &r)).To(Succeed())

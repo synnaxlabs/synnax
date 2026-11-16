@@ -27,8 +27,9 @@ var _ = Describe("Retrieve", Ordered, func() {
 		db  *gorp.DB
 		svc *channel.Service
 	)
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		svc = openService(ctx, node)

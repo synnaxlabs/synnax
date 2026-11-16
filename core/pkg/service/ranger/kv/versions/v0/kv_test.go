@@ -96,7 +96,8 @@ var _ = Describe("RecoverKVPairKeys", func() {
 		kvDB kv.DB
 		db   *gorp.DB
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		kvDB = memkv.New()
 		db = DeferClose(gorp.Wrap(kvDB))
 		for k, v := range kvPairRows {

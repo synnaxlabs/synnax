@@ -10,6 +10,7 @@
 package channel_test
 
 import (
+	"context"
 	"encoding/json/v2"
 	"fmt"
 	"math/rand/v2"
@@ -38,13 +39,13 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-func createChannel(ctx SpecContext, dt telem.DataType) channel.Channel {
+func createChannel(ctx context.Context, dt telem.DataType) channel.Channel {
 	GinkgoHelper()
 	return createNamedChannel(ctx, UniqueChannelName(), dt)
 }
 
 func createNamedChannel(
-	ctx SpecContext,
+	ctx context.Context,
 	name string,
 	dt telem.DataType,
 ) channel.Channel {
@@ -98,7 +99,8 @@ var _ = Describe("Service", func() {
 				apichannel.CreateRequest{Channels: channels},
 			)
 		}
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			u = MustSucceed(rbactestutil.CreateUser(
 				ctx,
 				db,
@@ -279,7 +281,8 @@ var _ = Describe("Service", func() {
 				})
 			}
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			existing = createChannel(ctx, telem.Float32T)
 			u = MustSucceed(rbactestutil.CreateUser(
 				ctx, db, rbacSvc, userSvc, user.User{Name: uuid.New().String()},
@@ -322,7 +325,8 @@ var _ = Describe("Service", func() {
 			outsider user.User
 			start    = 10 * telem.SecondTS
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			ch = channel.Channel{
 				Name:     UniqueChannelName(),
 				DataType: telem.TimestampT,
@@ -534,7 +538,8 @@ var _ = Describe("Service", func() {
 	})
 	Describe("CountLimited", func() {
 		var u user.User
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			u = MustSucceed(rbactestutil.CreateUser(
 				ctx, db, rbacSvc, userSvc, user.User{Name: uuid.New().String()},
 			))
@@ -644,7 +649,8 @@ var _ = Describe("Service", func() {
 
 	Describe("Retrieve", func() {
 		Describe("IncludeStatus", func() {
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				grantOn(
 					ctx,
 					author.ResourceID(),
@@ -733,7 +739,8 @@ var _ = Describe("Service", func() {
 				reader           user.User
 				allowed, blocked channel.Channel
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				prefix = fmt.Sprintf("access%09d", rand.IntN(999999999))
 				allowed = createNamedChannel(ctx, prefix+"_allowed", telem.Float32T)
 				blocked = createNamedChannel(ctx, prefix+"_blocked", telem.Float32T)

@@ -48,7 +48,8 @@ var _ = Describe("View", func() {
 		w   view.Writer
 		tx  gorp.Tx
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		svc = MustOpen(view.OpenService(ctx, view.ServiceConfig{
 			DB: db,
 		}))
@@ -239,7 +240,8 @@ var _ = Describe("View", func() {
 
 	Describe("Retrieve", func() {
 		var views []view.View
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			views = []view.View{
 				rangeView("View A"),
 				rangeView("View B"),

@@ -93,7 +93,8 @@ var _ = Describe("JSON", func() {
 			responses confluence.Outlet[framer.StreamerResponse]
 			requests  confluence.Inlet[framer.StreamerRequest]
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			sigs := MustSucceed(signals.New(signals.Config{
 				DB:      db,
 				Channel: channelSvc,

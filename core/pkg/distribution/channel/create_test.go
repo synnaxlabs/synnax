@@ -27,8 +27,9 @@ var _ = Describe("Allocate", Ordered, func() {
 		n    testutil.Node
 		host node.Key
 	)
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		n = testutil.NewNode(ctx)
 		host = n.Identity.HostKey
 	})
@@ -106,8 +107,9 @@ var _ = Describe("Allocate", Ordered, func() {
 
 var _ = Describe("Create", Ordered, func() {
 	var n testutil.Node
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		n = testutil.NewNode(ctx)
 	})
 

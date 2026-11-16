@@ -112,7 +112,8 @@ var _ = Describe("Stopper", func() {
 			node testutil.Node
 			svc  *service.Layer
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			node = testutil.NewNode(ctx)
 			svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 		})

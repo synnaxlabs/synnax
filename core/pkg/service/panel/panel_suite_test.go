@@ -56,8 +56,9 @@ var (
 	proj       project.Project
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	node = testutil.NewNode(ctx)
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: node.DB,

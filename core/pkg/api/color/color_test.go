@@ -10,6 +10,7 @@
 package color_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -41,7 +42,7 @@ func deleteAfter(key color.Key) {
 	})
 }
 
-func createColor(ctx SpecContext, name string) color.Named {
+func createColor(ctx context.Context, name string) color.Named {
 	GinkgoHelper()
 	n := color.Named{Name: name, Light: red}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -156,7 +157,8 @@ var _ = Describe("Retrieve by name", func() {
 		u     user.User
 		amber color.Named
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = createUser(ctx)
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), resource.ID{
 			Type: resource.TypeColor,

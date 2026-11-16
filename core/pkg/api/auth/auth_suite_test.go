@@ -72,8 +72,9 @@ var (
 	creds = auth.Credentials{Username: "api-auth-suite-root", Password: "p"}
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	node = testutil.NewNode(ctx)
 	db = node.DB
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))

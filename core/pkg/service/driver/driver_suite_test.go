@@ -66,8 +66,9 @@ func TestDriver(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	st := DeferClose(storagetestutil.OpenLayer(ctx))
 	hookedKV = hookkv.Wrap(st.KV)
 	node = testutil.NewNode(ctx, distribution.LayerConfig{

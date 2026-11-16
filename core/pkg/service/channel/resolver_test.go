@@ -90,7 +90,8 @@ var _ = Describe("NewArcSymbolResolver", func() {
 		hide := func() channel.Filter {
 			return channel.Not(channel.MatchKeys(hidden.Key()))
 		}
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			visible = channel.Channel{
 				Name:     "resolver_filter_visible",
 				Virtual:  true,
@@ -154,7 +155,8 @@ var _ = Describe("NewArcSymbolResolver", func() {
 
 var _ = Describe("NewConsistentResolver", func() {
 	var ch *channel.Channel
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		ch = &channel.Channel{
 			Name:     "consistent_resolver_ch",
 			Virtual:  true,

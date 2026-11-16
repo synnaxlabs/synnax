@@ -23,8 +23,9 @@ import (
 var _ = Describe("Delete", Ordered, func() {
 	var n testutil.Node
 
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		n = testutil.NewNode(ctx)
 	})
 

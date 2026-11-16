@@ -10,6 +10,7 @@
 package table_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -117,7 +118,8 @@ var _ = Describe("Delete", func() {
 		u user.User
 		t table.Table
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = newUser(ctx)
 		t = createTable(ctx, "Deleted")
 	})
@@ -173,7 +175,8 @@ var _ = Describe("Dispatch", func() {
 		u user.User
 		t table.Table
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = newUser(ctx)
 		t = createTable(ctx, "Dispatched")
 	})
@@ -203,7 +206,7 @@ var _ = Describe("Dispatch", func() {
 })
 
 // createGroup creates a group in the suite project.
-func createGroup(ctx SpecContext, name string) group.Group {
+func createGroup(ctx context.Context, name string) group.Group {
 	GinkgoHelper()
 	g := group.Group{Name: name, Parent: new(project.ResourceID(proj.Key))}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -212,7 +215,7 @@ func createGroup(ctx SpecContext, name string) group.Group {
 	return g
 }
 
-func createTable(ctx SpecContext, name string) table.Table {
+func createTable(ctx context.Context, name string) table.Table {
 	GinkgoHelper()
 	t := table.Table{Project: &proj.Key, Name: name}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -259,7 +262,8 @@ var _ = Describe("Create in a group", func() {
 			dest project.Project
 			g    group.Group
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			u = newCreator(ctx)
 			dest = project.Project{Name: "Create destination"}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -338,7 +342,8 @@ var _ = Describe("Dispatch of a move", func() {
 		destG  group.Group
 		rec    *Recorder[table.Key, table.Action]
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		u = newUser(ctx)
 		target = createTable(ctx, "Moved")
 		g = createGroup(ctx, "Source")

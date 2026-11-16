@@ -33,14 +33,16 @@ var _ = Describe("Deleter", Ordered, func() {
 	}
 	for _, createScenario := range scenarios {
 		var s scenario
-		BeforeAll(func(ctx SpecContext) {
+		BeforeAll(func() {
 			ShouldNotLeakGoroutines()
+			ctx := GinkgoT().Context()
 			s = DeferClose(createScenario(ctx))
 		})
 		Describe("Happy Path", func() {
 			Context(s.name+" - Happy Path", func() {
 				var i *iterator.Iterator
-				BeforeEach(func(ctx SpecContext) {
+				BeforeEach(func() {
+					ctx := GinkgoT().Context()
 					w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 						Keys:  s.keys,
 						Start: 10 * telem.SecondTS,

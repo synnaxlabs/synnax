@@ -61,8 +61,9 @@ var (
 	faultyFS *FaultyFS
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	faultyFS = WrapFaultyFS(xfs.NewMem())
 	store := &storage.Layer{
 		KV: DeferClose(memkv.New()),

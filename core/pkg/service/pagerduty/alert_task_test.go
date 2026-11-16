@@ -71,7 +71,8 @@ var _ = Describe("AlertTask", func() {
 		Expect(tx.Commit(ctx)).To(Succeed())
 	}
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		sender = newMockSender()
 		factory = MustSucceed(pd.NewFactory(pd.FactoryConfig{
 			DB:     db,

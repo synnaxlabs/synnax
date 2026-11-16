@@ -44,7 +44,8 @@ func split(first, last v3.Node) v3.Node {
 
 var _ = Describe("ArcExplorerTabsMigration", func() {
 	var db *gorp.DB
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v3.Key, v3.Panel]{DB: db}))
 	})

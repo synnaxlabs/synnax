@@ -32,8 +32,9 @@ var _ = Describe("Group", Ordered, func() {
 		svc *group.Service
 	)
 
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: db,

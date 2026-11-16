@@ -125,7 +125,8 @@ var _ = Describe("Factory", func() {
 			routingKey secret.Key
 		)
 
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			sender = newMockSender()
 			factory = MustSucceed(pd.NewFactory(pd.FactoryConfig{
 				DB:     db,

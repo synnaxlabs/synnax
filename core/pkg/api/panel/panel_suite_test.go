@@ -10,6 +10,7 @@
 package panel_test
 
 import (
+	"context"
 	"testing"
 	"uuid"
 
@@ -60,8 +61,9 @@ var (
 	projectSvc *project.Service
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
+	ctx := GinkgoT().Context()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
@@ -119,7 +121,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // specs that grant a type-level permission (e.g. create on the panel type) must use a
 // dedicated subject, or the grant would leak into specs asserting that permission is
 // absent.
-func newUser(ctx SpecContext) user.User {
+func newUser(ctx context.Context) user.User {
 	GinkgoHelper()
 	return MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: uuid.New().String(),
@@ -128,7 +130,7 @@ func newUser(ctx SpecContext) user.User {
 
 // grant grants the action on the objects to the subject.
 func grant(
-	ctx SpecContext,
+	ctx context.Context,
 	subject resource.ID,
 	action access.Action,
 	objects ...resource.ID,
@@ -140,7 +142,7 @@ func grant(
 }
 
 // grantCreate lets subject create panels in the suite project.
-func grantCreate(ctx SpecContext, subject resource.ID) {
+func grantCreate(ctx context.Context, subject resource.ID) {
 	GinkgoHelper()
 	grant(ctx, subject, access.ActionCreate, resource.ID{Type: resource.TypePanel})
 	grant(ctx, subject, access.ActionUpdate, proj.ResourceID())

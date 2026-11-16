@@ -45,7 +45,8 @@ var _ = Describe("MoveLegacy", func() {
 			Credentials: auth.Credentials{Username: username, Password: "p"},
 		}})
 	}
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		kvDB := DeferClose(memkv.New())
 		db = gorp.Wrap(kvDB)
 		users = []userv0.User{

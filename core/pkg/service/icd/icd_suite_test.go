@@ -35,8 +35,9 @@ var (
 )
 
 var (
-	_ = BeforeSuite(func(ctx SpecContext) {
+	_ = BeforeSuite(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
 			DB:   db,

@@ -10,6 +10,8 @@
 package service_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -32,14 +34,15 @@ var _ = Describe("References", Ordered, func() {
 		layer *service.Layer
 		db    *gorp.DB
 	)
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		layer = MustOpen(svctestutil.OpenLayer(ctx, node))
 	})
 
-	createTask := func(ctx SpecContext, typ string, cfg msgpack.EncodedJSON) task.Task {
+	createTask := func(ctx context.Context, typ string, cfg msgpack.EncodedJSON) task.Task {
 		GinkgoHelper()
 		t := task.Task{Name: typ, Type: typ, Config: cfg}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -54,7 +57,8 @@ var _ = Describe("References", Ordered, func() {
 			dev device.Device
 			tsk task.Task
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			ch = channel.Channel{
 				Name:     UniqueChannelName(),
 				DataType: telem.Float32T,

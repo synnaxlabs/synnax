@@ -41,7 +41,8 @@ var _ = Describe("NewSnapshotMigration", func() {
 		logs      *observer.ObservedLogs
 		ins       alamos.Instrumentation
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v3.Key, v3.Task]{
 			DB:   db,

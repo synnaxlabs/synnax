@@ -24,8 +24,9 @@ import (
 
 var _ = Describe("Resources", Ordered, func() {
 	var s stack
-	BeforeAll(func(ctx SpecContext) {
+	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
+		ctx := GinkgoT().Context()
 		s = openStack(ctx, "Resource Rack")
 	})
 

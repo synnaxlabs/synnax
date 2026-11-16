@@ -62,7 +62,8 @@ func instantiate(ctx context.Context, source string) (api.Module, func()) {
 
 var _ = Describe("Budget", func() {
 	var guest api.Module
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		var closeGuest func()
 		guest, closeGuest = instantiate(ctx, budgetSource)
 		DeferCleanup(closeGuest)

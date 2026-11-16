@@ -91,7 +91,8 @@ var _ = Describe("WriteTask", func() {
 		cmdCh channel.Channel
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		t = task.Task{Key: uuid.New(), Name: "write-task-test", Type: "mock"}
 		createTask(ctx, t)
 		sink = &recordingSink{health: make(chan error, 1)}

@@ -32,7 +32,8 @@ var _ = Describe("Service", func() {
 		svc   *mqtt.Service
 		tasks *tasktestutil.Tasks
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		// The suite's Core holds a mqtt service and a task service of its own.
 		node := testutil.NewNode(ctx)
 		db = node.DB

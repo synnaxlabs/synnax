@@ -31,7 +31,8 @@ var _ = Describe("Actions", func() {
 		rec    *Recorder[status.Key, status.Action]
 		stored status.Status[any]
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		labels = MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 		svc = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))

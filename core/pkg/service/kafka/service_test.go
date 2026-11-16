@@ -31,7 +31,8 @@ var _ = Describe("Service", func() {
 		svc   *kafka.Service
 		tasks *tasktestutil.Tasks
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		// The suite's Core holds a kafka service and a task service of its own.
 		node := testutil.NewNode(ctx)
 		db = node.DB

@@ -52,7 +52,8 @@ func updateState(dir, version string) storage.UpdateState {
 
 var _ = Describe("Update", func() {
 	var dir string
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		dir = newDataDir()
 		l := openLayer(ctx, dir, "0.59.0")
 		Expect(l.KV.Set(ctx, []byte("key"), []byte("before"))).To(Succeed())
