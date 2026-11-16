@@ -180,22 +180,22 @@ func (v *Validator) NotEmptyString[T ~string](field string, value T) bool {
 
 // MinLength returns true and attaches an error to v if the string has fewer than min
 // Unicode code points.
-func (v *Validator) MinLength[T ~string](field string, value T, min int) bool {
+func (v *Validator) MinLength[T ~string](field string, value T, minLen int) bool {
 	return v.Ternaryf(
 		field,
-		utf8.RuneCountInString(string(value)) < min,
+		utf8.RuneCountInString(string(value)) < minLen,
 		"must be at least %d characters long",
-		min,
+		minLen,
 	)
 }
 
 // MaxLength returns true and attaches an error to v if the string has more than max
 // Unicode code points.
-func (v *Validator) MaxLength[T ~string](field string, value T, max int) bool {
+func (v *Validator) MaxLength[T ~string](field string, value T, maxLen int) bool {
 	return v.Ternaryf(
 		field,
-		utf8.RuneCountInString(string(value)) > max,
+		utf8.RuneCountInString(string(value)) > maxLen,
 		"must be at most %d characters long",
-		max,
+		maxLen,
 	)
 }

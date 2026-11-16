@@ -359,9 +359,9 @@ func Survey(
 // resolving each side's references through its own table. It re-exports the
 // internal schemadiff judgment for the versions gate.
 func StructurallyEqual(
-	old, new resolution.Type, oldTable, newTable *resolution.Table,
+	old, next resolution.Type, oldTable, newTable *resolution.Table,
 ) bool {
-	return schemadiff.StructurallyEqual(old, new, oldTable, newTable)
+	return schemadiff.StructurallyEqual(old, next, oldTable, newTable)
 }
 
 // PersistedClosure returns the qualified names of every type reachable from a @go
