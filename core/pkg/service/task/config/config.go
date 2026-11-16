@@ -474,6 +474,25 @@ func (s *Service[E]) Delete(
 	return nil
 }
 
+// rewriteLegacy validates data, a legacy config, and rewrites it to the first version
+// of the ladder.
+func (s *Service[E]) rewriteLegacy(
+	data msgpack.EncodedJSON,
+) (msgpack.EncodedJSON, error) {
+	rewrite := legacy.Rewrite{}
+	if s.cfg.Legacy != nil {
+		rewrite = *s.cfg.Legacy
+	}
+	if rewrite.Validate != nil {
+		if err := rewrite.Validate(data); err != nil {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
+			)
+		}
+	}
+	return rewrite.Apply(data), nil
+}
+
 // Decode implements Store.
 func (s *Service[E]) Decode(
 	ctx context.Context,
@@ -485,18 +504,11 @@ func (s *Service[E]) Decode(
 	// value.
 	older := version < ladder.Latest
 	if version < ladder.First || version <= s.cfg.LegacyVersion {
-		rewrite := legacy.Rewrite{}
-		if s.cfg.Legacy != nil {
-			rewrite = *s.cfg.Legacy
+		var err error
+		if data, err = s.rewriteLegacy(data); err != nil {
+			return Decoded{}, err
 		}
-		if rewrite.Validate != nil {
-			if err := rewrite.Validate(data); err != nil {
-				return Decoded{}, errors.Wrapf(
-					validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
-				)
-			}
-		}
-		data, version = rewrite.Apply(data), ladder.First
+		version = ladder.First
 	} else if version > ladder.Latest {
 		return Decoded{}, imex.NewErrUnsupportedVersion(
 			s.cfg.Type, version, ladder.Latest,
