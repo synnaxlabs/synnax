@@ -33,9 +33,7 @@ permissions: {}
 jobs:
   requeue:
     name: Requeue
-    if:
-      contains(fromJSON('["failure", "cancelled"]'),
-      github.event.workflow_run.conclusion)
+    if: github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -46,54 +44,17 @@ jobs:
       RUN: ${{ github.event.workflow_run.id }}
       ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
     steps:
-      # agent.yaml runs the drain step only when the agent stopped at a usage limit. A
-      # runner that the drain stopped just after it took a job leaves no such step, only
-      # a lost runner, so its seat is checked for a limit below. Only one job of a run
-      # can run again at a time, so the first one goes.
-      - name: Find a job that a usage limit stopped
-        id: job
-        run: |
-          jobs="repos/$GITHUB_REPOSITORY/actions/runs/$RUN/jobs?filter=latest"
-          gh api --paginate "$jobs" --jq '.jobs[]
-            | select(.conclusion == "failure" or .conclusion == "cancelled")
-            | select(.name | test("Run \\([a-z]+\\)$"))
-            | [.id, .runner_name // "-", any(.steps[];
-                .name == "Leave the pool until the usage limit resets" and
-                .conclusion == "success"), .name] | @tsv' > "$RUNNER_TEMP/jobs"
-          while IFS=$'\t' read -r id runner drained name; do
-            seat=""
-            if [ "$drained" = false ]; then
-              annotations="repos/$GITHUB_REPOSITORY/check-runs/$id/annotations"
-              messages=$(gh api "$annotations" --jq '.[].message')
-              grep -qE 'shutdown signal|lost communication' <<< "$messages" ||
-                continue
-              # Runners are named agent-<seat>-<number>.
-              seat=${runner#agent-}
-              seat=${seat%-*}
-            fi
-            {
-              echo "id=$id"
-              echo "name=$name"
-              echo "seat=$seat"
-              echo "agent=$(grep -oP 'Run \(\K[a-z]+(?=\)$)' <<< "$name")"
-            } >> "$GITHUB_OUTPUT"
-            break
-          done < "$RUNNER_TEMP/jobs"
-
       - name: Assume the runner start role
-        if: steps.job.outputs.id
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
         with:
           role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Run the job again on a seat with usage left
-        if: steps.job.outputs.id
-        env:
-          AGENT: ${{ steps.job.outputs.agent }}
-          JOB: ${{ steps.job.outputs.id }}
-          NAME: ${{ steps.job.outputs.name }}
-          SEAT: ${{ steps.job.outputs.seat }}
+      # agent.yaml runs the drain step only when the agent stopped at a usage limit. A
+      # runner that the drain stopped just after it took a job leaves no such step, only
+      # a lost runner on a seat whose limit had not reset when the job ended. Only one
+      # job of a run can run again at a time, so the first one goes.
+      - name: Run a job that a usage limit stopped again on a seat with usage left
         run: |
           limit="Tags[?Key=='limited-until']|[0].Value"
           seats() {
@@ -103,29 +64,46 @@ jobs:
               Name=instance-state-name,Values=pending,running,stopping,stopped \
               --query "Reservations[].Instances[].[$limit]"
           }
-          now=$(date +%s)
-          if [ -n "$SEAT" ]; then
-            until=$(seats "Name=tag:seat,Values=$SEAT")
-            if [[ ! $until =~ ^[0-9]+$ ]] || [ "$until" -le "$now" ]; then
-              echo "$NAME lost its runner on seat $SEAT, which has no usage limit."
-              exit 0
+          jobs="repos/$GITHUB_REPOSITORY/actions/runs/$RUN/jobs?filter=latest"
+          gh api --paginate "$jobs" --jq '.jobs[] | select(.conclusion == "failure")
+            | select(.name | test("Run \\([a-z]+\\)$"))
+            | [.id, (.runner_name // "" | if . == "" then "-" else . end),
+                (.completed_at | fromdate), any(.steps[];
+                .name == "Leave the pool until the usage limit resets" and
+                .conclusion == "success"), .name] | @tsv' > "$RUNNER_TEMP/jobs"
+          found=""
+          while IFS=$'\t' read -r id runner ended drained name; do
+            if [ "$drained" = false ]; then
+              [[ $runner == agent-*-* ]] || continue
+              annotations="repos/$GITHUB_REPOSITORY/check-runs/$id/annotations"
+              messages=$(gh api "$annotations" --jq '.[].message')
+              grep -qE 'shutdown signal|lost communication' <<< "$messages" ||
+                continue
+              # Runners are named agent-<seat>-<number>.
+              seat=${runner#agent-}
+              until=$(seats "Name=tag:seat,Values=${seat%-*}")
+              [[ $until =~ ^[0-9]+$ ]] && [ "$until" -gt "$ended" ] || continue
             fi
-          fi
+            found=$id
+            break
+          done < "$RUNNER_TEMP/jobs"
+          if [ -z "$found" ]; then exit 0; fi
+          agent=$(grep -oP 'Run \(\K[a-z]+(?=\)$)' <<< "$name")
           if [ "$ATTEMPT" -ge 3 ]; then
-            echo "::error::$NAME stopped at a usage limit in attempt $ATTEMPT." \
+            echo "::error::$name stopped at a usage limit in attempt $ATTEMPT." \
               "It does not run again."
             exit 1
           fi
-          resets=$(seats "Name=tag:agent,Values=$AGENT")
+          resets=$(seats "Name=tag:agent,Values=$agent")
           if [ -z "$resets" ]; then
-            echo "::error::The agent pool has no seat for $AGENT"
+            echo "::error::The agent pool has no seat for $agent"
             exit 1
           fi
-          if ! awk -v now="$now" '$1 == "None" || $1 <= now { found = 1 }
+          if ! awk -v now="$(date +%s)" '$1 == "None" || $1 <= now { found = 1 }
             END { exit !found }' <<< "$resets"; then
             first=$(sort -n <<< "$resets" | head -1)
-            echo "::error::Every $AGENT seat is at its usage limit. The first" \
+            echo "::error::Every $agent seat is at its usage limit. The first" \
               "resets at $(date -u -d "@$first" '+%F %R UTC'). Run the job again then."
             exit 1
           fi
-          gh api -X POST "repos/$GITHUB_REPOSITORY/actions/jobs/$JOB/rerun" --silent
+          gh api -X POST "repos/$GITHUB_REPOSITORY/actions/jobs/$found/rerun" --silent
