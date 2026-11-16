@@ -14,7 +14,10 @@
 # organization's runners.
 #
 # Usage:
-#   seat.sh register <seat>  Registers the seat's runners in the agent-runners group.
+#   seat.sh register <seat>  Registers the seat's runners in the agent-runners group,
+#                            as many as its `runners` tag, and starts each as a service.
+#                            It adds runners, never removes them, and is safe to run
+#                            again.
 #   seat.sh login <seat>     Signs the seat's agent CLI in, interactively.
 #   seat.sh token <login>    Stores a token from `claude setup-token`, read from stdin,
 #                            as the login. It clears the login's usage limit and broken
@@ -70,10 +73,12 @@ if [ "$action" = token ]; then
     exit 0
 fi
 
-read -r id agent <<< "$(aws ec2 describe-instances --output text \
+tag() { echo "Tags[?Key==\`$1\`]|[0].Value"; }
+fields="InstanceId,$(tag agent),$(tag pool),$(tag runners)"
+read -r id agent pool runners <<< "$(aws ec2 describe-instances --output text \
     --filters Name=tag:project,Values=synnax-agents Name=tag:seat,Values="$seat" \
     Name=instance-state-name,Values=pending,running,stopping,stopped \
-    --query 'Reservations[].Instances[].[InstanceId,Tags[?Key==`agent`]|[0].Value]')"
+    --query "Reservations[].Instances[].[$fields]")"
 if [ -z "$id" ]; then
     echo "No instance for seat $seat in $AWS_REGION" >&2
     exit 1
@@ -116,7 +121,33 @@ case $action in
         # The token registers runners for an hour, then expires.
         token=$(gh api -X POST orgs/synnaxlabs/actions/runners/registration-token \
             --jq .token)
-        run "register-agent-runners $token"
+        if [[ ! $runners =~ ^[1-9][0-9]*$ ]]; then
+            echo "Seat $seat has no runners tag: run terraform apply" >&2
+            exit 1
+        fi
+        if [ "$pool" = review ]; then
+            labels=review,seat-$seat
+        else
+            labels=agent,agent-$agent,seat-$seat
+        fi
+        # All runners run as the runner user, so they share its agent login. SSM runs
+        # the script with sh, which has no pipefail.
+        run "set -eu
+for i in \$(seq $runners); do
+    dir=/home/runner/runners/\$i
+    if [ ! -e \$dir/.runner ]; then
+        mkdir -p \$dir
+        cp -R /opt/actions-runner/. \$dir
+        chown -R runner:runner \$dir
+        cd \$dir
+        sudo -u runner ./config.sh --unattended --replace \\
+            --url https://github.com/synnaxlabs --runnergroup agent-runners \\
+            --token $token --name agent-$seat-\$i --labels $labels
+    fi
+    cd \$dir
+    if [ ! -e .service ]; then ./svc.sh install runner; fi
+    ./svc.sh start
+done"
         ;;
     login)
         case $agent in

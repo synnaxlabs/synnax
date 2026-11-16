@@ -169,9 +169,6 @@ resource "aws_instance" "seat" {
   instance_initiated_shutdown_behavior = "stop"
   user_data = templatefile("${path.module}/provision.sh", {
     idle_minutes = var.pools[each.value.pool].idle_minutes
-    seat         = each.key
-    agent        = each.value.agent
-    runners      = each.value.runners
     pool         = each.value.pool
   })
   root_block_device {
@@ -183,10 +180,11 @@ resource "aws_instance" "seat" {
     http_tokens = "required"
   }
   tags = {
-    Name  = "synnax-agent-${each.key}"
-    pool  = each.value.pool
-    agent = each.value.agent
-    seat  = each.key
+    Name    = "synnax-agent-${each.key}"
+    pool    = each.value.pool
+    agent   = each.value.agent
+    seat    = each.key
+    runners = var.pools[each.value.pool].runners
   }
   # A new AMI or bootstrap script must not wipe the warm caches or the login. Replace
   # an instance on purpose with `terraform apply -replace`.
