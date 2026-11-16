@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import json
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
@@ -19,7 +19,6 @@ from review import (
     dismiss,
     dismissals,
     dismissed,
-    record,
     render,
 )
 from review.__main__ import main
@@ -113,15 +112,11 @@ class FakeGH:
         if path.startswith(f"repos/{REPO}/commits/{HEAD}/check-runs?"):
             return lines(self.runs)
         if path == f"repos/{REPO}/issues/7/comments":
-            return lines(
-                [
-                    {"id": c["id"], "login": c["user"]["login"], "body": c["body"]}
-                    for c in self.comments
-                ]
-            )
+            return lines([shaped(c) for c in self.comments])
         for c in self.comments:
             if path == f"repos/{REPO}/issues/comments/{c['id']}":
-                return json.dumps(c)
+                on = c["issue_url"].endswith("/issues/7")
+                return json.dumps(shaped(c)) + "\n" if on else ""
         raise AssertionError(f"unexpected gh call: {args}")
 
     def posted(self) -> list[str]:
@@ -138,6 +133,18 @@ class FakeGH:
             for m, at, p in self.writes
             if (m, at) == ("POST", f"repos/{REPO}/check-runs")
         ]
+
+
+def shaped(c: dict[str, Any]) -> dict[str, Any]:
+    """A REST comment in the shape that the poster's `jq` makes."""
+    user = c["user"]
+    return {
+        "id": c["id"],
+        "login": user["login"],
+        "author": {"__typename": user["type"], "login": user["login"]},
+        "authorAssociation": c["author_association"],
+        "body": c["body"],
+    }
 
 
 @pytest.fixture
@@ -163,7 +170,8 @@ def outside(*titles: str, path: str = "b.go") -> dict[str, Any]:
         f"- <img> **{t}** [`{path}:3`](https://x)\n\n  B.\n\n" for t in titles
     )
     body = f"{render.OUTSIDE}\n\n<h3>Comments Outside Diff</h3>\n\n{items}"
-    return issue_comment(5, body, kind="Bot") | {"user": {"login": "sedosaur[bot]"}}
+    bot = {"login": "sedosaur[bot]", "type": "Bot"}
+    return issue_comment(5, body, association="NONE") | {"user": bot}
 
 
 class TestDismissed:
@@ -315,63 +323,16 @@ class TestDismiss:
 class TestDismissOutside:
     """Tests answering a comment that dismisses a finding outside the diff."""
 
-    def test_should_record_the_dismissal_of_the_named_finding(self, gh: FakeGH) -> None:
+    def test_should_answer_a_dismissal_of_the_named_finding(self, gh: FakeGH) -> None:
         gh.comments = [
             outside("Old", "Old data"),
             issue_comment(9, "@sedosaur dismiss Old data: it is meant"),
         ]
         dismiss(TARGET, gh, comment=9, key=KEY)
-        [body] = gh.posted()
-        assert body.endswith(
+        assert gh.posted() == [
             "Dismissed. Later reviews of this pull request will not report it."
-        )
-        gh.comments.append({"id": 10, "user": {"login": "sedosaur[bot]"}, "body": body})
-        assert dismissals(TARGET, gh, []) == [
-            Dismissal(path="b.go", title="Old data", reason="it is meant")
         ]
         assert gh.checks() == []
-
-    @pytest.mark.parametrize(
-        "body",
-        [
-            "@sedosaur dismiss old `carry` copy, meant",
-            '@sedosaur dismiss "Old carry copy": meant',
-            "@sedosaur dismiss  OLD CARRY COPY meant",
-        ],
-    )
-    def test_should_match_a_title_without_case_backticks_or_quotes(
-        self, gh: FakeGH, body: str
-    ) -> None:
-        gh.comments = [outside("Old `carry` copy"), issue_comment(9, body)]
-        dismiss(TARGET, gh, comment=9, key=KEY)
-        [answer] = gh.posted()
-        gh.comments.append(
-            {"id": 10, "user": {"login": "sedosaur[bot]"}, "body": answer}
-        )
-        assert dismissals(TARGET, gh, []) == [
-            Dismissal(path="b.go", title="Old `carry` copy", reason="meant")
-        ]
-
-    def test_should_take_the_path_of_a_shared_title(self, gh: FakeGH) -> None:
-        both = outside("Old")
-        both["body"] += outside("Old", path="c.go")["body"]
-        gh.comments = [both, issue_comment(9, "@sedosaur dismiss Old path:c.go meant")]
-        dismiss(TARGET, gh, comment=9, key=KEY)
-        [answer] = gh.posted()
-        gh.comments.append(
-            {"id": 10, "user": {"login": "sedosaur[bot]"}, "body": answer}
-        )
-        assert dismissals(TARGET, gh, []) == [
-            Dismissal(path="c.go", title="Old", reason="meant")
-        ]
-
-    def test_should_ask_for_the_path_of_a_shared_title(self, gh: FakeGH) -> None:
-        both = outside("Old")
-        both["body"] += outside("Old", path="c.go")["body"]
-        gh.comments = [both, issue_comment(9, "@sedosaur dismiss Old")]
-        dismiss(TARGET, gh, comment=9, key=KEY)
-        [answer] = gh.posted()
-        assert answer.endswith("add `path:<file>` after it.")
 
     def test_should_score_the_head_5_when_no_finding_is_left(self, gh: FakeGH) -> None:
         gh.threads = [thread("T1", comment(2, "@sedosaur dismiss"))]
@@ -383,13 +344,28 @@ class TestDismissOutside:
         [body] = gh.posted()
         assert body.endswith("so the head scores 5/5.")
 
+    def test_should_count_a_later_dismissal_whose_run_has_not_answered(
+        self, gh: FakeGH
+    ) -> None:
+        gh.comments = [
+            outside("Old", "New"),
+            issue_comment(9, "@sedosaur dismiss Old"),
+            issue_comment(10, "@sedosaur dismiss New"),
+        ]
+        gh.runs = [check_run([["b.go", "Old"], ["b.go", "New"]])]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        [check] = gh.checks()
+        assert check["output"]["title"] == "Confidence Score: 5/5"
+
     def test_should_refuse_an_agent(self, gh: FakeGH) -> None:
         gh.comments = [
             outside("Old"),
             issue_comment(9, "@sedosaur dismiss Old", kind="Bot"),
         ]
+        gh.runs = [check_run([["b.go", "Old"]])]
         dismiss(TARGET, gh, comment=9, key=KEY)
         assert gh.posted() == ["Only a member can dismiss a finding, not an agent."]
+        assert gh.checks() == []
 
     @pytest.mark.parametrize(
         "body", ["@sedosaur dismiss Other", "@sedosaur dismissal of Old"]
@@ -402,19 +378,56 @@ class TestDismissOutside:
         [answer] = gh.posted()
         assert answer.startswith("No one finding outside the diff has that title.")
 
+    def test_should_ask_for_the_path_of_a_shared_title(self, gh: FakeGH) -> None:
+        both = outside("Old")
+        both["body"] += outside("Old", path="c.go")["body"]
+        gh.comments = [both, issue_comment(9, "@sedosaur dismiss Old")]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        [answer] = gh.posted()
+        assert answer.endswith("add `path:<file>` after it.")
 
-class TestRecord:
-    """Tests the record of a dismissal of a finding outside the diff."""
 
-    def test_should_read_back_a_title_that_ends_a_comment(self, gh: FakeGH) -> None:
-        d = Dismissal(path="b.go", title="a --> b", reason="")
-        gh.comments = [{"id": 1, "user": {"login": "sedosaur[bot]"}, "body": record(d)}]
-        assert dismissals(TARGET, gh, []) == [d]
+class TestDismissals:
+    """Tests reading the findings that members dismissed in comments."""
 
-    def test_should_ignore_a_record_another_author_wrote(self, gh: FakeGH) -> None:
-        d = Dismissal(path="b.go", title="Old", reason="")
-        gh.comments = [{"id": 1, "user": {"login": "someone"}, "body": record(d)}]
-        assert dismissals(TARGET, gh, []) == []
+    FINDINGS: ClassVar = {
+        ("b.go", "Old `carry` copy"),
+        ("b.go", "Old"),
+        ("c.go", "Old"),
+    }
+
+    @pytest.mark.parametrize(
+        ("body", "found"),
+        [
+            ("@sedosaur dismiss old `carry` copy, meant", ("b.go", "Old `carry` copy")),
+            ('@sedosaur dismiss "Old carry copy": meant', ("b.go", "Old `carry` copy")),
+            ("@sedosaur dismiss  OLD CARRY COPY meant", ("b.go", "Old `carry` copy")),
+            ("@sedosaur dismiss Old path:c.go meant", ("c.go", "Old")),
+        ],
+    )
+    def test_should_read_the_named_finding(
+        self, gh: FakeGH, body: str, found: tuple[str, str]
+    ) -> None:
+        gh.comments = [issue_comment(9, body)]
+        path, title = found
+        assert dismissals(TARGET, gh, [], self.FINDINGS) == [
+            Dismissal(path=path, title=title, reason="meant")
+        ]
+
+    @pytest.mark.parametrize(
+        "c",
+        [
+            issue_comment(9, "@sedosaur dismiss Old path:c.go", kind="Bot"),
+            issue_comment(9, "@sedosaur dismiss Old path:c.go", association="NONE"),
+            issue_comment(9, "@sedosaur dismiss Old"),
+            issue_comment(9, "> @sedosaur dismiss Old path:c.go"),
+        ],
+    )
+    def test_should_ignore_any_other_comment(
+        self, gh: FakeGH, c: dict[str, Any]
+    ) -> None:
+        gh.comments = [c]
+        assert dismissals(TARGET, gh, [], self.FINDINGS) == []
 
 
 class TestCommand:

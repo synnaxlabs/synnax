@@ -16,7 +16,6 @@ from typing import Any
 import pytest
 
 from review import (
-    Dismissal,
     Finding,
     Review,
     Target,
@@ -24,7 +23,6 @@ from review import (
     outside_findings,
     parse,
     post,
-    record,
     render,
     reviewed,
 )
@@ -263,8 +261,15 @@ class TestDismissedFindings:
     def test_should_leave_out_a_finding_dismissed_outside_the_diff(
         self, gh: FakeGH
     ) -> None:
-        gone = Dismissal(path="a.go", title="Samples return old data", reason="Meant.")
-        gh.comments = [{"id": 4, "login": "sedosaur[bot]", "body": record(gone)}]
+        gh.comments = [
+            {
+                "id": 4,
+                "login": "someone",
+                "author": {"__typename": "User", "login": "someone"},
+                "authorAssociation": "MEMBER",
+                "body": "@sedosaur dismiss Samples return old data, meant",
+            }
+        ]
         post(review(finding()), target=TARGET, gh=gh)
         [done] = gh.written("PATCH", "check-runs/55")
         assert done["output"]["title"] == "Confidence Score: 5/5"

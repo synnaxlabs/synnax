@@ -939,7 +939,10 @@ class TestMain:
         )
         far = Finding(severity="P2", title="Stale doc", body="B.", path="b.md", line=4)
         body = render.outside([far], blob="https://github.com/o/r/blob/h")
-        comment = json.dumps({"id": 3, "login": "sedosaur[bot]", "body": body})
+        bot = {"__typename": "Bot", "login": "sedosaur[bot]"}
+        comment = json.dumps(
+            {"id": 3, "login": "sedosaur[bot]", "author": bot, "body": body}
+        )
         executable(
             tmp_path / "bin" / "gh",
             "if any(a.endswith('/comments') for a in sys.argv):\n"

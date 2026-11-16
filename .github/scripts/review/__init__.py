@@ -23,7 +23,6 @@ from review.post import (
     gh,
     outside_findings,
     post,
-    record,
     reviewed,
     threads,
 )
@@ -66,7 +65,6 @@ __all__ = [
     "outside_findings",
     "parse",
     "post",
-    "record",
     "reviewed",
     "run",
     "threads",

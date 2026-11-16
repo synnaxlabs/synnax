@@ -31,11 +31,6 @@ on:
 
 permissions: {}
 
-# Each run reads the dismissals that the run before it recorded.
-concurrency:
-  group: dismiss-sedosaur-${{ inputs.pr }}
-  cancel-in-progress: false
-
 jobs:
   dismiss:
     name: Answer the reply
