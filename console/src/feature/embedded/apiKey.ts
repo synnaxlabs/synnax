@@ -10,7 +10,11 @@
 import { auth, InvalidTokenError, type Synnax } from "@synnaxlabs/client";
 import { errors } from "@synnaxlabs/x";
 
-import { retrieveAPIKey, saveAPIKey } from "@/feature/embedded/supervisor";
+import {
+  forgetAPIKey,
+  retrieveAPIKey,
+  saveAPIKey,
+} from "@/feature/embedded/supervisor";
 
 const NAME = "Scripts on this computer";
 
@@ -33,12 +37,15 @@ const known = async (client: Synnax, token: string): Promise<boolean> => {
 
 /**
  * @returns The saved API key, after it revokes an older key that could not move to the
- * keychain.
+ * keychain. The older key leaves the discovery file only after the revoke, so a failed
+ * revoke runs again on the next read.
  */
 const retrieve = async (client: Synnax): Promise<string | null> => {
   const { apiKey, dropped } = await retrieveAPIKey();
-  const old = dropped == null ? null : recordKey(dropped);
+  if (dropped == null) return apiKey;
+  const old = recordKey(dropped);
   if (old != null) await client.auth.deleteKeys(old);
+  await forgetAPIKey(dropped);
   return apiKey;
 };
 

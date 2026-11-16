@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { auth } from "@synnaxlabs/client";
 import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Embedded } from "@/feature/embedded";
 import {
@@ -222,6 +223,24 @@ describe("Embedded.Guard API key for scripts", () => {
       expect(commands).toHaveBeenCalledWith("supervisor_save_api_key"),
     );
     await expect.poll(async () => await retrieveKeyIDs(client)).not.toContain(key.key);
+    expect(file.dropped).toBeNull();
+  });
+
+  it("should keep an older key in the file when its revoke fails", async () => {
+    await deleteKeysCreatedByTest(client);
+    const { token, key } = await client.auth.createKey({ name: "desktop 1.1" });
+    const { file, handlers } = createDiscoveryFile();
+    file.dropped = token;
+    const deleteKeys = vi
+      .spyOn(auth.Client.prototype, "deleteKeys")
+      .mockRejectedValueOnce(new Error("Core restarted"));
+    const { commands } = mockSupervisor(() => live, handlers);
+    await renderGuard();
+    await waitFor(() => expect(deleteKeys).toHaveBeenCalled());
+    expect(commands).not.toHaveBeenCalledWith("supervisor_forget_api_key");
+    expect(file.dropped).toBe(token);
+    deleteKeys.mockRestore();
+    await client.auth.deleteKeys(key.key);
   });
 
   it("should replace a saved key that is not an API key", async () => {

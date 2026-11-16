@@ -151,7 +151,8 @@ const savedAPIKeyZ = z.object({
   apiKey: z.string().nullable(),
   /**
    * A key that Synnax Desktop 1.1 saved in plaintext and that did not move to the
-   * keychain. Nothing references it after the read, so the caller must revoke it.
+   * keychain. It stays in the discovery file until the caller revokes it and then
+   * calls {@link forgetAPIKey}.
    */
   dropped: z.string().nullable(),
 });
@@ -160,6 +161,13 @@ interface SavedAPIKey extends z.infer<typeof savedAPIKeyZ> {}
 /** @returns The saved API key, and an older key that the caller must revoke. */
 export const retrieveAPIKey = async (): Promise<SavedAPIKey> =>
   savedAPIKeyZ.parse(await invoke("supervisor_api_key"));
+
+/**
+ * Removes an older plaintext key, returned as `dropped`, from the discovery file. Call
+ * it only after the Core revoked the key.
+ */
+export const forgetAPIKey = async (apiKey: string): Promise<void> =>
+  await invoke("supervisor_forget_api_key", { apiKey });
 
 /**
  * Saves the API key, with the address of the running Core, where the client libraries

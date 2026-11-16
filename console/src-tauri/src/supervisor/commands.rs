@@ -277,6 +277,18 @@ pub async fn supervisor_api_key(
     .await
 }
 
+/// Removes `api_key`, an older plaintext key returned as `dropped`, from the discovery
+/// file. Call it only after the Core revoked the key.
+#[tauri::command]
+pub async fn supervisor_forget_api_key(
+    api_key: String,
+    discovery: State<'_, Discovery>,
+) -> Result<(), String> {
+    let path = discovery.path.clone();
+    let _guard = discovery.lock.lock().await;
+    blocking(move || discovery::forget_key(&path, &api_key)).await
+}
+
 /// Saves `api_key` in the keychain and the address of the running Core in the discovery
 /// file, but only while the saved key is `replaces`, the key the caller read. `None`
 /// means no saved key.

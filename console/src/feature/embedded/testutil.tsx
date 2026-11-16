@@ -140,11 +140,12 @@ export const mockSupervisor = (
 export interface DiscoveryFile {
   /** The API key the app saved last, or null before the first save. */
   apiKey: string | null;
-  /** An older key that the next read returns once for the app to revoke. */
+  /** An older key that each read returns to revoke, until the app forgets it. */
   dropped: string | null;
 }
 
 const saveArgsZ = z.object({ apiKey: z.string(), replaces: z.string().nullable() });
+const forgetArgsZ = z.object({ apiKey: z.string() });
 
 /**
  * Creates a discovery file and the supervisor command handlers that read and write it,
@@ -160,10 +161,9 @@ export const createDiscoveryFile = (
   return {
     file,
     handlers: {
-      supervisor_api_key: () => {
-        const saved = { apiKey: file.apiKey, dropped: file.dropped };
-        file.dropped = null;
-        return saved;
+      supervisor_api_key: () => ({ apiKey: file.apiKey, dropped: file.dropped }),
+      supervisor_forget_api_key: (args) => {
+        if (forgetArgsZ.parse(args).apiKey === file.dropped) file.dropped = null;
       },
       supervisor_save_api_key: async (args) => {
         const { apiKey, replaces } = saveArgsZ.parse(args);

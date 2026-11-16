@@ -71,6 +71,7 @@ fn main() {
         supervisor::commands::supervisor_export_diagnostics,
         supervisor::commands::supervisor_api_key,
         supervisor::commands::supervisor_save_api_key,
+        supervisor::commands::supervisor_forget_api_key,
         install::install_info,
     ]);
     #[cfg(target_os = "linux")]
