@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// WASM binary format constants
+// WASM binary format constants.
 const (
 	sectionCustom = 0x00
 	sectionType   = 0x01
@@ -30,7 +30,7 @@ const (
 	funcType      = 0x60
 )
 
-// ValueType represents WASM value types
+// ValueType represents WASM value types.
 type ValueType byte
 
 const (
@@ -40,7 +40,7 @@ const (
 	F64 ValueType = 0x7c
 )
 
-// ExportKind represents what kind of export
+// ExportKind represents what kind of export.
 type ExportKind byte
 
 const (
@@ -53,7 +53,7 @@ const (
 var (
 	// The WASM magic number that must be present at the start of all files.
 	magicNumber = []byte{0x00, 0x61, 0x73, 0x6d}
-	// version is the version of WASM the arc compiler compiles to (V1)
+	// version is the version of WASM the arc compiler compiles to (V1).
 	version = []byte{0x01, 0x00, 0x00, 0x00}
 )
 

@@ -91,6 +91,27 @@ describe("Region.extract", () => {
     expect(regions[0].selectors).toContain("#circle1");
   });
 
+  it("should escape IDs and class names that are not CSS identifiers", () => {
+    const content =
+      '<rect id="1" stroke="#ff0000" fill="#00ff00" />' +
+      '<rect class="a.b" stroke="#0000ff" fill="#00ff00" />';
+    const regions = Region.extract(createSVG(content));
+    const markup = `<svg xmlns="http://www.w3.org/2000/svg">${content}</svg>`;
+    expect(regions).toHaveLength(2);
+    regions.forEach(({ strokeColor, selectors }) =>
+      expect(Region.paint(markup, selectors).stroke).toEqual(strokeColor),
+    );
+  });
+
+  it("should escape data-region-id values that contain quotes", () => {
+    const content = `<rect data-region-id='a"b' stroke="#ff0000" fill="#00ff00" />`;
+    const regions = Region.extract(createSVG(content));
+    const markup = `<svg xmlns="http://www.w3.org/2000/svg">${content}</svg>`;
+    expect(Region.paint(markup, regions[0].selectors).stroke).toEqual(
+      regions[0].strokeColor,
+    );
+  });
+
   it("should use class names when available", () => {
     const svg = createSVG(`
       <rect class="red-rect primary" style="stroke: #ff0000; fill: #00ff00" />
@@ -313,6 +334,22 @@ describe("Region.paint", () => {
       stroke: color.TRANSPARENT,
       fill: color.TRANSPARENT,
     });
+  });
+});
+
+describe("Region.measure", () => {
+  it("should return the size of the view box", () => {
+    expect(
+      Region.measure('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20"/>'),
+    ).toEqual({ width: 40, height: 20 });
+  });
+
+  it.each([
+    ["empty markup", ""],
+    ["malformed markup", '<svg xmlns="http://www.w3.org/2000/svg"><rect></svg>'],
+    ["a root that is not an svg", '<div xmlns="http://www.w3.org/1999/xhtml"/>'],
+  ])("should return null for %s", (_, svg) => {
+    expect(Region.measure(svg)).toBeNull();
   });
 });
 
@@ -595,5 +632,17 @@ describe("Region.parseSVG", () => {
     );
     expect(root?.querySelector("linearGradient")).not.toBeNull();
     expect(root?.querySelector("rect")?.getAttribute("fill")).toBe("url(#g)");
+  });
+});
+
+describe("Region.selector", () => {
+  it("should match the selector that extract stores for the element", () => {
+    const doc = new DOMParser().parseFromString(
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect id="1" stroke="#f00" /></svg>',
+      "image/svg+xml",
+    );
+    const svg = doc.documentElement as unknown as SVGElement;
+    const rect = svg.querySelector("rect") as SVGElement;
+    expect(Region.extract(svg)[0].selectors).toEqual([Region.selector(rect)]);
   });
 });

@@ -124,6 +124,19 @@ var _ = Describe("Any", func() {
 			}
 			Expect(pb.AnyFromPBAny(packed)).To(BeNil())
 		})
+
+		It(
+			"Should return an error for a registered type whose bytes do not decode",
+			func() {
+				packed := &anypb.Any{
+					TypeUrl: "type.googleapis.com/google.protobuf.Field",
+					Value:   []byte{0xff},
+				}
+				Expect(pb.AnyFromPBAny(packed)).Error().To(MatchError(ContainSubstring(
+					"cannot parse invalid wire-format data",
+				)))
+			},
+		)
 	})
 
 	Describe("ToAny", func() {

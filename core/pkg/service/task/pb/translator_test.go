@@ -31,7 +31,7 @@ var _ = Describe("Task", func() {
 		Rack:       7,
 		Data:       msgpack.EncodedJSON{"read_rate": 10.0},
 	}
-	key := task.Key(uuid.New())
+	key := uuid.New()
 	t := task.Task{
 		Key:    key,
 		Rack:   details.Rack,

@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/synnax/cmd"
 	"github.com/synnaxlabs/synnax/cmd/exit"
 	"github.com/synnaxlabs/synnax/pkg/version"
@@ -26,17 +27,19 @@ import (
 var _ = Describe("Cmd", func() {
 	It("Should print the version when using the --version flag", func() {
 		var buf bytes.Buffer
-		cmd.Cmd.SetArgs([]string{"--version"})
-		cmd.Cmd.SetOut(&buf)
-		Expect(cmd.Cmd.Execute()).To(Succeed())
+		root := cmd.NewCmd()
+		root.SetArgs([]string{"--version"})
+		root.SetOut(&buf)
+		Expect(root.Execute()).To(Succeed())
 		Expect(buf.String()).To(Equal("Synnax " + version.Full() + "\n"))
 	})
 
 	It("Should report a flag that does not parse as a validation error", func() {
-		cmd.Cmd.SetArgs([]string{"version", "--bogus"})
-		cmd.Cmd.SetOut(new(bytes.Buffer))
-		cmd.Cmd.SetErr(new(bytes.Buffer))
-		Expect(cmd.Cmd.Execute()).To(And(
+		root := cmd.NewCmd()
+		root.SetArgs([]string{"version", "--bogus"})
+		root.SetOut(new(bytes.Buffer))
+		root.SetErr(new(bytes.Buffer))
+		Expect(root.Execute()).To(And(
 			MatchError(
 				func(err error) bool { return errors.Is(err, validate.ErrValidation) },
 				"validate.ErrValidation",
@@ -46,14 +49,11 @@ var _ = Describe("Cmd", func() {
 	})
 
 	Describe("Config file", func() {
+		var root *cobra.Command
 		BeforeEach(func() {
-			flag := cmd.Cmd.PersistentFlags().Lookup("config")
-			DeferCleanup(func() {
-				Expect(flag.Value.Set(flag.DefValue)).To(Succeed())
-				flag.Changed = false
-			})
-			cmd.Cmd.SetOut(new(bytes.Buffer))
-			cmd.Cmd.SetErr(new(bytes.Buffer))
+			root = cmd.NewCmd()
+			root.SetOut(new(bytes.Buffer))
+			root.SetErr(new(bytes.Buffer))
 		})
 
 		It(
@@ -63,8 +63,8 @@ var _ = Describe("Cmd", func() {
 				Expect(
 					os.WriteFile(path, []byte("insecure: [true"), 0o600),
 				).To(Succeed())
-				cmd.Cmd.SetArgs([]string{"version", "--config", path})
-				err := cmd.Cmd.Execute()
+				root.SetArgs([]string{"version", "--config", path})
+				err := root.Execute()
 				Expect(err).To(MatchError(ContainSubstring(path)))
 				Expect(exit.Code(err)).To(Equal(exit.Config))
 			},
@@ -74,19 +74,19 @@ var _ = Describe("Cmd", func() {
 			"Should fail with the config exit code when a passed path does not exist",
 			func() {
 				path := filepath.Join(GinkgoT().TempDir(), "missing.yaml")
-				cmd.Cmd.SetArgs([]string{"version", "--config", path})
-				err := cmd.Cmd.Execute()
+				root.SetArgs([]string{"version", "--config", path})
+				err := root.Execute()
 				Expect(err).To(MatchError(ContainSubstring(path)))
 				Expect(exit.Code(err)).To(Equal(exit.Config))
 			},
 		)
 
 		It("Should succeed when the default path does not exist", func() {
-			flag := cmd.Cmd.PersistentFlags().Lookup("config")
+			flag := root.PersistentFlags().Lookup("config")
 			path := filepath.Join(GinkgoT().TempDir(), "missing.yaml")
 			Expect(flag.Value.Set(path)).To(Succeed())
-			cmd.Cmd.SetArgs([]string{"version"})
-			Expect(cmd.Cmd.Execute()).To(Succeed())
+			root.SetArgs([]string{"version"})
+			Expect(root.Execute()).To(Succeed())
 		})
 	})
 })

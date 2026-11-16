@@ -113,12 +113,11 @@ func (s *streamServer[RQ, RS]) Report() alamos.Report {
 }
 
 func (s *streamServer[RQ, RS]) resolveStreamCodec(
-	ctx context.Context,
 	contentType string,
-) (encoding.Codec, bool) {
+) (func(context.Context) encoding.Codec, bool) {
 	for _, ac := range s.additionalCodecs {
 		if ac.contentType == contentType {
-			return ac.new(ctx), true
+			return ac.new, true
 		}
 	}
 	return nil, false
@@ -140,24 +139,27 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx fiber.Ctx) error {
 	}
 	// Parse the incoming request context. Used to pull various headers and parameters
 	// from the request (e.g., content-type or authorization). upgradeCtx is only valid
-	// for the lifetime of this function. As this function will exit long before the
-	// stream stops processing values, we need to use the underlying server ctx as the
-	// valid context instead of the fiber context itself.
-	iCtx := parseRequestCtx(s.serverCtx, upgradeCtx, address.Address(s.path), true)
+	// for the lifetime of this function, but its user context outlives it.
+	iCtx := parseRequestCtx(
+		upgradeCtx.Context(),
+		upgradeCtx,
+		address.Address(s.path),
+		true,
+	)
 	headerContentType := iCtx.GetDefault(fiber.HeaderContentType, "").(string)
-	codec, ok := s.resolveStreamCodec(iCtx, headerContentType)
+	newCodec, ok := s.resolveStreamCodec(headerContentType)
 	if !ok {
 		return upgradeCtx.SendStatus(fiber.StatusUnsupportedMediaType)
 	}
 	// Upgrade the connection to a websocket connection.
-	return fiberws.New(func(c *fiberws.Conn) { s.handleSocket(iCtx, codec, c) })(
+	return fiberws.New(func(c *fiberws.Conn) { s.handleSocket(iCtx, newCodec, c) })(
 		upgradeCtx,
 	)
 }
 
 func (s *streamServer[RQ, RS]) handleSocket(
 	ctx freighter.Context,
-	codec encoding.Codec,
+	newCodec func(context.Context) encoding.Codec,
 	c *fiberws.Conn,
 ) {
 	var (
@@ -166,6 +168,11 @@ func (s *streamServer[RQ, RS]) handleSocket(
 		handlerCtx context.Context
 	)
 	defer close(exited)
+	streamCtx, cancel := context.WithCancel(ctx.Context)
+	defer cancel()
+	defer context.AfterFunc(s.serverCtx, cancel)()
+	ctx.Context = streamCtx
+	codec := newCodec(streamCtx)
 	c.SetReadLimit(s.messageSizeLimit)
 	stream := &serverStream[RQ, RS]{streamCore: newStreamCore[RQ, RS](
 		streamCoreConfig{

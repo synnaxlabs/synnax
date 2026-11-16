@@ -69,7 +69,7 @@ func logFiles() zip.Files {
 }
 
 var _ = Describe("Members", func() {
-	It("Should decode importable members in layout-key order", func(ctx SpecContext) {
+	It("Should decode importable members in layout-key order", func() {
 		members := MustSucceed(legacy.Members(
 			layoutFile(logLayouts, nil), logFiles(),
 		))
@@ -80,9 +80,7 @@ var _ = Describe("Members", func() {
 		Expect(members[1].LayoutKey).To(Equal("k2"))
 	})
 
-	It("Should type and name a typeless task config from its layout record", func(
-		ctx SpecContext,
-	) {
+	It("Should type and name a typeless task config from its layout record", func() {
 		layouts := map[string]map[string]any{
 			"t1": {"key": "t1", "type": "labjack_write", "name": "Valves"},
 		}
@@ -96,9 +94,7 @@ var _ = Describe("Members", func() {
 		Expect(members[0].Env.Name).To(Equal("Valves"))
 	})
 
-	It("Should skip layouts whose type is not a frozen legacy type", func(
-		ctx SpecContext,
-	) {
+	It("Should skip layouts whose type is not a frozen legacy type", func() {
 		layouts := map[string]map[string]any{
 			"m1": {"key": "m1", "type": "mosaic", "name": "Main"},
 		}
@@ -107,9 +103,7 @@ var _ = Describe("Members", func() {
 		)).To(BeEmpty())
 	})
 
-	It("Should reject a layout whose component file is missing", func(
-		ctx SpecContext,
-	) {
+	It("Should reject a layout whose component file is missing", func() {
 		Expect(legacy.Members(
 			layoutFile(logLayouts, nil), zip.Files{},
 		)).Error().To(SatisfyAll(
@@ -118,7 +112,7 @@ var _ = Describe("Members", func() {
 		))
 	})
 
-	It("Should reject an undecodable layout slice", func(ctx SpecContext) {
+	It("Should reject an undecodable layout slice", func() {
 		Expect(legacy.Members([]byte("garbage"), zip.Files{})).
 			Error().To(MatchError(ContainSubstring(legacy.LayoutFileName)))
 	})

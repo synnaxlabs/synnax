@@ -28,7 +28,7 @@ func immediatelyReturnError(context.Context) error {
 	return errRoutineFailed
 }
 
-func immediatelyPanic(context.Context) error { panic("routine panicked") }
+func immediatelyPanic() error { panic("routine panicked") }
 
 func immediatelyReturnNil(context.Context) error { return nil }
 
@@ -305,7 +305,7 @@ var _ = Describe("Signal", func() {
 		It("Should error a panic when instructed", func() {
 			ctx, _ := signal.Isolated()
 			ctx.Go(func(ctx context.Context) error {
-				return immediatelyPanic(ctx)
+				return immediatelyPanic()
 			}, signal.RecoverWithErrOnPanic())
 
 			Expect(ctx.Wait()).To(MatchError(ContainSubstring("routine panicked")))
@@ -314,7 +314,7 @@ var _ = Describe("Signal", func() {
 		It("Should not error when instructed to not error", func() {
 			ctx, _ := signal.Isolated()
 			ctx.Go(func(ctx context.Context) error {
-				return immediatelyPanic(ctx)
+				return immediatelyPanic()
 			}, signal.RecoverWithoutErrOnPanic())
 
 			Expect(ctx.Wait()).To(Succeed())

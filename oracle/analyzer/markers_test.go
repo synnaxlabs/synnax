@@ -21,7 +21,7 @@ var _ = Describe("Create and Output markers", func() {
 	var loader *MockFileLoader
 	BeforeEach(func() { loader = NewMockFileLoader() })
 
-	It("Should accept @create on a type and @output on a field", func(ctx SpecContext) {
+	It("Should accept @create on a type and @output on a field", func() {
 		source := `
 			Thing struct {
 				key    uuid @key
@@ -30,13 +30,14 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-		table, diag := Analyze(ctx, source, "x", loader)
+		table, diag := Analyze(source, "x", loader)
 		Expect(diag.Ok()).To(BeTrue())
 
 		typ := table.MustGet("x.Thing")
 		Expect(typ.Domains).To(HaveKey("create"))
 
-		form := typ.Form.(resolution.StructForm)
+		form, ok := typ.Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
 		author, ok := form.Field("author")
 		Expect(ok).To(BeTrue())
 		Expect(author.Domains).To(HaveKey("output"))
@@ -48,7 +49,7 @@ var _ = Describe("Create and Output markers", func() {
 
 	It(
 		"Should synthesize a derived New type for @create, omitting @output fields",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			Thing struct {
 				key    uuid @key
@@ -57,13 +58,14 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-			table, diag := Analyze(ctx, source, "x", loader)
+			table, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			newType, ok := table.Get("x.New")
 			Expect(ok).To(BeTrue())
 
-			form := newType.Form.(resolution.StructForm)
+			form, ok := newType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Extends).To(HaveLen(1))
 			Expect(form.Extends[0].Name).To(Equal("x.Thing"))
 			resolved, resolvedOK := form.Extends[0].Resolve(table)
@@ -79,7 +81,7 @@ var _ = Describe("Create and Output markers", func() {
 		},
 	)
 
-	It("Should not synthesize a New when one is hand-written", func(ctx SpecContext) {
+	It("Should not synthesize a New when one is hand-written", func() {
 		source := `
 			Thing struct {
 				key  uuid @key
@@ -93,7 +95,7 @@ var _ = Describe("Create and Output markers", func() {
 		`
 		// A duplicate synthesized New would add a diagnostic, so a clean analysis
 		// proves the hand-written New was respected.
-		table, diag := Analyze(ctx, source, "x", loader)
+		table, diag := Analyze(source, "x", loader)
 		Expect(diag.Ok()).To(BeTrue())
 		_, ok := table.Get("x.New")
 		Expect(ok).To(BeTrue())
@@ -101,7 +103,7 @@ var _ = Describe("Create and Output markers", func() {
 
 	It(
 		"Should synthesize a New<Name> projection for a @create union",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			TabBase struct {
 				key uuid = create { @key }
@@ -116,12 +118,13 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-			table, diag := Analyze(ctx, source, "x", loader)
+			table, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			newTab, ok := table.Get("x.NewTab")
 			Expect(ok).To(BeTrue())
-			form := newTab.Form.(resolution.StructForm)
+			form, ok := newTab.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Extends).To(HaveLen(1))
 			Expect(form.Extends[0].Name).To(Equal("x.Tab"))
 			Expect(newTab.Domains).To(HaveKey("ts"))
@@ -134,7 +137,7 @@ var _ = Describe("Create and Output markers", func() {
 
 	It(
 		"Should synthesize New for a @create union named after its namespace",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			Base struct {
 				key uuid = create { @key }
@@ -149,22 +152,24 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-			table, diag := Analyze(ctx, source, "x", loader)
+			table, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
-			form := MustBeOk(table.Get("x.New")).Form.(resolution.StructForm)
+			form, ok := MustBeOk(table.Get("x.New")).Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Extends).To(HaveLen(1))
 			Expect(form.Extends[0].Name).To(Equal("x.X"))
-			_, ok := table.Get("x.NewX")
+			_, ok = table.Get("x.NewX")
 			Expect(ok).To(BeFalse())
 		},
 	)
 
 	DescribeTable(
 		"Should give New to whichever of a struct and a namespace union comes first",
-		func(ctx SpecContext, source, newBase, unionNew string) {
-			table, diag := Analyze(ctx, source, "x", loader)
+		func(source, newBase, unionNew string) {
+			table, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
-			form := MustBeOk(table.Get("x.New")).Form.(resolution.StructForm)
+			form, ok := MustBeOk(table.Get("x.New")).Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Extends[0].Name).To(Equal(newBase))
 			MustBeOk(table.Get(unionNew))
 		},
@@ -202,7 +207,7 @@ var _ = Describe("Create and Output markers", func() {
 
 	It(
 		"Should synthesize both a struct New and a union New<Name> in one namespace",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			Panel struct {
 				key uuid @key
@@ -222,7 +227,7 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-			table, diag := Analyze(ctx, source, "x", loader)
+			table, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			_, ok := table.Get("x.New")
 			Expect(ok).To(BeTrue())
@@ -233,7 +238,7 @@ var _ = Describe("Create and Output markers", func() {
 
 	It(
 		"Should synthesize a single New when a namespace has two @create structs",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			First struct {
 				key  uuid @key
@@ -248,11 +253,12 @@ var _ = Describe("Create and Output markers", func() {
 		`
 			// Both structs would target x.New; only one may be synthesized, otherwise
 			// the second table.Add collides and fails analysis.
-			table, diag := Analyze(ctx, source, "x", loader)
+			table, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			newType, ok := table.Get("x.New")
 			Expect(ok).To(BeTrue())
-			form := newType.Form.(resolution.StructForm)
+			form, ok := newType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Extends).To(HaveLen(1))
 			Expect(form.Extends[0].Name).To(BeElementOf("x.First", "x.Second"))
 		},

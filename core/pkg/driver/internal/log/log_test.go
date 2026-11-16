@@ -319,8 +319,8 @@ var _ = Describe("PipeToLogger", func() {
 			)
 		}
 
-		It("Should report running on the first formatted line only", func() {
-			calls := 0
+		It("Should report a load on the first formatted line only", func() {
+			var calls []bool
 			log.PipeToLogger(
 				io.NopCloser(strings.NewReader(
 					"driver: loading\n"+
@@ -330,13 +330,27 @@ var _ = Describe("PipeToLogger", func() {
 				logger,
 				nil,
 				nil,
-				func() { calls++ },
+				func(crashed bool) { calls = append(calls, crashed) },
 			)
-			Expect(calls).To(Equal(1))
+			Expect(calls).To(Equal([]bool{false}))
 		})
 
-		It("Should not report running for a loader error", func() {
-			calls := 0
+		It("Should report a crash banner as a crashed load", func() {
+			var calls []bool
+			log.PipeToLogger(
+				io.NopCloser(strings.NewReader(
+					"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***\n",
+				)),
+				logger,
+				nil,
+				nil,
+				func(crashed bool) { calls = append(calls, crashed) },
+			)
+			Expect(calls).To(Equal([]bool{true}))
+		})
+
+		It("Should not report a load for a loader error", func() {
+			var calls []bool
 			log.PipeToLogger(
 				io.NopCloser(strings.NewReader(
 					"driver: version `GLIBC_2.39' not found\n",
@@ -344,9 +358,9 @@ var _ = Describe("PipeToLogger", func() {
 				logger,
 				nil,
 				nil,
-				func() { calls++ },
+				func(crashed bool) { calls = append(calls, crashed) },
 			)
-			Expect(calls).To(BeZero())
+			Expect(calls).To(BeEmpty())
 		})
 
 		It("Should return the message of the last error line", func() {

@@ -1774,6 +1774,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Expect(dw.CommitWithEnd(
 									ctx,
 									12*telem.SecondTS+1,
+									nil,
 								)).To(Succeed())
 								MustSucceed(dw.Close())
 								iter := MustSucceed(
