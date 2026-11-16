@@ -120,17 +120,52 @@ func Resolve(repoRelative, repoRoot string) string {
 // ReadFile reads the file at path, which is repo-relative or absolute. It fails when
 // the path, or a symlink on it, leads out of repoRoot.
 func ReadFile(path, repoRoot string) (data []byte, err error) {
-	if filepath.IsAbs(path) {
-		if path, err = filepath.Rel(repoRoot, path); err != nil {
-			return nil, err
-		}
-	}
-	root, err := os.OpenRoot(repoRoot)
+	root, rel, err := openRoot(path, repoRoot)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errors.Combine(err, root.Close()) }()
-	return root.ReadFile(path)
+	return root.ReadFile(rel)
+}
+
+// WriteFile writes data to the file at path, which is repo-relative or absolute, and
+// creates the file with perm. It fails when the path, or a symlink on it, leads out of
+// repoRoot.
+func WriteFile(path, repoRoot string, data []byte, perm os.FileMode) (err error) {
+	root, rel, err := openRoot(path, repoRoot)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Combine(err, root.Close()) }()
+	return root.WriteFile(rel, data, perm)
+}
+
+func openRoot(path, repoRoot string) (*os.Root, string, error) {
+	rel, err := relativeTo(path, repoRoot)
+	if err != nil {
+		return nil, "", err
+	}
+	root, err := os.OpenRoot(repoRoot)
+	return root, rel, err
+}
+
+func relativeTo(path, repoRoot string) (string, error) {
+	if !filepath.IsAbs(path) {
+		return path, nil
+	}
+	if rel, err := filepath.Rel(repoRoot, path); err == nil && filepath.IsLocal(rel) {
+		return rel, nil
+	}
+	// A symlink such as /var on macOS gives one directory two absolute paths.
+	realRoot, err := filepath.EvalSymlinks(repoRoot)
+	if err != nil {
+		return "", err
+	}
+	realDir, err := filepath.EvalSymlinks(filepath.Dir(path))
+	if err != nil {
+		return "", err
+	}
+	return filepath.Rel(realRoot, filepath.Join(realDir, filepath.Base(path)))
 }
 
 // ValidateOutput ensures an output path is valid and within repo bounds. It checks for

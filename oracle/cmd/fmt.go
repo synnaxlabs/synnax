@@ -11,8 +11,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 
@@ -98,7 +96,7 @@ func runFmt(cmd *cobra.Command, args []string) error {
 	)
 
 	for _, file := range files {
-		result, err := formatFile(file)
+		result, err := formatFile(file, repoRoot)
 		if err != nil {
 			printError(fmt.Sprintf("failed to format %s: %v", file, err))
 			failed++
@@ -132,8 +130,8 @@ const (
 	formatResultChanged
 )
 
-func formatFile(path string) (formatResult, error) {
-	source, err := os.ReadFile(filepath.Clean(path))
+func formatFile(path, repoRoot string) (formatResult, error) {
+	source, err := paths.ReadFile(path, repoRoot)
 	if err != nil {
 		return formatResultUnchanged, err
 	}
@@ -157,7 +155,7 @@ func formatFile(path string) (formatResult, error) {
 		return formatResultChanged, nil
 	}
 
-	if err := os.WriteFile(path, []byte(formatted), 0o644); err != nil {
+	if err := paths.WriteFile(path, repoRoot, []byte(formatted), 0o644); err != nil {
 		return formatResultUnchanged, err
 	}
 
