@@ -643,7 +643,7 @@ TEST_F(SharedIndexWriteTest, testRestartIgnoresReleasedWriter) {
         EXPECT_NE(status.variant, synnax::status::VARIANT_ERROR) << status.description;
 }
 
-/// @brief a command that DAQmx rejects as out of bounds should not stay in the write
+/// @brief it should not keep a command that DAQmx rejects as out of bounds in the write
 /// buffer, where it would fail every later command to the other channels.
 TEST(WriteTaskSinkTest, testOutOfBoundsCommandIsNotWrittenAgain) {
     x::json::Parser p(
