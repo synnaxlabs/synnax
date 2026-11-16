@@ -386,6 +386,73 @@ var _ = Describe("Service", func() {
 		)
 
 		It(
+			"Should leave out a calculated channel that does not compile",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name: "cb_base", DataType: telem.Int64T, Virtual: true,
+				}
+				out := channel.Channel{
+					Name: "cb_out", DataType: telem.Int64T, Virtual: true,
+				}
+				inner := channel.Channel{
+					Name:       "cb_inner",
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return cb_base + 1",
+				}
+				outer := channel.Channel{
+					Name:       "cb_outer",
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return cb_inner * 2",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					w := channelSvc.NewWriter(tx)
+					for _, ch := range []*channel.Channel{&base, &out, &inner, &outer} {
+						if err := w.Create(ctx, ch); err != nil {
+							return err
+						}
+					}
+					return w.Delete(ctx, base.Key(), false)
+				})).To(Succeed())
+				a := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+					Name: "cb_automation",
+					Source: arc.Source{Variant: arc.TextSource{
+						Text: text.Text{Raw: "cb_outer -> cb_out"},
+					}},
+				}}}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).Create(ctx, &a)
+				})).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						if err := arcSvc.NewWriter(tx).Delete(
+							ctx, a.Base().Key,
+						); err != nil {
+							return err
+						}
+						return channelSvc.NewWriter(tx).DeleteMany(ctx, []channel.Key{
+							outer.Key(), inner.Key(), out.Key(),
+						}, false)
+					})).To(Succeed())
+				})
+				grantOn(ctx, author.ResourceID(), access.ActionRetrieve, a.ResourceID())
+				key := a.Base().Key
+				res := MustSucceed(
+					retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+						Where:          &arc.Where{Key: &filter.Set[arc.Key]{Eq: &key}},
+						IncludeProgram: true,
+					}),
+				)
+				Expect(res.Arcs).To(HaveLen(1))
+				automation, ok := res.Arcs[0].Variant.(arc.AutomationArc)
+				Expect(ok).To(BeTrue())
+				Expect(automation.Program).ToNot(BeNil())
+				Expect(automation.Calculations).To(BeEmpty())
+			},
+		)
+
+		It(
 			"Should compile automations and leave modules uncompiled",
 			func(ctx SpecContext) {
 				automation := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{

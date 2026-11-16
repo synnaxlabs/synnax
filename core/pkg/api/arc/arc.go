@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
@@ -502,7 +503,8 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 }
 
 // compileCalculations compiles the calculated channels that prog reads and the ones
-// they read in turn, dependencies first.
+// they read in turn, dependencies first. It leaves out a channel that does not compile
+// and each channel that reads it, since the status of that channel reports the failure.
 func (s *Service) compileCalculations(
 	ctx context.Context,
 	prog arclang.Program,
@@ -537,7 +539,9 @@ func (s *Service) compileCalculations(
 		if !ch.IsCalculated() {
 			continue
 		}
-		if err = g.Add(ctx, ch); err != nil {
+		err = g.Add(ctx, ch)
+		changed := errors.Is(err, channel.ErrLookupsChanged)
+		if err != nil && (changed || ctx.Err() != nil) {
 			return nil, err
 		}
 	}
