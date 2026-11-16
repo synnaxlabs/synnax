@@ -11,6 +11,7 @@ package v13_test
 
 import (
 	"context"
+	"math"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -483,6 +484,38 @@ var _ = Describe("MigrateSchematic config move", func() {
 				"kept": {Variant: pipe},
 			},
 		),
+	)
+
+	DescribeTable("Should give the schema default to a non-finite number",
+		func(ctx SpecContext, f float64) {
+			s := migrate(ctx, v12.Schematic{
+				Nodes: []v12.Node{node("n1")},
+				Edges: []v12.Edge{edge("e1", "n1", "n1")},
+				Configs: map[string]v12.ElementConfig{
+					"n1": {Variant: v12.PolygonElementConfig{
+						NumSides:    f,
+						SideLength:  30,
+						Rotation:    f,
+						StrokeWidth: f,
+					}},
+					"e1": {Variant: v12.PipeElementConfig{
+						SegmentedEdgeConfig: v12.SegmentedEdgeConfig{
+							Segments: []v12.Segment{{Length: f}},
+						},
+					}},
+				},
+			})
+			polygon := configOf(s, "n1").(v13.PolygonNodeConfig)
+			Expect(polygon.NumSides).To(Equal(6.0))
+			Expect(polygon.SideLength).To(Equal(30.0))
+			Expect(polygon.Rotation).To(BeZero())
+			Expect(polygon.StrokeWidth).To(Equal(2.0))
+			Expect(configOf(s, "e1").(v13.PipeEdgeConfig).Segments).
+				To(Equal([]v13.Segment{{}}))
+		},
+		Entry("NaN", math.NaN()),
+		Entry("positive infinity", math.Inf(1)),
+		Entry("negative infinity", math.Inf(-1)),
 	)
 
 	It("Should not change the schematic it was given", func(ctx SpecContext) {

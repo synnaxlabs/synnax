@@ -11,13 +11,16 @@ package v13
 
 import (
 	"context"
+	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"math"
 	"reflect"
 	"slices"
 
 	"github.com/synnaxlabs/gorp/migrate"
 	v12 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
 	color "github.com/synnaxlabs/x/color/versions/v2"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -27,7 +30,8 @@ import (
 // configures, and each member of a group box gets the group box as its parent. A node
 // with no node config draws nothing, so it is dropped, and so is an edge whose source
 // or target is dropped. An edge with no edge config gets the default pipe, which the
-// Console drew for it before v0.55.
+// Console drew for it before v0.55. A NaN or infinite number in a config becomes the
+// schema default of its field.
 func MigrateSchematic(ctx context.Context, old v12.Schematic) (Schematic, error) {
 	s, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
@@ -122,6 +126,27 @@ func MigrateEdge(ctx context.Context, old v12.Edge) (Edge, error) {
 	return autoMigrateEdge(ctx, old)
 }
 
+// nonFiniteAbsent makes a NaN or infinite number, which JSON cannot hold, read as an
+// absent field: it encodes as null, and a null leaves the schema default in place.
+var nonFiniteAbsent = json.JoinOptions(
+	json.WithMarshalers(json.MarshalToFunc(
+		func(enc *jsontext.Encoder, f float64) error {
+			if math.IsNaN(f) || math.IsInf(f, 0) {
+				return enc.WriteToken(jsontext.Null)
+			}
+			return errors.ErrUnsupported
+		},
+	)),
+	json.WithUnmarshalers(json.UnmarshalFromFunc(
+		func(dec *jsontext.Decoder, _ *float64) error {
+			if dec.PeekKind() != jsontext.KindNull {
+				return errors.ErrUnsupported
+			}
+			return dec.SkipValue()
+		},
+	)),
+)
+
 // convert decodes the config stored under key into dst. It returns false when no config
 // is stored under key, or when the stored config is of the Other element kind.
 func convert[Other, C any](
@@ -133,15 +158,15 @@ func convert[Other, C any](
 	if !ok {
 		return false, nil
 	}
-	b, err := json.Marshal(cfg)
+	b, err := json.Marshal(cfg, nonFiniteAbsent)
 	if err != nil {
 		return false, err
 	}
-	if err = json.Unmarshal(b, dst); err == nil {
+	if err = json.Unmarshal(b, dst, nonFiniteAbsent); err == nil {
 		return true, nil
 	}
 	var other Other
-	if json.Unmarshal(b, &other) == nil {
+	if json.Unmarshal(b, &other, nonFiniteAbsent) == nil {
 		return false, nil
 	}
 	return false, err
