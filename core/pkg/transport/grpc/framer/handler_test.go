@@ -456,7 +456,9 @@ var _ = Describe("gRPC Framer Transport", func() {
 
 	Describe("Delete", func() {
 		It("Should translate the keys, names, and bounds", func(ctx SpecContext) {
-			t := transport.FrameDelete.(*deleteServer).RequestTranslator
+			server, ok := transport.FrameDelete.(*deleteServer)
+			Expect(ok).To(BeTrue())
+			t := server.RequestTranslator
 			pb := &grpcframer.DeleteRequest{
 				Keys:   []uint32{1, 2},
 				Names:  []string{"a", "b"},

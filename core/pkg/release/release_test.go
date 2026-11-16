@@ -238,7 +238,9 @@ var _ = Describe("Download", func() {
 			serve(func(w http.ResponseWriter, _ *http.Request) {
 				for _, b := range data {
 					MustSucceed(w.Write([]byte{b}))
-					w.(http.Flusher).Flush()
+					flusher, ok := w.(http.Flusher)
+					Expect(ok).To(BeTrue())
+					flusher.Flush()
 					time.Sleep(50 * time.Millisecond)
 				}
 			})
@@ -256,7 +258,9 @@ var _ = Describe("Download", func() {
 			func(ctx SpecContext) {
 				serve(func(w http.ResponseWriter, r *http.Request) {
 					MustSucceed(w.Write(data[:1]))
-					w.(http.Flusher).Flush()
+					flusher, ok := w.(http.Flusher)
+					Expect(ok).To(BeTrue())
+					flusher.Flush()
 					<-r.Context().Done()
 				})
 				Expect(

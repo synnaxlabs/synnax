@@ -388,7 +388,9 @@ var _ = Describe("Service", func() {
 					secretType,
 				)
 				cert = createCertificate(ctx)
-				key = *cert.Variant.(certificate.StoredCertificate).PrivateKey
+				stored, ok := cert.Variant.(certificate.StoredCertificate)
+				Expect(ok).To(BeTrue())
+				key = *stored.PrivateKey
 			})
 			It("Should return the resources that use each secret",
 				func(ctx SpecContext) {
