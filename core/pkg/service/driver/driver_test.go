@@ -2992,7 +2992,7 @@ var _ = Describe("Driver", func() {
 						return &mockTask{key: t.Key}, nil
 					},
 				}
-				d := openDriver(ctx, factory)
+				d := openDriver(GinkgoT().Context(), factory)
 				t := newTask(embeddedRackKey(ctx))
 				t.Key = key
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

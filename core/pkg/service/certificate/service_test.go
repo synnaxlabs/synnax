@@ -314,7 +314,7 @@ var _ = Describe("Service", func() {
 				message string,
 				description string,
 			) {
-				e := newEnv(ctx, telem.Hour)
+				e := newEnv(GinkgoT().Context(), telem.Hour)
 				c := e.create(
 					ctx,
 					stored("Plant", newCertificate(newKey(), "a", lifetime)),

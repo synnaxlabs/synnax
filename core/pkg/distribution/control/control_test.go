@@ -99,7 +99,7 @@ var _ = Describe("Control", func() {
 		It("Should return the state of a channel the host arbitrates", func(
 			ctx SpecContext,
 		) {
-			host := testutil.NewNode(ctx)
+			host := testutil.NewNode(GinkgoT().Context())
 			ch := createChannel(ctx, host, "gateway", 1)
 			w := openWriter(ctx, host, "philadelphia", ch.Key())
 			Expect(MustSucceed(host.Control.Retrieve(ctx, ch.Key()))).To(ConsistOf(
@@ -137,7 +137,7 @@ var _ = Describe("Control", func() {
 		It("Should return the state of every channel when no keys are given", func(
 			ctx SpecContext,
 		) {
-			host := testutil.NewNode(ctx)
+			host := testutil.NewNode(GinkgoT().Context())
 			first := createChannel(ctx, host, "first", 1)
 			second := createChannel(ctx, host, "second", 1)
 			DeferClose(openWriter(ctx, host, "boulder", first.Key()))
@@ -152,7 +152,7 @@ var _ = Describe("Control", func() {
 		It("Should notify handlers when the host acquires and releases control", func(
 			ctx SpecContext,
 		) {
-			host := testutil.NewNode(ctx)
+			host := testutil.NewNode(GinkgoT().Context())
 			ch := createChannel(ctx, host, "gateway", 1)
 			updates := collect(host.Control)
 			w := openWriter(ctx, host, "chicago", ch.Key())

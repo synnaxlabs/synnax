@@ -182,7 +182,7 @@ var _ = Describe("Service", func() {
 				errLimit = errors.New("channel limit exceeded")
 				limited  atomic.Bool
 			)
-			node := testutil.NewNode(ctx)
+			node := testutil.NewNode(GinkgoT().Context())
 			limitSvc := openService(ctx, node, channel.ServiceConfig{
 				Limit: func(types.Uint20) error {
 					if limited.Load() {

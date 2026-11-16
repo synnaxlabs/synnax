@@ -426,7 +426,7 @@ var _ = Describe("Service", func() {
 			func(
 				ctx SpecContext,
 			) {
-				stored := testutil.NewNode(ctx)
+				stored := testutil.NewNode(GinkgoT().Context())
 				statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 					DB: stored.DB,
 				}))

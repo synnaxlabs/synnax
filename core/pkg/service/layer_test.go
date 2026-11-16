@@ -125,7 +125,7 @@ var _ = Describe("Layer", func() {
 			create func(context.Context, gorp.Tx, *service.Layer) uuid.UUID,
 			remove func(context.Context, gorp.Tx, *service.Layer, uuid.UUID) error,
 		) {
-			node := testutil.NewNode(ctx)
+			node := testutil.NewNode(GinkgoT().Context())
 			layer := MustOpen(svctestutil.OpenLayer(ctx, node))
 			openStreamer := func(
 				name string,
@@ -290,7 +290,7 @@ var _ = Describe("Layer", func() {
 			lastApplied string,
 			storeTask func(context.Context, *gorp.DB, uuid.UUID, string, bool) error,
 		) {
-			node := testutil.NewNode(ctx)
+			node := testutil.NewNode(GinkgoT().Context())
 			db := node.DB
 			chain := lo.Map(
 				taskversions.NewMigrations(taskversions.MigrationsConfig{}),
@@ -753,7 +753,7 @@ var _ = Describe("Group moves", Ordered, func() {
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
 		ctx := GinkgoT().Context()
-		node := testutil.NewNode(ctx)
+		node := testutil.NewNode(GinkgoT().Context())
 		db = node.DB
 		l = MustOpen(svctestutil.OpenLayer(ctx, node))
 		src = project.Project{Name: "Source"}

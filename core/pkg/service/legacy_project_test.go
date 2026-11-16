@@ -10,6 +10,8 @@
 package service_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -30,7 +32,7 @@ import (
 // version 0 format, so they run against the whole service layer: the registry a
 // released Core assembles, with every leaf importer and task config store wired.
 var _ = Describe("Legacy project bundles", func() {
-	openLayer := func(ctx SpecContext) (*service.Layer, *gorp.DB) {
+	openLayer := func(ctx context.Context) (*service.Layer, *gorp.DB) {
 		GinkgoHelper()
 		node := testutil.NewNode(GinkgoT().Context())
 		return MustOpen(svctestutil.OpenLayer(ctx, node)), node.DB
@@ -42,7 +44,7 @@ var _ = Describe("Legacy project bundles", func() {
 		ctx SpecContext, path, fileName string,
 	) (*service.Layer, *gorp.DB, project.Project) {
 		GinkgoHelper()
-		l, db := openLayer(ctx)
+		l, db := openLayer(GinkgoT().Context())
 		b := MustSucceed(l.Bundle.Decode(ctx, LoadBundle(path), fileName))
 		tx := db.OpenTx()
 		defer func() { Expect(tx.Close()).To(Succeed()) }()
@@ -149,7 +151,7 @@ var _ = Describe("Legacy project bundles", func() {
 			// The layout names an ni_analog_write task whose component file the export
 			// never wrote. A member the bundle does not hold is a broken bundle, so the
 			// import fails rather than dropping it quietly.
-			l, _ := openLayer(ctx)
+			l, _ := openLayer(GinkgoT().Context())
 			Expect(l.Bundle.Decode(
 				ctx, LoadBundle(path), "Dropped.zip",
 			)).Error().To(SatisfyAll(
