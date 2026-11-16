@@ -188,7 +188,7 @@ func CreatePanels(
 ) error {
 	var t tiling
 	if err := imex.Codec.Decode(layoutData, &t); err != nil {
-		return nil
+		t = tiling{}
 	}
 	// The slice only names panels, so a failed decode falls back to window keys.
 	var slice layoutSlice

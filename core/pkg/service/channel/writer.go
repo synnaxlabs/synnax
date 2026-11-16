@@ -365,6 +365,64 @@ func (w Writer) create(
 	opts createOptions,
 ) error {
 	channels := *_channels
+	if err := w.validateCreate(ctx, channels, opts); err != nil {
+		return err
+	}
+	if err := w.prepareCreate(channels); err != nil {
+		return err
+	}
+	if err := w.resetStoredKeys(ctx, channels, opts); err != nil {
+		return err
+	}
+	// Reset channels that already exist by name to their stored records before index
+	// synthesis, so an existing calculated channel keeps its stored index.
+	if opts.retrieveIfNameExists {
+		if err := w.resetStoredNames(ctx, channels); err != nil {
+			return err
+		}
+	}
+	// Auto-create index channels for calculated channels that do not yet have one (both
+	// brand-new calculated channels and existing ones missing an index). Synthesis
+	// runs before the overwrite step so the auto-created index names flow through the
+	// same name-collision machinery as caller-provided channels.
+	indexChannels, calcNeedingIndex, err := synthesizeIndexes(channels)
+	if err != nil {
+		return err
+	}
+	regroup, err := w.adoptIndexes(ctx, indexChannels, opts)
+	if err != nil {
+		return err
+	}
+	channels = append(channels, indexChannels...)
+	if opts.overwriteIfNameExistsAndDifferentProperties {
+		if err = w.overwriteDiffering(ctx, channels); err != nil {
+			return err
+		}
+	}
+	written, err := w.allocateNew(ctx, channels)
+	if err != nil {
+		return err
+	}
+	linked, err := w.linkStoredIndexes(ctx, channels, calcNeedingIndex)
+	if err != nil {
+		return err
+	}
+	written = append(written, linked...)
+	for idx, g := range regroup {
+		if err = w.SetGroup(ctx, g, indexChannels[idx].Key()); err != nil {
+			return err
+		}
+	}
+	*_channels = channels
+	return w.attachCreates(ctx, lo.Uniq(written))
+}
+
+// validateCreate validates each channel, its group, and the names of channels.
+func (w Writer) validateCreate(
+	ctx context.Context,
+	channels []Channel,
+	opts createOptions,
+) error {
 	for i, ch := range channels {
 		if err := ch.Validate(); err != nil {
 			return validate.PathedError(err, strconv.Itoa(i))
@@ -379,18 +437,22 @@ func (w Writer) create(
 			return validate.PathedError(err, strconv.Itoa(i))
 		}
 	}
-	if *w.svc.cfg.ValidateNames {
-		skipExisting := opts.retrieveIfNameExists ||
-			opts.overwriteIfNameExistsAndDifferentProperties
-		if err := w.validateChannelNames(
-			ctx,
-			KeysFromChannels(channels),
-			Names(channels),
-			skipExisting,
-		); err != nil {
-			return err
-		}
+	if !*w.svc.cfg.ValidateNames {
+		return nil
 	}
+	skipExisting := opts.retrieveIfNameExists ||
+		opts.overwriteIfNameExistsAndDifferentProperties
+	return w.validateChannelNames(
+		ctx,
+		KeysFromChannels(channels),
+		Names(channels),
+		skipExisting,
+	)
+}
+
+// prepareCreate sets the leaseholder of each channel. A calculated channel is virtual
+// and free, and only a calculated channel keeps its local key.
+func (w Writer) prepareCreate(channels []Channel) error {
 	for i, ch := range channels {
 		if ch.Leaseholder == 0 {
 			channels[i].Leaseholder = w.svc.cfg.HostKey
@@ -411,61 +473,66 @@ func (w Writer) create(
 			channels[i].LocalKey = 0
 		}
 	}
+	return nil
+}
 
-	// Only a calculated channel keeps a key here. RetrieveIfNameExists resets one whose
-	// key exists to the stored record.
+// resetStoredKeys resets each channel whose key exists to its stored record. Only a
+// calculated channel keeps a key at this point. A stored key is an error unless the
+// create retrieves channels that exist.
+func (w Writer) resetStoredKeys(
+	ctx context.Context,
+	channels []Channel,
+	opts createOptions,
+) error {
 	keys := KeysFromChannels(channels)
-	if keyed := lo.Filter(keys, func(k Key, _ int) bool {
-		return k.LocalKey() != 0
-	}); len(keyed) != 0 {
-		var stored []Channel
-		if err := w.svc.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Channel](keyed...)).
-			SkipMissingKeys().
-			Entries(&stored).
-			Exec(ctx, w.tx); err != nil {
-			return err
-		}
-		keyPositions := positions(keys)
-		for _, c := range stored {
-			if !opts.retrieveIfNameExists {
-				return errors.Wrapf(
-					validate.ErrValidation,
-					"%s %s already exists",
-					tableName,
-					c.Key(),
-				)
-			}
-			channels[keyPositions[c.Key()][0]] = c
-		}
+	keyed := lo.Filter(keys, func(k Key, _ int) bool { return k.LocalKey() != 0 })
+	if len(keyed) == 0 {
+		return nil
 	}
-	var written Keys
-
-	// Reset channels that already exist by name to their stored records before index
-	// synthesis, so an existing calculated channel keeps its stored index.
-	if opts.retrieveIfNameExists {
-		names := Names(channels)
-		var existing []Channel
-		if err := w.svc.newRetrieve().
-			Where(MatchNames(names...)).
-			Entries(&existing).
-			Exec(ctx, w.tx); err != nil {
-			return err
-		}
-		namePositions := positions(names)
-		for _, e := range existing {
-			channels[namePositions[e.Name][0]] = e
-		}
+	var stored []Channel
+	if err := w.svc.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Channel](keyed...)).
+		SkipMissingKeys().
+		Entries(&stored).
+		Exec(ctx, w.tx); err != nil {
+		return err
 	}
+	keyPositions := positions(keys)
+	for _, c := range stored {
+		if !opts.retrieveIfNameExists {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"%s %s already exists",
+				tableName,
+				c.Key(),
+			)
+		}
+		channels[keyPositions[c.Key()][0]] = c
+	}
+	return nil
+}
 
-	// Auto-create index channels for calculated channels that do not yet have one (both
-	// brand-new calculated channels and existing ones missing an index). Synthesis
-	// runs before the overwrite step so the auto-created index names flow through the
-	// same name-collision machinery as caller-provided channels.
+// resetStoredNames resets each channel whose name exists to its stored record.
+func (w Writer) resetStoredNames(ctx context.Context, channels []Channel) error {
+	names := Names(channels)
+	var existing []Channel
+	if err := w.svc.newRetrieve().
+		Where(MatchNames(names...)).
+		Entries(&existing).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	namePositions := positions(names)
+	for _, e := range existing {
+		channels[namePositions[e.Name][0]] = e
+	}
+	return nil
+}
+
+// synthesizeIndexes returns a new index channel for each calculated channel without
+// an index, and the positions in channels of the calculated channels that need one.
+func synthesizeIndexes(channels []Channel) ([]Channel, []int, error) {
 	indexChannels := make([]Channel, 0, len(channels))
-	// regroup holds the position in indexChannels of each adopted index with the group
-	// of its new calculated channel.
-	regroup := make(map[int]*group.Key)
 	calcNeedingIndex := make([]int, 0)
 	batchPositionByName := make(map[string]int, len(channels))
 	for i, ch := range channels {
@@ -478,13 +545,11 @@ func (w Writer) create(
 		indexName := ch.Name + calculatedIndexNameSuffix
 		if bi, inBatch := batchPositionByName[indexName]; inBatch {
 			// An in-batch channel can only serve as the index if it satisfies the same
-			// predicate as an adopted existing index below. Adopting a host-leased or
+			// predicate as an adopted existing index. Adopting a host-leased or
 			// persisted index would graft its LocalKey into the calculated channel's
 			// free keyspace, producing an index key that resolves to the wrong channel.
-			b := channels[bi]
-			if !b.IsIndex || !b.Virtual || b.Leaseholder != node.KeyFree ||
-				b.DataType != telem.TimestampT {
-				return errors.Wrapf(
+			if !isFreeIndex(channels[bi]) {
+				return nil, nil, errors.Wrapf(
 					validate.ErrValidation,
 					"channel %q in the same request cannot serve as the index for calculated channel %q",
 					indexName,
@@ -505,95 +570,114 @@ func (w Writer) create(
 		})
 		calcNeedingIndex = append(calcNeedingIndex, i)
 	}
-	// Resolve auto-created index names against existing channels: a compatible index
-	// (e.g. one left behind by a deleted calculated channel) is adopted instead of
-	// creating a duplicate name, while an incompatible channel is a validation error —
-	// unless the overwrite option is set, in which case the overwrite step below
-	// deletes and replaces it.
-	if len(indexChannels) != 0 {
-		indexNames := Names(indexChannels)
-		var existing []Channel
-		if err := w.svc.newRetrieve().
-			Where(MatchNames(indexNames...)).
-			Entries(&existing).
-			Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
-			return err
-		}
-		namePositions := positions(indexNames)
-		for _, ex := range existing {
-			idx := namePositions[ex.Name][0]
-			if ex.IsIndex && ex.Virtual && ex.Leaseholder == node.KeyFree &&
-				ex.DataType == telem.TimestampT {
-				if g := indexChannels[idx].Group; !sameGroup(ex.Group, g) {
-					regroup[idx] = g
-				}
-				indexChannels[idx] = ex
-				continue
-			}
-			if opts.overwriteIfNameExistsAndDifferentProperties {
-				continue
-			}
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"channel %q already exists and cannot serve as the index for a calculated channel",
-				ex.Name,
-			)
-		}
-		adopted := set.New[Key]()
-		for idx := range regroup {
-			adopted.Add(indexChannels[idx].Key())
-		}
-		used, err := w.usedIndexes(ctx, adopted, nil)
-		if err != nil {
-			return err
-		}
-		for idx, g := range regroup {
-			if used.Contains(indexChannels[idx].Key()) {
-				delete(regroup, idx)
-				continue
-			}
-			indexChannels[idx].Group = g
-		}
-	}
-	channels = append(channels, indexChannels...)
+	return indexChannels, calcNeedingIndex, nil
+}
 
-	if opts.overwriteIfNameExistsAndDifferentProperties {
-		// Delete existing channels of the same name whose properties differ from the
-		// ones being created, so the create can replace them. Channels that match an
-		// existing record (ignoring allocated keys) are reset to that record instead.
-		names := Names(channels)
-		if len(names) != 0 {
-			var existing []Channel
-			if err := w.svc.newRetrieve().
-				Where(MatchNames(names...)).
-				Entries(&existing).
-				Exec(ctx, w.tx); err != nil {
-				return errors.Skip(err, query.ErrNotFound)
-			}
-			keysToDelete := make(Keys, 0, len(existing))
-			namePositions := positions(names)
-			for _, ex := range existing {
-				i, found := lo.Find(namePositions[ex.Name], func(i int) bool {
-					return channels[i].Key() != ex.Key()
-				})
-				if !found {
-					continue
-				}
-				if channels[i].Equals(ex, "LocalKey", "LocalIndex", "Leaseholder") {
-					channels[i] = ex
-					continue
-				}
-				keysToDelete = append(keysToDelete, ex.Key())
-			}
-			if len(keysToDelete) != 0 {
-				if err := w.delete(ctx, keysToDelete, true); err != nil {
-					return err
-				}
-			}
-		}
-	}
+// isFreeIndex reports whether ch can serve as the index of a calculated channel.
+func isFreeIndex(ch Channel) bool {
+	return ch.IsIndex && ch.Virtual && ch.Leaseholder == node.KeyFree &&
+		ch.DataType == telem.TimestampT
+}
 
-	// Allocate local keys for the new channels through the distribution allocator.
+// adoptIndexes resolves the names of indexChannels against existing channels. A
+// compatible index, such as one left behind by a deleted calculated channel, replaces
+// its entry in indexChannels instead of a duplicate name. An incompatible channel is a
+// validation error, unless the create overwrites it. adoptIndexes returns the position
+// in indexChannels of each adopted index to move to the group of its new calculated
+// channel.
+func (w Writer) adoptIndexes(
+	ctx context.Context,
+	indexChannels []Channel,
+	opts createOptions,
+) (map[int]*group.Key, error) {
+	regroup := make(map[int]*group.Key)
+	if len(indexChannels) == 0 {
+		return regroup, nil
+	}
+	indexNames := Names(indexChannels)
+	var existing []Channel
+	if err := w.svc.newRetrieve().
+		Where(MatchNames(indexNames...)).
+		Entries(&existing).
+		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		return nil, err
+	}
+	namePositions := positions(indexNames)
+	for _, ex := range existing {
+		idx := namePositions[ex.Name][0]
+		if isFreeIndex(ex) {
+			if g := indexChannels[idx].Group; !sameGroup(ex.Group, g) {
+				regroup[idx] = g
+			}
+			indexChannels[idx] = ex
+			continue
+		}
+		if opts.overwriteIfNameExistsAndDifferentProperties {
+			continue
+		}
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"channel %q already exists and cannot serve as the index for a calculated channel",
+			ex.Name,
+		)
+	}
+	adopted := set.New[Key]()
+	for idx := range regroup {
+		adopted.Add(indexChannels[idx].Key())
+	}
+	used, err := w.usedIndexes(ctx, adopted, nil)
+	if err != nil {
+		return nil, err
+	}
+	for idx, g := range regroup {
+		if used.Contains(indexChannels[idx].Key()) {
+			delete(regroup, idx)
+			continue
+		}
+		indexChannels[idx].Group = g
+	}
+	return regroup, nil
+}
+
+// overwriteDiffering deletes existing channels of the same name whose properties
+// differ from the ones being created, so the create can replace them. Channels that
+// match an existing record (ignoring allocated keys) are reset to that record instead.
+func (w Writer) overwriteDiffering(ctx context.Context, channels []Channel) error {
+	names := Names(channels)
+	if len(names) == 0 {
+		return nil
+	}
+	var existing []Channel
+	if err := w.svc.newRetrieve().
+		Where(MatchNames(names...)).
+		Entries(&existing).
+		Exec(ctx, w.tx); err != nil {
+		return errors.Skip(err, query.ErrNotFound)
+	}
+	keysToDelete := make(Keys, 0, len(existing))
+	namePositions := positions(names)
+	for _, ex := range existing {
+		i, found := lo.Find(namePositions[ex.Name], func(i int) bool {
+			return channels[i].Key() != ex.Key()
+		})
+		if !found {
+			continue
+		}
+		if channels[i].Equals(ex, "LocalKey", "LocalIndex", "Leaseholder") {
+			channels[i] = ex
+			continue
+		}
+		keysToDelete = append(keysToDelete, ex.Key())
+	}
+	if len(keysToDelete) == 0 {
+		return nil
+	}
+	return w.delete(ctx, keysToDelete, true)
+}
+
+// allocateNew allocates local keys for the channels without one through the
+// distribution allocator, writes them, and returns their keys.
+func (w Writer) allocateNew(ctx context.Context, channels []Channel) (Keys, error) {
 	newIndices := make([]int, 0, len(channels))
 	minimal := make([]channel.Channel, 0, len(channels))
 	for i, ch := range channels {
@@ -603,14 +687,24 @@ func (w Writer) create(
 		}
 	}
 	if err := w.allocateAndWrite(ctx, channels, newIndices, minimal); err != nil {
-		return err
+		return nil, err
 	}
+	written := make(Keys, 0, len(newIndices))
 	for _, i := range newIndices {
 		written = append(written, channels[i].Key())
 	}
+	return written, nil
+}
 
-	// Persist updated LocalIndex links for existing calculated channels (those already
-	// in the table) whose index channel was just created.
+// linkStoredIndexes persists the index of each stored calculated channel at the
+// positions calcNeedingIndex whose index channel was just created. It returns the keys
+// of the channels it updates.
+func (w Writer) linkStoredIndexes(
+	ctx context.Context,
+	channels []Channel,
+	calcNeedingIndex []int,
+) (Keys, error) {
+	var linked Keys
 	for _, idx := range calcNeedingIndex {
 		ch := channels[idx]
 		if ch.LocalKey == 0 || ch.LocalIndex == 0 {
@@ -618,31 +712,23 @@ func (w Writer) create(
 		}
 		exists, err := w.svc.newRetrieve().Where(MatchKeys(ch.Key())).Exists(ctx, w.tx)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !exists {
 			continue
 		}
-		if err := w.svc.table.NewUpdate().
+		if err = w.svc.table.NewUpdate().
 			Where(gorp.MatchKeys[Key, Channel](ch.Key())).
 			Change(func(_ gorp.Context, c Channel) Channel {
 				c.LocalIndex = ch.LocalIndex
 				return c
 			}).
 			Exec(ctx, w.tx); err != nil {
-			return err
+			return nil, err
 		}
-		written = append(written, ch.Key())
+		linked = append(linked, ch.Key())
 	}
-
-	for idx, g := range regroup {
-		if err := w.SetGroup(ctx, g, indexChannels[idx].Key()); err != nil {
-			return err
-		}
-	}
-
-	*_channels = channels
-	return w.attachCreates(ctx, lo.Uniq(written))
+	return linked, nil
 }
 
 func sameGroup(a, b *group.Key) bool {

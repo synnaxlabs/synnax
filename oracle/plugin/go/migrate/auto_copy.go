@@ -15,6 +15,11 @@ package migrate
 import (
 	"bytes"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"io/fs"
+	"os"
 	"path"
 	"path/filepath"
 	"slices"
@@ -46,13 +51,17 @@ func generateAutoCopy(
 	mapping chainMapping,
 	wrappers map[string]string,
 ) ([]byte, error) {
+	valueSteps, err := valueStepNames(filepath.Join(repoRoot, outputPath))
+	if err != nil {
+		return nil, err
+	}
 	newCollector := func(aliases map[string]string) *collector {
 		return &collector{
 			pkg: pkg, outputPath: outputPath, repoRoot: repoRoot,
 			diff: diff, oldTable: oldTable, newTable: newTable,
 			mapping: mapping,
 			imports: make(map[string]importEntry), generated: make(set.Set[string]),
-			wrappers: wrappers, aliases: aliases,
+			wrappers: wrappers, aliases: aliases, valueSteps: valueSteps,
 		}
 	}
 	c := newCollector(nil)
@@ -132,7 +141,7 @@ type unionCase struct {
 }
 
 type step struct {
-	// Kind is one of "migrate", "optionalMigrate", "optionalCast",
+	// Kind is one of "migrate", "valueMigrate", "optionalMigrate", "optionalCast",
 	// "sliceMigrate", "sliceCast", or "mapMigrate".
 	Kind     string
 	VarName  string
@@ -170,6 +179,8 @@ var autoCopyTmpl = template.Must(
 	if err != nil {
 		return {{$zero}}, err
 	}
+{{- else if eq .Kind "valueMigrate"}}
+	{{.VarName}} := {{.Call}}
 {{- else if eq .Kind "optionalMigrate"}}
 	var {{.VarName}} *{{.Type}}
 	if {{.Accessor}} != nil {
@@ -292,6 +303,8 @@ type collector struct {
 	aliases map[string]string
 	// errs collects the fields no generated or hand-written step can carry.
 	errs []error
+	// valueSteps holds the hand-written steps that return a value and no error.
+	valueSteps set.Set[string]
 }
 
 func (c *collector) collect(types []resolution.Type) fileData {
@@ -848,8 +861,9 @@ func (fn *funcData) varName(goName string) string {
 }
 
 // addHandField reads a field whose type moved to another resource with a new shape
-// through a hand-written step, migrate<Type><Field>, that the build requires. A field
-// of an anonymous variant has no name to give the step, so it fails generation.
+// through a hand-written step, migrate<Type><Field>, that the build requires. The step
+// returns (T, error), or only T when the package declares it that way. A field of an
+// anonymous variant has no name to give the step, so it fails generation.
 func (c *collector) addHandField(
 	fn *funcData,
 	owner string,
@@ -866,9 +880,14 @@ func (c *collector) addHandField(
 	}
 	varName := fn.varName(goName)
 	fn.UsesCtx = true
+	name := "migrate" + owner + goName
+	kind := "migrate"
+	if c.valueSteps.Contains(name) {
+		kind = "valueMigrate"
+	}
 	fn.Preamble = append(fn.Preamble, step{
-		Kind: "migrate", VarName: varName,
-		Call: fmt.Sprintf("migrate%s%s(ctx, %s)", owner, goName, accessor),
+		Kind: kind, VarName: varName,
+		Call: fmt.Sprintf("%s(ctx, %s)", name, accessor),
 	})
 	fn.Fields = append(fn.Fields, field{Name: goName, Value: varName})
 }
@@ -1492,4 +1511,38 @@ func substituteRef(
 		return result
 	}
 	return ref
+}
+
+// valueStepNames returns the functions in the hand-written Go files of dir that return
+// exactly one value. A missing dir holds none.
+func valueStepNames(dir string) (set.Set[string], error) {
+	names := make(set.Set[string])
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return names, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	fset := token.NewFileSet()
+	for _, e := range entries {
+		n := e.Name()
+		if e.IsDir() || !strings.HasSuffix(n, ".go") ||
+			strings.HasSuffix(n, ".gen.go") || strings.HasSuffix(n, "_test.go") {
+			continue
+		}
+		f, err := parser.ParseFile(
+			fset, filepath.Join(dir, n), nil, parser.SkipObjectResolution,
+		)
+		if err != nil {
+			return nil, err
+		}
+		for _, d := range f.Decls {
+			fd, ok := d.(*ast.FuncDecl)
+			if ok && fd.Recv == nil && fd.Type.Results.NumFields() == 1 {
+				names.Add(fd.Name.Name)
+			}
+		}
+	}
+	return names, nil
 }

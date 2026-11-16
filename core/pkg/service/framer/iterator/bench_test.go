@@ -216,7 +216,7 @@ func BenchmarkIteratorCalc_SingleResponse(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	iter.SeekFirst()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		for iter.Next(iterator.AutoSpan) {
 			_ = iter.Value()
 		}
@@ -259,7 +259,7 @@ func BenchmarkIteratorCalc_ManyChannels(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			iter.SeekFirst()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				for iter.Next(iterator.AutoSpan) {
 					_ = iter.Value()
 				}
@@ -304,7 +304,7 @@ func BenchmarkIteratorCalc_LargeFrames(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			iter.SeekFirst()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				for iter.Next(iterator.AutoSpan) {
 					_ = iter.Value()
 				}
@@ -356,7 +356,7 @@ func BenchmarkIteratorCalc_CalculatorChain(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			iter.SeekFirst()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				for iter.Next(iterator.AutoSpan) {
 					_ = iter.Value()
 				}
@@ -448,7 +448,7 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			iter.SeekFirst()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				for iter.Next(iterator.AutoSpan) {
 					_ = iter.Value()
 				}
@@ -493,7 +493,7 @@ func BenchmarkIteratorCalc_TwoInputAdd(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	iter.SeekFirst()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		for iter.Next(iterator.AutoSpan) {
 			_ = iter.Value()
 		}
@@ -539,7 +539,7 @@ func BenchmarkIteratorCalc_MixedConcreteAndCalc(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	iter.SeekFirst()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		for iter.Next(iterator.AutoSpan) {
 			_ = iter.Value()
 		}

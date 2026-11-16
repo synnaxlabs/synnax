@@ -335,8 +335,12 @@ func newLeaderlessCluster(ctx context.Context, topic string) *kfake.Cluster {
 		int16(kmsg.ListOffsets),
 		func(kreq kmsg.Request) (kmsg.Response, error, bool) {
 			c.KeepControl()
-			req := kreq.(*kmsg.ListOffsetsRequest)
-			res := req.ResponseKind().(*kmsg.ListOffsetsResponse)
+			req, ok := kreq.(*kmsg.ListOffsetsRequest)
+			if !ok {
+				return nil, errors.Newf("list offsets request is a %T", kreq), true
+			}
+			res := kmsg.NewPtrListOffsetsResponse()
+			res.Version = req.Version
 			for _, rt := range req.Topics {
 				t := kmsg.NewListOffsetsResponseTopic()
 				t.Topic = rt.Topic

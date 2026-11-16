@@ -105,7 +105,7 @@ var _ = Describe("MigrateDevice", func() {
 		Expect(got.Model).To(Equal(seed.Model))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Configured).To(Equal(seed.Configured))
-		Expect(got.Properties).To(Equal(msgpack.EncodedJSON(seed.Properties)))
+		Expect(got.Properties).To(Equal(seed.Properties))
 		Expect(got.Status).To(BeNil())
 		Expect(got.Parent).To(BeNil())
 	})
@@ -189,7 +189,8 @@ var _ = Describe("HTTPHealthCheckMigration", func() {
 			got := migrateDevice(ctx, v1.Device{
 				Key: "k53-http", Make: "http", Properties: v053Properties(),
 			})
-			hc := got.Properties["health_check"].(map[string]any)
+			hc, ok := got.Properties["health_check"].(map[string]any)
+			Expect(ok).To(BeTrue())
 			Expect(hc["headers"]).To(Equal([]any{
 				map[string]any{"name": "Accept", "value": "application/json"},
 				map[string]any{"name": "X-Token", "value": "abc"},
@@ -203,7 +204,8 @@ var _ = Describe("HTTPHealthCheckMigration", func() {
 	It("Should leave a health check that already lists its headers untouched",
 		func(ctx SpecContext) {
 			props := v053Properties()
-			hc := props["health_check"].(map[string]any)
+			hc, ok := props["health_check"].(map[string]any)
+			Expect(ok).To(BeTrue())
 			hc["headers"] = []any{map[string]any{"name": "X-Token", "value": "abc"}}
 			delete(hc, "query_params")
 			got := migrateDevice(

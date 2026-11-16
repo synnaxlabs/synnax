@@ -32,7 +32,7 @@
     "message": "declare variables at the top of a stage or sequence"
   },
   "ARC5001": {
-    "severity": "error",
+    "severity": "warning",
     "message": "imported module %q is unused"
   },
   "ARC6001": {

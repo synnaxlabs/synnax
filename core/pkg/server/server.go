@@ -170,9 +170,14 @@ func (s *Server) start() (err error) {
 			return err
 		}
 		s.listeners = append(s.listeners, lis)
-		s.addresses = append(s.addresses, address.Newf(
-			"%s:%d", l.Address.Host(), lis.Addr().(*net.TCPAddr).Port,
-		))
+		tcpAddr, ok := lis.Addr().(*net.TCPAddr)
+		if !ok {
+			panic(fmt.Sprintf("listener address is a %T", lis.Addr()))
+		}
+		s.addresses = append(
+			s.addresses,
+			address.Newf("%s:%d", l.Address.Host(), tcpAddr.Port),
+		)
 		sCtx.Go(func(ctx context.Context) error {
 			mux := cmux.New(lis)
 			if *s.Security.Insecure {

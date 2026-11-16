@@ -1037,7 +1037,7 @@ func (g *Graph) logCompileError(
 		for i, dep := range deps {
 			s := fmt.Sprintf("%s %s", dep, dep.DataType)
 			if dep.IsCalculated() {
-				s += fmt.Sprintf(" expression: %s", dep.Expression)
+				s += " expression: " + dep.Expression
 			}
 			depStrs[i] = s
 		}
@@ -1076,7 +1076,7 @@ func (g *Graph) fetchDependencyDiagnostics(
 
 // formatDependencyTree builds a string representation of the full dependency tree for a
 // channel. Returns a string like: "ch1 → [calculated: ch2, ch3] → [base: ch4, ch5,
-// ch6]"
+// ch6]".
 func (g *Graph) formatDependencyTree(ctx context.Context, key channel.Key) string {
 	info := g.channels[key]
 	if info == nil {

@@ -597,53 +597,16 @@ func reportDiagnostic(
 ) bool {
 	callStr := nodeString(pass.Fset, rhsCall)
 	assertion := assertionString(pass.Fset, expectStmt.X)
-	numLHS := len(assign.Lhs)
-	errIdx := -1
-	for i, lhs := range assign.Lhs {
-		if ident, ok := lhs.(*ast.Ident); ok && ident.Name == errName {
-			errIdx = i
-			break
-		}
-	}
-	var (
-		msg         string
-		fixText     string
-		needsImport bool
+	msg, fixText, needsImport, ok := replacement(
+		pass,
+		assign,
+		errName,
+		assertion,
+		callStr,
 	)
-	if numLHS == 1 && errIdx == 0 {
-		msg = fmt.Sprintf(
-			"%s can be replaced with Expect(%s).To(Succeed())",
-			assertion,
-			callStr,
-		)
-		fixText = fmt.Sprintf("Expect(%s).To(Succeed())", callStr)
-	} else if numLHS == 2 && errIdx == 1 {
-		needsImport = true
-		if isBlank(assign.Lhs[0]) {
-			msg = fmt.Sprintf("%s can be replaced with MustSucceed", assertion)
-			fixText = fmt.Sprintf("MustSucceed(%s)", callStr)
-		} else {
-			resultName := nodeString(pass.Fset, assign.Lhs[0])
-			tok := resultTok(pass, assign)
-			msg = fmt.Sprintf("%s can be replaced with MustSucceed", assertion)
-			fixText = fmt.Sprintf("%s %s MustSucceed(%s)", resultName, tok, callStr)
-		}
-	} else if numLHS == 3 && errIdx == 2 {
-		needsImport = true
-		if isBlank(assign.Lhs[0]) && isBlank(assign.Lhs[1]) {
-			msg = fmt.Sprintf("%s can be replaced with MustSucceed2", assertion)
-			fixText = fmt.Sprintf("MustSucceed2(%s)", callStr)
-		} else {
-			r1 := nodeString(pass.Fset, assign.Lhs[0])
-			r2 := nodeString(pass.Fset, assign.Lhs[1])
-			tok := resultTok(pass, assign)
-			msg = fmt.Sprintf("%s can be replaced with MustSucceed2", assertion)
-			fixText = fmt.Sprintf("%s, %s %s MustSucceed2(%s)", r1, r2, tok, callStr)
-		}
-	} else {
+	if !ok {
 		return false
 	}
-
 	d := analysis.Diagnostic{Pos: assign.Pos(), End: expectStmt.End(), Message: msg}
 	if fixable {
 		d.SuggestedFixes = []analysis.SuggestedFix{{
@@ -659,6 +622,56 @@ func reportDiagnostic(
 	}
 	pass.Report(d)
 	return needsImport && fixable
+}
+
+// replacement returns the diagnostic message and fix text for assign. needsImport is
+// true when the fix uses the testutil import. ok is false when errName is not the last
+// of one to three results.
+func replacement(
+	pass *analysis.Pass,
+	assign *ast.AssignStmt,
+	errName string,
+	assertion string,
+	callStr string,
+) (msg, fixText string, needsImport, ok bool) {
+	numLHS := len(assign.Lhs)
+	errIdx := -1
+	for i, lhs := range assign.Lhs {
+		if ident, ok := lhs.(*ast.Ident); ok && ident.Name == errName {
+			errIdx = i
+			break
+		}
+	}
+	switch {
+	case numLHS == 1 && errIdx == 0:
+		msg = fmt.Sprintf(
+			"%s can be replaced with Expect(%s).To(Succeed())",
+			assertion,
+			callStr,
+		)
+		return msg, fmt.Sprintf("Expect(%s).To(Succeed())", callStr), false, true
+	case numLHS == 2 && errIdx == 1:
+		msg = assertion + " can be replaced with MustSucceed"
+		if isBlank(assign.Lhs[0]) {
+			return msg, fmt.Sprintf("MustSucceed(%s)", callStr), true, true
+		}
+		resultName := nodeString(pass.Fset, assign.Lhs[0])
+		tok := resultTok(pass, assign)
+		fixText = fmt.Sprintf("%s %s MustSucceed(%s)", resultName, tok, callStr)
+		return msg, fixText, true, true
+	case numLHS == 3 && errIdx == 2:
+		msg = assertion + " can be replaced with MustSucceed2"
+		if isBlank(assign.Lhs[0]) && isBlank(assign.Lhs[1]) {
+			return msg, fmt.Sprintf("MustSucceed2(%s)", callStr), true, true
+		}
+		r1 := nodeString(pass.Fset, assign.Lhs[0])
+		r2 := nodeString(pass.Fset, assign.Lhs[1])
+		tok := resultTok(pass, assign)
+		fixText = fmt.Sprintf("%s, %s %s MustSucceed2(%s)", r1, r2, tok, callStr)
+		return msg, fixText, true, true
+	default:
+		return "", "", false, false
+	}
 }
 
 // resultTok returns the token that assigns the results once the error leaves assign.

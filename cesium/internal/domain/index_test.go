@@ -53,13 +53,13 @@ var _ = Describe("Index", func() {
 		commitDuringConflicts := func(ctx context.Context, conflicting *domain.Writer) {
 			GinkgoHelper()
 			grown := openWriter(ctx, conflictAt)
-			Expect(grown.Commit(ctx, conflictAt+1)).To(Succeed())
+			Expect(grown.Commit(ctx, conflictAt+1, nil)).To(Succeed())
 			var wg sync.WaitGroup
 			wg.Go(func() {
 				defer GinkgoRecover()
 				for range commits {
 					Expect(
-						conflicting.Commit(ctx, conflictAt+telem.SecondTS),
+						conflicting.Commit(ctx, conflictAt+telem.SecondTS, nil),
 					).To(MatchError(domain.ErrWriteConflict))
 				}
 			})
@@ -68,7 +68,7 @@ var _ = Describe("Index", func() {
 				for i := range commits {
 					Expect(grown.Commit(
 						ctx,
-						conflictAt+telem.TimeStamp(i)+2,
+						conflictAt+telem.TimeStamp(i)+2, nil,
 					)).To(Succeed())
 				}
 			})
@@ -85,7 +85,7 @@ var _ = Describe("Index", func() {
 			ctx SpecContext,
 		) {
 			w := openWriter(ctx, 5*telem.SecondTS)
-			Expect(w.Commit(ctx, 6*telem.SecondTS)).To(Succeed())
+			Expect(w.Commit(ctx, 6*telem.SecondTS, nil)).To(Succeed())
 			commitDuringConflicts(ctx, w)
 		})
 	})
