@@ -690,6 +690,12 @@ class LayoutClient:
         item.get_by_role("button", name="Cancel", exact=True).click()
         item.wait_for(state="hidden", timeout=5000)
 
+    @staticmethod
+    def _tab_name_text(tab: Locator) -> Locator:
+        """Return the text of the tab's name. A name in parts, such as a saved view's,
+        ends with the part that a rename edits."""
+        return tab.locator("p").last
+
     def close_tab(self, name: str | re.Pattern[str]) -> None:
         """Close a tab using a randomly selected modality.
 
@@ -710,7 +716,7 @@ class LayoutClient:
             tab.hover()
             tab.get_by_label("Close", exact=True).click()
         else:
-            self.ctx_menu.action(tab.locator("p"), "Close", exact=False)
+            self.ctx_menu.action(self._tab_name_text(tab), "Close", exact=False)
 
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
@@ -737,14 +743,14 @@ class LayoutClient:
         renamed_from_menu = False
         if modality == "context_menu":
             # Only tabs backed by a resource carry a Rename item.
-            self.ctx_menu.open_on(tab.locator("p"))
+            self.ctx_menu.open_on(self._tab_name_text(tab))
             renamed_from_menu = self.ctx_menu.has_option("Rename", exact=False)
             if renamed_from_menu:
                 self.ctx_menu.click_option("Rename", exact=False)
             else:
                 self.ctx_menu.close()
         if not renamed_from_menu:
-            tab.locator("p").first.dblclick()
+            self._tab_name_text(tab).dblclick()
 
         # The tab name uses Text.Editable which becomes contentEditable (not an input)
         editable_text = tab.locator("p[contenteditable='true']").first
@@ -790,7 +796,7 @@ class LayoutClient:
         tab = self.get_read_only_tab(tab_name)
         tab.wait_for(state="visible", timeout=5000)
         tab.click()
-        self.ctx_menu.action(tab.locator("p"), "Focus", exact=False)
+        self.ctx_menu.action(self._tab_name_text(tab), "Focus", exact=False)
 
     def show_visualization_toolbar(self) -> Locator:
         """Show the bottom Component toolbar via its nav toggle.
