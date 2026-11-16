@@ -37,7 +37,9 @@ var _ = Describe("Writer", func() {
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		groups = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
-		svc = MustOpen(color.OpenService(ctx, color.ServiceConfig{DB: db}))
+		svc = MustOpen(
+			color.OpenService(ctx, color.ServiceConfig{DB: db, Group: groups}),
+		)
 		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
 		red = MustSucceed(xcolor.Parse("#ff0000"))

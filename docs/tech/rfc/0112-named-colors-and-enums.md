@@ -132,14 +132,16 @@ matches exact values. The light gets the built-in "Light" enum (Off 0, On 1). It
 
 ### 4.4 Series colors
 
-Eight built-in named colors, each with a light and a dark value, replace the 14. Each
-value has 3:1 contrast on the canvas of its theme. Under normal vision and each color
-vision deficiency that `color.simulate` models, no two of the eight are closer than 0.05
-in OKLab, in either theme. The eight keep the hues of `#DC136C`, `#20A4F3`, `#FE5F55`,
-`#8075FF`, `#F7AEF8`, `#F18F01`, `#791E94`, and `#52FFB8` from today's list, and a hue
-moves only to pass a check. A new line gets the first series color that no other line in
-its plot uses, and stores its key. Past eight lines, it gets the series color used least
-in its plot, and a tie goes to the first in order. A user can pick any color.
+Sixteen built-in named colors in a palette named "Series", each with a light and a dark
+value, replace the 14. Each value has 3:1 contrast on the canvas of its theme. Under
+normal vision and each color vision deficiency that `color.simulate` models, no two of
+the first eight are closer than 0.05 in OKLab, in either theme. The first eight keep the
+hues of `#DC136C`, `#20A4F3`, `#52FFB8`, `#F18F01`, `#FE5F55`, `#8075FF`, `#F7AEF8`, and
+`#791E94` from today's list, and a hue moves only to pass a check. The last eight fill
+the hue gaps and pass only the contrast check: a repeated color is a sure mix-up, and a
+near color only a possible one. A new line gets the first series color that no other
+line in its plot uses, and stores its key. Past 16 lines, it gets the series color used
+least in its plot, and a tie goes to the first in order. A user can pick any color.
 
 ### 4.5 Editor checks
 
@@ -270,7 +272,7 @@ pattern: the Core has no settings store. In phase 29, the Driver writes range co
     is in two places and can drift.
 12. **One migration at upgrade**: A manual "Make enum" action keeps two code paths.
 13. **The plot migration writes fixed colors**: Series keys by position recolor old
-    plots, because 8 colors replace 14.
+    plots, because 16 colors replace 14.
 14. **Built-ins keep a vibrant look**: Gray until abnormal changes every schematic.
 15. **Exact values, and a threshold for two-state symbols**: Selects and buttons write
     one value, so an entry is one value. Valves, pumps, and lights keep today's

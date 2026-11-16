@@ -57,6 +57,14 @@ from another system. Text on a 15% tint of its status (badges, notes) uses
 step nearest the status color that reads on the tint: a darker step in light mode, and a
 lighter step or the base step in dark mode.
 
+### Series colors
+
+The Core ships 16 series colors for data, in a palette of named colors named "Series"
+(`core/pkg/service/color/builtin.go`). Each has a light and a dark value with 3:1
+contrast on the canvas of its theme. The first eight keep the old hues and stay apart
+under each color vision deficiency. The last eight fill the hue gaps and only pass the
+contrast check, so lines past the eighth can look alike to a color-blind user.
+
 ### Shape and size
 
 - Lyra's rem is 6 px. Write sizes in rem with the existing tokens. Round a fractional

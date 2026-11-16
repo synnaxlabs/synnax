@@ -374,6 +374,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Color, err = color.OpenService(ctx, color.ServiceConfig{
 		Instrumentation: cfg.Child("color"),
 		DB:              cfg.Distribution.DB,
+		Group:           l.Group,
 	}); !ok(err, l.Color) {
 		return nil, err
 	}

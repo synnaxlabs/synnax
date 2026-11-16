@@ -171,6 +171,8 @@ var _ = Describe("Retrieve by name", func() {
 		return lo.Map(res.Colors, func(n color.Named, _ int) string { return n.Name })
 	}
 	byName := &apicolor.Order{Field: apicolor.OrderFieldName}
+	// loose drops the built-in named colors, which sit in a palette.
+	loose := &color.Where{Grouped: new(false)}
 
 	It("Should keep the named colors whose name the filter matches", func(
 		ctx SpecContext,
@@ -181,7 +183,7 @@ var _ = Describe("Retrieve by name", func() {
 	})
 
 	It("Should sort the named colors by name, ignoring case", func(ctx SpecContext) {
-		Expect(names(ctx, apicolor.RetrieveRequest{Order: byName})).
+		Expect(names(ctx, apicolor.RetrieveRequest{Where: loose, Order: byName})).
 			To(Equal([]string{"amber", "Breaker", "Valve"}))
 	})
 
@@ -189,6 +191,7 @@ var _ = Describe("Retrieve by name", func() {
 		ctx SpecContext,
 	) {
 		Expect(names(ctx, apicolor.RetrieveRequest{
+			Where: loose,
 			Order: &apicolor.Order{Field: apicolor.OrderFieldName, Descending: true},
 		})).To(Equal([]string{"Valve", "Breaker", "amber"}))
 	})

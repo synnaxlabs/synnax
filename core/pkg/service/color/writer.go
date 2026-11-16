@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer creates, changes, and deletes named colors in a transaction.
@@ -113,9 +115,20 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
 }
 
 // Delete deletes the named colors with the given keys. A key with no named color is not
-// an error.
+// an error. It returns an error wrapping validate.ErrValidation for a built-in named
+// color, and then deletes none of them.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Named](keys...)).
+		Guard(func(_ gorp.Context, n Named) error {
+			if isBuiltin(n.Key) {
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"cannot delete built-in color %s",
+					n.Name,
+				)
+			}
+			return nil
+		}).
 		Exec(ctx, w.tx)
 }
