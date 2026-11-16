@@ -75,11 +75,11 @@ func inlineEntry(
 	fields ...v2.ReadField,
 ) v2.InlineEntry {
 	return v2.InlineEntry{
-		BaseReadEntry: v2.BaseReadEntry{Key: topic},
-		At:            at,
-		Topic:         topic,
-		Fields:        fields,
-		Index:         index,
+		Key:    topic,
+		At:     at,
+		Topic:  topic,
+		Fields: fields,
+		Index:  index,
 	}
 }
 
@@ -542,12 +542,12 @@ var _ = Describe("MigrateReadConfig", func() {
 			Expect(tag.Tag).To(Equal("speed"))
 			Expect(tag.DataType).To(Equal(telem.Float32T))
 			Expect(cfg.Inline).To(Equal(&v2.InlineRead{Entries: []v2.InlineEntry{{
-				BaseReadEntry: v2.BaseReadEntry{Key: "e2"},
-				At:            1,
-				Topic:         "plant/level",
-				Qos:           v2.QoSAtLeastOnce,
-				Fields:        []v2.ReadField{storedField(telem.Uint8T)},
-				Index:         "f1",
+				Key:    "e2",
+				At:     1,
+				Topic:  "plant/level",
+				Qos:    v2.QoSAtLeastOnce,
+				Fields: []v2.ReadField{storedField(telem.Uint8T)},
+				Index:  "f1",
 			}}}))
 		},
 	)

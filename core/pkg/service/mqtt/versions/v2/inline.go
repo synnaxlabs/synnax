@@ -118,11 +118,9 @@ func liftEntry(
 		}
 		key := uuid.New()
 		fields[i] = jsonField(icd.JSONBaseField{
-			BaseField: icd.BaseField{
-				Key:   key,
-				Name:  uniqueName(names, fieldName(old)),
-				Scale: 1,
-			},
+			Key:     key,
+			Name:    uniqueName(names, fieldName(old)),
+			Scale:   1,
 			Pointer: old.Pointer,
 		}, r)
 		if isIndex {
