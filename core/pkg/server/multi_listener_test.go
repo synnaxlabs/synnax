@@ -142,9 +142,9 @@ var _ = Describe("MultiListener", func() {
 		// for the second listener to collide with it.
 		occupied := MustSucceed(net.Listen("tcp", ":0"))
 		defer func() { Expect(occupied.Close()).To(Succeed()) }()
-		occupiedAddr := address.Newf(
-			"localhost:%d", occupied.Addr().(*net.TCPAddr).Port,
-		)
+		tcpAddr, ok := occupied.Addr().(*net.TCPAddr)
+		Expect(ok).To(BeTrue())
+		occupiedAddr := address.Newf("localhost:%d", tcpAddr.Port)
 		Expect(server.Serve(server.Config{
 			Debug:    new(false),
 			Security: server.SecurityConfig{Insecure: new(true)},

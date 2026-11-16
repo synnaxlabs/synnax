@@ -478,8 +478,9 @@ var _ = Describe("Open", func() {
 			Expect(d.Close()).To(Succeed())
 			Expect(conn).ToNot(HaveKey("username"))
 			Expect(conn).ToNot(HaveKey("password"))
-			Expect(authenticate(ctx, conn["api_key"].(string)).Subject).
-				To(Equal(rackKey.ResourceID()))
+			apiKey, ok := conn["api_key"].(string)
+			Expect(ok).To(BeTrue())
+			Expect(authenticate(ctx, apiKey).Subject).To(Equal(rackKey.ResourceID()))
 		})
 
 		It("Should reuse its API key across Core processes", func(ctx SpecContext) {
@@ -710,7 +711,9 @@ func readDriverConnection(parentDirname string) map[string]any {
 	b := MustSucceed(os.ReadFile(filepath.Join(parentDirname, "driver", "config.json")))
 	var cfg map[string]any
 	Expect(json.Unmarshal(b, &cfg)).To(Succeed())
-	return cfg["connection"].(map[string]any)
+	conn, ok := cfg["connection"].(map[string]any)
+	Expect(ok).To(BeTrue())
+	return conn
 }
 
 var _ = Describe("license", func() {
