@@ -282,10 +282,12 @@ def prs(gh: GH, repo: str, since: datetime) -> list[int]:
         cursor = ["-f", f"endCursor={page['pageInfo']['endCursor']}"]
 
 
-def sedosaur_reviews(edits: list[dict[str, Any]], repo: str) -> dict[str, int]:
-    """Returns the run of Sedosaur's newest review of each commit that its summary in
-    the pull request body links. Only the Sedosaur App edits as the bot, so a fork
-    cannot add a review.
+def sedosaur_reviews(
+    edits: list[dict[str, Any]], repo: str, since: datetime
+) -> dict[str, int]:
+    """Returns the run of Sedosaur's newest review since a time of each commit that its
+    summary in the pull request body links. Only the Sedosaur App edits as the bot, so
+    a fork cannot add a review.
 
     :param edits: The revisions of a pull request body, newest first.
     :returns: The run of each commit, oldest commit first.
@@ -293,15 +295,22 @@ def sedosaur_reviews(edits: list[dict[str, Any]], repo: str) -> dict[str, int]:
     out: dict[str, int] = {}
     for e in edits:
         editor = e["editor"] or {}
-        if editor.get("__typename") != "Bot" or editor.get("login") != SEDOSAUR:
+        if (
+            editor.get("__typename") != "Bot"
+            or editor.get("login") != SEDOSAUR
+            or datetime.fromisoformat(e["editedAt"]) < since
+        ):
             continue
         block = _SUMMARY.search(e["diff"] or "")
         if block is None:
             continue
         commits = re.findall(r"/commit/([0-9a-f]{40})", block[1])
-        run = re.search(rf"github\.com/{re.escape(repo)}/actions/runs/(\d+)", block[1])
-        if commits and run is not None and commits[-1] not in out:
-            out[commits[-1]] = int(run[1])
+        # The footer links the run last, after any run the summary cites.
+        runs = re.findall(
+            rf"github\.com/{re.escape(repo)}/actions/runs/(\d+)", block[1]
+        )
+        if commits and runs and commits[-1] not in out:
+            out[commits[-1]] = int(runs[-1])
     return dict(reversed(out.items()))
 
 
@@ -380,7 +389,7 @@ class _Read:
 
 def _read(gh: GH, repo: str, pr: int, since: datetime, cache: Path) -> _Read | None:
     edits = _nodes(gh, repo, pr, EDITS, "userContentEdits")
-    runs = sedosaur_reviews(edits, repo)
+    runs = sedosaur_reviews(edits, repo, since)
     reviews = greptile_reviews(edits)
     recs: dict[str, dict[str, Any]] = {}
     for head, run in runs.items():

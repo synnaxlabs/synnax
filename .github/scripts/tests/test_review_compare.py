@@ -189,15 +189,18 @@ def limited(utilization: float, at: str) -> dict[str, Any]:
     return r
 
 
-def summary(head: str, run: int, repo: str = REPO) -> dict[str, Any]:
+def summary(
+    head: str, run: int, *, repo: str = REPO, edited: str = NOON, cites: str = ""
+) -> dict[str, Any]:
     """A revision of the pull request body by Sedosaur after it reviews a commit."""
-    return edit(
-        "Fixes A.\n\n<!-- sedosaur_comment -->\n"
+    e = edit(
+        f"Fixes A.\n\n<!-- sedosaur_comment -->\n- {cites}\n"
         f"<sub>Reviews (1) · Last reviewed commit: [Fix](https://github.com/o/r/commit/"
         f"{head}) · [Run](https://github.com/{repo}/actions/runs/{run})</sub>\n"
         "<!-- /sedosaur_comment -->",
         "sedosaur",
     )
+    return e | {"editedAt": edited}
 
 
 def artifact(
@@ -246,6 +249,8 @@ class FakeGH:
             thread(201, "sedosaur", "Leaks a handle too", 12, head),
         ]
         self.pulls: list[dict[str, Any]] = []
+        self.pages: list[list[dict[str, Any]]] = []
+        self.cursors: list[str | None] = []
         self.artifacts: list[dict[str, Any]] = []
         self.kept: dict[int, bool] = {}
         self.records: dict[int, dict[str, Any]] = {}
@@ -263,9 +268,16 @@ class FakeGH:
             nodes = self.edits if "userContentEdits" in query else self.threads
             return "".join(f"{json.dumps(n)}\n" for n in nodes)
         if args[:2] == ("api", "graphql"):
+            cursor = next((a[10:] for a in args if a.startswith("endCursor=")), None)
+            self.cursors.append(cursor)
+            pages = self.pages or [self.pulls or [pull(7, NOON, self.edits)]]
+            i = int(cursor or 0)
             page = {
-                "pageInfo": {"hasNextPage": False, "endCursor": None},
-                "nodes": self.pulls or [pull(7, NOON, self.edits)],
+                "pageInfo": {
+                    "hasNextPage": i + 1 < len(pages),
+                    "endCursor": str(i + 1),
+                },
+                "nodes": pages[i],
             }
             return json.dumps({"data": {"repository": {"pullRequests": page}}})
         if args[:2] == ("run", "download"):
@@ -435,6 +447,17 @@ class TestPrs:
         ]
         assert compare.prs(gh, REPO, SINCE) == [9, 7]
 
+    def test_should_read_the_next_page_until_one_is_too_old(self) -> None:
+        gh = FakeGH()
+        both = [edit("", "greptile-apps"), edit("", "sedosaur")]
+        gh.pages = [
+            [pull(9, NOON, both)],
+            [pull(8, NOON, both), pull(7, "2026-11-04T10:00:00Z", both)],
+            [pull(6, NOON, both)],
+        ]
+        assert compare.prs(gh, REPO, SINCE) == [9, 8]
+        assert gh.cursors == [None, "1"]
+
 
 class TestSedosaurReviews:
     """Tests reading Sedosaur's reviews from the revisions of a pull request body."""
@@ -442,15 +465,25 @@ class TestSedosaurReviews:
     def test_should_read_the_newest_run_of_each_commit_oldest_first(self) -> None:
         a, b = "a" * 40, "b" * 40
         edits = [summary(a, 3), summary(b, 2), summary(a, 1)]
-        assert list(compare.sedosaur_reviews(edits, REPO).items()) == [(b, 2), (a, 3)]
+        runs = compare.sedosaur_reviews(edits, REPO, SINCE)
+        assert list(runs.items()) == [(b, 2), (a, 3)]
+
+    def test_should_take_the_run_of_the_footer(self) -> None:
+        cited = f"Fixes [a run](https://github.com/{REPO}/actions/runs/9)."
+        edits = [summary(HEAD, 2, cites=cited)]
+        assert compare.sedosaur_reviews(edits, REPO, SINCE) == {HEAD: 2}
+
+    def test_should_skip_a_review_from_before_a_time(self) -> None:
+        edits = [summary(HEAD, 2, edited="2026-11-04T10:00:00Z")]
+        assert compare.sedosaur_reviews(edits, REPO, SINCE) == {}
 
     def test_should_ignore_a_revision_by_a_person_or_another_repository(
         self,
     ) -> None:
         person = summary(HEAD, 1)
         person["editor"]["__typename"] = "User"
-        edits = [person, summary(HEAD, 2, "fork/r")]
-        assert compare.sedosaur_reviews(edits, REPO) == {}
+        edits = [person, summary(HEAD, 2, repo="fork/r")]
+        assert compare.sedosaur_reviews(edits, REPO, SINCE) == {}
 
 
 class TestRecord:
