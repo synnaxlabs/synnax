@@ -62,7 +62,6 @@ linters:
     - gochecknoinits # SY-6108
     - gocognit # SY-6110
     - gocritic # SY-6115
-    - godot # SY-6114
     - gosec # SY-3843
     - iface # SY-6111
     - inamedparam # SY-6115

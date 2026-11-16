@@ -127,7 +127,7 @@ func LowerFirst(s string) string {
 }
 
 // DerivePackageName extracts the package name from an output path. Example:
-// "core/pkg/service/user" -> "user"
+// "core/pkg/service/user" -> "user".
 func DerivePackageName(outputPath string) string { return filepath.Base(outputPath) }
 
 // majorVersion matches a module major-version path segment ("v2", "v12").

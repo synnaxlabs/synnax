@@ -176,7 +176,7 @@ func assemble(instructions ...any) []byte {
 	return out.Bytes()
 }
 
-// opcodeMatcher is a custom Gomega matcher for comparing opcode sequences
+// opcodeMatcher is a custom Gomega matcher for comparing opcode sequences.
 type opcodeMatcher struct {
 	expected wasm.OPCodes
 }

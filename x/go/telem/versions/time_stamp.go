@@ -12,9 +12,9 @@ package versions
 import v0 "github.com/synnaxlabs/x/telem/versions/v0"
 
 const (
-	// TimeStampMin represents the minimum value for a TimeStamp
+	// TimeStampMin represents the minimum value for a TimeStamp.
 	TimeStampMin TimeStamp = v0.TimeStampMin
-	// TimeStampMax represents the maximum value for a TimeStamp
+	// TimeStampMax represents the maximum value for a TimeStamp.
 	TimeStampMax TimeStamp = v0.TimeStampMax
 	// NanosecondTS is a TimeStamp 1 nanosecond after the unix epoch.
 	NanosecondTS TimeStamp = v0.NanosecondTS

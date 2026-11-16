@@ -23,7 +23,7 @@ func (tr TimeRange) IsZero() bool { return tr.Start.IsZero() && tr.End.IsZero() 
 //
 // Example Two:
 //
-// [5s, 10s).BoundBy([11s, 17s)) == [11s, 11s)
+// [5s, 10s).BoundBy([11s, 17s)) == [11s, 11s).
 func (tr TimeRange) BoundBy(bound TimeRange) TimeRange {
 	if bound.Start.After(tr.Start) {
 		tr.Start = bound.Start
@@ -40,7 +40,7 @@ func (tr TimeRange) BoundBy(bound TimeRange) TimeRange {
 	return tr
 }
 
-// ContainsStamp returns true if the TimeRange contains the provided TimeStamp
+// ContainsStamp returns true if the TimeRange contains the provided TimeStamp.
 func (tr TimeRange) ContainsStamp(stamp TimeStamp) bool {
 	return stamp.AfterEq(tr.Start) && stamp.Before(tr.End)
 }
@@ -88,7 +88,7 @@ func (tr TimeRange) MakeValid() TimeRange {
 // Swap swaps TimeRange.Start with TimeRange.End.
 func (tr TimeRange) Swap() TimeRange { return TimeRange{Start: tr.End, End: tr.Start} }
 
-// Valid returns true if TimeRange.Start is before or equal to TimeRange.End
+// Valid returns true if TimeRange.Start is before or equal to TimeRange.End.
 func (tr TimeRange) Valid() bool { return tr.Span() >= 0 }
 
 // String displays the time range with both timestamps in a human-readable format,
