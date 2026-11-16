@@ -103,6 +103,15 @@ describe("Region.extract", () => {
     );
   });
 
+  it("should escape data-region-id values that contain quotes", () => {
+    const content = `<rect data-region-id='a"b' stroke="#ff0000" fill="#00ff00" />`;
+    const regions = Region.extract(createSVG(content));
+    const markup = `<svg xmlns="http://www.w3.org/2000/svg">${content}</svg>`;
+    expect(Region.paint(markup, regions[0].selectors).stroke).toEqual(
+      regions[0].strokeColor,
+    );
+  });
+
   it("should use class names when available", () => {
     const svg = createSVG(`
       <rect class="red-rect primary" style="stroke: #ff0000; fill: #00ff00" />
@@ -607,5 +616,17 @@ describe("Region.parseSVG", () => {
     );
     expect(root?.querySelector("linearGradient")).not.toBeNull();
     expect(root?.querySelector("rect")?.getAttribute("fill")).toBe("url(#g)");
+  });
+});
+
+describe("Region.selector", () => {
+  it("should match the selector that extract stores for the element", () => {
+    const doc = new DOMParser().parseFromString(
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect id="1" stroke="#f00" /></svg>',
+      "image/svg+xml",
+    );
+    const svg = doc.documentElement as unknown as SVGElement;
+    const rect = svg.querySelector("rect") as SVGElement;
+    expect(Region.extract(svg)[0].selectors).toEqual([Region.selector(rect)]);
   });
 });

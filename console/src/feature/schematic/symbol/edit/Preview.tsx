@@ -199,18 +199,9 @@ export const Preview = ({
       });
 
       el.addEventListener("click", () => {
-        let selector: string;
-        if (el.id) selector = `#${el.id}`;
-        else {
-          const existingDataId = el.getAttribute("data-region-id");
-          if (existingDataId) selector = `[data-region-id="${existingDataId}"]`;
-          else {
-            const newDataId = `region-${id.create()}`;
-            el.setAttribute("data-region-id", newDataId);
-            selector = `[data-region-id="${newDataId}"]`;
-          }
-        }
-        onElementClick(selector);
+        if (!el.id && !el.hasAttribute("data-region-id"))
+          el.setAttribute("data-region-id", `region-${id.create()}`);
+        onElementClick(Schematic.Node.Region.selector(el));
       });
 
       Array.from(el.children).forEach(addInteractivity);
