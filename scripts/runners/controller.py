@@ -76,11 +76,12 @@ checked against GH_WEBHOOK_SECRET; steps are polled from five running runs per
 cycle, and the queue is rebuilt from the API every 5 minutes. Runner names persist
 in registry.json so a removed runner keeps reporting -1.
 
-Scaler (scaler.py): starts stopped runners when jobs queue in their pool, stops
-runners idle past --idle-cooldown (3 min). An offline runner on an instance up longer
-than --boot-grace (2 min) counts as idle. --scale sets the start state (enabled);
-runner_scaler_cmd switches it at runtime, runner_scaler_enabled beats the state,
-runner_scaler_log carries its log.
+Scaler (scaler.py): starts stopped runners when jobs queue in their pool, drains
+runners idle past --idle-cooldown (3 min), and stops the instance of a drained runner
+once it is offline. An offline runner counts as idle when it is drained or its
+instance is up longer than --boot-grace (2 min). --scale sets the start state
+(enabled); runner_scaler_cmd switches it at runtime, runner_scaler_enabled beats the
+state, runner_scaler_log carries its log.
 
 Seats (seats.py): starts a stopped agent or review seat when a job that asks for its
 labels queues. The scaler switch holds these starts too, and they log to
@@ -472,19 +473,20 @@ def main() -> None:
         index=channels.index(f"{GATE_CMD}_time"),
         channels={GATE_CMD: sy.DataType.BOOLEAN},
     )
+    gate = Gate(
+        client=client,
+        channels=channels,
+        log=Log(client=client, channels=channels, channel=GATE_LOG),
+        enabled=args.gh == "enabled",
+    )
     scaler_log = Log(client=client, channels=channels, channel=SCALER_LOG)
     scaler = Scaler(
         client=client,
         cooldown=args.idle_cooldown,
         boot_grace=args.boot_grace,
         log=scaler_log,
+        gate=gate,
         enabled=args.scale == "enabled",
-    )
-    gate = Gate(
-        client=client,
-        channels=channels,
-        log=Log(client=client, channels=channels, channel=GATE_LOG),
-        enabled=args.gh == "enabled",
     )
     toggles: dict[str, Toggle] = {
         SCALER_CMD: (
