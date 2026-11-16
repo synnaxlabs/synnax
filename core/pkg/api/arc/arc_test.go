@@ -449,6 +449,14 @@ var _ = Describe("Service", func() {
 				Expect(ok).To(BeTrue())
 				Expect(automation.Program).ToNot(BeNil())
 				Expect(automation.Calculations).To(BeEmpty())
+				Eventually(func(g Gomega) {
+					var stat status.Status[struct{}]
+					g.Expect(statusSvc.NewRetrieve[struct{}]().
+						Where(status.MatchOwners[struct{}](channel.ResourceID(inner.Key()))).
+						Entry(&stat).
+						Exec(ctx, db)).To(Succeed())
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+				}).Should(Succeed())
 			},
 		)
 
