@@ -37,6 +37,9 @@ const STOP_LINE: &[u8] = b"stop\n";
 /// The name of the Core config file in the work directory.
 const CONFIG_FILE: &str = "core.json";
 
+/// The name of the file in the log directory that receives the Core's stderr.
+const STDERR_FILE: &str = "core-stderr.log";
+
 /// The exit code of a Core whose data directory another process holds, `DataLocked` in
 /// the Core's `cmd/exit` package.
 const LOCKED_CODE: i32 = 75;
@@ -557,7 +560,10 @@ impl Task {
                     return match status {
                         Ok(status) if status.code() == Some(LOCKED_CODE) => Outcome::Locked,
                         Ok(status) => {
-                            exited(Reason::Crashed, format!("exited with {status}"), status.code())
+                            let message = self
+                                .exit_error()
+                                .unwrap_or_else(|| format!("exited with {status}"));
+                            exited(Reason::Crashed, message, status.code())
                         }
                         Err(err) => exited(
                             Reason::Crashed,
@@ -680,11 +686,20 @@ impl Task {
     /// Opens the file that receives the Core's stderr, where a Go panic lands. The file
     /// of the previous Core is kept under a second name.
     fn stderr(&self) -> io::Result<Stdio> {
-        let path = self.cfg.log_dir.join("core-stderr.log");
+        let path = self.cfg.log_dir.join(STDERR_FILE);
         if path.exists() {
             std::fs::rename(&path, self.cfg.log_dir.join("core-stderr.previous.log"))?;
         }
         Ok(std::fs::File::create(path)?.into())
+    }
+
+    /// Returns the first line of the Core's stderr: the error that ended it, or the first
+    /// line of a Go panic. It returns None when the Core wrote nothing there.
+    fn exit_error(&self) -> Option<String> {
+        let file = std::fs::File::open(self.cfg.log_dir.join(STDERR_FILE)).ok()?;
+        let line = io::BufRead::lines(io::BufReader::new(file)).next()?.ok()?;
+        let line = line.trim();
+        (!line.is_empty()).then(|| line.to_string())
     }
 
     /// Asks the Core to stop and kills it when it outlives the stop timeout.
@@ -795,6 +810,13 @@ exit 0
     const CRASHING: &str = r#"#!/bin/sh
 echo run >> "$(dirname "$0")/runs"
 exit 3
+"#;
+
+    /// A stand-in Core that writes the error that ends it to stderr, as the Core does.
+    const FAILING: &str = r#"#!/bin/sh
+echo run >> "$(dirname "$0")/runs"
+echo "embedded Driver did not start: GLIBC_2.39 not found" >&2
+exit 1
 "#;
 
     /// A stand-in Core that finds its data directory locked on its first three starts.
@@ -987,6 +1009,21 @@ while true; do sleep 1; done
         sup.stop().await;
         assert!(started.elapsed() >= f.cfg.stop_timeout);
         assert_eq!(sup.status(), Status::Stopped);
+    }
+
+    #[tokio::test]
+    async fn reports_the_error_the_core_wrote_to_stderr() {
+        let f = Fixture::new(FAILING, always(false));
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        let status = wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
+        let Status::Failed { reason, message } = status else {
+            unreachable!()
+        };
+        assert_eq!(reason, Reason::Crashed);
+        assert_eq!(
+            message,
+            "embedded Driver did not start: GLIBC_2.39 not found"
+        );
     }
 
     #[tokio::test]
