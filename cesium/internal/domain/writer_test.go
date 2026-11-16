@@ -479,9 +479,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							))
 							MustSucceed(w.Write([]byte{1, 2, 3, 4, 5}))
 							Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
-							MustSucceed(w.Write([]byte{6, 7, 8, 9, 10, 11}))
+							MustSucceed(w.Write([]byte{6, 7, 8, 9, 10, 11, 12, 13}))
 							Expect(w.Commit(ctx, 15*telem.SecondTS)).
 								To(MatchError(validate.ErrValidation))
+							Expect(w.Close()).To(Succeed())
+							Expect(db2.Close()).To(Succeed())
 						},
 					)
 
