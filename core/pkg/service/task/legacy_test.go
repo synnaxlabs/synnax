@@ -14,6 +14,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -413,17 +414,19 @@ func createFixtureTargets(
 			}
 		}
 	}
+	testdata := os.DirFS("testdata")
 	var paths []string
 	for _, pattern := range []string{
-		filepath.Join("testdata", "legacy", "*.json"),
-		filepath.Join("testdata", "legacy", "expected", "*.json"),
-		filepath.Join("testdata", "released", "*", "*.json"),
+		"legacy/*.json",
+		"legacy/expected/*.json",
+		"released/*/*.json",
 	} {
-		paths = append(paths, MustSucceed(filepath.Glob(pattern))...)
+		paths = append(paths, MustSucceed(fs.Glob(testdata, pattern))...)
 	}
 	for _, path := range paths {
 		var stored any
-		Expect(json.Unmarshal(MustSucceed(os.ReadFile(path)), &stored)).To(Succeed())
+		Expect(json.Unmarshal(MustSucceed(fs.ReadFile(testdata, path)), &stored)).
+			To(Succeed())
 		walk(stored)
 	}
 	fixtureKeys := slices.Sorted(maps.Keys(fixtureChannels))
@@ -664,8 +667,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 
 	DescribeTable("preserves every field of a released Console export",
 		func(ctx SpecContext, fixture string) {
-			raw := rekeyed(MustSucceed(os.ReadFile(
-				filepath.Join("testdata", "legacy", fixture+".json"),
+			raw := rekeyed(MustSucceed(fs.ReadFile(
+				os.DirFS("testdata"), "legacy/"+fixture+".json",
 			)), toCreated)
 			env, imported := importFile(ctx, raw, fixture)
 			Expect(strings.HasPrefix(fixture, env.Type)).To(
@@ -721,12 +724,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				}
 			}
 			rekey(canonical, toFixture)
-			goldenPath := filepath.Join(
-				"testdata",
-				"legacy",
-				"expected",
-				fixture+".json",
-			)
+			golden := "legacy/expected/" + fixture + ".json"
 			// The trailing newline keeps regenerated goldens Prettier-clean.
 			goldenBytes := append(
 				MustSucceed(
@@ -739,10 +737,13 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				'\n',
 			)
 			if os.Getenv("UPDATE_LEGACY_GOLDENS") != "" {
-				Expect(os.WriteFile(goldenPath, goldenBytes, 0o644)).To(Succeed())
+				Expect(
+					os.WriteFile(filepath.Join("testdata", golden), goldenBytes, 0o644),
+				).
+					To(Succeed())
 			} else {
-				golden := MustSucceed(os.ReadFile(goldenPath))
-				Expect(string(goldenBytes)).To(MatchJSON(golden))
+				want := MustSucceed(fs.ReadFile(os.DirFS("testdata"), golden))
+				Expect(string(goldenBytes)).To(MatchJSON(want))
 			}
 		},
 		Entry(nil, "arc"),
@@ -779,15 +780,16 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	// record as importing the fixture, which the fixture's golden freezes.
 	DescribeTable("stores a released Core export as its Console fixture",
 		func(ctx SpecContext, release, fixture string) {
-			raw := rekeyed(MustSucceed(os.ReadFile(
-				filepath.Join("testdata", "released", release, fixture+".json"),
+			testdata := os.DirFS("testdata")
+			raw := rekeyed(MustSucceed(fs.ReadFile(
+				testdata, "released/"+release+"/"+fixture+".json",
 			)), toCreated)
 			_, imported := importFile(ctx, raw, fixture)
 			config := reveal(ctx, imported)
 			delete(config, "key")
 			rekey(config, toFixture)
-			golden := MustSucceed(os.ReadFile(
-				filepath.Join("testdata", "legacy", "expected", fixture+".json"),
+			golden := MustSucceed(fs.ReadFile(
+				testdata, "legacy/expected/"+fixture+".json",
 			))
 			Expect(MustSucceed(json.Marshal(config))).To(MatchJSON(golden))
 		},

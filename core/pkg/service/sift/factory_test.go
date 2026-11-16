@@ -11,6 +11,7 @@ package sift_test
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"uuid"
 
@@ -32,7 +33,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const apiKey = "sift-api-key"
+var apiKey = rand.Text()
 
 // failingKV fails every commit, so that no status write lands.
 type failingKV struct{ kv.DB }
