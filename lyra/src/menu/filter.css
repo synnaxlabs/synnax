@@ -29,9 +29,9 @@
 }
 
 /* While the search has the focus, the first match is lit, unless the pointer lights
-   another item. */
+   another item. Enter picks the lit item. */
 :is(.lyra-menu-dialog, .lyra-menu-context):has(> .lyra-menu-filter:focus-within):not(
-        :has(.lyra-menu-item:hover)
+        :has(.lyra-menu-item:not([aria-disabled="true"]):hover)
     )
     .lyra-menu-item.lyra-btn[data-highlighted] {
     --pluto-btn-bg: var(--pluto-hover-bg);

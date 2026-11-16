@@ -250,6 +250,15 @@ describe("menu filter", () => {
       expect(shown()).toEqual(["Rename", "Remove"]);
     });
 
+    it("should edit the search with Backspace from an item", () => {
+      open();
+      type("rem");
+      press("ArrowDown");
+      press("Backspace");
+      expect(search()?.value).toBe("re");
+      expect(document.activeElement).toBe(search());
+    });
+
     it("should take a space only after the filter starts", () => {
       open();
       press(" ");

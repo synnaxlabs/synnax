@@ -70,7 +70,7 @@ export interface Filter {
   /** Handles the filter and move keys. Pass it to the menu surface. */
   onKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
   /** Props for the search. */
-  field: Required<Pick<SearchProps, "ref" | "onChange" | "onKeyDown">>;
+  search: Required<Pick<SearchProps, "ref" | "onChange" | "onKeyDown">>;
 }
 
 /**
@@ -84,7 +84,7 @@ export interface Filter {
 export const useFilter = (): Filter => {
   const [term, setTerm] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
-  const fieldRef = useRef<HTMLInputElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const editedRef = useRef(false);
   useEffect(() => {
     const surface = ref.current;
@@ -93,11 +93,11 @@ export const useFilter = (): Filter => {
   }, []);
   // A key typed on an item goes on in the search, after the text already there.
   useLayoutEffect(() => {
-    const field = fieldRef.current;
-    if (!editedRef.current || field == null) return;
+    const search = searchRef.current;
+    if (!editedRef.current || search == null) return;
     editedRef.current = false;
-    field.focus({ preventScroll: true });
-    field.setSelectionRange(field.value.length, field.value.length);
+    search.focus({ preventScroll: true });
+    search.setSelectionRange(search.value.length, search.value.length);
   }, [term]);
   useLayoutEffect(() => {
     const surface = ref.current;
@@ -105,14 +105,14 @@ export const useFilter = (): Filter => {
     surface.querySelector(`[${HIGHLIGHTED}]`)?.removeAttribute(HIGHLIGHTED);
     if (term != null) surface.querySelector(MENU_ITEMS)?.setAttribute(HIGHLIGHTED, "");
   }, [term]);
-  const close = (): void => {
+  const closeSearch = (): void => {
     ref.current?.focus({ preventScroll: true });
     setTerm(null);
   };
   const edit = (e: KeyboardEvent<HTMLElement>, next: string | null): void => {
     e.preventDefault();
     e.stopPropagation();
-    if (next == null) return close();
+    if (next == null) return closeSearch();
     editedRef.current = true;
     setTerm(next);
   };
@@ -138,12 +138,12 @@ export const useFilter = (): Filter => {
     const index = moveIndex(key, items.indexOf(target), items.length, e.repeat);
     if (index != null) items[index].focus();
   };
-  const onFieldKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
+  const onSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
     const surface = ref.current;
     if (surface == null) return;
     if (e.key === "Escape") {
       e.stopPropagation();
-      return close();
+      return closeSearch();
     }
     // Enter picks the lit item: the one under the pointer, else the first match.
     if (e.key === "Enter") {
@@ -164,7 +164,7 @@ export const useFilter = (): Filter => {
     term,
     ref,
     onKeyDown,
-    field: { ref: fieldRef, onChange: setTerm, onKeyDown: onFieldKeyDown },
+    search: { ref: searchRef, onChange: setTerm, onKeyDown: onSearchKeyDown },
   };
 };
 
@@ -178,13 +178,13 @@ export interface FilteredProps extends PropsWithChildren {
  * holds the filter, and a muted line says when no item matches.
  */
 export const Filtered = ({
-  filter: { term, field },
+  filter: { term, search },
   children,
 }: FilteredProps): ReactElement => (
   <FilterContext value={term ?? ""}>
     {term != null && (
       <Search
-        {...field}
+        {...search}
         value={term}
         className={CSS.B("menu-filter")}
         flush

@@ -215,6 +215,25 @@ describe("menu filter", () => {
         .not.toBe(computed(second, "background-color"));
     });
 
+    it("should keep the first match lit under the pointer on a disabled item", async () => {
+      await openContextMenu(
+        vi.fn(),
+        <Menu.Menu>
+          <Menu.Item itemKey="rename">Rename</Menu.Item>
+          <Menu.Item itemKey="remove" disabled>
+            Remove
+          </Menu.Item>
+          <Menu.Item itemKey="reload">Reload</Menu.Item>
+        </Menu.Menu>,
+      );
+      await userEvent.keyboard("re");
+      const [first, , third] = page.getByRole("menuitem").elements();
+      await userEvent.hover(page.getByRole("menuitem", { name: "Remove" }));
+      await expect
+        .poll(() => computed(first, "background-color"))
+        .not.toBe(computed(third, "background-color"));
+    });
+
     it("should pick the item under the pointer on Enter", async () => {
       const onChange = vi.fn();
       await openContextMenu(onChange);
