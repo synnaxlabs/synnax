@@ -403,7 +403,11 @@ void Engine::run() {
     // The cycle_err that this thread stored last.
     x::errors::Error stored_err;
     uint64_t send_failures = 0;
-    x::telem::TimeStamp sent_at{};
+    // The send time of each frame in flight, oldest first.
+    std::vector<x::telem::TimeStamp> in_flight;
+    in_flight.reserve(master::MAX_FRAMES_IN_FLIGHT + 1);
+    // Whether a frame is left to take before the next wait.
+    bool taking = false;
     Clock clock;
     // The working counter falls short until the slaves reach OP.
     const auto shortfall = [this](const x::errors::Error &err) {
@@ -412,7 +416,7 @@ void Engine::run() {
     };
 
     const auto send = [&] {
-        sent_at = this->config.host_clock.now();
+        in_flight.push_back(this->config.host_clock.now());
         if (auto err = this->master->send(); err) {
             if (send_failures++ == 0)
                 LOG(WARNING) << "[ethercat] send failed on " << this->iface << ": "
@@ -471,12 +475,23 @@ void Engine::run() {
                     }
             }
         }
-        timer.wait();
-        if (!this->bus.running()) break;
-
-        // The slaves latched these inputs when the previous cycle's frame passed.
-        auto latched_at = sent_at;
+        if (!taking) {
+            timer.wait();
+            if (!this->bus.running()) break;
+        }
+        // Takes each frame that came back, oldest first, as the data of its own cycle.
         const auto err = this->master->receive();
+        if (err.matches(errors::FRAME_IN_FLIGHT)) {
+            taking = false;
+            this->write_outputs(false);
+            send();
+            continue;
+        }
+        const auto frame_sent_at = in_flight.front();
+        in_flight.erase(in_flight.begin());
+        taking = !in_flight.empty();
+        // The slaves latched these inputs when the frame passed them.
+        auto latched_at = frame_sent_at;
         const bool starting = this->starting.load(std::memory_order_acquire);
         // A full cycle drops the inputs of the slaves that give none, since a slave
         // below SAFE-OP can keep its share of the working counter. A cycle short by
@@ -499,7 +514,7 @@ void Engine::run() {
                 *missed >= outage.least_shortfall && *missed <= outage.shortfall
             ) {
                 dropped = &outage.positions;
-                latched_at = sent_at + lead;
+                latched_at = frame_sent_at + lead;
                 host_timed = true;
             }
             if (const auto inputless = this->master->inputless();
@@ -532,11 +547,11 @@ void Engine::run() {
                 // The distributed clock can drift from the host times of the short
                 // cycles, so its times go on from where those left off.
                 clock = Clock();
-                latched_at = clock.map(*dc, sent_at + lead);
+                latched_at = clock.map(*dc, frame_sent_at + lead);
             } else if (dc)
-                latched_at = clock.map(*dc, sent_at);
+                latched_at = clock.map(*dc, frame_sent_at);
             host_timed = false;
-            lead = latched_at - sent_at;
+            lead = latched_at - frame_sent_at;
             if (receive_failures > 0) {
                 LOG(INFO) << "[ethercat] cycles recovered on " << this->iface
                           << " after " << receive_failures << " failures";
@@ -567,6 +582,7 @@ void Engine::run() {
                 input->push(inputs, latched_at);
         }
 
+        if (taking) continue;
         this->write_outputs(false);
         send();
     }

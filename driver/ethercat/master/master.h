@@ -35,6 +35,9 @@ namespace driver::ethercat::master {
 /// @brief the distributed clock epoch, 2000-01-01, as a Unix timestamp.
 inline const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
 
+/// @brief the most frames that a master keeps in flight after a send().
+constexpr size_t MAX_FRAMES_IN_FLIGHT = 3;
+
 /// @brief information about an available EtherCAT master or network.
 struct Info {
     /// @brief unique identifier for this master (e.g., "igh:0" or "eth0").
@@ -163,7 +166,9 @@ public:
     /// @brief stops cyclic communication and closes the master.
     virtual void deactivate() = 0;
 
-    /// @brief receives and processes input data from the EtherCAT network.
+    /// @brief receives the oldest frame that a send() sent and no receive() took, and
+    /// processes its inputs. Returns errors::FRAME_IN_FLIGHT when the frame has not
+    /// come back and the master keeps it in flight, so a later receive() takes it.
     [[nodiscard]] virtual x::errors::Error receive() = 0;
 
     /// @brief queues output data and sends to the EtherCAT network.

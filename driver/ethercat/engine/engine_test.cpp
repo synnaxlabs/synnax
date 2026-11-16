@@ -826,6 +826,45 @@ TEST_F(EngineLockTest, ShortCyclesKeepSampleTimesInOrder) {
     EXPECT_EQ(reader->warning(), "");
 }
 
+/// @brief it should give a reader every sample, one period apart, when a frame comes
+/// back a cycle late, since the master keeps it in flight.
+TEST_F(EngineLockTest, ReaderTakesALateFrameAsTheSampleOfItsOwnCycle) {
+    constexpr size_t SAMPLES = 9;
+    this->master->set_host_dc(1.0);
+    const auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {{OUT_I16, 0}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->stall();
+    // Destroyed before the writer, which cannot stop a stalled bus.
+    x::defer::defer resume([this] { this->master->resume(); });
+    this->master->wait_until_stalled();
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        SAMPLES,
+        this->engine->begin_start(this->cancel)
+    ));
+    // The stalled cycle took its schedule before the reader joined.
+    this->master->step();
+    // One receive more than the samples, for the receive that finds the frame in
+    // flight.
+    for (size_t r = 0; r <= SAMPLES; ++r) {
+        this->master->wait_until_stalled();
+        if (r == 3) this->master->hold_frame();
+        this->master->step();
+    }
+    const auto times = this->read_times(*reader, SAMPLES);
+    ASSERT_EQ(times.size(), SAMPLES);
+    for (size_t i = 1; i < SAMPLES; ++i)
+        EXPECT_EQ(
+            x::telem::TimeSpan(times.at<int64_t>(i) - times.at<int64_t>(i - 1)),
+            this->period
+        );
+    EXPECT_EQ(reader->warning(), "");
+}
+
 /// @brief it should keep sample times in order when full cycles return after the
 /// reference clock was lost, which leaves its distributed clock time behind.
 TEST_F(EngineLockTest, FullCyclesAfterALostReferenceClockKeepTimesInOrder) {
