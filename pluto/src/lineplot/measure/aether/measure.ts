@@ -549,13 +549,13 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const onePos = s.pos(oneValue.position);
     const twoPos = s.pos(twoValue.position);
 
-    const xDistRaw = Math.abs(oneValue.value.x - twoValue.value.x);
+    const xDistRaw = twoValue.value.x - oneValue.value.x;
     const yDistRaw = twoValue.value.y - oneValue.value.y;
     const yDist = Math.abs(yDistRaw);
     if (!Number.isFinite(xDistRaw) || !Number.isFinite(yDist)) return;
 
-    const xDist = new TimeSpan(xDistRaw);
-    const slope = yDistRaw / xDist.seconds;
+    const xDist = new TimeSpan(Math.abs(xDistRaw));
+    const slope = yDistRaw / new TimeSpan(xDistRaw).seconds;
 
     const xPixelDist = Math.abs(onePos.x - twoPos.x);
     const yPixelDist = Math.abs(onePos.y - twoPos.y);
