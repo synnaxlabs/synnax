@@ -10,14 +10,16 @@
 import "@/platform/task/views/Tree.css";
 
 import { type channel } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { Channel } from "@synnaxlabs/pluto";
 import { type deep, primitive, type record } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import { type MouseEvent, type ReactElement, type ReactNode } from "react";
 
 import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
@@ -78,7 +80,14 @@ export interface TreeGroupItemProps extends Tree.ItemRenderProps<string> {
   channel?: deep.Target<channel.Key>;
   /** Shows the group as switched off. */
   off?: boolean;
-  /** Trails the label, such as an add button and an enabled checkbox. */
+  /**
+   * Adds a child to the group from a button that shows while the group is hovered or
+   * selected. Hidden in preview.
+   */
+  onAdd?: () => void;
+  /** Names the add button: "Add field". */
+  addLabel?: string;
+  /** Trails the label, such as an enabled checkbox. */
   children?: ReactNode;
 }
 
@@ -87,22 +96,44 @@ export const TreeGroupItem = ({
   label,
   channel,
   off = false,
+  onAdd,
+  addLabel,
   children,
   ...props
-}: TreeGroupItemProps): ReactElement => (
-  <Tree.Item
-    {...props}
-    className={CSS.cls(
-      CSS.B("group-item"),
-      channel != null && CSS.M("leaf"),
-      off && CSS.M("off"),
-    )}
-  >
-    {label}
-    {channel != null && <ChannelIcon channel={channel} skipped={off} />}
-    {children}
-  </Tree.Item>
-);
+}: TreeGroupItemProps): ReactElement => {
+  const isPreview = useIsPreview();
+  const handleAdd = (e: MouseEvent) => {
+    e.stopPropagation();
+    onAdd?.();
+  };
+  return (
+    <Tree.Item
+      {...props}
+      className={CSS.cls(
+        CSS.B("group-item"),
+        channel != null && CSS.M("leaf"),
+        off && CSS.M("off"),
+      )}
+    >
+      {label}
+      {channel != null && <ChannelIcon channel={channel} skipped={off} />}
+      {onAdd != null && !isPreview && (
+        <Button.Button
+          onClick={handleAdd}
+          variant="text"
+          size="tiny"
+          tooltip={addLabel}
+          aria-label={addLabel}
+          tooltipLocation="right"
+          className={CSS.BE("group-item", "add")}
+        >
+          <Icon.Add />
+        </Button.Button>
+      )}
+      {children}
+    </Tree.Item>
+  );
+};
 
 export interface TreeFieldItemProps extends Tree.ItemRenderProps<string> {
   /** Names the field. */
