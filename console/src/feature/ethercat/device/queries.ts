@@ -10,7 +10,6 @@
 import { device, status, type Synnax, type task } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, deep, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
-import { z } from "zod";
 
 import {
   MAKE,
@@ -22,6 +21,7 @@ import {
 } from "@/feature/ethercat/device/types";
 import {
   type Channel,
+  devicesOf,
   READ_TYPE,
   SCAN_TYPE,
   WRITE_TYPE,
@@ -120,10 +120,6 @@ const SWITCH: verbs.Verbs = {
   participle: "switching",
 };
 
-const channelDevicesZ = z.object({
-  channels: z.array(z.object({ device: z.string() })).default(() => []),
-});
-
 export interface SetStandaloneParams {
   slave: SlaveDevice;
 }
@@ -162,8 +158,6 @@ const stopTasksOnNetwork = async (
       (t.type === READ_TYPE || t.type === WRITE_TYPE) &&
       t.status?.details.running === true,
   );
-  const devicesOf = (config: unknown): string[] =>
-    channelDevicesZ.parse(config).channels.map((ch) => ch.device);
   const keys = unique.unique(running.flatMap((t) => devicesOf(t.config)));
   const onNetwork = new Set(
     (keys.length === 0
