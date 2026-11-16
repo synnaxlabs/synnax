@@ -522,7 +522,16 @@ func (t *readTask) open(ctx context.Context) (err error) {
 		xio.CloserFunc(t.closeClient),
 		xio.CloserFunc(func() error {
 			defer cancelWriter()
-			return stopConsumer.Close()
+			err := stopConsumer.Close()
+			// The status of a failed consumer already reports why it ended.
+			if err != nil && t.failed.Load() {
+				t.factoryCfg.L.Warn("kafka consumer failed",
+					zap.Stringer("task", t.task.Key),
+					zap.Error(err),
+				)
+				return nil
+			}
+			return err
 		}),
 	}
 	return nil
