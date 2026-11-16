@@ -73,6 +73,14 @@ var _ = Describe("FindPbGoFiles", func() {
 		))
 	})
 
+	It("Should find buf outputs when the repo root is named build", func() {
+		root := filepath.Join(GinkgoT().TempDir(), "build")
+		full := filepath.Join(root, "x", "a.pb.go")
+		Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+		Expect(os.WriteFile(full, []byte("package x\n"), 0o644)).To(Succeed())
+		Expect(codegen.FindPbGoFiles(root)).To(ConsistOf(full))
+	})
+
 	It("Should return an error for a missing directory", func() {
 		missing := filepath.Join(GinkgoT().TempDir(), "missing")
 		Expect(codegen.FindPbGoFiles(missing)).Error().
