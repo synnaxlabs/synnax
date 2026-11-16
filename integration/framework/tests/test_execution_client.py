@@ -357,12 +357,21 @@ class TestExecutionClient:
             execution.run(loaded)
 
     def test_retry_with_peers(self, cases_dir: Path) -> None:
-        """Should run the whole asynchronous sequence again for a failed test."""
+        """Should run the whole asynchronous sequence again for a failed test, and
+        keep one result for each test."""
+        ran_count = 0
+
+        def on_test_ran() -> None:
+            nonlocal ran_count
+            ran_count += 1
+
         execution, loaded, results = client(
             cases_dir,
             sequence("a", "plain", "plain", order="asynchronous", fails_once="a_1"),
+            on_test_ran=on_test_ran,
         )
         execution.run(loaded)
+        assert ran_count == 4
         ran = attempts(cases_dir)
         assert [len(ran[name]) for name in ("a_0", "a_1")] == [2, 2]
         assert ran["a_0"][1].overlaps(ran["a_1"][1])

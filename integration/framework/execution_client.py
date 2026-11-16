@@ -221,7 +221,7 @@ class ExecutionClient:
         failed_keys = {str(result) for result in failed}
         # A test in an asynchronous sequence can need its peers to run at the same
         # time, so its retry runs the whole sequence, unless the sequence is
-        # independent. A peer that passed keeps its first result.
+        # independent. The result of each peer is the result of its last run.
         retries: list[Sequence] = []
         retry_keys: set[str] = set()
         for seq in sequences:
@@ -248,10 +248,9 @@ class ExecutionClient:
             f"WITH {peers} PEER(S) ====\n"
         )
 
+        rerun_keys = {str(td) for seq in retries for td in seq.tests}
         with self._tests_lock:
-            for result in failed:
-                if str(result) in retry_keys:
-                    self._tests.remove(result)
+            self._tests[:] = [t for t in self._tests if str(t) not in rerun_keys]
             self._tests_offset = len(self._tests)
 
         self._total_tests = retry_total
