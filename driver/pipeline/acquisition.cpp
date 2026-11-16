@@ -94,18 +94,53 @@ x::telem::TimeStamp resolve_start(const x::telem::Frame &frame) {
 }
 
 void Acquisition::run() {
-    while (this->run_once()) {}
+    Run run;
+    while (this->run_once(run)) {}
 }
 
-bool Acquisition::run_once() {
+namespace {
+/// @brief records authorities as the ones to set on each writer that opens.
+void hold(
+    std::optional<x::control::Authority> &global,
+    std::map<synnax::channel::Key, x::control::Authority> &channels,
+    const Authorities &authorities
+) {
+    if (authorities.keys.empty()) {
+        global = authorities.authorities[0];
+        channels.clear();
+        return;
+    }
+    for (size_t i = 0; i < authorities.keys.size(); i++)
+        channels[authorities.keys[i]] = authorities.authorities.size() == 1
+                                          ? authorities.authorities[0]
+                                          : authorities.authorities[i];
+}
+
+/// @brief sets the held authorities on a writer that just opened.
+x::errors::Error set_held(
+    Writer &writer,
+    const std::optional<x::control::Authority> &global,
+    const std::map<synnax::channel::Key, x::control::Authority> &channels
+) {
+    if (global.has_value())
+        if (auto err = writer.set_authority({.authorities = {*global}})) return err;
+    if (channels.empty()) return x::errors::NIL;
+    Authorities auth;
+    for (const auto &[k, v]: channels) {
+        auth.keys.push_back(k);
+        auth.authorities.push_back(v);
+    }
+    return writer.set_authority(auth);
+}
+}
+
+bool Acquisition::run_once(Run &run) {
+    auto &fr = run.fr;
+    auto &authorities = run.authorities;
     std::unique_ptr<Writer> writer;
     bool writer_opened = false;
-    std::optional<x::control::Authority> pending_global_auth;
-    std::map<synnax::channel::Key, x::control::Authority> pending_channel_auths;
     x::errors::Error writer_err;
     x::errors::Error source_err;
-    x::telem::Frame fr(0);
-    Authorities authorities;
     if (this->open_eagerly) {
         this->writer_config.err_on_unauthorized = this->err_on_unauthorized;
         auto [writer_i, writer_err_i] = factory->open_writer(writer_config);
@@ -121,29 +156,43 @@ bool Acquisition::run_once() {
         writer = std::move(writer_i);
         writer_opened = true;
         this->breaker.reset_unlimited();
+        writer_err = set_held(
+            *writer,
+            run.pending_global_auth,
+            run.pending_channel_auths
+        );
+        if (writer_err)
+            LOG(ERROR) << "[acquisition] failed to set authority: "
+                       << writer_err.message();
     }
     // A running breaker means the pipeline user has not called stop.
-    while (this->breaker.running()) {
-        fr.clear();
-        authorities.keys.clear();
-        authorities.authorities.clear();
-        auto source_err_i = this->source->read(this->breaker, fr, authorities);
-        if (source_err_i) {
-            source_err = source_err_i;
-            if (!source_err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
-                LOG(ERROR) << "[acquisition] failed to read source: "
-                           << source_err.message();
-            // With a temporary error, we just continue the loop. With any other
-            // error we break and shut things down.
-            if (source_err.matches(errors::TEMPORARY_HARDWARE_ERROR) &&
-                this->breaker.wait(source_err.message()))
-                continue;
-            break;
-        }
-        if (source_err) source_err = x::errors::NIL;
+    while (!writer_err && this->breaker.running()) {
         if (fr.empty() && authorities.empty()) {
-            this->breaker.reset();
-            continue;
+            auto source_err_i = this->source->read(this->breaker, fr, authorities);
+            if (source_err_i) {
+                fr.clear();
+                authorities = Authorities{};
+                source_err = source_err_i;
+                if (!source_err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
+                    LOG(ERROR) << "[acquisition] failed to read source: "
+                               << source_err.message();
+                // With a temporary error, we just continue the loop. With any other
+                // error we break and shut things down.
+                if (source_err.matches(errors::TEMPORARY_HARDWARE_ERROR) &&
+                    this->breaker.wait(source_err.message()))
+                    continue;
+                break;
+            }
+            if (source_err) source_err = x::errors::NIL;
+            if (fr.empty() && authorities.empty()) {
+                this->breaker.reset();
+                continue;
+            }
+            if (auto err = authorities.validate()) {
+                LOG(ERROR) << "[acquisition] invalid authorities: " << err.message();
+                authorities = Authorities{};
+                break;
+            }
         }
         // Open the writer after receiving the first frame so we can resolve the
         // start timestamp from the data. This helps to account for clock drift
@@ -161,58 +210,37 @@ bool Acquisition::run_once() {
             writer = std::move(writer_i);
             writer_opened = true;
             this->breaker.reset_unlimited();
-            if (pending_global_auth.has_value()) {
-                Authorities auth{.authorities = {*pending_global_auth}};
-                if (auto err = writer->set_authority(auth)) {
-                    LOG(ERROR)
-                        << "[acquisition] failed to set authority: " << err.message();
-                    break;
-                }
-                pending_global_auth.reset();
-            }
-            if (!pending_channel_auths.empty()) {
-                Authorities auth;
-                for (const auto &[k, v]: pending_channel_auths) {
-                    auth.keys.push_back(k);
-                    auth.authorities.push_back(v);
-                }
-                if (auto err = writer->set_authority(auth)) {
-                    LOG(ERROR)
-                        << "[acquisition] failed to set authority: " << err.message();
-                    break;
-                }
-                pending_channel_auths.clear();
+            if (auto err = set_held(
+                    *writer,
+                    run.pending_global_auth,
+                    run.pending_channel_auths
+                )) {
+                LOG(ERROR) << "[acquisition] failed to set authority: "
+                           << err.message();
+                break;
             }
         }
         // Apply authority changes before writing the frame so the frame
         // is sent at the correct authority level.
         if (!authorities.empty()) {
-            if (auto err = authorities.validate()) {
-                LOG(ERROR) << "[acquisition] invalid authorities: " << err.message();
-                break;
-            }
             if (writer_opened) {
                 if (auto err = writer->set_authority(authorities)) {
                     LOG(ERROR)
                         << "[acquisition] failed to set authority: " << err.message();
                     break;
                 }
-            } else {
-                if (authorities.keys.empty()) {
-                    pending_global_auth = authorities.authorities[0];
-                    pending_channel_auths.clear();
-                } else {
-                    for (size_t i = 0; i < authorities.keys.size(); i++)
-                        pending_channel_auths
-                            [authorities.keys[i]] = authorities.authorities[i];
-                }
             }
+            hold(run.pending_global_auth, run.pending_channel_auths, authorities);
+            authorities = Authorities{};
         }
         if (!fr.empty()) {
-            if (auto err = writer->write(fr)) {
+            if (auto err = run.rewrite ? writer->rewrite(fr) : writer->write(fr)) {
                 LOG(ERROR) << "[acquisition] failed to write frame" << err;
+                run.rewrite = true;
                 break;
             }
+            fr.clear();
+            run.rewrite = false;
         }
         this->breaker.reset();
     }
