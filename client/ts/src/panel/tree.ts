@@ -98,14 +98,11 @@ export const findTabByType = (
   return findTabByType(node.first, type) ?? findTabByType(node.last, type);
 };
 
-/** findTabWhere returns the first tab in traversal order that matches, or undefined. */
-export const findTabWhere = (
-  node: Node | undefined,
-  match: (tab: Tab) => boolean,
-): Tab | undefined => {
-  if (node == null) return undefined;
-  if (node.variant === "leaf") return node.tabs.find(match);
-  return findTabWhere(node.first, match) ?? findTabWhere(node.last, match);
+/** tabs returns every tab in traversal order. */
+export const tabs = (node: Node | undefined): Tab[] => {
+  if (node == null) return [];
+  if (node.variant === "leaf") return node.tabs;
+  return [...tabs(node.first), ...tabs(node.last)];
 };
 
 /** leafTabGroups returns each leaf's ordered tab keys, leaves in traversal order. */

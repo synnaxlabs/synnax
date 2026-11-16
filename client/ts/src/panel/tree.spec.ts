@@ -109,25 +109,20 @@ describe("tree", () => {
     });
   });
 
-  describe("findTabWhere", () => {
-    const tree: panel.Node = {
-      variant: "split",
-      direction: "x",
-      size: 0.5,
-      first: leaf("a", "b"),
-      last: leaf("c", "b2"),
-    };
-
-    it("should find the first matching tab in traversal order", () => {
-      expect(panel.findTabWhere(tree, (t) => t.key.startsWith("b"))?.key).toEqual("b");
+  describe("tabs", () => {
+    it("should return every tab in traversal order", () => {
+      const tree: panel.Node = {
+        variant: "split",
+        direction: "x",
+        size: 0.5,
+        first: leaf("a", "b"),
+        last: leaf("c"),
+      };
+      expect(panel.tabs(tree).map((t) => t.key)).toEqual(["a", "b", "c"]);
     });
 
-    it("should search the last child when the first holds no match", () => {
-      expect(panel.findTabWhere(tree, (t) => t.key === "c")?.key).toEqual("c");
-    });
-
-    it("should return undefined when no tab matches", () => {
-      expect(panel.findTabWhere(tree, () => false)).toBeUndefined();
+    it("should return no tabs for an empty tree", () => {
+      expect(panel.tabs(undefined)).toEqual([]);
     });
   });
 
