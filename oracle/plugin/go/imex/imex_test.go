@@ -625,13 +625,9 @@ Symbol struct {
 
 		Describe("Body", func() {
 			// configChain is one version file's persisted surface of two task configs.
-			configChain := func(marker string) string {
-				return fmt.Sprintf(
-					"ReadConfig struct {\n\tkey uuid @key\n\trate int32%[1]s\n}\n\n"+
-						"ScanConfig struct {\n\tkey uuid @key%[1]s\n}\n",
-					marker,
-				)
-			}
+			const configChain = "ReadConfig struct {\n\tkey uuid @key\n\trate int32" +
+				"\n\t@go imex body\n}\n\n" +
+				"ScanConfig struct {\n\tkey uuid @key\n\t@go imex body\n}\n"
 			const liveConfigs = `
 @go output "core/pkg/service/modbus"
 
@@ -655,7 +651,7 @@ ScanConfig struct {
 
 			It("Should emit a ladder per type and no Export", func() {
 				req := configRequest(GinkgoT().TempDir(), map[int]string{
-					1: configChain("\n\t@go imex body"),
+					1: configChain,
 				})
 				resp := MustSucceed(p.Generate(req))
 				Expect(resp.Files).To(HaveLen(2))
@@ -687,7 +683,7 @@ ScanConfig struct {
 				"Should delete the Export a bare marker generated for the package",
 				func() {
 					req := configRequest(GinkgoT().TempDir(), map[int]string{
-						1: configChain("\n\t@go imex body"),
+						1: configChain,
 					})
 					resp := MustSucceed(p.Generate(req))
 					Expect(resp.Deletions).To(ConsistOf(
@@ -718,7 +714,7 @@ ScanConfig struct {
 						0o644,
 					)).To(Succeed())
 					req := configRequest(tmpDir, map[int]string{
-						1: configChain("\n\t@go imex body"),
+						1: configChain,
 						2: "ReadConfig struct {\n\tkey uuid @key\n\trate int64\n\n" +
 							"\t@go imex body\n}\n\nScanConfig = v1.ScanConfig\n",
 					})
@@ -815,7 +811,7 @@ ReadConfig struct {
 						v1Path = "core/pkg/service/modbus/versions/v1/imex.gen.go"
 					)
 					chain := map[int]string{
-						1: configChain("\n\t@go imex body"),
+						1: configChain,
 						2: "ReadConfig = v1.ReadConfig\n\nScanConfig = v1.ScanConfig\n",
 					}
 					both := MustSucceed(p.Generate(
@@ -876,7 +872,7 @@ ScanConfig struct {
 					0o644,
 				)).To(Succeed())
 				req := configRequest(root, map[int]string{
-					1: configChain("\n\t@go imex body"),
+					1: configChain,
 				})
 				const liveOther = `
 @go output "core/pkg/service/modbus"

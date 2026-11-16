@@ -61,7 +61,6 @@ func processUnion(
 	entry resolution.Type,
 	table *resolution.Table,
 	data *templateData,
-	keyFields []keyFieldData,
 ) unionData {
 	form := resolution.MustForm[resolution.UnionForm](entry)
 	field := data.imports.addField()
@@ -93,7 +92,7 @@ func processUnion(
 				pform := resolution.MustForm[resolution.StructForm](payload)
 				for _, f := range append(slices.Clone(declared), pform.Fields...) {
 					vd.Fields = append(vd.Fields,
-						processField(f, table, data, keyFields, nil))
+						processField(f, table, data, nil))
 				}
 			} else {
 				vd.Parents = append(
