@@ -3871,7 +3871,7 @@ var _ = Describe("Frame", func() {
 	Describe("Encode + Decode", func() {
 		codecs := []encoding.Codec{json.Codec, msgpack.Codec}
 		for _, codec := range codecs {
-			It("Should encode and decode a frame", func(ctx SpecContext) {
+			It("Should encode and decode a frame", func() {
 				original := telem.MultiFrame(
 					[]int32{1, 2},
 					[]telem.Series{
@@ -3885,7 +3885,7 @@ var _ = Describe("Frame", func() {
 				Expect(decoded).To(Equal(original))
 			})
 
-			It("Should respect masking", func(ctx SpecContext) {
+			It("Should respect masking", func() {
 				original := telem.MultiFrame(
 					[]int32{1, 2},
 					[]telem.Series{
@@ -3902,7 +3902,7 @@ var _ = Describe("Frame", func() {
 				)))
 			})
 
-			It("Should clear a mask left on the receiver", func(ctx SpecContext) {
+			It("Should clear a mask left on the receiver", func() {
 				full := telem.MultiFrame(
 					[]int32{1, 2, 3},
 					[]telem.Series{
@@ -3921,7 +3921,7 @@ var _ = Describe("Frame", func() {
 				Expect(decoded.KeysSlice()).To(Equal([]int32{1, 2, 3}))
 			})
 
-			It("Should encode and decode an empty frame", func(ctx SpecContext) {
+			It("Should encode and decode an empty frame", func() {
 				original := telem.Frame[int32]{}
 				buf := MustSucceed(codec.Encode(original))
 				var decoded telem.Frame[int32]
