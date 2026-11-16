@@ -267,11 +267,11 @@ func mapSheet(data []byte, fn func(sheet []byte) []byte) ([]byte, error) {
 
 // replaceInSheet returns the workbook data with old replaced by new in the XML of its
 // first sheet.
-func replaceInSheet(data []byte, old, new string) []byte {
+func replaceInSheet(data []byte, old, replacement string) []byte {
 	GinkgoHelper()
 	return MustSucceed(mapSheet(data, func(sheet []byte) []byte {
 		Expect(string(sheet)).To(ContainSubstring(old))
-		return []byte(strings.Replace(string(sheet), old, new, 1))
+		return []byte(strings.Replace(string(sheet), old, replacement, 1))
 	}))
 }
 
