@@ -1572,7 +1572,7 @@ TEST(SeriesOperators, DivisionByZeroThrows) {
     ASSERT_THROW(a / 0.0, std::runtime_error);
 }
 
-/// @brief Tests that a signed minimum divided by -1 wraps to the minimum.
+/// @brief it should wrap a signed minimum divided by -1 to the minimum.
 TEST(SeriesOperators, SignedMinDividedByNegativeOneWraps) {
     constexpr auto min = std::numeric_limits<int64_t>::min();
     auto a = Series(std::vector<int64_t>{min, 6});
@@ -1584,7 +1584,7 @@ TEST(SeriesOperators, SignedMinDividedByNegativeOneWraps) {
     ASSERT_EQ((min / Series(std::vector<int64_t>{-1})).at<int64_t>(0), min);
 }
 
-/// @brief Tests that a signed minimum modulo -1 is zero.
+/// @brief it should return zero for a signed minimum modulo -1.
 TEST(SeriesOperators, SignedMinModuloNegativeOneIsZero) {
     constexpr auto min = std::numeric_limits<int32_t>::min();
     auto a = Series(std::vector<int32_t>{min, 7});
