@@ -26,8 +26,7 @@ import (
 
 // icdMessage reads the documents of one ICD message into its bound channels.
 type icdMessage struct {
-	name    string
-	decoder *codec.JSON
+	name string
 	// keys are the channels of one frame: the index, when there is one, then the
 	// bound channels that are not the index.
 	keys channel.Keys
@@ -37,14 +36,16 @@ type icdMessage struct {
 	// It is -1 when the sample takes its arrival time.
 	indexField int
 	dataTypes  []telem.DataType
-	// samples holds the sample of each binding in the last document.
-	samples [][]byte
 }
 
 // icdTopic reads one topic, whose documents are each one of several ICD messages.
 type icdTopic struct {
 	topicSubscription
 	messages []*icdMessage
+	decoder  *codec.JSON
+	// samples holds, for each message, the sample of each binding in the last
+	// document that message matched.
+	samples [][][]byte
 }
 
 var _ topicReader = (*icdTopic)(nil)
@@ -69,20 +70,28 @@ func newICDTopic(
 			validate.ErrValidation, "topic %s reads no messages", entry.Topic,
 		)
 	}
-	for _, rm := range entry.Messages {
-		m, err := newICDMessage(rm, ic, channels)
+	decoded := make([]codec.JSONMessage, len(entry.Messages))
+	for i, rm := range entry.Messages {
+		m, err := newICDMessage(rm, ic, channels, &decoded[i])
 		if err != nil {
 			return nil, errors.Wrapf(err, "topic %s", entry.Topic)
 		}
 		t.messages = append(t.messages, m)
+		t.samples = append(t.samples, make([][]byte, len(decoded[i].Bindings)))
+	}
+	var err error
+	if t.decoder, err = codec.NewJSON(decoded); err != nil {
+		return nil, errors.Wrapf(err, "topic %s", entry.Topic)
 	}
 	return t, nil
 }
 
+// newICDMessage validates rm and fills decoded with what the decoder needs to read it.
 func newICDMessage(
 	rm ICDReadMessage,
 	ic icd.ICD,
 	channels map[channel.Key]channel.Channel,
+	decoded *codec.JSONMessage,
 ) (*icdMessage, error) {
 	var msg *icd.Message
 	for i := range ic.Messages {
@@ -153,10 +162,7 @@ func newICDMessage(
 			"message %s: the index field has no channel", msg.Name,
 		)
 	}
-	var err error
-	if m.decoder, err = codec.NewJSON(payload, bindings); err != nil {
-		return nil, errors.Wrapf(err, "message %s", msg.Name)
-	}
+	*decoded = codec.JSONMessage{Name: msg.Name, Payload: payload, Bindings: bindings}
 	if m.index != 0 {
 		m.keys = append(m.keys, m.index)
 	}
@@ -165,30 +171,29 @@ func newICDMessage(
 			m.keys = append(m.keys, b.Channel)
 		}
 	}
-	m.samples = make([][]byte, len(bindings))
 	return m, nil
 }
 
-// convert reads msg as the first message whose match rule its document meets.
+// convert reads msg as the message whose match rule its document meets.
 func (t *icdTopic) convert(msg message) (topicSample, error) {
-	for _, m := range t.messages {
-		for i := range m.samples {
-			m.samples[i] = m.samples[i][:0]
-		}
-		ok, err := m.decoder.Decode(msg.payload, m.samples)
-		if err != nil {
-			return topicSample{}, errors.Wrapf(err, "message %s", m.name)
-		}
-		if ok {
-			return m.sample(msg.received), nil
+	for _, samples := range t.samples {
+		for i := range samples {
+			samples[i] = samples[i][:0]
 		}
 	}
-	return topicSample{}, errors.New("the payload matches no message")
+	i, ok, err := t.decoder.Decode(msg.payload, t.samples)
+	if err != nil {
+		return topicSample{}, err
+	}
+	if !ok {
+		return topicSample{}, errors.New("the payload matches no message")
+	}
+	return t.messages[i].sample(t.samples[i], msg.received), nil
 }
 
-// sample builds the samples of the last document, stamped received when the message
-// has no index field.
-func (m *icdMessage) sample(received telem.TimeStamp) topicSample {
+// sample builds a topic sample from the samples of each binding in one document,
+// stamped received when the message has no index field.
+func (m *icdMessage) sample(samples [][]byte, received telem.TimeStamp) topicSample {
 	s := topicSample{
 		index:  m.index,
 		keys:   m.keys,
@@ -198,7 +203,7 @@ func (m *icdMessage) sample(received telem.TimeStamp) topicSample {
 	if m.index != 0 {
 		s.series = append(s.series, telem.Series{DataType: telem.TimestampT})
 	}
-	for i, data := range m.samples {
+	for i, data := range samples {
 		if i == m.indexField {
 			s.stamp = telem.TimeStamp(telem.ByteOrder.Uint64(data))
 			continue
