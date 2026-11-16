@@ -182,7 +182,7 @@ func (w *streamWriter) process(
 	case WriterCommandCommit:
 		return w.commit(ctx)
 	case writerCommandSetAuthority:
-		err = w.setAuthority(ctx, req.Config)
+		w.setAuthority(ctx, req.Config)
 	case writerCommandEndDomain:
 		err = w.endDomain(ctx, req.Config.Channels)
 	default:
@@ -194,9 +194,9 @@ func (w *streamWriter) process(
 	return 0, true, nil
 }
 
-func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error {
+func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
 	if len(cfg.Authorities) == 0 {
-		return nil
+		return
 	}
 	cfg = w.propagateAuthority(cfg)
 	var (
@@ -237,7 +237,6 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 	if len(u.Transfers) > 0 {
 		w.updateDBControl(ctx, u)
 	}
-	return nil
 }
 
 func (w *streamWriter) maybeSendRes(
