@@ -7,8 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import subprocess
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
+import pytest
 
 from login_expiry import PREFIX, check
 
@@ -23,10 +26,17 @@ class FakeAws:
     """Answers the AWS CLI calls of the check from fixed logins, by name."""
 
     def __init__(
-        self, logins: dict[str, dict[str, str]], *, deleted: tuple[str, ...] = ()
+        self,
+        logins: dict[str, dict[str, str]],
+        *,
+        deleted: tuple[str, ...] = (),
+        purged: tuple[str, ...] = (),
+        failing: tuple[str, ...] = (),
     ) -> None:
         self.logins = logins
         self.deleted = deleted
+        self.purged = purged
+        self.failing = failing
 
     def __call__(self, args: list[str]) -> Any:
         match args[:2]:
@@ -35,6 +45,14 @@ class FakeAws:
                 return {"SecretList": [{"Name": PREFIX + n} for n in self.logins]}
             case ["secretsmanager", "describe-secret"]:
                 login = args[-1].removeprefix(PREFIX)
+                if login in self.purged:
+                    raise subprocess.CalledProcessError(
+                        254, args, stderr="ResourceNotFoundException"
+                    )
+                if login in self.failing:
+                    raise subprocess.CalledProcessError(
+                        254, args, stderr="AccessDeniedException"
+                    )
                 tags = [{"Key": k, "Value": v} for k, v in self.logins[login].items()]
                 secret: dict[str, Any] = {"Tags": tags}
                 if login in self.deleted:
@@ -82,6 +100,25 @@ def test_deleted_login_is_skipped() -> None:
     )
     assert ok
     assert lines == ["claude-2: expires 2027-06-03"]
+
+
+def test_purged_login_is_skipped() -> None:
+    ok, lines = check(
+        FakeAws(
+            {"claude-1": {"expires": at(-5)}, "claude-2": {"expires": at(200)}},
+            purged=("claude-1",),
+        ),
+        now=NOW,
+    )
+    assert ok
+    assert lines == ["claude-2: expires 2027-06-03"]
+
+
+def test_other_describe_error_raises() -> None:
+    with pytest.raises(subprocess.CalledProcessError):
+        check(
+            FakeAws({"claude-1": {"expires": at(200)}}, failing=("claude-1",)), now=NOW
+        )
 
 
 def test_no_login_fails() -> None:

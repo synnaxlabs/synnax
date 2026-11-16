@@ -35,7 +35,7 @@ def cli(args: list[str]) -> Any:
     out = subprocess.run(
         ["aws", *args, "--region", REGION, "--output", "json"],
         check=True,
-        stdout=subprocess.PIPE,
+        capture_output=True,
         text=True,
     ).stdout
     return json.loads(out) if out.strip() else None
@@ -50,7 +50,12 @@ def check(aws: Aws, *, now: datetime) -> tuple[bool, list[str]]:
     ok = True
     for name in sorted(s["Name"] for s in listed["SecretList"]):
         # The list can lag a deletion by minutes. Describe is current.
-        secret = aws(["secretsmanager", "describe-secret", "--secret-id", name])
+        try:
+            secret = aws(["secretsmanager", "describe-secret", "--secret-id", name])
+        except subprocess.CalledProcessError as e:
+            if "ResourceNotFoundException" in e.stderr:
+                continue
+            raise
         if "DeletedDate" in secret:
             continue
         tags = {t["Key"]: t["Value"] for t in secret.get("Tags", [])}
