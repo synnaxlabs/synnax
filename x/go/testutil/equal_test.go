@@ -88,6 +88,13 @@ var _ = Describe("DeepEqual", func() {
 		Expect(DeepEqual(pair{x[:1], x}, pair{y[:1], y})).To(BeFalse())
 	})
 
+	It("Should compare slices whose second value differs in length", func() {
+		type pair struct{ first, second []int }
+		x := []int{1, 2, 3}
+		y := []int{1, 2, 3}
+		Expect(DeepEqual(pair{x, x}, pair{y, y[:2]})).To(BeFalse())
+	})
+
 	It("Should compare a channel by identity", func() {
 		ch := make(chan int)
 		Expect(DeepEqual(ch, ch)).To(BeTrue())

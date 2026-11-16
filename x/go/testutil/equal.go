@@ -52,6 +52,9 @@ func deepEqual(a, b reflect.Value, seen set.Set[visit]) bool {
 		}
 		key := visit{a: a.Pointer(), b: b.Pointer(), t: a.Type()}
 		if a.Kind() == reflect.Slice {
+			if a.Len() != b.Len() {
+				return false
+			}
 			key.n = a.Len()
 		}
 		if seen.Contains(key) {
