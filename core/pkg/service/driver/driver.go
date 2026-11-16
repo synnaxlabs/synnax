@@ -625,9 +625,19 @@ func (d *Driver) configure(ctx context.Context, t task.Task, cmdKey string) erro
 			if err != nil {
 				return err
 			}
+			// A commit that deleted the task during the deploy marked no instance. The
+			// lock orders this check before markDeleted of any later delete.
 			d.mu.Lock()
-			d.mu.instances[t.Key] = instance{task: newTask, hash: t.ConfigHash}
+			exists, err := d.cfg.Task.NewRetrieve().
+				Where(task.MatchKeys(t.Key)).
+				Exists(ctx, d.cfg.DB)
+			if exists {
+				d.mu.instances[t.Key] = instance{task: newTask, hash: t.ConfigHash}
+			}
 			d.mu.Unlock()
+			if err != nil || !exists {
+				return errors.Combine(err, newTask.Stop(false))
+			}
 			d.cfg.L.Info("configured task", zap.Stringer("task", t))
 			return nil
 		}
