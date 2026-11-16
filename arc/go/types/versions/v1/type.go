@@ -81,47 +81,23 @@ func (t Type) IntegerMinValue() int64 {
 
 // String returns the string representation of the type.
 func (t Type) String() string {
-	var base string
+	if base, ok := numericKindName(t.Kind); ok {
+		if t.Unit != nil && t.Unit.Name != "" {
+			return base + " " + t.Unit.Name
+		}
+		return base
+	}
 	switch t.Kind {
-	case KindU8:
-		base = "u8"
-	case KindU16:
-		base = "u16"
-	case KindU32:
-		base = "u32"
-	case KindU64:
-		base = "u64"
-	case KindI8:
-		base = "i8"
-	case KindI16:
-		base = "i16"
-	case KindI32:
-		base = "i32"
-	case KindI64:
-		base = "i64"
-	case KindF32:
-		base = "f32"
-	case KindF64:
-		base = "f64"
 	case KindBool:
 		return "bool"
 	case KindString:
 		return "str"
 	case KindChan:
-		if t.Elem != nil {
-			return "chan " + t.Elem.String()
-		}
-		return "chan <invalid>"
+		return wrappedString("chan", t.Elem)
 	case KindSeries:
-		if t.Elem != nil {
-			return "series " + t.Elem.String()
-		}
-		return "series <invalid>"
+		return wrappedString("series", t.Elem)
 	case KindVarRef:
-		if t.Elem != nil {
-			return "var " + t.Elem.String()
-		}
-		return "var <invalid>"
+		return wrappedString("var", t.Elem)
 	case KindVariable:
 		if t.Constraint != nil {
 			return t.Constraint.String()
@@ -144,11 +120,40 @@ func (t Type) String() string {
 	default:
 		return "invalid"
 	}
+}
 
-	if t.Unit != nil && t.Unit.Name != "" {
-		return base + " " + t.Unit.Name
+func numericKindName(k Kind) (string, bool) {
+	switch k {
+	case KindU8:
+		return "u8", true
+	case KindU16:
+		return "u16", true
+	case KindU32:
+		return "u32", true
+	case KindU64:
+		return "u64", true
+	case KindI8:
+		return "i8", true
+	case KindI16:
+		return "i16", true
+	case KindI32:
+		return "i32", true
+	case KindI64:
+		return "i64", true
+	case KindF32:
+		return "f32", true
+	case KindF64:
+		return "f64", true
+	default:
+		return "", false
 	}
-	return base
+}
+
+func wrappedString(prefix string, elem *Type) string {
+	if elem == nil {
+		return prefix + " <invalid>"
+	}
+	return prefix + " " + elem.String()
 }
 
 // IsNumeric returns true if the type is a numeric type (integer or float).

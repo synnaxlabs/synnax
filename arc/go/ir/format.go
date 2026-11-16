@@ -24,7 +24,27 @@ func FormatFunctionSignature(name string, t types.Type) string {
 	var sb strings.Builder
 	sb.WriteString(name)
 	sb.WriteString("(")
-	for i, p := range t.Inputs {
+	writeParams(&sb, t.Inputs)
+	sb.WriteString(")")
+	if len(t.Outputs) == 0 {
+		return sb.String()
+	}
+	sb.WriteString(" ")
+	switch {
+	case len(t.Outputs) == 1 && t.Outputs[0].Name == DefaultOutputParam:
+		sb.WriteString(t.Outputs[0].Type.String())
+	case len(t.Outputs) == 1:
+		writeParams(&sb, t.Outputs)
+	default:
+		sb.WriteString("(")
+		writeParams(&sb, t.Outputs)
+		sb.WriteString(")")
+	}
+	return sb.String()
+}
+
+func writeParams(sb *strings.Builder, params types.Params) {
+	for i, p := range params {
 		if i > 0 {
 			sb.WriteString(", ")
 		}
@@ -32,27 +52,4 @@ func FormatFunctionSignature(name string, t types.Type) string {
 		sb.WriteString(" ")
 		sb.WriteString(p.Type.String())
 	}
-	sb.WriteString(")")
-	if len(t.Outputs) > 0 {
-		sb.WriteString(" ")
-		if len(t.Outputs) == 1 && t.Outputs[0].Name == DefaultOutputParam {
-			sb.WriteString(t.Outputs[0].Type.String())
-		} else if len(t.Outputs) == 1 {
-			sb.WriteString(t.Outputs[0].Name)
-			sb.WriteString(" ")
-			sb.WriteString(t.Outputs[0].Type.String())
-		} else {
-			sb.WriteString("(")
-			for i, p := range t.Outputs {
-				if i > 0 {
-					sb.WriteString(", ")
-				}
-				sb.WriteString(p.Name)
-				sb.WriteString(" ")
-				sb.WriteString(p.Type.String())
-			}
-			sb.WriteString(")")
-		}
-	}
-	return sb.String()
 }
