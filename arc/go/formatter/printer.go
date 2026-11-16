@@ -115,6 +115,7 @@ func (p *printer) print(tokens []antlr.Token) string {
 			trailing := commentAttacher.getTrailingComment(tok)
 			if trailing != nil {
 				p.pendingTrailingComment = " " + strings.TrimSpace(trailing.GetText())
+				p.prevLine = lastLine(trailing)
 			}
 		}
 		p.prevToken = tok
@@ -329,7 +330,12 @@ func (p *printer) emitToken(
 
 	p.lastWasUnaryMinus = p.isUnaryMinus(tokType)
 	p.lastTokenType = tokType
-	p.prevLine = tokLine
+	p.prevLine = lastLine(tok)
+}
+
+// lastLine returns the line tok ends on.
+func lastLine(tok antlr.Token) int {
+	return tok.GetLine() + strings.Count(tok.GetText(), "\n")
 }
 
 func (p *printer) detectBraceContext(idx int, tokens []antlr.Token) braceContext {
