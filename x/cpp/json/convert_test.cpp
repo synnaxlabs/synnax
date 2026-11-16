@@ -1412,7 +1412,9 @@ TEST(ToSampleValue, StringToTimestampISO8601DayPastEndOfMonth) {
           "2024-02-30T00:00:00Z",
           "2100-02-29T00:00:00Z",
           "2001-04-31T00:00:00Z",
-          "2001-11-31T00:00:00Z"})
+          "2001-11-31T00:00:00Z",
+          "2001-01-32T00:00:00Z",
+          "2001-12-99T00:00:00Z"})
         ASSERT_OCCURRED_AS_P(
             x::json::to_sample_value(
                 json(input),
