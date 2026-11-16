@@ -193,6 +193,7 @@ o:
 			if !ok {
 				break o
 			}
+			clear(addrMap)
 			if err = bsw.Switch(ctx, msg, addrMap); err != nil {
 				return err
 			}
