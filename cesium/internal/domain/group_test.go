@@ -363,5 +363,80 @@ var _ = Describe("Group", func() {
 				Expect(changes).To(Equal([]telem.TimeRange{seconds(15, 20)}))
 			},
 		)
+		It("Should report the change of an unpublished commit once its writer closes",
+			func(ctx SpecContext) {
+				var g domain.Group
+				commitIn(ctx, openWriter(ctx, 30), 40, nil)
+				w := openWriter(ctx, 10)
+				commitIn(ctx, w, 20, &g)
+				Expect(w.Close()).To(Succeed())
+				Expect(changes).To(Equal([]telem.TimeRange{seconds(10, 20)}))
+				g.Publish()
+				Expect(changes).To(HaveLen(1))
+			})
+
+		It(
+			"Should report an unpublished change once its writer commits to another domain",
+			func(ctx SpecContext) {
+				var g domain.Group
+				commitIn(ctx, openWriter(ctx, 50), 60, nil)
+				w := openWriter(ctx, 10)
+				commitIn(ctx, w, 20, &g)
+				Expect(w.Finish(ctx)).To(Succeed())
+				Expect(w.SetStart(30 * telem.SecondTS)).To(Succeed())
+				commitIn(ctx, w, 40, &g)
+				Expect(changes).To(Equal([]telem.TimeRange{seconds(10, 20)}))
+				g.Publish()
+				Expect(changes).To(Equal([]telem.TimeRange{
+					seconds(10, 20),
+					seconds(30, 40),
+				}))
+			},
+		)
+
+		It(
+			"Should report an unpublished change with a later commit outside the group",
+			func(ctx SpecContext) {
+				var g domain.Group
+				w := openWriter(ctx, 10)
+				commitIn(ctx, w, 15, nil)
+				commitIn(ctx, openWriter(ctx, 30), 40, nil)
+				commitIn(ctx, w, 20, &g)
+				commitIn(ctx, w, 25, nil)
+				Expect(changes).To(Equal([]telem.TimeRange{seconds(15, 25)}))
+				g.Publish()
+				Expect(changes).To(HaveLen(1))
+			},
+		)
+
+		It("Should report the changes of two unpublished commits as one",
+			func(ctx SpecContext) {
+				var g domain.Group
+				commitIn(ctx, openWriter(ctx, 30), 40, nil)
+				w := openWriter(ctx, 10)
+				commitIn(ctx, w, 15, &g)
+				commitIn(ctx, w, 20, &g)
+				g.Publish()
+				Expect(changes).To(Equal([]telem.TimeRange{seconds(10, 20)}))
+			})
+
+		It("Should report the change of an unpublished commit that a delete reaches",
+			func(ctx SpecContext) {
+				var g domain.Group
+				commitIn(ctx, openWriter(ctx, 30), 40, nil)
+				commitIn(ctx, openWriter(ctx, 10), 20, &g)
+				Expect(db.Delete(
+					ctx,
+					seconds(10, 20),
+					fixedOffset(0),
+					fixedOffset(1),
+				)).To(Succeed())
+				Expect(changes).To(Equal([]telem.TimeRange{
+					seconds(10, 20),
+					seconds(10, 20),
+				}))
+				g.Publish()
+				Expect(changes).To(HaveLen(2))
+			})
 	})
 })

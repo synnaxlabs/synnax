@@ -38,18 +38,26 @@ type index struct {
 	totalSize   *atomic.Int64
 }
 
-// unprotectedStage records the domain at p.Start as readers see it until g publishes.
-// old is the pointer that the commit replaced, and is not set for an insert. A nil g
-// makes the domain visible at once.
-func (idx *index) unprotectedStage(p pointer, old *pointer, g *Group) {
-	prev, wasStaged := idx.mu.staged[p.Start]
+// unprotectedStage records the domain at p.Start as readers see it until g publishes,
+// with the history change of the commit. old is the pointer that the commit replaced,
+// and is not set for an insert. A nil g makes the domain visible at once. It returns
+// the history change to report now.
+func (idx *index) unprotectedStage(
+	p pointer,
+	old *pointer,
+	g *Group,
+	change historyChange,
+) historyChange {
 	if g == nil {
-		if wasStaged {
-			delete(idx.mu.staged, p.Start)
-		}
-		return
+		return idx.unprotectedReveal(p.Start).then(change)
 	}
-	s := staged{group: g, publish: g.published.Load() + 1, inserted: old == nil}
+	prev, wasStaged := idx.mu.staged[p.Start]
+	s := staged{
+		group:    g,
+		publish:  g.published.Load() + 1,
+		inserted: old == nil,
+		change:   prev.change.then(change),
+	}
 	if old != nil {
 		s.end, s.size = old.End, old.size
 		// Readers still see the domain as it was before an earlier unpublished commit.
@@ -61,14 +69,49 @@ func (idx *index) unprotectedStage(p pointer, old *pointer, g *Group) {
 		idx.mu.staged = make(map[telem.TimeStamp]staged)
 	}
 	idx.mu.staged[p.Start] = s
+	if change.ctx != nil {
+		g.changed = append(g.changed, stagedDomain{idx: idx, start: p.Start})
+	}
+	return historyChange{}
 }
 
-// unstage makes the domain that starts at start visible to readers as the index holds
-// it. The caller must not hold mu.
-func (idx *index) unstage(start telem.TimeStamp) {
-	idx.mu.Lock()
+// unprotectedReveal makes the domain that starts at start visible to readers as the
+// index holds it. It returns the history change that waited for that, which the caller
+// must report.
+func (idx *index) unprotectedReveal(start telem.TimeStamp) historyChange {
+	s, ok := idx.mu.staged[start]
+	if !ok {
+		return historyChange{}
+	}
 	delete(idx.mu.staged, start)
+	return s.change
+}
+
+// reveal is unprotectedReveal for a caller that does not hold mu. It reports the
+// history change.
+func (idx *index) reveal(start telem.TimeStamp) {
+	idx.mu.Lock()
+	change := idx.unprotectedReveal(start)
 	idx.mu.Unlock()
+	idx.report(change)
+}
+
+// revealPublished is reveal for a domain that g published. It leaves a domain that
+// another Group staged since.
+func (idx *index) revealPublished(start telem.TimeStamp, g *Group) {
+	var change historyChange
+	idx.mu.Lock()
+	if s, ok := idx.mu.staged[start]; ok && s.group == g && s.visible() {
+		change = idx.unprotectedReveal(start)
+	}
+	idx.mu.Unlock()
+	idx.report(change)
+}
+
+func (idx *index) report(change historyChange) {
+	if change.ctx != nil {
+		idx.notifyHistoryChange(change.ctx, change.tr)
+	}
 }
 
 // unprotectedVisible returns the first domain that readers see, from position i in the
@@ -89,20 +132,6 @@ func (idx *index) unprotectedVisible(i, step int) (int, pointer, bool) {
 		}
 	}
 	return i, pointer{}, false
-}
-
-// notifyHistoryChangeAfter reports a history change over tr once g publishes, or at
-// once for a nil g.
-func (idx *index) notifyHistoryChangeAfter(
-	ctx context.Context,
-	tr telem.TimeRange,
-	g *Group,
-) {
-	if g == nil {
-		idx.notifyHistoryChange(ctx, tr)
-		return
-	}
-	g.changes = append(g.changes, func() { idx.notifyHistoryChange(ctx, tr) })
 }
 
 // insert adds a new pointer to the index, in g when g is not nil. When persist is true,
@@ -153,7 +182,12 @@ func (idx *index) insert(
 		idx.mu.pointers = slices.Insert(idx.mu.pointers, insertAt, p)
 	}
 
-	idx.unprotectedStage(p, nil, g)
+	var change historyChange
+	// The live stream carries domains added at the end.
+	if !appended {
+		change = historyChange{ctx: ctx, tr: p.TimeRange}
+	}
+	change = idx.unprotectedStage(p, nil, g, change)
 	idx.totalSize.Add(int64(p.size))
 	idx.persistHead = min(idx.persistHead, insertAt)
 	var write preparedWrite
@@ -161,10 +195,7 @@ func (idx *index) insert(
 		write = idx.indexPersist.prepare(idx.persistHead)
 	}
 	idx.mu.Unlock()
-	// The live stream carries domains added at the end.
-	if !appended {
-		idx.notifyHistoryChangeAfter(ctx, p.TimeRange, g)
-	}
+	idx.report(change)
 	return write, nil
 }
 
@@ -254,12 +285,16 @@ func (idx *index) update(
 		err := NewRangeWriteConflictError(p.TimeRange, ptrs[updateAt+1].TimeRange)
 		idx.mu.Unlock()
 		return preparedWrite{}, span.Error(err)
-	} else {
-		sizeDelta := int64(p.size) - int64(oldP.size)
-		idx.mu.pointers[updateAt] = p
-		idx.unprotectedStage(p, &oldP, g)
-		idx.totalSize.Add(sizeDelta)
 	}
+	sizeDelta := int64(p.size) - int64(oldP.size)
+	idx.mu.pointers[updateAt] = p
+	idx.totalSize.Add(sizeDelta)
+	var change historyChange
+	// The live stream carries commits to the last domain.
+	if updateAt != lastI {
+		change = historyChange{ctx: ctx, tr: oldP.End.Range(p.End)}
+	}
+	change = idx.unprotectedStage(p, &oldP, g, change)
 
 	idx.persistHead = min(idx.persistHead, updateAt)
 	var write preparedWrite
@@ -267,10 +302,7 @@ func (idx *index) update(
 		write = idx.indexPersist.prepare(idx.persistHead)
 	}
 	idx.mu.Unlock()
-	// The live stream carries commits to the last domain.
-	if updateAt != lastI {
-		idx.notifyHistoryChangeAfter(ctx, oldP.End.Range(p.End), g)
-	}
+	idx.report(change)
 	return write, nil
 }
 

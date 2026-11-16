@@ -369,7 +369,7 @@ func (w *Writer) commit(
 		return span.Error(err)
 	}
 	if w.staged && w.stagedStart != ptr.Start {
-		w.idx.unstage(w.stagedStart)
+		w.idx.reveal(w.stagedStart)
 	}
 	w.staged, w.stagedStart = g != nil, ptr.Start
 	// The index holds the pointer even when persisting it fails, so a retry updates it.
@@ -423,7 +423,7 @@ func (w *Writer) release() error {
 	defer w.onClose()
 	w.closed = true
 	if w.staged {
-		w.idx.unstage(w.stagedStart)
+		w.idx.reveal(w.stagedStart)
 		w.staged = false
 	}
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 {
