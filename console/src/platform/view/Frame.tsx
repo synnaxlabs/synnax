@@ -9,7 +9,7 @@
 
 import "@/platform/view/View.css";
 
-import { NotFoundError, UnexpectedError, view } from "@synnaxlabs/client";
+import { UnexpectedError, view } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -58,9 +58,6 @@ const STATIC_KEYS: Record<view.Type, view.Key> = {
   status: "020fd972-f51f-40c9-9daf-4cd3f7de4d51",
 };
 
-const isGone = (error: unknown): boolean =>
-  NotFoundError.matches(error) || Flux.DeletedError.matches(error);
-
 /**
  * Frame shows the views of a resource type above the open one. The view a tab shows is
  * kept in the session, so it lasts through a reload and a move to another window. Must
@@ -92,10 +89,9 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
   const { getItem } = combinedProps;
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const staticViewKeys = staticViews.map((v) => v.key);
-  const gone = saved.variant === "error" && isGone(saved.status.details.error);
-  if (saved.variant === "error" && !gone) throw saved.status.details.error;
-  // A tab whose view was deleted shows the static view.
-  const selected = open == null || gone ? staticViews[0].key : open;
+  // A tab whose view was deleted, or that this user cannot read, shows the static view.
+  const selected =
+    open == null || saved.variant === "error" ? staticViews[0].key : open;
   const ready = selected !== open || saved.variant === "success";
   const select = (key: view.Key) => {
     const next = staticViewKeys.includes(key) ? null : key;

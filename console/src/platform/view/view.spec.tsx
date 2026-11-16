@@ -361,6 +361,19 @@ describe("View open in a tab", () => {
     await waitFor(() => expect(selectedViewName()).toBe("All ranges"));
   });
 
+  it("shows the static view in a tab whose view the user cannot read", async () => {
+    const saved = await createView();
+    const tab = uuid.create();
+    const subject = await createTestClientWithGrants(client, {
+      retrieve: [ranger.TYPE_RESOURCE_ID],
+    });
+    await renderHarness(subject, {
+      store: await createStoreShowing(tab, saved.key),
+      tab,
+    });
+    await waitFor(() => expect(selectedViewName()).toBe("All ranges"));
+  });
+
   it("goes back to the static view when the open view is deleted", async () => {
     const saved = await createView();
     const tab = uuid.create();
