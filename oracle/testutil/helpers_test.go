@@ -574,6 +574,40 @@ var _ = Describe("ExpectContent", func() {
 			ExpectContent(resp, "user.go").
 				ToPreserveOrder("package", "import", "type User", "A int", "B int", "C int")
 		})
+
+		It("should pass when a later substring also appears earlier", func() {
+			resp := buildResponse(plugin.File{
+				Path: "out/user.go",
+				Content: []byte(
+					"// Name is the name.\ntype User struct {\n\tName string\n}",
+				),
+			})
+			ExpectContent(resp, "user.go").ToPreserveOrder("type User", "Name")
+		})
+
+		DescribeTable(
+			"should fail when a substring does not appear after the previous one",
+			func(content string, substrings ...string) {
+				resp := buildResponse(plugin.File{
+					Path:    "out/user.go",
+					Content: []byte(content),
+				})
+				Expect(InterceptGomegaFailure(func() {
+					ExpectContent(resp, "user.go").ToPreserveOrder(substrings...)
+				})).To(MatchError(ContainSubstring(fmt.Sprintf(
+					"expected %q to appear after previous substring",
+					substrings[len(substrings)-1],
+				))))
+			},
+			Entry(
+				"only before the previous match",
+				"Name\ntype User",
+				"type User",
+				"Name",
+			),
+			Entry("missing", "type User struct {}", "type User", "Name"),
+			Entry("overlapping the previous match", "type User", "type User", "User"),
+		)
 	})
 
 	Describe("file matching", func() {
