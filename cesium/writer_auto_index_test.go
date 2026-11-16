@@ -29,7 +29,8 @@ var _ = Describe("Writer AutoIndex", func() {
 				db *cesium.DB
 				fs fs.FS
 			)
-			BeforeAll(func(ctx SpecContext) {
+			BeforeAll(func() {
+				ctx := GinkgoT().Context()
 				ShouldNotLeakGoroutines()
 				fs = openFS()
 				db = DeferClose(openDBOnFS(ctx, fs))

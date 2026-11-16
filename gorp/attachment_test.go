@@ -39,7 +39,8 @@ var _ = Describe("Attachment", func() {
 		}
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		records = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
 			DB:   db,

@@ -33,8 +33,8 @@ type Iterator struct {
 	closed   bool
 }
 
-func wrapStreamIterator(internal *streamIterator) *Iterator {
-	ctx, cancel := signal.Isolated()
+func wrapStreamIterator(life context.Context, internal *streamIterator) *Iterator {
+	ctx, cancel := signal.WithCancel(life)
 	req, res := confluence.Attach(internal, 1)
 	internal.Flow(
 		ctx,

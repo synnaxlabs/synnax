@@ -136,7 +136,7 @@ var _ = Describe("Delivery", func() {
 		}
 	)
 
-	BeforeEach(func(ctx SpecContext) { open(ctx, memkv.New()) })
+	BeforeEach(func() { open(GinkgoT().Context(), memkv.New()) })
 
 	It(
 		"Should number each commit that changes a record, starting at 1",

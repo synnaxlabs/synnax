@@ -38,7 +38,8 @@ var _ = Describe("Delete", func() {
 				db *cesium.DB
 				fs fs.FS
 			)
-			BeforeAll(func(ctx SpecContext) {
+			BeforeAll(func() {
+				ctx := GinkgoT().Context()
 				ShouldNotLeakGoroutines()
 				fs = openFS()
 				db = mustOpenDBOnFS(ctx, fs)
@@ -1611,7 +1612,8 @@ var _ = Describe("Background removal", func() {
 		db   *cesium.DB
 		key  cesium.ChannelKey
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		fsys = WrapFaultyFS(FileSystems["memFS"]())
 		db = mustOpenDBOnFS(ctx, fsys)
 		key = GenerateChannelKey()

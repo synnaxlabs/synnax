@@ -23,7 +23,8 @@ var _ = Describe("Accuracy", func() {
 		Context("FS: "+fsName, Ordered, func() {
 			var db *cesium.DB
 
-			BeforeAll(func(ctx SpecContext) {
+			BeforeAll(func() {
+				ctx := GinkgoT().Context()
 				ShouldNotLeakGoroutines()
 				db = mustOpenDBOnFS(ctx, openFS())
 			})

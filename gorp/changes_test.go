@@ -93,7 +93,8 @@ var _ = Describe("Changes", func() {
 		}
 	)
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		records = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
 			DB:   db,
@@ -215,7 +216,8 @@ var _ = Describe("Changes", func() {
 			}
 		)
 
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			racks := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
 				DB:   db,
 				Name: "rack",

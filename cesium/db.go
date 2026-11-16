@@ -52,6 +52,8 @@ func NewAlignmentCounter() *AlignmentCounter {
 }
 
 type DB struct {
+	// life ends when the DB closes or the context passed to Open ends.
+	life     context.Context
 	shutdown io.Closer
 	// removals tracks the background removals of deleted channel data.
 	removals sync.WaitGroup

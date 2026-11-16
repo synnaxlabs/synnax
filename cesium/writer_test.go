@@ -50,7 +50,8 @@ var _ = Describe("Writer Behavior", func() {
 				db *cesium.DB
 				fs fs.FS
 			)
-			BeforeAll(func(ctx SpecContext) {
+			BeforeAll(func() {
+				ctx := GinkgoT().Context()
 				ShouldNotLeakGoroutines()
 				fs = openFS()
 				db = mustOpenDBOnFS(ctx, fs)
@@ -5362,7 +5363,8 @@ var _ = Describe("Writer commit order", func() {
 			onPersist func() error
 		)
 
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			indexKey, dataKey = GenerateChannelKey(), GenerateChannelKey()
 			keys = []cesium.ChannelKey{indexKey, dataKey}
 			onPersist = func() error { return nil }
@@ -5648,3 +5650,39 @@ func openObservedStreamer(
 		cancel()
 	}
 }
+
+var _ = Describe("Writer lifetime", func() {
+	It("Should release control within a deadline when the DB context ends", func(
+		ctx SpecContext,
+	) {
+		life, cancel := context.WithCancel(ctx)
+		db := mustOpenDBOnFS(life, FileSystems["memFS"]())
+		key := GenerateChannelKey()
+		Expect(db.CreateChannel(ctx, cesium.Channel{
+			Name:     "boulder",
+			Key:      key,
+			Virtual:  true,
+			DataType: telem.StringT,
+		})).To(Succeed())
+		type release struct {
+			bounded bool
+			err     error
+		}
+		releases := make(chan release, 1)
+		DeferCleanup(db.OnControlUpdate(
+			func(ctx context.Context, u cesium.ControlUpdate) {
+				if u.Transfers[0].To == nil {
+					_, bounded := ctx.Deadline()
+					releases <- release{bounded: bounded, err: ctx.Err()}
+				}
+			},
+		))
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels:       []cesium.ChannelKey{key},
+			ControlSubject: control.Subject{Key: "1", Name: "boulder"},
+		}))
+		cancel()
+		Eventually(releases).Should(Receive(Equal(release{bounded: true})))
+		Expect(w.Close()).To(Succeed())
+	})
+})

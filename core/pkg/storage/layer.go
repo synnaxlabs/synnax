@@ -500,7 +500,8 @@ func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*ts.DB, error) {
 			cfg.TSEngine,
 		)
 	}
-	return ts.Open(ctx, ts.Config{
+	// ctx ends when shutdown starts, before the Core stops writing.
+	return ts.Open(context.WithoutCancel(ctx), ts.Config{
 		Instrumentation: cfg.Child("ts"),
 		Dirname:         filepath.Join(cfg.Dirname, cesiumDir),
 		FS:              fs,

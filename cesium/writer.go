@@ -10,6 +10,7 @@
 package cesium
 
 import (
+	"context"
 	"io"
 
 	"github.com/synnaxlabs/cesium/internal/resource"
@@ -29,8 +30,12 @@ type Writer struct {
 
 var ErrWriterClosed = resource.NewClosedError("cesium.writer")
 
-func wrapStreamWriter(cfg WriterConfig, internal StreamWriter) *Writer {
-	sCtx, cancel := signal.Isolated()
+func wrapStreamWriter(
+	life context.Context,
+	cfg WriterConfig,
+	internal StreamWriter,
+) *Writer {
+	sCtx, cancel := signal.WithCancel(life)
 	req := confluence.NewStream[WriterRequest](1)
 	res := confluence.NewStream[WriterResponse](1)
 	internal.InFrom(req)

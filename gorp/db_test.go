@@ -308,7 +308,8 @@ var _ = Describe("DB", func() {
 				scoreIdx *gorp.SortedIndex[int32, indexedEntry, int64]
 				textIdx  *gorp.SearchIndex[int32, indexedEntry]
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				nameIdx = gorp.NewLookupIndex(
 					"name", func(e *indexedEntry) string { return e.Name },
 				)

@@ -26,7 +26,8 @@ var _ = Describe("Observe", func() {
 		entryTable *gorp.Table[int32, entry]
 		grapeTable *gorp.Table[int32, grape]
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(OpenGorpMsgpackDB())
 		entryTable = MustOpen(
 			gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),
@@ -41,7 +42,8 @@ var _ = Describe("Observe", func() {
 			table   *gorp.Table[int32, indexedEntry]
 			found   [][]int32
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			nameIdx = gorp.NewLookupIndex(
 				"name", func(e *indexedEntry) string { return e.Name },
 			)
@@ -199,7 +201,8 @@ var _ = Describe("Changes", func() {
 		entryTable *gorp.Table[int32, entry]
 		commits    []gorp.Commit
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(OpenGorpMsgpackDB())
 		entryTable = MustOpen(
 			gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),

@@ -48,7 +48,8 @@ var _ = Describe("History", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS:"+fsName, Ordered, func() {
 			var db *cesium.DB
-			BeforeAll(func(ctx SpecContext) {
+			BeforeAll(func() {
+				ctx := GinkgoT().Context()
 				ShouldNotLeakGoroutines()
 				db = mustOpenDBOnFS(
 					ctx,

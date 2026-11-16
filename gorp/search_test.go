@@ -10,6 +10,8 @@
 package gorp_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -27,7 +29,7 @@ func newTextIndex() *gorp.SearchIndex[int32, indexedEntry] {
 	return gorp.NewSearchIndex("text", indexedText)
 }
 
-func createIndexed(ctx SpecContext, tx gorp.Tx, entries ...indexedEntry) {
+func createIndexed(ctx context.Context, tx gorp.Tx, entries ...indexedEntry) {
 	GinkgoHelper()
 	Expect(gorp.NewCreate[int32, indexedEntry]().
 		Entries(&entries).Exec(ctx, tx)).To(Succeed())
@@ -59,7 +61,8 @@ var _ = Describe("SearchIndex", func() {
 		idx   *gorp.SearchIndex[int32, indexedEntry]
 		table *gorp.Table[int32, indexedEntry]
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(OpenGorpMsgpackDB())
 		createIndexed(ctx, db, searchEntries...)
 		idx = newTextIndex()
@@ -255,7 +258,8 @@ var _ = Describe("SearchIndex", func() {
 			failed     *gorp.SearchIndex[int32, indexedEntry]
 			categories *gorp.LookupIndex[int32, indexedEntry, string]
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			failing = gorp.Wrap(
 				&failOnceDB{DB: DeferClose(memkv.New()), err: errors.New("boom")},
 				gorp.WithCodec(msgpack.Codec),

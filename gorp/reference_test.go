@@ -184,7 +184,7 @@ var _ = Describe("Reference", func() {
 		ownerRef  *gorp.TargetReference[string, refStatus]
 		// onDetach is the detach hook of the device table. Nil runs no hook.
 		onDetach func(ctx context.Context, tx gorp.Tx, d refDevice) error
-		open     = func(ctx SpecContext, opts ...gorp.Option) {
+		open     = func(ctx context.Context, opts ...gorp.Option) {
 			GinkgoHelper()
 			db = DeferClose(
 				gorp.Wrap(memkv.New(), append(opts, gorp.WithCodec(msgpack.Codec))...),
@@ -222,20 +222,20 @@ var _ = Describe("Reference", func() {
 				},
 			))
 		}
-		createRack = func(ctx SpecContext, key uint32) {
+		createRack = func(ctx context.Context, key uint32) {
 			GinkgoHelper()
 			Expect(
 				racks.NewCreate().Entry(&refRack{Key: key}).Exec(ctx, db),
 			).To(Succeed())
 		}
-		createLabels = func(ctx SpecContext, keys ...string) {
+		createLabels = func(ctx context.Context, keys ...string) {
 			GinkgoHelper()
 			for _, k := range keys {
 				Expect(labels.NewCreate().Entry(&refLabel{Key: k}).Exec(ctx, db)).
 					To(Succeed())
 			}
 		}
-		createDevice = func(ctx SpecContext, d refDevice) error {
+		createDevice = func(ctx context.Context, d refDevice) error {
 			return devices.NewCreate().Entry(&d).Exec(ctx, db)
 		}
 		deviceExists = func(ctx SpecContext, key string) bool {
@@ -253,7 +253,7 @@ var _ = Describe("Reference", func() {
 	)
 
 	Describe("Writes", func() {
-		BeforeEach(func(ctx SpecContext) { open(ctx) })
+		BeforeEach(func() { open(GinkgoT().Context()) })
 
 		It("Should reject a reference to a missing entry", func(ctx SpecContext) {
 			Expect(createDevice(ctx, refDevice{Key: "d1", Rack: 1})).To(And(
@@ -405,7 +405,7 @@ var _ = Describe("Reference", func() {
 	})
 
 	Describe("Concurrent writes", func() {
-		BeforeEach(func(ctx SpecContext) { open(ctx) })
+		BeforeEach(func() { open(GinkgoT().Context()) })
 
 		It(
 			"Should keep one of two concurrent first writes of a unique target",
@@ -458,7 +458,8 @@ var _ = Describe("Reference", func() {
 	})
 
 	Describe("NewUncheckedWriter", func() {
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			open(ctx)
 		})
 
@@ -483,7 +484,8 @@ var _ = Describe("Reference", func() {
 	})
 
 	Describe("Get", func() {
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			open(ctx)
 		})
 
@@ -509,7 +511,7 @@ var _ = Describe("Reference", func() {
 	})
 
 	Describe("Filter", func() {
-		BeforeEach(func(ctx SpecContext) { open(ctx) })
+		BeforeEach(func() { open(GinkgoT().Context()) })
 
 		It("Should find the entries holding a target", func(ctx SpecContext) {
 			createRack(ctx, 1)
@@ -573,7 +575,8 @@ var _ = Describe("Reference", func() {
 
 	Describe("Referenced", func() {
 		all := func(string) bool { return true }
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			open(ctx)
 			createRack(ctx, 1)
 			createRack(ctx, 2)
@@ -615,7 +618,8 @@ var _ = Describe("Reference", func() {
 	})
 
 	Describe("FilterHolding", func() {
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			open(ctx)
 			createRack(ctx, 1)
 			createLabels(ctx, "l")
@@ -658,7 +662,8 @@ var _ = Describe("Reference", func() {
 	})
 
 	Describe("FilterAs", func() {
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			open(ctx)
 			createRack(ctx, 1)
 			createRack(ctx, 2)
@@ -693,7 +698,7 @@ var _ = Describe("Reference", func() {
 	})
 
 	Describe("Dependents", func() {
-		BeforeEach(func(ctx SpecContext) { open(ctx) })
+		BeforeEach(func() { open(GinkgoT().Context()) })
 
 		It(
 			"Should list the entries of every table that hold a target",
@@ -741,7 +746,7 @@ var _ = Describe("Reference", func() {
 	})
 
 	Describe("Delete", func() {
-		BeforeEach(func(ctx SpecContext) { open(ctx) })
+		BeforeEach(func() { open(GinkgoT().Context()) })
 
 		It(
 			"Should refuse to delete a target that an entry restricts",
@@ -935,7 +940,7 @@ var _ = Describe("Reference", func() {
 	})
 
 	Describe("Delete size", func() {
-		BeforeEach(func(ctx SpecContext) { open(ctx, gorp.WithMaxDeleteSize(2)) })
+		BeforeEach(func() { open(GinkgoT().Context(), gorp.WithMaxDeleteSize(2)) })
 
 		It(
 			"Should refuse a delete that cascades past the limit",
@@ -1060,7 +1065,8 @@ var _ = Describe("Reference", func() {
 		)
 
 		Describe("Failure", func() {
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				kvs := DeferClose(memkv.New())
 				pre := gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec))
 				Expect(gorp.NewCreate[uint32, refRack]().
@@ -1140,7 +1146,7 @@ var _ = Describe("Reference", func() {
 	})
 
 	Describe("Registry", func() {
-		BeforeEach(func(ctx SpecContext) { open(ctx) })
+		BeforeEach(func() { open(GinkgoT().Context()) })
 
 		It(
 			"Should refuse a second open table with the same name",
@@ -1278,7 +1284,7 @@ var _ = Describe("Reference closure", func() {
 	)
 	// open opens a project that groups and schematics cascade from, and schematics
 	// that reference their group with policy.
-	open := func(ctx SpecContext, policy gorp.OnDelete, opts ...gorp.Option) {
+	open := func(ctx context.Context, policy gorp.OnDelete, opts ...gorp.Option) {
 		GinkgoHelper()
 		db = DeferClose(
 			gorp.Wrap(memkv.New(), append(opts, gorp.WithCodec(msgpack.Codec))...),
@@ -1523,7 +1529,8 @@ var _ = Describe("DropDangling", func() {
 			}))
 		}
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		racks := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
 			DB:   db,
@@ -1663,7 +1670,8 @@ var _ = Describe("Inline reference", func() {
 		// rewritten holds each fill that the detach hook gets.
 		rewritten []refFill
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		inlineErr, rewritten = nil, nil
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		groups = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refGroup]{

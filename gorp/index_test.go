@@ -168,7 +168,8 @@ var _ = Describe("Index", func() {
 			byName   []int32
 			byScore  []int32
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			db = DeferClose(wrapMsgpack(memkv.New()))
 			nameIdx = gorp.NewLookupIndex(
 				"name", func(e *indexedEntry) string { return e.Name },
@@ -375,7 +376,8 @@ var _ = Describe("Index", func() {
 
 		Describe("Maintenance", func() {
 			var nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				nameIdx = gorp.NewLookupIndex(
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
@@ -455,7 +457,8 @@ var _ = Describe("Index", func() {
 				table   *gorp.Table[int32, indexedEntry]
 				nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				nameIdx = gorp.NewLookupIndex(
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
@@ -521,7 +524,8 @@ var _ = Describe("Index", func() {
 				nameIdx     *gorp.LookupIndex[int32, indexedEntry, string]
 				categoryIdx *gorp.LookupIndex[int32, indexedEntry, string]
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				nameIdx = gorp.NewLookupIndex(
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
@@ -716,7 +720,8 @@ var _ = Describe("Index", func() {
 				table   *gorp.Table[int32, indexedEntry]
 				nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				nameIdx = gorp.NewLookupIndex(
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
@@ -913,7 +918,8 @@ var _ = Describe("Index", func() {
 				table    *gorp.Table[int32, indexedEntry]
 				scoreIdx *gorp.SortedIndex[int32, indexedEntry, int64]
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
+				ctx := GinkgoT().Context()
 				scoreIdx = gorp.NewSortedIndex(
 					"score", func(e *indexedEntry) int64 { return e.Score },
 				)
@@ -1226,7 +1232,8 @@ var _ = Describe("Index", func() {
 			table    *gorp.Table[int32, indexedEntry]
 			scoreIdx *gorp.SortedIndex[int32, indexedEntry, int64]
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			scoreIdx = gorp.NewSortedIndex(
 				"score", func(e *indexedEntry) int64 { return e.Score },
 			)
@@ -1443,7 +1450,8 @@ var _ = Describe("Index", func() {
 			nameIdx  *gorp.LookupIndex[int32, indexedEntry, string]
 			table    *gorp.Table[int32, indexedEntry]
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			commitDB = DeferClose(wrapMsgpack(memkv.New()))
 			nameIdx = gorp.NewLookupIndex(
 				"name", func(e *indexedEntry) string { return e.Name },
@@ -1622,7 +1630,8 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 
 	Describe("Maintenance", func() {
 		var toIdx *gorp.LookupIndex[string, relationEntry, string]
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			toIdx = gorp.NewLookupIndex(
 				"to", func(e *relationEntry) string { return e.To },
 			)
@@ -1710,7 +1719,8 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 			table *gorp.Table[string, relationEntry]
 			toIdx *gorp.LookupIndex[string, relationEntry, string]
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
+			ctx := GinkgoT().Context()
 			toIdx = gorp.NewLookupIndex(
 				"to", func(e *relationEntry) string { return e.To },
 			)
@@ -1808,7 +1818,8 @@ var _ = Describe("Populate failure", func() {
 		scoreIdx *gorp.SortedIndex[int32, indexedEntry, int64]
 		logs     *observer.ObservedLogs
 	)
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
+		ctx := GinkgoT().Context()
 		mem := DeferClose(memkv.New())
 		db = gorp.Wrap(
 			&failOnceDB{DB: mem, err: errors.New("populate boom")},
@@ -1936,4 +1947,33 @@ var _ = Describe("Populate failure", func() {
 				Entries(&got).Exec(ctx, db)).To(Succeed())
 			Expect(idsOf(got)).To(ConsistOf(int32(2)))
 		})
+})
+
+var _ = Describe("Populate lifetime", func() {
+	It(
+		"Should stop populating when the context of the Table ends",
+		func(ctx SpecContext) {
+			mem := DeferClose(memkv.New())
+			seed := []indexedEntry{{ID: 1, Name: "alpha"}}
+			Expect(gorp.NewCreate[int32, indexedEntry]().
+				Entries(&seed).
+				Exec(ctx, gorp.Wrap(mem, gorp.WithCodec(msgpack.Codec)))).To(Succeed())
+			kvs := &blockingDB{DB: mem, release: make(chan struct{})}
+			nameIdx := gorp.NewLookupIndex(
+				"name", func(e *indexedEntry) string { return e.Name },
+			)
+			life, cancel := context.WithCancel(ctx)
+			table := MustSucceed(
+				gorp.OpenTable(life, gorp.TableConfig[int32, indexedEntry]{
+					DB:      gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec)),
+					Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
+				}),
+			)
+			cancel()
+			close(kvs.release)
+			Expect(nameIdx.Get(ctx, nil, "alpha")).Error().
+				To(MatchError(gorp.ErrIndexInvalid))
+			Expect(table.Close()).To(Succeed())
+		},
+	)
 })

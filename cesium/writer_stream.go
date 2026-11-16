@@ -12,6 +12,7 @@ package cesium
 import (
 	"context"
 	"slices"
+	"time"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
@@ -131,17 +132,22 @@ type streamWriter struct {
 	WriterConfig
 }
 
+// closeTimeout bounds how long a closing writer waits to report its control release.
+const closeTimeout = 5 * time.Second
+
 // Flow implements the confluence.Flow interface.
 func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(w.Out)
 	sCtx.Go(func(ctx context.Context) (err error) {
 		defer func() {
-			// Call close in a deferral to make sure writer resources get released even
-			// if the context is canceled or the function panics. We need to pass in a
-			// new context here because the original context may have been canceled.
-			// Using context.TODO() is not ideal, but it is the best we can do here.
-			err = errors.Combine(err, w.close(context.TODO()))
+			// ctx may have ended, but the close must still report the control release.
+			closeCtx, cancel := context.WithTimeout(
+				context.WithoutCancel(ctx),
+				closeTimeout,
+			)
+			defer cancel()
+			err = errors.Combine(err, w.close(closeCtx))
 		}()
 		for {
 			select {

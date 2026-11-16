@@ -32,7 +32,8 @@ var _ = Describe("Channel", Ordered, func() {
 				db *cesium.DB
 				fs fs.FS
 			)
-			BeforeAll(func(ctx SpecContext) {
+			BeforeAll(func() {
+				ctx := GinkgoT().Context()
 				ShouldNotLeakGoroutines()
 				fs = openFS()
 				db = mustOpenDBOnFS(ctx, fs)

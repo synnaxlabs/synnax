@@ -11,13 +11,13 @@ package gorp
 
 import (
 	"context"
-	"io"
+	"runtime/pprof"
 	"slices"
+	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/types"
 	"go.uber.org/zap"
 )
@@ -64,9 +64,10 @@ type Table[K Key, E Entry[K]] struct {
 	references []Reference[K, E]
 	// registered is true when the table is in the DB's registry.
 	registered bool
-	// populateShutdown cancels the populate context and waits for the populate routine
-	// to exit. Nil when the table has no indexes.
-	populateShutdown io.Closer
+	// stopPopulate cancels the populate routine. Nil when the table has no indexes.
+	stopPopulate context.CancelFunc
+	// populating tracks the populate routine.
+	populating sync.WaitGroup
 	// onDetach is TableConfig.OnDetach.
 	onDetach func(ctx context.Context, tx Tx, e E) error
 }
@@ -74,16 +75,16 @@ type Table[K Key, E Entry[K]] struct {
 // Close cancels any running populate goroutine, waits for it to exit, and releases
 // related resources.
 func (t *Table[K, E]) Close() error {
-	var err error
 	t.unregister()
 	if len(t.indexes) > 0 {
 		t.db.registry.removeIndexed(t.keyPrefix, t)
 	}
-	if t.populateShutdown != nil {
-		err = t.populateShutdown.Close()
-		t.populateShutdown = nil
+	if t.stopPopulate != nil {
+		t.stopPopulate()
+		t.populating.Wait()
+		t.stopPopulate = nil
 	}
-	return err
+	return nil
 }
 
 // OpenTable creates or opens a table for the given entry type. It runs any provided
@@ -91,7 +92,8 @@ func (t *Table[K, E]) Close() error {
 // the current prefix and key encoding format. After migrations complete, OpenTable
 // returns immediately; any secondary indexes in cfg.Indexes are populated
 // asynchronously by a background goroutine that scans the table once and feeds every
-// index from the same scan.
+// index from the same scan. ctx is the lifetime of the Table: populate fails when ctx
+// ends first.
 //
 // idx.Filter and SortedIndex.FilterRange inside Retrieve block the query until the
 // index has finished populating. After populate completes the index serves queries
@@ -146,18 +148,13 @@ func OpenTable[K Key, E Entry[K]](
 	}
 	// From here on, a writer that no table binds stages its writes against the indexes.
 	cfg.DB.registry.addIndexed(t.keyPrefix, t)
-	// Populate runs on an isolated signal context: the caller's ctx is the
-	// open-operation ctx (may be short-lived, e.g. an open timeout), but populate must
-	// run for the Table's full lifetime. Termination flows through Table.Close().
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-	t.populateShutdown = signal.NewHardShutdown(sCtx, cancel)
-	sCtx.Go(
-		func(ctx context.Context) error {
+	ctx, t.stopPopulate = context.WithCancel(ctx)
+	t.populating.Go(func() {
+		labels := pprof.Labels("routine", "gorp_index_populate")
+		pprof.Do(ctx, labels, func(ctx context.Context) {
 			t.runPopulate(ctx, cfg.Instrumentation, inserts, finishes)
-			return nil
-		},
-		signal.WithKey("gorp_index_populate"),
-	)
+		})
+	})
 	return t, nil
 }
 

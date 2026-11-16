@@ -54,7 +54,8 @@ var _ = Describe("Streamer Behavior", func() {
 				db *cesium.DB
 				fs fs.FS
 			)
-			BeforeAll(func(ctx SpecContext) {
+			BeforeAll(func() {
+				ctx := GinkgoT().Context()
 				ShouldNotLeakGoroutines()
 				fs = openFS()
 				db = mustOpenDBOnFS(ctx, fs)
@@ -597,7 +598,8 @@ var _ = Describe("Virtual Channel Streaming", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			var db *cesium.DB
-			BeforeAll(func(ctx SpecContext) {
+			BeforeAll(func() {
+				ctx := GinkgoT().Context()
 				ShouldNotLeakGoroutines()
 				db = mustOpenDBOnFS(ctx, openFS())
 			})

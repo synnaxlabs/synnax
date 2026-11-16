@@ -10,6 +10,7 @@
 package cesium_test
 
 import (
+	"context"
 	"slices"
 	"strconv"
 
@@ -168,7 +169,7 @@ var _ = Describe("Alignment", func() {
 					// write commits run three samples at a time, so the file size cap
 					// forces rollovers.
 					write := func(
-						ctx SpecContext,
+						ctx context.Context,
 						keys []cesium.ChannelKey,
 						run alignmentRun,
 					) {
@@ -188,7 +189,8 @@ var _ = Describe("Alignment", func() {
 						}
 						Expect(w.Close()).To(Succeed())
 					}
-					BeforeAll(func(ctx SpecContext) {
+					BeforeAll(func() {
+						ctx := GinkgoT().Context()
 						ShouldNotLeakGoroutines()
 						db = mustOpenDBOnFS(
 							ctx,

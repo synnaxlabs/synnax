@@ -190,7 +190,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, er
 	if err != nil {
 		return nil, err
 	}
-	return wrapStreamWriter(iw.WriterConfig, iw), nil
+	return wrapStreamWriter(db.life, iw.WriterConfig, iw), nil
 }
 
 func (db *DB) newStreamWriter(
