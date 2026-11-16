@@ -240,6 +240,21 @@ describe("Editable", () => {
       c.rerender(<Editable value="Elsewhere" onChange={vi.fn()} />);
       expect(text.innerHTML).toBe("Elsewhere");
     });
+
+    it("should commit a rename back to the value while the write is pending", () => {
+      const onChange = vi.fn();
+      const c = render(<Editable value="Hello" onChange={onChange} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      fireEvent.dblClick(text);
+      text.innerText = "Hello";
+      fireEvent.keyDown(text, { key: "Enter" });
+      expect(onChange).toHaveBeenLastCalledWith("Hello");
+      expect(text.innerHTML).toBe("Hello");
+    });
+
     it("should revert when the handler rejects the committed text", () => {
       const onChange = vi.fn<(value: string) => boolean>(() => false);
       const c = render(<Editable value="Hello" onChange={onChange} />);

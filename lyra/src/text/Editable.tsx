@@ -18,7 +18,7 @@ import {
 } from "react";
 
 import { CSS as PCSS } from "@/css";
-import { useCombinedRefs, useSyncedRef } from "@/hooks/ref";
+import { useCombinedRefs } from "@/hooks/ref";
 import { type Input } from "@/input";
 import { paintHighlight } from "@/text/highlight";
 import { Text, type TextProps } from "@/text/Text";
@@ -141,10 +141,6 @@ export const Editable = ({
 }: EditableProps): ReactElement => {
   const [editable, setEditable] = useState(false);
   const ref = useRef<HTMLElement>(null);
-  // Sometimes the onBlur event fires right after the user hits the enter key (since we
-  // trigger it artificially). We track this value as an optimistic update to make sure
-  // we don't call onChange twice in quick succession.
-  const optimisticValueRef = useSyncedRef(value);
   // Holds the text this field committed and the value it replaced. Exiting an edit
   // repaints from value, which still carries the old text until the caller's write
   // lands, so the committed text stands in until value moves off what it replaced.
@@ -172,12 +168,14 @@ export const Editable = ({
     onDoubleClick?.(e);
   };
 
+  const getShownText = (): string => {
+    const { current: committed } = committedRef;
+    return committed != null && value === committed.replaced ? committed.text : value;
+  };
+
   const handleUpdate = (el: HTMLElement, forceEscape = false): void => {
     const innerText = getInnerText(el);
-    if (
-      optimisticValueRef.current === innerText &&
-      (innerText.length > 0 || allowEmpty)
-    ) {
+    if (getShownText() === innerText && (innerText.length > 0 || allowEmpty)) {
       // An unchanged commit is a cancel: without the event, an awaiting asyncEdit
       // caller would hang forever.
       el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
@@ -195,7 +193,6 @@ export const Editable = ({
         el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
         return;
       }
-      optimisticValueRef.current = innerText;
       el.dispatchEvent(new Event(RENAMED_EVENT_NAME));
     }
   };
@@ -240,13 +237,9 @@ export const Editable = ({
   // Editing replaces the text React rendered, so the shown text is written by hand.
   useLayoutEffect(() => {
     if (ref.current == null || editable) return;
-    const { current: committed } = committedRef;
-    if (committed != null && value === committed.replaced)
-      paintHighlight(ref.current, committed.text, highlight);
-    else {
-      committedRef.current = null;
-      paintHighlight(ref.current, value, highlight);
-    }
+    const shown = getShownText();
+    if (shown === value) committedRef.current = null;
+    paintHighlight(ref.current, shown, highlight);
   });
 
   // A ref callback, so each element Text renders listens before asyncEdit can find it.
