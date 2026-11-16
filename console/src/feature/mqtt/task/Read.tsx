@@ -51,6 +51,7 @@ import {
 } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { ICD } from "@/platform/icd";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -204,31 +205,14 @@ const ReadOptionsSection: FC<{ path: deep.Path<ReadField> }> = ({ path }) => {
   const type = PForm.useFieldValue(path.type);
   switch (type) {
     case "float":
-      return (
-        <Task.Payload.EnumMappingSection
-          path={deep.variant(path, "type", "float").enumValues}
-        />
-      );
     case "integer":
     case "unsigned":
-      return (
-        <Task.Payload.TextEnumMappingSection
-          path={deep.variant(path, "type", type).enumValues}
-          valuePlaceholder="Integer (e.g. 1)"
-        />
-      );
     case "boolean":
-      return (
-        <Task.Payload.BooleanEnumMappingSection
-          path={deep.variant(path, "type", "boolean").enumValues}
-        />
-      );
     case "string":
       return (
-        <Task.Payload.TextEnumMappingSection
-          path={deep.variant(path, "type", "string").enumValues}
-          valuePlaceholder="String (e.g. running)"
-        />
+        <PForm.Section title="Enum mapping">
+          <ICD.EnumValues path={path} />
+        </PForm.Section>
       );
     case "timestamp":
       return (
