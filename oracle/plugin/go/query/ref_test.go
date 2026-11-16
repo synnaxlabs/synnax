@@ -859,14 +859,14 @@ var _ = Describe("@ref", func() {
 		`
 		}
 
-		generate := func(ctx SpecContext, types, fields string) *ContentExpectation {
+		generate := func(types, fields string) *ContentExpectation {
 			GinkgoHelper()
 			resp := MustGenerate(config(types, fields), "modbus", loader, p)
 			return ExpectContent(resp, "retrieve.gen.go")
 		}
 
-		It("Should skip a zero key and reset it on detach", func(ctx SpecContext) {
-			generate(ctx, "", `
+		It("Should skip a zero key and reset it on detach", func() {
+			generate("", `
 				rack rack.Key = 0 @ref on_delete restrict @ref kind use
 			`).
 				ToContain(
@@ -890,8 +890,8 @@ var _ = Describe("@ref", func() {
 
 		It(
 			"Should inline a deleted target in an optional union",
-			func(ctx SpecContext) {
-				generate(ctx, "", `
+			func() {
+				generate("", `
 				fill swatch.Ref?
 			`).
 					ToContain(
@@ -916,10 +916,8 @@ var _ = Describe("@ref", func() {
 			},
 		)
 
-		It("Should inline a deleted target in each union of an array", func(
-			ctx SpecContext,
-		) {
-			generate(ctx, "", `
+		It("Should inline a deleted target in each union of an array", func() {
+			generate("", `
 				fills swatch.Ref[]
 			`).
 				ToContain(
@@ -932,8 +930,8 @@ var _ = Describe("@ref", func() {
 
 		It(
 			"Should write back the variant that holds a union it inlines",
-			func(ctx SpecContext) {
-				generate(ctx, `
+			func() {
+				generate(`
 				Marker union on type {
 					spot {
 						fill swatch.Ref?
@@ -955,8 +953,8 @@ var _ = Describe("@ref", func() {
 			},
 		)
 
-		It("Should declare the kind of a nested reference", func(ctx SpecContext) {
-			generate(ctx, `
+		It("Should declare the kind of a nested reference", func() {
+			generate(`
 				Inner struct {
 					channel channel.Key = 0 {
 						@ref {
@@ -971,22 +969,22 @@ var _ = Describe("@ref", func() {
 				ToContain(`Name:     "inner.channel",`, "Kind:     gorp.Use,")
 		})
 
-		It("Should reset a zero string key", func(ctx SpecContext) {
-			generate(ctx, "", `
+		It("Should reset a zero string key", func() {
+			generate("", `
 				entry kv.Key = "" @ref on_delete restrict @ref kind use
 			`).
 				ToContain(`if e.Entry != "" {`, `e.Entry = ""`)
 		})
 
-		It("Should reset a zero UUID key to its composite zero", func(ctx SpecContext) {
-			generate(ctx, "", `
+		It("Should reset a zero UUID key to its composite zero", func() {
+			generate("", `
 				tag label.Key = "" @ref on_delete restrict @ref kind use
 			`).
 				ToContain("if e.Tag != (label.Key{}) {", "e.Tag = label.Key{}")
 		})
 
-		It("Should reach a key through a nested struct", func(ctx SpecContext) {
-			generate(ctx, `
+		It("Should reach a key through a nested struct", func() {
+			generate(`
 				Inner struct {
 					channel channel.Key = 0 @ref on_delete restrict @ref kind use
 				}
@@ -1002,8 +1000,8 @@ var _ = Describe("@ref", func() {
 				)
 		})
 
-		It("Should reach a key through an optional struct", func(ctx SpecContext) {
-			generate(ctx, `
+		It("Should reach a key through an optional struct", func() {
+			generate(`
 				Inner struct {
 					channel channel.Key = 0 @ref on_delete restrict @ref kind use
 				}
@@ -1013,8 +1011,8 @@ var _ = Describe("@ref", func() {
 				ToContain("if e.Inner != nil {", "if e.Inner.Channel != 0 {")
 		})
 
-		It("Should range over an array of structs", func(ctx SpecContext) {
-			generate(ctx, `
+		It("Should range over an array of structs", func() {
+			generate(`
 				Entry struct {
 					channel channel.Key = 0 @ref on_delete restrict @ref kind use
 				}
@@ -1033,8 +1031,8 @@ var _ = Describe("@ref", func() {
 
 		It(
 			"Should switch over every variant of a union that holds the key",
-			func(ctx SpecContext) {
-				generate(ctx, `
+			func() {
+				generate(`
 				Base struct {
 					channel channel.Key = 0 @ref on_delete restrict @ref kind use
 				}
@@ -1061,8 +1059,8 @@ var _ = Describe("@ref", func() {
 
 		It(
 			"Should reach a key that only some variants of a union declare",
-			func(ctx SpecContext) {
-				generate(ctx, `
+			func() {
+				generate(`
 				Entry union on type {
 					plain {
 						topic string
@@ -1081,8 +1079,8 @@ var _ = Describe("@ref", func() {
 
 		It(
 			"Should drop the array element that holds a required key",
-			func(ctx SpecContext) {
-				generate(ctx, `
+			func() {
+				generate(`
 				Alert struct {
 					tag label.Key @ref on_delete detach @ref kind use
 					component string
@@ -1103,8 +1101,8 @@ var _ = Describe("@ref", func() {
 			},
 		)
 
-		It("Should detach a key from a nested array of keys", func(ctx SpecContext) {
-			generate(ctx, `
+		It("Should detach a key from a nested array of keys", func() {
+			generate(`
 				Axes struct {
 					y1 channel.Key[] @ref on_delete detach @ref kind use
 				}
@@ -1118,8 +1116,8 @@ var _ = Describe("@ref", func() {
 				)
 		})
 
-		It("Should clear a nested optional key", func(ctx SpecContext) {
-			generate(ctx, `
+		It("Should clear a nested optional key", func() {
+			generate(`
 				Inner struct {
 					owner resource.ID? {
 						@ref {
@@ -1145,8 +1143,8 @@ var _ = Describe("@ref", func() {
 
 		It(
 			"Should leave out Detach when a required key has no array",
-			func(ctx SpecContext) {
-				generate(ctx, "", `
+			func() {
+				generate("", `
 				rack rack.Key @ref on_delete restrict @ref kind use
 			`).
 					ToContain(`targets = append(targets, e.Rack)`).
@@ -1156,8 +1154,8 @@ var _ = Describe("@ref", func() {
 
 		It(
 			"Should skip a recursive type that holds no reference",
-			func(ctx SpecContext) {
-				generate(ctx, `
+			func() {
+				generate(`
 				Node struct {
 					children Node[]
 				}

@@ -564,7 +564,7 @@ Doc struct {
 
 var _ = Describe("Live to_any on a frozen definer", func() {
 	const livePath = "schemas/synnax/box.oracle"
-	generate := func(ctx SpecContext, v1 string) map[string]string {
+	generate := func(v1 string) map[string]string {
 		GinkgoHelper()
 		resp := chainGenerate(
 			gotypes.New(gotypes.DefaultOptions()),
@@ -603,8 +603,8 @@ Box struct<T> {
 
 	It(
 		"Should keep a live to_any out of a frozen definer the current version aliases",
-		func(ctx SpecContext) {
-			files := generate(ctx, `
+		func() {
+			files := generate(`
 Box = v0.Box
 `)
 			Expect(files["core/box/versions/v0/types.gen.go"]).ToNot(ContainSubstring(
@@ -618,8 +618,8 @@ Box = v0.Box
 
 	It(
 		"Should leave a frozen definer unconverted once a later version redeclares it",
-		func(ctx SpecContext) {
-			files := generate(ctx, `
+		func() {
+			files := generate(`
 Box struct<T> {
 	key uuid @key
 	value T

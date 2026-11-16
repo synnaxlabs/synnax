@@ -10,7 +10,6 @@
 package imex_test
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -648,14 +647,14 @@ ScanConfig struct {
 }
 `
 			configRequest := func(
-				ctx context.Context, root string, chain map[int]string,
+				root string, chain map[int]string,
 			) *plugin.Request {
 				GinkgoHelper()
 				return chainRequestFor(root, "modbus", liveConfigs, chain)
 			}
 
-			It("Should emit a ladder per type and no Export", func(ctx SpecContext) {
-				req := configRequest(ctx, GinkgoT().TempDir(), map[int]string{
+			It("Should emit a ladder per type and no Export", func() {
+				req := configRequest(GinkgoT().TempDir(), map[int]string{
 					1: configChain("\n\t@go imex body"),
 				})
 				resp := MustSucceed(p.Generate(req))
@@ -686,8 +685,8 @@ ScanConfig struct {
 
 			It(
 				"Should delete the Export a bare marker generated for the package",
-				func(ctx SpecContext) {
-					req := configRequest(ctx, GinkgoT().TempDir(), map[int]string{
+				func() {
+					req := configRequest(GinkgoT().TempDir(), map[int]string{
 						1: configChain("\n\t@go imex body"),
 					})
 					resp := MustSucceed(p.Generate(req))
@@ -699,7 +698,7 @@ ScanConfig struct {
 
 			It(
 				"Should migrate each type from its own first exported version",
-				func(ctx SpecContext) {
+				func() {
 					tmpDir := GinkgoT().TempDir()
 					for _, dir := range []string{"v1", "v2"} {
 						Expect(os.MkdirAll(
@@ -718,7 +717,7 @@ ScanConfig struct {
 						[]byte("package v2\n\nfunc MigrateReadConfig() {}\n"),
 						0o644,
 					)).To(Succeed())
-					req := configRequest(ctx, tmpDir, map[int]string{
+					req := configRequest(tmpDir, map[int]string{
 						1: configChain("\n\t@go imex body"),
 						2: "ReadConfig struct {\n\tkey uuid @key\n\trate int64\n\n" +
 							"\t@go imex body\n}\n\nScanConfig = v1.ScanConfig\n",
@@ -738,10 +737,8 @@ ScanConfig struct {
 				},
 			)
 
-			It("Should start a type's ladder at its first marked version", func(
-				ctx SpecContext,
-			) {
-				req := configRequest(ctx, GinkgoT().TempDir(), map[int]string{
+			It("Should start a type's ladder at its first marked version", func() {
+				req := configRequest(GinkgoT().TempDir(), map[int]string{
 					1: "ReadConfig struct {\n\tkey uuid @key\n\trate int32\n}\n\n" +
 						"ScanConfig struct {\n\tkey uuid @key\n\n\t@go imex body\n}\n",
 					2: "ReadConfig struct {\n\tkey uuid @key\n\trate int64\n\n" +
@@ -759,7 +756,7 @@ ScanConfig struct {
 
 			It(
 				"Should keep a frozen version file when the current version adds a type",
-				func(ctx SpecContext) {
+				func() {
 					const (
 						readOnly = "ReadConfig struct {\n\tkey uuid @key\n\n" +
 							"\t@go imex body\n}\n"
@@ -782,7 +779,7 @@ ReadConfig struct {
 						},
 					)))
 					after := MustSucceed(p.Generate(configRequest(
-						ctx, GinkgoT().TempDir(), map[int]string{
+						GinkgoT().TempDir(), map[int]string{
 							1: readOnly,
 							2: "ReadConfig = v1.ReadConfig\n\n" +
 								"ScanConfig struct {\n\tkey uuid @key\n\n" +
@@ -805,7 +802,7 @@ ReadConfig struct {
 
 			It(
 				"Should keep a frozen version file when the live target set changes",
-				func(ctx SpecContext) {
+				func() {
 					const (
 						liveRead = `
 @go output "core/pkg/service/modbus"
@@ -822,7 +819,7 @@ ReadConfig struct {
 						2: "ReadConfig = v1.ReadConfig\n\nScanConfig = v1.ScanConfig\n",
 					}
 					both := MustSucceed(p.Generate(
-						configRequest(ctx, GinkgoT().TempDir(), chain),
+						configRequest(GinkgoT().TempDir(), chain),
 					))
 					readOnly := MustSucceed(p.Generate(chainRequestFor(
 						GinkgoT().TempDir(), "modbus", liveRead, chain,
@@ -867,9 +864,7 @@ ScanConfig struct {
 				},
 			)
 
-			It("Should error when body types at one path span version chains", func(
-				ctx SpecContext,
-			) {
+			It("Should error when body types at one path span version chains", func() {
 				root := GinkgoT().TempDir()
 				other := filepath.Join(root, "schemas", "synnax", "versions", "other")
 				Expect(os.MkdirAll(other, 0o755)).To(Succeed())
@@ -880,7 +875,7 @@ ScanConfig struct {
 					),
 					0o644,
 				)).To(Succeed())
-				req := configRequest(ctx, root, map[int]string{
+				req := configRequest(root, map[int]string{
 					1: configChain("\n\t@go imex body"),
 				})
 				const liveOther = `

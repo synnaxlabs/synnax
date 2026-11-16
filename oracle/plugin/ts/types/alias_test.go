@@ -124,14 +124,14 @@ var _ = Describe("TS aliases", func() {
 		typesPlugin = types.New(types.DefaultOptions())
 	})
 
-	generate := func(ctx SpecContext, use string) *ContentExpectation {
+	generate := func(use string) *ContentExpectation {
 		GinkgoHelper()
 		resp := MustGenerate(aliasHead+use, "test", loader, typesPlugin)
 		return ExpectContent(resp, "test/types.gen.ts")
 	}
 
-	It("Should extend the schema of an aliased parent", func(ctx SpecContext) {
-		generate(ctx, `
+	It("Should extend the schema of an aliased parent", func() {
+		generate(`
 			Panel struct extends Labeled {
 				width float64
 			}
@@ -140,8 +140,8 @@ var _ = Describe("TS aliases", func() {
 		)
 	})
 
-	It("Should extend the schema of a generic aliased parent", func(ctx SpecContext) {
-		generate(ctx, `
+	It("Should extend the schema of a generic aliased parent", func() {
+		generate(`
 			Crate struct<T> extends Box<T> {
 				count int32
 			}
@@ -151,16 +151,16 @@ var _ = Describe("TS aliases", func() {
 		)
 	})
 
-	It("Should extend a variant from an aliased payload", func(ctx SpecContext) {
-		generate(ctx, `
+	It("Should extend a variant from an aliased payload", func() {
+		generate(`
 			Node union on variant {
 				valve Valve
 			}
 		`).ToContain("export const valveNodeZ = valveZ.extend({")
 	})
 
-	It("Should extend a variant from an aliased union base", func(ctx SpecContext) {
-		generate(ctx, `
+	It("Should extend a variant from an aliased union base", func() {
+		generate(`
 			Shape union on kind extends Labeled {
 				circle Credentials
 			}
@@ -171,8 +171,8 @@ var _ = Describe("TS aliases", func() {
 
 	It(
 		"Should omit a field a variant drops from an aliased base",
-		func(ctx SpecContext) {
-			generate(ctx, `
+		func() {
+			generate(`
 			Node union on variant {
 				tank extends Labeled {
 					-hidden
@@ -185,24 +185,24 @@ var _ = Describe("TS aliases", func() {
 		},
 	)
 
-	It("Should keep an aliased optional union nullable", func(ctx SpecContext) {
-		generate(ctx, `
+	It("Should keep an aliased optional union nullable", func() {
+		generate(`
 			Panel struct {
 				edge Edge?
 			}
 		`).ToContain("edge: zod.nullToUndefined(edgeZ),")
 	})
 
-	It("Should type the fields of an aliased struct default", func(ctx SpecContext) {
-		generate(ctx, `
+	It("Should type the fields of an aliased struct default", func() {
+		generate(`
 			Panel struct {
 				sized Sized = { size = large }
 			}
 		`).ToContain(`sized: sizedZ.prefault({ size: "large" }),`)
 	})
 
-	It("Should constrain a type parameter by an aliased enum", func(ctx SpecContext) {
-		generate(ctx, `
+	It("Should constrain a type parameter by an aliased enum", func() {
+		generate(`
 			Tray struct<T extends Size> {
 				item T
 			}
@@ -211,8 +211,8 @@ var _ = Describe("TS aliases", func() {
 
 	DescribeTable(
 		"Should parse a field of an alias as a field of its target",
-		func(ctx SpecContext, field, expected string) {
-			generate(ctx, "Panel struct {\n"+field+"\n}\n").ToContain(expected)
+		func(field, expected string) {
+			generate("Panel struct {\n" + field + "\n}\n").ToContain(expected)
 		},
 		Entry("a now default on an alias of a timestamp",
 			"created Stamp = now", "created: stampZ.default(() => TimeStamp.now()),"),

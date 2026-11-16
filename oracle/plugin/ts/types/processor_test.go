@@ -29,7 +29,7 @@ var _ = Describe("FieldProcessor", func() {
 		mgr = imports.NewManager()
 	})
 
-	processorFor := func(ctx SpecContext, source string) (*types.FieldProcessor, resolution.Type, resolution.Field) {
+	processorFor := func(source string) (*types.FieldProcessor, resolution.Type, resolution.Field) {
 		GinkgoHelper()
 		req := MustGenerateRequest(source, "schema", loader)
 		fp := &types.FieldProcessor{
@@ -49,7 +49,7 @@ var _ = Describe("FieldProcessor", func() {
 	Describe("ProcessField", func() {
 		It(
 			"Should produce zod and TS representations for a primitive field",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "client/ts/src/schema"
 
@@ -57,7 +57,7 @@ var _ = Describe("FieldProcessor", func() {
 					name string
 				}
 			`
-				fp, typ, field := processorFor(ctx, source)
+				fp, typ, field := processorFor(source)
 				fd := fp.ProcessField(field, typ)
 				Expect(fd.Name).To(Equal("name"))
 				Expect(fd.TSName).To(Equal("name"))

@@ -257,18 +257,16 @@ var _ = Describe("Analyzer", func() {
 
 	Describe("Version file rules", func() {
 		analyzeAt := func(
-			ctx SpecContext, source, filePath, namespace string,
+			source, filePath, namespace string,
 		) *diagnostics.Files {
 			return analyzer.AnalyzeSeeded(
 				source, filePath, namespace, loader, resolution.NewTable(),
 			)
 		}
 
-		It("Should count a referenced version-file pin import as used", func(
-			ctx SpecContext,
-		) {
+		It("Should count a referenced version-file pin import as used", func() {
 			loader.Add("schemas/x/versions/spatial/v0", "XLocation = string\n")
-			diag := analyzeAt(ctx, `
+			diag := analyzeAt(`
 import "schemas/x/versions/spatial/v0"
 
 Insert struct {
@@ -279,29 +277,28 @@ Insert struct {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
-		It("Should allow a versioned resource's live schema from a version file", func(
-			ctx SpecContext,
-		) {
-			loader.Add("schemas/x/telem", "TimeStamp = int64\n")
-			loader.Add("schemas/x/versions/telem/v0", "TimeStamp = int64\n")
-			diag := analyzeAt(ctx, `
+		It(
+			"Should allow a versioned resource's live schema from a version file",
+			func() {
+				loader.Add("schemas/x/telem", "TimeStamp = int64\n")
+				loader.Add("schemas/x/versions/telem/v0", "TimeStamp = int64\n")
+				diag := analyzeAt(`
 import "schemas/x/telem"
 
 Entry struct {
 	created telem.TimeStamp
 }
 `,
-				"schemas/synnax/versions/channel/v0.oracle", "v0")
-			Expect(diag.Ok()).To(BeTrue(), diag.String())
-		})
+					"schemas/synnax/versions/channel/v0.oracle", "v0")
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
 
 		It(
 			"Should allow an unversioned resource's live schema from a version file",
-			func(
-				ctx SpecContext,
-			) {
+			func() {
 				loader.Add("schemas/arc/program", "Program struct {\n\twasm bytes\n}\n")
-				diag := analyzeAt(ctx, `
+				diag := analyzeAt(`
 import "schemas/arc/program"
 
 Entry struct {
@@ -313,11 +310,9 @@ Entry struct {
 			},
 		)
 
-		It("Should allow a version file to import version files", func(
-			ctx SpecContext,
-		) {
+		It("Should allow a version file to import version files", func() {
 			loader.Add("schemas/x/versions/telem/v0", "TimeStamp = int64\n")
-			diag := analyzeAt(ctx, `
+			diag := analyzeAt(`
 import "schemas/x/versions/telem/v0"
 
 Entry struct {
@@ -328,11 +323,9 @@ Entry struct {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
-		It("Should reject a live schema importing another resource's versions", func(
-			ctx SpecContext,
-		) {
+		It("Should reject a live schema importing another resource's versions", func() {
 			loader.Add("schemas/x/versions/telem/v0", "TimeStamp = int64\n")
-			diag := analyzeAt(ctx, `
+			diag := analyzeAt(`
 import "schemas/x/versions/telem/v0"
 
 Entry struct {
@@ -346,11 +339,9 @@ Entry struct {
 			))
 		})
 
-		It("Should allow a live schema to import its own versions", func(
-			ctx SpecContext,
-		) {
+		It("Should allow a live schema to import its own versions", func() {
 			loader.Add("schemas/synnax/versions/channel/v0", "Key = uuid\n")
-			diag := analyzeAt(ctx, `
+			diag := analyzeAt(`
 import "schemas/synnax/versions/channel/v0"
 
 Entry struct {
@@ -361,10 +352,8 @@ Entry struct {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
-		It("Should reject an action declared in a version file", func(
-			ctx SpecContext,
-		) {
-			diag := analyzeAt(ctx, `
+		It("Should reject an action declared in a version file", func() {
+			diag := analyzeAt(`
 Entry struct {
 	key uuid @key
 
@@ -382,10 +371,8 @@ Entry struct {
 			))
 		})
 
-		It("Should reject an action declared in a union in a version file", func(
-			ctx SpecContext,
-		) {
-			diag := analyzeAt(ctx, `
+		It("Should reject an action declared in a union in a version file", func() {
+			diag := analyzeAt(`
 Entry union on type {
 	a {}
 
@@ -403,10 +390,8 @@ Entry union on type {
 			))
 		})
 
-		It("Should accept an action declared in a live schema", func(
-			ctx SpecContext,
-		) {
-			diag := analyzeAt(ctx, `
+		It("Should accept an action declared in a live schema", func() {
+			diag := analyzeAt(`
 Entry struct {
 	key uuid @key
 
@@ -421,8 +406,8 @@ Entry struct {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
-		It("Should accept marshal tags in a version file", func(ctx SpecContext) {
-			diag := analyzeAt(ctx, `
+		It("Should accept marshal tags in a version file", func() {
+			diag := analyzeAt(`
 Entry struct {
 	key uuid @key
 	cached string {
@@ -436,11 +421,11 @@ Entry struct {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
-		It("Should accept marshal tags in a live schema", func(ctx SpecContext) {
+		It("Should accept marshal tags in a live schema", func() {
 			// The live file carries version-owned marshal tags as emitted
 			// content; the versions gate, not the analyzer, holds them equal
 			// to chain resolution.
-			diag := analyzeAt(ctx, `
+			diag := analyzeAt(`
 @go output "out"
 
 Entry struct {
@@ -493,7 +478,7 @@ Edge union on variant {
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 			})
 
-			analyzeV1 := func(ctx SpecContext, decls string) *diagnostics.Files {
+			analyzeV1 := func(decls string) *diagnostics.Files {
 				return analyzer.AnalyzeSeeded(`
 Size = v0.Size
 
@@ -519,10 +504,8 @@ Edge = v0.Edge
 				return names
 			}
 
-			It("Should accept aliased variants, bases, enums, and defaults", func(
-				ctx SpecContext,
-			) {
-				diag := analyzeV1(ctx, `
+			It("Should accept aliased variants, bases, enums, and defaults", func() {
+				diag := analyzeV1(`
 Wide enum extends Size {
 	huge = "huge"
 }
@@ -580,8 +563,8 @@ Proof union on method Method {
 			})
 
 			DescribeTable("Should run kind checks through aliases",
-				func(ctx SpecContext, decls, message string) {
-					diag := analyzeV1(ctx, decls)
+				func(decls, message string) {
+					diag := analyzeV1(decls)
 					Expect(diag.Ok()).To(BeFalse())
 					Expect(diag.String()).To(ContainSubstring(message))
 				},
@@ -4025,7 +4008,7 @@ Node union on variant {
 	})
 
 	Describe("Field Defaults", func() {
-		defaultOf := func(ctx SpecContext, fieldDecl string) *resolution.ExpressionValue {
+		defaultOf := func(fieldDecl string) *resolution.ExpressionValue {
 			GinkgoHelper()
 			source := "Mode enum {\n\texclusive = \"Exclusive\"\n}\n\n" +
 				"Item struct {\n\t" + fieldDecl + "\n}\n"
@@ -4038,8 +4021,8 @@ Node union on variant {
 
 		DescribeTable(
 			"Should populate Field.Default from an inline = value",
-			func(ctx SpecContext, fieldDecl string, expected resolution.ExpressionValue) {
-				def := defaultOf(ctx, fieldDecl)
+			func(fieldDecl string, expected resolution.ExpressionValue) {
+				def := defaultOf(fieldDecl)
 				Expect(def).NotTo(BeNil())
 				Expect(*def).To(Equal(expected))
 			},
@@ -4098,14 +4081,13 @@ Node union on variant {
 
 		It(
 			"Should leave Default nil when no default is declared",
-			func(ctx SpecContext) {
-				Expect(defaultOf(ctx, "count int32")).To(BeNil())
+			func() {
+				Expect(defaultOf("count int32")).To(BeNil())
 			},
 		)
 
-		It("Should accept a default alongside a field body", func(ctx SpecContext) {
+		It("Should accept a default alongside a field body", func() {
 			def := defaultOf(
-				ctx,
 				"count int32 = 7 {\n\t\t@doc value \"is a counter.\"\n\t}",
 			)
 			Expect(def).NotTo(BeNil())
@@ -4113,8 +4095,8 @@ Node union on variant {
 			Expect(def.IntValue).To(Equal(int64(7)))
 		})
 
-		It("Should collect an empty array default", func(ctx SpecContext) {
-			def := defaultOf(ctx, "vals float64[] = []")
+		It("Should collect an empty array default", func() {
+			def := defaultOf("vals float64[] = []")
 			Expect(def).NotTo(BeNil())
 			Expect(def.Kind).To(Equal(resolution.ValueKindArray))
 			Expect(def.Elements).To(BeEmpty())
@@ -4122,8 +4104,8 @@ Node union on variant {
 
 		It(
 			"Should collect a populated array default with element values",
-			func(ctx SpecContext) {
-				def := defaultOf(ctx, "vals float64[] = [1.5, 2.5]")
+			func() {
+				def := defaultOf("vals float64[] = [1.5, 2.5]")
 				Expect(def).NotTo(BeNil())
 				Expect(def.Kind).To(Equal(resolution.ValueKindArray))
 				Expect(def.Elements).To(HaveLen(2))
@@ -5227,7 +5209,7 @@ Mode enum {
 	})
 
 	Describe("Struct Defaults", func() {
-		structDefaultOf := func(ctx SpecContext, source string) *resolution.ExpressionValue {
+		structDefaultOf := func(source string) *resolution.ExpressionValue {
 			GinkgoHelper()
 			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
@@ -5235,10 +5217,9 @@ Mode enum {
 			return form.Fields[0].Default
 		}
 
-		It("Should collect an empty struct default", func(ctx SpecContext) {
-			def := structDefaultOf(ctx,
-				"Point struct {\n\tx int32\n\ty int32\n}\n"+
-					"Outer struct {\n\tp Point = {}\n}\n")
+		It("Should collect an empty struct default", func() {
+			def := structDefaultOf("Point struct {\n\tx int32\n\ty int32\n}\n" +
+				"Outer struct {\n\tp Point = {}\n}\n")
 			Expect(def).NotTo(BeNil())
 			Expect(def.Kind).To(Equal(resolution.ValueKindStruct))
 			Expect(def.Fields).To(BeEmpty())
@@ -5246,10 +5227,9 @@ Mode enum {
 
 		It(
 			"Should collect a populated struct default with field values",
-			func(ctx SpecContext) {
-				def := structDefaultOf(ctx,
-					"Point struct {\n\tx int32\n\ty int32\n}\n"+
-						"Outer struct {\n\tp Point = { x = 1, y = 2 }\n}\n")
+			func() {
+				def := structDefaultOf("Point struct {\n\tx int32\n\ty int32\n}\n" +
+					"Outer struct {\n\tp Point = { x = 1, y = 2 }\n}\n")
 				Expect(def).NotTo(BeNil())
 				Expect(def.Kind).To(Equal(resolution.ValueKindStruct))
 				Expect(def.Fields).To(HaveLen(2))
@@ -5270,11 +5250,10 @@ Mode enum {
 			},
 		)
 
-		It("Should collect nested struct and array values", func(ctx SpecContext) {
-			def := structDefaultOf(ctx,
-				"Inner struct {\n\ttags string[]\n}\n"+
-					"Mid struct {\n\tinner Inner\n}\n"+
-					"Outer struct {\n\tm Mid = { inner = { tags = [\"a\", \"b\"] } }\n}\n")
+		It("Should collect nested struct and array values", func() {
+			def := structDefaultOf("Inner struct {\n\ttags string[]\n}\n" +
+				"Mid struct {\n\tinner Inner\n}\n" +
+				"Outer struct {\n\tm Mid = { inner = { tags = [\"a\", \"b\"] } }\n}\n")
 			Expect(def).NotTo(BeNil())
 			Expect(def.Kind).To(Equal(resolution.ValueKindStruct))
 			Expect(def.Fields).To(HaveLen(1))
