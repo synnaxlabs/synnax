@@ -333,6 +333,21 @@ var _ = Describe("Strings", func() {
 			},
 		)
 
+		It(
+			"Should format an f32 with the g verb at f32 precision",
+			func(ctx SpecContext) {
+				ptr, length := writeSpec("g")
+				h := callU32(
+					ctx,
+					"format_f32",
+					testutil.F32(0.1),
+					testutil.U32(ptr),
+					testutil.U32(length),
+				)
+				Expect(MustBeOk(ss.Get(h))).To(Equal("0.1"))
+			},
+		)
+
 		DescribeTable("Should return handle 0 when the spec read is out-of-bounds",
 			func(ctx SpecContext, fn string, value uint64) {
 				Expect(
