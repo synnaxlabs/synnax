@@ -3967,10 +3967,13 @@ var _ = Describe("Union codec round trip", func() {
 		))
 		var out rtChan
 		Expect(json.Unmarshal(data, &out)).To(Succeed())
-		got := out.Variant.(rtChanV)
+		got, ok := out.Variant.(rtChanV)
+		Expect(ok).To(BeTrue())
 		Expect(got.Port).To(Equal(int32(7)))
 		Expect(got.MinVal).To(Equal(-10.0))
-		Expect(got.Scale.Variant.(rtLinearScale).Slope).To(Equal(1.5))
+		linear, ok := got.Scale.Variant.(rtLinearScale)
+		Expect(ok).To(BeTrue())
+		Expect(linear.Slope).To(Equal(1.5))
 	})
 
 	It("Should decode a union when unknown members are rejected", func() {
@@ -3978,7 +3981,9 @@ var _ = Describe("Union codec round trip", func() {
 		var out rtScale
 		Expect(json.Unmarshal(data, &out, json.RejectUnknownMembers(true))).
 			To(Succeed())
-		Expect(out.Variant.(rtLinearScale).Slope).To(Equal(2.0))
+		linear, ok := out.Variant.(rtLinearScale)
+		Expect(ok).To(BeTrue())
+		Expect(linear.Slope).To(Equal(2.0))
 	})
 
 	DescribeTable("Should reject an invalid discriminator as a validation error",

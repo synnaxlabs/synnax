@@ -11,6 +11,7 @@ package testutil
 
 import (
 	"context"
+	"io"
 	"sync"
 	"sync/atomic"
 
@@ -254,7 +255,7 @@ func (ss *ServerStream[RQ, RS]) exec(
 	err := handler(ctx, ss)
 	errPayload := errors.Encode(err, true)
 	if errPayload.Type == errors.TypeNil {
-		errPayload = errors.Encode(freighter.EOF, true)
+		errPayload = errors.Encode(io.EOF, true)
 	}
 	close(ss.serverClosed)
 	// A client that abandons the stream stops receiving, so the final error can have
@@ -288,7 +289,7 @@ func (cs *ClientStream[RQ, RS]) Send(req RQ) error {
 		return cs.sendErr
 	}
 	if cs.receiveFailed.Load() {
-		return freighter.EOF
+		return io.EOF
 	}
 	// A free buffer slot would otherwise win the race against an earlier cancel.
 	if cs.ctx.Err() != nil {
@@ -302,7 +303,7 @@ func (cs *ClientStream[RQ, RS]) Send(req RQ) error {
 	case <-cs.serverClosed:
 		// If the server was serverClosed, we set the sendErr to EOF and let
 		// the client discover the server error by calling Receive.
-		cs.sendErr = freighter.EOF
+		cs.sendErr = io.EOF
 		return cs.sendErr
 	case cs.requests <- message[RQ]{payload: req}:
 		return nil
@@ -344,7 +345,7 @@ func (cs *ClientStream[RQ, RS]) CloseSend() error {
 	// A returned server or a cancelled context leaves the EOF nowhere to go. Drop it
 	// rather than parking the caller for good on a full request buffer.
 	select {
-	case cs.requests <- message[RQ]{err: errors.Encode(freighter.EOF, true)}:
+	case cs.requests <- message[RQ]{err: errors.Encode(io.EOF, true)}:
 	case <-cs.serverClosed:
 	case <-cs.ctx.Done():
 	}

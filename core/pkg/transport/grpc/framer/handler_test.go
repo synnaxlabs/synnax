@@ -74,13 +74,17 @@ func serve[RQ, RS freighter.Payload](
 	var (
 		requests = make(chan RQ, count)
 		errs     = make(chan error, 1)
+		// stop ends the stream cleanly, so the client still reads io.EOF.
+		stop = func(err error) error {
+			errs <- err
+			return nil
+		}
 	)
 	srv.BindHandler(func(_ context.Context, s freighter.ServerStream[RQ, RS]) error {
 		for range count {
 			req, err := s.Receive()
 			if err != nil {
-				errs <- err
-				return nil
+				return stop(err)
 			}
 			requests <- req
 		}

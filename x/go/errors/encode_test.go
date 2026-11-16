@@ -92,6 +92,19 @@ var _ = Describe("Ferrors", Ordered, func() {
 					Expect(pld.Data).To(Equal("unknown"))
 				},
 			)
+			It("Should return a bare payload unchanged", func() {
+				pld := errors.Payload{Type: "relayed", Data: "data"}
+				Expect(errors.Encode(pld, false)).To(Equal(pld))
+			})
+			It("Should keep the wrap message of a wrapped payload", func() {
+				pld := errors.Payload{Type: "relayed", Data: "data"}
+				Expect(errors.Encode(errors.Wrap(pld, "ctx"), false)).To(Equal(
+					errors.Payload{
+						Type: errors.TypeUnknown,
+						Data: "ctx: relayed---data",
+					},
+				))
+			})
 		})
 	})
 	Describe("Expected", func() {

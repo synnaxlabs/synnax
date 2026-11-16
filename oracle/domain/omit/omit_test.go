@@ -102,7 +102,8 @@ var _ = Describe("Fields", func() {
 		}},
 	}}}
 	names := func(t *resolution.Table) []string {
-		form := t.MustGet("auth.Session").Form.(resolution.StructForm)
+		form, ok := t.MustGet("auth.Session").Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
 		names := make([]string, len(form.Fields))
 		for i, f := range form.Fields {
 			names[i] = f.Name
@@ -217,7 +218,8 @@ var _ = Describe("Fields inheritance and actions", func() {
 
 	It("Should drop omitted fields from action payloads", func() {
 		child := omit.Fields(table, "ts").MustGet("auth.Child")
-		form := child.Form.(resolution.StructForm)
+		form, ok := child.Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
 		Expect(form.Actions[0].Fields).To(HaveLen(1))
 		Expect(form.Actions[0].Fields[0].Name).To(Equal("name"))
 	})

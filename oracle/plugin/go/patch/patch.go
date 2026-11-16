@@ -1010,7 +1010,7 @@ func variantPath(
 			embedPath(payload, name, table)...,
 		)
 	}
-	pform := payload.Form.(resolution.StructForm)
+	pform := resolution.MustForm[resolution.StructForm](payload)
 	inherited, flattened := resolver.VariantBases(form, v, "go", table)
 	if declares(inherited, slices.Concat(flattened, pform.Fields), name, table) {
 		return nil
