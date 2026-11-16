@@ -16,6 +16,7 @@ import {
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { createElement, type FC, type PropsWithChildren } from "react";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Panel } from "@/platform/panel";
@@ -56,7 +57,29 @@ const viewLeaf = (key: string, type: string): panel.New["root"] => ({
 // A node key no tree in these specs reaches: the root's own children stop at 3.
 const STALE_LEAF = 99;
 
-const DRAFT = { name: "Drafted", icon: "gear" };
+const DRAFT = { name: "Drafted" };
+
+const withIconTab =
+  (Base: FC<PropsWithChildren>): FC<PropsWithChildren> =>
+  ({ children }) =>
+    createElement(
+      Base,
+      null,
+      createElement(
+        Panel.RendererContext,
+        {
+          value: {
+            created: {
+              Content: () => null,
+              Name: () => null,
+              Icon: () => null,
+              iconKey: "valve",
+            },
+          },
+        },
+        children,
+      ),
+    );
 
 const leafTabs = (root: panel.Node): panel.Tab[] => {
   if (root.variant !== "leaf") throw new Error("expected a single-leaf root");
@@ -355,6 +378,22 @@ describe("Panel.useOpenTab", () => {
       const doc = await client.panels.retrieve(panelKey);
       expect(doc.name).toBe("New panel");
       expect(panel.findTab(doc.root, tabKey)).toBeDefined();
+    });
+
+    it("gives the panel the icon registered for the tab's type", async () => {
+      const { wrapper, store } = await createPanelWrapper({ client });
+      const { result } = renderHook(() => Panel.useOpenTab(), {
+        wrapper: withIconTab(wrapper),
+      });
+      await act(async () => {
+        result.current({ variant: "view", key: uuid.create(), type: "created" });
+      });
+      await waitForFocusedTab(store);
+      const panelKey = Session.Panel.selectSelected(store.getState());
+      if (panelKey == null) throw new Error("no panel selected after create");
+      await waitFor(async () =>
+        expect((await client.panels.retrieve(panelKey)).icon).toBe("valve"),
+      );
     });
 
     it("selects the new panel and focuses the seeded tab in the session", async () => {
