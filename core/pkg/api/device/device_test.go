@@ -264,7 +264,7 @@ var _ = Describe("Dispatch rename", func() {
 			renameTo("missing", "After"),
 		)).Error().To(MatchError(query.ErrNotFound))
 	})
-	deviceID := func(_ SpecContext, d device.Device) resource.ID {
+	deviceID := func(_ context.Context, d device.Device) resource.ID {
 		return d.ResourceID()
 	}
 	DescribeTable(
@@ -272,8 +272,8 @@ var _ = Describe("Dispatch rename", func() {
 		func(
 			ctx SpecContext,
 			key string,
-			granted func(SpecContext, device.Device) resource.ID,
-			refused func(SpecContext, device.Device) resource.ID,
+			granted func(context.Context, device.Device) resource.ID,
+			refused func(context.Context, device.Device) resource.ID,
 		) {
 			u := createUser(ctx)
 			d := createDevice(ctx, key)
