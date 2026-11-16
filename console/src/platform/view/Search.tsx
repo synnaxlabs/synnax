@@ -13,14 +13,15 @@ import { plural } from "pluralize";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { useContext } from "@/platform/view/context";
+import { useContext, useSearchContext } from "@/platform/view/context";
 
 /**
  * The search field of a frame, which holds the term. It saves nothing, so every reader
  * gets it.
  */
 export const Search = (): ReactElement => {
-  const { resourceType, searchTerm, setSearchTerm } = useContext("View.Search");
+  const { resourceType } = useContext("View.Search");
+  const { term, setTerm } = useSearchContext("View.Search");
   return (
     <div className={CSS.BE("view", "search")}>
       <Input.Text
@@ -30,8 +31,8 @@ export const Search = (): ReactElement => {
         startContent={startContent}
         variant="text"
         grow
-        value={searchTerm}
-        onChange={setSearchTerm}
+        value={term}
+        onChange={setTerm}
         placeholder={`Search ${plural(resourceType)}...`}
       />
     </div>

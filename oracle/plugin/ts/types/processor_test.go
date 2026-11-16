@@ -41,7 +41,8 @@ var _ = Describe("FieldProcessor", func() {
 		structs := req.Resolutions.StructTypes()
 		Expect(structs).ToNot(BeEmpty())
 		typ := structs[0]
-		form := typ.Form.(resolution.StructForm)
+		form, ok := typ.Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
 		Expect(form.Fields).ToNot(BeEmpty())
 		return fp, typ, form.Fields[0]
 	}
@@ -96,7 +97,9 @@ var _ = Describe("FieldProcessor", func() {
 					OutputPath: "client/ts/src/schema",
 					Request:    req,
 				}
-				tileField := board.Form.(resolution.StructForm).Fields[0]
+				form, ok := board.Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
+				tileField := form.Fields[0]
 				fp.CollectTypeImports(&tileField.Type)
 				internal := mgr.InternalNamedImports()
 				Expect(internal).ToNot(BeEmpty())
@@ -146,7 +149,9 @@ var _ = Describe("FieldProcessor", func() {
 				OutputPath: "client/ts/src/schema",
 				Request:    req,
 			}
-			tilesField := board.Form.(resolution.StructForm).Fields[0]
+			form, ok := board.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			tilesField := form.Fields[0]
 			fp.CollectTypeImports(&tilesField.Type)
 			internal := mgr.InternalNamedImports()
 			Expect(internal).ToNot(BeEmpty())

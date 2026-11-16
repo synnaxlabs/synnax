@@ -453,7 +453,7 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, snap Snapshot) ([]K, erro
 			break
 		}
 		e = zero
-		b, closer, err := reader.get(ctx, k, &e)
+		b, closer, err := reader.get(k, &e)
 		if err != nil {
 			if errors.Is(err, query.ErrNotFound) {
 				notFound = append(notFound, k)
@@ -610,7 +610,7 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
 			continue
 		}
 		var e E
-		b, closer, err := reader.get(ctx, k, &e)
+		b, closer, err := reader.get(k, &e)
 		if err != nil {
 			if errors.Is(err, query.ErrNotFound) {
 				continue

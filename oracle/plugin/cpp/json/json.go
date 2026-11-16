@@ -245,7 +245,10 @@ func (p *Plugin) processArrayWrapper(
 	if !serializesArray(dt, data.table) {
 		return nil
 	}
-	base, _ := arrays.Wrapped(dt.Form.(resolution.DistinctForm), data.table)
+	base, _ := arrays.Wrapped(
+		resolution.MustForm[resolution.DistinctForm](dt),
+		data.table,
+	)
 	var arraySize int64
 	if base.ArraySize != nil {
 		arraySize = *base.ArraySize

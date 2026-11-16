@@ -152,9 +152,9 @@ var _ = Describe("NewLSP", func() {
 
 	DescribeTable(
 		"Should reject a config with a missing function",
-		func(clear func(*arc.LSPConfig), msg string) {
+		func(unset func(*arc.LSPConfig), msg string) {
 			cfg := lspConfig
-			clear(&cfg)
+			unset(&cfg)
 			Expect(svc.NewLSP(cfg)).Error().To(MatchError(msg))
 		},
 		Entry(

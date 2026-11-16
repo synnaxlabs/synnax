@@ -11,6 +11,7 @@ package http
 
 import (
 	"context"
+	"io"
 	"net/http"
 
 	ws "github.com/fasthttp/websocket"
@@ -152,7 +153,7 @@ type clientStream[RQ, RS freighter.Payload] struct {
 // Send implements the freighter.ClientStream interface.
 func (s *clientStream[RQ, RS]) Send(req RQ) error {
 	if s.peerClosed() {
-		return freighter.EOF
+		return io.EOF
 	}
 	if s.sendClosed {
 		return freighter.ErrStreamClosed
