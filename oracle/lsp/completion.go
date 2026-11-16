@@ -17,7 +17,7 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// Static completion items for Oracle schema language
+// Static completion items for Oracle schema language.
 var (
 	keywordCompletions = []protocol.CompletionItem{
 		{

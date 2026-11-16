@@ -1424,8 +1424,8 @@ TEST_F(EngineTest, SlaveWithAnUnreadSerialTakesTheSettingsAtItsPosition) {
     EXPECT_EQ(this->master->config(1).startup_parameters, params);
 }
 
-/// @brief it should give a slave that was below PRE-OP at the scan the settings saved
-/// at its position.
+/// @brief it should give a slave with SII serial number 0 that was below PRE-OP at the
+/// scan the settings saved at its position.
 TEST_F(EngineTest, StartingSlaveTakesTheSettingsAtItsPosition) {
     this->master->add_slave(io_slave(1));
     this->master->set_starting(1, true);
@@ -1534,11 +1534,10 @@ TEST_F(EngineTest, StartFailsAConflictWhoseSerialStaysUnread) {
 }
 
 /// @brief it should fail the start when two saved devices with different settings find
-/// a slave that stays below PRE-OP, and say that the slave is still starting up.
+/// a slave with SII serial number 0 that stays below PRE-OP, and say that the slave is
+/// still starting up.
 TEST_F(EngineTest, StartFailsAConflictOfASlaveThatStaysStarting) {
-    auto unit = io_slave(1);
-    unit.serial = 7;
-    this->master->add_slave(unit);
+    this->master->add_slave(io_slave(1));
     this->master->set_starting(1, true);
     this->engine = std::make_shared<Engine>(
         "eth0",
@@ -1559,6 +1558,34 @@ TEST_F(EngineTest, StartFailsAConflictOfASlaveThatStaysStarting) {
         "still starting up."
     );
     EXPECT_GT(this->master->call_count("scan"), 1);
+}
+
+/// @brief it should start a slave that was below PRE-OP at the scan with the settings
+/// saved for its nonzero SII serial number, as that serial number is final.
+TEST_F(EngineTest, StartingSlaveTakesTheSettingsOfItsSIISerial) {
+    auto unit = io_slave(1);
+    unit.serial = 7;
+    this->master->add_slave(unit);
+    this->master->set_starting(1, true);
+    const std::vector<slave::StartupParameter> params{
+        {.index = 0x8000,
+         .sub_index = 0x15,
+         .data_type = x::telem::UINT16_T,
+         .value = 3}
+    };
+    this->engine = std::make_shared<Engine>(
+        "eth0",
+        this->master,
+        replaced_unit_config(params)
+    );
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    EXPECT_EQ(this->master->config(1).startup_parameters, params);
+    EXPECT_EQ(this->master->call_count("scan"), 1);
 }
 
 /// @brief it should fail the start at once when two saved devices with no serial number

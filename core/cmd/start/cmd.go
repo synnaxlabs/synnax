@@ -11,6 +11,7 @@ package start
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"strings"
@@ -33,7 +34,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// Cmd represents the start command
+// Cmd represents the start command.
 var Cmd = &cobra.Command{
 	Use:     "start",
 	Short:   "Starts a Synnax Core",
@@ -47,9 +48,19 @@ var Cmd = &cobra.Command{
 }
 
 // start is the entrypoint for starting a Synnax Core. It handles stop requests and
-// delegates to BootupCore for the actual startup. It logs the error that ends the Core
-// and returns it.
+// delegates to BootupCore for the actual startup. It logs the error that ends the Core,
+// writes it to stderr as one line for a supervising process to read, and returns it.
 func start(cmd *cobra.Command) error {
+	err := run(cmd)
+	if err != nil {
+		if _, wErr := fmt.Fprintln(cmd.ErrOrStderr(), err); wErr != nil {
+			return errors.Combine(err, wErr)
+		}
+	}
+	return err
+}
+
+func run(cmd *cobra.Command) error {
 	cmd.SilenceUsage = true
 	cmd.SilenceErrors = true
 	ctx := cmd.Context()

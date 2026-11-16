@@ -446,6 +446,9 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 		return
 	}
 	plural := casing.TypeSnake(pluralize.String(target.Name))
+	if noun, ok := resolution.RetrieveNoun(target); ok {
+		plural = strings.ReplaceAll(pluralize.String(noun), " ", "_")
+	}
 	words := strings.ReplaceAll(plural, "_", " ")
 	// The request goes wherever the tree it carries goes, unless the filter names a
 	// request output.
@@ -607,6 +610,9 @@ func orderingTypes(
 		key = keyField.Type
 	}
 	singular := strings.ReplaceAll(casing.TypeSnake(target.Name), "_", " ")
+	if noun, ok := resolution.RetrieveNoun(target); ok {
+		singular = noun
+	}
 	cursor := []resolution.Field{requiredField(
 		"key",
 		key,

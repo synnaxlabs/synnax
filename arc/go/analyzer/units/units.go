@@ -88,7 +88,7 @@ func ValidatePowerOp(base, exp types.Type, isLiteral bool) error {
 
 // ScaleFactor returns the factor needed to convert from 'from' unit to 'to' unit.
 // The dimensions must be compatible. Returns (factor, error).
-// To convert: value_in_to_units = value_in_from_units * factor
+// To convert: value_in_to_units = value_in_from_units * factor.
 func ScaleFactor(from, to *types.Unit) (float64, error) {
 	if from == nil && to == nil {
 		return 1.0, nil

@@ -40,11 +40,11 @@ type TxReader[K Key, E Entry[K]] = iter.Seq[EntryChange[K, E]]
 func (t *Table[K, E]) Observe() observe.Observable[TxReader[K, E]] {
 	return observe.Translator[Commit, TxReader[K, E]]{
 		Observable: t.db.Observe(),
-		Translate: func(ctx context.Context, c Commit) (TxReader[K, E], bool) {
+		Translate: func(_ context.Context, c Commit) (TxReader[K, E], bool) {
 			if !slices.ContainsFunc(c.Changes, t.holds) {
 				return nil, false
 			}
-			return t.Changes(ctx, c), true
+			return t.Changes(c), true
 		},
 	}
 }
@@ -52,7 +52,7 @@ func (t *Table[K, E]) Observe() observe.Observable[TxReader[K, E]] {
 // Changes returns the changes that c made to the entries of the table, in the order of
 // c.Changes. A create or an update carries the key and the decoded entry. A delete
 // carries the key only.
-func (t *Table[K, E]) Changes(ctx context.Context, c Commit) TxReader[K, E] {
+func (t *Table[K, E]) Changes(c Commit) TxReader[K, E] {
 	return func(yield func(EntryChange[K, E]) bool) {
 		for _, ch := range c.Changes {
 			if !t.holds(ch) {

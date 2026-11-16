@@ -37,7 +37,9 @@ var _ = Describe("All", func() {
 	})
 
 	It("Should match the generated file", func() {
-		var generated map[diagnostics.ErrorCode]struct{ Message string }
+		var generated map[diagnostics.ErrorCode]struct {
+			Message string `json:"message"`
+		}
 		Expect(
 			json.Unmarshal(MustSucceed(os.ReadFile("codes.gen.json")), &generated),
 		).To(Succeed())

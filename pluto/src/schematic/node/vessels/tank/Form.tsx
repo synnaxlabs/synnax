@@ -23,6 +23,8 @@ import { Properties } from "@/vis/properties";
 const path = deep.path<schematic.TankNodeConfig>();
 const boxPath = deep.path<schematic.BoxNodeConfig>();
 
+const BORDER_RADIUS_INPUT_PROPS = { ...Form.DIMENSIONS_INPUT_PROPS, integer: true };
+
 export interface TankFormProps extends NodeFormProps {
   showBorderRadius?: boolean;
   showStrokeWidth?: boolean;
@@ -81,7 +83,7 @@ export const TankForm = ({
           <Base.NumericField
             path={boxPath.borderRadius}
             label="Border radius"
-            inputProps={Form.DIMENSIONS_INPUT_PROPS}
+            inputProps={BORDER_RADIUS_INPUT_PROPS}
           />
         ) : (
           <Form.RadiusFields path={path.borderRadius} />

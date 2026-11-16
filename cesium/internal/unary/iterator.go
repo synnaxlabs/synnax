@@ -1001,7 +1001,7 @@ func (i *Iterator) readDecimated(
 	if err != nil {
 		return segmentRead{}, err
 	}
-	series.Data = append(head, data...)
+	series.Data = slices.Concat(head, data)
 	if (lead+srcLen)%groupSize > 0 && series.Len() > 0 {
 		// The last sample kept is the first sample of the cut last group.
 		at := max(

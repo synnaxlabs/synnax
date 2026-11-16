@@ -68,7 +68,7 @@ export interface Migrated extends Partial<Core.StoreState & Color.StoreState> {}
 
 const cores = (legacy?: z.infer<typeof clusterZ>): Core.SliceState | undefined => {
   if (legacy == null) return undefined;
-  const out: Core.SliceState = { ...Core.ZERO_SLICE_STATE, cores: {} };
+  const records: Record<string, Core.Core> = {};
   // The old keys were generated too, so they carry over as they are.
   Object.entries(legacy.clusters).forEach(([key, raw]) => {
     const core = parseBranch(raw, coreZ, `Core ${key}`);
@@ -77,12 +77,18 @@ const cores = (legacy?: z.infer<typeof clusterZ>): Core.SliceState | undefined =
     // rejects must drop here rather than poison the whole registry later.
     const mapped = parseBranch({ ...core, key }, Core.coreZ, `Core ${key}`);
     if (mapped == null) return;
-    out.cores[key] = mapped;
+    records[key] = mapped;
+  });
+  const { activeCluster } = legacy;
+  // The slice schema drops the retired demo Core.
+  const out = Core.sliceStateZ.parse({
+    cores: records,
+    selected:
+      activeCluster != null && records[activeCluster] != null
+        ? activeCluster
+        : undefined,
   });
   if (Object.keys(out.cores).length === 0) return undefined;
-  const { activeCluster } = legacy;
-  if (activeCluster != null && out.cores[activeCluster] != null)
-    out.selected = activeCluster;
   return out;
 };
 

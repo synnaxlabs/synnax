@@ -23,7 +23,7 @@ var _ = Describe("StructurallyEqual", func() {
 		GinkgoHelper()
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), source,
+			source,
 			"schemas/synnax/channel.oracle", "channel",
 			testutil.NewMockFileLoader(), table,
 		)
@@ -122,7 +122,7 @@ var _ = Describe("StructurallyEqual", func() {
 			table := resolution.NewTable()
 			loader := testutil.NewMockFileLoader().Add("schemas/synnax/shared", state)
 			diag := analyzer.AnalyzeSeeded(
-				GinkgoT().Context(), source,
+				source,
 				"schemas/synnax/channel.oracle", "channel", loader, table,
 			)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())

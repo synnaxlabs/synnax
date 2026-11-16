@@ -611,10 +611,11 @@ private:
     void announce_start(const synnax::task::Key &key, Operation &operation);
     /// @brief replaces a status that a previous Driver run or a run before a Core
     /// outage left stored: "Starting task" with a failed start, a stop step with a
-    /// stopped task, and a running task with a stopped one. Replaces only a status that
-    /// this rack wrote, does nothing once this Driver wrote a status for the task, and
-    /// never starts the task. Call it after a boot deploy that configured the task,
-    /// unless the deploy was cancelled.
+    /// stopped task, and a running task with a stopped one. A task that the Core marked
+    /// as stopped responding counts as running. Replaces only a status for this rack,
+    /// does nothing once this Driver wrote a status for the task, and never starts the
+    /// task. Call it after a boot deploy that configured the task, unless the deploy
+    /// was cancelled.
     void replace_interrupted_status(const synnax::task::Task &tsk);
     /// @brief answers a pinned start whose config changed after the sender saw it.
     void refuse_pinned_start(const synnax::task::Task &tsk, Operation &operation);

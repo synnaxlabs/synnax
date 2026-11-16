@@ -2991,11 +2991,11 @@ sequence main {
 						flushNow,
 					)
 					Expect(changed).To(BeTrue())
-					Expect(highest).To(Equal(telem.TimeStamp(flushNow)))
+					Expect(highest).To(Equal(flushNow))
 					Expect(fr.Get(201).Series).To(HaveLen(1))
 					Expect(
 						fr.Get(201).Series[0],
-					).To(telem.MatchSeries(telem.NewSeriesV(telem.TimeStamp(flushNow))))
+					).To(telem.MatchSeries(telem.NewSeriesV(flushNow)))
 				},
 			)
 

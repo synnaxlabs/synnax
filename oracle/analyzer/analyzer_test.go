@@ -51,7 +51,7 @@ var _ = Describe("Analyzer", func() {
 	})
 
 	Describe("Qualified type references", func() {
-		It("Should reject a namespace the file does not import", func(ctx SpecContext) {
+		It("Should reject a namespace the file does not import", func() {
 			source := `
 				@go output "out"
 				Key uuid
@@ -59,14 +59,12 @@ var _ = Describe("Analyzer", func() {
 					channel channel.Key
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring("unresolved type: channel.Key"))
 		})
 
-		It("Should reject a name that a loaded import does not hold", func(
-			ctx SpecContext,
-		) {
+		It("Should reject a name that a loaded import does not hold", func() {
 			loader.Files["schemas/x/color"] = `
 				Gradient struct {
 					stops int32
@@ -79,12 +77,12 @@ var _ = Describe("Analyzer", func() {
 					stroke color.Color
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring("unresolved type: color.Color"))
 		})
 
-		It("Should not bind a filter name to a local type", func(ctx SpecContext) {
+		It("Should not bind a filter name to a local type", func() {
 			source := `
 				@go output "out"
 				Key uuid
@@ -92,7 +90,7 @@ var _ = Describe("Analyzer", func() {
 					key filter.Key
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			Expect(diag.String()).To(ContainSubstring("unresolved type: filter.Key"))
 			entry := MustBeOk(table.Get("test.Entry"))
@@ -100,9 +98,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(field.Type.Name).To(Equal("filter.Key"))
 		})
 
-		It("Should keep a warning for an import with no loaded types", func(
-			ctx SpecContext,
-		) {
+		It("Should keep a warning for an import with no loaded types", func() {
 			loader.Files["schemas/x/color"] = ""
 			source := `
 				import "schemas/x/color"
@@ -111,22 +107,86 @@ var _ = Describe("Analyzer", func() {
 					stroke color.Color
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			Expect(diag.String()).To(ContainSubstring("unresolved type: color.Color"))
 		})
 	})
 
+	Describe("Unqualified type references", func() {
+		It("Should reject a name that only another namespace holds", func() {
+			loader.Files["schemas/x/color"] = `
+				Color struct {
+					hex string
+				}
+			`
+			source := `
+				import "schemas/x/color"
+				@go output "out"
+				Entry struct {
+					stroke color.Color
+					fill Color
+				}
+			`
+			_, diag := Analyze(source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: Color"))
+		})
+
+		It("Should not report a typeless override in a variant", func() {
+			source := `
+				@go output "out"
+				Range struct {
+					min_val float64
+				}
+				Channel union on type {
+					counter extends Range {
+						min_val = 2
+					}
+				}
+			`
+			_, diag := Analyze(source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.String()).ToNot(ContainSubstring("unresolved type"))
+		})
+	})
+
+	Describe("Version references", func() {
+		It("Should warn on a version the table does not seed", func() {
+			_, diag := Analyze("Key = v0.Key\n", "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: v0.Key"))
+		})
+
+		It("Should reject a name a seeded version does not hold", func() {
+			_, diag := Analyze("Key = v0.Key\n", "v1", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: v0.Key"))
+		})
+	})
+
+	It("Should not bind a qualified built-in name", func() {
+		source := `
+			@go output "out"
+			Entry struct {
+				name missing.string
+			}
+		`
+		_, diag := Analyze(source, "test", loader)
+		Expect(diag.Ok()).To(BeFalse())
+		Expect(diag.String()).To(ContainSubstring("unresolved type: missing.string"))
+	})
+
 	Describe("Repeated field domain expressions", func() {
 		DescribeTable(
 			"Should reject an expression that a field declares twice",
-			func(ctx SpecContext, field string) {
+			func(field string) {
 				source := `
 					Entry struct {
 						` + field + `
 					}
 				`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring(
 					"field value declares @validate max twice",
@@ -147,7 +207,7 @@ var _ = Describe("Analyzer", func() {
 			}`),
 		)
 
-		It("Should merge different expressions on two lines", func(ctx SpecContext) {
+		It("Should merge different expressions on two lines", func() {
 			source := `
 				Entry struct {
 					value int32 {
@@ -156,7 +216,7 @@ var _ = Describe("Analyzer", func() {
 					}
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			entry := MustBeOk(table.Get("test.Entry"))
 			field := MustBeOk(entry.Form.(resolution.StructForm).Field("value"))
@@ -168,7 +228,7 @@ var _ = Describe("Analyzer", func() {
 	})
 
 	Describe("Retired version tag", func() {
-		It("Should reject a file-level @go version", func(ctx SpecContext) {
+		It("Should reject a file-level @go version", func() {
 			source := `
 				@go output "out"
 				@go version 0
@@ -176,12 +236,12 @@ var _ = Describe("Analyzer", func() {
 					value int32
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring("retired @go version tag"))
 		})
 
-		It("Should reject a struct-level @go version", func(ctx SpecContext) {
+		It("Should reject a struct-level @go version", func() {
 			source := `
 				@go output "out"
 				Entry struct {
@@ -189,7 +249,7 @@ var _ = Describe("Analyzer", func() {
 					@go version 0
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring("retired @go version tag"))
 		})
@@ -197,18 +257,16 @@ var _ = Describe("Analyzer", func() {
 
 	Describe("Version file rules", func() {
 		analyzeAt := func(
-			ctx SpecContext, source, filePath, namespace string,
+			source, filePath, namespace string,
 		) *diagnostics.Files {
 			return analyzer.AnalyzeSeeded(
-				ctx, source, filePath, namespace, loader, resolution.NewTable(),
+				source, filePath, namespace, loader, resolution.NewTable(),
 			)
 		}
 
-		It("Should count a referenced version-file pin import as used", func(
-			ctx SpecContext,
-		) {
+		It("Should count a referenced version-file pin import as used", func() {
 			loader.Add("schemas/x/versions/spatial/v0", "XLocation = string\n")
-			diag := analyzeAt(ctx, `
+			diag := analyzeAt(`
 import "schemas/x/versions/spatial/v0"
 
 Insert struct {
@@ -219,29 +277,28 @@ Insert struct {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
-		It("Should allow a versioned resource's live schema from a version file", func(
-			ctx SpecContext,
-		) {
-			loader.Add("schemas/x/telem", "TimeStamp = int64\n")
-			loader.Add("schemas/x/versions/telem/v0", "TimeStamp = int64\n")
-			diag := analyzeAt(ctx, `
+		It(
+			"Should allow a versioned resource's live schema from a version file",
+			func() {
+				loader.Add("schemas/x/telem", "TimeStamp = int64\n")
+				loader.Add("schemas/x/versions/telem/v0", "TimeStamp = int64\n")
+				diag := analyzeAt(`
 import "schemas/x/telem"
 
 Entry struct {
 	created telem.TimeStamp
 }
 `,
-				"schemas/synnax/versions/channel/v0.oracle", "v0")
-			Expect(diag.Ok()).To(BeTrue(), diag.String())
-		})
+					"schemas/synnax/versions/channel/v0.oracle", "v0")
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
 
 		It(
 			"Should allow an unversioned resource's live schema from a version file",
-			func(
-				ctx SpecContext,
-			) {
+			func() {
 				loader.Add("schemas/arc/program", "Program struct {\n\twasm bytes\n}\n")
-				diag := analyzeAt(ctx, `
+				diag := analyzeAt(`
 import "schemas/arc/program"
 
 Entry struct {
@@ -253,11 +310,9 @@ Entry struct {
 			},
 		)
 
-		It("Should allow a version file to import version files", func(
-			ctx SpecContext,
-		) {
+		It("Should allow a version file to import version files", func() {
 			loader.Add("schemas/x/versions/telem/v0", "TimeStamp = int64\n")
-			diag := analyzeAt(ctx, `
+			diag := analyzeAt(`
 import "schemas/x/versions/telem/v0"
 
 Entry struct {
@@ -268,11 +323,9 @@ Entry struct {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
-		It("Should reject a live schema importing another resource's versions", func(
-			ctx SpecContext,
-		) {
+		It("Should reject a live schema importing another resource's versions", func() {
 			loader.Add("schemas/x/versions/telem/v0", "TimeStamp = int64\n")
-			diag := analyzeAt(ctx, `
+			diag := analyzeAt(`
 import "schemas/x/versions/telem/v0"
 
 Entry struct {
@@ -286,11 +339,9 @@ Entry struct {
 			))
 		})
 
-		It("Should allow a live schema to import its own versions", func(
-			ctx SpecContext,
-		) {
+		It("Should allow a live schema to import its own versions", func() {
 			loader.Add("schemas/synnax/versions/channel/v0", "Key = uuid\n")
-			diag := analyzeAt(ctx, `
+			diag := analyzeAt(`
 import "schemas/synnax/versions/channel/v0"
 
 Entry struct {
@@ -301,10 +352,8 @@ Entry struct {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
-		It("Should reject an action declared in a version file", func(
-			ctx SpecContext,
-		) {
-			diag := analyzeAt(ctx, `
+		It("Should reject an action declared in a version file", func() {
+			diag := analyzeAt(`
 Entry struct {
 	key uuid @key
 
@@ -322,10 +371,8 @@ Entry struct {
 			))
 		})
 
-		It("Should reject an action declared in a union in a version file", func(
-			ctx SpecContext,
-		) {
-			diag := analyzeAt(ctx, `
+		It("Should reject an action declared in a union in a version file", func() {
+			diag := analyzeAt(`
 Entry union on type {
 	a {}
 
@@ -343,10 +390,8 @@ Entry union on type {
 			))
 		})
 
-		It("Should accept an action declared in a live schema", func(
-			ctx SpecContext,
-		) {
-			diag := analyzeAt(ctx, `
+		It("Should accept an action declared in a live schema", func() {
+			diag := analyzeAt(`
 Entry struct {
 	key uuid @key
 
@@ -361,8 +406,8 @@ Entry struct {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
-		It("Should accept marshal tags in a version file", func(ctx SpecContext) {
-			diag := analyzeAt(ctx, `
+		It("Should accept marshal tags in a version file", func() {
+			diag := analyzeAt(`
 Entry struct {
 	key uuid @key
 	cached string {
@@ -376,11 +421,11 @@ Entry struct {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
-		It("Should accept marshal tags in a live schema", func(ctx SpecContext) {
+		It("Should accept marshal tags in a live schema", func() {
 			// The live file carries version-owned marshal tags as emitted
 			// content; the versions gate, not the analyzer, holds them equal
 			// to chain resolution.
-			diag := analyzeAt(ctx, `
+			diag := analyzeAt(`
 @go output "out"
 
 Entry struct {
@@ -399,9 +444,9 @@ Entry struct {
 		Describe("Redeclaring types over aliases", func() {
 			var table *resolution.Table
 
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
 				table = resolution.NewTable()
-				diag := analyzer.AnalyzeSeeded(ctx, `
+				diag := analyzer.AnalyzeSeeded(`
 Size enum {
 	small = "small"
 	large = "large"
@@ -433,8 +478,8 @@ Edge union on variant {
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 			})
 
-			analyzeV1 := func(ctx SpecContext, decls string) *diagnostics.Files {
-				return analyzer.AnalyzeSeeded(ctx, `
+			analyzeV1 := func(decls string) *diagnostics.Files {
+				return analyzer.AnalyzeSeeded(`
 Size = v0.Size
 
 Method = v0.Method
@@ -459,10 +504,8 @@ Edge = v0.Edge
 				return names
 			}
 
-			It("Should accept aliased variants, bases, enums, and defaults", func(
-				ctx SpecContext,
-			) {
-				diag := analyzeV1(ctx, `
+			It("Should accept aliased variants, bases, enums, and defaults", func() {
+				diag := analyzeV1(`
 Wide enum extends Size {
 	huge = "huge"
 }
@@ -520,8 +563,8 @@ Proof union on method Method {
 			})
 
 			DescribeTable("Should run kind checks through aliases",
-				func(ctx SpecContext, decls, message string) {
-					diag := analyzeV1(ctx, decls)
+				func(decls, message string) {
+					diag := analyzeV1(decls)
 					Expect(diag.Ok()).To(BeFalse())
 					Expect(diag.String()).To(ContainSubstring(message))
 				},
@@ -553,7 +596,7 @@ Node union on variant {
 	})
 
 	Describe("ImEx marker", func() {
-		It("Should accept a bare @go imex", func(ctx SpecContext) {
+		It("Should accept a bare @go imex", func() {
 			source := `
 				@go output "out"
 				Entry struct {
@@ -561,11 +604,11 @@ Node union on variant {
 					@go imex
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 		})
 
-		It("Should accept @go imex body", func(ctx SpecContext) {
+		It("Should accept @go imex body", func() {
 			source := `
 				@go output "out"
 				Entry struct {
@@ -573,13 +616,11 @@ Node union on variant {
 					@go imex body
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
-		It("Should error when @go imex carries an unknown argument", func(
-			ctx SpecContext,
-		) {
+		It("Should error when @go imex carries an unknown argument", func() {
 			source := `
 				@go output "out"
 				Entry struct {
@@ -587,14 +628,14 @@ Node union on variant {
 					@go imex bodies
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring(
 				"malformed @go imex; the marker takes no argument or body",
 			))
 		})
 
-		It("Should error when @go imex carries arguments", func(ctx SpecContext) {
+		It("Should error when @go imex carries arguments", func() {
 			source := `
 				@go output "out"
 				Entry struct {
@@ -602,12 +643,12 @@ Node union on variant {
 					@go imex 2
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring("malformed @go imex"))
 		})
 
-		It("Should error when @go imex is declared file-level", func(ctx SpecContext) {
+		It("Should error when @go imex is declared file-level", func() {
 			source := `
 				@go output "out"
 				@go imex
@@ -615,7 +656,7 @@ Node union on variant {
 					value int32
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring("declare it per type"))
 		})
@@ -624,7 +665,7 @@ Node union on variant {
 	Describe("Domain omission", func() {
 		It(
 			"Should error when a generating type references an omitted type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@go output "out"
 				Inner struct {
@@ -635,7 +676,7 @@ Node union on variant {
 					inner Inner
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring("omitted in go"))
 			},
@@ -643,7 +684,7 @@ Node union on variant {
 
 		DescribeTable(
 			"Should omit an inline variant payload where its union omits",
-			func(ctx SpecContext, unionDomains string) {
+			func(unionDomains string) {
 				source := `
 				@go output "out"
 				Entry struct { value int32 }
@@ -656,7 +697,7 @@ Node union on variant {
 					` + unionDomains + `
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 				payload := table.MustGet("test.ReductionLimitPayload")
 				Expect(omit.IsType(payload, "go")).To(BeTrue())
@@ -667,7 +708,7 @@ Node union on variant {
 
 		DescribeTable(
 			"Should keep an inline variant payload that its union does not omit",
-			func(ctx SpecContext, variantDomains string) {
+			func(variantDomains string) {
 				source := `
 				@go output "out"
 				Aggregation enum {
@@ -681,7 +722,7 @@ Node union on variant {
 					}
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.String()).To(ContainSubstring(
 					"test.ReductionLimitPayload generates for go but field " +
 						"aggregation references test.Aggregation, which is omitted in go",
@@ -691,7 +732,7 @@ Node union on variant {
 			Entry("a variant omit", "@go omit"),
 		)
 
-		It("Should allow references to hand-written types", func(ctx SpecContext) {
+		It("Should allow references to hand-written types", func() {
 			source := `
 				@go output "out"
 				Inner struct {
@@ -702,13 +743,13 @@ Node union on variant {
 					inner Inner
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 		})
 
 		It(
 			"Should reject a reference to a type with no output in the language",
-			func(ctx SpecContext) {
+			func() {
 				loader.Add("schemas/x/notation", `
 				@ts output "ts/notation"
 				Notation enum {
@@ -722,7 +763,7 @@ Node union on variant {
 					notation notation.Notation
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.String()).To(ContainSubstring(
 					"test.Entry generates for py but field notation references " +
 						"notation.Notation, which has no py output",
@@ -732,7 +773,7 @@ Node union on variant {
 
 		It(
 			"Should reject an alias of a type with no output in the language",
-			func(ctx SpecContext) {
+			func() {
 				loader.Add("schemas/x/notation", `
 				@ts output "ts/notation"
 				Notation enum {
@@ -744,7 +785,7 @@ Node union on variant {
 				@py output "py/out"
 				Mode = notation.Notation
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.String()).To(ContainSubstring(
 					"test.Mode generates for py but its alias target references " +
 						"notation.Notation, which has no py output",
@@ -754,7 +795,7 @@ Node union on variant {
 
 		It(
 			"Should allow a struct to extend a parent omitted in its language",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@go output "out"
 				@ts output "ts/out"
@@ -767,14 +808,14 @@ Node union on variant {
 					-secret
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 			},
 		)
 
 		It(
 			"Should allow a struct to extend a parent with no output in its language",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Record struct {
 					key uint32
@@ -784,14 +825,14 @@ Node union on variant {
 					@py output "py/out"
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 			},
 		)
 
 		It(
 			"Should reject an inherited field whose type is omitted in the language",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@go output "out"
 				@ts output "ts/out"
@@ -806,7 +847,7 @@ Node union on variant {
 				}
 				Shape struct extends Record {}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.String()).To(ContainSubstring(
 					"test.Shape generates for ts but field hash references " +
 						"test.Hash, which is omitted in ts",
@@ -816,7 +857,7 @@ Node union on variant {
 
 		It(
 			"Should allow removing an inherited field whose type is omitted",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@go output "out"
 				@ts output "ts/out"
@@ -833,14 +874,14 @@ Node union on variant {
 					-hash
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 			},
 		)
 
 		It(
 			"Should allow an enum placed beside a same-file struct's output",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Mode enum {
 					fast = "fast"
@@ -850,14 +891,14 @@ Node union on variant {
 					@py output "py/out"
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 			},
 		)
 
 		It(
 			"Should allow a reference to a version-file type",
-			func(ctx SpecContext) {
+			func() {
 				loader.Add("schemas/x/versions/color/v0", "Color = string\n")
 				source := `
 				import "schemas/x/versions/color/v0"
@@ -867,7 +908,6 @@ Node union on variant {
 				}
 			`
 				diag := analyzer.AnalyzeSeeded(
-					ctx,
 					source,
 					"schemas/synnax/versions/label/v0.oracle",
 					"label",
@@ -880,7 +920,7 @@ Node union on variant {
 
 		It(
 			"Should error when every type omits a declared output",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@go output "out"
 				@ts output "ts/out"
@@ -889,7 +929,7 @@ Node union on variant {
 					@ts omit
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring("remove the @ts output"))
 			},
@@ -897,7 +937,7 @@ Node union on variant {
 
 		It(
 			"Should keep an output alive through a hand-written type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@go output "out"
 				@ts output "ts/out"
@@ -906,14 +946,14 @@ Node union on variant {
 					@ts hand
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 			},
 		)
 
 		It(
 			"Should keep an output alive through the actions of a union",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "ts/out"
 				Entry union on type {
@@ -926,14 +966,12 @@ Node union on variant {
 					@ts omit
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 			},
 		)
 
-		It("Should accept a field omitted in some of its languages", func(
-			ctx SpecContext,
-		) {
+		It("Should accept a field omitted in some of its languages", func() {
 			source := `
 				@go output "out"
 				@py output "py/out"
@@ -947,7 +985,7 @@ Node union on variant {
 					}
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			form := table.MustGet("test.Session").Form.(resolution.StructForm)
 			hash := MustBeOk(form.Field("hash"))
@@ -956,9 +994,7 @@ Node union on variant {
 			Expect(omit.IsField(hash, "go")).To(BeFalse())
 		})
 
-		It("Should accept an override of a field its parent omits", func(
-			ctx SpecContext,
-		) {
+		It("Should accept an override of a field its parent omits", func() {
 			source := `
 				@go output "out"
 				@ts output "ts/out"
@@ -969,14 +1005,14 @@ Node union on variant {
 					value?
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
 		DescribeTable(
 			"Should reject an illegal field-level omit",
-			func(ctx SpecContext, source, msg string) {
-				_, diag := Analyze(ctx, source, "test", loader)
+			func(source, msg string) {
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring(msg))
 			},
@@ -1061,8 +1097,8 @@ Node union on variant {
 	Describe("Pattern rules", func() {
 		DescribeTable(
 			"Should reject a second pattern on a value",
-			func(ctx SpecContext, source, want string) {
-				_, diag := Analyze(ctx, source, "test", loader)
+			func(source, want string) {
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring(want))
 			},
@@ -1094,8 +1130,8 @@ Node union on variant {
 			`, "test.Short has a pattern rule, but its type already sets one"),
 		)
 
-		It("Should report an inherited pattern conflict once", func(ctx SpecContext) {
-			_, diag := Analyze(ctx, `
+		It("Should report an inherited pattern conflict once", func() {
+			_, diag := Analyze(`
 				Name = string { @validate pattern "^[a-z]+$" }
 				Parent struct {
 					value Name { @validate pattern "^a" }
@@ -1111,8 +1147,8 @@ Node union on variant {
 
 		DescribeTable(
 			"Should accept one pattern on a value",
-			func(ctx SpecContext, source string) {
-				_, diag := Analyze(ctx, source, "test", loader)
+			func(source string) {
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 			},
 			Entry("on a field whose type sets none", `
@@ -1133,8 +1169,8 @@ Node union on variant {
 	Describe("Length rules", func() {
 		DescribeTable(
 			"Should reject a length rule on a field that is not a string",
-			func(ctx SpecContext, source string) {
-				_, diag := Analyze(ctx, source, "test", loader)
+			func(source string) {
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring(
 					"test.Entry.value has a length rule, but its type is not a string",
@@ -1178,8 +1214,8 @@ Node union on variant {
 
 		DescribeTable(
 			"Should accept a length rule on a string field",
-			func(ctx SpecContext, source string) {
-				_, diag := Analyze(ctx, source, "test", loader)
+			func(source string) {
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 			},
 			Entry("a string", `
@@ -1212,8 +1248,8 @@ Node union on variant {
 	Describe("Number literals", func() {
 		hugeFloat := "1" + strings.Repeat("0", 400) + ".0"
 		DescribeTable("Should reject a literal that does not fit in 64 bits",
-			func(ctx SpecContext, source, message string) {
-				_, diag := Analyze(ctx, source, "test", loader)
+			func(source, message string) {
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring(message))
 			},
@@ -1241,7 +1277,7 @@ Node union on variant {
 	})
 
 	Describe("Imports", func() {
-		It("Should error on an unused import", func(ctx SpecContext) {
+		It("Should error on an unused import", func() {
 			loader.Add("schemas/dep", `
 				Inner struct { value int32 }
 			`)
@@ -1251,12 +1287,12 @@ Node union on variant {
 					name string
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring(`unused import "schemas/dep"`))
 		})
 
-		It("Should not error when an import is referenced", func(ctx SpecContext) {
+		It("Should not error when an import is referenced", func() {
 			loader.Add("schemas/dep", `
 				Inner struct { value int32 }
 			`)
@@ -1266,41 +1302,40 @@ Node union on variant {
 					inner dep.Inner
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 		})
 
-		It("Should flag a stale import hiding behind a used same-name namespace", func(
-			ctx SpecContext,
-		) {
-			loader.Add("schemas/x/text", `
+		It(
+			"Should flag a stale import hiding behind a used same-name namespace",
+			func() {
+				loader.Add("schemas/x/text", `
 				Level enum {
 					h1 = "h1"
 				}
 			`)
-			loader.Add("schemas/arc/text", `
+				loader.Add("schemas/arc/text", `
 				Document struct { raw string }
 			`)
-			source := `
+				source := `
 				import "schemas/arc/text"
 				import "schemas/x/text"
 				Entry struct {
 					level text.Level
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring(
-				`unused import "schemas/arc/text"`,
-			))
-			Expect(diag.String()).ToNot(ContainSubstring(
-				`unused import "schemas/x/text"`,
-			))
-		})
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					`unused import "schemas/arc/text"`,
+				))
+				Expect(diag.String()).ToNot(ContainSubstring(
+					`unused import "schemas/x/text"`,
+				))
+			},
+		)
 
-		It("Should accept two same-namespace imports when both are used", func(
-			ctx SpecContext,
-		) {
+		It("Should accept two same-namespace imports when both are used", func() {
 			loader.Add("schemas/x/text", `
 				Level enum {
 					h1 = "h1"
@@ -1317,20 +1352,20 @@ Node union on variant {
 					doc   text.Document
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 	})
 
 	Describe("Single source", func() {
-		It("Should analyze a simple struct", func(ctx SpecContext) {
+		It("Should analyze a simple struct", func() {
 			source := `
 				Range struct {
 					key uuid @key
 					name string
 				}
 			`
-			table, diag := Analyze(ctx, source, "ranger", loader)
+			table, diag := Analyze(source, "ranger", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			Expect(table).NotTo(BeNil())
 			Expect(table.StructTypes()).To(HaveLen(1))
@@ -1355,7 +1390,7 @@ Node union on variant {
 			Expect(resolution.IsPrimitive(nameField.Type.Name)).To(BeTrue())
 		})
 
-		It("Should analyze an enum", func(ctx SpecContext) {
+		It("Should analyze an enum", func() {
 			source := `
 				TaskState enum {
 					pending = 0
@@ -1364,7 +1399,7 @@ Node union on variant {
 					failed = 3
 				}
 			`
-			table, diag := Analyze(ctx, source, "task", loader)
+			table, diag := Analyze(source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			Expect(table.EnumTypes()).To(HaveLen(1))
 
@@ -1379,7 +1414,7 @@ Node union on variant {
 			Expect(form.Values[0].IntValue()).To(Equal(int64(0)))
 		})
 
-		It("Should analyze a string enum", func(ctx SpecContext) {
+		It("Should analyze a string enum", func() {
 			source := `
 				DataType enum {
 					float32 = "float32"
@@ -1387,7 +1422,7 @@ Node union on variant {
 					int32 = "int32"
 				}
 			`
-			table, diag := Analyze(ctx, source, "telem", loader)
+			table, diag := Analyze(source, "telem", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			dataTypeType := table.MustGet("telem.DataType")
@@ -1397,7 +1432,7 @@ Node union on variant {
 			Expect(form.Values[0].StringValue()).To(Equal("float32"))
 		})
 
-		It("Should collect enum value domains", func(ctx SpecContext) {
+		It("Should collect enum value domains", func() {
 			source := `
 				TaskState enum {
 					pending = 0 {
@@ -1410,7 +1445,7 @@ Node union on variant {
 					completed = 2
 				}
 			`
-			table, diag := Analyze(ctx, source, "task", loader)
+			table, diag := Analyze(source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			taskStateType := table.MustGet("task.TaskState")
@@ -1442,7 +1477,7 @@ Node union on variant {
 
 		It(
 			"Should analyze an extending enum as the union of its parents",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				XAxisKey enum {
 					x1 = "x1"
@@ -1456,7 +1491,7 @@ Node union on variant {
 
 				AxisKey enum extends XAxisKey, YAxisKey {}
 			`
-				table, diag := Analyze(ctx, source, "lineplot", loader)
+				table, diag := Analyze(source, "lineplot", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				axis := table.MustGet("lineplot.AxisKey")
@@ -1474,7 +1509,7 @@ Node union on variant {
 			},
 		)
 
-		It("Should let an extending enum add its own members", func(ctx SpecContext) {
+		It("Should let an extending enum add its own members", func() {
 			source := `
 				Base enum {
 					a = "a"
@@ -1484,7 +1519,7 @@ Node union on variant {
 					b = "b"
 				}
 			`
-			table, diag := Analyze(ctx, source, "x", loader)
+			table, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := table.MustGet("x.More").Form.(resolution.EnumForm)
 			Expect(form.Values).To(HaveLen(2))
@@ -1494,89 +1529,89 @@ Node union on variant {
 			Expect(form.Declared[0].Name).To(Equal("b"))
 		})
 
-		It("Should inherit the int kind from int parent enums", func(ctx SpecContext) {
+		It("Should inherit the int kind from int parent enums", func() {
 			source := `
 				Low  enum { low  = 0 }
 				High enum { high = 1 }
 
 				Priority enum extends Low, High {}
 			`
-			table, diag := Analyze(ctx, source, "task", loader)
+			table, diag := Analyze(source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := table.MustGet("task.Priority").Form.(resolution.EnumForm)
 			Expect(form.IsIntEnum).To(BeTrue())
 			Expect(form.Values[1].IntValue()).To(Equal(int64(1)))
 		})
 
-		It("Should reject extending a non-enum type", func(ctx SpecContext) {
+		It("Should reject extending a non-enum type", func() {
 			source := `
 				Thing struct { name string }
 
 				Bad enum extends Thing {}
 			`
-			_, diag := Analyze(ctx, source, "x", loader)
+			_, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring("which is not an enum"))
 		})
 
-		It("Should reject extending an unknown enum", func(ctx SpecContext) {
+		It("Should reject extending an unknown enum", func() {
 			source := `
 				Bad enum extends Nonexistent {}
 			`
-			_, diag := Analyze(ctx, source, "x", loader)
+			_, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring("extends unknown enum"))
 		})
 
-		It("Should reject mixing string and int parent kinds", func(ctx SpecContext) {
+		It("Should reject mixing string and int parent kinds", func() {
 			source := `
 				Strs enum { a = "a" }
 				Ints enum { b = 0 }
 
 				Mixed enum extends Strs, Ints {}
 			`
-			_, diag := Analyze(ctx, source, "x", loader)
+			_, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring("mixed integer and string"))
 		})
 
 		It(
 			"Should reject parents that contribute conflicting member values",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				A enum { shared = "one" }
 				B enum { shared = "two" }
 
 				C enum extends A, B {}
 			`
-				_, diag := Analyze(ctx, source, "x", loader)
+				_, diag := Analyze(source, "x", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring("conflicting values"))
 			},
 		)
 
-		It("Should reject an enum that extends itself", func(ctx SpecContext) {
+		It("Should reject an enum that extends itself", func() {
 			source := `
 				A enum extends A {}
 			`
-			_, diag := Analyze(ctx, source, "x", loader)
+			_, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring("cyclic extends chain"))
 		})
 
-		It("Should reject a cyclic extends chain", func(ctx SpecContext) {
+		It("Should reject a cyclic extends chain", func() {
 			source := `
 				A enum extends B {}
 				B enum extends A {}
 			`
-			_, diag := Analyze(ctx, source, "x", loader)
+			_, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring("cyclic extends chain"))
 		})
 
 		It(
 			"Should accept a diamond where two parents share a common ancestor",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Base enum { b = "b" }
 				Left  enum extends Base { l = "l" }
@@ -1584,7 +1619,7 @@ Node union on variant {
 
 				Diamond enum extends Left, Right {}
 			`
-				table, diag := Analyze(ctx, source, "x", loader)
+				table, diag := Analyze(source, "x", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				form := table.MustGet("x.Diamond").Form.(resolution.EnumForm)
 				var names []string
@@ -1596,13 +1631,13 @@ Node union on variant {
 			},
 		)
 
-		It("Should expand a multi-level extends chain", func(ctx SpecContext) {
+		It("Should expand a multi-level extends chain", func() {
 			source := `
 				C enum { c = "c" }
 				B enum extends C { b = "b" }
 				A enum extends B { a = "a" }
 			`
-			table, diag := Analyze(ctx, source, "x", loader)
+			table, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := table.MustGet("x.A").Form.(resolution.EnumForm)
 			var names []string
@@ -1614,7 +1649,7 @@ Node union on variant {
 
 		It(
 			"Should extend enums imported from another namespace",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				import "schemas/spatial"
 
@@ -1630,7 +1665,7 @@ Node union on variant {
 					y2 = "y2"
 				}
 			`)
-				table, diag := Analyze(ctx, source, "lineplot", loader)
+				table, diag := Analyze(source, "lineplot", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				form := table.MustGet("lineplot.AxisKey").Form.(resolution.EnumForm)
 				Expect(form.Values).To(HaveLen(4))
@@ -1639,7 +1674,7 @@ Node union on variant {
 			},
 		)
 
-		It("Should collect field domains", func(ctx SpecContext) {
+		It("Should collect field domains", func() {
 			source := `
 				User struct {
 					name string {
@@ -1655,7 +1690,7 @@ Node union on variant {
 					}
 				}
 			`
-			table, diag := Analyze(ctx, source, "user", loader)
+			table, diag := Analyze(source, "user", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			userType := table.MustGet("user.User")
@@ -1681,7 +1716,7 @@ Node union on variant {
 			).To(Equal(int64(255)))
 		})
 
-		It("Should collect struct-level domains", func(ctx SpecContext) {
+		It("Should collect struct-level domains", func() {
 			source := `
 				Range struct {
 					key uuid
@@ -1692,7 +1727,7 @@ Node union on variant {
 					}
 				}
 			`
-			table, diag := Analyze(ctx, source, "ranger", loader)
+			table, diag := Analyze(source, "ranger", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			rangeType := table.MustGet("ranger.Range")
@@ -1704,14 +1739,14 @@ Node union on variant {
 			Expect(indexDomain.Expressions[0].Name).To(Equal("composite"))
 		})
 
-		It("Should handle array types", func(ctx SpecContext) {
+		It("Should handle array types", func() {
 			source := `
 				Range struct {
 					labels uuid[]
 					tags string[]?
 				}
 			`
-			table, diag := Analyze(ctx, source, "ranger", loader)
+			table, diag := Analyze(source, "ranger", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			rangeType := table.MustGet("ranger.Range")
@@ -1728,13 +1763,13 @@ Node union on variant {
 			Expect(tagsField.Optional).To(BeTrue())
 		})
 
-		It("Should handle optional types", func(ctx SpecContext) {
+		It("Should handle optional types", func() {
 			source := `
 				Range struct {
 					parent uuid?
 				}
 			`
-			table, diag := Analyze(ctx, source, "ranger", loader)
+			table, diag := Analyze(source, "ranger", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			rangeType := table.MustGet("ranger.Range")
@@ -1746,7 +1781,7 @@ Node union on variant {
 	})
 
 	Describe("Import Resolution", func() {
-		It("Should resolve imports", func(ctx SpecContext) {
+		It("Should resolve imports", func() {
 			loader.Files["schema/core/label"] = `
 				Label struct {
 					key uuid @id
@@ -1762,7 +1797,7 @@ Node union on variant {
 					labels label.Label[]
 				}
 			`
-			table, diag := Analyze(ctx, source, "ranger", loader)
+			table, diag := Analyze(source, "ranger", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			// Both structs should be in the table
@@ -1773,7 +1808,7 @@ Node union on variant {
 			Expect(ok).To(BeTrue())
 		})
 
-		It("Should detect circular imports", func(ctx SpecContext) {
+		It("Should detect circular imports", func() {
 			loader.Files["schema/core/a"] = `
 				import "schema/core/b"
 				A struct { b b.B? }
@@ -1787,18 +1822,18 @@ Node union on variant {
 				import "schema/core/a"
 				C struct { a a.A? }
 			`
-			table, diag := Analyze(ctx, source, "main", loader)
+			table, diag := Analyze(source, "main", loader)
 			// Should not error - circular imports are handled by tracking
 			Expect(diag.Ok()).To(BeTrue())
 			Expect(table.StructTypes()).To(HaveLen(3))
 		})
 
-		It("Should report missing imports", func(ctx SpecContext) {
+		It("Should report missing imports", func() {
 			source := `
 				import "schema/core/nonexistent"
 				Range struct {}
 			`
-			table, diag := Analyze(ctx, source, "ranger", loader)
+			table, diag := Analyze(source, "ranger", loader)
 			Expect(
 				diag,
 			).To(MatchError(ContainSubstring("failed to import schema/core")))
@@ -1808,7 +1843,7 @@ Node union on variant {
 	})
 
 	Describe("Type Resolution", func() {
-		It("Should resolve primitive types", func(ctx SpecContext) {
+		It("Should resolve primitive types", func() {
 			source := `
 				import "schemas/telem"
 
@@ -1833,7 +1868,7 @@ Node union on variant {
 					end timestamp
 				}
 			`)
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			testType := table.MustGet("test.Test")
@@ -1846,7 +1881,7 @@ Node union on variant {
 			}
 		})
 
-		It("Should resolve struct references in same namespace", func(ctx SpecContext) {
+		It("Should resolve struct references in same namespace", func() {
 			source := `
 				Position struct {
 					x float64
@@ -1858,7 +1893,7 @@ Node union on variant {
 					zoom float64
 				}
 			`
-			table, diag := Analyze(ctx, source, "viz", loader)
+			table, diag := Analyze(source, "viz", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			viewportType := table.MustGet("viz.Viewport")
@@ -1873,7 +1908,7 @@ Node union on variant {
 			Expect(isStruct).To(BeTrue())
 		})
 
-		It("Should resolve qualified struct references", func(ctx SpecContext) {
+		It("Should resolve qualified struct references", func() {
 			loader.Files["schema/core/label"] = `
 				Label struct {
 					key uuid
@@ -1888,7 +1923,7 @@ Node union on variant {
 					labels label.Label[]
 				}
 			`
-			table, diag := Analyze(ctx, source, "ranger", loader)
+			table, diag := Analyze(source, "ranger", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			rangeType := table.MustGet("ranger.Range")
@@ -1905,7 +1940,7 @@ Node union on variant {
 			Expect(resolvedForm.Fields).To(HaveLen(2))
 		})
 
-		It("Should resolve enum references", func(ctx SpecContext) {
+		It("Should resolve enum references", func() {
 			source := `
 				TaskState enum {
 					pending = 0
@@ -1916,7 +1951,7 @@ Node union on variant {
 					state TaskState
 				}
 			`
-			table, diag := Analyze(ctx, source, "task", loader)
+			table, diag := Analyze(source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			taskType := table.MustGet("task.Task")
@@ -1933,12 +1968,12 @@ Node union on variant {
 	})
 
 	Describe("Error Handling", func() {
-		It("Should report duplicate struct definitions", func(ctx SpecContext) {
+		It("Should report duplicate struct definitions", func() {
 			source := `
 				Range struct {}
 				Range struct {}
 			`
-			table, diag := Analyze(ctx, source, "ranger", loader)
+			table, diag := Analyze(source, "ranger", loader)
 			Expect(
 				diag,
 			).To(MatchError(ContainSubstring("duplicate type definition")))
@@ -1946,7 +1981,7 @@ Node union on variant {
 			Expect(table).To(BeNil())
 		})
 
-		It("Should report duplicate enum definitions", func(ctx SpecContext) {
+		It("Should report duplicate enum definitions", func() {
 			source := `
 				State enum {
 					a = 0
@@ -1955,7 +1990,7 @@ Node union on variant {
 					b = 0
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(
 				diag,
 			).To(MatchError(ContainSubstring("duplicate type definition: test.State")))
@@ -1967,7 +2002,7 @@ Node union on variant {
 	Describe("File-level Domain Merging", func() {
 		It(
 			"Should merge multiple file-level domains with the same name",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@pb output "core/pkg/api/grpc/v1"
 				@pb package "api.v1"
@@ -1977,7 +2012,7 @@ Node union on variant {
 					name string
 				}
 			`
-				table, diag := Analyze(ctx, source, "user", loader)
+				table, diag := Analyze(source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				userType := table.MustGet("user.User")
@@ -2001,7 +2036,7 @@ Node union on variant {
 
 		It(
 			"Should merge file-level domains with struct-level domains",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@go output "core/pkg/service/user"
 
@@ -2012,7 +2047,7 @@ Node union on variant {
 					@go hand
 				}
 			`
-				table, diag := Analyze(ctx, source, "user", loader)
+				table, diag := Analyze(source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				userType := table.MustGet("user.User")
@@ -2035,7 +2070,7 @@ Node union on variant {
 
 		It(
 			"Should let struct-level domain override file-level domain expression",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "client/ts/src/default"
 
@@ -2048,7 +2083,7 @@ Node union on variant {
 					key uuid @key
 				}
 			`
-				table, diag := Analyze(ctx, source, "user", loader)
+				table, diag := Analyze(source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				// User should have overridden output
@@ -2069,7 +2104,7 @@ Node union on variant {
 	})
 
 	Describe("Struct Extension", func() {
-		It("Should parse basic struct extension", func(ctx SpecContext) {
+		It("Should parse basic struct extension", func() {
 			source := `
 				Parent struct {
 					name string
@@ -2080,7 +2115,7 @@ Node union on variant {
 					email string
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			Expect(table.StructTypes()).To(HaveLen(2))
 
@@ -2104,7 +2139,7 @@ Node union on variant {
 			Expect(fieldNames).To(ContainElements("name", "age", "email"))
 		})
 
-		It("Should parse field omission with -fieldName syntax", func(ctx SpecContext) {
+		It("Should parse field omission with -fieldName syntax", func() {
 			source := `
 				Parent struct {
 					name string
@@ -2117,7 +2152,7 @@ Node union on variant {
 					email string
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
@@ -2136,7 +2171,7 @@ Node union on variant {
 			Expect(fieldNames).NotTo(ContainElement("age"))
 		})
 
-		It("Should handle field override in child struct", func(ctx SpecContext) {
+		It("Should handle field override in child struct", func() {
 			source := `
 				Parent struct {
 					name string
@@ -2147,7 +2182,7 @@ Node union on variant {
 					name string?
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
@@ -2174,7 +2209,7 @@ Node union on variant {
 
 		It(
 			"Should inherit type and optionality when an override omits its type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Parent struct {
 					name string?
@@ -2185,7 +2220,7 @@ Node union on variant {
 					age = 21
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				child := table.MustGet("test.Child")
@@ -2199,7 +2234,7 @@ Node union on variant {
 
 		It(
 			"Should inherit the parent default when an override omits it",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Parent struct {
 					count int32 = 5
@@ -2209,7 +2244,7 @@ Node union on variant {
 					count @validate required
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				child := table.MustGet("test.Child")
@@ -2224,7 +2259,7 @@ Node union on variant {
 
 		It(
 			"Should merge a domain added by a partial override with inherited domains",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Parent struct {
 					name string @validate { min_length 1 }
@@ -2234,7 +2269,7 @@ Node union on variant {
 					name @validate required
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				child := table.MustGet("test.Child")
@@ -2249,7 +2284,7 @@ Node union on variant {
 
 		It(
 			"Should inherit the parent's domains on a bare typeless override",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Key uint32
 
@@ -2263,7 +2298,7 @@ Node union on variant {
 					key?
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				child := table.MustGet("test.Child")
@@ -2279,7 +2314,7 @@ Node union on variant {
 
 		It(
 			"Should let a typeless override's own domain win over the inherited one",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Key uint32
 
@@ -2295,7 +2330,7 @@ Node union on variant {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				child := table.MustGet("test.Child")
@@ -2308,7 +2343,7 @@ Node union on variant {
 			},
 		)
 
-		It("Should remove an inherited domain with -@domain", func(ctx SpecContext) {
+		It("Should remove an inherited domain with -@domain", func() {
 			source := `
 				Parent struct {
 					name string @validate required
@@ -2318,7 +2353,7 @@ Node union on variant {
 					name -@validate
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			child := table.MustGet("test.Child")
@@ -2330,10 +2365,10 @@ Node union on variant {
 
 		DescribeTable(
 			"Should resolve optionality on a typeless override",
-			func(ctx SpecContext, parentField, childField, field, wantType string, wantOptional bool) {
+			func(parentField, childField, field, wantType string, wantOptional bool) {
 				source := "Key uint32\n\nParent struct {\n  " + parentField +
 					"\n}\n\nChild struct extends Parent {\n  " + childField + "\n}\n"
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				f := findField(
 					resolution.UnifiedFields(table.MustGet("test.Child"), table),
@@ -2352,8 +2387,8 @@ Node union on variant {
 
 		DescribeTable(
 			"Should reject the removed ?? optionality marker as a syntax error",
-			func(ctx SpecContext, source string) {
-				_, diag := Analyze(ctx, source, "test", loader)
+			func(source string) {
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 			},
 			Entry("?? on a typed field",
@@ -2365,8 +2400,8 @@ Node union on variant {
 		)
 
 		DescribeTable("Should reject partial-override syntax that cannot resolve",
-			func(ctx SpecContext, source, wantErr string) {
-				_, diag := Analyze(ctx, source, "test", loader)
+			func(source, wantErr string) {
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(wantErr))
 			},
@@ -2404,7 +2439,7 @@ Node union on variant {
 			`, "must declare a type"),
 		)
 
-		It("Should extend generic struct with type arguments", func(ctx SpecContext) {
+		It("Should extend generic struct with type arguments", func() {
 			source := `
 				Status struct<D extends record> {
 					variant int32
@@ -2416,10 +2451,10 @@ Node union on variant {
 				}
 
 				RackStatus struct extends Status<Details> {
-					timestamp timestamp
+					timestamp int64
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			rackStatusType := table.MustGet("test.RackStatus")
@@ -2443,7 +2478,7 @@ Node union on variant {
 			Expect(dataField.Type.Name).To(Equal("test.Details"))
 		})
 
-		It("Should handle multi-level inheritance", func(ctx SpecContext) {
+		It("Should handle multi-level inheritance", func() {
 			source := `
 				GrandParent struct {
 					a string
@@ -2457,7 +2492,7 @@ Node union on variant {
 					c string
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
@@ -2472,7 +2507,7 @@ Node union on variant {
 			Expect(fieldNames).To(ContainElements("a", "b", "c"))
 		})
 
-		It("Should extend struct from imported file", func(ctx SpecContext) {
+		It("Should extend struct from imported file", func() {
 			loader.Files["schema/core/base"] = `
 				Base struct {
 					key uuid @id
@@ -2487,7 +2522,7 @@ Node union on variant {
 					description string
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			extendedType := table.MustGet("test.Extended")
@@ -2499,7 +2534,7 @@ Node union on variant {
 			Expect(allFields).To(HaveLen(3))
 		})
 
-		It("Should detect circular inheritance", func(ctx SpecContext) {
+		It("Should detect circular inheritance", func() {
 			source := `
 				A struct extends B {
 					a string
@@ -2509,25 +2544,25 @@ Node union on variant {
 					b string
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
 
-		It("Should detect self-extension", func(ctx SpecContext) {
+		It("Should detect self-extension", func() {
 			source := `
 				Self struct extends Self {
 					a string
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(table).To(BeNil())
 			Expect(diag.Flat().Errors()).To(HaveExactElements(
 				HaveField("Message", "struct Self cannot extend itself"),
 			))
 		})
 
-		It("Should report circular inheritance under a union", func(ctx SpecContext) {
+		It("Should report circular inheritance under a union", func() {
 			source := `
 				A struct extends B {
 					a string
@@ -2539,7 +2574,7 @@ Node union on variant {
 					x {}
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring(
 				"circular inheritance detected: struct A",
@@ -2548,7 +2583,7 @@ Node union on variant {
 
 		DescribeTable(
 			"Should report circular inheritance in an imported struct",
-			func(ctx SpecContext, source string) {
+			func(source string) {
 				loader.Add("schemas/cycle", `
 					A struct extends B {
 						a string
@@ -2557,7 +2592,7 @@ Node union on variant {
 						b string
 					}
 				`)
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(
 					"circular inheritance detected: struct A",
@@ -2588,18 +2623,18 @@ Node union on variant {
 			`),
 		)
 
-		It("Should error on non-existent parent struct", func(ctx SpecContext) {
+		It("Should error on non-existent parent struct", func() {
 			source := `
 				Child struct extends NonExistent {
 					a string
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
 
-		It("Should error on omitting non-existent field", func(ctx SpecContext) {
+		It("Should error on omitting non-existent field", func() {
 			source := `
 				Parent struct {
 					name string
@@ -2609,12 +2644,12 @@ Node union on variant {
 					-nonexistent
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
 
-		It("Should inherit parent field domains on override", func(ctx SpecContext) {
+		It("Should inherit parent field domains on override", func() {
 			source := `
 				Parent struct {
 					key uuid @id
@@ -2625,7 +2660,7 @@ Node union on variant {
 					key uuid?
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
@@ -2643,7 +2678,7 @@ Node union on variant {
 			Expect(keyField.Domains).To(HaveKey("id")) // Parent's domain inherited
 		})
 
-		It("Should allow child to override parent domain", func(ctx SpecContext) {
+		It("Should allow child to override parent domain", func() {
 			source := `
 				Parent struct {
 					name string {
@@ -2663,7 +2698,7 @@ Node union on variant {
 					}
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
@@ -2686,7 +2721,7 @@ Node union on variant {
 
 		It(
 			"Should merge domains from parent when child adds new domain",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Parent struct {
 					key uuid @id
@@ -2696,7 +2731,7 @@ Node union on variant {
 					key uuid? @validate required
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				childType := table.MustGet("test.Child")
@@ -2721,7 +2756,7 @@ Node union on variant {
 
 		It(
 			"Should merge expressions within same domain from parent and child",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Parent struct {
 					name string @validate min_length 1
@@ -2731,7 +2766,7 @@ Node union on variant {
 					name string @validate max_length 100
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				childType := table.MustGet("test.Child")
@@ -2765,13 +2800,13 @@ Node union on variant {
 		// Multiple inheritance tests
 		It(
 			"Should parse multiple extends with comma-separated parents",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				A struct { a string }
 				B struct { b string }
 				C struct extends A, B { c string }
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				cType := table.MustGet("test.C")
@@ -2793,13 +2828,13 @@ Node union on variant {
 
 		It(
 			"Should reject parents that declare the same field",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				A struct { shared int32 }
 				B struct { shared string }
 				C struct extends A, B { }
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(
 					`struct C inherits field "shared" from both A and B`,
@@ -2809,7 +2844,7 @@ Node union on variant {
 
 		It(
 			"Should accept parents that share a field the child omits",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				A struct { shared int32 }
 				B struct { shared string }
@@ -2818,7 +2853,7 @@ Node union on variant {
 					c bool
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				allFields := resolution.UnifiedFields(table.MustGet("test.C"), table)
@@ -2827,14 +2862,14 @@ Node union on variant {
 			},
 		)
 
-		It("Should reject diamond inheritance", func(ctx SpecContext) {
+		It("Should reject diamond inheritance", func() {
 			source := `
 				Base struct { base string }
 				Left struct extends Base { left string }
 				Right struct extends Base { right string }
 				Diamond struct extends Left, Right { }
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring(
 				`struct Diamond inherits field "base" from both Left and Right`,
@@ -2843,20 +2878,20 @@ Node union on variant {
 
 		It(
 			"Should detect circular inheritance with multiple parents",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				A struct extends C { a string }
 				B struct { b string }
 				C struct extends A, B { c string }
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 			},
 		)
 
 		It(
 			"Should handle type parameters with multiple extends",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Generic1 struct<T> { value1 T }
 				Generic2 struct<U> { value2 U }
@@ -2864,7 +2899,7 @@ Node union on variant {
 					combined V
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				cType := table.MustGet("test.Combined")
@@ -2873,7 +2908,7 @@ Node union on variant {
 			},
 		)
 
-		It("Should allow omitting fields from any parent", func(ctx SpecContext) {
+		It("Should allow omitting fields from any parent", func() {
 			source := `
 				A struct {
 					a string
@@ -2885,7 +2920,7 @@ Node union on variant {
 					c string
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			cType := table.MustGet("test.C")
@@ -2898,7 +2933,7 @@ Node union on variant {
 			Expect(fieldNames).To(ContainElements("a", "b", "c"))
 		})
 
-		It("Should error when omitting field not in any parent", func(ctx SpecContext) {
+		It("Should error when omitting field not in any parent", func() {
 			source := `
 				A struct { a string }
 				B struct { b string }
@@ -2906,7 +2941,7 @@ Node union on variant {
 					-nonexistent
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 		})
 	})
@@ -2926,7 +2961,7 @@ Node union on variant {
 
 		It(
 			"Should flatten an extended struct's fields into the action payload",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Named struct {
 					name string
@@ -2940,7 +2975,7 @@ Node union on variant {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				action := findAction(table, "test.Schematic", "Rename")
 				Expect(action.Fields).To(HaveLen(1))
@@ -2951,7 +2986,7 @@ Node union on variant {
 
 		It(
 			"Should prepend inherited fields before the action's own fields",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				NodeRef struct {
 					key      string
@@ -2966,7 +3001,7 @@ Node union on variant {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				action := findAction(table, "test.Schematic", "SetNodePosition")
 				names := make([]string, len(action.Fields))
@@ -2979,7 +3014,7 @@ Node union on variant {
 
 		It(
 			"Should let an action's own field override an inherited field",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Base struct {
 					value int32
@@ -2993,7 +3028,7 @@ Node union on variant {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				action := findAction(table, "test.Container", "SetValue")
 				Expect(action.Fields).To(HaveLen(1))
@@ -3003,7 +3038,7 @@ Node union on variant {
 
 		It(
 			"Should flatten fields from multiple extended structs",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				A struct {
 					a string
@@ -3018,7 +3053,7 @@ Node union on variant {
 					action Combine extends A, B {}
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				action := findAction(table, "test.Container", "Combine")
 				names := make([]string, len(action.Fields))
@@ -3031,7 +3066,7 @@ Node union on variant {
 
 		It(
 			"Should reject extended structs that declare the same field",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				A struct {
 					a string
@@ -3046,7 +3081,7 @@ Node union on variant {
 					action Combine extends A, B {}
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(
 					`action Combine inherits field "a" from both A and B`,
@@ -3056,7 +3091,7 @@ Node union on variant {
 
 		It(
 			"Should inherit transitively through the extended struct's own parents",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				GrandParent struct { a string }
 				Parent struct extends GrandParent { b string }
@@ -3069,7 +3104,7 @@ Node union on variant {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				action := findAction(table, "test.Container", "Apply")
 				names := make([]string, len(action.Fields))
@@ -3082,7 +3117,7 @@ Node union on variant {
 
 		It(
 			"Should substitute type arguments when extending a generic struct",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Box struct<T extends record> {
 					data T
@@ -3098,7 +3133,7 @@ Node union on variant {
 					action Load extends Box<Details> {}
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				action := findAction(table, "test.Container", "Load")
 				Expect(action.Fields).To(HaveLen(1))
@@ -3109,7 +3144,7 @@ Node union on variant {
 
 		It(
 			"Should error when an action extends an unresolved type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Container struct {
 					key uuid
@@ -3117,7 +3152,7 @@ Node union on variant {
 					action Apply extends Missing {}
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring("extends unresolved type"))
 			},
@@ -3125,7 +3160,7 @@ Node union on variant {
 
 		It(
 			"Should error when an action extends a non-struct type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Color enum {
 					red = 0
@@ -3138,7 +3173,7 @@ Node union on variant {
 					action Apply extends Color {}
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring("extends non-struct type"))
 			},
@@ -3146,7 +3181,7 @@ Node union on variant {
 
 		It(
 			"Should error when extending a generic struct without type arguments",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Box struct<T extends record> {
 					data T
@@ -3158,7 +3193,7 @@ Node union on variant {
 					action Load extends Box {}
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring("type arguments"))
 			},
@@ -3167,7 +3202,7 @@ Node union on variant {
 		Context("aliased payloads", func() {
 			It(
 				"Should resolve the aliased struct and take its doc",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					Set struct {
 						path string[]
@@ -3181,7 +3216,7 @@ Node union on variant {
 						action Set = Set
 					}
 				`
-					table, diag := Analyze(ctx, source, "test", loader)
+					table, diag := Analyze(source, "test", loader)
 					Expect(diag.Ok()).To(BeTrue(), diag.String())
 					action := findAction(table, "test.Container", "Set")
 					Expect(action.IsAlias()).To(BeTrue())
@@ -3194,7 +3229,7 @@ Node union on variant {
 
 			It(
 				"Should keep an alias's own doc in place of its struct's doc",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					Set struct {
 						path string[]
@@ -3210,7 +3245,7 @@ Node union on variant {
 						}
 					}
 				`
-					table, diag := Analyze(ctx, source, "test", loader)
+					table, diag := Analyze(source, "test", loader)
 					Expect(diag.Ok()).To(BeTrue(), diag.String())
 					action := findAction(table, "test.Container", "Set")
 					Expect(action.Alias.Name).To(Equal("test.Set"))
@@ -3222,9 +3257,7 @@ Node union on variant {
 				},
 			)
 
-			It("Should reject an alias of a type that is not a struct", func(
-				ctx SpecContext,
-			) {
+			It("Should reject an alias of a type that is not a struct", func() {
 				source := `
 					Color enum {
 						red = 0
@@ -3236,14 +3269,14 @@ Node union on variant {
 						action Paint = Color
 					}
 				`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(
 					"action Paint of Container must alias a struct, got test.Color",
 				))
 			})
 
-			It("Should reject an alias of a generic struct", func(ctx SpecContext) {
+			It("Should reject an alias of a generic struct", func() {
 				source := `
 					Box struct<T = string> {
 						data T
@@ -3255,7 +3288,7 @@ Node union on variant {
 						action Load = Box
 					}
 				`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(
 					"action Load of Container cannot alias generic struct test.Box, " +
@@ -3265,7 +3298,7 @@ Node union on variant {
 
 			It(
 				"Should reject an alias of a struct alias with bound type arguments",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					Box struct<T> {
 						data T
@@ -3279,7 +3312,7 @@ Node union on variant {
 						action Load = StringBox
 					}
 				`
-					_, diag := Analyze(ctx, source, "test", loader)
+					_, diag := Analyze(source, "test", loader)
 					Expect(diag.Ok()).To(BeFalse())
 					Expect(diag.Error()).To(ContainSubstring(
 						"action Load of Container cannot alias generic struct test.Box",
@@ -3287,7 +3320,7 @@ Node union on variant {
 				},
 			)
 
-			It("Should reject an alias of an array", func(ctx SpecContext) {
+			It("Should reject an alias of an array", func() {
 				source := `
 					Set struct {
 						path string[]
@@ -3299,7 +3332,7 @@ Node union on variant {
 						action Set = Set[]
 					}
 				`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(
 					`action Set: the alias target must be a plain struct reference, ` +
@@ -3307,9 +3340,7 @@ Node union on variant {
 				))
 			})
 
-			It("Should reject two actions that alias the same struct", func(
-				ctx SpecContext,
-			) {
+			It("Should reject two actions that alias the same struct", func() {
 				source := `
 					Set struct {
 						path string[]
@@ -3323,7 +3354,7 @@ Node union on variant {
 						action Replace = Set
 					}
 				`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(
 					"actions Set and Replace of Container both alias test.Set",
@@ -3333,7 +3364,7 @@ Node union on variant {
 	})
 
 	Describe("Union Actions", func() {
-		It("Should collect and resolve the actions of a union", func(ctx SpecContext) {
+		It("Should collect and resolve the actions of a union", func() {
 			source := `
 				Base struct {
 					key uuid
@@ -3358,7 +3389,7 @@ Node union on variant {
 					}
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			actions := table.MustGet("test.Shape").Actions()
 			Expect(actions).To(HaveLen(2))
@@ -3369,7 +3400,7 @@ Node union on variant {
 
 		It(
 			"Should flatten an extended struct's fields into a union action",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Named struct {
 					name string
@@ -3383,7 +3414,7 @@ Node union on variant {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 				action := table.MustGet("test.Shape").Actions()[0]
 				names := make([]string, len(action.Fields))
@@ -3396,7 +3427,7 @@ Node union on variant {
 
 		It(
 			"Should error when a union action extends a non-struct type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Kind enum {
 					a = "a"
@@ -3408,7 +3439,7 @@ Node union on variant {
 					action Apply extends Kind {}
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring("extends non-struct type"))
 			},
@@ -3416,7 +3447,7 @@ Node union on variant {
 
 		It(
 			"Should point an action in an inline variant to the union body",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Shape union on type {
 					circle {
@@ -3426,7 +3457,7 @@ Node union on variant {
 					}
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(
 					"declare actions in the union body",
@@ -3436,12 +3467,12 @@ Node union on variant {
 	})
 
 	Describe("TypeDef", func() {
-		It("Should analyze a distinct type (primitive alias)", func(ctx SpecContext) {
+		It("Should analyze a distinct type (primitive alias)", func() {
 			// Grammar: IDENT qualifiedIdent (no 'type' keyword or '=')
 			source := `
 				ChannelKey uint32
 			`
-			table, diag := Analyze(ctx, source, "channel", loader)
+			table, diag := Analyze(source, "channel", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			channelKeyType := table.MustGet("channel.ChannelKey")
@@ -3450,7 +3481,7 @@ Node union on variant {
 			Expect(form.Base.Name).To(Equal("uint32"))
 		})
 
-		It("Should analyze a struct alias", func(ctx SpecContext) {
+		It("Should analyze a struct alias", func() {
 			source := `
 				Position struct {
 					x float64
@@ -3459,7 +3490,7 @@ Node union on variant {
 
 				Point = Position
 			`
-			table, diag := Analyze(ctx, source, "geo", loader)
+			table, diag := Analyze(source, "geo", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			pointType := table.MustGet("geo.Point")
@@ -3468,7 +3499,7 @@ Node union on variant {
 			Expect(form.Target.Name).To(Equal("geo.Position"))
 		})
 
-		It("Should analyze an array type definition", func(ctx SpecContext) {
+		It("Should analyze an array type definition", func() {
 			source := `
 				Param struct {
 					name string
@@ -3477,7 +3508,7 @@ Node union on variant {
 
 				Params Param[]
 			`
-			table, diag := Analyze(ctx, source, "ir", loader)
+			table, diag := Analyze(source, "ir", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			paramsType := table.MustGet("ir.Params")
@@ -3488,11 +3519,11 @@ Node union on variant {
 			Expect(form.Base.TypeArgs[0].Name).To(Equal("ir.Param"))
 		})
 
-		It("Should analyze an alias to an array type", func(ctx SpecContext) {
+		It("Should analyze an alias to an array type", func() {
 			source := `
 				Stratum = string[]
 			`
-			table, diag := Analyze(ctx, source, "ir", loader)
+			table, diag := Analyze(source, "ir", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			stratumType := table.MustGet("ir.Stratum")
@@ -3506,13 +3537,13 @@ Node union on variant {
 	})
 
 	Describe("Generics", func() {
-		It("Should parse generic struct with type parameter", func(ctx SpecContext) {
+		It("Should parse generic struct with type parameter", func() {
 			source := `
 				Container struct<T> {
 					value T
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			containerType := table.MustGet("test.Container")
@@ -3528,13 +3559,13 @@ Node union on variant {
 
 		It(
 			"Should parse generic struct with constrained type parameter",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				NumberContainer struct<T extends int32> {
 					value T
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				containerType := table.MustGet("test.NumberContainer")
@@ -3546,14 +3577,14 @@ Node union on variant {
 
 		It(
 			"Should resolve comparable constraint without warnings",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				State struct<R extends comparable> {
 					resource R
 					name string
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				stateType := table.MustGet("test.State")
@@ -3565,14 +3596,14 @@ Node union on variant {
 
 		It(
 			"Should resolve numeric constraint with numeric default without warnings",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Bounds struct<T extends numeric = float64> {
 					lower T
 					upper T
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				boundsType := table.MustGet("test.Bounds")
@@ -3584,28 +3615,28 @@ Node union on variant {
 			},
 		)
 
-		It("Should reject numeric constraint without a default", func(ctx SpecContext) {
+		It("Should reject numeric constraint without a default", func() {
 			source := `
 				Bounds struct<T extends numeric> {
 					lower T
 					upper T
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring("requires a default"))
 		})
 
 		It(
 			"Should reject numeric constraint with non-numeric default",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Bounds struct<T extends numeric = string> {
 					lower T
 					upper T
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring("non-numeric default"))
 			},
@@ -3613,12 +3644,12 @@ Node union on variant {
 
 		DescribeTable(
 			"Should reject a required type parameter after an omittable one",
-			func(ctx SpecContext, params string) {
+			func(params string) {
 				source := `Pair struct<` + params + `> {
 					a A
 					b B
 				}`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring(
 					"required type parameter B of Pair cannot follow optional or " +
@@ -3631,25 +3662,25 @@ Node union on variant {
 
 		It(
 			"Should accept omittable type parameters after required ones",
-			func(ctx SpecContext) {
+			func() {
 				source := `Pair struct<A, B?> {
 					a A
 					b B
 				}`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 			},
 		)
 
 		It(
 			"Should parse generic struct with default type parameter",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Container struct<T = string> {
 					value T
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				containerType := table.MustGet("test.Container")
@@ -3661,7 +3692,7 @@ Node union on variant {
 
 		DescribeTable(
 			"Should bind an omitted optional type argument to nil",
-			func(ctx SpecContext, ref string, want []string) {
+			func(ref string, want []string) {
 				source := `
 				Box struct<T?> {
 					value T?
@@ -3680,7 +3711,7 @@ Node union on variant {
 					value ` + ref + `
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 				form := table.MustGet("test.Wrapper").Form.(resolution.StructForm)
 				var got []string
@@ -3700,7 +3731,7 @@ Node union on variant {
 			Entry("a bare alias", "Crate", []string{"nil"}),
 		)
 
-		It("Should parse struct with generic field type", func(ctx SpecContext) {
+		It("Should parse struct with generic field type", func() {
 			source := `
 				Container struct<T> {
 					value T
@@ -3710,7 +3741,7 @@ Node union on variant {
 					container Container<string>
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			wrapperType := table.MustGet("test.Wrapper")
@@ -3723,7 +3754,7 @@ Node union on variant {
 
 		It(
 			"Should preserve type params on fields with constraints and defaults",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Task struct<
 					Type extends string = string,
@@ -3734,7 +3765,7 @@ Node union on variant {
 					config Config
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				taskType := table.MustGet("test.Task")
@@ -3785,7 +3816,7 @@ Node union on variant {
 
 		It(
 			"Should preserve type params in UnifiedFields for generic structs",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Task struct<
 					Type extends string = string,
@@ -3796,7 +3827,7 @@ Node union on variant {
 					config Config
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				taskType := table.MustGet("test.Task")
@@ -3838,13 +3869,13 @@ Node union on variant {
 	})
 
 	Describe("Map Types", func() {
-		It("Should parse map type", func(ctx SpecContext) {
+		It("Should parse map type", func() {
 			source := `
 				Config struct {
 					settings Map<string, record>
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			configType := table.MustGet("test.Config")
@@ -3858,14 +3889,14 @@ Node union on variant {
 	})
 
 	Describe("Recursive Types", func() {
-		It("Should detect recursive struct", func(ctx SpecContext) {
+		It("Should detect recursive struct", func() {
 			source := `
 				Node struct {
 					value string
 					children Node[]
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			nodeType := table.MustGet("test.Node")
@@ -3873,14 +3904,14 @@ Node union on variant {
 			Expect(form.IsRecursive).To(BeTrue())
 		})
 
-		It("Should detect non-recursive struct", func(ctx SpecContext) {
+		It("Should detect non-recursive struct", func() {
 			source := `
 				Simple struct {
 					value string
 					count int32
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			simpleType := table.MustGet("test.Simple")
@@ -3890,7 +3921,7 @@ Node union on variant {
 
 		It(
 			"Should detect mutual recursion through struct fields",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				A struct {
 					b B?
@@ -3899,7 +3930,7 @@ Node union on variant {
 					a A?
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				aForm := table.MustGet("test.A").Form.(resolution.StructForm)
@@ -3911,7 +3942,7 @@ Node union on variant {
 
 		It(
 			"Should detect mutual recursion through a distinct array wrapper",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				A struct {
 					bs Bs
@@ -3921,7 +3952,7 @@ Node union on variant {
 				}
 				Bs B[]
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				aForm := table.MustGet("test.A").Form.(resolution.StructForm)
@@ -3933,7 +3964,7 @@ Node union on variant {
 
 		It(
 			"Should detect mutual recursion through an alias wrapper",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				A struct {
 					bs Bs
@@ -3943,7 +3974,7 @@ Node union on variant {
 				}
 				Bs = B[]
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				aForm := table.MustGet("test.A").Form.(resolution.StructForm)
@@ -3955,7 +3986,7 @@ Node union on variant {
 
 		It(
 			"Should detect mutual recursion through a distinct struct wrapper",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				A struct {
 					b BWrap?
@@ -3965,7 +3996,7 @@ Node union on variant {
 				}
 				BWrap B
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				aForm := table.MustGet("test.A").Form.(resolution.StructForm)
@@ -3977,11 +4008,11 @@ Node union on variant {
 	})
 
 	Describe("Field Defaults", func() {
-		defaultOf := func(ctx SpecContext, fieldDecl string) *resolution.ExpressionValue {
+		defaultOf := func(fieldDecl string) *resolution.ExpressionValue {
 			GinkgoHelper()
 			source := "Mode enum {\n\texclusive = \"Exclusive\"\n}\n\n" +
 				"Item struct {\n\t" + fieldDecl + "\n}\n"
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := table.MustGet("test.Item").Form.(resolution.StructForm)
 			Expect(form.Fields).To(HaveLen(1))
@@ -3990,8 +4021,8 @@ Node union on variant {
 
 		DescribeTable(
 			"Should populate Field.Default from an inline = value",
-			func(ctx SpecContext, fieldDecl string, expected resolution.ExpressionValue) {
-				def := defaultOf(ctx, fieldDecl)
+			func(fieldDecl string, expected resolution.ExpressionValue) {
+				def := defaultOf(fieldDecl)
 				Expect(def).NotTo(BeNil())
 				Expect(*def).To(Equal(expected))
 			},
@@ -4041,23 +4072,22 @@ Node union on variant {
 
 		It(
 			"Should reject a field that is both optional and defaulted",
-			func(ctx SpecContext) {
+			func() {
 				source := "Item struct {\n\tname string? = \"\"\n}\n"
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Error()).To(ContainSubstring("both nullable"))
 			},
 		)
 
 		It(
 			"Should leave Default nil when no default is declared",
-			func(ctx SpecContext) {
-				Expect(defaultOf(ctx, "count int32")).To(BeNil())
+			func() {
+				Expect(defaultOf("count int32")).To(BeNil())
 			},
 		)
 
-		It("Should accept a default alongside a field body", func(ctx SpecContext) {
+		It("Should accept a default alongside a field body", func() {
 			def := defaultOf(
-				ctx,
 				"count int32 = 7 {\n\t\t@doc value \"is a counter.\"\n\t}",
 			)
 			Expect(def).NotTo(BeNil())
@@ -4065,8 +4095,8 @@ Node union on variant {
 			Expect(def.IntValue).To(Equal(int64(7)))
 		})
 
-		It("Should collect an empty array default", func(ctx SpecContext) {
-			def := defaultOf(ctx, "vals float64[] = []")
+		It("Should collect an empty array default", func() {
+			def := defaultOf("vals float64[] = []")
 			Expect(def).NotTo(BeNil())
 			Expect(def.Kind).To(Equal(resolution.ValueKindArray))
 			Expect(def.Elements).To(BeEmpty())
@@ -4074,8 +4104,8 @@ Node union on variant {
 
 		It(
 			"Should collect a populated array default with element values",
-			func(ctx SpecContext) {
-				def := defaultOf(ctx, "vals float64[] = [1.5, 2.5]")
+			func() {
+				def := defaultOf("vals float64[] = [1.5, 2.5]")
 				Expect(def).NotTo(BeNil())
 				Expect(def.Kind).To(Equal(resolution.ValueKindArray))
 				Expect(def.Elements).To(HaveLen(2))
@@ -4112,17 +4142,17 @@ Mode enum {
 }
 
 `
-		analyze := func(ctx SpecContext, fieldDecl string) *diagnostics.Files {
+		analyze := func(fieldDecl string) *diagnostics.Files {
 			GinkgoHelper()
 			source := unionSource + "Item struct {\n\t" + fieldDecl + "\n}\n"
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			return diag
 		}
 
 		DescribeTable(
 			"Should accept an identifier default the generators can emit",
-			func(ctx SpecContext, fieldDecl string) {
-				Expect(analyze(ctx, fieldDecl).Ok()).To(BeTrue())
+			func(fieldDecl string) {
+				Expect(analyze(fieldDecl).Ok()).To(BeTrue())
 			},
 			Entry("enum member", "mode Mode = fast"),
 			Entry("union variant", "cjc CJC = built_in"),
@@ -4133,8 +4163,8 @@ Mode enum {
 
 		DescribeTable(
 			"Should reject an identifier default that names nothing",
-			func(ctx SpecContext, fieldDecl string) {
-				Expect(analyze(ctx, fieldDecl).Error()).To(ContainSubstring(
+			func(fieldDecl string) {
+				Expect(analyze(fieldDecl).Error()).To(ContainSubstring(
 					"names neither a member of its enum type nor a variant of its union type",
 				))
 			},
@@ -4145,8 +4175,8 @@ Mode enum {
 
 		It(
 			"Should reject a union default whose named payload cannot be constructed",
-			func(ctx SpecContext) {
-				Expect(analyze(ctx, "cjc CJC = chan").Error()).To(SatisfyAll(
+			func() {
+				Expect(analyze("cjc CJC = chan").Error()).To(SatisfyAll(
 					ContainSubstring("defaults to union variant \"chan\""),
 					ContainSubstring(
 						"whose field \"port\" is required and has no default",
@@ -4157,8 +4187,8 @@ Mode enum {
 
 		DescribeTable(
 			"Should accept a union default whose variant fields are all defaulted",
-			func(ctx SpecContext, fieldDecl string) {
-				Expect(analyze(ctx, fieldDecl).Ok()).To(BeTrue())
+			func(fieldDecl string) {
+				Expect(analyze(fieldDecl).Ok()).To(BeTrue())
 			},
 			Entry("inline variant", "cjc CJC = const_val"),
 			Entry("named payload", "cjc CJC = safe"),
@@ -4169,7 +4199,7 @@ Mode enum {
 	Describe("Union Definitions", func() {
 		It(
 			"Should allow 'on' as a field name since it is not a reserved keyword",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Handle struct { node string }
 				Transition struct {
@@ -4184,7 +4214,7 @@ Mode enum {
 					none   NoneParams
 				}
 			`
-				table, diag := Analyze(ctx, source, "arc", loader)
+				table, diag := Analyze(source, "arc", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				tr := table.MustGet("arc.Transition")
 				form := tr.Form.(resolution.StructForm)
@@ -4202,7 +4232,7 @@ Mode enum {
 
 		It(
 			"Should collect a simple union with primitive-only variants",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				LinearParams struct {
 					slope float64
@@ -4220,7 +4250,7 @@ Mode enum {
 					none   NoneParams
 				}
 			`
-				table, diag := Analyze(ctx, source, "ni", loader)
+				table, diag := Analyze(source, "ni", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				Expect(table.UnionTypes()).To(HaveLen(1))
 
@@ -4240,7 +4270,7 @@ Mode enum {
 
 		It(
 			"Should expand a union extending other unions into their variant union",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				TankConfig struct { width float64 }
 				PipeConfig struct { length float64 }
@@ -4255,7 +4285,7 @@ Mode enum {
 
 				ElementConfig union on variant extends NodeConfig, EdgeConfig {}
 			`
-				table, diag := Analyze(ctx, source, "schematic", loader)
+				table, diag := Analyze(source, "schematic", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				el := table.MustGet("schematic.ElementConfig")
@@ -4273,7 +4303,7 @@ Mode enum {
 
 		It(
 			"Should allow an extending union to declare additional variants",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				TankConfig struct {}
 				GroupConfig struct {}
@@ -4286,7 +4316,7 @@ Mode enum {
 					group GroupConfig
 				}
 			`
-				table, diag := Analyze(ctx, source, "schematic", loader)
+				table, diag := Analyze(source, "schematic", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				form := table.MustGet("schematic.ElementConfig").Form.(resolution.UnionForm)
 				Expect(form.Variants).To(HaveLen(2))
@@ -4300,7 +4330,7 @@ Mode enum {
 
 		It(
 			"Should flatten variants inherited from a union in an imported schema",
-			func(ctx SpecContext) {
+			func() {
 				loader.Add("schemas/common", `
 				TankConfig struct {}
 
@@ -4317,7 +4347,7 @@ Mode enum {
 					group GroupConfig
 				}
 			`
-				table, diag := Analyze(ctx, source, "schematic", loader)
+				table, diag := Analyze(source, "schematic", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				form := table.MustGet("schematic.ElementConfig").Form.(resolution.UnionForm)
 				Expect(form.Variants).To(HaveLen(2))
@@ -4329,7 +4359,7 @@ Mode enum {
 
 		It(
 			"Should synthesize suppressed payload types for inline variants",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				TabBase struct { key string }
 				Labeled struct { label string }
@@ -4347,7 +4377,7 @@ Mode enum {
 					empty {}
 				}
 			`
-				table, diag := Analyze(ctx, source, "panel", loader)
+				table, diag := Analyze(source, "panel", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				form := table.MustGet("panel.Tab").Form.(resolution.UnionForm)
@@ -4383,7 +4413,7 @@ Mode enum {
 
 		It(
 			"Should reject extended unions with conflicting variant payloads",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				TankConfig struct {}
 				OtherConfig struct {}
@@ -4398,7 +4428,7 @@ Mode enum {
 
 				ElementConfig union on variant extends A, B {}
 			`
-				_, diag := Analyze(ctx, source, "schematic", loader)
+				_, diag := Analyze(source, "schematic", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(
 					ContainSubstring(
@@ -4410,7 +4440,7 @@ Mode enum {
 
 		It(
 			"Should reject extending unions with a different discriminator",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				TankConfig struct {}
 
@@ -4420,7 +4450,7 @@ Mode enum {
 
 				ElementConfig union on variant extends A {}
 			`
-				_, diag := Analyze(ctx, source, "schematic", loader)
+				_, diag := Analyze(source, "schematic", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring("different discriminator"))
 			},
@@ -4428,7 +4458,7 @@ Mode enum {
 
 		It(
 			"Should reject mixing struct and union bases in extends",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Base struct { key string }
 				TankConfig struct {}
@@ -4439,7 +4469,7 @@ Mode enum {
 
 				ElementConfig union on variant extends A, Base {}
 			`
-				_, diag := Analyze(ctx, source, "schematic", loader)
+				_, diag := Analyze(source, "schematic", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(
 					diag.Error(),
@@ -4447,7 +4477,7 @@ Mode enum {
 			},
 		)
 
-		It("Should reject cyclic union extends chains", func(ctx SpecContext) {
+		It("Should reject cyclic union extends chains", func() {
 			source := `
 				TankConfig struct {}
 
@@ -4457,14 +4487,14 @@ Mode enum {
 
 				B union on variant extends A {}
 			`
-			_, diag := Analyze(ctx, source, "schematic", loader)
+			_, diag := Analyze(source, "schematic", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring("cyclic extends chain"))
 		})
 
 		It(
 			"Should collect a union with extends (shared base struct)",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				BaseAIChannel struct {
 					port    int32
@@ -4487,7 +4517,7 @@ Mode enum {
 					ai_accel   AIAccelFields
 				}
 			`
-				table, diag := Analyze(ctx, source, "ni", loader)
+				table, diag := Analyze(source, "ni", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				ch := table.MustGet("ni.AIChannel")
@@ -4513,7 +4543,7 @@ Mode enum {
 
 		It(
 			"Should resolve a union base struct from an imported schema",
-			func(ctx SpecContext) {
+			func() {
 				loader.Add("schemas/common", `
 				BaseChan struct {
 					port    int32
@@ -4529,7 +4559,7 @@ Mode enum {
 					ai_voltage VoltageFields
 				}
 			`
-				table, diag := Analyze(ctx, source, "ni", loader)
+				table, diag := Analyze(source, "ni", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				ch := table.MustGet("ni.AIChannel")
@@ -4546,7 +4576,7 @@ Mode enum {
 			},
 		)
 
-		It("Should collect per-variant domains", func(ctx SpecContext) {
+		It("Should collect per-variant domains", func() {
 			source := `
 				LinearParams struct {}
 				MapParams struct {}
@@ -4560,7 +4590,7 @@ Mode enum {
 					}
 				}
 			`
-			table, diag := Analyze(ctx, source, "ni", loader)
+			table, diag := Analyze(source, "ni", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			form := table.MustGet("ni.Scale").Form.(resolution.UnionForm)
@@ -4575,7 +4605,7 @@ Mode enum {
 			).To(Equal("linear scaling"))
 		})
 
-		It("Should collect union-level domains", func(ctx SpecContext) {
+		It("Should collect union-level domains", func() {
 			source := `
 				LinearParams struct {}
 				MapParams struct {}
@@ -4586,7 +4616,7 @@ Mode enum {
 					@doc value "controls how raw values are transformed"
 				}
 			`
-			table, diag := Analyze(ctx, source, "ni", loader)
+			table, diag := Analyze(source, "ni", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			scale := table.MustGet("ni.Scale")
@@ -4595,7 +4625,7 @@ Mode enum {
 
 		It(
 			"Should support mixin composition in variant structs",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Terminal struct {
 					terminalConfig string
@@ -4616,7 +4646,7 @@ Mode enum {
 					empty      Empty
 				}
 			`
-				table, diag := Analyze(ctx, source, "ni", loader)
+				table, diag := Analyze(source, "ni", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				ch := table.MustGet("ni.AIChannel")
@@ -4634,7 +4664,7 @@ Mode enum {
 
 		It(
 			"Should support nested unions (variant field typed as a union)",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				LinearParams struct { slope float64 }
 				NoneParams   struct {}
@@ -4655,7 +4685,7 @@ Mode enum {
 					empty      Empty
 				}
 			`
-				table, diag := Analyze(ctx, source, "ni", loader)
+				table, diag := Analyze(source, "ni", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				voltageFields := resolution.UnifiedVariantFields(
@@ -4669,7 +4699,7 @@ Mode enum {
 			},
 		)
 
-		It("Should error on duplicate variant values", func(ctx SpecContext) {
+		It("Should error on duplicate variant values", func() {
 			source := `
 				A struct {}
 				B struct {}
@@ -4679,14 +4709,14 @@ Mode enum {
 					same B
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring(`duplicate variant value "same"`))
 		})
 
 		It(
 			"Should error when a variant's generated type name collides with an existing type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				LinearScale struct { slope float64 }
 
@@ -4694,7 +4724,7 @@ Mode enum {
 					linear LinearScale
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(
 					diag.Error(),
@@ -4704,7 +4734,7 @@ Mode enum {
 
 		It(
 			"Should error when a variant value collides with the discriminator field name",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				A struct {}
 				B struct {}
@@ -4714,7 +4744,7 @@ Mode enum {
 					linear B
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(
 					diag.Error(),
@@ -4724,7 +4754,7 @@ Mode enum {
 
 		It(
 			"Should error when a base struct declares a field named variant",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Base struct { variant string }
 				A struct {}
@@ -4733,7 +4763,7 @@ Mode enum {
 					linear A
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(
 					diag.Error(),
@@ -4743,13 +4773,13 @@ Mode enum {
 
 		It(
 			"Should error when a variant references an unresolved type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Foo union on type {
 					a MissingStruct
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(
 					ContainSubstring(
@@ -4761,7 +4791,7 @@ Mode enum {
 
 		It(
 			"Should error when a variant references a non-struct type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Color enum {
 					red = "red"
@@ -4771,7 +4801,7 @@ Mode enum {
 					a Color
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(
 					ContainSubstring(
@@ -4783,7 +4813,7 @@ Mode enum {
 
 		It(
 			"Should error when base structs declare the same field",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Ident struct { name string }
 				Audited struct { name string }
@@ -4794,7 +4824,7 @@ Mode enum {
 					a A
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(
 					`union Foo inherits field "name" from both Ident and Audited`,
@@ -4804,7 +4834,7 @@ Mode enum {
 
 		It(
 			"Should error when extends targets an unresolved type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				A struct {}
 
@@ -4812,7 +4842,7 @@ Mode enum {
 					a A
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(
 					diag.Error(),
@@ -4822,7 +4852,7 @@ Mode enum {
 
 		It(
 			"Should error when extends targets a non-struct type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Color enum {
 					red = "red"
@@ -4834,7 +4864,7 @@ Mode enum {
 					a A
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(
 					ContainSubstring(
@@ -4846,7 +4876,7 @@ Mode enum {
 
 		It(
 			"Should error when extending a union that itself extends structs",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Base struct {
 					name string
@@ -4860,7 +4890,7 @@ Mode enum {
 
 				ElementConfig union on variant extends A {}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(
 					ContainSubstring(
@@ -4870,18 +4900,18 @@ Mode enum {
 			},
 		)
 
-		It("Should error on empty union", func(ctx SpecContext) {
+		It("Should error on empty union", func() {
 			source := `
 				Empty union on type {}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring("union Empty has no variants"))
 		})
 
 		It(
 			"Should error when a variant struct declares the discriminator field",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				BadVariant struct {
 					kind string
@@ -4894,7 +4924,7 @@ Mode enum {
 					other Other
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(
 					diag.Error(),
@@ -4904,7 +4934,7 @@ Mode enum {
 
 		It(
 			"Should error when a base struct declares the discriminator field",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				BadBase struct {
 					type string
@@ -4918,7 +4948,7 @@ Mode enum {
 					b B
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(
 					diag.Error(),
@@ -4928,7 +4958,7 @@ Mode enum {
 
 		It(
 			"Should error when a variant references a non-struct type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Color enum {
 					red   = "red"
@@ -4941,7 +4971,7 @@ Mode enum {
 					color Color
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(
 					diag.Error(),
@@ -4951,7 +4981,7 @@ Mode enum {
 
 		It(
 			"Should error when extends targets a non-struct type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Color enum {
 					red   = "red"
@@ -4965,7 +4995,7 @@ Mode enum {
 					b B
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring("extends non-struct type"))
 			},
@@ -4973,7 +5003,7 @@ Mode enum {
 
 		It(
 			"Should error on duplicate type definition for a union name",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				A struct {}
 				Foo struct {}
@@ -4981,7 +5011,7 @@ Mode enum {
 					a A
 				}
 			`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring("duplicate type definition"))
 			},
@@ -4989,7 +5019,7 @@ Mode enum {
 
 		It(
 			"Should sort unions topologically after their variant and base types",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				BaseAIChannel struct { port int32 }
 				AIVoltageFields struct { minVal float64 }
@@ -5000,7 +5030,7 @@ Mode enum {
 					ai_accel   AIAccelFields
 				}
 			`
-				table, diag := Analyze(ctx, source, "ni", loader)
+				table, diag := Analyze(source, "ni", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				all := table.TypesInNamespace("ni")
@@ -5025,7 +5055,7 @@ Mode enum {
 			},
 		)
 
-		It("Should support unions extending multiple bases", func(ctx SpecContext) {
+		It("Should support unions extending multiple bases", func() {
 			source := `
 				Ident struct {
 					key string
@@ -5047,7 +5077,7 @@ Mode enum {
 					b B
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			mixed := table.MustGet("test.Mixed")
@@ -5082,7 +5112,7 @@ Mode enum {
 				return names
 			}
 
-			It("Should let a variant omit a union base field", func(ctx SpecContext) {
+			It("Should let a variant omit a union base field", func() {
 				source := `
 					Base struct {
 						name string
@@ -5097,7 +5127,7 @@ Mode enum {
 						}
 					}
 				`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				Expect(variantFieldNames(table, "test.Chan", "wired")).
 					To(Equal([]string{"name", "port", "gain"}))
@@ -5105,7 +5135,7 @@ Mode enum {
 					To(Equal([]string{"name", "units"}))
 			})
 
-			It("Should let a variant omit its own base field", func(ctx SpecContext) {
+			It("Should let a variant omit its own base field", func() {
 				source := `
 					Mixin struct {
 						min float32
@@ -5118,13 +5148,13 @@ Mode enum {
 						}
 					}
 				`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				Expect(variantFieldNames(table, "test.Chan", "a")).
 					To(Equal([]string{"min"}))
 			})
 
-			It("Should error on omitting an uninherited field", func(ctx SpecContext) {
+			It("Should error on omitting an uninherited field", func() {
 				source := `
 					Base struct { name string }
 
@@ -5134,14 +5164,14 @@ Mode enum {
 						}
 					}
 				`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring(
 					`union Chan variant "a": cannot omit field "port", which the variant does not inherit`,
 				))
 			})
 
-			It("Should error when omitting the discriminator", func(ctx SpecContext) {
+			It("Should error when omitting the discriminator", func() {
 				source := `
 					Chan union on type {
 						a {
@@ -5149,7 +5179,7 @@ Mode enum {
 						}
 					}
 				`
-				_, diag := Analyze(ctx, source, "test", loader)
+				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring(
 					`union Chan variant "a": cannot omit the discriminator field "type", which is owned by the union`,
@@ -5159,11 +5189,11 @@ Mode enum {
 
 		It(
 			"UnifiedVariantFields should return nil for a non-union type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				Foo struct { x int32 }
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				foo := table.MustGet("test.Foo")
@@ -5179,18 +5209,17 @@ Mode enum {
 	})
 
 	Describe("Struct Defaults", func() {
-		structDefaultOf := func(ctx SpecContext, source string) *resolution.ExpressionValue {
+		structDefaultOf := func(source string) *resolution.ExpressionValue {
 			GinkgoHelper()
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := table.MustGet("test.Outer").Form.(resolution.StructForm)
 			return form.Fields[0].Default
 		}
 
-		It("Should collect an empty struct default", func(ctx SpecContext) {
-			def := structDefaultOf(ctx,
-				"Point struct {\n\tx int32\n\ty int32\n}\n"+
-					"Outer struct {\n\tp Point = {}\n}\n")
+		It("Should collect an empty struct default", func() {
+			def := structDefaultOf("Point struct {\n\tx int32\n\ty int32\n}\n" +
+				"Outer struct {\n\tp Point = {}\n}\n")
 			Expect(def).NotTo(BeNil())
 			Expect(def.Kind).To(Equal(resolution.ValueKindStruct))
 			Expect(def.Fields).To(BeEmpty())
@@ -5198,10 +5227,9 @@ Mode enum {
 
 		It(
 			"Should collect a populated struct default with field values",
-			func(ctx SpecContext) {
-				def := structDefaultOf(ctx,
-					"Point struct {\n\tx int32\n\ty int32\n}\n"+
-						"Outer struct {\n\tp Point = { x = 1, y = 2 }\n}\n")
+			func() {
+				def := structDefaultOf("Point struct {\n\tx int32\n\ty int32\n}\n" +
+					"Outer struct {\n\tp Point = { x = 1, y = 2 }\n}\n")
 				Expect(def).NotTo(BeNil())
 				Expect(def.Kind).To(Equal(resolution.ValueKindStruct))
 				Expect(def.Fields).To(HaveLen(2))
@@ -5222,11 +5250,10 @@ Mode enum {
 			},
 		)
 
-		It("Should collect nested struct and array values", func(ctx SpecContext) {
-			def := structDefaultOf(ctx,
-				"Inner struct {\n\ttags string[]\n}\n"+
-					"Mid struct {\n\tinner Inner\n}\n"+
-					"Outer struct {\n\tm Mid = { inner = { tags = [\"a\", \"b\"] } }\n}\n")
+		It("Should collect nested struct and array values", func() {
+			def := structDefaultOf("Inner struct {\n\ttags string[]\n}\n" +
+				"Mid struct {\n\tinner Inner\n}\n" +
+				"Outer struct {\n\tm Mid = { inner = { tags = [\"a\", \"b\"] } }\n}\n")
 			Expect(def).NotTo(BeNil())
 			Expect(def.Kind).To(Equal(resolution.ValueKindStruct))
 			Expect(def.Fields).To(HaveLen(1))
@@ -5247,7 +5274,7 @@ var _ = Describe("Analyze", func() {
 
 	BeforeEach(func() { loader = NewMockFileLoader() })
 
-	It("Should analyze multiple files into one table", func(ctx SpecContext) {
+	It("Should analyze multiple files into one table", func() {
 		loader.Add("label", `
 			Label struct {
 				key uuid @key
@@ -5259,31 +5286,31 @@ var _ = Describe("Analyze", func() {
 				name string
 			}
 		`)
-		table, diag := analyzer.Analyze(ctx, []string{"label", "ranger"}, loader)
+		table, diag := analyzer.Analyze([]string{"label", "ranger"}, loader)
 		Expect(diag.Ok()).To(BeTrue())
 		Expect(table.MustGet("label.Label").Name).To(Equal("Label"))
 		Expect(table.MustGet("ranger.Range").Name).To(Equal("Range"))
 	})
 
-	It("Should analyze a file only once when listed twice", func(ctx SpecContext) {
+	It("Should analyze a file only once when listed twice", func() {
 		loader.Add("label", `
 			Label struct {
 				key uuid @key
 			}
 		`)
-		table, diag := analyzer.Analyze(ctx, []string{"label", "label.oracle"}, loader)
+		table, diag := analyzer.Analyze([]string{"label", "label.oracle"}, loader)
 		Expect(diag.Ok()).To(BeTrue())
 		Expect(table.MustGet("label.Label").Name).To(Equal("Label"))
 	})
 
-	It("Should report a load failure under the requested file", func(ctx SpecContext) {
-		Expect(analyzer.Analyze(ctx, []string{"missing"}, loader)).Error().
+	It("Should report a load failure under the requested file", func() {
+		Expect(analyzer.Analyze([]string{"missing"}, loader)).Error().
 			To(MatchError(ContainSubstring("failed to load file")))
 	})
 
-	It("Should report parse errors under the loaded file path", func(ctx SpecContext) {
+	It("Should report parse errors under the loaded file path", func() {
 		loader.Add("broken", "Label struct {{{{")
-		table, diag := analyzer.Analyze(ctx, []string{"broken"}, loader)
+		table, diag := analyzer.Analyze([]string{"broken"}, loader)
 		Expect(table).To(BeNil())
 		Expect(diag.Ok()).To(BeFalse())
 		var files []string
@@ -5305,35 +5332,35 @@ var _ = Describe("Union enum discriminator", func() {
 		Credentials struct { username string }
 		APIKey struct { key string }
 	`
-	It("Should borrow a declared enum as the discriminator", func(ctx SpecContext) {
+	It("Should borrow a declared enum as the discriminator", func() {
 		source := prelude + `
 			Proof union on method Method {
 				password Credentials
 				api_key  APIKey
 			}
 		`
-		table, diag := Analyze(ctx, source, "test", loader)
+		table, diag := Analyze(source, "test", loader)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
 		form := table.MustGet("test.Proof").Form.(resolution.UnionForm)
 		Expect(form.Discriminator).To(Equal("method"))
 		Expect(form.BorrowsEnum()).To(BeTrue())
 		Expect(form.Enum.Name).To(Equal("test.Method"))
 	})
-	It("Should leave the enum unset when none is named", func(ctx SpecContext) {
+	It("Should leave the enum unset when none is named", func() {
 		source := prelude + `
 			Proof union on method {
 				password Credentials
 				api_key  APIKey
 			}
 		`
-		table, diag := Analyze(ctx, source, "test", loader)
+		table, diag := Analyze(source, "test", loader)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
 		Expect(table.MustGet("test.Proof").Form.(resolution.UnionForm).BorrowsEnum()).
 			To(BeFalse())
 	})
 	DescribeTable("Should reject a borrowed enum that does not fit",
-		func(ctx SpecContext, union, message string) {
-			_, diag := Analyze(ctx, prelude+union, "test", loader)
+		func(union, message string) {
+			_, diag := Analyze(prelude+union, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring(message))
 		},
@@ -5390,9 +5417,7 @@ var _ = Describe("Union enum discriminator", func() {
 			}
 		`, "union Proof: the discriminator type must be a plain enum reference"),
 	)
-	It("Should reject an enum omitted in a language the union generates in", func(
-		ctx SpecContext,
-	) {
+	It("Should reject an enum omitted in a language the union generates in", func() {
 		source := `
 			@ts output "out"
 			Method enum {
@@ -5404,7 +5429,7 @@ var _ = Describe("Union enum discriminator", func() {
 				password Credentials
 			}
 		`
-		_, diag := Analyze(ctx, source, "test", loader)
+		_, diag := Analyze(source, "test", loader)
 		Expect(diag.String()).To(ContainSubstring(
 			"test.Proof generates for ts but its discriminator enum references " +
 				"test.Method, which is omitted in ts",
@@ -5422,9 +5447,7 @@ var _ = Describe("Union enum discriminator", func() {
 				}
 			`)
 		})
-		It("Should borrow an imported enum and extend imported variant bases", func(
-			ctx SpecContext,
-		) {
+		It("Should borrow an imported enum and extend imported variant bases", func() {
 			source := `
 				import "schemas/x/payload"
 				Base struct { key string }
@@ -5433,7 +5456,7 @@ var _ = Describe("Union enum discriminator", func() {
 					json {}
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			field := table.MustGet("test.ReadField")
 			form := field.Form.(resolution.UnionForm)
@@ -5446,9 +5469,7 @@ var _ = Describe("Union enum discriminator", func() {
 			}
 			Expect(names).To(Equal([]string{"key", "fill"}))
 		})
-		It("Should reject a variant the imported enum has no member for", func(
-			ctx SpecContext,
-		) {
+		It("Should reject a variant the imported enum has no member for", func() {
 			source := `
 				import "schemas/x/payload"
 				ReadField union on type payload.Kind {
@@ -5457,7 +5478,7 @@ var _ = Describe("Union enum discriminator", func() {
 					bytes {}
 				}
 			`
-			_, diag := Analyze(ctx, source, "test", loader)
+			_, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring(
 				`union ReadField declares variant "bytes", which enum Kind has no member`,

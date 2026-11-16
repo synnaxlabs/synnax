@@ -1294,7 +1294,7 @@ var _ = Describe("Device", func() {
 func createChassis(ctx context.Context, w device.Writer, rackKey rack.Key) *device.Key {
 	GinkgoHelper()
 	d := device.Device{
-		Key:      device.Key(uuid.New().String()),
+		Key:      uuid.New().String(),
 		Rack:     rackKey,
 		Location: "slot-0",
 		Name:     "Chassis",

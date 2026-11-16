@@ -27,7 +27,7 @@ var _ = Describe("Resource Generation", func() {
 		p = types.New(types.DefaultOptions())
 	})
 
-	It("Should emit resource metadata with a uuid key", func(ctx SpecContext) {
+	It("Should emit resource metadata with a uuid key", func() {
 		source := `
 			@ts output "out"
 
@@ -38,7 +38,7 @@ var _ = Describe("Resource Generation", func() {
 				@resource type "policy"
 			}
 		`
-		resp := MustGenerate(ctx, source, "policy", loader, p)
+		resp := MustGenerate(source, "policy", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
 				`resource.createIDFactory`,
@@ -47,7 +47,7 @@ var _ = Describe("Resource Generation", func() {
 			)
 	})
 
-	It("Should emit resource metadata with a string key", func(ctx SpecContext) {
+	It("Should emit resource metadata with a string key", func() {
 		source := `
 			@ts output "out"
 
@@ -58,7 +58,7 @@ var _ = Describe("Resource Generation", func() {
 				@resource type "label"
 			}
 		`
-		resp := MustGenerate(ctx, source, "label", loader, p)
+		resp := MustGenerate(source, "label", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
 				`"label"`,
@@ -66,7 +66,7 @@ var _ = Describe("Resource Generation", func() {
 			)
 	})
 
-	It("Should respect a @ts type override on the key field", func(ctx SpecContext) {
+	It("Should respect a @ts type override on the key field", func() {
 		source := `
 			@ts output "out"
 
@@ -77,14 +77,14 @@ var _ = Describe("Resource Generation", func() {
 				@resource type "item"
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`"item"`)
 	})
 
 	It(
 		"Should respect a @ts type override on the key's distinct type definition",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -99,13 +99,13 @@ var _ = Describe("Resource Generation", func() {
 				@resource type "item"
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(`"item"`)
 		},
 	)
 
-	It("Should emit resource metadata for a union", func(ctx SpecContext) {
+	It("Should emit resource metadata for a union", func() {
 		source := `
 			@ts output "out"
 
@@ -124,7 +124,7 @@ var _ = Describe("Resource Generation", func() {
 				@resource type "view"
 			}
 		`
-		resp := MustGenerate(ctx, source, "view", loader, p)
+		resp := MustGenerate(source, "view", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
 				`export const resourceID = resource.createIDFactory<Key>("view");`,
@@ -134,7 +134,7 @@ var _ = Describe("Resource Generation", func() {
 
 	It(
 		"Should emit resource metadata for a union whose base has another output",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -154,7 +154,7 @@ var _ = Describe("Resource Generation", func() {
 				@resource type "view"
 			}
 		`
-			resp := MustGenerate(ctx, source, "view", loader, p)
+			resp := MustGenerate(source, "view", loader, p)
 			ExpectContent(resp, "out/types.gen.ts").
 				ToContain(`export const resourceID = resource.createIDFactory<Key>("view");`)
 		},
@@ -162,7 +162,7 @@ var _ = Describe("Resource Generation", func() {
 
 	It(
 		"Should not emit resource metadata for structs without @resource",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -171,7 +171,7 @@ var _ = Describe("Resource Generation", func() {
 				name string
 			}
 		`
-			resp := MustGenerate(ctx, source, "plain", loader, p)
+			resp := MustGenerate(source, "plain", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(content).ToNot(ContainSubstring("resourceID"))
 		},
