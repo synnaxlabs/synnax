@@ -18,14 +18,12 @@ export const BYTE_ORDERS = ["little_endian", "big_endian"] as const;
 export const byteOrderZ = z.enum(BYTE_ORDERS);
 export type ByteOrder = z.infer<typeof byteOrderZ>;
 
-/** JSONMatch selects the JSON documents that belong to a message. */
-export const jsonMatchZ = z.object({
+/** JSONBaseMatch carries the parts every JSON match rule shares. */
+export const jsonBaseMatchZ = z.object({
   /** pointer is the JSON Pointer to the value the rule tests. */
   pointer: z.string().default(""),
-  /** value is the string or number the value must equal. */
-  value: z.unknown(),
 });
-export interface JSONMatch extends z.infer<typeof jsonMatchZ> {}
+export interface JSONBaseMatch extends z.infer<typeof jsonBaseMatchZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -35,6 +33,81 @@ export type MessageKey = z.infer<typeof messageKeyZ>;
 
 export const fieldKeyZ = z.uuid();
 export type FieldKey = z.infer<typeof fieldKeyZ>;
+
+/** FloatJSONMatch matches a JSON number equal to a float. */
+export const floatJSONMatchZ = jsonBaseMatchZ.extend({
+  type: z.literal("float"),
+  /** value is the float the value must equal. */
+  value: payload.floatZ,
+});
+export interface FloatJSONMatch extends z.infer<typeof floatJSONMatchZ> {}
+
+/** IntegerJSONMatch matches a JSON number equal to a signed integer. */
+export const integerJSONMatchZ = jsonBaseMatchZ.extend({
+  type: z.literal("integer"),
+  /** value is the signed integer the value must equal. */
+  value: payload.integerZ,
+});
+export interface IntegerJSONMatch extends z.infer<typeof integerJSONMatchZ> {}
+
+/** UnsignedJSONMatch matches a JSON number equal to an unsigned integer. */
+export const unsignedJSONMatchZ = jsonBaseMatchZ.extend({
+  type: z.literal("unsigned"),
+  /** value is the unsigned integer the value must equal. */
+  value: payload.unsignedZ,
+});
+export interface UnsignedJSONMatch extends z.infer<typeof unsignedJSONMatchZ> {}
+
+/** StringJSONMatch matches an equal JSON string. */
+export const stringJSONMatchZ = jsonBaseMatchZ.extend({
+  type: z.literal("string"),
+  /** value is the string the value must equal. */
+  value: z.string(),
+});
+export interface StringJSONMatch extends z.infer<typeof stringJSONMatchZ> {}
+
+/** BooleanJSONMatch matches an equal JSON boolean. */
+export const booleanJSONMatchZ = jsonBaseMatchZ.extend({
+  type: z.literal("boolean"),
+  /** value is the boolean the value must equal. */
+  value: z.boolean(),
+});
+export interface BooleanJSONMatch extends z.infer<typeof booleanJSONMatchZ> {}
+
+export const JSON_MATCH_TYPES = [
+  "float",
+  "integer",
+  "unsigned",
+  "string",
+  "boolean",
+] as const;
+export const jsonMatchTypeZ = z.enum(JSON_MATCH_TYPES);
+export type JSONMatchType = z.infer<typeof jsonMatchTypeZ>;
+
+/** JSONMatch selects the JSON documents that belong to a message. */
+export const jsonMatchZ = z.discriminatedUnion("type", [
+  floatJSONMatchZ,
+  integerJSONMatchZ,
+  unsignedJSONMatchZ,
+  stringJSONMatchZ,
+  booleanJSONMatchZ,
+]);
+export type JSONMatch =
+  | FloatJSONMatch
+  | IntegerJSONMatch
+  | UnsignedJSONMatch
+  | StringJSONMatch
+  | BooleanJSONMatch;
+
+export const JSON_MATCH_SCHEMAS: {
+  [K in JSONMatchType]: z.ZodType<Extract<JSONMatch, { type: K }>>;
+} = {
+  float: floatJSONMatchZ,
+  integer: integerJSONMatchZ,
+  unsigned: unsignedJSONMatchZ,
+  string: stringJSONMatchZ,
+  boolean: booleanJSONMatchZ,
+};
 
 /** Where is a filter that selects ICDs. */
 export type Where = {
@@ -356,7 +429,7 @@ export const jsonPayloadZ = z.object({
    * match selects the documents that belong to the message. When absent every document
    * belongs to it.
    */
-  match: jsonMatchZ.optional(),
+  match: zod.nullToUndefined(jsonMatchZ),
   /** fields are the values the document carries. */
   fields: jsonFieldZ.array().default(() => []),
 });

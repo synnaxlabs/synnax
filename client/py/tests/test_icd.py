@@ -14,6 +14,7 @@ import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+from x.payload import Unsigned
 from x.testutil import assert_eventually
 
 DBC = b"""VERSION ""
@@ -94,12 +95,14 @@ class TestICD:
             sy.icd.UuidJSONField(name="id", pointer="/id"),
             sy.icd.BytesJSONField(name="blob", pointer="/blob"),
         ]
+        match = sy.icd.UnsignedJSONMatch(pointer="/seq", value=Unsigned(2**64 - 1))
         ic = client.icds.create(
             sy.ICD(
                 name="JSON",
                 messages=[
                     sy.icd.Message(
-                        name="Reading", payload=sy.icd.JSONPayload(fields=fields)
+                        name="Reading",
+                        payload=sy.icd.JSONPayload(match=match, fields=fields),
                     )
                 ],
             )
@@ -107,6 +110,7 @@ class TestICD:
         assert client.icds.retrieve(key=ic.key) == ic
         payload = ic.messages[0].payload
         assert isinstance(payload, sy.icd.JSONPayload)
+        assert payload.match == match
         assert [type(f) for f in payload.fields] == [type(f) for f in fields]
         assert [f.pointer for f in payload.fields] == [f.pointer for f in fields]
         timestamp = payload.fields[5]

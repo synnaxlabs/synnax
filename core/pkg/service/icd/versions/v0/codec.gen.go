@@ -12,8 +12,6 @@
 package v0
 
 import (
-	"encoding/json/v2"
-
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
@@ -421,6 +419,21 @@ func (jsonbf *JSONBaseField) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (jsonbm JSONBaseMatch) EncodeOrc(w *orc.Writer) error {
+	w.String(jsonbm.Pointer)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (jsonbm *JSONBaseMatch) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if jsonbm.Pointer, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (jsonf JSONField) EncodeOrc(w *orc.Writer) error {
 	switch v := jsonf.Variant.(type) {
 	case FloatJSONField:
@@ -816,31 +829,109 @@ func (jsonf *JSONField) DecodeOrc(r *orc.Reader) error {
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (jsonm JSONMatch) EncodeOrc(w *orc.Writer) error {
-	w.String(jsonm.Pointer)
-	{
-		b, err := json.Marshal(jsonm.Value)
-		if err != nil {
+	switch v := jsonm.Variant.(type) {
+	case FloatJSONMatch:
+		w.String("float")
+		if err := v.JSONBaseMatch.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.WriteWithLen(b)
+		w.Float64(float64(v.Value))
+	case IntegerJSONMatch:
+		w.String("integer")
+		if err := v.JSONBaseMatch.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Int64(int64(v.Value))
+	case UnsignedJSONMatch:
+		w.String("unsigned")
+		if err := v.JSONBaseMatch.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Uint64(uint64(v.Value))
+	case StringJSONMatch:
+		w.String("string")
+		if err := v.JSONBaseMatch.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(v.Value)
+	case BooleanJSONMatch:
+		w.String("boolean")
+		if err := v.JSONBaseMatch.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Bool(v.Value)
+	default:
+		return errors.Newf("JSONMatch: nil or unknown variant %T", jsonm.Variant)
 	}
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (jsonm *JSONMatch) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if jsonm.Pointer, err = r.String(); err != nil {
+	tag, err := r.StringBytes()
+	if err != nil {
 		return err
 	}
-	{
-		b, err := r.ReadWithLen()
-		if err != nil {
+	switch string(tag) {
+	case "float":
+		var v FloatJSONMatch
+		if err := v.JSONBaseMatch.DecodeOrc(r); err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &jsonm.Value); err != nil {
+		{
+			rawV, err := r.Float64()
+			if err != nil {
+				return err
+			}
+			v.Value = payload.Float(rawV)
+		}
+		jsonm.Variant = v
+	case "integer":
+		var v IntegerJSONMatch
+		if err := v.JSONBaseMatch.DecodeOrc(r); err != nil {
 			return err
 		}
+		{
+			rawV, err := r.Int64()
+			if err != nil {
+				return err
+			}
+			v.Value = payload.Integer(rawV)
+		}
+		jsonm.Variant = v
+	case "unsigned":
+		var v UnsignedJSONMatch
+		if err := v.JSONBaseMatch.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.Uint64()
+			if err != nil {
+				return err
+			}
+			v.Value = payload.Unsigned(rawV)
+		}
+		jsonm.Variant = v
+	case "string":
+		var v StringJSONMatch
+		if err := v.JSONBaseMatch.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.String(); err != nil {
+			return err
+		}
+		jsonm.Variant = v
+	case "boolean":
+		var v BooleanJSONMatch
+		if err := v.JSONBaseMatch.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.Bool(); err != nil {
+			return err
+		}
+		jsonm.Variant = v
+	default:
+		return errors.Newf("JSONMatch: unknown variant %q", tag)
 	}
 	return nil
 }

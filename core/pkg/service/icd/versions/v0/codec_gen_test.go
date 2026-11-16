@@ -35,7 +35,8 @@ var (
 		Max:     new(float64(7.5)),
 		Pointer: "test_8",
 	}
-	fullyPopulatedBaseField = v0.BaseField{
+	fullyPopulatedJSONBaseMatch = v0.JSONBaseMatch{Pointer: "test_1"}
+	fullyPopulatedBaseField     = v0.BaseField{
 		Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:   "test_2",
 		Scale:  3.5,
@@ -236,6 +237,21 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("JSONBaseMatch", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.JSONBaseMatch) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.JSONBaseMatch
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedJSONBaseMatch),
+			Entry("zero values", v0.JSONBaseMatch{Pointer: ""}),
+		)
+	})
 	Describe("JSONField", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v0.JSONField) {
@@ -293,8 +309,20 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v0.JSONMatch{Pointer: "test_1", Value: any(map[string]any{"key_2": "value_2"})}),
-			Entry("zero values", v0.JSONMatch{Pointer: "", Value: nil}),
+			Entry("float variant", v0.JSONMatch{Variant: v0.FloatJSONMatch{
+				JSONBaseMatch: fullyPopulatedJSONBaseMatch,
+				Value:         payload.Float(1.5),
+			}}),
+			Entry("integer variant", v0.JSONMatch{Variant: v0.IntegerJSONMatch{
+				JSONBaseMatch: fullyPopulatedJSONBaseMatch,
+				Value:         payload.Integer(2),
+			}}),
+			Entry("unsigned variant", v0.JSONMatch{Variant: v0.UnsignedJSONMatch{
+				JSONBaseMatch: fullyPopulatedJSONBaseMatch,
+				Value:         payload.Unsigned(2),
+			}}),
+			Entry("string variant", v0.JSONMatch{Variant: v0.StringJSONMatch{JSONBaseMatch: fullyPopulatedJSONBaseMatch, Value: "test_1"}}),
+			Entry("boolean variant", v0.JSONMatch{Variant: v0.BooleanJSONMatch{JSONBaseMatch: fullyPopulatedJSONBaseMatch, Value: true}}),
 		)
 	})
 	Describe("Message", func() {
@@ -394,12 +422,15 @@ var _ = Describe("Codec", func() {
 				Fields:    []v0.TextField{{Variant: v0.DelimitedTextField{BaseField: fullyPopulatedBaseField, Position: 5}}},
 			}}),
 			Entry("json variant", v0.Payload{Variant: v0.JSONPayload{
-				Match: new(v0.JSONMatch{Pointer: "test_2", Value: any(map[string]any{"key_3": "value_3"})}),
+				Match: new(v0.JSONMatch{Variant: v0.FloatJSONMatch{
+					JSONBaseMatch: fullyPopulatedJSONBaseMatch,
+					Value:         payload.Float(2.5),
+				}}),
 				Fields: []v0.JSONField{
 					{Variant: v0.FloatJSONField{
 						JSONBaseField: fullyPopulatedJSONBaseField,
-						EnumValues:    []payload.FloatEntry{{Label: "test_6", Value: payload.Float(7.5)}},
-						Default:       new(payload.Float(8.5)),
+						EnumValues:    []payload.FloatEntry{{Label: "test_5", Value: payload.Float(6.5)}},
+						Default:       new(payload.Float(7.5)),
 					}},
 				},
 			}}),
@@ -563,6 +594,23 @@ func BenchmarkEncodeDecodeJSONBaseField(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeJSONBaseMatch(b *testing.B) {
+	seed := fullyPopulatedJSONBaseMatch
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.JSONBaseMatch
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeJSONField(b *testing.B) {
 	seed := v0.JSONField{Variant: v0.FloatJSONField{
 		JSONBaseField: fullyPopulatedJSONBaseField,
@@ -585,7 +633,10 @@ func BenchmarkEncodeDecodeJSONField(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeJSONMatch(b *testing.B) {
-	seed := v0.JSONMatch{Pointer: "test_1", Value: any(map[string]any{"key_2": "value_2"})}
+	seed := v0.JSONMatch{Variant: v0.FloatJSONMatch{
+		JSONBaseMatch: fullyPopulatedJSONBaseMatch,
+		Value:         payload.Float(1.5),
+	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -1031,6 +1082,45 @@ func FuzzDecodeJSONBaseField(f *testing.F) {
 	})
 }
 
+func FuzzDecodeJSONBaseMatch(f *testing.F) {
+	{
+		seed := fullyPopulatedJSONBaseMatch
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.JSONBaseMatch{Pointer: ""}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.JSONBaseMatch
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.JSONBaseMatch
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeJSONField(f *testing.F) {
 	{
 		seed := v0.JSONField{Variant: v0.FloatJSONField{
@@ -1152,7 +1242,10 @@ func FuzzDecodeJSONField(f *testing.F) {
 
 func FuzzDecodeJSONMatch(f *testing.F) {
 	{
-		seed := v0.JSONMatch{Pointer: "test_1", Value: any(map[string]any{"key_2": "value_2"})}
+		seed := v0.JSONMatch{Variant: v0.FloatJSONMatch{
+			JSONBaseMatch: fullyPopulatedJSONBaseMatch,
+			Value:         payload.Float(1.5),
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1160,7 +1253,37 @@ func FuzzDecodeJSONMatch(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.JSONMatch{Pointer: "", Value: nil}
+		seed := v0.JSONMatch{Variant: v0.IntegerJSONMatch{
+			JSONBaseMatch: fullyPopulatedJSONBaseMatch,
+			Value:         payload.Integer(2),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.JSONMatch{Variant: v0.UnsignedJSONMatch{
+			JSONBaseMatch: fullyPopulatedJSONBaseMatch,
+			Value:         payload.Unsigned(2),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.JSONMatch{Variant: v0.StringJSONMatch{JSONBaseMatch: fullyPopulatedJSONBaseMatch, Value: "test_1"}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.JSONMatch{Variant: v0.BooleanJSONMatch{JSONBaseMatch: fullyPopulatedJSONBaseMatch, Value: true}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1315,12 +1438,15 @@ func FuzzDecodePayload(f *testing.F) {
 	}
 	{
 		seed := v0.Payload{Variant: v0.JSONPayload{
-			Match: new(v0.JSONMatch{Pointer: "test_2", Value: any(map[string]any{"key_3": "value_3"})}),
+			Match: new(v0.JSONMatch{Variant: v0.FloatJSONMatch{
+				JSONBaseMatch: fullyPopulatedJSONBaseMatch,
+				Value:         payload.Float(2.5),
+			}}),
 			Fields: []v0.JSONField{
 				{Variant: v0.FloatJSONField{
 					JSONBaseField: fullyPopulatedJSONBaseField,
-					EnumValues:    []payload.FloatEntry{{Label: "test_6", Value: payload.Float(7.5)}},
-					Default:       new(payload.Float(8.5)),
+					EnumValues:    []payload.FloatEntry{{Label: "test_5", Value: payload.Float(6.5)}},
+					Default:       new(payload.Float(7.5)),
 				}},
 			},
 		}}

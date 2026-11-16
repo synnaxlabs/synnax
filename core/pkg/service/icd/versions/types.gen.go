@@ -116,8 +116,45 @@ type UuidJSONField = v0.UuidJSONField
 // BytesJSONField is base64 text held in a JSON string.
 type BytesJSONField = v0.BytesJSONField
 
+// JSONBaseMatch carries the parts every JSON match rule shares.
+type JSONBaseMatch = v0.JSONBaseMatch
+
 // JSONMatch selects the JSON documents that belong to a message.
 type JSONMatch = v0.JSONMatch
+
+// JSONMatchVariant is implemented by every JSONMatch variant.
+type JSONMatchVariant = v0.JSONMatchVariant
+
+// JSONMatchType is the "type" value that selects a variant of JSONMatch.
+type JSONMatchType = v0.JSONMatchType
+
+const (
+	// FloatJSONMatchType matches a JSON number equal to a float.
+	FloatJSONMatchType JSONMatchType = v0.FloatJSONMatchType
+	// IntegerJSONMatchType matches a JSON number equal to a signed integer.
+	IntegerJSONMatchType JSONMatchType = v0.IntegerJSONMatchType
+	// UnsignedJSONMatchType matches a JSON number equal to an unsigned integer.
+	UnsignedJSONMatchType JSONMatchType = v0.UnsignedJSONMatchType
+	// StringJSONMatchType matches an equal JSON string.
+	StringJSONMatchType JSONMatchType = v0.StringJSONMatchType
+	// BooleanJSONMatchType matches an equal JSON boolean.
+	BooleanJSONMatchType JSONMatchType = v0.BooleanJSONMatchType
+)
+
+// FloatJSONMatch matches a JSON number equal to a float.
+type FloatJSONMatch = v0.FloatJSONMatch
+
+// IntegerJSONMatch matches a JSON number equal to a signed integer.
+type IntegerJSONMatch = v0.IntegerJSONMatch
+
+// UnsignedJSONMatch matches a JSON number equal to an unsigned integer.
+type UnsignedJSONMatch = v0.UnsignedJSONMatch
+
+// StringJSONMatch matches an equal JSON string.
+type StringJSONMatch = v0.StringJSONMatch
+
+// BooleanJSONMatch matches an equal JSON boolean.
+type BooleanJSONMatch = v0.BooleanJSONMatch
 
 // Payload is the layout of a message's payload.
 type Payload = v0.Payload
