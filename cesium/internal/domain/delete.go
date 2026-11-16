@@ -409,7 +409,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) (bool, error) {
 			return err
 		}
 		if err := db.cfg.FS.Rename(copyName, name); err != nil {
-			return err
+			return errors.Combine(err, db.cfg.FS.Rename(name+"_temp", name))
 		}
 		for i, ptr := range db.idx.mu.pointers {
 			if ptr.fileKey == key {
