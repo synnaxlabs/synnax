@@ -35,8 +35,7 @@ export type RetrieveMultipleQuery = {
 export const { use: useRetrieveMultiple, useResult: useResultMultiple } =
   Flux.createRetrieve<RetrieveMultipleQuery, color.Named[]>({
     name: PLURAL_RESOURCE_NAME,
-    retrieve: async ({ client, query: { keys } }) =>
-      await client.colors.retrieve({ key: keys }),
+    retrieve: async ({ client, query: { keys } }) => await client.colors.retrieve(keys),
     onChange: ({ client, query: { keys } }, handler) =>
       client.colors.watch(keys).onChange(handler),
     getCached: ({ client, query: { keys } }) => client.colors.watch(keys).getCached(),
