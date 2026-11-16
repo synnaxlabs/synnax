@@ -10,6 +10,7 @@
 package cmd
 
 import (
+	"io/fs"
 	"os"
 	"strings"
 
@@ -23,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/release"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 var Cmd = &cobra.Command{
@@ -53,16 +53,23 @@ func init() {
 	})
 	lo.Must0(viper.BindPFlags(Cmd.PersistentFlags()))
 	lo.Must0(viper.BindPFlags(Cmd.Flags()))
-	cobra.OnInitialize(initConfig)
+	Cmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		cmd.SilenceUsage = true
+		return initConfig()
+	}
 }
 
-func initConfig() {
+// initConfig reads the config file into viper. A missing file is not an error, since
+// the default path rarely exists.
+func initConfig() error {
 	cfgFile := viper.GetString(flagConfig)
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
 		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
+		if err != nil {
+			return err
+		}
 		viper.AddConfigPath(home)
 		viper.SetConfigType("yaml")
 		viper.SetConfigName(".synnax")
@@ -70,7 +77,16 @@ func initConfig() {
 	viper.SetEnvPrefix("synnax")
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	if err := viper.ReadInConfig(); err != nil {
-		zap.S().Error("failed to read config", zap.Error(err))
+	var notFound viper.ConfigFileNotFoundError
+	err := viper.ReadInConfig()
+	if errors.Is(err, fs.ErrNotExist) || errors.As(err, &notFound) {
+		return nil
 	}
+	if err != nil {
+		return errors.Mark(
+			errors.Wrapf(err, "failed to read config file %s", viper.ConfigFileUsed()),
+			validate.ErrValidation,
+		)
+	}
+	return nil
 }

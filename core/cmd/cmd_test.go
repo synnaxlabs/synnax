@@ -11,6 +11,8 @@ package cmd_test
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -40,5 +42,16 @@ var _ = Describe("Cmd", func() {
 			),
 			MatchError("unknown flag: --bogus"),
 		))
+	})
+
+	It("Should fail when the config file does not parse", func() {
+		flag := cmd.Cmd.PersistentFlags().Lookup("config")
+		DeferCleanup(func() { Expect(flag.Value.Set(flag.DefValue)).To(Succeed()) })
+		path := filepath.Join(GinkgoT().TempDir(), "config.yaml")
+		Expect(os.WriteFile(path, []byte("insecure: [true"), 0o600)).To(Succeed())
+		cmd.Cmd.SetArgs([]string{"version", "--config", path})
+		cmd.Cmd.SetOut(new(bytes.Buffer))
+		cmd.Cmd.SetErr(new(bytes.Buffer))
+		Expect(cmd.Cmd.Execute()).To(MatchError(ContainSubstring(path)))
 	})
 })
