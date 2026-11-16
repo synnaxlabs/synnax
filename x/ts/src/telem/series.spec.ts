@@ -2121,6 +2121,19 @@ describe("Series", () => {
       expect(Array.from(series)).toEqual(["7f3e4567-e89b-40d3-8056-426614174000"]);
     });
 
+    it("should read and iterate a partially written UUID series", () => {
+      const series = Series.alloc({ capacity: 32, dataType: DataType.UUID });
+      series.write(
+        new Series({
+          data: SAMPLE_UUID_BYTES.subarray(0, 16),
+          dataType: DataType.UUID,
+        }),
+      );
+      expect(series.length).toEqual(1);
+      expect(series.at(0)).toEqual("123e4567-e89b-40d3-8056-426614174000");
+      expect(Array.from(series)).toEqual(["123e4567-e89b-40d3-8056-426614174000"]);
+    });
+
     it("should handle empty UUID series", () => {
       const series = new Series({ data: new Uint8Array(), dataType: DataType.UUID });
       const uuids = Array.from(series);
