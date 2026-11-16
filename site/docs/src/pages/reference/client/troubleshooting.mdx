@@ -291,8 +291,11 @@ Client 0.61.0 cannot work with Core 0.60.0.
 <Problem.Cause>
 
 The TypeScript client cannot read the replies of the Core, and the major or minor
-version of the Core is not the same as the client. The client stops the connection, and
-`connect` rejects. It connects again when the Core changes.
+version of the Core is not the same as the client. The connection status shows this
+message and description. `connect` rejects with the error that the client got from the
+Core, not with this text. The client keeps checking the Core, and connects again when
+the Core changes. If you set a finite `retry.maxRetries`, call
+`client.connection.retryNow()` after you change the Core.
 
 </Problem.Cause>
 <Problem.Fix>
