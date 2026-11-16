@@ -335,6 +335,9 @@ func referencedNamespaces(
 				if pt, ok := resolve(v.Type.Name); ok {
 					if sf, isStruct := pt.Form.(resolution.StructForm); isStruct {
 						walkFields(sf.Fields)
+						for _, e := range sf.Extends {
+							walkRef(e)
+						}
 						continue
 					}
 				}
