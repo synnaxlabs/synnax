@@ -130,10 +130,13 @@ func (i *Domain) searchEnd(
 	startToDomain Approximation[int64],
 ) (Approximation[int64], bool, error) {
 	endApprox, err := i.search(end, r)
+	if err != nil {
+		return Approximation[int64]{}, false, err
+	}
 	return Between(
 		startToDomain.Lower+endApprox.Lower,
 		startToDomain.Upper+endApprox.Upper,
-	), endApprox.Exact(), err
+	), endApprox.Exact(), nil
 }
 
 // seekDistanceStart moves iter to the first domain in tr and returns the effective
