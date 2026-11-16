@@ -600,7 +600,7 @@ func (d *Driver) runOnce(
 	// crash, so it must not count toward the restart policy.
 	expected := ctx.Err() != nil
 	if !expected && restarted.Load() {
-		return restart.Restart, nil
+		return policy.Requested(time.Since(startedAt)), nil
 	}
 	if output := cmp.Or(stderrErr, stdoutErr); !expected && output != "" && err != nil {
 		d.lastErr.Store(&output)

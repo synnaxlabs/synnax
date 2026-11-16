@@ -22,6 +22,7 @@ import (
 	"syscall"
 	"testing/fstest"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -108,11 +109,12 @@ func openUnlicensed(ctx context.Context) *license.Service {
 	}))
 }
 
-// activate gives svc a new license that covers the Core.
-func activate(ctx context.Context, svc *license.Service) {
+// activate gives svc a new license that covers the Core and returns its ID.
+func activate(ctx context.Context, svc *license.Service) uuid.UUID {
 	GinkgoHelper()
-	Expect(svc.Activate(ctx, signer.Sign(svctestutil.NewLicense()))).
-		To(HaveField("State", license.StateOk))
+	lic := svctestutil.NewLicense()
+	Expect(svc.Activate(ctx, signer.Sign(lic))).To(HaveField("State", license.StateOk))
+	return lic.Jti
 }
 
 func countStarts(buffer *syncBuffer) func() int {
@@ -737,6 +739,23 @@ var _ = Describe("license", func() {
 			d := openMockDriver(ctx, logger, driver.Config{License: svc})
 			activate(ctx, svc)
 			Consistently(countStarts(buffer), 500*time.Millisecond).Should(Equal(1))
+			Expect(d.Close()).To(Succeed())
+		},
+	)
+
+	It(
+		"Should restart the Driver again when a lost license activates",
+		func(ctx SpecContext) {
+			logger, buffer := newTestLogger()
+			svc := openUnlicensed(ctx)
+			jti := activate(ctx, svc)
+			d := openMockDriver(ctx, logger, driver.Config{License: svc})
+			Eventually(countStarts(buffer)).Should(Equal(1))
+			Expect(svc.Deactivate(ctx, jti)).
+				ToNot(HaveField("State", license.StateOk))
+			Consistently(countStarts(buffer), 500*time.Millisecond).Should(Equal(1))
+			activate(ctx, svc)
+			Eventually(countStarts(buffer)).Should(Equal(2))
 			Expect(d.Close()).To(Succeed())
 		},
 	)
