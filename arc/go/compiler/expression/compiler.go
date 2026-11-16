@@ -213,80 +213,24 @@ func compileFunctionCallExpr[T antlr.ParserRuleContext](
 	args []symbol.Argument,
 ) (types.Type, error) {
 	funcType := scope.Type
-	totalCount := len(funcType.Inputs)
-	ordered := make([]parser.IExpressionContext, totalCount)
-	for _, arg := range args {
-		i := arg.Index
-		if arg.Name != "" {
-			i = funcType.Inputs.GetIndex(arg.Name)
-			if i < 0 {
-				return types.Type{}, errors.Newf(
-					"function %s has no parameter %s",
-					funcName, arg.Name,
-				)
-			}
-		}
-		if i >= totalCount {
-			return types.Type{}, errors.Newf(
-				"function %s expects at most %d arguments",
-				funcName, totalCount,
-			)
-		}
-		ordered[i] = arg.Expr
+	ordered, err := orderArguments(funcName, funcType.Inputs, args)
+	if err != nil {
+		return types.Type{}, err
 	}
-
-	concreteInputs := make(types.Params, totalCount)
+	concreteInputs := make(types.Params, len(funcType.Inputs))
 	copy(concreteInputs, funcType.Inputs)
-
 	// Track resolved type variables as arguments are compiled so that
 	// later arguments sharing the same variable get a concrete hint
 	// (e.g. pow(channel_f32, 2) resolves T=f32 on the first arg,
 	// then compiles the literal 2 as f32 instead of defaulting to i64).
 	varMap := make(map[string]types.Type)
-
 	for i, param := range funcType.Inputs {
-		arg := ordered[i]
-		if arg == nil {
-			if param.Value == nil {
-				return types.Type{}, errors.Newf(
-					"function %s is missing an argument for parameter %s",
-					funcName, param.Name,
-				)
-			}
-			if err := emitLiteralValue(ctx, param.Type, param.Value); err != nil {
-				return types.Type{}, errors.Wrapf(
-					err,
-					"default value for parameter %s",
-					param.Name,
-				)
-			}
-			continue
-		}
-		paramType := param.Type
-		hint := paramType
-		if paramType.Kind == types.KindVariable {
-			if resolved, ok := varMap[paramType.Name]; ok {
-				hint = resolved
-			}
-		}
-		argType, err := Compile(ctx.Child(arg).WithHint(hint))
+		argType, err := compileArgument(ctx, funcName, param, ordered[i], i, varMap)
 		if err != nil {
-			return types.Type{}, errors.Wrapf(err, "argument %d", i)
+			return types.Type{}, err
 		}
 		concreteInputs[i].Type = argType
-		if paramType.Kind == types.KindVariable &&
-			argType.Kind != types.KindNumericConstant &&
-			argType.Kind != types.KindIntegerConstant &&
-			argType.Kind != types.KindFloatConstant {
-			varMap[paramType.Name] = argType
-		}
-		if !types.Equal(argType, paramType) && paramType.Kind != types.KindVariable {
-			if err := EmitCast(ctx, argType, paramType); err != nil {
-				return types.Type{}, err
-			}
-		}
 	}
-
 	concreteOutputs := make(types.Params, len(funcType.Outputs))
 	copy(concreteOutputs, funcType.Outputs)
 	for i, out := range concreteOutputs {
@@ -296,7 +240,6 @@ func compileFunctionCallExpr[T antlr.ParserRuleContext](
 			}
 		}
 	}
-
 	concreteType := types.Function(types.FunctionProperties{
 		Inputs:  concreteInputs,
 		Outputs: concreteOutputs,
@@ -314,6 +257,87 @@ func compileFunctionCallExpr[T antlr.ParserRuleContext](
 		return defaultOutput.Type, nil
 	}
 	return types.Type{}, nil
+}
+
+// orderArguments places each argument at the index of the parameter it binds to. A
+// parameter with no argument gets nil.
+func orderArguments(
+	funcName string,
+	inputs types.Params,
+	args []symbol.Argument,
+) ([]parser.IExpressionContext, error) {
+	ordered := make([]parser.IExpressionContext, len(inputs))
+	for _, arg := range args {
+		i := arg.Index
+		if arg.Name != "" {
+			if i = inputs.GetIndex(arg.Name); i < 0 {
+				return nil, errors.Newf(
+					"function %s has no parameter %s",
+					funcName, arg.Name,
+				)
+			}
+		}
+		if i >= len(inputs) {
+			return nil, errors.Newf(
+				"function %s expects at most %d arguments",
+				funcName, len(inputs),
+			)
+		}
+		ordered[i] = arg.Expr
+	}
+	return ordered, nil
+}
+
+// compileArgument compiles arg for param, or the parameter's default value when arg is
+// nil. It records the type that arg binds to a type variable in varMap.
+func compileArgument[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	funcName string,
+	param types.Param,
+	arg parser.IExpressionContext,
+	i int,
+	varMap map[string]types.Type,
+) (types.Type, error) {
+	if arg == nil {
+		if param.Value == nil {
+			return types.Type{}, errors.Newf(
+				"function %s is missing an argument for parameter %s",
+				funcName, param.Name,
+			)
+		}
+		if err := emitLiteralValue(ctx, param.Type, param.Value); err != nil {
+			return types.Type{}, errors.Wrapf(
+				err,
+				"default value for parameter %s",
+				param.Name,
+			)
+		}
+		return param.Type, nil
+	}
+	paramType := param.Type
+	isVariable := paramType.Kind == types.KindVariable
+	hint := paramType
+	if isVariable {
+		if resolved, ok := varMap[paramType.Name]; ok {
+			hint = resolved
+		}
+	}
+	argType, err := Compile(ctx.Child(arg).WithHint(hint))
+	if err != nil {
+		return types.Type{}, errors.Wrapf(err, "argument %d", i)
+	}
+	if isVariable &&
+		argType.Kind != types.KindNumericConstant &&
+		argType.Kind != types.KindIntegerConstant &&
+		argType.Kind != types.KindFloatConstant {
+		varMap[paramType.Name] = argType
+	}
+	if !types.Equal(argType, paramType) && !isVariable {
+		if err := EmitCast(ctx, argType, paramType); err != nil {
+			return types.Type{}, err
+		}
+	}
+	return argType, nil
 }
 
 // CompileIndex compiles a series index or slice bound to the i32 that the series host
@@ -361,44 +385,55 @@ func compileIndexOrSlice(
 	if operandType.Kind != types.KindSeries {
 		return types.Type{}, errors.New("slicing is only supported on series types")
 	}
+	startExpr, endExpr, err := sliceBounds(indexOrSlice)
+	if err != nil {
+		return types.Type{}, err
+	}
+	if err = compileSliceBound(ctx, startExpr, 0); err != nil {
+		return types.Type{}, err
+	}
+	// The host stops an end past the length at the length.
+	if err = compileSliceBound(ctx, endExpr, math.MaxInt32); err != nil {
+		return types.Type{}, err
+	}
+	ctx.Resolver.EmitSeriesSlice(ctx.Writer, ctx.WriterID)
+	return operandType, nil
+}
 
-	var startExpr, endExpr parser.IExpressionContext
-	if len(expressions) == 1 {
+// sliceBounds returns the start and end expressions of a slice. A missing bound is
+// nil.
+func sliceBounds(
+	indexOrSlice parser.IIndexOrSliceContext,
+) (start, end parser.IExpressionContext, err error) {
+	expressions := indexOrSlice.AllExpression()
+	switch len(expressions) {
+	case 1:
 		if indexOrSlice.GetChild(1) == expressions[0] {
-			startExpr = expressions[0]
-		} else {
-			endExpr = expressions[0]
+			return expressions[0], nil, nil
 		}
-	} else if len(expressions) == 2 {
-		startExpr = expressions[0]
-		endExpr = expressions[1]
-	} else {
-		return types.Type{}, errors.Newf(
+		return nil, expressions[0], nil
+	case 2:
+		return expressions[0], expressions[1], nil
+	default:
+		return nil, nil, errors.Newf(
 			"expected 1 or 2 items in slice expression, received %v",
 			len(expressions),
 		)
 	}
+}
 
-	if startExpr != nil {
-		if err := CompileIndex(ctx, startExpr); err != nil {
-			return types.Type{}, err
-		}
-	} else {
-		ctx.Writer.WriteI32Const(0)
+// compileSliceBound compiles expr as a slice bound, or pushes fallback when expr is
+// nil.
+func compileSliceBound(
+	ctx context.Context[parser.IPostfixExpressionContext],
+	expr parser.IExpressionContext,
+	fallback int32,
+) error {
+	if expr == nil {
+		ctx.Writer.WriteI32Const(fallback)
+		return nil
 	}
-
-	if endExpr != nil {
-		if err := CompileIndex(ctx, endExpr); err != nil {
-			return types.Type{}, err
-		}
-	} else {
-		// The host stops an end past the length at the length.
-		ctx.Writer.WriteI32Const(math.MaxInt32)
-	}
-
-	ctx.Resolver.EmitSeriesSlice(ctx.Writer, ctx.WriterID)
-
-	return operandType, nil
+	return CompileIndex(ctx, expr)
 }
 
 func compilePrimary(
@@ -419,6 +454,38 @@ func compilePrimary(
 	return types.Type{}, errors.New("unknown primary expression")
 }
 
+func emitIntegerDefault(w *wasm.Writer, t types.Type, v any) error {
+	if t.Kind == types.KindI64 {
+		n, ok := v.(int64)
+		if !ok {
+			return errors.Newf("unexpected default value type %T for i64", v)
+		}
+		w.WriteI64Const(n)
+		return nil
+	}
+	if t.Kind == types.KindU64 {
+		n, ok := v.(uint64)
+		if !ok {
+			return errors.Newf("unexpected default value type %T for u64", v)
+		}
+		w.WriteI64Const(int64(n))
+		return nil
+	}
+	n, ok := smallIntToI32(v)
+	if !ok {
+		return errors.Newf("unexpected default value type %T for %s", v, t)
+	}
+	w.WriteI32Const(n)
+	return nil
+}
+
+func boolToI32(b bool) int32 {
+	if b {
+		return 1
+	}
+	return 0
+}
+
 func emitLiteralValue[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	paramType types.Type,
@@ -430,42 +497,10 @@ func emitLiteralValue[T antlr.ParserRuleContext](
 		types.KindI32,
 		types.KindU8,
 		types.KindU16,
-		types.KindU32:
-		var i32Val int32
-		switch v := defaultVal.(type) {
-		case int8:
-			i32Val = int32(v)
-		case int16:
-			i32Val = int32(v)
-		case int32:
-			i32Val = v
-		case uint8:
-			i32Val = int32(v)
-		case uint16:
-			i32Val = int32(v)
-		case uint32:
-			i32Val = int32(v)
-		default:
-			return errors.Newf(
-				"unexpected default value type %T for %s",
-				defaultVal,
-				paramType,
-			)
-		}
-		ctx.Writer.WriteI32Const(i32Val)
-	case types.KindI64:
-		switch v := defaultVal.(type) {
-		case int64:
-			ctx.Writer.WriteI64Const(v)
-		default:
-			return errors.Newf("unexpected default value type %T for i64", defaultVal)
-		}
-	case types.KindU64:
-		v, ok := defaultVal.(uint64)
-		if !ok {
-			return errors.Newf("unexpected default value type %T for u64", defaultVal)
-		}
-		ctx.Writer.WriteI64Const(int64(v))
+		types.KindU32,
+		types.KindI64,
+		types.KindU64:
+		return emitIntegerDefault(ctx.Writer, paramType, defaultVal)
 	case types.KindF32:
 		v, ok := defaultVal.(float32)
 		if !ok {
@@ -483,25 +518,25 @@ func emitLiteralValue[T antlr.ParserRuleContext](
 		if !ok {
 			return errors.Newf("unexpected default value type %T for bool", defaultVal)
 		}
-		if v {
-			ctx.Writer.WriteI32Const(1)
-		} else {
-			ctx.Writer.WriteI32Const(0)
-		}
+		ctx.Writer.WriteI32Const(boolToI32(v))
 	case types.KindString:
 		str, ok := defaultVal.(string)
 		if !ok {
 			return errors.Newf("unexpected default value type %T for str", defaultVal)
 		}
-		strBytes := []byte(str)
-		offset := ctx.Module.AddData(strBytes)
-		ctx.Writer.WriteI32Const(int32(offset))
-		ctx.Writer.WriteI32Const(int32(len(strBytes)))
-		ctx.Resolver.EmitStringFromLiteral(ctx.Writer, ctx.WriterID)
+		emitStringConst(ctx, str)
 	default:
 		return errors.Newf("unsupported default value type: %s", paramType)
 	}
 	return nil
+}
+
+func emitStringConst[T antlr.ParserRuleContext](ctx context.Context[T], str string) {
+	strBytes := []byte(str)
+	offset := ctx.Module.AddData(strBytes)
+	ctx.Writer.WriteI32Const(int32(offset))
+	ctx.Writer.WriteI32Const(int32(len(strBytes)))
+	ctx.Resolver.EmitStringFromLiteral(ctx.Writer, ctx.WriterID)
 }
 
 func compileBuiltinLen[T antlr.ParserRuleContext](
@@ -543,5 +578,25 @@ func compileBuiltinLen[T antlr.ParserRuleContext](
 		return types.Type{}, errors.Newf(
 			"argument 1 of %s: expected series or str, got %s", funcName, argType,
 		)
+	}
+}
+
+// smallIntToI32 converts an integer of 32 bits or fewer to the i32 that carries it.
+func smallIntToI32(v any) (int32, bool) {
+	switch n := v.(type) {
+	case int8:
+		return int32(n), true
+	case int16:
+		return int32(n), true
+	case int32:
+		return n, true
+	case uint8:
+		return int32(n), true
+	case uint16:
+		return int32(n), true
+	case uint32:
+		return int32(n), true
+	default:
+		return 0, false
 	}
 }
