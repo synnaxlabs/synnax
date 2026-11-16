@@ -21,7 +21,7 @@ const SPEC = Custom.createBuiltIn({
     { key: "1", position: { x: 0.04, y: 0.5 }, orientation: "left" },
     { key: "2", position: { x: 0.983333, y: 0.5 }, orientation: "right" },
     { key: "3", position: { x: 0.5, y: 0.05714 }, orientation: "top" },
-    { key: "3", position: { x: 0.5, y: 0.94386 }, orientation: "bottom" },
+    { key: "4", position: { x: 0.5, y: 0.94386 }, orientation: "bottom" },
   ],
 });
 
