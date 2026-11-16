@@ -103,7 +103,13 @@ class Seats:
             )
         }
         if enabled:
-            self.settle(seats, logins=logins, found=found, now=seconds)
+            # EC2 can report a seat stopped for some seconds after its start.
+            recent = {
+                iid
+                for iid, last in self.started.items()
+                if now.span(last) < RECOMMAND_DELAY
+            }
+            self.settle(seats, logins=logins, found=found, recent=recent, now=seconds)
         starting: set[str] = set()
         for job in queued:
             wanted = {label.lower() for label in job} - GENERIC
@@ -155,10 +161,12 @@ class Seats:
         *,
         logins: dict[str, Login],
         found: dict,
+        recent: set[str],
         now: int,
     ) -> None:
-        """Moves the usage limit each seat recorded to its login, and drops the seats
-        that are not up from the holders of each login."""
+        """Moves the usage limit each seat recorded to its login, and sets the holders
+        of each login to the seats that are up with its `login` tag. A seat started
+        recently, given by recent, keeps its holder entries."""
         for iid in seats:
             info = found[iid]
             until = info["tags"].get("limited-until")
@@ -185,17 +193,23 @@ class Seats:
             except Exception as e:
                 self.log.error(f"{self.name(iid, found=found)} limit clear", e)
         for login in logins.values():
-            kept = [
+            tagged = [
+                self.logins.holder(iid)
+                for iid, info in sorted(found.items())
+                if info["state"] in UP and info["tags"].get("login") == login.name
+            ]
+            holders = [
                 h
                 for h in login.holders
-                if found.get(h.rpartition(":")[2], {}).get("state") in UP
+                if h in tagged or h.rpartition(":")[2] in recent
             ]
-            if kept == login.holders:
+            holders += [h for h in tagged if h not in holders]
+            if holders == login.holders:
                 continue
             try:
-                self.logins.hold(login, holders=kept)
+                self.logins.hold(login, holders=holders)
             except Exception as e:
-                self.log.error(f"login {login.name} release", e)
+                self.log.error(f"login {login.name} hold", e)
 
     def start(self, iid: str, *, login: Login | None, info: dict) -> None:
         """Hands the login, if any, to the stopped seat iid, then starts it."""
