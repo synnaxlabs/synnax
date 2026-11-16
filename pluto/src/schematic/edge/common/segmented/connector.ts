@@ -502,6 +502,10 @@ const internalDragSegment = ({
     // Since we added a new stump in the same direction as the old one, we need to
     // subtract the stump length from the segment.
     next[index] = { ...next[index], length: next[index].length - stumpLength };
+  } else if (next[index - 1].direction === seg.direction) {
+    // A collinear neighbor cannot absorb the drag, so a new segment joins the two.
+    next.splice(index, 0, { direction: dir, length: magnitude });
+    index++;
   } else
     next[index - 1] = {
       direction: next[index - 1].direction,
@@ -514,7 +518,9 @@ const internalDragSegment = ({
     const stumpLength = setOrientationOnLength(orientation, STUMP_LENGTH);
     next.push({ direction: seg.direction, length: stumpLength });
     next[index] = { ...next[index], length: next[index].length - stumpLength };
-  } else
+  } else if (next[index + 1].direction === seg.direction)
+    next.splice(index + 1, 0, { direction: dir, length: -magnitude });
+  else
     next[index + 1] = {
       direction: next[index + 1].direction,
       length: next[index + 1].length - magnitude,

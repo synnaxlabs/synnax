@@ -654,11 +654,40 @@ describe("connector", () => {
     // Expected:
     // |--S
     // |T
+    // Props:
+    //   T
+    //   |
+    // S-|
+    //
+    // Expected:
+    //   T--|
+    //      |
+    // S----|
+    const COLLINEAR_TARGET_STUMP: Spec = {
+      name: "collinear target stump",
+      props: {
+        segments: [
+          { direction: "x", length: 10 },
+          { direction: "y", length: -80 },
+          { direction: "y", length: 10 },
+        ],
+        index: 1,
+        magnitude: 46,
+      },
+      expected: [
+        { direction: "x", length: 56 },
+        { direction: "y", length: -80 },
+        { direction: "x", length: -46 },
+        { direction: "y", length: 10 },
+      ],
+    };
+
     const SPECS: Spec[] = [
       SINGLE_MOVE_UP,
       U_SHAPED_DRAG_UP_NO_COMPRESSION,
       U_SHAPED_DRAG_UP_COMPRESSION,
       ADD_SOURCE_STUMP,
+      COLLINEAR_TARGET_STUMP,
     ];
 
     for (const spec of SPECS)
