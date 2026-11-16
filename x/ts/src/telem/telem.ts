@@ -2180,7 +2180,7 @@ export const convertDataType = (
   if (source.usesBigInt && !target.usesBigInt)
     return Number(BigInt(value.valueOf()) - BigInt(offset.valueOf()));
   if (!source.usesBigInt && target.usesBigInt)
-    return BigInt(value.valueOf()) - BigInt(offset.valueOf());
+    return BigInt(Math.round(Number(value))) - BigInt(offset.valueOf());
   return math.sub(value, offset);
 };
 
