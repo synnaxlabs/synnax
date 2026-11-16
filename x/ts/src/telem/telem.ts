@@ -608,12 +608,13 @@ export class TimeStamp
     const d = local
       ? new Date(year, month - 1, day, hour, minute, second)
       : new Date(Date.UTC(year, month - 1, day, hour, minute, second));
-    // Date rolls a day that does not exist into the next month.
+    // Date rolls a day that does not exist into the next month, and a local time in a
+    // daylight saving gap past the gap.
     const resolved = local
-      ? [d.getFullYear(), d.getMonth() + 1, d.getDate()]
-      : [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()];
-    if (resolved[0] !== year || resolved[1] !== month || resolved[2] !== day)
-      return null;
+      ? [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes()]
+      : [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), hour, minute];
+    const parsed = [year, month, day, hour, minute];
+    if (resolved.some((v, i) => v !== parsed[i])) return null;
     return new TimeStamp(d).add(new TimeSpan(fraction));
   }
 
