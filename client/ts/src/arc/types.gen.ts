@@ -15,6 +15,7 @@ import { z } from "zod";
 import { graph } from "@/arc/graph";
 import { program } from "@/arc/program";
 import { text } from "@/arc/text";
+import { channel } from "@/channel";
 import { resource } from "@/resource";
 import { status } from "@/status";
 
@@ -46,6 +47,17 @@ export const changeZ = z.object({
   kind: changeKindZ,
 });
 export interface Change extends z.infer<typeof changeZ> {}
+
+/**
+ * Calculation is a calculated channel that an automation reads, compiled to a module.
+ */
+export const calculationZ = z.object({
+  /** channel is the key of the calculated channel. */
+  channel: channel.keyZ,
+  /** program is the compiled module that computes the channel. */
+  program: program.programZ,
+});
+export interface Calculation extends z.infer<typeof calculationZ> {}
 
 /** Order is a sort of arcs. */
 export const orderZ = z.object({
@@ -169,6 +181,11 @@ export const automationArcZ = baseZ.extend({
   program: program.programZ.optional(),
   /** changes is what changed in the automation since its task was deployed. */
   changes: zod.nullToUndefined(changeZ.array()),
+  /**
+   * calculations are the calculated channels that the program reads, nested ones
+   * included. Dependencies come before the channels that read them.
+   */
+  calculations: zod.nullToUndefined(calculationZ.array()),
 });
 export interface AutomationArc extends z.infer<typeof automationArcZ> {}
 

@@ -19,6 +19,7 @@ import (
 	programpb "github.com/synnaxlabs/arc/program/pb"
 	textpb "github.com/synnaxlabs/arc/text/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
@@ -375,6 +376,60 @@ func WheresFromPB(pbs []*Where) ([]arc.Where, error) {
 	return result, nil
 }
 
+// CalculationToPB converts Calculation to Calculation.
+func CalculationToPB(r arc.Calculation) (*Calculation, error) {
+	programVal, err := programpb.ProgramToPB(r.Program)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Calculation{
+		Channel: uint32(r.Channel),
+		Program: programVal,
+	}
+	return pb, nil
+}
+
+// CalculationFromPB converts Calculation to Calculation.
+func CalculationFromPB(pb *Calculation) (arc.Calculation, error) {
+	var r arc.Calculation
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Program, err = programpb.ProgramFromPB(pb.Program)
+	if err != nil {
+		return arc.Calculation{}, err
+	}
+	r.Channel = channel.Key(pb.Channel)
+	return r, nil
+}
+
+// CalculationsToPB converts a slice of Calculation to Calculation.
+func CalculationsToPB(rs []arc.Calculation) ([]*Calculation, error) {
+	result := make([]*Calculation, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = CalculationToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// CalculationsFromPB converts a slice of Calculation to Calculation.
+func CalculationsFromPB(pbs []*Calculation) ([]arc.Calculation, error) {
+	result := make([]arc.Calculation, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = CalculationFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // TextSourceToPB converts TextSource to SourceTextPayload.
 func TextSourceToPB(r arc.TextSource) (*SourceTextPayload, error) {
 	textVal, err := textpb.TextToPB(r.Text)
@@ -510,6 +565,13 @@ func AutomationArcToPB(r arc.AutomationArc) (*ArcAutomationPayload, error) {
 		}
 		pb.Changes = &ChangeList{Values: vals}
 	}
+	if r.Calculations != nil {
+		vals, err := CalculationsToPB(r.Calculations)
+		if err != nil {
+			return nil, err
+		}
+		pb.Calculations = &CalculationList{Values: vals}
+	}
 	return pb, nil
 }
 
@@ -532,6 +594,13 @@ func AutomationArcFromPB(pb *ArcAutomationPayload) (arc.AutomationArc, error) {
 			return arc.AutomationArc{}, err
 		}
 		r.Changes = xpb.ListValues(vals)
+	}
+	if pb.Calculations != nil {
+		vals, err := CalculationsFromPB(pb.Calculations.Values)
+		if err != nil {
+			return arc.AutomationArc{}, err
+		}
+		r.Calculations = xpb.ListValues(vals)
 	}
 	return r, nil
 }
