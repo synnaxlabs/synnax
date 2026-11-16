@@ -118,23 +118,18 @@ const Body = ({
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const staticViewKeys = staticViews.map((v) => v.key);
   const selected = open?.key ?? staticViews[0].key;
+  const tabOf = (key: view.Key): panel.NewTab =>
+    staticViewKeys.includes(key)
+      ? { variant: "view", type: tabType }
+      : { variant: "resource", resource: view.resourceID(key) };
   const select = (key: view.Key) => {
     // A user who may not change the panel keeps the view it stores.
     if (!canChange) return;
     // A view open in another tab of the panel focuses that tab instead.
-    openTab(
-      staticViewKeys.includes(key)
-        ? { variant: "view", key: tab, type: tabType }
-        : { variant: "resource", key: tab, resource: view.resourceID(key) },
-    );
+    openTab({ ...tabOf(key), key: tab });
     setSearchTerm("");
   };
-  const openInNewTab = (key: view.Key) =>
-    openTab(
-      staticViewKeys.includes(key)
-        ? { variant: "view", type: tabType }
-        : { variant: "resource", resource: view.resourceID(key) },
-    );
+  const openInNewTab = (key: view.Key) => openTab(tabOf(key));
   const updateGranted = Access.useUpdateGranted(view.resourceID(selected));
   // A static view saves nothing, so everyone may change it.
   const editable = staticViewKeys.includes(selected) || updateGranted;
