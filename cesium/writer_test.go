@@ -5348,6 +5348,64 @@ var _ = Describe("Writer commit order", func() {
 		}
 		Expect(persistCount).To(BeNumerically(">=", domainCount*len(keys)))
 	})
+
+	It("Should show the index and data of a write together", func(ctx SpecContext) {
+		var (
+			db       *cesium.DB
+			indexKey = GenerateChannelKey()
+			dataKey  = GenerateChannelKey()
+			keys     = []cesium.ChannelKey{indexKey, dataKey}
+			// counts holds the index and data sample counts of each read.
+			counts [][2]int64
+		)
+		db = mustOpenDBOnFS(ctx, persistHookFS{
+			FS: FileSystems["memFS"](),
+			onPersist: func() {
+				fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, keys...))
+				counts = append(counts, [2]int64{
+					fr.Get(indexKey).Len(),
+					fr.Get(dataKey).Len(),
+				})
+			},
+		})
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key:      indexKey,
+				Name:     "index",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			},
+			cesium.Channel{
+				Key:      dataKey,
+				Name:     "data",
+				Index:    indexKey,
+				DataType: telem.Int64T,
+			},
+		)).To(Succeed())
+		// With auto commit off, Commit persists, so onPersist runs inside it.
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels:         keys,
+			Start:            10 * telem.SecondTS,
+			EnableAutoCommit: new(false),
+		}))
+		for i := range 3 {
+			ts := telem.TimeStamp(10+i) * telem.SecondTS
+			MustSucceed(w.Write(telem.MultiFrame(keys, []telem.Series{
+				telem.NewSeriesV(ts),
+				telem.NewSeriesV(int64(i)),
+			})))
+			MustCommit(w)
+		}
+		Expect(w.Close()).To(Succeed())
+		Expect(len(counts)).To(BeNumerically(">=", 6))
+		for _, c := range counts {
+			Expect(c[0]).To(Equal(c[1]))
+		}
+		fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, keys...))
+		Expect(fr.Get(indexKey).Len()).To(Equal(int64(3)))
+		Expect(fr.Get(dataKey).Len()).To(Equal(int64(3)))
+	})
 })
 
 // persistHookFS calls onPersist as a channel starts to persist its domain pointers, the
