@@ -7,10 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# One EC2 instance per agent CLI login (a seat), each with several GitHub Actions
-# runners that share the login. The fleet controller starts a stopped seat for a queued
-# job, and a review job also starts a stopped review seat through GitHub OIDC. An idle
-# instance stops itself, so its disk keeps the build caches warm.
+# One EC2 instance per seat, each with several GitHub Actions runners. The fleet
+# controller starts a stopped seat for a queued job, on a shared Claude login that it
+# picks. An idle instance stops itself, so its disk keeps the build caches warm.
 
 terraform {
   required_version = ">= 1.10"
@@ -72,6 +71,10 @@ data "aws_subnets" "default" {
 locals {
   account = data.aws_caller_identity.current.account_id
   subnets = data.aws_subnets.default.ids
+  # The shared Claude logins, stored by `seat.sh token`.
+  logins = join(":", [
+    "arn:aws:secretsmanager:us-east-1", local.account, "secret:synnax-agents/logins/*",
+  ])
 }
 
 resource "aws_security_group" "runner" {
@@ -151,6 +154,25 @@ resource "aws_iam_role_policy" "limited_until" {
   })
 }
 
+# Lets a seat read the token of the Claude login that the fleet controller gave it.
+# The controller adds the seat's session to the login's `holders` tag, and removes it
+# once the seat stops.
+resource "aws_iam_role_policy" "login" {
+  name = "ReadHeldLogin"
+  role = aws_iam_role.runner.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "secretsmanager:GetSecretValue"
+      Resource = local.logins
+      Condition = {
+        StringLike = { "secretsmanager:ResourceTag/holders" = "*$${aws:userid}*" }
+      }
+    }]
+  })
+}
+
 resource "aws_iam_instance_profile" "runner" {
   name = "synnax-agent-runner"
   role = aws_iam_role.runner.name
@@ -176,8 +198,10 @@ resource "aws_instance" "seat" {
     volume_size = var.pools[each.value.pool].disk_gb
     encrypted   = true
   }
+  # Jobs read the instance's `login` tag from the metadata service.
   metadata_options {
-    http_tokens = "required"
+    http_tokens            = "required"
+    instance_metadata_tags = "enabled"
   }
   tags = {
     Name    = "synnax-agent-${each.key}"
@@ -197,7 +221,7 @@ data "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
 }
 
-# Lets workflows in the repository start a stopped runner, and nothing else.
+# Lets workflows in the repository see the runners, and nothing else.
 resource "aws_iam_role" "start" {
   name = "synnax-agent-runner-start"
   assume_role_policy = jsonencode({
@@ -228,17 +252,6 @@ resource "aws_iam_role_policy" "start" {
         Effect   = "Allow"
         Action   = "ec2:DescribeInstances"
         Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = "ec2:StartInstances"
-        Resource = "arn:aws:ec2:${var.region}:*:instance/*"
-        Condition = {
-          StringEquals = {
-            "aws:ResourceTag/project" = "synnax-agents"
-            "aws:ResourceTag/pool"    = keys(var.pools)
-          }
-        }
       },
     ]
   })
