@@ -163,7 +163,9 @@ TEST(PropertiesParse, ReadsTheSettingsOfTheCatalog) {
 
 /// @brief it should read back a serial number of 8 bytes, as IOLITE modules give.
 TEST(PropertiesParse, ReadsAnEightByteSerialNumber) {
-    auto parser = x::json::Parser(Properties{.serial = 0x000000DB21014087}.to_json());
+    auto parser = x::json::Parser(
+        Properties{.position = 1, .serial = 0x000000DB21014087}.to_json()
+    );
     EXPECT_EQ(Properties::parse(parser).serial, 0x000000DB21014087);
     ASSERT_NIL(parser.error());
 }
