@@ -389,12 +389,35 @@ func (r Retrieve[K, E]) matchEval(ctx Context, e *E, key, value []byte) (bool, e
 	return r.filter.eval(ctx, e, key, value)
 }
 
-// matchRead is match for an entry read by a key that the filter's keys contain.
-func (r Retrieve[K, E]) matchRead(ctx Context, e *E, key, value []byte) (bool, error) {
-	if ok, err := r.matchRaw(key, value); err != nil || !ok {
-		return false, err
+// read decodes the entry at k into e and reports whether k has an entry and whether it
+// matches the filter. k must be in the filter's keys. It decodes only an entry whose
+// key starts with prefix and that passes the raw filter.
+func (r Retrieve[K, E]) read(
+	ctx Context,
+	reader Reader[K, E],
+	k K,
+	prefix []byte,
+	e *E,
+) (found, match bool, err error) {
+	encoded := reader.keyCodec.Encode(k)
+	value, closer, err := reader.snap.Get(encoded)
+	if errors.Is(err, query.ErrNotFound) {
+		return false, false, nil
 	}
-	return r.matchEval(ctx, e, key, value)
+	if err != nil {
+		return false, false, err
+	}
+	match = reader.keyCodec.HasPrefix(k, prefix)
+	if match {
+		match, err = r.matchRaw(encoded, value)
+	}
+	if match && err == nil {
+		err = reader.snap.Decode(value, e)
+	}
+	if match && err == nil {
+		match, err = r.matchEval(ctx, e, encoded, value)
+	}
+	return true, match && err == nil, errors.Combine(err, closer.Close())
 }
 
 // matchRaw runs the filter's raw-byte pre-screen against key/value.
@@ -438,28 +461,19 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, snap Snapshot) ([]K, erro
 			break
 		}
 		e = zero
-		b, closer, err := reader.get(ctx, k, &e)
+		found, match, err := r.read(gorpCtx, reader, k, r.prefix, &e)
 		if err != nil {
-			if errors.Is(err, query.ErrNotFound) {
-				notFound = append(notFound, k)
-				continue
-			}
 			return nil, err
 		}
-		if reader.keyCodec.HasPrefix(e.GorpKey(), r.prefix) {
-			match, mErr := r.matchRead(gorpCtx, &e, reader.keyCodec.Encode(k), b)
-			if mErr != nil {
-				return nil, errors.Combine(mErr, closer.Close())
-			}
-			if match {
-				validCount++
-				if r.limit == 0 || validCount <= r.limit {
-					r.entries.add(e)
-				}
-			}
+		if !found {
+			notFound = append(notFound, k)
+			continue
 		}
-		if cErr := closer.Close(); cErr != nil {
-			return nil, cErr
+		if match {
+			validCount++
+			if r.limit == 0 || validCount <= r.limit {
+				r.entries.add(e)
+			}
 		}
 	}
 	if len(r.validators) == 0 {
@@ -595,16 +609,9 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
 			continue
 		}
 		var e E
-		b, closer, err := reader.get(ctx, k, &e)
+		_, match, err := r.read(gorpCtx, reader, k, nil, &e)
 		if err != nil {
-			if errors.Is(err, query.ErrNotFound) {
-				continue
-			}
 			return err
-		}
-		match, mErr := r.matchRead(gorpCtx, &e, reader.keyCodec.Encode(k), b)
-		if cErr := closer.Close(); mErr != nil || cErr != nil {
-			return errors.Combine(mErr, cErr)
 		}
 		if !match {
 			continue
