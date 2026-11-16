@@ -1884,7 +1884,9 @@ var _ = Describe("Python Types Plugin", func() {
 				`
 					resp := MustGenerate(source, "channel", loader, typesPlugin)
 					content := string(resp.Files[0].Content)
-					newClass := content[strings.Index(content, "class New"):]
+					start := strings.Index(content, "class New")
+					Expect(start).To(BeNumerically(">=", 0))
+					newClass := content[start:]
 					Expect(newClass).To(ContainSubstring(`key: Key | None`))
 					Expect(
 						newClass,

@@ -129,18 +129,20 @@ func (c *streamCore[I, O]) Receive() (I, error) {
 	}
 	msg, err := c.receiveRaw()
 	if err != nil {
-		if cause := c.forcedCause(); cause != nil {
+		cause := c.forcedCause()
+		switch {
+		case cause != nil:
 			c.peerCloseErr = cause
-		} else if websocket.IsCloseError(
+		case websocket.IsCloseError(
 			err,
 			websocket.CloseNormalClosure,
 			websocket.CloseNoStatusReceived,
 			websocket.CloseAbnormalClosure,
-		) {
+		):
 			c.peerCloseErr = io.EOF
-		} else if websocket.IsCloseError(err, contextCancelledCloseCode) {
+		case websocket.IsCloseError(err, contextCancelledCloseCode):
 			c.peerCloseErr = context.Canceled
-		} else {
+		default:
 			c.peerCloseErr = freighter.ErrStreamClosed
 		}
 		c.peerCloseErr = errors.WithStack(c.peerCloseErr)
