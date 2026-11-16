@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any
 
 from review import render
-from review.post import EDITS, GH
+from review.post import EDITS, GH, summarized
 
 Git = Callable[..., str]
 """Runs `git` in a clone of the repository with the given arguments, and returns its
@@ -43,6 +43,23 @@ NEAR = 20
 """Findings on one file match when their lines are at most this far apart."""
 
 REAL, NOISE, OPEN = "real", "noise", "open"
+
+PULLS = """query($o: String!, $r: String!, $endCursor: String) {
+  repository(owner: $o, name: $r) {
+    pullRequests(
+      first: 100, after: $endCursor, orderBy: {field: UPDATED_AT, direction: DESC}
+    ) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        number updatedAt
+        userContentEdits(first: 100) {
+          pageInfo { hasNextPage }
+          nodes { editor { login } }
+        }
+      }
+    }
+  }
+}"""
 
 THREADS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
   repository(owner: $o, name: $r) {
@@ -123,16 +140,18 @@ class Pair:
     duration_ms: int
 
 
-def greptile_reviews(
-    edits: list[dict[str, Any]],
-) -> dict[str, tuple[int, list[tuple[str, str, int | None]]]]:
+Reviews = dict[str, tuple[int, list[tuple[str, str, int | None]]]]
+"""Greptile's score and findings for each commit it reviewed."""
+
+
+def greptile_reviews(edits: list[dict[str, Any]]) -> Reviews:
     """Returns Greptile's score and findings for each commit it reviewed.
 
     :param edits: The revisions of a pull request body, newest first.
     :returns: For each commit, the score and each finding's severity, title, and the
         ID of the comment that starts its thread, if it has one.
     """
-    out: dict[str, tuple[int, list[tuple[str, str, int | None]]]] = {}
+    out: Reviews = {}
     for e in edits:
         editor = e["editor"] or {}
         if editor.get("__typename") != "Bot" or editor.get("login") != GREPTILE:
@@ -232,42 +251,108 @@ def match(a: list[Item], b: list[Item]) -> list[tuple[int, int]]:
     return out
 
 
-def records(gh: GH, repo: str, since: datetime) -> list[dict[str, Any]]:
-    """Downloads the records of the Sedosaur reviews since a time, oldest first. Only a
-    run on `main` of the repository itself counts, so a fork cannot add a record."""
+def prs(gh: GH, repo: str, since: datetime) -> list[int]:
+    """Returns the pull requests updated since a time whose body both reviewers
+    edited, newest first. A pull request with too many revisions to tell counts."""
+    owner, name = repo.split("/")
+    out: list[int] = []
+    cursor: list[str] = []
+    while True:
+        page = json.loads(
+            gh(
+                *("api", "graphql", "-f", f"query={PULLS}"),
+                *("-f", f"o={owner}", "-f", f"r={name}", *cursor),
+            )
+        )["data"]["repository"]["pullRequests"]
+        for n in page["nodes"]:
+            if datetime.fromisoformat(n["updatedAt"]) < since:
+                return out
+            edits = n["userContentEdits"]
+            editors = {(e["editor"] or {}).get("login") for e in edits["nodes"]}
+            if edits["pageInfo"]["hasNextPage"] or {GREPTILE, SEDOSAUR} <= editors:
+                out.append(n["number"])
+        if not page["pageInfo"]["hasNextPage"]:
+            return out
+        cursor = ["-f", f"endCursor={page['pageInfo']['endCursor']}"]
+
+
+def _trusted(a: dict[str, Any], since: datetime) -> bool:
+    """Reports whether an artifact holds a record since a time from a run on `main` of
+    the repository itself, so a fork cannot add a record."""
+    w = a["workflow_run"]
+    return (
+        not a["expired"]
+        and datetime.fromisoformat(a["created_at"]) >= since
+        and w["head_branch"] == "main"
+        and w["head_repository_id"] == w["repository_id"]
+    )
+
+
+def _download(gh: GH, repo: str, run: int) -> dict[str, Any]:
+    with tempfile.TemporaryDirectory() as tmp:
+        gh(
+            *("run", "download", str(run), "--repo", repo),
+            *("--name", ARTIFACT, "--dir", tmp),
+        )
+        rec: dict[str, Any] = json.loads((Path(tmp) / "review.json").read_text())
+        return rec
+
+
+def records(
+    gh: GH, repo: str, pr: int, heads: list[str], since: datetime
+) -> dict[str, dict[str, Any]]:
+    """Downloads the newest record of the Sedosaur reviews since a time of each of the
+    given commits of a pull request. A commit that has none, such as one whose review
+    was carried from an earlier commit, is left out."""
+    out: dict[str, dict[str, Any]] = {}
+    for head in heads:
+        listed = gh(
+            "api",
+            f"repos/{repo}/commits/{head}/check-runs"
+            "?check_name=Sedosaur%20Review&filter=all&per_page=100",
+            "--jq",
+            ".check_runs[] | {slug: .app.slug, external_id, details_url} | tojson",
+        )
+        runs = sorted(
+            {
+                int(m[1])
+                for c in map(json.loads, listed.splitlines())
+                if c["slug"] == SEDOSAUR
+                and (c["external_id"] or "").startswith(f"{pr}:")
+                and (m := re.search(r"/actions/runs/(\d+)", c["details_url"] or ""))
+            },
+            reverse=True,
+        )
+        for run in runs:
+            artifacts = gh(
+                "api",
+                f"repos/{repo}/actions/runs/{run}/artifacts?name={ARTIFACT}",
+                "--jq",
+                ".artifacts[] | tojson",
+            )
+            if any(_trusted(a, since) for a in map(json.loads, artifacts.splitlines())):
+                out[head] = _download(gh, repo, run)
+                break
+    return out
+
+
+def limits(gh: GH, repo: str, since: datetime) -> dict[str, Any] | None:
+    """Downloads the newest record since a time that holds the usage limits, from the
+    newest page of records, or returns None when none does."""
     listed = gh(
         "api",
-        "--paginate",
         f"repos/{repo}/actions/artifacts?name={ARTIFACT}&per_page=100",
         "--jq",
         ".artifacts[] | tojson",
     )
-    runs = sorted(
-        (a["created_at"], str(w["id"]))
-        for a in map(json.loads, listed.splitlines())
-        if not a["expired"]
-        and (w := a["workflow_run"])["head_branch"] == "main"
-        and w["head_repository_id"] == w["repository_id"]
-    )
-    out: list[dict[str, Any]] = []
-    with tempfile.TemporaryDirectory() as tmp:
-        for created, run in runs:
-            if datetime.fromisoformat(created) < since:
-                continue
-            into = Path(tmp) / run
-            gh(
-                "run",
-                "download",
-                run,
-                "--repo",
-                repo,
-                "--name",
-                ARTIFACT,
-                "--dir",
-                str(into),
-            )
-            out.append(json.loads((into / "review.json").read_text()))
-    return out
+    trusted = [a for a in map(json.loads, listed.splitlines()) if _trusted(a, since)]
+    for a in sorted(trusted, key=lambda a: a["created_at"], reverse=True):
+        rec = _download(gh, repo, a["workflow_run"]["id"])
+        # Records from before reviews kept their limits, and reviews that Claude Code
+        # reported no limits for, have none.
+        if rec["usage"].get("limits"):
+            return rec
+    return None
 
 
 def git(*args: str) -> str:
@@ -276,26 +361,31 @@ def git(*args: str) -> str:
     ).stdout
 
 
-def pairs(gh: GH, git: Git, repo: str, recs: list[dict[str, Any]]) -> list[Pair]:
-    """Pairs each Sedosaur review with Greptile's review of the same commit.
+def pairs(gh: GH, git: Git, repo: str, since: datetime) -> list[Pair]:
+    """Pairs each Sedosaur review since a time with Greptile's review of the same
+    commit. Only the records of paired commits are downloaded.
 
     :param git: Runs in a clone with full history. The pairing fetches the head of each
-        pull request into it as `refs/review/<number>`.
-    :param recs: Review records, oldest first. The newest record of a commit counts.
+        paired pull request into it as `refs/review/<number>`.
     :returns: A pair for each commit that both reviewers reviewed.
     """
-    latest = {(r["pr"], r["head"]): r for r in recs}
-    prs = sorted({pr for pr, _ in latest})
-    if not prs:
+    found: dict[int, tuple[list[str], Reviews, dict[str, dict[str, Any]]]] = {}
+    for pr in prs(gh, repo, since):
+        edits = _nodes(gh, repo, pr, EDITS, "userContentEdits")
+        heads = summarized(edits, SEDOSAUR)[::-1]
+        reviews = greptile_reviews(edits)
+        recs = records(gh, repo, pr, [h for h in heads if h in reviews], since)
+        if recs:
+            found[pr] = (heads, reviews, recs)
+    if not found:
         return []
     git(
         *("fetch", "--no-tags", "origin"),
-        *(f"+refs/pull/{pr}/head:refs/review/{pr}" for pr in prs),
+        *(f"+refs/pull/{pr}/head:refs/review/{pr}" for pr in sorted(found)),
     )
     out: list[Pair] = []
-    for pr in prs:
-        heads = {head: r for (n, head), r in latest.items() if n == pr}
-        out += _pull(gh, git, repo, pr, heads)
+    for pr in sorted(found):
+        out += _pull(gh, git, repo, pr, *found[pr])
     return out
 
 
@@ -334,8 +424,19 @@ def _later(git: Git, ref: str, commit: str) -> list[tuple[datetime, set[str]]]:
 
 
 def _pull(
-    gh: GH, git: Git, repo: str, pr: int, heads: dict[str, dict[str, Any]]
+    gh: GH,
+    git: Git,
+    repo: str,
+    pr: int,
+    heads: list[str],
+    reviews: Reviews,
+    recs: dict[str, dict[str, Any]],
 ) -> list[Pair]:
+    """Pairs the reviews of the commits of one pull request.
+
+    :param heads: The commits Sedosaur reviewed, oldest first.
+    :param recs: The record of each paired commit.
+    """
     ref = f"refs/review/{pr}"
     line = set(git("rev-list", "--first-parent", ref).split())
     later: dict[str, list[tuple[datetime, set[str]]]] = {}
@@ -356,7 +457,6 @@ def _pull(
         }
         return verdict(t, touched)
 
-    reviews = greptile_reviews(_nodes(gh, repo, pr, EDITS, "userContentEdits"))
     ts = threads(_nodes(gh, repo, pr, THREADS, "reviewThreads"))
     by_id = {t.id: t for t in ts}
     # Sedosaur opens a new thread for a finding only once its last one is resolved, so
@@ -375,10 +475,11 @@ def _pull(
         return True
 
     out: list[Pair] = []
-    for head, rec in heads.items():
+    for head in heads:
         ours |= {(t.path, t.title): t for t in mine if t.commit == head}
-        if head not in reviews:
+        if head not in recs:
             continue
+        rec = recs[head]
         score, found = reviews[head]
         g: list[Item] = []
         for severity, title, d in found:
@@ -508,12 +609,9 @@ class _Tally:
         return _share(self.found, self.greptile[0])
 
 
-def _limits(recs: list[dict[str, Any]]) -> list[str]:
-    # Records from before reviews kept their limits, and reviews that Claude Code
-    # reported no limits for, have none.
-    newest = next((r for r in reversed(recs) if r["usage"].get("limits")), None)
+def _limits(newest: dict[str, Any] | None) -> list[str]:
     if newest is None:
-        return ["No review has recorded the usage limits yet."]
+        return ["No recent review recorded the usage limits."]
     at = datetime.fromisoformat(newest["at"])
     return [
         f"As of the newest review, at {at:%Y-%m-%d %H:%M} UTC:",
@@ -528,18 +626,18 @@ def _limits(recs: list[dict[str, Any]]) -> list[str]:
     ]
 
 
-def report(ps: list[Pair], recs: list[dict[str, Any]], *, since: datetime) -> str:
+def report(ps: list[Pair], newest: dict[str, Any] | None, *, since: datetime) -> str:
     """Renders the usage limits of the Claude subscription and the comparison of the
     paired reviews as Markdown.
 
-    :param recs: The review records the pairs came from, oldest first.
+    :param newest: The newest record that holds the usage limits, if any.
     """
     lines = [
         f"## Sedosaur trial since {since:%Y-%m-%d %H:%M} UTC",
         "",
         "### Usage limits",
         "",
-        *_limits(recs),
+        *_limits(newest),
         "",
         "### Findings",
         "",

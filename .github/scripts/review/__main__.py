@@ -247,9 +247,8 @@ def main(argv: list[str]) -> None:
     if argv[0] == "compare":
         since = datetime.now(UTC) - timedelta(days=int(argv[1]))
         repo = env["GITHUB_REPOSITORY"]
-        recs = compare.records(gh, repo, since)
-        ps = compare.pairs(gh, compare.git, repo, recs)
-        print(compare.report(ps, recs, since=since))
+        ps = compare.pairs(gh, compare.git, repo, since)
+        print(compare.report(ps, compare.limits(gh, repo, since), since=since))
         return
     target = Target(
         repo=env["GITHUB_REPOSITORY"],

@@ -365,11 +365,19 @@ def reviewed(t: Target, gh: GH) -> list[str]:
         "--jq",
         ".data.repository.pullRequest.userContentEdits.nodes[] | tojson",
     )
+    return summarized([json.loads(line) for line in out.splitlines()], t.bot)
+
+
+def summarized(edits: list[dict[str, Any]], bot: str) -> list[str]:
+    """Returns each commit whose review a bot summarized in the pull request body.
+
+    :param edits: The revisions of the body, newest first.
+    :returns: The commits, newest first.
+    """
     commits: list[str] = []
-    for line in out.splitlines():
-        e = json.loads(line)
+    for e in edits:
         block = _SUMMARY.search(e["diff"] or "")
-        if (e["editor"] or {}).get("login") != t.bot or block is None:
+        if (e["editor"] or {}).get("login") != bot or block is None:
             continue
         found = re.findall(r"/commit/([0-9a-f]{40})", block[0])
         if found and found[-1] not in commits:
