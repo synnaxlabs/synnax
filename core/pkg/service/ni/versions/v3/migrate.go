@@ -167,29 +167,29 @@ func MigrateCIChannel(ctx context.Context, old v2.CIChannel) (CIChannel, error) 
 	case v2.CIFrequencyChannel:
 		var def CIFrequencyChannel
 		def.SetDefaults()
-		n := ch.Variant.(CIFrequencyChannel)
+		n := as[CIFrequencyChannel](ch.Variant)
 		n.Divisor = narrowDivisor(o.Divisor, def.Divisor)
 		ch.Variant = n
 	case v2.CIPeriodChannel:
 		var def CIPeriodChannel
 		def.SetDefaults()
-		n := ch.Variant.(CIPeriodChannel)
+		n := as[CIPeriodChannel](ch.Variant)
 		n.Divisor = narrowDivisor(o.Divisor, def.Divisor)
 		ch.Variant = n
 	case v2.CIEdgeCountChannel:
-		n := ch.Variant.(CIEdgeCountChannel)
+		n := as[CIEdgeCountChannel](ch.Variant)
 		n.InitialCount = narrowCount(o.InitialCount, 0)
 		ch.Variant = n
 	case v2.CIVelocityAngularChannel:
 		var def CIVelocityAngularChannel
 		def.SetDefaults()
-		n := ch.Variant.(CIVelocityAngularChannel)
+		n := as[CIVelocityAngularChannel](ch.Variant)
 		n.PulsesPerRev = narrowCountOrDefault(o.PulsesPerRev, 1, def.PulsesPerRev)
 		ch.Variant = n
 	case v2.CIPositionAngularChannel:
 		var def CIPositionAngularChannel
 		def.SetDefaults()
-		n := ch.Variant.(CIPositionAngularChannel)
+		n := as[CIPositionAngularChannel](ch.Variant)
 		n.PulsesPerRev = narrowCountOrDefault(o.PulsesPerRev, 1, def.PulsesPerRev)
 		ch.Variant = n
 	}
@@ -240,7 +240,7 @@ func MigrateAnalogReadConfig(
 			continue
 		}
 		if c, ok := tc.Cjc.Variant.(v2.ChanCJC); ok && c.Port < 0 {
-			n := cfg.Channels[i].Variant.(AIThermocoupleChannel)
+			n := as[AIThermocoupleChannel](cfg.Channels[i].Variant)
 			n.Disabled = true
 			cfg.Channels[i].Variant = n
 		}
@@ -324,63 +324,63 @@ func aiBases(
 ) (v2.BaseAIChannel, BaseAIChannel) {
 	switch o := old.(type) {
 	case v2.AIVoltageChannel:
-		return o.BaseAIChannel, n.(AIVoltageChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIVoltageChannel](n).BaseAIChannel
 	case v2.AIAccelChannel:
-		return o.BaseAIChannel, n.(AIAccelChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIAccelChannel](n).BaseAIChannel
 	case v2.AIBridgeChannel:
-		return o.BaseAIChannel, n.(AIBridgeChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIBridgeChannel](n).BaseAIChannel
 	case v2.AICurrentChannel:
-		return o.BaseAIChannel, n.(AICurrentChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AICurrentChannel](n).BaseAIChannel
 	case v2.AIForceBridgeTableChannel:
-		return o.BaseAIChannel, n.(AIForceBridgeTableChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIForceBridgeTableChannel](n).BaseAIChannel
 	case v2.AIForceBridgeTwoPointLinChannel:
-		return o.BaseAIChannel, n.(AIForceBridgeTwoPointLinChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIForceBridgeTwoPointLinChannel](n).BaseAIChannel
 	case v2.AIForceIEPEChannel:
-		return o.BaseAIChannel, n.(AIForceIEPEChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIForceIEPEChannel](n).BaseAIChannel
 	case v2.AIMicrophoneChannel:
-		return o.BaseAIChannel, n.(AIMicrophoneChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIMicrophoneChannel](n).BaseAIChannel
 	case v2.AIPressureBridgeTableChannel:
-		return o.BaseAIChannel, n.(AIPressureBridgeTableChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIPressureBridgeTableChannel](n).BaseAIChannel
 	case v2.AIPressureBridgeTwoPointLinChannel:
-		return o.BaseAIChannel, n.(AIPressureBridgeTwoPointLinChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIPressureBridgeTwoPointLinChannel](n).BaseAIChannel
 	case v2.AIResistanceChannel:
-		return o.BaseAIChannel, n.(AIResistanceChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIResistanceChannel](n).BaseAIChannel
 	case v2.AIRTDChannel:
-		return o.BaseAIChannel, n.(AIRTDChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIRTDChannel](n).BaseAIChannel
 	case v2.AIStrainGaugeChannel:
-		return o.BaseAIChannel, n.(AIStrainGaugeChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIStrainGaugeChannel](n).BaseAIChannel
 	case v2.AIThermocoupleChannel:
-		return o.BaseAIChannel, n.(AIThermocoupleChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIThermocoupleChannel](n).BaseAIChannel
 	case v2.AITorqueBridgeTableChannel:
-		return o.BaseAIChannel, n.(AITorqueBridgeTableChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AITorqueBridgeTableChannel](n).BaseAIChannel
 	case v2.AITorqueBridgeTwoPointLinChannel:
-		return o.BaseAIChannel, n.(AITorqueBridgeTwoPointLinChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AITorqueBridgeTwoPointLinChannel](n).BaseAIChannel
 	case v2.AIVelocityIEPEChannel:
-		return o.BaseAIChannel, n.(AIVelocityIEPEChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIVelocityIEPEChannel](n).BaseAIChannel
 	case v2.AIAccel4WireDCVoltageChannel:
-		return o.BaseAIChannel, n.(AIAccel4WireDCVoltageChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIAccel4WireDCVoltageChannel](n).BaseAIChannel
 	case v2.AIAccelChargeChannel:
-		return o.BaseAIChannel, n.(AIAccelChargeChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIAccelChargeChannel](n).BaseAIChannel
 	case v2.AIChargeChannel:
-		return o.BaseAIChannel, n.(AIChargeChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIChargeChannel](n).BaseAIChannel
 	case v2.AICurrentRMSChannel:
-		return o.BaseAIChannel, n.(AICurrentRMSChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AICurrentRMSChannel](n).BaseAIChannel
 	case v2.AIForceBridgePolynomialChannel:
-		return o.BaseAIChannel, n.(AIForceBridgePolynomialChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIForceBridgePolynomialChannel](n).BaseAIChannel
 	case v2.AIFreqVoltageChannel:
-		return o.BaseAIChannel, n.(AIFreqVoltageChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIFreqVoltageChannel](n).BaseAIChannel
 	case v2.AIPressureBridgePolynomialChannel:
-		return o.BaseAIChannel, n.(AIPressureBridgePolynomialChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIPressureBridgePolynomialChannel](n).BaseAIChannel
 	case v2.AIThermistorIexChannel:
-		return o.BaseAIChannel, n.(AIThermistorIexChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIThermistorIexChannel](n).BaseAIChannel
 	case v2.AIThermistorVexChannel:
-		return o.BaseAIChannel, n.(AIThermistorVexChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIThermistorVexChannel](n).BaseAIChannel
 	case v2.AITorqueBridgePolynomialChannel:
-		return o.BaseAIChannel, n.(AITorqueBridgePolynomialChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AITorqueBridgePolynomialChannel](n).BaseAIChannel
 	case v2.AIVoltageRMSChannel:
-		return o.BaseAIChannel, n.(AIVoltageRMSChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIVoltageRMSChannel](n).BaseAIChannel
 	case v2.AIVoltageWithExcitChannel:
-		return o.BaseAIChannel, n.(AIVoltageWithExcitChannel).BaseAIChannel
+		return o.BaseAIChannel, as[AIVoltageWithExcitChannel](n).BaseAIChannel
 	default:
 		panic(fmt.Sprintf("analog input variant %T has no base", old))
 	}
@@ -389,7 +389,7 @@ func aiBases(
 func logAIChannel(l changeLog, old v2.AIChannel, migrated AIChannel) {
 	if o, ok := old.Variant.(v2.AITempBuiltinChannel); ok {
 		l.channel = o.Key
-		n := migrated.Variant.(AITempBuiltinChannel)
+		n := as[AITempBuiltinChannel](migrated.Variant)
 		logFlag(l, "Disabled", o.Disabled, n.Disabled)
 		return
 	}
@@ -408,7 +408,8 @@ func logAIChannel(l changeLog, old v2.AIChannel, migrated AIChannel) {
 	if !ok {
 		return
 	}
-	newCJC := migrated.Variant.(AIThermocoupleChannel).Cjc.Variant.(ChanCJC)
+	newTC := as[AIThermocoupleChannel](migrated.Variant)
+	newCJC := as[ChanCJC](newTC.Cjc.Variant)
 	logNumber(l, "Cjc.Port", oldCJC.Port, newCJC.Port)
 }
 
@@ -431,19 +432,19 @@ func logCIChannel(l changeLog, old v2.CIChannel, migrated CIChannel) {
 	logNumber(l, "Port", o.Port, n.Port)
 	switch v := old.Variant.(type) {
 	case v2.CIFrequencyChannel:
-		after := migrated.Variant.(CIFrequencyChannel).Divisor
+		after := as[CIFrequencyChannel](migrated.Variant).Divisor
 		logNumber(l, "Divisor", v.Divisor, after)
 	case v2.CIPeriodChannel:
-		after := migrated.Variant.(CIPeriodChannel).Divisor
+		after := as[CIPeriodChannel](migrated.Variant).Divisor
 		logNumber(l, "Divisor", v.Divisor, after)
 	case v2.CIEdgeCountChannel:
-		after := migrated.Variant.(CIEdgeCountChannel).InitialCount
+		after := as[CIEdgeCountChannel](migrated.Variant).InitialCount
 		logNumber(l, "InitialCount", v.InitialCount, after)
 	case v2.CIVelocityAngularChannel:
-		after := migrated.Variant.(CIVelocityAngularChannel).PulsesPerRev
+		after := as[CIVelocityAngularChannel](migrated.Variant).PulsesPerRev
 		logNumber(l, "PulsesPerRev", v.PulsesPerRev, after)
 	case v2.CIPositionAngularChannel:
-		after := migrated.Variant.(CIPositionAngularChannel).PulsesPerRev
+		after := as[CIPositionAngularChannel](migrated.Variant).PulsesPerRev
 		logNumber(l, "PulsesPerRev", v.PulsesPerRev, after)
 	}
 	logFlag(l, "Disabled", o.Disabled, n.Disabled)
@@ -544,3 +545,13 @@ var DigitalWriteMigration = migrate.NewInstrumentedEntry(
 	narrowMigrationKey,
 	logged(MigrateDigitalWriteConfig, logDigitalWrite),
 )
+
+// as returns a migrated variant as a T. It panics when v is not a T, since a generated
+// migration keeps each variant's kind.
+func as[T any](v any) T {
+	t, ok := v.(T)
+	if !ok {
+		panic(fmt.Sprintf("migrated variant is a %T, not a %T", v, t))
+	}
+	return t
+}
