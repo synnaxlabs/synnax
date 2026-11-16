@@ -26,7 +26,7 @@ import { Haul } from "@/haul";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
-import { useContext, useItemState, useSelected } from "@/select/Context";
+import { useContext, useSelected } from "@/select/Context";
 import { Label } from "@/select/Label";
 import { plural } from "@/select/placeholder";
 import { useIsFixed } from "@/select/registry";
@@ -57,12 +57,14 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
 }: MultipleTagProps<K>): ReactElement | null => {
   const fixed = useIsFixed(itemKey);
   const item = List.useItem<K, E>(itemKey);
-  const { onSelect } = useItemState(itemKey);
+  const { getState, setSelected } = useContext<K>();
+  const remove = (): void =>
+    setSelected(array.toArray(getState().value).filter((k) => k !== itemKey));
   const label = primitive.isNonZero(item?.name) ? item.name : itemKey.toString();
   const resolvedIcon = fixed ? undefined : (renderIcon?.(item) ?? item?.icon ?? icon);
   return (
     <Tag.Tag
-      onClose={onSelect}
+      onClose={remove}
       onClick={onClick}
       onDragStart={() => onDragStart(itemKey)}
       draggable
