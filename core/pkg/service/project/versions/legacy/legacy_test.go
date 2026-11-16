@@ -71,7 +71,7 @@ func logFiles() zip.Files {
 var _ = Describe("Members", func() {
 	It("Should decode importable members in layout-key order", func(ctx SpecContext) {
 		members := MustSucceed(legacy.Members(
-			ctx, layoutFile(logLayouts, nil), logFiles(),
+			layoutFile(logLayouts, nil), logFiles(),
 		))
 		Expect(members).To(HaveLen(2))
 		Expect(members[0].LayoutKey).To(Equal("k1"))
@@ -86,7 +86,7 @@ var _ = Describe("Members", func() {
 		layouts := map[string]map[string]any{
 			"t1": {"key": "t1", "type": "labjack_write", "name": "Valves"},
 		}
-		members := MustSucceed(legacy.Members(ctx, layoutFile(layouts, nil), zip.Files{
+		members := MustSucceed(legacy.Members(layoutFile(layouts, nil), zip.Files{
 			"t1.json": MustSucceed(json.Marshal(map[string]any{
 				"device": "dev", "channels": []any{},
 			})),
@@ -103,7 +103,7 @@ var _ = Describe("Members", func() {
 			"m1": {"key": "m1", "type": "mosaic", "name": "Main"},
 		}
 		Expect(legacy.Members(
-			ctx, layoutFile(layouts, nil), zip.Files{},
+			layoutFile(layouts, nil), zip.Files{},
 		)).To(BeEmpty())
 	})
 
@@ -111,7 +111,7 @@ var _ = Describe("Members", func() {
 		ctx SpecContext,
 	) {
 		Expect(legacy.Members(
-			ctx, layoutFile(logLayouts, nil), zip.Files{},
+			layoutFile(logLayouts, nil), zip.Files{},
 		)).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`data for layout "k1" not found`)),
@@ -119,7 +119,7 @@ var _ = Describe("Members", func() {
 	})
 
 	It("Should reject an undecodable layout slice", func(ctx SpecContext) {
-		Expect(legacy.Members(ctx, []byte("garbage"), zip.Files{})).
+		Expect(legacy.Members([]byte("garbage"), zip.Files{})).
 			Error().To(MatchError(ContainSubstring(legacy.LayoutFileName)))
 	})
 })

@@ -35,7 +35,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 		// which embeds the body inline under a stamped version. Ride the storage lift,
 		// which dispatches on that version.
 		var body msgpack.EncodedJSON
-		if body, err = env.Decode[msgpack.EncodedJSON](ctx); err == nil {
+		if body, err = env.Decode[msgpack.EncodedJSON](); err == nil {
 			if err = imex.RequireFields(
 				body, "a line plot", "axes", "channels",
 			); err == nil {

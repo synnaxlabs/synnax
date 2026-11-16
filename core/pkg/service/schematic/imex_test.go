@@ -52,7 +52,7 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Name).To(Equal("exported"))
 
 			decoded := MustSucceed(
-				WireRoundTrip(env).Decode[schematic.Schematic](ctx),
+				WireRoundTrip(env).Decode[schematic.Schematic](),
 			)
 			Expect(decoded.Name).To(Equal("exported"))
 		})

@@ -171,7 +171,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 					"const Latest = v3.Version",
 					"func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Log, error)",
 					"case v3.Version:",
-					"return env.Decode[Log](ctx)",
+					"return env.Decode[Log]()",
 					"func liftFirst(ctx context.Context, t3 v3.Log) (Log, error) {\n"+
 						"\treturn t3, nil\n}",
 				).
@@ -477,7 +477,7 @@ Symbol struct {
 				).ToContain(
 					`"github.com/synnaxlabs/synnax/core/pkg/service/log/versions/v2"`,
 					"case v2.Version:",
-					"t2, err := env.Decode[v2.Log](ctx)",
+					"t2, err := env.Decode[v2.Log]()",
 					"t3, err := v3.MigrateLog(ctx, t2)",
 					"return t3, nil",
 					"func liftFirst(ctx context.Context, t2 v2.Log) (Log, error) {\n"+
@@ -511,7 +511,7 @@ Symbol struct {
 					"core/pkg/service/log/versions/imex.gen.go",
 				).ToContain(
 					"case v2.Version:",
-					"t2, err := env.Decode[v2.Log](ctx)",
+					"t2, err := env.Decode[v2.Log]()",
 					"return t2, nil",
 					"func liftFirst(ctx context.Context, t2 v2.Log) (Log, error) {\n"+
 						"\treturn t2, nil\n}",

@@ -574,7 +574,7 @@ type decodeExpr func(pkg, goName string) string
 
 // envelopeDecode decodes a resource's envelope.
 func envelopeDecode(pkg, goName string) string {
-	return fmt.Sprintf("env.Decode[%s.%s](ctx)", pkg, goName)
+	return fmt.Sprintf("env.Decode[%s.%s]()", pkg, goName)
 }
 
 // blobDecode decodes a body blob, naming it name in errors.
@@ -762,7 +762,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) ({{.Type}}, erro
 {{.Body}}
 {{- end}}
 	case {{.CurrentPkg}}.Version:
-		return env.Decode[{{.Type}}](ctx)
+		return env.Decode[{{.Type}}]()
 	}
 	return {{.Type}}{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }
