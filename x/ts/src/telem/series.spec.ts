@@ -3018,6 +3018,17 @@ describe("MultiSeries", () => {
       const iter = ms.subAlignmentSpanIterator(0n, 4);
       expect(Array.from(iter)).toEqual([1, 2, 3, 4]);
     });
+
+    it("should step the start index by the alignment multiple", () => {
+      const s1 = new Series({
+        data: [1, 2, 3, 4, 5, 6],
+        alignment: 0n,
+        alignmentMultiple: 2n,
+      });
+      const ms = new MultiSeries([s1]);
+      const iter = ms.subAlignmentSpanIterator(4n, 2);
+      expect(Array.from(iter)).toEqual([3, 4]);
+    });
   });
 
   describe("traverseAlignment", () => {

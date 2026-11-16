@@ -1695,7 +1695,9 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
       if (start < ser.alignment) break;
       else if (start >= ser.alignmentBounds.upper) startIdx += ser.length;
       else if (bounds.contains(ser.alignmentBounds, start)) {
-        startIdx += Number(start - ser.alignment);
+        startIdx += Math.ceil(
+          Number(start - ser.alignment) / Number(ser.alignmentMultiple),
+        );
         break;
       }
     }
