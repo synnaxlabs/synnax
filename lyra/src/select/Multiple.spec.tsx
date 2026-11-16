@@ -166,6 +166,16 @@ describe("Select.Multiple", () => {
     expect(onChange).toHaveBeenCalledWith([]);
   });
 
+  it("should not remove the last tag when allowNone is false", () => {
+    const { SelectMultiple, onChange } = createSelectMultiple();
+    const c = render(<SelectMultiple allowNone={false} />);
+    fireEvent.click(c.getByText("Test Items"));
+    fireEvent.click(c.getByText("First Item Option"));
+    fireEvent.click(c.getByLabelText("Remove First Item"));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith(["1"]);
+  });
+
   it("should remove only the tag's item when replaceOnSingle is set", () => {
     const { SelectMultiple, onChange } = createSelectMultiple();
     const c = render(<SelectMultiple replaceOnSingle />);

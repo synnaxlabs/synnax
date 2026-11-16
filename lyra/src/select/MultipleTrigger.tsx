@@ -26,7 +26,7 @@ import { Haul } from "@/haul";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
-import { useContext, useSelected } from "@/select/Context";
+import { useContext, useReselectNoop, useSelected } from "@/select/Context";
 import { Label } from "@/select/Label";
 import { plural } from "@/select/placeholder";
 import { useIsFixed } from "@/select/registry";
@@ -58,8 +58,13 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
   const fixed = useIsFixed(itemKey);
   const item = List.useItem<K, E>(itemKey);
   const { getState, setSelected } = useContext<K>();
-  const remove = (): void =>
-    setSelected(array.toArray(getState().value).filter((k) => k !== itemKey));
+  // In a multiple frame, a reselect no-op means the selection cannot be empty.
+  const reselectNoop = useReselectNoop();
+  const remove = (): void => {
+    const next = array.toArray(getState().value).filter((k) => k !== itemKey);
+    if (next.length === 0 && reselectNoop) return;
+    setSelected(next);
+  };
   const label = primitive.isNonZero(item?.name) ? item.name : itemKey.toString();
   const resolvedIcon = fixed ? undefined : (renderIcon?.(item) ?? item?.icon ?? icon);
   return (
