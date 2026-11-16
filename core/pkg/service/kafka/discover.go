@@ -103,24 +103,7 @@ func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error)
 	if err != nil {
 		return nil, err
 	}
-	var (
-		topics   []browsedTopic
-		readable []string
-	)
-	for name, d := range details {
-		if d.internal {
-			continue
-		}
-		t := browsedTopic{Name: name, Partitions: d.partitions, Readable: d.readable()}
-		topics = append(topics, t)
-		if t.Readable {
-			readable = append(readable, name)
-		}
-	}
-	slices.SortFunc(
-		topics,
-		func(a, b browsedTopic) int { return strings.Compare(a.Name, b.Name) },
-	)
+	topics, readable := listTopics(details)
 	if len(readable) == 0 {
 		return topics, nil
 	}
@@ -142,33 +125,84 @@ func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error)
 	} else if err != nil {
 		return nil, err
 	}
-	var (
-		newest []fetchRange
-		index  = make(map[string]int, len(topics))
-	)
+	var newest []fetchRange
 	for i := range topics {
-		t := &topics[i]
+		newest = append(
+			newest,
+			measureTopic(&topics[i], starts, ends, recent, configs)...)
+	}
+	if err = fetchNewest(ctx, props, topics, newest); err != nil {
+		return nil, err
+	}
+	return topics, nil
+}
+
+// listTopics returns the topics in details other than internal topics, sorted by
+// name, and the names of those that the client may read.
+func listTopics(details map[string]topicDetail) ([]browsedTopic, []string) {
+	var (
+		topics   []browsedTopic
+		readable []string
+	)
+	for name, d := range details {
+		if d.internal {
+			continue
+		}
+		t := browsedTopic{Name: name, Partitions: d.partitions, Readable: d.readable()}
+		topics = append(topics, t)
+		if t.Readable {
+			readable = append(readable, name)
+		}
+	}
+	slices.SortFunc(
+		topics,
+		func(a, b browsedTopic) int { return strings.Compare(a.Name, b.Name) },
+	)
+	return topics, readable
+}
+
+// measureTopic sets the record count, the rate, the compaction, and the error of t,
+// and returns the range of the newest records of each of its partitions.
+func measureTopic(
+	t *browsedTopic,
+	starts, ends, recent kadm.ListedOffsets,
+	configs kadm.ResourceConfigs,
+) []fetchRange {
+	var newest []fetchRange
+	partitions, err := partitionRanges(t.Name, starts, ends)
+	for _, p := range partitions {
+		t.Records += p.to - p.from
+		after, ok := recent.Lookup(p.topic, p.partition)
+		if ok && after.Err == nil {
+			t.Rate += float64(p.to-after.Offset) / rateWindow.Seconds()
+		} else {
+			err = cmp.Or(err, after.Err)
+		}
+		// In a topic written in transactions, the last offset holds the control
+		// record that commits the newest records.
+		p.from = max(p.from, p.to-2)
+		newest = append(newest, p)
+	}
+	if err != nil {
+		t.Error = err.Error()
+	}
+	if rc, err := configs.On(t.Name, nil); err == nil {
+		t.Compacted = compacted(rc)
+	}
+	return newest
+}
+
+// fetchNewest reads the records in newest and sets the newest timestamp and the
+// format of each of topics.
+func fetchNewest(
+	ctx context.Context,
+	props Properties,
+	topics []browsedTopic,
+	newest []fetchRange,
+) error {
+	index := make(map[string]int, len(topics))
+	for i, t := range topics {
 		index[t.Name] = i
-		partitions, err := partitionRanges(t.Name, starts, ends)
-		for _, p := range partitions {
-			t.Records += p.to - p.from
-			after, ok := recent.Lookup(p.topic, p.partition)
-			if ok && after.Err == nil {
-				t.Rate += float64(p.to-after.Offset) / rateWindow.Seconds()
-			} else {
-				err = cmp.Or(err, after.Err)
-			}
-			// In a topic written in transactions, the last offset holds the control
-			// record that commits the newest records.
-			p.from = max(p.from, p.to-2)
-			newest = append(newest, p)
-		}
-		if err != nil {
-			t.Error = err.Error()
-		}
-		if rc, err := configs.On(t.Name, nil); err == nil {
-			t.Compacted = compacted(rc)
-		}
 	}
 	errs, err := fetch(ctx, props, newest, func(r *kgo.Record) {
 		t := &topics[index[r.Topic]]
@@ -177,13 +211,13 @@ func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error)
 		}
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for topic, err := range errs {
 		t := &topics[index[topic]]
 		t.Error = cmp.Or(t.Error, err.Error())
 	}
-	return topics, nil
+	return nil
 }
 
 // topicDetail is what the metadata of a cluster says about one topic.
@@ -373,17 +407,8 @@ func sampleTopics(
 	props Properties,
 	args sampleArgs,
 ) (sampleResult, error) {
-	if len(args.Topics) == 0 {
-		return sampleResult{}, errors.Wrap(
-			validate.ErrValidation, "topics: must be non-empty",
-		)
-	}
-	for i, topic := range args.Topics {
-		if slices.Index(args.Topics, topic) < i {
-			return sampleResult{}, errors.Wrapf(
-				validate.ErrValidation, "topics: must not repeat %q", topic,
-			)
-		}
+	if err := validateSampleTopics(args.Topics); err != nil {
+		return sampleResult{}, err
 	}
 	count := int64(cmp.Or(args.Count, defaultSampleCount))
 	count = min(max(count, 1), maxSampleCount)
@@ -397,9 +422,73 @@ func sampleTopics(
 	if err != nil {
 		return sampleResult{}, err
 	}
-	res := sampleResult{Topics: make([]sampledTopic, len(args.Topics))}
+	res, readable := newSampleResult(args.Topics, details)
+	if len(readable) == 0 {
+		return res, nil
+	}
+	starts, ends, err := listOffsets(ctx, adm, readable)
+	if err != nil {
+		return sampleResult{}, err
+	}
+	errs := make(map[string]error)
+	partitions := make([][]fetchRange, len(readable))
+	for i, topic := range readable {
+		if partitions[i], err = partitionRanges(topic, starts, ends); err != nil {
+			errs[topic] = err
+		}
+	}
+	records, full, err := fetchSamples(
+		ctx,
+		props,
+		sampleRanges(partitions, count),
+		errs,
+	)
+	if err != nil {
+		return sampleResult{}, err
+	}
+	sampled := make([][]sampledRecord, len(res.Topics))
+	for i := range res.Topics {
+		t := &res.Topics[i]
+		if err := errs[t.Topic]; err != nil {
+			t.Error = err.Error()
+		}
+		sampled[i] = shapeTopic(t, records[t.Topic])
+	}
+	kept, truncated, err := driver.Fit(res, sampled)
+	if err != nil {
+		return sampleResult{}, err
+	}
+	for i := range res.Topics {
+		res.Topics[i].Records = kept[i]
+	}
+	res.Truncated = truncated || full
+	return res, nil
+}
+
+// validateSampleTopics checks that topics is not empty and has no repeats.
+func validateSampleTopics(topics []string) error {
+	if len(topics) == 0 {
+		return errors.Wrap(validate.ErrValidation, "topics: must be non-empty")
+	}
+	for i, topic := range topics {
+		if slices.Index(topics, topic) < i {
+			return errors.Wrapf(
+				validate.ErrValidation, "topics: must not repeat %q", topic,
+			)
+		}
+	}
+	return nil
+}
+
+// newSampleResult returns a result with an empty sample of each of topics, holding
+// why the client cannot read a topic, and the names of the topics it can read.
+func newSampleResult(
+	topics []string,
+	details map[string]topicDetail,
+) (sampleResult, []string) {
+	res := sampleResult{Topics: make([]sampledTopic, len(topics))}
 	var readable []string
-	for i, name := range args.Topics {
+	for i, name := range topics {
 		res.Topics[i] = sampledTopic{Topic: name, Records: []sampledRecord{}}
 		switch d, ok := details[name]; {
 		case !ok || errors.Is(d.err, kerr.UnknownTopicOrPartition):
@@ -413,26 +502,21 @@ func sampleTopics(
 			readable = append(readable, name)
 		}
 	}
-	if len(readable) == 0 {
-		return res, nil
-	}
-	starts, ends, err := listOffsets(ctx, adm, readable)
-	if err != nil {
-		return sampleResult{}, err
-	}
-	var (
-		records    = make(map[string][]*kgo.Record)
-		errs       = make(map[string]error)
-		partitions = make([][]fetchRange, len(readable))
-		held       int
-		full       bool
-	)
-	for i, topic := range readable {
-		if partitions[i], err = partitionRanges(topic, starts, ends); err != nil {
-			errs[topic] = err
-		}
-	}
-	for _, ranges := range sampleRanges(partitions, count) {
+	return res, readable
+}
+
+// fetchSamples reads the records of each batch of ranges in turn, until the records
+// read reach the sample byte limit. It sets the first error of each topic in errs
+// and reports whether the records reached the limit.
+func fetchSamples(
+	ctx context.Context,
+	props Properties,
+	batches [][]fetchRange,
+	errs map[string]error,
+) (records map[string][]*kgo.Record, full bool, err error) {
+	records = make(map[string][]*kgo.Record)
+	held := 0
+	for _, ranges := range batches {
 		failed, err := fetch(ctx, props, ranges, func(r *kgo.Record) {
 			size := recordSize(r)
 			if full || held+size > sampleByteLimit {
@@ -443,7 +527,7 @@ func sampleTopics(
 			records[r.Topic] = append(records[r.Topic], r)
 		})
 		if err != nil {
-			return sampleResult{}, err
+			return nil, false, err
 		}
 		for topic, err := range failed {
 			if errs[topic] == nil {
@@ -454,36 +538,27 @@ func sampleTopics(
 			break
 		}
 	}
-	sampled := make([][]sampledRecord, len(res.Topics))
-	for i := range res.Topics {
-		t := &res.Topics[i]
-		if err := errs[t.Topic]; err != nil {
-			t.Error = err.Error()
-		}
-		rs := records[t.Topic]
-		slices.SortFunc(rs, func(a, b *kgo.Record) int {
-			return cmp.Or(
-				cmp.Compare(a.Partition, b.Partition),
-				cmp.Compare(a.Offset, b.Offset),
-			)
-		})
-		docs := make([]xjson.Document, len(rs))
-		for j, r := range rs {
-			rec := newSampledRecord(r)
-			sampled[i] = append(sampled[i], rec)
-			docs[j] = xjson.Document{Source: rec.Key, Data: r.Value, Time: rec.Time}
-		}
-		t.Shapes = xjson.Infer(docs)
+	return records, full, nil
+}
+
+// shapeTopic sorts rs, the records sampled from t, by partition and offset, sets the
+// shapes of t, and returns the sampled form of each record.
+func shapeTopic(t *sampledTopic, rs []*kgo.Record) []sampledRecord {
+	slices.SortFunc(rs, func(a, b *kgo.Record) int {
+		return cmp.Or(
+			cmp.Compare(a.Partition, b.Partition),
+			cmp.Compare(a.Offset, b.Offset),
+		)
+	})
+	var sampled []sampledRecord
+	docs := make([]xjson.Document, len(rs))
+	for j, r := range rs {
+		rec := newSampledRecord(r)
+		sampled = append(sampled, rec)
+		docs[j] = xjson.Document{Source: rec.Key, Data: r.Value, Time: rec.Time}
 	}
-	kept, truncated, err := driver.Fit(res, sampled)
-	if err != nil {
-		return sampleResult{}, err
-	}
-	for i := range res.Topics {
-		res.Topics[i].Records = kept[i]
-	}
-	res.Truncated = truncated || full
-	return res, nil
+	t.Shapes = xjson.Infer(docs)
+	return sampled
 }
 
 // recordSize returns the bytes of the key, value, and headers of r.
