@@ -247,6 +247,36 @@ describe("Swatch", () => {
       expect(onChange).not.toHaveBeenCalled();
     });
 
+    it("should drop a pending color when the user picks a named color", () => {
+      const onChange = vi.fn();
+      const onNamedChange = vi.fn();
+      const c = render(
+        <Color.Swatch
+          value={RED}
+          onChange={onChange}
+          onlyChangeOnBlur
+          library={{
+            palettes: [
+              {
+                key: "series",
+                name: "Series",
+                colors: [{ key: "ocean", name: "Ocean", light: "#3e8bff" }],
+              },
+            ],
+            onNamedChange,
+          }}
+        />,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(swatchOf(c));
+      pick(c, GREEN);
+      fireEvent.click(c.getByText("Library"));
+      fireEvent.click(c.getByLabelText("Ocean"));
+      closePicker(c);
+      expect(onNamedChange).toHaveBeenCalledExactlyOnceWith("ocean");
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
     it("should drop a pending change when the swatch unmounts", () => {
       const onChange = vi.fn();
       const c = render(

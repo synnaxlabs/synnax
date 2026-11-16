@@ -3,14 +3,16 @@
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-09-27
 - **Related**: [RFC 0061 - Theme-resolved color](0061-theme-resolved-color.md),
-  [RFC 0066 - Lyra primitives package](0066-lyra-primitives-package.md)
+  [RFC 0066 - Lyra primitives package](0066-lyra-primitives-package.md),
+  [RFC 0112 - Named colors and enums](0112-named-colors-and-enums.md)
 
 ## 0 Summary
 
 The color picker drops `react-color` and becomes a Lyra component built from scratch. It
 is one panel: an HSV editor at the top, then theme and palette swatches, then recent
 colors below a divider. An Auto button clears an optional color back to the theme. The
-browser's native picker is never used.
+browser's native picker is never used. With named colors, the picker splits into a
+Library tab and a Custom tab.
 
 ## 1 Motivation
 
@@ -37,8 +39,8 @@ click away.
 
 ## 3 Principles
 
-1. **One panel, no tabs**: every action is at most one click away. The panel is taller
-   in exchange.
+1. **One panel for plain colors**: every action is at most one click away. The panel is
+   taller in exchange. Named colors split it into tabs (§4.6).
 2. **Reuse is one click**: presets and recent colors are always in view. The editor is
    for the color that is not there yet.
 3. **The stored value stays RGBA**: HSV is the input model only. No wire or storage
@@ -121,6 +123,23 @@ The plane and both sliders take focus and have the `slider` role. Arrow keys mov
 percent, or ten with Shift. A press sets the value at once, with no drag threshold, and
 the drag captures the pointer.
 
+### 4.6 Named colors
+
+A caller that offers named colors (RFC 0112) passes `library`: the palettes, the key of
+the linked color, and `onNamedChange`. The picker then splits into two tabs:
+
+- **Library**: a search box, then each palette under its title. A click on a swatch
+  links the value to that color. A swatch shows the color's value for the current theme.
+  A palette title ends with the name of the hovered color, else the linked one. The
+  search matches a color's name, its palette's name, or the hex its swatch shows.
+- **Custom**: the editor, then the recent colors. An edit stores a fixed color, so it
+  unlinks the value.
+
+The picker opens on Library while the value is linked or absent, and on Custom while it
+is a fixed color. With a `fallback`, an Auto button sits at the right of the tabs, on
+both tabs. Eight swatches across set the width: 38 rem. The caller stores the link, so
+Lyra stays Synnax-blind.
+
 ## 5 Implementation phases
 
 - **Phase 1**: one pull request. It adds the `x` conversions, moves `Color` from Pluto
@@ -133,8 +152,8 @@ The move and the rewrite share a pull request because a Lyra `Color` that still 
 
 ## 6 Resolved decisions
 
-1. **One panel over tabs**: tabs make the panel shorter but put a click in front of
-   either half. The trade is real: the panel is about 30 rem tall.
+1. **One panel over tabs, for plain colors**: tabs make the panel shorter but put a
+   click in front of either half. The trade is real: the panel is about 30 rem tall.
 2. **Swatches at the bottom**: presets and recent colors sit together below the editor,
    split by a divider, so all one-click picks are in one place. The trade is real: a
    preset is further from the trigger than with a swatches-first order.
@@ -149,6 +168,10 @@ The move and the rewrite share a pull request because a Lyra `Color` that still 
    real: most desktop users never see the button.
 6. **Auto only on optional fields**: a required field offering Auto would fail
    validation on click.
+7. **Tabs once named colors exist**: the two halves store different things, a link or a
+   fixed color, and the tab shows which one the value holds. The palettes also grow past
+   what one panel holds under the editor. The trade is real: a custom color is one click
+   further away.
 
 ## 7 Open questions
 
