@@ -13,18 +13,13 @@ import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
 import { type Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
+import svg from "@/schematic/node/pumps/Cavity.svg?raw";
 
 export interface CavityProps extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
 const SPEC = Custom.createBuiltIn({
   variant: "actuator",
-  svg:
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
-    '<circle cx="32" cy="32" r="30"/>' +
-    '<line x1="32" y1="2" x2="62" y2="32" class="pluto--detail"/>' +
-    '<line x1="32" y1="62" x2="62" y2="32" class="pluto--detail"/>' +
-    '<path d="M 17 26 C 17 20.6667 23 20.6667 23 26 C 23 31.3333 29 31.3333 29 26 C 29 20.6667 35 20.6667 35 26" stroke-linecap="round" transform="translate(6, 6)" class="pluto--detail"/>' +
-    "</svg>",
+  svg,
   handles: [
     { key: "1", position: { x: 0.03125, y: 0.5 }, orientation: "left" },
     { key: "2", position: { x: 0.96875, y: 0.5 }, orientation: "right" },

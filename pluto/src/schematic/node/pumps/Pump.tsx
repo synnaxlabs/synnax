@@ -13,17 +13,13 @@ import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
 import { type Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
+import svg from "@/schematic/node/pumps/Pump.svg?raw";
 
 export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
 const SPEC = Custom.createBuiltIn({
   variant: "actuator",
-  svg:
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
-    '<circle cx="32" cy="32" r="30"/>' +
-    '<line x1="32" y1="2" x2="62" y2="32" class="pluto--detail"/>' +
-    '<line x1="32" y1="62" x2="62" y2="32" class="pluto--detail"/>' +
-    "</svg>",
+  svg,
   handles: [
     { key: "1", position: { x: 0.03125, y: 0.5 }, orientation: "left" },
     { key: "2", position: { x: 0.96875, y: 0.5 }, orientation: "right" },
