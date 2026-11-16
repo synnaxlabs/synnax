@@ -119,6 +119,62 @@ var _ = Describe("Built-in named colors", func() {
 		Expect(series(ctx, svc)).To(HaveLen(16))
 	})
 
+	It("Should delete nothing when one key names a built-in", func(ctx SpecContext) {
+		svc := open(ctx)
+		first := byName(series(ctx, svc), "Series 1")
+		tx := DeferClose(db.OpenTx())
+		w := svc.NewWriter(tx)
+		mine := color.Named{Name: "Breaker", Light: first.Light}
+		Expect(w.Create(ctx, &mine)).To(Succeed())
+		Expect(w.Delete(ctx, mine.Key, first.Key)).
+			To(MatchError(ContainSubstring("cannot delete built-in color Series 1")))
+		Expect(svc.NewRetrieve().
+			Where(color.MatchKeys(mine.Key)).
+			Exists(ctx, tx)).To(BeTrue())
+	})
+
+	It("Should create only the missing built-ins and their palette", func(
+		ctx SpecContext,
+	) {
+		svc := open(ctx)
+		named := series(ctx, svc)
+		first := byName(named, "Series 1")
+		second := byName(named, "Series 2")
+		g := MustSucceed(palette(ctx))
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			w := svc.NewWriter(tx)
+			for _, n := range named {
+				if err := w.Apply(ctx, n.Key, color.NewSetAction(
+					color.SetPayload{Path: []string{"group"}, Value: nil},
+				)); err != nil {
+					return err
+				}
+			}
+			if err := w.Apply(ctx, second.Key, color.NewSetAction(
+				color.SetPayload{Path: []string{"name"}, Value: "Coolant"},
+			)); err != nil {
+				return err
+			}
+			if err := groups.NewWriter(tx).Delete(ctx, g.Key); err != nil {
+				return err
+			}
+			// A release that adds a built-in finds it missing, as here.
+			return gorp.NewDelete[color.Key, color.Named]().
+				Where(gorp.MatchKeys[color.Key, color.Named](first.Key)).
+				Exec(ctx, tx)
+		})).To(Succeed())
+		Expect(svc.Close()).To(Succeed())
+		svc = open(ctx)
+		Expect(series(ctx, svc)).To(Equal([]color.Named{first}))
+		var stored color.Named
+		Expect(svc.NewRetrieve().
+			Where(color.MatchKeys(second.Key)).
+			Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		Expect(stored.Name).To(Equal("Coolant"))
+		Expect(stored.Group).To(BeNil())
+	})
+
 	It("Should not create a deleted palette again", func(ctx SpecContext) {
 		svc := open(ctx)
 		g := MustSucceed(palette(ctx))
