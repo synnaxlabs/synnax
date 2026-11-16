@@ -79,17 +79,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 		}),
 	)
 	if !attachedInitialMetaData {
-		md := metadata.Pairs()
-		if err != nil {
-			md.Append("error", errors.Encode(err, s.Internal).Error())
-		} else {
-			for k, v := range oCtx.Params {
-				if vStr, ok := v.(string); ok {
-					md.Append(k, vStr)
-				}
-			}
-		}
-		if err := stream.SendHeader(md); err != nil {
+		if err := s.sendHeader(stream, oCtx, err); err != nil {
 			return err
 		}
 	}
@@ -97,6 +87,24 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 		return nil
 	}
 	return errors.Encode(err, s.Internal)
+}
+
+func (s *StreamServerCore[RQ, RQT, RS, RST]) sendHeader(
+	stream grpcServerStream[RQT, RST],
+	oCtx freighter.Context,
+	execErr error,
+) error {
+	md := metadata.Pairs()
+	if execErr != nil {
+		md.Append("error", errors.Encode(execErr, s.Internal).Error())
+	} else {
+		for k, v := range oCtx.Params {
+			if vStr, ok := v.(string); ok {
+				md.Append(k, vStr)
+			}
+		}
+	}
+	return stream.SendHeader(md)
 }
 
 func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
