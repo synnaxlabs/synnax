@@ -47,6 +47,10 @@ locals {
   # Limits a statement to sessions of the sandbox instance.
   sandbox_session = "${aws_iam_role.sandbox.unique_id}:${var.sandbox_instance}"
   runner_os       = ["ubuntu", "windows"]
+  # The agent CLI logins that seats run on, stored by `seat.sh token`.
+  logins = join(":", [
+    "arn:aws:secretsmanager:us-east-1", local.account, "secret:synnax-agents/logins/*",
+  ])
 }
 
 # The sandbox instance starts, stops, and inspects the runners.
@@ -246,6 +250,60 @@ resource "aws_iam_role_policy" "ssm_disk" {
             "ssm:resourceTag/RunnerOS" = local.runner_os
           }
         }
+      },
+    ]
+  })
+}
+
+# The controller hands each seat it starts a login (scripts/runners/logins.py). It
+# reads and tags the logins, and never reads a token.
+resource "aws_iam_role_policy" "seat_logins" {
+  name = "SandboxSeatLogins"
+  role = aws_iam_role.sandbox.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect    = "Allow"
+        Action    = "secretsmanager:ListSecrets"
+        Resource  = "*"
+        Condition = { StringEquals = { "aws:userid" = local.sandbox_session } }
+      },
+      {
+        Effect    = "Allow"
+        Action    = "secretsmanager:DescribeSecret"
+        Resource  = local.logins
+        Condition = { StringEquals = { "aws:userid" = local.sandbox_session } }
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["secretsmanager:TagResource", "secretsmanager:UntagResource"]
+        Resource = local.logins
+        Condition = {
+          StringEquals = { "aws:userid" = local.sandbox_session }
+          "ForAllValues:StringEquals" = {
+            "aws:TagKeys" = ["holders", "limited-until"]
+          }
+        }
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["ec2:CreateTags", "ec2:DeleteTags"]
+        Resource = "arn:aws:ec2:*:${local.account}:instance/*"
+        Condition = {
+          StringEquals = {
+            "aws:userid"              = local.sandbox_session
+            "ec2:ResourceTag/project" = "synnax-agents"
+            "ec2:ResourceTag/pool"    = ["agent", "review"]
+          }
+          "ForAllValues:StringEquals" = { "aws:TagKeys" = ["login", "limited-until"] }
+        }
+      },
+      {
+        Effect    = "Allow"
+        Action    = "iam:GetRole"
+        Resource  = "arn:aws:iam::${local.account}:role/synnax-agent-runner"
+        Condition = { StringEquals = { "aws:userid" = local.sandbox_session } }
       },
     ]
   })
