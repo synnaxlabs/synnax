@@ -439,6 +439,61 @@ class TestSeats:
         seats(client, aws).step(queued=[], found={CLAUDE: seat("stopped", until=until)})
         assert aws.deleted == [(CLAUDE, "limited-until")]
 
+    def test_should_mark_the_login_of_a_seat_with_a_rejected_token_broken(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1")
+        found = {CLAUDE: seat("running", login="claude-1")}
+        found[CLAUDE]["tags"]["login-broken"] = "1795266000"
+        seats(client, aws, store).step(queued=[], found=found)
+        assert store.tags[f"{PREFIX}claude-1"]["broken"].isdecimal()
+        assert aws.deleted == [(CLAUDE, "login-broken")]
+        assert client.written("log") == [
+            ["login claude-1: token rejected, marked broken"]
+        ]
+
+    def test_should_keep_the_rejected_token_on_the_seat_when_the_login_write_fails(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1")
+        store.tags[f"{PREFIX}claude-1"]["holders"] = f"{ROLE}:{CLAUDE}"
+        store.failing = True
+        found = {CLAUDE: seat("running", login="claude-1")}
+        found[CLAUDE]["tags"]["login-broken"] = "1795266000"
+        seats(client, aws, store).step(queued=[], found=found)
+        assert aws.deleted == []
+        assert client.written("log") == [
+            ["[ERROR] login claude-1 reject failed: PermissionError: not authorized"]
+        ]
+
+    def test_should_clear_a_rejected_token_of_a_login_already_broken(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1")
+        store.tags[f"{PREFIX}claude-1"]["broken"] = "1"
+        store.failing = True
+        found = {CLAUDE: seat("stopped", login="claude-1")}
+        found[CLAUDE]["tags"]["login-broken"] = "1795266000"
+        seats(client, aws, store).step(queued=[], found=found)
+        assert store.tags[f"{PREFIX}claude-1"]["broken"] == "1"
+        assert (CLAUDE, "login-broken") in aws.deleted
+
+    def test_should_start_another_seat_while_one_is_on_a_broken_login(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        found = {
+            CLAUDE: seat("running", login="claude-1"),
+            CLAUDE_2: seat("stopped", name="claude-2"),
+        }
+        found[CLAUDE]["tags"]["login-broken"] = "1795266000"
+        seats(client, aws).step(queued=[JOB], found=found)
+        assert aws.started == [CLAUDE_2]
+        assert aws.tags[CLAUDE_2] == {"login": "claude-2"}
+
     def test_should_drop_a_seat_that_is_not_up_from_the_holders(
         self, client: Client
     ) -> None:

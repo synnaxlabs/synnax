@@ -36,10 +36,11 @@ provider "aws" {
       owner   = "runners"
     }
   }
-  # A seat writes limited-until at a usage limit, Check - Runners writes the sign-in
-  # state, and the fleet controller writes the login, so an apply must keep these tags.
+  # A seat writes limited-until at a usage limit and login-broken at a rejected token,
+  # Check - Runners writes the sign-in state, and the fleet controller writes the login,
+  # so an apply must keep these tags.
   ignore_tags {
-    keys = ["limited-until", "auth", "auth-checked", "login"]
+    keys = ["limited-until", "login-broken", "auth", "auth-checked", "login"]
   }
 }
 
@@ -134,8 +135,8 @@ resource "aws_iam_role_policy" "deny_runner_secrets" {
   })
 }
 
-# Lets a seat record when the usage limit of its login resets. The fleet controller
-# moves the time to the login, which no seat then starts on until then.
+# Lets a seat record when the usage limit of its login resets, and when Claude rejected
+# its token. The fleet controller moves each to the login, which no seat then starts on.
 resource "aws_iam_role_policy" "limited_until" {
   name = "TagLimitedUntil"
   role = aws_iam_role.runner.id
@@ -150,7 +151,9 @@ resource "aws_iam_role_policy" "limited_until" {
           "aws:ResourceTag/project" = "synnax-agents"
           "aws:ResourceTag/pool"    = "agent"
         }
-        "ForAllValues:StringEquals" = { "aws:TagKeys" = ["limited-until"] }
+        "ForAllValues:StringEquals" = {
+          "aws:TagKeys" = ["limited-until", "login-broken"]
+        }
       }
     }]
   })

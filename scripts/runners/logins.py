@@ -114,3 +114,11 @@ class Logins:
             SecretId=login.arn, Tags=[{"Key": "limited-until", "Value": str(until)}]
         )
         login.limited_until = until
+
+    def reject(self, login: Login, *, at: int) -> None:
+        """Records that Claude rejected the token of the login at at, in Unix
+        seconds. The login stays broken until seat.sh stores a new token."""
+        self.secrets.tag_resource(
+            SecretId=login.arn, Tags=[{"Key": "broken", "Value": str(at)}]
+        )
+        login.broken = True
