@@ -169,18 +169,6 @@ class TestParse:
         with pytest.raises(ValueError, match=error):
             parse(data)
 
-    @pytest.mark.parametrize(
-        ("severity", "deferrable", "blocks"),
-        [("P1", True, False), ("P2", False, True), ("P0", True, True)],
-    )
-    def test_should_read_whether_a_finding_blocks_merge(
-        self, severity: str, deferrable: bool, blocks: bool
-    ) -> None:
-        f = {"severity": severity, "title": "T", "body": "B", "path": "x.go", "line": 9}
-        data = {"score": 4, "verdict": "V", "summary": [], "findings": []}
-        data["findings"] = [f | {"deferrable": deferrable}]
-        assert parse(data).findings[0].blocks is blocks
-
     def test_should_reject_an_unknown_field(self) -> None:
         f = {"severity": "P1", "title": "T", "body": "B", "path": "x.go", "line": 9}
         data = {"score": 4, "verdict": "V", "summary": [], "findings": [f | {"x": 1}]}
@@ -225,15 +213,16 @@ class TestInlineFindings:
         post(review(finding()), target=TARGET, gh=gh)
         assert gh.written("POST", "pulls/7/reviews") == []
 
-    def test_should_mark_an_open_thread_whose_finding_became_a_follow_up(
+    def test_should_edit_an_open_thread_whose_severity_changed(
         self, gh: FakeGH
     ) -> None:
         gh.threads = [posted(finding())]
-        moved = finding(deferrable=True, body="New text.", suggestion="four")
+        moved = finding(severity="P2", body="New text.", suggestion="four")
         post(review(moved), target=TARGET, gh=gh)
         [edit] = gh.written("PATCH", "pulls/comments/9")
         first, rest = edit["body"].split("\n", 1)
-        assert first.endswith("**Samples return old data** (follow-up)")
+        assert first.startswith('<img alt="P2" src="')
+        assert first.endswith("**Samples return old data**")
         assert rest == gh.threads[0]["comments"][0]["body"].split("\n", 1)[1]
         assert gh.written("POST", "pulls/7/reviews") == []
 
@@ -276,30 +265,8 @@ class TestDismissedFindings:
         [done] = gh.written("PATCH", "check-runs/55")
         assert done["output"]["title"] == "Confidence Score: 5/5"
         assert done["output"]["summary"] == (
-            "A member dismissed every finding of the review that blocks merge.\n\n"
-            "Findings: none."
+            "A member dismissed every finding of the review.\n\nFindings: none."
         )
-
-    def test_should_score_5_when_only_follow_ups_are_left(self, gh: FakeGH) -> None:
-        gh.threads = [thread("sedosaur", "@sedosaur dismiss", resolved=True)]
-        later = finding(severity="P2", title="Later", line=3, deferrable=True)
-        post(review(finding(), later), target=TARGET, gh=gh)
-        [posted] = gh.written("POST", "pulls/7/reviews")
-        assert [c["body"].count("**Later**") for c in posted["comments"]] == [1]
-        [done] = gh.written("PATCH", "check-runs/55")
-        assert done["output"]["title"] == "Confidence Score: 5/5"
-        assert done["output"]["summary"].endswith("Findings: 1 follow-up.")
-
-    def test_should_keep_the_verdict_when_a_follow_up_is_dismissed(
-        self, gh: FakeGH
-    ) -> None:
-        gh.threads = [thread("sedosaur", "@sedosaur dismiss", resolved=True)]
-        done = finding(deferrable=True)
-        later = finding(severity="P2", title="Later", line=3, deferrable=True)
-        post(review(done, later, score=5), target=TARGET, gh=gh)
-        [check] = gh.written("PATCH", "check-runs/55")
-        assert check["output"]["title"] == "Confidence Score: 5/5"
-        assert "dismissed" not in check["output"]["summary"]
 
     def test_should_score_the_head_5_after_a_dismissal_while_posting(
         self, gh: FakeGH
@@ -370,7 +337,7 @@ class TestOutsideFindings:
         assert gh.written("POST", "issues/7/comments") == []
 
     def test_should_read_back_the_findings_the_comment_lists(self, gh: FakeGH) -> None:
-        later = finding(path="b/c d.go", title="Later [x]", deferrable=True)
+        later = finding(path="b/c d.go", title="Later [x]")
         body = render.outside([finding(line=10), later], blob="https://github.com/b")
         gh.comments = [{"id": 9, "login": "sedosaur[bot]", "body": body}]
         found = outside_findings(TARGET, gh)
@@ -459,19 +426,6 @@ class TestSummary:
         assert render.listed(done["output"]["text"]) == {
             ("a.go", "Samples return old data"),
             ("a.go", "Nit"),
-        }
-
-    def test_should_mark_a_follow_up_and_leave_it_out_of_the_listing(
-        self, gh: FakeGH
-    ) -> None:
-        later = finding(severity="P2", title="Later", line=3, deferrable=True)
-        post(review(finding(), later), target=TARGET, gh=gh)
-        [posted] = gh.written("POST", "pulls/7/reviews")
-        assert "**Later** (follow-up)" in posted["comments"][1]["body"]
-        [done] = gh.written("PATCH", "check-runs/55")
-        assert done["output"]["summary"].endswith("Findings: 1 P1, 1 follow-up.")
-        assert render.listed(done["output"]["text"]) == {
-            ("a.go", "Samples return old data")
         }
 
 

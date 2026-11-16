@@ -28,8 +28,8 @@ review in a record. `carry` gives the head the newest review of the pull request
 the diff did not change, completes CHECK_RUN with it, and prints `true` if it did. It
 also takes KEY, the external ID of the check run, `<pr>:<base ref>`. `dismiss` answers
 COMMENT, a reply that mentions the bot on the thread of one of its findings: a member's
-`@sedosaur dismiss` resolves the thread, and scores the head 5/5 when no blocking
-finding of its review is left. It also takes KEY. `compare` takes only GH_TOKEN and
+`@sedosaur dismiss` resolves the thread, and scores the head 5/5 when no finding of
+its review is left. It also takes KEY. `compare` takes only GH_TOKEN and
 GITHUB_REPOSITORY, runs in a clone with full history, and prints a Markdown comparison
 of the records of the last days with Greptile's reviews of the same commits.
 """

@@ -22,9 +22,7 @@ SUMMARY_END = "<!-- /sedosaur_comment -->"
 OUTSIDE = "<!-- sedosaur_outside_diff -->"
 LISTING_START = "<!-- sedosaur_findings "
 LISTING_END = " -->"
-_OUTSIDE_ITEM = re.compile(
-    r"(?m)^- .*?\*\*(.+?)\*\*(?: \(follow-up\))? \[`(.+):\d+`\]\("
-)
+_OUTSIDE_ITEM = re.compile(r"(?m)^- .*?\*\*(.+?)\*\* \[`(.+):\d+`\]\(")
 VOTE = "<sub>React 👍 if this is a real problem or 👎 if it is noise.</sub>"
 SUBJECT_CHARS = 48
 
@@ -61,8 +59,7 @@ def fence(text: str, info: str = "") -> str:
 
 
 def heading(f: Finding) -> str:
-    mark = "" if f.blocks else " (follow-up)"
-    return f"{badge(f.severity.lower(), f.severity)} **{f.title}**{mark}"
+    return f"{badge(f.severity.lower(), f.severity)} **{f.title}**"
 
 
 def title(body: str) -> str | None:
@@ -172,17 +169,14 @@ def splice(body: str, block: str) -> str:
 
 
 def check(review: Review) -> dict[str, str]:
-    """Renders the output of the review's check run. Its text lists the findings that
-    block merge, so a dismissal can tell when none is left."""
-    blocking = [f for f in review.findings if f.blocks]
-    counts = Counter(f.severity for f in blocking)
+    """Renders the output of the review's check run. Its text lists the findings, so a
+    dismissal can tell when none is left."""
+    counts = Counter(f.severity for f in review.findings)
     found = [f"{counts[s]} {s}" for s in SEVERITIES if counts[s]]
-    if later := len(review.findings) - len(blocking):
-        found.append(f"{later} follow-up")
     return {
         "title": scored(review.score),
         "summary": f"{review.verdict}\n\nFindings: {', '.join(found) or 'none'}.",
-        "text": listing(blocking),
+        "text": listing(review.findings),
     }
 
 
