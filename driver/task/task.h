@@ -171,11 +171,22 @@ public:
         }
         std::lock_guard lock{latest->mu};
         auto stamped = this->stamp(status);
-        if (!latest->dropped) {
-            latest->status = stamped;
-            latest->status.details.cmd.clear();
-            latest->present = true;
+        if (latest->dropped) {
+            this->log_write(stamped);
+            return;
         }
+        // Two threads of a task can report at once, so a status can arrive after a
+        // newer one. It is still written, since it may answer a command, and then the
+        // newer one again, so the newest status stays last.
+        if (latest->present && stamped.time < latest->status.time) {
+            this->log_write(stamped);
+            auto newest = latest->status;
+            this->log_write(newest);
+            return;
+        }
+        latest->status = stamped;
+        latest->status.details.cmd.clear();
+        latest->present = true;
         this->log_write(stamped);
     }
 
