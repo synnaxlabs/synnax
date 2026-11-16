@@ -100,12 +100,7 @@ func (s *Server) Hover(
 		} else {
 			scopeAtCursor = s.cfg.NewRoot()
 		}
-		contents = s.getUserSymbolHover(
-			ctx,
-			scopeAtCursor,
-			qualifiedWord,
-			displayContent,
-		)
+		contents = s.getUserSymbolHover(ctx, scopeAtCursor, qualifiedWord)
 	}
 
 	if contents == "" {
@@ -428,7 +423,9 @@ func (s *Server) getHoverContents(word string) string {
 	return keywordDocs[word]
 }
 
-func (s *Server) extractDocComment(content string, sym *symbol.Symbol) string {
+// extractDocComment returns the comments directly above the definition of sym, read
+// from the text sym is defined in.
+func (s *Server) extractDocComment(sym *symbol.Symbol) string {
 	if sym.AST == nil {
 		return ""
 	}
@@ -438,7 +435,8 @@ func (s *Server) extractDocComment(content string, sym *symbol.Symbol) string {
 	}
 
 	symLine := start.GetLine()
-	tokens := tokenizeContentWithComments(content)
+	source := start.GetInputStream()
+	tokens := tokenizeContentWithComments(source.GetText(0, source.Size()-1))
 	if len(tokens) == 0 {
 		return ""
 	}
@@ -566,14 +564,13 @@ func (s *Server) getUserSymbolHover(
 	ctx context.Context,
 	scope *symbol.Symbol,
 	name string,
-	content string,
 ) string {
 	sym, err := resolveDotted(ctx, scope, name)
 	if err != nil {
 		return ""
 	}
 
-	docComment := s.extractDocComment(content, sym)
+	docComment := s.extractDocComment(sym)
 
 	displayName := name
 	if displayName == "" {

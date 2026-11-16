@@ -911,6 +911,25 @@ func add() {a i32, b i32} i32 {
 		)
 
 		It(
+			"Should not take a comment of the document as a user module member's doc",
+			func(ctx SpecContext) {
+				sources := map[string]string{
+					"lib.m": "\n\n\nexport func f() i64 {\n    return 1\n}",
+				}
+				server = MustSucceed(lsp.New(lsp.Config{
+					NewRoot: func() *symbol.Symbol { return NewModuleRoot(sources) },
+				}))
+				server.SetClient(&MockClient{})
+				content := "import lib.m\n\n// unrelated note\n\n" +
+					"interval(period=100ms) -> m.f()"
+				OpenArcDocument(server, ctx, uri, content)
+				hover := Hover(server, ctx, uri, 4, 28) // m.|f
+				Expect(hover).ToNot(BeNil())
+				Expect(HoverContents(hover)).ToNot(ContainSubstring("unrelated note"))
+			},
+		)
+
+		It(
 			"Should provide hover for a member of an imported module",
 			func(ctx SpecContext) {
 				content := "import time\n\nfunc test() i64 {\n    return time.now()\n}"
