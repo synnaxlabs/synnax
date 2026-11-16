@@ -2150,9 +2150,8 @@ Tag struct {
 })
 
 // generateMove builds a node chain whose v1 moves fields onto the types of a shared
-// resource. It returns the generated v1 migration, or the error Generate returns.
-// generateMove generates the node v1 migration. hand, when given, is the hand-written
-// migrate.go of that package.
+// resource. hand, when given, is the hand-written migrate.go of node v1. It returns the
+// generated v1 migration, or the error Generate returns.
 func generateMove(shared, nodeV0, nodeV1, live string, hand ...string) (string, error) {
 	GinkgoHelper()
 	root := GinkgoT().TempDir()
@@ -2162,8 +2161,9 @@ func generateMove(shared, nodeV0, nodeV1, live string, hand ...string) (string, 
 		Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
 		Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
 	}
-	for _, h := range hand {
-		write("core/pkg/service/node/versions/v1/migrate.go", h)
+	Expect(len(hand)).To(BeNumerically("<=", 1))
+	if len(hand) == 1 {
+		write("core/pkg/service/node/versions/v1/migrate.go", hand[0])
 	}
 	write("schemas/synnax/versions/shared/v0.oracle", shared)
 	write("schemas/synnax/shared.oracle", "@go output \"core/pkg/service/shared\"\n\n"+
