@@ -124,20 +124,28 @@ class TestICD:
             sy.icd.FloatJSONField(
                 name="level",
                 pointer="/level",
-                enum_values=[payload.FloatEntry(label="FULL", value=100.5)],
-                default=-1.5,
+                enum_values=[
+                    payload.FloatEntry(label="FULL", value=payload.Float(100.5))
+                ],
+                default=payload.Float(-1.5),
             ),
             sy.icd.IntegerJSONField(
                 name="delta",
                 pointer="/delta",
-                enum_values=[payload.IntegerEntry(label="MIN", value=-(2**63))],
-                default=2**63 - 1,
+                enum_values=[
+                    payload.IntegerEntry(label="MIN", value=payload.Integer(-(2**63)))
+                ],
+                default=payload.Integer(2**63 - 1),
             ),
             sy.icd.UnsignedJSONField(
                 name="count",
                 pointer="/count",
-                enum_values=[payload.UnsignedEntry(label="MAX", value=2**64 - 1)],
-                default=2**64 - 2,
+                enum_values=[
+                    payload.UnsignedEntry(
+                        label="MAX", value=payload.Unsigned(2**64 - 1)
+                    )
+                ],
+                default=payload.Unsigned(2**64 - 2),
             ),
             sy.icd.StringJSONField(
                 name="state",
