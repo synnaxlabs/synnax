@@ -50,6 +50,7 @@ import {
   localFor,
   promiseFor,
   type RetrieveParams,
+  subscribeReader,
   useMemoQuery,
   usePendingFetch,
 } from "@/flux/suspend";
@@ -279,7 +280,7 @@ const persist = async <
           ...p,
           status: nextStatus,
           variant: nextStatus.variant,
-        } as Result<undefined>;
+        };
       });
     const written = params.value();
     const read = stored.current;
@@ -318,8 +319,16 @@ export const createForm = <
   normalizeQuery,
 }: CreateFormParams<Query, Schema>): UseForm<Query, Schema> => {
   const locals = new WeakMap<Client, LocalCache<z.infer<Schema>>>();
-  const forget = (client: Client, q: Query): void =>
-    invalidate(localFor(locals, client), query.hash(q));
+  // The last form to unmount drops the settled answer, so a later mount reads again.
+  const holdSettled = (client: Client, q: Query): (() => void) => {
+    const local = localFor(locals, client);
+    const hash = query.hash(q);
+    const release = subscribeReader(local, hash, () => {});
+    return () => {
+      release();
+      if (!local.listeners.has(hash)) invalidate(local, hash);
+    };
+  };
   const useForm = ({
     query,
     initialValues,
@@ -492,11 +501,10 @@ export const createForm = <
     );
     useEffect(() => () => debouncedSave.flush(), [debouncedSave]);
 
-    // The settled answer carries a fetch across a suspension. A later mount reads the
-    // record again, since nothing keeps that answer current.
+    // Nothing keeps the settled answer current once no form shows it.
     useEffect(() => {
       if (client == null || memoQuery == null) return;
-      return () => forget(client, memoQuery);
+      return holdSettled(client, memoQuery);
     }, [client, memoQuery]);
 
     const abandon = () => {
