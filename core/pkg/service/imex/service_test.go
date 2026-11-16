@@ -128,7 +128,7 @@ func (s *testService) Decode(
 	ctx context.Context,
 	env imex.Envelope,
 ) (imex.Write, error) {
-	r, err := env.Decode[testResource](ctx)
+	r, err := env.Decode[testResource]()
 	if err != nil {
 		return nil, err
 	}
@@ -727,7 +727,7 @@ var _ = Describe("Service", func() {
 				Expect(env.Type).To(Equal(string(resource.TypeChannel)))
 				Expect(env.Name).To(Equal("Round Trip"))
 				roundTripped := MustSucceed(
-					WireRoundTrip(env).Decode[testResource](ctx),
+					WireRoundTrip(env).Decode[testResource](),
 				)
 				Expect(roundTripped.FieldOne).To(Equal("value"))
 				Expect(roundTripped.FieldTwo).To(Equal(42))

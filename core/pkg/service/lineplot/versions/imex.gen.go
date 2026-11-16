@@ -33,7 +33,7 @@ const Latest = v10.Version
 func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error) {
 	switch env.Version {
 	case v5.Version:
-		t5, err := env.Decode[v5.LinePlot](ctx)
+		t5, err := env.Decode[v5.LinePlot]()
 		if err != nil {
 			return LinePlot{}, err
 		}
@@ -59,7 +59,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 		}
 		return t10, nil
 	case v6.Version:
-		t6, err := env.Decode[v6.LinePlot](ctx)
+		t6, err := env.Decode[v6.LinePlot]()
 		if err != nil {
 			return LinePlot{}, err
 		}
@@ -81,7 +81,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 		}
 		return t10, nil
 	case v7.Version:
-		t7, err := env.Decode[v7.LinePlot](ctx)
+		t7, err := env.Decode[v7.LinePlot]()
 		if err != nil {
 			return LinePlot{}, err
 		}
@@ -99,7 +99,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 		}
 		return t10, nil
 	case v8.Version:
-		t8, err := env.Decode[v8.LinePlot](ctx)
+		t8, err := env.Decode[v8.LinePlot]()
 		if err != nil {
 			return LinePlot{}, err
 		}
@@ -113,7 +113,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 		}
 		return t10, nil
 	case v9.Version:
-		t9, err := env.Decode[v9.LinePlot](ctx)
+		t9, err := env.Decode[v9.LinePlot]()
 		if err != nil {
 			return LinePlot{}, err
 		}
@@ -123,7 +123,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 		}
 		return t10, nil
 	case v10.Version:
-		return env.Decode[LinePlot](ctx)
+		return env.Decode[LinePlot]()
 	}
 	return LinePlot{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }

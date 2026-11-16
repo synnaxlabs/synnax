@@ -57,7 +57,7 @@ var _ = Describe("ImEx", func() {
 					Expect(env.Version).To(Equal(imex.Version(54)))
 					Expect(env.Type).To(Equal("log"))
 					Expect(env.Name).To(Equal("n"))
-					p := MustSucceed(env.Decode[wirePayload](ctx))
+					p := MustSucceed(env.Decode[wirePayload]())
 					Expect(p.Foo).To(Equal(1))
 					Expect(p.Name).To(Equal("n"))
 				},
@@ -166,7 +166,7 @@ var _ = Describe("ImEx", func() {
 				Expect(env.Name).To(Equal("Tank \uFFFD level"))
 				p := MustSucceed(env.Decode[struct {
 					Name string `json:"name"`
-				}](ctx))
+				}]())
 				Expect(p.Name).To(Equal("Tank \uFFFD level"))
 			})
 
@@ -225,7 +225,7 @@ var _ = Describe("ImEx", func() {
 					type tsPayload struct {
 						TS int64 `json:"ts"`
 					}
-					p := MustSucceed(env.Decode[tsPayload](ctx))
+					p := MustSucceed(env.Decode[tsPayload]())
 					Expect(p.TS).To(Equal(big))
 				},
 			)
@@ -287,7 +287,7 @@ var _ = Describe("ImEx", func() {
 				)
 				var env imex.Envelope
 				Expect(json.Unmarshal(src, &env)).To(Succeed())
-				p := MustSucceed(env.Decode[wirePayload](ctx))
+				p := MustSucceed(env.Decode[wirePayload]())
 				Expect(p.Name).To(Equal("n"))
 				Expect(p.Foo).To(Equal(42))
 				Expect(p.Bar).To(Equal("x"))
@@ -300,7 +300,7 @@ var _ = Describe("ImEx", func() {
 					// Decode must return a descriptive error rather than panicking on a
 					// nil-interface dispatch.
 					env := imex.Envelope{Version: 1, Type: "log", Name: "n"}
-					Expect(env.Decode[wirePayload](ctx)).Error().
+					Expect(env.Decode[wirePayload]()).Error().
 						To(MatchError(ContainSubstring("no codec bound")))
 				},
 			)
@@ -311,7 +311,7 @@ var _ = Describe("ImEx", func() {
 				)
 				var env imex.Envelope
 				Expect(json.Unmarshal(src, &env)).To(Succeed())
-				Expect(env.Decode[wirePayload](ctx)).Error().To(
+				Expect(env.Decode[wirePayload]()).Error().To(
 					MatchError(ContainSubstring("decode envelope body")),
 				)
 			})
@@ -848,7 +848,7 @@ var _ = Describe("ImEx", func() {
 					Expect(roundEnv.Version).To(Equal(imex.Version(7)))
 					Expect(roundEnv.Type).To(Equal("log"))
 					Expect(roundEnv.Name).To(Equal("n"))
-					Expect(roundEnv.Decode[payload](ctx)).To(Equal(src))
+					Expect(roundEnv.Decode[payload]()).To(Equal(src))
 				},
 			)
 		})
