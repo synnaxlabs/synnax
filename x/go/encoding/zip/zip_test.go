@@ -42,7 +42,6 @@ func write(entries ...[2]string) []byte {
 	return buf.Bytes()
 }
 
-// read unpacks b into the file map it was encoded from.
 // writeRaw writes one entry whose stored bytes, method, and checksum are given as is.
 func writeRaw(method uint16, crc uint32, contents string) []byte {
 	GinkgoHelper()
@@ -60,6 +59,7 @@ func writeRaw(method uint16, crc uint32, contents string) []byte {
 	return buf.Bytes()
 }
 
+// read unpacks b into the file map it was encoded from.
 func read(b []byte) xzip.Files {
 	GinkgoHelper()
 	r := MustSucceed(zip.NewReader(bytes.NewReader(b), int64(len(b))))
