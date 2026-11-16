@@ -35,7 +35,8 @@ if [ "$action" = token ]; then
     fi
     name=synnax-agents/logins/$seat
     if [ -t 0 ]; then echo "Paste the token from claude setup-token:" >&2; fi
-    IFS= read -rs token
+    # A pasted or piped token can lack the final newline, which makes read fail.
+    IFS= read -rs token || true
     if [[ ! $token =~ ^sk-ant-oat01-[A-Za-z0-9_-]+$ ]]; then
         echo "That is not a token from claude setup-token" >&2
         exit 1
@@ -46,7 +47,12 @@ if [ "$action" = token ]; then
     printf '%s' "$token" > "$file"
     unset token
     expires=$(($(date +%s) + 365 * 24 * 3600))
-    if aws secretsmanager describe-secret --secret-id "$name" > /dev/null 2>&1; then
+    if deleted=$(aws secretsmanager describe-secret --secret-id "$name" \
+        --query DeletedDate --output text 2> /dev/null); then
+        # A deleted secret takes no new value until it is restored.
+        if [ "$deleted" != None ]; then
+            aws secretsmanager restore-secret --secret-id "$name" > /dev/null
+        fi
         aws secretsmanager put-secret-value --secret-id "$name" \
             --secret-string "file://$file" > /dev/null
         aws secretsmanager untag-resource --secret-id "$name" \
