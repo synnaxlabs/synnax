@@ -33,8 +33,8 @@ const VARIANT = "electric_regulator_motorized";
 const ORIENTATIONS: location.Outer[] = ["left", "right", "top", "bottom"];
 const SCALES = [1, 2];
 const TOLERANCE = 0.1;
-// Two handles have the key "2". React Flow attaches an edge to the first one.
-const SHARED_HANDLE = "2";
+// Stored edges use handle "2", so it stays at the left of the motor.
+const MOTOR_LEFT_HANDLE = "2";
 const MOTOR_LEFT: xy.XY = { x: 31, y: 14 };
 const NOOP = (): void => {};
 
@@ -72,7 +72,7 @@ const renderRegulator = async ({ orientation, scale }: RenderProps) => {
       id: "edge",
       type: "recorder",
       source: "symbol",
-      sourceHandle: SHARED_HANDLE,
+      sourceHandle: MOTOR_LEFT_HANDLE,
       target: "target",
       targetHandle: "target",
     },
