@@ -55,7 +55,8 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=$dir
 Environment=UV_CACHE_DIR=$dir/uv-cache
-ExecStart=$dir/uv run --project $dir --locked $dir/agent_boot.py --host $host --secure
+ExecStart=$dir/uv run --project $dir --frozen --no-dev $dir/agent_boot.py \\
+    --host $host --secure
 Restart=always
 RestartSec=15
 Nice=19

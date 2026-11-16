@@ -68,14 +68,14 @@ switch ($Step) {
         }
         # Resolves each script's dependencies and imports, so a bad commit fails here.
         foreach ($script in $Checked) {
-            & $Uv run --project $Staging --locked (Join-Path $Staging $script) --help |
-                Out-Null
+            & $Uv run --project $Staging --locked --no-dev `
+                (Join-Path $Staging $script) --help | Out-Null
             if ($LASTEXITCODE -ne 0) { throw "$script --help failed" }
         }
         "Downloaded $($names.Count) scripts at $Sha"
     }
     'stop-agents' {
-        & $Uv run --project $Staging --locked $AgentDeploy stop
+        & $Uv run --project $Staging --locked --no-dev $AgentDeploy stop
         if ($LASTEXITCODE -ne 0) { throw 'The agents did not all stop' }
     }
     'stop' {
@@ -105,7 +105,8 @@ switch ($Step) {
             Set-Content -Path "$base.once.cmd" -Encoding ascii -Value @(
                 '@echo off'
                 "cd /d `"$Dir`""
-                "`"$Uv`" run --project . --locked $($task.Args) > $($task.Log) 2>&1"
+                ("`"$Uv`" run --project . --locked --no-dev $($task.Args) " +
+                    "> $($task.Log) 2>&1")
             )
             # Relaunches a script that exits. The wait doubles from 10 s to 5 min.
             Set-Content -Path "$base.ps1" -Encoding ascii -Value @(
@@ -155,8 +156,8 @@ switch ($Step) {
         if ($failed) { throw "Exited after start: $($failed -join ', ')" }
     }
     'deploy-agents' {
-        & $Uv run --project $Staging --locked $AgentDeploy install --commit $Sha `
-            --username controller --secure --ca-cert $Cert
+        & $Uv run --project $Staging --locked --no-dev $AgentDeploy install `
+            --commit $Sha --username controller --secure --ca-cert $Cert
         if ($LASTEXITCODE -ne 0) { throw 'The agent install failed on a runner' }
     }
     default { throw "Unknown step '$Step'" }

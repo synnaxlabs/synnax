@@ -15,9 +15,10 @@ commit in the Parameter Store parameter /runner-agents/commit, so a runner that 
 stopped during a deploy updates when it starts. When the update fails, the installed
 agent runs.
 
-    uv run --project . --locked agent_boot.py --host <address> --secure
+    uv run --project . --frozen --no-dev agent_boot.py --host <address> --secure
 """
 
+import os
 import subprocess
 import sys
 from collections.abc import Callable, Mapping
@@ -62,8 +63,12 @@ def update(
         return None
     # Every download ends before the first write, so a failure keeps the old agent.
     contents = {name: fetch(SOURCE.format(commit, name)) for name in FILES}
+    # Atomic renames, run back to back, keep pyproject.toml and uv.lock from drifting
+    # apart when an update stops partway.
     for name, content in contents.items():
-        (directory / name).write_bytes(content)
+        (directory / f"{name}.tmp").write_bytes(content)
+    for name in contents:
+        os.replace(directory / f"{name}.tmp", directory / name)
     installed.write_text(commit)
     return commit
 
@@ -78,7 +83,8 @@ def main() -> int:
         print(f"update failed: {type(e).__name__}: {e}", flush=True)
     uv = directory / ("uv.exe" if sys.platform == "win32" else "uv")
     agent = directory / "agent.py"
-    command = [str(uv), "run", "--project", str(directory), "--locked", str(agent)]
+    command = [str(uv), "run", "--project", str(directory), "--locked", "--no-dev"]
+    command.append(str(agent))
     command.extend(sys.argv[1:])
     return subprocess.run(command, check=False).returncode
 

@@ -57,6 +57,7 @@ class TestUpdate:
         for name in FILES:
             assert (tmp_path / name).read_text() == SOURCE.format(COMMIT, name)
         assert (tmp_path / INSTALLED).read_text() == COMMIT
+        assert list(tmp_path.glob("*.tmp")) == []
 
     def test_should_replace_the_agent_of_another_commit(self, tmp_path: Path) -> None:
         (tmp_path / INSTALLED).write_text(OLD)
@@ -141,6 +142,7 @@ class TestMain:
                 "--project",
                 str(tmp_path),
                 "--locked",
+                "--no-dev",
                 str(agent),
                 "--host",
                 "core.example",

@@ -57,7 +57,7 @@ Remove-Item $staging -Recurse -Force
 Remove-Item (Join-Path $Dir 'agent_commit.txt') -ErrorAction Ignore
 
 $argument = "/c set UV_CACHE_DIR=$Dir\uv-cache&& `"$Dir\uv.exe`" run --project . " +
-    "--locked agent_boot.py --host $CoreHost --secure >> agent.out.log 2>&1"
+    "--frozen --no-dev agent_boot.py --host $CoreHost --secure >> agent.out.log 2>&1"
 $action = New-ScheduledTaskAction -Execute 'cmd.exe' -WorkingDirectory $Dir `
     -Argument $argument
 # A task does not restart a program that exits, so a second trigger repeats the start.
