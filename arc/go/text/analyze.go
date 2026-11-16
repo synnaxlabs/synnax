@@ -790,8 +790,9 @@ func collectBranch[T antlr.ParserRuleContext](
 	}
 	d := shell.varNodes[sym].disp
 	maps.Copy(d.node.Channels.Read, res.node.Channels.Read)
-	if bfn, ok := kg.synthFuncs.Find(res.node.Type); ok {
-		for _, p := range bfn.Inputs {
+	if branch, err := ctx.Scope.Root().GetChildByParserRule(expr); err == nil &&
+		branch.Kind == symbol.KindFunction {
+		for _, p := range branch.Type.Inputs {
 			if _, exists := d.node.Inputs.Get(p.Name); !exists {
 				d.node.Inputs = append(
 					d.node.Inputs,
@@ -1076,6 +1077,29 @@ func buildDispatcherTriggers[T antlr.ParserRuleContext](
 		})
 	}
 	return params
+}
+
+// finishDispatchers adds each dispatcher's channel triggers and emits its function.
+func finishDispatchers[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	disps []*dispatcher,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) {
+	slices.SortFunc(disps, func(a, b *dispatcher) int {
+		return strings.Compare(a.node.Key, b.node.Key)
+	})
+	for _, d := range disps {
+		d.node.Inputs = append(d.node.Inputs,
+			buildDispatcherTriggers(ctx, d.node.Key, d.node.Channels, kg, shell)...)
+		*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
+			Key:      d.node.Type,
+			Body:     ir.Body{Raw: strings.Join(d.branches, ",")},
+			Inputs:   d.node.Inputs,
+			Outputs:  d.node.Outputs,
+			Channels: d.node.Channels.Copy(),
+		})
+	}
 }
 
 // retargetEdges re-points edges targeting a folded branch node at the
@@ -1677,7 +1701,7 @@ func analyzeUnit(
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
 		} else if stageDecl := item.StageDeclaration(); stageDecl != nil {
-			stgScope, nodes, edges, ok := analyzeTopLevelStage(
+			stgScope, nodes, edges, ok := analyzeStage(
 				aCtx.Child(stageDecl),
 				kg,
 				shell,
@@ -1703,20 +1727,7 @@ func analyzeUnit(
 			disps = append(disps, e.disp)
 		}
 	}
-	slices.SortFunc(disps, func(a, b *dispatcher) int {
-		return strings.Compare(a.node.Key, b.node.Key)
-	})
-	for _, d := range disps {
-		d.node.Inputs = append(d.node.Inputs,
-			buildDispatcherTriggers(aCtx, d.node.Key, d.node.Channels, kg, shell)...)
-		i.Functions = append(i.Functions, ir.Function{
-			Key:      d.node.Type,
-			Body:     ir.Body{Raw: strings.Join(d.branches, ",")},
-			Inputs:   d.node.Inputs,
-			Outputs:  d.node.Outputs,
-			Channels: d.node.Channels.Copy(),
-		})
-	}
+	finishDispatchers(aCtx, disps, kg, shell)
 	owned := memberNodeKeys(rootMembers)
 	for _, vn := range shell.rootNodes {
 		i.Nodes = append(i.Nodes, *vn)
@@ -2351,13 +2362,9 @@ func processInlineBody(
 	)
 	switch decl := synth.AST.(type) {
 	case parser.IStageDeclarationContext:
-		scope, nodes, edges, ok = analyzeTopLevelStage(
-			ctx.Child(decl).WithScope(synth.Parent), kg, shell,
-		)
+		scope, nodes, edges, ok = lowerStage(ctx.Child(decl), synth, kg, shell)
 	case parser.ISequenceDeclarationContext:
-		scope, nodes, edges, ok = analyzeSequence(
-			ctx.Child(decl).WithScope(synth.Parent), kg, shell,
-		)
+		scope, nodes, edges, ok = lowerSequence(ctx.Child(decl), synth, kg, shell)
 	}
 	if !ok {
 		return ir.Scope{}, false
@@ -2588,8 +2595,7 @@ func declaredAsStep(decl antlr.ParserRuleContext) bool {
 	return false
 }
 
-// analyzeSequence lowers a sequence declaration to a sequential scope. A
-// sequence in a step position escalates its completion to enclosing frames.
+// analyzeSequence resolves the scope of a sequence declaration and lowers it.
 func analyzeSequence(
 	ctx acontext.Context[parser.ISequenceDeclarationContext],
 	kg *keyGenerator,
@@ -2599,6 +2605,17 @@ func analyzeSequence(
 	if !ok {
 		return ir.Scope{}, nil, nil, false
 	}
+	return lowerSequence(ctx, seqScope, kg, shell)
+}
+
+// lowerSequence lowers a sequence declaration to a sequential scope. A sequence in a
+// step position escalates its completion to enclosing frames.
+func lowerSequence(
+	ctx acontext.Context[parser.ISequenceDeclarationContext],
+	seqScope *symbol.Symbol,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) (ir.Scope, []ir.Node, []ir.Edge, bool) {
 	seqName := seqScope.QualifiedName()
 	liveness := ir.LivenessAlways
 	if ctx.AST.IDENTIFIER() != nil {
@@ -2658,7 +2675,7 @@ func analyzeSequence(
 			}
 			// Anonymous inline stages inherit the synthesized step key as
 			// their own Key so Member.Key() is derivable from the scope.
-			if stgScope.Key == "" {
+			if stageDecl.IDENTIFIER() == nil {
 				stgScope.Key = si.key
 			}
 			scope.Steps = append(scope.Steps, ir.Member{Scope: &stgScope})
@@ -2756,44 +2773,32 @@ func analyzeSequence(
 	return scope, allNodes, allEdges, true
 }
 
-func analyzeTopLevelStage(
-	ctx acontext.Context[parser.IStageDeclarationContext],
-	kg *keyGenerator,
-	shell *shellBuilder,
-) (ir.Scope, []ir.Node, []ir.Edge, bool) {
-	// Resolve the symbol scope registered by collectTopLevelStage so that
-	// anonymous top-level stages pick up the auto-generated name and the
-	// resulting ir.Scope has a non-empty, unique Key. Without this, anonymous
-	// stages would collide at the root member level.
-	stageSym, ok := resolveDeclScope(ctx)
-	if !ok {
-		return ir.Scope{}, nil, nil, false
-	}
-	var jumps []ir.Transition
-	release := shell.ownJumps(&jumps)
-	scope, nodes, edges, ok := analyzeStage(ctx, kg, shell)
-	release()
-	if !ok {
-		return ir.Scope{}, nil, nil, false
-	}
-	scope.Key = stageSym.QualifiedName()
-	scope.Transitions = jumps
-	return scope, nodes, edges, true
-}
-
+// analyzeStage resolves the scope of a stage declaration and lowers it.
 func analyzeStage(
 	ctx acontext.Context[parser.IStageDeclarationContext],
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (ir.Scope, []ir.Node, []ir.Edge, bool) {
-	stageName := ""
+	stageScope, ok := resolveDeclScope(ctx)
+	if !ok {
+		return ir.Scope{}, nil, nil, false
+	}
+	return lowerStage(ctx, stageScope, kg, shell)
+}
+
+// lowerStage lowers a stage declaration to a parallel scope.
+func lowerStage(
+	ctx acontext.Context[parser.IStageDeclarationContext],
+	stageScope *symbol.Symbol,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) (ir.Scope, []ir.Node, []ir.Edge, bool) {
 	liveness := ir.LivenessAlways
-	if id := ctx.AST.IDENTIFIER(); id != nil {
-		stageName = id.GetText()
+	if ctx.AST.IDENTIFIER() != nil {
 		liveness = ir.LivenessGated
 	}
 	scope := ir.Scope{
-		Key:      stageName,
+		Key:      stageScope.QualifiedName(),
 		Mode:     ir.ScopeModeParallel,
 		Liveness: liveness,
 	}
@@ -2808,13 +2813,9 @@ func analyzeStage(
 		return scope, nodes, edges, true
 	}
 
-	// Body items resolve against the stage's own scope; top-level stages keep
-	// ctx.Scope (theirs is registered at the parent).
-	var stageScope *symbol.Symbol
-	if s, err := ctx.Scope.GetChildByParserRule(ctx.AST); err == nil {
-		stageScope = s
-		ctx = ctx.WithScope(stageScope)
-	}
+	var jumps []ir.Transition
+	defer shell.ownJumps(&jumps)()
+	ctx = ctx.WithScope(stageScope)
 	for _, item := range stageBody.AllStageItem() {
 		if decl := item.VariableDeclaration(); decl != nil {
 			e, ok := lowerVarDecl(ctx.Child(decl), kg, shell)
@@ -2884,14 +2885,11 @@ func analyzeStage(
 		}
 	}
 
-	var varMembers ir.Members
-	if stageScope != nil {
-		varMembers = scopeVarMembers(stageScope, shell)
-	}
-	members = append(varMembers, members...)
+	members = append(scopeVarMembers(stageScope, shell), members...)
 	if len(members) > 0 {
 		scope.Strata = []ir.Members{members}
 	}
+	scope.Transitions = jumps
 	return scope, nodes, edges, true
 }
 
