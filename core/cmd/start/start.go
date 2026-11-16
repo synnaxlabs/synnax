@@ -82,11 +82,11 @@ var DefaultCoreConfig = CoreConfig{
 	certFactoryConfig: cert.DefaultFactoryConfig,
 	// a Core installed before the flag existed starts without it
 	sessionIdleTimeout: auth.DefaultIdleTimeout,
-	shutdownTimeout:    DefaultShutdownTimeout,
+	shutdownTimeout:    defaultShutdownTimeout,
 }
 
-// DefaultShutdownTimeout is the longest time a Core waits for its components to close.
-const DefaultShutdownTimeout = time.Minute
+// defaultShutdownTimeout is the longest time a Core waits for its components to close.
+const defaultShutdownTimeout = time.Minute
 
 // driverEnabled reports whether the embedded Driver starts with this Core.
 func (c CoreConfig) driverEnabled() bool { return c.noDriver != nil && !*c.noDriver }
