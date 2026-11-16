@@ -88,7 +88,9 @@ linters:
       check-blank: true
     exhaustive:
       # Stdlib kind enums; each switch handles a subset on purpose.
-      ignore-types: '^(reflect\.Kind|encoding/json/jsontext\.Kind)$'
+      ignore-types:
+        - ^reflect\.Kind$
+        - ^encoding/json/jsontext\.Kind$
     forbidigo:
       forbid:
         - pattern: ^fmt\.Errorf$
