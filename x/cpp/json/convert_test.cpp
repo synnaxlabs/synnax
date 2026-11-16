@@ -1493,6 +1493,7 @@ TEST(ToSampleValue, StringToTimestampISO8601JustDate) {
     );
 }
 
+/// @brief it should reject an ISO 8601 timestamp after the maximum timestamp.
 TEST(ToSampleValue, StringToTimestampISO8601AfterMaxTimestamp) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(
@@ -1504,6 +1505,7 @@ TEST(ToSampleValue, StringToTimestampISO8601AfterMaxTimestamp) {
     );
 }
 
+/// @brief it should reject an ISO 8601 timestamp before the minimum timestamp.
 TEST(ToSampleValue, StringToTimestampISO8601BeforeMinTimestamp) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(
@@ -1515,6 +1517,7 @@ TEST(ToSampleValue, StringToTimestampISO8601BeforeMinTimestamp) {
     );
 }
 
+/// @brief it should parse the maximum ISO 8601 timestamp.
 TEST(ToSampleValue, StringToTimestampISO8601MaxTimestamp) {
     const auto sv = ASSERT_NIL_P(
         x::json::to_sample_value(
@@ -1529,6 +1532,7 @@ TEST(ToSampleValue, StringToTimestampISO8601MaxTimestamp) {
     );
 }
 
+/// @brief it should parse the minimum ISO 8601 timestamp.
 TEST(ToSampleValue, StringToTimestampISO8601MinTimestamp) {
     const auto sv = ASSERT_NIL_P(
         x::json::to_sample_value(
@@ -1543,6 +1547,7 @@ TEST(ToSampleValue, StringToTimestampISO8601MinTimestamp) {
     );
 }
 
+/// @brief it should reject an ISO 8601 timestamp one nanosecond after the maximum.
 TEST(ToSampleValue, StringToTimestampISO8601JustAfterMaxTimestamp) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(
@@ -1554,6 +1559,7 @@ TEST(ToSampleValue, StringToTimestampISO8601JustAfterMaxTimestamp) {
     );
 }
 
+/// @brief it should reject an ISO 8601 timestamp one nanosecond before the minimum.
 TEST(ToSampleValue, StringToTimestampISO8601JustBeforeMinTimestamp) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(
