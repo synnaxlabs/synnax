@@ -237,12 +237,6 @@ func (r *routine) runPrelude() (ctx context.Context, err error) {
 		r.key = "anonymous_" + strconv.Itoa(len(r.ctx.mu.routines))
 	}
 
-	if r.useBreaker {
-		if r.breaker, err = breaker.NewBreaker(r.breakerCfg); err != nil {
-			return nil, err
-		}
-	}
-
 	r.ctx.mu.routines = append(r.ctx.mu.routines, r)
 	// A routine runs even when the context is already canceled, since it may own
 	// resources that only it releases.
@@ -251,7 +245,10 @@ func (r *routine) runPrelude() (ctx context.Context, err error) {
 	r.ctx.L.Debug("starting routine", r.zapFields()...)
 	ctx, r.span = r.ctx.T.Prod(r.ctx, r.path())
 
-	return ctx, nil
+	if r.useBreaker {
+		r.breaker, err = breaker.NewBreaker(r.breakerCfg)
+	}
+	return ctx, err
 }
 
 // runPostlude decides the state of the goroutine upon exiting and combines err with
@@ -374,7 +371,7 @@ func (r *routine) path() string {
 func (r *routine) goRun(f func(context.Context) error) {
 	ctx, err := r.runPrelude()
 	if err != nil {
-		r.ctx.internal.Go(func() error { return err })
+		r.ctx.internal.Go(func() error { return r.runPostlude(err) })
 		return
 	}
 	pprof.Do(ctx, pprof.Labels("routine", r.path()), func(ctx context.Context) {

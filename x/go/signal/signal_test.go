@@ -460,6 +460,45 @@ var _ = Describe("Signal", func() {
 			}, signal.WithRetryScale(0.5))
 			Expect(ctx.Wait()).To(MatchError(validate.ErrValidation))
 			Expect(called.Load()).To(BeFalse())
+			Eventually(ctx.Stopped()).Should(BeClosed())
+		})
+
+		It("Should run deferrals and cancel siblings on an invalid config", func() {
+			ctx, cancel := signal.Isolated()
+			defer cancel()
+			ctx.Go(func(ctx context.Context) error {
+				<-ctx.Done()
+				return ctx.Err()
+			})
+			var deferred atomic.Bool
+			ctx.Go(
+				func(context.Context) error { return nil },
+				signal.WithRetryScale(0.5),
+				signal.CancelOnFail(),
+				signal.Defer(func() { deferred.Store(true) }),
+			)
+			Expect(ctx.Wait()).To(MatchError(validate.ErrValidation))
+			Expect(deferred.Load()).To(BeTrue())
+		})
+
+		It("Should return an invalid config error after a sibling cancels", func() {
+			ctx, cancel := signal.Isolated()
+			ctx.Go(func(ctx context.Context) error {
+				<-ctx.Done()
+				return ctx.Err()
+			})
+			cancel()
+			Eventually(ctx.Stopped()).Should(BeClosed())
+			ctx.Go(
+				func(context.Context) error { return nil },
+				signal.WithKey("invalid"),
+				signal.WithRetryScale(0.5),
+			)
+			Expect(ctx.Wait()).To(MatchError(validate.ErrValidation))
+			Expect(ctx.Routines()).To(ContainElement(And(
+				HaveField("Key", "invalid"),
+				HaveField("State", signal.RoutineStateFailed),
+			)))
 		})
 	})
 
