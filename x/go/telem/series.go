@@ -45,7 +45,6 @@ type Series struct {
 	// It is above one when each sample stands for a group of stored samples. Zero means
 	// one.
 	AlignmentMultiple uint32 `json:"alignment_multiple,omitempty" msgpack:"alignment_multiple,omitempty"`
-	cachedLength      *int64
 }
 
 // Multiple returns the number of alignment steps between consecutive samples.
@@ -57,20 +56,16 @@ func (s Series) Len() int64 {
 		return 0
 	}
 	if s.DataType.IsVariable() {
-		if s.cachedLength == nil {
-			var cl int64
-			data := s.Data
-			for {
-				_, n := UnmarshalVariableSample(data)
-				if n == 0 {
-					break
-				}
-				data = data[n:]
-				cl++
+		var count int64
+		data := s.Data
+		for {
+			_, n := UnmarshalVariableSample(data)
+			if n == 0 {
+				return count
 			}
-			s.cachedLength = &cl
+			data = data[n:]
+			count++
 		}
-		return *s.cachedLength
 	}
 	return s.DataType.Density().SampleCount(s.Size())
 }
@@ -81,7 +76,7 @@ func (s Series) Len() int64 {
 // length-prefix chain exactly consumes the buffer. For JSONT, it additionally verifies
 // that each sample is valid JSON. For StringT, it verifies that each sample is valid
 // UTF-8.
-func (s *Series) Validate() error {
+func (s Series) Validate() error {
 	if len(s.Data) == 0 {
 		return nil
 	}
@@ -102,11 +97,8 @@ func (s *Series) Validate() error {
 	return nil
 }
 
-func (s *Series) validateVariable() error {
-	var (
-		data  = s.Data
-		count int64
-	)
+func (s Series) validateVariable() error {
+	data := s.Data
 	for len(data) >= variableLengthPrefixSize {
 		sample, n := UnmarshalVariableSample(data)
 		if n == 0 {
@@ -133,7 +125,6 @@ func (s *Series) validateVariable() error {
 			)
 		}
 		data = data[n:]
-		count++
 	}
 	if len(data) != 0 {
 		return errors.Wrapf(
@@ -142,7 +133,6 @@ func (s *Series) validateVariable() error {
 			len(data),
 		)
 	}
-	s.cachedLength = &count
 	return nil
 }
 
@@ -192,11 +182,11 @@ func (s Series) At(i int) []byte {
 	return s.Data[i*den : (i+1)*den]
 }
 
-// Resize resizes the series to the specified number of samples. If the new length is
-// smaller than the current length, the data is truncated. If the new length is larger,
-// the data is extended with zero bytes. This function only supports fixed-density types
-// and will panic if called on a variable-density series.
-func (s *Series) Resize(length int64) {
+// Resized returns s with length samples. It truncates the data when length is less
+// than the current length and appends zero bytes when it is greater. The result can
+// share its buffer with s. Resized panics for a negative length or a variable-density
+// series.
+func (s Series) Resized(length int64) Series {
 	if length < 0 {
 		panic("cannot resize series to negative length")
 	}
@@ -208,14 +198,12 @@ func (s *Series) Resize(length int64) {
 		targetSize  = int(length) * density
 		currentSize = len(s.Data)
 	)
-	if targetSize == currentSize {
-		return
-	}
 	if targetSize < currentSize {
 		s.Data = s.Data[:targetSize]
-	} else {
+	} else if targetSize > currentSize {
 		s.Data = append(s.Data, make([]byte, targetSize-currentSize)...)
 	}
+	return s
 }
 
 // ValueAt returns the numeric value at the given index in the series. ValueAt supports
@@ -343,14 +331,11 @@ func (s Series) DeepCopy() Series {
 	}
 }
 
-// CopyFrom copies src into s, reusing s's buffer capacity to avoid allocation.
-// Holders on emit hot paths should prefer this over DeepCopy (SY-4506).
-func (s *Series) CopyFrom(src Series) {
-	s.TimeRange = src.TimeRange
-	s.Alignment = src.Alignment
-	s.AlignmentMultiple = src.AlignmentMultiple
-	s.DataType = src.DataType
-	s.Data = append(s.Data[:0], src.Data...)
+// CopiedFrom returns a copy of src that reuses the buffer capacity of s to avoid
+// allocation. Holders on emit hot paths should prefer this over DeepCopy (SY-4506).
+func (s Series) CopiedFrom(src Series) Series {
+	src.Data = append(s.Data[:0], src.Data...)
+	return src
 }
 
 // DataString returns a string representation of the data in a series.
