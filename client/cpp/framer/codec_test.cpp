@@ -361,6 +361,20 @@ TEST(CodecTests, EncodeDecodeChannelSubset) {
     assert_frames_equal(original_frame, decoded_frame);
 }
 
+/// @brief it should keep the keys of a frame that repeats one key and omits another.
+TEST(CodecTests, EncodeDecodeRepeatedKey) {
+    const std::vector<channel::Key> channels = {65537, 65538};
+    const std::vector data_types = {x::telem::FLOAT32_T, x::telem::FLOAT32_T};
+    auto frame = x::telem::Frame(2);
+    frame.emplace(65537, x::telem::Series(std::vector{1.0f, 2.0f}));
+    frame.emplace(65537, x::telem::Series(std::vector{3.0f, 4.0f}));
+    Codec codec(channels, data_types);
+    std::vector<uint8_t> encoded;
+    ASSERT_NIL(codec.encode(frame, encoded));
+    const x::telem::Frame decoded = ASSERT_NIL_P(codec.decode(encoded));
+    ASSERT_EQ(*decoded.channels, (std::vector<channel::Key>{65537, 65537}));
+}
+
 /// @brief it should handle a large frame to ensure robustness.
 TEST(CodecTests, LargeFrame) {
     auto frame = x::telem::Frame(1);
