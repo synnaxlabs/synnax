@@ -3173,9 +3173,13 @@ var _ = Describe("Writer Behavior", func() {
 				})
 
 				Describe("Write Authority", func() {
-					It(
+					DescribeTable(
 						"Should reject an authority count that does not match the channels",
-						func(ctx SpecContext) {
+						func(
+							ctx SpecContext,
+							channels func(idx, d1, d2 cesium.ChannelKey) []cesium.ChannelKey,
+							authorities []control.Authority,
+						) {
 							idx := GenerateChannelKey()
 							d1, d2 := GenerateChannelKey(), GenerateChannelKey()
 							Expect(db.CreateChannel(
@@ -3204,11 +3208,32 @@ var _ = Describe("Writer Behavior", func() {
 								Start:    10 * telem.SecondTS,
 							}))
 							Expect(w.SetAuthority(cesium.WriterConfig{
-								Channels:    []cesium.ChannelKey{idx, d1, d2},
-								Authorities: []control.Authority{10, 200},
+								Channels:    channels(idx, d1, d2),
+								Authorities: authorities,
 							})).To(MatchError(validate.ErrValidation))
 							Expect(w.Close()).To(MatchError(validate.ErrValidation))
 						},
+						Entry(
+							"fewer authorities than channels",
+							func(idx, d1, d2 cesium.ChannelKey) []cesium.ChannelKey {
+								return []cesium.ChannelKey{idx, d1, d2}
+							},
+							[]control.Authority{10, 200},
+						),
+						Entry(
+							"more authorities than channels",
+							func(idx, d1, d2 cesium.ChannelKey) []cesium.ChannelKey {
+								return []cesium.ChannelKey{idx, d1}
+							},
+							[]control.Authority{10, 200, 30},
+						),
+						Entry(
+							"several authorities with no channels",
+							func(idx, d1, d2 cesium.ChannelKey) []cesium.ChannelKey {
+								return nil
+							},
+							[]control.Authority{10, 200},
+						),
 					)
 
 					It("Should set the authority of writers", func(ctx SpecContext) {

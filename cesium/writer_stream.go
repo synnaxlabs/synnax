@@ -197,8 +197,7 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 	if len(cfg.Authorities) == 0 {
 		return nil
 	}
-	if len(cfg.Channels) > 0 &&
-		len(cfg.Authorities) != 1 &&
+	if len(cfg.Authorities) != 1 &&
 		len(cfg.Authorities) != len(cfg.Channels) {
 		return errors.Wrap(
 			validate.ErrValidation,
