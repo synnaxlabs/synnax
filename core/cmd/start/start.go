@@ -82,8 +82,11 @@ var DefaultCoreConfig = CoreConfig{
 	certFactoryConfig: cert.DefaultFactoryConfig,
 	// a Core installed before the flag existed starts without it
 	sessionIdleTimeout: auth.DefaultIdleTimeout,
-	shutdownTimeout:    time.Minute,
+	shutdownTimeout:    DefaultShutdownTimeout,
 }
+
+// DefaultShutdownTimeout is the longest time a Core waits for its components to close.
+const DefaultShutdownTimeout = time.Minute
 
 // driverEnabled reports whether the embedded Driver starts with this Core.
 func (c CoreConfig) driverEnabled() bool { return c.noDriver != nil && !*c.noDriver }
@@ -212,8 +215,9 @@ func (c CoreConfig) resolveSecretsKey() (secret.EncryptionKey, error) {
 // CoreConfigs.
 //
 // The lifetime of every component derives from root. The Core runs until stop ends,
-// then closes its server, app, services, and storage in that order. Shutdown ends with
-// an error once the shutdown timeout passes.
+// then closes its Driver, server, services, distribution, and storage in that order.
+// Each lifetime ends once its component closes. Shutdown ends with an error once the
+// shutdown timeout passes.
 func BootupCore(
 	root context.Context,
 	stop context.Context,
@@ -252,6 +256,15 @@ func BootupCore(
 		// update is the update of the data that this start did not commit yet.
 		update *storage.Update
 	)
+	// lifetime returns a context that ends once the component opened next closes.
+	lifetime := func() context.Context {
+		ctx, cancel := context.WithCancel(life)
+		closer = append(closer, xio.CloserFunc(func() error {
+			cancel()
+			return nil
+		}))
+		return ctx
+	}
 	ok := func(err error, c io.Closer) bool {
 		if err != nil {
 			return false
@@ -265,8 +278,10 @@ func BootupCore(
 		if err == nil && stop.Err() == nil {
 			return
 		}
-		err = errors.Combine(err, shutDown(root, cfg.shutdownTimeout, closer))
-		if update != nil {
+		shutdownErr := shutDown(root, cfg.shutdownTimeout, closer)
+		err = errors.Combine(err, shutdownErr)
+		// Storage may still be closing, and the next start undoes the update.
+		if update != nil && !errors.Is(shutdownErr, context.DeadlineExceeded) {
 			err = update.Undo(stop, errors.Combine(err, stop.Err()))
 		}
 	}()
@@ -290,29 +305,27 @@ func BootupCore(
 	}
 	cfg.L.Info("using working directory", zap.String("dir", workDir))
 
-	storageLife, stopStorage := context.WithCancel(life)
-	storageLayer, err := storage.OpenLayer(storageLife, storage.LayerConfig{
+	storageLayer, err := storage.OpenLayer(lifetime(), storage.LayerConfig{
 		Instrumentation:      cfg.Child("storage"),
 		InMemory:             cfg.memBacked,
 		Dirname:              cfg.dataPath,
 		Version:              vsn,
 		UpdateBackupDisabled: cfg.updateBackupDisabled,
 	})
-	if !ok(err, withLifetime(stopStorage, storageLayer)) {
+	if !ok(err, storageLayer) {
 		return err
 	}
 	update = storageLayer.Update
 
-	distributionLife, stopDistribution := context.WithCancel(life)
 	distributionLayer, err := distribution.OpenLayer(
-		distributionLife,
+		lifetime(),
 		distribution.LayerConfig{
 			Instrumentation:  cfg.Child("distribution"),
 			AdvertiseAddress: cfg.listeners.AdvertiseAddress(),
 			Storage:          storageLayer,
 		},
 	)
-	if !ok(err, withLifetime(stopDistribution, distributionLayer)) {
+	if !ok(err, distributionLayer) {
 		return err
 	}
 
@@ -321,8 +334,7 @@ func BootupCore(
 		return err
 	}
 
-	serviceLife, stopService := context.WithCancel(life)
-	serviceLayer, err := service.OpenLayer(serviceLife, service.LayerConfig{
+	serviceLayer, err := service.OpenLayer(lifetime(), service.LayerConfig{
 		Instrumentation:    cfg.Child("service"),
 		Distribution:       distributionLayer,
 		Security:           securityProvider,
@@ -338,7 +350,7 @@ func BootupCore(
 		ValidateChannelNames: cfg.validateChannelNames,
 		SecretsKey:           secretsKey,
 	})
-	if !ok(err, withLifetime(stopService, serviceLayer)) {
+	if !ok(err, serviceLayer) {
 		return err
 	}
 
@@ -367,9 +379,8 @@ func BootupCore(
 		return err
 	}
 
-	serverLife, stopServer := context.WithCancel(life)
 	var r *http.Router
-	if r, err = http.NewRouter(serverLife, http.RouterConfig{
+	if r, err = http.NewRouter(lifetime(), http.RouterConfig{
 		Instrumentation:     cfg.Instrumentation,
 		StreamWriteDeadline: cfg.slowConsumerTimeout,
 	}); !ok(err, nil) {
@@ -415,7 +426,7 @@ func BootupCore(
 			Instrumentation: cfg.Child("server"),
 			Security:        server.SecurityConfig{Insecure: cfg.insecure},
 		},
-	); !ok(err, withLifetime(stopServer, rootServer)) {
+	); !ok(err, rootServer) {
 		return err
 	}
 
@@ -431,9 +442,8 @@ func BootupCore(
 
 	licenseInfo := serviceLayer.License.Retrieve()
 	covered := licenseInfo.State == license.StateOk
-	driverLife, stopDriver := context.WithCancel(life)
 	if embeddedDriver, err := driver.Open(
-		driverLife,
+		lifetime(),
 		driver.Config{
 			Enabled:  new(!*cfg.noDriver),
 			Insecure: cfg.insecure,
@@ -457,7 +467,7 @@ func BootupCore(
 			TaskPollInterval:    cfg.taskPollInterval,
 			TaskOpTimeout:       cfg.taskOpTimeout,
 		},
-	); !ok(err, withLifetime(stopDriver, embeddedDriver)) {
+	); !ok(err, embeddedDriver) {
 		return err
 	}
 
@@ -500,14 +510,6 @@ func BootupCore(
 	}
 	<-stop.Done()
 	return nil
-}
-
-// withLifetime returns a closer that ends the lifetime of c, then closes c.
-func withLifetime(end context.CancelFunc, c io.Closer) io.Closer {
-	return xio.CloserFunc(func() error {
-		end()
-		return c.Close()
-	})
 }
 
 // shutDown closes c, or returns an error once timeout passes first.

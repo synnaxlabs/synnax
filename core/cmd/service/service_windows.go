@@ -39,8 +39,7 @@ const (
 	// that its start makes progress. The start has no time limit, because the first
 	// start of a new version migrates the data.
 	startCheckpointInterval = 5 * time.Second
-	shutdownTimeout         = 30 * time.Second
-	stopTimeout             = shutdownTimeout + 15*time.Second
+	stopTimeout             = cmdstart.DefaultShutdownTimeout + 15*time.Second
 	stopPollInterval        = 250 * time.Millisecond
 	name                    = "SynnaxCore"
 )
@@ -452,12 +451,6 @@ o:
 			s.ins.L.Error("service shutdown unexpectedly")
 			break o
 		}
-	}
-	select {
-	case <-sCtx.Stopped():
-	case <-time.After(shutdownTimeout):
-		s.ins.L.Error("service shutdown timed out")
-		return false, 1
 	}
 	if err := sCtx.Wait(); errors.Skip(err, context.Canceled) != nil {
 		s.ins.L.Error("service failed", zap.Error(err))

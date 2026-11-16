@@ -249,6 +249,13 @@ The time between task timeout checks in the embedded Driver.
 
 </Field.Item>
 
+<Field.Item name="--shutdown-timeout" type="duration" default='"1m"' env="SYNNAX_SHUTDOWN_TIMEOUT">
+
+The longest time the Core waits for its components to close when it shuts down. After
+this time, the Core exits with an error.
+
+</Field.Item>
+
 <Field.Item name="--task-shutdown-timeout" type="duration" default='"30s"' env="SYNNAX_TASK_SHUTDOWN_TIMEOUT">
 
 The longest time the embedded Driver waits for task workers when it shuts down. After
@@ -343,6 +350,7 @@ Example files:
   "enable-integrations": [],
   "task-op-timeout": "60s",
   "task-poll-interval": "1s",
+  "shutdown-timeout": "1m",
   "task-shutdown-timeout": "30s",
   "task-worker-count": 4,
   "log-file-path": "./synnax-logs/synnax.log",
@@ -378,6 +386,7 @@ disable-integrations: []
 enable-integrations: []
 task-op-timeout: 60s
 task-poll-interval: 1s
+shutdown-timeout: 1m
 task-shutdown-timeout: 30s
 task-worker-count: 4
 log-file-path: ./synnax-logs/synnax.log
@@ -412,6 +421,7 @@ disable-integrations = []
 enable-integrations = []
 task-op-timeout = "60s"
 task-poll-interval = "1s"
+shutdown-timeout = "1m"
 task-shutdown-timeout = "30s"
 task-worker-count = 4
 log-file-path = "./synnax-logs/synnax.log"

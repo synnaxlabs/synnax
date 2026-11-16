@@ -116,7 +116,7 @@ func AddFlags(cmd *cobra.Command) {
 	)
 	cmd.Flags().Duration(
 		FlagShutdownTimeout,
-		time.Minute,
+		DefaultShutdownTimeout,
 		"Max time to wait for the Core to shut down",
 	)
 	cmd.Flags().Int(
