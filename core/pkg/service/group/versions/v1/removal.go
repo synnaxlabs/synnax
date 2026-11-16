@@ -12,6 +12,8 @@ package v1
 import (
 	"context"
 	"fmt"
+	"strings"
+	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
@@ -20,8 +22,8 @@ import (
 
 // The reasons a migration removes a member from a group.
 const (
-	// RemovedDuplicate is a member of several groups that stays only in the group
-	// that comes first by name.
+	// RemovedDuplicate is a member of several groups that stays only in the group that
+	// comes first by name.
 	RemovedDuplicate ontology.RelationshipType = "v61_removed_duplicate"
 	// RemovedUnheld is a member of a group whose scope cannot hold its type.
 	RemovedUnheld ontology.RelationshipType = "v61_removed_unheld"
@@ -78,11 +80,13 @@ var descriptions = map[ontology.RelationshipType]func(
 }
 
 // removedFromType is the type of the source of a staged removal edge. Its key is the
-// name of the group, since a later migration can delete the group.
+// key and the name of the group, since a later migration can delete the group.
 const removedFromType resource.Type = "v61_removed_from"
 
 // Removal is a member that a migration removed from a group.
 type Removal struct {
+	// Group is the key of the group.
+	Group Key
 	// GroupName is the name of the group, as it was when the member was removed.
 	GroupName string
 	// Member is the removed member.
@@ -98,7 +102,10 @@ func StageRemovals(ctx context.Context, tx gorp.Tx, removals ...Removal) error {
 	rels := make([]ontology.Relationship, len(removals))
 	for i, r := range removals {
 		rels[i] = ontology.Relationship{
-			From: resource.ID{Type: removedFromType, Key: r.GroupName},
+			From: resource.ID{
+				Type: removedFromType,
+				Key:  r.Group.String() + "/" + r.GroupName,
+			},
 			Type: r.Reason,
 			To:   r.Member,
 		}
@@ -130,7 +137,12 @@ func RetrieveRemovals(ctx context.Context, tx gorp.Tx) ([]Removal, error) {
 	}
 	out := make([]Removal, len(rels))
 	for i, r := range rels {
-		out[i] = Removal{GroupName: r.From.Key, Member: r.To, Reason: r.Type}
+		key, name, _ := strings.Cut(r.From.Key, "/")
+		g, err := uuid.Parse(key)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = Removal{Group: g, GroupName: name, Member: r.To, Reason: r.Type}
 	}
 	return out, nil
 }

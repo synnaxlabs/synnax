@@ -143,6 +143,7 @@ func splitGroups(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) er
 			)
 			remove(e)
 			rackless = append(rackless, groupv1.Removal{
+				Group:     g.Key,
 				GroupName: g.Name,
 				Member:    e.To,
 				Reason:    groupv1.RemovedRackless,

@@ -241,7 +241,6 @@ var _ = Describe("ParentMigration", func() {
 			dropped(mixed, "Mixed", schem),
 			dropped(inProj, "In Project", channel),
 			dropped(b, "B", twoGrps),
-			dropped(nested, "Nested", subProj),
 			dropped(inTasks, "Task Folder", task),
 		))
 	})
@@ -255,10 +254,11 @@ var _ = Describe("ParentMigration", func() {
 	)
 
 	It(
-		"Should drop a project from a group under a project",
+		"Should leave a project in a group under a project to the member migrations",
 		func(ctx SpecContext) {
-			Expect(edges(ctx, db)).
-				ToNot(ContainElement(parentOf(groupID(nested), subProj)))
+			Expect(
+				edges(ctx, db),
+			).To(ContainElement(parentOf(groupID(nested), subProj)))
 		},
 	)
 
@@ -270,34 +270,34 @@ var _ = Describe("ParentMigration", func() {
 		})).To(Succeed())
 		Expect(removals).To(ConsistOf(
 			v1.Removal{
+				Group:     mixed,
 				GroupName: "Mixed",
 				Member:    channel,
 				Reason:    v1.RemovedWithGroup,
 			},
 			v1.Removal{
+				Group:     mixed,
 				GroupName: "Mixed",
 				Member:    schem,
 				Reason:    v1.RemovedWithGroup,
 			},
 			v1.Removal{
+				Group:     inProj,
 				GroupName: "In Project",
 				Member:    channel,
 				Reason:    v1.RemovedUnheld,
 			},
 			v1.Removal{
+				Group:     b,
 				GroupName: "B",
 				Member:    twoGrps,
 				Reason:    v1.RemovedDuplicate,
 			},
 			v1.Removal{
+				Group:     inTasks,
 				GroupName: "Task Folder",
 				Member:    task,
 				Reason:    v1.RemovedWithGroup,
-			},
-			v1.Removal{
-				GroupName: "Nested",
-				Member:    subProj,
-				Reason:    v1.RemovedPinned,
 			},
 		))
 	})
@@ -314,8 +314,7 @@ var _ = Describe("ParentMigration", func() {
 			kept := slices.DeleteFunc(
 				slices.Clone(members),
 				func(e ontology.Relationship) bool {
-					return e == parentOf(groupID(b), twoGrps) ||
-						e == parentOf(groupID(nested), subProj)
+					return e == parentOf(groupID(b), twoGrps)
 				},
 			)
 			Expect(parentEdges).To(ConsistOf(
@@ -407,6 +406,49 @@ var _ = Describe("MembersMigration", func() {
 		"Should leave a member under a group of another scope with no group",
 		func(ctx SpecContext) {
 			Expect(migrate(ctx, false)[4].Group).To(BeNil())
+		},
+	)
+
+	It(
+		"Should stage a removal for a rack in a group under a rack",
+		func(ctx SpecContext) {
+			rack := resource.ID{Type: resource.TypeRack, Key: "65537"}
+			bench := v1.Group{
+				Key:    uuid.New(),
+				Name:   "Bench",
+				Scope:  resource.TypeDevice,
+				Parent: &rack,
+			}
+			Expect(gorp.NewCreate[v1.Key, v1.Group]().Entry(&bench).Exec(ctx, db)).
+				To(Succeed())
+			member := resource.ID{Type: resource.TypeRack, Key: logs[0].Key.String()}
+			createEdges(ctx, db, parentOf(groupID(bench.Key), member))
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:        db,
+				Namespace: "rack",
+				Migrations: []gorp.Migration{
+					v1.NewMembersMigration(v1.MembersConfig[log.Key, log.Log]{
+						Name:     "members",
+						Type:     resource.TypeRack,
+						SetGroup: func(l *log.Log, g v1.Key) { l.Group = &g },
+					}),
+				},
+			})).To(Succeed())
+			var l log.Log
+			Expect(gorp.NewRetrieve[log.Key, log.Log]().
+				Where(gorp.MatchKeys[log.Key, log.Log](logs[0].Key)).
+				Entry(&l).
+				Exec(ctx, db)).To(Succeed())
+			Expect(l.Group).To(BeNil())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				Expect(v1.RetrieveRemovals(ctx, tx)).To(ConsistOf(v1.Removal{
+					Group:     bench.Key,
+					GroupName: "Bench",
+					Member:    member,
+					Reason:    v1.RemovedPinned,
+				}))
+				return nil
+			})).To(Succeed())
 		},
 	)
 

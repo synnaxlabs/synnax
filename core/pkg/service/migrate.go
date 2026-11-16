@@ -85,7 +85,7 @@ func newGroupRemovalReport(
 			for _, r := range removals {
 				name, ok := names[r.Member]
 				if !ok {
-					continue
+					name = r.Member.Key
 				}
 				noun := strings.ReplaceAll(string(r.Member.Type), "_", " ")
 				s := status.Status[any]{

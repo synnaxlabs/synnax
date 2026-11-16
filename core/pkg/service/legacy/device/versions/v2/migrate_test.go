@@ -277,6 +277,7 @@ var _ = Describe("Group migrations", func() {
 		Expect(retrieveGroups(ctx)).To(HaveLen(2))
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			Expect(groupv1.RetrieveRemovals(ctx, tx)).To(ConsistOf(groupv1.Removal{
+				Group:     loose,
 				GroupName: "Loose",
 				Member:    deviceID("a"),
 				Reason:    groupv1.RemovedRackless,

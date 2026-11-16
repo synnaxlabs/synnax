@@ -55,13 +55,20 @@ var memberScopes = map[resource.Type]resource.Type{
 	resource.TypeSchematicSymbol: resource.TypeSchematicSymbol,
 }
 
-// topLevelTypes are the member types that can sit only in a group chain with no
-// project or rack at its top.
+// topLevelTypes are the member types that can sit only in a group chain with no project
+// or rack at its top.
 var topLevelTypes = set.New(
 	resource.TypeProject,
 	legacyWorkspaceType,
 	resource.TypeRack,
 )
+
+// pinned reports whether a member of type t cannot sit in g, because g's chain has a
+// project or rack at its top.
+func pinned(g Group, t resource.Type, byKey map[string]Group) bool {
+	_, ok := TopParent(g, byKey)
+	return ok && topLevelTypes.Contains(t)
+}
 
 // legacyRangesRoot names the built-in root of the legacy range groups. The range
 // migration reads the edges under it, so ParentMigration keeps them.
@@ -255,7 +262,7 @@ func migrateParents(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation)
 		)
 		removals = append(
 			removals,
-			Removal{GroupName: g.Name, Member: e.To, Reason: reason},
+			Removal{Group: g.Key, GroupName: g.Name, Member: e.To, Reason: reason},
 		)
 	}
 	for _, e := range edges {
@@ -276,9 +283,8 @@ func migrateParents(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation)
 			remove(e, RemovedUnheld)
 			continue
 		}
-		if _, ok := TopParent(*g, values); ok && topLevelTypes.Contains(e.To.Type) {
-			remove(e, RemovedPinned)
-			overruled = append(overruled, e)
+		// The member migrations remove a pinned member from its group.
+		if pinned(*g, e.To.Type, values) {
 			continue
 		}
 		if _, ok := candidates[e.To]; !ok {
@@ -333,7 +339,8 @@ type MembersConfig[K gorp.Key, E gorp.Entry[K]] struct {
 
 // NewMembersMigration returns a migration that sets the group of each member from the
 // parent edge that points at it from a group whose scope holds Type. It then deletes
-// every parent edge from a group to a member.
+// every parent edge from a group to a member. It stages a removal for each project or
+// rack in a group whose chain has a project or rack at its top.
 func NewMembersMigration[K gorp.Key, E gorp.Entry[K]](
 	cfg MembersConfig[K, E],
 ) gorp.Migration {
@@ -371,10 +378,28 @@ func migrateMembers[K gorp.Key, E gorp.Entry[K]](
 	for _, g := range groups {
 		byKey[g.Key.String()] = g
 	}
-	memberGroups := make(map[string]Group, len(edges))
+	var (
+		memberGroups = make(map[string]Group, len(edges))
+		removals     []Removal
+	)
 	for _, e := range edges {
 		g, ok := byKey[e.From.Key]
 		if !ok || g.Scope != memberScopes[cfg.Type] {
+			continue
+		}
+		if pinned(g, cfg.Type, byKey) {
+			ins.L.Warn(
+				"dropped a member from a group outside its pinned parent",
+				zap.Stringer("group", g.Key),
+				zap.String("group_name", g.Name),
+				zap.Stringer("member", e.To),
+			)
+			removals = append(removals, Removal{
+				Group:     g.Key,
+				GroupName: g.Name,
+				Member:    e.To,
+				Reason:    RemovedPinned,
+			})
 			continue
 		}
 		if _, ok = memberGroups[e.To.Key]; !ok {
@@ -411,6 +436,9 @@ func migrateMembers[K gorp.Key, E gorp.Entry[K]](
 		return err
 	}
 	if err = ontology.DeleteRelationships(ctx, tx, edges...); err != nil {
+		return err
+	}
+	if err = StageRemovals(ctx, tx, removals...); err != nil {
 		return err
 	}
 	return gorp.WrapWriter[string, ontology.Relationship](tx).Set(ctx, owners...)
