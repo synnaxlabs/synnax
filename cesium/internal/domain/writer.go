@@ -156,6 +156,10 @@ type Writer struct {
 	// started denotes whether the writer has a start. A writer without one cannot
 	// write.
 	started bool
+	// staged denotes whether the index holds a staged domain at stagedStart for the
+	// writer's last commit in a Group.
+	staged      bool
+	stagedStart telem.TimeStamp
 	// closed denotes whether the writer is closed. A closed writer returns an error
 	// when attempts to Write or Commit with it are made.
 	closed bool
@@ -294,6 +298,14 @@ func (w *Writer) Write(p []byte) (int, error) {
 // WriterCommit.AutoIndexPersistInterval is greater than 0, then the changes committed
 // would only be persisted to disk after the set interval.
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
+	return w.CommitIn(ctx, end, nil)
+}
+
+// CommitIn is Commit for a commit in g: readers see the domain as it was before the
+// commit until g publishes. A writer holds one such domain at a time, so readers also
+// see it once the writer commits to another domain or closes. A nil g commits as
+// Commit does.
+func (w *Writer) CommitIn(ctx context.Context, end telem.TimeStamp, g *Group) error {
 	var (
 		now = w.clock.Now()
 		// the only time we do not shouldPersist is when EnableAutoCommit and the
@@ -306,13 +318,14 @@ func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 		w.lastIndexPersist = now
 	}
 
-	return w.commit(ctx, end, shouldPersist)
+	return w.commit(ctx, end, shouldPersist, g)
 }
 
 func (w *Writer) commit(
 	ctx context.Context,
 	end telem.TimeStamp,
 	shouldPersist bool,
+	g *Group,
 ) error {
 	ctx, span := w.T.Prod(ctx, "commit")
 	defer span.End()
@@ -351,10 +364,14 @@ func (w *Writer) commit(
 	}
 	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
 
-	write, err := f(ctx, ptr, shouldPersist)
+	write, err := f(ctx, ptr, shouldPersist, g)
 	if err != nil {
 		return span.Error(err)
 	}
+	if w.staged && w.stagedStart != ptr.Start {
+		w.idx.unstage(w.stagedStart)
+	}
+	w.staged, w.stagedStart = g != nil, ptr.Start
 	// The index holds the pointer even when persisting it fails, so a retry updates it.
 	w.prevCommit = commitEnd
 	if shouldPersist {
@@ -405,6 +422,10 @@ func (w *Writer) Close() error {
 func (w *Writer) release() error {
 	defer w.onClose()
 	w.closed = true
+	if w.staged {
+		w.idx.unstage(w.stagedStart)
+		w.staged = false
+	}
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 {
 		return w.idx.persist()
 	}
