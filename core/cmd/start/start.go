@@ -266,8 +266,8 @@ func BootupCore(
 			return
 		}
 		err = errors.Combine(err, shutDown(root, cfg.shutdownTimeout, closer))
-		if err != nil && update != nil {
-			err = update.Undo(root, err)
+		if update != nil {
+			err = update.Undo(stop, errors.Combine(err, stop.Err()))
 		}
 	}()
 
