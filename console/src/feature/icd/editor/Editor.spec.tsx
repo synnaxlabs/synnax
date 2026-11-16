@@ -75,15 +75,19 @@ const createMessage = (
   payload: { format: "binary", fields },
 });
 
-const createJSONField = (name: string, pointer: string): icd.JSONField => ({
+const createJSONBase = (name: string, pointer: string) => ({
   key: uuid.create(),
   name,
-  type: "float",
   pointer,
-  enumValues: [],
   scale: 1,
   offset: 0,
   units: "",
+});
+
+const createJSONField = (name: string, pointer: string): icd.JSONField => ({
+  ...createJSONBase(name, pointer),
+  type: "float",
+  enumValues: [],
 });
 
 const createJSONMessage = (fields: icd.JSONField[]): icd.Message => ({
@@ -101,6 +105,16 @@ const createTextMessage = (): icd.Message => ({
 const retrieveMessage = async (key: icd.Key): Promise<icd.Message> => {
   const [message] = (await client.icds.retrieve({ key })).messages;
   return message;
+};
+
+const retrieveJSONField = async (key: icd.Key): Promise<icd.JSONField> => {
+  const { payload } = await retrieveMessage(key);
+  if (payload.format !== "json") throw new Error("expected a JSON message");
+  return payload.fields[0];
+};
+
+const openOptions = async (row: number): Promise<void> => {
+  fireEvent.click(await screen.findByRole("button", { name: `Options ${row}` }));
 };
 
 const retrieveNames = async (key: icd.Key): Promise<string[]> =>
@@ -322,6 +336,93 @@ describe("ICD editor", () => {
     );
   });
 
+  it("should map labels to the values of a JSON field", async () => {
+    const ic = await createICD([
+      createJSONMessage([
+        { ...createJSONBase("State", "/state"), type: "integer", enumValues: [] },
+      ]),
+    ]);
+    await renderEditor(ic);
+    await openOptions(1);
+    fireEvent.click(await screen.findByRole("button", { name: "Add mapping" }));
+    await commit("Label", 1, "RUN");
+    await commit("Value", 1, "1");
+    await waitFor(async () =>
+      expect(await retrieveJSONField(ic.key)).toMatchObject({
+        type: "integer",
+        enumValues: [{ label: "RUN", value: "1" }],
+      }),
+    );
+    expect(await screen.findByText("1 mapping")).toBeTruthy();
+  });
+
+  it("should set and remove the default of an optional JSON field", async () => {
+    const ic = await createICD([createJSONMessage([createJSONField("Temp", "/temp")])]);
+    await renderEditor(ic);
+    await openOptions(1);
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Optional" }));
+    await waitFor(async () =>
+      expect(await retrieveJSONField(ic.key)).toMatchObject({ default: 0 }),
+    );
+    expect(await screen.findByText("Default 0")).toBeTruthy();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Optional" }));
+    await waitFor(async () =>
+      expect(await retrieveJSONField(ic.key)).not.toHaveProperty("default"),
+    );
+    expect(await screen.findByText("None")).toBeTruthy();
+  });
+
+  it("should store the default of an integer JSON field as text", async () => {
+    const ic = await createICD([
+      createJSONMessage([
+        { ...createJSONBase("State", "/state"), type: "unsigned", enumValues: [] },
+      ]),
+    ]);
+    await renderEditor(ic);
+    await openOptions(1);
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Optional" }));
+    const input = await screen.findByLabelText<HTMLInputElement>("Default");
+    fireEvent.change(input, { target: { value: "18446744073709551615" } });
+    fireEvent.blur(input);
+    await waitFor(async () =>
+      expect(await retrieveJSONField(ic.key)).toMatchObject({
+        default: "18446744073709551615",
+      }),
+    );
+  });
+
+  it("should set the default of a boolean JSON field", async () => {
+    const ic = await createICD([
+      createJSONMessage([
+        {
+          ...createJSONBase("Valve", "/valve"),
+          type: "boolean",
+          enumValues: [{ label: "OPEN", value: true }],
+        },
+      ]),
+    ]);
+    await renderEditor(ic);
+    expect(await screen.findByText("1 mapping")).toBeTruthy();
+    await openOptions(1);
+    expect(await screen.findByDisplayValue("OPEN")).toBeTruthy();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Optional" }));
+    fireEvent.click(await screen.findByText("True"));
+    await waitFor(async () =>
+      expect(await retrieveJSONField(ic.key)).toMatchObject({ default: true }),
+    );
+    expect(await screen.findByText("Default True, 1 mapping")).toBeTruthy();
+  });
+
+  it("should open no options for a JSON field that holds any value", async () => {
+    const ic = await createICD([
+      createJSONMessage([{ ...createJSONBase("Raw", "/raw"), type: "json" }]),
+    ]);
+    await renderEditor(ic);
+    await openOptions(1);
+    expect(screen.getByText("None")).toBeTruthy();
+    expect(screen.queryByText("Optional")).toBeNull();
+  });
+
   it("should store an edit that leaves a problem", async () => {
     const ic = await createICD([
       createMessage([createBinaryField("Rpm", 0), createBinaryField("Temp", 8)]),
@@ -426,6 +527,24 @@ describe("ICD editor", () => {
     expect(screen.queryByRole("button", { name: "Add field" })).toBeNull();
     expect(screen.queryByText("Add message")).toBeNull();
     expect(screen.queryByRole("button", { name: "Import" })).toBeNull();
+  });
+
+  it("should show a viewer the options of a JSON field without editing them", async () => {
+    const ic = await createICD([
+      createJSONMessage([
+        {
+          ...createJSONBase("State", "/state"),
+          type: "string",
+          enumValues: [{ label: "ON", value: "running" }],
+          default: "idle",
+        },
+      ]),
+    ]);
+    await renderEditor(ic, await createTestClientWithRole(client, "Viewer"));
+    await openOptions(1);
+    expect(await screen.findByText("running")).toBeTruthy();
+    expect(screen.getByText('Default "idle", 1 mapping')).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Add mapping" })).toBeNull();
   });
 
   it("should add a tagged field before it has a tag", async () => {
