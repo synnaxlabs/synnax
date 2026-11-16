@@ -39,8 +39,8 @@ linters:
     - errname # The namespace names the type: diagnostics.Diagnostics.
     - exhaustruct_v5 # Zero values are meaningful defaults.
     - funcorder # Methods follow reading order, not export status.
-    # AGENTS.md allows package vars that are never mutated, and gochecknoglobals cannot
-    # tell them from mutable ones. #6085 removed the mutable globals.
+    # The code holds no mutable globals. AGENTS.md allows package vars that are never
+    # mutated, and gochecknoglobals cannot tell them from mutable ones.
     - gochecknoglobals
     - gomoddirectives # Sibling replace directives link the modules.
     - goconst # Repeated literals in specs and codegen read better inline.
