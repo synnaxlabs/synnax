@@ -1069,6 +1069,29 @@ var _ = Describe("Go Query Plugin", func() {
 					ToNotContain("func (r Retrieve) Search(")
 			})
 
+			It("Should name the records in docs by a @retrieve noun", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@go output "core/pkg/service/color"
+
+					Named struct {
+						key  uint64 { @key }
+						name string { @search }
+						@retrieve noun "color"
+					}
+				`
+				resp := MustGenerate(ctx, source, "color", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"// MatchSearch matches the colors whose text matches term.",
+						"// Entry binds the provided color as the result",
+						"// Limit sets the maximum number of colors to return.",
+					).
+					ToNotContain("nameds", "provided named ")
+			})
+
 			It("Should leave out MatchSearch with no @search field", func(
 				ctx SpecContext,
 			) {

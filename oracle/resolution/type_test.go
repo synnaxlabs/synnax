@@ -49,6 +49,36 @@ var _ = Describe("RetrieveKey", func() {
 	})
 })
 
+var _ = Describe("RetrieveNoun", func() {
+	withNoun := func(values ...resolution.ExpressionValue) resolution.Type {
+		return resolution.Type{
+			Domains: map[string]resolution.Domain{"retrieve": {
+				Name: "retrieve",
+				Expressions: resolution.Expressions{
+					{Name: "noun", Values: values},
+				},
+			}},
+		}
+	}
+
+	It("Should return the declared noun", func() {
+		Expect(MustBeOk(resolution.RetrieveNoun(withNoun(resolution.ExpressionValue{
+			Kind:        resolution.ValueKindString,
+			StringValue: "named color",
+		})))).To(Equal("named color"))
+	})
+
+	It("Should return false for a type with no @retrieve noun", func() {
+		_, ok := resolution.RetrieveNoun(resolution.Type{})
+		Expect(ok).To(BeFalse())
+	})
+
+	It("Should return false for a noun with no value", func() {
+		_, ok := resolution.RetrieveNoun(withNoun())
+		Expect(ok).To(BeFalse())
+	})
+})
+
 var _ = Describe("InFilterRequest", func() {
 	var table *resolution.Table
 	BeforeEach(func() {
