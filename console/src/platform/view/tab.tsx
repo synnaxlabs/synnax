@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel, query, view } from "@synnaxlabs/client";
+import { panel, query, view } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Panel as PPanel, Synnax, View as PView } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
@@ -81,21 +82,48 @@ export interface OpenExplorerParams {
 }
 
 /**
- * Returns a callback that focuses the panel's explorer of the type, whichever view it
- * shows. It opens one on the static view only when the panel has none.
+ * Returns a callback that focuses the first explorer of the type in the panel,
+ * whichever view it shows. It opens one on the static view only when the panel has
+ * none.
  */
 export const useOpenExplorer = ({
   resourceType,
   tabType,
 }: OpenExplorerParams): (() => void) => {
   const openTab = Panel.useOpenTab();
+  const panelKey = Panel.useActiveKey();
   const client = Synnax.use();
-  // The tab name of a saved view loads it, so its type is in the cache.
-  const isExplorer = (tab: panel.Tab): boolean => {
-    if (tab.variant === "view") return tab.type === tabType;
-    if (tab.resource.type !== TAB_TYPE) return false;
-    const cached = client?.views.watch(tab.resource.key).getCached();
-    return query.isLive(cached) && cached.type === resourceType;
+  const handleError = Status.useErrorHandler();
+  // A tab on a saved view holds only the view's key, so the views tell which tabs are
+  // explorers of the type.
+  const retrieveExplorers = async (): Promise<Set<view.Key>> => {
+    const cached =
+      panelKey == null ? undefined : client?.panels.watch(panelKey).getCached();
+    if (client == null || !query.isLive(cached)) return new Set();
+    const keys = panel
+      .tabs(cached.root)
+      .flatMap((tab) =>
+        tab.variant === "resource" && tab.resource.type === TAB_TYPE
+          ? [tab.resource.key]
+          : [],
+      );
+    if (keys.length === 0) return new Set();
+    const views = await client.views.retrieve({
+      where: { key: { in: keys }, type: { eq: resourceType } },
+    });
+    return new Set(views.map(({ key }) => key));
   };
-  return () => openTab({ variant: "view", type: tabType }, { focus: isExplorer });
+  return () =>
+    handleError(async () => {
+      const explorers = await retrieveExplorers();
+      openTab(
+        { variant: "view", type: tabType },
+        {
+          focus: (tab) =>
+            tab.variant === "view"
+              ? tab.type === tabType
+              : tab.resource.type === TAB_TYPE && explorers.has(tab.resource.key),
+        },
+      );
+    }, `Failed to open ${resourceType} explorer`);
 };

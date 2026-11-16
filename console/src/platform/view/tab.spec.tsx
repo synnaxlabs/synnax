@@ -122,21 +122,33 @@ describe("View.createTab", () => {
 describe("View.useOpenExplorer", () => {
   const OTHER: panel.NewTab = { variant: "view", type: "other" };
 
-  /** Opens the range explorer from a panel with the other tab focused. */
+  /**
+   * Opens the range explorer from a panel with the other tab focused. A second client
+   * opens it, so no view it decides on is in its cache.
+   */
   const openFrom = async (beside: panel.NewTab[]): Promise<TabWrapper> => {
-    const wrapped = await createTabWrapper({ client, tab: OTHER, beside });
+    const wrapped = await createTabWrapper({
+      client,
+      as: createTestClient(),
+      tab: OTHER,
+      beside,
+    });
     const { result } = renderHook(
       () => View.useOpenExplorer({ resourceType: "range", tabType: "explorer" }),
       { wrapper: wrapped.wrapper },
     );
-    await act(async () => result.current());
+    act(() => result.current());
     return wrapped;
   };
 
+  const explorerOpens = async (panelKey: panel.Key): Promise<void> =>
+    await waitFor(async () => {
+      const { root } = await client.panels.retrieve(panelKey);
+      expect(panel.findTabByType(root, "explorer")).toBeDefined();
+    });
+
   it("focuses a tab that shows a saved view of the type", async () => {
     const saved = await createView();
-    // The tab name of a saved view loads it into the cache.
-    await client.views.retrieve({ key: saved.key });
     const key = uuid.create();
     const { store, panelKey } = await openFrom([{ ...showing(saved), key }]);
     await waitFor(() =>
@@ -150,11 +162,14 @@ describe("View.useOpenExplorer", () => {
 
   it("opens an explorer when the panel shows only a view of another type", async () => {
     const saved = await createView("status");
-    await client.views.retrieve({ key: saved.key });
     const { panelKey } = await openFrom([showing(saved)]);
-    await waitFor(async () => {
-      const { root } = await client.panels.retrieve(panelKey);
-      expect(panel.findTabByType(root, "explorer")).toBeDefined();
-    });
+    await explorerOpens(panelKey);
+  });
+
+  it("opens an explorer when the panel shows only a deleted view", async () => {
+    const saved = await createView();
+    await client.views.delete(saved.key);
+    const { panelKey } = await openFrom([showing(saved)]);
+    await explorerOpens(panelKey);
   });
 });

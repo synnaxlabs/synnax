@@ -95,8 +95,7 @@ export const useOpenTabs = (): OpenTabs => {
     if (!query.isLive(current))
       throw new NotFoundError(`Panel with key ${panelKey} not found`);
     const { singleton, placement, focus } = options ?? {};
-    const existing =
-      focus == null ? undefined : panel.findTabWhere(current.root, focus);
+    const existing = focus == null ? undefined : panel.tabs(current.root).find(focus);
     if (existing != null) return selectTab(existing.key, panelKey);
     const tabs = params.map((p): panel.Tab => panel.tabZ.parse({ ...p }));
     const last = tabs.at(-1);
@@ -203,8 +202,11 @@ export const useOpenTab = (): OpenTab => {
     openTabs([params], options);
 };
 
-// The panel a gesture in this window acts on: the scoped one, else the selected one.
-const useActiveKey = (): panel.Key | null => {
+/**
+ * Returns the key of the panel that a gesture in this window acts on: the scoped one,
+ * else the selected one. Null when there is neither.
+ */
+export const useActiveKey = (): panel.Key | null => {
   const scoped = Panel.useOptionalKey();
   const selected = Session.Panel.useSelectSelected();
   return scoped ?? selected ?? null;
