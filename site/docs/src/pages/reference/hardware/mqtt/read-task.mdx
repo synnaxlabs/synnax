@@ -63,12 +63,14 @@ into a new ICD named after the task, with one message for each topic.
    values to read. For a topic that publishes rarely, click **Add a topic by name**.
 4. Click **Add** _N_ **fields**. Each value becomes a field of the message format of its
    topic.
-5. Select a topic. Under **Message format**, check the **Type** of each field. Click
-   **Add field** to add a value that the dialog did not show.
-6. The fields of each topic are under it in the list. Click the dot of a field to turn
-   it on or off. The task does not read a field that is crossed out.
-7. Select a field to set the **Data type** of its channel.
-8. Click <Icon.Play /> (**Start**).
+5. The fields of each topic are under it in the list. Select a field, and under
+   **Field**, check its **Pointer** and **Type**.
+6. Under **Channel**, set the **Data type** of the field's channel.
+7. Click the dot of a field to turn it on or off. The task does not read a field that is
+   crossed out.
+8. To add a value that the dialog did not show, select the topic and click **Add
+   field**.
+9. Click <Icon.Play /> (**Start**).
 
 The first topic makes an ICD named after the task. Each topic gets a message in it,
 named after the topic. Click **Open in editor** to see the ICD in the ICD editor.
@@ -164,13 +166,10 @@ Number, string, and boolean fields have options.
 <Client.Tabs exclude={["typescript"]}>
   <Fragment slot="console">
 
-1. Select the topic, or its message if the topic reads more than one. Under **Message
-   format**, click the **Options** cell of the field.
+1. Select the field.
 2. To set a default, turn on **Optional**, then enter the **Default**.
 3. To map a label, click **Add mapping** under **Enum mapping**, then enter the
    **Label** and the **Value**.
-
-The **Options** cell shows what you set, such as "Default 0, 2 mappings".
 
   </Fragment>
   <Fragment slot="python">
@@ -254,7 +253,7 @@ in the ICD, with a match rule that tells the task which message a payload is.
 3. Under **Documents**, set **Match** to the type of the value, then enter the
    **Pointer** and the **Value**. A new message tests the pointer of the other rules of
    the topic.
-4. Under **Message format**, click **Add field** to add the fields of the message.
+4. Next to **Message**, click **Add field** to add each field of the message.
 5. Select the first message, and give it a match rule too, or leave it on **Any
    document** to read each payload that meets no rule.
 
@@ -351,7 +350,8 @@ Two messages cannot write to the same channel, an index channel included.
 
 The message format belongs to the ICD, not to the task. An edit to it, in the task tab
 or in the ICD editor, saves at once. Each task that reads the ICD reads its next message
-with the new format, with no restart. Edits to the task itself, such as a field that you
+with the new format, with no restart. This includes **Remove** on a field, which takes
+the field out of each of those tasks. Edits to the task itself, such as a field that you
 turn on, wait until you
 [redeploy the task](/reference/hardware/start-and-stop-tasks#apply-edits-to-a-running-task).
 
@@ -408,8 +408,8 @@ A field of a message has these settings:
 | Scale <small>`scale`</small>              | 1       | Multiplies the value. Needs a float channel.                |
 | Offset <small>`offset`</small>            | 0       | Added after the scale. Needs a float channel.               |
 | Units <small>`units`</small>              | Empty   | The engineering unit of the value.                          |
-| Default <small>`default`</small>          | None    | Written when the payload has no value. Set in **Options**.  |
-| Enum mapping <small>`enum_values`</small> | None    | Maps text labels to values of the type. Set in **Options**. |
+| Default <small>`default`</small>          | None    | Written when the payload has no value. Set in **Optional**. |
+| Enum mapping <small>`enum_values`</small> | None    | Maps text labels to values of the type.                     |
 
 ### Field types
 
