@@ -247,6 +247,10 @@ func referencesAny(
 				}
 			}
 			refs = append(refs, form.Extends...)
+		case resolution.AliasForm:
+			refs = append(refs, form.Target)
+		case resolution.DistinctForm:
+			refs = append(refs, form.Base)
 		}
 	}
 	collect(t.Form)
