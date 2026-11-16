@@ -204,6 +204,7 @@ func Run(
 		case StatusFail:
 			report.TotalRun++
 			report.TotalFailed++
+		case StatusSkipped:
 		}
 	}
 	report.Elapsed = telem.Since(start)
