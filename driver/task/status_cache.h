@@ -60,6 +60,10 @@ public:
     /// @returns the error of the write, or NIL for a task that left this Driver.
     [[nodiscard]] x::errors::Error set(synnax::task::Status &status);
 
+    /// @brief like set, but writes nothing when the task already has a latest status.
+    /// A status of the task set after this call is written after it.
+    [[nodiscard]] x::errors::Error set_if_absent(synnax::task::Status &status);
+
     /// @brief sends the latest status of each task again, stamped now and with no
     /// command key. Waits for a write of a task's own status in progress, then sends
     /// the latest status, so a failed write is repaired too. Writes one task at a time,

@@ -46,6 +46,24 @@ x::errors::Error StatusCache::set(synnax::task::Status &status) {
     return this->write(status);
 }
 
+x::errors::Error StatusCache::set_if_absent(synnax::task::Status &status) {
+    const auto &owner = status.owner.value();
+    std::shared_ptr<Entry> entry;
+    std::unique_lock<std::mutex> entry_lock;
+    {
+        std::lock_guard lock{this->mu};
+        if (this->released.contains(owner) || this->entries.contains(owner))
+            return x::errors::NIL;
+        entry = std::make_shared<Entry>();
+        entry->status = status;
+        entry->status.details.cmd.clear();
+        // Locked before the entry is visible, so a later set waits for this write.
+        entry_lock = std::unique_lock{entry->mu};
+        this->entries[owner] = entry;
+    }
+    return this->write(status);
+}
+
 x::errors::Error StatusCache::resend() {
     // Cleared first, so a write that fails during the re-send marks the cache again.
     this->is_stale = false;
