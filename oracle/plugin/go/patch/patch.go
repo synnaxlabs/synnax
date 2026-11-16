@@ -876,8 +876,10 @@ func zeroDefault(
 		return !v.BoolValue
 	case resolution.ValueKindArray:
 		return len(v.Elements) == 0
-	default:
+	case resolution.ValueKindStruct:
 		return false
+	default:
+		panic(fmt.Sprintf("unknown value kind %d", v.Kind))
 	}
 }
 
@@ -931,6 +933,7 @@ func hashValue(sel string, ptr bool, sh shape, depth int) []string {
 			indent(hashValue(addressable+"["+i+"]", false, *sh.elem, depth+1))...,
 		)
 		return append(lines, "}")
+	case shapePrimitive:
 	}
 	call := func(method, goType string) []string {
 		if sh.converted {
