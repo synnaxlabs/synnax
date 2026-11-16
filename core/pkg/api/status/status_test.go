@@ -528,6 +528,86 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 		)
 	})
 
+	Describe("time", func() {
+		var (
+			key    string
+			stored telem.TimeStamp
+		)
+		BeforeEach(func(ctx SpecContext) {
+			key = uuid.New().String()
+			stored = telem.Now()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).Set(ctx, &status.Status[any]{
+					Variant: status.VariantInfo, Message: "orig", Time: stored,
+					Key: key, Name: "api_time",
+				})
+			})).To(Succeed())
+			grantOn(ctx, author.ResourceID(),
+				[]access.Action{access.ActionUpdate},
+				status.ResourceID(key))
+		})
+
+		retrieve := func(ctx SpecContext) status.Status[any] {
+			GinkgoHelper()
+			var s status.Status[any]
+			Expect(statusSvc.NewRetrieve[any]().
+				Where(status.MatchKeys[any](key)).
+				Entry(&s).
+				Exec(ctx, db)).To(Succeed())
+			return s
+		}
+
+		It("Should keep the time from the request", func(ctx SpecContext) {
+			set := stored.Add(telem.Second)
+			Expect(setByKeyOrName(
+				AuthedCtx(ctx, author),
+				apistatus.SetByKeyOrNameRequest{
+					KeyOrName: key,
+					Message:   "updated",
+					Variant:   status.VariantSuccess,
+					Time:      set,
+				},
+			)).To(Equal(apistatus.SetByKeyOrNameResponse{Key: key}))
+			s := retrieve(ctx)
+			Expect(s.Time).To(Equal(set))
+			Expect(s.Message).To(Equal("updated"))
+		})
+
+		It("Should stamp now when the time is zero", func(ctx SpecContext) {
+			before := telem.Now()
+			MustSucceed(setByKeyOrName(
+				AuthedCtx(ctx, author),
+				apistatus.SetByKeyOrNameRequest{
+					KeyOrName: key,
+					Message:   "updated",
+					Variant:   status.VariantSuccess,
+				},
+			))
+			s := retrieve(ctx)
+			Expect(s.Time).To(BeNumerically(">=", before))
+			Expect(s.Message).To(Equal("updated"))
+		})
+
+		It(
+			"Should not replace a stored status that is newer than the request",
+			func(ctx SpecContext) {
+				Expect(setByKeyOrName(
+					AuthedCtx(ctx, author),
+					apistatus.SetByKeyOrNameRequest{
+						KeyOrName: key,
+						Message:   "stale",
+						Variant:   status.VariantError,
+						Time:      stored.Add(-telem.Second),
+					},
+				)).To(Equal(apistatus.SetByKeyOrNameResponse{Key: key}))
+				s := retrieve(ctx)
+				Expect(s.Time).To(Equal(stored))
+				Expect(s.Message).To(Equal("orig"))
+				Expect(s.Variant).To(Equal(status.VariantInfo))
+			},
+		)
+	})
+
 	Describe("failure paths", func() {
 		It(
 			"Should propagate a validation error for an unknown variant",

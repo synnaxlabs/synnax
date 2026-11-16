@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -152,6 +153,9 @@ type SetByKeyOrNameRequest struct {
 	Message string `json:"message" msgpack:"message"`
 	// Variant is the new status variant.
 	Variant status.Variant `json:"variant" msgpack:"variant"`
+	// Time is when the status was set. A zero time means now. A set older than the
+	// stored status does not replace it.
+	Time telem.TimeStamp `json:"time" msgpack:"time"`
 }
 
 // SetByKeyOrNameResponse is a response to a SetByKeyOrNameRequest.
@@ -178,14 +182,18 @@ func (s *Service) SetByKeyOrName(
 	if err != nil {
 		return SetByKeyOrNameResponse{}, err
 	}
-	st := status.SetTarget(matches, req.KeyOrName, req.Message, string(req.Variant))
-	if err := s.internal.NewWriter(tx).Set(ctx, &st); err != nil {
-		return SetByKeyOrNameResponse{}, err
+	st, newer := status.SetTarget(
+		matches,
+		req.KeyOrName,
+		req.Message,
+		string(req.Variant),
+		req.Time,
+	)
+	res := SetByKeyOrNameResponse{Key: st.Key, MultipleMatches: len(matches) > 1}
+	if !newer {
+		return res, nil
 	}
-	return SetByKeyOrNameResponse{
-		Key:             st.Key,
-		MultipleMatches: len(matches) > 1,
-	}, nil
+	return res, s.internal.NewWriter(tx).Set(ctx, &st)
 }
 
 var _ bind.Named = RetrieveRequest{}
