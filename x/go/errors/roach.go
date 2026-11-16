@@ -48,5 +48,8 @@ func unmarshalRoach(data string) (errors.EncodedError, bool) {
 	if err != nil {
 		return e, false
 	}
-	return e, e.Unmarshal(b) == nil
+	if err := e.Unmarshal(b); err != nil {
+		return e, false
+	}
+	return e, true
 }
