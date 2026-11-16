@@ -101,16 +101,29 @@ fn main() {
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
-            // The .deb registers synnax:// in its desktop file, but an AppImage installs
-            // none, so it registers the scheme itself. A host without the desktop tools
-            // only loses synnax:// links.
+            // The .deb registers the app's scheme in its desktop file, but an AppImage
+            // installs none, so it registers the scheme itself. A host without the
+            // desktop tools only loses links to the app.
             #[cfg(target_os = "linux")]
             if std::env::var_os("APPIMAGE").is_some() {
                 use tauri_plugin_deep_link::DeepLinkExt;
                 if let Err(e) = app.deep_link().register_all() {
+                    let schemes = app
+                        .config()
+                        .plugins
+                        .0
+                        .get("deep-link")
+                        .and_then(|c| c.pointer("/desktop/schemes"))
+                        .and_then(|s| s.as_array())
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|s| s.as_str())
+                        .map(|s| format!("{s}://"))
+                        .collect::<Vec<_>>()
+                        .join(", ");
                     eprintln!(
-                        "failed to register the synnax:// scheme: {e}. Install \
-                         desktop-file-utils and xdg-utils to open synnax:// links."
+                        "failed to register {schemes}: {e}. Install desktop-file-utils \
+                         and xdg-utils to open {schemes} links."
                     );
                 }
             }
