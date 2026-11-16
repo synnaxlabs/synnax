@@ -431,14 +431,14 @@ bound, a log precision, or the line plot X channel.
 - A panel shows a saved view in one tab at most. Opening a view that another tab shows
   focuses that tab.
 - The panel tab name follows the view: the explorer's name ("Range explorer") on the
-  static view, and "Ranges › <view>" on a saved view. A rename of the view changes it.
-  When the view is deleted, the tab shows that it was deleted, with Close and Restore,
-  like the tab of any deleted resource.
+  static view, and "Ranges › <view>" on a saved view. A rename of the view changes it,
+  and a rename of the tab renames the view. When the view is deleted, the tab shows that
+  it was deleted, with Close and Restore, like the tab of any deleted resource.
 - "Open in new tab" in a view's context menu, or Cmd+click (Ctrl+click on Windows and
   Linux) on a view, opens it in a new explorer tab beside the current one. The current
   tab keeps its view. The view the current tab shows has no "Open in new tab".
-- An open from the sidebar or the command palette focuses the panel's explorer tab on
-  the static view. It opens a new one only when the panel has none.
+- Opening the explorer from the sidebar or the command palette focuses its first tab in
+  the panel, whichever view it shows, and opens one only when the panel has none.
 
 ### Filter chips
 

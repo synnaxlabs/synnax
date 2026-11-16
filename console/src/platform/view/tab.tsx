@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { query, view } from "@synnaxlabs/client";
+import { type panel, query, view } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Panel as PPanel, View as PView } from "@synnaxlabs/pluto";
+import { Access, Panel as PPanel, Synnax, View as PView } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { type ReactElement } from "react";
@@ -34,15 +34,24 @@ export const createTab = (explorers: Explorers): Panel.Tab => {
     const Explorer = explorers[useOpen().type].Content;
     return <Explorer />;
   };
-  const Name: Panel.TabName = ({ level, weight, color }) => {
-    const { type, name } = useOpen();
+  const Name: Panel.TabName = ({ allowRename = true, ...rest }) => {
+    const tabKey = PPanel.useTabKey();
+    const { key, type, name } = useOpen();
+    const { update: rename } = PView.useRename();
+    const canRename = Access.useUpdateGranted(view.resourceID(key));
     const ExplorerIcon = explorers[type].Icon;
     return (
       <>
         <ExplorerIcon />
-        <Text.Text overflow="fade" level={level} weight={weight} color={color}>
-          {`${caseconv.capitalize(plural(type))} › ${name}`}
-        </Text.Text>
+        <Text.Text {...rest}>{`${caseconv.capitalize(plural(type))} ›`}</Text.Text>
+        <Text.MaybeEditable
+          id={Panel.tabNameID(tabKey)}
+          value={name}
+          overflow="fade"
+          disabled={!allowRename || !canRename}
+          onChange={(name) => rename({ key, name })}
+          {...rest}
+        />
       </>
     );
   };
@@ -63,4 +72,30 @@ export const createTab = (explorers: Explorers): Panel.Tab => {
       );
     },
   };
+};
+
+export interface OpenExplorerParams {
+  resourceType: view.Type;
+  /** The type of the explorer tab, which shows the static view. */
+  tabType: string;
+}
+
+/**
+ * Returns a callback that focuses the panel's explorer of the type, whichever view it
+ * shows. It opens one on the static view only when the panel has none.
+ */
+export const useOpenExplorer = ({
+  resourceType,
+  tabType,
+}: OpenExplorerParams): (() => void) => {
+  const openTab = Panel.useOpenTab();
+  const client = Synnax.use();
+  // The tab name of a saved view loads it, so its type is in the cache.
+  const isExplorer = (tab: panel.Tab): boolean => {
+    if (tab.variant === "view") return tab.type === tabType;
+    if (tab.resource.type !== TAB_TYPE) return false;
+    const cached = client?.views.watch(tab.resource.key).getCached();
+    return query.isLive(cached) && cached.type === resourceType;
+  };
+  return () => openTab({ variant: "view", type: tabType }, { focus: isExplorer });
 };

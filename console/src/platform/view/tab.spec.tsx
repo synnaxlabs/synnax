@@ -7,16 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { query, view } from "@synnaxlabs/client";
+import { panel, query, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { act, screen, waitFor } from "@testing-library/react";
+import { uuid } from "@synnaxlabs/x";
+import { act, renderHook, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { assert, describe, expect, it, onTestFinished } from "vitest";
 
+import { Panel } from "@/platform/panel";
 import { View } from "@/platform/view";
-import { createTabWrapper } from "@/platform/view/testutil";
-import { renderSuspended, uniqueName } from "@/testutil";
+import { createTabWrapper, type TabWrapper } from "@/platform/view/testutil";
+import { Session } from "@/session";
+import {
+  awaitTextEditing,
+  commitTextEdit,
+  renderSuspended,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -39,13 +47,20 @@ const createView = async (type: view.Type = "range"): Promise<view.View> => {
   return created;
 };
 
+/** @returns a tab that shows the saved view. */
+const showing = (saved: view.View): panel.NewTab => ({
+  variant: "resource",
+  resource: view.resourceID(saved.key),
+});
+
 /** Renders the element in a tab that shows the saved view. */
-const renderShowing = async (saved: view.View, ui: ReactElement): Promise<void> => {
-  const { wrapper } = await createTabWrapper({
-    client,
-    tab: { variant: "resource", resource: view.resourceID(saved.key) },
-  });
-  await renderSuspended(ui, { wrapper });
+const renderShowing = async (
+  saved: view.View,
+  ui: ReactElement,
+): Promise<TabWrapper> => {
+  const wrapped = await createTabWrapper({ client, tab: showing(saved) });
+  await renderSuspended(ui, { wrapper: wrapped.wrapper });
+  return wrapped;
 };
 
 describe("View.createTab", () => {
@@ -57,16 +72,30 @@ describe("View.createTab", () => {
   it("names the tab after the type and the name of its view", async () => {
     const saved = await createView("status");
     await renderShowing(saved, <TAB.Name />);
-    expect(await screen.findByText(`Statuses › ${saved.name}`)).toBeTruthy();
+    expect(await screen.findByText(saved.name)).toBeTruthy();
+    expect(screen.getByText("Statuses ›")).toBeTruthy();
   });
 
   it("follows a rename of its view", async () => {
     const saved = await createView();
     await renderShowing(saved, <TAB.Name />);
-    await screen.findByText(`Ranges › ${saved.name}`);
+    await screen.findByText(saved.name);
     const renamed = uniqueName("renamed");
     await act(async () => await client.views.rename(saved.key, renamed));
-    expect(await screen.findByText(`Ranges › ${renamed}`)).toBeTruthy();
+    expect(await screen.findByText(renamed)).toBeTruthy();
+  });
+
+  it("renames its view from the tab name", async () => {
+    const saved = await createView();
+    const { tabKey } = await renderShowing(saved, <TAB.Name />);
+    await screen.findByText(saved.name);
+    act(() => Panel.editTabName(tabKey));
+    const editor = await awaitTextEditing(Panel.tabNameID(tabKey));
+    const renamed = uniqueName("renamed");
+    act(() => commitTextEdit(editor, renamed));
+    await waitFor(async () =>
+      expect((await client.views.retrieve({ key: saved.key })).name).toBe(renamed),
+    );
   });
 
   it("restores a deleted view under its original key", async () => {
@@ -87,5 +116,45 @@ describe("View.createTab", () => {
     // The restoring client writes through its own cache, so a second client reads it.
     const restored = await createTestClient().views.retrieve({ key: saved.key });
     expect(restored.name).toEqual(saved.name);
+  });
+});
+
+describe("View.useOpenExplorer", () => {
+  const OTHER: panel.NewTab = { variant: "view", type: "other" };
+
+  /** Opens the range explorer from a panel with the other tab focused. */
+  const openFrom = async (beside: panel.NewTab[]): Promise<TabWrapper> => {
+    const wrapped = await createTabWrapper({ client, tab: OTHER, beside });
+    const { result } = renderHook(
+      () => View.useOpenExplorer({ resourceType: "range", tabType: "explorer" }),
+      { wrapper: wrapped.wrapper },
+    );
+    await act(async () => result.current());
+    return wrapped;
+  };
+
+  it("focuses a tab that shows a saved view of the type", async () => {
+    const saved = await createView();
+    // The tab name of a saved view loads it into the cache.
+    await client.views.retrieve({ key: saved.key });
+    const key = uuid.create();
+    const { store, panelKey } = await openFrom([{ ...showing(saved), key }]);
+    await waitFor(() =>
+      expect(Session.Panel.selectSelectedTabs(store.getState(), panelKey)).toEqual([
+        key,
+      ]),
+    );
+    const { root } = await client.panels.retrieve(panelKey);
+    expect(panel.findTabByType(root, "explorer")).toBeUndefined();
+  });
+
+  it("opens an explorer when the panel shows only a view of another type", async () => {
+    const saved = await createView("status");
+    await client.views.retrieve({ key: saved.key });
+    const { panelKey } = await openFrom([showing(saved)]);
+    await waitFor(async () => {
+      const { root } = await client.panels.retrieve(panelKey);
+      expect(panel.findTabByType(root, "explorer")).toBeDefined();
+    });
   });
 });
