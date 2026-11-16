@@ -1,0 +1,126 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { NotFoundError } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type Status } from "@synnaxlabs/lyra/status";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+
+import { EtherCAT } from "@/feature/ethercat";
+import { createReachedStatus, createSlaveDevice } from "@/feature/ethercat/testutil";
+import { Notifications } from "@/platform/notifications";
+import {
+  CaptureStatuses,
+  createConsoleWrapper,
+  installPortalRoot,
+  uniqueName,
+} from "@/testutil";
+
+const client = createTestClient();
+
+/** Creates an old slave and a connected new slave of a model no other spec uses. */
+const createPair = async () => {
+  const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
+  const model = {
+    network: "eth0",
+    vendorId: Math.floor(Math.random() * 2 ** 31),
+    productCode: Math.floor(Math.random() * 2 ** 31),
+  };
+  const old = await createSlaveDevice(client, rack.key, {
+    ...model,
+    name: uniqueName("old"),
+    position: 3,
+  });
+  const slave = await createSlaveDevice(
+    client,
+    rack.key,
+    { ...model, name: uniqueName("new"), position: 5, serial: 77 },
+    false,
+  );
+  await createReachedStatus(client, slave);
+  return { rack, model, old, slave };
+};
+
+const renderPrompt = async (): Promise<{
+  statuses: () => Status.NotificationSpec[];
+}> => {
+  const { wrapper } = await createConsoleWrapper({ client });
+  let latest: Status.NotificationSpec[] = [];
+  render(
+    <>
+      <EtherCAT.Device.ReplacementListener />
+      <Notifications.Feed notifications={EtherCAT.Device.NOTIFICATIONS} />
+      <CaptureStatuses onStatuses={(s) => (latest = s)} />
+    </>,
+    { wrapper },
+  );
+  return { statuses: () => latest };
+};
+
+/** The notification that asks the question, once it shows. */
+const findPrompt = async (question: string): Promise<HTMLElement> => {
+  await screen.findByText(question);
+  const prompt = screen
+    .getAllByRole("status")
+    .find((el) => within(el).queryByText(question) != null);
+  if (prompt == null) throw new Error(`No notification asks "${question}"`);
+  return prompt;
+};
+
+describe("ReplacementListener", () => {
+  installPortalRoot();
+
+  it("should ask once whether a new slave is the old slave of its model", async () => {
+    const { statuses } = await renderPrompt();
+    const { rack, model, old, slave } = await createPair();
+    const question = `Is this your old ${old.name}?`;
+    await findPrompt(question);
+    await createSlaveDevice(client, rack.key, { ...model, position: 4 });
+    const other = await createPair();
+    await findPrompt(`Is this your old ${other.old.name}?`);
+    const asked = statuses().filter((s) => s.name === slave.name);
+    expect(asked.map((s) => [s.message, s.count])).toEqual([[question, 1]]);
+  });
+
+  it("should move the module into the old slave when the user says yes", async () => {
+    await renderPrompt();
+    const { old, slave } = await createPair();
+    const prompt = await findPrompt(`Is this your old ${old.name}?`);
+    fireEvent.click(within(prompt).getByRole("button", { name: "Yes" }));
+    await waitFor(async () =>
+      expect(
+        (
+          await client.devices.retrieve({
+            key: old.key,
+            schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+          })
+        ).properties,
+      ).toMatchObject({ serial: 77, position: 5 }),
+    );
+    await expect(client.devices.retrieve({ key: slave.key })).rejects.toThrow(
+      NotFoundError,
+    );
+  });
+
+  it("should keep both slaves when the user says no", async () => {
+    await renderPrompt();
+    const { old, slave } = await createPair();
+    const question = `Is this your old ${old.name}?`;
+    const prompt = await findPrompt(question);
+    fireEvent.click(within(prompt).getByRole("button", { name: "No" }));
+    await waitFor(() => expect(screen.queryByText(question)).toBeNull());
+    expect((await client.devices.retrieve({ key: slave.key })).key).toEqual(slave.key);
+    const kept = await client.devices.retrieve({
+      key: old.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    expect(kept.properties.position).toEqual(3);
+  });
+});

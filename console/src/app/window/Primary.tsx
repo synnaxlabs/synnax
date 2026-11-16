@@ -20,8 +20,10 @@ import { Notifications } from "@/app/notifications";
 import { Triggers } from "@/app/triggers";
 import { Guard } from "@/app/window/Guard";
 import { Device } from "@/feature/device";
+import { EtherCAT } from "@/feature/ethercat";
 import { Panel } from "@/feature/panel";
 import { Persist } from "@/feature/persist";
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
@@ -52,6 +54,7 @@ export const Primary = (): ReactElement => {
   return (
     <>
       <SideEffect />
+      {FLAGS.ethercatReplace && <EtherCAT.Device.ReplacementListener />}
       <Guard>
         <ProjectSideEffect />
         <div
