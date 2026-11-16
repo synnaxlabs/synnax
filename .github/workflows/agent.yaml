@@ -159,8 +159,7 @@ jobs:
         run: '"./$SETUP"'
 
       # The fleet controller started the runner on a shared Claude login, which only
-      # this runner's machine may read. It runs after the setup script, which comes
-      # from the pull request.
+      # this runner's machine may read.
       - name: Read the Claude login
         if: env.AGENT == 'claude'
         run: |
