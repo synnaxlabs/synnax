@@ -519,12 +519,7 @@ x::errors::Error Master::receive() {
         // A frame that is not back yet can come back in a later cycle.
         wkc = this->api->receive_processdata(ENABLED_GROUP, 0);
         if (wkc < 0) {
-            size_t frames = session.send_frames;
-            for (const auto &in_flight: session.cycles)
-                frames += in_flight.frames;
-            // The next send must also find a buffer for each of its frames.
-            if (session.cycles.size() < master::MAX_FRAMES_IN_FLIGHT &&
-                frames <= PROCESS_DATA_BUFFERS)
+            if (session.cycles.size() < master::MAX_FRAMES_IN_FLIGHT)
                 return x::errors::Error(
                     errors::FRAME_IN_FLIGHT,
                     "process data frame has not come back"
@@ -602,6 +597,17 @@ x::errors::Error Master::send() {
         return x::errors::NIL;
     }
     cycle.sent_at = this->cfg.clock.steady();
+    // Drops the oldest sends until this send finds a buffer for each of its frames.
+    size_t in_flight = session.send_frames;
+    for (const auto &c: session.cycles)
+        in_flight += c.frames;
+    for (auto &oldest: session.cycles) {
+        if (in_flight <= PROCESS_DATA_BUFFERS) break;
+        if (oldest.frames == 0) continue;
+        this->api->drop_processdata();
+        in_flight -= oldest.frames;
+        oldest.frames = 0;
+    }
     const int frames = this->api->send_processdata(ENABLED_GROUP);
     if (frames <= 0)
         return x::errors::Error(errors::CYCLIC_ERROR, "process data send failed");

@@ -2250,18 +2250,32 @@ TEST_F(SOEMMasterTest, ReceiveDropsTheOldestFrameWhenTooManyAreInFlight) {
     );
 }
 
-/// @brief it should drop the oldest frame and fail the receive when the next send
-/// would not find a buffer for each of its frames.
-TEST_F(SOEMMasterTest, ReceiveDropsTheOldestFrameWhenTheNextSendWouldNotFit) {
+/// @brief it should drop the oldest frame at a send that would not find a buffer for
+/// each of its frames, and fail the receive of the dropped frame.
+TEST_F(SOEMMasterTest, SendDropsTheOldestFrameWhenItsFramesWouldNotFit) {
     this->initialize_with_slave();
     this->activate_master();
-    this->mock->send_return = static_cast<int>(PROCESS_DATA_BUFFERS / 2);
+    this->mock->send_return = static_cast<int>(PROCESS_DATA_BUFFERS / 2 + 1);
+    this->mock->receive_return = EC_NOFRAME;
+    ASSERT_NIL(this->master->send());
+    ASSERT_NIL(this->master->send());
+    EXPECT_EQ(this->mock->drop_count, 1);
+    const auto receives = this->mock->receive_count;
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::CYCLIC_ERROR);
+    EXPECT_EQ(this->mock->receive_count, receives);
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+}
+
+/// @brief it should keep a frame in flight when a next send would not fit, since the
+/// last send of a stop has no next send.
+TEST_F(SOEMMasterTest, ReceiveKeepsAFrameInFlightWhenTheNextSendWouldNotFit) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->send_return = static_cast<int>(PROCESS_DATA_BUFFERS / 2 + 1);
     this->mock->receive_return = EC_NOFRAME;
     ASSERT_NIL(this->master->send());
     ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
-    ASSERT_NIL(this->master->send());
-    ASSERT_OCCURRED_AS(this->master->receive(), errors::CYCLIC_ERROR);
-    EXPECT_EQ(this->mock->drop_count, 1);
+    EXPECT_EQ(this->mock->drop_count, 0);
 }
 
 /// @brief it should say that a USB adapter can hold frames back when no frame comes
