@@ -14,13 +14,12 @@ package v1
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"strconv"
 
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
+	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/errors"
-	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -53,26 +52,13 @@ type Range struct {
 // schema constraints.
 func (r Range) Validate() error {
 	v := validate.New("Range")
-	v.NotEmptyString("name", r.Name)
+	for i := range r.Labels {
+		v.Exec(func() error { return validate.PathedError(r.Labels[i].Validate(), "labels", strconv.Itoa(i)) })
+	}
+	if r.Parent != nil {
+		v.Exec(func() error { return validate.PathedError(r.Parent.Validate(), "parent") })
+	}
 	return v.Error()
-}
-
-// Where is a filter that selects ranges.
-type Where struct {
-	// And matches when every child matches.
-	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
-	// Or matches when any child matches.
-	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
-	// Not matches when the child does not match.
-	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
-	// Key selects by key.
-	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
-	// Name selects by name.
-	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
-	// Overlaps matches ranges whose time range overlaps the given range.
-	Overlaps *telem.TimeRange `json:"overlaps,omitzero" msgpack:"overlaps,omitempty"`
-	// Labels matches ranges that have any of the given labels.
-	Labels []labelv0.Key `json:"labels,omitzero" msgpack:"labels,omitempty"`
 }
 
 // RefType is the "variant" value that selects a variant of Ref.
@@ -105,6 +91,14 @@ type WindowRef struct {
 }
 
 func (WindowRef) isRefVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WindowRef) Validate() error {
+	v := validate.New("WindowRef")
+	v.Exec(func() error { return validate.PathedError(w.Window.Validate(), "window") })
+	return v.Error()
+}
 
 // Ref is the range a visualization shows: a range saved in the Core, or an inline
 // window.
@@ -178,4 +172,16 @@ func (u *Ref) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Ref) Validate() error {
+	v := validate.New("Ref")
+	v.Ternary("variant", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case WindowRef:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
 }

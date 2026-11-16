@@ -246,4 +246,34 @@ var _ = Describe("Types", func() {
 			),
 		)
 	})
+
+	Describe("Zero", func() {
+		DescribeTable("Should return the typed zero of a scalar kind",
+			func(t types.Type, want any) {
+				Expect(types.Zero(t)).To(Equal(want))
+			},
+			Entry("u8", types.U8(), uint8(0)),
+			Entry("u16", types.U16(), uint16(0)),
+			Entry("u32", types.U32(), uint32(0)),
+			Entry("u64", types.U64(), uint64(0)),
+			Entry("i8", types.I8(), int8(0)),
+			Entry("i16", types.I16(), int16(0)),
+			Entry("i32", types.I32(), int32(0)),
+			Entry("i64", types.I64(), int64(0)),
+			Entry("timestamp", types.TimeStamp(), int64(0)),
+			Entry("f32", types.F32(), float32(0)),
+			Entry("f64", types.F64(), float64(0)),
+			Entry("string", types.String(), ""),
+			Entry("bool", types.Bool(), false),
+		)
+
+		DescribeTable("Should return nil for a kind without a scalar zero",
+			func(t types.Type) {
+				Expect(types.Zero(t)).To(BeNil())
+			},
+			Entry("series", types.Series(types.I64())),
+			Entry("chan", types.Chan(types.I64())),
+			Entry("invalid", types.Type{}),
+		)
+	})
 })

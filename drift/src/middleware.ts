@@ -41,10 +41,10 @@ import { validateAction } from "@/validate";
 export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
 
 // Used to ensure two things:
-// 1. Only one set of window update operations is applied at a time, and they are applied
-//    in the correct order.
-// 2. Ensure that we emit actions to other windows in the correct order i.e. after synchronized
-//    window operations have been applied.
+// 1. Only one set of window update operations is applied at a time, and they are
+//    applied in the correct order.
+// 2. Ensure that we emit actions to other windows in the correct order i.e. after
+//    synchronized window operations have been applied.
 const mu = new Mutex();
 
 const EXCLUDE_SYNC_ACTIONS: string[] = [runtimeSetWindowProps.type, reloadWindow.type];

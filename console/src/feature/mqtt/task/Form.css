@@ -22,6 +22,11 @@
     }
 }
 
+/* A long name fades, so the enabled dot stays in view. */
+.console-mqtt-tag__command {
+    min-width: 0;
+}
+
 .console-task-configure--mqtt_sparkplug_edge .console-field-data-type {
     width: 22rem;
 }

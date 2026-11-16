@@ -45,12 +45,15 @@ void expect_rate(const double measured, const int rate_hz) {
 
 class TestReadTask : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     synnax::task::Task task;
     x::json::json task_cfg_json;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::testutil::WriterFactory> mock_factory;
     std::unique_ptr<testutil::Server> server;
     std::shared_ptr<connection::Pool> conn_pool;
+    synnax::device::Device dev;
     synnax::channel::Channel index_channel;
     synnax::channel::Channel bool_channel;
     synnax::channel::Channel uint16_channel;
@@ -139,8 +142,8 @@ protected:
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
 
-        synnax::device::Device dev{
-            .key = "opc_read_task_test_server_key",
+        this->dev = synnax::device::Device{
+            .key = make_unique_channel_name("opc_read_task_test_server"),
             .rack = rack.key,
             .location = "opc.tcp://localhost:4840",
             .make = "opc",
@@ -150,7 +153,7 @@ protected:
                 {{"connection", testutil::connection_json(conn_cfg)}}
             ),
         };
-        ASSERT_NIL(client->devices.create(dev));
+        ASSERT_NIL(client->devices.create(this->dev));
 
         // Use the comprehensive default server configuration
         auto server_cfg = testutil::ServerConfig::create_default();
@@ -162,7 +165,7 @@ protected:
 
         x::json::json task_cfg{
             {"data_saving_disabled", false},
-            {"device", dev.key},
+            {"device", this->dev.key},
             {"channels",
              x::json::json::array(
                  {{{"key", "NS=2;I=1"},
@@ -247,7 +250,7 @@ protected:
                    {"data_type", "float64"}}}
              )},
             {"sample_rate", 50},
-            {"array_mode", false},
+            {"sampling", {{"type", "unary"}}},
             {"stream_rate", 25}
         };
 
@@ -272,7 +275,7 @@ protected:
     std::unique_ptr<UnaryReadTaskSource> create_source(const x::json::json &cfg_json) {
         auto p = x::json::Parser(cfg_json);
         auto cfg = ReadTaskConfig(ctx->client, p);
-        EXPECT_FALSE(p.error()) << p.error().message();
+        EXPECT_NIL(p.error());
         return std::make_unique<UnaryReadTaskSource>(
             ctx->client,
             conn_pool,
@@ -286,7 +289,7 @@ protected:
     mixed_cfg(const std::string &node_id, const bool nan_fill_enabled) const {
         return {
             {"data_saving_disabled", false},
-            {"device", "opc_read_task_test_server_key"},
+            {"device", this->dev.key},
             {"channels",
              x::json::json::array({
                  {{"node_id", node_id},
@@ -321,7 +324,7 @@ protected:
             });
         return {
             {"data_saving_disabled", false},
-            {"device", "opc_read_task_test_server_key"},
+            {"device", this->dev.key},
             {"channels", channels},
             {"sample_rate", 50},
             {"stream_rate", 25},
@@ -350,21 +353,19 @@ protected:
 TEST_F(TestReadTask, testBasicReadTask) {
     auto start = x::telem::TimeStamp::now();
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(first_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
-    EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Started task");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     rt->stop("stop_cmd", true);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(second_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Stopped task");
     const auto &fr = mock_factory->writes->at(0);
@@ -402,7 +403,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
 /// node's channel in a warning.
 TEST_F(TestReadTask, testMissingNodeSkipsIndex) {
     const auto source = this->create_source(mixed_cfg("NS=1;S=NonExistentNode", false));
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     const auto res = source->read(breaker, fr);
@@ -426,7 +427,7 @@ TEST_F(TestReadTask, testReadsStructureFields) {
     const auto source = this->create_source(
         this->motor_cfg({"Speed", "Position.Y", "Running"})
     );
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     const auto res = source->read(breaker, fr);
@@ -443,7 +444,7 @@ TEST_F(TestReadTask, testReadsStructureFields) {
 /// field's channel in a warning.
 TEST_F(TestReadTask, testUnknownFieldSkipsIndex) {
     const auto source = this->create_source(this->motor_cfg({"Speed", "Torque"}));
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     const auto res = source->read(breaker, fr);
@@ -466,7 +467,7 @@ TEST_F(TestReadTask, testReadsFieldOfAddedNode) {
     server->start();
     ASSERT_TRUE(server->wait_until_ready());
     const auto source = this->create_source(this->motor_cfg({"Speed"}));
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     const auto missing = source->read(breaker, fr);
@@ -492,18 +493,17 @@ TEST_F(TestReadTask, testReadsFieldOfAddedNode) {
     ASSERT_NIL(source->stop());
 }
 
-/// @brief it should reject a structure field in array mode.
-TEST_F(TestReadTask, testRejectsFieldInArrayMode) {
+/// @brief it should reject a structure field in array sampling.
+TEST_F(TestReadTask, testRejectsFieldInArraySampling) {
     auto cfg_json = this->motor_cfg({"Speed"});
-    cfg_json["array_mode"] = true;
-    cfg_json["array_size"] = 5;
+    cfg_json["sampling"] = {{"type", "array"}, {"size", 5}};
     auto p = x::json::Parser(cfg_json);
     const ReadTaskConfig cfg(ctx->client, p);
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
     const auto errs = p.error_json()["errors"];
     ASSERT_EQ(errs.size(), 1);
     EXPECT_EQ(errs[0]["path"], "channels.0.field");
-    EXPECT_EQ(errs[0]["message"], "array mode cannot read structure fields");
+    EXPECT_EQ(errs[0]["message"], "array sampling cannot read structure fields");
 }
 
 /// @brief it should reject a field with an empty member name.
@@ -520,7 +520,7 @@ TEST_F(TestReadTask, testRejectsInvalidField) {
 /// the other channels on its index.
 TEST_F(TestReadTask, testMissingNodeFillsNaN) {
     const auto source = this->create_source(mixed_cfg("NS=1;S=NonExistentNode", true));
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     const auto res = source->read(breaker, fr);
@@ -541,7 +541,7 @@ TEST_F(TestReadTask, testReadsNamespaceURINode) {
     const auto source = this->create_source(
         mixed_cfg("nsu=urn:open62541.server.application;s=TestFloat", false)
     );
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     const auto res = source->read(breaker, fr);
@@ -558,7 +558,7 @@ TEST_F(TestReadTask, testUnknownNamespaceIsMissingNode) {
     const auto source = this->create_source(
         mixed_cfg("nsu=urn:missing;s=TestFloat", false)
     );
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     const auto res = source->read(breaker, fr);
@@ -577,7 +577,7 @@ TEST_F(TestReadTask, testUnknownNamespaceKeepsOtherChannels) {
     const auto source = this->create_source(
         mixed_cfg("nsu=urn:missing;s=TestFloat", true)
     );
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     ASSERT_NIL(source->read(breaker, fr).error);
@@ -606,7 +606,7 @@ TEST_F(TestReadTask, testNamespaceReorderAcrossRestart) {
     ASSERT_TRUE(server->wait_until_ready());
     const auto source = this->create_source({
         {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array({
              {{"node_id", "nsu=urn:b;s=Shared"},
@@ -616,7 +616,7 @@ TEST_F(TestReadTask, testNamespaceReorderAcrossRestart) {
         {"sample_rate", 50},
         {"stream_rate", 25},
     });
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     ASSERT_NIL(source->read(breaker, fr).error);
@@ -639,7 +639,7 @@ TEST_F(TestReadTask, testNamespaceReorderAcrossRestart) {
 TEST_F(TestReadTask, testNamespaceAddedAfterStart) {
     const auto source = this->create_source({
         {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array({
              {{"node_id", "nsu=urn:late;s=Shared"},
@@ -649,7 +649,7 @@ TEST_F(TestReadTask, testNamespaceAddedAfterStart) {
         {"sample_rate", 50},
         {"stream_rate", 25},
     });
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     const auto missing = source->read(breaker, fr);
@@ -675,7 +675,7 @@ TEST_F(TestReadTask, testSplitsReadAtServerLimit) {
     server->start();
     ASSERT_TRUE(server->wait_until_ready());
     const auto source = this->create_source(task_cfg_json);
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     const auto res = source->read(breaker, fr);
@@ -691,7 +691,7 @@ TEST_F(TestReadTask, testSplitsReadAtServerLimit) {
 /// once the server returns.
 TEST_F(TestReadTask, testRecoversAfterServerRestart) {
     const auto source = this->create_source(task_cfg_json);
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     ASSERT_NIL(source->read(breaker, fr).error);
@@ -709,7 +709,7 @@ TEST_F(TestReadTask, testRecoversAfterServerRestart) {
 TEST_F(TestReadTask, testStartsWhileServerOff) {
     server->stop();
     const auto source = this->create_source(task_cfg_json);
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     ASSERT_MATCHES(source->read(breaker, fr).error, errors::UNREACHABLE);
@@ -730,14 +730,16 @@ TEST_F(TestReadTask, testReconnectUsesUpdatedDevice) {
     moved_server.start();
     ASSERT_TRUE(moved_server.wait_until_ready());
     const auto source = this->create_source(task_cfg_json);
-    ASSERT_NIL(source->start());
-    auto dev = ASSERT_NIL_P(
-        ctx->client->devices.retrieve(task_cfg_json["device"].get<std::string>())
-    );
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     connection::Config moved_cfg;
     moved_cfg.endpoint = endpoint;
-    dev.properties["connection"] = testutil::connection_json(moved_cfg);
-    ASSERT_NIL(ctx->client->devices.create(dev));
+    ASSERT_NIL(ctx->client->devices.dispatch(
+        task_cfg_json["device"].get<std::string>(),
+        {synnax::device::set(
+            {.path = {"properties", "connection"},
+             .value = testutil::connection_json(moved_cfg)}
+        )}
+    ));
     server->stop();
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
@@ -751,7 +753,7 @@ TEST_F(TestReadTask, testReconnectUsesUpdatedDevice) {
 /// again once the server returns.
 TEST_F(TestReadTask, testServerOutageWarns) {
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     server->stop();
     ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
@@ -783,23 +785,23 @@ TEST_F(TestReadTask, testServerOutageWarns) {
 TEST_F(TestReadTask, testEmptyChannelList) {
     x::json::json empty_cfg{
         {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
+        {"device", this->dev.key},
         {"channels", x::json::json::array()},
         {"sample_rate", 50},
-        {"array_mode", false},
+        {"sampling", {{"type", "unary"}}},
         {"stream_rate", 25}
     };
 
     auto p = x::json::Parser(empty_cfg);
     auto empty_config = std::make_unique<ReadTaskConfig>(ctx->client, p);
-    EXPECT_TRUE(p.error());
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should return error when all channels are disabled.
 TEST_F(TestReadTask, testDisabledChannels) {
     x::json::json disabled_cfg{
         {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"key", "NS=2;I=1"},
@@ -812,13 +814,13 @@ TEST_F(TestReadTask, testDisabledChannels) {
                {"data_type", "float32"}}}
          )},
         {"sample_rate", 50},
-        {"array_mode", false},
+        {"sampling", {{"type", "unary"}}},
         {"stream_rate", 25}
     };
 
     auto p = x::json::Parser(disabled_cfg);
     auto disabled_config = std::make_unique<ReadTaskConfig>(ctx->client, p);
-    EXPECT_TRUE(p.error());
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should configure when a disabled channel has no node id or Synnax
@@ -826,7 +828,7 @@ TEST_F(TestReadTask, testDisabledChannels) {
 TEST_F(TestReadTask, testUnboundDisabledChannel) {
     x::json::json cfg{
         {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"key", "NS=2;I=1"},
@@ -840,25 +842,24 @@ TEST_F(TestReadTask, testUnboundDisabledChannel) {
               {{"key", "blank"}, {"disabled", true}}}
          )},
         {"sample_rate", 50},
-        {"array_mode", false},
+        {"sampling", {{"type", "unary"}}},
         {"stream_rate", 25}
     };
 
     auto p = x::json::Parser(cfg);
     const auto parsed = std::make_unique<ReadTaskConfig>(ctx->client, p);
-    ASSERT_FALSE(p.error()) << p.error().message();
+    ASSERT_NIL(p.error());
     EXPECT_EQ(parsed->channels.size(), 1);
     EXPECT_EQ(parsed->channels[0]->synnax_key, this->float_channel.key);
 }
 
-/// @brief it should stay out of array mode when array_mode is false, even when
-/// the config carries an array_size greater than one.
-TEST_F(TestReadTask, testArraySizeIgnoredWhenArrayModeDisabled) {
-    task_cfg_json["array_size"] = 5;
+/// @brief it should sample one value per node when the config has no sampling.
+TEST_F(TestReadTask, testUnarySamplingByDefault) {
+    task_cfg_json.erase("sampling");
     auto p = x::json::Parser(task_cfg_json);
     const ReadTaskConfig cfg(ctx->client, p);
     ASSERT_NIL(p.error());
-    EXPECT_FALSE(cfg.array_mode);
+    EXPECT_FALSE(cfg.array());
 
     task_cfg_json["stream_rate"] = 0;
     auto strict_p = x::json::Parser(task_cfg_json);
@@ -866,27 +867,46 @@ TEST_F(TestReadTask, testArraySizeIgnoredWhenArrayModeDisabled) {
     ASSERT_OCCURRED_AS(strict_p.error(), x::errors::VALIDATION);
 }
 
-/// @brief it should require a stream rate only when array_mode is false.
-TEST_F(TestReadTask, testStreamRateOptionalInArrayMode) {
+/// @brief it should read arrays of one sample when array sampling has no size.
+TEST_F(TestReadTask, testArraySamplingSizeDefault) {
+    task_cfg_json["sampling"] = {{"type", "array"}};
+    auto p = x::json::Parser(task_cfg_json);
+    const ReadTaskConfig cfg(ctx->client, p);
+    ASSERT_NIL(p.error());
+    EXPECT_EQ(std::get<::synnax::opcua::ArraySampling>(cfg.sampling).size, 1);
+}
+
+/// @brief it should reject an unknown sampling type.
+TEST_F(TestReadTask, testRejectsUnknownSampling) {
+    task_cfg_json["sampling"] = {{"type", "burst"}};
+    auto p = x::json::Parser(task_cfg_json);
+    const ReadTaskConfig cfg(ctx->client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errs = p.error_json()["errors"];
+    ASSERT_EQ(errs.size(), 1);
+    EXPECT_EQ(errs[0]["path"], "sampling.type");
+}
+
+/// @brief it should require a stream rate only in unary sampling.
+TEST_F(TestReadTask, testStreamRateOptionalInArraySampling) {
     task_cfg_json["stream_rate"] = 0;
     auto p = x::json::Parser(task_cfg_json);
     const ReadTaskConfig unary_cfg(ctx->client, p);
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 
-    task_cfg_json["array_mode"] = true;
-    task_cfg_json["array_size"] = 5;
+    task_cfg_json["sampling"] = {{"type", "array"}, {"size", 5}};
     auto array_p = x::json::Parser(task_cfg_json);
     const ReadTaskConfig array_cfg(ctx->client, array_p);
     ASSERT_NIL(array_p.error());
-    EXPECT_TRUE(array_cfg.array_mode);
-    EXPECT_EQ(array_cfg.array_size, 5);
+    EXPECT_TRUE(array_cfg.array());
+    EXPECT_EQ(std::get<::synnax::opcua::ArraySampling>(array_cfg.sampling).size, 5);
     EXPECT_EQ(array_cfg.samples_per_chan, 0);
 }
 
 /// @brief it should handle rapid start and stop cycles.
 TEST_F(TestReadTask, testRapidStartStop) {
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     rt->stop("stop_cmd", true);
 
@@ -904,7 +924,7 @@ TEST_F(TestReadTask, testConnectionPoolReuse) {
     {
         const auto rt1 = create_task();
         EXPECT_EQ(conn_pool->size(), 0);
-        rt1->start("start1");
+        rt1->start("start1", this->cancel);
         EXPECT_EQ(conn_pool->size(), 1);
         EXPECT_EQ(conn_pool->available_count(endpoint), 0);
         rt1->stop("stop1", true);
@@ -916,7 +936,7 @@ TEST_F(TestReadTask, testConnectionPoolReuse) {
     {
         const auto rt2 = create_task();
         EXPECT_EQ(conn_pool->size(), 1);
-        rt2->start("start2");
+        rt2->start("start2", this->cancel);
         EXPECT_EQ(conn_pool->size(), 1);
         EXPECT_EQ(conn_pool->available_count(endpoint), 0);
         rt2->stop("stop2", true);
@@ -936,14 +956,16 @@ TEST_F(TestReadTask, testStartUsesUpdatedDevice) {
     moved_server.start();
     ASSERT_TRUE(moved_server.wait_until_ready());
     const auto rt = create_task();
-    auto dev = ASSERT_NIL_P(
-        ctx->client->devices.retrieve(task_cfg_json["device"].get<std::string>())
-    );
     connection::Config moved_cfg;
     moved_cfg.endpoint = endpoint;
-    dev.properties["connection"] = testutil::connection_json(moved_cfg);
-    ASSERT_NIL(ctx->client->devices.create(dev));
-    rt->start("start");
+    ASSERT_NIL(ctx->client->devices.dispatch(
+        task_cfg_json["device"].get<std::string>(),
+        {synnax::device::set(
+            {.path = {"properties", "connection"},
+             .value = testutil::connection_json(moved_cfg)}
+        )}
+    ));
+    rt->start("start", this->cancel);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     rt->stop("stop", true);
     EXPECT_EQ(conn_pool->available_count(endpoint), 1);
@@ -964,19 +986,21 @@ TEST_F(TestReadTask, testReadConnectsAgainWithNewCertificate) {
     auto secured = std::make_unique<testutil::Server>(secured_cfg);
     secured->start();
     ASSERT_TRUE(secured->wait_until_ready());
-    auto dev = ASSERT_NIL_P(
-        ctx->client->devices.retrieve(task_cfg_json["device"].get<std::string>())
-    );
     connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:4861";
     conn_cfg.security_mode = "SignAndEncrypt";
     conn_cfg.security_policy = "Basic256Sha256";
     conn_cfg.server_certificate = server_id.certificate;
-    dev.properties["connection"] = testutil::connection_json(conn_cfg);
-    ASSERT_NIL(ctx->client->devices.create(dev));
+    ASSERT_NIL(ctx->client->devices.dispatch(
+        task_cfg_json["device"].get<std::string>(),
+        {synnax::device::set(
+            {.path = {"properties", "connection"},
+             .value = testutil::connection_json(conn_cfg)}
+        )}
+    ));
     auto p = x::json::Parser(task_cfg_json);
     UnaryReadTaskSource source(ctx->client, conn_pool, ReadTaskConfig(ctx->client, p));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     ASSERT_NIL(source.read(breaker, fr).error);
@@ -1001,11 +1025,11 @@ TEST_F(TestReadTask, testConnectionPoolConcurrentTasks) {
     const auto rt2 = create_task();
     EXPECT_EQ(conn_pool->size(), 0);
 
-    rt1->start("start1");
+    rt1->start("start1", this->cancel);
     EXPECT_EQ(conn_pool->size(), 1);
     EXPECT_EQ(conn_pool->available_count(endpoint), 0);
 
-    rt2->start("start2");
+    rt2->start("start2", this->cancel);
     EXPECT_EQ(conn_pool->size(), 2);
     EXPECT_EQ(conn_pool->available_count(endpoint), 0);
 
@@ -1021,7 +1045,7 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
     // by clearing the frame and returning a warning
     x::json::json array_task_cfg{
         {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"key", "NS=2;I=1"},
@@ -1034,8 +1058,7 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
                {"data_type", "float32"}}}
          )},
         {"sample_rate", 50},
-        {"array_mode", true},
-        {"array_size", 10},
+        {"sampling", {{"type", "array"}, {"size", 10}}},
         {"stream_rate", 25}
     };
 
@@ -1050,7 +1073,7 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
         mock_factory
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     rt->stop("stop_cmd", true);
 
@@ -1063,7 +1086,7 @@ TEST_F(TestReadTask, testInvalidDataSkipsFrameInUnaryMode) {
     // Test that UnaryReadTaskSource properly skips frames with invalid data
     // and returns a warning message
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
 
     // Let it run for a bit to collect some data
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -1082,7 +1105,7 @@ TEST_F(TestReadTask, testInvalidDataSkipsFrameInUnaryMode) {
 TEST_F(TestReadTask, testEmptyFramesNotWrittenInUnaryMode) {
     // Test that empty frames (with size 0) are not written to Synnax
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
 
     // Very short run to minimize data collection
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -1102,7 +1125,7 @@ TEST_F(TestReadTask, testMultipleChannelsWithMixedData) {
     // Test that the read task handles multiple channels with different data types
     // This exercises the loop in UnaryReadTaskSource::read that processes all channels
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
 
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
 
@@ -1120,7 +1143,7 @@ TEST_F(TestReadTask, testMultipleChannelsWithMixedData) {
 TEST_F(TestReadTask, testBooleanChannelDataHandling) {
     // Test that boolean channels are properly read and converted to UINT8
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
 
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
 
@@ -1136,7 +1159,7 @@ TEST_F(TestReadTask, testBooleanChannelDataHandling) {
 TEST_F(TestReadTask, testFloatChannelDataHandling) {
     // Test that float channels are properly read and written
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
 
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
 
@@ -1152,7 +1175,7 @@ TEST_F(TestReadTask, testFloatChannelDataHandling) {
 TEST_F(TestReadTask, testDoubleChannelDataHandling) {
     // Test that double channels are properly read and written
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
 
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
 
@@ -1168,7 +1191,7 @@ TEST_F(TestReadTask, testDoubleChannelDataHandling) {
 TEST_F(TestReadTask, testIntegerChannelDataHandling) {
     // Test that integer channels (int8, int16, int32, int64) are properly read
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
 
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
 
@@ -1192,7 +1215,7 @@ TEST_F(TestReadTask, testIntegerChannelDataHandling) {
 TEST_F(TestReadTask, testUnsignedIntegerChannelDataHandling) {
     // Test that unsigned integer channels (uint16, uint32, uint64) are properly read
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
 
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
 
@@ -1210,7 +1233,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
     // Test that ArrayReadTaskSource aggregates multiple errors from different channels
     x::json::json multi_channel_array_cfg{
         {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"key", "NS=2;I=1"},
@@ -1231,8 +1254,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
                {"data_type", "float64"}}}
          )},
         {"sample_rate", 50},
-        {"array_mode", true},
-        {"array_size", 10},
+        {"sampling", {{"type", "array"}, {"size", 10}}},
         {"stream_rate", 25}
     };
 
@@ -1247,7 +1269,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
         mock_factory
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     rt->stop("stop_cmd", true);
 
@@ -1260,7 +1282,7 @@ TEST_F(TestReadTask, testWarningMessagesContainChannelInfo) {
     // Test that warning messages contain channel information for debugging
     // This tests the error message formatting in read_task.h lines 258-262 and 326-328
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
 
     // Let it run briefly
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -1294,7 +1316,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     invalid_conn_cfg.security_policy = "None";
 
     synnax::device::Device invalid_dev{
-        .key = "opc_invalid_test_server",
+        .key = make_unique_channel_name("opc_invalid_test_server"),
         .rack = invalid_rack.key,
         .location = "opc.tcp://localhost:4841",
         .make = "opc",
@@ -1322,7 +1344,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
                {"data_type", "uint8"}}}
          )},
         {"sample_rate", 50},
-        {"array_mode", false},
+        {"sampling", {{"type", "unary"}}},
         {"stream_rate", 25}
     };
 
@@ -1337,7 +1359,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
         mock_factory
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     rt->stop("stop_cmd", true);
 
@@ -1376,7 +1398,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
     invalid_conn_cfg.security_policy = "None";
 
     synnax::device::Device invalid_dev{
-        .key = "opc_invalid_float_server",
+        .key = make_unique_channel_name("opc_invalid_float_server"),
         .rack = invalid_rack.key,
         .location = "opc.tcp://localhost:4842",
         .make = "opc",
@@ -1403,7 +1425,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
                {"data_type", "float32"}}}
          )},
         {"sample_rate", 50},
-        {"array_mode", false},
+        {"sampling", {{"type", "unary"}}},
         {"stream_rate", 25}
     };
 
@@ -1418,7 +1440,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
         mock_factory
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     rt->stop("stop_cmd", true);
 
@@ -1457,7 +1479,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     invalid_conn_cfg.security_policy = "None";
 
     synnax::device::Device invalid_dev{
-        .key = "opc_invalid_double_server",
+        .key = make_unique_channel_name("opc_invalid_double_server"),
         .rack = invalid_rack.key,
         .location = "opc.tcp://localhost:4843",
         .make = "opc",
@@ -1484,8 +1506,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
                {"data_type", "float64"}}}
          )},
         {"sample_rate", 50},
-        {"array_mode", true},
-        {"array_size", 5},
+        {"sampling", {{"type", "array"}, {"size", 5}}},
         {"stream_rate", 25}
     };
 
@@ -1500,7 +1521,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
         mock_factory
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     rt->stop("stop_cmd", true);
 
@@ -1534,7 +1555,7 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     conn_cfg.security_policy = "None";
 
     synnax::device::Device dev{
-        .key = "opc_test_device_key",
+        .key = make_unique_channel_name("opc_test_device_key"),
         .rack = rack.key,
         .location = "opc.tcp://localhost:4840",
         .make = "opc",
@@ -1566,8 +1587,7 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
         {"device", dev.key},
         {"sample_rate", 25},
         {"stream_rate", 25},
-        {"array_mode", false},
-        {"array_size", 1},
+        {"sampling", {{"type", "unary"}}},
         {"channels",
          x::json::json::array({{{"node_id", "NS=2;I=8"}, {"channel", ch.key}}})}
     };
@@ -1587,7 +1607,7 @@ TEST_F(TestReadTask, testArrayTimestampsTrailTheClock) {
     constexpr int SAMPLE_RATE = 25;
     x::json::json array_cfg{
         {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"key", "NS=2;I=1"},
@@ -1600,8 +1620,7 @@ TEST_F(TestReadTask, testArrayTimestampsTrailTheClock) {
                {"data_type", "float64"}}}
          )},
         {"sample_rate", SAMPLE_RATE},
-        {"array_mode", true},
-        {"array_size", testutil::DOUBLE_ARRAY_SIZE},
+        {"sampling", {{"type", "array"}, {"size", testutil::DOUBLE_ARRAY_SIZE}}},
         {"stream_rate", SAMPLE_RATE}
     };
 
@@ -1617,7 +1636,7 @@ TEST_F(TestReadTask, testArrayTimestampsTrailTheClock) {
         mock_factory
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
         this->mock_factory->writes->size(),
         static_cast<size_t>(3),
@@ -1655,7 +1674,7 @@ TEST_F(TestReadTask, testHoldsSampleRate) {
         this->mock_factory = std::make_shared<pipeline::testutil::WriterFactory>();
 
         const auto rt = create_task();
-        rt->start("start_cmd");
+        rt->start("start_cmd", this->cancel);
         ASSERT_EVENTUALLY_GE(this->mock_factory->writes->size(), 1);
         std::this_thread::sleep_for(RATE_SPAN.chrono());
         rt->stop("stop_cmd", true);

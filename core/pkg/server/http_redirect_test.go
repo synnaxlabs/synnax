@@ -58,8 +58,7 @@ var _ = Describe("HttpRedirect", func() {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 		client := &http.Client{Transport: tr}
-		resp, err := client.Get("http://" + b.Addresses()[0].String())
-		Expect(err).To(Succeed())
+		resp := MustSucceed(client.Get("http://" + b.Addresses()[0].String()))
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Expect(received).To(BeTrue())
 		Expect(b.Close()).To(Succeed())

@@ -15,8 +15,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -28,8 +28,8 @@ import (
 type Config struct {
 	// Factories are the factories for creating tasks.
 	Factories []Factory
-	// Host is the node key of the current host.
-	Host cluster.HostProvider
+	// HostKey is the key of the host node.
+	HostKey node.Key
 	// DB is the gorp database for observing task changes.
 	DB *gorp.DB
 	// Rack is the rack service for creating/managing racks.
@@ -66,7 +66,7 @@ func (c Config) Override(other Config) Config {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Factories = override.Slice(c.Factories, other.Factories)
-	c.Host = override.Nil(c.Host, other.Host)
+	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
 	c.HeartbeatInterval = override.Numeric(c.HeartbeatInterval, other.HeartbeatInterval)
 	c.TaskTimeout = override.Numeric(c.TaskTimeout, other.TaskTimeout)
 	return c
@@ -82,6 +82,6 @@ func (c Config) Validate() error {
 	v.NotNil("channel", c.Channel)
 	v.NotNil("status", c.Status)
 	v.NotEmptySlice("factories", c.Factories)
-	v.NotNil("host", c.Host)
+	v.NonZero("host_key", c.HostKey)
 	return v.Error()
 }

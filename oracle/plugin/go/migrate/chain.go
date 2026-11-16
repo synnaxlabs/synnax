@@ -10,7 +10,6 @@
 package migrate
 
 import (
-	"context"
 	"maps"
 	"path/filepath"
 	"slices"
@@ -33,8 +32,7 @@ import (
 // two adjacent version files. Regenerated on every sync and verified by check —
 // hand edits do not survive.
 func (p *Plugin) chainFiles(req *plugin.Request) ([]plugin.File, error) {
-	ctx := context.Background()
-	chainPaths, err := gotypes.ChainPaths(ctx, req)
+	chainPaths, err := gotypes.ChainPaths(req)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +49,7 @@ func (p *Plugin) chainFiles(req *plugin.Request) ([]plugin.File, error) {
 				continue
 			}
 			file, ok, err := chainFile(
-				ctx, req, origPath, cp.LivePath, cp.Numbers[i-1], k,
+				req, origPath, cp.LivePath, cp.Numbers[i-1], k, k == cp.Current,
 			)
 			if err != nil {
 				return nil, err
@@ -66,30 +64,34 @@ func (p *Plugin) chainFiles(req *plugin.Request) ([]plugin.File, error) {
 
 // chainFile emits one version's migrate.gen.go, when its entries changed.
 func chainFile(
-	ctx context.Context,
 	req *plugin.Request,
 	origPath, livePath string,
 	prev, k int,
+	current bool,
 ) (plugin.File, bool, error) {
 	oldTable, oldNS, err := gotypes.ChainFrozenTable(
-		ctx, req, origPath, livePath, prev,
+		req, origPath, livePath, prev,
 	)
 	if err != nil {
 		return plugin.File{}, false, err
 	}
 	newTable, newNS, err := gotypes.ChainFrozenTable(
-		ctx, req, origPath, livePath, k,
+		req, origPath, livePath, k,
 	)
 	if err != nil {
 		return plugin.File{}, false, err
 	}
-	newFile, err := req.Versions.File(ctx, livePath, k)
+	newFile, err := req.Versions.File(livePath, k)
 	if err != nil {
 		return plugin.File{}, false, err
 	}
-	// A chain may span several Go outputs (task and task/config); this file
-	// belongs to origPath, so members living in another output stay out of it.
-	foreign := foreignOutputs(req, livePath, origPath)
+	// A current package may span several Go outputs; this file belongs to origPath,
+	// so members living in another output stay out of it. A frozen package declares
+	// every member, so nothing is foreign to it.
+	foreign := make(set.Set[string])
+	if current {
+		foreign = foreignOutputs(req, livePath, origPath)
+	}
 	var oldEntries []resolution.Type
 	for _, t := range oldTable.TypesInNamespace(oldNS) {
 		if domain.HasExprFromType(t, "go", "migrate") && !foreign.Contains(t.Name) {
@@ -116,7 +118,7 @@ func chainFile(
 		return cmpStrings(a.Name, b.Name)
 	})
 	mapping := chainMapping{
-		resolver: req.Versions, ctx: ctx, livePath: livePath, newFile: newFile,
+		resolver: req.Versions, livePath: livePath, newFile: newFile,
 	}
 	counterpart := mapping.counterpart
 	diff := make(map[string]schemadiff.TypeDiff)
@@ -136,7 +138,7 @@ func chainFile(
 	content, err := generateAutoCopy(
 		filepath.Base(newPath), newPath, req.RepoRoot,
 		roots, diff, oldTable, newTable,
-		mapping, wrapperNames(diff, oldTable, newTable, counterpart),
+		mapping, wrapperNames(oldTable, newTable, counterpart),
 	)
 	if err != nil {
 		return plugin.File{}, false, errors.Wrapf(
@@ -156,7 +158,6 @@ func chainFile(
 // name or aliased it back to an earlier one.
 type chainMapping struct {
 	resolver *versions.Resolver
-	ctx      context.Context
 	// livePath is the resource whose chain is being generated. Every other resource a
 	// surface carries is a dependency pin.
 	livePath string
@@ -175,7 +176,7 @@ func (m chainMapping) counterpart(qualifiedName string) string {
 	if !ok {
 		return qualifiedName
 	}
-	if _, _, ok := m.resolver.Definer(m.ctx, lp, v, name); !ok {
+	if _, _, ok := m.resolver.Definer(lp, v, name); !ok {
 		return qualifiedName
 	}
 	return versions.DepNS(lp, v) + "." + name
@@ -196,8 +197,8 @@ func (m chainMapping) sameGoType(qualifiedName string) (same, known bool) {
 	if !ok {
 		return false, false
 	}
-	oldNS, _, oldOk := m.resolver.Definer(m.ctx, lp, outgoing, name)
-	newNS, _, newOk := m.resolver.Definer(m.ctx, lp, incoming, name)
+	oldNS, _, oldOk := m.resolver.Definer(lp, outgoing, name)
+	newNS, _, newOk := m.resolver.Definer(lp, incoming, name)
 	if !oldOk || !newOk {
 		return false, false
 	}

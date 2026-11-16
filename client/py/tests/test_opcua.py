@@ -8,8 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 import pytest
+from pydantic import ValidationError
 
 import synnax as sy
+from tests.task_targets import TaskTargets
 
 
 @pytest.mark.opcua
@@ -61,8 +63,7 @@ class TestOPCReadTask:
                     "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "sample_rate": 10,
                     "stream_rate": 5,
-                    "array_mode": False,
-                    "array_size": 1,
+                    "sampling": {"type": "unary"},
                     "data_saving_disabled": True,
                     "auto_start": True,
                     "channels": [
@@ -83,7 +84,7 @@ class TestOPCReadTask:
                     "device": "some-device-key",
                     "sample_rate": 10,
                     "stream_rate": 5,
-                    "array_mode": False,
+                    "sampling": {"type": "unary"},
                     "data_saving_disabled": True,
                     "auto_start": False,
                     "channels": [
@@ -119,8 +120,7 @@ class TestOPCReadTask:
                     "sample_rate": 10,
                     "data_saving_disabled": True,
                     "auto_start": True,
-                    "array_mode": True,
-                    "array_size": 1,
+                    "sampling": {"type": "array", "size": 1},
                     "channels": [
                         {
                             "key": "k09AWoiyLxN",
@@ -140,15 +140,34 @@ class TestOPCReadTask:
         input_data = test_data["data"]
         sy.opcua.ReadConfig.model_validate(input_data)
 
-    def test_create_and_retrieve_task(self, client: sy.Synnax) -> None:
+    def test_unary_sampling_by_default(self) -> None:
+        """Should sample one value per node when no sampling is given."""
+        task = sy.opcua.ReadTask(device="some-device-key")
+        assert task.config.model_dump()["sampling"] == {"type": "unary"}
+
+    def test_array_sampling(self) -> None:
+        """Should write the array sampling and its size."""
+        task = sy.opcua.ReadTask(
+            device="some-device-key",
+            sampling=sy.opcua.ArraySampling(size=5),
+        )
+        assert task.config.model_dump()["sampling"] == {"type": "array", "size": 5}
+
+    def test_array_sampling_rejects_zero_size(self) -> None:
+        """Should reject an array size of 0."""
+        with pytest.raises(ValidationError):
+            sy.opcua.ArraySampling(size=0)
+
+    def test_create_and_retrieve_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
         task = sy.opcua.ReadTask(
             name="test-task",
             device="some-device-key",
             sample_rate=10,
             stream_rate=5,
-            array_mode=False,
-            array_size=1,
+            sampling=sy.opcua.UnarySampling(),
             channels=[
                 sy.opcua.ReadChannel(
                     key="k09AWoiyLxN",
@@ -157,6 +176,7 @@ class TestOPCReadTask:
                 )
             ],
         )
+        task_targets.attach(task.config)
         createdTask = client.tasks.create(
             name="test-task",
             type="opc_read",
@@ -164,11 +184,14 @@ class TestOPCReadTask:
         )
         sy.opcua.ReadTask(createdTask)
 
-    def test_nan_fill_enabled_round_trip(self, client: sy.Synnax) -> None:
+    def test_nan_fill_enabled_round_trip(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Should keep nan_fill_enabled through a create and retrieve."""
         task = sy.opcua.ReadTask(
             name="test-task", device="some-device-key", nan_fill_enabled=True
         )
+        task_targets.attach(task.config)
         created = client.tasks.create(
             name="test-task", type="opc_read", config=task.config
         )
@@ -256,7 +279,9 @@ class TestOPCWriteTask:
         input_data = test_data["data"]
         sy.opcua.WriteConfig.model_validate(input_data)
 
-    def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_write_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
         task = sy.opcua.WriteTask(
             name="test-write-task",
@@ -270,6 +295,7 @@ class TestOPCWriteTask:
                 )
             ],
         )
+        task_targets.attach(task.config)
         createdTask = client.tasks.create(
             name="test-write-task",
             type="opc_write",
@@ -319,7 +345,9 @@ class TestOPCWriteTask:
         assert channel.key != ""
         assert len(channel.key) > 0
 
-    def test_write_task_serialization_round_trip(self, client: sy.Synnax) -> None:
+    def test_write_task_serialization_round_trip(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original_task = sy.opcua.WriteTask(
             name="test-round-trip",
@@ -342,6 +370,7 @@ class TestOPCWriteTask:
         )
 
         # Create task in database
+        task_targets.attach(original_task.config)
         created_task = client.tasks.create(
             name="test-round-trip",
             type="opc_write",

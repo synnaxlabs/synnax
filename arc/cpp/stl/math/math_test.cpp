@@ -11,6 +11,7 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/mem/indirect.h"
 #include "x/cpp/mem/local_shared.h"
 #include "x/cpp/testutil/testutil.h"
 
@@ -42,14 +43,16 @@ struct TestSetup {
         const std::string &node_type,
         const std::vector<types::Param> &config_params = {},
         bool with_reset = false,
-        types::Kind output_kind = types::Kind::Invalid
+        types::Kind output_kind = types::Kind::Invalid,
+        const std::vector<ir::Node> &extra_nodes = {}
     ):
         ir(build_ir(
             kind,
             node_type,
             config_params,
             with_reset,
-            output_kind == types::Kind::Invalid ? kind : output_kind
+            output_kind == types::Kind::Invalid ? kind : output_kind,
+            extra_nodes
         )),
         state(
             runtime::state::Config{.ir = ir, .channels = {}},
@@ -74,7 +77,8 @@ private:
         const std::string &node_type,
         const std::vector<types::Param> &config_params,
         bool with_reset,
-        types::Kind output_kind
+        types::Kind output_kind,
+        const std::vector<ir::Node> &extra_nodes
     ) {
         types::Param source_output;
         source_output.name = ir::default_output_param;
@@ -137,6 +141,8 @@ private:
             ir.edges.push_back(reset_edge);
         }
 
+        for (const auto &n: extra_nodes)
+            ir.nodes.push_back(n);
         ir.functions.push_back(fn);
         return ir;
     }
@@ -160,6 +166,32 @@ void write_source_i32(
     source.output(0) = x::mem::make_local_shared<x::telem::Series>(data);
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
     source.mark_fresh(0);
+}
+
+/// @brief builds variable node "w" holding a value of kind.
+ir::Node var_node(const types::Kind kind) {
+    types::Param output;
+    output.name = ir::default_output_param;
+    output.type = types::Type{.kind = kind};
+    ir::Node n;
+    n.key = "w";
+    n.type = "variable";
+    n.outputs.push_back(output);
+    return n;
+}
+
+/// @brief builds a param bound to variable node "w", with the zero placeholder the text
+/// compiler gives a computed input.
+types::Param var_param(const std::string &name, const types::Kind kind) {
+    types::Param p;
+    p.name = name;
+    p.type = types::Type{
+        .kind = types::Kind::VarRef,
+        .name = "w",
+        .elem = x::mem::indirect<types::Type>(types::Type{.kind = kind})
+    };
+    p.value = 0;
+    return p;
 }
 
 void write_reset(
@@ -358,6 +390,64 @@ TEST(MathAvgTest, ResetsWithDurationInput) {
 
     auto checker2 = setup.make_target_node();
     EXPECT_DOUBLE_EQ(checker2.output(0)->at<double>(0), 150.0);
+}
+
+/// @brief it should read a variable-bound count on each batch.
+TEST(MathAvgTest, ReadsAVariableBoundCountOnEachBatch) {
+    TestSetup setup(
+        types::Kind::F64,
+        "avg",
+        {var_param("count", types::Kind::I64)},
+        false,
+        types::Kind::Invalid,
+        {var_node(types::Kind::I64)}
+    );
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source = setup.make_source_node();
+    write_source_f64(source, {10.0, 20.0, 30.0}, {sec, 2 * sec, 3 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+    EXPECT_DOUBLE_EQ(setup.make_target_node().output(0)->at<double>(0), 20.0);
+
+    const auto w = ASSERT_NIL_P(setup.state.node("w"));
+    *w.output(0) = x::telem::Series(std::vector<int64_t>{3});
+    write_source_f64(source, {40.0, 50.0, 60.0}, {4 * sec, 5 * sec, 6 * sec});
+    ASSERT_NIL(node->next(ctx));
+    EXPECT_DOUBLE_EQ(setup.make_target_node().output(0)->at<double>(0), 50.0);
+}
+
+/// @brief it should read a variable-bound duration on each batch.
+TEST(MathAvgTest, ReadsAVariableBoundDurationOnEachBatch) {
+    TestSetup setup(
+        types::Kind::F64,
+        "avg",
+        {var_param("duration", types::Kind::I64)},
+        false,
+        types::Kind::Invalid,
+        {var_node(types::Kind::I64)}
+    );
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source = setup.make_source_node();
+    write_source_f64(source, {10.0, 20.0, 30.0}, {sec, 2 * sec, 3 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+    EXPECT_DOUBLE_EQ(setup.make_target_node().output(0)->at<double>(0), 20.0);
+
+    const auto w = ASSERT_NIL_P(setup.state.node("w"));
+    *w.output(0) = x::telem::Series(std::vector<int64_t>{2 * sec});
+    write_source_f64(source, {100.0, 200.0}, {6 * sec, 7 * sec});
+    ASSERT_NIL(node->next(ctx));
+    EXPECT_DOUBLE_EQ(setup.make_target_node().output(0)->at<double>(0), 150.0);
 }
 
 TEST(MathAvgTest, ResetsWithSignal) {

@@ -22,7 +22,7 @@ describe("Log.useLink", () => {
     const project = await client.projects.create({
       name: id.create(),
     });
-    const log = await client.logs.create(project.key, { name: "Event Log" });
+    const log = await client.logs.create({ project: project.key, name: "Event Log" });
     const { handler, store } = await renderLinkHook(Log.useLink, { client });
     store.dispatch(Session.Project.select(project.key));
     await handler({ client, key: log.key });

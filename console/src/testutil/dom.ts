@@ -24,15 +24,20 @@ export const installPortalRoot = (): void => {
 };
 
 /**
- * Right-clicks the element with the given text and waits for the context menu to
- * open. Retries with a fresh query: async flux resolutions (permissions, labels) can
- * replace the target node between lookup and dispatch, detaching the first match.
+ * Right-clicks the element with the given text, or the element that find returns, and
+ * waits for the context menu to open. Retries with a fresh query: async flux
+ * resolutions (permissions, labels) can replace the target node between lookup and
+ * dispatch, detaching the first match.
  */
-export const openContextMenu = async (text: string): Promise<void> => {
+export const openContextMenu = async (
+  target: string | (() => HTMLElement),
+): Promise<void> => {
   await waitFor(() => {
-    fireEvent.contextMenu(screen.getByText(text));
+    fireEvent.contextMenu(
+      typeof target === "string" ? screen.getByText(target) : target(),
+    );
     if (document.querySelector(".lyra-menu-context") == null)
-      throw new Error(`context menu did not open for ${text}`);
+      throw new Error("context menu did not open");
   });
 };
 
@@ -83,23 +88,6 @@ export const findIconButton = async (
   container: ParentNode,
   icon: string,
 ): Promise<HTMLButtonElement> => await waitFor(() => getIconButton(container, icon));
-
-/**
- * Finds the text input whose pluto node placeholder (a rendered sibling element, not
- * an HTML placeholder attribute) contains the given text.
- */
-export const getInputByNodePlaceholder = (
-  container: ParentNode,
-  text: string,
-): HTMLInputElement => {
-  const placeholders = Array.from(
-    container.querySelectorAll<HTMLElement>(".lyra-input__placeholder"),
-  );
-  const target = placeholders.find((el) => (el.textContent ?? "").includes(text));
-  const input = target?.parentElement?.querySelector("input");
-  if (input == null) throw new Error(`no input with node placeholder ${text}`);
-  return input;
-};
 
 /** Queries container for the given selector, throwing when nothing matches. */
 export const getBySelector = <E extends Element = Element>(
@@ -179,28 +167,6 @@ export const getInputByItemLabel = (
   if (input == null) throw new Error(`no input in item labeled ${label}`);
   return input;
 };
-
-/**
- * Finds the button whose subtree renders every one of the given pluto icons, for
- * icon-only composite buttons (e.g. group + add) with no accessible text.
- */
-export const getCompositeIconButton = (
-  container: ParentNode,
-  icons: string[],
-): HTMLButtonElement => {
-  const [btn] = getCompositeIconButtons(container, icons);
-  if (btn == null) throw new Error(`no button with icons ${icons.join(", ")}`);
-  return btn;
-};
-
-/** Like getCompositeIconButton, but returns every match instead of throwing on none. */
-export const getCompositeIconButtons = (
-  container: ParentNode,
-  icons: string[],
-): HTMLButtonElement[] =>
-  Array.from(container.querySelectorAll("button")).filter((b) =>
-    icons.every((i) => b.querySelector(`.lyra-icon--${i}`) != null),
-  );
 
 /** A handle on the pluto input table inside an input item. */
 export interface InputTable {

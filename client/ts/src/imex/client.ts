@@ -10,7 +10,8 @@
 import { type FileTransport, type UploadBody } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { group } from "@/group";
+import { resource } from "@/resource";
 
 /**
  * The serialized wire formats a resource can be imported from or exported to. Today
@@ -33,10 +34,11 @@ export interface Options {
 /** The standard options for a JSON import or export. */
 export const JSON_OPTIONS: Options = { encoding: "JSON" };
 
-/** The wire shape of the per-import request params. Both fields are required. */
+/** The wire shape of the per-import request params. */
 const importParamsZ = z.object({
   fileName: z.string().min(1),
-  parent: ontology.idZ.transform((id) => ontology.idToString(id)),
+  parent: resource.idZ.transform((id) => resource.idToString(id)).optional(),
+  group: group.keyZ.optional(),
 });
 
 /** Options for a single import call. */
@@ -48,11 +50,13 @@ export interface ImportOptions extends Options {
    */
   fileName: string;
   /**
-   * The ontology resource to create the imported resource under — a project for project
-   * items, a group for symbols. The Core creates the resource and its parent
-   * relationship in a single transaction, so a parenting failure rolls back the import.
+   * The resource to create the imported resource under, such as the project of a
+   * project item. The Core creates the resource with its parent in a single
+   * transaction, so a parenting failure rolls back the import. Symbols take no parent.
    */
-  parent: ontology.ID;
+  parent?: resource.ID;
+  /** The group to put the imported resource in, if any. */
+  group?: group.Key;
 }
 
 /**
@@ -89,25 +93,25 @@ export class Client {
   }
 
   /**
-   * Imports a resource from the given serialized source and returns its new ontology
+   * Imports a resource from the given serialized source and returns its new resource
    * ID.
    * @param source - the serialized resource (e.g. a file's contents). A Blob is sent
    * from wherever the engine holds it, so a file never enters client memory; bytes are
    * sent as-is.
    * @param options - the import options, including the wire format of source, the
    * source file's name (used to name the resource when the file carries no name), and
-   * the parent resource to create the resource under.
-   * @returns the new resource's ontology ID as stamped by the Core.
+   * the parent resource to create the resource under, and the group to put it in.
+   * @returns the new resource's resource ID as stamped by the Core.
    */
   async import(
     source: UploadBody,
     { encoding, ...params }: ImportOptions,
-  ): Promise<ontology.ID> {
+  ): Promise<resource.ID> {
     return await this.cfg.file.upload(
       "/imex/import",
       source,
       { encoding, params, paramsSchema: importParamsZ },
-      ontology.idZ,
+      resource.idZ,
     );
   }
 
@@ -119,7 +123,7 @@ export class Client {
    * @param options - the export options, including the desired wire format.
    * @returns the serialized resource as a stream of bytes.
    */
-  async export(id: ontology.ID, options: Options): Promise<ReadableStream<Uint8Array>> {
-    return await this.cfg.file.download("/imex/export", id, ontology.idZ, options);
+  async export(id: resource.ID, options: Options): Promise<ReadableStream<Uint8Array>> {
+    return await this.cfg.file.download("/imex/export", id, resource.idZ, options);
   }
 }

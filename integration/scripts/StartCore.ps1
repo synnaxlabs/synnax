@@ -7,7 +7,13 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+param(
+    # The host and port the Core listens on.
+    [string]$Listen = "localhost:9090"
+)
+
 $ErrorActionPreference = "Stop"
+$coreHost, $corePort = $Listen -split ":"
 
 Write-Host "Starting Synnax server on Windows..."
 
@@ -44,7 +50,7 @@ Write-Host "Found Synnax binary at: $synnaxPath"
 $logFile = "$env:USERPROFILE\synnax-data\synnax-core.log"
 # Use cmd /c with shell redirection to capture logs while keeping -WindowStyle Hidden
 # for proper process detachment (required so the process survives the step ending).
-$cmdArgs = "/c `"`"$synnaxPath`" start -mi > `"$logFile`" 2>&1`""
+$cmdArgs = "/c `"`"$synnaxPath`" start -mi --listen $Listen > `"$logFile`" 2>&1`""
 $process = Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs -WindowStyle Hidden -PassThru -WorkingDirectory "$env:USERPROFILE\synnax-data"
 
 # Store the process ID for tracking
@@ -55,7 +61,7 @@ Write-Host "Started Synnax with PID: $($process.Id)"
 function Test-CorePort {
     $client = [System.Net.Sockets.TcpClient]::new()
     try {
-        return $client.ConnectAsync("localhost", 9090).Wait(1000)
+        return $client.ConnectAsync($coreHost, [int]$corePort).Wait(1000)
     } catch {
         return $false
     } finally {
@@ -74,14 +80,14 @@ function Stop-Start([string]$message) {
 }
 
 # The deadline stays under the step's timeout, so the log prints before the kill.
-Write-Host "Waiting for port 9090..."
+Write-Host "Waiting for $Listen..."
 $deadline = (Get-Date).AddSeconds(45)
 while (-not (Test-CorePort)) {
     if ($process.HasExited) {
         Stop-Start "Synnax exited during startup with code $($process.ExitCode)"
     }
     if ((Get-Date) -gt $deadline) {
-        Stop-Start "Port 9090 did not open within 45 seconds"
+        Stop-Start "$Listen did not open within 45 seconds"
     }
     Start-Sleep -Seconds 1
 }

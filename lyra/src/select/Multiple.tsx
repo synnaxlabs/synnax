@@ -34,7 +34,9 @@ export interface MultipleProps<
       "disabled" | "icon" | "haulType" | "createHaulItem"
     >,
     Pick<List.ItemsProps<K>, "children"> {
-  /** Singular name of the thing being selected. It is pluralized for the placeholder. */
+  /**
+   * Singular name of the thing being selected. It is pluralized for the placeholder.
+   */
   resourceName: string;
   /** Renders one tag in the trigger. Defaults to the entry name. */
   renderTag?: MultipleTriggerProps<K, E>["children"];
@@ -98,6 +100,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
           icon={icon}
           placeholder={placeholder}
           aria-label={caseconv.capitalize(plural(resourceName))}
+          resourceName={resourceName}
           disabled={disabled}
           preview={preview}
           {...triggerProps}

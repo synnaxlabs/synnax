@@ -90,8 +90,8 @@ export const create = async (
   m: Modal,
 ): Promise<Locator> => {
   const { page } = session;
-  // The calculated action is the first of the toolbar's two create actions.
-  const action = page.locator(".console-nav__drawer .console-toolbar__action").first();
+  // The calculated action sits between the search and create actions of the toolbar.
+  const action = page.locator(".console-nav__drawer .console-toolbar__action").nth(1);
   await session.moveTo(action);
   await session.hold(300);
   await session.click(action);

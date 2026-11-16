@@ -12,6 +12,7 @@ package kafka
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -48,6 +49,7 @@ type browseArgs struct {
 type scanner struct {
 	// timeout bounds one ping.
 	timeout telem.TimeSpan
+	db      *gorp.DB
 	device  *device.Service
 }
 
@@ -79,7 +81,7 @@ func (s scanner) Exec(
 		if err := unmarshalArgs(cmd, &args); err != nil {
 			return nil, err
 		}
-		props, err := resolveProperties(ctx, s.device, args.Device)
+		props, err := resolveProperties(ctx, s.db, s.device, args.Device)
 		if err != nil {
 			return nil, err
 		}
@@ -99,7 +101,7 @@ func (s scanner) Exec(
 		if err := unmarshalArgs(cmd, &args); err != nil {
 			return nil, err
 		}
-		props, err := resolveProperties(ctx, s.device, args.Device)
+		props, err := resolveProperties(ctx, s.db, s.device, args.Device)
 		if err != nil {
 			return nil, err
 		}
@@ -126,22 +128,32 @@ func (s scanner) ping(ctx context.Context, props Properties) error {
 	return ping(ctx, props)
 }
 
+func validateScanConfig(cfg *ScanConfig) error {
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	if cfg.Rate.Period() <= 0 {
+		return errors.Wrapf(
+			validate.ErrValidation, "rate: %s is too high", cfg.Rate,
+		)
+	}
+	return nil
+}
+
 // configureScan returns the scan task of t, and whether the factory starts it.
 func (f *factory) configureScan(t task.Task) (*driver.ScanTask, bool, error) {
 	var cfg ScanConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		return nil, false, err
 	}
-	cfg.ApplyDefaults()
-	if cfg.Rate <= 0 || cfg.Rate.Period() <= 0 {
-		return nil, false, errors.Wrapf(
-			validate.ErrValidation, "rate: must be positive, got %s", cfg.Rate,
-		)
+	if err := validateScanConfig(&cfg); err != nil {
+		return nil, false, err
 	}
 	st, err := driver.NewScanTask(driver.ScanTaskConfig{
 		Instrumentation: f.cfg.Child("scan"),
 		Scanner: scanner{
 			timeout: f.cfg.PingTimeout,
+			db:      f.cfg.DB,
 			device:  f.cfg.Device,
 		},
 		DB:                 f.cfg.DB,

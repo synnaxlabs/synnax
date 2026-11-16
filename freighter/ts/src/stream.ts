@@ -17,8 +17,11 @@ export interface StreamReceiver<RS extends z.ZodType> {
    * Receives a response from the stream. It's not safe to call receive concurrently.
    * @returns the next response from the stream.
    * @throws freighter.EOF: if the server closed the stream nominally.
+   * @throws freighter.ReceiveOverflow: if the unread responses passed the transport's
+   * limit. The stream is closed.
    * @throws Error: the error the server returned when it closed the stream abnormally,
-   * or a transport error if the transport itself failed.
+   * a transport error if the transport itself failed, or a codec error if a response
+   * does not decode.
    */
   receive: () => Promise<z.infer<RS>>;
 
@@ -29,14 +32,15 @@ export interface StreamReceiver<RS extends z.ZodType> {
 /** Interface for an entity that sends a stream of requests. */
 export interface StreamSender<RQ extends z.ZodType> {
   /**
-   * Sends a request to the stream. It is not safe to call send concurrently with
-   * closeSend or send.
-   * @throws freighter.EOF: if the server closed the stream. The caller can discover the
-   * error returned by the server by calling receive().
+   * Sends a request to the stream. Waits while the transport holds too many unsent
+   * bytes. Concurrent sends go out in call order. It is not safe to call send
+   * concurrently with closeSend.
+   * @throws freighter.EOF: if the stream closed, by the server or by a receive
+   * overflow. The caller can discover the error by calling receive().
    * @throws freighter.StreamClosed: if the client called closeSend().
    * @throws Error: if the transport fails.
    */
-  send: (req: z.input<RQ> | z.infer<RQ>) => void;
+  send: (req: z.input<RQ> | z.infer<RQ>) => Promise<void>;
 }
 
 /**

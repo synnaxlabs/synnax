@@ -26,7 +26,7 @@ import (
 var acronyms = set.New(
 	"ai", "ao", "ci", "co", "di", "do",
 	"rtd", "iepe", "rms", "dc", "ac",
-	"api",
+	"api", "json",
 )
 
 // pascalAcronym converts a snake_case (or mixed-case) identifier to PascalCase, fully
@@ -210,7 +210,7 @@ func insertAcronymBoundaries(s string) string {
 		return s
 	}
 	out := make([]byte, 0, len(s)+4)
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		if i > 0 && i+1 < len(s) &&
 			isUpper(s[i-1]) && isUpper(s[i]) && isLower(s[i+1]) {
 			out = append(out, ' ')

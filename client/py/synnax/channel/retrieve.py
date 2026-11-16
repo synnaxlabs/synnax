@@ -10,9 +10,6 @@
 from __future__ import annotations
 
 import json
-from uuid import UUID
-
-from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import UnaryClient
@@ -27,11 +24,6 @@ from synnax.channel.types_gen import RetrieveRequest, RetrieveResponse, Where
 from synnax.exceptions import NotFoundError
 from synnax.util import sole
 from x import filter
-
-
-class _AliasedRetrieveRequest(BaseModel):
-    request: RetrieveRequest
-    range_key: UUID | None = None
 
 
 def params_where(channels: Params) -> Where:
@@ -80,17 +72,9 @@ class Retriever:
         return sole("channel", req, self.filter(req))
 
     @trace("debug")
-    def filter(
-        self, req: RetrieveRequest, range_key: UUID | None = None
-    ) -> list[Payload]:
-        """Returns the channels req selects. A range_key sets each channel's alias in
-        the range, and a search term then also matches those aliases, ranked first.
-        """
-        return self._client.send(
-            "/channel/retrieve",
-            _AliasedRetrieveRequest(request=req, range_key=range_key),
-            RetrieveResponse,
-        ).channels
+    def filter(self, req: RetrieveRequest) -> list[Payload]:
+        """Returns the channels req selects."""
+        return self._client.send("/channel/retrieve", req, RetrieveResponse).channels
 
 
 def retrieve_required(r: Retriever, channels: Params) -> list[Payload]:

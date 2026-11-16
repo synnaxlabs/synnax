@@ -23,24 +23,24 @@ namespace driver::opcua::connection {
 class ConnectionPoolKeepAliveTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        server_cfg_ = testutil::ServerConfig::create_default();
-        server_cfg_.port = 4847;
-        server_ = std::make_unique<testutil::Server>(server_cfg_);
-        server_->start();
-        ASSERT_TRUE(server_->wait_until_ready());
+        server_cfg = testutil::ServerConfig::create_default();
+        server_cfg.port = 4847;
+        this->server = std::make_unique<testutil::Server>(server_cfg);
+        this->server->start();
+        ASSERT_TRUE(this->server->wait_until_ready());
 
-        conn_cfg_.endpoint = "opc.tcp://localhost:4847";
-        conn_cfg_.security_mode = "None";
-        conn_cfg_.security_policy = "None";
+        conn_cfg.endpoint = "opc.tcp://localhost:4847";
+        conn_cfg.security_mode = "None";
+        conn_cfg.security_policy = "None";
     }
 
     void TearDown() override {
-        if (server_) { server_->stop(); }
+        if (this->server) { this->server->stop(); }
     }
 
-    testutil::ServerConfig server_cfg_;
-    std::unique_ptr<testutil::Server> server_;
-    Config conn_cfg_;
+    testutil::ServerConfig server_cfg;
+    std::unique_ptr<testutil::Server> server;
+    Config conn_cfg;
 };
 
 /// @brief it should keep connection alive when repeatedly acquired and released.
@@ -50,7 +50,7 @@ TEST_F(ConnectionPoolKeepAliveTest, RepeatedAcquireKeepsConnectionAlive) {
     // Acquire and release 100 times over ~1 second
     // This simulates normal task operation patterns
     for (int i = 0; i < 100; ++i) {
-        auto connection = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+        auto connection = ASSERT_NIL_P(pool.acquire(conn_cfg, "[test] "));
 
         // Verify connection is actually functional
         UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
@@ -68,10 +68,10 @@ TEST_F(ConnectionPoolKeepAliveTest, RepeatedAcquireKeepsConnectionAlive) {
 
     // Connection should still be in pool and reusable
     EXPECT_EQ(pool.size(), 1);
-    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
+    EXPECT_EQ(pool.available_count(conn_cfg.endpoint), 1);
 
     // Final acquire should succeed
-    auto final_conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    auto final_conn = ASSERT_NIL_P(pool.acquire(conn_cfg, "[test] "));
 }
 
 /// @brief it should survive idle periods between acquisitions.
@@ -79,15 +79,15 @@ TEST_F(ConnectionPoolKeepAliveTest, ConnectionSurvivesIdlePeriods) {
     Pool pool(testutil::create_store());
 
     // Initial acquisition
-    { auto connection = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
+    { auto connection = ASSERT_NIL_P(pool.acquire(conn_cfg, "[test] ")); }
 
-    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
+    EXPECT_EQ(pool.available_count(conn_cfg.endpoint), 1);
 
     // Wait 500 ms (simulating idle time)
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // Acquire again - should get same connection, still alive
-    auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg, "[test] "));
 
     UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
     UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
@@ -112,7 +112,7 @@ TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
     for (int i = 0; i < num_threads; ++i) {
         threads.emplace_back([&]() {
             for (int j = 0; j < iterations_per_thread; ++j) {
-                auto [connection, err] = pool.acquire(conn_cfg_, "[test] ");
+                auto [connection, err] = pool.acquire(conn_cfg, "[test] ");
                 if (err || !connection) {
                     ++failure_count;
                     continue;
@@ -151,7 +151,7 @@ TEST_F(ConnectionPoolKeepAliveTest, CanPerformReadAfterKeepAlive) {
 
     // Acquire connection multiple times to trigger keep-alive
     for (int i = 0; i < 10; ++i) {
-        auto connection = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+        auto connection = ASSERT_NIL_P(pool.acquire(conn_cfg, "[test] "));
 
         // Try to read a node to verify connection is functional
         UA_Variant value;
@@ -176,7 +176,7 @@ TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
     Pool pool(testutil::create_store());
 
     // Configure very short timeouts for testing
-    Config short_cfg = conn_cfg_;
+    Config short_cfg = conn_cfg;
     short_cfg.secure_channel_lifetime_ms = 2000; // 2 seconds
     short_cfg.session_timeout_ms = 4000; // 4 seconds
     short_cfg.client_timeout_ms = 2000; // 2 seconds

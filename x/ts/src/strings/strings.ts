@@ -11,7 +11,8 @@
  * Joins an array of strings into a natural language list.
  *
  * @param strings - The array of strings to join.
- * @param zeroLength - The string to return if the array is empty. Defaults to an empty string.
+ * @param zeroLength - The string to return if the array is empty. Defaults to an empty
+ * string.
  * @returns A string that represents the natural language list.
  *
  * @example
@@ -39,50 +40,35 @@ export const naturalLanguageJoin = (
  * Creates a list of short identifiers from a given name.
  *
  * @param name - The name to create identifiers from.
- * @returns An array of unique short identifiers.
+ * @returns An array of unique short identifiers. Each starts with a letter and holds
+ * only letters, digits, and underscores.
  *
  * @example
  * ```typescript
  * createShortIdentifiers("John Doe"); // ["jd", "j_d", "johdoe", "joh_doe"]
- * createShortIdentifiers("Alice 123"); // ["a1", "a_1", "a123", "a_12_3", "ali123", "ali_123"]
+ * createShortIdentifiers("Alice 123");
+ * // ["a1", "a_1", "a123", "a_123", "ali123", "ali_123"]
  * createShortIdentifiers("Bob"); // ["bob"]
  * ```
  */
 export const createShortIdentifiers = (name: string): string[] => {
-  const words = name.split(" ");
+  const words = name
+    .split(" ")
+    .filter((word) => word !== "")
+    .map((word) => word.toLowerCase().replace(/-/g, "_"));
   const identifiers = new Set<string>();
-
-  const initials = words.map((word) => word.charAt(0).toLowerCase()).join("");
-  identifiers.add(initials.replace(/-/g, "_"));
-  identifiers.add(initials.replace(/(.)(.)/g, "$1_$2").replace(/-/g, "_")); // Insert underscores
-
-  const regex = /\d+/g;
-  const hasNumbers = name.match(regex);
-
-  if (hasNumbers)
-    words.forEach((word, index) => {
-      if (regex.test(word)) {
-        const abbreviatedWords = words
-          .map((w, i) => (i !== index ? w.charAt(0).toLowerCase() : w))
-          .join("");
-        identifiers.add(abbreviatedWords.replace(/-/g, "_"));
-        identifiers.add(
-          abbreviatedWords.replace(/(.)(.)/g, "$1_$2").replace(/-/g, "_"),
-        ); // Insert underscores
-      }
-    });
-
-  const wordAbbreviations = words.map((word) =>
-    (word.length > 3 ? word.substring(0, 3) : word).toLowerCase(),
+  const add = (parts: string[]) => {
+    identifiers.add(parts.join(""));
+    identifiers.add(parts.join("_"));
+  };
+  add(words.map((word) => word.charAt(0)));
+  words.forEach((word, index) => {
+    if (/\d/.test(word)) add(words.map((w, i) => (i === index ? w : w.charAt(0))));
+  });
+  add(words.map((word) => word.substring(0, 3)));
+  return Array.from(identifiers).filter(
+    (id) => id.length >= 2 && id.length <= 12 && /^[a-zA-Z]\w*$/.test(id),
   );
-  identifiers.add(wordAbbreviations.join("").replace(/-/g, "_"));
-  identifiers.add(wordAbbreviations.join("_").replace(/-/g, "_"));
-
-  const filteredIdentifiers = Array.from(identifiers).filter(
-    (id) => id.length >= 2 && id.length <= 12 && !/^\d/.test(id),
-  );
-
-  return filteredIdentifiers;
 };
 
 /**
@@ -90,7 +76,8 @@ export const createShortIdentifiers = (name: string): string[] => {
  *
  * @param str - The string to remove the prefix from.
  * @param prefix - The prefix to remove.
- * @returns The string with the prefix removed if it was present, otherwise the original string.
+ * @returns The string with the prefix removed if it was present, otherwise the original
+ * string.
  *
  * @example
  * ```typescript

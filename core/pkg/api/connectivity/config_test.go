@@ -10,6 +10,8 @@
 package connectivity_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiconnectivity "github.com/synnaxlabs/synnax/pkg/api/connectivity"
@@ -19,8 +21,8 @@ import (
 var _ = Describe("ServiceConfig", func() {
 	full := func() apiconnectivity.ServiceConfig {
 		return apiconnectivity.ServiceConfig{
-			Cluster: node.Cluster,
-			License: &license.Service{},
+			Identity: node.Identity,
+			License:  &license.Service{},
 		}
 	}
 
@@ -37,9 +39,14 @@ var _ = Describe("ServiceConfig", func() {
 				Expect(cfg.Validate()).To(MatchError(msg))
 			},
 			Entry(
-				"cluster",
-				func(c *apiconnectivity.ServiceConfig) { c.Cluster = nil },
-				"cluster: must be non-nil",
+				"identity key",
+				func(c *apiconnectivity.ServiceConfig) { c.Identity.Key = uuid.Nil() },
+				"identity.key: must be set",
+			),
+			Entry(
+				"identity host key",
+				func(c *apiconnectivity.ServiceConfig) { c.Identity.HostKey = 0 },
+				"identity.host_key: must be non-zero",
 			),
 			Entry(
 				"license",
@@ -53,14 +60,14 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should take the other config's services when set", func() {
 			cfg := full()
 			merged := apiconnectivity.ServiceConfig{}.Override(cfg)
-			Expect(merged.Cluster).To(BeIdenticalTo(cfg.Cluster))
+			Expect(merged.Identity).To(Equal(cfg.Identity))
 			Expect(merged.License).To(BeIdenticalTo(cfg.License))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apiconnectivity.ServiceConfig{})
-			Expect(merged.Cluster).To(BeIdenticalTo(cfg.Cluster))
+			Expect(merged.Identity).To(Equal(cfg.Identity))
 			Expect(merged.License).To(BeIdenticalTo(cfg.License))
 		})
 	})

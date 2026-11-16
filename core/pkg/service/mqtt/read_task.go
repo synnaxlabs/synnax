@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -126,6 +127,12 @@ func newReadTopic(
 		if err != nil {
 			return nil, errors.Wrap(err, path)
 		}
+		if ch.DataType == telem.BytesT && len(pointer) == 0 {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"%s: a bytes channel requires a JSON pointer", path,
+			)
+		}
 		field := readField{
 			name:     f.Name,
 			pointer:  pointer,
@@ -201,10 +208,10 @@ func newReadTopic(
 }
 
 // enums returns entries in the form xjson takes.
-func enums(entries []EnumEntry) []xjson.Enum {
+func enums(entries []payload.EnumEntry) []xjson.Enum {
 	out := make([]xjson.Enum, len(entries))
 	for i, e := range entries {
-		out[i] = xjson.Enum{Label: e.Label, Value: e.Value}
+		out[i] = xjson.NewEnum(e.Label, e.Value)
 	}
 	return out
 }

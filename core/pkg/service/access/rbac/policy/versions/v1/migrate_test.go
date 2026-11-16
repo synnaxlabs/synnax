@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -31,10 +31,10 @@ var _ = Describe("WorkspaceObjectsMigration", func() {
 		p := v1.Policy{
 			Key:  uuid.New(),
 			Name: "custom",
-			Objects: []ontology.ID{
+			Objects: []resource.ID{
 				{Type: "workspace", Key: "a1b2"},
 				{Type: "workspace"},
-				{Type: ontology.ResourceTypeChannel, Key: "1"},
+				{Type: resource.TypeChannel, Key: "1"},
 			},
 		}
 		Expect(gorp.NewCreate[v1.Key, v1.Policy]().Entry(&p).Exec(ctx, db)).
@@ -48,10 +48,10 @@ var _ = Describe("WorkspaceObjectsMigration", func() {
 		Expect(gorp.NewRetrieve[v1.Key, v1.Policy]().
 			Where(gorp.MatchKeys[v1.Key, v1.Policy](p.Key)).
 			Entry(&got).Exec(ctx, db)).To(Succeed())
-		Expect(got.Objects).To(Equal([]ontology.ID{
-			{Type: ontology.ResourceTypeProject, Key: "a1b2"},
-			{Type: ontology.ResourceTypeProject},
-			{Type: ontology.ResourceTypeChannel, Key: "1"},
+		Expect(got.Objects).To(Equal([]resource.ID{
+			{Type: resource.TypeProject, Key: "a1b2"},
+			{Type: resource.TypeProject},
+			{Type: resource.TypeChannel, Key: "1"},
 		}))
 	})
 })

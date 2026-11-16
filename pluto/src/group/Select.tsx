@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type group } from "@synnaxlabs/client";
+import { type group, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type ReactElement } from "react";
 
-import { type Flux } from "@/flux";
-import { type ListQuery, useList } from "@/group/queries";
+import { Flux } from "@/flux";
 
 const ListItem = ({
   itemKey,
@@ -39,22 +38,21 @@ export interface SelectSingleProps
       Select.SingleProps<group.Key, group.Group | undefined>,
       "data" | "resourceName" | "subscribe" | "children"
     >,
-    Flux.UseListParams<ListQuery, group.Key, group.Group> {}
+    Omit<Flux.UseListParams<group.RetrieveMultipleParams, group.Group>, "name"> {}
 
 export const SelectSingle = ({
   filter,
   query,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
-    filter,
-    query,
-  });
-  const { fetchMore, search } = List.usePager({ retrieve });
+  const { data, getItem, subscribe, status, more, search } = Flux.useList(
+    (client: Synnax) => client.groups,
+    { name: "groups", query, filter },
+  );
   return (
     <Select.Single<group.Key, group.Group | undefined>
       getItem={getItem}
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
       {...rest}

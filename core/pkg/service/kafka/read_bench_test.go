@@ -30,13 +30,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -275,7 +276,9 @@ func createBenchGroups(ctx context.Context, sc benchScenario) []benchGroup {
 	newIndex := func(name string) channel.Channel {
 		GinkgoHelper()
 		ch := channel.Channel{Name: name, DataType: telem.TimestampT, IsIndex: true}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		return ch
 	}
 	newData := func(name string, idx channel.Channel) channel.Channel {
@@ -285,7 +288,9 @@ func createBenchGroups(ctx context.Context, sc benchScenario) []benchGroup {
 			DataType:   telem.Float64T,
 			LocalIndex: idx.LocalKey,
 		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
 		return ch
 	}
 	if sc.shape == wide {
@@ -299,7 +304,9 @@ func createBenchGroups(ctx context.Context, sc benchScenario) []benchGroup {
 				LocalIndex: idx.LocalKey,
 			}
 		}
-		Expect(channelSvc.NewWriter(nil).CreateMany(ctx, &data)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).CreateMany(ctx, &data)
+		})).To(Succeed())
 		g.data = data
 		return []benchGroup{g}
 	}
@@ -319,7 +326,7 @@ func createBenchGroups(ctx context.Context, sc benchScenario) []benchGroup {
 }
 
 func benchRecords(groups []benchGroup, sc benchScenario) []kafka.ReadRecord {
-	unixNs := http.TimeFormatUnixNs
+	unixNs := payload.TimeFormatUnixNs
 	recs := make([]kafka.ReadRecord, len(groups))
 	for gi, g := range groups {
 		rec := kafka.ReadRecord{Key: fmt.Sprintf("r%d", gi), RecordKey: g.key}
@@ -384,7 +391,7 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 		StartOffset: kafka.StartOffsetEarliest,
 		Records:     benchRecords(groups, sc),
 	}
-	t := newTask(kafka.ReadTaskType, cfg)
+	t := newTask(ctx, kafka.ReadTaskType, cfg)
 	dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 	DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 	startTask := func() {

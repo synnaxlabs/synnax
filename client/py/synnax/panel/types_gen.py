@@ -11,16 +11,20 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, TypedDict
-from typing import override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import ontology
-from synnax.ontology.payload import ID
-from x import color as color_
-from x import filter, spatial
+from synnax import group as group_, project as project_, resource as resource_, user
+from synnax.resource import ID
+from x import color as color_, filter, spatial
+from x.filter import shorthand
+
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
 
 TabKey: TypeAlias = UUID
 
@@ -36,6 +40,18 @@ class View(BaseModel):
     """
 
     type: str
+
+
+class Order(BaseModel):
+    """Is a sort of panels.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class TabBase(BaseModel):
@@ -58,6 +74,11 @@ class Where(BaseModel):
         or_: Matches when any child matches.
         not_: Matches when the child does not match.
         key: Selects by key.
+        groups: Matches the panels in any of the given groups.
+        grouped: Matches the panels in a group, or in no group when false.
+        projects: Matches the panels in any of the given projects.
+        owners: Matches the drafts of any of the given users.
+        owned: Matches the drafts, or the shared panels when false.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -66,6 +87,16 @@ class Where(BaseModel):
     or_: list[Where] | None = Field(default=None, alias="or")
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+    projects: list[project_.Key] | None = None
+    owners: list[user.Key] | None = None
+    owned: bool | None = None
+
+    @field_validator("groups", "projects", "owners", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
 # WhereInput is a Where written as a partial record.
@@ -77,16 +108,33 @@ WhereInput = TypedDict(
         "or": list["WhereInput"],
         "not": "WhereInput",
         "key": filter.SetInput[Key],
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
+        "projects": project_.Key | list[project_.Key],
+        "owners": user.Key | list[user.Key],
+        "owned": bool,
     },
     total=False,
 )
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of panels: the sort value and the key of a panel.
+
+    Attributes:
+        key: Is the key of the panel at the position.
+        name: Is the name of the panel at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
 
 
 class ResourceTab(TabBase):
     """Is a tab displaying a backing Core document."""
 
     variant: Literal["resource"] = "resource"
-    resource: ontology.ID
+    resource: resource_.ID
 
 
 class ViewTab(TabBase, View):
@@ -116,16 +164,18 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the panels to retrieve. An absent where selects all of them.
         search_term: Keeps the panels that match the term, closest match first.
+        order: Sorts the panels. An absent order sorts them by key.
+        after: Starts the panels strictly past this position in their order.
         limit: Is the most panels to return.
-        offset: Is the number of matching panels to skip.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 class LeafNode(BaseModel):
@@ -140,7 +190,7 @@ class SplitNode(BaseModel):
 
     variant: Literal["split"] = "split"
     direction: spatial.Direction
-    size: spatial.Decimal
+    size: spatial.Decimal = Field(ge=0, le=1, allow_inf_nan=False)
     first: Node
     last: Node
 
@@ -155,25 +205,28 @@ Node = Annotated[
 
 
 class Panel(BaseModel):
-    """Is a project-owned tree of visualization tabs.
+    """Is a tree of visualization tabs in a project.
 
     Attributes:
         key: Is the unique identifier for this panel.
         name: Is a human-readable name for the panel.
         root: Is the root of the panel tree.
-        parent: Is the parent resource for the panel in the ontology. Required on create
-            and absent on retrieve.
         icon: Is the key of the icon that marks the panel in lists. When null, the
             Console draws its default panel icon.
         color: Is the color of the panel's icon. When null, the theme picks it.
+        group: Is the group the panel sits in, if any.
+        project: Is the project that holds the panel.
+        owner: Is the user whose draft the panel is. Nil for a shared panel.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str
     root: Node = Field(default_factory=lambda: LeafNode(variant="leaf", tabs=[]))
-    parent: ontology.ID | None = None
     icon: str | None = None
     color: color_.Color | None = None
+    group: group_.Key | None = None
+    project: project_.Key | None = None
+    owner: user.Key | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -193,8 +246,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="panel")
+TYPE_RESOURCE_ID = ID(type="panel")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="panel", key=str(key))

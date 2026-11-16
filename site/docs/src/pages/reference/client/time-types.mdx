@@ -25,8 +25,10 @@ precision:
 | `TimeRange` | The time from start to end. | `sy.TimeRange(start, end)` | `new TimeRange(start, end)` |
 | `Rate`      | A frequency, in hertz.      | `sy.Rate.HZ * 100`         | `Rate.hz(100)`              |
 
-Methods such as `read` and `write` take a time type, or any value that its constructor
-takes, such as a `datetime` in Python or a `Date` in TypeScript.
+Methods that take a timestamp, such as `write`, also take any value that the `TimeStamp`
+constructor takes, such as a `datetime` in Python or a `Date` in TypeScript. In Python,
+`read`, `open_iterator`, `read_csv`, `read_tdms`, and `delete` take only a
+`sy.TimeRange`.
 
 <Divider.Divider x />
 
@@ -107,7 +109,7 @@ subtract a `TimeSpan`, not a bare number: `start + 5` raises a `TypeError`.
 
 ```typescript
 const later = start.add(TimeSpan.MINUTE);
-console.log(later.span(start).toString()); // 1m
+console.log(later.span(start).toString()); // 1min
 // 2026-10-03T12:00:30.000Z
 console.log(later.sub(TimeSpan.seconds(30)).toString());
 console.log(later.after(start)); // true
@@ -179,11 +181,12 @@ const timeout = TimeSpan.milliseconds(250);
 console.log(timeout.toString()); // 250ms
 console.log(timeout.seconds); // 0.25
 console.log(TimeSpan.SECOND.mult(5).toString()); // 5s
-console.log(TimeSpan.parse("2h 30m").toString()); // 2h 30m
+console.log(TimeSpan.parse("2h 30m")?.toString()); // 2h 30min
 ```
 
 The static methods are `nanoseconds`, `microseconds`, `milliseconds`, `seconds`,
 `minutes`, `hours`, and `days`, and each has a constant such as `TimeSpan.SECOND`.
+`parse` returns `null` when it cannot read the text.
 
   </Fragment>
 
@@ -279,8 +282,9 @@ console.log(rate.toString()); // 100 Hz
 console.log(rate.period.toString()); // 10ms
 ```
 
-`Rate.khz(1)` is 1000 Hz. Hardware task configurations take a number of hertz for
-`sampleRate` and `streamRate`, not a `Rate`.
+`Rate.khz(1)` is 1000 Hz. `new TimeSpan(rate)` gives the period of the rate, the same as
+`rate.period`. Hardware task configurations take a number of hertz for `sampleRate` and
+`streamRate`, not a `Rate`.
 
   </Fragment>
 

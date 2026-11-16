@@ -12,20 +12,40 @@
 import { filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
+
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
+/** Order is a sort of groups. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
 /**
- * Group is a named collection container for organizing related resources. Groups
- * provide hierarchical organization through the ontology system.
+ * Group is a named folder that holds records of the types its scope allows. A group
+ * sits in its parent, or at the top of its tree when it has none.
  */
 export const groupZ = z.object({
   /** key is the unique identifier for this group. */
   key: keyZ,
   /** name is a human-readable name for the group. */
   name: z.string().min(1, "name is required"),
+  /**
+   * scope is the type of resource the group's tree holds. It stays the same down a
+   * chain of groups.
+   */
+  scope: resource.typeZ,
+  /** parent is the group, project, or rack the group sits in, if any. */
+  parent: resource.idZ.optional(),
 });
 export interface Group extends z.infer<typeof groupZ> {}
 
@@ -35,6 +55,10 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
+  name?: filter.String;
+  scope?: filter.Set<typeof resource.typeZ>;
+  parents?: resource.ID[];
+  nested?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -51,7 +75,26 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
+  /** name selects by name. */
+  name: filter.stringZ.optional(),
+  /** scope selects by scope. */
+  scope: filter.setZ(resource.typeZ).optional(),
+  /** parents matches the groups that sit in any of the given resources. */
+  parents: zod.nullToUndefined(resource.idZ.array()),
+  /** nested matches the groups that sit in a parent, or the top groups when false. */
+  nested: z.boolean().optional(),
 });
+
+/**
+ * Cursor is a position in an order of groups: the sort value and the key of a group.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the group at the position. */
+  key: keyZ,
+  /** name is the name of the group at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
 
 /** RetrieveResponse holds the groups a RetrieveRequest selects. */
 export const retrieveResponseZ = z.object({
@@ -66,12 +109,14 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the groups that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the groups. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the groups strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most groups to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching groups to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
-export const ontologyID = ontology.createIDFactory<Key>("group");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("group");
+export const TYPE_RESOURCE_ID = resourceID("");

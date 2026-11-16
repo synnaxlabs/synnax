@@ -171,11 +171,13 @@ functions can share state (known bug).
 ### len
 
 `len(x) i64` returns the number of samples in a series, or the number of bytes in a
-string. Call it in a function body only. In a flow, it fails with
-`function 'len' cannot be used as a flow statement. Call it inside a func block instead: len()`.
+string. Call it in a function body only. In a flow, it fails to compile.
 
 ```arc
 func last() {data series f64} f64 {
-    return data[len(data) - 1]
+    return data[i32(len(data)) - 1]
 }
 ```
+
+An `i64` index, such as `len(data) - 1`, compiles, but the automation fails to start
+(known bug). Cast the index to `i32`.

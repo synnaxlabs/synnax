@@ -10,6 +10,7 @@
 package start_test
 
 import (
+	"encoding/base64"
 	"io/fs"
 	"path/filepath"
 	"time"
@@ -24,6 +25,8 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -78,24 +81,7 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 	)
 
 	It(
-		"Should reject a Tailscale advertised listener when peers are configured",
-		func() {
-			viper.Set(listener.FlagListen, []any{
-				map[string]any{
-					"address": "node01.example-tailnet.ts.net:9090",
-					"cert":    map[string]any{"source": "tailscale"},
-				},
-			})
-			viper.Set(start.FlagPeers, []string{"core02:9090"})
-			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
-			Expect(cfg.Validate()).To(MatchError(
-				ContainSubstring("advertised listener cannot use the Tailscale source"),
-			))
-		},
-	)
-
-	It(
-		"Should reject a Tailscale advertised listener when no peers are configured",
+		"Should reject a Tailscale advertised listener when the Driver is on",
 		func() {
 			viper.Set(listener.FlagListen, []any{
 				map[string]any{
@@ -157,6 +143,12 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 				Error().
 				To(And(
 					MatchError(fs.ErrNotExist),
+					MatchError(
+						func(err error) bool {
+							return errors.Is(err, validate.ErrValidation)
+						},
+						"validate.ErrValidation",
+					),
 					MatchError(ContainSubstring(
 						"failed to read the --license-file file",
 					)),
@@ -175,6 +167,30 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).
 				Error().
 				To(MatchError(fs.ErrNotExist))
+		})
+	})
+
+	Describe("Secrets key", func() {
+		BeforeEach(func() {
+			DeferCleanup(func() { viper.Set(start.FlagSecretsKey, "") })
+		})
+
+		It("Should accept a base64 key", func() {
+			key := secret.NewEncryptionKey()
+			viper.Set(start.FlagSecretsKey, base64.StdEncoding.EncodeToString(key[:]))
+			MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+		})
+
+		It("Should name the flag when the key is not valid", func() {
+			viper.Set(start.FlagSecretsKey, "short")
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).
+				Error().
+				To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						"invalid --secrets-key: secrets key is not base64",
+					)),
+				))
 		})
 	})
 })

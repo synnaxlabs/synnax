@@ -11,7 +11,8 @@ import synnax as sy
 
 from common import Channels
 from conftest import Client, core
-from controller import Toggle, wait_for_cmds
+from controller import FAILED_POLLS, Health, Toggle, wait_for_cmds
+from gate import Gate
 from heartbeat import Heartbeat
 from log import Log
 from scaler import SCALER_CMD, Scaler
@@ -28,6 +29,11 @@ class TestWaitForCmds:
             cooldown=sy.TimeSpan(0),
             boot_grace=sy.TimeSpan(0),
             log=Log(client=core(client), channels=channels, channel="log"),
+            gate=Gate(
+                client=core(client),
+                channels=channels,
+                log=Log(client=core(client), channels=channels, channel="gh_log"),
+            ),
         )
         beat = Heartbeat(
             client=core(client),
@@ -43,3 +49,34 @@ class TestWaitForCmds:
         wait_for_cmds(commands, remaining=-sy.TimeSpan.SECOND, toggles=toggles)
         beat.stop()
         assert not scaler.enabled
+
+
+class TestHealth:
+    """Tests for the poll health behind the controller heartbeat."""
+
+    def test_should_stay_healthy_below_the_failure_limit(self) -> None:
+        health = Health()
+        for _ in range(FAILED_POLLS - 1):
+            health.record(failed=True)
+        assert health.healthy()
+
+    def test_should_turn_unhealthy_at_the_failure_limit(self) -> None:
+        health = Health()
+        for _ in range(FAILED_POLLS):
+            health.record(failed=True)
+        assert not health.healthy()
+
+    def test_should_count_only_consecutive_failures(self) -> None:
+        health = Health()
+        for _ in range(FAILED_POLLS - 1):
+            health.record(failed=True)
+        health.record(failed=False)
+        health.record(failed=True)
+        assert health.healthy()
+
+    def test_should_recover_after_a_successful_poll(self) -> None:
+        health = Health()
+        for _ in range(FAILED_POLLS):
+            health.record(failed=True)
+        health.record(failed=False)
+        assert health.healthy()

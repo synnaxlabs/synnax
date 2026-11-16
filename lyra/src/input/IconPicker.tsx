@@ -33,7 +33,9 @@ export interface IconPickerProps extends Control<
   fallback?: Icon.FC;
 }
 
-/** A cell of the grid. The Default cell has no key, since picking it clears the value. */
+/**
+ * A cell of the grid. The Default cell has no key, since picking it clears the value.
+ */
 interface Cell extends Pick<Icon.Pickable, "name" | "icon"> {
   key?: string;
 }

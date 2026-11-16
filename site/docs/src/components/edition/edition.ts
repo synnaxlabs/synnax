@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/** The only edition that a page, tab, or paragraph applies to. */
+/** The only edition that a page or paragraph applies to. */
 export type Edition = "desktop" | "enterprise";
 
 export const NAMES: Record<Edition, string> = {

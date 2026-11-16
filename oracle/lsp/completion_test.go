@@ -11,6 +11,7 @@ package lsp_test
 
 import (
 	"context"
+	"log"
 	"net"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,7 +30,8 @@ func serve() protocol.Server {
 	GinkgoHelper()
 	serverSide, clientSide := net.Pipe()
 	served := make(chan error, 1)
-	go func() { served <- lsp.New().Serve(context.Background(), serverSide) }()
+	logger := log.New(GinkgoWriter, "", 0)
+	go func() { served <- lsp.New(logger).Serve(context.Background(), serverSide) }()
 	_, conn, server := protocol.NewClient(
 		context.Background(),
 		&MockClient{},
@@ -65,7 +67,9 @@ var _ = Describe("Completion", func() {
 			},
 			Position: protocol.Position{Line: line, Character: col},
 		}))
-		return result.(*protocol.CompletionList)
+		list, ok := result.(*protocol.CompletionList)
+		Expect(ok).To(BeTrue())
+		return list
 	}
 
 	completionFor := func(ctx context.Context, docURI uri.URI, line, col uint32) *protocol.CompletionList {
@@ -74,7 +78,9 @@ var _ = Describe("Completion", func() {
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			Position:     protocol.Position{Line: line, Character: col},
 		}))
-		return result.(*protocol.CompletionList)
+		list, ok := result.(*protocol.CompletionList)
+		Expect(ok).To(BeTrue())
+		return list
 	}
 
 	labels := func(items []protocol.CompletionItem) []string {
@@ -123,8 +129,8 @@ var _ = Describe("Completion", func() {
 			openDoc(ctx, "file:///domain.oracle", "  @\n")
 			list := completionFor(ctx, "file:///domain.oracle", 0, 3)
 			Expect(labels(list.Items)).To(ContainElements(
-				"key", "validate", "ontology", "doc", "go", "ts", "py", "cpp",
-				"pb", "filter", "response", "include",
+				"key", "validate", "resource", "doc", "go", "ts", "py", "cpp",
+				"pb", "filter", "response", "include", "group",
 			))
 		})
 	})
@@ -135,7 +141,7 @@ var _ = Describe("Completion", func() {
 			func(ctx SpecContext) {
 				list := completionAt(ctx, 2, 12)
 				Expect(labels(list.Items)).To(ContainElements(
-					"required", "min_length", "max_length",
+					"required", "min_length", "max_length", "min", "gt", "max",
 				))
 			},
 		)
@@ -161,12 +167,12 @@ var _ = Describe("Completion", func() {
 		})
 	})
 
-	Describe("Ontology Expression Completions", func() {
+	Describe("Resource Expression Completions", func() {
 		It(
-			"should return ontology expressions inside ontology domain",
+			"should return resource expressions inside resource domain",
 			func(ctx SpecContext) {
-				openDoc(ctx, "file:///ontology-domain.oracle", "  @ontology \n")
-				list := completionFor(ctx, "file:///ontology-domain.oracle", 0, 12)
+				openDoc(ctx, "file:///resource-domain.oracle", "  @resource \n")
+				list := completionFor(ctx, "file:///resource-domain.oracle", 0, 12)
 				Expect(labels(list.Items)).To(ContainElement("type"))
 			},
 		)
@@ -202,21 +208,25 @@ var _ = Describe("Completion", func() {
 
 var _ = Describe("Initialize", func() {
 	It("should return server capabilities", func() {
-		server := lsp.New()
+		server := lsp.New(log.New(GinkgoWriter, "", 0))
 		result := MustSucceed(server.Initialize(
 			context.Background(),
 			&protocol.InitializeParams{},
 		))
 		Expect(result.ServerInfo.Name).To(Equal("oracle-lsp"))
-		Expect(bool(result.Capabilities.HoverProvider.(protocol.Boolean))).To(BeTrue())
-		Expect(bool(result.Capabilities.DocumentFormattingProvider.(protocol.Boolean))).
-			To(BeTrue())
+		hover, ok := result.Capabilities.HoverProvider.(protocol.Boolean)
+		Expect(ok).To(BeTrue())
+		Expect(bool(hover)).To(BeTrue())
+		formatting, ok := result.Capabilities.
+			DocumentFormattingProvider.(protocol.Boolean)
+		Expect(ok).To(BeTrue())
+		Expect(bool(formatting)).To(BeTrue())
 	})
 })
 
 var _ = Describe("Initialized", func() {
 	It("should return nil", func() {
-		server := lsp.New()
+		server := lsp.New(log.New(GinkgoWriter, "", 0))
 		Expect(server.Initialized(
 			context.Background(),
 			&protocol.InitializedParams{},
@@ -226,7 +236,7 @@ var _ = Describe("Initialized", func() {
 
 var _ = Describe("Shutdown", func() {
 	It("should return nil", func() {
-		server := lsp.New()
+		server := lsp.New(log.New(GinkgoWriter, "", 0))
 		Expect(server.Shutdown(context.Background())).To(Succeed())
 	})
 })
@@ -264,7 +274,9 @@ var _ = Describe("DidChange", func() {
 			},
 			Position: protocol.Position{Line: 0, Character: 0},
 		}))
-		Expect(result.(*protocol.CompletionList).Items).ToNot(BeEmpty())
+		list, ok := result.(*protocol.CompletionList)
+		Expect(ok).To(BeTrue())
+		Expect(list.Items).ToNot(BeEmpty())
 	})
 
 	It("should handle empty content changes", func(ctx SpecContext) {
@@ -307,7 +319,9 @@ var _ = Describe("DidClose", func() {
 			},
 			Position: protocol.Position{Line: 0, Character: 0},
 		}))
-		Expect(result.(*protocol.CompletionList).Items).To(BeEmpty())
+		list, ok := result.(*protocol.CompletionList)
+		Expect(ok).To(BeTrue())
+		Expect(list.Items).To(BeEmpty())
 	})
 })
 
@@ -469,7 +483,9 @@ var _ = Describe("SemanticTokensFull", func() {
 	) string {
 		GinkgoHelper()
 		res := MustSucceed(server.Initialize(ctx, &protocol.InitializeParams{}))
-		opts := res.Capabilities.SemanticTokensProvider.(*protocol.SemanticTokensOptions)
+		opts, ok := res.Capabilities.
+			SemanticTokensProvider.(*protocol.SemanticTokensOptions)
+		Expect(ok).To(BeTrue())
 		legend := opts.Legend.TokenTypes
 		var l, c uint32
 		for i := 0; i+4 < len(data); i += 5 {

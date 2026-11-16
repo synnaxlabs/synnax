@@ -82,13 +82,19 @@ export interface Hotspot {
   box: Box;
   /** The step the region opens. A region with no step blocks the ones under it. */
   step?: Step;
+  /** The name that a reader sees for the region. */
+  title?: string;
 }
 
 /** Returns the hotspots of a still, largest first, so smaller ones sit on top. */
 export const hotspots = (still: string): Hotspot[] =>
   Object.entries(regionsOf(still))
-    .map(([name, rect]) => ({
-      box: toBox([rect]),
-      step: STEPS.find((s) => s.key === name),
-    }))
+    .map(([name, rect]) => {
+      const step = STEPS.find((s) => s.key === name || s.hotspots?.[name] != null);
+      return {
+        box: toBox([rect]),
+        step,
+        title: step?.hotspots?.[name] ?? step?.title,
+      };
+    })
     .sort((a, b) => b.box.width * b.box.height - a.box.width * a.box.height);

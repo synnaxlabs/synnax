@@ -11,7 +11,6 @@ package signals_test
 
 import (
 	"encoding/json/v2"
-	"io"
 	"math"
 	"time"
 
@@ -89,21 +88,19 @@ var _ = Describe("JSON", func() {
 
 	Describe("PublishJSON", Serial, func() {
 		var (
-			obs           observe.Observer[jsonPayload]
-			ch            channel.Channel
-			closer        io.Closer
-			responses     confluence.Outlet[framer.StreamerResponse]
-			requests      confluence.Inlet[framer.StreamerRequest]
-			closeStreamer io.Closer
+			obs       observe.Observer[jsonPayload]
+			ch        channel.Channel
+			responses confluence.Outlet[framer.StreamerResponse]
+			requests  confluence.Inlet[framer.StreamerRequest]
 		)
 		BeforeEach(func(ctx SpecContext) {
 			sigs := MustSucceed(signals.New(signals.Config{
 				DB:      db,
 				Channel: channelSvc,
-				Framer:  framerSvc,
+				Framer:  nodeFramer,
 			}))
 			obs = observe.New[jsonPayload]()
-			closer = MustSucceed(sigs.PublishJSON(
+			MustOpen(sigs.PublishJSON(
 				ctx,
 				signals.JSONPublisherConfig[jsonPayload]{
 					Observable: obs,
@@ -113,7 +110,7 @@ var _ = Describe("JSON", func() {
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(jsonSetChannelName)).
 				Entry(&ch).
-				Exec(ctx, nil),
+				Exec(ctx, db),
 			).To(Succeed())
 			streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 				Keys:        channel.Keys{ch.Key()},
@@ -121,7 +118,7 @@ var _ = Describe("JSON", func() {
 			}))
 			requests, responses = confluence.Attach(streamer, 2)
 			sCtx, cancel := signal.Isolated()
-			closeStreamer = signal.NewHardShutdown(sCtx, cancel)
+			DeferClose(signal.NewHardShutdown(sCtx, cancel))
 			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			// The open ack is the barrier: once it arrives, the relay has applied the
 			// streamer's demand, so any update after it reaches the outlet.
@@ -130,8 +127,6 @@ var _ = Describe("JSON", func() {
 		AfterEach(func() {
 			requests.Close()
 			confluence.Drain(responses)
-			Expect(closeStreamer.Close()).To(Succeed())
-			Expect(closer.Close()).To(Succeed())
 		})
 		It(
 			"Should create the set channel as a free, internal, virtual JSON channel",

@@ -132,7 +132,7 @@ var _ = Describe("Type Cast Compilation", func() {
 			types.String(),
 			OpI32Const, int32(127),
 			OpI32Const, int32(-1),
-			OpI32Mul,
+			OpI32Mul, OpI32Const, int32(24), OpI32Shl, OpI32Const, int32(24), OpI32ShrS,
 			OpCall, uint32(0),
 		),
 		Entry(
@@ -148,7 +148,7 @@ var _ = Describe("Type Cast Compilation", func() {
 			types.String(),
 			OpI32Const, int32(32767),
 			OpI32Const, int32(-1),
-			OpI32Mul,
+			OpI32Mul, OpI32Const, int32(16), OpI32Shl, OpI32Const, int32(16), OpI32ShrS,
 			OpCall, uint32(0),
 		),
 		Entry(
@@ -434,16 +434,20 @@ var _ = Describe("Type Cast Compilation", func() {
 		// Test that non-exact float-to-int conversions are rejected
 		expr := MustSucceed(parser.ParseExpression("i32(3.14)"))
 		ctx := NewContext(bCtx)
-		_, err := expression.Compile(ctx.Child(expr))
-		Expect(err).To(MatchError(ContainSubstring("cannot convert non-integer float")))
+		Expect(
+			expression.Compile(ctx.Child(expr)),
+		).Error().
+			To(MatchError(ContainSubstring("cannot convert non-integer float")))
 	})
 
 	It("Should propagate overflow errors from literals", func(bCtx SpecContext) {
 		// Test that overflow validation is enforced
 		expr := MustSucceed(parser.ParseExpression("i8(128)"))
 		ctx := NewContext(bCtx)
-		_, err := expression.Compile(ctx.Child(expr))
-		Expect(err).To(MatchError(ContainSubstring("out of range for i8")))
+		Expect(
+			expression.Compile(ctx.Child(expr)),
+		).Error().
+			To(MatchError(ContainSubstring("out of range for i8")))
 	})
 })
 
@@ -563,14 +567,37 @@ var _ = Describe("Type Cast of Mixed Expressions", func() {
 		Entry(
 			"i16: literal - var to f32",
 			"f32(1000 - n)",
-			types.I16(), types.F32(),
-			OpI32Const, int32(1000), OpLocalGet, 0, OpI32Sub, OpF32ConvertI32S,
+			types.I16(),
+			types.F32(),
+			OpI32Const,
+			int32(1000),
+			OpLocalGet,
+			0,
+			OpI32Sub,
+			OpI32Const,
+			int32(16),
+			OpI32Shl,
+			OpI32Const,
+			int32(16),
+			OpI32ShrS,
+			OpF32ConvertI32S,
 		),
 		Entry(
 			"i8: literal + var to i32 (no-op cast)",
 			"i32(1 + n)",
-			types.I8(), types.I32(),
-			OpI32Const, int32(1), OpLocalGet, 0, OpI32Add,
+			types.I8(),
+			types.I32(),
+			OpI32Const,
+			int32(1),
+			OpLocalGet,
+			0,
+			OpI32Add,
+			OpI32Const,
+			int32(24),
+			OpI32Shl,
+			OpI32Const,
+			int32(24),
+			OpI32ShrS,
 		),
 
 		Entry(
@@ -594,14 +621,32 @@ var _ = Describe("Type Cast of Mixed Expressions", func() {
 		Entry(
 			"u16: literal - var to f64",
 			"f64(1000 - n)",
-			types.U16(), types.F64(),
-			OpI32Const, int32(1000), OpLocalGet, 0, OpI32Sub, OpF64ConvertI32U,
+			types.U16(),
+			types.F64(),
+			OpI32Const,
+			int32(1000),
+			OpLocalGet,
+			0,
+			OpI32Sub,
+			OpI32Const,
+			int32(65535),
+			OpI32And,
+			OpF64ConvertI32U,
 		),
 		Entry(
 			"u8: literal * var to i64",
 			"i64(3 * n)",
-			types.U8(), types.I64(),
-			OpI32Const, int32(3), OpLocalGet, 0, OpI32Mul, OpI64ExtendI32U,
+			types.U8(),
+			types.I64(),
+			OpI32Const,
+			int32(3),
+			OpLocalGet,
+			0,
+			OpI32Mul,
+			OpI32Const,
+			int32(255),
+			OpI32And,
+			OpI64ExtendI32U,
 		),
 
 		Entry(

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// The query cache value-imports this module, so a runtime edge back into
-// channel or ontology re-creates the import cycle this file exists to break.
-// Runtime imports must stay on leaf modules (external packages, @/errors).
+// The query cache value-imports this module, so a runtime edge back into channel
+// re-creates the import cycle this file exists to break. Runtime imports must stay on
+// leaf modules (external packages, @/errors).
 
 import { EOF } from "@synnaxlabs/freighter";
 import { breaker, errors, observe, sync, TimeSpan, TimeStamp } from "@synnaxlabs/x";

@@ -68,7 +68,7 @@ const useOrigin = (): (() => TabOrigin | undefined) => {
   const tabKey = Panel.useTabKey();
   const client = Synnax.use();
   return () => {
-    const cached = client?.panels.getCached(key);
+    const cached = client?.panels.watch(key).getCached();
     if (!query.isLive(cached)) return undefined;
     const tab = panel.findTab(cached.root, tabKey);
     return tab == null ? undefined : { panel: key, tab };
@@ -102,7 +102,7 @@ const MoveToNewWindowItem = (): ReactElement | null => {
   const getOrigin = useOrigin();
   const tearOff = useTearOffTab();
   const canEdit = Panel.useCanEdit({});
-  const canCreate = Access.useCreateGranted(panel.TYPE_ONTOLOGY_ID);
+  const canCreate = Access.useCreateGranted(panel.TYPE_RESOURCE_ID);
   const handleMove = () => {
     const origin = getOrigin();
     if (origin != null) tearOff(origin);

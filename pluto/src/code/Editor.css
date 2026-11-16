@@ -52,6 +52,8 @@
     height: 100%;
     padding: 2rem 1px;
     border-color: var(--pluto-gray-l6);
+    -webkit-user-select: text;
+    user-select: text;
 
     /* Monaco toggles .focused on .monaco-editor alone; its overlay divs keep the class
     after blur. Focus thickens the border to a full 1px, so the padding gives back the
@@ -188,6 +190,25 @@
             font-size: calc(var(--pluto-p-size) * 0.9) !important;
             color: var(--pluto-gray-l9) !important;
             line-height: 1.4 !important;
+        }
+    }
+
+    &[data-severity="warning"] {
+        background: var(--pluto-warning-z-10) !important;
+        border-color: var(--pluto-warning-z-70) !important;
+
+        & > div {
+            border-top-color: var(--pluto-warning-z-30) !important;
+        }
+    }
+
+    &[data-severity="info"],
+    &[data-severity="hint"] {
+        background: var(--pluto-primary-z-10) !important;
+        border-color: var(--pluto-primary-z-70) !important;
+
+        & > div {
+            border-top-color: var(--pluto-primary-z-30) !important;
         }
     }
 }

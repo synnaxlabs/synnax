@@ -7,21 +7,58 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { device, status, type task } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
-import { array, primitive, verbs } from "@synnaxlabs/x";
+import { array, deep, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
+import { z } from "zod";
 
-import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
-import { type Channel } from "@/feature/ethercat/task/types";
+import {
+  MAKE,
+  SLAVE_MODEL,
+  SLAVE_SCHEMAS,
+  type SlaveDevice,
+  type SlaveOnRack,
+  toSlaveOnRack,
+} from "@/feature/ethercat/device/types";
+import {
+  type Channel,
+  READ_TYPE,
+  SCAN_TYPE,
+  WRITE_TYPE,
+} from "@/feature/ethercat/task/types";
+import { Device as PlatformDevice } from "@/platform/device";
 
 export const { useResult: useResultSlave } = Device.createRetrieve(SLAVE_SCHEMAS);
 
-const { use: useSlaves, useResult: useResultSlaves } =
-  Device.createRetrieveMultiple(SLAVE_SCHEMAS);
+const {
+  use: useSlaves,
+  useResult: useResultSlaves,
+  createResultSelector,
+} = Device.createRetrieveMultiple(SLAVE_SCHEMAS);
 
 /** The slaves the keys name, or undefined until they resolve or on failure. */
 export const useSlavesByKeys = (keys: device.Key[]): SlaveDevice[] | undefined =>
   useResultSlaves(keys.length === 0 ? null : { where: { key: { in: keys } } }).data;
+
+// A status heartbeat changes no slave unless it connects or disconnects.
+const useResultSlavesOnRack = createResultSelector(
+  (slaves) => slaves.map(toSlaveOnRack),
+  deep.equal,
+);
+
+/**
+ * The slaves on the rack, or undefined until they resolve, on failure, or without a
+ * rack.
+ */
+export const useSlavesOnRack = (rack: number | undefined): SlaveOnRack[] | undefined =>
+  useResultSlavesOnRack(
+    rack == null
+      ? null
+      : {
+          where: { make: { eq: MAKE }, model: { eq: SLAVE_MODEL }, rack: { eq: rack } },
+          includeStatus: true,
+        },
+  ).data;
 
 export interface EnabledState {
   allEnabled: boolean;
@@ -55,30 +92,130 @@ export interface ToggleEnabledParams {
   enabled?: boolean;
 }
 
-export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
-  ToggleEnabledParams,
-  SlaveDevice[]
->({
+export const { useUpdate: useToggleEnabled } = Flux.createUpdate<ToggleEnabledParams>({
   name: "toggle enabled",
   verbs: verbs.UPDATE,
-  update: async ({ data, client, onOptimisticComplete }) => {
+  update: async ({ data, client }) => {
     const keys = array.toArray(data.keys);
+    let { enabled } = data;
+    if (enabled == null) {
+      const first = await client.devices.retrieve({
+        key: keys[0],
+        schemas: SLAVE_SCHEMAS,
+      });
+      enabled = !first.properties.enabled;
+    }
+    const set = device.set({ path: ["properties", "enabled"], value: enabled });
+    await Promise.all(keys.map(async (key) => await client.devices.dispatch(key, set)));
+    return data;
+  },
+});
 
-    const devices = await client.devices.retrieve({
-      key: keys,
-      includeStatus: true,
-      schemas: SLAVE_SCHEMAS,
-    });
+/** The scan task command that switches a slave to Synnax only. */
+const SET_STANDALONE_COMMAND = "set_standalone";
 
-    const enabledValue = data.enabled ?? !devices[0]?.properties?.enabled;
+const SWITCH: verbs.Verbs = {
+  present: "switch",
+  past: "switched",
+  participle: "switching",
+};
 
-    const updated = devices.map((dev) => ({
-      ...dev,
-      properties: { ...dev.properties, enabled: enabledValue },
-    }));
+const channelDevicesZ = z.object({
+  channels: z.array(z.object({ device: z.string() })).default(() => []),
+});
 
-    return await client.devices.create(updated, SLAVE_SCHEMAS, {
-      onOptimistic: async () => await onOptimisticComplete(updated),
-    });
+export interface SetStandaloneParams {
+  slave: SlaveDevice;
+}
+
+export interface SetStandaloneResult extends SetStandaloneParams {
+  /** The answer of the Driver to the switch, which says what the user does next. */
+  answer: task.Status;
+}
+
+/**
+ * How long a switch waits for the Driver. Writes to several slaves can be slow. It ends
+ * before the default 60 s operation timeout of the Driver, whose error reply would read
+ * as a refusal while the switch still runs.
+ */
+const SWITCH_TIMEOUT = TimeSpan.seconds(50);
+
+/**
+ * Stops each EtherCAT task that runs on the network of the slave, then switches the
+ * slave to Synnax only. When a stop fails or the Driver refuses the switch, starts the
+ * tasks again. Else the tasks stay stopped, and the answer tells the user to start
+ * them.
+ */
+export const { useUpdate: useSetStandalone } = Flux.createUpdate<
+  SetStandaloneParams,
+  SetStandaloneResult
+>({
+  name: "EtherCAT slave",
+  verbs: SWITCH,
+  update: async ({ client, data }) => {
+    const { rack, key, properties } = data.slave;
+    const running = (await client.tasks.retrieve({ rack, includeStatus: true })).filter(
+      (t) =>
+        (t.type === READ_TYPE || t.type === WRITE_TYPE) &&
+        t.status?.details.running === true,
+    );
+    const devicesOf = (config: unknown): string[] =>
+      channelDevicesZ.parse(config).channels.map((ch) => ch.device);
+    const keys = unique.unique(running.flatMap((t) => devicesOf(t.config)));
+    const onNetwork = new Set(
+      (keys.length === 0
+        ? []
+        : await client.devices.retrieve({ key: keys, schemas: SLAVE_SCHEMAS })
+      )
+        .filter((s) => s.properties.network === properties.network)
+        .map((s) => s.key),
+    );
+    const tasks = running.filter((t) =>
+      devicesOf(t.config).some((k) => onNetwork.has(k)),
+    );
+    const scanTask = await client.tasks.retrieve({ type: SCAN_TYPE, rack, one: true });
+    const restart = async (): Promise<void> => {
+      // A task that fails to start shows its own error.
+      await Promise.allSettled(
+        tasks.map(async (t) => await t.executeCommandSync({ type: "start" })),
+      );
+    };
+    let stopped = false;
+    try {
+      await Promise.all(
+        tasks.map(async (t) => {
+          const res = await t.executeCommandSync({ type: "stop" });
+          if (res.variant === "error") throw status.toError(res);
+        }),
+      );
+      stopped = true;
+    } finally {
+      if (!stopped) await restart();
+    }
+    const res = await scanTask
+      .executeCommandSync({
+        type: SET_STANDALONE_COMMAND,
+        args: { device: key },
+        timeout: SWITCH_TIMEOUT,
+      })
+      .catch((e: unknown) => {
+        const then =
+          tasks.length === 0 ? "" : " Start your tasks again after you check it.";
+        throw new Error(`The switch may still be running. Check the device.${then}`, {
+          cause: e,
+        });
+      });
+    if (res.variant === "error") {
+      await restart();
+      throw status.toError(res);
+    }
+    // The scan task writes the properties and status of each device at a scan. It also
+    // scans every 5 s, so a failed scan command only delays them.
+    await scanTask
+      .executeCommand({ type: PlatformDevice.SCAN_COMMAND })
+      .catch(() => undefined);
+    if (tasks.length === 0) return { ...data, answer: res };
+    const description = `${res.description} Start your tasks again.`.trimStart();
+    return { ...data, answer: { ...res, description } };
   },
 });

@@ -78,10 +78,10 @@ export const Toolbar = (): ReactElement | null => {
           </Breadcrumb.Breadcrumb>
           <Flex.Box x align="center" empty>
             <Flex.Box x gap="small" className={CSS.BE("arc-toolbar", "actions")}>
-              <Export.ToolbarButton id={arc.ontologyID(key)} />
+              <Export.ToolbarButton id={arc.resourceID(key)} />
               <Core.CopyLinkToolbarButton
                 name={name}
-                ontologyID={arc.ontologyID(key)}
+                resourceID={arc.resourceID(key)}
               />
             </Flex.Box>
             {canEdit && (

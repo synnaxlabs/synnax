@@ -36,7 +36,7 @@ export const ContextMenu = ({
   onDisable,
 }: ContextMenuProps) => {
   const isPreview = useIsPreview();
-  const canRenameChannel = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
+  const canRenameChannel = Access.useUpdateGranted(channel.TYPE_RESOURCE_ID);
   const canAct = keys.length > 0;
   const canDuplicate = onDuplicate != null;
   const canRename = onRename != null && keys.length === 1 && canRenameChannel;

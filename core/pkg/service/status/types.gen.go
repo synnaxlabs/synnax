@@ -36,8 +36,8 @@ type Key = versions.Key
 
 // Status is a standardized message used to communicate state across the Synnax
 // platform. Statuses support different severity variants and can carry
-// component-specific details. A status is uniquely identified by a key and may carry a
-// human-readable name and labels for categorization and filtering.
+// component-specific details. A status is uniquely identified by a key, may name the
+// resource that owns it, and may carry a human-readable name and labels.
 type Status[Details any] = versions.Status[Details]
 
 // Where is a filter that selects statuses.

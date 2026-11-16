@@ -43,7 +43,6 @@ const runningValues = (overrides: { configHash?: string; rack?: number } = {}) =
   configHash: CONFIG_HASH,
   status: createTaskStatus({
     details: {
-      task: "1",
       running: true,
       configHash: overrides.configHash ?? CONFIG_HASH,
       rack: overrides.rack ?? 2,
@@ -52,15 +51,6 @@ const runningValues = (overrides: { configHash?: string; rack?: number } = {}) =
 });
 
 describe("Controls.Controls", () => {
-  it("should hide the actions when the task is a snapshot", async () => {
-    const { container } = await renderInTaskFormWithClient(
-      <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
-      { client, values: { snapshot: true } },
-    );
-    await waitFor(() => expect(screen.getByText("Task not deployed")).toBeTruthy());
-    expect(container.querySelector("[aria-label='lyra-icon--play']")).toBeNull();
-  });
-
   it("should invoke onDeploy when the start button is pressed", async () => {
     const onDeploy = vi.fn();
     const { container } = await renderInTaskFormWithClient(
@@ -81,6 +71,19 @@ describe("Controls.Controls", () => {
     fireEvent.click(await findIconButton(container, "stop"));
     expect(onStop).toHaveBeenCalledTimes(1);
     expect(onDeploy).not.toHaveBeenCalled();
+  });
+
+  it("should keep only stop enabled on a running task while it configures", async () => {
+    const onStop = vi.fn();
+    const { container } = await renderInTaskFormWithClient(
+      <Task.Controls.Controls configuring onDeploy={vi.fn()} onStop={onStop} />,
+      { client, values: runningValues({ configHash: "stale" }) },
+    );
+    await screen.findByText("Configuring task");
+    const redeploy = screen.getByRole("button", { name: "Redeploy" });
+    expect(redeploy.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(await findIconButton(container, "stop"));
+    expect(onStop).toHaveBeenCalledTimes(1);
   });
 
   it("should not invoke onDeploy when the task has no key", async () => {
@@ -187,10 +190,10 @@ describe("Controls.Controls", () => {
       expect(getSetting("Auto start").textContent).toBe("On");
     });
 
-    it("should show the settings of a snapshot without letting them change", async () => {
+    it("should show the settings in preview mode without letting them change", async () => {
       const { form } = await renderInTaskFormWithClient(
         <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
-        { client, values: { snapshot: true, config: SETTINGS }, mode: "preview" },
+        { client, values: { config: SETTINGS }, mode: "preview" },
       );
       const button = await waitFor(() => getSetting("Data saving"));
       expect(button.getAttribute("aria-disabled")).toBe("true");

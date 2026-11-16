@@ -11,6 +11,8 @@ package domain
 
 import (
 	"context"
+	"math"
+	"time"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -20,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -87,10 +90,10 @@ func (w WriterConfig) Validate() error {
 	v := validate.New("domain.writer_config")
 	v.Ternary(
 		"end",
-		w.End.Before(w.Start),
+		!w.End.IsZero() && w.End.Before(w.Start),
 		"end timestamp must be after or equal to start timestamp",
 	)
-	return nil
+	return v.Error()
 }
 
 func (w WriterConfig) Override(other WriterConfig) WriterConfig {
@@ -139,9 +142,10 @@ type Writer struct {
 	// len is the number of bytes written by all internal writers of the domain writer
 	// since it last ended a domain.
 	len int64
-	// lastIndexPersist stores the timestamp of the last time changes to index were
-	// flushed to disk.
-	lastIndexPersist telem.TimeStamp
+	// lastIndexPersist is the clock reading when changes to the index were last flushed
+	// to disk.
+	lastIndexPersist time.Time
+	clock            xtime.Clock
 	// fileKey represents the key of the file written to by the writer. One can convert
 	// it to a filename via the fileKeyToName function.
 	fileKey uint16
@@ -152,6 +156,10 @@ type Writer struct {
 	// started denotes whether the writer has a start. A writer without one cannot
 	// write.
 	started bool
+	// staged denotes whether the writer's last commit was in a Group, so that the index
+	// can hold a staged domain at stagedStart.
+	staged      bool
+	stagedStart telem.TimeStamp
 	// closed denotes whether the writer is closed. A closed writer returns an error
 	// when attempts to Write or Commit with it are made.
 	closed bool
@@ -190,7 +198,8 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 		idx:              db.idx,
 		presetEnd:        !cfg.End.IsZero(),
 		started:          started,
-		lastIndexPersist: telem.Now(),
+		lastIndexPersist: db.cfg.Clock.Now(),
+		clock:            db.cfg.Clock,
 		onClose: func() {
 			db.resourceCount.Add(-1)
 		},
@@ -253,7 +262,8 @@ func (w *Writer) switchFile(ctx context.Context) error {
 	// The writer gave up its handle, so a canceled wait would leave it with none.
 	key, size, internal, err := w.fc.acquireWriter(context.WithoutCancel(ctx))
 	if err != nil {
-		return err
+		// The writer has no file handle, so it can no longer write.
+		return errors.Combine(err, w.release())
 	}
 	w.fileKey = key
 	w.internal = internal
@@ -261,7 +271,7 @@ func (w *Writer) switchFile(ctx context.Context) error {
 	return nil
 }
 
-// Writer writes binary telemetry to the domain. Write is not safe to call concurrently
+// Write writes binary telemetry to the domain. Write is not safe to call concurrently
 // with any other Writer methods. The contents of p are safe to modify after Write
 // returns.
 func (w *Writer) Write(p []byte) (int, error) {
@@ -287,26 +297,31 @@ func (w *Writer) Write(p []byte) (int, error) {
 // the DB, Commit will return an ErrWriteConflict. If
 // WriterCommit.AutoIndexPersistInterval is greater than 0, then the changes committed
 // would only be persisted to disk after the set interval.
-func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
+//
+// When g is not nil, the commit is in g: readers see the domain as it was before the
+// commit until g publishes. A writer holds one such domain at a time, so readers also
+// see it once the writer commits to another domain or closes.
+func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp, g *Group) error {
 	var (
-		now = telem.Now()
+		now = w.clock.Now()
 		// the only time we do not shouldPersist is when EnableAutoCommit and the
 		// interval is not met yet.
 		shouldPersist = !*w.EnableAutoCommit ||
-			w.lastIndexPersist.Span(now) >= w.AutoIndexPersistInterval
+			now.Sub(w.lastIndexPersist) >= w.AutoIndexPersistInterval.Duration()
 	)
 
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 && shouldPersist {
 		w.lastIndexPersist = now
 	}
 
-	return w.commit(ctx, end, shouldPersist)
+	return w.commit(ctx, end, shouldPersist, g)
 }
 
 func (w *Writer) commit(
 	ctx context.Context,
 	end telem.TimeStamp,
 	shouldPersist bool,
+	g *Group,
 ) error {
 	ctx, span := w.T.Prod(ctx, "commit")
 	defer span.End()
@@ -333,6 +348,9 @@ func (w *Writer) commit(
 		return span.Error(err)
 	}
 
+	if w.internal.Offset()+length > math.MaxUint32 {
+		return span.Error(ErrOffsetOverflow)
+	}
 	ptr := pointer{
 		Start:   w.Start,
 		End:     commitEnd,
@@ -342,13 +360,24 @@ func (w *Writer) commit(
 	}
 	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
 
-	err := span.Error(f(ctx, ptr, shouldPersist))
+	write, err := f(ctx, ptr, shouldPersist, g)
 	if err != nil {
 		return span.Error(err)
 	}
+	if w.staged && w.stagedStart != ptr.Start {
+		w.idx.reveal(w.stagedStart)
+	}
+	w.staged, w.stagedStart = g != nil, ptr.Start
+	// The index holds the pointer even when persisting it fails, so a retry updates it.
+	w.prevCommit = commitEnd
+	if shouldPersist {
+		if err := w.idx.run(write); err != nil {
+			return span.Error(err)
+		}
+	}
 
 	if switchingFile {
-		if err = w.switchFile(ctx); err != nil {
+		if err := w.switchFile(ctx); err != nil {
 			return span.Error(err)
 		}
 		w.Start = commitEnd
@@ -356,8 +385,6 @@ func (w *Writer) commit(
 		if w.OnRollover != nil {
 			w.OnRollover(commitEnd)
 		}
-	} else {
-		w.prevCommit = commitEnd
 	}
 
 	return nil
@@ -384,16 +411,19 @@ func (w *Writer) Close() error {
 	if w.closed {
 		return nil
 	}
+	return errors.Combine(w.internal.Close(), w.release())
+}
+
+// release closes a writer that no longer holds a file handle.
+func (w *Writer) release() error {
 	defer w.onClose()
 	w.closed = true
-	if err := w.internal.Close(); err != nil {
-		return err
+	if w.staged {
+		w.idx.reveal(w.stagedStart)
+		w.staged = false
 	}
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 {
-		w.idx.mu.Lock()
-		write := w.idx.indexPersist.prepare(w.idx.persistHead)
-		w.idx.mu.Unlock()
-		return write.run()
+		return w.idx.persist()
 	}
 	return nil
 }

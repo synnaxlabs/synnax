@@ -238,10 +238,10 @@ export class Scale<T extends numeric.Value = number> {
   reverse(): Scale<T> {
     const scale = this.new();
     scale.ops.reverse();
-    // Switch the order of the operations to place scale operation 'BEFORE' the subsequent
-    // non - scale operations for example, if we have a reversed [scale A, scale B,
-    // translate A, magnify, translate B, scale C] we want to reverse it to [scale C,
-    // scale B, translate B, magnify, translate A, scale A]
+    // Switch the order of the operations to place scale operation 'BEFORE' the
+    // subsequent non - scale operations for example, if we have a reversed [scale A,
+    // scale B, translate A, magnify, translate B, scale C] we want to reverse it to
+    // [scale C, scale B, translate B, magnify, translate A, scale A]
     const swaps: Array<[number, number]> = [];
     scale.ops.forEach((op, i) => {
       if (op.type === "scale" || swaps.some(([low, high]) => i >= low && i <= high))

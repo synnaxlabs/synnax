@@ -15,13 +15,14 @@ from playwright.sync_api import Locator, expect
 import synnax as sy
 from console.channels import ChannelClient
 from console.layout import LayoutClient
+from console.notifications import click_past
 from console.page import ConsolePage, PageType
 
 Axis = Literal["x1", "y1", "y2"]
 """The keys of `sy.lineplot.AxisKey` that the Console toolbar offers."""
 
 # The middle of the range strip's first lane: 4 px of padding, then a 20 px lane.
-FIRST_LANE_CENTER = 14
+_FIRST_LANE_CENTER = 14
 
 
 class Plot(ConsolePage):
@@ -92,12 +93,10 @@ class Plot(ConsolePage):
 
         The file is saved to the tests/results directory with the plot name.
 
-        Returns:
-            The CSV file contents as a string.
+        :returns: The CSV file contents as a string.
         """
-        self.notifications.close_all()
         self.layout.show_visualization_toolbar()
-        self.page.get_by_role("button", name="Download as CSV", exact=True).click()
+        click_past(self.page.get_by_role("button", name="Download as CSV", exact=True))
 
         self.page.get_by_text("Download data for").wait_for(
             state="visible", timeout=5000
@@ -119,11 +118,9 @@ class Plot(ConsolePage):
 
         Note: Setting the title also updates the tab name.
 
-        Args:
-            title: The new title for the plot
+        :param title: The new title for the plot
         """
-        self.notifications.close_all()
-        self.page.get_by_role("tab", name="Properties", exact=True).click(timeout=5000)
+        click_past(self.page.get_by_role("tab", name="Properties", exact=True))
 
         title_input = (
             self.page.locator("label:has-text('Title')")
@@ -137,11 +134,9 @@ class Plot(ConsolePage):
     def set_line_thickness(self, thickness: int) -> None:
         """Set the stroke width for the first line via the Lines tab.
 
-        Args:
-            thickness: Stroke width (1-10)
+        :param thickness: Stroke width (1-10)
         """
-        self.notifications.close_all()
-        self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
+        click_past(self.page.get_by_role("tab", name="Lines", exact=True))
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         if lines_container.count() == 0:
@@ -162,11 +157,9 @@ class Plot(ConsolePage):
     def set_line_label(self, label: str) -> None:
         """Set the label for the first line via the Lines tab.
 
-        Args:
-            label: New label for the line
+        :param label: New label for the line
         """
-        self.notifications.close_all()
-        self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
+        click_past(self.page.get_by_role("tab", name="Lines", exact=True))
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         lines_container.wait_for(state="visible", timeout=5000)
@@ -181,11 +174,9 @@ class Plot(ConsolePage):
     def get_line_thickness(self) -> int:
         """Get the stroke width for the first line from the Lines tab.
 
-        Returns:
-            The current stroke width
+        :returns: The current stroke width
         """
-        self.notifications.close_all()
-        self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
+        click_past(self.page.get_by_role("tab", name="Lines", exact=True))
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         line_item = lines_container.locator(".lyra-list__item").first
@@ -195,12 +186,10 @@ class Plot(ConsolePage):
     def get_line_labels(self) -> list[str]:
         """Get labels for all lines from the Lines tab.
 
-        Returns:
-            List of line label strings.
+        :returns: List of line label strings.
         """
-        self.notifications.close_all()
         self.layout.show_visualization_toolbar()
-        self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
+        click_past(self.page.get_by_role("tab", name="Lines", exact=True))
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         line_items = lines_container.locator(".lyra-list__item")
@@ -214,9 +203,8 @@ class Plot(ConsolePage):
     ) -> None:
         """Drag a channel from the sidebar onto the plot canvas.
 
-        Args:
-            channel_name: Name of the channel to drag
-            channels: ChannelClient for showing/hiding channels sidebar
+        :param channel_name: Name of the channel to drag
+        :param channels: ChannelClient for showing/hiding channels sidebar
         """
         channels.show_channels()
 
@@ -241,10 +229,9 @@ class Plot(ConsolePage):
     ) -> None:
         """Drag a channel from the sidebar onto the toolbar data section.
 
-        Args:
-            channel_name: Name of the channel to drag
-            channels: ChannelClient for showing/hiding channels sidebar
-            axis: Target axis
+        :param channel_name: Name of the channel to drag
+        :param channels: ChannelClient for showing/hiding channels sidebar
+        :param axis: Target axis
         """
         self.notifications.close_all()
         channels.show_channels()
@@ -269,8 +256,7 @@ class Plot(ConsolePage):
     def create_range_from_selection(self, range_name: str) -> None:
         """Create a range by selecting a region on the plot and using the context menu.
 
-        Args:
-            range_name: Name for the new range
+        :param range_name: Name for the new range
         """
         if not self.pane_locator:
             raise RuntimeError("Plot pane locator not available")
@@ -350,7 +336,7 @@ class Plot(ConsolePage):
         if box is None:
             raise RuntimeError("Range strip not visible")
         x = box["x"] + box["width"] / 2
-        y = box["y"] + FIRST_LANE_CENTER
+        y = box["y"] + _FIRST_LANE_CENTER
         self.page.mouse.move(x, y)
         expect(strip).to_have_class(re.compile(r"pluto--hovered"), timeout=5000)
         self.page.mouse.click(x, y, button=button)

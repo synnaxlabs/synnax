@@ -11,7 +11,10 @@
 
 package v3
 
-import "github.com/synnaxlabs/x/encoding/orc"
+import (
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	"github.com/synnaxlabs/x/encoding/orc"
+)
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (rv Rack) EncodeOrc(w *orc.Writer) error {
@@ -31,6 +34,13 @@ func (rv Rack) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	if rv.Group != nil {
+		w.Bool(true)
+		w.Write((*rv.Group)[:])
+	} else {
+		w.Bool(false)
+	}
+	w.Write(rv.Role[:])
 	return nil
 }
 
@@ -80,6 +90,22 @@ func (rv *Rack) DecodeOrc(r *orc.Reader) error {
 			}
 			rv.Version = &hv
 		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv group.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			rv.Group = &hv
+		}
+	}
+	if _, err := r.Read(rv.Role[:]); err != nil {
+		return err
 	}
 	return nil
 }

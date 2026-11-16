@@ -12,6 +12,7 @@
 package v1
 
 import (
+	role "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -19,8 +20,8 @@ import (
 // Key is a unique identifier for a user, represented as a UUID.
 type Key = v0.Key
 
-// User is an account entity representing a person accessing the Synnax system. Users
-// can have roles assigned for permission management.
+// User is an account entity representing a person accessing the Synnax system. Each
+// user holds one role, which grants its permissions.
 type User struct {
 	// Key is the unique identifier for this user.
 	Key Key `json:"key" msgpack:"key"`
@@ -29,6 +30,8 @@ type User struct {
 	// RootUser is true if this is a root/admin user with full system access. Root users
 	// cannot be deleted.
 	RootUser bool `json:"root_user" msgpack:"root_user"`
+	// Role is the role that grants the user its permissions.
+	Role role.Key `json:"role" msgpack:"role"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -36,5 +39,6 @@ type User struct {
 func (u User) Validate() error {
 	v := validate.New("User")
 	v.NotEmptyString("name", u.Name)
+	v.NonZero("role", u.Role)
 	return v.Error()
 }

@@ -54,15 +54,15 @@ class RoleCase(ConsoleCase):
             f"badge shows role {role!r}, expected {self.role_name!r}"
         )
 
-    def assert_users_toolbar_hidden(self) -> None:
-        """Assert the Users toolbar does not open for the current user.
+    def assert_users_page_hidden(self) -> None:
+        """Assert Settings does not show the Users page to the current user.
 
-        The toolbar is gated on update permission for users, so only an Owner
+        The page is gated on update permission for users, so only an Owner
         sees it.
         """
-        self.log("Checking the Users toolbar stays hidden")
-        assert not self.console.access.users_toolbar_visible(), (
-            f"Users toolbar is visible to {self.role_name}"
+        self.log("Checking the Users page stays hidden")
+        assert not self.console.access.users_page_visible(), (
+            f"Users page is visible to {self.role_name}"
         )
 
     def assert_command_available(self, command: str) -> None:

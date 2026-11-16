@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apitable "github.com/synnaxlabs/synnax/pkg/api/table"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 )
 
@@ -21,7 +20,6 @@ var _ = Describe("ServiceConfig", func() {
 	full := func() apitable.ServiceConfig {
 		return apitable.ServiceConfig{
 			Table: &table.Service{},
-			RBAC:  &rbac.Service{},
 		}
 	}
 
@@ -42,11 +40,6 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apitable.ServiceConfig) { c.Table = nil },
 				"table: must be non-nil",
 			),
-			Entry(
-				"rbac",
-				func(c *apitable.ServiceConfig) { c.RBAC = nil },
-				"rbac: must be non-nil",
-			),
 		)
 	})
 
@@ -55,14 +48,12 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := apitable.ServiceConfig{}.Override(cfg)
 			Expect(merged.Table).To(BeIdenticalTo(cfg.Table))
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apitable.ServiceConfig{})
 			Expect(merged.Table).To(BeIdenticalTo(cfg.Table))
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		})
 	})
 })

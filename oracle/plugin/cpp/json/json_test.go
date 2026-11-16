@@ -46,9 +46,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 	})
 
 	Describe("Generate", func() {
-		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+		It("Should generate the recursive Where of a filter", func() {
 			AddFilterSchema(loader)
-			resp := MustGenerate(ctx, ThingFilter, "thing", loader, jsonPlugin)
+			resp := MustGenerate(ThingFilter, "thing", loader, jsonPlugin)
 			ExpectContent(resp, "thing/json.gen.h").ToContain(
 				`.and_ = parser.field<std::optional<std::vector<Where>>>("and"),`,
 				`.not_ = parser.field<x::mem::indirect<Where>>("not"),`,
@@ -59,7 +59,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 		It(
 			"Should serialize type parameter fields through x::json",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 					@cpp output "x/cpp/thing"
 
@@ -70,7 +70,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						all   T[]
 					}
 				`
-				resp := MustGenerate(ctx, source, "thing", loader, jsonPlugin)
+				resp := MustGenerate(source, "thing", loader, jsonPlugin)
 				ExpectContent(resp, "json.gen.h").
 					ToContain(
 						`j["value"] = x::json::to_json(this->value);`,
@@ -83,7 +83,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		)
 
 		Context("field-level omit", func() {
-			It("Should leave out a field omitted in cpp", func(ctx SpecContext) {
+			It("Should leave out a field omitted in cpp", func() {
 				source := `
 					@go output "core/pkg/service/auth"
 					@cpp output "client/cpp/auth"
@@ -94,7 +94,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						subject string
 					}
 				`
-				resp := MustGenerate(ctx, source, "auth", loader, jsonPlugin)
+				resp := MustGenerate(source, "auth", loader, jsonPlugin)
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`"subject"`).
 					ToNotContain("hash")
@@ -104,7 +104,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("field names ending in a digit", func() {
 			It(
 				"Should keep the schema name as the JSON key",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -114,7 +114,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						axis_1 float64 = 0
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
 							`parser.field<double>("r0", 0)`,
@@ -128,11 +128,11 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 		DescribeTable(
 			"Should start the JSON of a struct as an object",
-			func(ctx SpecContext, decls string) {
+			func(decls string) {
 				source := `
 				@cpp output "client/cpp/types"
 			` + decls
-				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(source, "types", loader, jsonPlugin)
 				ExpectContent(resp, "json.gen.h").
 					ToContain("x::json::json j = x::json::json::object();").
 					ToNotContain("x::json::json j;")
@@ -149,7 +149,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("array alias fields (e.g., Params -> Param[])", func() {
 			It(
 				"Should generate correct parsing for array alias fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -165,7 +165,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						outputs Params
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 					Expect(resp.Files).To(HaveLen(1))
 
 					ExpectContent(resp, "json.gen.h").
@@ -180,7 +180,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should generate correct to_json for array alias fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -196,7 +196,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						outputs Params
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -207,7 +207,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 				},
 			)
 
-			It("Should handle optional array alias fields", func(ctx SpecContext) {
+			It("Should handle optional array alias fields", func() {
 				source := `
 					@cpp output "client/cpp/types"
 
@@ -223,7 +223,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						outputs Params?
 					}
 				`
-				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(
@@ -238,7 +238,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("self-referential types with indirect<T>", func() {
 			It(
 				"Should generate correct parsing for self-referential fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -248,7 +248,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						right Node?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 					Expect(resp.Files).To(HaveLen(1))
 
 					ExpectContent(resp, "json.gen.h").
@@ -263,7 +263,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should generate correct to_json for self-referential fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -273,7 +273,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						right Node?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -284,7 +284,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 				},
 			)
 
-			It("Should handle mutually recursive types", func(ctx SpecContext) {
+			It("Should handle mutually recursive types", func() {
 				source := `
 					@cpp output "client/cpp/types"
 
@@ -295,7 +295,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						a A?
 					}
 				`
-				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(
@@ -308,7 +308,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should handle cycles through a distinct struct wrapper",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -320,7 +320,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					}
 					BWrap B
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -334,7 +334,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should handle nested self-references via type arguments",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "arc/cpp/types"
 
@@ -345,7 +345,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						constraint Type?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -359,7 +359,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("optional struct fields (non-self-referential)", func() {
 			It(
 				"Should generate correct to_json for optional struct fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -373,7 +373,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						unit Unit?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -385,7 +385,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should generate correct parsing for optional struct fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -399,7 +399,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						unit Unit?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -412,7 +412,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		})
 
 		Context("empty composite defaults", func() {
-			It("Should fall back to an empty map", func(ctx SpecContext) {
+			It("Should fall back to an empty map", func() {
 				source := `
 					@cpp output "client/cpp/task"
 
@@ -420,12 +420,12 @@ var _ = Describe("C++ JSON Plugin", func() {
 						metadata map<string, string> = {}
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+				resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`parser.field<std::unordered_map<std::string, std::string>>("metadata", std::unordered_map<std::string, std::string>{})`)
 			})
-			It("Should fall back to an empty struct", func(ctx SpecContext) {
+			It("Should fall back to an empty struct", func() {
 				source := `
 					@cpp output "client/cpp/task"
 
@@ -437,12 +437,12 @@ var _ = Describe("C++ JSON Plugin", func() {
 						ports Ports = {}
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+				resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`parser.field<Ports>("ports", Ports{})`)
 			})
-			It("Should fall back to an empty struct alias", func(ctx SpecContext) {
+			It("Should fall back to an empty struct alias", func() {
 				source := `
 					@cpp output "client/cpp/task"
 
@@ -456,12 +456,12 @@ var _ = Describe("C++ JSON Plugin", func() {
 						inputs Inputs = {}
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+				resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`parser.field<Inputs>("inputs", Inputs{})`)
 			})
-			It("Should fall back to an empty array wrapper", func(ctx SpecContext) {
+			It("Should fall back to an empty array wrapper", func() {
 				source := `
 					@cpp output "client/cpp/task"
 
@@ -475,12 +475,12 @@ var _ = Describe("C++ JSON Plugin", func() {
 						params Params = []
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+				resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`parser.field<Params>("params", Params{})`)
 			})
-			It("Should fall back to a non-empty struct", func(ctx SpecContext) {
+			It("Should fall back to a non-empty struct", func() {
 				source := `
 					@cpp output "client/cpp/task"
 
@@ -493,13 +493,13 @@ var _ = Describe("C++ JSON Plugin", func() {
 						ports Ports = { rate = 2, index = 1 }
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+				resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").ToContain(
 					`parser.field<Ports>("ports", Ports{.index = 1, .rate = 2})`,
 				)
 			})
-			It("Should fall back to an int enum variant", func(ctx SpecContext) {
+			It("Should fall back to an int enum variant", func() {
 				source := `
 					@cpp output "client/cpp/task"
 
@@ -512,12 +512,12 @@ var _ = Describe("C++ JSON Plugin", func() {
 						mode Mode = off
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+				resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`parser.field<Mode>("mode", Mode::Off)`)
 			})
-			It("Should fall back to the current time", func(ctx SpecContext) {
+			It("Should fall back to the current time", func() {
 				loader.Add("schemas/telem", `
 					@cpp output "x/cpp/telem"
 
@@ -534,7 +534,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						time telem.TimeStamp = now
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+				resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").ToContain(
 					`"time", x::telem::TimeStamp::now()`,
@@ -545,7 +545,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("map type handling", func() {
 			It(
 				"Should use std::unordered_map for Map types in json serialization",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -554,7 +554,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						metadata map<string, string>
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -564,7 +564,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should serialize each value of a map of structs",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -576,7 +576,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						pairs map<string, Pair>
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -587,7 +587,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should unwrap an optional map of structs",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -599,7 +599,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						pairs map<string, Pair>?
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -610,7 +610,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should stringify the numeric keys of a map of structs",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -622,7 +622,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						pairs map<uint32, Pair>
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`obj[std::to_string(key)] = item.to_json();`)
@@ -630,7 +630,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should write the UUID keys of a map of structs as strings",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -642,15 +642,103 @@ var _ = Describe("C++ JSON Plugin", func() {
 						pairs map<uuid, Pair>
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`obj[key.to_string()] = item.to_json();`)
 				},
 			)
 			It(
+				"Should assign a map of scalars with string keys directly",
+				func() {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						metadata map<string, uint32>
+					}
+				`
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`j["metadata"] = this->metadata;`)
+				},
+			)
+			It(
+				"Should write a map of scalars with integer keys as an object",
+				func() {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						names map<uint32, string>
+					}
+				`
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							`for (const auto& [key, item] : this->names) obj[std::to_string(key)] = item;`,
+							`j["names"] = obj;`,
+							`parser.field<std::unordered_map<std::uint32_t, std::string>>("names")`,
+						).
+						ToNotContain(`j["names"] = this->names;`)
+				},
+			)
+			It(
+				"Should unwrap an optional map of scalars with integer keys",
+				func() {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						names map<uint16, uint8>?
+					}
+				`
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							`if (this->names.has_value()) {`,
+							`for (const auto& [key, item] : *this->names) obj[std::to_string(key)] = item;`,
+						)
+				},
+			)
+			It(
+				"Should write the UUID keys of a map of scalars as strings",
+				func() {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						names map<uuid, string>
+					}
+				`
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`obj[key.to_string()] = item;`)
+				},
+			)
+			It(
+				"Should write a generic map of scalars as an object",
+				func() {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Names struct<K extends comparable> {
+						values map<K, uint32>
+					}
+				`
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`obj[x::json::map_key(key)] = item;`)
+				},
+			)
+			It(
 				"Should defer the key check of a generic map of structs",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -662,15 +750,15 @@ var _ = Describe("C++ JSON Plugin", func() {
 						values map<K, Pair>
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`obj[x::json::map_key(key)] = item.to_json();`)
 				},
 			)
-			DescribeTable("Should reject a map of structs with an unsupported key",
-				func(ctx SpecContext, key string) {
-					req := MustGenerateRequest(ctx, `
+			DescribeTable("Should reject a map with an unsupported key",
+				func(key, value string) {
+					req := MustGenerateRequest(`
 					@cpp output "client/cpp/task"
 
 					Units enum {
@@ -682,7 +770,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					}
 
 					Task struct {
-						pairs map<`+key+`, Pair>
+						pairs map<`+key+`, `+value+`>
 					}
 				`, "task", loader)
 					Expect(jsonPlugin.Generate(req)).Error().To(SatisfyAll(
@@ -690,12 +778,14 @@ var _ = Describe("C++ JSON Plugin", func() {
 						MatchError(validate.ErrValidation),
 					))
 				},
-				Entry("string enum", "Units"),
-				Entry("float", "float64"),
+				Entry("string enum with struct values", "Units", "Pair"),
+				Entry("float with struct values", "float64", "Pair"),
+				Entry("string enum with scalar values", "Units", "uint32"),
+				Entry("float with scalar values", "float64", "uint32"),
 			)
 			It(
 				"Should serialize a map of structs declared through an alias",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -709,7 +799,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						pairs Pairs
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -719,7 +809,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should merge a parent into a child without iterating a temporary",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -731,7 +821,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						right uint32
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);`)
@@ -739,7 +829,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should assign a map of primitives directly",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -747,7 +837,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						metadata map<string, string>
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`j["metadata"] = this->metadata;`)
@@ -758,7 +848,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("complex type structure from arc/types", func() {
 			It(
 				"Should handle the complete Type structure with FunctionProperties",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "arc/cpp/types"
 
@@ -782,7 +872,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						constraint Type?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 					Expect(resp.Files).To(HaveLen(1))
 
 					ExpectContent(resp, "json.gen.h").
@@ -802,7 +892,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("primitive array handling", func() {
 			It(
 				"Should generate simple assignment for primitive arrays",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -811,7 +901,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						names string[]
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -826,7 +916,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should serialize uuid arrays element by element",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -836,7 +926,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						keys Key[]
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 					ExpectContent(resp, "json.gen.h").
 						ToContain("for (const auto& item : this->keys) arr.push_back(item.to_json());")
 				},
@@ -846,7 +936,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("struct arrays without alias", func() {
 			It(
 				"Should use to_array helper for struct array elements",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -859,7 +949,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						items Item[]
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -873,13 +963,13 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("array wrapper distinct types", func() {
 			It(
 				"Should generate parse/to_json for array wrappers with primitive elements",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "arc/cpp/types"
 
 					Channels uint32[]
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -896,7 +986,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should generate parse/to_json for array wrappers with struct elements",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "arc/cpp/types"
 
@@ -906,7 +996,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 					Params Param[]
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -923,11 +1013,11 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			DescribeTable(
 				"Should generate parse/to_json for fixed-size array wrappers",
-				func(ctx SpecContext, decls string) {
+				func(decls string) {
 					source := `
 					@cpp output "arc/cpp/types"
 				` + decls
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -948,13 +1038,13 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should leave a fixed-size uint8 array to its hand-written header",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "arc/cpp/types"
 
 					Hash uint8[32]
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 					Expect(resp.Files).To(BeEmpty())
 				},
 			)
@@ -963,7 +1053,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("generic struct field type args", func() {
 			It(
 				"Should propagate type args to fields referencing generic structs",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "x/cpp/control"
 
@@ -980,7 +1070,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						transfers Transfer<R>[]
 					}
 				`
-					resp := MustGenerate(ctx, source, "control", loader, jsonPlugin)
+					resp := MustGenerate(source, "control", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -993,7 +1083,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should skip defaulted type args for non-generic structs",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "x/cpp/task"
 
@@ -1005,7 +1095,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						details Details
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`parser.field<Details>("details")`).
@@ -1017,7 +1107,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("optional primitive defaults", func() {
 			It(
 				"Should parse optional primitives as std::optional",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -1028,7 +1118,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						label    string?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -1042,7 +1132,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should leave empty optional fields out of the JSON",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -1060,7 +1150,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						metadata map<string, string>?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -1076,7 +1166,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should wrap telem-typed numeric defaults in their constructors",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/telem", `
 					@cpp output "x/cpp/telem"
 
@@ -1098,7 +1188,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						duration    telem.TimeSpan = 0
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+					resp := MustGenerate(source, "config", loader, jsonPlugin)
 					ExpectContent(resp, "out/json.gen.h").
 						ToContain(
 							`parser.field<::x::telem::Rate>("stream_rate", ::x::telem::Rate(5))`,
@@ -1109,7 +1199,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should wrap distinct string defaults in their constructors",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/telem", `
 					@cpp output "x/cpp/telem"
 
@@ -1127,7 +1217,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						label     string = "dflt"
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+					resp := MustGenerate(source, "config", loader, jsonPlugin)
 					ExpectContent(resp, "out/json.gen.h").
 						ToContain(
 							`parser.field<::x::telem::DataType>("data_type", ::x::telem::DataType("float32"))`,
@@ -1138,7 +1228,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should wrap distinct numeric defaults in their constructors",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/telem", `
 					@cpp output "x/cpp/telem"
 
@@ -1161,7 +1251,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						count     int32 = 7
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+					resp := MustGenerate(source, "config", loader, jsonPlugin)
 					ExpectContent(resp, "out/json.gen.h").
 						ToContain(
 							`parser.field<::x::telem::Size>("threshold", ::x::telem::Size(1024))`,
@@ -1173,7 +1263,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should parse optional uuid fields as std::optional",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -1181,7 +1271,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						owner uuid?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`parser.field<std::optional<x::uuid::UUID>>("owner")`)
@@ -1190,7 +1280,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should parse optional signed integer fields as std::optional",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -1200,7 +1290,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						delta_big   int64?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -1215,7 +1305,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("uuid detection through distinct and alias chains", func() {
 			It(
 				"Should detect a distinct type wrapping uuid and call to_json()",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -1225,7 +1315,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						id Key
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`j["id"] = this->id.to_json();`)
@@ -1234,7 +1324,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should detect a uuid via an alias chain and call to_json()",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -1245,7 +1335,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						id KeyRef
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`j["id"] = this->id.to_json();`)
@@ -1256,7 +1346,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("fixed-size uint8 array from another namespace", func() {
 			It(
 				"Should include the distinct-type-specific header, not json.gen.h, for a cross-namespace reference",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/crypto", `
 					@cpp output "x/cpp/crypto"
 
@@ -1272,7 +1362,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						hash crypto.Hash
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -1292,7 +1382,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("cross-namespace struct extension", func() {
 			It(
 				"Should qualify the base type by namespace and include the base's json header",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/base", `
 					@cpp output "x/cpp/base"
 
@@ -1310,7 +1400,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						name string
 					}
 				`
-					resp := MustGenerate(ctx, source, "derived", loader, jsonPlugin)
+					resp := MustGenerate(source, "derived", loader, jsonPlugin)
 
 					ExpectContent(resp, "derived/json.gen.h").
 						ToContain(
@@ -1323,10 +1413,40 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 		})
 
+		Context("schemas with the same file name", func() {
+			It("Should qualify the codecs of a schema with the same file name", func() {
+				loader.Add("schemas/x/color", `
+					@cpp output "x/cpp/color"
+
+					Base struct { key string }
+					Solid struct { hex string }
+
+					Fill union on type {
+						solid Solid
+					}
+				`)
+				loader.Add("schemas/synnax/color", `
+					import "schemas/x/color"
+
+					@cpp output "client/cpp/color"
+
+					Named struct extends color.Base {
+						fill color.Fill
+					}
+				`)
+				resp := MustGenerateMulti(loader, jsonPlugin)
+				ExpectContent(resp, "client/cpp/color/json.gen.h").
+					ToContain(
+						`#include "x/cpp/color/json.gen.h"`,
+						"= ::x::color::Base::parse(parser);",
+						`::x::color::parse_fill(parser.child("fill"))`,
+						`j["fill"] = ::x::color::to_json(this->fill);`,
+					)
+			})
+		})
+
 		Context("parent omitted in C++", func() {
-			It("Should serialize an inline variant's inherited fields", func(
-				ctx SpecContext,
-			) {
+			It("Should serialize an inline variant's inherited fields", func() {
 				source := `
 					@go output "core/pkg/service/auth"
 					@cpp output "client/cpp/auth"
@@ -1347,13 +1467,13 @@ var _ = Describe("C++ JSON Plugin", func() {
 						}
 					}
 				`
-				resp := MustGenerate(ctx, source, "auth", loader, jsonPlugin)
+				resp := MustGenerate(source, "auth", loader, jsonPlugin)
 				ExpectContent(resp, "auth/json.gen.h").
 					ToContain(`"key"`, `"name"`, `"rate"`).
 					ToNotContain("Record")
 			})
 
-			It("Should serialize the inherited fields", func(ctx SpecContext) {
+			It("Should serialize the inherited fields", func() {
 				source := `
 					@go output "core/pkg/service/auth"
 					@cpp output "client/cpp/auth"
@@ -1369,7 +1489,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						-secret
 					}
 				`
-				resp := MustGenerate(ctx, source, "auth", loader, jsonPlugin)
+				resp := MustGenerate(source, "auth", loader, jsonPlugin)
 				ExpectContent(resp, "auth/json.gen.h").
 					ToContain(`"key"`, `"name"`).
 					ToNotContain("secret", "Record")
@@ -1379,7 +1499,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("package with nothing to serialize", func() {
 			It(
 				"Should request deletion of json.gen.h instead of emitting a file",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/node"
 
@@ -1387,7 +1507,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						@doc value "is a 12-bit unsigned integer identifying a node."
 					}
 				`
-					resp := MustGenerate(ctx, source, "node", loader, jsonPlugin)
+					resp := MustGenerate(source, "node", loader, jsonPlugin)
 
 					Expect(resp.Files).To(BeEmpty())
 					Expect(resp.Deletions).To(ConsistOf("client/cpp/node/json.gen.h"))
@@ -1396,7 +1516,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should request deletion for packages whose types are all omitted",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "x/cpp/telem"
 
@@ -1407,7 +1527,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						@cpp hand
 					}
 				`
-					resp := MustGenerate(ctx, source, "telem", loader, jsonPlugin)
+					resp := MustGenerate(source, "telem", loader, jsonPlugin)
 
 					Expect(resp.Files).To(BeEmpty())
 					Expect(resp.Deletions).To(ConsistOf("x/cpp/telem/json.gen.h"))
@@ -1416,7 +1536,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should include types.gen.h for references into scalar-only packages",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/node", `
 					@cpp output "client/cpp/node"
 
@@ -1432,7 +1552,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						leaseholder node.Key
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, jsonPlugin)
+					resp := MustGenerate(source, "channel", loader, jsonPlugin)
 
 					ExpectContent(resp, "channel/json.gen.h").
 						ToContain(`#include "client/cpp/node/types.gen.h"`).
@@ -1442,7 +1562,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should include the header declared by @cpp include on a reference",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/node", `
 					@cpp output "client/cpp/node"
 
@@ -1460,7 +1580,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						leaseholder node.Key
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, jsonPlugin)
+					resp := MustGenerate(source, "channel", loader, jsonPlugin)
 
 					ExpectContent(resp, "channel/json.gen.h").
 						ToContain(`#include "client/cpp/node/key.h"`).
@@ -1486,7 +1606,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should qualify parse and to_json for a cross-namespace union field",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					import "schemas/scales"
 
@@ -1496,7 +1616,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						custom_scale scales.Scale
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, jsonPlugin)
+					resp := MustGenerate(source, "channel", loader, jsonPlugin)
 
 					ExpectContent(resp, "channel/json.gen.h").
 						ToContain(
@@ -1509,7 +1629,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should qualify parse and to_json for arrays of a cross-namespace union",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					import "schemas/scales"
 
@@ -1519,7 +1639,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						all scales.Scale[]
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, jsonPlugin)
+					resp := MustGenerate(source, "channel", loader, jsonPlugin)
 
 					ExpectContent(resp, "channel/json.gen.h").
 						ToContain(
@@ -1532,7 +1652,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should derive the namespace from the union in a union-only package",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					import "schemas/scales"
 
@@ -1543,7 +1663,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						none scales.NoneParams
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "task/json.gen.h").
 						ToContain(`parse_config(x::json::Parser parser) {`)
@@ -1554,7 +1674,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("cross-namespace alias targets", func() {
 			It(
 				"Should include the target's json header for an alias to a cross-namespace struct",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/common", `
 					@cpp output "client/cpp/common"
 
@@ -1573,7 +1693,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						info InfoRef
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "task/json.gen.h").
 						ToContain(`#include "client/cpp/common/json.gen.h"`)
@@ -1584,8 +1704,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("invalid output paths", func() {
 			It(
 				"Should error when a struct's output path escapes the repository",
-				func(ctx SpecContext) {
-					req := MustGenerateRequest(ctx, `
+				func() {
+					req := MustGenerateRequest(`
 					@cpp output "../escape"
 
 					Bad struct { name string }
@@ -1597,8 +1717,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should error when a distinct type's output path escapes the repository",
-				func(ctx SpecContext) {
-					req := MustGenerateRequest(ctx, `
+				func() {
+					req := MustGenerateRequest(`
 					@cpp output "../escape"
 
 					Key uint32
@@ -1610,14 +1730,14 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should error when a union's output path escapes the repository",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/scales", `
 					@cpp output "x/cpp/scales"
 
 					LinearParams struct { slope float64 }
 					NoneParams struct {}
 				`)
-					req := MustGenerateRequest(ctx, `
+					req := MustGenerateRequest(`
 					import "schemas/scales"
 
 					@cpp output "../escape"
@@ -1634,8 +1754,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should return the paths with JSON content from ContentPaths",
-				func(ctx SpecContext) {
-					req := MustGenerateRequest(ctx, `
+				func() {
+					req := MustGenerateRequest(`
 					@cpp output "client/cpp/types"
 
 					Item struct { name string }
@@ -1647,8 +1767,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should propagate collection errors from ContentPaths",
-				func(ctx SpecContext) {
-					req := MustGenerateRequest(ctx, `
+				func() {
+					req := MustGenerateRequest(`
 					@cpp output "../escape"
 
 					Bad struct { name string }
@@ -1660,7 +1780,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should skip deletions for output paths outside the repository",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/outside", `
 					@cpp output "../outside"
 
@@ -1679,7 +1799,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						time_range outside.TimeRange
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, jsonPlugin)
+					resp := MustGenerate(source, "channel", loader, jsonPlugin)
 
 					Expect(resp.Deletions).To(BeEmpty())
 				},
@@ -1708,7 +1828,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should generate a parse dispatch and to_json overload for the union",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -1720,7 +1840,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				none NoneParams
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+			resp := MustGenerate(source, "ni", loader, jsonPlugin)
 			ExpectContent(resp, "json.gen.h").
 				ToContain(
 					`inline Scale parse_scale(x::json::Parser parser) {`,
@@ -1737,7 +1857,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should fall back to the defaulted variant when the field is absent",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -1751,7 +1871,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 			Item struct { scale Scale = none }
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+			resp := MustGenerate(source, "ni", loader, jsonPlugin)
 			ExpectContent(resp, "json.gen.h").ToContain(
 				`parser.has("scale") ? parse_scale(parser.child("scale")) ` +
 					`: Scale{NoneScale{}}`,
@@ -1761,7 +1881,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should parse inline variant fields directly on the variant struct",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -1774,7 +1894,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				empty {}
 			}
 		`
-			resp := MustGenerate(ctx, source, "panel", loader, jsonPlugin)
+			resp := MustGenerate(source, "panel", loader, jsonPlugin)
 			content := ExpectContent(resp, "json.gen.h")
 			content.ToContain(
 				`if (discriminator == "view") return ViewTab::parse(parser);`,
@@ -1784,7 +1904,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 		},
 	)
 
-	It("Should generate per-variant parse/to_json bodies", func(ctx SpecContext) {
+	It("Should generate per-variant parse/to_json bodies", func() {
 		source := `
 			@cpp output "out"
 
@@ -1796,7 +1916,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				none NoneParams
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+		resp := MustGenerate(source, "ni", loader, jsonPlugin)
 		ExpectContent(resp, "json.gen.h").
 			ToContain(
 				`inline LinearScale LinearScale::parse(x::json::Parser parser) {`,
@@ -1810,7 +1930,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should parse through a union base struct from another namespace",
-		func(ctx SpecContext) {
+		func() {
 			loader.Add("schemas/common", `
 			@cpp output "x/cpp/common"
 
@@ -1827,7 +1947,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				ai_voltage VoltageFields
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+			resp := MustGenerate(source, "ni", loader, jsonPlugin)
 			ExpectContent(resp, "ni/json.gen.h").
 				ToContain(
 					`#include "x/cpp/common/json.gen.h"`,
@@ -1840,7 +1960,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should dispatch a union-typed field through the free functions",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -1856,7 +1976,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				customScale Scale
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+			resp := MustGenerate(source, "ni", loader, jsonPlugin)
 			ExpectContent(resp, "json.gen.h").
 				ToContain(
 					`.custom_scale = parse_scale(parser.child("custom_scale")),`,
@@ -1867,7 +1987,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should parse an optional union-typed field as std::optional",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -1883,7 +2003,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				customScale Scale?
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+			resp := MustGenerate(source, "ni", loader, jsonPlugin)
 			ExpectContent(resp, "json.gen.h").
 				ToContain(
 					`parser.has("custom_scale") ? std::optional<Scale>(parse_scale(parser.child("custom_scale"))) : std::nullopt`,
@@ -1893,7 +2013,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should parse defaulted fields with their schema defaults",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -1908,7 +2028,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				label   string = ""
 			}
 		`
-			resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+			resp := MustGenerate(source, "config", loader, jsonPlugin)
 			ExpectContent(resp, "json.gen.h").
 				ToContain(
 					`.enabled = parser.field<bool>("enabled", false),`,
@@ -1920,7 +2040,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should parse record fields with an empty default as an empty object",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -1929,7 +2049,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				args record = {}
 			}
 		`
-			resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+			resp := MustGenerate(source, "config", loader, jsonPlugin)
 			ExpectContent(resp, "json.gen.h").
 				ToContain(
 					`.args = parser.field<x::json::json::object_t>("args", x::json::json::object_t{}),`,
@@ -1939,7 +2059,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should parse defaulted distinct-typed fields with their schema defaults",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -1949,7 +2069,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				device Key = ""
 			}
 		`
-			resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+			resp := MustGenerate(source, "config", loader, jsonPlugin)
 			ExpectContent(resp, "json.gen.h").
 				ToContain(`.device = parser.field<Key>("device", Key("")),`)
 		},
@@ -1957,7 +2077,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should wrap telem-typed numeric defaults in their constructors",
-		func(ctx SpecContext) {
+		func() {
 			loader.Add("schemas/telem", `
 			@cpp output "x/cpp/telem"
 
@@ -1974,13 +2094,13 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				duration telem.TimeSpan = 0
 			}
 		`
-			resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+			resp := MustGenerate(source, "config", loader, jsonPlugin)
 			ExpectContent(resp, "out/json.gen.h").
 				ToContain(`.duration = parser.field<::x::telem::TimeSpan>("duration", ::x::telem::TimeSpan(0)),`)
 		},
 	)
 
-	It("Should mint an id for create-defaulted string fields", func(ctx SpecContext) {
+	It("Should mint an id for create-defaulted string fields", func() {
 		source := `
 			@cpp output "out"
 
@@ -1989,7 +2109,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				name string = ""
 			}
 		`
-		resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+		resp := MustGenerate(source, "config", loader, jsonPlugin)
 		ExpectContent(resp, "json.gen.h").
 			ToContain(
 				`#include "x/cpp/uuid/uuid.h"`,
@@ -1998,7 +2118,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			)
 	})
 
-	It("Should mint a UUID for create-defaulted uuid fields", func(ctx SpecContext) {
+	It("Should mint a UUID for create-defaulted uuid fields", func() {
 		source := `
 			@cpp output "out"
 
@@ -2009,7 +2129,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				parent Key = create
 			}
 		`
-		resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+		resp := MustGenerate(source, "config", loader, jsonPlugin)
 		ExpectContent(resp, "json.gen.h").
 			ToContain(
 				`.key = parser.field<x::uuid::UUID>("key", x::uuid::create()),`,
@@ -2029,7 +2149,7 @@ var _ = Describe("C++ JSON Union Array Fields", func() {
 		jsonPlugin = json.New(json.Options{FileNamePattern: "json.gen.h"})
 	})
 
-	It("Should dispatch an array of unions element-by-element", func(ctx SpecContext) {
+	It("Should dispatch an array of unions element-by-element", func() {
 		source := `
 			@cpp output "out"
 
@@ -2045,7 +2165,7 @@ var _ = Describe("C++ JSON Union Array Fields", func() {
 				scales Scale[]
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+		resp := MustGenerate(source, "ni", loader, jsonPlugin)
 		ExpectContent(resp, "json.gen.h").
 			ToContain(
 				`if (parser.has("scales"))`,

@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/testutil/vectors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -42,22 +42,20 @@ type record struct {
 
 var _ = Describe("Where", Ordered, func() {
 	var (
-		v      svctestutil.Vectors[record, channel.Where]
+		v      vectors.Vectors[record, channel.Where]
 		chSvc  *channel.Service
+		chDB   *gorp.DB
 		byName = make(map[string]string)
 	)
-	v = MustSucceed(svctestutil.ReadVectors[record, channel.Where]("channels"))
+	v = MustSucceed(vectors.Read[record, channel.Where]("channels"))
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		// An Aspen database leases each record to its leaseholder, and the records sit
-		// on nodes that the mock cluster does not have.
-		cfg := serviceConfig(
+		cfg, _ := serviceConfig(
 			ctx,
 			testutil.NewNode(ctx),
 			DeferClose(gorp.Wrap(memkv.New())),
 		)
-		chSvc = MustOpen(channel.OpenService(ctx, cfg))
 		chs := make([]channel.Channel, 0, len(v.Records))
 		for alias, r := range v.Records {
 			byName[r.Name] = alias
@@ -73,27 +71,30 @@ var _ = Describe("Where", Ordered, func() {
 				Expression:  r.Expression,
 			})
 		}
-		// The writer assigns its own keys, so the records go straight to the table.
+		// The writer assigns its own keys, so the records go straight to the table
+		// before the service opens it and indexes them.
 		Expect(gorp.NewCreate[channel.Key, channel.Channel]().
 			Entries(&chs).
 			Exec(ctx, cfg.DB)).To(Succeed())
+		chSvc = MustOpen(channel.OpenService(ctx, cfg))
+		chDB = cfg.DB
 	})
 
 	DescribeTable(
 		"Should match the case",
-		func(ctx SpecContext, c svctestutil.Case[channel.Where]) {
+		func(ctx SpecContext, c vectors.Case[channel.Where]) {
 			f := MustSucceed(channel.MatchWhere(c.Where))
 			var res []channel.Channel
 			Expect(chSvc.NewRetrieve().
 				SkipMissingKeys().
 				Where(f).
 				Entries(&res).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, chDB)).To(Succeed())
 			Expect(lo.Map(res, func(ch channel.Channel, _ int) string {
 				return byName[ch.Name]
 			})).To(ConsistOf(c.Expected))
 		},
-		lo.Map(v.Cases, func(c svctestutil.Case[channel.Where], _ int) TableEntry {
+		lo.Map(v.Cases, func(c vectors.Case[channel.Where], _ int) TableEntry {
 			return Entry(c.Name, c)
 		}),
 	)

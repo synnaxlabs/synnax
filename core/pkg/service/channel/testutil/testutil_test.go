@@ -12,8 +12,13 @@ package testutil_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/set"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("UniqueChannelName", func() {
@@ -28,5 +33,42 @@ var _ = Describe("UniqueChannelName", func() {
 			Expect(existingNames.Contains(nextName)).To(BeFalse())
 			existingNames.Add(nextName)
 		}
+	})
+})
+
+var _ = Describe("CreateVirtual", func() {
+	var (
+		db  *gorp.DB
+		svc *channel.Service
+	)
+	BeforeEach(func(ctx SpecContext) {
+		node := testutil.NewNode(ctx)
+		db = node.DB
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			DB: node.DB,
+		}))
+		svc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel: node.Channel,
+			DB:      node.DB,
+			HostKey: node.Identity.HostKey,
+			Status:  statusSvc,
+		}))
+	})
+
+	It("Should create virtual channels with unique names", func(ctx SpecContext) {
+		keys := MustSucceed(CreateVirtual(ctx, db, svc, 3))
+		Expect(keys).To(HaveLen(3))
+		var channels []channel.Channel
+		Expect(svc.NewRetrieve().
+			Where(channel.MatchKeys(keys...)).
+			Entries(&channels).
+			Exec(ctx, db)).To(Succeed())
+		Expect(channel.KeysFromChannels(channels)).To(ConsistOf(keys))
+		Expect(channels).To(HaveEach(HaveField("Virtual", BeTrue())))
+		Expect(set.New(channel.Names(channels)...)).To(HaveLen(3))
+	})
+
+	It("Should create no channels for a zero count", func(ctx SpecContext) {
+		Expect(CreateVirtual(ctx, db, svc, 0)).To(BeEmpty())
 	})
 })

@@ -111,7 +111,7 @@ describe("clipboard", () => {
       onCopy(event, xy.ZERO);
       expect(preventDefault).toHaveBeenCalled();
       const payload = readPayload(store);
-      expect(payload.version).toEqual(1);
+      expect(payload.version).toEqual(2);
       expect(payload.nodes.map((n: Node) => n.key)).toEqual(["a", "b"]);
       expect(payload.edges.map((e: Edge) => e.key)).toEqual(["e1"]);
     });
@@ -332,7 +332,7 @@ describe("clipboard", () => {
       const { onPaste } = renderClipboard(adapter);
       const { event, store } = fakeClipboardEvent();
       writePayload(store, {
-        version: 1,
+        version: 2,
         nodes: [node("a", xy.construct(0, 0)), node("b", xy.construct(10, 10))],
         edges: [],
         configs: {},
@@ -357,7 +357,7 @@ describe("clipboard", () => {
       const { onPaste } = renderClipboard(adapter);
       const { event, store } = fakeClipboardEvent();
       writePayload(store, {
-        version: 1,
+        version: 2,
         nodes: [node("a", xy.ZERO, "valve")],
         edges: [],
         configs: {},
@@ -373,7 +373,7 @@ describe("clipboard", () => {
       const { onPaste } = renderClipboard(adapter);
       const { event, store } = fakeClipboardEvent();
       writePayload(store, {
-        version: 1,
+        version: 2,
         nodes: [node("a", xy.ZERO), node("b", xy.ZERO)],
         edges: [edge("e1", "a", "b")],
         configs: {},
@@ -392,7 +392,7 @@ describe("clipboard", () => {
       const { onPaste } = renderClipboard(adapter);
       const { event, store } = fakeClipboardEvent();
       writePayload(store, {
-        version: 1,
+        version: 2,
         nodes: [node("a", xy.ZERO)],
         edges: [edge("e1", "a", "ghost")],
         configs: {},
@@ -409,7 +409,7 @@ describe("clipboard", () => {
       const { onPaste } = renderClipboard(adapter);
       const { event, store } = fakeClipboardEvent();
       writePayload(store, {
-        version: 1,
+        version: 2,
         nodes: [node("a", xy.ZERO), node("b", xy.ZERO)],
         edges: [edge("e1", "a", "b")],
         configs: { a: { label: "A" }, e1: { stroke: "red" } },
@@ -461,7 +461,7 @@ describe("clipboard", () => {
       const { onPaste } = renderClipboard(adapter);
       const { event, store, preventDefault } = fakeClipboardEvent();
       writePayload(store, {
-        version: 1,
+        version: 2,
         nodes: [],
         edges: [edge("e1", "a", "b")],
         configs: {},

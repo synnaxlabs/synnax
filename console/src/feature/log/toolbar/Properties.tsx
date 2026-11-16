@@ -25,7 +25,7 @@ export const Properties = (): ReactElement => {
   const timestampsHidden = Log.useIsHidingTimestamps();
   const timestampPrecision = Log.useTimestampPrecision();
   const timeZone = Log.useTimeZone();
-  const hasEditPermission = Access.useUpdateGranted(log.ontologyID(key));
+  const hasEditPermission = Access.useUpdateGranted(log.resourceID(key));
 
   const handlePrecisionChange = (timestampPrecision: number) =>
     dispatch(log.setTimestampPrecision({ timestampPrecision }));

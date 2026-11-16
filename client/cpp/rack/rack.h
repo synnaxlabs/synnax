@@ -16,9 +16,10 @@
 
 #include "google/protobuf/empty.pb.h"
 
-#include "client/cpp/ontology/id.h"
+#include "client/cpp/rack/actions.gen.h"
 #include "client/cpp/rack/proto.gen.h"
 #include "client/cpp/rack/types.gen.h"
+#include "client/cpp/resource/id.h"
 #include "client/cpp/task/task.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/filter/field.h"
@@ -43,26 +44,11 @@ using RetrieveClient = freighter::
 using DeleteClient = freighter::
     UnaryClient<grpc::rack::DeleteRequest, google::protobuf::Empty>;
 
+using DispatchClient = freighter::
+    UnaryClient<grpc::rack::DispatchRequest, google::protobuf::Empty>;
+
 /// @brief An alias for the type of rack's key.
 using Key = std::uint32_t;
-
-/// @brief Converts a rack key to an ontology ID.
-/// @param key The rack key.
-/// @returns An ontology ID with type "rack" and the given key.
-inline ontology::ID rack_ontology_id(const Key key) {
-    return ontology::ID("rack", std::to_string(key));
-}
-
-/// @brief Converts a vector of rack keys to a vector of ontology IDs.
-/// @param keys The rack keys.
-/// @returns A vector of ontology IDs.
-inline std::vector<ontology::ID> rack_ontology_ids(const std::vector<Key> &keys) {
-    std::vector<ontology::ID> ids;
-    ids.reserve(keys.size());
-    for (const auto &key: keys)
-        ids.push_back(rack_ontology_id(key));
-    return ids;
-}
 
 /// @brief Extracts the node ID from a rack key.
 /// @param key The rack key.
@@ -78,10 +64,12 @@ public:
     /// @param rack_create_client Client for creating racks.
     /// @param rack_retrieve_client Client for retrieving racks.
     /// @param rack_delete_client Client for deleting racks.
+    /// @param rack_dispatch_client Client for dispatching actions to racks.
     Client(
         std::unique_ptr<CreateClient> rack_create_client,
         std::unique_ptr<RetrieveClient> rack_retrieve_client,
         std::unique_ptr<DeleteClient> rack_delete_client,
+        std::unique_ptr<DispatchClient> rack_dispatch_client,
         task::Client tasks
     );
 
@@ -126,14 +114,23 @@ public:
     /// @param where the filter that the rack matches.
     /// @param options the options of the retrieve.
     /// @returns the rack, and an error that matches NOT_FOUND when no rack matches,
-    /// MULTIPLE_RESULTS when more than one does, or VALIDATION when options set a limit
-    /// or an offset.
+    /// MULTIPLE_RESULTS when more than one does, or VALIDATION when options set a
+    /// limit or a cursor.
     [[nodiscard]]
     std::pair<Rack, x::errors::Error> retrieve(
         const Where &where,
         x::filter::One,
         const RetrieveOptions &options = {}
     ) const;
+
+    /// @brief applies the actions to the rack with the given key in order, as one
+    /// atomic edit.
+    /// @param key the key of the rack.
+    /// @param actions the actions to apply.
+    /// @returns an error that matches NOT_FOUND when no rack has the key, or VALIDATION
+    /// when the rack cannot hold an action.
+    [[nodiscard]]
+    x::errors::Error dispatch(Key key, const std::vector<Action> &actions) const;
 
     /// @brief Deletes a rack by its key.
     /// @param key The key of the rack to delete.
@@ -148,6 +145,8 @@ private:
     std::unique_ptr<RetrieveClient> rack_retrieve_client;
     /// @brief Rack deletion transport.
     std::unique_ptr<DeleteClient> rack_delete_client;
+    /// @brief Rack dispatch transport.
+    std::unique_ptr<DispatchClient> rack_dispatch_client;
     task::Client tasks;
 };
 

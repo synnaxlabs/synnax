@@ -14,6 +14,7 @@ package v4
 import (
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
+	"uuid"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
@@ -37,11 +38,11 @@ func (a Arc) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (a *Arc) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "automation":
 		var v AutomationArc
 		if err := v.Base.DecodeOrc(r); err != nil {
@@ -67,6 +68,12 @@ func (bv Base) EncodeOrc(w *orc.Writer) error {
 	if err := bv.Source.EncodeOrc(w); err != nil {
 		return err
 	}
+	if bv.Directory != nil {
+		w.Bool(true)
+		w.Write((*bv.Directory)[:])
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -81,6 +88,19 @@ func (bv *Base) DecodeOrc(r *orc.Reader) error {
 	}
 	if err = bv.Source.DecodeOrc(r); err != nil {
 		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv uuid.UUID
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			bv.Directory = &hv
+		}
 	}
 	return nil
 }
@@ -106,11 +126,11 @@ func (s Source) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (s *Source) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "text":
 		var v TextSource
 		if err = v.Text.DecodeOrc(r); err != nil {

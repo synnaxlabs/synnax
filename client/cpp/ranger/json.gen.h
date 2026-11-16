@@ -30,10 +30,12 @@ inline Range Range::parse(x::json::Parser parser) {
         .name = parser.field<std::string>("name"),
         .time_range = parser.field<::x::telem::TimeRange>("time_range"),
         .color = parser.field<std::optional<::x::color::Color>>("color"),
-        .labels = parser.field<std::optional<std::vector<::synnax::label::Label>>>(
-            "labels"
+        .labels = parser.field<std::vector<::synnax::label::Key>>(
+            "labels",
+            std::vector<::synnax::label::Key>{}
         ),
-        .parent = parser.field<x::mem::indirect<Range>>("parent"),
+        .parent = parser.field<std::optional<Key>>("parent"),
+        .has_children = parser.field<bool>("has_children", false),
     };
 }
 
@@ -43,8 +45,14 @@ inline x::json::json Range::to_json() const {
     j["name"] = this->name;
     j["time_range"] = this->time_range.to_json();
     if (this->color.has_value()) j["color"] = this->color->to_json();
-    if (this->labels.has_value()) j["labels"] = x::json::to_array(*this->labels);
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->labels)
+            arr.push_back(item.to_json());
+        j["labels"] = arr;
+    }
     if (this->parent.has_value()) j["parent"] = this->parent->to_json();
+    j["has_children"] = this->has_children;
     return j;
 }
 
@@ -59,6 +67,11 @@ inline Where Where::parse(x::json::Parser parser) {
         .labels = parser.field<std::optional<std::vector<::synnax::label::Key>>>(
             "labels"
         ),
+        .parents = parser.field<std::optional<std::vector<Key>>>("parents"),
+        .nested = parser.field<std::optional<bool>>("nested"),
+        .labeled = parser.field<std::optional<bool>>("labeled"),
+        .stages = parser.field<std::optional<std::vector<std::string>>>("stages"),
+        .recent = parser.field<std::optional<::x::telem::TimeSpan>>("recent"),
     };
 }
 
@@ -76,6 +89,54 @@ inline x::json::json Where::to_json() const {
             arr.push_back(item.to_json());
         j["labels"] = arr;
     }
+    if (this->parents.has_value()) {
+        auto arr = x::json::json::array();
+        for (const auto &item: *this->parents)
+            arr.push_back(item.to_json());
+        j["parents"] = arr;
+    }
+    if (this->nested.has_value()) j["nested"] = *this->nested;
+    if (this->labeled.has_value()) j["labeled"] = *this->labeled;
+    if (this->stages.has_value()) j["stages"] = *this->stages;
+    if (this->recent.has_value()) j["recent"] = this->recent->nanoseconds();
+    return j;
+}
+
+inline Cursor Cursor::parse(x::json::Parser parser) {
+    return Cursor{
+        .key = parser.field<Key>("key"),
+        .name = parser.field<std::optional<std::string>>("name"),
+        .time_range_start = parser.field<std::optional<::x::telem::TimeStamp>>(
+            "time_range_start"
+        ),
+        .time_range_end = parser.field<std::optional<::x::telem::TimeStamp>>(
+            "time_range_end"
+        ),
+    };
+}
+
+inline x::json::json Cursor::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key.to_json();
+    if (this->name.has_value()) j["name"] = *this->name;
+    if (this->time_range_start.has_value())
+        j["time_range_start"] = this->time_range_start->nanoseconds();
+    if (this->time_range_end.has_value())
+        j["time_range_end"] = this->time_range_end->nanoseconds();
+    return j;
+}
+
+inline Order Order::parse(x::json::Parser parser) {
+    return Order{
+        .field = parser.field<std::string>("field"),
+        .descending = parser.field<bool>("descending", false),
+    };
+}
+
+inline x::json::json Order::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["field"] = this->field;
+    j["descending"] = this->descending;
     return j;
 }
 
@@ -83,10 +144,9 @@ inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
     return RetrieveRequest{
         .where = parser.field<std::optional<Where>>("where"),
         .search_term = parser.field<std::string>("search_term", ""),
+        .order = parser.field<std::optional<Order>>("order"),
+        .after = parser.field<std::optional<Cursor>>("after"),
         .limit = parser.field<std::optional<std::uint32_t>>("limit"),
-        .offset = parser.field<std::uint32_t>("offset", 0),
-        .include_labels = parser.field<bool>("include_labels", false),
-        .include_parent = parser.field<bool>("include_parent", false),
     };
 }
 
@@ -94,10 +154,9 @@ inline x::json::json RetrieveRequest::to_json() const {
     x::json::json j = x::json::json::object();
     if (this->where.has_value()) j["where"] = this->where->to_json();
     j["search_term"] = this->search_term;
+    if (this->order.has_value()) j["order"] = this->order->to_json();
+    if (this->after.has_value()) j["after"] = this->after->to_json();
     if (this->limit.has_value()) j["limit"] = *this->limit;
-    j["offset"] = this->offset;
-    j["include_labels"] = this->include_labels;
-    j["include_parent"] = this->include_parent;
     return j;
 }
 

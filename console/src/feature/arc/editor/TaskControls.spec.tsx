@@ -61,6 +61,14 @@ const renderControls = async (
   );
 };
 
+// The Core rewrites the task on its resync debounce, so the button takes a moment.
+const hoverRedeploy = async (): Promise<void> => {
+  const button = await waitFor(() => screen.getByRole("button", { name: "Redeploy" }), {
+    timeout: 5000,
+  });
+  fireEvent.pointerOver(button, { pointerType: "mouse" });
+};
+
 const searchAndClickRack = async (name: string): Promise<void> => {
   fireEvent.click(await findDialogTrigger());
   const search = await waitFor(() => screen.getByPlaceholderText("Search drivers..."));
@@ -169,26 +177,98 @@ describe("TaskControls", () => {
     });
   });
 
-  it("should show no controls for a module", async () => {
+  it("should say the automation was edited in the redeploy tooltip", async () => {
+    const rck = await createArcRack();
+    const a = await client.arcs.create({
+      name: uniqueName("arc"),
+      type: "automation",
+      source: { mode: "text" },
+    });
+    const tsk = await client.arcs.updateTask(a.key, { rack: rck.key });
+    if (tsk == null) throw new Error("expected a deployment task");
+    await reportTaskRunning(client, tsk);
+    const gen = new crdt.Text(2);
+    await client.arcs.dispatch(
+      a.key,
+      gen.insert(0, "a -> b").map((op) => arc.insertChar(op)),
+    );
+    await renderControls(a.key);
+    await hoverRedeploy();
+    await waitFor(async () =>
+      expect((await screen.findByRole("tooltip")).textContent).toBe(
+        "Automation edited. Redeploy to apply.",
+      ),
+    );
+  });
+
+  it("should name the module that changed in the redeploy tooltip", async () => {
+    const rck = await createArcRack();
+    const [trig, out] = await client.channels.create([
+      { name: uniqueName("trig"), dataType: "uint8", virtual: true },
+      { name: uniqueName("out"), dataType: "int64", virtual: true },
+    ]);
+    const moduleName = uniqueName("mod");
+    const flow = `${trig.name} -> ${moduleName}.f() -> ${out.name}`;
+    const m = await client.arcs.create({
+      name: moduleName,
+      type: "module",
+      source: {
+        mode: "text",
+        text: { raw: "export func f() {t u8} i64 { return 1 }" },
+      },
+    });
+    const a = await client.arcs.create({
+      name: uniqueName("arc"),
+      type: "automation",
+      source: {
+        mode: "text",
+        text: {
+          raw: `import ${moduleName}\n\n${flow}`,
+        },
+      },
+    });
+    const tsk = await client.arcs.updateTask(a.key, { rack: rck.key });
+    if (tsk == null) throw new Error("expected a deployment task");
+    await reportTaskRunning(client, tsk);
+    const gen = new crdt.Text(2);
+    await client.arcs.dispatch(
+      m.key,
+      gen
+        .insert(0, "\nexport func g() i64 { return 2 }\n")
+        .map((op) => arc.insertChar(op)),
+    );
+    await expect
+      .poll(async () => await client.arcs.retrieveChanges(a.key), { timeout: 5000 })
+      .toEqual([{ type: "module", path: moduleName, kind: "changed" }]);
+    await renderControls(a.key);
+    await hoverRedeploy();
+    await waitFor(async () =>
+      expect((await screen.findByRole("tooltip")).textContent).toBe(
+        `Module ${moduleName} changed. Redeploy to apply.`,
+      ),
+    );
+  });
+
+  it("should show a module's compile status and no actions", async () => {
     const a = await client.arcs.create({
       name: uniqueName("mod"),
       type: "module",
-      source: { mode: "text" },
+      source: { mode: "text", text: { raw: "export func f() i64 { return 1 }" } },
     });
-    const { wrapper } = await createConsoleWrapper({ client });
-    const { container } = await renderSuspended(
-      <Analytics.Provider sink={Analytics.NOOP}>
-        <Suspense fallback={null}>
-          <Arc.Suspended arcKey={a.key}>
-            <TaskControls />
-            <p>module loaded</p>
-          </Arc.Suspended>
-        </Suspense>
-      </Analytics.Provider>,
-      { wrapper },
-    );
-    await screen.findByText("module loaded");
-    expect(container.querySelector(".console-arc-editor__controls")).toBeNull();
+    const { container } = await renderControls(a.key);
+    await screen.findByText("Compiled");
+    expect(queryIconButton(container, "play")).toBeNull();
+    expect(queryIcon(container, "refresh")).toBeNull();
+  });
+
+  it("should show why a module failed to compile", async () => {
+    const a = await client.arcs.create({
+      name: uniqueName("mod"),
+      type: "module",
+      source: { mode: "text", text: { raw: "export func f() i64 { return x }" } },
+    });
+    await renderControls(a.key);
+    await screen.findByText("Failed to compile");
   });
 
   describe("performance", () => {

@@ -13,7 +13,8 @@ import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/feature/panel";
-import { findTreeRow, renderOntologyTree } from "@/platform/tree/testutil";
+import { Project } from "@/feature/project";
+import { findTreeRow, renderLiveTree } from "@/platform/tree/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -25,12 +26,12 @@ const renderPanelTree = async (
   const pan = await client.panels.create({
     ...appearance,
     name: uniqueName("panel"),
-    parent: project.ontologyID(key),
+    project: key,
   });
-  await renderOntologyTree({
+  await renderLiveTree({
     client,
-    root: project.ontologyID(key),
-    items: Panel.TREE_ITEMS,
+    root: project.resourceID(key),
+    items: { ...Project.TREE_ITEMS, ...Panel.TREE_ITEMS },
   });
   return pan;
 };
@@ -41,7 +42,7 @@ const findRowIcon = async (
 ): Promise<SVGElement | null> =>
   (await findTreeRow(pan.name)).querySelector<SVGElement>(`.lyra-icon--${icon}`);
 
-describe("panel ontology", () => {
+describe("panel tree item", () => {
   it("should draw the default panel icon for a panel with none", async () => {
     const pan = await renderPanelTree();
     expect(await findRowIcon(pan, "panel")).not.toBeNull();
@@ -62,5 +63,11 @@ describe("panel ontology", () => {
     await writer.panels.retrieve(pan.key);
     await writer.panels.dispatch(pan.key, panel.setIcon({ icon: "valve" }));
     await waitFor(async () => expect(await findRowIcon(pan, "valve")).not.toBeNull());
+  });
+
+  // Each tab shows a record that the tree lists in its own place.
+  it("should not expand into the records its tabs display", async () => {
+    const pan = await renderPanelTree();
+    expect((await findTreeRow(pan.name)).getAttribute("aria-expanded")).toBeNull();
   });
 });

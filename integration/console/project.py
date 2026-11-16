@@ -13,11 +13,11 @@ import random
 import shutil
 import zipfile
 
-from playwright.sync_api import Locator, expect
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError, expect
 
 from console.base import ResourceClient
 from console.layout import LayoutClient
+from console.notifications import click_past
 
 
 class ProjectClient(ResourceClient):
@@ -267,9 +267,7 @@ class ProjectClient(ResourceClient):
 
         delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
-        # Notifications stack over the confirmation dialog and swallow the click.
-        self.notifications.close_all()
-        delete_btn.click(timeout=5000)
+        click_past(delete_btn)
         self.wait_for_removed(name)
         if self._active_project == name:
             self._active_project = None

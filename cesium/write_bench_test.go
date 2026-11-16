@@ -38,6 +38,7 @@ func BenchmarkWrite(b *testing.B) {
 }
 
 func benchmarkWrite(b *testing.B, mem, contended bool) {
+	b.Helper()
 	ctx := b.Context()
 	opts := []cesium.Option{cesium.WithInstrumentation(alamos.New("bench"))}
 	dir := b.TempDir()

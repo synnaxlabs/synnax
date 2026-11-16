@@ -75,7 +75,7 @@ const Tab = ({ tabKey, tabName, onClose, canEdit }: TabProps): ReactElement => {
   const key = Scope.use();
   const client = Synnax.use();
   const handleDragStart: DragEventHandler<HTMLDivElement> = (e) => {
-    const cached = client?.panels.getCached(key);
+    const cached = client?.panels.watch(key).getCached();
     if (!query.isLive(cached)) return;
     const tab = panel.findTab(cached.root, tabKey);
     if (tab == null) return;
@@ -374,7 +374,7 @@ export const Mosaic = ({
       dispatch(panel.moveTab({ key: tabKey, targetLeaf: nodeKey, index, location }));
       // Another client can close the tab mid-drag, leaving the move a no-op and
       // the key naming a tab this panel no longer holds.
-      const cached = client?.panels.getCached(key);
+      const cached = client?.panels.watch(key).getCached();
       if (query.isLive(cached) && panel.findTab(cached.root, tabKey) != null)
         onSelect?.(tabKey);
       return;
@@ -422,11 +422,7 @@ export const Mosaic = ({
   const menuProps = Menu.useContextMenu();
   const renderMenu: Component.RenderProp<Menu.ContextMenuMenuProps> = (props) => {
     const tabKey: panel.TabKey | undefined = props.keys[0];
-    const content = (
-      <Menu.Menu level="small" gap="small">
-        {contextMenu?.(props)}
-      </Menu.Menu>
-    );
+    const content = <Menu.Menu gap="small">{contextMenu?.(props)}</Menu.Menu>;
     if (tabKey == null) return content;
     return <TabScope.Provider value={tabKey}>{content}</TabScope.Provider>;
   };

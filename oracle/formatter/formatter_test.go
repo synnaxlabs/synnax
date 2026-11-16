@@ -137,6 +137,23 @@ var _ = Describe("Format", func() {
 			Expect(format(once)).To(Equal(once))
 		})
 
+		It("should format an action that aliases a struct", func() {
+			source := "Node struct {\n  action Set  =  patch.Set\n  action B {}\n}\n"
+			Expect(format(source)).To(Equal(
+				"Node struct {\n    action Set = patch.Set\n\n    action B {}\n}\n",
+			))
+		})
+
+		It("should format the doc body of an action alias", func() {
+			source := "Node struct {\n  action Set = patch.Set {\n" +
+				"  @doc value \"sets a cell.\"\n  }\n  action B {}\n}\n"
+			Expect(format(source)).To(Equal(
+				"Node struct {\n    action Set = patch.Set {\n" +
+					"        @doc value \"sets a cell.\"\n    }\n\n" +
+					"    action B {}\n}\n",
+			))
+		})
+
 		It("should preserve a single extends clause on an action", func() {
 			source := "Node struct {\n  name string\n\n  action Rename extends Named {\n    key string\n  }\n}\n"
 			result := format(source)

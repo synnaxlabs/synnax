@@ -12,7 +12,10 @@
 package v3
 
 import (
+	role "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions/v0"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -22,10 +25,13 @@ import (
 type Key = v2.Key
 
 // StatusDetails contains rack-specific status details.
-type StatusDetails = v2.StatusDetails
+type StatusDetails struct {
+	// Running is true when the status comes from a running Driver.
+	Running bool `json:"running" msgpack:"running"`
+}
 
 // Status is rack-specific status information including operational state.
-type Status = v2.Status
+type Status = status.Status[StatusDetails]
 
 // Rack is a collection container for hardware devices and tasks running on a specific
 // Core. Racks are the integration point between the Core and physical hardware through
@@ -45,6 +51,10 @@ type Rack struct {
 	// Version is the version of the Driver that runs the rack, written at each connect.
 	// Absent until a Driver reports it.
 	Version *string `json:"version,omitzero" msgpack:"version,omitempty"`
+	// Group is the group the rack sits in, if any.
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Role is the role that grants the rack its permissions.
+	Role role.Key `json:"role" msgpack:"role"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

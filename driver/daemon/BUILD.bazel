@@ -30,7 +30,12 @@ cc_library(
             "common.h",
             "daemon_linux.cpp",
         ],
-        "//conditions:default": ["daemon_noop.cpp"],
+        "@platforms//os:macos": [
+            "common.cpp",
+            "common.h",
+            "daemon_darwin.cpp",
+        ],
+        "@platforms//os:windows": ["daemon_windows.cpp"],
     }),
     hdrs = ["daemon.h"],
     linkopts = select({
@@ -38,13 +43,18 @@ cc_library(
         "@platforms//os:linux": [
             "-lsystemd",
         ],
-        "//conditions:default": [],
+        "@platforms//os:macos": [],
+        "@platforms//os:windows": [
+            "/DEFAULTLIB:advapi32.lib",
+            "/DEFAULTLIB:ole32.lib",
+            "/DEFAULTLIB:shell32.lib",
+        ],
     }),
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/env",
         "//x/cpp/errors",
-        "//x/cpp/os",
+        "//x/cpp/shutdown",
         "//x/cpp/thread",
         "@abseil-cpp//absl/log",
     ],
@@ -63,6 +73,25 @@ cc_test(
     }),
     deps = [
         ":daemon",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "common_test",
+    size = "small",
+    srcs = [
+        "common.h",
+        "common_test.cpp",
+    ],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":daemon",
+        "//x/cpp/errors",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

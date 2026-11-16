@@ -67,19 +67,6 @@ func NewReporter(configs ...ReporterConfig) (*Reporter, error) {
 	return &Reporter{config: cfg}, nil
 }
 
-// Prod attaches the given ReportProvider to the Reporter with the given key in the
-// production (Prod) environment. The Report is lazily evaluated, and will only be
-// called when the instrumentation report is generated.
-func (r *Reporter) Prod(key string, report ReportProvider) {
-	if r == nil {
-		return
-	}
-	if r.reports == nil {
-		r.reports = make(map[string]ReportProvider)
-	}
-	r.reports[key] = report
-}
-
 // Report is key-value Metadata that can be attached to an Instrumentation. All values
 // stores in a report must be JSON-serializable. Otherwise, it's up to the user to
 // decide what to do store. We recommend using snake_case for keys.

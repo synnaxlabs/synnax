@@ -98,7 +98,6 @@ class NITask(TaskPage):
             modal = layout.page.locator(layout.MODAL_SELECTOR)
             fill_configure(
                 modal,
-                notifications=layout.notifications,
                 name=dev_name,
                 identifier=dev_name,
             )
@@ -117,10 +116,7 @@ class NITask(TaskPage):
         """
         Assert a channel form is set correctly
 
-        Args:
-            name: Channel name or list of channel names to assert
-
-        Returns: None
+        :param name: Channel name or list of channel names to assert
         """
         names = [name] if isinstance(name, str) else name
 

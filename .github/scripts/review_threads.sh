@@ -11,7 +11,7 @@
 
 # Prints the review threads on a pull request that need action, one JSON object per
 # line. Usage: review_threads.sh <pr>. A thread needs action when it is unresolved and
-# its last comment is from Greptile or a person other than the pull request author.
+# its last comment is from Sedosaur or a person other than the pull request author.
 # Replies from other bots, such as agents, end the need.
 
 set -euo pipefail
@@ -36,5 +36,5 @@ query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
 }' --jq '.data.repository.pullRequest as $pr | $pr.reviewThreads.nodes[]
     | select((.isResolved | not) and (.comments.nodes[-1].author
         | .login != $pr.author.login
-            and (.__typename == "User" or .login == "greptile-apps")))
+            and (.__typename == "User" or .login == "sedosaur")))
     | {id, isOutdated, path, line, comments: .comments.nodes} | tojson'

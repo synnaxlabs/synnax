@@ -29,7 +29,9 @@ export const parseInitialStatusDetails = <StatusDetails extends z.ZodType = z.Zo
   return undefined as z.output<StatusDetails>;
 };
 
-/** @returns the details a result's status carries, or undefined when it carries none. */
+/**
+ * @returns the details a result's status carries, or undefined when it carries none.
+ */
 export const resultStatusDetails = <
   Data extends state.State,
   StatusDetails extends z.ZodType = z.ZodNever,

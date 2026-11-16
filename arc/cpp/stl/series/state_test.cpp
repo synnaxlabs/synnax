@@ -53,8 +53,8 @@ TEST(State, ConstGetReturnsNullptrForMissingHandle) {
 TEST(State, ConstGetReturnsStoredSeries) {
     State st;
     auto s = x::telem::Series(x::telem::UINT8_T, 1);
-    s.set(0, uint8_t{255});
     s.resize(1);
+    s.set(0, uint8_t{255});
     const uint32_t h = st.store(std::move(s));
     const State &cst = st;
     const auto *retrieved = cst.get(h);
@@ -83,8 +83,8 @@ TEST(State, ClearResetsCounter) {
 TEST(State, GetReturnsMutableReference) {
     State st;
     auto s = x::telem::Series(x::telem::INT64_T, 2);
-    s.set(0, int64_t{100});
     s.resize(1);
+    s.set(0, int64_t{100});
     const uint32_t h = st.store(std::move(s));
     auto *retrieved = st.get(h);
     ASSERT_NE(retrieved, nullptr);

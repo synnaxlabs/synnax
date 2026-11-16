@@ -26,7 +26,7 @@ import {
   type AuthType,
   type Device,
   type HealthCheckMethod,
-  INTEGRATION,
+  INTEGRATION_KEY,
   type Response,
   SCHEMAS,
   ZERO_AUTH_CONFIGS,
@@ -107,7 +107,6 @@ const beforeSave = async ({
     variant: "success",
     details: {
       rack: get(path.rack).value,
-      device: get(path.key).value,
       connected: true,
     },
   });
@@ -138,7 +137,7 @@ export const Connect = ({
   });
   const rackKey = Form.useFieldValue(path.rack, { ctx: form });
   const reason = PlatformDevice.useBlockedReason({
-    integration: INTEGRATION,
+    integration: INTEGRATION_KEY,
     name: "HTTP",
     rack: rackKey,
   });
@@ -265,7 +264,7 @@ export const Connect = ({
                   padHelpText={false}
                 />
               )}
-              <PlatformDevice.RackField integration={INTEGRATION} />
+              <PlatformDevice.RackField integration={INTEGRATION_KEY} />
             </Form.Section>
           </Form.Sections>
           <Tabs.Frame
@@ -476,7 +475,10 @@ export const Connect = ({
   );
 };
 
-export const useConnectModal = PlatformDevice.createConnectModal(Connect, INTEGRATION);
+export const useConnectModal = PlatformDevice.createConnectModal(
+  Connect,
+  INTEGRATION_KEY,
+);
 
 const HEADER = ["Device", "Connect", "HTTP server"];
 

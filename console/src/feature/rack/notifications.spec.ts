@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack, type status } from "@synnaxlabs/client";
+import { rack, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeSpan } from "@synnaxlabs/x";
 import { act, screen } from "@testing-library/react";
@@ -23,13 +23,14 @@ import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-/** @returns the status key of a new rack, without the status that the Core gives it. */
-const createRackKey = async (): Promise<status.Key> => {
+/** @returns the ID of a new rack, without the status that the Core gives it. */
+const createRack = async (): Promise<resource.ID> => {
   const r = await client.racks.create({ name: uniqueName("rack") });
-  const key = rack.statusKey(r.key);
+  const id = rack.resourceID(r.key);
   // The Core gives a new rack an open "Rack status unknown" problem.
-  await client.statuses.delete(key);
-  return key;
+  const [held] = await client.statuses.retrieve({ owners: [id] });
+  await client.statuses.delete(held.key);
+  return id;
 };
 
 describe("Rack.NOTIFICATION_RULE", () => {
@@ -45,9 +46,9 @@ describe("Rack.NOTIFICATION_RULE", () => {
 
   it("should notify a rack warning after 5 s", async () => {
     fakeTimers();
-    const key = await createRackKey();
+    const id = await createRack();
     await renderForward(client, { rack: Rack.NOTIFICATION_RULE });
-    const message = await writeStatus(client, key, "warning");
+    const message = await writeStatus(client, id, "warning");
     await settleWrites(client);
     expect(screen.queryByText(message)).toBeNull();
     act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
@@ -60,16 +61,16 @@ describe("Rack.NOTIFICATION_RULE", () => {
     const name = uniqueName("rack");
     const r = await client.racks.create({ name });
     await settleWrites(client);
-    await writeStatus(client, rack.statusKey(r.key), "success");
+    await writeStatus(client, rack.resourceID(r.key), "success");
     await settleWrites(client);
     act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
     expect(screen.queryByText(name)).toBeNull();
   });
 
   it("should not notify a rack status that is not a problem", async () => {
-    const key = await createRackKey();
+    const id = await createRack();
     await renderForward(client, { rack: Rack.NOTIFICATION_RULE });
-    const message = await writeStatus(client, key, "info");
+    const message = await writeStatus(client, id, "info");
     await settleWrites(client);
     expect(screen.queryByText(message)).toBeNull();
   });

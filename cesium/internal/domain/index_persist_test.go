@@ -65,15 +65,12 @@ var _ = Describe("Index Persist", Ordered, func() {
 			)
 			BeforeEach(func() {
 				fs = openFS()
-				db = MustSucceed(domain.Open(domain.Config{
+				db = MustOpen(domain.Open(domain.Config{
 					FS:              fs,
 					FileSize:        5 * telem.Byte,
 					GCThreshold:     0,
 					Instrumentation: PanicLogger(),
 				}))
-			})
-			AfterEach(func() {
-				Expect(db.Close()).To(Succeed())
 			})
 
 			Describe("Concurrent writers", func() {
@@ -94,14 +91,14 @@ var _ = Describe("Index Persist", Ordered, func() {
 									EnableAutoCommit: new(false),
 								}))
 								MustSucceed(w.Write([]byte{1}))
-								Expect(w.Commit(ctx, start+1)).To(Succeed())
+								Expect(w.Commit(ctx, start+1, nil)).To(Succeed())
 								Expect(w.Close()).To(Succeed())
 							}
 						})
 					}
 					wg.Wait()
 					Expect(db.Close()).To(Succeed())
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        5 * telem.Byte,
 						GCThreshold:     0,
@@ -145,7 +142,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 							if _, err = w.Write([]byte{1}); err != nil {
 								return err
 							}
-							if err = w.Commit(ctx, start+1); err != nil {
+							if err = w.Commit(ctx, start+1, nil); err != nil {
 								return err
 							}
 							return w.Close()
@@ -223,7 +220,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 
 					By("Re-opening the database")
 					Expect(db.Close()).To(Succeed())
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        5 * telem.Byte,
 						GCThreshold:     0,
@@ -282,7 +279,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 
 				It("Should persist an empty index", func(ctx SpecContext) {
 					Expect(db.Close()).To(Succeed())
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						Instrumentation: PanicLogger(),
 					}))
@@ -297,7 +294,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 				reopen := func(fs xfs.FS) {
 					GinkgoHelper()
 					Expect(db.Close()).To(Succeed())
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        telem.Megabyte,
 						GCThreshold:     0,
@@ -345,9 +342,9 @@ var _ = Describe("Index Persist", Ordered, func() {
 					"Should keep a blocked write intact while another write prepares",
 					func(ctx SpecContext) {
 						w1 := openWriter(ctx, 10*telem.SecondTS, []byte{1, 2})
-						Expect(w1.Commit(ctx, 12*telem.SecondTS)).To(Succeed())
+						Expect(w1.Commit(ctx, 12*telem.SecondTS, nil)).To(Succeed())
 						w2 := openWriter(ctx, 20*telem.SecondTS, []byte{3, 4})
-						Expect(w2.Commit(ctx, 22*telem.SecondTS)).To(Succeed())
+						Expect(w2.Commit(ctx, 22*telem.SecondTS, nil)).To(Succeed())
 						MustSucceed(w1.Write([]byte{5}))
 						MustSucceed(w2.Write([]byte{6}))
 
@@ -364,9 +361,9 @@ var _ = Describe("Index Persist", Ordered, func() {
 							return nil
 						}
 						done := make(chan error, 2)
-						go func() { done <- w1.Commit(ctx, 13*telem.SecondTS) }()
+						go func() { done <- w1.Commit(ctx, 13*telem.SecondTS, nil) }()
 						Eventually(entered).Should(Receive())
-						go func() { done <- w2.Commit(ctx, 23*telem.SecondTS) }()
+						go func() { done <- w2.Commit(ctx, 23*telem.SecondTS, nil) }()
 						Consistently(done, 50*time.Millisecond).ShouldNot(Receive())
 						release()
 						Eventually(done).Should(Receive(BeNil()))
@@ -388,20 +385,40 @@ var _ = Describe("Index Persist", Ordered, func() {
 					"Should persist every pointer after a failed write",
 					func(ctx SpecContext) {
 						w := openWriter(ctx, 10*telem.SecondTS, []byte{1, 2})
-						Expect(w.Commit(ctx, 12*telem.SecondTS)).To(Succeed())
+						Expect(w.Commit(ctx, 12*telem.SecondTS, nil)).To(Succeed())
 						MustSucceed(w.Write([]byte{3}))
 
 						hooked.writeAt = func([]byte) error { return ErrFault }
 						Expect(
-							w.Commit(ctx, 13*telem.SecondTS),
+							w.Commit(ctx, 13*telem.SecondTS, nil),
 						).To(MatchError(ErrFault))
 						hooked.writeAt = nil
 
-						Expect(w.Commit(ctx, 13*telem.SecondTS)).To(Succeed())
+						Expect(w.Commit(ctx, 13*telem.SecondTS, nil)).To(Succeed())
 						Expect(w.Close()).To(Succeed())
 						expectDomains(
 							ctx,
 							[]byte{1, 2, 3},
+							(10 * telem.SecondTS).Range(13*telem.SecondTS),
+						)
+					},
+				)
+
+				It(
+					"Should succeed when a first commit retries after a failed write",
+					func(ctx SpecContext) {
+						w := openWriter(ctx, 10*telem.SecondTS, []byte{1, 2})
+						hooked.writeAt = func([]byte) error { return ErrFault }
+						Expect(
+							w.Commit(ctx, 12*telem.SecondTS, nil),
+						).To(MatchError(ErrFault))
+						hooked.writeAt = nil
+
+						Expect(w.Commit(ctx, 12*telem.SecondTS, nil)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+						expectDomains(
+							ctx,
+							[]byte{1, 2},
 							(10 * telem.SecondTS).Range(13*telem.SecondTS),
 						)
 					},
@@ -423,6 +440,26 @@ var _ = Describe("Index Persist", Ordered, func() {
 						ranges[i] = start.Range(start + 1)
 					}
 					return ranges
+				}
+				// failFirstWrite blocks the next index write until release, then fails
+				// it. entered receives once that write starts.
+				failFirstWrite := func(
+					ctx SpecContext,
+				) (<-chan struct{}, context.CancelFunc) {
+					entered := make(chan struct{}, 1)
+					released, release := context.WithTimeout(ctx, 10*time.Second)
+					DeferCleanup(release)
+					var blocked atomic.Bool
+					hooked.writeAt = func([]byte) error {
+						if blocked.Swap(true) {
+							return nil
+						}
+						defer GinkgoRecover()
+						entered <- struct{}{}
+						Eventually(released.Done(), 10*time.Second).Should(BeClosed())
+						return ErrFault
+					}
+					return entered, release
 				}
 
 				It(
@@ -460,13 +497,13 @@ var _ = Describe("Index Persist", Ordered, func() {
 				)
 
 				It(
-					"Should fail a queued write after an earlier write fails",
+					"Should keep a queued write after an earlier write fails",
 					func(ctx SpecContext) {
 						prepared := make(chan struct{}, 1)
 						Expect(db.Close()).To(Succeed())
 						// A domain inserted before the last one notifies the history
 						// change after its write prepares and before it runs.
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              hooked,
 							FileSize:        telem.Megabyte,
 							Instrumentation: PanicLogger(),
@@ -475,22 +512,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 							},
 						}))
 						Expect(writeSecond(ctx, 1)).To(Succeed())
-						entered := make(chan struct{}, 1)
-						released, release := context.WithTimeout(ctx, 10*time.Second)
-						DeferCleanup(release)
-						var blocked atomic.Bool
-						hooked.writeAt = func([]byte) error {
-							if blocked.Swap(true) {
-								return nil
-							}
-							defer GinkgoRecover()
-							entered <- struct{}{}
-							Eventually(
-								released.Done(),
-								10*time.Second,
-							).Should(BeClosed())
-							return ErrFault
-						}
+						entered, release := failFirstWrite(ctx)
 						earlier, queued := make(chan error, 1), make(chan error, 1)
 						go func() { earlier <- writeSecond(ctx, 3) }()
 						Eventually(entered).Should(Receive())
@@ -498,16 +520,12 @@ var _ = Describe("Index Persist", Ordered, func() {
 						Eventually(prepared).Should(Receive())
 						release()
 						Eventually(earlier).Should(Receive(MatchError(ErrFault)))
-						Eventually(queued).Should(
-							Receive(MatchError(domain.ErrIndexWriteFailed)),
-						)
+						Eventually(queued).Should(Receive(BeNil()))
 						hooked.writeAt = nil
-
-						Expect(writeSecond(ctx, 4)).To(Succeed())
 						expectDomains(
 							ctx,
-							[]byte{1, 2, 3, 4},
-							secondRanges(1, 2, 3, 4)...,
+							[]byte{1, 2, 3},
+							secondRanges(1, 2, 3)...,
 						)
 					},
 				)
@@ -517,7 +535,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 					func(ctx SpecContext) {
 						prepared := make(chan struct{}, 1)
 						Expect(db.Close()).To(Succeed())
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              hooked,
 							FileSize:        telem.Megabyte,
 							Instrumentation: PanicLogger(),
@@ -526,22 +544,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 							},
 						}))
 						Expect(writeSecond(ctx, 2)).To(Succeed())
-						entered := make(chan struct{}, 1)
-						released, release := context.WithTimeout(ctx, 10*time.Second)
-						DeferCleanup(release)
-						var blocked atomic.Bool
-						hooked.writeAt = func([]byte) error {
-							if blocked.Swap(true) {
-								return nil
-							}
-							defer GinkgoRecover()
-							entered <- struct{}{}
-							Eventually(
-								released.Done(),
-								10*time.Second,
-							).Should(BeClosed())
-							return ErrFault
-						}
+						entered, release := failFirstWrite(ctx)
 						failed := make(chan error, 1)
 						go func() { failed <- writeSecond(ctx, 4) }()
 						Eventually(entered).Should(Receive())
@@ -561,6 +564,77 @@ var _ = Describe("Index Persist", Ordered, func() {
 							ctx,
 							[]byte{1, 2, 3, 4},
 							secondRanges(1, 2, 3, 4)...,
+						)
+					},
+				)
+
+				It(
+					"Should keep a delete queued behind a failed write",
+					func(ctx SpecContext) {
+						prepared := make(chan struct{}, 1)
+						Expect(db.Close()).To(Succeed())
+						db = MustOpen(domain.Open(domain.Config{
+							FS:              hooked,
+							FileSize:        telem.Megabyte,
+							Instrumentation: PanicLogger(),
+							OnHistoryChange: func(context.Context, telem.TimeRange) {
+								prepared <- struct{}{}
+							},
+						}))
+						Expect(writeSecond(ctx, 1)).To(Succeed())
+						Expect(writeSecond(ctx, 2)).To(Succeed())
+						entered, release := failFirstWrite(ctx)
+						failed := make(chan error, 1)
+						go func() { failed <- writeSecond(ctx, 4) }()
+						Eventually(entered).Should(Receive())
+						deleted := make(chan error, 1)
+						go func() {
+							deleted <- db.Delete(
+								ctx,
+								(2 * telem.SecondTS).Range(3*telem.SecondTS),
+								fixedOffset(0),
+								fixedOffset(0),
+							)
+						}()
+						Eventually(prepared).Should(Receive())
+						release()
+						Eventually(failed).Should(Receive(MatchError(ErrFault)))
+						Eventually(deleted).Should(Receive(BeNil()))
+						hooked.writeAt = nil
+						expectDomains(ctx, []byte{1, 4}, secondRanges(1, 4)...)
+					},
+				)
+
+				It(
+					"Should keep a close queued behind a failed write",
+					func(ctx SpecContext) {
+						Expect(writeSecond(ctx, 1)).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+							Start:                    10 * telem.SecondTS,
+							EnableAutoCommit:         new(true),
+							AutoIndexPersistInterval: telem.Hour,
+						}))
+						MustSucceed(w.Write([]byte{10, 11}))
+						Expect(w.Commit(ctx, 11*telem.SecondTS+1, nil)).To(Succeed())
+						MustSucceed(w.Write([]byte{12}))
+						Expect(w.Commit(ctx, 12*telem.SecondTS+1, nil)).To(Succeed())
+						entered, release := failFirstWrite(ctx)
+						failed := make(chan error, 1)
+						go func() { failed <- writeSecond(ctx, 20) }()
+						Eventually(entered).Should(Receive())
+						closed := make(chan error, 1)
+						go func() { closed <- w.Close() }()
+						Consistently(closed, 50*time.Millisecond).ShouldNot(Receive())
+						release()
+						Eventually(failed).Should(Receive(MatchError(ErrFault)))
+						Eventually(closed).Should(Receive(BeNil()))
+						hooked.writeAt = nil
+						expectDomains(
+							ctx,
+							[]byte{1, 10, 11, 12, 20},
+							secondRanges(1)[0],
+							(10 * telem.SecondTS).Range(12*telem.SecondTS+1),
+							secondRanges(20)[0],
 						)
 					},
 				)
@@ -586,11 +660,11 @@ var _ = Describe("Index Persist", Ordered, func() {
 							AutoIndexPersistInterval: telem.Hour,
 						}))
 						MustSucceed(w.Write([]byte{20, 21}))
-						Expect(w.Commit(ctx, 21*telem.SecondTS+1)).To(Succeed())
+						Expect(w.Commit(ctx, 21*telem.SecondTS+1, nil)).To(Succeed())
 						// The writer persisted its first commit, so it keeps the
 						// second.
 						MustSucceed(w.Write([]byte{22, 23}))
-						Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
+						Expect(w.Commit(ctx, 23*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(db.Delete(
 							ctx,
 							telem.TimeRange{

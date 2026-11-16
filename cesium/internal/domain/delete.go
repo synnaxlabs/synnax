@@ -168,6 +168,8 @@ func (db *DB) Delete(
 	var removedSize int64
 	for i := startDomain; i <= endDomain; i++ {
 		removedSize += int64(db.idx.mu.pointers[i].size)
+		// Readers see what the delete leaves at once, also of an unpublished commit.
+		db.idx.report(db.idx.unprotectedReveal(db.idx.mu.pointers[i].Start))
 	}
 
 	// Remove old pointers.
@@ -213,7 +215,11 @@ func (db *DB) Delete(
 	write := db.idx.indexPersist.prepare(startDomain)
 	db.idx.notifyHistoryChange(ctx, tr)
 	// We choose to keep the mutex locked while persisting to index.
-	return span.Error(write.run())
+	err = write.run()
+	if errors.Is(err, errUncovered) {
+		err = db.idx.indexPersist.prepare(0).run()
+	}
+	return span.Error(err)
 }
 
 // GarbageCollect rewrites files that have accumulated enough tombstones to warrant
@@ -259,12 +265,12 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	}
 
 	var collected bool
-	for fileKey := uint16(1); fileKey <= uint16(db.fc.counter.Value()); fileKey++ {
-		s, err := db.cfg.FS.Stat(fileKeyToName(fileKey))
+	for fileKey := 1; fileKey <= int(db.fc.counter.Value()); fileKey++ {
+		s, err := db.cfg.FS.Stat(fileKeyToName(uint16(fileKey)))
 		if err != nil {
 			return span.Error(err)
 		}
-		fileCollected, err := db.garbageCollectFile(fileKey, s.Size())
+		fileCollected, err := db.garbageCollectFile(uint16(fileKey), s.Size())
 		if err != nil {
 			return span.Error(err)
 		}

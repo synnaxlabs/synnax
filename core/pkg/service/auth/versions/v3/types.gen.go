@@ -15,7 +15,7 @@ import (
 	"uuid"
 
 	v2 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v2"
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -31,7 +31,7 @@ type Session struct {
 	// Hash is the SHA-256 hash of the secret in the session's token.
 	Hash []byte `json:"-" msgpack:"-"`
 	// Subject is the user or rack that logged in.
-	Subject ontology.ID `json:"subject" msgpack:"subject"`
+	Subject resource.ID `json:"subject" msgpack:"subject"`
 	// Credential is the key of the credential record the login matched.
 	Credential uuid.UUID `json:"credential" msgpack:"credential"`
 	// CredentialVersion is when the credential's secret was set, as the login saw it.

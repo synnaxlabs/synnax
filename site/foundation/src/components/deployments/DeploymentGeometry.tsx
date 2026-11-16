@@ -14,7 +14,9 @@ import { FoundationNode, InfrastructurePad } from "@/components/IndustrialNodes"
 
 export const Pad = InfrastructurePad;
 
-/** World coordinates identify the center of the node, including an optional deck height. */
+/**
+ * World coordinates identify the center of the node, including an optional deck height.
+ */
 export const Node = ({
   x,
   y,

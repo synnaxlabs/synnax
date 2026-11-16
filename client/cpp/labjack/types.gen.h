@@ -12,6 +12,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -87,7 +88,7 @@ struct ScanConfig : public ::synnax::task::ScanConfig {
     /// @brief tcp_scan_multiplier is the number of scan cycles between TCP device
     /// scans. USB devices scan every cycle; TCP scans are slower, so they run every Nth
     /// cycle.
-    std::int32_t tcp_scan_multiplier = 10;
+    std::uint32_t tcp_scan_multiplier = 10;
 
     static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -134,9 +135,9 @@ struct AnalogReadChannel : public BaseReadChannel {
     /// @brief range is the largest voltage magnitude the channel reads, in Volts. The
     /// channel uses the smallest range of the device that covers it.
     double range = 10;
-    /// @brief neg_chan is the negative channel for differential readings on T7 devices.
-    /// 199 selects single-ended.
-    std::int32_t neg_chan = 199;
+    /// @brief neg_chan is the AIN port of the negative input for a differential reading
+    /// on T7 devices. When absent, the channel reads against ground.
+    std::optional<std::uint16_t> neg_chan;
     /// @brief scale is the scale applied to raw samples after acquisition.
     ::synnax::task::Scale scale = ::synnax::task::NoneScale{};
 
@@ -162,8 +163,8 @@ struct ThermocoupleReadChannel : public BaseReadChannel {
     /// @brief thermocouple_type selects the thermocouple alloy type.
     std::string thermocouple_type = THERMOCOUPLE_TYPE_K;
     /// @brief neg_chan is the AIN port of the thermocouple's negative lead on T7
-    /// devices. 199 selects single-ended.
-    std::int32_t neg_chan = 199;
+    /// devices. When absent, the channel reads against ground.
+    std::optional<std::uint16_t> neg_chan;
     /// @brief cjc_source selects the cold-junction-compensation source: the device
     /// sensor ('TEMPERATURE_DEVICE_K', which on a T8 is the sensor at the
     /// thermocouple's own terminal), ambient air ('TEMPERATURE_AIR_K', not on a T8), or
@@ -219,12 +220,13 @@ struct ReadConfig : public ::synnax::task::ReadConfig {
     /// @brief channels are the channels the task acquires.
     std::vector<ReadChannel> channels;
     /// @brief device_scan_backlog_warn_on_count is the device-side scan backlog above
-    /// which the task reports a skew warning. Zero lets the Driver pick two seconds of
-    /// scans.
-    std::uint32_t device_scan_backlog_warn_on_count = 0;
+    /// which the task reports a skew warning. When absent, the Driver picks two seconds
+    /// of scans.
+    std::optional<std::uint32_t> device_scan_backlog_warn_on_count;
     /// @brief ljm_scan_backlog_warn_on_count is the LJM-side scan backlog above which
-    /// the task reports a skew warning. Zero lets the Driver pick one second of scans.
-    std::uint32_t ljm_scan_backlog_warn_on_count = 0;
+    /// the task reports a skew warning. When absent, the Driver picks one second of
+    /// scans.
+    std::optional<std::uint32_t> ljm_scan_backlog_warn_on_count;
 
     static ReadConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

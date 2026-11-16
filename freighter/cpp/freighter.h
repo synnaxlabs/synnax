@@ -25,6 +25,8 @@ const std::string ERR_TYPE_UNKNOWN = "unknown";
 const x::errors::Error STREAM_CLOSED = {"freighter.stream_closed", "Stream closed"};
 const x::errors::Error ERR_EOF = {"freighter.eof", "EOF"};
 const x::errors::Error UNREACHABLE = {ERR_TYPE_UNREACHABLE, "Unreachable"};
+/// @brief the target sent no response before the deadline of the request.
+const x::errors::Error TIMEOUT = {"freighter.timeout", "Timeout"};
 
 enum TransportVariant { UNARY, STREAM };
 

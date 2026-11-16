@@ -28,9 +28,12 @@ var (
 	ErrRangeNotFound = errors.Wrap(query.ErrNotFound, "time range not found")
 	// ErrDBClosed is returned when an operation is attempted on a closed DB.
 	ErrDBClosed = resource.NewClosedError("domain.db")
-	// ErrIndexWriteFailed is returned by a commit whose index write queued behind an
-	// earlier one that failed. The next write of the index restores every pointer.
-	ErrIndexWriteFailed = errors.New("an earlier write of the index failed")
+	// ErrFileLimit is returned when the DB needs a new file but already holds the
+	// maximum of 65535 files.
+	ErrFileLimit = errors.New("domain DB holds the maximum number of files")
+	// ErrOffsetOverflow is returned by a commit whose data would end past the 32-bit
+	// file offset limit.
+	ErrOffsetOverflow = errors.New("domain data ends past the 32-bit file offset limit")
 )
 
 // NewRangeWriteConflictError creates a new error returned when existing data in the

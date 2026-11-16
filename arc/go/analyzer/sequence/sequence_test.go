@@ -14,10 +14,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/sequence"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -362,7 +365,15 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage s1 {
 					}
 				}
-			`, "cannot rebind channel read/write variable p"),
+			`, "type mismatch: cannot rebind 'p'"),
+			Entry("rebinding a top-level channel read/write in a stage", `
+				p := pressure
+				sequence main {
+					stage s1 {
+						p = valve_cmd
+					}
+				}
+			`, "cannot reassign top-level variable 'p'"),
 			Entry("reassigning a variable that was never declared", `
 				sequence main {
 					stage s1 {
@@ -410,7 +421,7 @@ var _ = Describe("Sequence Analyzer", func() {
 						pressure = 1.0
 					}
 				}
-			`, "cannot use '='"),
+			`, "use '<value> -> pressure' to write to 'pressure'"),
 			Entry("rebinding a channel read/write to a literal", `
 				sequence main {
 					p := pressure
@@ -418,7 +429,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage s1 {
 					}
 				}
-			`, "the right-hand side must be a channel"),
+			`, "use '<value> -> p' to write to 'p'"),
 			Entry("rebinding a channel read/write to a value variable", `
 				sequence main {
 					p := pressure
@@ -427,7 +438,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage s1 {
 					}
 				}
-			`, "the right-hand side must be a channel"),
+			`, "use '<value> -> p' to write to 'p'"),
 			Entry("rebinding a channel read/write to an undefined name", `
 				sequence main {
 					p := pressure
@@ -435,7 +446,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage s1 {
 					}
 				}
-			`, "the right-hand side must be a channel"),
+			`, "use '<value> -> p' to write to 'p'"),
 		)
 	})
 
@@ -767,5 +778,76 @@ var _ = Describe("Sequence Analyzer", func() {
 				}
 			`, `inline routing case body sequences must be anonymous; remove name "my_seq"`),
 		)
+	})
+
+	Describe("RejectReactiveAssignment", func() {
+		It("Should point the assignment at a flow write", func() {
+			stmt := MustSucceed(parser.ParseStatement("valve = 1"))
+			var diag diagnostics.Diagnostics
+			sequence.RejectReactiveAssignment(&diag, stmt.Assignment())
+			Expect(diag).To(HaveLen(1))
+			Expect(diag[0].Message).
+				To(Equal("use '<value> -> valve' to write to 'valve'"))
+		})
+	})
+})
+
+var _ = Describe("Stage reassignment types", func() {
+	DescribeTable("Should give a reassigned expression the variable's type",
+		func(bCtx SpecContext, decl, value string, expected types.Type) {
+			ast := MustSucceed(parser.Parse("sequence main {\n" + decl +
+				"\nstage a {\nv = " + value + "\n}\n}\ngo => main"))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, symbol.Symbol{
+				Name: "go",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.Bool()),
+				ID:   1,
+			}))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			var outputs []types.Type
+			for _, sym := range ctx.Scope.Root().Children() {
+				if out, ok := sym.Type.Outputs.Get(ir.DefaultOutputParam); ok &&
+					sym.Kind == symbol.KindFunction {
+					outputs = append(
+						outputs,
+						ctx.Constraints.ApplySubstitutions(out.Type),
+					)
+				}
+			}
+			Expect(outputs).To(Equal([]types.Type{expected}))
+		},
+		Entry("an i32 variable", "v i32 := 0", "1 + 2", types.I32()),
+		Entry("an f32 variable", "v f32 := 0.0", "1.5 * 2.0", types.F32()),
+		Entry("an f32 stateful variable", "v f32 $= 0.0", "1.5 * 2.0", types.F32()),
+	)
+
+	It("Should give a reassigned reactive variable's expression its value type", func(
+		bCtx SpecContext,
+	) {
+		ast := MustSucceed(
+			parser.Parse("sequence main {\nv := sensor + 1.0\nstage a {\n" +
+				"v = 1.0 + 2.0\n}\n}\ngo => main"),
+		)
+		ctx := context.NewRoot(bCtx, ast, NewRoot(nil, symbol.Symbol{
+			Name: "go", Kind: symbol.KindChannel, Type: types.Chan(types.Bool()), ID: 1,
+		}, symbol.Symbol{
+			Name: "sensor",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F64()),
+			ID:   2,
+		}))
+		analyzer.AnalyzeProgram(ctx)
+		Expect(*ctx.Diagnostics).To(HaveLen(1))
+		Expect(
+			(*ctx.Diagnostics)[0].Message,
+		).To(ContainSubstring("from a constant value"))
+		for _, sym := range ctx.Scope.Root().Children() {
+			if out, ok := sym.Type.Outputs.Get(ir.DefaultOutputParam); ok &&
+				sym.Kind == symbol.KindFunction {
+				Expect(ctx.Constraints.ApplySubstitutions(out.Type).Kind).
+					ToNot(Equal(types.KindChan))
+			}
+		}
 	})
 })

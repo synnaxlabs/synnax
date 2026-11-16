@@ -119,7 +119,7 @@ class MemoizedSink<V> extends Memoized<Sink<V>> {
 export const useSource = <V, S extends Source<V> = Source<V>>(
   ctx: aether.Context,
   spec: Spec,
-  prev: S | MemoizedSource<V, S>,
+  prev: S | MemoizedSource<V, S> | undefined,
   options?: CreateOptions,
 ): MemoizedSource<V, S> => {
   const prov = useContext(ctx);

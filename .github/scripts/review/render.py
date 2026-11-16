@@ -9,6 +9,7 @@
 
 """Renders a review as the Markdown that GitHub shows on a pull request."""
 
+import json
 import re
 from collections import Counter
 from urllib.parse import quote
@@ -19,6 +20,15 @@ BADGES = "https://raw.githubusercontent.com/synnaxlabs/synnax/main/.sedosaur/bad
 SUMMARY_START = "<!-- sedosaur_comment -->"
 SUMMARY_END = "<!-- /sedosaur_comment -->"
 OUTSIDE = "<!-- sedosaur_outside_diff -->"
+LISTING_START = "<!-- sedosaur_findings "
+LISTING_END = " -->"
+RULES = "<!-- sedosaur_rules:2 -->"
+"""Marks a check run whose review counts every finding against the score."""
+# Comments on pull requests reviewed before every finding blocked mark some titles
+# " (follow-up)".
+_OUTSIDE_ITEM = re.compile(
+    r"(?m)^- .*?\*\*(.+?)\*\*(?: \(follow-up\))? \[`(.+):\d+`\]\("
+)
 VOTE = "<sub>React 👍 if this is a real problem or 👎 if it is noise.</sub>"
 SUBJECT_CHARS = 48
 
@@ -83,12 +93,22 @@ def outside(findings: list[Finding], *, blob: str) -> str:
     lines = [OUTSIDE, "", "<h3>Comments Outside Diff</h3>", ""]
     if not findings:
         return "\n".join([*lines, "No findings outside the diff remain."]) + "\n"
-    lines += ["These findings could not be posted inline.", ""]
+    lines += [
+        "These findings could not be posted inline. To dismiss one, someone with write "
+        "access comments `@sedosaur dismiss`, its title, and a reason.",
+        "",
+    ]
     for f in findings:
         where = link(blob, f.path, f.line)
         body = f.body.replace("\n", "\n  ")
         lines += [f"- {heading(f)} {where}", "", f"  {body}", ""]
     return "\n".join(lines)
+
+
+def outside_listed(body: str) -> set[tuple[str, str]]:
+    """Returns the path and title of each finding in a comment that `outside`
+    rendered."""
+    return {(m[2], m[1]) for m in _OUTSIDE_ITEM.finditer(body)}
 
 
 def subject(message: str) -> str:
@@ -159,10 +179,31 @@ def splice(body: str, block: str) -> str:
 
 
 def check(review: Review) -> dict[str, str]:
-    """Renders the output of the review's check run."""
+    """Renders the output of the review's check run. Its text carries RULES and lists
+    the findings, so a dismissal can tell when none is left."""
     counts = Counter(f.severity for f in review.findings)
-    found = ", ".join(f"{counts[s]} {s}" for s in SEVERITIES if counts[s])
+    found = [f"{counts[s]} {s}" for s in SEVERITIES if counts[s]]
     return {
-        "title": f"Confidence Score: {review.score}/5",
-        "summary": f"{review.verdict}\n\nFindings: {found or 'none'}.",
+        "title": scored(review.score),
+        "summary": f"{review.verdict}\n\nFindings: {', '.join(found) or 'none'}.",
+        "text": f"{RULES}\n{listing(review.findings)}",
     }
+
+
+def scored(score: int) -> str:
+    """Renders the title of the check run of a review with a score."""
+    return f"Confidence Score: {score}/5"
+
+
+def listing(findings: list[Finding]) -> str:
+    """Renders the path and title of each finding as a hidden marker."""
+    # A ">" in a title would end the HTML comment early.
+    data = json.dumps([[f.path, f.title] for f in findings]).replace(">", "\\u003e")
+    return f"{LISTING_START}{data}{LISTING_END}"
+
+
+def listed(text: str) -> set[tuple[str, str]] | None:
+    """Reads the findings that a listing holds in a text, or returns None when the text
+    holds no listing."""
+    m = re.search(f"{re.escape(LISTING_START)}(.*?){re.escape(LISTING_END)}", text)
+    return None if m is None else {(path, title) for path, title in json.loads(m[1])}

@@ -45,7 +45,7 @@ describe("LinePlot.addChannelsToActivePlot", () => {
     const proj = await client.projects.create({
       name: `proj-${id.create()}`,
     });
-    const plot = await client.lineplots.create(proj.key, { name: "Plot" });
+    const plot = await client.lineplots.create({ project: proj.key, name: "Plot" });
     return plot.key;
   };
 

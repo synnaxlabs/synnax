@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from freighter import UnaryClient
 from freighter.transport import Empty
-from synnax.license import State as LicenseState
+from synnax import license as license_
 from synnax.util.send_required import send_required
 from x.telem import CrudeTimeSpan, TimeSpan, TimeStamp
 from x.telem.clock_skew import ClockSkewCalculator
@@ -40,14 +40,14 @@ class State:
     node_version: str = ""
     clock_skew: TimeSpan = dataclasses.field(default_factory=lambda: TimeSpan(0))
     clock_skew_exceeded: bool = False
-    license: LicenseState | None = None
+    license: license_.State | None = None
 
 
 class _CheckResponse(BaseModel):
     cluster_key: str = ""
     node_version: str = ""
     node_time: TimeStamp = TimeStamp(0)
-    license: LicenseState = "ok"
+    license: license_.State = "ok"
 
 
 def _parse_version(v: str) -> tuple[int, int] | None:

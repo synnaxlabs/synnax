@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
@@ -38,21 +39,21 @@ const (
 	WriterCommandWrite WriterCommand = iota + 1
 	// WriterCommandCommit represents a call to Writer.Commit.
 	WriterCommandCommit
-	// WriterCommandSetAuthority represents a call to Writer.SetAuthority.
-	WriterCommandSetAuthority
-	// WriterCommandEndDomain represents a call to Writer.EndDomain.
-	WriterCommandEndDomain
+	// writerCommandSetAuthority represents a call to Writer.SetAuthority.
+	writerCommandSetAuthority
+	// writerCommandEndDomain represents a call to Writer.EndDomain.
+	writerCommandEndDomain
 )
 
 var validateWriterCommand = validate.NewInclusiveBoundsChecker(
 	WriterCommandWrite,
-	WriterCommandEndDomain,
+	writerCommandEndDomain,
 )
 
 // WriterRequest is a request containing a frame to write to the DB.
 type WriterRequest struct {
-	// Config is used for updating the parameters in WriterCommandSetAuthority, and its
-	// Channels name the indexes in WriterCommandEndDomain. Once the request has been
+	// Config is used for updating the parameters in writerCommandSetAuthority, and its
+	// Channels name the indexes in writerCommandEndDomain. Once the request has been
 	// sent, ownership of Config (including the underlying arrays of Config.Channels and
 	// Config.Authorities) transfers to the streamWriter, which may mutate them in
 	// place; callers must not retain or share those slices.
@@ -75,12 +76,14 @@ type WriterResponse struct {
 	// will correspond to the WriterRequest.SeqNum that executed the command.
 	SeqNum int
 	// End is the end timestamp of the domain on commit. It is only valid during calls
-	// to WriterCommit, and it is zero if the commit fails.
+	// to WriterCommit, and it is zero if the commit fails or lacks control.
 	End telem.TimeStamp
 	// Command is the command that is being responded to.
 	Command WriterCommand
 	// Authorized flags whether the operation was authorized. It is only valid during
-	// calls to WriterCommandWrite, WriterCommandCommit, and WriterCommandEndDomain.
+	// calls to WriterCommandWrite, WriterCommandCommit, and writerCommandEndDomain. A
+	// commit is not authorized if the writer lacks control, or if a write since the
+	// last commit was refused for no control.
 	Authorized bool
 }
 
@@ -112,9 +115,12 @@ type StreamWriter = confluence.Segment[WriterRequest, WriterResponse]
 type streamWriter struct {
 	confluence.UnarySink[WriterRequest]
 	confluence.AbstractUnarySource[WriterResponse]
-	relay              confluence.Inlet[relayResponse]
-	accumulatedErr     error
-	errSent            bool
+	relay          confluence.Inlet[relayResponse]
+	accumulatedErr error
+	errSent        bool
+	// writeRefused is true when a write was refused for no control since the last
+	// commit that reported it.
+	writeRefused       bool
 	virtual            *virtualWriter
 	updateDBControl    func(ctx context.Context, u ControlUpdate)
 	authorizeEndDomain func(index ChannelKey, own map[ChannelKey]*unaryWriterState) error
@@ -150,11 +156,14 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					err = w.accumulatedErr
 					return err
 				}
-				var commitEnd telem.TimeStamp
+				var (
+					commitEnd  telem.TimeStamp
+					authorized = true
+				)
 				if w.accumulatedErr == nil {
-					commitEnd, w.accumulatedErr = w.process(ctx, req)
+					commitEnd, authorized, w.accumulatedErr = w.process(ctx, req)
 				}
-				if err := w.maybeSendRes(ctx, req, commitEnd); err != nil {
+				if err := w.maybeSendRes(ctx, req, commitEnd, authorized); err != nil {
 					return err
 				}
 			}
@@ -165,24 +174,24 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 func (w *streamWriter) process(
 	ctx context.Context,
 	req WriterRequest,
-) (commitEnd telem.TimeStamp, err error) {
+) (commitEnd telem.TimeStamp, authorized bool, err error) {
 	if err = validateWriterCommand(req.Command); err != nil {
-		return 0, err
+		return 0, false, err
 	}
-	if req.Command == WriterCommandSetAuthority {
+	switch req.Command {
+	case WriterCommandCommit:
+		return w.commit(ctx)
+	case writerCommandSetAuthority:
 		err = w.setAuthority(ctx, req.Config)
-		return commitEnd, err
-	}
-	if req.Command == WriterCommandCommit {
-		commitEnd, err = w.commit(ctx)
-		return commitEnd, err
-	}
-	if req.Command == WriterCommandEndDomain {
+	case writerCommandEndDomain:
 		err = w.endDomain(ctx, req.Config.Channels)
-		return commitEnd, err
+	default:
+		err = w.write(ctx, req)
 	}
-	err = w.write(ctx, req)
-	return commitEnd, err
+	if err != nil {
+		return 0, false, err
+	}
+	return 0, true, nil
 }
 
 func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error {
@@ -206,7 +215,6 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 			v, ok := values[ch]
 			return v, ok
 		}
-
 	}
 	for _, chW := range w.virtual.internal {
 		if auth, ok := getAuth(chW.Channel.Key); ok {
@@ -236,15 +244,19 @@ func (w *streamWriter) maybeSendRes(
 	ctx context.Context,
 	req WriterRequest,
 	end telem.TimeStamp,
+	authorized bool,
 ) error {
 	res := WriterResponse{
 		Command:    req.Command,
 		SeqNum:     req.SeqNum,
 		End:        end,
-		Authorized: true,
+		Authorized: authorized,
 	}
 	if w.accumulatedErr != nil &&
 		errors.Is(w.accumulatedErr, xcontrol.ErrUnauthorized) {
+		if req.Command == WriterCommandWrite {
+			w.writeRefused = true
+		}
 		w.accumulatedErr = nil
 		w.errSent = false
 		res.Authorized = false
@@ -408,18 +420,32 @@ func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
 	return cfg
 }
 
-func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
-	maxTS := telem.TimeStampMin
+func (w *streamWriter) commit(
+	ctx context.Context,
+) (end telem.TimeStamp, authorized bool, err error) {
+	var (
+		maxTS        = telem.TimeStampMin
+		lacksControl bool
+	)
 	for _, idxW := range w.internal {
 		ts, err := idxW.Commit(ctx)
+		if errors.Is(err, xcontrol.ErrUnauthorized) {
+			lacksControl = true
+			continue
+		}
 		if err != nil {
-			return 0, err
+			return 0, false, err
 		}
 		if ts > maxTS {
 			maxTS = ts
 		}
 	}
-	return maxTS, nil
+	authorized = !w.writeRefused
+	w.writeRefused = false
+	if lacksControl {
+		return 0, false, nil
+	}
+	return maxTS, authorized, nil
 }
 
 func (w *streamWriter) endDomain(ctx context.Context, indexes []ChannelKey) error {
@@ -516,6 +542,8 @@ type idxWriter struct {
 	// lastCommitEnd stores the end timestamp from the last successful commit,
 	// returned when Commit is called with no new data to commit.
 	lastCommitEnd telem.TimeStamp
+	// group shows every channel of a commit to readers in one step.
+	group domain.Group
 	// dataAuth tracks the most recent control authority for each data channel in this
 	// group (i.e. the keys of internal excluding the index itself). Populated when
 	// writingToIdx is true; updated by SetAuthority calls so that maxDataAuth can
@@ -747,16 +775,20 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	}
 	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
-	// A reader resolves a data domain through the index, so the index commits first.
+	// No reader sees a channel of the commit before every channel has committed, so no
+	// read finds an index sample without its data.
+	defer w.group.Publish()
+	// The index persists first: after a restart, a reader resolves a data domain
+	// through the index.
 	if w.writingToIdx {
-		err = w.internal[w.idx.ch.Key].CommitWithEnd(ctx, end.Lower)
+		err = w.internal[w.idx.ch.Key].CommitWithEnd(ctx, end.Lower, &w.group)
 	}
 	// Every channel shares the same end, so their errors repeat. Keep the first.
 	for key, chW := range w.internal {
 		if key == w.idx.ch.Key {
 			continue
 		}
-		if cErr := chW.CommitWithEnd(ctx, end.Lower); err == nil {
+		if cErr := chW.CommitWithEnd(ctx, end.Lower, &w.group); err == nil {
 			err = cErr
 		}
 	}
@@ -956,7 +988,7 @@ func (w *idxWriter) updateHighWater(s telem.Series) error {
 
 // resolveCommitEnd returns the end timestamp for a commit. For an index channel, this
 // returns the high watermark. For a non-index channel, this returns a stamp to the
-// approximation of the end
+// approximation of the end.
 func (w *idxWriter) resolveCommitEnd(
 	ctx context.Context,
 ) (index.TimeStampApproximation, error) {

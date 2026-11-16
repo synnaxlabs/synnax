@@ -1,0 +1,15 @@
+{
+  "description": "The ICD has no name.",
+  "codec_rejects": false,
+  "problems": [
+    {
+      "path": "name",
+      "message": "name is required"
+    }
+  ],
+  "icd": {
+    "key": "00000000-0000-4000-8000-000000000fff",
+    "name": "",
+    "messages": []
+  }
+}

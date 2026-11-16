@@ -11,14 +11,7 @@ package telem
 
 import (
 	"github.com/synnaxlabs/x/telem/versions"
-	"github.com/synnaxlabs/x/zyn"
 )
-
-// TimeRangeSchema is a zyn schema for parsing a time range.
-var TimeRangeSchema = zyn.Object(map[string]zyn.Schema{
-	"start": zyn.Int64().Coerce(),
-	"end":   zyn.Int64().Coerce(),
-})
 
 var (
 	// TimeRangeMax represents the maximum possible value for a TimeRange.

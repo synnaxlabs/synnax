@@ -15,18 +15,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apicontrol "github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// framerTypeOnly is the type-level ontology ID granting access across all channels.
-var framerTypeOnly = ontology.ID{Type: ontology.ResourceTypeFramer}
+// framerTypeOnly is the type-level resource ID granting access across all channels.
+var framerTypeOnly = resource.ID{Type: resource.TypeFramer}
 
 // channelCounter names each channel distinctly. The mock cluster persists channels
 // across specs in the suite.
@@ -40,7 +41,9 @@ func createChannel(ctx SpecContext) channel.Channel {
 		DataType: telem.Float64T,
 		Virtual:  true,
 	}
-	Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channelSvc.NewWriter(tx).Create(ctx, &ch)
+	})).To(Succeed())
 	return ch
 }
 
@@ -66,11 +69,11 @@ var _ = Describe("Service.Retrieve", func() {
 		author := newUser(ctx)
 		grantOn(
 			ctx,
-			author.OntologyID(),
+			author.ResourceID(),
 			[]access.Action{access.ActionRetrieve},
 			framerTypeOnly,
 		)
-		res := MustSucceed(apiSvc.Retrieve(
+		res := MustSucceed(retrieve(
 			authedCtx(ctx, author),
 			apicontrol.RetrieveRequest{Keys: channel.Keys{ch.Key()}},
 		))
@@ -86,11 +89,11 @@ var _ = Describe("Service.Retrieve", func() {
 		author := newUser(ctx)
 		grantOn(
 			ctx,
-			author.OntologyID(),
+			author.ResourceID(),
 			[]access.Action{access.ActionRetrieve},
 			framerTypeOnly,
 		)
-		Expect(MustSucceed(apiSvc.Retrieve(
+		Expect(MustSucceed(retrieve(
 			authedCtx(ctx, author),
 			apicontrol.RetrieveRequest{Keys: channel.Keys{ch.Key()}},
 		)).States).To(BeEmpty())
@@ -99,9 +102,48 @@ var _ = Describe("Service.Retrieve", func() {
 	It("Should reject a subject without retrieve access", func(ctx SpecContext) {
 		ch := createChannel(ctx)
 		openWriter(ctx, "denver", ch.Key())
-		Expect(apiSvc.Retrieve(
+		Expect(retrieve(
 			authedCtx(ctx, newUser(ctx)),
 			apicontrol.RetrieveRequest{Keys: channel.Keys{ch.Key()}},
 		)).Error().To(MatchError(access.ErrDenied))
 	})
+
+	It(
+		"Should deny a named channel that no one controls without retrieve access",
+		func(ctx SpecContext) {
+			ch := createChannel(ctx)
+			u := newUser(ctx)
+			Expect(retrieve(
+				authedCtx(ctx, u),
+				apicontrol.RetrieveRequest{Keys: channel.Keys{ch.Key()}},
+			)).Error().To(MatchError(access.Denied(
+				u.ResourceID(),
+				access.ActionRetrieve,
+				framer.ResourceIDs(channel.Keys{ch.Key()})[0],
+			).Error()))
+		},
+	)
+
+	It(
+		"Should leave out the channels the subject cannot retrieve",
+		func(ctx SpecContext) {
+			allowed, blocked := createChannel(ctx), createChannel(ctx)
+			openWriter(ctx, "boston", allowed.Key(), blocked.Key())
+			author := newUser(ctx)
+			grantOn(
+				ctx,
+				author.ResourceID(),
+				[]access.Action{access.ActionRetrieve},
+				framer.ResourceIDs(channel.Keys{allowed.Key()})...,
+			)
+			res := MustSucceed(
+				retrieve(authedCtx(ctx, author), apicontrol.RetrieveRequest{}),
+			)
+			Expect(res.States).To(ConsistOf(apicontrol.State{
+				Subject:   xcontrol.Subject{Key: "boston", Name: "boston"},
+				Resource:  allowed.Key(),
+				Authority: xcontrol.AuthorityAbsolute,
+			}))
+		},
+	)
 })

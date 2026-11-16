@@ -43,7 +43,7 @@ describe("Log Commands", () => {
     await selectCommand("Create log");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(log.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(log.TYPE_RESOURCE_ID.type);
     const created = await client.logs.retrieve(tab.resource.key);
     expect(created.name).toBe("Log");
   });
@@ -65,7 +65,7 @@ describe("Log Commands permissions", () => {
     const { result } = await renderHookWithConsole(
       () => ({
         visible: gate(),
-        loaded: Access.useRetrieveGranted(log.TYPE_ONTOLOGY_ID),
+        loaded: Access.useRetrieveGranted(log.TYPE_RESOURCE_ID),
       }),
       { client: await roles.get("Viewer") },
     );

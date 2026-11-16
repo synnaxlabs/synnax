@@ -14,21 +14,28 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type Writer struct {
 	tx            gorp.Tx
-	otg           ontology.Writer
-	group         group.Group
 	allowInternal bool
 	table         *gorp.Table[Key, Role]
+	dispatcher    actions.Dispatcher[Key, Action]
 }
 
-// Create creates a new role in the database.
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
+}
+
+// Create creates a new role in the database. It returns an error wrapping
+// validate.ErrValidation when a role with the key exists. The commit carries a create
+// action that holds the stored role.
 func (w Writer) Create(ctx context.Context, r *Role) error {
 	if r.Key == uuid.Nil() {
 		r.Key = uuid.New()
@@ -39,19 +46,47 @@ func (w Writer) Create(ctx context.Context, r *Role) error {
 	if err := r.Validate(); err != nil {
 		return err
 	}
-	if err := w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Exclusive().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otg.DefineResources(ctx, r.OntologyID()); err != nil {
-		return err
-	}
-	return w.otg.DefineRelationships(
-		ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, r.OntologyID(),
-	)
+	w.dispatcher.Attach(w.tx, r.Key, NewCreateAction(CreatePayload{Role: *r}))
+	return nil
 }
 
-// CreateMany creates the given roles. If roles with the same key already exist, they
-// will be overwritten.
+// Apply applies the actions to the role with the given key and attaches them to the
+// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
+// returns a validation error when an action is a create or leaves the role invalid, or
+// when the role is built in and w does not allow internal writes, and an error wrapping
+// query.ErrNotFound when no role has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Role](key)).
+		ChangeErr(func(_ gorp.Context, r Role) (Role, error) {
+			if r.Internal && !w.allowInternal {
+				return Role{}, errors.Wrapf(
+					validate.ErrValidation,
+					"cannot change built-in role %s",
+					r.Name,
+				)
+			}
+			next, err := Reduce(r, acts...)
+			if err != nil {
+				return Role{}, err
+			}
+			if err = next.Validate(); err != nil {
+				return Role{}, err
+			}
+			return next, nil
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
+}
+
+// CreateMany creates the given roles. It returns an error wrapping
+// validate.ErrValidation when a role with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, roles *[]Role) error {
 	for i := range *roles {
 		if err := w.Create(ctx, &(*roles)[i]); err != nil {
@@ -61,8 +96,8 @@ func (w Writer) CreateMany(ctx context.Context, roles *[]Role) error {
 	return nil
 }
 
-// Delete removes a role from the database. It will fail if the role is builtin or if
-// any users are assigned to the role.
+// Delete removes a role and its policies from the database. It returns a validation
+// error for a built-in role, or for a role that a user or rack holds.
 func (w Writer) Delete(ctx context.Context, key Key) error {
 	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Role](key)).
@@ -73,23 +108,4 @@ func (w Writer) Delete(ctx context.Context, key Key) error {
 			return nil
 		}).
 		Exec(ctx, w.tx)
-}
-
-// AssignRole assigns a role to a subject (typically a user) by creating an ontology
-// relationship. The relationship is idempotent - calling this multiple times with the
-// same subject and role has no effect.
-func (w Writer) AssignRole(ctx context.Context, subject ontology.ID, role Key) error {
-	return w.otg.DefineRelationships(
-		ctx, OntologyID(role), ontology.RelationshipTypeParentOf, subject,
-	)
-}
-
-// UnassignRole removes a role from a subject by deleting the ontology relationship. If
-// the relationship does not exist, this is a no-op.
-func (w Writer) UnassignRole(ctx context.Context, subject ontology.ID, role Key) error {
-	return w.otg.DeleteRelationships(ctx, ontology.Relationship{
-		From: OntologyID(role),
-		Type: ontology.RelationshipTypeParentOf,
-		To:   subject,
-	})
 }

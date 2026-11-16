@@ -3,7 +3,7 @@ name: pr-status
 description:
   Report where the session's PRs stand as one short board. Use when the user invokes
   /pr-status, asks for the status of the PRs, asks what is blocking them, or asks if a
-  stack is backmerged. Gives each PR's link, a one-sentence description, CI, Greptile
+  stack is backmerged. Gives each PR's link, a one-sentence description, CI, Sedosaur
   and human review, and merge conflicts, in categories, with stack order and backmerge
   health.
 ---
@@ -25,8 +25,8 @@ Read every value from GitHub now. Never repeat a status from earlier in the sess
 
 ```bash
 Q='query($n:Int!){repository(owner:"synnaxlabs",name:"synnax"){pullRequest(number:$n){
-  number url title state isDraft mergeable headRefName headRefOid baseRefName body
-  mergeCommit{oid}
+  number url title state isDraft mergeable headRefName baseRefName mergeCommit{oid}
+  commits(last:1){nodes{commit{status{context(name:"Review gate"){state description}}}}}
   labels(first:20){nodes{name}}
   stack{number entries(first:50){nodes{position pullRequest{
     number state headRefName mergeCommit{oid}
@@ -35,16 +35,11 @@ Q='query($n:Int!){repository(owner:"synnaxlabs",name:"synnax"){pullRequest(numbe
   reviewThreads(first:100){nodes{isResolved}}
 }}}'
 for n in $PRS; do
-  gh api graphql -f query="$Q" -F n="$n" --jq '.data.repository.pullRequest
-    | .headRefOid as $sha
-    | ((.body // "")
-      | [match("<!-- greptile_comment -->[\\s\\S]*?<!-- /greptile_comment -->").string]
-      | first // "") as $greptile | {
+  gh api graphql -f query="$Q" -F n="$n" --jq '.data.repository.pullRequest | {
     number, url, title, state, draft: .isDraft, mergeable,
     head: .headRefName, base: .baseRefName, mergeCommit: .mergeCommit.oid,
     tier: ([.labels.nodes[].name | select(startswith("review/"))] | first),
-    greptile: ($greptile | [scan("Confidence Score: ([0-9])/5")] | first | first),
-    greptileCurrent: ($greptile | contains("commit/" + $sha)),
+    gate: .commits.nodes[0].commit.status.context,
     humans: [.latestOpinionatedReviews.nodes[]
       | select(.author.login | endswith("[bot]") | not)
       | {login: .author.login, state}],
@@ -85,12 +80,13 @@ fails. Ignore Vercel and other workflows.
 A PR that conflicts with its merge target gets no CI run, so check conflicts first when
 you see `No run`.
 
-**Review.** One cell holds Greptile, human review, and open threads.
+**Review.** One cell holds Sedosaur, human review, and open threads.
 
-- Greptile: `5/5` is good. Below 5 fails the `Review gate`. A clean re-review posts no
-  review object, so the only source is the summary in the PR body. If `greptileCurrent`
-  is false, the score is for an older commit: write `Greptile 5/5 on an older commit`.
-  If `greptile` is null, write `no Greptile review`.
+- Sedosaur: `gate` is the `Review gate` status of the head, the verdict that blocks the
+  merge. Never read the score from the summary in the PR body: the author can edit it,
+  and a failed review leaves the old one. Write `Sedosaur N/5` when the description
+  gives a score, or `no Sedosaur review` while it waits for one. If `gate` is null, the
+  gate has not judged the head: write `gate pending`.
 - Human: on `review/human`, name who approved or requested changes, or write
   `human pending`. On `review/bot`, omit the human part unless `humans` is not empty.
   With no tier label, write `no tier label`.
@@ -153,8 +149,8 @@ that starts with a verb, in 12 words or less. Do not copy the title. Mark a draf
 
 | PR                         | What                                           | CI         | Review                          | Conflicts |
 | -------------------------- | ---------------------------------------------- | ---------- | ------------------------------- | --------- |
-| [#4167](https://github...) | Refuses a second LabJack stream on one device. | ✅ Passing | ✅ Greptile 5/5                 | ✅ None   |
-| [#4166](https://github...) | Exits the Driver with the Core on Windows.     | ⏳ Running | ⏳ Greptile 4/5, 2 open threads | ✅ None   |
+| [#4167](https://github...) | Refuses a second LabJack stream on one device. | ✅ Passing | ✅ Sedosaur 5/5                 | ✅ None   |
+| [#4166](https://github...) | Exits the Driver with the Core on Windows.     | ⏳ Running | ⏳ Sedosaur 4/5, 2 open threads | ✅ None   |
 
 **NI ports stack**, bottom to top
 

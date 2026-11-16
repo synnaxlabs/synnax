@@ -70,11 +70,11 @@ type UnaryServer[RQ, RQT, RS, RST freighter.Payload] struct {
 }
 
 func (*UnaryClient[RQ, RQT, RS, RST]) Report() alamos.Report {
-	return Reporter.Report()
+	return reporter.Report()
 }
 
 func (*UnaryServer[RQ, RQT, RS, RST]) Report() alamos.Report {
-	return Reporter.Report()
+	return reporter.Report()
 }
 
 // BindTo implements the BindableTransport interface.
@@ -94,7 +94,7 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 			Context:  ctx,
 			Target:   address.Newf("%s.%s", target, u.ServiceDesc.ServiceName),
 			Role:     freighter.RoleClient,
-			Protocol: Reporter.Protocol,
+			Protocol: reporter.Protocol,
 			Params:   make(freighter.Params),
 			Variant:  freighter.VariantUnary,
 		},
@@ -120,7 +120,7 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 				if err != nil {
 					p := &errors.Payload{}
 					p.Unmarshal(status.Convert(err).Message())
-					return oCtx, errors.Decode(iCtx, *p)
+					return oCtx, errors.Decode(*p)
 				}
 				res, err = u.ResponseTranslator.Backward(iCtx, tRes)
 				return oCtx, err
@@ -140,7 +140,7 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			oCtx := freighter.Context{
 				Context:  ctx.Context,
-				Protocol: Reporter.Protocol,
+				Protocol: reporter.Protocol,
 				Target:   ctx.Target,
 				Params:   ctx.Params,
 				Role:     freighter.RoleServer,
@@ -164,7 +164,7 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(
 	)
 	if err != nil {
 		var zero RST
-		return zero, errors.Encode(ctx, err, u.Internal)
+		return zero, errors.Encode(err, u.Internal)
 	}
 	return tRes, nil
 }

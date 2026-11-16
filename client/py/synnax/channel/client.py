@@ -10,12 +10,11 @@
 from __future__ import annotations
 
 from typing import Any, Literal, overload, override
-from uuid import UUID
 
-from pydantic import BaseModel, PrivateAttr
+from pydantic import PrivateAttr
 
 from freighter import Empty, UnaryClient
-from synnax import framer, group, node
+from synnax import framer, group as group_, node
 from synnax.channel.payload import (
     Key,
     Params,
@@ -23,17 +22,20 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import Retriever, params_where
 from synnax.channel.types_gen import (
+    CountLimitedResponse,
+    Cursor,
     Operation,
+    Order,
     Payload,
     RetrieveRequest,
     Status,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
 from synnax.channel.writer import Writer
 from synnax.exceptions import MultipleFoundError, ValidationError
-from synnax.ontology.payload import ID
+from synnax.resource import ID
 from synnax.telem import (
     CrudeDataType,
     CrudeSeries,
@@ -43,6 +45,7 @@ from synnax.telem import (
     TimeRange,
 )
 from synnax.util import request_where, returns_one, sole
+from synnax.util.send_required import send_required
 from x import control, filter
 from x.lists import normalize
 
@@ -63,15 +66,15 @@ class Channel(Payload):
         data_type: CrudeDataType,
         is_index: bool = False,
         index: Key = 0,
-        leaseholder: int = 0,
+        leaseholder: node.Key = 0,
         key: Key = 0,
         virtual: bool | None = None,
         internal: bool = False,
         expression: str = "",
         operations: list[Operation] | None = None,
-        alias: str | None = None,
         concurrency: control.Concurrency = control.Concurrency.exclusive,
         status: Status | None = None,
+        group: group_.Key | None = None,
         _frame_client: framer.Client | None = None,
         _client: Client | None = None,
     ) -> None:
@@ -97,6 +100,7 @@ class Channel(Payload):
         :param operations: A list of operations to apply to the channel. Operations
         include aggregations like min, max, avg over a time duration or triggered by
         a reset channel.
+        :param group: The group the channel sits in, if any.
         :returns: The created channel.
         :param _frame_client: The backing client for reading and writing data to and
         from the channel. This is provided by the Synnax py during calls to
@@ -118,8 +122,8 @@ class Channel(Payload):
             expression=expression,
             operations=operations,
             concurrency=concurrency,
-            alias=alias,
             status=status,
+            group=group,
         )
         self._cached_frame_client = _frame_client
         self._client = _client
@@ -175,8 +179,8 @@ class Channel(Payload):
         self._client.rename(self.key, name)
 
     @property
-    def ontology_id(self) -> ID:
-        return ontology_id(self.key)
+    def resource_id(self) -> ID:
+        return resource_id(self.key)
 
     @property
     def _frame_client(self) -> framer.Client:
@@ -208,11 +212,8 @@ class Channel(Payload):
             internal=self.internal,
             expression=self.expression,
             operations=self.operations,
+            group=self.group,
         )
-
-
-class _RetrieveGroupResponse(BaseModel):
-    group: group.Group
 
 
 class Client:
@@ -240,6 +241,17 @@ class Client:
         """Deletes on or more channels from the cluster"""
         self._creator.delete(channels)
 
+    def count_limited(self) -> int:
+        """Retrieves how many channels count against the license channel limit (not
+        internal, not virtual).
+
+        :returns: The number of channels.
+        :raises AccessDenied: If the caller cannot retrieve every channel.
+        """
+        return send_required(
+            self._client, "/channel/count-limited", Empty(), CountLimitedResponse
+        ).count
+
     @overload
     def create(
         self,
@@ -248,10 +260,11 @@ class Client:
         name: str = "",
         index: Key = 0,
         is_index: bool = False,
-        leaseholder: int = 0,
+        leaseholder: node.Key = 0,
         virtual: bool | None = None,
         expression: str = "",
         operations: list[Operation] | None = None,
+        group: group_.Key | None = None,
         retrieve_if_name_exists: bool = False,
     ) -> Channel: ...
 
@@ -273,10 +286,11 @@ class Client:
         name: str = "",
         is_index: bool = False,
         index: Key = 0,
-        leaseholder: int = 0,
+        leaseholder: node.Key = 0,
         virtual: bool | None = None,
         expression: str = "",
         operations: list[Operation] | None = None,
+        group: group_.Key | None = None,
         retrieve_if_name_exists: bool = False,
     ) -> Channel | list[Channel]:
         """Creates new channel(s) in the Synnax cluster.
@@ -297,6 +311,7 @@ class Client:
         automatically configured as virtual.
         set if expression is not an empty string. If expression is not an empty string,
         this should have at least one channel.
+        :param group: The group to create the channel in, if any.
         :param retrieve_if_name_exists: Boolean indicating whether to retrieve channels
         with the same name if they already exist in the cluster.
         :returns: The created channel.
@@ -332,6 +347,7 @@ class Client:
                     virtual=virtual if virtual is not None else len(expression) > 0,
                     expression=expression,
                     operations=operations,
+                    group=group,
                 )
             ]
         elif isinstance(channels, Channel):
@@ -339,16 +355,7 @@ class Client:
         else:
             _channels = [c.to_payload() for c in channels]
 
-        created = []
-        if retrieve_if_name_exists:
-            created = self._sugar(
-                self._retriever.retrieve([ch.name for ch in _channels])
-            )
-            _channels = [
-                c for c in _channels if c.name not in [ch.name for ch in created]
-            ]
-
-        created.extend(self._sugar(self._creator.create(_channels)))
+        created = self._sugar(self._creator.create(_channels, retrieve_if_name_exists))
         return created if isinstance(channels, list) else created[0]
 
     @overload
@@ -361,15 +368,16 @@ class Client:
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
         virtual: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
         data_types: list[CrudeDataType] | None = ...,
         not_data_types: list[CrudeDataType] | None = ...,
-        node_key: int | None = ...,
+        node_key: node.Key | None = ...,
         search_term: str = ...,
-        range_key: UUID | None = ...,
         include_status: bool = ...,
         one: bool = ...,
     ) -> Channel: ...
@@ -385,12 +393,13 @@ class Client:
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
         virtual: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
         search_term: str = ...,
-        range_key: UUID | None = ...,
         include_status: bool = ...,
         one: bool = ...,
     ) -> Channel: ...
@@ -406,12 +415,13 @@ class Client:
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
         virtual: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
         search_term: str = ...,
-        range_key: UUID | None = ...,
         include_status: bool = ...,
         one: bool = ...,
     ) -> Channel: ...
@@ -428,15 +438,16 @@ class Client:
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
         virtual: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
         data_types: list[CrudeDataType] | None = ...,
         not_data_types: list[CrudeDataType] | None = ...,
-        node_key: int | None = ...,
+        node_key: node.Key | None = ...,
         search_term: str = ...,
-        range_key: UUID | None = ...,
         include_status: bool = ...,
         one: Literal[True],
     ) -> Channel: ...
@@ -453,17 +464,19 @@ class Client:
         is_index: filter.BoolInput = ...,
         internal: filter.BoolInput = ...,
         virtual: bool = ...,
+        groups: group_.Key | list[group_.Key] = ...,
+        grouped: bool = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
         data_types: list[CrudeDataType] | None = ...,
         not_data_types: list[CrudeDataType] | None = ...,
-        node_key: int | None = ...,
+        node_key: node.Key | None = ...,
         search_term: str = ...,
-        range_key: UUID | None = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Channel]: ...
@@ -475,11 +488,11 @@ class Client:
         where: Where | None = None,
         data_types: list[CrudeDataType] | None = None,
         not_data_types: list[CrudeDataType] | None = None,
-        node_key: int | None = None,
+        node_key: node.Key | None = None,
         search_term: str = "",
-        range_key: UUID | None = None,
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         include_status: bool = False,
         one: bool = False,
         **fields: Any,
@@ -492,7 +505,9 @@ class Client:
         or name as ``channel``, returns one channel.
 
         :param channel: The key or name of one channel, or a list of keys or names. A
-            name matches exactly. To match a pattern, use where with a name regex.
+            name matches exactly. To match a pattern, use where with a name regex. An
+            empty list retrieves no channels. To retrieve every channel, leave out
+            channel.
         :param key: Keeps channels with this key.
         :param name: Keeps channels with this name.
         :param leaseholder: Keeps channels whose leaseholder is this node.
@@ -501,6 +516,9 @@ class Client:
         :param internal: Keeps only internal or only non-internal channels.
         :param virtual: Keeps only virtual channels that are not calculated, or only
             the other channels.
+        :param groups: Keeps channels in any of these groups.
+        :param grouped: Keeps only channels in a group when True, and only channels in
+            no group when False.
         :param and_: Keeps channels that match every filter in the list.
         :param or_: Keeps channels that match any filter in the list.
         :param not_: Keeps channels that do not match the filter.
@@ -508,11 +526,11 @@ class Client:
         :param data_types: Keeps channels with one of these data types.
         :param not_data_types: Drops channels with one of these data types.
         :param node_key: Keeps channels whose leaseholder is this node.
-        :param search_term: Fuzzy matches channel names. With range_key, the channels
-            whose alias in the range matches come first.
-        :param range_key: Sets each channel's alias from this range.
+        :param search_term: Fuzzy matches channel names.
         :param limit: The maximum number of channels to retrieve.
-        :param offset: The number of channels to skip.
+        :param order: The order of the channels. Defaults to key order.
+        :param after: Retrieves the channels past this position in the order: the key of
+            the last channel of the page before, and its value of the order field.
         :param include_status: Attaches each channel's status. A channel with no
             status gets None.
         :param one: Returns one channel for any filter.
@@ -522,14 +540,14 @@ class Client:
         :raises MultipleFoundError: If one channel is wanted and more than one
             matches.
         :raises ValidationError: If a filter field is None, or if one channel is
-            wanted beside a limit or an offset.
+            wanted beside a limit or a cursor.
         """
         selected = Where()
         positional = False
         if channel is not None:
             selected = params_where(channel)
             positional = normalize_params(channel).single
-        single = returns_one(fields, one or positional, limit, offset)
+        single = returns_one(fields, one or positional, limit=limit, after=after)
         flat = Where(
             key=selected.key,
             name=selected.name,
@@ -553,10 +571,11 @@ class Client:
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
             include_status=include_status,
         )
-        res = self._retriever.filter(req, range_key)
+        res = self._retriever.filter(req)
         sug = self._sugar(res)
         if not single:
             return sug
@@ -597,14 +616,24 @@ class Client:
         """
         self._creator.rename(normalize(keys), normalize(names))
 
-    def retrieve_group(self) -> group.Group:
-        """Retrieves the group that holds every channel by default.
+    def set_group(self, keys: Key | list[Key], group: group_.Key | None = None) -> None:
+        """Moves channels into a group, or out of their group when group is None.
 
-        :returns: The channel group.
+        :param keys: The key of the channel to move, or a list of keys.
+        :param group: The key of the group to move the channels into.
         """
-        return self._client.send(
-            "/channel/retrieve-group", Empty(), _RetrieveGroupResponse
-        ).group
+        self._creator.set_group(normalize(keys), group)
+
+    def set_expression(self, key: Key, expression: str) -> None:
+        """Sets the expression of a calculated channel. The Core infers the data type
+        of the channel from the new expression.
+
+        :param key: The key of the calculated channel.
+        :param expression: The new expression.
+        :raises NotFoundError: If no channel has the given key.
+        :raises ValidationError: If the channel is not calculated.
+        """
+        self._creator.set_expression(key, expression)
 
     def _sugar(self, channels: list[Payload]) -> list[Channel]:
         return [

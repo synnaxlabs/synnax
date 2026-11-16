@@ -15,6 +15,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
@@ -70,7 +71,10 @@ func (c Config) distribution() framer.IteratorConfig {
 
 func (c Config) validate() error {
 	v := validate.New("iterator.config")
-	v.Exec(c.Reduction.Validate)
+	// A read without a reduction keeps every sample.
+	if c.Reduction.Variant != nil {
+		v.Exec(c.Reduction.Validate)
+	}
 	return v.Error()
 }
 
@@ -85,6 +89,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// DB holds the channels that iterators resolve.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Instrumentation is for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - defaults to noop instrumentation.
@@ -98,6 +106,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.Framer = override.Nil(cfg.Framer, other.Framer)
 	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
+	cfg.DB = override.Nil(cfg.DB, other.DB)
 	return cfg
 }
 
@@ -106,11 +115,12 @@ func (cfg ServiceConfig) Validate() error {
 	v := validate.New("iterator")
 	v.NotNil("framer", cfg.Framer)
 	v.NotNil("channel", cfg.Channel)
+	v.NotNil("db", cfg.DB)
 	return v.Error()
 }
 
 // Service is the service layer entry point for using iterators to read historical
-// telemetry from a multi-node Synnax cluster.
+// telemetry.
 type Service struct{ cfg ServiceConfig }
 
 // NewService creates a new service using the provided configuration(s). Each subsequent
@@ -128,7 +138,6 @@ func (s *Service) NewStream(
 	ctx context.Context,
 	cfg Config,
 ) (_ StreamIterator, err error) {
-	cfg.Reduction.ApplyDefaults()
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
@@ -233,10 +242,12 @@ func (s *Service) newCalculationTransform(
 
 	// Fetch the requested channels
 	var channels []channel.Channel
-	if err := s.cfg.Channel.NewRetrieve().
-		Where(channel.MatchKeys(cfg.Keys...)).
-		Entries(&channels).
-		Exec(ctx, nil); err != nil {
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.cfg.Channel.NewRetrieve().
+			Where(channel.MatchKeys(cfg.Keys...)).
+			Entries(&channels).
+			Exec(ctx, snap)
+	}); err != nil {
 		return nil, nil, err
 	}
 
@@ -244,6 +255,7 @@ func (s *Service) newCalculationTransform(
 	calcGraph, err := graph.New(graph.Config{
 		Instrumentation: s.cfg.Child("calculation.graph"),
 		Channel:         s.cfg.Channel,
+		DB:              s.cfg.DB,
 	})
 	if err != nil {
 		return nil, nil, err
@@ -258,11 +270,13 @@ func (s *Service) newCalculationTransform(
 	)
 	if len(freeIndexes) > 0 {
 		var owners []channel.Channel
-		if err := s.cfg.Channel.NewRetrieve().
-			Where(channel.MatchCalculated()).
-			Where(channel.MatchIndexes(freeIndexes...)).
-			Entries(&owners).
-			Exec(ctx, nil); err != nil {
+		if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+			return s.cfg.Channel.NewRetrieve().
+				Where(channel.MatchCalculated()).
+				Where(s.cfg.Channel.MatchIndexes(freeIndexes...)).
+				Entries(&owners).
+				Exec(ctx, snap)
+		}); err != nil {
 			return nil, nil, err
 		}
 		channels = append(channels, owners...)
@@ -291,10 +305,12 @@ func (s *Service) newCalculationTransform(
 	// Fetch concrete base channel metadata to get their indices
 	var concreteBaseChannels []channel.Channel
 	if len(concreteBaseKeys) > 0 {
-		if err := s.cfg.Channel.NewRetrieve().
-			Entries(&concreteBaseChannels).
-			Where(channel.MatchKeys(concreteBaseKeys.Slice()...)).
-			Exec(ctx, nil); err != nil {
+		if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+			return s.cfg.Channel.NewRetrieve().
+				Entries(&concreteBaseChannels).
+				Where(channel.MatchKeys(concreteBaseKeys.Slice()...)).
+				Exec(ctx, snap)
+		}); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -331,7 +347,6 @@ func (s *Service) newCalculationTransform(
 	transform := newCalculationTransform(
 		originalKeys,
 		make([]*calculator.Calculator, 0, len(modules)),
-		len(channel.Keys(concreteBaseKeys.Slice()).UniqueLeaseholders()) > 1,
 	)
 	for _, mod := range modules {
 		calc, err := calculator.Open(ctx, calculator.Config{Module: mod})

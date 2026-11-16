@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	. "github.com/synnaxlabs/gorp/testutil"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -39,10 +38,7 @@ var _ = Describe("Table", func() {
 	)
 	BeforeEach(func() {
 		kvs = memkv.New()
-		db = gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec))
-	})
-	AfterEach(func() {
-		Expect(db.Close()).To(Succeed())
+		db = DeferClose(gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec)))
 	})
 
 	Describe("OpenTable", func() {
@@ -216,9 +212,9 @@ var _ = Describe("Table", func() {
 
 			codec := msgpack.Codec
 			typeName := types.Name[entry]()
-			oldPrefix := MustSucceed(codec.Encode(ctx, typeName))
-			encodedValue := MustSucceed(codec.Encode(ctx, entry{ID: 99, Data: "old"}))
-			encodedKey := MustSucceed(codec.Encode(ctx, int32(99)))
+			oldPrefix := MustSucceed(codec.Encode(typeName))
+			encodedValue := MustSucceed(codec.Encode(entry{ID: 99, Data: "old"}))
+			encodedKey := MustSucceed(codec.Encode(int32(99)))
 			fullKey := make([]byte, len(oldPrefix)+len(encodedKey))
 			copy(fullKey, oldPrefix)
 			copy(fullKey[len(oldPrefix):], encodedKey)
@@ -362,7 +358,7 @@ var _ = Describe("Table", func() {
 				tx := db.OpenTx()
 				e := entry{ID: 80, Data: "observed"}
 				Expect(table.NewCreate().Entry(&e).Exec(ctx, tx)).To(Succeed())
-				var changes []change.Change[int32, entry]
+				var changes []gorp.EntryChange[int32, entry]
 				table.Observe().
 					OnChange(func(ctx context.Context, r gorp.TxReader[int32, entry]) {
 						for ch := range r {
@@ -372,7 +368,7 @@ var _ = Describe("Table", func() {
 				Expect(tx.Commit(ctx)).To(Succeed())
 				Expect(changes).To(HaveLen(1))
 				Expect(changes[0].Value).To(Equal(e))
-				Expect(changes[0].Variant).To(Equal(change.VariantSet))
+				Expect(changes[0].Kind).To(Equal(gorp.ChangeCreate))
 			})
 		})
 	})

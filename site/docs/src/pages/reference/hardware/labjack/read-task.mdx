@@ -43,6 +43,11 @@ A LabJack runs one stream at a time and cannot read `AIN` ports during a stream,
 streaming task must be the only read task on its device. Add more channels to that task
 instead of starting a second one.
 
+A T7 with a Mux80 adds the analog inputs `AIN48` to `AIN127`. Each connector of the
+Mux80 holds a group of them: `X3` holds `AIN48` to `AIN71`, `X4` holds `AIN72` to
+`AIN95`, `X5` holds `AIN96` to `AIN119`, and `X2` holds `AIN120` to `AIN127`. In the
+**Port** grid of a T7, select the tab of a connector to see its ports.
+
 <Divider.Divider x />
 
 ## Create a LabJack read task
@@ -52,8 +57,12 @@ instead of starting a second one.
 
 1. In the devices toolbar, right-click the device and select **Create read task**.
 2. Set **Sample rate** and **Stream rate**.
-3. Click **Add channel**, then select the type of channel and the **Port**.
-4. Click <Icon.Play /> (**Start**).
+3. The task starts with one analog input channel. To add more, click **Add channel**, or
+   select **Ports** above the channel list and click a free port. See
+   [ports](/reference/hardware/tasks#ports).
+4. Select a channel. In **Source**, select the type of channel, then click a port in the
+   **Port** grid.
+5. Click <Icon.Play /> (**Start**).
 
 The Console creates the channels. For a device with the identifier `lj1`, the channel
 for `AIN0` is `lj1_AIN0`, with the index channel `lj1_time`. To use a different name,
@@ -94,9 +103,6 @@ task = labjack.ReadTask(
 client.tasks.configure(task)
 task.start()
 ```
-
-Python creates the task on the embedded Driver of the Core. For a device on another
-Driver, use the Console or TypeScript.
 
 For a thermocouple on a T7 or a T8, use
 `labjack.ThermocoupleReadChannel(port="AIN2", thermocouple_type="K", units="C", channel=...)`.
@@ -181,8 +187,8 @@ Reads a voltage.
 | ------------------------------------------ | ------- | ---------------------------------------------------------------------------------------- |
 | Port <small>`port`</small>                 | `AIN0`  | An `AIN` port.                                                                           |
 | Max voltage <small>`range`</small>         | `10`    | The input uses the smallest range of the device that covers this voltage. Not on the T4. |
-| Negative channel <small>`neg_chan`</small> | `199`   | Ground (199), or the pair of the port for a differential reading. On the T7 only.        |
-| Scale <small>`scale`</small>               | None    | None, linear (slope and offset), map (raw range to scaled range), polynomial, or table.  |
+| Negative channel <small>`neg_chan`</small> | Ground  | Absent for ground, or the pair of the port for a differential reading. On the T7 only.   |
+| Scale <small>`scale`</small>               | None    | See [scale](#scale).                                                                     |
 
 </Channel.Type>
 
@@ -215,15 +221,29 @@ temperature.
 | Port <small>`port`</small>                           | `AIN0`                 | An `AIN` port.                                                                                |
 | Thermocouple type <small>`thermocouple_type`</small> | `K`                    | `B`, `E`, `J`, `K`, `N`, `R`, `S`, `T`, `C`.                                                  |
 | Temperature units <small>`units`</small>             | `K`                    | `C`, `F`, `K`.                                                                                |
-| Negative channel <small>`neg_chan`</small>           | `199`                  | Ground (199), or the pair of the port. On the T7 only.                                        |
+| Negative channel <small>`neg_chan`</small>           | Ground                 | Absent for ground, or the pair of the port. On the T7 only.                                   |
 | CJC source <small>`cjc_source`</small>               | `TEMPERATURE_DEVICE_K` | **Device** (**Terminal** on a T8), **Air** (not on a T8), or an `AIN` port with a CJC sensor. |
 | CJC slope <small>`cjc_slope`</small>                 | `1`                    | The CJC sensor scale, in kelvin per volt.                                                     |
 | CJC offset <small>`cjc_offset`</small>               | `0`                    | The CJC sensor offset, in kelvin.                                                             |
-| Scale <small>`scale`</small>                         | None                   | Applied after the conversion to temperature.                                                  |
+| Scale <small>`scale`</small>                         | None                   | Applied after the conversion to temperature. See [scale](#scale).                             |
 
 </Channel.Type>
 
 </Channel.Types>
+
+### Scale
+
+Analog input and thermocouple channels can scale the value before the Driver writes it.
+In the Console, the options are in the **Scale** section of the channel. In code, set
+`scale` to one of these classes from `synnax.labjack`:
+
+| Console option | Python class      | Fields                                                                                                                         |
+| -------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| None           | `NoneScale`       | No scaling. This is the default.                                                                                               |
+| Linear         | `LinearScale`     | **Slope** (`slope`, 1) and **Offset** (`offset`, 0).                                                                           |
+| Map            | `MapScale`        | **Pre-scaled min** and **max** to **Scaled min** and **max** (`pre_scaled_min`, `pre_scaled_max`, `scaled_min`, `scaled_max`). |
+| Polynomial     | `PolynomialScale` | **Coefficients** (`coeffs`), from c0 up.                                                                                       |
+| Table          | `TableScale`      | **Pre-scaled** and **Scaled** pairs (`pre_scaled_vals`, `scaled_vals`). A CSV file can fill them.                              |
 
 <Divider.Divider x />
 
@@ -386,15 +406,28 @@ Lower the **Sample rate**, or set **Max voltage** back to 10. See LabJack's
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Port ... has already been used on another channel"}>
+<Problem.Item message={"Another channel uses FIO4"}>
 <Problem.Cause>
 
-Two channels use the same port.
+Two enabled channels use the same port.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Select a different port for one of them.
+Select a different port for one of the channels, or disable one of them.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"A LabJack runs one stream at a time, and another task is streaming from this device."}>
+<Problem.Cause>
+
+Another read task streams from the same device. A LabJack runs one stream at a time.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Add the channels of this task to the running task, then delete this task.
 
 </Problem.Fix>
 </Problem.Item>

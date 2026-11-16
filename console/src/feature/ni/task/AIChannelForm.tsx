@@ -79,10 +79,10 @@ const terminalConfigItems = (port: ni.AnalogInputPort, current: TerminalConfig) 
   TERMINAL_CONFIGS.filter(
     (c) => c === "Cfg_Default" || c === current || accepts(port.terminalConfigs, c),
   ).map((c) => {
-    const resolved = c === "Cfg_Default" ? port.defaultTerminalConfig : undefined;
+    const resolved = port.defaultTerminalConfig;
     return (
       <PSelect.Item<TerminalConfig> key={c} itemKey={c}>
-        {resolved == null
+        {c !== "Cfg_Default" || resolved === "Cfg_Default"
           ? TERMINAL_CONFIG_NAMES[c]
           : `${TERMINAL_CONFIG_NAMES[c]} (${TERMINAL_CONFIG_NAMES[resolved]})`}
       </PSelect.Item>
@@ -1007,6 +1007,7 @@ export const AIChannelForm = ({ type, path, channelsPath }: AIChannelFormProps) 
       <Form.Section title="Signal">
         <SelectAIChannelTypeField
           path={path}
+          hardware={device?.properties.hardware}
           inputProps={{ allowNone: false, children: channelTypeItems(types) }}
         />
         <TypeFields type={type} path={path} />

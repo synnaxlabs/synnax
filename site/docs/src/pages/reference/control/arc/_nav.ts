@@ -37,8 +37,8 @@ export const ARC_NAV: Nav.PageNavNode = {
       name: "Automations",
     },
     {
-      href: "/reference/control/arc/graph-editor",
-      name: "Graph editor",
+      href: "/reference/control/arc/modules",
+      name: "Modules",
     },
     {
       href: "/reference/control/arc/start-from-schematic",

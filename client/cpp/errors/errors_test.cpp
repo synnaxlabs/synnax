@@ -99,6 +99,7 @@ TEST(ErrorsTest, CheckOneMultipleFoundSearchTerm) {
 /// @brief it should match only the errors that clear without a restart.
 TEST(ErrorsTest, IsTemporarilyUnavailable) {
     EXPECT_TRUE(is_temporarily_unavailable(freighter::UNREACHABLE));
+    EXPECT_TRUE(is_temporarily_unavailable(freighter::TIMEOUT));
     EXPECT_TRUE(is_temporarily_unavailable(LICENSE_MISSING));
     EXPECT_TRUE(is_temporarily_unavailable(LICENSE_EXPIRED));
     EXPECT_FALSE(is_temporarily_unavailable(LICENSE));

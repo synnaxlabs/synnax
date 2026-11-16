@@ -13,6 +13,7 @@ import { type Group } from "@/schematic/node/group";
 
 export const GROUP: Group = {
   key: "process",
+  scope: "schematic_symbol",
   name: "Process",
   Icon: Icon.Process,
   symbols: [

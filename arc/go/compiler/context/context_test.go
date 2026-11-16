@@ -16,6 +16,7 @@ import (
 	ccontext "github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/resolve"
 	"github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
@@ -60,11 +61,13 @@ var _ = Describe("Context", func() {
 			root := ccontext.NewRoot(ctx, scope, typeMap, nil)
 			root.Hint = types.I32()
 			root.OutputMemoryBase = 42
+			root.FmtStrings = parser.FmtStrings{nil: {{Text: "a"}}}
 			child := root.Child[antlr.ParserRuleContext](nil)
 			Expect(child.Scope).To(Equal(root.Scope))
 			Expect(child.Writer).To(Equal(root.Writer))
 			Expect(child.Module).To(Equal(root.Module))
 			Expect(child.TypeMap).To(Equal(root.TypeMap))
+			Expect(child.FmtStrings).To(Equal(root.FmtStrings))
 			Expect(child.Hint).To(Equal(types.I32()))
 			Expect(child.OutputMemoryBase).To(Equal(uint32(42)))
 			Expect(child.WriterID).To(Equal(root.WriterID))

@@ -40,7 +40,7 @@ var _ = Describe("Garbage Collection", func() {
 				BeforeEach(func(ctx SpecContext) {
 					fs := openFS()
 					indexFS = MustSucceed(fs.Sub("index"))
-					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+					indexDB = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        indexFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -55,7 +55,7 @@ var _ = Describe("Garbage Collection", func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
-					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+					dataDB = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        dataFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -70,10 +70,6 @@ var _ = Describe("Garbage Collection", func() {
 					}))
 					dataDB.SetIndex(indexDB.Index())
 				})
-				AfterEach(func() {
-					Expect(indexDB.Close()).To(Succeed())
-					Expect(dataDB.Close()).To(Succeed())
-				})
 
 				It(
 					"Should correctly delete and re-read data from the channel",
@@ -83,7 +79,7 @@ var _ = Describe("Garbage Collection", func() {
 							var data []int64
 							var index []telem.TimeStamp
 
-							for j := 0; j <= 9; j++ {
+							for j := range 10 {
 								data = append(data, int64(i*10+j))
 								index = append(index, telem.TimeStamp(i*10+j))
 							}
@@ -156,7 +152,7 @@ var _ = Describe("Garbage Collection", func() {
 				BeforeEach(func(ctx SpecContext) {
 					fs := openFS()
 					indexFS = MustSucceed(fs.Sub("index"))
-					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+					indexDB = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        indexFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -170,7 +166,7 @@ var _ = Describe("Garbage Collection", func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
-					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+					dataDB = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        dataFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -184,10 +180,6 @@ var _ = Describe("Garbage Collection", func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataDB.SetIndex(indexDB.Index())
-				})
-				AfterEach(func() {
-					Expect(indexDB.Close()).To(Succeed())
-					Expect(dataDB.Close()).To(Succeed())
 				})
 
 				Specify("Only some files GC", func(ctx SpecContext) {
@@ -387,7 +379,7 @@ var _ = Describe("Garbage Collection", func() {
 				BeforeEach(func(ctx SpecContext) {
 					fs := openFS()
 					indexFS = MustSucceed(fs.Sub("index"))
-					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+					indexDB = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        indexFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -402,7 +394,7 @@ var _ = Describe("Garbage Collection", func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
-					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+					dataDB = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        dataFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -416,10 +408,6 @@ var _ = Describe("Garbage Collection", func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataDB.SetIndex(indexDB.Index())
-				})
-				AfterEach(func() {
-					Expect(indexDB.Close()).To(Succeed())
-					Expect(dataDB.Close()).To(Succeed())
 				})
 
 				// Collection moves the surviving domains to the front of their file. A

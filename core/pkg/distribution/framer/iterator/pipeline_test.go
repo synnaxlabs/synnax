@@ -74,23 +74,22 @@ var _ = Describe("Pipeline", func() {
 			in confluence.Outlet[iterator.Request],
 			out confluence.Inlet[iterator.Response],
 		) error {
-			var req iterator.Request
-			Eventually(in.Outlet()).Should(Receive(&req))
+			Eventually(in.Outlet()).Should(Receive())
 			Eventually(out.Inlet()).Should(BeSent(iterator.Response{
 				Variant: iterator.ResponseVariantData,
-				SeqNum:  req.SeqNum,
+				SeqNum:  3,
 			}))
 			Eventually(out.Inlet()).Should(BeSent(iterator.Response{
 				Variant: iterator.ResponseVariantAck,
 				Ack:     true,
-				SeqNum:  req.SeqNum,
+				SeqNum:  3,
 			}))
 			Eventually(in.Outlet()).Should(BeClosed())
 			return nil
 		})
 		var value []iterator.Response
 		expectReturns(func() {
-			Expect(p.Exec(iterator.Request{SeqNum: 3}, &value)).To(BeTrue())
+			Expect(p.Exec(iterator.Request{}, &value).Ack).To(BeTrue())
 			Expect(value).To(HaveLen(1))
 			Expect(value[0].SeqNum).To(Equal(3))
 			Expect(p.Close()).To(Succeed())
@@ -110,11 +109,11 @@ var _ = Describe("Pipeline", func() {
 		Eventually(exited).Should(BeClosed())
 		var value []iterator.Response
 		expectReturns(func() {
-			Expect(p.Exec(iterator.Request{}, &value)).Error().To(MatchError(errRead))
-			Expect(p.Exec(iterator.Request{}, &value)).Error().To(MatchError(errRead))
+			Expect(p.Exec(iterator.Request{}, &value).Error).To(MatchError(errRead))
+			Expect(p.Exec(iterator.Request{}, &value).Error).To(MatchError(errRead))
 			Expect(p.Close()).To(MatchError(errRead))
 			Expect(p.Close()).To(Succeed())
-			Expect(p.Exec(iterator.Request{}, &value)).Error().
+			Expect(p.Exec(iterator.Request{}, &value).Error).
 				To(MatchError(iterator.ErrClosed))
 		})
 	})
@@ -130,7 +129,7 @@ var _ = Describe("Pipeline", func() {
 		})
 		var value []iterator.Response
 		expectReturns(func() {
-			Expect(p.Exec(iterator.Request{}, &value)).Error().To(MatchError(errRead))
+			Expect(p.Exec(iterator.Request{}, &value).Error).To(MatchError(errRead))
 			Expect(p.Close()).To(MatchError(errRead))
 		})
 	})
@@ -145,7 +144,7 @@ var _ = Describe("Pipeline", func() {
 		})
 		var value []iterator.Response
 		expectReturns(func() {
-			Expect(p.Exec(iterator.Request{}, &value)).Error().To(SatisfyAll(
+			Expect(p.Exec(iterator.Request{}, &value).Error).To(SatisfyAll(
 				MatchError(iterator.ErrClosed),
 				MatchError(ContainSubstring("without a response")),
 			))
@@ -165,7 +164,7 @@ var _ = Describe("Pipeline", func() {
 		})
 		var value []iterator.Response
 		expectReturns(func() {
-			Expect(p.Exec(iterator.Request{}, &value)).Error().To(MatchError(errRead))
+			Expect(p.Exec(iterator.Request{}, &value).Error).To(MatchError(errRead))
 			Expect(p.Close()).To(MatchError(errRead))
 		})
 	})

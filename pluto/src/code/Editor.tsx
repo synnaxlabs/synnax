@@ -106,8 +106,9 @@ const forwardGlobalTriggers = (
   };
 };
 
-// applyMinimalEdit reflects next into the model as the single contiguous edit that turns
-// its current value into it, so the local cursor and selection survive a programmatic set.
+// applyMinimalEdit reflects next into the model as the single contiguous edit that
+// turns its current value into it, so the local cursor and selection survive a
+// programmatic set.
 const applyMinimalEdit = (model: Monaco.editor.ITextModel, next: string): void => {
   const old = model.getValue();
   if (old === next) return;
@@ -127,13 +128,13 @@ const applyMinimalEdit = (model: Monaco.editor.ITextModel, next: string): void =
   ]);
 };
 
-/** EditorHandle is the imperative surface an Editor exposes through its ref, for consumers
- * that own the editor's text and update it programmatically rather than through React
- * state. */
+/** EditorHandle is the imperative surface an Editor exposes through its ref, for
+ * consumers that own the editor's text and update it programmatically rather than
+ * through React state. */
 export interface EditorHandle {
   /** setValue reconciles the editor's model to next as a minimal edit, preserving the
-   * local cursor and selection. It is a no-op when the model already holds next, and does
-   * not fire onChange, since the edit did not originate from the user. */
+   * local cursor and selection. It is a no-op when the model already holds next, and
+   * does not fire onChange, since the edit did not originate from the user. */
   setValue: (next: string) => void;
 }
 
@@ -164,9 +165,9 @@ const PLACEHOLDER_RANGE: Monaco.IRange = {
   endColumn: 1,
 };
 
-// showIfCollapsed is load-bearing: the range is empty, so monaco renders nothing without
-// it. Injected text takes a cursor stop on both sides by default, letting a click park
-// the caret after the placeholder, so the placeholder takes neither stop.
+// showIfCollapsed is load-bearing: the range is empty, so monaco renders nothing
+// without it. Injected text takes a cursor stop on both sides by default, letting a
+// click park the caret after the placeholder, so the placeholder takes neither stop.
 const renderPlaceholder =
   (content: string, mon: Pick<typeof Monaco, "editor">): EditorExtension =>
   (editor) => {
@@ -207,6 +208,34 @@ const focusNextFrame: EditorExtension = (editor) => {
   const frame = requestAnimationFrame(() => editor.focus());
   return { dispose: () => cancelAnimationFrame(frame) };
 };
+
+// Monaco's hover gives a marker row no severity, only the text `source(code)`. A row
+// with no code counts as an error. The most severe row colors every row.
+const tagHoverSeverity =
+  (mon: Pick<typeof Monaco, "editor" | "MarkerSeverity">): EditorExtension =>
+  (editor) => {
+    const widgets = editor.getDomNode()?.querySelector(".overflowingContentWidgets");
+    if (widgets == null) throw new Error("monaco hover container not found");
+    const tag = () => {
+      const model = editor.getModel();
+      const rows = widgets.querySelectorAll<HTMLElement>(".marker.hover-contents");
+      if (model == null || rows.length === 0) return;
+      const markers = mon.editor.getModelMarkers({ resource: model.uri });
+      const severities = Array.from(rows, (row) => {
+        const detail = row.children[1]?.textContent;
+        const marker = markers.find(
+          ({ source = "", code }) =>
+            typeof code === "string" && `${source}(${code})` === detail,
+        );
+        return marker?.severity ?? mon.MarkerSeverity.Error;
+      });
+      const severity = mon.MarkerSeverity[Math.max(...severities)].toLowerCase();
+      rows.forEach((row) => (row.dataset.severity = severity));
+    };
+    const observer = new MutationObserver(tag);
+    observer.observe(widgets, { childList: true, subtree: true });
+    return { dispose: () => observer.disconnect() };
+  };
 
 const useTheme = (hasCustomTheme: boolean) => {
   const theme = Theming.use();
@@ -296,8 +325,8 @@ const setValueSuppressed = (
 };
 
 // useRenameAvailable reports whether the editor's rename action would succeed at the
-// current cursor position, re-probing the LSP rename providers (debounced) on each cursor
-// move. It returns false while no editor or monaco instance is available.
+// current cursor position, re-probing the LSP rename providers (debounced) on each
+// cursor move. It returns false while no editor or monaco instance is available.
 const useRenameAvailable = (
   editor: Monaco.editor.IStandaloneCodeEditor | null,
   monaco: typeof Monaco | null,
@@ -429,7 +458,7 @@ const use = ({
       }),
     );
 
-    const builtins: EditorExtension[] = [];
+    const builtins: EditorExtension[] = [tagHoverSeverity(monaco)];
     if (placeholderRef.current != null)
       builtins.push(renderPlaceholder(placeholderRef.current, monaco));
     if (autoFocusRef.current) builtins.push(focusNextFrame);
@@ -542,7 +571,7 @@ const EditorInternal = ({
         selection.startColumn !== selection.endColumn);
 
     return (
-      <Menu.Menu level="small" gap="small">
+      <Menu.Menu gap="small">
         <Menu.Item
           itemKey="cut"
           trigger={Triggers.CUT}

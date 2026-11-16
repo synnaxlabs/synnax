@@ -41,26 +41,26 @@ class local_shared {
         explicit ControlBlock(Args &&...args): value(std::forward<Args>(args)...) {}
     };
 
-    ControlBlock *ptr_;
+    ControlBlock *ptr;
 
     void add_ref() {
-        if (this->ptr_) { ++this->ptr_->ref_count; }
+        if (this->ptr) { ++this->ptr->ref_count; }
     }
 
     void release() {
-        if (this->ptr_) {
-            --this->ptr_->ref_count;
-            if (this->ptr_->ref_count == 0) { delete this->ptr_; }
-            this->ptr_ = nullptr;
+        if (this->ptr) {
+            --this->ptr->ref_count;
+            if (this->ptr->ref_count == 0) { delete this->ptr; }
+            this->ptr = nullptr;
         }
     }
 
 public:
     /// @brief Default constructor - creates an empty local_shared
-    local_shared(): ptr_(nullptr) {}
+    local_shared(): ptr(nullptr) {}
 
     /// @brief Move constructor from T - wraps an existing object by moving it
-    explicit local_shared(T &&value): ptr_(new ControlBlock(std::move(value))) {}
+    explicit local_shared(T &&value): ptr(new ControlBlock(std::move(value))) {}
 
     /// @brief Constructs a local_shared managing a new object constructed with args
     /// SFINAE constraint: Don't use this constructor if Args is a local_shared
@@ -72,21 +72,19 @@ public:
                 local_shared<T>> ||
             sizeof...(Args) != 1
         )
-        : ptr_(new ControlBlock(std::forward<Args>(args)...)) {}
+        : ptr(new ControlBlock(std::forward<Args>(args)...)) {}
 
     /// @brief Copy constructor - shares ownership with another local_shared
-    local_shared(const local_shared &other): ptr_(other.ptr_) { this->add_ref(); }
+    local_shared(const local_shared &other): ptr(other.ptr) { this->add_ref(); }
 
     /// @brief Move constructor - transfers ownership from another local_shared
-    local_shared(local_shared &&other) noexcept: ptr_(other.ptr_) {
-        other.ptr_ = nullptr;
-    }
+    local_shared(local_shared &&other) noexcept: ptr(other.ptr) { other.ptr = nullptr; }
 
     /// @brief Copy assignment - shares ownership with another local_shared
     local_shared &operator=(const local_shared &other) {
         if (this != &other) {
             this->release();
-            this->ptr_ = other.ptr_;
+            this->ptr = other.ptr;
             this->add_ref();
         }
         return *this;
@@ -96,8 +94,8 @@ public:
     local_shared &operator=(local_shared &&other) noexcept {
         if (this != &other) {
             this->release();
-            this->ptr_ = other.ptr_;
-            other.ptr_ = nullptr;
+            this->ptr = other.ptr;
+            other.ptr = nullptr;
         }
         return *this;
     }
@@ -106,43 +104,39 @@ public:
     ~local_shared() { this->release(); }
 
     /// @brief Returns a pointer to the managed object
-    T *get() const { return this->ptr_ ? &this->ptr_->value : nullptr; }
+    T *get() const { return this->ptr ? &this->ptr->value : nullptr; }
 
     /// @brief Dereferences pointer to the managed object
-    T &operator*() const { return this->ptr_->value; }
+    T &operator*() const { return this->ptr->value; }
 
     /// @brief Dereferences pointer to the managed object
-    T *operator->() const { return &this->ptr_->value; }
+    T *operator->() const { return &this->ptr->value; }
 
     /// @brief Checks whether the local_shared manages an object
-    explicit operator bool() const { return this->ptr_ != nullptr; }
+    explicit operator bool() const { return this->ptr != nullptr; }
 
     /// @brief Returns the current reference count (for debugging/testing)
     [[nodiscard]] size_t use_count() const {
-        return this->ptr_ ? this->ptr_->ref_count : 0;
+        return this->ptr ? this->ptr->ref_count : 0;
     }
 
     /// @brief Resets the local_shared to empty, releasing ownership
     void reset() { this->release(); }
 
     /// @brief Swaps the managed object with another local_shared
-    void swap(local_shared &other) noexcept { std::swap(this->ptr_, other.ptr_); }
+    void swap(local_shared &other) noexcept { std::swap(this->ptr, other.ptr); }
 
     /// @brief Equality comparison
-    bool operator==(const local_shared &other) const {
-        return this->ptr_ == other.ptr_;
-    }
+    bool operator==(const local_shared &other) const { return this->ptr == other.ptr; }
 
     /// @brief Inequality comparison
-    bool operator!=(const local_shared &other) const {
-        return this->ptr_ != other.ptr_;
-    }
+    bool operator!=(const local_shared &other) const { return this->ptr != other.ptr; }
 
     /// @brief Null pointer comparison
-    bool operator==(std::nullptr_t) const { return this->ptr_ == nullptr; }
+    bool operator==(std::nullptr_t) const { return this->ptr == nullptr; }
 
     /// @brief Null pointer comparison
-    bool operator!=(std::nullptr_t) const { return this->ptr_ != nullptr; }
+    bool operator!=(std::nullptr_t) const { return this->ptr != nullptr; }
 };
 
 /// @brief Constructs a local_shared managing a new object of type T

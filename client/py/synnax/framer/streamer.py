@@ -31,6 +31,7 @@ from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSCodec
 from synnax.framer.common import validate_downsample_factor
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import CrudeTimeSpan, TimeSpan
+from x.params import deprecate_positional
 
 DEFAULT_KEEP_ALIVE = TimeSpan.SECOND * 5
 # Missing this many keep-alive intervals in a row fails the pending read: one is normal
@@ -170,8 +171,8 @@ class Streamer:
         :param timeout: The maximum amount of time to wait for a frame to be received
         before returning None. This can be a float or integer representing the number
         of seconds, or a synnax TimeSpan object.
-        :return: The next frame of telemetry, or None if no frame is received within the
-        timeout.
+        :returns: The next frame of telemetry, or None if no frame is received within
+            the timeout.
         """
 
     @overload
@@ -181,6 +182,7 @@ class Streamer:
         raised.
         """
 
+    @deprecate_positional("timeout")
     def read(self, *, timeout: CrudeTimeSpan | None = None) -> Frame | None:
         """Reads the next frame of telemetry from the streamer. If a timeout is
         provided, this method will wait for the specified amount of time for a frame to
@@ -193,8 +195,8 @@ class Streamer:
         :param timeout: The maximum amount of time to wait for a frame to be received
         before returning None. If no timeout is provided, this method will block until a
         frame is received.
-        :return: The next frame of telemetry, or None if no frame is received within the
-        timeout.
+        :returns: The next frame of telemetry, or None if no frame is received within
+            the timeout.
         :raises Unreachable: If keep-alives were flowing and then no response arrives,
         across reads, for the keep-alive deadline: the connection is presumed dead.
         """
@@ -236,6 +238,7 @@ class Streamer:
             )
         )
 
+    @deprecate_positional("timeout")
     def close(self, *, timeout: CrudeTimeSpan | None = None) -> None:
         """Closes the streamer and frees all network resources.
 

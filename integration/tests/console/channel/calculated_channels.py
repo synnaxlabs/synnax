@@ -72,17 +72,21 @@ class CalculatedChannels(ConsoleCase):
         console.channels.edit_calculated(
             self.calc_editable, new_expression=updated_expr
         )
-        sy.sleep(0.5)
-        frame = client.read_latest([self.calc_editable, self._ch_uptime], n=1)
-        for _ in range(4):
-            if len(frame[self._ch_uptime]) > 0:
-                break
-            sy.sleep(0.5)
+        observed = "no samples arrived"
+
+        def matched() -> bool | None:
+            nonlocal observed
             frame = client.read_latest([self.calc_editable, self._ch_uptime], n=1)
-        uptime_val = int(to_float(frame[self._ch_uptime][-1]))
-        calc_val = int(to_float(frame[self.calc_editable][-1]))
-        expected_val = uptime_val * updated_multiplier
-        assert expected_val == calc_val, f"expected {expected_val}, got {calc_val}"
+            if len(frame[self._ch_uptime]) == 0 or len(frame[self.calc_editable]) == 0:
+                return None
+            uptime_val = int(to_float(frame[self._ch_uptime][-1]))
+            expected_val = uptime_val * updated_multiplier
+            calc_val = int(to_float(frame[self.calc_editable][-1]))
+            observed = f"expected {expected_val}, got {calc_val}"
+            return True if calc_val == expected_val else None
+
+        if sy.poll(matched, timeout=5, interval=0.5) is None:
+            raise AssertionError(observed)
 
     def test_plot_calculated_channel(self) -> None:
         """Test plotting a nested calculated channel (calc channel referencing another

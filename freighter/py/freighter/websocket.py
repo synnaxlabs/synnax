@@ -13,15 +13,16 @@ from contextlib import ExitStack
 from typing import Any, Generic, Literal, Self, override
 
 from pydantic import BaseModel
-from websockets.asyncio.client import ClientConnection as AsyncClientConnection
-from websockets.asyncio.client import connect
-from websockets.exceptions import ConnectionClosedError as ConnectionClosedError
+from websockets.asyncio.client import ClientConnection as AsyncClientConnection, connect
 from websockets.exceptions import (
+    ConnectionClosedError as ConnectionClosedError,
     ConnectionClosedOK,
 )
-from websockets.sync.client import ClientConnection as SyncClientProtocol
-from websockets.sync.client import connect as sync_connect
-from websockets.sync.client import reconnect as SyncConnector
+from websockets.sync.client import (
+    ClientConnection as SyncClientProtocol,
+    connect as sync_connect,
+    reconnect as SyncConnector,
+)
 
 from freighter.context import Context
 from freighter.exceptions import EOF, StreamClosed
@@ -419,11 +420,8 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         """
         Create a new client with a different codec.
 
-        Args:
-            codec: The codec to use for the new client
-
-        Returns:
-            A new AsyncWebsocketClient with the specified codec
+        :param codec: The codec to use for the new client
+        :returns: A new AsyncWebsocketClient with the specified codec
         """
         client = AsyncWebsocketClient(
             encoder=codec,
@@ -511,11 +509,8 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
         """
         Create a new client with a different codec.
 
-        Args:
-            codec: The codec to use for the new client
-
-        Returns:
-            A new WebsocketClient with the specified codec
+        :param codec: The codec to use for the new client
+        :returns: A new WebsocketClient with the specified codec
         """
         client = WebsocketClient(
             encoder=codec,

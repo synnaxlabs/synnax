@@ -33,7 +33,7 @@ class Prompt(Protocol):
         :param default: A default value to use if the user does not provide a
         response. If provided, the user can press enter to select the default
         value.
-        :return: The user's response.
+        :returns: The user's response.
         """
         ...
 
@@ -101,22 +101,3 @@ class Console(Prompt, Print, Protocol):
     """
 
     ...
-
-
-def assign_default_ask_type(
-    *, type_: type[R] | None, choices: list[R] | None, default: R | None
-) -> type[R] | type[str]:
-    """Assigns a default type to the ask function.
-
-    :param type_: The type to assign.
-    :param default: The default value.
-    :param choices: The list of choices.
-    :returns: The type, or str if no argument implies one.
-    """
-    if type_ is not None:
-        return type_
-    if choices is not None:
-        return type(choices[0])
-    if default is not None:
-        return type(default)
-    return str

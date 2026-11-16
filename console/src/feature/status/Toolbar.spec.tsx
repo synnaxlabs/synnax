@@ -51,7 +51,7 @@ const renderToolbar = async (
   const { wrapper, store } = await createConsoleWrapper({
     client: as,
     preloadedState: {
-      [Session.Status.SLICE_NAME]: { version: 0, favorites },
+      [Session.Status.SLICE_NAME]: { version: 1, favorites },
     },
   });
   const { container } = render(

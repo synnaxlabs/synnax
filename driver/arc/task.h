@@ -43,12 +43,16 @@ struct TaskConfig : ::synnax::task::PersistConfig {
     x::uuid::UUID arc_key;
     ::arc::program::Program program;
     ::arc::runtime::loop::Config loop;
+    /// @brief loop iterations and function calls that the program can run in one
+    /// cycle. Not read from the task's JSON config.
+    std::int64_t loop_budget = ::arc::runtime::wasm::DEFAULT_LOOP_BUDGET;
 
     TaskConfig(TaskConfig &&other) noexcept:
         ::synnax::task::PersistConfig(std::move(other)),
         arc_key(other.arc_key),
         program(std::move(other.program)),
-        loop(other.loop) {}
+        loop(other.loop),
+        loop_budget(other.loop_budget) {}
 
     TaskConfig(const TaskConfig &) = delete;
     const TaskConfig &operator=(const TaskConfig &) = delete;
@@ -154,7 +158,10 @@ class Task final : public task::Task {
 
         x::errors::Error write(x::telem::Frame &frame) override {
             if (frame.empty()) return x::errors::NIL;
-            return this->task.runtime->write(std::move(frame));
+            const auto err = this->task.runtime->write(std::move(frame));
+            // A runtime that stopped itself already reported why, so the frame drops.
+            if (err.matches(::arc::runtime::errors::CLOSED)) return x::errors::NIL;
+            return err;
         }
 
         // The start status waits for the streamer, so a client that waits for it can
@@ -244,12 +251,24 @@ public:
                     ),
                 },
             .rt_handle = rt_handle,
+            .report =
+                [task_ptr = task.get()](
+                    const std::string &message,
+                    const std::string &description
+                ) {
+                    std::lock_guard lock(task_ptr->state_mu);
+                    task_ptr->state.send_warning(message, description);
+                },
+            .loop_budget = cfg.loop_budget,
         };
 
         const auto fail = [task_ptr = task.get()](const x::errors::Error &err) {
+            const auto *message = err.matches(::arc::runtime::errors::LOOP_BUDGET)
+                                    ? "Program ran too long"
+                                    : "Failed to run Arc program";
             {
                 std::lock_guard lock(task_ptr->state_mu);
-                task_ptr->state.send_error(err, "Failed to run Arc program");
+                task_ptr->state.send_error(err, message);
             }
             task_ptr->runtime->close_outputs();
         };
@@ -361,10 +380,10 @@ public:
         return control_stopped && acq_stopped && runtime_stopped;
     }
 
-    void exec(synnax::task::Command &cmd) override {
-        if (cmd.type == "start")
+    void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
+        if (cmd.type == synnax::task::START_CMD_TYPE)
             this->start(cmd.key);
-        else if (cmd.type == "stop")
+        else if (cmd.type == synnax::task::STOP_CMD_TYPE)
             this->stop(cmd.key, true);
         else
             LOG(WARNING) << "[arc] unknown command type: " << cmd.type;

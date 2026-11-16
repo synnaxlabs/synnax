@@ -25,7 +25,7 @@ const needle = (url: string): string =>
     ? url
         .slice(CDN.ROOT.length + 1)
         .replace(/#.*$/, "")
-        .replace(/(-light|-dark)?\.\w+$/, "")
+        .replace(/(\/[0-9a-f]{12})?(-light|-dark)?\.\w+$/, "")
     : url;
 
 // Verifies every image, video, and poster a page references loads.

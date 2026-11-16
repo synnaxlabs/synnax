@@ -16,6 +16,6 @@ import "github.com/synnaxlabs/synnax/pkg/service/user/versions/v1"
 // Key is a unique identifier for a user, represented as a UUID.
 type Key = v1.Key
 
-// User is an account entity representing a person accessing the Synnax system. Users
-// can have roles assigned for permission management.
+// User is an account entity representing a person accessing the Synnax system. Each
+// user holds one role, which grants its permissions.
 type User = v1.User

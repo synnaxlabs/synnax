@@ -12,6 +12,9 @@ import { describe, expect, it } from "vitest";
 
 import { Media } from "@/components/media";
 import { CDN } from "@/components/media/cdn";
+import versions from "@/components/media/videos.json";
+
+const [[ID, VERSION]] = Object.entries(versions);
 
 const show = (html: string): void => {
   document.body.innerHTML = html;
@@ -26,20 +29,29 @@ const sources = (): [string | null, string | null][] =>
 describe("Media", () => {
   describe("Video", () => {
     it("should offer the dark and light versions by color scheme", () => {
-      show(renderToString(<Media.Video id="clip" />));
+      show(renderToString(<Media.Video id={ID} />));
       expect(sources()).toEqual([
-        ["(prefers-color-scheme: dark)", `${CDN.ROOT}/clip-dark.mp4#t=0.001`],
-        [null, `${CDN.ROOT}/clip-light.mp4#t=0.001`],
+        [
+          "(prefers-color-scheme: dark)",
+          `${CDN.ROOT}/${ID}/${VERSION}-dark.mp4#t=0.001`,
+        ],
+        [null, `${CDN.ROOT}/${ID}/${VERSION}-light.mp4#t=0.001`],
       ]);
     });
 
     it("should offer one version when not themed", () => {
-      show(renderToString(<Media.Video id="clip" themed={false} />));
-      expect(sources()).toEqual([[null, `${CDN.ROOT}/clip.mp4#t=0.001`]]);
+      show(renderToString(<Media.Video id={ID} themed={false} />));
+      expect(sources()).toEqual([[null, `${CDN.ROOT}/${ID}/${VERSION}.mp4#t=0.001`]]);
+    });
+
+    it("should throw for a video with no uploaded version", () => {
+      expect(() => renderToString(<Media.Video id="console/missing" />)).toThrow(
+        "no version of video console/missing: add an entry to studio/videos.ts, then run pnpm upload console/missing in studio/",
+      );
     });
 
     it("should render a muted looping video that loads only its metadata", () => {
-      show(renderToString(<Media.Video id="clip" />));
+      show(renderToString(<Media.Video id={ID} />));
       const video = document.querySelector(".docs-video > video") as HTMLVideoElement;
       expect(video.loop).toBe(true);
       expect(video.hasAttribute("muted")).toBe(true);

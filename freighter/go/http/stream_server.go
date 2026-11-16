@@ -36,7 +36,7 @@ import (
 // codecs don't need to carry it on every instance.
 type additionalCodec struct {
 	contentType string
-	new         func() encoding.Codec
+	new         func(context.Context) encoding.Codec
 }
 
 // streamServerOptions configures a streaming HTTP server. Stream handlers can register
@@ -54,12 +54,12 @@ type StreamServerOption func(*streamServerOptions)
 
 // WithAdditionalCodec registers a stream-server codec for the given content type. The
 // constructor is invoked once per matching connection so the codec may be stateful and
-// hold per-stream state. The factory returns an encoding.Codec because the content type
-// is supplied here at registration — stateful codecs don't need a ContentType method on
-// every instance.
+// hold per-stream state. It receives the context of the connection. The factory returns
+// an encoding.Codec because the content type is supplied here at registration —
+// stateful codecs don't need a ContentType method on every instance.
 func WithAdditionalCodec(
 	contentType string,
-	new func() encoding.Codec,
+	new func(context.Context) encoding.Codec,
 ) StreamServerOption {
 	return func(o *streamServerOptions) {
 		o.additionalCodecs = append(o.additionalCodecs, additionalCodec{
@@ -72,7 +72,7 @@ func WithAdditionalCodec(
 func withCodec(c http.Codec) StreamServerOption {
 	return WithAdditionalCodec(
 		c.ContentType(),
-		func() encoding.Codec { return c },
+		func(context.Context) encoding.Codec { return c },
 	)
 }
 
@@ -95,7 +95,8 @@ type streamServer[RQ, RS freighter.Payload] struct {
 	wg      *sync.WaitGroup
 	path    string
 	freighter.MiddlewareCollector
-	writeDeadline time.Duration
+	writeDeadline    time.Duration
+	messageSizeLimit int64
 }
 
 // Report describes the stream server's protocol and the content types it can negotiate
@@ -113,10 +114,10 @@ func (s *streamServer[RQ, RS]) Report() alamos.Report {
 
 func (s *streamServer[RQ, RS]) resolveStreamCodec(
 	contentType string,
-) (encoding.Codec, bool) {
+) (func(context.Context) encoding.Codec, bool) {
 	for _, ac := range s.additionalCodecs {
 		if ac.contentType == contentType {
-			return ac.new(), true
+			return ac.new, true
 		}
 	}
 	return nil, false
@@ -138,24 +139,27 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx fiber.Ctx) error {
 	}
 	// Parse the incoming request context. Used to pull various headers and parameters
 	// from the request (e.g., content-type or authorization). upgradeCtx is only valid
-	// for the lifetime of this function. As this function will exit long before the
-	// stream stops processing values, we need to use the underlying server ctx as the
-	// valid context instead of the fiber context itself.
-	iCtx := parseRequestCtx(s.serverCtx, upgradeCtx, address.Address(s.path), true)
+	// for the lifetime of this function, but its user context outlives it.
+	iCtx := parseRequestCtx(
+		upgradeCtx.Context(),
+		upgradeCtx,
+		address.Address(s.path),
+		true,
+	)
 	headerContentType := iCtx.GetDefault(fiber.HeaderContentType, "").(string)
-	codec, ok := s.resolveStreamCodec(headerContentType)
+	newCodec, ok := s.resolveStreamCodec(headerContentType)
 	if !ok {
 		return upgradeCtx.SendStatus(fiber.StatusUnsupportedMediaType)
 	}
 	// Upgrade the connection to a websocket connection.
-	return fiberws.New(func(c *fiberws.Conn) { s.handleSocket(iCtx, codec, c) })(
+	return fiberws.New(func(c *fiberws.Conn) { s.handleSocket(iCtx, newCodec, c) })(
 		upgradeCtx,
 	)
 }
 
 func (s *streamServer[RQ, RS]) handleSocket(
 	ctx freighter.Context,
-	codec encoding.Codec,
+	newCodec func(context.Context) encoding.Codec,
 	c *fiberws.Conn,
 ) {
 	var (
@@ -164,6 +168,12 @@ func (s *streamServer[RQ, RS]) handleSocket(
 		handlerCtx context.Context
 	)
 	defer close(exited)
+	streamCtx, cancel := context.WithCancel(ctx.Context)
+	defer cancel()
+	defer context.AfterFunc(s.serverCtx, cancel)()
+	ctx.Context = streamCtx
+	codec := newCodec(streamCtx)
+	c.SetReadLimit(s.messageSizeLimit)
 	stream := &serverStream[RQ, RS]{streamCore: newStreamCore[RQ, RS](
 		streamCoreConfig{
 			writeDeadline: s.writeDeadline,
@@ -249,7 +259,7 @@ func (s *serverStream[RQ, RS]) close(err error) (closeErr error) {
 		closeCode = ws.CloseNormalClosure
 		if err = s.send(WSMessage[RS]{
 			Type: WSMessageTypeClose,
-			Err:  errors.Encode(context.TODO(), err, false),
+			Err:  errors.Encode(err, false),
 		}); err != nil {
 			return err
 		}

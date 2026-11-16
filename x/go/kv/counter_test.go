@@ -21,10 +21,7 @@ var _ = Describe("Counter", Ordered, func() {
 	var db kv.DB
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		db = memkv.New()
-	})
-	AfterAll(func() {
-		Expect(db.Close()).To(Succeed())
+		db = DeferClose(memkv.New())
 	})
 	Describe("AtomicInt64Counter", func() {
 		Context("Name Counter", Ordered, func() {

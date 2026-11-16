@@ -24,7 +24,6 @@
       "disabled": false,
       "key": "ch-mb-holding-in",
       "name": "fixture_mb_holding_register_input",
-      "string_length": 0,
       "type": "holding_register"
     },
     {
@@ -34,7 +33,6 @@
       "disabled": false,
       "key": "ch-mb-register-in",
       "name": "fixture_mb_register_input",
-      "string_length": 0,
       "type": "input_register"
     }
   ],

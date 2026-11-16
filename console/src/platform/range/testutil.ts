@@ -28,8 +28,8 @@ export const createTestRange = async (client: Synnax): Promise<ranger.Range> => 
   });
 };
 
-/** Matches the default page size of List.usePager, which every range list uses. */
-const PAGE_SIZE = 10;
+/** Matches the default page size of Flux.useList, which the range select uses. */
+const PAGE_SIZE = 50;
 
 /**
  * Creates a range that no list shows on its first page, plus enough ranges ahead of it

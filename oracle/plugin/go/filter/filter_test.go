@@ -69,8 +69,8 @@ var _ = Describe("Go Filter Plugin", func() {
 			}
 		`
 
-		It("Should match each bare line through its matcher", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
+		It("Should match each bare line through its matcher", func() {
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 					name
@@ -100,10 +100,8 @@ var _ = Describe("Go Filter Plugin", func() {
 				)
 		})
 
-		It("Should read a union's shared fields and tag through its methods", func(
-			ctx SpecContext,
-		) {
-			resp := MustGenerate(ctx, `
+		It("Should read a union's shared fields and tag through its methods", func() {
+			resp := MustGenerate(`
 				import "schemas/x/filter"
 
 				@go output "core/pkg/service/view"
@@ -133,10 +131,8 @@ var _ = Describe("Go Filter Plugin", func() {
 				)
 		})
 
-		It("Should OR one call per value for a one-value matcher", func(
-			ctx SpecContext,
-		) {
-			resp := MustGenerate(ctx, thing+`
+		It("Should OR one call per value for a one-value matcher", func() {
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					owner
 					tags
@@ -153,10 +149,8 @@ var _ = Describe("Go Filter Plugin", func() {
 				ToNotContain("MatchOwner(l.In...)")
 		})
 
-		It("Should walk the tree and prefix child errors with their path", func(
-			ctx SpecContext,
-		) {
-			resp := MustGenerate(ctx, thing+`
+		It("Should walk the tree and prefix child errors with their path", func() {
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 				}
@@ -174,8 +168,8 @@ var _ = Describe("Go Filter Plugin", func() {
 				)
 		})
 
-		It("Should match text operators through x/filter", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
+		It("Should match text operators through x/filter", func() {
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					name
 				}
@@ -198,10 +192,8 @@ var _ = Describe("Go Filter Plugin", func() {
 				ToNotContain(`"regexp"`, `/x/go/errors"`)
 		})
 
-		It("Should match an in on a scalar text line through x/filter", func(
-			ctx SpecContext,
-		) {
-			resp := MustGenerate(ctx, thing+`
+		It("Should match an in on a scalar text line through x/filter", func() {
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					alias
 				}
@@ -215,8 +207,8 @@ var _ = Describe("Go Filter Plugin", func() {
 				ToNotContain("MatchAlias(l.In...)", "text.In = nil")
 		})
 
-		It("Should reject an invalid enum value at its path", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
+		It("Should reject an invalid enum value at its path", func() {
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					kind
 				}
@@ -233,8 +225,8 @@ var _ = Describe("Go Filter Plugin", func() {
 				)
 		})
 
-		It("Should compare ordered members in closures", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
+		It("Should compare ordered members in closures", func() {
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					count
 				}
@@ -252,10 +244,8 @@ var _ = Describe("Go Filter Plugin", func() {
 				ToNotContain(`"regexp"`)
 		})
 
-		It("Should pass a typed line's value to its hand-written function", func(
-			ctx SpecContext,
-		) {
-			resp := MustGenerate(ctx, thing+`
+		It("Should pass a typed line's value to its hand-written function", func() {
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					overlaps Span
 					labels   uuid[]
@@ -270,8 +260,39 @@ var _ = Describe("Go Filter Plugin", func() {
 				ToNotContain(`"regexp"`, `/gorp"`, "ErrNoOperator")
 		})
 
-		It("Should reject a bare line that sets no operator", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
+		It("Should validate the enum values of a typed line", func() {
+			resp := MustGenerate(thing+`
+				Where filter Thing {
+					kinds Kind[]
+					first Kind
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"for i, v := range l {",
+					`errors.Wrapf(validate.ErrValidation, "invalid kinds %q", v),`,
+					"if !l.IsValid() {",
+					`errors.Wrapf(validate.ErrValidation, "invalid first %q", *l),`,
+					"fs = append(fs, MatchKinds(l...))",
+					"fs = append(fs, MatchFirst(*l))",
+				)
+		})
+
+		It("Should call the matcher that a typed line names", func() {
+			resp := MustGenerate(thing+`
+				Where filter Thing {
+					live bool { @go match MatchActive }
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.go").
+				ToBeValidGoSource().
+				ToContain("fs = append(fs, MatchActive(*l))").
+				ToNotContain("MatchLive")
+		})
+
+		It("Should reject a bare line that sets no operator", func() {
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 					name
@@ -294,8 +315,8 @@ var _ = Describe("Go Filter Plugin", func() {
 				ToNotContain("l.CaseInsensitive == nil")
 		})
 
-		It("Should decode the retrieve request strictly", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
+		It("Should decode the retrieve request strictly", func() {
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 				}
@@ -315,10 +336,8 @@ var _ = Describe("Go Filter Plugin", func() {
 
 		It(
 			"Should make the interpreter generic over the target's type parameters",
-			func(
-				ctx SpecContext,
-			) {
-				resp := MustGenerate(ctx, `
+			func() {
+				resp := MustGenerate(`
 				import "schemas/x/filter"
 
 				@go output "core/pkg/service/status"
@@ -356,10 +375,8 @@ var _ = Describe("Go Filter Plugin", func() {
 			},
 		)
 
-		It("Should apply each member of the request to the Retrieve", func(
-			ctx SpecContext,
-		) {
-			resp := MustGenerate(ctx, `
+		It("Should apply each member of the request to the Retrieve", func() {
+			resp := MustGenerate(`
 				import "schemas/x/filter"
 
 				@go output "core/pkg/service/thing"
@@ -376,7 +393,7 @@ var _ = Describe("Go Filter Plugin", func() {
 			ExpectContent(resp, "request.gen.go").
 				ToBeValidGoSource().
 				ToContain(
-					"func (r RetrieveRequest) Apply(q Retrieve) (Retrieve, error) {",
+					"func ApplyRetrieve(r RetrieveRequest, q Retrieve) (Retrieve, error) {",
 					"q = q.SkipMissingKeys()",
 					"f, err := MatchWhere(*r.Where)",
 					`return Retrieve{}, validate.PathedError(err, "where")`,
@@ -385,15 +402,97 @@ var _ = Describe("Go Filter Plugin", func() {
 					"if *r.Limit == 0 {",
 					"return q.Where(MatchKeys()), nil",
 					"q = q.Limit(int(*r.Limit))",
-					"return q.Offset(int(r.Offset)), nil",
+					"return q, nil",
+					`"a search cannot resume after a position",`,
+					"q = q.After(r.After.Key)",
 				).
-				ToPreserveOrder("r.Where", "r.SearchTerm", "r.Limit", "r.Offset")
+				ToNotContain("r.Order", "func (r RetrieveRequest) order()", "errors.New(").
+				ToPreserveOrder("r.Where", "r.SearchTerm", "r.After", "r.Limit")
 		})
 
-		It("Should generate the request methods at the request output", func(
-			ctx SpecContext,
-		) {
-			resp := MustGenerate(ctx, `
+		It(
+			"Should apply an order and its cursor to the Retrieve",
+			func() {
+				resp := MustGenerate(`
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/thing"
+
+				Span struct {
+					start int64
+				}
+				Thing struct {
+					key  uuid   {
+						@key
+					}
+					name string {
+						@index sorted
+						@search
+					}
+					span Span   { @index sorted start }
+					@retrieve
+				}
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader, p)
+				ExpectContent(resp, "request.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						`errors.Wrap(validate.ErrValidation, "a search sorts by relevance")`,
+						"o, err := r.order()",
+						"q = q.OrderBy(o)",
+						"} else if r.After != nil {",
+						"func (r RetrieveRequest) order() (Order, error) {",
+						"case OrderFieldName:",
+						"return OrderByName(dir), nil",
+						"if r.After.Name == nil {",
+						"return OrderByNameAfter(\n\t\t\tdir,\n\t\t\t*r.After.Name,\n\t\t\t"+
+							"r.After.Key,\n\t\t), nil",
+						"case OrderFieldSpanStart:",
+						`"is required to resume an order by span_start",`,
+						"return OrderBySpanStartAfter(",
+						`"%q is not a field to sort by",`,
+					).
+					ToNotContain("errors.New(")
+			},
+		)
+
+		It("Should keep the decode doc for a request with no orders", func() {
+			resp := MustGenerate(thing+`
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "request.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"\treturn q, nil\n}\n\n// UnmarshalJSONFrom decodes the request",
+				).
+				ToNotContain("func (r RetrieveRequest) order()")
+		})
+
+		It("Should take no cursor for a target with no key", func() {
+			resp := MustGenerate(`
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/thing"
+
+				Thing struct {
+					name string
+					@retrieve
+				}
+				Where filter Thing {
+					name
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "request.gen.go").
+				ToBeValidGoSource().
+				ToNotContain("r.After", "r.Order")
+		})
+
+		It("Should generate the request functions at the request output", func() {
+			resp := MustGenerate(`
 				import "schemas/x/filter"
 
 				@go output "core/pkg/service/thing"
@@ -416,7 +515,7 @@ var _ = Describe("Go Filter Plugin", func() {
 				ToContain(
 					"package thing",
 					`servicething "github.com/synnaxlabs/synnax/core/pkg/service/thing"`,
-					"func (r RetrieveRequest) Apply(q servicething.Retrieve) "+
+					"func ApplyRetrieve(r RetrieveRequest, q servicething.Retrieve) "+
 						"(servicething.Retrieve, error) {",
 					"f, err := servicething.MatchWhere(*r.Where)",
 					"return servicething.Retrieve{}, validate.PathedError(err, \"where\")",
@@ -424,10 +523,10 @@ var _ = Describe("Go Filter Plugin", func() {
 				)
 		})
 
-		It("Should apply a request over a generic target to every type argument", func(
-			ctx SpecContext,
-		) {
-			resp := MustGenerate(ctx, `
+		It(
+			"Should apply a request over a generic target to every type argument",
+			func() {
+				resp := MustGenerate(`
 				import "schemas/x/filter"
 
 				@go output "core/pkg/service/status"
@@ -442,18 +541,20 @@ var _ = Describe("Go Filter Plugin", func() {
 					key
 				}
 			`, "status", loader, p)
-			ExpectContent(resp, "request.gen.go").
-				ToBeValidGoSource().
-				ToContain(
-					"func (r RetrieveRequest) Apply(q Retrieve[any]) (Retrieve[any], error) {",
-					"f, err := MatchWhere[any](*r.Where)",
-					"q = q.Where(MatchSearch(r.SearchTerm))",
-					"return q.Where(MatchKeys[any]()), nil",
-				)
-		})
+				ExpectContent(resp, "request.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"func ApplyRetrieve(r RetrieveRequest, q Retrieve[any]) "+
+							"(Retrieve[any], error) {",
+						"f, err := MatchWhere[any](*r.Where)",
+						"q = q.Where(MatchSearch(r.SearchTerm))",
+						"return q.Where(MatchKeys[any]()), nil",
+					)
+			},
+		)
 
-		It("Should reject a target with no @retrieve", func(ctx SpecContext) {
-			req := MustGenerateRequest(ctx, `
+		It("Should reject a target with no @retrieve", func() {
+			req := MustGenerateRequest(`
 				import "schemas/x/filter"
 
 				@go output "core/pkg/service/thing"
@@ -472,14 +573,13 @@ var _ = Describe("Go Filter Plugin", func() {
 		})
 
 		DescribeTable("Should reject an operator member it cannot interpret", func(
-			ctx SpecContext,
 			from, to, line, message string,
 		) {
 			loader.Add(
 				"schemas/x/filter",
 				`@go output "x/go/filter"`+strings.Replace(FilterSchema, from, to, 1),
 			)
-			req := MustGenerateRequest(ctx, thing+`
+			req := MustGenerateRequest(thing+`
 				Where filter Thing {
 					`+line+`
 				}
@@ -505,8 +605,8 @@ var _ = Describe("Go Filter Plugin", func() {
 			),
 		)
 
-		It("Should skip a filter with no Go output", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, `
+		It("Should skip a filter with no Go output", func() {
+			resp := MustGenerate(`
 				import "schemas/x/filter"
 
 				Thing struct {
@@ -520,10 +620,9 @@ var _ = Describe("Go Filter Plugin", func() {
 		})
 
 		DescribeTable("Should reject a typed line that calls a generated matcher", func(
-			ctx SpecContext,
 			line, function string,
 		) {
-			req := MustGenerateRequest(ctx, `
+			req := MustGenerateRequest(`
 				import "schemas/x/filter"
 
 				@go output "core/pkg/service/thing"
@@ -547,8 +646,8 @@ var _ = Describe("Go Filter Plugin", func() {
 			Entry("for the search filter", "search", "MatchSearch"),
 		)
 
-		It("Should reject a constrained type parameter", func(ctx SpecContext) {
-			req := MustGenerateRequest(ctx, `
+		It("Should reject a constrained type parameter", func() {
+			req := MustGenerateRequest(`
 				import "schemas/x/filter"
 
 				@go output "core/pkg/service/thing"

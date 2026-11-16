@@ -12,6 +12,7 @@ package v9_test
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"os"
 	"uuid"
 
@@ -25,7 +26,8 @@ import (
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	v9 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
-	"github.com/synnaxlabs/x/color"
+	color "github.com/synnaxlabs/x/color/versions/v0"
+	colorv1 "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -36,7 +38,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 )
 
-// labeled holds the LabeledConfig values ApplyDefaults fills in, including the nested
+// labeled holds the LabeledConfig values that defaults.Fill sets, including the nested
 // label defaults every symbol carries.
 var labeled = v9.LabeledConfig{
 	Label: v9.LabelConfig{
@@ -331,6 +333,7 @@ var _ = Describe("Config typing", func() {
 		Entry("array", []any{0.0, 0.0, 0.0, 0.0}),
 		Entry("hex", "#00000000"),
 		Entry("object", map[string]any{"r": 0.0, "g": 0.0, "b": 0.0, "a": 0.0}),
+		Entry("object without an alpha", map[string]any{"r": 0.0, "g": 0.0, "b": 0.0}),
 		Entry("null", nil),
 	)
 
@@ -548,8 +551,8 @@ var _ = Describe("Config typing", func() {
 					map[string]any{"key": "c", "color": "#ff0000", "position": 1.0},
 				},
 			})
-			Expect(cfg.Redline).To(Equal(color.Scale{
-				Bands: []color.Band{
+			Expect(cfg.Redline).To(Equal(colorv1.Scale{
+				Bands: []colorv1.Band{
 					{Key: "a", Threshold: 100, Color: green},
 					{Key: "b", Threshold: 150, Color: yellow},
 					{Key: "c", Threshold: 200, Color: red},
@@ -566,7 +569,7 @@ var _ = Describe("Config typing", func() {
 					map[string]any{"key": "a", "color": "#00ff00", "position": 0.0},
 					map[string]any{"key": "b", "color": "#ff0000", "position": 1.0},
 				},
-			}).Redline.Bands).To(Equal([]color.Band{
+			}).Redline.Bands).To(Equal([]colorv1.Band{
 				{Key: "a", Threshold: 100, Color: green},
 				{Key: "b", Threshold: 200, Color: red},
 			}))
@@ -591,7 +594,7 @@ var _ = Describe("Config typing", func() {
 				"gradient": []any{
 					map[string]any{"key": "a", "color": "#ff0000", "position": 0.25},
 				},
-			}).Redline.Bands).To(Equal([]color.Band{{Key: "a", Threshold: 0.25, Color: red}}))
+			}).Redline.Bands).To(Equal([]colorv1.Band{{Key: "a", Threshold: 0.25, Color: red}}))
 		})
 
 		It("Should keep a transparent band and leave the background absent", func(
@@ -603,7 +606,7 @@ var _ = Describe("Config typing", func() {
 					map[string]any{"key": "a", "color": "#00000000", "position": 0.0},
 				},
 			})
-			Expect(cfg.Redline.Bands).To(Equal([]color.Band{{Key: "a"}}))
+			Expect(cfg.Redline.Bands).To(Equal([]colorv1.Band{{Key: "a"}}))
 			Expect(cfg.FillColor).To(BeNil())
 		})
 
@@ -613,7 +616,7 @@ var _ = Describe("Config typing", func() {
 			Expect(lift(ctx, map[string]any{
 				"bounds":   map[string]any{"lower": 0.0, "upper": 1.0},
 				"gradient": []any{},
-			}).Redline).To(Equal(color.Scale{Bands: []color.Band{}}))
+			}).Redline).To(Equal(colorv1.Scale{Bands: []colorv1.Band{}}))
 		})
 
 		It("Should reject a value config whose redline cannot be read", func(
@@ -896,10 +899,12 @@ var _ = Describe("MigrateSchematic", func() {
 })
 
 var _ = Describe("DecodeElementConfig", func() {
-	It("Should decode a payload naming a known variant", func() {
+	It("Should decode a payload naming a known variant over its defaults", func() {
+		var valve v9.ValveElementConfig
+		valve.SetDefaults()
 		Expect(MustSucceed(v9.DecodeElementConfig(msgpack.EncodedJSON{
 			"variant": "valve",
-		}))).To(Equal(v9.ElementConfig{Variant: v9.ValveElementConfig{}}))
+		}))).To(Equal(v9.ElementConfig{Variant: valve}))
 	})
 
 	// A null payload decodes to a nil variant without erroring, so the guard against it
@@ -1107,4 +1112,44 @@ var _ = Describe("ScaleMigration", func() {
 		Expect(scaleOf("negative")).To(Equal(1.0))
 		Expect(scaleOf("kept")).To(Equal(3.0))
 	})
+	DescribeTable(
+		"Should reset a non-finite scale to 1 and keep a config with no scale",
+		func(ctx SpecContext, f float64) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			var scaled v9.SwitchElementConfig
+			scaled.Scale = f
+			stored := v9.Schematic{
+				Key: uuid.New(),
+				Configs: map[string]v9.ElementConfig{
+					"scale": {Variant: scaled},
+					"polygon": {Variant: v9.PolygonElementConfig{
+						NumSides:   f,
+						SideLength: 30,
+						Rotation:   f,
+					}},
+				},
+			}
+			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v9.Key, v9.Schematic]{
+				DB: db,
+			}))
+			Expect(gorp.NewCreate[v9.Key, v9.Schematic]().
+				Entry(&stored).Exec(ctx, db)).To(Succeed())
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:         db,
+				Namespace:  "Schematic",
+				Migrations: []gorp.Migration{v9.ScaleMigration},
+			})).To(Succeed())
+			var got v9.Schematic
+			Expect(gorp.NewRetrieve[v9.Key, v9.Schematic]().
+				Where(gorp.MatchKeys[v9.Key, v9.Schematic](stored.Key)).
+				Entry(&got).Exec(ctx, db)).To(Succeed())
+			Expect(got.Configs["scale"].Variant.(v9.SwitchElementConfig).Scale).
+				To(Equal(1.0))
+			Expect(DeepEqual(got.Configs["polygon"], stored.Configs["polygon"])).
+				To(BeTrue())
+		},
+		Entry("NaN", math.NaN()),
+		Entry("positive infinity", math.Inf(1)),
+		Entry("negative infinity", math.Inf(-1)),
+	)
 })

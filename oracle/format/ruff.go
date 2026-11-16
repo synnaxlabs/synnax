@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 )
 
-// Ruff is a Formatter that runs `ruff check --fix` followed by `ruff format` over its
+// Ruff is a formatter that runs `ruff check --fix` followed by `ruff format` over its
 // input via stdin. The command runs from the nearest pyproject.toml directory so `uv
 // run` resolves the package-local ruff binary and the package's configuration applies.
 type Ruff struct {

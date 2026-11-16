@@ -1005,6 +1005,10 @@ var _ = Describe("Statement Compiler", func() {
 
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			Expect(aCtx.Constraints.Unify()).To(Succeed())
+			for node, t := range aCtx.TypeMap {
+				aCtx.TypeMap[node] = aCtx.Constraints.ApplySubstitutions(t)
+			}
 
 			ctx := context.NewRoot(
 				bCtx,
@@ -1971,6 +1975,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $loop_header
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// i >= limit => br $break
 				OpLocalGet, 0, // i
 				OpLocalGet, 1, // __for_limit
@@ -2021,6 +2026,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $loop_header
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// i >= limit => br $break
 				OpLocalGet, 0,
 				OpLocalGet, 1,
@@ -2067,6 +2073,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $continue
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// condition: running
 				OpLocalGet, 0,
 				OpI32Eqz,
@@ -2099,6 +2106,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $continue
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// break → br $break (label 1 from inside loop)
 				OpBr, uint32(1),
 				// br $continue (unreachable but emitted)
@@ -2135,6 +2143,7 @@ var _ = Describe("Statement Compiler", func() {
 					OpBlock, BlockTypeEmpty,
 					// loop $continue (depth 2)
 					OpLoop, BlockTypeEmpty,
+					LoopBudget(),
 					// condition: x
 					OpLocalGet, 0,
 					OpI32Eqz,
@@ -2180,6 +2189,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $loop_header
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// i >= limit
 				OpLocalGet, 0,
 				OpLocalGet, 1,
@@ -2231,6 +2241,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $loop_header
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// direction-aware exit condition
 				OpLocalGet, 2, // step
 				OpI64Const, int64(0),
@@ -2252,6 +2263,26 @@ var _ = Describe("Statement Compiler", func() {
 				OpLocalSet, 3, // x
 				// end block $continue
 				OpEnd,
+				// exit when one more step reaches the limit
+				OpLocalGet, 2, // step
+				OpI64Const, int64(0),
+				OpI64GtS, // step > 0?
+				OpIf, BlockTypeI32,
+				OpLocalGet, 1, // limit
+				OpLocalGet, 0, // i
+				OpI64Sub,
+				OpLocalGet, 2, // step
+				OpI64LeU, // ascending: limit - i <= step
+				OpElse,
+				OpLocalGet, 0, // i
+				OpLocalGet, 1, // limit
+				OpI64Sub,
+				OpI64Const, int64(0),
+				OpLocalGet, 2, // step
+				OpI64Sub,
+				OpI64LeU, // descending: i - limit <= -step
+				OpEnd,
+				OpBrIf, uint32(1),
 				// i = i + step
 				OpLocalGet, 0,
 				OpLocalGet, 2, // __for_step
@@ -2318,6 +2349,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $loop_header
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// i >= limit
 				OpLocalGet, 0,
 				OpLocalGet, 1,

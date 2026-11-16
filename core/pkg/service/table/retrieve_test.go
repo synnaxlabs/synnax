@@ -12,20 +12,22 @@ package table_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Retrieve", func() {
+	var tx gorp.Tx
+	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	It("Should retrieve a Table", func(ctx SpecContext) {
 		s := table.Table{
+			Project: &proj.Key,
 			Name:    "test",
-			Rows:    []table.Row{{Key: "r0", Size: 30, Cells: []string{"a"}}},
+			Rows:    []table.Row{row("r0", 30, textCfg("hello"), "a")},
 			Columns: []table.Column{{Key: "c0", Size: 80}},
-			Cells: map[string]table.CellConfig{
-				"a": textCfg("hello"),
-			},
 		}
-		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(Succeed())
+		Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 		var res table.Table
 		Expect(
 			svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx),

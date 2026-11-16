@@ -14,6 +14,7 @@ import {
   UnexpectedError,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Status } from "@synnaxlabs/lyra/status";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -50,14 +51,9 @@ const renderCreate = (
   props: Parameters<typeof LinePlot.useCreate>[0] = {},
 ) => renderHook(() => LinePlot.useCreate(props), { wrapper: harness.wrapper });
 
-const expectParent = async (key: string, projectKey: project.Key) =>
+const expectProject = async (key: lineplot.Key, projectKey: project.Key) =>
   await waitFor(async () => {
-    const parents = await client.ontology.parents.retrieve({
-      ids: lineplot.ontologyID(key),
-    });
-    expect(
-      parents.some((p) => p.id.type === "project" && p.id.key === projectKey),
-    ).toBe(true);
+    expect((await client.lineplots.retrieve({ key })).project).toEqual(projectKey);
   });
 
 describe("lineplot useCreate", () => {
@@ -77,7 +73,7 @@ describe("lineplot useCreate", () => {
       await act(async () => {
         result.current({ key, name: "ProvidedProject" });
       });
-      await expectParent(key, projectB.key);
+      await expectProject(key, projectB.key);
     });
 
     it("falls back to the active project when no prop is given", async () => {
@@ -87,7 +83,7 @@ describe("lineplot useCreate", () => {
       await act(async () => {
         result.current({ key, name: "ActiveProject" });
       });
-      await expectParent(key, projectA.key);
+      await expectProject(key, projectA.key);
     });
 
     it("does not change the active project when creating in another one", async () => {
@@ -97,7 +93,7 @@ describe("lineplot useCreate", () => {
       await act(async () => {
         result.current({ key, name: "OtherProject" });
       });
-      await expectParent(key, projectB.key);
+      await expectProject(key, projectB.key);
       expect(Session.Project.selectSelected(harness.store.getState())).toEqual(
         projectA.key,
       );
@@ -127,7 +123,27 @@ describe("lineplot useCreate", () => {
       );
       expect(tab.variant).toEqual("resource");
       if (tab.variant !== "resource") throw new Error("expected a resource tab");
-      expect(tab.resource.type).toEqual(lineplot.ontologyID(key).type);
+      expect(tab.resource.type).toEqual(lineplot.resourceID(key).type);
+    });
+
+    it("places no tab when the Core refuses the create", async () => {
+      const harness = await buildHarness({ activeProject: projectA });
+      const { result } = renderHook(
+        () => ({
+          create: LinePlot.useCreate({ project: uuid.create() }),
+          statuses: Status.useNotifications().statuses,
+        }),
+        { wrapper: harness.wrapper },
+      );
+      await act(async () => {
+        result.current.create({ key: uuid.create(), name: "Refused" });
+      });
+      await waitFor(() =>
+        expect(result.current.statuses).toContainEqual(
+          expect.objectContaining({ variant: "error" }),
+        ),
+      );
+      expect(Session.Panel.selectSelected(harness.store.getState())).toBeUndefined();
     });
   });
 

@@ -81,7 +81,7 @@ class WriterOpenCloseStress(TestCase):
                 )
 
             self.log(f"  [{ts}] OK latency={latency}")
-            sy.sleep(200 * sy.TimeSpan.MILLISECOND)
+            sy.sleep(200 * sy.TimeSpan.MILLISECOND)  # noqa: TID251 probe interval
 
         self._stop.set()
         for t in threads:
@@ -106,7 +106,7 @@ class WriterOpenCloseStress(TestCase):
                 if self._interval is not None:
                     remaining = self._interval - op_timer.elapsed()
                     if remaining > sy.TimeSpan(0):
-                        sy.sleep(remaining)
+                        sy.sleep(remaining)  # noqa: TID251 paces the writes
         finally:
             client.close()
 

@@ -10,6 +10,7 @@
 from importlib.metadata import version as _version
 
 from synnax import (
+    color,
     ethercat,
     http,
     kafka,
@@ -23,6 +24,8 @@ from synnax import (
     node,
     opcua,
     pagerduty,
+    resource,
+    sift,
     status,
 )
 from synnax.access.policy import Policy
@@ -66,6 +69,7 @@ from synnax.exceptions import (
 )
 from synnax.framer import (
     AUTO_SPAN,
+    CommitResult,
     Frame,
     Iterator,
     Streamer,
@@ -73,6 +77,7 @@ from synnax.framer import (
     WriterClosed,
     WriterMode,
 )
+from synnax.icd import ICD
 from synnax.label import Label
 from synnax.lineplot import LinePlot
 from synnax.log import Log
@@ -119,7 +124,6 @@ from synnax.telem import (
 from synnax.timing import Loop, Timer, poll, sleep
 from synnax.user.payload import User
 from synnax.view import View
-from x import color
 from x import filter as filter
 from x.color import Color
 from x.exceptions import ContiguityError, Error
@@ -129,6 +133,7 @@ __version__ = _version("synnax")
 
 __all__ = [
     "AUTO_SPAN",
+    "ICD",
     "AccessDenied",
     "Aggregation",
     "Alignment",
@@ -138,6 +143,7 @@ __all__ = [
     "Bounds",
     "Channel",
     "Color",
+    "CommitResult",
     "ConfigurationError",
     "ContiguityError",
     "ControlError",
@@ -232,10 +238,11 @@ __all__ = [
     "mqtt",
     "ni",
     "node",
-    "ontology",
     "opcua",
     "pagerduty",
     "poll",
+    "resource",
+    "sift",
     "sleep",
     "status",
 ]

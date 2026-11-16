@@ -12,8 +12,10 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
@@ -78,6 +80,45 @@ var _ = Describe("AnalyzeCall", func() {
 				}
 			`, "argument 'x' of 'process'"),
 		)
+
+		It(
+			"should give the cast as the fix for a numeric mismatch",
+			func(ctx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
+				func process() {x f32} f32 { return x * 2.0 }
+				func main() {
+					x i32 := 5
+					result := process(x)
+				}
+			`))
+				aCtx := context.NewRoot(ctx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(aCtx)
+				Expect(*aCtx.Diagnostics).To(HaveLen(1), aCtx.Diagnostics.String())
+				d := (*aCtx.Diagnostics)[0]
+				Expect(d.Fixes).To(HaveLen(1))
+				Expect(d.Fixes[0].Title).To(Equal("Change to `f32(x)`"))
+				Expect(d.Fixes[0].Edits).To(HaveLen(1))
+				Expect(d.Fixes[0].Edits[0].NewText).To(Equal("f32(x)"))
+				Expect(d.Notes).To(HaveLen(2))
+				Expect(d.Notes[0].Message).To(Equal("hint: change `x` to `f32(x)`"))
+				Expect(d.Notes[1].Message).To(HavePrefix("signature: "))
+			},
+		)
+
+		It("should give no fix for a mismatch that a cast does not fix",
+			func(ctx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
+					func add() {x i32, y i32} i32 { return x + y }
+					func main() { result := add(5, "hello") }
+				`))
+				aCtx := context.NewRoot(ctx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(aCtx)
+				Expect(*aCtx.Diagnostics).To(HaveLen(1), aCtx.Diagnostics.String())
+				d := (*aCtx.Diagnostics)[0]
+				Expect(d.Fixes).To(BeEmpty())
+				Expect(d.Notes).To(HaveLen(1))
+				Expect(d.Notes[0].Message).To(HavePrefix("signature: "))
+			})
 	})
 
 	Describe("Channel arguments", func() {
@@ -167,5 +208,37 @@ var _ = Describe("AnalyzeCallSite", func() {
 			ContainSubstring("cannot be called inside a func block"),
 		)
 		Expect(*ctx.CallEdges).To(BeEmpty())
+	})
+})
+
+var _ = Describe("Computed arguments", func() {
+	It("Should type a computed argument by its node's output", func(bCtx SpecContext) {
+		root := NewRoot(nil)
+		expr := MustSucceed(parser.ParseExpression("1.5 * 2.0"))
+		float := types.FloatConstraint()
+		out := types.Variable("out", &float)
+		MustSucceed(root.Add(bCtx, symbol.Symbol{
+			Kind: symbol.KindFunction,
+			AST:  expr,
+			Type: types.Function(types.FunctionProperties{
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: out}},
+			}),
+		}))
+		ctx := context.NewRoot(bCtx, expr, root)
+		fnType := types.Function(types.FunctionProperties{
+			Inputs: types.Params{{Name: "a", Type: types.F32()}},
+		})
+		expression.AnalyzeCall(
+			ctx,
+			"f",
+			fnType,
+			[]symbol.Argument{{Name: "a", Expr: expr, AST: expr}},
+			nil,
+			expr,
+			"",
+		)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		Expect(ctx.Constraints.Unify()).To(Succeed())
+		Expect(ctx.Constraints.ApplySubstitutions(out)).To(Equal(types.F32()))
 	})
 })

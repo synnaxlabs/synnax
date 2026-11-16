@@ -89,13 +89,13 @@ void Scanner::check_device_health(synnax::device::Device &dev) {
     if (parser.error()) {
         this->checks.erase(dev.key);
         dev.status = synnax::device::Status{
-            .key = synnax::device::status_key(dev),
             .name = dev.name,
             .variant = synnax::status::VARIANT_WARNING,
             .message = "Invalid device properties",
             .description = common::config_err_description(parser.error()),
             .time = x::telem::TimeStamp::now(),
-            .details = {.rack = rack_key, .device = dev.key},
+            .details = {.rack = rack_key},
+            .owner = synnax::device::resource_id(dev.key),
         };
         return;
     }
@@ -107,7 +107,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) {
             this->checks.erase(held);
     }
     auto [d, err] = this->devices->acquire(props.connection, props.requests);
-    synnax::device::StatusDetails details{.rack = rack_key, .device = dev.key};
+    synnax::device::StatusDetails details{.rack = rack_key};
     if (err)
         this->checks.erase(dev.key);
     else {
@@ -135,22 +135,22 @@ void Scanner::check_device_health(synnax::device::Device &dev) {
     details.connected = !err;
     if (err)
         dev.status = synnax::device::Status{
-            .key = synnax::device::status_key(dev),
             .name = dev.name,
             .variant = synnax::status::VARIANT_WARNING,
             .message = "Failed to reach device",
             .description = err.data,
             .time = x::telem::TimeStamp::now(),
             .details = details,
+            .owner = synnax::device::resource_id(dev.key),
         };
     else
         dev.status = synnax::device::Status{
-            .key = synnax::device::status_key(dev),
             .name = dev.name,
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Device connected",
             .time = x::telem::TimeStamp::now(),
             .details = details,
+            .owner = synnax::device::resource_id(dev.key),
         };
 }
 
@@ -158,15 +158,15 @@ void Scanner::test_connection(const synnax::task::Command &cmd) {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     synnax::task::Status status{
-        .key = synnax::task::status_key(this->task),
         .name = this->task.name,
         .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .running = true,
-            .cmd = cmd.key,
-            .config_hash = task.config_hash,
-        }
+        .details =
+            synnax::task::StatusDetails{
+                .running = true,
+                .cmd = cmd.key,
+                .config_hash = task.config_hash,
+            },
+        .owner = synnax::task::resource_id(this->task.key),
     };
     if (!parser.ok()) {
         status.message = "Failed to parse test command";

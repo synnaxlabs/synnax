@@ -12,6 +12,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 
 import { Media } from "@/components/media";
 import { start } from "@/components/media/video";
+import versions from "@/components/media/videos.json";
+
+const [ID, OTHER_ID] = Object.keys(versions);
 
 let touch = false;
 let schemeChange: (() => void) | null = null;
@@ -92,14 +95,14 @@ describe("video", () => {
 
   describe("pointer devices", () => {
     it("should play a video in view and hide its play button", () => {
-      const [video] = show("clip");
+      const [video] = show(ID);
       scroll(video, true);
       expect(video.paused).toBe(false);
       expect(playing(video)).toBe(true);
     });
 
     it("should pause a video that leaves the view", () => {
-      const [video] = show("clip");
+      const [video] = show(ID);
       scroll(video, true);
       scroll(video, false);
       expect(video.paused).toBe(true);
@@ -107,7 +110,7 @@ describe("video", () => {
     });
 
     it("should ignore taps", () => {
-      const [video] = show("clip");
+      const [video] = show(ID);
       video.click();
       expect(video.paused).toBe(true);
     });
@@ -119,13 +122,13 @@ describe("video", () => {
     });
 
     it("should wait for a tap instead of playing in view", () => {
-      const [video] = show("clip");
+      const [video] = show(ID);
       scroll(video, true);
       expect(video.paused).toBe(true);
     });
 
     it("should toggle playback on a tap on the video or its play button", () => {
-      const [video] = show("clip");
+      const [video] = show(ID);
       (document.querySelector(".docs-video__play") as HTMLElement).click();
       expect(playing(video)).toBe(true);
       video.click();
@@ -133,7 +136,7 @@ describe("video", () => {
     });
 
     it("should pause a video that leaves the view", () => {
-      const [video] = show("clip");
+      const [video] = show(ID);
       video.click();
       scroll(video, false);
       expect(video.paused).toBe(true);
@@ -142,8 +145,8 @@ describe("video", () => {
 
   it("should reload themed videos when the color scheme changes", () => {
     document.body.innerHTML =
-      renderToString(<Media.Video id="themed" />) +
-      renderToString(<Media.Video id="plain" themed={false} />);
+      renderToString(<Media.Video id={ID} />) +
+      renderToString(<Media.Video id={OTHER_ID} themed={false} />);
     schemeChange?.();
     expect(load).toHaveBeenCalledExactlyOnceWith(document.querySelector("video"));
   });

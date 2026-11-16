@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { device } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { render, waitFor } from "@testing-library/react";
@@ -48,7 +49,10 @@ describe("device/useListenForChanges", () => {
         statuses().find((s) => s.message === `New ${model} connected`),
       ).toBeDefined(),
     );
-    await client.devices.create(dev);
+    await client.devices.dispatch(
+      dev.key,
+      device.set({ path: ["location"], value: uniqueName("location") }),
+    );
     const other = uniqueName("model");
     await createTestDevice(client, { configured: false, model: other });
     await waitFor(() =>

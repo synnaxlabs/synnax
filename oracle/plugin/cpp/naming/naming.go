@@ -76,7 +76,7 @@ func Namespace(outputPath string) string {
 // pbOutputPath for the schema namespace. It mirrors the pb/types plugin, which
 // takes the layer prefix from the path and the package name from the namespace:
 // - For "core/pkg/{layer}/.../pb" -> "::{layer}::{namespace}::pb"
-// - For "x/go/.../pb" -> "::x::{namespace}::pb"
+// - For "x/go/.../pb" -> "::x::{namespace}::pb".
 func PBNamespace(pbOutputPath, namespace string) string {
 	if pbOutputPath == "" {
 		return "pb"

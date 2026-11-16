@@ -9,11 +9,11 @@
 
 """Symbol Toolbar client for managing symbol groups and symbols."""
 
-from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
 from pydantic import JsonValue
 
 from console.layout import LayoutClient
+from console.notifications import click_past
 from console.schematic.symbol_editor import SymbolEditor
 from framework.utils import read_json_object
 
@@ -42,14 +42,10 @@ class SymbolToolbar:
         self.layout.show_visualization_toolbar()
 
     def _select_symbols_tab(self) -> None:
-        """Select the Symbols tab.
-
-        Dispatch the click: notifications stack over the drawer's tab strip
-        and intercept physical clicks.
-        """
+        """Select the Symbols tab."""
         tab = self.page.get_by_text("Symbols", exact=True).first
         tab.wait_for(state="visible", timeout=5000)
-        tab.dispatch_event("click")
+        click_past(tab)
 
     def _group_tab(self, name: str) -> Locator:
         """A symbol group's tab in the group list."""
@@ -58,26 +54,23 @@ class SymbolToolbar:
     def select_group(self, name: str) -> None:
         """Select a symbol group by name."""
         self.show()
+        # Callers click the toolbar next through the hit test.
         self.notifications.close_all()
         self._select_symbols_tab()
         self.layout.wait_for_visible(self.group_list)
 
         group_btn = self._group_tab(name)
         self.layout.wait_for_visible(group_btn)
-        self.layout.click(group_btn)
+        click_past(group_btn)
 
     def create_group(self, name: str) -> None:
         """Create a new symbol group via the toolbar button."""
         self.show()
-        self.notifications.close_all()
-
         create_group_btn = self.toolbar.get_by_role(
             "button", name="Create symbol group", exact=True
         ).first
-        # Notifications stack over the actions bar and swallow coordinate
-        # clicks, so dispatch the click on the button itself.
         create_group_btn.wait_for(state="visible", timeout=5000)
-        create_group_btn.dispatch_event("click")
+        click_past(create_group_btn)
 
         name_input = self.layout.locator("input[placeholder='Name']")
         self.layout.wait_for_visible(name_input)
@@ -159,9 +152,8 @@ class SymbolToolbar:
     def symbol_exists(self, name: str, *, select_group: str | None = None) -> bool:
         """Check if a symbol exists in the current group.
 
-        Args:
-            name: The symbol name to search for.
-            select_group: Optional group name to select before searching.
+        :param name: The symbol name to search for.
+        :param select_group: Optional group name to select before searching.
         """
         if select_group is not None:
             self.select_group(select_group)
@@ -278,13 +270,13 @@ class SymbolToolbar:
         This is the universal factory method for adding both built-in and custom
         symbols to the schematic canvas.
 
-        Args:
-            symbol_type: Name of the symbol (e.g., "Button", "Valve", "My Custom Pump")
-            group: Symbol group name (ignored - kept for backward compatibility).
-
-        Returns:
-            The data-testid of the newly created symbol node (e.g., "rf__node-{uuid}")
+        :param symbol_type: Name of the symbol (e.g., "Button", "Valve", "My Custom
+            Pump")
+        :param group: Symbol group name (ignored - kept for backward compatibility).
+        :returns: The data-testid of the newly created symbol node (e.g.,
+            "rf__node-{uuid}")
         """
+        # Creating the symbol clicks its Style tab through the hit test.
         self.notifications.close_all()
         initial_count = len(self.page.locator("[data-testid^='rf__node-']").all())
 
@@ -312,4 +304,5 @@ class SymbolToolbar:
         item = self.toolbar.locator(".console-schematic-symbols__button").filter(
             has=self.page.locator("small").get_by_text(symbol_type, exact=True)
         )
-        item.first.click(timeout=5000)
+        item.first.wait_for(state="visible", timeout=5000)
+        click_past(item.first)

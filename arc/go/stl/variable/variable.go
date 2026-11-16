@@ -26,13 +26,14 @@ type Host struct{}
 // NewHost constructs a variable Host.
 func NewHost() *Host { return &Host{} }
 
-// Create dispatches on shape: a value-carrying first input makes a register;
-// an edge-fed one an exprRead deref.
+// Create dispatches on shape: a `variable` whose first input has no value makes an
+// exprRead deref. Any other shape makes a register.
 func (*Host) Create(cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName && cfg.Node.Type != statefulSymbolName {
 		return nil, query.ErrNotFound
 	}
-	if len(cfg.Node.Inputs) > 0 && cfg.Node.Inputs[0].Value == nil {
+	if cfg.Node.Type == symbolName && len(cfg.Node.Inputs) > 0 &&
+		cfg.Node.Inputs[0].Value == nil {
 		selIdx := -1
 		if idx, err := cfg.State.ResolveInput("sel"); err == nil {
 			selIdx = idx
@@ -52,7 +53,8 @@ func stampNow(ts *telem.Series, now telem.TimeStamp) {
 }
 
 // register holds what its variable is mapped to: a value, a channel key, or a
-// derivation index. Writes are last-wins; the unedged f0 holds the initial value.
+// derivation index. Writes are last-wins. f0 holds the initial value, edge-fed for a
+// computed `$=`.
 type register struct {
 	*node.State
 	stateful bool

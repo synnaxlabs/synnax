@@ -27,6 +27,10 @@ func autoMigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
 	if err != nil {
 		return Graph{}, err
 	}
+	edges, err := migrateGraphEdges(ctx, old.Edges)
+	if err != nil {
+		return Graph{}, err
+	}
 	nodes, err := lo.MapErr(old.Nodes, func(v v0.Node, _ int) (Node, error) {
 		return MigrateNode(ctx, v)
 	})
@@ -35,6 +39,7 @@ func autoMigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
 	}
 	return Graph{
 		Functions: functions,
+		Edges:     edges,
 		Nodes:     nodes,
 	}, nil
 }

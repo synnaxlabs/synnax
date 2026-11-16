@@ -41,8 +41,8 @@ SYNNAX_PORT=9190 bazel test //client/cpp/channel:all
   `license active` in its log.
 - A Core older than your branch fails specs in ways that look like regressions. Rebuild
   it after a merge.
-- `//driver/rack:config_test`, `cluster/login_forms`, and `channel/calc_type_cascade`
-  need a Core on 9090. They ignore `SYNNAX_PORT`.
+- `//driver/rack:config_test` and `channel/calc_type_cascade` need a Core on 9090. They
+  ignore `SYNNAX_PORT`.
 
 ### Dev Console on a free port
 
@@ -102,6 +102,11 @@ JSON sequence files in `/integration/tests/`: `console_tests.json`, `driver_test
 `arc_tests.json`, `client_tests.json`. Each defines sequences of cases running
 sequentially or async with configurable pool sizes. A case runs for at most its
 `timeout` seconds (default 300), then the conductor marks it TIMEOUT and moves on.
+
+The conductor runs each failed case one more time. A failed case of an asynchronous
+sequence runs again with the whole sequence, because it can need its peers, and each
+case keeps the result of its last run. Mark the sequence `independent` to run only the
+failed cases again.
 
 Console test helpers in `/integration/console/`: `layout.py` (navigation, toolbars,
 keyboard), `context_menu.py`, `ranges.py` / `tasks.py` / `statuses.py` (resource

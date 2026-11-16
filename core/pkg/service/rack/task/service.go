@@ -74,6 +74,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			LegacyVersion:   legacy.LastVersion,
 			Ladder:          versions.StatusConfigLadder,
 			SetEntryKey:     (*StatusConfig).SetKey,
+			PatchEntry:      (*StatusConfig).Patch,
+			HashEntry:       (*StatusConfig).HashContent,
 		},
 	); !ok(err, s.Status) {
 		return nil, err

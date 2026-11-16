@@ -255,7 +255,7 @@ var _ = Describe("Alignment", func() {
 					})
 					DescribeTable(
 						"Reading",
-						func(ctx SpecContext, r alignmentRead) {
+						func(r alignmentRead) {
 							i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 								Bounds: r.bounds,
 								Channels: append(

@@ -30,3 +30,25 @@ type WriteConfig = versions.WriteConfig
 
 // ScanConfig configures an OPC UA scan task.
 type ScanConfig = versions.ScanConfig
+
+// Sampling selects how a read task samples its nodes.
+type Sampling = versions.Sampling
+
+// SamplingVariant is implemented by every Sampling variant.
+type SamplingVariant = versions.SamplingVariant
+
+// SamplingType is the "type" value that selects a variant of Sampling.
+type SamplingType = versions.SamplingType
+
+const (
+	// UnarySamplingType reads one sample per node at the sample rate.
+	UnarySamplingType SamplingType = versions.UnarySamplingType
+	// ArraySamplingType reads an array of samples from each node on each read.
+	ArraySamplingType SamplingType = versions.ArraySamplingType
+)
+
+// UnarySampling reads one sample per node at the sample rate.
+type UnarySampling = versions.UnarySampling
+
+// ArraySampling reads an array of samples from each node on each read.
+type ArraySampling = versions.ArraySampling

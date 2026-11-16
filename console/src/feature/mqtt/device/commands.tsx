@@ -12,7 +12,6 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
-import { FLAGS } from "@/flags";
 import { Command } from "@/platform/command";
 
 const ConnectBrokerCommand = Command.create({
@@ -20,7 +19,7 @@ const ConnectBrokerCommand = Command.create({
   name: "Connect an MQTT broker",
   icon: <Icon.Logo.MQTT />,
   useOnSelect: useConnectModal,
-  useVisible: () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(device.TYPE_RESOURCE_ID),
 });
 
-export const COMMANDS = FLAGS.mqtt ? [ConnectBrokerCommand] : [];
+export const COMMANDS = [ConnectBrokerCommand];

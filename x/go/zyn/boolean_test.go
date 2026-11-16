@@ -227,28 +227,26 @@ var _ = Describe("Bool", func() {
 		})
 
 		Specify("invalid string", func() {
-			_, err := zyn.Bool().Dump("invalid")
 			Expect(
-				err,
-			).To(MatchError(ContainSubstring("invalid boolean string 'invalid': must be 'true', 'false', '1', or '0'")))
+				zyn.Bool().Dump("invalid"),
+			).Error().
+				To(MatchError(ContainSubstring("invalid boolean string 'invalid': must be 'true', 'false', '1', or '0'")))
 		})
 
 		Specify("nil value", func() {
-			_, err := zyn.Bool().Dump(nil)
-			Expect(err).To(MatchError(validate.ErrRequired))
+			Expect(zyn.Bool().Dump(nil)).Error().To(MatchError(validate.ErrRequired))
 		})
 
 		Specify("nil pointer", func() {
 			var b *bool
-			_, err := zyn.Bool().Dump(b)
-			Expect(err).To(MatchError(validate.ErrRequired))
+			Expect(zyn.Bool().Dump(b)).Error().To(MatchError(validate.ErrRequired))
 		})
 
 		Specify("invalid type", func() {
-			_, err := zyn.Bool().Dump(struct{}{})
 			Expect(
-				err,
-			).To(MatchError(ContainSubstring("expected boolean, string, number, or nil")))
+				zyn.Bool().Dump(struct{}{}),
+			).Error().
+				To(MatchError(ContainSubstring("expected boolean, string, number, or nil")))
 		})
 
 		Specify("custom type", func() {

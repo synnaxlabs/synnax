@@ -13,8 +13,9 @@ package v0
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
+	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	"github.com/synnaxlabs/x/encoding/orc"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
@@ -149,13 +150,13 @@ func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv http.TimeFormat
+			var hv payload.TimeFormat
 			{
 				rawV, err := r.String()
 				if err != nil {
 					return err
 				}
-				hv = http.TimeFormat(rawV)
+				hv = payload.TimeFormat(rawV)
 			}
 			rf.TimeFormat = &hv
 		}
@@ -170,7 +171,7 @@ func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			rf.EnumValues = make([]http.EnumEntry, n)
+			rf.EnumValues = make([]payload.EnumEntry, n)
 			for i := range rf.EnumValues {
 				if err = rf.EnumValues[i].DecodeOrc(r); err != nil {
 					return err
@@ -296,7 +297,7 @@ func (rv *Record) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		rv.TimeFormat = http.TimeFormat(rawV)
+		rv.TimeFormat = payload.TimeFormat(rawV)
 	}
 	{
 		present, err := r.Bool()
@@ -391,7 +392,7 @@ func (wc *WriteChannel) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		wc.JSONType = http.JSONType(rawV)
+		wc.JSONType = payload.JSONType(rawV)
 	}
 	{
 		present, err := r.Bool()
@@ -399,13 +400,13 @@ func (wc *WriteChannel) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv http.TimeFormat
+			var hv payload.TimeFormat
 			{
 				rawV, err := r.String()
 				if err != nil {
 					return err
 				}
-				hv = http.TimeFormat(rawV)
+				hv = payload.TimeFormat(rawV)
 			}
 			wc.TimeFormat = &hv
 		}
@@ -420,7 +421,7 @@ func (wc *WriteChannel) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			wc.EnumValues = make([]http.EnumEntry, n)
+			wc.EnumValues = make([]payload.EnumEntry, n)
 			for i := range wc.EnumValues {
 				if err = wc.EnumValues[i].DecodeOrc(r); err != nil {
 					return err

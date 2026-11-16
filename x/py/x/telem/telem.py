@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, GetCoreSchemaHandler
 from pydantic_core import core_schema
 
 from x.exceptions import ContiguityError
+from x.params import deprecate_positional
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
@@ -226,7 +227,7 @@ class TimeStamp(int):
         return int(self) > _stamp_operand(ts)
 
     def after_eq(self, ts: CrudeTimeStamp) -> bool:
-        """:return: True if the TimeStamp is after or equal to the given TimeStamp.
+        """:returns: True if the TimeStamp is after or equal to the given TimeStamp.
         :param ts: The TimeStamp to compare to.
         """
         return int(self) >= _stamp_operand(ts)
@@ -250,7 +251,7 @@ class TimeStamp(int):
         return TimeRange(self, self + span).make_valid()
 
     def range(self, ts: CrudeTimeStamp) -> TimeRange:
-        """:return: A new TimeRange spanning the TimeStamp and provided TimeStamp. This
+        """:returns: A new TimeRange spanning the TimeStamp and provided TimeStamp. This
         TimeRange is guaranteed to be valid i.e. start before or equal to end.
         :param ts: The second time stamp
         """
@@ -559,7 +560,8 @@ class TimeSpan(int):
         """:returns: The TimeSpan represented as a datetime.timedelta."""
         return timedelta(seconds=self.seconds)
 
-    # The int overloads keep the int signature, but a bare number raises TypeError.
+    # The int overloads keep the int signature, but a bare number raises TypeError. An
+    # int 0 before a span is the one exception, so sum() works.
     @overload
     def __add__(self, rhs: TimeStamp) -> TimeStamp: ...
     @overload
@@ -576,7 +578,11 @@ class TimeSpan(int):
         return NotImplemented
 
     @override
-    def __radd__(self, lhs: int) -> NoReturn:
+    def __radd__(self, lhs: int) -> TimeSpan:
+        # sum() starts from the int 0. An empty sum() returns that int, so pass
+        # TimeSpan(0) as the start when the iterable can be empty.
+        if type(lhs) is int and lhs == 0:
+            return self
         raise _operand_error("+", lhs, self)
 
     @overload
@@ -761,6 +767,7 @@ def _div_toward_zero(a: int, b: int) -> int:
 TimeSpanUnits = Literal["ns", "us", "ms", "s", "m", "h", "d", "iso"]
 
 
+@deprecate_positional("_from", "to")
 def convert_time_units(
     data: np.ndarray, *, _from: TimeSpanUnits, to: TimeSpanUnits
 ) -> np.ndarray:
@@ -769,7 +776,7 @@ def convert_time_units(
     :param data: the numpy array to convert.
     :param _from: the units of the data
     :param to: the units to convert to
-    :return: the data in the new units
+    :returns: the data in the new units
     """
     if _from == "iso":
         data = np.array([datetime.fromisoformat(v).timestamp() for v in data])
@@ -823,6 +830,7 @@ class Rate(float):
         """:returns: the number of samples in the given TimeSpan at this rate"""
         return int(TimeSpan(time_span).seconds * self)
 
+    @deprecate_positional("density")
     def byte_size(self, time_span: CrudeTimeSpan, *, density: Density) -> Size:
         """:returns: the amount of bytes occupied by the given TimeSpan at this rate
         and the given sample density.
@@ -841,6 +849,7 @@ class Rate(float):
         rate = Fraction(repr(float(self)))
         return TimeSpan(int(Fraction(sample_count * int(TimeSpan.SECOND)) / rate))
 
+    @deprecate_positional("density")
     def size_span(self, size: Size, *, density: Density) -> TimeSpan:
         """:returns: the TimeSpan that corresponds to the given number of bytes at this
         rate and the given sample density."""
@@ -859,6 +868,7 @@ class Rate(float):
         return f"Rate({super().__repr__()} Hz)"
 
     # The float overloads keep the float signature, but a bare number raises TypeError.
+    # An int 0 before a rate is the one exception, so sum() works.
     @overload
     def __add__(self, rhs: Rate) -> Rate: ...
     @overload
@@ -871,7 +881,11 @@ class Rate(float):
         return NotImplemented
 
     @override
-    def __radd__(self, lhs: float) -> NoReturn:
+    def __radd__(self, lhs: float) -> Rate:
+        # sum() starts from the int 0. An empty sum() returns that int, so pass
+        # Rate(0) as the start when the iterable can be empty.
+        if type(lhs) is int and lhs == 0:
+            return self
         raise _operand_error("+", lhs, self)
 
     @overload
@@ -996,6 +1010,7 @@ class TimeRange(BaseModel):
         pv = TimeStamp(value)
         return pv.after_eq(self.start) and pv.before(self.end)
 
+    @deprecate_positional("delta")
     def overlaps_with(self, tr: TimeRange, *, delta: CrudeTimeSpan = 0) -> bool:
         """:returns: True if the time ranges share at least delta of time. Ranges that
         only touch at a boundary do not overlap.
@@ -1339,7 +1354,7 @@ class DataType(str):
     @property
     def np(self) -> np.dtype:
         """Converts a built-in DataType to a numpy type Scalar Type
-        :return: The numpy type
+        :returns: The numpy type
         """
         npt = DataType._TO_NUMPY.get(self, None)
         if not isinstance(npt, np.dtype):

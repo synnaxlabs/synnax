@@ -22,8 +22,9 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -49,11 +50,11 @@ type layout struct {
 // importableTypes are the layout types whose component files import through the leaf
 // machinery: typeless visualization states and typed task configs.
 var importableTypes = set.New(
-	string(ontology.ResourceTypeArc),
-	string(ontology.ResourceTypeLineplot),
-	string(ontology.ResourceTypeLog),
-	string(ontology.ResourceTypeSchematic),
-	string(ontology.ResourceTypeTable),
+	string(resource.TypeArc),
+	string(resource.TypeLineplot),
+	string(resource.TypeLog),
+	string(resource.TypeSchematic),
+	string(resource.TypeTable),
 	"ethercat_read",
 	"ethercat_write",
 	"http_read",
@@ -87,12 +88,11 @@ type Member struct {
 // in layoutData, in layout-key order. A record whose file the bundle does not hold is a
 // validation error.
 func Members(
-	ctx context.Context,
 	layoutData []byte,
 	files zip.Files,
 ) ([]Member, error) {
 	var slice layoutSlice
-	if err := imex.Codec.Decode(ctx, layoutData, &slice); err != nil {
+	if err := imex.Codec.Decode(layoutData, &slice); err != nil {
 		return nil, errors.Wrap(err, LayoutFileName)
 	}
 	members := make([]Member, 0, len(slice.Layouts))
@@ -101,12 +101,12 @@ func Members(
 		if !importableTypes.Contains(l.Type) {
 			continue
 		}
-		path, err := findComponent(ctx, files, key, l)
+		path, err := findComponent(files, key, l)
 		if err != nil {
 			return nil, err
 		}
 		var env imex.Envelope
-		if err := imex.Codec.Decode(ctx, files[path], &env); err != nil {
+		if err := imex.Codec.Decode(files[path], &env); err != nil {
 			return nil, errors.Wrap(err, path)
 		}
 		if env.Type == "" {
@@ -122,12 +122,7 @@ func Members(
 
 // findComponent matches a layout record to a file named after the layout or its key, or
 // one whose body carries the matching key or name.
-func findComponent(
-	ctx context.Context,
-	files zip.Files,
-	key string,
-	l layout,
-) (string, error) {
+func findComponent(files zip.Files, key string, l layout) (string, error) {
 	paths := slices.Sorted(maps.Keys(files))
 	for _, path := range paths {
 		base := path[strings.LastIndexByte(path, '/')+1:]
@@ -140,7 +135,7 @@ func findComponent(
 			continue
 		}
 		var body map[string]any
-		if err := imex.Codec.Decode(ctx, files[path], &body); err != nil {
+		if err := imex.Codec.Decode(files[path], &body); err != nil {
 			continue
 		}
 		if body["key"] == key || body["name"] == l.Name {
@@ -181,23 +176,25 @@ type mosaicTab struct {
 }
 
 // CreatePanels recreates layoutData's tiling as panels on tx, one per window whose tabs
-// resolve through refs, main window first, each parented under parent. Best-effort: an
-// unrecognized tiling shape creates no panels instead of failing.
+// resolve through refs, main window first, each owned by the project proj. Best-effort:
+// an unrecognized tiling shape creates no panels instead of failing.
 func CreatePanels(
 	ctx context.Context,
 	tx gorp.Tx,
 	svc *panel.Service,
-	parent ontology.ID,
+	proj project.Key,
 	layoutData []byte,
-	refs map[string]ontology.ID,
+	refs map[string]resource.ID,
 ) error {
 	var t tiling
-	if err := imex.Codec.Decode(ctx, layoutData, &t); err != nil {
-		return nil
+	if err := imex.Codec.Decode(layoutData, &t); err != nil {
+		t = tiling{}
 	}
-	var slice layoutSlice
 	// The slice only names panels, so a failed decode falls back to window keys.
-	_ = imex.Codec.Decode(ctx, layoutData, &slice)
+	var slice layoutSlice
+	if err := imex.Codec.Decode(layoutData, &slice); err != nil {
+		slice = layoutSlice{}
+	}
 	writer := svc.NewWriter(tx)
 	for _, windowKey := range sortedWindowKeys(t.Mosaics) {
 		root := convertNode(t.Mosaics[windowKey].Root, refs)
@@ -205,9 +202,9 @@ func CreatePanels(
 			continue
 		}
 		p := panel.Panel{
-			Name:   panelName(slice.Layouts, windowKey),
-			Root:   *root,
-			Parent: &parent,
+			Name:    panelName(slice.Layouts, windowKey),
+			Root:    *root,
+			Project: &proj,
 		}
 		if err := writer.Create(ctx, &p); err != nil {
 			return errors.Wrap(err, LayoutFileName)
@@ -245,7 +242,7 @@ func panelName(layouts map[string]layout, windowKey string) string {
 // convertNode converts a mosaic node into a panel tree node, resolving each tab through
 // refs. It returns nil when no tabs resolve; a split with one surviving side collapses
 // into it.
-func convertNode(n *mosaicNode, refs map[string]ontology.ID) *panel.Node {
+func convertNode(n *mosaicNode, refs map[string]resource.ID) *panel.Node {
 	if n == nil {
 		return nil
 	}
@@ -280,25 +277,6 @@ func convertNode(n *mosaicNode, refs map[string]ontology.ID) *panel.Node {
 		return nil
 	}
 	return &panel.Node{Variant: panel.LeafNode{Tabs: tabs}}
-}
-
-// HasPanels reports whether layoutData's tiling would convert to at least one panel, so
-// callers can enforce access before any import work.
-func HasPanels(ctx context.Context, layoutData []byte, members []Member) bool {
-	var t tiling
-	if err := imex.Codec.Decode(ctx, layoutData, &t); err != nil {
-		return false
-	}
-	refs := make(map[string]ontology.ID, len(members))
-	for _, m := range members {
-		refs[m.LayoutKey] = ontology.ID{}
-	}
-	for _, m := range t.Mosaics {
-		if convertNode(m.Root, refs) != nil {
-			return true
-		}
-	}
-	return false
 }
 
 func convertDirection(d string) spatial.Direction {

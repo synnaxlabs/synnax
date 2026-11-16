@@ -9,7 +9,11 @@
 
 package v0
 
-import "github.com/synnaxlabs/gorp"
+import (
+	"strings"
+
+	"github.com/synnaxlabs/gorp"
+)
 
 const keySeparator = "<--->"
 
@@ -18,8 +22,11 @@ var _ gorp.Entry[string] = Pair{}
 // GorpKey implements gorp.Entry.
 func (p Pair) GorpKey() string { return p.Range.String() + keySeparator + p.Key }
 
-// SetOptions implements gorp.Entry.
-func (Pair) SetOptions() []any { return nil }
+// GorpKeyRange returns the range part of key, a key that GorpKey returns.
+func (Pair) GorpKeyRange(key string) string {
+	rng, _, _ := strings.Cut(key, keySeparator)
+	return rng
+}
 
 // CustomTypeName supplies a custom type name for the Pair type.
 func (Pair) CustomTypeName() string { return "KVPair" }

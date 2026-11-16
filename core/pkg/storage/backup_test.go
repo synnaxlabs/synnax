@@ -21,8 +21,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -43,12 +45,26 @@ var (
 	}
 )
 
+// beRefused matches an error that storage.ErrRefused marks.
+func beRefused() types.GomegaMatcher {
+	return MatchError(
+		func(err error) bool { return errors.Is(err, storage.ErrRefused) },
+		"storage.ErrRefused",
+	)
+}
+
+// openLayer opens a Layer on dir as a Core of the given version, and commits the update
+// that the open starts, as a Core does before it serves clients.
 func openLayer(ctx context.Context, dir, version string) *storage.Layer {
 	GinkgoHelper()
-	return MustSucceed(storage.OpenLayer(
+	l := MustSucceed(storage.OpenLayer(
 		ctx,
 		storage.LayerConfig{Dirname: dir, Version: version},
 	))
+	if l.Update != nil {
+		Expect(l.Update.Commit()).To(Succeed())
+	}
+	return l
 }
 
 // write writes three samples to each of the channels, starting at start seconds.
@@ -200,7 +216,7 @@ var _ = Describe("Backup", func() {
 			Expect(entries(backups)).To(ConsistOf(
 				"0000000002-0.58.0.tar",
 				"0000000003-0.59.0.tar",
-				HaveSuffix("-unknown.tar"),
+				HaveSuffix("-before-0.61.0.tar"),
 				"orphaned-5",
 			))
 		},
@@ -257,15 +273,25 @@ var _ = Describe("Backups", func() {
 			"0000000001-unknown.tar",
 			"0000000003-0.60.0.tar.partial",
 			"0000000004-0.60.0",
+			"0000000006-before-0.61.0.tar",
 		} {
 			writeFile(filepath.Join(backups, name), "")
 		}
 		Expect(MustSucceed(newBackups(dir).List())).To(Equal([]storage.Backup{
-			{Name: "0000000001-unknown", Time: time.Unix(1, 0), Version: "unknown"},
+			{
+				Name:    "0000000001-unknown",
+				Time:    time.Unix(1, 0),
+				Version: storage.UnknownVersion,
+			},
 			{
 				Name:    "0000000002-0.60.0-rc.1",
 				Time:    time.Unix(2, 0),
 				Version: "0.60.0-rc.1",
+			},
+			{
+				Name:    "0000000006-before-0.61.0",
+				Time:    time.Unix(6, 0),
+				Version: storage.UnknownVersion,
 			},
 		}))
 	})

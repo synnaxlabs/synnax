@@ -17,9 +17,9 @@ import { type Select } from "@synnaxlabs/lyra/select";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Access, Channel, Log, Notation, Telem } from "@synnaxlabs/pluto";
 import {
-  color,
+  type color,
   DataType,
-  type notation,
+  notation,
   type TimestampFormat,
   type TimeZone,
 } from "@synnaxlabs/x";
@@ -27,7 +27,8 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
-const PRECISION_BOUNDS = { lower: 0, upper: 17 };
+// The row's notation prop shadows the namespace inside the row component.
+const PRECISION_BOUNDS = notation.PRECISION_BOUNDS;
 const ALIAS_MAX_LENGTH = 64;
 
 const showsNumericFields = (dt: DataType | undefined): boolean =>
@@ -74,11 +75,10 @@ const ChannelRow = ({
     dispatch(log.setChannelPrecision({ channel, precision }));
   const handleFormatChange = (format: TimestampFormat) =>
     dispatch(log.setChannelTimestampFormat({ channel, format }));
-  const handleTzChange = (tz: TimeZone) =>
-    dispatch(log.setChannelTimestampTz({ channel, tz }));
-  // The log stores a zero color for a channel that follows the theme.
+  const handleTimeZoneChange = (timeZone: TimeZone) =>
+    dispatch(log.setChannelTimestampTimeZone({ channel, timeZone }));
   const handleColorChange = (c?: color.Color) =>
-    dispatch(log.setChannelColor({ channel, color: c ?? color.ZERO }));
+    dispatch(log.setChannelColor({ channel, color: c }));
   // Clearing the row's channel removes the row.
   const handleChannelChange = (to: channel.Key | null) =>
     dispatch(
@@ -87,8 +87,7 @@ const ChannelRow = ({
         : log.swapChannel({ from: channel, to }),
     );
   if (config == null) return null;
-  const { alias, timestamp, precision, notation } = config;
-  const hasCustomColor = !color.isZero(config.color);
+  const { alias, timestampConfig, precision, notation } = config;
   return (
     <List.Item
       itemKey={channel}
@@ -103,9 +102,7 @@ const ChannelRow = ({
       preventClick
     >
       <Flex.Box x align="center" grow>
-        {/* The select reads its query once, so the key refreshes it. */}
         <Channel.SelectSingle
-          key={otherChannels.join()}
           value={channel}
           onChange={handleChannelChange}
           allowNone
@@ -140,6 +137,7 @@ const ChannelRow = ({
               onClear={() => handlePrecisionChange()}
               endContent={precision == null ? <Input.AutoBadge /> : undefined}
               bounds={PRECISION_BOUNDS}
+              integer
               disabled={disabled}
               shrink={false}
               variant="shadow"
@@ -160,21 +158,21 @@ const ChannelRow = ({
         {showTimestamp && (
           <>
             <Telem.SelectTimestampFormat
-              value={timestamp.format}
+              value={timestampConfig.format}
               onChange={handleFormatChange}
               disabled={disabled}
               triggerProps={SHADOW_TRIGGER_PROPS}
             />
             <Telem.SelectTimeZone
               className={CSS.BE("log", "channel-tz")}
-              value={timestamp.tz}
-              onChange={handleTzChange}
+              value={timestampConfig.timeZone}
+              onChange={handleTimeZoneChange}
               disabled={disabled}
             />
           </>
         )}
         <Color.Swatch
-          value={hasCustomColor ? config.color : undefined}
+          value={config.color}
           fallback={defaultColor}
           onChange={handleColorChange}
           disabled={disabled}
@@ -224,7 +222,7 @@ const AddChannelRow = ({ disabled }: AddChannelRowProps): ReactElement => {
 export const Channels = (): ReactElement => {
   const channelKeys = Log.useChannelKeys();
   const key = Log.useKey();
-  const hasUpdatePermission = Access.useUpdateGranted(log.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(log.resourceID(key));
   return (
     <Flex.Box
       y

@@ -38,11 +38,13 @@ var _ = Describe("Codec", func() {
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:     "test_2",
 				RootUser: true,
+				Role:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
 			}),
 			Entry("zero values", v1.User{
 				Key:      uuid.Nil(),
 				Name:     "",
 				RootUser: false,
+				Role:     uuid.Nil(),
 			}),
 		)
 	})
@@ -53,6 +55,7 @@ func BenchmarkEncodeDecodeUser(b *testing.B) {
 		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:     "test_2",
 		RootUser: true,
+		Role:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -75,6 +78,7 @@ func FuzzDecodeUser(f *testing.F) {
 			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:     "test_2",
 			RootUser: true,
+			Role:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -87,6 +91,7 @@ func FuzzDecodeUser(f *testing.F) {
 			Key:      uuid.Nil(),
 			Name:     "",
 			RootUser: false,
+			Role:     uuid.Nil(),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

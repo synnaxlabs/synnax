@@ -34,9 +34,11 @@ var _ = Describe("Pair", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Pair{}.SetOptions()).To(BeNil())
+	Describe("GorpKeyRange", func() {
+		It("Should return the range of a key that GorpKey returns", func() {
+			rng := uuid.New()
+			key := v0.Pair{Range: rng, Key: "a<--->b"}.GorpKey()
+			Expect(v0.Pair{}.GorpKeyRange(key)).To(Equal(rng.String()))
 		})
 	})
 
@@ -70,7 +72,7 @@ var _ = Describe("NormalizeKeys", func() {
 				Where(gorp.MatchKeys[string, v0.Pair](e.GorpKey())).
 				Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(e))
-			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
+			Expect(db.Get(legacy)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
 })
@@ -121,10 +123,10 @@ var _ = Describe("RecoverKVPairKeys", func() {
 		Expect(table.NewRetrieve().Entries(&res).Exec(ctx, db)).To(Succeed())
 		return res
 	}
-	expectLegacyRowsDeleted := func(ctx SpecContext) {
+	expectLegacyRowsDeleted := func() {
 		GinkgoHelper()
 		for k := range kvPairRows {
-			Expect(kvDB.Get(ctx, MustSucceed(hex.DecodeString(k)))).Error().
+			Expect(kvDB.Get(MustSucceed(hex.DecodeString(k)))).Error().
 				To(MatchError(query.ErrNotFound))
 		}
 	}
@@ -138,7 +140,7 @@ var _ = Describe("RecoverKVPairKeys", func() {
 				v0.Pair{Range: kvPairRange, Key: "k", Value: "alpha"},
 				v0.Pair{Range: kvPairRange, Key: "empty", Value: ""},
 			))
-			expectLegacyRowsDeleted(ctx)
+			expectLegacyRowsDeleted()
 		},
 		Entry("when upgrading straight to the recovery", false),
 		Entry("when the store already ran the other migrations", true),
@@ -152,6 +154,6 @@ var _ = Describe("RecoverKVPairKeys", func() {
 			newer,
 			v0.Pair{Range: kvPairRange, Key: "empty", Value: ""},
 		))
-		expectLegacyRowsDeleted(ctx)
+		expectLegacyRowsDeleted()
 	})
 })

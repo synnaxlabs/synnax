@@ -18,7 +18,7 @@ const CreateCommand = Command.create({
   name: "Create table",
   icon: <Table.CreateIcon />,
   useOnSelect: PlatformTable.useCreate,
-  useVisible: () => Access.useCreateGranted(table.TYPE_ONTOLOGY_ID),
+  useVisible: () => Access.useCreateGranted(table.TYPE_RESOURCE_ID),
 });
 
 export const COMMANDS = [CreateCommand];

@@ -112,7 +112,7 @@ std::pair<Arc, x::errors::Error> Client::retrieve(
     x::filter::One,
     const RetrieveOptions &options
 ) const {
-    if (options.limit.has_value() || options.offset != 0)
+    if (options.limit.has_value() || options.after.has_value())
         return {Arc{}, errors::paged_one_error()};
     auto [arcs, err] = this->retrieve(where, options);
     if (err) return {Arc{}, err};

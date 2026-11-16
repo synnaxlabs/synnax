@@ -15,8 +15,17 @@ from typing import Any
 
 import pytest
 
-from review import Finding, Review, Target, parse, post, reviewed
-from review import gh as call_gh
+from review import (
+    Finding,
+    Review,
+    Target,
+    gh as call_gh,
+    outside_findings,
+    parse,
+    post,
+    render,
+    reviewed,
+)
 
 REPO = "synnaxlabs/synnax"
 TARGET = Target(
@@ -69,6 +78,9 @@ class FakeGH:
             {"filename": "image.png", "patch": None},
         ]
         self.threads: list[dict[str, Any]] = []
+        self.later: list[dict[str, Any]] | None = None
+        """The threads after the first read, if they changed."""
+        self.runs: list[dict[str, Any]] = []
         self.edits: list[dict[str, Any]] = []
         self.comments: list[dict[str, Any]] = []
         self.body = "Fixes the thing."
@@ -84,9 +96,20 @@ class FakeGH:
             return lines(self.files)
         if path == "graphql":
             query = next(a for a in args if a.startswith("query="))
-            return lines(self.edits if "userContentEdits" in query else self.threads)
+            if "userContentEdits" in query:
+                return lines(self.edits)
+            threads = self.threads
+            if self.later is not None:
+                self.threads = self.later
+            return lines(threads)
+        if path == f"repos/{REPO}/check-runs/55":
+            return "7:main\n"
+        if path.startswith(f"repos/{REPO}/commits/head/check-runs?"):
+            return lines(self.runs)
         if path == f"repos/{REPO}/issues/7/comments":
             return lines(self.comments)
+        if path == f"repos/{REPO}/collaborators/member/permission":
+            return "write\n"
         if path == f"repos/{REPO}/commits/head":
             return MESSAGE + "\n"
         if path == f"repos/{REPO}/pulls/7":
@@ -188,19 +211,115 @@ class TestInlineFindings:
     def test_should_skip_a_finding_an_open_thread_of_the_bot_holds(
         self, gh: FakeGH
     ) -> None:
-        body = "<picture></picture> **Samples return old data**\n\nOld text."
-        gh.threads = [
-            {"path": "a.go", "first": {"author": {"login": "sedosaur"}, "body": body}}
-        ]
+        gh.threads = [thread("sedosaur")]
         post(review(finding()), target=TARGET, gh=gh)
         assert gh.written("POST", "pulls/7/reviews") == []
 
-    def test_should_post_a_finding_another_author_raised(self, gh: FakeGH) -> None:
-        body = "<picture></picture> **Samples return old data**"
-        author = {"login": "greptile-apps"}
-        gh.threads = [{"path": "a.go", "first": {"author": author, "body": body}}]
+    def test_should_edit_an_open_thread_whose_severity_changed(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [posted(finding())]
+        moved = finding(severity="P2", body="New text.", suggestion="four")
+        post(review(moved), target=TARGET, gh=gh)
+        [edit] = gh.written("PATCH", "pulls/comments/9")
+        first, rest = edit["body"].split("\n", 1)
+        assert first.startswith('<img alt="P2" src="')
+        assert first.endswith("**Samples return old data**")
+        assert rest == gh.threads[0]["comments"][0]["body"].split("\n", 1)[1]
+        assert gh.written("POST", "pulls/7/reviews") == []
+
+    def test_should_leave_an_open_thread_whose_heading_is_the_same(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [posted(finding())]
+        post(review(finding()), target=TARGET, gh=gh)
+        assert gh.written("PATCH", "pulls/comments/9") == []
+
+    def test_should_post_a_finding_of_a_resolved_thread(self, gh: FakeGH) -> None:
+        gh.threads = [thread("sedosaur", resolved=True)]
         post(review(finding()), target=TARGET, gh=gh)
         assert len(gh.written("POST", "pulls/7/reviews")) == 1
+
+    def test_should_post_a_finding_another_author_raised(self, gh: FakeGH) -> None:
+        gh.threads = [thread("greptile-apps")]
+        post(review(finding()), target=TARGET, gh=gh)
+        assert len(gh.written("POST", "pulls/7/reviews")) == 1
+
+
+class TestDismissedFindings:
+    """Tests leaving out the findings that a member dismissed."""
+
+    def test_should_leave_out_a_dismissed_finding(self, gh: FakeGH) -> None:
+        gh.threads = [thread("sedosaur", "@sedosaur dismiss", resolved=True)]
+        post(
+            review(finding(), finding(severity="P2", title="Nit")), target=TARGET, gh=gh
+        )
+        [posted] = gh.written("POST", "pulls/7/reviews")
+        assert [c["body"].count("**Nit**") for c in posted["comments"]] == [1]
+        [done] = gh.written("PATCH", "check-runs/55")
+        assert done["output"]["title"] == "Confidence Score: 4/5"
+        assert render.listed(done["output"]["text"]) == {("a.go", "Nit")}
+
+    def test_should_leave_out_a_finding_dismissed_outside_the_diff(
+        self, gh: FakeGH
+    ) -> None:
+        record = {"comment": 3, "path": "a.go", "title": "Samples return old data"}
+        body = f"<!-- sedosaur_answer {json.dumps(record | {'reason': ''})} -->"
+        gh.comments = [{"id": 4, "login": "sedosaur[bot]", "body": body}]
+        post(review(finding()), target=TARGET, gh=gh)
+        [done] = gh.written("PATCH", "check-runs/55")
+        assert done["output"]["title"] == "Confidence Score: 5/5"
+
+    def test_should_score_5_when_every_finding_is_dismissed(self, gh: FakeGH) -> None:
+        gh.threads = [thread("sedosaur", "@sedosaur dismiss", resolved=True)]
+        post(review(finding()), target=TARGET, gh=gh)
+        assert gh.written("POST", "pulls/7/reviews") == []
+        [done] = gh.written("PATCH", "check-runs/55")
+        assert done["output"]["title"] == "Confidence Score: 5/5"
+        assert done["output"]["summary"] == (
+            "Someone with write access dismissed every finding of the review.\n\n"
+            "Findings: none."
+        )
+
+    def test_should_score_the_head_5_after_a_dismissal_while_posting(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [thread("sedosaur")]
+        gh.later = [thread("sedosaur", "@sedosaur dismiss", resolved=True)]
+        gh.runs = [
+            {
+                "name": "Sedosaur Review",
+                "app": {"slug": "sedosaur"},
+                "external_id": "7:main",
+                "started_at": "2026-11-08T05:00:00Z",
+                "conclusion": "success",
+                "output": render.check(review(finding())),
+            }
+        ]
+        post(review(finding()), target=TARGET, gh=gh)
+        [check] = gh.written("POST", "check-runs")
+        assert check["output"]["title"] == "Confidence Score: 5/5"
+        assert check["external_id"] == "7:main"
+
+    def test_should_keep_the_review_when_the_late_read_fails(
+        self, gh: FakeGH, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        def fail(*args: str, stdin: str | None = None) -> str:
+            if args[1] == f"repos/{REPO}/check-runs/55":
+                raise subprocess.CalledProcessError(1, ["gh", *args])
+            return gh(*args, stdin=stdin)
+
+        post(review(finding()), target=TARGET, gh=fail)
+        [done] = gh.written("PATCH", "check-runs/55")
+        assert done["output"]["title"] == "Confidence Score: 4/5"
+        assert "::warning::Could not read dismissals" in capsys.readouterr().err
+
+    def test_should_keep_a_finding_whose_dismissal_is_quoted(self, gh: FakeGH) -> None:
+        reply = "> reply `@sedosaur dismiss` and a reason\n\nNo, I disagree."
+        gh.threads = [thread("sedosaur", reply)]
+        post(review(finding()), target=TARGET, gh=gh)
+        [done] = gh.written("PATCH", "check-runs/55")
+        assert done["output"]["title"] == "Confidence Score: 4/5"
 
 
 class TestOutsideFindings:
@@ -229,6 +348,13 @@ class TestOutsideFindings:
         [edit] = gh.written("PATCH", "issues/comments/9")
         assert "No findings outside the diff remain." in edit["body"]
         assert gh.written("POST", "issues/7/comments") == []
+
+    def test_should_read_back_the_findings_the_comment_lists(self, gh: FakeGH) -> None:
+        later = finding(path="b/c d.go", title="Later [x]")
+        body = render.outside([finding(line=10), later], blob="https://github.com/b")
+        gh.comments = [{"id": 9, "login": "sedosaur[bot]", "body": body}]
+        found = outside_findings(TARGET, gh)
+        assert found == {("a.go", "Samples return old data"), ("b/c d.go", "Later [x]")}
 
     def test_should_post_no_comment_when_none_is_needed(self, gh: FakeGH) -> None:
         post(review(finding()), target=TARGET, gh=gh)
@@ -310,6 +436,43 @@ class TestSummary:
         assert done["conclusion"] == "success"
         assert done["output"]["title"] == "Confidence Score: 4/5"
         assert done["output"]["summary"].endswith("Findings: 1 P1, 1 P2.")
+        assert render.listed(done["output"]["text"]) == {
+            ("a.go", "Samples return old data"),
+            ("a.go", "Nit"),
+        }
+
+
+class TestListing:
+    """Tests the hidden list of findings in the text of a check run."""
+
+    def test_should_read_back_what_it_wrote(self) -> None:
+        text = "Above.\n" + render.listing([finding(title="A --> B")]) + "\nBelow."
+        assert text.count("-->") == 1
+        assert render.listed(text) == {("a.go", "A --> B")}
+
+    def test_should_read_an_empty_list(self) -> None:
+        assert render.listed(render.listing([])) == set()
+
+    def test_should_read_none_from_a_text_without_a_list(self) -> None:
+        assert render.listed("Findings: 1 P1.") is None
+
+
+def thread(login: str, *replies: str, resolved: bool = False) -> dict[str, Any]:
+    def comment(body: str, kind: str, author: str) -> dict[str, Any]:
+        who = {"__typename": kind, "login": author}
+        return {"databaseId": 9, "author": who, "body": body}
+
+    body = "<picture></picture> **Samples return old data**\n\nOld text."
+    comments = [comment(body, "Bot", login)]
+    comments += [comment(r, "User", "member") for r in replies]
+    return {"id": "T", "path": "a.go", "resolved": resolved, "comments": comments}
+
+
+def posted(f: Finding) -> dict[str, Any]:
+    """An open thread of the bot that holds a finding as the poster wrote it."""
+    th = thread("sedosaur")
+    th["comments"][0]["body"] = render.comment(f, blob="https://github.com/b")
+    return th
 
 
 def summary_edit(commit: str, login: str = "sedosaur") -> dict[str, Any]:

@@ -22,10 +22,10 @@ import (
 type Kind int
 
 const (
-	// KindEquality requires exact type equality after substitution.
-	KindEquality Kind = iota
-	// KindCompatible allows numeric type promotion between compatible types.
-	KindCompatible
+	// kindEquality requires exact type equality after substitution.
+	kindEquality Kind = iota
+	// kindCompatible allows numeric type promotion between compatible types.
+	kindCompatible
 )
 
 // TypeOrigin tracks where a type was inferred for error reporting.
@@ -63,6 +63,12 @@ type System struct {
 	Substitutions map[string]types.Type
 	// TypeVars tracks all type variables encountered during constraint collection.
 	TypeVars map[string]types.Type
+	// Defaults maps a type variable to the type it takes when no constraint binds it,
+	// in place of its constraint's default.
+	Defaults map[string]types.Type
+	// openNumerics holds the numeric type variables that stand for an open series
+	// element.
+	openNumerics set.Set[string]
 	// Constraints holds all type relationships to be solved.
 	Constraints []Constraint
 }
@@ -73,7 +79,24 @@ func New() *System {
 		Constraints:   make([]Constraint, 0),
 		Substitutions: make(map[string]types.Type),
 		TypeVars:      make(map[string]types.Type),
+		Defaults:      make(map[string]types.Type),
+		openNumerics:  set.New[string](),
 	}
+}
+
+// AddDefault records the type tv takes when no constraint binds it.
+func (s *System) AddDefault(tv, t types.Type) {
+	s.recordTypeVars(tv)
+	s.Defaults[tv.Name] = t
+}
+
+// OpenNumeric returns a numeric type variable for the open series element elem. An
+// integer literal unified with it takes its type, so a later float still fits.
+func (s *System) OpenNumeric(elem types.Type) types.Type {
+	numeric := types.NumericConstraint()
+	tv := types.Variable(elem.Name+"_numeric", &numeric)
+	s.openNumerics.Add(tv.Name)
+	return tv
 }
 
 // AddEquality adds an equality constraint requiring left and right to unify to the
@@ -87,7 +110,7 @@ func (s *System) AddEquality(
 ) error {
 	s.recordTypeVars(left, right)
 	constraint := Constraint{
-		Kind:   KindEquality,
+		Kind:   kindEquality,
 		Left:   left,
 		Right:  right,
 		Source: source,
@@ -111,7 +134,7 @@ func (s *System) AddCompatible(
 ) error {
 	s.recordTypeVars(left, right)
 	constraint := Constraint{
-		Kind:   KindCompatible,
+		Kind:   kindCompatible,
 		Left:   left,
 		Right:  right,
 		Source: source,
@@ -122,6 +145,12 @@ func (s *System) AddCompatible(
 	}
 	s.Constraints = append(s.Constraints, constraint)
 	return nil
+}
+
+// AddVariable records the type variables in t, so Unify resolves each one, with its
+// default when no other constraint binds it.
+func (s *System) AddVariable(t types.Type) {
+	s.recordTypeVars(t)
 }
 
 func (s *System) recordTypeVars(toRecord ...types.Type) {

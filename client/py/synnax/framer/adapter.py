@@ -14,8 +14,10 @@ from typing import Any, cast
 from pandas import DataFrame
 
 import synnax.channel.payload as channel
-from synnax.channel.retrieve import Retriever as ChannelRetriever
-from synnax.channel.retrieve import retrieve_required as retrieve_required_channel
+from synnax.channel.retrieve import (
+    Retriever,
+    retrieve_required as retrieve_required_channel,
+)
 from synnax.exceptions import PathError, ValidationError
 from synnax.framer.codec import Codec
 from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K
@@ -30,13 +32,13 @@ class ReadFrameAdapter:
     _names: dict[channel.Key, str]
     _indexes: dict[channel.Key, channel.Key]
     _rank: dict[channel.Key | str, int]
-    retriever: ChannelRetriever
+    retriever: Retriever
     keys: list[channel.Key]
     codec: Codec
 
     def __init__(
         self,
-        retriever: ChannelRetriever,
+        retriever: Retriever,
         *,
         reduction: Reduction | None = None,
         timestamps_included: bool = False,
@@ -136,13 +138,13 @@ class WriteFrameAdapter:
     _strict_data_types: bool
     _suppress_warnings: bool
 
-    retriever: ChannelRetriever
+    retriever: Retriever
     codec: Codec
 
     def __init__(
         self,
         *,
-        retriever: ChannelRetriever,
+        retriever: Retriever,
         err_on_extra_chans: bool = True,
         strict_data_types: bool = False,
         suppress_warnings: bool = True,

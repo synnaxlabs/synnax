@@ -19,7 +19,7 @@ import { type FocusEvent, type KeyboardEvent, type ReactElement } from "react";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
-import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
+import { useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { state } from "@/state";
@@ -60,6 +60,9 @@ export interface UseProps<K extends record.Key = string> {
   sort?: compare.Comparator<Node<K>>;
   onSelectedChange?: xstate.Setter<K[]>;
   initialExpanded?: K[];
+  /** The expanded nodes. Without it, the hook holds them. */
+  expanded?: K[];
+  onExpandedChange?: xstate.Setter<K[]>;
   nodes: Node<K>[];
 }
 
@@ -82,13 +85,24 @@ export const use = <K extends record.Key = string>({
   onExpand,
   nodes,
   initialExpanded = [],
+  expanded: propsExpanded,
+  onExpandedChange,
   selected: propsSelected,
   onSelectedChange,
   sort,
   toggleOn = "row",
 }: UseProps<K>): UseReturn<K> => {
-  const [expanded, setExpanded, expandedRef] =
-    useCombinedStateAndRef<K[]>(initialExpanded);
+  const [expanded, setExpanded] = state.usePassthrough<K[]>({
+    initial: initialExpanded,
+    value: propsExpanded,
+    onChange: onExpandedChange,
+  });
+  const expandedRef = useSyncedRef(expanded);
+  // The ref takes the next keys at once, so each call in one batch builds on the last.
+  const updateExpanded = (next: K[]): void => {
+    expandedRef.current = next;
+    setExpanded(next);
+  };
   const [selected, setSelected] = state.usePassthrough<K[]>({
     initial: [],
     value: propsSelected,
@@ -110,7 +124,7 @@ export const use = <K extends record.Key = string>({
       action === "contract"
         ? currentlyExpanded.filter((k) => k !== key)
         : [...currentlyExpanded, key];
-    setExpanded(nextExpanded);
+    updateExpanded(nextExpanded);
     onExpand?.({ current: nextExpanded, action, clicked: key });
   };
 
@@ -127,17 +141,18 @@ export const use = <K extends record.Key = string>({
   };
 
   const handleExpand = (key: K): void => {
-    setExpanded((expanded) => unique.unique([...expanded, key]));
-    onExpand?.({ current: expandedRef.current, action: "expand", clicked: key });
+    const current = unique.unique([...expandedRef.current, key]);
+    updateExpanded(current);
+    onExpand?.({ current, action: "expand", clicked: key });
   };
 
   const handleContract = (...keys: K[]): void => {
-    setExpanded((expanded) => expanded.filter((k) => !keys.includes(k)));
-    const current = expandedRef.current;
+    const current = expandedRef.current.filter((k) => !keys.includes(k));
+    updateExpanded(current);
     keys.forEach((key) => onExpand?.({ current, action: "contract", clicked: key }));
   };
 
-  const clearExpanded = () => setExpanded([]);
+  const clearExpanded = () => updateExpanded([]);
 
   return {
     selected,

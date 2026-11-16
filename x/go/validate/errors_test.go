@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -20,14 +21,16 @@ var _ = Describe("Errors", func() {
 	Describe("PathedError", func() {
 		It("Should add a path to an error", func() {
 			base := errors.New("cat")
-			pathed := validate.PathedError(base, "field")
-			Expect(pathed).To(MatchError(ContainSubstring("field: cat")))
+			Expect(
+				validate.PathedError(base, "field"),
+			).To(MatchError(ContainSubstring("field: cat")))
 		})
 		It("Should append nested paths correctly", func() {
 			base := errors.New("cat")
 			first := validate.PathedError(base, "first")
-			parent := validate.PathedError(first, "parent")
-			Expect(parent).To(MatchError(ContainSubstring("parent.first: cat")))
+			Expect(
+				validate.PathedError(first, "parent"),
+			).To(MatchError(ContainSubstring("parent.first: cat")))
 		})
 		It("Should prefix every member of a joined error independently", func() {
 			joined := errors.Join(
@@ -38,23 +41,33 @@ var _ = Describe("Errors", func() {
 			Expect(parent).To(MatchError(ContainSubstring("title.level: cat")))
 			Expect(parent).To(MatchError(ContainSubstring("title.notation: dog")))
 		})
+		It("Should match the error at the path", func() {
+			base := errors.Wrap(validate.ErrValidation, "cat")
+			pathed := validate.PathedError(
+				validate.PathedError(base, "first"),
+				"parent",
+			)
+			Expect(pathed).To(MatchError(validate.ErrValidation))
+			Expect(pathed).To(MatchError(base))
+		})
 		It("Should return nil when the error is nil", func() {
 			Expect(validate.PathedError(nil, "field")).To(Succeed())
 		})
 
 		Describe("Encoding + Decoding", func() {
-			It("Should correctly encode and decode", func(ctx SpecContext) {
+			It("Should correctly encode and decode", func() {
 				base := errors.New("cat")
 				pathed := validate.PathedError(base, "field")
-				encoded := errors.Encode(ctx, pathed, false)
-				decoded := errors.Decode(ctx, encoded)
-				Expect(decoded).To(MatchError(ContainSubstring("field: cat")))
+				encoded := errors.Encode(pathed, false)
+				Expect(
+					errors.Decode(encoded),
+				).To(MatchError(ContainSubstring("field: cat")))
 			})
 
-			It("Should have the correct encoded representation", func(ctx SpecContext) {
+			It("Should have the correct encoded representation", func() {
 				base := errors.New("cat")
 				pathed := validate.PathedError(base, "field")
-				encoded := errors.Encode(ctx, pathed, false)
+				encoded := errors.Encode(pathed, false)
 				Expect(encoded.Type).To(Equal("sy.validation.path"))
 				Expect(
 					encoded.Data,
@@ -62,15 +75,29 @@ var _ = Describe("Errors", func() {
 			})
 
 			It(
+				"Should encode a path error around a query error as that error",
+				func() {
+					base := errors.Wrap(query.ErrNotFound, "cat")
+					encoded := errors.Encode(
+						validate.PathedError(base, "field"),
+						false,
+					)
+					Expect(encoded.Type).To(Equal("sy.query.not_found"))
+					Expect(
+						errors.Decode(encoded),
+					).To(MatchError(query.ErrNotFound))
+				},
+			)
+
+			It(
 				"Should correctly encode and decode nested paths",
-				func(ctx SpecContext) {
+				func() {
 					base := errors.New("cat")
 					first := validate.PathedError(base, "first")
 					parent := validate.PathedError(first, "parent")
-					encoded := errors.Encode(ctx, parent, false)
-					decoded := errors.Decode(ctx, encoded)
+					encoded := errors.Encode(parent, false)
 					Expect(
-						decoded,
+						errors.Decode(encoded),
 					).To(MatchError(ContainSubstring("parent.first: cat")))
 				},
 			)

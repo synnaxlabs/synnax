@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
 import { Device } from "@/feature/device";
 import { Rack } from "@/feature/rack";
+import { Sift } from "@/feature/sift";
 import { Task } from "@/feature/task";
 import { Notifications } from "@/platform/notifications";
 import { Version } from "@/platform/version";
@@ -20,13 +22,16 @@ const NOTIFICATIONS: Notifications.Notification[] = [
 ];
 
 const RULES: Notifications.Rules = {
+  arc: Arc.NOTIFICATION_RULE,
   channel: Channel.NOTIFICATION_RULE,
   device: Device.NOTIFICATION_RULE,
   rack: Rack.NOTIFICATION_RULE,
   task: Task.createNotificationRule(Device.INTEGRATIONS),
 };
 
+const KEY_RULES: Notifications.KeyRules = Sift.NOTIFICATION_KEY_RULES;
+
 export const Feed = () => <Notifications.Feed notifications={NOTIFICATIONS} />;
 
 /** Notifies the status writes that the Core streams by the rules of each feature. */
-export const useForward = (): void => Notifications.useForward(RULES);
+export const useForward = (): void => Notifications.useForward(RULES, KEY_RULES);

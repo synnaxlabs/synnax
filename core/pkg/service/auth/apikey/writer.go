@@ -15,7 +15,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -31,7 +31,7 @@ type Writer struct {
 // the only copy of its secret. It returns a validation error when subject is invalid.
 func (w Writer) Create(
 	ctx context.Context,
-	subject ontology.ID,
+	subject resource.ID,
 	name string,
 ) (APIKey, string, error) {
 	k := APIKey{Key: uuid.New(), Subject: subject, Name: name, Created: telem.Now()}
@@ -53,11 +53,5 @@ func (w Writer) Create(
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.svc.table.NewDelete().
 		Where(gorp.MatchKeys[Key, APIKey](keys...)).
-		Exec(ctx, w.tx)
-}
-
-func (w Writer) deleteFor(ctx context.Context, subjects ...ontology.ID) error {
-	return w.svc.table.NewDelete().
-		Where(MatchSubjects(subjects...)(w.svc.NewRetrieve())).
 		Exec(ctx, w.tx)
 }

@@ -29,7 +29,6 @@ namespace synnax::task {
 
 inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
     return StatusDetails{
-        .task = parser.field<Key>("task"),
         .running = parser.field<bool>("running"),
         .cmd = parser.field<std::string>("cmd", ""),
         .config_hash = parser.field<std::string>("config_hash", ""),
@@ -40,7 +39,6 @@ inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
 
 inline x::json::json StatusDetails::to_json() const {
     x::json::json j = x::json::json::object();
-    j["task"] = this->task.to_json();
     j["running"] = this->running;
     j["cmd"] = this->cmd;
     j["config_hash"] = this->config_hash;
@@ -58,7 +56,6 @@ inline Task Task::parse(x::json::Parser parser) {
         .config = parser.field<x::json::json::object_t>("config"),
         .config_hash = parser.field<std::string>("config_hash", ""),
         .internal = parser.field<bool>("internal", false),
-        .snapshot = parser.field<bool>("snapshot", false),
         .status = parser.field<std::optional<Status>>("status"),
     };
 }
@@ -72,7 +69,6 @@ inline x::json::json Task::to_json() const {
     j["config"] = this->config;
     j["config_hash"] = this->config_hash;
     j["internal"] = this->internal;
-    j["snapshot"] = this->snapshot;
     if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;
 }
@@ -89,7 +85,6 @@ inline Where Where::parse(x::json::Parser parser) {
             "rack"
         ),
         .internal = parser.field<std::optional<::x::filter::Bool>>("internal"),
-        .snapshot = parser.field<std::optional<::x::filter::Bool>>("snapshot"),
     };
 }
 
@@ -103,7 +98,6 @@ inline x::json::json Where::to_json() const {
     if (this->type.has_value()) j["type"] = this->type->to_json();
     if (this->rack.has_value()) j["rack"] = this->rack->to_json();
     if (this->internal.has_value()) j["internal"] = this->internal->to_json();
-    if (this->snapshot.has_value()) j["snapshot"] = this->snapshot->to_json();
     return j;
 }
 
@@ -227,12 +221,41 @@ inline x::json::json ScanConfig::to_json() const {
     return j;
 }
 
+inline Cursor Cursor::parse(x::json::Parser parser) {
+    return Cursor{
+        .key = parser.field<Key>("key"),
+        .name = parser.field<std::optional<std::string>>("name"),
+    };
+}
+
+inline x::json::json Cursor::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key.to_json();
+    if (this->name.has_value()) j["name"] = *this->name;
+    return j;
+}
+
+inline Order Order::parse(x::json::Parser parser) {
+    return Order{
+        .field = parser.field<std::string>("field"),
+        .descending = parser.field<bool>("descending", false),
+    };
+}
+
+inline x::json::json Order::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["field"] = this->field;
+    j["descending"] = this->descending;
+    return j;
+}
+
 inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
     return RetrieveRequest{
         .where = parser.field<std::optional<Where>>("where"),
         .search_term = parser.field<std::string>("search_term", ""),
+        .order = parser.field<std::optional<Order>>("order"),
+        .after = parser.field<std::optional<Cursor>>("after"),
         .limit = parser.field<std::optional<std::uint32_t>>("limit"),
-        .offset = parser.field<std::uint32_t>("offset", 0),
         .include_status = parser.field<bool>("include_status", false),
     };
 }
@@ -241,8 +264,9 @@ inline x::json::json RetrieveRequest::to_json() const {
     x::json::json j = x::json::json::object();
     if (this->where.has_value()) j["where"] = this->where->to_json();
     j["search_term"] = this->search_term;
+    if (this->order.has_value()) j["order"] = this->order->to_json();
+    if (this->after.has_value()) j["after"] = this->after->to_json();
     if (this->limit.has_value()) j["limit"] = *this->limit;
-    j["offset"] = this->offset;
     j["include_status"] = this->include_status;
     return j;
 }

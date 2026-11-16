@@ -12,7 +12,6 @@ import { describe, expect, it } from "vitest";
 
 import { group } from "@/group";
 import { AccessDeniedError } from "@/index";
-import { ontology } from "@/ontology";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
@@ -22,11 +21,11 @@ describe("group", () => {
     it("should allow the caller to create groups with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [group.ontologyID("")],
+        objects: [group.resourceID("")],
         actions: ["create"],
       });
       await userClient.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: `test-${id.create()}`,
       });
     });
@@ -34,12 +33,12 @@ describe("group", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [group.ontologyID("")],
+        objects: [group.resourceID("")],
         actions: [],
       });
       await expect(
         userClient.groups.create({
-          parent: ontology.ROOT_ID,
+          scope: "channel",
           name: `test-${id.create()}`,
         }),
       ).rejects.toSatisfy(AccessDeniedError.matches);
@@ -48,11 +47,11 @@ describe("group", () => {
     it("should allow the caller to delete groups with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [group.ontologyID("")],
+        objects: [group.resourceID("")],
         actions: ["delete", "retrieve"],
       });
       const randomGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: `test-${id.create()}`,
       });
       await userClient.groups.delete(randomGroup.key);
@@ -61,11 +60,11 @@ describe("group", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [group.ontologyID("")],
+        objects: [group.resourceID("")],
         actions: [],
       });
       const randomGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: `test-${id.create()}`,
       });
       await expect(userClient.groups.delete(randomGroup.key)).rejects.toSatisfy(
@@ -75,19 +74,19 @@ describe("group", () => {
 
     it("should retrieve a page of children past a child the caller cannot read", async () => {
       const parent = await client.groups.create({
-        parent: ontology.ROOT_ID,
+        scope: "channel",
         name: `test-${id.create()}`,
       });
-      const parentID = group.ontologyID(parent.key);
+      const parentID = group.resourceID(parent.key);
       await client.groups.create({ parent: parentID, name: "a" });
       await client.groups.create({ parent: parentID, name: "b" });
-      const [first] = await client.groups.retrieve({ parent: parentID, limit: 1 });
+      const [first] = await client.groups.retrieve({ parents: [parentID], limit: 1 });
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [group.ontologyID(first.key)],
+        objects: [group.resourceID(first.key)],
         actions: ["retrieve"],
       });
-      const page = await userClient.groups.retrieve({ parent: parentID, limit: 1 });
+      const page = await userClient.groups.retrieve({ parents: [parentID], limit: 1 });
       expect(page).toEqual([first]);
     });
   });

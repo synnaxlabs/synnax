@@ -99,7 +99,6 @@ export const themeZ = z
       error: scaleZ,
       secondary: scaleZ,
       warning: scaleZ,
-      palettes: z.record(z.string(), color.paletteZ),
       visualization: z
         .object({ palettes: z.record(z.string(), z.array(color.colorZ)) })
         .default({ palettes: {} }),
@@ -107,8 +106,8 @@ export const themeZ = z
       black: color.colorZ,
       text: color.colorZ,
       textInverted: color.colorZ,
-      textOnPrimary: color.colorZ.default(color.ZERO),
-      textOnWarning: color.colorZ.default(color.ZERO),
+      textOnPrimary: color.colorZ.optional(),
+      textOnWarning: color.colorZ.optional(),
       primaryText: color.colorZ,
       errorText: color.colorZ,
       warningText: color.colorZ,
@@ -149,19 +148,17 @@ export const themeZ = z
     symbol: symbolZ,
   })
   .transform((theme) => {
-    if (theme.colors.textOnPrimary == null || color.isZero(theme.colors.textOnPrimary))
-      theme.colors.textOnPrimary = color.pickByContrast(
-        theme.colors.primary.z,
-        theme.colors.text,
-        theme.colors.textInverted,
-      );
-    if (theme.colors.textOnWarning == null || color.isZero(theme.colors.textOnWarning))
-      theme.colors.textOnWarning = color.pickByContrast(
-        theme.colors.warning.z,
-        theme.colors.text,
-        theme.colors.textInverted,
-      );
-    return theme;
+    const { colors } = theme;
+    const onScale = (scale: color.Color): color.Color =>
+      color.pickByContrast(scale, colors.text, colors.textInverted);
+    return {
+      ...theme,
+      colors: {
+        ...colors,
+        textOnPrimary: colors.textOnPrimary ?? onScale(colors.primary.z),
+        textOnWarning: colors.textOnWarning ?? onScale(colors.warning.z),
+      },
+    };
   });
 
 export type ThemeSpec = z.input<typeof themeZ>;
@@ -171,12 +168,44 @@ const fontFamily = '"Inter Variable", sans-serif';
 const codeFontFamily = '"Geist Mono", monospace';
 const baseSize: number = 6;
 
+const PRIMARY = {
+  m2: "#041B3D",
+  m1: "#356fc5",
+  z: "#3774D0",
+  p1: "#5E94EE",
+  p2: "#8AB8FF",
+} as const;
+
 const ERROR_HSLA: color.HSLA = [357, 91, 55, 1];
+
+const ERROR = {
+  m2: color.fromHSLA(setLightness(ERROR_HSLA, 30)),
+  m1: color.fromHSLA(setLightness(ERROR_HSLA, 40)),
+  z: color.fromHSLA(ERROR_HSLA),
+  p1: color.fromHSLA(setLightness(ERROR_HSLA, 65)),
+  p2: color.fromHSLA(setLightness(ERROR_HSLA, 77)),
+};
 
 // Pure yellow only reads on dark surfaces; on light ones it washes out, and
 // darkening it alone goes olive. The light ramp rotates toward amber instead.
 const DARK_WARNING_HSLA: color.HSLA = [48, 90, 55, 1];
 const LIGHT_WARNING_HSLA: color.HSLA = [38, 92, 46, 1];
+
+const LIGHT_WARNING = {
+  m2: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 28)),
+  m1: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 36)),
+  z: color.fromHSLA(LIGHT_WARNING_HSLA),
+  p1: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 54)),
+  p2: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 64)),
+};
+
+const DARK_WARNING = {
+  m2: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 30)),
+  m1: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 40)),
+  z: color.fromHSLA(DARK_WARNING_HSLA),
+  p1: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 65)),
+  p2: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 75)),
+};
 
 // Both ramps are generated in OKLCH (hue 258, whisper chroma) with even
 // perceptual steps inside each band. Bands never overlap: a component fill is
@@ -204,13 +233,7 @@ const SYNNAX_BASE: ThemeSpec = {
   key: "synnaxBase",
   name: "Synnax Base",
   colors: {
-    primary: {
-      m2: "#041B3D",
-      m1: "#356fc5",
-      z: "#3774D0",
-      p1: "#5E94EE",
-      p2: "#8AB8FF",
-    },
+    primary: PRIMARY,
     secondary: {
       m2: "#2D8F4E",
       m1: "#38B261",
@@ -220,21 +243,8 @@ const SYNNAX_BASE: ThemeSpec = {
     },
     gray: lightGrayScale,
     border: lightGrayScale.l6,
-    error: {
-      m2: color.fromHSLA(setLightness(ERROR_HSLA, 30)),
-      m1: color.fromHSLA(setLightness(ERROR_HSLA, 40)),
-      z: color.fromHSLA(ERROR_HSLA),
-      p1: color.fromHSLA(setLightness(ERROR_HSLA, 65)),
-      p2: color.fromHSLA(setLightness(ERROR_HSLA, 77)),
-    },
-    warning: {
-      m2: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 28)),
-      m1: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 36)),
-      z: color.fromHSLA(LIGHT_WARNING_HSLA),
-      p1: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 54)),
-      p2: color.fromHSLA(setLightness(LIGHT_WARNING_HSLA, 64)),
-    },
-    palettes: { recent: { key: "recent", name: "Recent", swatches: [] } },
+    error: ERROR,
+    warning: LIGHT_WARNING,
     visualization: {
       palettes: {
         default: [
@@ -261,9 +271,10 @@ const SYNNAX_BASE: ThemeSpec = {
     text: lightGrayScale.l10,
     textInverted: lightGrayScale.l0,
     textOnPrimary: lightGrayScale.l0,
-    primaryText: "#3b82f6",
-    errorText: "#ef4444",
-    warningText: "#f59e0b",
+    // Text on a 15% tint of its own color takes a palette step that reads on the tint.
+    primaryText: PRIMARY.m1,
+    errorText: ERROR.m1,
+    warningText: LIGHT_WARNING.m2,
     auto: "#635BFF",
     autoText: "#5048E5",
   },
@@ -340,21 +351,15 @@ export const SYNNAX_DARK: ThemeSpec = Object.freeze({
   colors: {
     ...SYNNAX_BASE.colors,
     gray: DARK_GRAY_SCALE,
-    warning: {
-      m2: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 30)),
-      m1: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 40)),
-      z: color.fromHSLA(DARK_WARNING_HSLA),
-      p1: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 65)),
-      p2: color.fromHSLA(setLightness(DARK_WARNING_HSLA, 75)),
-    },
+    warning: DARK_WARNING,
     logo: "var(--pluto-text-color)",
     border: DARK_GRAY_SCALE.l6,
     text: DARK_GRAY_SCALE.l10,
     textInverted: DARK_GRAY_SCALE.l0,
     textOnPrimary: DARK_GRAY_SCALE.l11,
-    primaryText: "#93c5fd",
-    errorText: "#fca5a5",
-    warningText: "#fcd34d",
+    primaryText: PRIMARY.p1,
+    errorText: ERROR.p1,
+    warningText: DARK_WARNING.z,
     autoText: "#8F89FF",
   },
   // A shadow needs more weight to read against a dark surface.

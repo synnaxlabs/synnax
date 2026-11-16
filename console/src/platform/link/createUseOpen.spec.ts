@@ -23,7 +23,8 @@ describe("Link.createUseOpenResourceTab", () => {
     const project = await client.projects.create({
       name: uniqueName("project"),
     });
-    const created = await client.tables.create(project.key, {
+    const created = await client.tables.create({
+      project: project.key,
       name: uniqueName("table"),
     });
     const { handler, store } = await renderLinkHook(useOpenTable, { client });

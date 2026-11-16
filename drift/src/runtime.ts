@@ -29,7 +29,8 @@ export interface Sender<S extends StoreState, A extends Action = UnknownAction> 
   /**
    * Emits an event to all windows in the application.
    * @param event - The event to emit.
-   * @param to - If set, the event will only be emitted to the window with the given key.
+   * @param to - If set, the event will only be emitted to the window with the given
+   * key.
    */
   emit: (event: Omit<Event<S, A>, "emitter">, to?: string) => Promise<void>;
 }

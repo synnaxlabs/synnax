@@ -1,0 +1,26 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/secret/v0"
+import "schemas/synnax/versions/task/v2"
+
+Alert = v1.Alert
+
+TaskConfig struct extends v1.TaskConfig {
+    routing_key       secret.Key? {
+        @doc value "is the secret that holds the PagerDuty Events API v2 routing key."
+    }
+    plain_routing_key string?     {
+        @doc value  """
+            is the routing key in plain text, which only configs from before secrets
+            carry. A write moves it into a new secret and clears it.
+        """
+        @go marshal omit
+    }
+}

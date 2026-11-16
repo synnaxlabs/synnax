@@ -10,10 +10,13 @@
 package update
 
 import (
+	"path/filepath"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
+	"github.com/synnaxlabs/synnax/cmd/service"
 	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 )
@@ -23,9 +26,28 @@ func addFlags(cmd *cobra.Command) {
 	start.AddDataFlag(cmd)
 }
 
-func buildBackupsConfig(ins alamos.Instrumentation) storage.BackupsConfig {
-	return storage.BackupsConfig{
-		Instrumentation: ins,
-		Dirname:         viper.GetString(start.FlagData),
+// openBackups opens the backups of the data directory that the flags name, or of the
+// Core service's data directory when they name none. It also returns the directory.
+func openBackups(ins alamos.Instrumentation) (*storage.Backups, string, error) {
+	dir, err := dataDir()
+	if err != nil {
+		return nil, "", err
 	}
+	backups, err := storage.NewBackups(
+		storage.BackupsConfig{Instrumentation: ins, Dirname: dir},
+	)
+	return backups, dir, err
+}
+
+func dataDir() (string, error) {
+	if !viper.IsSet(start.FlagData) {
+		inst, installed, err := service.Lookup()
+		if err != nil {
+			return "", err
+		}
+		if installed {
+			return filepath.Clean(inst.Data), nil
+		}
+	}
+	return filepath.Abs(viper.GetString(start.FlagData))
 }

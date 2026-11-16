@@ -7,14 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
-import { userEvent } from "vitest/browser";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { assert, describe, expect, it } from "vitest";
+import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { computed, height, renderThemed, resolve } from "@/styletest";
+import { Triggers } from "@/triggers";
 
 const renderInput = async (
   props: Partial<Input.TextProps> = {},
@@ -141,5 +143,68 @@ describe("Input", () => {
     expect(Number(computed(box, "z-index"))).toBeGreaterThan(
       Number(computed(button, "z-index")),
     );
+  });
+
+  describe("time editor", () => {
+    it("should close on Enter and give the focus to the trigger", async () => {
+      await renderThemed(
+        <Triggers.Provider>
+          <Input.DateTime
+            value={TimeStamp.now().nanoseconds}
+            onChange={() => {}}
+            aria-label="Start"
+          />
+        </Triggers.Provider>,
+      );
+      const trigger = page.getByRole("button", { name: "Start" }).element();
+      assert(trigger instanceof HTMLElement);
+      trigger.focus();
+      await userEvent.keyboard("{Enter}");
+      await expect.element(page.getByRole("textbox")).toHaveFocus();
+      await expect.element(page.getByRole("menuitem").first()).toBeVisible();
+      await userEvent.keyboard("{Enter}");
+      await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it("should stay closed after a click on a reading of an inline editor", async () => {
+      await renderThemed(
+        <Triggers.Provider>
+          <Input.TimeSpan
+            inline
+            value={TimeSpan.HOUR.nanoseconds}
+            onChange={() => {}}
+            aria-label="Period"
+          />
+        </Triggers.Provider>,
+      );
+      await userEvent.click(page.getByRole("textbox", { name: "Period" }));
+      const reading = page.getByRole("menuitem").first();
+      await expect.element(reading).toBeVisible();
+      await userEvent.click(reading);
+      await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+      expect(page.getByRole("textbox", { name: "Period" }).element()).not.toBe(
+        document.activeElement,
+      );
+    });
+
+    it("should keep the edit when the field takes the focus back", async () => {
+      await renderThemed(
+        <Triggers.Provider>
+          <Input.TimeSpan
+            inline
+            value={TimeSpan.HOUR.nanoseconds}
+            onChange={() => {}}
+            aria-label="Period"
+          />
+        </Triggers.Provider>,
+      );
+      const field = page.getByRole("textbox", { name: "Period" });
+      await userEvent.click(field);
+      await userEvent.fill(field, "90s");
+      await userEvent.click(page.getByRole("dialog"), { position: { x: 1, y: 1 } });
+      await userEvent.click(field);
+      await expect.element(field).toHaveValue("90s");
+    });
   });
 });

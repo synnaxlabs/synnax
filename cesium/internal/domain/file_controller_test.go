@@ -11,6 +11,9 @@ package domain_test
 
 import (
 	"context"
+	"encoding/binary"
+	"math"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -82,6 +85,14 @@ func (f *handleFaultFile) Close() error {
 	return err
 }
 
+// createCounter stores value as the file counter of the domain DB in fs.
+func createCounter(fs xfs.FS, value int32) {
+	GinkgoHelper()
+	f := MustSucceed(fs.Open("counter.domain", os.O_CREATE|os.O_RDWR))
+	Expect(f.Write(binary.LittleEndian.AppendUint32(nil, uint32(value)))).To(Equal(4))
+	Expect(f.Close()).To(Succeed())
+}
+
 var _ = Describe("File Controller", Ordered, func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
@@ -92,15 +103,12 @@ var _ = Describe("File Controller", Ordered, func() {
 			BeforeEach(func() {
 				fs = openFS()
 			})
-			AfterEach(func() {
-				Expect(db.Close()).To(Succeed())
-			})
 			Describe("Writers", func() {
 				It(
 					"Should allow one writing to a file at all times",
 					func(ctx SpecContext) {
 						By("Initializing a file controller")
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        1 * telem.Megabyte,
 							Instrumentation: PanicLogger(),
@@ -140,7 +148,7 @@ var _ = Describe("File Controller", Ordered, func() {
 
 				It("Should obey the file size limit", func(ctx SpecContext) {
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        10 * telem.Byte,
 						Instrumentation: PanicLogger(),
@@ -168,7 +176,7 @@ var _ = Describe("File Controller", Ordered, func() {
 
 				It("Should persist obey the file size limit", func(ctx SpecContext) {
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS: fs, FileSize: 10 * telem.Byte,
 						Instrumentation: PanicLogger(),
 					}))
@@ -186,7 +194,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 
 					By("Reopening the db and fc")
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						FileSize:        10 * telem.Byte,
 						Instrumentation: PanicLogger(),
@@ -208,7 +216,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					"Should open a file if it is below threshold",
 					func(ctx SpecContext) {
 						By("Initializing a file controller")
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
@@ -240,7 +248,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					"Should persist and open a file if it is below threshold",
 					func(ctx SpecContext) {
 						By("Initializing a file controller")
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
@@ -259,7 +267,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						Expect(db.Close()).To(Succeed())
 
 						By("Reopening the db and fc")
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
@@ -285,7 +293,7 @@ var _ = Describe("File Controller", Ordered, func() {
 							limit = 4
 							opens = 64
 						)
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							MaxDescriptors:  limit,
 							Instrumentation: PanicLogger(),
@@ -320,7 +328,7 @@ var _ = Describe("File Controller", Ordered, func() {
 
 				It("Should obey the file descriptor limit", func(ctx SpecContext) {
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						MaxDescriptors:  2,
 						Instrumentation: PanicLogger(),
@@ -369,7 +377,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					"Should persist the counter file across open/close",
 					func(ctx SpecContext) {
 						By("Initializing a file controller")
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
@@ -383,14 +391,14 @@ var _ = Describe("File Controller", Ordered, func() {
 						Expect(
 							MustSucceed(fs.Stat("1.domain")).Size(),
 						).To(Equal(int64(10)))
-						Expect(w1.Commit(ctx, 10*telem.SecondTS+1)).To(Succeed())
+						Expect(w1.Commit(ctx, 10*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(w1.Close()).To(Succeed())
 
 						By("Closing the db")
 						Expect(db.Close()).To(Succeed())
 
 						By("Reopening the db on the same FS")
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
@@ -411,7 +419,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						}))
 
 						MustSucceed(w2.Write([]byte{15, 16, 17}))
-						Expect(w2.Commit(ctx, 17*telem.SecondTS+1)).To(Succeed())
+						Expect(w2.Commit(ctx, 17*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(w2.Close()).To(Succeed())
 
 						Expect(w3.Close()).To(Succeed())
@@ -432,7 +440,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					"Should open writers on partially full files after reopening the file controller",
 					func(ctx SpecContext) {
 						By("Initializing a file controller")
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
@@ -446,7 +454,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						Expect(
 							MustSucceed(fs.Stat("1.domain")).Size(),
 						).To(Equal(int64(10)))
-						Expect(w1.Commit(ctx, 10*telem.SecondTS+1)).To(Succeed())
+						Expect(w1.Commit(ctx, 10*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(w1.Close()).To(Succeed())
 
 						By("Acquiring a new writer: this should give us 2.domain")
@@ -454,14 +462,14 @@ var _ = Describe("File Controller", Ordered, func() {
 							Start: 11 * telem.SecondTS,
 						}))
 						MustSucceed(w2.Write([]byte{11, 12, 13}))
-						Expect(w2.Commit(ctx, 13*telem.SecondTS+1)).To(Succeed())
+						Expect(w2.Commit(ctx, 13*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(w2.Close()).To(Succeed())
 
 						By("Closing the db")
 						Expect(db.Close()).To(Succeed())
 
 						By("Reopening the db on the same FS")
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
@@ -473,7 +481,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						}))
 
 						MustSucceed(w3.Write([]byte{15, 16, 17}))
-						Expect(w3.Commit(ctx, 17*telem.SecondTS+1)).To(Succeed())
+						Expect(w3.Commit(ctx, 17*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(w3.Close()).To(Succeed())
 
 						By("Acquiring a new writer: this should still go to file 2")
@@ -482,7 +490,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						}))
 
 						MustSucceed(w4.Write([]byte{20, 21, 22, 23}))
-						Expect(w4.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
+						Expect(w4.Commit(ctx, 23*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(w4.Close()).To(Succeed())
 
 						Expect(
@@ -501,7 +509,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						}))
 
 						MustSucceed(w5.Write([]byte{30, 31, 32, 33}))
-						Expect(w5.Commit(ctx, 33*telem.SecondTS+1)).To(Succeed())
+						Expect(w5.Commit(ctx, 33*telem.SecondTS+1, nil)).To(Succeed())
 
 						By("Acquiring a new writer: this should go to file 4")
 						w6 := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
@@ -509,7 +517,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						}))
 
 						MustSucceed(w6.Write([]byte{40, 41, 42, 43, 44, 45}))
-						Expect(w6.Commit(ctx, 45*telem.SecondTS+1)).To(Succeed())
+						Expect(w6.Commit(ctx, 45*telem.SecondTS+1, nil)).To(Succeed())
 
 						Expect(w5.Close()).To(Succeed())
 						Expect(w6.Close()).To(Succeed())
@@ -585,7 +593,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					"Should work with file auto cutoff generated files",
 					func(ctx SpecContext) {
 						By("Initializing a file controller")
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
@@ -596,7 +604,7 @@ var _ = Describe("File Controller", Ordered, func() {
 							Start: 1 * telem.SecondTS,
 						}))
 						MustSucceed(w1.Write([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))
-						Expect(w1.Commit(ctx, 10*telem.SecondTS+1)).To(Succeed())
+						Expect(w1.Commit(ctx, 10*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(
 							MustSucceed(fs.Stat("1.domain")).Size(),
 						).To(Equal(int64(10)))
@@ -607,7 +615,7 @@ var _ = Describe("File Controller", Ordered, func() {
 
 						By("Reopening the db")
 						Expect(db.Close()).To(Succeed())
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              fs,
 							FileSize:        10 * telem.Byte,
 							Instrumentation: PanicLogger(),
@@ -619,7 +627,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						}))
 
 						MustSucceed(w2.Write([]byte{11, 12, 13, 14}))
-						Expect(w2.Commit(ctx, 14*telem.SecondTS+1)).To(Succeed())
+						Expect(w2.Commit(ctx, 14*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(
 							MustSucceed(fs.Stat("1.domain")).Size(),
 						).To(Equal(int64(10)))
@@ -628,7 +636,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						).To(Equal(int64(4)))
 
 						MustSucceed(w2.Write([]byte{15, 16, 17, 18, 19, 20, 21}))
-						Expect(w2.Commit(ctx, 21*telem.SecondTS+1)).To(Succeed())
+						Expect(w2.Commit(ctx, 21*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(
 							MustSucceed(fs.Stat("1.domain")).Size(),
 						).To(Equal(int64(10)))
@@ -640,7 +648,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						).To(Equal(int64(0)))
 
 						MustSucceed(w2.Write([]byte{22, 23, 24, 25}))
-						Expect(w2.Commit(ctx, 25*telem.SecondTS+1)).To(Succeed())
+						Expect(w2.Commit(ctx, 25*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(
 							MustSucceed(fs.Stat("1.domain")).Size(),
 						).To(Equal(int64(10)))
@@ -659,7 +667,7 @@ var _ = Describe("File Controller", Ordered, func() {
 				const watchdog = 5 * time.Second
 				openDB := func(fs xfs.FS, limit int) {
 					GinkgoHelper()
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						MaxDescriptors:  limit,
 						Instrumentation: PanicLogger(),
@@ -678,7 +686,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					w := openAt(ctx, second)
 					MustSucceed(w.Write([]byte{1, 2, 3}))
 					end := (telem.TimeStamp(second) * telem.SecondTS) + 1
-					Expect(w.Commit(ctx, end)).To(Succeed())
+					Expect(w.Commit(ctx, end, nil)).To(Succeed())
 					return w
 				}
 				// readAsync closes the returned channel once a read on the first domain
@@ -912,7 +920,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					"Should open a new file handle for each simultaneously held reader",
 					func(ctx SpecContext) {
 						rec := NewRecorder(fs)
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              rec,
 							FileSize:        1 * telem.Megabyte,
 							Instrumentation: PanicLogger(),
@@ -923,7 +931,7 @@ var _ = Describe("File Controller", Ordered, func() {
 							End:   20 * telem.SecondTS,
 						}))
 						MustSucceed(w1.Write([]byte{1, 2, 3, 4, 5}))
-						Expect(w1.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
+						Expect(w1.Commit(ctx, 15*telem.SecondTS, nil)).To(Succeed())
 						Expect(w1.Close()).To(Succeed())
 						rec.Reset()
 
@@ -954,7 +962,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					"Should reuse reader file handles across sequential acquires of the same file",
 					func(ctx SpecContext) {
 						rec := NewRecorder(fs)
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              rec,
 							FileSize:        1 * telem.Megabyte,
 							Instrumentation: PanicLogger(),
@@ -965,7 +973,7 @@ var _ = Describe("File Controller", Ordered, func() {
 							End:   20 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5}))
-						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
+						Expect(w.Commit(ctx, 15*telem.SecondTS, nil)).To(Succeed())
 						Expect(w.Close()).To(Succeed())
 
 						// Reset after writes to scope the assertion to reader I/O.
@@ -998,4 +1006,17 @@ var _ = Describe("File Controller", Ordered, func() {
 			})
 		})
 	}
+	Describe("File key limit", func() {
+		It("Should not create a file past the maximum file key", func(ctx SpecContext) {
+			fs := xfs.NewMem()
+			createCounter(fs, math.MaxUint16)
+			db := MustOpen(domain.Open(domain.Config{
+				FS:              fs,
+				Instrumentation: PanicLogger(),
+			}))
+			Expect(db.OpenWriter(ctx, domain.WriterConfig{
+				Start: 10 * telem.SecondTS,
+			})).Error().To(MatchError(domain.ErrFileLimit))
+		})
+	})
 })

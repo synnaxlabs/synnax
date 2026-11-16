@@ -352,7 +352,7 @@ x::errors::Error Pool::Connection::check(const UA_StatusCode result) const {
     if (err.matches(errors::UNREACHABLE))
         UA_Client_disconnectSecureChannel(this->get());
     else
-        this->pool_->replied(this->key_);
+        this->pool->replied(this->key);
     return err;
 }
 
@@ -360,18 +360,18 @@ std::pair<bool, x::errors::Error>
 Pool::Connection::update_namespaces(const UA_DataValue &value) {
     auto [namespaces, err] = parse_namespaces(value);
     if (err) return {false, err};
-    if (namespaces == this->server_->namespaces) return {false, x::errors::NIL};
-    auto server = std::make_shared<Server>(*this->server_);
+    if (namespaces == this->server_info->namespaces) return {false, x::errors::NIL};
+    auto server = std::make_shared<Server>(*this->server_info);
     server->namespaces = std::move(namespaces);
-    this->server_ = std::move(server);
-    std::lock_guard lock(this->pool_->mutex_);
-    this->pool_->entry(this->key_, this->client_).server = this->server_;
+    this->server_info = std::move(server);
+    std::lock_guard lock(this->pool->mu);
+    this->pool->entry(this->key, this->client).server = this->server_info;
     return {true, x::errors::NIL};
 }
 
 std::pair<types::ReadResponse, x::errors::Error>
 Pool::Connection::read(const UA_ReadRequest &req) const {
-    const size_t limit = this->server_->max_nodes_per_read;
+    const size_t limit = this->server_info->max_nodes_per_read;
     const size_t total = req.nodesToReadSize;
     if (limit == 0 || total <= limit) {
         if (const auto err = lost(this->get())) return {types::ReadResponse(), err};
@@ -403,7 +403,7 @@ Pool::Connection::read(const UA_ReadRequest &req) const {
 
 std::pair<types::WriteResponse, x::errors::Error>
 Pool::Connection::write(const UA_WriteRequest &req) const {
-    const size_t limit = this->server_->max_nodes_per_write;
+    const size_t limit = this->server_info->max_nodes_per_write;
     const size_t total = req.nodesToWriteSize;
     if (limit == 0 || total <= limit) {
         if (const auto err = lost(this->get())) return {types::WriteResponse(), err};
@@ -438,7 +438,7 @@ std::pair<std::vector<types::BrowseResult>, x::errors::Error> Pool::Connection::
     const std::chrono::steady_clock::time_point deadline
 ) const {
     std::vector<types::BrowseResult> results(nodes.size());
-    const size_t limit = this->server_->max_nodes_per_browse;
+    const size_t limit = this->server_info->max_nodes_per_browse;
     const size_t step = limit == 0 ? std::max<size_t>(nodes.size(), 1) : limit;
     size_t room = MAX_CHILDREN;
     for (size_t offset = 0; offset < nodes.size(); offset += step) {
@@ -484,7 +484,7 @@ x::errors::Error Pool::Connection::browse(
     types::BrowseResponse res(UA_Client_Service_browse(this->get(), req));
     auto &raw = *res.ptr();
     if (auto err = this->check(raw.responseHeader.serviceResult)) return err;
-    const auto &namespaces = this->server_->namespaces;
+    const auto &namespaces = this->server_info->namespaces;
     std::vector<size_t> indexes(count);
     for (size_t i = 0; i < count; ++i)
         indexes[i] = i;
@@ -554,7 +554,7 @@ Pool::Pool(std::shared_ptr<certificate::Store> store, const Timing timing):
 
 Pool::~Pool() {
     {
-        std::lock_guard lock(this->mutex_);
+        std::lock_guard lock(this->mu);
         this->closing = true;
     }
     this->idle_cv.notify_all();
@@ -603,7 +603,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     std::shared_ptr<UA_Client> client;
     std::vector<std::shared_ptr<UA_Client>> retired;
     {
-        std::lock_guard lock(this->mutex_);
+        std::lock_guard lock(this->mu);
         retired = this->retire(settings, key);
         client = this->take(key, cfg);
     }
@@ -619,7 +619,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         if (const auto err = probe(client.get()); !err) {
             std::shared_ptr<const Server> server;
             {
-                std::lock_guard lock(this->mutex_);
+                std::lock_guard lock(this->mu);
                 this->breakers[key].succeeded();
                 server = this->entry(key, client).server;
             }
@@ -629,7 +629,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         VLOG(1) << log_prefix << "Idle connection stopped answering";
     }
 
-    std::unique_lock lock(this->mutex_);
+    std::unique_lock lock(this->mu);
     // References to map values stay valid as the map grows.
     auto &breaker = this->breakers[key];
     if (breaker.trusted != cfg.server_certificate) {
@@ -698,7 +698,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     if (created) {
         // Another caller can replace the certificate while this one connects.
         const bool replaced = this->current_keys[settings] != key;
-        this->connections_[key].push_back({
+        this->connections[key].push_back({
             .client = client,
             .server = server,
             .in_use = true,
@@ -721,7 +721,7 @@ std::pair<Pool::Connection, x::errors::Error> Pool::refresh(
 ) {
     auto [sec, sec_err] = resolve_security(cfg, *this->store);
     if (sec_err) return {Connection(nullptr, nullptr, ""), sec_err};
-    if (pool_key(settings_key(cfg), sec) == conn.key_)
+    if (pool_key(settings_key(cfg), sec) == conn.key)
         return {Connection(nullptr, nullptr, ""), x::errors::NIL};
     auto replacement = cfg;
     if (const auto trusted = trusted_certificate(conn.get()))
@@ -731,12 +731,12 @@ std::pair<Pool::Connection, x::errors::Error> Pool::refresh(
 }
 
 void Pool::evict() {
-    std::unique_lock lock(this->mutex_);
+    std::unique_lock lock(this->mu);
     while (!this->closing) {
         const auto now = std::chrono::steady_clock::now();
         std::optional<std::chrono::steady_clock::time_point> next;
         std::vector<Entry> closed;
-        for (auto it = this->connections_.begin(); it != this->connections_.end();) {
+        for (auto it = this->connections.begin(); it != this->connections.end();) {
             std::vector<Entry> kept;
             for (auto &entry: it->second) {
                 const auto expiry = entry.idle_since + this->timing.idle_timeout;
@@ -750,7 +750,7 @@ void Pool::evict() {
             }
             it->second = std::move(kept);
             if (it->second.empty())
-                it = this->connections_.erase(it);
+                it = this->connections.erase(it);
             else
                 ++it;
         }
@@ -772,7 +772,7 @@ x::telem::TimeStamp Pool::last_reply(const Config &cfg) const {
     auto [sec, sec_err] = resolve_security(cfg, *this->store);
     if (sec_err) return {};
     const auto key = pool_key(settings_key(cfg), sec);
-    std::lock_guard lock(this->mutex_);
+    std::lock_guard lock(this->mu);
     const auto it = this->replies.find(key);
     if (it == this->replies.end()) return {};
     return it->second;
@@ -780,13 +780,13 @@ x::telem::TimeStamp Pool::last_reply(const Config &cfg) const {
 
 void Pool::replied(const std::string &key) {
     const auto now = x::telem::TimeStamp::now();
-    std::lock_guard lock(this->mutex_);
+    std::lock_guard lock(this->mu);
     this->replies[key] = now;
 }
 
 std::shared_ptr<UA_Client> Pool::take(const std::string &key, const Config &cfg) {
-    const auto it = this->connections_.find(key);
-    if (it == this->connections_.end()) return nullptr;
+    const auto it = this->connections.find(key);
+    if (it == this->connections.end()) return nullptr;
     Entry *dropped = nullptr;
     for (auto &entry: it->second) {
         if (entry.in_use || entry.retired || !trusts(entry.client.get(), cfg)) continue;
@@ -802,8 +802,8 @@ std::shared_ptr<UA_Client> Pool::take(const std::string &key, const Config &cfg)
 }
 
 void Pool::put_back(const std::string &key, const std::shared_ptr<UA_Client> &client) {
-    const auto it = this->connections_.find(key);
-    if (it == this->connections_.end()) return;
+    const auto it = this->connections.find(key);
+    if (it == this->connections.end()) return;
     for (auto &entry: it->second)
         if (entry.client == client) {
             entry.in_use = false;
@@ -815,21 +815,21 @@ void Pool::put_back(const std::string &key, const std::shared_ptr<UA_Client> &cl
 
 Pool::Entry &
 Pool::entry(const std::string &key, const std::shared_ptr<UA_Client> &client) {
-    for (auto &e: this->connections_.at(key))
+    for (auto &e: this->connections.at(key))
         if (e.client == client) return e;
     throw std::logic_error("no pool entry for an acquired connection");
 }
 
 void Pool::release(const std::string &key, const std::shared_ptr<UA_Client> &client) {
-    std::lock_guard lock(this->mutex_);
-    const auto it = this->connections_.find(key);
-    if (it == this->connections_.end()) return;
+    std::lock_guard lock(this->mu);
+    const auto it = this->connections.find(key);
+    if (it == this->connections.end()) return;
     // The caller still holds the client, so a removed one closes outside the lock.
     std::erase_if(it->second, [&client](const Entry &e) {
         return e.client == client && e.retired;
     });
     this->put_back(key, client);
-    if (it->second.empty()) this->connections_.erase(it);
+    if (it->second.empty()) this->connections.erase(it);
 }
 
 std::vector<std::shared_ptr<UA_Client>>
@@ -838,30 +838,30 @@ Pool::retire(const std::string &settings, const std::string &key) {
     if (current == key) return {};
     const auto replaced = std::exchange(current, key);
     std::vector<std::shared_ptr<UA_Client>> retired;
-    const auto it = connections_.find(replaced);
-    if (it == connections_.end()) return retired;
+    const auto it = this->connections.find(replaced);
+    if (it == this->connections.end()) return retired;
     for (auto &entry: it->second)
         if (entry.in_use)
             entry.retired = true;
         else
             retired.push_back(std::move(entry.client));
     std::erase_if(it->second, [](const Entry &e) { return !e.client; });
-    if (it->second.empty()) connections_.erase(it);
+    if (it->second.empty()) this->connections.erase(it);
     return retired;
 }
 
 size_t Pool::size() const {
-    std::lock_guard lock(this->mutex_);
+    std::lock_guard lock(this->mu);
     size_t total = 0;
-    for (const auto &[_, entries]: connections_)
+    for (const auto &[_, entries]: this->connections)
         total += entries.size();
     return total;
 }
 
 size_t Pool::available_count(const std::string &endpoint) const {
-    std::lock_guard lock(this->mutex_);
+    std::lock_guard lock(this->mu);
     size_t count = 0;
-    for (const auto &[key, entries]: connections_)
+    for (const auto &[key, entries]: this->connections)
         if (key.starts_with(field(endpoint)))
             for (const auto &entry: entries)
                 if (!entry.in_use && entry.client) count++;

@@ -29,9 +29,10 @@ import {
   AuthError,
   ExpiredTokenError,
   InvalidTokenError,
+  MissingCredentialsError,
   SessionEndedError,
 } from "@/errors";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 import { user } from "@/user";
 
 const createReqZ = z.object({ proof: proofZ, cookie: z.boolean().optional() });
@@ -41,7 +42,7 @@ const createResZ = z.object({
   user: user.userZ.optional(),
 });
 const renewResZ = z.object({ session: sessionZ, user: user.userZ.optional() });
-const retrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
+const retrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });
 const retrieveResZ = z.object({ sessions: sessionZ.array() });
 const deleteReqZ = z.object({ keys: sessionKeyZ.array() });
 const emptyResZ = z.object({});
@@ -53,7 +54,7 @@ const apiKeyZ = z.object({
   /** key is the unique identifier for this API key. */
   key: apiKeyKeyZ,
   /** subject is the user or rack the key logs in as. */
-  subject: ontology.idZ,
+  subject: resource.idZ,
   /** name is a label that tells the subject's keys apart. */
   name: z.string(),
   /** created is when the key was created. */
@@ -88,20 +89,20 @@ export const apiKeyID = (token: string): APIKeyKey => {
 
 export interface NewAPIKey {
   /** The user or rack the key logs in as. Defaults to the caller. */
-  subject?: ontology.ID;
+  subject?: resource.ID;
   /** A label that tells the subject's keys apart. */
   name: string;
 }
 
-const keyCreateReqZ = z.object({ subject: ontology.idZ.optional(), name: z.string() });
+const keyCreateReqZ = z.object({ subject: resource.idZ.optional(), name: z.string() });
 const keyCreateResZ = z.object({ token: z.string(), key: apiKeyZ });
-const keyRetrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
+const keyRetrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });
 const keyRetrieveResZ = z.object({ keys: apiKeyZ.array() });
 const keyDeleteReqZ = z.object({ keys: apiKeyKeyZ.array() });
 
 export interface SetPasswordParams {
   /** The user whose password to set. Defaults to the caller. */
-  subject?: ontology.ID;
+  subject?: resource.ID;
   /** The new password. */
   password: string;
   /** The caller's current password. Required when the caller sets its own. */
@@ -109,7 +110,7 @@ export interface SetPasswordParams {
 }
 
 const passwordSetReqZ = z.object({
-  subject: ontology.idZ.optional(),
+  subject: resource.idZ.optional(),
   password: z.string(),
   currentPassword: z.string().optional(),
   cookie: z.boolean().optional(),
@@ -183,7 +184,10 @@ export interface Observer {
    * opens a new session.
    */
   onSuccess?: (session: SessionKey) => void;
-  /** Fires on a definitive credential rejection, never on token self-heal. */
+  /**
+   * Fires on a definitive credential rejection, and when the Core keeps rejecting fresh
+   * sessions after every token retry. Never fires for a token error a retry fixes.
+   */
   onFailure?: (error: Error) => void;
 }
 
@@ -237,7 +241,7 @@ export class Client {
   }
 
   /** The subject the client logged in as, once logged in. */
-  get subject(): ontology.ID | undefined {
+  get subject(): resource.ID | undefined {
     return this.authState.authenticated ? this.authState.session.subject : undefined;
   }
 
@@ -298,7 +302,7 @@ export class Client {
    * sessions.
    * @throws {AuthError} when the login before the request fails.
    */
-  async retrieveSessions(subjects?: ontology.ID[]): Promise<Session[]> {
+  async retrieveSessions(subjects?: resource.ID[]): Promise<Session[]> {
     const res = await this.client.send(
       SESSION_RETRIEVE_ENDPOINT,
       { subjects },
@@ -337,7 +341,7 @@ export class Client {
    * @throws {AccessDeniedError} when the caller may not retrieve another subject's
    * keys.
    */
-  async retrieveKeys(subjects?: ontology.ID[]): Promise<APIKey[]> {
+  async retrieveKeys(subjects?: resource.ID[]): Promise<APIKey[]> {
     const res = await this.client.send(
       KEY_RETRIEVE_ENDPOINT,
       { subjects },
@@ -490,7 +494,9 @@ export class Client {
         u = res.user;
         owned = false;
       } else
-        throw new AuthError("no credentials, API key, token, or cookie to log in with");
+        throw new MissingCredentialsError(
+          "no credentials, API key, token, or cookie to log in with",
+        );
       if (generation !== this.generation) return null;
       this.authState = state;
       this.ownsSession = owned;
@@ -540,13 +546,29 @@ export class Client {
         }
       }
       // a cookie session has no token to send; the browser attaches the cookie
-      const { authState } = this;
+      const { authState, generation } = this;
       if (authState.authenticated && authState.token !== "")
         reqCtx.params.Authorization = `Bearer ${authState.token}`;
       try {
         return await next(reqCtx);
       } catch (err) {
-        if (RETRY_ON.some((e) => e.matches(err)) && retries < MAX_RETRIES) {
+        const parsed = errors.fromUnknown(err);
+        // the browser dropped the cookie, so the session is over
+        const cookieLost =
+          MissingCredentialsError.matches(parsed) &&
+          authState.authenticated &&
+          authState.token === "";
+        if (cookieLost && this.proof() == null) {
+          if (this.authState === authState) {
+            this.authState = { authenticated: false };
+            this.authenticating = undefined;
+          }
+          const ended = new SessionEndedError(parsed.message, { cause: parsed });
+          if (generation === this.generation) this.observer.onFailure?.(ended);
+          throw ended;
+        }
+        if (!cookieLost && !RETRY_ON.some((e) => e.matches(parsed))) throw parsed;
+        if (retries < MAX_RETRIES) {
           // only the session this request carried is dead; a login that finished in
           // the meantime holds a different one
           if (this.authState === authState) {
@@ -555,7 +577,10 @@ export class Client {
           }
           return await attempt(reqCtx, next, retries + 1);
         }
-        throw errors.fromUnknown(err);
+        // the Core rejects every fresh session, so logging in again cannot fix it. A
+        // session from before a setCredentials says nothing about the new credentials.
+        if (generation === this.generation) this.observer.onFailure?.(parsed);
+        throw parsed;
       }
     };
     return async (reqCtx, next) => await attempt(reqCtx, next, 0);

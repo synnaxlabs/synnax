@@ -67,7 +67,7 @@ var _ = Describe("Scan task", func() {
 	// scan configures a scan task that checks its devices 50 times each second.
 	scan := func(ctx context.Context) (driver.Task, task.Task) {
 		GinkgoHelper()
-		t := newTask(rackKey, mqtt.ScanTaskType, msgpack.EncodedJSON{"rate": 50})
+		t := newTask(ctx, rackKey, mqtt.ScanTaskType, msgpack.EncodedJSON{"rate": 50})
 		return configure(ctx, factory, t), t
 	}
 
@@ -77,7 +77,7 @@ var _ = Describe("Scan task", func() {
 		GinkgoHelper()
 		ch := createVirtual(ctx, telem.Float64T)
 		return configure(ctx, factory, newTask(
-			rackKey, mqtt.ReadTaskType,
+			ctx, rackKey, mqtt.ReadTaskType,
 			readConfig(dev, plainEntry("plant/edit", field("v", ch, ""))),
 		))
 	}
@@ -98,7 +98,7 @@ var _ = Describe("Scan task", func() {
 
 	Describe("ConfigureTask", func() {
 		It("Should not handle a task of another integration", func(ctx SpecContext) {
-			t := newTask(rackKey, "opc_read", msgpack.EncodedJSON{})
+			t := newTask(ctx, rackKey, "opc_read", msgpack.EncodedJSON{})
 			Expect(factory.ConfigureTask(ctx, t, "configure")).Error().
 				To(MatchError(driver.ErrTaskNotHandled))
 		})
@@ -112,7 +112,7 @@ var _ = Describe("Scan task", func() {
 
 		It("Should not start a disabled scan task", func(ctx SpecContext) {
 			t := newTask(
-				rackKey, mqtt.ScanTaskType, msgpack.EncodedJSON{"disabled": true},
+				ctx, rackKey, mqtt.ScanTaskType, msgpack.EncodedJSON{"disabled": true},
 			)
 			configure(ctx, factory, t)
 			Expect(taskStatus(ctx, t).Details.Running).To(BeFalse())
@@ -178,7 +178,7 @@ var _ = Describe("Scan task", func() {
 				dev := createBrokerDevice(ctx, rackKey, broker.port, properties)
 				_, data := createIndexed(ctx, telem.Float64T)
 				read := configure(ctx, factory, newTask(
-					rackKey, mqtt.ReadTaskType,
+					ctx, rackKey, mqtt.ReadTaskType,
 					readConfig(dev, plainEntry("plant/tls", field("v", data[0], ""))),
 				))
 				Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).
@@ -201,7 +201,7 @@ var _ = Describe("Scan task", func() {
 				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
 				_, data := createIndexed(ctx, telem.Float64T)
 				read := configure(ctx, factory, newTask(
-					rackKey, mqtt.ReadTaskType,
+					ctx, rackKey, mqtt.ReadTaskType,
 					readConfig(dev, plainEntry("plant/scan", field("v", data[0], ""))),
 				))
 				Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).
@@ -250,13 +250,20 @@ var _ = Describe("Scan task", func() {
 			func(ctx SpecContext) {
 				broker := startBroker(0)
 				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
-				read := configureRead(ctx, dev)
+				ch := createVirtual(ctx, telem.Float64T)
+				t := newTask(ctx, rackKey, mqtt.ReadTaskType, readConfig(
+					dev,
+					plainEntry("plant/edit", field("v", ch, "")),
+				))
+				read := configure(ctx, factory, t)
 				editDevice(ctx, dev, msgpack.EncodedJSON{"port": 0})
-				Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).
-					To(MatchError(
-						"invalid broker properties: port: must be 1 to 65535: " +
-							"validation error",
-					))
+				startRead(ctx, read)
+				stat := taskStatus(ctx, t)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Description).To(Equal(
+					"invalid broker properties: port: must be 1 to 65535: " +
+						"validation error",
+				))
 				editDevice(ctx, dev, msgpack.EncodedJSON{"port": broker.port})
 				startRead(ctx, read)
 				Eventually(broker.clientCount).Should(Equal(1))
@@ -660,7 +667,7 @@ var _ = Describe("Scan task", func() {
 					broker.publish(fmt.Sprintf("plant/%02d", i), payload, true)
 				}
 				stat := browse(ctx, msgpack.EncodedJSON{
-					"filter": "plant/#", "duration": 300,
+					"filter": "plant/#", "duration": 3000,
 				})
 				Expect(stat.Variant).To(Equal(status.VariantSuccess))
 				Expect(stat.Details.Data["truncated"]).To(BeTrue())
@@ -931,14 +938,19 @@ var _ = Describe("Scan task", func() {
 	})
 
 	Describe("Exec", func() {
-		It("Should leave a command it does not support unanswered",
+		It("Should answer a command it does not support with an error",
 			func(ctx SpecContext) {
 				configured, t := scan(ctx)
 				Expect(configured.Exec(ctx, task.Command{Type: "reboot", Key: "x"})).
 					To(Succeed())
-				Consistently(func() string { return taskStatus(ctx, t).Details.Cmd }).
-					WithTimeout(100 * time.Millisecond).
-					ShouldNot(Equal("x"))
+				Eventually(func(g Gomega) {
+					stat := taskStatus(ctx, t)
+					g.Expect(stat.Details.Cmd).To(Equal("x"))
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Description).To(Equal(
+						"The task does not accept the 'reboot' command.",
+					))
+				}).Should(Succeed())
 			},
 		)
 	})

@@ -14,7 +14,7 @@ import { NIL, stringify, v4 as uuid, v5 } from "uuid";
  * This function uses the cryptographically secure random number generator
  * to generate a UUID that is suitable for use as a unique identifier.
  *
- * @returns {string} A new UUID v4 string in the format 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+ * @returns A new UUID v4 string in the format 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
  * where x is any hexadecimal digit and y is one of 8, 9, A, or B.
  *
  * @example
@@ -28,7 +28,7 @@ export const create = (): string => uuid();
  *
  * @param name - The name to derive the UUID from.
  * @param namespace - The namespace UUID the name belongs to.
- * @returns {string} A UUID v5 string.
+ * @returns A UUID v5 string.
  */
 export const fromName = (name: string, namespace: string): string =>
   v5(name, namespace);
@@ -37,9 +37,8 @@ export const fromName = (name: string, namespace: string): string =>
  * Parses a UUID from a byte array. This function converts a 16-byte array into a
  * standard UUID string format. It can optionally start parsing from a specific offset
  * in the byte array.
- * @param {Uint8Array} bytes - The byte array containing the UUID. Must be at least 16
- * bytes long.
- * @returns {string} A UUID string in the format 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+ * @param bytes - The byte array containing the UUID. Must be at least 16 bytes long.
+ * @returns A UUID string in the format 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
  * @throws {Error} If the byte array is less than 16 bytes long (accounting for offset)
  *
  * @example

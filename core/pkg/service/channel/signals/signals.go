@@ -10,30 +10,21 @@
 package signals
 
 import (
-	"context"
 	"encoding/json/v2"
-	"io"
 
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/unsafe"
 )
 
-func Publish(
-	ctx context.Context,
-	provider *signals.Provider,
-	obs observe.Observable[gorp.TxReader[channel.Key, channel.Channel]],
-) (io.Closer, error) {
-	cfg := signals.GorpPublisherConfig[channel.Key, channel.Channel]{
-		Observable:     obs,
-		DeleteDataType: telem.Uint32T,
-		SetDataType:    telem.JSONT,
-		MarshalDelete: func(k channel.Key) ([]byte, error) {
-			return unsafe.CastToBytes(k), nil
-		},
+// TableConfig returns the configuration of the set and delete channels of the channel
+// table, which sends each channel as its payload.
+func TableConfig(
+	svc *channel.Service,
+) signals.TableConfig[channel.Key, channel.Channel] {
+	return signals.TableConfig[channel.Key, channel.Channel]{
+		Changes:  svc.Changes,
+		Resource: channel.ResourceID,
 		MarshalSet: func(c channel.Channel) ([]byte, error) {
 			v, err := json.Marshal(c.ToPayload())
 			if err != nil {
@@ -42,5 +33,4 @@ func Publish(
 			return telem.MarshalVariableSample(v), nil
 		},
 	}
-	return provider.PublishFromGorp(ctx, cfg)
 }

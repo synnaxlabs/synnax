@@ -11,15 +11,14 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias, TypedDict
-from typing import override as _override
+from typing import Any, Literal, TypeAlias, TypedDict, override as _override
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import node
-from synnax import status as status_
-from synnax.ontology.payload import ID
+from synnax import group as group_, node, status as status_
+from synnax.resource import ID
 from x import control, filter, telem
+from x.filter import shorthand
 
 Key: TypeAlias = int
 
@@ -35,6 +34,11 @@ OPERATION_TYPE_DERIVATIVE: Literal["derivative"] = "derivative"
 
 
 OperationType = Literal["min", "max", "avg", "none", "derivative"]
+
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
 
 Name: TypeAlias = str
 
@@ -61,6 +65,17 @@ class Operation(BaseModel):
     )
 
 
+class CountLimitedResponse(BaseModel):
+    """Holds the count of the channels that count against the license channel limit (not
+    internal, not virtual).
+
+    Attributes:
+        count: Is how many channels count against the license channel limit.
+    """
+
+    count: int = Field(ge=0, le=4294967295)
+
+
 class Where(BaseModel):
     """Is a filter that selects channels.
 
@@ -76,6 +91,8 @@ class Where(BaseModel):
         internal: Selects by internal.
         virtual: Matches virtual channels that are not calculated, or every other
             channel when false.
+        groups: Matches the channels in any of the given groups.
+        grouped: Matches the channels in a group, or in no group when false.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -90,6 +107,13 @@ class Where(BaseModel):
     is_index: filter.Bool | None = None
     internal: filter.Bool | None = None
     virtual: bool | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+
+    @field_validator("groups", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
 # WhereInput is a Where written as a partial record.
@@ -107,9 +131,35 @@ WhereInput = TypedDict(
         "is_index": filter.BoolInput,
         "internal": filter.BoolInput,
         "virtual": bool,
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
     },
     total=False,
 )
+
+
+class Order(BaseModel):
+    """Is a sort of channels.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of channels: the sort value and the key of a channel.
+
+    Attributes:
+        key: Is the key of the channel at the position.
+        name: Is the name of the channel at the position, when the order sorts by it.
+    """
+
+    key: Key = Field(ge=0, le=4294967295)
+    name: Name | None = None
 
 
 class Payload(BaseModel):
@@ -130,7 +180,6 @@ class Payload(BaseModel):
             commonly Unix nanosecond timestamps.
         index: Is the channel used to index this channel's values, associating each
             value with a timestamp.
-        alias: Is an optional alternate name for the channel within a specific context.
         virtual: Is true if this channel does not store data in the database but can
             still be used for streaming purposes.
         internal: Is true if this is a system channel hidden from normal user queries.
@@ -141,6 +190,7 @@ class Payload(BaseModel):
         concurrency: Sets the policy for concurrent writes to the channel's data. Only
             virtual channels can have a policy of shared concurrency.
         status: Is the current operational status of the channel.
+        group: Is the group the channel sits in, if any.
     """
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
@@ -149,13 +199,13 @@ class Payload(BaseModel):
     data_type: telem.DataType
     is_index: bool = False
     index: Key = Field(default=Key(0), ge=0, le=4294967295)
-    alias: str | None = None
     virtual: bool = False
     internal: bool = False
     expression: str = ""
     operations: list[Operation] = Field(default_factory=list)
     concurrency: control.Concurrency = control.Concurrency.exclusive
     status: Status | None = None
+    group: group_.Key | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -168,8 +218,9 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the channels to retrieve. An absent where selects all of them.
         search_term: Keeps the channels that match the term, closest match first.
+        order: Sorts the channels. An absent order sorts them by key.
+        after: Starts the channels strictly past this position in their order.
         limit: Is the most channels to return.
-        offset: Is the number of matching channels to skip.
         include_status: Includes the status of each record.
     """
 
@@ -177,8 +228,9 @@ class RetrieveRequest(BaseModel):
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
     include_status: bool = False
 
 
@@ -195,8 +247,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="channel")
+TYPE_RESOURCE_ID = ID(type="channel")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="channel", key=str(key))

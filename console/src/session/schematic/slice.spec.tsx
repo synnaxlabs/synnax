@@ -16,6 +16,7 @@ import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Schematic } from "@/session/schematic";
+import { Window } from "@/session/window";
 import {
   createSliceStore,
   documentIn,
@@ -183,7 +184,7 @@ describe("Schematic Slice", () => {
     });
 
     it("should set the legend colors", () => {
-      const colors = { a: color.ZERO };
+      const colors = { a: color.TRANSPARENT };
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setLegendColors({ key: KEY, colors }));
       expect(read(Schematic.useGet).legend.colors).toEqual(colors);
@@ -391,7 +392,7 @@ describe("persistence", () => {
     const stored = {
       ...DRIFT_STATE,
       [Schematic.SLICE_NAME]: {
-        version: 0 as const,
+        version: 1 as const,
         windows: inWindow(structuredClone(documents)),
       },
     };
@@ -431,5 +432,97 @@ describe("persistence", () => {
   it("should leave other fields untouched", () => {
     const purged = persist({ [KEY]: { ...createAcquired(), tooltipsDisabled: true } });
     expect(purged()?.tooltipsDisabled).toBe(true);
+  });
+});
+
+describe("sliceStateZ", () => {
+  it("should lift version 0 legend colors to a byte alpha", () => {
+    const parsed = Schematic.sliceStateZ.parse({
+      version: 0,
+      windows: {
+        main: {
+          s1: {
+            legend: {
+              colors: {
+                a: [255, 0, 0, 1],
+                b: [0, 255, 0, 0.5],
+                c: [0, 0, 255, 0.003],
+                d: [1, 2, 3, 0],
+                e: [4, 5, 6, 1.5],
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(parsed.version).toBe(1);
+    expect(parsed.windows.main.s1.legend.colors).toEqual({
+      a: [255, 0, 0, 255],
+      b: [0, 255, 0, 128],
+      c: [0, 0, 255, 1],
+      d: [1, 2, 3, 0],
+      e: [4, 5, 6, 255],
+    });
+  });
+
+  // A v0.61 Console stored a window partition as its windows entry alone, with no
+  // version key.
+  it("should lift the legend colors of a slice stored with no version", () => {
+    const stored = {
+      control: { authority: 1, status: "released" },
+      selected: [],
+      legend: {
+        visible: false,
+        position: {
+          x: 24,
+          y: 24,
+          root: { x: "left", y: "top" },
+          units: { x: "px", y: "px" },
+        },
+        colors: { a: [255, 0, 0, 1], b: [0, 255, 0, 0.5], c: [1, 2, 3, 0] },
+      },
+      toolbar: {
+        selectedTab: "symbols",
+        selectedSymbolGroup: "general",
+        changing: false,
+      },
+      editable: false,
+      fitViewOnResize: true,
+      tooltipsDisabled: true,
+      viewport: { position: { x: 5, y: 10 }, zoom: 2, mode: "select" },
+    };
+    const parsed = Schematic.sliceStateZ.parse({ windows: { main: { s1: stored } } });
+    expect(parsed.version).toBe(1);
+    expect(parsed.windows.main.s1).toEqual({
+      ...stored,
+      legend: {
+        ...stored.legend,
+        colors: { a: [255, 0, 0, 255], b: [0, 255, 0, 128], c: [1, 2, 3, 0] },
+      },
+    });
+  });
+
+  it("should keep version 1 legend colors as they are", () => {
+    const parsed = Schematic.sliceStateZ.parse({
+      version: 1,
+      windows: { main: { s1: { legend: { colors: { a: [255, 0, 0, 1] } } } } },
+    });
+    expect(parsed.windows.main.s1.legend.colors).toEqual({ a: [255, 0, 0, 1] });
+  });
+
+  it("should parse an empty slice as version 1", () => {
+    expect(Schematic.sliceStateZ.parse({})).toEqual({ version: 1, windows: {} });
+  });
+});
+
+describe("window partition round trip", () => {
+  it("should keep legend colors through a save and load", () => {
+    const state = Schematic.sliceStateZ.parse({
+      version: 1,
+      windows: { main: { s1: { legend: { colors: { a: [255, 0, 0, 255] } } } } },
+    });
+    const stored = JSON.parse(JSON.stringify(Window.LENS.narrow(state, "main")));
+    const loaded = Schematic.sliceStateZ.parse(stored);
+    expect(loaded.windows.main.s1.legend.colors).toEqual({ a: [255, 0, 0, 255] });
   });
 });

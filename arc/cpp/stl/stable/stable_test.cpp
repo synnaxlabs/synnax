@@ -606,7 +606,7 @@ public:
         auto ctx = make_context();
         ctx.cycle.now = this->current_time;
         ctx.mark_changed = [&fired](size_t) { fired = true; };
-        EXPECT_FALSE(this->node.next(ctx));
+        EXPECT_NIL(this->node.next(ctx));
         return fired;
     }
 
@@ -754,7 +754,7 @@ struct SampleTime {
         auto ctx = make_context();
         ctx.cycle.now = this->current_time;
         ctx.mark_changed = [&fired](size_t) { fired = true; };
-        EXPECT_FALSE(this->node.next(ctx));
+        EXPECT_NIL(this->node.next(ctx));
         return fired;
     }
 

@@ -27,9 +27,9 @@ from freighter.url import URL
 from freighter.websocket import (
     AsyncWebsocketClient,
     ConnectionClosedError,
+    Message as WebsocketMessage,
     WebsocketClient,
 )
-from freighter.websocket import Message as WebsocketMessage
 from x.codec import Codec, JSONCodec
 
 from .interface import Error, Message, create_registry

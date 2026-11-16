@@ -54,16 +54,6 @@ const START_EDITING_EVENT_NAME = "start-editing";
 const findEditable = (id: string): Element | undefined =>
   Array.from(document.getElementsByClassName(BASE_CLASS)).find((el) => el.id === id);
 
-/** Options for {@link asyncEdit}. */
-export interface AsyncEditOptions {
-  /** Replaces the displayed text for the duration of the edit. Use it when the field
-   * shows a derived value (e.g. an alias) but the edit targets the underlying one.
-   * Committing it unchanged counts as a cancel, and the displayed text comes back. */
-  initialValue?: string;
-}
-
-type StartEditingEvent = CustomEvent<AsyncEditOptions | undefined>;
-
 /**
  * Starts editing the {@link Editable} carrying the given id, retrying for a second
  * while it mounts. Use it to rename a resource the same gesture just created.
@@ -71,10 +61,7 @@ type StartEditingEvent = CustomEvent<AsyncEditOptions | undefined>;
  * @returns the final text and whether the user committed it. A rejected promise means
  * no such element appeared.
  */
-export const asyncEdit = (
-  id: string,
-  options?: AsyncEditOptions,
-): Promise<[string, boolean]> =>
+export const asyncEdit = (id: string): Promise<[string, boolean]> =>
   new Promise((resolve, reject) => {
     let currRetry = 0;
     const tryEdit = (): void => {
@@ -85,12 +72,8 @@ export const asyncEdit = (
         else reject(new Error(`Could not find element with id ${id}`));
         return;
       }
-      const { initialValue } = options ?? {};
-      el.dispatchEvent(
-        new CustomEvent(START_EDITING_EVENT_NAME, { detail: { initialValue } }),
-      );
+      el.dispatchEvent(new CustomEvent(START_EDITING_EVENT_NAME));
       el.setAttribute("contenteditable", "true");
-      if (initialValue != null) (el as HTMLElement).innerText = initialValue;
       const handleRenamed = (e: Event): void => {
         el.removeEventListener(ESCAPED_EVENT_NAME, handleEscaped);
         resolve([getInnerText(e.target as HTMLElement), true]);
@@ -106,8 +89,8 @@ export const asyncEdit = (
   });
 
 /** Starts editing the {@link Editable} carrying the given id, discarding the result. */
-export const edit = (id: string, options?: AsyncEditOptions): void => {
-  asyncEdit(id, options).catch(console.error);
+export const edit = (id: string): void => {
+  asyncEdit(id).catch(console.error);
 };
 
 const getInnerText = (el: HTMLElement): string => el.innerText.trim();
@@ -162,9 +145,6 @@ export const Editable = ({
   // trigger it artificially). We track this value as an optimistic update to make sure
   // we don't call onChange twice in quick succession.
   const optimisticValueRef = useSyncedRef(value);
-  // Holds the text asyncEdit swapped in for this edit, so an unchanged commit is
-  // measured against what the user actually saw.
-  const injectedValueRef = useRef<string | null>(null);
   // Holds the text this field committed and the value it replaced. Exiting an edit
   // repaints from value, which still carries the old text until the caller's write
   // lands, so the committed text stands in until value moves off what it replaced.
@@ -194,15 +174,12 @@ export const Editable = ({
 
   const handleUpdate = (el: HTMLElement, forceEscape = false): void => {
     const innerText = getInnerText(el);
-    const { current: injected } = injectedValueRef;
-    injectedValueRef.current = null;
-    // An injected value replaces the displayed text for the edit, so it is what an
-    // unchanged commit compares against.
-    const previous = injected ?? optimisticValueRef.current;
-    if (previous === innerText && (innerText.length > 0 || allowEmpty)) {
+    if (
+      optimisticValueRef.current === innerText &&
+      (innerText.length > 0 || allowEmpty)
+    ) {
       // An unchanged commit is a cancel: without the event, an awaiting asyncEdit
       // caller would hang forever.
-      if (injected != null) el.innerText = value;
       el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
       return;
     }
@@ -211,10 +188,7 @@ export const Editable = ({
       el.innerText = value;
       el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
     } else {
-      // An injected edit targets a value other than the one shown, so value never
-      // becomes the committed text and must repaint as it always did.
-      committedRef.current =
-        injected == null ? { text: innerText, replaced: value } : null;
+      committedRef.current = { text: innerText, replaced: value };
       if (onChange?.(innerText) === false) {
         committedRef.current = null;
         el.innerText = value;
@@ -278,10 +252,7 @@ export const Editable = ({
   // A ref callback, so each element Text renders listens before asyncEdit can find it.
   const listenForEdits = (el: HTMLElement | null) => {
     if (el == null) return;
-    const handleStartEditing = (e: Event): void => {
-      injectedValueRef.current = (e as StartEditingEvent).detail?.initialValue ?? null;
-      setEditable(true);
-    };
+    const handleStartEditing = (): void => setEditable(true);
     el.addEventListener(START_EDITING_EVENT_NAME, handleStartEditing);
     return () => el.removeEventListener(START_EDITING_EVENT_NAME, handleStartEditing);
   };
@@ -313,6 +284,8 @@ export const Editable = ({
       contentEditable={editable}
       suppressContentEditableWarning
       style={style}
+      // Text squares a lone glyph as an icon. Editable text is a name, never an icon.
+      square={false}
       {...rest}
     >
       {value}
@@ -342,7 +315,11 @@ export const MaybeEditable = ({
   ...rest
 }: MaybeEditableProps): ReactElement => {
   if (disabled || onChange == null || onChange === false)
-    return <Text {...rest}>{value}</Text>;
+    return (
+      <Text square={false} {...rest}>
+        {value}
+      </Text>
+    );
 
   if (onChange === true) onChange = () => {};
   return (

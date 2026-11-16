@@ -17,17 +17,14 @@ import { type ReactElement } from "react";
 
 import { Framer } from "@/platform/framer";
 import { Bar } from "@/platform/task/controls/Bar";
-import { type Values } from "@/platform/task/types";
 import { useDrifted } from "@/platform/task/useDrifted";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 import { useKey } from "@/platform/task/useKey";
 import { useIsRunning, useStatus } from "@/platform/task/useStatus";
 
-const path = deep.path<
-  Pick<Values, "snapshot"> & {
-    config: { dataSavingDisabled: boolean; autoStart: boolean };
-  }
->();
+const path = deep.path<{
+  config: { dataSavingDisabled: boolean; autoStart: boolean };
+}>();
 
 interface SettingProps {
   label: string;
@@ -84,6 +81,8 @@ const Settings = () => {
 };
 
 export interface ControlsProps extends Flex.BoxProps {
+  /** Whether a deploy runs and has not sent its start command yet. */
+  configuring?: boolean;
   /** Runs the deploy pipeline: configure, save the row, issue start. */
   onDeploy: () => void;
   /** Issues a stop command to the live instance. */
@@ -91,10 +90,14 @@ export interface ControlsProps extends Flex.BoxProps {
 }
 
 /** Task controls bar wired to the surrounding task Form context. */
-export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
+export const Controls = ({
+  configuring = false,
+  onDeploy,
+  onStop,
+  ...props
+}: ControlsProps) => {
   const taskStatus = useStatus();
   const running = useIsRunning();
-  const isSnapshot = Form.useFieldValue(path.snapshot);
   const key = useKey();
   const drifted = useDrifted();
   const canControl = Framer.useCanCommand();
@@ -108,13 +111,26 @@ export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
     onStop();
   };
 
+  // The start command goes out only after the config saves, which can take seconds.
+  const shownStatus = configuring
+    ? status.create({
+        name: taskStatus?.name ?? "",
+        variant: "loading",
+        message: "Configuring task",
+      })
+    : taskStatus;
+  let startStopVariant = status.keepVariants(taskStatus?.variant, "loading");
+  // On a running task, a loading variant disables Redeploy and keeps Stop enabled.
+  if (configuring) startStopVariant = running ? "loading" : undefined;
+
   return (
     <Bar
-      status={taskStatus}
+      status={shownStatus}
       running={running}
       drifted={drifted}
-      hideActions={isSnapshot || !canControl}
-      startStopVariant={status.keepVariants(taskStatus?.variant, "loading")}
+      hideActions={!canControl}
+      disabled={configuring && !running}
+      startStopVariant={startStopVariant}
       settings={<Settings />}
       onDeploy={handleDeploy}
       onStop={handleStop}

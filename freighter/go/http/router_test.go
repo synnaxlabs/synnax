@@ -42,6 +42,22 @@ var _ = Describe("Router", func() {
 			})
 		})
 
+		Describe("StreamMessageSizeLimit", func() {
+			It("should return the configured limit", func() {
+				router := MustSucceed(
+					fhttp.NewRouter(GinkgoT().Context(), fhttp.RouterConfig{
+						StreamMessageSizeLimit: 64,
+					}),
+				)
+				Expect(router.StreamMessageSizeLimit()).To(Equal(int64(64)))
+			})
+
+			It("should default to 256 MiB", func() {
+				router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
+				Expect(router.StreamMessageSizeLimit()).To(Equal(int64(256 << 20)))
+			})
+		})
+
 		Describe("Override", func() {
 			It(
 				"should fill StreamWriteDeadline from the override when receiver is zero",
@@ -64,6 +80,33 @@ var _ = Describe("Router", func() {
 					Expect(base.Override(fhttp.RouterConfig{}).StreamWriteDeadline).
 						To(Equal(50 * time.Millisecond))
 				},
+			)
+
+			DescribeTable(
+				"should merge StreamMessageSizeLimit",
+				func(base, override, expected int64) {
+					Expect(fhttp.RouterConfig{StreamMessageSizeLimit: base}.Override(
+						fhttp.RouterConfig{StreamMessageSizeLimit: override},
+					).StreamMessageSizeLimit).To(Equal(expected))
+				},
+				Entry(
+					"from the override when the receiver is zero",
+					int64(0),
+					int64(64),
+					int64(64),
+				),
+				Entry(
+					"from the receiver when the override is zero",
+					int64(64),
+					int64(0),
+					int64(64),
+				),
+				Entry(
+					"from a non-zero override over the receiver",
+					int64(32),
+					int64(64),
+					int64(64),
+				),
 			)
 
 			It("should let a non-zero override win over a non-zero receiver", func() {
@@ -103,28 +146,41 @@ var _ = Describe("Router", func() {
 
 	Describe("New", func() {
 		It("should construct a router from the zero RouterConfig", func() {
-			r := MustSucceed(fhttp.NewRouter())
+			r := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
 			Expect(r).ToNot(BeNil())
 		})
 
 		It("should accept an explicit RouterConfig", func() {
-			Expect(fhttp.NewRouter(fhttp.RouterConfig{
+			Expect(fhttp.NewRouter(GinkgoT().Context(), fhttp.RouterConfig{
 				StreamWriteDeadline: 25 * time.Millisecond,
 			})).ToNot(BeNil())
 		})
 
 		It("should accept multiple RouterConfigs", func() {
 			Expect(fhttp.NewRouter(
+				GinkgoT().Context(),
 				fhttp.RouterConfig{StreamWriteDeadline: 5 * time.Millisecond},
 				fhttp.RouterConfig{StreamWriteDeadline: 50 * time.Millisecond},
 			)).ToNot(BeNil())
 		})
 	})
 
+	Describe("Context", func() {
+		It("should end the context only after the bound app shuts down", func() {
+			router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
+			app := newFiberApp(fiber.Config{})
+			router.BindTo(app)
+			ctx := router.Context()
+			Expect(ctx.Err()).ToNot(HaveOccurred())
+			Expect(app.Shutdown()).To(Succeed())
+			Expect(ctx.Done()).To(BeClosed())
+		})
+	})
+
 	It(
 		"should report an empty Report — the router itself is a passive container",
 		func() {
-			r := MustSucceed(fhttp.NewRouter())
+			r := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
 			Expect(r.Report()).To(BeEmpty())
 		},
 	)
@@ -134,7 +190,7 @@ var _ = Describe("Router", func() {
 			"should register a unary route on the bound fiber app",
 			func(specCtx SpecContext) {
 				app := newFiberApp(fiber.Config{DisableKeepalive: true})
-				router := MustSucceed(fhttp.NewRouter())
+				router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
 				server := router.NewUnaryServer[testutil.Request, testutil.Response](
 					"/echo",
 				)
@@ -174,7 +230,7 @@ var _ = Describe("Router", func() {
 			"should cancel in-flight streams when the bound fiber app shuts down",
 			func(specCtx SpecContext) {
 				app := newFiberApp(fiber.Config{})
-				router := MustSucceed(fhttp.NewRouter())
+				router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
 
 				handlerEntered := make(chan struct{})
 				handlerCtxDone := make(chan struct{})
@@ -218,7 +274,7 @@ var _ = Describe("Router", func() {
 			"should deliver a handler's result when it returns normally",
 			func(specCtx SpecContext) {
 				app := newFiberApp(fiber.Config{})
-				router := MustSucceed(fhttp.NewRouter())
+				router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
 				server := router.NewStreamServer[testutil.Request, testutil.Response](
 					"/stream",
 				)
@@ -266,7 +322,7 @@ var _ = Describe("Router", func() {
 			"should unblock a parked handler and tell the peer why when middleware cancels",
 			func(specCtx SpecContext) {
 				app := newFiberApp(fiber.Config{})
-				router := MustSucceed(fhttp.NewRouter())
+				router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
 				errEnded := errors.New("session ended")
 				endSession := make(chan struct{})
 				server := router.NewStreamServer[testutil.Request, testutil.Response](
@@ -330,7 +386,7 @@ var _ = Describe("Router", func() {
 			"should install middleware on every server registered before the call",
 			func(specCtx SpecContext) {
 				app := newFiberApp(fiber.Config{DisableKeepalive: true})
-				router := MustSucceed(fhttp.NewRouter())
+				router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
 
 				var calls int
 				server := router.NewUnaryServer[testutil.Request, testutil.Response](
@@ -380,7 +436,7 @@ var _ = Describe("Router", func() {
 			"should not install middleware on servers registered after the call",
 			func(specCtx SpecContext) {
 				app := newFiberApp(fiber.Config{DisableKeepalive: true})
-				router := MustSucceed(fhttp.NewRouter())
+				router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
 
 				var calls int
 				router.Use(freighter.MiddlewareFunc(func(
@@ -433,7 +489,7 @@ var _ = Describe("Router", func() {
 			"should chain multiple middlewares in registration order",
 			func(specCtx SpecContext) {
 				app := newFiberApp(fiber.Config{DisableKeepalive: true})
-				router := MustSucceed(fhttp.NewRouter())
+				router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
 
 				var order []string
 				server := router.NewUnaryServer[testutil.Request, testutil.Response](

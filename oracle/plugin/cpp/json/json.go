@@ -12,6 +12,7 @@ package json
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/samber/lo"
@@ -72,17 +73,17 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		distinctTypes := c.distinct.Get(outputPath)
 		unions := c.unions.Get(outputPath)
 
-		var namespace string
+		var filePath string
 		if len(structs) > 0 {
-			namespace = structs[0].Namespace
+			filePath = structs[0].FilePath
 		} else if len(distinctTypes) > 0 {
-			namespace = distinctTypes[0].Namespace
+			filePath = distinctTypes[0].FilePath
 		} else {
-			namespace = unions[0].Namespace
+			filePath = unions[0].FilePath
 		}
 
 		content, err := p.generateFile(
-			outputPath, structs, distinctTypes, unions, namespace, c.jsonPaths, req,
+			outputPath, structs, distinctTypes, unions, filePath, c.jsonPaths, req,
 		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate json for %s", outputPath)
@@ -189,7 +190,7 @@ func (p *Plugin) generateFile(
 	structs []resolution.Type,
 	distinctTypes []resolution.Type,
 	unions []resolution.Type,
-	namespace string,
+	filePath string,
 	jsonPaths set.Set[string],
 	req *plugin.Request,
 ) ([]byte, error) {
@@ -201,10 +202,10 @@ func (p *Plugin) generateFile(
 		Manager:       includes.NewManager(),
 		table:         req.Resolutions,
 		jsonPaths:     jsonPaths,
-		rawNs:         namespace,
+		filePath:      filePath,
 	}
 
-	data.AddInternal(fmt.Sprintf("%s/types.gen.h", outputPath))
+	data.AddInternal(outputPath + "/types.gen.h")
 	data.AddInternal("x/cpp/json/json.h")
 
 	for _, s := range structs {
@@ -244,7 +245,10 @@ func (p *Plugin) processArrayWrapper(
 	if !serializesArray(dt, data.table) {
 		return nil
 	}
-	base, _ := arrays.Wrapped(dt.Form.(resolution.DistinctForm), data.table)
+	base, _ := arrays.Wrapped(
+		resolution.MustForm[resolution.DistinctForm](dt),
+		data.table,
+	)
 	var arraySize int64
 	if base.ArraySize != nil {
 		arraySize = *base.ArraySize
@@ -279,7 +283,7 @@ func (p *Plugin) resolveExtendsType(
 ) string {
 	name := domain.GetName(parent, "cpp")
 
-	if parent.Namespace != data.rawNs {
+	if parent.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(parent, "cpp")
 		if targetOutputPath != "" {
 			data.AddInternal(data.jsonInclude(targetOutputPath))
@@ -308,7 +312,7 @@ func (p *Plugin) processStruct(
 		return nil, nil
 	}
 	for _, field := range resolution.UnifiedFields(s, data.table) {
-		if err := checkStructMapKey(s, field, data.table); err != nil {
+		if err := checkMapKey(s, field, data.table); err != nil {
 			return nil, err
 		}
 	}
@@ -363,34 +367,37 @@ func (p *Plugin) processStruct(
 	return serializer, nil
 }
 
-// structMap returns the map type behind ref when its values are structs.
-func structMap(
+// objectMap returns the map type behind ref, whether its values are structs, and
+// whether to_json must build its JSON object by hand: nlohmann_json writes non-string
+// keys as an array of pairs and cannot reach the to_json member of a struct.
+func objectMap(
 	ref resolution.TypeRef,
 	table *resolution.Table,
-) (resolution.TypeRef, bool) {
+) (resolution.TypeRef, bool, bool) {
 	if _, target, ok := resolution.Dealias(ref, table); ok {
 		ref = target
 	}
 	if ref.Name != "Map" || len(ref.TypeArgs) < 2 {
-		return resolution.TypeRef{}, false
+		return resolution.TypeRef{}, false, false
 	}
-	value, _, ok := resolution.Dealias(ref.TypeArgs[1], table)
-	if !ok {
-		return resolution.TypeRef{}, false
+	isStruct := false
+	if value, _, ok := resolution.Dealias(ref.TypeArgs[1], table); ok {
+		_, isStruct = value.Form.(resolution.StructForm)
 	}
-	_, isStruct := value.Form.(resolution.StructForm)
-	return ref, isStruct
+	key := ref.TypeArgs[0]
+	return ref, isStruct, isStruct || key.IsTypeParam() ||
+		resolution.PrimitiveBase(key, table) != "string"
 }
 
-// checkStructMapKey rejects a map of structs whose key has no exact JSON object key:
-// to_json writes string keys as they are, UUID keys through to_string, and integer keys
-// through std::to_string.
-func checkStructMapKey(
+// checkMapKey rejects a map that to_json builds by hand when its key has no exact JSON
+// object key: to_json writes string keys as they are, UUID keys through to_string, and
+// integer keys through std::to_string.
+func checkMapKey(
 	s resolution.Type,
 	field resolution.Field,
 	table *resolution.Table,
 ) error {
-	ref, ok := structMap(field.Type, table)
+	ref, _, ok := objectMap(field.Type, table)
 	if !ok || ref.TypeArgs[0].IsTypeParam() {
 		return nil
 	}
@@ -401,7 +408,7 @@ func checkStructMapKey(
 	}
 	return errors.Wrapf(
 		validate.ErrValidation,
-		"%s.%s: C++ cannot serialize a map of structs keyed by %s",
+		"%s.%s: C++ cannot serialize a map keyed by %s",
 		s.QualifiedName,
 		field.Name,
 		ref.TypeArgs[0].Name,
@@ -496,7 +503,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 	if _, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 		target, _, ok := resolution.Dealias(typeRef, data.table)
 		_, isStruct := target.Form.(resolution.StructForm)
-		if ok && isStruct && target.Namespace != data.rawNs {
+		if ok && isStruct && target.FilePath != data.filePath {
 			if path := output.GetPath(target, "cpp"); path != "" {
 				data.AddInternal(data.jsonInclude(path))
 			}
@@ -505,7 +512,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 
 	name := domain.GetName(resolved, "cpp")
 
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			var includePath string
@@ -586,7 +593,7 @@ func (p *Plugin) parseExprForField(
 			if _, wraps := arrays.Wrapped(form, data.table); wraps {
 				resolved, _ := typeRef.Resolve(data.table)
 				wrapperType := domain.GetName(resolved, "cpp")
-				if resolved.Namespace != data.rawNs {
+				if resolved.FilePath != data.filePath {
 					targetOutputPath := output.GetPath(resolved, "cpp")
 					if targetOutputPath != "" {
 						ns := cppnaming.Namespace(targetOutputPath)
@@ -634,7 +641,7 @@ func (p *Plugin) parseExprForField(
 		if elemResolved, ok := elemType.Resolve(data.table); ok {
 			if structForm, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
 				structType := domain.GetName(elemResolved, "cpp")
-				if elemResolved.Namespace != data.rawNs {
+				if elemResolved.FilePath != data.filePath {
 					targetOutputPath := output.GetPath(elemResolved, "cpp")
 					if targetOutputPath != "" {
 						ns := cppnaming.Namespace(targetOutputPath)
@@ -674,7 +681,7 @@ func (p *Plugin) parseExprForField(
 			}
 			if union, ok := dealiasUnion(elemType, data.table); ok {
 				parseFn := "parse_" + lo.SnakeCase(domain.GetName(union, "cpp"))
-				if union.Namespace != data.rawNs {
+				if union.FilePath != data.filePath {
 					targetOutputPath := output.GetPath(union, "cpp")
 					if targetOutputPath != "" {
 						ns := cppnaming.Namespace(targetOutputPath)
@@ -733,7 +740,7 @@ func (p *Plugin) parseExprForField(
 				return fmt.Sprintf(`parser.field<std::string>("%s")`, jsonName)
 			}
 			enumType := domain.GetName(resolved, "cpp")
-			if resolved.Namespace != data.rawNs {
+			if resolved.FilePath != data.filePath {
 				targetOutputPath := output.GetPath(resolved, "cpp")
 				if targetOutputPath != "" {
 					ns := cppnaming.Namespace(targetOutputPath)
@@ -764,7 +771,7 @@ func (p *Plugin) parseExprForField(
 		}
 		if structForm, isStruct := resolved.Form.(resolution.StructForm); isStruct {
 			structType := domain.GetName(resolved, "cpp")
-			if resolved.Namespace != data.rawNs {
+			if resolved.FilePath != data.filePath {
 				targetOutputPath := output.GetPath(resolved, "cpp")
 				if targetOutputPath != "" {
 					ns := cppnaming.Namespace(targetOutputPath)
@@ -803,7 +810,7 @@ func (p *Plugin) parseExprForField(
 		if union, ok := dealiasUnion(typeRef, data.table); ok {
 			unionType := domain.GetName(union, "cpp")
 			parseFn := "parse_" + lo.SnakeCase(unionType)
-			if union.Namespace != data.rawNs {
+			if union.FilePath != data.filePath {
 				targetOutputPath := output.GetPath(union, "cpp")
 				if targetOutputPath != "" {
 					ns := cppnaming.Namespace(targetOutputPath)
@@ -847,7 +854,7 @@ func (p *Plugin) parseExprForField(
 			if target, _, ok := resolution.Dealias(typeRef, data.table); ok {
 				if _, isStruct := target.Form.(resolution.StructForm); isStruct {
 					aliasType := domain.GetName(resolved, "cpp")
-					if resolved.Namespace != data.rawNs {
+					if resolved.FilePath != data.filePath {
 						targetOutputPath := output.GetPath(resolved, "cpp")
 						if targetOutputPath != "" {
 							ns := cppnaming.Namespace(targetOutputPath)
@@ -969,8 +976,8 @@ func (p *Plugin) compositeFallback(
 
 func (p *Plugin) defaultRenderer(data *templateData) defaults.Renderer {
 	return defaults.Renderer{
-		Table:     data.table,
-		Namespace: data.rawNs,
+		Table:    data.table,
+		FilePath: data.filePath,
 		TypeName: func(typeRef resolution.TypeRef) string {
 			return p.typeRefToCpp(typeRef, data)
 		},
@@ -1032,7 +1039,7 @@ func (p *Plugin) toJSONExprForField(
 		}
 	}
 
-	if mapRef, ok := structMap(typeRef, data.table); ok {
+	if mapRef, isStruct, ok := objectMap(typeRef, data.table); ok {
 		src := "this->" + fieldName
 		if field.Optional {
 			src = "*" + src
@@ -1050,12 +1057,15 @@ func (p *Plugin) toJSONExprForField(
 			data.AddSystem("string")
 			key = "std::to_string(key)"
 		}
-		// nlohmann_json cannot reach the to_json member inside a map.
+		value := "item"
+		if isStruct {
+			value = "item.to_json()"
+		}
 		body := fmt.Sprintf(`{
         auto obj = x::json::json::object();
-        for (const auto& [key, item] : %s) obj[%s] = item.to_json();
+        for (const auto& [key, item] : %s) obj[%s] = %s;
         j["%s"] = obj;
-    }`, src, key, jsonName)
+    }`, src, key, value, jsonName)
 		if field.Optional {
 			return fmt.Sprintf(`if (this->%s.has_value()) %s`, fieldName, body)
 		}
@@ -1117,7 +1127,7 @@ func (p *Plugin) toJSONExprForField(
 				// Qualify the free to_json: unqualified lookup inside a member
 				// to_json() finds the member and never reaches the overload.
 				qualifier := "::" + data.Namespace
-				if elem.Namespace != data.rawNs {
+				if elem.FilePath != data.filePath {
 					targetOutputPath := output.GetPath(elem, "cpp")
 					if targetOutputPath != "" {
 						data.AddInternal(data.jsonInclude(targetOutputPath))
@@ -1183,7 +1193,7 @@ func (p *Plugin) toJSONExprForField(
 			// Qualify the free to_json: unqualified lookup inside a member to_json()
 			// finds the member and never reaches the overload.
 			qualifier := "::" + data.Namespace
-			if union.Namespace != data.rawNs {
+			if union.FilePath != data.filePath {
 				targetOutputPath := output.GetPath(union, "cpp")
 				if targetOutputPath != "" {
 					data.AddInternal(data.jsonInclude(targetOutputPath))
@@ -1327,11 +1337,11 @@ func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string 
 	case resolution.ValueKindString:
 		return fmt.Sprintf("%q", v.StringValue)
 	case resolution.ValueKindInt:
-		return fmt.Sprintf("%d", v.IntValue)
+		return strconv.FormatInt(v.IntValue, 10)
 	case resolution.ValueKindFloat:
 		return fmt.Sprintf("%f", v.FloatValue)
 	case resolution.ValueKindBool:
-		return fmt.Sprintf("%t", v.BoolValue)
+		return strconv.FormatBool(v.BoolValue)
 	case resolution.ValueKindStruct:
 		if len(v.Fields) == 0 && field.Type.Name == "record" {
 			return "x::json::json::object_t{}"
@@ -1418,7 +1428,7 @@ type templateData struct {
 	jsonPaths     set.Set[string]
 	OutputPath    string
 	Namespace     string
-	rawNs         string
+	filePath      string
 	Serializers   []serializerData
 	ArrayWrappers []arrayWrapperData
 	Unions        []unionDispatchData

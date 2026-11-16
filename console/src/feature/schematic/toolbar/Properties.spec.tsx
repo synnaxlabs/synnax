@@ -40,6 +40,8 @@ interface RenderPropertiesParams {
   sessionState?: Partial<Session.Schematic.State>;
   onStatuses?: (statuses: Status.NotificationSpec[]) => void;
   createConfig?: (key: string) => Record<string, unknown>;
+  /** The group of each grouped node, by node key. */
+  parents?: Record<string, string>;
 }
 
 const renderProperties = async ({
@@ -47,9 +49,8 @@ const renderProperties = async ({
   sessionState,
   onStatuses = () => {},
   createConfig = createValveConfig,
+  parents = {},
 }: RenderPropertiesParams) => {
-  const configs: Record<string, unknown> = {};
-  nodeKeys.forEach((key) => (configs[key] = createConfig(key)));
   const Harness = (): ReactElement => (
     <>
       <Toolbar />
@@ -58,8 +59,12 @@ const renderProperties = async ({
   );
   return await renderSchematic(Harness, {
     schematic: {
-      nodes: nodeKeys.map((key) => ({ key, position: { x: 0, y: 0 } })),
-      configs: configs as schematic.New["configs"],
+      nodes: nodeKeys.map((key) => ({
+        key,
+        position: { x: 0, y: 0 },
+        config: schematic.nodeConfigZ.parse(createConfig(key)),
+        parent: parents[key],
+      })),
     },
     sessionState: {
       editable: true,
@@ -118,7 +123,7 @@ const retrieveConfig = async (
   nodeKey: string,
 ): Promise<Record<string, unknown>> => {
   const retrieved = await client.schematics.retrieve(key);
-  return retrieved.configs[nodeKey];
+  return client.schematics.configsOf(retrieved)[nodeKey];
 };
 
 const pollBothOrientations = async (key: string, rotated: string): Promise<void> => {
@@ -156,7 +161,10 @@ describe("Schematic toolbar Properties", () => {
       await act(async () => {
         await remote.schematics.dispatch(
           key,
-          schematic.set({ path: ["configs", "n1", "label", "label"], value: "Remote" }),
+          schematic.set({
+            path: ["nodes", "n1", "config", "label", "label"],
+            value: "Remote",
+          }),
         );
       });
       await waitFor(() =>
@@ -165,11 +173,17 @@ describe("Schematic toolbar Properties", () => {
     });
 
     it("prompts for a selection when another client removes the selected element", async () => {
-      const { key } = await renderProperties({ nodeKeys: ["n1"] });
+      const statuses: Status.NotificationSpec[] = [];
+      const { key } = await renderProperties({
+        nodeKeys: ["n1"],
+        onStatuses: (s) => statuses.push(...s),
+      });
       await screen.findByRole("tab", { name: "Style" });
       await waitForStreamLive(client.connection);
       const remote = createTestClient();
       await remote.schematics.retrieve(key);
+      // React reports an error caught by a boundary through console.error.
+      const error = vi.spyOn(console, "error");
       await act(async () => {
         await remote.schematics.dispatch(key, schematic.removeNode({ key: "n1" }));
       });
@@ -178,6 +192,8 @@ describe("Schematic toolbar Properties", () => {
           "Select a schematic element to configure its properties",
         ),
       ).toBeDefined();
+      expect(error).not.toHaveBeenCalled();
+      expect(statuses.filter((s) => s.variant === "error")).toEqual([]);
     });
   });
 
@@ -230,20 +246,19 @@ describe("Schematic toolbar Properties", () => {
 
   describe("grouped selection", () => {
     const nodeKeys = ["g1", "n1", "n2", "n3"];
+    const parents = { n1: "g1", n2: "g1" };
     const createGroupedConfig = (key: string): Record<string, unknown> =>
       key === "g1"
-        ? {
-            ...(PSchematic.Node.createConfig({
-              variant: "group_box",
-            }) as unknown as Record<string, unknown>),
-            members: ["n1", "n2"],
-          }
+        ? PSchematic.Node.createConfig({
+            variant: "group_box",
+          })
         : createValveConfig();
 
     it("routes a grouped member plus a loose symbol to the multi form", async () => {
       await renderProperties({
         nodeKeys,
         createConfig: createGroupedConfig,
+        parents,
         sessionState: { selected: ["n1", "n3"] },
       });
       await screen.findByText("Align");
@@ -258,6 +273,7 @@ describe("Schematic toolbar Properties", () => {
       const { key, result } = await renderProperties({
         nodeKeys,
         createConfig: createLockedConfig,
+        parents,
         sessionState: { selected: nodeKeys },
       });
       await screen.findByText("Align");
@@ -272,6 +288,7 @@ describe("Schematic toolbar Properties", () => {
       const { key, result } = await renderProperties({
         nodeKeys,
         createConfig: createLockedConfig,
+        parents,
         sessionState: { selected: nodeKeys },
       });
       await screen.findByText("Align");
@@ -286,10 +303,22 @@ describe("Schematic toolbar Properties", () => {
       });
     });
 
+    it("hides the label section when every labeled symbol is locked", async () => {
+      await renderProperties({
+        nodeKeys,
+        createConfig: createLockedConfig,
+        parents,
+        sessionState: { selected: ["g1", "n1", "n2"] },
+      });
+      await screen.findByText("Align");
+      expect(screen.queryByText("Wrap width")).toBeNull();
+    });
+
     it("skips a locked group's members when setting a role color", async () => {
       const { key } = await renderProperties({
         nodeKeys,
         createConfig: createLockedConfig,
+        parents,
         sessionState: { selected: nodeKeys },
       });
       await screen.findByText("Colors");
@@ -304,6 +333,7 @@ describe("Schematic toolbar Properties", () => {
       await renderProperties({
         nodeKeys,
         createConfig: createGroupedConfig,
+        parents,
         sessionState: { selected: ["g1", "n1", "n2"] },
       });
       await screen.findByText("Align");
@@ -337,7 +367,7 @@ describe("Schematic toolbar Properties", () => {
         ).toMatchObject({
           actions: ["n1", "n2"].map((key) => ({
             type: "set",
-            set: { path: ["configs", key, "stroke_color"] },
+            set: { path: ["nodes", key, "config", "stroke_color"] },
           })),
         }),
       );
@@ -396,7 +426,7 @@ describe("Schematic toolbar Properties", () => {
         ?.querySelector<HTMLElement>(".lyra-color-swatch");
       assertDefined(swatch);
       expect(swatch.style.getPropertyValue("--pluto-swatch-color")).not.toBe(
-        "rgba(0, 0, 0, 0)",
+        "#00000000",
       );
     });
 
@@ -558,6 +588,61 @@ describe("Schematic toolbar Properties", () => {
     });
   });
 
+  describe("edges", () => {
+    const renderWithEdge = async () => {
+      const Harness = (): ReactElement => <Toolbar />;
+      return await renderSchematic(Harness, {
+        schematic: {
+          nodes: ["n1", "n2"].map((key) => ({
+            key,
+            position: { x: 0, y: 0 },
+            config: schematic.nodeConfigZ.parse(createBoxConfig()),
+          })),
+          edges: [
+            {
+              key: "e1",
+              source: { node: "n1", param: "out" },
+              target: { node: "n2", param: "in" },
+              config: schematic.edgeConfigZ.parse({ variant: "pipe" }),
+            },
+          ],
+        },
+        sessionState: {
+          editable: true,
+          selected: ["e1"],
+          toolbar: {
+            selectedTab: "properties",
+            selectedSymbolGroup: "general",
+            changing: false,
+          },
+        },
+      });
+    };
+
+    it("writes a stroke width edit to the edge config", async () => {
+      const { key } = await renderWithEdge();
+      const width = await screen.findByLabelText("Stroke width");
+      const send = spyOnSend(client);
+      fireEvent.change(width, { target: { value: "6" } });
+      fireEvent.blur(width);
+      await waitFor(() =>
+        expect(
+          send.mock.calls.find(([target]) => target === "/schematic/dispatch")?.[1],
+        ).toMatchObject({
+          actions: [
+            {
+              type: "set",
+              set: { path: ["edges", "e1", "config", "stroke_width"], value: 6 },
+            },
+          ],
+        }),
+      );
+      await expect
+        .poll(async () => (await retrieveConfig(key, "e1")).strokeWidth)
+        .toBe(6);
+    });
+  });
+
   describe("multiple selection", () => {
     it("hides the spacing controls for fewer than three selections", async () => {
       await renderProperties({ nodeKeys: ["n1", "n2"] });
@@ -581,6 +666,37 @@ describe("Schematic toolbar Properties", () => {
       await expect
         .poll(async () => (await retrieveConfig(key, "n1")).label)
         .toMatchObject({ maxInlineSize: 200 });
+    });
+
+    it("shows the default wrap width until a symbol has one", async () => {
+      const { result } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: () => PSchematic.Node.createConfig({ variant: "button" }),
+      });
+      await screen.findByText("Align");
+      expect(getInputByItemLabel(result.container, "Wrap width").value).toBe("150");
+    });
+
+    it("keeps the wrap width of every selected symbol when cleared", async () => {
+      const { key, result } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: () =>
+          PSchematic.Node.createConfig({
+            variant: "tank",
+            label: { maxInlineSize: 80 },
+          }),
+      });
+      await screen.findByText("Align");
+      const input = getInputByItemLabel(result.container, "Wrap width");
+      fireEvent.change(input, { target: { value: "" } });
+      fireEvent.blur(input);
+      await expect.poll(() => input.value).toBe("80");
+      expect((await retrieveConfig(key, "n1")).label).toMatchObject({
+        maxInlineSize: 80,
+      });
+      expect((await retrieveConfig(key, "n2")).label).toMatchObject({
+        maxInlineSize: 80,
+      });
     });
 
     it("rotates the whole selection, still rotating orientations when layout fails", async () => {

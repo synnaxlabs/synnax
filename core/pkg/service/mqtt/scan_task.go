@@ -21,6 +21,7 @@ import (
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -94,6 +95,7 @@ type browseResult struct {
 type scanner struct {
 	ins    alamos.Instrumentation
 	pool   *pool
+	db     *gorp.DB
 	device *device.Service
 }
 
@@ -218,10 +220,12 @@ func (s *scanner) browseConfig(
 	key device.Key,
 ) (device.Device, properties, clientConfig, error) {
 	var dev device.Device
-	if err := s.device.NewRetrieve().
-		Where(device.MatchKeys(key)).
-		Entry(&dev).
-		Exec(ctx, nil); err != nil {
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.device.NewRetrieve().
+			Where(device.MatchKeys(key)).
+			Entry(&dev).
+			Exec(ctx, snap)
+	}); err != nil {
 		return device.Device{}, properties{}, clientConfig{}, err
 	}
 	props, err := parseProperties(dev)

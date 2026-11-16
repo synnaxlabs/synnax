@@ -28,6 +28,18 @@ struct ConfigureResult {
     bool auto_start = false;
 };
 
+/// @brief a problem that does not stop a task, sent as a task warning.
+struct Warning {
+    /// @brief what happened, in one short line.
+    std::string message;
+    /// @brief why it happened and what to do now.
+    std::string description;
+
+    [[nodiscard]] bool empty() const { return this->message.empty(); }
+
+    bool operator==(const Warning &) const = default;
+};
+
 /// @brief returns a breaker configuration that retries without a limit, at most 5 s
 /// apart, so a task waits for a lost device to return.
 inline x::breaker::Config unlimited_retry_config(const std::string &name) {

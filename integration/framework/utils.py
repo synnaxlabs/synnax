@@ -111,14 +111,9 @@ def resolve_channel_placeholders(client: sy.Synnax, text: str) -> str:
 def get_fixture_path(filename: str) -> str:
     """Get the full path for a test fixture file.
 
-    Args:
-        filename: Name of the fixture file (e.g., "test_valve.svg")
-
-    Returns:
-        Full path to the fixture file.
-
-    Raises:
-        FileNotFoundError: If the fixture file doesn't exist.
+    :param filename: Name of the fixture file (e.g., "test_valve.svg")
+    :returns: Full path to the fixture file.
+    :raises FileNotFoundError: If the fixture file doesn't exist.
     """
     path = os.path.join(_FIXTURES_DIR, filename)
     if not os.path.exists(path):

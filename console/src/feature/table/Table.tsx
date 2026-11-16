@@ -28,7 +28,7 @@ const Internal: Panel.Content = () => {
   const hideIndicators = Session.Table.useSelectHideIndicators();
   const selected = Session.Table.useSelectSelectedCellKeys();
   const centered = Session.Table.useSelectCentered();
-  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(table.resourceID(key));
   const canEdit = hasUpdatePermission && editable;
   const dispatch = Session.useDispatch();
   const visible = Session.Panel.useSelectIsTabVisible();
@@ -80,7 +80,7 @@ const TableControls = (): ReactElement => {
   const editable = Session.Table.useSelectEditable();
   const hideIndicators = Session.Table.useSelectHideIndicators();
   const centered = Session.Table.useSelectCentered();
-  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(table.resourceID(key));
   const dispatch = Session.useDispatch();
   const handleEdit = () => dispatch(Session.Table.setEditable({ key }));
   const handleToggleHideIndicators = () =>

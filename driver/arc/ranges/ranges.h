@@ -20,7 +20,6 @@
 #include "client/cpp/synnax.h"
 #include "x/cpp/color/color.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/mem/indirect.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -48,7 +47,7 @@ inline std::string dispatch_create(
 ) {
     std::optional<x::color::Color> c;
     if (!color_hex.empty()) {
-        auto [parsed, err] = x::color::from_css(color_hex);
+        auto [parsed, err] = x::color::parse(color_hex);
         if (err) {
             report(
                 CREATE_FAILURE_MSG,
@@ -74,9 +73,7 @@ inline std::string dispatch_create(
             );
             return "";
         }
-        synnax::ranger::Range parent_range;
-        parent_range.key = uid;
-        r.parent = x::mem::make_indirect<synnax::ranger::Range>(parent_range);
+        r.parent = uid;
     }
     if (const auto err = client->ranges.create(r)) {
         report(CREATE_FAILURE_MSG, err.data);

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type resource, type Synnax } from "@synnaxlabs/client";
 
 // Links have the form synnax://cluster/<cluster-key> for a cluster or
 // synnax://cluster/<cluster-key>/<resource-type>/<resource-key> for another resource.
@@ -15,6 +15,10 @@ import { type Synnax } from "@synnaxlabs/client";
 // whichever Core the person receiving it reaches the cluster through.
 
 export const PREFIX = `synnax://cluster/`;
+
+/** @returns the link to the cluster, or to the resource in it when one is given. */
+export const create = (clusterKey: string, id?: resource.ID): string =>
+  id == null ? `${PREFIX}${clusterKey}` : `${PREFIX}${clusterKey}/${id.type}/${id.key}`;
 
 // Connect resolves the cluster a link names to a connected client, switching the active
 // Core and awaiting a successful connection if necessary.

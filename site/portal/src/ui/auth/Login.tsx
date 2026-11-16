@@ -19,6 +19,7 @@ import { type Invited } from "@/server/invitation";
 import { Card } from "@/ui/auth/Card";
 import { OAuth } from "@/ui/auth/OAuth";
 import { withTarget } from "@/ui/auth/redirect";
+import { ReleaseNotes } from "@/ui/auth/ReleaseNotes";
 import {
   backupCode,
   choose,
@@ -153,17 +154,20 @@ export const Login = ({ target, invited }: LoginProps): ReactElement => {
       }
       error={login.error ?? oauthError}
       footer={
-        <Text.Text level="small" color={9}>
-          New to Synnax?{" "}
-          <Text.Text
-            el="a"
-            level="small"
-            variant="link"
-            href={withTarget("/sign-up", target)}
-          >
-            Create an account
+        <>
+          <ReleaseNotes />
+          <Text.Text level="small" color={9}>
+            New to Synnax?{" "}
+            <Text.Text
+              el="a"
+              level="small"
+              variant="link"
+              href={withTarget("/sign-up", target)}
+            >
+              Create an account
+            </Text.Text>
           </Text.Text>
-        </Text.Text>
+        </>
       }
     >
       <OAuth mode="login" target={target} onError={setOAuthError} />

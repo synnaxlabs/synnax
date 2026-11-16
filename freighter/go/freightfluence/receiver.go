@@ -86,11 +86,11 @@ o:
 				return res.err
 			}
 			tRes, ok, err := r.Transform(ctx, res.msg)
-			if !ok {
-				continue o
-			}
 			if err != nil {
 				return err
+			}
+			if !ok {
+				continue o
 			}
 			if err := signal.SendUnderContext(ctx, r.Out.Inlet(), tRes); err != nil {
 				return err

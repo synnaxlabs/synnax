@@ -51,7 +51,9 @@ export const defaultGetter = (obj: record.Unknown, key: string): unknown => {
   return undefined;
 };
 
-/** Rewrites the array indexes in a path into the `key` of the entry each one reaches. */
+/**
+ * Rewrites the array indexes in a path into the `key` of the entry each one reaches.
+ */
 export const resolvePath = <T = record.Unknown>(path: string, obj: T): string => {
   const parts = path.split(SEPARATOR);
   parts.forEach((part, i) => {

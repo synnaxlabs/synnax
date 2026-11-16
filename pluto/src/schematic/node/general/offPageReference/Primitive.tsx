@@ -21,10 +21,10 @@ import { PAGE_ICONS } from "@/schematic/node/general/offPageReference/config";
 
 export const offPageReferenceTooltip = (
   page?: schematic.Page,
-  dblClickNavDisabled?: boolean,
+  doubleClickNavigationDisabled?: boolean,
 ): string | undefined => {
   if (page == null || page.key.length === 0) return undefined;
-  const mode = dblClickNavDisabled === true ? "Single" : "Double";
+  const mode = doubleClickNavigationDisabled === true ? "Single" : "Double";
   return `${mode}-click to navigate`;
 };
 

@@ -38,19 +38,17 @@ const (
 // StatusDetails contains task-specific status details including execution state.
 type StatusDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// task is the key of the task this status pertains to.
-	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	// running is true if the task is currently executing.
-	Running bool `protobuf:"varint,2,opt,name=running,proto3" json:"running,omitempty"`
+	Running bool `protobuf:"varint,1,opt,name=running,proto3" json:"running,omitempty"`
 	// cmd is the last command executed on this task.
-	Cmd string `protobuf:"bytes,3,opt,name=cmd,proto3" json:"cmd,omitempty"`
+	Cmd string `protobuf:"bytes,2,opt,name=cmd,proto3" json:"cmd,omitempty"`
 	// config_hash is the hash of the config the running task instance was built from.
 	// Empty when no instance exists.
-	ConfigHash string `protobuf:"bytes,4,opt,name=config_hash,json=configHash,proto3" json:"config_hash,omitempty"`
+	ConfigHash string `protobuf:"bytes,3,opt,name=config_hash,json=configHash,proto3" json:"config_hash,omitempty"`
 	// rack is the key of the rack running the task instance.
-	Rack uint32 `protobuf:"varint,5,opt,name=rack,proto3" json:"rack,omitempty"`
+	Rack uint32 `protobuf:"varint,4,opt,name=rack,proto3" json:"rack,omitempty"`
 	// data contains task-specific status data.
-	Data          *structpb.Struct `protobuf:"bytes,6,opt,name=data,proto3,oneof" json:"data,omitempty"`
+	Data          *structpb.Struct `protobuf:"bytes,5,opt,name=data,proto3,oneof" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -83,13 +81,6 @@ func (x *StatusDetails) ProtoReflect() protoreflect.Message {
 // Deprecated: Use StatusDetails.ProtoReflect.Descriptor instead.
 func (*StatusDetails) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *StatusDetails) GetTask() string {
-	if x != nil {
-		return x.Task
-	}
-	return ""
 }
 
 func (x *StatusDetails) GetRunning() bool {
@@ -151,10 +142,8 @@ type Task struct {
 	ConfigHash string `protobuf:"bytes,6,opt,name=config_hash,json=configHash,proto3" json:"config_hash,omitempty"`
 	// internal is true if this is an internal system task.
 	Internal bool `protobuf:"varint,7,opt,name=internal,proto3" json:"internal,omitempty"`
-	// snapshot is true if this task is an immutable snapshot copy of another task.
-	Snapshot bool `protobuf:"varint,8,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
 	// status is the current execution status of the task.
-	Status        *pb.Status `protobuf:"bytes,9,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Status        *pb.Status `protobuf:"bytes,8,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -234,13 +223,6 @@ func (x *Task) GetConfigHash() string {
 func (x *Task) GetInternal() bool {
 	if x != nil {
 		return x.Internal
-	}
-	return false
-}
-
-func (x *Task) GetSnapshot() bool {
-	if x != nil {
-		return x.Snapshot
 	}
 	return false
 }
@@ -515,8 +497,8 @@ type Where struct {
 	Rack *RackKeySet `protobuf:"bytes,7,opt,name=rack,proto3,oneof" json:"rack,omitempty"`
 	// internal selects by internal.
 	Internal *pb1.Bool `protobuf:"bytes,8,opt,name=internal,proto3,oneof" json:"internal,omitempty"`
-	// snapshot selects by snapshot.
-	Snapshot      *pb1.Bool `protobuf:"bytes,9,opt,name=snapshot,proto3,oneof" json:"snapshot,omitempty"`
+	// arcs matches the tasks that run any of the Arcs with the given keys.
+	Arcs          *UuidList `protobuf:"bytes,9,opt,name=arcs,proto3" json:"arcs,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -607,9 +589,9 @@ func (x *Where) GetInternal() *pb1.Bool {
 	return nil
 }
 
-func (x *Where) GetSnapshot() *pb1.Bool {
+func (x *Where) GetArcs() *UuidList {
 	if x != nil {
-		return x.Snapshot
+		return x.Arcs
 	}
 	return nil
 }
@@ -712,16 +694,15 @@ var File_core_pkg_service_task_pb_task_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/service/task/pb/task.proto\x12\x0fservice.task.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/filter/pb/filter.proto\"\xbf\x01\n" +
-	"\rStatusDetails\x12\x12\n" +
-	"\x04task\x18\x01 \x01(\tR\x04task\x12\x18\n" +
-	"\arunning\x18\x02 \x01(\bR\arunning\x12\x10\n" +
-	"\x03cmd\x18\x03 \x01(\tR\x03cmd\x12\x1f\n" +
-	"\vconfig_hash\x18\x04 \x01(\tR\n" +
+	"#core/pkg/service/task/pb/task.proto\x12\x0fservice.task.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/filter/pb/filter.proto\"\xab\x01\n" +
+	"\rStatusDetails\x12\x18\n" +
+	"\arunning\x18\x01 \x01(\bR\arunning\x12\x10\n" +
+	"\x03cmd\x18\x02 \x01(\tR\x03cmd\x12\x1f\n" +
+	"\vconfig_hash\x18\x03 \x01(\tR\n" +
 	"configHash\x12\x12\n" +
-	"\x04rack\x18\x05 \x01(\rR\x04rack\x120\n" +
-	"\x04data\x18\x06 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
-	"\x05_data\"\xa1\x02\n" +
+	"\x04rack\x18\x04 \x01(\rR\x04rack\x120\n" +
+	"\x04data\x18\x05 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
+	"\x05_data\"\x85\x02\n" +
 	"\x04Task\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04rack\x18\x02 \x01(\rR\x04rack\x12\x12\n" +
@@ -730,9 +711,8 @@ const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\x06config\x18\x05 \x01(\v2\x17.google.protobuf.StructR\x06config\x12\x1f\n" +
 	"\vconfig_hash\x18\x06 \x01(\tR\n" +
 	"configHash\x12\x1a\n" +
-	"\binternal\x18\a \x01(\bR\binternal\x12\x1a\n" +
-	"\bsnapshot\x18\b \x01(\bR\bsnapshot\x126\n" +
-	"\x06status\x18\t \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
+	"\binternal\x18\a \x01(\bR\binternal\x126\n" +
+	"\x06status\x18\b \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
 	"\a_status\";\n" +
 	"\tWhereList\x12.\n" +
 	"\x06values\x18\x01 \x03(\v2\x16.service.task.pb.WhereR\x06values\"\"\n" +
@@ -748,7 +728,7 @@ const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"RackKeySet\x12\x13\n" +
 	"\x02eq\x18\x01 \x01(\rH\x00R\x02eq\x88\x01\x01\x12,\n" +
 	"\x02in\x18\x02 \x01(\v2\x1c.service.task.pb.RackKeyListR\x02inB\x05\n" +
-	"\x03_eq\"\x80\x04\n" +
+	"\x03_eq\"\xee\x03\n" +
 	"\x05Where\x12,\n" +
 	"\x03and\x18\x01 \x01(\v2\x1a.service.task.pb.WhereListR\x03and\x12*\n" +
 	"\x02or\x18\x02 \x01(\v2\x1a.service.task.pb.WhereListR\x02or\x12-\n" +
@@ -757,15 +737,14 @@ const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01\x12,\n" +
 	"\x04type\x18\x06 \x01(\v2\x13.x.filter.pb.StringH\x03R\x04type\x88\x01\x01\x124\n" +
 	"\x04rack\x18\a \x01(\v2\x1b.service.task.pb.RackKeySetH\x04R\x04rack\x88\x01\x01\x122\n" +
-	"\binternal\x18\b \x01(\v2\x11.x.filter.pb.BoolH\x05R\binternal\x88\x01\x01\x122\n" +
-	"\bsnapshot\x18\t \x01(\v2\x11.x.filter.pb.BoolH\x06R\bsnapshot\x88\x01\x01B\x06\n" +
+	"\binternal\x18\b \x01(\v2\x11.x.filter.pb.BoolH\x05R\binternal\x88\x01\x01\x12-\n" +
+	"\x04arcs\x18\t \x01(\v2\x19.service.task.pb.UuidListR\x04arcsB\x06\n" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\a\n" +
 	"\x05_nameB\a\n" +
 	"\x05_typeB\a\n" +
 	"\x05_rackB\v\n" +
-	"\t_internalB\v\n" +
-	"\t_snapshot\"\xa9\x01\n" +
+	"\t_internal\"\xa9\x01\n" +
 	"\aCommand\x12\x12\n" +
 	"\x04task\x18\x01 \x01(\tR\x04task\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x10\n" +
@@ -819,7 +798,7 @@ var file_core_pkg_service_task_pb_task_proto_depIdxs = []int32{
 	11, // 11: service.task.pb.Where.type:type_name -> x.filter.pb.String
 	6,  // 12: service.task.pb.Where.rack:type_name -> service.task.pb.RackKeySet
 	12, // 13: service.task.pb.Where.internal:type_name -> x.filter.pb.Bool
-	12, // 14: service.task.pb.Where.snapshot:type_name -> x.filter.pb.Bool
+	3,  // 14: service.task.pb.Where.arcs:type_name -> service.task.pb.UuidList
 	9,  // 15: service.task.pb.Command.args:type_name -> google.protobuf.Struct
 	16, // [16:16] is the sub-list for method output_type
 	16, // [16:16] is the sub-list for method input_type

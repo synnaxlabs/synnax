@@ -11,6 +11,7 @@ package start
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"strings"
@@ -25,28 +26,43 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/listener"
 	"github.com/synnaxlabs/synnax/cmd/start/internal/stdin"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	xsignal "github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
-// Cmd represents the start command
+// Cmd represents the start command.
 var Cmd = &cobra.Command{
 	Use:     "start",
 	Short:   "Starts a Synnax Core",
-	Long:    "Starts a Synnax Core using the data directory specified by the --data flag, and listening on the address specified by the --listen flag. If --peers is specified and no existing data is found, the Core will attempt to join the cluster formed by its peers. If no peers are specified and no existing data is found, the Core will bootstrap a new cluster.",
-	Example: "synnax start --listen localhost:9091 --data /mnt/ssd1 --peers localhost:9092,localhost:9093 --insecure",
+	Long:    "Starts a Synnax Core using the data directory specified by the --data flag, and listening on the address specified by the --listen flag.",
+	Example: "synnax start --listen localhost:9091 --data /mnt/ssd1 --insecure",
 	Args:    cobra.NoArgs,
 	PreRunE: func(cmd *cobra.Command, _ []string) error {
 		return viper.BindPFlags(cmd.Flags())
 	},
-	Run: func(cmd *cobra.Command, _ []string) { start(cmd) },
+	RunE: func(cmd *cobra.Command, _ []string) error { return start(cmd) },
 }
 
 // start is the entrypoint for starting a Synnax Core. It handles stop requests and
-// delegates to BootupCore for the actual startup.
-func start(cmd *cobra.Command) {
+// delegates to BootupCore for the actual startup. It logs the error that ends the Core,
+// writes it to stderr as one line for a supervising process to read, and returns it.
+func start(cmd *cobra.Command) error {
+	err := run(cmd)
+	if err != nil {
+		if _, wErr := fmt.Fprintln(cmd.ErrOrStderr(), err); wErr != nil {
+			return errors.Combine(err, wErr)
+		}
+	}
+	return err
+}
+
+func run(cmd *cobra.Command) error {
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
 	ctx := cmd.Context()
 	ins := instrumentation.Configure()
 	defer instrumentation.Cleanup(ctx, ins)
@@ -70,8 +86,8 @@ func start(cmd *cobra.Command) {
 
 	cfg, err := GetCoreConfigFromViper(ins)
 	if err != nil {
-		ins.L.Fatal("invalid configuration", zap.Error(err))
-		return
+		ins.L.Error("invalid configuration", zap.Error(err))
+		return err
 	}
 
 	sCtx.Go(func(ctx context.Context) error {
@@ -120,9 +136,10 @@ func start(cmd *cobra.Command) {
 			"\033[31mSynnax has encountered an error and is shutting down: %v\033[0m",
 			err,
 		)
-		ins.L.Fatal("synnax failed", zap.Error(err))
+		return err
 	}
 	ins.L.Info("\033[34mSynnax has shut down\033[0m")
+	return nil
 }
 
 func init() { AddFlags(Cmd) }
@@ -148,16 +165,10 @@ func readLicenseKey() (string, error) {
 // This is used by the Windows service to start the Core with the config loaded from
 // a YAML file.
 func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
-	peers := lo.Map(
-		viper.GetStringSlice(FlagPeers),
-		func(peer string, _ int) address.Address {
-			return address.Address(peer)
-		},
-	)
 	factoryCfg := cert.BuildCertFactoryConfig(ins)
 	listeners, err := listener.Parse()
 	if err != nil {
-		return CoreConfig{}, err
+		return CoreConfig{}, errors.Mark(err, validate.ErrValidation)
 	}
 	factoryCfg.Hosts = lo.Map(
 		listeners,
@@ -167,7 +178,13 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 	)
 	licenseKey, err := readLicenseKey()
 	if err != nil {
-		return CoreConfig{}, err
+		return CoreConfig{}, errors.Mark(err, validate.ErrValidation)
+	}
+	var secretsKey secret.EncryptionKey
+	if v := viper.GetString(FlagSecretsKey); v != "" {
+		if secretsKey, err = secret.ParseEncryptionKey(v); err != nil {
+			return CoreConfig{}, errors.Wrapf(err, "invalid --%s", FlagSecretsKey)
+		}
 	}
 	return CoreConfig{
 		Instrumentation:     ins,
@@ -178,8 +195,9 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		licenseKey:          licenseKey,
 		memBacked:           new(viper.GetBool(FlagMem)),
 		listeners:           listeners,
-		peers:               peers,
 		dataPath:            viper.GetString(FlagData),
+		secretsKey:          secretsKey,
+		secretsKeyFile:      viper.GetString(FlagSecretsKeyFile),
 		slowConsumerTimeout: viper.GetDuration(FlagSlowConsumerTimeout),
 		sessionIdleTimeout:  viper.GetDuration(FlagSessionIdleTimeout),
 		rootCredentials: auth.Credentials{
@@ -187,6 +205,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 			Password: viper.GetString(FlagPassword),
 		},
 		noDriver:             new(viper.GetBool(FlagNoDriver)),
+		updateBackupDisabled: new(viper.GetBool(FlagNoUpdateBackup)),
 		taskOpTimeout:        viper.GetDuration(FlagTaskOpTimeout),
 		taskPollInterval:     viper.GetDuration(FlagTaskPollInterval),
 		taskShutdownTimeout:  viper.GetDuration(FlagTaskShutdownTimeout),

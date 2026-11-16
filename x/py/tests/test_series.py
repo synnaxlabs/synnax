@@ -17,8 +17,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import pytest
-from hypothesis import given
-from hypothesis import strategies as st
+from hypothesis import given, strategies as st
 from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
 
 from x import telem

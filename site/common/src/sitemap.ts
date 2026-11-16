@@ -9,7 +9,9 @@
 
 import { type APIContext, type APIRoute } from "astro";
 
-/** Returns a route that lists the given paths, relative to the site URL, as a sitemap. */
+/**
+ * Returns a route that lists the given paths, relative to the site URL, as a sitemap.
+ */
 export const sitemap = (routes: string[]) =>
   (({ site }: Pick<APIContext, "site">) => {
     const urls = routes.map(

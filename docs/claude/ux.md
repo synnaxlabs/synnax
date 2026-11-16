@@ -33,31 +33,66 @@ one job. Pick the step by its job:
 
 | Steps        | Band    | Jobs                                               |
 | ------------ | ------- | -------------------------------------------------- |
-| l0, l1, l2   | Surface | canvas; panes and cards; dialogs, menus, toolbars  |
+| l0, l1, l2   | Surface | canvas; panes and cards; toolbars                  |
 | l3, l4, l5   | Fill    | rest; hover; press                                 |
 | l6, l7, l8   | Border  | separator; control border; strong border           |
 | l9, l10, l11 | Text    | secondary text and icons; body text; emphatic text |
 
+Non-modal dialogs and menus use `--pluto-gray-l1-l2`, halfway between l1 and l2. Modals
+keep the modal surface.
+
+A card on an l1 page uses l0, the same as the shell islands. Settings on the project
+splash is one: its page is l1, so its nav and cards are l0.
+
 Hover moves one fill step from rest, and press moves one more. Disabled text is
 `--pluto-text-disabled`. A disabled outlined control (an input, a select trigger, an
 outlined button) has fill l2 and border l4, and its caret has the disabled text color.
+
+### Status colors
+
+Success is primary blue, warning is yellow (amber in light), and error is red. Every
+status color is a step of the palette ramps in `lyra/src/theme/theme.ts`, never a hex
+from another system. Text on a 15% tint of its status (badges, notes) uses
+`--pluto-primary-text`, `--pluto-warning-text`, or `--pluto-error-text`. Each is the
+step nearest the status color that reads on the tint: a darker step in light mode, and a
+lighter step or the base step in dark mode.
 
 ### Shape and size
 
 - Lyra's rem is 6 px. Write sizes in rem with the existing tokens. Round a fractional
   rem to a whole pixel with `round(..., 1px)`.
 - Radius has five steps: tiny 4, small 6, medium 9, large 12, and huge 18 px. Outlined
-  and text buttons, inputs, and keycaps use tiny. Filled buttons, tabs, tags, and
-  tooltips use small. Modals and context menus use large. Do not add a step.
+  and text buttons, inputs, and keycaps use tiny. Filled buttons, tags, tooltips, and
+  tabs use small. View tabs, filter chips, and cards use medium. Modals, menus, explorer
+  bars, and page sections use large. The Settings section list uses huge. Do not add a
+  step.
 - A custom icon looks precise, never cartoony: about 1.5-unit strokes on a 24 grid,
   square ends, corner radii of 1 unit or less, and filled shapes cut by clean gaps.
+- An icon centers on its ink, not its box. A star moves up 3.6% of its box, so it lines
+  up with the text and the icons next to it.
+
+### Compound icons
+
+- A compound icon is a base icon with a modifier (add, import, export) or a stack. Draw
+  it as one glyph with `Icon.createFromPath`. Do not layer icons at run time.
+- The modifier sits at top right: 9 units wide, centered at (17.5, 6.5), with a 2.5-unit
+  stem (2 on a line base). The base scales to 0.9 from its bottom-left corner.
+- Cut the base 1.75 units clear of the modifier, with no backing disc. Cut with the
+  modifier's box, with a circle on a round base, or with the modifier's outline when a
+  box removes a small detail. A cut line keeps its round caps. Remove slivers.
+- A folder holds its modifier as a knockout. The project icon replaces its top dot with
+  the modifier.
+- An explorer icon is a diagonal stack: a solid back copy at top right, cut 1.75 units
+  clear of the front copy at bottom left.
+- An item that adds to a thing that exists uses the plain base icon ("Add to active
+  plot").
 
 ### Type
 
 - Levels: h1 33, h2 27, h3 21, h4 16, h5 14, p 13, small 12, and tiny 11 px. Headings
   are weight 500, h5 is 450, and p, small, and tiny are 400.
 - Small text is 12 px: field labels, help and error text, table headings, toast
-  descriptions, small buttons, and context menus.
+  descriptions, and small buttons.
 - Tiny text is 11 px, only for small extras: times, keycaps, tags, counts, and task
   subtitles.
 - A button label at the p or small level is weight 450. Inputs, switches, list items,
@@ -85,6 +120,16 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   The other actions in that header are text buttons.
 - An icon-only button has a tooltip that names the action in a word ("Close"), then
   shows its keys.
+
+### Top bar
+
+- The right end of the top bar holds what applies to the whole Console. It ends with
+  docs ("?"), the Settings gear, then the Core badge, the order Jira and Confluence use.
+- The left bar holds toolbars only. Settings is a tab, not a toolbar, so its gear never
+  goes in the left bar.
+- The islands of a pre-workspace surface, such as login or the project splash, are not
+  the top bar. Their right end is the Core island, then the island of the theme toggle.
+  On the project splash, the Settings gear shares the island of the theme toggle.
 
 ### Toolbar search
 
@@ -181,12 +226,18 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - A field in a row, or beside another field, has no help text. Its control shows the
   error, and the message shows on hover. A control with a border gets a red border. A
   control with no border, such as a text select or a button group, gets red text.
-- A span of time (a timeout, a delay, a window) is a typed duration field
-  (`Form.TimeSpanField`, or `Input.TimeSpan inline`), never a number with a unit suffix.
-  The person types "500ms", "2.5s", or "1min 30s". A number alone takes the unit of the
-  stored value. The readings and a hint show under the field while it has focus, also
-  when it already has a value. A bound is a message under the field ("Timeout must be
-  1min or less"), never a silent clamp.
+- An error about the whole form, such as a refused login, shows in an error note under
+  the submit button. The note keeps its space while empty, so nothing moves when it
+  shows. It is one plain sentence ("Incorrect username or password."), and it is empty
+  before the first attempt.
+- A span of time (a timeout, a delay, a window) is a typed duration field, never a
+  number with a unit suffix. Use `Form.TimeSpanField` when the stored unit is the unit
+  of a number typed alone, and `Input.TimeSpan inline` with its own `unit` when they
+  differ. The person types "500ms", "2.5s", or "1min 30s". A number alone takes the unit
+  people think in for that field, such as milliseconds for a click delay and seconds for
+  a timeout, whatever unit the value is stored in. The readings and a hint show under
+  the field while it has focus, also when it already has a value. A bound is a message
+  under the field ("Timeout must be 1min or less"), never a silent clamp.
 - A range duration on the timeline keeps the popover editor (`Input.TimeSpan`), because
   it reads as a value, not as a form field.
 
@@ -271,18 +322,93 @@ bound, a log precision, or the line plot X channel.
 
 ### Menus and selects
 
-- Context menus use 12 px text in 24 px items.
+- Menus use 13 px text in 28 px items. This includes context menus, the filter menu, and
+  its values.
+- The filter menu, its submenus, and the pickers of a filter chip use the context menu
+  surface: an l6 border, the large radius, 6 px padding, and the overlay shadow.
+- Menus and non-modal dialogs share one fill, `--pluto-gray-l1-l2`. A select keeps its
+  bordered search and its framed list.
+- A submenu opens 100 ms after the pointer stops on its item, and at once on a click or
+  ArrowRight. ArrowLeft and Esc close one level. While the pointer moves toward an open
+  submenu, the items it crosses do not light or open.
+- A submenu opens with its first item level with its parent item, and laps 4 px over the
+  edge of the menu on either side. It fades in when it opens first, and it replaces
+  another submenu with no animation.
+- The item whose submenu is open stays lit (l4). Only one item is lit at a time. A
+  highlight follows the pointer with no fade.
+- The search of a menu or a submenu looks like the search of a select: the l3 fill and
+  an l7 hairline under it. It spans the top of the menu.
+- Typing in an open context menu or the filter menu filters its items, as in Linear. The
+  first printable key opens a search at the top, with the caret after that key. The
+  search is a normal field: a click places the caret. Items whose text does not match
+  hide, and so do dividers with no match on one side. With no match, one muted line says
+  "No matches". While the search has the focus, the first match is lit, and Enter picks
+  the lit item. The arrow keys move into the items, and a key typed on an item goes on
+  in the search. Esc closes the search, then the menu. Every menu is at least 32rem (192
+  px) wide, filtering or not. A submenu matches on its `textValue`, and the filter never
+  hides its content. Keys typed into a field, such as the search of a picker, never
+  reach the filter.
+- Every explorer filters through `View.Filter`: one menu item for each property, which
+  opens its picker as a submenu. A chip opens the same picker below the chip.
+- Values have 4 px corners. A picked value tints, with no checkbox, and picked values
+  next to each other join into one highlight.
 - A divider separates groups of actions, never single items.
 - In a group, all items have an icon or none do.
+- "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
+  calls a duplicate "Copy".
 - An open select marks the current value and opens scrolled to it.
+- The placeholder of an empty `shadow` or `text` multiple select is a text button. A
+  click on it opens the select beside it, as a click on a tag does. The placeholder and
+  the add button take the select's size, medium by default, so they stand a step above
+  the small tags. A list item passes small, so the item keeps one height.
+- A tag or count that opens a select rests at l0, and fills l2 on hover and l3 on press.
+  Its outline goes from l6 to l8.
+- A click on a tag opens its select beside that tag. While the select is open, a change
+  to the tags never moves it sideways. It keeps its first x until the window resizes. If
+  the tag goes or folds into the count, the select stays where it is, in the window.
+- A group of tags that runs short stacks its tags, then folds the last ones into a
+  count: the dots of the first hidden tags, then "+N". With no tag shown, the count
+  reads "N labels", then "+N" with its dots. Only a group too narrow for that shows
+  nothing.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
+- A value in a list item or a property panel shows no caret, at rest, on hover, or while
+  open, so a `shadow` select has none. Selects in toolbars, forms, and settings always
+  show their caret. A select that shows only its icon has none.
 - An option with a description shows the icon beside the name and the description under
   the name, through `Select.ItemDescription`. The dropdown is wide enough for each
   description on one line. Only a narrow window wraps it, and it is never cut.
 - A select with a few described options, such as the Arc performance level and the plot
   line sampling, has no search. A user reads the options instead.
+- A role select shows each role's icon (`Access.Role.icon`) beside its name, in the
+  dropdown and on the closed select. Its floating dropdown stops at 60rem
+  (`--pluto-dialog-max-width`), so long descriptions wrap.
 - A select that shows only its icon is a square button, never a wide box.
+- A device select shows the selected device's status as a badge at the end of the
+  trigger, before the caret (`Device.StatusBadge`). The badge says "Connected" or
+  "Disconnected" from the status `connected` flag, in the color of the status variant.
+  Its tooltip shows the message and the description. A word from the variant was
+  rejected, because one variant covers both states.
+
+### Devices
+
+- Status sits at the right end. In a list, such as the device tree, select items, and
+  the find view, a device shows its status as a dot (`Device.StatusIndicator`), and a
+  Driver shows its heart. A closed device select shows a badge instead (see Menus and
+  selects). A list is for scanning, and a chosen device answers one question, so it gets
+  words.
+- The integration says how a device's location reads (`Device.LocationFormat`). The
+  telling part is gray l9 and the rest l7: the slot of an EtherCAT path, the host of an
+  address, and the first address of a list with a count. An address hides the schemes of
+  its integration, such as `https://` and `mqtts://`, because a scheme never tells two
+  of its devices apart. While any part is hidden or cut, a tooltip shows the whole
+  location.
+- A device tree item is one line: the logo, the name, and the location at the right end.
+  The location gives up its width first, down to its telling part, and then the name
+  fades. Two lines were rejected for the tree.
+- A device select item is two lines in 48 px: the name, then the location 3 px below it,
+  with the status dot at the right. It has no logo, because the select lists one make
+  and the closed select shows the logo.
 
 ### Lists with checkboxes
 
@@ -293,11 +419,77 @@ bound, a log precision, or the line plot X channel.
   the content (`margin-inline` in `lyra/src/select/Item.css`). The checkbox in a
   headings band sits the same way. Gaps of 9 and 12 px to the content were rejected.
 - Hover tints the item faintly, and a press does not deepen the tint.
+- A timeline lane is checkable too, and spaces its checkbox as a tree item does. Its
+  label gives up the checkbox width, so the bars stay on the time axis.
+- The first timeline lane sits 6 px below the time axis, as the first tree item sits
+  below the top of its list. The axis lines and now go on through that room.
+
+### Explorer bars
+
+- An explorer has two bars. The first holds the search, then the views. The second holds
+  Filter and its chips on the left, and the sort, layouts, and Create on the right.
+- The search is 270 px wide. A hairline that runs the full height of the bar separates
+  it from the views. Its icon is above the Filter icon.
+- Both bars sit in one island: an l1 card with an l5 border and the large radius, inset
+  6 px from the top and 9 px from the sides of the panel. An l4 line separates the two
+  bars. The second bar's controls are 28 px with 13 px text.
+- Each bar is 42 px (7rem) tall. The filter bar grows when its chips wrap.
+- The bars have no edit toggle. The search shows on every view. On a static view, and on
+  a saved view that the user may update, the user changes the filters, the sort, and the
+  layout. Other saved views show the filter chips, the sort, and the layout read-only.
+  Create view shows when the user may create views.
+
+### View tabs
+
+- A view is a 28 px pill with the medium radius: an icon, then the name, with a 6 px
+  gap. Names are l9. The open view takes the text color, a fill, and an l6 border.
+- The add view button sits right after the last view, not at the end of the bar.
+- A view has an icon and a color, picked from "Change icon" in its context menu with the
+  same picker as panels. The fixed view shows the explorer's icon.
+- Create view opens a modal like the project modal: an icon button, then the name. The
+  name has no default value.
+
+### Filter chips
+
+- A chip is a row of parts: name, operator, value, and remove. It has an l2 fill, an l5
+  border, the medium radius, and l6 lines between its parts.
+- A chip is 26 px tall, and each part has 10.5 px of padding on each side. The text is
+  13 px.
+- The name icon and the operator are muted (l9). The remove part is 28 px wide. Its icon
+  is 12 px and l8, and it takes the text color on hover.
+- A part that opens something gets l3 on hover and l4 on press.
+- The dots of a labels value overlap a little, as one group.
+
+### Page sections
+
+- A section of a record page, such as Child ranges or Metadata, is an outlined box like
+  the channel box of a task form: an l6 outline, the large radius, an l1 body, and an l2
+  header bar 37 px tall with a line under it.
+- The header holds one text button with the section's icon, title, and caret. It
+  collapses the box to its bar. An action in the header opens the box again.
+- An empty section shows no box, only one muted "+ Noun" line that adds its first item.
 
 ### Record tables
 
 - A task's channel list is a record table: one item per channel, built from
   `Task.Views.ListChannelItem`. The task supplies only its own fields.
+- The Users page of Settings is a record table with checkable items, like the range
+  explorer: the name, then a role select in place. A right click opens the menu of the
+  selected users. A "You" badge follows the current user's name.
+- The Labels page of Settings is a record table with checkable items, like the range
+  explorer: a color swatch, then the name. Click the swatch to recolor. A right click
+  opens the menu of the selected labels. You create a label from the page or from any
+  label field.
+- Secrets and certificates are two record tables in Settings, not a toolbar. A secret
+  shows where its value comes from and a "Used by" count that opens what uses it. A
+  certificate shows when it is valid.
+- The Settings lists share `Settings.Table`: search and a filled create button above,
+  headings, checkable items, and a right-click menu.
+- Create in place when every field you set is a column, such as a label or a secret. The
+  create item opens at the top with check and X buttons, and Enter and Esc. It stays
+  open and empty after each create, and the new item fades in under it.
+- Use a modal when the item needs a field the list does not show, such as a user's
+  password, or when the create returns a value to copy, such as an API key's token.
 - A record table names its columns in a band above the items. Explorers have no
   headings.
 - Declare the columns once with `List.Columns`. Each item lays out its own grid, so give
@@ -388,6 +580,17 @@ says why in a sentence, then gives the raw error.
 - The copy button sits at the top right, centered on the first line. A one-line block
   centers its line in the box.
 
+### Logs
+
+- A log follows new lines only while its view is at the end. A scroll up or a text
+  selection holds the lines, and "Jump to latest" goes back to the end.
+- An error or a warning tints its line and colors its level word with
+  `--pluto-error-text` or `--pluto-warning-text`. Times, logger names, and debug lines
+  are gray l9.
+- Long lines wrap with a hanging indent. A log never scrolls sideways.
+- "Copy logs" copies a short header (product, version, state, time), then the lines as
+  plain text with UTC ISO times.
+
 ### Plot ranges
 
 - Ranges are bars in a strip above the plot. Overlapping ranges stack in lanes by start,
@@ -444,12 +647,30 @@ says why in a sentence, then gives the raw error.
 - Respond to every input in less than 100 ms. Show a spinner only after 150 to 300 ms,
   and keep it for at least 300 ms. A plot draws its axes at once and streams data in.
 - Every command that a key runs also has a button or a menu item.
+- Cmd+C on selected tree items copies their names, one per line. The HTML form makes
+  each name a link when a link opens its type, so a paste into chat or email opens the
+  resource. The tree menu has the same Copy item. A text selection, such as a name in a
+  rename, copies as text.
 - Hover can show rare actions, never the current state. A control that shows on hover
   keeps its space, so the layout does not move.
 - Focus never gets lost. After an add, focus goes to the new item. When a dialog closes,
   focus goes back to where it was.
 - Dialogs, drawers, and dropdown lists set `overscroll-behavior: contain`.
 - An empty state has one primary action, named as a verb and a noun ("Create channel").
+
+### Text selection
+
+- Selection is off by default. The Console's `body` turns it off. Selection inherits, so
+  a component turns it back on with `-webkit-user-select: text` and `user-select: text`,
+  never with `!important`. WebKit reads only the prefixed form.
+- Text that people paste somewhere else is selectable: dialog messages, error text,
+  read-only values (IDs, keys, addresses, thumbprints, versions), code, and logs. A
+  toast is not, because its copy button copies the whole status.
+- Controls are not selectable: buttons, tabs, menu items, tree and list items, field
+  labels, and toolbar titles. A record list copies through its context menu.
+- Plots, schematics, tables, and the log keep their own selection, and Cmd+C copies it.
+- A copy button shows a check while it stays in view. A menu item that copies shows a
+  toast, because the menu closes.
 
 ## Prior art
 

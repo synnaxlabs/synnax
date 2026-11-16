@@ -132,6 +132,8 @@ export const sliceStateZ = z.object({
   selected: z.string().optional(),
   /** The ranges the session added. The built-ins are not among them. */
   ranges: z.array(stateZ).default([]),
+  /** Whether line plots no longer hold keys of the session's static ranges. */
+  staticKeysRewritten: z.boolean().default(false),
 });
 
 export const ZERO_SLICE_STATE = sliceStateZ.parse({});
@@ -148,11 +150,6 @@ export type AddPayload = State | State[];
 
 interface RemovePayload {
   keys: string[];
-}
-
-interface RestorePayload {
-  ranges: { index: number; range: State }[];
-  selected?: string;
 }
 
 interface RenamePayload {
@@ -177,22 +174,14 @@ export const { actions, reducer } = createSlice({
         state.selected = undefined;
       state.ranges = state.ranges.filter(({ key }) => !keys.includes(key));
     },
-    restore: (
-      state,
-      { payload: { ranges, selected } }: PayloadAction<RestorePayload>,
-    ) => {
-      ranges
-        .filter(({ range }) => !state.ranges.some(({ key }) => key === range.key))
-        // Ascending order keeps each splice from shifting the ones behind it.
-        .sort((a, b) => a.index - b.index)
-        .forEach(({ index, range }) => state.ranges.splice(index, 0, range));
-      if (selected != null) state.selected = selected;
-    },
     select: (state, { payload }: PayloadAction<SelectPayload>) => {
       state.selected = payload;
     },
     clearSelected: (state) => {
       state.selected = undefined;
+    },
+    markStaticKeysRewritten: (state) => {
+      state.staticKeysRewritten = true;
     },
     // A persisted range is renamed on the Core, which is where its name lives.
     rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
@@ -202,6 +191,7 @@ export const { actions, reducer } = createSlice({
     },
   },
 });
-export const { add, clearSelected, remove, rename, restore, select } = actions;
+export const { add, clearSelected, markStaticKeysRewritten, remove, rename, select } =
+  actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

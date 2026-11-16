@@ -10,20 +10,20 @@
 package label_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Label", Ordered, func() {
@@ -31,38 +31,27 @@ var _ = Describe("Label", Ordered, func() {
 		db  *gorp.DB
 		svc *label.Service
 		w   label.Writer
-		otg *ontology.Ontology
 		tx  gorp.Tx
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-		}))
 		svc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
+			DB: db,
 		}))
 	})
-	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+	BeforeEach(func() {
+		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
-	})
-	AfterEach(func() {
-		Expect(tx.Close()).To(Succeed())
 	})
 	Describe("Create", func() {
 		It("Should create a new label", func(ctx SpecContext) {
 			l := &label.Label{
 				Name:  "Label",
-				Color: MustSucceed(color.FromHex("#000000")),
+				Color: MustSucceed(color.Parse("#000000")),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
-			Expect(l.Key).ToNot(Equal(label.Key(uuid.Nil())))
+			Expect(l.Key).ToNot(Equal(uuid.Nil()))
 		})
 		It(
 			"Should return a validation error when the name is empty",
@@ -71,20 +60,32 @@ var _ = Describe("Label", Ordered, func() {
 					To(MatchError(ContainSubstring("name: required")))
 			},
 		)
+		It("Should refuse a label whose key exists", func(ctx SpecContext) {
+			l := &label.Label{
+				Name:  "Label",
+				Color: MustSucceed(color.Parse("#000000")),
+			}
+			Expect(w.Create(ctx, l)).To(Succeed())
+			again := label.Label{Key: l.Key, Name: "Renamed"}
+			Expect(w.Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("label %s already exists", l.Key)),
+			))
+		})
 		It("Should create many labels", func(ctx SpecContext) {
 			ls := []label.Label{
 				{
 					Name:  "Label1",
-					Color: MustSucceed(color.FromHex("#000000")),
+					Color: MustSucceed(color.Parse("#000000")),
 				},
 				{
 					Name:  "label",
-					Color: MustSucceed(color.FromHex("#000000")),
+					Color: MustSucceed(color.Parse("#000000")),
 				},
 			}
 			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
 			for _, l := range ls {
-				Expect(l.Key).ToNot(Equal(label.Key(uuid.Nil())))
+				Expect(l.Key).ToNot(Equal(uuid.Nil()))
 			}
 		})
 	})
@@ -92,153 +93,39 @@ var _ = Describe("Label", Ordered, func() {
 		It("Should delete a label", func(ctx SpecContext) {
 			l := &label.Label{
 				Name:  "Label",
-				Color: MustSucceed(color.FromHex("#000000")),
+				Color: MustSucceed(color.Parse("#000000")),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
 			Expect(w.Delete(ctx, l.Key)).To(Succeed())
 			Expect(
-				svc.NewRetrieve().Where(label.MatchKeys(l.Key)).Exec(ctx, nil),
+				svc.NewRetrieve().Where(label.MatchKeys(l.Key)).Exec(ctx, db),
 			).To(MatchError(query.ErrNotFound))
 		})
 		It("Should delete many labels", func(ctx SpecContext) {
 			ls := []label.Label{
 				{
 					Name:  "Label1",
-					Color: MustSucceed(color.FromHex("#000000")),
+					Color: MustSucceed(color.Parse("#000000")),
 				},
 				{
 					Name:  "label",
-					Color: MustSucceed(color.FromHex("#000000")),
+					Color: MustSucceed(color.Parse("#000000")),
 				},
 			}
 			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
 			Expect(w.Delete(ctx, ls[0].Key, ls[1].Key)).To(Succeed())
 			for _, l := range ls {
 				Expect(
-					svc.NewRetrieve().Where(label.MatchKeys(l.Key)).Exec(ctx, nil),
+					svc.NewRetrieve().Where(label.MatchKeys(l.Key)).Exec(ctx, db),
 				).To(MatchError(query.ErrNotFound))
 			}
 		})
-	})
-	Describe("Retrieve", func() {
-		It("Should get the labels for an ontology resource", func(ctx SpecContext) {
-			l := &label.Label{
-				Name:  "Label",
-				Color: MustSucceed(color.FromHex("#000000")),
-			}
-			Expect(w.Create(ctx, l)).To(Succeed())
-			labeled := &label.Label{
-				Name:  "Labeled",
-				Color: MustSucceed(color.FromHex("#000000")),
-			}
-			Expect(w.Create(ctx, labeled)).To(Succeed())
-			Expect(w.Label(ctx, labeled.OntologyID(), []label.Key{l.Key})).To(Succeed())
-			labels := MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
-			Expect(labels).To(HaveLen(1))
-			Expect(labels[0].Key).To(Equal(l.Key))
-		})
-		It("Should get no labels for a deleted resource", func(ctx SpecContext) {
-			l := &label.Label{
-				Name:  "Label",
-				Color: MustSucceed(color.FromHex("#000000")),
-			}
-			Expect(w.Create(ctx, l)).To(Succeed())
-			labeled := &label.Label{
-				Name:  "Labeled",
-				Color: MustSucceed(color.FromHex("#000000")),
-			}
-			Expect(w.Create(ctx, labeled)).To(Succeed())
-			Expect(w.Label(ctx, labeled.OntologyID(), []label.Key{l.Key})).To(Succeed())
-			Expect(w.Delete(ctx, labeled.Key)).To(Succeed())
-			Expect(svc.RetrieveFor(ctx, labeled.OntologyID(), tx)).To(BeEmpty())
-		})
-		It("Should fail with not found for a label relationship with no label", func(
-			ctx SpecContext,
-		) {
-			ls := []label.Label{
-				{Name: "dangling", Color: MustSucceed(color.FromHex("#000000"))},
-				{Name: "dangling-target", Color: MustSucceed(color.FromHex("#000000"))},
-			}
-			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
-			target := ls[1].OntologyID()
-			Expect(w.Label(ctx, target, []label.Key{ls[0].Key})).To(Succeed())
-			Expect(gorp.NewDelete[label.Key, label.Label]().
-				Where(gorp.MatchKeys[label.Key, label.Label](ls[0].Key)).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(svc.RetrieveFor(ctx, target, tx)).Error().
-				To(MatchError(query.ErrNotFound))
-		})
-	})
-	Describe("MatchFor", func() {
-		It("Should match the labels staged on a resource in the transaction", func(
-			ctx SpecContext,
-		) {
-			ls := []label.Label{
-				{Name: "for-a", Color: MustSucceed(color.FromHex("#000000"))},
-				{Name: "for-b", Color: MustSucceed(color.FromHex("#000000"))},
-				{Name: "for-target", Color: MustSucceed(color.FromHex("#000000"))},
-			}
-			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
-			target := ls[2].OntologyID()
-			Expect(w.Label(ctx, target, []label.Key{ls[0].Key})).To(Succeed())
-			var got []label.Label
-			Expect(svc.NewRetrieve().
-				Where(label.MatchFor(target)).
-				Entries(&got).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(got).To(ConsistOf(ls[0]))
-			got = nil
-			Expect(svc.NewRetrieve().
-				Where(label.And(
-					label.MatchKeys(ls[0].Key, ls[1].Key),
-					label.Not(label.MatchFor(target)),
-				)).
-				Entries(&got).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(got).To(ConsistOf(ls[1]))
-		})
-		It("Should match no labels for a resource that does not exist", func(
-			ctx SpecContext,
-		) {
-			l := label.Label{
-				Name:  "for-missing",
-				Color: MustSucceed(color.FromHex("#000000")),
-			}
-			Expect(w.Create(ctx, &l)).To(Succeed())
-			missing := label.OntologyID(label.Key(uuid.New()))
-			var got []label.Label
-			Expect(svc.NewRetrieve().
-				Where(label.Or(label.MatchFor(missing), label.MatchKeys(l.Key))).
-				Entries(&got).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(got).To(ConsistOf(l))
-		})
-	})
-	Describe("Where", func() {
-		a := label.OntologyID(label.Key(uuid.New()))
-		b := label.OntologyID(label.Key(uuid.New()))
-		c := label.OntologyID(label.Key(uuid.New()))
-		DescribeTable("ForIDs", func(w label.Where, expected []ontology.ID) {
-			Expect(w.ForIDs()).To(Equal(expected))
-		},
-			Entry("no for line", label.Where{}, []ontology.ID(nil)),
-			Entry("a top-level for line", label.Where{For: &a}, []ontology.ID{a}),
-			Entry(
-				"for lines under and, or, and not",
-				label.Where{
-					And: []label.Where{{For: &a}},
-					Or:  []label.Where{{}, {For: &b}},
-					Not: &label.Where{For: &c},
-				},
-				[]ontology.ID{a, b, c},
-			),
-		)
 	})
 	Describe("MatchNames", func() {
 		It("Should retrieve a label by its name", func(ctx SpecContext) {
 			l := &label.Label{
 				Name:  "match-name-target",
-				Color: MustSucceed(color.FromHex("#000000")),
+				Color: MustSucceed(color.Parse("#000000")),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
 			var got label.Label
@@ -252,9 +139,9 @@ var _ = Describe("Label", Ordered, func() {
 			"Should retrieve labels matching any of the provided names",
 			func(ctx SpecContext) {
 				ls := []label.Label{
-					{Name: "mn-a", Color: MustSucceed(color.FromHex("#000000"))},
-					{Name: "mn-b", Color: MustSucceed(color.FromHex("#000000"))},
-					{Name: "mn-c", Color: MustSucceed(color.FromHex("#000000"))},
+					{Name: "mn-a", Color: MustSucceed(color.Parse("#000000"))},
+					{Name: "mn-b", Color: MustSucceed(color.Parse("#000000"))},
+					{Name: "mn-c", Color: MustSucceed(color.Parse("#000000"))},
 				}
 				Expect(w.CreateMany(ctx, &ls)).To(Succeed())
 				var got []label.Label
@@ -266,12 +153,12 @@ var _ = Describe("Label", Ordered, func() {
 			},
 		)
 	})
-	Describe("Limit and Offset", func() {
+	Describe("Limit", func() {
 		BeforeEach(func(ctx SpecContext) {
 			ls := []label.Label{
-				{Name: "page-a", Color: MustSucceed(color.FromHex("#000000"))},
-				{Name: "page-b", Color: MustSucceed(color.FromHex("#000000"))},
-				{Name: "page-c", Color: MustSucceed(color.FromHex("#000000"))},
+				{Name: "page-a", Color: MustSucceed(color.Parse("#000000"))},
+				{Name: "page-b", Color: MustSucceed(color.Parse("#000000"))},
+				{Name: "page-c", Color: MustSucceed(color.Parse("#000000"))},
 			}
 			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
 		})
@@ -280,118 +167,32 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(svc.NewRetrieve().Limit(2).Entries(&got).Exec(ctx, tx)).To(Succeed())
 			Expect(got).To(HaveLen(2))
 		})
-		It("Should offset the returned labels", func(ctx SpecContext) {
-			var all []label.Label
-			Expect(svc.NewRetrieve().Entries(&all).Exec(ctx, tx)).To(Succeed())
-			Expect(len(all)).To(BeNumerically(">=", 3))
-			var got []label.Label
-			Expect(
-				svc.NewRetrieve().Offset(1).Entries(&got).Exec(ctx, tx),
-			).To(Succeed())
-			Expect(got).To(HaveLen(len(all) - 1))
-		})
 	})
 	Describe("Search", func() {
 		It("Should fuzzy search labels by name", func(ctx SpecContext) {
 			l := &label.Label{
 				Name:  "Searchable Critical Label",
-				Color: MustSucceed(color.FromHex("#000000")),
+				Color: MustSucceed(color.Parse("#000000")),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
-			tx = db.OpenTx()
+			tx = DeferClose(db.OpenTx())
 			w = svc.NewWriter(tx)
 			var got []label.Label
 			Expect(svc.NewRetrieve().
 				Search("Searchable Critical").
 				Entries(&got).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(got).ToNot(BeEmpty())
 			Expect(got[0].Name).To(ContainSubstring("Searchable"))
 		})
 	})
-	Describe("RemoveLabel", func() {
-		It("Should remove a label", func(ctx SpecContext) {
-			l := &label.Label{
-				Name:  "Label",
-				Color: MustSucceed(color.FromHex("#000000")),
-			}
-			Expect(w.Create(ctx, l)).To(Succeed())
-			labeled := &label.Label{
-				Name:  "Labeled",
-				Color: MustSucceed(color.FromHex("#000000")),
-			}
-			Expect(w.Create(ctx, labeled)).To(Succeed())
-			Expect(w.Label(ctx, labeled.OntologyID(), []label.Key{l.Key})).To(Succeed())
-			labels := MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
-			Expect(labels).To(HaveLen(1))
-			Expect(labels[0].Key).To(Equal(l.Key))
-			Expect(
-				w.RemoveLabel(ctx, labeled.OntologyID(), []label.Key{l.Key}),
-			).To(Succeed())
-			labels = MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
-			Expect(labels).To(BeEmpty())
-		})
-	})
-	Describe("Replace", func() {
-		It(
-			"Should make the given labels the complete set on an object",
-			func(ctx SpecContext) {
-				kept := &label.Label{
-					Name:  "Kept",
-					Color: MustSucceed(color.FromHex("#000000")),
-				}
-				removed := &label.Label{
-					Name:  "Removed",
-					Color: MustSucceed(color.FromHex("#000000")),
-				}
-				added := &label.Label{
-					Name:  "Added",
-					Color: MustSucceed(color.FromHex("#000000")),
-				}
-				labeled := &label.Label{
-					Name:  "Labeled",
-					Color: MustSucceed(color.FromHex("#000000")),
-				}
-				for _, l := range []*label.Label{kept, removed, added, labeled} {
-					Expect(w.Create(ctx, l)).To(Succeed())
-				}
-				Expect(w.Label(
-					ctx, labeled.OntologyID(), []label.Key{kept.Key, removed.Key},
-				)).To(Succeed())
-				Expect(w.Replace(
-					ctx, labeled.OntologyID(), []label.Key{kept.Key, added.Key},
-				)).To(Succeed())
-				labels := MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
-				Expect(lo.Map(labels, func(l label.Label, _ int) label.Key {
-					return l.Key
-				})).To(ConsistOf(kept.Key, added.Key))
-			},
-		)
-		It("Should remove all labels when given none", func(ctx SpecContext) {
-			l := &label.Label{
-				Name:  "Label",
-				Color: MustSucceed(color.FromHex("#000000")),
-			}
-			labeled := &label.Label{
-				Name:  "Labeled",
-				Color: MustSucceed(color.FromHex("#000000")),
-			}
-			Expect(w.Create(ctx, l)).To(Succeed())
-			Expect(w.Create(ctx, labeled)).To(Succeed())
-			Expect(w.Label(ctx, labeled.OntologyID(), []label.Key{l.Key})).To(Succeed())
-			Expect(w.Replace(ctx, labeled.OntologyID(), nil)).To(Succeed())
-			labels := MustSucceed(svc.RetrieveFor(ctx, labeled.OntologyID(), tx))
-			Expect(labels).To(BeEmpty())
-		})
-	})
-
 	Describe("Search", func() {
-		create := func(ctx SpecContext, name string) ontology.ID {
+		create := func(ctx SpecContext, name string) resource.ID {
 			GinkgoHelper()
-			l := label.Label{Name: name, Color: MustSucceed(color.FromHex("#000000"))}
+			l := label.Label{Name: name, Color: MustSucceed(color.Parse("#000000"))}
 			Expect(w.Create(ctx, &l)).To(Succeed())
-			return l.OntologyID()
+			return l.ResourceID()
 		}
 
 		It(
@@ -399,12 +200,12 @@ var _ = Describe("Label", Ordered, func() {
 			func(ctx SpecContext) {
 				a := create(ctx, "turbopump test")
 				b := create(ctx, "turbopump")
-				q := search.Query[ontology.ID]{Term: "turbopump"}
-				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-					To(Equal([]ontology.ID{b, a}))
+				q := search.Query[resource.ID]{Term: "turbopump"}
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
+					To(Equal([]resource.ID{b, a}))
 				q.Limit = 1
-				Expect(MustSucceed(svc.Search(ctx, tx, q)).Keys).
-					To(Equal([]ontology.ID{b}))
+				Expect(MustSucceed(svc.Resources().Search(ctx, tx, q)).Keys).
+					To(Equal([]resource.ID{b}))
 			},
 		)
 
@@ -412,9 +213,27 @@ var _ = Describe("Label", Ordered, func() {
 			"Should not match a staged label outside its transaction",
 			func(ctx SpecContext) {
 				create(ctx, "injector")
-				q := search.Query[ontology.ID]{Term: "injector"}
-				Expect(MustSucceed(svc.Search(ctx, db, q)).Keys).To(BeEmpty())
+				q := search.Query[resource.ID]{Term: "injector"}
+				Expect(
+					MustSucceed(svc.Resources().Search(ctx, db, q)).Keys,
+				).To(BeEmpty())
 			},
 		)
+	})
+
+	Describe("Changes", func() {
+		It("Should return the label that a commit creates", func(ctx SpecContext) {
+			var names []string
+			DeferCleanup(
+				db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
+					for ch := range svc.Changes(c) {
+						names = append(names, ch.Value.Name)
+					}
+				}),
+			)
+			Expect(w.Create(ctx, &label.Label{Name: "observed"})).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(names).To(Equal([]string{"observed"}))
+		})
 	})
 })

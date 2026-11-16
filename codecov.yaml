@@ -32,6 +32,7 @@ ignore:
   - "**/*.gen.go"
   - "**/*.gen.ts"
   - "**/*.gen.h"
+  - "**/actions_gen.py"
   - "**/types_gen.py"
   # protoc
   - "**/*.pb.go"
@@ -44,6 +45,8 @@ ignore:
   - "**/parser/*_parser.go"
   - "**/parser/*parser_*listener.go"
   - "**/parser/*parser_*visitor.go"
+  # Bazel instruments C++ tests so that the headers they include get coverage.
+  - "**/*_test.cpp"
   # generate_mock.py
   - "driver/ni/daqmx/mock.h"
   - "**/examples/**"

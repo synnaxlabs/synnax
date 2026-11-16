@@ -10,13 +10,13 @@
 import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Access } from "@synnaxlabs/pluto";
+import { Access, Device } from "@synnaxlabs/pluto";
 
-import { Tree } from "@/platform/tree";
+import { type Tree } from "@/platform/tree";
 
 export interface ConfigureMenuItemProps extends Pick<
   Tree.ContextMenuProps,
-  "selection" | "state"
+  "selection"
 > {
   onConfigure: (deviceKey: device.Key) => void;
 }
@@ -24,18 +24,11 @@ export interface ConfigureMenuItemProps extends Pick<
 export const ConfigureMenuItem = ({
   onConfigure,
   selection: { ids },
-  state,
 }: ConfigureMenuItemProps) => {
-  const first = Tree.useResource(state, ids[0]);
-  const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(ids[0].key));
-  if (
-    ids.length !== 1 ||
-    first == null ||
-    first.data?.configured === true ||
-    !hasUpdatePermission
-  )
-    return null;
-  const handleClick = () => onConfigure(first.id.key);
+  const dev = Device.use({ key: ids[0].key });
+  const hasUpdatePermission = Access.useUpdateGranted(device.resourceID(ids[0].key));
+  if (ids.length !== 1 || dev.configured || !hasUpdatePermission) return null;
+  const handleClick = () => onConfigure(dev.key);
   return (
     <Menu.Item itemKey="configure" onClick={handleClick}>
       <Icon.Hardware />
