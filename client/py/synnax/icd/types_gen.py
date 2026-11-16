@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax.resource import ID
 from x import filter, payload as payload_, telem
@@ -33,16 +33,14 @@ MessageKey: TypeAlias = UUID
 FieldKey: TypeAlias = UUID
 
 
-class JSONMatch(BaseModel):
-    """Selects the JSON documents that belong to a message.
+class JSONBaseMatch(BaseModel):
+    """Carries the parts every JSON match rule shares.
 
     Attributes:
         pointer: Is the JSON Pointer to the value the rule tests.
-        value: Is the string or number the value must equal.
     """
 
     pointer: str = ""
-    value: JsonValue
 
 
 class Where(BaseModel):
@@ -133,6 +131,52 @@ class FieldIdentifier(BaseModel):
 # Selects which frames on a bus belong to a binary message.
 Identifier = Annotated[
     CanIdentifier | FieldIdentifier,
+    Field(discriminator="type"),
+]
+
+
+class FloatJSONMatch(JSONBaseMatch):
+    """Matches a JSON number equal to a float."""
+
+    type: Literal["float"] = "float"
+    value: payload_.Float
+
+
+class IntegerJSONMatch(JSONBaseMatch):
+    """Matches a JSON number equal to a signed integer."""
+
+    type: Literal["integer"] = "integer"
+    value: payload_.Integer = Field(ge=-9223372036854775808, le=9223372036854775807)
+
+
+class UnsignedJSONMatch(JSONBaseMatch):
+    """Matches a JSON number equal to an unsigned integer."""
+
+    type: Literal["unsigned"] = "unsigned"
+    value: payload_.Unsigned = Field(ge=0, le=18446744073709551615)
+
+
+class StringJSONMatch(JSONBaseMatch):
+    """Matches an equal JSON string."""
+
+    type: Literal["string"] = "string"
+    value: str
+
+
+class BooleanJSONMatch(JSONBaseMatch):
+    """Matches an equal JSON boolean."""
+
+    type: Literal["boolean"] = "boolean"
+    value: bool
+
+
+# Selects the JSON documents that belong to a message.
+JSONMatch = Annotated[
+    FloatJSONMatch
+    | IntegerJSONMatch
+    | UnsignedJSONMatch
+    | StringJSONMatch
+    | BooleanJSONMatch,
     Field(discriminator="type"),
 ]
 

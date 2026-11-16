@@ -1,5 +1,5 @@
 {
-  "description": "A JSON document matched by a numeric id field.",
+  "description": "A JSON document matched by a boolean field.",
   "icd": {
     "key": "00000000-0000-4000-8000-000000000fff",
     "name": "Fixture",
@@ -10,8 +10,9 @@
         "payload": {
           "format": "json",
           "match": {
-            "pointer": "/id",
-            "value": 7
+            "type": "boolean",
+            "pointer": "/armed",
+            "value": true
           },
           "fields": [
             {

@@ -171,6 +171,7 @@ func (c *checker) checkJSONFields(
 		default:
 			unscaled.Add(i)
 		}
+		c.checkEnumLabels(fieldPath, f)
 		b := f.Base()
 		pointer, err := xjson.ParsePointer(b.Pointer)
 		if err != nil {
@@ -187,17 +188,52 @@ func (c *checker) checkJSONFields(
 	}
 }
 
-func (c *checker) checkMatch(path []string, m JSONMatch) {
-	if _, err := xjson.ParsePointer(m.Pointer); err != nil {
-		c.Addf(pathOf(path, "pointer"), "invalid JSON Pointer %q", m.Pointer)
+// checkEnumLabels finds each enum label that an earlier entry of the field uses.
+func (c *checker) checkEnumLabels(path []string, f JSONField) {
+	var labels []string
+	switch v := f.Variant.(type) {
+	case FloatJSONField:
+		for _, e := range v.EnumValues {
+			labels = append(labels, e.Label)
+		}
+	case IntegerJSONField:
+		for _, e := range v.EnumValues {
+			labels = append(labels, e.Label)
+		}
+	case UnsignedJSONField:
+		for _, e := range v.EnumValues {
+			labels = append(labels, e.Label)
+		}
+	case StringJSONField:
+		for _, e := range v.EnumValues {
+			labels = append(labels, e.Label)
+		}
+	case BooleanJSONField:
+		for _, e := range v.EnumValues {
+			labels = append(labels, e.Label)
+		}
 	}
-	switch m.Value.(type) {
-	case string, float64, float32, int, int8, int16, int32, int64,
-		uint, uint8, uint16, uint32, uint64:
-	case nil:
-		c.Addf(pathOf(path, "value"), "value is required")
-	default:
-		c.Addf(pathOf(path, "value"), "value must be a string or a number")
+	seen := make(set.Set[string], len(labels))
+	for i, label := range labels {
+		if seen.Contains(label) {
+			c.Addf(
+				pathOf(path, "enum_values", strconv.Itoa(i), "label"),
+				"duplicate enum label %q",
+				label,
+			)
+		}
+		seen.Add(label)
+	}
+}
+
+func (c *checker) checkMatch(path []string, m JSONMatch) {
+	pointer := m.Base().Pointer
+	if _, err := xjson.ParsePointer(pointer); err != nil {
+		c.Addf(pathOf(path, "pointer"), "invalid JSON Pointer %q", pointer)
+	}
+	if f, ok := m.Variant.(FloatJSONMatch); ok &&
+		(math.IsNaN(float64(f.Value)) || math.IsInf(float64(f.Value), 0)) {
+		c.Addf(pathOf(path, "value"), "value must be finite")
 	}
 }
 
