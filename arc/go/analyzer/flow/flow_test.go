@@ -4128,3 +4128,27 @@ var _ = Describe("Module constants in flows", func() {
 		Expect(ctx.Diagnostics.String()).To(ContainSubstring("undefined symbol: nope"))
 	})
 })
+
+var _ = Describe("Polymorphic funcs in routing entries", func() {
+	It("Should give each call its own type variables", func(bCtx SpecContext) {
+		root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+			Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1,
+		}, &symbol.Symbol{
+			Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2,
+		}, &symbol.Symbol{
+			Name: "b", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 3,
+		}))
+		ast := MustSucceed(parser.Parse(`
+		import math
+		func split() {value f64} (high f64, low f64) {
+			high = value
+		}
+		x -> split() -> {
+			high: a -> math.avg() -> a,
+			low: b -> math.avg() -> b
+		}`))
+		ctx := context.NewRoot(bCtx, ast, root)
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+	})
+})

@@ -903,6 +903,7 @@ func analyzeRoutingTargetWithParam(
 			return
 		}
 
+		freshType := types.Freshen(fnType.Type, freshenKey(fn, fnName))
 		args := inputArguments(ctx, fn)
 		AnalyzeComputedArgs(ctx, args)
 		var externallySatisfied []string
@@ -912,7 +913,7 @@ func analyzeRoutingTargetWithParam(
 		expression.AnalyzeCall(
 			ctx,
 			fnName,
-			fnType.Type,
+			freshType,
 			args,
 			fnType.AnalyzeArguments,
 			fn,
@@ -922,9 +923,9 @@ func analyzeRoutingTargetWithParam(
 
 		if targetParam != nil {
 			var outputType types.Type
-			if outType, ok := fnType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
+			if outType, ok := freshType.Outputs.Get(ir.DefaultOutputParam); ok {
 				outputType = outType.Type
-			} else if len(fnType.Type.Outputs) > 0 {
+			} else if len(freshType.Outputs) > 0 {
 				ctx.Diagnostics.Add(diagnostics.Errorf(
 					ctx.AST,
 					"func '%s' has named outputs and requires explicit output selection",
@@ -951,10 +952,10 @@ func analyzeRoutingTargetWithParam(
 			consultTrigger(
 				ctx,
 				fnType,
-				fnType.Type,
+				freshType,
 				fnName,
 				sourceType,
-				suppliedNames(args, fnType.Type, fnType.Trigger.Target),
+				suppliedNames(args, freshType, fnType.Trigger.Target),
 			)
 		}
 	} else if idNode := ctx.AST.Identifier(); idNode != nil {
