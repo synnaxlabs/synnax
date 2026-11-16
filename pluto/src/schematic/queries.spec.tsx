@@ -1070,6 +1070,16 @@ describe("schematic queries", () => {
       expect(result.current.form.get(element.variant).value).toBe("secondary");
     });
 
+    it("should send a change of an edge's variant to the Core", async () => {
+      const schem = await createTestSchematic(proj.key);
+      const { result } = await renderForm(schem.key, "e1");
+      act(() => result.current.form.set(element.variant, "electric"));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(await fetchStoredConfig(schem.key, "e1")).toMatchObject({
+        variant: "electric",
+      });
+    });
+
     it("should send an edit as a path action into the element's config", async () => {
       const schem = await createTestSchematic(proj.key);
       const { result } = await renderForm(schem.key);
