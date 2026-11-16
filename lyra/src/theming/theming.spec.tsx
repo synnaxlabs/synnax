@@ -122,4 +122,58 @@ describe("Theming", () => {
       expect(result.current.theme.name).toBe("Synnax Light");
     });
   });
+
+  describe("OS listener with a new media query list per call", () => {
+    let matches = false;
+    const listeners = new Set<(e: MediaQueryListEvent) => void>();
+    const matchMedia = (): MediaQueryList => {
+      const own = new Set<(e: MediaQueryListEvent) => void>();
+      return {
+        get matches() {
+          return matches;
+        },
+        addEventListener: (_: string, l: (e: MediaQueryListEvent) => void) => {
+          own.add(l);
+          listeners.add(l);
+        },
+        removeEventListener: (_: string, l: (e: MediaQueryListEvent) => void) => {
+          if (!own.has(l)) return;
+          own.delete(l);
+          listeners.delete(l);
+        },
+      } as unknown as MediaQueryList;
+    };
+    const fireOSChange = (next: boolean): void => {
+      matches = next;
+      listeners.forEach((l) => l({ matches: next } as MediaQueryListEvent));
+    };
+
+    afterEach(() => {
+      matches = false;
+      listeners.clear();
+      vi.unstubAllGlobals();
+    });
+
+    it("should remove its OS listener on unmount", () => {
+      vi.stubGlobal("matchMedia", vi.fn(matchMedia));
+      const { unmount } = renderTheming();
+      unmount();
+      expect(listeners.size).toBe(0);
+    });
+
+    it("should stop following the OS once a caller pins a theme", () => {
+      vi.stubGlobal("matchMedia", vi.fn(matchMedia));
+      const props: Pick<Theming.ProviderProps, "theme"> = {};
+      const { result, rerender } = renderHook(() => Theming.useContext(), {
+        wrapper: ({ children }: PropsWithChildren): ReactElement => (
+          <Theming.Provider theme={props.theme}>{children}</Theming.Provider>
+        ),
+      });
+      props.theme = { key: "synnaxLight" };
+      rerender();
+      expect(result.current.theme.name).toBe("Synnax Light");
+      act(() => fireOSChange(true));
+      expect(result.current.theme.name).toBe("Synnax Light");
+    });
+  });
 });
