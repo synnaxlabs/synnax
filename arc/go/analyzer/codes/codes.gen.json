@@ -13,7 +13,7 @@
   },
   "ARC3001": {
     "severity": "error",
-    "message": "missing required argument for parameter '%s' of func '%s'"
+    "message": "missing required argument for parameter '%s' of %s '%s'"
   },
   "ARC3002": {
     "severity": "error",
@@ -21,7 +21,7 @@
   },
   "ARC3003": {
     "severity": "error",
-    "message": "too many arguments for func '%s': expected at most %d"
+    "message": "too many arguments for %s '%s': expected at most %d"
   },
   "ARC4003": {
     "severity": "warning",

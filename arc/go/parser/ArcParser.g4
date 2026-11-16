@@ -119,7 +119,8 @@ input
 // sequence { 1 -> valve_cmd   wait(duration=2s)   0 -> valve_cmd }
 // sequence { 1 -> valve_cmd, wait(duration=2s), 0 -> valve_cmd }
 sequenceDeclaration
-    : SEQUENCE IDENTIFIER? LBRACE (sequenceItem (COMMA? sequenceItem)* COMMA?)? RBRACE
+    : SEQUENCE IDENTIFIER? (LPAREN inputList RPAREN)?
+      LBRACE (sequenceItem (COMMA? sequenceItem)* COMMA?)? RBRACE
     ;
 
 // Items in a sequence body. Commas between items are optional; newlines and
@@ -136,7 +137,7 @@ sequenceItem
 // stage precheck { items... }
 // stage { items... }
 stageDeclaration
-    : STAGE IDENTIFIER? stageBody
+    : STAGE IDENTIFIER? (LPAREN inputList RPAREN)? stageBody
     ;
 
 // { reactive flows and transitions }

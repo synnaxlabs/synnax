@@ -1684,3 +1684,71 @@ var _ = Describe("Channel reads through later declarations", func() {
 		)
 	})
 })
+
+var _ = Describe("Calls between sequences with parameters", func() {
+	It("Should reject a sequence that calls itself", func(bCtx SpecContext) {
+		ctx := analyzeAndExpectErrorWithResolver(bCtx, `
+			sequence main(valve chan f32) {
+				stage press {
+					ch > 0 => main(valve)
+				}
+			}
+		`, chResolver)
+		Expect(*ctx.Diagnostics).To(HaveLen(1))
+		Expect((*ctx.Diagnostics)[0].Message).
+			To(Equal("sequence 'main' cannot call itself"))
+		Expect((*ctx.Diagnostics)[0].Notes).To(BeEmpty())
+	})
+
+	It("Should reject a stage that calls itself", func(bCtx SpecContext) {
+		ctx := analyzeAndExpectErrorWithResolver(bCtx, `
+			stage hold(valve chan f32) {
+				ch > 0 => hold(valve)
+			}
+		`, chResolver)
+		Expect(*ctx.Diagnostics).To(HaveLen(1))
+		Expect((*ctx.Diagnostics)[0].Message).
+			To(Equal("stage 'hold' cannot call itself"))
+	})
+
+	It("Should reject a cycle of calls and show the chain", func(bCtx SpecContext) {
+		ctx := analyzeAndExpectErrorWithResolver(bCtx, `
+			sequence fill(valve chan f32) {
+				stage open {
+					ch > 0 => drain(valve)
+				}
+			}
+			sequence drain(valve chan f32) {
+				stage open {
+					ch > 0 => fill(valve)
+				}
+			}
+		`, chResolver)
+		Expect(*ctx.Diagnostics).To(HaveLen(1))
+		d := (*ctx.Diagnostics)[0]
+		Expect(
+			d.Message,
+		).To(MatchRegexp(`^sequence '(fill|drain)' cannot call itself$`))
+		Expect(d.Notes).To(HaveLen(1))
+		Expect(d.Notes[0].Message).To(MatchRegexp(
+			`^call chain: (fill -> drain -> fill|drain -> fill -> drain)$`,
+		))
+	})
+
+	It("Should allow a path back through a sequence with no parameters", func(
+		bCtx SpecContext,
+	) {
+		analyzeAndExpectWithResolver(bCtx, `
+			sequence fill(valve chan f32) {
+				stage open {
+					ch > 0 => idle
+				}
+			}
+			sequence idle {
+				stage wait {
+					ch > 0 => fill(ch)
+				}
+			}
+		`, chResolver)
+	})
+})

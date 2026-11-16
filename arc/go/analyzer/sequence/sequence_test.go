@@ -851,3 +851,255 @@ var _ = Describe("Stage reassignment types", func() {
 		}
 	})
 })
+
+var _ = Describe("Parameters", func() {
+	DescribeTable("Valid",
+		analyzeAndExpectSuccess,
+		Entry("a sequence with a value and a channel parameter", `
+			sequence main(limit f64, valve chan f64) {
+				stage press {
+					1.0 -> valve
+					pressure > limit => next
+				}
+				stage vent {
+					0.0 -> valve
+				}
+			}
+		`),
+		Entry("a top-level stage with a channel parameter", `
+			stage hold(valve chan f64) {
+				0.0 -> valve
+			}
+		`),
+		Entry("a parameter with a default", `
+			sequence main(valve chan f64, limit f64 = 50.0) {
+				stage press {
+					pressure > limit => next
+				}
+				stage vent {
+					0.0 -> valve
+				}
+			}
+		`),
+		Entry("a channel parameter as a flow source", `
+			sequence main(sensor chan f64) {
+				stage copy {
+					sensor -> valve_cmd
+				}
+			}
+		`),
+		Entry("a variable computed from a value parameter", `
+			sequence main(limit f64) {
+				high := limit * 2.0
+				stage press {
+					pressure > high => next
+				}
+				stage vent {
+				}
+			}
+		`),
+		Entry("a variable that copies a value parameter", `
+			sequence main(limit f64) {
+				copy := limit
+				stage press {
+					pressure > copy => next
+				}
+				stage vent {
+				}
+			}
+		`),
+		Entry("a value parameter as a function input", `
+			sequence main(note str) {
+				stage hold {
+					start_cmd -> log(message=note)
+				}
+			}
+		`),
+		Entry("a parameter as the source of a function trigger", `
+			func double() {v f64} f64 {
+				return v * 2.0
+			}
+			sequence main(limit f64, sensor chan f64) {
+				stage copy {
+					limit -> double() -> valve_cmd
+					sensor -> double() -> valve_cmd
+				}
+			}
+		`),
+		Entry("a parameter with the name of a channel", `
+			sequence main(pressure f64) {
+				stage hold {
+					pressure -> valve_cmd
+				}
+			}
+		`),
+	)
+
+	DescribeTable("Invalid",
+		func(bCtx SpecContext, source, expectedError string) {
+			Expect(
+				analyzeAndExpectError(bCtx, source),
+			).To(ContainSubstring(expectedError))
+		},
+		Entry("a parameter list on a stage in a sequence", `
+			sequence main {
+				stage press(limit f64) {
+				}
+			}
+		`, "only a top-level sequence or stage can have parameters"),
+		Entry("a parameter list on a sequence in a sequence", `
+			sequence main {
+				sequence inner(limit f64) {
+					0.0 -> valve_cmd
+				}
+			}
+		`, "only a top-level sequence or stage can have parameters"),
+		Entry("a parameter list on an inline stage", `
+			start_cmd => stage(limit f64) {
+				0.0 -> valve_cmd
+			}
+		`, "only a top-level sequence or stage can have parameters"),
+		Entry("a parameter list on a sequence with no name", `
+			sequence(limit f64) {
+				0.0 -> valve_cmd
+			}
+		`, "a sequence with parameters needs a name"),
+		Entry("a parameter list on a stage with no name", `
+			stage(limit f64) {
+				0.0 -> valve_cmd
+			}
+		`, "a stage with parameters needs a name"),
+		Entry("a default of the wrong type", `
+			sequence main(limit f64 = "high") {
+				stage press {
+				}
+			}
+		`, "invalid default value for input parameter limit"),
+		Entry("a required parameter after an optional one", `
+			sequence main(limit f64 = 1.0, valve chan f64) {
+				stage press {
+				}
+			}
+		`, "required input parameter valve cannot follow optional input parameters"),
+		Entry("an assignment to a value parameter", `
+			sequence main(limit f64) {
+				stage press {
+					limit = 1.0
+				}
+			}
+		`, "cannot reassign parameter 'limit'"),
+		Entry("a flow into a value parameter", `
+			sequence main(limit f64) {
+				stage press {
+					1.0 -> limit
+				}
+			}
+		`, "cannot reassign parameter 'limit'"),
+		Entry("an assignment to a channel parameter", `
+			sequence main(valve chan f64) {
+				stage press {
+					valve = 1.0
+				}
+			}
+		`, "use '<value> -> valve' to write to 'valve'"),
+		Entry("a flow of the wrong type into a channel parameter", `
+			sequence main(valve chan f64) {
+				stage press {
+					start_cmd -> valve
+				}
+			}
+		`, "does not match channel valve value type f64"),
+		Entry("an alias of a channel parameter", `
+			sequence main(valve chan f64) {
+				out := valve
+				stage press {
+					1.0 -> out
+				}
+			}
+		`, "a channel parameter cannot have an alias, use 'valve' directly"),
+		Entry("two parameters with one name", `
+			sequence main(limit f64, limit f64) {
+				stage press {
+				}
+			}
+		`, "name limit conflicts with existing input parameter"),
+		Entry("a parameter with the name of a top-level variable above it", `
+			limit := 1.0
+			sequence main(limit f64) {
+				stage press {
+				}
+			}
+		`, "name limit conflicts with existing variable"),
+		Entry("a parameter with the name of a function", `
+			func limit() f64 {
+				return 1.0
+			}
+			sequence main(limit f64) {
+				stage press {
+				}
+			}
+		`, "name limit conflicts with existing function"),
+		Entry("a parameter with the name of another sequence", `
+			sequence main(abort f64) {
+				stage press {
+				}
+			}
+			sequence abort {
+				stage safed {
+				}
+			}
+		`, "name abort conflicts with existing sequence"),
+		Entry("a variable with the name of a parameter", `
+			sequence main(limit f64) {
+				limit := 1.0
+				stage press {
+				}
+			}
+		`, "name limit conflicts with existing input parameter"),
+		Entry("a parameter with the name of a stage in its sequence", `
+			sequence main(press f64) {
+				stage press {
+				}
+			}
+		`, "name press conflicts with existing stage"),
+		Entry("the bare name of its own sequence", `
+			sequence main(limit f64) {
+				stage press {
+					start_cmd => main
+				}
+			}
+		`, "main has parameters"),
+		Entry("a member of its own sequence by qualified name", `
+			sequence main(limit f64) {
+				stage press {
+					start_cmd => main.vent
+				}
+				stage vent {
+				}
+			}
+		`, "cannot use 'main.vent': 'main' has parameters"),
+		Entry("a parameter read by qualified name from outside", `
+			sequence main(limit f64) {
+				stage press {
+				}
+			}
+			main.limit -> valve_cmd
+		`, "cannot use 'main.limit': 'main' has parameters"),
+	)
+
+	It("Should give the sequence type its inputs", func(bCtx SpecContext) {
+		ast := MustSucceed(parser.Parse(`
+			sequence main(valve chan f64, limit f64 = 50.0) {
+				stage press {
+				}
+			}
+		`))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+		sequence.CollectDeclarations(ctx)
+		main := MustSucceed(ctx.Scope.Resolve(bCtx, "main"))
+		Expect(main.Type.Inputs).To(Equal(types.Params{
+			{Name: "valve", Type: types.Chan(types.F64())},
+			{Name: "limit", Type: types.F64(), Value: 50.0},
+		}))
+	})
+})

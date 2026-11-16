@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/flow"
+	"github.com/synnaxlabs/arc/analyzer/function"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
@@ -59,6 +60,9 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 		return
 	}
 	switch {
+	case sym.IsSequenceInput() && sym.Type.Kind != types.KindChan:
+		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
+			"cannot reassign parameter '%s'", name))
 	case sym.IsChannelReadWrite():
 		target, ok := channelRebindTarget(ctx, assign.Expression())
 		if !ok {
@@ -193,15 +197,17 @@ func registerInlineBody(
 	counter *int,
 ) *symbol.Symbol {
 	var (
-		id   antlr.TerminalNode
-		kind string
+		id     antlr.TerminalNode
+		kind   string
+		inputs parser.IInputListContext
 	)
 	switch d := decl.(type) {
 	case parser.IStageDeclarationContext:
-		id, kind = d.IDENTIFIER(), "stages"
+		id, kind, inputs = d.IDENTIFIER(), "stages", d.InputList()
 	case parser.ISequenceDeclarationContext:
-		id, kind = d.IDENTIFIER(), "sequences"
+		id, kind, inputs = d.IDENTIFIER(), "sequences", d.InputList()
 	}
+	collectParameters(ctx, inputs, kind, "", false)
 	if id != nil {
 		ctx.Diagnostics.Add(diagnostics.Errorf(decl,
 			"inline routing case body %s must be anonymous; remove name %q",
@@ -261,6 +267,31 @@ func AnalyzeSynthInlines(ctx context.Context[parser.IProgramContext]) {
 	walk(ctx.Scope)
 }
 
+// collectParameters returns the parameters of a named top-level sequence or stage.
+func collectParameters[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	inputList parser.IInputListContext,
+	kind, name string,
+	topLevel bool,
+) types.Params {
+	if inputList == nil {
+		return nil
+	}
+	if !topLevel {
+		ctx.Diagnostics.Add(diagnostics.Errorf(inputList,
+			"only a top-level sequence or stage can have parameters"))
+		return nil
+	}
+	if name == "" {
+		ctx.Diagnostics.Add(diagnostics.Errorf(inputList,
+			"a %s with parameters needs a name", kind))
+		return nil
+	}
+	var inputs types.Params
+	function.CollectInputs(ctx, inputList, &inputs)
+	return inputs
+}
+
 // collectSequenceDecl recursively registers a sequence and its children.
 // Anonymous inline sequences (no IDENTIFIER) get a synthetic name from
 // AutoName so the scope is still addressable via GetChildByParserRule.
@@ -272,10 +303,14 @@ func collectSequenceDecl(
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		name = id.GetText()
 	}
+	t := types.Sequence()
+	t.Inputs = collectParameters(
+		ctx, ctx.AST.InputList(), "sequence", name, parentScope == ctx.Scope,
+	)
 	seqScope, err := parentScope.Add(ctx, symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindSequence,
-		Type: types.Sequence(),
+		Type: t,
 		AST:  ctx.AST,
 	})
 	if err != nil {
@@ -305,6 +340,7 @@ func collectStageDecl(
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		stageName = id.GetText()
 	}
+	collectParameters(ctx, ctx.AST.InputList(), "stage", stageName, false)
 	stageScope, err := seqScope.Add(ctx, symbol.Symbol{
 		Name: stageName,
 		Kind: symbol.KindStage,
@@ -385,6 +421,7 @@ func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) {
 		return
 	}
 	ctx = ctx.WithScope(seqScope)
+	function.AddInputsToScope(ctx, ctx.AST.InputList(), seqScope)
 	for _, item := range ctx.AST.AllSequenceItem() {
 		if stageDecl := item.StageDeclaration(); stageDecl != nil {
 			analyzeStage(ctx.Child(stageDecl))
@@ -407,10 +444,12 @@ func collectTopLevelStage(
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		name = id.GetText()
 	}
+	t := types.Sequence()
+	t.Inputs = collectParameters(ctx, ctx.AST.InputList(), "stage", name, true)
 	stageScope, err := parentScope.Add(ctx, symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindSequence,
-		Type: types.Sequence(),
+		Type: t,
 		AST:  ctx.AST,
 	})
 	if err != nil {
@@ -444,6 +483,7 @@ func analyzeStage(ctx context.Context[parser.IStageDeclarationContext]) {
 	// Top-level stages have no owned child scope; keep ctx.Scope when absent.
 	if stageScope, err := context.ResolveOwnScope(ctx); err == nil {
 		ctx = ctx.WithScope(stageScope)
+		function.AddInputsToScope(ctx, ctx.AST.InputList(), stageScope)
 	}
 	for _, item := range stageBody.AllStageItem() {
 		analyzeScopeBodyItem(ctx, item)

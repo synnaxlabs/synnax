@@ -61,7 +61,7 @@ var (
 	FuncArgMissing = diagnostics.Kind{
 		Code:     "ARC3001",
 		Severity: protocol.DiagnosticSeverityError,
-		Message:  "missing required argument for parameter '%s' of func '%s'",
+		Message:  "missing required argument for parameter '%s' of %s '%s'",
 	}
 	// FuncArgType indicates a function argument has the wrong type.
 	FuncArgType = diagnostics.Kind{
@@ -72,7 +72,7 @@ var (
 	FuncArgExtra = diagnostics.Kind{
 		Code:     "ARC3003",
 		Severity: protocol.DiagnosticSeverityError,
-		Message:  "too many arguments for func '%s': expected at most %d",
+		Message:  "too many arguments for %s '%s': expected at most %d",
 	}
 
 	// DeprecatedSymbol is a reference to a name that has a replacement.

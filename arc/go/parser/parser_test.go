@@ -2074,6 +2074,104 @@ sequence main {
 			})
 		})
 
+		Context("Parameters", func() {
+			It("Should parse a parameter list on a sequence", func() {
+				prog := mustParseProgram(`
+sequence main(limit f64, valve chan f64) {
+    stage press { }
+}`)
+				seq := prog.TopLevelItem(0).SequenceDeclaration()
+				Expect(seq.IDENTIFIER().GetText()).To(Equal("main"))
+				inputs := seq.InputList().AllInput()
+				Expect(inputs).To(HaveLen(2))
+				Expect(inputs[0].IDENTIFIER().GetText()).To(Equal("limit"))
+				Expect(inputs[0].Type_().GetText()).To(Equal("f64"))
+				Expect(inputs[1].IDENTIFIER().GetText()).To(Equal("valve"))
+				Expect(inputs[1].Type_().ChannelType()).NotTo(BeNil())
+				Expect(allStageDecls(seq)).To(HaveLen(1))
+			})
+
+			It("Should parse a parameter list on a stage", func() {
+				prog := mustParseProgram(`stage hold(valve chan f64) { 0.0 -> valve }`)
+				stage := prog.TopLevelItem(0).StageDeclaration()
+				Expect(stage.IDENTIFIER().GetText()).To(Equal("hold"))
+				Expect(stage.InputList().AllInput()).To(HaveLen(1))
+				Expect(stage.StageBody().AllStageItem()).To(HaveLen(1))
+			})
+
+			It("Should parse a default and a trailing comma", func() {
+				prog := mustParseProgram(`
+sequence main(
+    valve chan f64,
+    limit f64 = 50.0,
+) {
+    stage press { }
+}`)
+				inputs := prog.TopLevelItem(0).
+					SequenceDeclaration().
+					InputList().
+					AllInput()
+				Expect(inputs).To(HaveLen(2))
+				Expect(inputs[1].Literal().GetText()).To(Equal("50.0"))
+			})
+
+			It("Should parse a space between the name and the list", func() {
+				prog := mustParseProgram(
+					`sequence main (limit f64) { stage press { } }`,
+				)
+				seq := prog.TopLevelItem(0).SequenceDeclaration()
+				Expect(seq.InputList().AllInput()).To(HaveLen(1))
+			})
+
+			It("Should parse an exported sequence with parameters", func() {
+				prog := mustParseProgram(
+					`export sequence main(limit f64) { stage a { } }`,
+				)
+				item := prog.TopLevelItem(0)
+				Expect(item.EXPORT()).NotTo(BeNil())
+				Expect(item.SequenceDeclaration().InputList().AllInput()).To(HaveLen(1))
+			})
+
+			It("Should give no input list to a sequence or stage without one", func() {
+				prog := mustParseProgram(`
+sequence main { stage press { } }
+stage hold { }`)
+				Expect(
+					prog.TopLevelItem(0).SequenceDeclaration().InputList(),
+				).To(BeNil())
+				Expect(prog.TopLevelItem(1).StageDeclaration().InputList()).To(BeNil())
+			})
+
+			It("Should parse a call of a sequence as a function node", func() {
+				prog := mustParseProgram(`start => main(50.0, valve_cmd)`)
+				nodes := prog.TopLevelItem(0).FlowStatement().AllFlowNode()
+				Expect(nodes).To(HaveLen(2))
+				fn := nodes[1].Function()
+				Expect(fn).NotTo(BeNil())
+				Expect(fn.IDENTIFIER().GetText()).To(Equal("main"))
+				Expect(
+					fn.InputValues().AnonymousInputValues().AllExpression(),
+				).To(HaveLen(2))
+			})
+
+			DescribeTable("Should reject an empty parameter list",
+				func(code, message string) {
+					Expect(parser.Parse(code)).Error().
+						To(MatchError(ContainSubstring(message)))
+				},
+				Entry(
+					"on a sequence",
+					"sequence main() { stage press { } }",
+					"1:14 error: no viable alternative at input 'sequence main()'",
+				),
+				Entry(
+					"on a stage",
+					"stage hold() { }",
+					"1:11 error: no viable alternative at input 'stage hold()'",
+				),
+			)
+		})
+
 		Context("Stage Items", func() {
 			It("Should parse stage with multiple transitions", func() {
 				prog := mustParseProgram(`

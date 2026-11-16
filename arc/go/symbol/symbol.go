@@ -166,6 +166,16 @@ func (s *Symbol) IsComputed() bool {
 	return errors.Is(err, query.ErrNotFound)
 }
 
+// IsParameterized reports whether s is a sequence or a top-level stage with parameters.
+func (s *Symbol) IsParameterized() bool {
+	return s.Kind == KindSequence && len(s.Type.Inputs) > 0
+}
+
+// IsSequenceInput reports whether s is a parameter of a sequence or a top-level stage.
+func (s *Symbol) IsSequenceInput() bool {
+	return s.Kind == KindInput && s.Parent != nil && s.Parent.Kind == KindSequence
+}
+
 // Symbol is a named entity in an Arc program and, when it has Children, a
 // container that holds other Symbols. Variables, functions, modules, channels,
 // blocks, loops, sequences, stages, and aliases are all Symbols distinguished
@@ -631,6 +641,14 @@ func (s *Symbol) ResolveMember(
 	sym, err := s.Resolve(ctx, head, options...)
 	if err != nil || tail == "" {
 		return sym, err
+	}
+	if sym.IsParameterized() {
+		return nil, errors.Newf(
+			"cannot use '%s.%s': '%s' has parameters",
+			head,
+			tail,
+			head,
+		)
 	}
 	return sym.Resolve(ctx, tail)
 }

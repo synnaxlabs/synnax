@@ -592,6 +592,10 @@ func collectVarNodes(s *symbol.Symbol, kg *keyGenerator, shell *shellBuilder) {
 		if c.Kind == symbol.KindModuleAlias {
 			continue
 		}
+		// A sequence or stage with parameters is not lowered at its declaration.
+		if c.IsParameterized() {
+			continue
+		}
 		if c.Reassigned && isConstVar(c) {
 			shell.registerVar(c, varEntry{
 				register: buildVariableNode(c, kg, "f0", c.DefaultValue),
@@ -1689,6 +1693,10 @@ func analyzeUnit(
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
 		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
+			// A declaration with parameters lowers nothing here.
+			if seqDecl.InputList() != nil {
+				continue
+			}
 			seqScope, nodes, edges, ok := analyzeSequence(
 				aCtx.Child(seqDecl),
 				kg,
@@ -1701,6 +1709,9 @@ func analyzeUnit(
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
 		} else if stageDecl := item.StageDeclaration(); stageDecl != nil {
+			if stageDecl.InputList() != nil {
+				continue
+			}
 			stgScope, nodes, edges, ok := analyzeStage(
 				aCtx.Child(stageDecl),
 				kg,

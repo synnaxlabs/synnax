@@ -52,6 +52,7 @@ func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
 	AnalyzeComputedArgs(ctx, args)
 	expression.AnalyzeCall(
 		ctx,
+		"func",
 		name,
 		freshType,
 		args,
@@ -152,6 +153,9 @@ func parseFunction(
 	ctx context.Context[parser.IFunctionContext],
 	prevNode parser.IFlowNodeContext,
 ) {
+	if analyzeBodyCall(ctx) {
+		return
+	}
 	funcType, name := resolveFunc(ctx, ctx.AST)
 	if funcType == nil {
 		return
@@ -177,6 +181,7 @@ func parseFunction(
 	}
 	expression.AnalyzeCall(
 		ctx,
+		"func",
 		name,
 		freshType,
 		args,
@@ -229,7 +234,10 @@ func resolveUpstreamType(
 		if idSym.IsLiteral() {
 			return idSym.Type, true
 		}
-		isChanVar := idSym.Kind == symbol.KindVariable &&
+		if idSym.IsSequenceInput() && idSym.Type.Kind != types.KindChan {
+			return idSym.Type, true
+		}
+		isChanVar := (idSym.Kind == symbol.KindVariable || idSym.IsSequenceInput()) &&
 			idSym.Type.Kind == types.KindChan
 		if idSym.Kind != symbol.KindChannel && !isChanVar {
 			ctx.Diagnostics.Add(
@@ -398,10 +406,15 @@ func analyzeIdentifier(
 		constantType(ctx, ctx.AST, sym)
 		return
 	}
+	if sym.IsParameterized() {
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "%s has parameters", name).
+			WithNote("use " + name + "(...) to start it"))
+		return
+	}
 	// Any other symbol would lower to a read or write of a channel that does not exist.
 	isFlowNode := sym.Kind == symbol.KindChannel || sym.Kind == symbol.KindStage ||
 		sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindVariable ||
-		sym.Kind == symbol.KindStatefulVariable
+		sym.Kind == symbol.KindStatefulVariable || sym.IsSequenceInput()
 	if !isFlowNode {
 		d := diagnostics.Errorf(ctx.AST, "%s is not a channel", name)
 		if sym.Kind == symbol.KindFunction {
@@ -422,10 +435,16 @@ func analyzeIdentifier(
 			}
 			sym.Reassigned = true
 		}
+		if sym.IsSequenceInput() && sym.Type.Kind != types.KindChan {
+			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+				"cannot reassign parameter '%s'", name))
+			return
+		}
 	}
 
 	if isLastNode && prevNode != nil &&
-		(sym.Kind == symbol.KindChannel || sym.IsValueVariable()) {
+		(sym.Kind == symbol.KindChannel || sym.IsValueVariable() ||
+			sym.IsSequenceInput()) {
 		srcType, srcDesc := flowSourceType(ctx, prevNode)
 		chanValueType := sym.Type.Unwrap()
 		if srcType.IsValid() {
@@ -894,6 +913,9 @@ func analyzeRoutingTargetWithParam(
 	targetParam *string,
 ) {
 	if fn := ctx.AST.Function(); fn != nil {
+		if analyzeBodyCall(ctx.Child(fn)) {
+			return
+		}
 		fnType, fnName := resolveFunc(ctx, fn)
 		if fnType == nil {
 			return
@@ -911,6 +933,7 @@ func analyzeRoutingTargetWithParam(
 		}
 		expression.AnalyzeCall(
 			ctx,
+			"func",
 			fnName,
 			fnType.Type,
 			args,

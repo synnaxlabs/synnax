@@ -42,6 +42,7 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 	statement.CheckStatefulInitializers(ctx)
 	liftReassignedVarReads(ctx)
 	detectCallCycles(ctx.CallEdges, ctx.Diagnostics)
+	rejectBodyCallCycles(ctx)
 	reportUnusedImports(ctx)
 	if ctx.Constraints.HasTypeVariables() {
 		if err := ctx.Constraints.Unify(); err != nil {
@@ -218,6 +219,59 @@ func detectCallCycles(edges *[]acontext.CallEdge, diag *diagnostics.Diagnostics)
 			)
 		}
 	}
+}
+
+// rejectBodyCallCycles reports a sequence or stage with parameters that calls itself.
+func rejectBodyCallCycles(ctx acontext.Context[parser.IProgramContext]) {
+	var (
+		root      = ctx.Scope.Root()
+		callGraph = make(map[string][]callEdgeInfo)
+		adj       = make(map[string][]string)
+		nouns     = make(map[string]string)
+	)
+	for _, body := range root.Children() {
+		if !body.IsParameterized() {
+			continue
+		}
+		nouns[body.Name] = flow.BodyNoun(body)
+		for _, call := range flowCalls(body.AST) {
+			head, tail := parser.FunctionNameParts(call)
+			callee, err := body.ResolveMember(ctx, head, tail)
+			if err != nil || !callee.IsParameterized() || callee.Parent != root {
+				continue
+			}
+			callGraph[body.Name] = append(
+				callGraph[body.Name],
+				callEdgeInfo{callee: callee.Name, callSite: call},
+			)
+			adj[body.Name] = append(adj[body.Name], callee.Name)
+		}
+	}
+	for _, scc := range graph.TarjanSCC(adj) {
+		cycle, site := findCycleInSCC(scc, set.New(scc...), callGraph)
+		if site == nil {
+			continue
+		}
+		d := diagnostics.Errorf(
+			site, "%s '%s' cannot call itself", nouns[cycle[0]], cycle[0],
+		)
+		if len(cycle) > 2 {
+			d = d.WithNote("call chain: " + strings.Join(cycle, " -> "))
+		}
+		ctx.Diagnostics.Add(d)
+	}
+}
+
+// flowCalls returns each call in a flow position under node, in source order.
+func flowCalls(node antlr.Tree) []parser.IFunctionContext {
+	var calls []parser.IFunctionContext
+	if call, ok := node.(parser.IFunctionContext); ok {
+		calls = append(calls, call)
+	}
+	for i := range node.GetChildCount() {
+		calls = append(calls, flowCalls(node.GetChild(i))...)
+	}
+	return calls
 }
 
 // findCycleInSCC finds a simple cycle within the SCC for error reporting and returns

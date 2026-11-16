@@ -9935,3 +9935,69 @@ var _ = Describe("Module constants in node params", func() {
 		},
 	)
 })
+
+var _ = Describe("Sequences and stages with parameters", func() {
+	resolver := []symbol.Symbol{
+		{Name: "start", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+		{
+			Name: "pressure",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F64()),
+			ID:   2,
+		},
+		{Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
+	}
+
+	It("Should lower nothing at the declaration", func(ctx SpecContext) {
+		parsed := MustSucceed(text.Parse(text.Text{Raw: `
+			sequence main(limit f64, out chan f64) {
+				high := limit * 2.0
+				stage press {
+					1.0 -> out
+					pressure > high => next
+				}
+				stage vent {
+					0.0 -> out
+				}
+			}
+			stage hold(out chan f64) {
+				0.0 -> out
+			}
+		`}))
+		inter, diagnostics := text.Analyze(ctx, parsed, NewRoot(nil, resolver...))
+		Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		Expect(inter.Nodes).To(BeEmpty())
+		Expect(inter.Edges).To(BeEmpty())
+		Expect(inter.Root.Strata).To(BeEmpty())
+	})
+
+	It("Should still lower a sequence with no parameters beside one", func(
+		ctx SpecContext,
+	) {
+		parsed := MustSucceed(text.Parse(text.Text{Raw: `
+			sequence main(out chan f64) {
+				stage vent {
+					0.0 -> out
+				}
+			}
+			sequence plain {
+				stage vent {
+					0.0 -> valve
+				}
+			}
+			start => plain
+		`}))
+		inter, diagnostics := text.Analyze(ctx, parsed, NewRoot(nil, resolver...))
+		Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		var keys []string
+		for _, stratum := range inter.Root.Strata {
+			for _, m := range stratum {
+				if m.Scope != nil {
+					keys = append(keys, m.Scope.Key)
+				}
+			}
+		}
+		Expect(keys).To(Equal([]string{"plain"}))
+		Expect(findTopLevelScope(inter, "plain").Activations).To(HaveLen(1))
+	})
+})

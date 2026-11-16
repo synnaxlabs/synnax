@@ -1255,3 +1255,33 @@ var _ = Describe("Source limits", func() {
 			To(MatchError(ContainSubstring("nesting is deeper than the parser allows")))
 	})
 })
+
+var _ = Describe("Sequences with parameters", func() {
+	root := func() *symbol.Symbol {
+		r := symbol.NewRoot(nil, stl.NewSymbols())
+		for i, name := range []string{"start", "tank_pt", "valve_cmd"} {
+			r.Parent.AddChild(&symbol.Symbol{
+				Name: name,
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+				ID:   i + 1,
+			})
+		}
+		return r
+	}
+
+	It("Should compile a declaration that no flow calls", func(ctx SpecContext) {
+		MustSucceed(arc.CompileText(ctx, arc.Text{Raw: `
+			sequence main(limit f32, sensor chan f32, out chan f32) {
+				high := limit * 2
+				stage press {
+					1 -> out
+					sensor > high => next
+				}
+				stage vent {
+					sensor + limit -> out
+				}
+			}
+		`}, root()))
+	})
+})
