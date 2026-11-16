@@ -17,7 +17,7 @@ import { Access, Flux } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
@@ -86,11 +86,18 @@ const selectedViewName = (): string | null =>
   screen.getAllByRole("tab").find((tab) => tab.getAttribute("aria-selected") === "true")
     ?.textContent ?? null;
 
-const createView = async () =>
-  await client.views.create({
+/**
+ * Creates a range view that is deleted when the test ends. The strip loads a page of
+ * views, so views left behind would push new ones off it.
+ */
+const createView = async (): Promise<view.View> => {
+  const created = await client.views.create({
     name: uniqueName("view"),
     type: "range",
   });
+  onTestFinished(async () => await client.views.delete(created.key));
+  return created;
+};
 
 interface RenderHarnessOptions {
   store?: TestStore;
@@ -500,16 +507,10 @@ describe("View permissions", () => {
   });
 
   describe("context menu", () => {
-    const createView = async (): Promise<string> => {
-      const { name } = await client.views.create({
-        name: uniqueName("view"),
-        type: "range",
-      });
-      return name;
-    };
+    const createViewName = async (): Promise<string> => (await createView()).name;
 
     it("should withhold the delete item from a subject who cannot delete views", async () => {
-      const name = await createView();
+      const name = await createViewName();
       await renderHarness(
         await createSubject({
           update: [view.TYPE_RESOURCE_ID],
@@ -525,7 +526,7 @@ describe("View permissions", () => {
     });
 
     it("should offer the delete item to a subject who may delete views", async () => {
-      const name = await createView();
+      const name = await createViewName();
       await renderHarness(await createSubject({ delete: [view.TYPE_RESOURCE_ID] }));
       await openContextMenu(name);
       expect(await screen.findByText("Delete")).toBeTruthy();
