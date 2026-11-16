@@ -90,12 +90,22 @@ def core(client: Client) -> sy.Synnax:
     return cast(sy.Synnax, client)
 
 
+class SecretsExceptions:
+    class ResourceNotFoundException(Exception):
+        pass
+
+
 class Secrets:
     """Stands in for Secrets Manager: the tags of each secret by name. Writes fail
-    while failing is set."""
+    while failing is set. A secret in deleted is scheduled for deletion, and one in
+    gone is listed but no longer exists."""
+
+    exceptions = SecretsExceptions
 
     def __init__(self) -> None:
         self.tags: dict[str, dict[str, str]] = {}
+        self.deleted: set[str] = set()
+        self.gone: set[str] = set()
         self.failing = False
 
     def get_paginator(self, operation: str) -> "Secrets":
@@ -114,8 +124,13 @@ class Secrets:
 
     def describe_secret(self, SecretId: str) -> dict:
         name = SecretId.removeprefix("arn:")
+        if name in self.gone:
+            raise self.exceptions.ResourceNotFoundException(name)
         tags = [{"Key": k, "Value": v} for k, v in self.tags[name].items()]
-        return {"Name": name, "ARN": SecretId, "Tags": tags}
+        secret = {"Name": name, "ARN": SecretId, "Tags": tags}
+        if name in self.deleted:
+            secret["DeletedDate"] = "2026-11-15"
+        return secret
 
     def tag_resource(self, SecretId: str, Tags: list[dict]) -> None:
         if self.failing:

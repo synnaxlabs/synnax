@@ -80,6 +80,14 @@ class TestLogins:
             ),
         }
 
+    def test_should_skip_a_login_deleted_after_the_list(self) -> None:
+        secrets = Secrets()
+        for name in ("claude-1", "claude-2", "claude-3"):
+            secrets.tags[f"{PREFIX}{name}"] = {"agent": "claude", "expires": str(NOW)}
+        secrets.deleted.add(f"{PREFIX}claude-1")
+        secrets.gone.add(f"{PREFIX}claude-2")
+        assert list(logins(secrets).read()) == ["claude-3"]
+
     def test_should_fail_on_a_login_without_an_expiry(self) -> None:
         secrets = Secrets()
         secrets.tags[f"{PREFIX}claude-1"] = {"agent": "claude"}
