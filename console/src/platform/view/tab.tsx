@@ -108,10 +108,11 @@ export const useOpenExplorer = ({
           : [],
       );
     if (keys.length === 0) return new Set();
-    const views = await client.views.retrieve({
-      where: { key: { in: keys }, type: { eq: resourceType } },
-    });
-    return new Set(views.map(({ key }) => key));
+    // A query on keys alone answers from the cache and fetches only the views it lacks.
+    const views = await client.views.retrieve({ where: { key: { in: keys } } });
+    return new Set(
+      views.filter(({ type }) => type === resourceType).map(({ key }) => key),
+    );
   };
   return () =>
     handleError(async () => {
