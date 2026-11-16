@@ -58,17 +58,8 @@ const Label = ({ type, identity }: LabelProps) => {
   );
 };
 
-export interface TopicLabelProps {
-  topic: string;
-}
-
-/** Names a JSON topic the way a read entry does. */
-export const TopicLabel = ({ topic }: TopicLabelProps) => (
-  <Label type="plain" identity={topic} />
-);
-
 const PlainLabel = ({ path }: { path: deep.Path<PlainEntry> }) => (
-  <TopicLabel topic={PForm.useFieldValue(path.topic)} />
+  <Label type="plain" identity={PForm.useFieldValue(path.topic)} />
 );
 
 const SparkplugLabel = ({ path }: { path: deep.Path<SparkplugEntry> }) => {
