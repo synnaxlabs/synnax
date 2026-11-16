@@ -777,6 +777,21 @@ describe("Series", () => {
       expect(series.length).toEqual(3);
     });
 
+    it("should read back a UUID series written in two parts", () => {
+      const series = Series.alloc({ capacity: 3, dataType: DataType.UUID });
+      expect(series.capacity).toEqual(3);
+      const s = new Series({ data: SAMPLE_UUID_BYTES, dataType: DataType.UUID });
+      expect(series.write(s.sub(0, 1))).toEqual(1);
+      expect(series.at(0)).toEqual("123e4567-e89b-40d3-8056-426614174000");
+      expect(series.write(s.sub(1, 2))).toEqual(1);
+      expect(series.length).toEqual(2);
+      expect(series.at(1)).toEqual("7f3e4567-e89b-40d3-8056-426614174000");
+      expect([...series]).toEqual([
+        "123e4567-e89b-40d3-8056-426614174000",
+        "7f3e4567-e89b-40d3-8056-426614174000",
+      ]);
+    });
+
     it("should recompute cached max and min correctly", () => {
       const series = Series.alloc({ capacity: 10, dataType: DataType.FLOAT32 });
       expect(series.max).toEqual(-Infinity);
