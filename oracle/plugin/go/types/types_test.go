@@ -2150,7 +2150,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 				source := `
 					@go output "core/channel"
 
-					Key int
+					Key int32
 
 					Channel struct {
 						key Key
@@ -2167,9 +2167,9 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// Should use the distinct type name "Key", not expanded "int"
+				// Should use the distinct type name "Key", not expanded "int32"
 				Expect(content).To(ContainSubstring("Key Key"))
-				Expect(content).NotTo(MatchRegexp(`Key\s+int`))
+				Expect(content).NotTo(MatchRegexp("Key\\s+int32\\s+`json"))
 			})
 
 			It(

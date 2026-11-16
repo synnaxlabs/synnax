@@ -367,6 +367,39 @@ Channel struct {
 				To(Equal("x/telem@v0"))
 		})
 
+		It("Should reject a pinned name that the version file does not import", func(
+			ctx SpecContext,
+		) {
+			r := resolverFor(map[string]string{
+				"schemas/x/versions/notation/v0.oracle": `
+Notation enum {
+	standard = "standard"
+}
+`,
+				"schemas/synnax/versions/schematic/v0.oracle": `
+import "schemas/x/versions/notation/v0"
+
+Schematic struct {
+	key uuid @key
+	notation notation.Notation
+}
+`,
+				"schemas/synnax/versions/schematic/v1.oracle": `
+Schematic struct {
+	key uuid @key
+	notation Notation
+}
+`,
+			})
+			Expect(
+				r.File(ctx, "schemas/synnax/schematic", 1),
+			).Error().
+				To(MatchError(And(
+					ContainSubstring("schemas/synnax/versions/schematic/v1.oracle"),
+					ContainSubstring("unresolved type: Notation"),
+				)))
+		})
+
 		It("Should error on a pin cycle between resources", func(ctx SpecContext) {
 			r := resolverFor(map[string]string{
 				"schemas/synnax/versions/a/v0.oracle": `
@@ -712,7 +745,7 @@ Key = v0.Key
 				"schemas/synnax/versions/channel/v1.oracle": "Key = v0.Key\nName = v0.Name\n",
 			})
 			Expect(r.Surface(ctx, "schemas/synnax/channel", 1)).Error().
-				To(MatchError(ContainSubstring("does not carry it")))
+				To(MatchError(ContainSubstring("unresolved type: v0.Name")))
 		})
 
 		It("Should inherit docs from the predecessor and honor overrides", func(

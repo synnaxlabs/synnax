@@ -672,8 +672,9 @@ Node union on variant extends v0.Node {}
 	) {
 		Expect(resolverFor(map[string]string{
 			extendsV0Path: extendsV0,
-			extendsV1Path: "Holder struct extends v0.Holder {}\n",
-			extendsV2Path: "Holder struct extends v0.Holder, v1.Holder {}\n",
+			extendsV1Path: "Node = v0.Node\nHolder struct extends v0.Holder {}\n",
+			extendsV2Path: "Node = v0.Node\n" +
+				"Holder struct extends v0.Holder, v1.Holder {}\n",
 		}).File(ctx, "schemas/synnax/channel", 2)).Error().To(MatchError(
 			ContainSubstring(
 				"Holder: extends more than one earlier version of itself " +
