@@ -45,7 +45,7 @@ var _ = Describe("Observe", func() {
 			nameIdx = gorp.NewLookupIndex(
 				"name", func(e *indexedEntry) string { return e.Name },
 			)
-			table = openIndexedTable(ctx, db, nameIdx)
+			table = DeferClose(openIndexedTable(ctx, db, nameIdx))
 			found = nil
 			DeferCleanup(table.Observe().OnChange(func(
 				ctx context.Context,
