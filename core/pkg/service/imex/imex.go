@@ -312,7 +312,7 @@ func versionFromAny(v any) (Version, error) {
 		if err != nil {
 			return 0, err
 		}
-		return Version(n), nil
+		return n, nil
 	default:
 		return 0, errors.Newf("version must be a number or semver string, got %T", v)
 	}

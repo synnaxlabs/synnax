@@ -549,7 +549,7 @@ func goLiteral(
 	case resolution.ValueKindString:
 		return strconv.Quote(v.StringValue), true
 	case resolution.ValueKindInt:
-		return fmt.Sprintf("%d", v.IntValue), true
+		return strconv.FormatInt(v.IntValue, 10), true
 	case resolution.ValueKindFloat:
 		return strconv.FormatFloat(v.FloatValue, 'g', -1, 64), true
 	case resolution.ValueKindBool:
@@ -589,7 +589,7 @@ func scalarFill(
 		}
 		return defaultFillData{
 			GoName: goName,
-			Expr:   fmt.Sprintf("%d", d.IntValue),
+			Expr:   strconv.FormatInt(d.IntValue, 10),
 		}, true
 	case resolution.ValueKindFloat:
 		if d.FloatValue == 0 {

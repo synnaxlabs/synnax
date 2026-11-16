@@ -12,7 +12,6 @@ package codec
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"slices"
 	"sort"
@@ -418,10 +417,7 @@ func (c *Codec) prune(seqNum uint32) {
 func (c *Codec) panicIfNotUpdated(opName string) {
 	if c.mu.seqNum < 1 {
 		panic(
-			fmt.Sprintf(
-				"dynamic codec was not updated for first call to %s",
-				opName,
-			),
+			"dynamic codec was not updated for first call to " + opName,
 		)
 	}
 }

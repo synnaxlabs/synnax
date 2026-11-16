@@ -38,7 +38,7 @@ func WriteDomain(
 	if _, err = w.Write(data); err != nil {
 		return err
 	}
-	return w.Commit(ctx, tr.End)
+	return w.Commit(ctx, tr.End, nil)
 }
 
 // ReadDomain returns the data of every domain in db that overlaps tr, in time order.

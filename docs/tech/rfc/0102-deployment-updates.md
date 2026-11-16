@@ -108,16 +108,17 @@ one it names, writes its version to `VERSION`, and prints the Core version to ru
 no name, when `VERSION` already holds the newest backup's version, the last update is
 already undone and the undo restores no data. In that case, it puts back `<binary>.old`
 (§3.2) when that binary is the backup's version, or, for a backup with no version, when
-it is older than `<binary>`. If not, it refuses. Data with no `VERSION` file gives a
-backup named `<unix seconds>-unknown`. Its undo removes `VERSION` and cannot name the
-Core to run. A second undo sees the missing file as `unknown`, so the update reads as
-already undone. `synnax update history` lists the backups. An undo writes a marker first
-and removes it last. While the marker exists, the Core does not start and tells the user
-to run the undo again. It moves aside the Cesium directory of each channel that has no
-`meta.json` in the backup. The channel key counter lives in `kv/`
-(`core/pkg/distribution/channel/counter.go:22-38`), so it gives out those keys again,
-and Cesium refuses a duplicate key (`cesium/channel.go:157-164`). Telemetry written to
-known channels after the backup stays.
+it is older than `<binary>`. If not, it refuses. Data with no `VERSION` file was last
+opened by a Core before 0.61.0, so its backup is named `<unix seconds>-before-0.61.0`. A
+backup that a 0.61 Core named `<unix seconds>-unknown` lists the same way. Its undo
+removes `VERSION` and cannot name the Core to run. A second undo sees the missing file
+as `before-0.61.0`, so the update reads as already undone. `synnax update history` lists
+the backups. An undo writes a marker first and removes it last. While the marker exists,
+the Core does not start and tells the user to run the undo again. It moves aside the
+Cesium directory of each channel that has no `meta.json` in the backup. The channel key
+counter lives in `kv/` (`core/pkg/distribution/channel/counter.go:22-38`), so it gives
+out those keys again, and Cesium refuses a duplicate key (`cesium/channel.go:157-164`).
+Telemetry written to known channels after the backup stays.
 
 ### 3.2 `synnax update`
 

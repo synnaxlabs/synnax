@@ -186,7 +186,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return stat.NewWriter(tx).Set(ctx, &status.Status[any]{
 					Key:     k,
-					Name:    string(k),
+					Name:    k,
 					Variant: status.VariantInfo,
 					Time:    telem.Now(),
 				})

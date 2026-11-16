@@ -53,7 +53,7 @@ func (m *reqCapturingPlugin) Generate(req *plugin.Request) (*plugin.Response, er
 }
 
 // SimpleStructTemplate is a basic struct with common field types.
-// Format: domain directive (e.g., @go output "path")
+// Format: domain directive (e.g., @go output "path").
 const simpleStructTemplate = `
 %s
 
@@ -66,7 +66,7 @@ User struct {
 `
 
 // AllPrimitivesTemplate contains all primitive types supported by oracle.
-// Format: domain directive
+// Format: domain directive.
 const allPrimitivesTemplate = `
 %s
 
@@ -90,7 +90,7 @@ AllTypes struct {
 `
 
 // ArrayTypesTemplate contains various array field types.
-// Format: domain directive
+// Format: domain directive.
 const arrayTypesTemplate = `
 %s
 
@@ -103,7 +103,7 @@ Container struct {
 `
 
 // DistinctTypeTemplate demonstrates distinct type definition.
-// Format: domain directive
+// Format: domain directive.
 const distinctTypeTemplate = `
 %s
 
@@ -116,7 +116,7 @@ User struct {
 `
 
 // FieldOmissionTemplate demonstrates field omission in struct extension.
-// Format: domain directive
+// Format: domain directive.
 const fieldOmissionTemplate = `
 %s
 
@@ -134,7 +134,7 @@ Child struct extends Parent {
 `
 
 // GenericStructTemplate defines a generic (type-parameterized) struct.
-// Format: domain directive
+// Format: domain directive.
 const genericStructTemplate = `
 %s
 
@@ -145,7 +145,7 @@ Container struct<T> {
 `
 
 // IntEnumTemplate defines an integer-based enumeration.
-// Format: domain directive
+// Format: domain directive.
 const intEnumTemplate = `
 %s
 
@@ -158,7 +158,7 @@ Status enum {
 `
 
 // MultipleStructsTemplate contains multiple struct definitions.
-// Format: domain directive
+// Format: domain directive.
 const multipleStructsTemplate = `
 %s
 
@@ -182,7 +182,7 @@ Membership struct {
 
 // OptionalFieldsTemplate contains fields with the optional modifier (?), which
 // uses pointer semantics (can distinguish null from the zero value).
-// Format: domain directive
+// Format: domain directive.
 const optionalFieldsTemplate = `
 %s
 
@@ -195,7 +195,7 @@ OptionalFields struct {
 `
 
 // StructExtensionTemplate demonstrates struct extension (inheritance).
-// Format: domain directive
+// Format: domain directive.
 const structExtensionTemplate = `
 %s
 
@@ -212,7 +212,7 @@ Extended struct extends Base {
 `
 
 // StructReferenceTemplate contains structs that reference each other.
-// Format: domain directive
+// Format: domain directive.
 const structReferenceTemplate = `
 %s
 
@@ -229,7 +229,7 @@ Child struct {
 `
 
 // TypeAliasTemplate demonstrates type alias definition.
-// Format: domain directive
+// Format: domain directive.
 const typeAliasTemplate = `
 %s
 

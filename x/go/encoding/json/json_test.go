@@ -56,6 +56,24 @@ type markup struct {
 	Value string
 }
 
+type request struct {
+	Rack   uint32 `json:"rack"`
+	Nested struct {
+		Limit uint8 `json:"limit"`
+	} `json:"nested"`
+}
+
+// strictRequest rejects members that it does not declare.
+type strictRequest request
+
+func (r *strictRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return jsonv2.UnmarshalDecode(
+		dec,
+		(*request)(r),
+		jsonv2.RejectUnknownMembers(true),
+	)
+}
+
 var _ = Describe("Codec", func() {
 	Describe("ContentType", func() {
 		It("Should report the JSON content type", func() {
@@ -117,6 +135,64 @@ var _ = Describe("Codec", func() {
 		It("Should report the JSON file extension", func() {
 			Expect(json.Codec.Extension()).To(Equal(".json"))
 		})
+	})
+	DescribeTable("Decode errors", func(data, msg string) {
+		Expect(json.Codec.Decode([]byte(data), &strictRequest{})).
+			To(MatchError("failed to decode json_test.strictRequest: " + msg))
+		Expect(json.Codec.DecodeStream(strings.NewReader(data), &strictRequest{})).
+			To(MatchError("failed to decode json_test.strictRequest: " + msg))
+	},
+		Entry("an unknown field", `{"rack":1,"task":2}`, `unknown field "task"`),
+		Entry(
+			"an unknown nested field",
+			`{"nested":{"keys":[]}}`,
+			`unknown field "nested.keys"`,
+		),
+		Entry(
+			"a field of the wrong type",
+			`{"rack":"65537"}`,
+			`field "rack" expects uint32, got JSON string`,
+		),
+		Entry(
+			"a nested field of the wrong type",
+			`{"nested":{"limit":true}}`,
+			`field "nested.limit" expects uint8, got JSON boolean`,
+		),
+		Entry(
+			"a field that is not an object",
+			`{"nested":{"limit":{}}}`,
+			`field "nested.limit" expects uint8, got JSON object`,
+		),
+		Entry(
+			"a value out of range",
+			`{"nested":{"limit":300}}`,
+			`field "nested.limit" expects uint8: value out of range`,
+		),
+	)
+	It("Should keep the semantic error in the chain", func() {
+		var semErr *jsonv2.SemanticError
+		Expect(errors.As(
+			json.Codec.Decode([]byte(`{"rack":"1"}`), &request{}),
+			&semErr,
+		)).To(BeTrue())
+		Expect(semErr.JSONPointer).To(Equal(jsontext.Pointer("/rack")))
+	})
+	It("Should name the kind of a top-level value of the wrong kind", func() {
+		Expect(json.Codec.Decode([]byte(`[1]`), &request{})).To(MatchError(
+			"failed to decode json_test.request: got JSON array",
+		))
+	})
+	It("Should keep the cause of a top-level unmarshaler failure", func() {
+		Expect(json.Codec.Decode([]byte(`{}`), &rejected{})).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(
+				"failed to decode json_test.rejected: rejected: validation error",
+			),
+		))
+	})
+	It("Should not print the decoded data", func() {
+		Expect(json.Codec.Decode([]byte(`{"rack":"abc"}`), &request{})).
+			ToNot(MatchError(ContainSubstring("7b")))
 	})
 })
 

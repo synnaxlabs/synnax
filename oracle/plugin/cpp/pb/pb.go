@@ -268,7 +268,7 @@ func (p *Plugin) generateProto(
 	}
 
 	data.AddSystem("utility")
-	data.AddInternal(fmt.Sprintf("%s/types.gen.h", outputPath))
+	data.AddInternal(outputPath + "/types.gen.h")
 	data.AddInternal(data.jsonInclude(outputPath))
 	data.AddInternal("x/cpp/errors/errors.h")
 	data.AddInternal("x/cpp/pb/pb.h")
@@ -655,7 +655,7 @@ func (p *Plugin) generateFieldConversion(
 	typeRef := field.Type
 	pbFieldName := casing.FieldSnake(field.Name)
 	pbAccessorName := keywords.Escape(pbFieldName)
-	pbSetter := fmt.Sprintf("pb.set_%s", pbAccessorName)
+	pbSetter := "pb.set_" + pbAccessorName
 
 	if p.isFixedSizeUint8Array(typeRef, data.table) {
 		return p.generateFixedSizeUint8ArrayConversion(field, data)
@@ -1450,7 +1450,7 @@ func (p *Plugin) elementConversion(
 ) (toPB, fromPB func(string) string, ok bool) {
 	if key.ResolvePrimitive(elemType, data.table) == "uuid" {
 		toPB = func(add string) string {
-			return fmt.Sprintf("%s(item.to_string());", add)
+			return add + "(item.to_string());"
 		}
 		fromPB = func(dst string) string {
 			return fmt.Sprintf(`auto [v, err] = x::uuid::UUID::parse(item);
@@ -1467,7 +1467,7 @@ func (p *Plugin) elementConversion(
 		omit.IsSkipped(resolved, "cpp") {
 		cppName := handWrittenName(resolved, data)
 		toPB = func(add string) string {
-			return fmt.Sprintf("%s(item.to_proto());", add)
+			return add + "(item.to_proto());"
 		}
 		fromPB = func(dst string) string {
 			return fmt.Sprintf("%spush_back(%s::from_proto(item));", dst, cppName)

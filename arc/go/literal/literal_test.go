@@ -19,14 +19,14 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// Helper to extract literal from expression text
+// Helper to extract literal from expression text.
 func getLiteral(text string) parser.ILiteralContext {
 	GinkgoHelper()
 	expr := MustSucceed(parser.ParseExpression(text))
 	return parser.GetLiteral(expr)
 }
 
-// Helper to parse a numeric literal from text
+// Helper to parse a numeric literal from text.
 func parseNumeric(text string, targetType types.Type) (literal.ParsedValue, error) {
 	GinkgoHelper()
 	lit := getLiteral(text)
