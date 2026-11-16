@@ -74,4 +74,12 @@ var _ = Describe("OnHistoryChange", func() {
 		Expect(db.Delete(ctx, tr, fixedOffset(1), fixedOffset(2))).To(Succeed())
 		Expect(changes).To(Equal([]telem.TimeRange{tr}))
 	})
+
+	It("Should not report a delete between two domains", func(ctx SpecContext) {
+		write(ctx, 10, 20)
+		write(ctx, 30, 40)
+		tr := (22 * telem.SecondTS).Range(25 * telem.SecondTS)
+		Expect(db.Delete(ctx, tr, fixedOffset(0), fixedOffset(0))).To(Succeed())
+		Expect(changes).To(BeEmpty())
+	})
 })
