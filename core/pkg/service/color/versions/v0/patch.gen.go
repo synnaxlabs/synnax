@@ -24,6 +24,8 @@ func (n *Named) Patch(c patch.Cursor) error {
 		return patch.OptionalValue(&n.Dark, c.Next())
 	case "group":
 		return patch.OptionalValue(&n.Group, c.Next())
+	case "position":
+		return patch.OptionalValue(&n.Position, c.Next())
 	default:
 		return c.UnknownField()
 	}
