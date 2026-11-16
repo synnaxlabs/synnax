@@ -24,7 +24,8 @@ export const is = (string: string): boolean => urlRegex.test(string);
 
 // End punctuation and an unmatched parenthesis belong to the sentence around a link.
 const groupPattern = /\([^\s"'<>()]*\)/.source;
-const charPattern = `(?:[^\\s"'<>()]|${groupPattern})`;
+// A link stops before "](", where the label of a Markdown link ends.
+const charPattern = `(?:(?!\\]\\()[^\\s"'<>()]|${groupPattern})`;
 const tailPattern = `${charPattern}*(?:[^\\s"'<>().,;:!?\\]}]|${groupPattern})`;
 const urlPattern = `(?:(?:https?|synnax):\\/\\/|\\bwww\\.)${tailPattern}`;
 const octetPattern = /(?:25[0-5]|2[0-4]\d|1?\d?\d)/.source;

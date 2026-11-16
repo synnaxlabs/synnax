@@ -322,11 +322,18 @@ describe("parse", () => {
       });
     });
 
-    it("should not hide a target behind a label that is a link", () => {
-      const raw = "[https://bank.example.com](https://evil.example.com)";
-      const { text, spans } = parse(raw);
-      expect(text).toBe(raw);
-      expect(spans.some(({ labeled }) => labeled)).toBe(false);
+    it.each([
+      ["a URL", "https://bank.example.com", "https://bank.example.com"],
+      ["a www address", "www.bank.example.com", "https://www.bank.example.com"],
+      ["an IP address with a path", "10.0.0.1/login", "http://10.0.0.1/login"],
+      ["a path", "/var/log/run.log", "/var/log/run.log"],
+    ])("should not hide a target behind a label that is %s", (_, label, target) => {
+      const raw = `[${label}](https://evil.example.com)`;
+      expect(parse(raw).text).toBe(raw);
+      expect(links(raw)).toEqual([
+        [label, target],
+        ["https://evil.example.com", "https://evil.example.com"],
+      ]);
     });
   });
 });
