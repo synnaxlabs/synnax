@@ -30,11 +30,10 @@ struct ForwarderConfig {
     /// @brief the most bytes of frames that wait for the Core. A write past it drops
     /// its frame and counts it.
     size_t max_queue_bytes = size_t{64} * 1024 * 1024;
-    /// @brief backs off from Core errors. An unreachable Core has no retry limit.
+    /// @brief backs off from an unreachable Core, with no retry limit.
     x::breaker::Config breaker{
         .name = "forwarder",
         .base_interval = x::telem::SECOND,
-        .max_retries = 50,
         .scale = 1.1f,
         .max_interval = x::telem::MINUTE,
     };
@@ -116,8 +115,9 @@ class Forwarder {
         this->queue_bytes = 0;
     }
 
-    /// @brief backs off after a Core error. Returns false when the forwarder must
-    /// stop, and records the error unless the Core was only unreachable.
+    /// @brief backs off after an unreachable Core. Any other Core error, a license
+    /// error included, stops the forwarder so its owner retries it. Returns false when
+    /// the forwarder must stop.
     bool wait(const x::errors::Error &err) {
         if (synnax::errors::is_unreachable(err)) {
             this->settle();
@@ -125,9 +125,6 @@ class Forwarder {
             this->drop_queue();
             return false;
         }
-        if (synnax::errors::is_temporarily_unavailable(err) && !this->is_closing() &&
-            this->breaker.wait(err))
-            return true;
         LOG(ERROR) << "[bypass.forwarder] " << this->config.subject.name
                    << " stopped: " << err;
         {
@@ -194,7 +191,7 @@ public:
 
     /// @brief waits for the first open of the Core writer.
     /// @returns the error that stopped the forwarder before its first open, or NIL once
-    /// a writer opens or the Core proves unreachable.
+    /// a writer opens or the Core proves unreachable. It never waits through retries.
     x::errors::Error opened() {
         std::unique_lock lock(this->mu);
         this->settled_cv.wait(lock, [this] { return this->settled; });
