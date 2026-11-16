@@ -107,8 +107,13 @@ jobs:
           ${{ fromJSON((inputs.os_specific || inputs.windows || inputs.macos) &&
           '["linux", "windows", "darwin"]' || '["linux"]') }}
     steps:
+      # Lint reports only issues since the merge base with origin/main, so it needs
+      # the history back to that commit.
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
 
       - name: Check that the module has no OS-specific code
         if: ${{ !inputs.os_specific && matrix.goos == 'linux' }}
