@@ -83,8 +83,8 @@ type BooleanReadField = versions.BooleanReadField
 // TimestampReadField reads a timestamp.
 type TimestampReadField = versions.TimestampReadField
 
-// JsonReadField reads any JSON value.
-type JsonReadField = versions.JsonReadField
+// JSONReadField reads any JSON value.
+type JSONReadField = versions.JSONReadField
 
 // UuidReadField reads a UUID string.
 type UuidReadField = versions.UuidReadField

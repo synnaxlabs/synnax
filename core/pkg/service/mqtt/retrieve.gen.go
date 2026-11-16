@@ -76,7 +76,7 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 								if v4.Channel != 0 {
 									targets = append(targets, v4.Channel)
 								}
-							case JsonReadField:
+							case JSONReadField:
 								if v4.Channel != 0 {
 									targets = append(targets, v4.Channel)
 								}
@@ -130,7 +130,7 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 									v8.Channel = 0
 								}
 								v6.Fields[i7].Variant = v8
-							case JsonReadField:
+							case JSONReadField:
 								if v8.Channel == t {
 									v8.Channel = 0
 								}

@@ -147,12 +147,12 @@ func (t TimestampReadField) Validate() error {
 	return v.Error()
 }
 
-// JsonReadField reads any JSON value.
-type JsonReadField struct {
+// JSONReadField reads any JSON value.
+type JSONReadField struct {
 	BaseReadField
 }
 
-func (JsonReadField) isReadFieldVariant() {}
+func (JSONReadField) isReadFieldVariant() {}
 
 // UuidReadField reads a UUID string.
 type UuidReadField struct {
@@ -209,11 +209,11 @@ func (u ReadField) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type payload.Kind `json:"type"`
 			TimestampReadField
 		}{Type: payload.KindTimestamp, TimestampReadField: v})
-	case JsonReadField:
+	case JSONReadField:
 		return json.MarshalEncode(enc, struct {
 			Type payload.Kind `json:"type"`
-			JsonReadField
-		}{Type: payload.KindJSON, JsonReadField: v})
+			JSONReadField
+		}{Type: payload.KindJSON, JSONReadField: v})
 	case UuidReadField:
 		return json.MarshalEncode(enc, struct {
 			Type payload.Kind `json:"type"`
@@ -306,12 +306,12 @@ func (u *ReadField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	case payload.KindJSON:
 		var v struct {
 			Type payload.Kind `json:"type"`
-			JsonReadField
+			JSONReadField
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.JsonReadField
+		u.Variant = v.JSONReadField
 	case payload.KindUUID:
 		var v struct {
 			Type payload.Kind `json:"type"`
@@ -355,7 +355,7 @@ func (u ReadField) Type() payload.Kind {
 		return payload.KindBoolean
 	case TimestampReadField:
 		return payload.KindTimestamp
-	case JsonReadField:
+	case JSONReadField:
 		return payload.KindJSON
 	case UuidReadField:
 		return payload.KindUUID
@@ -392,7 +392,7 @@ func (u ReadField) Base() BaseReadField {
 		return variant.BaseReadField
 	case TimestampReadField:
 		return variant.BaseReadField
-	case JsonReadField:
+	case JSONReadField:
 		return variant.BaseReadField
 	case UuidReadField:
 		return variant.BaseReadField
@@ -423,7 +423,7 @@ func (u *ReadField) SetBase(base BaseReadField) {
 	case TimestampReadField:
 		variant.BaseReadField = base
 		u.Variant = variant
-	case JsonReadField:
+	case JSONReadField:
 		variant.BaseReadField = base
 		u.Variant = variant
 	case UuidReadField:

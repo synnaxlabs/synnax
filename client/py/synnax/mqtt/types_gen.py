@@ -290,7 +290,7 @@ class TimestampReadField(BaseReadField, payload.TimestampRead):
     type: Literal["timestamp"] = "timestamp"
 
 
-class JsonReadField(BaseReadField):
+class JSONReadField(BaseReadField):
     """Reads any JSON value."""
 
     type: Literal["json"] = "json"
@@ -317,7 +317,7 @@ ReadField = Annotated[
     | StringReadField
     | BooleanReadField
     | TimestampReadField
-    | JsonReadField
+    | JSONReadField
     | UuidReadField
     | BytesReadField,
     Field(discriminator="type"),
