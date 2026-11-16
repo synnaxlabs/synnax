@@ -298,8 +298,8 @@ def _shared(config: Config, pr: PullRequest, shown: str, rest: str) -> str:
     if pr.dismissed:
         parts += [
             "# Dismissed findings",
-            "A member dismissed each of these findings. Do not report them again in "
-            "any form, and do not let them lower the score.",
+            "Someone with write access dismissed each of these findings. Do not "
+            "report them again in any form, and do not let them lower the score.",
             "\n".join(_dismissal(d) for d in pr.dismissed),
         ]
     if pr.reviewed:

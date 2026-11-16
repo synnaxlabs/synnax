@@ -66,7 +66,6 @@ def thread(*replies: dict[str, Any]) -> dict[str, Any]:
     first = {
         "databaseId": 1,
         "author": {"__typename": "Bot", "login": "sedosaur"},
-        "authorAssociation": "NONE",
         "body": "<picture></picture> **Samples**\n\nText.",
     }
     return {
@@ -80,7 +79,6 @@ def thread(*replies: dict[str, Any]) -> dict[str, Any]:
 DISMISSAL = {
     "databaseId": 2,
     "author": {"__typename": "User", "login": "someone"},
-    "authorAssociation": "MEMBER",
     "body": "@sedosaur dismiss",
 }
 
@@ -117,6 +115,8 @@ class FakeGH:
             return KEY + "\n"
         if path == f"repos/{REPO}/issues/7/comments":
             return ""
+        if path == f"repos/{REPO}/collaborators/someone/permission":
+            return "write\n"
         for commit, runs in self.runs.items():
             if path.startswith(f"repos/{REPO}/commits/{commit}/check-runs?"):
                 return lines(runs)

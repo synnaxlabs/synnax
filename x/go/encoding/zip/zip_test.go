@@ -14,6 +14,7 @@ import (
 	"bytes"
 	"io"
 	"strings"
+	"testing/iotest"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -37,6 +38,23 @@ func write(entries ...[2]string) []byte {
 			MustSucceed(f.Write([]byte(entry[1])))
 		}
 	}
+	Expect(zw.Close()).To(Succeed())
+	return buf.Bytes()
+}
+
+// writeRaw writes one entry whose stored bytes, method, and checksum are given as is.
+func writeRaw(method uint16, crc uint32, contents string) []byte {
+	GinkgoHelper()
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	f := MustSucceed(zw.CreateRaw(&zip.FileHeader{
+		Name:               "valve.json",
+		Method:             method,
+		CRC32:              crc,
+		CompressedSize64:   uint64(len(contents)),
+		UncompressedSize64: uint64(len(contents)),
+	}))
+	MustSucceed(f.Write([]byte(contents)))
 	Expect(zw.Close()).To(Succeed())
 	return buf.Bytes()
 }
@@ -188,6 +206,21 @@ var _ = Describe("Codec", func() {
 			Expect(xzip.Codec.Decode([]byte("not a zip"), &decoded)).
 				To(MatchError(ContainSubstring("failed to decode")))
 		})
+		It("Should reject an entry with an unknown compression method", func(
+			ctx SpecContext,
+		) {
+			var decoded xzip.Files
+			Expect(xzip.Codec.Decode(writeRaw(99, 0, "1"), &decoded)).To(MatchError(
+				"failed to decode map[string][]uint8: zip: unsupported compression algorithm",
+			))
+		})
+		It("Should reject an entry whose checksum does not match", func(
+			ctx SpecContext,
+		) {
+			var decoded xzip.Files
+			Expect(xzip.Codec.Decode(writeRaw(zip.Store, 1, "1"), &decoded)).
+				To(MatchError("failed to decode map[string][]uint8: zip: checksum error"))
+		})
 		It("Should reject an archive that repeats an entry name", func(
 			ctx SpecContext,
 		) {
@@ -300,6 +333,13 @@ var _ = Describe("Codec", func() {
 				&decoded,
 			)).To(Succeed())
 			Expect(decoded).To(Equal(files))
+		})
+		It("Should return the error of the reader", func(ctx SpecContext) {
+			var decoded xzip.Files
+			Expect(
+				xzip.Codec.DecodeStream(iotest.ErrReader(io.ErrClosedPipe), &decoded),
+			).
+				To(MatchError(io.ErrClosedPipe))
 		})
 	})
 })

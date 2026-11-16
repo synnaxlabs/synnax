@@ -287,7 +287,7 @@ func appendTextTokenPerLine(
 	line, startChar, tokenType uint32,
 ) []lsp.Token {
 	lineStart := 0
-	for i := 0; i < len(text); i++ {
+	for i := range len(text) {
 		if text[i] != '\n' {
 			continue
 		}

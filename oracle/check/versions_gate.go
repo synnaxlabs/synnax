@@ -89,9 +89,7 @@ func checkChain(
 			finding := Finding{
 				Path:     filePath,
 				Severity: SeverityError,
-				Message: fmt.Sprintf(
-					"%s drifts from its version files", livePath,
-				),
+				Message:  livePath + " drifts from its version files",
 				FixHint: fmt.Sprintf(
 					"the version files under %s are the authority for "+
 						"version-owned content; run `oracle sync` to project them",

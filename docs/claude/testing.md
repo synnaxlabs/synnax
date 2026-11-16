@@ -103,6 +103,11 @@ JSON sequence files in `/integration/tests/`: `console_tests.json`, `driver_test
 sequentially or async with configurable pool sizes. A case runs for at most its
 `timeout` seconds (default 300), then the conductor marks it TIMEOUT and moves on.
 
+The conductor runs each failed case one more time. A failed case of an asynchronous
+sequence runs again with the whole sequence, because it can need its peers, and each
+case keeps the result of its last run. Mark the sequence `independent` to run only the
+failed cases again.
+
 Console test helpers in `/integration/console/`: `layout.py` (navigation, toolbars,
 keyboard), `context_menu.py`, `ranges.py` / `tasks.py` / `statuses.py` (resource
 helpers), `case.py` (base `ConsoleCase` with Playwright setup).

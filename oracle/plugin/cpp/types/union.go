@@ -102,7 +102,7 @@ func (p *Plugin) processUnion(
 	borrows = borrows && form.BorrowsEnum()
 	if borrows && enumType.FilePath != data.filePath {
 		if path := enum.FindOutputPath(enumType, data.table, "cpp"); path != "" {
-			data.AddInternal(fmt.Sprintf("%s/types.gen.h", path))
+			data.AddInternal(path + "/types.gen.h")
 		}
 	}
 	variants := make([]structData, 0, len(form.Variants))

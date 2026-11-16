@@ -1031,6 +1031,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			ontologyDropMigration,
 			l.Group.BuiltinDeleteMigration(),
 			rangeAliasDropMigration,
+			l.PagerDuty.SecretMigration(taskNames(l.Task)),
 		),
 	}); !ok(err, nil) {
 		return nil, err
