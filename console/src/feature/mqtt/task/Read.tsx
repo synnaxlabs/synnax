@@ -868,45 +868,90 @@ const FieldItem = ({
   );
 };
 
+interface OpenInEditorProps {
+  icdKey: icd.Key;
+}
+
+const OpenInEditor = ({ icdKey }: OpenInEditorProps): ReactElement => {
+  const openTab = Panel.useOpenTab();
+  return (
+    <Button.Button
+      variant="text"
+      size="small"
+      tooltip="Open in the ICD editor"
+      onClick={() => openTab({ variant: "resource", resource: icd.resourceID(icdKey) })}
+    >
+      <Icon.Library />
+      Open in editor
+    </Button.Button>
+  );
+};
+
+interface AddFieldProps {
+  onClick: () => void;
+}
+
+const AddField = ({ onClick }: AddFieldProps): ReactElement | null => {
+  const isPreview = Task.useIsPreview();
+  if (isPreview) return null;
+  return (
+    <Button.Button variant="text" size="small" onClick={onClick}>
+      <Icon.Add />
+      Add field
+    </Button.Button>
+  );
+};
+
 interface FieldDetailsProps {
   path: deep.Path<PlainReadEntry>;
   /** The index of the message in the topic's reads. */
   read: number;
   field: icd.JSONField;
+  format: FormatForm;
   device: Device;
 }
 
-/** Names the channel of a field that the task reads, and picks its data type. */
-const FieldDetails: FC<FieldDetailsProps> = ({ path, read, field, device }) => {
-  const bindingsPath = path.messages[read].bindings;
-  const bindings = PForm.useFieldValue(bindingsPath);
+/**
+ * The format of a field, which each edit saves to the ICD at once, then the channel
+ * that the task reads it into.
+ */
+const FieldDetails: FC<FieldDetailsProps> = ({ path, read, field, format, device }) => {
+  const readPath = path.messages[read];
+  const bindings = PForm.useFieldValue(readPath.bindings);
+  const message = PForm.useFieldValue(readPath.message);
+  const icdKey = PForm.useFieldValue(path.icd);
   const entryDisabled = PForm.useFieldValue(path.disabled);
   const prefix = usePrefix(device.name, path, read);
   const i = bindings.findIndex(({ field: key }) => key === field.key);
-  if (i < 0)
-    return (
-      <Flex.Box y grow align="center" justify="center">
-        <Text.Text status="disabled">
-          Enable the field to read it into a channel
-        </Text.Text>
-      </Flex.Box>
-    );
-  const binding = bindings[i];
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
+        <PForm.Form<typeof PICD.formSchema> {...format}>
+          <ICD.JSONField
+            path={fieldsPath(message)[field.key]}
+            actions={<OpenInEditor icdKey={icdKey} />}
+          />
+        </PForm.Form>
         <PForm.Section title="Channel">
-          <Task.ChannelNameField
-            channel={binding.channel}
-            defaultName={`${prefix}_${channel.escapeInvalidName(field.name)}`}
-            skipped={entryDisabled}
-          />
-          <Task.Payload.DataTypeField
-            path={bindingsPath[i].dataType}
-            channel={binding.channel}
-            defaultDataType={DEFAULT_DATA_TYPES[field.type]}
-            hideDataTypes={hiddenDataTypes(field.type)}
-          />
+          {i < 0 ? (
+            <Text.Text status="disabled">
+              The task does not read this field. Click its dot to read it.
+            </Text.Text>
+          ) : (
+            <>
+              <Task.ChannelNameField
+                channel={bindings[i].channel}
+                defaultName={`${prefix}_${channel.escapeInvalidName(field.name)}`}
+                skipped={entryDisabled}
+              />
+              <Task.Payload.DataTypeField
+                path={readPath.bindings[i].dataType}
+                channel={bindings[i].channel}
+                defaultDataType={DEFAULT_DATA_TYPES[field.type]}
+                hideDataTypes={hiddenDataTypes(field.type)}
+              />
+            </>
+          )}
         </PForm.Section>
       </PForm.Sections>
     </Flex.Box>
@@ -921,9 +966,8 @@ interface MessageSectionsProps {
   device: Device;
 }
 
-/** The timestamp and the format of a message that a topic reads. */
+/** The timestamp of a message that a topic reads, and the problems of its format. */
 const MessageSections: FC<MessageSectionsProps> = ({ path, read, format, device }) => {
-  const openTab = Panel.useOpenTab();
   const icdKey = PForm.useFieldValue(path.icd);
   const readMessage = PForm.useFieldValue(path.messages[read]);
   const message = PForm.useFieldValue(PICD.formPath.messages[readMessage.message], {
@@ -932,28 +976,10 @@ const MessageSections: FC<MessageSectionsProps> = ({ path, read, format, device 
   });
   const fields = jsonFields(message);
   const mixed = variableAmongFixed(readFields(fields, readMessage));
-  const openEditor = () =>
-    openTab({ variant: "resource", resource: icd.resourceID(icdKey) });
   return (
     <>
-      <PForm.Section title="Timestamp">
-        <TimestampFields path={path} read={read} fields={fields} device={device} />
-      </PForm.Section>
-      <PForm.Section
-        title="Message format"
-        actions={
-          <Button.Button
-            variant="text"
-            size="small"
-            tooltip="Open in the ICD editor"
-            onClick={openEditor}
-          >
-            <Icon.Library />
-            Open in editor
-          </Button.Button>
-        }
-      >
-        {message == null ? (
+      {message == null && (
+        <PForm.Section title="Message">
           <Status.Summary
             variant="warning"
             message="Message not found"
@@ -964,20 +990,24 @@ const MessageSections: FC<MessageSectionsProps> = ({ path, read, format, device 
             }
             center={false}
           />
-        ) : message.payload.format === "json" ? (
-          <PForm.Form<typeof PICD.formSchema> {...format}>
-            <ICD.Fields path={fieldsPath(readMessage.message)} encoding="json" />
-            <ICD.FieldsStatus path={fieldsPath(readMessage.message)} />
-          </PForm.Form>
-        ) : (
+        </PForm.Section>
+      )}
+      {message != null && message.payload.format !== "json" && (
+        <PForm.Section title="Message" actions={<OpenInEditor icdKey={icdKey} />}>
           <Text.Text color={9}>
             The format of this message is not JSON. Open it to change its format.
           </Text.Text>
-        )}
+        </PForm.Section>
+      )}
+      <PForm.Section title="Timestamp">
+        <TimestampFields path={path} read={read} fields={fields} device={device} />
         {mixed.length > 0 && (
           <Input.HelpText variant="error">{mixMessage(mixed)}</Input.HelpText>
         )}
       </PForm.Section>
+      <PForm.Form<typeof PICD.formSchema> {...format}>
+        <ICD.FieldsStatus path={fieldsPath(readMessage.message)} />
+      </PForm.Form>
     </>
   );
 };
@@ -986,18 +1016,21 @@ interface TopicDetailsProps {
   path: deep.Path<PlainReadEntry>;
   format: FormatForm;
   device: Device;
+  /** Adds a field to the message of a topic that reads one. */
+  onAddField: () => void;
   /** Adds a message to the topic, for documents that its messages do not cover. */
   onAddMessage: () => void;
 }
 
 /**
- * The subscription of a topic. A topic that reads one message also shows its timestamp
- * and format, which each message of a topic that reads several shows on its own.
+ * The subscription of a topic. A topic that reads one message also shows its
+ * timestamp, which each message of a topic that reads several shows on its own.
  */
 const TopicDetails: FC<TopicDetailsProps> = ({
   path,
   format,
   device,
+  onAddField,
   onAddMessage,
 }) => {
   const isPreview = Task.useIsPreview();
@@ -1009,10 +1042,13 @@ const TopicDetails: FC<TopicDetailsProps> = ({
           title="Subscription"
           actions={
             !isPreview && (
-              <Button.Button variant="text" size="small" onClick={onAddMessage}>
-                <Icon.Add />
-                Add message
-              </Button.Button>
+              <>
+                {reads === 1 && <AddField onClick={onAddField} />}
+                <Button.Button variant="text" size="small" onClick={onAddMessage}>
+                  <Icon.Add />
+                  Add message
+                </Button.Button>
+              </>
             )
           }
         >
@@ -1043,10 +1079,18 @@ interface MessageDetailsProps {
   read: number;
   format: FormatForm;
   device: Device;
+  onAddField: () => void;
 }
 
 /** The name and match of a message of a topic that reads several. */
-const MessageDetails: FC<MessageDetailsProps> = ({ path, read, format, device }) => {
+const MessageDetails: FC<MessageDetailsProps> = ({
+  path,
+  read,
+  format,
+  device,
+  onAddField,
+}) => {
+  const icdKey = PForm.useFieldValue(path.icd);
   const key = PForm.useFieldValue(path.messages[read].message);
   const encoding = PForm.useFieldValue(PICD.formPath.messages[key].payload.format, {
     optional: true,
@@ -1057,7 +1101,15 @@ const MessageDetails: FC<MessageDetailsProps> = ({ path, read, format, device })
       <PForm.Sections>
         {encoding === "json" && (
           <PForm.Form<typeof PICD.formSchema> {...format}>
-            <PForm.Section title="Message">
+            <PForm.Section
+              title="Message"
+              actions={
+                <>
+                  <AddField onClick={onAddField} />
+                  <OpenInEditor icdKey={icdKey} />
+                </>
+              }
+            >
               <PForm.TextField
                 path={PICD.formPath.messages[key].name}
                 label="Name"
@@ -1319,6 +1371,28 @@ const Entries: FC<EntriesProps> = ({
     onSelect([messageNodeKey(entryKey, message.key)]);
   };
 
+  /** Adds a field to a message of a topic and to its ICD, reads it, and selects it. */
+  const handleAddField = (entryKey: string, read: number) => {
+    const entry = ctx.get(plainPath(entryKey)).value;
+    const { message } = entry.messages[read];
+    const fields = fieldsOf(formats, entry.icd, message);
+    const field = ICD.createJSONField(fields.map(({ name }) => name));
+    formatOf(formats, entry.icd).insert(fieldsPath(message), field, fields.at(-1)?.key);
+    setRead(ctx, entryKey, read, field, true, stored);
+    const parent = entry.messages.length > 1 ? [messageNodeKey(entryKey, message)] : [];
+    onExpand((prev) => unique.unique([...prev, entryKey, ...parent]));
+    onSelect([fieldNodeKey(entryKey, message, field.key)]);
+  };
+
+  /** Removes each chosen field from its message in the ICD. */
+  const handleRemoveFields = (chosen: FieldNode[]) => {
+    for (const { entry, read, field } of chosen) {
+      const { icd: icdKey, messages } = ctx.get(plainPath(entry)).value;
+      formatOf(formats, icdKey).remove(fieldsPath(messages[read].message)[field.key]);
+    }
+    onSelect([]);
+  };
+
   const handleSelect: Tree.TreeProps<string, record.Keyed<string>>["onSelect"] = (
     keys,
     { clicked },
@@ -1391,10 +1465,20 @@ const Entries: FC<EntriesProps> = ({
       ctx.get(root.config.entries[only.entry].type).value === "plain"
         ? only.entry
         : undefined;
+    let addField: (() => void) | undefined;
+    if (chosen.length === 1 && only.kind === "message")
+      addField = () => handleAddField(only.entry, only.read);
+    else if (topic != null && ctx.get(plainPath(topic).messages).value.length === 1)
+      addField = () => handleAddField(topic, 0);
+    const fields = chosen.filter((n): n is FieldNode => n.kind === "field");
+    let onRemove: (() => void) | undefined;
+    if (fields.length > 0 && fields.length === chosen.length)
+      onRemove = () => handleRemoveFields(fields);
+    else if (isRemovable(chosen)) onRemove = () => handleRemove(chosen);
     return (
       <Task.Views.ContextMenu
         keys={keys}
-        onRemove={isRemovable(chosen) ? () => handleRemove(chosen) : undefined}
+        onRemove={onRemove}
         onEnable={
           switchable.some((n) => !isEnabled(n))
             ? () => setEnabled(switchable, true)
@@ -1403,6 +1487,7 @@ const Entries: FC<EntriesProps> = ({
         onDisable={
           switchable.some(isEnabled) ? () => setEnabled(switchable, false) : undefined
         }
+        onAddField={addField}
         extraMenuItems={
           topic != null && (
             <Menu.Item itemKey="addMessage" onClick={() => handleAddMessage(topic)}>
@@ -1431,7 +1516,12 @@ const Entries: FC<EntriesProps> = ({
   let details = null;
   let title = null;
   let detailsPath: deep.Target<unknown> | null = null;
-  if (entry != null && isPlain(entry) && current?.kind === "field") {
+  if (
+    entry != null &&
+    isPlain(entry) &&
+    current?.kind === "field" &&
+    entryFormat != null
+  ) {
     const read = plainPath(entry.key).messages[current.read];
     const i = entry.messages[current.read].bindings.findIndex(
       ({ field }) => field === current.field.key,
@@ -1448,6 +1538,7 @@ const Entries: FC<EntriesProps> = ({
         path={plainPath(entry.key)}
         read={current.read}
         field={current.field}
+        format={entryFormat}
         device={device}
       />
     );
@@ -1461,6 +1552,7 @@ const Entries: FC<EntriesProps> = ({
         read={current.read}
         format={entryFormat}
         device={device}
+        onAddField={() => handleAddField(entry.key, current.read)}
       />
     );
   } else if (entry != null) {
@@ -1481,6 +1573,7 @@ const Entries: FC<EntriesProps> = ({
           path={plainPath(entry.key)}
           format={entryFormat}
           device={device}
+          onAddField={() => handleAddField(entry.key, 0)}
           onAddMessage={() => handleAddMessage(entry.key)}
         />
       );
