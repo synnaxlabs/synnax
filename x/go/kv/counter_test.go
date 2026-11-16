@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -32,6 +33,19 @@ func (w blockingWriter) Set(ctx context.Context, key, value []byte) error {
 	if binary.LittleEndian.Uint64(value) == 1 {
 		close(w.blocked)
 		<-w.release
+	}
+	return w.ReadWriter.Set(ctx, key, value)
+}
+
+// failingWriter fails Set calls with err while err is non-nil.
+type failingWriter struct {
+	kv.ReadWriter
+	err error
+}
+
+func (w *failingWriter) Set(ctx context.Context, key, value []byte) error {
+	if w.err != nil {
+		return w.err
 	}
 	return w.ReadWriter.Set(ctx, key, value)
 }
@@ -81,6 +95,25 @@ var _ = Describe("Counter", Ordered, func() {
 				Expect(c.Add(ctx, -3)).To(Equal(int64(4)))
 				Expect(c.Value()).To(Equal(int64(4)))
 			})
+		})
+		Describe("Failed Add", func() {
+			It(
+				"Should not change the counter when the flush fails",
+				func(ctx SpecContext) {
+					key := []byte("failed-add")
+					w := &failingWriter{ReadWriter: db}
+					c := MustSucceed(kv.NewCounter(ctx, w, key))
+					Expect(c.Add(ctx, 5)).To(Equal(int64(5)))
+					setErr := errors.New("set failed")
+					w.err = setErr
+					Expect(c.Add(ctx, 1)).Error().To(MatchError(setErr))
+					Expect(c.Value()).To(Equal(int64(5)))
+					w.err = nil
+					Expect(c.Add(ctx, 1)).To(Equal(int64(6)))
+					reopened := MustSucceed(kv.NewCounter(ctx, db, key))
+					Expect(reopened.Value()).To(Equal(int64(6)))
+				},
+			)
 		})
 		Describe("Concurrent Add", func() {
 			It("Should persist the highest value", func(ctx SpecContext) {
