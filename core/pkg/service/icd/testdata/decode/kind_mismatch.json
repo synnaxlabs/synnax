@@ -25,5 +25,5 @@
       ]
     }
   ],
-  "error": "message reading: field s: a string field cannot write to a float64 channel: validation error"
+  "error": "message reading: field s: cannot write string values to float64 channels: validation error"
 }

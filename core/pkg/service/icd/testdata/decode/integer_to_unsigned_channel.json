@@ -25,5 +25,5 @@
       ]
     }
   ],
-  "error": "message reading: field v: a integer field cannot write to a uint64 channel: validation error"
+  "error": "message reading: field v: cannot write integer values to uint64 channels: validation error"
 }

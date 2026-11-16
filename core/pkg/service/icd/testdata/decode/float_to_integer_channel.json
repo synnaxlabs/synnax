@@ -25,5 +25,5 @@
       ]
     }
   ],
-  "error": "message reading: field v: a float field cannot write to a int32 channel: validation error"
+  "error": "message reading: field v: cannot write float values to int32 channels: validation error"
 }

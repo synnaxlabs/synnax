@@ -247,7 +247,7 @@ func newJSONField(f icd.JSONField, dt telem.DataType) (jsonField, error) {
 	if !converts(field.kind, dt) {
 		return jsonField{}, errors.Wrapf(
 			validate.ErrValidation,
-			"a %s field cannot write to a %s channel",
+			"cannot write %s values to %s channels",
 			field.kind,
 			dt,
 		)

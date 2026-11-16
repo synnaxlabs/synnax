@@ -25,5 +25,5 @@
       ]
     }
   ],
-  "error": "message reading: field v: a float field cannot write to a string channel: validation error"
+  "error": "message reading: field v: cannot write float values to string channels: validation error"
 }

@@ -35,6 +35,8 @@ type number struct {
 	f    float64
 	// fraction is true when the text of a float had a fraction that f may round away.
 	fraction bool
+	// text is the JSON text a float was parsed from, so errors show what f rounds.
+	text []byte
 }
 
 // parseNumber converts the text of a JSON number into an int64 or uint64 when it is an
@@ -67,7 +69,7 @@ func parseNumber(text []byte) (number, error) {
 	if err != nil {
 		return number{}, invalidNumber(text)
 	}
-	return number{kind: floatNumber, f: f, fraction: d.fraction}, nil
+	return number{kind: floatNumber, f: f, fraction: d.fraction, text: text}, nil
 }
 
 // ParsedNumber is a JSON number held without losing precision.
@@ -227,7 +229,12 @@ func (n number) appendText(dst []byte) []byte {
 	}
 }
 
-func (n number) String() string { return string(n.appendText(nil)) }
+func (n number) String() string {
+	if n.text != nil {
+		return string(n.text)
+	}
+	return string(n.appendText(nil))
+}
 
 // bits returns n as a two's complement integer. Its low bytes are the encoding of n in
 // any integer type n fits in, so check fits first.
