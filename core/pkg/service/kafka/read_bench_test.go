@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"slices"
@@ -200,7 +201,11 @@ var _ = Describe("Read task benchmark", Serial, func() {
 			GinkgoWriter.Printf("BENCH %s\n", b)
 			if out := os.Getenv("KAFKA_BENCH_OUT"); out != "" {
 				f := MustSucceed(
-					os.OpenFile(out, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644),
+					os.OpenFile(
+						filepath.Clean(out),
+						os.O_APPEND|os.O_CREATE|os.O_WRONLY,
+						0o644,
+					),
 				)
 				MustSucceed(f.Write(append(b, '\n')))
 				Expect(f.Close()).To(Succeed())
