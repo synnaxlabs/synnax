@@ -396,7 +396,10 @@ export class Space<
       // epoch bump refetches, not the reset itself.
       if (epoch === 0) return;
       this.queries.forEach((query) => {
-        if (query.teardown != null) void this.refetch(query);
+        if (query.teardown == null) return;
+        // The fetch in flight may predate the reconnect, so it refetches on settle.
+        if (query.state.variant === "loading") query.refetchOnSettle = true;
+        else void this.refetch(query);
       });
     });
   }

@@ -2129,6 +2129,51 @@ describe("Answers", () => {
       await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
     });
 
+    describe("reconnect during the first fetch", () => {
+      const setup = () => {
+        const table = newTable();
+        const fetches: Array<PromiseWithResolvers<string[]>> = [];
+        let bump = (_: number): void => {};
+        const answers = new Space<LimitQ, Rec[], string, Rec>(
+          {
+            name: "things",
+            table,
+            fetch: async () => {
+              const fetched = Promise.withResolvers<string[]>();
+              fetches.push(fetched);
+              return await fetched.promise;
+            },
+            compose: (records) => records,
+            matches: (r, q) => r.value >= q.min,
+          },
+          { onEpoch: (callback) => ((bump = callback), () => {}) },
+        );
+        const handler = vi.fn();
+        answers.onChange({ min: 3 }, handler);
+        const pending = answers.retrieve({ min: 3 });
+        bump(1);
+        table.set("a", rec("a", 5));
+        return { answers, fetches, handler, pending };
+      };
+
+      it("keeps a change that raced both fetches when the refetch lands first", async () => {
+        const { answers, fetches, pending } = setup();
+        fetches[1]?.resolve([]);
+        fetches[0].resolve([]);
+        await pending;
+        await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+      });
+
+      it("publishes the first fetch when the refetch fails", async () => {
+        const { answers, fetches, handler, pending } = setup();
+        fetches[1]?.reject(new Error("unreachable"));
+        fetches[0].resolve([]);
+        await pending;
+        await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+        expect(handler).toHaveBeenLastCalledWith([rec("a", 5)]);
+      });
+    });
+
     it("ignores a change to a record that never matched", async () => {
       const table = newTable();
       const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);
