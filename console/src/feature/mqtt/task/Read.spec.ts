@@ -204,6 +204,19 @@ const addField = async (rackKey: rack.Key, topic: string, name: string) => {
   fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
 };
 
+/** Moves a field of the entry's message to the pointer /name, in the ICD. */
+const repoint = async (
+  { icd: key, messages }: MQTT.Task.PlainReadEntry,
+  field: icd.JSONField,
+  name: string,
+) => {
+  const path = ["messages", messages[0].message, "payload", "fields"];
+  await client.icds.dispatch(key, [
+    icd.remove({ path, key: field.key }),
+    icd.insert({ path, value: { ...field, name, pointer: `/${name}` } }),
+  ]);
+};
+
 const retrieveTopicProps = async (key: string) =>
   (await client.devices.retrieve({ key, schemas: MQTT.Device.SCHEMAS })).properties
     .read[TOPIC];
@@ -270,6 +283,25 @@ describe("MQTT read form", () => {
       { field: temperature.key, channel: 0, dataType: "" },
     ]);
     expect(await retrieveEntries(draft.key)).toHaveLength(1);
+  });
+
+  it("should add a topic by name", async () => {
+    const { draft } = await renderRead();
+    const dialog = await openAddData();
+    fireEvent.click(dialog.getByRole("button", { name: "Add a topic by name" }));
+    const topic = await screen.findByPlaceholderText("plant/line1/telemetry");
+    await waitFor(async () =>
+      expect(await retrieveEntries(draft.key)).toMatchObject([
+        { type: "plain", topic: "" },
+      ]),
+    );
+    fireEvent.change(topic, { target: { value: "plant/kiln" } });
+    fireEvent.blur(topic);
+    await waitFor(async () =>
+      expect(await retrieveEntries(draft.key)).toMatchObject([
+        { type: "plain", topic: "plant/kiln" },
+      ]),
+    );
   });
 
   it("should show the format of a topic from the ICD of its entry", async () => {
@@ -658,6 +690,27 @@ describe("MQTT read form", () => {
       expect(await retrieveTopicProps(dev.key)).toBeUndefined();
     });
 
+    it.each([
+      ["", "Topic is required"],
+      ["plant/+", "Topic must not hold the wildcards + or #"],
+    ])("should save the topic %j and refuse it on deploy", async (value, error) => {
+      const { container, draft } = await renderRead({
+        fields: [createField("temperature", "float")],
+      });
+      const topic = await screen.findByDisplayValue(TOPIC);
+      fireEvent.change(topic, { target: { value } });
+      fireEvent.blur(topic);
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[0]).topic).toBe(value),
+      );
+      await clickDeploy(container);
+      const help = await screen.findByText(error);
+      expect(help.closest(".lyra-input-help-text")).not.toBeNull();
+      expect(help.closest(".lyra-input__item")).toBe(
+        topic.closest(".lyra-input__item"),
+      );
+    });
+
     it("should put the deploy errors of a tag on its fields", async () => {
       const { container } = await renderRead({
         entries: [createTagEntry("", { group: "plant/a", edgeNode: "" })],
@@ -829,6 +882,45 @@ describe("MQTT read form", () => {
         { field: timeField.key, channel: time.key, dataType: "" },
         { field: temperature.key, channel: temperatureCh.key, dataType: "" },
         { field: count.key, channel: replaced.key, dataType: "" },
+      ]);
+    });
+
+    it("should not reuse a stored channel that another field reads", async () => {
+      const time = await createTimeChannel();
+      const ch = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        index: time.key,
+      });
+      const temperature = createField("temperature", "float");
+      const entry = await createEntry({
+        fields: [temperature],
+        bound: { [temperature.key]: ch.key },
+      });
+      const { container, dev, draft, statuses } = await renderRead({
+        entries: [entry],
+        beforeRender: () => repoint(entry, temperature, "oven"),
+        properties: {
+          read: { [TOPIC]: { index: time.key, channels: { "/temperature": ch.key } } },
+        },
+      });
+      await screen.findByDisplayValue(ch.name);
+      await addField(dev.rack, TOPIC, "temperature");
+      const added = await waitFor(async () => {
+        const bindings = await retrieveBindings(draft.key);
+        expect(bindings).toEqual([
+          { field: temperature.key, channel: ch.key, dataType: "" },
+          { field: expect.any(String), channel: 0, dataType: "" },
+        ]);
+        return bindings[1].field;
+      });
+      expect(statuses).toEqual([]);
+      const created = await deploy(container, draft.key);
+      const { channels } = await retrieveTopicProps(dev.key);
+      expect(channels["/temperature"]).not.toBe(ch.key);
+      expect(plainOf(created.config.entries[0]).messages[0].bindings).toEqual([
+        { field: temperature.key, channel: ch.key, dataType: "" },
+        { field: added, channel: channels["/temperature"], dataType: "" },
       ]);
     });
 

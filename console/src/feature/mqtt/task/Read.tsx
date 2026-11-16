@@ -197,18 +197,36 @@ const DISCOVER_KIND: Kind<Addition> = {
 
 const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
 
-/** @returns the bindings of fields, each to the channel the device stores for it. */
+/** @returns the channels that the bindings and tags of entries write. */
+const writtenChannels = (entries: ReadEntry[]): Set<channel.Key> => {
+  const written = new Set(
+    entries.flatMap((e) =>
+      isPlain(e)
+        ? e.messages.flatMap(({ bindings }) => bindings.map((b) => b.channel))
+        : [e.channel],
+    ),
+  );
+  written.delete(0);
+  return written;
+};
+
+/**
+ * @returns the bindings of fields, each to the channel the device stores for it. A
+ * field whose stored channel is in written gets no channel, as the Core refuses a
+ * channel that two bindings write. Adds the channels it binds to written.
+ */
 const bindingsOf = (
   stored: Stored,
   topic: string,
   fields: icd.JSONField[],
+  written: Set<channel.Key>,
 ): ReadBinding[] =>
-  fields.map(({ key, pointer }) =>
-    mqtt.readBindingZ.parse({
-      field: key,
-      channel: stored[topic]?.channels[pointer] ?? 0,
-    }),
-  );
+  fields.map(({ key, pointer }) => {
+    const ch = stored[topic]?.channels[pointer] ?? 0;
+    if (written.has(ch)) return mqtt.readBindingZ.parse({ field: key });
+    if (ch !== 0) written.add(ch);
+    return mqtt.readBindingZ.parse({ field: key, channel: ch });
+  });
 
 /** Inserts entries into the lists of one ICD. */
 type Inserter = Pick<FormatForm, "insert">;
@@ -496,7 +514,7 @@ interface BindingProps {
 
 /** Reads a field into a channel, or not, and names the channel. */
 const Binding: FC<BindingProps> = ({ path, field, prefix, stored }) => {
-  const { set } = PForm.useContext();
+  const { get, set } = PForm.useContext();
   const isPreview = Task.useIsPreview();
   const read = path.messages[0];
   const topic = PForm.useFieldValue(path.topic);
@@ -511,7 +529,15 @@ const Binding: FC<BindingProps> = ({ path, field, prefix, stored }) => {
     set(
       read.bindings,
       on
-        ? [...bindings, ...bindingsOf(stored, topic, [field])]
+        ? [
+            ...bindings,
+            ...bindingsOf(
+              stored,
+              topic,
+              [field],
+              writtenChannels(get(root.config.entries).value),
+            ),
+          ]
         : bindings.filter(({ field: key }) => key !== field.key),
     );
   let tooltip = READ_TOOLTIP;
@@ -752,11 +778,13 @@ const Entries: FC<EntriesProps> = ({ device, format, selected, onSelect }) => {
       if (additions == null || additions.length === 0) return;
       const drafts = additions.filter(isDraft);
       const tags = additions.filter((a): a is SparkplugReadEntry => !isDraft(a));
+      const written = writtenChannels(entries);
       const bind: Bind = ({ topic, bound }, fields) =>
         bindingsOf(
           device.properties.read,
           topic,
           fields.filter(({ key }) => bound.includes(key)),
+          written,
         );
       const { added, held: grown } =
         drafts.length === 0
@@ -990,13 +1018,15 @@ const configureTag = async (
 
 /**
  * Gives each field that a topic reads a channel: the one it has, the one the device
- * stores for its pointer, or a new one of the binding's data type.
+ * stores for its pointer unless written holds it, or a new one of the binding's data
+ * type. Adds the channels it binds to written.
  */
 const configureTopic = async (
   client: Synnax,
   dev: Device,
   entry: PlainReadEntry,
   fields: icd.JSONField[],
+  written: Set<channel.Key>,
 ): Promise<void> => {
   const [read] = entry.messages;
   const index = fields.find(({ key }) => key === read.index)?.key;
@@ -1004,7 +1034,11 @@ const configureTopic = async (
   const bindingOf = (f: icd.JSONField): ReadBinding =>
     read.bindings.find(({ field }) => field === f.key) ??
     mqtt.readBindingZ.parse({ field: f.key });
-  // A field with no channel takes the one the device stores for its pointer.
+  // A field with no channel takes the one the device stores for its pointer, unless
+  // another binding writes it.
+  for (const f of fields)
+    if (bindingOf(f).channel === 0 && written.has(stored[f.pointer]))
+      delete stored[f.pointer];
   const reused = fields.map((f) => bindingOf(f).channel || (stored[f.pointer] ?? 0));
   const live = new Map(
     (await client.channels.retrieve(reused)).map((ch) => [ch.key, ch]),
@@ -1041,6 +1075,7 @@ const configureTopic = async (
     namePrefix: prefix,
     indexKey: index ?? "",
   });
+  channels.forEach(({ channel }) => written.add(channel));
   entry.messages[0] = {
     message: read.message,
     index,
@@ -1064,8 +1099,9 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   }));
   const before = deep.copy(dev.properties);
   try {
+    const written = writtenChannels(config.entries);
     for (const { entry, fields } of formats)
-      await configureTopic(client, dev, entry, fields);
+      await configureTopic(client, dev, entry, fields, written);
     for (const entry of enabled)
       if (entry.type === "sparkplug") await configureTag(client, dev, entry);
   } finally {
