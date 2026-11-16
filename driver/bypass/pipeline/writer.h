@@ -21,10 +21,9 @@
 
 namespace driver::bypass::pipeline {
 /// @brief a pipeline Writer that publishes frames to the local bus, then hands them to
-/// a Forwarder that delivers them to the Core in the background. When set_authority is
-/// called with an authority higher than the current holder, the increase is applied
-/// directly to the control::States before it goes to the Core, eliminating the
-/// staleness window for authority increases.
+/// a Forwarder that delivers them to the Core in the background. It keeps a gate in
+/// control::States, so its authority changes and its close hand channels between local
+/// writers at once, with or without the Core.
 class Writer final : public ::driver::pipeline::Writer {
     std::unique_ptr<Forwarder> forwarder;
     std::shared_ptr<Bus> bus;
@@ -84,12 +83,13 @@ public:
             auto auth = authorities.authorities.size() == 1
                           ? authorities.authorities[0]
                           : authorities.authorities[i];
-            this->states->apply_increase(this->cfg.subject, keys[i], auth);
+            this->states->set_authority(this->cfg.subject, keys[i], auth);
         }
         return this->forwarder->set_authority(authorities);
     }
 
     [[nodiscard]] x::errors::Error close() override {
+        this->states->close_gate(this->cfg.subject);
         auto err = this->forwarder->close();
         if (this->carried_drops != nullptr)
             this->carried_drops->store(this->forwarder->dropped());
@@ -138,6 +138,7 @@ public:
         forwarder_cfg.dropped = this->carried_drops->load();
         auto forwarder = std::make_unique<Forwarder>(this->server, cfg, forwarder_cfg);
         if (auto err = forwarder->opened()) return {nullptr, err};
+        this->states->open_gate(cfg.subject, cfg.channels, cfg.authorities);
         VLOG(1) << "[bus.writer_factory] opened writer for " << cfg.channels.size()
                 << " channels, group=" << this->group;
         return {

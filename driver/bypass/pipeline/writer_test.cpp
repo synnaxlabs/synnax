@@ -218,21 +218,74 @@ TEST(WriterTest, SetAuthorityIncreaseUpdatesMirror) {
     ASSERT_TRUE(states->is_authorized(2, {"arc", "arc-1"}));
 }
 
-TEST(WriterTest, SetAuthorityDecreaseDoesNotUpdateMirror) {
+/// @brief it should hand a channel back to the next local writer when the holder lowers
+/// its authority.
+TEST(WriterTest, SetAuthorityDecreaseHandsOffLocally) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
     const x::control::Subject arc{"arc", "arc-1"};
     const x::control::Subject op{"operator", "op-1"};
-    states->apply_increase(op, 1, 200);
     auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
-    auto writer = ASSERT_NIL_P(factory.open_writer({
+    auto op_writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
+        .authorities = {150},
+        .subject = op,
+    }));
+    auto arc_writer = ASSERT_NIL_P(factory.open_writer({
+        .channels = {1},
+        .authorities = {200},
         .subject = arc,
     }));
-    ASSERT_NIL(writer->set_authority({.keys = {1}, .authorities = {100}}));
+    ASSERT_TRUE(states->is_authorized(1, arc));
+    ASSERT_NIL(arc_writer->set_authority({.keys = {1}, .authorities = {100}}));
     ASSERT_TRUE(states->is_authorized(1, op));
     ASSERT_FALSE(states->is_authorized(1, arc));
+    ASSERT_NIL(arc_writer->close());
+    ASSERT_NIL(op_writer->close());
+}
+
+/// @brief it should hand a channel to the next local writer when the holder closes,
+/// with the Core unreachable.
+TEST(WriterTest, CloseHandsOffLocallyWhileTheCoreIsUnreachable) {
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    const x::control::Subject arc{"arc", "arc-1"};
+    const x::control::Subject op{"operator", "op-1"};
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector<x::errors::Error>(1000, freighter::UNREACHABLE)
+    );
+    WriterFactory factory(
+        mock_factory,
+        bus,
+        states,
+        0,
+        {.breaker = {.base_interval = x::telem::MILLISECOND}}
+    );
+    auto op_writer = ASSERT_NIL_P(factory.open_writer({
+        .channels = {1},
+        .authorities = {150},
+        .subject = op,
+    }));
+    auto arc_writer = ASSERT_NIL_P(factory.open_writer({
+        .channels = {1},
+        .authorities = {200},
+        .subject = arc,
+    }));
+    auto sub = bus->subscribe({1});
+    x::telem::Frame fr;
+    fr.emplace(1, x::telem::Series(static_cast<float>(1.0)));
+    ASSERT_NIL(op_writer->write(fr));
+    ASSERT_FALSE(sub->try_pop(fr));
+    ASSERT_NIL(arc_writer->close());
+    x::telem::Frame fr2;
+    fr2.emplace(1, x::telem::Series(static_cast<float>(2.0)));
+    ASSERT_NIL(op_writer->write(fr2));
+    x::telem::Frame received;
+    ASSERT_TRUE(sub->try_pop(received));
+    ASSERT_NIL(op_writer->close());
+    ASSERT_TRUE(states->is_authorized(1, {"other", "other-1"}));
 }
 
 TEST(WriterTest, SetAuthorityGlobalKeysExpandsToWriterChannels) {
@@ -256,13 +309,14 @@ TEST(WriterTest, SetAuthorityIncreaseEndToEnd) {
     const x::control::Subject hotfire{"hotfire", "hf-1"};
     const x::control::Subject abort_sub{"abort", "abort-1"};
 
-    states->apply_increase(hotfire, 1, 200);
+    states->set_authority(hotfire, 1, 200);
 
     auto mock_writer_factory = std::make_shared<
         ::driver::pipeline::testutil::WriterFactory>();
     WriterFactory writer_factory(mock_writer_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(writer_factory.open_writer({
         .channels = {1},
+        .authorities = {100},
         .subject = abort_sub,
     }));
 
@@ -287,12 +341,13 @@ TEST(WriterTest, WriteFiltersUnauthorizedChannelsFromBus) {
     auto states = std::make_shared<control::States>();
     const x::control::Subject arc{"arc", "arc-1"};
     const x::control::Subject other{"other", "other-1"};
-    states->apply_increase(other, 1, 200);
+    states->set_authority(other, 1, 200);
     auto sub = bus->subscribe({1, 2});
     auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1, 2},
+        .authorities = {100},
         .subject = arc,
     }));
     x::telem::Frame frame;
@@ -311,12 +366,13 @@ TEST(WriterTest, WritePublishesNothingToBusWhenFullyUnauthorized) {
     auto states = std::make_shared<control::States>();
     const x::control::Subject arc{"arc", "arc-1"};
     const x::control::Subject other{"other", "other-1"};
-    states->apply_increase(other, 1, 200);
+    states->set_authority(other, 1, 200);
     auto sub = bus->subscribe({1});
     auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
+        .authorities = {100},
         .subject = arc,
     }));
     x::telem::Frame frame;
@@ -357,10 +413,12 @@ TEST(WriterTest, WriteFilterEndToEnd) {
 
     auto hf_writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
+        .authorities = {100},
         .subject = hotfire,
     }));
     auto ab_writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
+        .authorities = {100},
         .subject = abort_sub,
     }));
 

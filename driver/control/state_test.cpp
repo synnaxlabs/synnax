@@ -234,31 +234,31 @@ TEST(StatesTest, MoveFilterEmptyFrame) {
 
 TEST(StatesTest, ApplyIncreaseUpdatesState) {
     States states;
-    states.apply_increase(ARC, 1, 200);
+    states.set_authority(ARC, 1, 200);
     ASSERT_TRUE(states.is_authorized(1, ARC));
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
 }
 
 TEST(StatesTest, ApplyIncreaseOverridesLowerAuthority) {
     States states;
-    states.apply_increase(ARC, 1, 100);
-    states.apply_increase(OPERATOR, 1, 200);
+    states.set_authority(ARC, 1, 100);
+    states.set_authority(OPERATOR, 1, 200);
     ASSERT_FALSE(states.is_authorized(1, ARC));
     ASSERT_TRUE(states.is_authorized(1, OPERATOR));
 }
 
 TEST(StatesTest, ApplyIncreaseIgnoresEqualAuthority) {
     States states;
-    states.apply_increase(ARC, 1, 200);
-    states.apply_increase(OPERATOR, 1, 200);
+    states.set_authority(ARC, 1, 200);
+    states.set_authority(OPERATOR, 1, 200);
     ASSERT_TRUE(states.is_authorized(1, ARC));
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
 }
 
 TEST(StatesTest, ApplyIncreaseIgnoresLowerAuthority) {
     States states;
-    states.apply_increase(ARC, 1, 200);
-    states.apply_increase(OPERATOR, 1, 100);
+    states.set_authority(ARC, 1, 200);
+    states.set_authority(OPERATOR, 1, 100);
     ASSERT_TRUE(states.is_authorized(1, ARC));
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
 }
@@ -273,8 +273,8 @@ TEST(StatesTest, AllAuthorizedWhenNoState) {
 
 TEST(StatesTest, AllAuthorizedWhenSubjectHoldsAll) {
     States states;
-    states.apply_increase(ARC, 1, 200);
-    states.apply_increase(ARC, 2, 200);
+    states.set_authority(ARC, 1, 200);
+    states.set_authority(ARC, 2, 200);
     x::telem::Frame frame;
     frame.emplace(1, x::telem::Series(static_cast<float>(1.0)));
     frame.emplace(2, x::telem::Series(static_cast<float>(2.0)));
@@ -283,8 +283,8 @@ TEST(StatesTest, AllAuthorizedWhenSubjectHoldsAll) {
 
 TEST(StatesTest, AllAuthorizedFalseWhenOneUnauthorized) {
     States states;
-    states.apply_increase(ARC, 1, 200);
-    states.apply_increase(OPERATOR, 2, 200);
+    states.set_authority(ARC, 1, 200);
+    states.set_authority(OPERATOR, 2, 200);
     x::telem::Frame frame;
     frame.emplace(1, x::telem::Series(static_cast<float>(1.0)));
     frame.emplace(2, x::telem::Series(static_cast<float>(2.0)));
@@ -303,7 +303,7 @@ TEST(StatesTest, ApplyFromSeriesAcquire) {
 
 TEST(StatesTest, ApplyFromSeriesRelease) {
     States states;
-    states.apply_increase(ARC, 1, 200);
+    states.set_authority(ARC, 1, 200);
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
     const std::string json =
         R"({"transfers":[{"from":{"resource":1,"subject":{"key":"arc-1","name":"arc"},"authority":200},"to":null}]})";
@@ -324,7 +324,7 @@ TEST(StatesTest, ApplyFromSeriesIgnoresInvalidJson) {
 
 TEST(StatesTest, ApplyFromSeriesIgnoresNonJSONType) {
     States states;
-    states.apply_increase(ARC, 1, 200);
+    states.set_authority(ARC, 1, 200);
     auto series = x::telem::Series(std::vector<float>{1.0f});
     states.apply(series);
     ASSERT_TRUE(states.is_authorized(1, ARC));
@@ -332,7 +332,13 @@ TEST(StatesTest, ApplyFromSeriesIgnoresNonJSONType) {
 
 TEST(StatesTest, SetReplacesTheMirror) {
     States states;
-    states.apply_increase(ARC, 1, 200);
+    states.set({
+        x::control::State<synnax::channel::Key>{
+            .subject = ARC,
+            .resource = 1,
+            .authority = 200,
+        },
+    });
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
     states.set({
         x::control::State<synnax::channel::Key>{
@@ -348,7 +354,13 @@ TEST(StatesTest, SetReplacesTheMirror) {
 
 TEST(StatesTest, SetWithNoStatesClearsTheMirror) {
     States states;
-    states.apply_increase(ARC, 1, 200);
+    states.set({
+        x::control::State<synnax::channel::Key>{
+            .subject = ARC,
+            .resource = 1,
+            .authority = 200,
+        },
+    });
     states.set({});
     ASSERT_TRUE(states.is_authorized(1, OPERATOR));
 }
@@ -367,6 +379,73 @@ TEST(StatesTest, ApplyFromSeriesMultipleUpdates) {
     ASSERT_TRUE(states.is_authorized(1, ARC));
     ASSERT_TRUE(states.is_authorized(2, OPERATOR));
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
+    ASSERT_FALSE(states.is_authorized(2, ARC));
+}
+
+/// @brief it should give a tie to the earlier gate, as the Core does.
+TEST(StatesTest, OpenGateGivesATieToTheEarlierGate) {
+    States states;
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {200});
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    ASSERT_FALSE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should open a gate with absolute authority when it names none.
+TEST(StatesTest, OpenGateDefaultsToAbsoluteAuthority) {
+    States states;
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {});
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should hand the channel to the next gate by authority, then by order,
+/// when the holder closes.
+TEST(StatesTest, CloseGateHandsOffToTheNextGate) {
+    States states;
+    const x::control::Subject third{"third", "third-1"};
+    states.open_gate(OPERATOR, {1}, {100});
+    states.open_gate(third, {1}, {100});
+    states.open_gate(ARC, {1}, {200});
+    states.close_gate(ARC);
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    states.close_gate(OPERATOR);
+    ASSERT_TRUE(states.is_authorized(1, third));
+    states.close_gate(third);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+}
+
+/// @brief it should keep the holder when a gate that does not hold the channel closes.
+TEST(StatesTest, CloseGateKeepsAnotherHolder) {
+    States states;
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {100});
+    states.close_gate(OPERATOR);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    ASSERT_FALSE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should keep a channel with its holder when the holder lowers its
+/// authority and no other gate writes it.
+TEST(StatesTest, SetAuthorityDecreaseKeepsALoneHolder) {
+    States states;
+    states.open_gate(ARC, {1}, {200});
+    states.set_authority(ARC, 1, 50);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    ASSERT_FALSE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should give a channel the Core reports as uncontrolled to its local gates.
+TEST(StatesTest, SetFallsBackToLocalGates) {
+    States states;
+    states.open_gate(ARC, {1, 2}, {200});
+    states.set({x::control::State<synnax::channel::Key>{
+        .subject = OPERATOR,
+        .resource = 2,
+        .authority = 250,
+    }});
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    ASSERT_TRUE(states.is_authorized(2, OPERATOR));
     ASSERT_FALSE(states.is_authorized(2, ARC));
 }
 }
