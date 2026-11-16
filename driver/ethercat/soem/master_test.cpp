@@ -2339,6 +2339,16 @@ TEST_F(SOEMMasterTest, ReceiveGivesASlaveWithNoStateAnswerAsInputless) {
     );
 }
 
+/// @brief it should give no slave as inputless when no frame comes back.
+TEST_F(SOEMMasterTest, ReceiveGivesNoSlaveAsInputlessWhenNoFrameComesBack) {
+    this->initialize_with_slave();
+    this->activate_master();
+    ASSERT_NIL(this->master->send());
+    this->mock->receive_return = -1;
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::CYCLIC_ERROR);
+    EXPECT_TRUE(this->master->inputless().empty());
+}
+
 /// @brief it should read the AL status of no slave without inputs, since its readers
 /// take no data from it.
 TEST_F(SOEMMasterTest, ReceiveReadsNoStateOfASlaveWithoutInputs) {
