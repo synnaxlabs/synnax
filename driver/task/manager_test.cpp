@@ -1074,22 +1074,38 @@ TEST_F(TaskManagerTest, BootLeavesAnAutoStartTaskOnItsOwnStatus) {
         EXPECT_NE(s.message, "Task stopped");
 }
 
-/// @brief it should leave a stored stopped status alone.
-TEST_F(TaskManagerTest, BootLeavesAStoppedStatusAlone) {
+/// @brief it should replace a stopped status that the Core wrote while the Driver was
+/// down with one that says the task is configured.
+TEST_F(TaskManagerTest, BootReplacesAStoppedStatusWithConfigured) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
         .type = SYNTHETIC_TASK_TYPE,
     };
     ASSERT_NIL(rack.tasks.create(task));
-    store_status(client, task, synnax::status::VARIANT_SUCCESS, "Task stopped", false);
+    store_status(
+        client,
+        task,
+        synnax::status::VARIANT_WARNING,
+        "Task stopped responding",
+        false
+    );
     start_manager(std::make_unique<QuietEchoTaskFactory>());
-    for (const auto &s: statuses_until_command(task))
-        EXPECT_NE(s.variant, synnax::status::VARIANT_WARNING);
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) { return s.description != "stored"; }
+    );
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(s.message, "Task configured");
+    EXPECT_TRUE(s.description.empty());
+    EXPECT_FALSE(s.details.running);
+    EXPECT_TRUE(s.details.cmd.empty());
 }
 
-/// @brief it should leave a stored failed status alone.
-TEST_F(TaskManagerTest, BootLeavesAFailedStatusAlone) {
+/// @brief it should replace a failed status that a previous Driver run left with one
+/// that says the task is configured.
+TEST_F(TaskManagerTest, BootReplacesAFailedStatusWithConfigured) {
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
@@ -1104,10 +1120,14 @@ TEST_F(TaskManagerTest, BootLeavesAFailedStatusAlone) {
         false
     );
     start_manager(std::make_unique<QuietEchoTaskFactory>());
-    for (const auto &s: statuses_until_command(task)) {
-        EXPECT_NE(s.variant, synnax::status::VARIANT_WARNING);
-        if (s.description != "stored") { EXPECT_NE(s.message, "Failed to start task"); }
-    }
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) { return s.description != "stored"; }
+    );
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(s.message, "Task configured");
+    EXPECT_FALSE(s.details.running);
 }
 
 /// @brief it should leave a running status that another rack wrote alone, since a task

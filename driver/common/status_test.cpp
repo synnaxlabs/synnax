@@ -630,8 +630,9 @@ TEST(TestHandleConfigErr, ListsFieldErrors) {
     );
 }
 
-/// @brief a config error at boot with no auto-start should not write a status.
-TEST(TestHandleConfigErr, testErrorAtBootSilent) {
+/// @brief a config error at boot with no auto-start should write an error status, so
+/// the status of the last run does not stay.
+TEST(TestHandleConfigErr, testErrorAtBootWritesError) {
     x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
@@ -646,7 +647,10 @@ TEST(TestHandleConfigErr, testErrorAtBootSilent) {
     cancel.stop();
     EXPECT_TRUE(handled);
     EXPECT_EQ(tsk, nullptr);
-    EXPECT_TRUE(ctx->statuses.empty());
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(ctx->statuses[0].message, "Failed to configure task");
+    EXPECT_FALSE(ctx->statuses[0].details.running);
 }
 
 /// @brief a config error at boot with auto-start requested should write an error
