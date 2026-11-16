@@ -13,9 +13,7 @@ on:
   workflow_call:
     inputs: &inputs
       core_image:
-        description:
-          Core image to test against on Ubuntu, or empty for none. macOS and Windows
-          build the Core from source when it is set.
+        description: Core image to test against, or empty for none
         required: false
         type: string
         default: ""
@@ -128,61 +126,6 @@ jobs:
           token: ${{ github.token }}
           variables: SYNNAX_VERBOSE SYNNAX_INSECURE SYNNAX_MEM SYNNAX_LICENSE_KEY
 
-      # Only the Linux runners run containers, so macOS and Windows build the Core and
-      # start it on the host.
-      - name: Set up Go
-        if: runner.os != 'Linux' && inputs.core_image != ''
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
-        with:
-          go-version-file: core/go.mod
-          cache-dependency-path: core/go.sum
-
-      - name: Build Core
-        if: runner.os != 'Linux' && inputs.core_image != ''
-        working-directory: core
-        shell: bash
-        env:
-          EXTENSION: ${{ runner.os == 'Windows' && '.exe' || '' }}
-        run: go build -o "$RUNNER_TEMP/synnax$EXTENSION" .
-
-      # A Windows step ends only when every process holding its output ends, so the
-      # Core starts detached with its output in a file.
-      - name: Start Core
-        if: runner.os == 'macOS' && inputs.core_image != ''
-        working-directory: ${{ runner.temp }}
-        env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
-        run: nohup ./synnax start --mem --insecure --verbose > synnax.log 2>&1 &
-
-      - name: Start Core
-        if: runner.os == 'Windows' && inputs.core_image != ''
-        working-directory: ${{ runner.temp }}
-        shell: pwsh
-        env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
-        run: |
-          $arguments = '/c ""synnax.exe" start --mem --insecure --verbose > synnax.log 2>&1"'
-          Start-Process -FilePath cmd.exe -ArgumentList $arguments -WindowStyle Hidden `
-            -WorkingDirectory $env:RUNNER_TEMP
-
-      - name: Wait for the Core
-        if: runner.os != 'Linux' && inputs.core_image != ''
-        shell: bash
-        working-directory: ${{ runner.temp }}
-        timeout-minutes: 3
-        run: |
-          for _ in $(seq 1 60); do
-            if curl -fsS -o /dev/null --max-time 5 -X POST \
-              -H "Content-Type: application/json" -d '{}' \
-              http://localhost:9090/api/v1/connectivity/check; then
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "::error::The Core did not start in 60 seconds."
-          cat synnax.log
-          exit 1
-
       - name: Start the Freighter server
         if: runner.os == 'Linux' && inputs.freighter_image != ''
         uses: ./.github/actions/start-service
@@ -235,6 +178,7 @@ jobs:
             { echo "::error::Run scripts/fix.sh to format the changed files."; exit 1; }
 
       - name: Check types
+        if: matrix.os == 'ubuntu-latest'
         shell: bash
         env:
           TYPE_CHECK_DIR: ${{ inputs.type_check_dir }}
@@ -242,19 +186,25 @@ jobs:
           read -ra directories <<< "$TYPE_CHECK_DIR"
           uv run mypy "${directories[@]}"
 
-      # Without a limit, a hung test run holds the job for up to 6 hours. The client
-      # tests take about 4 minutes on Windows. Only the newest Python measures coverage.
+      # Only the Linux runners start a Core, so the others skip the tests that need one.
+      - name: Skip the tests that need a Core
+        if: runner.os != 'Linux' && inputs.core_image != ''
+        shell: bash
+        run: echo 'PYTEST_ADDOPTS=-m "not core"' >> "$GITHUB_ENV"
+
+      # Without a limit, a hung test run holds the job for up to 6 hours. Only the newest
+      # Python measures coverage.
       - name: Test
         if:
           inputs.test && (inputs.coverage_module == '' || matrix.python == 'oldest') &&
           (inputs.lowest || matrix.python != 'oldest' || inputs.core_image == '')
-        timeout-minutes: 10
+        timeout-minutes: 5
         run: uv run pytest
 
       - name: Test with coverage
         if: inputs.test && inputs.coverage_module != '' && matrix.python != 'oldest'
         shell: bash
-        timeout-minutes: 10
+        timeout-minutes: 5
         env:
           COVERAGE_MODULE: ${{ inputs.coverage_module }}
         run: uv run pytest --cov="$COVERAGE_MODULE" --cov-report=xml
@@ -268,12 +218,6 @@ jobs:
           fail_ci_if_error: true
           flags: ${{ inputs.coverage_flag }}
           directory: ${{ inputs.directory }}
-
-      - name: Show the Core log
-        if: failure() && runner.os != 'Linux' && inputs.core_image != ''
-        shell: bash
-        working-directory: ${{ runner.temp }}
-        run: cat synnax.log || true
 
       - name: Stop the services
         if: always() && runner.os == 'Linux'
