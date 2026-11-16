@@ -209,7 +209,7 @@ func (series Series) Unmarshal[T Sample]() []T {
 	case string:
 		return castSamples[T](unmarshalVariable[string](series.Data))
 	case []byte:
-		return any(unmarshalVariable[[]byte](series.Data)).([]T)
+		return castSamples[T](unmarshalVariable[[]byte](series.Data))
 	}
 	// degenerate case, should never hit this path.
 	panic(fmt.Sprintf("unsupported sample type %T", t))
