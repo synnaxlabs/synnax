@@ -139,6 +139,54 @@ func (et *EdgeTag) HashContent(h *content.Hash) {
 }
 
 // Patch applies the path action at c, which is not done, to the value.
+func (rf *ReadField) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&rf.Key, c.Next())
+	case "name":
+		return patch.Value(&rf.Name, c.Next())
+	case "disabled":
+		return patch.Value(&rf.Disabled, c.Next())
+	case "channel":
+		return patch.Value(&rf.Channel, c.Next())
+	case "pointer":
+		return patch.Value(&rf.Pointer, c.Next())
+	case "data_type":
+		return patch.Defaulted(&rf.DataType, c.Next(), func(def *ReadField) {
+			rf.DataType = def.DataType
+		})
+	case "time_format":
+		return patch.OptionalValue(&rf.TimeFormat, c.Next())
+	case "enum_values":
+		return patch.Value(&rf.EnumValues, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// PatchKey returns the key that paths name the value by in a list.
+func (rf *ReadField) PatchKey() string { return rf.Key }
+
+// HashContent writes the content of the value to h, without its keys.
+func (rf *ReadField) HashContent(h *content.Hash) {
+	h.String(rf.Name)
+	h.Bool(rf.Disabled)
+	h.Uint(uint64(rf.Channel))
+	h.String(rf.Pointer)
+	h.String(string(rf.DataType))
+	if rf.TimeFormat == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.String(string(*rf.TimeFormat))
+	}
+	h.Len(len(rf.EnumValues))
+	for i0 := range rf.EnumValues {
+		rf.EnumValues[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
 func (sc *ScanConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":

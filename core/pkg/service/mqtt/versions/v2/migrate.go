@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
@@ -28,31 +28,13 @@ import (
 	"go.uber.org/zap"
 )
 
-// MigrateReadField lifts a v1 read field to v2, and describes each entry it drops. The
-// stored data type picks the kind, and a numeric kind keeps it as the data type of a
-// new channel. A float entry converts to an integer or unsigned kind when the kind
-// holds it exactly. A boolean entry becomes true when its value is not 0. A string
-// field drops its entries, and a timestamp field with no time format takes ISO 8601.
-// Each kind but string drops an entry with an empty label, which it can never match.
-// An empty data type is the v1 default, float64. An unknown one lifts to the float
-// kind with no data type, so that reconciling with the channel can set the kind. The
-// index field of its entry lifts to the timestamp kind. So does a field with a time
-// format, no entries, and the default or an unknown data type, and it keeps the format,
-// because v1 left the data type at its default and read the channel's data type. On
-// any other field, the time format is left over from an earlier data type, so the
-// field keeps its kind and entries.
-func MigrateReadField(old v1.ReadField, index bool) (ReadField, []string) {
-	return migrateReadField(old, index, nil)
-}
-
-// migrateReadField is MigrateReadField with the field's channel, when known. The
-// channel's data type then picks the kind, as v1 read it, and a numeric kind takes no
-// data type, because the channel exists.
-func migrateReadField(
-	old v1.ReadField,
-	index bool,
-	ch *Channel,
-) (ReadField, []string) {
+// liftField returns the kind and the options of old, and describes each change. The
+// data type of ch, when old has a channel, picks the kind. Otherwise the stored data
+// type picks it, and a numeric kind keeps it as the data type of a new channel. An
+// index field lifts to the timestamp kind, and so does a field with a time format, no
+// entries, and the default or an unknown data type. An entry that the kind cannot hold
+// is dropped.
+func liftField(old ReadField, index bool, ch *Channel) (payload.Read, []string) {
 	var changes []string
 	note := func(format string, args ...any) {
 		changes = append(changes, fmt.Sprintf(format, args...))
@@ -144,59 +126,47 @@ func migrateReadField(
 			drop(e, "a "+string(kind)+" field takes no numeric entries")
 		}
 	}
-	return NewReadField(BaseReadField{
-		Key:      old.Key,
-		Name:     old.Name,
-		Disabled: old.Disabled,
-		Channel:  old.Channel,
-		Pointer:  old.Pointer,
-	}, r), changes
+	return r, changes
 }
 
-// migrateReadConfig lifts a v1 read config to v2, with the channels of its fields in
-// found, and calls note with the path and a description of each change to a field.
-func migrateReadConfig(
-	ctx context.Context,
-	old v1.ReadConfig,
-	found map[channel.Key]Channel,
-	note func(field, change string),
-) (ReadConfig, error) {
+// MigrateReadEntry lifts a v1 read entry to v2. A plain entry has no ICD until
+// MigrateReadConfig stages it.
+func MigrateReadEntry(ctx context.Context, old v1.ReadEntry) (ReadEntry, error) {
+	return autoMigrateReadEntry(ctx, old)
+}
+
+// MigrateReadConfig lifts a v1 read config to v2. It moves each plain entry into
+// Inline,
+// for ResolveReadConfig to add back with an ICD.
+func MigrateReadConfig(ctx context.Context, old v1.ReadConfig) (ReadConfig, error) {
 	cfg, err := autoMigrateReadConfig(ctx, old)
 	if err != nil {
 		return ReadConfig{}, err
 	}
+	var (
+		entries = make([]ReadEntry, 0, len(cfg.Entries))
+		staged  []InlineEntry
+	)
 	for i, e := range old.Entries {
 		plain, ok := e.Variant.(v1.PlainReadEntry)
 		if !ok {
+			entries = append(entries, cfg.Entries[i])
 			continue
 		}
-		fields := make([]ReadField, len(plain.Fields))
-		for j, f := range plain.Fields {
-			path := "entries." + strconv.Itoa(i) + ".fields." + strconv.Itoa(j)
-			var changes []string
-			var ch *Channel
-			if c, ok := found[f.Channel]; ok {
-				ch = &c
-			}
-			fields[j], changes = migrateReadField(f, f.Key == plain.Index, ch)
-			for _, c := range changes {
-				note(path, c)
-			}
-		}
-		entry, ok := cfg.Entries[i].Variant.(PlainReadEntry)
-		if !ok {
-			return ReadConfig{}, errors.Newf("entries.%d: expected a plain entry", i)
-		}
-		entry.Fields = fields
-		cfg.Entries[i].Variant = entry
+		staged = append(staged, InlineEntry{
+			BaseReadEntry:   plain.BaseReadEntry,
+			At:              uint32(i),
+			Topic:           plain.Topic,
+			Qos:             plain.Qos,
+			RetainedIgnored: plain.RetainedIgnored,
+			Fields:          plain.Fields,
+			Index:           plain.Index,
+		})
+	}
+	if len(staged) > 0 {
+		cfg.Entries, cfg.Inline = entries, &InlineRead{Entries: staged}
 	}
 	return cfg, nil
-}
-
-// MigrateReadConfig lifts a v1 read config to v2, as MigrateReadField lifts each of its
-// fields.
-func MigrateReadConfig(ctx context.Context, old v1.ReadConfig) (ReadConfig, error) {
-	return migrateReadConfig(ctx, old, nil, func(string, string) {})
 }
 
 // noteLift returns the note that logs each change the v1 lift makes to a field of the
@@ -212,57 +182,78 @@ func noteLift(ins alamos.Instrumentation, key uuid.UUID) func(field, change stri
 	}
 }
 
-// NewReadMigration returns the migration that lifts stored read configs to v2, with the
-// kind of each field's channel read through channels, then reconciles each field with
-// its channel. It logs each change to a field.
-func NewReadMigration(channels Channels) gorp.Migration {
+// NewReadMigration returns the migration that lifts stored v1 read configs to v2. It
+// resolves each config as ResolveReadConfig does, with the name of its task, and logs
+// each change to a field.
+func NewReadMigration(channels Channels, create CreateICD) gorp.Migration {
 	return migrate.New(
-		"v62_mqtt_read_typed_fields",
+		"v62_mqtt_read_icd",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 			var olds []v1.ReadConfig
 			if err := gorp.NewRetrieve[uuid.UUID, v1.ReadConfig]().
 				Entries(&olds).
-				Exec(ctx, tx); err != nil {
+				Exec(ctx, tx); err != nil || len(olds) == 0 {
 				return err
 			}
-			news := make([]ReadConfig, 0, len(olds))
-			for _, old := range olds {
-				found, err := v1FieldChannels(ctx, tx, channels, old)
-				if err != nil {
+			names, err := taskNames(ctx, tx, olds)
+			if err != nil {
+				return err
+			}
+			news := make([]ReadConfig, len(olds))
+			for i, old := range olds {
+				if news[i], err = migrateStored(
+					ctx,
+					tx,
+					channels,
+					create,
+					names[old.Key],
+					old,
+					noteLift(ins, old.Key),
+				); err != nil {
 					return errors.Wrapf(err, "config %s", old.Key)
 				}
-				cfg, err := migrateReadConfig(ctx, old, found, noteLift(ins, old.Key))
-				if err != nil {
-					return errors.Wrapf(err, "config %s", old.Key)
-				}
-				if err = ReconcileReadConfig(ctx, tx, channels, ins, &cfg); err != nil {
-					return errors.Wrapf(err, "config %s", old.Key)
-				}
-				news = append(news, cfg)
 			}
 			return gorp.WrapWriter[uuid.UUID, ReadConfig](tx).Set(ctx, news...)
 		},
 	)
 }
 
-func v1FieldChannels(
+func migrateStored(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels Channels,
-	cfg v1.ReadConfig,
-) (map[channel.Key]Channel, error) {
-	var keys []channel.Key
-	for _, e := range cfg.Entries {
-		if plain, ok := e.Variant.(v1.PlainReadEntry); ok {
-			for _, f := range plain.Fields {
-				if f.Channel != 0 {
-					keys = append(keys, f.Channel)
-				}
-			}
-		}
+	create CreateICD,
+	name string,
+	old v1.ReadConfig,
+	note func(field, change string),
+) (ReadConfig, error) {
+	cfg, err := MigrateReadConfig(ctx, old)
+	if err != nil {
+		return ReadConfig{}, err
 	}
-	if len(keys) == 0 {
-		return nil, nil
+	write, err := ResolveReadConfig(ctx, tx, channels, create, name, &cfg, note)
+	if err != nil || write == nil {
+		return cfg, err
 	}
-	return channels(ctx, tx, lo.Uniq(keys))
+	return cfg, write(ctx, tx)
+}
+
+// taskNames returns the name of the task of each config of cfgs, read through tx.
+func taskNames(
+	ctx context.Context,
+	tx gorp.Tx,
+	cfgs []v1.ReadConfig,
+) (map[uuid.UUID]string, error) {
+	var tasks []task.Task
+	if err := gorp.NewRetrieve[task.Key, task.Task]().
+		Where(gorp.MatchKeys[task.Key, task.Task](
+			lo.Map(cfgs, func(c v1.ReadConfig, _ int) task.Key { return c.Key })...,
+		)).
+		Entries(&tasks).
+		Exec(ctx, tx); err != nil {
+		return nil, errors.Wrap(err, "tasks of MQTT read configs")
+	}
+	return lo.SliceToMap(tasks, func(t task.Task) (uuid.UUID, string) {
+		return t.Key, t.Name
+	}), nil
 }

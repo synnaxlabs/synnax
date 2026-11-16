@@ -16,94 +16,72 @@ import (
 	"github.com/synnaxlabs/x/patch"
 )
 
-// HashContent writes the content of the value to h, without its keys.
-func (icdb *ICDBinding) HashContent(h *content.Hash) {
-	h.Bytes(icdb.Field[:])
-	h.Uint(uint64(icdb.Channel))
-}
-
 // Patch applies the path action at c, which is not done, to the value.
-func (icdrc *ICDReadConfig) Patch(c patch.Cursor) error {
+func (ie *InlineEntry) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&icdrc.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
-	case "auto_start":
-		return patch.Value(&icdrc.PersistConfig.StartConfig.AutoStart, c.Next())
-	case "data_saving_disabled":
-		return patch.Value(&icdrc.PersistConfig.DataSavingDisabled, c.Next())
-	case "device":
-		return patch.Value(&icdrc.Device, c.Next())
-	case "entries":
-		return patch.List(&icdrc.Entries, c.Next())
-	default:
-		return c.UnknownField()
-	}
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (icdrc *ICDReadConfig) HashContent(h *content.Hash) {
-	h.Bool(icdrc.PersistConfig.StartConfig.AutoStart)
-	h.Bool(icdrc.PersistConfig.DataSavingDisabled)
-	h.String(icdrc.Device)
-	h.Len(len(icdrc.Entries))
-	for i0 := range icdrc.Entries {
-		icdrc.Entries[i0].HashContent(h)
-	}
-}
-
-// Patch applies the path action at c, which is not done, to the value.
-func (icdre *ICDReadEntry) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&icdre.Key, c.Next())
+		return patch.Value(&ie.BaseReadEntry.Key, c.Next())
 	case "disabled":
-		return patch.Value(&icdre.Disabled, c.Next())
+		return patch.Value(&ie.BaseReadEntry.Disabled, c.Next())
+	case "at":
+		return patch.Value(&ie.At, c.Next())
 	case "topic":
-		return patch.Value(&icdre.Topic, c.Next())
+		return patch.Value(&ie.Topic, c.Next())
 	case "qos":
-		return patch.Defaulted(&icdre.Qos, c.Next(), func(def *ICDReadEntry) {
-			icdre.Qos = def.Qos
+		return patch.Defaulted(&ie.Qos, c.Next(), func(def *InlineEntry) {
+			ie.Qos = def.Qos
 		})
 	case "retained_ignored":
-		return patch.Value(&icdre.RetainedIgnored, c.Next())
-	case "icd":
-		return patch.Value(&icdre.ICD, c.Next())
-	case "messages":
-		return patch.Value(&icdre.Messages, c.Next())
+		return patch.Value(&ie.RetainedIgnored, c.Next())
+	case "fields":
+		return patch.List(&ie.Fields, c.Next())
+	case "index":
+		return patch.Value(&ie.Index, c.Next())
 	default:
 		return c.UnknownField()
 	}
 }
 
 // PatchKey returns the key that paths name the value by in a list.
-func (icdre *ICDReadEntry) PatchKey() string { return icdre.Key }
+func (ie *InlineEntry) PatchKey() string { return ie.BaseReadEntry.Key }
 
 // HashContent writes the content of the value to h, without its keys.
-func (icdre *ICDReadEntry) HashContent(h *content.Hash) {
-	h.Bool(icdre.Disabled)
-	h.String(icdre.Topic)
-	h.String(string(icdre.Qos))
-	h.Bool(icdre.RetainedIgnored)
-	h.Bytes(icdre.ICD[:])
-	h.Len(len(icdre.Messages))
-	for i0 := range icdre.Messages {
-		icdre.Messages[i0].HashContent(h)
+func (ie *InlineEntry) HashContent(h *content.Hash) {
+	h.Bool(ie.BaseReadEntry.Disabled)
+	h.Uint(uint64(ie.At))
+	h.String(ie.Topic)
+	h.String(string(ie.Qos))
+	h.Bool(ie.RetainedIgnored)
+	h.Len(len(ie.Fields))
+	for i0 := range ie.Fields {
+		ie.Fields[i0].HashContent(h)
+	}
+	h.String(ie.Index)
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (ir *InlineRead) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "entries":
+		return patch.List(&ir.Entries, c.Next())
+	default:
+		return c.UnknownField()
 	}
 }
 
 // HashContent writes the content of the value to h, without its keys.
-func (icdrm *ICDReadMessage) HashContent(h *content.Hash) {
-	h.Bytes(icdrm.Message[:])
-	if icdrm.Index == nil {
-		h.Bool(false)
-	} else {
-		h.Bool(true)
-		h.Bytes((*icdrm.Index)[:])
+func (ir *InlineRead) HashContent(h *content.Hash) {
+	h.Len(len(ir.Entries))
+	for i0 := range ir.Entries {
+		ir.Entries[i0].HashContent(h)
 	}
-	h.Len(len(icdrm.Bindings))
-	for i0 := range icdrm.Bindings {
-		icdrm.Bindings[i0].HashContent(h)
-	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (rb *ReadBinding) HashContent(h *content.Hash) {
+	h.Bytes(rb.Field[:])
+	h.Uint(uint64(rb.Channel))
+	h.String(string(rb.DataType))
 }
 
 // Patch applies the path action at c, which is not done, to the value.
@@ -119,6 +97,16 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 		return patch.Value(&rc.Device, c.Next())
 	case "entries":
 		return patch.List(&rc.Entries, c.Next())
+	case "inline":
+		if c = c.Next(); c.Done() || rc.Inline == nil {
+			return patch.OptionalValue(&rc.Inline, c)
+		}
+		next := *rc.Inline
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		rc.Inline = &next
+		return nil
 	default:
 		return c.UnknownField()
 	}
@@ -132,6 +120,27 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 	h.Len(len(rc.Entries))
 	for i0 := range rc.Entries {
 		rc.Entries[i0].HashContent(h)
+	}
+	if rc.Inline == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		rc.Inline.HashContent(h)
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (rm *ReadMessage) HashContent(h *content.Hash) {
+	h.Bytes(rm.Message[:])
+	if rm.Index == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.Bytes((*rm.Index)[:])
+	}
+	h.Len(len(rm.Bindings))
+	for i0 := range rm.Bindings {
+		rm.Bindings[i0].HashContent(h)
 	}
 }
 
@@ -209,10 +218,10 @@ func (pre *PlainReadEntry) Patch(c patch.Cursor) error {
 		})
 	case "retained_ignored":
 		return patch.Value(&pre.RetainedIgnored, c.Next())
-	case "fields":
-		return patch.List(&pre.Fields, c.Next())
-	case "index":
-		return patch.Value(&pre.Index, c.Next())
+	case "icd":
+		return patch.Value(&pre.ICD, c.Next())
+	case "messages":
+		return patch.Value(&pre.Messages, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -224,11 +233,11 @@ func (pre *PlainReadEntry) HashContent(h *content.Hash) {
 	h.String(pre.Topic)
 	h.String(string(pre.Qos))
 	h.Bool(pre.RetainedIgnored)
-	h.Len(len(pre.Fields))
-	for i0 := range pre.Fields {
-		pre.Fields[i0].HashContent(h)
+	h.Bytes(pre.ICD[:])
+	h.Len(len(pre.Messages))
+	for i0 := range pre.Messages {
+		pre.Messages[i0].HashContent(h)
 	}
-	h.String(pre.Index)
 }
 
 // Patch applies the path action at c, which is not done, to the value.
@@ -269,528 +278,4 @@ func (sre *SparkplugReadEntry) HashContent(h *content.Hash) {
 	h.Uint(uint64(sre.Channel))
 	h.String(sre.Name)
 	h.String(string(sre.DataType))
-}
-
-// Patch applies the path action at c, which is not done, to the value.
-func (rf *ReadField) Patch(c patch.Cursor) error {
-	switch v := rf.Variant.(type) {
-	case FloatReadField:
-		c, ok := c.Guard("type", "float")
-		if !ok {
-			return nil
-		}
-		if c.Segment() == "type" {
-			return patch.Discriminator(rf, c)
-		}
-		if err := v.Patch(c); err != nil {
-			return err
-		}
-		rf.Variant = v
-		return nil
-	case IntegerReadField:
-		c, ok := c.Guard("type", "integer")
-		if !ok {
-			return nil
-		}
-		if c.Segment() == "type" {
-			return patch.Discriminator(rf, c)
-		}
-		if err := v.Patch(c); err != nil {
-			return err
-		}
-		rf.Variant = v
-		return nil
-	case UnsignedReadField:
-		c, ok := c.Guard("type", "unsigned")
-		if !ok {
-			return nil
-		}
-		if c.Segment() == "type" {
-			return patch.Discriminator(rf, c)
-		}
-		if err := v.Patch(c); err != nil {
-			return err
-		}
-		rf.Variant = v
-		return nil
-	case StringReadField:
-		c, ok := c.Guard("type", "string")
-		if !ok {
-			return nil
-		}
-		if c.Segment() == "type" {
-			return patch.Discriminator(rf, c)
-		}
-		if err := v.Patch(c); err != nil {
-			return err
-		}
-		rf.Variant = v
-		return nil
-	case BooleanReadField:
-		c, ok := c.Guard("type", "boolean")
-		if !ok {
-			return nil
-		}
-		if c.Segment() == "type" {
-			return patch.Discriminator(rf, c)
-		}
-		if err := v.Patch(c); err != nil {
-			return err
-		}
-		rf.Variant = v
-		return nil
-	case TimestampReadField:
-		c, ok := c.Guard("type", "timestamp")
-		if !ok {
-			return nil
-		}
-		if c.Segment() == "type" {
-			return patch.Discriminator(rf, c)
-		}
-		if err := v.Patch(c); err != nil {
-			return err
-		}
-		rf.Variant = v
-		return nil
-	case JSONReadField:
-		c, ok := c.Guard("type", "json")
-		if !ok {
-			return nil
-		}
-		if c.Segment() == "type" {
-			return patch.Discriminator(rf, c)
-		}
-		if err := v.Patch(c); err != nil {
-			return err
-		}
-		rf.Variant = v
-		return nil
-	case UuidReadField:
-		c, ok := c.Guard("type", "uuid")
-		if !ok {
-			return nil
-		}
-		if c.Segment() == "type" {
-			return patch.Discriminator(rf, c)
-		}
-		if err := v.Patch(c); err != nil {
-			return err
-		}
-		rf.Variant = v
-		return nil
-	case BytesReadField:
-		c, ok := c.Guard("type", "bytes")
-		if !ok {
-			return nil
-		}
-		if c.Segment() == "type" {
-			return patch.Discriminator(rf, c)
-		}
-		if err := v.Patch(c); err != nil {
-			return err
-		}
-		rf.Variant = v
-		return nil
-	default:
-		return patch.Absent(rf, c, "type")
-	}
-}
-
-// PatchKey returns the key that paths name the value by in a list.
-func (rf *ReadField) PatchKey() string {
-	switch v := rf.Variant.(type) {
-	case FloatReadField:
-		return v.BaseReadField.Key
-	case IntegerReadField:
-		return v.BaseReadField.Key
-	case UnsignedReadField:
-		return v.BaseReadField.Key
-	case StringReadField:
-		return v.BaseReadField.Key
-	case BooleanReadField:
-		return v.BaseReadField.Key
-	case TimestampReadField:
-		return v.BaseReadField.Key
-	case JSONReadField:
-		return v.BaseReadField.Key
-	case UuidReadField:
-		return v.BaseReadField.Key
-	case BytesReadField:
-		return v.BaseReadField.Key
-	}
-	return ""
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (rf *ReadField) HashContent(h *content.Hash) {
-	switch v := rf.Variant.(type) {
-	case FloatReadField:
-		h.String("float")
-		v.HashContent(h)
-	case IntegerReadField:
-		h.String("integer")
-		v.HashContent(h)
-	case UnsignedReadField:
-		h.String("unsigned")
-		v.HashContent(h)
-	case StringReadField:
-		h.String("string")
-		v.HashContent(h)
-	case BooleanReadField:
-		h.String("boolean")
-		v.HashContent(h)
-	case TimestampReadField:
-		h.String("timestamp")
-		v.HashContent(h)
-	case JSONReadField:
-		h.String("json")
-		v.HashContent(h)
-	case UuidReadField:
-		h.String("uuid")
-		v.HashContent(h)
-	case BytesReadField:
-		h.String("bytes")
-		v.HashContent(h)
-	default:
-		h.String("")
-	}
-}
-
-// Patch applies the path action at c, which is not done, to the value.
-func (frf *FloatReadField) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&frf.BaseReadField.Key, c.Next())
-	case "name":
-		return patch.Value(&frf.BaseReadField.Name, c.Next())
-	case "disabled":
-		return patch.Value(&frf.BaseReadField.Disabled, c.Next())
-	case "channel":
-		return patch.Value(&frf.BaseReadField.Channel, c.Next())
-	case "pointer":
-		return patch.Value(&frf.BaseReadField.Pointer, c.Next())
-	case "data_type":
-		return patch.OptionalValue(&frf.FloatRead.DataType, c.Next())
-	case "enum_values":
-		return patch.Value(&frf.FloatRead.EnumValues, c.Next())
-	case "fill":
-		return patch.OptionalValue(&frf.FloatRead.Fill, c.Next())
-	default:
-		return c.UnknownField()
-	}
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (frf *FloatReadField) HashContent(h *content.Hash) {
-	h.String(frf.BaseReadField.Name)
-	h.Bool(frf.BaseReadField.Disabled)
-	h.Uint(uint64(frf.BaseReadField.Channel))
-	h.String(frf.BaseReadField.Pointer)
-	if frf.FloatRead.DataType == nil {
-		h.Bool(false)
-	} else {
-		h.Bool(true)
-		h.String(string(*frf.FloatRead.DataType))
-	}
-	h.Len(len(frf.FloatRead.EnumValues))
-	for i0 := range frf.FloatRead.EnumValues {
-		frf.FloatRead.EnumValues[i0].HashContent(h)
-	}
-	if frf.FloatRead.Fill == nil {
-		h.Bool(false)
-	} else {
-		h.Bool(true)
-		h.Float(float64(*frf.FloatRead.Fill))
-	}
-}
-
-// Patch applies the path action at c, which is not done, to the value.
-func (irf *IntegerReadField) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&irf.BaseReadField.Key, c.Next())
-	case "name":
-		return patch.Value(&irf.BaseReadField.Name, c.Next())
-	case "disabled":
-		return patch.Value(&irf.BaseReadField.Disabled, c.Next())
-	case "channel":
-		return patch.Value(&irf.BaseReadField.Channel, c.Next())
-	case "pointer":
-		return patch.Value(&irf.BaseReadField.Pointer, c.Next())
-	case "data_type":
-		return patch.OptionalValue(&irf.IntegerRead.DataType, c.Next())
-	case "enum_values":
-		return patch.Value(&irf.IntegerRead.EnumValues, c.Next())
-	case "fill":
-		return patch.OptionalValue(&irf.IntegerRead.Fill, c.Next())
-	default:
-		return c.UnknownField()
-	}
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (irf *IntegerReadField) HashContent(h *content.Hash) {
-	h.String(irf.BaseReadField.Name)
-	h.Bool(irf.BaseReadField.Disabled)
-	h.Uint(uint64(irf.BaseReadField.Channel))
-	h.String(irf.BaseReadField.Pointer)
-	if irf.IntegerRead.DataType == nil {
-		h.Bool(false)
-	} else {
-		h.Bool(true)
-		h.String(string(*irf.IntegerRead.DataType))
-	}
-	h.Len(len(irf.IntegerRead.EnumValues))
-	for i0 := range irf.IntegerRead.EnumValues {
-		irf.IntegerRead.EnumValues[i0].HashContent(h)
-	}
-	if irf.IntegerRead.Fill == nil {
-		h.Bool(false)
-	} else {
-		h.Bool(true)
-		h.Int(int64(*irf.IntegerRead.Fill))
-	}
-}
-
-// Patch applies the path action at c, which is not done, to the value.
-func (urf *UnsignedReadField) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&urf.BaseReadField.Key, c.Next())
-	case "name":
-		return patch.Value(&urf.BaseReadField.Name, c.Next())
-	case "disabled":
-		return patch.Value(&urf.BaseReadField.Disabled, c.Next())
-	case "channel":
-		return patch.Value(&urf.BaseReadField.Channel, c.Next())
-	case "pointer":
-		return patch.Value(&urf.BaseReadField.Pointer, c.Next())
-	case "data_type":
-		return patch.OptionalValue(&urf.UnsignedRead.DataType, c.Next())
-	case "enum_values":
-		return patch.Value(&urf.UnsignedRead.EnumValues, c.Next())
-	case "fill":
-		return patch.OptionalValue(&urf.UnsignedRead.Fill, c.Next())
-	default:
-		return c.UnknownField()
-	}
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (urf *UnsignedReadField) HashContent(h *content.Hash) {
-	h.String(urf.BaseReadField.Name)
-	h.Bool(urf.BaseReadField.Disabled)
-	h.Uint(uint64(urf.BaseReadField.Channel))
-	h.String(urf.BaseReadField.Pointer)
-	if urf.UnsignedRead.DataType == nil {
-		h.Bool(false)
-	} else {
-		h.Bool(true)
-		h.String(string(*urf.UnsignedRead.DataType))
-	}
-	h.Len(len(urf.UnsignedRead.EnumValues))
-	for i0 := range urf.UnsignedRead.EnumValues {
-		urf.UnsignedRead.EnumValues[i0].HashContent(h)
-	}
-	if urf.UnsignedRead.Fill == nil {
-		h.Bool(false)
-	} else {
-		h.Bool(true)
-		h.Uint(uint64(*urf.UnsignedRead.Fill))
-	}
-}
-
-// Patch applies the path action at c, which is not done, to the value.
-func (srf *StringReadField) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&srf.BaseReadField.Key, c.Next())
-	case "name":
-		return patch.Value(&srf.BaseReadField.Name, c.Next())
-	case "disabled":
-		return patch.Value(&srf.BaseReadField.Disabled, c.Next())
-	case "channel":
-		return patch.Value(&srf.BaseReadField.Channel, c.Next())
-	case "pointer":
-		return patch.Value(&srf.BaseReadField.Pointer, c.Next())
-	case "enum_values":
-		return patch.Value(&srf.StringRead.EnumValues, c.Next())
-	case "fill":
-		return patch.OptionalValue(&srf.StringRead.Fill, c.Next())
-	default:
-		return c.UnknownField()
-	}
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (srf *StringReadField) HashContent(h *content.Hash) {
-	h.String(srf.BaseReadField.Name)
-	h.Bool(srf.BaseReadField.Disabled)
-	h.Uint(uint64(srf.BaseReadField.Channel))
-	h.String(srf.BaseReadField.Pointer)
-	h.Len(len(srf.StringRead.EnumValues))
-	for i0 := range srf.StringRead.EnumValues {
-		srf.StringRead.EnumValues[i0].HashContent(h)
-	}
-	if srf.StringRead.Fill == nil {
-		h.Bool(false)
-	} else {
-		h.Bool(true)
-		h.String(*srf.StringRead.Fill)
-	}
-}
-
-// Patch applies the path action at c, which is not done, to the value.
-func (brf *BooleanReadField) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&brf.BaseReadField.Key, c.Next())
-	case "name":
-		return patch.Value(&brf.BaseReadField.Name, c.Next())
-	case "disabled":
-		return patch.Value(&brf.BaseReadField.Disabled, c.Next())
-	case "channel":
-		return patch.Value(&brf.BaseReadField.Channel, c.Next())
-	case "pointer":
-		return patch.Value(&brf.BaseReadField.Pointer, c.Next())
-	case "enum_values":
-		return patch.Value(&brf.BooleanRead.EnumValues, c.Next())
-	case "fill":
-		return patch.OptionalValue(&brf.BooleanRead.Fill, c.Next())
-	default:
-		return c.UnknownField()
-	}
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (brf *BooleanReadField) HashContent(h *content.Hash) {
-	h.String(brf.BaseReadField.Name)
-	h.Bool(brf.BaseReadField.Disabled)
-	h.Uint(uint64(brf.BaseReadField.Channel))
-	h.String(brf.BaseReadField.Pointer)
-	h.Len(len(brf.BooleanRead.EnumValues))
-	for i0 := range brf.BooleanRead.EnumValues {
-		brf.BooleanRead.EnumValues[i0].HashContent(h)
-	}
-	if brf.BooleanRead.Fill == nil {
-		h.Bool(false)
-	} else {
-		h.Bool(true)
-		h.Bool(*brf.BooleanRead.Fill)
-	}
-}
-
-// Patch applies the path action at c, which is not done, to the value.
-func (trf *TimestampReadField) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&trf.BaseReadField.Key, c.Next())
-	case "name":
-		return patch.Value(&trf.BaseReadField.Name, c.Next())
-	case "disabled":
-		return patch.Value(&trf.BaseReadField.Disabled, c.Next())
-	case "channel":
-		return patch.Value(&trf.BaseReadField.Channel, c.Next())
-	case "pointer":
-		return patch.Value(&trf.BaseReadField.Pointer, c.Next())
-	case "time_format":
-		return patch.Value(&trf.TimestampRead.TimeFormat, c.Next())
-	case "fill":
-		return patch.OptionalValue(&trf.TimestampRead.Fill, c.Next())
-	default:
-		return c.UnknownField()
-	}
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (trf *TimestampReadField) HashContent(h *content.Hash) {
-	h.String(trf.BaseReadField.Name)
-	h.Bool(trf.BaseReadField.Disabled)
-	h.Uint(uint64(trf.BaseReadField.Channel))
-	h.String(trf.BaseReadField.Pointer)
-	h.String(string(trf.TimestampRead.TimeFormat))
-	if trf.TimestampRead.Fill == nil {
-		h.Bool(false)
-	} else {
-		h.Bool(true)
-		h.Int(int64(*trf.TimestampRead.Fill))
-	}
-}
-
-// Patch applies the path action at c, which is not done, to the value.
-func (jsonrf *JSONReadField) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&jsonrf.BaseReadField.Key, c.Next())
-	case "name":
-		return patch.Value(&jsonrf.BaseReadField.Name, c.Next())
-	case "disabled":
-		return patch.Value(&jsonrf.BaseReadField.Disabled, c.Next())
-	case "channel":
-		return patch.Value(&jsonrf.BaseReadField.Channel, c.Next())
-	case "pointer":
-		return patch.Value(&jsonrf.BaseReadField.Pointer, c.Next())
-	default:
-		return c.UnknownField()
-	}
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (jsonrf *JSONReadField) HashContent(h *content.Hash) {
-	h.String(jsonrf.BaseReadField.Name)
-	h.Bool(jsonrf.BaseReadField.Disabled)
-	h.Uint(uint64(jsonrf.BaseReadField.Channel))
-	h.String(jsonrf.BaseReadField.Pointer)
-}
-
-// Patch applies the path action at c, which is not done, to the value.
-func (urf *UuidReadField) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&urf.BaseReadField.Key, c.Next())
-	case "name":
-		return patch.Value(&urf.BaseReadField.Name, c.Next())
-	case "disabled":
-		return patch.Value(&urf.BaseReadField.Disabled, c.Next())
-	case "channel":
-		return patch.Value(&urf.BaseReadField.Channel, c.Next())
-	case "pointer":
-		return patch.Value(&urf.BaseReadField.Pointer, c.Next())
-	default:
-		return c.UnknownField()
-	}
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (urf *UuidReadField) HashContent(h *content.Hash) {
-	h.String(urf.BaseReadField.Name)
-	h.Bool(urf.BaseReadField.Disabled)
-	h.Uint(uint64(urf.BaseReadField.Channel))
-	h.String(urf.BaseReadField.Pointer)
-}
-
-// Patch applies the path action at c, which is not done, to the value.
-func (brf *BytesReadField) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&brf.BaseReadField.Key, c.Next())
-	case "name":
-		return patch.Value(&brf.BaseReadField.Name, c.Next())
-	case "disabled":
-		return patch.Value(&brf.BaseReadField.Disabled, c.Next())
-	case "channel":
-		return patch.Value(&brf.BaseReadField.Channel, c.Next())
-	case "pointer":
-		return patch.Value(&brf.BaseReadField.Pointer, c.Next())
-	default:
-		return c.UnknownField()
-	}
-}
-
-// HashContent writes the content of the value to h, without its keys.
-func (brf *BytesReadField) HashContent(h *content.Hash) {
-	h.String(brf.BaseReadField.Name)
-	h.Bool(brf.BaseReadField.Disabled)
-	h.Uint(uint64(brf.BaseReadField.Channel))
-	h.String(brf.BaseReadField.Pointer)
 }
