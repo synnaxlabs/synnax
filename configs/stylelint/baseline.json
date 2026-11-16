@@ -115,13 +115,13 @@
       "lyra-list__item",
       "lyra-orbital__stage"
     ],
-    "console/src/platform/task/views/GroupTree.css": [
+    "console/src/platform/task/views/Panes.css": ["lyra-divider", "lyra-header"],
+    "console/src/platform/task/views/Tree.css": [
       "lyra--selected",
       "lyra-btn",
       "lyra-icon",
       "lyra-tree__item"
     ],
-    "console/src/platform/task/views/Panes.css": ["lyra-divider", "lyra-header"],
     "console/src/platform/toolbar/Header.css": ["lyra--location-bottom"],
     "console/src/platform/vis/Controls.css": ["lyra-btn", "lyra-tabs__content"],
     "pluto/src/channel/Select.css": ["lyra-dialog__frame", "lyra-dialog__trigger"],
