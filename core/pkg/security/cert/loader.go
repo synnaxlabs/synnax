@@ -188,6 +188,9 @@ func (l *Loader) TrustAnchorsPEM() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		if len(anchors) > 0 && anchors[len(anchors)-1] != '\n' {
+			anchors = append(anchors, '\n')
+		}
 		anchors = append(anchors, b...)
 	}
 	if len(anchors) == 0 {
