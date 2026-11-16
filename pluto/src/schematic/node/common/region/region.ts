@@ -120,7 +120,7 @@ const getElementColors = (element: SVGElement): ColorPair => {
 const getColorPairKey = (colorPair: ColorPair): string =>
   `${color.hex(colorPair.stroke)}|${color.hex(colorPair.fill)}`;
 
-/// selector returns a CSS selector that matches the element within its SVG.
+/** Returns a CSS selector that matches the element within its SVG. */
 export const selector = (element: SVGElement): string => {
   if (element.id) return `#${CSS.escape(element.id)}`;
   const dataRegionId = element.getAttribute("data-region-id");
