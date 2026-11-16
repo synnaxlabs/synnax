@@ -281,9 +281,7 @@ const Surface = ({
         e.stopPropagation();
       }}
     >
-      <Filtered term={filter.term}>
-        {menu?.({ keys, visible, position, cursor })}
-      </Filtered>
+      <Filtered filter={filter}>{menu?.({ keys, visible, position, cursor })}</Filtered>
     </Flex.Box>,
     document.body,
   );

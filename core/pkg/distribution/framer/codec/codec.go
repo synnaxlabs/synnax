@@ -18,6 +18,7 @@ import (
 	"sort"
 	"sync"
 	"sync/atomic"
+	"unsafe"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -176,14 +177,37 @@ type Codec struct {
 	// encodeSorter is used to sort source frames that are being encoded. Used instead
 	// of sorting the frame directly in order to avoid excess heap allocations
 	encodeSorter sorter
+	// decodeLimit is the most bytes that one decoded frame can hold, or zero for no
+	// limit.
+	decodeLimit int64
 }
+
+// Option configures a Codec.
+type Option func(*Codec)
+
+// WithDecodeLimit makes Decode and DecodeStream reject a frame whose series hold more
+// than limit bytes once decoded. A boolean sample counts one byte, and each series also
+// counts SeriesOverhead. The codec checks each series before it allocates the series.
+func WithDecodeLimit(limit int64) Option {
+	return func(c *Codec) { c.decodeLimit = limit }
+}
+
+// SeriesOverhead is the bytes that each decoded series counts against the decode limit
+// in addition to its samples.
+const SeriesOverhead = int64(
+	unsafe.Sizeof(telem.Series{}) + unsafe.Sizeof(channel.Key(0)),
+)
 
 var byteOrder = telem.ByteOrder
 
 // NewStatic creates a new codec that uses the given channel keys and data types as
 // its encoding state. It is not safe to call Update on a codec instantiated using
 // NewStatic.
-func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType) *Codec {
+func NewStatic(
+	channelKeys channel.Keys,
+	dataTypes []telem.DataType,
+	opts ...Option,
+) *Codec {
 	if len(dataTypes) != len(channelKeys) {
 		panic("data types and channel keys must be the same length")
 	}
@@ -191,7 +215,7 @@ func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType) *Codec {
 	for i, key := range channelKeys {
 		keyDataTypes[key] = dataTypes[i]
 	}
-	c := newCodec()
+	c := newCodec(opts)
 	c.update(channelKeys, keyDataTypes)
 	return c
 }
@@ -214,16 +238,19 @@ type ChannelResolver interface {
 // NewDynamic creates a new codec that can be dynamically updated by resolving channel
 // data types through the provided ChannelResolver. Codec.Update must be called before
 // the first call to Codec.Encode and Codec.Decode.
-func NewDynamic(channelResolver ChannelResolver) *Codec {
-	c := newCodec()
+func NewDynamic(channelResolver ChannelResolver, opts ...Option) *Codec {
+	c := newCodec(opts)
 	c.channelResolver = channelResolver
 	return c
 }
 
-func newCodec() *Codec {
+func newCodec(opts []Option) *Codec {
 	c := &Codec{
 		buf:    binary.NewWriter(0, byteOrder),
 		reader: binary.NewReader(nil, byteOrder),
+	}
+	for _, opt := range opts {
+		opt(c)
 	}
 	c.mu.updateAvailable.Store(false)
 	c.mu.states = make(map[uint32]state)
@@ -807,6 +834,7 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 		refAlignment = telem.Alignment(v)
 	}
 
+	var decoded int64
 	decodeSeries := func(key channel.Key) error {
 		s := telem.Series{TimeRange: refTr, Alignment: refAlignment}
 		dataLenOrSize := dataLen
@@ -820,19 +848,26 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 			return errors.Newf("unknown channel key: %v", key)
 		}
 		s.DataType = dataType
+		size := int64(dataLenOrSize)
+		if !dataType.IsVariable() && dataType != telem.BooleanT {
+			size = int64(dataType.Density().Size(size))
+		}
+		decoded += size + SeriesOverhead
+		if c.decodeLimit > 0 && decoded > c.decodeLimit {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"frame decodes to more than the limit of %d bytes",
+				c.decodeLimit,
+			)
+		}
 		if dataType == telem.BooleanT {
-			packed := make([]byte, bitPackedByteCount(dataLenOrSize))
-			if _, err = c.reader.Read(packed); err != nil {
-				return err
+			packed, readErr := c.readBytes(bitPackedByteCount(int64(dataLenOrSize)))
+			if readErr != nil {
+				return readErr
 			}
 			s.Data = unpackBoolBits(packed, int(dataLenOrSize))
 		} else {
-			if dataType.IsVariable() {
-				s.Data = make([]byte, dataLenOrSize)
-			} else {
-				s.Data = make([]byte, dataType.Density().Size(int64(dataLenOrSize)))
-			}
-			if _, err = c.reader.Read(s.Data); err != nil {
+			if s.Data, err = c.readBytes(size); err != nil {
 				return err
 			}
 		}
@@ -899,4 +934,25 @@ func (c *Codec) readTimeRange() (telem.TimeRange, error) {
 		Start: telem.TimeStamp(start),
 		End:   telem.TimeStamp(end),
 	}, nil
+}
+
+// readChunk is the most bytes that readBytes allocates before the bytes arrive.
+const readChunk = 1 << 20
+
+// readBytes reads n bytes. It grows its buffer only as bytes arrive, so a length that
+// the source does not hold fails on the read instead of allocating the whole length.
+func (c *Codec) readBytes(n int64) ([]byte, error) {
+	buf := make([]byte, 0, min(n, readChunk))
+	for int64(len(buf)) < n {
+		if len(buf) == cap(buf) {
+			buf = slices.Grow(buf, int(min(n-int64(len(buf)), int64(len(buf)))))
+		}
+		chunk := buf[len(buf):min(int64(cap(buf)), n)]
+		read, err := c.reader.Read(chunk)
+		buf = buf[:len(buf)+read]
+		if err != nil {
+			return nil, err
+		}
+	}
+	return buf, nil
 }

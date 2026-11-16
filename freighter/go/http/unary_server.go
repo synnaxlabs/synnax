@@ -159,7 +159,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 	if closer, ok := any(res).(io.Closer); ok && handled && err != nil {
 		err = errors.Combine(err, closer.Close())
 	}
-	fErr := errors.Encode(fCtx.RequestCtx(), err, false)
+	fErr := errors.Encode(err, false)
 	if fErr.Type == errors.TypeNil {
 		setResponseCtx(fCtx, oMD)
 		if s.streaming {
@@ -265,7 +265,7 @@ func (s *unaryServer[RQ, RS]) streamAndWrite(
 	case <-started:
 	case err := <-done:
 		if err != nil {
-			return s.writeError(c, errors.Encode(c.RequestCtx(), err, false))
+			return s.writeError(c, errors.Encode(err, false))
 		}
 	}
 	if gz != nil {

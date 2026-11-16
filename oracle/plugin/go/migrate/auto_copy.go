@@ -67,7 +67,7 @@ func generateAutoCopy(
 		paths[i] = imp.Path
 	}
 	current := gomod.ResolveImportPath(outputPath, repoRoot, gomod.DefaultModulePrefix)
-	if aliases := naming.VersionAliases(paths, current); len(aliases) > 0 {
+	if aliases := naming.ImportAliases(paths, current); len(aliases) > 0 {
 		data = newCollector(aliases).collect(types)
 	}
 	var buf bytes.Buffer

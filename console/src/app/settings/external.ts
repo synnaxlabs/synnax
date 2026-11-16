@@ -9,4 +9,5 @@
 
 export * from "@/app/settings/Button";
 export * from "@/app/settings/commands";
+export * from "@/app/settings/Splash";
 export * from "@/app/settings/tab";

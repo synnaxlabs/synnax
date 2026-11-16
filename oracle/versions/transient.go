@@ -115,15 +115,14 @@ func (f *File) closure(roots []string, persistedOnly bool) set.Set[string] {
 }
 
 // localNames extracts the file-local member names a reference points at,
-// walking type arguments. A chain-sibling qualifier (v0.Key) and the
-// resource's own qualifier both resolve locally.
+// walking type arguments. A chain-sibling qualifier (v0.Key) resolves locally.
 func (f *File) localNames(ref resolution.TypeRef) []string {
 	var names []string
 	var walk func(ref resolution.TypeRef)
 	walk = func(ref resolution.TypeRef) {
 		if ref.TypeParam == nil {
 			if ns, name, found := strings.Cut(ref.Name, "."); found {
-				if chainSiblingNS(ns) || ns == f.Chain.Resource {
+				if chainSiblingNS(ns) {
 					names = append(names, name)
 				}
 			} else {

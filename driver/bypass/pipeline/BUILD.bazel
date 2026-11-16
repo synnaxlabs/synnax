@@ -37,6 +37,7 @@ cc_test(
     ],
     deps = [
         "//driver/bypass/pipeline",
+        "//driver/pipeline",
         "//driver/pipeline/testutil",
         "//x/cpp/sync",
         "//x/cpp/testutil",

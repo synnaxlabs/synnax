@@ -54,6 +54,13 @@ on:
         required: false
         type: boolean
         default: false
+      os_specific:
+        description:
+          Whether the module has code that only some operating systems build. Lint then
+          runs for Windows and macOS as well as Linux on every run.
+        required: false
+        type: boolean
+        default: false
       cached:
         description:
           Whether to run go test, which reuses the results that main saves, instead of
@@ -83,9 +90,10 @@ env:
 
 jobs:
   # Every GOOS lints on Ubuntu, because the Windows runner does not have the disk space
-  # for a cold lint. One job per GOOS keeps each runner's cache and compile scratch to
-  # one GOOS, which fits the Ubuntu runner's disk. Without a limit, a hung lint holds the
-  # runner for up to 6 hours.
+  # for a cold lint. A module with OS-specific code lints each GOOS in its own job,
+  # which keeps each runner's cache to one GOOS. Other modules lint only for Linux, and
+  # that job also type-checks for Windows and macOS. Without a limit, a hung lint holds
+  # the runner for up to 6 hours.
   lint:
     name: Lint (${{ matrix.goos }})
     runs-on: ubuntu-latest
@@ -93,10 +101,35 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        goos: [linux, windows, darwin]
+        # Code that builds the same on every operating system lints the same, so only a
+        # module with OS-specific code, or a full run, lints for Windows and macOS.
+        goos:
+          ${{ fromJSON((inputs.os_specific || inputs.windows || inputs.macos) &&
+          '["linux", "windows", "darwin"]' || '["linux"]') }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Check that the module has no OS-specific code
+        if: ${{ !inputs.os_specific && matrix.goos == 'linux' }}
+        working-directory: ${{ inputs.directory }}
+        run: |
+          os='aix|android|darwin|dragonfly|freebsd|illumos|ios|js|linux|netbsd|openbsd'
+          os="$os|plan9|solaris|unix|wasip1|windows"
+          tag="^//go:build(.*[^A-Za-z0-9_])?($os)([^A-Za-z0-9_]|$)"
+          found=$(
+            {
+              git ls-files -z -- '*.go' ':(exclude)**/testdata/**' |
+                tr '\0' '\n' | grep -E "_($os)(_[a-z0-9]+)?(_test)?\.go$" || true
+              git grep -lE "$tag" -- '*.go' ':(exclude)**/testdata/**' || true
+            } | sort -u
+          )
+          if [ -n "$found" ]; then
+            echo "::error::These files build only on some operating systems:"
+            echo "$found"
+            echo "Set os_specific: true for this module in ci.yaml."
+            exit 1
+          fi
 
       # The Ubuntu image ships toolchains lint never uses, and the restored cache plus a
       # compile overflows the disk they leave free.
@@ -162,6 +195,22 @@ jobs:
       - name: Verify the Go module cache
         working-directory: ${{ inputs.directory }}
         run: go mod verify
+
+      # Code with no build constraint can still use an API that some operating systems
+      # lack, so a module that lints only for Linux type-checks for the others. Main
+      # runs it too, so the cache it saves holds the objects that pull requests build.
+      - name: Type-check for Windows and macOS
+        if: >-
+          ${{ !inputs.os_specific && matrix.goos == 'linux' && (github.ref ==
+          'refs/heads/main' || !inputs.windows && !inputs.macos) }}
+        working-directory: ${{ inputs.directory }}
+        env:
+          CGO_ENABLED: "0"
+        # go vet would also report on generated files, so the test binaries are built,
+        # and run with `true` in place of the binary.
+        run: |
+          GOOS=windows go test -exec=true -run='^$' ./...
+          GOOS=darwin go test -exec=true -run='^$' ./...
 
       - name: Build the custom golangci-lint binary
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
@@ -260,11 +309,12 @@ jobs:
           Add-Content $env:GITHUB_ENV "GOMODCACHE=$env:RUNNER_TEMP\gomod"
           Add-Content $env:GITHUB_ENV "GOTMPDIR=$env:RUNNER_TEMP\gotmp"
 
-      # The Ubuntu image ships toolchains these tests never use, and Ginkgo keeps every
-      # --race --cover test binary of the Core until its last suite ends, which
-      # overflows the disk they leave free. go test deletes each binary after its run.
+      # The Ubuntu image ships toolchains these tests never use. Ginkgo keeps every
+      # --race --cover test binary of the Core until its last suite ends, and a go test
+      # run restores a cache of about 6 GB before it builds. Each overflows the disk
+      # they leave free.
       - name: Free disk space
-        if: runner.os == 'Linux' && !inputs.cached
+        if: runner.os == 'Linux'
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
             /usr/local/.ghcup /opt/hostedtoolcache/CodeQL

@@ -10,7 +10,6 @@
 package freighter
 
 import (
-	"context"
 	"io"
 	"strings"
 
@@ -32,7 +31,7 @@ const (
 	streamClosedErrorType = freighterErrorType + "stream_closed"
 )
 
-func encodeErr(_ context.Context, err error) (errors.Payload, bool) {
+func encodeErr(err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, EOF) {
 		return errors.Payload{Type: eofErrorType, Data: err.Error()}, true
 	}
@@ -42,7 +41,7 @@ func encodeErr(_ context.Context, err error) (errors.Payload, bool) {
 	return errors.Payload{}, false
 }
 
-func decodeErr(_ context.Context, pld errors.Payload) (error, bool) {
+func decodeErr(pld errors.Payload) (error, bool) {
 	switch pld.Type {
 	case eofErrorType:
 		return EOF, true

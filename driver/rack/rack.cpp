@@ -10,6 +10,7 @@
 #include "absl/log/log.h"
 
 #include "client/cpp/errors/errors.h"
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/thread/rt/rt.h"
 #include "x/cpp/thread/thread.h"
 
@@ -67,6 +68,8 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
             cfg.manager
         );
     }
+    // A run that lost the Core leaves its tasks running for the next run.
+    x::defer::defer close([this] { this->task_manager->close(); });
     while (true) {
         const auto err = this->task_manager->run([this]() { this->breaker.reset(); });
         if (this->should_exit(err, on_shutdown) || !this->breaker.running()) return;

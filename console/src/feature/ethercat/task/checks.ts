@@ -53,16 +53,11 @@ const onlyReaderStep = (props: SlaveProperties): string => {
     : "Pick another entry.";
 };
 
-/**
- * @returns why the task cannot start with the device of the channel, or null. slave is
- * the device, or undefined when it has not loaded.
- */
-const deviceProblem = (ch: Channel, slave: SlaveDevice | undefined): string | null => {
-  if (ch.device === "") return "A channel has no device. Pick a device.";
-  if (slave?.configured === false)
-    return `${slave.name} is not configured. Configure it to start the task.`;
-  return null;
-};
+/** @returns why the task cannot start on the slave of a channel, or null. */
+const deviceProblem = (slave: SlaveDevice): string | null =>
+  slave.configured
+    ? null
+    : `${slave.name} is not configured. Configure it to start the task.`;
 
 /**
  * @returns why the task cannot start with the enabled channel on the slave, or null.
@@ -75,8 +70,7 @@ const entryProblem = (
   pdoType: PDOType,
 ): string | null => {
   if (ch.type === "unresolved") return getUnresolvedMessage(ch.pdo, slave, pdoType);
-  if (!hasEntry(ch))
-    return `A channel on slave ${slave.name} has no entry. Pick an entry.`;
+  if (!hasEntry(ch)) return null;
   const address = ethercat.formatAddress(ch);
   const entry = entryAt(slave.properties.pdos[pdoType], ch);
   if (entry == null)
@@ -260,9 +254,9 @@ interface Problem {
 
 /**
  * @returns why the task cannot start on its slaves: task-wide problems at the channel
- * list, a problem with the device of each channel at its device, and each other problem
- * of an enabled channel at that channel. Of a channel whose slave is not in slaves,
- * only a missing device is checked.
+ * list, a slave that is not configured at the device of each of its channels, and each
+ * other problem of an enabled channel at that channel. A channel with no device or no
+ * entry, or whose slave is not in slaves, has no problem here.
  */
 const problemsOf = (
   pdoType: PDOType,
@@ -299,12 +293,13 @@ const problemsOf = (
     problems.push({ path: ["channels"], message: steps.join(" "), variant: "warning" });
   channels.forEach((ch, i) => {
     const slave = used.find((s) => s.key === ch.device);
-    let message = deviceProblem(ch, slave);
+    if (slave == null) return;
+    let message = deviceProblem(slave);
     if (message != null) {
       problems.push({ path: ["channels", i, "device"], message });
       return;
     }
-    if (slave == null || ch.disabled) return;
+    if (ch.disabled) return;
     message = entryProblem(slave, enabled.get(ch.device) ?? [], ch, pdoType);
     if (message == null && pdoType === "inputs" && hasEntry(ch))
       message = settingProblem(slave, ch, startupParameters);
@@ -316,10 +311,11 @@ const problemsOf = (
 /**
  * Checks the channels of a task against their slaves as the user edits: one network for
  * every slave, no other slave with the position, serial number, or identifier of a
- * slave, a configured device for each channel, and for each enabled channel its entry
+ * slave, a configured slave for each channel, and for each enabled channel its entry
  * and, on inputs, the settings of the input it reads. It warns of a slave with an
  * enabled channel that other software sets up. A channel whose slave has not loaded is
- * not checked, so a deploy runs {@link checkSlaves} too.
+ * not checked, so a deploy runs {@link checkSlaves} too. The deploy config schema
+ * checks that each channel has a device and an entry.
  * @param slaves - The slaves that the channels of the task use.
  * @param onRack - The slaves on the rack of the task.
  */

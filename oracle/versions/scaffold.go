@@ -43,7 +43,7 @@ func Scaffold(ctx context.Context, r *Resolver, chain Chain) (string, error) {
 	opts := RenderOptions{
 		Imports: fileImports(cur),
 		Qualifier: func(ns string) string {
-			if versionNS.MatchString(ns) || ns == chain.Resource {
+			if versionNS.MatchString(ns) {
 				return ""
 			}
 			if live, _, ok := ParseDepNS(ns); ok {

@@ -202,10 +202,12 @@ env:
   GOPROXY: https://proxy.golang.org|direct
   RELEASE_TAG: ${{ inputs.release_tag }}
   # Desktop Console update files that every Core embeds, downloaded one call each so a
-  # missing file fails the build. A Windows install updates with the installer it came
-  # from, so both stay. The manifest carries the signatures, so the .sig files stay out.
+  # missing file fails the build. A Windows or Linux install updates with the installer
+  # it came from, so each stays. The manifest carries the signatures, so the .sig files
+  # stay out.
   CONSOLE_UPDATE_FILES:
     latest.json Synnax.app.tar.gz Synnax_*_x64-setup.exe Synnax_*_x64_en-US.msi
+    Synnax_*_amd64.AppImage Synnax_*_amd64.deb
 
 permissions:
   contents: read
@@ -298,6 +300,11 @@ jobs:
             WINDOWS="\"windows-latest\""
           fi
           OS_LIST="${MACOS}${MACOS:+${WINDOWS:+,}}${WINDOWS}"
+          # Only the Console builds on Linux. The oldest hosted Ubuntu gives the AppImage
+          # and the .deb the widest glibc range.
+          if [ "${{ inputs.ubuntu }}" = "true" ]; then
+            OS_LIST="${OS_LIST}${OS_LIST:+,}\"ubuntu-22.04\""
+          fi
           {
             echo "matrix=[${OS_LIST}]"
             echo "macos=[${MACOS}]"

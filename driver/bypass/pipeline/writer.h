@@ -60,6 +60,11 @@ public:
         return this->server->write(fr);
     }
 
+    /// @brief the bus already has the frame, so it goes to the Core only.
+    [[nodiscard]] x::errors::Error rewrite(const x::telem::Frame &fr) override {
+        return this->server->write(fr);
+    }
+
     [[nodiscard]] x::errors::Error
     set_authority(const ::driver::pipeline::Authorities &authorities) override {
         if (auto err = authorities.validate()) return err;

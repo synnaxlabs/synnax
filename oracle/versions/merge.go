@@ -64,7 +64,7 @@ func MergeLive(
 			return versionOwned(domain, expr.Name)
 		},
 		Qualifier: func(ns string) string {
-			if versionNS.MatchString(ns) || ns == chain.Resource {
+			if versionNS.MatchString(ns) {
 				return ""
 			}
 			if live, _, ok := ParseDepNS(ns); ok {
@@ -142,7 +142,7 @@ func MergeLive(
 		}
 		t.Domains = domains
 		for ns := range referencedNamespaces(t, opts.Resolve) {
-			if versionNS.MatchString(ns) || ns == chain.Resource {
+			if versionNS.MatchString(ns) {
 				continue
 			}
 			if live, _, ok := ParseDepNS(ns); ok {

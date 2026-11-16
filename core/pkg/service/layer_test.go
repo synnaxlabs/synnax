@@ -572,6 +572,7 @@ var _ = Describe("Resource search", Ordered, func() {
 		},
 		Entry("Arc", resource.TypeArc),
 		Entry("Channel", resource.TypeChannel),
+		Entry("Color", resource.TypeColor),
 		Entry("Device", resource.TypeDevice),
 		Entry("Group", resource.TypeGroup),
 		Entry("Label", resource.TypeLabel),

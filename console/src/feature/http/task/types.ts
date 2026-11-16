@@ -74,6 +74,7 @@ const validateEnumValues = (ctx: z.core.ParsePayload<ChannelField>) => {
   enumValues.forEach((entry, i) => {
     if (seen.has(entry.value))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: ctx.value,
         message: `Duplicate enum value ${entry.value}`,
@@ -111,6 +112,7 @@ const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
   const isBarePrimitive = channel.pointer === "";
   if (isBarePrimitive && fields.length > 0)
     ctx.issues.push({
+      continue: true,
       code: "custom",
       input: value,
       message:
@@ -122,6 +124,7 @@ const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
   for (const [i, field] of fields.entries()) {
     if (field.pointer === "") {
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: value,
         message: "Additional field pointer cannot be empty",
@@ -131,6 +134,7 @@ const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
     }
     if (pointers.has(field.pointer))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: value,
         message: `Pointer "${field.pointer}" is already used by another field`,

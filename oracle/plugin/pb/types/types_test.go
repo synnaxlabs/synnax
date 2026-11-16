@@ -967,6 +967,7 @@ var _ = Describe("Plugin", func() {
 					Name:          "Helper",
 					Namespace:     "shared",
 					QualifiedName: "shared.Helper",
+					FilePath:      "shared.oracle",
 					Form: resolution.StructForm{
 						Fields: []resolution.Field{
 							{Name: "dummy", Type: resolution.TypeRef{Name: "string"}},
@@ -978,6 +979,7 @@ var _ = Describe("Plugin", func() {
 					Name:          "Priority",
 					Namespace:     "shared",
 					QualifiedName: "shared.Priority",
+					FilePath:      "shared.oracle",
 					Form: resolution.EnumForm{
 						Values: []resolution.EnumValue{{Name: "low"}, {Name: "high"}},
 					},
@@ -989,6 +991,7 @@ var _ = Describe("Plugin", func() {
 					Name:          "Task",
 					Namespace:     "task",
 					QualifiedName: "task.Task",
+					FilePath:      "task.oracle",
 					Form: resolution.StructForm{
 						Fields: []resolution.Field{
 							{
@@ -1159,6 +1162,39 @@ var _ = Describe("Plugin", func() {
 					Expect(content).ToNot(ContainSubstring("message "))
 				},
 			)
+		})
+
+		Context("schemas with the same file name", func() {
+			It("Should import the enum of a schema with the same file name", func(
+				ctx SpecContext,
+			) {
+				loader.Add("schemas/x/color", `
+					@go output "x/go/color"
+					@pb
+
+					Kind enum {
+						solid    = 0
+						gradient = 1
+					}
+				`)
+				loader.Add("schemas/synnax/color", `
+					import "schemas/x/color"
+
+					@go output "core/pkg/service/color"
+					@pb
+
+					Named struct {
+						kind color.Kind
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, p)
+				ExpectContent(resp, "core/pkg/service/color/pb/color.proto").
+					ToContain(
+						`import "x/go/color/pb/color.proto";`,
+						".x.color.pb.Kind kind = 1;",
+					).
+					ToNotContain("enum Kind")
+			})
 		})
 	})
 })

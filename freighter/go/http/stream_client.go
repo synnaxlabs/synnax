@@ -121,7 +121,7 @@ func (s *streamClient[RQ, RS]) Stream(
 				return oCtx, err
 			}
 			if msg.Type != WSMessageTypeOpen {
-				return oCtx, errors.Decode(ctx, msg.Err)
+				return oCtx, errors.Decode(msg.Err)
 			}
 			stream = &clientStream[RQ, RS]{streamCore: core}
 			return oCtx, nil
