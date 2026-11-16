@@ -95,5 +95,8 @@ func stagedRoutingKeys(tx gorp.Tx) (map[uuid.UUID]string, error) {
 		}
 		staged[key] = string(iter.Value())
 	}
-	return staged, errors.Combine(iter.Error(), iter.Close())
+	if err = errors.Combine(iter.Error(), iter.Close()); err != nil {
+		return nil, err
+	}
+	return staged, nil
 }
