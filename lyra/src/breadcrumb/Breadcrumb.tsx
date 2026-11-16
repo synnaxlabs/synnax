@@ -74,15 +74,12 @@ export const Breadcrumb = ({
     gap="small"
     {...rest}
   >
-    {Children.map(children, (child, i) => {
-      if (child == null || typeof child === "boolean") return null;
-      return (
-        <Fragment key={i}>
-          {i > 0 && <Separator />}
-          {typeof child === "string" ? <Segment>{child}</Segment> : child}
-        </Fragment>
-      );
-    })}
+    {Children.toArray(children).map((child, i) => (
+      <Fragment key={i}>
+        {i > 0 && <Separator />}
+        {typeof child === "string" ? <Segment>{child}</Segment> : child}
+      </Fragment>
+    ))}
   </Text.Text>
 );
 
