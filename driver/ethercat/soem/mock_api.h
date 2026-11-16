@@ -370,11 +370,13 @@ public:
         this->processdata_groups.push_back(group);
         std::lock_guard lock(this->state_mu);
         this->al_statuses.clear();
-        for (uint16_t pos = 1; pos <= this->slave_infos.size(); ++pos)
+        for (size_t i = 0; i < this->slave_infos.size(); ++i) {
+            const auto pos = static_cast<uint16_t>(i + 1);
             this->al_statuses[pos] = this->receive_return < 0 ||
                                              this->silent_slaves.contains(pos)
                                        ? 0
                                        : this->bus_state_of(pos);
+        }
         return this->receive_return;
     }
 
