@@ -44,10 +44,6 @@ data_channel_2 = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-# We'll start our write at the current time. This timestamp should be the same as or
-# just before the first timestamp we write.
-start = sy.TimeStamp.now()
-
 # The rate at which we'll send samples to the cluster. sy.Loop  is a utility to help
 # regulate the timing.
 loop = sy.Loop(sy.Rate.HZ * 500)
@@ -65,19 +61,19 @@ client.channels.create(
 )
 
 # Open the writer as a context manager. Using a context manager is recommended as the
-# context manager will automatically close the writer when we are done writing. We will
-# write to both the time and data channels. To choose the channels to write to, you can
-# use either the keys or the names of the channels (here, we're using the keys).
+# context manager will automatically close the writer when we are done writing. At 500
+# Hz, auto_index lets the Core stamp each write, so we write only the data channels. To
+# choose the channels to write to, you can use either the keys or the names of the
+# channels (here, we're using the keys).
 with client.open_writer(
-    start,
-    [time_channel.key, data_channel_1.key, data_channel_2.key],
+    channels=[data_channel_1.key, data_channel_2.key],
+    auto_index=True,
 ) as writer:
     i = 0
     while loop.wait():
         # Write the data to the Synnax cluster using the writer.
         writer.write(
             {
-                time_channel.key: sy.TimeStamp.now(),
                 data_channel_1.key: np.sin(i / 10) * 25 + 12.5,
                 data_channel_2.key: i % 2,
             }

@@ -361,6 +361,11 @@ Each write that leaves out the index channel gets the time at which the Core rec
 it. The samples in one write are 1 nanosecond apart. When the writer is also open on the
 index channel, a write that includes it uses your timestamps.
 
+Use this for a loop that writes one sample in each write at a high rate. The client
+clock and the network do not change the spacing of the timestamps. Do not use it for a
+write that holds many samples taken over time, because they get timestamps 1 nanosecond
+apart.
+
 <Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
