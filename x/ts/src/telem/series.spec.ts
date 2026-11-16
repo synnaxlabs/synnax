@@ -455,6 +455,21 @@ describe("Series", () => {
       expect(series.at(1)).toEqual("7f3e4567-e89b-40d3-8056-426614174000");
     });
 
+    it("should read a UUID series over a view that starts past byte 0", () => {
+      const series = new Series({
+        data: SAMPLE_UUID_BYTES.subarray(16),
+        dataType: DataType.UUID,
+      });
+      expect(series.at(0)).toEqual("7f3e4567-e89b-40d3-8056-426614174000");
+    });
+
+    it("should return undefined for an out of range index in a UUID series", () => {
+      const series = new Series({ data: SAMPLE_UUID_BYTES, dataType: DataType.UUID });
+      expect(series.at(2)).toBeUndefined();
+      expect(series.at(5)).toBeUndefined();
+      expect(() => series.at(2, true)).toThrow();
+    });
+
     it("should return the correct value for a JSON series", () => {
       const series = new Series({
         data: [
@@ -2096,6 +2111,14 @@ describe("Series", () => {
       expect(uuids).toHaveLength(2);
       expect(uuids[0]).toBe("123e4567-e89b-40d3-8056-426614174000");
       expect(uuids[1]).toBe("7f3e4567-e89b-40d3-8056-426614174000");
+    });
+
+    it("should iterate a UUID series over a view that starts past byte 0", () => {
+      const series = new Series({
+        data: SAMPLE_UUID_BYTES.subarray(16),
+        dataType: DataType.UUID,
+      });
+      expect(Array.from(series)).toEqual(["7f3e4567-e89b-40d3-8056-426614174000"]);
     });
 
     it("should handle empty UUID series", () => {

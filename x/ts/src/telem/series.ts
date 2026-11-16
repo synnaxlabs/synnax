@@ -884,15 +884,11 @@ export class Series<T extends TelemValue = TelemValue> {
 
   private atUUID(index: number, required: boolean): string | undefined {
     if (index < 0) index = this.length + index;
-    const uuidString = uuid.fromBytes(
-      this.data as Uint8Array,
-      index * this.dataType.density.valueOf(),
-    );
-    if (uuidString == null) {
+    if (index < 0 || index >= this.length) {
       if (required) throw new Error(`[series] - no value at index ${index}`);
       return undefined;
     }
-    return uuidString;
+    return uuid.fromBytes(this.data as Uint8Array, index * this.dataType.density.valueOf());
   }
 
   asString(index: number, required: true): string;
