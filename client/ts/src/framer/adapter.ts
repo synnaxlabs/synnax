@@ -19,7 +19,7 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export type ChannelRetriever = (channels: channel.Params) => Promise<channel.Payload[]>;
 
 /** Fetches channel payloads, throwing a {@link NotFoundError} when any is missing. */
-const retrieveRequired = async (
+export const retrieveRequired = async (
   retrieve: ChannelRetriever,
   channels: ReturnType<typeof channel.analyzeParams>["normalized"],
 ): Promise<channel.Payload[]> => {

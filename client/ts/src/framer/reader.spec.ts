@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type FileTransport } from "@synnaxlabs/freighter";
 import { DataType, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
+import { NotFoundError } from "@/errors";
+import { Reader } from "@/framer/reader";
 import { createTestClient, secondsLinspace } from "@/testutil";
 
 const client = createTestClient();
@@ -874,6 +877,25 @@ describe("Reader", () => {
       const file = await streamToString(stream);
       expect(file.startsWith("TDSm")).toBe(true);
       expect(file).toContain(`/'${index.name}'/'${data.name}'`);
+    });
+  });
+
+  describe("missing channels", () => {
+    const file = {
+      download: async () => new ReadableStream<Uint8Array>(),
+    } as unknown as FileTransport;
+    const reader = new Reader(async () => [], file);
+
+    it("should throw a NotFoundError when reading CSV from a missing channel", async () => {
+      await expect(reader.readCSV({ start: 0, end: 1 }, ["missing"])).rejects.toThrow(
+        NotFoundError,
+      );
+    });
+
+    it("should throw a NotFoundError when reading TDMS from a missing channel", async () => {
+      await expect(reader.readTDMS({ start: 0, end: 1 }, [12])).rejects.toThrow(
+        NotFoundError,
+      );
     });
   });
 });
