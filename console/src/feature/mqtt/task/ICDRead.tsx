@@ -240,11 +240,11 @@ const addTopics = async ({
   const actions = new Map<icd.Key, icd.Action[]>();
   const inserterOf = (key: icd.Key): Inserter => {
     if (key === format.key) return format.form;
-    const held = actions.get(key) ?? [];
-    actions.set(key, held);
+    const pending = actions.get(key) ?? [];
+    actions.set(key, pending);
     return {
       insert: (path, value, after) =>
-        held.push(icd.insert({ path: String(path).split("."), value, after })),
+        pending.push(icd.insert({ path: String(path).split("."), value, after })),
     };
   };
   const result: AddTopicsResult = { added: [], repointed: [] };
@@ -257,15 +257,15 @@ const addTopics = async ({
         appendFields(inserterOf(key), message, fields);
         continue;
       }
-      const held = messages.get(key) ?? [];
+      const prior = messages.get(key) ?? [];
       const created = createMessage(topic, fields);
-      inserterOf(key).insert(PICD.formPath.messages, created, held.at(-1)?.key);
-      messages.set(key, [...held, created]);
+      inserterOf(key).insert(PICD.formPath.messages, created, prior.at(-1)?.key);
+      messages.set(key, [...prior, created]);
       if (entry == null) result.added.push(entryOf(key, topic, created.key));
       else result.repointed.push({ key: entry.key, message: created.key });
     }
   });
-  for (const [key, held] of actions) await client.icds.dispatch(key, held);
+  for (const [key, pending] of actions) await client.icds.dispatch(key, pending);
   return result;
 };
 

@@ -126,8 +126,8 @@ const removeMessage = async ({ icd: key, messages }: MQTT.Task.ICDReadEntry) =>
   );
 
 /** Adds the number at /name in the topic through the Add data dialog. */
-const addField = async (rack: rack.Key, topic: string, name: string) => {
-  const scanner = await openScanner(client, rack);
+const addField = async (rackKey: rack.Key, topic: string, name: string) => {
+  const scanner = await openScanner(client, rackKey);
   const dialog = await openAddData();
   const scanned = {
     topic,
