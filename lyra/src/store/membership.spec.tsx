@@ -124,6 +124,18 @@ describe("Store.createMembership", () => {
       act(() => setValue(["a", "b"]));
       expect(result.current).toEqual(["a", "b"]);
     });
+
+    it("should track a reorder of the members", () => {
+      let setValue: (value: string[]) => void = () => {};
+      const wrapper = ({ children }: PropsWithChildren): ReactElement => {
+        const [value, setState] = useState<string[]>(["a", "b"]);
+        setValue = setState;
+        return <Set.Context value={value}>{children}</Set.Context>;
+      };
+      const { result } = renderHook(() => Set.useMembers(), { wrapper });
+      act(() => setValue(["b", "a"]));
+      expect(result.current).toEqual(["b", "a"]);
+    });
   });
 
   describe("useMemberAmong", () => {
@@ -182,6 +194,18 @@ describe("Store.createMembership", () => {
       expect(result.current).toBeUndefined();
       act(() => setValue(["a", "x"]));
       expect(result.current).toEqual("a");
+    });
+
+    it("should give the earliest member after a reorder", () => {
+      let setValue: (value: string[]) => void = () => {};
+      const wrapper = ({ children }: PropsWithChildren): ReactElement => {
+        const [value, setState] = useState<string[]>(["a", "b"]);
+        setValue = setState;
+        return <Set.Context value={value}>{children}</Set.Context>;
+      };
+      const { result } = renderHook(() => Set.useMemberAmong(["a", "b"]), { wrapper });
+      act(() => setValue(["b", "a"]));
+      expect(result.current).toEqual("b");
     });
   });
   describe("server rendering", () => {
