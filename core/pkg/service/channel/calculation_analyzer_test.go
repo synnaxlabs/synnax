@@ -442,6 +442,31 @@ var _ = Describe("Analyze", func() {
 		)
 
 		It(
+			"Should infer float64 DataType when avg follows derivative",
+			func(ctx SpecContext) {
+				r := StaticResolver{
+					{
+						Name: "sensor4",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   4,
+					},
+				}
+				a := channel.NewCalculationAnalyzer(r)
+				ch := channel.Channel{
+					Name:       "deriv_avg_calc",
+					Expression: "return sensor4",
+					Operations: []channel.Operation{
+						{Type: channel.OperationTypeDerivative},
+						{Type: channel.OperationTypeAvg},
+					},
+				}
+				res := MustSucceed(a.Analyze(ctx, ch))
+				Expect(res.ChanDataType).To(Equal(telem.Float64T))
+			},
+		)
+
+		It(
 			"Should not override DataType when avg is the last operation",
 			func(ctx SpecContext) {
 				r := StaticResolver{

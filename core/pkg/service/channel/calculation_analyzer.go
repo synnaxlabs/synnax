@@ -159,10 +159,9 @@ func (a *CalculationAnalyzer) Analyze(
 		}
 	}
 	inferredDataType := dataType.ToTelem()
-	ops := lo.Filter(ch.Operations, func(op Operation, _ int) bool {
-		return op.Type != OperationTypeNone
-	})
-	if len(ops) > 0 && ops[len(ops)-1].Type == OperationTypeDerivative {
+	if lo.ContainsBy(ch.Operations, func(op Operation) bool {
+		return op.Type == OperationTypeDerivative
+	}) {
 		inferredDataType = telem.Float64T
 	}
 	return CalculationAnalysisResult{
