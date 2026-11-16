@@ -18,7 +18,7 @@ const recordKey = (token: string): auth.APIKeyKey | null => {
   try {
     return auth.apiKeyID(token);
   } catch (e) {
-    // The file sits in the home directory, where a person can edit it.
+    // A person can edit the keychain item.
     if (InvalidTokenError.matches(e)) return null;
     throw errors.fromUnknown(e);
   }

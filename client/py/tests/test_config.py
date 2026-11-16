@@ -219,6 +219,22 @@ class TestTryLoadOptions:
         )
         assert embedded
 
+    def test_given_desktop_address_without_a_keychain(
+        self, clusters: Clusters, desktop_file: Path, tmp_path: Path
+    ) -> None:
+        """Should know the Synnax Desktop address from the file alone, with no keychain
+        and a key that differs from the saved one.
+        """
+        write_desktop_file(desktop_file, clusters.keyring, port=4321)
+        _, embedded = try_load_options_if_none_provided(
+            host="127.0.0.1",
+            port=4321,
+            api_key="syk_other_s",
+            clusters=Clusters(File(config_dir=tmp_path / "empty"), no_keychain()),
+            desktop_file=desktop_file,
+        )
+        assert embedded
+
     @pytest.mark.parametrize(
         "break_file",
         # A directory at the path cannot be read as a file, on any platform or user.
