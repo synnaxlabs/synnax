@@ -64,9 +64,10 @@ var _ = Describe("Cmd", func() {
 					os.WriteFile(path, []byte("insecure: [true"), 0o600),
 				).To(Succeed())
 				root.SetArgs([]string{"version", "--config", path})
-				err := root.Execute()
-				Expect(err).To(MatchError(ContainSubstring(path)))
-				Expect(exit.Code(err)).To(Equal(exit.Config))
+				Expect(root.Execute()).To(And(
+					MatchError(ContainSubstring(path)),
+					WithTransform(exit.Code, Equal(exit.Config)),
+				))
 			},
 		)
 
@@ -75,9 +76,10 @@ var _ = Describe("Cmd", func() {
 			func() {
 				path := filepath.Join(GinkgoT().TempDir(), "missing.yaml")
 				root.SetArgs([]string{"version", "--config", path})
-				err := root.Execute()
-				Expect(err).To(MatchError(ContainSubstring(path)))
-				Expect(exit.Code(err)).To(Equal(exit.Config))
+				Expect(root.Execute()).To(And(
+					MatchError(ContainSubstring(path)),
+					WithTransform(exit.Code, Equal(exit.Config)),
+				))
 			},
 		)
 
