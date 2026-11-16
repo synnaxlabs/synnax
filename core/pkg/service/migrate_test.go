@@ -448,7 +448,7 @@ var _ = Describe("Group drop report", func() {
 				recs = append(recs, channelv0.Channel{
 					Name:        ch.Name,
 					Leaseholder: ch.Leaseholder,
-					DataType:    telemv0.DataType(ch.DataType),
+					DataType:    ch.DataType,
 					LocalKey:    ch.LocalKey,
 					Virtual:     ch.Virtual,
 				})
