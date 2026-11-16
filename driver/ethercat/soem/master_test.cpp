@@ -2250,6 +2250,20 @@ TEST_F(SOEMMasterTest, ReceiveDropsTheOldestFrameWhenTooManyAreInFlight) {
     );
 }
 
+/// @brief it should drop the oldest frame and fail the receive when the next send
+/// would not find a buffer for each of its frames.
+TEST_F(SOEMMasterTest, ReceiveDropsTheOldestFrameWhenTheNextSendWouldNotFit) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->send_return = static_cast<int>(PROCESS_DATA_BUFFERS / 2);
+    this->mock->receive_return = EC_NOFRAME;
+    ASSERT_NIL(this->master->send());
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    ASSERT_NIL(this->master->send());
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::CYCLIC_ERROR);
+    EXPECT_EQ(this->mock->drop_count, 1);
+}
+
 /// @brief it should say that a USB adapter can hold frames back when no frame comes
 /// back, but only while a frame came back less than a second before, even when the
 /// sends fail.

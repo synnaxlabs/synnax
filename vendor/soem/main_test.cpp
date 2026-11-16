@@ -609,6 +609,17 @@ TEST_F(ProcessDataTest, CountsALogicalWriteTwice) {
     EXPECT_EQ(this->cycle(), 6);
 }
 
+/// @brief it should return the number of frames that the send put in flight.
+TEST_F(ProcessDataTest, SendReturnsItsFrames) {
+    this->set_inputs(1470);
+    this->add_slave(EC_STATE_OPERATIONAL);
+    this->add_slave(EC_STATE_OPERATIONAL);
+    EXPECT_EQ(
+        ecx_send_processdata_inflight(this->context.get(), 1, &this->inflight),
+        2
+    );
+}
+
 /// @brief it should take the sends in flight in the order sent.
 TEST_F(ProcessDataTest, TakesTheSendsInTheOrderSent) {
     this->add_slave(EC_STATE_OPERATIONAL);

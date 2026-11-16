@@ -40,6 +40,10 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {
+/// @brief the SOEM frame buffers that the process data frames in flight can take. The
+/// rest stay free for the mailbox and state reads of other threads.
+constexpr size_t PROCESS_DATA_BUFFERS = EC_MAXBUF - 4;
+
 /// @brief how long, and on which clock, the master waits for the slaves.
 struct Config {
     /// @brief how long the slaves get to reach PRE-OP after discovery. The default is
@@ -118,8 +122,8 @@ class Master final : public master::Master {
         /// @brief what receive() returns for a send that held process data back, or
         /// NIL.
         x::errors::Error held_err;
-        /// @brief whether the process data frames of the send went out.
-        bool sent = false;
+        /// @brief the number of process data frames of the send that went out.
+        size_t frames = 0;
     };
 
     /// @brief the state of one bus run, from activate() to deactivate().
@@ -138,6 +142,9 @@ class Master final : public master::Master {
         /// @brief the sends that no receive() took, oldest first. Only the cycle uses
         /// it.
         std::vector<Cycle> cycles;
+        /// @brief the number of frames of the latest send that went out. Only the cycle
+        /// uses it.
+        size_t send_frames = 0;
         /// @brief what inputless() returns. Only the cycle uses it.
         std::vector<uint16_t> inputless;
         /// @brief whether the enabled slaves' frames carry the reference clock time.

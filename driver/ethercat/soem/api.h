@@ -70,9 +70,10 @@ public:
     /// @brief maps I/O buffer for process data exchange for a slave group.
     virtual int config_map_group(void *iomap, uint8_t group) = 0;
 
-    /// @brief sends the process data of a slave group, and returns a value above 0
-    /// when its frames went out. The frames stay in flight until a
-    /// receive_processdata() takes them or a drop_processdata() frees them.
+    /// @brief sends the process data of a slave group, and returns the number of its
+    /// frames that went out, or a value at or below 0 when none did. The frames stay in
+    /// flight until a receive_processdata() takes them or a drop_processdata() frees
+    /// them.
     virtual int send_processdata(uint8_t group) = 0;
 
     /// @brief waits up to timeout microseconds for the frames of the oldest

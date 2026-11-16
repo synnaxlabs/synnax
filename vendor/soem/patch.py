@@ -477,7 +477,8 @@ int ecx_send_processdata_inflight(ecx_contextt *context, uint8 group,
       {
          inflight->received[pos] = FALSE;
       }
-      inflight->frames[inflight->sends++] = (uint8)(context->idxstack.pushed - first);
+      inflight->frames[inflight->sends] = (uint8)(context->idxstack.pushed - first);
+      return inflight->frames[inflight->sends++];
    }
    return sent;
 }

@@ -31,7 +31,7 @@ typedef struct {
 
 /** Like ecx_send_processdata_group, and keeps the frames in flight after the frames of
  * the earlier sends in inflight.
- * @return >0 if processdata is transmitted.
+ * @return The number of frames sent, or 0 when the group has no process data.
  */
 int ecx_send_processdata_inflight(
     ecx_contextt *context,
