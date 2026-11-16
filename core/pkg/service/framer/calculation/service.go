@@ -492,6 +492,8 @@ func (s *Service) updateRequests(
 	}); err != nil {
 		return err
 	}
+	// Other requests share the groups, so cancelling this request must not stop them.
+	ctx = context.WithoutCancel(ctx)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
