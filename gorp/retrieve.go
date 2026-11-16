@@ -272,7 +272,9 @@ func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, snap Snapshot) error
 }
 
 // Exists returns true if any record passes the filter. When every requested key must
-// have an entry (see SkipMissingKeys), it returns true only if every key exists.
+// have an entry (see SkipMissingKeys), it returns true only if every key exists. A
+// query with only bare keys does not decode the entries, so it is correct for any
+// stored shape of E.
 func (r Retrieve[K, E]) Exists(ctx context.Context, snap Snapshot) (bool, error) {
 	checkForNilTx("Retriever.Exists", snap)
 	if err := r.resolveFilter(ctx, snap); err != nil {
@@ -282,6 +284,9 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, snap Snapshot) (bool, error)
 		keys := r.filter.keys.Keys()
 		if len(keys) == 0 {
 			return false, nil
+		}
+		if r.IsBareKeys() && r.prefix == nil && len(r.validators) == 0 {
+			return r.keysExist(snap, keys)
 		}
 		e := make([]E, 0, len(keys))
 		r.entries.bindMultiple(&e)
@@ -300,6 +305,24 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, snap Snapshot) (bool, error)
 		return false, err
 	}
 	return len(e) > 0, nil
+}
+
+func (r Retrieve[K, E]) keysExist(snap Snapshot, keys []K) (bool, error) {
+	reader := wrapReader[K, E](snap, r.keyPrefix)
+	found := 0
+	for _, k := range keys {
+		ok, err := reader.has(k)
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			found++
+		}
+	}
+	if r.keysRequired() {
+		return found == len(keys), nil
+	}
+	return found > 0, nil
 }
 
 // Count returns the number of records matching the query.
@@ -348,7 +371,7 @@ func (r Retrieve[K, E]) Count(
 		if !rawMatched {
 			continue
 		}
-		v := iter.Value(ctx)
+		v := iter.Value()
 		if err = iter.Error(); err != nil {
 			return 0, err
 		}
@@ -529,7 +552,7 @@ func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) (err err
 		if !rawMatched {
 			continue
 		}
-		v := iter.Value(ctx)
+		v := iter.Value()
 		if err = iter.Error(); err != nil {
 			return err
 		}

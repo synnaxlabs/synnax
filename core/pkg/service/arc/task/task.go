@@ -130,7 +130,8 @@ func (t *impl) start(ctx context.Context, cmdKey string) (err, answerErr error) 
 			)
 		}
 	}
-	if err = t.open(ctx); err != nil {
+	flow, err := t.open(ctx)
+	if err != nil {
 		return err, t.status.Send(
 			ctx,
 			cmdKey,
@@ -140,17 +141,23 @@ func (t *impl) start(ctx context.Context, cmdKey string) (err, answerErr error) 
 			err.Error(),
 		)
 	}
-	if answerErr = t.status.Send(
+	answerErr = t.status.Send(
 		ctx, cmdKey, status.VariantSuccess, true, "Started task", "",
-	); answerErr != nil {
+	)
+	// The runtime flows after the start status, so that status never replaces one from
+	// the first cycle. A writer that never flows keeps its channels, so the runtime
+	// flows before a release too.
+	flow()
+	if answerErr != nil {
 		// The caller sees the start fail, so the runtime must not outlive it.
 		return t.release(), answerErr
 	}
 	return nil, nil
 }
 
-// open builds and flows the Arc runtime. It writes no statuses: start owns them.
-func (t *impl) open(ctx context.Context) (err error) {
+// open builds the Arc runtime and returns the function that flows it, which the caller
+// must call before it releases the runtime. It writes no statuses: start owns them.
+func (t *impl) open(ctx context.Context) (flow func(), err error) {
 	drt := dataRuntime{clock: telem.MonoClock{Source: t.factoryCfg.Now}}
 	var deps runtime.Dependencies
 	if err = t.factoryCfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
@@ -162,7 +169,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 		)
 		return err
 	}); err != nil {
-		return err
+		return nil, err
 	}
 
 	drt.state.nodes = node.New(t.prog.Program.IR)
@@ -196,7 +203,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 		},
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	channelMod, err := channels.NewHost(
 		ctx,
@@ -205,7 +212,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 		drt.state.strings,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	statefulMod, err := stateful.NewHost(
 		ctx,
@@ -214,22 +221,22 @@ func (t *impl) open(ctx context.Context) (err error) {
 		drt.state.strings,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if _, err = series.NewHost(ctx, wasmRT, drt.state.series); err != nil {
-		return err
+		return nil, err
 	}
 	stringsMod, err := strings.NewHost(ctx, wasmRT, drt.state.strings, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	mathMod, err := math.NewHost(ctx, wasmRT)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	errorsMod, err := stlerrors.NewHost(ctx, wasmRT, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	statusMod, err := arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
 		Status:   t.factoryCfg.Status,
@@ -238,7 +245,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 		Reporter: t.reporter(),
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	rangesMod, err := ranges.NewModule(ctx, ranges.ModuleConfig{
 		DB:       t.factoryCfg.DB,
@@ -248,7 +255,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 		Reporter: t.reporter(),
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	f := node.CompoundFactory{
@@ -269,7 +276,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 	if len(t.prog.Program.WASM) > 0 {
 		guest, guestErr := wasmRT.Instantiate(ctx, t.prog.Program.WASM)
 		if guestErr != nil {
-			return guestErr
+			return nil, guestErr
 		}
 		stringsMod.SetMemory(guest.Memory())
 		errorsMod.SetMemory(guest.Memory())
@@ -280,7 +287,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 			guest,
 			t.factoryCfg.LoopBudget,
 		); err != nil {
-			return err
+			return nil, err
 		}
 		f = append(f, &wasm.Module{
 			Module:        guest,
@@ -298,14 +305,14 @@ func (t *impl) open(ctx context.Context) (err error) {
 			State:   drt.state.nodes.Node(irNode.Key),
 		})
 		if nodeErr != nil {
-			return nodeErr
+			return nil, nodeErr
 		}
 		nodes[irNode.Key] = n
 	}
 
 	sched, err := scheduler.New(t.prog.Program.IR, nodes)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	drt.scheduler = sched
 	drt.timeMod = timeMod
@@ -332,7 +339,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 	// would otherwise not fire them until the first input is received.
 	spin, ok := spins[t.cfg.Performance]
 	if !ok {
-		return errors.Newf("unknown performance %q", t.cfg.Performance)
+		return nil, errors.Newf("unknown performance %q", t.cfg.Performance)
 	}
 	ticker := &tickerRuntime{
 		dataRuntime: drt,
@@ -363,7 +370,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 			framer.StreamerConfig{Keys: deps.Reads.Slice(), SendOpenAck: true},
 		)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		streamer.InFrom(streamerRequests)
 		streamer.OutTo(streamerResponses)
@@ -391,11 +398,11 @@ func (t *impl) open(ctx context.Context) (err error) {
 		case <-ctx.Done():
 		case _, ok := <-streamerResponses.Outlet():
 			if !ok {
-				return errors.New("streamer exited before it opened")
+				return nil, errors.New("streamer exited before it opened")
 			}
 		}
 		if err = ctx.Err(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -419,7 +426,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 		var wrt framer.StreamWriter
 		wrt, err = t.factoryCfg.Framer.NewStreamWriter(ctx, writerCfg)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		pipeline.SetSegment(writerAddr, wrt)
 		pipeline.MustConnect[framer.WriterRequest](runtimeAddr, writerAddr, 10)
@@ -461,8 +468,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 		streamerCloseSignal,
 	)
 	closers = nil
-	pipeline.Flow(sCtx, opts...)
-	return nil
+	return func() { pipeline.Flow(sCtx, opts...) }, nil
 }
 
 func (t *impl) Stop(sendStatus bool) error {

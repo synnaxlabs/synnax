@@ -63,22 +63,6 @@ type ChannelEntry struct {
 	Timestamp TimestampConfig `json:"timestamp" msgpack:"timestamp"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *ChannelEntry) ApplyDefaults() {
-	if c.Notation == "" {
-		c.Notation = "standard"
-	}
-	if c.Precision == 0 {
-		c.Precision = -1
-	}
-	if c.Timestamp.Format == "" {
-		c.Timestamp.Format = "preciseDate"
-	}
-	if c.Timestamp.Tz == "" {
-		c.Timestamp.Tz = "local"
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (c *ChannelEntry) SetDefaults() {
 	c.Notation = "standard"
@@ -131,13 +115,6 @@ type Log struct {
 	ChannelNamesHidden bool `json:"channel_names_hidden" msgpack:"channel_names_hidden"`
 	// ReceiptTimestampHidden is true when the receipt timestamp column is hidden.
 	ReceiptTimestampHidden bool `json:"receipt_timestamp_hidden" msgpack:"receipt_timestamp_hidden"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *Log) ApplyDefaults() {
-	for i := range l.Channels {
-		l.Channels[i].ApplyDefaults()
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

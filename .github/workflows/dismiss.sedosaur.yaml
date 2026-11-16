@@ -7,11 +7,12 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Answers a reply that mentions Sedosaur on the thread of one of its findings, as the
-# sedosaur GitHub App. A member's `@sedosaur dismiss` resolves the thread, and later
-# reviews of the pull request do not report the finding. When no blocking finding of the
-# head's review is left, a new check run scores the head 5/5. The scripts come from the
-# default branch, never from the pull request.
+# Answers a reply that mentions Sedosaur on the thread of one of its findings, or a
+# comment that dismisses a finding outside the diff, as the sedosaur GitHub App. An
+# `@sedosaur dismiss` from someone with write access to the repository dismisses the
+# finding, and later reviews of the pull request do not report it. When no finding of
+# the head's review is left, a new check run scores the head 5/5. The scripts come from
+# the default branch, never from the pull request.
 
 name: Dismiss - Sedosaur
 run-name: ${{ inputs.pr }}
@@ -24,11 +25,16 @@ on:
         type: number
         required: true
       comment:
-        description: "Reply that mentions Sedosaur on the thread of the finding"
+        description: "Reply or comment that mentions Sedosaur about the finding"
         type: string
         required: true
 
 permissions: {}
+
+# A run that waits is canceled when another one queues. The next run answers its work.
+concurrency:
+  group: dismiss-sedosaur-${{ inputs.pr }}
+  cancel-in-progress: false
 
 jobs:
   dismiss:
@@ -61,6 +67,8 @@ jobs:
           app-id: ${{ secrets.SEDOSAUR_APP_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-checks: write
+          # resolveReviewThread needs contents: write, not only pull-requests: write.
+          permission-contents: write
           permission-pull-requests: write
 
       - name: Answer the reply

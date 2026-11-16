@@ -12,7 +12,6 @@
 package marshal
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -81,13 +80,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// types/vN; the rewrite shifts every affected path at once so cross-package codec
 	// references stay version-pinned.
 	rewritten, _, _, err := versioning.RewriteCurrent(
-		context.Background(), req.Resolutions, req.Versions,
+		req.Resolutions, req.Versions,
 	)
 	if err != nil {
 		return nil, err
 	}
 	pins, err := versioning.NewPins(
-		context.Background(), req.Resolutions, req.Versions,
+		req.Resolutions, req.Versions,
 	)
 	if err != nil {
 		return nil, err

@@ -742,9 +742,11 @@ describe("range/explorer/Explorer", () => {
       const rng = await createRange(`${token} colored`);
       await renderExplorer();
       await search(token);
-      fireEvent.click(
-        within(await findItem(rng.name)).getByRole("button", { name: "Color" }),
+      // The item remounts when the search lands, and the swatch drops a held color.
+      await waitFor(() =>
+        within(itemOf(rng.name)).getByText(token, { selector: "mark" }),
       );
+      fireEvent.click(within(itemOf(rng.name)).getByRole("button", { name: "Color" }));
       const hex = await screen.findByLabelText("Hex");
       fireEvent.change(hex, { target: { value: "123456" } });
       fireEvent.keyDown(hex, { code: "Escape" });

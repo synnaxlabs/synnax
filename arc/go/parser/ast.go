@@ -249,7 +249,7 @@ func CollectNamedPrimaries(expr IExpressionContext) []IPrimaryExpressionContext 
 				primaries = append(primaries, pe)
 			}
 		}
-		for i := 0; i < t.GetChildCount(); i++ {
+		for i := range t.GetChildCount() {
 			walk(t.GetChild(i))
 		}
 	}

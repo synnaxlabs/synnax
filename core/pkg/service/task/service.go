@@ -276,7 +276,7 @@ func (s *Service) guardRack(ctx gorp.Context, r rack.Rack) error {
 	)
 }
 
-func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error {
+func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Outage) error {
 	rackKey, err := rack.KeyFromResourceID(*rackStat.Owner)
 	if err != nil {
 		return err
@@ -301,7 +301,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 		statuses := make([]Status, 0, len(tasks))
 		for i, tsk := range tasks {
 			prev := reported[i]
-			if prev == nil {
+			if prev == nil || rackStat.Reported(prev.Key, prev.Time) {
 				continue
 			}
 			var (

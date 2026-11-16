@@ -21,8 +21,8 @@ excluded = ["**/pnpm-lock.yaml", "**/uv.lock", "**/go.sum", "**/MODULE.bazel.loc
 # files it leaves out.
 diff_chars = 300_000
 
-# The highest score a review can give while it has a blocking finding of the severity. A
-# review with no blocking finding scores 5.
+# The highest score a review can give while it has a finding of the severity. A review
+# with no finding scores 5.
 [caps]
 P0 = 2
 P1 = 4

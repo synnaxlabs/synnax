@@ -16,6 +16,8 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -594,6 +596,18 @@ var _ = Describe("Check", func() {
 			Expect(cs.Constraints[0].Reason).To(Equal("first"))
 			Expect(cs.Constraints[1].Reason).To(Equal("second"))
 		})
+	})
+})
+
+var _ = Describe("Hint", func() {
+	It("Should hint a comparison for a numeric value into a bool", func() {
+		err := atypes.Check(constraints.New(), types.Bool(), types.U8(), nil, "")
+		Expect(err).To(MatchError("type mismatch: expected bool, got u8"))
+		var hinted diagnostics.HintProvider
+		Expect(errors.As(err, &hinted)).To(BeTrue())
+		Expect(hinted.GetHint()).To(Equal(constraints.BoolHint))
+		_, ok := atypes.CastOf(err)
+		Expect(ok).To(BeFalse())
 	})
 })
 

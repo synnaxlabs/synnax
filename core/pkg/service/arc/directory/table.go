@@ -94,11 +94,8 @@ func (t *Table) NewWriter(tx gorp.Tx) Writer {
 }
 
 // Changes returns the changes that c made to directories.
-func (t *Table) Changes(
-	ctx context.Context,
-	c gorp.Commit,
-) gorp.TxReader[Key, Directory] {
-	return t.table.Changes(ctx, c)
+func (t *Table) Changes(c gorp.Commit) gorp.TxReader[Key, Directory] {
+	return t.table.Changes(c)
 }
 
 // Observe returns an observable of the changes to directories.

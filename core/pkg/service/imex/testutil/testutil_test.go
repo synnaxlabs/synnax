@@ -25,22 +25,18 @@ type resource struct {
 }
 
 var _ = Describe("LoadEnvelope", func() {
-	It("Should read a fixture and bind a codec so the envelope decodes", func(
-		ctx SpecContext,
-	) {
+	It("Should read a fixture and bind a codec so the envelope decodes", func() {
 		env := LoadEnvelope("testdata/envelope.json")
 		Expect(env.Version).To(Equal(imex.Version(1)))
 		Expect(env.Type).To(Equal("test"))
 		Expect(env.Name).To(Equal("fixture"))
-		Expect(MustSucceed(env.Decode[resource](ctx))).
+		Expect(MustSucceed(env.Decode[resource]())).
 			To(Equal(resource{Name: "fixture", Field: "value"}))
 	})
 })
 
 var _ = Describe("WireRoundTrip", func() {
-	It("Should preserve headers and bind a codec so the envelope decodes", func(
-		ctx SpecContext,
-	) {
+	It("Should preserve headers and bind a codec so the envelope decodes", func() {
 		env := imex.Envelope{Version: 1, Type: "test", Name: "roundtrip"}
 		r := resource{Name: "roundtrip", Field: "value"}
 		Expect(env.Encode(r)).To(Succeed())
@@ -48,7 +44,7 @@ var _ = Describe("WireRoundTrip", func() {
 		Expect(out.Version).To(Equal(imex.Version(1)))
 		Expect(out.Type).To(Equal("test"))
 		Expect(out.Name).To(Equal("roundtrip"))
-		Expect(MustSucceed(out.Decode[resource](ctx))).To(Equal(r))
+		Expect(MustSucceed(out.Decode[resource]())).To(Equal(r))
 	})
 })
 
@@ -61,7 +57,7 @@ var _ = Describe("LoadBundle", func() {
 		))
 	})
 
-	It("Should read a member's bytes verbatim", func(ctx SpecContext) {
+	It("Should read a member's bytes verbatim", func() {
 		files := LoadBundle("testdata/bundle")
 		var env imex.Envelope
 		Expect(json.Unmarshal(files["nested dir/member.json"], &env)).To(Succeed())

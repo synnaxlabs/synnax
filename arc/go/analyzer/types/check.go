@@ -128,6 +128,8 @@ func newTypeMismatchError(
 			actual.Unwrap().Kind == actual.Kind {
 			cast = name
 		}
+	} else if expected.IsBool() && actual.IsNumeric() {
+		hint = constraints.BoolHint
 	}
 	return &typeMismatchError{Message: msg, Hint: hint, Cast: cast}
 }

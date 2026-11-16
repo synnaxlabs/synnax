@@ -30,8 +30,8 @@ const (
 	// already elapsed by the time Decide returns Restart.
 	Restart
 	// GiveUp indicates the process has exited unexpectedly too many times in quick
-	// succession (or the Policy's context was canceled) and should not be restarted
-	// again.
+	// succession, or the context passed to Decide was canceled, and should not be
+	// restarted again.
 	GiveUp
 )
 
@@ -64,10 +64,9 @@ type Policy struct {
 	healthyUptime time.Duration
 }
 
-// New constructs a Policy. The provided context bounds the backoff waits in Decide: if
-// it is canceled while Decide is waiting, Decide stops waiting and returns GiveUp.
-func New(ctx context.Context, cfg Config) (*Policy, error) {
-	b, err := breaker.NewBreaker(ctx, breaker.Config{
+// New constructs a Policy.
+func New(cfg Config) (*Policy, error) {
+	b, err := breaker.NewBreaker(breaker.Config{
 		BaseInterval: cfg.BaseInterval,
 		Scale:        cfg.Scale,
 		MaxRetries:   cfg.MaxRetries,
@@ -87,16 +86,30 @@ func New(ctx context.Context, cfg Config) (*Policy, error) {
 // which case Decide returns Stop immediately. Otherwise the exit is treated as a
 // failure: if uptime is at least HealthyUptime the failure counter is reset first, then
 // Decide waits out the backoff and returns Restart, or returns GiveUp once MaxRetries
-// consecutive failures are reached (or the context is canceled).
-func (p *Policy) Decide(expected bool, uptime time.Duration) Action {
+// consecutive failures are reached or ctx is canceled.
+func (p *Policy) Decide(
+	ctx context.Context,
+	expected bool,
+	uptime time.Duration,
+) Action {
 	if expected {
 		return Stop
 	}
 	if uptime >= p.healthyUptime {
 		p.breaker.Reset()
 	}
-	if p.breaker.Wait() {
+	if p.breaker.Wait(ctx) {
 		return Restart
 	}
 	return GiveUp
+}
+
+// Requested returns Restart for an exit that the supervisor requested so that the
+// process starts again at once. It does not wait or count a failure, but it resets the
+// failure counter when uptime is at least HealthyUptime, as Decide does.
+func (p *Policy) Requested(uptime time.Duration) Action {
+	if uptime >= p.healthyUptime {
+		p.breaker.Reset()
+	}
+	return Restart
 }

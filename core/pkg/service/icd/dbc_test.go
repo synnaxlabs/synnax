@@ -608,5 +608,11 @@ SG_MUL_VAL_ 256 A Missing 0-0;
 
 SIG_VALTYPE_ 256 A : 1;
 `, "line 12: signal A is a 32-bit float but has 16 bits"),
+		Entry("a signal with no bits", `BO_ 256 Engine: 8 Ecu
+ SG_ A : 0|0@1+ (1,0) [0|0] "" Ecu
+`, "line 10: signal A has 0 bits, not 1 to 64"),
+		Entry("a signal of more than 64 bits", `BO_ 256 Engine: 8 Ecu
+ SG_ A : 0|65@1+ (1,0) [0|0] "" Ecu
+`, "line 10: signal A has 65 bits, not 1 to 64"),
 	)
 })
