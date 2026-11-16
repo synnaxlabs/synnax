@@ -363,7 +363,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) (bool, error) {
 		}
 		defer func() { err = errors.Combine(err, r.Close()) }()
 
-		w, err := db.cfg.FS.Open(copyName, os.O_WRONLY|os.O_CREATE)
+		w, err := db.cfg.FS.Open(copyName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
 		if err != nil {
 			return err
 		}
