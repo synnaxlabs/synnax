@@ -666,6 +666,14 @@ TEST(TestSeries, testDeepCopyWriteIntoSpareCapacity) {
     ASSERT_EQ(s2.at<std::uint32_t>(-1), 7);
 }
 
+/// @brief it should append the strings of another string series.
+TEST(TestSeries, testWriteStringSeries) {
+    Series s(std::vector<std::string>{"a"});
+    ASSERT_EQ(s.write(Series(std::vector<std::string>{"bc", "def"})), 2);
+    ASSERT_EQ(s.size(), 3);
+    ASSERT_EQ(s.strings(), (std::vector<std::string>{"a", "bc", "def"}));
+}
+
 /// @brief it should keep the spare byte capacity of a variable series in a deep copy.
 TEST(TestSeries, testDeepCopyVariableSpareCapacity) {
     const Series s1{STRING_T, 64};
