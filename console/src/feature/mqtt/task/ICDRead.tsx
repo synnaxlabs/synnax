@@ -180,9 +180,7 @@ const addTopics = async ({
   const added: { topic: string; message: icd.MessageKey }[] = [];
   for (const { topic, fields } of drafts) {
     const entry = entries.find((e) => e.topic === topic);
-    let message =
-      (entry == null ? undefined : messageOf(messages, entry)) ??
-      messages.find(({ name }) => name === topic);
+    let message = entry == null ? undefined : messageOf(messages, entry);
     if (message != null) actions.push(...appendFields(message, fields));
     else {
       const after = (created.at(-1) ?? messages.at(-1))?.key;
@@ -277,8 +275,6 @@ const TopicDetails: FC<TopicDetailsProps> = ({ path, format }) => {
   const fieldsPath = deep.variant(messagePath.payload, "format", "json").fields;
   const message = PForm.useFieldValue(messagePath, { optional: true, ctx: format });
   const mixed = variableAmongFixed(jsonFields(message));
-  // The message is named after its topic, so the ICD editor lists it by topic.
-  const handleTopic = (topic: string) => format.set(messagePath.name, topic);
   const openEditor = () =>
     openTab({ variant: "resource", resource: icd.resourceID(entry.icd) });
   return (
@@ -290,7 +286,6 @@ const TopicDetails: FC<TopicDetailsProps> = ({ path, format }) => {
             label="Topic"
             padHelpText={false}
             inputProps={TOPIC_INPUT_PROPS}
-            onChange={handleTopic}
           />
           <QoSField path={path.qos} />
           <PForm.CheckboxField

@@ -192,19 +192,19 @@ describe("MQTT ICD read form", () => {
     );
   });
 
-  it("should rename the message of a topic when the topic changes", async () => {
+  it("should not rename the message of a topic when the topic changes", async () => {
     const { draft } = await renderICDRead({
       fields: [createField("temperature", "float")],
     });
     const input = await screen.findByDisplayValue(TOPIC);
     fireEvent.change(input, { target: { value: "plant/kiln" } });
     fireEvent.blur(input);
-    const [entry] = await retrieveEntries(draft.key);
-    await waitFor(async () =>
-      expect((await client.icds.retrieve(entry.icd)).messages[0].name).toBe(
-        "plant/kiln",
-      ),
-    );
+    const [entry] = await waitFor(async () => {
+      const entries = await retrieveEntries(draft.key);
+      expect(entries[0].topic).toBe("plant/kiln");
+      return entries;
+    });
+    expect((await client.icds.retrieve(entry.icd)).messages[0].name).toBe(TOPIC);
   });
 
   describe("deploying against a live Core", () => {
