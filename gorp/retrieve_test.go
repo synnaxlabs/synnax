@@ -251,7 +251,8 @@ var _ = Describe("Retrieve", func() {
 						Expect(gorp.NewRetrieve[int32, entry]().
 							Where(gorp.MatchKeys[int32, entry](reshaped.ID)).
 							Entry(&res).
-							Exec(ctx, tx)).ToNot(Succeed())
+							Exec(ctx, tx),
+						).To(MatchError(ContainSubstring("failed to decode")))
 						Expect(gorp.NewRetrieve[int32, entry]().
 							Where(gorp.MatchKeys[int32, entry](reshaped.ID)).
 							Exists(ctx, tx)).To(BeTrue())
