@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -494,8 +495,15 @@ func analyzeIdentifierByRole(
 
 	switch sym.Kind {
 	case symbol.KindConstant:
-		// Every module constant holds a float64.
-		value := sym.DefaultValue.(float64)
+		value, ok := sym.DefaultValue.(float64)
+		if !ok {
+			ctx.Diagnostics.Add(diagnostics.Error(errors.Newf(
+				"constant %s holds a %T, not a float64",
+				sym.Name,
+				sym.DefaultValue,
+			), ctx.AST))
+			return flowNodeResult{}, false
+		}
 		t := ctx.TypeMap[ctx.AST]
 		n := newConstNode(
 			kg.generate("const", sym.Name),
