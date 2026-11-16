@@ -247,7 +247,8 @@ TEST(AcquisitionPipeline, RetriesHardwareErrorDuringCoreOutage) {
         fast_breaker(1)
     );
     ASSERT_TRUE(pipeline.start());
-    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    // The second read fails, so a second write proves the retry ran before the stop.
+    ASSERT_EVENTUALLY_GE(writes->size(), 2);
     ASSERT_TRUE(pipeline.stop());
     ASSERT_NIL(source->stopped_err);
 }
