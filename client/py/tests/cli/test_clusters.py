@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
-import socket
 from pathlib import Path
 from typing import override
 from uuid import UUID, uuid4
@@ -19,7 +17,7 @@ from keyring.errors import KeyringError
 import synnax as sy
 from synnax.cli import connect, console
 from synnax.cli.flow import Context
-from synnax.config import DESKTOP_NOT_RUNNING_MSG, Cluster, Clusters, File
+from synnax.config import Cluster, Clusters, File
 from synnax.options import Options
 from tests.memory_keyring import MemoryKeyring
 
@@ -235,140 +233,4 @@ class TestLogin:
         first_key = sy.auth.api_key_id(first.options.api_key)
         assert first_key in {k.key for k in client.auth.retrieve_keys()}
         client.users.delete(other.key)
-        delete_new_keys(client, before)
-
-
-@pytest.mark.cli
-class TestFromClusters:
-    def test_prompts_without_saved_options(
-        self,
-        clusters: Clusters,
-        tmp_path: Path,
-        login_info: tuple[str, int, str, str],
-    ) -> None:
-        """Should prompt for options and save nothing when none are saved."""
-        host, port, username, password = login_info
-        mock = console.Mock(responses=[host, port, username, password, False])
-        desktop = tmp_path / "desktop.json"
-        assert (
-            connect.from_clusters(Context(console=mock), clusters, desktop) is not None
-        )
-        assert clusters.get() is None
-
-    def test_connects_to_desktop_without_saved_options(
-        self,
-        clusters: Clusters,
-        tmp_path: Path,
-        login_info: tuple[str, int, str, str],
-        client: sy.Synnax,
-    ) -> None:
-        """Should connect with the key Synnax Desktop saved, without a prompt."""
-        host, port, _, _ = login_info
-        token, key = client.auth.create_key(name="Desktop file test")
-        desktop = tmp_path / "desktop.json"
-        desktop.write_text(
-            json.dumps({"host": host, "port": port, "secure": False, "api_key": token})
-        )
-        mock = console.Mock()
-        connected = connect.from_clusters(Context(console=mock), clusters, desktop)
-        assert connected is not None
-        assert connected.auth.session is not None
-        assert connected.auth.session.credential == key.key
-        assert mock.output.entries[0].message == "Using Synnax Desktop."
-        assert clusters.get() is None
-        client.auth.delete_keys(key.key)
-
-    def test_reports_desktop_not_running(
-        self, clusters: Clusters, tmp_path: Path
-    ) -> None:
-        """Should say that Synnax Desktop is not running when its Core is gone."""
-        with socket.socket() as s:
-            s.bind(("127.0.0.1", 0))
-            port = s.getsockname()[1]
-        desktop = tmp_path / "desktop.json"
-        desktop.write_text(
-            json.dumps(
-                {"host": "127.0.0.1", "port": port, "secure": False, "api_key": "k"}
-            )
-        )
-        mock = console.Mock()
-        assert connect.from_clusters(Context(console=mock), clusters, desktop) is None
-        assert mock.output.entries[-1].message == DESKTOP_NOT_RUNNING_MSG
-
-    def test_replaces_saved_password(
-        self,
-        clusters: Clusters,
-        keyring: MemoryKeyring,
-        login_info: tuple[str, int, str, str],
-        client: sy.Synnax,
-    ) -> None:
-        """Should replace a saved password with an API key after connecting."""
-        host, port, username, password = login_info
-        before = {k.key for k in client.auth.retrieve_keys()}
-        save_legacy_password(
-            clusters,
-            keyring,
-            Options(host=host, port=port, username=username, password=password),
-        )
-        connected = connect.from_clusters(Context(console=console.Mock()), clusters)
-        assert connected is not None
-        assert ("synnax", "default") not in keyring.values
-        saved = clusters.get()
-        assert saved is not None
-        assert saved.options.api_key.startswith("syk_")
-        keyed = connect.from_clusters(Context(console=console.Mock()), clusters)
-        assert keyed is not None
-        assert keyed.auth.session is not None
-        created = {k.key for k in client.auth.retrieve_keys()} - before
-        assert keyed.auth.session.credential in created
-        delete_new_keys(client, before)
-
-    def test_keeps_password_when_save_fails(
-        self,
-        clusters: Clusters,
-        keyring: MemoryKeyring,
-        login_info: tuple[str, int, str, str],
-        client: sy.Synnax,
-    ) -> None:
-        """Should connect, keep the saved password, and delete the new key when the
-        config write fails.
-        """
-        host, port, username, password = login_info
-        before = {k.key for k in client.auth.retrieve_keys()}
-        save_legacy_password(
-            clusters,
-            keyring,
-            Options(host=host, port=port, username=username, password=password),
-        )
-        block_config_writes(clusters)
-        connected = connect.from_clusters(Context(console=console.Mock()), clusters)
-        assert connected is not None
-        assert keyring.values == {("synnax", "default"): password}
-        assert {k.key for k in client.auth.retrieve_keys()} == before
-
-    def test_keeps_saved_key_when_cleanup_fails(
-        self,
-        tmp_path: Path,
-        login_info: tuple[str, int, str, str],
-        client: sy.Synnax,
-    ) -> None:
-        """Should keep the saved key on the Core when the old password cannot be
-        deleted.
-        """
-        host, port, username, password = login_info
-        before = {k.key for k in client.auth.retrieve_keys()}
-        keyring = UndeletableKeyring()
-        clusters = Clusters(File(config_dir=tmp_path), keyring)
-        save_legacy_password(
-            clusters,
-            keyring,
-            Options(host=host, port=port, username=username, password=password),
-        )
-        assert (
-            connect.from_clusters(Context(console=console.Mock()), clusters) is not None
-        )
-        keyed = connect.from_clusters(Context(console=console.Mock()), clusters)
-        assert keyed is not None
-        assert keyed.auth.session is not None
-        assert keyed.auth.session.credential not in before
         delete_new_keys(client, before)

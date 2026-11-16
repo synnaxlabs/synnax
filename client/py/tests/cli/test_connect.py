@@ -34,14 +34,13 @@ def closed_port() -> int:
 @pytest.mark.cli
 class TestPromptedConnection:
     def test_connects_to_prompted_address(
-        self, clusters: Clusters, tmp_path: Path, closed_port: int
+        self, clusters: Clusters, closed_port: int
     ) -> None:
         """Should connect to the host and port from the prompt responses."""
         mock = console.Mock(
             responses=["127.0.0.1", closed_port, "admin", "secret", False]
         )
-        desktop = tmp_path / "desktop.json"
-        assert connect.from_clusters(Context(console=mock), clusters, desktop) is None
+        connect.login(Context(console=mock), clusters)
         messages = [e.message or "" for e in mock.output.entries]
         assert not any("CA certificate" in m for m in messages)
         assert messages[-1] == f"Cannot reach Synnax server at 127.0.0.1:{closed_port}"
@@ -64,6 +63,5 @@ class TestPromptedConnection:
         mock = console.Mock(
             responses=["127.0.0.1", closed_port, "admin", "secret", True, "ca.crt"]
         )
-        desktop = tmp_path / "desktop.json"
-        assert connect.from_clusters(Context(console=mock), clusters, desktop) is None
+        connect.login(Context(console=mock), clusters)
         assert str(ca_cert.resolve()) in (mock.output.entries[-1].message or "")

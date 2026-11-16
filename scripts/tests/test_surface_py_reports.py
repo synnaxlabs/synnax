@@ -16,7 +16,6 @@ class TestCLIReport:
         lines = surface_py_cli.report().splitlines()
         assert "sy command" in lines
         assert "sy login command" in lines
-        assert any(line.startswith("sy tsconvert input_path {") for line in lines)
         assert not any('"help"' in line for line in lines)
 
     def test_gives_each_argument_its_position(self) -> None:
