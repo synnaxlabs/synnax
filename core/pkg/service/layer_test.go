@@ -80,7 +80,7 @@ var _ = Describe("Layer", func() {
 		signer := svctestutil.NewSigner()
 		lic := svctestutil.NewLicense()
 		lic.Channels = 50
-		node := testutil.NewNode(ctx)
+		node := testutil.NewNode(GinkgoT().Context())
 		layer := MustOpen(
 			svctestutil.OpenLayer(ctx, node, service.LayerConfig{
 				License: license.ServiceConfig{
@@ -234,7 +234,7 @@ var _ = Describe("Layer", func() {
 	)
 
 	It("Should refuse a framer writer on a change channel", func(ctx SpecContext) {
-		node := testutil.NewNode(ctx)
+		node := testutil.NewNode(GinkgoT().Context())
 		layer := MustOpen(svctestutil.OpenLayer(ctx, node))
 		var ch channel.Channel
 		Expect(layer.Channel.NewRetrieve().
@@ -251,7 +251,7 @@ var _ = Describe("Layer", func() {
 	})
 
 	It("Should delete a stored snapshot task", func(ctx SpecContext) {
-		node := testutil.NewNode(ctx)
+		node := testutil.NewNode(GinkgoT().Context())
 		legacyDB := gorp.Wrap(node.DB.KV(), gorp.WithCodec(msgpack.Codec))
 		stored := []taskv0.Task{
 			{
@@ -387,7 +387,7 @@ var _ = Describe("Layer", func() {
 	It(
 		"Should end root sessions only when the root password changes",
 		func(ctx SpecContext) {
-			node := testutil.NewNode(ctx)
+			node := testutil.NewNode(GinkgoT().Context())
 			open := func(pwd string) *service.Layer {
 				GinkgoHelper()
 				return MustSucceed(svctestutil.OpenLayer(ctx, node, service.LayerConfig{
@@ -414,7 +414,7 @@ var _ = Describe("Layer", func() {
 	It(
 		"Should log in a user whose password a Core before 0.59 stored",
 		func(ctx SpecContext) {
-			node := testutil.NewNode(ctx)
+			node := testutil.NewNode(GinkgoT().Context())
 			alice := userv0.User{Key: uuid.New(), Username: "alice"}
 			hash := MustSucceed(
 				bcrypt.GenerateFromPassword([]byte("p"), bcrypt.MinCost),
@@ -445,7 +445,7 @@ var _ = Describe("Layer", func() {
 	It(
 		"Should adopt a legacy workspace layout as a panel after all tables open",
 		func(ctx SpecContext) {
-			node := testutil.NewNode(ctx)
+			node := testutil.NewNode(GinkgoT().Context())
 			db := node.DB
 			plot := defaults.Fill(lineplot.LinePlot{Key: uuid.New(), Name: "Pressures"})
 			lpKey := plot.Key.String()
@@ -531,7 +531,7 @@ var _ = Describe("Layer", func() {
 	It(
 		"Should delete a group on a v0.58 Core that stores panels",
 		func(ctx SpecContext) {
-			node := testutil.NewNode(ctx)
+			node := testutil.NewNode(GinkgoT().Context())
 			tab := func(t resource.Type) panelv0.Tab {
 				return panelv0.Tab{Variant: panelv0.ResourceTab{
 					Key:      uuid.New(),
@@ -578,7 +578,7 @@ var _ = Describe("Workspace-era upgrade", func() {
 	It(
 		"Should keep every visualization in the project its workspace becomes",
 		func(ctx SpecContext) {
-			node := testutil.NewNode(ctx)
+			node := testutil.NewNode(GinkgoT().Context())
 			legacyDB := gorp.Wrap(node.DB.KV(), gorp.WithCodec(msgpack.Codec))
 			ws := projectv0.Workspace{Key: uuid.New(), Name: "Workspace"}
 			Expect(gorp.WrapWriter[projectv0.Key, projectv0.Workspace](legacyDB).

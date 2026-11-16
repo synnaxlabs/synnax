@@ -3071,8 +3071,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 
 var _ = Describe("Close", func() {
 	It("Should reject every call after Close", func(ctx SpecContext) {
-		node := testutil.NewNode(ctx)
-		iteratorSvc, channelSvc := openServices(ctx, node)
+		node := testutil.NewNode(GinkgoT().Context())
+		iteratorSvc, channelSvc := openServices(GinkgoT().Context(), node)
 		ch := &channel.Channel{
 			Name:     "Scott",
 			DataType: telem.TimestampT,

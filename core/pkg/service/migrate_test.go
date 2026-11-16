@@ -72,7 +72,7 @@ var _ = Describe("Ontology drop", func() {
 	It(
 		"Should convert the edges of an upgraded store, then drop the ontology",
 		func(ctx SpecContext) {
-			node := testutil.NewNode(ctx)
+			node := testutil.NewNode(GinkgoT().Context())
 			legacyDB := gorp.Wrap(node.DB.KV(), gorp.WithCodec(msgpack.Codec))
 			rootID := resource.ID{Type: resource.TypeBuiltin, Key: "root"}
 			channels := groupv0.Group{Key: uuid.New(), Name: "Channels"}
@@ -139,7 +139,7 @@ var _ = Describe("Ontology drop", func() {
 	)
 
 	It("Should log each label edge it drops", func(ctx SpecContext) {
-		node := testutil.NewNode(ctx)
+		node := testutil.NewNode(GinkgoT().Context())
 		legacyDB := gorp.Wrap(node.DB.KV(), gorp.WithCodec(msgpack.Codec))
 		labelID := resource.ID{Type: resource.TypeLabel, Key: uuid.New().String()}
 		taskID := resource.ID{Type: resource.TypeTask, Key: uuid.New().String()}
@@ -170,7 +170,7 @@ var _ = Describe("Ontology drop", func() {
 	})
 
 	It("Should not run again on a later open", func(ctx SpecContext) {
-		node := testutil.NewNode(ctx)
+		node := testutil.NewNode(GinkgoT().Context())
 		Expect(MustSucceed(svctestutil.OpenLayer(ctx, node)).Close()).To(Succeed())
 		builtin := group.Group{Name: "Builtin", Scope: resource.TypeBuiltin}
 		builtin.Key = uuid.New()
@@ -220,7 +220,7 @@ var _ = Describe("Retired channels", func() {
 	It(
 		"Should delete the retired channels of an upgraded store",
 		func(ctx SpecContext) {
-			n := testutil.NewNode(ctx)
+			n := testutil.NewNode(GinkgoT().Context())
 			first := MustSucceed(svctestutil.OpenLayer(ctx, n))
 			chs := make([]channel.Channel, len(names))
 			for i, name := range names {
@@ -262,7 +262,7 @@ func (storedAlias) CustomTypeName() string { return "Alias" }
 
 var _ = Describe("Range alias drop", func() {
 	It("Should delete the range aliases of an upgraded store", func(ctx SpecContext) {
-		n := testutil.NewNode(ctx)
+		n := testutil.NewNode(GinkgoT().Context())
 		legacyDB := gorp.Wrap(n.DB.KV(), gorp.WithCodec(msgpack.Codec))
 		Expect(gorp.WrapWriter[string, storedAlias](legacyDB).Set(
 			ctx,
@@ -280,7 +280,7 @@ var _ = Describe("Range alias drop", func() {
 
 var _ = Describe("Metrics upgrade", func() {
 	It("Should keep every metrics channel in the Metrics group", func(ctx SpecContext) {
-		n := testutil.NewNode(ctx)
+		n := testutil.NewNode(GinkgoT().Context())
 		legacyDB := gorp.Wrap(n.DB.KV(), gorp.WithCodec(msgpack.Codec))
 		prefix := fmt.Sprintf("sy_node_%s_metrics_", n.Identity.HostKey)
 		idx := MustSucceed(n.Channel.Allocate(ctx, []distchannel.Channel{{
@@ -379,7 +379,7 @@ var _ = Describe("Metrics upgrade", func() {
 var _ = Describe("Group drop report", func() {
 	It("Should report each channel that the upgrade removed from a group",
 		func(ctx SpecContext) {
-			n := testutil.NewNode(ctx)
+			n := testutil.NewNode(GinkgoT().Context())
 			legacyDB := gorp.Wrap(n.DB.KV(), gorp.WithCodec(msgpack.Codec))
 			chs := MustSucceed(n.Channel.Allocate(ctx, []distchannel.Channel{
 				{

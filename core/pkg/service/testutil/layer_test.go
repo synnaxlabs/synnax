@@ -35,7 +35,7 @@ var _ = Describe("Layer", func() {
 
 	Describe("OpenLayer", func() {
 		It("should open a covered layer", func(ctx SpecContext) {
-			node := disttestutil.NewNode(ctx)
+			node := disttestutil.NewNode(GinkgoT().Context())
 			layer := MustOpen(testutil.OpenLayer(ctx, node))
 			Expect(layer.License.Retrieve().State).To(Equal(license.StateOk))
 		})

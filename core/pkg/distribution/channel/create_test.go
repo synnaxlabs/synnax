@@ -147,10 +147,13 @@ var _ = Describe("Create", Ordered, func() {
 
 var _ = Describe("Free key counter", func() {
 	It("Should not reuse a free key after the Core reopens", func(ctx SpecContext) {
-		store := DeferClose(storagetestutil.OpenLayer(ctx))
+		store := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
 		create := func() channel.LocalKey {
 			GinkgoHelper()
-			n := testutil.OpenNode(ctx, distribution.LayerConfig{Storage: store})
+			n := testutil.OpenNode(
+				GinkgoT().Context(),
+				distribution.LayerConfig{Storage: store},
+			)
 			defer func() { Expect(n.Close()).To(Succeed()) }()
 			out := MustSucceed(n.Channel.Allocate(ctx, []channel.Channel{{
 				Name:        "free",

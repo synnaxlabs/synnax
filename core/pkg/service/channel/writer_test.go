@@ -120,7 +120,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should remove overwritten channels from the external channel set",
 			func(ctx SpecContext) {
-				cleanup := testutil.NewNode(ctx)
+				cleanup := testutil.NewNode(GinkgoT().Context())
 				cleanupSvc := openService(
 					ctx,
 					cleanup,
@@ -1371,14 +1371,19 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should not block Gorp reads while removing data",
 				func(ctx SpecContext) {
-					base := DeferClose(storagetestutil.OpenLayer(ctx))
+					base := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
 					fsys := xfstestutil.WrapFaultyFS(xfs.NewMem())
 					tsDB := DeferClose(
-						MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fsys))),
+						MustSucceed(
+							cesium.Open(GinkgoT().Context(), "", cesium.WithFS(fsys)),
+						),
 					)
-					slow := testutil.NewNode(ctx, distribution.LayerConfig{
-						Storage: &storage.Layer{KV: base.KV, TS: tsDB},
-					})
+					slow := testutil.NewNode(
+						GinkgoT().Context(),
+						distribution.LayerConfig{
+							Storage: &storage.Layer{KV: base.KV, TS: tsDB},
+						},
+					)
 					slowSvc := openService(ctx, slow)
 					ch := channel.Channel{
 						Name:        UniqueChannelName(),
@@ -1480,7 +1485,7 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should clear on open the index of a channel whose index does not exist",
 				func(ctx SpecContext) {
-					fresh := testutil.NewNode(ctx)
+					fresh := testutil.NewNode(GinkgoT().Context())
 					calc := channel.Channel{
 						Name:        "dangling_calc",
 						Leaseholder: node.KeyFree,

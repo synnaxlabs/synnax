@@ -195,7 +195,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		It(
 			"Should return empty when no calculated channels exist on a fresh node",
 			func(ctx SpecContext) {
-				fresh := testutil.NewNode(ctx)
+				fresh := testutil.NewNode(GinkgoT().Context())
 				freshSvc := openService(ctx, fresh)
 				base := channel.Channel{
 					Virtual:  true,

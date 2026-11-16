@@ -173,7 +173,7 @@ var _ = Describe("Backup", func() {
 	It(
 		"Should copy the key-value store and the channel metadata",
 		func(ctx SpecContext) {
-			l := openLayer(ctx, dir, "0.59.0")
+			l := openLayer(GinkgoT().Context(), dir, "0.59.0")
 			Expect(l.KV.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 			Expect(l.TS.CreateChannel(ctx, indexCh, dataCh)).To(Succeed())
 			write(ctx, l, 1, indexCh.Key, dataCh.Key)
@@ -235,7 +235,7 @@ var _ = Describe("Backup", func() {
 			Expect(os.MkdirAll(filepath.Join(dir, "cesium", "9", "meta.json"), 0o700)).
 				To(Succeed())
 			Expect(storage.OpenLayer(
-				ctx,
+				GinkgoT().Context(),
 				storage.LayerConfig{Dirname: dir, Version: "0.60.0"},
 			)).Error().To(MatchError(ContainSubstring("failed to back up metadata")))
 			Expect(entries(filepath.Join(dir, "backups"))).

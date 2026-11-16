@@ -168,7 +168,7 @@ var _ = Describe("Migrations", func() {
 			// Legacy rows from released builds are msgpack-encoded, while the opened
 			// services run the production Orc codec. Stage through an msgpack view of
 			// the same KV so the fixtures land in their real on-disk form.
-			node := testutil.NewNode(ctx)
+			node := testutil.NewNode(GinkgoT().Context())
 			db := node.DB
 			stageDB := gorp.Wrap(db.DB, gorp.WithCodec(msgpack.Codec))
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{

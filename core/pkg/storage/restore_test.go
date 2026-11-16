@@ -33,13 +33,13 @@ var _ = Describe("Restore", func() {
 	It(
 		"Should put the metadata back and move channels the backup does not know",
 		func(ctx SpecContext) {
-			l := openLayer(ctx, dir, "0.59.0")
+			l := openLayer(GinkgoT().Context(), dir, "0.59.0")
 			Expect(l.KV.Set(ctx, []byte("key"), []byte("before"))).To(Succeed())
 			Expect(l.TS.CreateChannel(ctx, indexCh, dataCh)).To(Succeed())
 			write(ctx, l, 1, indexCh.Key, dataCh.Key)
 			Expect(l.Close()).To(Succeed())
 
-			l = openLayer(ctx, dir, "0.60.0")
+			l = openLayer(GinkgoT().Context(), dir, "0.60.0")
 			Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
 			Expect(l.TS.RenameChannels(
 				ctx,
@@ -58,7 +58,7 @@ var _ = Describe("Restore", func() {
 			Expect(entries(res.OrphanedDir)).To(HaveLen(1))
 			Expect(recordedVersion(dir)).To(Equal("0.59.0"))
 
-			l = openLayer(ctx, dir, "0.59.0")
+			l = openLayer(GinkgoT().Context(), dir, "0.59.0")
 			value, closer := MustSucceed2(l.KV.Get([]byte("key")))
 			Expect(string(value)).To(Equal("before"))
 			Expect(closer.Close()).To(Succeed())
@@ -89,7 +89,7 @@ var _ = Describe("Restore", func() {
 		"Should not open the data until an interrupted restore runs again",
 		func(ctx SpecContext, interrupt func()) {
 			openAt(ctx, dir, "0.59.0")
-			l := openLayer(ctx, dir, "0.60.0")
+			l := openLayer(GinkgoT().Context(), dir, "0.60.0")
 			Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
 			Expect(l.Close()).To(Succeed())
 			name := onlyBackup(dir)
@@ -97,7 +97,7 @@ var _ = Describe("Restore", func() {
 			interrupt()
 			before := entries(dir)
 			Expect(storage.OpenLayer(
-				ctx,
+				GinkgoT().Context(),
 				storage.LayerConfig{Dirname: dir, Version: "0.60.0"},
 			)).Error().To(MatchError(ContainSubstring(
 				"Run `synnax update undo %s` again", name,
@@ -108,7 +108,7 @@ var _ = Describe("Restore", func() {
 				Or(HavePrefix("kv."), Equal(restoreMarkerFile)),
 			))
 			Expect(entries(filepath.Join(dir, "kv"))).ToNot(ContainElement("stale"))
-			l = openLayer(ctx, dir, "0.59.0")
+			l = openLayer(GinkgoT().Context(), dir, "0.59.0")
 			Expect(l.KV.Get([]byte("key"))).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(l.Close()).To(Succeed())
@@ -156,7 +156,7 @@ var _ = Describe("Restore", func() {
 		Expect(newBackups(dir).Restore(name)).Error().
 			To(MatchError(ContainSubstring("VERSION.tmp")))
 		Expect(storage.OpenLayer(
-			ctx,
+			GinkgoT().Context(),
 			storage.LayerConfig{Dirname: dir, Version: "0.60.0"},
 		)).Error().To(And(
 			beRefused(),
@@ -192,7 +192,7 @@ var _ = Describe("Restore", func() {
 		"Should not change the data when the backup lacks a directory",
 		func(ctx SpecContext, missing string) {
 			openAt(ctx, dir, "0.59.0")
-			l := openLayer(ctx, dir, "0.60.0")
+			l := openLayer(GinkgoT().Context(), dir, "0.60.0")
 			Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
 			Expect(l.TS.CreateChannel(ctx, indexCh)).To(Succeed())
 			Expect(l.Close()).To(Succeed())
@@ -203,7 +203,7 @@ var _ = Describe("Restore", func() {
 			Expect(entries(filepath.Join(dir, "backups"))).To(ConsistOf(name + ".tar"))
 			Expect(filepath.Join(dir, restoreMarkerFile)).
 				ToNot(BeAnExistingFile())
-			l = openLayer(ctx, dir, "0.60.0")
+			l = openLayer(GinkgoT().Context(), dir, "0.60.0")
 			value, closer := MustSucceed2(l.KV.Get([]byte("key")))
 			Expect(string(value)).To(Equal("after"))
 			Expect(closer.Close()).To(Succeed())
@@ -240,7 +240,7 @@ var _ = Describe("Restore", func() {
 		openAt(ctx, dir, "0.60.0")
 		name := onlyBackup(dir)
 		MustOpen(storage.OpenLayer(
-			ctx,
+			GinkgoT().Context(),
 			storage.LayerConfig{Dirname: dir, Version: "0.60.0"},
 		))
 		Expect(newBackups(dir).Restore(name)).Error().
@@ -295,7 +295,7 @@ var _ = Describe("Undo", func() {
 			openAt(ctx, dir, "0.60.0")
 			MustSucceed(newBackups(dir).Undo())
 			MustOpen(storage.OpenLayer(
-				ctx,
+				GinkgoT().Context(),
 				storage.LayerConfig{Dirname: dir, Version: "0.59.0"},
 			))
 			Expect(newBackups(dir).Undo()).Error().

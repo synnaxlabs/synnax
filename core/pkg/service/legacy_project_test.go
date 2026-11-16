@@ -32,7 +32,7 @@ import (
 var _ = Describe("Legacy project bundles", func() {
 	openLayer := func(ctx SpecContext) (*service.Layer, *gorp.DB) {
 		GinkgoHelper()
-		node := testutil.NewNode(ctx)
+		node := testutil.NewNode(GinkgoT().Context())
 		return MustOpen(svctestutil.OpenLayer(ctx, node)), node.DB
 	}
 

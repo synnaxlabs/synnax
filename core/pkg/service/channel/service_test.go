@@ -35,7 +35,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				noValidateSvc := openService(
 					ctx,
-					testutil.NewNode(ctx),
+					testutil.NewNode(GinkgoT().Context()),
 					channel.ServiceConfig{
 						ValidateNames: new(false),
 					},
@@ -290,7 +290,7 @@ var _ = Describe("Service", func() {
 		It(
 			"Should count the committed channels that are neither internal nor virtual",
 			func(ctx SpecContext) {
-				node := testutil.NewNode(ctx)
+				node := testutil.NewNode(GinkgoT().Context())
 				countSvc := openService(ctx, node)
 				base := countSvc.CountLimited()
 				idx := channel.Channel{

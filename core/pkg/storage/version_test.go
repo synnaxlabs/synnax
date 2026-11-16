@@ -98,7 +98,7 @@ var _ = Describe("Recorded version", func() {
 		func(ctx SpecContext, recorded, current string) {
 			openAt(ctx, dir, recorded)
 			Expect(storage.OpenLayer(
-				ctx,
+				GinkgoT().Context(),
 				storage.LayerConfig{Dirname: dir, Version: current},
 			)).Error().To(And(
 				beRefused(),
@@ -135,7 +135,7 @@ var _ = Describe("Recorded version", func() {
 		Expect(os.WriteFile(filepath.Join(dir, "VERSION"), []byte("garbage"), 0o600)).
 			To(Succeed())
 		Expect(storage.OpenLayer(
-			ctx,
+			GinkgoT().Context(),
 			storage.LayerConfig{Dirname: dir, Version: "0.60.0"},
 		)).Error().To(MatchError(ContainSubstring(`invalid version "garbage"`)))
 	})
@@ -145,7 +145,7 @@ var _ = Describe("Recorded version", func() {
 		// A file in place of the backups directory makes every copy fail.
 		Expect(os.WriteFile(filepath.Join(dir, "backups"), nil, 0o600)).To(Succeed())
 		Expect(storage.OpenLayer(
-			ctx,
+			GinkgoT().Context(),
 			storage.LayerConfig{Dirname: dir, Version: "0.60.0"},
 		)).Error().To(MatchError(ContainSubstring("failed to back up metadata")))
 		Expect(recordedVersion(dir)).To(Equal("0.59.0"))

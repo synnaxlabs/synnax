@@ -122,7 +122,7 @@ var _ = Describe("Service", func() {
 			"Should open and close a service from a valid configuration",
 			func(ctx SpecContext) {
 				Expect(MustOpen(framer.OpenService(
-					ctx, newFramerConfig(ctx, testutil.NewNode(ctx)),
+					ctx, newFramerConfig(ctx, testutil.NewNode(GinkgoT().Context())),
 				))).ToNot(BeNil())
 			},
 		)

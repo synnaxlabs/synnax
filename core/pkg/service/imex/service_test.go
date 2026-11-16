@@ -456,7 +456,7 @@ var _ = Describe("Service", func() {
 					string(resource.TypeChannel),
 					noopImporter{typ: resource.TypeChannel},
 				)).To(Succeed())
-				ts := DeferClose(openTestService(ctx, db))
+				ts := DeferClose(openTestService(GinkgoT().Context(), db))
 				Expect(s.RegisterImportExporter(ts)).To(MatchError(imex.ErrTypeTaken))
 				Expect(s.Export(ctx, db, resource.ID{
 					Type: resource.TypeChannel,

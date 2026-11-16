@@ -25,13 +25,13 @@ import (
 
 var _ = Describe("Node", func() {
 	It("Should open a node with host key 1", func(ctx SpecContext) {
-		n := DeferClose(testutil.OpenNode(ctx))
+		n := DeferClose(testutil.OpenNode(GinkgoT().Context()))
 		Expect(n.Identity.HostKey).To(Equal(node.KeyBootstrapper))
 		Expect(n.Host.Key).To(Equal(node.KeyBootstrapper))
 	})
 
 	It("Should create channels in the storage layer", func(ctx SpecContext) {
-		n := testutil.NewNode(ctx)
+		n := testutil.NewNode(GinkgoT().Context())
 		ch := MustSucceed(n.CreateChannels(ctx, []channel.Channel{{
 			Name:        "SG_01",
 			DataType:    telem.Float64T,
@@ -46,7 +46,7 @@ var _ = Describe("Node", func() {
 	It(
 		"Should create channels while a transaction holds the write lock",
 		func(ctx SpecContext) {
-			n := testutil.NewNode(ctx)
+			n := testutil.NewNode(GinkgoT().Context())
 			tx := DeferClose(n.DB.OpenTx())
 			Expect(n.CreateChannels(ctx, []channel.Channel{{
 				Name:        "SG_02",
@@ -60,12 +60,15 @@ var _ = Describe("Node", func() {
 	)
 
 	It("Should use the storage layer an override passes", func(ctx SpecContext) {
-		store := DeferClose(storagetestutil.OpenLayer(ctx))
-		n := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
+		store := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
+		n := testutil.NewNode(
+			GinkgoT().Context(),
+			distribution.LayerConfig{Storage: store},
+		)
 		Expect(n.Storage).To(BeIdenticalTo(store))
 	})
 
 	It("Should close the distribution and storage layers", func(ctx SpecContext) {
-		Expect(testutil.OpenNode(ctx).Close()).To(Succeed())
+		Expect(testutil.OpenNode(GinkgoT().Context()).Close()).To(Succeed())
 	})
 })

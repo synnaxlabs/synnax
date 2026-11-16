@@ -43,9 +43,9 @@ var _ = Describe("storage", func() {
 			It(
 				"Should return an error if the lock is already acquired",
 				func(ctx SpecContext) {
-					MustOpen(storage.OpenLayer(ctx, cfg))
+					MustOpen(storage.OpenLayer(GinkgoT().Context(), cfg))
 					Expect(
-						storage.OpenLayer(ctx, cfg),
+						storage.OpenLayer(GinkgoT().Context(), cfg),
 					).Error().
 						To(MatchError(ContainSubstring("Failed to acquire lock on storage directory")))
 				},
@@ -61,7 +61,7 @@ var _ = Describe("storage", func() {
 						"Should set the correct permissions on the storage directory",
 						func(ctx SpecContext) {
 							cfg.Perm = storage.DefaultLayerConfig.Perm
-							MustOpen(storage.OpenLayer(ctx, cfg))
+							MustOpen(storage.OpenLayer(GinkgoT().Context(), cfg))
 							stat := MustSucceed(os.Stat(cfg.Dirname))
 							Expect(stat.Mode().Perm()).To(Equal(cfg.Perm))
 						},
@@ -81,7 +81,7 @@ var _ = Describe("storage", func() {
 							// use os.Stat to check the dir permissions
 							cfg.Perm = xfs.UserRWX
 							Expect(
-								storage.OpenLayer(ctx, cfg),
+								storage.OpenLayer(GinkgoT().Context(), cfg),
 							).Error().
 								To(MatchError(ContainSubstring(
 									"requires the storage directory to have at least",
@@ -94,7 +94,7 @@ var _ = Describe("storage", func() {
 		Describe("In-Memory", func() {
 			It("Should open a memory backed version of storage", func(ctx SpecContext) {
 				cfg.InMemory = new(true)
-				MustOpen(storage.OpenLayer(ctx, cfg))
+				MustOpen(storage.OpenLayer(GinkgoT().Context(), cfg))
 			})
 		})
 		Describe("Aspen keys", func() {
@@ -103,14 +103,14 @@ var _ = Describe("storage", func() {
 				func(ctx SpecContext) {
 					deleted := []string{"--dig/a", "--dig/b", "ver"}
 					kept := []string{"aspen.cluster", "--dig", "--dig0", "ve", "vera"}
-					l := MustSucceed(storage.OpenLayer(ctx, cfg))
+					l := MustSucceed(storage.OpenLayer(GinkgoT().Context(), cfg))
 					for _, key := range append(deleted, kept...) {
 						Expect(
 							l.KV.Set(ctx, []byte(key), []byte("value")),
 						).To(Succeed())
 					}
 					Expect(l.Close()).To(Succeed())
-					l = MustOpen(storage.OpenLayer(ctx, cfg))
+					l = MustOpen(storage.OpenLayer(GinkgoT().Context(), cfg))
 					for _, key := range deleted {
 						Expect(l.KV.Get([]byte(key))).Error().
 							To(MatchError(query.ErrNotFound))

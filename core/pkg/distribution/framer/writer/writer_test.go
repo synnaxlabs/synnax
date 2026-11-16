@@ -242,7 +242,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should propagate the writer's group to the streamer response",
 			func(ctx SpecContext) {
-				s := DeferClose(freeWriterScenario(ctx))
+				s := DeferClose(freeWriterScenario(GinkgoT().Context()))
 				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 					Keys:        s.keys,
 					SendOpenAck: new(true),
@@ -274,7 +274,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should set group to zero when the writer has no group",
 			func(ctx SpecContext) {
-				s := DeferClose(freeWriterScenario(ctx))
+				s := DeferClose(freeWriterScenario(GinkgoT().Context()))
 				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 					Keys:        s.keys,
 					SendOpenAck: new(true),
@@ -308,7 +308,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should propagate distinct groups from different writers",
 			func(ctx SpecContext) {
-				s := DeferClose(freeWriterScenario(ctx))
+				s := DeferClose(freeWriterScenario(GinkgoT().Context()))
 				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 					Keys:        s.keys,
 					SendOpenAck: new(true),
@@ -359,7 +359,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should end the domain of an index",
 			func(ctx SpecContext) {
-				host := testutil.NewNode(ctx)
+				host := testutil.NewNode(GinkgoT().Context())
 				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 					Name:     "local_time",
 					IsIndex:  true,
@@ -408,7 +408,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return false when another writer holds control",
 			func(ctx SpecContext) {
-				host := testutil.NewNode(ctx)
+				host := testutil.NewNode(GinkgoT().Context())
 				keys := channel.KeysFromChannels(
 					MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 						Name:     "host_time",
@@ -440,7 +440,7 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It("Should return no end from a commit that fails", func(ctx SpecContext) {
-			gw := testutil.NewNode(ctx)
+			gw := testutil.NewNode(GinkgoT().Context())
 			// Commits walk a map of indexes, so most commit before the one that fails.
 			channels := make([]channel.Channel, 8)
 			series := make([]telem.Series, len(channels))
@@ -479,7 +479,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should report a commit without control",
 			func(ctx SpecContext) {
-				host := testutil.NewNode(ctx)
+				host := testutil.NewNode(GinkgoT().Context())
 				keys := channel.KeysFromChannels(
 					MustSucceed(host.CreateChannels(ctx, []channel.Channel{
 						{Name: "held_time", IsIndex: true, DataType: telem.TimestampT},
@@ -518,7 +518,7 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It("Should report a commit that fails", func(ctx SpecContext) {
-			host := testutil.NewNode(ctx)
+			host := testutil.NewNode(GinkgoT().Context())
 			idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 				Name:        "time",
 				IsIndex:     true,
@@ -549,7 +549,7 @@ var _ = Describe("Writer", func() {
 			Expect(live.Close()).To(Succeed())
 		})
 		It("Should acknowledge a writer of free channels", func(ctx SpecContext) {
-			s := freeWriterScenario(ctx)
+			s := freeWriterScenario(GinkgoT().Context())
 			defer func() { Expect(s.Close()).To(Succeed()) }()
 			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  s.keys,
@@ -565,7 +565,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should stamp the index of a data channel",
 			func(ctx SpecContext) {
-				host := testutil.NewNode(ctx)
+				host := testutil.NewNode(GinkgoT().Context())
 				idx := channel.Channel{
 					Name:     "auto_index_time",
 					IsIndex:  true,
@@ -616,7 +616,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should correctly set alignments on indexed free channels",
 			func(ctx SpecContext) {
-				s := DeferClose(storageScenario(ctx))
+				s := DeferClose(storageScenario(GinkgoT().Context()))
 				var (
 					idxCh = channel.Channel{
 						Name:        "free_time",
@@ -701,7 +701,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should stamp index-less free channels with the host's clock",
 			func(ctx SpecContext) {
-				s := DeferClose(storageScenario(ctx))
+				s := DeferClose(storageScenario(GinkgoT().Context()))
 				ch := channel.Channel{
 					Name:        "free_unindexed",
 					DataType:    telem.Int64T,
@@ -746,7 +746,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should give the samples of an index-less free channel distinct alignments",
 			func(ctx SpecContext) {
-				s := DeferClose(storageScenario(ctx))
+				s := DeferClose(storageScenario(GinkgoT().Context()))
 				ch := channel.Channel{
 					Name:        "free_unindexed_aligned",
 					DataType:    telem.Int64T,
@@ -795,7 +795,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return an error when no channel resolver is configured",
 			func(ctx SpecContext) {
-				s := DeferClose(storageScenario(ctx))
+				s := DeferClose(storageScenario(GinkgoT().Context()))
 				ch := channel.Channel{
 					Name:        "free_unresolved",
 					DataType:    telem.Int64T,
@@ -898,7 +898,7 @@ var _ = Describe("Writer", func() {
 		DescribeTable(
 			"Should span a virtual series 1ns for each sample",
 			func(ctx SpecContext, length int) {
-				s := DeferClose(storageScenario(ctx))
+				s := DeferClose(storageScenario(GinkgoT().Context()))
 				series := make([]telem.Series, len(s.keys))
 				for i := range series {
 					series[i] = telem.NewSeries(make([]int64, length))
@@ -918,7 +918,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should span a variable-length virtual series 1ns for each sample",
 			func(ctx SpecContext) {
-				s := DeferClose(storageScenario(ctx))
+				s := DeferClose(storageScenario(GinkgoT().Context()))
 				ch := MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{{
 					Name:     "strings",
 					Virtual:  true,
@@ -940,7 +940,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should start every virtual series in one write at one instant",
 			func(ctx SpecContext) {
-				s := DeferClose(storageScenario(ctx))
+				s := DeferClose(storageScenario(GinkgoT().Context()))
 				received, _, _ := writeAndReceive(
 					ctx,
 					s,
@@ -982,7 +982,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should align indexed free channels and stamp index-less ones in one frame",
 			func(ctx SpecContext) {
-				s := DeferClose(storageScenario(ctx))
+				s := DeferClose(storageScenario(GinkgoT().Context()))
 				idx := MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{{
 					Name:        "mixed_time",
 					IsIndex:     true,

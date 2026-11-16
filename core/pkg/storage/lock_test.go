@@ -41,7 +41,7 @@ var _ = Describe("Data directory lock", func() {
 			})
 			Expect(bufio.NewReader(stdout).ReadString('\n')).To(Equal("locked\n"))
 			cfg := storage.LayerConfig{Dirname: dir, Version: "0.60.0"}
-			Expect(storage.OpenLayer(ctx, cfg)).Error().
+			Expect(storage.OpenLayer(GinkgoT().Context(), cfg)).Error().
 				To(MatchError(locked, "storage.ErrLocked"))
 		},
 	)

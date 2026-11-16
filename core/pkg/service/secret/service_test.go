@@ -150,7 +150,7 @@ var _ = Describe("Service", func() {
 		It(
 			"Should retrieve secrets without their plain text values",
 			func(ctx SpecContext) {
-				e := newEnv(ctx)
+				e := newEnv(GinkgoT().Context())
 				s := e.createStored(ctx, "Password", "hunter2")
 				stored := e.retrieve(ctx, s.Base().Key).Variant.(secret.StoredSecret)
 				Expect(stored.Name).To(Equal("Password"))
@@ -159,7 +159,7 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It("Should search secrets by name", func(ctx SpecContext) {
-			e := newEnv(ctx)
+			e := newEnv(GinkgoT().Context())
 			e.createStored(ctx, "Plant password", "a")
 			e.createStored(ctx, "Routing key", "b")
 			var found []secret.Secret
@@ -177,14 +177,14 @@ var _ = Describe("Service", func() {
 	Describe("Uses", func() {
 		It("Should return no uses for a secret that nothing references",
 			func(ctx SpecContext) {
-				e := newEnv(ctx)
+				e := newEnv(GinkgoT().Context())
 				s := e.createStored(ctx, "Password", "hunter2")
 				Expect(e.svc.Uses(ctx, e.db, s.Base().Key)).To(BeEmpty())
 			},
 		)
 		It("Should return each record that references the secret",
 			func(ctx SpecContext) {
-				e := newEnv(ctx)
+				e := newEnv(GinkgoT().Context())
 				s := e.createStored(ctx, "Password", "hunter2")
 				MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, device]{
 					DB:   e.db,
@@ -216,7 +216,7 @@ var _ = Describe("Service", func() {
 		It(
 			"Should return the create, rename, and delete that a commit makes",
 			func(ctx SpecContext) {
-				e := newEnv(ctx)
+				e := newEnv(GinkgoT().Context())
 				renamed := e.createStored(ctx, "Before", "a")
 				deleted := e.createStored(ctx, "Deleted", "b")
 				var changes []gorp.EntryChange[secret.Key, secret.Secret]
@@ -257,7 +257,7 @@ var _ = Describe("Service", func() {
 
 	Describe("Resources", func() {
 		It("Should name each secret by its name", func(ctx SpecContext) {
-			e := newEnv(ctx)
+			e := newEnv(GinkgoT().Context())
 			s := e.createStored(ctx, "Password", "hunter2")
 			Expect(
 				e.svc.Resources().Retrieve(ctx, e.db, []resource.ID{s.ResourceID()}),

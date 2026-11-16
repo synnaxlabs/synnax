@@ -201,7 +201,7 @@ var _ = Describe("Iterator", func() {
 
 var _ = Describe("Close", func() {
 	It("Should reject every call after Close", func(ctx SpecContext) {
-		s := DeferClose(openScenario(ctx))
+		s := DeferClose(openScenario(GinkgoT().Context()))
 		iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 			Keys:   s.keys,
 			Bounds: telem.TimeRangeMax,
@@ -220,9 +220,14 @@ var _ = Describe("Read failure", func() {
 		faulty := WrapFaultyFS(xfs.NewMem())
 		store := &storage.Layer{
 			KV: DeferClose(memkv.New()),
-			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
+			TS: DeferClose(
+				MustSucceed(ts.Open(GinkgoT().Context(), ts.Config{FS: faulty})),
+			),
 		}
-		host := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
+		host := testutil.NewNode(
+			GinkgoT().Context(),
+			distribution.LayerConfig{Storage: store},
+		)
 		channels := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
 			Name:     "failure",
 			IsIndex:  true,

@@ -197,7 +197,7 @@ var _ = Describe("Service", func() {
 
 	Describe("NewRetrieve", func() {
 		It("Should search certificates by name", func(ctx SpecContext) {
-			e := newEnv(ctx, telem.Hour)
+			e := newEnv(GinkgoT().Context(), telem.Hour)
 			key := newKey()
 			e.create(
 				ctx,
@@ -223,7 +223,7 @@ var _ = Describe("Service", func() {
 
 	Describe("Resources", func() {
 		It("Should name each certificate by its name", func(ctx SpecContext) {
-			e := newEnv(ctx, telem.Hour)
+			e := newEnv(GinkgoT().Context(), telem.Hour)
 			c := e.create(
 				ctx,
 				stored("Plant", newCertificate(newKey(), "a", time.Hour)),
@@ -236,7 +236,7 @@ var _ = Describe("Service", func() {
 		})
 		It("Should list the certificate as a use of its private key",
 			func(ctx SpecContext) {
-				e := newEnv(ctx, telem.Hour)
+				e := newEnv(GinkgoT().Context(), telem.Hour)
 				key := newKey()
 				c := e.create(
 					ctx,
@@ -267,7 +267,7 @@ var _ = Describe("Service", func() {
 		It(
 			"Should return the create, rename, and delete that a commit makes",
 			func(ctx SpecContext) {
-				e := newEnv(ctx, telem.Hour)
+				e := newEnv(GinkgoT().Context(), telem.Hour)
 				pemText := newCertificate(newKey(), "a", time.Hour)
 				renamed := e.create(ctx, stored("Before", pemText), nil)
 				deleted := e.create(ctx, stored("Deleted", pemText), nil)
@@ -350,7 +350,7 @@ var _ = Describe("Service", func() {
 			),
 		)
 		It("Should report a certificate that is not yet valid", func(ctx SpecContext) {
-			e := newEnv(ctx, telem.Hour)
+			e := newEnv(GinkgoT().Context(), telem.Hour)
 			c := e.create(ctx, stored("Plant", newCertificateBetween(
 				newKey(),
 				"a",
@@ -365,7 +365,7 @@ var _ = Describe("Service", func() {
 			))
 		})
 		It("Should keep a certificate with no expiry valid", func(ctx SpecContext) {
-			e := newEnv(ctx, telem.Hour)
+			e := newEnv(GinkgoT().Context(), telem.Hour)
 			c := e.create(ctx, stored("Plant", newCertificateBetween(
 				newKey(),
 				"a",
@@ -382,7 +382,7 @@ var _ = Describe("Service", func() {
 		It(
 			"Should update the status on each check after it changes",
 			func(ctx SpecContext) {
-				e := newEnv(ctx, 5*telem.Millisecond)
+				e := newEnv(GinkgoT().Context(), 5*telem.Millisecond)
 				c := e.create(
 					ctx,
 					stored("Plant", newCertificate(newKey(), "a", 40*24*time.Hour)),
@@ -405,7 +405,7 @@ var _ = Describe("Service", func() {
 		)
 		It("Should write no status for a file certificate without details",
 			func(ctx SpecContext) {
-				e := newEnv(ctx, telem.Hour)
+				e := newEnv(GinkgoT().Context(), telem.Hour)
 				c := e.create(ctx, certificate.Certificate{
 					Variant: certificate.FileCertificate{
 						Base:            certificate.Base{Name: "Plant"},
@@ -422,7 +422,7 @@ var _ = Describe("Service", func() {
 		)
 		It("Should report the expiry of a file certificate with details",
 			func(ctx SpecContext) {
-				e := newEnv(ctx, telem.Hour)
+				e := newEnv(GinkgoT().Context(), telem.Hour)
 				c := e.create(ctx, certificate.Certificate{
 					Variant: certificate.FileCertificate{
 						Base:            certificate.Base{Name: "Plant"},

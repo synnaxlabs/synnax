@@ -10,6 +10,7 @@
 package lineplot_test
 
 import (
+	"context"
 	"fmt"
 	"uuid"
 
@@ -34,7 +35,7 @@ import (
 
 // openChannels opens a node with a channel service on its DB, and creates count
 // channels. It returns the DB and the channel keys.
-func openChannels(ctx SpecContext, count int) (*gorp.DB, channel.Keys) {
+func openChannels(ctx context.Context, count int) (*gorp.DB, channel.Keys) {
 	GinkgoHelper()
 	node := testutil.NewNode(ctx)
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
@@ -54,7 +55,7 @@ var _ = Describe("Stored v7 line plots", func() {
 	It(
 		"Should keep key references to ranges the Core does not hold",
 		func(ctx SpecContext) {
-			db, keys := openChannels(ctx, 1)
+			db, keys := openChannels(GinkgoT().Context(), 1)
 			ch := keys[0]
 			// Mark the chain through v7 as applied, so only the later steps run on
 			// open.
@@ -137,7 +138,7 @@ var _ = Describe("Stored v7 line plots", func() {
 	)
 
 	It("Should drop channels the Core does not hold", func(ctx SpecContext) {
-		db, keys := openChannels(ctx, 2)
+		db, keys := openChannels(GinkgoT().Context(), 2)
 		y1, y2 := keys[0], keys[1]
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,

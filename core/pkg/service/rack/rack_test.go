@@ -103,7 +103,7 @@ func hasDriverRole(ctx context.Context, s stack, key rack.Key) bool {
 var _ = Describe("Driver role", func() {
 	It("Should give a new rack the Driver role", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		s := DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
+		s := DeferClose(openStack(GinkgoT().Context(), db, rack.ServiceConfig{}))
 		r := &rack.Rack{Name: "new"}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return s.rack.NewWriter(tx).Create(ctx, r)
@@ -112,20 +112,22 @@ var _ = Describe("Driver role", func() {
 	})
 	It("Should give the embedded rack the Driver role", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		s := DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
+		s := DeferClose(openStack(GinkgoT().Context(), db, rack.ServiceConfig{}))
 		Expect(hasDriverRole(ctx, s, s.rack.EmbeddedKey)).
 			To(BeTrue())
 	})
 	It("Should give the Driver role to racks stored before it", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		s := openStack(ctx, db, rack.ServiceConfig{})
+		s := openStack(GinkgoT().Context(), db, rack.ServiceConfig{})
 		driver := s.driverRole
 		Expect(s.Close()).To(Succeed())
 		stored := rack.Rack{Key: rack.NewKey(1, 10), Name: "stored"}
 		Expect(gorp.WrapWriter[rack.Key, rack.Rack](db).Set(ctx, stored)).
 			To(Succeed())
 		Expect(db.Delete(ctx, []byte("gorp.migration.rack.roles"))).To(Succeed())
-		s = DeferClose(openStack(ctx, db, rack.ServiceConfig{DriverRole: driver}))
+		s = DeferClose(
+			openStack(GinkgoT().Context(), db, rack.ServiceConfig{DriverRole: driver}),
+		)
 		Expect(hasDriverRole(ctx, s, stored.Key)).To(BeTrue())
 	})
 })
@@ -909,13 +911,19 @@ var _ = Describe("Rack", Ordered, func() {
 			"Should keep a renamed embedded rack across restarts",
 			func(ctx SpecContext) {
 				restartDB := DeferClose(gorp.Wrap(memkv.New()))
-				before := openStack(ctx, restartDB, rack.ServiceConfig{})
+				before := openStack(
+					GinkgoT().Context(),
+					restartDB,
+					rack.ServiceConfig{},
+				)
 				key := before.rack.EmbeddedKey
 				Expect(restartDB.WithTx(ctx, func(tx gorp.Tx) error {
 					return before.rack.NewWriter(tx).Rename(ctx, key, "Renamed")
 				})).To(Succeed())
 				Expect(before.Close()).To(Succeed())
-				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{}))
+				after := DeferClose(
+					openStack(GinkgoT().Context(), restartDB, rack.ServiceConfig{}),
+				)
 				Expect(after.rack.EmbeddedKey).To(Equal(key))
 				var embedded []rack.Rack
 				Expect(after.rack.NewRetrieve().
@@ -930,14 +938,20 @@ var _ = Describe("Rack", Ordered, func() {
 			"Should find an embedded rack stored without a key binding by its name",
 			func(ctx SpecContext) {
 				restartDB := DeferClose(gorp.Wrap(memkv.New()))
-				before := openStack(ctx, restartDB, rack.ServiceConfig{})
+				before := openStack(
+					GinkgoT().Context(),
+					restartDB,
+					rack.ServiceConfig{},
+				)
 				key := before.rack.EmbeddedKey
 				Expect(before.Close()).To(Succeed())
 				Expect(restartDB.Delete(
 					ctx,
 					[]byte("1.rack.embedded.Node 1 Embedded Driver"),
 				)).To(Succeed())
-				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{}))
+				after := DeferClose(
+					openStack(GinkgoT().Context(), restartDB, rack.ServiceConfig{}),
+				)
 				Expect(after.rack.EmbeddedKey).To(Equal(key))
 			},
 		)
@@ -1633,7 +1647,11 @@ var _ = Describe("Rack", Ordered, func() {
 							Name: "task",
 						},
 					)))
-					before := openStack(ctx, restartDB, rack.ServiceConfig{})
+					before := openStack(
+						GinkgoT().Context(),
+						restartDB,
+						rack.ServiceConfig{},
+					)
 					r := rack.Rack{Name: "restarted rack"}
 					Expect(restartDB.WithTx(ctx, func(tx gorp.Tx) error {
 						return before.rack.NewWriter(tx).Create(ctx, &r)
@@ -1656,12 +1674,14 @@ var _ = Describe("Rack", Ordered, func() {
 					Expect(before.Close()).To(Succeed())
 					var restartNow atomic.Int64
 					restartNow.Store(int64(telem.Now()))
-					after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{
-						HealthCheckInterval: 10 * telem.Millisecond,
-						Now: func() telem.TimeStamp {
-							return telem.TimeStamp(restartNow.Load())
-						},
-					}))
+					after := DeferClose(
+						openStack(GinkgoT().Context(), restartDB, rack.ServiceConfig{
+							HealthCheckInterval: 10 * telem.Millisecond,
+							Now: func() telem.TimeStamp {
+								return telem.TimeStamp(restartNow.Load())
+							},
+						}),
+					)
 					outages := make(chan rack.Outage, 1)
 					DeferCleanup(after.rack.OnSuspect(
 						func(_ context.Context, o rack.Outage) error {
@@ -1764,15 +1784,17 @@ var _ = Describe("Rack", Ordered, func() {
 						return nil
 					},
 				}))
-				failing := DeferClose(openStack(ctx, failDB, rack.ServiceConfig{
-					HealthCheckInterval: 10 * telem.Millisecond,
-					Now: func() telem.TimeStamp {
-						if failed.Load() {
-							ticksAfter.Add(1)
-						}
-						return telem.TimeStamp(now.Load())
-					},
-				}))
+				failing := DeferClose(
+					openStack(GinkgoT().Context(), failDB, rack.ServiceConfig{
+						HealthCheckInterval: 10 * telem.Millisecond,
+						Now: func() telem.TimeStamp {
+							if failed.Load() {
+								ticksAfter.Add(1)
+							}
+							return telem.TimeStamp(now.Load())
+						},
+					}),
+				)
 				r := rack.Rack{
 					Name: "failed outage rack",
 					Status: &rack.Status{
@@ -1808,7 +1830,11 @@ var _ = Describe("Rack", Ordered, func() {
 			func(ctx SpecContext, codec encoding.Codec, details any) {
 				kv := memkv.New()
 				restartDB := DeferClose(gorp.Wrap(kv))
-				before := openStack(ctx, restartDB, rack.ServiceConfig{})
+				before := openStack(
+					GinkgoT().Context(),
+					restartDB,
+					rack.ServiceConfig{},
+				)
 				owner := before.rack.EmbeddedKey.ResourceID()
 				var held status.Status[any]
 				Expect(before.status.NewRetrieve[any]().
@@ -1828,7 +1854,9 @@ var _ = Describe("Rack", Ordered, func() {
 					}).
 					Exec(ctx, gorp.Wrap(kv, gorp.WithCodec(codec)))).To(Succeed())
 
-				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{}))
+				after := DeferClose(
+					openStack(GinkgoT().Context(), restartDB, rack.ServiceConfig{}),
+				)
 				Expect(restartDB.WithTx(ctx, func(tx gorp.Tx) error {
 					return after.rack.NewWriter(tx).
 						Rename(ctx, after.rack.EmbeddedKey, "renamed")
@@ -1857,7 +1885,7 @@ var _ = Describe("Rack", Ordered, func() {
 			"Should mark a stored healthy rack as dead when it is silent after a restart",
 			func(ctx SpecContext) {
 				restartDB := DeferClose(gorp.Wrap(memkv.New()))
-				before := openStack(ctx, restartDB, rack.ServiceConfig{
+				before := openStack(GinkgoT().Context(), restartDB, rack.ServiceConfig{
 					HealthCheckInterval: telem.Hour,
 				})
 				r := rack.Rack{
@@ -1873,9 +1901,11 @@ var _ = Describe("Rack", Ordered, func() {
 				})).To(Succeed())
 				Expect(before.Close()).To(Succeed())
 
-				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{
-					HealthCheckInterval: 10 * telem.Millisecond,
-				}))
+				after := DeferClose(
+					openStack(GinkgoT().Context(), restartDB, rack.ServiceConfig{
+						HealthCheckInterval: 10 * telem.Millisecond,
+					}),
+				)
 				Eventually(func(g Gomega) {
 					s := MustSucceed(
 						retrieveStatusTx(ctx, after.status, restartDB, r.Key),

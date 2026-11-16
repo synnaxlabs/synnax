@@ -74,7 +74,7 @@ var _ = Describe("Update", func() {
 		Expect(updateState(dir, "0.60.0")).To(Equal(storage.UpdateCommitted))
 		Expect(l.Close()).To(Succeed())
 		l = MustSucceed(storage.OpenLayer(
-			ctx,
+			GinkgoT().Context(),
 			storage.LayerConfig{Dirname: dir, Version: "0.60.0"},
 		))
 		Expect(l.Update).To(BeNil())
@@ -93,7 +93,7 @@ var _ = Describe("Update", func() {
 		))
 		Expect(recordedVersion(dir)).To(Equal("0.59.0"))
 		Expect(updateState(dir, "0.60.0")).To(Equal(storage.UpdateUndone))
-		l = openLayer(ctx, dir, "0.59.0")
+		l = openLayer(GinkgoT().Context(), dir, "0.59.0")
 		Expect(readValue(l)).To(Equal("before"))
 		Expect(l.Close()).To(Succeed())
 	})
@@ -109,7 +109,7 @@ var _ = Describe("Update", func() {
 		Expect(recordedVersion(dir)).To(Equal("0.59.0"))
 		Expect(filepath.Join(dir, failedUpdateFile)).ToNot(BeAnExistingFile())
 		Expect(updateState(dir, "0.60.0")).To(Equal(storage.UpdateNotStarted))
-		l = openLayer(ctx, dir, "0.59.0")
+		l = openLayer(GinkgoT().Context(), dir, "0.59.0")
 		Expect(readValue(l)).To(Equal("before"))
 		Expect(l.Close()).To(Succeed())
 		Expect(startUpdate(ctx, dir, "0.60.0").Close()).To(Succeed())
@@ -121,7 +121,7 @@ var _ = Describe("Update", func() {
 		Expect(l.Update.Undo(ctx, errors.New("crashed"))).
 			To(MatchError(HavePrefix("Update to Core 0.60.0 failed: crashed.")))
 		Expect(storage.OpenLayer(
-			ctx,
+			GinkgoT().Context(),
 			storage.LayerConfig{Dirname: dir, Version: "0.60.0"},
 		)).Error().
 			To(And(beRefused(), MatchError(failedAt("0.60.0"))))
@@ -162,12 +162,12 @@ var _ = Describe("Update", func() {
 			Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
 			Expect(l.Close()).To(Succeed())
 			Expect(storage.OpenLayer(
-				ctx,
+				GinkgoT().Context(),
 				storage.LayerConfig{Dirname: dir, Version: "0.60.0"},
 			)).Error().To(MatchError(failedAt("0.60.0")))
 			Expect(filepath.Join(dir, updateMarkerFile)).ToNot(BeAnExistingFile())
 			Expect(updateState(dir, "0.60.0")).To(Equal(storage.UpdateUndone))
-			l = openLayer(ctx, dir, "0.59.0")
+			l = openLayer(GinkgoT().Context(), dir, "0.59.0")
 			Expect(readValue(l)).To(Equal("before"))
 			Expect(l.Close()).To(Succeed())
 		},
@@ -179,7 +179,7 @@ var _ = Describe("Update", func() {
 			l := startUpdate(ctx, dir, "0.60.0")
 			Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
 			Expect(l.Close()).To(Succeed())
-			l = openLayer(ctx, dir, "0.59.0")
+			l = openLayer(GinkgoT().Context(), dir, "0.59.0")
 			Expect(readValue(l)).To(Equal("before"))
 			Expect(l.Close()).To(Succeed())
 			Expect(MustSucceed(os.ReadFile(filepath.Join(dir, failedUpdateFile)))).
@@ -194,7 +194,7 @@ var _ = Describe("Update", func() {
 		Expect(os.Remove(lock)).To(Succeed())
 		Expect(os.MkdirAll(filepath.Join(lock, "blocked"), 0o700)).To(Succeed())
 		Expect(storage.OpenLayer(
-			ctx,
+			GinkgoT().Context(),
 			storage.LayerConfig{Dirname: dir, Version: "0.60.0"},
 		)).Error().To(MatchError(SatisfyAll(
 			HavePrefix("Update to Core 0.60.0 failed: "),
@@ -215,7 +215,7 @@ var _ = Describe("Update", func() {
 	})
 
 	It("Should skip the backup and the undo when disabled", func(ctx SpecContext) {
-		l := MustSucceed(storage.OpenLayer(ctx, storage.LayerConfig{
+		l := MustSucceed(storage.OpenLayer(GinkgoT().Context(), storage.LayerConfig{
 			Dirname:              dir,
 			Version:              "0.60.0",
 			UpdateBackupDisabled: new(true),

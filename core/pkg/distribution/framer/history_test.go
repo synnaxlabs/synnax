@@ -24,7 +24,7 @@ import (
 
 var _ = Describe("OnHistoryChange", func() {
 	It("Should report changes until the handler disconnects", func(ctx SpecContext) {
-		dist := testutil.NewNode(ctx)
+		dist := testutil.NewNode(GinkgoT().Context())
 		chs := MustSucceed(dist.CreateChannels(ctx, []channel.Channel{{
 			Name:     "Hopper",
 			DataType: telem.TimestampT,

@@ -96,7 +96,7 @@ var _ = Describe("OpenService", func() {
 	)
 
 	It("Should wire up signals when a provider is configured", func(ctx SpecContext) {
-		node := testutil.NewNode(ctx)
+		node := testutil.NewNode(GinkgoT().Context())
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: node.DB,
 		}))

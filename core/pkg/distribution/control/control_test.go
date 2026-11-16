@@ -117,7 +117,7 @@ var _ = Describe("Control", func() {
 		})
 
 		It("Should omit channels that no subject controls", func(ctx SpecContext) {
-			host := testutil.NewNode(ctx)
+			host := testutil.NewNode(GinkgoT().Context())
 			held := createChannel(ctx, host, "held", 1)
 			free := createChannel(ctx, host, "unheld", 1)
 			w := openWriter(ctx, host, "denver", held.Key())
@@ -130,7 +130,7 @@ var _ = Describe("Control", func() {
 		})
 
 		It("Should omit a channel leased to another node", func(ctx SpecContext) {
-			gw := testutil.NewNode(ctx)
+			gw := testutil.NewNode(GinkgoT().Context())
 			Expect(gw.Control.Retrieve(ctx, channel.NewKey(99, 1))).To(BeEmpty())
 		})
 

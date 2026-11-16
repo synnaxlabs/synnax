@@ -119,7 +119,7 @@ var _ = Describe("Relay", func() {
 		It(
 			"Should deliver series stamped with the index's time range",
 			func(ctx SpecContext) {
-				node := testutil.NewNode(ctx)
+				node := testutil.NewNode(GinkgoT().Context())
 				idx := channel.Channel{
 					Name:     "stamp_time",
 					IsIndex:  true,
@@ -172,7 +172,7 @@ var _ = Describe("Relay", func() {
 	})
 	Describe("Slow streamers", func() {
 		It("Should not delay other streamers", func(ctx SpecContext) {
-			node := testutil.NewNode(ctx)
+			node := testutil.NewNode(GinkgoT().Context())
 			channels := MustSucceed(node.CreateChannels(ctx, newChannelSet()))
 			keys := channel.KeysFromChannels(channels)
 			openStreamer := func() confluence.Outlet[relay.Response] {
@@ -227,7 +227,7 @@ var _ = Describe("Relay", func() {
 		It(
 			"Should not drop frames for a stalled streamer under unrelated traffic",
 			func(ctx SpecContext) {
-				node := testutil.NewNode(ctx)
+				node := testutil.NewNode(GinkgoT().Context())
 				channels := MustSucceed(node.CreateChannels(ctx, newChannelSet()))
 				keys := channel.KeysFromChannels(channels)
 				quietKey, busyKeys := keys[0], keys[1:]
@@ -307,7 +307,7 @@ var _ = Describe("Relay", func() {
 			"Should warn once per drop episode, ending it when the buffer empties",
 			func(ctx SpecContext) {
 				ins, logs := alamostestutil.ObservedInstrumentation(zapcore.WarnLevel)
-				store := storagetestutil.OpenLayer(ctx)
+				store := storagetestutil.OpenLayer(GinkgoT().Context())
 				DeferCleanup(store.Close)
 				freeWrites := confluence.NewStream[relay.Response](10)
 				r := MustSucceed(relay.Open(relay.Config{
@@ -374,7 +374,7 @@ var _ = Describe("Relay", func() {
 			"Should filter out frames from a matching group on storage writes",
 			func(ctx SpecContext) {
 				channels := newChannelSet()
-				node := testutil.NewNode(ctx)
+				node := testutil.NewNode(GinkgoT().Context())
 				channels = MustSucceed(node.CreateChannels(ctx, channels))
 				keys := channel.KeysFromChannels(channels)
 
@@ -420,7 +420,7 @@ var _ = Describe("Relay", func() {
 		)
 		It("Should deliver frames from a non-matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
-			node := testutil.NewNode(ctx)
+			node := testutil.NewNode(GinkgoT().Context())
 			channels = MustSucceed(node.CreateChannels(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
 
@@ -467,7 +467,7 @@ var _ = Describe("Relay", func() {
 			"Should deliver frames with no group even when ExcludeGroups is set",
 			func(ctx SpecContext) {
 				channels := newChannelSet()
-				node := testutil.NewNode(ctx)
+				node := testutil.NewNode(GinkgoT().Context())
 				channels = MustSucceed(node.CreateChannels(ctx, channels))
 				keys := channel.KeysFromChannels(channels)
 
@@ -509,7 +509,7 @@ var _ = Describe("Relay", func() {
 			"Should filter out free channel frames from a matching group",
 			func(ctx SpecContext) {
 				channels := newChannelSet()
-				svc := testutil.NewNode(ctx)
+				svc := testutil.NewNode(GinkgoT().Context())
 				for i, ch := range channels {
 					ch.Leaseholder = node.KeyFree
 					ch.Virtual = true

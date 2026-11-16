@@ -155,7 +155,7 @@ var _ = Describe("Channel references", func() {
 	)
 
 	It("Should drop channels the Core does not hold on open", func(ctx SpecContext) {
-		node := testutil.NewNode(ctx)
+		node := testutil.NewNode(GinkgoT().Context())
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB: node.DB,
 		}))

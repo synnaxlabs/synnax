@@ -139,13 +139,13 @@ var _ = Describe("Driver", func() {
 
 	Describe("Open", func() {
 		It("should create driver with valid config", func(ctx SpecContext) {
-			driver := openDriver(ctx, &mockFactory{name: "test"})
+			driver := openDriver(GinkgoT().Context(), &mockFactory{name: "test"})
 			Expect(driver).ToNot(BeNil())
 			Expect(embeddedRackKey(ctx)).ToNot(BeZero())
 		})
 
 		It("should create rack in rack service", func(ctx SpecContext) {
-			openDriver(ctx, &mockFactory{name: "test"})
+			openDriver(GinkgoT().Context(), &mockFactory{name: "test"})
 			var racks []rack.Rack
 			Expect(rackService.NewRetrieve().
 				Where(rack.MatchKeys(embeddedRackKey(ctx))).
@@ -349,7 +349,7 @@ var _ = Describe("Driver", func() {
 		}
 
 		It("should create and configure a task once per rack", func(ctx SpecContext) {
-			d := openDriver(ctx, &mockFactory{name: "test"})
+			d := openDriver(GinkgoT().Context(), &mockFactory{name: "test"})
 			for _, t := range retrieveAlertTasks(ctx) {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return taskService.NewWriter(tx).Delete(ctx, t.Key, true)
@@ -368,7 +368,7 @@ var _ = Describe("Driver", func() {
 					return &mockTask{key: t.Key}, nil
 				},
 			}
-			d = openDriver(ctx, factory)
+			d = openDriver(GinkgoT().Context(), factory)
 			tasks := retrieveAlertTasks(ctx)
 			Expect(tasks).To(HaveLen(1))
 			Expect(tasks[0].Name).To(Equal("Scanner"))
@@ -376,7 +376,7 @@ var _ = Describe("Driver", func() {
 			MustBeOk(configured.Load(tasks[0].Key))
 			Expect(d.Close()).To(Succeed())
 
-			openDriver(ctx, factory)
+			openDriver(GinkgoT().Context(), factory)
 			Expect(retrieveAlertTasks(ctx)).To(HaveLen(1))
 		})
 
@@ -421,7 +421,7 @@ var _ = Describe("Driver", func() {
 					return mt, nil
 				},
 			}
-			openDriver(ctx, factory)
+			openDriver(GinkgoT().Context(), factory)
 
 			t := newTask(embeddedRackKey(ctx))
 			taskKey.Store(t.Key)
@@ -453,7 +453,7 @@ var _ = Describe("Driver", func() {
 						return &mockTask{key: t.Key}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				// Never created: the deploy fetch fails with not-found, which
 				// must stay silent so the driver cannot recreate a status the
@@ -513,7 +513,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				t := newTask(embeddedRackKey(ctx))
 				t.Config = map[string]any{"routing_key": routingKey1}
@@ -561,7 +561,7 @@ var _ = Describe("Driver", func() {
 					config      atomic.Value
 					taskKey     atomic.Value
 				)
-				openDriver(ctx, &mockFactory{
+				openDriver(GinkgoT().Context(), &mockFactory{
 					name: "test",
 					configureFunc: func(
 						_ context.Context,
@@ -640,7 +640,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				t := newTask(embeddedRackKey(ctx))
 				t.Config = map[string]any{"routing_key": routingKey1}
@@ -685,7 +685,7 @@ var _ = Describe("Driver", func() {
 						return &mockTask{key: t.Key}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 				countAfterOpen := configuredCount.Load()
 
 				otherRack := rack.Rack{Name: "Other Rack"}
@@ -739,7 +739,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -941,7 +941,7 @@ var _ = Describe("Driver", func() {
 					}, nil
 				},
 			}
-			openDriver(ctx, factory)
+			openDriver(GinkgoT().Context(), factory)
 
 			t := newTask(embeddedRackKey(ctx))
 			taskKey.Store(t.Key)
@@ -993,7 +993,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 				// Runs before Close, which waits for the blocked stop.
 				DeferCleanup(release)
 				tasks := make([]task.Task, 3)
@@ -1068,7 +1068,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 				// Runs before Close, which waits for the blocked stop.
 				DeferCleanup(release)
 				blocker := newTask(embeddedRackKey(ctx))
@@ -1147,7 +1147,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 				// Runs before Close, which waits for the blocked stop.
 				DeferCleanup(release)
 				blocker := newTask(embeddedRackKey(ctx))
@@ -1237,7 +1237,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 				// Runs before Close, which waits for the blocked stop.
 				DeferCleanup(release)
 				recreated := newTask(embeddedRackKey(ctx))
@@ -1319,7 +1319,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -1376,7 +1376,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -1423,7 +1423,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -1469,7 +1469,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -1502,7 +1502,7 @@ var _ = Describe("Driver", func() {
 						return &mockTask{key: t.Key}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -1536,7 +1536,7 @@ var _ = Describe("Driver", func() {
 			"should acknowledge a start command for an unhandled task type",
 			func(ctx SpecContext) {
 				factory := &mockFactory{name: "test"}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				t := newTask(embeddedRackKey(ctx))
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -1597,7 +1597,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				// First task: configuration fails.
 				t1 := newTask(embeddedRackKey(ctx))
@@ -1655,7 +1655,7 @@ var _ = Describe("Driver", func() {
 						return &mockTask{key: t.Key}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				t1 := newTask(embeddedRackKey(ctx))
 				knownKeys.Store(t1.Key, true)
@@ -1711,7 +1711,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				t := newTask(embeddedRackKey(ctx))
 				t.Config = map[string]any{"routing_key": routingKey1}
@@ -1822,7 +1822,7 @@ var _ = Describe("Driver", func() {
 						return &mockTask{key: t.Key}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				t := newTask(embeddedRackKey(ctx))
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -2002,7 +2002,7 @@ var _ = Describe("Driver", func() {
 		})
 
 		It("should be idempotent", func(ctx SpecContext) {
-			driver := openDriver(ctx, &mockFactory{name: "test"})
+			driver := openDriver(GinkgoT().Context(), &mockFactory{name: "test"})
 			Expect(driver.Close()).To(Succeed())
 			Expect(driver.Close()).To(Succeed())
 		})
@@ -2047,7 +2047,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				d := openDriver(ctx, factory)
+				d := openDriver(GinkgoT().Context(), factory)
 				var releaseOnce sync.Once
 				release := func() { releaseOnce.Do(func() { close(released) }) }
 				DeferCleanup(release)
@@ -2259,7 +2259,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				// Write valid JSON that won't unmarshal into task.Command
 				// (task field expects a UUID string).
@@ -2310,7 +2310,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 				// Allow streamer to boot up
 				time.Sleep(50 * time.Millisecond)
 
@@ -2361,7 +2361,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -2385,7 +2385,7 @@ var _ = Describe("Driver", func() {
 		It(
 			"should leave a command for a moved task to the Driver that runs it",
 			func(ctx SpecContext) {
-				openDriver(ctx, &mockFactory{
+				openDriver(GinkgoT().Context(), &mockFactory{
 					name: "test",
 					configureFunc: func(
 						_ context.Context,
@@ -2429,7 +2429,7 @@ var _ = Describe("Driver", func() {
 		It(
 			"should refuse a command for a task on its rack that it never deployed",
 			func(ctx SpecContext) {
-				openDriver(ctx, &mockFactory{
+				openDriver(GinkgoT().Context(), &mockFactory{
 					name: "test",
 					configureFunc: func(
 						_ context.Context,
@@ -2462,7 +2462,7 @@ var _ = Describe("Driver", func() {
 		It(
 			"should leave a command for a failed task that moved to another rack",
 			func(ctx SpecContext) {
-				openDriver(ctx, &mockFactory{
+				openDriver(GinkgoT().Context(), &mockFactory{
 					name: "test",
 					configureFunc: func(
 						context.Context,
@@ -2533,7 +2533,7 @@ var _ = Describe("Driver", func() {
 				Expect(d1.Close()).To(Succeed())
 				// No factory handles the task, so the configure at boot fails and
 				// writes no status.
-				openDriver(ctx, &mockFactory{name: "test"})
+				openDriver(GinkgoT().Context(), &mockFactory{name: "test"})
 
 				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-1"})
 				Eventually(func(g Gomega) {
@@ -2563,7 +2563,7 @@ var _ = Describe("Driver", func() {
 						return nil, errors.New("device is not connected")
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				t := newTask(embeddedRackKey(ctx))
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -2610,7 +2610,7 @@ var _ = Describe("Driver", func() {
 					}, nil
 				},
 			}
-			openDriver(ctx, factory)
+			openDriver(GinkgoT().Context(), factory)
 
 			unknownTaskKey := uuid.New()
 			cmd := task.Command{
@@ -2644,7 +2644,7 @@ var _ = Describe("Driver", func() {
 					}, nil
 				},
 			}
-			openDriver(ctx, factory)
+			openDriver(GinkgoT().Context(), factory)
 
 			otherRack := rack.Rack{Name: "Other Rack for Commands"}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -2684,7 +2684,7 @@ var _ = Describe("Driver", func() {
 					}, nil
 				},
 			}
-			openDriver(ctx, factory)
+			openDriver(GinkgoT().Context(), factory)
 
 			t := newTask(embeddedRackKey(ctx))
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -2734,7 +2734,7 @@ var _ = Describe("Driver", func() {
 					}, nil
 				},
 			}
-			openDriver(ctx, factory)
+			openDriver(GinkgoT().Context(), factory)
 
 			t := newTask(embeddedRackKey(ctx))
 			taskKey.Store(t.Key)
@@ -2782,7 +2782,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				t := newTask(embeddedRackKey(ctx))
 				taskKey.Store(t.Key)
@@ -2862,7 +2862,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 
 				t := newTask(embeddedRackKey(ctx))
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -3044,7 +3044,7 @@ var _ = Describe("Driver", func() {
 						}, nil
 					},
 				}
-				openDriver(ctx, factory)
+				openDriver(GinkgoT().Context(), factory)
 				scanTask := newTask(embeddedRackKey(ctx))
 				other := newTask(embeddedRackKey(ctx))
 				scanKey.Store(scanTask.Key)
