@@ -478,7 +478,10 @@ errors.register({
       issues: pe.issues,
       input: fmt.value(pe.input),
     };
-    return { type: PARSE_ERROR_TYPE, data: JSON.stringify(payload) };
+    const data = JSON.stringify(payload, (_, v) =>
+      typeof v === "bigint" ? v.toString() : v,
+    );
+    return { type: PARSE_ERROR_TYPE, data };
   },
   decode: (payload) => {
     if (payload.type !== PARSE_ERROR_TYPE) return null;
