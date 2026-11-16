@@ -71,7 +71,6 @@ linters:
     - nilerr # SY-6111
     - nilnil # SY-6111
     - noctx # SY-6109
-    - perfsprint # SY-6114
     - prealloc # SY-6115
     - predeclared # SY-6115
     - recvcheck # SY-6111

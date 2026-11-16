@@ -11,6 +11,7 @@ package types
 
 import (
 	"bytes"
+	"strings"
 	"text/template"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
@@ -154,19 +155,15 @@ func buildAliasDecls(
 		lhs, rhs := name, prefix+"."+targetName
 		params := resolution.NonDefaultedTypeParams(tparams)
 		if len(params) > 0 {
-			lhs += "["
-			rhs += "["
+			lhsParams := make([]string, len(params))
+			rhsParams := make([]string, len(params))
 			for i, tp := range params {
-				if i > 0 {
-					lhs += ", "
-					rhs += ", "
-				}
 				tpd := processTypeParam(tp, data)
-				lhs += tpd.Name + " " + tpd.Constraint
-				rhs += tpd.Name
+				lhsParams[i] = tpd.Name + " " + tpd.Constraint
+				rhsParams[i] = tpd.Name
 			}
-			lhs += "]"
-			rhs += "]"
+			lhs += "[" + strings.Join(lhsParams, ", ") + "]"
+			rhs += "[" + strings.Join(rhsParams, ", ") + "]"
 		}
 		decls = append(decls, aliasDecl{Name: name, LHS: lhs, RHS: rhs, Doc: docStr})
 	}
