@@ -61,7 +61,7 @@ COMMAND = re.compile(r"@sedosaur\s+dismiss\b", re.I)
 WRITE = {"admin", "write"}
 """The repository permissions that can dismiss a finding. GitHub reports maintain as
 write."""
-DISMISSED = "A member dismissed every finding of the review."
+DISMISSED = "Someone with write access dismissed every finding of the review."
 ANSWER_START = "<!-- sedosaur_answer "
 ANSWER_END = " -->"
 # The REST fields of a comment, in the shape that GraphQL serves.
@@ -98,14 +98,14 @@ class Target:
 
 
 def post(review: Review, *, target: Target, gh: GH) -> None:
-    """Posts a review, without the findings that a member dismissed. A review with no
-    finding left scores 5, and so does the head when the rest are dismissed while the
-    review posts. Findings on lines of the diff become one review of inline threads,
-    skipping any finding an unresolved thread of the bot already holds. Such a thread
-    gets the finding's new heading when its severity changed, and keeps the rest of its
-    comment. The findings outside the diff go in one comment the bot edits on each
-    review. The summary in the pull request body is replaced, and the check run
-    completes.
+    """Posts a review, without the findings that someone with write access dismissed. A
+    review with no finding left scores 5, and so does the head when the rest are
+    dismissed while the review posts. Findings on lines of the diff become one review of
+    inline threads, skipping any finding an unresolved thread of the bot already holds.
+    Such a thread gets the finding's new heading when its severity changed, and keeps
+    the rest of its comment. The findings outside the diff go in one comment the bot
+    edits on each review. The summary in the pull request body is replaced, and the
+    check run completes.
     """
     t = target
     found = threads(t, gh)
@@ -255,7 +255,8 @@ def threads(t: Target, gh: GH) -> list[Thread]:
 
 
 def dismissed(found: list[Thread], can: Authority) -> list[Dismissal]:
-    """Returns each finding that a member dismissed in one of the threads."""
+    """Returns each finding that someone with write access dismissed in one of the
+    threads."""
     out: list[Dismissal] = []
     for th in found:
         reasons = (command(c["body"]) for c in th.replies if can(c))
@@ -268,8 +269,9 @@ def dismissed(found: list[Thread], can: Authority) -> list[Dismissal]:
 def dismissals(
     t: Target, gh: GH, found: list[Thread], can: Authority
 ) -> list[Dismissal]:
-    """Returns each finding that a member dismissed: on its thread in the threads, or
-    with a comment on the pull request that the bot answered and bound to a finding."""
+    """Returns each finding that someone with write access dismissed: on its thread in
+    the threads, or with a comment on the pull request that the bot answered and bound
+    to a finding."""
     bound = [a for a in answers(t, comments(t, gh)) if "path" in a]
     return dismissed(found, can) + [
         Dismissal(path=a["path"], title=a["title"], reason=a["reason"]) for a in bound
@@ -443,8 +445,9 @@ def recheck(t: Target, gh: GH, can: Authority) -> None:
 
 
 def rescore(t: Target, gh: GH, found: list[Thread], key: str, can: Authority) -> bool:
-    """Scores the head 5/5 in a new check run when a member dismissed every finding of
-    its newest review, in the threads or in answered comments. Returns whether it did.
+    """Scores the head 5/5 in a new check run when someone with write access dismissed
+    every finding of its newest review, in the threads or in answered comments. Returns
+    whether it did.
 
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
     """

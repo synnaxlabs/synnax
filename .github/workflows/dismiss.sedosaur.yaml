@@ -10,9 +10,9 @@
 # Answers a reply that mentions Sedosaur on the thread of one of its findings, or a
 # comment that dismisses a finding outside the diff, as the sedosaur GitHub App. An
 # `@sedosaur dismiss` from someone with write access to the repository dismisses the
-# finding, and later reviews of the pull request do not report it. When no finding of the head's review is left, a new check
-# run scores the head 5/5. The scripts come from the default branch, never from the pull
-# request.
+# finding, and later reviews of the pull request do not report it. When no finding of
+# the head's review is left, a new check run scores the head 5/5. The scripts come from
+# the default branch, never from the pull request.
 
 name: Dismiss - Sedosaur
 run-name: ${{ inputs.pr }}

@@ -285,7 +285,8 @@ class TestDismiss:
             "conclusion": "success",
             "output": {
                 "title": "Confidence Score: 5/5",
-                "summary": "A member dismissed every finding of the review.\n\n"
+                "summary": "Someone with write access dismissed every finding of the "
+                "review.\n\n"
                 "Fix one thing.\n\nFindings: 1 P2.",
                 "text": gh.runs[0]["output"]["text"],
             },

@@ -314,8 +314,9 @@ class TestPrompt:
         ]
         stdin = review(pr=pull(dismissed=dismissed)).system
         assert (
-            "# Dismissed findings\n\nA member dismissed each of these findings. Do not "
-            "report them again in any form, and do not let them lower the score.\n\n"
+            "# Dismissed findings\n\nSomeone with write access dismissed each of these "
+            "findings. Do not report them again in any form, and do not let them lower "
+            "the score.\n\n"
             "- `a.go`: Old bug. Reason: Meant. See #1.\n- `b.go`: Nit"
         ) in stdin
 
