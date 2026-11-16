@@ -27,13 +27,13 @@
 
 namespace driver::bypass::pipeline {
 /// @brief a pipeline Streamer that merges local bus frames with Core frames. The Core
-/// half opens and reads on a background thread, so bus frames never wait for the Core.
-/// No authority filtering is applied here; the bypass Writer filters unauthorized
-/// channels before it publishes to the bus.
+/// half reads on a background thread, so bus frames never wait for the Core. No
+/// authority filtering is applied here; the bypass Writer filters unauthorized channels
+/// before it publishes to the bus.
 ///
 /// While the Core is unreachable, the Core half reopens with backoff and no retry
-/// limit, and read() keeps returning bus frames. A license error reopens within the
-/// breaker's retry limit. Any other Core error ends read() with that error.
+/// limit, and read() keeps returning bus frames. Any other Core error ends read() with
+/// that error.
 class Streamer final : public ::driver::pipeline::Streamer {
     std::shared_ptr<::driver::pipeline::StreamerFactory> factory;
     synnax::framer::StreamerConfig config;
@@ -44,7 +44,7 @@ class Streamer final : public ::driver::pipeline::Streamer {
 
     std::mutex core_mu;
     /// @brief the open Core streamer, if any. Guarded by core_mu, and changed only on
-    /// core_thread.
+    /// core_thread after construction.
     std::unique_ptr<::driver::pipeline::Streamer> core;
 
     std::mutex server_mu;
@@ -57,9 +57,14 @@ class Streamer final : public ::driver::pipeline::Streamer {
     std::condition_variable notify_cv;
 
 public:
+    /// @param core the Core streamer, or nullptr if its first open failed because the
+    /// Core is unreachable.
+    /// @param open_err the error of the first open, or NIL.
     Streamer(
         std::shared_ptr<::driver::pipeline::StreamerFactory> factory,
         synnax::framer::StreamerConfig config,
+        std::unique_ptr<::driver::pipeline::Streamer> core,
+        const x::errors::Error &open_err,
         std::shared_ptr<Subscription> subscription,
         std::shared_ptr<Bus> bus,
         const x::breaker::Config &breaker_config
@@ -68,10 +73,11 @@ public:
         config(std::move(config)),
         subscription(std::move(subscription)),
         bus(std::move(bus)),
-        breaker(breaker_config) {
+        breaker(breaker_config),
+        core(std::move(core)) {
         this->breaker.start();
         this->subscription->set_on_push([this] { this->notify_cv.notify_one(); });
-        this->core_thread = std::thread([this] { this->run_core(); });
+        this->core_thread = std::thread([this, open_err] { this->run_core(open_err); });
     }
 
     ~Streamer() override { this->close(); }
@@ -123,19 +129,13 @@ public:
     }
 
 private:
-    bool wait_for_core(const x::errors::Error &err) {
-        if (synnax::errors::is_unreachable(err))
-            return this->breaker.wait_unlimited(err);
-        return synnax::errors::is_temporarily_unavailable(err) &&
-               this->breaker.wait(err);
-    }
-
-    void run_core() {
-        auto err = this->stream_core();
-        while (this->breaker.running() && this->wait_for_core(err))
+    void run_core(x::errors::Error err) {
+        if (this->core != nullptr) err = this->read_core();
+        while (synnax::errors::is_unreachable(err) && this->breaker.running() &&
+               this->breaker.wait_unlimited(err))
             err = this->stream_core();
         // A close_send() that ends the wait for the Core is not a Core failure.
-        if (!this->breaker.running() && synnax::errors::is_temporarily_unavailable(err))
+        if (!this->breaker.running() && synnax::errors::is_unreachable(err))
             err = freighter::STREAM_CLOSED;
         {
             std::lock_guard lock(this->server_mu);
@@ -154,13 +154,17 @@ private:
             this->core = std::move(opened);
             if (!this->breaker.running()) this->core->close_send();
         }
+        return this->read_core();
+    }
+
+    /// @returns the error that ended the read of the open Core streamer.
+    x::errors::Error read_core() {
         this->breaker.reset_unlimited();
         auto err = x::errors::NIL;
         while (!err) {
             auto [frame, read_err] = this->core->read();
             err = read_err;
             if (err || frame.empty()) continue;
-            this->breaker.reset();
             this->bus->advance_alignments(frame);
             {
                 std::lock_guard lock(this->server_mu);
@@ -199,12 +203,17 @@ public:
         subject(std::move(subject)),
         breaker_config(std::move(breaker_config)) {}
 
-    /// @brief subscribes to the bus and returns at once. The streamer opens its Core
-    /// half in the background, so this never returns a Core error.
+    /// @brief opens the Core streamer and subscribes to the bus. If the Core is
+    /// unreachable, returns the streamer anyway, and the streamer reopens its Core half
+    /// in the background.
+    /// @returns any Core open error other than an unreachable Core.
     std::pair<std::unique_ptr<::driver::pipeline::Streamer>, x::errors::Error>
     open_streamer(synnax::framer::StreamerConfig config) override {
         if (this->subject.group != 0)
             config.exclude_groups.push_back(this->subject.group);
+        auto [core, open_err] = this->server->open_streamer(config);
+        if (open_err && !synnax::errors::is_unreachable(open_err))
+            return {nullptr, open_err};
         auto subscription = this->bus->subscribe(config.channels);
         VLOG(1) << "[bus.streamer_factory] opened streamer for "
                 << config.channels.size() << " channels, subject=" << this->subject.name
@@ -213,6 +222,8 @@ public:
             std::make_unique<Streamer>(
                 this->server,
                 std::move(config),
+                std::move(core),
+                open_err,
                 std::move(subscription),
                 this->bus,
                 this->breaker_config

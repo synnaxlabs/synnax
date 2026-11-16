@@ -116,16 +116,30 @@ TEST(StreamerTest, CloseSendDelegatesToCore) {
     ASSERT_NIL(streamer->close());
 }
 
-TEST(StreamerTest, NonOutageOpenErrorEndsRead) {
+/// @brief it should open the Core streamer before open_streamer returns.
+TEST(StreamerTest, OpensCoreBeforeReturning) {
     auto bus = std::make_shared<Bus>();
-    auto mock_factory = failing_core_factory({x::errors::VALIDATION});
+    auto mock_factory = failing_core_factory({});
     StreamerFactory factory(mock_factory, bus, TEST_SUBJECT, TEST_BREAKER);
     auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
-    ASSERT_OCCURRED_AS_P(streamer->read(), x::errors::VALIDATION);
-    ASSERT_OCCURRED_AS(streamer->close(), x::errors::VALIDATION);
     ASSERT_EQ(mock_factory->streamer_opens.load(), 1);
+    ASSERT_NIL(streamer->close());
 }
 
+/// @brief it should return a Core open error that is not an outage, without retry.
+TEST(StreamerTest, ReturnsNonOutageOpenError) {
+    for (const auto &open_err:
+         {x::errors::VALIDATION, synnax::errors::LICENSE_MISSING}) {
+        auto bus = std::make_shared<Bus>();
+        auto mock_factory = failing_core_factory({open_err});
+        StreamerFactory factory(mock_factory, bus, TEST_SUBJECT, TEST_BREAKER);
+        ASSERT_OCCURRED_AS_P(factory.open_streamer({.channels = {1}}), open_err);
+        ASSERT_EQ(mock_factory->streamer_opens.load(), 1);
+    }
+}
+
+/// @brief it should deliver local frames while the Core streamer fails to open as
+/// unreachable.
 TEST(StreamerTest, DeliversLocalFramesWhileCoreIsUnreachable) {
     auto bus = std::make_shared<Bus>();
     auto mock_factory = failing_core_factory(
@@ -142,6 +156,8 @@ TEST(StreamerTest, DeliversLocalFramesWhileCoreIsUnreachable) {
     ASSERT_NIL(streamer->close());
 }
 
+/// @brief it should reopen the Core streamer after an unreachable Core, and deliver
+/// Core frames again.
 TEST(StreamerTest, ReopensCoreAfterUnreachable) {
     auto first_reads = std::make_shared<std::vector<x::telem::Frame>>();
     first_reads->push_back(float_frame(1));
@@ -169,18 +185,27 @@ TEST(StreamerTest, ReopensCoreAfterUnreachable) {
     ASSERT_NIL(streamer->close());
 }
 
-TEST(StreamerTest, LicenseErrorEndsReadAfterRetryLimit) {
+/// @brief it should end read at the first license error and leave the retry to the
+/// pipeline.
+TEST(StreamerTest, LicenseReadErrorEndsRead) {
     auto bus = std::make_shared<Bus>();
     auto mock_factory = failing_core_factory(
-        std::vector(10, synnax::errors::LICENSE_MISSING)
+        {},
+        {{std::make_shared<std::vector<x::telem::Frame>>(),
+          std::make_shared<std::vector<x::errors::Error>>(
+              std::vector{synnax::errors::LICENSE_MISSING}
+          ),
+          x::errors::NIL}}
     );
     StreamerFactory factory(mock_factory, bus, TEST_SUBJECT, TEST_BREAKER);
     auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
     ASSERT_OCCURRED_AS_P(streamer->read(), synnax::errors::LICENSE_MISSING);
-    ASSERT_EQ(mock_factory->streamer_opens.load(), 3);
+    ASSERT_EQ(mock_factory->streamer_opens.load(), 1);
     ASSERT_OCCURRED_AS(streamer->close(), synnax::errors::LICENSE_MISSING);
 }
 
+/// @brief it should let a control pipeline write local frames to its sink while the
+/// Core is unreachable.
 TEST(StreamerTest, ControlPipelineWritesLocalFramesWhileCoreIsUnreachable) {
     auto bus = std::make_shared<Bus>();
     auto mock_factory = failing_core_factory(
@@ -222,7 +247,6 @@ TEST(StreamerTest, InjectsExcludeGroupsFromSubjectGroup) {
     );
     StreamerFactory factory(mock_factory, bus, grouped_subject, TEST_BREAKER);
     auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
-    ASSERT_EVENTUALLY_EQ(mock_factory->streamer_opens.load(), 1);
     ASSERT_EQ(mock_factory->config.exclude_groups.size(), 1);
     ASSERT_EQ(mock_factory->config.exclude_groups[0], 42);
     streamer->close_send();
@@ -246,12 +270,12 @@ TEST(StreamerTest, DoesNotInjectExcludeGroupsWhenGroupIsZero) {
     );
     StreamerFactory factory(mock_factory, bus, no_group_subject, TEST_BREAKER);
     auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
-    ASSERT_EVENTUALLY_EQ(mock_factory->streamer_opens.load(), 1);
     ASSERT_TRUE(mock_factory->config.exclude_groups.empty());
     streamer->close_send();
     ASSERT_NIL(streamer->close());
 }
 
+/// @brief it should end read with a Core read error that is not an outage.
 TEST(StreamerTest, NonOutageReadErrorEndsRead) {
     auto bus = std::make_shared<Bus>();
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
@@ -388,6 +412,7 @@ TEST(StreamerTest, ServerFramesAdvanceBusAlignment) {
     ASSERT_NIL(streamer->close());
 }
 
+/// @brief it should return a non-outage Core error from close.
 TEST(StreamerTest, PropagatesNonOutageCoreErrorThroughClose) {
     auto bus = std::make_shared<Bus>();
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
