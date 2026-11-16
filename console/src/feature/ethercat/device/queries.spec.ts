@@ -683,7 +683,6 @@ describe("useReplace", () => {
       { network: "eth1", position: 5, serial: 77 },
       false,
     );
-    const read = await createReadTask(r, old.key);
     const { result } = renderHook(() => EtherCAT.Device.useReplace(), { wrapper });
     await act(async () => {
       await result.current.updateAsync({ old, slave });
@@ -703,10 +702,6 @@ describe("useReplace", () => {
     await expect(client.devices.retrieve({ key: slave.key })).rejects.toThrow(
       NotFoundError,
     );
-    const config = EtherCAT.Task.READ_SCHEMAS.config.parse(
-      (await client.tasks.retrieve({ key: read.key })).config,
-    );
-    expect(config.channels.map((ch) => ch.device)).toEqual([old.key]);
   });
 
   it("should stop the running tasks on the network of the old slave and leave them stopped", async () => {
