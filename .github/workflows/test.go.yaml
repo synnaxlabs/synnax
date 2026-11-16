@@ -154,19 +154,21 @@ jobs:
           cache: false
 
       # This workflow file salts the key, so a cache saved under an older layout of the
-      # job never restores into the new one.
+      # job never restores into the new one. Each shard lints other packages, so each
+      # keeps its own cache.
       - name: Key the Go caches
         id: key
         shell: bash
         env:
           DIRECTORY: ${{ inputs.directory }}
           GOOS: ${{ matrix.goos }}
+          SHARD: ${{ matrix.shard }}
           SUM:
             ${{ hashFiles(format('{0}/go.sum', inputs.directory),
             '.github/workflows/test.go.yaml') }}
         run: |
-          echo "module=go-lint-$GOOS-$DIRECTORY-" >> "$GITHUB_OUTPUT"
-          echo "sum=go-lint-$GOOS-$DIRECTORY-$SUM-" >> "$GITHUB_OUTPUT"
+          echo "module=go-lint-$GOOS-$SHARD-$DIRECTORY-" >> "$GITHUB_OUTPUT"
+          echo "sum=go-lint-$GOOS-$SHARD-$DIRECTORY-$SUM-" >> "$GITHUB_OUTPUT"
 
       # A run reads the caches of its own branch and of main, never those of another
       # pull request, so only main saves them. A changed go.sum falls back to an older
@@ -243,6 +245,7 @@ jobs:
       # other linter reports the whole module, so the merge queue and main still catch
       # a finding on a line no change touched.
       - name: Lint
+        shell: bash
         working-directory: ${{ inputs.directory }}
         env:
           CGO_ENABLED: "0"
