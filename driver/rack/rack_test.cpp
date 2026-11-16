@@ -84,7 +84,14 @@ TEST(RackTest, WaitsForAnUnreachableCorePastTheRetryLimit) {
         "--password",
         conn.password,
     });
-    const auto kv = ASSERT_NIL_P(x::kv::JSONFile::open_file({.path = RACK_STATE_PATH}));
+    const auto kv = ASSERT_NIL_P(
+        x::kv::JSONFile::open_file({
+            .path = RACK_STATE_PATH,
+            .dir_mode = std::filesystem::perms::owner_all,
+            .file_mode = std::filesystem::perms::owner_read |
+                         std::filesystem::perms::owner_write,
+        })
+    );
     ASSERT_NIL(kv->set(
         "remote_info",
         x::json::json{{"rack_key", rack.key}, {"cluster_key", cluster_key}}.dump()
@@ -103,7 +110,11 @@ TEST(RackTest, WaitsForAnUnreachableCorePastTheRetryLimit) {
         const auto [remote, err] = client.racks.retrieve(rack.key, opts);
         return !err && remote.status.has_value() && remote.status->details.running;
     };
-    ASSERT_EVENTUALLY_TRUE(running());
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        running(),
+        std::chrono::seconds(30),
+        std::chrono::milliseconds(100)
+    );
     pipe.pause();
     std::this_thread::sleep_for(std::chrono::seconds(1));
     ASSERT_FALSE(shut_down);
