@@ -9,7 +9,6 @@
 
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v0"
-import "schemas/synnax/versions/icd/v0"
 import "schemas/synnax/versions/task/v2"
 import "schemas/x/versions/payload/v0"
 import "schemas/x/versions/telem/v0"
@@ -194,93 +193,6 @@ ReadConfig struct extends task.PersistConfig {
     @doc value  """
         configures an MQTT read task, which subscribes to topics and Sparkplug B tags on
         a broker device and writes their values to Synnax channels.
-    """
-    @go imex    body
-    @go marshal
-    @go migrate
-}
-
-ICDBinding struct {
-    field   icd.FieldKey {
-        @doc value "is the key of the message field to read."
-    }
-    channel channel.Key = 0 {
-        @doc value     "is the channel the field's value is written to."
-        @ref kind      use
-        @ref on_delete restrict
-    }
-
-    @doc value  "writes the value of one message field to a channel."
-    @go marshal
-}
-
-ICDReadMessage struct {
-    message  icd.MessageKey {
-        @doc value "is the key of the ICD message to read."
-    }
-    index    icd.FieldKey?  {
-        @doc value """
-            is the key of the field whose channel indexes the others. When absent the
-            task stamps samples on arrival.
-        """
-    }
-    bindings ICDBinding[] = [] {
-        @doc value "are the fields the task writes to channels."
-    }
-
-    @doc value  "reads the documents of one ICD message."
-    @go marshal
-}
-
-ICDReadEntry struct {
-    key              string = create {
-        @doc value "uniquely identifies the entry within the task."
-        @key
-    }
-    disabled         bool = false {
-        @doc value "is true when the entry is excluded from the task."
-    }
-    topic            string = "" {
-        @doc value "is the topic to subscribe to. It holds no wildcards."
-    }
-    qos              QoS = at_most_once {
-        @doc value "is the quality of service of the subscription."
-    }
-    retained_ignored bool = false {
-        @doc value """
-            is true when the task drops the retained message that the broker sends on
-            subscribe.
-        """
-    }
-    icd              icd.Key          {
-        @doc value     "is the key of the ICD that holds the messages of the topic."
-        @ref kind      use
-        @ref on_delete restrict
-    }
-    messages         ICDReadMessage[] = [] {
-        @doc value """
-            are the messages the topic carries. Each document is read as the first
-            message whose match rule it meets.
-        """
-    }
-
-    @doc value  "reads the ICD messages of one topic."
-    @go marshal
-}
-
-ICDReadConfig struct extends task.PersistConfig {
-    device  device.Key = "" {
-        @doc value     "is the key of the broker device to read from."
-        @ref kind      use
-        @ref on_delete restrict
-    }
-    entries ICDReadEntry[] = [] {
-        @doc value "contains the topics to read."
-    }
-
-    @doc value  """
-        configures an MQTT ICD read task, which parses the payloads of topics with ICD
-        messages and writes their fields to channels.
     """
     @go imex    body
     @go marshal

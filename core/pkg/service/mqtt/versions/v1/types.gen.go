@@ -18,9 +18,8 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -419,111 +418,6 @@ func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
 	for i := range r.Entries {
 		v.Exec(func() error { return validate.PathedError(r.Entries[i].Validate(), "entries", strconv.Itoa(i)) })
-	}
-	return v.Error()
-}
-
-// ICDBinding writes the value of one message field to a channel.
-type ICDBinding struct {
-	// Field is the key of the message field to read.
-	Field icd.FieldKey `json:"field" msgpack:"field"`
-	// Channel is the channel the field's value is written to.
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-}
-
-// ICDReadMessage reads the documents of one ICD message.
-type ICDReadMessage struct {
-	// Message is the key of the ICD message to read.
-	Message icd.MessageKey `json:"message" msgpack:"message"`
-	// Index is the key of the field whose channel indexes the others. When absent the
-	// task stamps samples on arrival.
-	Index *icd.FieldKey `json:"index,omitzero" msgpack:"index,omitempty"`
-	// Bindings are the fields the task writes to channels.
-	Bindings []ICDBinding `json:"bindings" msgpack:"bindings"`
-}
-
-// ICDReadEntry reads the ICD messages of one topic.
-type ICDReadEntry struct {
-	// Key uniquely identifies the entry within the task.
-	Key string `json:"key" msgpack:"key"`
-	// Disabled is true when the entry is excluded from the task.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
-	// Topic is the topic to subscribe to. It holds no wildcards.
-	Topic string `json:"topic" msgpack:"topic"`
-	// Qos is the quality of service of the subscription.
-	Qos QoS `json:"qos" msgpack:"qos"`
-	// RetainedIgnored is true when the task drops the retained message that the broker
-	// sends on subscribe.
-	RetainedIgnored bool `json:"retained_ignored" msgpack:"retained_ignored"`
-	// ICD is the key of the ICD that holds the messages of the topic.
-	ICD icd.Key `json:"icd" msgpack:"icd"`
-	// Messages are the messages the topic carries. Each document is read as the first
-	// message whose match rule it meets.
-	Messages []ICDReadMessage `json:"messages" msgpack:"messages"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *ICDReadEntry) ApplyDefaults() {
-	if i.Qos == "" {
-		i.Qos = QoSAtMostOnce
-	}
-}
-
-// SetDefaults sets every field that has a schema default to that default.
-func (i *ICDReadEntry) SetDefaults() {
-	i.Qos = QoSAtMostOnce
-}
-
-// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
-// schema defaults, so an omitted member takes its default and a zero stays.
-func (i *ICDReadEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	type plain ICDReadEntry
-	if reflect.ValueOf(*i).IsZero() {
-		i.SetDefaults()
-	}
-	return json.UnmarshalDecode(dec, (*plain)(i))
-}
-
-// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
-func (i *ICDReadEntry) DecodeMsgpack(dec *vmsgpack.Decoder) error {
-	type plain ICDReadEntry
-	if reflect.ValueOf(*i).IsZero() {
-		i.SetDefaults()
-	}
-	return dec.Decode((*plain)(i))
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (i ICDReadEntry) Validate() error {
-	v := validate.New("ICDReadEntry")
-	v.Ternaryf("qos", !i.Qos.IsValid(), "invalid qos: %v", i.Qos)
-	return v.Error()
-}
-
-// ICDReadConfig configures an MQTT ICD read task, which parses the payloads of topics
-// with ICD messages and writes their fields to channels.
-type ICDReadConfig struct {
-	task.PersistConfig
-	// Device is the key of the broker device to read from.
-	Device device.Key `json:"device" msgpack:"device"`
-	// Entries contains the topics to read.
-	Entries []ICDReadEntry `json:"entries" msgpack:"entries"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (ic *ICDReadConfig) ApplyDefaults() {
-	for i := range ic.Entries {
-		ic.Entries[i].ApplyDefaults()
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (ic ICDReadConfig) Validate() error {
-	v := validate.New("ICDReadConfig")
-	for i := range ic.Entries {
-		v.Exec(func() error { return validate.PathedError(ic.Entries[i].Validate(), "entries", strconv.Itoa(i)) })
 	}
 	return v.Error()
 }
