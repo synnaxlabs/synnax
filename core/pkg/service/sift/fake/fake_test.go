@@ -519,9 +519,12 @@ var _ = Describe("Server", func() {
 			MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{}))
 		})
 
-		It("Should return the error RejectRuns sets until it is cleared",
+		It("Should return the RejectRuns error after queued errors, until cleared",
 			func(ctx SpecContext) {
 				server.RejectRuns(status.Error(codes.InvalidArgument, "bad name"))
+				server.FailRuns(status.Error(codes.Unavailable, "down"))
+				Expect(createRun(ctx, &runsv2.CreateAdhocRunRequest{})).Error().
+					To(WithTransform(status.Code, Equal(codes.Unavailable)))
 				for range 2 {
 					Expect(createRun(ctx, &runsv2.CreateAdhocRunRequest{})).Error().
 						To(WithTransform(status.Code, Equal(codes.InvalidArgument)))
@@ -562,7 +565,8 @@ var _ = Describe("Server", func() {
 				))
 			})
 
-		It("Should return the error RejectRunUpdates sets until it is cleared",
+		It(
+			"Should return the RejectRunUpdates error after queued errors, until cleared",
 			func(ctx SpecContext) {
 				created := MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{}))
 				update := func() (*runsv2.UpdateRunResponse, error) {
@@ -574,6 +578,9 @@ var _ = Describe("Server", func() {
 					})
 				}
 				server.RejectRunUpdates(status.Error(codes.InvalidArgument, "bad name"))
+				server.FailRunUpdates(status.Error(codes.Unavailable, "down"))
+				Expect(update()).Error().
+					To(WithTransform(status.Code, Equal(codes.Unavailable)))
 				for range 2 {
 					Expect(update()).Error().
 						To(WithTransform(status.Code, Equal(codes.InvalidArgument)))
@@ -583,7 +590,8 @@ var _ = Describe("Server", func() {
 				Expect(server.Runs()).To(HaveExactElements(
 					HaveField("Name", "renamed"),
 				))
-			})
+			},
+		)
 	})
 
 	Describe("APIKey", func() {
