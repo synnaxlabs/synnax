@@ -48,6 +48,11 @@ const createPair = async () => {
   return { rack, model, old, slave };
 };
 
+const Listener = (): null => {
+  EtherCAT.Device.useListenForReplacements();
+  return null;
+};
+
 const renderPrompt = async (): Promise<{
   statuses: () => Status.NotificationSpec[];
 }> => {
@@ -55,7 +60,7 @@ const renderPrompt = async (): Promise<{
   let latest: Status.NotificationSpec[] = [];
   render(
     <>
-      <EtherCAT.Device.ReplacementListener />
+      <Listener />
       <Notifications.Feed notifications={EtherCAT.Device.NOTIFICATIONS} />
       <CaptureStatuses onStatuses={(s) => (latest = s)} />
     </>,
@@ -74,7 +79,7 @@ const findPrompt = async (question: string): Promise<HTMLElement> => {
   return prompt;
 };
 
-describe("ReplacementListener", () => {
+describe("useListenForReplacements", () => {
   installPortalRoot();
 
   it("should ask once whether a new slave is the old slave of its model", async () => {
