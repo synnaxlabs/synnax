@@ -167,7 +167,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					_, err := stream.Receive()
 					return err
 				})
-				ownApp, ownAddr := serveRouter(router)
+				_, ownAddr := serveRouter(router)
 				headers := http.Header{}
 				headers.Set(fiber.HeaderContentType, contentType)
 				conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
@@ -178,10 +178,47 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				Eventually(codecCtx).Should(Receive(&got))
 				Expect(got.Err()).ToNot(HaveOccurred())
 				Expect(conn.Close()).To(Succeed())
-				Expect(ownApp.Shutdown()).To(Succeed())
 				Eventually(got.Done()).Should(BeClosed())
 			},
 		)
+	})
+
+	Describe("Request context", func() {
+		It("should pass request context values to the stream handler", func(
+			ctx SpecContext,
+		) {
+			type key struct{}
+			router := MustSucceed(fhttp.NewRouter(ctx, fhttp.RouterConfig{
+				StreamWriteDeadline: testutil.WriteDeadline,
+			}))
+			ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
+				"/",
+			)
+			values := make(chan any, 1)
+			ownServer.BindHandler(func(
+				ctx context.Context,
+				stream freighter.ServerStream[testutil.Request, testutil.Response],
+			) error {
+				values <- ctx.Value(key{})
+				_, err := stream.Receive()
+				return err
+			})
+			app := newFiberApp(fiber.Config{})
+			app.Use(func(c fiber.Ctx) error {
+				c.SetContext(context.WithValue(c.Context(), key{}, "cat"))
+				return c.Next()
+			})
+			router.BindTo(app)
+			addr := serveApp(app)
+			headers := http.Header{}
+			headers.Set(fiber.HeaderContentType, "application/json")
+			conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
+				ctx, "ws://"+addr.String()+"/", headers,
+			))
+			DeferCleanup(func() { Expect(conn.Close()).To(Succeed()) })
+			Expect(res.Body.Close()).To(Succeed())
+			Eventually(values).Should(Receive(Equal("cat")))
+		})
 	})
 
 	Describe("Shutdown", func() {
