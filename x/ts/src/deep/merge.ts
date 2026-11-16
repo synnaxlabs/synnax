@@ -27,7 +27,7 @@ export const override = <T>(base: T, ...overrides: Array<Partial<T>>): T => {
     for (const key in source)
       try {
         if (narrow.isObject(source[key])) {
-          if (!(key in base)) Object.assign(base, { [key]: {} });
+          if (!narrow.isObject(base[key])) Object.assign(base, { [key]: {} });
           override(base[key], source[key]);
         } else Object.assign(base, { [key]: source[key] });
       } catch (e) {

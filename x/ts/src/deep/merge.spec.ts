@@ -61,6 +61,14 @@ describe("deepMerge", () => {
     };
     expect(deep.override(a, b)).toEqual(c);
   });
+  it("should set an object over a null value", () => {
+    const base: { a: { b: number } | null } = { a: null };
+    expect(deep.override(base, { a: { b: 1 } })).toEqual({ a: { b: 1 } });
+  });
+  it("should set an object over a primitive value", () => {
+    const base: { a: number | { b: number } } = { a: 1 };
+    expect(deep.override(base, { a: { b: 1 } })).toEqual({ a: { b: 1 } });
+  });
 
   describe("overrideValidItems", () => {
     it("should override valid items", () => {
