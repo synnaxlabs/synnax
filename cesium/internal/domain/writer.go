@@ -358,35 +358,54 @@ func (w *Writer) commit(
 		size:    uint32(length),
 		fileKey: w.fileKey,
 	}
+	if err := w.index(ctx, ptr, shouldPersist, g); err != nil {
+		return span.Error(err)
+	}
+
+	if switchingFile {
+		if err := w.rollover(ctx, commitEnd); err != nil {
+			return span.Error(err)
+		}
+	}
+
+	return nil
+}
+
+// index inserts or updates ptr in the index, persisting it when shouldPersist is true.
+func (w *Writer) index(
+	ctx context.Context,
+	ptr pointer,
+	shouldPersist bool,
+	g *Group,
+) error {
 	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
 
 	write, err := f(ctx, ptr, shouldPersist, g)
 	if err != nil {
-		return span.Error(err)
+		return err
 	}
 	if w.staged && w.stagedStart != ptr.Start {
 		w.idx.reveal(w.stagedStart)
 	}
 	w.staged, w.stagedStart = g != nil, ptr.Start
 	// The index holds the pointer even when persisting it fails, so a retry updates it.
-	w.prevCommit = commitEnd
+	w.prevCommit = ptr.End
 	if shouldPersist {
-		if err := w.idx.run(write); err != nil {
-			return span.Error(err)
-		}
+		return w.idx.run(write)
 	}
+	return nil
+}
 
-	if switchingFile {
-		if err := w.switchFile(ctx); err != nil {
-			return span.Error(err)
-		}
-		w.Start = commitEnd
-		w.prevCommit = 0
-		if w.OnRollover != nil {
-			w.OnRollover(commitEnd)
-		}
+// rollover moves the writer to a new file whose first domain starts at end.
+func (w *Writer) rollover(ctx context.Context, end telem.TimeStamp) error {
+	if err := w.switchFile(ctx); err != nil {
+		return err
 	}
-
+	w.Start = end
+	w.prevCommit = 0
+	if w.OnRollover != nil {
+		w.OnRollover(end)
+	}
 	return nil
 }
 
