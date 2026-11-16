@@ -25,62 +25,71 @@ func compileUnary(
 		if err != nil {
 			return types.Type{}, err
 		}
-		switch innerType.Kind {
-		case types.KindI8,
-			types.KindI16,
-			types.KindI32,
-			types.KindU8,
-			types.KindU16,
-			types.KindU32:
-			ctx.Writer.WriteI32Const(-1)
-			ctx.Writer.WriteBinaryOp(wasm.OpI32Mul)
-			ctx.Writer.WriteNarrow(innerType)
-		case types.KindI64, types.KindU64:
-			ctx.Writer.WriteI64Const(-1)
-			ctx.Writer.WriteBinaryOp(wasm.OpI64Mul)
-		case types.KindF32:
-			ctx.Writer.WriteOpcode(wasm.OpF32Neg)
-		case types.KindF64:
-			ctx.Writer.WriteOpcode(wasm.OpF64Neg)
-		case types.KindSeries:
-			elemType := innerType.Unwrap()
-			if elemType.IsSigned() {
-				ctx.Resolver.EmitSeriesNegate(ctx.Writer, ctx.WriterID, elemType)
-			} else {
-				return types.Type{}, errors.Newf(
-					"cannot negate series of unsigned type %s",
-					elemType,
-				)
-			}
-		default:
-			return types.Type{}, errors.Newf("cannot negate type %s", innerType)
+		if err = emitNegate(ctx, innerType); err != nil {
+			return types.Type{}, err
 		}
 		return innerType, nil
 	}
-
 	if ctx.AST.NOT() != nil {
 		innerType, err := compileUnary(ctx.Child(ctx.AST.UnaryExpression()))
 		if err != nil {
 			return types.Type{}, err
 		}
-
-		if innerType.Kind == types.KindSeries {
-			if !innerType.IsBool() {
-				return types.Type{}, errors.Newf(
-					"logical NOT on series requires a bool element type, got %s",
-					innerType.Unwrap(),
-				)
-			}
-			ctx.Resolver.EmitSeriesNot(ctx.Writer, ctx.WriterID)
-			return innerType, nil
-		}
-
-		ctx.Writer.WriteOpcode(wasm.OpI32Eqz)
-		return types.Bool(), nil
+		return emitNot(ctx, innerType)
 	}
-
 	if power := ctx.AST.PowerExpression(); power != nil {
 		return compilePower(ctx.Child(power))
 	}
 	return types.Type{}, errors.New("unknown unary expression")
+}
+
+func emitNegate(
+	ctx context.Context[parser.IUnaryExpressionContext],
+	t types.Type,
+) error {
+	switch t.Kind {
+	case types.KindI8,
+		types.KindI16,
+		types.KindI32,
+		types.KindU8,
+		types.KindU16,
+		types.KindU32:
+		ctx.Writer.WriteI32Const(-1)
+		ctx.Writer.WriteBinaryOp(wasm.OpI32Mul)
+		ctx.Writer.WriteNarrow(t)
+	case types.KindI64, types.KindU64:
+		ctx.Writer.WriteI64Const(-1)
+		ctx.Writer.WriteBinaryOp(wasm.OpI64Mul)
+	case types.KindF32:
+		ctx.Writer.WriteOpcode(wasm.OpF32Neg)
+	case types.KindF64:
+		ctx.Writer.WriteOpcode(wasm.OpF64Neg)
+	case types.KindSeries:
+		elemType := t.Unwrap()
+		if !elemType.IsSigned() {
+			return errors.Newf("cannot negate series of unsigned type %s", elemType)
+		}
+		ctx.Resolver.EmitSeriesNegate(ctx.Writer, ctx.WriterID, elemType)
+	default:
+		return errors.Newf("cannot negate type %s", t)
+	}
+	return nil
+}
+
+func emitNot(
+	ctx context.Context[parser.IUnaryExpressionContext],
+	t types.Type,
+) (types.Type, error) {
+	if t.Kind != types.KindSeries {
+		ctx.Writer.WriteOpcode(wasm.OpI32Eqz)
+		return types.Bool(), nil
+	}
+	if !t.IsBool() {
+		return types.Type{}, errors.Newf(
+			"logical NOT on series requires a bool element type, got %s",
+			t.Unwrap(),
+		)
+	}
+	ctx.Resolver.EmitSeriesNot(ctx.Writer, ctx.WriterID)
+	return t, nil
 }

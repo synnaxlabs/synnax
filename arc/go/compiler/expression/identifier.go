@@ -40,30 +40,12 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 			return types.Type{}, err
 		}
 	}
-	chanRef := ctx.Hint.Kind == types.KindChan
 	switch scope.Kind {
 	case symbol.KindVariable, symbol.KindInput, symbol.KindLoopVariable:
 		if scope.Type.Kind == types.KindChan {
-			EmitChannelKey(ctx, scope)
-			if chanRef {
-				return scope.Type, nil
-			}
-			emitChannelRead(ctx, scope.Type)
-			return scope.Type.Unwrap(), nil
+			return compileChannelRead(ctx, scope), nil
 		}
-		// A never-reassigned literal flow variable collapses to its initial value;
-		// reassigned and computed reads are lifted into params before compilation.
-		if scope.Kind == symbol.KindVariable && !SameFunction(ctx.Scope, scope) {
-			if scope.DefaultValue != nil {
-				return castAndEmitConst(ctx, scope)
-			}
-			return types.Type{}, errors.Newf(
-				"cannot read '%s': its initializer is not a compile-time constant",
-				name,
-			)
-		}
-		ctx.Writer.WriteLocalGet(scope.ID)
-		return scope.Type, nil
+		return compileVariableRead(ctx, scope, name)
 	case symbol.KindStatefulVariable:
 		// Reassigned is only tracked at flow level; a never-written $= there is
 		// its initial value. Func-local statefuls always load their cell.
@@ -77,12 +59,7 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		emitStatefulLoad(ctx, scope.ID, scope.Type)
 		return scope.Type, nil
 	case symbol.KindChannel:
-		EmitChannelKey(ctx, scope)
-		if chanRef {
-			return scope.Type, nil
-		}
-		emitChannelRead(ctx, scope.Type)
-		return scope.Type.Unwrap(), nil
+		return compileChannelRead(ctx, scope), nil
 	case symbol.KindConstant:
 		return compileFloatConstant(ctx, scope)
 	default:
@@ -92,6 +69,40 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 			name,
 		)
 	}
+}
+
+// compileChannelRead pushes the channel's key, then reads its value unless the hint
+// asks for the channel itself.
+func compileChannelRead[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	scope *symbol.Symbol,
+) types.Type {
+	EmitChannelKey(ctx, scope)
+	if ctx.Hint.Kind == types.KindChan {
+		return scope.Type
+	}
+	emitChannelRead(ctx, scope.Type)
+	return scope.Type.Unwrap()
+}
+
+func compileVariableRead[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	scope *symbol.Symbol,
+	name string,
+) (types.Type, error) {
+	// A never-reassigned literal flow variable collapses to its initial value;
+	// reassigned and computed reads are lifted into params before compilation.
+	if scope.Kind == symbol.KindVariable && !SameFunction(ctx.Scope, scope) {
+		if scope.DefaultValue != nil {
+			return castAndEmitConst(ctx, scope)
+		}
+		return types.Type{}, errors.Newf(
+			"cannot read '%s': its initializer is not a compile-time constant",
+			name,
+		)
+	}
+	ctx.Writer.WriteLocalGet(scope.ID)
+	return scope.Type, nil
 }
 
 // liftedInput returns the input of the enclosing function that carries a read of the

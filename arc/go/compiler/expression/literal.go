@@ -12,6 +12,7 @@ package expression
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
+	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
@@ -71,12 +72,8 @@ func compileSeriesLiteral(
 ) (types.Type, error) {
 	seriesType := ctx.Hint
 	if !seriesType.IsValid() {
-		if parent := ctx.AST.GetParent(); parent != nil {
-			if litCtx, ok := parent.(parser.ILiteralContext); ok {
-				if inferredType, ok := ctx.TypeMap[litCtx]; ok {
-					seriesType = inferredType
-				}
-			}
+		if inferred, ok := parentLiteralType(ctx.TypeMap, ctx.AST); ok {
+			seriesType = inferred
 		}
 	}
 
@@ -113,32 +110,42 @@ func compileNumericLiteral(
 	ctx context.Context[parser.INumericLiteralContext],
 ) (types.Type, error) {
 	targetType := ctx.Hint
-
 	if !targetType.IsValid() || !targetType.IsNumeric() ||
 		targetType.Kind == types.KindVariable {
-		targetType = types.Type{}
-		if parent := ctx.AST.GetParent(); parent != nil {
-			if litCtx, ok := parent.(parser.ILiteralContext); ok {
-				if inferredType, ok := ctx.TypeMap[litCtx]; ok {
-					targetType = inferredType
-				}
-			}
-		}
+		targetType, _ = parentLiteralType(ctx.TypeMap, ctx.AST)
 	}
-
 	targetType = targetType.Unwrap()
 	targetType.Unit = nil
-
 	parsed, err := literal.ParseNumeric(ctx.AST, targetType)
 	if err != nil {
 		return types.Type{}, err
 	}
+	if err = emitNumericConst(ctx.Writer, parsed); err != nil {
+		return types.Type{}, err
+	}
+	return parsed.Type, nil
+}
 
+// parentLiteralType returns the type the analyzer inferred for the literal that holds
+// node.
+func parentLiteralType(
+	typeMap map[antlr.ParserRuleContext]types.Type,
+	node antlr.ParserRuleContext,
+) (types.Type, bool) {
+	litCtx, ok := node.GetParent().(parser.ILiteralContext)
+	if !ok {
+		return types.Type{}, false
+	}
+	t, ok := typeMap[litCtx]
+	return t, ok
+}
+
+func emitNumericConst(w *wasm.Writer, parsed literal.ParsedValue) error {
 	switch parsed.Type.Kind {
 	case types.KindF32:
-		ctx.Writer.WriteF32Const(parsed.Value.(float32))
+		w.WriteF32Const(parsed.Value.(float32))
 	case types.KindF64:
-		ctx.Writer.WriteF64Const(parsed.Value.(float64))
+		w.WriteF64Const(parsed.Value.(float64))
 	case types.KindI8,
 		types.KindI16,
 		types.KindI32,
@@ -160,33 +167,30 @@ func compileNumericLiteral(
 		case uint32:
 			i32Val = int32(v)
 		default:
-			return types.Type{}, errors.Newf(
-				"unexpected value type %T for %s literal",
-				parsed.Value,
-				parsed.Type.Kind,
-			)
+			return unexpectedLiteralValue(parsed)
 		}
-		ctx.Writer.WriteI32Const(i32Val)
+		w.WriteI32Const(i32Val)
 	case types.KindI64:
-		var i64Val int64
 		switch v := parsed.Value.(type) {
 		case int64:
-			i64Val = v
+			w.WriteI64Const(v)
 		case telem.TimeSpan:
-			i64Val = int64(v)
+			w.WriteI64Const(int64(v))
 		default:
-			return types.Type{}, errors.Newf(
-				"unexpected value type %T for %s literal",
-				parsed.Value,
-				parsed.Type.Kind,
-			)
+			return unexpectedLiteralValue(parsed)
 		}
-		ctx.Writer.WriteI64Const(i64Val)
 	case types.KindU64:
-		ctx.Writer.WriteI64Const(int64(parsed.Value.(uint64)))
+		w.WriteI64Const(int64(parsed.Value.(uint64)))
 	default:
-		return types.Type{}, errors.Newf("unsupported numeric type: %s", parsed.Type)
+		return errors.Newf("unsupported numeric type: %s", parsed.Type)
 	}
+	return nil
+}
 
-	return parsed.Type, nil
+func unexpectedLiteralValue(parsed literal.ParsedValue) error {
+	return errors.Newf(
+		"unexpected value type %T for %s literal",
+		parsed.Value,
+		parsed.Type.Kind,
+	)
 }
