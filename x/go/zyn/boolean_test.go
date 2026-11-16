@@ -61,6 +61,12 @@ var _ = Describe("Bool", func() {
 			Expect(dest).To(BeFalse())
 		})
 
+		Specify("unsigned integer 1", func() {
+			var dest bool
+			Expect(zyn.Bool().Parse(uint8(1), &dest)).To(Succeed())
+			Expect(dest).To(BeTrue())
+		})
+
 		Specify("float 1.0", func() {
 			var dest bool
 			Expect(zyn.Bool().Parse(1.0, &dest)).To(Succeed())
@@ -214,6 +220,10 @@ var _ = Describe("Bool", func() {
 		Specify("integer 0", func() {
 			result := MustSucceed(zyn.Bool().Dump(0))
 			Expect(result).To(BeFalse())
+		})
+
+		Specify("unsigned integer 1", func() {
+			Expect(MustSucceed(zyn.Bool().Dump(uint(1)))).To(BeTrue())
 		})
 
 		Specify("float 1.0", func() {
