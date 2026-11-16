@@ -16,6 +16,7 @@ import (
 	"encoding/json/v2"
 	"uuid"
 
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -35,6 +36,8 @@ type Named struct {
 	Light color.Color `json:"light" msgpack:"light"`
 	// Dark is the color in the dark theme. When absent, the theme derives it.
 	Dark *color.Color `json:"dark,omitzero" msgpack:"dark,omitempty"`
+	// Group is the palette that holds the color, if any.
+	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

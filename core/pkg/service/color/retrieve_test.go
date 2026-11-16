@@ -17,6 +17,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
@@ -126,6 +128,26 @@ var _ = Describe("Retrieve", func() {
 				[]string{"amber", "Breaker"},
 			),
 		)
+
+		It("Should keep the named colors by their palette", func(ctx SpecContext) {
+			groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+			g := group.Group{Name: "Series", Scope: resource.TypeColor}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := groups.NewWriter(tx).Create(ctx, &g); err != nil {
+					return err
+				}
+				return svc.NewWriter(tx).Create(ctx, &color.Named{
+					Name:  "Gauge",
+					Light: xcolor.Color{G: 255, A: 255},
+					Group: &g.Key,
+				})
+			})).To(Succeed())
+			f := MustSucceed(color.MatchWhere(color.Where{Groups: []group.Key{g.Key}}))
+			Expect(names(ctx, svc.NewRetrieve().Where(f))).To(Equal([]string{"Gauge"}))
+			f = MustSucceed(color.MatchWhere(color.Where{Grouped: new(false)}))
+			Expect(names(ctx, svc.NewRetrieve().Where(f))).
+				To(ConsistOf("Valve", "amber", "Breaker"))
+		})
 
 		It("Should return a path error for a line that sets no operator", func() {
 			Expect(color.MatchWhere(color.Where{Name: &filter.String{}})).

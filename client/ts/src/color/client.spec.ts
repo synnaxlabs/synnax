@@ -12,6 +12,7 @@ import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 
 import { color } from "@/color";
 import { NotFoundError } from "@/errors";
+import { group } from "@/group";
 import { query } from "@/query";
 import { resource } from "@/resource";
 import { createTestClient, expectDeleted, expectLive, spyOnSend } from "@/testutil";
@@ -139,6 +140,76 @@ describe("color.Client", () => {
           return query.isLive(cached) ? cached.name : undefined;
         })
         .toBe(named.name);
+    });
+  });
+
+  describe("palettes", () => {
+    const moveRequests = (named: color.Named, to?: group.Group) =>
+      client.groups.moveRequests(
+        [color.resourceID(named.key)],
+        to == null ? undefined : group.resourceID(to.key),
+      );
+
+    it("should move a named color into a palette and out", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: `palette-${id.create()}`,
+      });
+      const named = await createNamed();
+      await client.batch.send(moveRequests(named, palette));
+      expect((await createTestClient().colors.retrieve(named.key)).group).toBe(
+        palette.key,
+      );
+      expect(expectLive(client.colors.watch(named.key).getCached()).group).toBe(
+        palette.key,
+      );
+      await client.batch.send(moveRequests(named));
+      expect(
+        (await createTestClient().colors.retrieve(named.key)).group,
+      ).toBeUndefined();
+    });
+
+    it("should retrieve the named colors of a palette", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: `palette-${id.create()}`,
+      });
+      const [inPalette, loose] = await Promise.all([createNamed(), createNamed()]);
+      await client.batch.send(moveRequests(inPalette, palette));
+      const reader = createTestClient();
+      const grouped = await reader.colors.retrieve({ groups: [palette.key] });
+      expect(grouped.map((n) => n.key)).toEqual([inPalette.key]);
+      const ungrouped = await reader.colors.retrieve({
+        key: [inPalette.key, loose.key],
+        grouped: false,
+      });
+      expect(ungrouped.map((n) => n.key)).toEqual([loose.key]);
+    });
+
+    it("should add a named color moved into a watched palette", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: `palette-${id.create()}`,
+      });
+      const list = client.colors.watch({ groups: [palette.key] });
+      onTestFinished(list.onChange(() => {}));
+      await list.retrieve();
+      const named = await createNamed();
+      await client.batch.send(moveRequests(named, palette));
+      await expect
+        .poll(() => list.getCached()?.records.map((n) => n.key))
+        .toEqual([named.key]);
+    });
+
+    it("should refuse a move into a group of another scope", async () => {
+      const channels = await client.groups.create({
+        scope: "channel",
+        name: `channels-${id.create()}`,
+      });
+      const named = await createNamed();
+      await expect(client.batch.send(moveRequests(named, channels))).rejects.toThrow(
+        "a color cannot sit in a channel group",
+      );
     });
   });
 

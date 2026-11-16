@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import { color } from "@/color";
 
 const KEY = "5a7d3e1c-2f4b-4c6d-8e9f-0a1b2c3d4e5f";
+const GROUP = "6b8e4f2d-3a5c-4d7e-9fa0-1b2c3d4e5f60";
 
 const createNamed = (): color.Named =>
   color.namedZ.parse({ key: KEY, name: "Nominal", light: "#00ff00" });
@@ -40,6 +41,17 @@ describe("color.reduceAll", () => {
         color.set({ path: ["dark"], value: "#0000ff" }),
       ]);
       expect(next.dark).toEqual(xcolor.construct("#0000ff"));
+    });
+
+    it("should set and clear the group", () => {
+      const { next } = color.reduceAll(createNamed(), [
+        color.set({ path: ["group"], value: GROUP }),
+      ]);
+      expect(next.group).toBe(GROUP);
+      const cleared = color.reduceAll(next, [
+        color.set({ path: ["group"], value: null }),
+      ]);
+      expect(cleared.next.group).toBeUndefined();
     });
 
     it("should return an inverse that restores the named color", () => {
@@ -70,7 +82,7 @@ describe("color.reduceAll", () => {
       expect(next.name).toBe("");
     });
 
-    it("should throw for a path outside the name, light, and dark values", () => {
+    it("should throw for a path outside the editable fields", () => {
       expect(() =>
         color.reduceAll(createNamed(), [color.set({ path: ["key"], value: KEY })]),
       ).toThrow(/key/);

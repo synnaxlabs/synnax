@@ -12,6 +12,7 @@
 import { color, filter, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { resource } from "@/resource";
 
 export const ORDER_FIELDS = ["name"] as const;
@@ -43,6 +44,8 @@ export const namedZ = z.object({
   light: color.colorZ,
   /** dark is the color in the dark theme. When absent, the theme derives it. */
   dark: color.colorZ.optional(),
+  /** group is the palette that holds the color, if any. */
+  group: group.keyZ.optional(),
 });
 export interface Named extends z.infer<typeof namedZ> {}
 
@@ -53,6 +56,8 @@ export type Where = {
   not?: Where;
   key?: filter.Set<typeof keyZ>;
   name?: filter.String;
+  groups?: group.Key[];
+  grouped?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -71,6 +76,10 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   key: filter.setZ(keyZ).optional(),
   /** name selects by name. */
   name: filter.stringZ.optional(),
+  /** groups matches the named colors in any of the given palettes. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the named colors in a palette, or in no palette when false. */
+  grouped: z.boolean().optional(),
 });
 
 /**

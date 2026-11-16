@@ -23,7 +23,12 @@ import { type Named } from "@/color/types.gen";
 // The part of a named color that path actions edit. It checks shape, not validity: the
 // Core validates, and a form holds an invalid value unsent while the cache shows it.
 const documentZ = z
-  .object({ name: z.string(), light: color.colorZ, dark: color.colorZ.optional() })
+  .object({
+    name: z.string(),
+    light: color.colorZ,
+    dark: color.colorZ.optional(),
+    group: zod.nullToUndefined(z.string()),
+  })
   .strict();
 
 const applyPath = (state: Draft<Named>, action: patch.Action): HandlerResult => {
@@ -32,6 +37,7 @@ const applyPath = (state: Draft<Named>, action: patch.Action): HandlerResult => 
     name: state.name,
     light: [...state.light],
     ...(state.dark != null ? { dark: [...state.dark] } : {}),
+    ...(state.group != null ? { group: state.group } : {}),
   };
   const inverse = patch.apply(doc, action);
   if (inverse.length === 0) return actions.NO_OP_RESULT;
@@ -39,6 +45,7 @@ const applyPath = (state: Draft<Named>, action: patch.Action): HandlerResult => 
   const path = patch.pathOf(action);
   if (path[0] === "name") state.name = next.name;
   else if (path[0] === "light") state.light = next.light;
+  else if (path[0] === "group") state.group = next.group;
   else state.dark = next.dark;
   return { inverse, targets: [path.join(".")] };
 };
@@ -53,7 +60,7 @@ const handlers: Handlers = {
 
 /**
  * Applies actions to a named color in order. Path actions edit only its name, light
- * value, and dark value.
+ * value, dark value, and group.
  * @throws {Error} if the named color cannot hold an action, such as a set of its key.
  */
 export const reduceAll = createReduceAll(handlers);
