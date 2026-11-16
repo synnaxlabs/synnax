@@ -67,6 +67,16 @@ describe("derived", () => {
     expect(tables.composed.get("t1")).toEqual({ key: "t1", name: "one" });
   });
 
+  it("drops a composed entry when its source trims the record", () => {
+    const tables = newTables();
+    bindAll(tables);
+    tables.tasks.set(task("t1", "one"));
+    tables.tasks.trim(0);
+    tables.tasks.trim(0);
+    query.partialUpdate(tables.tasks, "t1", { name: "two" });
+    expect(tables.composed.get("t1")).toBeUndefined();
+  });
+
   it("materializes a composed entry when the source entry is set", () => {
     const tables = newTables();
     bindAll(tables);
