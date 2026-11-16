@@ -106,8 +106,8 @@ func Check(
 	return nil
 }
 
-// newTypeMismatchError creates a typeMismatchError for type mismatches.
-// If both types are numeric, it includes a cast suggestion hint.
+// newTypeMismatchError creates a typeMismatchError for type mismatches. If both types
+// are numeric with units of the same dimension, it includes a cast suggestion hint.
 func newTypeMismatchError(
 	expected, actual types.Type,
 	reason string,
@@ -124,7 +124,10 @@ func newTypeMismatchError(
 		msg = fmt.Sprintf("type mismatch: expected %v, got %v", expected, actual)
 	}
 	var hint, cast string
-	if expected.IsNumeric() && actual.IsNumeric() {
+	// A cast drops a unit without converting the value, so it fixes no dimension
+	// mismatch.
+	if expected.IsNumeric() && actual.IsNumeric() &&
+		sameDimensions(expected.Unwrap(), actual.Unwrap()) {
 		name := concreteTypeForHint(expected)
 		hint = fmt.Sprintf("hint: use %s(value) to convert", name)
 		if expected.Unwrap().Kind == expected.Kind &&

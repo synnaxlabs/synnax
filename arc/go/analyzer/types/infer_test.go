@@ -39,6 +39,28 @@ func integerLiteral() types.Type {
 	return types.Variable("integer", &c)
 }
 
+func seconds() *types.Unit {
+	return &types.Unit{Name: "s", Scale: 1, Dimensions: types.DimTime}
+}
+
+func meters() types.Type {
+	return types.Type{Kind: types.KindF64, Unit: &types.Unit{
+		Name: "m", Scale: 1, Dimensions: types.DimLength,
+	}}
+}
+
+func secondsLiteral() types.Type {
+	t := floatLiteral()
+	t.Unit = seconds()
+	return t
+}
+
+func millisecondsF64() types.Type {
+	return types.Type{Kind: types.KindF64, Unit: &types.Unit{
+		Name: "ms", Scale: 1e-3, Dimensions: types.DimTime,
+	}}
+}
+
 // inferExprType is a helper that parses an expression and infers its type.
 func inferExprType(
 	bCtx context.Context,
@@ -1043,6 +1065,10 @@ var _ = Describe("Type Inference", func() {
 			),
 			Entry("invalid with concrete", types.Type{}, types.I32(), false),
 			Entry("concrete with invalid", types.F32(), types.Type{}, false),
+			Entry("literal with a unit of another dimension",
+				meters(), secondsLiteral(), false),
+			Entry("literal with a unit of the same dimension",
+				millisecondsF64(), secondsLiteral(), true),
 		)
 	})
 
@@ -1125,6 +1151,10 @@ var _ = Describe("Type Inference", func() {
 			Entry("scalar to series", types.Series(types.I32()), types.I32(), false),
 			Entry("channel to scalar", types.I32(), types.Chan(types.I32()), false),
 			Entry("scalar to channel", types.Chan(types.I32()), types.I32(), false),
+			Entry("series literal with a unit of another dimension",
+				types.Series(meters()), types.Series(secondsLiteral()), false),
+			Entry("series literal with a unit of the same dimension",
+				types.Series(millisecondsF64()), types.Series(secondsLiteral()), true),
 		)
 
 		It("Should store a typed series element at its kind, units aside", func() {
