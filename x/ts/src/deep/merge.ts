@@ -82,7 +82,7 @@ export const overrideValidItems = <A, B>(
       )
         if (currentSchema && currentSchema.shape && currentSchema.shape[key]) {
           // If it's a nested object, recurse into it only if a valid schema exists
-          baseObj[key] ||= {};
+          baseObj[key] = { ...baseObj[key] };
           mergeValidFields(baseObj[key], overrideValue, currentSchema.shape[key]);
         }
     }

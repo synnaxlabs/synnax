@@ -149,6 +149,13 @@ describe("deepMerge", () => {
         },
       });
     });
+    it("should not mutate the nested objects of the base", () => {
+      const base = { a: { b: 1, c: 1 } };
+      const schema = z.object({ a: z.object({ b: z.number(), c: z.number() }) });
+      const result = deep.overrideValidItems(base, { a: { b: 2 } }, schema);
+      expect(result).toEqual({ a: { b: 2, c: 1 } });
+      expect(base).toEqual({ a: { b: 1, c: 1 } });
+    });
     it("should ignore nested objects that don't exist in the schema", () => {
       const base = {
         a: 1,
