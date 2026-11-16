@@ -38,6 +38,8 @@ def run_sy(*args: str, home: Path, input: str = "") -> subprocess.CompletedProce
         text=True,
         env=sy_env(home),
         timeout=60,
+        # getpass reads the controlling terminal before stdin.
+        start_new_session=True,
     )
 
 
