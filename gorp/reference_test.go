@@ -1134,7 +1134,7 @@ var _ = Describe("Reference", func() {
 			written := refDevice{Key: "a", Rack: 1, Labels: []string{"l2"}}
 			Expect(rewritten).To(Equal([]refDevice{written}))
 			Expect(commits).To(HaveLen(1))
-			Expect(slices.Collect(devices.Changes(ctx, commits[0]))).To(Equal(
+			Expect(slices.Collect(devices.Changes(commits[0]))).To(Equal(
 				[]gorp.EntryChange[string, refDevice]{{
 					Key:     "a",
 					Value:   written,

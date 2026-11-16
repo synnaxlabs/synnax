@@ -190,8 +190,8 @@ const (
 	AccessTypeRead         AccessType = "DUMMY_NODE_VECTOR1"
 	AccessTypeWrite        AccessType = "DUMMY_NODE_VECTOR2"
 	AccessTypeReadWrite    AccessType = "DUMMY_NODE_VECTOR3"
-	// The access types with 0x8000 added make the variable a string, whatever its
-	// type.
+	// AccessTypeUnrestrictedString and the other access types with 0x8000 added make
+	// the variable a string, whatever its type.
 	AccessTypeUnrestrictedString AccessType = "DUMMY_NODE_VECTOR8000"
 	AccessTypeReadString         AccessType = "DUMMY_NODE_VECTOR8001"
 	AccessTypeWriteString        AccessType = "DUMMY_NODE_VECTOR8002"

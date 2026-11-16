@@ -25,6 +25,7 @@ type memberRule struct {
 // memberRules holds the rule of each type that can sit in a group.
 var memberRules = map[resource.Type]memberRule{
 	resource.TypeChannel:         {scope: resource.TypeChannel},
+	resource.TypeColor:           {scope: resource.TypeColor},
 	resource.TypeDevice:          {scope: resource.TypeDevice, pinned: true},
 	resource.TypeLineplot:        {scope: resource.TypeProject},
 	resource.TypeLog:             {scope: resource.TypeProject},

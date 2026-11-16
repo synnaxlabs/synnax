@@ -155,7 +155,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	k := entry.GorpKey()
 	encoded := w.keyCodec.Encode(k)
 	changes := &w.tx.txIdentity().changes
-	s, err := w.find(ctx, changes, k, encoded)
+	s, err := w.find(changes, k, encoded)
 	if err != nil {
 		return err
 	}
@@ -189,7 +189,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 func (w *Writer[K, E]) delete(ctx context.Context, k K) error {
 	encoded := w.keyCodec.Encode(k)
 	changes := &w.tx.txIdentity().changes
-	s, err := w.find(ctx, changes, k, encoded)
+	s, err := w.find(changes, k, encoded)
 	if err != nil {
 		return err
 	}
@@ -206,13 +206,11 @@ func (w *Writer[K, E]) delete(ctx context.Context, k K) error {
 // find returns the slot in changes of a write to the record with key k, which encoded
 // stores.
 func (w *Writer[K, E]) find(
-	ctx context.Context,
 	changes *changeList,
 	k K,
 	encoded []byte,
 ) (slot, error) {
 	return changes.find(
-		ctx,
 		w.tx,
 		NewTarget(w.tableName, k),
 		encoded,

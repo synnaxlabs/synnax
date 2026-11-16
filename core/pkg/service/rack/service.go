@@ -171,8 +171,8 @@ func OpenService(
 }
 
 // Changes returns the changes that c made to racks.
-func (s *Service) Changes(ctx context.Context, c gorp.Commit) gorp.TxReader[Key, Rack] {
-	return s.table.Changes(ctx, c)
+func (s *Service) Changes(c gorp.Commit) gorp.TxReader[Key, Rack] {
+	return s.table.Changes(c)
 }
 
 // Actions returns the action batches that Writer attaches to its transactions.
@@ -209,7 +209,7 @@ func (s *Service) RetrieveOrCreateEmbedded(
 	bindingKey := []byte(s.HostKey.String() + ".rack.embedded." + name)
 	err = s.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		q := s.NewRetrieve().Entry(&r)
-		b, closer, err := tx.Get(ctx, bindingKey)
+		b, closer, err := tx.Get(bindingKey)
 		if err == nil {
 			q = q.Where(MatchKeys(Key(binary.LittleEndian.Uint32(b))))
 			if err = closer.Close(); err != nil {

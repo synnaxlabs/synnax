@@ -265,13 +265,13 @@ func mapSheet(data []byte, fn func(sheet []byte) []byte) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-// replaceInSheet returns the workbook data with old replaced by new in the XML of its
-// first sheet.
-func replaceInSheet(data []byte, old, new string) []byte {
+// replaceInSheet returns the workbook data with old replaced by replacement in the XML
+// of its first sheet.
+func replaceInSheet(data []byte, old, replacement string) []byte {
 	GinkgoHelper()
 	return MustSucceed(mapSheet(data, func(sheet []byte) []byte {
 		Expect(string(sheet)).To(ContainSubstring(old))
-		return []byte(strings.Replace(string(sheet), old, new, 1))
+		return []byte(strings.Replace(string(sheet), old, replacement, 1))
 	}))
 }
 
@@ -384,6 +384,10 @@ var _ = Describe("Import CSV", func() {
 			"row 2, column start_bit: is required"),
 		Entry("an invalid bit length", header+"m,,,,a,0,300\n",
 			`row 2, column bit_length: invalid integer "300"`),
+		Entry("a zero bit length", header+"m,,,,a,0,0\n",
+			"row 2, column bit_length: 0 is not 1 to 64"),
+		Entry("a bit length past 64", header+"m,,,,a,0,70\n",
+			"row 2, column bit_length: 70 is not 1 to 64"),
 		Entry("an invalid id", header+"m,0xZZ,,,a,0,8\n",
 			`row 2, column id: invalid id "0xZZ"`),
 		Entry("an invalid length", header+"m,,,-1,a,0,8\n",

@@ -152,7 +152,9 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				e := newEnv(ctx)
 				s := e.createStored(ctx, "Password", "hunter2")
-				stored := e.retrieve(ctx, s.Base().Key).Variant.(secret.StoredSecret)
+				got := e.retrieve(ctx, s.Base().Key)
+				stored, ok := got.Variant.(secret.StoredSecret)
+				Expect(ok).To(BeTrue())
 				Expect(stored.Name).To(Equal("Password"))
 				Expect(stored.Value).ToNot(BeEmpty())
 				Expect(string(stored.Value)).ToNot(ContainSubstring("hunter2"))
@@ -222,7 +224,7 @@ var _ = Describe("Service", func() {
 				var changes []gorp.EntryChange[secret.Key, secret.Secret]
 				DeferCleanup(
 					e.db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
-						for ch := range e.svc.Changes(ctx, c) {
+						for ch := range e.svc.Changes(c) {
 							changes = append(changes, ch)
 						}
 					}),

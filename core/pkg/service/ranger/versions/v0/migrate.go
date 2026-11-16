@@ -54,7 +54,7 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 			defer func() { err = errors.Combine(err, iter.Close()) }()
 			rangeMap := make(map[Key]Range)
 			for iter.First(); iter.Valid(); iter.Next() {
-				rng := iter.Value(ctx)
+				rng := iter.Value()
 				if err = iter.Error(); err != nil {
 					return errors.Wrap(err, "invalid range")
 				}
@@ -214,7 +214,7 @@ func parentEdgesByFrom(
 // alreadyMigrated reports whether a Core up to v0.53 already folded the store's legacy
 // range groups. A group named "Ranges" on such a store belongs to the user.
 func alreadyMigrated(ctx context.Context, tx gorp.Tx) (bool, error) {
-	_, closer, err := tx.Get(ctx, []byte("sy_ranger_migration_performed"))
+	_, closer, err := tx.Get([]byte("sy_ranger_migration_performed"))
 	if err != nil {
 		return false, errors.Skip(err, query.ErrNotFound)
 	}

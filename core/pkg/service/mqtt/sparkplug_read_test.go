@@ -47,6 +47,9 @@ func tagEntry(group, edgeNode, dev, tag string, ch channel.Channel) map[string]a
 const (
 	testRebirthInterval = 50 * time.Millisecond
 	testBirthGrace      = 300 * time.Millisecond
+	// testOfflineTimeout bounds the wait for an offline warning after a birth grace.
+	// The default of one second is too short for a slow Windows runner.
+	testOfflineTimeout = 5 * time.Second
 )
 
 var _ = Describe("Sparkplug B read entries", func() {
@@ -617,11 +620,16 @@ var _ = Describe("Sparkplug B read entries", func() {
 				node.data(device, tagValue{
 					alias: 1, value: 2.0, timestamp: 1700000001000,
 				})
-				Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
-					HaveField("Variant", status.VariantWarning),
-					HaveField("Message", Equal("Failed to read some data")),
-					HaveField("Description", Equal("edge node plant/line1 is offline")),
-				))
+				Eventually(func() task.Status { return taskStatus(ctx, t) }).
+					WithTimeout(testOfflineTimeout).
+					Should(And(
+						HaveField("Variant", status.VariantWarning),
+						HaveField("Message", Equal("Failed to read some data")),
+						HaveField(
+							"Description",
+							Equal("edge node plant/line1 is offline"),
+						),
+					))
 			},
 			Entry("in a message of the edge node", ""),
 			Entry("in a message of a device", "pump"),
@@ -680,14 +688,16 @@ var _ = Describe("Sparkplug B read entries", func() {
 			configured := configure(ctx, factory, t)
 			Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 				To(Succeed())
-			Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
-				HaveField("Variant", status.VariantWarning),
-				HaveField("Message", Equal("Failed to read some data")),
-				HaveField(
-					"Description",
-					ContainSubstring("edge node plant/line1 is offline"),
-				),
-			))
+			Eventually(func() task.Status { return taskStatus(ctx, t) }).
+				WithTimeout(testOfflineTimeout).
+				Should(And(
+					HaveField("Variant", status.VariantWarning),
+					HaveField("Message", Equal("Failed to read some data")),
+					HaveField(
+						"Description",
+						ContainSubstring("edge node plant/line1 is offline"),
+					),
+				))
 		})
 
 		It("Should warn about a device that gives no birth", func(ctx SpecContext) {
@@ -695,11 +705,16 @@ var _ = Describe("Sparkplug B read entries", func() {
 			t := start(ctx, readConfig(
 				dev, tagEntry("plant", "line1", "pump", "speed", data[0]),
 			))
-			Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
-				HaveField("Variant", status.VariantWarning),
-				HaveField("Message", Equal("Failed to read some data")),
-				HaveField("Description", Equal("device plant/line1/pump is offline")),
-			))
+			Eventually(func() task.Status { return taskStatus(ctx, t) }).
+				WithTimeout(testOfflineTimeout).
+				Should(And(
+					HaveField("Variant", status.VariantWarning),
+					HaveField("Message", Equal("Failed to read some data")),
+					HaveField(
+						"Description",
+						Equal("device plant/line1/pump is offline"),
+					),
+				))
 		})
 
 		It("Should warn about a device that gives no birth after its edge node is "+
@@ -717,14 +732,16 @@ var _ = Describe("Sparkplug B read entries", func() {
 				node.removeDevice("pump")
 				node.death()
 				node.birth()
-				Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
-					HaveField("Variant", status.VariantWarning),
-					HaveField("Message", Equal("Failed to read some data")),
-					HaveField(
-						"Description",
-						Equal("device plant/line1/pump is offline"),
-					),
-				))
+				Eventually(func() task.Status { return taskStatus(ctx, t) }).
+					WithTimeout(testOfflineTimeout).
+					Should(And(
+						HaveField("Variant", status.VariantWarning),
+						HaveField("Message", Equal("Failed to read some data")),
+						HaveField(
+							"Description",
+							Equal("device plant/line1/pump is offline"),
+						),
+					))
 			},
 		)
 

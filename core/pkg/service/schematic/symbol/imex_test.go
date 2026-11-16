@@ -68,7 +68,7 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Type).To(Equal("schematic_symbol"))
 			Expect(env.Name).To(Equal("exported"))
 
-			decoded := MustSucceed(WireRoundTrip(env).Decode[symbol.Symbol](ctx))
+			decoded := MustSucceed(WireRoundTrip(env).Decode[symbol.Symbol]())
 			Expect(decoded.Name).To(Equal("exported"))
 			Expect(decoded.Data.SVG).To(Equal("<svg/>"))
 		})

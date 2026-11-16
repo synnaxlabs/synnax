@@ -11,6 +11,7 @@ package start
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"strings"
@@ -33,23 +34,37 @@ import (
 	"go.uber.org/zap"
 )
 
-// Cmd represents the start command
-var Cmd = &cobra.Command{
-	Use:     "start",
-	Short:   "Starts a Synnax Core",
-	Long:    "Starts a Synnax Core using the data directory specified by the --data flag, and listening on the address specified by the --listen flag.",
-	Example: "synnax start --listen localhost:9091 --data /mnt/ssd1 --insecure",
-	Args:    cobra.NoArgs,
-	PreRunE: func(cmd *cobra.Command, _ []string) error {
-		return viper.BindPFlags(cmd.Flags())
-	},
-	RunE: func(cmd *cobra.Command, _ []string) error { return start(cmd) },
+// NewCmd returns the command that starts a Synnax Core.
+func NewCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "start",
+		Short:   "Starts a Synnax Core",
+		Long:    "Starts a Synnax Core using the data directory specified by the --data flag, and listening on the address specified by the --listen flag.",
+		Example: "synnax start --listen localhost:9091 --data /mnt/ssd1 --insecure",
+		Args:    cobra.NoArgs,
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
+			return viper.BindPFlags(cmd.Flags())
+		},
+		RunE: func(cmd *cobra.Command, _ []string) error { return start(cmd) },
+	}
+	AddFlags(cmd)
+	return cmd
 }
 
 // start is the entrypoint for starting a Synnax Core. It handles stop requests and
-// delegates to BootupCore for the actual startup. It logs the error that ends the Core
-// and returns it.
+// delegates to BootupCore for the actual startup. It logs the error that ends the Core,
+// writes it to stderr as one line for a supervising process to read, and returns it.
 func start(cmd *cobra.Command) error {
+	err := run(cmd)
+	if err != nil {
+		if _, wErr := fmt.Fprintln(cmd.ErrOrStderr(), err); wErr != nil {
+			return errors.Combine(err, wErr)
+		}
+	}
+	return err
+}
+
+func run(cmd *cobra.Command) error {
 	cmd.SilenceUsage = true
 	cmd.SilenceErrors = true
 	ctx := cmd.Context()
@@ -130,8 +145,6 @@ func start(cmd *cobra.Command) error {
 	ins.L.Info("\033[34mSynnax has shut down\033[0m")
 	return nil
 }
-
-func init() { AddFlags(Cmd) }
 
 // readLicenseKey returns the trimmed license key from the key flag, or the trimmed
 // contents of the file the path flag names when the key flag is empty.

@@ -10,6 +10,7 @@
 from importlib.metadata import version as _version
 
 from synnax import (
+    color,
     ethercat,
     http,
     kafka,
@@ -123,7 +124,7 @@ from synnax.telem import (
 from synnax.timing import Loop, Timer, poll, sleep
 from synnax.user.payload import User
 from synnax.view import View
-from x import color, filter as filter
+from x import filter as filter
 from x.color import Color
 from x.exceptions import ContiguityError, Error
 

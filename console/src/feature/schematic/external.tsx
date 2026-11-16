@@ -36,6 +36,7 @@ const TAB: Panel.Tab = {
     "Toolbar",
   ),
   Icon: Icon.Schematic,
+  iconKey: "schematic",
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Name: Panel.createEditableTabName(
     { useEnsure: Base.useEnsure, useName: Base.useName, useRename: Base.useRename },

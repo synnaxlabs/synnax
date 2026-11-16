@@ -10,7 +10,6 @@
 package control
 
 import (
-	"context"
 	"math"
 	"strings"
 
@@ -32,14 +31,14 @@ var (
 	ErrUnauthorized = errors.Wrap(ErrControl, "unauthorized")
 )
 
-func encode(_ context.Context, err error) (errors.Payload, bool) {
+func encode(err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, ErrUnauthorized) {
 		return errors.Payload{Type: unauthorized, Data: err.Error()}, true
 	}
 	return errors.Payload{}, false
 }
 
-func decode(_ context.Context, p errors.Payload) (error, bool) {
+func decode(p errors.Payload) (error, bool) {
 	if !strings.HasPrefix(p.Type, errorPrefix) {
 		return nil, false
 	}

@@ -8,15 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { type ReactElement, useState } from "react";
-import { assert, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { Button } from "@/button";
+import { type Component } from "@/component";
 import { Dialog } from "@/dialog";
+import { Haul } from "@/haul";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
+import { type position } from "@/position";
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
+import { Tag } from "@/tag";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
@@ -294,6 +299,143 @@ const ShadowTags = ({ value }: { value: string[] }): ReactElement => (
   </List.Item>
 );
 
+const NAMES = ["Hotfire", "Stand 2", "Pass", "Calibration", "Cold flow", "Anomaly"];
+
+const RIGHT_EDGE: position.LocationPreference = {
+  targetCorner: { x: "right" },
+  dialogCorner: { x: "right" },
+};
+
+interface ChipsOptions {
+  initial?: string[];
+  // Steps the tags and opens the dialog at the right edge, as the range list does.
+  stepped?: boolean;
+  // Moves the tags down with each tag, so each change places the dialog again.
+  sinks?: boolean;
+  // Gives each tag an icon, as labels have their dots.
+  icon?: Icon.ReactElement;
+  // The size of the trigger's own buttons.
+  size?: Component.Size;
+  preview?: boolean;
+  haulType?: string;
+  // A drag that runs while the trigger shows.
+  dragging?: Haul.DraggingState;
+}
+
+interface ChipsProps extends ChipsOptions {
+  variant: "outlined" | "shadow" | "text";
+  width: number;
+}
+
+// A trigger that reads as its tags, past a gutter so its dialog never meets the left
+// edge. The gutter leaves room on the right for a dialog that opens at the count.
+const Chips = ({
+  variant,
+  width,
+  initial = NAMES,
+  stepped = false,
+  sinks = false,
+  icon,
+  size,
+  preview,
+  haulType,
+  dragging,
+}: ChipsProps): ReactElement => {
+  const [value, setValue] = useState(initial);
+  const frame = (
+    <Dialog.Frame location={stepped ? RIGHT_EDGE : undefined}>
+      {sinks && <div style={{ height: `${value.length * 10}px` }} />}
+      <Select.Frame<string, undefined> multiple value={value} onChange={setValue}>
+        <Select.MultipleTrigger
+          variant={variant}
+          icon={icon}
+          size={size}
+          preview={preview}
+          haulType={haulType}
+          aria-label="Labels"
+        />
+        <Select.Dialog>
+          {NAMES.map((name) => (
+            <Select.Item key={name} itemKey={name}>
+              {name}
+            </Select.Item>
+          ))}
+        </Select.Dialog>
+      </Select.Frame>
+    </Dialog.Frame>
+  );
+  return (
+    <Haul.Provider value={dragging}>
+      <div style={{ width: `${width}px`, marginLeft: "180px" }}>
+        {stepped ? <Tag.StepProvider>{frame}</Tag.StepProvider> : frame}
+      </div>
+    </Haul.Provider>
+  );
+};
+
+const renderChips = async (
+  variant: ChipsProps["variant"],
+  width: number,
+  options: ChipsOptions = {},
+): Promise<HTMLElement> => {
+  const { container } = await renderThemed(
+    <Chips variant={variant} width={width} {...options} />,
+  );
+  return container.querySelector<HTMLElement>(".lyra-dialog__trigger")!;
+};
+
+const chip = (trigger: HTMLElement, name: string): HTMLElement =>
+  Array.from(trigger.querySelectorAll<HTMLElement>(":scope > .lyra-tag")).find(
+    (tag) => tag.textContent === name,
+  )!;
+
+const dialogBox = (): DOMRect =>
+  document.querySelector(".lyra-dialog__dialog")!.getBoundingClientRect();
+
+// Whether the open dialog sits just above or below the element.
+const meets = (el: Element): boolean => {
+  const dialog = dialogBox();
+  const box = el.getBoundingClientRect();
+  const y = Math.min(
+    Math.abs(dialog.top - box.bottom),
+    Math.abs(dialog.bottom - box.top),
+  );
+  return y < 6;
+};
+
+// Whether the open dialog lines up with an edge of the element and sits just above or
+// below it.
+const besides = (el: Element): boolean => {
+  const dialog = dialogBox();
+  const box = el.getBoundingClientRect();
+  const x = Math.min(
+    Math.abs(dialog.left - box.left),
+    Math.abs(dialog.right - box.right),
+  );
+  return x < 2 && meets(el);
+};
+
+const inWindow = (): boolean => {
+  const dialog = dialogBox();
+  return dialog.left >= 0 && dialog.right <= window.innerWidth;
+};
+
+// Opens the dialog at the tag and returns its x once it shows.
+const openAt = async (tag: HTMLElement): Promise<number> => {
+  await userEvent.click(tag);
+  const dialog = page.getByRole("dialog").element();
+  await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+  return dialogBox().left;
+};
+
+const placeholderOf = (trigger: HTMLElement): HTMLElement =>
+  trigger.querySelector<HTMLElement>(
+    ":scope > .lyra-select-multiple-trigger-placeholder",
+  )!;
+
+const pick = (name: string): Promise<void> =>
+  userEvent.click(page.getByRole("option", { name, exact: true }));
+
 const renderSearchless = async (
   multiple: boolean,
 ): Promise<ReturnType<typeof vi.fn>> => {
@@ -539,6 +681,14 @@ describe("Select", () => {
       expect(computed(remove, "display")).toBe("none");
     });
 
+    it("should show no caret, even on hover", async () => {
+      const { container } = await renderThemed(<ShadowTags value={["low"]} />);
+      const item = container.querySelector(".lyra-list__item");
+      assert(item != null);
+      await userEvent.hover(item);
+      expect(container.querySelector(".lyra-caret-animated")).toBeNull();
+    });
+
     it("should show its placeholder in a list item on hover only", async () => {
       const { container } = await renderThemed(<ShadowTags value={[]} />);
       const item = container.querySelector(".lyra-list__item");
@@ -549,6 +699,234 @@ describe("Select", () => {
       expect(computed(placeholder, "opacity")).toBe("0");
       await userEvent.hover(item);
       expect(computed(placeholder, "opacity")).toBe("1");
+    });
+  });
+
+  describe("trigger that reads as its tags", () => {
+    it("should open beside the tag that was clicked", async () => {
+      const trigger = await renderChips("shadow", 800);
+      await userEvent.click(chip(trigger, "Pass"));
+      await expect.poll(() => besides(chip(trigger, "Pass"))).toBe(true);
+      await userEvent.click(chip(trigger, "Hotfire"));
+      await expect.poll(() => besides(chip(trigger, "Hotfire"))).toBe(true);
+      await userEvent.click(chip(trigger, "Hotfire"));
+      await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("should stay open when the tag it opened at goes", async () => {
+      const trigger = await renderChips("shadow", 800);
+      await userEvent.click(chip(trigger, "Pass"));
+      await userEvent.click(page.getByRole("option", { name: "Pass" }));
+      await expect.poll(() => chip(trigger, "Pass")).toBeUndefined();
+      await expect.element(page.getByRole("dialog")).toBeVisible();
+    });
+
+    it("should open beside its count", async () => {
+      const trigger = await renderChips("shadow", 150, { icon: <Icon.Label /> });
+      const more = (): HTMLElement | null =>
+        trigger.querySelector<HTMLElement>(":scope > .lyra-tags__more[data-count]");
+      await expect.poll(more).not.toBeNull();
+      const count = more();
+      assert(count != null);
+      await userEvent.click(count);
+      await expect.poll(() => besides(count)).toBe(true);
+    });
+
+    it("should open beside its add button", async () => {
+      const trigger = await renderChips("text", 800);
+      const add = trigger.querySelector<HTMLElement>(
+        ":scope > .lyra-btn:not(.lyra-tag)",
+      );
+      assert(add != null);
+      await userEvent.click(add);
+      await expect.poll(() => besides(add)).toBe(true);
+    });
+
+    it("should light its placeholder as a text button on hover and press", async () => {
+      for (const variant of ["shadow", "text"] as const) {
+        const trigger = await renderChips(variant, 800, { initial: [] });
+        const placeholder = placeholderOf(trigger);
+        expect(placeholder.hasAttribute("tabindex")).toBe(false);
+        expect(computed(placeholder, "font-weight")).toBe(
+          computed(trigger, "font-weight"),
+        );
+        await userEvent.hover(placeholder);
+        expect(computed(placeholder, "background-color")).toBe(
+          resolve("var(--pluto-fill-hover)"),
+        );
+        placeholder.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        await expect
+          .poll(() => computed(placeholder, "background-color"))
+          .toBe(resolve("var(--pluto-fill-press)"));
+        document.dispatchEvent(new MouseEvent("mouseup"));
+        await userEvent.unhover(placeholder);
+      }
+    });
+
+    it.each([
+      ["shadow", undefined, "medium"],
+      ["text", undefined, "medium"],
+      ["shadow", "small", "small"],
+      ["text", "small", "small"],
+    ] as const)(
+      "should size the placeholder of a %s trigger of size %s as a %s text button",
+      async (variant, size, expected) => {
+        await renderThemed(
+          <Button.Button variant="text" size={expected}>
+            Reference
+          </Button.Button>,
+        );
+        const reference = page.getByRole("button", { name: "Reference" }).element();
+        const trigger = await renderChips(variant, 800, { initial: [], size });
+        const placeholder = placeholderOf(trigger);
+        for (const property of ["height", "font-size", "padding-left", "padding-right"])
+          expect(computed(placeholder, property)).toBe(computed(reference, property));
+      },
+    );
+
+    it("should keep a small trigger as tall as its tags when the first tag comes", async () => {
+      const trigger = (): HTMLElement =>
+        document.querySelector<HTMLElement>(".lyra-dialog__trigger")!;
+      await renderChips("shadow", 800, { initial: [], size: "small" });
+      const placeholder = placeholderOf(trigger());
+      const placeholderHeight = computed(placeholder, "height");
+      const { height } = trigger().getBoundingClientRect();
+      await userEvent.click(placeholder);
+      await pick("Pass");
+      await expect.poll(() => chip(trigger(), "Pass")).toBeDefined();
+      expect(computed(chip(trigger(), "Pass"), "height")).toBe(placeholderHeight);
+      expect(trigger().getBoundingClientRect().height).toBe(height);
+    });
+
+    it("should keep the placeholder of an outlined trigger as text", async () => {
+      const trigger = await renderChips("outlined", 800, { initial: [] });
+      expect(placeholderOf(trigger).classList.contains("lyra-btn")).toBe(false);
+    });
+
+    it("should take no clicks in the room around its tags", async () => {
+      for (const variant of ["shadow", "text"] as const) {
+        const trigger = await renderChips(variant, 200, { initial: ["Pass"] });
+        const room = trigger.getBoundingClientRect();
+        const hit = document.elementFromPoint(
+          room.right - 5,
+          room.top + room.height / 2,
+        );
+        expect(hit).not.toBeNull();
+        expect(trigger.contains(hit)).toBe(false);
+      }
+    });
+
+    it("should take a drop anywhere on it while a drag it can take runs", async () => {
+      const trigger = await renderChips("shadow", 200, {
+        initial: ["Pass"],
+        haulType: "label",
+        dragging: {
+          source: { key: "list", type: "label" },
+          items: [{ key: "New", type: "label" }],
+        },
+      });
+      const room = trigger.getBoundingClientRect();
+      const hit = document.elementFromPoint(room.right - 5, room.top + room.height / 2);
+      expect(hit).toBe(trigger);
+    });
+
+    it("should open from no tag of a preview", async () => {
+      const trigger = await renderChips("text", 200, { preview: true });
+      // A preview reads as disabled, which a user can still click.
+      chip(trigger, "Pass").click();
+      await new Promise(requestAnimationFrame);
+      expect(document.querySelector(".lyra-dialog__dialog")).toBeNull();
+    });
+
+    describe("dialog opened at a tag", () => {
+      const VIEWPORT = { width: window.innerWidth, height: window.innerHeight };
+      beforeEach(async () => {
+        await page.viewport(1200, 800);
+      });
+      afterEach(async () => {
+        await page.viewport(VIEWPORT.width, VIEWPORT.height);
+      });
+
+      it("should open beside the placeholder of an empty trigger", async () => {
+        const trigger = await renderChips("shadow", 260, {
+          initial: [],
+          stepped: true,
+        });
+        const placeholder = placeholderOf(trigger);
+        await userEvent.click(placeholder);
+        await expect.poll(() => besides(placeholder)).toBe(true);
+      });
+
+      it("should keep its x but follow its tag down as tags are added", async () => {
+        const trigger = await renderChips("shadow", 260, {
+          initial: ["Pass", "Calibration"],
+          stepped: true,
+          sinks: true,
+        });
+        const left = await openAt(chip(trigger, "Pass"));
+        for (const name of ["Hotfire", "Stand 2", "Cold flow"]) {
+          await pick(name);
+          await expect.poll(() => meets(chip(trigger, "Pass"))).toBe(true);
+          expect(dialogBox().left).toBe(left);
+        }
+      });
+
+      it("should keep its x as tags go", async () => {
+        const trigger = await renderChips("shadow", 260, {
+          stepped: true,
+          sinks: true,
+        });
+        const left = await openAt(chip(trigger, "Calibration"));
+        for (const name of ["Hotfire", "Stand 2"]) {
+          await pick(name);
+          await expect.poll(() => meets(chip(trigger, "Calibration"))).toBe(true);
+          expect(dialogBox().left).toBe(left);
+        }
+      });
+
+      it("should keep its x when its tag folds into the count", async () => {
+        const trigger = await renderChips("shadow", 120, {
+          initial: ["Pass"],
+          stepped: true,
+          sinks: true,
+        });
+        const left = await openAt(chip(trigger, "Pass"));
+        await pick("Hotfire");
+        await expect.poll(() => meets(chip(trigger, "Pass"))).toBe(true);
+        expect(dialogBox().left).toBe(left);
+        await pick("Stand 2");
+        await pick("Cold flow");
+        await expect
+          .poll(() => chip(trigger, "Pass").hasAttribute("data-hidden"))
+          .toBe(true);
+        expect(dialogBox().left).toBe(left);
+      });
+
+      it("should stay in the window when its tag goes and the window narrows", async () => {
+        const trigger = await renderChips("shadow", 260, {
+          initial: ["Pass", "Calibration"],
+          stepped: true,
+        });
+        const left = await openAt(chip(trigger, "Pass"));
+        await pick("Pass");
+        await expect.poll(() => chip(trigger, "Pass")).toBeUndefined();
+        expect(dialogBox().left).toBe(left);
+        await page.viewport(300, 800);
+        await expect.poll(inWindow).toBe(true);
+      });
+
+      it("should go back beside its tag when the window resizes", async () => {
+        const trigger = await renderChips("shadow", 260, {
+          initial: ["Pass", "Calibration"],
+          stepped: true,
+          sinks: true,
+        });
+        await openAt(chip(trigger, "Pass"));
+        await pick("Stand 2");
+        await expect.poll(() => meets(chip(trigger, "Pass"))).toBe(true);
+        await page.viewport(1100, 800);
+        await expect.poll(() => besides(chip(trigger, "Pass"))).toBe(true);
+      });
     });
   });
 

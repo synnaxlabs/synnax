@@ -49,7 +49,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// Validate implements config.Config
+// Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.status")
 	v.NotNil("db", c.DB)
@@ -118,11 +118,8 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Status[any]]] 
 }
 
 // Changes returns the changes that c made to statuses.
-func (s *Service) Changes(
-	ctx context.Context,
-	c gorp.Commit,
-) gorp.TxReader[Key, Status[any]] {
-	return s.table.Changes(ctx, c)
+func (s *Service) Changes(c gorp.Commit) gorp.TxReader[Key, Status[any]] {
+	return s.table.Changes(c)
 }
 
 // Actions returns the action batches that Writer attaches to its transactions.

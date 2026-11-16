@@ -10,6 +10,7 @@
 package policy
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -89,6 +90,8 @@ func target(a patch.Action) ([]string, bool) {
 		return slices.Concat(a.Path, []string{a.Key}), false
 	case patch.Insert:
 		return a.Path, false
+	case patch.Move:
+		return a.Path, false
 	}
-	return a.(patch.Move).Path, false
+	panic(fmt.Sprintf("unknown patch action %T", a))
 }

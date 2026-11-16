@@ -27,8 +27,9 @@ import (
 	"go.uber.org/zap"
 )
 
-func BindTo(f *fiber.App) error {
-	router, err := http.NewRouter(http.RouterConfig{
+// BindTo binds the integration endpoints to f. Streams end when life ends.
+func BindTo(life context.Context, f *fiber.App) error {
+	router, err := http.NewRouter(life, http.RouterConfig{
 		Instrumentation:     testutil.Instrumentation("freighter-integration"),
 		StreamWriteDeadline: 50 * time.Millisecond,
 	})
@@ -281,7 +282,7 @@ func slamMessagesTimeoutCheckHandler(_ context.Context, msg message) (message, e
 func streamSendMessageAfterClientClose(_ context.Context, stream serverStream) error {
 	for {
 		msg, err := stream.Receive()
-		if errors.Is(err, freighter.EOF) {
+		if errors.Is(err, io.EOF) {
 			return stream.Send(message{Message: "Close Acknowledged"})
 		}
 		if err != nil {

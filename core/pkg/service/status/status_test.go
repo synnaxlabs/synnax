@@ -1239,7 +1239,7 @@ var _ = Describe("Status", Ordered, func() {
 			var keys []status.Key
 			DeferCleanup(
 				db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
-					for ch := range svc.Changes(ctx, c) {
+					for ch := range svc.Changes(c) {
 						keys = append(keys, ch.Key)
 					}
 				}),

@@ -276,80 +276,77 @@ func (s *Service) guardRack(ctx gorp.Context, r rack.Rack) error {
 	)
 }
 
-func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error {
+func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Outage) error {
 	rackKey, err := rack.KeyFromResourceID(*rackStat.Owner)
 	if err != nil {
 		return err
 	}
-	var (
-		tasks    []Task
-		reported []*Status
-	)
-	if err = s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
-		if err = s.NewRetrieve().Where(MatchRacks(rackKey)).
+	// The read and the write share one transaction, so no status written after the read
+	// is overwritten.
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var tasks []Task
+		if err := s.NewRetrieve().Where(MatchRacks(rackKey)).
 			Entries(&tasks).
-			Exec(ctx, snap); err != nil {
+			Exec(ctx, tx); err != nil {
 			return errors.Wrap(err, "failed to retrieve tasks on suspect rack")
 		}
-		reported, err = s.cfg.Status.Join[StatusDetails](
+		reported, err := s.cfg.Status.Join[StatusDetails](
 			ctx,
-			snap,
+			tx,
 			ResourceIDsFromTasks(tasks),
 		)
-		return errors.Wrap(err, "failed to retrieve statuses on suspect rack")
-	}); err != nil {
-		return err
-	}
-	statuses := make([]Status, 0, len(tasks))
-	for i, tsk := range tasks {
-		prev := reported[i]
-		if prev == nil {
-			continue
+		if err != nil {
+			return errors.Wrap(err, "failed to retrieve statuses on suspect rack")
 		}
-		var (
-			variant     = rackStat.Variant
-			message     = "Task stopped responding"
-			description = fmt.Sprintf(
-				"The Core lost contact with the Driver on %s while the task was "+
-					"running.",
-				rackStat.Name,
+		statuses := make([]Status, 0, len(tasks))
+		for i, tsk := range tasks {
+			prev := reported[i]
+			if prev == nil || rackStat.Reported(prev.Key, prev.Time) {
+				continue
+			}
+			var (
+				variant     = rackStat.Variant
+				message     = "Task stopped responding"
+				description = fmt.Sprintf(
+					"The Core lost contact with the Driver on %s while the task was "+
+						"running.",
+					rackStat.Name,
+				)
 			)
-		)
-		switch {
-		case prev.Details.Running:
-		// A start in progress never ends once its Driver is gone, and the Console
-		// disables Start and Stop while a start is loading.
-		case prev.Variant == status.VariantLoading:
-			variant = status.VariantError
-			message = "Failed to start task"
-			description = fmt.Sprintf(
-				"The Core lost contact with the Driver on %s while the task was "+
-					"starting.",
-				rackStat.Name,
-			)
-		default:
-			continue
+			switch {
+			case prev.Details.Running:
+			// A start in progress never ends once its Driver is gone, and the Console
+			// disables Start and Stop while a start is loading.
+			case prev.Variant == status.VariantLoading:
+				variant = status.VariantError
+				message = "Failed to start task"
+				description = fmt.Sprintf(
+					"The Core lost contact with the Driver on %s while the task was "+
+						"starting.",
+					rackStat.Name,
+				)
+			default:
+				continue
+			}
+			// A silent rack does not undo the deploy the Driver reported, so the config
+			// hash is carried across.
+			statuses = append(statuses, Status{
+				Key:         prev.Key,
+				Owner:       prev.Owner,
+				Time:        telem.Now(),
+				Name:        tsk.Name,
+				Variant:     variant,
+				Message:     message,
+				Description: description,
+				Details: StatusDetails{
+					ConfigHash: prev.Details.ConfigHash,
+					Rack:       rackKey,
+				},
+			})
 		}
-		// A silent rack does not undo the deploy the Driver reported, so the config
-		// hash is carried across.
-		statuses = append(statuses, Status{
-			Key:         prev.Key,
-			Owner:       prev.Owner,
-			Time:        telem.Now(),
-			Name:        tsk.Name,
-			Variant:     variant,
-			Message:     message,
-			Description: description,
-			Details: StatusDetails{
-				ConfigHash: prev.Details.ConfigHash,
-				Rack:       rackKey,
-			},
-		})
-	}
-	if len(statuses) == 0 {
-		return nil
-	}
-	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		if len(statuses) == 0 {
+			return nil
+		}
 		return s.cfg.Status.NewWriter(tx).SetMany(ctx, &statuses)
 	})
 }

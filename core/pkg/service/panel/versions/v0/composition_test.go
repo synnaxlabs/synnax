@@ -313,7 +313,7 @@ var _ = Describe("Composition migrations", func() {
 
 			By("Deleting the staging entry once it has been consumed")
 			Expect(
-				db.Get(ctx, []byte(project.LegacyLayoutKVPrefix+projectKey.String())),
+				db.Get([]byte(project.LegacyLayoutKVPrefix + projectKey.String())),
 			).Error().
 				To(MatchError(query.ErrNotFound))
 		},
@@ -461,7 +461,7 @@ var _ = Describe("Composition migrations", func() {
 		}))
 
 		By("Draining the staging entry")
-		Expect(db.Get(ctx, []byte(task.LegacyKeyKVPrefix+legacy))).Error().
+		Expect(db.Get([]byte(task.LegacyKeyKVPrefix + legacy))).Error().
 			To(MatchError(query.ErrNotFound))
 	})
 
@@ -714,7 +714,7 @@ var _ = Describe("Composition migrations", func() {
 		openPanelTable(ctx, db)
 		runComposition(ctx, db)
 		Expect(collectPanels(ctx, db)).To(BeEmpty())
-		Expect(db.Get(ctx, []byte(task.LegacyKeyKVPrefix+legacy))).Error().
+		Expect(db.Get([]byte(task.LegacyKeyKVPrefix + legacy))).Error().
 			To(MatchError(query.ErrNotFound))
 	})
 })

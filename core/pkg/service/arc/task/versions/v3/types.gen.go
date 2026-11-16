@@ -62,19 +62,6 @@ type Config struct {
 	MemoryLocked bool `json:"memory_locked" msgpack:"memory_locked"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *Config) ApplyDefaults() {
-	if c.ExecutionMode == "" {
-		c.ExecutionMode = ExecutionModeAuto
-	}
-	if c.RtPriority == 0 {
-		c.RtPriority = 47
-	}
-	if c.CPUAffinity == 0 {
-		c.CPUAffinity = -1
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (c *Config) SetDefaults() {
 	c.ExecutionMode = ExecutionModeAuto

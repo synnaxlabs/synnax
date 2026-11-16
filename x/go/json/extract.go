@@ -126,7 +126,7 @@ func (e *Extractor) Extract(doc []byte, values []jsontext.Value) error {
 	if err := e.walk(d, e.root, values, 0); err != nil {
 		return err
 	}
-	if _, err := d.dec.ReadToken(); err != io.EOF {
+	if _, err := d.dec.ReadToken(); !errors.Is(err, io.EOF) {
 		if err == nil {
 			err = errors.New("unexpected data after the top-level value")
 		}

@@ -620,24 +620,24 @@ func reportDiagnostic(
 	} else if numLHS == 2 && errIdx == 1 {
 		needsImport = true
 		if isBlank(assign.Lhs[0]) {
-			msg = fmt.Sprintf("%s can be replaced with MustSucceed", assertion)
+			msg = assertion + " can be replaced with MustSucceed"
 			fixText = fmt.Sprintf("MustSucceed(%s)", callStr)
 		} else {
 			resultName := nodeString(pass.Fset, assign.Lhs[0])
 			tok := resultTok(pass, assign)
-			msg = fmt.Sprintf("%s can be replaced with MustSucceed", assertion)
+			msg = assertion + " can be replaced with MustSucceed"
 			fixText = fmt.Sprintf("%s %s MustSucceed(%s)", resultName, tok, callStr)
 		}
 	} else if numLHS == 3 && errIdx == 2 {
 		needsImport = true
 		if isBlank(assign.Lhs[0]) && isBlank(assign.Lhs[1]) {
-			msg = fmt.Sprintf("%s can be replaced with MustSucceed2", assertion)
+			msg = assertion + " can be replaced with MustSucceed2"
 			fixText = fmt.Sprintf("MustSucceed2(%s)", callStr)
 		} else {
 			r1 := nodeString(pass.Fset, assign.Lhs[0])
 			r2 := nodeString(pass.Fset, assign.Lhs[1])
 			tok := resultTok(pass, assign)
-			msg = fmt.Sprintf("%s can be replaced with MustSucceed2", assertion)
+			msg = assertion + " can be replaced with MustSucceed2"
 			fixText = fmt.Sprintf("%s, %s %s MustSucceed2(%s)", r1, r2, tok, callStr)
 		}
 	} else {

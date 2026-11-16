@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/defaults"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
 
@@ -36,10 +37,10 @@ var _ = Describe("LinePlot", func() {
 		})
 	})
 
-	Describe("ApplyDefaults", func() {
+	Describe("Defaults", func() {
 		It("Should fill schema-declared defaults", func() {
 			lp := v7.LinePlot{Lines: []v7.Line{{}}, Rules: []v7.Rule{{}}}
-			lp.ApplyDefaults()
+			lp = defaults.Fill(lp)
 			Expect(lp.Title.Level).To(Equal(text.LevelH4))
 			Expect(lp.Axes.X1.Key).To(Equal(v7.AxisKeyX1))
 			Expect(lp.Axes.X1.TickSpacing).To(Equal(75.0))
@@ -57,7 +58,7 @@ var _ = Describe("LinePlot", func() {
 				Lines: []v7.Line{{}},
 				Rules: []v7.Rule{{Axis: v7.AxisKeyY1}},
 			}
-			lp.ApplyDefaults()
+			lp = defaults.Fill(lp)
 			Expect(lp.Validate()).To(Succeed())
 		})
 
@@ -67,7 +68,7 @@ var _ = Describe("LinePlot", func() {
 				Lines: []v7.Line{{Detail: "bogus"}},
 				Rules: []v7.Rule{{Axis: "bogus"}},
 			}
-			lp.ApplyDefaults()
+			lp = defaults.Fill(lp)
 			Expect(lp.Validate()).To(SatisfyAll(
 				MatchError(ContainSubstring("lines.0")),
 				MatchError(ContainSubstring("rules.0")),

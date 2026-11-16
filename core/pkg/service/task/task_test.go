@@ -16,6 +16,7 @@ import (
 	"slices"
 	"sync"
 	"sync/atomic"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -94,6 +95,8 @@ var _ = Describe("Task", Ordered, func() {
 		configs     config.Registry
 		testArc     arc.Key
 		names       []string
+		// frozenNow pins the clock of the rack monitor when it is not zero.
+		frozenNow atomic.Int64
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -112,6 +115,12 @@ var _ = Describe("Task", Ordered, func() {
 			HostKey:             1,
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
+			Now: func() telem.TimeStamp {
+				if t := frozenNow.Load(); t != 0 {
+					return telem.TimeStamp(t)
+				}
+				return telem.Now()
+			},
 			DriverRole: MustSucceed(
 				racktestutil.CreateDriverRole(ctx, db, roleSvc),
 			),
@@ -177,7 +186,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return stat.NewWriter(tx).Set(ctx, &status.Status[any]{
 					Key:     k,
-					Name:    string(k),
+					Name:    k,
 					Variant: status.VariantInfo,
 					Time:    telem.Now(),
 				})
@@ -200,13 +209,13 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("CommandChannelKey", func() {
 		It(
 			"Should return zero when no channel service is configured",
-			func(ctx SpecContext) {
+			func() {
 				Expect(svc.CommandChannelKey()).To(Equal(channel.Key(0)))
 			},
 		)
 	})
 	Describe("StatusDetails msgpack round-trip", func() {
-		It("Should round-trip the details", func(ctx SpecContext) {
+		It("Should round-trip the details", func() {
 			original := task.StatusDetails{
 				Rack:    testRack.Key,
 				Running: true,
@@ -1575,6 +1584,207 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
+			"Should keep a task running while its Driver reports it before a heartbeat",
+			func(ctx SpecContext) {
+				now := telem.Now()
+				frozenNow.Store(int64(now))
+				DeferCleanup(func() { frozenNow.Store(0) })
+				createTx := db.OpenTx()
+				defer func() { Expect(createTx.Close()).To(Succeed()) }()
+				r := rack.Rack{Name: "reconnecting rack"}
+				Expect(rackService.NewWriter(createTx).Create(ctx, &r)).To(Succeed())
+				t := &task.Task{Type: testType, Rack: r.Key, Name: "Reported Task"}
+				Expect(svc.NewWriter(createTx).Create(ctx, t)).To(Succeed())
+				Expect(createTx.Commit(ctx)).To(Succeed())
+				for range 4 {
+					now = now.Add(rackService.HealthCheckInterval / 2)
+					frozenNow.Store(int64(now))
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return stat.NewWriter(tx).Set(ctx, &task.Status{
+							Owner:   new(t.ResourceID()),
+							Name:    t.Name,
+							Time:    now,
+							Variant: status.VariantSuccess,
+							Message: "Task started",
+							Details: task.StatusDetails{Running: true, Rack: r.Key},
+						})
+					})).To(Succeed())
+				}
+				Consistently(func(g Gomega) {
+					g.Expect(retrieveStatus(ctx, t).Message).To(Equal("Task started"))
+				}, 50*time.Millisecond, 5*time.Millisecond).Should(Succeed())
+
+				By("Marking the task once its Driver stops reporting")
+				frozenNow.Store(int64(now.Add(rackService.HealthCheckInterval)))
+				Eventually(func(g Gomega) {
+					g.Expect(retrieveStatus(ctx, t).Message).
+						To(Equal("Task stopped responding"))
+				}).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should not overwrite a running status written while it copies an outage",
+			func(ctx SpecContext) {
+				// Every stored rack goes silent first, so only the outage below is
+				// copied.
+				now := telem.Now().Add(telem.Hour)
+				frozenNow.Store(int64(now))
+				DeferCleanup(func() { frozenNow.Store(0) })
+				Eventually(func(g Gomega) {
+					silent := []rack.Key{testRack.Key, rackService.EmbeddedKey}
+					for _, k := range silent {
+						var s rack.Status
+						g.Expect(stat.NewRetrieve[rack.StatusDetails]().
+							Where(
+								status.MatchOwners[rack.StatusDetails](k.ResourceID()),
+							).
+							Entry(&s).
+							Exec(ctx, db)).To(Succeed())
+						g.Expect(s.Message).To(Equal("Driver not running"))
+					}
+				}).Should(Succeed())
+				r := rack.Rack{Name: "copied rack"}
+				t := &task.Task{Type: testType, Name: "Copied Task"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := rackService.NewWriter(tx).Create(ctx, &r); err != nil {
+						return err
+					}
+					t.Rack = r.Key
+					return svc.NewWriter(tx).Create(ctx, t)
+				})).To(Succeed())
+				setRunning := func(at telem.TimeStamp, hash string) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return stat.NewWriter(tx).Set(ctx, &task.Status{
+							Owner:   new(t.ResourceID()),
+							Name:    t.Name,
+							Time:    at,
+							Variant: status.VariantSuccess,
+							Message: "Task started",
+							Details: task.StatusDetails{
+								Running:    true,
+								Rack:       r.Key,
+								ConfigHash: hash,
+							},
+						})
+					})).To(Succeed())
+				}
+				setRunning(now, "old")
+				// Once the outage commits, a held transaction blocks the copy. The
+				// Driver's report then queues behind the copy's read, which is where a
+				// copy that reads and writes in two transactions lets it in.
+				reported := make(chan struct{})
+				var once sync.Once
+				DeferCleanup(stat.Observe().OnChange(func(
+					_ context.Context,
+					changes gorp.TxReader[status.Key, status.Status[any]],
+				) {
+					for ch := range changes {
+						if ch.Value.Owner == nil || *ch.Value.Owner != r.ResourceID() ||
+							ch.Value.Message != "Driver not running" {
+							continue
+						}
+						once.Do(func() {
+							held := make(chan struct{})
+							go func() {
+								defer GinkgoRecover()
+								tx := db.OpenTx()
+								close(held)
+								time.Sleep(50 * time.Millisecond)
+								go func() {
+									defer GinkgoRecover()
+									defer close(reported)
+									setRunning(now.Add(telem.Millisecond), "new")
+								}()
+								time.Sleep(50 * time.Millisecond)
+								Expect(tx.Close()).To(Succeed())
+							}()
+							<-held
+						})
+					}
+				}))
+				frozenNow.Store(int64(now.Add(rackService.HealthCheckInterval)))
+				Eventually(reported).Should(BeClosed())
+				Consistently(func(g Gomega) {
+					g.Expect(retrieveStatus(ctx, t).Details.ConfigHash).To(Equal("new"))
+				}, 100*time.Millisecond, 5*time.Millisecond).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should keep a running status reported after the outage before the copy",
+			func(ctx SpecContext) {
+				now := telem.Now().Add(2 * telem.Hour)
+				frozenNow.Store(int64(now))
+				DeferCleanup(func() { frozenNow.Store(0) })
+				r := rack.Rack{Name: "reported rack"}
+				t := &task.Task{Type: testType, Name: "Reported Task"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := rackService.NewWriter(tx).Create(ctx, &r); err != nil {
+						return err
+					}
+					t.Rack = r.Key
+					return svc.NewWriter(tx).Create(ctx, t)
+				})).To(Succeed())
+				setRunning := func(tx gorp.Tx, at telem.TimeStamp, hash string) error {
+					return stat.NewWriter(tx).Set(ctx, &task.Status{
+						Owner:   new(t.ResourceID()),
+						Name:    t.Name,
+						Time:    at,
+						Variant: status.VariantSuccess,
+						Message: "Task started",
+						Details: task.StatusDetails{
+							Running:    true,
+							Rack:       r.Key,
+							ConfigHash: hash,
+						},
+					})
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return setRunning(tx, now, "old")
+				})).To(Succeed())
+				// The report commits in a transaction that blocks the copy, so it lands
+				// after the monitor captures the outage and before the copy reads.
+				reported := make(chan struct{})
+				var once sync.Once
+				DeferCleanup(stat.Observe().OnChange(func(
+					_ context.Context,
+					changes gorp.TxReader[status.Key, status.Status[any]],
+				) {
+					for ch := range changes {
+						if ch.Value.Owner == nil || *ch.Value.Owner != r.ResourceID() ||
+							ch.Value.Message != "Driver not running" {
+							continue
+						}
+						once.Do(func() {
+							held := make(chan struct{})
+							go func() {
+								defer GinkgoRecover()
+								defer close(reported)
+								tx := db.OpenTx()
+								close(held)
+								time.Sleep(50 * time.Millisecond)
+								Expect(setRunning(
+									tx,
+									now.Add(telem.Millisecond),
+									"new",
+								)).To(Succeed())
+								Expect(tx.Commit(ctx)).To(Succeed())
+								Expect(tx.Close()).To(Succeed())
+							}()
+							<-held
+						})
+					}
+				}))
+				frozenNow.Store(int64(now.Add(rackService.HealthCheckInterval)))
+				Eventually(reported).Should(BeClosed())
+				Consistently(func(g Gomega) {
+					g.Expect(retrieveStatus(ctx, t).Message).To(Equal("Task started"))
+				}, 100*time.Millisecond, 5*time.Millisecond).Should(Succeed())
+			},
+		)
+
+		It(
 			"Should fail a task that was starting when its rack went silent",
 			func(ctx SpecContext) {
 				// The rack and its tasks commit together, so the rack cannot go silent
@@ -1679,7 +1889,7 @@ var _ = Describe("Task", Ordered, func() {
 		Describe("String", func() {
 			It(
 				"Should return a string representation of the command",
-				func(ctx SpecContext) {
+				func() {
 					k := uuid.New()
 					c := &task.Command{
 						Key:  "cmd",
@@ -1886,7 +2096,9 @@ var _ = Describe("Writer in concurrent transactions", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewRetrieve().Where(task.MatchKeys(key)).Entry(&t).Exec(ctx, tx)
 		})).To(Succeed())
-		Expect(t.ConfigHash).To(Equal(hashes[t.Config["routing_key"].(string)]))
+		rawKey, ok := t.Config["routing_key"].(string)
+		Expect(ok).To(BeTrue())
+		Expect(t.ConfigHash).To(Equal(hashes[rawKey]))
 	}
 	applyUntil := func(ctx context.Context, done *atomic.Bool, key task.Key) func() {
 		return func() {
