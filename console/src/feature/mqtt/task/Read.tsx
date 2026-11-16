@@ -14,6 +14,8 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type Tree } from "@synnaxlabs/lyra/tree";
@@ -27,7 +29,14 @@ import {
   unique,
   uuid,
 } from "@synnaxlabs/x";
-import { type Dispatch, type FC, type SetStateAction, useRef, useState } from "react";
+import {
+  type Dispatch,
+  type FC,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
@@ -302,6 +311,23 @@ type Bind = (
 /** @returns the name of the ICD of a task named name. */
 const icdName = (name: string): string => (name.trim() === "" ? DEFAULT_NAME : name);
 
+/**
+ * @returns the ICD that takes the messages of new topics: the one that the most entries
+ * read, or the first of those. Undefined when no entry reads one.
+ */
+const homeICD = (entries: PlainReadEntry[]): icd.Key | undefined => {
+  const counts = new Map<icd.Key, number>();
+  for (const { icd: key } of entries) counts.set(key, (counts.get(key) ?? 0) + 1);
+  let home: icd.Key | undefined;
+  let most = 0;
+  for (const [key, count] of counts)
+    if (count > most) {
+      home = key;
+      most = count;
+    }
+  return home;
+};
+
 /** Creates an ICD with a message for each draft, and the entries that read them. */
 const createICD = async (
   client: Synnax,
@@ -494,6 +520,62 @@ const FieldDetails = ({ device, ...rest }: FieldDetailsProps) => {
   return <ICD.FieldDetails {...rest} prefix={prefix} />;
 };
 
+const choiceKey = (icdKey: icd.Key, message: icd.MessageKey): string =>
+  `${icdKey}/${message}`;
+
+interface Choice {
+  icd: icd.ICD;
+  message: icd.Message;
+}
+
+interface MessageFormatFieldProps {
+  path: deep.Path<PlainReadEntry>;
+  onChange: (icdKey: icd.Key, message: icd.Message) => void;
+}
+
+/** Picks the message that a topic reads from the JSON messages of every ICD. */
+const MessageFormatField: FC<MessageFormatFieldProps> = ({ path, onChange }) => {
+  const isPreview = Task.useIsPreview();
+  const icdKey = PForm.useFieldValue(path.icd);
+  const { message } = PForm.useFieldValue(path.messages[0]);
+  const { data, getItem, more } = PICD.useList({ pageSize: 1000 });
+  // The trigger names the message that the topic reads before the dialog opens.
+  useEffect(() => {
+    more();
+  }, []);
+  const choices = new Map<string, Choice>(
+    getItem(data).flatMap((parent) =>
+      parent.messages
+        .filter(({ payload }) => payload.format === "json")
+        .map((m) => [choiceKey(parent.key, m.key), { icd: parent, message: m }]),
+    ),
+  );
+  const handleChange = (key: string) => {
+    const choice = choices.get(key);
+    if (choice == null) throw new Error(`No message format has the key ${key}`);
+    onChange(choice.icd.key, choice.message);
+  };
+  return (
+    <Input.Item label="Message format" padHelpText={false}>
+      <Select.Simple<string>
+        resourceName="message format"
+        value={choiceKey(icdKey, message)}
+        onChange={handleChange}
+        variant="floating"
+        allowNone={false}
+        preview={isPreview}
+      >
+        {[...choices].map(([key, choice]) => (
+          <Select.Item key={key} itemKey={key}>
+            <Text.Text>{choice.message.name}</Text.Text>
+            <Text.Text color={9}>{choice.icd.name}</Text.Text>
+          </Select.Item>
+        ))}
+      </Select.Simple>
+    </Input.Item>
+  );
+};
+
 interface TopicDetailsProps {
   path: deep.Path<PlainReadEntry>;
   format: ICD.FormatForm;
@@ -502,6 +584,8 @@ interface TopicDetailsProps {
   onAddField: () => void;
   /** Adds a message to the topic, for documents that its messages do not cover. */
   onAddMessage: () => void;
+  /** Makes a topic that reads one message read a message of any ICD. */
+  onFormatChange: (icdKey: icd.Key, message: icd.Message) => void;
 }
 
 /**
@@ -514,6 +598,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
   device,
   onAddField,
   onAddMessage,
+  onFormatChange,
 }) => {
   const isPreview = Task.useIsPreview();
   const reads = PForm.useFieldValue(path.messages);
@@ -544,6 +629,9 @@ const TopicDetails: FC<TopicDetailsProps> = ({
             padHelpText={false}
             inputProps={TOPIC_INPUT_PROPS}
           />
+          {reads.length === 1 && (
+            <MessageFormatField path={path} onChange={onFormatChange} />
+          )}
           <QoSField path={path.qos} />
           <PForm.CheckboxField
             path={path.retainedIgnored}
@@ -654,8 +742,8 @@ const Entries: FC<EntriesProps> = ({
       expanded,
       onExpand,
     });
-  const first = entries.find(isPlain);
-  const format = first == null ? undefined : formats.get(first.icd);
+  const home = homeICD(entries.filter(isPlain));
+  const format = home == null ? undefined : formats.get(home);
 
   // Adds run one at a time, so a second click cannot make a second ICD.
   const adding = useRef(false);
@@ -685,11 +773,11 @@ const Entries: FC<EntriesProps> = ({
     const { added, held: grown } =
       drafts.length === 0
         ? { added: [], held: [] }
-        : first == null || format == null
+        : home == null || format == null
           ? await createICD(client, icdName(ctx.get(root.name).value), drafts, bind)
           : await addTopics({
               client,
-              format: { key: first.icd, form: format },
+              format: { key: home, form: format },
               entries: plain,
               drafts,
               bind,
@@ -725,6 +813,46 @@ const Entries: FC<EntriesProps> = ({
       }
       adding.current = false;
     }, "Failed to add data");
+
+  /**
+   * Makes a topic read a message of any ICD, and each field of it that can share one
+   * index. The message that the topic read leaves its ICD when it has no fields and no
+   * other topic reads it, such as the one that adding a topic by name makes.
+   */
+  const handleFormatChange = (
+    entryKey: string,
+    icdKey: icd.Key,
+    message: icd.Message,
+  ) => {
+    const path = plainPath(entryKey);
+    const entry = ctx.get(path).value;
+    const [prior] = entry.messages;
+    if (entry.icd === icdKey && prior.message === message.key) return;
+    const others = entries.filter(({ key }) => key !== entryKey);
+    const form = ICD.formatOf(formats, entry.icd);
+    const left = form.value().messages.find(({ key }) => key === prior.message);
+    const shared = others.some(
+      (e) =>
+        isPlain(e) &&
+        e.icd === entry.icd &&
+        e.messages.some((m) => m.message === prior.message),
+    );
+    if (left != null && left.payload.fields.length === 0 && !shared)
+      form.remove(PICD.formPath.messages[prior.message]);
+    const readable = ICD.jsonFields(message).filter(ICD.isReadable);
+    const mixed = new Set(ICD.variableAmongFixed(readable));
+    const bindings = bindingsOf(
+      topicChannels(stored, entry.topic, message.key),
+      readable.filter((f) => !mixed.has(f)),
+      writtenChannels(others),
+    );
+    ctx.batch(() => {
+      ctx.set(path.icd, icdKey);
+      ctx.set(path.messages, [
+        mqtt.readMessageZ.parse({ message: message.key, bindings }),
+      ]);
+    });
+  };
 
   const entry =
     current == null ? undefined : entries.find(({ key }) => key === current.source);
@@ -792,6 +920,9 @@ const Entries: FC<EntriesProps> = ({
           device={device}
           onAddField={() => addField(entry.key, 0)}
           onAddMessage={() => addMessage(entry.key)}
+          onFormatChange={(icdKey, message) =>
+            handleFormatChange(entry.key, icdKey, message)
+          }
         />
       );
   }
