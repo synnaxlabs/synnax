@@ -399,6 +399,8 @@ bound, a log precision, or the line plot X channel.
 - Hover tints the item faintly, and a press does not deepen the tint.
 - A timeline lane is checkable too, and spaces its checkbox as a tree item does. Its
   label gives up the checkbox width, so the bars stay on the time axis.
+- The first timeline lane sits 6 px below the time axis, as the first tree item sits
+  below the top of its list. The axis lines and now go on through that room.
 
 ### Explorer bars
 

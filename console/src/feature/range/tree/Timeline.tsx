@@ -521,6 +521,9 @@ const Frame = ({
             })}
           </div>
         </div>
+        <div className={CSS.BE("range-timeline", "gap")}>
+          <div className={CSS.BE("range-timeline", "track")} />
+        </div>
         {lanes}
         {footer}
       </List.Scroll>
