@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <functional>
 #include <map>
@@ -64,9 +65,30 @@ class Tare final : public Transform {
     bool tare_all{false};
     std::mutex mutex;
 
+    /// @brief whether a series of type dt supports the average a tare takes.
+    static bool numeric(const x::telem::DataType &dt) {
+        static const std::array types = {
+            x::telem::FLOAT64_T,
+            x::telem::FLOAT32_T,
+            x::telem::INT64_T,
+            x::telem::INT32_T,
+            x::telem::INT16_T,
+            x::telem::INT8_T,
+            x::telem::UINT64_T,
+            x::telem::UINT32_T,
+            x::telem::UINT16_T,
+            x::telem::UINT8_T,
+        };
+        return std::ranges::find(types, dt) != types.end();
+    }
+
 public:
-    explicit Tare(const std::vector<synnax::channel::Channel> &channels):
-        tare_channels(synnax::channel::map_channel_keys(channels)) {}
+    /// @brief creates a tare over the numeric channels in channels. A tare request
+    /// that names any other channel fails validation.
+    explicit Tare(const std::vector<synnax::channel::Channel> &channels) {
+        for (const auto &ch: channels)
+            if (numeric(ch.data_type)) this->tare_channels.emplace(ch.key, ch);
+    }
 
     x::errors::Error tare(x::json::json::object_t &arg) {
         x::json::Parser parser(arg);
