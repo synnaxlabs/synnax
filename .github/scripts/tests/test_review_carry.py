@@ -115,6 +115,8 @@ class FakeGH:
             return lines(self.edits)
         if path == f"repos/{REPO}/check-runs/55":
             return KEY + "\n"
+        if path == f"repos/{REPO}/issues/7/comments":
+            return ""
         for commit, runs in self.runs.items():
             if path.startswith(f"repos/{REPO}/commits/{commit}/check-runs?"):
                 return lines(runs)

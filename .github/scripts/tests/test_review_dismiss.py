@@ -12,7 +12,16 @@ from typing import Any
 
 import pytest
 
-from review import Dismissal, Target, Thread, dismiss, dismissed, render
+from review import (
+    Dismissal,
+    Target,
+    Thread,
+    dismiss,
+    dismissals,
+    dismissed,
+    record,
+    render,
+)
 from review.__main__ import main
 
 REPO = "synnaxlabs/synnax"
@@ -82,6 +91,8 @@ class FakeGH:
         self.writes: list[tuple[str, str, dict[str, Any]]] = []
         self.replies: list[tuple[str, str]] = []
         self.resolved: list[str] = []
+        self.comments: list[dict[str, Any]] = []
+        """The comments on the pull request, as the REST API serves them."""
 
     def __call__(self, *args: str, stdin: str | None = None) -> str:
         if args[:2] == ("api", "-X"):
@@ -100,7 +111,25 @@ class FakeGH:
             return lines(self.threads)
         if path.startswith(f"repos/{REPO}/commits/{HEAD}/check-runs?"):
             return lines(self.runs)
+        if path == f"repos/{REPO}/issues/7/comments":
+            return lines(
+                [
+                    {"id": c["id"], "login": c["user"]["login"], "body": c["body"]}
+                    for c in self.comments
+                ]
+            )
+        for c in self.comments:
+            if path == f"repos/{REPO}/issues/comments/{c['id']}":
+                return json.dumps(c)
         raise AssertionError(f"unexpected gh call: {args}")
+
+    def posted(self) -> list[str]:
+        """The bodies of the comments the bot posted on the pull request."""
+        return [
+            p["body"]
+            for m, at, p in self.writes
+            if (m, at) == ("POST", f"repos/{REPO}/issues/7/comments")
+        ]
 
     def checks(self) -> list[dict[str, Any]]:
         return [
@@ -113,6 +142,27 @@ class FakeGH:
 @pytest.fixture
 def gh() -> FakeGH:
     return FakeGH()
+
+
+def issue_comment(
+    id: int, body: str, *, kind: str = "User", association: str = "MEMBER", pr: int = 7
+) -> dict[str, Any]:
+    return {
+        "id": id,
+        "issue_url": f"https://api.github.com/repos/{REPO}/issues/{pr}",
+        "user": {"login": "someone", "type": kind},
+        "author_association": association,
+        "body": body,
+    }
+
+
+def outside(*titles: str) -> dict[str, Any]:
+    """The bot's comment that lists findings outside the diff of b.go."""
+    items = "".join(
+        f"- <img> **{t}** [`b.go:3`](https://x)\n\n  B.\n\n" for t in titles
+    )
+    body = f"{render.OUTSIDE}\n\n<h3>Comments Outside Diff</h3>\n\n{items}"
+    return issue_comment(5, body, kind="Bot") | {"user": {"login": "sedosaur[bot]"}}
 
 
 class TestDismissed:
@@ -246,13 +296,74 @@ class TestDismiss:
         assert body.startswith("To dismiss this finding, reply `@sedosaur dismiss`")
         assert gh.resolved == []
 
-    def test_should_fail_on_a_comment_off_the_threads_of_the_bot(
-        self, gh: FakeGH
-    ) -> None:
-        gh.threads = [thread("T1", comment(2, "@sedosaur dismiss"))]
-        with pytest.raises(ValueError, match="comment 9 is not a reply to a finding"):
+    def test_should_fail_on_a_comment_of_another_pull_request(self, gh: FakeGH) -> None:
+        gh.comments = [issue_comment(9, "@sedosaur dismiss Old", pr=8)]
+        with pytest.raises(ValueError, match="comment 9 is not on pull request 7"):
             dismiss(TARGET, gh, comment=9, key=KEY)
-        assert gh.replies == []
+        assert gh.posted() == []
+
+
+class TestDismissOutside:
+    """Tests answering a comment that dismisses a finding outside the diff."""
+
+    def test_should_record_the_dismissal_of_the_named_finding(self, gh: FakeGH) -> None:
+        gh.comments = [
+            outside("Old", "Old data"),
+            issue_comment(9, "@sedosaur dismiss Old data: it is meant"),
+        ]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        [body] = gh.posted()
+        assert body.endswith(
+            "Dismissed. Later reviews of this pull request will not report it."
+        )
+        gh.comments.append({"id": 10, "user": {"login": "sedosaur[bot]"}, "body": body})
+        assert dismissals(TARGET, gh, []) == [
+            Dismissal(path="b.go", title="Old data", reason="it is meant")
+        ]
+        assert gh.checks() == []
+
+    def test_should_score_the_head_5_when_no_finding_is_left(self, gh: FakeGH) -> None:
+        gh.threads = [thread("T1", comment(2, "@sedosaur dismiss"))]
+        gh.comments = [outside("Old"), issue_comment(9, "@sedosaur dismiss Old")]
+        gh.runs = [check_run([["a.go", "Samples"], ["b.go", "Old"]])]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        [check] = gh.checks()
+        assert check["output"]["title"] == "Confidence Score: 5/5"
+        [body] = gh.posted()
+        assert body.endswith("so the head scores 5/5.")
+
+    def test_should_refuse_an_agent(self, gh: FakeGH) -> None:
+        gh.comments = [
+            outside("Old"),
+            issue_comment(9, "@sedosaur dismiss Old", kind="Bot"),
+        ]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        assert gh.posted() == ["Only a member can dismiss a finding, not an agent."]
+
+    @pytest.mark.parametrize(
+        "body", ["@sedosaur dismiss Other", "@sedosaur dismissal of Old"]
+    )
+    def test_should_answer_a_comment_naming_no_finding_with_the_usage(
+        self, gh: FakeGH, body: str
+    ) -> None:
+        gh.comments = [outside("Old"), issue_comment(9, body)]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        [answer] = gh.posted()
+        assert answer.startswith("No finding outside the diff has that title.")
+
+
+class TestRecord:
+    """Tests the record of a dismissal of a finding outside the diff."""
+
+    def test_should_read_back_a_title_that_ends_a_comment(self, gh: FakeGH) -> None:
+        d = Dismissal(path="b.go", title="a --> b", reason="")
+        gh.comments = [{"id": 1, "user": {"login": "sedosaur[bot]"}, "body": record(d)}]
+        assert dismissals(TARGET, gh, []) == [d]
+
+    def test_should_ignore_a_record_another_author_wrote(self, gh: FakeGH) -> None:
+        d = Dismissal(path="b.go", title="Old", reason="")
+        gh.comments = [{"id": 1, "user": {"login": "someone"}, "body": record(d)}]
+        assert dismissals(TARGET, gh, []) == []
 
 
 class TestCommand:

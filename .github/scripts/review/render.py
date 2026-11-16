@@ -22,7 +22,11 @@ SUMMARY_END = "<!-- /sedosaur_comment -->"
 OUTSIDE = "<!-- sedosaur_outside_diff -->"
 LISTING_START = "<!-- sedosaur_findings "
 LISTING_END = " -->"
-_OUTSIDE_ITEM = re.compile(r"(?m)^- .*?\*\*(.+?)\*\* \[`(.+):\d+`\]\(")
+# Comments on pull requests reviewed before every finding blocked mark some titles
+# " (follow-up)".
+_OUTSIDE_ITEM = re.compile(
+    r"(?m)^- .*?\*\*(.+?)\*\*(?: \(follow-up\))? \[`(.+):\d+`\]\("
+)
 VOTE = "<sub>React 👍 if this is a real problem or 👎 if it is noise.</sub>"
 SUBJECT_CHARS = 48
 
@@ -87,7 +91,11 @@ def outside(findings: list[Finding], *, blob: str) -> str:
     lines = [OUTSIDE, "", "<h3>Comments Outside Diff</h3>", ""]
     if not findings:
         return "\n".join([*lines, "No findings outside the diff remain."]) + "\n"
-    lines += ["These findings could not be posted inline.", ""]
+    lines += [
+        "These findings could not be posted inline. To dismiss one, a member comments "
+        "`@sedosaur dismiss`, its title, and a reason.",
+        "",
+    ]
     for f in findings:
         where = link(blob, f.path, f.line)
         body = f.body.replace("\n", "\n  ")

@@ -58,6 +58,8 @@ COMMAND = re.compile(r"@sedosaur\s+dismiss\b", re.I)
 """The reply on the thread of a finding that dismisses it."""
 MEMBERS = {"OWNER", "MEMBER", "COLLABORATOR"}
 DISMISSED = "A member dismissed every finding of the review."
+DISMISSAL_START = "<!-- sedosaur_dismissed "
+DISMISSAL_END = " -->"
 
 _SUMMARY = re.compile(
     f"{re.escape(render.SUMMARY_START)}.*?{re.escape(render.SUMMARY_END)}", re.S
@@ -98,7 +100,7 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
     """
     t = target
     found = threads(t, gh)
-    review = _drop(review, {(d.path, d.title) for d in dismissed(found)})
+    review = _drop(review, {(d.path, d.title) for d in dismissals(t, gh, found)})
     blob = f"https://github.com/{t.repo}/blob/{t.head}"
     diff = _diff_lines(t, gh)
     inline = [f for f in review.findings if set(f.lines) <= diff.get(f.path, set())]
@@ -253,6 +255,26 @@ def dismissed(found: list[Thread]) -> list[Dismissal]:
     return out
 
 
+def dismissals(t: Target, gh: GH, found: list[Thread]) -> list[Dismissal]:
+    """Returns each finding that a member dismissed, on its thread in the threads or,
+    for a finding outside the diff, in a comment that the bot recorded."""
+    out = dismissed(found)
+    for c in _comments(t, gh):
+        if c["login"] == f"{t.bot}[bot]" and c["body"].startswith(DISMISSAL_START):
+            data = c["body"][len(DISMISSAL_START) :].split(DISMISSAL_END, 1)[0]
+            path, title, reason = json.loads(data)
+            out.append(Dismissal(path=path, title=title, reason=reason))
+    return out
+
+
+def record(d: Dismissal) -> str:
+    """Renders the hidden marker of a dismissal of a finding outside the diff, which
+    `dismissals` reads back."""
+    # A ">" in a title would end the HTML comment early.
+    data = json.dumps([d.path, d.title, d.reason]).replace(">", "\\u003e")
+    return f"{DISMISSAL_START}{data}{DISMISSAL_END}"
+
+
 def command(body: str) -> str | None:
     """Returns the text of a reply beside the dismiss command, or None when the reply
     holds no command. Quoted lines do not count."""
@@ -334,7 +356,7 @@ def outside_findings(t: Target, gh: GH) -> set[tuple[str, str]]:
     return set() if c is None else render.outside_listed(c["body"])
 
 
-def _outside(t: Target, gh: GH) -> dict[str, Any] | None:
+def _comments(t: Target, gh: GH) -> list[dict[str, Any]]:
     out = gh(
         "api",
         "--paginate",
@@ -342,8 +364,11 @@ def _outside(t: Target, gh: GH) -> dict[str, Any] | None:
         "--jq",
         ".[] | {id, login: .user.login, body} | tojson",
     )
-    comments: list[dict[str, Any]] = [json.loads(s) for s in out.splitlines() if s]
-    for c in comments:
+    return [json.loads(s) for s in out.splitlines() if s]
+
+
+def _outside(t: Target, gh: GH) -> dict[str, Any] | None:
+    for c in _comments(t, gh):
         if c["login"] == f"{t.bot}[bot]" and c["body"].startswith(render.OUTSIDE):
             return c
     return None
@@ -363,7 +388,7 @@ def recheck(t: Target, gh: GH) -> None:
     try:
         run = f"repos/{t.repo}/check-runs/{t.check_run}"
         key = gh("api", run, "--jq", ".external_id").strip()
-        rescore(t, gh, threads(t, gh), key)
+        rescore(t, gh, dismissals(t, gh, threads(t, gh)), key)
     except subprocess.CalledProcessError as e:
         print(
             f"::warning::Could not read dismissals after the review: {e}",
@@ -371,9 +396,9 @@ def recheck(t: Target, gh: GH) -> None:
         )
 
 
-def rescore(t: Target, gh: GH, found: list[Thread], key: str) -> bool:
-    """Scores the head 5/5 in a new check run when a member dismissed every finding of
-    its newest review in the threads. Returns whether it did.
+def rescore(t: Target, gh: GH, gone: list[Dismissal], key: str) -> bool:
+    """Scores the head 5/5 in a new check run when the dismissals hold every finding of
+    its newest review. Returns whether it did.
 
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
     """
@@ -383,7 +408,7 @@ def rescore(t: Target, gh: GH, found: list[Thread], key: str) -> bool:
     if run["output"]["title"] == render.scored(5):
         return False
     listed = render.listed(run["output"]["text"] or "")
-    if not listed or not listed <= {(d.path, d.title) for d in dismissed(found)}:
+    if not listed or not listed <= {(d.path, d.title) for d in gone}:
         return False
     output = {
         "title": render.scored(5),
