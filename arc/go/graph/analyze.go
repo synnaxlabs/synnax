@@ -180,6 +180,7 @@ func Analyze(
 			if param.Type.Kind == types.KindChan {
 				var k uint32
 				if err = zyn.Uint32().Coerce().Parse(paramValue, &k); err != nil {
+					aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 					return ir.IR{}, aCtx.Diagnostics
 				}
 				channelSym, err := aCtx.Scope.Resolve(aCtx, strconv.Itoa(int(k)))
