@@ -105,12 +105,8 @@ func (s *streamClient[RQ, RS]) Stream(
 				return freighter.Context{Target: target}, err
 			}
 			if err = res.Body.Close(); err != nil {
-				return freighter.Context{
-					Target: target,
-				}, errors.Combine(
-					err,
-					conn.Close(),
-				)
+				err = errors.Combine(err, conn.Close())
+				return freighter.Context{Target: target}, err
 			}
 			oCtx := parseResponseCtx(res, target, true)
 			if res.StatusCode != fiber.StatusSwitchingProtocols {
