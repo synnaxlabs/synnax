@@ -131,7 +131,7 @@ func MatchKeysFunc[K Key, E Entry[K]](f func(ctx Context) ([]K, error)) Filter[K
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
-			return resolved[K, E]{keys: keyset.Hashed(keys)}, nil
+			return resolved[K, E]{keys: keyset.Hashed(lo.Uniq(keys))}, nil
 		},
 	}
 }
