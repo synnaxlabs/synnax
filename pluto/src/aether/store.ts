@@ -40,12 +40,12 @@ interface PendingRequest {
 
 class InvokeTracker {
   private pending = new Map<string, PendingRequest>();
-  private counters = new Map<string, number>();
+  // One count for every component: a component that re-attaches at the same path must
+  // not reuse a key that a late answer to its predecessor still carries.
+  private counter = 0;
 
   nextKey(componentID: string): string {
-    const counter = this.counters.get(componentID) ?? 0;
-    this.counters.set(componentID, counter + 1);
-    return `${componentID}-${counter}`;
+    return `${componentID}-${this.counter++}`;
   }
 
   track(
@@ -83,10 +83,6 @@ class InvokeTracker {
   abort(reason: Error): void {
     this.pending.forEach(({ controller }) => controller.abort(reason));
     this.pending.clear();
-  }
-
-  clearCounter(id: string): void {
-    this.counters.delete(id);
   }
 }
 
@@ -465,7 +461,6 @@ export class Store {
       return;
     }
     this.entries.delete(id);
-    this.invokeTracker.clearCounter(id);
   }
 
   private handleWorkerMessage(msg: aether.WorkerMessage): void {

@@ -476,6 +476,48 @@ describe("Aether Main", () => {
       await waitFor(() => expect(captured.error).not.toBeNull());
       expect(captured.error?.message).toBe("Component deleted");
     });
+    it("should not resolve an invoke with the late answer of a replaced component", async () => {
+      const [Provider, root] = await newProvider();
+      const results = new Map<number, number>();
+      const C = ({ n }: { n: number }) => {
+        const [, , , methods] = Aether.use({
+          aetherKey: "same",
+          type: InvokeLeaf.TYPE,
+          schema: exampleProps,
+          initialState: { x: 0 },
+          methods: invokeMethodsSchema,
+        });
+        useEffect(() => {
+          void methods
+            .slowEcho(n)
+            .then((r) => results.set(n, r))
+            .catch(() => {});
+        }, []);
+        return null;
+      };
+      const leaf = (): InvokeLeaf | undefined => root.children[0] as InvokeLeaf;
+      const { rerender } = render(
+        <Provider>
+          <C key="a" n={1} />
+        </Provider>,
+      );
+      await waitFor(() => expect(leaf()?.slowEchoResolvers).toHaveLength(1));
+      const first = leaf()!;
+      rerender(
+        <Provider>
+          <C key="b" n={2} />
+        </Provider>,
+      );
+      await waitFor(() => {
+        expect(leaf()).not.toBe(first);
+        expect(leaf()?.slowEchoResolvers).toHaveLength(1);
+      });
+      first.slowEchoResolvers[0]();
+      leaf()!.slowEchoResolvers[0]();
+      await waitFor(() => expect(results.has(2)).toBe(true));
+      expect(results.get(2)).toBe(2);
+    });
+
     it("should forward multiple positional args spread to the worker handler", async () => {
       const [Provider, root] = await newProvider();
       const captured: { result: [number, string] | null } = { result: null };
