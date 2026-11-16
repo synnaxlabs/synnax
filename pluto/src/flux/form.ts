@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type query, type Synnax as Client } from "@synnaxlabs/client";
+import { query, type Synnax as Client } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import {
   useDebouncedCallback,
@@ -45,6 +45,7 @@ import {
 } from "@/flux/result";
 import {
   fulfilled,
+  invalidate,
   type LocalCache,
   localFor,
   promiseFor,
@@ -317,6 +318,8 @@ export const createForm = <
   normalizeQuery,
 }: CreateFormParams<Query, Schema>): UseForm<Query, Schema> => {
   const locals = new WeakMap<Client, LocalCache<z.infer<Schema>>>();
+  const forget = (client: Client, q: Query): void =>
+    invalidate(localFor(locals, client), query.hash(q));
   const useForm = ({
     query,
     initialValues,
@@ -488,6 +491,13 @@ export const createForm = <
       [],
     );
     useEffect(() => () => debouncedSave.flush(), [debouncedSave]);
+
+    // The settled answer carries a fetch across a suspension. A later mount reads the
+    // record again, since nothing keeps that answer current.
+    useEffect(() => {
+      if (client == null || memoQuery == null) return;
+      return () => forget(client, memoQuery);
+    }, [client, memoQuery]);
 
     const abandon = () => {
       abandonedRef.current = true;
