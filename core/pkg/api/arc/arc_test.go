@@ -461,6 +461,84 @@ var _ = Describe("Service", func() {
 		)
 
 		It(
+			"Should leave out calculated channels that read each other",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name: "cy_base", DataType: telem.Int64T, Virtual: true,
+				}
+				out := channel.Channel{
+					Name: "cy_out", DataType: telem.Int64T, Virtual: true,
+				}
+				b := channel.Channel{
+					Name:       "cy_b",
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return cy_base + 1",
+				}
+				a := channel.Channel{
+					Name:       "cy_a",
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return cy_b * 2",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					w := channelSvc.NewWriter(tx)
+					for _, ch := range []*channel.Channel{&base, &out, &b, &a} {
+						if err := w.Create(ctx, ch); err != nil {
+							return err
+						}
+					}
+					_, err := w.Apply(ctx, b.Key(), channel.NewSetAction(
+						channel.SetPayload{
+							Path:  []string{"expression"},
+							Value: "return cy_a + 1",
+						},
+					))
+					return err
+				})).To(Succeed())
+				automation := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+					Name: "cy_automation",
+					Source: arc.Source{Variant: arc.TextSource{
+						Text: text.Text{Raw: "cy_a -> cy_out"},
+					}},
+				}}}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).Create(ctx, &automation)
+				})).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						if err := arcSvc.NewWriter(tx).Delete(
+							ctx, automation.Base().Key,
+						); err != nil {
+							return err
+						}
+						return channelSvc.NewWriter(tx).DeleteMany(ctx, []channel.Key{
+							a.Key(), b.Key(), out.Key(), base.Key(),
+						}, false)
+					})).To(Succeed())
+				})
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					access.ActionRetrieve,
+					automation.ResourceID(),
+				)
+				key := automation.Base().Key
+				res := MustSucceed(
+					retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+						Where:          &arc.Where{Key: &filter.Set[arc.Key]{Eq: &key}},
+						IncludeProgram: true,
+					}),
+				)
+				Expect(res.Arcs).To(HaveLen(1))
+				v, ok := res.Arcs[0].Variant.(arc.AutomationArc)
+				Expect(ok).To(BeTrue())
+				Expect(v.Program).ToNot(BeNil())
+				Expect(v.Calculations).To(BeEmpty())
+			},
+		)
+
+		It(
 			"Should compile automations and leave modules uncompiled",
 			func(ctx SpecContext) {
 				automation := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{

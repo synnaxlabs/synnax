@@ -505,8 +505,8 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 
 // compileCalculations compiles the calculated channels that prog reads and the ones
 // they read in turn, dependencies first. It leaves out a channel whose expression fails
-// analysis and each channel that reads it, since the status of that channel reports
-// the failure.
+// analysis or that reads itself through other channels, and each channel that reads
+// it. The Core cannot compute such a channel either.
 func (s *Service) compileCalculations(
 	ctx context.Context,
 	prog arclang.Program,
@@ -542,7 +542,9 @@ func (s *Service) compileCalculations(
 			continue
 		}
 		err = g.Add(ctx, ch)
-		if err != nil && !errors.As(err, new(*diagnostics.Diagnostics)) {
+		invalid := errors.As(err, new(*diagnostics.Diagnostics)) ||
+			errors.Is(err, graph.ErrCycle)
+		if err != nil && !invalid {
 			return nil, err
 		}
 	}
