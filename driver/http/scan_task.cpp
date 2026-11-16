@@ -105,7 +105,7 @@ static std::string validate_health_response(
         return "The response body is not valid JSON: " + std::string(e.what()) + ".";
     }
     const auto ptr = x::json::json::json_pointer(er.pointer);
-    const auto missing = "The response body has no value at '" + er.pointer + "'.";
+    auto missing = "The response body has no value at '" + er.pointer + "'.";
     try {
         // contains throws when an array index token overflows size_t.
         if (!body.contains(ptr)) return missing;
