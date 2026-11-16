@@ -55,13 +55,13 @@ func init() {
 	lo.Must0(viper.BindPFlags(Cmd.Flags()))
 	Cmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		cmd.SilenceUsage = true
-		return initConfig()
+		return initConfig(cmd.Flags().Changed(flagConfig))
 	}
 }
 
-// initConfig reads the config file into viper. A missing file is not an error, since
-// the default path rarely exists.
-func initConfig() error {
+// initConfig reads the config file into viper. A missing file is an error only when
+// the operator passed its path, since the default path rarely exists.
+func initConfig(pathPassed bool) error {
 	cfgFile := viper.GetString(flagConfig)
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
@@ -79,7 +79,7 @@ func initConfig() error {
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	var notFound viper.ConfigFileNotFoundError
 	err := viper.ReadInConfig()
-	if errors.Is(err, fs.ErrNotExist) || errors.As(err, &notFound) {
+	if !pathPassed && (errors.Is(err, fs.ErrNotExist) || errors.As(err, &notFound)) {
 		return nil
 	}
 	if err != nil {

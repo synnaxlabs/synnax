@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/cmd"
+	"github.com/synnaxlabs/synnax/cmd/exit"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -44,14 +45,48 @@ var _ = Describe("Cmd", func() {
 		))
 	})
 
-	It("Should fail when the config file does not parse", func() {
-		flag := cmd.Cmd.PersistentFlags().Lookup("config")
-		DeferCleanup(func() { Expect(flag.Value.Set(flag.DefValue)).To(Succeed()) })
-		path := filepath.Join(GinkgoT().TempDir(), "config.yaml")
-		Expect(os.WriteFile(path, []byte("insecure: [true"), 0o600)).To(Succeed())
-		cmd.Cmd.SetArgs([]string{"version", "--config", path})
-		cmd.Cmd.SetOut(new(bytes.Buffer))
-		cmd.Cmd.SetErr(new(bytes.Buffer))
-		Expect(cmd.Cmd.Execute()).To(MatchError(ContainSubstring(path)))
+	Describe("Config file", func() {
+		BeforeEach(func() {
+			flag := cmd.Cmd.PersistentFlags().Lookup("config")
+			DeferCleanup(func() {
+				Expect(flag.Value.Set(flag.DefValue)).To(Succeed())
+				flag.Changed = false
+			})
+			cmd.Cmd.SetOut(new(bytes.Buffer))
+			cmd.Cmd.SetErr(new(bytes.Buffer))
+		})
+
+		It(
+			"Should fail with the config exit code when the file does not parse",
+			func() {
+				path := filepath.Join(GinkgoT().TempDir(), "config.yaml")
+				Expect(
+					os.WriteFile(path, []byte("insecure: [true"), 0o600),
+				).To(Succeed())
+				cmd.Cmd.SetArgs([]string{"version", "--config", path})
+				err := cmd.Cmd.Execute()
+				Expect(err).To(MatchError(ContainSubstring(path)))
+				Expect(exit.Code(err)).To(Equal(exit.Config))
+			},
+		)
+
+		It(
+			"Should fail with the config exit code when a passed path does not exist",
+			func() {
+				path := filepath.Join(GinkgoT().TempDir(), "missing.yaml")
+				cmd.Cmd.SetArgs([]string{"version", "--config", path})
+				err := cmd.Cmd.Execute()
+				Expect(err).To(MatchError(ContainSubstring(path)))
+				Expect(exit.Code(err)).To(Equal(exit.Config))
+			},
+		)
+
+		It("Should succeed when the default path does not exist", func() {
+			flag := cmd.Cmd.PersistentFlags().Lookup("config")
+			path := filepath.Join(GinkgoT().TempDir(), "missing.yaml")
+			Expect(flag.Value.Set(path)).To(Succeed())
+			cmd.Cmd.SetArgs([]string{"version"})
+			Expect(cmd.Cmd.Execute()).To(Succeed())
+		})
 	})
 })
