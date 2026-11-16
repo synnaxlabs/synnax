@@ -261,8 +261,11 @@ const REPLACE: verbs.Verbs = {
  * Gives the old slave the serial number, network, and position of the new slave, so
  * the next scan finds the module as the old slave. Then deletes the new slave. Stops
  * each EtherCAT task that runs on the network first, and leaves the tasks stopped.
- * @throws {Error} if the new slave can no longer replace the old slave, or a task fails
- * to stop. The slaves then stay as they are.
+ * @throws {Error} if the new slave can no longer replace the old slave, a task fails to
+ * stop, or the write to the old slave fails. The slaves then stay as they are, and the
+ * stopped tasks start again.
+ * @throws {Error} if the delete of the new slave fails. The error tells the user to
+ * start the stopped tasks.
  */
 export const { useUpdate: useReplace } = Flux.createUpdate<
   ReplaceParams,
@@ -286,17 +289,31 @@ export const { useUpdate: useReplace } = Flux.createUpdate<
     const stopped = await stopTasksOnNetwork(client, old);
     // A scan between the two writes would make the new slave again if the delete went
     // first.
-    await client.devices.dispatch(old.key, [
-      device.set({ path: ["properties", "serial"], value: slave.properties.serial }),
-      device.set({ path: ["properties", "network"], value: slave.properties.network }),
-      device.set({
-        path: ["properties", "position"],
-        value: slave.properties.position,
-      }),
-      // The Driver stores this key in snake case. The switch was of the old module.
-      device.set({ path: ["properties", "switched_at"], value: 0 }),
-    ]);
-    await client.devices.delete(slave.key);
+    let moved = false;
+    try {
+      await client.devices.dispatch(old.key, [
+        device.set({ path: ["properties", "serial"], value: slave.properties.serial }),
+        device.set({
+          path: ["properties", "network"],
+          value: slave.properties.network,
+        }),
+        device.set({
+          path: ["properties", "position"],
+          value: slave.properties.position,
+        }),
+        // The Driver stores this key in snake case. The switch was of the old module.
+        device.set({ path: ["properties", "switched_at"], value: 0 }),
+      ]);
+      moved = true;
+    } finally {
+      if (!moved) await startTasks(stopped);
+    }
+    await client.devices.delete(slave.key).catch((e: unknown) => {
+      const then = stopped.length === 0 ? "" : " Start your tasks again.";
+      throw new Error(`Failed to delete ${slave.name} after the move.${then}`, {
+        cause: e,
+      });
+    });
     return { old, stopped };
   },
 });
