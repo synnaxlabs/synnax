@@ -135,6 +135,19 @@ Framing struct {
 		Expect(fields[1].Default.StringValue).To(Equal("\r\n"))
 	})
 
+	It("Should keep an integral float default a float", func(ctx SpecContext) {
+		table := analyzeFixture(ctx, `
+Scale struct {
+	slope float64 = 1.0
+}
+`)
+		rendered := versions.Render(declsOf(table), versions.RenderOptions{})
+		again := analyzeFixture(ctx, MustSucceed(formatter.Format(rendered)))
+		fields := MustBeOk(again.Get("test.Scale")).Form.(resolution.StructForm).Fields
+		Expect(fields[0].Default.Kind).To(Equal(resolution.ValueKindFloat))
+		Expect(fields[0].Default.FloatValue).To(Equal(1.0))
+	})
+
 	It("Should preserve unknown expressions and @doc through a round trip", func(
 		ctx SpecContext,
 	) {
