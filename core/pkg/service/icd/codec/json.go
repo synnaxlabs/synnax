@@ -62,9 +62,10 @@ type jsonMessage struct {
 }
 
 type jsonField struct {
-	name    string
-	pointer xjson.Pointer
-	kind    payload.Kind
+	name     string
+	pointer  xjson.Pointer
+	kind     payload.Kind
+	dataType telem.DataType
 	// scaled is true when the field's scale or offset changes its value.
 	scaled        bool
 	scale, offset float64
@@ -173,10 +174,11 @@ func newJSONField(f icd.JSONField, dt telem.DataType) (jsonField, error) {
 		return jsonField{}, err
 	}
 	field := jsonField{
-		name:    b.Name,
-		pointer: pointer,
-		scale:   b.Scale,
-		offset:  b.Offset,
+		name:     b.Name,
+		pointer:  pointer,
+		dataType: dt,
+		scale:    b.Scale,
+		offset:   b.Offset,
 	}
 	var (
 		xf = xjson.Field{DataType: dt}
@@ -351,7 +353,7 @@ func (m *jsonMessage) decode(samples [][]byte) error {
 	for i := range m.fields {
 		f := &m.fields[i]
 		var err error
-		if m.values[i] == nil {
+		if payload.Absent(m.values[i], f.dataType) {
 			if f.fallback == nil {
 				err = errors.Wrapf(
 					validate.ErrValidation, "no value at %s", f.pointer,

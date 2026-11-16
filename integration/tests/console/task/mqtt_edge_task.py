@@ -112,13 +112,7 @@ class MQTTEdgeTask(MQTTCase):
             data_type=sy.DataType.FLOAT64,
             entry=lambda mirror: mqtt.PlainReadEntry(
                 topic=MIRROR_TOPIC,
-                fields=[
-                    mqtt.ReadField(
-                        pointer="/value",
-                        channel=mirror.key,
-                        data_type=sy.DataType.FLOAT64,
-                    )
-                ],
+                fields=[mqtt.FloatReadField(pointer="/value", channel=mirror.key)],
             ),
         ) as mirror:
             write_until(self.client, channel=channel, value=VALUE, watched=mirror)

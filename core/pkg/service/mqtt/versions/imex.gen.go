@@ -16,13 +16,14 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 // Latest is the portable schema version stamped on exported bodies of every type in
 // this package and the highest version import accepts. It equals the current schema
 // version.
-const Latest = v1.Version
+const Latest = v2.Version
 
 // ReadConfigLadder decodes ReadConfig bodies stamped at any exported version and
 // migrates them to the current shape.
@@ -39,6 +40,16 @@ func decodeReadConfig(
 ) (ReadConfig, error) {
 	switch version {
 	case v1.Version:
+		t1, err := imex.DecodeBlob[v1.ReadConfig](data, "mqtt.ReadConfig", version)
+		if err != nil {
+			return ReadConfig{}, err
+		}
+		t2, err := v2.MigrateReadConfig(ctx, t1)
+		if err != nil {
+			return ReadConfig{}, err
+		}
+		return t2, nil
+	case v2.Version:
 		return imex.DecodeBlob[ReadConfig](data, "mqtt.ReadConfig", version)
 	}
 	return ReadConfig{}, imex.NewErrUnsupportedVersion("mqtt.ReadConfig", version, Latest)
@@ -47,7 +58,7 @@ func decodeReadConfig(
 // ICDReadConfigLadder decodes ICDReadConfig bodies stamped at any exported version and
 // migrates them to the current shape.
 var ICDReadConfigLadder = imex.Ladder[ICDReadConfig]{
-	First:  v1.Version,
+	First:  v2.Version,
 	Latest: Latest,
 	Decode: decodeICDReadConfig,
 }
@@ -58,7 +69,7 @@ func decodeICDReadConfig(
 	data msgpack.EncodedJSON,
 ) (ICDReadConfig, error) {
 	switch version {
-	case v1.Version:
+	case v2.Version:
 		return imex.DecodeBlob[ICDReadConfig](data, "mqtt.ICDReadConfig", version)
 	}
 	return ICDReadConfig{}, imex.NewErrUnsupportedVersion("mqtt.ICDReadConfig", version, Latest)
@@ -79,6 +90,12 @@ func decodeWriteConfig(
 ) (WriteConfig, error) {
 	switch version {
 	case v1.Version:
+		t1, err := imex.DecodeBlob[v1.WriteConfig](data, "mqtt.WriteConfig", version)
+		if err != nil {
+			return WriteConfig{}, err
+		}
+		return t1, nil
+	case v2.Version:
 		return imex.DecodeBlob[WriteConfig](data, "mqtt.WriteConfig", version)
 	}
 	return WriteConfig{}, imex.NewErrUnsupportedVersion("mqtt.WriteConfig", version, Latest)
@@ -99,6 +116,12 @@ func decodeScanConfig(
 ) (ScanConfig, error) {
 	switch version {
 	case v1.Version:
+		t1, err := imex.DecodeBlob[v1.ScanConfig](data, "mqtt.ScanConfig", version)
+		if err != nil {
+			return ScanConfig{}, err
+		}
+		return t1, nil
+	case v2.Version:
 		return imex.DecodeBlob[ScanConfig](data, "mqtt.ScanConfig", version)
 	}
 	return ScanConfig{}, imex.NewErrUnsupportedVersion("mqtt.ScanConfig", version, Latest)
@@ -119,6 +142,12 @@ func decodeEdgeConfig(
 ) (EdgeConfig, error) {
 	switch version {
 	case v1.Version:
+		t1, err := imex.DecodeBlob[v1.EdgeConfig](data, "mqtt.EdgeConfig", version)
+		if err != nil {
+			return EdgeConfig{}, err
+		}
+		return t1, nil
+	case v2.Version:
 		return imex.DecodeBlob[EdgeConfig](data, "mqtt.EdgeConfig", version)
 	}
 	return EdgeConfig{}, imex.NewErrUnsupportedVersion("mqtt.EdgeConfig", version, Latest)

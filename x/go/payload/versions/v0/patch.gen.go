@@ -14,7 +14,37 @@ package v0
 import "github.com/synnaxlabs/x/content"
 
 // HashContent writes the content of the value to h, without its keys.
+func (be *BooleanEntry) HashContent(h *content.Hash) {
+	h.String(be.Label)
+	h.Bool(be.Value)
+}
+
+// HashContent writes the content of the value to h, without its keys.
 func (ee *EnumEntry) HashContent(h *content.Hash) {
 	h.String(ee.Label)
 	h.Float(ee.Value)
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (fe *FloatEntry) HashContent(h *content.Hash) {
+	h.String(fe.Label)
+	h.Float(float64(fe.Value))
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (ie *IntegerEntry) HashContent(h *content.Hash) {
+	h.String(ie.Label)
+	h.Int(int64(ie.Value))
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (se *StringEntry) HashContent(h *content.Hash) {
+	h.String(se.Label)
+	h.String(se.Value)
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (ue *UnsignedEntry) HashContent(h *content.Hash) {
+	h.String(ue.Label)
+	h.Uint(uint64(ue.Value))
 }
