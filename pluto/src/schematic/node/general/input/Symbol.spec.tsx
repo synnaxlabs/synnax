@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
+import { type Component } from "@synnaxlabs/lyra/component";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { type text } from "@synnaxlabs/x";
 import { act, render, type RenderResult } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { describe, expect, it, vi } from "vitest";
@@ -31,7 +31,7 @@ const Wrapper = createSynnaxWrapper({
   renderContext: canvasTest.record(),
 });
 
-const readoutTag = async (level: text.Level): Promise<string | undefined> => {
+const readoutTag = async (size: Component.Size): Promise<string | undefined> => {
   let result: RenderResult | undefined;
   await act(async () => {
     result = render(
@@ -45,7 +45,7 @@ const readoutTag = async (level: text.Level): Promise<string | undefined> => {
               config={schematic.inputNodeConfigZ.parse({
                 variant: "input",
                 stateChannel: 7,
-                level,
+                size,
               })}
             />
           </Haul.Provider>
@@ -58,8 +58,8 @@ const readoutTag = async (level: text.Level): Promise<string | undefined> => {
 };
 
 describe("Input.Symbol", () => {
-  it("should size the readout from the field's text level", async () => {
-    expect(await readoutTag("h4")).toBe("P");
-    expect(await readoutTag("small")).toBe("SMALL");
+  it("should size the readout from the field's size", async () => {
+    expect(await readoutTag("medium")).toBe("P");
+    expect(await readoutTag("large")).toBe("H4");
   });
 });

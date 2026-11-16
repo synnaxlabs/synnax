@@ -60,27 +60,19 @@ describe("ButtonForm size", () => {
       schematic.buttonNodeConfigZ,
     );
 
-  const SAVED = schematic.buttonNodeConfigZ.parse({
-    variant: "button",
-    label: { label: "Saved" },
-    size: "large",
-    level: "h5",
-  });
-
   it.each([
-    ["XS", "tiny", "small"],
-    ["S", "small", "h5"],
-    ["M", "medium", "h4"],
-    ["L", "large", "h3"],
-    ["XL", "huge", "h2"],
-  ])("should give %s the text level labels use", async (option, size, level) => {
+    ["XS", "tiny"],
+    ["S", "small"],
+    ["M", "medium"],
+    ["L", "large"],
+    ["XL", "huge"],
+  ] as const)("should set the size from %s", async (option, size) => {
     const start = size === "huge" ? "tiny" : "huge";
-    const { getByText, value } = renderStyle({ ...SAVED, size: start });
+    const { getByText, value } = renderStyle(
+      createConfig({ variant: "button", size: start }),
+    );
     fireEvent.click(getByText(option));
-    await waitFor(() => {
-      expect(value(path.size)).toBe(size);
-      expect(value(path.level)).toBe(level);
-    });
+    await waitFor(() => expect(value(path.size)).toBe(size));
   });
 });
 

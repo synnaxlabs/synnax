@@ -95,9 +95,7 @@ NodeConfig union on variant extends v10.NodeConfig {
         -members
     }
     button {
-        level text.Level = text.LevelH4 {
-            @doc value "is the typography level of the button text."
-        }
+        -level
     }
     box {
         stroke_width uint8 = 2 {
@@ -117,30 +115,6 @@ NodeConfig union on variant extends v10.NodeConfig {
     polygon {
         stroke_width uint8 = 2 {
             @doc value "is the border stroke width in pixels."
-        }
-    }
-    input {
-        size
-        level text.Level = text.LevelH4 {
-            @doc value "is the typography level of the input text."
-        }
-    }
-    select {
-        size
-        level text.Level = text.LevelH4 {
-            @doc value "is the typography level of the select text."
-        }
-    }
-    setpoint {
-        size
-        level text.Level = text.LevelH4 {
-            @doc value "is the typography level of the setpoint text."
-        }
-    }
-    state_indicator {
-        size
-        level text.Level = text.LevelH4 {
-            @doc value "is the typography level of the indicator text."
         }
     }
 }

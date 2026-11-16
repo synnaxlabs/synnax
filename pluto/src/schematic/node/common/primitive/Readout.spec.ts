@@ -14,22 +14,10 @@ import { describe, expect, it } from "vitest";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { SIZE_LEVELS } from "@/schematic/node/common/size";
 
-describe("readoutLevel", () => {
-  it.each(Component.SIZES)(
-    "should keep a saved %s field at its readout level",
-    (size) =>
-      expect(Primitive.readoutLevel(size, Component.SIZE_TEXT_LEVELS[size])).toBe(
-        text.downLevel(Component.SIZE_TEXT_LEVELS[size]),
-      ),
-  );
-
-  it.each([
-    ["tiny", "tiny"],
-    ["small", "small"],
-    ["medium", "p"],
-    ["large", "h4"],
-    ["huge", "h3"],
-  ] as const)("should fit a standard %s field's readout at %s", (size, level) =>
-    expect(Primitive.readoutLevel(size, SIZE_LEVELS[size])).toBe(level),
+describe("READOUT_LEVELS", () => {
+  it.each(Component.SIZES)("should set a %s readout below its field's text", (size) =>
+    expect(text.LEVELS.indexOf(Primitive.READOUT_LEVELS[size])).toBeGreaterThan(
+      text.LEVELS.indexOf(SIZE_LEVELS[size]),
+    ),
   );
 });

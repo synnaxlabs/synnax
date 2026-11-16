@@ -388,9 +388,6 @@ NodeConfig union on variant {
         size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the button."
         }
-        level           text.Level = text.LevelH4 {
-            @doc value "is the typography level of the button text."
-        }
         on_click_delay  float64 = 0 {
             @doc value "is the debounce delay applied to clicks, in milliseconds."
         }
@@ -457,9 +454,6 @@ NodeConfig union on variant {
     input extends LabeledConfig, StalenessConfig {
         size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the input."
-        }
-        level           text.Level = text.LevelH4 {
-            @doc value "is the typography level of the input text."
         }
         command_channel channel.Key?        {
             @doc value "is the channel submitted values are written to."
@@ -575,9 +569,6 @@ NodeConfig union on variant {
         size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the select."
         }
-        level           text.Level = text.LevelH4 {
-            @doc value "is the typography level of the select text."
-        }
         command_channel channel.Key?        {
             @doc value "is the channel the selected value is written to."
         }
@@ -632,9 +623,6 @@ NodeConfig union on variant {
         size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the setpoint."
         }
-        level           text.Level = text.LevelH4 {
-            @doc value "is the typography level of the setpoint text."
-        }
         command_channel channel.Key?        {
             @doc value "is the channel submitted setpoints are written to."
         }
@@ -684,9 +672,6 @@ NodeConfig union on variant {
         }
         size         ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the indicator."
-        }
-        level        text.Level = text.LevelH4 {
-            @doc value "is the typography level of the indicator text."
         }
 
         @doc value "is the configuration for multi-state indicator symbols."

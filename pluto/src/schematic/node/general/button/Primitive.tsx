@@ -19,6 +19,7 @@ import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
+import { SIZE_LEVELS } from "@/schematic/node/common/size";
 
 // A context menu swallows a secondary press's release, so momentary would stay pressed.
 const primaryOnly = (
@@ -31,10 +32,7 @@ const primaryOnly = (
       };
 
 interface ButtonProps extends Partial<
-  Pick<
-    schematic.ButtonNodeConfig,
-    "orientation" | "size" | "level" | "mode" | "onClickDelay"
-  >
+  Pick<schematic.ButtonNodeConfig, "orientation" | "size" | "mode" | "onClickDelay">
 > {
   label?: schematic.ButtonNodeConfig["label"];
   fillColor?: color.Crude;
@@ -51,8 +49,7 @@ export const Button = ({
   orientation = "left",
   label,
   fillColor,
-  size,
-  level,
+  size = "medium",
   mode = "fire",
   onClickDelay: delay,
 }: ButtonProps): ReactElement => {
@@ -86,7 +83,7 @@ export const Button = ({
         style={style}
         {...handlers}
         size={size}
-        level={level}
+        level={SIZE_LEVELS[size]}
         direction={label?.direction}
         onClickDelay={mode === "momentary" ? 0 : delay}
       >

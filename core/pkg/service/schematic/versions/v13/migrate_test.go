@@ -28,7 +28,6 @@ import (
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
-	text "github.com/synnaxlabs/x/text/versions/v0"
 )
 
 // withElements gives each config key of s a node, or an edge between two capped anchor
@@ -711,15 +710,13 @@ func migrateNode(ctx SpecContext, raw map[string]any) v13.NodeConfigVariant {
 }
 
 var _ = Describe("MigrateNodeConfig text", func() {
-	It("Should set a saved button's level and keep its wrap width", func(
-		ctx SpecContext,
-	) {
+	It("Should keep a saved button's size and wrap width", func(ctx SpecContext) {
 		Expect(migrateNode(ctx, map[string]any{
 			"variant": "button",
 			"size":    "large",
 			"label":   map[string]any{"max_inline_size": 80.0},
 		})).To(SatisfyAll(
-			HaveField("Level", Equal(text.LevelH5)),
+			HaveField("Size", Equal(v13.ComponentSizeLarge)),
 			HaveField("LabeledConfig.Label.MaxInlineSize", BeEquivalentTo(80)),
 		))
 	})
@@ -756,67 +753,6 @@ var _ = Describe("MigrateNodeConfig text", func() {
 			map[string]any{"label": "P1", "max_inline_size": 80.6}, uint16(81)),
 	)
 
-	DescribeTable("Should keep the rendered text size of a saved state indicator",
-		func(ctx SpecContext, size string, level text.Level) {
-			Expect(migrateNode(ctx, map[string]any{
-				"variant": "state_indicator",
-				"size":    size,
-			})).To(HaveField("Level", Equal(level)))
-		},
-		Entry("tiny", "tiny", text.LevelSmall),
-		Entry("small", "small", text.LevelH5),
-		Entry("medium", "medium", text.LevelH4),
-		Entry("large", "large", text.LevelH3),
-		Entry("huge", "huge", text.LevelH2),
-	)
-
-	DescribeTable("Should keep the rendered text size of a saved symbol",
-		func(ctx SpecContext, variant, size string, level text.Level) {
-			Expect(migrateNode(ctx, map[string]any{
-				"variant": variant,
-				"size":    size,
-			})).To(HaveField("Level", Equal(level)))
-		},
-		Entry("a tiny button", "button", "tiny", text.LevelTiny),
-		Entry("a small button", "button", "small", text.LevelSmall),
-		Entry("a medium button", "button", "medium", text.LevelP),
-		Entry("a large button", "button", "large", text.LevelH5),
-		Entry("a huge button", "button", "huge", text.LevelH2),
-		Entry("a tiny input", "input", "tiny", text.LevelTiny),
-		Entry("a small input", "input", "small", text.LevelSmall),
-		Entry("a medium input", "input", "medium", text.LevelP),
-		Entry("a large input", "input", "large", text.LevelH5),
-		Entry("a huge input", "input", "huge", text.LevelH2),
-		Entry("a tiny select", "select", "tiny", text.LevelTiny),
-		Entry("a small select", "select", "small", text.LevelSmall),
-		Entry("a medium select", "select", "medium", text.LevelP),
-		Entry("a large select", "select", "large", text.LevelH5),
-		Entry("a huge select", "select", "huge", text.LevelH2),
-		Entry("a tiny setpoint", "setpoint", "tiny", text.LevelTiny),
-		Entry("a small setpoint", "setpoint", "small", text.LevelSmall),
-		Entry("a medium setpoint", "setpoint", "medium", text.LevelP),
-		Entry("a large setpoint", "setpoint", "large", text.LevelH5),
-		Entry("a huge setpoint", "setpoint", "huge", text.LevelH2),
-	)
-
-	It("Should keep a level that a saved button stores", func(ctx SpecContext) {
-		Expect(migrateNode(ctx, map[string]any{
-			"variant": "button",
-			"size":    "large",
-			"level":   "h3",
-		})).To(HaveField("Level", Equal(text.LevelH3)))
-	})
-
-	It("Should replace an invalid level that a saved button stores", func(
-		ctx SpecContext,
-	) {
-		Expect(migrateNode(ctx, map[string]any{
-			"variant": "button",
-			"size":    "large",
-			"level":   "",
-		})).To(HaveField("Level", Equal(text.LevelH5)))
-	})
-
 	It("Should migrate a saved label through storage", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v12.Key, v12.Schematic]{DB: db}))
@@ -841,7 +777,7 @@ var _ = Describe("MigrateNodeConfig text", func() {
 			Where(gorp.MatchKeys[v13.Key, v13.Schematic](old.Key)).
 			Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(configOf(got, "b")).To(SatisfyAll(
-			HaveField("Level", Equal(text.LevelH2)),
+			HaveField("Size", Equal(v13.ComponentSizeHuge)),
 			HaveField("LabeledConfig.Label.MaxInlineSize", BeEquivalentTo(65535)),
 		))
 	})

@@ -23,7 +23,6 @@ import (
 	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
-	text "github.com/synnaxlabs/x/text/versions/v0"
 )
 
 // MigrateSchematic lifts a v12 schematic to v13. Every color alpha becomes a 0-255
@@ -245,8 +244,7 @@ var Migration = migrate.NewEntry("v62_color_bytes_configs_on_nodes", MigrateSche
 
 // MigrateNodeConfig lifts a v12 node config to v13. See MigrateSchematic for colors. A
 // stroke width rounds to whole pixels up to 20. A width above 0, and every line width,
-// keeps at least 1 pixel. A NaN width counts as 0. A button, input, select, setpoint,
-// or state indicator keeps its rendered text size. A button label migrates as in
+// keeps at least 1 pixel. A NaN width counts as 0. A button label migrates as in
 // MigrateLabelConfig, except that a width of 150, which did not wrap in v12, becomes
 // 65535.
 func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, error) {
@@ -261,27 +259,7 @@ func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, err
 		cfg.Variant = n
 	case v12.ButtonNodeConfig:
 		n := cfg.Variant.(ButtonNodeConfig)
-		n.Level = renderedLevel(o.Size)
-		if o.Level != nil && o.Level.IsValid() {
-			n.Level = *o.Level
-		}
 		n.Label.MaxInlineSize = migrateButtonMaxInlineSize(o.Label.MaxInlineSize)
-		cfg.Variant = n
-	case v12.InputNodeConfig:
-		n := cfg.Variant.(InputNodeConfig)
-		n.Level = renderedLevel(o.Size)
-		cfg.Variant = n
-	case v12.SelectNodeConfig:
-		n := cfg.Variant.(SelectNodeConfig)
-		n.Level = renderedLevel(o.Size)
-		cfg.Variant = n
-	case v12.SetpointNodeConfig:
-		n := cfg.Variant.(SetpointNodeConfig)
-		n.Level = renderedLevel(o.Size)
-		cfg.Variant = n
-	case v12.StateIndicatorNodeConfig:
-		n := cfg.Variant.(StateIndicatorNodeConfig)
-		n.Level = indicatorLevel(o.Size)
 		cfg.Variant = n
 	case v12.CircleNodeConfig:
 		n := cfg.Variant.(CircleNodeConfig)
@@ -360,40 +338,6 @@ func migrateButtonMaxInlineSize(w float64) uint16 {
 		return math.MaxUint16
 	}
 	return migrateMaxInlineSize(w)
-}
-
-// renderedLevel returns the text level a v12 symbol of the given size rendered at when
-// it stored none.
-func renderedLevel(size ComponentSize) text.Level {
-	switch size {
-	case ComponentSizeTiny:
-		return text.LevelTiny
-	case ComponentSizeSmall:
-		return text.LevelSmall
-	case ComponentSizeLarge:
-		return text.LevelH5
-	case ComponentSizeHuge:
-		return text.LevelH2
-	default:
-		return text.LevelP
-	}
-}
-
-// indicatorLevel returns the text level a v12 state indicator of the given size
-// rendered at.
-func indicatorLevel(size ComponentSize) text.Level {
-	switch size {
-	case ComponentSizeTiny:
-		return text.LevelSmall
-	case ComponentSizeSmall:
-		return text.LevelH5
-	case ComponentSizeLarge:
-		return text.LevelH3
-	case ComponentSizeHuge:
-		return text.LevelH2
-	default:
-		return text.LevelH4
-	}
 }
 
 // MigrateStaticSymbolConfig lifts a v12 static symbol config to v13.

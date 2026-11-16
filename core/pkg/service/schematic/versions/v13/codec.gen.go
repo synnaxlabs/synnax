@@ -501,7 +501,6 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(string(v.Size))
-		w.String(string(v.Level))
 		w.Float64(float64(v.OnClickDelay))
 		if v.CommandChannel != nil {
 			w.Bool(true)
@@ -593,7 +592,6 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(string(v.Size))
-		w.String(string(v.Level))
 		if v.CommandChannel != nil {
 			w.Bool(true)
 			w.Uint32(uint32(*v.CommandChannel))
@@ -747,7 +745,6 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(string(v.Size))
-		w.String(string(v.Level))
 		if v.CommandChannel != nil {
 			w.Bool(true)
 			w.Uint32(uint32(*v.CommandChannel))
@@ -816,7 +813,6 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(string(v.Size))
-		w.String(string(v.Level))
 		if v.CommandChannel != nil {
 			w.Bool(true)
 			w.Uint32(uint32(*v.CommandChannel))
@@ -890,7 +886,6 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 		w.String(string(v.Size))
-		w.String(string(v.Level))
 	case StringDisplayNodeConfig:
 		w.String("string_display")
 		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
@@ -1681,13 +1676,6 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 			}
 			v.Size = ComponentSize(rawV)
 		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.Level = text.Level(rawV)
-		}
 		if v.OnClickDelay, err = r.Float64(); err != nil {
 			return err
 		}
@@ -1854,13 +1842,6 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			v.Size = ComponentSize(rawV)
-		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.Level = text.Level(rawV)
 		}
 		{
 			present, err := r.Bool()
@@ -2139,13 +2120,6 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 			v.Size = ComponentSize(rawV)
 		}
 		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.Level = text.Level(rawV)
-		}
-		{
 			present, err := r.Bool()
 			if err != nil {
 				return err
@@ -2272,13 +2246,6 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			v.Size = ComponentSize(rawV)
-		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.Level = text.Level(rawV)
 		}
 		{
 			present, err := r.Bool()
@@ -2431,13 +2398,6 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			v.Size = ComponentSize(rawV)
-		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.Level = text.Level(rawV)
 		}
 		nc.Variant = v
 	case "string_display":

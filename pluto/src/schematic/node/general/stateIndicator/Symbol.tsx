@@ -30,7 +30,6 @@ export const Symbol = ({
     strokeColor,
     inlineSize,
     size,
-    level,
     stalenessTimeout,
     stalenessColor,
   },
@@ -58,7 +57,6 @@ export const Symbol = ({
         strokeColor={strokeColor}
         inlineSize={inlineSize}
         size={size}
-        level={level}
         staleColor={stale ? Staleness.resolveColor(stalenessColor, theme) : undefined}
       />
     </Grid.Grid>

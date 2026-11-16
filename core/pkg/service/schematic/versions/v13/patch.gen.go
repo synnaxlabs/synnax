@@ -2388,10 +2388,6 @@ func (bnc *ButtonNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&bnc.Size, c.Next(), func(def *ButtonNodeConfig) {
 			bnc.Size = def.Size
 		})
-	case "level":
-		return patch.Defaulted(&bnc.Level, c.Next(), func(def *ButtonNodeConfig) {
-			bnc.Level = def.Level
-		})
 	case "on_click_delay":
 		return patch.Value(&bnc.OnClickDelay, c.Next())
 	case "command_channel":
@@ -2539,10 +2535,6 @@ func (inc *InputNodeConfig) Patch(c patch.Cursor) error {
 	case "size":
 		return patch.Defaulted(&inc.Size, c.Next(), func(def *InputNodeConfig) {
 			inc.Size = def.Size
-		})
-	case "level":
-		return patch.Defaulted(&inc.Level, c.Next(), func(def *InputNodeConfig) {
-			inc.Level = def.Level
 		})
 	case "command_channel":
 		return patch.OptionalValue(&inc.CommandChannel, c.Next())
@@ -2744,10 +2736,6 @@ func (snc *SelectNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&snc.Size, c.Next(), func(def *SelectNodeConfig) {
 			snc.Size = def.Size
 		})
-	case "level":
-		return patch.Defaulted(&snc.Level, c.Next(), func(def *SelectNodeConfig) {
-			snc.Level = def.Level
-		})
 	case "command_channel":
 		return patch.OptionalValue(&snc.CommandChannel, c.Next())
 	case "state_channel":
@@ -2885,10 +2873,6 @@ func (snc *SetpointNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&snc.Size, c.Next(), func(def *SetpointNodeConfig) {
 			snc.Size = def.Size
 		})
-	case "level":
-		return patch.Defaulted(&snc.Level, c.Next(), func(def *SetpointNodeConfig) {
-			snc.Level = def.Level
-		})
 	case "command_channel":
 		return patch.OptionalValue(&snc.CommandChannel, c.Next())
 	case "state_channel":
@@ -2963,10 +2947,6 @@ func (sinc *StateIndicatorNodeConfig) Patch(c patch.Cursor) error {
 	case "size":
 		return patch.Defaulted(&sinc.Size, c.Next(), func(def *StateIndicatorNodeConfig) {
 			sinc.Size = def.Size
-		})
-	case "level":
-		return patch.Defaulted(&sinc.Level, c.Next(), func(def *StateIndicatorNodeConfig) {
-			sinc.Level = def.Level
 		})
 	default:
 		return c.UnknownField()

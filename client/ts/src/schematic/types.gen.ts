@@ -588,8 +588,6 @@ export const buttonNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("button"),
   /** size is the rendered size preset of the button. */
   size: componentSizeZ.default("medium"),
-  /** level is the typography level of the button text. */
-  level: text.levelZ.default("h4"),
   /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
   onClickDelay: z.number().default(0),
   /** commandChannel is the channel button presses are written to. */
@@ -645,8 +643,6 @@ export const inputNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).ex
   variant: z.literal("input"),
   /** size is the rendered size preset of the input. */
   size: componentSizeZ.default("medium"),
-  /** level is the typography level of the input text. */
-  level: text.levelZ.default("h4"),
   /** commandChannel is the channel submitted values are written to. */
   commandChannel: channel.keyZ.optional(),
   /** stateChannel is the channel that reports the value the device holds. */
@@ -741,8 +737,6 @@ export const selectNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).e
   variant: z.literal("select"),
   /** size is the rendered size preset of the select. */
   size: componentSizeZ.default("medium"),
-  /** level is the typography level of the select text. */
-  level: text.levelZ.default("h4"),
   /** commandChannel is the channel the selected value is written to. */
   commandChannel: channel.keyZ.optional(),
   /** stateChannel is the channel that reports the state the device holds. */
@@ -789,8 +783,6 @@ export const setpointNodeConfigZ = labeledConfigZ
     variant: z.literal("setpoint"),
     /** size is the rendered size preset of the setpoint. */
     size: componentSizeZ.default("medium"),
-    /** level is the typography level of the setpoint text. */
-    level: text.levelZ.default("h4"),
     /** commandChannel is the channel submitted setpoints are written to. */
     commandChannel: channel.keyZ.optional(),
     /** stateChannel is the channel that reports the value the device holds. */
@@ -829,8 +821,6 @@ export const stateIndicatorNodeConfigZ = labeledConfigZ
     options: stateMappingZ.array().default(() => []),
     /** size is the rendered size preset of the indicator. */
     size: componentSizeZ.default("medium"),
-    /** level is the typography level of the indicator text. */
-    level: text.levelZ.default("h4"),
   });
 export interface StateIndicatorNodeConfig extends z.infer<
   typeof stateIndicatorNodeConfigZ

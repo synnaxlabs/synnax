@@ -73,7 +73,7 @@ export const SelectForm = ({ tab, onTabChange }: FormProps): ReactElement => (
         </Base.Section>
         <Base.Section title="Appearance">
           <Form.FillField fallback={colorFallbacks.fillColor} />
-          <Form.ScaledSizeField />
+          <Form.SizeField />
           <Base.NumericField
             path={path.inlineSize}
             label="Width"

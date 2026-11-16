@@ -11,7 +11,6 @@ import { schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { renderThemed } from "@synnaxlabs/lyra/styletest";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -24,7 +23,6 @@ import { Setpoint } from "@/schematic/node/general/setpoint";
 
 interface SymbolProps {
   size: Component.Size;
-  level?: text.Level;
 }
 
 const SYMBOLS: Record<string, (props: SymbolProps) => ReactElement> = {
@@ -83,34 +81,12 @@ const STANDARD_PX: [Component.Size, number][] = [
   ["huge", 27],
 ];
 
-const SAVED_PX: [Component.Size, number][] = [
-  ["tiny", 11],
-  ["small", 12],
-  ["medium", 13],
-  ["large", 14],
-  ["huge", 27],
-];
-
 describe("symbol text scale", () => {
   describe.each(Object.keys(SYMBOLS))("%s", (symbol) => {
-    it.each(STANDARD_PX)(
-      "should render %s at %i px on the standard scale",
-      async (size, px) => {
-        const sizes = await measure(symbol, { size, level: SIZE_LEVELS[size] });
-        sizes.forEach((measured) => expect(measured).toBeCloseTo(px, 0));
-      },
-    );
-
-    it.each(SAVED_PX)(
-      "should keep a saved %s at %i px at its migrated level",
-      async (size, px) => {
-        const sizes = await measure(symbol, {
-          size,
-          level: Component.SIZE_TEXT_LEVELS[size],
-        });
-        sizes.forEach((measured) => expect(measured).toBeCloseTo(px, 0));
-      },
-    );
+    it.each(STANDARD_PX)("should render %s text at %i px", async (size, px) => {
+      const sizes = await measure(symbol, { size });
+      sizes.forEach((measured) => expect(measured).toBeCloseTo(px, 0));
+    });
   });
 
   it.each(STANDARD_PX)("should render a %s label at %i px", async (size, px) => {
@@ -121,27 +97,19 @@ describe("symbol text scale", () => {
   });
 
   describe("readout", () => {
-    const SCALES = Component.SIZES.flatMap((size): [Component.Size, text.Level][] => [
-      [size, SIZE_LEVELS[size]],
-      [size, Component.SIZE_TEXT_LEVELS[size]],
-    ]);
-
-    it.each(SCALES)(
-      "should fit %s text inside the readout at field level %s",
-      async (size, level) => {
-        const { container } = await renderThemed(
-          <Primitive.Readout size={size} level={level} value="100.0" />,
-        );
-        const readout = container.querySelector<HTMLElement>(
-          ".pluto-symbol-field__readout",
-        );
-        const value = readout?.querySelector("p, h3, h4, small");
-        if (readout == null || value == null) throw new Error("expected a readout");
-        const outer = readout.getBoundingClientRect();
-        const inner = value.getBoundingClientRect();
-        expect(inner.top).toBeGreaterThanOrEqual(outer.top);
-        expect(inner.bottom).toBeLessThanOrEqual(outer.bottom);
-      },
-    );
+    it.each(Component.SIZES)("should fit %s text inside the readout", async (size) => {
+      const { container } = await renderThemed(
+        <Primitive.Readout size={size} value="100.0" />,
+      );
+      const readout = container.querySelector<HTMLElement>(
+        ".pluto-symbol-field__readout",
+      );
+      const value = readout?.querySelector("p, h3, h4, small");
+      if (readout == null || value == null) throw new Error("expected a readout");
+      const outer = readout.getBoundingClientRect();
+      const inner = value.getBoundingClientRect();
+      expect(inner.top).toBeGreaterThanOrEqual(outer.top);
+      expect(inner.bottom).toBeLessThanOrEqual(outer.bottom);
+    });
   });
 });

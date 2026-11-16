@@ -16,9 +16,9 @@ import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitiv
 const OPTIONS: schematic.StateMapping[] = [{ key: "1", name: "Active", value: 1 }];
 
 describe("StateIndicator", () => {
-  it("should size the text from the level, not the size", () => {
+  it("should size the text from the size", () => {
     const { getByText } = render(
-      <StateIndicator matchedOptionKey="1" options={OPTIONS} size="tiny" level="h2" />,
+      <StateIndicator matchedOptionKey="1" options={OPTIONS} size="huge" />,
     );
     expect(getByText("Active").tagName).toBe("H2");
   });

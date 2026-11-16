@@ -10,7 +10,7 @@
 import { type channel, type schematic } from "@synnaxlabs/client";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { type color, type text } from "@synnaxlabs/x";
+import { type color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
@@ -28,7 +28,6 @@ interface ReadbackProps {
   nodeKey: string;
   channel: channel.Key;
   size: Component.Size;
-  level: text.Level;
   options: schematic.SelectNodeConfig["options"];
   stalenessColor?: color.Color;
   stalenessTimeout?: number;
@@ -38,7 +37,6 @@ const Readback = ({
   nodeKey,
   channel,
   size,
-  level,
   options,
   stalenessColor,
   stalenessTimeout,
@@ -55,7 +53,6 @@ const Readback = ({
   return (
     <Primitive.Readout
       size={size}
-      level={level}
       value={matched == null ? "-" : optionName(matched)}
       color={stale ? Staleness.resolveColor(stalenessColor, theme) : undefined}
     />
@@ -77,7 +74,6 @@ export const Symbol = ({
     stalenessTimeout,
     options,
     size,
-    level,
     disabled,
     inlineSize,
     onClickDelay,
@@ -106,7 +102,6 @@ export const Symbol = ({
         disabled={disabled}
         options={options}
         size={size}
-        level={level}
         inlineSize={inlineSize}
         onClickDelay={onClickDelay}
         readback={
@@ -116,7 +111,6 @@ export const Symbol = ({
               nodeKey={nodeKey}
               channel={stateChannel}
               size={size}
-              level={level}
               options={options}
               stalenessColor={stalenessColor}
               stalenessTimeout={stalenessTimeout}

@@ -16,17 +16,12 @@ import { Select } from "@/schematic/node/general/select/Primitive";
 import { Symbol } from "@/schematic/node/general/select/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 
-const Preview = ({
-  fillColor,
-  size,
-  level,
-}: schematic.SelectNodeConfig): ReactElement => (
+const Preview = ({ fillColor, size }: schematic.SelectNodeConfig): ReactElement => (
   <Select
     onSend={() => {}}
     options={[]}
     fillColor={fillColor}
     size={size}
-    level={level}
     disabled
     className={CSS.BM("select-symbol", "preview")}
   />
