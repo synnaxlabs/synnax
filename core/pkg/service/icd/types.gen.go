@@ -119,8 +119,45 @@ type UuidJSONField = versions.UuidJSONField
 // BytesJSONField is base64 text held in a JSON string.
 type BytesJSONField = versions.BytesJSONField
 
+// JSONBaseMatch carries the parts every JSON match rule shares.
+type JSONBaseMatch = versions.JSONBaseMatch
+
 // JSONMatch selects the JSON documents that belong to a message.
 type JSONMatch = versions.JSONMatch
+
+// JSONMatchVariant is implemented by every JSONMatch variant.
+type JSONMatchVariant = versions.JSONMatchVariant
+
+// JSONMatchType is the "type" value that selects a variant of JSONMatch.
+type JSONMatchType = versions.JSONMatchType
+
+const (
+	// FloatJSONMatchType matches a JSON number equal to a float.
+	FloatJSONMatchType JSONMatchType = versions.FloatJSONMatchType
+	// IntegerJSONMatchType matches a JSON number equal to a signed integer.
+	IntegerJSONMatchType JSONMatchType = versions.IntegerJSONMatchType
+	// UnsignedJSONMatchType matches a JSON number equal to an unsigned integer.
+	UnsignedJSONMatchType JSONMatchType = versions.UnsignedJSONMatchType
+	// StringJSONMatchType matches an equal JSON string.
+	StringJSONMatchType JSONMatchType = versions.StringJSONMatchType
+	// BooleanJSONMatchType matches an equal JSON boolean.
+	BooleanJSONMatchType JSONMatchType = versions.BooleanJSONMatchType
+)
+
+// FloatJSONMatch matches a JSON number equal to a float.
+type FloatJSONMatch = versions.FloatJSONMatch
+
+// IntegerJSONMatch matches a JSON number equal to a signed integer.
+type IntegerJSONMatch = versions.IntegerJSONMatch
+
+// UnsignedJSONMatch matches a JSON number equal to an unsigned integer.
+type UnsignedJSONMatch = versions.UnsignedJSONMatch
+
+// StringJSONMatch matches an equal JSON string.
+type StringJSONMatch = versions.StringJSONMatch
+
+// BooleanJSONMatch matches an equal JSON boolean.
+type BooleanJSONMatch = versions.BooleanJSONMatch
 
 // Payload is the layout of a message's payload.
 type Payload = versions.Payload

@@ -146,13 +146,19 @@ var _ = Describe("ICD read task", func() {
 		func(ctx SpecContext) {
 			statusMsg := jsonMessage(
 				"Status",
-				&icd.JSONMatch{Pointer: "/type", Value: "s"},
+				&icd.JSONMatch{
+					Variant: icd.StringJSONMatch{Pointer: "/type", Value: "s"},
+				},
 				jsonField("ts", "/ts", icd.TimestampJSONField{
 					TimeFormat: payload.TimeFormatUnixSec,
 				}),
 				jsonField("temp", "/temp", icd.FloatJSONField{}),
 			)
-			event := jsonMessage("Event", &icd.JSONMatch{Pointer: "/type", Value: "e"},
+			event := jsonMessage(
+				"Event",
+				&icd.JSONMatch{
+					Variant: icd.StringJSONMatch{Pointer: "/type", Value: "e"},
+				},
 				jsonField("ts", "/ts", icd.TimestampJSONField{
 					TimeFormat: payload.TimeFormatUnixSec,
 				}),
@@ -210,6 +216,63 @@ var _ = Describe("ICD read task", func() {
 		},
 	)
 
+	Describe("Rejected messages", func() {
+		warned := func(ctx context.Context, t task.Task, description string) {
+			GinkgoHelper()
+			Eventually(func(g Gomega) {
+				stat := taskStatus(ctx, t)
+				g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+				g.Expect(stat.Message).To(Equal("Skipped 1 of 1 message"))
+				g.Expect(stat.Description).To(Equal(description))
+				g.Expect(stat.Details.Running).To(BeTrue())
+			}).Should(Succeed())
+		}
+
+		It("Should warn and write nothing for a document that matches no message",
+			func(ctx SpecContext) {
+				m := jsonMessage(
+					"Status",
+					&icd.JSONMatch{
+						Variant: icd.StringJSONMatch{Pointer: "/type", Value: "s"},
+					},
+					jsonField("temp", "/temp", icd.FloatJSONField{}),
+				)
+				ic := createICD(ctx, m)
+				_, data := createIndexed(ctx, telem.Float64T)
+				t := start(ctx, readConfig(dev, icdEntry(
+					"plant/status", ic, readMessage(m, binding(m, 0, data[0])),
+				)))
+				broker.publish("plant/status", `{"type":"e","temp":1}`, false)
+				warned(ctx, t,
+					"Message on topic plant/status: the payload matches no message",
+				)
+				broker.publish("plant/status", `{"type":"s","temp":2}`, false)
+				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
+					Should(BeEquivalentTo(1))
+				Expect(stored(ctx, data[0])).
+					To(telem.MatchSeriesData(telem.NewSeriesV(2.0)))
+			},
+		)
+
+		It("Should warn and write nothing for a value that does not decode",
+			func(ctx SpecContext) {
+				m := jsonMessage("Status", nil,
+					jsonField("temp", "/temp", icd.FloatJSONField{}),
+				)
+				ic := createICD(ctx, m)
+				_, data := createIndexed(ctx, telem.Float64T)
+				t := start(ctx, readConfig(dev, icdEntry(
+					"plant/status", ic, readMessage(m, binding(m, 0, data[0])),
+				)))
+				broker.publish("plant/status", `{"temp":"hot"}`, false)
+				warned(ctx, t, "Message on topic plant/status: message Status: "+
+					`field temp: unknown enum label "hot": validation error`,
+				)
+				Expect(stored(ctx, data[0]).Len()).To(BeZero())
+			},
+		)
+	})
+
 	Describe("Configure", func() {
 		configureErr := func(ctx context.Context, cfg msgpack.EncodedJSON) error {
 			t := newTask(ctx, rackKey, mqtt.ICDReadTaskType, cfg)
@@ -234,7 +297,11 @@ var _ = Describe("ICD read task", func() {
 				jsonField("temp", "/temp", icd.FloatJSONField{}),
 				jsonField("pressure", "/pressure", icd.FloatJSONField{}),
 			)
-			n := jsonMessage("Event", nil,
+			n := jsonMessage(
+				"Event",
+				&icd.JSONMatch{
+					Variant: icd.StringJSONMatch{Pointer: "/type", Value: "event"},
+				},
 				jsonField("code", "/code", icd.FloatJSONField{}),
 			)
 			idx, data := createIndexed(ctx, telem.Float64T, telem.Float64T)
@@ -356,7 +423,7 @@ var _ = Describe("ICD read task", func() {
 				Expect(configureErr(ctx, readConfig(dev, entry))).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(
-						"a string field cannot write to a float64 channel",
+						"cannot write string values to float64 channels",
 					)),
 				))
 			},

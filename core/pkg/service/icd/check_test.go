@@ -148,6 +148,15 @@ var _ = Describe("Check", func() {
 			}}},
 			"messages.0.payload.fields.0.type", "type is required",
 		),
+		Entry("JSON match without a type",
+			icd.ICD{Name: "L", Messages: []icd.Message{{
+				Name: "M",
+				Payload: icd.Payload{Variant: icd.JSONPayload{
+					Match: &icd.JSONMatch{},
+				}},
+			}}},
+			"messages.0.payload.match.type", "type is required",
+		),
 		Entry("identifier without a type",
 			icd.ICD{Name: "L", Messages: []icd.Message{updateBinary(
 				binaryMessage("M", binaryField("a", 0, 8)),

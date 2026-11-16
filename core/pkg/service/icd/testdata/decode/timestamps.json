@@ -1,52 +1,57 @@
 {
   "description": "Timestamps decode from each time format.",
-  "payload": {
-    "format": "json",
-    "fields": [
-      {
-        "key": "00000000-0000-4000-8000-000000000001",
-        "name": "iso",
-        "scale": 1,
-        "offset": 0,
-        "units": "",
-        "pointer": "/iso",
-        "type": "timestamp",
-        "time_format": "iso8601"
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "iso",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/iso",
+            "type": "timestamp",
+            "time_format": "iso8601"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "sec",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/sec",
+            "type": "timestamp",
+            "time_format": "unix_sec"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "ns",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/ns",
+            "type": "timestamp",
+            "time_format": "unix_ns"
+          }
+        ]
       },
-      {
-        "key": "00000000-0000-4000-8000-000000000002",
-        "name": "sec",
-        "scale": 1,
-        "offset": 0,
-        "units": "",
-        "pointer": "/sec",
-        "type": "timestamp",
-        "time_format": "unix_sec"
-      },
-      {
-        "key": "00000000-0000-4000-8000-000000000003",
-        "name": "ns",
-        "scale": 1,
-        "offset": 0,
-        "units": "",
-        "pointer": "/ns",
-        "type": "timestamp",
-        "time_format": "unix_ns"
-      }
-    ]
-  },
-  "bindings": [
-    {
-      "field": "00000000-0000-4000-8000-000000000001",
-      "data_type": "timestamp"
-    },
-    {
-      "field": "00000000-0000-4000-8000-000000000002",
-      "data_type": "timestamp"
-    },
-    {
-      "field": "00000000-0000-4000-8000-000000000003",
-      "data_type": "timestamp"
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "timestamp"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "timestamp"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000003",
+          "data_type": "timestamp"
+        }
+      ]
     }
   ],
   "cases": [
@@ -56,6 +61,7 @@
         "sec": 2,
         "ns": 3
       },
+      "message": "reading",
       "samples": [1000000000, 2000000000, 3]
     }
   ]

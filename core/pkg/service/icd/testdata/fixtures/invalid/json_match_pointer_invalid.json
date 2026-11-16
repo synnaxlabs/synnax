@@ -17,6 +17,7 @@
         "payload": {
           "format": "json",
           "match": {
+            "type": "string",
             "pointer": "type",
             "value": "status"
           },

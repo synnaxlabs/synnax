@@ -1118,12 +1118,256 @@ func (u *JSONField) SetBase(base JSONBaseField) {
 	}
 }
 
-// JSONMatch selects the JSON documents that belong to a message.
-type JSONMatch struct {
+// JSONBaseMatch carries the parts every JSON match rule shares.
+type JSONBaseMatch struct {
 	// Pointer is the JSON Pointer to the value the rule tests.
 	Pointer string `json:"pointer" msgpack:"pointer"`
-	// Value is the string or number the value must equal.
-	Value any `json:"value" msgpack:"value"`
+}
+
+// JSONMatchType is the "type" value that selects a variant of JSONMatch.
+type JSONMatchType string
+
+const (
+	// FloatJSONMatchType matches a JSON number equal to a float.
+	FloatJSONMatchType JSONMatchType = "float"
+	// IntegerJSONMatchType matches a JSON number equal to a signed integer.
+	IntegerJSONMatchType JSONMatchType = "integer"
+	// UnsignedJSONMatchType matches a JSON number equal to an unsigned integer.
+	UnsignedJSONMatchType JSONMatchType = "unsigned"
+	// StringJSONMatchType matches an equal JSON string.
+	StringJSONMatchType JSONMatchType = "string"
+	// BooleanJSONMatchType matches an equal JSON boolean.
+	BooleanJSONMatchType JSONMatchType = "boolean"
+)
+
+// JSONMatchVariant is implemented by every JSONMatch variant.
+type JSONMatchVariant interface {
+	isJSONMatchVariant()
+}
+
+// FloatJSONMatch matches a JSON number equal to a float.
+type FloatJSONMatch struct {
+	JSONBaseMatch
+	// Value is the float the value must equal.
+	Value payload.Float `json:"value" msgpack:"value"`
+}
+
+func (FloatJSONMatch) isJSONMatchVariant() {}
+
+// IntegerJSONMatch matches a JSON number equal to a signed integer.
+type IntegerJSONMatch struct {
+	JSONBaseMatch
+	// Value is the signed integer the value must equal.
+	Value payload.Integer `json:"value" msgpack:"value"`
+}
+
+func (IntegerJSONMatch) isJSONMatchVariant() {}
+
+// UnsignedJSONMatch matches a JSON number equal to an unsigned integer.
+type UnsignedJSONMatch struct {
+	JSONBaseMatch
+	// Value is the unsigned integer the value must equal.
+	Value payload.Unsigned `json:"value" msgpack:"value"`
+}
+
+func (UnsignedJSONMatch) isJSONMatchVariant() {}
+
+// StringJSONMatch matches an equal JSON string.
+type StringJSONMatch struct {
+	JSONBaseMatch
+	// Value is the string the value must equal.
+	Value string `json:"value" msgpack:"value"`
+}
+
+func (StringJSONMatch) isJSONMatchVariant() {}
+
+// BooleanJSONMatch matches an equal JSON boolean.
+type BooleanJSONMatch struct {
+	JSONBaseMatch
+	// Value is the boolean the value must equal.
+	Value bool `json:"value" msgpack:"value"`
+}
+
+func (BooleanJSONMatch) isJSONMatchVariant() {}
+
+// JSONMatch selects the JSON documents that belong to a message.
+type JSONMatch struct {
+	Variant JSONMatchVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u JSONMatch) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case FloatJSONMatch:
+		return json.MarshalEncode(enc, struct {
+			Type JSONMatchType `json:"type"`
+			FloatJSONMatch
+		}{Type: FloatJSONMatchType, FloatJSONMatch: v})
+	case IntegerJSONMatch:
+		return json.MarshalEncode(enc, struct {
+			Type JSONMatchType `json:"type"`
+			IntegerJSONMatch
+		}{Type: IntegerJSONMatchType, IntegerJSONMatch: v})
+	case UnsignedJSONMatch:
+		return json.MarshalEncode(enc, struct {
+			Type JSONMatchType `json:"type"`
+			UnsignedJSONMatch
+		}{Type: UnsignedJSONMatchType, UnsignedJSONMatch: v})
+	case StringJSONMatch:
+		return json.MarshalEncode(enc, struct {
+			Type JSONMatchType `json:"type"`
+			StringJSONMatch
+		}{Type: StringJSONMatchType, StringJSONMatch: v})
+	case BooleanJSONMatch:
+		return json.MarshalEncode(enc, struct {
+			Type JSONMatchType `json:"type"`
+			BooleanJSONMatch
+		}{Type: BooleanJSONMatchType, BooleanJSONMatch: v})
+	default:
+		return errors.Newf("JSONMatch: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *JSONMatch) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type JSONMatchType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case FloatJSONMatchType:
+		var v struct {
+			Type JSONMatchType `json:"type"`
+			FloatJSONMatch
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FloatJSONMatch
+	case IntegerJSONMatchType:
+		var v struct {
+			Type JSONMatchType `json:"type"`
+			IntegerJSONMatch
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.IntegerJSONMatch
+	case UnsignedJSONMatchType:
+		var v struct {
+			Type JSONMatchType `json:"type"`
+			UnsignedJSONMatch
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.UnsignedJSONMatch
+	case StringJSONMatchType:
+		var v struct {
+			Type JSONMatchType `json:"type"`
+			StringJSONMatch
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.StringJSONMatch
+	case BooleanJSONMatchType:
+		var v struct {
+			Type JSONMatchType `json:"type"`
+			BooleanJSONMatch
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.BooleanJSONMatch
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"JSONMatch: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u JSONMatch) Type() JSONMatchType {
+	switch u.Variant.(type) {
+	case FloatJSONMatch:
+		return FloatJSONMatchType
+	case IntegerJSONMatch:
+		return IntegerJSONMatchType
+	case UnsignedJSONMatch:
+		return UnsignedJSONMatchType
+	case StringJSONMatch:
+		return StringJSONMatchType
+	case BooleanJSONMatch:
+		return BooleanJSONMatchType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u JSONMatch) Validate() error {
+	v := validate.New("JSONMatch")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u JSONMatch) Base() JSONBaseMatch {
+	switch variant := u.Variant.(type) {
+	case FloatJSONMatch:
+		return variant.JSONBaseMatch
+	case IntegerJSONMatch:
+		return variant.JSONBaseMatch
+	case UnsignedJSONMatch:
+		return variant.JSONBaseMatch
+	case StringJSONMatch:
+		return variant.JSONBaseMatch
+	case BooleanJSONMatch:
+		return variant.JSONBaseMatch
+	}
+	return JSONBaseMatch{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *JSONMatch) SetBase(base JSONBaseMatch) {
+	switch variant := u.Variant.(type) {
+	case FloatJSONMatch:
+		variant.JSONBaseMatch = base
+		u.Variant = variant
+	case IntegerJSONMatch:
+		variant.JSONBaseMatch = base
+		u.Variant = variant
+	case UnsignedJSONMatch:
+		variant.JSONBaseMatch = base
+		u.Variant = variant
+	case StringJSONMatch:
+		variant.JSONBaseMatch = base
+		u.Variant = variant
+	case BooleanJSONMatch:
+		variant.JSONBaseMatch = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("JSONMatch: cannot set the base of variant %T", variant))
+	}
 }
 
 // PayloadType is the "format" value that selects a variant of Payload.
@@ -1237,6 +1481,9 @@ func (j *JSONPayload) ApplyDefaults() {
 // schema constraints.
 func (j JSONPayload) Validate() error {
 	v := validate.New("JSONPayload")
+	if j.Match != nil {
+		v.Exec(func() error { return validate.PathedError(j.Match.Validate(), "match") })
+	}
 	for i := range j.Fields {
 		v.Exec(func() error { return validate.PathedError(j.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
 	}

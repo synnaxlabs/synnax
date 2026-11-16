@@ -31,25 +31,34 @@ type Binding struct {
 	DataType telem.DataType
 }
 
-// JSON decodes the documents of one JSON message into samples. It is not safe for
-// concurrent use.
-type JSON struct {
-	fields    []jsonField
-	extractor *xjson.Extractor
-	// values holds the match value, when there is a match rule, then one value for each
-	// field.
-	values []jsontext.Value
-	match  *jsonMatch
-	// lengths holds the length of each sample slice before a Decode, to undo it.
-	lengths []int
+// JSONMessage is a JSON message and the fields to decode from its documents.
+type JSONMessage struct {
+	// Name identifies the message in errors.
+	Name string
+	// Payload is the layout of the message's documents.
+	Payload icd.JSONPayload
+	// Bindings name the fields to decode, in sample order.
+	Bindings []Binding
 }
 
-type jsonMatch struct {
-	text   string
-	number float64
-	isText bool
-	// unquoted is scratch space for the text of a string value.
-	unquoted []byte
+// JSON decodes documents that each belong to one of several JSON messages into samples.
+// It is not safe for concurrent use.
+type JSON struct {
+	extractor *xjson.Extractor
+	// values holds the match value, when a message has a match rule, then the value of
+	// each field of each message, in message order.
+	values   []jsontext.Value
+	messages []jsonMessage
+	router   *router
+}
+
+type jsonMessage struct {
+	name   string
+	fields []jsonField
+	// values are the values of fields, a part of JSON.values.
+	values []jsontext.Value
+	// lengths holds the length of each sample slice before a decode, to undo it.
+	lengths []int
 }
 
 type jsonField struct {
@@ -61,7 +70,7 @@ type jsonField struct {
 	scale, offset float64
 	// number reads the JSON value of a scaled field as a float64.
 	number *xjson.Decoder
-	// scratch holds a scaled value between its conversions.
+	// scratch holds the float64 sample that number reads.
 	scratch []byte
 	// sample converts a JSON value to a sample of the channel's data type.
 	sample *xjson.Decoder
@@ -70,94 +79,69 @@ type jsonField struct {
 	fallback []byte
 }
 
-// NewJSON returns a JSON decoder for the fields of p that bindings name, in binding
-// order. It returns an error wrapping validate.ErrValidation when a binding names no
-// field of p, or a field's kind does not convert to its binding's data type.
-func NewJSON(p icd.JSONPayload, bindings []Binding) (*JSON, error) {
-	byKey := make(map[icd.FieldKey]icd.JSONField, len(p.Fields))
-	for _, f := range p.Fields {
+// NewJSON returns a JSON decoder for messages that share one source of documents. A
+// document belongs to the message whose match rule it meets, or else to the message
+// with no rule. NewJSON returns an error wrapping validate.ErrValidation when:
+//   - two match rules test different pointers
+//   - one document value can meet two match rules
+//   - two messages have no match rule
+//   - a binding names no field of its message
+//   - a field's kind does not convert to its binding's data type
+func NewJSON(messages []JSONMessage) (*JSON, error) {
+	r, err := newRouter(messages)
+	if err != nil {
+		return nil, err
+	}
+	j := &JSON{messages: make([]jsonMessage, len(messages)), router: r}
+	var pointers []xjson.Pointer
+	if r.ruled {
+		pointers = append(pointers, r.pointer)
+	}
+	for i, m := range messages {
+		if j.messages[i], err = newJSONMessage(m); err != nil {
+			return nil, errors.Wrapf(err, "message %s", m.Name)
+		}
+		for _, f := range j.messages[i].fields {
+			pointers = append(pointers, f.pointer)
+		}
+	}
+	j.extractor = xjson.NewExtractor(pointers)
+	j.values = make([]jsontext.Value, len(pointers))
+	values := j.values
+	if r.ruled {
+		values = values[1:]
+	}
+	for i := range j.messages {
+		m := &j.messages[i]
+		m.values, values = values[:len(m.fields)], values[len(m.fields):]
+	}
+	return j, nil
+}
+
+func newJSONMessage(m JSONMessage) (jsonMessage, error) {
+	byKey := make(map[icd.FieldKey]icd.JSONField, len(m.Payload.Fields))
+	for _, f := range m.Payload.Fields {
 		byKey[f.Base().Key] = f
 	}
-	j := &JSON{fields: make([]jsonField, len(bindings))}
-	pointers := make([]xjson.Pointer, 0, len(bindings)+1)
-	if p.Match != nil {
-		m, pointer, err := newJSONMatch(*p.Match)
-		if err != nil {
-			return nil, err
-		}
-		j.match = m
-		pointers = append(pointers, pointer)
+	msg := jsonMessage{
+		name:    m.Name,
+		fields:  make([]jsonField, len(m.Bindings)),
+		lengths: make([]int, len(m.Bindings)),
 	}
-	for i, b := range bindings {
+	for i, b := range m.Bindings {
 		f, ok := byKey[b.Field]
 		if !ok {
-			return nil, errors.Wrapf(
+			return jsonMessage{}, errors.Wrapf(
 				validate.ErrValidation, "field %s does not exist", b.Field,
 			)
 		}
 		field, err := newJSONField(f, b.DataType)
 		if err != nil {
-			return nil, errors.Wrapf(err, "field %s", f.Base().Name)
+			return jsonMessage{}, errors.Wrapf(err, "field %s", f.Base().Name)
 		}
-		j.fields[i] = field
-		pointers = append(pointers, field.pointer)
+		msg.fields[i] = field
 	}
-	j.extractor = xjson.NewExtractor(pointers)
-	j.values = make([]jsontext.Value, len(pointers))
-	j.lengths = make([]int, len(bindings))
-	return j, nil
-}
-
-func newJSONMatch(m icd.JSONMatch) (*jsonMatch, xjson.Pointer, error) {
-	pointer, err := xjson.ParsePointer(m.Pointer)
-	if err != nil {
-		return nil, nil, err
-	}
-	switch v := m.Value.(type) {
-	case string:
-		return &jsonMatch{text: v, isText: true}, pointer, nil
-	case nil:
-		return nil, nil, errors.Wrap(validate.ErrValidation, "match value is required")
-	}
-	n, ok := toFloat(m.Value)
-	if !ok {
-		return nil, nil, errors.Wrapf(
-			validate.ErrValidation,
-			"match value must be a string or a number, got %T",
-			m.Value,
-		)
-	}
-	return &jsonMatch{number: n}, pointer, nil
-}
-
-func toFloat(v any) (float64, bool) {
-	switch n := v.(type) {
-	case float64:
-		return n, true
-	case float32:
-		return float64(n), true
-	case int:
-		return float64(n), true
-	case int8:
-		return float64(n), true
-	case int16:
-		return float64(n), true
-	case int32:
-		return float64(n), true
-	case int64:
-		return float64(n), true
-	case uint:
-		return float64(n), true
-	case uint8:
-		return float64(n), true
-	case uint16:
-		return float64(n), true
-	case uint32:
-		return float64(n), true
-	case uint64:
-		return float64(n), true
-	}
-	return 0, false
+	return msg, nil
 }
 
 // converts reports whether a field of kind k converts to samples of dt. A number or
@@ -195,8 +179,10 @@ func newJSONField(f icd.JSONField, dt telem.DataType) (jsonField, error) {
 		offset:  b.Offset,
 	}
 	var (
-		xf       = xjson.Field{DataType: dt}
-		fallback jsontext.Value
+		xf = xjson.Field{DataType: dt}
+		// fallback is the default of a field that is not a float, as a JSON value.
+		fallback     jsontext.Value
+		floatDefault *payload.Float
 	)
 	switch v := f.Variant.(type) {
 	case icd.FloatJSONField:
@@ -204,13 +190,9 @@ func newJSONField(f icd.JSONField, dt telem.DataType) (jsonField, error) {
 		for _, e := range v.EnumValues {
 			xf.Enums = append(xf.Enums, xjson.NewEnum(e.Label, float64(e.Value)))
 		}
-		if v.Default != nil {
-			if fallback, err = appendFloat(nil, float64(*v.Default)); err != nil {
-				return jsonField{}, errors.Wrap(err, "default")
-			}
-		}
+		floatDefault = v.Default
 	case icd.IntegerJSONField:
-		field.kind = payload.KindInteger
+		field.kind, xf.Range = payload.KindInteger, telem.Int64T
 		for _, e := range v.EnumValues {
 			xf.Enums = append(xf.Enums, xjson.NewEnum(e.Label, int64(e.Value)))
 		}
@@ -218,7 +200,7 @@ func newJSONField(f icd.JSONField, dt telem.DataType) (jsonField, error) {
 			fallback = strconv.AppendInt(nil, int64(*v.Default), 10)
 		}
 	case icd.UnsignedJSONField:
-		field.kind = payload.KindUnsigned
+		field.kind, xf.Range = payload.KindUnsigned, telem.Uint64T
 		for _, e := range v.EnumValues {
 			xf.Enums = append(xf.Enums, xjson.NewEnum(e.Label, uint64(e.Value)))
 		}
@@ -265,7 +247,7 @@ func newJSONField(f icd.JSONField, dt telem.DataType) (jsonField, error) {
 	if !converts(field.kind, dt) {
 		return jsonField{}, errors.Wrapf(
 			validate.ErrValidation,
-			"a %s field cannot write to a %s channel",
+			"cannot write %s values to %s channels",
 			field.kind,
 			dt,
 		)
@@ -279,19 +261,28 @@ func newJSONField(f icd.JSONField, dt telem.DataType) (jsonField, error) {
 				dt,
 			)
 		}
-		numberField := xjson.Field{DataType: telem.Float64T, Enums: xf.Enums}
+		numberField := xjson.Field{
+			DataType: telem.Float64T,
+			Range:    xf.Range,
+			Enums:    xf.Enums,
+		}
 		if field.number, err = xjson.NewDecoder(numberField); err != nil {
 			return jsonField{}, err
 		}
-		xf.Enums = nil
+		// A scaled value has no label and need not be an integer.
+		xf.Enums, xf.Range = nil, ""
 	}
 	if field.sample, err = xjson.NewDecoder(xf); err != nil {
 		return jsonField{}, err
 	}
-	if fallback != nil {
-		if field.fallback, err = field.decode(nil, fallback); err != nil {
-			return jsonField{}, errors.Wrap(err, "default")
-		}
+	switch {
+	case floatDefault != nil:
+		field.fallback, err = field.appendFloat(nil, float64(*floatDefault))
+	case fallback != nil:
+		field.fallback, err = field.decode(nil, fallback)
+	}
+	if err != nil {
+		return jsonField{}, errors.Wrap(err, "default")
 	}
 	return field, nil
 }
@@ -303,18 +294,12 @@ func boolSample(v bool) uint8 {
 	return 0
 }
 
-// appendFloat appends v to dst as a JSON number.
-func appendFloat(dst []byte, v float64) (jsontext.Value, error) {
-	if math.IsNaN(v) || math.IsInf(v, 0) {
-		return nil, errors.Wrapf(validate.ErrValidation, "%v is not finite", v)
-	}
-	return strconv.AppendFloat(dst, v, 'g', -1, 64), nil
-}
-
 // decode appends the sample of raw to dst.
 func (f *jsonField) decode(dst []byte, raw jsontext.Value) ([]byte, error) {
-	if err := f.checkKind(raw); err != nil {
-		return nil, err
+	if f.kind == payload.KindBoolean && raw.Kind() == '0' {
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "expected a boolean, got number %s", raw,
+		)
 	}
 	if !f.scaled {
 		return f.sample.Append(dst, raw)
@@ -323,63 +308,50 @@ func (f *jsonField) decode(dst []byte, raw jsontext.Value) ([]byte, error) {
 	if f.scratch, err = f.number.Append(f.scratch[:0], raw); err != nil {
 		return nil, err
 	}
-	v := math.Float64frombits(telem.ByteOrder.Uint64(f.scratch))*f.scale + f.offset
-	if f.scratch, err = appendFloat(f.scratch[:0], v); err != nil {
-		return nil, err
-	}
-	return f.sample.Append(dst, f.scratch)
+	return f.appendFloat(dst, math.Float64frombits(telem.ByteOrder.Uint64(f.scratch)))
 }
 
-// checkKind rejects a JSON number that the field's kind cannot hold, such as 1.5 for an
-// integer field that writes to a float channel.
-func (f *jsonField) checkKind(raw jsontext.Value) error {
-	if raw.Kind() != '0' {
-		return nil
+// appendFloat appends the sample of v to dst, scaled when the field scales.
+func (f *jsonField) appendFloat(dst []byte, v float64) ([]byte, error) {
+	if f.scaled {
+		v = v*f.scale + f.offset
 	}
-	switch f.kind {
-	case payload.KindInteger, payload.KindUnsigned:
-	case payload.KindBoolean:
-		return errors.Wrapf(
-			validate.ErrValidation, "expected a boolean, got number %s", raw,
-		)
-	default:
-		return nil
-	}
-	n, err := strconv.ParseFloat(string(raw), 64)
-	if err != nil {
-		return errors.Wrapf(validate.ErrValidation, "invalid number %q", raw)
-	}
-	if n != math.Trunc(n) {
-		return errors.Wrapf(validate.ErrValidation, "%s is not an integer", raw)
-	}
-	if f.kind == payload.KindUnsigned && n < 0 {
-		return errors.Wrapf(validate.ErrValidation, "%s is negative", raw)
-	}
-	return nil
+	return f.sample.AppendFloat(dst, v)
 }
 
-// Decode appends one sample for each binding to samples, which holds one slice for each
-// binding, in binding order. It returns false, appending nothing, when doc does not
-// match the message. It returns an error, appending nothing, when doc is not JSON or a
-// field's value does not convert.
-func (j *JSON) Decode(doc []byte, samples [][]byte) (bool, error) {
+// Decode finds the message that doc belongs to and appends one sample for each of its
+// bindings to samples[message]. samples holds an entry for each message in NewJSON
+// order, and each entry holds one slice for each binding, in binding order. ok is
+// false, and Decode appends nothing, when doc belongs to no message. Decode returns an
+// error, appending nothing, when doc is not JSON or a value does not convert.
+func (j *JSON) Decode(
+	doc []byte,
+	samples [][][]byte,
+) (message int, ok bool, err error) {
 	if err := j.extractor.Extract(doc, j.values); err != nil {
-		return false, errors.Wrap(validate.ErrValidation, err.Error())
+		return 0, false, errors.Wrap(validate.ErrValidation, err.Error())
 	}
-	values := j.values
-	if j.match != nil {
-		if !j.match.matches(values[0]) {
-			return false, nil
-		}
-		values = values[1:]
+	var match jsontext.Value
+	if j.router.ruled {
+		match = j.values[0]
 	}
+	if message, ok, err = j.router.find(match); err != nil || !ok {
+		return 0, false, err
+	}
+	if err := j.messages[message].decode(samples[message]); err != nil {
+		return 0, false, err
+	}
+	return message, true, nil
+}
+
+func (m *jsonMessage) decode(samples [][]byte) error {
 	for i := range samples {
-		j.lengths[i] = len(samples[i])
+		m.lengths[i] = len(samples[i])
 	}
-	for i := range j.fields {
-		f := &j.fields[i]
+	for i := range m.fields {
+		f := &m.fields[i]
 		var err error
-		if values[i] == nil {
+		if m.values[i] == nil {
 			if f.fallback == nil {
 				err = errors.Wrapf(
 					validate.ErrValidation, "no value at %s", f.pointer,
@@ -389,35 +361,16 @@ func (j *JSON) Decode(doc []byte, samples [][]byte) (bool, error) {
 			}
 		} else {
 			var out []byte
-			if out, err = f.decode(samples[i], values[i]); err == nil {
+			if out, err = f.decode(samples[i], m.values[i]); err == nil {
 				samples[i] = out
 			}
 		}
 		if err != nil {
 			for k := range samples {
-				samples[k] = samples[k][:j.lengths[k]]
+				samples[k] = samples[k][:m.lengths[k]]
 			}
-			return false, errors.Wrapf(err, "field %s", f.name)
+			return errors.Wrapf(err, "message %s: field %s", m.name, f.name)
 		}
 	}
-	return true, nil
-}
-
-func (m *jsonMatch) matches(raw jsontext.Value) bool {
-	switch raw.Kind() {
-	case '"':
-		if !m.isText {
-			return false
-		}
-		var err error
-		m.unquoted, err = jsontext.AppendUnquote(m.unquoted[:0], raw)
-		return err == nil && string(m.unquoted) == m.text
-	case '0':
-		if m.isText {
-			return false
-		}
-		n, err := strconv.ParseFloat(string(raw), 64)
-		return err == nil && n == m.number
-	}
-	return false
+	return nil
 }
