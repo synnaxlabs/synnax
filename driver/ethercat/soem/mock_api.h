@@ -156,6 +156,15 @@ public:
     std::atomic<uint16_t> read_state{EC_STATE_INIT};
     /// @brief read_state at each send_processdata call.
     std::vector<uint16_t> send_states;
+    /// @brief the slaves whose AL status reads get no answer.
+    std::set<uint16_t> silent_slaves;
+    /// @brief the slaves of each AL status read frame that receive_state_read has not
+    /// freed, keyed by frame index.
+    std::map<uint8_t, std::vector<uint16_t>> state_read_frames;
+    /// @brief the number of AL status read frames sent.
+    size_t state_read_count = 0;
+    /// @brief the number of next AL status read frames that do not come back.
+    int lost_state_reads = 0;
     int sync_dc_count = 0;
     /// @brief the working counter sync_dc returns.
     int sync_dc_return = 1;
@@ -359,6 +368,32 @@ public:
         this->receive_count++;
         this->processdata_groups.push_back(group);
         return this->receive_return;
+    }
+
+    uint8_t send_state_read(const std::span<const uint16_t> slaves) override {
+        const auto idx = static_cast<uint8_t>(this->state_read_count++);
+        this->state_read_frames[idx].assign(slaves.begin(), slaves.end());
+        return idx;
+    }
+
+    /// @brief writes the state each slave of the frame is in on the bus, or 0 for a
+    /// slave in silent_slaves.
+    bool receive_state_read(
+        const uint8_t idx,
+        const std::span<uint16_t> states,
+        int
+    ) override {
+        const auto slaves = this->state_read_frames.at(idx);
+        this->state_read_frames.erase(idx);
+        if (this->lost_state_reads > 0) {
+            this->lost_state_reads--;
+            return false;
+        }
+        for (size_t i = 0; i < states.size(); ++i)
+            states[i] = this->silent_slaves.contains(slaves.at(i))
+                          ? 0
+                          : this->bus_state_of(slaves.at(i));
+        return true;
     }
 
     /// @brief like ecx_writestate, requests the state in the slave table entry of the

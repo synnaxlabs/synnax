@@ -120,6 +120,14 @@ class Master final : public master::Master {
         size_t output_sz = 0;
         /// @brief the working counter of a frame that every enabled slave handled.
         int expected_wkc = 0;
+        /// @brief the enabled slaves with inputs, in ascending order. Each cycle reads
+        /// their AL status after its process data.
+        std::vector<uint16_t> state_reads;
+        /// @brief the index of each AL status read frame of the latest send() that no
+        /// receive() read. Only the cycle uses it.
+        std::vector<uint8_t> state_frames;
+        /// @brief what inputless() returns. Only the cycle uses it.
+        std::vector<uint16_t> inputless;
         /// @brief whether the enabled slaves' frames carry the reference clock time.
         bool has_dc = false;
         /// @brief the DC setup of each enabled slave in a DC mode.
@@ -214,7 +222,14 @@ public:
 
     [[nodiscard]] std::optional<uint32_t> shortfall() const override;
 
+    [[nodiscard]] std::span<const uint16_t> inputless() const override;
+
 private:
+    /// @brief reads the AL status frames in session.state_frames, waiting up to timeout
+    /// microseconds for each. Adds each slave that is below SAFE-OP, or that did not
+    /// answer in a frame that came back, to session.inputless.
+    void read_states(Session &session, int timeout);
+
     /// @brief returns the record of the slave at pos in the SOEM slave table. Record 0
     /// describes the whole bus.
     [[nodiscard]] ec_slavet &record(const uint16_t pos) {

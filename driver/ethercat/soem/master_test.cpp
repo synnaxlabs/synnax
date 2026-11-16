@@ -2308,6 +2308,92 @@ TEST_F(SOEMMasterTest, ReceiveWkcMatch) {
     ASSERT_NIL(this->master->receive());
 }
 
+/// @brief it should give each slave below SAFE-OP in the AL status read of the frame
+/// as inputless, and keep a slave in SAFE-OP with an error.
+TEST_F(SOEMMasterTest, ReceiveGivesTheSlavesBelowSafeOpAsInputless) {
+    this->add_default_slave();
+    this->add_default_slave();
+    this->add_default_slave();
+    ASSERT_NIL_P(this->master->scan());
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_SAFE_OP | EC_STATE_ERROR;
+    this->mock->slave_infos[2].state = EC_STATE_PRE_OP;
+    ASSERT_NIL(this->master->send());
+    ASSERT_NIL(this->master->receive());
+    EXPECT_EQ(
+        std::vector(this->master->inputless().begin(), this->master->inputless().end()),
+        std::vector<uint16_t>{3}
+    );
+}
+
+/// @brief it should give a slave that does not answer its AL status read as inputless.
+TEST_F(SOEMMasterTest, ReceiveGivesASlaveWithNoStateAnswerAsInputless) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->silent_slaves = {1};
+    ASSERT_NIL(this->master->send());
+    ASSERT_NIL(this->master->receive());
+    EXPECT_EQ(
+        std::vector(this->master->inputless().begin(), this->master->inputless().end()),
+        std::vector<uint16_t>{1}
+    );
+}
+
+/// @brief it should give no slave as inputless when the frame of its AL status read
+/// does not come back, since the frame tells nothing about the slave.
+TEST_F(SOEMMasterTest, ReceiveGivesNoSlaveAsInputlessWhenItsStateReadIsLost) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->silent_slaves = {1};
+    this->mock->lost_state_reads = 1;
+    ASSERT_NIL(this->master->send());
+    ASSERT_NIL(this->master->receive());
+    EXPECT_TRUE(this->master->inputless().empty());
+}
+
+/// @brief it should read the AL status of no slave without inputs, since its readers
+/// take no data from it.
+TEST_F(SOEMMasterTest, ReceiveReadsNoStateOfASlaveWithoutInputs) {
+    this->add_default_slave();
+    MockSlaveInfo outputs_only;
+    outputs_only.state = EC_STATE_PRE_OP;
+    outputs_only.Obits = 8;
+    this->add_slave(outputs_only);
+    ASSERT_NIL_P(this->master->scan());
+    this->activate_master();
+    this->mock->slave_infos[1].state = EC_STATE_PRE_OP;
+    ASSERT_NIL(this->master->send());
+    ASSERT_NIL(this->master->receive());
+    EXPECT_TRUE(this->master->inputless().empty());
+}
+
+/// @brief it should split the AL status reads of more slaves than one frame holds
+/// across frames, and read the slaves of each.
+TEST_F(SOEMMasterTest, ReceiveReadsTheStatesOfMoreSlavesThanOneFrameHolds) {
+    for (size_t i = 0; i <= MAX_STATE_READS; ++i)
+        this->add_default_slave();
+    ASSERT_NIL_P(this->master->scan());
+    this->activate_master();
+    this->mock->slave_infos.back().state = EC_STATE_INIT;
+    const auto sent = this->mock->state_read_count;
+    ASSERT_NIL(this->master->send());
+    EXPECT_EQ(this->mock->state_read_count - sent, 2);
+    ASSERT_NIL(this->master->receive());
+    EXPECT_EQ(
+        std::vector(this->master->inputless().begin(), this->master->inputless().end()),
+        std::vector{static_cast<uint16_t>(MAX_STATE_READS + 1)}
+    );
+}
+
+/// @brief it should free the AL status reads of a send that no receive followed.
+TEST_F(SOEMMasterTest, SendFreesTheStateReadsOfAnUnreceivedSend) {
+    this->initialize_with_slave();
+    this->activate_master();
+    ASSERT_NIL(this->master->send());
+    ASSERT_NIL(this->master->send());
+    EXPECT_EQ(this->mock->state_read_frames.size(), 1);
+}
+
 ////////////////////// Send //////////////////////
 
 /// @brief it should fail a send that SOEM cannot put on the wire.

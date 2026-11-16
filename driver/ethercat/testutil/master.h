@@ -79,6 +79,8 @@ class Master final : public master::Master {
     std::optional<uint32_t> cycle_shortfall;
     /// @brief what shortfall() returns.
     std::optional<uint32_t> latest_shortfall;
+    /// @brief what inputless() returns.
+    std::vector<uint16_t> latest_inputless;
     bool initialized{false};
     bool activated{false};
     mutable std::mutex mu;
@@ -705,6 +707,16 @@ public:
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("receive");
         this->latest_shortfall.reset();
+        this->latest_inputless.clear();
+        for (const auto &slave: this->slave_list) {
+            const auto pos = slave.properties.position;
+            const auto state = slave.status.state;
+            if (this->on_bus(pos) &&
+                (this->lost_slaves.contains(pos) ||
+                 (state != slave::State::SAFE_OP && state != slave::State::OP)))
+                this->latest_inputless.push_back(pos);
+        }
+        std::ranges::sort(this->latest_inputless);
         if (!this->activated)
             return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
         const auto err = this->short_until_op ? x::errors::Error(
@@ -739,6 +751,12 @@ public:
     std::optional<uint32_t> shortfall() const override {
         std::lock_guard lock(this->mu);
         return this->latest_shortfall;
+    }
+
+    /// @brief returns the slaves on the bus that are lost or below SAFE-OP at the
+    /// latest receive(), as a master that reads their states in each cycle.
+    std::span<const uint16_t> inputless() const override {
+        return this->latest_inputless;
     }
 
     std::optional<x::telem::TimeStamp> dc_time() const override {

@@ -175,6 +175,13 @@ public:
     /// shares of the slaves that missed the cycle.
     [[nodiscard]] virtual std::optional<uint32_t> shortfall() const = 0;
 
+    /// @brief returns the positions, in ascending order, of the enabled slaves whose
+    /// inputs in the latest receive() hold no data: a slave that the state read of the
+    /// cycle found below SAFE-OP, or that did not answer it. Empty when the master
+    /// reads no state in each cycle, or the read did not come back. Valid until the
+    /// next receive(), and only on the thread that calls it.
+    [[nodiscard]] virtual std::span<const uint16_t> inputless() const = 0;
+
     /// @brief returns the distributed clock system time, as a Unix timestamp, at which
     /// the latest received frame passed the reference clock. Returns nullopt when no
     /// enabled slave has a distributed clock or the master does not read it. The DC
