@@ -58,42 +58,17 @@ const (
 	SparkplugDataTypeDateTime SparkplugDataType = versions.SparkplugDataTypeDateTime
 )
 
-// ReadField is a single value extracted from the JSON payload of a topic. The type
-// field is the kind of the value, which matches the data type of the channel.
-type ReadField = versions.ReadField
+// ReadBinding writes the value of one message field to a channel.
+type ReadBinding = versions.ReadBinding
 
-// ReadFieldVariant is implemented by every ReadField variant.
-type ReadFieldVariant = versions.ReadFieldVariant
-
-// FloatReadField reads a float.
-type FloatReadField = versions.FloatReadField
-
-// IntegerReadField reads a signed integer.
-type IntegerReadField = versions.IntegerReadField
-
-// UnsignedReadField reads an unsigned integer.
-type UnsignedReadField = versions.UnsignedReadField
-
-// StringReadField reads a string.
-type StringReadField = versions.StringReadField
-
-// BooleanReadField reads a boolean.
-type BooleanReadField = versions.BooleanReadField
-
-// TimestampReadField reads a timestamp.
-type TimestampReadField = versions.TimestampReadField
-
-// JSONReadField reads any JSON value.
-type JSONReadField = versions.JSONReadField
-
-// UuidReadField reads a UUID string.
-type UuidReadField = versions.UuidReadField
-
-// BytesReadField reads base64 text.
-type BytesReadField = versions.BytesReadField
+// ReadMessage reads the documents of one ICD message.
+type ReadMessage = versions.ReadMessage
 
 // BaseReadEntry carries the fields every read entry shares.
 type BaseReadEntry = versions.BaseReadEntry
+
+// InlineRead is the read of a plain entry that holds its fields inline.
+type InlineRead = versions.InlineRead
 
 // ReadEntry is a single source of an MQTT read task. The type field selects a plain
 // topic with a JSON payload or a Sparkplug B tag.
@@ -106,13 +81,14 @@ type ReadEntryVariant = versions.ReadEntryVariant
 type ReadEntryType = versions.ReadEntryType
 
 const (
-	// PlainReadEntryType reads JSON payloads from one topic.
+	// PlainReadEntryType reads the JSON payloads of one topic as the messages of an
+	// ICD.
 	PlainReadEntryType ReadEntryType = versions.PlainReadEntryType
 	// SparkplugReadEntryType reads one Sparkplug B tag.
 	SparkplugReadEntryType ReadEntryType = versions.SparkplugReadEntryType
 )
 
-// PlainReadEntry reads JSON payloads from one topic.
+// PlainReadEntry reads the JSON payloads of one topic as the messages of an ICD.
 type PlainReadEntry = versions.PlainReadEntry
 
 // SparkplugReadEntry reads one Sparkplug B tag.
@@ -121,19 +97,6 @@ type SparkplugReadEntry = versions.SparkplugReadEntry
 // ReadConfig configures an MQTT read task, which subscribes to topics and Sparkplug B
 // tags on a broker device and writes their values to Synnax channels.
 type ReadConfig = versions.ReadConfig
-
-// ICDBinding writes the value of one message field to a channel.
-type ICDBinding = versions.ICDBinding
-
-// ICDReadMessage reads the documents of one ICD message.
-type ICDReadMessage = versions.ICDReadMessage
-
-// ICDReadEntry reads the ICD messages of one topic.
-type ICDReadEntry = versions.ICDReadEntry
-
-// ICDReadConfig configures an MQTT ICD read task, which parses the payloads of topics
-// with ICD messages and writes their fields to channels.
-type ICDReadConfig = versions.ICDReadConfig
 
 // ChannelField is the command channel value placed into the payload of a target.
 type ChannelField = versions.ChannelField
@@ -205,5 +168,5 @@ type EdgeTag = versions.EdgeTag
 // as the tags of one edge node and writes inbound tag commands to Synnax channels.
 type EdgeConfig = versions.EdgeConfig
 
-// BaseReadField carries the fields every read field shares.
-type BaseReadField = versions.BaseReadField
+// ReadField is a single value extracted from the JSON payload of a topic.
+type ReadField = versions.ReadField
