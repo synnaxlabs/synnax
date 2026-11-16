@@ -72,10 +72,12 @@ func CamelAcronym(s string) string {
 	// split naturally ("AIRTDChannel" -> "aiRTDChannel"); otherwise the whole leading
 	// uppercase run is lowered so unknown leading acronyms still read naturally
 	// ("CJCSource" -> "cjcSource", "URLValue" -> "urlValue").
-	if acr := leadingKnownAcronym(p); acr != "" {
+	run := leadingAcronym(p)
+	if acr := leadingKnownAcronym(p); acr != "" &&
+		(len(acr) >= len(run) || leadingKnownAcronym(p[len(acr):]) != "") {
 		return strings.ToLower(acr) + p[len(acr):]
 	}
-	if run := leadingAcronym(p); run != "" {
+	if run != "" {
 		return strings.ToLower(run) + p[len(run):]
 	}
 	return strings.ToLower(p[:1]) + p[1:]
