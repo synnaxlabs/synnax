@@ -92,70 +92,16 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 		resolver.RegisterLocal(f.Key, uint32(i))
 	}
 
-	outputMemoryCounter := uint32(0x1000)
-	outputMemoryBases := make(map[string]uint32)
-
+	mem := outputMemory{next: 0x1000, bases: make(map[string]uint32)}
 	var (
 		compiled     []compiledFunction
 		batchTargets []batchTarget
 	)
-	for _, i := range program.Functions {
-		if t, ok := batchTargetFor(i); ok {
+	for _, fn := range program.Functions {
+		if t, ok := batchTargetFor(fn); ok {
 			batchTargets = append(batchTargets, t)
 		}
-		if strings.HasPrefix(i.Key, FmtStrSyntheticPrefix) {
-			cf, err := compileFmtStrSynthetic(compCtx, i)
-			if err != nil {
-				return Output{}, err
-			}
-			compiled = append(compiled, cf)
-			continue
-		}
-		if strings.HasPrefix(i.Key, ir.DispatcherSyntheticPrefix) {
-			cf, err := compileDispatcherSynthetic(compCtx, i, program.Functions)
-			if err != nil {
-				return Output{}, err
-			}
-			compiled = append(compiled, cf)
-			continue
-		}
-		params := i.Inputs
-		var returnType types.Type
-		defaultOutput, hasDefaultOutput := i.Outputs.Get(ir.DefaultOutputParam)
-		hasNamedOutputs := len(i.Outputs) > 1 ||
-			(len(i.Outputs) == 1 && !hasDefaultOutput)
-		if !hasNamedOutputs {
-			returnType = defaultOutput.Type
-		}
-
-		var outputMemoryBase uint32
-		if hasNamedOutputs {
-			outputMemoryBase = outputMemoryCounter
-			outputMemoryBases[i.Key] = outputMemoryBase
-			var size uint32 = 8
-			for _, oParam := range i.Outputs {
-				if !oParam.Type.IsValid() {
-					return Output{}, errors.Newf(
-						"function %s has output %q with unresolved type",
-						i.Key, oParam.Name,
-					)
-				}
-				if oParam.Type.Kind == types.KindString {
-					size += 4
-				} else {
-					size += uint32(oParam.Type.Density())
-				}
-			}
-			outputMemoryCounter += size
-		}
-
-		cf, err := compileItem(
-			compCtx,
-			i,
-			params,
-			returnType,
-			outputMemoryBase,
-		)
+		cf, err := compileFunction(compCtx, fn, program.Functions, &mem)
 		if err != nil {
 			return Output{}, err
 		}
@@ -182,8 +128,61 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 
 	return Output{
 		WASM:              compCtx.Module.Generate(),
-		OutputMemoryBases: outputMemoryBases,
+		OutputMemoryBases: mem.bases,
 	}, nil
+}
+
+func compileFunction(
+	rootCtx ccontext.Context[antlr.ParserRuleContext],
+	fn ir.Function,
+	functions ir.Functions,
+	mem *outputMemory,
+) (compiledFunction, error) {
+	if strings.HasPrefix(fn.Key, FmtStrSyntheticPrefix) {
+		return compileFmtStrSynthetic(rootCtx, fn)
+	}
+	if strings.HasPrefix(fn.Key, ir.DispatcherSyntheticPrefix) {
+		return compileDispatcherSynthetic(rootCtx, fn, functions)
+	}
+	defaultOutput, hasDefaultOutput := fn.Outputs.Get(ir.DefaultOutputParam)
+	hasNamedOutputs := len(fn.Outputs) > 1 ||
+		(len(fn.Outputs) == 1 && !hasDefaultOutput)
+	if !hasNamedOutputs {
+		return compileItem(rootCtx, fn, fn.Inputs, defaultOutput.Type, 0)
+	}
+	base, err := mem.allocate(fn)
+	if err != nil {
+		return compiledFunction{}, err
+	}
+	return compileItem(rootCtx, fn, fn.Inputs, types.Type{}, base)
+}
+
+// outputMemory hands out the memory regions that functions with named outputs write
+// their dirty flags and values to.
+type outputMemory struct {
+	bases map[string]uint32
+	next  uint32
+}
+
+func (m *outputMemory) allocate(fn ir.Function) (uint32, error) {
+	var size uint32 = 8
+	for _, p := range fn.Outputs {
+		if !p.Type.IsValid() {
+			return 0, errors.Newf(
+				"function %s has output %q with unresolved type",
+				fn.Key, p.Name,
+			)
+		}
+		if p.Type.Kind == types.KindString {
+			size += 4
+		} else {
+			size += uint32(p.Type.Density())
+		}
+	}
+	base := m.next
+	m.bases[fn.Key] = base
+	m.next += size
+	return base, nil
 }
 
 func compileItem(
@@ -221,36 +220,8 @@ func compileItem(
 		ctx.Writer.WriteMemoryOp(wasm.OpI64Store, 3, 0)
 	}
 
-	if blockCtx, ok := body.(parser.IBlockContext); ok {
-		_, err = statement.CompileBlock(ctx.Child(blockCtx))
-		if err != nil {
-			return compiledFunction{}, errors.Wrapf(
-				err,
-				"failed to compile function '%s' body",
-				ctx.Scope.Name,
-			)
-		}
-	} else if exprCtx, ok := body.(parser.IExpressionContext); ok {
-		if err = compileExpression(ctx.Child(exprCtx)); err != nil {
-			return compiledFunction{}, errors.Wrapf(
-				err,
-				"failed to compile expression '%s'",
-				ctx.Scope.Name,
-			)
-		}
-	} else if fnCtx, ok := body.(parser.IFunctionContext); ok {
-		head, tail := parser.FunctionNameParts(fnCtx)
-		if _, err = expression.CompileCall(
-			ctx.Child(fnCtx), head, tail, symbol.FunctionArguments(fnCtx),
-		); err != nil {
-			return compiledFunction{}, errors.Wrapf(
-				err,
-				"failed to compile call '%s'",
-				ctx.Scope.Name,
-			)
-		}
-	} else {
-		return compiledFunction{}, errors.Newf("unsupported body type for '%s'", key)
+	if err = compileBody(ctx, key); err != nil {
+		return compiledFunction{}, err
 	}
 
 	return compiledFunction{
@@ -259,6 +230,37 @@ func compileItem(
 		locals:    collectLocals(ctx.Scope),
 		writer:    ctx.Writer,
 	}, nil
+}
+
+func compileBody(ctx ccontext.Context[antlr.ParserRuleContext], key string) error {
+	switch body := ctx.AST.(type) {
+	case parser.IBlockContext:
+		if _, err := statement.CompileBlock(ctx.Child(body)); err != nil {
+			return errors.Wrapf(
+				err,
+				"failed to compile function '%s' body",
+				ctx.Scope.Name,
+			)
+		}
+	case parser.IExpressionContext:
+		if err := compileExpression(ctx.Child(body)); err != nil {
+			return errors.Wrapf(
+				err,
+				"failed to compile expression '%s'",
+				ctx.Scope.Name,
+			)
+		}
+	case parser.IFunctionContext:
+		head, tail := parser.FunctionNameParts(body)
+		if _, err := expression.CompileCall(
+			ctx.Child(body), head, tail, symbol.FunctionArguments(body),
+		); err != nil {
+			return errors.Wrapf(err, "failed to compile call '%s'", ctx.Scope.Name)
+		}
+	default:
+		return errors.Newf("unsupported body type for '%s'", key)
+	}
+	return nil
 }
 
 // functionScope returns the symbol fn compiles in. A function lowered from a module
@@ -360,20 +362,8 @@ func compileDispatcherSynthetic(
 			ctx.Writer.WriteBinaryOp(wasm.OpI32Eq)
 			ctx.Writer.WriteIf(blockT)
 		}
-		for _, p := range bfn.Inputs {
-			slot, ok := slots[p.Name]
-			if !ok {
-				return compiledFunction{}, errors.Newf(
-					"dispatcher %s missing input %q for branch %q", fn.Key, p.Name, key,
-				)
-			}
-			ctx.Writer.WriteLocalGet(slot)
-		}
-		ctx.Resolver.EmitLocalCall(ctx.Writer, ctx.WriterID, key, types.Type{})
-		if bout, ok := bfn.Outputs.Get(ir.DefaultOutputParam); ok {
-			if err := expression.EmitCast(ctx, bout.Type, out.Type); err != nil {
-				return compiledFunction{}, err
-			}
+		if err := emitDispatchCall(ctx, fn.Key, bfn, slots, out.Type); err != nil {
+			return compiledFunction{}, err
 		}
 		if !last {
 			ctx.Writer.WriteElse()
@@ -387,6 +377,33 @@ func compileDispatcherSynthetic(
 		typeIdx:   typeIdx,
 		writer:    ctx.Writer,
 	}, nil
+}
+
+// emitDispatchCall calls branch with the dispatcher inputs it takes and casts its
+// result to the dispatcher's output type.
+func emitDispatchCall(
+	ctx ccontext.Context[antlr.ParserRuleContext],
+	dispatcher string,
+	branch ir.Function,
+	slots map[string]int,
+	outType types.Type,
+) error {
+	for _, p := range branch.Inputs {
+		slot, ok := slots[p.Name]
+		if !ok {
+			return errors.Newf(
+				"dispatcher %s missing input %q for branch %q",
+				dispatcher, p.Name, branch.Key,
+			)
+		}
+		ctx.Writer.WriteLocalGet(slot)
+	}
+	ctx.Resolver.EmitLocalCall(ctx.Writer, ctx.WriterID, branch.Key, types.Type{})
+	bout, ok := branch.Outputs.Get(ir.DefaultOutputParam)
+	if !ok {
+		return nil
+	}
+	return expression.EmitCast(ctx, bout.Type, outType)
 }
 
 // blockTypeFor returns the value-producing block type for vt.
