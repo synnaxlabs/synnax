@@ -264,12 +264,13 @@ const restartScale = 1.1
 // is read from the configured filesystem (Config.FS), extracted to disk, and executed
 // as a child process that communicates with the Core.
 //
-// On startup, Open launches the subprocess and two goroutines that pipe its stdout and
-// stderr through PipeToLogger. A third goroutine waits for the process to exit once
-// both pipes close. All three run under an isolated signal context. Open blocks until
-// the subprocess prints "started successfully" (when unlicensed, its first log line),
-// the supervisor stops retrying, or the StartTimeout expires. If startup fails, Open
-// cleans up the process and returns (nil, err).
+// On startup, Open launches the subprocess and goroutines that pipe its stdout and
+// stderr through PipeToLogger, wait for it to exit, and stop it on a restart request.
+// All run under an isolated signal context. Open blocks until the subprocess prints
+// "started successfully" (when unlicensed, its first log line), the supervisor stops
+// retrying, or the StartTimeout expires. If startup fails, Open cleans up the process
+// and returns (nil, err). When the Core changes from unlicensed to licensed, the Driver
+// restarts at once, and the restart does not count toward the restart limit.
 //
 // On shutdown, Close cancels the supervisor context. The subprocess is launched via
 // exec.CommandContext, so the cancellation asks it to stop gracefully (a STOP write via
