@@ -633,7 +633,7 @@ var _ = Describe("Virtual Channel Streaming", func() {
 })
 
 var _ = Describe("Streamer lifetime", func() {
-	It("Should close a streamer after the DB context ends", func(ctx SpecContext) {
+	It("Should stop a streamer when the DB context ends", func(ctx SpecContext) {
 		life, cancel := context.WithCancel(ctx)
 		db := mustOpenDBOnFS(life, FileSystems["memFS"]())
 		key := GenerateChannelKey()
@@ -643,12 +643,11 @@ var _ = Describe("Streamer lifetime", func() {
 			Virtual:  true,
 			DataType: telem.StringT,
 		})).To(Succeed())
-		_, _, closer := openStreamer(ctx, db, cesium.StreamerConfig{
+		_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
 			Channels: []cesium.ChannelKey{key},
 		})
 		cancel()
-		closed := make(chan error, 1)
-		go func() { closed <- closer.Close() }()
-		Eventually(closed).Should(Receive(Succeed()))
+		Eventually(o.Outlet()).Should(BeClosed())
+		Expect(closer.Close()).To(MatchError(cesium.ErrDBClosed))
 	})
 })
