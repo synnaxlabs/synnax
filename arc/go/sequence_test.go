@@ -9378,4 +9378,288 @@ var _ = Describe("Sequence", func() {
 			},
 		)
 	})
+
+	Describe("Parameters", func() {
+		const (
+			startA uint32 = 100 + iota
+			startB
+			tank
+			gate
+			valveA
+			valveB
+			outA
+			outB
+			log
+		)
+		resolver := channelSymbols(map[string]channelDef{
+			"start_a": {types.U8(), int(startA)},
+			"start_b": {types.U8(), int(startB)},
+			"tank":    {types.F32(), int(tank)},
+			"gate":    {types.U8(), int(gate)},
+			"valve_a": {types.U8(), int(valveA)},
+			"valve_b": {types.U8(), int(valveB)},
+			"out_a":   {types.F32(), int(outA)},
+			"out_b":   {types.F32(), int(outB)},
+			"log":     {types.String(), int(log)},
+		})
+		open := func(ctx SpecContext, source string) *runtimeHarness {
+			GinkgoHelper()
+			h := newRuntimeHarness(ctx, source, resolver,
+				channels.Digest{Key: startA, DataType: telem.Uint8T},
+				channels.Digest{Key: startB, DataType: telem.Uint8T},
+				channels.Digest{Key: tank, DataType: telem.Float32T},
+				channels.Digest{Key: gate, DataType: telem.Uint8T},
+				channels.Digest{Key: valveA, DataType: telem.Uint8T},
+				channels.Digest{Key: valveB, DataType: telem.Uint8T},
+				channels.Digest{Key: outA, DataType: telem.Float32T},
+				channels.Digest{Key: outB, DataType: telem.Float32T},
+				channels.Digest{Key: log, DataType: telem.StringT},
+			)
+			DeferCleanup(func() { h.Close(ctx) })
+			return h
+		}
+		// level ingests a tank level and lets the program settle.
+		level := func(h *runtimeHarness, ctx SpecContext, value float32) {
+			h.Ingest(tank, telem.NewSeriesV(value))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+		}
+		// written reports whether the last flush holds a write to key.
+		written := func(fr telem.Frame[uint32], key uint32) bool {
+			return len(fr.Get(key).Series) > 0
+		}
+
+		const fill = `
+		sequence fill(limit f32, valve chan u8) {
+		    stage open {
+		        1 -> valve
+		        tank > limit => next
+		    }
+		    stage close {
+		        0 -> valve
+		    }
+		}`
+
+		It("Should run each call as its own instance", func(ctx SpecContext) {
+			h := open(ctx, fill+`
+			start_a == 1 => fill(10, valve_a)
+			start_b == 1 => fill(20, valve_b)`)
+			trigger(h, ctx, startA)
+			out, _ := h.Flush()
+			Expect(lastU8(out, valveA)).To(Equal(uint8(1)))
+			Expect(written(out, valveB)).To(BeFalse())
+
+			trigger(h, ctx, startB)
+			out, _ = h.Flush()
+			Expect(lastU8(out, valveB)).To(Equal(uint8(1)))
+
+			level(h, ctx, 15)
+			out, _ = h.Flush()
+			Expect(lastU8(out, valveA)).To(Equal(uint8(0)))
+			Expect(written(out, valveB)).To(BeFalse())
+
+			level(h, ctx, 25)
+			out, _ = h.Flush()
+			Expect(lastU8(out, valveB)).To(Equal(uint8(0)))
+		})
+
+		It("Should take arguments by name and a default", func(ctx SpecContext) {
+			h := open(ctx, `
+			sequence set(out chan f32, value f32 = 7.5) {
+			    stage write {
+			        value -> out
+			    }
+			}
+			start_a == 1 => set(out=out_a)
+			start_b == 1 => set(value=-2.5, out=out_b)`)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, startB)
+			out, _ := h.Flush()
+			Expect(lastF32(out, outA)).To(Equal(float32(7.5)))
+			Expect(lastF32(out, outB)).To(Equal(float32(-2.5)))
+		})
+
+		It("Should give each instance its own variables", func(ctx SpecContext) {
+			h := open(ctx, `
+			sequence fill(limit f32, valve chan u8) {
+			    high := limit * 2
+			    stage open {
+			        1 -> valve
+			        tank > high => next
+			    }
+			    stage close {
+			        0 -> valve
+			    }
+			}
+			start_a == 1 => fill(10, valve_a)
+			start_b == 1 => fill(20, valve_b)`)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, startB)
+			h.Flush()
+
+			level(h, ctx, 25)
+			out, _ := h.Flush()
+			Expect(lastU8(out, valveA)).To(Equal(uint8(0)))
+			Expect(written(out, valveB)).To(BeFalse())
+
+			level(h, ctx, 45)
+			out, _ = h.Flush()
+			Expect(lastU8(out, valveB)).To(Equal(uint8(0)))
+		})
+
+		It("Should run a top-level stage with parameters", func(ctx SpecContext) {
+			h := open(ctx, `
+			stage hold(valve chan u8) {
+			    1 -> valve
+			}
+			start_a == 1 => hold(valve_a)
+			start_b == 1 => hold(valve_b)`)
+			trigger(h, ctx, startB)
+			out, _ := h.Flush()
+			Expect(lastU8(out, valveB)).To(Equal(uint8(1)))
+			Expect(written(out, valveA)).To(BeFalse())
+		})
+
+		It("Should take a top-level constant and a top-level alias", func(
+			ctx SpecContext,
+		) {
+			h := open(ctx, fill+`
+			limit f32 := 10
+			valve := valve_b
+			start_a == 1 => fill(limit, valve)`)
+			trigger(h, ctx, startA)
+			out, _ := h.Flush()
+			Expect(lastU8(out, valveB)).To(Equal(uint8(1)))
+			level(h, ctx, 15)
+			out, _ = h.Flush()
+			Expect(lastU8(out, valveB)).To(Equal(uint8(0)))
+		})
+
+		It("Should pass the parameters of the caller to its callee", func(
+			ctx SpecContext,
+		) {
+			h := open(ctx, fill+`
+			sequence arm(limit f32, valve chan u8) {
+			    stage wait {
+			        gate == 1 => fill(limit, valve)
+			    }
+			}
+			start_a == 1 => arm(10, valve_a)
+			start_b == 1 => arm(20, valve_b)`)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, startB)
+			out, _ := h.Flush()
+			Expect(written(out, valveA)).To(BeFalse())
+
+			trigger(h, ctx, gate)
+			out, _ = h.Flush()
+			Expect(lastU8(out, valveA)).To(Equal(uint8(1)))
+			Expect(lastU8(out, valveB)).To(Equal(uint8(1)))
+
+			level(h, ctx, 15)
+			out, _ = h.Flush()
+			Expect(lastU8(out, valveA)).To(Equal(uint8(0)))
+			Expect(written(out, valveB)).To(BeFalse())
+		})
+
+		It("Should pass a value parameter to a function input", func(ctx SpecContext) {
+			h := open(ctx, `
+			func add(offset f32) {value f32} f32 {
+			    return value + offset
+			}
+			sequence shift(offset f32, out chan f32) {
+			    stage run {
+			        tank -> add(offset=offset) -> out
+			    }
+			}
+			start_a == 1 => shift(1, out_a)
+			start_b == 1 => shift(100, out_b)`)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, startB)
+			level(h, ctx, 5)
+			out, _ := h.Flush()
+			Expect(lastF32(out, outA)).To(Equal(float32(6)))
+			Expect(lastF32(out, outB)).To(Equal(float32(105)))
+		})
+
+		It("Should read a channel parameter in an expression and a variable", func(
+			ctx SpecContext,
+		) {
+			h := open(ctx, `
+			sequence scale(src chan f32, gain f32, out chan f32) {
+			    doubled := src * 2
+			    stage run {
+			        doubled + gain -> out
+			    }
+			}
+			start_a == 1 => scale(tank, 1, out_a)
+			start_b == 1 => scale(tank, 10, out_b)`)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, startB)
+			level(h, ctx, 3)
+			out, _ := h.Flush()
+			Expect(lastF32(out, outA)).To(Equal(float32(7)))
+			Expect(lastF32(out, outB)).To(Equal(float32(16)))
+		})
+
+		It("Should keep an inline body in its own instance", func(ctx SpecContext) {
+			h := open(ctx, `
+			sequence watch(limit f32, valve chan u8) {
+			    stage armed {
+			        tank > limit => stage {
+			            1 -> valve
+			        }
+			    }
+			}
+			start_a == 1 => watch(10, valve_a)
+			start_b == 1 => watch(20, valve_b)`)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, startB)
+			level(h, ctx, 15)
+			out, _ := h.Flush()
+			Expect(lastU8(out, valveA)).To(Equal(uint8(1)))
+			Expect(written(out, valveB)).To(BeFalse())
+		})
+
+		It("Should show a value parameter in a format string", func(ctx SpecContext) {
+			h := open(ctx, `
+			sequence report(limit f32) {
+			    stage write {
+			        f"limit {limit}" -> log
+			    }
+			}
+			start_a == 1 => report(10)
+			start_b == 1 => report(20)`)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, startB)
+			out, _ := h.Flush()
+			Expect(drainStrings(out, log)).To(Equal([]string{"limit 10", "limit 20"}))
+		})
+
+		It("Should jump from an instance to a sequence with no parameters", func(
+			ctx SpecContext,
+		) {
+			h := open(ctx, `
+			sequence fill(limit f32, valve chan u8) {
+			    stage open {
+			        1 -> valve
+			        tank > limit => vent
+			    }
+			}
+			sequence vent {
+			    stage all {
+			        0 -> valve_a
+			        0 -> valve_b
+			    }
+			}
+			start_a == 1 => fill(10, valve_a)`)
+			trigger(h, ctx, startA)
+			h.Flush()
+			level(h, ctx, 15)
+			out, _ := h.Flush()
+			Expect(lastU8(out, valveA)).To(Equal(uint8(0)))
+			Expect(lastU8(out, valveB)).To(Equal(uint8(0)))
+		})
+	})
 })

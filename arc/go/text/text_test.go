@@ -9938,14 +9938,67 @@ var _ = Describe("Module constants in node params", func() {
 
 var _ = Describe("Sequences and stages with parameters", func() {
 	resolver := []symbol.Symbol{
-		{Name: "start", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+		{
+			Name: "start",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.U8()),
+			ID:   101,
+		},
 		{
 			Name: "pressure",
 			Kind: symbol.KindChannel,
 			Type: types.Chan(types.F64()),
-			ID:   2,
+			ID:   102,
 		},
-		{Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
+		{
+			Name: "valve",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F64()),
+			ID:   103,
+		},
+		{
+			Name: "valve_b",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F64()),
+			ID:   104,
+		},
+	}
+	const declaration = `
+		sequence main(limit f64, out chan f64) {
+			stage press {
+				1.0 -> out
+				pressure > limit => next
+			}
+			stage vent {
+				0.0 -> out
+			}
+		}
+	`
+	analyze := func(ctx SpecContext, source string) ir.IR {
+		GinkgoHelper()
+		parsed := MustSucceed(text.Parse(text.Text{Raw: source}))
+		inter, diagnostics := text.Analyze(ctx, parsed, NewRoot(nil, resolver...))
+		Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		return inter
+	}
+	// nodesOf returns the nodes of inter that scope holds, at any depth.
+	var nodesOf func(inter ir.IR, scope ir.Scope) []ir.Node
+	nodesOf = func(inter ir.IR, scope ir.Scope) []ir.Node {
+		var nodes []ir.Node
+		members := slices.Concat(slices.Concat(scope.Strata...), scope.Steps)
+		for _, m := range members {
+			if m.Scope != nil {
+				nodes = append(nodes, nodesOf(inter, *m.Scope)...)
+				continue
+			}
+			nodes = append(nodes, findNodeByKey(inter.Nodes, *m.NodeKey))
+		}
+		return nodes
+	}
+	keysOf := func(inter ir.IR, scope ir.Scope) []string {
+		return lo.Map(nodesOf(inter, scope), func(n ir.Node, _ int) string {
+			return n.Key
+		})
 	}
 
 	It("Should lower nothing at the declaration", func(ctx SpecContext) {
@@ -9999,5 +10052,136 @@ var _ = Describe("Sequences and stages with parameters", func() {
 		}
 		Expect(keys).To(Equal([]string{"plain"}))
 		Expect(findTopLevelScope(inter, "plain").Activations).To(HaveLen(1))
+	})
+
+	It("Should lower each call to its own root scope", func(ctx SpecContext) {
+		inter := analyze(ctx, declaration+`
+			start => main(50.0, valve)
+			start => main(80.0, valve_b)
+		`)
+		first := findTopLevelScope(inter, "$main_0")
+		second := findTopLevelScope(inter, "$main_1")
+		Expect(first.Mode).To(Equal(ir.ScopeModeSequential))
+		Expect(first.Liveness).To(Equal(ir.LivenessGated))
+		Expect(first.Activations).To(HaveLen(1))
+		Expect(second.Activations).To(HaveLen(1))
+		Expect(first.Activations[0].On).ToNot(Equal(second.Activations[0].On))
+		Expect(keysOf(inter, first)).ToNot(BeEmpty())
+		for _, key := range keysOf(inter, second) {
+			Expect(keysOf(inter, first)).ToNot(ContainElement(key))
+		}
+	})
+
+	It("Should bind each argument in the nodes of its instance", func(ctx SpecContext) {
+		inter := analyze(ctx, declaration+`
+			start => main(50.0, valve)
+			start => main(80.0, valve_b)
+		`)
+		bound := func(key string) (limits []any, written []uint32) {
+			for _, n := range nodesOf(inter, findTopLevelScope(inter, key)) {
+				if p, ok := n.Inputs.Get("limit"); ok {
+					limits = append(limits, p.Value)
+				}
+				for channel := range n.Channels.Write {
+					written = append(written, channel)
+				}
+			}
+			return limits, written
+		}
+		limits, written := bound("$main_0")
+		Expect(limits).To(Equal([]any{50.0}))
+		Expect(written).To(Equal([]uint32{103, 103}))
+		limits, written = bound("$main_1")
+		Expect(limits).To(Equal([]any{80.0}))
+		Expect(written).To(Equal([]uint32{104, 104}))
+	})
+
+	It("Should share one compiled expression between the instances", func(
+		ctx SpecContext,
+	) {
+		inter := analyze(ctx, declaration+`
+			start => main(50.0, valve)
+			start => main(80.0, valve_b)
+		`)
+		expression := func(key string) string {
+			for _, n := range nodesOf(inter, findTopLevelScope(inter, key)) {
+				if _, ok := n.Inputs.Get("limit"); ok {
+					return n.Type
+				}
+			}
+			return ""
+		}
+		Expect(expression("$main_0")).To(HavePrefix("expression_"))
+		Expect(expression("$main_1")).To(Equal(expression("$main_0")))
+	})
+
+	It("Should replace the slot of a channel parameter with its channel", func(
+		ctx SpecContext,
+	) {
+		inter := analyze(ctx, `
+			sequence scale(src chan f64, out chan f64) {
+				stage run {
+					src * 2.0 -> out
+				}
+			}
+			start => scale(pressure, valve)
+		`)
+		var reads []map[uint32]string
+		for _, n := range nodesOf(inter, findTopLevelScope(inter, "$scale_0")) {
+			if p, ok := n.Inputs.Get("src"); ok {
+				Expect(p.Value).To(Equal(uint32(102)))
+				reads = append(reads, n.Channels.Read)
+			}
+		}
+		Expect(reads).To(Equal([]map[uint32]string{{102: "src"}}))
+		for _, n := range inter.Nodes {
+			for channel := range n.Channels.Read {
+				Expect(channel).To(BeNumerically(">", 100), "%s reads a slot", n.Key)
+			}
+		}
+	})
+
+	It("Should jump from a sequence to the instance", func(ctx SpecContext) {
+		inter := analyze(ctx, declaration+`
+			sequence outer {
+				stage idle {
+					start => main(50.0, valve)
+				}
+			}
+		`)
+		outer := findTopLevelScope(inter, "outer")
+		Expect(outer.Transitions).To(HaveLen(1))
+		Expect(outer.Transitions[0].Target.Variant).
+			To(Equal(ir.ScopeTarget{Key: "$main_0"}))
+		Expect(findTopLevelScope(inter, "$main_0").Activations).To(BeEmpty())
+	})
+
+	It("Should key an inline body by its instance", func(ctx SpecContext) {
+		inter := analyze(ctx, `
+			sequence watch(limit f64, out chan f64) {
+				stage armed {
+					pressure > limit => stage {
+						1.0 -> out
+					}
+				}
+			}
+			start => watch(50.0, valve)
+			start => watch(80.0, valve_b)
+		`)
+		inline := func(key string) ir.Scope {
+			armed := findMember(findTopLevelScope(inter, key), "armed").Scope
+			for _, stratum := range armed.Strata {
+				for _, m := range stratum {
+					if m.Scope != nil {
+						return *m.Scope
+					}
+				}
+			}
+			return ir.Scope{}
+		}
+		Expect(inline("$watch_0").Key).To(HavePrefix("$watch_0." + ir.InlinePrefix))
+		Expect(inline("$watch_1").Key).To(HavePrefix("$watch_1." + ir.InlinePrefix))
+		Expect(inline("$watch_0").Activations).To(HaveLen(1))
+		Expect(inline("$watch_1").Activations).To(HaveLen(1))
 	})
 })

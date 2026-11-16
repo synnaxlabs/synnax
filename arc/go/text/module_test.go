@@ -345,6 +345,46 @@ sequence main {
 			)
 		})
 
+		Describe("Imported sequences with parameters", func() {
+			BeforeEach(func() {
+				sources["m"] = `
+export sequence set(target chan u8) { stage a { trig -> target } }
+export sequence own { stage a { trig > 0 => set(out8) } }`
+			})
+
+			It("Should lower a call from the importer in the importer", func(
+				ctx SpecContext,
+			) {
+				i, diag := analyzeIR(ctx, "import m\n\ntrig > 0 => m.set(out8)")
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				Expect(findTopLevelScope(i, "$m.set_0").Activations).To(HaveLen(1))
+			})
+
+			It("Should link a call that the module makes itself", func(
+				ctx SpecContext,
+			) {
+				i, diag := analyzeIR(ctx, "import m\n\ntrig > 0 => m.own")
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				own := findTopLevelScope(i, "m.own")
+				Expect(own.Transitions).To(HaveLen(1))
+				Expect(own.Transitions[0].Target.Variant).
+					To(Equal(ir.ScopeTarget{Key: "m.$m.set_0"}))
+				Expect(findTopLevelScope(i, "m.$m.set_0").Steps).To(HaveLen(1))
+			})
+
+			It("Should keep the two kinds of instance apart", func(ctx SpecContext) {
+				i, diag := analyzeIR(ctx, `
+import m
+
+trig > 0 => m.own
+trig > 0 => m.set(out8)
+`)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				findTopLevelScope(i, "m.$m.set_0")
+				findTopLevelScope(i, "$m.set_0")
+			})
+		})
+
 		Describe("Search", func() {
 			It(
 				"Should return the paths that start with the term",

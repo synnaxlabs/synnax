@@ -104,9 +104,14 @@ type shellBuilder struct {
 	// jumps holds the transitions of the top-level scope being analyzed, so every
 	// jump inside it exits that whole scope. Nil outside a top-level scope.
 	jumps *[]ir.Transition
-	// inlineNodes accumulates the flat IR of every lowered inline body; the
-	// bodies' scopes are placed in their enclosing scope's members.
+	// inlineNodes accumulates the flat IR of every lowered inline body and instance.
 	inlineNodes []ir.Node
+	// instances holds the root-level scope of each lowered instance.
+	instances []ir.Scope
+	// instanceKey is the scope key of the instance being lowered, empty outside one.
+	instanceKey string
+	// args binds each parameter of the instance being lowered to its argument.
+	args map[*symbol.Symbol]argument
 	// inlineBodyBases records the stack length at the entry of each enclosing
 	// inline routing case body; `next` is rejected if no frame was pushed since.
 	inlineBodyBases []int
@@ -128,6 +133,14 @@ type varEntry struct {
 	register *ir.Node
 	deref    *ir.Node
 	disp     *dispatcher
+}
+
+// argument is the compile-time value that a call binds to a parameter.
+type argument struct {
+	// value is the constant of a value parameter.
+	value any
+	// channel is the key of the channel bound to a channel parameter.
+	channel uint32
 }
 
 // dispatcher pairs a variable's mux node with its ordered branch function keys.
@@ -170,6 +183,37 @@ func (sb *shellBuilder) registerVar(sym *symbol.Symbol, e varEntry) {
 	if e.disp != nil {
 		sb.rootNodes = append(sb.rootNodes, e.disp.node)
 	}
+}
+
+// enter starts the lowering of an instance and returns the function that ends it.
+func (s *shellBuilder) enter(key string, args map[*symbol.Symbol]argument) func() {
+	outer := *s
+	s.stack, s.jumps, s.inlineBodyBases = nil, nil, nil
+	// The body reads the variables declared outside it through the copy.
+	s.instanceKey, s.args, s.varNodes = key, args, maps.Clone(s.varNodes)
+	return func() {
+		s.stack, s.jumps, s.inlineBodyBases = outer.stack, outer.jumps, outer.inlineBodyBases
+		s.instanceKey, s.args, s.varNodes = outer.instanceKey, outer.args, outer.varNodes
+	}
+}
+
+// scopeKey returns the key of the inline body synth, unique for each instance.
+func (s *shellBuilder) scopeKey(synth *symbol.Symbol) string {
+	if s.instanceKey == "" {
+		return synth.QualifiedName()
+	}
+	return s.instanceKey + "." + synth.Name
+}
+
+// channelKey returns the key of the channel that sym names, aliases, or is bound to.
+func (s *shellBuilder) channelKey(sym *symbol.Symbol) uint32 {
+	if arg, ok := s.args[sym]; ok {
+		return arg.channel
+	}
+	if sym.SourceID != nil {
+		return uint32(*sym.SourceID)
+	}
+	return uint32(sym.ID)
 }
 
 // pushSeq declares a new sequential frame with the given member keys.
@@ -433,6 +477,9 @@ func analyzeFlowNode(
 		)
 	}
 	if fn := ctx.AST.Function(); fn != nil {
+		if intent, called, ok := analyzeBodyCall(ctx.Child(fn), kg, shell); called {
+			return flowNodeResult{transition: &intent}, ok
+		}
 		r, ok := analyzeFunctionNode(ctx.Child(fn), kg, shell, !isFirst)
 		return flowNodeResult{node: r}, ok
 	}
@@ -472,11 +519,145 @@ func analyzeInlineBody(
 	}
 	return flowNodeResult{
 		transition: &transitionIntent{
-			activateKey:  synth.Name,
+			activateKey:  scope.Key,
 			suppressExit: true,
 		},
 		inlineScope: &scope,
 	}, true
+}
+
+// analyzeBodyCall lowers a call of a sequence or stage with parameters to an instance.
+func analyzeBodyCall(
+	ctx acontext.Context[parser.IFunctionContext],
+	kg *keyGenerator,
+	shell *shellBuilder,
+) (intent transitionIntent, called, ok bool) {
+	head, tail := parser.FunctionNameParts(ctx.AST)
+	body, err := ctx.Scope.ResolveMember(ctx, head, tail)
+	if err != nil || !body.IsParameterized() {
+		return transitionIntent{}, false, false
+	}
+	args, ok := bindArgs(ctx, body, shell)
+	if !ok {
+		return transitionIntent{}, true, false
+	}
+	// A declared name has no "$", so the key cannot match one.
+	key := kg.generate("$"+body.QualifiedName(), "")
+	if !instantiate(ctx, body, args, key, kg, shell) {
+		return transitionIntent{}, true, false
+	}
+	return transitionIntent{activateKey: key}, true, true
+}
+
+// bindArgs returns the argument that the call binds to each parameter of body.
+func bindArgs(
+	ctx acontext.Context[parser.IFunctionContext],
+	body *symbol.Symbol,
+	shell *shellBuilder,
+) (map[*symbol.Symbol]argument, bool) {
+	exprs := make(map[string]parser.IExpressionContext)
+	for _, a := range symbol.FunctionArguments(ctx.AST) {
+		name := a.Name
+		if name == "" {
+			name = body.Type.Inputs[a.Index].Name
+		}
+		exprs[name] = a.Expr
+	}
+	args := make(map[*symbol.Symbol]argument, len(body.Type.Inputs))
+	for _, param := range body.Type.Inputs {
+		arg := argument{value: param.Value}
+		if expr, bound := exprs[param.Name]; bound {
+			var ok bool
+			if arg, ok = bindArg(ctx, expr, param, shell); !ok {
+				return nil, false
+			}
+		}
+		args[body.FindChild(param.Name)] = arg
+	}
+	return args, true
+}
+
+// bindArg returns the compile-time value of expr for param.
+func bindArg(
+	ctx acontext.Context[parser.IFunctionContext],
+	expr parser.IExpressionContext,
+	param types.Param,
+	shell *shellBuilder,
+) (argument, bool) {
+	if head, tail := parser.ExpressionNameParts(expr); head != "" {
+		sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+		if err == nil && sym.Kind != symbol.KindConstant {
+			if param.Type.Kind == types.KindChan {
+				return argument{channel: shell.channelKey(sym)}, true
+			}
+			if outer, passed := shell.args[sym]; passed {
+				return outer, true
+			}
+			return argument{value: sym.DefaultValue}, true
+		}
+	}
+	if value, ok := ctx.FloatConstant(expr); ok {
+		return argument{value: types.EncodeFloat(value)}, true
+	}
+	parsed, err := literal.ParseConst(expr, param.Type)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+		return argument{}, false
+	}
+	return argument{value: parsed.Value}, true
+}
+
+// instantiate lowers body as a root-level scope keyed key, with args bound.
+func instantiate[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	body *symbol.Symbol,
+	args map[*symbol.Symbol]argument,
+	key string,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) bool {
+	defer shell.enter(key, args)()
+	collectVarNodes(body, kg, shell)
+	scope, nodes, edges, ok := lowerBody(ctx, body, kg, shell)
+	if !ok {
+		return false
+	}
+	scope.Key = key
+	finishDispatchers(ctx.WithScope(body), bodyDispatchers(body, shell), kg, shell)
+	shell.instances = append(shell.instances, scope)
+	shell.inlineNodes = append(shell.inlineNodes, nodes...)
+	shell.edges = append(shell.edges, edges...)
+	return true
+}
+
+// bodyDispatchers returns the dispatcher of each variable declared under scope.
+func bodyDispatchers(scope *symbol.Symbol, shell *shellBuilder) []*dispatcher {
+	var disps []*dispatcher
+	for _, c := range scope.Children() {
+		if c.Kind == symbol.KindModuleAlias {
+			continue
+		}
+		if e := shell.varNodes[c]; e.disp != nil {
+			disps = append(disps, e.disp)
+		}
+		disps = append(disps, bodyDispatchers(c, shell)...)
+	}
+	return disps
+}
+
+// lowerBody lowers the sequence or stage that body declares.
+func lowerBody[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	body *symbol.Symbol,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) (ir.Scope, []ir.Node, []ir.Edge, bool) {
+	if decl, ok := body.AST.(parser.IStageDeclarationContext); ok {
+		return lowerStage(ctx.Child(decl), body, kg, shell)
+	}
+	return lowerSequence(
+		ctx.Child(body.AST.(parser.ISequenceDeclarationContext)), body, kg, shell,
+	)
 }
 
 func analyzeIdentifierByRole(
@@ -535,14 +716,25 @@ func analyzeIdentifierByRole(
 		if !isSink && isConstVar(sym) {
 			return flowNodeResult{node: buildVarConstNode(sym, kg)}, true
 		}
+		if arg, bound := shell.args[sym]; bound && sym.Type.Kind != types.KindChan {
+			n := newConstNode(
+				kg.generate("const", sym.Name),
+				sym.Type,
+				sym.Type,
+				arg.value,
+			)
+			return flowNodeResult{
+				node: newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam),
+			}, true
+		}
 		if isSink {
-			r, ok := buildChannelWriteNode(name, sym, kg)
+			r, ok := buildChannelWriteNode(name, sym, kg, shell)
 			if e := shell.varNodes[sym]; ok && e.register != nil {
 				bindWriteToAlias(shell, e.register, &r.node, sym)
 			}
 			return flowNodeResult{node: r}, ok
 		}
-		r, ok := buildChannelReadNode(name, sym, kg)
+		r, ok := buildChannelReadNode(name, sym, kg, shell)
 		if e := shell.varNodes[sym]; ok && e.register != nil {
 			bindReadToAlias(shell, e.register, &r.node, sym)
 		}
@@ -608,12 +800,15 @@ func collectVarNodes(s *symbol.Symbol, kg *keyGenerator, shell *shellBuilder) {
 		}
 		if c.Reassigned && c.Kind == symbol.KindVariable &&
 			c.Type.Kind == types.KindChan && c.SourceID != nil {
-			shell.registerVar(c, varEntry{register: buildIndirectRegister(c, kg)})
+			shell.registerVar(
+				c,
+				varEntry{register: buildIndirectRegister(c, kg, shell)},
+			)
 		}
 		if isExprReadVar(c) {
 			e := varEntry{deref: buildVariableNode(c, kg, "value", nil)}
 			if c.Reassigned {
-				e.register = buildIndirectRegister(c, kg)
+				e.register = buildIndirectRegister(c, kg, shell)
 				e.disp = buildDispatcher(c, e, kg, shell)
 			}
 			shell.registerVar(c, e)
@@ -624,10 +819,14 @@ func collectVarNodes(s *symbol.Symbol, kg *keyGenerator, shell *shellBuilder) {
 
 // buildIndirectRegister builds the register naming sym's active source: the
 // bound channel key for an alias, the active derivation index otherwise.
-func buildIndirectRegister(sym *symbol.Symbol, kg *keyGenerator) *ir.Node {
+func buildIndirectRegister(
+	sym *symbol.Symbol,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) *ir.Node {
 	value, outType := any(uint32(0)), types.U32()
 	if sym.SourceID != nil {
-		value, outType = channelKey(sym), sym.Type
+		value, outType = shell.channelKey(sym), sym.Type
 	}
 	return &ir.Node{
 		Key:      kg.generate("bind", sym.Name),
@@ -863,7 +1062,7 @@ func lowerExprTriggers[T antlr.ParserRuleContext](
 		if err != nil {
 			continue
 		}
-		result, ok := buildChannelReadNode(name, chanSym, kg)
+		result, ok := buildChannelReadNode(name, chanSym, kg, shell)
 		if !ok {
 			continue
 		}
@@ -919,7 +1118,7 @@ func lowerAssignment(
 	}
 	if sym.Type.Kind == types.KindChan {
 		if sym.SourceID != nil {
-			return lowerAliasRebind(ctx, e.register, expr, kg)
+			return lowerAliasRebind(ctx, e.register, expr, kg, shell)
 		}
 		return lowerExprReadReassign(ctx, sym, e, expr, kg, shell)
 	}
@@ -987,6 +1186,7 @@ func lowerAliasRebind(
 	register *ir.Node,
 	expr parser.IExpressionContext,
 	kg *keyGenerator,
+	shell *shellBuilder,
 ) ([]ir.Node, []ir.Edge, bool) {
 	if register == nil {
 		return nil, nil, true
@@ -1000,7 +1200,7 @@ func lowerAliasRebind(
 		ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 		return nil, nil, false
 	}
-	return lowerRebind(register, channelKey(rhs), kg)
+	return lowerRebind(register, shell.channelKey(rhs), kg)
 }
 
 // buildDispatcher builds the $sel-keyed node folding sym's derivations,
@@ -1061,7 +1261,7 @@ func buildDispatcherTriggers[T antlr.ParserRuleContext](
 		if err != nil {
 			continue
 		}
-		result, ok := buildChannelReadNode(name, chanSym, kg)
+		result, ok := buildChannelReadNode(name, chanSym, kg, shell)
 		if !ok {
 			continue
 		}
@@ -1237,22 +1437,14 @@ func isRootLevelScope(sym *symbol.Symbol) bool {
 	return sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindStage
 }
 
-// channelKey returns the external channel key sym targets: its source channel
-// when sym is an alias, otherwise its own key.
-func channelKey(sym *symbol.Symbol) uint32 {
-	if sym.SourceID != nil {
-		return uint32(*sym.SourceID)
-	}
-	return uint32(sym.ID)
-}
-
 func buildChannelReadNode(
 	name string,
 	sym *symbol.Symbol,
 	kg *keyGenerator,
+	shell *shellBuilder,
 ) (nodeResult, bool) {
 	nodeKey := kg.generate("on", name)
-	chKey := channelKey(sym)
+	chKey := shell.channelKey(sym)
 	n := ir.Node{
 		Key:      nodeKey,
 		Type:     "on",
@@ -1268,9 +1460,10 @@ func buildChannelWriteNode(
 	name string,
 	sym *symbol.Symbol,
 	kg *keyGenerator,
+	shell *shellBuilder,
 ) (nodeResult, bool) {
 	nodeKey := kg.generate("write", name)
-	chKey := channelKey(sym)
+	chKey := shell.channelKey(sym)
 	n := ir.Node{
 		Key:      nodeKey,
 		Type:     "write",
@@ -1516,12 +1709,22 @@ func wireVarEdges[T antlr.ParserRuleContext](
 		if err != nil {
 			continue
 		}
+		if arg, bound := shell.args[vsym]; bound {
+			// Cloned so the value stays off the params that every instance shares.
+			n.Inputs = slices.Clone(n.Inputs)
+			n.Inputs[i].Value = arg.value
+			if p.Type.Kind == types.KindChan {
+				n.Inputs[i].Value = arg.channel
+				bindParameterChannel(&n.Channels, vsym, arg.channel)
+			}
+			continue
+		}
 		e := shell.varNodes[vsym]
 		// An alias lifts behind a register-bound read node, so the param
 		// follows rebinds and gates on data arrival.
 		if vsym.Type.Kind == types.KindChan && vsym.SourceID != nil &&
 			e.register != nil {
-			r, ok := buildChannelReadNode(p.Name, vsym, kg)
+			r, ok := buildChannelReadNode(p.Name, vsym, kg, shell)
 			if !ok {
 				continue
 			}
@@ -1551,6 +1754,19 @@ func wireVarEdges[T antlr.ParserRuleContext](
 				Kind:   ir.EdgeKindContinuous,
 			})
 		}
+	}
+}
+
+// bindParameterChannel replaces the slot of the parameter in channels with its channel.
+func bindParameterChannel(channels *types.Channels, param *symbol.Symbol, key uint32) {
+	slot := uint32(param.ID)
+	if _, ok := channels.Read[slot]; ok {
+		delete(channels.Read, slot)
+		channels.Read[key] = param.Name
+	}
+	if _, ok := channels.Write[slot]; ok {
+		delete(channels.Write, slot)
+		channels.Write[key] = param.Name
 	}
 }
 
@@ -1648,6 +1864,8 @@ func analyzeUnit(
 	}
 	for _, u := range deps {
 		maps.Copy(shell.varNodes, u.varNodes)
+		maps.Copy(i.TypeMap, u.ir.TypeMap)
+		maps.Copy(i.FmtStrings, u.ir.FmtStrings)
 	}
 	if !module {
 		units = deps
@@ -1739,6 +1957,9 @@ func analyzeUnit(
 		}
 	}
 	finishDispatchers(aCtx, disps, kg, shell)
+	for n := range shell.instances {
+		rootMembers = append(rootMembers, ir.Member{Scope: &shell.instances[n]})
+	}
 	owned := memberNodeKeys(rootMembers)
 	for _, vn := range shell.rootNodes {
 		i.Nodes = append(i.Nodes, *vn)
@@ -1911,7 +2132,7 @@ func implicitTriggers[T antlr.ParserRuleContext](
 		if err != nil {
 			continue
 		}
-		result, ok := buildChannelReadNode(chName, chanSym, kg)
+		result, ok := buildChannelReadNode(chName, chanSym, kg, shell)
 		if !ok {
 			return nil, false
 		}
@@ -2222,7 +2443,7 @@ func extractInputValues(
 					Kind:   ir.EdgeKindContinuous,
 				})
 				symbol.ResolveInputChannel(
-					&node.Channels, fnSym, paramName, channelKey(sym), sym.Name,
+					&node.Channels, fnSym, paramName, shell.channelKey(sym), sym.Name,
 				)
 				for key, name := range sym.Channels.Read {
 					symbol.ResolveInputChannel(
@@ -2244,7 +2465,7 @@ func extractInputValues(
 				}
 				return nil, paramType, true
 			}
-			key := channelKey(sym)
+			key := shell.channelKey(sym)
 			symbol.ResolveInputChannel(&node.Channels, fnSym, paramName, key, sym.Name)
 			return key, paramType, true
 		}
@@ -2254,6 +2475,10 @@ func extractInputValues(
 		// other value variable stamps a var ref to its node instead.
 		if head, tail := parser.ExpressionNameParts(expr); head != "" {
 			sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+			if arg, bound := shell.args[sym]; err == nil && bound &&
+				sym.Type.Kind != types.KindChan {
+				return arg.value, paramType, true
+			}
 			if err == nil && (sym.IsLiteral() || isExprReadVar(sym)) {
 				if rn := shell.varNodes[sym].readNode(sym); rn != nil {
 					t := sym.Type.UnwrapChan()
@@ -2365,21 +2590,11 @@ func processInlineBody(
 	defer func() {
 		shell.inlineBodyBases = shell.inlineBodyBases[:len(shell.inlineBodyBases)-1]
 	}()
-	var (
-		scope ir.Scope
-		nodes []ir.Node
-		edges []ir.Edge
-		ok    bool
-	)
-	switch decl := synth.AST.(type) {
-	case parser.IStageDeclarationContext:
-		scope, nodes, edges, ok = lowerStage(ctx.Child(decl), synth, kg, shell)
-	case parser.ISequenceDeclarationContext:
-		scope, nodes, edges, ok = lowerSequence(ctx.Child(decl), synth, kg, shell)
-	}
+	scope, nodes, edges, ok := lowerBody(ctx, synth, kg, shell)
 	if !ok {
 		return ir.Scope{}, false
 	}
+	scope.Key = shell.scopeKey(synth)
 	scope.Liveness = ir.LivenessGated
 	shell.inlineNodes = append(shell.inlineNodes, nodes...)
 	shell.edges = append(shell.edges, edges...)
