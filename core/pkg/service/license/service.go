@@ -316,7 +316,7 @@ func (s *Service) CheckChannelLimit(inUse types.Uint20) error {
 // up.
 func (s *Service) syncClock(ctx context.Context) error {
 	now := s.cfg.Now()
-	raw, closer, err := s.cfg.Get(ctx, markKey)
+	raw, closer, err := s.cfg.Get(markKey)
 	if errors.Is(err, query.ErrNotFound) {
 		return s.recordClock(ctx, now)
 	}

@@ -58,7 +58,7 @@ var _ = Describe("Migrate", func() {
 				migrateWithEntryV1(ctx, testDB, []gorp.Migration{migration}),
 			).To(Succeed())
 			versionKey := []byte("gorp.migration." + testNamespace)
-			b, closer := MustSucceed2(testDB.Get(ctx, versionKey))
+			b, closer := MustSucceed2(testDB.Get(versionKey))
 			Expect(closer.Close()).To(Succeed())
 			Expect(string(b)).To(Equal(`["noop"]`))
 		})

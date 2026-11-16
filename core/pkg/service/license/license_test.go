@@ -334,7 +334,7 @@ var _ = Describe("License", func() {
 			func(ctx SpecContext, key []byte) {
 				Expect(db.Set(ctx, key, []byte(numericKey))).To(Succeed())
 				Expect(open(ctx).Retrieve().State).To(Equal(license.StateMissing))
-				value, closer := MustSucceed2(db.Get(ctx, key))
+				value, closer := MustSucceed2(db.Get(key))
 				Expect(string(value)).To(Equal(numericKey))
 				Expect(closer.Close()).To(Succeed())
 			},
@@ -461,7 +461,7 @@ var _ = Describe("License", func() {
 		mark := func(ctx SpecContext) func() int64 {
 			return func() int64 {
 				GinkgoHelper()
-				raw, closer := MustSucceed2(db.Get(ctx, []byte("highWater")))
+				raw, closer := MustSucceed2(db.Get([]byte("highWater")))
 				Expect(closer.Close()).To(Succeed())
 				return int64(binary.LittleEndian.Uint64(raw))
 			}

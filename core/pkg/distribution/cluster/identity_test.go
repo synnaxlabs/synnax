@@ -83,7 +83,7 @@ var _ = Describe("Identity", func() {
 
 	It("Should store a new identity that an older Core reads", func(ctx SpecContext) {
 		id := MustSucceed(cluster.OpenIdentity(ctx, db, "localhost:9090"))
-		b, closer := MustSucceed2(db.Get(ctx, identityKey))
+		b, closer := MustSucceed2(db.Get(identityKey))
 		defer func() { Expect(closer.Close()).To(Succeed()) }()
 		Expect(b).To(MatchJSON(fmt.Sprintf(
 			`{"Nodes":{"1":{"Address":"localhost:9090","Heartbeat":{"Generation":0,"Version":0},"State":0,"Key":1}},"HostKey":1,"ClusterKey":%q}`,

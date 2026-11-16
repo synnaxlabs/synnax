@@ -64,7 +64,7 @@ func (r *Reader[K, E]) get(
 	key K,
 	entry *E,
 ) ([]byte, io.Closer, error) {
-	b, closer, err := r.snap.Get(ctx, r.keyCodec.Encode(key))
+	b, closer, err := r.snap.Get(r.keyCodec.Encode(key))
 	if err != nil {
 		return nil, nil, err
 	}

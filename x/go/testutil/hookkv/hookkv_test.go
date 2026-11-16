@@ -36,7 +36,7 @@ func set(ctx context.Context, db kv.DB, key string) error {
 
 func stored(ctx context.Context, db kv.DB, key string) bool {
 	GinkgoHelper()
-	_, closer, err := db.Get(ctx, []byte(key))
+	_, closer, err := db.Get([]byte(key))
 	if errors.Is(err, query.ErrNotFound) {
 		return false
 	}
