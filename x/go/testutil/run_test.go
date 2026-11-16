@@ -20,11 +20,11 @@ import (
 )
 
 var _ = Describe("StartRun", func() {
-	It("ends the run at cleanup and waits for it to return", func(ctx SpecContext) {
+	It("ends the run at cleanup and waits for it to return", func() {
 		var returned atomic.Bool
 		DeferCleanup(func() { Expect(returned.Load()).To(BeTrue()) })
 		started := make(chan context.Context, 1)
-		StartRun(ctx, func(ctx context.Context) error {
+		StartRun(func(ctx context.Context) error {
 			started <- ctx
 			<-ctx.Done()
 			returned.Store(true)
@@ -35,19 +35,44 @@ var _ = Describe("StartRun", func() {
 		Consistently(runCtx.Done()).ShouldNot(BeClosed())
 	})
 
-	It("accepts an error that satisfies the matchers", func(ctx SpecContext) {
-		StartRun(ctx, func(ctx context.Context) error {
+	It("returns once the run blocks", func() {
+		var blocked atomic.Bool
+		StartRun(func(ctx context.Context) error {
+			blocked.Store(true)
+			<-ctx.Done()
+			return nil
+		})
+		Expect(blocked.Load()).To(BeTrue())
+	})
+
+	It("accepts an error that satisfies the matchers", func() {
+		StartRun(func(ctx context.Context) error {
 			<-ctx.Done()
 			return errors.New("stopped")
 		}, MatchError("stopped"))
 	})
 
-	It("fails when the run returns an error and there are no matchers", func(
-		ctx SpecContext,
-	) {
+	It("fails when the run returns an error and there are no matchers", func() {
 		var failures *[]string
 		DeferCleanup(func() { Expect(*failures).To(HaveLen(1)) })
 		failures = interceptCleanupFailures()
-		StartRun(ctx, func(context.Context) error { return errors.New("failed") })
+		StartRun(func(context.Context) error { return errors.New("failed") })
+	})
+
+	Describe("From a setup node", func() {
+		var runCtx context.Context
+		BeforeEach(func(ctx SpecContext) {
+			started := make(chan context.Context, 1)
+			StartRun(func(ctx context.Context) error {
+				started <- ctx
+				<-ctx.Done()
+				return nil
+			})
+			Eventually(started).WithContext(ctx).Should(Receive(&runCtx))
+		})
+
+		It("keeps the run going after the setup node ends", func() {
+			Expect(runCtx.Err()).ToNot(HaveOccurred())
+		})
 	})
 })

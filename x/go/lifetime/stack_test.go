@@ -47,10 +47,10 @@ func (r *recorder) order() []string {
 var _ = Describe("Stack", func() {
 	It("stops the newest lifetime first and waits for each run", func(ctx SpecContext) {
 		var r recorder
-		s := lifetime.NewStack(ctx)
-		s.Go("storage", r.run("storage"))
-		s.Go("service", r.run("service"))
-		s.Go("server", r.run("server"))
+		s := lifetime.NewStack()
+		storage := s.Go(ctx, "storage", r.run("storage"))
+		service := s.Go(storage, "service", r.run("service"))
+		s.Go(service, "server", r.run("server"))
 		Expect(s.Stop(ctx)).To(Succeed())
 		Expect(r.order()).To(Equal([]string{"server", "service", "storage"}))
 	})
@@ -58,34 +58,26 @@ var _ = Describe("Stack", func() {
 	It("keeps the outer lifetimes running while an inner run drains", func(
 		ctx SpecContext,
 	) {
-		var (
-			outer    context.Context
-			outerSet = make(chan struct{})
-			outerErr error
-		)
-		s := lifetime.NewStack(ctx)
-		s.Go("outer", func(ctx context.Context) error {
-			outer = ctx
-			close(outerSet)
-			<-ctx.Done()
-			return nil
-		})
-		<-outerSet
-		s.Go("inner", func(ctx context.Context) error {
+		var r recorder
+		s := lifetime.NewStack()
+		outer := s.Go(ctx, "outer", r.run("outer"))
+		var outerErr error
+		s.Go(outer, "inner", func(ctx context.Context) error {
 			<-ctx.Done()
 			outerErr = outer.Err()
 			return nil
 		})
 		Expect(s.Stop(ctx)).To(Succeed())
 		Expect(outerErr).ToNot(HaveOccurred())
+		Expect(r.order()).To(Equal([]string{"outer"}))
 	})
 
 	It("nests each lifetime inside the one before it", func(ctx SpecContext) {
 		parent, cancel := context.WithCancel(ctx)
 		var r recorder
-		s := lifetime.NewStack(parent)
-		s.Go("outer", r.run("outer"))
-		s.Go("inner", r.run("inner"))
+		s := lifetime.NewStack()
+		outer := s.Go(parent, "outer", r.run("outer"))
+		s.Go(outer, "inner", r.run("inner"))
 		cancel()
 		Eventually(r.order).Should(ConsistOf("outer", "inner"))
 		Expect(s.Stop(ctx)).To(Succeed())
@@ -93,8 +85,8 @@ var _ = Describe("Stack", func() {
 
 	It("labels each goroutine with the name of its run", func(ctx SpecContext) {
 		label := make(chan string, 1)
-		s := lifetime.NewStack(ctx)
-		s.Go("storage", func(ctx context.Context) error {
+		s := lifetime.NewStack()
+		s.Go(ctx, "storage", func(ctx context.Context) error {
 			v, _ := pprof.Label(ctx, "routine")
 			label <- v
 			<-ctx.Done()
@@ -107,9 +99,9 @@ var _ = Describe("Stack", func() {
 	Describe("Failed", func() {
 		It("closes when a run returns an error", func(ctx SpecContext) {
 			var r recorder
-			s := lifetime.NewStack(ctx)
-			s.Go("storage", r.run("storage"))
-			s.Go("service", func(context.Context) error {
+			s := lifetime.NewStack()
+			storage := s.Go(ctx, "storage", r.run("storage"))
+			s.Go(storage, "service", func(context.Context) error {
 				return errors.New("disk full")
 			})
 			Eventually(s.Failed()).Should(BeClosed())
@@ -122,12 +114,12 @@ var _ = Describe("Stack", func() {
 				r        recorder
 				returned = make(chan struct{})
 			)
-			s := lifetime.NewStack(ctx)
-			s.Go("storage", func(context.Context) error {
+			s := lifetime.NewStack()
+			storage := s.Go(ctx, "storage", func(context.Context) error {
 				close(returned)
 				return nil
 			})
-			s.Go("service", r.run("service"))
+			s.Go(storage, "service", r.run("service"))
 			Eventually(returned).Should(BeClosed())
 			Consistently(s.Failed()).ShouldNot(BeClosed())
 			Expect(r.order()).To(BeEmpty())
@@ -149,14 +141,14 @@ var _ = Describe("Stack", func() {
 				close(release)
 				Eventually(stuck).Should(BeClosed())
 			})
-			s := lifetime.NewStack(ctx)
-			s.Go("storage", r.run("storage"))
-			s.Go("service", func(context.Context) error {
+			s := lifetime.NewStack()
+			storage := s.Go(ctx, "storage", r.run("storage"))
+			service := s.Go(storage, "service", func(context.Context) error {
 				defer close(stuck)
 				<-release
 				return nil
 			})
-			s.Go("server", r.run("server"))
+			s.Go(service, "server", r.run("server"))
 			stopCtx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 			defer cancel()
 			err := s.Stop(stopCtx)
@@ -174,13 +166,13 @@ var _ = Describe("Stack", func() {
 				close(release)
 				Eventually(stuck).Should(BeClosed())
 			})
-			s := lifetime.NewStack(ctx)
-			s.Go("storage", func(context.Context) error {
+			s := lifetime.NewStack()
+			storage := s.Go(ctx, "storage", func(context.Context) error {
 				defer close(stuck)
 				<-release
 				return nil
 			})
-			s.Go("server", func(ctx context.Context) error {
+			s.Go(storage, "server", func(ctx context.Context) error {
 				<-ctx.Done()
 				return errors.New("drain failed")
 			})

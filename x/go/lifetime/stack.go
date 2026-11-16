@@ -21,14 +21,12 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Stack runs functions that each block for the lifetime of a component. Each function
-// gets a context that is a child of the context of the function started before it, so
-// the lifetimes nest as one context tree. Stop ends them from the newest to the oldest.
+// Stack runs functions that each block for the lifetime of a component. A caller nests
+// the lifetimes as one context tree: it passes each Go the context that the previous Go
+// returned. Stop ends the lifetimes from the newest to the oldest.
 //
 // Call Go and Stop from one goroutine. Failed is safe for concurrent use.
 type Stack struct {
-	// tail is the context of the newest lifetime, the parent of the next one.
-	tail   context.Context
 	layers []*layer
 	failed chan struct{}
 	fail   sync.Once
@@ -41,22 +39,22 @@ type layer struct {
 	err    error
 }
 
-// NewStack returns a Stack whose first lifetime is a child of ctx. When ctx ends, every
-// lifetime ends with it, without the order that Stop gives.
-func NewStack(ctx context.Context) *Stack {
-	return &Stack{tail: ctx, failed: make(chan struct{})}
-}
+// NewStack returns an empty Stack.
+func NewStack() *Stack { return &Stack{failed: make(chan struct{})} }
 
-// Go starts run in a goroutine with a context that is a child of the context of the
-// previous run, and labels the goroutine with name for profiles and tracebacks. The
-// context ends when Stop reaches run, or when an outer context ends.
+// Go starts run in a goroutine with a child of ctx, and returns that child for the
+// next Go. It labels the goroutine with name for profiles and tracebacks. The child
+// ends when Stop reaches run, or when ctx ends.
 //
 // A run that returns before Stop does not end its context, so the runs inside it keep
 // running. When it returns an error, Failed closes. Go must not be called after Stop.
-func (s *Stack) Go(name string, run func(ctx context.Context) error) {
-	ctx, cancel := context.WithCancel(s.tail)
+func (s *Stack) Go(
+	ctx context.Context,
+	name string,
+	run func(ctx context.Context) error,
+) context.Context {
+	ctx, cancel := context.WithCancel(ctx)
 	l := &layer{name: name, cancel: cancel, done: make(chan struct{})}
-	s.tail = ctx
 	s.layers = append(s.layers, l)
 	go pprof.Do(ctx, pprof.Labels("routine", name), func(ctx context.Context) {
 		defer close(l.done)
@@ -64,6 +62,7 @@ func (s *Stack) Go(name string, run func(ctx context.Context) error) {
 			s.fail.Do(func() { close(s.failed) })
 		}
 	})
+	return ctx
 }
 
 // Failed returns a channel that closes when a run returns an error. A caller selects on
