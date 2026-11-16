@@ -10,6 +10,7 @@
 package zyn
 
 import (
+	"fmt"
 	"math"
 	"reflect"
 
@@ -206,6 +207,11 @@ func (n NumberZ) dumpFast(data any) (any, bool) {
 		if v, ok := data.(uint16); ok {
 			return uint64(v), true
 		}
+	case NumberT, Int8T, Int16T, UintT, Uint8T:
+		// Reflection converts these.
+	case EnumT, StringT, BoolT, ObjectT, UUIDT, ArrayT, MapT, UnionT,
+		DiscriminatedUnionT:
+		panic(fmt.Sprintf("zyn: number schema has data type %s", n.dataType))
 	}
 	return nil, false
 }

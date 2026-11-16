@@ -185,7 +185,7 @@ func (w *streamWriter) process(
 		w.setAuthority(ctx, req.Config)
 	case writerCommandEndDomain:
 		err = w.endDomain(ctx, req.Config.Channels)
-	default:
+	case WriterCommandWrite:
 		err = w.write(ctx, req)
 	}
 	if err != nil {
