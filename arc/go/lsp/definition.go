@@ -12,8 +12,6 @@ package lsp
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"go.lsp.dev/protocol"
 )
 
@@ -26,12 +24,9 @@ func (s *Server) Definition(
 		return nil, nil
 	}
 
-	sym, err := doc.resolveSymbolAtPosition(ctx, params.Position)
-	if errors.Is(err, query.ErrNotFound) {
+	sym := doc.symbolAt(ctx, params.Position)
+	if sym == nil {
 		return nil, nil
-	}
-	if err != nil || sym == nil {
-		return nil, err
 	}
 	location := s.symbolToLocation(params.TextDocument.URI, sym)
 	if location == nil {
