@@ -395,12 +395,12 @@ func (e *Engine) stream(ctx context.Context, a *attempt, l *live) (err error) {
 			}
 			// Marking every flow first keeps the marks of a frame that fails to send.
 			a.mark(e.flows, fr)
-			l.pass(a)
 			for _, f := range e.flows {
 				if err = a.sendLive(ctx, f, fr); err != nil {
 					return err
 				}
 			}
+			l.pass(a)
 			if err = e.report(ctx, a.progress); err != nil {
 				return err
 			}
@@ -433,7 +433,6 @@ func (e *Engine) catchUp(ctx context.Context, a *attempt, l *live) error {
 			telem.TimeRange{Start: a.sent[f.index.Key()], End: telem.TimeStampMax},
 			func(fr framer.Frame) error {
 				l.take(a.progress)
-				l.pass(a)
 				// A later value of a marked channel would move the attempt past its
 				// earlier ones.
 				if a.carriesMarked(f, fr) {
@@ -444,6 +443,7 @@ func (e *Engine) catchUp(ctx context.Context, a *attempt, l *live) error {
 				if err := a.send(ctx, f, fr); err != nil {
 					return err
 				}
+				l.pass(a)
 				return a.maybeCheckpoint(ctx)
 			},
 		); err != nil {
@@ -1033,7 +1033,7 @@ type live struct {
 	closed  bool
 	dropped marks
 	// recording is set while an attempt runs. arrivals then holds the spans of the
-	// frames that pass has not checked yet.
+	// frames received since the last pass.
 	recording bool
 	arrivals  []arrival
 }
@@ -1102,7 +1102,6 @@ func (l *live) drop(a *attempt, frames <-chan framer.Frame) {
 	clear(l.dropped)
 	l.passLocked(a)
 	l.recording = false
-	l.arrivals = nil
 }
 
 // take moves the marks of the dropped frames to p.
@@ -1113,9 +1112,10 @@ func (l *live) take(p *progress) {
 	clear(l.dropped)
 }
 
-// pass marks each channel that a frame holds before the positions of a but after the
-// last value a sent, since a read of storage between the commits of an index and its
-// data passes the index without the data.
+// pass marks each channel that a frame received since the last pass holds after the
+// last value a sent but before the position of its index. A read of storage between
+// the commits of an index and its data passes the index without the data. Call pass
+// after each send: a read that starts after a frame arrives finds all its data.
 func (l *live) pass(a *attempt) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -1123,17 +1123,17 @@ func (l *live) pass(a *attempt) {
 }
 
 func (l *live) passLocked(a *attempt) {
-	l.arrivals = slices.DeleteFunc(l.arrivals, func(ar arrival) bool {
+	for _, ar := range l.arrivals {
 		if a.sent[ar.index] < ar.span.End {
-			return false
+			continue
 		}
 		for _, ch := range ar.channels {
 			if a.values[ch] < ar.span.End && a.unindexed.mark(ar.index, ch) {
 				a.unreported = true
 			}
 		}
-		return true
-	})
+	}
+	l.arrivals = l.arrivals[:0]
 }
 
 // arrive keeps the span of fr over each index it carries. l.mu must be held.
