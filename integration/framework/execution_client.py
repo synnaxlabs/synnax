@@ -98,9 +98,10 @@ class ExecutionClient:
         self._timeout_thread: threading.Thread | None = None
         self._watchdog = Watchdog(timeout_grace)
         self._abandoned: dict[threading.Thread, str] = {}
-        # The tests that passed and run again only because a test of their sequence is
-        # retried.
+        # The tests that passed and must run again because a test of their sequence is
+        # retried, and those of them whose second run started.
         self._peers: set[str] = set()
+        self._rerun: set[str] = set()
 
     def run(self, sequences: list[Sequence]) -> None:
         """Execute all sequences."""
@@ -108,7 +109,7 @@ class ExecutionClient:
         self.should_stop = False
         self._total_tests = sum(len(seq.tests) for seq in sequences)
         self._tests_offset = 0
-        self._peers = set()
+        self._peers, self._rerun = set(), set()
 
         self._timeout_thread = threading.Thread(
             target=self._timeout_monitor_loop,
@@ -256,6 +257,7 @@ class ExecutionClient:
             self._tests[:] = [t for t in self._tests if str(t) not in retry_keys]
             self._tests_offset = len(self._tests)
             self._peers = {str(td) for seq in retries for td in seq.tests} - retry_keys
+            self._rerun = set()
 
         self._total_tests = retry_total
         self._run_sequences(retries)
@@ -366,25 +368,21 @@ class ExecutionClient:
 
     def _collect_result(self, test_def: TestDefinition, future: Future[Test]) -> None:
         if future.done():
-            self._record(test_def, future.result(), ran=True)
+            self._record(test_def, future.result())
             return
         message = f"Test exceeded its timeout ({test_def.timeout}s) and did not stop"
-        self._record(
-            test_def, self._result(test_def, STATUS.TIMEOUT, message), ran=True
-        )
+        self._record(test_def, self._result(test_def, STATUS.TIMEOUT, message))
 
-    def _record(
-        self, test_def: TestDefinition, result: Test, ran: bool = False
-    ) -> None:
+    def _record(self, test_def: TestDefinition, result: Test) -> None:
         """Records the result of a test. A test has one result: a later one is dropped,
-        unless the test ran again as the peer of a retried test."""
+        unless it is the first result of the second run of a peer."""
         key = str(test_def)
         with self._tests_lock:
             i = next((i for i, r in enumerate(self._tests) if str(r) == key), None)
             if i is None:
                 self._tests.append(result)
-            elif ran and key in self._peers:
-                self._peers.discard(key)
+            elif key in self._rerun:
+                self._rerun.discard(key)
                 self._tests[i] = result
             else:
                 return
@@ -417,6 +415,11 @@ class ExecutionClient:
                 message = "The run stopped before the test started"
                 future.set_result(self._result(test_def, STATUS.KILLED, message))
                 return
+            key = str(test_def)
+            with self._tests_lock:
+                if key in self._peers:
+                    self._peers.discard(key)
+                    self._rerun.add(key)
             future.set_result(self._execute_single_test(test_def, core))
         finally:
             self._resources.free(threading.current_thread())
@@ -581,7 +584,7 @@ class ExecutionClient:
             if not self._active_tests:
                 return 0
 
-            killed_results = []
+            killed_results: list[tuple[TestDefinition, Test]] = []
             threads_to_terminate = []
             killed_instances = []
 
@@ -602,12 +605,15 @@ class ExecutionClient:
 
                 test_instance._status = status
                 killed_results.append(
-                    Test(
-                        test_name=test_def.case,
-                        name=test_def.display_name,
-                        status=status,
-                        error_message=error_msg,
-                        range=finalized_range,
+                    (
+                        test_def,
+                        Test(
+                            test_name=test_def.case,
+                            name=test_def.display_name,
+                            status=status,
+                            error_message=error_msg,
+                            range=finalized_range,
+                        ),
                     )
                 )
                 threads_to_terminate.append(thread)
@@ -615,11 +621,8 @@ class ExecutionClient:
 
             self._active_tests.clear()
 
-        with self._tests_lock:
-            self._tests.extend(killed_results)
-
-        for _ in killed_results:
-            self._on_test_ran()
+        for test_def, result in killed_results:
+            self._record(test_def, result)
 
         for thread in threads_to_terminate:
             self._terminate_thread(thread)

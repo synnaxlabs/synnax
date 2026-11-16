@@ -398,6 +398,45 @@ class TestExecutionClient:
         assert len(attempts(cases_dir)["a_0"]) == 1
         assert [(t.name, t.status) for t in results] == [("a_0", STATUS.PASSED)]
 
+    # A stop ends the running test's thread with SystemExit.
+    @pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
+    def test_retry_stopped_during_peers(self, cases_dir: Path) -> None:
+        """Should keep one result for each test when the run stops during a retry, and
+        the first result of a peer whose second run did not start."""
+        retrying = threading.Event()
+
+        def log(message: str) -> None:
+            if "RETRYING" in message:
+                retrying.set()
+
+        active: list[tuple[Any, ...]] = []
+        execution, loaded, results = client(
+            cases_dir,
+            sequence(
+                "a", "sim", "sim", hold=0.3, order="asynchronous", fails_once="a_1"
+            ),
+            active=active,
+            log=log,
+        )
+        runner = threading.Thread(target=execution.run, args=(loaded,))
+        runner.start()
+        timer = sy.Timer()
+        while not (retrying.is_set() and active):
+            assert timer.elapsed() < 10 * sy.TimeSpan.SECOND
+            sy.sleep(0.01)
+        execution.stop()
+        runner.join(timeout=10)
+        assert not runner.is_alive()
+        by_name = {t.name: (t.status, t.error_message or "") for t in results}
+        assert len(results) == 2
+        assert set(by_name) == {"a_0", "a_1"}
+        killed = (STATUS.KILLED, "Test was manually killed")
+        waiting = (STATUS.KILLED, "The run stopped before the test started")
+        assert (by_name["a_0"], by_name["a_1"]) in [
+            (killed, waiting),
+            ((STATUS.PASSED, ""), killed),
+        ]
+
     @pytest.mark.parametrize(
         ("order", "independent"), [("asynchronous", True), ("sequential", False)]
     )
