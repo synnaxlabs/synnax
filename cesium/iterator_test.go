@@ -1290,6 +1290,43 @@ var _ = Describe("Iterator Behavior", func() {
 					),
 				)
 
+				It("Should read every sample at a repeated timestamp", func(
+					ctx SpecContext,
+				) {
+					pdb := open(ctx)
+					idx, data := GenerateChannelKey(), GenerateChannelKey()
+					Expect(pdb.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Key:      idx,
+							Name:     "Amundsen",
+							IsIndex:  true,
+							DataType: telem.TimestampT,
+						},
+						cesium.Channel{
+							Key:      data,
+							Name:     "Scott",
+							Index:    idx,
+							DataType: telem.Int64T,
+						},
+					)).To(Succeed())
+					Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
+						[]cesium.ChannelKey{idx, data},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(1, 2, 2, 2, 3),
+							telem.NewSeriesV[int64](10, 20, 30, 40, 50),
+						},
+					))).To(Succeed())
+					f := MustSucceed(pdb.Read(
+						ctx,
+						(2 * telem.SecondTS).Range(3*telem.SecondTS),
+						data,
+					))
+					Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(
+						telem.NewSeriesV[int64](20, 30, 40),
+					))
+				})
+
 				It("Should continue from a chunked Prev across domains", func(
 					ctx SpecContext,
 				) {

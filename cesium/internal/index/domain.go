@@ -702,7 +702,8 @@ func resolveBackwardEffectiveDomainTR(
 }
 
 // search returns an approximation for the number of samples before a given timestamp.
-// If the timestamp exists in the underlying index, the approximation will be exact.
+// If the timestamp exists in the underlying index, the approximation will be exact and
+// point at the first sample with that timestamp.
 func (i *Domain) search(
 	ts telem.TimeStamp,
 	r *domain.Reader,
@@ -712,6 +713,7 @@ func (i *Domain) search(
 		end   = sampleCount(r.Size()) - 1
 		read  = newStampReader()
 		midTs telem.TimeStamp
+		found = false
 		err   error
 	)
 	for start <= end {
@@ -719,13 +721,15 @@ func (i *Domain) search(
 		if midTs, err = read(r, byteSize(mid)); err != nil {
 			return Exactly[int64](0), err
 		}
-		if ts == midTs {
-			return Exactly(mid), nil
-		} else if midTs < ts {
+		if midTs < ts {
 			start = mid + 1
 		} else {
+			found = found || midTs == ts
 			end = mid - 1
 		}
+	}
+	if found {
+		return Exactly(start), nil
 	}
 	return Between(end, end+1), nil
 }
