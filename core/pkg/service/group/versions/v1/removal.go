@@ -42,7 +42,7 @@ var descriptions = map[ontology.RelationshipType]func(
 		return fmt.Sprintf(
 			"A %[1]s can now be in only one group, so the upgrade removed %[1]s %[2]q "+
 				"from group %[3]q. It kept the %[1]s in the group that comes first by "+
-				"name. Drag the %[1]s into %[3]q to move it back.",
+				"name.",
 			noun, member, group,
 		)
 	},

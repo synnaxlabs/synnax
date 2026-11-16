@@ -478,8 +478,7 @@ var _ = Describe("Group drop report", func() {
 					message: "Removed channel from group",
 					description: `A channel can now be in only one group, so the ` +
 						`upgrade removed channel "oil_temp" from group "Cryomech". It ` +
-						`kept the channel in the group that comes first by name. Drag ` +
-						`the channel into "Cryomech" to move it back.`,
+						`kept the channel in the group that comes first by name.`,
 				},
 				report{
 					name:    "Compressors",

@@ -25,7 +25,7 @@ var _ = Describe("Removal", func() {
 		Entry("a duplicate", v1.RemovedDuplicate, "channel",
 			`A channel can now be in only one group, so the upgrade removed channel `+
 				`"pump" from group "Bench". It kept the channel in the group that `+
-				`comes first by name. Drag the channel into "Bench" to move it back.`),
+				`comes first by name.`),
 		Entry("a member the group cannot hold", v1.RemovedUnheld, "channel",
 			`The upgrade removed channel "pump" from group "Bench", because that `+
 				`group cannot hold a channel.`),
