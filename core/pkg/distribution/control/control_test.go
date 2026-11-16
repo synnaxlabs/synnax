@@ -86,7 +86,7 @@ var _ = Describe("Control", func() {
 		}
 
 		It("Should open when all required fields are set", func(ctx SpecContext) {
-			Expect(full(ctx).Validate()).To(Succeed())
+			Expect(full(GinkgoT().Context()).Validate()).To(Succeed())
 		})
 
 		It("Should fail to open without a time-series database", func(ctx SpecContext) {

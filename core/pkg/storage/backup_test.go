@@ -178,7 +178,7 @@ var _ = Describe("Backup", func() {
 			Expect(l.TS.CreateChannel(ctx, indexCh, dataCh)).To(Succeed())
 			write(ctx, l, 1, indexCh.Key, dataCh.Key)
 			Expect(l.Close()).To(Succeed())
-			openAt(ctx, dir, "0.60.0")
+			openAt(GinkgoT().Context(), dir, "0.60.0")
 
 			archived := archiveEntries(archiveFile(dir, onlyBackup(dir)))
 			Expect(archived).To(ContainElements(
@@ -199,7 +199,7 @@ var _ = Describe("Backup", func() {
 	It(
 		"Should keep the newest complete backups and remove unfinished ones",
 		func(ctx SpecContext) {
-			openAt(ctx, dir, "0.0.0")
+			openAt(GinkgoT().Context(), dir, "0.0.0")
 			backups := filepath.Join(dir, "backups")
 			Expect(
 				os.MkdirAll(filepath.Join(backups, "orphaned-5"), 0o700),
@@ -212,7 +212,7 @@ var _ = Describe("Backup", func() {
 			} {
 				writeFile(filepath.Join(backups, name), "")
 			}
-			openAt(ctx, dir, "0.60.0")
+			openAt(GinkgoT().Context(), dir, "0.60.0")
 			Expect(entries(backups)).To(ConsistOf(
 				"0000000002-0.58.0.tar",
 				"0000000003-0.59.0.tar",
@@ -225,7 +225,7 @@ var _ = Describe("Backup", func() {
 	It(
 		"Should remove unfinished backups before it backs up again",
 		func(ctx SpecContext) {
-			openAt(ctx, dir, "0.59.0")
+			openAt(GinkgoT().Context(), dir, "0.59.0")
 			Expect(os.MkdirAll(filepath.Join(dir, "backups"), 0o700)).To(Succeed())
 			writeFile(
 				filepath.Join(dir, "backups", "0000000001-0.58.0.tar.partial"),

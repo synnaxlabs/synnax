@@ -58,15 +58,15 @@ var _ = Describe("Recorded version", func() {
 	BeforeEach(func() { dir = newDataDir() })
 
 	It("Should record the version in a new data directory", func(ctx SpecContext) {
-		openAt(ctx, dir, "0.60.0")
+		openAt(GinkgoT().Context(), dir, "0.60.0")
 		Expect(recordedVersion(dir)).To(Equal("0.60.0"))
 		Expect(entries(filepath.Join(dir, "backups"))).To(BeEmpty())
 	})
 
 	It("Should back up data without a recorded version", func(ctx SpecContext) {
-		openAt(ctx, dir, "0.0.0")
+		openAt(GinkgoT().Context(), dir, "0.0.0")
 		Expect(filepath.Join(dir, "VERSION")).ToNot(BeAnExistingFile())
-		openAt(ctx, dir, "0.60.0")
+		openAt(GinkgoT().Context(), dir, "0.60.0")
 		Expect(recordedVersion(dir)).To(Equal("0.60.0"))
 		Expect(entries(filepath.Join(dir, "backups"))).
 			To(ConsistOf(HaveSuffix("-before-0.61.0.tar")))
@@ -75,8 +75,8 @@ var _ = Describe("Recorded version", func() {
 	DescribeTable(
 		"Opening data that an older or equal version recorded",
 		func(ctx SpecContext, recorded, current string, backedUp bool) {
-			openAt(ctx, dir, recorded)
-			openAt(ctx, dir, current)
+			openAt(GinkgoT().Context(), dir, recorded)
+			openAt(GinkgoT().Context(), dir, current)
 			Expect(recordedVersion(dir)).To(Equal(current))
 			backups := entries(filepath.Join(dir, "backups"))
 			if backedUp {
@@ -96,7 +96,7 @@ var _ = Describe("Recorded version", func() {
 	DescribeTable(
 		"Opening data that a newer version recorded",
 		func(ctx SpecContext, recorded, current string) {
-			openAt(ctx, dir, recorded)
+			openAt(GinkgoT().Context(), dir, recorded)
 			Expect(storage.OpenLayer(
 				GinkgoT().Context(),
 				storage.LayerConfig{Dirname: dir, Version: current},
@@ -117,10 +117,10 @@ var _ = Describe("Recorded version", func() {
 	DescribeTable(
 		"Opening as a dev Core",
 		func(ctx SpecContext, dev string) {
-			openAt(ctx, dir, dev)
+			openAt(GinkgoT().Context(), dir, dev)
 			Expect(filepath.Join(dir, "VERSION")).ToNot(BeAnExistingFile())
-			openAt(ctx, dir, "0.60.1")
-			openAt(ctx, dir, dev)
+			openAt(GinkgoT().Context(), dir, "0.60.1")
+			openAt(GinkgoT().Context(), dir, dev)
 			Expect(recordedVersion(dir)).To(Equal("0.60.1"))
 			Expect(entries(filepath.Join(dir, "backups"))).
 				To(ConsistOf(HaveSuffix("-before-0.61.0.tar")))
@@ -141,7 +141,7 @@ var _ = Describe("Recorded version", func() {
 	})
 
 	It("Should not open when the backup fails", func(ctx SpecContext) {
-		openAt(ctx, dir, "0.59.0")
+		openAt(GinkgoT().Context(), dir, "0.59.0")
 		// A file in place of the backups directory makes every copy fail.
 		Expect(os.WriteFile(filepath.Join(dir, "backups"), nil, 0o600)).To(Succeed())
 		Expect(storage.OpenLayer(
@@ -150,7 +150,7 @@ var _ = Describe("Recorded version", func() {
 		)).Error().To(MatchError(ContainSubstring("failed to back up metadata")))
 		Expect(recordedVersion(dir)).To(Equal("0.59.0"))
 		Expect(os.Remove(filepath.Join(dir, "backups"))).To(Succeed())
-		openAt(ctx, dir, "0.60.0")
+		openAt(GinkgoT().Context(), dir, "0.60.0")
 		Expect(entries(filepath.Join(dir, "backups"))).
 			To(ConsistOf(HaveSuffix("-0.59.0.tar")))
 	})

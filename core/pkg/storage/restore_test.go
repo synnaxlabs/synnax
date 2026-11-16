@@ -75,8 +75,8 @@ var _ = Describe("Restore", func() {
 	)
 
 	It("Should remove the version of a backup without one", func(ctx SpecContext) {
-		openAt(ctx, dir, "0.0.0")
-		openAt(ctx, dir, "0.60.0")
+		openAt(GinkgoT().Context(), dir, "0.0.0")
+		openAt(GinkgoT().Context(), dir, "0.60.0")
 		res := MustSucceed(newBackups(dir).Restore(onlyBackup(dir)))
 		Expect(res.Backup.Version).To(Equal(storage.UnknownVersion))
 		Expect(res.OrphanedDir).To(BeEmpty())
@@ -88,7 +88,7 @@ var _ = Describe("Restore", func() {
 	DescribeTable(
 		"Should not open the data until an interrupted restore runs again",
 		func(ctx SpecContext, interrupt func()) {
-			openAt(ctx, dir, "0.59.0")
+			openAt(GinkgoT().Context(), dir, "0.59.0")
 			l := openLayer(GinkgoT().Context(), dir, "0.60.0")
 			Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
 			Expect(l.Close()).To(Succeed())
@@ -133,8 +133,8 @@ var _ = Describe("Restore", func() {
 	It(
 		"Should move channels that an interrupted restore set aside",
 		func(ctx SpecContext) {
-			openAt(ctx, dir, "0.59.0")
-			openAt(ctx, dir, "0.60.0")
+			openAt(GinkgoT().Context(), dir, "0.59.0")
+			openAt(GinkgoT().Context(), dir, "0.60.0")
 			name := onlyBackup(dir)
 			writeFile(filepath.Join(dir, restoreMarkerFile), name)
 			Expect(os.MkdirAll(filepath.Join(dir, "cesium", "orphaned", "9"), 0o700)).
@@ -148,8 +148,8 @@ var _ = Describe("Restore", func() {
 	)
 
 	It("Should not open the data after a restore that failed", func(ctx SpecContext) {
-		openAt(ctx, dir, "0.59.0")
-		openAt(ctx, dir, "0.60.0")
+		openAt(GinkgoT().Context(), dir, "0.59.0")
+		openAt(GinkgoT().Context(), dir, "0.60.0")
 		name := onlyBackup(dir)
 		blocked := filepath.Join(dir, "VERSION.tmp", "blocked")
 		Expect(os.MkdirAll(blocked, 0o700)).To(Succeed())
@@ -166,13 +166,13 @@ var _ = Describe("Restore", func() {
 		))
 		Expect(os.RemoveAll(filepath.Dir(blocked))).To(Succeed())
 		MustSucceed(newBackups(dir).Restore(name))
-		openAt(ctx, dir, "0.59.0")
+		openAt(GinkgoT().Context(), dir, "0.59.0")
 	})
 
 	DescribeTable(
 		"Should not restore a backup that is not complete",
 		func(ctx SpecContext, name string) {
-			openAt(ctx, dir, "0.60.0")
+			openAt(GinkgoT().Context(), dir, "0.60.0")
 			Expect(os.MkdirAll(filepath.Join(dir, "backups"), 0o700)).To(Succeed())
 			writeFile(
 				filepath.Join(dir, "backups", "0000000001-0.59.0.tar.partial"),
@@ -191,7 +191,7 @@ var _ = Describe("Restore", func() {
 	DescribeTable(
 		"Should not change the data when the backup lacks a directory",
 		func(ctx SpecContext, missing string) {
-			openAt(ctx, dir, "0.59.0")
+			openAt(GinkgoT().Context(), dir, "0.59.0")
 			l := openLayer(GinkgoT().Context(), dir, "0.60.0")
 			Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
 			Expect(l.TS.CreateChannel(ctx, indexCh)).To(Succeed())
@@ -216,8 +216,8 @@ var _ = Describe("Restore", func() {
 	)
 
 	It("Should not restore an archive entry outside the backup", func(ctx SpecContext) {
-		openAt(ctx, dir, "0.59.0")
-		openAt(ctx, dir, "0.60.0")
+		openAt(GinkgoT().Context(), dir, "0.59.0")
+		openAt(GinkgoT().Context(), dir, "0.60.0")
 		name := onlyBackup(dir)
 		f := MustSucceed(os.Create(archiveFile(dir, name)))
 		w := tar.NewWriter(f)
@@ -236,8 +236,8 @@ var _ = Describe("Restore", func() {
 	})
 
 	It("Should not restore while a Core runs on the data", func(ctx SpecContext) {
-		openAt(ctx, dir, "0.59.0")
-		openAt(ctx, dir, "0.60.0")
+		openAt(GinkgoT().Context(), dir, "0.59.0")
+		openAt(GinkgoT().Context(), dir, "0.60.0")
 		name := onlyBackup(dir)
 		MustOpen(storage.OpenLayer(
 			GinkgoT().Context(),
@@ -253,17 +253,17 @@ var _ = Describe("Undo", func() {
 	BeforeEach(func() { dir = newDataDir() })
 
 	It("Should restore the newest backup", func(ctx SpecContext) {
-		openAt(ctx, dir, "0.58.0")
-		openAt(ctx, dir, "0.59.0")
-		openAt(ctx, dir, "0.60.0")
+		openAt(GinkgoT().Context(), dir, "0.58.0")
+		openAt(GinkgoT().Context(), dir, "0.59.0")
+		openAt(GinkgoT().Context(), dir, "0.60.0")
 		res := MustSucceed(newBackups(dir).Undo())
 		Expect(res.Backup.Version).To(Equal("0.59.0"))
 		Expect(recordedVersion(dir)).To(Equal("0.59.0"))
 	})
 
 	It("Should not undo the same update twice", func(ctx SpecContext) {
-		openAt(ctx, dir, "0.59.0")
-		openAt(ctx, dir, "0.60.0")
+		openAt(GinkgoT().Context(), dir, "0.59.0")
+		openAt(GinkgoT().Context(), dir, "0.60.0")
 		name := MustSucceed(newBackups(dir).Undo()).Backup.Name
 		Expect(newBackups(dir).Undo()).Error().To(SatisfyAll(
 			MatchError(
@@ -278,9 +278,9 @@ var _ = Describe("Undo", func() {
 	})
 
 	It("Should not undo twice when the backup has no version", func(ctx SpecContext) {
-		openAt(ctx, dir, "0.59.0")
+		openAt(GinkgoT().Context(), dir, "0.59.0")
 		Expect(os.Remove(filepath.Join(dir, "VERSION"))).To(Succeed())
-		openAt(ctx, dir, "0.60.0")
+		openAt(GinkgoT().Context(), dir, "0.60.0")
 		res := MustSucceed(newBackups(dir).Undo())
 		Expect(res.Backup.Version).To(Equal(storage.UnknownVersion))
 		Expect(filepath.Join(dir, "VERSION")).ToNot(BeAnExistingFile())
@@ -291,8 +291,8 @@ var _ = Describe("Undo", func() {
 	It(
 		"Should not check the undo while a Core runs on the data",
 		func(ctx SpecContext) {
-			openAt(ctx, dir, "0.59.0")
-			openAt(ctx, dir, "0.60.0")
+			openAt(GinkgoT().Context(), dir, "0.59.0")
+			openAt(GinkgoT().Context(), dir, "0.60.0")
 			MustSucceed(newBackups(dir).Undo())
 			MustOpen(storage.OpenLayer(
 				GinkgoT().Context(),
@@ -304,7 +304,7 @@ var _ = Describe("Undo", func() {
 	)
 
 	It("Should return an error when there is no backup", func(ctx SpecContext) {
-		openAt(ctx, dir, "0.60.0")
+		openAt(GinkgoT().Context(), dir, "0.60.0")
 		Expect(newBackups(dir).Undo()).Error().
 			To(MatchError(ContainSubstring("there is no update to undo")))
 	})

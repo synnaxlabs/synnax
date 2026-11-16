@@ -66,7 +66,7 @@ var _ = Describe("Update", func() {
 	}
 
 	It("Should start an update that a commit keeps", func(ctx SpecContext) {
-		l := startUpdate(ctx, dir, "0.60.0")
+		l := startUpdate(GinkgoT().Context(), dir, "0.60.0")
 		Expect(l.Update.From).To(Equal("0.59.0"))
 		Expect(l.Update.To).To(Equal("0.60.0"))
 		Expect(updateState(dir, "0.60.0")).To(Equal(storage.UpdatePending))
@@ -82,7 +82,7 @@ var _ = Describe("Update", func() {
 	})
 
 	It("Should put the data back when the Core fails", func(ctx SpecContext) {
-		l := startUpdate(ctx, dir, "0.60.0")
+		l := startUpdate(GinkgoT().Context(), dir, "0.60.0")
 		Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
 		Expect(l.Close()).To(Succeed())
 		Expect(l.Update.Undo(ctx, errors.New("no space left on device"))).To(And(
@@ -99,7 +99,7 @@ var _ = Describe("Update", func() {
 	})
 
 	It("Should put the data back without a failure on a stop", func(ctx SpecContext) {
-		l := startUpdate(ctx, dir, "0.60.0")
+		l := startUpdate(GinkgoT().Context(), dir, "0.60.0")
 		Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
 		Expect(l.Close()).To(Succeed())
 		stopped, cancel := context.WithCancel(ctx)
@@ -112,11 +112,11 @@ var _ = Describe("Update", func() {
 		l = openLayer(GinkgoT().Context(), dir, "0.59.0")
 		Expect(readValue(l)).To(Equal("before"))
 		Expect(l.Close()).To(Succeed())
-		Expect(startUpdate(ctx, dir, "0.60.0").Close()).To(Succeed())
+		Expect(startUpdate(GinkgoT().Context(), dir, "0.60.0").Close()).To(Succeed())
 	})
 
 	It("Should refuse the failed version without a backup", func(ctx SpecContext) {
-		l := startUpdate(ctx, dir, "0.60.0")
+		l := startUpdate(GinkgoT().Context(), dir, "0.60.0")
 		Expect(l.Close()).To(Succeed())
 		Expect(l.Update.Undo(ctx, errors.New("crashed"))).
 			To(MatchError(HavePrefix("Update to Core 0.60.0 failed: crashed.")))
@@ -130,23 +130,23 @@ var _ = Describe("Update", func() {
 	})
 
 	It("Should update to another version after a failed one", func(ctx SpecContext) {
-		l := startUpdate(ctx, dir, "0.60.0")
+		l := startUpdate(GinkgoT().Context(), dir, "0.60.0")
 		Expect(l.Close()).To(Succeed())
 		Expect(l.Update.Undo(ctx, errors.New("crashed"))).
 			To(MatchError(HavePrefix("Update to Core 0.60.0 failed: crashed.")))
-		l = startUpdate(ctx, dir, "0.60.1")
+		l = startUpdate(GinkgoT().Context(), dir, "0.60.1")
 		Expect(l.Update.From).To(Equal("0.59.0"))
 		Expect(l.Close()).To(Succeed())
 	})
 
 	It("Should update again after a retry", func(ctx SpecContext) {
-		l := startUpdate(ctx, dir, "0.60.0")
+		l := startUpdate(GinkgoT().Context(), dir, "0.60.0")
 		Expect(l.Close()).To(Succeed())
 		Expect(l.Update.Undo(ctx, errors.New("crashed"))).
 			To(MatchError(HavePrefix("Update to Core 0.60.0 failed: crashed.")))
 		Expect(newBackups(dir).Retry()).To(Equal("0.60.0"))
 		Expect(filepath.Join(dir, failedUpdateFile)).ToNot(BeAnExistingFile())
-		l = startUpdate(ctx, dir, "0.60.0")
+		l = startUpdate(GinkgoT().Context(), dir, "0.60.0")
 		Expect(l.Close()).To(Succeed())
 	})
 
@@ -158,7 +158,7 @@ var _ = Describe("Update", func() {
 	It(
 		"Should undo an update that an earlier start did not commit",
 		func(ctx SpecContext) {
-			l := startUpdate(ctx, dir, "0.60.0")
+			l := startUpdate(GinkgoT().Context(), dir, "0.60.0")
 			Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
 			Expect(l.Close()).To(Succeed())
 			Expect(storage.OpenLayer(
@@ -176,7 +176,7 @@ var _ = Describe("Update", func() {
 	It(
 		"Should open the old version on data that an update did not commit",
 		func(ctx SpecContext) {
-			l := startUpdate(ctx, dir, "0.60.0")
+			l := startUpdate(GinkgoT().Context(), dir, "0.60.0")
 			Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
 			Expect(l.Close()).To(Succeed())
 			l = openLayer(GinkgoT().Context(), dir, "0.59.0")
@@ -206,12 +206,12 @@ var _ = Describe("Update", func() {
 	})
 
 	It("Should end an update that a restore undoes", func(ctx SpecContext) {
-		l := startUpdate(ctx, dir, "0.60.0")
+		l := startUpdate(GinkgoT().Context(), dir, "0.60.0")
 		Expect(l.Close()).To(Succeed())
 		MustSucceed(newBackups(dir).Restore(onlyBackup(dir)))
 		Expect(filepath.Join(dir, updateMarkerFile)).ToNot(BeAnExistingFile())
 		Expect(filepath.Join(dir, failedUpdateFile)).ToNot(BeAnExistingFile())
-		openAt(ctx, dir, "0.59.0")
+		openAt(GinkgoT().Context(), dir, "0.59.0")
 	})
 
 	It("Should skip the backup and the undo when disabled", func(ctx SpecContext) {
