@@ -28,6 +28,7 @@ cc_library(
         "//driver/task",
         "//x/cpp/breaker",
         "//x/cpp/control",
+        "//x/cpp/defer",
         "//x/cpp/telem",
     ],
 )
@@ -35,6 +36,7 @@ cc_library(
 cc_test(
     name = "bypass_test",
     srcs = [
+        "forwarder_test.cpp",
         "streamer_test.cpp",
         "writer_test.cpp",
     ],
