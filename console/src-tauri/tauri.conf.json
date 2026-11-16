@@ -27,7 +27,12 @@
       "frameworks": [],
       "providerShortName": null
     },
-    "linux": { "deb": { "depends": [] } }
+    "linux": {
+      "deb": {
+        "depends": ["desktop-file-utils", "libwebkit2gtk-4.1-0 (>= 2.42)"],
+        "desktopTemplate": "linux/synnax.desktop"
+      }
+    }
   },
   "identifier": "com.synnaxlabs.dev",
   "plugins": {

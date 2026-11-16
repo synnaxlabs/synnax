@@ -80,12 +80,6 @@ var _ = Describe("FieldProcessor", func() {
 				}
 			`
 				req := MustGenerateRequest(ctx, source, "schema", loader)
-				fp := &types.FieldProcessor{
-					Imports:    mgr,
-					Namespace:  "schema",
-					OutputPath: "client/ts/src/schema",
-					Request:    req,
-				}
 				structs := req.Resolutions.StructTypes()
 				var board resolution.Type
 				for _, s := range structs {
@@ -95,6 +89,13 @@ var _ = Describe("FieldProcessor", func() {
 					}
 				}
 				Expect(board.Name).To(Equal("Board"))
+				fp := &types.FieldProcessor{
+					Imports:    mgr,
+					Namespace:  "schema",
+					FilePath:   board.FilePath,
+					OutputPath: "client/ts/src/schema",
+					Request:    req,
+				}
 				tileField := board.Form.(resolution.StructForm).Fields[0]
 				fp.CollectTypeImports(&tileField.Type)
 				internal := mgr.InternalNamedImports()
@@ -131,18 +132,19 @@ var _ = Describe("FieldProcessor", func() {
 				}
 			`
 			req := MustGenerateRequest(ctx, source, "schema", loader)
-			fp := &types.FieldProcessor{
-				Imports:    mgr,
-				Namespace:  "schema",
-				OutputPath: "client/ts/src/schema",
-				Request:    req,
-			}
 			var board resolution.Type
 			for _, s := range req.Resolutions.StructTypes() {
 				if s.Name == "Board" {
 					board = s
 					break
 				}
+			}
+			fp := &types.FieldProcessor{
+				Imports:    mgr,
+				Namespace:  "schema",
+				FilePath:   board.FilePath,
+				OutputPath: "client/ts/src/schema",
+				Request:    req,
 			}
 			tilesField := board.Form.(resolution.StructForm).Fields[0]
 			fp.CollectTypeImports(&tilesField.Type)

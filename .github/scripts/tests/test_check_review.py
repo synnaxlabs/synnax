@@ -189,7 +189,7 @@ class TestFork:
         harness.reviews("head")
         assert harness.run() == (
             "failure",
-            "Sedosaur does not review forks, so an admin merges this one",
+            "Sedosaur does not review forks: reopen it from a branch here",
         )
 
     def test_fails_a_deleted_fork(self, harness: Harness) -> None:

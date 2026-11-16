@@ -190,7 +190,7 @@ resource "aws_iam_role_policy" "runner_power" {
           }
         }
       },
-      # An agent seat stops itself, so the controller only starts it.
+      # An agent or review seat stops itself, so the controller only starts it.
       {
         Sid      = "SandboxSeatStart"
         Effect   = "Allow"
@@ -200,7 +200,7 @@ resource "aws_iam_role_policy" "runner_power" {
           StringEquals = {
             "aws:userid"              = local.sandbox_session
             "ec2:ResourceTag/project" = "synnax-agents"
-            "ec2:ResourceTag/pool"    = "agent"
+            "ec2:ResourceTag/pool"    = ["agent", "review"]
           }
         }
       },

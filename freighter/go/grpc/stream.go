@@ -81,7 +81,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 	if !attachedInitialMetaData {
 		md := metadata.Pairs()
 		if err != nil {
-			md.Append("error", errors.Encode(ctx, err, s.Internal).Error())
+			md.Append("error", errors.Encode(err, s.Internal).Error())
 		} else {
 			for k, v := range oCtx.Params {
 				if vStr, ok := v.(string); ok {
@@ -96,7 +96,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 	if err == nil || errors.Is(err, io.EOF) {
 		return nil
 	}
-	return errors.Encode(ctx, err, s.Internal)
+	return errors.Encode(err, s.Internal)
 }
 
 func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
@@ -138,7 +138,7 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 				if errVals := md.Get("error"); len(errVals) > 0 {
 					p := &errors.Payload{}
 					p.Unmarshal(errVals[0])
-					return oCtx, errors.Decode(ctx, *p)
+					return oCtx, errors.Decode(*p)
 				}
 				stream = s.adaptStream(grpcClient)
 				return oCtx, nil
@@ -342,7 +342,7 @@ func translateGRPCError(err error) error {
 	}
 	p := &errors.Payload{}
 	p.Unmarshal(s.Message())
-	if decoded := errors.Decode(context.Background(), *p); decoded != nil {
+	if decoded := errors.Decode(*p); decoded != nil {
 		return decoded
 	}
 	return errors.WithStackDepth(err, 1)

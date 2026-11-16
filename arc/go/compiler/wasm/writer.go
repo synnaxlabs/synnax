@@ -258,3 +258,28 @@ var (
 	BlockTypeF32   = BlockType{valueType: F32}
 	BlockTypeF64   = BlockType{valueType: F64}
 )
+
+// WriteLoopBudget writes instructions that take one unit from the loop budget global
+// at index budget and trap when the budget is zero or less afterward.
+func (e *Writer) WriteLoopBudget(budget uint32) {
+	e.writeGlobalGet(budget)
+	e.WriteI64Const(1)
+	e.WriteOpcode(OpI64Sub)
+	e.writeGlobalSet(budget)
+	e.writeGlobalGet(budget)
+	e.WriteI64Const(0)
+	e.WriteOpcode(OpI64LeS)
+	e.WriteIf(BlockTypeEmpty)
+	e.WriteUnreachable()
+	e.WriteEnd()
+}
+
+func (e *Writer) writeGlobalGet(idx uint32) {
+	e.WriteOpcode(OpGlobalGet)
+	e.WriteLEB128Unsigned(uint64(idx))
+}
+
+func (e *Writer) writeGlobalSet(idx uint32) {
+	e.WriteOpcode(OpGlobalSet)
+	e.WriteLEB128Unsigned(uint64(idx))
+}

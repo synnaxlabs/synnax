@@ -353,6 +353,24 @@ Channel struct {
 `),
 	)
 
+	It("Should fail a same-named dependency that imports its live schema", func() {
+		write("schemas/x/versions/channel/v0.oracle", "Code = int64\n")
+		write("schemas/x/channel.oracle", "Code = int64\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/channel"
+
+Channel struct {
+	key uuid @key
+	code channel.Code
+
+	@go marshal
+}
+`)
+		Expect(placementFindings(run(analyzeLive(liveV0)))).To(ConsistOf(
+			"schemas/synnax/channel v0 references channel but imports its live schema",
+		))
+	})
+
 	It("Should accept an omitted field that pins its dependency", func() {
 		write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
 		write("schemas/x/telem.oracle", "TimeStamp = int64\n")
@@ -416,6 +434,32 @@ Channel struct {
 		}
 		Expect(currency).To(BeTrue(), "expected a pin-currency finding")
 	})
+
+	It("Should fail a stored same-named pin lagging its dependency's current version",
+		func() {
+			write("schemas/x/versions/channel/v0.oracle", "Code = int64\n")
+			write("schemas/x/versions/channel/v1.oracle", "Code = int32\n")
+			write("schemas/x/channel.oracle", "Code = int32\n")
+			write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/channel/v0"
+
+Channel struct {
+	key uuid @key
+	code channel.Code
+
+	@go marshal
+}
+`)
+			var messages []string
+			for _, f := range run(analyzeLive(liveV0)).Findings {
+				messages = append(messages, f.Message)
+			}
+			Expect(messages).To(ContainElement(
+				"schemas/synnax/channel's current surface resolves channel at v0, " +
+					"but schemas/x/channel's current version is v1",
+			))
+		},
+	)
 
 	It("Should fail an omitted-field pin lagging its dependency's current version",
 		func() {

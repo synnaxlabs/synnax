@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -71,13 +72,19 @@ type FactoryConfig struct {
 	//
 	// [OPTIONAL] - Defaults to telem.Now.
 	Now func() telem.TimeStamp
+	// LoopBudget is the loop iterations and function calls that a task's program can
+	// run in one cycle. A cycle that runs more stops the task with an error status.
+	//
+	// [OPTIONAL] - Defaults to runtime.DefaultLoopBudget.
+	LoopBudget int64
 	alamos.Instrumentation
 }
 
 var (
 	_                    config.Config[FactoryConfig] = FactoryConfig{}
 	DefaultFactoryConfig                              = FactoryConfig{
-		Now: telem.Now,
+		Now:        telem.Now,
+		LoopBudget: runtime.DefaultLoopBudget,
 	}
 )
 
@@ -90,6 +97,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.GetProgram = override.Nil(c.GetProgram, other.GetProgram)
 	c.Ranger = override.Nil(c.Ranger, other.Ranger)
 	c.Now = override.Nil(c.Now, other.Now)
+	c.LoopBudget = override.Numeric(c.LoopBudget, other.LoopBudget)
 	return c
 }
 
@@ -101,6 +109,7 @@ func (c FactoryConfig) Validate() error {
 	v.NotNil("status", c.Status)
 	v.NotNil("get_program", c.GetProgram)
 	v.NotNil("ranger", c.Ranger)
+	v.Positive("loop_budget", c.LoopBudget)
 	return v.Error()
 }
 

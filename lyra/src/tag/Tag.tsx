@@ -41,7 +41,7 @@ export const Tag = ({
   ...rest
 }: TagProps): ReactElement => {
   const cssColor = color.cssString(pColor);
-  if (icon == null && pColor != null) icon = <Icon.Circle color={cssColor} />;
+  if (icon == null && pColor != null) icon = <Icon.Dot color={cssColor} />;
   const closeIcon =
     onClose == null ? undefined : (
       <Button.Close

@@ -432,13 +432,17 @@ public:
     }
 
     /// @brief runs the main task manager loop, blocking until stop() is called or the
-    /// connection to the Core fails. Safe to call stop() from another thread. Call it
-    /// again after an error to run the tasks again; it is not safe to call while a call
-    /// is in progress.
+    /// connection to the Core fails. Safe to call stop() from another thread. A failed
+    /// connection leaves the tasks running: call run again to reconnect, or close. It
+    /// is not safe to call while a call is in progress.
     x::errors::Error run(const std::function<void()> &on_started = nullptr);
 
     /// @brief stops the task manager, halting all tasks and freeing resources.
     void stop();
+
+    /// @brief stops the tasks that a failed run left running. Call it on the thread of
+    /// run once no run follows. Does nothing after a run that stop() ended.
+    void close();
 
     /// @returns true once a stop left a stuck worker running. The worker still uses
     /// this Manager, so the Manager must not be freed.
@@ -561,9 +565,8 @@ private:
     void retrieve_initial_control_states();
     /// @brief loads and queues all existing tasks from the cluster.
     x::errors::Error configure_initial_tasks();
-    /// @brief stops all running tasks. A start that this cancels fails with cause, such
-    /// as "The Driver stopped".
-    void stop_all_tasks(const std::string &cause);
+    /// @brief stops all running tasks and cancels their running starts.
+    void stop_all_tasks();
     /// @brief re-reads this rack's name so a rename made before the streamer opened
     /// is not lost. Best-effort: a failed read is logged and keeps the boot name.
     void retrieve_rack_name();
@@ -582,17 +585,19 @@ private:
     void process_stop(const synnax::task::Command &cmd);
     /// @brief returns the entry for key, creating it if absent. Callers must hold mu.
     std::shared_ptr<Entry> entry_for(const synnax::task::Key &key);
-    /// @brief drops the entry for key and forgets its status, unless the entry is still
-    /// relevant or claimed by a worker. even_if_processing is for a worker's own entry.
-    /// Callers must hold mu.
-    void remove(const synnax::task::Key &key, bool even_if_processing = false);
+    /// @brief drops the entry for key, unless the entry is still relevant or claimed by
+    /// a worker. even_if_processing is for a worker's own entry. Callers must hold mu.
+    /// @returns true when the entry was dropped.
+    bool remove(const synnax::task::Key &key, bool even_if_processing = false);
+    /// @brief removes the entry for key like remove, then forgets the status of the
+    /// task when the entry went. Takes mu, and waits for a status write of the task.
+    void discard(const synnax::task::Key &key, bool even_if_processing = false);
     /// @brief starts the worker pool and monitor thread.
     void start_workers();
     /// @brief stops workers and waits for them to finish.
     void stop_workers();
-    /// @brief main loop for worker threads - pops and executes operations until run
-    /// ends.
-    void worker_loop(uint64_t run);
+    /// @brief main loop for worker threads - pops and executes operations until close.
+    void worker_loop();
     /// @brief warns about steps that run past their limits.
     void monitor_loop();
     /// @brief executes a single operation on an entry.
@@ -607,9 +612,9 @@ private:
     /// @brief replaces a status that a previous Driver run or a run before a Core
     /// outage left stored: "Starting task" with a failed start, a stop step with a
     /// stopped task, and a running task with a stopped one. Replaces only a status that
-    /// this rack wrote, does nothing once this run wrote a status for the task, and
-    /// never starts the task. Call it after the boot deploy of the task, unless the
-    /// deploy was cancelled.
+    /// this rack wrote, does nothing once this Driver wrote a status for the task, and
+    /// never starts the task. Call it after a boot deploy that configured the task,
+    /// unless the deploy was cancelled.
     void replace_interrupted_status(const synnax::task::Task &tsk);
     /// @brief answers a pinned start whose config changed after the sender saw it.
     void refuse_pinned_start(const synnax::task::Task &tsk, Operation &operation);

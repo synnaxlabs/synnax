@@ -57,6 +57,11 @@ beforeAll(() => {
       removeListener: () => {},
     }),
   );
+  // jsdom has no font set. Fonts never load, so no load event fires.
+  Object.defineProperty(document, "fonts", {
+    value: new EventTarget(),
+    configurable: true,
+  });
 });
 
 afterAll(() => {

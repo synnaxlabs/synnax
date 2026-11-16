@@ -780,13 +780,13 @@ var _ = Describe("License", func() {
 			lic := newLicense()
 			lic.Channels = 10
 			MustSucceed(svc.Activate(ctx, sign(lic)))
-			pld := errors.Encode(ctx, svc.CheckChannelLimit(11), false)
+			pld := errors.Encode(svc.CheckChannelLimit(11), false)
 			Expect(pld.Type).To(Equal("sy.license.too_many"))
 			Expect(pld.Data).To(Equal(
 				"limit is 10 channels: using more channels than allowed by the " +
 					"license: license error",
 			))
-			Expect(errors.Decode(ctx, pld)).To(And(
+			Expect(errors.Decode(pld)).To(And(
 				MatchError(license.ErrTooMany),
 				MatchError(ContainSubstring("limit is 10 channels")),
 			))

@@ -45,4 +45,18 @@ describe("Icon", () => {
       );
     });
   });
+
+  describe("Dot", () => {
+    it("should put its color on its svg, as the other icons do", () => {
+      const { container } = render(
+        <>
+          <Icon.Dot color="#3774d0" />
+          <Icon.Circle color="#3774d0" />
+        </>,
+      );
+      const [dot, circle] = container.querySelectorAll("svg");
+      expect(dot.getAttribute("color")).not.toBeNull();
+      expect(dot.getAttribute("color")).toEqual(circle.getAttribute("color"));
+    });
+  });
 });

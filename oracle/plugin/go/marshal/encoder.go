@@ -75,8 +75,8 @@ type encoderFileOutput struct {
 // --- Generation entry point ---
 
 // generateEncoderCodecFile renders the codec file, then renders it again when it
-// imports more than one version of a dependency, so the aliases follow
-// naming.VersionAliases.
+// imports two packages that derive one alias, so the aliases follow
+// naming.ImportAliases.
 func generateEncoderCodecFile(
 	packageName string,
 	parentPath string,
@@ -98,7 +98,7 @@ func generateEncoderCodecFile(
 	if err != nil {
 		return nil, err
 	}
-	aliases := naming.VersionAliases(slices.Collect(maps.Keys(imports)), current)
+	aliases := naming.ImportAliases(slices.Collect(maps.Keys(imports)), current)
 	if len(aliases) == 0 {
 		return content, nil
 	}

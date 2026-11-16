@@ -17,6 +17,7 @@ import {
 import { Access, type Flux, Panel, Synnax } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
 
+import { useGetIconKey } from "@/platform/panel/tab";
 import { Session } from "@/session";
 
 /** Where in a panel's mosaic a tab lands. */
@@ -41,9 +42,9 @@ export interface OpenTabOptions {
   /**
    * Lands the tabs in a draft of the signed-in user: a draft that already holds the
    * last tab, else the selected panel when it is such a draft, else a new draft with
-   * this name and icon.
+   * this name.
    */
-  draft?: Pick<panel.New, "name" | "icon">;
+  draft?: Pick<panel.New, "name">;
 }
 
 export type OpenTab = (params: panel.NewTab, options?: OpenTabOptions) => void;
@@ -66,9 +67,10 @@ const focusedTabKey = (
 
 /**
  * Returns a callback that opens tabs in the scoped panel, the session-selected panel,
- * or a panel it creates when neither exists. Every tab lands in one dispatch, so a
- * batch is a single request and a single undo entry. A placement splits once: the first
- * tab takes the new half and the rest join it.
+ * or a panel it creates when neither exists. A created panel takes the icon registered
+ * for the type of the first tab. Every tab lands in one dispatch, so a batch is a
+ * single request and a single undo entry. A placement splits once: the first tab takes
+ * the new half and the rest join it.
  */
 export const useOpenTabs = (): OpenTabs => {
   const dispatchSession = Session.useDispatch();
@@ -79,6 +81,7 @@ export const useOpenTabs = (): OpenTabs => {
   const getSelectedProject = Session.Project.useGetSelected();
   const parentTabKey = Panel.useOptionalTabKey();
   const client = Synnax.use();
+  const getIconKey = useGetIconKey();
   // insertIntoExisting adds the tabs to a panel that is already on the Core (the scoped
   // parent or the selected panel), so a remote dispatch is correct.
   const insertIntoExisting = (
@@ -176,10 +179,11 @@ export const useOpenTabs = (): OpenTabs => {
     // create persists them in a single request. This avoids a second remote dispatch
     // that would race the create and fail with "panel not found", while the local
     // store update keeps focus optimistic.
+    const tabs = params.map((p) => panel.tabZ.parse({ ...p }));
     createPanel({
       name: draft?.name ?? "New panel",
-      icon: draft?.icon,
-      root: { variant: "leaf", tabs: params.map((p) => panel.tabZ.parse({ ...p })) },
+      icon: getIconKey(tabs[0]),
+      root: { variant: "leaf", tabs },
       project: getSelectedProject(),
       owner,
     });

@@ -75,8 +75,8 @@ const (
 )
 
 // generateTestCodecFile renders the codec test file, then renders it again when it
-// imports more than one version of a dependency, so the aliases follow
-// naming.VersionAliases.
+// imports two packages that derive one alias, so the aliases follow
+// naming.ImportAliases.
 func generateTestCodecFile(
 	packageName string,
 	parentPath string,
@@ -97,7 +97,7 @@ func generateTestCodecFile(
 	if err != nil {
 		return nil, err
 	}
-	aliases := naming.VersionAliases(slices.Collect(maps.Keys(imports)), pkgImport)
+	aliases := naming.ImportAliases(slices.Collect(maps.Keys(imports)), pkgImport)
 	if len(aliases) == 0 {
 		return content, nil
 	}
