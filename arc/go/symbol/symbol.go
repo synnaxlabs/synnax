@@ -390,9 +390,10 @@ const maxProgramLocalChannelKey = 1 << 20
 
 // Add creates a new child Symbol from sym and appends it to s.children.
 //
-// Add returns an error if a source-defined symbol in the lexical chain holds sym's
-// Name, or if sym is a variable and a nested scope declares a variable or parameter
-// with it. Internal symbols skip the check.
+// If sym has a non-empty Name, Add checks for naming conflicts in the lexical
+// chain. Built-in symbols (AST == nil) can be shadowed; Internal symbols are
+// compiler-emitted and skip the check. Returns an error if a locally-defined
+// symbol with the same name already exists.
 //
 // Functions and sequences receive a new ID counter so their slot IDs are
 // independent. Slot-allocating Kinds (variables, channels, params) receive an
@@ -403,21 +404,8 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 		if err != nil && !isUndefined(err) {
 			return nil, err
 		}
-		if err != nil || existing.AST == nil {
-			existing = nil
-			if sym.IsValueVariable() {
-				existing = s.findValue(sym.Name)
-			}
-		}
-		if existing != nil {
-			tok := existing.AST.GetStart()
-			return nil, errors.Newf(
-				"name %s conflicts with existing %s at line %d, col %d",
-				sym.Name,
-				existing.Kind.noun(),
-				tok.GetLine(),
-				tok.GetColumn(),
-			)
+		if err == nil && existing.AST != nil {
+			return nil, existing.NameConflict()
 		}
 	}
 	child := &Symbol{}
@@ -449,8 +437,28 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 	return child, nil
 }
 
-// findValue returns a source variable or parameter called name in s or a nested scope.
-func (s *Symbol) findValue(name string) *Symbol {
+// NameConflict returns the error for a declaration that reuses the name of s.
+func (s *Symbol) NameConflict() error {
+	tok := s.AST.GetStart()
+	return errors.Newf(
+		"name %s conflicts with existing %s at line %d, col %d",
+		s.Name,
+		s.Kind.noun(),
+		tok.GetLine(),
+		tok.GetColumn(),
+	)
+}
+
+// Shadowers returns the nested declarations that reuse the name of s.
+func (s *Symbol) Shadowers() []*Symbol {
+	var shadowers []*Symbol
+	for _, sibling := range s.Parent.children {
+		shadowers = sibling.appendValues(s.Name, shadowers)
+	}
+	return shadowers
+}
+
+func (s *Symbol) appendValues(name string, values []*Symbol) []*Symbol {
 	for _, child := range s.children {
 		switch child.Kind {
 		case KindVariable,
@@ -459,14 +467,12 @@ func (s *Symbol) findValue(name string) *Symbol {
 			KindInput,
 			KindOutput:
 			if child.Name == name && child.AST != nil && !child.Internal {
-				return child
+				values = append(values, child)
 			}
 		}
-		if nested := child.findValue(name); nested != nil {
-			return nested
-		}
+		values = child.appendValues(name, values)
 	}
-	return nil
+	return values
 }
 
 // noun returns a human-readable noun for k, used in diagnostics so a

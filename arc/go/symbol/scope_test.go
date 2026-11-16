@@ -1548,12 +1548,29 @@ var _ = Describe("Name conflicts", func() {
 		Entry("block falls back to symbol", symbol.KindBlock, "symbol"),
 	)
 
-	Describe("Nested declarations", func() {
+	Describe("NameConflict", func() {
+		It("Should name the symbol and its position", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.ParseStatement("x := 1"))
+			sym := MustSucceed(symbol.NewRoot(nil, nil).Add(bCtx, symbol.Symbol{
+				Name: "dup", Kind: symbol.KindVariable, AST: ast,
+			}))
+			Expect(sym.NameConflict()).To(MatchError(
+				"name dup conflicts with existing variable at line 1, col 0",
+			))
+		})
+	})
+
+	Describe("Shadowers", func() {
 		var (
 			ast   antlr.ParserRuleContext
 			root  *symbol.Symbol
 			stage *symbol.Symbol
 		)
+		declare := func(bCtx SpecContext, scope *symbol.Symbol, sym symbol.Symbol) *symbol.Symbol {
+			GinkgoHelper()
+			sym.Name, sym.Type = "dup", types.I32()
+			return MustSucceed(scope.Add(bCtx, sym))
+		}
 		BeforeEach(func(bCtx SpecContext) {
 			ast = MustSucceed(parser.ParseStatement("x := 1"))
 			root = symbol.NewRoot(nil, nil)
@@ -1565,95 +1582,41 @@ var _ = Describe("Name conflicts", func() {
 			}))
 		})
 
-		DescribeTable("Should reject a variable that a nested scope declares",
-			func(bCtx SpecContext, nested, added symbol.Kind, noun string) {
-				MustSucceed(stage.Add(bCtx, symbol.Symbol{
-					Name: "dup", Kind: nested, Type: types.I32(), AST: ast,
-				}))
-				Expect(root.Add(bCtx, symbol.Symbol{
-					Name: "dup", Kind: added, Type: types.I32(), AST: ast,
-				})).Error().To(MatchError(ContainSubstring(
-					"name dup conflicts with existing " + noun,
-				)))
+		DescribeTable("Should return a nested declaration of the name",
+			func(bCtx SpecContext, kind symbol.Kind) {
+				nested := declare(bCtx, stage, symbol.Symbol{Kind: kind, AST: ast})
+				outer := declare(bCtx, root, symbol.Symbol{AST: ast})
+				Expect(outer.Shadowers()).To(ConsistOf(nested))
 			},
-			Entry("variable", symbol.KindVariable, symbol.KindVariable, "variable"),
-			Entry(
-				"stateful variable",
-				symbol.KindStatefulVariable,
-				symbol.KindStatefulVariable,
-				"variable",
-			),
-			Entry(
-				"loop variable",
-				symbol.KindLoopVariable,
-				symbol.KindVariable,
-				"variable",
-			),
-			Entry(
-				"input parameter",
-				symbol.KindInput,
-				symbol.KindVariable,
-				"input parameter",
-			),
-			Entry(
-				"output parameter",
-				symbol.KindOutput,
-				symbol.KindVariable,
-				"output parameter",
-			),
+			Entry("variable", symbol.KindVariable),
+			Entry("stateful variable", symbol.KindStatefulVariable),
+			Entry("loop variable", symbol.KindLoopVariable),
+			Entry("input parameter", symbol.KindInput),
+			Entry("output parameter", symbol.KindOutput),
 		)
 
-		It(
-			"Should accept a variable named after a nested stage",
+		It("Should return each nested declaration", func(bCtx SpecContext) {
+			fn := MustSucceed(root.Add(bCtx, symbol.Symbol{
+				Name: "scale", Kind: symbol.KindFunction, AST: ast,
+			}))
+			inStage := declare(bCtx, stage, symbol.Symbol{AST: ast})
+			inFunction := declare(bCtx, fn, symbol.Symbol{AST: ast})
+			outer := declare(bCtx, root, symbol.Symbol{AST: ast})
+			Expect(outer.Shadowers()).To(ConsistOf(inStage, inFunction))
+		})
+
+		It("Should skip a built-in and a declaration with another name",
 			func(bCtx SpecContext) {
-				added := MustSucceed(root.Add(bCtx, symbol.Symbol{
-					Name: "hold",
-					Kind: symbol.KindVariable,
-					Type: types.I32(),
-					AST:  ast,
-				}))
-				Expect(added.Name).To(Equal("hold"))
+				declare(bCtx, stage, symbol.Symbol{})
+				MustSucceed(stage.Add(bCtx, symbol.Symbol{Name: "other", AST: ast}))
+				outer := declare(bCtx, root, symbol.Symbol{AST: ast})
+				Expect(outer.Shadowers()).To(BeEmpty())
 			},
 		)
 
-		It(
-			"Should accept a variable that a sibling scope declares",
-			func(bCtx SpecContext) {
-				MustSucceed(stage.Add(bCtx, symbol.Symbol{
-					Name: "dup", Kind: symbol.KindVariable, Type: types.I32(), AST: ast,
-				}))
-				other := MustSucceed(root.Add(bCtx, symbol.Symbol{
-					Name: "other", Kind: symbol.KindSequence, AST: ast,
-				}))
-				added := MustSucceed(other.Add(bCtx, symbol.Symbol{
-					Name: "dup", Kind: symbol.KindVariable, Type: types.I32(), AST: ast,
-				}))
-				Expect(added.Name).To(Equal("dup"))
-			},
-		)
-
-		It("Should accept a variable that a nested scope holds as a built-in",
-			func(bCtx SpecContext) {
-				MustSucceed(stage.Add(bCtx, symbol.Symbol{
-					Name: "dup", Kind: symbol.KindVariable, Type: types.I32(),
-				}))
-				added := MustSucceed(root.Add(bCtx, symbol.Symbol{
-					Name: "dup", Kind: symbol.KindVariable, Type: types.I32(), AST: ast,
-				}))
-				Expect(added.Name).To(Equal("dup"))
-			},
-		)
-
-		It("Should accept a non-variable that a nested scope declares as a variable",
-			func(bCtx SpecContext) {
-				MustSucceed(stage.Add(bCtx, symbol.Symbol{
-					Name: "dup", Kind: symbol.KindVariable, Type: types.I32(), AST: ast,
-				}))
-				added := MustSucceed(root.Add(bCtx, symbol.Symbol{
-					Name: "dup", Kind: symbol.KindSequence, AST: ast,
-				}))
-				Expect(added.Name).To(Equal("dup"))
-			},
-		)
+		It("Should skip a scope that has the name", func(bCtx SpecContext) {
+			outer := MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "hold", AST: ast}))
+			Expect(outer.Shadowers()).To(BeEmpty())
+		})
 	})
 })

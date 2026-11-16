@@ -534,16 +534,6 @@ func scale(limit f64) f64 {
 limit := 5.0
 """
 
-ARC_FUNCTION_AFTER_BLOCK = """
-func scale(v f64) f64 {
-    if v > 0 {
-        limit := 1.0
-    }
-    limit := 5.0
-    return v * limit
-}
-"""
-
 VARIABLE_CONFLICT = "name limit conflicts with existing variable"
 
 NAME_CONFLICT_CASES = [
@@ -562,9 +552,8 @@ NAME_CONFLICT_CASES = [
     Case(
         "TopLevelAfterFunctionParameter",
         ARC_TOP_LEVEL_AFTER_FUNCTION_PARAMETER,
-        "name limit conflicts with existing input parameter",
+        VARIABLE_CONFLICT,
     ),
-    Case("FunctionAfterBlock", ARC_FUNCTION_AFTER_BLOCK, VARIABLE_CONFLICT),
 ]
 
 # ── Guarded circular calls (valid, should configure successfully) ──

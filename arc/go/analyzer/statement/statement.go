@@ -73,6 +73,22 @@ func AnalyzeVariableDeclaration(
 ) {
 	analyzeVariableDeclaration(ctx)
 	inferVarKind(ctx)
+	reportShadowers(ctx)
+}
+
+// reportShadowers reports each nested declaration that reuses the name ctx declares.
+func reportShadowers(ctx context.Context[parser.IVariableDeclarationContext]) {
+	decl, ok := ctx.AST.GetChild(0).(antlr.ParserRuleContext)
+	if !ok {
+		return
+	}
+	sym, err := ctx.Scope.GetChildByParserRule(decl)
+	if err != nil {
+		return
+	}
+	for _, shadower := range sym.Shadowers() {
+		ctx.Diagnostics.Add(diagnostics.Error(sym.NameConflict(), shadower.AST))
+	}
 }
 
 // inferVarKind classifies the just-declared value variable from its RHS and
