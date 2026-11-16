@@ -12,6 +12,7 @@ import synnax as sy
 from common import Channels
 from conftest import Client, core
 from controller import FAILED_POLLS, Health, Toggle, wait_for_cmds
+from gate import Gate
 from heartbeat import Heartbeat
 from log import Log
 from scaler import SCALER_CMD, Scaler
@@ -28,6 +29,11 @@ class TestWaitForCmds:
             cooldown=sy.TimeSpan(0),
             boot_grace=sy.TimeSpan(0),
             log=Log(client=core(client), channels=channels, channel="log"),
+            gate=Gate(
+                client=core(client),
+                channels=channels,
+                log=Log(client=core(client), channels=channels, channel="gh_log"),
+            ),
         )
         beat = Heartbeat(
             client=core(client),

@@ -1,0 +1,16 @@
+{
+  "version": 10,
+  "type": "schematic",
+  "name": "Feed line",
+  "nodes": [
+    { "key": "n1", "position": { "x": 1, "y": 2 }, "z_index": 4 },
+    { "key": "n2", "position": { "x": 3, "y": 4 }, "z_index": 4 },
+    { "key": "n3", "position": { "x": 5, "y": 6 }, "z_index": 4 }
+  ],
+  "edges": [],
+  "configs": {
+    "n1": { "variant": "button" },
+    "n2": { "variant": "button", "label": { "max_inline_size": 80 } },
+    "n3": { "variant": "input" }
+  }
+}

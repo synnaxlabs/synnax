@@ -38,7 +38,7 @@ var _ = Describe("Changes", func() {
 		var names []string
 		DeferCleanup(
 			db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
-				for ch := range svc.Changes(ctx, c) {
+				for ch := range svc.Changes(c) {
 					names = append(names, ch.Value.Name)
 				}
 			}),

@@ -79,7 +79,7 @@ func (t Type) IntegerMinValue() int64 {
 	}
 }
 
-// String returns the string representation of the type
+// String returns the string representation of the type.
 func (t Type) String() string {
 	var base string
 	switch t.Kind {
@@ -237,7 +237,7 @@ func (t Type) Unwrap() Type {
 }
 
 // UnwrapChan returns the effective value type when a type is used as a value. Channels
-// are implicitly read: chan<T> -> T Series stay as series: series<T> -> series<T>
+// are implicitly read: chan<T> -> T Series stay as series: series<T> -> series<T>.
 func (t Type) UnwrapChan() Type {
 	if t.Kind == KindChan && t.Elem != nil {
 		return *t.Elem

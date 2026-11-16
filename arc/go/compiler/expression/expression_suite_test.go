@@ -192,7 +192,7 @@ func expectSeriesExpression(
 	Expect(bytecode).To(MatchOpcodes(expectedOpcodes...))
 }
 
-// seriesSymbol creates a symbol for a series variable
+// seriesSymbol creates a symbol for a series variable.
 func seriesSymbol(name string, elemType types.Type, id int) symbol.Symbol {
 	return symbol.Symbol{
 		Name: name,

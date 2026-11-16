@@ -174,7 +174,7 @@ func (closingEncoder) EncodeStream(w io.Writer, v any) error {
 var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
 	unaryApp = newFiberApp(fiber.Config{DisableKeepalive: true})
-	router := MustSucceed(fhttp.NewRouter())
+	router := MustSucceed(fhttp.NewRouter(context.Background()))
 	unaryApp.Get("/health", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusOK)
 	})

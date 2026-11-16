@@ -19,7 +19,15 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from synnax import channel as channel_, group as group_, project as project_
 from synnax.resource import ID
 from synnax.schematic import symbol
-from x import border, color as color_, filter, notation as notation_, spatial, text
+from x import (
+    border,
+    color as color_,
+    filter,
+    notation as notation_,
+    spatial,
+    telem,
+    text,
+)
 from x.filter import shorthand
 
 FLEX_ALIGNMENT_START: Literal["start"] = "start"
@@ -116,7 +124,7 @@ class LabelConfig(BaseModel):
     level: text.Level = "h5"
     orientation: spatial.Location = "top"
     direction: spatial.Direction = "x"
-    max_inline_size: float = 150
+    max_inline_size: int = Field(default=150, ge=1, le=65535)
     align: FlexAlignment = "center"
 
 
@@ -172,12 +180,13 @@ class StalenessConfig(BaseModel):
     """Is the staleness detection shared by every symbol that reads a channel.
 
     Attributes:
-        staleness_timeout: Is the duration in seconds after which the value is
-            considered stale.
+        staleness_timeout: Is the span after which the value is considered stale.
         staleness_color: Is the color applied when the value is stale.
     """
 
-    staleness_timeout: float = 5
+    staleness_timeout: telem.TimeSpan = Field(
+        default=telem.TimeSpan(5000000000), ge=1000000000, le=9007199254740991
+    )
     staleness_color: color_.Color | None = None
 
 
@@ -187,13 +196,13 @@ class NumericTelemConfig(BaseModel):
 
     Attributes:
         channel: Is the channel whose value the symbol displays.
-        rolling_average: Is the sample window for rolling-average smoothing.
+        rolling_average: Is the number of samples in the rolling average.
         precision: Is the number of decimal places shown, from 0 to 17. Absent shows 2.
         notation: Is the numeric notation used to format the value.
     """
 
     channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
-    rolling_average: int | None = Field(default=None, ge=-2147483648, le=2147483647)
+    rolling_average: int = Field(default=1, ge=1, le=65535)
     precision: int | None = Field(default=None, ge=0, le=17)
     notation: notation_.Notation = "standard"
 
@@ -286,10 +295,12 @@ class SegmentedEdgeConfig(BaseModel):
         stroke_color: Is the stroke color of the edge.
         segments: Is the ordered list of orthogonal runs that trace the connector path
             from the source handle to the target handle.
+        stroke_width: Is the stroke width of the edge in pixels.
     """
 
     stroke_color: color_.Color | None = None
     segments: list[Segment] = Field(default_factory=list)
+    stroke_width: int = Field(default=2, ge=1, le=20)
 
 
 class LabeledConfig(BaseModel):
@@ -407,13 +418,15 @@ class ToggleConfig(LabeledConfig, ScaledConfig, StalenessConfig):
         state_channel: Is the channel whose value drives the symbol's active state.
         command_channel: Is the channel actuation commands are written to.
         control: Is the control state display configuration.
-        on_click_delay: Is the debounce delay applied to clicks, in milliseconds.
+        on_click_delay: Is the debounce delay applied to clicks.
     """
 
     state_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     control: ControlStateConfig | None = None
-    on_click_delay: float = 0
+    on_click_delay: telem.TimeSpan = Field(
+        default=telem.TimeSpan(0), ge=0, le=2147483647000000
+    )
 
 
 class StaticSymbolConfig(LabeledConfig, ScaledConfig):
@@ -580,8 +593,8 @@ class BoxNodeConfig(LabeledConfig):
     dimensions: spatial.Dimensions = Field(
         default_factory=lambda: spatial.Dimensions(width=125, height=200)
     )
-    border_radius: float = 3
-    stroke_width: float = 2
+    border_radius: int = Field(default=3, ge=0, le=65535)
+    stroke_width: int = Field(default=2, ge=0, le=20)
 
 
 class ButtonNodeConfig(LabeledConfig):
@@ -589,8 +602,9 @@ class ButtonNodeConfig(LabeledConfig):
 
     variant: Literal["button"] = "button"
     size: ComponentSize = "medium"
-    level: text.Level | None = None
-    on_click_delay: float = 0
+    on_click_delay: telem.TimeSpan = Field(
+        default=telem.TimeSpan(0), ge=0, le=2147483647000000
+    )
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     mode: ButtonMode = "fire"
     fill_color: color_.Color | None = None
@@ -601,10 +615,10 @@ class CircleNodeConfig(LabeledConfig):
     """Is the configuration for circle annotation symbols."""
 
     variant: Literal["circle"] = "circle"
-    radius: float = 20
+    radius: int = Field(default=20, ge=0, le=65535)
     stroke_color: color_.Color | None = None
     fill_color: color_.Color | None = None
-    stroke_width: float = 2
+    stroke_width: int = Field(default=2, ge=0, le=20)
 
 
 class GaugeNodeConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
@@ -616,7 +630,7 @@ class GaugeNodeConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
     bounds: spatial.Bounds = Field(
         default_factory=lambda: spatial.Bounds(lower=0, upper=100)
     )
-    bar_width: float = 10
+    bar_width: int = Field(default=10, ge=0, le=65535)
     location: spatial.LocationXY = Field(
         default_factory=lambda: spatial.LocationXY(x="left", y="center")
     )
@@ -634,8 +648,10 @@ class InputNodeConfig(LabeledConfig, StalenessConfig):
     dimensions: spatial.Dimensions | None = None
     fill_color: color_.Color | None = None
     disabled: bool = False
-    inline_size: float = 150
-    on_click_delay: float = 0
+    inline_size: int = Field(default=150, ge=0, le=65535)
+    on_click_delay: telem.TimeSpan = Field(
+        default=telem.TimeSpan(0), ge=0, le=2147483647000000
+    )
     control: ControlStateConfig | None = None
 
 
@@ -656,7 +672,7 @@ class LineNodeConfig(BaseModel):
     stroke_color: color_.Color | None = None
     start: spatial.XY = Field(default_factory=lambda: spatial.XY(x=0, y=0))
     end: spatial.XY = Field(default_factory=lambda: spatial.XY(x=100, y=0))
-    stroke_width: float = 2
+    stroke_width: int = Field(default=2, ge=1, le=20)
 
 
 class OffPageReferenceNodeConfig(LabeledConfig):
@@ -666,20 +682,20 @@ class OffPageReferenceNodeConfig(LabeledConfig):
     orientation: spatial.OuterLocation = "right"
     fill_color: color_.Color | None = None
     page: Page | None = None
-    dbl_click_nav_disabled: bool = False
+    double_click_navigation_disabled: bool = False
 
 
 class PolygonNodeConfig(LabeledConfig):
     """Is the configuration for polygon annotation symbols."""
 
     variant: Literal["polygon"] = "polygon"
-    num_sides: float = 6
-    side_length: float = 20
+    num_sides: int = Field(default=6, ge=3, le=255)
+    side_length: int = Field(default=20, ge=0, le=65535)
     rotation: float = 0
-    corner_rounding: float = 0
+    border_radius: int = Field(default=0, ge=0, le=65535)
     stroke_color: color_.Color | None = None
     fill_color: color_.Color | None = None
-    stroke_width: float = 2
+    stroke_width: int = Field(default=2, ge=0, le=20)
 
 
 class SelectNodeConfig(LabeledConfig, StalenessConfig):
@@ -690,10 +706,12 @@ class SelectNodeConfig(LabeledConfig, StalenessConfig):
     command_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     state_channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     fill_color: color_.Color | None = None
-    inline_size: float = 100
+    inline_size: int = Field(default=100, ge=0, le=65535)
     options: list[StateMapping] = Field(default_factory=list)
     disabled: bool = False
-    on_click_delay: float = 0
+    on_click_delay: telem.TimeSpan = Field(
+        default=telem.TimeSpan(0), ge=0, le=2147483647000000
+    )
     control: ControlStateConfig | None = None
 
 
@@ -719,8 +737,10 @@ class SetpointNodeConfig(LabeledConfig, StalenessConfig):
     fill_color: color_.Color | None = None
     units: str = ""
     disabled: bool = False
-    inline_size: float = 100
-    on_click_delay: float = 0
+    inline_size: int = Field(default=100, ge=0, le=65535)
+    on_click_delay: telem.TimeSpan = Field(
+        default=telem.TimeSpan(0), ge=0, le=2147483647000000
+    )
     control: ControlStateConfig | None = None
 
 
@@ -730,7 +750,7 @@ class StateIndicatorNodeConfig(LabeledConfig, StalenessConfig):
     variant: Literal["state_indicator"] = "state_indicator"
     channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     stroke_color: color_.Color | None = None
-    inline_size: float = 100
+    inline_size: int = Field(default=100, ge=0, le=65535)
     options: list[StateMapping] = Field(default_factory=list)
     size: ComponentSize = "medium"
 
@@ -742,7 +762,7 @@ class StringDisplayNodeConfig(LabeledConfig, StalenessConfig):
     stroke_color: color_.Color | None = None
     text_color: color_.Color | None = None
     tooltip: list[str] = Field(default_factory=list)
-    inline_size: float = 100
+    inline_size: int = Field(default=100, ge=0, le=65535)
     channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     level: text.Level = "h4"
 
@@ -756,7 +776,7 @@ class TextBoxNodeConfig(LabeledConfig):
 
     variant: Literal["text_box"] = "text_box"
     text_color: color_.Color | None = None
-    width: float = 75
+    inline_size: int = Field(default=75, ge=0, le=65535)
     align: FlexAlignment = "center"
     auto_fit_disabled: bool = False
     level: text.Level = "p"
@@ -774,7 +794,7 @@ class ValueNodeConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
     tooltip: list[str] = Field(default_factory=list)
     redline: color_.Scale = Field(default_factory=lambda: color_.Scale())
     units: str = ""
-    inline_size: float = 70
+    inline_size: int = Field(default=70, ge=0, le=65535)
     level: text.Level = "h4"
     location: spatial.LocationXY = Field(
         default_factory=lambda: spatial.LocationXY(x="left", y="center")
@@ -1029,10 +1049,12 @@ class TankNodeConfig(LabeledConfig):
 
     variant: Literal["tank"] = "tank"
     channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
-    rolling_average: int | None = Field(default=None, ge=-2147483648, le=2147483647)
+    rolling_average: int = Field(default=1, ge=1, le=65535)
     precision: int | None = Field(default=None, ge=0, le=17)
     notation: notation_.Notation = "standard"
-    staleness_timeout: float = 5
+    staleness_timeout: telem.TimeSpan = Field(
+        default=telem.TimeSpan(5000000000), ge=1000000000, le=9007199254740991
+    )
     staleness_color: color_.Color | None = None
     bounds: spatial.Bounds = Field(
         default_factory=lambda: spatial.Bounds(lower=0, upper=100)

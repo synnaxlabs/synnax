@@ -80,7 +80,7 @@ func renderText(w io.Writer, r *Report, verbose bool) error {
 			sym = checkSkip.Render(symGateSkip)
 			label = checkSkip.Render(g.Gate + " (skipped)")
 		}
-		elapsed := checkDim.Render(fmt.Sprintf(" %s", fmtDuration(g.Elapsed)))
+		elapsed := checkDim.Render(" " + fmtDuration(g.Elapsed))
 		if _, err := fmt.Fprintf(w, "%s %s%s\n", sym, label, elapsed); err != nil {
 			return err
 		}
