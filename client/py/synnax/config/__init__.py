@@ -17,10 +17,10 @@ import keyring
 from keyring.backend import KeyringBackend
 
 from synnax.config.clusters import (
-    _UNAVAILABLE,
     KEYCHAIN_UNAVAILABLE_MSG,
     Cluster,
     Clusters,
+    _unavailable,
 )
 from synnax.config.file import File
 from synnax.exceptions import ConfigurationError, ValidationError
@@ -84,7 +84,9 @@ def load_desktop_options(
         raise ConfigurationError(OLD_DESKTOP_MSG)
     try:
         api_key = keychain.get_password(DESKTOP_KEY_SERVICE, DESKTOP_KEY_ACCOUNT)
-    except _UNAVAILABLE as e:
+    except Exception as e:
+        if not _unavailable(e):
+            raise
         raise ConfigurationError(
             "Cannot read the API key of Synnax Desktop. " + KEYCHAIN_UNAVAILABLE_MSG
         ) from e
@@ -196,8 +198,9 @@ def try_load_options_if_none_provided(
     :returns: The options, and whether they are the options Synnax Desktop saved.
     :raises ValidationError: If an API key has no host, the environment variables are
         not valid, or nothing is saved.
-    :raises ConfigurationError: If `sy login` saved a login and no OS keychain is
-        available to read its key.
+    :raises ConfigurationError: If no OS keychain is available to read the key of the
+        saved login or of Synnax Desktop, or if an older Synnax Desktop left its key in
+        the discovery file.
     """
     if len(host) == 0:
         if api_key:

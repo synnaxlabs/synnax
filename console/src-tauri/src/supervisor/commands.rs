@@ -251,7 +251,14 @@ pub async fn supervisor_reset<R: Runtime>(
     supervisor.reset().await.map_err(|err| err.to_string())?;
     // The erased Core took the saved API key with it.
     let path = discovery.path.clone();
-    blocking(move || discovery::remove(&path, &discovery::key_entry()?)).await?;
+    blocking(move || discovery::remove_file(&path)).await?;
+    // The data is gone, so a keychain that fails must not stop the restart. Without a
+    // keychain there is no key to delete.
+    if let Err(err) =
+        blocking(|| discovery::key_entry().and_then(|key| discovery::remove_key(&key))).await
+    {
+        eprintln!("failed to delete the API key from the keychain: {err}");
+    }
     app.restart()
 }
 
@@ -260,7 +267,7 @@ pub async fn supervisor_reset<R: Runtime>(
 pub async fn supervisor_api_key(discovery: State<'_, Discovery>) -> Result<Option<String>, String> {
     let path = discovery.path.clone();
     let _guard = discovery.lock.lock().await;
-    blocking(move || discovery::read_key(&path, &discovery::key_entry()?)).await
+    blocking(move || discovery::read_key(&path, &discovery::key_entry_for(&path)?)).await
 }
 
 /// Saves `api_key` in the keychain and the address of the running Core in the discovery
@@ -288,7 +295,7 @@ pub async fn supervisor_save_api_key(
     blocking(move || {
         discovery::swap(
             &path,
-            &discovery::key_entry()?,
+            &discovery::key_entry_for(&path)?,
             &file,
             &api_key,
             replaces.as_deref(),
