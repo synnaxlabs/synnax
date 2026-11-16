@@ -5684,3 +5684,35 @@ var _ = Describe("Writer close", func() {
 		Eventually(releases).Should(Receive(Equal(release{bounded: true})))
 	})
 })
+
+var _ = Describe("Writer after the DB context ends", func() {
+	It("Should keep writing once the relay stops", func(ctx SpecContext) {
+		life, cancel := context.WithCancel(ctx)
+		db := mustOpenDBOnFS(
+			life,
+			FileSystems["memFS"](),
+			cesium.WithRelayBufferSize(1),
+		)
+		key := GenerateChannelKey()
+		Expect(db.CreateChannel(ctx, cesium.Channel{
+			Name:     "boulder",
+			Key:      key,
+			Virtual:  true,
+			DataType: telem.Int64T,
+		})).To(Succeed())
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{key},
+		}))
+		cancel()
+		written := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			defer close(written)
+			for v := range int64(4) {
+				MustSucceed(w.Write(telem.UnaryFrame(key, telem.NewSeriesV(v))))
+			}
+			Expect(w.Close()).To(Succeed())
+		}()
+		Eventually(written).Should(BeClosed())
+	})
+})

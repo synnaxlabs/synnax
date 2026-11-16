@@ -116,7 +116,9 @@ type StreamWriter = confluence.Segment[WriterRequest, WriterResponse]
 type streamWriter struct {
 	confluence.UnarySink[WriterRequest]
 	confluence.AbstractUnarySource[WriterResponse]
-	relay          confluence.Inlet[relayResponse]
+	relay confluence.Inlet[relayResponse]
+	// relayStopped closes when the relay stops. Writes then skip it.
+	relayStopped   <-chan struct{}
 	accumulatedErr error
 	errSent        bool
 	// writeRefused is true when a write was refused for no control since the last
@@ -316,9 +318,12 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 		}
 	}
 	if w.Mode.Stream() {
-		w.relay.Inlet() <- relayResponse{
+		select {
+		case w.relay.Inlet() <- relayResponse{
 			frame: req.Frame.ExcludeKeys(excludeUnauthorized),
 			group: w.ControlSubject.Group,
+		}:
+		case <-w.relayStopped:
 		}
 	}
 	return accumulatedErr

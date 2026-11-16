@@ -138,6 +138,9 @@ func (d *DynamicDeltaMultiplier[V]) Disconnect(inlets ...Inlet[V]) {
 	}
 }
 
+// Stopped returns a channel that closes once the routine started by Flow ends for good.
+func (d *DynamicDeltaMultiplier[V]) Stopped() <-chan struct{} { return d.stopped }
+
 // stop closes every inlet, including those whose connection is still buffered, and
 // makes later calls to Connect and Disconnect return at once.
 func (d *DynamicDeltaMultiplier[V]) stop() {
