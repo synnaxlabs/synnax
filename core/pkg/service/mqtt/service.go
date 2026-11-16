@@ -119,7 +119,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			PatchEntry:    (*ReadConfig).Patch,
 			HashEntry:     (*ReadConfig).HashContent,
 			ResolveEntry:  resolver.resolve,
-			ValidateEntry: validateReadConfig,
+			ValidateEntry: (*ReadConfig).Validate,
 		},
 	); !ok(err, s.Read) {
 		return nil, err
