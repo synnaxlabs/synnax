@@ -15,7 +15,7 @@ from aws import AWS
 from common import RECOMMAND_DELAY, Channels
 from conftest import Client, Secrets, core
 from log import Log
-from logins import PREFIX, Logins
+from logins import MAX_HOLDERS, PREFIX, Logins
 from seats import Seats, seat_labels
 
 JOB = {"self-hosted", "agent-claude"}
@@ -447,6 +447,7 @@ class TestSeats:
         client.elapsed += 3 * sy.TimeSpan.SECOND
         s.step(queued=[], found={CLAUDE: seat("stopped", login="claude-1")})
         assert store.tags[name]["holders"] == f"{ROLE}:{CLAUDE}"
+        assert aws.tags[CLAUDE] == {"login": "claude-1"}
 
     def test_should_drop_a_started_seat_still_stopped_after_the_delay(
         self, client: Client
@@ -459,6 +460,51 @@ class TestSeats:
         client.elapsed += RECOMMAND_DELAY
         s.step(queued=[], found={CLAUDE: seat("stopped", login="claude-1")})
         assert "holders" not in store.tags[name]
+        assert aws.deleted == [(CLAUDE, "login")]
+
+    def test_should_drop_a_stopped_seat_and_delete_its_login_tag(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1")
+        name = f"{PREFIX}claude-1"
+        store.tags[name]["holders"] = f"{ROLE}:{CLAUDE}"
+        found = {CLAUDE: seat("stopped", login="claude-1")}
+        seats(client, aws, store).step(queued=[], found=found)
+        assert "holders" not in store.tags[name]
+        assert aws.deleted == [(CLAUDE, "login")]
+
+    def test_should_not_add_a_seat_started_without_a_login_tag(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1")
+        name = f"{PREFIX}claude-1"
+        store.tags[name]["holders"] = f"{ROLE}:{CLAUDE}"
+        found = {
+            CLAUDE: seat("running", login="claude-1"),
+            CLAUDE_2: seat("running", name="claude-2"),
+        }
+        seats(client, aws, store).step(queued=[], found=found)
+        assert store.tags[name]["holders"] == f"{ROLE}:{CLAUDE}"
+        assert aws.deleted == []
+
+    def test_should_cap_the_holders_and_delete_the_login_tag_of_the_rest(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1")
+        name = f"{PREFIX}claude-1"
+        iids = [f"i-{n:04d}" for n in range(MAX_HOLDERS + 2)]
+        store.tags[name]["holders"] = f"{ROLE}:{iids[-1]}"
+        found = {
+            iid: seat("running", name=f"claude-{n}", login="claude-1")
+            for n, iid in enumerate(iids)
+        }
+        seats(client, aws, store).step(queued=[], found=found)
+        kept = [iids[-1], *iids[: MAX_HOLDERS - 1]]
+        assert store.tags[name]["holders"] == " ".join(f"{ROLE}:{i}" for i in kept)
+        assert aws.deleted == [(iid, "login") for iid in iids[MAX_HOLDERS - 1 : -1]]
 
     def test_should_add_an_up_seat_missing_from_the_holders_of_its_login(
         self, client: Client
