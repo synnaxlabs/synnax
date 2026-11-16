@@ -96,6 +96,8 @@ type streamCore[I, O freighter.Payload] struct {
 	streamCoreConfig
 }
 
+func (c *streamCore[I, O]) peerClosed() bool { return c.peerCloseErr != nil }
+
 func (c *streamCore[I, O]) send(msg WSMessage[O]) error {
 	if c.writeDeadline > 0 {
 		if err := c.conn.SetWriteDeadline(time.Now().Add(c.writeDeadline)); err != nil {

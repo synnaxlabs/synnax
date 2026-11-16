@@ -88,3 +88,57 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Client:
 
 def core(client: Client) -> sy.Synnax:
     return cast(sy.Synnax, client)
+
+
+class SecretsExceptions:
+    class ResourceNotFoundException(Exception):
+        pass
+
+
+class Secrets:
+    """Stands in for Secrets Manager: the tags of each secret by name. Writes fail
+    while failing is set. A secret in deleted is scheduled for deletion, and one in
+    gone is listed but no longer exists."""
+
+    exceptions = SecretsExceptions
+
+    def __init__(self) -> None:
+        self.tags: dict[str, dict[str, str]] = {}
+        self.deleted: set[str] = set()
+        self.gone: set[str] = set()
+        self.failing = False
+
+    def get_paginator(self, operation: str) -> "Secrets":
+        assert operation == "list_secrets"
+        return self
+
+    def paginate(self, Filters: list[dict]) -> list[dict]:
+        prefix = Filters[0]["Values"][0]
+        # The list carries no tags, so a read that trusts it sees none.
+        listed = [
+            {"Name": name, "ARN": f"arn:{name}", "Tags": []}
+            for name in self.tags
+            if name.startswith(prefix)
+        ]
+        return [{"SecretList": listed}]
+
+    def describe_secret(self, SecretId: str) -> dict:
+        name = SecretId.removeprefix("arn:")
+        if name in self.gone:
+            raise self.exceptions.ResourceNotFoundException(name)
+        tags = [{"Key": k, "Value": v} for k, v in self.tags[name].items()]
+        secret = {"Name": name, "ARN": SecretId, "Tags": tags}
+        if name in self.deleted:
+            secret["DeletedDate"] = "2026-11-15"
+        return secret
+
+    def tag_resource(self, SecretId: str, Tags: list[dict]) -> None:
+        if self.failing:
+            raise PermissionError("not authorized")
+        self.tags[SecretId.removeprefix("arn:")] |= {t["Key"]: t["Value"] for t in Tags}
+
+    def untag_resource(self, SecretId: str, TagKeys: list[str]) -> None:
+        if self.failing:
+            raise PermissionError("not authorized")
+        for key in TagKeys:
+            self.tags[SecretId.removeprefix("arn:")].pop(key, None)

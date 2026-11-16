@@ -21,7 +21,7 @@ var _ = Describe("Create and Output markers", func() {
 	var loader *MockFileLoader
 	BeforeEach(func() { loader = NewMockFileLoader() })
 
-	It("Should accept @create on a type and @output on a field", func(ctx SpecContext) {
+	It("Should accept @create on a type and @output on a field", func() {
 		source := `
 			Thing struct {
 				key    uuid @key
@@ -30,7 +30,7 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-		table, diag := Analyze(ctx, source, "x", loader)
+		table, diag := Analyze(source, "x", loader)
 		Expect(diag.Ok()).To(BeTrue())
 
 		typ := table.MustGet("x.Thing")
@@ -48,7 +48,7 @@ var _ = Describe("Create and Output markers", func() {
 
 	It(
 		"Should synthesize a derived New type for @create, omitting @output fields",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			Thing struct {
 				key    uuid @key
@@ -57,7 +57,7 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-			table, diag := Analyze(ctx, source, "x", loader)
+			table, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			newType, ok := table.Get("x.New")
@@ -79,7 +79,7 @@ var _ = Describe("Create and Output markers", func() {
 		},
 	)
 
-	It("Should not synthesize a New when one is hand-written", func(ctx SpecContext) {
+	It("Should not synthesize a New when one is hand-written", func() {
 		source := `
 			Thing struct {
 				key  uuid @key
@@ -93,7 +93,7 @@ var _ = Describe("Create and Output markers", func() {
 		`
 		// A duplicate synthesized New would add a diagnostic, so a clean analysis
 		// proves the hand-written New was respected.
-		table, diag := Analyze(ctx, source, "x", loader)
+		table, diag := Analyze(source, "x", loader)
 		Expect(diag.Ok()).To(BeTrue())
 		_, ok := table.Get("x.New")
 		Expect(ok).To(BeTrue())
@@ -101,7 +101,7 @@ var _ = Describe("Create and Output markers", func() {
 
 	It(
 		"Should synthesize a New<Name> projection for a @create union",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			TabBase struct {
 				key uuid = create { @key }
@@ -116,7 +116,7 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-			table, diag := Analyze(ctx, source, "x", loader)
+			table, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			newTab, ok := table.Get("x.NewTab")
@@ -134,7 +134,7 @@ var _ = Describe("Create and Output markers", func() {
 
 	It(
 		"Should synthesize New for a @create union named after its namespace",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			Base struct {
 				key uuid = create { @key }
@@ -149,7 +149,7 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-			table, diag := Analyze(ctx, source, "x", loader)
+			table, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := MustBeOk(table.Get("x.New")).Form.(resolution.StructForm)
 			Expect(form.Extends).To(HaveLen(1))
@@ -161,8 +161,8 @@ var _ = Describe("Create and Output markers", func() {
 
 	DescribeTable(
 		"Should give New to whichever of a struct and a namespace union comes first",
-		func(ctx SpecContext, source, newBase, unionNew string) {
-			table, diag := Analyze(ctx, source, "x", loader)
+		func(source, newBase, unionNew string) {
+			table, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := MustBeOk(table.Get("x.New")).Form.(resolution.StructForm)
 			Expect(form.Extends[0].Name).To(Equal(newBase))
@@ -202,7 +202,7 @@ var _ = Describe("Create and Output markers", func() {
 
 	It(
 		"Should synthesize both a struct New and a union New<Name> in one namespace",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			Panel struct {
 				key uuid @key
@@ -222,7 +222,7 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-			table, diag := Analyze(ctx, source, "x", loader)
+			table, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			_, ok := table.Get("x.New")
 			Expect(ok).To(BeTrue())
@@ -233,7 +233,7 @@ var _ = Describe("Create and Output markers", func() {
 
 	It(
 		"Should synthesize a single New when a namespace has two @create structs",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			First struct {
 				key  uuid @key
@@ -248,7 +248,7 @@ var _ = Describe("Create and Output markers", func() {
 		`
 			// Both structs would target x.New; only one may be synthesized, otherwise
 			// the second table.Add collides and fails analysis.
-			table, diag := Analyze(ctx, source, "x", loader)
+			table, diag := Analyze(source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			newType, ok := table.Get("x.New")
 			Expect(ok).To(BeTrue())

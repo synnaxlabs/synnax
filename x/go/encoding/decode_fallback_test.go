@@ -28,7 +28,7 @@ var _ = Describe("NewDecodeFallbackCodec", func() {
 	Describe("Decoding", func() {
 		It(
 			"Should fallback to the next codec when the first one fails",
-			func(ctx SpecContext) {
+			func() {
 				type abc struct {
 					Value int `json:"value"`
 				}
@@ -44,21 +44,21 @@ var _ = Describe("NewDecodeFallbackCodec", func() {
 		)
 		It(
 			"Should return the error of the last encoder if all codecs fail to encode",
-			func(ctx SpecContext) {
+			func() {
 				Expect(codec.Encode(make(chan int))).Error().
 					To(MatchError(ContainSubstring("kind=chan, type=chan int")))
 			},
 		)
 		It(
 			"Should return an error when all codecs fail to decode",
-			func(ctx SpecContext) {
+			func() {
 				invalidData := []byte("completely invalid data")
 				Expect(
 					codec.Decode(invalidData, &struct{ Value int }{}),
 				).To(MatchError(ContainSubstring("all codecs failed to decode")))
 			},
 		)
-		It("Should handle DecodeStream fallback correctly", func(ctx SpecContext) {
+		It("Should handle DecodeStream fallback correctly", func() {
 			type abc struct {
 				Value int `json:"value"`
 			}
@@ -71,7 +71,7 @@ var _ = Describe("NewDecodeFallbackCodec", func() {
 		})
 		It(
 			"Should return error when DecodeStream fails for all codecs",
-			func(ctx SpecContext) {
+			func() {
 				invalidData := []byte("completely invalid data")
 				var res struct{ Value int }
 				Expect(

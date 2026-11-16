@@ -54,7 +54,7 @@ func (n NumberZ) Validate(data any) error {
 	return n.Parse(data, &dest)
 }
 
-// validateDestination validates that the destination is compatible with numeric data
+// validateDestination validates that the destination is compatible with numeric data.
 func (n NumberZ) validateDestination(dest reflect.Value) error {
 	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError(string(n.dataType), dest)

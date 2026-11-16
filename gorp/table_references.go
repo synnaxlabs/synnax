@@ -91,7 +91,7 @@ func (t *Table[K, E]) exists(
 		return false, err
 	}
 	codec := key.NewCodec[K](t.keyPrefix)
-	_, closer, err := snap.Get(ctx, codec.Encode(pk))
+	_, closer, err := snap.Get(codec.Encode(pk))
 	if errors.Is(err, query.ErrNotFound) {
 		return false, nil
 	}

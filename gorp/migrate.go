@@ -147,7 +147,7 @@ func readAppliedMigrations(
 	tx Tx,
 	namespace string,
 ) (applied set.Set[string], err error) {
-	b, closer, err := tx.Get(ctx, key.Migrations(namespace))
+	b, closer, err := tx.Get(key.Migrations(namespace))
 	if err != nil {
 		if errors.Is(err, query.ErrNotFound) {
 			return make(set.Set[string]), nil

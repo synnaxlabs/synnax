@@ -512,7 +512,7 @@ func (e *Engine) retry(
 	p *progress,
 	run func(context.Context, *attempt) error,
 ) error {
-	brk, err := breaker.NewBreaker(ctx, e.cfg.Retry)
+	brk, err := breaker.NewBreaker(e.cfg.Retry)
 	if err != nil {
 		return err
 	}
@@ -565,7 +565,7 @@ func (e *Engine) retry(
 			return err
 		}
 		e.cfg.OnRetry(ctx, err)
-		if !brk.Wait() {
+		if !brk.Wait(ctx) {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}

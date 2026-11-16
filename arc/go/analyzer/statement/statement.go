@@ -1088,7 +1088,7 @@ func analyzeChannelAssignment(
 	}
 }
 
-// analyzeIndexedAssignment validates indexed assignment statements (series[i] = value)
+// analyzeIndexedAssignment validates indexed assignment statements (series[i] = value).
 func analyzeIndexedAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	varScope *symbol.Symbol,
@@ -1156,7 +1156,7 @@ func analyzeIndexedAssignment(
 }
 
 // analyzeIndexedCompoundAssignment validates indexed compound assignment statements
-// (series[i] += value)
+// (series[i] += value).
 func analyzeIndexedCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	varScope *symbol.Symbol,
@@ -1236,7 +1236,7 @@ func analyzeIndexedCompoundAssignment(
 }
 
 // analyzeSeriesCompoundAssignment validates whole-series compound assignment (series +=
-// value) Supports both series += scalar (broadcast) and series += series (element-wise)
+// value), both series += scalar (broadcast) and series += series (element-wise).
 func analyzeSeriesCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	varScope *symbol.Symbol,
@@ -1565,7 +1565,7 @@ func collectStatementReturnTypes(
 }
 
 // getIfStatementReturnTypes recursively extracts return types from if/else branches.
-// Returns (allPathsReturn bool, returnTypes []types.Type)
+// Returns (allPathsReturn bool, returnTypes []types.Type).
 func getIfStatementReturnTypes(
 	ctx context.Context[parser.IIfStatementContext],
 ) (bool, []types.Type) {
@@ -1613,7 +1613,7 @@ func getIfStatementReturnTypes(
 }
 
 // getBlockReturnTypes extracts all return types from a block's statements.
-// Returns (hasReturn bool, returnTypes []types.Type)
+// Returns (hasReturn bool, returnTypes []types.Type).
 func getBlockReturnTypes(
 	ctx context.Context[parser.IBlockContext],
 ) (bool, []types.Type) {

@@ -68,6 +68,24 @@ lighter step or the base step in dark mode.
   step.
 - A custom icon looks precise, never cartoony: about 1.5-unit strokes on a 24 grid,
   square ends, corner radii of 1 unit or less, and filled shapes cut by clean gaps.
+- An icon centers on its ink, not its box. A star moves up 3.6% of its box, so it lines
+  up with the text and the icons next to it.
+
+### Compound icons
+
+- A compound icon is a base icon with a modifier (add, import, export) or a stack. Draw
+  it as one glyph with `Icon.createFromPath`. Do not layer icons at run time.
+- The modifier sits at top right: 9 units wide, centered at (17.5, 6.5), with a 2.5-unit
+  stem (2 on a line base). The base scales to 0.9 from its bottom-left corner.
+- Cut the base 1.75 units clear of the modifier, with no backing disc. Cut with the
+  modifier's box, with a circle on a round base, or with the modifier's outline when a
+  box removes a small detail. A cut line keeps its round caps. Remove slivers.
+- A folder holds its modifier as a knockout. The project icon replaces its top dot with
+  the modifier.
+- An explorer icon is a diagonal stack: a solid back copy at top right, cut 1.75 units
+  clear of the front copy at bottom left.
+- An item that adds to a thing that exists uses the plain base icon ("Add to active
+  plot").
 
 ### Type
 
@@ -212,12 +230,14 @@ lighter step or the base step in dark mode.
   the submit button. The note keeps its space while empty, so nothing moves when it
   shows. It is one plain sentence ("Incorrect username or password."), and it is empty
   before the first attempt.
-- A span of time (a timeout, a delay, a window) is a typed duration field
-  (`Form.TimeSpanField`, or `Input.TimeSpan inline`), never a number with a unit suffix.
-  The person types "500ms", "2.5s", or "1min 30s". A number alone takes the unit of the
-  stored value. The readings and a hint show under the field while it has focus, also
-  when it already has a value. A bound is a message under the field ("Timeout must be
-  1min or less"), never a silent clamp.
+- A span of time (a timeout, a delay, a window) is a typed duration field, never a
+  number with a unit suffix. Use `Form.TimeSpanField` when the stored unit is the unit
+  of a number typed alone, and `Input.TimeSpan inline` with its own `unit` when they
+  differ. The person types "500ms", "2.5s", or "1min 30s". A number alone takes the unit
+  people think in for that field, such as milliseconds for a click delay and seconds for
+  a timeout, whatever unit the value is stored in. The readings and a hint show under
+  the field while it has focus, also when it already has a value. A bound is a message
+  under the field ("Timeout must be 1min or less"), never a silent clamp.
 - A range duration on the timeline keeps the popover editor (`Input.TimeSpan`), because
   it reads as a value, not as a form field.
 
@@ -401,6 +421,8 @@ bound, a log precision, or the line plot X channel.
 - Hover tints the item faintly, and a press does not deepen the tint.
 - A timeline lane is checkable too, and spaces its checkbox as a tree item does. Its
   label gives up the checkbox width, so the bars stay on the time axis.
+- The first timeline lane sits 6 px below the time axis, as the first tree item sits
+  below the top of its list. The axis lines and now go on through that room.
 
 ### Explorer bars
 

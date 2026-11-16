@@ -60,7 +60,7 @@ var _ = Describe("JSON", func() {
 		})
 
 		DescribeTable("Should report an invalid type as a validation error",
-			func(ctx SpecContext, data string) {
+			func(data string) {
 				var decoded v2.ReadChannel
 				err := xjson.Codec.Decode([]byte(data), &decoded)
 				Expect(err).To(SatisfyAll(

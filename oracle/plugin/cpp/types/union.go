@@ -79,10 +79,9 @@ func (p *Plugin) processUnion(
 		Doc:       doc.Get(entry.Domains),
 		DiscJSON:  casing.FieldSnake(form.Discriminator),
 	}
-	pbNamespace := ""
 	if hasPBFlag(entry) && !omit.IsSkipped(entry, "pb") {
 		if pbOutputPath := output.GetPBPath(entry); pbOutputPath != "" {
-			pbNamespace = cppnaming.PBNamespace(pbOutputPath, entry.Namespace)
+			pbNamespace := cppnaming.PBNamespace(pbOutputPath, entry.Namespace)
 			ud.HasProto = true
 			ud.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, cppnaming.PBName(entry))
 			data.AddSystem("utility")
@@ -103,7 +102,7 @@ func (p *Plugin) processUnion(
 	borrows = borrows && form.BorrowsEnum()
 	if borrows && enumType.FilePath != data.filePath {
 		if path := enum.FindOutputPath(enumType, data.table, "cpp"); path != "" {
-			data.AddInternal(fmt.Sprintf("%s/types.gen.h", path))
+			data.AddInternal(path + "/types.gen.h")
 		}
 	}
 	variants := make([]structData, 0, len(form.Variants))

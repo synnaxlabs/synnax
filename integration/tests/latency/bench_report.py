@@ -150,46 +150,6 @@ class BenchReport(Latency):
         plt.tight_layout()
         plt.subplots_adjust(top=0.85)  # Make room for the title and description
 
-        # Two to four times the worst nightly CI values on the Ubuntu and Windows bots.
-        max_p90 = 2
-        max_p95 = 2.5
-        max_p99 = 3
-        max_average_jitter = 0.5
-        max_peak_to_peak_jitter = 5
-
-        # Print statistics
-        p90_msg = f"P90: {p90:.2f}ms"
-        if p90 > max_p90:
-            p90_msg += f" is greater than {max_p90}ms (FAILED)"
-            self.fail()
-        self.log(p90_msg)
-
-        p95_msg = f"P95: {p95:.2f}ms"
-        if p95 > max_p95:
-            p95_msg += f" is greater than {max_p95}ms (FAILED)"
-            self.fail()
-        self.log(p95_msg)
-
-        p99_msg = f"P99: {p99:.2f}ms"
-        if p99 > max_p99:
-            p99_msg += f" is greater than {max_p99}ms (FAILED)"
-            self.fail()
-        self.log(p99_msg)
-
-        peak_to_peak_jitter_msg = f"Peak-to-peak jitter: {peak_to_peak_jitter:.2f}ms"
-        if peak_to_peak_jitter > max_peak_to_peak_jitter:
-            peak_to_peak_jitter_msg += (
-                f" is greater than {max_peak_to_peak_jitter}ms (FAILED)"
-            )
-            self.fail()
-        self.log(peak_to_peak_jitter_msg)
-
-        average_jitter_msg = f"Average jitter: {average_jitter:.2f}ms"
-        if average_jitter > max_average_jitter:
-            average_jitter_msg += f" is greater than {max_average_jitter}ms (FAILED)"
-            self.fail()
-        self.log(average_jitter_msg)
-
         os.makedirs("tests/results", exist_ok=True)
         plt.savefig("tests/results/bench_load.png", dpi=300, bbox_inches="tight")
         self.log(
@@ -197,3 +157,20 @@ class BenchReport(Latency):
             f"{os.path.abspath('tests/results/bench_load.png')}"
         )
         plt.close(fig)
+
+        # Two to four times the worst nightly CI values on the Ubuntu and Windows bots.
+        limits_ms = {
+            "p90": (float(p90), 2),
+            "p95": (float(p95), 2.5),
+            "p99": (float(p99), 3),
+            "peak_to_peak_jitter": (float(peak_to_peak_jitter), 5),
+            "average_jitter": (float(average_jitter), 0.5),
+        }
+        exceeded: list[str] = []
+        for metric, (value, limit) in limits_ms.items():
+            self.log(f"{metric}: {value:.2f}ms")
+            self.metrics[f"{metric}_ms"] = value
+            if value > limit:
+                exceeded.append(f"{metric} {value:.2f}ms is greater than {limit}ms")
+        if len(exceeded) > 0:
+            self.fail("; ".join(exceeded))

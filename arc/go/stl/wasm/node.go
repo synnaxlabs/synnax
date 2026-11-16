@@ -281,7 +281,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 					s, ok := n.strings.Get(uint32(value.Value))
 					if !ok {
 						// An unregistered handle is an Arc compiler/runtime
-						// bug, not anything a .arc program can provoke.
+						// defect, not anything a .arc program can provoke.
 						zap.S().DPanicf(
 							"node %s output %d returned unregistered string handle %d at sample %d/%d",
 							n.ir.Key,

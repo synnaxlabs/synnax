@@ -730,7 +730,7 @@ func formatModuleMembersList(sym *symbol.Symbol) []string {
 	return members
 }
 
-// symbolToLocation converts a symbol to an LSP Location pointing to its definition
+// symbolToLocation converts a symbol to an LSP Location pointing to its definition.
 func (s *Server) symbolToLocation(
 	docURI uri.URI,
 	sym *symbol.Symbol,

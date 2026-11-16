@@ -203,7 +203,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const nodesByKey = new Map(selectedNodes.map((n) => [n.key, n]));
 
   let firstNodeLabel: Schematic.Node.Label.Config | undefined;
-  for (const cfg of configByKey.values()) {
+  for (const cfg of editableByKey.values()) {
     if (!("label" in cfg)) continue;
     firstNodeLabel = cfg.label;
     if (firstNodeLabel != null) break;
@@ -527,37 +527,40 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
           />
         </MultiEdit.ColorsSection>
       )}
-      {selection.has("label") && (
+      {firstNodeLabel != null && (
         <Form.Section title="Label">
           <Input.Item label="Wrap width">
             <Input.Numeric
-              value={firstNodeLabel?.maxInlineSize ?? 150}
+              value={firstNodeLabel.maxInlineSize}
               onChange={(v) => handleLabelProp("maxInlineSize", v)}
               endContent="px"
+              bounds={Schematic.Node.Label.WRAP_WIDTH_BOUNDS}
+              integer
+              dragScale={Schematic.Node.Label.WRAP_WIDTH_DRAG_SCALE}
             />
           </Input.Item>
           <Input.Item label="Size">
             <Select.Text.Level
-              value={firstNodeLabel?.level ?? "p"}
+              value={firstNodeLabel.level}
               onChange={(v: text.Level) => handleLabelProp("level", v)}
             />
           </Input.Item>
           <Input.Item label="Alignment">
             <Select.Flex.Alignment
-              value={firstNodeLabel?.align ?? "center"}
+              value={firstNodeLabel.align}
               onChange={(v: Flex.Alignment) => handleLabelProp("align", v)}
             />
           </Input.Item>
           <Input.Item label="Direction">
             <Direction.Select
-              value={firstNodeLabel?.direction ?? "x"}
+              value={firstNodeLabel.direction}
               onChange={(v: direction.Direction) => handleLabelProp("direction", v)}
               yDirection="down"
             />
           </Input.Item>
           <Input.Item label="Location">
             <Schematic.Node.Orientation.Select
-              value={{ inner: "top", outer: firstNodeLabel?.orientation ?? "top" }}
+              value={{ inner: "top", outer: firstNodeLabel.orientation }}
               onChange={(v) =>
                 v.outer !== "center" && handleLabelProp("orientation", v.outer)
               }

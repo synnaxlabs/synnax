@@ -18,7 +18,6 @@ package patch
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"maps"
 	"slices"
@@ -537,7 +536,6 @@ func definerPath(req *plugin.Request, t resolution.Type) (string, error) {
 		return root, nil
 	}
 	surface, err := req.Versions.Surface(
-		context.Background(),
 		livePath,
 		chain.Current(),
 	)

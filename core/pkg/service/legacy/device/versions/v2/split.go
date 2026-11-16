@@ -27,9 +27,9 @@ import (
 
 // SplitGroupsMigration moves each device in a group whose chain does not top out at the
 // device's rack into a copy of that chain under the rack. It keeps only the first group
-// of a device and drops the device from its groups when its rack does not exist. It
-// then deletes each original group left with no devices, racks, or child groups. It
-// must run before MembersMigration.
+// of a device. It drops the device from its groups when its rack does not exist, and
+// stages a removal for each such group. It then deletes each original group left with
+// no devices, racks, or child groups. It must run before MembersMigration.
 var SplitGroupsMigration = migrate.New("v61_device_group_split", splitGroups)
 
 type rackCopy struct {
@@ -92,6 +92,7 @@ func splitGroups(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) er
 		grouped  = set.New[string]()
 		removed  []ontology.Relationship
 		replaced []ontology.Relationship
+		rackless []groupv1.Removal
 	)
 	var copyChain func(g groupv1.Group, r rack.Key, visited set.Set[string]) groupv1.Key
 	copyChain = func(g groupv1.Group, r rack.Key, visited set.Set[string]) groupv1.Key {
@@ -141,6 +142,12 @@ func splitGroups(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) er
 				zap.Stringer("device", e.To),
 			)
 			remove(e)
+			rackless = append(rackless, groupv1.Removal{
+				Group:     g.Key,
+				GroupName: g.Name,
+				Member:    e.To,
+				Reason:    groupv1.RemovedRackless,
+			})
 			continue
 		}
 		if top, ok := groupv1.TopParent(g, byKey); ok && top == r.ResourceID() {
@@ -188,6 +195,9 @@ func splitGroups(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) er
 		return err
 	}
 	if err = ontology.DeleteRelationships(ctx, tx, removed...); err != nil {
+		return err
+	}
+	if err = groupv1.StageRemovals(ctx, tx, rackless...); err != nil {
 		return err
 	}
 	return gorp.WrapWriter[string, ontology.Relationship](tx).Set(ctx, replaced...)

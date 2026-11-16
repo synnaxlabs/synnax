@@ -27,11 +27,12 @@ policy commit, the usage, the review, and each pass before the join. `post` post
 review in a record. `carry` gives the head the newest review of the pull request when
 the diff did not change, completes CHECK_RUN with it, and prints `true` if it did. It
 also takes KEY, the external ID of the check run, `<pr>:<base ref>`. `dismiss` answers
-COMMENT, a reply that mentions the bot on the thread of one of its findings: a member's
-`@sedosaur dismiss` resolves the thread, and scores the head 5/5 when no blocking
-finding of its review is left. It also takes KEY. `compare` takes only GH_TOKEN and
-GITHUB_REPOSITORY, runs in a clone with full history, and prints a Markdown comparison
-of the records of the last days with Greptile's reviews of the same commits.
+COMMENT, a reply that mentions the bot on the thread of one of its findings, or a
+comment that dismisses a finding outside the diff: an `@sedosaur dismiss` from someone
+with write access dismisses the finding, and scores the head 5/5 when no finding of its
+review is left. It also takes KEY. `compare` takes only GH_TOKEN and GITHUB_REPOSITORY,
+runs in a clone with full history, and prints a Markdown comparison of the records of
+the last days with Greptile's reviews of the same commits.
 """
 
 import contextlib
@@ -49,10 +50,11 @@ from pathlib import Path
 from review import (
     PullRequest,
     Target,
+    authority,
     carry,
     compare,
     dismiss,
-    dismissed,
+    dismissals,
     gh,
     load,
     outside_findings,
@@ -155,7 +157,9 @@ def review(target: Target, path: Path, *, replay: bool) -> None:
         head=head,
         diff=diff,
         open={(th.path, th.title) for th in found if not th.resolved} | held,
-        dismissed=dismissed(found),
+        dismissed=[]
+        if replay
+        else dismissals(target, gh, found, authority(target, gh)),
         new=new,
         dropped=dropped,
         reviewed=since is not None or rewritten,

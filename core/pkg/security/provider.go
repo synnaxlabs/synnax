@@ -19,8 +19,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// TLSProvider assembles listener TLS configurations for services that require them.
-type TLSProvider interface {
+// Provider provides security information and services for the node. It's important to
+// note that Provider itself does not implement any security mechanisms, but rather
+// provides configuration and information for other components to implement them.
+type Provider interface {
 	// TLSConfigFor combines the node-wide TLS policy with the certificate served by
 	// src, producing the tls.Config for a single listener. It returns nil in insecure
 	// mode. The returned config's behavior may change over time as src reloads its
@@ -35,11 +37,6 @@ type TLSProvider interface {
 	// insecure mode.
 	VerifyCertTrustAnchors(cert.Source) error
 }
-
-// Provider provides security information and services for the node. It's important to
-// note that Provider itself does not implement any security mechanisms, but rather
-// provides configuration and information for other components to implement them.
-type Provider interface{ TLSProvider }
 
 // ProviderConfig is the configuration for creating a new Provider.
 type ProviderConfig struct {

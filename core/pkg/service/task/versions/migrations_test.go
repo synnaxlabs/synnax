@@ -112,7 +112,7 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 			Expect(routingSecret.Base().Name).To(Equal("Ancient Task routing key"))
 
 			By("Deleting the legacy-prefix row")
-			Expect(db.Get(ctx, legacyRow)).Error().To(MatchError(query.ErrNotFound))
+			Expect(db.Get(legacyRow)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
 })

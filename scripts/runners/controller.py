@@ -76,15 +76,16 @@ checked against GH_WEBHOOK_SECRET; steps are polled from five running runs per
 cycle, and the queue is rebuilt from the API every 5 minutes. Runner names persist
 in registry.json so a removed runner keeps reporting -1.
 
-Scaler (scaler.py): starts stopped runners when jobs queue in their pool, stops
-runners idle past --idle-cooldown (3 min). An offline runner on an instance up longer
-than --boot-grace (2 min) counts as idle. --scale sets the start state (enabled);
-runner_scaler_cmd switches it at runtime, runner_scaler_enabled beats the state,
-runner_scaler_log carries its log.
+Scaler (scaler.py): starts stopped runners when jobs queue in their pool, drains
+runners idle past --idle-cooldown (3 min), and stops the instance of a drained runner
+once it is offline. An offline runner counts as idle when it is drained or its
+instance is up longer than --boot-grace (2 min). --scale sets the start state
+(enabled); runner_scaler_cmd switches it at runtime, runner_scaler_enabled beats the
+state, runner_scaler_log carries its log.
 
 Seats (seats.py): starts a stopped agent or review seat when a job that asks for its
-labels queues. The scaler switch holds these starts too, and they log to
-runner_scaler_log.
+labels queues, on a login it picks (logins.py). The scaler switch holds these starts
+too, and they log to runner_scaler_log.
 
 Gate (gate.py): fans global_gh_cmd out to every <runner>_gh_cmd, disconnecting the
 fleet from GitHub without stopping instances. --gh sets the start state (enabled);
@@ -99,8 +100,9 @@ while the last 3 polls all failed), runner_controller_log (every line logged her
 Reads the GH_APP_ID, GH_APP_KEY, GH_WEBHOOK_SECRET, and SYNNAX_PASSWORD secrets (see
 common.secret).
 Needs AWS credentials from the boto3 chain that may DescribeInstances, DescribeVolumes,
-StartInstances on the agent seats, cloudwatch:GetMetricData, ce:GetCostAndUsage,
-ce:GetCostForecast, pricing:GetProducts, and ssm:GetParameter on /runners/*.
+StartInstances and tag the seats, cloudwatch:GetMetricData, ce:GetCostAndUsage,
+ce:GetCostForecast, pricing:GetProducts, ssm:GetParameter on /runners/*,
+iam:GetRole on the seat role, and list and tag the logins in Secrets Manager.
 """
 
 import argparse
@@ -143,6 +145,7 @@ from github import GitHub
 from heartbeat import Heartbeat
 from jobs import Jobs
 from log import Log
+from logins import SEAT_ROLE, Logins
 from pools import (
     POOL_INDEX,
     WAIT_INDEX,
@@ -472,19 +475,20 @@ def main() -> None:
         index=channels.index(f"{GATE_CMD}_time"),
         channels={GATE_CMD: sy.DataType.BOOLEAN},
     )
+    gate = Gate(
+        client=client,
+        channels=channels,
+        log=Log(client=client, channels=channels, channel=GATE_LOG),
+        enabled=args.gh == "enabled",
+    )
     scaler_log = Log(client=client, channels=channels, channel=SCALER_LOG)
     scaler = Scaler(
         client=client,
         cooldown=args.idle_cooldown,
         boot_grace=args.boot_grace,
         log=scaler_log,
+        gate=gate,
         enabled=args.scale == "enabled",
-    )
-    gate = Gate(
-        client=client,
-        channels=channels,
-        log=Log(client=client, channels=channels, channel=GATE_LOG),
-        enabled=args.gh == "enabled",
     )
     toggles: dict[str, Toggle] = {
         SCALER_CMD: (
@@ -531,7 +535,14 @@ def main() -> None:
         jobs=Jobs(github=github, log=log, pool=resync_pool),
         cost=cost,
         scaler=scaler,
-        seats=Seats(aws=aws, log=scaler_log),
+        seats=Seats(
+            aws=aws,
+            logins=Logins(
+                secrets=aws.secrets,
+                role=aws.iam.get_role(RoleName=SEAT_ROLE)["Role"]["RoleId"],
+            ),
+            log=scaler_log,
+        ),
         gate=gate,
         log=log,
         webhook=webhook,
