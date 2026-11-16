@@ -70,6 +70,14 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		return server, client, addr
 	})
 
+	Describe("NewStreamClient", func() {
+		It("Should reject a config without an error codec", func() {
+			Expect(fhttp.NewStreamClient[testutil.Request, testutil.Response](
+				fhttp.StreamClientConfig{Codec: json.Codec},
+			)).Error().To(MatchError(ContainSubstring("errors: must be non-nil")))
+		})
+	})
+
 	Describe("Report", func() {
 		It(
 			"should report the stream server's protocol and the content types it can negotiate at upgrade time",

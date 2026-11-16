@@ -62,12 +62,12 @@ func NewCodec(providers ...Provider) *Codec { return &Codec{providers: providers
 // Encode encodes an error into a payload. If no provider handles the error, Encode
 // returns a payload with type TypeRoach when internal is true, and a payload with type
 // TypeUnknown and the error message when it is false. If the error is nil, returns a
-// payload with type TypeNil. A Payload passes through unchanged.
+// payload with type TypeNil. A bare Payload passes through unchanged.
 func (c *Codec) Encode(err error, internal bool) Payload {
 	// Only a bare payload passes through, so a wrapped one keeps its wrap message.
-	var pld Payload
-	if reflect.TypeOf(err) == payloadType && As(err, &pld) {
-		return pld
+	var bare Payload
+	if reflect.TypeOf(err) == payloadType && As(err, &bare) {
+		return bare
 	}
 	if err == nil {
 		return Payload{Type: TypeNil}

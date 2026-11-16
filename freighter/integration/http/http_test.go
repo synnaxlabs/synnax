@@ -13,8 +13,11 @@ import (
 	"bytes"
 	"encoding/json/v2"
 	"io"
+	"net"
 	"net/http"
+	"time"
 
+	"github.com/fasthttp/websocket"
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -296,5 +299,44 @@ var _ = Describe("Test error", func() {
 			Type: "integration.error",
 			Data: "1,test param not found",
 		}))
+	})
+})
+
+type wsMessage struct {
+	Payload message        `json:"payload"`
+	Error   errors.Payload `json:"error"`
+	Type    string         `json:"type"`
+}
+
+var _ = Describe("Test error over a stream", func() {
+	It("Should decode the test error a client closes with", func(ctx SpecContext) {
+		app := fiber.New(fiber.Config{})
+		app.Server().MaxIdleWorkerDuration = 100 * time.Millisecond
+		Expect(ihttp.BindTo(ctx, app)).To(Succeed())
+		lis := MustSucceed(net.Listen("tcp", "localhost:0"))
+		DeferCleanup(func() {
+			Expect(app.Shutdown()).To(Succeed())
+			Expect(errors.Skip(lis.Close(), net.ErrClosed)).To(Succeed())
+		})
+		go func() {
+			defer GinkgoRecover()
+			err := app.Listener(lis, fiber.ListenConfig{DisableStartupMessage: true})
+			Expect(errors.Skip(err, net.ErrClosed)).To(Succeed())
+		}()
+		conn, res := MustSucceed2(websocket.DefaultDialer.DialContext(
+			ctx,
+			"ws://"+lis.Addr().String()+"/stream/echo",
+			http.Header{fiber.HeaderContentType: {fiber.MIMEApplicationJSON}},
+		))
+		Expect(res.Body.Close()).To(Succeed())
+		DeferCleanup(func() { Expect(conn.Close()).To(Succeed()) })
+		var open wsMessage
+		Expect(conn.ReadJSON(&open)).To(Succeed())
+		Expect(open.Type).To(Equal("open"))
+		pld := errors.Payload{Type: "integration.error", Data: "7,boom"}
+		Expect(conn.WriteJSON(wsMessage{Type: "close", Error: pld})).To(Succeed())
+		var closed wsMessage
+		Expect(conn.ReadJSON(&closed)).To(Succeed())
+		Expect(closed).To(Equal(wsMessage{Type: "close", Error: pld}))
 	})
 })

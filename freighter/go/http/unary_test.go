@@ -258,6 +258,13 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("Unary", func() {
+	Describe("NewUnaryClient", func() {
+		It("Should reject a config without an error codec", func() {
+			Expect(fhttp.NewUnaryClient[testutil.Request, testutil.Response]()).
+				Error().To(MatchError(ContainSubstring("errors: must be non-nil")))
+		})
+	})
+
 	testutil.UnarySuite(func() (
 		freighter.UnaryServer[testutil.Request, testutil.Response],
 		freighter.UnaryClient[testutil.Request, testutil.Response],

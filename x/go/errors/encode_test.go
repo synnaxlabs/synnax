@@ -98,11 +98,11 @@ var _ = Describe("Codec", func() {
 			)
 			It("Should return a bare payload unchanged", func() {
 				pld := errors.Payload{Type: "relayed", Data: "data"}
-				Expect(errors.Encode(pld, false)).To(Equal(pld))
+				Expect(codec.Encode(pld, false)).To(Equal(pld))
 			})
 			It("Should keep the wrap message of a wrapped payload", func() {
 				pld := errors.Payload{Type: "relayed", Data: "data"}
-				Expect(errors.Encode(errors.Wrap(pld, "ctx"), false)).To(Equal(
+				Expect(codec.Encode(errors.Wrap(pld, "ctx"), false)).To(Equal(
 					errors.Payload{
 						Type: errors.TypeUnknown,
 						Data: "ctx: relayed---data",
