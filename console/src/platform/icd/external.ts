@@ -9,3 +9,4 @@
 
 export * from "@/platform/icd/EnumValues";
 export * from "@/platform/icd/Fields";
+export * from "@/platform/icd/Match";

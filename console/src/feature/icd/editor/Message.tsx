@@ -109,10 +109,15 @@ export const Message = ({ path }: MessageProps): ReactElement => {
         </>
       )}
       {format === "json" && (
-        <Form.Section title="Fields">
-          <ICD.Fields path={json.fields} encoding="json" />
-          <ICD.FieldsStatus path={json.fields} />
-        </Form.Section>
+        <>
+          <Form.Section title="Documents">
+            <ICD.Match path={json} />
+          </Form.Section>
+          <Form.Section title="Fields">
+            <ICD.Fields path={json.fields} encoding="json" />
+            <ICD.FieldsStatus path={json.fields} />
+          </Form.Section>
+        </>
       )}
     </Form.Sections>
   );
