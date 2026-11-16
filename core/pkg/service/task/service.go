@@ -276,7 +276,7 @@ func (s *Service) guardRack(ctx gorp.Context, r rack.Rack) error {
 	)
 }
 
-func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error {
+func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Outage) error {
 	rackKey, err := rack.KeyFromResourceID(*rackStat.Owner)
 	if err != nil {
 		return err
@@ -302,7 +302,8 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 		for i, tsk := range tasks {
 			// A task without a status has never reported running, so it gets no copy.
 			prev := reported[i]
-			if prev == nil || !prev.Details.Running {
+			if prev == nil || !prev.Details.Running ||
+				rackStat.Reported(prev.Key, prev.Time) {
 				continue
 			}
 			// A silent rack does not undo the deploy the Driver reported, so the config
