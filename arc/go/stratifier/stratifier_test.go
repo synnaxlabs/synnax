@@ -233,7 +233,7 @@ var _ = Describe("Stratify", func() {
 	})
 
 	Describe("Cycle detection", func() {
-		It("Should report a cycle between two members", func(ctx SpecContext) {
+		It("Should report a cycle between two members", func() {
 			prog := programOf(
 				[]ir.Member{{NodeKey: new("a")}, {NodeKey: new("b")}},
 				[]ir.Edge{edge("a", "b"), edge("b", "a")},
@@ -244,7 +244,7 @@ var _ = Describe("Stratify", func() {
 			Expect(diag.String()).To(ContainSubstring("cycle detected"))
 		})
 
-		It("Should report a cycle across three members", func(ctx SpecContext) {
+		It("Should report a cycle across three members", func() {
 			prog := programOf(
 				[]ir.Member{
 					{NodeKey: new("a")},
