@@ -481,7 +481,7 @@ func toNumeric(val reflect.Value) (reflect.Value, error) {
 	if val.CanConvert(reflect.TypeFor[float64]()) {
 		return val.Convert(reflect.TypeFor[float64]()), nil
 	}
-	return val, cannotConvertToNumberError(val)
+	return reflect.Value{}, cannotConvertToNumberError(val)
 }
 
 func toFloat(val reflect.Value) (float64, error) {
