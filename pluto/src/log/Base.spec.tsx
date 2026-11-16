@@ -11,11 +11,12 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardUnavailable, stubCopyCommand } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box } from "@synnaxlabs/x";
+import { box, runtime } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { log } from "@/log/aether";
 import { Base } from "@/log/Base";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -101,6 +102,20 @@ const getAetherInitialState = (): Record<string, unknown> =>
 const pushAetherState = (overrides: Record<string, unknown>): void => {
   const { calls } = mockAetherUse.mock;
   calls[calls.length - 1][0].onAetherChange({ ...DEFAULT_STATE, ...overrides });
+};
+
+const Messages = (): ReactElement => {
+  const { statuses } = Status.useNotifications();
+  return (
+    <>
+      {statuses.map(({ key, variant, message, description }) => (
+        <span key={key}>
+          <span>{`${variant}: ${message}`}</span>
+          {description != null && <span>{description}</span>}
+        </span>
+      ))}
+    </>
+  );
 };
 
 describe("log/Base", () => {
@@ -404,6 +419,230 @@ describe("log/Base", () => {
     });
   });
 
+  describe("links", () => {
+    const LINK_KEY = runtime.getOS() === "macOS" ? "metaKey" : "ctrlKey";
+    const OTHER_KEY = LINK_KEY === "metaKey" ? "ctrlKey" : "metaKey";
+    const HOVERED = "pluto-log--link-hovered";
+    const REGION = box.construct({ x: 100, y: 50 }, { width: 400, height: 500 });
+    // The links pass the schema of the worker, so they hold what the worker sends.
+    const [RUN, FILE] = log.logStateZ.shape.links.parse([
+      {
+        kind: "url",
+        target: "https://example.com/run/1",
+        color: "#ff0000",
+        regions: [box.construct(140, 80, 200, 16)],
+      },
+      {
+        kind: "path",
+        target: "/var/log/run.log",
+        color: "#00ff00",
+        regions: [box.construct(140, 96, 128, 16)],
+      },
+    ]);
+    const ON_RUN = { clientX: 150, clientY: 88 };
+    const ON_FILE = { clientX: 150, clientY: 104 };
+    const OFF = { clientX: 120, clientY: 300 };
+
+    const setupLinks = (links: unknown[] = [RUN, FILE]) =>
+      setupAether({ empty: false, region: REGION, links });
+
+    // Returns the place of each underline, from the top left of the log.
+    const underlines = (container: HTMLElement): Record<string, string>[] =>
+      Array.from(container.querySelectorAll<HTMLElement>(".pluto-log__link")).map(
+        ({ style: { left, top, width, height, color } }) => ({
+          left,
+          top,
+          width,
+          height,
+          color,
+        }),
+      );
+
+    const cssColor = (value: string): string => {
+      const probe = document.createElement("span");
+      probe.style.color = value;
+      return probe.style.color;
+    };
+
+    describe("hover", () => {
+      it("should underline the link below the pointer", () => {
+        setupLinks();
+        const { container } = renderLog();
+        fireEvent.mouseMove(getLogDiv(container), ON_RUN);
+        expect(underlines(container)).toEqual([
+          {
+            left: "40px",
+            top: "30px",
+            width: "200px",
+            height: "16px",
+            color: cssColor(RUN.color),
+          },
+        ]);
+        expect(cssColor(RUN.color)).not.toBe("");
+      });
+
+      it("should underline each row of a wrapped link", () => {
+        const regions = [
+          box.construct(400, 80, 100, 16),
+          box.construct(106, 96, 60, 16),
+        ];
+        setupLinks([{ ...RUN, regions }]);
+        const { container } = renderLog();
+        fireEvent.mouseMove(getLogDiv(container), { clientX: 110, clientY: 104 });
+        expect(underlines(container)).toMatchObject([
+          { left: "300px", top: "30px", width: "100px" },
+          { left: "6px", top: "46px", width: "60px" },
+        ]);
+      });
+
+      it("should show the target of the link in a tooltip", () => {
+        setupLinks();
+        const { container } = renderLog();
+        fireEvent.mouseMove(getLogDiv(container), ON_FILE);
+        expect(screen.getByRole("tooltip").textContent).toBe(FILE.target);
+      });
+
+      it("should show the pointer cursor only over a link", () => {
+        setupLinks();
+        const { container } = renderLog();
+        const div = getLogDiv(container);
+        expect(div.classList.contains(HOVERED)).toBe(false);
+        fireEvent.mouseMove(div, ON_RUN);
+        expect(div.classList.contains(HOVERED)).toBe(true);
+        fireEvent.mouseMove(div, OFF);
+        expect(div.classList.contains(HOVERED)).toBe(false);
+      });
+
+      it("should follow the pointer from one link to the next", () => {
+        setupLinks();
+        const { container } = renderLog();
+        fireEvent.mouseMove(getLogDiv(container), ON_RUN);
+        fireEvent.mouseMove(getLogDiv(container), ON_FILE);
+        expect(underlines(container)).toMatchObject([{ top: "46px", width: "128px" }]);
+        expect(screen.getByRole("tooltip").textContent).toBe(FILE.target);
+      });
+
+      it("should hide the underline and the tooltip off the link", () => {
+        setupLinks();
+        const { container } = renderLog();
+        fireEvent.mouseMove(getLogDiv(container), ON_RUN);
+        expect(screen.getByRole("tooltip")).toBeDefined();
+        fireEvent.mouseMove(getLogDiv(container), OFF);
+        expect(underlines(container)).toEqual([]);
+        expect(screen.queryByRole("tooltip")).toBeNull();
+      });
+
+      it("should hide the underline when the pointer leaves the log", () => {
+        setupLinks();
+        const { container } = renderLog();
+        fireEvent.mouseMove(getLogDiv(container), ON_RUN);
+        expect(underlines(container)).toHaveLength(1);
+        fireEvent.mouseLeave(getLogDiv(container));
+        expect(underlines(container)).toEqual([]);
+        expect(screen.queryByRole("tooltip")).toBeNull();
+      });
+
+      it("should hide the underline of a link from an earlier draw", () => {
+        setupLinks();
+        const { container, rerender } = renderLog();
+        fireEvent.mouseMove(getLogDiv(container), ON_RUN);
+        setupLinks([RUN, FILE]);
+        rerender(<Base />);
+        expect(underlines(container)).toHaveLength(1);
+        setupLinks([{ ...RUN }, { ...FILE }]);
+        rerender(<Base />);
+        expect(underlines(container)).toEqual([]);
+        expect(getLogDiv(container).classList.contains(HOVERED)).toBe(false);
+      });
+
+      it("should not write to the worker state", () => {
+        const { setState } = setupLinks();
+        const { container } = renderLog();
+        const div = getLogDiv(container);
+        const writes = setState.mock.calls.length;
+        fireEvent.mouseMove(div, ON_RUN);
+        expect(underlines(container)).toHaveLength(1);
+        fireEvent.mouseMove(div, ON_FILE);
+        fireEvent.mouseMove(div, OFF);
+        fireEvent.mouseLeave(div);
+        expect(setState.mock.calls.length).toBe(writes);
+      });
+    });
+
+    describe("click", () => {
+      it("should open the link on a click with the link key", () => {
+        setupLinks();
+        const onLinkOpen = vi.fn();
+        const { container } = renderLog({ onLinkOpen });
+        fireEvent.mouseDown(getLogDiv(container), {
+          button: 0,
+          ...ON_FILE,
+          [LINK_KEY]: true,
+        });
+        expect(onLinkOpen).toHaveBeenCalledExactlyOnceWith({
+          kind: "path",
+          target: FILE.target,
+        });
+      });
+
+      it("should not select the line on a click that opens a link", () => {
+        const { setState } = setupLinks();
+        const { container } = renderLog({ onLinkOpen: vi.fn() });
+        const writes = setState.mock.calls.length;
+        fireEvent.mouseDown(getLogDiv(container), {
+          button: 0,
+          ...ON_RUN,
+          [LINK_KEY]: true,
+        });
+        expect(setState.mock.calls.length).toBe(writes);
+      });
+
+      it.each([
+        ["with no key on a link", ON_RUN, {}],
+        ["with the link key off a link", OFF, { [LINK_KEY]: true }],
+        ["with the other modifier key on a link", ON_RUN, { [OTHER_KEY]: true }],
+      ])("should select the line on a click %s", (_, point, keys) => {
+        const { setState } = setupLinks();
+        const onLinkOpen = vi.fn();
+        const { container } = renderLog({ onLinkOpen });
+        const writes = setState.mock.calls.length;
+        fireEvent.mouseDown(getLogDiv(container), { button: 0, ...point, ...keys });
+        expect(onLinkOpen).not.toHaveBeenCalled();
+        expect(setState.mock.calls.length).toBe(writes + 1);
+      });
+
+      it("should report a link that fails to open", async () => {
+        setupLinks();
+        const onLinkOpen = vi.fn().mockRejectedValue(new Error("no such file"));
+        const { container } = renderLog({ onLinkOpen, children: <Messages /> });
+        await act(async () => {
+          fireEvent.mouseDown(getLogDiv(container), {
+            button: 0,
+            ...ON_FILE,
+            [LINK_KEY]: true,
+          });
+        });
+        expect(await screen.findByText("error: Failed to open link")).toBeDefined();
+        expect(screen.getByText("no such file")).toBeDefined();
+      });
+
+      it("should ignore a click on a link when the host opens no links", async () => {
+        const { setState } = setupLinks();
+        const { container } = renderLog({ children: <Messages /> });
+        const writes = setState.mock.calls.length;
+        await act(async () => {
+          fireEvent.mouseDown(getLogDiv(container), {
+            button: 0,
+            ...ON_RUN,
+            [LINK_KEY]: true,
+          });
+          expect(setState.mock.calls.length).toBe(writes);
+        });
+        expect(screen.queryByText("error: Failed to open link")).toBeNull();
+      });
+    });
+  });
+
   describe("wheel events", () => {
     it("should call setState on scroll up", () => {
       const { setState } = setupAether({ empty: false });
@@ -428,20 +667,6 @@ describe("log/Base", () => {
     interface Item {
       data: Record<string, Promise<Blob>>;
     }
-
-    const Messages = (): ReactElement => {
-      const { statuses } = Status.useNotifications();
-      return (
-        <>
-          {statuses.map(({ key, variant, message, description }) => (
-            <span key={key}>
-              <span>{`${variant}: ${message}`}</span>
-              {description != null && <span>{description}</span>}
-            </span>
-          ))}
-        </>
-      );
-    };
 
     const stubClipboard = () => {
       const write = vi.fn(async (_items: Item[]) => {});
