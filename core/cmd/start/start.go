@@ -405,9 +405,7 @@ func BootupCore(
 		driver.Config{
 			Enabled:  new(!*cfg.noDriver),
 			Insecure: cfg.insecure,
-			// An unlicensed Core refuses the Driver's rack, so the Driver retries in
-			// the background.
-			Detached: new(!covered),
+			License:  serviceLayer.License,
 			Integrations: parseIntegrations(
 				cfg.enabledIntegrations,
 				cfg.disabledIntegrations,
