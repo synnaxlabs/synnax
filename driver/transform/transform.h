@@ -102,7 +102,8 @@ public:
         std::lock_guard lock(mutex);
         if (tare_all || !channels_to_tare.empty()) {
             for (const auto &[ch_key, series]: frame)
-                if (tare_all || channels_to_tare.contains(ch_key))
+                if (tare_all ? tare_channels.contains(ch_key)
+                             : channels_to_tare.contains(ch_key))
                     tare_values[ch_key] = series.avg<double>();
             tare_all = false;
             channels_to_tare.clear();

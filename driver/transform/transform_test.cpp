@@ -138,6 +138,18 @@ TEST_F(TareTests, BasicTare) {
     ASSERT_EQ(new_frame.at<float>(2, 1), 5.0f); // 35 - 30
 }
 
+/// @brief it should tare all channels without taring the index of the frame.
+TEST_F(TareTests, TareAllSkipsIndex) {
+    Tare tare(channels);
+    x::json::json::object_t tare_args;
+    ASSERT_NIL(tare.tare(tare_args));
+    frame.emplace(3, x::telem::Series(x::telem::TimeStamp(100)));
+    ASSERT_NIL(tare.transform(frame));
+    ASSERT_EQ(frame.at<double>(1, 0), -5.0);
+    ASSERT_EQ(frame.at<float>(2, 0), -5.0f);
+    ASSERT_EQ(frame.at<x::telem::TimeStamp>(3, 0), x::telem::TimeStamp(100));
+}
+
 /// @brief it should tare only specific channels.
 TEST_F(TareTests, TareSpecificChannels) {
     Tare tare(channels);
