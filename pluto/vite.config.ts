@@ -17,7 +17,7 @@ import { defineConfig, esmExternalRequirePlugin } from "vite";
 
 export default defineConfig({
   base: "/pluto/",
-  define: { CORE_PORT: Number(process.env.SYNNAX_PORT ?? 9090) },
+  define: { CORE_PORT: Number(process.env.SYNNAX_TEST_PORT ?? 9090) },
   plugins: [
     esmExternalRequirePlugin({ external: [/^react(-dom)?(\/.*)?$/] }),
     react(),
