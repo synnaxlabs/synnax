@@ -87,25 +87,32 @@ TEST(ReadTaskManagerTest, FailedFirstReadReportsAnError) {
         writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
     );
     ASSERT_NIL(writer.close());
-    bool errored = false;
-    x::test::eventually(
-        [&] {
+    std::promise<bool> errored;
+    auto read = errored.get_future();
+    std::thread reader([&] {
+        while (true) {
             auto [frame, err] = streamer.read();
-            if (err) return false;
+            if (err) {
+                errored.set_value(false);
+                return;
+            }
             for (const auto &j: frame.series->at(0).json_values()) {
                 auto parser = x::json::Parser(j);
                 const auto s = synnax::task::Status::parse(parser);
                 if (s.details.task == task.key &&
-                    s.variant == synnax::status::VARIANT_ERROR)
-                    errored = true;
+                    s.variant == synnax::status::VARIANT_ERROR) {
+                    errored.set_value(true);
+                    return;
+                }
             }
-            return errored;
-        },
-        [] { return "no error status"; },
-        __FILE__,
-        __LINE__,
-        std::chrono::milliseconds(5000)
-    );
+        }
+    });
+    // read has no deadline, so closing the stream ends a read that waits for a status
+    // that never comes.
+    if (read.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
+        streamer.close_send();
+    reader.join();
+    EXPECT_TRUE(read.get()) << "no error status";
     manager.stop();
     run.join();
     ASSERT_NIL(streamer.close());
