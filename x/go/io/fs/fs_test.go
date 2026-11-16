@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	invariants "github.com/synnaxlabs/x/io/fs/internal/invariants"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -564,7 +565,13 @@ var _ = Describe("FS", func() {
 				})
 				It("Should keep a directory moved into its own subtree", func() {
 					Expect(fs.Sub("a")).ToNot(BeNil())
-					Expect(fs.Rename("a", "a/b")).ToNot(Succeed())
+					Expect(fs.Rename("a", "a/b")).To(MatchError(
+						func(err error) bool {
+							var linkErr *os.LinkError
+							return errors.As(err, &linkErr)
+						},
+						"be an *os.LinkError",
+					))
 					Expect(fs.Exists("a")).To(BeTrue())
 					Expect(fs.Exists("a/b")).To(BeFalse())
 				})
