@@ -69,3 +69,11 @@
 .lyra-color-swatch__dropdown {
     flex-shrink: 0;
 }
+
+/* The picker scrolls its palettes, so the dialog takes the height the window leaves. */
+.lyra-color-swatch__dialog {
+    --pluto-dialog-max-height: 100vh;
+
+    display: flex;
+    flex-direction: column;
+}

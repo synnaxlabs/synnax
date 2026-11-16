@@ -320,6 +320,24 @@ bound, a log precision, or the line plot X channel.
   layout does not move. The arrow keys and the pointer move one highlight, and Enter
   picks the highlighted item.
 
+### Color picker
+
+- With named colors, two tabs split the picker's width: Library (`Icon.Library`) and
+  Custom (`Icon.Sliders`). It opens on Library while the value is linked or absent, and
+  on Custom while the value is a fixed color.
+- One 1.5rem inset holds the tab boxes, the search icon, the titles, and the swatches.
+  Swatches are 21 px with 1rem gaps across and down. Eight across set the width: 38rem.
+- Library has the select dialog's search under the tab bar's hairline, with a hairline
+  under it. Each palette sits under its title, which ends with the name of the hovered
+  color, else the linked one. Swatches have no tooltips.
+- A swatch shows the color's value for the current theme only.
+- An edit in Custom stores a fixed color and unlinks the value. There is no unlink
+  button.
+- An optional color puts a square Auto button at the right of the tab bar, on both tabs.
+- The saturation and brightness plane has the tiny radius.
+- The hex and alpha inputs pack into one control, and the alpha input keeps its opacity
+  icon. Hex codes use the code font, so every code takes the same width and fits.
+
 ### Menus and selects
 
 - Menus use 13 px text in 28 px items. This includes context menus, the filter menu, and
