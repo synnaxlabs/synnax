@@ -36,10 +36,10 @@ provider "aws" {
       owner   = "runners"
     }
   }
-  # A seat writes limited-until at a usage limit, and Check - Runners writes the
-  # sign-in state, so an apply must keep these tags.
+  # A seat writes limited-until at a usage limit, Check - Runners writes the sign-in
+  # state, and the fleet controller writes the login, so an apply must keep these tags.
   ignore_tags {
-    keys = ["limited-until", "auth", "auth-checked"]
+    keys = ["limited-until", "auth", "auth-checked", "login"]
   }
 }
 
@@ -72,6 +72,11 @@ data "aws_subnets" "default" {
 locals {
   account = data.aws_caller_identity.current.account_id
   subnets = data.aws_subnets.default.ids
+  # The shared Claude logins, stored by `seat.sh token`. They stay in us-east-1 for
+  # seats in any region.
+  logins = join(":", [
+    "arn:aws:secretsmanager:us-east-1", local.account, "secret:synnax-agents/logins/*",
+  ])
 }
 
 resource "aws_security_group" "runner" {
@@ -151,6 +156,26 @@ resource "aws_iam_role_policy" "limited_until" {
   })
 }
 
+# Lets a seat read the token of the Claude login that the fleet controller gave it.
+# The controller adds the seat's session to the login's `holders` tag, and removes it
+# once the seat stops. A tag value fits 6 sessions, so the controller gives a login to
+# at most 6 seats.
+resource "aws_iam_role_policy" "login" {
+  name = "ReadHeldLogin"
+  role = aws_iam_role.runner.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "secretsmanager:GetSecretValue"
+      Resource = local.logins
+      Condition = {
+        StringLike = { "secretsmanager:ResourceTag/holders" = "*$${aws:userid}*" }
+      }
+    }]
+  })
+}
+
 resource "aws_iam_instance_profile" "runner" {
   name = "synnax-agent-runner"
   role = aws_iam_role.runner.name
@@ -176,8 +201,10 @@ resource "aws_instance" "seat" {
     volume_size = var.pools[each.value.pool].disk_gb
     encrypted   = true
   }
+  # Jobs read the instance's `login` tag from the metadata service.
   metadata_options {
-    http_tokens = "required"
+    http_tokens            = "required"
+    instance_metadata_tags = "enabled"
   }
   tags = {
     Name    = "synnax-agent-${each.key}"
