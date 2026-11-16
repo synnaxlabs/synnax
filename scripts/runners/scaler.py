@@ -35,10 +35,12 @@ class Scaler:
     and runners just commanded to start, count toward a pool's demand. An instance
     stops only after its runner is drained and offline: the agent holds a drain while
     a job runs, so a runner that takes a job after the decision keeps its instance.
-    Once the instance is stopped, the runner is enabled again for its next start,
-    unless the gate is closed. While disabled, the writer is closed and nothing is
-    written, but idle time keeps accruing and each decision is logged once, marked
-    [DISABLED], so enabling clears whatever backlog built up.
+    A drain is sent again each RECOMMAND_DELAY while the runner stays online. Once
+    the instance is stopped, the runner is enabled again for its next start, unless
+    the gate is closed. While disabled, the writer is closed and no drain, start, or
+    stop is written, but idle time keeps accruing and each decision is logged once,
+    marked [DISABLED], so enabling clears whatever backlog built up. A runner this
+    scaler drained is enabled again while disabled, so no drain outlives the switch.
 
     :param gate: Sends the runner commands, and holds the last one of each runner.
     """
@@ -66,6 +68,8 @@ class Scaler:
         self.boot_grace = boot_grace
         self.enabled = enabled
         self.idle_since: dict[str, sy.TimeStamp] = {}
+        # The runners this scaler drained that are still drained.
+        self.drains: set[str] = set()
         # The decisions logged while disabled, by command channel.
         self.logged: dict[str, bool] = {}
         self.announced: dict[Pool, str] = {}
@@ -101,9 +105,9 @@ class Scaler:
                 return False
             if status.get(r) == IDLE:
                 return True
-            return (
-                status.get(r) == OFFLINE
-                and now.span(found[iid]["launched"]) >= self.boot_grace
+            # A drained runner does not come online, so it gets no time to boot.
+            return status.get(r) == OFFLINE and (
+                self.drained(r) or now.span(found[iid]["launched"]) >= self.boot_grace
             )
 
         for r in known:
@@ -153,7 +157,8 @@ class Scaler:
             commands.update(dict.fromkeys(starting, True))
         for pool in [p for p in self.announced if p not in queued]:
             del self.announced[pool]
-        runner_commands: dict[str, bool] = {}
+        runners_ready = self.gate.commander.ready(known, now=now)
+        drains: dict[str, bool] = {}
         for pool, runners in stoppable.items():
             if not POOLS[pool].scaled or not stops:
                 continue
@@ -161,21 +166,36 @@ class Scaler:
                 if now.span(self.idle_since[r]) < self.cooldown:
                     continue
                 down = status.get(r) == OFFLINE
-                if not self.drained(r):
-                    # An online runner stays up to take a job of its pool's queue.
-                    if down or not queued.get(pool, 0):
-                        runner_commands[r] = False
-                elif down and r in ready:
-                    commands[r] = False
-        if self.gate.enabled:
-            for r in known:
-                iid = instance_for(r, found=found)
-                if iid is None or found[iid]["state"] != "stopped":
-                    continue
-                if self.drained(r):
-                    runner_commands[r] = True
-        if runner_commands:
-            self.command(runner_commands, commander=self.gate.commander, now=now)
+                if down and self.drained(r):
+                    if r in ready:
+                        commands[r] = False
+                # An online runner stays up to take a job of its pool's queue.
+                elif (down or not queued.get(pool, 0)) and (
+                    not self.drained(r) or r in runners_ready
+                ):
+                    drains[r] = False
+        self.drains = {r for r in self.drains if self.drained(r)}
+        enables: dict[str, bool] = {}
+        for r in known if self.gate.enabled else ():
+            iid = instance_for(r, found=found)
+            if iid is None or not self.drained(r):
+                continue
+            state = found[iid]["state"]
+            if self.enabled:
+                enabling = state == "stopped"
+            else:
+                # A running instance whose stop was just commanded can still go down,
+                # and a runner enabled on it could take a job.
+                enabling = r in self.drains and (
+                    state == "stopped" or (state == "running" and r in ready)
+                )
+            if enabling:
+                enables[r] = True
+        if enables:
+            self.gate.commander.command(enables, now=now)
+        if drains:
+            self.command(drains, commander=self.gate.commander, now=now)
+            self.drains |= {r for r in drains if self.drained(r)}
         if commands:
             self.command(commands, commander=self.commander, now=now)
         return {r for runners in booting.values() for r in runners}

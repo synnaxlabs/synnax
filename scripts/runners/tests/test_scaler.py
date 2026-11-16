@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 import synnax as sy
 
-from common import BUSY, IDLE, OFFLINE, Channels, channel_name
+from common import BUSY, IDLE, OFFLINE, RECOMMAND_DELAY, Channels, channel_name
 from conftest import Client, Writer, core
 from gate import Gate
 from log import Log
@@ -361,6 +361,75 @@ class TestScaler:
             running={A},
         )
         assert A not in s.idle_since
+
+    def test_should_drain_again_a_runner_that_stays_online(
+        self, client: Client
+    ) -> None:
+        s = scaler(client)
+        poll: dict[str, Any] = {
+            "known": {A},
+            "status": {A: IDLE},
+            "labels": {A: LABELS},
+            "queued": {},
+            "found": {"i-0aaa": instance("running")},
+            "running": set(),
+        }
+        cycle(s, **poll)
+        cycle(s, **poll)
+        assert runner_commands(client) == [True, False]
+        client.elapsed += 2 * RECOMMAND_DELAY
+        cycle(s, **poll)
+        assert runner_commands(client) == [True, False, False]
+        assert instance_commands(client) == []
+
+    def test_should_not_count_a_drained_runner_as_booting(self, client: Client) -> None:
+        s = scaler(client)
+        young = instance("running") | {"launched": sy.TimeStamp.now()}
+        poll: dict[str, Any] = {
+            "known": {A, B},
+            "labels": {A: LABELS, B: LABELS},
+            "found": {"i-0aaa": young, "i-0bbb": instance("stopped")},
+            "running": set(),
+        }
+        cycle(s, status={A: IDLE, B: OFFLINE}, queued={}, **poll)
+        cycle(s, status={A: OFFLINE, B: OFFLINE}, queued={POOL: 1}, **poll)
+        assert started(client) == [B]
+        assert instance_commands(client) == [False]
+
+    def test_should_enable_a_runner_it_drained_when_disabled(
+        self, client: Client
+    ) -> None:
+        s = scaler(client)
+        poll: dict[str, Any] = {
+            "known": {A},
+            "labels": {A: LABELS},
+            "queued": {},
+            "found": {"i-0aaa": instance("running")},
+        }
+        cycle(s, status={A: IDLE}, running=set(), **poll)
+        s.enabled = False
+        cycle(s, status={A: BUSY}, running={A}, **poll)
+        assert runner_commands(client) == [True, False, True]
+        assert instance_commands(client) == []
+
+    def test_should_keep_a_runner_drained_by_hand_while_disabled(
+        self, client: Client
+    ) -> None:
+        s = scaler(client)
+        s.enabled = False
+        poll: dict[str, Any] = {
+            "known": {A},
+            "status": {A: OFFLINE},
+            "labels": {A: LABELS},
+            "queued": {},
+            "found": {"i-0aaa": instance("stopped")},
+            "running": set(),
+        }
+        cycle(s, **poll)
+        client.streamed.append({channel_name("gh_cmd", runner=A): [False]})
+        cycle(s, **poll)
+        assert s.drained(A)
+        assert runner_commands(client) == [True]
 
     def test_should_log_a_drain_once_while_disabled(self, client: Client) -> None:
         s = scaler(client)
