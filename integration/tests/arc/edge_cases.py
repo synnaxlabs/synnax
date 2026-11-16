@@ -490,6 +490,72 @@ ROUTING_TABLE_CASES = [
     ),
 ]
 
+# ── Name reuse across scopes (invalid, caught at configure time) ──
+
+ARC_TOP_LEVEL_AFTER_SEQUENCE = """
+sequence main {
+    limit := 1.0
+}
+limit := 5.0
+"""
+
+ARC_SEQUENCE_AFTER_STAGE = """
+sequence main {
+    stage hold {
+        limit := 1.0
+    }
+    limit := 5.0
+}
+"""
+
+ARC_STAGE_AFTER_NESTED_SEQUENCE = """
+sequence main {
+    stage hold {
+        sequence inner {
+            limit := 1.0
+        }
+        limit := 5.0
+    }
+}
+"""
+
+ARC_TOP_LEVEL_AFTER_FUNCTION_VARIABLE = """
+func scale(v f64) f64 {
+    limit := 1.0
+    return v * limit
+}
+limit := 5.0
+"""
+
+ARC_TOP_LEVEL_AFTER_FUNCTION_PARAMETER = """
+func scale(limit f64) f64 {
+    return limit * 2.0
+}
+limit := 5.0
+"""
+
+VARIABLE_CONFLICT = "name limit conflicts with existing variable"
+
+NAME_CONFLICT_CASES = [
+    Case("TopLevelAfterSequence", ARC_TOP_LEVEL_AFTER_SEQUENCE, VARIABLE_CONFLICT),
+    Case("SequenceAfterStage", ARC_SEQUENCE_AFTER_STAGE, VARIABLE_CONFLICT),
+    Case(
+        "StageAfterNestedSequence",
+        ARC_STAGE_AFTER_NESTED_SEQUENCE,
+        VARIABLE_CONFLICT,
+    ),
+    Case(
+        "TopLevelAfterFunctionVariable",
+        ARC_TOP_LEVEL_AFTER_FUNCTION_VARIABLE,
+        VARIABLE_CONFLICT,
+    ),
+    Case(
+        "TopLevelAfterFunctionParameter",
+        ARC_TOP_LEVEL_AFTER_FUNCTION_PARAMETER,
+        VARIABLE_CONFLICT,
+    ),
+]
+
 # ── Guarded circular calls (valid, should configure successfully) ──
 # Comprehensive guarded topology coverage is in the Go unit tests.
 
@@ -806,6 +872,16 @@ class EdgeCases(ArcCase):
                 substr=case.wait_substr,
             )
 
+    def _verify_name_conflict_cases(self) -> None:
+        self.log("=== Name reuse detection ===")
+        for case in NAME_CONFLICT_CASES:
+            self.log(f"[{case.label}] Testing name reuse")
+            self._assert_configure_error(
+                case.source,
+                name_prefix=f"NameConflict{case.label}",
+                substr=case.wait_substr,
+            )
+
     def _verify_read_only_monitor(self) -> None:
         self.log("=== Read-only monitor (no write channels) ===")
         name = self.load_arc(
@@ -834,5 +910,6 @@ class EdgeCases(ArcCase):
         self._verify_time_format_invalid()
         self._verify_type_mismatch_cases()
         self._verify_routing_table_cases()
+        self._verify_name_conflict_cases()
         self._verify_import_cases()
         self._verify_read_only_monitor()
