@@ -24,7 +24,13 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Flux, Panel as PPanel, View as PView } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Errors,
+  Flux,
+  Panel as PPanel,
+  View as PView,
+} from "@synnaxlabs/pluto";
 import { caseconv, uuid } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import {
@@ -98,6 +104,7 @@ export const Frame = ({
   const canOpenTab = Panel.useCanOpenTab();
   const open = Session.View.useSelectOpen(tab);
   const saved = PView.useResult(open == null ? null : { key: open });
+  const refresh = PView.useRefresh();
   const [searchTerm, setSearchTerm] = useState("");
   const staticViews: StaticView[] = [
     {
@@ -119,12 +126,14 @@ export const Frame = ({
   const { getItem } = combinedProps;
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const staticViewKeys = staticViews.map((v) => v.key);
-  const unavailable =
-    saved.variant === "error" && isUnavailable(saved.status.details.error);
-  if (saved.variant === "error" && !unavailable) throw saved.status.details.error;
+  const error = saved.variant === "error" ? saved.status.details.error : null;
+  const unavailable = error != null && isUnavailable(error);
   // A tab whose view was deleted, or that this user cannot read, shows the static view.
   const selected = open == null || unavailable ? staticViews[0].key : open;
   const ready = selected !== open || saved.variant === "success";
+  const retry = (): void => {
+    if (open != null) refresh({ key: open });
+  };
   const savedOf = (key: view.Key): view.Key | null =>
     staticViewKeys.includes(key) ? null : key;
   const select = (key: view.Key) => {
@@ -169,6 +178,14 @@ export const Frame = ({
           selected={selected}
         />
         {ready && <Fragment key={selected}>{children}</Fragment>}
+        {error != null && !unavailable && (
+          <Errors.Fallback error={error} resetErrorBoundary={retry}>
+            <Button.Button variant="filled" onClick={retry}>
+              <Icon.Refresh />
+              Retry
+            </Button.Button>
+          </Errors.Fallback>
+        )}
       </Context>
     </Flex.Box>
   );
