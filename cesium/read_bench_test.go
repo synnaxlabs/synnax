@@ -22,9 +22,8 @@ import (
 )
 
 // BenchmarkReadDomains reads an index and a data channel stored as one-sample domains,
-// the shape that many short writer sessions leave behind.
-// BenchmarkReadDomains reads every domain of an index and a data channel. With an open
-// writer, a writer that has committed one more domain stays open during the reads.
+// the shape that many short writer sessions leave behind. With an open writer, a writer
+// that has committed one more domain stays open during the reads.
 func BenchmarkReadDomains(b *testing.B) {
 	for _, count := range []int{1, 100, 1_000} {
 		for _, open := range []bool{false, true} {
