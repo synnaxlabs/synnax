@@ -74,6 +74,7 @@ Named struct {
     @go migrate
     @resource type "color"
     @retrieve
+    @retrieve noun "color"
 }
 
 Where filter Named {

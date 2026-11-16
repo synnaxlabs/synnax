@@ -30,7 +30,7 @@ Key: TypeAlias = UUID
 
 
 class Order(BaseModel):
-    """Is a sort of nameds.
+    """Is a sort of colors.
 
     Attributes:
         field: Is the field to sort by. Records with equal values sort by key.
@@ -111,11 +111,11 @@ WhereInput = TypedDict(
 
 
 class Cursor(BaseModel):
-    """Is a position in an order of nameds: the sort value and the key of a named.
+    """Is a position in an order of colors: the sort value and the key of a color.
 
     Attributes:
-        key: Is the key of the named at the position.
-        name: Is the name of the named at the position, when the order sorts by it.
+        key: Is the key of the color at the position.
+        name: Is the name of the color at the position, when the order sorts by it.
     """
 
     key: Key
@@ -144,24 +144,24 @@ Ref = Annotated[
 
 
 class RetrieveResponse(BaseModel):
-    """Holds the nameds a RetrieveRequest selects.
+    """Holds the colors a RetrieveRequest selects.
 
     Attributes:
-        nameds: Are the nameds the request selects.
+        colors: Are the colors the request selects.
     """
 
-    nameds: list[Named] = Field(default_factory=list)
+    colors: list[Named] = Field(default_factory=list)
 
 
 class RetrieveRequest(BaseModel):
-    """Is a request to retrieve nameds.
+    """Is a request to retrieve colors.
 
     Attributes:
-        where: Selects the nameds to retrieve. An absent where selects all of them.
-        search_term: Keeps the nameds that match the term, closest match first.
-        order: Sorts the nameds. An absent order sorts them by key.
-        after: Starts the nameds strictly past this position in their order.
-        limit: Is the most nameds to return.
+        where: Selects the colors to retrieve. An absent where selects all of them.
+        search_term: Keeps the colors that match the term, closest match first.
+        order: Sorts the colors. An absent order sorts them by key.
+        after: Starts the colors strictly past this position in their order.
+        limit: Is the most colors to return.
     """
 
     model_config = ConfigDict(extra="forbid")

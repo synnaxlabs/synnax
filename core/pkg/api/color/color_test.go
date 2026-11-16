@@ -79,12 +79,12 @@ var _ = Describe("Create", func() {
 			rec := &Recorder[color.Key, color.Action]{}
 			DeferCleanup(svc.Color.Actions().OnChange(rec.Record))
 			res := MustSucceed(create(AuthedCtx(ctx, u), apicolor.CreateRequest{
-				Nameds:      []color.Named{{Name: "Breaker", Light: red}},
+				Colors:      []color.Named{{Name: "Breaker", Light: red}},
 				DispatchKey: "dk-create",
 			}))
-			Expect(res.Nameds).To(HaveLen(1))
-			deleteAfter(res.Nameds[0].Key)
-			Expect(retrieveColor(ctx, res.Nameds[0].Key)).To(Equal(res.Nameds[0]))
+			Expect(res.Colors).To(HaveLen(1))
+			deleteAfter(res.Colors[0].Key)
+			Expect(retrieveColor(ctx, res.Colors[0].Key)).To(Equal(res.Colors[0]))
 			frames := rec.Snapshot()
 			Expect(frames).To(HaveLen(1))
 			Expect(frames[0].DispatchKey).To(Equal("dk-create"))
@@ -95,7 +95,7 @@ var _ = Describe("Create", func() {
 		u := createUser(ctx)
 		n := color.Named{Key: uuid.New(), Name: "Breaker", Light: red}
 		Expect(create(AuthedCtx(ctx, u), apicolor.CreateRequest{
-			Nameds: []color.Named{n},
+			Colors: []color.Named{n},
 		})).Error().To(denied(u, access.ActionCreate, n.ResourceID()))
 		Expect(colorExists(ctx, n.Key)).To(BeFalse())
 	})
@@ -106,7 +106,7 @@ var _ = Describe("Create", func() {
 			Type: resource.TypeColor,
 		})
 		Expect(create(AuthedCtx(ctx, u), apicolor.CreateRequest{
-			Nameds: []color.Named{{Light: red}},
+			Colors: []color.Named{{Light: red}},
 		})).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("name: required")),
@@ -123,7 +123,7 @@ var _ = Describe("Retrieve", func() {
 		createColor(ctx, "Valve")
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), granted.ResourceID())
 		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apicolor.RetrieveRequest{}))
-		Expect(res.Nameds).To(Equal([]color.Named{granted}))
+		Expect(res.Colors).To(Equal([]color.Named{granted}))
 	})
 
 	It("Should refuse a key that the subject cannot retrieve", func(ctx SpecContext) {
@@ -147,7 +147,7 @@ var _ = Describe("Retrieve", func() {
 		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apicolor.RetrieveRequest{
 			SearchTerm: "breaker",
 		}))
-		Expect(res.Nameds).To(Equal([]color.Named{breaker, closed}))
+		Expect(res.Colors).To(Equal([]color.Named{breaker, closed}))
 	})
 })
 
@@ -168,7 +168,7 @@ var _ = Describe("Retrieve by name", func() {
 	names := func(ctx SpecContext, req apicolor.RetrieveRequest) []string {
 		GinkgoHelper()
 		res := MustSucceed(retrieve(AuthedCtx(ctx, u), req))
-		return lo.Map(res.Nameds, func(n color.Named, _ int) string { return n.Name })
+		return lo.Map(res.Colors, func(n color.Named, _ int) string { return n.Name })
 	}
 	byName := &apicolor.Order{Field: apicolor.OrderFieldName}
 
