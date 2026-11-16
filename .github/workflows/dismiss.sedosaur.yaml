@@ -61,6 +61,8 @@ jobs:
           app-id: ${{ secrets.SEDOSAUR_APP_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-checks: write
+          # resolveReviewThread needs contents: write, not only pull-requests: write.
+          permission-contents: write
           permission-pull-requests: write
 
       - name: Answer the reply
