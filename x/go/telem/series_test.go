@@ -780,7 +780,7 @@ var _ = Describe("Series", func() {
 
 			It("Should work with uint8", func() {
 				s := telem.NewSeriesV[uint8](1, 2, 3)
-				s.Resized(5)
+				s = s.Resized(5)
 				Expect(s.Len()).To(Equal(int64(5)))
 				Expect(
 					s.Unmarshal[uint8](),
@@ -796,7 +796,7 @@ var _ = Describe("Series", func() {
 
 			It("Should work with timestamps", func() {
 				s := telem.NewSeriesSecondsTSV(1, 2, 3)
-				s.Resized(5)
+				s = s.Resized(5)
 				Expect(s.Len()).To(Equal(int64(5)))
 				result := s.Unmarshal[telem.TimeStamp]()
 				Expect(result[0]).To(Equal(telem.TimeStamp(1 * telem.Second)))
