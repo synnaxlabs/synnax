@@ -861,11 +861,11 @@ var _ = Describe("Rack", Ordered, func() {
 					})
 				})).To(Succeed())
 			}
-			// countAlerts counts the alerts for the rack with the key that r holds.
-			countAlerts := func(r *rack.Rack) *atomic.Int32 {
+			// countAlerts counts the alerts for the rack with key.
+			countAlerts := func(key rack.Key) *atomic.Int32 {
 				var alerts atomic.Int32
 				DeferCleanup(svc.OnSuspect(func(_ context.Context, s rack.Status) {
-					if s.Details.Rack == r.Key {
+					if s.Details.Rack == key {
 						alerts.Add(1)
 					}
 				}))
@@ -880,10 +880,10 @@ var _ = Describe("Rack", Ordered, func() {
 					alive bool,
 				) {
 					r := rack.Rack{Name: CurrentSpecReport().LeafNodeText}
-					alerts := countAlerts(&r)
 					now := telem.Now()
 					frozenNow.Store(int64(now))
 					Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+					alerts := countAlerts(r.Key)
 					key := newTaskStatusKey()
 					for range 4 {
 						now = now.Add(svc.HealthCheckInterval / 2)
@@ -931,10 +931,10 @@ var _ = Describe("Rack", Ordered, func() {
 				"Should not alert when a task of the rack reports during the outage write",
 				func(ctx SpecContext) {
 					r := rack.Rack{Name: "reporting task rack"}
-					alerts := countAlerts(&r)
 					now := telem.Now()
 					frozenNow.Store(int64(now))
 					Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+					alerts := countAlerts(r.Key)
 					key := newTaskStatusKey()
 					var reported atomic.Bool
 					DeferCleanup(stat.Observe().OnChange(func(
@@ -967,10 +967,10 @@ var _ = Describe("Rack", Ordered, func() {
 				"Should count a task status written again after its delete as a report",
 				func(ctx SpecContext) {
 					r := rack.Rack{Name: "recreated task rack"}
-					alerts := countAlerts(&r)
 					start := telem.Now()
 					frozenNow.Store(int64(start))
 					Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+					alerts := countAlerts(r.Key)
 					key := newTaskStatusKey()
 					details := map[string]any{"running": true, "rack": r.Key}
 					frozenNow.Store(int64(start.Add(6 * telem.Millisecond)))
@@ -990,10 +990,10 @@ var _ = Describe("Rack", Ordered, func() {
 				"Should not count a rewrite of a running task status as a report",
 				func(ctx SpecContext) {
 					r := rack.Rack{Name: "rewritten task rack"}
-					alerts := countAlerts(&r)
 					start := telem.Now()
 					frozenNow.Store(int64(start))
 					Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+					alerts := countAlerts(r.Key)
 					key := newTaskStatusKey()
 					details := map[string]any{"running": true, "rack": r.Key}
 					frozenNow.Store(int64(start.Add(6 * telem.Millisecond)))
