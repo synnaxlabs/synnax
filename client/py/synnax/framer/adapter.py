@@ -11,8 +11,6 @@ import warnings
 from collections.abc import Mapping
 from typing import Any, cast
 
-from pandas import DataFrame
-
 import synnax.channel.payload as channel
 from synnax.channel.retrieve import (
     Retriever,
@@ -20,7 +18,7 @@ from synnax.channel.retrieve import (
 )
 from synnax.exceptions import PathError, ValidationError
 from synnax.framer.codec import Codec
-from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K
+from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K, is_dataframe
 from synnax.telem import CrudeSeries, DataType, LimitReduction, Reduction, Series
 
 
@@ -288,7 +286,7 @@ class WriteFrameAdapter:
         if isinstance(channels_or_data, FramePayload):
             channels_or_data = Frame(channels_or_data)
 
-        if isinstance(channels_or_data, (Frame, DataFrame)):
+        if isinstance(channels_or_data, Frame) or is_dataframe(channels_or_data):
             if isinstance(channels_or_data, Frame):
                 cols: list[channel.Key | str] = channels_or_data.channels
             else:
@@ -296,7 +294,7 @@ class WriteFrameAdapter:
             if self._adapter is None:
                 return (
                     Frame(channels_or_data)
-                    if isinstance(channels_or_data, DataFrame)
+                    if is_dataframe(channels_or_data)
                     else channels_or_data
                 )
             adapted_channels: list[channel.Key] = []

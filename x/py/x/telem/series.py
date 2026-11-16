@@ -9,8 +9,12 @@
 
 from __future__ import annotations
 
+# On Python 3.15 and later, pandas loads on first use. Older versions ignore this.
+__lazy_modules__ = ["pandas"]
+
 import copy
 import json
+import sys
 import uuid
 from collections.abc import Callable, Iterator
 from datetime import datetime
@@ -352,14 +356,12 @@ class Series(ArrayOperators, Generic[T]):
                     "converted to a Series"
                 )
             data_type = data_type or data.data_type
-        elif isinstance(data, (pd.Series, np.ndarray)):
-            if isinstance(data, pd.Series) and isinstance(
-                data.dtype, pd.DatetimeTZDtype
-            ):
+        elif isinstance(data, np.ndarray) or _is_pandas_series(data):
+            if _is_pandas_series(data) and isinstance(data.dtype, pd.DatetimeTZDtype):
                 data = data.dt.tz_convert(None)
             if data_type is None and not isinstance(data.dtype, np.dtype):
                 raise TypeError(f"Cannot convert {data.dtype} to DataType")
-            arr = data.to_numpy() if isinstance(data, pd.Series) else data
+            arr = data.to_numpy() if _is_pandas_series(data) else data
             data_type = data_type or DataType(arr.dtype)
             if arr.dtype.kind == "M":
                 arr = arr.astype("datetime64[ns]")
@@ -563,7 +565,13 @@ class Series(ArrayOperators, Generic[T]):
         return [pd.Timestamp(t).to_pydatetime() for t in self.__array__()]
 
 
-TypedCrudeSeries: TypeAlias = Series | pd.Series | np.ndarray
+def _is_pandas_series(data: object) -> TypeIs[pd.Series]:
+    # A value cannot be a pandas Series while pandas is not loaded, and the check keeps
+    # pandas unloaded.
+    return "pandas" in sys.modules and isinstance(data, pd.Series)
+
+
+type TypedCrudeSeries = Series | pd.Series | np.ndarray
 
 
 def to_float(value: SampleValue) -> float:
@@ -599,7 +607,7 @@ CrudeSample: TypeAlias = (
 )
 """A single sample that a Series can be built from."""
 
-CrudeSeries: TypeAlias = (
+type CrudeSeries = (
     Series
     | bytes
     | pd.Series
