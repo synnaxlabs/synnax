@@ -8,8 +8,10 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <future>
+#include <limits>
 #include <memory>
 #include <thread>
 #include <variant>
@@ -899,6 +901,173 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
     task->stop("test_stop", true);
 }
 
+/// @brief it should stop a program whose cycle uses its whole loop budget.
+TEST(ArcErrorHandling, LoopBudgetStopsProgram) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    synnax::arc::AutomationArc arc_prog{
+        {.name = make_unique_channel_name("loop_budget_test")}
+    };
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func spin() {\n    for {}\n}\ninterval(period=10ms) -> spin()\n"
+        }
+    };
+    ASSERT_NIL(create_automation(client, arc_prog));
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_loop_budget_rack"))
+    );
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_loop_budget_test",
+        .type = "arc_runtime",
+    };
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            std::make_shared<pipeline::testutil::WriterFactory>(),
+            pipeline::testutil::simple_streamer_factory(
+                {},
+                std::make_shared<std::vector<x::telem::Frame>>()
+            )
+        )
+    );
+    task->start("test_start");
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        [&] {
+            auto statuses = ctx->snapshot();
+            return find_status_by_variant(statuses, synnax::status::VARIANT_ERROR) !=
+                   nullptr;
+        }(),
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(50)
+    );
+    auto statuses = ctx->snapshot();
+    const auto *error_status = find_status_by_variant(
+        statuses,
+        synnax::status::VARIANT_ERROR
+    );
+    expect_status(*error_status, synnax::status::VARIANT_ERROR, false);
+    EXPECT_EQ(error_status->message, "Program ran too long");
+    EXPECT_TRUE(error_status->description.starts_with("The spin node failed: "));
+    task->stop("test_stop", true);
+}
+
+/// @brief streams a frame that triggers a channel every 5ms until the pipeline closes.
+class TriggerStreamer final : public pipeline::Streamer {
+    synnax::channel::Key idx;
+    synnax::channel::Key ch;
+    std::atomic<bool> closed = false;
+
+public:
+    TriggerStreamer(const synnax::channel::Key idx, const synnax::channel::Key ch):
+        idx(idx), ch(ch) {}
+
+    std::pair<x::telem::Frame, x::errors::Error> read() override {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        if (this->closed) return {x::telem::Frame{}, freighter::STREAM_CLOSED};
+        x::telem::Frame fr(2);
+        fr.emplace(this->idx, x::telem::Series(x::telem::TimeStamp::now()));
+        fr.emplace(this->ch, x::telem::Series(static_cast<int32_t>(1)));
+        return {std::move(fr), x::errors::NIL};
+    }
+
+    void close_send() override { this->closed = true; }
+
+    x::errors::Error close() override { return x::errors::NIL; }
+};
+
+class TriggerStreamerFactory final : public pipeline::StreamerFactory {
+    synnax::channel::Key idx;
+    synnax::channel::Key ch;
+
+public:
+    TriggerStreamerFactory(
+        const synnax::channel::Key idx,
+        const synnax::channel::Key ch
+    ):
+        idx(idx), ch(ch) {}
+
+    std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
+    open_streamer(synnax::framer::StreamerConfig) override {
+        return {std::make_unique<TriggerStreamer>(this->idx, this->ch), x::errors::NIL};
+    }
+};
+
+/// @brief it should keep the loop budget status while input keeps arriving after the
+/// program stops.
+TEST(ArcErrorHandling, LoopBudgetStatusSurvivesLaterInput) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto input_idx = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("budget_input_idx"),
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto input_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("budget_input"),
+        x::telem::INT32_T,
+        input_idx.key
+    ));
+    synnax::arc::AutomationArc arc_prog{
+        {.name = make_unique_channel_name("budget_input_test")}
+    };
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func spin() {val i32} {\n"
+                   "    for {}\n"
+                   "}\n" +
+                   input_ch.name + " -> spin()\n"
+        }
+    };
+    ASSERT_NIL(create_automation(client, arc_prog));
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_budget_input_rack"))
+    );
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_budget_input_test",
+        .type = "arc_runtime",
+    };
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+    task_cfg.loop_budget = 1000;
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            std::make_shared<pipeline::testutil::WriterFactory>(),
+            std::make_shared<TriggerStreamerFactory>(input_idx.key, input_ch.key)
+        )
+    );
+    task->start("test_start");
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        [&] {
+            auto statuses = ctx->snapshot();
+            return find_status_by_variant(statuses, synnax::status::VARIANT_ERROR) !=
+                   nullptr;
+        }(),
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(50)
+    );
+    // Gives the streamer time to send frames after the runtime stopped.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    task->stop("test_stop", true);
+    for (const auto &s: ctx->snapshot()) {
+        if (s.variant == synnax::status::VARIANT_ERROR) {
+            EXPECT_EQ(s.message, "Program ran too long");
+        }
+    }
+}
+
 /// @brief it should stop a program that runs an infinite loop, and report a successful
 /// stop with no error.
 TEST(ArcErrorHandling, StopInterruptsInfiniteLoop) {
@@ -949,6 +1118,7 @@ TEST(ArcErrorHandling, StopInterruptsInfiniteLoop) {
     task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+    task_cfg.loop_budget = std::numeric_limits<std::int64_t>::max();
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame trigger_fr(2);
     auto idx_series = x::telem::Series(x::telem::TimeStamp::now());
