@@ -49,7 +49,7 @@ the browser under "Artifacts" at the bottom.
    server log. This is the highest-signal-per-token entry point. Read it first.
 2. **Cross-reference `summary.json`** for run-level stats and the exact per-test bundle
    path. Failures and timeouts are the ones to triage.
-3. **For each failure still ambiguous after step 1, drill into `tests/NAME/`**
+3. **For each failure still ambiguous after step 1, drill into `tests/CASE/`**
    (`trace.zip` + sliced `server.log` + screenshots/exports). The trace CLI cheatsheet
    below is for when you need to inspect DOM at a specific action or compare snapshots.
 4. **Cross-reference the server log slice** for backend cause of any 4xx/5xx the trace

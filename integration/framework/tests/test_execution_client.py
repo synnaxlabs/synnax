@@ -384,7 +384,11 @@ class TestExecutionClient:
         )
         execution.run(loaded)
         tests = cases_dir.parent / "run" / "tests"
-        assert {Path(t.bundle_dir).relative_to(tests).as_posix() for t in results} == {
+        bundles = set()
+        for t in results:
+            assert t.bundle_dir is not None
+            bundles.add(Path(t.bundle_dir).relative_to(tests).as_posix())
+        assert bundles == {
             "lanes_spec/plain",
             "lanes_spec/sub/plain",
             "lanes_spec/plain (sub)",
