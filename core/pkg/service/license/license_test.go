@@ -10,12 +10,14 @@
 package license_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/mldsa"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net"
 	"net/url"
 	"reflect"
@@ -63,6 +65,57 @@ func (p *pausedDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 		<-p.resume
 	}
 	return iter, err
+}
+
+var errFault = errors.New("fault")
+
+// legacyKey is where Cores before signed license keys stored a numeric key.
+var legacyKey = []byte("bGljZW5zZUtleQ==")
+
+type faultyCloser struct{}
+
+func (faultyCloser) Close() error { return errFault }
+
+type faultyIterator struct{ kv.Iterator }
+
+func (i faultyIterator) Close() error { return errors.Combine(i.Iterator.Close(), errFault) }
+
+// faultyDB fails the step that fault names when the service removes numeric keys.
+type faultyDB struct {
+	kv.DB
+	fault string
+}
+
+func (f *faultyDB) Get(key []byte, opts ...any) ([]byte, io.Closer, error) {
+	value, closer, err := f.DB.Get(key, opts...)
+	if !bytes.Equal(key, legacyKey) {
+		return value, closer, err
+	}
+	switch f.fault {
+	case "get":
+		return nil, nil, errors.Combine(closer.Close(), errFault)
+	case "release":
+		return value, faultyCloser{}, errors.Combine(err, closer.Close())
+	}
+	return value, closer, err
+}
+
+func (f *faultyDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
+	switch f.fault {
+	case "iterate":
+		return nil, errFault
+	case "close":
+		iter, err := f.DB.OpenIterator(opts)
+		return faultyIterator{Iterator: iter}, err
+	}
+	return f.DB.OpenIterator(opts)
+}
+
+func (f *faultyDB) Delete(ctx context.Context, key []byte) error {
+	if f.fault == "delete" {
+		return errFault
+	}
+	return f.DB.Delete(ctx, key)
 }
 
 // numericKey is an unsigned numeric license key.
@@ -358,6 +411,20 @@ var _ = Describe("License", func() {
 				"under the license prefix",
 				append([]byte("license/"), uuid.New().String()...),
 			),
+		)
+		DescribeTable(
+			"should fail to open when it cannot remove numeric keys",
+			func(ctx SpecContext, fault string) {
+				Expect(db.Set(ctx, legacyKey, []byte(numericKey))).To(Succeed())
+				Expect(license.OpenService(ctx, cfg, license.ServiceConfig{
+					DB: &faultyDB{DB: db, fault: fault},
+				})).Error().To(MatchError(errFault))
+			},
+			Entry("on a failed read", "get"),
+			Entry("on a failed release of the read", "release"),
+			Entry("on a failed scan", "iterate"),
+			Entry("on a failed close of the scan", "close"),
+			Entry("on a failed delete", "delete"),
 		)
 		It("should prefer a covering entry over an expired one", func(ctx SpecContext) {
 			expired := newLicense()
