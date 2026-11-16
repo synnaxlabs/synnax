@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"fmt"
 	"math"
 	"reflect"
 	"slices"
@@ -259,45 +260,45 @@ func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, err
 	}
 	switch o := old.Variant.(type) {
 	case v12.BoxNodeConfig:
-		n := cfg.Variant.(BoxNodeConfig)
+		n := as[BoxNodeConfig](cfg.Variant)
 		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
 		n.BorderRadius = migratePixels(o.BorderRadius, 3)
 		cfg.Variant = n
 	case v12.ButtonNodeConfig:
-		n := cfg.Variant.(ButtonNodeConfig)
+		n := as[ButtonNodeConfig](cfg.Variant)
 		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
 		n.Label.MaxInlineSize = migrateButtonMaxInlineSize(o.Label.MaxInlineSize)
 		cfg.Variant = n
 	case v12.InputNodeConfig:
-		n := cfg.Variant.(InputNodeConfig)
+		n := as[InputNodeConfig](cfg.Variant)
 		n.InlineSize = migratePixels(o.InlineSize, 150)
 		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
 		cfg.Variant = n
 	case v12.SelectNodeConfig:
-		n := cfg.Variant.(SelectNodeConfig)
+		n := as[SelectNodeConfig](cfg.Variant)
 		n.InlineSize = migratePixels(o.InlineSize, 100)
 		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
 		cfg.Variant = n
 	case v12.SetpointNodeConfig:
-		n := cfg.Variant.(SetpointNodeConfig)
+		n := as[SetpointNodeConfig](cfg.Variant)
 		n.InlineSize = migratePixels(o.InlineSize, 100)
 		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
 		cfg.Variant = n
 	case v12.StateIndicatorNodeConfig:
-		n := cfg.Variant.(StateIndicatorNodeConfig)
+		n := as[StateIndicatorNodeConfig](cfg.Variant)
 		n.InlineSize = migratePixels(o.InlineSize, 100)
 		cfg.Variant = n
 	case v12.CircleNodeConfig:
-		n := cfg.Variant.(CircleNodeConfig)
+		n := as[CircleNodeConfig](cfg.Variant)
 		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
 		n.Radius = migratePixels(o.Radius, 20)
 		cfg.Variant = n
 	case v12.LineNodeConfig:
-		n := cfg.Variant.(LineNodeConfig)
+		n := as[LineNodeConfig](cfg.Variant)
 		n.StrokeWidth = max(migrateStrokeWidth(o.StrokeWidth), 1)
 		cfg.Variant = n
 	case v12.PolygonNodeConfig:
-		n := cfg.Variant.(PolygonNodeConfig)
+		n := as[PolygonNodeConfig](cfg.Variant)
 		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
 		n.NumSides = migrateNumSides(o.NumSides)
 		n.SideLength = migratePixels(o.SideLength, 20)
@@ -306,28 +307,28 @@ func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, err
 	case v12.TankNodeConfig:
 		// A tank declares its numeric and staleness fields inline, so the generated
 		// copy skips the fields whose types changed.
-		n := cfg.Variant.(TankNodeConfig)
+		n := as[TankNodeConfig](cfg.Variant)
 		n.RollingAverage = migrateRollingAverage(o.RollingAverage)
 		n.StalenessTimeout = migrateStalenessTimeout(o.StalenessTimeout)
 		cfg.Variant = n
 	case v12.GaugeNodeConfig:
-		n := cfg.Variant.(GaugeNodeConfig)
+		n := as[GaugeNodeConfig](cfg.Variant)
 		n.BarWidth = migratePixels(o.BarWidth, 10)
 		cfg.Variant = n
 	case v12.OffPageReferenceNodeConfig:
-		n := cfg.Variant.(OffPageReferenceNodeConfig)
+		n := as[OffPageReferenceNodeConfig](cfg.Variant)
 		n.DoubleClickNavigationDisabled = o.DblClickNavDisabled
 		cfg.Variant = n
 	case v12.StringDisplayNodeConfig:
-		n := cfg.Variant.(StringDisplayNodeConfig)
+		n := as[StringDisplayNodeConfig](cfg.Variant)
 		n.InlineSize = migratePixels(o.InlineSize, 100)
 		cfg.Variant = n
 	case v12.TextBoxNodeConfig:
-		n := cfg.Variant.(TextBoxNodeConfig)
+		n := as[TextBoxNodeConfig](cfg.Variant)
 		n.InlineSize = migratePixels(o.Width, 75)
 		cfg.Variant = n
 	case v12.ValueNodeConfig:
-		n := cfg.Variant.(ValueNodeConfig)
+		n := as[ValueNodeConfig](cfg.Variant)
 		n.InlineSize = migratePixels(o.InlineSize, 70)
 		cfg.Variant = n
 	}
@@ -541,4 +542,14 @@ func MigrateSegmentedEdgeConfig(
 	}
 	cfg.StrokeWidth = defaultStrokeWidth
 	return cfg, nil
+}
+
+// as returns a migrated variant as a T. It panics when v is not a T, since a generated
+// migration keeps each variant's kind.
+func as[T any](v any) T {
+	t, ok := v.(T)
+	if !ok {
+		panic(fmt.Sprintf("migrated variant is a %T, not a %T", v, t))
+	}
+	return t
 }

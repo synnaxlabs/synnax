@@ -113,18 +113,22 @@ var _ = Describe("Migration", func() {
 				Where(gorp.MatchKeys[v13.Key, v13.Schematic](old.Key)).
 				Entry(&got).Exec(ctx, db)).To(Succeed())
 			n := func(r uint8) *colorv2.Color { return &colorv2.Color{R: r, A: expected} }
-			Expect(configOf(got, "cap").(v13.CapNodeConfig).StrokeColor).
-				To(Equal(n(1)))
-			Expect(configOf(got, "pipe").(v13.PipeEdgeConfig).StrokeColor).
-				To(Equal(n(2)))
-			value := configOf(got, "value").(v13.ValueNodeConfig)
+			capCfg, ok := configOf(got, "cap").(v13.CapNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(capCfg.StrokeColor).To(Equal(n(1)))
+			pipeCfg, ok := configOf(got, "pipe").(v13.PipeEdgeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(pipeCfg.StrokeColor).To(Equal(n(2)))
+			value, ok := configOf(got, "value").(v13.ValueNodeConfig)
+			Expect(ok).To(BeTrue())
 			Expect(value.StrokeColor).To(Equal(n(3)))
 			Expect(value.TextColor).To(Equal(n(4)))
 			Expect(value.FillColor).To(Equal(n(5)))
 			Expect(
 				value.Redline.Bands,
 			).To(Equal([]colorv2.Band{{Key: "b", Color: *n(6)}}))
-			custom := configOf(got, "custom").(v13.CustomStaticNodeConfig)
+			custom, ok := configOf(got, "custom").(v13.CustomStaticNodeConfig)
+			Expect(ok).To(BeTrue())
 			Expect(custom.StateOverrides).To(Equal([]symbolv4.State{{
 				Key: "on",
 				Regions: []symbolv4.Region{
@@ -156,7 +160,9 @@ var _ = Describe("Migrate functions", func() {
 					}},
 				},
 			})))
-			return configOf(out, "n").(v13.CapNodeConfig).StrokeColor
+			capCfg, ok := configOf(out, "n").(v13.CapNodeConfig)
+			Expect(ok).To(BeTrue())
+			return capCfg.StrokeColor
 		}),
 		Entry("MigrateNodeConfig", func(ctx context.Context) *colorv2.Color {
 			GinkgoHelper()
@@ -165,7 +171,9 @@ var _ = Describe("Migrate functions", func() {
 					StaticSymbolConfig: v12.StaticSymbolConfig{StrokeColor: half()},
 				},
 			}))
-			return out.Variant.(v13.CapNodeConfig).StrokeColor
+			cfg, ok := out.Variant.(v13.CapNodeConfig)
+			Expect(ok).To(BeTrue())
+			return cfg.StrokeColor
 		}),
 		Entry("MigrateEdgeConfig", func(ctx context.Context) *colorv2.Color {
 			GinkgoHelper()
@@ -174,7 +182,9 @@ var _ = Describe("Migrate functions", func() {
 					SegmentedEdgeConfig: v12.SegmentedEdgeConfig{StrokeColor: half()},
 				},
 			}))
-			return out.Variant.(v13.PipeEdgeConfig).StrokeColor
+			cfg, ok := out.Variant.(v13.PipeEdgeConfig)
+			Expect(ok).To(BeTrue())
+			return cfg.StrokeColor
 		}),
 		Entry("MigrateStaticSymbolConfig", func(ctx context.Context) *colorv2.Color {
 			GinkgoHelper()
@@ -245,14 +255,16 @@ var _ = Describe("Migrate functions", func() {
 			StalenessColor: &color.Color{},
 			TextColor:      &color.Color{},
 		}, func(v any) []*colorv2.Color {
-			c := v.(v13.ValueNodeConfig)
+			c, ok := v.(v13.ValueNodeConfig)
+			Expect(ok).To(BeTrue())
 			return []*colorv2.Color{c.StalenessColor, c.TextColor}
 		}),
 		Entry("a gauge", v12.GaugeElementConfig{
 			StalenessColor: &color.Color{},
 			StrokeColor:    &color.Color{},
 		}, func(v any) []*colorv2.Color {
-			c := v.(v13.GaugeNodeConfig)
+			c, ok := v.(v13.GaugeNodeConfig)
+			Expect(ok).To(BeTrue())
 			return []*colorv2.Color{c.StalenessColor, c.StrokeColor}
 		}),
 		Entry("a scale", v12.ScaleElementConfig{
@@ -261,7 +273,8 @@ var _ = Describe("Migrate functions", func() {
 			AxisColor:      &color.Color{},
 			TextColor:      &color.Color{},
 		}, func(v any) []*colorv2.Color {
-			c := v.(v13.ScaleNodeConfig)
+			c, ok := v.(v13.ScaleNodeConfig)
+			Expect(ok).To(BeTrue())
 			return []*colorv2.Color{
 				c.StalenessColor,
 				c.LevelColor,
@@ -275,7 +288,8 @@ var _ = Describe("Migrate functions", func() {
 			AxisColor:      &color.Color{},
 			TextColor:      &color.Color{},
 		}, func(v any) []*colorv2.Color {
-			c := v.(v13.TankNodeConfig)
+			c, ok := v.(v13.TankNodeConfig)
+			Expect(ok).To(BeTrue())
 			return []*colorv2.Color{
 				c.StalenessColor,
 				c.LevelColor,
@@ -293,8 +307,9 @@ var _ = Describe("Migrate functions", func() {
 					}},
 				},
 			})))
-			Expect(configOf(out, "n").(v13.ValueNodeConfig).TextColor).
-				To(Equal(&colorv2.Color{A: 255}))
+			valueCfg, ok := configOf(out, "n").(v13.ValueNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(valueCfg.TextColor).To(Equal(&colorv2.Color{A: 255}))
 		},
 		Entry("NaN", math.NaN()),
 		Entry("positive infinity", math.Inf(1)),
@@ -306,8 +321,9 @@ var _ = Describe("Migrate functions", func() {
 				"n": {Variant: v12.ValueElementConfig{StrokeColor: &color.Color{}}},
 			},
 		})))
-		Expect(configOf(out, "n").(v13.ValueNodeConfig).StrokeColor).
-			To(HaveValue(Equal(colorv2.Color{})))
+		valueCfg, ok := configOf(out, "n").(v13.ValueNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(valueCfg.StrokeColor).To(HaveValue(Equal(colorv2.Color{})))
 	})
 	It("Should keep a zero color that painted transparent", func(ctx SpecContext) {
 		zero := &color.Color{}
@@ -321,10 +337,12 @@ var _ = Describe("Migrate functions", func() {
 				}},
 			},
 		})))
-		Expect(configOf(out, "cap").(v13.CapNodeConfig).StrokeColor).
-			To(HaveValue(Equal(colorv2.Color{})))
-		Expect(configOf(out, "pipe").(v13.PipeEdgeConfig).StrokeColor).
-			To(HaveValue(Equal(colorv2.Color{})))
+		capCfg, ok := configOf(out, "cap").(v13.CapNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(capCfg.StrokeColor).To(HaveValue(Equal(colorv2.Color{})))
+		pipeCfg, ok := configOf(out, "pipe").(v13.PipeEdgeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(pipeCfg.StrokeColor).To(HaveValue(Equal(colorv2.Color{})))
 	})
 	It("Should keep a zero region color in a state override", func(ctx SpecContext) {
 		out := MustSucceed(v13.MigrateSchematic(ctx, withElements(v12.Schematic{
@@ -341,7 +359,8 @@ var _ = Describe("Migrate functions", func() {
 				}},
 			},
 		})))
-		node := configOf(out, "n").(v13.CustomStaticNodeConfig)
+		node, ok := configOf(out, "n").(v13.CustomStaticNodeConfig)
+		Expect(ok).To(BeTrue())
 		Expect(node.StateOverrides[0].Regions[0].FillColor).
 			To(HaveValue(Equal(colorv2.Color{})))
 	})
@@ -533,14 +552,16 @@ var _ = Describe("MigrateSchematic config move", func() {
 					}},
 				},
 			})
-			polygon := configOf(s, "n1").(v13.PolygonNodeConfig)
+			polygon, ok := configOf(s, "n1").(v13.PolygonNodeConfig)
+			Expect(ok).To(BeTrue())
 			Expect(polygon.NumSides).To(Equal(uint8(6)))
 			Expect(polygon.SideLength).To(Equal(uint16(30)))
 			Expect(polygon.Rotation).To(BeZero())
 			Expect(polygon.StrokeWidth).To(Equal(uint8(2)))
 			Expect(polygon.StrokeColor).To(Equal(&colorv2.Color{R: 1, A: 255}))
-			Expect(configOf(s, "e1").(v13.PipeEdgeConfig).Segments).
-				To(Equal([]v13.Segment{{}}))
+			pipeCfg, ok := configOf(s, "e1").(v13.PipeEdgeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(pipeCfg.Segments).To(Equal([]v13.Segment{{}}))
 		},
 		Entry("NaN", math.NaN()),
 		Entry("positive infinity", math.Inf(1)),
@@ -1059,7 +1080,8 @@ var _ = Describe("MigrateNodeConfig whole numbers and renames", func() {
 				RollingAverage:   new(int32(0)),
 			},
 		}))
-		tank := out.Variant.(v13.TankNodeConfig)
+		tank, ok := out.Variant.(v13.TankNodeConfig)
+		Expect(ok).To(BeTrue())
 		Expect(tank.StalenessTimeout).To(Equal(2 * telem.Second))
 		Expect(tank.RollingAverage).To(Equal(uint16(1)))
 	})
