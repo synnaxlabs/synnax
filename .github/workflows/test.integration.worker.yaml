@@ -156,7 +156,8 @@ jobs:
         run: |
           setlocal EnableDelayedExpansion
           uv run test-conductor --name tc_win ^
-            --core-binary "%USERPROFILE%\synnax-binaries\synnax.exe" !TC_ARGS!
+            --core-binary "%USERPROFILE%\synnax-binaries\synnax.exe" ^
+            --driver-binary "%USERPROFILE%\synnax-binaries\synnax-driver.exe" !TC_ARGS!
 
       - name: Test conductor (Ubuntu)
         if: runner.os == 'Linux'
@@ -173,7 +174,8 @@ jobs:
         run: |
           read -ra args <<< "$TC_ARGS"
           uv run test-conductor --name tc_unix \
-            --core-binary "$HOME/synnax-binaries/synnax" "${args[@]}"
+            --core-binary "$HOME/synnax-binaries/synnax" \
+            --driver-binary "$HOME/synnax-binaries/synnax-driver" "${args[@]}"
 
       # A failed measurement must not fail the tests it measured.
       - name: Report resource use

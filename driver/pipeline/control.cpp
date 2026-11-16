@@ -9,8 +9,6 @@
 
 #include <utility>
 
-#include "client/cpp/errors/errors.h"
-
 #include "driver/errors/errors.h"
 #include "driver/pipeline/control.h"
 
@@ -60,12 +58,11 @@ bool Control::run_once() {
     auto [s, open_err] = this->factory->open_streamer(this->config);
     this->streamer = std::move(s);
     if (open_err) {
-        if (synnax::errors::is_temporarily_unavailable(open_err) &&
-            breaker.wait(open_err.message()))
-            return true;
+        if (this->wait_for_core(open_err)) return true;
         this->sink->stopped_with_err(open_err);
         return false;
     }
+    this->breaker.reset_unlimited();
     this->sink->opened();
 
     x::errors::Error sink_err = x::errors::NIL;
@@ -81,8 +78,7 @@ bool Control::run_once() {
         this->breaker.reset();
     }
     const auto close_err = this->streamer->close();
-    if (synnax::errors::is_temporarily_unavailable(close_err) && breaker.wait())
-        return true;
+    if (this->wait_for_core(close_err)) return true;
     if (sink_err)
         this->sink->stopped_with_err(sink_err);
     else if (close_err)

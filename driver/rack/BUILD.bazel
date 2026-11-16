@@ -161,9 +161,11 @@ cc_test(
     ],
     tags = ["requires-core"],
     deps = [
+        "//client/cpp/errors",
         "//client/cpp/testutil",
         "//driver/rack",
         "//driver/rack/status",
+        "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],
 )

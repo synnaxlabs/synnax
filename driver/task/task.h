@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
+#include <cstdint>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -318,12 +319,18 @@ public:
         this->ctx->set_rack_name(this->rack.name);
     }
 
-    /// @brief runs the main task manager loop, blocking until stop() is called.
-    /// Safe to call stop() from another thread.
+    /// @brief runs the main task manager loop, blocking until stop() is called or the
+    /// connection to the Core fails. Safe to call stop() from another thread. A failed
+    /// connection leaves the tasks running: call run again to reconnect, or close. It
+    /// is not safe to call while a call is in progress.
     x::errors::Error run(const std::function<void()> &on_started = nullptr);
 
     /// @brief stops the task manager, halting all tasks and freeing resources.
     void stop();
+
+    /// @brief stops the tasks that a failed run left running. Call it on the thread of
+    /// run once no run follows. Does nothing after a run that stop() ended.
+    void close();
 
 private:
     /// @brief the rack this manager belongs to.
@@ -410,6 +417,8 @@ private:
     std::thread monitor_thread;
     /// @brief controls worker and monitor thread lifecycle.
     x::breaker::Breaker breaker{x::breaker::Config{.name = "task.manager"}};
+    /// @brief the number of runs started.
+    std::atomic<uint64_t> runs{0};
 
     /// @brief protects entries, op_queue, and streamer.
     std::mutex mu;
@@ -427,6 +436,9 @@ private:
         synnax::channel::Channel rack_set;
     } channels;
 
+    /// @brief configures the tasks and applies the events of the Core until the
+    /// streamer stops.
+    x::errors::Error serve(const std::function<void()> &on_started);
     /// @brief opens the streamer for task set/delete/cmd channels.
     x::errors::Error open_streamer();
     /// @brief replaces the control state mirror with the cluster's current state.
@@ -451,10 +463,13 @@ private:
     void process_start(const synnax::task::Command &cmd);
     /// @brief returns the entry for key, creating it if absent. Callers must hold mu.
     std::shared_ptr<Entry> entry_for(const synnax::task::Key &key);
-    /// @brief drops the entry for key and forgets its status, unless the entry is still
-    /// relevant or claimed by a worker. even_if_processing is for a worker's own entry.
-    /// Callers must hold mu.
-    void remove(const synnax::task::Key &key, bool even_if_processing = false);
+    /// @brief drops the entry for key, unless the entry is still relevant or claimed by
+    /// a worker. even_if_processing is for a worker's own entry. Callers must hold mu.
+    /// @returns true when the entry was dropped.
+    bool remove(const synnax::task::Key &key, bool even_if_processing = false);
+    /// @brief removes the entry for key like remove, then forgets the status of the
+    /// task when the entry went. Takes mu, and waits for a status write of the task.
+    void discard(const synnax::task::Key &key, bool even_if_processing = false);
     /// @brief starts the worker pool and monitor thread.
     void start_workers();
     /// @brief stops workers and waits for them to finish.
