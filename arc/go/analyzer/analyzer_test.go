@@ -335,6 +335,15 @@ var _ = Describe("Analyzer Integration", func() {
 	})
 
 	Describe("Statement analysis", func() {
+		DescribeTable("Should reject a unit literal of another dimension",
+			func(bCtx SpecContext, source string) {
+				ctx := analyzeAndExpectErrorWithResolver(bCtx, source, nil)
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring("type mismatch"))
+			},
+			Entry("in a declaration", "func f() {\n    x f64 m := 5s\n}"),
+			Entry("in an assignment", "func f() {\n    x f64 m := 5m\n    x = 5s\n}"),
+		)
+
 		It(
 			"Should analyze a valid variable declaration statement",
 			func(bCtx SpecContext) {

@@ -84,6 +84,9 @@ func Check(
 		return cs.AddEquality(t2, target, source, reason)
 	}
 	if t1.Kind == types.KindVariable || t2.Kind == types.KindVariable {
+		if !sameDimensions(t1, t2) {
+			return newTypeMismatchError(t1, t2, reason)
+		}
 		return cs.AddEquality(t1, t2, source, reason)
 	}
 

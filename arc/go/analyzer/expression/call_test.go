@@ -79,7 +79,18 @@ var _ = Describe("AnalyzeCall", func() {
 					result := process(x)
 				}
 			`, "argument 'x' of 'process'"),
+			Entry("unit literal of another dimension", `
+				func move() {d f64 m} f64 m { return d }
+				func main() { result := move(5s) }
+			`, "argument 'd' of 'move'"),
 		)
+
+		It("should accept a unit literal of the same dimension", func(ctx SpecContext) {
+			expectSuccess(ctx, `
+				func wait() {d f64 s} f64 s { return d }
+				func main() { result := wait(500ms) }
+			`, nil)
+		})
 
 		It(
 			"should give the cast as the fix for a numeric mismatch",

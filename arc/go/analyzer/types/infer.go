@@ -211,10 +211,20 @@ func AssignmentCompatible(varType, exprType types.Type) bool {
 
 // untypedFits reports whether an untyped value of type variable t, such as a literal or
 // a constant, fits a target of type target. A float one does not fit an integer, or an
-// untyped integer.
+// untyped integer. One with a unit does not fit a target with a unit of another
+// dimension.
 func untypedFits(target, t types.Type) bool {
+	if !sameDimensions(target, t) {
+		return false
+	}
 	integer := target.IsInteger() || constrainedTo(target, types.KindIntegerConstant)
 	return !integer || !constrainedTo(t, types.KindFloatConstant)
+}
+
+// sameDimensions reports whether a and b have units of the same dimension, or one of
+// them has no unit.
+func sameDimensions(a, b types.Type) bool {
+	return a.Unit == nil || b.Unit == nil || a.Unit.Dimensions.Equal(b.Unit.Dimensions)
 }
 
 // LiteralAssignmentCompatible returns true if a literal of literalType can be assigned
