@@ -31,6 +31,8 @@ const getStored = (): Client | null => {
 };
 
 const store = (client: string): void => {
+  // A link can name any value, and storing one that is no client forgets the choice.
+  if (!isClient(client)) return;
   try {
     localStorage.setItem(STORAGE_KEY, client);
   } catch {
