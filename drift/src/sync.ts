@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
-import { dimensions, errors, unique } from "@synnaxlabs/x";
+import { dimensions, unique } from "@synnaxlabs/x";
 
 import { group, groupEnd, log } from "@/debug";
 import { type MainChecker, type Manager, type Properties } from "@/runtime";
 import {
+  closeWindow,
+  type CloseWindowPayload,
   runtimeSetWindowProps,
   type RuntimeSetWindowProsPayload,
-  setWindowError,
-  type SetWindowErrorPayload,
   type SliceState,
 } from "@/state";
 import {
@@ -29,7 +29,7 @@ import {
 type RequiredRuntime = Manager & MainChecker & Properties;
 
 type SyncDispatch = Dispatch<
-  PayloadAction<RuntimeSetWindowProsPayload | SetWindowErrorPayload>
+  PayloadAction<RuntimeSetWindowProsPayload | CloseWindowPayload>
 >;
 
 const purgeWinStateToProps = (
@@ -286,8 +286,8 @@ const syncMain = async (
       await createRuntimeWindow(runtime, dispatch, label, next.windows[label], debug);
 };
 
-// A failed create is recorded on the window's own state, so it does not stop the
-// windows after it from being created.
+// A window that fails to create is logged and removed from state, so a later create
+// with the same key or a new prerender can replace it.
 const createRuntimeWindow = async (
   runtime: Manager,
   dispatch: SyncDispatch,
@@ -299,7 +299,8 @@ const createRuntimeWindow = async (
   try {
     await runtime.create(label, purgeWinStateToProps(window));
   } catch (err) {
-    dispatch(setWindowError({ key: label, message: errors.fromUnknown(err).message }));
+    console.error(`[drift] - failed to create window ${label}`, err);
+    dispatch(closeWindow({ key: label }));
   }
 };
 

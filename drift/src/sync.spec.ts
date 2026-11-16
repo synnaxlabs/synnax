@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { deep } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { setWindowError, ZERO_SLICE_STATE } from "@/state";
+import { closeWindow, ZERO_SLICE_STATE } from "@/state";
 import { sync } from "@/sync";
 import { MockRuntime } from "@/testutil";
 import { INITIAL_WINDOW_STATE, type WindowProps, type WindowState } from "@/window";
@@ -44,7 +44,8 @@ describe("sync", () => {
     });
   });
 
-  it("should record a failed create on the window and create the rest", async () => {
+  it("should remove a window that fails to create and create the rest", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     const runtime = new MockRuntime(true, { key: "main" });
     runtime.createErrors.child = new Error("label already exists");
     const nextState = deep.copy(ZERO_SLICE_STATE);
@@ -61,9 +62,9 @@ describe("sync", () => {
       runtime,
       false,
     );
-    expect(dispatched).toEqual([
-      setWindowError({ key: "child", message: "label already exists" }),
-    ]);
+    expect(dispatched).toEqual([closeWindow({ key: "child" })]);
     expect(Object.keys(runtime.hasCreated)).toEqual(["other"]);
+    expect(consoleError).toHaveBeenCalledOnce();
+    consoleError.mockRestore();
   });
 });
