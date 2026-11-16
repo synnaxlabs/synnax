@@ -505,7 +505,7 @@ private:
                     result = a * b;
                     break;
                 case Op::Divide:
-                    result = a / b;
+                    result = div_impl(a, b);
                     break;
                 case Op::Mod:
                     result = mod_impl(a, b);
@@ -516,12 +516,24 @@ private:
         return x::errors::NIL;
     }
 
+    /// @brief divides a by b. A signed integer divided by -1 wraps, so the minimum
+    /// value divided by -1 is itself instead of a hardware trap.
+    template<typename T>
+    static T div_impl(T a, T b) {
+        if constexpr (std::is_integral_v<T> && std::is_signed_v<T>)
+            if (b == -1)
+                return static_cast<T>(-static_cast<std::make_unsigned_t<T>>(a));
+        return a / b;
+    }
+
     template<typename T>
     static T mod_impl(T a, T b) {
         if constexpr (std::is_floating_point_v<T>)
             return static_cast<T>(
                 std::fmod(static_cast<double>(a), static_cast<double>(b))
             );
+        else if constexpr (std::is_signed_v<T>)
+            return b == -1 ? T{0} : static_cast<T>(a % b);
         else
             return a % b;
     }

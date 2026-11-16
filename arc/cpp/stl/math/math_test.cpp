@@ -1492,6 +1492,39 @@ TEST(MathDivideTest, ReportsAZeroIntegerDivisor) {
     }
 }
 
+template<typename T>
+void expect_min_by_negative_one(const types::Kind kind) {
+    for (const auto &[node_type, expected]:
+         {std::pair{"divide", std::numeric_limits<T>::min()}, std::pair{"mod", T{0}}}) {
+        SCOPED_TRACE(node_type);
+        BinaryTestSetup setup(kind, node_type);
+        Module module;
+        auto node = ASSERT_NIL_P(module.create(
+            runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
+        ));
+        const std::vector<int64_t> ts{x::telem::SECOND.nanoseconds()};
+        auto lhs = setup.make_lhs_node();
+        auto rhs = setup.make_rhs_node();
+        lhs.output(0) = x::mem::make_local_shared<x::telem::Series>(
+            std::vector<T>{std::numeric_limits<T>::min()}
+        );
+        lhs.output_time(0) = x::mem::make_local_shared<x::telem::Series>(ts);
+        lhs.mark_fresh(0);
+        rhs.output(0) = x::mem::make_local_shared<x::telem::Series>(std::vector<T>{-1});
+        rhs.output_time(0) = x::mem::make_local_shared<x::telem::Series>(ts);
+        rhs.mark_fresh(0);
+        auto ctx = make_context();
+        ASSERT_NIL(node->next(ctx));
+        EXPECT_EQ(setup.make_target_node().output(0)->at<T>(0), expected);
+    }
+}
+
+/// @brief it should wrap the minimum signed integer divided by -1 and give a zero mod.
+TEST(MathDivideTest, WrapsSignedMinimumByNegativeOne) {
+    expect_min_by_negative_one<int32_t>(types::Kind::I32);
+    expect_min_by_negative_one<int64_t>(types::Kind::I64);
+}
+
 // ───────────────── Neg ─────────────────
 
 TEST(MathNegTest, NegatesF64ElementWise) {
