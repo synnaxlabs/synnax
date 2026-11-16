@@ -29,7 +29,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Channel, ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { DataType, deep, type payload, primitive, unique, uuid } from "@synnaxlabs/x";
-import { type FC, useEffect, useState } from "react";
+import { type FC, useEffect, useRef, useState } from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
@@ -769,50 +769,59 @@ const Entries: FC<EntriesProps> = ({ device, format, selected, onSelect }) => {
   const entries = PForm.useFieldValue(root.config.entries);
   const current = selected.at(0);
 
+  // Adds run one at a time, so a second click cannot make a second ICD.
+  const adding = useRef(false);
+  const add = async () => {
+    if (client == null) throw new DisconnectedError();
+    const plain = entries.filter(isPlain);
+    const messages = await readMessages(client, format, plain);
+    const held = entries.map((e): Addition =>
+      isPlain(e)
+        ? { ...createDraft(e.topic), fields: jsonFields(messageOf(messages, e)) }
+        : e,
+    );
+    const additions = await discover({ device, entries: held });
+    if (additions == null || additions.length === 0) return;
+    const drafts = additions.filter(isDraft);
+    const tags = additions.filter((a): a is SparkplugReadEntry => !isDraft(a));
+    const written = writtenChannels(entries);
+    const bind: Bind = ({ topic, bound }, fields) =>
+      bindingsOf(
+        device.properties.read,
+        topic,
+        fields.filter(({ key }) => bound.includes(key)),
+        written,
+      );
+    const { added, held: grown } =
+      drafts.length === 0
+        ? { added: [], held: [] }
+        : format == null
+          ? await createICD(client, icdName(ctx.get(root.name).value), drafts, bind)
+          : await addTopics({ client, format, entries: plain, drafts, bind });
+    push([...added, ...tags]);
+    grown.forEach(({ key, message, bindings }) => {
+      const read = plainPath(key).messages[0];
+      // The index and bindings of a deleted message name fields it no longer has.
+      if (message != null)
+        ctx.set(read, mqtt.readMessageZ.parse({ message, bindings }));
+      else ctx.set(read.bindings, [...ctx.get(read.bindings).value, ...bindings]);
+    });
+    const first = additions[0];
+    const firstKey = isDraft(first)
+      ? (
+          entries.find((e) => isPlain(e) && e.topic === first.topic) ??
+          added.find((e) => e.topic === first.topic)
+        )?.key
+      : first.key;
+    if (firstKey != null) onSelect([firstKey]);
+  };
   const handleAdd = () =>
     handleError(async () => {
-      if (client == null) throw new DisconnectedError();
-      const plain = entries.filter(isPlain);
-      const messages = await readMessages(client, format, plain);
-      const held = entries.map((e): Addition =>
-        isPlain(e)
-          ? { ...createDraft(e.topic), fields: jsonFields(messageOf(messages, e)) }
-          : e,
-      );
-      const additions = await discover({ device, entries: held });
-      if (additions == null || additions.length === 0) return;
-      const drafts = additions.filter(isDraft);
-      const tags = additions.filter((a): a is SparkplugReadEntry => !isDraft(a));
-      const written = writtenChannels(entries);
-      const bind: Bind = ({ topic, bound }, fields) =>
-        bindingsOf(
-          device.properties.read,
-          topic,
-          fields.filter(({ key }) => bound.includes(key)),
-          written,
-        );
-      const { added, held: grown } =
-        drafts.length === 0
-          ? { added: [], held: [] }
-          : format == null
-            ? await createICD(client, icdName(ctx.get(root.name).value), drafts, bind)
-            : await addTopics({ client, format, entries: plain, drafts, bind });
-      push([...added, ...tags]);
-      grown.forEach(({ key, message, bindings }) => {
-        const read = plainPath(key).messages[0];
-        // The index and bindings of a deleted message name fields it no longer has.
-        if (message != null)
-          ctx.set(read, mqtt.readMessageZ.parse({ message, bindings }));
-        else ctx.set(read.bindings, [...ctx.get(read.bindings).value, ...bindings]);
+      if (adding.current) return;
+      adding.current = true;
+      await add().finally(() => {
+        adding.current = false;
       });
-      const first = additions[0];
-      const firstKey = isDraft(first)
-        ? (
-            entries.find((e) => isPlain(e) && e.topic === first.topic) ??
-            added.find((e) => e.topic === first.topic)
-          )?.key
-        : first.key;
-      if (firstKey != null) onSelect([firstKey]);
     }, "Failed to add data");
 
   const setEnabled = (keys: string[], enabled: boolean) =>

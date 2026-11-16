@@ -304,6 +304,15 @@ describe("MQTT read form", () => {
     );
   });
 
+  it("should open one Add data dialog for a double click", async () => {
+    await renderRead();
+    const button = await screen.findByRole("button", { name: "Add data" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    await screen.findByRole("dialog");
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  });
+
   it("should give the ICD a default name while the task has none", async () => {
     const { dev, draft } = await renderRead();
     const name = await screen.findByLabelText("Name");
