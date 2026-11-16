@@ -41,7 +41,7 @@ const PROPERTIES: View.Filter.Properties<status.Where> = {
 const Fixture = ({ where }: { where?: status.Where }): ReactElement => {
   const methods = Form.use({ schema, values: { where } });
   return (
-    <View.Frame resourceType="status" icon="Status">
+    <View.Frame resourceType="status" icon="Status" tabType="status_explorer">
       <Form.Form<typeof schema> {...methods}>
         <View.Filter.Menu properties={PROPERTIES} />
         <View.Filter.Chips properties={PROPERTIES} />

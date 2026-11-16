@@ -43,7 +43,7 @@ interface FixtureProps {
 const Fixture = ({ where, properties }: FixtureProps): ReactElement => {
   const methods = Form.use({ schema, values: { where } });
   return (
-    <View.Frame resourceType="range" icon="Label">
+    <View.Frame resourceType="range" icon="Label" tabType="range_explorer">
       <Form.Form<typeof schema> {...methods}>
         <View.Filter.Menu properties={properties} />
         <View.Filter.Chips properties={properties} />

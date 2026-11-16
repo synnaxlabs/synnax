@@ -27,6 +27,8 @@ export interface ContextValue {
   resourceType: view.Type;
   selected: view.Key;
   select: (key: view.Key) => void;
+  /** Opens a view in a new tab. Null when the user may not open a tab. */
+  openInNewTab: ((key: view.Key) => void) | null;
   editable: boolean;
   staticViews: view.Key[];
   getInitialView: () => view.View;

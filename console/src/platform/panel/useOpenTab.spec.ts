@@ -209,6 +209,38 @@ describe("Panel.useOpenTab", () => {
       expect(seed.type).toBe("seed");
     });
 
+    it("opens a keyed tab new to the panel beside the surrounding one", async () => {
+      const [otherTabKey, seedTabKey, newTabKey] = [
+        uuid.create(),
+        uuid.create(),
+        uuid.create(),
+      ];
+      const existing = await createServerPanel(client, {
+        variant: "split",
+        direction: "x",
+        size: 0.5,
+        first: viewLeaf(otherTabKey, "other"),
+        last: viewLeaf(seedTabKey, "seed"),
+      });
+      const { wrapper } = await createPanelWrapper({
+        client,
+        panelKey: existing.key,
+        tabKey: seedTabKey,
+      });
+      await primePanel(wrapper, existing.key);
+      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
+      await act(async () => {
+        result.current({ variant: "view", key: newTabKey, type: "added" });
+      });
+      await waitFor(async () => {
+        const doc = await client.panels.retrieve(existing.key);
+        expect(panel.findTabLeaf(doc.root, newTabKey)?.tabs.map((t) => t.key)).toEqual([
+          seedTabKey,
+          newTabKey,
+        ]);
+      });
+    });
+
     it("replaces the tab in place when the params carry that tab's key", async () => {
       const seedTabKey = uuid.create();
       const existing = await createServerPanel(client, viewLeaf(seedTabKey, "seed"));

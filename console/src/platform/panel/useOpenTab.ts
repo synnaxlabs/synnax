@@ -30,8 +30,8 @@ export interface Placement {
 
 export interface OpenTabOptions {
   /**
-   * When set and the tab is a view, an existing view of the same type is focused
-   * instead of opening a duplicate, making the view a per-panel singleton.
+   * When set and the tab is a view, a tab of the same type already in the panel is
+   * focused instead of opening another.
    */
   singleton?: boolean;
   /**
@@ -89,16 +89,19 @@ export const useOpenTabs = (): OpenTabs => {
     params: panel.NewTab[],
     options?: OpenTabOptions,
   ) => {
-    if (!query.isLive(client?.panels.watch(panelKey).getCached()))
+    const current = client?.panels.watch(panelKey).getCached();
+    if (!query.isLive(current))
       throw new NotFoundError(`Panel with key ${panelKey} not found`);
     const { singleton, placement } = options ?? {};
     const tabs = params.map((p): panel.Tab => panel.tabZ.parse({ ...p }));
     const last = tabs.at(-1);
     if (last == null) return;
-    // A keyless tab opens beside the current one. A keyed one is a reopen, so it
-    // carries no placement and keeps wherever it already sits.
+    // A tab new to the panel opens beside the current one. A tab already in it is a
+    // reopen, so it carries no placement and keeps wherever it already sits.
+    const key = params[0]?.key;
+    const isNew = key == null || panel.findTab(current.root, key) == null;
     const besideCurrent =
-      params[0]?.key == null && panelKey === parentPanelKey ? parentTabKey : undefined;
+      isNew && panelKey === parentPanelKey ? parentTabKey : undefined;
     dispatch({
       key: panelKey,
       actions: panel.insertTabs({

@@ -22,6 +22,7 @@ import { Access, Flux, View as PView } from "@synnaxlabs/pluto";
 import { binary, location, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
+import { TAB_TYPE } from "@/feature/range/explorer/external";
 import { PROPERTIES } from "@/feature/range/explorer/Filter";
 import { MATCH_LIMIT, useSearchTree } from "@/feature/range/explorer/searchTree";
 import { nextCrossing, pin, useNextRanges } from "@/feature/range/explorer/time";
@@ -267,7 +268,7 @@ const Internal = (): ReactElement => {
 };
 
 export const Explorer: Panel.Content = () => (
-  <View.Frame resourceType="range" icon="Range">
+  <View.Frame resourceType="range" icon="Range" tabType={TAB_TYPE}>
     <Internal />
   </View.Frame>
 );

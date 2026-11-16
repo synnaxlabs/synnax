@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel, ranger, type Synnax as Client, view } from "@synnaxlabs/client";
+import { panel, ranger, type Synnax as Client, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
@@ -21,6 +21,11 @@ import { describe, expect, it } from "vitest";
 
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
+import {
+  createPanelWrapper,
+  createServerPanel,
+  primePanel,
+} from "@/platform/panel/testutil";
 import { uniqueRangeName } from "@/platform/range/testutil";
 import { View } from "@/platform/view";
 import { inTab } from "@/platform/view/testutil";
@@ -73,7 +78,7 @@ const Inner = (): ReactElement => {
 };
 
 const Harness = (): ReactElement => (
-  <View.Frame resourceType="range" icon="Range">
+  <View.Frame resourceType="range" icon="Range" tabType="range_explorer">
     <Inner />
   </View.Frame>
 );
@@ -364,6 +369,91 @@ describe("View open in a tab", () => {
     await waitFor(() => expect(selectedViewName()).toBe(saved.name));
     await act(async () => await client.views.delete(saved.key));
     await waitFor(() => expect(selectedViewName()).toBe("All ranges"));
+  });
+});
+
+const TAB_TYPE = "range_explorer";
+
+/** Renders the harness in a tab of a panel on the Core. */
+const renderInPanel = async (): Promise<{
+  panelKey: panel.Key;
+  tab: panel.TabKey;
+  store: TestStore;
+}> => {
+  const tab = uuid.create();
+  const { key: panelKey } = await createServerPanel(client, {
+    variant: "leaf",
+    tabs: [{ variant: "view", key: tab, type: TAB_TYPE }],
+  });
+  const { wrapper, store } = await createPanelWrapper({
+    client,
+    panelKey,
+    tabKey: tab,
+  });
+  await primePanel(wrapper, panelKey);
+  render(
+    <>
+      <Harness />
+      <Modals.Stack />
+    </>,
+    { wrapper },
+  );
+  return { panelKey, tab, store };
+};
+
+/** Waits for one tab beside the given one, and returns it. */
+const waitForNewTab = async (
+  panelKey: panel.Key,
+  tab: panel.TabKey,
+): Promise<panel.Tab> =>
+  await waitFor(async () => {
+    const { root } = await client.panels.retrieve(panelKey);
+    const added = (panel.findTabLeaf(root, tab)?.tabs ?? []).filter(
+      (t) => t.key !== tab,
+    );
+    expect(added).toHaveLength(1);
+    return added[0];
+  });
+
+describe("View open in a new tab", () => {
+  it("opens a view in a new tab from its context menu", async () => {
+    const saved = await createView();
+    const { panelKey, tab, store } = await renderInPanel();
+    fireEvent.contextMenu(await screen.findByText(saved.name));
+    fireEvent.click(await screen.findByText("Open in new tab"));
+    const added = await waitForNewTab(panelKey, tab);
+    expect(added).toMatchObject({ variant: "view", type: TAB_TYPE });
+    expect(store.getState()[Session.View.SLICE_NAME].open[added.key]).toBe(saved.key);
+    expect(selectedViewName()).toBe("All ranges");
+  });
+
+  it("opens a view in a new tab on a Cmd+click", async () => {
+    const saved = await createView();
+    const { panelKey, tab, store } = await renderInPanel();
+    fireEvent.click(await screen.findByRole("tab", { name: saved.name }), {
+      metaKey: true,
+    });
+    const added = await waitForNewTab(panelKey, tab);
+    expect(store.getState()[Session.View.SLICE_NAME].open[added.key]).toBe(saved.key);
+    expect(selectedViewName()).toBe("All ranges");
+  });
+
+  it("opens the open view in a new tab on a Ctrl+click", async () => {
+    const saved = await createView();
+    const { panelKey, tab, store } = await renderInPanel();
+    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
+    fireEvent.click(screen.getByRole("tab", { name: saved.name }), { ctrlKey: true });
+    const added = await waitForNewTab(panelKey, tab);
+    expect(store.getState()[Session.View.SLICE_NAME].open[added.key]).toBe(saved.key);
+  });
+
+  it("opens the static view in a new tab with no stored view", async () => {
+    const { panelKey, tab, store } = await renderInPanel();
+    fireEvent.contextMenu(await screen.findByText("All ranges"));
+    fireEvent.click(await screen.findByText("Open in new tab"));
+    const added = await waitForNewTab(panelKey, tab);
+    expect(store.getState()[Session.View.SLICE_NAME].open[added.key]).toBeUndefined();
   });
 });
 
