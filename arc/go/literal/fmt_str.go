@@ -114,35 +114,16 @@ func unescape(body string, multi bool) (string, []int, error) {
 		}
 		next := body[i+1]
 		width := 2
+		escaped, simple := simpleEscape(next, multi)
 		switch {
-		case next == 'b':
-			b.WriteByte('\b')
-		case next == 't':
-			b.WriteByte('\t')
-		case next == 'n':
-			b.WriteByte('\n')
-		case next == 'f':
-			b.WriteByte('\f')
-		case next == 'r':
-			b.WriteByte('\r')
-		case next == '"' && !multi:
-			b.WriteByte('"')
-		case next == '`' && multi:
-			b.WriteByte('`')
-		case next == '\\':
-			b.WriteByte('\\')
+		case simple:
+			b.WriteByte(escaped)
 		case next == 'u':
-			if i+6 > len(body) {
-				return "", nil, errors.New(`incomplete \u escape in string literal`)
-			}
-			cp, err := strconv.ParseUint(body[i+2:i+6], 16, 16)
+			r, err := unicodeEscape(body, i)
 			if err != nil {
-				return "", nil, errors.Newf(
-					`invalid \u escape %q in string literal`,
-					body[i:i+6],
-				)
+				return "", nil, err
 			}
-			b.WriteRune(rune(cp))
+			b.WriteRune(r)
 			width = 6
 		default:
 			// The escape passes through, so each byte keeps its own offset.
@@ -156,6 +137,40 @@ func unescape(body string, multi bool) (string, []int, error) {
 		i += width
 	}
 	return b.String(), append(offsets, len(body)), nil
+}
+
+func simpleEscape(c byte, multi bool) (byte, bool) {
+	switch {
+	case c == 'b':
+		return '\b', true
+	case c == 't':
+		return '\t', true
+	case c == 'n':
+		return '\n', true
+	case c == 'f':
+		return '\f', true
+	case c == 'r':
+		return '\r', true
+	case c == '"' && !multi:
+		return '"', true
+	case c == '`' && multi:
+		return '`', true
+	case c == '\\':
+		return '\\', true
+	default:
+		return 0, false
+	}
+}
+
+func unicodeEscape(body string, i int) (rune, error) {
+	if i+6 > len(body) {
+		return 0, errors.New(`incomplete \u escape in string literal`)
+	}
+	cp, err := strconv.ParseUint(body[i+2:i+6], 16, 16)
+	if err != nil {
+		return 0, errors.Newf(`invalid \u escape %q in string literal`, body[i:i+6])
+	}
+	return rune(cp), nil
 }
 
 // FmtStrSplit applies the escapes in body, unless flags.Raw, and then splits the
