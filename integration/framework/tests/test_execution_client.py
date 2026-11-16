@@ -69,9 +69,12 @@ class Hold(TestCase):
             "start": start,
             "end": time.monotonic(),
         }
-        with open(self.params["record"], "a") as f:
+        with open(self.params["record"], "a+") as f:
             f.write(json.dumps(span) + "\\n")
-        self._status = STATUS.PASSED
+            f.seek(0)
+            attempts = sum(json.loads(line)["name"] == self.name for line in f)
+        failed = attempts == 1 and self.name == self.params["fails_once"]
+        self._status = STATUS.FAILED if failed else STATUS.PASSED
 """
 
 CASES = {
@@ -113,17 +116,25 @@ def sequence(
     hold: float = 0.3,
     order: str = "sequential",
     isolated: bool = False,
+    independent: bool = False,
     timeout: float | None = None,
+    fails_once: str = "",
 ) -> dict[str, object]:
+    """:param fails_once: Name of the test that fails the first time it runs."""
     return {
         "sequence_name": name,
         "sequence_order": order,
         "isolated": isolated,
+        "independent": independent,
         "tests": [
             {
                 "case": f"lanes_spec/{case}",
                 "name": f"{name}_{i}",
-                "parameters": {"hold": hold, "record": "record.jsonl"},
+                "parameters": {
+                    "hold": hold,
+                    "record": "record.jsonl",
+                    "fails_once": fails_once,
+                },
                 **({} if timeout is None else {"timeout": timeout}),
             }
             for i, case in enumerate(cases)
@@ -173,10 +184,18 @@ def client(
     return execution, loaded, results
 
 
-def spans(cases_dir: Path) -> dict[str, Span]:
+def attempts(cases_dir: Path) -> dict[str, list[Span]]:
+    """Returns the spans of each test by name, one for each time the test ran."""
     record = cases_dir.parent / "record.jsonl"
     lines = record.read_text().splitlines() if record.exists() else []
-    return {s.name: s for s in map(Span.model_validate_json, lines)}
+    by_name: dict[str, list[Span]] = {}
+    for span in map(Span.model_validate_json, lines):
+        by_name.setdefault(span.name, []).append(span)
+    return by_name
+
+
+def spans(cases_dir: Path) -> dict[str, Span]:
+    return {name: ran[-1] for name, ran in attempts(cases_dir).items()}
 
 
 def run(
@@ -336,3 +355,45 @@ class TestExecutionClient:
         )
         with pytest.raises(RuntimeError, match=r"^telemetry is down$"):
             execution.run(loaded)
+
+    def test_retry_with_peers(self, cases_dir: Path) -> None:
+        """Should run the whole asynchronous sequence again for a failed test."""
+        execution, loaded, results = client(
+            cases_dir,
+            sequence("a", "plain", "plain", order="asynchronous", fails_once="a_1"),
+        )
+        execution.run(loaded)
+        ran = attempts(cases_dir)
+        assert [len(ran[name]) for name in ("a_0", "a_1")] == [2, 2]
+        assert ran["a_0"][1].overlaps(ran["a_1"][1])
+        assert sorted((t.name, t.status) for t in results) == [
+            ("a_0", STATUS.PASSED),
+            ("a_1", STATUS.FLAKY),
+        ]
+
+    @pytest.mark.parametrize(
+        ("order", "independent"), [("asynchronous", True), ("sequential", False)]
+    )
+    def test_retry_without_peers(
+        self, cases_dir: Path, order: str, independent: bool
+    ) -> None:
+        """Should run only the failed test again in an independent sequence and in a
+        sequential one."""
+        execution, loaded, results = client(
+            cases_dir,
+            sequence(
+                "a",
+                "plain",
+                "plain",
+                order=order,
+                independent=independent,
+                fails_once="a_1",
+            ),
+        )
+        execution.run(loaded)
+        ran = attempts(cases_dir)
+        assert [len(ran[name]) for name in ("a_0", "a_1")] == [1, 2]
+        assert sorted((t.name, t.status) for t in results) == [
+            ("a_0", STATUS.PASSED),
+            ("a_1", STATUS.FLAKY),
+        ]

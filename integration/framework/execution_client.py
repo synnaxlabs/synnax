@@ -219,8 +219,9 @@ class ExecutionClient:
             return
 
         failed_keys = {str(result) for result in failed}
-        # A test in an asynchronous sequence can depend on its peers running at the
-        # same time, so each retry keeps its own sequence's order.
+        # A test in an asynchronous sequence can need its peers to run at the same
+        # time, so its retry runs the whole sequence, unless the sequence is
+        # independent. A peer that passed keeps its first result.
         retries: list[Sequence] = []
         retry_keys: set[str] = set()
         for seq in sequences:
@@ -232,13 +233,20 @@ class ExecutionClient:
             if len(defs) == 0:
                 continue
             retry_keys.update(str(td) for td in defs)
-            retries.append(seq.model_copy(update={"tests": defs}))
+            if seq.order == "asynchronous" and not seq.independent:
+                retries.append(seq)
+            else:
+                retries.append(seq.model_copy(update={"tests": defs}))
 
         if len(retries) == 0:
             return
 
         retry_total = sum(len(seq.tests) for seq in retries)
-        self._log(f"==== RETRYING {retry_total} FAILED TEST(S) ====\n")
+        peers = retry_total - len(retry_keys)
+        self._log(
+            f"==== RETRYING {len(retry_keys)} FAILED TEST(S) "
+            f"WITH {peers} PEER(S) ====\n"
+        )
 
         with self._tests_lock:
             for result in failed:
