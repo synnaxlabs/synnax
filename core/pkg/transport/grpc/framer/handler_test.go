@@ -69,14 +69,9 @@ func serve[RQ, RS freighter.Payload](
 		errs     = make(chan error, 1)
 	)
 	srv.BindHandler(func(_ context.Context, s freighter.ServerStream[RQ, RS]) error {
-		for range count {
-			req, err := s.Receive()
-			if err != nil {
-				errs <- err
-				// Ending the stream cleanly lets the client still read io.EOF.
-				return nil
-			}
-			requests <- req
+		if !receive(s, count, requests, errs) {
+			// Ending the stream cleanly lets the client still read io.EOF.
+			return nil
 		}
 		for _, res := range responses {
 			if err := s.Send(res); err != nil {
@@ -86,6 +81,25 @@ func serve[RQ, RS freighter.Payload](
 		return nil
 	})
 	return requests, errs
+}
+
+// receive reads count requests from s into requests. On a failed read it sends the
+// error to errs and returns false.
+func receive[RQ, RS freighter.Payload](
+	s freighter.ServerStream[RQ, RS],
+	count int,
+	requests chan<- RQ,
+	errs chan<- error,
+) bool {
+	for range count {
+		req, err := s.Receive()
+		if err != nil {
+			errs <- err
+			return false
+		}
+		requests <- req
+	}
+	return true
 }
 
 // exchange sends requests on stream, closes the send direction, and returns the count
