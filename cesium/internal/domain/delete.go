@@ -429,6 +429,12 @@ func (db *DB) copyPointers(
 	name, copyName string,
 	ptrs []pointer,
 ) (offsetDeltaMap map[telem.TimeRange]uint32, err error) {
+	// Runs after the deferred closes, which can set err.
+	defer func() {
+		if err != nil {
+			offsetDeltaMap = nil
+		}
+	}()
 	offsetDeltaMap = make(map[telem.TimeRange]uint32)
 	r, err := db.cfg.FS.Open(name, os.O_RDONLY)
 	if err != nil {
