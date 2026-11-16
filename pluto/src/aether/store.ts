@@ -434,8 +434,8 @@ export class Store {
 
   /** Returns `entry` to the staged phase. Sends a delete only when its create message
    * already went out; a component that never flushed does not exist on the worker.
-   * `displaced` marks a same-path replacement, which must not clear the successor's
-   * entry or invoke counter. */
+   * `displaced` marks a same-path replacement, which must not delete the successor's
+   * entry. */
   private detachEntry(entry: Entry, displaced = false): void {
     if (entry.phase === "staged") return;
     const id = pathID(entry.path);

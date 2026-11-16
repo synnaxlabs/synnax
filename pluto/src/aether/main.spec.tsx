@@ -479,6 +479,7 @@ describe("Aether Main", () => {
     it("should not resolve an invoke with the late answer of a replaced component", async () => {
       const [Provider, root] = await newProvider();
       const results = new Map<number, number>();
+      const failures = new Map<number, string>();
       const C = ({ n }: { n: number }) => {
         const [, , , methods] = Aether.use({
           aetherKey: "same",
@@ -491,7 +492,7 @@ describe("Aether Main", () => {
           void methods
             .slowEcho(n)
             .then((r) => results.set(n, r))
-            .catch(() => {});
+            .catch((e: unknown) => failures.set(n, errors.fromUnknown(e).message));
         }, []);
         return null;
       };
@@ -516,6 +517,8 @@ describe("Aether Main", () => {
       leaf()!.slowEchoResolvers[0]();
       await waitFor(() => expect(results.has(2)).toBe(true));
       expect(results.get(2)).toBe(2);
+      expect(failures.get(1)).toBe("Component deleted");
+      expect(failures.has(2)).toBe(false);
     });
 
     it("should forward multiple positional args spread to the worker handler", async () => {
