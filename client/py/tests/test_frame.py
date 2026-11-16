@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import subprocess
+import sys
 from datetime import UTC
 from types import MappingProxyType
 from typing import cast
@@ -17,7 +19,7 @@ import pytest
 
 import synnax as sy
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
-from synnax.framer.frame import FramePayload
+from synnax.framer.frame import FramePayload, is_dataframe
 from synnax.telem import CrudeSeries
 from x.strings import random_name
 
@@ -1161,3 +1163,37 @@ class TestReadFrameAdapter:
         )
         adapted = adapter.adapt(frame)
         assert list(adapted.to_df().columns) == [ch1.name, ch2.name]
+
+
+@pytest.mark.framer
+class TestIsDataframe:
+    def test_data_frame(self) -> None:
+        """Should be true for a pandas DataFrame."""
+        assert is_dataframe(pd.DataFrame({"a": [1]}))
+
+    @pytest.mark.parametrize(
+        "value", [{"a": [1]}, [1, 2], sy.Frame({1: sy.Series([1])}), None]
+    )
+    def test_other_values(self, value: object) -> None:
+        """Should be false for any value that is not a DataFrame."""
+        assert not is_dataframe(value)
+
+
+@pytest.mark.framer
+@pytest.mark.skipif(sys.version_info < (3, 15), reason="lazy imports need Python 3.15")
+class TestFramePandasLoading:
+    def test_frame_without_pandas(self) -> None:
+        """Should build frames from mappings and lists without loading pandas."""
+        script = (
+            "import sys\n"
+            "import synnax as sy\n"
+            "f = sy.Frame({1: sy.Series([1.0, 2.0])})\n"
+            "sy.Frame([1, 2], [sy.Series([1]), sy.Series([2])])\n"
+            "sy.Frame(f)\n"
+            "print('pandas' in sys.modules)\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script], capture_output=True, text=True, timeout=60
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False"
