@@ -60,11 +60,12 @@ When the Core is unreachable, the forwarder closes the live writer, spools the q
 frames in order, and reopens the live writer only after the queue is empty. Every
 spooled frame therefore comes before the next live session, as RFC 0095 §4.4 requires.
 
-A full queue, as on a silent network loss that takes minutes to report, counts as an
-outage too. The forwarder thread is then blocked in a Core send, so `Writer::write`
-cancels the Core stream through `framer::Writer::cancel` (NEW, a gRPC context cancel)
-and queues its frame behind the others. The forwarder counts the frame in the cancelled
-send as lost and spools the queue as above.
+A silent network loss takes minutes to report (`freighter/cpp/grpc/grpc.h:55-63`), so
+each forwarder open and send has a 10 s deadline. A watchdog thread cancels a call past
+it through the call's gRPC context (NEW `cancel` on the freighter stream, which exists
+from the start of the open), and the forwarder spools as above. The 64 MB queue covers
+the deadline at high rates. A reachable Core too slow for the task fills it, and `write`
+then drops the frame and counts it.
 
 Any other Core error, such as a deleted channel, closes the forwarder; the next `write`
 returns it and the task stops as today (`acquisition.cpp:162-167`).
@@ -105,8 +106,9 @@ a commit succeeds (RFC 0095 §4.0 and §4.4).
 - **Commit reaches stored data**: The drainer drops the overlap and counts it.
 - **Segment from another cluster**: The drainer deletes and counts it.
 
-Frames in flight when a Core writer fails are lost, because writes are not acked per
-frame (`client/cpp/framer/writer.cpp:57-60`). The forwarder counts them.
+Frames the Core had not read when a Core writer fails are lost, because writes are not
+acked per frame (`client/cpp/framer/writer.cpp:57-60`). The forwarder reports the loss
+with a count of the frames it knows were unsent, a lower bound.
 
 ### 3.4 Arc statuses and ranges
 
