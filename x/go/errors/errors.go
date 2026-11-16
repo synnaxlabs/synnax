@@ -195,19 +195,20 @@ func UnwrapMulti(err error) []error {
 
 // MessageWithout returns the message of err without the message of ref or the ": "
 // before it. A join drops each member left with no message. A wrapper whose message
-// does not end with the message of its cause keeps its whole message.
+// does not end with the message of its cause keeps its whole message. A nil ref removes
+// nothing. A panic in the Error method of err or a cause shows as text, as it does in
+// the message of a join.
 func MessageWithout(err, ref error) string {
 	if err == nil {
 		return ""
 	}
-	if reflect.TypeOf(ref).Comparable() && err == ref {
+	if ref != nil && reflect.TypeOf(ref).Comparable() && err == ref {
 		return ""
 	}
 	if members, ok := joinMembers(err); ok {
 		messages := make([]string, 0, len(members))
 		for _, member := range members {
-			// joinText recovers a panic in a member, as the message of the join does.
-			msg := joinText{member}.Error()
+			msg := messageOf(member)
 			if CheapIs(member, ref) {
 				msg = MessageWithout(member, ref)
 			}
@@ -217,12 +218,12 @@ func MessageWithout(err, ref error) string {
 		}
 		return strings.Join(messages, "\n")
 	}
-	msg := err.Error()
+	msg := messageOf(err)
 	cause := errors.UnwrapOnce(err)
 	if cause == nil {
 		return msg
 	}
-	prefix, ok := strings.CutSuffix(msg, cause.Error())
+	prefix, ok := strings.CutSuffix(msg, messageOf(cause))
 	if !ok || (prefix != "" && !strings.HasSuffix(prefix, ": ")) {
 		return msg
 	}
@@ -232,6 +233,9 @@ func MessageWithout(err, ref error) string {
 	}
 	return prefix + causeMsg
 }
+
+// messageOf returns the message of err through the formatter, which recovers a panic.
+func messageOf(err error) string { return joinText{err}.Error() }
 
 // Combine returns:
 //  1. err if otherErr is nil.

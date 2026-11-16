@@ -39,6 +39,12 @@ type panicError struct{}
 
 func (panicError) Error() string { panic("member failed") }
 
+type panicWrapper struct{ cause error }
+
+func (panicWrapper) Error() string { panic("member failed") }
+
+func (e panicWrapper) Unwrap() error { return e.cause }
+
 //go:noinline
 func createFirstMember() error { return errors.New("err1") }
 
@@ -435,6 +441,20 @@ var _ = Describe("Is", func() {
 
 		It("Should return an empty message for a nil error", func() {
 			Expect(errors.MessageWithout(nil, ref)).To(BeEmpty())
+		})
+
+		It("Should recover a panic in a member of a join that holds the reference",
+			func() {
+				err := errors.Join(panicWrapper{cause: ref}, errors.Wrap(ref, "second"))
+				Expect(errors.MessageWithout(err, ref)).To(Equal(
+					"%!v(PANIC=SafeFormatter method: member failed)\nsecond",
+				))
+			},
+		)
+
+		It("Should remove nothing for a nil reference", func() {
+			err := errors.Join(errors.Wrap(ref, "first"), errors.New("second"))
+			Expect(errors.MessageWithout(err, nil)).To(Equal("first: ref\nsecond"))
 		})
 	})
 
