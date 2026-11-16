@@ -197,6 +197,14 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 	if len(cfg.Authorities) == 0 {
 		return nil
 	}
+	if len(cfg.Channels) > 0 &&
+		len(cfg.Authorities) != 1 &&
+		len(cfg.Authorities) != len(cfg.Channels) {
+		return errors.Wrap(
+			validate.ErrValidation,
+			"authority count must be 1 or equal to channel count",
+		)
+	}
 	cfg = w.propagateAuthority(cfg)
 	var (
 		u       = ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}

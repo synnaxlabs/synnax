@@ -3173,6 +3173,44 @@ var _ = Describe("Writer Behavior", func() {
 				})
 
 				Describe("Write Authority", func() {
+					It(
+						"Should reject an authority count that does not match the channels",
+						func(ctx SpecContext) {
+							idx := GenerateChannelKey()
+							d1, d2 := GenerateChannelKey(), GenerateChannelKey()
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{
+									Key:      idx,
+									Name:     "Byrd",
+									IsIndex:  true,
+									DataType: telem.TimestampT,
+								},
+								cesium.Channel{
+									Key:      d1,
+									Name:     "Balchen",
+									Index:    idx,
+									DataType: telem.Int64T,
+								},
+								cesium.Channel{
+									Key:      d2,
+									Name:     "Siple",
+									Index:    idx,
+									DataType: telem.Int64T,
+								},
+							)).To(Succeed())
+							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx, d1, d2},
+								Start:    10 * telem.SecondTS,
+							}))
+							Expect(w.SetAuthority(cesium.WriterConfig{
+								Channels:    []cesium.ChannelKey{idx, d1, d2},
+								Authorities: []control.Authority{10, 200},
+							})).To(MatchError(validate.ErrValidation))
+							Expect(w.Close()).To(MatchError(validate.ErrValidation))
+						},
+					)
+
 					It("Should set the authority of writers", func(ctx SpecContext) {
 						var (
 							key  = GenerateChannelKey()
