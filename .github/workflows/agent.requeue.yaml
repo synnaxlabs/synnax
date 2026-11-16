@@ -9,9 +9,9 @@
 
 # Runs an agent job again when its seat stopped at the usage limit of its login: the job
 # found the limit, or the drain of a limited seat stopped its runner. The fleet
-# controller then starts another seat for it. When every seat of the agent is at its
-# limit, or the run was already tried three times, this workflow fails instead. Release
-# runs are left to a person.
+# controller then starts a seat for it on a login with usage left. When no login of the
+# agent is usable, or the run was already tried three times, this workflow fails
+# instead. Release runs are left to a person.
 
 name: Agent - Requeue
 
@@ -52,17 +52,16 @@ jobs:
 
       # agent.yaml runs the drain step only when the agent stopped at a usage limit. A
       # runner that the drain stopped just after it took a job leaves no such step, only
-      # a lost runner on a seat whose limit had not reset when the job ended. Only one
-      # job of a run can run again at a time, so the first one goes.
-      - name: Run a job that a usage limit stopped again on a seat with usage left
+      # a lost runner on a seat whose login's limit had not reset when the job ended.
+      # Only one job of a run can run again at a time, so the first one goes.
+      - name: Run a job that a usage limit stopped again on a login with usage left
         run: |
-          limit="Tags[?Key=='limited-until']|[0].Value"
-          seats() {
-            aws ec2 describe-instances --output text \
-              --filters Name=tag:project,Values=synnax-agents \
-              Name=tag:pool,Values=agent "$@" \
-              Name=instance-state-name,Values=pending,running,stopping,stopped \
-              --query "Reservations[].Instances[].[$limit]"
+          prefix=synnax-agents/logins/
+          # The tags of a login as tab-separated agent, limit, broken, and expiry.
+          login() {
+            tag() { echo "Tags[?Key=='$1']|[0].Value"; }
+            aws secretsmanager describe-secret --secret-id "$prefix$1" --output text \
+              --query "[$(tag agent),$(tag limited-until),$(tag broken),$(tag expires)]"
           }
           jobs="repos/$GITHUB_REPOSITORY/actions/runs/$RUN/jobs?filter=latest"
           gh api --paginate "$jobs" --jq '.jobs[] | select(.conclusion == "failure")
@@ -81,7 +80,12 @@ jobs:
                 continue
               # Runners are named agent-<seat>-<number>.
               seat=${runner#agent-}
-              until=$(seats "Name=tag:seat,Values=${seat%-*}")
+              held=$(aws ec2 describe-instances --output text \
+                --filters Name=tag:project,Values=synnax-agents \
+                "Name=tag:seat,Values=${seat%-*}" \
+                --query "Reservations[].Instances[].[Tags[?Key=='login']|[0].Value]")
+              [[ $held =~ ^[a-z0-9-]+$ ]] || continue
+              until=$(login "$held" | cut -f2)
               [[ $until =~ ^[0-9]+$ ]] && [ "$until" -gt "$ended" ] || continue
             fi
             found=$id
@@ -94,16 +98,30 @@ jobs:
               "It does not run again."
             exit 1
           fi
-          resets=$(seats "Name=tag:agent,Values=$agent")
-          if [ -z "$resets" ]; then
-            echo "::error::The agent pool has no seat for $agent"
-            exit 1
-          fi
-          if ! awk -v now="$(date +%s)" '$1 == "None" || $1 <= now { found = 1 }
-            END { exit !found }' <<< "$resets"; then
-            first=$(sort -n <<< "$resets" | head -1)
-            echo "::error::Every $agent seat is at its usage limit. The first" \
-              "resets at $(date -u -d "@$first" '+%F %R UTC'). Run the job again then."
+          # The list can lag by minutes, so each login's tags come from describe.
+          names=$(aws secretsmanager list-secrets --output text \
+            --filters "Key=name,Values=$prefix" --query 'SecretList[].Name')
+          now=$(date +%s)
+          usable=false
+          resets=""
+          for secret in $names; do
+            tags=$(login "${secret#"$prefix"}")
+            IFS=$'\t' read -r of until broken expires <<< "$tags"
+            [ "$of" = "$agent" ] && [ "$broken" = None ] &&
+              [ "$expires" -gt "$now" ] || continue
+            if [ "$until" = None ] || [ "$until" -le "$now" ]; then usable=true; fi
+            resets+="$until"$'\n'
+          done
+          if [ "$usable" = false ]; then
+            first=$(grep -E '^[0-9]+$' <<< "$resets" | sort -n | head -1)
+            if [ -z "$first" ]; then
+              echo "::error::No $agent login is usable." \
+                "Store a token with seat.sh token."
+            else
+              at=$(date -u -d "@$first" '+%F %R UTC')
+              echo "::error::Every $agent login is at its usage limit. The first" \
+                "resets at $at. Run the job again then."
+            fi
             exit 1
           fi
           gh api -X POST "repos/$GITHUB_REPOSITORY/actions/jobs/$found/rerun" --silent
