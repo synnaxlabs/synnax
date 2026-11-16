@@ -81,6 +81,13 @@ var _ = Describe("DeepEqual", func() {
 		Expect(DeepEqual(a, b)).To(BeTrue())
 	})
 
+	It("Should compare slices that share a backing array but differ in length", func() {
+		type pair struct{ head, all []int }
+		x := []int{1, 2, 3}
+		y := []int{1, 2, 4}
+		Expect(DeepEqual(pair{x[:1], x}, pair{y[:1], y})).To(BeFalse())
+	})
+
 	It("Should compare a channel by identity", func() {
 		ch := make(chan int)
 		Expect(DeepEqual(ch, ch)).To(BeTrue())
