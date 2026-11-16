@@ -466,6 +466,26 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					)
 
 					It(
+						"Should not commit before the previous commit when switching files",
+						func(ctx SpecContext) {
+							db2 := MustOpen(domain.Open(domain.Config{
+								FS:              openFS(),
+								FileSize:        10 * telem.Byte,
+								Instrumentation: PanicLogger(),
+							}))
+							w := MustOpen(db2.OpenWriter(
+								ctx,
+								domain.WriterConfig{Start: 1 * telem.SecondTS},
+							))
+							MustSucceed(w.Write([]byte{1, 2, 3, 4, 5}))
+							Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
+							MustSucceed(w.Write([]byte{6, 7, 8, 9, 10, 11}))
+							Expect(w.Commit(ctx, 15*telem.SecondTS)).
+								To(MatchError(validate.ErrValidation))
+						},
+					)
+
+					It(
 						"Should work when the file size exceeds the limit by just 1",
 						func(ctx SpecContext) {
 							fs2 := openFS()
