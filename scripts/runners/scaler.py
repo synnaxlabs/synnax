@@ -32,16 +32,15 @@ SCALER_LOG = "runner_scaler_log"
 class Scaler:
     """Busy runners, runners with a job in progress, and instances up less than
     boot_grace whose runner is offline and not drained are never touched. Instances
-    still booting, and runners just commanded to start, count toward a pool's
-    demand. An instance stops only after its runner is drained and offline: the
-    agent holds a drain while a job runs, so a runner that takes a job after the
-    decision keeps its instance. A drain is sent again each RECOMMAND_DELAY while
-    the runner stays online. Once the instance is stopped, the runner is enabled
-    again for its next start, unless the gate is closed. While disabled, the writer
-    is closed and no drain, start, or stop is written, but idle time keeps accruing
-    and each decision is logged once, marked [DISABLED], so enabling clears whatever
-    backlog built up. A runner this scaler drained is enabled again while disabled,
-    so no drain outlives the switch.
+    still booting, and runners just commanded to start, count toward a pool's demand. An
+    instance stops only after its runner is drained and offline: the agent holds a drain
+    while a job runs, so a runner that takes a job after the decision keeps its
+    instance. A drain is sent again each RECOMMAND_DELAY while the runner stays online.
+    Once the instance is stopped, the runner is enabled again for its next start, unless
+    the gate is closed. While disabled, the writer is closed and no drain, start, or
+    stop is written, but idle time keeps accruing and each decision is logged once,
+    marked [DISABLED], so enabling clears whatever backlog built up. A runner this
+    scaler drained is enabled again while disabled, so no drain outlives the switch.
 
     :param gate: Sends the runner commands, and holds the last one of each runner.
     """
