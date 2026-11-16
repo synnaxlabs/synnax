@@ -1097,6 +1097,22 @@ describe("license routes", () => {
       expect(h.mail.sent).toEqual([]);
     });
 
+    it("should say the license is revoked when its mail fails", async () => {
+      addPerson("user_admin", [ACME_ADMIN]);
+      h.portal.mail = {
+        send: async () => {
+          throw new Error("mail: down");
+        },
+      };
+      h.signIn(STAFF);
+      await expectError(
+        await post(),
+        502,
+        `"${lic.label}" is revoked, but the email about it failed.`,
+      );
+      expect((await licenses())[0].revokedAt).toEqual(NOW);
+    });
+
     it("should refuse a second revocation without mailing again", async () => {
       addPerson("user_admin", [ACME_ADMIN]);
       h.signIn(STAFF);
@@ -1220,6 +1236,22 @@ describe("license routes", () => {
       expect(h.mail.sent).toEqual([
         { to: ["user_admin@example.com"], ...restored(lic, acme) },
       ]);
+    });
+
+    it("should say the license is restored when its mail fails", async () => {
+      addPerson("user_admin", [ACME_ADMIN]);
+      h.portal.mail = {
+        send: async () => {
+          throw new Error("mail: down");
+        },
+      };
+      h.signIn(STAFF);
+      await expectError(
+        await post(),
+        502,
+        `"${lic.label}" is restored, but the email about it failed.`,
+      );
+      expect((await licenses())[0].revokedAt).toEqual(null);
     });
 
     it("should refuse a license that is not revoked without mailing", async () => {
