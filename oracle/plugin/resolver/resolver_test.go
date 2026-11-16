@@ -11,6 +11,7 @@ package resolver_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -59,12 +60,14 @@ func (m *MockTypeFormatter) FormatGeneric(baseName string, typeArgs []string) st
 		return baseName
 	}
 	result := baseName + "["
+	var resultSb62 strings.Builder
 	for i, arg := range typeArgs {
 		if i > 0 {
-			result += ", "
+			resultSb62.WriteString(", ")
 		}
-		result += arg
+		resultSb62.WriteString(arg)
 	}
+	result += resultSb62.String()
 	return result + "]"
 }
 

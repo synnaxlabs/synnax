@@ -1294,9 +1294,11 @@ start_cmd == 1 => fill
 
 		It("should handle very long identifier", func() {
 			longName := "x"
+			var longNameSb1297 strings.Builder
 			for range 100 {
-				longName += "a"
+				longNameSb1297.WriteString("a")
 			}
+			longName += longNameSb1297.String()
 			input := longName + " := 1"
 			result := formatter.Format(input)
 			Expect(result).To(ContainSubstring(longName))

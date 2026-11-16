@@ -14,6 +14,7 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -1292,7 +1293,7 @@ func collectValidation(
 				table,
 			); ok {
 				variantRef := enumVariantToPython(ev, table, data)
-				constraints = append(constraints, fmt.Sprintf("default=%s", variantRef))
+				constraints = append(constraints, "default="+variantRef)
 			}
 			if uv, ok := validation.ResolveUnionVariant(
 				defaultVal.IdentValue,
@@ -1316,9 +1317,11 @@ func collectValidation(
 			} else {
 				constraints = append(
 					constraints,
-					fmt.Sprintf(
-						"default_factory=lambda: %s",
-						pyDefaultLiteral(typeRef, *defaultVal, table, data),
+					"default_factory=lambda: "+pyDefaultLiteral(
+						typeRef,
+						*defaultVal,
+						table,
+						data,
 					),
 				)
 			}
@@ -1333,9 +1336,11 @@ func collectValidation(
 				} else {
 					constraints = append(
 						constraints,
-						fmt.Sprintf(
-							"default_factory=lambda: %s",
-							pyDefaultLiteral(typeRef, *defaultVal, table, data),
+						"default_factory=lambda: "+pyDefaultLiteral(
+							typeRef,
+							*defaultVal,
+							table,
+							data,
 						),
 					)
 				}
@@ -1343,9 +1348,11 @@ func collectValidation(
 				// Models are mutable, so they must use default_factory, never default=.
 				constraints = append(
 					constraints,
-					fmt.Sprintf(
-						"default_factory=lambda: %s",
-						pyDefaultLiteral(typeRef, *defaultVal, table, data),
+					"default_factory=lambda: "+pyDefaultLiteral(
+						typeRef,
+						*defaultVal,
+						table,
+						data,
 					),
 				)
 			}
@@ -1367,7 +1374,7 @@ func pyDefaultLiteral(
 	case resolution.ValueKindString:
 		return fmt.Sprintf("%q", val.StringValue)
 	case resolution.ValueKindInt:
-		return fmt.Sprintf("%d", val.IntValue)
+		return strconv.FormatInt(val.IntValue, 10)
 	case resolution.ValueKindFloat:
 		return fmt.Sprintf("%f", val.FloatValue)
 	case resolution.ValueKindBool:

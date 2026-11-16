@@ -11,6 +11,7 @@ package types
 
 import (
 	"bytes"
+	"strings"
 	"text/template"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
@@ -156,15 +157,19 @@ func buildAliasDecls(
 		if len(params) > 0 {
 			lhs += "["
 			rhs += "["
+			var lhsSb159 strings.Builder
+			var rhsSb159 strings.Builder
 			for i, tp := range params {
 				if i > 0 {
-					lhs += ", "
-					rhs += ", "
+					lhsSb159.WriteString(", ")
+					rhsSb159.WriteString(", ")
 				}
 				tpd := processTypeParam(tp, data)
-				lhs += tpd.Name + " " + tpd.Constraint
-				rhs += tpd.Name
+				lhsSb159.WriteString(tpd.Name + " " + tpd.Constraint)
+				rhsSb159.WriteString(tpd.Name)
 			}
+			lhs += lhsSb159.String()
+			rhs += rhsSb159.String()
 			lhs += "]"
 			rhs += "]"
 		}

@@ -206,9 +206,11 @@ var _ = Describe("@ref", func() {
 
 	union := func(schema, field string) string {
 		imports := ""
+		var importsSb209 strings.Builder
 		for dep := range strings.SplitSeq(schema, ",") {
-			imports += "import \"schemas/" + dep + "\"\n"
+			importsSb209.WriteString("import \"schemas/" + dep + "\"\n")
 		}
+		imports += importsSb209.String()
 		return `
 			` + imports + `
 
