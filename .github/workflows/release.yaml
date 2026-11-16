@@ -986,6 +986,7 @@ jobs:
     with:
       windows: true
       macos: true
+      ubuntu: true
       driver: true
       core: true
       desktop: true
@@ -1027,6 +1028,7 @@ jobs:
     with:
       windows: true
       macos: true
+      ubuntu: true
       core: true
       desktop: true
       sign_binaries: true
@@ -1071,6 +1073,7 @@ jobs:
           tag: ${{ needs.resolve.outputs.desktop_tag }}
           version: ${{ needs.resolve.outputs.desktop_version }}
           app: Synnax Desktop
+          linux: true
 
   # The only job that makes a release public. It runs after Verify, the migration audit,
   # and every build of the run pass. A publish of a release that is already public

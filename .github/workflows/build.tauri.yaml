@@ -175,6 +175,11 @@ jobs:
           if [ "$PRODUCT" = desktop ]; then
             BASE="$(cat src-tauri/tauri.desktop.conf.json)"
           fi
+          # The Console .deb installs /usr/bin/synnax-console, so Desktop takes another
+          # name and both packages install side by side.
+          if [ "$PRODUCT" = desktop ] && [ "$OS_NAME" = linux ]; then
+            BASE="$(jq '.mainBinaryName = "synnax-desktop"' <<< "$BASE")"
+          fi
           # A Desktop release sends its source maps to PostHog, which resolves exception
           # stacks with them. The chunk IDs go in after the frontend builds and before
           # tauri build bundles it.
