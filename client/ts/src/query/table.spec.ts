@@ -2535,3 +2535,58 @@ describe("trim", () => {
     expect(table.trim(1)).toEqual([]);
   });
 });
+
+describe("drop", () => {
+  interface Doc extends record.Keyed<string> {
+    key: string;
+    name: string;
+  }
+  const doc = (key: string): Doc => ({ key, name: key });
+  const newTable = () => new query.Table<string, Doc>({ onError: noopError });
+
+  it("should drop the given entries silently and tell each holder", () => {
+    const table = newTable();
+    table.set([doc("a"), doc("b")]);
+    const subscriber = vi.fn();
+    table.subscribeBatch(subscriber);
+    const drop = vi.fn();
+    table.hold({ held: () => [], drop });
+    const version = table.version();
+    table.drop(["a"]);
+    expect(table.keys()).toEqual(["b"]);
+    expect(table.status("a")).toBe("unknown");
+    expect(subscriber).not.toHaveBeenCalled();
+    expect(table.version()).toBe(version);
+    expect(drop).toHaveBeenCalledWith(new Set(["a"]));
+  });
+
+  it("should skip a key the table does not hold", () => {
+    const table = newTable();
+    table.set([doc("a")]);
+    const drop = vi.fn();
+    table.hold({ held: () => [], drop });
+    table.drop(["a", "missing"]);
+    expect(drop).toHaveBeenCalledWith(new Set(["a"]));
+  });
+
+  it("should not tell the holders when nothing drops", () => {
+    const table = newTable();
+    table.set([doc("a")]);
+    const drop = vi.fn();
+    table.hold({ held: () => [], drop });
+    table.drop(["missing"]);
+    table.drop([]);
+    expect(drop).not.toHaveBeenCalled();
+    expect(table.keys()).toEqual(["a"]);
+  });
+
+  it("should not let an older fetch restore a dropped entry", async () => {
+    const table = newTable();
+    await table.track(async (since) => {
+      table.set({ key: "a", name: "new" });
+      table.drop(["a"]);
+      table.ingest([{ key: "a", name: "old" }], { since });
+    });
+    expect(table.get("a")).toBeUndefined();
+  });
+});
