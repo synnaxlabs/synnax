@@ -145,6 +145,8 @@ public:
     synnax::rack::Key rack_key() override { return this->rack_key_; }
 
     void set_status(synnax::task::Status &status) override {
+        if (status.time == 0) status.time = x::telem::TimeStamp::now();
+        status.details.rack = this->rack_key_;
         std::shared_ptr<Latest> latest;
         {
             std::lock_guard lock{this->latest_mu};
@@ -155,15 +157,16 @@ public:
             this->send(status);
             return;
         }
+        // A task can change status on another thread while this waits for the write
+        // of its last status, so the write sends the status as it is now.
+        auto snapshot = status;
         std::lock_guard lock{latest->mu};
         if (!latest->dropped) {
-            if (status.time == 0) status.time = x::telem::TimeStamp::now();
-            status.details.rack = this->rack_key_;
-            latest->status = status;
+            latest->status = snapshot;
             latest->status.details.cmd.clear();
             latest->present = true;
         }
-        this->send(status);
+        this->send(snapshot);
     }
 
     /// @brief writes status without keeping it as the latest status of its task.
