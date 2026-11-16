@@ -177,8 +177,9 @@ jobs:
           uv run ruff format --check --diff . ||
             { echo "::error::Run scripts/fix.sh to format the changed files."; exit 1; }
 
+      # Windows and macOS rows exist only in full runs (nightly and release), so mypy
+      # checks each OS's stubs there and only Linux on other runs.
       - name: Check types
-        if: matrix.os == 'ubuntu-latest'
         shell: bash
         env:
           TYPE_CHECK_DIR: ${{ inputs.type_check_dir }}
