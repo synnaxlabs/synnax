@@ -32,13 +32,13 @@ type Clock interface {
 	RunAt(time.Time, func()) Timer
 }
 
-type real struct{}
+type systemClock struct{}
 
 // Real is a Clock that uses the system's real-time clock.
-var Real Clock = real{}
+var Real Clock = systemClock{}
 
-func (real) Now() time.Time { return time.Now() }
+func (systemClock) Now() time.Time { return time.Now() }
 
-func (real) RunAt(t time.Time, f func()) Timer {
+func (systemClock) RunAt(t time.Time, f func()) Timer {
 	return time.AfterFunc(time.Until(t), f)
 }

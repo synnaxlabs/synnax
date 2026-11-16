@@ -612,13 +612,13 @@ func (w *idxWriter) broadcastDataAuth(auth xcontrol.Authority) {
 // maxDataAuth returns the maximum recorded authority across this group's data channels.
 // Returns 0 when the group has no data channels; propagateAuthority skips such groups.
 func (w *idxWriter) maxDataAuth() xcontrol.Authority {
-	var max xcontrol.Authority
+	var maxAuth xcontrol.Authority
 	for _, a := range w.dataAuth {
-		if a > max {
-			max = a
+		if a > maxAuth {
+			maxAuth = a
 		}
 	}
-	return max
+	return maxAuth
 }
 
 // resolveAlignment returns the alignment for the current write when no index series is

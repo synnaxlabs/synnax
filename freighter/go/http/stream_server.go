@@ -60,12 +60,12 @@ type StreamServerOption func(*streamServerOptions)
 // stateful codecs don't need a ContentType method on every instance.
 func WithAdditionalCodec(
 	contentType string,
-	new func(context.Context) encoding.Codec,
+	newCodec func(context.Context) encoding.Codec,
 ) StreamServerOption {
 	return func(o *streamServerOptions) {
 		o.additionalCodecs = append(o.additionalCodecs, additionalCodec{
 			contentType: contentType,
-			new:         new,
+			new:         newCodec,
 		})
 	}
 }

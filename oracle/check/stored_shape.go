@@ -28,32 +28,32 @@ import (
 // union members. Struct fields encode by position, so their order counts. Enum members
 // and union variants encode by value and name, so the new side may add them.
 type shapes struct {
-	old, new *resolution.Table
-	visiting set.Set[string]
+	old, next *resolution.Table
+	visiting  set.Set[string]
 	// covered holds every old type a comparison reached.
 	covered set.Set[string]
 }
 
-func newShapes(old, new *resolution.Table) shapes {
+func newShapes(old, next *resolution.Table) shapes {
 	return shapes{
 		old:      old,
-		new:      new,
+		next:     next,
 		visiting: make(set.Set[string]),
 		covered:  make(set.Set[string]),
 	}
 }
 
-// root returns why data that old wrote no longer decodes as new, or "" when it does. A
+// root returns why data that old wrote no longer decodes as next, or "" when it does. A
 // type parameter with no default binds to the same placeholder on both sides.
-func (s shapes) root(old, new resolution.Type) string {
-	oldArgs, newArgs := placeholders(old), placeholders(new)
+func (s shapes) root(old, next resolution.Type) string {
+	oldArgs, newArgs := placeholders(old), placeholders(next)
 	if len(oldArgs) != len(newArgs) {
 		return old.Name + ": changes its type parameters"
 	}
 	return s.ref(
 		old.Name,
 		resolution.TypeRef{Name: old.QualifiedName, TypeArgs: oldArgs},
-		resolution.TypeRef{Name: new.QualifiedName, TypeArgs: newArgs},
+		resolution.TypeRef{Name: next.QualifiedName, TypeArgs: newArgs},
 	)
 }
 
@@ -74,26 +74,26 @@ func placeholders(t resolution.Type) []resolution.TypeRef {
 
 // ref compares the instances that two filled-in references stand for. at names the
 // position in the stored type for the reason.
-func (s shapes) ref(at string, old, new resolution.TypeRef) string {
+func (s shapes) ref(at string, old, next resolution.TypeRef) string {
 	oldType, old, oldOK := s.instance(old, s.old)
-	newType, new, newOK := s.instance(new, s.new)
+	newType, next, newOK := s.instance(next, s.next)
 	if !oldOK || !newOK {
-		if oldOK || newOK || describeRef(old) != describeRef(new) {
+		if oldOK || newOK || describeRef(old) != describeRef(next) {
 			return fmt.Sprintf(
 				"%s: changes from %s to %s", at, describe(oldType, old, oldOK),
-				describe(newType, new, newOK),
+				describe(newType, next, newOK),
 			)
 		}
 		return ""
 	}
-	if (old.ArraySize == nil) != (new.ArraySize == nil) ||
-		(old.ArraySize != nil && *old.ArraySize != *new.ArraySize) {
+	if (old.ArraySize == nil) != (next.ArraySize == nil) ||
+		(old.ArraySize != nil && *old.ArraySize != *next.ArraySize) {
 		return at + ": changes its array size"
 	}
 	if oldKind, newKind := kind(oldType), kind(newType); oldKind != newKind {
 		return fmt.Sprintf("%s: changes from %s to %s", at, oldKind, newKind)
 	}
-	key := refKey(old) + "|" + refKey(new)
+	key := refKey(old) + "|" + refKey(next)
 	if s.visiting.Contains(key) {
 		return ""
 	}
@@ -105,18 +105,18 @@ func (s shapes) ref(at string, old, new resolution.TypeRef) string {
 		return s.fields(
 			at,
 			instanceFields(oldType, old, s.old),
-			instanceFields(newType, new, s.new),
+			instanceFields(newType, next, s.next),
 		)
 	case resolution.EnumForm:
 		return enumMembers(at, o, resolution.MustForm[resolution.EnumForm](newType))
 	case resolution.UnionForm:
 		return s.union(at, oldType, newType)
 	case resolution.BuiltinGenericForm:
-		if len(old.TypeArgs) != len(new.TypeArgs) {
+		if len(old.TypeArgs) != len(next.TypeArgs) {
 			return at + ": changes its type arguments"
 		}
 		for i := range old.TypeArgs {
-			if reason := s.ref(at, old.TypeArgs[i], new.TypeArgs[i]); reason != "" {
+			if reason := s.ref(at, old.TypeArgs[i], next.TypeArgs[i]); reason != "" {
 				return reason
 			}
 		}
@@ -218,15 +218,15 @@ func (s shapes) cover(ref resolution.TypeRef) {
 
 func (s shapes) union(at string, oldType, newType resolution.Type) string {
 	old := resolution.MustForm[resolution.UnionForm](oldType)
-	new := resolution.MustForm[resolution.UnionForm](newType)
-	if old.Discriminator != new.Discriminator {
+	next := resolution.MustForm[resolution.UnionForm](newType)
+	if old.Discriminator != next.Discriminator {
 		return at + ": changes its discriminator"
 	}
-	if old.BorrowsEnum() != new.BorrowsEnum() {
+	if old.BorrowsEnum() != next.BorrowsEnum() {
 		return at + ": changes its discriminator type"
 	}
 	if old.BorrowsEnum() {
-		if reason := s.ref(at, old.Enum, new.Enum); reason != "" {
+		if reason := s.ref(at, old.Enum, next.Enum); reason != "" {
 			return reason
 		}
 	}
@@ -235,7 +235,7 @@ func (s shapes) union(at string, oldType, newType resolution.Type) string {
 	}
 	for _, ov := range old.Variants {
 		variantAt := at + "." + ov.Name
-		nv, ok := new.Variant(ov.Name)
+		nv, ok := next.Variant(ov.Name)
 		if !ok {
 			return variantAt + ": variant removed"
 		}
@@ -246,7 +246,7 @@ func (s shapes) union(at string, oldType, newType resolution.Type) string {
 		if reason := s.fields(
 			variantAt,
 			storedFields(resolution.UnifiedVariantFields(oldType, ov, s.old)),
-			storedFields(resolution.UnifiedVariantFields(newType, nv, s.new)),
+			storedFields(resolution.UnifiedVariantFields(newType, nv, s.next)),
 		); reason != "" {
 			return reason
 		}
@@ -301,20 +301,20 @@ func refKey(ref resolution.TypeRef) string {
 	return b.String()
 }
 
-// enumMembers requires every old member in new with the same value. Stored data holds
+// enumMembers requires every old member in next with the same value. Stored data holds
 // member values, so a new member leaves old data readable.
-func enumMembers(at string, old, new resolution.EnumForm) string {
-	if old.IsIntEnum != new.IsIntEnum {
+func enumMembers(at string, old, next resolution.EnumForm) string {
+	if old.IsIntEnum != next.IsIntEnum {
 		return at + ": changes between int and string members"
 	}
 	for _, ov := range old.Values {
-		i := slices.IndexFunc(new.Values, func(v resolution.EnumValue) bool {
+		i := slices.IndexFunc(next.Values, func(v resolution.EnumValue) bool {
 			return v.Name == ov.Name
 		})
 		if i < 0 {
 			return fmt.Sprintf("%s: member %s removed", at, ov.Name)
 		}
-		if new.Values[i].Value != ov.Value {
+		if next.Values[i].Value != ov.Value {
 			return fmt.Sprintf("%s: member %s changes its value", at, ov.Name)
 		}
 	}
