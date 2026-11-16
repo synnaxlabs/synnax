@@ -1547,4 +1547,113 @@ var _ = Describe("Name conflicts", func() {
 		Entry("module alias", symbol.KindModuleAlias, "import"),
 		Entry("block falls back to symbol", symbol.KindBlock, "symbol"),
 	)
+
+	Describe("Nested declarations", func() {
+		var (
+			ast   antlr.ParserRuleContext
+			root  *symbol.Symbol
+			stage *symbol.Symbol
+		)
+		BeforeEach(func(bCtx SpecContext) {
+			ast = MustSucceed(parser.ParseStatement("x := 1"))
+			root = symbol.NewRoot(nil, nil)
+			seq := MustSucceed(root.Add(bCtx, symbol.Symbol{
+				Name: "main", Kind: symbol.KindSequence, AST: ast,
+			}))
+			stage = MustSucceed(seq.Add(bCtx, symbol.Symbol{
+				Name: "hold", Kind: symbol.KindStage, AST: ast,
+			}))
+		})
+
+		DescribeTable("Should reject a variable that a nested scope declares",
+			func(bCtx SpecContext, nested, added symbol.Kind, noun string) {
+				MustSucceed(stage.Add(bCtx, symbol.Symbol{
+					Name: "dup", Kind: nested, Type: types.I32(), AST: ast,
+				}))
+				Expect(root.Add(bCtx, symbol.Symbol{
+					Name: "dup", Kind: added, Type: types.I32(), AST: ast,
+				})).Error().To(MatchError(ContainSubstring(
+					"name dup conflicts with existing " + noun,
+				)))
+			},
+			Entry("variable", symbol.KindVariable, symbol.KindVariable, "variable"),
+			Entry(
+				"stateful variable",
+				symbol.KindStatefulVariable,
+				symbol.KindStatefulVariable,
+				"variable",
+			),
+			Entry(
+				"loop variable",
+				symbol.KindLoopVariable,
+				symbol.KindVariable,
+				"variable",
+			),
+			Entry(
+				"input parameter",
+				symbol.KindInput,
+				symbol.KindVariable,
+				"input parameter",
+			),
+			Entry(
+				"output parameter",
+				symbol.KindOutput,
+				symbol.KindVariable,
+				"output parameter",
+			),
+		)
+
+		It(
+			"Should accept a variable named after a nested stage",
+			func(bCtx SpecContext) {
+				added := MustSucceed(root.Add(bCtx, symbol.Symbol{
+					Name: "hold",
+					Kind: symbol.KindVariable,
+					Type: types.I32(),
+					AST:  ast,
+				}))
+				Expect(added.Name).To(Equal("hold"))
+			},
+		)
+
+		It(
+			"Should accept a variable that a sibling scope declares",
+			func(bCtx SpecContext) {
+				MustSucceed(stage.Add(bCtx, symbol.Symbol{
+					Name: "dup", Kind: symbol.KindVariable, Type: types.I32(), AST: ast,
+				}))
+				other := MustSucceed(root.Add(bCtx, symbol.Symbol{
+					Name: "other", Kind: symbol.KindSequence, AST: ast,
+				}))
+				added := MustSucceed(other.Add(bCtx, symbol.Symbol{
+					Name: "dup", Kind: symbol.KindVariable, Type: types.I32(), AST: ast,
+				}))
+				Expect(added.Name).To(Equal("dup"))
+			},
+		)
+
+		It("Should accept a variable that a nested scope holds as a built-in",
+			func(bCtx SpecContext) {
+				MustSucceed(stage.Add(bCtx, symbol.Symbol{
+					Name: "dup", Kind: symbol.KindVariable, Type: types.I32(),
+				}))
+				added := MustSucceed(root.Add(bCtx, symbol.Symbol{
+					Name: "dup", Kind: symbol.KindVariable, Type: types.I32(), AST: ast,
+				}))
+				Expect(added.Name).To(Equal("dup"))
+			},
+		)
+
+		It("Should accept a non-variable that a nested scope declares as a variable",
+			func(bCtx SpecContext) {
+				MustSucceed(stage.Add(bCtx, symbol.Symbol{
+					Name: "dup", Kind: symbol.KindVariable, Type: types.I32(), AST: ast,
+				}))
+				added := MustSucceed(root.Add(bCtx, symbol.Symbol{
+					Name: "dup", Kind: symbol.KindSequence, AST: ast,
+				}))
+				Expect(added.Name).To(Equal("dup"))
+			},
+		)
+	})
 })

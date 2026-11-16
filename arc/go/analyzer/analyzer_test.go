@@ -1646,6 +1646,35 @@ var _ = Describe("Declaration order", func() {
 	})
 })
 
+var _ = DescribeTable("Name conflicts with an earlier nested declaration",
+	func(bCtx SpecContext, source, expected string) {
+		ctx := analyzeAndExpectErrorWithResolver(bCtx, source, nil)
+		Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(expected))
+	},
+	Entry("a top-level variable after a function variable", `
+		func scale(v f64) f64 {
+			limit := 1.0
+			return v * limit
+		}
+		limit := 5.0
+	`, "name limit conflicts with existing variable"),
+	Entry("a top-level variable after a function parameter", `
+		func scale(limit f64) f64 {
+			return limit * 2.0
+		}
+		limit := 5.0
+	`, "name limit conflicts with existing input parameter"),
+	Entry("a function variable after a nested block variable", `
+		func scale(v f64) f64 {
+			if v > 0 {
+				limit := 1.0
+			}
+			limit := 5.0
+			return v * limit
+		}
+	`, "name limit conflicts with existing variable"),
+)
+
 var _ = Describe("Channel reads through later declarations", func() {
 	rawResolver := []symbol.Symbol{
 		{Name: "raw", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
