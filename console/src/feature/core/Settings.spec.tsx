@@ -16,7 +16,12 @@ import {
   createCore,
   createCoreState,
 } from "@/session/core/testutil";
-import { createConnectedConsoleWrapper, renderWithConsole } from "@/testutil";
+import {
+  createConnectedConsoleWrapper,
+  createStatusConsoleWrapper,
+  renderWithConsole,
+  UNLICENSED_STATUS,
+} from "@/testutil";
 
 describe("Core.Settings", () => {
   it("should show the selected Core's address, status, and version", async () => {
@@ -30,6 +35,17 @@ describe("Core.Settings", () => {
     expect(await screen.findByText(`${core.host}:${core.port}`)).toBeTruthy();
     expect(await screen.findByText("Connected")).toBeTruthy();
     expect(await screen.findByText(/^v\d+\.\d+/)).toBeTruthy();
+  });
+
+  it("should label the status of a Core that answers without a license", async () => {
+    const core = createCore("Local");
+    const { wrapper } = await createStatusConsoleWrapper({
+      client: null,
+      status: UNLICENSED_STATUS,
+      preloadedState: createCoreState([core], core.key),
+    });
+    render(<Core.Settings />, { wrapper });
+    expect(await screen.findByText("Unlicensed")).toBeTruthy();
   });
 
   it("should show nothing when no Core is selected", async () => {
