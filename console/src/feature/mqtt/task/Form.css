@@ -31,6 +31,11 @@
     width: 22rem;
 }
 
+/* A data type is a short name, so the channel of a field fits on its line. */
+.console-mqtt-read-binding .lyra-dialog__frame:has(> .lyra-dialog__trigger) {
+    --pluto-control-width: 28rem;
+}
+
 /* The message format grid needs more room than a channel list. */
 .console-task-configure--mqtt_read {
     --console-task-form-max-width: 1200px;

@@ -518,7 +518,7 @@ const Binding: FC<BindingProps> = ({ path, field, prefix, stored }) => {
   if (isIndex) tooltip = INDEX_TOOLTIP;
   else if (!readable) tooltip = UNREADABLE_TOOLTIP;
   return (
-    <Flex.Box x>
+    <Flex.Box x className={CSS.B("mqtt-read-binding")}>
       <Input.Item label={field.name} padHelpText={false}>
         <Input.Checkbox
           value={binding != null}
