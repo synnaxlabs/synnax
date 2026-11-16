@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
@@ -158,8 +159,10 @@ func (a *CalculationAnalyzer) Analyze(
 		}
 	}
 	inferredDataType := dataType.ToTelem()
-	if len(ch.Operations) > 0 &&
-		ch.Operations[len(ch.Operations)-1].Type == OperationTypeDerivative {
+	ops := lo.Filter(ch.Operations, func(op Operation, _ int) bool {
+		return op.Type != OperationTypeNone
+	})
+	if len(ops) > 0 && ops[len(ops)-1].Type == OperationTypeDerivative {
 		inferredDataType = telem.Float64T
 	}
 	return CalculationAnalysisResult{
