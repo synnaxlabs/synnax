@@ -18,13 +18,13 @@ export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 const SPEC = Custom.createBuiltIn({
   svg:
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 63 69">' +
-    '<rect x="2" y="2.5" width="28" height="64" rx="3" stroke="var(--pluto-symbol-display)"/>' +
-    '<path d="M16 2.5L16 66.5" stroke="var(--pluto-symbol-display)"/>' +
-    '<path d="M2 34.5H30" stroke="var(--pluto-symbol-display)"/>' +
-    '<path d="M2 19H30" stroke="var(--pluto-symbol-display)"/>' +
-    '<path d="M2 50H30" stroke="var(--pluto-symbol-display)"/>' +
-    '<path d="M29.121 3.37903L61 34.5" stroke="var(--pluto-symbol-display)"/>' +
-    '<path d="M29.12 65.62L61 34.5" stroke="var(--pluto-symbol-display)"/>' +
+    '<rect x="2" y="2.5" width="28" height="64" rx="3"/>' +
+    '<path d="M16 2.5L16 66.5"/>' +
+    '<path d="M2 34.5H30"/>' +
+    '<path d="M2 19H30"/>' +
+    '<path d="M2 50H30"/>' +
+    '<path d="M29.121 3.37903L61 34.5"/>' +
+    '<path d="M29.12 65.62L61 34.5"/>' +
     "</svg>",
   handles: [
     { key: "1", position: { x: 0.03333, y: 0.5 }, orientation: "left" },
@@ -42,6 +42,7 @@ export const FlameArrestorDetonation = ({
   <Primitive.Div {...rest} className={CSS.cls(CSS.B("flame-arrestor"), className)}>
     <Custom.Drawing
       spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
