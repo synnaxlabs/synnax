@@ -99,27 +99,29 @@ interface InputRowProps {
 const InputRow = ({ value, onChange }: InputRowProps): ReactElement => {
   const alpha = color.opacity(value);
   return (
-    <Flex.Box x gap="small" align="center">
-      <HexText
-        aria-label="Hex"
-        size="small"
-        grow
-        startContent="#"
-        text={color.hex(color.setOpacity(value, 1)).slice(1)}
-        alpha={alpha}
-        onChange={onChange}
-      />
-      <Input.Numeric
-        aria-label="Alpha percentage"
-        className={CSS.BE("color-picker", "alpha-input")}
-        size="small"
-        value={Math.round(alpha * 100)}
-        bounds={{ lower: 0, upper: 100 }}
-        endContent="%"
-        startContent={<Icon.Opacity />}
-        showDragHandle={false}
-        onChange={(pct) => onChange(color.setOpacity(value, pct / 100))}
-      />
+    <Flex.Box x gap="tiny" align="center">
+      <Flex.Box pack grow>
+        <HexText
+          aria-label="Hex"
+          size="small"
+          grow
+          startContent="#"
+          text={color.hex(color.setOpacity(value, 1)).slice(1)}
+          alpha={alpha}
+          onChange={onChange}
+        />
+        <Input.Numeric
+          aria-label="Alpha percentage"
+          className={CSS.BE("color-picker", "alpha-input")}
+          size="small"
+          value={Math.round(alpha * 100)}
+          bounds={{ lower: 0, upper: 100 }}
+          endContent="%"
+          startContent={<Icon.Opacity />}
+          showDragHandle={false}
+          onChange={(pct) => onChange(color.setOpacity(value, pct / 100))}
+        />
+      </Flex.Box>
       <Button.Copy
         size="small"
         variant="text"

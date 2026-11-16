@@ -21,11 +21,11 @@ const COLORS: Color.Named[] = Array.from({ length: 10 }, (_, i) => ({
   light: `#${(i * 20).toString(16).padStart(2, "0")}8040`,
 }));
 
-const renderLibrary = async (): Promise<HTMLElement> => {
+const renderLibrary = async (value?: string): Promise<HTMLElement> => {
   await renderThemed(
     <Triggers.Provider>
       <Color.Picker
-        value={undefined}
+        value={value}
         onChange={() => {}}
         library={{
           palettes: [{ key: "p", name: "Palette", colors: COLORS }],
@@ -74,6 +74,13 @@ describe("Picker", () => {
       expect(left).toBeGreaterThan(0);
       expect(left).toBeCloseTo(right, 0);
       expect(swatchRect(8).left).toBeCloseTo(swatchRect(0).left, 0);
+    });
+
+    it("should fit the widest hex code in the Custom tab", async () => {
+      await renderLibrary("#cccccc");
+      const hex = page.getByRole("textbox", { name: "Hex" }).element();
+      assert(hex instanceof HTMLInputElement);
+      expect(hex.scrollWidth).toBeLessThanOrEqual(hex.clientWidth);
     });
 
     it("should start the tabs, the search icon, and the swatches on one inset", async () => {

@@ -335,6 +335,8 @@ bound, a log precision, or the line plot X channel.
   button.
 - An optional color puts a square Auto button at the right of the tab bar, on both tabs.
 - The saturation and brightness plane has the tiny radius.
+- The hex and alpha inputs pack into one control, and the alpha input keeps its opacity
+  icon. Hex codes use the code font, so every code takes the same width and fits.
 
 ### Menus and selects
 

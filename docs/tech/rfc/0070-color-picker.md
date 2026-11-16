@@ -57,7 +57,8 @@ From the top:
   bottom to top.
 - **Hue slider** and **alpha slider**: round thumbs on rounded tracks. The alpha track
   sits on a checkerboard.
-- **Input row**: a hex box, an alpha percent box, a copy button, and an eyedropper.
+- **Input row**: a hex box and an alpha percent box packed into one control, a copy
+  button, and an eyedropper.
 - **Swatches**: below a divider, the Auto button (optional fields only, two cells wide,
   with the button selection tier), the theme's primary, secondary, warning, and error
   colors, then the visualization palette. A grid of ten columns. The swatch that equals
@@ -80,11 +81,11 @@ the move changes nothing visible.
 
 ### 4.2 Input row
 
-- **Hex box**: shows six digits without a `#`. A complete 6 or 8 digit hex applies as
-  the user types. Shorter forms apply on Enter or blur, since `fff` is also the start of
-  `ffffff`. A paste of any CSS color (`rgb(255 0 0 / 50%)`, `#f00`, `red`) applies at
-  once. A hex without alpha digits keeps the current alpha. Anything that does not parse
-  reverts on blur.
+- **Hex box**: shows six digits after a `#`, in the code font, so every code takes the
+  same width. A complete 6 or 8 digit hex applies as the user types. Shorter forms apply
+  on Enter or blur, since `fff` is also the start of `ffffff`. A paste of any CSS color
+  (`rgb(255 0 0 / 50%)`, `#f00`, `red`) applies at once. A hex without alpha digits
+  keeps the current alpha. Anything that does not parse reverts on blur.
 - **Alpha box**: a percentage from 0 to 100, with the drag handle every Lyra numeric
   input has.
 - **Copy**: copies the full hex, alpha digits included when the color is translucent.

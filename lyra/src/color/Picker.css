@@ -14,14 +14,16 @@
     padding: 1.5rem;
 
     /* Library and Custom tabs. One inset holds the tab boxes, the search icon, the
-       titles, and the swatches: eight 21 px swatches with 6 px gaps. */
+       titles, and the swatches: eight 21 px swatches across, with 6 px gaps. */
     &.lyra-color-picker--tabbed {
+        --pluto-color-picker-columns: 8;
         --pluto-color-picker-inset: 1.5rem;
         --pluto-color-picker-gap: 1rem;
 
         width: calc(
-            8 * var(--pluto-height-tiny) + 7 * var(--pluto-color-picker-gap) + 2 *
-                var(--pluto-color-picker-inset)
+            var(--pluto-color-picker-columns) * var(--pluto-height-tiny) +
+                (var(--pluto-color-picker-columns) - 1) *
+                var(--pluto-color-picker-gap) + 2 * var(--pluto-color-picker-inset)
         );
         min-height: 0;
         padding: 0;
@@ -69,7 +71,10 @@
 
         & .lyra-color-picker__grid {
             display: grid;
-            grid-template-columns: repeat(8, minmax(0, 1fr));
+            grid-template-columns: repeat(
+                var(--pluto-color-picker-columns),
+                minmax(0, 1fr)
+            );
             gap: var(--pluto-color-picker-gap);
 
             & .lyra-color-swatch.lyra-btn {
@@ -82,15 +87,6 @@
 
             & .lyra--selected.lyra-color-swatch {
                 box-shadow: var(--pluto-selected-ring);
-            }
-        }
-
-        /* The hex and "100 %" fit the narrower row once the alpha drops its icon. */
-        & .lyra-color-picker__alpha-input {
-            width: 10rem;
-
-            & .lyra-input__start-content {
-                display: none;
             }
         }
     }
