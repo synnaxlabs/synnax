@@ -20,8 +20,7 @@ describe("recalculate", () => {
       "#000000": { lastUsed: yearAgo, count: 1, relevance: 0 },
       "#ffffff": { lastUsed: now, count: 1, relevance: 0 },
     });
-    // Recency carries 0.6 of the weight, so a year of disuse must cost far more than
-    // the 1% the score gives it now.
+    // Recency carries 0.6 of the weight, so a year of disuse must cost most of it.
     expect(next["#ffffff"].relevance - next["#000000"].relevance).toBeGreaterThan(0.3);
   });
 
@@ -33,5 +32,15 @@ describe("recalculate", () => {
       frequent[`#00000${i}`] = { lastUsed: yearAgo, count: 2, relevance: 0 };
     frequent["#ffffff"] = { lastUsed: now, count: 1, relevance: 0 };
     expect(Color.recalculate(10, frequent)).toHaveProperty("#ffffff");
+  });
+
+  it("should cap the recency of a color last used in the future at 1", () => {
+    const now = Number(TimeStamp.now().valueOf());
+    const day = Number(TimeSpan.days(1).valueOf());
+    const next = Color.recalculate(10, {
+      "#000000": { lastUsed: now - day, count: 1, relevance: 0 },
+      "#ffffff": { lastUsed: now + day, count: 1, relevance: 0 },
+    });
+    expect(next["#ffffff"].relevance).toBeLessThanOrEqual(1);
   });
 });

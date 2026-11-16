@@ -55,7 +55,8 @@ export const recalculate = (limit: number, frequent: Frequent): Frequent => {
     0,
   );
   Object.entries(frequent).forEach(([hex, { lastUsed, count }]) => {
-    const normalizedRecency = maxAge === 0 ? 1 : 1 - (now - lastUsed) / maxAge;
+    const age = Math.max(0, now - lastUsed);
+    const normalizedRecency = maxAge === 0 ? 1 : 1 - age / maxAge;
     const normalizedFrequency = count / maxFrequency;
     const relevance =
       normalizedRecency * RECENCY_WEIGHT + normalizedFrequency * FREQUENCY_WEIGHT;
