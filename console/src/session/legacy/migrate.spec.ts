@@ -65,12 +65,10 @@ const FULL: Record<string, unknown> = {
 };
 
 describe("Legacy.migrate", () => {
-  it("should carry every Core across under the key it already had", async () => {
+  it("should carry every Core but the demo Core across under its key", async () => {
     const [read] = createReader(FULL);
     const { core } = await Legacy.migrate(read);
-    expect(Object.keys(core?.cores ?? {}).sort()).toEqual(
-      ["DEMO", LOCAL_LEGACY_KEY].sort(),
-    );
+    expect(Object.keys(core?.cores ?? {})).toEqual([LOCAL_LEGACY_KEY]);
     expect(core?.cores[LOCAL_LEGACY_KEY]).toMatchObject({
       name: "Local",
       username: "synnax",
@@ -82,6 +80,37 @@ describe("Legacy.migrate", () => {
     const [read] = createReader(FULL);
     const { core } = await Legacy.migrate(read);
     expect(core?.selected).toBe(LOCAL_LEGACY_KEY);
+  });
+
+  it("should clear the selection when it named the retired demo Core", async () => {
+    const [read] = createReader({
+      ...FULL,
+      "console-persisted-state.3": {
+        ...BLOB,
+        cluster: { ...BLOB.cluster, activeCluster: "DEMO" },
+      },
+    });
+    const { core } = await Legacy.migrate(read);
+    expect(core?.cores.DEMO).toBeUndefined();
+    expect(core?.selected).toBeUndefined();
+  });
+
+  it("should keep a demo record repointed at another host", async () => {
+    const [read] = createReader({
+      ...FULL,
+      "console-persisted-state.3": {
+        ...BLOB,
+        cluster: {
+          activeCluster: "DEMO",
+          clusters: {
+            DEMO: { ...BLOB.cluster.clusters.DEMO, host: "mine.example.com" },
+          },
+        },
+      },
+    });
+    const { core } = await Legacy.migrate(read);
+    expect(core?.cores.DEMO?.host).toBe("mine.example.com");
+    expect(core?.selected).toBe("DEMO");
   });
 
   it("should keep Cores that shared an address apart", async () => {
@@ -172,9 +201,7 @@ describe("Legacy.migrate", () => {
       },
     });
     const { core } = await Legacy.migrate(read);
-    expect(Object.keys(core?.cores ?? {}).sort()).toEqual(
-      ["DEMO", LOCAL_LEGACY_KEY].sort(),
-    );
+    expect(Object.keys(core?.cores ?? {})).toEqual([LOCAL_LEGACY_KEY]);
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
   });
