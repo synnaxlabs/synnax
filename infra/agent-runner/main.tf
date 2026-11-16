@@ -245,3 +245,28 @@ resource "aws_iam_role_policy" "start" {
     ]
   })
 }
+
+# Lets Agent - Requeue read the tags of the shared Claude logins, never their tokens.
+resource "aws_iam_role_policy" "start_logins" {
+  name = "ReadLoginTags"
+  role = aws_iam_role.start.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "secretsmanager:ListSecrets"
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = "secretsmanager:DescribeSecret"
+        Resource = join(":", [
+          "arn:aws:secretsmanager:us-east-1",
+          local.account,
+          "secret:synnax-agents/logins/*",
+        ])
+      },
+    ]
+  })
+}
