@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { panel, ranger, type Synnax as Client, view } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -419,7 +419,9 @@ describe("View open in a tab", () => {
 const TAB_TYPE = "range_explorer";
 
 /** Renders the harness in a tab of a panel on the Core. */
-const renderInPanel = async (): Promise<{
+const renderInPanel = async (
+  as: Client = client,
+): Promise<{
   panelKey: panel.Key;
   tab: panel.TabKey;
   store: TestStore;
@@ -430,7 +432,8 @@ const renderInPanel = async (): Promise<{
     tabs: [{ variant: "view", key: tab, type: TAB_TYPE }],
   });
   const { wrapper, store } = await createPanelWrapper({
-    client,
+    client: as,
+    project: (await client.projects.create({ name: uniqueName("project") })).key,
     panelKey,
     tabKey: tab,
   });
@@ -445,19 +448,27 @@ const renderInPanel = async (): Promise<{
   return { panelKey, tab, store };
 };
 
+/** @returns the tabs of the panel beside the given one. */
+const tabsBeside = async (
+  panelKey: panel.Key,
+  tab: panel.TabKey,
+): Promise<panel.Tab[]> => {
+  const { root } = await client.panels.retrieve(panelKey);
+  return (panel.findTabLeaf(root, tab)?.tabs ?? []).filter((t) => t.key !== tab);
+};
+
 /** Waits for one tab beside the given one, and returns it. */
 const waitForNewTab = async (
   panelKey: panel.Key,
   tab: panel.TabKey,
 ): Promise<panel.Tab> =>
   await waitFor(async () => {
-    const { root } = await client.panels.retrieve(panelKey);
-    const added = (panel.findTabLeaf(root, tab)?.tabs ?? []).filter(
-      (t) => t.key !== tab,
-    );
+    const added = await tabsBeside(panelKey, tab);
     expect(added).toHaveLength(1);
     return added[0];
   });
+
+const roles = new RoleClients(client);
 
 describe("View open in a new tab", () => {
   it("opens a view in a new tab from its context menu", async () => {
@@ -490,6 +501,17 @@ describe("View open in a new tab", () => {
     fireEvent.click(screen.getByRole("tab", { name: saved.name }), { ctrlKey: true });
     const added = await waitForNewTab(panelKey, tab);
     expect(store.getState()[Session.View.SLICE_NAME].open[added.key]).toBe(saved.key);
+  });
+
+  it("offers no new tab to a user who may not change the panel", async () => {
+    const saved = await createView();
+    const { panelKey, tab } = await renderInPanel(await roles.get("Viewer"));
+    fireEvent.contextMenu(await screen.findByText(saved.name));
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+    expect(screen.queryByText("Open in new tab")).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: saved.name }), { metaKey: true });
+    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
+    expect(await tabsBeside(panelKey, tab)).toEqual([]);
   });
 
   it("opens the static view in a new tab with no stored view", async () => {
