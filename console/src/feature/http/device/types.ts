@@ -197,7 +197,7 @@ const v0PropertiesZ = z.object({
   auth: v0AuthConfigZ,
   headers: z.record(z.string(), z.string()).optional(),
   queryParams: z.record(z.string(), z.string()).optional(),
-  readIndexes: z.record(z.string(), channel.keyZ),
+  readIndexes: caseconv.preserveCase(z.record(z.string(), channel.keyZ)),
 });
 
 // Anything that is not a channel key reads as no index.

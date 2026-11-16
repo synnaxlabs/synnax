@@ -478,6 +478,19 @@ describe("HTTP Device Properties", () => {
   });
 
   describe("v0 migration", () => {
+    it("should keep the case of v0 read index paths", () => {
+      const wire = {
+        secure: true,
+        verify_ssl: true,
+        timeout_ms: 100,
+        auth: { type: "none" },
+        read_indexes: { "/api/sensor_data": 5 },
+      };
+      const schema = HTTP.Device.propertiesZ;
+      const result = schema.parse(caseconv.snakeToCamel(wire, { schema }));
+      expect(result.read).toEqual({ "/api/sensor_data": { index: 5, channels: {} } });
+    });
+
     it("should migrate v0 none auth to v1", () => {
       const v0Config = {
         secure: true,
