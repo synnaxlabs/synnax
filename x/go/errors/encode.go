@@ -45,8 +45,8 @@ func Register(encode EncodeFunc, decode DecodeFunc) {
 // determined, returns a payload with type TypeUnknown and the error message. If the
 // error is nil, returns a payload with type TypeNil.
 func Encode(e error, internal bool) Payload {
-	pld, ok := e.(Payload)
-	if ok {
+	var pld Payload
+	if As(e, &pld) {
 		return pld
 	}
 	return _registry.encode(e, internal)
