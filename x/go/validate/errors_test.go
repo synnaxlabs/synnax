@@ -59,19 +59,20 @@ var _ = Describe("Errors", func() {
 		})
 
 		Describe("Encoding + Decoding", func() {
+			codec := errors.NewCodec(query.ErrorProvider(), validate.ErrorProvider())
 			It("Should correctly encode and decode", func() {
 				base := errors.New("cat")
 				pathed := validate.PathedError(base, "field")
-				encoded := errors.Encode(pathed, false)
+				encoded := codec.Encode(pathed, false)
 				Expect(
-					errors.Decode(encoded),
+					codec.Decode(encoded),
 				).To(MatchError(ContainSubstring("field: cat")))
 			})
 
 			It("Should have the correct encoded representation", func() {
 				base := errors.New("cat")
 				pathed := validate.PathedError(base, "field")
-				encoded := errors.Encode(pathed, false)
+				encoded := codec.Encode(pathed, false)
 				Expect(encoded.Type).To(Equal("sy.validation.path"))
 				Expect(
 					encoded.Data,
@@ -82,13 +83,13 @@ var _ = Describe("Errors", func() {
 				"Should encode a path error around a query error as that error",
 				func() {
 					base := errors.Wrap(query.ErrNotFound, "cat")
-					encoded := errors.Encode(
+					encoded := codec.Encode(
 						validate.PathedError(base, "field"),
 						false,
 					)
 					Expect(encoded.Type).To(Equal("sy.query.not_found"))
 					Expect(
-						errors.Decode(encoded),
+						codec.Decode(encoded),
 					).To(MatchError(query.ErrNotFound))
 				},
 			)
@@ -99,9 +100,9 @@ var _ = Describe("Errors", func() {
 					base := errors.New("cat")
 					first := validate.PathedError(base, "first")
 					parent := validate.PathedError(first, "parent")
-					encoded := errors.Encode(parent, false)
+					encoded := codec.Encode(parent, false)
 					Expect(
-						errors.Decode(encoded),
+						codec.Decode(encoded),
 					).To(MatchError(ContainSubstring("parent.first: cat")))
 				},
 			)

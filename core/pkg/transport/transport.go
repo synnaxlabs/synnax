@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc"
 	"github.com/synnaxlabs/synnax/pkg/transport/http"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -44,6 +45,10 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	Router *fhttp.Router
+	// Errors encodes the errors that gRPC services and frame reads send to clients.
+	//
+	// [REQUIRED]
+	Errors *errors.Codec
 }
 
 var _ config.Config[LayerConfig] = LayerConfig{}
@@ -53,6 +58,7 @@ func (c LayerConfig) Validate() error {
 	v := validate.New("transport")
 	v.NotNil("api", c.API)
 	v.NotNil("router", c.Router)
+	v.NotNil("errors", c.Errors)
 	return v.Error()
 }
 
@@ -61,6 +67,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.API = override.Nil(c.API, other.API)
 	c.Router = override.Nil(c.Router, other.Router)
+	c.Errors = override.Nil(c.Errors, other.Errors)
 	return c
 }
 
@@ -80,6 +87,6 @@ func NewLayer(cfgs ...LayerConfig) (Layer, error) {
 	if err != nil {
 		return Layer{}, err
 	}
-	http.Bind(cfg.API, cfg.Router)
-	return Layer{GRPC: grpc.Bind(cfg.API)}, nil
+	http.Bind(cfg.API, cfg.Router, cfg.Errors)
+	return Layer{GRPC: grpc.Bind(cfg.API, cfg.Errors)}, nil
 }

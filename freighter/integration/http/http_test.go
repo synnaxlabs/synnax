@@ -277,13 +277,24 @@ var _ = Describe("emptyResponse", func() {
 })
 
 var _ = Describe("Test error", func() {
-	It(
-		"Should round-trip through the freighter errors registry",
-		func() {
-			payload := errors.Payload{Type: "integration.error", Data: "7,boom"}
-			decoded := errors.Decode(payload)
-			Expect(decoded).To(MatchError("boom"))
-			Expect(errors.Encode(decoded, false)).To(Equal(payload))
-		},
-	)
+	It("Should encode a test error returned by a middleware", func() {
+		app := fiber.New(fiber.Config{})
+		Expect(ihttp.BindTo(GinkgoT().Context(), app)).To(Succeed())
+		body := MustSucceed(json.Marshal(message{Message: "hello", ID: 1}))
+		req := MustSucceed(http.NewRequest(
+			http.MethodPost,
+			"http://localhost/unary/middlewareCheck",
+			bytes.NewReader(body),
+		))
+		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+		req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
+		resp := MustSucceed(app.Test(req))
+		DeferCleanup(func() { Expect(resp.Body.Close()).To(Succeed()) })
+		var pld errors.Payload
+		Expect(json.UnmarshalRead(resp.Body, &pld)).To(Succeed())
+		Expect(pld).To(Equal(errors.Payload{
+			Type: "integration.error",
+			Data: "1,test param not found",
+		}))
+	})
 })

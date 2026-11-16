@@ -898,6 +898,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Channel:         cfg.Service.Channel,
 		RBAC:            cfg.Service.RBAC,
 		Records:         cfg.Service.Signals.Records(),
+		Errors:          cfg.Errors,
 	}); err != nil {
 		return nil, err
 	}

@@ -30,7 +30,11 @@ import (
 // BindTo binds the integration endpoints to f. Streams end when life ends.
 func BindTo(life context.Context, f *fiber.App) error {
 	router, err := http.NewRouter(life, http.RouterConfig{
-		Instrumentation:     testutil.Instrumentation("freighter-integration"),
+		Instrumentation: testutil.Instrumentation("freighter-integration"),
+		Errors: errors.NewCodec(
+			freighter.ErrorProvider(),
+			errorProvider(),
+		),
 		StreamWriteDeadline: 50 * time.Millisecond,
 	})
 	if err != nil {

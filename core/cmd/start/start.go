@@ -330,10 +330,12 @@ func BootupCore(
 		update = nil
 	}
 
+	errs := api.NewErrorCodec()
 	apiLayer, err := api.NewLayer(api.LayerConfig{
 		Instrumentation: cfg.Child("api"),
 		Service:         serviceLayer,
 		Distribution:    distributionLayer,
+		Errors:          errs,
 	})
 	if !ok(err, nil) {
 		return err
@@ -343,6 +345,7 @@ func BootupCore(
 	// ctx ends when shutdown starts, before the server drains in-flight requests.
 	if r, err = http.NewRouter(context.WithoutCancel(ctx), http.RouterConfig{
 		Instrumentation:     cfg.Instrumentation,
+		Errors:              errs,
 		StreamWriteDeadline: cfg.slowConsumerTimeout,
 	}); !ok(err, nil) {
 		return err
@@ -351,6 +354,7 @@ func BootupCore(
 		Instrumentation: cfg.Child("transport"),
 		API:             apiLayer,
 		Router:          r,
+		Errors:          errs,
 	})
 	if !ok(err, nil) {
 		return err

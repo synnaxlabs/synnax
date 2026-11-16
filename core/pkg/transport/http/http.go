@@ -49,13 +49,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/encoding/zip"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Bind registers an HTTP endpoint for every API service onto router and binds the API
 // layer's handlers and middleware to them. The frame codec resolves channel keys
 // through the API layer's channel service. Frame reads open their iterators under the
-// router's context, so a streamed body can outlive its request.
-func Bind(layer *api.Layer, router *http.Router) {
+// router's context, so a streamed body can outlive its request. errs encodes the
+// error that ends a frame read.
+func Bind(layer *api.Layer, router *http.Router, errs *errors.Codec) {
 	ctx := router.Context()
 	framerServerOption := framer.WithCodec(
 		layer.Channel,
@@ -189,7 +191,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/frame/read",
 			http.WithResponseEncoders(
-				framer.NewFrameEncoder(ctx),
+				framer.NewFrameEncoder(ctx, errs),
 				csvEncoder,
 				framer.NewTDMSEncoder(ctx),
 			),

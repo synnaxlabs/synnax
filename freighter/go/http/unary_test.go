@@ -174,7 +174,9 @@ func (closingEncoder) EncodeStream(w io.Writer, v any) error {
 var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
 	unaryApp = newFiberApp(fiber.Config{DisableKeepalive: true})
-	router := MustSucceed(fhttp.NewRouter(context.Background()))
+	router := MustSucceed(
+		fhttp.NewRouter(context.Background(), fhttp.RouterConfig{Errors: errorCodec()}),
+	)
 	unaryApp.Get("/health", func(ctx fiber.Ctx) error {
 		return ctx.SendStatus(fiber.StatusOK)
 	})
@@ -244,7 +246,9 @@ var _ = BeforeSuite(func() {
 		return oCtx, err
 	}))
 	unaryClient = MustSucceed(
-		fhttp.NewUnaryClient[testutil.Request, testutil.Response](),
+		fhttp.NewUnaryClient[testutil.Request, testutil.Response](
+			fhttp.UnaryClientConfig{Errors: errorCodec()},
+		),
 	)
 	router.BindTo(unaryApp)
 	unaryAddr = serveApp(unaryApp)
@@ -431,7 +435,7 @@ var _ = Describe("Unary", func() {
 				).To(Equal("application/json"))
 				var pld errors.Payload
 				Expect(json.Codec.Decode(respBody, &pld)).To(Succeed())
-				Expect(errors.Decode(pld)).To(MatchError(testutil.ErrCustom))
+				Expect(errorCodec().Decode(pld)).To(MatchError(testutil.ErrCustom))
 			},
 		)
 
@@ -536,7 +540,7 @@ var _ = Describe("Unary", func() {
 				var pld errors.Payload
 				respBody := MustSucceed(io.ReadAll(httpRes.Body))
 				Expect(json.Codec.Decode(respBody, &pld)).To(Succeed())
-				Expect(errors.Decode(pld)).To(MatchError(testutil.ErrCustom))
+				Expect(errorCodec().Decode(pld)).To(MatchError(testutil.ErrCustom))
 			},
 		)
 	})
@@ -698,6 +702,7 @@ var _ = Describe("Unary", func() {
 				client := MustSucceed(
 					fhttp.NewUnaryClient[testutil.Request, testutil.Response](
 						fhttp.UnaryClientConfig{
+							Errors:   errorCodec(),
 							Encoder:  msgpack.Codec,
 							Decoders: []xhttp.Decoder{msgpack.Codec, json.Codec},
 						},
@@ -938,6 +943,7 @@ var _ = Describe("Unary", func() {
 		It("should reflect a custom Encoder in the client report", func() {
 			c := MustSucceed(fhttp.NewUnaryClient[testutil.Request, testutil.Response](
 				fhttp.UnaryClientConfig{
+					Errors:   errorCodec(),
 					Encoder:  msgpack.Codec,
 					Decoders: []xhttp.Decoder{msgpack.Codec},
 				},

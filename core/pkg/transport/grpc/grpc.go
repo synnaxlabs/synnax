@@ -55,29 +55,30 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/status"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/task"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Bind constructs the gRPC transport for every API service, binds the API layer's
 // handlers and middleware to it, and returns the bindable transports for registration
 // with the server's gRPC branch. The framer codec resolves channel data types through
-// the API layer's channel service.
-func Bind(layer *api.Layer) []grpc.BindableTransport {
+// the API layer's channel service. errs encodes the errors that the services send.
+func Bind(layer *api.Layer, errs *errors.Codec) []grpc.BindableTransport {
 	var t api.Transport
 	transports := grpc.CompoundBindableTransport{
-		channel.New(&t),
-		framer.New(&t, layer.Channel),
-		connectivity.New(&t),
-		auth.New(&t),
-		ranger.New(&t),
-		kv.New(&t),
-		rack.New(&t),
-		task.New(&t),
-		device.New(&t),
-		status.New(&t),
-		arc.New(&t),
-		control.New(&t),
-		nidevice.New(&t),
-		nichassis.New(&t),
+		channel.New(&t, errs),
+		framer.New(&t, layer.Channel, errs),
+		connectivity.New(&t, errs),
+		auth.New(&t, errs),
+		ranger.New(&t, errs),
+		kv.New(&t, errs),
+		rack.New(&t, errs),
+		task.New(&t, errs),
+		device.New(&t, errs),
+		status.New(&t, errs),
+		arc.New(&t, errs),
+		control.New(&t, errs),
+		nidevice.New(&t, errs),
+		nichassis.New(&t, errs),
 	}
 
 	// AUTH
