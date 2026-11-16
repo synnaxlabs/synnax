@@ -11,12 +11,18 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
@@ -46,6 +52,57 @@ var ontologyDropMigration = migrate.New(
 		return ontology.Drop(ctx, tx)
 	},
 )
+
+// newGroupRemovalReport returns a migration that writes a warning status for each
+// member that the group migrations removed from a group. It must run before
+// ontologyDropMigration.
+func newGroupRemovalReport(
+	res *resource.Service,
+	statuses *status.Service,
+) gorp.Migration {
+	return migrate.New(
+		"v61_report_group_removals",
+		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+			removals, err := groupv1.RetrieveRemovals(ctx, tx)
+			if err != nil || len(removals) == 0 {
+				return err
+			}
+			var ids []resource.ID
+			for _, r := range removals {
+				if res.Provides(r.Member.Type) {
+					ids = append(ids, r.Member)
+				}
+			}
+			found, err := res.Retrieve(ctx, tx, ids...)
+			if err != nil {
+				return err
+			}
+			names := make(map[resource.ID]string, len(found))
+			for _, r := range found {
+				names[r.ID] = r.Name
+			}
+			w := statuses.NewWriter(tx)
+			for _, r := range removals {
+				name, ok := names[r.Member]
+				if !ok {
+					name = r.Member.Key
+				}
+				noun := strings.ReplaceAll(string(r.Member.Type), "_", " ")
+				s := status.Status[any]{
+					Name:        r.GroupName,
+					Variant:     status.VariantWarning,
+					Message:     fmt.Sprintf("Removed %s from group", noun),
+					Description: r.Describe(noun, name),
+					Time:        telem.Now(),
+				}
+				if err = w.Set(ctx, &s); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	)
+}
 
 // ontologyChannelNames are the internal channels the Core announced ontology changes
 // on.
