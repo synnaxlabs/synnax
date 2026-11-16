@@ -10,9 +10,15 @@
 package color_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
+	xcolor "github.com/synnaxlabs/x/color"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -22,5 +28,25 @@ var _ = Describe("OpenService", func() {
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("db: must be non-nil")),
 		))
+	})
+})
+
+var _ = Describe("Changes", func() {
+	It("Should return the named color that a commit creates", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		svc := MustOpen(color.OpenService(ctx, color.ServiceConfig{DB: db}))
+		var names []string
+		DeferCleanup(
+			db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
+				for ch := range svc.Changes(ctx, c) {
+					names = append(names, ch.Value.Name)
+				}
+			}),
+		)
+		n := color.Named{Name: "Breaker", Light: MustSucceed(xcolor.Parse("#ff0000"))}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &n)
+		})).To(Succeed())
+		Expect(names).To(Equal([]string{"Breaker"}))
 	})
 })

@@ -11,7 +11,10 @@
 
 package color
 
-import "github.com/synnaxlabs/synnax/pkg/service/color/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/color/versions"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // Key is the key of a named color.
 type Key = versions.Key
@@ -41,3 +44,17 @@ type NamedRef = versions.NamedRef
 
 // FixedRef is a color with no name.
 type FixedRef = versions.FixedRef
+
+// Where is a filter that selects named colors.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+}

@@ -27,13 +27,15 @@ var _ = Describe("Writer", func() {
 	var (
 		db  *gorp.DB
 		svc *color.Service
+		tx  gorp.Tx
 		w   color.Writer
 		red xcolor.Color
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(color.OpenService(ctx, color.ServiceConfig{DB: db}))
-		w = svc.NewWriter(db)
+		tx = DeferClose(db.OpenTx())
+		w = svc.NewWriter(tx)
 		red = MustSucceed(xcolor.Parse("#ff0000"))
 	})
 	retrieve := func(ctx SpecContext, key color.Key) color.Named {
@@ -42,7 +44,7 @@ var _ = Describe("Writer", func() {
 		Expect(svc.NewRetrieve().
 			Where(color.MatchKeys(key)).
 			Entry(&n).
-			Exec(ctx, db)).To(Succeed())
+			Exec(ctx, tx)).To(Succeed())
 		return n
 	}
 
@@ -67,6 +69,34 @@ var _ = Describe("Writer", func() {
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("color %s already exists", n.Key)),
 			))
+		})
+	})
+
+	Describe("CreateMany", func() {
+		It("Should create each named color with a new key", func(ctx SpecContext) {
+			named := []color.Named{
+				{Name: "Breaker", Light: red},
+				{Name: "Valve", Light: red},
+			}
+			Expect(w.CreateMany(ctx, named)).To(Succeed())
+			for _, n := range named {
+				Expect(n.Key).ToNot(Equal(uuid.Nil()))
+				Expect(retrieve(ctx, n.Key)).To(Equal(n))
+			}
+		})
+		It("Should stop at the first named color that is not valid", func(
+			ctx SpecContext,
+		) {
+			named := []color.Named{
+				{Name: "Breaker", Light: red},
+				{Light: red},
+				{Name: "Valve", Light: red},
+			}
+			Expect(w.CreateMany(ctx, named)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("name: required")),
+			))
+			Expect(named[2].Key).To(Equal(uuid.Nil()))
 		})
 	})
 
@@ -141,7 +171,7 @@ var _ = Describe("Writer", func() {
 			Expect(w.Create(ctx, &b)).To(Succeed())
 			Expect(w.Delete(ctx, a.Key, b.Key)).To(Succeed())
 			Expect(svc.NewRetrieve().Where(color.MatchKeys(a.Key, b.Key)).
-				Exists(ctx, db)).To(BeFalse())
+				Exists(ctx, tx)).To(BeFalse())
 		})
 		It("Should not return an error for a key with no named color", func(
 			ctx SpecContext,

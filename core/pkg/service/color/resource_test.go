@@ -36,7 +36,9 @@ var _ = Describe("Resources", func() {
 	create := func(ctx SpecContext, name string) resource.Resource {
 		GinkgoHelper()
 		n := color.Named{Name: name, Light: MustSucceed(xcolor.Parse("#ff0000"))}
-		Expect(svc.NewWriter(db).Create(ctx, &n)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &n)
+		})).To(Succeed())
 		return resource.Resource{ID: color.ResourceID(n.Key), Name: name}
 	}
 

@@ -15,6 +15,8 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/set"
 )
 
 // tableName names the Named table for references. Pass it as
@@ -33,6 +35,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	name   *gorp.SortedIndex[Key, Named, string]
 	search *gorp.SearchIndex[Key, Named]
 }
 
@@ -41,6 +44,10 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		name: gorp.NewSortedIndex[Key, Named, string](
+			"name",
+			func(e *Named) string { return compare.TextKey(string(e.Name)) },
+		),
 		search: gorp.NewSearchIndex[Key, Named](
 			"search",
 			func(e *Named) []string {
@@ -54,6 +61,7 @@ func newIndexes() indexes {
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[Key, Named] {
 	return []gorp.Index[Key, Named]{
+		i.name,
 		i.search,
 	}
 }
@@ -63,6 +71,37 @@ func (i indexes) all() []gorp.Index[Key, Named] {
 func MatchSearch(term string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Named] {
 		return r.indexes.search.Filter(term)
+	}
+}
+
+// Order is a sort that OrderBy applies. An OrderBy function builds one.
+type Order func(r Retrieve) gorp.OrderQuery[Key, Named]
+
+// OrderBy walks the nameds in the order o defines.
+func (r Retrieve) OrderBy(o Order) Retrieve {
+	r.gorp = r.gorp.OrderBy(o(r))
+	return r
+}
+
+// OrderByName returns an Order by name in lower case, then by key.
+func OrderByName(dir gorp.Direction) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Named] {
+		return r.indexes.name.Ordered(dir)
+	}
+}
+
+// OrderByNameAfter returns an Order like OrderByName that starts strictly past the
+// position of value and key.
+func OrderByNameAfter(
+	dir gorp.Direction,
+	value string,
+	key Key,
+) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Named] {
+		return r.indexes.name.Ordered(dir).After(
+			compare.TextKey(string(value)),
+			key,
+		)
 	}
 }
 
@@ -118,6 +157,25 @@ func MatchKeys(keys ...Key) Filter {
 	}
 }
 
+// MatchNames returns a filter for
+// nameds whose Name matches any of the
+// provided values.
+func MatchNames(vals ...string) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Named] {
+		keys := make([]string, len(vals))
+		for i, v := range vals {
+			keys[i] = compare.TextKey(string(v))
+		}
+		want := set.New(vals...)
+		return gorp.And(
+			r.indexes.name.Filter(keys...),
+			gorp.Match(func(_ gorp.Context, e *Named) (bool, error) {
+				return want.Contains(e.Name), nil
+			}),
+		)
+	}
+}
+
 // Where applies the provided filter to the query, binding it to the Retrieve
 // so service-bound filters can read from r.indexes, r.label, r.hostProvider,
 // etc. To compose multiple filters, chain Where calls or pass a combined
@@ -149,6 +207,13 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); retu
 // OrderBy, since an Order carries its own cursor.
 func (r Retrieve) After(key Key) Retrieve {
 	r.gorp = r.gorp.After(key)
+	return r
+}
+
+// SkipMissingKeys makes Exec treat a key with no named as a
+// non-match instead of returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
 	return r
 }
 

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	apicertificate "github.com/synnaxlabs/synnax/pkg/api/certificate"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
+	"github.com/synnaxlabs/synnax/pkg/api/color"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
@@ -202,6 +203,12 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LabelAdd = noop.UnaryServer[label.AddRequest, struct{}]{}
 	t.LabelRemove = noop.UnaryServer[label.RemoveRequest, struct{}]{}
 	t.LabelDispatch = noop.UnaryServer[label.DispatchRequest, struct{}]{}
+
+	// COLOR
+	t.ColorCreate = noop.UnaryServer[color.CreateRequest, color.CreateResponse]{}
+	t.ColorRetrieve = noop.UnaryServer[color.RetrieveRequest, color.RetrieveResponse]{}
+	t.ColorDelete = noop.UnaryServer[color.DeleteRequest, struct{}]{}
+	t.ColorDispatch = noop.UnaryServer[color.DispatchRequest, struct{}]{}
 
 	// ACCESS
 	t.AccessCreatePolicy = noop.UnaryServer[policy.CreateRequest, policy.CreateResponse]{}

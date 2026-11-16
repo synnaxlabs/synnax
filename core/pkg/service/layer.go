@@ -505,6 +505,27 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	if err = l.Signals.PublishTable(
 		ctx,
+		signals.TableConfig[color.Key, color.Named]{
+			SetName:    "sy_color_set",
+			DeleteName: "sy_color_delete",
+			Changes:    l.Color.Changes,
+			Resource:   color.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[color.Key, color.Action]{
+			Name:     "sy_color_action_set",
+			Actions:  l.Color.Actions(),
+			Resource: color.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishTable(
+		ctx,
 		signals.TableConfig[status.Key, status.Status[any]]{
 			Changes:  l.Status.Changes,
 			Resource: status.ResourceID,

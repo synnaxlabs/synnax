@@ -14,17 +14,26 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 )
 
 // Writer creates, changes, and deletes named colors in a transaction.
 type Writer struct {
-	tx    gorp.Tx
-	table *gorp.Table[Key, Named]
+	tx         gorp.Tx
+	table      *gorp.Table[Key, Named]
+	dispatcher actions.Dispatcher[Key, Action]
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
 }
 
 // Create creates a named color and gives it a key if it has none. It returns an error
 // wrapping validate.ErrValidation when the color is not valid or a named color with the
-// key exists.
+// key exists. The commit broadcasts a create action that holds the stored color.
 func (w Writer) Create(ctx context.Context, n *Named) error {
 	if n.Key == uuid.Nil() {
 		n.Key = uuid.New()
@@ -32,13 +41,36 @@ func (w Writer) Create(ctx context.Context, n *Named) error {
 	if err := n.Validate(); err != nil {
 		return err
 	}
-	return w.table.NewCreate().Exclusive().Entry(n).Exec(ctx, w.tx)
+	if err := w.table.NewCreate().Exclusive().Entry(n).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, n.Key, NewCreateAction(CreatePayload{Named: *n}))
+	return nil
 }
 
-// Apply applies the actions to the named color with the given key. It returns an error
-// wrapping validate.ErrValidation when an action is a create or the result is not
-// valid, and an error wrapping query.ErrNotFound when no named color has the key.
+// CreateMany creates the named colors as Create does, stopping at the first error.
+func (w Writer) CreateMany(ctx context.Context, named []Named) error {
+	for i := range named {
+		if err := w.Create(ctx, &named[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Apply applies the actions to the named color with the given key, and the commit
+// broadcasts them. It returns an error wrapping validate.ErrValidation when an action
+// is a create or the result is not valid, and an error wrapping query.ErrNotFound when
+// no named color has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.apply(ctx, key, acts); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
+}
+
+func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
 	return w.table.
 		NewUpdate().
 		Where(gorp.MatchKeys[Key, Named](key)).
