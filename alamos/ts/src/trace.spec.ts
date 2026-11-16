@@ -71,5 +71,24 @@ describe("Trace", () => {
       await done;
       expect(ended).toEqual(["async"]);
     });
+    it("should end the span of a function that throws", () => {
+      const ended: string[] = [];
+      expect(() =>
+        new Tracer(createTracer(ended)).prod("sync", () => {
+          throw new Error("failed");
+        }),
+      ).toThrow("failed");
+      expect(ended).toEqual(["sync"]);
+    });
+    it("should end the span of an async function after it rejects", async () => {
+      const ended: string[] = [];
+      const done = new Tracer(createTracer(ended)).prod("async", async () => {
+        await Promise.resolve();
+        expect(ended).toEqual([]);
+        throw new Error("failed");
+      });
+      await expect(done).rejects.toThrow("failed");
+      expect(ended).toEqual(["async"]);
+    });
   });
 });
