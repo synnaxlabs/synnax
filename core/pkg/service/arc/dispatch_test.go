@@ -217,6 +217,32 @@ var _ = Describe("Dispatch", func() {
 	)
 
 	It(
+		"Should reject a rename to an empty name without changing the Arc",
+		func(ctx SpecContext) {
+			a := newAutomation(
+				arc.Base{Name: "named", Source: arc.Source{Variant: arc.GraphSource{}}},
+			)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &a)
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, a.Base().Key)
+				})).To(Succeed())
+			})
+			Expect(dispatch(ctx, a.Base().Key, "client-xyz", []arc.Action{
+				arc.NewSetAction(arc.SetPayload{Path: []string{"name"}, Value: ""}),
+			})).To(MatchError(validate.ErrValidation))
+			var res arc.Arc
+			Expect(svc.NewRetrieve().
+				Where(arc.MatchKeys(a.Base().Key)).
+				Entry(&res).
+				Exec(ctx, db)).To(Succeed())
+			Expect(res.Base().Name).To(Equal("named"))
+		},
+	)
+
+	It(
 		"Should fail with query.ErrNotFound and not notify when the target Arc does not exist",
 		func(ctx SpecContext) {
 			rec := &Recorder[arc.Key, arc.Action]{}

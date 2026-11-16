@@ -55,6 +55,9 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			if err != nil {
 				return a, err
 			}
+			if err = a.Validate(); err != nil {
+				return Arc{}, err
+			}
 			module = a.Type() == TypeModule
 			next := a.Base()
 			pathChanged = next.Name != prev.Name ||
