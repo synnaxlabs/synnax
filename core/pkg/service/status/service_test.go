@@ -60,7 +60,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 	})
 
 	Describe("SetByKeyOrName", func() {
-		It("Should not replace a status with a later time", func(ctx SpecContext) {
+		It("Should replace a status with a time later than now", func(ctx SpecContext) {
 			st := status.Status[any]{
 				Key:     uuid.New().String(),
 				Name:    "future",
@@ -69,17 +69,16 @@ var _ = Describe("Dispatch", Ordered, func() {
 				Time:    telem.Now().Add(telem.Hour),
 			}
 			Expect(setStatus(ctx, &st)).To(Succeed())
-			key, multiple := MustSucceed2(
+			MustSucceed2(
 				svc.SetByKeyOrName(ctx, st.Key, "on", string(status.VariantSuccess)),
 			)
-			Expect(key).To(Equal(st.Key))
-			Expect(multiple).To(BeFalse())
 			var stored status.Status[any]
 			Expect(svc.NewRetrieve[any]().
 				Where(status.MatchKeys[any](st.Key)).
 				Entry(&stored).
 				Exec(ctx, db)).To(Succeed())
-			Expect(stored.Message).To(Equal("orig"))
+			Expect(stored.Message).To(Equal("on"))
+			Expect(stored.Time).To(BeNumerically("<", st.Time))
 		})
 
 		Describe("Input validation", func() {
