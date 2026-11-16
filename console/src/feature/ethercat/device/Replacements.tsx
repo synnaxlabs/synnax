@@ -29,7 +29,7 @@ const detailsZ = z.object({
  * Asks once in a session, for each new slave that can take the place of old slaves,
  * whether it is one of them.
  */
-export const ReplacementListener = (): null => {
+export const useListenForReplacements = (): void => {
   const slaves = useEverySlave();
   const addStatus = Status.useAdder();
   const asked = useRef(new Set<device.Key>());
@@ -51,7 +51,6 @@ export const ReplacementListener = (): null => {
       });
     }
   }, [slaves, addStatus]);
-  return null;
 };
 
 const Notification: Notifications.Notification = ({ status: st, silence }) => {
