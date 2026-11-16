@@ -64,10 +64,9 @@ type Policy struct {
 	healthyUptime time.Duration
 }
 
-// New constructs a Policy. The provided context bounds the backoff waits in Decide: if
-// it is canceled while Decide is waiting, Decide stops waiting and returns GiveUp.
-func New(ctx context.Context, cfg Config) (*Policy, error) {
-	b, err := breaker.NewBreaker(ctx, breaker.Config{
+// New constructs a Policy.
+func New(cfg Config) (*Policy, error) {
+	b, err := breaker.NewBreaker(breaker.Config{
 		BaseInterval: cfg.BaseInterval,
 		Scale:        cfg.Scale,
 		MaxRetries:   cfg.MaxRetries,
@@ -87,15 +86,19 @@ func New(ctx context.Context, cfg Config) (*Policy, error) {
 // which case Decide returns Stop immediately. Otherwise the exit is treated as a
 // failure: if uptime is at least HealthyUptime the failure counter is reset first, then
 // Decide waits out the backoff and returns Restart, or returns GiveUp once MaxRetries
-// consecutive failures are reached (or the context is canceled).
-func (p *Policy) Decide(expected bool, uptime time.Duration) Action {
+// consecutive failures are reached or ctx is canceled.
+func (p *Policy) Decide(
+	ctx context.Context,
+	expected bool,
+	uptime time.Duration,
+) Action {
 	if expected {
 		return Stop
 	}
 	if uptime >= p.healthyUptime {
 		p.breaker.Reset()
 	}
-	if p.breaker.Wait() {
+	if p.breaker.Wait(ctx) {
 		return Restart
 	}
 	return GiveUp

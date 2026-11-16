@@ -256,7 +256,7 @@ type reconnectHooks struct {
 // reconnect connects with a backoff until ctx is cancelled, and connects again after
 // each connection that drops.
 func reconnect(ctx context.Context, ins alamos.Instrumentation, hooks reconnectHooks) {
-	brk, err := breaker.NewBreaker(ctx, breaker.Config{
+	brk, err := breaker.NewBreaker(breaker.Config{
 		BaseInterval: time.Second,
 		Scale:        2,
 		MaxInterval:  maxReconnectInterval,
@@ -279,7 +279,7 @@ func reconnect(ctx context.Context, ins alamos.Instrumentation, hooks reconnectH
 			if hooks.failed != nil {
 				hooks.failed()
 			}
-			if !brk.Wait() {
+			if !brk.Wait(ctx) {
 				return
 			}
 			continue
@@ -293,7 +293,7 @@ func reconnect(ctx context.Context, ins alamos.Instrumentation, hooks reconnectH
 		if time.Since(connectedAt) > maxReconnectInterval {
 			brk.Reset()
 		}
-		if !brk.Wait() {
+		if !brk.Wait(ctx) {
 			return
 		}
 	}
