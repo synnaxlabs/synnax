@@ -9,7 +9,10 @@
 
 package errors
 
-import "strings"
+import (
+	"reflect"
+	"strings"
+)
 
 // Payload is a typed payload for transporting an error OVER a NETWORK. It includes type
 // information as well as encoded error data.
@@ -21,6 +24,8 @@ type Payload struct {
 }
 
 // Error implements the error interface.
+var payloadType = reflect.TypeFor[Payload]()
+
 func (p Payload) Error() string { return p.Type + "---" + p.Data }
 
 func (p *Payload) Unmarshal(d string) {
@@ -45,8 +50,9 @@ func Register(encode EncodeFunc, decode DecodeFunc) {
 // determined, returns a payload with type TypeUnknown and the error message. If the
 // error is nil, returns a payload with type TypeNil.
 func Encode(e error, internal bool) Payload {
+	// Only a bare payload passes through, so a wrapped one keeps its wrap message.
 	var pld Payload
-	if As(e, &pld) {
+	if reflect.TypeOf(e) == payloadType && As(e, &pld) {
 		return pld
 	}
 	return _registry.encode(e, internal)
