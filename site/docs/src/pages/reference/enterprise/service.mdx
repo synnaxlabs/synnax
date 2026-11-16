@@ -87,8 +87,10 @@ A unit that you wrote yourself also works with `synnax update`, if its name is `
 
 The Windows installer installs the Core as a service by default. That service runs
 without TLS and with no license file, in the data folder that you chose in the
-installer, and listens on `localhost:9090`, so only this computer can reach it. To add
-the flags below to it, edit `C:\ProgramData\Synnax\config.yaml`, then restart the
+installer, and listens on port 9090 of every network interface, so other computers can
+reach it. To limit it to this computer, set
+[`loopback`](/reference/enterprise/cli-reference#listener-loopback) on its listener. To
+add the flags below to it, edit `C:\ProgramData\Synnax\config.yaml`, then restart the
 service. Otherwise, install the service yourself:
 
 1. In PowerShell as an administrator, install the service with the flags for the Core:
