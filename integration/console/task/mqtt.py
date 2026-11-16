@@ -175,7 +175,7 @@ class MQTTRead(MQTTTask):
 
     def _read_boxes(self, title: str) -> list[Locator]:
         """Return the read box of each field under the listed entry ``title``, in the
-        order of its message format. Expands the entry first."""
+        order of its messages and their formats. Expands the entry first."""
         entry = self._rows().filter(has_text=f"{_LRI}{title}{_PDI}").first
         if entry.get_attribute("aria-expanded") == "false":
             entry.locator(_EXPAND_SELECTOR).click()
@@ -195,7 +195,10 @@ class MQTTRead(MQTTTask):
                 label = row.locator(_ENTRY_TITLE_SELECTOR).inner_text()
                 inside = _plain(label) == title
             elif inside:
-                boxes.append(row.get_by_role("checkbox", name=read))
+                box = row.get_by_role("checkbox", name=read)
+                # A topic that reads several messages has a row with no box for each.
+                if box.count() > 0:
+                    boxes.append(box)
         return boxes
 
     def fields(self, title: str) -> list[str]:
