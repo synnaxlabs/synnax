@@ -104,6 +104,14 @@ func (s *streamClient[RQ, RS]) Stream(
 			if err != nil {
 				return freighter.Context{Target: target}, err
 			}
+			if err = res.Body.Close(); err != nil {
+				return freighter.Context{
+					Target: target,
+				}, errors.Combine(
+					err,
+					conn.Close(),
+				)
+			}
 			oCtx := parseResponseCtx(res, target, true)
 			if res.StatusCode != fiber.StatusSwitchingProtocols {
 				return oCtx, errors.New("[ws] - unable to upgrade connection")
