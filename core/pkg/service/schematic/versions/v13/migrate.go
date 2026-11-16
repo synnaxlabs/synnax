@@ -31,7 +31,7 @@ import (
 // with no node config draws nothing, so it is dropped, and so is an edge whose source
 // or target is dropped. An edge with no edge config gets the default pipe, which the
 // Console drew for it before v0.55. A NaN or infinite number in a config becomes the
-// schema default of its field.
+// schema default of its field, which is 0 for a color alpha.
 func MigrateSchematic(ctx context.Context, old v12.Schematic) (Schematic, error) {
 	s, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
