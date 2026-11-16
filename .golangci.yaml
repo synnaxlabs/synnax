@@ -67,7 +67,6 @@ linters:
     - iface # SY-6111
     - inamedparam # SY-6115
     - maintidx # SY-6110
-    - intrange # SY-6114
     - musttag # SY-6111
     - nestif # SY-6110
     - nilerr # SY-6111

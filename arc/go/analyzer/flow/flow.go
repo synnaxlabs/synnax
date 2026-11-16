@@ -869,7 +869,7 @@ func analyzeInputRoutingTable(
 		// https://linear.app/synnax/issue/SY-3176/implement-full-type-checking-for-arc-flow-statements
 		_ = paramType
 
-		for i := 0; i < len(flowNodes)-1; i++ {
+		for i := range len(flowNodes) - 1 {
 			analyzeNode(ctx.Child(flowNodes[i]), nil, false)
 		}
 	}
