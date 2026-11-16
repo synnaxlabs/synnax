@@ -89,6 +89,7 @@ const deleteEmptied = (params: Params, state: Emptied, key: panel.Key): void => 
       await client.panels.delete(key);
     })
     .catch((e: unknown) => {
+      if (params.ended()) return;
       state.failed.add(key);
       const cached = client.panels.watch(key).getCached();
       const name = query.isLive(cached) ? cached.name : "";
@@ -105,6 +106,7 @@ const applyMembership = (
   state: Emptied,
   candidates: panel.Panel[],
 ): void => {
+  if (params.ended()) return;
   const { client, store } = params;
   // A draft holds work only while it holds a tab, so closing its last one deletes it.
   const user = cachedUser(client);
@@ -154,7 +156,7 @@ const repairMembership = async (params: Params, state: Emptied): Promise<void> =
   const { records } = await client.panels
     .watch({ where: panel.visibleTo(projectKey, user) })
     .retrieve();
-  if (params.ended() || store.getState().project.selected !== projectKey) return;
+  if (store.getState().project.selected !== projectKey) return;
   applyMembership(params, state, records);
 };
 
