@@ -586,7 +586,7 @@ public:
         }
         if (const auto wide = info.sdo_objects_64.find({index, sub_index});
             wide != info.sdo_objects_64.end()) {
-            if (*psize < static_cast<int>(sizeof(wide->second))) {
+            if (std::cmp_less(*psize, sizeof(wide->second))) {
                 this->push_packet_error(slave, index, sub_index, 3);
                 return 0;
             }
