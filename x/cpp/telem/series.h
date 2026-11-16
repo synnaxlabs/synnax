@@ -1791,6 +1791,11 @@ public:
     /// @returns the number of samples written
     /// @throws std::runtime_error if the data types don't match
     size_t write(const Series &other) {
+        if (other.data_type() != this->data_type())
+            throw std::runtime_error(
+                "cannot write a series of type " + other.data_type().name() +
+                " to a series of type " + this->data_type().name()
+            );
         this->ensure_exclusive();
         if (this->data_type().is_variable()) {
             const auto needed = this->byte_size() + other.byte_size();

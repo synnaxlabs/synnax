@@ -674,6 +674,13 @@ TEST(TestSeries, testWriteStringSeries) {
     ASSERT_EQ(s.strings(), (std::vector<std::string>{"a", "bc", "def"}));
 }
 
+/// @brief it should throw when writing a series of a different data type.
+TEST(TestSeries, testWriteSeriesTypeMismatch) {
+    Series s(std::vector<std::string>{"a"});
+    ASSERT_THROW(s.write(Series(std::vector<double>{1.0})), std::runtime_error);
+    ASSERT_EQ(s.strings(), (std::vector<std::string>{"a"}));
+}
+
 /// @brief it should keep the spare byte capacity of a variable series in a deep copy.
 TEST(TestSeries, testDeepCopyVariableSpareCapacity) {
     const Series s1{STRING_T, 64};
