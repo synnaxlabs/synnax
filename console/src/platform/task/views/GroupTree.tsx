@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button } from "@synnaxlabs/lyra/button";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -16,7 +17,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { deep, id, type record } from "@synnaxlabs/x";
-import { type ReactNode, useState, useSyncExternalStore } from "react";
+import { type MouseEvent, type ReactNode, useState, useSyncExternalStore } from "react";
 
 import { CSS } from "@/platform/css";
 import { EnabledCheckbox } from "@/platform/task/EnabledCheckbox";
@@ -188,16 +189,16 @@ interface GroupItemProps<G> extends Tree.ItemRenderProps<string> {
   children?: ReactNode;
 }
 
-const GroupItem = <G extends Group<GroupField> | Leaf>({
-  path,
-  leaf,
-  label,
-  onAddField,
-  off = false,
-  children,
-  ...itemProps
-}: GroupItemProps<G>) => {
+const GroupItem = <G extends Group<GroupField> | Leaf>(props: GroupItemProps<G>) => {
+  const isPreview = useIsPreview();
+  // After the hook: the compiler assumes the label call can change the rest object, so
+  // a destructure in the parameters stretches its memo block across the hook.
+  const { path, leaf, label, onAddField, off = false, children, ...itemProps } = props;
   const { itemKey } = itemProps;
+  const handleAdd = (e: MouseEvent) => {
+    e.stopPropagation();
+    onAddField(itemKey);
+  };
   return (
     <TreeGroupItem
       {...itemProps}
@@ -208,9 +209,20 @@ const GroupItem = <G extends Group<GroupField> | Leaf>({
           : undefined
       }
       off={off}
-      onAdd={leaf ? undefined : () => onAddField(itemKey)}
-      addLabel="Add field"
     >
+      {!leaf && !isPreview && (
+        <Button.Button
+          onClick={handleAdd}
+          variant="text"
+          size="tiny"
+          tooltip="Add field"
+          aria-label="Add field"
+          tooltipLocation="right"
+          className={CSS.BE("group-item", "add")}
+        >
+          <Icon.Add />
+        </Button.Button>
+      )}
       {children}
     </TreeGroupItem>
   );
