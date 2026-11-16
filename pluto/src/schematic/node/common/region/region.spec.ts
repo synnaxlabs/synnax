@@ -91,6 +91,18 @@ describe("Region.extract", () => {
     expect(regions[0].selectors).toContain("#circle1");
   });
 
+  it("should escape IDs and class names that are not CSS identifiers", () => {
+    const content =
+      '<rect id="1" stroke="#ff0000" fill="#00ff00" />' +
+      '<rect class="a.b" stroke="#0000ff" fill="#00ff00" />';
+    const regions = Region.extract(createSVG(content));
+    const markup = `<svg xmlns="http://www.w3.org/2000/svg">${content}</svg>`;
+    expect(regions).toHaveLength(2);
+    regions.forEach(({ strokeColor, selectors }) =>
+      expect(Region.paint(markup, selectors).stroke).toEqual(strokeColor),
+    );
+  });
+
   it("should use class names when available", () => {
     const svg = createSVG(`
       <rect class="red-rect primary" style="stroke: #ff0000; fill: #00ff00" />

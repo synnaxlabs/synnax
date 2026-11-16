@@ -121,11 +121,11 @@ const getColorPairKey = (colorPair: ColorPair): string =>
   `${color.hex(colorPair.stroke)}|${color.hex(colorPair.fill)}`;
 
 const generateSelector = (element: SVGElement): string => {
-  if (element.id) return `#${element.id}`;
+  if (element.id) return `#${CSS.escape(element.id)}`;
   const dataRegionId = element.getAttribute("data-region-id");
   if (dataRegionId) return `[data-region-id="${dataRegionId}"]`;
   if (element.classList.length > 0)
-    return `.${Array.from(element.classList).join(".")}`;
+    return `.${Array.from(element.classList, CSS.escape).join(".")}`;
   const tagName = element.tagName.toLowerCase();
   const parent = element.parentElement;
   if (!parent) return tagName;
