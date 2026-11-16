@@ -1177,6 +1177,19 @@ TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheCoESerialIsZero) {
     EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0xABCD);
 }
 
+/// @brief it should keep the SII serial number of a slave whose CoE serial number is
+/// too large for the Core to store exactly.
+TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheCoESerialIsTooLarge) {
+    auto slave = create_coe_slave(0);
+    slave.eep_ser = 0xABCD;
+    slave.sdo_objects.clear();
+    slave.sdo_objects_64[{0x1018, 4}] = uint64_t{1} << 53;
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
 /// @brief it should keep the SII serial number of a slave that aborts the read of its
 /// CoE serial number.
 TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveAbortsTheRead) {

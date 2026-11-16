@@ -75,6 +75,9 @@ constexpr uint16_t DETECTED_MODULES_INDEX = 0xF050;
 /// The CoE identity object and the sub-index that holds the serial number.
 constexpr uint16_t IDENTITY_INDEX = 0x1018;
 constexpr uint8_t SERIAL_SUB_INDEX = 4;
+/// The largest serial number that the Core and the Console store exactly. A rounded
+/// serial number would match no saved device, so a larger one counts as none.
+constexpr uint64_t MAX_SERIAL = (uint64_t{1} << 53) - 1;
 /// The largest object a complete access read returns: sub-index 0 as 16 bits, then 255
 /// entries of four bytes.
 constexpr size_t MAX_OBJECT_SIZE = 2 + (255 * 4);
@@ -742,7 +745,7 @@ void Master::read_serial(slave::DiscoveryResult &slave) {
             &serial,
             SDO_TIMEOUT
         ) > 0) {
-        if (serial != 0) slave.properties.serial = serial;
+        if (serial != 0 && serial <= MAX_SERIAL) slave.properties.serial = serial;
         return;
     }
     const auto failure = pop_sdo_failure(*this->api);
