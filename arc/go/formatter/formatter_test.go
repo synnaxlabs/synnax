@@ -799,6 +799,15 @@ var _ = Describe("Formatter", func() {
 		),
 	)
 
+	Describe("Dashed names", func() {
+		It("Should keep a dashed channel name when dashed names are allowed", func() {
+			input := "sensor-1 -> valve-2\n"
+			Expect(
+				formatter.Format(input, parser.Config{AllowDashedNames: true}),
+			).To(Equal(input))
+		})
+	})
+
 	Describe("FormatRange", func() {
 		It("should format only the specified range", func() {
 			input := "x:=1\ny:=2\nz:=3"

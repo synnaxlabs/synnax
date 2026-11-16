@@ -27,14 +27,12 @@ func SplitLines(content string) []string {
 	return strings.Split(content, "\n")
 }
 
-func Format(content string) string {
+func Format(content string, cfgs ...parser.Config) string {
 	if content == "" {
 		return ""
 	}
 
-	input := antlr.NewInputStream(content)
-	lexer := parser.NewArcLexer(input)
-	tokens := lexer.GetAllTokens()
+	tokens := parser.NewLexer(content, parser.ConfigOf(cfgs...)).GetAllTokens()
 
 	hasVisibleTokens := false
 	for _, tok := range tokens {
@@ -53,13 +51,17 @@ func Format(content string) string {
 	return HoistDeclarations(p.print(tokens))
 }
 
-func FormatRange(content string, startLine, endLine int) string {
+func FormatRange(
+	content string,
+	startLine, endLine int,
+	cfgs ...parser.Config,
+) string {
 	lines := SplitLines(content)
 	if startLine < 0 || endLine >= len(lines) || startLine > endLine {
 		return content
 	}
 	rangeContent := strings.Join(lines[startLine:endLine+1], "\n")
-	formatted := Format(rangeContent)
+	formatted := Format(rangeContent, cfgs...)
 	formatted = strings.TrimSuffix(formatted, "\n")
 	var result strings.Builder
 	for i := range startLine {
