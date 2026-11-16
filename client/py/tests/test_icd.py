@@ -14,6 +14,7 @@ import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+from x import payload
 from x.payload import Unsigned
 from x.testutil import assert_eventually
 
@@ -116,6 +117,60 @@ class TestICD:
         timestamp = payload.fields[5]
         assert isinstance(timestamp, sy.icd.TimestampJSONField)
         assert timestamp.time_format == "unix_ms"
+
+    def test_create_json_enum_values_and_defaults(self, client: sy.Synnax) -> None:
+        """Should keep the enum values and defaults of JSON fields."""
+        fields: list[sy.icd.JSONField] = [
+            sy.icd.FloatJSONField(
+                name="level",
+                pointer="/level",
+                enum_values=[payload.FloatEntry(label="FULL", value=100.5)],
+                default=-1.5,
+            ),
+            sy.icd.IntegerJSONField(
+                name="delta",
+                pointer="/delta",
+                enum_values=[payload.IntegerEntry(label="MIN", value=-(2**63))],
+                default=2**63 - 1,
+            ),
+            sy.icd.UnsignedJSONField(
+                name="count",
+                pointer="/count",
+                enum_values=[payload.UnsignedEntry(label="MAX", value=2**64 - 1)],
+                default=2**64 - 2,
+            ),
+            sy.icd.StringJSONField(
+                name="state",
+                pointer="/state",
+                enum_values=[payload.StringEntry(label="on", value="ON")],
+                default="OFF",
+            ),
+            sy.icd.BooleanJSONField(
+                name="armed",
+                pointer="/armed",
+                enum_values=[payload.BooleanEntry(label="yes", value=True)],
+                default=False,
+            ),
+            sy.icd.TimestampJSONField(
+                name="time",
+                pointer="/ts",
+                time_format="unix_ns",
+                default=sy.TimeStamp(2**62 + 1),
+            ),
+        ]
+        ic = client.icds.create(
+            name="Defaults",
+            messages=[
+                sy.icd.Message(
+                    name="Reading", payload=sy.icd.JSONPayload(fields=fields)
+                )
+            ],
+        )
+        retrieved = client.icds.retrieve(key=ic.key)
+        assert retrieved == ic
+        stored = retrieved.messages[0].payload
+        assert isinstance(stored, sy.icd.JSONPayload)
+        assert stored.fields == fields
 
     def test_create_text(self, client: sy.Synnax) -> None:
         """Should create a message with a text payload."""

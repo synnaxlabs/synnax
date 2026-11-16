@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, uuid } from "@synnaxlabs/x";
+import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError, PathError } from "@/errors";
@@ -172,6 +172,60 @@ describe("icd", () => {
           { type: "bytes", pointer: "/blob" },
         ],
       });
+    });
+
+    it("should keep the enum values and defaults of JSON fields", async () => {
+      const fields: icd.JSONField[] = [
+        {
+          type: "float",
+          name: "level",
+          pointer: "/level",
+          enumValues: [{ label: "FULL", value: 100.5 }],
+          default: -1.5,
+        },
+        {
+          type: "integer",
+          name: "delta",
+          pointer: "/delta",
+          enumValues: [{ label: "MIN", value: "-9223372036854775808" }],
+          default: "9223372036854775807",
+        },
+        {
+          type: "unsigned",
+          name: "count",
+          pointer: "/count",
+          enumValues: [{ label: "MAX", value: "18446744073709551615" }],
+          default: "18446744073709551614",
+        },
+        {
+          type: "string",
+          name: "state",
+          pointer: "/state",
+          enumValues: [{ label: "on", value: "ON" }],
+          default: "OFF",
+        },
+        {
+          type: "boolean",
+          name: "armed",
+          pointer: "/armed",
+          enumValues: [{ label: "yes", value: true }],
+          default: false,
+        },
+        {
+          type: "timestamp",
+          name: "time",
+          pointer: "/ts",
+          timeFormat: "unix_ns",
+          default: new TimeStamp(2n ** 62n + 1n),
+        },
+      ];
+      const ic = await client.icds.create({
+        name: "Defaults",
+        messages: [{ name: "Reading", payload: { format: "json", fields } }],
+      });
+      const retrieved = await client.icds.retrieve(ic.key);
+      expect(retrieved).toEqual(ic);
+      expect(retrieved.messages[0].payload).toMatchObject({ format: "json", fields });
     });
 
     it("should create multiple ICDs", async () => {
