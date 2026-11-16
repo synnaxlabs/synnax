@@ -11,20 +11,25 @@ import { type schematic } from "@synnaxlabs/client";
 
 import { Primitive } from "@/schematic/node/common/primitive";
 
-export interface BuiltInParams extends Pick<schematic.symbol.Spec, "svg" | "handles"> {}
+export interface BuiltInParams
+  extends
+    Pick<schematic.symbol.Spec, "svg" | "handles">,
+    Partial<Pick<schematic.symbol.Spec, "variant">> {}
 
 /**
- * @returns the spec of a static built-in symbol. Its scale is the shrink Primitive.SVG
- * gives a built-in drawing, so Drawing draws it at the size of that drawing.
+ * @returns the spec of a built-in symbol, static unless variant says otherwise. Its
+ * scale is the shrink Primitive.SVG gives a built-in drawing, so Drawing draws it at
+ * the size of that drawing.
  */
 export const createBuiltIn = ({
   svg,
   handles,
+  variant = "static",
 }: BuiltInParams): schematic.symbol.Spec => ({
   svg,
   handles,
   states: [],
-  variant: "static",
+  variant,
   scale: Primitive.BASE_SCALE,
   strokeScaled: false,
 });
