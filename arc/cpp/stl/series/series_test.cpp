@@ -657,6 +657,30 @@ ALL_SERIES_OPS_INT(i64, i64)
 ALL_SERIES_OPS(f32, f32)
 ALL_SERIES_OPS(f64, f64)
 
+/// @brief it should trap, not abort, when two series differ in length.
+TEST(SeriesModule, SeriesOpLengthMismatchTraps) {
+    Fixture f(build_series_ops_wat("i32"));
+    auto create = f.get("create_empty");
+    const auto a = create.call(f.store, {wasmtime::Val(int32_t{2})}).unwrap()[0].i32();
+    const auto b = create.call(f.store, {wasmtime::Val(int32_t{3})}).unwrap()[0].i32();
+    expect_failure(
+        f.get("series_add").call(f.store, {wasmtime::Val(a), wasmtime::Val(b)}),
+        "series length mismatch"
+    );
+}
+
+/// @brief it should trap, not abort, when two compared series differ in length.
+TEST(SeriesModule, CompareLengthMismatchTraps) {
+    Fixture f(build_compare_wat("i32"));
+    auto create = f.get("create_empty");
+    const auto a = create.call(f.store, {wasmtime::Val(int32_t{2})}).unwrap()[0].i32();
+    const auto b = create.call(f.store, {wasmtime::Val(int32_t{3})}).unwrap()[0].i32();
+    expect_failure(
+        f.get("compare_eq").call(f.store, {wasmtime::Val(a), wasmtime::Val(b)}),
+        "series length mismatch"
+    );
+}
+
 #undef SETUP_TWO_SERIES
 #undef TEST_SERIES_OP
 #undef TEST_SERIES_OP_NULL

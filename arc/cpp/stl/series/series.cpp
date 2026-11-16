@@ -227,12 +227,13 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "series_add_" #suffix,                                                 \
-                [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
+                [ss](uint32_t a, uint32_t b)                                           \
+                    -> wasmtime::Result<uint32_t, wasmtime::Trap> {                    \
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
-                    if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa == nullptr || sb == nullptr) return uint32_t{0};            \
                     if (sa->size() != sb->size())                                      \
-                        throw std::runtime_error(                                      \
+                        return wasmtime::Trap(                                         \
                             "arc panic: series length mismatch in series_add_" #suffix \
                         );                                                             \
                     auto result = *sa + *sb;                                           \
@@ -244,12 +245,13 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "series_mul_" #suffix,                                                 \
-                [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
+                [ss](uint32_t a, uint32_t b)                                           \
+                    -> wasmtime::Result<uint32_t, wasmtime::Trap> {                    \
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
-                    if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa == nullptr || sb == nullptr) return uint32_t{0};            \
                     if (sa->size() != sb->size())                                      \
-                        throw std::runtime_error(                                      \
+                        return wasmtime::Trap(                                         \
                             "arc panic: series length mismatch in series_mul_" #suffix \
                         );                                                             \
                     auto result = *sa * *sb;                                           \
@@ -261,12 +263,13 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "series_sub_" #suffix,                                                 \
-                [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
+                [ss](uint32_t a, uint32_t b)                                           \
+                    -> wasmtime::Result<uint32_t, wasmtime::Trap> {                    \
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
-                    if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa == nullptr || sb == nullptr) return uint32_t{0};            \
                     if (sa->size() != sb->size())                                      \
-                        throw std::runtime_error(                                      \
+                        return wasmtime::Trap(                                         \
                             "arc panic: series length mismatch in series_sub_" #suffix \
                         );                                                             \
                     auto result = *sa - *sb;                                           \
@@ -278,12 +281,13 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "series_div_" #suffix,                                                 \
-                [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
+                [ss](uint32_t a, uint32_t b)                                           \
+                    -> wasmtime::Result<uint32_t, wasmtime::Trap> {                    \
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
-                    if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa == nullptr || sb == nullptr) return uint32_t{0};            \
                     if (sa->size() != sb->size())                                      \
-                        throw std::runtime_error(                                      \
+                        return wasmtime::Trap(                                         \
                             "arc panic: series length mismatch in series_div_" #suffix \
                         );                                                             \
                     auto result = *sa / *sb;                                           \
@@ -295,12 +299,13 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "series_mod_" #suffix,                                                 \
-                [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
+                [ss](uint32_t a, uint32_t b)                                           \
+                    -> wasmtime::Result<uint32_t, wasmtime::Trap> {                    \
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
-                    if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa == nullptr || sb == nullptr) return uint32_t{0};            \
                     if (sa->size() != sb->size())                                      \
-                        throw std::runtime_error(                                      \
+                        return wasmtime::Trap(                                         \
                             "arc panic: series length mismatch in series_mod_" #suffix \
                         );                                                             \
                     auto result = *sa % *sb;                                           \
@@ -312,12 +317,13 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "compare_gt_" #suffix,                                                 \
-                [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
+                [ss](uint32_t a, uint32_t b)                                           \
+                    -> wasmtime::Result<uint32_t, wasmtime::Trap> {                    \
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
-                    if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa == nullptr || sb == nullptr) return uint32_t{0};            \
                     if (sa->size() != sb->size())                                      \
-                        throw std::runtime_error(                                      \
+                        return wasmtime::Trap(                                         \
                             "arc panic: series length mismatch in comparison"          \
                         );                                                             \
                     auto result = *sa > *sb;                                           \
@@ -329,12 +335,13 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "compare_lt_" #suffix,                                                 \
-                [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
+                [ss](uint32_t a, uint32_t b)                                           \
+                    -> wasmtime::Result<uint32_t, wasmtime::Trap> {                    \
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
-                    if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa == nullptr || sb == nullptr) return uint32_t{0};            \
                     if (sa->size() != sb->size())                                      \
-                        throw std::runtime_error(                                      \
+                        return wasmtime::Trap(                                         \
                             "arc panic: series length mismatch in comparison"          \
                         );                                                             \
                     auto result = *sa < *sb;                                           \
@@ -346,12 +353,13 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "compare_ge_" #suffix,                                                 \
-                [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
+                [ss](uint32_t a, uint32_t b)                                           \
+                    -> wasmtime::Result<uint32_t, wasmtime::Trap> {                    \
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
-                    if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa == nullptr || sb == nullptr) return uint32_t{0};            \
                     if (sa->size() != sb->size())                                      \
-                        throw std::runtime_error(                                      \
+                        return wasmtime::Trap(                                         \
                             "arc panic: series length mismatch in comparison"          \
                         );                                                             \
                     auto result = *sa >= *sb;                                          \
@@ -363,12 +371,13 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "compare_le_" #suffix,                                                 \
-                [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
+                [ss](uint32_t a, uint32_t b)                                           \
+                    -> wasmtime::Result<uint32_t, wasmtime::Trap> {                    \
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
-                    if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa == nullptr || sb == nullptr) return uint32_t{0};            \
                     if (sa->size() != sb->size())                                      \
-                        throw std::runtime_error(                                      \
+                        return wasmtime::Trap(                                         \
                             "arc panic: series length mismatch in comparison"          \
                         );                                                             \
                     auto result = *sa <= *sb;                                          \
@@ -380,12 +389,13 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "compare_eq_" #suffix,                                                 \
-                [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
+                [ss](uint32_t a, uint32_t b)                                           \
+                    -> wasmtime::Result<uint32_t, wasmtime::Trap> {                    \
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
-                    if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa == nullptr || sb == nullptr) return uint32_t{0};            \
                     if (sa->size() != sb->size())                                      \
-                        throw std::runtime_error(                                      \
+                        return wasmtime::Trap(                                         \
                             "arc panic: series length mismatch in comparison"          \
                         );                                                             \
                     auto result = *sa == *sb;                                          \
@@ -397,12 +407,13 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "compare_ne_" #suffix,                                                 \
-                [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
+                [ss](uint32_t a, uint32_t b)                                           \
+                    -> wasmtime::Result<uint32_t, wasmtime::Trap> {                    \
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
-                    if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa == nullptr || sb == nullptr) return uint32_t{0};            \
                     if (sa->size() != sb->size())                                      \
-                        throw std::runtime_error(                                      \
+                        return wasmtime::Trap(                                         \
                             "arc panic: series length mismatch in comparison"          \
                         );                                                             \
                     auto result = *sa != *sb;                                          \
