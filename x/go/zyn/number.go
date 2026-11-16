@@ -251,11 +251,10 @@ func (n NumberZ) dumpReflect(val reflect.Value) (any, error) {
 			var intVal int64
 			switch val.Kind() {
 			case reflect.Float64, reflect.Float32:
-				floatVal := val.Float()
-				if floatVal != float64(int64(floatVal)) {
-					return nil, fractionalPartError(floatVal)
+				var err error
+				if intVal, err = floatToInt64(val.Float()); err != nil {
+					return nil, err
 				}
-				intVal = int64(floatVal)
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32,
 				reflect.Int64:
 				intVal = val.Int()
@@ -280,14 +279,10 @@ func (n NumberZ) dumpReflect(val reflect.Value) (any, error) {
 			var uintVal uint64
 			switch val.Kind() {
 			case reflect.Float64, reflect.Float32:
-				floatVal := val.Float()
-				if floatVal != float64(int64(floatVal)) {
-					return nil, fractionalPartError(floatVal)
+				var err error
+				if uintVal, err = floatToUint64(val.Float()); err != nil {
+					return nil, err
 				}
-				if floatVal < 0 {
-					return nil, negativeToUnsignedError(floatVal)
-				}
-				uintVal = uint64(floatVal)
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 				intVal := val.Int()
 				if intVal < 0 {
@@ -489,11 +484,10 @@ func (n NumberZ) parseReflect(data, dest any) error {
 		var intVal int64
 		switch srcVal.Kind() {
 		case reflect.Float64, reflect.Float32:
-			floatVal := srcVal.Float()
-			if floatVal != float64(int64(floatVal)) {
-				return fractionalPartError(floatVal)
+			var err error
+			if intVal, err = floatToInt64(srcVal.Float()); err != nil {
+				return err
 			}
-			intVal = int64(floatVal)
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			intVal = srcVal.Int()
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32,
@@ -518,14 +512,10 @@ func (n NumberZ) parseReflect(data, dest any) error {
 		var uintVal uint64
 		switch srcVal.Kind() {
 		case reflect.Float64, reflect.Float32:
-			floatVal := srcVal.Float()
-			if floatVal != float64(int64(floatVal)) {
-				return fractionalPartError(floatVal)
+			var err error
+			if uintVal, err = floatToUint64(srcVal.Float()); err != nil {
+				return err
 			}
-			if floatVal < 0 {
-				return negativeToUnsignedError(floatVal)
-			}
-			uintVal = uint64(floatVal)
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			intVal := srcVal.Int()
 			if intVal < 0 {
@@ -556,6 +546,33 @@ func Int64() NumberZ { return Number().Int64() }
 
 // Uint16 is a schema that validates uint16 numbers.
 func Uint16() NumberZ { return Number().Uint16() }
+
+// floatToInt64 converts f to int64. It returns validate.ErrConversion if f has a
+// fractional part or is out of the int64 range.
+func floatToInt64(f float64) (int64, error) {
+	if f != math.Trunc(f) {
+		return 0, fractionalPartError(f)
+	}
+	if f < -(1<<63) || f >= 1<<63 {
+		return 0, valueOutOfRangeError(f, "int64")
+	}
+	return int64(f), nil
+}
+
+// floatToUint64 converts f to uint64. It returns validate.ErrConversion if f has a
+// fractional part, is negative, or is out of the uint64 range.
+func floatToUint64(f float64) (uint64, error) {
+	if f != math.Trunc(f) {
+		return 0, fractionalPartError(f)
+	}
+	if f < 0 {
+		return 0, negativeToUnsignedError(f)
+	}
+	if f >= 1<<64 {
+		return 0, valueOutOfRangeError(f, "uint64")
+	}
+	return uint64(f), nil
+}
 
 func fractionalPartError(float float64) error {
 	return errors.Wrapf(
