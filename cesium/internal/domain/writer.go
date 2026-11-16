@@ -297,15 +297,11 @@ func (w *Writer) Write(p []byte) (int, error) {
 // the DB, Commit will return an ErrWriteConflict. If
 // WriterCommit.AutoIndexPersistInterval is greater than 0, then the changes committed
 // would only be persisted to disk after the set interval.
-func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
-	return w.CommitIn(ctx, end, nil)
-}
-
-// CommitIn is Commit for a commit in g: readers see the domain as it was before the
+//
+// When g is not nil, the commit is in g: readers see the domain as it was before the
 // commit until g publishes. A writer holds one such domain at a time, so readers also
-// see it once the writer commits to another domain or closes. A nil g commits as
-// Commit does.
-func (w *Writer) CommitIn(ctx context.Context, end telem.TimeStamp, g *Group) error {
+// see it once the writer commits to another domain or closes.
+func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp, g *Group) error {
 	var (
 		now = w.clock.Now()
 		// the only time we do not shouldPersist is when EnableAutoCommit and the

@@ -57,7 +57,7 @@ var _ = Describe("Group", func() {
 	commitIn := func(ctx context.Context, w *domain.Writer, end int, g *domain.Group) {
 		GinkgoHelper()
 		MustSucceed(w.Write([]byte{1}))
-		Expect(w.CommitIn(ctx, telem.TimeStamp(end)*telem.SecondTS, g)).To(Succeed())
+		Expect(w.Commit(ctx, telem.TimeStamp(end)*telem.SecondTS, g)).To(Succeed())
 	}
 
 	// visible returns the domains that a new iterator sees, in order.
@@ -191,9 +191,9 @@ var _ = Describe("Group", func() {
 				for i := range commits {
 					ts := 10*telem.SecondTS + telem.TimeStamp(i) + 1
 					MustSucceed(w1.Write([]byte{1}))
-					Expect(w1.CommitIn(ctx, ts, &g)).To(Succeed())
+					Expect(w1.Commit(ctx, ts, &g)).To(Succeed())
 					MustSucceed(w2.Write([]byte{1}))
-					Expect(w2.CommitIn(ctx, ts, &g)).To(Succeed())
+					Expect(w2.Commit(ctx, ts, &g)).To(Succeed())
 					g.Publish()
 				}
 				close(done)
@@ -308,9 +308,9 @@ var _ = Describe("Group", func() {
 				var g domain.Group
 				w := openWriter(ctx, 10)
 				MustSucceed(w.Write([]byte{1, 2}))
-				Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
+				Expect(w.Commit(ctx, 20*telem.SecondTS, nil)).To(Succeed())
 				MustSucceed(w.Write([]byte{3, 4}))
-				Expect(w.CommitIn(ctx, 30*telem.SecondTS, &g)).To(Succeed())
+				Expect(w.Commit(ctx, 30*telem.SecondTS, &g)).To(Succeed())
 				Expect(db.Delete(
 					ctx,
 					seconds(10, 25),

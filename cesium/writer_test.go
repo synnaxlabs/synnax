@@ -5409,7 +5409,8 @@ var _ = Describe("Writer commit order", func() {
 })
 
 // persistHookFS calls onPersist as a channel starts to persist its domain pointers, the
-// only file Cesium truncates. The hook sees those pointers already published.
+// only file Cesium truncates. The hook runs inside the commit of that channel, before
+// readers see the commit.
 type persistHookFS struct {
 	fs.FS
 	onPersist func()

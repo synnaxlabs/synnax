@@ -497,7 +497,7 @@ func (w *Writer) commitWithEnd(
 				return err
 			}
 		}
-		if err := dw.CommitIn(ctx, end, g); err != nil {
+		if err := dw.Commit(ctx, end, g); err != nil {
 			return err
 		}
 		dw.tracker.publish(end)
