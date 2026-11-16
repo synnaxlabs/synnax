@@ -67,154 +67,23 @@ func Analyze(
 	root *symbol.Symbol,
 	cfgs ...parser.Config,
 ) (ir.IR, *diagnostics.Diagnostics) {
-	// Step 1: Build Root Context and Register All Functions
 	aCtx := acontext.NewRoot[antlr.ParserRuleContext](
 		ctx,
 		nil,
 		root,
 	).WithConfig(parser.ConfigOf(cfgs...))
-	for _, fn := range g.Functions {
-		funcScope, err := aCtx.Scope.Add(aCtx, symbol.Symbol{
-			Name: fn.Key,
-			Kind: symbol.KindFunction,
-			Type: fn.Type(),
-			AST:  fn.Body.AST,
-		})
-		if err != nil {
-			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
-			return ir.IR{}, aCtx.Diagnostics
-		}
-		if err = bindParams(aCtx, funcScope, fn.Inputs, symbol.KindInput); err != nil {
-			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
-			return ir.IR{}, aCtx.Diagnostics
-		}
-		if err = bindParams(
-			aCtx,
-			funcScope,
-			fn.Outputs,
-			symbol.KindOutput,
-		); err != nil {
-			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
-			return ir.IR{}, aCtx.Diagnostics
-		}
+	if !registerFunctions(aCtx, g.Functions) ||
+		!analyzeFunctionBodies(aCtx, g.Functions) {
+		return ir.IR{}, aCtx.Diagnostics
 	}
-
-	// Step 2: Analyze Function Bodies
-	for i, fn := range g.Functions {
-		funcScope, err := aCtx.Scope.GetChildByParserRule(fn.Body.AST)
-		if err != nil {
-			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
-			return ir.IR{}, aCtx.Diagnostics
-		}
-		if fn.Body.Raw != "" {
-			blockCtx, ok := fn.Body.AST.(parser.IBlockContext)
-			if !ok {
-				aCtx.Diagnostics.Add(diagnostics.Errorf(
-					fn.Body.AST, "function body must be a block",
-				))
-				return ir.IR{}, aCtx.Diagnostics
-			}
-			analyzer.AnalyzeBlock(aCtx.Child(blockCtx).WithScope(funcScope))
-			if !aCtx.Diagnostics.Ok() {
-				return ir.IR{}, aCtx.Diagnostics
-			}
-		}
-		fn.Channels = funcScope.Channels
-		fn.Symbol = funcScope
-		g.Functions[i] = fn
-	}
-
-	// Step 3 & 4: Create Fresh Types and IR Nodes
-	freshFuncTypes := make(map[string]types.Type)
 	irNodes := make(ir.Nodes, len(g.Nodes))
 	for i, n := range g.Nodes {
-		inputs := g.Inputs[n.Key]
-		rawType, ok := inputs["type"]
+		node, ok := buildNode(aCtx, n.Key, g.Inputs[n.Key])
 		if !ok {
-			aCtx.Diagnostics.Add(diagnostics.Errorf(
-				nil,
-				"node '%s' is missing its function type",
-				n.Key,
-			))
 			return ir.IR{}, aCtx.Diagnostics
-		}
-		nodeType, ok := rawType.(string)
-		if !ok {
-			aCtx.Diagnostics.Add(diagnostics.Errorf(
-				nil,
-				"node '%s' function type must be a string, got %T",
-				n.Key,
-				rawType,
-			))
-			return ir.IR{}, aCtx.Diagnostics
-		}
-		fnSym, err := resolveQualified(aCtx, aCtx.Scope, nodeType)
-		if err != nil {
-			aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
-			return ir.IR{}, aCtx.Diagnostics
-		}
-		if fnSym.Kind != symbol.KindFunction || fnSym.Exec == symbol.ExecWASM {
-			aCtx.Diagnostics.Add(diagnostics.Errorf(
-				nil,
-				"node '%s' type '%s' is not a flow function",
-				n.Key,
-				nodeType,
-			))
-			return ir.IR{}, aCtx.Diagnostics
-		}
-		freshFuncTypes[n.Key] = types.Freshen(fnSym.Type, n.Key)
-		freshType := freshFuncTypes[n.Key]
-		node := ir.Node{
-			Key:      n.Key,
-			Type:     nodeType,
-			Channels: fnSym.Channels.Copy(),
-			Inputs:   freshType.Inputs,
-			Outputs:  freshType.Outputs,
-		}
-		// Param values come from the node's entry in the graph inputs map.
-		for j, param := range freshType.Inputs {
-			paramValue, ok := inputs[param.Name]
-			if !ok {
-				continue
-			}
-			if param.Type.Kind == types.KindChan {
-				var k uint32
-				if err = zyn.Uint32().Coerce().Parse(paramValue, &k); err != nil {
-					return ir.IR{}, aCtx.Diagnostics
-				}
-				channelSym, err := aCtx.Scope.Resolve(aCtx, strconv.Itoa(int(k)))
-				if err == nil && channelSym.Type.Kind == types.KindChan {
-					if err := param.Type.ChanDirection.CheckCompatibility(
-						channelSym.Type.ChanDirection,
-					); err != nil {
-						aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
-						return ir.IR{}, aCtx.Diagnostics
-					}
-					if err = atypes.Check(
-						aCtx.Constraints,
-						channelSym.Type,
-						param.Type,
-						nil,
-						"",
-					); err != nil {
-						aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
-						return ir.IR{}, aCtx.Diagnostics
-					}
-					symbol.ResolveInputChannel(
-						&node.Channels,
-						fnSym,
-						param.Name,
-						k,
-						channelSym.Name,
-					)
-				}
-			}
-			node.Inputs[j].Value = paramValue
 		}
 		irNodes[i] = node
 	}
-
-	// Step 5: Check Types Across Edges, Unify, and Apply Substitutions
 	irEdges := g.Edges.IR()
 	if !analyzer.ResolveNodeTypes(
 		irNodes,
@@ -224,57 +93,20 @@ func Analyze(
 	) {
 		return ir.IR{}, aCtx.Diagnostics
 	}
-
-	// Step 5A: Check for Duplicate Edge Targets
-	targets := set.New[ir.Handle]()
-	for _, edge := range g.Edges {
-		if targets.Contains(edge.Target) {
-			aCtx.Diagnostics.Add(diagnostics.Errorf(nil,
-				"multiple edges target node '%s' parameter '%s'",
-				edge.Target.Node,
-				edge.Target.Param,
-			))
-		}
-		targets.Add(edge.Target)
-	}
+	checkEdgeTargets(aCtx, g.Edges)
 	if !aCtx.Diagnostics.Ok() {
 		return ir.IR{}, aCtx.Diagnostics
 	}
-
-	// Step 6: Substitute TypeMap after unification
-	for node, typ := range aCtx.TypeMap {
-		aCtx.TypeMap[node] = aCtx.Constraints.ApplySubstitutions(typ)
-	}
-	for _, fn := range g.Functions {
-		if fn.Body.Raw != "" {
-			constant.Check(aCtx.Child(fn.Body.AST))
-		}
-	}
+	applySubstitutions(aCtx, g.Functions)
 	if !aCtx.Diagnostics.Ok() {
 		return ir.IR{}, aCtx.Diagnostics
-	}
-
-	// Step 7: Build the Layer-2 root scope. Graph-based compilation has no
-	// sequence constructs, so every node becomes a member of the root
-	// scope's catch-all phase; the stratifier rewrites the phase layout
-	// based on the edge set.
-	irRoot := ir.Scope{
-		Mode:     ir.ScopeModeParallel,
-		Liveness: ir.LivenessAlways,
-	}
-	if len(irNodes) > 0 {
-		members := make(ir.Members, 0, len(irNodes))
-		for _, n := range irNodes {
-			members = append(members, ir.Member{NodeKey: new(n.Key)})
-		}
-		irRoot.Strata = []ir.Members{members}
 	}
 	out := ir.IR{
 		Functions:  g.Functions,
 		Edges:      irEdges,
 		Nodes:      irNodes,
 		Symbols:    aCtx.Scope,
-		Root:       irRoot,
+		Root:       rootScope(irNodes),
 		TypeMap:    aCtx.TypeMap,
 		FmtStrings: aCtx.FmtStrings,
 	}
@@ -284,6 +116,197 @@ func Analyze(
 		}
 	}
 	return out, aCtx.Diagnostics
+}
+
+type analysisContext = acontext.Context[antlr.ParserRuleContext]
+
+func registerFunctions(aCtx analysisContext, fns ir.Functions) bool {
+	for _, fn := range fns {
+		funcScope, err := aCtx.Scope.Add(aCtx, symbol.Symbol{
+			Name: fn.Key,
+			Kind: symbol.KindFunction,
+			Type: fn.Type(),
+			AST:  fn.Body.AST,
+		})
+		if err == nil {
+			err = bindParams(aCtx, funcScope, fn.Inputs, symbol.KindInput)
+		}
+		if err == nil {
+			err = bindParams(aCtx, funcScope, fn.Outputs, symbol.KindOutput)
+		}
+		if err != nil {
+			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
+			return false
+		}
+	}
+	return true
+}
+
+func analyzeFunctionBodies(aCtx analysisContext, fns ir.Functions) bool {
+	for i, fn := range fns {
+		funcScope, err := aCtx.Scope.GetChildByParserRule(fn.Body.AST)
+		if err != nil {
+			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
+			return false
+		}
+		if fn.Body.Raw != "" {
+			blockCtx, ok := fn.Body.AST.(parser.IBlockContext)
+			if !ok {
+				aCtx.Diagnostics.Add(diagnostics.Errorf(
+					fn.Body.AST, "function body must be a block",
+				))
+				return false
+			}
+			analyzer.AnalyzeBlock(aCtx.Child(blockCtx).WithScope(funcScope))
+			if !aCtx.Diagnostics.Ok() {
+				return false
+			}
+		}
+		fn.Channels = funcScope.Channels
+		fn.Symbol = funcScope
+		fns[i] = fn
+	}
+	return true
+}
+
+func buildNode(
+	aCtx analysisContext,
+	key string,
+	inputs map[string]any,
+) (ir.Node, bool) {
+	rawType, ok := inputs["type"]
+	if !ok {
+		aCtx.Diagnostics.Add(diagnostics.Errorf(
+			nil,
+			"node '%s' is missing its function type",
+			key,
+		))
+		return ir.Node{}, false
+	}
+	nodeType, ok := rawType.(string)
+	if !ok {
+		aCtx.Diagnostics.Add(diagnostics.Errorf(
+			nil,
+			"node '%s' function type must be a string, got %T",
+			key,
+			rawType,
+		))
+		return ir.Node{}, false
+	}
+	fnSym, err := resolveQualified(aCtx, aCtx.Scope, nodeType)
+	if err != nil {
+		aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
+		return ir.Node{}, false
+	}
+	if fnSym.Kind != symbol.KindFunction || fnSym.Exec == symbol.ExecWASM {
+		aCtx.Diagnostics.Add(diagnostics.Errorf(
+			nil,
+			"node '%s' type '%s' is not a flow function",
+			key,
+			nodeType,
+		))
+		return ir.Node{}, false
+	}
+	freshType := types.Freshen(fnSym.Type, key)
+	node := ir.Node{
+		Key:      key,
+		Type:     nodeType,
+		Channels: fnSym.Channels.Copy(),
+		Inputs:   freshType.Inputs,
+		Outputs:  freshType.Outputs,
+	}
+	for j, param := range freshType.Inputs {
+		paramValue, ok := inputs[param.Name]
+		if !ok {
+			continue
+		}
+		if param.Type.Kind == types.KindChan &&
+			!bindChannelParam(aCtx, &node, fnSym, param, paramValue) {
+			return ir.Node{}, false
+		}
+		node.Inputs[j].Value = paramValue
+	}
+	return node, true
+}
+
+// bindChannelParam binds the channel keyed by value into the node's channels. An
+// unknown channel stays unbound.
+func bindChannelParam(
+	aCtx analysisContext,
+	node *ir.Node,
+	fnSym *symbol.Symbol,
+	param types.Param,
+	value any,
+) bool {
+	var k uint32
+	if err := zyn.Uint32().Coerce().Parse(value, &k); err != nil {
+		return false
+	}
+	channelSym, err := aCtx.Scope.Resolve(aCtx, strconv.Itoa(int(k)))
+	if err != nil || channelSym.Type.Kind != types.KindChan {
+		return true
+	}
+	if err := param.Type.ChanDirection.CheckCompatibility(
+		channelSym.Type.ChanDirection,
+	); err != nil {
+		aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
+		return false
+	}
+	if err := atypes.Check(
+		aCtx.Constraints,
+		channelSym.Type,
+		param.Type,
+		nil,
+		"",
+	); err != nil {
+		aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
+		return false
+	}
+	symbol.ResolveInputChannel(&node.Channels, fnSym, param.Name, k, channelSym.Name)
+	return true
+}
+
+func checkEdgeTargets(aCtx analysisContext, edges Edges) {
+	targets := set.New[ir.Handle]()
+	for _, edge := range edges {
+		if targets.Contains(edge.Target) {
+			aCtx.Diagnostics.Add(diagnostics.Errorf(nil,
+				"multiple edges target node '%s' parameter '%s'",
+				edge.Target.Node,
+				edge.Target.Param,
+			))
+		}
+		targets.Add(edge.Target)
+	}
+}
+
+// applySubstitutions applies the unified types to the type map, then checks the
+// constants in each function body.
+func applySubstitutions(aCtx analysisContext, fns ir.Functions) {
+	for node, typ := range aCtx.TypeMap {
+		aCtx.TypeMap[node] = aCtx.Constraints.ApplySubstitutions(typ)
+	}
+	for _, fn := range fns {
+		if fn.Body.Raw != "" {
+			constant.Check(aCtx.Child(fn.Body.AST))
+		}
+	}
+}
+
+// rootScope builds the root scope of a graph program. Graphs have no sequences, so
+// every node is a member of one parallel stratum, which the stratifier then splits
+// by the edges.
+func rootScope(nodes ir.Nodes) ir.Scope {
+	root := ir.Scope{Mode: ir.ScopeModeParallel, Liveness: ir.LivenessAlways}
+	if len(nodes) == 0 {
+		return root
+	}
+	members := make(ir.Members, 0, len(nodes))
+	for _, n := range nodes {
+		members = append(members, ir.Member{NodeKey: new(n.Key)})
+	}
+	root.Strata = []ir.Members{members}
+	return root
 }
 
 // bindParams adds function parameters to the symbol scope with the specified
