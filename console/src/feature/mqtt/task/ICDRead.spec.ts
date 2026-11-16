@@ -172,6 +172,21 @@ describe("MQTT ICD read form", () => {
     expect(await retrieveEntries(draft.key)).toHaveLength(1);
   });
 
+  it("should show the format of a topic from the ICD of its entry", async () => {
+    const kiln = await createEntry({
+      topic: "plant/kiln",
+      fields: [createField("pressure", "float")],
+    });
+    await renderICDRead({
+      fields: [createField("temperature", "float")],
+      entries: [kiln],
+    });
+    await screen.findByDisplayValue("temperature");
+    fireEvent.click(await screen.findByRole("option", { name: /plant\/kiln/ }));
+    await screen.findByDisplayValue("pressure");
+    expect(screen.queryByDisplayValue("temperature")).toBeNull();
+  });
+
   it("should disable and enable a topic through the context menu", async () => {
     const { draft } = await renderICDRead({
       fields: [createField("temperature", "float")],

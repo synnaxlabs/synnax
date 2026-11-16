@@ -28,7 +28,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, type payload, uuid } from "@synnaxlabs/x";
+import { DataType, deep, type payload, unique, uuid } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
@@ -58,8 +58,17 @@ import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<ICDReadSchemas>>();
 
-/** The form that edits the ICD holding the message format of each topic. */
+/** The form that edits the ICD holding the message format of a topic. */
 type FormatForm = ReturnType<typeof PICD.useForm>["form"];
+
+/** The open form of one ICD. */
+interface Format {
+  key: icd.Key;
+  form: FormatForm;
+}
+
+/** The messages of each ICD, by ICD key. */
+type Messages = Map<icd.Key, icd.Message[]>;
 
 /** The channel data type that each field kind reads into. */
 const DATA_TYPES: Record<payload.Kind, string> = {
@@ -99,11 +108,26 @@ const mixMessage = (fields: icd.JSONField[]): string =>
 const jsonFields = (message?: icd.Message | null): icd.JSONField[] =>
   message?.payload.format === "json" ? message.payload.fields : [];
 
-const messageOf = (
-  messages: icd.Message[],
-  entry: ICDReadEntry,
-): icd.Message | undefined =>
-  messages.find(({ key }) => key === entry.messages.at(0)?.message);
+/** @returns the first message of the entry, from the entry's own ICD. */
+const messageOf = (messages: Messages, entry: ICDReadEntry): icd.Message | undefined =>
+  messages.get(entry.icd)?.find(({ key }) => key === entry.messages.at(0)?.message);
+
+const retrieveMessages = async (client: Synnax, keys: icd.Key[]): Promise<Messages> => {
+  const icds = await client.icds.retrieve(unique.unique(keys));
+  return new Map(icds.map(({ key, messages }) => [key, messages]));
+};
+
+/** @returns the messages of the entries' ICDs, reading the open one from its form. */
+const readMessages = async (
+  client: Synnax,
+  format: Format | null,
+  entries: ICDReadEntry[],
+): Promise<Messages> => {
+  const keys = entries.map((e) => e.icd).filter((key) => key !== format?.key);
+  const messages = await retrieveMessages(client, keys);
+  if (format != null) messages.set(format.key, format.form.value().messages);
+  return messages;
+};
 
 /** A topic, and the fields that a pick adds to its message format. */
 interface Draft {
@@ -138,69 +162,102 @@ const DISCOVER_KIND: Kind<Draft> = {
 
 const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
 
-/** @returns the inserts that append each field whose pointer the message lacks. */
-const appendFields = (message: icd.Message, fields: icd.JSONField[]): icd.Action[] => {
+/** Inserts entries into the lists of one ICD. */
+type Inserter = Pick<FormatForm, "insert">;
+
+const fieldsPath = (key: icd.MessageKey) =>
+  deep.variant(PICD.formPath.messages[key].payload, "format", "json").fields;
+
+/** Appends each field whose pointer the message lacks. */
+const appendFields = (
+  to: Inserter,
+  message: icd.Message,
+  fields: icd.JSONField[],
+): void => {
   const held = jsonFields(message);
   const pointers = new Set(held.map(({ pointer }) => pointer));
-  const path = ["messages", message.key, "payload", "fields"];
   let after = held.at(-1)?.key;
-  return fields
-    .filter(({ pointer }) => !pointers.has(pointer))
-    .map((value) => {
-      const insert = icd.insert({ path, value, after });
-      after = value.key;
-      return insert;
-    });
+  for (const field of fields) {
+    if (pointers.has(field.pointer)) continue;
+    to.insert(fieldsPath(message.key), field, after);
+    after = field.key;
+  }
+};
+
+const createMessage = (topic: string, fields: icd.JSONField[]): icd.Message => ({
+  key: uuid.create(),
+  name: topic,
+  payload: { format: "json", fields },
+});
+
+const entryOf = (
+  icdKey: icd.Key,
+  topic: string,
+  message: icd.MessageKey,
+): ICDReadEntry =>
+  mqtt.icdReadEntryZ.parse({ icd: icdKey, topic, messages: [{ message }] });
+
+/** @returns the entries that read each draft's topic from a new ICD. */
+const createICD = async (
+  client: Synnax,
+  name: string,
+  drafts: Draft[],
+): Promise<ICDReadEntry[]> => {
+  const messages = drafts.map(({ topic, fields }) => createMessage(topic, fields));
+  const { key } = await client.icds.create({ name, messages });
+  return drafts.map(({ topic }, i) => entryOf(key, topic, messages[i].key));
 };
 
 interface AddTopicsParams {
   client: Synnax;
-  /** Names the ICD when the task has none. */
-  taskName: string;
+  /** The ICD that takes the messages of new topics. */
+  icdKey: icd.Key;
   entries: ICDReadEntry[];
   drafts: Draft[];
 }
 
 /**
- * Appends each draft's fields to the message format of its topic. A topic with no
- * format gets a new message, named after the topic, in the ICD of the task. A task with
- * no ICD gets one, named after the task.
+ * Appends each draft's fields to the message format of its topic, in the ICD of its
+ * entry. A topic with no format gets a new message, named after the topic, in the ICD
+ * of its entry, or in the ICD that takes new topics.
  * @returns the entries of the topics that the task does not read yet.
  */
 const addTopics = async ({
   client,
-  taskName,
+  icdKey,
   entries,
   drafts,
 }: AddTopicsParams): Promise<ICDReadEntry[]> => {
-  const key = entries.at(0)?.icd;
-  const messages = key == null ? [] : (await client.icds.retrieve(key)).messages;
-  const created: icd.Message[] = [];
-  const actions: icd.Action[] = [];
-  const added: { topic: string; message: icd.MessageKey }[] = [];
+  const messages = await retrieveMessages(client, [
+    icdKey,
+    ...entries.map((e) => e.icd),
+  ]);
+  const actions = new Map<icd.Key, icd.Action[]>();
+  const inserterOf = (key: icd.Key): Inserter => {
+    const held = actions.get(key) ?? [];
+    actions.set(key, held);
+    return {
+      insert: (path, value, after) =>
+        held.push(icd.insert({ path: String(path).split("."), value, after })),
+    };
+  };
+  const added: ICDReadEntry[] = [];
   for (const { topic, fields } of drafts) {
     const entry = entries.find((e) => e.topic === topic);
-    let message = entry == null ? undefined : messageOf(messages, entry);
-    if (message != null) actions.push(...appendFields(message, fields));
-    else {
-      const after = (created.at(-1) ?? messages.at(-1))?.key;
-      message = {
-        key: uuid.create(),
-        name: topic,
-        payload: { format: "json", fields },
-      };
-      actions.push(icd.insert({ path: ["messages"], value: message, after }));
-      created.push(message);
+    const key = entry?.icd ?? icdKey;
+    const message = entry == null ? undefined : messageOf(messages, entry);
+    if (message != null) {
+      appendFields(inserterOf(key), message, fields);
+      continue;
     }
-    if (entry == null) added.push({ topic, message: message.key });
+    const held = messages.get(key) ?? [];
+    const created = createMessage(topic, fields);
+    inserterOf(key).insert(PICD.formPath.messages, created, held.at(-1)?.key);
+    messages.set(key, [...held, created]);
+    if (entry == null) added.push(entryOf(key, topic, created.key));
   }
-  let icdKey = key;
-  if (icdKey == null)
-    ({ key: icdKey } = await client.icds.create({ name: taskName, messages: created }));
-  else if (actions.length > 0) await client.icds.dispatch(icdKey, actions);
-  return added.map(({ topic, message }) =>
-    mqtt.icdReadEntryZ.parse({ icd: icdKey, topic, messages: [{ message }] }),
-  );
+  for (const [key, held] of actions) await client.icds.dispatch(key, held);
+  return added;
 };
 
 interface TimestampFieldsProps {
@@ -270,9 +327,10 @@ const TopicDetails: FC<TopicDetailsProps> = ({ path, format }) => {
   const openTab = Panel.useOpenTab();
   const entry = PForm.useFieldValue(path);
   const messageKey = entry.messages.at(0)?.message ?? "";
-  const messagePath = PICD.formPath.messages[messageKey];
-  const fieldsPath = deep.variant(messagePath.payload, "format", "json").fields;
-  const message = PForm.useFieldValue(messagePath, { optional: true, ctx: format });
+  const message = PForm.useFieldValue(PICD.formPath.messages[messageKey], {
+    optional: true,
+    ctx: format,
+  });
   const mixed = variableAmongFixed(jsonFields(message));
   const openEditor = () =>
     openTab({ variant: "resource", resource: icd.resourceID(entry.icd) });
@@ -312,8 +370,8 @@ const TopicDetails: FC<TopicDetailsProps> = ({ path, format }) => {
         >
           {message == null ? null : message.payload.format === "json" ? (
             <PForm.Form<typeof PICD.formSchema> {...format}>
-              <ICD.Fields path={fieldsPath} encoding="json" />
-              <ICD.FieldsStatus path={fieldsPath} />
+              <ICD.Fields path={fieldsPath(messageKey)} encoding="json" />
+              <ICD.FieldsStatus path={fieldsPath(messageKey)} />
               {mixed.length > 0 && (
                 <Input.HelpText variant="error">{mixMessage(mixed)}</Input.HelpText>
               )}
@@ -354,12 +412,15 @@ const EntryTitle = ({ path }: { path: deep.Path<ICDReadEntry> }) => (
 
 interface TopicsProps {
   device: Device;
-  /** Null until the task has an ICD. */
-  format: FormatForm | null;
+  /** The form of the selected topic's ICD. Null while the task reads no topics. */
+  format: Format | null;
+  /** The key of the selected entry. Empty while the task reads no topics. */
+  selected: string[];
+  onSelect: (keys: string[]) => void;
 }
 
 /** The topics of the task beside the details of the selected one. */
-const Topics: FC<TopicsProps> = ({ device, format }) => {
+const Topics: FC<TopicsProps> = ({ device, format, selected, onSelect }) => {
   const client = PSynnax.use();
   const ctx = PForm.useContext();
   const handleError = Status.useErrorHandler();
@@ -368,13 +429,12 @@ const Topics: FC<TopicsProps> = ({ device, format }) => {
   const menuProps = Menu.useContextMenu();
   const { data, push, remove } = PForm.useFieldList(root.config.entries);
   const entries = PForm.useFieldValue(root.config.entries);
-  const [selected, setSelected] = useState<string[]>([]);
-  const current = selected.find((key) => data.includes(key)) ?? data.at(0);
+  const current = selected.at(0);
 
   const handleAdd = () =>
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
-      const messages = format?.get(PICD.formPath.messages).value ?? [];
+      const messages = await readMessages(client, format, entries);
       const held = entries.map((e): Draft => ({
         type: "plain",
         topic: e.topic,
@@ -382,17 +442,15 @@ const Topics: FC<TopicsProps> = ({ device, format }) => {
       }));
       const drafts = await discover({ device, entries: held });
       if (drafts == null || drafts.length === 0) return;
-      const taskName = ctx.get(root.name).value;
-      const added = await addTopics({ client, taskName, entries, drafts });
+      const added =
+        format == null
+          ? await createICD(client, ctx.get(root.name).value, drafts)
+          : await addTopics({ client, icdKey: format.key, entries, drafts });
       push(added);
       const first = entries.find((e) => e.topic === drafts[0].topic) ?? added[0];
-      setSelected([first.key]);
+      onSelect([first.key]);
     }, "Failed to add data");
 
-  const handleRemove = (keys: string[]) => {
-    remove(keys);
-    setSelected(selected.filter((k) => !keys.includes(k)));
-  };
   const setEnabled = (keys: string[], enabled: boolean) =>
     keys.forEach((k) => ctx.set(root.config.entries[k].disabled, !enabled));
   const contextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
@@ -400,7 +458,7 @@ const Topics: FC<TopicsProps> = ({ device, format }) => {
     return (
       <Task.Views.ContextMenu
         keys={keys}
-        onRemove={handleRemove}
+        onRemove={remove}
         onEnable={
           chosen.some((e) => e.disabled) ? () => setEnabled(keys, true) : undefined
         }
@@ -421,8 +479,8 @@ const Topics: FC<TopicsProps> = ({ device, format }) => {
             <Select.Frame<string, ICDReadEntry>
               multiple
               data={data}
-              value={current == null ? [] : [current]}
-              onChange={setSelected}
+              value={selected}
+              onChange={onSelect}
               replaceOnSingle
               allowNone={false}
             >
@@ -458,19 +516,18 @@ const Topics: FC<TopicsProps> = ({ device, format }) => {
           <Text.Text status="disabled">Add data to read a topic</Text.Text>
         </Flex.Box>
       ) : (
-        <TopicDetails key={current} path={path} format={format} />
+        <TopicDetails key={current} path={path} format={format.form} />
       )}
     </Task.Views.Panes>
   );
 };
 
-interface WithFormatProps {
-  device: Device;
+interface WithFormatProps extends Omit<TopicsProps, "format"> {
   icdKey: icd.Key;
 }
 
-/** Opens the form of the task's ICD, which each edit updates at once. */
-const WithFormat: FC<WithFormatProps> = ({ device, icdKey }) => {
+/** Opens the form of the selected topic's ICD, which each edit updates at once. */
+const WithFormat: FC<WithFormatProps> = ({ icdKey, ...rest }) => {
   const isPreview = Task.useIsPreview();
   const canEdit = Access.useUpdateGranted(icd.resourceID(icdKey));
   const { form, flush } = PICD.useForm({
@@ -479,15 +536,24 @@ const WithFormat: FC<WithFormatProps> = ({ device, icdKey }) => {
   });
   PICD.useCheck({ key: icdKey, form });
   Task.useFlushBeforeDeploy(flush);
-  return <Topics device={device} format={form} />;
+  return <Topics {...rest} format={{ key: icdKey, form }} />;
 };
 
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
-  const icdKey = PForm.useFieldValue(root.config.entries).at(0)?.icd;
-  return icdKey == null ? (
-    <Topics device={device} format={null} />
+  const entries = PForm.useFieldValue(root.config.entries);
+  const [selected, setSelected] = useState<string[]>([]);
+  const key = selected.find((k) => entries.some((e) => e.key === k));
+  const current = entries.find((e) => e.key === key) ?? entries.at(0);
+  return current == null ? (
+    <Topics device={device} format={null} selected={[]} onSelect={setSelected} />
   ) : (
-    <WithFormat key={icdKey} device={device} icdKey={icdKey} />
+    <WithFormat
+      key={current.icd}
+      device={device}
+      icdKey={current.icd}
+      selected={[current.key]}
+      onSelect={setSelected}
+    />
   );
 };
 
@@ -513,11 +579,7 @@ const getInitialValues: Task.GetInitialValues<ICDReadSchemas> = ({
  * @returns the fields of the entry's message format.
  * @throws {ValidationError} if the task cannot read the format.
  */
-const formatFields = async (
-  client: Synnax,
-  entry: ICDReadEntry,
-): Promise<icd.JSONField[]> => {
-  const { messages } = await client.icds.retrieve(entry.icd);
+const formatFields = (messages: Messages, entry: ICDReadEntry): icd.JSONField[] => {
   const message = messageOf(messages, entry);
   if (message?.payload.format !== "json")
     throw new ValidationError(
@@ -538,12 +600,16 @@ const onConfigure: Task.OnConfigure<ICDReadSchemas["config"]> = async (
   config,
 ) => {
   const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
-  // Every format is checked before any channel is created.
-  const formats = await Promise.all(
-    config.entries
-      .filter(({ disabled }) => !disabled)
-      .map(async (entry) => ({ entry, fields: await formatFields(client, entry) })),
+  const enabled = config.entries.filter(({ disabled }) => !disabled);
+  const messages = await retrieveMessages(
+    client,
+    enabled.map((e) => e.icd),
   );
+  // Every format is checked before any channel is created.
+  const formats = enabled.map((entry) => ({
+    entry,
+    fields: formatFields(messages, entry),
+  }));
   const before = deep.copy(dev.properties);
   try {
     for (const { entry, fields } of formats) {
