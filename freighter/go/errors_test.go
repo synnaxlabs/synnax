@@ -10,6 +10,8 @@
 package freighter_test
 
 import (
+	"io"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
@@ -24,7 +26,7 @@ var _ = Describe("ErrorProvider", func() {
 			Expect(pld.Type).To(Equal(errType))
 			Expect(codec.Decode(pld)).To(MatchError(err))
 		},
-		Entry("EOF", freighter.EOF, "freighter.eof"),
+		Entry("EOF", io.EOF, "freighter.eof"),
 		Entry("stream closed", freighter.ErrStreamClosed, "freighter.stream_closed"),
 	)
 	It("Should decode another freighter type as an error with its data", func() {
