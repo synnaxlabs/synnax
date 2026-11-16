@@ -38,6 +38,8 @@ import { Panel } from "@/platform/panel";
 import {
   Context,
   type ContextValue,
+  SearchContext,
+  type SearchContextValue,
   type StaticView,
   useContext,
   type View,
@@ -146,22 +148,23 @@ const Body = ({
     select,
     openInNewTab: canChange ? openInNewTab : null,
     getInitialView,
-    searchTerm,
-    setSearchTerm,
   };
+  const searchValue: SearchContextValue = { term: searchTerm, setTerm: setSearchTerm };
 
   return (
     <Flex.Box full="y" empty>
       <Context value={contextValue}>
-        <Selector
-          icon={icon}
-          resourceType={resourceType}
-          onFetchMore={remoteProps.more}
-          onSelect={select}
-          listProps={combinedProps}
-          selected={selected}
-        />
-        <Fragment key={selected}>{children}</Fragment>
+        <SearchContext value={searchValue}>
+          <Selector
+            icon={icon}
+            resourceType={resourceType}
+            onFetchMore={remoteProps.more}
+            onSelect={select}
+            listProps={combinedProps}
+            selected={selected}
+          />
+          <Fragment key={selected}>{children}</Fragment>
+        </SearchContext>
       </Context>
     </Flex.Box>
   );

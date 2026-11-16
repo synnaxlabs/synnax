@@ -32,12 +32,21 @@ export interface ContextValue {
   editable: boolean;
   staticViews: view.Key[];
   getInitialView: () => view.View;
-  /** The term the lists of every view are searched by. */
-  searchTerm: string;
-  setSearchTerm: (term: string) => void;
 }
 
 export const [Context, useContext] = context.create<ContextValue>({
   displayName: "View.Context",
+  providerName: "View.Frame",
+});
+
+/** The search of a frame. It changes on each key, so it has a context of its own. */
+export interface SearchContextValue {
+  /** The term the lists of every view are searched by. */
+  term: string;
+  setTerm: (term: string) => void;
+}
+
+export const [SearchContext, useSearchContext] = context.create<SearchContextValue>({
+  displayName: "View.SearchContext",
   providerName: "View.Frame",
 });

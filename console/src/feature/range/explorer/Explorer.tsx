@@ -120,7 +120,8 @@ const useViewField = <F extends "sort" | "layout">(
 };
 
 const Internal = (): ReactElement => {
-  const { getInitialView, searchTerm, editable } = View.useContext();
+  const { getInitialView, editable } = View.useContext();
+  const { term: searchTerm } = View.useSearch();
   const [where, setWhere] = useState(() => getInitialView().where);
   // The Core reads stages and recent spans at the time of a read, so the list reads at
   // a held instant and reads again when a range it holds could cross the filter.
