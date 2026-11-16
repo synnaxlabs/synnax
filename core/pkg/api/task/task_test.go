@@ -665,7 +665,7 @@ func stallWrites(ctx SpecContext) {
 		responses = make([]confluence.Outlet[ts.StreamerResponse], streamerCount)
 	)
 	for i := range streamerCount {
-		streamer := MustSucceed(node.Storage.TS.NewStreamer(ctx, ts.StreamerConfig{
+		streamer := MustSucceed(node.Storage.TS.NewStreamer(ts.StreamerConfig{
 			Channels: []ts.ChannelKey{ch.Key().StorageKey()},
 		}))
 		requests[i], responses[i] = confluence.Attach(streamer, 1)
