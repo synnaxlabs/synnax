@@ -141,6 +141,7 @@ var _ = Describe("Delta", func() {
 			delta.Connect(outputOne)
 			cancel()
 			Expect(ctx.Wait()).To(MatchError(context.Canceled))
+			Expect(delta.Stopped()).To(BeClosed())
 			delta.Disconnect(outputOne)
 			Expect(outputOne.Outlet()).To(BeClosed())
 			delta.Connect(outputTwo)
@@ -161,6 +162,17 @@ var _ = Describe("Delta", func() {
 			delta.Connect(outputTwo)
 			Eventually(inputOne.Inlet()).Should(BeSent(3))
 			Eventually(outputTwo.Outlet()).Should(Receive(Equal(3)))
+			Expect(delta.Stopped()).ToNot(BeClosed())
+		})
+
+		It("Should stop once its input closes", func() {
+			delta := NewDynamicDeltaMultiplier[int](0, Instrumentation("dev"))
+			delta.InFrom(inputOne)
+			ctx, cancel := signal.Isolated()
+			defer cancel()
+			delta.Flow(ctx)
+			inputOne.Close()
+			Eventually(delta.Stopped()).Should(BeClosed())
 		})
 
 		Describe("Timeout", func() {
