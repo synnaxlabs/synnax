@@ -16,29 +16,22 @@ from keyring.errors import KeyringError
 from freighter.exceptions import Unreachable
 from synnax import Synnax
 from synnax.auth import api_key_id
-from synnax.cli.flow import Context
+from synnax.cli.prompt import Prompt
 from synnax.config import Cluster, Clusters
 from synnax.exceptions import AuthError
 from synnax.options import Options
 
 
-def _prompt_client_options(ctx: Context) -> Options:
-    """Prompts the user for the parameters to connect to a Synnax server.
-
-    :param ctx: The context of the current flow.
-    :returns: The options to connect to a Synnax server.
-    """
-    ctx.console.info("Enter your Synnax connection parameters:")
-    host = ctx.console.ask("Host", default="localhost")
-    port = ctx.console.ask("Port", type_=int, default=9090)
-    username = ctx.console.ask("Username", default="synnax")
-    password = ctx.console.ask("Password", type_=str, password=True)
-    secure = ctx.console.ask("Secure Connection?", type_=bool, default=False)
+def _prompt_client_options(prompt: Prompt) -> Options:
+    prompt.info("Enter your Synnax connection parameters:")
+    host = prompt.ask("Host", default="localhost")
+    port = prompt.ask_int("Port", default=9090)
+    username = prompt.ask("Username", default="synnax")
+    password = prompt.secret("Password")
+    secure = prompt.confirm("Secure connection?")
     ca_cert = None
     if secure:
-        path = ctx.console.ask(
-            "CA certificate path (empty for system roots)", default=""
-        )
+        path = prompt.ask("CA certificate path (empty for system roots)")
         if path:
             ca_cert = str(Path(path).expanduser().resolve())
     return Options(
@@ -90,43 +83,41 @@ def _save_api_key(client: Synnax, *, opts: Options, clusters: Clusters) -> None:
         client.auth.delete_keys(previous_key)
 
 
-def _from_context(ctx: Context, *, opts: Options) -> Synnax | None:
-    """Connects to a Synnax server. Prints user-friendly messages to the console if
-    the connection fails.
-
-    :param ctx: The context of the current flow.
-    :param opts: The options to connect with.
-    :returns: The connected client, or None if the connection failed.
-    """
+def _connect(prompt: Prompt, *, opts: Options) -> Synnax | None:
     try:
         client = Synnax(**opts.model_dump())
     except Unreachable:
-        ctx.console.error(f"Cannot reach Synnax server at {opts.host}:{opts.port}")
+        prompt.error(f"Cannot reach Synnax server at {opts.host}:{opts.port}")
         return None
     except AuthError:
-        ctx.console.error("Invalid credentials")
+        prompt.error("Invalid credentials")
         return None
     except (FileNotFoundError, ssl.SSLError) as e:
         if opts.ca_cert is None:
             raise
-        ctx.console.error(f"Cannot load the CA certificate at {opts.ca_cert}: {e}")
+        prompt.error(f"Cannot load the CA certificate at {opts.ca_cert}: {e}")
         return None
-    except Exception as e:
-        raise e
-    ctx.console.success("Connection successful!")
+    prompt.info("Connection successful!")
     return client
 
 
-def login(ctx: Context, clusters: Clusters) -> None:
+def login(prompt: Prompt, clusters: Clusters) -> bool:
     """Prompts for connection parameters, connects, and saves an API key for the
-    logged-in user to clusters.
+    logged-in user to clusters. Prints why a login fails.
+
+    :returns: Whether the login succeeded.
     """
-    options = _prompt_client_options(ctx)
-    synnax = _from_context(ctx, opts=options)
+    options = _prompt_client_options(prompt)
+    synnax = _connect(prompt, opts=options)
     if synnax is None:
-        return
-    _save_api_key(synnax, opts=options, clusters=clusters)
-    ctx.console.info(_SUCCESSFUL_LOGIN)
+        return False
+    try:
+        _save_api_key(synnax, opts=options, clusters=clusters)
+    except (OSError, KeyringError) as e:
+        prompt.error(f"Cannot save the API key: {e}")
+        return False
+    prompt.info(_SUCCESSFUL_LOGIN)
+    return True
 
 
 _SUCCESSFUL_LOGIN = """Saved an API key. You can now use the Synnax Client

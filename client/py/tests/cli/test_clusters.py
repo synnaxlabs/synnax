@@ -15,10 +15,10 @@ import pytest
 from keyring.errors import KeyringError
 
 import synnax as sy
-from synnax.cli import connect, console
-from synnax.cli.flow import Context
+from synnax.cli import connect
 from synnax.config import Cluster, Clusters, File
 from synnax.options import Options
+from tests.cli.scripted import Scripted
 from tests.memory_keyring import MemoryKeyring
 
 
@@ -166,8 +166,9 @@ class TestLogin:
         """Should save an API key in place of the password it logged in with."""
         host, port, username, password = login_info
         before = {k.key for k in client.auth.retrieve_keys()}
-        mock = console.Mock(responses=[host, port, username, password, False])
-        connect.login(Context(console=mock), clusters)
+        assert connect.login(
+            Scripted(host, port, username, password, "n").prompt, clusters
+        )
         saved = clusters.get()
         assert saved is not None
         assert saved.options.api_key.startswith("syk_")
@@ -184,15 +185,11 @@ class TestLogin:
         """Should delete the key an earlier login saved once the new one is saved."""
         host, port, username, password = login_info
         before = {k.key for k in client.auth.retrieve_keys()}
-        responses = [host, port, username, password, False]
-        connect.login(
-            Context(console=console.Mock(responses=list(responses))), clusters
-        )
+        answers = (host, port, username, password, "n")
+        assert connect.login(Scripted(*answers).prompt, clusters)
         first = clusters.get()
         assert first is not None
-        connect.login(
-            Context(console=console.Mock(responses=list(responses))), clusters
-        )
+        assert connect.login(Scripted(*answers).prompt, clusters)
         second = clusters.get()
         assert second is not None
         assert second.options.api_key != first.options.api_key
@@ -210,11 +207,8 @@ class TestLogin:
         """Should log in as a second account and keep the key the first one saved."""
         host, port, username, password = login_info
         before = {k.key for k in client.auth.retrieve_keys()}
-        connect.login(
-            Context(
-                console=console.Mock(responses=[host, port, username, password, False])
-            ),
-            clusters,
+        assert connect.login(
+            Scripted(host, port, username, password, "n").prompt, clusters
         )
         first = clusters.get()
         assert first is not None
@@ -222,13 +216,8 @@ class TestLogin:
         other = client.users.create(
             username=other_username, password="password123", role=empty_role.key
         )
-        connect.login(
-            Context(
-                console=console.Mock(
-                    responses=[host, port, other_username, "password123", False]
-                )
-            ),
-            clusters,
+        assert connect.login(
+            Scripted(host, port, other_username, "password123", "n").prompt, clusters
         )
         first_key = sy.auth.api_key_id(first.options.api_key)
         assert first_key in {k.key for k in client.auth.retrieve_keys()}
