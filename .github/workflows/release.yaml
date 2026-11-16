@@ -420,6 +420,7 @@ jobs:
           tag: ${{ needs.resolve.outputs.console_tag }}
           version: ${{ needs.resolve.outputs.console_version }}
           app: Synnax
+          linux: true
 
   draft-driver:
     name: Draft Driver
