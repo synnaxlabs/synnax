@@ -1427,6 +1427,69 @@ var _ = Describe("Iterator Behavior", func() {
 					Entry("Prev, three samples per chunk", int64(3), true),
 				)
 
+				DescribeTable(
+					"Should keep a reduced group whole when a run crosses its edge",
+					func(ctx SpecContext, backward bool) {
+						pdb := open(ctx)
+						idx, data := GenerateChannelKey(), GenerateChannelKey()
+						Expect(pdb.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Key:      idx,
+								Name:     "Shackleton",
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							},
+							cesium.Channel{
+								Key:      data,
+								Name:     "Wild",
+								Index:    idx,
+								DataType: telem.Float64T,
+							},
+						)).To(Succeed())
+						Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{idx, data},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(1, 2, 3, 4, 4, 5, 6, 7),
+								telem.NewSeriesV[float64](0, 1, 2, 3, 4, 5, 6, 7),
+							},
+						))).To(Succeed())
+						i := MustSucceed(pdb.OpenIterator(cesium.IteratorConfig{
+							Bounds:        telem.TimeRangeMax,
+							Channels:      []cesium.ChannelKey{data},
+							AutoChunkSize: 1,
+							Reduction: telem.Reduction{Variant: telem.LimitReduction{
+								Aggregation: telem.AggregationAverage,
+								PointLimit:  4,
+							}},
+						}))
+						var got []float64
+						if backward {
+							Expect(i.SeekLast()).To(BeTrue())
+							for i.Prev(cesium.AutoSpan) {
+								var batch []float64
+								for _, s := range i.Value().RawSeries() {
+									batch = append(batch, s.Unmarshal[float64]()...)
+								}
+								got = append(batch, got...)
+								Expect(len(got)).To(BeNumerically("<=", 4))
+							}
+						} else {
+							Expect(i.SeekFirst()).To(BeTrue())
+							for i.Next(cesium.AutoSpan) {
+								for _, s := range i.Value().RawSeries() {
+									got = append(got, s.Unmarshal[float64]()...)
+								}
+								Expect(len(got)).To(BeNumerically("<=", 4))
+							}
+						}
+						Expect(i.Close()).To(Succeed())
+						Expect(got).To(Equal([]float64{0.5, 2.5, 4.5, 6.5}))
+					},
+					Entry("Next", false),
+					Entry("Prev", true),
+				)
+
 				It("Should continue from a chunked Prev across domains", func(
 					ctx SpecContext,
 				) {

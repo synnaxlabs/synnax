@@ -30,8 +30,9 @@ import (
 
 type IteratorConfig struct {
 	Bounds telem.TimeRange
-	// AutoChunkSize sets the maximum size of a chunk that will be returned by the
-	// iterator when using AutoSpan in calls ot Next or Prev.
+	// AutoChunkSize sets the target size of a chunk that will be returned by the
+	// iterator when using AutoSpan in calls to Next or Prev. A chunk grows past it to
+	// hold a whole run of equal timestamps.
 	AutoChunkSize int64
 	// Reduction reduces the samples the iterator reads. A stride keeps the samples
 	// whose alignment is a multiple of its factor. A limit reduces numeric channels to
@@ -296,7 +297,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 	}
 }
 
-// nextChunk reads up to AutoChunkSize samples, or points under a limit, forward from
+// nextChunk reads about AutoChunkSize samples, or points under a limit, forward from
 // the current view end. Each domain resolves the chunk to a pair of sample positions,
 // and both the samples read and the time range reported come from that pair, so the two
 // cannot disagree. nextChunk returns true if samples can follow the chunk.
@@ -353,6 +354,7 @@ func (i *Iterator) nextChunk(ctx context.Context) bool {
 				domainTR.Start,
 				startSample,
 				endSample,
+				limit,
 			)
 			if err != nil {
 				i.err = err
@@ -388,7 +390,7 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 	}
 }
 
-// prevChunk reads up to AutoChunkSize samples, or points under a limit, backward from
+// prevChunk reads about AutoChunkSize samples, or points under a limit, backward from
 // the current view start. It mirrors nextChunk: the chunk resolves to sample positions
 // first, and its time range follows from them.
 func (i *Iterator) prevChunk(ctx context.Context) bool {
@@ -437,7 +439,12 @@ func (i *Iterator) prevChunk(ctx context.Context) bool {
 		start = domainTR.Start
 		var edge telem.TimeStamp
 		if startSample > first {
-			edge, startSample, err = i.chunkStart(ctx, domainTR.Start, startSample)
+			edge, startSample, err = i.chunkStart(
+				ctx,
+				domainTR.Start,
+				first,
+				startSample,
+			)
 			if err != nil {
 				i.err = err
 				return false
@@ -464,38 +471,99 @@ func (i *Iterator) prevChunk(ctx context.Context) bool {
 
 // chunkEnd returns the exclusive end of a forward chunk of the samples [start, end) of
 // the domain starting at domainStart, and the position the chunk closes at. A chunk
-// never splits a run of equal timestamps, so it closes after the run instead.
+// never splits a run of equal timestamps or, under a limit, a group, so it can close
+// past end. It never closes past limit.
 func (i *Iterator) chunkEnd(
 	ctx context.Context,
 	domainStart telem.TimeStamp,
-	start, end int64,
+	start, end, limit int64,
 ) (telem.TimeStamp, int64, error) {
-	stamp, err := i.stampSample(ctx, domainStart, end)
-	if err != nil || end == start {
-		return stamp, end, err
+	for {
+		stamp, err := i.stampSample(ctx, domainStart, end)
+		if err != nil {
+			return 0, 0, err
+		}
+		if end == start {
+			return stamp, end, nil
+		}
+		runStart, err := i.position(ctx, domainStart, stamp)
+		if err != nil {
+			return 0, 0, err
+		}
+		if runStart == end {
+			return stamp, end, nil
+		}
+		if end, err = i.position(ctx, domainStart, stamp+1); err != nil {
+			return 0, 0, err
+		}
+		if i.groupSize <= 1 {
+			return stamp + 1, end, nil
+		}
+		ceil := i.groupCeil(start, end)
+		if ceil == end || ceil >= limit {
+			return stamp + 1, min(ceil, limit), nil
+		}
+		end = ceil
 	}
-	runStart, err := i.position(ctx, domainStart, stamp)
-	if err != nil || runStart == end {
-		return stamp, end, err
-	}
-	end, err = i.position(ctx, domainStart, stamp+1)
-	return stamp + 1, end, err
 }
 
 // chunkStart returns the start of a backward chunk that opens at the sample at start of
-// the domain starting at domainStart, and the position the chunk opens at. A chunk
-// never splits a run of equal timestamps, so it opens at the first sample of the run.
+// the samples [first, ...) of the domain starting at domainStart, and the position the
+// chunk opens at. A chunk never splits a run of equal timestamps or, under a limit, a
+// group, so it can open before start. It never opens before first.
 func (i *Iterator) chunkStart(
 	ctx context.Context,
 	domainStart telem.TimeStamp,
-	start int64,
+	first, start int64,
 ) (telem.TimeStamp, int64, error) {
-	stamp, err := i.stampSample(ctx, domainStart, start)
-	if err != nil {
-		return 0, 0, err
+	for {
+		stamp, err := i.stampSample(ctx, domainStart, start)
+		if err != nil {
+			return 0, 0, err
+		}
+		if start, err = i.position(ctx, domainStart, stamp); err != nil {
+			return 0, 0, err
+		}
+		if i.groupSize <= 1 {
+			return stamp, start, nil
+		}
+		floor := i.groupFloor(first, start)
+		if floor == start || floor <= first {
+			return stamp, max(floor, first), nil
+		}
+		start = floor
 	}
-	start, err = i.position(ctx, domainStart, stamp)
-	return stamp, start, err
+}
+
+// groupCeil returns the first group boundary at or after the sample at end, where the
+// loaded segments hold the samples from start. A segment end counts as a boundary.
+func (i *Iterator) groupCeil(start, end int64) int64 {
+	size := int64(i.groupSize)
+	for _, seg := range i.segments {
+		if segEnd := start + seg.Len; end < segEnd {
+			pos := int64(seg.Alignment.AddSamples(uint32(end - start)).SampleIndex())
+			if rem := pos % size; rem != 0 {
+				return min(end+size-rem, segEnd)
+			}
+			return end
+		}
+		start += seg.Len
+	}
+	return end
+}
+
+// groupFloor returns the start of the group that holds the sample at start, where the
+// loaded segments hold the samples from first. A segment start counts as a boundary.
+func (i *Iterator) groupFloor(first, start int64) int64 {
+	size := int64(i.groupSize)
+	for _, seg := range i.segments {
+		if start < first+seg.Len {
+			pos := int64(seg.Alignment.AddSamples(uint32(start - first)).SampleIndex())
+			return max(start-pos%size, first)
+		}
+		first += seg.Len
+	}
+	return start
 }
 
 // position returns the position of the first sample at or after ts in the domain
