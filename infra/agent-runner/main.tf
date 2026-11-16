@@ -8,9 +8,9 @@
 # included in the file licenses/APL.txt.
 
 # One EC2 instance per agent CLI login (a seat), each with several GitHub Actions
-# runners that share the login. The fleet controller starts a stopped agent seat, and a
-# review job starts a stopped review seat through GitHub OIDC. An idle instance stops
-# itself, so its disk keeps the build caches warm.
+# runners that share the login. The fleet controller starts a stopped seat for a queued
+# job, and a review job also starts a stopped review seat through GitHub OIDC. An idle
+# instance stops itself, so its disk keeps the build caches warm.
 
 terraform {
   required_version = ">= 1.10"
