@@ -11,7 +11,6 @@ package pagerduty
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -189,7 +188,7 @@ func (t *alertTask) buildTriggerEvent(
 ) pagerduty.V2Event {
 	summary := s.Message
 	if s.Description != "" {
-		summary += fmt.Sprintf(": %s", s.Description)
+		summary += ": " + s.Description
 	}
 	// PagerDuty requires a source, which an unnamed status lacks.
 	source := s.Name
