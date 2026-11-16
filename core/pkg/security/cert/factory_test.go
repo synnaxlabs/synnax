@@ -129,6 +129,15 @@ var _ = Describe("Factory", func() {
 			c, _ := MustSucceed2(f.Loader.LoadNodePair())
 			Expect(c.DNSNames).To(ConsistOf("synnaxlabs.com"))
 		})
+		It("Should create the pair when only the node key exists", func() {
+			f := newFactory("synnaxlabs.com")
+			Expect(f.CreateCAPair()).To(Succeed())
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			Expect(fs.Remove(f.Config().AbsoluteNodeCertPath())).To(Succeed())
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			c, _ := MustSucceed2(f.Loader.LoadNodePair())
+			Expect(c.DNSNames).To(ConsistOf("synnaxlabs.com"))
+		})
 		It("Should fail on a node certificate it cannot parse", func() {
 			f := newFactory("synnaxlabs.com")
 			Expect(f.CreateCAPair()).To(Succeed())

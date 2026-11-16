@@ -199,7 +199,7 @@ func (f *Factory) CreateNodePairIfStale() error {
 		return err
 	}
 	if !exists {
-		return f.CreateNodePair()
+		return f.replaceNodePair()
 	}
 	c, _, err := f.Loader.LoadNodePair()
 	if err != nil {
