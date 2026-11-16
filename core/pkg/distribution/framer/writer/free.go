@@ -148,12 +148,17 @@ func (w *freeWriter) transform(
 	ctx context.Context,
 	req Request,
 ) (res Response, ok bool, err error) {
-	if req.Command == CommandWrite && w.mode.Stream() {
-		if err = signal.SendUnderContext(
-			ctx, w.freeWrites.Inlet(),
-			relay.Response{Frame: w.alignFrame(req.Frame), Group: w.group},
-		); err != nil || !w.sync {
-			return res, ok, err
+	if req.Command == CommandWrite {
+		if w.mode.Stream() {
+			if err = signal.SendUnderContext(
+				ctx, w.freeWrites.Inlet(),
+				relay.Response{Frame: w.alignFrame(req.Frame), Group: w.group},
+			); err != nil {
+				return res, false, err
+			}
+		}
+		if !w.sync {
+			return res, false, nil
 		}
 	}
 	return Response{
