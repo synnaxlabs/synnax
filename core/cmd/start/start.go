@@ -278,16 +278,16 @@ func BootupCore(
 	}
 	update = storageLayer.Update
 
-	// ctx ends when shutdown starts, before the Core stops writing, and the Gorp
-	// tables of each layer live until the context they open on ends.
+	distributionCtx, distributionOpened := detachAfterOpen(ctx)
 	distributionLayer, err := distribution.OpenLayer(
-		context.WithoutCancel(ctx),
+		distributionCtx,
 		distribution.LayerConfig{
 			Instrumentation:  cfg.Child("distribution"),
 			AdvertiseAddress: cfg.listeners.AdvertiseAddress(),
 			Storage:          storageLayer,
 		},
 	)
+	distributionOpened()
 	if !ok(err, distributionLayer) {
 		return err
 	}
@@ -297,8 +297,9 @@ func BootupCore(
 		return err
 	}
 
+	serviceCtx, serviceOpened := detachAfterOpen(ctx)
 	serviceLayer, err := service.OpenLayer(
-		context.WithoutCancel(ctx),
+		serviceCtx,
 		service.LayerConfig{
 			Instrumentation:    cfg.Child("service"),
 			Distribution:       distributionLayer,
@@ -316,6 +317,7 @@ func BootupCore(
 			SecretsKey:           secretsKey,
 		},
 	)
+	serviceOpened()
 	if !ok(err, serviceLayer) {
 		return err
 	}
@@ -477,6 +479,15 @@ func BootupCore(
 	}
 	<-ctx.Done()
 	return err
+}
+
+// detachAfterOpen returns a context that ends with ctx until the returned function
+// runs, and lives on after that. ctx ends when shutdown starts, so a layer opens on it
+// to keep
+// its Gorp tables until the layer closes.
+func detachAfterOpen(ctx context.Context) (context.Context, func() bool) {
+	detached, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	return detached, context.AfterFunc(ctx, cancel)
 }
 
 func openWorkDir(cacheDir string) (string, io.Closer, error) {
