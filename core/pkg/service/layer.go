@@ -945,6 +945,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeArcDirectory:    l.Arc.DirectoryResources(),
 			resource.TypeCertificate:     l.Certificate.Resources(),
 			resource.TypeChannel:         l.Channel.Resources(),
+			resource.TypeColor:           l.Color.Resources(),
 			resource.TypeDevice:          l.Device.Resources(),
 			resource.TypeGroup:           l.Group.Resources(),
 			resource.TypeICD:             l.ICD.Resources(),

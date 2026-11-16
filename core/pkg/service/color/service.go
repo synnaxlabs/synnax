@@ -51,8 +51,9 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Service stores named colors.
 type Service struct {
-	closer xio.MultiCloser
-	table  *gorp.Table[Key, Named]
+	closer  xio.MultiCloser
+	table   *gorp.Table[Key, Named]
+	indexes indexes
 }
 
 // OpenService opens a Service. When the error is nil, the caller must close the
@@ -62,12 +63,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{}
+	s = &Service{indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Named]{
 		DB:              cfg.DB,
 		Name:            tableName,
+		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -80,7 +82,7 @@ func (s *Service) Close() error { return s.closer.Close() }
 
 // NewRetrieve opens a query for named colors.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{gorp: s.table.NewRetrieve()}
+	return Retrieve{gorp: s.table.NewRetrieve(), indexes: s.indexes}
 }
 
 // NewWriter opens a Writer that changes named colors in tx.
