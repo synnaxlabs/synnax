@@ -11,13 +11,20 @@ package v12_test
 
 import (
 	"math"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 	v11 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
 	v12 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
+	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
+	color "github.com/synnaxlabs/x/color/versions/v0"
+	colorv2 "github.com/synnaxlabs/x/color/versions/v2"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("MigrateNumericTelemConfig", func() {
@@ -90,5 +97,89 @@ var _ = Describe("MigrateSchematic", func() {
 		}))
 		scale := out.Configs["n1"].Variant.(v12.ScaleElementConfig)
 		Expect(scale.Precision).To(HaveValue(BeEquivalentTo(5)))
+	})
+})
+
+var _ = Describe("Migration", func() {
+	It("Should lift schematics that v0.61 stored to v13", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v11.Key, v11.Schematic]{
+			DB: db,
+		}))
+		group, project := uuid.New(), uuid.New()
+		numeric := func(p float64) v10.NumericTelemConfig {
+			return v10.NumericTelemConfig{Precision: p}
+		}
+		pipe := v11.Edge{
+			Key:    "pipe",
+			Source: v11.Handle{Node: "value", Param: "out"},
+			Target: v11.Handle{Node: "tank", Param: "in"},
+		}
+		old := v11.Schematic{
+			Key:  uuid.New(),
+			Name: "Feed system",
+			Nodes: []v11.Node{
+				{Key: "value", Position: spatial.XY{X: 10, Y: 20}, ZIndex: 2},
+				{Key: "gauge"},
+				{Key: "tank"},
+				{Key: "scale"},
+			},
+			Edges: []v11.Edge{pipe},
+			Configs: map[string]v11.ElementConfig{
+				"value": {Variant: v10.ValueElementConfig{
+					NumericTelemConfig: numeric(2),
+					StrokeColor:        &color.Color{R: 1, G: 2, B: 3, A: 0.5},
+				}},
+				"gauge": {Variant: v10.GaugeElementConfig{
+					NumericTelemConfig: numeric(2.6),
+				}},
+				"tank": {Variant: v10.TankElementConfig{Precision: 40}},
+				"scale": {Variant: v10.ScaleElementConfig{
+					ScaleIndicatorConfig: v10.ScaleIndicatorConfig{
+						NumericTelemConfig: numeric(-1),
+					},
+				}},
+				"pipe": {Variant: v10.PipeElementConfig{}},
+			},
+			Group:   &group,
+			Project: &project,
+		}
+		Expect(gorp.NewCreate[v11.Key, v11.Schematic]().Entry(&old).Exec(ctx, db)).
+			To(Succeed())
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v13.Key, v13.Schematic]{
+			DB: db,
+			Migrations: []gorp.Migration{
+				v12.SnapshotMigration,
+				v12.Migration,
+				v13.Migration,
+			},
+		}))
+		var got v13.Schematic
+		Expect(gorp.NewRetrieve[v13.Key, v13.Schematic]().
+			Where(gorp.MatchKeys[v13.Key, v13.Schematic](old.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(got.Name).To(Equal("Feed system"))
+		Expect(got.Group).To(HaveValue(Equal(group)))
+		Expect(got.Project).To(HaveValue(Equal(project)))
+		Expect(got.Nodes).To(HaveLen(4))
+		Expect(got.Nodes[0].Key).To(Equal("value"))
+		Expect(got.Nodes[0].Position).To(Equal(spatial.XY{X: 10, Y: 20}))
+		Expect(got.Nodes[0].ZIndex).To(BeEquivalentTo(2))
+		value := got.Nodes[0].Config.Variant.(v13.ValueNodeConfig)
+		Expect(value.Precision).To(HaveValue(BeEquivalentTo(2)))
+		Expect(value.StrokeColor).
+			To(HaveValue(Equal(colorv2.Color{R: 1, G: 2, B: 3, A: 128})))
+		Expect(got.Nodes[1].Config.Variant.(v13.GaugeNodeConfig).Precision).
+			To(HaveValue(BeEquivalentTo(3)))
+		Expect(got.Nodes[2].Config.Variant.(v13.TankNodeConfig).Precision).
+			To(HaveValue(BeEquivalentTo(17)))
+		Expect(got.Nodes[3].Config.Variant.(v13.ScaleNodeConfig).Precision).
+			To(HaveValue(BeZero()))
+		Expect(got.Edges).To(HaveLen(1))
+		Expect(got.Edges[0].Key).To(Equal("pipe"))
+		Expect(got.Edges[0].Source).To(Equal(pipe.Source))
+		Expect(got.Edges[0].Target).To(Equal(pipe.Target))
+		Expect(got.Edges[0].Config.Variant).
+			To(BeAssignableToTypeOf(v13.PipeEdgeConfig{}))
 	})
 })
