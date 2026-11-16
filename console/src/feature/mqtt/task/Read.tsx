@@ -184,6 +184,7 @@ const DISCOVER_KIND: Kind<Addition> = {
   title: "Add data",
   hint: "Select the values to read. Each one becomes a field of the message format.",
   noun: "field",
+  tagNoun: "tag",
   create: ({ topics, tags }) => [
     ...[...topics].map(([topic, { leaves, pointers }]) =>
       createDraft(

@@ -688,7 +688,7 @@ describe("MQTT read form", () => {
       };
       let dialog = await browseTag();
       fireEvent.click(dialog.getByRole("checkbox", { name: "Record flow" }));
-      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 tag" }));
       await screen.findByText("Edge node");
       await waitFor(async () =>
         expect(await retrieveEntries(draft.key)).toMatchObject([
@@ -708,6 +708,36 @@ describe("MQTT read form", () => {
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
       await act(async () => {});
       expect(screen.getAllByRole("option", { name: /flow/ })).toHaveLength(1);
+    });
+
+    it("should count picked fields and tags apart on the add button", async () => {
+      const { dev } = await renderRead();
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddData();
+      const topic = {
+        topic: TOPIC,
+        payload: '{"temperature": 1}',
+        fields: [{ pointer: "/temperature", type: "number", sample: "1" }],
+        retained: true,
+      };
+      await scanner.answer({ data: { topics: [topic], truncated: false } });
+      fireEvent.click(
+        await dialog.findByRole("checkbox", { name: "Record temperature" }),
+      );
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+      expect(dialog.getByRole("button", { name: "Add 1 field" })).toBeTruthy();
+      await scanner.answer({
+        data: { nodes: [{ group: "plant", edgeNode: "line1", devices: [] }], tags: [] },
+      });
+      const tag = { device: "", name: "flow", dataType: "float", value: "1" };
+      await scanner.answer({
+        data: { nodes: [], tags: [{ ...tag, supported: true }] },
+      });
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Record flow" }));
+      expect(
+        dialog.getByRole("button", { name: "Add 1 field and 1 tag" }),
+      ).toBeTruthy();
+      scanner.close();
     });
 
     it("should lock the data type of a tag to that of its channel", async () => {

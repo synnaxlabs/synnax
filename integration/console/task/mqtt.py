@@ -26,7 +26,7 @@ _READ_BOX_PREFIX = "Read "
 # The list wraps a title in bidi isolates so a topic reads left to right.
 _LRI = "\N{LEFT-TO-RIGHT ISOLATE}"
 _PDI = "\N{POP DIRECTIONAL ISOLATE}"
-# The submit button of the add dialog counts the picks: "Add 4 channels".
+# The submit button of the add dialog counts the picks: "Add 4 fields".
 _SUBMIT_PICKS = re.compile(r"^Add \d+ ")
 # A listen of the dialog takes a few seconds before it lists anything.
 _LISTEN_TIMEOUT = 30000
