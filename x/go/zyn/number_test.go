@@ -240,6 +240,16 @@ var _ = Describe("Number", func() {
 					MatchError(ContainSubstring("out of range")),
 				))
 			})
+
+			Specify("coerce float below min int64 fails", func() {
+				var dest int64
+				Expect(
+					zyn.Number().Int64().Coerce().Parse(-1e19, &dest),
+				).To(And(
+					MatchError(validate.ErrConversion),
+					MatchError(ContainSubstring("out of range")),
+				))
+			})
 		})
 
 		Describe("Uint64", func() {
@@ -717,6 +727,24 @@ var _ = Describe("Number", func() {
 		Specify("coerce float above max int64 to int64 fails", func() {
 			Expect(
 				zyn.Number().Int64().Coerce().Dump(float64(1 << 63)),
+			).Error().To(And(
+				MatchError(validate.ErrConversion),
+				MatchError(ContainSubstring("out of range")),
+			))
+		})
+
+		Specify("coerce float below min int64 to int64 fails", func() {
+			Expect(
+				zyn.Number().Int64().Coerce().Dump(-1e19),
+			).Error().To(And(
+				MatchError(validate.ErrConversion),
+				MatchError(ContainSubstring("out of range")),
+			))
+		})
+
+		Specify("coerce float above max uint64 to uint64 fails", func() {
+			Expect(
+				zyn.Number().Uint64().Coerce().Dump(float64(1 << 64)),
 			).Error().To(And(
 				MatchError(validate.ErrConversion),
 				MatchError(ContainSubstring("out of range")),
