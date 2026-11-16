@@ -83,9 +83,6 @@ var (
 		ErrOnUnauthorizedOpen:    new(false),
 	}
 	ErrWriterClosed = resource.NewClosedError("unary.writer")
-	// ErrOutOfOrder is returned when a write to an index channel has a timestamp before
-	// the one that precedes it.
-	ErrOutOfOrder = errors.Wrap(validate.ErrValidation, "index out of order")
 )
 
 // Validate implements config.Config.
@@ -423,14 +420,14 @@ func (w *Writer) visible(t control.Transfer) control.Transfer {
 }
 
 // checkOrder returns the last timestamp in series, or mark if series is empty. It
-// returns ErrOutOfOrder if a timestamp is before mark or before the one that precedes
-// it.
+// returns a validation error if a timestamp is before mark or before the one that
+// precedes it.
 func checkOrder(mark telem.TimeStamp, series telem.Series) (telem.TimeStamp, error) {
 	for i, ts := range series.Unmarshal[telem.TimeStamp]() {
 		if ts < mark {
 			return 0, errors.Wrapf(
-				ErrOutOfOrder,
-				"timestamp %s at sample %d must not be before %s",
+				validate.ErrValidation,
+				"index out of order: timestamp %s at sample %d must not be before %s",
 				ts,
 				i,
 				mark,

@@ -158,6 +158,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Authority: authority,
 						}
 					}
+					outOfOrder := SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("index out of order")),
+					)
 					expectStored := func(ctx SpecContext, s telem.Series) {
 						GinkgoHelper()
 						f := MustSucceed(ReadUnary(ctx, db, telem.TimeRangeMax))
@@ -171,10 +175,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								MustSucceed(w.Write(prior))
 								MustSucceed(w.Commit(ctx))
 							}
-							Expect(w.Write(rejected)).Error().To(SatisfyAll(
-								MatchError(unary.ErrOutOfOrder),
-								MatchError(validate.ErrValidation),
-							))
+							Expect(w.Write(rejected)).Error().To(outOfOrder)
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(20)))
 							Expect(MustSucceed(w.Commit(ctx))).
 								To(Equal(20*telem.SecondTS + 1))
@@ -231,7 +232,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							MustSucceed(live.Commit(ctx))
 							high := open(ctx, config(10*telem.SecondTS, "high", 2))
 							Expect(high.Write(telem.NewSeriesSecondsTSV(10, 11))).
-								Error().To(MatchError(unary.ErrOutOfOrder))
+								Error().To(outOfOrder)
 							MustSucceed(high.Close())
 							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(102, 103)))
 							Expect(MustSucceed(live.Commit(ctx))).
