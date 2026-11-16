@@ -12,8 +12,7 @@ package sync
 import "context"
 
 // Wait waits for g and returns its error, or returns ctx.Err() if ctx is done first.
-// A result from g that is ready when ctx ends wins. When ctx wins, the goroutine that
-// waits on g exits once g returns.
+// When ctx wins, the goroutine that waits on g exits once g returns.
 func Wait(ctx context.Context, g interface{ Wait() error }) error {
 	done := make(chan error, 1)
 	go func() { done <- g.Wait() }()
@@ -21,11 +20,6 @@ func Wait(ctx context.Context, g interface{ Wait() error }) error {
 	case err := <-done:
 		return err
 	case <-ctx.Done():
-		select {
-		case err := <-done:
-			return err
-		default:
-			return ctx.Err()
-		}
+		return ctx.Err()
 	}
 }
