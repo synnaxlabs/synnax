@@ -666,6 +666,13 @@ TEST(TestSeries, testDeepCopyWriteIntoSpareCapacity) {
     ASSERT_EQ(s2.at<std::uint32_t>(-1), 7);
 }
 
+/// @brief it should throw when writing a series of another data type.
+TEST(TestSeries, testWriteSeriesTypeMismatch) {
+    Series s(FLOAT64_T, 4);
+    EXPECT_THROW(s.write(Series(std::vector<int32_t>{1, 2})), std::runtime_error);
+    ASSERT_EQ(s.size(), 0);
+}
+
 /// @brief it should keep the spare byte capacity of a variable series in a deep copy.
 TEST(TestSeries, testDeepCopyVariableSpareCapacity) {
     const Series s1{STRING_T, 64};
