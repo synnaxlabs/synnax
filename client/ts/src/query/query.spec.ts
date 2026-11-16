@@ -2156,19 +2156,23 @@ describe("Answers", () => {
         return { answers, fetches, handler, pending };
       };
 
-      it("keeps a change that raced both fetches when the refetch lands first", async () => {
-        const { answers, fetches, pending } = setup();
-        fetches[1]?.resolve([]);
+      it("refetches after the first fetch settles", async () => {
+        const { answers, fetches, handler, pending } = setup();
         fetches[0].resolve([]);
-        await pending;
-        await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+        expect(await pending).toEqual([rec("a", 5)]);
+        await expect.poll(() => fetches.length).toBe(2);
+        fetches[1].resolve(["a"]);
+        await expect.poll(() => handler.mock.calls.length).toBe(2);
+        expect(handler).toHaveBeenLastCalledWith([rec("a", 5)]);
+        expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
       });
 
-      it("publishes the first fetch when the refetch fails", async () => {
+      it("refetches after the first fetch fails", async () => {
         const { answers, fetches, handler, pending } = setup();
-        fetches[1]?.reject(new Error("unreachable"));
-        fetches[0].resolve([]);
-        await pending;
+        fetches[0].reject(new Error("unreachable"));
+        await expect(pending).rejects.toThrow("unreachable");
+        await expect.poll(() => fetches.length).toBe(2);
+        fetches[1].resolve(["a"]);
         await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
         expect(handler).toHaveBeenLastCalledWith([rec("a", 5)]);
       });
