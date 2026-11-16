@@ -560,8 +560,11 @@ impl Task {
                     return match status {
                         Ok(status) if status.code() == Some(LOCKED_CODE) => Outcome::Locked,
                         Ok(status) => {
-                            let message = self
-                                .exit_error()
+                            // A signal, such as from the OOM killer, ends the Core before
+                            // it writes its error.
+                            let message = status
+                                .code()
+                                .and_then(|_| self.exit_error())
                                 .unwrap_or_else(|| format!("exited with {status}"));
                             exited(Reason::Crashed, message, status.code())
                         }
@@ -693,13 +696,16 @@ impl Task {
         Ok(std::fs::File::create(path)?.into())
     }
 
-    /// Returns the first line of the Core's stderr: the error that ended it, or the first
-    /// line of a Go panic. It returns None when the Core wrote nothing there.
+    /// Returns the error that ended the Core: the first line of a Go panic, or else the
+    /// last line of its stderr, which the Core writes as it exits. Libraries log to
+    /// stderr too, so the first line can be older. It returns None for an empty stderr.
     fn exit_error(&self) -> Option<String> {
-        let file = std::fs::File::open(self.cfg.log_dir.join(STDERR_FILE)).ok()?;
-        let line = io::BufRead::lines(io::BufReader::new(file)).next()?.ok()?;
-        let line = line.trim();
-        (!line.is_empty()).then(|| line.to_string())
+        let text = std::fs::read_to_string(self.cfg.log_dir.join(STDERR_FILE)).ok()?;
+        let mut lines = text.lines().map(str::trim).filter(|l| !l.is_empty());
+        let panic = lines
+            .clone()
+            .find(|l| l.starts_with("panic: ") || l.starts_with("fatal error: "));
+        panic.or_else(|| lines.next_back()).map(str::to_string)
     }
 
     /// Asks the Core to stop and kills it when it outlives the stop timeout.
@@ -815,8 +821,26 @@ exit 3
     /// A stand-in Core that writes the error that ends it to stderr, as the Core does.
     const FAILING: &str = r#"#!/bin/sh
 echo run >> "$(dirname "$0")/runs"
+echo "grpc: an earlier log line" >&2
 echo "embedded Driver did not start: GLIBC_2.39 not found" >&2
 exit 1
+"#;
+
+    /// A stand-in Core that panics after a library logged to stderr.
+    const PANICKING: &str = r#"#!/bin/sh
+echo run >> "$(dirname "$0")/runs"
+echo "grpc: an earlier log line" >&2
+echo "panic: boom" >&2
+echo "" >&2
+echo "goroutine 1 [running]:" >&2
+exit 2
+"#;
+
+    /// A stand-in Core that a signal kills after it logged to stderr.
+    const KILLED: &str = r#"#!/bin/sh
+echo run >> "$(dirname "$0")/runs"
+echo "grpc: an earlier log line" >&2
+kill -9 $$
 "#;
 
     /// A stand-in Core that finds its data directory locked on its first three starts.
@@ -1024,6 +1048,26 @@ while true; do sleep 1; done
             message,
             "embedded Driver did not start: GLIBC_2.39 not found"
         );
+    }
+
+    async fn failure_message(core: &str) -> String {
+        let f = Fixture::new(core, always(false));
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        match wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await {
+            Status::Failed { message, .. } => message,
+            _ => unreachable!(),
+        }
+    }
+
+    #[tokio::test]
+    async fn reports_the_first_line_of_a_panic() {
+        assert_eq!(failure_message(PANICKING).await, "panic: boom");
+    }
+
+    #[tokio::test]
+    async fn reports_the_signal_that_killed_the_core() {
+        let message = failure_message(KILLED).await;
+        assert!(message.contains("signal: 9"), "{message}");
     }
 
     #[tokio::test]
