@@ -108,6 +108,8 @@ class FakeGH:
             return lines(self.runs)
         if path == f"repos/{REPO}/issues/7/comments":
             return lines(self.comments)
+        if path == f"repos/{REPO}/collaborators/member/permission":
+            return "write\n"
         if path == f"repos/{REPO}/commits/head":
             return MESSAGE + "\n"
         if path == f"repos/{REPO}/pulls/7":
@@ -457,12 +459,7 @@ class TestListing:
 def thread(login: str, *replies: str, resolved: bool = False) -> dict[str, Any]:
     def comment(body: str, kind: str, author: str) -> dict[str, Any]:
         who = {"__typename": kind, "login": author}
-        return {
-            "databaseId": 9,
-            "author": who,
-            "authorAssociation": "MEMBER",
-            "body": body,
-        }
+        return {"databaseId": 9, "author": who, "body": body}
 
     body = "<picture></picture> **Samples return old data**\n\nOld text."
     comments = [comment(body, "Bot", login)]

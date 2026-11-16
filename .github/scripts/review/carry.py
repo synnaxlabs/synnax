@@ -13,7 +13,16 @@ change, as after a merge of the base, so the head needs no review of its own."""
 import json
 import re
 
-from review.post import GH, Target, current, newest, recheck, reviewed, write
+from review.post import (
+    GH,
+    Target,
+    authority,
+    current,
+    newest,
+    recheck,
+    reviewed,
+    write,
+)
 
 LISTED = 300
 """The most files that a comparison of two commits lists."""
@@ -48,7 +57,7 @@ def carry(t: Target, gh: GH, *, key: str) -> bool:
     }
     done = {"status": "completed", "conclusion": "success", "output": output}
     write(gh, "PATCH", f"repos/{t.repo}/check-runs/{t.check_run}", done)
-    recheck(t, gh)
+    recheck(t, gh, authority(t, gh))
     return True
 
 

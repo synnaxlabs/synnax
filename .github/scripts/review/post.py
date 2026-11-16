@@ -20,6 +20,8 @@ from review.findings import Dismissal, Finding, Review
 
 GH = Callable[..., str]
 """Runs `gh` with the given arguments and optional stdin, and returns its stdout."""
+Authority = Callable[[dict[str, Any]], bool]
+"""Reports whether the author of a comment can dismiss a finding."""
 
 THREADS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
   repository(owner: $o, name: $r) {
@@ -31,7 +33,7 @@ THREADS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
           isResolved
           path
           comments(first: 100) {
-            nodes { databaseId author { __typename login } authorAssociation body }
+            nodes { databaseId author { __typename login } body }
           }
         }
       }
@@ -56,14 +58,16 @@ THREAD_NODES = (
 
 COMMAND = re.compile(r"@sedosaur\s+dismiss\b", re.I)
 """The reply on the thread of a finding that dismisses it."""
-MEMBERS = {"OWNER", "MEMBER", "COLLABORATOR"}
+WRITE = {"admin", "write"}
+"""The repository permissions that can dismiss a finding. GitHub reports maintain as
+write."""
 DISMISSED = "A member dismissed every finding of the review."
 ANSWER_START = "<!-- sedosaur_answer "
 ANSWER_END = " -->"
-# The REST fields of a comment, in the shape that `member` reads from GraphQL.
+# The REST fields of a comment, in the shape that GraphQL serves.
 _COMMENT = (
     "{id, login: .user.login, author: {__typename: .user.type, login: .user.login}, "
-    "authorAssociation: .author_association, body}"
+    "body}"
 )
 
 _SUMMARY = re.compile(
@@ -105,7 +109,8 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
     """
     t = target
     found = threads(t, gh)
-    review = _drop(review, {(d.path, d.title) for d in dismissals(t, gh, found)})
+    can = authority(t, gh)
+    review = _drop(review, {(d.path, d.title) for d in dismissals(t, gh, found, can)})
     blob = f"https://github.com/{t.repo}/blob/{t.head}"
     diff = _diff_lines(t, gh)
     inline = [f for f in review.findings if set(f.lines) <= diff.get(f.path, set())]
@@ -147,7 +152,7 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
     }
     write(gh, "PATCH", f"repos/{t.repo}/check-runs/{t.check_run}", done)
     if review.findings:
-        recheck(t, gh)
+        recheck(t, gh, can)
 
 
 def _drop(review: Review, gone: set[tuple[str, str]]) -> Review:
@@ -249,22 +254,24 @@ def threads(t: Target, gh: GH) -> list[Thread]:
     return found
 
 
-def dismissed(found: list[Thread]) -> list[Dismissal]:
+def dismissed(found: list[Thread], can: Authority) -> list[Dismissal]:
     """Returns each finding that a member dismissed in one of the threads."""
     out: list[Dismissal] = []
     for th in found:
-        reasons = (command(c["body"]) for c in th.replies if member(c))
+        reasons = (command(c["body"]) for c in th.replies if can(c))
         reason = next((r for r in reasons if r is not None), None)
         if reason is not None:
             out.append(Dismissal(path=th.path, title=th.title, reason=reason))
     return out
 
 
-def dismissals(t: Target, gh: GH, found: list[Thread]) -> list[Dismissal]:
+def dismissals(
+    t: Target, gh: GH, found: list[Thread], can: Authority
+) -> list[Dismissal]:
     """Returns each finding that a member dismissed: on its thread in the threads, or
     with a comment on the pull request that the bot answered and bound to a finding."""
     bound = [a for a in answers(t, comments(t, gh)) if "path" in a]
-    return dismissed(found) + [
+    return dismissed(found, can) + [
         Dismissal(path=a["path"], title=a["title"], reason=a["reason"]) for a in bound
     ]
 
@@ -296,14 +303,22 @@ def command(body: str) -> str | None:
     return COMMAND.sub("", text).strip().lstrip(",:;").strip()
 
 
-def member(comment: dict[str, Any]) -> bool:
-    """Reports whether a person who is a member of the repository wrote a comment."""
-    author = comment["author"]
-    return (
-        author is not None
-        and author["__typename"] == "User"
-        and comment["authorAssociation"] in MEMBERS
-    )
+def authority(t: Target, gh: GH) -> Authority:
+    """Returns an `Authority` that accepts a person with write access to the repository,
+    and never a bot. It asks GitHub once for each login."""
+    known: dict[str, bool] = {}
+
+    def can(comment: dict[str, Any]) -> bool:
+        author = comment["author"]
+        if author is None or author["__typename"] != "User":
+            return False
+        login = author["login"]
+        if login not in known:
+            path = f"repos/{t.repo}/collaborators/{login}/permission"
+            known[login] = gh("api", path, "--jq", ".permission").strip() in WRITE
+        return known[login]
+
+    return can
 
 
 def newest(t: Target, gh: GH, commit: str, key: str) -> dict[str, Any] | None:
@@ -375,7 +390,7 @@ def outside_findings(t: Target, gh: GH) -> set[tuple[str, str]]:
 
 
 def comments(t: Target, gh: GH) -> list[dict[str, Any]]:
-    """Returns the comments on the pull request in the shape that `member` reads."""
+    """Returns the comments on the pull request in the shape that GraphQL serves."""
     out = gh(
         "api",
         "--paginate",
@@ -387,7 +402,7 @@ def comments(t: Target, gh: GH) -> list[dict[str, Any]]:
 
 
 def issue_comment(t: Target, gh: GH, id: int) -> dict[str, Any] | None:
-    """Returns a comment on the pull request in the shape that `member` reads, or None
+    """Returns a comment on the pull request in the shape that GraphQL serves, or None
     when the comment is on another issue or pull request."""
     out = gh(
         "api",
@@ -413,13 +428,13 @@ def _upsert_outside(t: Target, gh: GH, body: str, *, created: bool) -> None:
         write(gh, "POST", f"repos/{t.repo}/issues/{t.pr}/comments", {"body": body})
 
 
-def recheck(t: Target, gh: GH) -> None:
+def recheck(t: Target, gh: GH, can: Authority) -> None:
     """Runs `rescore` once the check run of the target completes, for a dismissal that
     found it running. The head has its review, so a failure only warns."""
     try:
         run = f"repos/{t.repo}/check-runs/{t.check_run}"
         key = gh("api", run, "--jq", ".external_id").strip()
-        rescore(t, gh, threads(t, gh), key)
+        rescore(t, gh, threads(t, gh), key, can)
     except subprocess.CalledProcessError as e:
         print(
             f"::warning::Could not read dismissals after the review: {e}",
@@ -427,7 +442,7 @@ def recheck(t: Target, gh: GH) -> None:
         )
 
 
-def rescore(t: Target, gh: GH, found: list[Thread], key: str) -> bool:
+def rescore(t: Target, gh: GH, found: list[Thread], key: str, can: Authority) -> bool:
     """Scores the head 5/5 in a new check run when a member dismissed every finding of
     its newest review, in the threads or in answered comments. Returns whether it did.
 
@@ -441,7 +456,7 @@ def rescore(t: Target, gh: GH, found: list[Thread], key: str) -> bool:
     listed = render.listed(run["output"]["text"] or "")
     if not listed:
         return False
-    gone = {(d.path, d.title) for d in dismissals(t, gh, found)}
+    gone = {(d.path, d.title) for d in dismissals(t, gh, found, can)}
     if not listed <= gone:
         return False
     output = {

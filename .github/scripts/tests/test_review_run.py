@@ -921,10 +921,7 @@ class TestMain:
             bot = {"__typename": "Bot", "login": "sedosaur"}
             first = {"databaseId": 1, "author": bot, "body": f"<img> **{title}**"}
             person = {"__typename": "User", "login": "m"}
-            later = [
-                {"author": person, "authorAssociation": "MEMBER", "body": r}
-                for r in replies
-            ]
+            later = [{"author": person, "body": r} for r in replies]
             comments = [first, *later]
             return {
                 "id": title,
@@ -948,7 +945,9 @@ class TestMain:
         )
         executable(
             tmp_path / "bin" / "gh",
-            "if any(a.endswith('/comments') for a in sys.argv):\n"
+            "if any(a.endswith('/permission') for a in sys.argv):\n"
+            "    print('write')\n"
+            "elif any(a.endswith('/comments') for a in sys.argv):\n"
             f"    print({comment!r})\n"
             "elif 'graphql' not in sys.argv:\n"
             "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n"
