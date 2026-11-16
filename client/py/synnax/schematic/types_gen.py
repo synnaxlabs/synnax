@@ -286,10 +286,12 @@ class SegmentedEdgeConfig(BaseModel):
         stroke_color: Is the stroke color of the edge.
         segments: Is the ordered list of orthogonal runs that trace the connector path
             from the source handle to the target handle.
+        stroke_width: Is the stroke width of the edge in pixels.
     """
 
     stroke_color: color_.Color | None = None
     segments: list[Segment] = Field(default_factory=list)
+    stroke_width: int = Field(default=2, ge=1, le=20)
 
 
 class LabeledConfig(BaseModel):
@@ -581,7 +583,7 @@ class BoxNodeConfig(LabeledConfig):
         default_factory=lambda: spatial.Dimensions(width=125, height=200)
     )
     border_radius: float = 3
-    stroke_width: float = 2
+    stroke_width: int = Field(default=2, ge=0, le=20)
 
 
 class ButtonNodeConfig(LabeledConfig):
@@ -604,7 +606,7 @@ class CircleNodeConfig(LabeledConfig):
     radius: float = 20
     stroke_color: color_.Color | None = None
     fill_color: color_.Color | None = None
-    stroke_width: float = 2
+    stroke_width: int = Field(default=2, ge=0, le=20)
 
 
 class GaugeNodeConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
@@ -656,7 +658,7 @@ class LineNodeConfig(BaseModel):
     stroke_color: color_.Color | None = None
     start: spatial.XY = Field(default_factory=lambda: spatial.XY(x=0, y=0))
     end: spatial.XY = Field(default_factory=lambda: spatial.XY(x=100, y=0))
-    stroke_width: float = 2
+    stroke_width: int = Field(default=2, ge=1, le=20)
 
 
 class OffPageReferenceNodeConfig(LabeledConfig):
@@ -679,7 +681,7 @@ class PolygonNodeConfig(LabeledConfig):
     corner_rounding: float = 0
     stroke_color: color_.Color | None = None
     fill_color: color_.Color | None = None
-    stroke_width: float = 2
+    stroke_width: int = Field(default=2, ge=0, le=20)
 
 
 class SelectNodeConfig(LabeledConfig, StalenessConfig):

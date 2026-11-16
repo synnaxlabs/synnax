@@ -418,7 +418,7 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.Float64(float64(v.BorderRadius))
-		w.Float64(float64(v.StrokeWidth))
+		w.Uint8(uint8(v.StrokeWidth))
 	case ButtonNodeConfig:
 		w.String("button")
 		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
@@ -477,7 +477,7 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		w.Float64(float64(v.StrokeWidth))
+		w.Uint8(uint8(v.StrokeWidth))
 	case GaugeNodeConfig:
 		w.String("gauge")
 		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
@@ -617,7 +617,7 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		if err := v.End.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Float64(float64(v.StrokeWidth))
+		w.Uint8(uint8(v.StrokeWidth))
 	case OffPageReferenceNodeConfig:
 		w.String("off_page_reference")
 		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
@@ -665,7 +665,7 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		w.Float64(float64(v.StrokeWidth))
+		w.Uint8(uint8(v.StrokeWidth))
 	case SelectNodeConfig:
 		w.String("select")
 		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
@@ -1590,7 +1590,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 		if v.BorderRadius, err = r.Float64(); err != nil {
 			return err
 		}
-		if v.StrokeWidth, err = r.Float64(); err != nil {
+		if v.StrokeWidth, err = r.Uint8(); err != nil {
 			return err
 		}
 		nc.Variant = v
@@ -1711,7 +1711,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				v.FillColor = &hv
 			}
 		}
-		if v.StrokeWidth, err = r.Float64(); err != nil {
+		if v.StrokeWidth, err = r.Uint8(); err != nil {
 			return err
 		}
 		nc.Variant = v
@@ -1965,7 +1965,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 		if err = v.End.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.StrokeWidth, err = r.Float64(); err != nil {
+		if v.StrokeWidth, err = r.Uint8(); err != nil {
 			return err
 		}
 		nc.Variant = v
@@ -2047,7 +2047,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				v.FillColor = &hv
 			}
 		}
-		if v.StrokeWidth, err = r.Float64(); err != nil {
+		if v.StrokeWidth, err = r.Uint8(); err != nil {
 			return err
 		}
 		nc.Variant = v
@@ -3582,11 +3582,13 @@ func (sec SegmentedEdgeConfig) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
+	w.Uint8(uint8(sec.StrokeWidth))
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (sec *SegmentedEdgeConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
 	{
 		present, err := r.Bool()
 		if err != nil {
@@ -3617,6 +3619,9 @@ func (sec *SegmentedEdgeConfig) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
+	}
+	if sec.StrokeWidth, err = r.Uint8(); err != nil {
+		return err
 	}
 	return nil
 }

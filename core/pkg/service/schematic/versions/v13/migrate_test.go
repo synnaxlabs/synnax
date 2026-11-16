@@ -11,6 +11,7 @@ package v13_test
 
 import (
 	"context"
+	"math"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -335,7 +336,10 @@ var _ = Describe("MigrateSchematic config move", func() {
 			Variant: v13.ValveNodeConfig{Orientation: "left", Scale: 2},
 		}
 		movedPipe = v13.EdgeConfig{Variant: v13.PipeEdgeConfig{
-			SegmentedEdgeConfig: v13.SegmentedEdgeConfig{Segments: []v13.Segment{}},
+			SegmentedEdgeConfig: v13.SegmentedEdgeConfig{
+				Segments:    []v13.Segment{},
+				StrokeWidth: 2,
+			},
 		}}
 	)
 	node := func(key string) v12.Node {
@@ -597,6 +601,57 @@ var _ = Describe("MigrateSchematic group parents", func() {
 			Configs: map[string]v12.ElementConfig{"g": box("a"), "a": valve},
 		}))
 		Expect(s.Nodes[0].Config.Variant).To(Equal(v13.GroupBoxNodeConfig{}))
+	})
+})
+
+var _ = Describe("MigrateNodeConfig stroke widths", func() {
+	DescribeTable("Should round and clamp a symbol stroke width",
+		func(ctx SpecContext, old v12.NodeConfigVariant, want uint8) {
+			out := MustSucceed(v13.MigrateNodeConfig(ctx, v12.NodeConfig{Variant: old}))
+			Expect(out.Variant).To(HaveField("StrokeWidth", Equal(want)))
+		},
+		Entry("box whole", v12.BoxNodeConfig{StrokeWidth: 4}, uint8(4)),
+		Entry("box fraction", v12.BoxNodeConfig{StrokeWidth: 2.6}, uint8(3)),
+		Entry("box at 0", v12.BoxNodeConfig{}, uint8(0)),
+		Entry("box at NaN", v12.BoxNodeConfig{StrokeWidth: math.NaN()}, uint8(0)),
+		Entry("box too large", v12.BoxNodeConfig{StrokeWidth: 30}, uint8(20)),
+		Entry("circle thin", v12.CircleNodeConfig{StrokeWidth: 0.4}, uint8(1)),
+		Entry("circle at 0", v12.CircleNodeConfig{}, uint8(0)),
+		Entry("line fraction", v12.LineNodeConfig{StrokeWidth: 5.5}, uint8(6)),
+		Entry("line at 0", v12.LineNodeConfig{}, uint8(1)),
+		Entry("line negative", v12.LineNodeConfig{StrokeWidth: -3}, uint8(1)),
+		Entry("line at NaN", v12.LineNodeConfig{StrokeWidth: math.NaN()}, uint8(1)),
+		Entry("polygon too large", v12.PolygonNodeConfig{StrokeWidth: 1e9}, uint8(20)),
+	)
+
+	It("Should keep a stroke width of 0 through storage", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v12.Key, v12.Schematic]{DB: db}))
+		old := withElements(v12.Schematic{
+			Key: uuid.New(),
+			Configs: map[string]v12.ElementConfig{
+				"box": {Variant: v12.BoxElementConfig{}},
+			},
+		})
+		Expect(gorp.NewCreate[v12.Key, v12.Schematic]().Entry(&old).Exec(ctx, db)).
+			To(Succeed())
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v13.Key, v13.Schematic]{
+			DB: db, Migrations: []gorp.Migration{v13.Migration},
+		}))
+		var got v13.Schematic
+		Expect(gorp.NewRetrieve[v13.Key, v13.Schematic]().
+			Where(gorp.MatchKeys[v13.Key, v13.Schematic](old.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(configOf(got, "box")).To(HaveField("StrokeWidth", BeZero()))
+	})
+})
+
+var _ = Describe("MigrateSegmentedEdgeConfig", func() {
+	It("Should give the edge the default stroke width", func(ctx SpecContext) {
+		Expect(MustSucceed(v13.MigrateSegmentedEdgeConfig(
+			ctx,
+			v12.SegmentedEdgeConfig{},
+		)).StrokeWidth).To(BeEquivalentTo(2))
 	})
 })
 

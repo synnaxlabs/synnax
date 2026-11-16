@@ -12,6 +12,7 @@ package v13
 import (
 	"context"
 	"encoding/json/v2"
+	"math"
 	"reflect"
 	"slices"
 
@@ -27,7 +28,8 @@ import (
 // configures, and each member of a group box gets the group box as its parent. A node
 // with no node config draws nothing, so it is dropped, and so is an edge whose source
 // or target is dropped. An edge with no edge config gets the default pipe, which the
-// Console drew for it before v0.55.
+// Console drew for it before v0.55. Stroke widths become whole pixels as in
+// MigrateNodeConfig and MigrateSegmentedEdgeConfig.
 func MigrateSchematic(ctx context.Context, old v12.Schematic) (Schematic, error) {
 	s, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
@@ -69,7 +71,10 @@ func MigrateSchematic(ctx context.Context, old v12.Schematic) (Schematic, error)
 		if !ok {
 			e.Config = EdgeConfig{
 				Variant: PipeEdgeConfig{
-					SegmentedEdgeConfig: SegmentedEdgeConfig{Segments: []Segment{}},
+					SegmentedEdgeConfig: SegmentedEdgeConfig{
+						Segments:    []Segment{},
+						StrokeWidth: defaultStrokeWidth,
+					},
 				},
 			}
 		} else if e.Config, err = MigrateEdgeConfig(ctx, cfg); err != nil {
@@ -201,14 +206,46 @@ func clearThemeColors(v reflect.Value) {
 // Migration lifts stored schematics from v12 to v13.
 var Migration = migrate.NewEntry("v62_color_bytes_configs_on_nodes", MigrateSchematic)
 
-// MigrateNodeConfig lifts a v12 node config to v13. See MigrateSchematic for colors.
+// MigrateNodeConfig lifts a v12 node config to v13. See MigrateSchematic for colors. A
+// stroke width rounds to whole pixels up to 20. A width above 0, and every line width,
+// keeps at least 1 pixel. A NaN width counts as 0.
 func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, error) {
 	cfg, err := autoMigrateNodeConfig(ctx, old)
 	if err != nil {
 		return NodeConfig{}, err
 	}
+	switch o := old.Variant.(type) {
+	case v12.BoxNodeConfig:
+		n := cfg.Variant.(BoxNodeConfig)
+		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
+		cfg.Variant = n
+	case v12.CircleNodeConfig:
+		n := cfg.Variant.(CircleNodeConfig)
+		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
+		cfg.Variant = n
+	case v12.LineNodeConfig:
+		n := cfg.Variant.(LineNodeConfig)
+		n.StrokeWidth = max(migrateStrokeWidth(o.StrokeWidth), 1)
+		cfg.Variant = n
+	case v12.PolygonNodeConfig:
+		n := cfg.Variant.(PolygonNodeConfig)
+		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
+		cfg.Variant = n
+	}
 	clearThemeColors(reflect.ValueOf(&cfg).Elem())
 	return cfg, nil
+}
+
+const (
+	defaultStrokeWidth = 2
+	maxStrokeWidth     = 20
+)
+
+func migrateStrokeWidth(w float64) uint8 {
+	if math.IsNaN(w) || w <= 0 {
+		return 0
+	}
+	return uint8(min(max(math.Round(w), 1), maxStrokeWidth))
 }
 
 // MigrateEdgeConfig lifts a v12 edge config to v13. See MigrateSchematic for colors.
@@ -277,10 +314,16 @@ func MigrateToggleConfig(
 	return autoMigrateToggleConfig(ctx, old)
 }
 
-// MigrateSegmentedEdgeConfig lifts a v12 segmented edge config to v13.
+// MigrateSegmentedEdgeConfig lifts a v12 segmented edge config to v13 with the default
+// stroke width.
 func MigrateSegmentedEdgeConfig(
 	ctx context.Context,
 	old v12.SegmentedEdgeConfig,
 ) (SegmentedEdgeConfig, error) {
-	return autoMigrateSegmentedEdgeConfig(ctx, old)
+	cfg, err := autoMigrateSegmentedEdgeConfig(ctx, old)
+	if err != nil {
+		return SegmentedEdgeConfig{}, err
+	}
+	cfg.StrokeWidth = defaultStrokeWidth
+	return cfg, nil
 }
