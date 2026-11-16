@@ -235,6 +235,9 @@ var _ = Describe("Graph", func() {
 				g = MustSucceed(graph.Parse(g))
 				_, diagnostics := graph.Analyze(ctx, g, root)
 				Expect(diagnostics.Ok()).To(BeFalse())
+				Expect(diagnostics.String()).To(ContainSubstring(
+					"node 'first' parameter 'channel' is not a channel key",
+				))
 			},
 		)
 
