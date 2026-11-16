@@ -28,7 +28,7 @@ namespace driver::bypass::pipeline {
 struct ForwarderConfig {
     /// @brief the most bytes of frames that wait for the Core. A write past it drops
     /// its frame and counts it.
-    size_t max_queue_bytes = 64 * 1024 * 1024;
+    size_t max_queue_bytes = size_t{64} * 1024 * 1024;
     /// @brief backs off from Core errors. An unreachable Core has no retry limit.
     x::breaker::Config breaker{
         .name = "forwarder",

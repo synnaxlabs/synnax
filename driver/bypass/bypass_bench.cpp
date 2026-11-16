@@ -325,12 +325,11 @@ static void BM_EndToEnd(benchmark::State &state) {
     auto mock_writes = std::make_shared<x::sync::List<x::telem::Frame>>();
     auto mock_writer_factory = std::make_shared<
         driver::pipeline::testutil::WriterFactory>(mock_writes);
-    auto [server_writer, open_err] = mock_writer_factory->open_writer(
-        synnax::framer::WriterConfig{.channels = keys}
-    );
-
     driver::bypass::pipeline::Writer writer(
-        std::move(server_writer),
+        std::make_unique<driver::bypass::pipeline::Forwarder>(
+            mock_writer_factory,
+            synnax::framer::WriterConfig{.channels = keys}
+        ),
         bus,
         states,
         synnax::framer::WriterConfig{.channels = keys, .subject = subject}
