@@ -621,15 +621,15 @@ var _ = Describe("Writer", func() {
 					telem.NewSeriesSecondsTSV(13, 12, 11),
 					telem.NewSeriesV[int64](4, 5, 6),
 				}))).To(BeTrue())
-				committed := make(chan error)
+				committed := make(chan struct{})
 				go func() {
 					defer GinkgoRecover()
-					_, _, err := w.Commit()
-					committed <- err
+					defer close(committed)
+					Expect(w.Commit()).Error().To(
+						MatchError(ContainSubstring("index out of order")),
+					)
 				}()
-				Eventually(committed).Should(Receive(
-					MatchError(ContainSubstring("index out of order")),
-				))
+				Eventually(committed).Should(BeClosed())
 				Expect(w.Close()).To(MatchError(ContainSubstring("index out of order")))
 			},
 		)
