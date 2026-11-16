@@ -1777,11 +1777,7 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 			Expect(tx.Close()).To(Succeed())
 
 			keys := MustSucceed(toIdx.Get(ctx, nil, "x"))
-			asStrings := make([]string, len(keys))
-			for i, k := range keys {
-				asStrings[i] = k
-			}
-			Expect(asStrings).To(ConsistOf("a->x", "q->x"))
+			Expect(keys).To(ConsistOf("a->x", "q->x"))
 		})
 
 		// A graph walk that writes an edge and then filters on it in the same tx, such
