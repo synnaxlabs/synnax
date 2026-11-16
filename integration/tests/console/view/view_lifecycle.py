@@ -147,7 +147,7 @@ class ViewLifecycle(ConsoleCase):
                 unlabeled=self.range_n_name,
             )
         )
-        self.console.layout.close_tab("Range explorer")
+        ranges.views.close_tab()
 
         # Statuses have no label-edit path: the Console has no UI for it and the
         # Python client has no label client. Relabel is skipped for them.
@@ -238,16 +238,19 @@ class ViewLifecycle(ConsoleCase):
         self.log(f"Testing: Switch between views in {explorer.name} Explorer")
         views = explorer.views
         views.select(view_a)
+        views.get_tab(view_a).wait_for(state="visible", timeout=5000)
         self._assert_only(
             explorer,
             shown=[explorer.labeled_a],
             hidden=[explorer.labeled_b, explorer.unlabeled],
         )
         views.select(view_b)
+        views.get_tab(view_b).wait_for(state="visible", timeout=5000)
         self._assert_only(
             explorer, shown=[explorer.labeled_b], hidden=[explorer.labeled_a]
         )
         views.select(views.static_view_name)
+        views.get_tab(views.static_view_name).wait_for(state="visible", timeout=5000)
         self._assert_only(
             explorer,
             shown=[explorer.labeled_a, explorer.labeled_b, explorer.unlabeled],

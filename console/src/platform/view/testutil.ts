@@ -7,9 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type panel } from "@synnaxlabs/client";
+import { Panel } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { createElement, type FC, type PropsWithChildren } from "react";
 
 import { getBySelector, getIconButton } from "@/testutil";
+
+/** Nests a test wrapper's children in a panel tab, which a View.Frame renders in. */
+export const inTab = (
+  Wrapper: FC<PropsWithChildren>,
+  tabKey: panel.TabKey = uuid.create(),
+): FC<PropsWithChildren> => {
+  const Tab: FC<PropsWithChildren> = ({ children }) =>
+    createElement(
+      Wrapper,
+      null,
+      createElement(Panel.TabProvider, { tabKey }, children),
+    );
+  return Tab;
+};
 
 /**
  * Waits for the icon button with the given icon name in the mounted View.Toolbar, and

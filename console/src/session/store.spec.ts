@@ -55,6 +55,10 @@ const CLUSTER_KEY = "9a1f7b2c-0d3e-4f56-8a9b-0c1d2e3f4a5b";
 
 const PANEL = { key: "0c9d1a3b-6f8e-4d21-9b77-2f5e8c4a1d60", name: "Overview" };
 
+const TAB = "5d0f3c1e-8a42-4b7d-9e61-3f2a7c9b0d14";
+
+const VIEW = "e3b7a9d2-1c64-4f08-8b5e-7a0d2c4f6e91";
+
 describe("createStore", () => {
   let db: MemoryKV;
 
@@ -398,6 +402,26 @@ describe("createStore", () => {
     const holders = holdersOf("status");
     expect(holders.length).toBeGreaterThan(0);
     expect(holders.every((key) => key.startsWith(`core.${CLUSTER_KEY}`))).toBe(true);
+  });
+
+  // Any window may show a tab of the project's panels, so the view a tab shows is kept
+  // once for the project, not per window.
+  it("stores the view each explorer tab shows under the project", async () => {
+    const store = await createStore();
+    await enterAndEdit(store, DEMO_KEY, CLUSTER_KEY);
+    store.dispatch(Session.View.setOpen({ tab: TAB, view: VIEW }));
+    await waitForPersisted(
+      db,
+      (p) => p.view?.open?.[TAB] === VIEW,
+      "open view not persisted yet",
+    );
+    const holders = holdersOf("view");
+    expect(holders.length).toBeGreaterThan(0);
+    expect(holders.every((key) => key.startsWith(`project.${CLUSTER_KEY}.`))).toBe(
+      true,
+    );
+    const reloaded = await createStore();
+    expect(reloaded.getState()[Session.View.SLICE_NAME].open[TAB]).toBe(VIEW);
   });
 
   it("stores ranges under the Core, not the project", async () => {

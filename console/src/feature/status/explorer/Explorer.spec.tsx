@@ -22,7 +22,7 @@ import { describe, expect, it } from "vitest";
 
 import { Explorer } from "@/feature/status/explorer/Explorer";
 import { Modals } from "@/platform/modals";
-import { findToolbarIconButton } from "@/platform/view/testutil";
+import { findToolbarIconButton, inTab } from "@/platform/view/testutil";
 import {
   awaitTextEditing,
   commitTextEdit,
@@ -46,7 +46,7 @@ describe("status explorer", () => {
         <Explorer />
         <Modals.Stack />
       </>,
-      { wrapper },
+      { wrapper: inTab(wrapper) },
     );
     const search = await screen.findByPlaceholderText("Search statuses...");
     fireEvent.change(search, { target: { value: s.name } });
@@ -64,7 +64,7 @@ describe("status explorer", () => {
       where: { labels: [saved.key], variant: { in: ["error"] } },
     });
     const { wrapper } = await createConsoleWrapper({ client });
-    render(<Explorer />, { wrapper });
+    render(<Explorer />, { wrapper: inTab(wrapper) });
     fireEvent.click(await screen.findByRole("tab", { name: stored.name }));
     expect(await screen.findByText(saved.name)).toBeTruthy();
     expect(screen.getByText("Labels")).toBeTruthy();
@@ -82,7 +82,7 @@ describe("status explorer", () => {
         <Explorer />
         <Modals.Stack />
       </>,
-      { wrapper },
+      { wrapper: inTab(wrapper) },
     );
     const search = await screen.findByPlaceholderText("Search statuses...");
     fireEvent.change(search, { target: { value: s.name } });
@@ -117,7 +117,7 @@ describe("status explorer permissions", () => {
         <Explorer />
         <Modals.Stack />
       </>,
-      { wrapper },
+      { wrapper: inTab(wrapper) },
     );
   };
 

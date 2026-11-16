@@ -18,6 +18,7 @@ import { z } from "zod";
 
 import { Status } from "@/platform/status";
 import { View } from "@/platform/view";
+import { inTab } from "@/platform/view/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
@@ -47,7 +48,7 @@ Fixture.displayName = "Fixture";
 
 const renderFixture = async (where?: status.Where): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });
-  render(<Fixture where={where} />, { wrapper });
+  render(<Fixture where={where} />, { wrapper: inTab(wrapper) });
 };
 
 describe("Status.Filter.VARIANT", () => {

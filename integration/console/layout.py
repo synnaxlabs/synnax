@@ -538,15 +538,16 @@ class LayoutClient:
         finally:
             element.evaluate(f"el => el.style.zIndex = '{original_z_index}'")
 
-    def get_tab(self, name: str) -> Locator:
+    def get_tab(self, name: str | re.Pattern[str]) -> Locator:
         """Get a tab locator by its name.
 
-        :param name: The name/title of the tab to find
+        :param name: The name/title of the tab to find, or a pattern it matches
         :returns: Locator for the tab element
         """
+        pattern = name if isinstance(name, re.Pattern) else f"^{re.escape(name)}$"
         return (
             self.page.locator(self.TAB_SELECTOR)
-            .filter(has_text=re.compile(f"^{re.escape(name)}$"))
+            .filter(has_text=re.compile(pattern))
             .filter(has=self.page.locator("[aria-label='Close']"))
             .first
         )
@@ -689,14 +690,14 @@ class LayoutClient:
         item.get_by_role("button", name="Cancel", exact=True).click()
         item.wait_for(state="hidden", timeout=5000)
 
-    def close_tab(self, name: str) -> None:
+    def close_tab(self, name: str | re.Pattern[str]) -> None:
         """Close a tab using a randomly selected modality.
 
         Randomly chooses between:
         - Click close button (X)
         - Context menu -> Close
 
-        :param name: Name of the tab to close
+        :param name: Name of the tab to close, or a pattern it matches
         """
         self.close_left_toolbar()
         tab = self.get_tab(name)

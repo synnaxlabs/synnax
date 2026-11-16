@@ -424,6 +424,12 @@ bound, a log precision, or the line plot X channel.
   same picker as panels. The fixed view shows the explorer's icon.
 - Create view opens a modal like the project modal: an icon button, then the name. The
   name has no default value.
+- An explorer's panel tab keeps the view it shows through a reload and a move to another
+  window. Each Console keeps its own, so a teammate on the same panel sees the static
+  view.
+- The panel tab name follows the view: the explorer's name ("Range explorer") on the
+  static view, and "Ranges › <view>" on a saved view. A rename of the view changes it.
+  When the view is deleted, the tab goes back to the static view.
 
 ### Filter chips
 

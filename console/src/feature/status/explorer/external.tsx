@@ -10,6 +10,7 @@
 import { Status } from "@synnaxlabs/lyra/status";
 
 import { Panel } from "@/platform/panel";
+import { View } from "@/platform/view";
 
 export const TAB_TYPE = "status_explorer";
 
@@ -19,7 +20,8 @@ const TAB: Panel.Tab = {
     "Explorer",
   ),
   Icon: Status.ExplorerIcon,
-  Name: Panel.createStaticTabName({
+  Name: View.createTabName({
+    resourceType: "status",
     name: "Status explorer",
     icon: <Status.ExplorerIcon />,
   }),

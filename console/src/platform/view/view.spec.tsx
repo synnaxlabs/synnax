@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger, type Synnax as Client, view } from "@synnaxlabs/client";
+import { type panel, ranger, type Synnax as Client, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Access, Flux } from "@synnaxlabs/pluto";
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it } from "vitest";
@@ -23,17 +23,21 @@ import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
 import { uniqueRangeName } from "@/platform/range/testutil";
 import { View } from "@/platform/view";
+import { inTab } from "@/platform/view/testutil";
+import { Session } from "@/session";
 import {
   awaitTextEditing,
   commitTextEdit,
   countEditableText,
   createConsoleWrapper,
   createTestClientWithGrants,
+  createTestStore,
   getBySelector,
   getIconButton,
   type Grants,
   openContextMenu,
   queryIconButton,
+  type TestStore,
   uniqueName,
 } from "@/testutil";
 
@@ -88,15 +92,23 @@ const createView = async () =>
     type: "range",
   });
 
-const renderHarness = async (as: Client = client): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client: as });
-  render(
+interface RenderHarnessOptions {
+  store?: TestStore;
+  tab?: panel.TabKey;
+}
+
+const renderHarness = async (
+  as: Client = client,
+  { store, tab }: RenderHarnessOptions = {},
+): Promise<() => void> => {
+  const { wrapper } = await createConsoleWrapper({ client: as, store });
+  return render(
     <>
       <Harness />
       <Modals.Stack />
     </>,
-    { wrapper },
-  );
+    { wrapper: inTab(wrapper, tab) },
+  ).unmount;
 };
 
 /** Opens the create view modal. @returns its name input. */
@@ -290,6 +302,112 @@ describe("View", () => {
     const trigger = await waitFor(() => getIconButton(document.body, "filter"));
     fireEvent.click(trigger);
     await screen.findByRole("menuitem", { name: "Labels" });
+  });
+});
+
+/** @returns a store in which the tab shows the saved view. */
+const createStoreShowing = async (
+  tab: panel.TabKey,
+  key: view.Key,
+): Promise<TestStore> =>
+  await createTestStore({
+    preloadedState: {
+      [Session.View.SLICE_NAME]: {
+        ...Session.View.ZERO_SLICE_STATE,
+        open: { [tab]: key },
+      },
+    },
+  });
+
+describe("View open in a tab", () => {
+  it("keeps the view a tab shows when the tab mounts again", async () => {
+    const saved = await createView();
+    const tab = uuid.create();
+    const store = await createTestStore();
+    const unmount = await renderHarness(client, { store, tab });
+    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
+    unmount();
+    await renderHarness(client, { store, tab });
+    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
+  });
+
+  it("opens another tab on its static view", async () => {
+    const saved = await createView();
+    const store = await createTestStore();
+    const unmount = await renderHarness(client, { store });
+    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
+    unmount();
+    await renderHarness(client, { store });
+    await waitFor(() => expect(selectedViewName()).toBe("All ranges"));
+  });
+
+  it("shows the static view in a tab whose view was deleted", async () => {
+    const saved = await createView();
+    const tab = uuid.create();
+    await client.views.delete(saved.key);
+    await renderHarness(client, {
+      store: await createStoreShowing(tab, saved.key),
+      tab,
+    });
+    await waitFor(() => expect(selectedViewName()).toBe("All ranges"));
+  });
+
+  it("goes back to the static view when the open view is deleted", async () => {
+    const saved = await createView();
+    const tab = uuid.create();
+    await renderHarness(client, {
+      store: await createStoreShowing(tab, saved.key),
+      tab,
+    });
+    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
+    await act(async () => await client.views.delete(saved.key));
+    await waitFor(() => expect(selectedViewName()).toBe("All ranges"));
+  });
+});
+
+const TabName = View.createTabName({
+  resourceType: "range",
+  name: "Range explorer",
+  icon: <Icon.Range />,
+});
+
+const renderTabName = async (store: TestStore, tab: panel.TabKey): Promise<void> => {
+  const { wrapper } = await createConsoleWrapper({ client, store });
+  render(<TabName />, { wrapper: inTab(wrapper, tab) });
+};
+
+describe("View.createTabName", () => {
+  it("names a tab that shows its static view with the given name", async () => {
+    await renderTabName(await createTestStore(), uuid.create());
+    expect(await screen.findByText("Range explorer")).toBeTruthy();
+  });
+
+  it("names a tab that shows a saved view after the view", async () => {
+    const saved = await createView();
+    const tab = uuid.create();
+    await renderTabName(await createStoreShowing(tab, saved.key), tab);
+    expect(await screen.findByText(`Ranges › ${saved.name}`)).toBeTruthy();
+  });
+
+  it("follows a rename of the view the tab shows", async () => {
+    const saved = await createView();
+    const tab = uuid.create();
+    await renderTabName(await createStoreShowing(tab, saved.key), tab);
+    await screen.findByText(`Ranges › ${saved.name}`);
+    const renamed = uniqueName("renamed");
+    await act(async () => await client.views.rename(saved.key, renamed));
+    expect(await screen.findByText(`Ranges › ${renamed}`)).toBeTruthy();
+  });
+
+  it("goes back to the given name once the view the tab shows is deleted", async () => {
+    const saved = await createView();
+    const tab = uuid.create();
+    await renderTabName(await createStoreShowing(tab, saved.key), tab);
+    await screen.findByText(`Ranges › ${saved.name}`);
+    await act(async () => await client.views.delete(saved.key));
+    expect(await screen.findByText("Range explorer")).toBeTruthy();
   });
 });
 

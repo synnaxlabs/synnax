@@ -41,6 +41,7 @@ import { Schematic } from "@/session/schematic";
 import { Status } from "@/session/status";
 import { Table } from "@/session/table";
 import { Theme } from "@/session/theme";
+import { View } from "@/session/view";
 import { Window } from "@/session/window";
 
 const PERSIST_EXCLUDE: Array<Persist.ExcludeFn<State>> = [
@@ -72,7 +73,11 @@ export const PERSIST_SCOPES: Persist.Scopes<State> = {
     [Range.SLICE_NAME]: Range.sliceStateZ,
     [Status.SLICE_NAME]: Status.sliceStateZ,
   },
-  project: { [Drift.SLICE_NAME]: Drift.sliceStateZ },
+  // Tabs belong to the project's panels, so the view each one shows does too.
+  project: {
+    [Drift.SLICE_NAME]: Drift.sliceStateZ,
+    [View.SLICE_NAME]: View.sliceStateZ,
+  },
   // A window is a viewport, so its view of every document is stored under the window
   // rather than mixed into the project's.
   window: {
@@ -128,6 +133,7 @@ export const ZERO_STATE: State = {
   [Status.SLICE_NAME]: Status.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
   [Theme.SLICE_NAME]: Theme.ZERO_SLICE_STATE,
+  [View.SLICE_NAME]: View.ZERO_SLICE_STATE,
 };
 
 const combinedReducer = combineReducers({
@@ -150,6 +156,7 @@ const combinedReducer = combineReducers({
   [Status.SLICE_NAME]: Status.reducer,
   [Table.SLICE_NAME]: Table.reducer,
   [Theme.SLICE_NAME]: Theme.reducer,
+  [View.SLICE_NAME]: View.reducer,
 }) as unknown as Reducer<State, Action>;
 
 // hydrate replaces the swapped slices wholesale on a session context switch. Drift
@@ -185,6 +192,7 @@ export interface State {
   [Status.SLICE_NAME]: Status.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
   [Theme.SLICE_NAME]: Theme.SliceState;
+  [View.SLICE_NAME]: View.SliceState;
 }
 
 export type Action =
@@ -206,6 +214,7 @@ export type Action =
   | Status.Action
   | Table.Action
   | Theme.Action
+  | View.Action
   | Persist.Action;
 
 export type Store = BaseStore<State, Action>;

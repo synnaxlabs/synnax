@@ -27,7 +27,7 @@ import { searchAndClickLabelOption } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { uniqueRangeName } from "@/platform/range/testutil";
-import { openFilterProperty } from "@/platform/view/testutil";
+import { inTab, openFilterProperty } from "@/platform/view/testutil";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import {
@@ -61,7 +61,7 @@ const renderExplorer = async (
       <Explorer />
       <Modals.Stack />
     </>,
-    { wrapper },
+    { wrapper: inTab(wrapper) },
   );
   await screen.findByText("All ranges");
   return store;

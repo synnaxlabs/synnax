@@ -19,7 +19,7 @@ import { z } from "zod";
 import { Label } from "@/platform/label";
 import { Status } from "@/platform/status";
 import { View } from "@/platform/view";
-import { openFilterProperty } from "@/platform/view/testutil";
+import { inTab, openFilterProperty } from "@/platform/view/testutil";
 import {
   createConsoleWrapper,
   createTestClientWithGrants,
@@ -59,7 +59,7 @@ const renderFixture = async (
   as: Client = client,
 ): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client: as });
-  await renderSuspended(<Fixture where={where} />, { wrapper });
+  await renderSuspended(<Fixture where={where} />, { wrapper: inTab(wrapper) });
 };
 
 const expectWhere = async (where: status.Where | undefined): Promise<void> => {

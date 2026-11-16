@@ -18,7 +18,7 @@ import { z } from "zod";
 
 import { Label } from "@/platform/label";
 import { View } from "@/platform/view";
-import { openFilterProperty } from "@/platform/view/testutil";
+import { inTab, openFilterProperty } from "@/platform/view/testutil";
 import { createConsoleWrapper, renderSuspended, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -62,7 +62,7 @@ const renderFixture = async (
 ): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });
   await renderSuspended(<Fixture where={where} properties={properties} />, {
-    wrapper,
+    wrapper: inTab(wrapper),
   });
 };
 

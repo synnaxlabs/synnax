@@ -9,7 +9,7 @@
 
 import "@/platform/view/View.css";
 
-import { UnexpectedError, view } from "@synnaxlabs/client";
+import { NotFoundError, UnexpectedError, view } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -19,8 +19,8 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Flux, View as PView } from "@synnaxlabs/pluto";
-import { caseconv, uuid } from "@synnaxlabs/x";
+import { Access, Flux, Panel, View as PView } from "@synnaxlabs/pluto";
+import { caseconv } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
 
@@ -38,6 +38,7 @@ import {
 import { IconPicker, openIconPicker } from "@/platform/view/IconPicker";
 import { Search } from "@/platform/view/Search";
 import { useCreateModal } from "@/platform/view/useCreateModal";
+import { Session } from "@/session";
 
 export interface FrameProps extends PropsWithChildren {
   resourceType: view.Type;
@@ -51,12 +52,29 @@ const ZERO_VARIANTS: {
   status: { type: "status" },
 };
 
+/** Fixed, so every tab and every mount names the static view of a type the same way. */
+const STATIC_KEYS: Record<view.Type, view.Key> = {
+  range: "b611d7d3-c5e9-4014-b7fb-5045af6785f9",
+  status: "020fd972-f51f-40c9-9daf-4cd3f7de4d51",
+};
+
+const isGone = (error: unknown): boolean =>
+  NotFoundError.matches(error) || Flux.DeletedError.matches(error);
+
+/**
+ * Frame shows the views of a resource type above the open one. The view a tab shows is
+ * kept in the session, so it lasts through a reload and a move to another window. Must
+ * render inside a panel tab.
+ */
 export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElement => {
+  const tab = Panel.useTabKey();
+  const dispatch = Session.useDispatch();
+  const open = Session.View.useSelectOpen(tab);
+  const saved = PView.useResult(open == null ? null : { key: open });
   const [searchTerm, setSearchTerm] = useState("");
-  const [staticViewKey] = useState(() => uuid.create());
   const staticViews: StaticView[] = [
     {
-      key: staticViewKey,
+      key: STATIC_KEYS[resourceType],
       name: `All ${plural(resourceType)}`,
       ...ZERO_VARIANTS[resourceType],
       static: true,
@@ -74,24 +92,24 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
   const { getItem } = combinedProps;
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const staticViewKeys = staticViews.map((v) => v.key);
-  const [selected, setSelected] = useState(staticViews[0].key);
+  const gone = saved.variant === "error" && isGone(saved.status.details.error);
+  if (saved.variant === "error" && !gone) throw saved.status.details.error;
+  // A tab whose view was deleted shows the static view.
+  const selected = open == null || gone ? staticViews[0].key : open;
+  const ready = selected !== open || saved.variant === "success";
   const select = (key: view.Key) => {
-    setSelected(key);
+    const next = staticViewKeys.includes(key) ? null : key;
+    dispatch(Session.View.setOpen({ tab, view: next }));
     setSearchTerm("");
   };
   const updateGranted = Access.useUpdateGranted(view.resourceID(selected));
   // A static view saves nothing, so everyone may change it.
   const editable = staticViewKeys.includes(selected) || updateGranted;
   const getInitialView = () => {
-    const view = getItem(selected);
+    const view = selected === open ? saved.data : getItem(selected);
     if (view == null) throw new UnexpectedError("No view found");
     return view;
   };
-  const deleteSynchronizer = (key: view.Key) => {
-    if (key !== selected) return;
-    select(staticViews[0].key);
-  };
-  PView.useDeleteSynchronizer(deleteSynchronizer);
   const contextValue: ContextValue = {
     resourceType,
     selected,
@@ -114,7 +132,7 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
           listProps={combinedProps}
           selected={selected}
         />
-        <Fragment key={selected}>{children}</Fragment>
+        {ready && <Fragment key={selected}>{children}</Fragment>}
       </Context>
     </Flex.Box>
   );
