@@ -37,7 +37,8 @@ pub struct Paths {
     log_dir: PathBuf,
 }
 
-/// The discovery file, managed as app state. Each window of the app writes it.
+/// The discovery file and API key, managed as app state. Each window of the app writes
+/// them.
 pub struct Discovery {
     path: PathBuf,
     /// Makes the compare and the write of each save one step.
@@ -248,22 +249,23 @@ pub async fn supervisor_reset<R: Runtime>(
         eprintln!("failed to record the reset: {err}");
     }
     supervisor.reset().await.map_err(|err| err.to_string())?;
-    // The erased Core took the key of the discovery file with it.
+    // The erased Core took the saved API key with it.
     let path = discovery.path.clone();
-    blocking(move || discovery::remove(&path)).await?;
+    blocking(move || discovery::remove(&path, &discovery::key_entry()?)).await?;
     app.restart()
 }
 
-/// Returns the API key in the discovery file, or `None` when there is no file.
+/// Returns the saved API key, or `None` when there is none.
 #[tauri::command]
 pub async fn supervisor_api_key(discovery: State<'_, Discovery>) -> Result<Option<String>, String> {
     let path = discovery.path.clone();
-    let file = blocking(move || discovery::read(&path)).await?;
-    Ok(file.map(|file| file.api_key))
+    let _guard = discovery.lock.lock().await;
+    blocking(move || discovery::read_key(&path, &discovery::key_entry()?)).await
 }
 
-/// Writes the discovery file with the address of the running Core and `api_key`, but
-/// only while the file holds `replaces`, the key the caller read. `None` means no file.
+/// Saves `api_key` in the keychain and the address of the running Core in the discovery
+/// file, but only while the saved key is `replaces`, the key the caller read. `None`
+/// means no saved key.
 ///
 /// Returns false, with no write, when another window changed the key first.
 #[tauri::command]
@@ -280,11 +282,19 @@ pub async fn supervisor_save_api_key(
         host: connection.host,
         port: connection.port,
         secure: false,
-        api_key,
     };
     let path = discovery.path.clone();
     let _guard = discovery.lock.lock().await;
-    blocking(move || discovery::swap(&path, &file, replaces.as_deref())).await
+    blocking(move || {
+        discovery::swap(
+            &path,
+            &discovery::key_entry()?,
+            &file,
+            &api_key,
+            replaces.as_deref(),
+        )
+    })
+    .await
 }
 
 /// Stores the size of the data a reset is about to erase, for the next launch to report.
