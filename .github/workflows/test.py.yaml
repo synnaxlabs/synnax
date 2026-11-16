@@ -13,7 +13,9 @@ on:
   workflow_call:
     inputs: &inputs
       core_image:
-        description: Core image to test against, or empty for none
+        description:
+          Core image to test against on Ubuntu, or empty for none. macOS and Windows
+          build the Core from source when it is set.
         required: false
         type: string
         default: ""
@@ -126,6 +128,59 @@ jobs:
           token: ${{ github.token }}
           variables: SYNNAX_VERBOSE SYNNAX_INSECURE SYNNAX_MEM SYNNAX_LICENSE_KEY
 
+      # Only the Linux runners run containers, so macOS and Windows build the Core and
+      # start it on the host.
+      - name: Set up Go
+        if: runner.os != 'Linux' && inputs.core_image != ''
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
+
+      - name: Build Core
+        if: runner.os != 'Linux' && inputs.core_image != ''
+        working-directory: core
+        shell: bash
+        env:
+          EXTENSION: ${{ runner.os == 'Windows' && '.exe' || '' }}
+        run: go build -o "$RUNNER_TEMP/synnax$EXTENSION" .
+
+      # A Windows step ends only when every process holding its output ends, so the
+      # Core starts detached with its output in a file.
+      - name: Start Core
+        if: runner.os == 'macOS' && inputs.core_image != ''
+        working-directory: ${{ runner.temp }}
+        env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+        run: nohup ./synnax start --mem --insecure --verbose > synnax.log 2>&1 &
+
+      - name: Start Core
+        if: runner.os == 'Windows' && inputs.core_image != ''
+        working-directory: ${{ runner.temp }}
+        shell: pwsh
+        env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+        run: |
+          $arguments = '/c ""synnax.exe" start --mem --insecure --verbose > synnax.log 2>&1"'
+          Start-Process -FilePath cmd.exe -ArgumentList $arguments -WindowStyle Hidden `
+            -WorkingDirectory $env:RUNNER_TEMP
+
+      - name: Wait for the Core
+        if: runner.os != 'Linux' && inputs.core_image != ''
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          for _ in $(seq 1 60); do
+            if curl -fsS -o /dev/null -X POST -H "Content-Type: application/json" \
+              -d '{}' http://localhost:9090/api/v1/connectivity/check; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::The Core did not start in 60 seconds."
+          cat synnax.log
+          exit 1
+
       - name: Start the Freighter server
         if: runner.os == 'Linux' && inputs.freighter_image != ''
         uses: ./.github/actions/start-service
@@ -211,6 +266,12 @@ jobs:
           fail_ci_if_error: true
           flags: ${{ inputs.coverage_flag }}
           directory: ${{ inputs.directory }}
+
+      - name: Show the Core log
+        if: failure() && runner.os != 'Linux' && inputs.core_image != ''
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: cat synnax.log || true
 
       - name: Stop the services
         if: always() && runner.os == 'Linux'
