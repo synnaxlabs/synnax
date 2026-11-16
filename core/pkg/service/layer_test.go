@@ -336,7 +336,7 @@ var _ = Describe("Layer", func() {
 			data := MustSucceed(layer.PagerDuty.Alert.Read(ctx, db, live))
 			Expect(data).To(HaveKeyWithValue("routing_key", key.String()))
 			for _, k := range []uuid.UUID{live, snapshot} {
-				Expect(db.Get(ctx, pagerdutyv2.PlainRoutingKeyKVKey(k))).Error().
+				Expect(db.Get(pagerdutyv2.PlainRoutingKeyKVKey(k))).Error().
 					To(MatchError(query.ErrNotFound))
 			}
 		},

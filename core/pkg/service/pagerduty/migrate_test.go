@@ -80,10 +80,10 @@ var _ = Describe("SecretMigration", func() {
 		GinkgoHelper()
 		kvKey := v2.PlainRoutingKeyKVKey(key)
 		if !staged {
-			Expect(db.Get(ctx, kvKey)).Error().To(MatchError(query.ErrNotFound))
+			Expect(db.Get(kvKey)).Error().To(MatchError(query.ErrNotFound))
 			return
 		}
-		b, closer := MustSucceed2(db.Get(ctx, kvKey))
+		b, closer := MustSucceed2(db.Get(kvKey))
 		Expect(string(b)).To(Equal(plainKey))
 		Expect(closer.Close()).To(Succeed())
 	}

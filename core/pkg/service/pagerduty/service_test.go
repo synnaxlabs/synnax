@@ -127,7 +127,7 @@ var _ = Describe("Service", func() {
 			data := MustSucceed(svc.Alert.Read(ctx, db, old.Key))
 			Expect(data).ToNot(HaveKey("routing_key"))
 			staged, closer := MustSucceed2(
-				db.Get(ctx, v2.PlainRoutingKeyKVKey(old.Key)),
+				db.Get(v2.PlainRoutingKeyKVKey(old.Key)),
 			)
 			Expect(string(staged)).To(Equal(plainKey))
 			Expect(closer.Close()).To(Succeed())
@@ -174,7 +174,7 @@ var _ = Describe("Service", func() {
 			}))
 			data := MustSucceed(svc.Alert.Read(ctx, db, cfg.Key))
 			Expect(routingKeyOf(data)).To(Equal(s.Base().Key))
-			Expect(db.Get(ctx, v2.PlainRoutingKeyKVKey(cfg.Key))).Error().
+			Expect(db.Get(v2.PlainRoutingKeyKVKey(cfg.Key))).Error().
 				To(MatchError(query.ErrNotFound))
 		})
 	})

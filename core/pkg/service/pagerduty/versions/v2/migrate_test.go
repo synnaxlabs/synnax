@@ -153,11 +153,11 @@ var _ = Describe("Migrate", func() {
 				Expect(cfg.PlainRoutingKey).To(BeNil())
 			}
 			staged, closer := MustSucceed2(
-				db.Get(ctx, v2.PlainRoutingKeyKVKey(withKey.Key)),
+				db.Get(v2.PlainRoutingKeyKVKey(withKey.Key)),
 			)
 			Expect(string(staged)).To(Equal(withKey.RoutingKey))
 			Expect(closer.Close()).To(Succeed())
-			Expect(db.Get(ctx, v2.PlainRoutingKeyKVKey(withoutKey.Key))).Error().
+			Expect(db.Get(v2.PlainRoutingKeyKVKey(withoutKey.Key))).Error().
 				To(MatchError(query.ErrNotFound))
 		})
 	})
