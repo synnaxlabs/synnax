@@ -281,6 +281,35 @@ npm install @synnaxlabs/client@0.61
 
 <Divider.Divider x />
 
+## Core version not supported
+
+```
+Client 0.61.0 cannot work with Core 0.60.0.
+```
+
+<Problem.Body>
+<Problem.Cause>
+
+The TypeScript client cannot read the replies of the Core, and the major or minor
+version of the Core is not the same as the client. The client stops the connection, and
+`connect` rejects. It connects again when the Core changes.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Install the client version that matches the Core:
+
+```bash
+npm install @synnaxlabs/client@0.60
+```
+
+You can also [upgrade the Core](/reference/enterprise/upgrade).
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
 ## Synnax Desktop runs Core version
 
 ```
