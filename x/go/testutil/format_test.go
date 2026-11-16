@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
 	"github.com/synnaxlabs/x/errors"
-	_ "github.com/synnaxlabs/x/testutil" // registers the custom formatter
 )
 
 type plainError struct{}

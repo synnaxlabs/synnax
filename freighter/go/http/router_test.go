@@ -11,6 +11,7 @@ package http_test
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -314,7 +315,7 @@ var _ = Describe("Router", func() {
 				).To(Succeed())
 				Expect(MustSucceed(stream.Receive())).
 					To(Equal(testutil.Response{ID: 7, Message: "hello"}))
-				Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+				Expect(stream.Receive()).Error().To(MatchError(io.EOF))
 			},
 		)
 

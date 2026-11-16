@@ -10,15 +10,16 @@
 """Starts the agent and review seats, driven by controller.py's poll cycle. A seat is
 one EC2 instance whose runners share an agent login. The runners belong to the
 organization, so the repository's runner list holds none of them, and a seat is found
-by its instance tags. A seat stops itself once idle, and when its login reaches a usage
-limit.
+by its instance tags. A seat stops itself once idle, when its login reaches a usage
+limit, and when Claude rejects the token of its login.
 
 The controller picks the login of each seat it starts (see logins.py): it tags the
 instance `login` and adds the seat to the holders of the login, which lets the seat
 read the token. Once the seat stops, the controller removes it from the holders and
 deletes its `login` tag, so a seat started outside the controller holds no login. A seat
 at a usage limit tags its own instance `limited-until`, and the controller moves the
-limit to the login."""
+limit to the login. A seat whose token Claude rejected tags its own instance
+`login-broken`, and the controller marks the login broken."""
 
 import synnax as sy
 
@@ -120,7 +121,7 @@ class Seats:
                 iid in starting
                 or (
                     found[iid]["state"] in ("pending", "running")
-                    and not self.limited(found[iid], logins=logins, now=seconds)
+                    and self.served(found[iid], logins=logins, now=seconds)
                 )
                 for iid in matching
             ):
@@ -166,38 +167,53 @@ class Seats:
         recent: set[str],
         now: int,
     ) -> None:
-        """Moves the usage limit each seat recorded to its login, and sets the holders
-        of each login to the seats that are up with its `login` tag, up to MAX_HOLDERS
-        with the current holders first. A seat started recently, given by recent, or
-        whose limit move failed keeps its holder entries and `login` tag. Deletes the
-        `login` tag of each other stopped seat and of each seat left out by the cap."""
+        """Moves the usage limit and the broken token each seat recorded to its login,
+        and sets the holders of each login to the seats that are up with its `login`
+        tag, up to MAX_HOLDERS with the current holders first. A seat started
+        recently, given by recent, or whose move failed keeps its holder entries and
+        `login` tag. Deletes the `login` tag of each other stopped seat and of each
+        seat left out by the cap."""
         kept = set(recent)
         for iid in seats:
             info = found[iid]
-            until = info["tags"].get("limited-until")
-            if until is None or info["tags"]["agent"] not in SHARED:
+            if info["tags"]["agent"] not in SHARED:
                 continue
             login = logins.get(info["tags"].get("login", ""))
-            # Agents can write the seat's tag, so a value that is not a whole number
-            # in the next reset window counts as no limit.
-            if (
-                login is not None
-                and until.isdecimal()
-                and login.limited_until < int(until) <= now + MAX_RESET
-            ):
-                try:
-                    self.logins.limit(login, until=int(until))
-                except Exception as e:
-                    self.log.error(f"login {login.name} limit", e)
-                    kept.add(iid)
-                    continue
-            # A tag left on the seat would undo a new token's clear of the login.
-            try:
-                self.aws.ec2[info["region"]].delete_tags(
-                    Resources=[iid], Tags=[{"Key": "limited-until"}]
-                )
-            except Exception as e:
-                self.log.error(f"{self.name(iid, found=found)} limit clear", e)
+            until = info["tags"].get("limited-until")
+            if until is not None:
+                # Agents can write the seat's tag, so a value that is not a whole
+                # number in the next reset window counts as no limit.
+                if (
+                    login is not None
+                    and until.isdecimal()
+                    and login.limited_until < int(until) <= now + MAX_RESET
+                ):
+                    try:
+                        self.logins.limit(login, until=int(until))
+                    except Exception as e:
+                        self.log.error(f"login {login.name} limit", e)
+                        kept.add(iid)
+                        continue
+                self.clear(iid, key="limited-until", found=found)
+            at = info["tags"].get("login-broken")
+            if at is not None:
+                # A job that started before seat.sh stored the token ran on the old
+                # one. Agents can write the seat's tag, so a value that is not a whole
+                # number up to now counts as no rejection.
+                if (
+                    login is not None
+                    and not login.broken
+                    and at.isdecimal()
+                    and login.stored < int(at) <= now
+                ):
+                    try:
+                        self.logins.reject(login, at=int(at))
+                    except Exception as e:
+                        self.log.error(f"login {login.name} reject", e)
+                        kept.add(iid)
+                        continue
+                    self.log(f"login {login.name}: token rejected, marked broken")
+                self.clear(iid, key="login-broken", found=found)
         for login in logins.values():
             tagged = [
                 self.logins.holder(iid)
@@ -230,6 +246,16 @@ class Seats:
                 except Exception as e:
                     self.log.error(f"{self.name(iid, found=found)} login clear", e)
 
+    def clear(self, iid: str, *, key: str, found: dict) -> None:
+        """Deletes the tag key of the seat iid. A tag left on the seat would undo a new
+        token's clear of the login."""
+        try:
+            self.aws.ec2[found[iid]["region"]].delete_tags(
+                Resources=[iid], Tags=[{"Key": key}]
+            )
+        except Exception as e:
+            self.log.error(f"{self.name(iid, found=found)} {key} clear", e)
+
     def start(self, iid: str, *, login: Login | None, info: dict) -> None:
         """Hands the login, if any, to the stopped seat iid, then starts it."""
         ec2 = self.aws.ec2[info["region"]]
@@ -240,11 +266,11 @@ class Seats:
             self.logins.hold(login, holders=[*login.holders, self.logins.holder(iid)])
         ec2.start_instances(InstanceIds=[iid])
 
-    def limited(self, info: dict, *, logins: dict[str, Login], now: int) -> bool:
-        """Whether the login of a seat is at a usage limit that has not reset by
-        now."""
+    def served(self, info: dict, *, logins: dict[str, Login], now: int) -> bool:
+        """Whether the login of a seat, if any, is neither broken nor at a usage limit
+        that has not reset by now."""
         login = logins.get(info["tags"].get("login", ""))
-        return login is not None and login.limited_until > now
+        return login is None or not (login.broken or login.limited_until > now)
 
     def name(self, iid: str, *, found: dict[str, dict]) -> str:
         return f"seat {found[iid]['tags']['seat']}"

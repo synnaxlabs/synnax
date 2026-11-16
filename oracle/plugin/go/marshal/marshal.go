@@ -131,7 +131,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if goPath == "" {
 			continue
 		}
-		form := dt.Form.(resolution.DistinctForm)
+		form := resolution.MustForm[resolution.DistinctForm](dt)
 		goName := naming.GetGoName(dt)
 		flexByPkg[goPath] = append(flexByPkg[goPath], flexCodec{
 			GoName:   goName,
@@ -296,8 +296,8 @@ func sortedImports(m map[string]string) []importEntry {
 	return entries
 }
 
-func resolveGoImportPath(outputPath, repoRoot string) (string, error) {
-	return gomod.ResolveImportPath(outputPath, repoRoot, gomod.DefaultModulePrefix), nil
+func resolveGoImportPath(outputPath, repoRoot string) string {
+	return gomod.ResolveImportPath(outputPath, repoRoot, gomod.DefaultModulePrefix)
 }
 
 // isVersionedPath reports whether goPath is a versions/vN package (its parent directory

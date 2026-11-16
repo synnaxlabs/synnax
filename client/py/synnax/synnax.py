@@ -19,6 +19,7 @@ from synnax import (
     auth,
     certificate,
     channel,
+    color,
     connection,
     control as control_,
     device,
@@ -96,6 +97,7 @@ class Synnax(framer.Client):
     arcs: arc.Client
     groups: group.Client
     labels: label.Client
+    colors: color.Client
     views: view.Client
     secrets: secret.Client
     certificates: certificate.Client
@@ -236,6 +238,7 @@ class Synnax(framer.Client):
         )
         self.groups = group.Client(self._transport.unary)
         self.labels = label.Client(self._transport.unary)
+        self.colors = color.Client(self._transport.unary)
         self.resources = resource.Client(self._transport.unary)
         self.channels = channel.Client(
             client=self._transport.unary,

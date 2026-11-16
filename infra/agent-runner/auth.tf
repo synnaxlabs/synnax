@@ -97,3 +97,24 @@ resource "aws_iam_role_policy" "auth" {
     ]
   })
 }
+
+# Lets Check - Runners read the tags of the shared Claude logins, never their tokens.
+resource "aws_iam_role_policy" "auth_logins" {
+  name = "check-login-tags"
+  role = aws_iam_role.auth.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "secretsmanager:ListSecrets"
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = "secretsmanager:DescribeSecret"
+        Resource = local.logins
+      },
+    ]
+  })
+}

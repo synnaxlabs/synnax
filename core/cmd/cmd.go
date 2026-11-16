@@ -26,34 +26,36 @@ import (
 	"go.uber.org/zap"
 )
 
-var Cmd = &cobra.Command{
-	Use:   "synnax",
-	Short: "The telemetry engine for operating large scale hardware systems with ease",
-	Long:  "Synnax is a telemetry engine that acquires and stores data from hardware systems, sends commands to them, and processes their telemetry. It runs on edge devices for data acquisition, including on networks with intermittent connectivity, or in the cloud for high-performance analysis.",
-	RunE: func(cmd *cobra.Command, _ []string) error {
-		cmd.SilenceUsage = true
-		if viper.GetBool(flagVersion) {
-			return version.FPrint(cmd.OutOrStdout())
-		}
-		return cmd.Help()
-	},
-}
-
-func init() {
-	addFlags(Cmd)
-	Cmd.AddCommand(
-		version.Cmd,
-		cert.Cmd,
-		start.Cmd,
+// NewCmd returns the root synnax command with all of its subcommands. It binds the
+// root flags to viper.
+func NewCmd() *cobra.Command {
+	root := &cobra.Command{
+		Use:              "synnax",
+		Short:            "The telemetry engine for operating large scale hardware systems with ease",
+		Long:             "Synnax is a telemetry engine that acquires and stores data from hardware systems, sends commands to them, and processes their telemetry. It runs on edge devices for data acquisition, including on networks with intermittent connectivity, or in the cloud for high-performance analysis.",
+		PersistentPreRun: func(*cobra.Command, []string) { initConfig() },
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cmd.SilenceUsage = true
+			if viper.GetBool(flagVersion) {
+				return version.FPrint(cmd.OutOrStdout())
+			}
+			return cmd.Help()
+		},
+	}
+	addFlags(root)
+	root.AddCommand(
+		version.NewCmd(),
+		cert.NewCmd(),
+		start.NewCmd(),
 		update.NewCmd(release.DefaultConfig),
 	)
-	Cmd.AddCommand(serviceCmds()...)
-	Cmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
+	root.AddCommand(serviceCmds()...)
+	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return errors.Mark(err, validate.ErrValidation)
 	})
-	lo.Must0(viper.BindPFlags(Cmd.PersistentFlags()))
-	lo.Must0(viper.BindPFlags(Cmd.Flags()))
-	cobra.OnInitialize(initConfig)
+	lo.Must0(viper.BindPFlags(root.PersistentFlags()))
+	lo.Must0(viper.BindPFlags(root.Flags()))
+	return root
 }
 
 func initConfig() {

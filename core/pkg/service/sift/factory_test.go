@@ -55,9 +55,9 @@ var _ = Describe("Factory", func() {
 	Describe("OpenFactory", func() {
 		DescribeTable(
 			"Should require each service",
-			func(field string, clear func(*sift.FactoryConfig)) {
+			func(field string, unset func(*sift.FactoryConfig)) {
 				cfg := factoryConfig()
-				clear(&cfg)
+				unset(&cfg)
 				Expect(sift.OpenFactory(cfg)).Error().To(And(
 					MatchError(validate.ErrValidation),
 					MatchError(field+": must be non-nil"),

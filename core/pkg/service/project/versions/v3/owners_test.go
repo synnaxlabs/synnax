@@ -20,7 +20,9 @@ import (
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
+	rangerv2 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	colorv0 "github.com/synnaxlabs/x/color/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
@@ -68,6 +70,9 @@ var _ = Describe("OwnersMigration", func() {
 		rng      = uuid.New()
 		projID   = resource.ID{Type: resource.TypeProject, Key: proj.String()}
 		rngID    = resource.ID{Type: resource.TypeRange, Key: rng.String()}
+		current  = uuid.New()
+		curID    = resource.ID{Type: resource.TypeRange, Key: current.String()}
+		inCur    = uuid.New()
 		missing  = resource.ID{Type: resource.TypeProject, Key: uuid.New().String()}
 		gone     = resource.ID{Type: resource.TypeRange, Key: uuid.New().String()}
 		owned    = uuid.New()
@@ -85,6 +90,7 @@ var _ = Describe("OwnersMigration", func() {
 		entries := []vis{
 			{Key: owned},
 			{Key: snapshot},
+			{Key: inCur},
 			{Key: both},
 			{Key: dangling, Name: "Dangling"},
 			{Key: fallback},
@@ -96,6 +102,7 @@ var _ = Describe("OwnersMigration", func() {
 		rels := []ontology.Relationship{
 			parentOf(projID, visID(owned)),
 			parentOf(rngID, visID(snapshot)),
+			parentOf(curID, visID(inCur)),
 			parentOf(rngID, visID(both)),
 			parentOf(projID, visID(both)),
 			parentOf(missing, visID(dangling)),
@@ -115,8 +122,19 @@ var _ = Describe("OwnersMigration", func() {
 		Expect(gorp.NewCreate[v3.Key, v3.Project]().
 			Entry(&v3.Project{Key: proj, Name: "Project"}).
 			Exec(ctx, db)).To(Succeed())
+		Expect(gorp.NewCreate[rangerv2.Key, rangerv2.Range]().
+			Entry(&rangerv2.Range{
+				Key:   rng,
+				Name:  "Range",
+				Color: &colorv0.Color{R: 1, A: 0.5},
+			}).
+			Exec(ctx, db)).To(Succeed())
 		Expect(gorp.NewCreate[ranger.Key, ranger.Range]().
-			Entry(&ranger.Range{Key: rng, Name: "Range", Color: &color.Color{R: 1, A: 128}}).
+			Entry(&ranger.Range{
+				Key:   current,
+				Name:  "Current Range",
+				Color: &color.Color{R: 1, A: 128},
+			}).
 			Exec(ctx, db)).To(Succeed())
 		var core zapcore.Core
 		core, logs = observer.New(zapcore.WarnLevel)
@@ -163,7 +181,10 @@ var _ = Describe("OwnersMigration", func() {
 		}))
 	},
 		Entry("a visualization under a project", &owned, &proj, nil),
-		Entry("a visualization under a range", &snapshot, nil, &rng),
+		Entry("a visualization under a range stored in the v2 shape", &snapshot, nil,
+			&rng),
+		Entry("a visualization under a range stored in the current shape", &inCur,
+			nil, &current),
 		Entry("a visualization under both a project and a range", &both, &proj, nil),
 		Entry("a visualization under a missing project and a range", &fallback, nil,
 			&rng),

@@ -287,14 +287,14 @@ type changeLog struct {
 	channel string
 }
 
-func (l changeLog) warn(field string, old, new zap.Field) {
+func (l changeLog) warn(field string, old, next zap.Field) {
 	l.ins.L.Warn(
 		"narrowed an NI channel field",
 		zap.Stringer("config", l.config),
 		zap.String("channel", l.channel),
 		zap.String("field", field),
 		old,
-		new,
+		next,
 	)
 }
 
@@ -303,16 +303,16 @@ type number interface {
 }
 
 // logNumber logs field when its old and new values differ.
-func logNumber[O, N number](l changeLog, field string, old O, new N) {
-	if float64(old) != float64(new) {
-		l.warn(field, zap.Any("old", old), zap.Any("new", new))
+func logNumber[O, N number](l changeLog, field string, old O, next N) {
+	if float64(old) != float64(next) {
+		l.warn(field, zap.Any("old", old), zap.Any("new", next))
 	}
 }
 
 // logFlag logs field when its old and new values differ.
-func logFlag(l changeLog, field string, old, new bool) {
-	if old != new {
-		l.warn(field, zap.Bool("old", old), zap.Bool("new", new))
+func logFlag(l changeLog, field string, old, next bool) {
+	if old != next {
+		l.warn(field, zap.Bool("old", old), zap.Bool("new", next))
 	}
 }
 
