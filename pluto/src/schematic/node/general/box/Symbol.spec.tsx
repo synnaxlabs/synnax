@@ -56,6 +56,11 @@ describe("Box.Symbol", () => {
     expect(frame(container)?.getAttribute("height")).toBe("100%");
   });
 
+  it("should round the frame by 3 px when the border radius is absent", () => {
+    const { container } = renderSymbol();
+    expect(frame(container)?.getAttribute("rx")).toBe("3");
+  });
+
   it("should round the frame so the band follows the corners", () => {
     const { container } = renderSymbol({ config: { ...CONFIG, borderRadius: 12 } });
     expect(frame(container)?.getAttribute("rx")).toBe("12");

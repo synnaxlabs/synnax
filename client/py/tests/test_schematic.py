@@ -202,6 +202,67 @@ class TestSymbol:
         assert symbol.resource_id(key).key == str(key)
 
 
+class TestDefaults:
+    def test_channel(self) -> None:
+        """Should read an omitted channel as 0."""
+        config = NODE.validate_python({"variant": "value"})
+        assert isinstance(config, schematic.ValueNodeConfig)
+        assert config.channel == 0
+
+    def test_precision(self) -> None:
+        """Should leave an omitted precision absent."""
+        config = NODE.validate_python({"variant": "value"})
+        assert isinstance(config, schematic.ValueNodeConfig)
+        assert config.precision is None
+
+    def test_control_authority(self) -> None:
+        """Should leave the authority of an omitted control state absent."""
+        config = NODE.validate_python({"variant": "button"})
+        assert isinstance(config, schematic.ButtonNodeConfig)
+        assert config.command_channel == 0
+        assert config.control.authority is None
+
+    def test_light_threshold(self) -> None:
+        """Should leave an omitted light threshold absent."""
+        config = NODE.validate_python({"variant": "light"})
+        assert isinstance(config, schematic.LightNodeConfig)
+        assert config.threshold is None
+
+    def test_cylinder_border_radius(self) -> None:
+        """Should leave an omitted cylinder border radius absent."""
+        config = NODE.validate_python({"variant": "cylinder"})
+        assert isinstance(config, schematic.CylinderNodeConfig)
+        assert config.border_radius is None
+
+    def test_stroke_width(self) -> None:
+        """Should leave an omitted shape stroke width absent."""
+        config = NODE.validate_python({"variant": "circle"})
+        assert isinstance(config, schematic.CircleNodeConfig)
+        assert config.stroke_width is None
+
+    def test_text_box_value(self) -> None:
+        """Should give an omitted text box value the empty string."""
+        config = NODE.validate_python({"variant": "text_box"})
+        assert isinstance(config, schematic.TextBoxNodeConfig)
+        assert config.value == ""
+
+    def test_scale(self) -> None:
+        """Should reject a scale that is not above 0."""
+        with pytest.raises(ValidationError):
+            NODE.validate_python({"variant": "valve", "scale": 0})
+
+    def test_inline_size(self) -> None:
+        """Should reject an inline size of 0."""
+        with pytest.raises(ValidationError):
+            NODE.validate_python({"variant": "value", "inline_size": 0})
+
+    def test_page(self) -> None:
+        """Should default an omitted page to an unlinked schematic page."""
+        config = NODE.validate_python({"variant": "off_page_reference"})
+        assert isinstance(config, schematic.OffPageReferenceNodeConfig)
+        assert config.page == schematic.Page(type="schematic", key="")
+
+
 class TestBorderRadius:
     def test_shorthand(self) -> None:
         """Should expand a shorthand border radius on a node config."""

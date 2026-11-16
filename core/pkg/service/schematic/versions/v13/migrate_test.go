@@ -19,10 +19,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	symbolv2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	symbolv4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	v12 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
+	border "github.com/synnaxlabs/x/border/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	colorv1 "github.com/synnaxlabs/x/color/versions/v1"
 	colorv2 "github.com/synnaxlabs/x/color/versions/v2"
@@ -31,6 +33,15 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
+
+var tankRadius = border.Radius{
+	TopLeft:     spatial.XY{X: 40, Y: 5},
+	TopRight:    spatial.XY{X: 40, Y: 5},
+	BottomLeft:  spatial.XY{X: 40, Y: 5},
+	BottomRight: spatial.XY{X: 40, Y: 5},
+}
+
+var defaultControl = v13.ControlStateConfig{Orientation: spatial.LocationBottom}
 
 // withElements gives each config key of s a node, or an edge between two capped anchor
 // nodes when the config is a pipe, so the migration keeps every config.
@@ -376,6 +387,7 @@ var _ = Describe("MigrateSchematic config move", func() {
 				Orientation:      "left",
 				Scale:            2,
 				StalenessTimeout: 5 * telem.Second,
+				Control:          defaultControl,
 			},
 		}
 		movedPipe = v13.EdgeConfig{Variant: v13.PipeEdgeConfig{
@@ -557,7 +569,7 @@ var _ = Describe("MigrateSchematic config move", func() {
 			Expect(polygon.NumSides).To(Equal(uint8(6)))
 			Expect(polygon.SideLength).To(Equal(uint16(30)))
 			Expect(polygon.Rotation).To(BeZero())
-			Expect(polygon.StrokeWidth).To(Equal(uint8(2)))
+			Expect(polygon.StrokeWidth).To(HaveValue(Equal(uint8(2))))
 			Expect(polygon.StrokeColor).To(Equal(&colorv2.Color{R: 1, A: 255}))
 			pipeCfg, ok := configOf(s, "e1").(v13.PipeEdgeConfig)
 			Expect(ok).To(BeTrue())
@@ -687,12 +699,11 @@ var _ = Describe("MigrateNodeConfig stroke widths", func() {
 	DescribeTable("Should round and clamp a symbol stroke width",
 		func(ctx SpecContext, old v12.NodeConfigVariant, want uint8) {
 			out := MustSucceed(v13.MigrateNodeConfig(ctx, v12.NodeConfig{Variant: old}))
-			Expect(out.Variant).To(HaveField("StrokeWidth", Equal(want)))
+			Expect(out.Variant).To(HaveField("StrokeWidth", HaveValue(Equal(want))))
 		},
 		Entry("box whole", v12.BoxNodeConfig{StrokeWidth: 4}, uint8(4)),
 		Entry("box fraction", v12.BoxNodeConfig{StrokeWidth: 2.6}, uint8(3)),
 		Entry("box at 0", v12.BoxNodeConfig{}, uint8(0)),
-		Entry("box at NaN", v12.BoxNodeConfig{StrokeWidth: math.NaN()}, uint8(0)),
 		Entry("box too large", v12.BoxNodeConfig{StrokeWidth: 30}, uint8(20)),
 		Entry("circle thin", v12.CircleNodeConfig{StrokeWidth: 0.4}, uint8(1)),
 		Entry("circle at 0", v12.CircleNodeConfig{}, uint8(0)),
@@ -701,6 +712,16 @@ var _ = Describe("MigrateNodeConfig stroke widths", func() {
 		Entry("line negative", v12.LineNodeConfig{StrokeWidth: -3}, uint8(1)),
 		Entry("line at NaN", v12.LineNodeConfig{StrokeWidth: math.NaN()}, uint8(1)),
 		Entry("polygon too large", v12.PolygonNodeConfig{StrokeWidth: 1e9}, uint8(20)),
+	)
+
+	DescribeTable("Should leave a NaN shape stroke width absent",
+		func(ctx SpecContext, old v12.NodeConfigVariant) {
+			out := MustSucceed(v13.MigrateNodeConfig(ctx, v12.NodeConfig{Variant: old}))
+			Expect(out.Variant).To(HaveField("StrokeWidth", BeNil()))
+		},
+		Entry("box", v12.BoxNodeConfig{StrokeWidth: math.NaN()}),
+		Entry("circle", v12.CircleNodeConfig{StrokeWidth: math.NaN()}),
+		Entry("polygon", v12.PolygonNodeConfig{StrokeWidth: math.NaN()}),
 	)
 
 	It("Should keep a stroke width of 0 through storage", func(ctx SpecContext) {
@@ -721,7 +742,7 @@ var _ = Describe("MigrateNodeConfig stroke widths", func() {
 		Expect(gorp.NewRetrieve[v13.Key, v13.Schematic]().
 			Where(gorp.MatchKeys[v13.Key, v13.Schematic](old.Key)).
 			Entry(&got).Exec(ctx, db)).To(Succeed())
-		Expect(configOf(got, "box")).To(HaveField("StrokeWidth", BeZero()))
+		Expect(configOf(got, "box")).To(HaveField("StrokeWidth", HaveValue(BeZero())))
 	})
 })
 
@@ -991,7 +1012,7 @@ var _ = Describe("MigrateNodeConfig whole numbers and renames", func() {
 		Entry("select inline size at NaN",
 			v12.SelectNodeConfig{InlineSize: math.NaN()}, "InlineSize", uint16(100)),
 		Entry("setpoint inline size negative",
-			v12.SetpointNodeConfig{InlineSize: -5}, "InlineSize", uint16(0)),
+			v12.SetpointNodeConfig{InlineSize: -5}, "InlineSize", uint16(1)),
 		Entry(
 			"state indicator inline size too large",
 			v12.StateIndicatorNodeConfig{
@@ -1018,10 +1039,16 @@ var _ = Describe("MigrateNodeConfig whole numbers and renames", func() {
 			"BorderRadius", uint16(4)),
 		Entry("polygon corner rounding negative",
 			v12.PolygonNodeConfig{CornerRounding: -1}, "BorderRadius", uint16(0)),
-		Entry("box border radius", v12.BoxNodeConfig{BorderRadius: 3.5},
-			"BorderRadius", uint16(4)),
-		Entry("box border radius at NaN",
-			v12.BoxNodeConfig{BorderRadius: math.NaN()}, "BorderRadius", uint16(3)),
+		Entry("input inline size at 0", v12.InputNodeConfig{InlineSize: 0},
+			"InlineSize", uint16(1)),
+		Entry("text box width at 0", v12.TextBoxNodeConfig{Width: 0.2},
+			"InlineSize", uint16(1)),
+		Entry("circle radius at 0", v12.CircleNodeConfig{Radius: 0},
+			"Radius", uint16(1)),
+		Entry("polygon side length negative",
+			v12.PolygonNodeConfig{SideLength: -4}, "SideLength", uint16(1)),
+		Entry("gauge bar width at 0", v12.GaugeNodeConfig{BarWidth: 0},
+			"BarWidth", uint16(1)),
 		Entry("gauge bar width", v12.GaugeNodeConfig{BarWidth: 9.6},
 			"BarWidth", uint16(10)),
 		Entry("gauge bar width too large", v12.GaugeNodeConfig{BarWidth: 1e6},
@@ -1102,6 +1129,7 @@ var _ = Describe("MigrateNodeConfig whole numbers and renames", func() {
 		},
 		Entry("input inline size", "input", "InlineSize", uint16(150)),
 		Entry("text box inline size", "text_box", "InlineSize", uint16(75)),
+		Entry("text box value", "text_box", "Value", "Text box"),
 		Entry("circle radius", "circle", "Radius", uint16(20)),
 		Entry("polygon sides", "polygon", "NumSides", uint8(6)),
 		Entry("polygon border radius", "polygon", "BorderRadius", uint16(0)),
@@ -1110,6 +1138,131 @@ var _ = Describe("MigrateNodeConfig whole numbers and renames", func() {
 		Entry("value staleness timeout", "value", "StalenessTimeout", 5*telem.Second),
 		Entry("off-page reference navigation", "off_page_reference",
 			"DoubleClickNavigationDisabled", false),
+	)
+
+	DescribeTable("Should give a field that v12 left absent its default",
+		func(ctx SpecContext, old v12.NodeConfigVariant, field string, want any) {
+			out := MustSucceed(v13.MigrateNodeConfig(
+				ctx,
+				v12.NodeConfig{Variant: old},
+			))
+			Expect(out.Variant).To(HaveField(field, Equal(want)))
+		},
+		Entry("button command channel", v12.ButtonNodeConfig{},
+			"CommandChannel", channel.Key(0)),
+		Entry("button control", v12.ButtonNodeConfig{}, "Control", defaultControl),
+		Entry("input state channel", v12.InputNodeConfig{},
+			"StateChannel", channel.Key(0)),
+		Entry("input dimensions", v12.InputNodeConfig{},
+			"Dimensions", spatial.Dimensions{}),
+		Entry("input control", v12.InputNodeConfig{}, "Control", defaultControl),
+		Entry("select command channel", v12.SelectNodeConfig{},
+			"CommandChannel", channel.Key(0)),
+		Entry("setpoint dimensions", v12.SetpointNodeConfig{},
+			"Dimensions", spatial.Dimensions{}),
+		Entry("state indicator channel", v12.StateIndicatorNodeConfig{},
+			"Channel", channel.Key(0)),
+		Entry("string display channel", v12.StringDisplayNodeConfig{},
+			"Channel", channel.Key(0)),
+		Entry("light channel", v12.LightNodeConfig{}, "Channel", channel.Key(0)),
+		Entry("gauge position", v12.GaugeNodeConfig{}, "Position", spatial.XY{}),
+		Entry("scale position", v12.ScaleNodeConfig{}, "Position", spatial.XY{}),
+		Entry("value position", v12.ValueNodeConfig{}, "Position", spatial.XY{}),
+		Entry("tank channel", v12.TankNodeConfig{}, "Channel", channel.Key(0)),
+		Entry("tank position", v12.TankNodeConfig{}, "Position", spatial.XY{}),
+		Entry("off-page reference page", v12.OffPageReferenceNodeConfig{},
+			"Page", v13.Page{Type: v13.PageTypeSchematic}),
+		Entry("valve state channel", v12.ValveNodeConfig{},
+			"StateChannel", channel.Key(0)),
+		Entry("valve control", v12.ValveNodeConfig{}, "Control", defaultControl),
+	)
+
+	DescribeTable("Should keep a field that v12 left absent as absent",
+		func(ctx SpecContext, old v12.NodeConfigVariant, field string) {
+			out := MustSucceed(v13.MigrateNodeConfig(
+				ctx,
+				v12.NodeConfig{Variant: old},
+			))
+			Expect(out.Variant).To(HaveField(field, BeNil()))
+		},
+		Entry("light threshold", v12.LightNodeConfig{}, "Threshold"),
+		Entry("value precision", v12.ValueNodeConfig{}, "Precision"),
+		Entry("tank precision", v12.TankNodeConfig{}, "Precision"),
+		Entry("cylinder border radius", v12.CylinderNodeConfig{}, "BorderRadius"),
+		Entry("control authority", v12.ButtonNodeConfig{}, "Control.Authority"),
+		Entry("box border radius at NaN",
+			v12.BoxNodeConfig{BorderRadius: math.NaN()}, "BorderRadius"),
+	)
+
+	DescribeTable("Should reset a scale that is not positive to 1",
+		func(ctx SpecContext, old v12.NodeConfigVariant, want float64) {
+			out := MustSucceed(v13.MigrateNodeConfig(
+				ctx,
+				v12.NodeConfig{Variant: old},
+			))
+			Expect(out.Variant).To(HaveField("Scale", Equal(want)))
+		},
+		Entry("a zero valve scale", v12.ValveNodeConfig{Scale: 0}, 1.0),
+		Entry("a negative light scale", v12.LightNodeConfig{Scale: -2}, 1.0),
+		Entry("an infinite cylinder scale",
+			v12.CylinderNodeConfig{Scale: math.Inf(1)}, 1.0),
+		Entry("a positive cylinder scale", v12.CylinderNodeConfig{Scale: 0.5}, 0.5),
+	)
+
+	DescribeTable(
+		"Should keep a field that v12 set",
+		func(ctx SpecContext, old v12.NodeConfigVariant, field string, want any) {
+			out := MustSucceed(v13.MigrateNodeConfig(
+				ctx,
+				v12.NodeConfig{Variant: old},
+			))
+			Expect(out.Variant).To(HaveField(field, Equal(want)))
+		},
+		Entry("button command channel",
+			v12.ButtonNodeConfig{CommandChannel: new(channel.Key(5))},
+			"CommandChannel", channel.Key(5)),
+		Entry("control authority", v12.ButtonNodeConfig{
+			Control: &v12.ControlStateConfig{
+				Authority:   new(uint8(100)),
+				Hidden:      true,
+				Orientation: spatial.LocationTop,
+			},
+		}, "Control", v13.ControlStateConfig{
+			Authority:   new(uint8(100)),
+			Hidden:      true,
+			Orientation: spatial.LocationTop,
+		}),
+		Entry("control with no authority", v12.ButtonNodeConfig{
+			Control: &v12.ControlStateConfig{Orientation: spatial.LocationLeft},
+		}, "Control", v13.ControlStateConfig{Orientation: spatial.LocationLeft}),
+		Entry("input dimensions", v12.InputNodeConfig{
+			Dimensions: &spatial.Dimensions{Width: 10, Height: 20},
+		}, "Dimensions", spatial.Dimensions{Width: 10, Height: 20}),
+		Entry("light threshold", v12.LightNodeConfig{
+			Threshold: &spatial.Bounds{Lower: 1, Upper: 2},
+		}, "Threshold", &spatial.Bounds{Lower: 1, Upper: 2}),
+		Entry("zero precision",
+			v12.ValueNodeConfig{Precision: new(uint8(0))},
+			"Precision", new(uint8(0))),
+		Entry("value channel",
+			v12.ValueNodeConfig{Channel: new(channel.Key(7))},
+			"Channel", channel.Key(7)),
+		Entry("tank position",
+			v12.TankNodeConfig{Position: &spatial.XY{X: 3, Y: 4}},
+			"Position", spatial.XY{X: 3, Y: 4}),
+		Entry("off-page reference page", v12.OffPageReferenceNodeConfig{
+			Page: &v12.Page{Type: v12.PageTypeLineplot, Key: "p"},
+		}, "Page", v13.Page{Type: v13.PageTypeLineplot, Key: "p"}),
+		Entry(
+			"text box value",
+			v12.TextBoxNodeConfig{Value: "Inlet"},
+			"Value",
+			"Inlet",
+		),
+		Entry("box border radius", v12.BoxNodeConfig{BorderRadius: 3.5},
+			"BorderRadius", new(uint16(4))),
+		Entry("tank border radius", v12.TankNodeConfig{BorderRadius: tankRadius},
+			"BorderRadius", &tankRadius),
 	)
 
 	It("Should keep a renamed field through storage", func(ctx SpecContext) {
