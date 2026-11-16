@@ -11,6 +11,7 @@ package mqtt_test
 
 import (
 	"context"
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -197,6 +198,60 @@ var _ = Describe("Read task ICD messages", func() {
 				To(telem.MatchSeriesData(telem.NewSeriesV(telem.SecondTS)))
 			Expect(stored(ctx, eventIdx)).
 				To(telem.MatchSeriesData(telem.NewSeriesV(2 * telem.SecondTS)))
+		},
+	)
+
+	It("Should write the messages of one topic on their own indexes in one frame",
+		func(ctx SpecContext) {
+			factory = newFactory(1024)
+			match := func(value string) *icd.JSONMatch {
+				return &icd.JSONMatch{
+					Variant: icd.StringJSONMatch{Pointer: "/type", Value: value},
+				}
+			}
+			statusMsg := jsonMessage(
+				"Status", match("s"), jsonField("temp", "/v", icd.FloatJSONField{}),
+			)
+			event := jsonMessage(
+				"Event", match("e"), jsonField("code", "/v", icd.FloatJSONField{}),
+			)
+			ic := createICD(ctx, statusMsg, event)
+			statusIdx, statusData := createIndexed(ctx, telem.Float64T)
+			eventIdx, eventData := createIndexed(ctx, telem.Float64T)
+			streamer := stream(
+				ctx,
+				channel.Keys{statusData[0].Key(), eventData[0].Key()},
+			)
+			t := start(ctx, readConfig(ctx, dev, icdEntry(
+				"plant/all", ic,
+				readMessage(statusMsg, binding(statusMsg, 0, statusData[0])),
+				readMessage(event, binding(event, 0, eventData[0])),
+			)))
+			const documents = 200
+			for i := range documents {
+				broker.publish(
+					"plant/all",
+					fmt.Sprintf(`{"type":%q,"v":%d}`, []string{"s", "e"}[i%2], i),
+					false,
+				)
+			}
+			var samples, mixed int
+			for samples < documents {
+				fr := streamer.receive()
+				statusLen := fr.Get(statusData[0].Key()).Len()
+				eventLen := fr.Get(eventData[0].Key()).Len()
+				if statusLen > 0 && eventLen > 0 {
+					mixed++
+				}
+				samples += int(statusLen + eventLen)
+			}
+			Expect(mixed).To(BeNumerically(">", 0))
+			for _, ch := range []channel.Channel{
+				statusIdx, statusData[0], eventIdx, eventData[0],
+			} {
+				Expect(stored(ctx, ch).Len()).To(BeEquivalentTo(documents / 2))
+			}
+			Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantSuccess))
 		},
 	)
 
