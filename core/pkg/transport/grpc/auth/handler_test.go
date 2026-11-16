@@ -144,15 +144,16 @@ var _ = Describe("Auth", func() {
 
 	Describe("New", func() {
 		It("Should bind every auth server onto the API transport", func() {
-			Expect(bindable).To(HaveLen(8))
-			Expect(transport.AuthLogin).To(BeIdenticalTo(bindable[0]))
-			Expect(transport.AuthSessionCreate).To(BeIdenticalTo(bindable[1]))
-			Expect(transport.AuthSessionRenew).To(BeIdenticalTo(bindable[2]))
-			Expect(transport.AuthSessionRetrieve).To(BeIdenticalTo(bindable[3]))
-			Expect(transport.AuthSessionDelete).To(BeIdenticalTo(bindable[4]))
-			Expect(transport.AuthKeyCreate).To(BeIdenticalTo(bindable[5]))
-			Expect(transport.AuthKeyRetrieve).To(BeIdenticalTo(bindable[6]))
-			Expect(transport.AuthKeyDelete).To(BeIdenticalTo(bindable[7]))
+			Expect(bindable).To(HaveExactElements(
+				BeIdenticalTo(login),
+				BeIdenticalTo(create),
+				BeIdenticalTo(renew),
+				BeIdenticalTo(retrieve),
+				BeIdenticalTo(del),
+				BeIdenticalTo(keyCreate),
+				BeIdenticalTo(keyRetrieve),
+				BeIdenticalTo(keyDelete),
+			))
 		})
 	})
 
