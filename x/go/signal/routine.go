@@ -245,6 +245,7 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 	}
 
 	r.ctx.mu.routines = append(r.ctx.mu.routines, r)
+	r.ctx.mu.live++
 	// A routine runs even when the context is already canceled, since it may own
 	// resources that only it releases.
 	r.state.state = RoutineStateStarting
@@ -301,6 +302,7 @@ func (r *routine) runPostlude(err error) error {
 
 	r.span.End()
 
+	r.ctx.mu.live--
 	r.ctx.maybeStop()
 
 	r.ctx.L.Debug("routine stopped", r.zapFields()...)
