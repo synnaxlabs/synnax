@@ -209,13 +209,13 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("CommandChannelKey", func() {
 		It(
 			"Should return zero when no channel service is configured",
-			func(ctx SpecContext) {
+			func() {
 				Expect(svc.CommandChannelKey()).To(Equal(channel.Key(0)))
 			},
 		)
 	})
 	Describe("StatusDetails msgpack round-trip", func() {
-		It("Should round-trip the details", func(ctx SpecContext) {
+		It("Should round-trip the details", func() {
 			original := task.StatusDetails{
 				Rack:    testRack.Key,
 				Running: true,
@@ -1816,7 +1816,7 @@ var _ = Describe("Task", Ordered, func() {
 		Describe("String", func() {
 			It(
 				"Should return a string representation of the command",
-				func(ctx SpecContext) {
+				func() {
 					k := uuid.New()
 					c := &task.Command{
 						Key:  "cmd",

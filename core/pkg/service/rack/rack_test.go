@@ -204,7 +204,7 @@ var _ = Describe("Rack", Ordered, func() {
 			gorp.TableConfig[task.Key, task.Task]{DB: db, Name: "task"},
 		)))
 	})
-	BeforeEach(func(ctx SpecContext) { frozenNow.Store(0) })
+	BeforeEach(func() { frozenNow.Store(0) })
 	openTx := func() {
 		tx = DeferClose(db.OpenTx())
 		writer = svc.NewWriter(tx)
@@ -212,7 +212,7 @@ var _ = Describe("Rack", Ordered, func() {
 	Describe("Key", func() {
 		It(
 			"Should correctly construct a key from its components",
-			func(ctx SpecContext) {
+			func() {
 				k := rack.NewKey(1, 2)
 				Expect(k.Node()).To(Equal(node.Key(1)))
 				Expect(k).To(Equal(rack.Key(1<<16 | 2)))
@@ -222,7 +222,7 @@ var _ = Describe("Rack", Ordered, func() {
 	Describe("Key msgpack decoding", func() {
 		codec := msgpack.Codec
 		DescribeTable("Should decode rack.Key from various types",
-			func(ctx SpecContext, value any, expected rack.Key) {
+			func(value any, expected rack.Key) {
 				data := MustSucceed(codec.Encode(value))
 				var k rack.Key
 				Expect(codec.Decode(data, &k)).To(Succeed())
@@ -242,7 +242,7 @@ var _ = Describe("Rack", Ordered, func() {
 		}
 		It(
 			"Should decode a struct with a rack key as float64",
-			func(ctx SpecContext) {
+			func() {
 				type statusDetailsWithFloat struct {
 					Rack float64 `msgpack:"rack"`
 				}
@@ -257,7 +257,7 @@ var _ = Describe("Rack", Ordered, func() {
 		)
 		It(
 			"Should decode a struct with a rack key as string",
-			func(ctx SpecContext) {
+			func() {
 				type statusDetailsWithString struct {
 					Rack string `msgpack:"rack"`
 				}

@@ -276,7 +276,7 @@ var _ = Describe("HTTP", func() {
 
 		DescribeTable(
 			"Should reject a MessagePack request",
-			func(ctx SpecContext, path string) {
+			func(path string) {
 				req := httptest.NewRequest(
 					http.MethodPost,
 					path,
@@ -328,9 +328,7 @@ var _ = Describe("HTTP", func() {
 			),
 		)
 
-		It("Should refuse a gated endpoint while no license is active", func(
-			ctx SpecContext,
-		) {
+		It("Should refuse a gated endpoint while no license is active", func() {
 			status, body := post(
 				"/api/v1/channel/retrieve",
 				login(),
