@@ -135,7 +135,16 @@ class TestMain:
         agent = tmp_path / "agent.py"
         assert agent.read_text() == SOURCE.format(COMMIT, "agent.py")
         assert machine.commands == [
-            [str(tmp_path / "uv"), "run", str(agent), "--host", "core.example"]
+            [
+                str(tmp_path / "uv"),
+                "run",
+                "--project",
+                str(tmp_path),
+                "--locked",
+                str(agent),
+                "--host",
+                "core.example",
+            ]
         ]
         assert capsys.readouterr().out == f"installed the agent at {COMMIT}\n"
 
