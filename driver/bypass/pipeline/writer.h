@@ -14,32 +14,36 @@
 #include "absl/log/log.h"
 
 #include "driver/bypass/bypass.h"
+#include "driver/bypass/pipeline/forwarder.h"
 #include "driver/control/state.h"
 #include "driver/pipeline/acquisition.h"
 
 namespace driver::bypass::pipeline {
-/// @brief a pipeline Writer that publishes frames to the local bus before forwarding to
-/// the Core. When set_authority is called with an authority higher than the current
-/// holder, the increase is applied directly to the control::States before forwarding to
-/// the Core, eliminating the staleness window for authority increases.
+/// @brief a pipeline Writer that publishes frames to the local bus, then hands them to
+/// a Forwarder that delivers them to the Core in the background. When set_authority is
+/// called with an authority higher than the current holder, the increase is applied
+/// directly to the control::States before it goes to the Core, eliminating the
+/// staleness window for authority increases.
 class Writer final : public ::driver::pipeline::Writer {
-    std::unique_ptr<::driver::pipeline::Writer> server;
+    std::unique_ptr<Forwarder> forwarder;
     std::shared_ptr<Bus> bus;
     std::shared_ptr<control::States> states;
     synnax::framer::WriterConfig cfg;
 
 public:
     Writer(
-        std::unique_ptr<::driver::pipeline::Writer> server,
+        std::unique_ptr<Forwarder> forwarder,
         std::shared_ptr<Bus> bus,
         std::shared_ptr<control::States> states,
         synnax::framer::WriterConfig cfg
     ):
-        server(std::move(server)),
+        forwarder(std::move(forwarder)),
         bus(std::move(bus)),
         states(std::move(states)),
         cfg(std::move(cfg)) {}
 
+    /// @brief publishes fr to the bus and queues it for the Core.
+    /// @returns the Core error that stopped delivery, if any.
     [[nodiscard]] x::errors::Error write(const x::telem::Frame &fr) override {
         if (this->states->all_authorized(fr, this->cfg.subject)) {
             VLOG(1) << "[bus.writer] publishing frame with " << fr.size()
@@ -57,12 +61,12 @@ public:
                 this->bus->publish(filtered);
             }
         }
-        return this->server->write(fr);
+        return this->forwarder->write(fr);
     }
 
     /// @brief the bus already has the frame, so it goes to the Core only.
     [[nodiscard]] x::errors::Error rewrite(const x::telem::Frame &fr) override {
-        return this->server->write(fr);
+        return this->forwarder->write(fr);
     }
 
     [[nodiscard]] x::errors::Error
@@ -76,41 +80,51 @@ public:
                           : authorities.authorities[i];
             this->states->apply_increase(this->cfg.subject, keys[i], auth);
         }
-        return this->server->set_authority(authorities);
+        return this->forwarder->set_authority(authorities);
     }
 
-    [[nodiscard]] x::errors::Error close() override { return this->server->close(); }
+    [[nodiscard]] x::errors::Error close() override { return this->forwarder->close(); }
 };
 
-/// @brief a WriterFactory that wraps writers with bus publish capability. Injects the
-/// group identity into writer configs for Core-side deduplication and threads
-/// control::States into writers for short-circuit authority updates.
+/// @brief a WriterFactory that wraps writers with bus publish capability. It returns
+/// at once and opens the Core writer in the background. Injects the group identity
+/// into writer configs for Core-side deduplication and threads control::States into
+/// writers for short-circuit authority updates.
 class WriterFactory final : public ::driver::pipeline::WriterFactory {
     std::shared_ptr<::driver::pipeline::WriterFactory> server;
     std::shared_ptr<Bus> bus;
     std::shared_ptr<control::States> states;
     std::uint32_t group;
+    ForwarderConfig forwarder;
 
 public:
     WriterFactory(
         std::shared_ptr<::driver::pipeline::WriterFactory> server,
         const std::shared_ptr<Bus> &bus,
         const std::shared_ptr<control::States> &states,
-        const std::uint32_t group
+        const std::uint32_t group,
+        ForwarderConfig forwarder = {}
     ):
-        server(std::move(server)), bus(bus), states(states), group(group) {}
+        server(std::move(server)),
+        bus(bus),
+        states(states),
+        group(group),
+        forwarder(std::move(forwarder)) {}
 
     std::pair<std::unique_ptr<::driver::pipeline::Writer>, x::errors::Error>
     open_writer(const synnax::framer::WriterConfig &config) override {
         auto cfg = config;
         if (this->group != 0 && cfg.subject.group == 0) cfg.subject.group = this->group;
         this->bus->register_channels(cfg.channels);
-        auto [writer, err] = this->server->open_writer(cfg);
-        if (err) return {nullptr, err};
         VLOG(1) << "[bus.writer_factory] opened writer for " << cfg.channels.size()
                 << " channels, group=" << this->group;
         return {
-            std::make_unique<Writer>(std::move(writer), this->bus, this->states, cfg),
+            std::make_unique<Writer>(
+                std::make_unique<Forwarder>(this->server, cfg, this->forwarder),
+                this->bus,
+                this->states,
+                cfg
+            ),
             x::errors::NIL,
         };
     }

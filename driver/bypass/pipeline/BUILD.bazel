@@ -14,6 +14,7 @@ cc_library(
     name = "pipeline",
     hdrs = [
         "factory.h",
+        "forwarder.h",
         "streamer.h",
         "writer.h",
     ],
@@ -24,6 +25,7 @@ cc_library(
         "//driver/control",
         "//driver/pipeline",
         "//driver/task",
+        "//x/cpp/breaker",
         "//x/cpp/control",
         "//x/cpp/telem",
     ],
