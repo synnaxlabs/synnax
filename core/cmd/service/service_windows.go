@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/samber/lo"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/cmd/cert"
@@ -244,7 +245,9 @@ const stopMargin = 15 * time.Second
 func stopTimeout() (time.Duration, error) {
 	v := viper.New()
 	v.SetConfigFile(ConfigPath())
-	flag := cmdstart.Cmd.Flags().Lookup(cmdstart.FlagShutdownTimeout)
+	flags := &cobra.Command{}
+	cmdstart.AddFlags(flags)
+	flag := flags.Flags().Lookup(cmdstart.FlagShutdownTimeout)
 	if err := v.BindPFlag(cmdstart.FlagShutdownTimeout, flag); err != nil {
 		return 0, err
 	}
