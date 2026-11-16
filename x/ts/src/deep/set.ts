@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { defaultGetter, findBestKey, getIndex, SEPARATOR } from "@/deep/path";
+import { defaultGetter, findBestKey, getIndex, isKeyed, SEPARATOR } from "@/deep/path";
 import { errors } from "@/errors";
 import { type record } from "@/record";
 
@@ -56,8 +56,7 @@ export const set = <V>(obj: V, path: string, value: unknown): void => {
               return;
             }
           }
-          const first = result[0];
-          if (typeof first === "object" && "key" in first) {
+          if (isKeyed(result)) {
             const objIndex = result.findIndex((o) => o.key === lastPart);
             if (objIndex !== -1) {
               result[objIndex] = value;

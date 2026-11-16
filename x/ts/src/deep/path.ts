@@ -37,6 +37,12 @@ export const transformPath = (
   return result.join(separator);
 };
 
+/** @returns whether the array holds keyed entries, judged by its first entry. */
+export const isKeyed = (arr: unknown[]): boolean => {
+  const first = arr[0];
+  return first != null && typeof first === "object" && "key" in first;
+};
+
 /**
  * Reads one path part off an object. On an array of keyed entries, the part matches the
  * `key` field rather than the index.
@@ -45,9 +51,7 @@ export const defaultGetter = (obj: record.Unknown, key: string): unknown => {
   if (!Array.isArray(obj)) return obj[key];
   const res = obj[key];
   if (res != null || obj.length == 0) return res;
-  const first = obj[0];
-  if (typeof first === "object" && "key" in first)
-    return obj.find((o) => o.key === key);
+  if (isKeyed(obj)) return obj.find((o) => o.key === key);
   return undefined;
 };
 

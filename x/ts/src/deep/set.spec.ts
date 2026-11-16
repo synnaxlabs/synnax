@@ -21,6 +21,12 @@ interface TestRecord {
 }
 
 describe("set", () => {
+  it("should not throw on a key into an array whose first entry is null", () => {
+    const a = { a: [null] };
+    deep.set(a, "a.x", 1);
+    expect(a).toEqual({ a: [null] });
+  });
+
   it("should set a key", () => {
     const a: TestRecord = {
       a: 1,

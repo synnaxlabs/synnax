@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { defaultGetter, getIndex, SEPARATOR } from "@/deep/path";
+import { defaultGetter, getIndex, isKeyed, SEPARATOR } from "@/deep/path";
 import { type record } from "@/record";
 
 export const remove = <V>(obj: V, path: string): void => {
@@ -26,8 +26,7 @@ export const remove = <V>(obj: V, path: string): void => {
           return;
         }
 
-        const first = result[0];
-        if (typeof first === "object" && "key" in first) {
+        if (isKeyed(result)) {
           const objIndex = result.findIndex((o) => o.key === lastPart);
           if (objIndex !== -1) {
             result.splice(objIndex, 1);
@@ -43,27 +42,24 @@ export const remove = <V>(obj: V, path: string): void => {
 
     let found = false;
 
-    if (Array.isArray(result) && result.length > 0) {
-      const first = result[0];
-      if (typeof first === "object" && "key" in first)
-        // Try to find an item with a matching key (considering periods in keys)
-        for (let j = parts.length - i; j >= 1; j--) {
-          const candidateKey = parts.slice(i, i + j).join(SEPARATOR);
-          const item = result.find((o) => o.key === candidateKey);
-          if (item != null) {
-            if (i + j === parts.length) {
-              const objIndex = result.findIndex((o) => o.key === candidateKey);
-              if (objIndex !== -1) result.splice(objIndex, 1);
+    if (Array.isArray(result) && isKeyed(result))
+      // Try to find an item with a matching key (considering periods in keys)
+      for (let j = parts.length - i; j >= 1; j--) {
+        const candidateKey = parts.slice(i, i + j).join(SEPARATOR);
+        const item = result.find((o) => o.key === candidateKey);
+        if (item != null) {
+          if (i + j === parts.length) {
+            const objIndex = result.findIndex((o) => o.key === candidateKey);
+            if (objIndex !== -1) result.splice(objIndex, 1);
 
-              return;
-            }
-            result = item as record.Unknown;
-            i += j;
-            found = true;
-            break;
+            return;
           }
+          result = item as record.Unknown;
+          i += j;
+          found = true;
+          break;
         }
-    }
+      }
 
     if (!found)
       for (let j = parts.length - i; j >= 1; j--) {

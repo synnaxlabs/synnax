@@ -114,6 +114,10 @@ describe("get", () => {
     expect(deep.get(obj, "a.b", { optional: true })).toBeNull();
   });
 
+  it("should return null for a key into an array whose first entry is null", () => {
+    expect(deep.get({ a: [null] }, "a.x", { optional: true })).toBeNull();
+  });
+
   it("should handle undefined values in get", () => {
     const obj = { a: undefined };
     expect(deep.get(obj, "a", { optional: true })).toBeNull();

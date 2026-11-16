@@ -21,6 +21,13 @@ interface TestRecord {
 }
 
 describe("remove", () => {
+  it("should not throw on a key into an array whose first entry is null", () => {
+    const a = { a: [null] };
+    deep.remove(a, "a.x");
+    deep.remove(a, "a.x.y");
+    expect(a).toEqual({ a: [null] });
+  });
+
   it("should delete a key", () => {
     const a: TestRecord = {
       a: 1,
