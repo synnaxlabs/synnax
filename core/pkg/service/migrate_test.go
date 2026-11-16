@@ -438,6 +438,10 @@ var _ = Describe("Group drop report", func() {
 				parentOf(id(cryomech), oil),
 				parentOf(id(alpha), oil),
 				parentOf(id(compressors), water),
+				parentOf(id(compressors), resource.ID{
+					Type: resource.TypeChannel,
+					Key:  "999999",
+				}),
 				parentOf(id(mixed), flow),
 				parentOf(id(mixed), resource.ID{
 					Type: resource.TypeSchematic,
@@ -484,6 +488,12 @@ var _ = Describe("Group drop report", func() {
 					name:    "Compressors",
 					message: "Removed channel from group",
 					description: `The upgrade removed channel "water_temp" from group ` +
+						`"Compressors", because that group cannot hold a channel.`,
+				},
+				report{
+					name:    "Compressors",
+					message: "Removed channel from group",
+					description: `The upgrade removed channel "999999" from group ` +
 						`"Compressors", because that group cannot hold a channel.`,
 				},
 				report{

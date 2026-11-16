@@ -107,6 +107,7 @@ var _ = Describe("ParentMigration", func() {
 			parentOf(groupID(inTasks), task),
 			parentOf(groupID(inRanges), rng),
 			parentOf(groupID(nested), subProj),
+			parentOf(groupID(ofWs), subProj),
 		}
 		project  = resource.ID{Type: resource.TypeProject, Key: uuid.New().String()}
 		rack     = resource.ID{Type: resource.TypeRack, Key: "65537"}
@@ -254,11 +255,12 @@ var _ = Describe("ParentMigration", func() {
 	)
 
 	It(
-		"Should leave a project in a group under a project to the member migrations",
+		"Should keep a pinned group out of the pick by name",
 		func(ctx SpecContext) {
-			Expect(
-				edges(ctx, db),
-			).To(ContainElement(parentOf(groupID(nested), subProj)))
+			Expect(edges(ctx, db)).To(ContainElements(
+				parentOf(groupID(nested), subProj),
+				parentOf(groupID(ofWs), subProj),
+			))
 		},
 	)
 
@@ -410,7 +412,7 @@ var _ = Describe("MembersMigration", func() {
 	)
 
 	It(
-		"Should stage a removal for a rack in a group under a rack",
+		"Should move a rack from a group under a rack to its other group",
 		func(ctx SpecContext) {
 			rack := resource.ID{Type: resource.TypeRack, Key: "65537"}
 			bench := v1.Group{
@@ -419,10 +421,19 @@ var _ = Describe("MembersMigration", func() {
 				Scope:  resource.TypeDevice,
 				Parent: &rack,
 			}
-			Expect(gorp.NewCreate[v1.Key, v1.Group]().Entry(&bench).Exec(ctx, db)).
-				To(Succeed())
+			loose := v1.Group{
+				Key:   uuid.New(),
+				Name:  "Loose",
+				Scope: resource.TypeDevice,
+			}
+			Expect(gorp.NewCreate[v1.Key, v1.Group]().
+				Entries(&[]v1.Group{bench, loose}).
+				Exec(ctx, db)).To(Succeed())
 			member := resource.ID{Type: resource.TypeRack, Key: logs[0].Key.String()}
-			createEdges(ctx, db, parentOf(groupID(bench.Key), member))
+			createEdges(ctx, db,
+				parentOf(groupID(bench.Key), member),
+				parentOf(groupID(loose.Key), member),
+			)
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:        db,
 				Namespace: "rack",
@@ -439,7 +450,7 @@ var _ = Describe("MembersMigration", func() {
 				Where(gorp.MatchKeys[log.Key, log.Log](logs[0].Key)).
 				Entry(&l).
 				Exec(ctx, db)).To(Succeed())
-			Expect(l.Group).To(BeNil())
+			Expect(l.Group).To(HaveValue(Equal(loose.Key)))
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				Expect(v1.RetrieveRemovals(ctx, tx)).To(ConsistOf(v1.Removal{
 					Group:     bench.Key,
