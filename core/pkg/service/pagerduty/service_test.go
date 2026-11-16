@@ -19,13 +19,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
-	taskv2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -108,35 +108,26 @@ var _ = Describe("Service", func() {
 			Entry("secret", pd.ServiceConfig{DB: &gorp.DB{}}, "secret"),
 		)
 
-		It("Should move each routing key of a stored v1 config into a secret", func(
+		It("Should lift a stored v1 config and stage its plain routing key", func(
 			ctx SpecContext,
 		) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			t := taskv2.Task{
-				Key:  uuid.New(),
-				Name: "Pump alerts",
-				Type: pd.AlertTaskType,
-			}
-			Expect(gorp.NewCreate[taskv2.Key, taskv2.Task]().Entry(&t).Exec(ctx, db)).
-				To(Succeed())
-			old := v1.TaskConfig{Key: t.Key, RoutingKey: plainKey}
+			old := v1.TaskConfig{Key: uuid.New(), RoutingKey: plainKey}
 			old.Alerts = []v1.Alert{{Key: "a", Status: "s"}}
 			Expect(gorp.WrapWriter[uuid.UUID, v1.TaskConfig](db).Set(ctx, old)).
 				To(Succeed())
 			MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
-			secrets := secrettestutil.OpenService(ctx, db)
 			svc := MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
 				DB:     db,
-				Secret: secrets,
+				Secret: secrettestutil.OpenService(ctx, db),
 			}))
 			data := MustSucceed(svc.Alert.Read(ctx, db, old.Key))
-			expectSecret(
-				ctx,
-				db,
-				secrets,
-				routingKeyOf(data),
-				"Pump alerts routing key",
+			Expect(data).ToNot(HaveKey("routing_key"))
+			staged, closer := MustSucceed2(
+				db.Get(ctx, v2.PlainRoutingKeyKVKey(old.Key)),
 			)
+			Expect(string(staged)).To(Equal(plainKey))
+			Expect(closer.Close()).To(Succeed())
 			Expect(data["alerts"]).To(HaveLen(1))
 		})
 	})

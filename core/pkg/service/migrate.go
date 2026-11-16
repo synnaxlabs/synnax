@@ -12,11 +12,14 @@ package service
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"go.uber.org/zap"
 )
 
@@ -49,6 +52,25 @@ var ontologyDropMigration = migrate.New(
 
 // rangeAliasDropMigration deletes the range aliases that an upgraded store holds.
 var rangeAliasDropMigration = migrate.Drop("v62_drop_range_aliases", "Alias")
+
+func taskNames(svc *task.Service) pagerduty.TaskNames {
+	return func(
+		ctx context.Context,
+		tx gorp.Tx,
+		keys []task.Key,
+	) (map[task.Key]string, error) {
+		var tasks []task.Task
+		if err := svc.NewRetrieve().
+			Where(task.MatchKeys(keys...)).
+			Entries(&tasks).
+			Exec(ctx, tx); err != nil {
+			return nil, err
+		}
+		return lo.SliceToMap(tasks, func(t task.Task) (task.Key, string) {
+			return t.Key, t.Name
+		}), nil
+	}
+}
 
 // retiredChannelNames are the internal channels the Core announced ontology and range
 // alias changes on.
