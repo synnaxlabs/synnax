@@ -28,7 +28,7 @@ var _ = Describe("Transport", func() {
 			func(field string, omit func(*transport.LayerConfig)) {
 				cfg := transport.LayerConfig{
 					API:    apiLayer,
-					Router: MustSucceed(fhttp.NewRouter()),
+					Router: MustSucceed(fhttp.NewRouter(GinkgoT().Context())),
 				}
 				omit(&cfg)
 				Expect(transport.NewLayer(cfg)).Error().
@@ -43,7 +43,7 @@ var _ = Describe("Transport", func() {
 		)
 
 		It("Should bind the API layer to both transport protocols", func() {
-			router := MustSucceed(fhttp.NewRouter())
+			router := MustSucceed(fhttp.NewRouter(GinkgoT().Context()))
 			tl := MustSucceed(transport.NewLayer(transport.LayerConfig{
 				API:    apiLayer,
 				Router: router,
