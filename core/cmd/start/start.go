@@ -278,11 +278,16 @@ func BootupCore(
 	}
 	update = storageLayer.Update
 
-	distributionLayer, err := distribution.OpenLayer(ctx, distribution.LayerConfig{
-		Instrumentation:  cfg.Child("distribution"),
-		AdvertiseAddress: cfg.listeners.AdvertiseAddress(),
-		Storage:          storageLayer,
-	})
+	// ctx ends when shutdown starts, before the Core stops writing, and the Gorp
+	// tables of each layer live until the context they open on ends.
+	distributionLayer, err := distribution.OpenLayer(
+		context.WithoutCancel(ctx),
+		distribution.LayerConfig{
+			Instrumentation:  cfg.Child("distribution"),
+			AdvertiseAddress: cfg.listeners.AdvertiseAddress(),
+			Storage:          storageLayer,
+		},
+	)
 	if !ok(err, distributionLayer) {
 		return err
 	}
@@ -292,22 +297,25 @@ func BootupCore(
 		return err
 	}
 
-	serviceLayer, err := service.OpenLayer(ctx, service.LayerConfig{
-		Instrumentation:    cfg.Child("service"),
-		Distribution:       distributionLayer,
-		Security:           securityProvider,
-		Storage:            storageLayer,
-		RootCredentials:    cfg.rootCredentials,
-		FIPS:               cfg.fips,
-		SessionIdleTimeout: cfg.sessionIdleTimeout,
-		License: license.ServiceConfig{
-			Key:      cfg.licenseKey,
-			Version:  version.Get(),
-			Loopback: new(cfg.listeners.Loopback()),
+	serviceLayer, err := service.OpenLayer(
+		context.WithoutCancel(ctx),
+		service.LayerConfig{
+			Instrumentation:    cfg.Child("service"),
+			Distribution:       distributionLayer,
+			Security:           securityProvider,
+			Storage:            storageLayer,
+			RootCredentials:    cfg.rootCredentials,
+			FIPS:               cfg.fips,
+			SessionIdleTimeout: cfg.sessionIdleTimeout,
+			License: license.ServiceConfig{
+				Key:      cfg.licenseKey,
+				Version:  version.Get(),
+				Loopback: new(cfg.listeners.Loopback()),
+			},
+			ValidateChannelNames: cfg.validateChannelNames,
+			SecretsKey:           secretsKey,
 		},
-		ValidateChannelNames: cfg.validateChannelNames,
-		SecretsKey:           secretsKey,
-	})
+	)
 	if !ok(err, serviceLayer) {
 		return err
 	}
