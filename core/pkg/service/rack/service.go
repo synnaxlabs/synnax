@@ -209,7 +209,7 @@ func (s *Service) RetrieveOrCreateEmbedded(
 	bindingKey := []byte(s.HostKey.String() + ".rack.embedded." + name)
 	err = s.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		q := s.NewRetrieve().Entry(&r)
-		b, closer, err := tx.Get(ctx, bindingKey)
+		b, closer, err := tx.Get(bindingKey)
 		if err == nil {
 			q = q.Where(MatchKeys(Key(binary.LittleEndian.Uint32(b))))
 			if err = closer.Close(); err != nil {

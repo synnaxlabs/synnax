@@ -364,7 +364,7 @@ func convertTaskTab(
 	candidates []string,
 ) (*Tab, error) {
 	for _, candidate := range candidates {
-		val, closer, err := tx.Get(ctx, []byte(task.LegacyKeyKVPrefix+candidate))
+		val, closer, err := tx.Get([]byte(task.LegacyKeyKVPrefix + candidate))
 		if err != nil {
 			if errors.Is(err, query.ErrNotFound) {
 				continue

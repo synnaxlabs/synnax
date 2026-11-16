@@ -109,7 +109,7 @@ func (l *changeList) find(
 		return slot{at: at}, nil
 	}
 	s := slot{at: -1, record: record}
-	stored, closer, err := tx.Get(ctx, key)
+	stored, closer, err := tx.Get(key)
 	if errors.Is(err, query.ErrNotFound) {
 		return s, nil
 	}

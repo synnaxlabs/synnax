@@ -789,7 +789,7 @@ var _ = Describe("Service", func() {
 					tx gorp.Tx,
 					c *arctask.Config,
 				) error {
-					v, closer, err := tx.Get(ctx, key)
+					v, closer, err := tx.Get(key)
 					if err != nil {
 						return err
 					}

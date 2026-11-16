@@ -214,7 +214,7 @@ func parentEdgesByFrom(
 // alreadyMigrated reports whether a Core up to v0.53 already folded the store's legacy
 // range groups. A group named "Ranges" on such a store belongs to the user.
 func alreadyMigrated(ctx context.Context, tx gorp.Tx) (bool, error) {
-	_, closer, err := tx.Get(ctx, []byte("sy_ranger_migration_performed"))
+	_, closer, err := tx.Get([]byte("sy_ranger_migration_performed"))
 	if err != nil {
 		return false, errors.Skip(err, query.ErrNotFound)
 	}

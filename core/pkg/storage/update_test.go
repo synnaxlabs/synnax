@@ -40,7 +40,7 @@ func startUpdate(ctx context.Context, dir, version string) *storage.Layer {
 
 func readValue(ctx context.Context, l *storage.Layer) string {
 	GinkgoHelper()
-	value, closer := MustSucceed2(l.KV.Get(ctx, []byte("key")))
+	value, closer := MustSucceed2(l.KV.Get([]byte("key")))
 	defer func() { Expect(closer.Close()).To(Succeed()) }()
 	return string(value)
 }

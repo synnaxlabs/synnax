@@ -45,7 +45,7 @@ var _ = Describe("Batch", func() {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		sets = 0
 		set := func(ctx context.Context, tx gorp.Tx, req setRequest) (setResponse, error) {
-			prev, closer, err := tx.Get(ctx, []byte(req.Key))
+			prev, closer, err := tx.Get([]byte(req.Key))
 			if err == nil {
 				defer func() { Expect(closer.Close()).To(Succeed()) }()
 			}
@@ -78,7 +78,7 @@ var _ = Describe("Batch", func() {
 	}
 	stored := func(ctx context.Context, key string) string {
 		GinkgoHelper()
-		v, closer, err := db.Get(ctx, []byte(key))
+		v, closer, err := db.Get([]byte(key))
 		if err != nil {
 			return ""
 		}

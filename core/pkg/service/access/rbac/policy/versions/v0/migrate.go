@@ -87,7 +87,7 @@ var Migration = migrate.New(
 // AlreadyMigrated reports whether a Core up to v0.53 already converted the store's
 // legacy permissions to roles.
 func AlreadyMigrated(ctx context.Context, tx gorp.Tx) (bool, error) {
-	performed, closer, err := tx.Get(ctx, []byte("sy_rbac_migration_performed"))
+	performed, closer, err := tx.Get([]byte("sy_rbac_migration_performed"))
 	if err != nil {
 		return false, errors.Skip(err, query.ErrNotFound)
 	}
@@ -123,7 +123,7 @@ func buildUserMappings(legacyPolicies []Policy) []LegacyUserMapping {
 // ReadLegacyMappings reads the persisted legacy permission mapping from KV. Returns nil
 // if no mapping exists.
 func ReadLegacyMappings(ctx context.Context, tx gorp.Tx) ([]LegacyUserMapping, error) {
-	mappingBytes, closer, err := tx.Get(ctx, legacyMappingKVKey)
+	mappingBytes, closer, err := tx.Get(legacyMappingKVKey)
 	if err != nil {
 		if errors.Is(err, query.ErrNotFound) {
 			return nil, nil

@@ -72,7 +72,7 @@ var _ = Describe("NormalizeKeys", func() {
 				Where(gorp.MatchKeys[string, v0.Pair](e.GorpKey())).
 				Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(e))
-			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
+			Expect(db.Get(legacy)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
 })
@@ -126,7 +126,7 @@ var _ = Describe("RecoverKVPairKeys", func() {
 	expectLegacyRowsDeleted := func(ctx SpecContext) {
 		GinkgoHelper()
 		for k := range kvPairRows {
-			Expect(kvDB.Get(ctx, MustSucceed(hex.DecodeString(k)))).Error().
+			Expect(kvDB.Get(MustSucceed(hex.DecodeString(k)))).Error().
 				To(MatchError(query.ErrNotFound))
 		}
 	}
