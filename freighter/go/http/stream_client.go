@@ -143,6 +143,7 @@ func ctxToHeaders(ctx freighter.Context) http.Header {
 type clientStream[RQ, RS freighter.Payload] struct {
 	streamCore[RS, RQ]
 	sendClosed bool
+	closed     bool
 }
 
 // Send implements the freighter.ClientStream interface.
@@ -159,10 +160,11 @@ func (s *clientStream[RQ, RS]) Send(req RQ) error {
 
 func (s *clientStream[RQ, RS]) Receive() (RS, error) {
 	pld, err := s.streamCore.Receive()
-	if err != nil {
-		return pld, errors.Combine(err, s.close())
+	if err == nil || s.closed {
+		return pld, err
 	}
-	return pld, nil
+	s.closed = true
+	return pld, errors.Combine(err, s.close())
 }
 
 // CloseSend implements the freighter.ClientStream interface.
