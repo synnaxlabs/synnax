@@ -305,6 +305,39 @@ describe("Bounds", () => {
     });
   });
 
+  describe("buildInsertionPlan", () => {
+    it("should return null when the value lies inside the first bound", () => {
+      expect(bounds.buildInsertionPlan([[0, 10]], [2, 5])).toBeNull();
+    });
+    it("should return null when the value lies inside a later bound", () => {
+      expect(
+        bounds.buildInsertionPlan(
+          [
+            [0, 10],
+            [20, 30],
+          ],
+          [22, 25],
+        ),
+      ).toBeNull();
+    });
+    it("should trim a value that ends inside the first bound", () => {
+      expect(bounds.buildInsertionPlan([[5, 10]], [0, 7])).toEqual({
+        removeBefore: 0,
+        removeAfter: 2,
+        insertInto: 0,
+        deleteInBetween: 0,
+      });
+    });
+    it("should insert a value that ends before every bound", () => {
+      expect(bounds.buildInsertionPlan([[5, 10]], [0, 3])).toEqual({
+        removeBefore: 0,
+        removeAfter: 0,
+        insertInto: 0,
+        deleteInBetween: 0,
+      });
+    });
+  });
+
   describe("traverse", () => {
     interface Spec<T extends numeric.Value> {
       bounds: Array<bounds.Crude<T>>;

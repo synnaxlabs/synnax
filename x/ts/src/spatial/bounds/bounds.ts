@@ -299,8 +299,6 @@ export const buildInsertionPlan = <T extends numeric.Value>(
   const upper = findInsertPosition<T>(_bounds, _target.upper);
   // Target starts past every bound.
   if (lower.index === bounds.length) return { ...ZERO_PLAN, insertInto: bounds.length };
-  // Target ends before every bound.
-  if (upper.index === 0) return { ...ZERO_PLAN, removeAfter: upper.position };
   if (lower.index === upper.index) {
     if (lower.position !== 0 && upper.position !== 0) return null;
     return {
