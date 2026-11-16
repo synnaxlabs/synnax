@@ -219,10 +219,11 @@ TEST(WriterTest, SetAuthorityIncreaseUpdatesMirror) {
 }
 
 /// @brief it should hand a channel back to the next local writer when the holder lowers
-/// its authority.
+/// its authority while the Core is down.
 TEST(WriterTest, SetAuthorityDecreaseHandsOffLocally) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
+    states->disconnect();
     const x::control::Subject arc{"arc", "arc-1"};
     const x::control::Subject op{"operator", "op-1"};
     auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
@@ -250,6 +251,7 @@ TEST(WriterTest, SetAuthorityDecreaseHandsOffLocally) {
 TEST(WriterTest, CloseHandsOffLocallyWhileTheCoreIsUnreachable) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
+    states->disconnect();
     const x::control::Subject arc{"arc", "arc-1"};
     const x::control::Subject op{"operator", "op-1"};
     auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>(

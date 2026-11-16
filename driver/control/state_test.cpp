@@ -400,9 +400,10 @@ TEST(StatesTest, OpenGateDefaultsToAbsoluteAuthority) {
 }
 
 /// @brief it should hand the channel to the next gate by authority, then by order,
-/// when the holder closes.
+/// when the holder closes after disconnect.
 TEST(StatesTest, CloseGateHandsOffToTheNextGate) {
     States states;
+    states.disconnect();
     const x::control::Subject third{"third", "third-1"};
     states.open_gate(OPERATOR, {1}, {100});
     states.open_gate(third, {1}, {100});
@@ -447,5 +448,46 @@ TEST(StatesTest, SetFallsBackToLocalGates) {
     ASSERT_TRUE(states.is_authorized(1, ARC));
     ASSERT_TRUE(states.is_authorized(2, OPERATOR));
     ASSERT_FALSE(states.is_authorized(2, ARC));
+}
+
+/// @brief it should give the channel back to an earlier gate that raises its authority
+/// to a tie after disconnect, as the Core does.
+TEST(StatesTest, EarlierGateTakesBackATieAfterDisconnect) {
+    States states;
+    states.disconnect();
+    states.open_gate(ARC, {1}, {150});
+    states.open_gate(OPERATOR, {1}, {150});
+    states.set_authority(ARC, 1, 100);
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    states.set_authority(ARC, 1, 150);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+}
+
+/// @brief it should keep the holder while the Core is connected, so the Core decides
+/// who takes the channel next.
+TEST(StatesTest, WaitsForTheCoreWhileConnected) {
+    States states;
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {100});
+    states.set_authority(ARC, 1, 50);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    states.close_gate(ARC);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+}
+
+/// @brief it should leave a holder that the Core reported in place after disconnect,
+/// unless a local gate has more authority.
+TEST(StatesTest, KeepsARemoteHolderAfterDisconnect) {
+    States states;
+    states.set({x::control::State<synnax::channel::Key>{
+        .subject = OPERATOR,
+        .resource = 1,
+        .authority = 200,
+    }});
+    states.disconnect();
+    states.open_gate(ARC, {1}, {150});
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    states.set_authority(ARC, 1, 250);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
 }
 }

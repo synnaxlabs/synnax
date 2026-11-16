@@ -198,6 +198,7 @@ x::errors::Error Manager::run(const std::function<void()> &on_started) {
         ++this->runs;
         if (!this->breaker.running()) this->start_workers();
         err = this->serve(on_started);
+        if (err) this->control_states->disconnect();
     }
     // Only stop ends the Driver. Any other end of serve is a lost Core connection, and
     // the tasks run on until the next run reconciles them.

@@ -24,9 +24,10 @@
 
 namespace driver::control {
 /// @brief maintains a local mirror of per-channel authority state. It also keeps a
-/// gate for each local writer, so a writer that lowers its authority or closes hands
-/// its channels to the next local writer without the Core, by the Core's rule: the
-/// highest authority holds, and the earlier gate wins a tie.
+/// gate for each local writer. While the Core is connected, the mirror takes authority
+/// increases at once and waits for the Core's control updates for the rest. After
+/// disconnect, it applies the Core's rule over the local gates itself: the highest
+/// authority holds, and the earlier gate wins a tie.
 class States {
     struct Gate {
         x::control::Subject subject;
@@ -39,6 +40,7 @@ class States {
         states;
     std::unordered_map<std::string, Gate> gates;
     std::uint64_t next_order = 0;
+    bool connected = true;
 
     Gate &gate(const x::control::Subject &subject) {
         auto [it, added] = this->gates.try_emplace(subject.key);
@@ -78,6 +80,11 @@ class States {
     ) {
         this->gate(subject).authorities[channel] = authority;
         const auto it = this->states.find(channel);
+        if (!this->connected && (it == this->states.end() ||
+                                 this->gates.contains(it->second.subject.key))) {
+            this->recompute(channel);
+            return;
+        }
         if (it == this->states.end() || it->second.authority < authority) {
             this->states[channel] = x::control::State<synnax::channel::Key>{
                 .subject = subject,
@@ -86,7 +93,6 @@ class States {
             };
             return;
         }
-        if (it->second.subject == subject) this->recompute(channel);
     }
 
 public:
@@ -111,11 +117,20 @@ public:
         }
     }
 
-    /// @brief replaces the mirror with the cluster's complete control state. A channel
+    /// @brief marks the Core as lost, so local gates hand channels to each other until
+    /// the next set.
+    void disconnect() {
+        std::unique_lock lock(this->mu);
+        this->connected = false;
+    }
+
+    /// @brief replaces the mirror with the cluster's complete control state and marks
+    /// the Core as connected. A channel
     /// the Core reports as uncontrolled goes to its local gates, so a local writer that
     /// has not reopened on the Core yet keeps its channels.
     void set(const std::vector<x::control::State<synnax::channel::Key>> &next) {
         std::unique_lock lock(this->mu);
+        this->connected = true;
         this->states.clear();
         for (const auto &state: next)
             this->states[state.resource] = state;
@@ -158,9 +173,8 @@ public:
     }
 
     /// @brief sets the authority of subject on channel. A higher authority than the
-    /// holder's takes the channel at once. When the holder lowers its authority, the
-    /// channel goes to the local gate that the Core's rule picks. The Core's control
-    /// state overwrites the mirror when it arrives.
+    /// holder's takes the channel at once. After disconnect, a channel that a local
+    /// gate or nobody holds goes to the local gate that the Core's rule picks.
     void set_authority(
         const x::control::Subject &subject,
         const synnax::channel::Key channel,
@@ -170,14 +184,15 @@ public:
         this->set_authority_locked(subject, channel, authority);
     }
 
-    /// @brief closes the gate of a local writer and hands each channel it held to the
-    /// next local gate.
+    /// @brief closes the gate of a local writer. After disconnect, each channel it held
+    /// goes to the next local gate.
     void close_gate(const x::control::Subject &subject) {
         std::unique_lock lock(this->mu);
         const auto it = this->gates.find(subject.key);
         if (it == this->gates.end()) return;
         const auto channels = it->second.authorities;
         this->gates.erase(it);
+        if (this->connected) return;
         for (const auto &[channel, _]: channels) {
             const auto held = this->states.find(channel);
             if (held != this->states.end() && held->second.subject == subject)
