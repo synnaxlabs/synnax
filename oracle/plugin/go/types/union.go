@@ -147,7 +147,7 @@ func constDoc(variantDoc, variantType string) string {
 }
 
 func processUnion(entry resolution.Type, data *templateData) (unionData, error) {
-	form := entry.Form.(resolution.UnionForm)
+	form := resolution.MustForm[resolution.UnionForm](entry)
 	// Use the raw schema name (with @go name override) so the wrapper matches
 	// resolver.GetTypeName, which union-typed fields resolve through.
 	name := entry.Name
@@ -249,7 +249,7 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 		var inlineFields []resolution.Field
 		if v.Inline {
 			if payload, ok := v.Type.Resolve(data.table); ok {
-				pform := payload.Form.(resolution.StructForm)
+				pform := resolution.MustForm[resolution.StructForm](payload)
 				inherited, declared := resolver.VariantBases(form, v, "go", data.table)
 				embeds = embedBases(inherited)
 				inlineFields = append(slices.Clone(declared), pform.Fields...)
@@ -373,7 +373,7 @@ func embedFieldName(rendered string) string {
 // the enum's own package declares it. The analyzer guarantees a member exists for
 // every variant of a union that borrows the enum, so a miss is a generator bug.
 func enumConstName(enumType resolution.Type, value string) string {
-	form := enumType.Form.(resolution.EnumForm)
+	form := resolution.MustForm[resolution.EnumForm](enumType)
 	for _, m := range form.Values {
 		if m.StringValue() == value {
 			return naming.GetGoName(enumType) + naming.ToPascalCase(m.Name)

@@ -251,7 +251,8 @@ var _ = Describe("Export", func() {
 		Expect(decode(files["Metrics Log.json"])).To(HaveKeyWithValue("type", "log"))
 		panelBody := decode(files["Controls.json"])
 		Expect(panelBody).To(HaveKeyWithValue("type", "panel"))
-		root := panelBody["root"].(map[string]any)
+		root, ok := panelBody["root"].(map[string]any)
+		Expect(ok).To(BeTrue())
 		Expect(root["tabs"]).To(ConsistOf(
 			HaveKeyWithValue("resource", "Metrics Log.json"),
 		))
@@ -269,7 +270,8 @@ var _ = Describe("Export", func() {
 		)
 		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Propulsion/Tanks/Pressure.json"))
-		root := decode(files["Controls.json"])["root"].(map[string]any)
+		root, ok := decode(files["Controls.json"])["root"].(map[string]any)
+		Expect(ok).To(BeTrue())
 		Expect(root["tabs"]).To(ConsistOf(
 			HaveKeyWithValue("resource", "Propulsion/Tanks/Pressure.json"),
 		))
@@ -320,7 +322,8 @@ var _ = Describe("Export", func() {
 		)
 		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
 		Expect(files).To(HaveLen(3))
-		root := decode(files["Controls.json"])["root"].(map[string]any)
+		root, ok := decode(files["Controls.json"])["root"].(map[string]any)
+		Expect(ok).To(BeTrue())
 		Expect(root["tabs"]).To(ConsistOf(HaveKeyWithValue("resource", "Kept.json")))
 		Expect(members).ToNot(ContainElement(lp.ResourceID()))
 	})
@@ -335,7 +338,8 @@ var _ = Describe("Export", func() {
 		)
 		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Sequence.json"))
-		root := decode(files["Controls.json"])["root"].(map[string]any)
+		root, ok := decode(files["Controls.json"])["root"].(map[string]any)
+		Expect(ok).To(BeTrue())
 		Expect(root["tabs"]).To(ConsistOf(
 			HaveKeyWithValue("resource", "Sequence.json"),
 		))
@@ -359,7 +363,8 @@ var _ = Describe("Export", func() {
 				"text": map[string]any{"raw": "x := 1"},
 			}),
 		))
-		root := decode(files["Controls.json"])["root"].(map[string]any)
+		root, ok := decode(files["Controls.json"])["root"].(map[string]any)
+		Expect(ok).To(BeTrue())
 		Expect(root["tabs"]).To(ConsistOf(
 			HaveKeyWithValue("resource", "Startup.json"),
 		))
@@ -379,7 +384,8 @@ var _ = Describe("Export", func() {
 		Expect(files).To(HaveLen(4))
 		Expect(files).To(HaveKey("Sequence.json"))
 		for _, name := range []string{"First.json", "Second.json"} {
-			root := decode(files[name])["root"].(map[string]any)
+			root, ok := decode(files[name])["root"].(map[string]any)
+			Expect(ok).To(BeTrue())
 			Expect(root["tabs"]).To(ConsistOf(
 				HaveKeyWithValue("resource", "Sequence.json"),
 			))
@@ -396,7 +402,8 @@ var _ = Describe("Export", func() {
 		createPanel(ctx, "Controls", proj.Key, leaf(resourceTab(dangling)))
 		files, _ := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
 		Expect(files).To(HaveLen(2))
-		root := decode(files["Controls.json"])["root"].(map[string]any)
+		root, ok := decode(files["Controls.json"])["root"].(map[string]any)
+		Expect(ok).To(BeTrue())
 		Expect(root["tabs"]).To(BeEmpty())
 	})
 

@@ -9,7 +9,6 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { TimeSpan } from "@synnaxlabs/x";
 import { type FC, memo, type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
@@ -81,7 +80,7 @@ export const createToggle = <C extends ToggleConfig>(
         <Sym
           enabled={enabled}
           onClick={toggle}
-          onClickDelay={TimeSpan.milliseconds(onClickDelay)}
+          onClickDelay={onClickDelay}
           orientation={orientation}
           strokeColor={
             stale ? Staleness.resolveColor(stalenessColor, theme) : symbolColor

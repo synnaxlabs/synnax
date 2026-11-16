@@ -209,13 +209,13 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("CommandChannelKey", func() {
 		It(
 			"Should return zero when no channel service is configured",
-			func(ctx SpecContext) {
+			func() {
 				Expect(svc.CommandChannelKey()).To(Equal(channel.Key(0)))
 			},
 		)
 	})
 	Describe("StatusDetails msgpack round-trip", func() {
-		It("Should round-trip the details", func(ctx SpecContext) {
+		It("Should round-trip the details", func() {
 			original := task.StatusDetails{
 				Rack:    testRack.Key,
 				Running: true,
@@ -1712,6 +1712,79 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
+			"Should keep a running status reported after the outage before the copy",
+			func(ctx SpecContext) {
+				now := telem.Now().Add(2 * telem.Hour)
+				frozenNow.Store(int64(now))
+				DeferCleanup(func() { frozenNow.Store(0) })
+				r := rack.Rack{Name: "reported rack"}
+				t := &task.Task{Type: testType, Name: "Reported Task"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := rackService.NewWriter(tx).Create(ctx, &r); err != nil {
+						return err
+					}
+					t.Rack = r.Key
+					return svc.NewWriter(tx).Create(ctx, t)
+				})).To(Succeed())
+				setRunning := func(tx gorp.Tx, at telem.TimeStamp, hash string) error {
+					return stat.NewWriter(tx).Set(ctx, &task.Status{
+						Owner:   new(t.ResourceID()),
+						Name:    t.Name,
+						Time:    at,
+						Variant: status.VariantSuccess,
+						Message: "Task started",
+						Details: task.StatusDetails{
+							Running:    true,
+							Rack:       r.Key,
+							ConfigHash: hash,
+						},
+					})
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return setRunning(tx, now, "old")
+				})).To(Succeed())
+				// The report commits in a transaction that blocks the copy, so it lands
+				// after the monitor captures the outage and before the copy reads.
+				reported := make(chan struct{})
+				var once sync.Once
+				DeferCleanup(stat.Observe().OnChange(func(
+					_ context.Context,
+					changes gorp.TxReader[status.Key, status.Status[any]],
+				) {
+					for ch := range changes {
+						if ch.Value.Owner == nil || *ch.Value.Owner != r.ResourceID() ||
+							ch.Value.Message != "Driver not running" {
+							continue
+						}
+						once.Do(func() {
+							held := make(chan struct{})
+							go func() {
+								defer GinkgoRecover()
+								defer close(reported)
+								tx := db.OpenTx()
+								close(held)
+								time.Sleep(50 * time.Millisecond)
+								Expect(setRunning(
+									tx,
+									now.Add(telem.Millisecond),
+									"new",
+								)).To(Succeed())
+								Expect(tx.Commit(ctx)).To(Succeed())
+								Expect(tx.Close()).To(Succeed())
+							}()
+							<-held
+						})
+					}
+				}))
+				frozenNow.Store(int64(now.Add(rackService.HealthCheckInterval)))
+				Eventually(reported).Should(BeClosed())
+				Consistently(func(g Gomega) {
+					g.Expect(retrieveStatus(ctx, t).Message).To(Equal("Task started"))
+				}, 100*time.Millisecond, 5*time.Millisecond).Should(Succeed())
+			},
+		)
+
+		It(
 			"Should fail a task that was starting when its rack went silent",
 			func(ctx SpecContext) {
 				// The rack and its tasks commit together, so the rack cannot go silent
@@ -1816,7 +1889,7 @@ var _ = Describe("Task", Ordered, func() {
 		Describe("String", func() {
 			It(
 				"Should return a string representation of the command",
-				func(ctx SpecContext) {
+				func() {
 					k := uuid.New()
 					c := &task.Command{
 						Key:  "cmd",
@@ -2023,7 +2096,9 @@ var _ = Describe("Writer in concurrent transactions", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewRetrieve().Where(task.MatchKeys(key)).Entry(&t).Exec(ctx, tx)
 		})).To(Succeed())
-		Expect(t.ConfigHash).To(Equal(hashes[t.Config["routing_key"].(string)]))
+		rawKey, ok := t.Config["routing_key"].(string)
+		Expect(ok).To(BeTrue())
+		Expect(t.ConfigHash).To(Equal(hashes[rawKey]))
 	}
 	applyUntil := func(ctx context.Context, done *atomic.Bool, key task.Key) func() {
 		return func() {

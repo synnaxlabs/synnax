@@ -173,7 +173,7 @@ func (s span) Key() string { return s.key }
 // Error implements Span.
 func (s span) Error(err error, exclude ...error) error {
 	if err == nil {
-		return err
+		return nil
 	}
 	s.otel.RecordError(err)
 	if !errors.IsAny(err, exclude...) {

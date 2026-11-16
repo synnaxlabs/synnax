@@ -62,8 +62,8 @@ var _ = Describe("Dispatch", func() {
 		Expect(apply(ctx, set("name", "After"))).To(Succeed())
 		got := e.retrieve(ctx, c.Base().Key)
 		Expect(got.Base().Name).To(Equal("After"))
-		Expect(got.Variant.(certificate.StoredCertificate).Pem).
-			To(Equal(c.Variant.(certificate.StoredCertificate).Pem))
+		Expect(storedOf(got).Pem).
+			To(Equal(storedOf(c).Pem))
 		Expect(e.expiry(ctx, c.Base().Key).Name).To(Equal("After"))
 	})
 

@@ -158,12 +158,16 @@ var _ = Describe("Service", func() {
 				},
 			}
 			res := MustSucceed(retrieve(AuthedCtx(ctx, author), req))
-			Expect(res.Arcs[0].Variant.(arc.ModuleArc).Status).To(BeNil())
+			mod, ok := res.Arcs[0].Variant.(arc.ModuleArc)
+			Expect(ok).To(BeTrue())
+			Expect(mod.Status).To(BeNil())
 			req.IncludeStatus = true
 			Eventually(func(g Gomega) {
 				res, err := retrieve(AuthedCtx(ctx, author), req)
 				g.Expect(err).ToNot(HaveOccurred())
-				stat := res.Arcs[0].Variant.(arc.ModuleArc).Status
+				mod, ok := res.Arcs[0].Variant.(arc.ModuleArc)
+				g.Expect(ok).To(BeTrue())
+				stat := mod.Status
 				g.Expect(stat).ToNot(BeNil())
 				g.Expect(stat.Message).To(Equal("Compiled"))
 			}).WithTimeout(5 * time.Second).Should(Succeed())
@@ -182,7 +186,9 @@ var _ = Describe("Service", func() {
 			}
 			tsk := deploy(ctx, a)
 			res := MustSucceed(retrieve(AuthedCtx(ctx, author), req))
-			Expect(res.Arcs[0].Variant.(arc.AutomationArc).Changes).To(BeEmpty())
+			automation, ok := res.Arcs[0].Variant.(arc.AutomationArc)
+			Expect(ok).To(BeTrue())
+			Expect(automation.Changes).To(BeEmpty())
 			stat := &task.Status{
 				Owner:   new(task.ResourceID(tsk.Key)),
 				Variant: status.VariantSuccess,
@@ -202,7 +208,9 @@ var _ = Describe("Service", func() {
 			Eventually(func(g Gomega) {
 				res, err := retrieve(AuthedCtx(ctx, author), req)
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(res.Arcs[0].Variant.(arc.AutomationArc).Changes).To(Equal(
+				automation, ok := res.Arcs[0].Variant.(arc.AutomationArc)
+				g.Expect(ok).To(BeTrue())
+				g.Expect(automation.Changes).To(Equal(
 					[]arc.Change{
 						{Type: arc.TypeAutomation, Kind: arc.ChangeKindChanged},
 					},
@@ -210,7 +218,9 @@ var _ = Describe("Service", func() {
 			}).Should(Succeed())
 			req.IncludeChanges = false
 			res = MustSucceed(retrieve(AuthedCtx(ctx, author), req))
-			Expect(res.Arcs[0].Variant.(arc.AutomationArc).Changes).To(BeNil())
+			automation, ok = res.Arcs[0].Variant.(arc.AutomationArc)
+			Expect(ok).To(BeTrue())
+			Expect(automation.Changes).To(BeNil())
 		})
 
 		It(

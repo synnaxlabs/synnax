@@ -248,8 +248,11 @@ func (i Info) err() error {
 			return errors.Wrap(ErrExpired, i.Warning)
 		}
 		return ErrExpired
+	case StateOk:
+		return nil
+	default:
+		return errors.Newf("unknown license state %q", i.State)
 	}
-	return nil
 }
 
 // checkFit returns ErrFingerprint when lic is bound to other machines, and ErrEdition
@@ -546,7 +549,7 @@ func (s *Service) evaluate(lic License, version string) Info {
 // versionCovered reports whether version's major and minor are at most ceiling's. An
 // unparseable version, such as an empty one, passes every ceiling.
 func versionCovered(version, ceiling string) bool {
-	maj, min, ok := parseMinor(version)
+	maj, minor, ok := parseMinor(version)
 	if !ok {
 		return true
 	}
@@ -554,7 +557,7 @@ func versionCovered(version, ceiling string) bool {
 	if !ok {
 		return false
 	}
-	return maj < cMaj || (maj == cMaj && min <= cMin)
+	return maj < cMaj || (maj == cMaj && minor <= cMin)
 }
 
 // parseMinor reads the leading "major.minor" of a version string.
@@ -590,6 +593,7 @@ func (s *Service) logState() {
 		}
 	case StateExpired:
 		s.cfg.L.Error(info.err().Error())
+	case StateMissing:
 	}
 }
 

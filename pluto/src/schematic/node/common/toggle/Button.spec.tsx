@@ -81,6 +81,20 @@ describe("Toggle.Button", () => {
       expect(onClick).toHaveBeenCalledTimes(1);
     });
 
+    it("should read a stored delay number as nanoseconds", () => {
+      const onClick = vi.fn();
+      const { container } = render(
+        <Toggle.Button onClick={onClick} onClickDelay={500_000_000} />,
+      );
+      fireEvent.mouseDown(getButton(container));
+      vi.advanceTimersByTime(499);
+      expect(onClick).not.toHaveBeenCalled();
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(onClick).toHaveBeenCalledTimes(1);
+    });
+
     it("should cancel the deferred onClick when mouseup arrives before the delay", () => {
       const onClick = vi.fn();
       const { container } = render(

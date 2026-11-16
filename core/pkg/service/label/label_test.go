@@ -40,7 +40,7 @@ var _ = Describe("Label", Ordered, func() {
 			DB: db,
 		}))
 	})
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
 		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
 	})

@@ -251,9 +251,9 @@ private:
     /// or the reason the read failed into its status.
     void read_settings(slave::DiscoveryResult &slave);
 
-    /// @brief reads the CoE serial number of the slave into its properties, or the
-    /// reason the read got no answer into its status. Keeps the SII serial number when
-    /// the slave answers the read with an error or gives serial number 0.
+    /// @brief reads the CoE serial number of a slave with SII serial number 0 into its
+    /// properties, or the reason the read got no answer into its status. Keeps serial
+    /// number 0 when the slave answers the read with an error.
     void read_serial(slave::DiscoveryResult &slave);
 
     /// @brief reads the identity and PDO layout of the slave at a position.

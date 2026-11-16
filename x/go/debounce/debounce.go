@@ -40,7 +40,8 @@ type Config struct {
 	// [OPTIONAL] - defaults to xtime.Real.
 	Clock xtime.Clock
 	// Callback is invoked in a new goroutine each time the debouncer fires. Its context
-	// is cancelled if Trigger or Stop is called while it is still running.
+	// is cancelled if Trigger or Stop is called while it is still running, or if the
+	// context passed to New ends.
 	//
 	// [REQUIRED]
 	Callback func(context.Context)
@@ -76,22 +77,28 @@ func (c Config) Validate() error {
 // rapid triggers still produce periodic invocations.
 type Debouncer struct {
 	cfg        Config
+	parent     context.Context
 	mu         sync.Mutex
 	timer      xtime.Timer
 	timerGen   uint64
 	cancel     context.CancelFunc
 	firstAt    time.Time
 	firstAtSet bool
+	// running counts callbacks that have not returned. idle signals when it drops.
+	running int
+	idle    *sync.Cond
 }
 
-// New creates a Debouncer from the merged set of configs. It returns an error if the
-// resulting Config fails validation.
-func New(configs ...Config) (*Debouncer, error) {
+// New creates a Debouncer from the merged set of configs. Each callback context
+// derives from ctx. It returns an error if the resulting Config fails validation.
+func New(ctx context.Context, configs ...Config) (*Debouncer, error) {
 	cfg, err := config.New(Config{Clock: xtime.Real}, configs...)
 	if err != nil {
 		return nil, err
 	}
-	return &Debouncer{cfg: cfg}, nil
+	d := &Debouncer{cfg: cfg, parent: ctx}
+	d.idle = sync.NewCond(&d.mu)
+	return d, nil
 }
 
 // Trigger resets the debounce timer. If the timer is already running, the pending fire
@@ -122,7 +129,8 @@ func (d *Debouncer) Trigger() {
 	d.timer = d.cfg.Clock.RunAt(now.Add(delay), func() { d.onTimerFire(gen) })
 }
 
-// Stop supersedes any pending timer and cancels any in-flight callback.
+// Stop supersedes any pending timer, cancels any in-flight callback, and waits for
+// every callback to return. Callback must not call Stop.
 func (d *Debouncer) Stop() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -130,6 +138,9 @@ func (d *Debouncer) Stop() {
 	d.timerGen++
 	d.cancelLocked()
 	d.firstAtSet = false
+	for d.running > 0 {
+		d.idle.Wait()
+	}
 }
 
 // onTimerFire is invoked by Clock.RunAt when the timer elapses. The gen check guards
@@ -160,7 +171,14 @@ func (d *Debouncer) cancelLocked() {
 }
 
 func (d *Debouncer) fireLocked() {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(d.parent)
 	d.cancel = cancel
-	go d.cfg.Callback(ctx)
+	d.running++
+	go func() {
+		d.cfg.Callback(ctx)
+		d.mu.Lock()
+		d.running--
+		d.idle.Broadcast()
+		d.mu.Unlock()
+	}()
 }

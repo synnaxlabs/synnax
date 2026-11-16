@@ -157,6 +157,7 @@ func (h *Host) handle(m Message) Event {
 		}
 		n.born, n.tables = false, nil
 		return ev
+	case DBirth, DDeath, NData, DData, NCmd, DCmd, State:
 	}
 	if !n.born {
 		dropped.Rebirth = true
@@ -176,13 +177,15 @@ func (h *Host) handle(m Message) Event {
 		ev.Metrics = birthMetrics(p)
 	case DDeath:
 		delete(n.tables, topic.Device)
-	default:
+	case NData, DData:
 		table, ok := n.tables[topic.Device]
 		if !ok {
 			dropped.Rebirth = true
 			return dropped
 		}
 		ev.Metrics, ev.Rebirth = dataMetrics(p, table)
+	case NBirth, NDeath, NCmd, DCmd, State:
+		panic("unexpected " + string(topic.Type) + " message")
 	}
 	return ev
 }

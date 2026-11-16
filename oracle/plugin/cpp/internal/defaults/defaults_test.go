@@ -63,7 +63,8 @@ var _ = Describe("Renderer", func() {
 
 	literal := func(name string) string {
 		GinkgoHelper()
-		form := task.Form.(resolution.StructForm)
+		form, ok := task.Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
 		field := MustBeOk(lo.Find(
 			form.Fields,
 			func(f resolution.Field) bool { return f.Name == name },
@@ -71,9 +72,9 @@ var _ = Describe("Renderer", func() {
 		return renderer.Literal(field.Type, *field.Default)
 	}
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
 		loader := testutil.NewMockFileLoader()
-		table := testutil.MustGenerateRequest(ctx, source, "task", loader).Resolutions
+		table := testutil.MustGenerateRequest(source, "task", loader).Resolutions
 		task = MustBeOk(table.Lookup("task", "Task"))
 		renderer = defaults.Renderer{
 			Table:    table,
@@ -110,7 +111,9 @@ var _ = Describe("Renderer", func() {
 		variant := func(enumName, member string) validation.EnumVariant {
 			GinkgoHelper()
 			typ := MustBeOk(renderer.Table.Lookup("task", enumName))
-			values := typ.Form.(resolution.EnumForm).Values
+			form, ok := typ.Form.(resolution.EnumForm)
+			Expect(ok).To(BeTrue())
+			values := form.Values
 			value := MustBeOk(lo.Find(
 				values,
 				func(v resolution.EnumValue) bool { return v.Name == member },
