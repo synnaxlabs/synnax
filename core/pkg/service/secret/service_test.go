@@ -222,7 +222,7 @@ var _ = Describe("Service", func() {
 				var changes []gorp.EntryChange[secret.Key, secret.Secret]
 				DeferCleanup(
 					e.db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
-						for ch := range e.svc.Changes(ctx, c) {
+						for ch := range e.svc.Changes(c) {
 							changes = append(changes, ch)
 						}
 					}),

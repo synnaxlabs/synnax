@@ -171,8 +171,8 @@ func OpenService(
 }
 
 // Changes returns the changes that c made to racks.
-func (s *Service) Changes(ctx context.Context, c gorp.Commit) gorp.TxReader[Key, Rack] {
-	return s.table.Changes(ctx, c)
+func (s *Service) Changes(c gorp.Commit) gorp.TxReader[Key, Rack] {
+	return s.table.Changes(c)
 }
 
 // Actions returns the action batches that Writer attaches to its transactions.

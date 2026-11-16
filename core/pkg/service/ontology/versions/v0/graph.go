@@ -41,7 +41,7 @@ func RetrieveRelationships(
 	}
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 	for iter.First(); iter.Valid(); iter.Next() {
-		if r := iter.Value(ctx); r != nil && keep(*r) {
+		if r := iter.Value(); r != nil && keep(*r) {
 			out = append(out, *r)
 		}
 	}

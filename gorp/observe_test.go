@@ -189,7 +189,7 @@ var _ = Describe("Changes", func() {
 					Exec(ctx, tx)
 			})).To(Succeed())
 			Expect(commits).To(HaveLen(2))
-			Expect(slices.Collect(entryTable.Changes(ctx, commits[1]))).To(Equal(
+			Expect(slices.Collect(entryTable.Changes(commits[1]))).To(Equal(
 				[]gorp.EntryChange[int32, entry]{
 					{
 						Key:   2,
@@ -214,7 +214,7 @@ var _ = Describe("Changes", func() {
 			}).
 			Exec(ctx, db)).To(Succeed())
 		Expect(commits).To(HaveLen(2))
-		Expect(slices.Collect(entryTable.Changes(ctx, commits[1]))).To(Equal(
+		Expect(slices.Collect(entryTable.Changes(commits[1]))).To(Equal(
 			[]gorp.EntryChange[int32, entry]{
 				{Key: 1, Value: entry{ID: 1, Data: "uno"}, Kind: gorp.ChangeUpdate},
 			},
@@ -244,7 +244,7 @@ var _ = Describe("Changes", func() {
 			Where(gorp.MatchKeys[string, refDevice]("a")).
 			Exec(ctx, db)).To(Succeed())
 		Expect(commits).To(HaveLen(3))
-		Expect(slices.Collect(devices.Changes(ctx, commits[2]))).To(ConsistOf(
+		Expect(slices.Collect(devices.Changes(commits[2]))).To(ConsistOf(
 			gorp.EntryChange[string, refDevice]{Key: "a", Kind: gorp.ChangeDelete},
 			gorp.EntryChange[string, refDevice]{
 				Key:     "b",
@@ -259,6 +259,6 @@ var _ = Describe("Changes", func() {
 			Entry(&grape{ID: 3, Data: "three"}).
 			Exec(ctx, db)).To(Succeed())
 		Expect(commits).To(HaveLen(1))
-		Expect(slices.Collect(entryTable.Changes(ctx, commits[0]))).To(BeEmpty())
+		Expect(slices.Collect(entryTable.Changes(commits[0]))).To(BeEmpty())
 	})
 })
