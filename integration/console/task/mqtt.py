@@ -21,8 +21,9 @@ _DETAILS_SELECTOR = ".console-details__form"
 _ENTRY_TITLE_SELECTOR = ".console-mqtt-entry-label > .lyra-text--overflow-fade"
 _CHANNEL_NAME_SELECTOR = ".console-task__channel-name"
 _ENTRY_LIST_SELECTOR = ".console-panes__list"
-# The Channels section labels the box that reads a field "Read <field name>".
+# The tree labels the box that reads a field "Read <field name>".
 _READ_BOX_PREFIX = "Read "
+_EXPAND_SELECTOR = ".lyra-tree__expansion-indicator"
 # The list wraps a title in bidi isolates so a topic reads left to right.
 _LRI = "\N{LEFT-TO-RIGHT ISOLATE}"
 _PDI = "\N{POP DIRECTIONAL ISOLATE}"
@@ -162,20 +163,43 @@ class MQTTTask(TaskPage):
 
 
 class MQTTRead(MQTTTask):
-    """MQTT read task page. A plain entry reads fields of the message format of its
-    topic. The Channels section of its details picks the fields the task reads."""
+    """MQTT read task page. The tree lists each entry, with the fields of the message
+    format of a topic beneath it. The box on a field sets whether the task reads it."""
 
     page_type: PageType = "mqtt_read"
     pluto_label: str = ".console-task-configure--mqtt_read"
     add_label = "Add data"
 
     def _rows(self) -> Locator:
-        return self._pane().locator(_ENTRY_LIST_SELECTOR).first.get_by_role("option")
+        return self._pane().locator(_ENTRY_LIST_SELECTOR).first.get_by_role("treeitem")
 
-    def _read_box(self, field: str) -> Locator:
-        return self._details().get_by_role(
-            "checkbox", name=f"{_READ_BOX_PREFIX}{field}", exact=True
+    def _read_boxes(self, title: str) -> list[Locator]:
+        """Return the read box of each field under the listed entry ``title``, in the
+        order of its messages and their formats. Expands the entry first."""
+        entry = self._rows().filter(has_text=f"{_LRI}{title}{_PDI}").first
+        if entry.get_attribute("aria-expanded") == "false":
+            entry.locator(_EXPAND_SELECTOR).click()
+        expect(entry).to_have_attribute("aria-expanded", "true", timeout=5000)
+        read = re.compile(f"^{_READ_BOX_PREFIX}")
+        self._rows().get_by_role("checkbox", name=read).first.wait_for(
+            state="visible", timeout=5000
         )
+        boxes: list[Locator] = []
+        inside = False
+        rows = self._rows()
+        for i in range(rows.count()):
+            row = rows.nth(i)
+            if row.get_attribute("aria-level") == "1":
+                if inside:
+                    break
+                label = row.locator(_ENTRY_TITLE_SELECTOR).inner_text()
+                inside = _plain(label) == title
+            elif inside:
+                box = row.get_by_role("checkbox", name=read)
+                # A topic with several messages has a tree item with no box for each.
+                if box.count() > 0:
+                    boxes.append(box)
+        return boxes
 
     def fields(self, title: str) -> list[str]:
         """Return the name of each field the task reads from a listed entry, in the
@@ -183,24 +207,23 @@ class MQTTRead(MQTTTask):
 
         :param title: Title of the entry.
         """
-        self.select_entry(title)
-        boxes = self._details().get_by_role(
-            "checkbox", name=re.compile(f"^{_READ_BOX_PREFIX}")
-        )
-        boxes.first.wait_for(state="visible", timeout=5000)
         return [
-            str(boxes.nth(i).get_attribute("aria-label"))[len(_READ_BOX_PREFIX) :]
-            for i in range(boxes.count())
-            if boxes.nth(i).is_checked()
+            str(box.get_attribute("aria-label"))[len(_READ_BOX_PREFIX) :]
+            for box in self._read_boxes(title)
+            if box.is_checked()
         ]
 
-    def set_read(self, field: str, read: bool) -> None:
-        """Start or stop reading a field of the selected entry.
+    def set_read(self, title: str, field: str, read: bool) -> None:
+        """Start or stop reading a field of a listed entry.
 
+        :param title: Title of the entry.
         :param field: Name of the field in the message format.
         :param read: Whether the task reads the field.
         """
-        box = self._read_box(field)
+        name = f"{_READ_BOX_PREFIX}{field}"
+        box = next(
+            b for b in self._read_boxes(title) if b.get_attribute("aria-label") == name
+        )
         if box.is_checked() == read:
             return
         box.dispatch_event("click")
