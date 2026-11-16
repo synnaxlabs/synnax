@@ -56,6 +56,48 @@ describe("channels", () => {
       });
     });
 
+    it("should number a new index whose name a field takes", async () => {
+      const prefix = uniqueName("src");
+      const read: Record<string, Task.ReadChannelProps> = {};
+      const fields = [createField("f1", "/time")];
+      await Task.configureReadChannels({
+        client,
+        read,
+        propertiesKey: "src",
+        fields,
+        namePrefix: prefix,
+        indexKey: "",
+      });
+      expect((await client.channels.retrieve(fields[0].channel)).name).toBe(
+        `${prefix}_time`,
+      );
+      expect((await client.channels.retrieve(read.src.index)).name).toBe(
+        `${prefix}_time_2`,
+      );
+    });
+
+    it("should number a new channel whose name the Core holds", async () => {
+      const prefix = uniqueName("src");
+      await createIndex(`${prefix}_temperature`);
+      await createIndex(`${prefix}_temperature_2`);
+      const read: Record<string, Task.ReadChannelProps> = {};
+      const fields = [createField("f1", "/temperature")];
+      await Task.configureReadChannels({
+        client,
+        read,
+        propertiesKey: "src",
+        fields,
+        namePrefix: prefix,
+        indexKey: "",
+      });
+      expect((await client.channels.retrieve(fields[0].channel)).name).toBe(
+        `${prefix}_temperature_3`,
+      );
+      expect((await client.channels.retrieve(read.src.index)).name).toBe(
+        `${prefix}_time`,
+      );
+    });
+
     it("should create no channel or index for a disabled field", async () => {
       const read: Record<string, Task.ReadChannelProps> = {};
       const fields = [{ ...createField("f1", "/temperature"), disabled: true }];
