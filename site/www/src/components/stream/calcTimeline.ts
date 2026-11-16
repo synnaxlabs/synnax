@@ -287,7 +287,7 @@ return fluids.orifice_flow(
         },
       },
       {
-        activeLines: [3],
+        activeLines: [7],
         duration: 1600,
         state: {
           activeNodes: ["orifice"],
@@ -300,7 +300,7 @@ return fluids.orifice_flow(
         },
       },
       {
-        activeLines: [3],
+        activeLines: [7],
         duration: 1200,
         state: {
           activeNodes: ["mass_flow"],
@@ -342,7 +342,7 @@ return fluids.orifice_flow(
         },
       },
       {
-        activeLines: [3],
+        activeLines: [7],
         duration: 1600,
         state: {
           activeNodes: ["orifice"],
@@ -356,7 +356,7 @@ return fluids.orifice_flow(
         },
       },
       {
-        activeLines: [3],
+        activeLines: [7],
         duration: 1200,
         state: {
           activeNodes: ["mass_flow"],
