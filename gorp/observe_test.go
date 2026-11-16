@@ -35,6 +35,50 @@ var _ = Describe("Observe", func() {
 			gorp.OpenTable(ctx, gorp.TableConfig[int32, grape]{DB: db}),
 		)
 	})
+	Describe("Indexes", func() {
+		var (
+			nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
+			table   *gorp.Table[int32, indexedEntry]
+			found   [][]int32
+		)
+		BeforeEach(func(ctx SpecContext) {
+			nameIdx = gorp.NewLookupIndex(
+				"name", func(e *indexedEntry) string { return e.Name },
+			)
+			table = openIndexedTable(ctx, db, nameIdx)
+			found = nil
+			DeferCleanup(table.Observe().OnChange(func(
+				ctx context.Context,
+				r gorp.TxReader[int32, indexedEntry],
+			) {
+				for ch := range r {
+					found = append(
+						found,
+						MustSucceed(nameIdx.Get(ctx, nil, ch.Value.Name)),
+					)
+				}
+			}))
+		})
+		It("Should hold a write made without a transaction", func(ctx SpecContext) {
+			w := gorp.WrapWriter[int32, indexedEntry](db)
+			for i, name := range []string{"a", "b", "c"} {
+				Expect(w.Set(ctx, indexedEntry{ID: 1, Name: name})).To(Succeed())
+				Expect(found).To(HaveLen(i + 1))
+				Expect(found[i]).To(ConsistOf(int32(1)))
+			}
+		})
+		It("Should hold a write made in a transaction", func(ctx SpecContext) {
+			for i, name := range []string{"a", "b", "c"} {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return gorp.WrapWriter[int32, indexedEntry](tx).
+						Set(ctx, indexedEntry{ID: 1, Name: name})
+				})).To(Succeed())
+				Expect(found).To(HaveLen(i + 1))
+				Expect(found[i]).To(ConsistOf(int32(1)))
+			}
+		})
+	})
+
 	It(
 		"Should correctly observe a change to the key value store",
 		func(ctx SpecContext) {
