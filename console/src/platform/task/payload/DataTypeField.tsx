@@ -37,6 +37,8 @@ export interface DataTypeFieldProps extends Pick<
   path: deep.Target<string>;
   /** The channel that sets the data type, or 0 before deploying creates one. */
   channel: channel.Key;
+  /** The data type that an empty value stands for. */
+  defaultDataType?: string;
 }
 
 /**
@@ -46,11 +48,14 @@ export interface DataTypeFieldProps extends Pick<
 export const DataTypeField = ({
   channel,
   path,
+  defaultDataType = "",
   ...rest
 }: DataTypeFieldProps): ReactElement => {
   const unbound = (
     <Form.Field path={path} label="Data type" padHelpText={false}>
-      {(p) => <Select {...p} {...rest} />}
+      {({ value, ...p }) => (
+        <Select {...p} {...rest} value={value === "" ? defaultDataType : value} />
+      )}
     </Form.Field>
   );
   return channel === 0 ? unbound : <Bound channel={channel} unbound={unbound} />;
