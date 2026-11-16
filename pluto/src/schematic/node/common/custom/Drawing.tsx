@@ -18,6 +18,11 @@ import { Region } from "@/schematic/node/common/region";
 
 export interface DrawingProps extends Primitive.SVGBasedProps {
   spec: schematic.symbol.Spec;
+  /**
+   * Paints shapes with no stroke of their own in the symbol color, so the hover and
+   * pressed colors of a toggle reach them.
+   */
+  builtIn?: boolean;
   /** Paints the active state of the spec in place of its base state. */
   enabled?: boolean;
   stateOverrides?: schematic.symbol.State[];
@@ -29,6 +34,7 @@ export interface DrawingProps extends Primitive.SVGBasedProps {
  */
 export const Drawing = ({
   spec,
+  builtIn = false,
   orientation = "left",
   scale = 1,
   strokeColor,
@@ -54,7 +60,7 @@ export const Drawing = ({
         orientation={orientation}
         scale={svgScale}
         strokeColor={strokeColor}
-        className={CSS.B("custom-drawing")}
+        className={CSS.cls(!builtIn && CSS.B("custom-drawing"))}
       >
         <g ref={setDrawing} />
       </Primitive.SVG>
