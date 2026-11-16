@@ -22,13 +22,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONSOLE_DIR="$(dirname "$SCRIPT_DIR")"
 REPO_ROOT="$(dirname "$CONSOLE_DIR")"
-DESKTOP_CONFIG="src-tauri/tauri.desktop.conf.json"
-# The Console .deb installs /usr/bin/synnax-console, so on Linux Desktop takes another
-# binary name and both packages install side by side.
-PLATFORM_CONFIG=()
-if [ "$(uname -s)" = Linux ]; then
-    PLATFORM_CONFIG=(--config src-tauri/tauri.desktop.linux.conf.json)
-fi
 
 DEV=false
 if [ "${1:-}" = "--dev" ]; then
@@ -52,9 +45,7 @@ echo "Building the workspace packages..."
 echo "Building Synnax Desktop..."
 cd "$CONSOLE_DIR"
 # The updater artifacts need the release signing key, so a local build leaves them out.
-pnpm exec tauri build --no-sign \
-    --config "$DESKTOP_CONFIG" \
-    ${PLATFORM_CONFIG[@]+"${PLATFORM_CONFIG[@]}"} \
+node scripts/tauri_desktop.ts build --no-sign \
     --config '{"bundle":{"createUpdaterArtifacts":false}}' \
     "$@"
 
