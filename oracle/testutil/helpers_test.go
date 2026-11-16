@@ -574,6 +574,16 @@ var _ = Describe("ExpectContent", func() {
 			ExpectContent(resp, "user.go").
 				ToPreserveOrder("package", "import", "type User", "A int", "B int", "C int")
 		})
+
+		It("should pass when a later substring also appears earlier", func() {
+			resp := buildResponse(plugin.File{
+				Path: "out/user.go",
+				Content: []byte(
+					"// Name is the name.\ntype User struct {\n\tName string\n}",
+				),
+			})
+			ExpectContent(resp, "user.go").ToPreserveOrder("type User", "Name")
+		})
 	})
 
 	Describe("file matching", func() {

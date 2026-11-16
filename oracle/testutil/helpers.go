@@ -216,14 +216,12 @@ func (c *ContentExpectation) ToPreserveOrder(
 	orderedSubstrings ...string,
 ) *ContentExpectation {
 	ginkgo.GinkgoHelper()
-	lastIdx := -1
+	start := 0
 	for _, s := range orderedSubstrings {
-		idx := strings.Index(c.content, s)
-		gomega.Expect(idx).
-			To(gomega.BeNumerically(">=", 0), "expected content to contain: %q", s)
-		gomega.Expect(idx).To(gomega.BeNumerically(">", lastIdx),
+		idx := strings.Index(c.content[start:], s)
+		gomega.Expect(idx).To(gomega.BeNumerically(">=", 0),
 			"expected %q to appear after previous substring", s)
-		lastIdx = idx
+		start += idx + len(s)
 	}
 	return c
 }
