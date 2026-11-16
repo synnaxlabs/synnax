@@ -1076,44 +1076,45 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
       .map((r) => resource.idToString(rackResourceID(r))),
   );
   const streamer = await frameClient.openStreamer(status.SET_CHANNEL_NAME);
-  const cmdKeys = await executeCommands({ frameClient, commands });
-  const parsedTimeout = new TimeSpan(timeout);
-  const finalTimeout = parsedTimeout.greaterThan(FINAL_STATUS_TIMEOUT)
-    ? parsedTimeout
-    : FINAL_STATUS_TIMEOUT;
-  const collect = async (
-    acknowledge: (cmd: string, loading: boolean) => void,
-  ): Promise<Status<StatusData>[]> => {
-    let states: Status<StatusData>[] = [];
-    while (true) {
-      const frame = await streamer.read();
-      // A frame can hold statuses for other tasks and racks. Rack details parse as task
-      // details, so the owner tells a rack status apart.
-      for (const str of frame.get(status.SET_CHANNEL_NAME).toStrings()) {
-        const decoded = binary.JSON_CODEC.decodeString(str);
-        const rackRes = rackStatusZ.safeParse(decoded);
-        if (
-          rackRes.success &&
-          rackRes.data.owner != null &&
-          rackOwners.has(resource.idToString(rackRes.data.owner))
-        ) {
-          // A down Driver never replies, so its rack's problem ends the wait.
-          if (!isRackHealthy(rackRes.data)) throw status.toError(rackRes.data);
-          continue;
-        }
-        const res = statusZ(statusDataZ).safeParse(decoded);
-        if (!res.success) continue;
-        const state = res.data;
-        if (state.details.cmd == null || !cmdKeys.includes(state.details.cmd)) continue;
-        // Any reply acknowledges its command. A loading reply is not the final one.
-        acknowledge(state.details.cmd, state.variant === "loading");
-        if (state.variant === "loading") continue;
-        states = [...states.filter((s) => s.key !== state.key), state];
-        if (states.length === cmdKeys.length) return states;
-      }
-    }
-  };
   try {
+    const cmdKeys = await executeCommands({ frameClient, commands });
+    const parsedTimeout = new TimeSpan(timeout);
+    const finalTimeout = parsedTimeout.greaterThan(FINAL_STATUS_TIMEOUT)
+      ? parsedTimeout
+      : FINAL_STATUS_TIMEOUT;
+    const collect = async (
+      acknowledge: (cmd: string, loading: boolean) => void,
+    ): Promise<Status<StatusData>[]> => {
+      let states: Status<StatusData>[] = [];
+      while (true) {
+        const frame = await streamer.read();
+        // A frame can hold statuses for other tasks and racks. Rack details parse as
+        // task details, so the owner tells a rack status apart.
+        for (const str of frame.get(status.SET_CHANNEL_NAME).toStrings()) {
+          const decoded = binary.JSON_CODEC.decodeString(str);
+          const rackRes = rackStatusZ.safeParse(decoded);
+          if (
+            rackRes.success &&
+            rackRes.data.owner != null &&
+            rackOwners.has(resource.idToString(rackRes.data.owner))
+          ) {
+            // A down Driver never replies, so its rack's problem ends the wait.
+            if (!isRackHealthy(rackRes.data)) throw status.toError(rackRes.data);
+            continue;
+          }
+          const res = statusZ(statusDataZ).safeParse(decoded);
+          if (!res.success) continue;
+          const state = res.data;
+          if (state.details.cmd == null || !cmdKeys.includes(state.details.cmd))
+            continue;
+          // Any reply acknowledges its command. A loading reply is not the final one.
+          acknowledge(state.details.cmd, state.variant === "loading");
+          if (state.variant === "loading") continue;
+          states = [...states.filter((s) => s.key !== state.key), state];
+          if (states.length === cmdKeys.length) return states;
+        }
+      }
+    };
     return await new Promise<Status<StatusData>[]>((resolve, reject) => {
       const timeOutAfter = (span: TimeSpan): ReturnType<typeof setTimeout> =>
         setTimeout(() => {
