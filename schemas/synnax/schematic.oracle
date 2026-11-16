@@ -206,8 +206,11 @@ LabelConfig struct {
     direction       spatial.Direction = spatial.DirectionX {
         @doc value "is the axis along which the label text flows."
     }
-    max_inline_size float64 = 150 {
-        @doc value "is the maximum inline size of the label in pixels before wrapping."
+    max_inline_size uint16 = 150 {
+        @doc value    """
+            is the maximum inline size of the label in pixels before wrapping.
+        """
+        @validate min 1
     }
     align           FlexAlignment = FlexAlignmentCenter {
         @doc value "is the alignment of the label text within its box."
@@ -384,9 +387,6 @@ NodeConfig union on variant {
     button extends LabeledConfig {
         size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the button."
-        }
-        level           text.Level?         {
-            @doc value "is the typography level of the button text."
         }
         on_click_delay  float64 = 0 {
             @doc value "is the debounce delay applied to clicks, in milliseconds."

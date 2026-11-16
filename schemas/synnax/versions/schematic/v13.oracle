@@ -55,9 +55,16 @@ ComponentSize = v9.ComponentSize
 
 ButtonMode = v9.ButtonMode
 
-LabelConfig = v9.LabelConfig
+LabelConfig struct extends v9.LabelConfig {
+    max_inline_size uint16 = 150 {
+        @doc value    """
+            is the maximum inline size of the label in pixels before wrapping.
+        """
+        @validate min 1
+    }
+}
 
-LabeledConfig = v9.LabeledConfig
+LabeledConfig struct extends v9.LabeledConfig {}
 
 ScaledConfig = v9.ScaledConfig
 
@@ -86,6 +93,9 @@ Page = v9.Page
 NodeConfig union on variant extends v10.NodeConfig {
     group_box {
         -members
+    }
+    button {
+        -level
     }
     box {
         stroke_width uint8 = 2 {

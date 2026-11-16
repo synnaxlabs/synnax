@@ -20,6 +20,7 @@ import { type CSSProperties, type ReactElement, type ReactNode } from "react";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
+import { SIZE_LEVELS } from "@/schematic/node/common/size";
 
 interface RenderProps extends Partial<
   Pick<
@@ -52,7 +53,7 @@ export const Select = ({
   readback,
   onSend,
   options,
-  size,
+  size = "medium",
   disabled,
   inlineSize,
   onClickDelay,
@@ -114,7 +115,11 @@ export const Select = ({
             onChange={draft.edit}
             disabled={disabled}
             resourceName="option"
-            triggerProps={{ size, className: CSS.BE("symbol-field", "control") }}
+            triggerProps={{
+              size,
+              level: SIZE_LEVELS[size],
+              className: CSS.BE("symbol-field", "control"),
+            }}
             dialogProps={DIALOG_PROPS}
           >
             {options.map((o) => (
@@ -126,6 +131,7 @@ export const Select = ({
           <BaseButton.Button
             variant="filled"
             size={size}
+            level={SIZE_LEVELS[size]}
             onClick={() => {
               if (matched == null) return;
               onSend(matched.value);

@@ -11,6 +11,7 @@ package schematic_test
 
 import (
 	"encoding/json/v2"
+	"fmt"
 	"strconv"
 	"uuid"
 
@@ -698,6 +699,21 @@ var _ = Describe("Payload decoding", func() {
 		Expect(cfg.End).To(Equal(spatial.XY{X: 0, Y: 40}))
 		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))
 	})
+
+	It("Should fill the wrap width a payload omits", func() {
+		cfg := decodeConfig(`{"variant": "button"}`).Variant.(schematic.ButtonNodeConfig)
+		Expect(cfg.Label.MaxInlineSize).To(BeEquivalentTo(150))
+	})
+
+	DescribeTable("Should validate a wrap width against its bounds",
+		func(width int, matcher OmegaMatcher) {
+			cfg := decodeConfig(fmt.Sprintf(`{"variant": "button", "label": {
+				"label": "P1", "max_inline_size": %d}}`, width))
+			Expect(cfg.Validate()).To(matcher)
+		},
+		Entry("at 0", 0, MatchError(ContainSubstring("max_inline_size"))),
+		Entry("at 1", 1, Succeed()),
+	)
 
 	It("Should keep an empty string the payload carries", func() {
 		cfg := decodeConfig(`{"variant": "value", "units": ""}`).
