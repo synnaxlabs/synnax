@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
+#include <condition_variable>
+#include <future>
+#include <mutex>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -566,5 +570,46 @@ TEST(TestHandleConfigErr, testAutoStartAtBootExecsStart) {
     EXPECT_TRUE(ctx->statuses.empty());
     ASSERT_EQ(raw->cmds.size(), 1);
     EXPECT_EQ(raw->cmds[0].type, synnax::task::START_CMD_TYPE);
+}
+
+/// @brief a context whose status writes block until released.
+class BlockingContext final : public task::Context {
+    std::mutex mu;
+    std::condition_variable cv;
+    bool released = false;
+
+public:
+    std::atomic<bool> writing = false;
+
+    BlockingContext(): Context(nullptr) {}
+
+    void set_status(synnax::task::Status &) override {
+        std::unique_lock lock{this->mu};
+        this->writing = true;
+        this->cv.wait(lock, [this] { return this->released; });
+    }
+
+    void release() {
+        {
+            std::lock_guard lock{this->mu};
+            this->released = true;
+        }
+        this->cv.notify_all();
+    }
+};
+
+/// @brief it should clear a warning on a read loop while a status write of the task is
+/// blocked, so a slow Core never stalls the read loop.
+TEST(TestTaskStateHandler, ClearWarningDoesNotWaitOnAWrite) {
+    const auto ctx = std::make_shared<BlockingContext>();
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    StatusHandler handler(ctx, task);
+    std::thread ack([&] { handler.ack("cmd_key", true); });
+    ASSERT_EVENTUALLY_TRUE(ctx->writing.load());
+    auto cleared = std::async(std::launch::async, [&] { handler.clear_warning(); });
+    const auto status = cleared.wait_for(std::chrono::seconds(1));
+    ctx->release();
+    ack.join();
+    EXPECT_EQ(status, std::future_status::ready);
 }
 }

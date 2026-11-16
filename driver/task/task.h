@@ -57,6 +57,8 @@ public:
 /// driver. This context provides access to the Synnax client and allows tasks to
 /// easily update their state.
 class Context {
+    std::atomic<std::uint64_t> sequence{0};
+
 public:
     /// @brief the client used to communicate with the Synnax server.
     std::shared_ptr<synnax::Synnax> client;
@@ -80,6 +82,17 @@ public:
 
     /// @brief updates the state of the task in the Synnax cluster.
     virtual void set_status(synnax::task::Status &status) = 0;
+
+    /// @brief updates the state of the task in the Synnax cluster.
+    /// @param sequence from next_sequence when the task built status. A status with a
+    /// lower sequence than one already set is older, whatever its time says.
+    virtual void set_status(synnax::task::Status &status, std::uint64_t sequence) {
+        this->set_status(status);
+    }
+
+    /// @returns a number greater than any it returned before. Safe for concurrent
+    /// use.
+    std::uint64_t next_sequence() { return ++this->sequence; }
 };
 
 /// @brief a mock context that can be used for testing tasks.
@@ -112,6 +125,8 @@ class SynnaxContext final : public Context {
         /// task, so a re-send never lands after a newer status or a drop.
         std::mutex mu;
         synnax::task::Status status;
+        /// @brief the sequence of status.
+        std::uint64_t sequence = 0;
         bool present = false;
         bool dropped = false;
     };
@@ -122,6 +137,20 @@ class SynnaxContext final : public Context {
 
     x::errors::Error write(synnax::task::Status &status) {
         return this->client->statuses.set<synnax::task::StatusDetails>(status);
+    }
+
+    /// @returns a copy of status stamped with this rack, and with now when it has no
+    /// time.
+    [[nodiscard]] synnax::task::Status stamp(const synnax::task::Status &status) const {
+        auto stamped = status;
+        if (stamped.time == 0) stamped.time = x::telem::TimeStamp::now();
+        stamped.details.rack = this->rack_key_;
+        return stamped;
+    }
+
+    void log_write(synnax::task::Status &status) {
+        if (const auto err = this->write(status))
+            LOG(ERROR) << "[task.context] failed to write task status update: " << err;
     }
 
 public:
@@ -145,6 +174,11 @@ public:
     synnax::rack::Key rack_key() override { return this->rack_key_; }
 
     void set_status(synnax::task::Status &status) override {
+        this->set_status(status, this->next_sequence());
+    }
+
+    void
+    set_status(synnax::task::Status &status, const std::uint64_t sequence) override {
         std::shared_ptr<Latest> latest;
         {
             std::lock_guard lock{this->latest_mu};
@@ -156,22 +190,31 @@ public:
             return;
         }
         std::lock_guard lock{latest->mu};
-        if (!latest->dropped) {
-            if (status.time == 0) status.time = x::telem::TimeStamp::now();
-            status.details.rack = this->rack_key_;
-            latest->status = status;
-            latest->status.details.cmd.clear();
-            latest->present = true;
+        auto stamped = this->stamp(status);
+        if (latest->dropped) {
+            this->log_write(stamped);
+            return;
         }
-        this->send(status);
+        // Two threads of a task can report at once, so a status can arrive after a
+        // newer one. It is still written, since it may answer a command, and then the
+        // newer one again, so the newest status stays last.
+        if (latest->present && sequence < latest->sequence) {
+            this->log_write(stamped);
+            auto newest = latest->status;
+            this->log_write(newest);
+            return;
+        }
+        latest->status = stamped;
+        latest->status.details.cmd.clear();
+        latest->sequence = sequence;
+        latest->present = true;
+        this->log_write(stamped);
     }
 
     /// @brief writes status without keeping it as the latest status of its task.
-    void send(synnax::task::Status &status) {
-        if (status.time == 0) status.time = x::telem::TimeStamp::now();
-        status.details.rack = this->rack_key_;
-        if (const auto err = this->write(status))
-            LOG(ERROR) << "[task.context] failed to write task status update: " << err;
+    void send(const synnax::task::Status &status) {
+        auto stamped = this->stamp(status);
+        this->log_write(stamped);
     }
 
     /// @brief keeps the statuses of the task from now on. Call it before the task

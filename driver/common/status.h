@@ -9,7 +9,11 @@
 
 #pragma once
 
+#include <atomic>
+#include <cstdint>
 #include <deque>
+#include <mutex>
+#include <optional>
 #include <unordered_map>
 
 #include "absl/log/log.h"
@@ -20,8 +24,18 @@
 namespace driver::common {
 const std::string STOP_CMD_TYPE = "stop";
 const std::string SCAN_CMD_TYPE = "scan";
-/// @brief a utility structure for managing the state of tasks.
+/// @brief a utility structure for managing the state of tasks. Safe for concurrent
+/// use: a task reports from its command thread and its pipeline thread. Never holds
+/// its lock during a write, so a status write never blocks the pipeline thread.
 struct StatusHandler {
+private:
+    /// @brief a status to write and the sequence it was built at.
+    struct Out {
+        synnax::task::Status status;
+        std::uint64_t sequence = 0;
+    };
+
+public:
     /// @brief the task context used to communicate state changes back to Synnax.
     const std::shared_ptr<driver::task::Context> ctx;
     /// @brief the raw synnax task.
@@ -48,6 +62,7 @@ struct StatusHandler {
 
     /// @brief resets the state handler to its initial state.
     void reset() {
+        std::lock_guard lock{this->mu};
         this->status.variant = synnax::status::VARIANT_SUCCESS;
         this->accumulated_err = x::errors::NIL;
         this->recent_statuses.clear();
@@ -59,6 +74,7 @@ struct StatusHandler {
     /// will override any other accumulated errors.
     bool error(const x::errors::Error &err) {
         if (!err) return false;
+        std::lock_guard lock{this->mu};
         this->status.variant = synnax::status::VARIANT_ERROR;
         this->accumulated_err = err;
         return true;
@@ -69,12 +85,17 @@ struct StatusHandler {
     /// method sends the error status to the task context right away.
     void send_error(const x::errors::Error &err) {
         if (!err) return;
-        this->status.key = synnax::task::status_key(this->task);
-        this->status.variant = synnax::status::VARIANT_ERROR;
-        this->status.details.running = false;
-        this->status.message = err.data;
-        this->accumulated_err = err;
-        this->maybe_set_status();
+        std::optional<Out> out;
+        {
+            std::lock_guard lock{this->mu};
+            this->status.key = synnax::task::status_key(this->task);
+            this->status.variant = synnax::status::VARIANT_ERROR;
+            this->status.details.running = false;
+            this->status.message = err.data;
+            this->accumulated_err = err;
+            out = this->maybe_set_status();
+        }
+        this->write(out);
     }
 
     void send_warning(const x::errors::Error &err) { this->send_warning(err.data); }
@@ -82,21 +103,36 @@ struct StatusHandler {
     /// @brief sends the provided warning string to the task. If the task is in
     /// error state, the error message will be communicated instead.
     void send_warning(const std::string &warning) {
-        this->status.key = synnax::task::status_key(this->task);
-        // If there's already an error bound, communicate it instead.
-        if (!this->accumulated_err) {
-            this->status.variant = synnax::status::VARIANT_WARNING;
-            this->status.message = warning;
-        } else
-            this->status.message = this->accumulated_err.data;
-        this->maybe_set_status();
+        std::optional<Out> out;
+        {
+            std::lock_guard lock{this->mu};
+            this->status.key = synnax::task::status_key(this->task);
+            // If there's already an error bound, communicate it instead.
+            if (!this->accumulated_err) {
+                this->status.variant = synnax::status::VARIANT_WARNING;
+                this->status.message = warning;
+                this->warned = true;
+            } else
+                this->status.message = this->accumulated_err.data;
+            out = this->maybe_set_status();
+        }
+        this->write(out);
     }
 
+    /// @brief reports the task as running again after a warning. Cheap when no
+    /// warning is set, so a read loop can call it on each read.
     void clear_warning() {
-        if (this->status.variant != synnax::status::VARIANT_WARNING) return;
-        this->status.variant = synnax::status::VARIANT_SUCCESS;
-        this->status.message = "Task running";
-        this->maybe_set_status();
+        if (!this->warned) return;
+        std::optional<Out> out;
+        {
+            std::lock_guard lock{this->mu};
+            this->warned = false;
+            if (this->status.variant != synnax::status::VARIANT_WARNING) return;
+            this->status.variant = synnax::status::VARIANT_SUCCESS;
+            this->status.message = "Task running";
+            out = this->maybe_set_status();
+        }
+        this->write(out);
     }
 
     /// @brief sends a start message to the task state, using the provided command
@@ -105,17 +141,22 @@ struct StatusHandler {
     /// be marked as running. Bypasses the rate limiter because the Console waits
     /// for command acknowledgments keyed by cmd.
     void send_start(const std::string &cmd_key) {
-        this->status.key = synnax::task::status_key(this->task);
-        this->status.details.cmd = cmd_key;
-        if (!this->accumulated_err) {
-            this->status.details.running = true;
-            this->status.message = "Task started successfully";
-        } else {
-            this->status.variant = synnax::status::VARIANT_ERROR;
-            this->status.details.running = false;
-            this->status.message = this->accumulated_err.data;
+        Out out;
+        {
+            std::lock_guard lock{this->mu};
+            this->status.key = synnax::task::status_key(this->task);
+            this->status.details.cmd = cmd_key;
+            if (!this->accumulated_err) {
+                this->status.details.running = true;
+                this->status.message = "Task started successfully";
+            } else {
+                this->status.variant = synnax::status::VARIANT_ERROR;
+                this->status.details.running = false;
+                this->status.message = this->accumulated_err.data;
+            }
+            out = this->set_status();
         }
-        this->set_status();
+        this->write(out);
     }
 
     /// @brief sends a stop message to the task state, using the provided command
@@ -124,31 +165,45 @@ struct StatusHandler {
     /// will be marked as not running. Bypasses the rate limiter because the
     /// Console waits for command acknowledgments keyed by cmd.
     void send_stop(const std::string &cmd_key) {
-        this->status.key = synnax::task::status_key(this->task);
-        this->status.details.cmd = cmd_key;
-        this->status.details.running = false;
-        if (this->accumulated_err) {
-            this->status.variant = synnax::status::VARIANT_ERROR;
-            this->status.message = this->accumulated_err.data;
-        } else
-            this->status.message = "Task stopped successfully";
-        this->set_status();
+        Out out;
+        {
+            std::lock_guard lock{this->mu};
+            this->status.key = synnax::task::status_key(this->task);
+            this->status.details.cmd = cmd_key;
+            this->status.details.running = false;
+            if (this->accumulated_err) {
+                this->status.variant = synnax::status::VARIANT_ERROR;
+                this->status.message = this->accumulated_err.data;
+            } else
+                this->status.message = "Task stopped successfully";
+            out = this->set_status();
+        }
+        this->write(out);
     }
 
     /// @brief answers cmd_key by re-sending the current status unchanged, for a
     /// command that needs no work. Bypasses the rate limiter because the Console
     /// waits for command acknowledgments keyed by cmd.
     void ack(const std::string &cmd_key, const bool running) {
-        this->status.key = synnax::task::status_key(this->task);
-        this->status.details.running = running;
-        this->status.details.cmd = cmd_key;
-        this->set_status();
+        Out out;
+        {
+            std::lock_guard lock{this->mu};
+            this->status.key = synnax::task::status_key(this->task);
+            this->status.details.running = running;
+            this->status.details.cmd = cmd_key;
+            out = this->set_status();
+        }
+        this->write(out);
     }
 
     /// @brief max entries in the dedup map to bound memory usage.
     static constexpr size_t MAX_RECENT_STATUSES = 50;
 
 private:
+    /// @brief guards accumulated_err, status, and the rate limiter.
+    std::mutex mu;
+    /// @brief true when a warning may be set since the last clear_warning.
+    std::atomic<bool> warned = false;
     /// @brief tracks recently sent statuses to suppress identical repeated
     /// updates. Key is "variant:message", value is the timestamp it was last sent.
     std::unordered_map<std::string, x::telem::TimeStamp> recent_statuses;
@@ -158,20 +213,21 @@ private:
     /// @brief how long a status stays suppressed after being sent.
     const x::telem::TimeSpan rate_limit;
 
-    /// @brief unconditionally sends the current status to the server. Used by
-    /// send_start and send_stop which must always deliver because the Console
-    /// waits for command acknowledgments.
-    void set_status() {
+    /// @returns a copy of the current status to send, always. Used by send_start and
+    /// send_stop, which must always deliver because the Console waits for command
+    /// acknowledgments. Callers must hold mu.
+    Out set_status() {
         this->status.time = x::telem::TimeStamp::now();
-        this->ctx->set_status(this->status);
+        auto out = this->snapshot();
         // The key answers one command. Later unsolicited updates reuse this status
         // object and must not claim it.
         this->status.details.cmd = driver::task::NO_COMMAND;
+        return out;
     }
 
-    /// @brief sends the current status to the server, suppressing identical
-    /// statuses that were already sent within STATUS_RATE_LIMIT.
-    void maybe_set_status() {
+    /// @returns a copy of the current status to send, or nullopt for a status
+    /// identical to one sent within STATUS_RATE_LIMIT. Callers must hold mu.
+    std::optional<Out> maybe_set_status() {
         const auto now = x::telem::TimeStamp::now();
         const auto key = std::string(this->status.variant) + ":" + this->status.message;
         // Check if this key was recently sent. If so, suppress it only when the
@@ -180,7 +236,7 @@ private:
         // (avoids duplicate deque entries on re-insertion).
         const auto existing = this->recent_statuses.find(key);
         if (existing != this->recent_statuses.end()) {
-            if ((now - existing->second) < this->rate_limit) return;
+            if ((now - existing->second) < this->rate_limit) return std::nullopt;
             this->recent_statuses.erase(existing);
             this->insertion_order.erase(std::ranges::find(this->insertion_order, key));
         }
@@ -203,8 +259,19 @@ private:
         this->recent_statuses[key] = now;
         this->insertion_order.push_back(key);
         this->status.time = now;
-        this->ctx->set_status(this->status);
+        return this->snapshot();
     }
+
+    /// @returns status as an Out, stamped with the next sequence. Callers must hold mu.
+    Out snapshot() { return {this->status, this->ctx->next_sequence()}; }
+
+    /// @brief writes out when it holds a status. Call it without mu.
+    void write(std::optional<Out> &out) {
+        if (out.has_value()) this->ctx->set_status(out->status, out->sequence);
+    }
+
+    /// @brief writes out. Call it without mu.
+    void write(Out &out) { this->ctx->set_status(out.status, out.sequence); }
 };
 
 /// @brief a utility function that appropriately handles configuration errors and

@@ -409,6 +409,67 @@ protected:
     }
 };
 
+/// @returns a status of task with message, stamped at time.
+synnax::task::Status context_status(
+    const synnax::task::Key &task,
+    const std::string &message,
+    const x::telem::TimeStamp time
+) {
+    return synnax::task::Status{
+        .key = synnax::task::ontology_id(task).string(),
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = message,
+        .time = time,
+        .details = {.task = task},
+    };
+}
+
+/// @brief it should write a status that arrives after a newer one, then the newer one
+/// again, and keep the newer one as the latest.
+TEST_F(TaskManagerTest, ContextKeepsTheNewerOfTwoStatusesOutOfOrder) {
+    SynnaxContext ctx(client, nullptr, nullptr, rack.key);
+    const auto key = x::uuid::create();
+    ctx.hold(key);
+    const auto now = x::telem::TimeStamp::now();
+    auto newer = context_status(key, "newer", now);
+    auto older = context_status(key, "older", now);
+    ctx.set_status(newer, 2);
+    ctx.set_status(older, 1);
+    EXPECT_EQ(ctx.latest(key).value().message, "newer");
+    std::vector<std::string> written;
+    x::test::eventually(
+        [&] {
+            auto [frame, err] = streamer.read();
+            if (err) return false;
+            for (const auto &j: frame.series->at(0).json_values()) {
+                auto parser = x::json::Parser(j);
+                const auto s = synnax::task::Status::parse(parser);
+                if (s.details.task == key) written.push_back(s.message);
+            }
+            return written.size() >= 3;
+        },
+        [] { return "fewer than three writes"; },
+        __FILE__,
+        __LINE__,
+        std::chrono::milliseconds(5000)
+    );
+    EXPECT_EQ(written, (std::vector<std::string>{"newer", "older", "newer"}));
+}
+
+/// @brief it should keep a newer status as the latest when the clock stepped back
+/// before the task built it.
+TEST_F(TaskManagerTest, ContextOrdersStatusesBySequenceNotTime) {
+    SynnaxContext ctx(client, nullptr, nullptr, rack.key);
+    const auto key = x::uuid::create();
+    ctx.hold(key);
+    const auto now = x::telem::TimeStamp::now();
+    auto first = context_status(key, "first", now);
+    auto second = context_status(key, "second", now - x::telem::HOUR);
+    ctx.set_status(first, 1);
+    ctx.set_status(second, 2);
+    EXPECT_EQ(ctx.latest(key).value().message, "second");
+}
+
 TEST_F(TaskManagerTest, DeployOnStart) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{
