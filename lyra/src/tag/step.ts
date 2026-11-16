@@ -16,6 +16,7 @@ const MORE = CSS.BE("tags", "more");
 // data attributes instead.
 const LAST = "data-last";
 const DOT = "data-dot";
+const FIRST_DOT = "data-first-dot";
 const EMPTY = "data-empty";
 const ENTERING = "data-entering";
 const MEASURING = "data-measuring";
@@ -483,6 +484,7 @@ const write = (
     t.toggleAttribute(HIDDEN, i >= shown);
     t.toggleAttribute(LAST, overlap && i === shown - 1);
     t.toggleAttribute(DOT, dots.includes(t));
+    t.toggleAttribute(FIRST_DOT, t === dots[0]);
   });
   const more = moreOf(el);
   if (more == null) return;

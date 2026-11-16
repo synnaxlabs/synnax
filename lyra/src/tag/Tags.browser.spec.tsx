@@ -201,6 +201,40 @@ describe("Tags", () => {
     expect(list.querySelector("svg")).toBeNull();
   });
 
+  it.each([240, 110])(
+    "should keep the count's face off the shown tags when a hidden tag has no dot at %ipx",
+    async (width) => {
+      const { container } = await renderThemed(
+        <div data-testid="frame" style={{ display: "flex", width: `${width}px` }}>
+          <Tag.Tags>
+            {LABELS.map((label, i) => (
+              <Tag.Tag key={label} color={i >= 4 ? "#3774d0" : undefined}>
+                {label}
+              </Tag.Tag>
+            ))}
+          </Tag.Tags>
+        </div>,
+      );
+      const frame = container.querySelector<HTMLElement>("[data-testid=frame]")!;
+      // The group fits again once its font loads, which moves the count.
+      await document.fonts.ready;
+      await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
+      await expect.poll(() => count(frame)).not.toBeNull();
+      expect(dots(frame)).toEqual(LABELS.slice(4));
+      expect(faceInside(frame)).toBe(true);
+      const shown = visible(frame).filter(hasName);
+      if (shown.length === 0) return;
+      const more = frame.querySelector<HTMLElement>(`.${CSS.BE("tags", "more")}`)!;
+      const face =
+        more.getBoundingClientRect().left +
+        parseFloat(getComputedStyle(more, "::before").left);
+      expect(face).toBeGreaterThan(
+        shown[shown.length - 1].getBoundingClientRect().right,
+      );
+    },
+  );
+
   it("should center a tag's close over its dot", async () => {
     const { container } = await renderThemed(
       <Tag.Tags>

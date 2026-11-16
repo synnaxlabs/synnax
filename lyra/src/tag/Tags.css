@@ -9,8 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
-/* A stacked or stepped group drops the frame it shows on hover. Its faces take the hover
-   instead. An outlined group keeps its outline. */
+/* A stacked or stepped group drops the frame it shows on hover. Its faces take the
+   hover instead. An outlined group keeps its outline. */
 .lyra-btn.lyra-tags:is([data-stacked], .lyra-tags--stepped):not(.lyra-btn--outlined) {
     &,
     &[aria-expanded="true"] {
@@ -210,15 +210,15 @@
         }
     }
 
-    /* The count's face reaches back past the first dot, and keeps the gap from the
-       last tag. */
-    & > .lyra-tag:not([data-hidden]) + .lyra-flex.lyra-btn.lyra-tag[data-dot] {
-        margin-left: calc(1.5rem - 2px);
+    /* With no tag shown, the count's face starts where a first tag would. */
+    & > .lyra-flex.lyra-btn.lyra-tag[data-first-dot] {
+        margin-left: calc(1.5rem + 2px);
     }
 
-    /* With no tag before it, the count's face starts where a first tag would. */
-    & > .lyra-flex.lyra-btn.lyra-tag[data-dot]:first-child {
-        margin-left: calc(1.5rem + 2px);
+    /* After a shown tag, the count's face reaches back past the first dot, and keeps
+       the gap from the last tag. A hidden tag with no dot may come between them. */
+    & > .lyra-tag:not([data-hidden]) ~ .lyra-flex.lyra-btn.lyra-tag[data-first-dot] {
+        margin-left: calc(1.5rem - 2px);
     }
 
     /* Its own hover brightens the count as one unit. Its face lies under its dots, so
