@@ -98,8 +98,8 @@ export const getIndex = (part: string): number | null => {
 };
 
 /**
- * Finds the longest run of leading path parts that names something on the object, for
- * keys that carry the separator inside them.
+ * Finds the longest run of leading path parts that names an own field of the object,
+ * for keys that carry the separator inside them.
  *
  * @returns the key and how many parts it consumed, or null when nothing matches.
  */
@@ -109,6 +109,7 @@ export const findBestKey = (
 ): [string, number] | null => {
   for (let i = remainingParts.length; i >= 1; i--) {
     const candidateKey = remainingParts.slice(0, i).join(SEPARATOR);
+    if (!Array.isArray(obj) && !Object.hasOwn(obj, candidateKey)) continue;
     const v = defaultGetter(obj, candidateKey);
     if (v != null) return [candidateKey, i];
   }

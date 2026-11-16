@@ -171,5 +171,9 @@ describe("path utilities", () => {
       const result = deep.findBestKey(obj, ["a", "b"]);
       expect(result).toEqual(["a.b", 2]);
     });
+
+    it("should not find a key from the prototype", () => {
+      expect(deep.findBestKey({ a: 1 }, ["constructor"])).toBeNull();
+    });
   });
 });
