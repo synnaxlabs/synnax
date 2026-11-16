@@ -591,6 +591,28 @@ describe("MQTT read form", () => {
       );
     });
 
+    it("should stop reading the time of a field that is no longer a timestamp", async () => {
+      const timeCh = await createTimeChannel();
+      const time = createTimeField();
+      const temperature = createField("temperature", "float");
+      const entry = await createEntry({
+        fields: [time, temperature],
+        index: time.key,
+        bound: { [time.key]: timeCh.key, [temperature.key]: 0 },
+      });
+      const { draft } = await renderRead({
+        entries: [entry],
+        beforeRender: () =>
+          retype(entry, { ...createField("time", "float"), key: time.key }, "float"),
+      });
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[0]).messages[0]).toEqual({
+          message: entry.messages[0].message,
+          bindings: [{ field: temperature.key, channel: 0, dataType: "" }],
+        }),
+      );
+    });
+
     it("should stop reading a field that leaves the message format", async () => {
       const temperature = createField("temperature", "float");
       const pressure = createField("pressure", "float");
@@ -808,6 +830,45 @@ describe("MQTT read form", () => {
           expect.objectContaining({
             message: "Failed to start task",
             description: expect.stringContaining(`In ${TOPIC}, mode: a string`),
+          }),
+        ),
+      );
+      expect(await retrieveTopicProps(dev.key)).toBeUndefined();
+    });
+
+    it("should refuse a read of a string field on the time of the payload", async () => {
+      const time = createTimeField();
+      const { container, dev, statuses } = await renderRead({
+        fields: [time, createField("mode", "string")],
+        index: time.key,
+      });
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to start task",
+            description: expect.stringContaining(`In ${TOPIC}, mode: a string`),
+          }),
+        ),
+      );
+      expect(await retrieveTopicProps(dev.key)).toBeUndefined();
+    });
+
+    it("should refuse a topic whose message is gone", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const { container, dev, statuses } = await renderRead({
+        entries: [entry],
+        beforeRender: () => removeMessage(entry),
+      });
+      await screen.findByText("Message not found");
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to start task",
+            description: `The message format of ${TOPIC} is missing or not JSON`,
           }),
         ),
       );
