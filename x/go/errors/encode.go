@@ -23,9 +23,9 @@ type Payload struct {
 	Data string `json:"data" msgpack:"data"`
 }
 
-// Error implements the error interface.
 var payloadType = reflect.TypeFor[Payload]()
 
+// Error implements the error interface.
 func (p Payload) Error() string { return p.Type + "---" + p.Data }
 
 func (p *Payload) Unmarshal(d string) {
