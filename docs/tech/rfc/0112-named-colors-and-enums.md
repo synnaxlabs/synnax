@@ -62,13 +62,16 @@ deviates from RFC 0061 rule 4 (`docs/tech/rfc/0061-theme-resolved-color.md:59-60
 stays Synnax-blind (RFC 0070 §3): it resolves a light and dark pair that its caller
 passes, and the picker shows the groups that its caller passes.
 
-Built-in named colors are normal records with fixed keys. The Core makes them at
-startup, as it makes built-in roles
-(`core/pkg/service/access/rbac/builtin/provision.go:102-162`). A user can edit a
-built-in. The Core stores only the changed fields, and "Restore default" deletes them. A
-release updates each field the user did not change. A built-in cannot be deleted, as a
-built-in role cannot (`core/pkg/service/access/rbac/role/writer.go:101-112`). A built-in
-is named by what it does ("Breaker, red closed"), never by a standard.
+Built-in named colors are normal records with fixed keys. At startup, the Core makes
+each built-in that is missing, as it makes a missing built-in role
+(`core/pkg/service/access/rbac/builtin/provision.go:117-119`). Unlike a built-in role, a
+built-in that exists never changes at startup. A user can edit a built-in. A field is
+edited when it differs from the value that Synnax ships. A release that ships a new
+value adds a migration (`gorp/migrate.go`) that writes the new value only where the
+stored value equals the old one, so an edit stays. "Restore default" writes the shipped
+values. A built-in cannot be deleted, as a built-in role cannot
+(`core/pkg/service/access/rbac/role/writer.go:101-112`). A built-in is named by what it
+does ("Breaker, red closed"), never by a standard.
 
 The Console's own look keeps the Lyra theme, so an edit to the built-in "Error" never
 changes Console buttons. Error, warning, and grays are in both places and can differ.
@@ -129,10 +132,14 @@ matches exact values. The light gets the built-in "Light" enum (Off 0, On 1). It
 
 ### 4.4 Series colors
 
-Eight built-in named colors, each with a light and a dark value, replace the 14. A new
-line gets the first series color that no other line in its plot uses, and stores its
-key. Past eight lines, it gets the series color used least in its plot, and a tie goes
-to the first in order. A user can pick any color.
+Eight built-in named colors, each with a light and a dark value, replace the 14. Each
+value has 3:1 contrast on the canvas of its theme. Under normal vision and each color
+vision deficiency that `color.simulate` models, no two of the eight are closer than 0.05
+in OKLab, in either theme. The eight keep the hues of `#DC136C`, `#20A4F3`, `#FE5F55`,
+`#8075FF`, `#F7AEF8`, `#F18F01`, `#791E94`, and `#52FFB8` from today's list, and a hue
+moves only to pass a check. A new line gets the first series color that no other line in
+its plot uses, and stores its key. Past eight lines, it gets the series color used least
+in its plot, and a tie goes to the first in order. A user can pick any color.
 
 ### 4.5 Editor checks
 
@@ -193,7 +200,7 @@ ship in one release, and phases 19 to 22 in one release after the symbol consoli
 | 2     | Generate two schemas that share a name                   | `oracle`                                                                            | -              |
 | 3     | Add the named color record and the color reference       | `schemas/synnax/color.oracle`, `core/pkg/service/color`                             | 2              |
 | 4     | Add the named color API, access, search, and signals     | `core/pkg/api/color`, `core/pkg/service/color`                                      | 3              |
-| 5     | Add built-in named colors with sparse user changes       | `core/pkg/service/color`                                                            | 4              |
+| 5     | Add built-in named colors                                | `core/pkg/service/color`                                                            | 4              |
 | 6     | Add named colors to the clients and Pluto queries        | `client/ts/src/color`, `client/py/synnax/color`, `pluto/src/color`                  | 4              |
 | 7     | Resolve a light and dark pair for the theme mode in Lyra | `lyra/src/theme`, `lyra/src/color`                                                  | -              |
 | 8     | Store a color reference from the color picker            | `lyra/src/color`, `docs/tech/rfc/0070-color-picker.md`                              | 7              |
@@ -221,10 +228,9 @@ ship in one release, and phases 19 to 22 in one release after the symbol consoli
 | 30    | Store color references in panel colors                   | `schemas/synnax`, `core/pkg/service/panel`, `client/ts`, `client/py`                | 3, 24          |
 | 31    | Store color references in custom symbol look colors      | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `client/ts`, `client/py`     | 3, 24          |
 
-Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. Phases 5 and 18
-are new patterns: no record stores sparse user changes, and the Core has no settings
-store. In phase 29, the Driver writes range colors (`driver/arc/ranges/ranges.h:46-52`)
-as `fixed`.
+Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. Phase 18 is a new
+pattern: the Core has no settings store. In phase 29, the Driver writes range colors
+(`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
 
 ## 7 Resolved decisions
 
@@ -252,8 +258,11 @@ as `fixed`.
    the symbol lightness band adapts it on schematic symbols. The trade is real: in the
    dark theme, a deleted color with a dark value shows its light value.
 8. **An enum in use refuses the delete**: A symbol with no enum loses its states.
-9. **Built-ins are editable, with sparse changes**: Copy-to-edit makes each site keep a
-   copy. Overwrite at startup erases edits on each release.
+9. **Built-ins are editable, and a release changes them by migration**: The migration
+   compares each field with the old shipped value. Copy-to-edit makes each site keep a
+   copy. Overwrite at startup erases edits on each release. A stored list of edited
+   fields is a second place for a fact that the compare finds. The trade is real: a user
+   value equal to the old shipped value takes the new one.
 10. **Built-ins cannot be deleted**: Only edited and restored, as built-in roles. The
     trade is real: a site cannot remove a shipped color it never uses. It can only
     rename or recolor it.
@@ -283,5 +292,5 @@ as `fixed`.
 ## 8 Open questions
 
 - **TypeScript namespace for enums**: `enum` is a reserved word in TypeScript.
-- **Built-in values**: The eight series colors and the built-in enums beyond "Valve" and
-  "Light".
+- **Built-in values**: The final series color values, chosen on a line plot in both
+  themes, and the built-in enums beyond "Valve" and "Light".
