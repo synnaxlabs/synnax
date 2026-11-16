@@ -65,21 +65,22 @@ into a new ICD named after the task, with one message for each topic.
    topic.
 5. Select a topic. Under **Message format**, check the **Type** of each field. Click
    **Add field** to add a value that the dialog did not show.
-6. Under **Channels**, turn each field on or off, and select the **Data type** of its
-   channel.
-7. Click <Icon.Play /> (**Start**).
+6. The fields of each topic are under it in the list. Click the dot of a field to turn
+   it on or off. The task does not read a field that is crossed out.
+7. Select a field to set the **Data type** of its channel.
+8. Click <Icon.Play /> (**Start**).
 
 The first topic makes an ICD named after the task. Each topic gets a message in it,
 named after the topic. Click **Open in editor** to see the ICD in the ICD editor.
 
 The Console creates a channel for each field that the task reads, and an index channel
 for each topic. It names them after the broker, the topic, and the field. To change the
-name of a new channel, rename its field. After the task creates the channel, type a new
-name in **Channel** to rename the channel.
+name of a new channel, rename its field. After the task creates the channel, select the
+field and type a new name in **Channel** to rename the channel.
 
 A string, JSON, or bytes field reads into a
 [virtual channel](/reference/channels#virtual-channels), which stores no data. So these
-fields cannot share a topic with number, boolean, or timestamp fields.
+fields cannot share a message with number, boolean, or timestamp fields.
 
 <Video id="hardware/mqtt/read-task" />
 
@@ -163,7 +164,8 @@ Number, string, and boolean fields have options.
 <Client.Tabs exclude={["typescript"]}>
   <Fragment slot="console">
 
-1. Select the topic. Under **Message format**, click the **Options** cell of the field.
+1. Select the topic, or its message if the topic reads more than one. Under **Message
+   format**, click the **Options** cell of the field.
 2. To set a default, turn on **Optional**, then enter the **Default**.
 3. To map a label, click **Add mapping** under **Enum mapping**, then enter the
    **Label** and the **Value**.
@@ -197,15 +199,16 @@ level = sy.icd.FloatJSONField(
 
 ## Timestamps
 
-Each topic takes the timestamps of its samples from one of two sources:
+Each message takes the timestamps of its samples from one of two sources:
 
 - **Arrival time** -> the time at which the payload arrives at the Core. The default.
 - **Payload value** -> a timestamp field of the message. The value goes to the index
-  channel of the topic.
+  channel of the message.
 
 To read the time from the payload in the Console, set the **Type** of the field to a
 timestamp type, such as **Timestamp (ms)**. Then, under **Timestamp**, set **Source** to
-**Payload value** and select the **Field**. The field cannot have a default.
+**Payload value** and select the **Field**. The field cannot have a default. The list
+does not show the field, and **Channel** under **Timestamp** names its index channel.
 
 Timestamps in an index channel must increase. The task skips a payload whose timestamp
 is not after the last one it wrote. A broker can send such a payload when it delivers a
@@ -235,47 +238,35 @@ read = mqtt.ReadMessage(
 
 <Divider.Divider x />
 
-## Read several messages from one topic in code
+## Read several messages from one topic
 
 A device can publish more than one kind of payload on one topic, such as readings and
 events, and mark each kind with a value such as `"type"`. Give each kind its own message
-in the ICD, with a match rule that tells the task which message a payload is. The
-Console cannot set match rules, and it shows only the first message of each topic, so
-use a script.
+in the ICD, with a match rule that tells the task which message a payload is.
 
-<Rule.List>
-<Rule.Item title="A payload is read as the message whose rule it meets">
+<Client.Tabs exclude={["typescript"]}>
+  <Fragment slot="console">
 
-A match rule names a pointer and a string, boolean, or number value. A payload meets the
-rule when its value at the pointer is equal to the value of the rule.
+1. Select the topic. Next to **Subscription**, click **Add message**. You can also
+   right-click the topic and select **Add message**.
+2. The topic now shows each of its messages, with the fields of each one under it.
+   Select the new message.
+3. Under **Documents**, set **Match** to the type of the value, then enter the
+   **Pointer** and the **Value**. A new message tests the pointer of the other rules of
+   the topic.
+4. Under **Message format**, click **Add field** to add the fields of the message.
+5. Select the first message, and give it a match rule too, or leave it on **Any
+   document** to read each payload that meets no rule.
 
-</Rule.Item>
-<Rule.Item title="Each rule of a topic tests the same pointer">
+To stop reading a message, right-click it and select **Remove**. The message stays in
+the ICD. A topic always reads at least one message.
 
-The messages of one topic cannot test different pointers.
+The Console creates an index channel for each message. From the second message on, a
+channel name also holds the name of its message, such as
+`broker_plant_line1_all_event_code`.
 
-</Rule.Item>
-<Rule.Item title="Two rules cannot match the same value">
-
-The numbers `1` and `1.0` are the same value.
-
-</Rule.Item>
-<Rule.Item title="One message can have no rule">
-
-It reads each payload that meets no rule.
-
-</Rule.Item>
-<Rule.Item title="A payload that matches no message is skipped">
-
-The task warns with `the payload matches no message`.
-
-</Rule.Item>
-<Rule.Item title="Each message writes to its own channels">
-
-Two messages cannot write to the same channel, an index channel included.
-
-</Rule.Item>
-</Rule.List>
+  </Fragment>
+  <Fragment slot="python">
 
 ```python
 # Readings are {"type": "reading", "temp": 21.4}.
@@ -317,6 +308,43 @@ entry = mqtt.PlainReadEntry(
 )
 ```
 
+  </Fragment>
+</Client.Tabs>
+
+<Rule.List>
+<Rule.Item title="A payload is read as the message whose rule it meets">
+
+A match rule names a pointer and a string, boolean, or number value. A payload meets the
+rule when its value at the pointer is equal to the value of the rule.
+
+</Rule.Item>
+<Rule.Item title="Each rule of a topic tests the same pointer">
+
+The messages of one topic cannot test different pointers.
+
+</Rule.Item>
+<Rule.Item title="Two rules cannot match the same value">
+
+The numbers `1` and `1.0` are the same value.
+
+</Rule.Item>
+<Rule.Item title="One message can have no rule">
+
+It reads each payload that meets no rule.
+
+</Rule.Item>
+<Rule.Item title="A payload that matches no message is skipped">
+
+The task warns with `the payload matches no message`.
+
+</Rule.Item>
+<Rule.Item title="Each message writes to its own channels">
+
+Two messages cannot write to the same channel, an index channel included.
+
+</Rule.Item>
+</Rule.List>
+
 <Divider.Divider x />
 
 ## Edit the message format of a running task
@@ -324,7 +352,7 @@ entry = mqtt.PlainReadEntry(
 The message format belongs to the ICD, not to the task. An edit to it, in the task tab
 or in the ICD editor, saves at once. Each task that reads the ICD reads its next message
 with the new format, with no restart. Edits to the task itself, such as a field that you
-turn on under **Channels**, wait until you
+turn on, wait until you
 [redeploy the task](/reference/hardware/start-and-stop-tasks#apply-edits-to-a-running-task).
 
 When an edit leaves the task unable to read a field, such as a type that its channel
@@ -514,12 +542,29 @@ each other field to a data channel.
 <Problem.Item message={["The task reads no fields of ...", "topic ... reads no messages", "message ... binds no fields"]}>
 <Problem.Cause>
 
-A topic of the task reads no field.
+A topic, or a message of a topic, reads no field.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Turn on a field under **Channels**, or disable the topic.
+Turn on a field of the topic or the message. Or disable the topic, or remove the
+message.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["messages ... and ... both have no match rule", "messages ... and ... match at different pointers ... and ...", "messages ... and ... match the same value ..."]}>
+<Problem.Cause>
+
+The match rules of a topic cannot tell its payloads apart. Only one message of a topic
+can have no rule, each rule must test the same pointer, and no two rules can match the
+same value.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Select each message of the topic and change its **Match**. See
+[read several messages from one topic](#read-several-messages-from-one-topic).
 
 </Problem.Fix>
 </Problem.Item>
