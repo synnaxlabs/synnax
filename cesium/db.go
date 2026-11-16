@@ -152,7 +152,10 @@ func (db *DB) Metrics() Metrics {
 // buffer fills while Run is not running, and streamers do not start. Call Run once,
 // after Open and before Close.
 func (db *DB) Run(ctx context.Context) error {
-	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(db.Instrumentation))
+	sCtx, cancel := signal.WithCancel(
+		ctx,
+		signal.WithInstrumentation(db.Instrumentation),
+	)
 	defer cancel()
 	db.relay.flow(sCtx)
 	db.startGC(sCtx, db.options)
