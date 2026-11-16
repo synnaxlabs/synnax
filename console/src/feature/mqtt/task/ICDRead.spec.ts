@@ -118,6 +118,13 @@ const retrieveEntries = async (key: string) =>
 const deploy = async (container: HTMLElement, key: string) =>
   await deployAndAwaitTask(client, container, key, MQTT.Task.ICD_READ_SCHEMAS);
 
+/** Removes the message of the entry from its ICD. */
+const removeMessage = async ({ icd: key, messages }: MQTT.Task.ICDReadEntry) =>
+  await client.icds.dispatch(
+    key,
+    icd.remove({ path: ["messages"], key: messages[0].message }),
+  );
+
 /** Adds the number at /name in the topic through the Add data dialog. */
 const addField = async (rack: rack.Key, topic: string, name: string) => {
   const scanner = await openScanner(client, rack);
@@ -222,6 +229,31 @@ describe("MQTT ICD read form", () => {
         },
       ]),
     );
+  });
+
+  it("should show a note for a topic whose message is gone", async () => {
+    const entry = await createEntry({ fields: [createField("temperature", "float")] });
+    await removeMessage(entry);
+    await renderICDRead({ entries: [entry] });
+    await screen.findByText("Message not found");
+  });
+
+  it("should point a topic whose message is gone at a new message", async () => {
+    const entry = await createEntry({ fields: [createField("temperature", "float")] });
+    await removeMessage(entry);
+    const { dev, draft } = await renderICDRead({ entries: [entry] });
+    await screen.findByText("Message not found");
+    await addField(dev.rack, TOPIC, "temperature");
+    await waitFor(async () => {
+      const [{ messages }] = await retrieveEntries(draft.key);
+      expect((await client.icds.retrieve(entry.icd)).messages).toMatchObject([
+        {
+          key: messages[0].message,
+          name: TOPIC,
+          payload: { fields: [{ pointer: "/temperature" }] },
+        },
+      ]);
+    });
   });
 
   it("should disable and enable a topic through the context menu", async () => {

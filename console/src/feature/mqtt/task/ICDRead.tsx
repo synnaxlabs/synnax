@@ -197,15 +197,23 @@ const entryOf = (
 ): ICDReadEntry =>
   mqtt.icdReadEntryZ.parse({ icd: icdKey, topic, messages: [{ message }] });
 
-/** @returns the entries that read each draft's topic from a new ICD. */
+interface AddTopicsResult {
+  /** The entries of the topics that the task does not read yet. */
+  added: ICDReadEntry[];
+  /** The new message of each held entry whose message is gone, by entry key. */
+  repointed: { key: string; message: icd.MessageKey }[];
+}
+
+/** Creates an ICD with a message for each draft, and the entries that read them. */
 const createICD = async (
   client: Synnax,
   name: string,
   drafts: Draft[],
-): Promise<ICDReadEntry[]> => {
+): Promise<AddTopicsResult> => {
   const messages = drafts.map(({ topic, fields }) => createMessage(topic, fields));
   const { key } = await client.icds.create({ name, messages });
-  return drafts.map(({ topic }, i) => entryOf(key, topic, messages[i].key));
+  const added = drafts.map(({ topic }, i) => entryOf(key, topic, messages[i].key));
+  return { added, repointed: [] };
 };
 
 interface AddTopicsParams {
@@ -221,14 +229,13 @@ interface AddTopicsParams {
  * entry. A topic with no format gets a new message, named after the topic, in the ICD
  * of its entry, or in the ICD of the form. Edits to the ICD of the form go through the
  * form.
- * @returns the entries of the topics that the task does not read yet.
  */
 const addTopics = async ({
   client,
   format,
   entries,
   drafts,
-}: AddTopicsParams): Promise<ICDReadEntry[]> => {
+}: AddTopicsParams): Promise<AddTopicsResult> => {
   const messages = await readMessages(client, format, entries);
   const actions = new Map<icd.Key, icd.Action[]>();
   const inserterOf = (key: icd.Key): Inserter => {
@@ -240,7 +247,7 @@ const addTopics = async ({
         held.push(icd.insert({ path: String(path).split("."), value, after })),
     };
   };
-  const added: ICDReadEntry[] = [];
+  const result: AddTopicsResult = { added: [], repointed: [] };
   format.form.batch(() => {
     for (const { topic, fields } of drafts) {
       const entry = entries.find((e) => e.topic === topic);
@@ -254,11 +261,12 @@ const addTopics = async ({
       const created = createMessage(topic, fields);
       inserterOf(key).insert(PICD.formPath.messages, created, held.at(-1)?.key);
       messages.set(key, [...held, created]);
-      if (entry == null) added.push(entryOf(key, topic, created.key));
+      if (entry == null) result.added.push(entryOf(key, topic, created.key));
+      else result.repointed.push({ key: entry.key, message: created.key });
     }
   });
   for (const [key, held] of actions) await client.icds.dispatch(key, held);
-  return added;
+  return result;
 };
 
 interface TimestampFieldsProps {
@@ -369,7 +377,14 @@ const TopicDetails: FC<TopicDetailsProps> = ({ path, format }) => {
             </Button.Button>
           }
         >
-          {message == null ? null : message.payload.format === "json" ? (
+          {message == null ? (
+            <Status.Summary
+              variant="warning"
+              message="Message not found"
+              description="The ICD has no message for this topic. Add data to make one."
+              center={false}
+            />
+          ) : message.payload.format === "json" ? (
             <PForm.Form<typeof PICD.formSchema> {...format}>
               <ICD.Fields path={fieldsPath(messageKey)} encoding="json" />
               <ICD.FieldsStatus path={fieldsPath(messageKey)} />
@@ -443,11 +458,14 @@ const Topics: FC<TopicsProps> = ({ device, format, selected, onSelect }) => {
       }));
       const drafts = await discover({ device, entries: held });
       if (drafts == null || drafts.length === 0) return;
-      const added =
+      const { added, repointed } =
         format == null
           ? await createICD(client, ctx.get(root.name).value, drafts)
           : await addTopics({ client, format, entries, drafts });
       push(added);
+      repointed.forEach(({ key, message }) =>
+        ctx.set(root.config.entries[key].messages[0].message, message),
+      );
       const first = entries.find((e) => e.topic === drafts[0].topic) ?? added[0];
       onSelect([first.key]);
     }, "Failed to add data");
