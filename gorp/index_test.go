@@ -1613,7 +1613,7 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 			defer func() { Expect(table.Close()).To(Succeed()) }()
 
 			keys := MustSucceed(toIdx.Get(ctx, nil, "x"))
-			asStrings := []string{keys[0], string(keys[1])}
+			asStrings := []string{keys[0], keys[1]}
 			Expect(asStrings).To(ConsistOf("a->x", "c->x"))
 			Expect(toIdx.Get(ctx, nil, "y")).To(HaveLen(1))
 			Expect(toIdx.Get(ctx, nil, "missing")).To(BeEmpty())
