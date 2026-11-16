@@ -25,6 +25,9 @@ const (
 	defaultMaxConcurrentStreams = 1000
 	defaultKeepaliveTime        = time.Minute
 	defaultKeepaliveTimeout     = 20 * time.Second
+	// keepaliveMinTime is the shortest ping interval a client may use. A Driver pings
+	// every 10 s to find a silent network loss in seconds, not minutes.
+	keepaliveMinTime = 5 * time.Second
 )
 
 // GRPCBranch is a Branch that serves gRPC traffic.
@@ -72,6 +75,9 @@ func (g *GRPCBranch) Init(ctx BranchContext) {
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			Time:    cmp.Or(g.KeepaliveTime, defaultKeepaliveTime),
 			Timeout: cmp.Or(g.KeepaliveTimeout, defaultKeepaliveTimeout),
+		}),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime: keepaliveMinTime,
 		}),
 		grpc.ChainUnaryInterceptor(
 			fgrpc.RecoveryUnaryServerInterceptor(ctx.Instrumentation),

@@ -62,16 +62,11 @@ frames in order, and reopens the live writer only after the queue is empty. Ever
 spooled frame therefore comes before the next live session, as RFC 0095 §4.4 requires.
 
 A silent network loss takes minutes to report (`freighter/cpp/grpc/grpc.h:55-63`), so
-every Core call a forwarder makes has a 10 s deadline. That covers each step of an open:
-the channel retrieve, a login, and the stream start (`client/cpp/framer/writer.cpp:26`,
-`client/cpp/auth/auth.h:293-297`, `freighter/cpp/grpc/grpc.h:243-244`). Each call takes
-a cancel token (NEW), made before the call starts, and a watchdog thread cancels a call
-past its deadline through it. The forwarder then spools as above. Login no longer holds
-the shared auth lock while it waits (`client/cpp/auth/auth.h:252-297`): callers share
-one login in flight, and each leaves at its own deadline. The shared login has its own
-10 s deadline, and a failed login clears the slot for the next caller. The 64 MB queue
-covers the deadline at high rates. A reachable Core too slow for the task fills it, and
-`write` then drops the frame and counts it.
+the Driver pings the Core every 10 s and closes a connection whose ping goes 10 s
+without an answer. That fails every call on the connection, the forwarder's included, in
+about 20 s. The Core accepts pings as often as every 5 s. The 64 MB queue covers that
+time at high rates. A reachable Core too slow for the task fills it, and `write` then
+drops the frame and counts it.
 
 Any other Core error, such as a deleted channel, closes the forwarder; the next `write`
 returns it and the task stops as today (`acquisition.cpp:162-167`).
@@ -196,7 +191,7 @@ outage and offline data is dropped with a count; phase 7 keeps it.
 | ----- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------- |
 | 1     | Set the `status.set` time in the Driver                    | `core/pkg/transport/grpc/status`, `core/pkg/api/status`, `core/pkg/service/status`, `client/cpp/status`, `driver/arc/status` | -          |
 | 2     | Wait for an unreachable Core with no limit in the rack     | `driver/rack`                                                                                                                | -          |
-| 3     | Deliver bypass writer frames to the Core in the background | `driver/bypass/pipeline`, `client/cpp/framer`, `client/cpp/auth`, `freighter/cpp/grpc`                                       | -          |
+| 3     | Deliver bypass writer frames to the Core in the background | `driver/bypass/pipeline`, `freighter/cpp/grpc`, `core/pkg/server`                                                            | -          |
 | 4     | Hand off authority locally while the Core is down          | `driver/control`, `driver/bypass/pipeline`, `driver/task`                                                                    | 3          |
 | 5     | Read the bypass bus while the Core is down                 | `driver/bypass/pipeline`                                                                                                     | -          |
 | 6     | Add the outage spool                                       | `driver/spool`                                                                                                               | -          |
