@@ -120,10 +120,6 @@ class Master final : public master::Master {
         x::errors::Error held_err;
         /// @brief whether the process data frames of the send went out.
         bool sent = false;
-        /// @brief the index of each AL status read frame of the send.
-        std::array<uint8_t, MAX_STATE_FRAMES> state_frames{};
-        /// @brief the number of state_frames in use.
-        size_t state_frame_count = 0;
     };
 
     /// @brief the state of one bus run, from activate() to deactivate().
@@ -137,7 +133,7 @@ class Master final : public master::Master {
         /// @brief the working counter of a frame that every enabled slave handled.
         int expected_wkc = 0;
         /// @brief the enabled slaves with inputs, in ascending order. Each cycle reads
-        /// their AL status after its process data.
+        /// their AL status in the frames of its process data.
         std::vector<uint16_t> state_reads;
         /// @brief the sends that no receive() took, oldest first. Only the cycle uses
         /// it.
@@ -236,11 +232,6 @@ public:
     [[nodiscard]] std::span<const uint16_t> inputless() const override;
 
 private:
-    /// @brief reads and frees the AL status frames of cycle, waiting up to timeout
-    /// microseconds for each. Adds each slave that is below SAFE-OP, or that did not
-    /// answer in a frame that came back, to session.inputless.
-    void read_states(Session &session, const Cycle &cycle, int timeout);
-
     /// @brief returns the record of the slave at pos in the SOEM slave table. Record 0
     /// describes the whole bus.
     [[nodiscard]] ec_slavet &record(const uint16_t pos) {

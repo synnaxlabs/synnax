@@ -2212,8 +2212,8 @@ TEST_F(SOEMMasterTest, ReceiveFailsWithNoSendInFlight) {
     EXPECT_EQ(err.data, "process data receive failed");
 }
 
-/// @brief it should keep a frame that has not come back in flight, and take it with
-/// its own AL status reads at a later receive.
+/// @brief it should keep a frame that has not come back in flight, and take it at a
+/// later receive.
 TEST_F(SOEMMasterTest, ReceiveTakesALateFrameAtALaterReceive) {
     this->initialize_with_slave();
     this->activate_master();
@@ -2223,26 +2223,10 @@ TEST_F(SOEMMasterTest, ReceiveTakesALateFrameAtALaterReceive) {
     ASSERT_NIL(this->master->send());
     this->mock->receive_return = 3;
     ASSERT_NIL(this->master->receive());
-    EXPECT_EQ(this->mock->state_read_frames.size(), 1);
+    EXPECT_EQ(this->mock->processdata_in_flight.size(), 1);
     ASSERT_NIL(this->master->receive());
     EXPECT_TRUE(this->mock->processdata_in_flight.empty());
-    EXPECT_TRUE(this->mock->state_read_frames.empty());
     EXPECT_EQ(this->mock->drop_count, 0);
-}
-
-/// @brief it should wait for the AL status reads of a frame that came back, since they
-/// follow it, and not for those of a frame that it drops.
-TEST_F(SOEMMasterTest, ReceiveWaitsForTheStateReadsOfAFrameThatCameBackOnly) {
-    this->initialize_with_slave();
-    this->activate_master();
-    ASSERT_NIL(this->master->send());
-    ASSERT_NIL(this->master->receive());
-    EXPECT_EQ(this->mock->state_read_timeout, 1'000);
-    this->mock->receive_return = EC_NOFRAME;
-    for (size_t i = 0; i < master::MAX_FRAMES_IN_FLIGHT; ++i)
-        ASSERT_NIL(this->master->send());
-    ASSERT_OCCURRED_AS(this->master->receive(), errors::CYCLIC_ERROR);
-    EXPECT_EQ(this->mock->state_read_timeout, 0);
 }
 
 /// @brief it should drop the oldest frame and fail the receive when the frame has not
@@ -2400,15 +2384,13 @@ TEST_F(SOEMMasterTest, ReceiveGivesASlaveWithNoStateAnswerAsInputless) {
     );
 }
 
-/// @brief it should give no slave as inputless when the frame of its AL status read
-/// does not come back, since the frame tells nothing about the slave.
-TEST_F(SOEMMasterTest, ReceiveGivesNoSlaveAsInputlessWhenItsStateReadIsLost) {
+/// @brief it should give no slave as inputless when no frame comes back.
+TEST_F(SOEMMasterTest, ReceiveGivesNoSlaveAsInputlessWhenNoFrameComesBack) {
     this->initialize_with_slave();
     this->activate_master();
-    this->mock->silent_slaves = {1};
-    this->mock->lost_state_reads = 1;
     ASSERT_NIL(this->master->send());
-    ASSERT_NIL(this->master->receive());
+    this->mock->receive_return = EC_NOFRAME;
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
     EXPECT_TRUE(this->master->inputless().empty());
 }
 
@@ -2428,24 +2410,6 @@ TEST_F(SOEMMasterTest, ReceiveReadsNoStateOfASlaveWithoutInputs) {
     EXPECT_TRUE(this->master->inputless().empty());
 }
 
-/// @brief it should split the AL status reads of more slaves than one frame holds
-/// across frames, and read the slaves of each.
-TEST_F(SOEMMasterTest, ReceiveReadsTheStatesOfMoreSlavesThanOneFrameHolds) {
-    for (size_t i = 0; i <= MAX_STATE_READS; ++i)
-        this->add_default_slave();
-    ASSERT_NIL_P(this->master->scan());
-    this->activate_master();
-    this->mock->slave_infos.back().state = EC_STATE_INIT;
-    const auto sent = this->mock->state_read_count;
-    ASSERT_NIL(this->master->send());
-    EXPECT_EQ(this->mock->state_read_count - sent, 2);
-    ASSERT_NIL(this->master->receive());
-    EXPECT_EQ(
-        std::vector(this->master->inputless().begin(), this->master->inputless().end()),
-        std::vector{static_cast<uint16_t>(MAX_STATE_READS + 1)}
-    );
-}
-
 /// @brief it should free the frames in flight when it deactivates.
 TEST_F(SOEMMasterTest, DeactivateFreesTheFramesInFlight) {
     this->initialize_with_slave();
@@ -2454,9 +2418,7 @@ TEST_F(SOEMMasterTest, DeactivateFreesTheFramesInFlight) {
     ASSERT_NIL(this->master->send());
     this->master->deactivate();
     EXPECT_TRUE(this->mock->processdata_in_flight.empty());
-    EXPECT_TRUE(this->mock->state_read_frames.empty());
 }
-
 ////////////////////// Send //////////////////////
 
 /// @brief it should fail a send that SOEM cannot put on the wire.

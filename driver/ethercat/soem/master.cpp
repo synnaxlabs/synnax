@@ -491,10 +491,8 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
 void Master::deactivate() {
     if (this->session) {
         auto &session = *this->session;
-        for (const auto &cycle: session.cycles) {
+        for (const auto &cycle: session.cycles)
             if (cycle.sent) this->api->drop_processdata();
-            this->read_states(session, cycle, 0);
-        }
         this->request_state(EC_STATE_INIT, micros(this->cfg.init_timeout));
         // INIT leaves the DC activation as it is.
         if (const auto err = this->clear_dc_activation())
@@ -531,8 +529,6 @@ x::errors::Error Master::receive() {
     }
     const Cycle cycle = std::move(session.cycles.front());
     session.cycles.erase(session.cycles.begin());
-    // The AL status reads left after the process data, so they come back after it.
-    this->read_states(session, cycle, wkc < 0 ? 0 : PROCESSDATA_TIMEOUT);
     if (cycle.held_err) return cycle.held_err;
 
     if (wkc < 0) {
@@ -543,6 +539,10 @@ x::errors::Error Master::receive() {
     }
     session.frame_sent_at = cycle.sent_at;
     this->frames.fetch_add(1, std::memory_order_release);
+    for (const auto pos: session.state_reads)
+        if (const auto state = this->api->al_status(pos) & 0x0F;
+            state != EC_STATE_SAFE_OP && state != EC_STATE_OPERATIONAL)
+            session.inputless.push_back(pos);
 
     if (wkc != session.expected_wkc) {
         if (wkc < session.expected_wkc)
@@ -600,31 +600,7 @@ x::errors::Error Master::send() {
     if (this->api->send_processdata(ENABLED_GROUP) <= 0)
         return x::errors::Error(errors::CYCLIC_ERROR, "process data send failed");
     cycle.sent = true;
-    const std::span<const uint16_t> reads = session.state_reads;
-    for (size_t i = 0; i < reads.size(); i += MAX_STATE_READS)
-        cycle.state_frames[cycle.state_frame_count++] = this->api->send_state_read(
-            reads.subspan(i, std::min(MAX_STATE_READS, reads.size() - i))
-        );
     return x::errors::NIL;
-}
-
-void Master::read_states(Session &session, const Cycle &cycle, const int timeout) {
-    const std::span<const uint16_t> reads = session.state_reads;
-    std::array<uint16_t, MAX_STATE_READS> states{};
-    for (size_t f = 0; f < cycle.state_frame_count; ++f) {
-        const auto frame = reads.subspan(
-            f * MAX_STATE_READS,
-            std::min(MAX_STATE_READS, reads.size() - (f * MAX_STATE_READS))
-        );
-        const auto read = std::span(states).first(frame.size());
-        // A frame that did not come back tells nothing about its slaves.
-        if (!this->api->receive_state_read(cycle.state_frames[f], read, timeout))
-            continue;
-        for (size_t i = 0; i < frame.size(); ++i)
-            if (const auto state = read[i] & 0x0F;
-                state != EC_STATE_SAFE_OP && state != EC_STATE_OPERATIONAL)
-                session.inputless.push_back(frame[i]);
-    }
 }
 
 std::optional<uint32_t> Master::shortfall() const {

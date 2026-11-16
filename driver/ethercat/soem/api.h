@@ -9,10 +9,8 @@
 
 #pragma once
 
-#include <algorithm>
 #include <array>
 #include <cstdint>
-#include <cstring>
 #include <functional>
 #include <optional>
 #include <span>
@@ -24,23 +22,11 @@
 
 extern "C" {
 #include "soem/soem.h"
+
+#include "soem_patched.h"
 }
 
 namespace driver::ethercat::soem {
-
-/// @brief the bytes of one AL status read in a frame: a 10-byte datagram header, the
-/// 2-byte status, and a 2-byte working counter.
-constexpr size_t STATE_READ_SIZE = 14;
-
-/// @brief the most slaves whose AL status one frame of API::send_state_read() reads,
-/// after the EtherCAT header and before the 4-byte frame check sequence.
-constexpr size_t MAX_STATE_READS = (EC_MAXECATFRAME - ETH_HEADERSIZE - EC_ELENGTHSIZE -
-                                    4) /
-                                   STATE_READ_SIZE;
-
-/// @brief the most frames that the AL status reads of every slave on a bus take.
-constexpr size_t MAX_STATE_FRAMES = (EC_MAXSLAVE + MAX_STATE_READS - 1) /
-                                    MAX_STATE_READS;
 
 /// @brief the SOEM calls that the master makes, so that tests can run the master
 /// without a bus.
@@ -91,13 +77,17 @@ public:
 
     /// @brief waits up to timeout microseconds for the frames of the oldest
     /// send_processdata() in flight. When all of them came back, copies their inputs,
-    /// frees them, and returns their working counter. Otherwise returns EC_NOFRAME and
-    /// keeps them in flight.
+    /// reads the AL status of each slave with inputs from them, frees them, and returns
+    /// their working counter. Otherwise returns EC_NOFRAME and keeps them in flight.
     virtual int receive_processdata(uint8_t group, int timeout) = 0;
 
     /// @brief frees the frames of the oldest send_processdata() in flight. Does nothing
     /// when no send is in flight.
     virtual void drop_processdata() = 0;
+
+    /// @brief returns the AL status that the latest receive_processdata() read for the
+    /// slave, or 0 when the slave did not answer or the frames did not all come back.
+    [[nodiscard]] virtual uint16_t al_status(uint16_t slave) const = 0;
 
     /// @brief requests a state transition for the specified slave.
     virtual int writestate(uint16_t slave) = 0;
@@ -136,18 +126,6 @@ public:
     /// a group and waits up to timeout microseconds for it. Returns the working
     /// counter, or a value below 1 when the frame does not come back.
     virtual int sync_dc(uint8_t group, int timeout) = 0;
-
-    /// @brief sends a frame that reads the AL status of each of slaves, at most
-    /// MAX_STATE_READS of them, and returns the index of the frame. The frame passes
-    /// each slave after the frames sent before it.
-    virtual uint8_t send_state_read(std::span<const uint16_t> slaves) = 0;
-
-    /// @brief waits up to timeout microseconds for the frame at idx that
-    /// send_state_read() sent, and frees it. When it comes back, writes the AL status
-    /// of each of its slaves into states, in order, giving 0 to a slave that did not
-    /// answer, and returns true.
-    virtual bool
-    receive_state_read(uint8_t idx, std::span<uint16_t> states, int timeout) = 0;
 
     /// @brief writes data to a register of a slave with a timeout in microseconds,
     /// returning the working counter, which is 1 when the slave took the write.
@@ -228,33 +206,10 @@ public:
 /// @brief production implementation of soem::API wrapping ecx_contextt.
 class ProdAPI final : public API {
     std::unordered_map<uint16_t, std::function<void(uint16_t)>> po2so_configs;
-    /// @brief the number of index stack entries that each send_processdata() in flight
-    /// pushed, oldest first.
-    std::array<uint8_t, EC_MAXBUF> sends{};
-    /// @brief the number of sends in use.
-    size_t send_count = 0;
-    /// @brief the working counter of the frame of each index stack entry, or a value
-    /// at or below EC_NOFRAME while it has not come back.
-    std::array<int, EC_MAXBUF> wkcs{};
-
-    /// @brief frees the frames of the count oldest index stack entries and removes
-    /// them, with the oldest send.
-    void pop_processdata(const uint8_t count) {
-        auto &stack = this->context.idxstack;
-        for (uint8_t i = 0; i < count; ++i)
-            ecx_setbufstat(&this->context.port, stack.idx[i], EC_BUF_EMPTY);
-        const uint8_t left = stack.pushed - count;
-        std::copy_n(stack.idx + count, left, stack.idx);
-        std::copy_n(stack.data + count, left, stack.data);
-        std::copy_n(stack.length + count, left, stack.length);
-        std::copy_n(stack.dcoffset + count, left, stack.dcoffset);
-        std::copy_n(stack.type + count, left, stack.type);
-        std::copy_n(this->wkcs.begin() + count, left, this->wkcs.begin());
-        stack.pushed = left;
-        stack.pulled = 0;
-        this->send_count--;
-        std::copy_n(this->sends.begin() + 1, this->send_count, this->sends.begin());
-    }
+    /// @brief the process data sends in flight.
+    ec_inflightT inflight{};
+    /// @brief the AL status of each slave from the latest receive_processdata().
+    std::array<uint16_t, EC_MAXSLAVE> alstat{};
 
     static int run_PO2SOconfig(ecx_contextt *context, const uint16 slave) {
         static_cast<ProdAPI *>(context->userdata)->po2so_configs.at(slave)(slave);
@@ -280,64 +235,26 @@ public:
         return ecx_config_map_group(&this->context, iomap, group);
     }
 
-    int send_processdata(uint8_t group) override {
-        auto &stack = this->context.idxstack;
-        const uint8_t first = stack.pushed;
-        const int sent = ecx_send_processdata_group(&this->context, group);
-        if (sent <= 0) return sent;
-        std::fill(
-            this->wkcs.begin() + first,
-            this->wkcs.begin() + stack.pushed,
-            EC_NOFRAME
-        );
-        this->sends.at(this->send_count++) = stack.pushed - first;
-        return sent;
+    int send_processdata(const uint8_t group) override {
+        return ecx_send_processdata_inflight(&this->context, group, &this->inflight);
     }
 
-    /// @brief does what ecx_receive_processdata_group does for the frames of the
-    /// oldest send, but keeps them in flight until all of them come back.
-    int receive_processdata(uint8_t, const int timeout) override {
-        if (this->send_count == 0) return EC_NOFRAME;
-        const auto &stack = this->context.idxstack;
-        const uint8_t count = this->sends[0];
-        for (uint8_t i = 0; i < count; ++i) {
-            if (this->wkcs[i] > EC_NOFRAME) continue;
-            this->wkcs[i] = ecx_waitinframe(&this->context.port, stack.idx[i], timeout);
-            if (this->wkcs[i] <= EC_NOFRAME) return EC_NOFRAME;
-        }
-        int wkc = 0;
-        for (uint8_t i = 0; i < count; ++i) {
-            const uint8_t *frame = this->context.port.rxbuf[stack.idx[i]];
-            const uint8_t command = frame[EC_CMDOFFSET];
-            if (command == EC_CMD_LRD || command == EC_CMD_LRW)
-                std::memcpy(stack.data[i], &frame[EC_HEADERSIZE], stack.length[i]);
-            else if (command != EC_CMD_LWR)
-                continue;
-            // An LWR counts its outputs twice, as an LRW does.
-            const int factor = command == EC_CMD_LWR ? 2 : 1;
-            if (stack.dcoffset[i] == 0) {
-                wkc += this->wkcs[i] * factor;
-                continue;
-            }
-            // The frame gives the working counter of its last datagram, which reads
-            // the reference clock.
-            uint16_t le_wkc = 0;
-            int64_t le_dc = 0;
-            std::memcpy(
-                &le_wkc,
-                &frame[EC_HEADERSIZE + stack.length[i]],
-                sizeof(le_wkc)
-            );
-            std::memcpy(&le_dc, &frame[stack.dcoffset[i]], sizeof(le_dc));
-            wkc += etohs(le_wkc) * factor;
-            this->context.DCtime = etohll(le_dc);
-        }
-        this->pop_processdata(count);
-        return wkc;
+    int receive_processdata(const uint8_t group, const int timeout) override {
+        return ecx_receive_processdata_inflight(
+            &this->context,
+            group,
+            timeout,
+            &this->inflight,
+            this->alstat.data()
+        );
     }
 
     void drop_processdata() override {
-        if (this->send_count > 0) this->pop_processdata(this->sends[0]);
+        ecx_drop_processdata_inflight(&this->context, &this->inflight);
+    }
+
+    [[nodiscard]] uint16_t al_status(const uint16_t slave) const override {
+        return this->alstat.at(slave);
     }
 
     int writestate(uint16_t slave) override {
@@ -377,61 +294,6 @@ public:
         );
         if (wkc > 0) this->context.DCtime = etohll(time);
         return wkc;
-    }
-
-    uint8_t send_state_read(const std::span<const uint16_t> slaves) override {
-        auto &port = this->context.port;
-        const uint8_t idx = ecx_getindex(&port);
-        uint16_t status = 0;
-        for (size_t i = 0; i < slaves.size(); ++i) {
-            const uint16_t adp = this->context.slavelist[slaves[i]].configadr;
-            if (i == 0)
-                ecx_setupdatagram(
-                    &port,
-                    &port.txbuf[idx],
-                    EC_CMD_FPRD,
-                    idx,
-                    adp,
-                    ECT_REG_ALSTAT,
-                    sizeof(status),
-                    &status
-                );
-            else
-                ecx_adddatagram(
-                    &port,
-                    &port.txbuf[idx],
-                    EC_CMD_FPRD,
-                    idx,
-                    i + 1 < slaves.size(),
-                    adp,
-                    ECT_REG_ALSTAT,
-                    sizeof(status),
-                    &status
-                );
-        }
-        ecx_outframe_red(&port, idx);
-        return idx;
-    }
-
-    bool receive_state_read(
-        const uint8_t idx,
-        const std::span<uint16_t> states,
-        const int timeout
-    ) override {
-        auto &port = this->context.port;
-        const bool received = ecx_waitinframe(&port, idx, timeout) > EC_NOFRAME;
-        const uint8_t *frame = port.rxbuf[idx];
-        for (size_t i = 0; received && i < states.size(); ++i) {
-            // The receive buffer starts at the EtherCAT header.
-            const size_t at = EC_HEADERSIZE + i * STATE_READ_SIZE;
-            uint16_t status = 0;
-            uint16_t wkc = 0;
-            std::memcpy(&status, &frame[at], sizeof(status));
-            std::memcpy(&wkc, &frame[at + sizeof(status)], sizeof(wkc));
-            states[i] = etohs(wkc) == 1 ? etohs(status) : 0;
-        }
-        ecx_setbufstat(&port, idx, EC_BUF_EMPTY);
-        return received;
     }
 
     int latch_receive_times(const int timeout) override {
