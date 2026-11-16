@@ -42,8 +42,8 @@ var _ = Describe("Migrations", func() {
 		ctx context.Context
 		db  *gorp.DB
 	)
-	BeforeEach(func(sCtx SpecContext) {
-		ctx = sCtx
+	BeforeEach(func() {
+		ctx = GinkgoT().Context()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 	})
 	// recordComposition marks the given migrations as run by the composition pass.
