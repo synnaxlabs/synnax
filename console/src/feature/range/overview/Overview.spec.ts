@@ -7,95 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  label,
-  lineplot,
-  panel,
-  project,
-  query,
-  ranger,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { label, lineplot, panel, project, query, ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
-import { type Flux } from "@synnaxlabs/pluto";
 import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { type ReactElement } from "react";
 import { assert, describe, expect, it, onTestFinished } from "vitest";
 
 import { Range } from "@/feature/range";
-import { Modals } from "@/platform/modals";
-import {
-  createPanelWrapper,
-  createResourceTab,
-  primePanel,
-} from "@/platform/panel/testutil";
+import { CORE, renderOverview } from "@/feature/range/overview/testutil";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
-import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   createTestClientWithGrants,
-  createTestStore,
   findTagCloseButton,
   type Grants,
   queryIconButton,
-  renderSuspended,
   resolveFocusedTab,
-  type TestStore,
   uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
 
 const TAB = Range.Overview.TABS[ranger.TYPE_RESOURCE_ID.type];
-
-const Deleted = ({ name }: Flux.Tombstone): ReactElement => <>{name} was deleted</>;
-
-const CORE = createCore("overview");
-
-interface RenderOverviewResult {
-  store: TestStore;
-  project: project.Key;
-  /** Points the tab of the overview at the range. */
-  setTabResource: (rangeKey: ranger.Key) => Promise<void>;
-}
-
-const renderOverview = async (
-  rangeKey: ranger.Key,
-  as: Client = client,
-): Promise<RenderOverviewResult> => {
-  const { panelKey, tabKey } = await createResourceTab(
-    client,
-    ranger.resourceID(rangeKey),
-  );
-  const proj = await client.projects.create({ name: uniqueName("proj") });
-  const { wrapper, store } = await createPanelWrapper({
-    client: as,
-    store: await createTestStore({ preloadedState: createCoreState([CORE], CORE.key) }),
-    panelKey,
-    tabKey,
-    project: proj.key,
-  });
-  await primePanel(wrapper, panelKey);
-  const { Content, Guard } = TAB;
-  assert(Guard != null);
-  await renderSuspended(
-    <>
-      <Guard FallbackComponent={Deleted}>
-        <Content />
-      </Guard>
-      <Modals.Stack />
-    </>,
-    { wrapper },
-  );
-  const setTabResource = async (next: ranger.Key): Promise<void> =>
-    await act(async () => {
-      await client.panels.dispatch(panelKey, [
-        panel.setTabResource({ key: tabKey, resource: ranger.resourceID(next) }),
-      ]);
-    });
-  return { store, project: proj.key, setTabResource };
-};
 
 const createChild = async (parent: ranger.Range): Promise<ranger.Range> => {
   const start = TimeStamp.now();
@@ -229,7 +162,13 @@ describe("range/overview", () => {
     it("should offer the exports in the more menu and close it on a pick", async () => {
       const writeText = stubClipboardWriteText();
       const rng = await createTestRange(client);
-      await renderOverview(rng.key);
+      const { statuses } = await renderOverview(rng.key);
+      const expectToast = async (message: string): Promise<void> =>
+        await waitFor(() =>
+          expect(statuses()).toContainEqual(
+            expect.objectContaining({ variant: "success", name: rng.name, message }),
+          ),
+        );
       const pick = async (name: string): Promise<void> => {
         fireEvent.click(await screen.findByRole("button", { name: "More" }));
         fireEvent.click(await screen.findByRole("menuitem", { name }));
@@ -241,12 +180,14 @@ describe("range/overview", () => {
           `rng = client.ranges.retrieve(key="${rng.key}")`,
         ),
       );
+      await expectToast("Copied Python code to clipboard");
       await pick("Copy TypeScript code");
       await waitFor(() =>
         expect(writeText).toHaveBeenLastCalledWith(
           `const rng = await client.ranges.retrieve("${rng.key}");`,
         ),
       );
+      await expectToast("Copied TypeScript code to clipboard");
       await pick("Copy link");
       await waitFor(() =>
         expect(writeText).toHaveBeenLastCalledWith(

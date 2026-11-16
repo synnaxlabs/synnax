@@ -27,6 +27,7 @@ import { CSS } from "@/platform/css";
 import { Framer } from "@/platform/framer";
 import { Label } from "@/platform/label";
 import { Range } from "@/platform/range";
+import { Session } from "@/session";
 
 const path = Ranger.formPath;
 
@@ -126,11 +127,19 @@ const MoreMenu = ({
         },
       }}
     >
-      <Menu.CopyItem itemKey="python" text={python}>
+      <Menu.CopyItem
+        itemKey="python"
+        text={python}
+        successMessage={{ message: "Copied Python code to clipboard", name }}
+      >
         <Icon.Python />
         Copy Python code
       </Menu.CopyItem>
-      <Menu.CopyItem itemKey="typescript" text={typescript}>
+      <Menu.CopyItem
+        itemKey="typescript"
+        text={typescript}
+        successMessage={{ message: "Copied TypeScript code to clipboard", name }}
+      >
         <Icon.TypeScript />
         Copy TypeScript code
       </Menu.CopyItem>
@@ -138,17 +147,19 @@ const MoreMenu = ({
         <Icon.CSV />
         Download as CSV
       </Menu.Item>
-      <Menu.Item itemKey="link">
-        <Icon.Link />
-        Copy link
-      </Menu.Item>
+      {!Session.Runtime.LINKS_DISABLED && (
+        <Menu.Item itemKey="link">
+          <Icon.Link />
+          Copy link
+        </Menu.Item>
+      )}
     </Menu.Menu>
   );
 };
 
 /** Holds the exports of the header once the pane is too narrow to show them. */
 const More = (props: MoreProps): ReactElement => (
-  <Dialog.Frame>
+  <Dialog.Frame className={CSS.BE("range-overview", "more")}>
     <Dialog.Trigger
       hideCaret
       variant="text"
@@ -156,7 +167,6 @@ const More = (props: MoreProps): ReactElement => (
       tooltip="More"
       tooltipLocation="bottom"
       aria-label="More"
-      className={CSS.BE("range-overview", "more")}
     >
       <Icon.KebabMenu />
     </Dialog.Trigger>
