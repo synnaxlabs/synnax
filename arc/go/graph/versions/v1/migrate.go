@@ -16,7 +16,6 @@ import (
 	"maps"
 	"uuid"
 
-	"github.com/samber/lo"
 	v0 "github.com/synnaxlabs/arc/graph/versions/v0"
 	irv0 "github.com/synnaxlabs/arc/ir/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -42,9 +41,15 @@ func MigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
 
 // migrateGraphEdges keys every v0 edge.
 func migrateGraphEdges(_ context.Context, old irv0.Edges) (Edges, error) {
-	return lo.Map(old, func(e irv0.Edge, _ int) Edge {
-		return Edge{Edge: e, Key: uuid.New().String()}
-	}), nil
+	edges := make(Edges, len(old))
+	for i, e := range old {
+		key, err := uuid.NewRandom()
+		if err != nil {
+			return nil, err
+		}
+		edges[i] = Edge{Edge: e, Key: key.String()}
+	}
+	return edges, nil
 }
 
 // MigrateNode lifts a v0 node into the v1 shape, dropping the config and type

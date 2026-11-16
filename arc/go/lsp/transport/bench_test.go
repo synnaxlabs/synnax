@@ -140,14 +140,14 @@ func (h *benchHarness) pump(pred func(msg map[string]any) bool) map[string]any {
 }
 
 // request sends a request and blocks until its response arrives.
-func (h *benchHarness) request(method string, params any) map[string]any {
+func (h *benchHarness) request(method string, params any) {
 	h.b.Helper()
 	h.nextID++
 	id := h.nextID
 	h.send(
 		map[string]any{"jsonrpc": "2.0", "id": id, "method": method, "params": params},
 	)
-	return h.pump(func(msg map[string]any) bool {
+	h.pump(func(msg map[string]any) bool {
 		respID, ok := msg["id"].(float64)
 		return ok && int(respID) == id
 	})
