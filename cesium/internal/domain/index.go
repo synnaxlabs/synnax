@@ -26,9 +26,10 @@ type index struct {
 	alamos.Instrumentation
 	mu struct {
 		pointers []pointer
-		// staged holds, by domain start, the domains that a commit in a Group changed.
-		// It is empty when no writer of a Group is open.
-		staged map[telem.TimeStamp]staged
+		// staged holds the domains that a commit in a Group changed and that readers do
+		// not see yet. It is empty outside of a commit, and holds one domain for each
+		// writer that is in one.
+		staged []staged
 		sync.RWMutex
 	}
 	// persistHead is the position of the first pointer that the index file may not
@@ -51,40 +52,57 @@ func (idx *index) unprotectedStage(
 	if g == nil {
 		return idx.unprotectedReveal(p.Start).then(change)
 	}
-	prev, wasStaged := idx.mu.staged[p.Start]
 	s := staged{
+		start:    p.Start,
 		group:    g,
 		publish:  g.published.Load() + 1,
 		inserted: old == nil,
-		change:   prev.change.then(change),
+		change:   change,
 	}
 	if old != nil {
 		s.end, s.size = old.End, old.size
-		// Readers still see the domain as it was before an earlier unpublished commit.
-		if wasStaged && !prev.visible() {
-			s.inserted, s.end, s.size = prev.inserted, prev.end, prev.size
+	}
+	g.commits = append(g.commits, stagedDomain{idx: idx, start: p.Start})
+	i := idx.unprotectedStaged(p.Start)
+	if i < 0 {
+		idx.mu.staged = append(idx.mu.staged, s)
+		return historyChange{}
+	}
+	prev := idx.mu.staged[i]
+	s.change = prev.change.then(change)
+	// Readers still see the domain as it was before an earlier unpublished commit.
+	if old != nil && !prev.visible() {
+		s.inserted, s.end, s.size = prev.inserted, prev.end, prev.size
+	}
+	idx.mu.staged[i] = s
+	return historyChange{}
+}
+
+// unprotectedStaged returns the position in staged of the domain that starts at start,
+// or -1.
+func (idx *index) unprotectedStaged(start telem.TimeStamp) int {
+	for i := range idx.mu.staged {
+		if idx.mu.staged[i].start == start {
+			return i
 		}
 	}
-	if idx.mu.staged == nil {
-		idx.mu.staged = make(map[telem.TimeStamp]staged)
-	}
-	idx.mu.staged[p.Start] = s
-	if change.ctx != nil {
-		g.changed = append(g.changed, stagedDomain{idx: idx, start: p.Start})
-	}
-	return historyChange{}
+	return -1
 }
 
 // unprotectedReveal makes the domain that starts at start visible to readers as the
 // index holds it. It returns the history change that waited for that, which the caller
 // must report.
 func (idx *index) unprotectedReveal(start telem.TimeStamp) historyChange {
-	s, ok := idx.mu.staged[start]
-	if !ok {
+	i := idx.unprotectedStaged(start)
+	if i < 0 {
 		return historyChange{}
 	}
-	delete(idx.mu.staged, start)
-	return s.change
+	change := idx.mu.staged[i].change
+	last := len(idx.mu.staged) - 1
+	idx.mu.staged[i] = idx.mu.staged[last]
+	idx.mu.staged[last] = staged{}
+	idx.mu.staged = idx.mu.staged[:last]
+	return change
 }
 
 // reveal is unprotectedReveal for a caller that does not hold mu. It reports the
@@ -101,7 +119,8 @@ func (idx *index) reveal(start telem.TimeStamp) {
 func (idx *index) revealPublished(start telem.TimeStamp, g *Group) {
 	var change historyChange
 	idx.mu.Lock()
-	if s, ok := idx.mu.staged[start]; ok && s.group == g && s.visible() {
+	if i := idx.unprotectedStaged(start); i >= 0 && idx.mu.staged[i].group == g &&
+		idx.mu.staged[i].visible() {
 		change = idx.unprotectedReveal(start)
 	}
 	idx.mu.Unlock()
@@ -122,11 +141,11 @@ func (idx *index) unprotectedVisible(i, step int) (int, pointer, bool) {
 		if len(idx.mu.staged) == 0 {
 			return i, ptr, true
 		}
-		s, ok := idx.mu.staged[ptr.Start]
-		if !ok || s.visible() {
+		j := idx.unprotectedStaged(ptr.Start)
+		if j < 0 || idx.mu.staged[j].visible() {
 			return i, ptr, true
 		}
-		if !s.inserted {
+		if s := idx.mu.staged[j]; !s.inserted {
 			ptr.End, ptr.size = s.end, s.size
 			return i, ptr, true
 		}

@@ -18,14 +18,13 @@ import (
 
 // Group makes commits of several Writers visible to readers in one step. A commit in a
 // Group takes effect at once for writers, conflict checks, and persists, but readers
-// see each domain as it was before the commit until Publish. A Group is not safe for
-// concurrent use.
+// see each domain as it was before the commit until Publish. Only one goroutine at a
+// time may commit in a Group or publish it.
 type Group struct {
 	// published counts the calls to Publish. Readers load it.
 	published atomic.Uint64
-	// changed holds the domains whose commits since the last Publish carry a history
-	// change.
-	changed []stagedDomain
+	// commits holds the domains of the commits since the last Publish.
+	commits []stagedDomain
 }
 
 // stagedDomain is a domain that a commit in a Group changed.
@@ -38,11 +37,11 @@ type stagedDomain struct {
 // then reports their history changes.
 func (g *Group) Publish() {
 	g.published.Add(1)
-	for i, d := range g.changed {
+	for i, d := range g.commits {
 		d.idx.revealPublished(d.start, g)
-		g.changed[i] = stagedDomain{}
+		g.commits[i] = stagedDomain{}
 	}
-	g.changed = g.changed[:0]
+	g.commits = g.commits[:0]
 }
 
 // historyChange is a history change that waits until readers see its commit. One with
@@ -70,6 +69,8 @@ func (c historyChange) then(next historyChange) historyChange {
 // staged is what readers see of a domain that a commit in a Group changed, until the
 // Group publishes.
 type staged struct {
+	// start is the start of the domain.
+	start telem.TimeStamp
 	group *Group
 	// publish is the count of publishes of group that makes the commit visible.
 	publish uint64

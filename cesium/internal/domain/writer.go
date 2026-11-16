@@ -156,8 +156,8 @@ type Writer struct {
 	// started denotes whether the writer has a start. A writer without one cannot
 	// write.
 	started bool
-	// staged denotes whether the index holds a staged domain at stagedStart for the
-	// writer's last commit in a Group.
+	// staged denotes whether the writer's last commit was in a Group, so that the index
+	// can hold a staged domain at stagedStart.
 	staged      bool
 	stagedStart telem.TimeStamp
 	// closed denotes whether the writer is closed. A closed writer returns an error
