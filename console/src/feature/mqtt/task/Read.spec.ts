@@ -223,9 +223,36 @@ const selectField = async (name: string) =>
     await screen.findByRole("treeitem", { name: new RegExp(`^${name}`) }),
   );
 
-const retrieveTopicProps = async (key: string) =>
+const retrieveTopicProps = async (key: string, at: string = TOPIC) =>
   (await client.devices.retrieve({ key, schemas: MQTT.Device.SCHEMAS })).properties
-    .read[TOPIC];
+    .read[at];
+
+/** Adds a message to the ICD of the entry after its last, and reads each field. */
+const addMessage = async (
+  entry: MQTT.Task.PlainReadEntry,
+  name: string,
+  fields: icd.JSONField[],
+  match?: icd.JSONMatch,
+): Promise<icd.Message> => {
+  const message: icd.Message = {
+    key: uuid.create(),
+    name,
+    payload: { format: "json", match, fields },
+  };
+  await client.icds.dispatch(
+    entry.icd,
+    icd.insert({
+      path: ["messages"],
+      value: message,
+      after: entry.messages.at(-1)?.message,
+    }),
+  );
+  const bindings = fields.map(({ key }) => ({ field: key, channel: 0, dataType: "" }));
+  entry.messages.push(mqtt.readMessageZ.parse({ message: message.key, bindings }));
+  return message;
+};
+
+const KIND_MATCH: icd.JSONMatch = { type: "string", pointer: "/kind", value: "status" };
 
 const createTimeChannel = async () =>
   await client.channels.create({
@@ -465,6 +492,103 @@ describe("MQTT read form", () => {
     );
     const box = await screen.findByRole("checkbox", { name: "Read time" });
     expect((box as HTMLInputElement).checked).toBe(false);
+  });
+
+  describe("messages", () => {
+    it("should list each message of a topic that reads several, with its fields", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      await addMessage(entry, "status", [createField("mode", "string")], KIND_MATCH);
+      await renderRead({ entries: [entry] });
+      await screen.findByRole("treeitem", { name: TOPIC });
+      expect(screen.getByRole("treeitem", { name: "status" })).toBeTruthy();
+      expect(screen.getByRole("checkbox", { name: "Read temperature" })).toBeTruthy();
+      expect(screen.getByRole("checkbox", { name: "Read mode" })).toBeTruthy();
+    });
+
+    it("should add a message that matches at the pointer of the others", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      await addMessage(entry, "status", [createField("mode", "string")], KIND_MATCH);
+      const { draft } = await renderRead({ entries: [entry] });
+      fireEvent.click(
+        await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ }),
+      );
+      fireEvent.click(await screen.findByRole("button", { name: "Add message" }));
+      await screen.findByDisplayValue(`${TOPIC} 3`);
+      expect(screen.getByDisplayValue("/kind")).toBeTruthy();
+      await waitFor(async () => {
+        const { messages } = await client.icds.retrieve({ key: entry.icd });
+        expect(messages).toHaveLength(3);
+        expect(messages[2]).toMatchObject({
+          name: `${TOPIC} 3`,
+          payload: { format: "json", match: { ...KIND_MATCH, value: "" }, fields: [] },
+        });
+        const reads = plainOf((await retrieveEntries(draft.key))[0]).messages;
+        expect(reads.map(({ message }) => message)).toEqual([
+          entry.messages[0].message,
+          entry.messages[1].message,
+          messages[2].key,
+        ]);
+      });
+    });
+
+    it("should add a message from the context menu of a topic", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const { draft } = await renderRead({ entries: [entry] });
+      fireEvent.contextMenu(
+        await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ }),
+      );
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Add message" }));
+      await screen.findByRole("treeitem", { name: `${TOPIC} 2` });
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[0]).messages).toHaveLength(2),
+      );
+    });
+
+    it("should stop reading a message of a topic, keeping it in the ICD", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const status = await addMessage(
+        entry,
+        "status",
+        [createField("mode", "string")],
+        KIND_MATCH,
+      );
+      const { draft } = await renderRead({ entries: [entry] });
+      fireEvent.contextMenu(await screen.findByRole("treeitem", { name: "status" }));
+      fireEvent.click(await screen.findByText("Remove"));
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[0]).messages).toEqual([
+          entry.messages[0],
+        ]),
+      );
+      expect(screen.queryByRole("treeitem", { name: "status" })).toBeNull();
+      const { messages } = await client.icds.retrieve({ key: entry.icd });
+      expect(messages.map(({ key }) => key)).toContain(status.key);
+    });
+
+    it("should not offer to remove every message of a topic", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      await addMessage(entry, "status", [createField("mode", "string")], KIND_MATCH);
+      await renderRead({ entries: [entry] });
+      fireEvent.click(await screen.findByRole("treeitem", { name: TOPIC }));
+      fireEvent.keyDown(window, { code: "Shift" });
+      fireEvent.click(screen.getByRole("treeitem", { name: "status" }), {
+        shiftKey: true,
+      });
+      fireEvent.keyUp(window, { code: "Shift" });
+      fireEvent.contextMenu(screen.getByRole("treeitem", { name: "status" }));
+      await screen.findByText("Reload Console");
+      expect(screen.queryByText("Remove")).toBeNull();
+    });
   });
 
   it("should not rename the message of a topic when the topic changes", async () => {
@@ -953,27 +1077,20 @@ describe("MQTT read form", () => {
       );
     });
 
-    it("should keep later messages through timing edits and deploy", async () => {
+    it("should time and deploy each message of a topic on its own", async () => {
       const time = createTimeField();
       const entry = await createEntry({
         fields: [createField("temperature", "float"), time],
       });
-      const status: icd.Message = {
-        key: uuid.create(),
-        name: "plant/oven/status",
-        payload: { format: "json", fields: [createField("mode", "string")] },
-      };
-      await client.icds.dispatch(
-        entry.icd,
-        icd.insert({
-          path: ["messages"],
-          value: status,
-          after: entry.messages[0].message,
-        }),
+      const status = await addMessage(
+        entry,
+        "status",
+        [createField("mode", "string")],
+        KIND_MATCH,
       );
-      const later = mqtt.readMessageZ.parse({ message: status.key });
-      entry.messages.push(later);
-      const { container, draft } = await renderRead({ entries: [entry] });
+      const later = entry.messages[1];
+      const { container, dev, draft } = await renderRead({ entries: [entry] });
+      fireEvent.click(await screen.findByRole("treeitem", { name: TOPIC }));
       fireEvent.click(await screen.findByRole("button", { name: "Payload value" }));
       await waitFor(async () =>
         expect(plainOf((await retrieveEntries(draft.key))[0]).messages).toEqual([
@@ -982,7 +1099,16 @@ describe("MQTT read form", () => {
         ]),
       );
       const created = await deploy(container, draft.key);
-      expect(plainOf(created.config.entries[0]).messages[1]).toEqual(later);
+      const [, deployed] = plainOf(created.config.entries[0]).messages;
+      const { index, channels } = await retrieveTopicProps(
+        dev.key,
+        `${TOPIC}#${status.key}`,
+      );
+      expect(index).toBe(0);
+      expect(deployed.index).toBeUndefined();
+      expect(deployed.bindings[0].channel).toBe(channels["/mode"]);
+      const ch = await client.channels.retrieve(channels["/mode"]);
+      expect(ch.name).toBe(`${dev.name}_plant_oven_status_mode`);
     });
 
     it("should replace the stored channel of a field whose kind changed", async () => {

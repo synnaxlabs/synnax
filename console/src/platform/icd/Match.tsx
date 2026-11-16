@@ -28,7 +28,11 @@ const NAMES: Record<Type, string> = {
 
 const TYPES = Object.keys(NAMES) as Type[];
 
-const create = (type: icd.JSONMatchType, pointer: string): icd.JSONMatch => {
+/** @returns a match of the type at the pointer, with the type's zero value. */
+export const createMatch = (
+  type: icd.JSONMatchType,
+  pointer: string,
+): icd.JSONMatch => {
   switch (type) {
     case "string":
       return { type, pointer, value: "" };
@@ -113,7 +117,7 @@ export const Match = ({ path }: MatchProps): ReactElement => {
     if (next === type) return;
     if (next === "none") return set(path.match, undefined);
     const pointer = get(match.pointer, { optional: true })?.value ?? "";
-    set(path.match, create(next, pointer));
+    set(path.match, createMatch(next, pointer));
   };
   return (
     <>

@@ -11,6 +11,7 @@ import { channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
+import { type ReactNode } from "react";
 
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { useIsPreview } from "@/platform/task/useIsPreview";
@@ -23,6 +24,8 @@ export interface ContextMenuProps {
   onAddField?: () => void;
   onEnable?: () => void;
   onDisable?: () => void;
+  /** Items that follow the add field item, such as an add item of the form's own. */
+  extraMenuItems?: ReactNode;
 }
 
 /** The context menu of a task's item list. Omitted handlers drop their items. */
@@ -34,6 +37,7 @@ export const ContextMenu = ({
   onAddField,
   onEnable,
   onDisable,
+  extraMenuItems,
 }: ContextMenuProps) => {
   const isPreview = useIsPreview();
   const canRenameChannel = Access.useUpdateGranted(channel.TYPE_RESOURCE_ID);
@@ -50,6 +54,7 @@ export const ContextMenu = ({
               Add field
             </Menu.Item>
           )}
+          {extraMenuItems}
           {canRename && <Base.RenameItem onClick={() => onRename(keys[0])} />}
           {onEnable != null && (
             <Menu.Item itemKey="enable" onClick={onEnable}>
