@@ -141,3 +141,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{gorp: s.table.NewRetrieve(), indexes: s.indexes}
 }
+
+// Observe returns an observable that notifies callers of changes to ICDs.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, ICD]] {
+	return s.table.Observe()
+}
