@@ -146,28 +146,25 @@ export const retrieveLogTail = async (): Promise<string> =>
 export const exportDiagnostics = async (path: string): Promise<void> =>
   await invoke("supervisor_export_diagnostics", { path });
 
-const savedAPIKeyZ = z.object({
-  /** The API key that scripts on this computer use, or null when none is saved. */
-  apiKey: z.string().nullable(),
-  /**
-   * A key that Synnax Desktop 1.1 saved in plaintext and that did not move to the
-   * keychain. It stays in the discovery file until the caller revokes it and then
-   * calls {@link forgetAPIKey}.
-   */
-  dropped: z.string().nullable(),
-});
-interface SavedAPIKey extends z.infer<typeof savedAPIKeyZ> {}
+const apiKeyZ = z.string().nullable();
 
-/** @returns The saved API key, and an older key that the caller must revoke. */
-export const retrieveAPIKey = async (): Promise<SavedAPIKey> =>
-  savedAPIKeyZ.parse(await invoke("supervisor_api_key"));
+/** @returns The saved API key for scripts on this computer, or null. */
+export const retrieveAPIKey = async (): Promise<string | null> =>
+  apiKeyZ.parse(await invoke("supervisor_api_key"));
 
 /**
- * Removes an older plaintext key, returned as `dropped`, from the discovery file. Call
- * it only after the Core revoked the key.
+ * @returns The API key that Synnax Desktop 1.1 saved in plaintext in the discovery
+ * file, or null. Revoke it in the Core, then call {@link forgetLegacyAPIKey}.
  */
-export const forgetAPIKey = async (apiKey: string): Promise<void> =>
-  await invoke("supervisor_forget_api_key", { apiKey });
+export const retrieveLegacyAPIKey = async (): Promise<string | null> =>
+  apiKeyZ.parse(await invoke("supervisor_legacy_api_key"));
+
+/**
+ * Removes a key from {@link retrieveLegacyAPIKey} from the discovery file. Call it only
+ * after the Core revoked the key.
+ */
+export const forgetLegacyAPIKey = async (apiKey: string): Promise<void> =>
+  await invoke("supervisor_forget_legacy_api_key", { apiKey });
 
 /**
  * Saves the API key, with the address of the running Core, where the client libraries

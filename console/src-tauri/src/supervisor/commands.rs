@@ -262,31 +262,40 @@ pub async fn supervisor_reset<R: Runtime>(
     app.restart()
 }
 
-/// Returns the saved API key, and an older plaintext key that the caller must revoke.
+/// Returns the API key saved in the keychain, or null when none is saved. With no
+/// keychain, nothing is saved, and the save that follows reports the error.
 #[tauri::command]
-pub async fn supervisor_api_key(
-    discovery: State<'_, Discovery>,
-) -> Result<discovery::Saved, String> {
-    let path = discovery.path.clone();
+pub async fn supervisor_api_key(discovery: State<'_, Discovery>) -> Result<Option<String>, String> {
     let _guard = discovery.lock.lock().await;
-    blocking(move || {
-        // With no keychain, nothing is saved. The save that follows reports the error.
-        let key = discovery::key_entry().ok();
-        discovery::read_key(&path, key.as_ref())
+    blocking(|| match discovery::key_entry() {
+        Ok(key) => discovery::read_key(&key),
+        Err(_) => Ok(None),
     })
     .await
 }
 
-/// Removes `api_key`, an older plaintext key returned as `dropped`, from the discovery
-/// file. Call it only after the Core revoked the key.
+/// Returns the API key that Synnax Desktop 1.1 saved in plaintext in the discovery
+/// file, or null. The caller revokes it in the Core, then calls
+/// `supervisor_forget_legacy_api_key`.
 #[tauri::command]
-pub async fn supervisor_forget_api_key(
+pub async fn supervisor_legacy_api_key(
+    discovery: State<'_, Discovery>,
+) -> Result<Option<String>, String> {
+    let path = discovery.path.clone();
+    let _guard = discovery.lock.lock().await;
+    blocking(move || discovery::legacy_key(&path)).await
+}
+
+/// Removes `api_key`, a key from `supervisor_legacy_api_key`, from the discovery file.
+/// Call it only after the Core revoked the key.
+#[tauri::command]
+pub async fn supervisor_forget_legacy_api_key(
     api_key: String,
     discovery: State<'_, Discovery>,
 ) -> Result<(), String> {
     let path = discovery.path.clone();
     let _guard = discovery.lock.lock().await;
-    blocking(move || discovery::forget_key(&path, &api_key)).await
+    blocking(move || discovery::forget_legacy_key(&path, &api_key)).await
 }
 
 /// Saves `api_key` in the keychain and the address of the running Core in the discovery

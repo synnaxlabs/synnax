@@ -26,7 +26,9 @@ So that
 connect, Synnax Desktop writes the address of Synnax to `~/.synnax/desktop.json`
 (`%USERPROFILE%\.synnax\desktop.json` on Windows). It keeps the API key for those
 scripts in the keychain of your operating system, under the service
-`com.synnaxlabs.desktop`. The key is never written to a file.
+`com.synnaxlabs.desktop`. The key is never written to a file. Synnax Desktop 1.1 kept
+the key in `desktop.json`. A newer version revokes that key, removes it from the file,
+and saves a new key in the keychain.
 
 <Divider.Divider x />
 

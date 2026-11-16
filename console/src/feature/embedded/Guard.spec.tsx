@@ -212,33 +212,37 @@ describe("Embedded.Guard API key for scripts", () => {
     await createScriptClient(apiKey).auth.retrieveSessions();
   });
 
-  it("should revoke an older key that did not move to the keychain", async () => {
+  it("should revoke a Desktop 1.1 key and save a new one in its place", async () => {
     await deleteKeysCreatedByTest(client);
     const { token, key } = await client.auth.createKey({ name: "desktop 1.1" });
     const { file, handlers } = createDiscoveryFile();
-    file.dropped = token;
-    const { commands } = mockSupervisor(() => live, handlers);
+    file.legacy = token;
+    mockSupervisor(() => live, handlers);
     await renderGuard();
-    await waitFor(() =>
-      expect(commands).toHaveBeenCalledWith("supervisor_save_api_key"),
-    );
+    const apiKey = await waitFor(() => {
+      if (file.apiKey == null) throw new Error("no key saved");
+      return file.apiKey;
+    });
+    expect(apiKey).not.toBe(token);
+    expect(file.legacy).toBeNull();
     await expect.poll(async () => await retrieveKeyIDs(client)).not.toContain(key.key);
-    expect(file.dropped).toBeNull();
+    await createScriptClient(apiKey).auth.retrieveSessions();
   });
 
-  it("should keep an older key in the file when its revoke fails", async () => {
+  it("should keep a Desktop 1.1 key in the file when its revoke fails", async () => {
     await deleteKeysCreatedByTest(client);
     const { token, key } = await client.auth.createKey({ name: "desktop 1.1" });
     const { file, handlers } = createDiscoveryFile();
-    file.dropped = token;
+    file.legacy = token;
     const deleteKeys = vi
       .spyOn(auth.Client.prototype, "deleteKeys")
       .mockRejectedValueOnce(new Error("Core restarted"));
     const { commands } = mockSupervisor(() => live, handlers);
     await renderGuard();
     await waitFor(() => expect(deleteKeys).toHaveBeenCalled());
-    expect(commands).not.toHaveBeenCalledWith("supervisor_forget_api_key");
-    expect(file.dropped).toBe(token);
+    expect(commands).not.toHaveBeenCalledWith("supervisor_forget_legacy_api_key");
+    expect(commands).not.toHaveBeenCalledWith("supervisor_save_api_key");
+    expect(file.legacy).toBe(token);
     deleteKeys.mockRestore();
     await client.auth.deleteKeys(key.key);
   });
