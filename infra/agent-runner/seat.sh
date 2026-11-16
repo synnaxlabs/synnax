@@ -34,6 +34,8 @@ if [ "$action" = token ]; then
         exit 1
     fi
     name=synnax-agents/logins/$seat
+    # The fleet controller and the jobs read the logins in this region.
+    export AWS_REGION=us-east-1
     if [ -t 0 ]; then echo "Paste the token from claude setup-token:" >&2; fi
     # A pasted or piped token can lack the final newline, which makes read fail.
     IFS= read -rs token || true
