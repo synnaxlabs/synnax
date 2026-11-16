@@ -97,7 +97,10 @@ func (s *Server) CodeAction(
 		if string(code) == string(codes.DeclarationAfterStep.Code) {
 			// One hoist covers the document, so every such warning shares it.
 			if hoist == nil {
-				hoist = hoistDeclarationsQuickFix(snap)
+				hoist = hoistDeclarationsQuickFix(
+					snap,
+					parser.Config{AllowDashedNames: s.cfg.AllowDashedNames},
+				)
 			}
 			if hoist != nil {
 				hoist.Diagnostics = append(hoist.Diagnostics, diag)
@@ -147,8 +150,11 @@ func analyzedQuickFixes(
 }
 
 // hoistDeclarationsQuickFix builds the action that applies the formatter's hoists.
-func hoistDeclarationsQuickFix(snap codeActionSnapshot) *protocol.CodeAction {
-	moves := formatter.DeclarationHoists(snap.Content)
+func hoistDeclarationsQuickFix(
+	snap codeActionSnapshot,
+	cfg parser.Config,
+) *protocol.CodeAction {
+	moves := formatter.DeclarationHoists(snap.Content, cfg)
 	if len(moves) == 0 {
 		return nil
 	}

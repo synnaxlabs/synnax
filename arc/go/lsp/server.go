@@ -106,6 +106,11 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.NewRoot = override.Nil(c.NewRoot, other.NewRoot)
 	c.OnRename = override.Nil(c.OnRename, other.OnRename)
+	c.AllowDashedNames = override.If(
+		c.AllowDashedNames,
+		other.AllowDashedNames,
+		other.AllowDashedNames,
+	)
 	c.OnExternalChange = override.Nil(c.OnExternalChange, other.OnExternalChange)
 	c.RepublishTimeout = override.Numeric(c.RepublishTimeout, other.RepublishTimeout)
 	c.DebounceDelay = override.Numeric(c.DebounceDelay, other.DebounceDelay)

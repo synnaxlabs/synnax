@@ -48,7 +48,7 @@ func Format(content string, cfgs ...parser.Config) string {
 
 	p := newPrinter()
 	// The printer puts each body item on its own line, which the hoist needs.
-	return HoistDeclarations(p.print(tokens))
+	return HoistDeclarations(p.print(tokens), cfgs...)
 }
 
 func FormatRange(
