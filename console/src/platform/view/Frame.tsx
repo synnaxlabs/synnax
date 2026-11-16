@@ -9,12 +9,7 @@
 
 import "@/platform/view/View.css";
 
-import {
-  AccessDeniedError,
-  NotFoundError,
-  UnexpectedError,
-  view,
-} from "@synnaxlabs/client";
+import { type panel, UnexpectedError, view } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -24,8 +19,8 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Errors, Flux, Panel, View as PView } from "@synnaxlabs/pluto";
-import { caseconv } from "@synnaxlabs/x";
+import { Access, Flux, Panel as PPanel, View as PView } from "@synnaxlabs/pluto";
+import { caseconv, uuid } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
 
@@ -33,6 +28,7 @@ import { Appearance } from "@/platform/appearance";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
+import { Panel } from "@/platform/panel";
 import {
   Context,
   type ContextValue,
@@ -43,11 +39,12 @@ import {
 import { IconPicker, openIconPicker } from "@/platform/view/IconPicker";
 import { Search } from "@/platform/view/Search";
 import { useCreateModal } from "@/platform/view/useCreateModal";
-import { Session } from "@/session";
 
 export interface FrameProps extends PropsWithChildren {
   resourceType: view.Type;
   icon: string;
+  /** The type of the explorer tab, which shows the static view. */
+  tabType: string;
 }
 
 const ZERO_VARIANTS: {
@@ -57,36 +54,46 @@ const ZERO_VARIANTS: {
   status: { type: "status" },
 };
 
-/** Fixed, so every tab and every mount names the static view of a type the same way. */
-const STATIC_KEYS: Record<view.Type, view.Key> = {
-  range: "b611d7d3-c5e9-4014-b7fb-5045af6785f9",
-  status: "020fd972-f51f-40c9-9daf-4cd3f7de4d51",
+/**
+ * Frame shows the views of a resource type above the open one. The panel stores the
+ * view a tab shows, so everyone who opens the panel sees it. Must render in an explorer
+ * tab of the given type, or in a tab of a saved view.
+ */
+export const Frame = (props: FrameProps): ReactElement => {
+  const tab = PPanel.useTab({});
+  if (tab.variant === "view") return <Body {...props} tab={tab.key} open={null} />;
+  return <SavedBody {...props} tab={tab.key} openKey={tab.resource.key} />;
 };
 
-// Flux wraps a failed fetch, so the cause is matched alongside the error itself.
-const isUnavailable = (error: unknown): boolean =>
-  [error, error instanceof Error ? error.cause : undefined].some(
-    (e) =>
-      NotFoundError.matches(e) ||
-      Flux.DeletedError.matches(e) ||
-      AccessDeniedError.matches(e),
-  );
+interface BodyProps extends FrameProps {
+  tab: panel.TabKey;
+  open: view.View | null;
+}
 
-/**
- * Frame shows the views of a resource type above the open one. The view a tab shows is
- * kept in the session, so it lasts through a reload and a move to another window. Must
- * render inside a panel tab.
- */
-export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElement => {
-  const tab = Panel.useTabKey();
-  const dispatch = Session.useDispatch();
-  const open = Session.View.useSelectOpen(tab);
-  const saved = PView.useResult(open == null ? null : { key: open });
-  const refresh = PView.useRefresh();
+interface SavedBodyProps extends Omit<BodyProps, "open"> {
+  openKey: view.Key;
+}
+
+const SavedBody = ({ openKey, ...rest }: SavedBodyProps): ReactElement => {
+  const open = PView.use({ key: openKey });
+  return <Body {...rest} open={open} />;
+};
+
+const Body = ({
+  resourceType,
+  icon,
+  tabType,
+  tab,
+  open,
+  children,
+}: BodyProps): ReactElement => {
+  const openTab = Panel.useOpenTab();
+  const canChange = Panel.useCanOpenTab();
   const [searchTerm, setSearchTerm] = useState("");
+  const [staticViewKey] = useState(() => uuid.create());
   const staticViews: StaticView[] = [
     {
-      key: STATIC_KEYS[resourceType],
+      key: staticViewKey,
       name: `All ${plural(resourceType)}`,
       ...ZERO_VARIANTS[resourceType],
       static: true,
@@ -104,24 +111,23 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
   const { getItem } = combinedProps;
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const staticViewKeys = staticViews.map((v) => v.key);
-  const error = saved.variant === "error" ? saved.status.details.error : null;
-  const unavailable = error != null && isUnavailable(error);
-  // A tab whose view was deleted, or that this user cannot read, shows the static view.
-  const selected = open == null || unavailable ? staticViews[0].key : open;
-  const ready = selected !== open || saved.variant === "success";
-  const retry = (): void => {
-    if (open != null) refresh({ key: open });
-  };
+  const selected = open?.key ?? staticViews[0].key;
   const select = (key: view.Key) => {
-    const next = staticViewKeys.includes(key) ? null : key;
-    dispatch(Session.View.setOpen({ tab, view: next }));
+    // A user who may not change the panel keeps the view it stores.
+    if (!canChange) return;
+    // A view open in another tab of the panel focuses that tab instead.
+    openTab(
+      staticViewKeys.includes(key)
+        ? { variant: "view", key: tab, type: tabType }
+        : { variant: "resource", key: tab, resource: view.resourceID(key) },
+    );
     setSearchTerm("");
   };
   const updateGranted = Access.useUpdateGranted(view.resourceID(selected));
   // A static view saves nothing, so everyone may change it.
   const editable = staticViewKeys.includes(selected) || updateGranted;
   const getInitialView = () => {
-    const view = selected === open ? saved.data : getItem(selected);
+    const view = open ?? getItem(selected);
     if (view == null) throw new UnexpectedError("No view found");
     return view;
   };
@@ -147,15 +153,7 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
           listProps={combinedProps}
           selected={selected}
         />
-        {ready && <Fragment key={selected}>{children}</Fragment>}
-        {error != null && !unavailable && (
-          <Errors.Fallback error={error} resetErrorBoundary={retry}>
-            <Button.Button variant="filled" onClick={retry}>
-              <Icon.Refresh />
-              Retry
-            </Button.Button>
-          </Errors.Fallback>
-        )}
+        <Fragment key={selected}>{children}</Fragment>
       </Context>
     </Flex.Box>
   );
@@ -225,7 +223,7 @@ const Selector = ({
 };
 
 const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
-  const { selected, select, staticViews, resourceType } = useContext("View.Selector");
+  const { staticViews, resourceType } = useContext("View.Selector");
   const { getItem } = List.useUtilContext<view.Key, View>();
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const editableKeys = keys.filter((key) => !staticViews.includes(key));
@@ -238,7 +236,6 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
       const views = getItem(keys);
       const confirmed = await confirm(views);
       if (!confirmed) return false;
-      if (keys.includes(selected)) select(staticViews[0]);
       return data;
     },
   });

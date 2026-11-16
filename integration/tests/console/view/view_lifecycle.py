@@ -309,15 +309,25 @@ class ViewLifecycle(ConsoleCase):
     def test_delete_view(
         self, explorer: _Explorer, *, view_name: str, other: str
     ) -> None:
-        """Test deleting the selected view snaps back to the static view and leaves
-        other views intact."""
+        """Test deleting the open view leaves its tab open on a tombstone that restores
+        it, and deleting another view leaves the open one intact."""
         self.log(f"Testing: Delete view in {explorer.name} Explorer")
         views = explorer.views
+        layout = self.console.layout
         views.select(view_name)
         views.delete(view_name)
+        tombstone = layout.get_tombstone(view_name)
+        tombstone.wait_for(state="visible", timeout=5000)
+        layout.restore_tombstone(view_name)
+        tombstone.wait_for(state="hidden", timeout=5000)
+        assert views.is_selected(view_name), (
+            f"'{view_name}' should be open again after its restore"
+        )
         static = views.static_view_name
+        views.select(static)
+        views.delete(view_name)
         assert views.is_selected(static), (
-            f"'{static}' should be selected after deleting '{view_name}'"
+            f"'{static}' should stay open after deleting '{view_name}'"
         )
         assert views.exists(other), f"'{other}' should survive deleting '{view_name}'"
         remaining = [

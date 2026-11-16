@@ -10,18 +10,16 @@
 import { Status } from "@synnaxlabs/lyra/status";
 
 import { Panel } from "@/platform/panel";
-import { View } from "@/platform/view";
 
 export const TAB_TYPE = "status_explorer";
 
-const TAB: Panel.Tab = {
+export const TAB: Panel.Tab = {
   Content: Panel.lazyComponent(
     () => import("@/feature/status/explorer/Explorer"),
     "Explorer",
   ),
   Icon: Status.ExplorerIcon,
-  Name: View.createTabName({
-    resourceType: "status",
+  Name: Panel.createStaticTabName({
     name: "Status explorer",
     icon: <Status.ExplorerIcon />,
   }),

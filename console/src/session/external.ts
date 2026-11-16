@@ -32,4 +32,3 @@ export * from "@/session/table";
 export * from "@/session/theme";
 export * from "@/session/useLogout";
 export * from "@/session/version";
-export * from "@/session/view";

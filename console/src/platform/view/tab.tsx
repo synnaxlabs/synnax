@@ -7,41 +7,60 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type view } from "@synnaxlabs/client";
+import { query, view } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Panel as PPanel, View as PView } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { plural } from "pluralize";
+import { type ReactElement } from "react";
 
-import { type Panel } from "@/platform/panel";
-import { Session } from "@/session";
+import { Panel } from "@/platform/panel";
 
-export interface CreateTabNameParams extends Panel.CreateStaticTabNameParams {
-  resourceType: view.Type;
-}
+/** The explorer tab of each type of view. */
+export type Explorers = Record<view.Type, Panel.Tab>;
+
+/** The type of the tab that shows a saved view. */
+export const TAB_TYPE = view.TYPE_RESOURCE_ID.type;
+
+const useOpen = (): view.View => PView.use({ key: PPanel.useTabResource({}).key });
 
 /**
- * Builds the name of an explorer tab. The tab takes the name given while it shows its
- * static view, and "<Types> › <view>" while it shows a saved one.
+ * Builds the tab that shows a saved view in the explorer of the view's type. The tab is
+ * named "<Types> › <view>". A deleted view shows as deleted, and can be restored.
  */
-export const createTabName = ({
-  resourceType,
-  name,
-  icon,
-}: CreateTabNameParams): Panel.TabName => {
-  const prefix = caseconv.capitalize(plural(resourceType));
+export const createTab = (explorers: Explorers): Panel.Tab => {
+  const Content = (): ReactElement => {
+    const Explorer = explorers[useOpen().type].Content;
+    return <Explorer />;
+  };
   const Name: Panel.TabName = ({ level, weight, color }) => {
-    const open = Session.View.useSelectOpen(PPanel.useTabKey());
-    const saved = PView.useResult(open == null ? null : { key: open });
-    const viewName = saved.variant === "error" ? undefined : saved.data?.name;
+    const { type, name } = useOpen();
+    const ExplorerIcon = explorers[type].Icon;
     return (
       <>
-        {icon}
+        <ExplorerIcon />
         <Text.Text overflow="fade" level={level} weight={weight} color={color}>
-          {viewName == null ? name : `${prefix} › ${viewName}`}
+          {`${caseconv.capitalize(plural(type))} › ${name}`}
         </Text.Text>
       </>
     );
   };
-  return Name;
+  // Renders on the tab of a deleted view too, so it reads the view without suspending.
+  const TabIcon: Panel.TabIcon = (props) => {
+    const { data } = PView.useResult({ key: PPanel.useTabResource({}).key });
+    const Glyph = data == null ? Icon.View : explorers[data.type].Icon;
+    return <Glyph {...props} />;
+  };
+  return {
+    Content,
+    Name,
+    Icon: TabIcon,
+    Guard: Panel.createGuard({ useTombstone: PView.useTombstone }),
+    restore: async ({ client, resource }) => {
+      await client.views.create(
+        query.requireCorpse(client.views.watch(resource.key).getCached()),
+      );
+    },
+  };
 };

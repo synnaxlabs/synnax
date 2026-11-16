@@ -10,12 +10,10 @@
 import { Ranger } from "@synnaxlabs/pluto";
 
 import { Panel } from "@/platform/panel";
-import { View } from "@/platform/view";
 
-const TAB: Panel.Tab = {
+export const TAB: Panel.Tab = {
   Icon: Ranger.ExplorerIcon,
-  Name: View.createTabName({
-    resourceType: "range",
+  Name: Panel.createStaticTabName({
     name: "Range explorer",
     icon: <Ranger.ExplorerIcon />,
   }),

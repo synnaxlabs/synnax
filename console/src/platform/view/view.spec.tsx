@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel, ranger, type Synnax as Client, view } from "@synnaxlabs/client";
+import { panel, ranger, type Synnax as Client, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
@@ -15,29 +15,27 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Access, Flux } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
 import { uniqueRangeName } from "@/platform/range/testutil";
 import { View } from "@/platform/view";
-import { inTab } from "@/platform/view/testutil";
+import { createTabWrapper, type TabWrapper } from "@/platform/view/testutil";
 import { Session } from "@/session";
 import {
   awaitTextEditing,
   commitTextEdit,
   countEditableText,
-  createConsoleWrapper,
   createTestClientWithGrants,
-  createTestStore,
   getBySelector,
   getIconButton,
   type Grants,
   openContextMenu,
   queryIconButton,
-  type TestStore,
+  renderSuspended,
   uniqueName,
 } from "@/testutil";
 
@@ -72,8 +70,12 @@ const Inner = (): ReactElement => {
   );
 };
 
+const TAB_TYPE = "explorer";
+
+const EXPLORER: panel.NewTab = { variant: "view", type: TAB_TYPE };
+
 const Harness = (): ReactElement => (
-  <View.Frame resourceType="range" icon="Range">
+  <View.Frame resourceType="range" icon="Range" tabType={TAB_TYPE}>
     <Inner />
   </View.Frame>
 );
@@ -99,23 +101,35 @@ const createView = async (): Promise<view.View> => {
   return created;
 };
 
-interface RenderHarnessOptions {
-  store?: TestStore;
-  tab?: panel.TabKey;
-}
+/** @returns a tab that shows the saved view. */
+const showing = (saved: view.View): panel.NewTab => ({
+  variant: "resource",
+  resource: view.resourceID(saved.key),
+});
 
 const renderHarness = async (
   as: Client = client,
-  { store, tab }: RenderHarnessOptions = {},
-): Promise<() => void> => {
-  const { wrapper } = await createConsoleWrapper({ client: as, store });
-  return render(
+  tab: panel.NewTab = EXPLORER,
+  beside?: panel.NewTab[],
+): Promise<TabWrapper> => {
+  const wrapped = await createTabWrapper({ client, as, tab, beside });
+  await renderSuspended(
     <>
       <Harness />
       <Modals.Stack />
     </>,
-    { wrapper: inTab(wrapper, tab) },
-  ).unmount;
+    { wrapper: wrapped.wrapper },
+  );
+  return wrapped;
+};
+
+/**
+ * Clicks the chip of the view with the name. Waits first for the create button, which
+ * shows that the policies of a subject who may create views have loaded.
+ */
+const clickView = async (name: string): Promise<void> => {
+  await waitFor(() => getIconButton(getViews(), "add"));
+  fireEvent.click(await screen.findByRole("tab", { name }));
 };
 
 /** Opens the create view modal. @returns its name input. */
@@ -190,8 +204,7 @@ describe("View", () => {
   it("moves the selection to a view whose tab is clicked", async () => {
     const saved = await createView();
     await renderHarness();
-    const tab = await screen.findByRole("tab", { name: saved.name });
-    fireEvent.click(tab);
+    await clickView(saved.name);
     await waitFor(() => expect(selectedViewName()).toBe(saved.name));
   });
 
@@ -297,7 +310,7 @@ describe("View", () => {
       await screen.findByPlaceholderText<HTMLInputElement>("Search ranges...");
     fireEvent.change(input, { target: { value: "alpha" } });
     expect(input.value).toBe("alpha");
-    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    await clickView(saved.name);
     await waitFor(() => expect(selectedViewName()).toBe(saved.name));
     expect(
       screen.getByPlaceholderText<HTMLInputElement>("Search ranges...").value,
@@ -312,146 +325,86 @@ describe("View", () => {
   });
 });
 
-/** @returns a store in which the tab shows the saved view. */
-const createStoreShowing = async (
-  tab: panel.TabKey,
-  key: view.Key,
-): Promise<TestStore> =>
-  await createTestStore({
-    preloadedState: {
-      [Session.View.SLICE_NAME]: {
-        ...Session.View.ZERO_SLICE_STATE,
-        open: { [tab]: key },
-      },
-    },
-  });
+/** @returns the tab of the wrapper, as the Core stores it. */
+const retrieveTab = async ({
+  panelKey,
+  tabKey,
+}: TabWrapper): Promise<panel.Tab | undefined> =>
+  panel.findTab((await client.panels.retrieve(panelKey)).root, tabKey);
 
 describe("View open in a tab", () => {
-  it("keeps the view a tab shows when the tab mounts again", async () => {
+  it("shows the saved view its tab holds", async () => {
     const saved = await createView();
-    const tab = uuid.create();
-    const store = await createTestStore();
-    const unmount = await renderHarness(client, { store, tab });
-    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
-    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
-    unmount();
-    await renderHarness(client, { store, tab });
+    await renderHarness(client, showing(saved));
     await waitFor(() => expect(selectedViewName()).toBe(saved.name));
   });
 
-  it("opens another tab on its static view", async () => {
+  it("stores a view opened from the strip in its tab", async () => {
     const saved = await createView();
-    const store = await createTestStore();
-    const unmount = await renderHarness(client, { store });
-    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    const wrapped = await renderHarness();
+    await clickView(saved.name);
     await waitFor(() => expect(selectedViewName()).toBe(saved.name));
-    unmount();
-    await renderHarness(client, { store });
+    await waitFor(async () =>
+      expect(await retrieveTab(wrapped)).toEqual({
+        variant: "resource",
+        key: wrapped.tabKey,
+        resource: view.resourceID(saved.key),
+      }),
+    );
+  });
+
+  it("stores the static view in its tab when it opens again", async () => {
+    const saved = await createView();
+    const wrapped = await renderHarness(client, showing(saved));
+    await clickView("All ranges");
     await waitFor(() => expect(selectedViewName()).toBe("All ranges"));
+    await waitFor(async () =>
+      expect(await retrieveTab(wrapped)).toEqual({
+        variant: "view",
+        key: wrapped.tabKey,
+        type: TAB_TYPE,
+      }),
+    );
   });
 
-  it("shows the static view in a tab whose view was deleted", async () => {
+  it("focuses the tab that already shows a view instead of showing it twice", async () => {
     const saved = await createView();
-    const tab = uuid.create();
-    await client.views.delete(saved.key);
-    await renderHarness(client, {
-      store: await createStoreShowing(tab, saved.key),
-      tab,
+    const other = uuid.create();
+    const wrapped = await renderHarness(client, EXPLORER, [
+      { ...showing(saved), key: other },
+    ]);
+    await clickView(saved.name);
+    await waitFor(() =>
+      expect(
+        Session.Panel.selectSelectedTabs(wrapped.store.getState(), wrapped.panelKey),
+      ).toEqual([other]),
+    );
+    expect(selectedViewName()).toBe("All ranges");
+    expect(await retrieveTab(wrapped)).toEqual({
+      variant: "view",
+      key: wrapped.tabKey,
+      type: TAB_TYPE,
     });
-    await waitFor(() => expect(selectedViewName()).toBe("All ranges"));
   });
 
-  it("shows the static view in a tab whose view the user cannot read", async () => {
+  it("keeps the view of a subject who may not change the panel", async () => {
     const saved = await createView();
-    const tab = uuid.create();
     const subject = await createTestClientWithGrants(client, {
-      retrieve: [ranger.TYPE_RESOURCE_ID],
+      retrieve: [
+        ranger.TYPE_RESOURCE_ID,
+        view.TYPE_RESOURCE_ID,
+        panel.TYPE_RESOURCE_ID,
+      ],
     });
-    await renderHarness(subject, {
-      store: await createStoreShowing(tab, saved.key),
-      tab,
+    const wrapped = await renderHarness(subject);
+    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    await act(async () => {});
+    expect(selectedViewName()).toBe("All ranges");
+    expect(await retrieveTab(wrapped)).toEqual({
+      variant: "view",
+      key: wrapped.tabKey,
+      type: TAB_TYPE,
     });
-    await waitFor(() => expect(selectedViewName()).toBe("All ranges"));
-  });
-
-  it("shows the error of a view that fails to load, and loads it on retry", async () => {
-    const saved = await createView();
-    const tab = uuid.create();
-    const subject = createTestClient();
-    const retrieve = subject.views.retrieve.bind(subject.views);
-    let failing = true;
-    vi.spyOn(subject.views, "retrieve").mockImplementation(async (...args) => {
-      if (failing && args[0] === saved.key) throw new Error("Core unreachable");
-      return await retrieve(...args);
-    });
-    await renderHarness(subject, {
-      store: await createStoreShowing(tab, saved.key),
-      tab,
-    });
-    const retry = await screen.findByRole("button", { name: "Retry" });
-    expect(screen.queryByRole("button", { name: "Filter" })).toBeNull();
-    expect(screen.getByRole("tab", { name: "All ranges" })).toBeTruthy();
-    failing = false;
-    fireEvent.click(retry);
-    expect(await screen.findByRole("button", { name: "Filter" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
-    expect(selectedViewName()).toBe(saved.name);
-  });
-
-  it("goes back to the static view when the open view is deleted", async () => {
-    const saved = await createView();
-    const tab = uuid.create();
-    await renderHarness(client, {
-      store: await createStoreShowing(tab, saved.key),
-      tab,
-    });
-    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
-    await act(async () => await client.views.delete(saved.key));
-    await waitFor(() => expect(selectedViewName()).toBe("All ranges"));
-  });
-});
-
-const TabName = View.createTabName({
-  resourceType: "range",
-  name: "Range explorer",
-  icon: <Icon.Range />,
-});
-
-const renderTabName = async (store: TestStore, tab: panel.TabKey): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client, store });
-  render(<TabName />, { wrapper: inTab(wrapper, tab) });
-};
-
-describe("View.createTabName", () => {
-  it("names a tab that shows its static view with the given name", async () => {
-    await renderTabName(await createTestStore(), uuid.create());
-    expect(await screen.findByText("Range explorer")).toBeTruthy();
-  });
-
-  it("names a tab that shows a saved view after the view", async () => {
-    const saved = await createView();
-    const tab = uuid.create();
-    await renderTabName(await createStoreShowing(tab, saved.key), tab);
-    expect(await screen.findByText(`Ranges › ${saved.name}`)).toBeTruthy();
-  });
-
-  it("follows a rename of the view the tab shows", async () => {
-    const saved = await createView();
-    const tab = uuid.create();
-    await renderTabName(await createStoreShowing(tab, saved.key), tab);
-    await screen.findByText(`Ranges › ${saved.name}`);
-    const renamed = uniqueName("renamed");
-    await act(async () => await client.views.rename(saved.key, renamed));
-    expect(await screen.findByText(`Ranges › ${renamed}`)).toBeTruthy();
-  });
-
-  it("goes back to the given name once the view the tab shows is deleted", async () => {
-    const saved = await createView();
-    const tab = uuid.create();
-    await renderTabName(await createStoreShowing(tab, saved.key), tab);
-    await screen.findByText(`Ranges › ${saved.name}`);
-    await act(async () => await client.views.delete(saved.key));
-    expect(await screen.findByText("Range explorer")).toBeTruthy();
   });
 });
 
@@ -459,7 +412,11 @@ describe("View permissions", () => {
   const createSubject = async (grants: Grants) =>
     await createTestClientWithGrants(client, {
       ...grants,
-      retrieve: [ranger.TYPE_RESOURCE_ID, view.TYPE_RESOURCE_ID],
+      retrieve: [
+        ranger.TYPE_RESOURCE_ID,
+        view.TYPE_RESOURCE_ID,
+        panel.TYPE_RESOURCE_ID,
+      ],
     });
 
   it("should let a subject who cannot update views search and filter a static view", async () => {
@@ -486,8 +443,7 @@ describe("View permissions", () => {
       timeRange,
     });
     const saved = await createView();
-    await renderHarness(await createSubject({}));
-    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    await renderHarness(await createSubject({}), showing(saved));
     await waitFor(() => expect(selectedViewName()).toBe(saved.name));
     fireEvent.change(screen.getByPlaceholderText("Search ranges..."), {
       target: { value: alpha.name },
@@ -501,8 +457,10 @@ describe("View permissions", () => {
 
   it("should keep the toolbar of a saved view a subject cannot update, without its filters", async () => {
     const saved = await createView();
-    await renderHarness(await createSubject({ create: [ranger.TYPE_RESOURCE_ID] }));
-    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    await renderHarness(
+      await createSubject({ create: [ranger.TYPE_RESOURCE_ID] }),
+      showing(saved),
+    );
     await waitFor(() => expect(selectedViewName()).toBe(saved.name));
     await waitFor(() =>
       expect(
@@ -514,8 +472,10 @@ describe("View permissions", () => {
 
   it("should withhold the view create button from a subject who cannot create views", async () => {
     const saved = await createView();
-    await renderHarness(await createSubject({ update: [view.TYPE_RESOURCE_ID] }));
-    fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
+    await renderHarness(
+      await createSubject({ update: [view.TYPE_RESOURCE_ID] }),
+      showing(saved),
+    );
     await waitFor(() => expect(selectedViewName()).toBe(saved.name));
     // Both grants answer from one policy read, so this button shows that it landed.
     await waitFor(() => expect(queryIconButton(document.body, "filter")).toBeTruthy());
