@@ -142,8 +142,8 @@ class Master final : public master::Master {
     bool recover_held{false};
     /// @brief whether a recover() waits for release_recover().
     bool recovering{false};
-    /// @brief whether the latest check() reported a slave out of OP.
-    bool checked_out{false};
+    /// @brief the slaves that the latest check() reported out of OP.
+    std::set<uint16_t> checked_out;
     /// @brief whether an activate() is blocked now.
     bool activating{false};
 
@@ -819,22 +819,22 @@ public:
                 .startup_error = startup_failed ? startup->second : "",
             });
         }
-        this->checked_out = std::ranges::any_of(health, [](const slave::Health &h) {
-            return !h.operational();
-        });
+        this->checked_out.clear();
+        for (const auto &h: health)
+            if (!h.operational()) this->checked_out.insert(h.position);
         return health;
     }
 
-    /// @brief brings each slave on the bus to OP, except a lost slave, a slave with a
-    /// failed clock restore or startup, and a slave that set_slave_transition_failure()
-    /// keeps from OP. After hold_recover(), waits for release_recover() first when the
-    /// latest check() reported a slave out of OP, as a recovery step acts on the states
-    /// that check() read.
+    /// @brief brings each slave that the latest check() reported out of OP to OP, as a
+    /// recovery step acts on the states that check() read. Skips a lost slave, a slave
+    /// with a failed clock restore or startup, and a slave that
+    /// set_slave_transition_failure() keeps from OP. After hold_recover(), waits for
+    /// release_recover() first when there is such a slave.
     void recover(const x::breaker::Breaker &breaker) override {
         bool out = false;
         {
             std::lock_guard lock(this->mu);
-            out = this->checked_out;
+            out = !this->checked_out.empty();
         }
         if (out) {
             std::unique_lock lock(this->recover_mu);
@@ -847,7 +847,8 @@ public:
         for (auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
             const auto blocked = this->state_transition_failures.find(pos);
-            if (!this->on_bus(pos) || this->lost_slaves.contains(pos) ||
+            if (!this->checked_out.contains(pos) || !this->on_bus(pos) ||
+                this->lost_slaves.contains(pos) ||
                 this->dc_restore_errors.contains(pos) ||
                 this->startup_errors.contains(pos) || !breaker.running() ||
                 (blocked != this->state_transition_failures.end() &&
