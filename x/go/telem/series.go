@@ -351,6 +351,7 @@ func (s *Series) CopyFrom(src Series) {
 	s.AlignmentMultiple = src.AlignmentMultiple
 	s.DataType = src.DataType
 	s.Data = append(s.Data[:0], src.Data...)
+	s.cachedLength = nil
 }
 
 // DataString returns a string representation of the data in a series.
