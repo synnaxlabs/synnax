@@ -389,6 +389,14 @@ func (r Retrieve[K, E]) matchEval(ctx Context, e *E, key, value []byte) (bool, e
 	return r.filter.eval(ctx, e, key, value)
 }
 
+// matchRead is match for an entry read by a key that the filter's keys contain.
+func (r Retrieve[K, E]) matchRead(ctx Context, e *E, key, value []byte) (bool, error) {
+	if ok, err := r.matchRaw(key, value); err != nil || !ok {
+		return false, err
+	}
+	return r.matchEval(ctx, e, key, value)
+}
+
 // matchRaw runs the filter's raw-byte pre-screen against key/value.
 // Returns true (don't skip) when no raw filter is set.
 func (r Retrieve[K, E]) matchRaw(key, value []byte) (bool, error) {
@@ -439,7 +447,7 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, snap Snapshot) ([]K, erro
 			return nil, err
 		}
 		if reader.keyCodec.HasPrefix(e.GorpKey(), r.prefix) {
-			match, mErr := r.matchEval(gorpCtx, &e, nil, b)
+			match, mErr := r.matchRead(gorpCtx, &e, reader.keyCodec.Encode(k), b)
 			if mErr != nil {
 				return nil, errors.Combine(mErr, closer.Close())
 			}
@@ -594,7 +602,7 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
 			}
 			return err
 		}
-		match, mErr := r.matchEval(gorpCtx, &e, nil, b)
+		match, mErr := r.matchRead(gorpCtx, &e, reader.keyCodec.Encode(k), b)
 		if cErr := closer.Close(); mErr != nil || cErr != nil {
 			return errors.Combine(mErr, cErr)
 		}
