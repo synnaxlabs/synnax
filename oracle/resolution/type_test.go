@@ -16,6 +16,23 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var _ = Describe("MustForm", func() {
+	typ := resolution.Type{
+		QualifiedName: "rack.Rack",
+		Form:          resolution.StructForm{IsRecursive: true},
+	}
+
+	It("Should return the form when it has the requested type", func() {
+		Expect(resolution.MustForm[resolution.StructForm](typ).IsRecursive).
+			To(BeTrue())
+	})
+
+	It("Should panic with the type name when the form has another type", func() {
+		Expect(func() { resolution.MustForm[resolution.EnumForm](typ) }).
+			To(PanicWith(ContainSubstring("rack.Rack is a resolution.StructForm")))
+	})
+})
+
 var _ = Describe("RetrieveKey", func() {
 	withKey := func(name string) resolution.Type {
 		return resolution.Type{

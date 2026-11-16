@@ -78,8 +78,10 @@ Direction enum {
 	fieldOf := func(typeName, fieldName string) resolution.Field {
 		GinkgoHelper()
 		typ := MustBeOk(table.Get(typeName))
+		form, ok := typ.Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
 		return MustBeOk(lo.Find(
-			typ.Form.(resolution.StructForm).Fields,
+			form.Fields,
 			func(f resolution.Field) bool { return f.Name == fieldName },
 		))
 	}

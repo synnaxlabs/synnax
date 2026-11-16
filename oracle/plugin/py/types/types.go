@@ -169,7 +169,7 @@ func generatePyFile(
 		}
 	}
 	for _, u := range unions {
-		form := u.Form.(resolution.UnionForm)
+		form := resolution.MustForm[resolution.UnionForm](u)
 		for _, v := range form.Variants {
 			_, declared := resolver.VariantBases(form, v, "py", table)
 			for _, field := range declared {

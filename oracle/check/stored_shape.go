@@ -108,7 +108,7 @@ func (s shapes) ref(at string, old, new resolution.TypeRef) string {
 			instanceFields(newType, new, s.new),
 		)
 	case resolution.EnumForm:
-		return enumMembers(at, o, newType.Form.(resolution.EnumForm))
+		return enumMembers(at, o, resolution.MustForm[resolution.EnumForm](newType))
 	case resolution.UnionForm:
 		return s.union(at, oldType, newType)
 	case resolution.BuiltinGenericForm:
@@ -194,7 +194,7 @@ func (s shapes) fields(at string, oldFields, newFields []resolution.Field) strin
 
 // coverBases marks the bases of old as covered, since UnifiedFields flattens them.
 func (s shapes) coverBases(old resolution.Type) {
-	for _, ext := range old.Form.(resolution.StructForm).Extends {
+	for _, ext := range resolution.MustForm[resolution.StructForm](old).Extends {
 		base, _, ok := resolution.Dealias(ext, s.old)
 		s.covered.Add(ext.Name)
 		if !ok {
@@ -217,8 +217,8 @@ func (s shapes) cover(ref resolution.TypeRef) {
 }
 
 func (s shapes) union(at string, oldType, newType resolution.Type) string {
-	old := oldType.Form.(resolution.UnionForm)
-	new := newType.Form.(resolution.UnionForm)
+	old := resolution.MustForm[resolution.UnionForm](oldType)
+	new := resolution.MustForm[resolution.UnionForm](newType)
 	if old.Discriminator != new.Discriminator {
 		return at + ": changes its discriminator"
 	}

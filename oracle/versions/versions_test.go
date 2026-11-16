@@ -300,7 +300,9 @@ Arc struct {
 			})
 			f := MustSucceed(r.File("schemas/synnax/arc", 0))
 			arc := MustBeOk(f.Table.Get("v0.Arc"))
-			field := arc.Form.(resolution.StructForm).Fields[2]
+			form, ok := arc.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			field := form.Fields[2]
 			Expect(MustBeOk(field.Type.Resolve(f.Table)).QualifiedName).
 				To(Equal("program.Program"))
 		})
@@ -321,7 +323,9 @@ Arc struct {
 			Expect(f.Pins).ToNot(HaveKey("schemas/arc/program"))
 			arc := MustBeOk(f.Table.Get("v0.Arc"))
 			Expect(arc.Namespace).To(Equal("v0"))
-			field := arc.Form.(resolution.StructForm).Fields[1]
+			form, ok := arc.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			field := form.Fields[1]
 			Expect(MustBeOk(field.Type.Resolve(f.Table)).QualifiedName).
 				To(Equal("program.Program"))
 		})
@@ -537,7 +541,9 @@ Channel struct {
 				Expect(t.Namespace).To(Equal("x/shape@v0"), name)
 			}
 			node := MustBeOk(f.Table.Get("shape.Node"))
-			variants := node.Form.(resolution.UnionForm).Variants
+			form, ok := node.Form.(resolution.UnionForm)
+			Expect(ok).To(BeTrue())
+			variants := form.Variants
 			Expect(variants).To(HaveLen(2))
 			Expect(variants[0].Type.Name).To(Equal("shape.Leaf"))
 		})
@@ -784,7 +790,8 @@ Proof union on method Method {
 			Expect(r.SurfaceInto(
 				table, "schemas/synnax/auth", 0, "auth@v0",
 			)).To(Succeed())
-			form := MustBeOk(table.Get("auth@v0.Proof")).Form.(resolution.UnionForm)
+			form, ok := MustBeOk(table.Get("auth@v0.Proof")).Form.(resolution.UnionForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Enum.Name).To(Equal("auth@v0.Method"))
 		})
 
@@ -812,8 +819,10 @@ Node union on variant extends v0.Node {
 				table, "schemas/synnax/channel", 1, "channel@v1",
 			)).To(Succeed())
 			box := MustBeOk(table.Get("channel@v1.NodeBoxPayload"))
+			form, ok := box.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			width := MustBeOk(lo.Find(
-				box.Form.(resolution.StructForm).Fields,
+				form.Fields,
 				func(f resolution.Field) bool { return f.Name == "width" },
 			))
 			Expect(width.Optional).To(BeTrue())

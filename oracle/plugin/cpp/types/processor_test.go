@@ -34,7 +34,9 @@ var _ = Describe("FieldProcessor", func() {
 		GinkgoHelper()
 		req := MustGenerateRequest(source, "test", loader)
 		item := req.Resolutions.MustGet("test.Item")
-		f := MustBeOk(item.Form.(resolution.StructForm).Field(field))
+		form, ok := item.Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
+		f := MustBeOk(form.Field(field))
 		fp := &types.FieldProcessor{
 			Includes: mgr,
 			FilePath: item.FilePath,
