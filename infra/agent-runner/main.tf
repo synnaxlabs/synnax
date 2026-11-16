@@ -137,8 +137,8 @@ resource "aws_iam_role_policy" "deny_runner_secrets" {
 
 # Lets a seat record when the usage limit of its login resets, and when Claude rejected
 # its token. The fleet controller moves each to the login, which no seat then starts on.
-# A seat can tag only its own instance: the user ID of an instance role session ends
-# with the instance ID.
+# A seat can tag only its own instance: the user ID of an instance role session must end
+# with the ID of the tagged instance.
 resource "aws_iam_role_policy" "limited_until" {
   name = "TagLimitedUntil"
   role = aws_iam_role.runner.id
