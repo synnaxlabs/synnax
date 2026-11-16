@@ -54,14 +54,14 @@ Driver that restarts while the Core is down still starts with no tasks.
 `bypass::pipeline::Writer::write` (`driver/bypass/pipeline/writer.h:43-61`) publishes to
 the bus and hands the frame to a `bypass::pipeline::Forwarder` (NEW), which opens,
 writes, and reopens the task's Core writer on its own thread. `open_writer` returns at
-once. The handoff queue holds 64 MB; while the Core is reachable, frames past it are
-dropped and counted.
+once. The handoff queue holds 64 MB.
 
-When the Core is unreachable, the forwarder closes the live writer, spools the queued
-frames in order, and reopens the live writer only after the queue is empty. Every
-spooled frame therefore comes before the next live session, as RFC 0095 §4.4 requires.
-Any other Core error, such as a deleted channel, closes the forwarder; the next `write`
-returns it and the task stops as today (`acquisition.cpp:162-167`).
+When the Core is unreachable or the queue is full, as on a silent network loss that
+takes minutes to report, the forwarder closes the live writer, spools the queued frames
+in order, and reopens the live writer only after the queue is empty. Every spooled frame
+therefore comes before the next live session, as RFC 0095 §4.4 requires. Any other Core
+error, such as a deleted channel, closes the forwarder; the next `write` returns it and
+the task stops as today (`acquisition.cpp:162-167`).
 
 ### 3.1 Authority
 
@@ -92,7 +92,7 @@ The spool's own drainer thread sends segments on reconnect, so a segment survive
 task stopping, a config change, a second outage, and a restart. For each segment it
 opens a `PersistOnly` writer at the segment's first timestamp with auto commit off
 (`client/cpp/framer/framer.h:282-325`), and moves its read offset only after a commit
-succeeds (RFC 0095 §4.3).
+succeeds (RFC 0095 §4.0 and §4.4).
 
 - **Open fails with `ErrUnauthorized`**: An old live writer still holds the claim. The
   drainer retries with backoff.
@@ -144,10 +144,11 @@ manager deploys again only tasks whose config changed
 When `check_core` finds a Core on another minor (`driver/rack/remote.cpp:209-218`), the
 Driver does not restart. It keeps its running tasks, starts no new ones, and treats the
 Core as unreachable except for one rack status: "Driver needs an update", whose
-description says the Console cannot stop its tasks until the Driver restarts. This
-narrows RFC 0102 decision 12: a Driver that keeps away from a newer Core cannot misread
-it. Between sequences, the operator restarts the Driver service or pod, it updates at
-that connect (RFC 0102 §3.5), and the new Driver drains the spool and outbox. Both files
+description says the Console cannot stop its tasks until the Driver restarts, and keeps
+the install steps of RFC 0102 §3.5 for a Driver that cannot update itself. This narrows
+RFC 0102 decision 12: a Driver that keeps away from a newer Core cannot misread it.
+Between sequences, the operator restarts the Driver service or pod, it updates at that
+connect (RFC 0102 §3.5), and the new Driver drains the spool and outbox. Both files
 start with a format version, and a Driver reads every version a stable release wrote.
 
 ### 3.7 Operators during an outage
