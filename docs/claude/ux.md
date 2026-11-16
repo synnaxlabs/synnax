@@ -69,6 +69,22 @@ lighter step or the base step in dark mode.
 - A custom icon looks precise, never cartoony: about 1.5-unit strokes on a 24 grid,
   square ends, corner radii of 1 unit or less, and filled shapes cut by clean gaps.
 
+### Compound icons
+
+- A compound icon is a base icon with a modifier (add, import, export) or a stack. Draw
+  it as one glyph with `Icon.createFromPath`. Do not layer icons at run time.
+- The modifier sits at top right: 9 units wide, centered at (17.5, 6.5), with a 2.5-unit
+  stem (2 on a line base). The base scales to 0.9 from its bottom-left corner.
+- Cut the base 1.75 units clear of the modifier, with no backing disc. Cut with the
+  modifier's box, with a circle on a round base, or with the modifier's outline when a
+  box removes a small detail. A cut line keeps its round caps. Remove slivers.
+- A folder holds its modifier as a knockout. The project icon replaces its top dot with
+  the modifier.
+- An explorer icon is a diagonal stack: a solid back copy at top right, cut 1.75 units
+  clear of the front copy at bottom left.
+- An item that adds to a thing that exists uses the plain base icon ("Add to active
+  plot").
+
 ### Type
 
 - Levels: h1 33, h2 27, h3 21, h4 16, h5 14, p 13, small 12, and tiny 11 px. Headings

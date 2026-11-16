@@ -18,7 +18,6 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Ranger } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
 import { useStart, useStop } from "@/feature/range/tree/Item";
 import { Sift } from "@/feature/sift";
 import { ContextMenu as Base } from "@/platform/context-menu";
@@ -98,7 +97,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
           itemKey="startChild"
           onClick={() => openCreate({ parent: single.key })}
         >
-          <CreateChildRangeIcon />
+          <Ranger.CreateIcon />
           Start child range
         </Menu.Item>
       )}
