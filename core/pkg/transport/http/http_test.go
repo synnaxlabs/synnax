@@ -11,6 +11,7 @@ package http_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net"
@@ -67,7 +68,7 @@ func openLicensed(ctx SpecContext, creds auth.Credentials) *fiber.App {
 		Service:      svc,
 		Distribution: node.Layer,
 	}))
-	router := MustSucceed(fhttp.NewRouter())
+	router := MustSucceed(fhttp.NewRouter(context.Background()))
 	thttp.Bind(layer, router)
 	app := fiber.New()
 	router.BindTo(app)
@@ -105,7 +106,7 @@ var _ = Describe("HTTP", func() {
 	Describe("Bind", func() {
 		var app *fiber.App
 		BeforeEach(func() {
-			router := MustSucceed(fhttp.NewRouter())
+			router := MustSucceed(fhttp.NewRouter(context.Background()))
 			thttp.Bind(apiLayer, router)
 			app = fiber.New()
 			router.BindTo(app)
@@ -243,7 +244,7 @@ var _ = Describe("HTTP", func() {
 				Service:      svc,
 				Distribution: node.Layer,
 			}))
-			router := MustSucceed(fhttp.NewRouter())
+			router := MustSucceed(fhttp.NewRouter(context.Background()))
 			thttp.Bind(layer, router)
 			app = fiber.New()
 			router.BindTo(app)

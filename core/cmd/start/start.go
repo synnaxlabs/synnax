@@ -338,7 +338,7 @@ func BootupCore(
 	}
 
 	var r *http.Router
-	if r, err = http.NewRouter(http.RouterConfig{
+	if r, err = http.NewRouter(ctx, http.RouterConfig{
 		Instrumentation:     cfg.Instrumentation,
 		StreamWriteDeadline: cfg.slowConsumerTimeout,
 	}); !ok(err, nil) {

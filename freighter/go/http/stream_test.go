@@ -51,7 +51,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+		router := MustSucceed(fhttp.NewRouter(context.Background(), fhttp.RouterConfig{
 			StreamWriteDeadline: testutil.WriteDeadline,
 		}))
 		server = router.NewStreamServer[testutil.Request, testutil.Response]("/")
@@ -114,7 +114,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		It("Should fail a stream whose peer sends a message past the limit", func(
 			ctx SpecContext,
 		) {
-			router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+			router := MustSucceed(fhttp.NewRouter(ctx, fhttp.RouterConfig{
 				StreamWriteDeadline:    testutil.WriteDeadline,
 				StreamMessageSizeLimit: 64,
 			}))
@@ -143,11 +143,11 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 	Describe("WithAdditionalCodec", func() {
 		// Serves its own app: shutting down the shared one would strand later specs.
 		It(
-			"should construct the codec with a live context that ends when the app stops",
+			"should construct the codec with a live context that ends with the stream",
 			func(ctx SpecContext) {
 				const contentType = "application/x-test"
 				codecCtx := make(chan context.Context, 1)
-				router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+				router := MustSucceed(fhttp.NewRouter(ctx, fhttp.RouterConfig{
 					StreamWriteDeadline: testutil.WriteDeadline,
 				}))
 				ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
@@ -189,7 +189,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		It(
 			"should stop serving a stream whose peer never answers the close message",
 			func(ctx SpecContext) {
-				router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+				router := MustSucceed(fhttp.NewRouter(ctx, fhttp.RouterConfig{
 					StreamWriteDeadline: testutil.WriteDeadline,
 				}))
 				ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
@@ -220,6 +220,39 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				shutdown := make(chan error, 1)
 				go func() { shutdown <- ownApp.Shutdown() }()
 				Eventually(shutdown, 5*time.Second).Should(Receive(BeNil()))
+			},
+		)
+
+		It(
+			"should end a stream when the router's lifetime ends",
+			func(ctx SpecContext) {
+				life, cancel := context.WithCancel(ctx)
+				router := MustSucceed(fhttp.NewRouter(life, fhttp.RouterConfig{
+					StreamWriteDeadline: testutil.WriteDeadline,
+				}))
+				ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
+					"/",
+				)
+				ended := make(chan struct{})
+				ownServer.BindHandler(func(
+					ctx context.Context,
+					_ freighter.ServerStream[testutil.Request, testutil.Response],
+				) error {
+					<-ctx.Done()
+					close(ended)
+					return nil
+				})
+				_, ownAddr := serveRouter(router)
+				headers := http.Header{}
+				headers.Set(fiber.HeaderContentType, "application/json")
+				conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
+					ctx, "ws://"+ownAddr.String()+"/", headers,
+				))
+				DeferCleanup(func() { Expect(conn.Close()).To(Succeed()) })
+				Expect(res.Body.Close()).To(Succeed())
+				Consistently(ended, 20*time.Millisecond).ShouldNot(BeClosed())
+				cancel()
+				Eventually(ended).Should(BeClosed())
 			},
 		)
 	})

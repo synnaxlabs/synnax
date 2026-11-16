@@ -27,8 +27,9 @@ import (
 	"go.uber.org/zap"
 )
 
-func BindTo(f *fiber.App) error {
-	router, err := http.NewRouter(http.RouterConfig{
+// BindTo binds the integration endpoints to f. Streams end when life ends.
+func BindTo(life context.Context, f *fiber.App) error {
+	router, err := http.NewRouter(life, http.RouterConfig{
 		Instrumentation:     testutil.Instrumentation("freighter-integration"),
 		StreamWriteDeadline: 50 * time.Millisecond,
 	})

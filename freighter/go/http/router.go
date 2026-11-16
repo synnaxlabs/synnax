@@ -63,9 +63,9 @@ func (r RouterConfig) Override(other RouterConfig) RouterConfig {
 }
 
 // NewRouter constructs a Router from the given configs. Servers registered through the
-// returned Router will be bound to a fiber.App by calling Router.BindTo. Returns an
-// error if the merged config fails to validate.
-func NewRouter(configs ...RouterConfig) (*Router, error) {
+// returned Router will be bound to a fiber.App by calling Router.BindTo. Streams end
+// when life ends. Returns an error if the merged config fails to validate.
+func NewRouter(life context.Context, configs ...RouterConfig) (*Router, error) {
 	cfg, err := config.New(
 		RouterConfig{
 			StreamWriteDeadline:    10 * time.Second,
@@ -76,7 +76,7 @@ func NewRouter(configs ...RouterConfig) (*Router, error) {
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(life)
 	return &Router{
 		cfg:           cfg,
 		streamCtx:     ctx,
@@ -106,8 +106,9 @@ type Router struct {
 
 var _ BindableTransport = (*Router)(nil)
 
-// Context returns a context that the router cancels after the app it is bound to shuts
-// down and its in-flight requests drain. Work that outlives a request, such as a
+// Context returns a context that ends when the router's lifetime ends, or after the app
+// it is bound to shuts down and its in-flight requests drain. Work that outlives a
+// request, such as a
 // streamed response body, can run under it.
 func (r *Router) Context() context.Context { return r.streamCtx }
 
