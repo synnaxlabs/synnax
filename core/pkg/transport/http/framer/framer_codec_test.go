@@ -162,7 +162,7 @@ var _ = Describe("FramerCodec", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return channelSvc.NewWriter(tx).Create(ctx, &ch)
 			})).To(Succeed())
-			router := MustSucceed(http.NewRouter(http.RouterConfig{
+			router := MustSucceed(http.NewRouter(ctx, http.RouterConfig{
 				StreamMessageSizeLimit: 1 << 10,
 			}))
 			server := router.NewStreamServer[framer.WriterRequest, framer.WriterResponse](

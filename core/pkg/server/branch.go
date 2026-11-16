@@ -89,10 +89,10 @@ type Branch interface {
 	// Init initializes the branch, creating any underlying servers and binding
 	// transports. Init is called synchronously before Serve, ensuring that the
 	// branch is fully initialized before any goroutines are launched.
-	Init(BranchContext)
+	Init(ctx BranchContext)
 	// Serve starts the branch and should block until the branch exits abnormally or is
 	// stopped by calling Stop. Init must be called before Serve.
-	Serve(BranchContext) error
+	Serve(ctx BranchContext) error
 	// Stop stops the branch gracefully. Stop is safe to call even if Init has not been
 	// called.
 	Stop()

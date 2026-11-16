@@ -235,16 +235,19 @@ public:
                 slave.properties.settings = settings;
     }
 
-    /// @brief makes the serial number read of the slave at position fail with error.
+    /// @brief makes the serial number read of the slave at position fail with error,
+    /// which gives the slave serial number 0.
     void fail_serial_read(const uint16_t position, const std::string &error) {
         std::lock_guard lock(this->mu);
         for (auto &slave: this->slave_list)
-            if (slave.properties.position == position)
+            if (slave.properties.position == position) {
                 slave.status.serial_error = error;
+                slave.properties.serial = 0;
+            }
     }
 
-    /// @brief makes the serial number read of the slave at position fail with error in
-    /// the next new scan only.
+    /// @brief makes the serial number read of the slave at position fail with error,
+    /// and its serial number 0, in the next new scan only.
     void fail_next_serial_read(const uint16_t position, const std::string &error) {
         std::lock_guard lock(this->mu);
         this->next_serial_errors[position] = error;
@@ -517,8 +520,10 @@ public:
                 if (const auto it = this->next_serial_errors.find(
                         slave.properties.position
                     );
-                    it != this->next_serial_errors.end())
+                    it != this->next_serial_errors.end()) {
                     slave.status.serial_error = it->second;
+                    slave.properties.serial = 0;
+                }
             this->next_serial_errors.clear();
         }
         this->initialized = true;

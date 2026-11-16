@@ -14,6 +14,7 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -126,9 +127,6 @@ func generatePyFile(
 		}
 	}
 
-	skip := func(typ resolution.Type) bool { return omit.IsSkipped(typ, "py") }
-	rawKeyFields := key.Collect(structs, table, skip)
-	keyFields := convertKeyFields(rawKeyFields, data)
 	inOutput := func(typ resolution.Type, _ int) bool {
 		return output.GetPath(typ, "py") == outputPath
 	}
@@ -168,7 +166,7 @@ func generatePyFile(
 		}
 	}
 	for _, u := range unions {
-		form := u.Form.(resolution.UnionForm)
+		form := resolution.MustForm[resolution.UnionForm](u)
 		for _, v := range form.Variants {
 			_, declared := resolver.VariantBases(form, v, "py", table)
 			for _, field := range declared {
@@ -245,7 +243,7 @@ func generatePyFile(
 				TypeDef:   tdd,
 			})
 		case resolution.StructForm:
-			sd, err := processStruct(typ, table, data, keyFields)
+			sd, err := processStruct(typ, table, data)
 			if err != nil {
 				return nil, err
 			}
@@ -280,7 +278,7 @@ func generatePyFile(
 				data.RebuildModels = append(data.RebuildModels, sd.PyName)
 			}
 		case resolution.UnionForm:
-			u := processUnion(typ, table, data, keyFields)
+			u := processUnion(typ, table, data)
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsUnion: true,
 				Union:   u,
@@ -309,17 +307,6 @@ func (d *templateData) missingIncludesErr() error {
 		"types with no generated Python declaration need a @py include module: %s",
 		sortedJoin(d.missingIncludes),
 	)
-}
-
-func convertKeyFields(fields []key.Field, data *templateData) []keyFieldData {
-	result := make([]keyFieldData, 0, len(fields))
-	for _, f := range fields {
-		result = append(result, keyFieldData{
-			Name:   f.Name,
-			PyType: primitiveToPython(f.Primitive, data),
-		})
-	}
-	return result
 }
 
 func extractResource(
@@ -657,7 +644,6 @@ func processStruct(
 	entry resolution.Type,
 	table *resolution.Table,
 	data *templateData,
-	keyFields []keyFieldData,
 ) (structData, error) {
 	sd := structData{
 		Name:   entry.Name,
@@ -726,7 +712,7 @@ func processStruct(
 				for _, field := range flat {
 					sd.Fields = append(
 						sd.Fields,
-						processField(field, table, data, keyFields, form.OmittedFields),
+						processField(field, table, data, form.OmittedFields),
 					)
 					if hashableKey(field) {
 						sd.KeyField = fieldName(field.Name)
@@ -797,7 +783,6 @@ func processStruct(
 							childField,
 							table,
 							data,
-							keyFields,
 							form.OmittedFields,
 						)
 						sd.Fields = append(sd.Fields, fd)
@@ -809,7 +794,6 @@ func processStruct(
 							pf,
 							table,
 							data,
-							keyFields,
 							form.OmittedFields,
 						)
 						sd.Fields = append(sd.Fields, fd)
@@ -828,7 +812,6 @@ func processStruct(
 						field,
 						table,
 						data,
-						keyFields,
 						form.OmittedFields,
 					)
 					sd.Fields = append(sd.Fields, fd)
@@ -846,7 +829,7 @@ func processStruct(
 			redefinedFields := make(set.Set[string])
 			for _, field := range form.Fields {
 				redefinedFields.Add(field.Name)
-				fd := processField(field, table, data, keyFields, form.OmittedFields)
+				fd := processField(field, table, data, form.OmittedFields)
 				sd.Fields = append(sd.Fields, fd)
 				// Only a required @key field yields a __hash__.
 				if hashableKey(field) {
@@ -880,7 +863,6 @@ func processStruct(
 							pf,
 							table,
 							data,
-							keyFields,
 							form.OmittedFields,
 						)
 						sd.Fields = append(sd.Fields, fd)
@@ -896,7 +878,7 @@ func processStruct(
 	allFields := resolution.UnifiedFields(entry, table)
 	sd.Fields = make([]fieldData, 0, len(allFields))
 	for _, field := range allFields {
-		sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, nil))
+		sd.Fields = append(sd.Fields, processField(field, table, data, nil))
 		// Only a required @key field yields a __hash__.
 		if hashableKey(field) {
 			sd.KeyField = fieldName(field.Name)
@@ -972,7 +954,6 @@ func processField(
 	field resolution.Field,
 	table *resolution.Table,
 	data *templateData,
-	keyFields []keyFieldData,
 	excludedFields []string,
 ) fieldData {
 	wireName := casing.FieldSnake(field.Name)
@@ -1292,7 +1273,7 @@ func collectValidation(
 				table,
 			); ok {
 				variantRef := enumVariantToPython(ev, table, data)
-				constraints = append(constraints, fmt.Sprintf("default=%s", variantRef))
+				constraints = append(constraints, "default="+variantRef)
 			}
 			if uv, ok := validation.ResolveUnionVariant(
 				defaultVal.IdentValue,
@@ -1316,9 +1297,11 @@ func collectValidation(
 			} else {
 				constraints = append(
 					constraints,
-					fmt.Sprintf(
-						"default_factory=lambda: %s",
-						pyDefaultLiteral(typeRef, *defaultVal, table, data),
+					"default_factory=lambda: "+pyDefaultLiteral(
+						typeRef,
+						*defaultVal,
+						table,
+						data,
 					),
 				)
 			}
@@ -1333,9 +1316,11 @@ func collectValidation(
 				} else {
 					constraints = append(
 						constraints,
-						fmt.Sprintf(
-							"default_factory=lambda: %s",
-							pyDefaultLiteral(typeRef, *defaultVal, table, data),
+						"default_factory=lambda: "+pyDefaultLiteral(
+							typeRef,
+							*defaultVal,
+							table,
+							data,
 						),
 					)
 				}
@@ -1343,9 +1328,11 @@ func collectValidation(
 				// Models are mutable, so they must use default_factory, never default=.
 				constraints = append(
 					constraints,
-					fmt.Sprintf(
-						"default_factory=lambda: %s",
-						pyDefaultLiteral(typeRef, *defaultVal, table, data),
+					"default_factory=lambda: "+pyDefaultLiteral(
+						typeRef,
+						*defaultVal,
+						table,
+						data,
 					),
 				)
 			}
@@ -1367,7 +1354,7 @@ func pyDefaultLiteral(
 	case resolution.ValueKindString:
 		return fmt.Sprintf("%q", val.StringValue)
 	case resolution.ValueKindInt:
-		return fmt.Sprintf("%d", val.IntValue)
+		return strconv.FormatInt(val.IntValue, 10)
 	case resolution.ValueKindFloat:
 		return fmt.Sprintf("%f", val.FloatValue)
 	case resolution.ValueKindBool:
@@ -2215,11 +2202,6 @@ func (d *templateData) TypingExtensionsImports() []string {
 		return []string{"TypeVar"}
 	}
 	return nil
-}
-
-type keyFieldData struct {
-	Name   string
-	PyType string
 }
 
 type typeParamData struct {

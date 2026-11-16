@@ -315,10 +315,10 @@ type grpcServerStream[RQ, RS freighter.Payload] interface {
 	Context() context.Context
 	Send(msg RS) error
 	Recv() (RQ, error)
-	RecvMsg(any) error
-	SetHeader(metadata.MD) error
-	SendHeader(metadata.MD) error
-	SetTrailer(metadata.MD)
+	RecvMsg(msg any) error
+	SetHeader(md metadata.MD) error
+	SendHeader(md metadata.MD) error
+	SetTrailer(md metadata.MD)
 }
 
 type GRPCClientStream[RQ, RS freighter.Payload] interface {
@@ -331,10 +331,10 @@ type GRPCClientStream[RQ, RS freighter.Payload] interface {
 
 func translateGRPCError(err error) error {
 	if err == nil {
-		return err
+		return nil
 	}
 	if errors.Is(err, io.EOF) {
-		return freighter.EOF
+		return io.EOF
 	}
 	s := status.Convert(err)
 	if s.Code() == codes.Canceled {

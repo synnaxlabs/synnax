@@ -1293,10 +1293,7 @@ start_cmd == 1 => fill
 		})
 
 		It("should handle very long identifier", func() {
-			longName := "x"
-			for range 100 {
-				longName += "a"
-			}
+			longName := "x" + strings.Repeat("a", 100)
 			input := longName + " := 1"
 			result := formatter.Format(input)
 			Expect(result).To(ContainSubstring(longName))

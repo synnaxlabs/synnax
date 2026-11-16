@@ -145,16 +145,16 @@ var _ = Describe("CompileProgram", func() {
 })
 
 var _ = Describe("NewLSP", func() {
-	It("Should create an LSP server without error", func(ctx SpecContext) {
+	It("Should create an LSP server without error", func() {
 		server := MustSucceed(svc.NewLSP(lspConfig))
 		Expect(server).ToNot(BeNil())
 	})
 
 	DescribeTable(
 		"Should reject a config with a missing function",
-		func(clear func(*arc.LSPConfig), msg string) {
+		func(unset func(*arc.LSPConfig), msg string) {
 			cfg := lspConfig
-			clear(&cfg)
+			unset(&cfg)
 			Expect(svc.NewLSP(cfg)).Error().To(MatchError(msg))
 		},
 		Entry(
@@ -169,7 +169,7 @@ var _ = Describe("NewLSP", func() {
 		),
 	)
 
-	It("Should create multiple independent LSP servers", func(ctx SpecContext) {
+	It("Should create multiple independent LSP servers", func() {
 		server1 := MustSucceed(svc.NewLSP(lspConfig))
 		server2 := MustSucceed(svc.NewLSP(lspConfig))
 		Expect(server1).ToNot(BeIdenticalTo(server2))
