@@ -97,7 +97,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 					timestamp: 1700000000000,
 				})
 				t := start(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+					ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
 				))
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(1))
@@ -115,7 +115,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 				name: "temperature", alias: 7, value: 1.0, timestamp: 1700000000000,
 			})
 			start(ctx, readConfig(
-				dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+				ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
 			))
 			node.data("", tagValue{alias: 7, value: 2.0, timestamp: 1700000001000})
 			node.data("", tagValue{alias: 7, value: 3.0, timestamp: 1700000002000})
@@ -139,7 +139,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 				},
 			)
 			start(ctx, readConfig(
-				dev,
+				ctx, dev,
 				tagEntry("plant", "line1", "", "a", first[0]),
 				tagEntry("plant", "line1", "", "b", second[0]),
 			))
@@ -158,7 +158,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 				name: "running", alias: 3, value: false, timestamp: 1700000000000,
 			})
 			start(ctx, readConfig(
-				dev, tagEntry("plant", "line1", "pump", "running", data[0]),
+				ctx, dev, tagEntry("plant", "line1", "pump", "running", data[0]),
 			))
 			node.data("pump", tagValue{alias: 3, value: true, timestamp: 1700000001000})
 			Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
@@ -171,7 +171,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 			ch := createVirtual(ctx, telem.StringT)
 			node.setTags("", tagValue{name: "mode", alias: 1, value: "auto"})
 			t := start(ctx, readConfig(
-				dev, tagEntry("plant", "line1", "", "mode", ch),
+				ctx, dev, tagEntry("plant", "line1", "", "mode", ch),
 			))
 			Consistently(func() status.Variant {
 				return taskStatus(ctx, t).Variant
@@ -185,7 +185,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 					name: "temperature", alias: 1, value: 5.0, timestamp: 1700000000000,
 				})
 				t := start(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+					ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
 				))
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(1))
@@ -239,7 +239,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 			_, data := createIndexed(ctx, telem.Float64T)
 			node.setTags("", live(1))
 			t := start(ctx, readConfig(
-				dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+				ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
 			))
 			expectStored(ctx, data[0], 1)
 			return data[0], t
@@ -253,9 +253,14 @@ var _ = Describe("Sparkplug B read entries", func() {
 			_, data := createIndexed(ctx, telem.Float64T)
 			node.setTags("", live(1))
 			configured := configure(ctx, factory, newTask(
-				ctx, rackKey,
+				ctx,
+				rackKey,
 				mqtt.ReadTaskType,
-				readConfig(dev, tagEntry("plant", "line1", "", "temperature", data[0])),
+				readConfig(
+					ctx,
+					dev,
+					tagEntry("plant", "line1", "", "temperature", data[0]),
+				),
 			))
 			exec := func(command string) {
 				GinkgoHelper()
@@ -277,7 +282,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 				idx, data := createIndexed(ctx, telem.Float64T)
 				node.setTags("", live(1))
 				t := start(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+					ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
 				))
 				expectStored(ctx, data[0], 1)
 				node.death()
@@ -406,7 +411,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 				node.setTags("", live(1))
 				node.setTags("pump", speed(1))
 				start(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "pump", "speed", data[0]),
+					ctx, dev, tagEntry("plant", "line1", "pump", "speed", data[0]),
 				))
 				expectStored(ctx, data[0], 1)
 				node.deviceDeath("pump")
@@ -461,7 +466,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 			idx, data := createIndexed(ctx, telem.Float64T)
 			node.setTags("", live(1))
 			t := start(ctx, readConfig(
-				dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+				ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
 			))
 			expectStored(ctx, data[0], 1)
 			node.death()
@@ -494,7 +499,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 			idx, data := createIndexed(ctx, telem.Float64T)
 			node.setTags("", live(1))
 			t := start(ctx, readConfig(
-				dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+				ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
 			))
 			expectStored(ctx, data[0], 1)
 			node.death()
@@ -519,7 +524,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 				idx, data := createIndexed(ctx, telem.Float64T)
 				node.setTags("", live(1))
 				t := start(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+					ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
 				))
 				expectStored(ctx, data[0], 1)
 				node.death()
@@ -559,7 +564,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 			func(ctx SpecContext) {
 				_, data := createIndexed(ctx, telem.Float64T)
 				cfg := readConfig(
-					dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+					ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
 				)
 				cfg["data_saving_disabled"] = true
 				expectDropped(ctx, cfg)
@@ -571,7 +576,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.Float64T)
 				expectDropped(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "", "temperature", ch),
+					ctx, dev, tagEntry("plant", "line1", "", "temperature", ch),
 				))
 			},
 		)
@@ -586,7 +591,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 					name: "temperature", alias: 1, value: 1.0, timestamp: 1700000000000,
 				})
 				start(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+					ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
 				))
 				before := node.births()
 				node.skipSeq()
@@ -608,7 +613,9 @@ var _ = Describe("Sparkplug B read entries", func() {
 					name: "temperature", alias: 1, value: 1.0, timestamp: 1700000000000,
 				})
 				t := start(ctx, readConfig(
-					dev, tagEntry("plant", "line1", device, "temperature", data[0]),
+					ctx,
+					dev,
+					tagEntry("plant", "line1", device, "temperature", data[0]),
 				))
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(1))
@@ -633,7 +640,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 				name: "temperature", alias: 1, value: 1.0, timestamp: 1700000000000,
 			})
 			t := start(ctx, readConfig(
-				dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+				ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
 			))
 			node.death()
 			Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
@@ -655,7 +662,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 				name: "speed", alias: 1, value: 1.0, timestamp: 1700000000000,
 			})
 			t := start(ctx, readConfig(
-				dev, tagEntry("plant", "line1", "pump", "speed", data[0]),
+				ctx, dev, tagEntry("plant", "line1", "pump", "speed", data[0]),
 			))
 			node.deviceDeath("pump")
 			Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
@@ -675,7 +682,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 			_, data := createIndexed(ctx, telem.Float64T)
 			node.setSilent(true)
 			t := newTask(ctx, rackKey, mqtt.ReadTaskType, readConfig(
-				dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+				ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
 			))
 			configured := configure(ctx, factory, t)
 			Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
@@ -693,7 +700,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 		It("Should warn about a device that gives no birth", func(ctx SpecContext) {
 			_, data := createIndexed(ctx, telem.Float64T)
 			t := start(ctx, readConfig(
-				dev, tagEntry("plant", "line1", "pump", "speed", data[0]),
+				ctx, dev, tagEntry("plant", "line1", "pump", "speed", data[0]),
 			))
 			Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
 				HaveField("Variant", status.VariantWarning),
@@ -710,7 +717,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 					name: "speed", alias: 1, value: 1.0, timestamp: 1700000000000,
 				})
 				t := start(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "pump", "speed", data[0]),
+					ctx, dev, tagEntry("plant", "line1", "pump", "speed", data[0]),
 				))
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(1))
@@ -733,7 +740,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 				_, data := createIndexed(ctx, telem.Float64T)
 				node.setTags("", tagValue{name: "other", alias: 1, value: 1.0})
 				t := start(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+					ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
 				))
 				Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
 					HaveField("Variant", status.VariantWarning),
@@ -756,7 +763,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 					timestamp: 1700000000000,
 				})
 				start(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "", "temperature", data[0]),
+					ctx, dev, tagEntry("plant", "line1", "", "temperature", data[0]),
 				))
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(1))
@@ -779,7 +786,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 				_, data := createIndexed(ctx, telem.Float64T)
 				node.setTags("", tagValue{name: "mode", alias: 1, value: "auto"})
 				t := start(ctx, readConfig(
-					dev, tagEntry("plant", "line1", "", "mode", data[0]),
+					ctx, dev, tagEntry("plant", "line1", "", "mode", data[0]),
 				))
 				Eventually(func() task.Status { return taskStatus(ctx, t) }).Should(And(
 					HaveField("Variant", status.VariantWarning),
@@ -811,7 +818,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					_, data := createIndexed(ctx, telem.Float64T)
 					return readConfig(
-						dev, tagEntry("plant", "", "", "temperature", data[0]),
+						ctx, dev, tagEntry("plant", "", "", "temperature", data[0]),
 					), "edge_node: required"
 				},
 			),
@@ -819,14 +826,20 @@ var _ = Describe("Sparkplug B read entries", func() {
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					_, data := createIndexed(ctx, telem.Float64T)
 					return readConfig(
-						dev, tagEntry("plant/a", "line1", "", "temperature", data[0]),
+						ctx,
+						dev,
+						tagEntry("plant/a", "line1", "", "temperature", data[0]),
 					), "group: plant/a must not hold /, +, or #"
 				},
 			),
 			Entry("an entry with no tag",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					_, data := createIndexed(ctx, telem.Float64T)
-					return readConfig(dev, tagEntry("plant", "line1", "", "", data[0])),
+					return readConfig(
+							ctx,
+							dev,
+							tagEntry("plant", "line1", "", "", data[0]),
+						),
 						"tag: required"
 				},
 			),
@@ -837,7 +850,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 					entry := tagEntry("plant", "line1", "", "temperature", second[0])
 					entry["key"] = "again"
 					return readConfig(
-						dev,
+						ctx, dev,
 						tagEntry("plant", "line1", "", "temperature", first[0]),
 						entry,
 					), "tag plant/line1/temperature appears more than once"
@@ -848,7 +861,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 					_, data := createIndexed(ctx, telem.Float64T, telem.Float64T)
 					a := tagEntry("plant", "line1", "", "a", data[0])
 					b := tagEntry("plant", "line1", "", "b", data[1])
-					return readConfig(dev, a, b),
+					return readConfig(ctx, dev, a, b),
 						"tag plant/line1/a and tag plant/line1/b " +
 							"write to the same channel"
 				},
@@ -856,25 +869,33 @@ var _ = Describe("Sparkplug B read entries", func() {
 			Entry("an index channel as the channel of a tag",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					idx, _ := createIndexed(ctx)
-					return readConfig(dev, tagEntry("plant", "line1", "", "time", idx)),
+					return readConfig(
+							ctx,
+							dev,
+							tagEntry("plant", "line1", "", "time", idx),
+						),
 						"cannot take the values of a tag"
 				},
 			),
 			Entry("a json channel as the channel of a tag",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.JSONT)
-					return readConfig(dev, tagEntry("plant", "line1", "", "doc", ch)),
+					return readConfig(
+							ctx,
+							dev,
+							tagEntry("plant", "line1", "", "doc", ch),
+						),
 						"tag plant/line1/doc: channel " + ch.Name +
 							" cannot take the values of a tag"
 				},
 			),
 			Entry("a channel that does not exist",
-				func(context.Context) (msgpack.EncodedJSON, string) {
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					entry := tagEntry(
 						"plant", "line1", "", "temperature", channel.Channel{},
 					)
 					entry["channel"] = 999999
-					return readConfig(dev, entry), "channel 999999 does not exist"
+					return readConfig(ctx, dev, entry), "channel 999999 does not exist"
 				},
 			),
 		)

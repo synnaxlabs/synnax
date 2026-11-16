@@ -25,6 +25,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -302,6 +303,32 @@ var _ = Describe("JSON", func() {
 				JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/id"}, Value: 7,
 			}},
 			[]byte(`{"id":7,"temp":40,"count":3,"state":"run"}`),
+		),
+	)
+})
+
+var _ = Describe("Converts", func() {
+	DescribeTable(
+		"Should report whether a field kind converts to a data type",
+		func(k payload.Kind, dt telem.DataType, expected bool) {
+			Expect(codec.Converts(k, dt)).To(Equal(expected))
+		},
+		Entry("a kind to its own data type", payload.KindString, telem.StringT, true),
+		Entry("an integer to a float", payload.KindInteger, telem.Float32T, true),
+		Entry("an unsigned to a float", payload.KindUnsigned, telem.Float64T, true),
+		Entry("a boolean to a float", payload.KindBoolean, telem.Float64T, true),
+		Entry("an unsigned to an integer", payload.KindUnsigned, telem.Int64T, true),
+		Entry("a boolean to an integer", payload.KindBoolean, telem.Int8T, true),
+		Entry("a boolean to an unsigned", payload.KindBoolean, telem.Uint8T, true),
+		Entry("a float to an integer", payload.KindFloat, telem.Int32T, false),
+		Entry("an integer to an unsigned", payload.KindInteger, telem.Uint32T, false),
+		Entry("a timestamp to an integer", payload.KindTimestamp, telem.Int64T, false),
+		Entry("a string to a float", payload.KindString, telem.Float64T, false),
+		Entry(
+			"a kind to an unknown data type",
+			payload.KindFloat,
+			telem.DataType("complex128"),
+			false,
 		),
 	)
 })

@@ -19,17 +19,13 @@ from console.task_page import TaskPage
 BROKER_FIELD_LABEL = "MQTT broker"
 _DETAILS_SELECTOR = ".console-details__form"
 _ENTRY_TITLE_SELECTOR = ".console-mqtt-entry-label > .lyra-text--overflow-fade"
-_FIELD_POINTER_SELECTOR = ".console-field-pointer"
 _CHANNEL_NAME_SELECTOR = ".console-task__channel-name"
-_TREE_ROWS_JS = f"""els => els.map((e) => [
-    Number(e.getAttribute("aria-level")),
-    e.querySelector("{_ENTRY_TITLE_SELECTOR}")?.textContent ?? "",
-    e.querySelector("{_FIELD_POINTER_SELECTOR}")?.textContent ?? "",
-])"""
+_ENTRY_LIST_SELECTOR = ".console-panes__list"
+# The Channels section labels the box that reads a field "Read <field name>".
+_READ_BOX_PREFIX = "Read "
 # The list wraps a title in bidi isolates so a topic reads left to right.
 _LRI = "\N{LEFT-TO-RIGHT ISOLATE}"
 _PDI = "\N{POP DIRECTIONAL ISOLATE}"
-_WHOLE_PAYLOAD = "Whole payload"
 # The submit button of the add dialog counts the picks: "Add 4 channels".
 _SUBMIT_PICKS = re.compile(r"^Add \d+ ")
 # A listen of the dialog takes a few seconds before it lists anything.
@@ -166,54 +162,49 @@ class MQTTTask(TaskPage):
 
 
 class MQTTRead(MQTTTask):
-    """MQTT read task page. The list is a tree: a plain entry holds the fields of a
-    JSON payload beneath it."""
+    """MQTT read task page. A plain entry reads fields of the message format of its
+    topic. The Channels section of its details picks the fields the task reads."""
 
     page_type: PageType = "mqtt_read"
     pluto_label: str = ".console-task-configure--mqtt_read"
     add_label = "Add data"
 
     def _rows(self) -> Locator:
-        return self._pane().get_by_role("tree").first.get_by_role("treeitem")
+        return self._pane().locator(_ENTRY_LIST_SELECTOR).first.get_by_role("option")
 
-    def add_field(
-        self, title: str, pointer: str, *, data_type: str | None = None
-    ) -> None:
-        """Add a field to a listed entry via its context menu, and select it.
-
-        :param title: Title of the entry.
-        :param pointer: JSON pointer of the field in the payload.
-        :param data_type: Synnax data type, e.g. "float64". Keeps the default when
-            None.
-        """
-        self.ctx_menu.action(self._title(title), "Add field")
-        self._details().get_by_text("Pointer", exact=True).wait_for(
-            state="visible", timeout=5000
+    def _read_box(self, field: str) -> Locator:
+        return self._details().get_by_role(
+            "checkbox", name=f"{_READ_BOX_PREFIX}{field}", exact=True
         )
-        self._fill("Pointer", pointer)
-        if data_type is not None:
-            self._select("Data type", data_type)
 
     def fields(self, title: str) -> list[str]:
-        """Return the pointer of each field of a listed entry, in order. An empty
-        pointer takes the whole payload.
+        """Return the name of each field the task reads from a listed entry, in the
+        order of its message format.
 
         :param title: Title of the entry.
-        :raises AssertionError: If no entry has the title.
         """
-        rows = self._rows().evaluate_all(_TREE_ROWS_JS)
-        pointers: list[str] = []
-        found = False
-        for level, entry, pointer in rows:
-            if int(level) == 1:
-                if found:
-                    break
-                found = _plain(str(entry)) == title
-            elif found:
-                pointers.append("" if pointer == _WHOLE_PAYLOAD else str(pointer))
-        if not found:
-            raise AssertionError(f"No entry is titled {title!r}")
-        return pointers
+        self.select_entry(title)
+        boxes = self._details().get_by_role(
+            "checkbox", name=re.compile(f"^{_READ_BOX_PREFIX}")
+        )
+        boxes.first.wait_for(state="visible", timeout=5000)
+        return [
+            str(boxes.nth(i).get_attribute("aria-label"))[len(_READ_BOX_PREFIX) :]
+            for i in range(boxes.count())
+            if boxes.nth(i).is_checked()
+        ]
+
+    def set_read(self, field: str, read: bool) -> None:
+        """Start or stop reading a field of the selected entry.
+
+        :param field: Name of the field in the message format.
+        :param read: Whether the task reads the field.
+        """
+        box = self._read_box(field)
+        if box.is_checked() == read:
+            return
+        box.dispatch_event("click")
+        expect(box).to_be_checked(checked=read, timeout=5000)
 
 
 class MQTTWrite(MQTTTask):

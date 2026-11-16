@@ -42,8 +42,35 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 			},
 		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, icd.Key]{
+			Name:     "entries.icd",
+			Table:    "icd",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *ReadConfig) []icd.Key {
+				var targets []icd.Key
+				for _, v1 := range e.Entries {
+					switch v2 := v1.Variant.(type) {
+					case PlainReadEntry:
+						targets = append(targets, v2.ICD)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *ReadConfig, t icd.Key) {
+				e.Entries = slices.DeleteFunc(e.Entries, func(v3 ReadEntry) bool {
+					switch v4 := v3.Variant.(type) {
+					case PlainReadEntry:
+						if v4.ICD == t {
+							return true
+						}
+					}
+					return false
+				})
+			},
+		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
-			Name:     "entries.fields.channel",
+			Name:     "entries.messages.bindings.channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
@@ -52,41 +79,8 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				for _, v1 := range e.Entries {
 					switch v2 := v1.Variant.(type) {
 					case PlainReadEntry:
-						for _, v3 := range v2.Fields {
-							switch v4 := v3.Variant.(type) {
-							case FloatReadField:
-								if v4.Channel != 0 {
-									targets = append(targets, v4.Channel)
-								}
-							case IntegerReadField:
-								if v4.Channel != 0 {
-									targets = append(targets, v4.Channel)
-								}
-							case UnsignedReadField:
-								if v4.Channel != 0 {
-									targets = append(targets, v4.Channel)
-								}
-							case StringReadField:
-								if v4.Channel != 0 {
-									targets = append(targets, v4.Channel)
-								}
-							case BooleanReadField:
-								if v4.Channel != 0 {
-									targets = append(targets, v4.Channel)
-								}
-							case TimestampReadField:
-								if v4.Channel != 0 {
-									targets = append(targets, v4.Channel)
-								}
-							case JSONReadField:
-								if v4.Channel != 0 {
-									targets = append(targets, v4.Channel)
-								}
-							case UuidReadField:
-								if v4.Channel != 0 {
-									targets = append(targets, v4.Channel)
-								}
-							case BytesReadField:
+						for _, v3 := range v2.Messages {
+							for _, v4 := range v3.Bindings {
 								if v4.Channel != 0 {
 									targets = append(targets, v4.Channel)
 								}
@@ -100,53 +94,11 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				for i5 := range e.Entries {
 					switch v6 := e.Entries[i5].Variant.(type) {
 					case PlainReadEntry:
-						for i7 := range v6.Fields {
-							switch v8 := v6.Fields[i7].Variant.(type) {
-							case FloatReadField:
-								if v8.Channel == t {
-									v8.Channel = 0
+						for i7 := range v6.Messages {
+							for i8 := range v6.Messages[i7].Bindings {
+								if v6.Messages[i7].Bindings[i8].Channel == t {
+									v6.Messages[i7].Bindings[i8].Channel = 0
 								}
-								v6.Fields[i7].Variant = v8
-							case IntegerReadField:
-								if v8.Channel == t {
-									v8.Channel = 0
-								}
-								v6.Fields[i7].Variant = v8
-							case UnsignedReadField:
-								if v8.Channel == t {
-									v8.Channel = 0
-								}
-								v6.Fields[i7].Variant = v8
-							case StringReadField:
-								if v8.Channel == t {
-									v8.Channel = 0
-								}
-								v6.Fields[i7].Variant = v8
-							case BooleanReadField:
-								if v8.Channel == t {
-									v8.Channel = 0
-								}
-								v6.Fields[i7].Variant = v8
-							case TimestampReadField:
-								if v8.Channel == t {
-									v8.Channel = 0
-								}
-								v6.Fields[i7].Variant = v8
-							case JSONReadField:
-								if v8.Channel == t {
-									v8.Channel = 0
-								}
-								v6.Fields[i7].Variant = v8
-							case UuidReadField:
-								if v8.Channel == t {
-									v8.Channel = 0
-								}
-								v6.Fields[i7].Variant = v8
-							case BytesReadField:
-								if v8.Channel == t {
-									v8.Channel = 0
-								}
-								v6.Fields[i7].Variant = v8
 							}
 						}
 						e.Entries[i5].Variant = v6
@@ -179,81 +131,6 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 							v4.Channel = 0
 						}
 						e.Entries[i3].Variant = v4
-					}
-				}
-			},
-		}),
-	}
-}
-
-// icdReadConfigReferences returns the references of ICDReadConfig.
-func icdReadConfigReferences() []gorp.Reference[uuid.UUID, ICDReadConfig] {
-	return []gorp.Reference[uuid.UUID, ICDReadConfig]{
-		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ICDReadConfig, device.Key]{
-			Name:     "device",
-			Table:    "device",
-			OnDelete: gorp.Restrict,
-			Kind:     gorp.Use,
-			Targets: func(e *ICDReadConfig) []device.Key {
-				var targets []device.Key
-				if e.Device != "" {
-					targets = append(targets, e.Device)
-				}
-				return targets
-			},
-			Detach: func(e *ICDReadConfig, t device.Key) {
-				if e.Device == t {
-					e.Device = ""
-				}
-			},
-		}),
-		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ICDReadConfig, icd.Key]{
-			Name:     "entries.icd",
-			Table:    "icd",
-			OnDelete: gorp.Restrict,
-			Kind:     gorp.Use,
-			Targets: func(e *ICDReadConfig) []icd.Key {
-				var targets []icd.Key
-				for _, v1 := range e.Entries {
-					targets = append(targets, v1.ICD)
-				}
-				return targets
-			},
-			Detach: func(e *ICDReadConfig, t icd.Key) {
-				e.Entries = slices.DeleteFunc(e.Entries, func(v2 ICDReadEntry) bool {
-					if v2.ICD == t {
-						return true
-					}
-					return false
-				})
-			},
-		}),
-		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ICDReadConfig, channel.Key]{
-			Name:     "entries.messages.bindings.channel",
-			Table:    "channel",
-			OnDelete: gorp.Restrict,
-			Kind:     gorp.Use,
-			Targets: func(e *ICDReadConfig) []channel.Key {
-				var targets []channel.Key
-				for _, v1 := range e.Entries {
-					for _, v2 := range v1.Messages {
-						for _, v3 := range v2.Bindings {
-							if v3.Channel != 0 {
-								targets = append(targets, v3.Channel)
-							}
-						}
-					}
-				}
-				return targets
-			},
-			Detach: func(e *ICDReadConfig, t channel.Key) {
-				for i4 := range e.Entries {
-					for i5 := range e.Entries[i4].Messages {
-						for i6 := range e.Entries[i4].Messages[i5].Bindings {
-							if e.Entries[i4].Messages[i5].Bindings[i6].Channel == t {
-								e.Entries[i4].Messages[i5].Bindings[i6].Channel = 0
-							}
-						}
 					}
 				}
 			},

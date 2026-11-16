@@ -12,7 +12,3 @@ package v2
 // CustomTypeName gives ReadConfig records a table prefix that cannot collide with the
 // identically named config types of other integrations.
 func (ReadConfig) CustomTypeName() string { return "mqtt_read_config" }
-
-// CustomTypeName gives ICDReadConfig records a table prefix that cannot collide with
-// the identically named config types of other integrations.
-func (ICDReadConfig) CustomTypeName() string { return "mqtt_icd_read_config" }
