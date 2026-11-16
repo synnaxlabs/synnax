@@ -226,6 +226,37 @@ describe("range/overview", () => {
       await screen.findByText(`Download data for ${rng.name} as CSV`);
     });
 
+    it("should offer the exports in the more menu and close it on a pick", async () => {
+      const writeText = stubClipboardWriteText();
+      const rng = await createTestRange(client);
+      await renderOverview(rng.key);
+      const pick = async (name: string): Promise<void> => {
+        fireEvent.click(await screen.findByRole("button", { name: "More" }));
+        fireEvent.click(await screen.findByRole("menuitem", { name }));
+        await waitFor(() => expect(screen.queryByRole("menuitem")).toBeNull());
+      };
+      await pick("Copy Python code");
+      await waitFor(() =>
+        expect(writeText).toHaveBeenLastCalledWith(
+          `rng = client.ranges.retrieve(key="${rng.key}")`,
+        ),
+      );
+      await pick("Copy TypeScript code");
+      await waitFor(() =>
+        expect(writeText).toHaveBeenLastCalledWith(
+          `const rng = await client.ranges.retrieve("${rng.key}");`,
+        ),
+      );
+      await pick("Copy link");
+      await waitFor(() =>
+        expect(writeText).toHaveBeenLastCalledWith(
+          `synnax://cluster/${CORE.clusterKey}/range/${rng.key}`,
+        ),
+      );
+      await pick("Download as CSV");
+      await screen.findByText(`Download data for ${rng.name} as CSV`);
+    });
+
     it("should set the color of the range from its swatch", async () => {
       const rng = await createTestRange(client);
       await renderOverview(rng.key);
