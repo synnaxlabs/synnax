@@ -80,8 +80,8 @@ and claims one on `createWindow`, so new windows appear instantly.
 ## State management
 
 Modular slices (`core`, `nav`, `panels`, `lineplot`, `schematic`, `table`, `project`,
-`drift`, ...), each with `SLICE_NAME`, `sliceStateZ`, `SliceState`, `ZERO_SLICE_STATE`,
-and `createSlice` reducers. Side effects go in middleware.
+`view`, `drift`, ...), each with `SLICE_NAME`, `sliceStateZ`, `SliceState`,
+`ZERO_SLICE_STATE`, and `createSlice` reducers. Side effects go in middleware.
 
 **A Core record's key is opaque** — `LOCAL`, `DEMO`, `SERVED`, a UUID for the rest — so
 editing an address never moves an entry. Stored state is partitioned by the **cluster
@@ -99,7 +99,7 @@ Main window only, 250ms debounce. Every slice is declared in exactly one scope i
 | ----------- | ------------------------------------------------- |
 | `global`    | account, core, color, theme                       |
 | `core`      | project, range, status                            |
-| `project`   | drift                                             |
+| `project`   | drift, view                                       |
 | `window`    | arc, lineplot, log, nav, panels, schematic, table |
 | `transient` | analytics, haul, link, persist — never written    |
 
