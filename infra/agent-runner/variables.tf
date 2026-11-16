@@ -18,10 +18,11 @@ variable "repository" {
   default     = "synnaxlabs/synnax"
 }
 
-# A seat is one Claude Max or ChatGPT login. A review seat's runners carry only the
-# `review` label, so agent jobs never land on them.
+# A seat is one machine. A Claude seat runs on a shared login that the fleet controller
+# gives it when it starts, and a Codex seat holds its own ChatGPT login. A review seat's
+# runners carry only the `review` label, so agent jobs never land on them.
 variable "seats" {
-  description = "Agent CLI logins by name, one instance each"
+  description = "Seats by name, one instance each"
   type = map(object({
     agent = string
     pool  = optional(string, "agent")

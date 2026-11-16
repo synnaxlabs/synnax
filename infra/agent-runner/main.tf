@@ -7,10 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# One EC2 instance per agent CLI login (a seat), each with several GitHub Actions
-# runners that share the login. The fleet controller starts a stopped seat for a queued
-# job, and a review job also starts a stopped review seat through GitHub OIDC. An idle
-# instance stops itself, so its disk keeps the build caches warm.
+# One EC2 instance per seat, each with several GitHub Actions runners. The fleet
+# controller starts a stopped seat for a queued job, on a shared Claude login that it
+# picks. An idle instance stops itself, so its disk keeps the build caches warm.
 
 terraform {
   required_version = ">= 1.10"
@@ -224,7 +223,7 @@ data "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
 }
 
-# Lets workflows in the repository start a stopped runner, and nothing else.
+# Lets workflows in the repository see the runners, and nothing else.
 resource "aws_iam_role" "start" {
   name = "synnax-agent-runner-start"
   assume_role_policy = jsonencode({
@@ -255,17 +254,6 @@ resource "aws_iam_role_policy" "start" {
         Effect   = "Allow"
         Action   = "ec2:DescribeInstances"
         Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = "ec2:StartInstances"
-        Resource = "arn:aws:ec2:${var.region}:*:instance/*"
-        Condition = {
-          StringEquals = {
-            "aws:ResourceTag/project" = "synnax-agents"
-            "aws:ResourceTag/pool"    = keys(var.pools)
-          }
-        }
       },
     ]
   })
