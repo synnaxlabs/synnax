@@ -395,6 +395,7 @@ func (e *Engine) stream(ctx context.Context, a *attempt, l *live) (err error) {
 			}
 			// Marking every flow first keeps the marks of a frame that fails to send.
 			a.mark(e.flows, fr)
+			l.check(a)
 			for _, f := range e.flows {
 				if err = a.sendLive(ctx, f, fr); err != nil {
 					return err
@@ -433,6 +434,7 @@ func (e *Engine) catchUp(ctx context.Context, a *attempt, l *live) error {
 			telem.TimeRange{Start: a.sent[f.index.Key()], End: telem.TimeStampMax},
 			func(fr framer.Frame) error {
 				l.take(a.progress)
+				l.check(a)
 				// A later value of a marked channel would move the attempt past its
 				// earlier ones.
 				if a.carriesMarked(f, fr) {
@@ -1112,10 +1114,18 @@ func (l *live) take(p *progress) {
 	clear(l.dropped)
 }
 
-// pass marks each channel that a frame received since the last pass holds after the
+// check marks each channel that a frame received since the last pass holds after the
 // last value a sent but before the position of its index. A read of storage between
-// the commits of an index and its data passes the index without the data. Call pass
-// after each send: a read that starts after a frame arrives finds all its data.
+// the commits of an index and its data passes the index without the data. Call check
+// before each send, since the send can move a past a value it never sent.
+func (l *live) check(a *attempt) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.checkLocked(a)
+}
+
+// pass checks the frames as check does, then forgets them. Call it after each send: a
+// read that starts after a frame arrives finds all of its data.
 func (l *live) pass(a *attempt) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -1123,17 +1133,22 @@ func (l *live) pass(a *attempt) {
 }
 
 func (l *live) passLocked(a *attempt) {
-	for _, ar := range l.arrivals {
+	l.checkLocked(a)
+	l.arrivals = l.arrivals[:0]
+}
+
+func (l *live) checkLocked(a *attempt) {
+	l.arrivals = slices.DeleteFunc(l.arrivals, func(ar arrival) bool {
 		if a.sent[ar.index] < ar.span.End {
-			continue
+			return false
 		}
 		for _, ch := range ar.channels {
 			if a.values[ch] < ar.span.End && a.unindexed.mark(ar.index, ch) {
 				a.unreported = true
 			}
 		}
-	}
-	l.arrivals = l.arrivals[:0]
+		return true
+	})
 }
 
 // arrive keeps the span of fr over each index it carries. l.mu must be held.
