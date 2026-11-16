@@ -34,8 +34,8 @@ public:
     }
 };
 
-/// @brief a frame the acquisition pipeline writes again to a reopened writer should
-/// reach bus subscribers once.
+/// @brief it should publish a frame that the acquisition pipeline writes again to a
+/// reopened writer to bus subscribers once.
 TEST(WriterTest, RewrittenFrameReachesBusOnce) {
     auto bus = std::make_shared<Bus>();
     auto sub = bus->subscribe({1});
