@@ -11,7 +11,6 @@ package sift_test
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"uuid"
 
@@ -33,7 +32,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var apiKey = rand.Text()
+const fakeKey = "sift-api-key"
 
 // failingKV fails every commit, so that no status write lands.
 type failingKV struct{ kv.DB }
@@ -167,7 +166,7 @@ var _ = Describe("Factory", func() {
 
 		BeforeEach(func(ctx SpecContext) {
 			server = MustOpen(fake.Open(fake.Config{
-				APIKey: apiKey,
+				APIKey: fakeKey,
 				Assets: []string{"stand", "pad"},
 			}))
 			t = newTask(ctx, sift.ScanTaskType, msgpack.EncodedJSON{"rate": 50})
@@ -185,7 +184,7 @@ var _ = Describe("Factory", func() {
 				func(ctx SpecContext) {
 					dev := createDevice(ctx, sift.Properties{
 						URI:    server.Address(),
-						APIKey: createAPIKey(ctx, apiKey),
+						APIKey: createAPIKey(ctx, fakeKey),
 					})
 					Eventually(func() device.Status {
 						return deviceStatus(ctx, dev)
@@ -226,7 +225,7 @@ var _ = Describe("Factory", func() {
 		Describe("test_connection", func() {
 			It("Should connect with an API key the grant names",
 				func(ctx SpecContext) {
-					key := createAPIKey(ctx, apiKey)
+					key := createAPIKey(ctx, fakeKey)
 					g := grantToRack(ctx, key)
 					stat := exec(ctx, "test_connection", map[string]any{
 						"connection": sift.Properties{
@@ -252,7 +251,7 @@ var _ = Describe("Factory", func() {
 
 			DescribeTable("Should connect through a URI copied from a browser",
 				func(ctx SpecContext, format string) {
-					key := createAPIKey(ctx, apiKey)
+					key := createAPIKey(ctx, fakeKey)
 					stat := exec(ctx, "test_connection", map[string]any{
 						"connection": sift.Properties{
 							URI:    fmt.Sprintf(format, server.Address()),
@@ -269,7 +268,7 @@ var _ = Describe("Factory", func() {
 
 			It("Should say that a closed port refused the connection",
 				func(ctx SpecContext) {
-					key := createAPIKey(ctx, apiKey)
+					key := createAPIKey(ctx, fakeKey)
 					stat := exec(ctx, "test_connection", map[string]any{
 						"connection": sift.Properties{URI: "127.0.0.1:1", APIKey: key},
 						"grant":      grantToRack(ctx, key),
@@ -284,7 +283,7 @@ var _ = Describe("Factory", func() {
 
 			It("Should fail without a grant, even for the key of a saved device",
 				func(ctx SpecContext) {
-					key := createAPIKey(ctx, apiKey)
+					key := createAPIKey(ctx, fakeKey)
 					createDevice(
 						ctx,
 						sift.Properties{URI: server.Address(), APIKey: key},
@@ -303,7 +302,7 @@ var _ = Describe("Factory", func() {
 
 			It("Should fail for a connection with no address", func(ctx SpecContext) {
 				stat := exec(ctx, "test_connection", map[string]any{
-					"connection": sift.Properties{APIKey: createAPIKey(ctx, apiKey)},
+					"connection": sift.Properties{APIKey: createAPIKey(ctx, fakeKey)},
 				})
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(ContainSubstring("uri"))
@@ -317,10 +316,12 @@ var _ = Describe("Factory", func() {
 				for i := range names {
 					names[i] = fmt.Sprintf("asset-%04d", i)
 				}
-				paged := MustOpen(fake.Open(fake.Config{APIKey: apiKey, Assets: names}))
+				paged := MustOpen(
+					fake.Open(fake.Config{APIKey: fakeKey, Assets: names}),
+				)
 				dev := createDevice(ctx, sift.Properties{
 					URI:    paged.Address(),
-					APIKey: createAPIKey(ctx, apiKey),
+					APIKey: createAPIKey(ctx, fakeKey),
 				})
 				stat := exec(ctx, "list_assets", map[string]any{"device": dev.Key})
 				Expect(stat.Variant).To(Equal(status.VariantSuccess))
@@ -333,7 +334,7 @@ var _ = Describe("Factory", func() {
 			It("Should list the assets the device can see", func(ctx SpecContext) {
 				dev := createDevice(ctx, sift.Properties{
 					URI:    server.Address(),
-					APIKey: createAPIKey(ctx, apiKey),
+					APIKey: createAPIKey(ctx, fakeKey),
 				})
 				stat := exec(ctx, "list_assets", map[string]any{"device": dev.Key})
 				Expect(stat.Variant).To(Equal(status.VariantSuccess))
@@ -347,7 +348,7 @@ var _ = Describe("Factory", func() {
 				func(ctx SpecContext) {
 					dev := createDevice(ctx, sift.Properties{
 						URI:    server.Address(),
-						APIKey: createAPIKey(ctx, apiKey),
+						APIKey: createAPIKey(ctx, fakeKey),
 					})
 					record := func(device, asset string) {
 						GinkgoHelper()
