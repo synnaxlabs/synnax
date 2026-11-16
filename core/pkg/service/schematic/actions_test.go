@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,7 +34,7 @@ func tankCfg(label, hex string) schematic.NodeConfig {
 		cfg.StrokeColor = new(MustSucceed(color.Parse(hex)))
 	}
 	nc := schematic.NodeConfig{Variant: cfg}
-	nc.ApplyDefaults()
+	nc = defaults.Fill(nc)
 	return nc
 }
 
