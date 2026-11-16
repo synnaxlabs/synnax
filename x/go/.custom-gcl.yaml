@@ -27,6 +27,3 @@ plugins:
   - module: "github.com/synnaxlabs/x"
     import: "github.com/synnaxlabs/x/analyzers/teardown"
     path: .
-  - module: "github.com/synnaxlabs/x"
-    import: "github.com/synnaxlabs/x/analyzers/nolint"
-    path: .

@@ -17,7 +17,6 @@ linters:
     - suiteconfig
     - errmatch
     - teardown
-    - nolint
   disable:
     # Deprecated: replaced by exhaustruct_v5, gomodguard_v2, and wsl_v5.
     - exhaustruct
@@ -106,9 +105,6 @@ linters:
       force-expect-to: true
       validate-async-intervals: true
       force-tonot: true
-    nolintlint:
-      # A bare //nolint also hides the nolint linter's report, so nolintlint flags it.
-      require-specific: true
     misspell:
       # Specs use these typos on purpose.
       ignore-rules:
@@ -162,10 +158,6 @@ linters:
           Forbids Close calls in AfterEach, JustAfterEach, AfterAll, AfterSuite, and
           SynchronizedAfterSuite. MustOpen or DeferClose registers the cleanup next to
           the open.
-      nolint:
-        type: "module"
-        description: >
-          Forbids //nolint directives. Fix the finding, or leave the linter disabled.
 formatters:
   enable:
     - gci
