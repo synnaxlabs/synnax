@@ -75,9 +75,8 @@ from it:
 pip install --no-index --find-links synnax-wheels synnax
 ```
 
-To download for a different computer, give its platform and Python version, such as
-`--platform win_amd64 --python-version 3.13 --only-binary=:all:`. pip needs
-`--only-binary=:all:` when you give a platform or a Python version.
+Do not download with `--platform` for a different operating system. pip then skips the
+dependencies that only that operating system needs, and the install fails.
 
 <Divider.Divider x />
 
