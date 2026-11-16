@@ -74,8 +74,12 @@ func Open[K comparable, V any](
 	}
 	w := &Worker[K, V]{cfg: cfg, wake: make(chan struct{}, 1)}
 	w.mu.latest = make(map[K]V)
-	ctx, w.cancel = context.WithCancel(ctx)
-	w.wg.Go(func() { pprof.Do(ctx, pprof.Labels("routine", "coalesce"), w.run) })
+	ctx, cancel := context.WithCancel(ctx)
+	w.cancel = cancel
+	w.wg.Go(func() {
+		defer cancel()
+		pprof.Do(ctx, pprof.Labels("routine", "coalesce"), w.run)
+	})
 	return w, nil
 }
 
