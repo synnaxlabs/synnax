@@ -56,7 +56,7 @@ func BenchmarkReindex(b *testing.B) {
 	idx := newBenchIndex([]string{"gse_ai_0"})
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		idx.Set(0, fmt.Sprintf("gse_ai_%d", i))
 	}
 }
