@@ -24,7 +24,7 @@ export const set = <V>(obj: V, path: string, value: unknown): void => {
       part = parts[i];
       i++;
     }
-    let v = defaultGetter(result, part);
+    let v = best == null ? undefined : defaultGetter(result, part);
     if (v == null) {
       const nextPart = parts[i];
       let idx = getIndex(nextPart);

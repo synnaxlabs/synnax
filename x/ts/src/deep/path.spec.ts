@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { deep } from "@/deep";
+import { type record } from "@/record";
 
 describe("path utilities", () => {
   describe("transformPath", () => {
@@ -174,6 +175,22 @@ describe("path utilities", () => {
 
     it("should not find a key from the prototype", () => {
       expect(deep.findBestKey({ a: 1 }, ["constructor"])).toBeNull();
+    });
+
+    it("should not find a key from the array prototype", () => {
+      expect(
+        deep.findBestKey([{ key: "x" }] as unknown as record.Unknown, ["constructor"]),
+      ).toBeNull();
+      expect(deep.findBestKey([1] as unknown as record.Unknown, ["length"])).toBeNull();
+    });
+
+    it("should find an array index or entry key", () => {
+      expect(
+        deep.findBestKey([{ key: "x" }] as unknown as record.Unknown, ["0"]),
+      ).toEqual(["0", 1]);
+      expect(
+        deep.findBestKey([{ key: "x" }] as unknown as record.Unknown, ["x"]),
+      ).toEqual(["x", 1]);
     });
   });
 });
