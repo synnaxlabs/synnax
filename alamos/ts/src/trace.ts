@@ -127,7 +127,15 @@ export class Tracer {
     if (skip) return f(new NoopSpan(key)) as ReturnType<F>;
     return this.otelTracer.startActiveSpan(key, (otelSpan) => {
       const span = new _Span(key, otelSpan);
-      const result = f(span);
+      span.start();
+      let result: unknown;
+      try {
+        result = f(span);
+      } finally {
+        if (!(result instanceof Promise)) span.end();
+      }
+      if (result instanceof Promise)
+        return result.finally(() => span.end()) as ReturnType<F>;
       return result as ReturnType<F>;
     });
   }
