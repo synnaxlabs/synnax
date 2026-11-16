@@ -412,22 +412,11 @@ class TestScore:
         claude = FakeClaude(3, [finding("P1")])
         assert run(config(), pull(), claude=claude, workdir=WORK)[0].score == 3
 
-    @pytest.mark.parametrize(
-        ("found", "given", "score"),
-        [
-            ([("P1", True)], 4, 5),
-            ([("P2", True), ("P2", True)], 3, 5),
-            ([("P0", True)], 5, 2),
-            ([("P1", True), ("P2", False)], 5, 4),
-        ],
-    )
-    def test_should_count_only_the_findings_that_block_merge(
-        self, found: list[tuple[str, bool]], given: int, score: int
-    ) -> None:
+    def test_should_cap_a_lone_p2_at_4(self) -> None:
         caps = {"P0": 2, "P1": 4, "P2": 4}
-        claude = FakeClaude(given, [finding(s) | {"deferrable": d} for s, d in found])
+        claude = FakeClaude(5, [finding("P2")])
         got = run(config(caps=caps), pull(), claude=claude, workdir=WORK)[0]
-        assert got.score == score
+        assert got.score == 4
 
     def test_should_raise_when_claude_ends_with_an_error(self) -> None:
         claude = FakeClaude()
@@ -583,24 +572,6 @@ class TestLenses:
         edges = FakeClaude(5, [at("P1", 12)])
         _, (got, _) = self.lenses(races, edges)
         assert [f.title for f in got.findings] == ["P1 at 12"]
-
-    def test_should_keep_the_blocking_one_of_two_passes_on_one_line(self) -> None:
-        races = FakeClaude(5, [at("P1", 12) | {"deferrable": True}])
-        edges = FakeClaude(5, [at("P1", 12)])
-        _, (got, _) = self.lenses(races, edges)
-        assert [f.blocks for f in got.findings] == [True]
-
-    def test_should_block_when_any_joined_finding_blocks(self) -> None:
-        races = FakeClaude(5, [at("P1", 12) | {"title": "Race", "deferrable": True}])
-        edges = FakeClaude(4, [at("P2", 12) | {"title": "Race"}])
-        _, (got, _) = self.lenses(races, edges)
-        assert [(f.severity, f.blocks) for f in got.findings] == [("P1", True)]
-        assert got.score == 4
-
-    def test_should_not_lower_the_score_for_a_pass_of_follow_ups(self) -> None:
-        races = FakeClaude(3, [at("P2", 30) | {"deferrable": True}])
-        _, (got, _) = self.lenses(races, rules=FakeClaude(4, [at("P2", 12)]))
-        assert got.score == 4
 
     def test_should_keep_findings_of_one_pass_on_one_line(self) -> None:
         both = [at("P1", 12, start=5), at("P2", 12) | {"title": "Other"}]
@@ -968,7 +939,13 @@ class TestMain:
         )
         far = Finding(severity="P2", title="Stale doc", body="B.", path="b.md", line=4)
         body = render.outside([far], blob="https://github.com/o/r/blob/h")
-        comment = json.dumps({"id": 3, "login": "sedosaur[bot]", "body": body})
+        bot = {"__typename": "Bot", "login": "sedosaur[bot]"}
+        gone = {"comment": 4, "path": "c.md", "title": "Gone", "reason": "moved"}
+        answer = f"<!-- sedosaur_answer {json.dumps(gone)} -->\n\nDismissed."
+        comment = "\n".join(
+            json.dumps({"id": i, "login": "sedosaur[bot]", "author": bot, "body": b})
+            for i, b in [(3, body), (5, answer)]
+        )
         executable(
             tmp_path / "bin" / "gh",
             "if any(a.endswith('/comments') for a in sys.argv):\n"
@@ -985,6 +962,7 @@ class TestMain:
         )
         assert held in text
         assert "\n\n- `a.go`: Meant. Reason: on purpose\n" in text
+        assert "\n- `c.md`: Gone. Reason: moved\n" in text
 
     def test_should_replay_without_the_open_threads_or_a_check_run(
         self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch

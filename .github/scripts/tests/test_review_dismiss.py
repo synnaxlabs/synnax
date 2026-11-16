@@ -12,7 +12,15 @@ from typing import Any
 
 import pytest
 
-from review import Dismissal, Target, Thread, dismiss, dismissed, render
+from review import (
+    Dismissal,
+    Target,
+    Thread,
+    dismiss,
+    dismissals,
+    dismissed,
+    render,
+)
 from review.__main__ import main
 
 REPO = "synnaxlabs/synnax"
@@ -56,7 +64,8 @@ def thread(
 def check_run(findings: list[list[str]] | None, **kw: Any) -> dict[str, Any]:
     text = None
     if findings is not None:
-        text = render.LISTING_START + json.dumps(findings) + render.LISTING_END
+        text = render.RULES + render.LISTING_START + json.dumps(findings)
+        text += render.LISTING_END
     run: dict[str, Any] = {
         "name": "Sedosaur Review",
         "app": {"slug": "sedosaur"},
@@ -82,15 +91,30 @@ class FakeGH:
         self.writes: list[tuple[str, str, dict[str, Any]]] = []
         self.replies: list[tuple[str, str]] = []
         self.resolved: list[str] = []
+        self.comments: list[dict[str, Any]] = []
+        """The comments on the pull request, as the REST API serves them."""
 
     def __call__(self, *args: str, stdin: str | None = None) -> str:
         if args[:2] == ("api", "-X"):
             assert stdin is not None
             self.writes.append((args[2], args[3], json.loads(stdin)))
+            if (args[2], args[3]) == ("POST", f"repos/{REPO}/issues/7/comments"):
+                answer = issue_comment(
+                    100 + len(self.writes), json.loads(stdin)["body"]
+                )
+                bot = {"login": "sedosaur[bot]", "type": "Bot"}
+                self.comments.append(
+                    answer | {"user": bot, "author_association": "NONE"}
+                )
             return ""
         values = dict(a.split("=", 1) for a in args if "=" in a)
         if "addPullRequestReviewThreadReply" in values.get("query", ""):
             self.replies.append((values["t"], values["b"]))
+            reply = comment(0, values["b"], kind="Bot", association="NONE")
+            reply["author"]["login"] = "sedosaur"
+            for th in self.threads:
+                if th["id"] == values["t"]:
+                    th["comments"].append(reply)
             return "{}"
         if "resolveReviewThread" in values.get("query", ""):
             self.resolved.append(values["t"])
@@ -100,7 +124,21 @@ class FakeGH:
             return lines(self.threads)
         if path.startswith(f"repos/{REPO}/commits/{HEAD}/check-runs?"):
             return lines(self.runs)
+        if path == f"repos/{REPO}/issues/7/comments":
+            return lines([shaped(c) for c in self.comments])
+        for c in self.comments:
+            if path == f"repos/{REPO}/issues/comments/{c['id']}":
+                on = c["issue_url"].endswith("/issues/7")
+                return json.dumps(shaped(c)) + "\n" if on else ""
         raise AssertionError(f"unexpected gh call: {args}")
+
+    def posted(self) -> list[str]:
+        """The bodies of the comments the bot posted on the pull request."""
+        return [
+            p["body"]
+            for m, at, p in self.writes
+            if (m, at) == ("POST", f"repos/{REPO}/issues/7/comments")
+        ]
 
     def checks(self) -> list[dict[str, Any]]:
         return [
@@ -110,9 +148,43 @@ class FakeGH:
         ]
 
 
+def shaped(c: dict[str, Any]) -> dict[str, Any]:
+    """A REST comment in the shape that the poster's `jq` makes."""
+    user = c["user"]
+    return {
+        "id": c["id"],
+        "login": user["login"],
+        "author": {"__typename": user["type"], "login": user["login"]},
+        "authorAssociation": c["author_association"],
+        "body": c["body"],
+    }
+
+
 @pytest.fixture
 def gh() -> FakeGH:
     return FakeGH()
+
+
+def issue_comment(
+    id: int, body: str, *, kind: str = "User", association: str = "MEMBER", pr: int = 7
+) -> dict[str, Any]:
+    return {
+        "id": id,
+        "issue_url": f"https://api.github.com/repos/{REPO}/issues/{pr}",
+        "user": {"login": "someone", "type": kind},
+        "author_association": association,
+        "body": body,
+    }
+
+
+def outside(*titles: str, path: str = "b.go") -> dict[str, Any]:
+    """The bot's comment that lists findings outside the diff of a file."""
+    items = "".join(
+        f"- <img> **{t}** [`{path}:3`](https://x)\n\n  B.\n\n" for t in titles
+    )
+    body = f"{render.OUTSIDE}\n\n<h3>Comments Outside Diff</h3>\n\n{items}"
+    bot = {"login": "sedosaur[bot]", "type": "Bot"}
+    return issue_comment(5, body, association="NONE") | {"user": bot}
 
 
 class TestDismissed:
@@ -185,16 +257,48 @@ class TestDismiss:
             "conclusion": "success",
             "output": {
                 "title": "Confidence Score: 5/5",
-                "summary": "A member dismissed every finding of the review that blocks "
-                "merge.\n\nFix one thing.\n\nFindings: 1 P2.",
+                "summary": "A member dismissed every finding of the review.\n\n"
+                "Fix one thing.\n\nFindings: 1 P2.",
                 "text": gh.runs[0]["output"]["text"],
             },
         }
-        [(_, body)] = gh.replies
-        assert body.endswith(
-            "will not report it. Every blocking finding of the review of the head is "
-            "dismissed, so the head scores 5/5."
-        )
+        assert [t for t, _ in gh.replies] == ["T1", "T2"]
+        assert gh.posted() == [
+            "Every finding of the review of the head is dismissed, so the head scores "
+            "5/5."
+        ]
+
+    def test_should_answer_a_reply_whose_run_never_answered(self, gh: FakeGH) -> None:
+        gh.threads = [
+            thread("T1", comment(2, "@sedosaur dismiss")),
+            thread("T2", comment(3, "@sedosaur why?"), path="b.go", title="Nit"),
+        ]
+        dismiss(TARGET, gh, comment=3, key=KEY)
+        assert gh.resolved == ["T1"]
+        [(t1, done), (t2, usage)] = sorted(gh.replies)
+        assert (t1, t2) == ("T1", "T2")
+        assert done.startswith("Dismissed.")
+        assert usage.startswith("To dismiss this finding")
+
+    def test_should_score_the_head_5_after_a_run_that_did_not(self, gh: FakeGH) -> None:
+        bot = comment(4, "Dismissed.", kind="Bot")
+        bot["author"]["login"] = "sedosaur"
+        gh.threads = [thread("T1", comment(2, "@sedosaur dismiss"), bot)]
+        gh.runs = [check_run([["a.go", "Samples"]])]
+        dismiss(TARGET, gh, comment=2, key=KEY)
+        [check] = gh.checks()
+        assert check["output"]["title"] == "Confidence Score: 5/5"
+        assert gh.replies == []
+
+    def test_should_post_nothing_when_run_again_on_the_same_state(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [thread("T1", comment(2, "@sedosaur dismiss"))]
+        gh.comments = [outside("Old"), issue_comment(9, "@sedosaur dismiss Old")]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        writes, replies = len(gh.writes), len(gh.replies)
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        assert (len(gh.writes), len(gh.replies)) == (writes, replies)
 
     def test_should_take_the_newest_review(self, gh: FakeGH) -> None:
         gh.threads = [thread("T1", comment(2, "@sedosaur dismiss"))]
@@ -229,6 +333,14 @@ class TestDismiss:
         assert gh.checks() == []
         assert gh.resolved == ["T1"]
 
+    def test_should_not_rescore_a_review_under_older_rules(self, gh: FakeGH) -> None:
+        gh.threads = [thread("T1", comment(2, "@sedosaur dismiss"))]
+        run = check_run([["a.go", "Samples"]])
+        run["output"]["text"] = run["output"]["text"].removeprefix(render.RULES)
+        gh.runs = [run]
+        dismiss(TARGET, gh, comment=2, key=KEY)
+        assert gh.checks() == []
+
     def test_should_refuse_an_agent(self, gh: FakeGH) -> None:
         gh.threads = [thread("T1", comment(2, "@sedosaur dismiss", kind="Bot"))]
         gh.runs = [check_run([["a.go", "Samples"]])]
@@ -246,13 +358,139 @@ class TestDismiss:
         assert body.startswith("To dismiss this finding, reply `@sedosaur dismiss`")
         assert gh.resolved == []
 
-    def test_should_fail_on_a_comment_off_the_threads_of_the_bot(
+    def test_should_fail_on_a_comment_of_another_pull_request(self, gh: FakeGH) -> None:
+        gh.comments = [issue_comment(9, "@sedosaur dismiss Old", pr=8)]
+        with pytest.raises(ValueError, match="comment 9 is not on pull request 7"):
+            dismiss(TARGET, gh, comment=9, key=KEY)
+        assert gh.posted() == []
+
+
+class TestDismissComment:
+    """Tests answering the dismissal comments on the pull request."""
+
+    def test_should_bind_a_dismissal_to_the_path_of_its_finding(
         self, gh: FakeGH
     ) -> None:
+        gh.comments = [
+            outside("Old", "Old data"),
+            issue_comment(9, "@sedosaur dismiss Old data: it is meant"),
+        ]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        assert gh.posted()[0].endswith(
+            "Dismissed. Later reviews of this pull request will not report it."
+        )
+        gh.comments[0] = outside("Old data", path="c.go")
+        assert dismissals(TARGET, gh, []) == [
+            Dismissal(path="b.go", title="Old data", reason="it is meant")
+        ]
+        assert gh.checks() == []
+
+    def test_should_keep_a_dismissal_whose_finding_left_the_comment(
+        self, gh: FakeGH
+    ) -> None:
+        gh.comments = [outside("Old"), issue_comment(9, "@sedosaur dismiss Old")]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        gh.comments[0] = outside()
+        assert dismissals(TARGET, gh, []) == [
+            Dismissal(path="b.go", title="Old", reason="")
+        ]
+
+    def test_should_dismiss_and_resolve_a_finding_on_a_thread(self, gh: FakeGH) -> None:
+        gh.threads = [thread("T1")]
+        gh.comments = [outside(), issue_comment(9, "@sedosaur dismiss samples, meant")]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        assert gh.resolved == ["T1"]
+        assert dismissals(TARGET, gh, []) == [
+            Dismissal(path="a.go", title="Samples", reason="meant")
+        ]
+
+    def test_should_score_the_head_5_when_no_finding_is_left(self, gh: FakeGH) -> None:
         gh.threads = [thread("T1", comment(2, "@sedosaur dismiss"))]
-        with pytest.raises(ValueError, match="comment 9 is not a reply to a finding"):
-            dismiss(TARGET, gh, comment=9, key=KEY)
-        assert gh.replies == []
+        gh.comments = [outside("Old"), issue_comment(9, "@sedosaur dismiss Old")]
+        gh.runs = [check_run([["a.go", "Samples"], ["b.go", "Old"]])]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        [check] = gh.checks()
+        assert check["output"]["title"] == "Confidence Score: 5/5"
+        assert gh.posted()[-1] == (
+            "Every finding of the review of the head is dismissed, so the head scores "
+            "5/5."
+        )
+
+    def test_should_answer_a_comment_whose_run_never_answered(self, gh: FakeGH) -> None:
+        gh.comments = [
+            outside("Old", "New"),
+            issue_comment(9, "@sedosaur dismiss Old"),
+            issue_comment(10, "@sedosaur dismiss New"),
+        ]
+        gh.runs = [check_run([["b.go", "Old"], ["b.go", "New"]])]
+        dismiss(TARGET, gh, comment=10, key=KEY)
+        assert len(gh.posted()) == 3
+        [check] = gh.checks()
+        assert check["output"]["title"] == "Confidence Score: 5/5"
+
+    def test_should_answer_each_comment_once(self, gh: FakeGH) -> None:
+        gh.comments = [outside("Old"), issue_comment(9, "@sedosaur dismiss Old")]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        assert len(gh.posted()) == 1
+
+    def test_should_refuse_an_agent(self, gh: FakeGH) -> None:
+        gh.comments = [
+            outside("Old"),
+            issue_comment(9, "@sedosaur dismiss Old", kind="Bot"),
+        ]
+        gh.runs = [check_run([["b.go", "Old"]])]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        [answer] = gh.posted()
+        assert answer.endswith("Only a member can dismiss a finding, not an agent.")
+        assert dismissals(TARGET, gh, []) == []
+        assert gh.checks() == []
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            "@sedosaur dismiss Other",
+            "@sedosaur dismiss Old",
+            "@sedosaur dismiss Old path:d.go",
+        ],
+    )
+    def test_should_answer_a_comment_naming_no_one_finding_with_the_usage(
+        self, gh: FakeGH, body: str
+    ) -> None:
+        both = outside("Old")
+        both["body"] += outside("Old", path="c.go")["body"]
+        gh.comments = [both, issue_comment(9, body)]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        [answer] = gh.posted()
+        assert answer.endswith("add `path:<file>` after it.")
+        assert dismissals(TARGET, gh, []) == []
+
+    @pytest.mark.parametrize(
+        ("body", "found"),
+        [
+            ("@sedosaur dismiss old `carry` copy, meant", ("b.go", "Old `carry` copy")),
+            ('@sedosaur dismiss "Old carry copy": meant', ("b.go", "Old `carry` copy")),
+            ("@sedosaur dismiss  OLD CARRY COPY meant", ("b.go", "Old `carry` copy")),
+            ("@sedosaur dismiss Old path:c.go meant", ("c.go", "Old")),
+        ],
+    )
+    def test_should_match_a_title_loosely(
+        self, gh: FakeGH, body: str, found: tuple[str, str]
+    ) -> None:
+        listed = outside("Old `carry` copy", "Old")
+        listed["body"] += outside("Old", path="c.go")["body"]
+        gh.comments = [listed, issue_comment(9, body)]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        path, title = found
+        assert dismissals(TARGET, gh, []) == [
+            Dismissal(path=path, title=title, reason="meant")
+        ]
+
+    def test_should_ignore_a_record_another_author_wrote(self, gh: FakeGH) -> None:
+        record = '<!-- sedosaur_answer {"comment": 1, "path": "b.go", "title": "Old", '
+        record += '"reason": ""} -->\n\nDismissed.'
+        gh.comments = [issue_comment(9, record)]
+        assert dismissals(TARGET, gh, []) == []
 
 
 class TestCommand:

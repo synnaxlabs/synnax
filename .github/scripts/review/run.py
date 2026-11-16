@@ -95,8 +95,7 @@ class Config:
     """Git globs of files left out of the diff."""
     diff_chars: int
     caps: dict[str, int]
-    """The highest score a review can give while it has a blocking finding of the
-    severity."""
+    """The highest score a review can give while it has a finding of the severity."""
     prompt: str
     docs: list[Doc]
     lenses: list[Lens]
@@ -391,12 +390,11 @@ def _command(
 
 
 def _score(review: Review, caps: dict[str, int]) -> Review:
-    """Scores a review 5 when no finding blocks merge. Otherwise lowers its score to the
-    cap of its most severe blocking finding."""
-    blocking = [f for f in review.findings if f.blocks]
-    if not blocking:
+    """Scores a review 5 when it has no finding. Otherwise lowers its score to the cap
+    of its most severe finding."""
+    if not review.findings:
         return replace(review, score=5)
-    limit = min(caps.get(f.severity, 5) for f in blocking)
+    limit = min(caps.get(f.severity, 5) for f in review.findings)
     return replace(review, score=min(review.score, limit))
 
 
@@ -426,13 +424,11 @@ def _merge(
     each other pass in the same file: first by title and end line, then by title, then
     by end line when the titles share a third of their words. Two findings that end on
     one line with titles less alike stay apart, since they can be two problems. The
-    review keeps the more severe of joined findings, then the one that blocks merge,
-    then the one that continues an open thread. A joined finding blocks merge when any
-    finding it joins does. The verdict and summary come from the pass with the lowest
-    score."""
+    review keeps the more severe of joined findings, then the one that continues an open
+    thread. The verdict and summary come from the pass with the lowest score."""
 
-    def rank(f: Finding) -> tuple[int, bool, bool]:
-        return SEVERITIES.index(f.severity), not f.blocks, (f.path, f.title) not in open
+    def rank(f: Finding) -> tuple[int, bool]:
+        return SEVERITIES.index(f.severity), (f.path, f.title) not in open
 
     def join(
         found: list[tuple[set[int], Finding]], same: Callable[[Finding, Finding], bool]
@@ -451,8 +447,6 @@ def _merge(
                 kept.append((set(passes), f))
                 continue
             q, k = kept[i]
-            if f.blocks and not k.blocks:
-                k = replace(k, deferrable=False)
             kept[i] = (q | passes, k)
         return kept
 
