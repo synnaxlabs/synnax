@@ -118,7 +118,7 @@ func (r Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, e
 	}
 	return func(yield func(E) bool) {
 		for i.First(); i.Valid(); i.Next() {
-			v := i.Value(ctx)
+			v := i.Value()
 			if v == nil {
 				continue
 			}
@@ -147,7 +147,7 @@ type Iterator[E any] struct {
 // Value returns the decoded value from the iterator. Iterate.Alive must be true
 // for calls to return a valid value. The returned pointer is reused across calls,
 // so callers must copy the value if they need it to persist.
-func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
+func (k *Iterator[E]) Value() (entry *E) {
 	if k.value == nil {
 		k.value = new(E)
 	}

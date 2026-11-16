@@ -46,7 +46,7 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 			}()
 			var tasks []Task
 			for iter.First(); iter.Valid(); iter.Next() {
-				t := iter.Value(ctx)
+				t := iter.Value()
 				if err = iter.Error(); err != nil {
 					return err
 				}

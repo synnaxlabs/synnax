@@ -45,7 +45,7 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 
 			var devices []Device
 			for iter.First(); iter.Valid(); iter.Next() {
-				d := iter.Value(ctx)
+				d := iter.Value()
 				if err = iter.Error(); err != nil {
 					return err
 				}
