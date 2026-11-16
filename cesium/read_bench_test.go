@@ -37,6 +37,7 @@ func BenchmarkReadDomains(b *testing.B) {
 }
 
 func benchmarkReadDomains(b *testing.B, count int, open bool) {
+	b.Helper()
 	ctx := b.Context()
 	db, err := cesium.Open(
 		ctx,
