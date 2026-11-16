@@ -631,6 +631,162 @@ TEST_F(TaskManagerTest, DeployOnStart) {
     ASSERT_EQ(s.details.rack, rack.key);
 }
 
+/// @brief a task that writes no status of its own, as a task that does not auto-start.
+class QuietTask final : public Task {
+public:
+    [[nodiscard]] std::string name() const override { return "quiet"; }
+    void exec(synnax::task::Command &) override {}
+    void stop(bool) override {}
+};
+
+/// @brief builds a QuietTask, or fails the configure of a task named "bad" with an
+/// error status, as a failed configure does.
+class QuietTaskFactory final : public Factory {
+public:
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::task::Task &task,
+        const std::string &
+    ) override {
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        if (task.name != "bad") return {std::make_unique<QuietTask>(), true};
+        synnax::task::Status status{
+            .variant = synnax::status::VARIANT_ERROR,
+            .message = "Failed to configure task",
+            .owner = synnax::task::resource_id(task.key),
+        };
+        ctx->set_status(status);
+        return {nullptr, true};
+    }
+};
+
+/// @brief creates a task of type, with a stored status as a previous Driver run or the
+/// Core left it.
+synnax::task::Task create_task_with_status(
+    const std::shared_ptr<synnax::Synnax> &client,
+    synnax::rack::Rack &rack,
+    const std::string &name,
+    const std::string &type,
+    const std::string &message,
+    const bool running,
+    const synnax::rack::Key status_rack
+) {
+    auto task = synnax::task::Task{.rack = rack.key, .name = name, .type = type};
+    EXPECT_NIL(rack.tasks.create(task));
+    synnax::task::Status stored;
+    stored.key = "stored-" + task.key.to_string();
+    stored.owner = synnax::task::resource_id(task.key);
+    stored.name = task.name;
+    stored.variant = synnax::status::VARIANT_WARNING;
+    stored.message = message;
+    stored.description = "stored";
+    stored.time = x::telem::TimeStamp::now();
+    stored.details.running = running;
+    stored.details.rack = status_rack;
+    stored.details.config_hash = task.config_hash;
+    EXPECT_NIL(client->statuses.set(stored));
+    return task;
+}
+
+/// @brief it should stop a running task that the Core marked as stopped responding
+/// while the Driver was down, so the status of the outage does not stay.
+TEST_F(TaskManagerTest, BootStopsATaskTheCoreMarkedAsStoppedResponding) {
+    const auto task = create_task_with_status(
+        client,
+        rack,
+        "t",
+        SYNTHETIC_TASK_TYPE,
+        "Task stopped responding",
+        false,
+        rack.key
+    );
+    start_manager(std::make_unique<QuietTaskFactory>());
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) { return s.message == "Task stopped"; }
+    );
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(
+        s.description,
+        "The Driver restarted or lost its connection to the Core while the task was "
+        "running. Start the task again."
+    );
+    EXPECT_FALSE(s.details.running);
+}
+
+/// @brief it should stop a task that a previous Driver run left running.
+TEST_F(TaskManagerTest, BootStopsATaskLeftRunning) {
+    const auto task = create_task_with_status(
+        client,
+        rack,
+        "t",
+        SYNTHETIC_TASK_TYPE,
+        "Started task",
+        true,
+        rack.key
+    );
+    start_manager(std::make_unique<QuietTaskFactory>());
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) { return s.message == "Task stopped"; }
+    );
+    EXPECT_FALSE(s.details.running);
+}
+
+/// @brief it should leave a running status that another rack wrote alone, since a task
+/// moved here runs on its old Driver until a start arrives.
+TEST_F(TaskManagerTest, BootLeavesARunningStatusOfAnotherRackAlone) {
+    const auto task = create_task_with_status(
+        client,
+        rack,
+        "t",
+        SYNTHETIC_TASK_TYPE,
+        "Started task",
+        true,
+        rack.key + 1
+    );
+    start_manager(std::make_unique<QuietTaskFactory>());
+    expect_no_driver_status(task);
+}
+
+/// @brief it should keep the configure error of a task over the stopped status.
+TEST_F(TaskManagerTest, BootKeepsAConfigureError) {
+    const auto task = create_task_with_status(
+        client,
+        rack,
+        "bad",
+        SYNTHETIC_TASK_TYPE,
+        "Started task",
+        true,
+        rack.key
+    );
+    start_manager(std::make_unique<QuietTaskFactory>());
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "Failed to configure task";
+    });
+    expect_no_driver_status(task);
+}
+
+/// @brief it should not tell a task that no integration here runs to start again.
+TEST_F(TaskManagerTest, BootLeavesAnUnhandledTaskAlone) {
+    const auto task = create_task_with_status(
+        client,
+        rack,
+        "t",
+        ALT_SYNTHETIC_TASK_TYPE,
+        "Started task",
+        true,
+        rack.key
+    );
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.description == "stored";
+    });
+    start_manager(std::make_unique<QuietTaskFactory>());
+    expect_no_driver_status(task);
+}
+
 TEST_F(TaskManagerTest, NoConfigureOnCreate) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{

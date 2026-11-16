@@ -106,7 +106,10 @@ void Manager::discard(const synnax::task::Key &key, const bool even_if_processin
 
 x::errors::Error Manager::configure_initial_tasks() {
     VLOG(1) << "configuring initial tasks";
-    auto [tasks, tasks_err] = this->rack.tasks.retrieve(synnax::task::Where{});
+    auto [tasks, tasks_err] = this->rack.tasks.retrieve(
+        synnax::task::Where{},
+        synnax::task::RetrieveOptions{.include_status = true}
+    );
     if (tasks_err) return tasks_err;
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
     size_t queued = 0;
@@ -741,6 +744,33 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
             break;
         }
     }
+    // Only a boot deploy carries the stored task, and with it the stored status. A
+    // task that no integration here runs cannot start again.
+    if (op.type == Op::Type::DEPLOY && !op.task.key.is_nil() &&
+        entry->instance != nullptr)
+        this->replace_interrupted_status(op.task);
+}
+
+void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
+    if (!tsk.status.has_value()) return;
+    // A task moved here runs on its old Driver until a start arrives.
+    if (tsk.status->details.rack != this->rack.key) return;
+    // The Core marks a running task as stopped responding while its Driver is down.
+    if (!tsk.status->details.running &&
+        tsk.status->message != STOPPED_RESPONDING_MESSAGE)
+        return;
+    auto status = *tsk.status;
+    status.time = x::telem::TimeStamp::now();
+    status.variant = synnax::status::VARIANT_WARNING;
+    status.message = "Task stopped";
+    status.description = "The Driver restarted or lost its connection to the Core "
+                         "while the task was running. Start the task again.";
+    status.details.running = false;
+    status.details.cmd.clear();
+    // A task that answered its own deploy, such as with an auto-start, owns its status,
+    // even when it answers later from its own thread.
+    if (const auto err = this->statuses->set_if_absent(status))
+        LOG(ERROR) << "failed to write the status of task " << tsk << ": " << err;
 }
 
 void Manager::refuse_pinned_start(

@@ -132,6 +132,69 @@ TEST(StatusCacheTest, WriteDoesNotWaitOnAnotherTask) {
     ASSERT_EQ(written.wait_for(std::chrono::seconds(2)), std::future_status::ready);
 }
 
+/// @brief it should write nothing for a task that already has a latest status.
+TEST(StatusCacheTest, SetIfAbsentSkipsATaskWithAStatus) {
+    const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "t"};
+    const auto transport = std::make_shared<HoldingSetClient>(synnax::resource::ID{});
+    StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
+    synnax::task::Status own{
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = "Started task",
+        .owner = synnax::task::resource_id(task.key),
+    };
+    ASSERT_NIL(cache.set(own));
+    synnax::task::Status replacement{
+        .variant = synnax::status::VARIANT_WARNING,
+        .message = "Task stopped",
+        .owner = synnax::task::resource_id(task.key),
+    };
+    ASSERT_NIL(cache.set_if_absent(replacement));
+    EXPECT_EQ(transport->sent().size(), 1);
+    EXPECT_EQ(
+        cache.latest(task.key).value_or(synnax::task::Status{}).message,
+        "Started task"
+    );
+}
+
+/// @brief it should write a status set after set_if_absent after its write, even while
+/// that write hangs.
+TEST(StatusCacheTest, SetAfterSetIfAbsentWritesLast) {
+    const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "t"};
+    const auto transport = std::make_shared<HoldingSetClient>(
+        synnax::task::resource_id(task.key)
+    );
+    StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
+    synnax::task::Status replacement{
+        .variant = synnax::status::VARIANT_WARNING,
+        .message = "Task stopped",
+        .owner = synnax::task::resource_id(task.key),
+    };
+    synnax::task::Status own{
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = "Started task",
+        .owner = synnax::task::resource_id(task.key),
+    };
+    std::thread hung([&] { ASSERT_NIL(cache.set_if_absent(replacement)); });
+    std::future<void> written;
+    x::defer::defer release([&] {
+        transport->release();
+        hung.join();
+        if (written.valid()) written.wait();
+    });
+    ASSERT_EVENTUALLY_TRUE(transport->holding.load());
+    written = std::async(std::launch::async, [&] { ASSERT_NIL(cache.set(own)); });
+    EXPECT_EQ(
+        written.wait_for(std::chrono::milliseconds(200)),
+        std::future_status::timeout
+    );
+    transport->release();
+    written.wait();
+    const auto sent = transport->sent();
+    ASSERT_EQ(sent.size(), 2);
+    EXPECT_EQ(sent[0][0].message, "Task stopped");
+    EXPECT_EQ(sent[1][0].message, "Started task");
+}
+
 /// @brief it should wait for a write of a task's own status in progress, then send the
 /// status again, so a write that failed is repaired.
 TEST(StatusCacheTest, ResendRepairsAWriteInProgress) {

@@ -175,6 +175,9 @@ public:
 /// @brief the cmd_key given to configure_task when no command drives the configure,
 /// as at boot. Nothing is waiting on the outcome.
 inline constexpr auto NO_COMMAND = "";
+/// @brief the message of the status that the Core writes for a running task whose
+/// Driver stopped responding.
+inline constexpr auto STOPPED_RESPONDING_MESSAGE = "Task stopped responding";
 
 class Factory {
 public:
@@ -482,6 +485,11 @@ private:
     void execute_op(const Op &op, const std::shared_ptr<Entry> &entry);
     /// @brief clears the deployed hash so the next start rebuilds.
     static void clear_deploy(const std::shared_ptr<Entry> &entry);
+    /// @brief replaces the stored status of a task that was running, or that the Core
+    /// marked as stopped responding, with a stopped one. Replaces only a status for
+    /// this rack, does nothing once this Driver wrote a status for the task, and never
+    /// starts the task. Call it after a boot deploy that built the task.
+    void replace_interrupted_status(const synnax::task::Task &tsk);
     /// @brief answers a pinned start whose config changed after the sender saw it.
     void refuse_pinned_start(
         const synnax::task::Task &tsk,
