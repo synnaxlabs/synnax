@@ -348,7 +348,7 @@ func (r Retrieve[K, E]) Count(
 		if !rawMatched {
 			continue
 		}
-		v := iter.Value(ctx)
+		v := iter.Value()
 		if err = iter.Error(); err != nil {
 			return 0, err
 		}
@@ -529,7 +529,7 @@ func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) (err err
 		if !rawMatched {
 			continue
 		}
-		v := iter.Value(ctx)
+		v := iter.Value()
 		if err = iter.Error(); err != nil {
 			return err
 		}

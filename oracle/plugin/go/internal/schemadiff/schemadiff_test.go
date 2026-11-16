@@ -24,7 +24,7 @@ func analyzeSchema(source string) *resolution.Table {
 	loader := testutil.NewMockFileLoader().
 		Add("schemas/synnax/other", "Thing struct {\n\tvalue string\n}\n")
 	diag := analyzer.AnalyzeSeeded(
-		GinkgoT().Context(), source,
+		source,
 		"schemas/synnax/channel.oracle", "channel",
 		loader, table,
 	)

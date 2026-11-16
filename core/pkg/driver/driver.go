@@ -10,6 +10,7 @@
 package driver
 
 import (
+	"cmp"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -22,6 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -67,8 +69,8 @@ type Config struct {
 	Insecure *bool `json:"insecure"`
 	// Enabled is used to enable or disable the embedded Driver.
 	Enabled *bool `json:"enabled"`
-	// Detached makes Open return without waiting for the Driver to start. The Driver
-	// retries registration on its own.
+	// Detached makes Open wait only until the Driver prints its first log line, not
+	// until it starts. The Driver retries registration on its own.
 	Detached *bool `json:"-"`
 	// Debug sets whether to enable debug logging.
 	Debug *bool `json:"debug"`
@@ -157,6 +159,11 @@ func (c Config) format(apiKey string) map[string]any {
 		"debug":        *c.Debug,
 	}
 }
+
+// ErrNotLoaded marks the error of a Driver that exited before any of its processes
+// printed a first log line or crash dump, such as one the dynamic loader refuses. A
+// restart cannot fix it.
+var ErrNotLoaded = errors.New("embedded Driver did not load")
 
 var (
 	_               config.Config[Config] = Config{}
@@ -256,10 +263,11 @@ const restartScale = 1.1
 // as a child process that communicates with the Core.
 //
 // On startup, Open launches the subprocess and two goroutines that pipe its stdout and
-// stderr through PipeToLogger. A third goroutine waits for the process to exit. All
-// three run under an isolated signal context. Open blocks until the subprocess prints
-// "started successfully", the supervisor stops retrying, or the StartTimeout expires.
-// If startup fails, Open cleans up the process and returns (nil, err).
+// stderr through PipeToLogger. A third goroutine waits for the process to exit once
+// both pipes close. All three run under an isolated signal context. Open blocks until
+// the subprocess prints "started successfully" (when detached, its first log line), the
+// supervisor stops retrying, or the StartTimeout expires. If startup fails, Open cleans
+// up the process and returns (nil, err).
 //
 // On shutdown, Close cancels the supervisor context. The subprocess is launched via
 // exec.CommandContext, so the cancellation asks it to stop gracefully (a STOP write via
@@ -291,6 +299,13 @@ type Driver struct {
 	// closeErr stores the result of the single close() invocation for subsequent Close
 	// calls to return.
 	closeErr error
+	// running is closed once a Driver process prints its first log line, which shows
+	// that it loaded.
+	running     chan struct{}
+	runningOnce sync.Once
+	// lastErr holds the last error that the latest Driver process printed before it
+	// exited on its own, so a start that times out names why.
+	lastErr atomic.Pointer[string]
 }
 
 // Open creates and starts an embedded Driver. When the Core is built with -tags=driver,
@@ -302,7 +317,12 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	if err != nil {
 		return nil, err
 	}
-	d := &Driver{cfg: cfg, started: make(chan struct{}), failed: make(chan error, 1)}
+	d := &Driver{
+		cfg:     cfg,
+		started: make(chan struct{}),
+		running: make(chan struct{}),
+		failed:  make(chan error, 1),
+	}
 	if !d.enabled() {
 		if !*cfg.Enabled {
 			cfg.L.Info("embedded Driver disabled")
@@ -336,7 +356,7 @@ func (d *Driver) start(ctx context.Context) error {
 	// (Policy.Decide); a graceful wait-then-cancel would instead deadlock against a
 	// supervisor parked in that backoff.
 	d.shutdown = signal.NewHardShutdown(sCtx, cancel)
-	policy, err := restart.New(sCtx, restart.Config{
+	policy, err := restart.New(restart.Config{
 		BaseInterval:  d.cfg.RestartBaseInterval,
 		Scale:         restartScale,
 		MaxRetries:    d.cfg.RestartMaxRetries,
@@ -350,11 +370,14 @@ func (d *Driver) start(ctx context.Context) error {
 		d.failed <- err
 		return err
 	})
+	// A detached Driver cannot register its rack yet, so it never reports a start.
+	// Open waits only until it runs, which a Driver that cannot load never does.
+	ready := d.started
 	if *d.cfg.Detached {
-		return nil
+		ready = d.running
 	}
 	select {
-	case <-d.started:
+	case <-ready:
 		return nil
 	case err := <-d.failed:
 		if err == nil {
@@ -363,7 +386,14 @@ func (d *Driver) start(ctx context.Context) error {
 		return errors.Combine(err, d.Close())
 	case <-ctx.Done():
 		closeErr := d.Close()
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		timedOut := errors.Is(ctx.Err(), context.DeadlineExceeded)
+		if last := d.lastErr.Load(); timedOut && last != nil {
+			return errors.Combine(
+				errors.Newf("embedded Driver did not start: %s", *last),
+				closeErr,
+			)
+		}
+		if timedOut {
 			return errors.Combine(
 				errors.New(
 					"timed out waiting for embedded Driver to start. This occurs either because the Driver could not reach the Core or a task took an unusual amount of time to start. Check logs above categorized 'driver' for more information.",
@@ -401,9 +431,22 @@ func (d *Driver) supervise(ctx context.Context, policy *restart.Policy) error {
 			d.cfg.L.Error("giving up on embedded Driver", zap.Error(err))
 			return err
 		default:
-			// restart.Stop: a launch failure (an expected exit was caught above).
+			// restart.Stop: a launch failure or a Driver that never loaded (an expected
+			// exit was caught above).
+			d.cfg.L.Error("stopped embedded Driver", zap.Error(err))
 			return err
 		}
+	}
+}
+
+func (d *Driver) markRunning() { d.runningOnce.Do(func() { close(d.running) }) }
+
+func (d *Driver) loaded() bool {
+	select {
+	case <-d.running:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -416,6 +459,7 @@ func (d *Driver) runOnce(
 	policy *restart.Policy,
 	startedOnce *sync.Once,
 ) (restart.Action, error) {
+	d.lastErr.Store(nil)
 	cmd, tempFiles, err := d.setupCmd(ctx)
 	for _, f := range tempFiles {
 		defer func() {
@@ -449,8 +493,33 @@ func (d *Driver) runOnce(
 	)
 	defer cancel()
 
+	// Wait closes the pipes, so it runs only after both readers reach EOF, or a
+	// loader error written just before the exit can be lost. Cancel and the kill
+	// after WaitDelay do not depend on Wait.
+	var (
+		stdoutErr, stderrErr string
+		reads                sync.WaitGroup
+		// crashed is set when this run prints a crash dump before its first log line.
+		// The crash shows that it loaded, but a detached Open must not return on it.
+		crashed atomic.Bool
+	)
+	onLoaded := func(crash bool) {
+		if crash {
+			crashed.Store(true)
+		} else {
+			d.markRunning()
+		}
+	}
+	reads.Add(2)
 	internalSCtx.Go(func(context.Context) error {
-		log.PipeToLogger(stdoutPipe, d.cfg.L, d.started, startedOnce)
+		stdoutErr = log.PipeToLogger(
+			stdoutPipe,
+			d.cfg.L,
+			d.started,
+			startedOnce,
+			onLoaded,
+		)
+		reads.Done()
 		return nil
 	},
 		signal.WithKey("stdout_pipe"),
@@ -458,7 +527,14 @@ func (d *Driver) runOnce(
 		signal.WithRetryOnPanic(),
 	)
 	internalSCtx.Go(func(context.Context) error {
-		log.PipeToLogger(stderrPipe, d.cfg.L, d.started, startedOnce)
+		stderrErr = log.PipeToLogger(
+			stderrPipe,
+			d.cfg.L,
+			d.started,
+			startedOnce,
+			onLoaded,
+		)
+		reads.Done()
 		return nil
 	},
 		signal.WithKey("stderr_pipe"),
@@ -466,6 +542,7 @@ func (d *Driver) runOnce(
 		signal.WithRetryOnPanic(),
 	)
 	internalSCtx.Go(func(context.Context) error {
+		reads.Wait()
 		return cmd.Wait()
 	},
 		signal.WithKey("wait"),
@@ -474,10 +551,21 @@ func (d *Driver) runOnce(
 	// A canceled context means Close stopped the process: the exit is expected, not a
 	// crash, so it must not count toward the restart policy.
 	expected := ctx.Err() != nil
+	if output := cmp.Or(stderrErr, stdoutErr); !expected && output != "" && err != nil {
+		d.lastErr.Store(&output)
+		err = errors.Wrap(err, output)
+	}
+	if !expected && !d.loaded() && !crashed.Load() {
+		if err == nil {
+			err = errors.New("exited")
+		}
+		err = errors.Wrap(err, "embedded Driver did not start")
+		return restart.Stop, errors.Mark(err, ErrNotLoaded)
+	}
 	if !expected {
 		d.cfg.L.Warn("embedded Driver process exited unexpectedly", zap.Error(err))
 	}
-	return policy.Decide(expected, time.Since(startedAt)), err
+	return policy.Decide(ctx, expected, time.Since(startedAt)), err
 }
 
 // resolveKey returns the API key saved by an earlier start when the Core still accepts

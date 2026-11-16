@@ -125,7 +125,7 @@ func resolveChannelSource(
 	return scope
 }
 
-// compileStatefulVariable handles stateful variable declarations (x $= expr)
+// compileStatefulVariable handles stateful variable declarations (x $= expr).
 func compileStatefulVariable(
 	ctx context.Context[parser.IStatefulVariableContext],
 ) error {
@@ -165,7 +165,7 @@ func compileStatefulVariable(
 	return nil
 }
 
-// compileIndexedAssignment handles indexed assignment statements (series[i] = value)
+// compileIndexedAssignment handles indexed assignment statements (series[i] = value).
 func compileIndexedAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	scope *symbol.Symbol,
@@ -262,7 +262,7 @@ func compileIndexedCompoundAssignment(
 // compileSeriesCompoundAssignment handles whole-series compound assignment (series +=
 // value).
 //
-// Equivalent to: series = series op expr (broadcast or element-wise)
+// Equivalent to: series = series op expr (broadcast or element-wise).
 func compileSeriesCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	scope *symbol.Symbol,
@@ -490,7 +490,7 @@ func compileOutputAssignment(
 
 	// Step 3: Calculate memory offset for this output
 	offset := ctx.OutputMemoryBase + 8 // Skip dirty flags
-	for i := 0; i < outputIndex; i++ {
+	for i := range outputIndex {
 		if ctx.Outputs[i].Type.Kind == types.KindString {
 			offset += 4
 		} else {

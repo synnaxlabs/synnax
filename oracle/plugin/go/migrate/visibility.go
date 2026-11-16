@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // visibility.go decides whether a type's developer migrate wrapper is exported.
+
 package migrate
 
 import (

@@ -804,7 +804,7 @@ var _ = Describe("Scope", func() {
 		Describe("Module aliases", func() {
 			// buildAmbientRoot constructs a root with a synthetic ambient
 			// prelude that has a single "time" module containing "now".
-			buildAmbientRoot := func(bCtx SpecContext) *symbol.Symbol {
+			buildAmbientRoot := func() *symbol.Symbol {
 				timeMod := &symbol.Symbol{Name: "time", Kind: symbol.KindModule}
 				timeMod.AddChild(&symbol.Symbol{
 					Name: "now", Kind: symbol.KindFunction, Type: types.F64(),
@@ -839,7 +839,7 @@ var _ = Describe("Scope", func() {
 			It(
 				"Should fail head lookup when no alias exists for the module",
 				func(bCtx SpecContext) {
-					rootScope := buildAmbientRoot(bCtx)
+					rootScope := buildAmbientRoot()
 					Expect(resolveQualified(bCtx, rootScope, "time", "now")).Error().
 						To(MatchError(ContainSubstring("undefined symbol")))
 				},
@@ -848,7 +848,7 @@ var _ = Describe("Scope", func() {
 			It(
 				"Should resolve a qualified lookup through a same-name alias",
 				func(bCtx SpecContext) {
-					rootScope := buildAmbientRoot(bCtx)
+					rootScope := buildAmbientRoot()
 					timeMod := rootScope.Parent.FindChild("time")
 					MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
 						Name: "time", Kind: symbol.KindModuleAlias, Target: timeMod,
@@ -863,7 +863,7 @@ var _ = Describe("Scope", func() {
 			It(
 				"Should resolve a qualified lookup through a renamed alias",
 				func(bCtx SpecContext) {
-					rootScope := buildAmbientRoot(bCtx)
+					rootScope := buildAmbientRoot()
 					timeMod := rootScope.Parent.FindChild("time")
 					MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
 						Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
@@ -878,7 +878,7 @@ var _ = Describe("Scope", func() {
 			It(
 				"Should mark the alias as used on head resolution",
 				func(bCtx SpecContext) {
-					rootScope := buildAmbientRoot(bCtx)
+					rootScope := buildAmbientRoot()
 					timeMod := rootScope.Parent.FindChild("time")
 					alias := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
 						Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
@@ -891,7 +891,7 @@ var _ = Describe("Scope", func() {
 			It(
 				"Should leave the alias unused when usage tracking is suppressed",
 				func(bCtx SpecContext) {
-					rootScope := buildAmbientRoot(bCtx)
+					rootScope := buildAmbientRoot()
 					timeMod := rootScope.Parent.FindChild("time")
 					alias := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
 						Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
@@ -904,7 +904,7 @@ var _ = Describe("Scope", func() {
 			)
 
 			It("Should not find members past the module seal", func(bCtx SpecContext) {
-				rootScope := buildAmbientRoot(bCtx)
+				rootScope := buildAmbientRoot()
 				timeMod := rootScope.Parent.FindChild("time")
 				MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
 					Name: "time", Kind: symbol.KindModuleAlias, Target: timeMod,

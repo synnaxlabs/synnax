@@ -175,7 +175,7 @@ var _ = Describe("OwnersMigration", func() {
 		Expect(byKey(ctx)).ToNot(HaveKey(lost))
 	})
 
-	It("Should log a warning for each deleted visualization", func(ctx SpecContext) {
+	It("Should log a warning for each deleted visualization", func() {
 		deleted := func(k uuid.UUID, name string) map[string]any {
 			return map[string]any{
 				"type": string(resource.TypeSchematic),

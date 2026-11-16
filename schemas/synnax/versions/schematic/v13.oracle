@@ -41,7 +41,11 @@ Edge struct extends v7.Edge {
 
 Segment = v9.Segment
 
-SegmentedEdgeConfig struct extends v9.SegmentedEdgeConfig {}
+SegmentedEdgeConfig struct extends v9.SegmentedEdgeConfig {
+    stroke_width uint8 = 2 {
+        @doc value "is the stroke width of the edge in pixels."
+    }
+}
 
 EdgeConfig union on variant extends v9.EdgeConfig {}
 
@@ -51,9 +55,16 @@ ComponentSize = v9.ComponentSize
 
 ButtonMode = v9.ButtonMode
 
-LabelConfig = v9.LabelConfig
+LabelConfig struct extends v9.LabelConfig {
+    max_inline_size uint16 = 150 {
+        @doc value    """
+            is the maximum inline size of the label in pixels before wrapping.
+        """
+        @validate min 1
+    }
+}
 
-LabeledConfig = v9.LabeledConfig
+LabeledConfig struct extends v9.LabeledConfig {}
 
 ScaledConfig = v9.ScaledConfig
 
@@ -82,6 +93,29 @@ Page = v9.Page
 NodeConfig union on variant extends v10.NodeConfig {
     group_box {
         -members
+    }
+    button {
+        -level
+    }
+    box {
+        stroke_width uint8 = 2 {
+            @doc value "is the border stroke width in pixels."
+        }
+    }
+    circle {
+        stroke_width uint8 = 2 {
+            @doc value "is the border stroke width in pixels."
+        }
+    }
+    line {
+        stroke_width uint8 = 2 {
+            @doc value "is the stroke width of the line in pixels."
+        }
+    }
+    polygon {
+        stroke_width uint8 = 2 {
+            @doc value "is the border stroke width in pixels."
+        }
     }
 }
 

@@ -81,7 +81,7 @@ export const labelConfigZ = z.object({
   /**
    * maxInlineSize is the maximum inline size of the label in pixels before wrapping.
    */
-  maxInlineSize: z.number().default(150),
+  maxInlineSize: zod.uint16.min(1).default(150),
   /** align is the alignment of the label text within its box. */
   align: flexAlignmentZ.default("center"),
 });
@@ -193,6 +193,8 @@ export const segmentedEdgeConfigZ = z.object({
    * the source handle to the target handle.
    */
   segments: segmentZ.array().default(() => []),
+  /** strokeWidth is the stroke width of the edge in pixels. */
+  strokeWidth: zod.uint8.min(1).max(20).default(2),
 });
 export interface SegmentedEdgeConfig extends z.infer<typeof segmentedEdgeConfigZ> {}
 
@@ -577,7 +579,7 @@ export const boxNodeConfigZ = labeledConfigZ.extend({
   /** borderRadius is the uniform corner radius of the box in pixels. */
   borderRadius: z.number().default(3),
   /** strokeWidth is the border stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  strokeWidth: zod.uint8.max(20).default(2),
 });
 export interface BoxNodeConfig extends z.infer<typeof boxNodeConfigZ> {}
 
@@ -586,8 +588,6 @@ export const buttonNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("button"),
   /** size is the rendered size preset of the button. */
   size: componentSizeZ.default("medium"),
-  /** level is the typography level of the button text. */
-  level: text.levelZ.optional(),
   /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
   onClickDelay: z.number().default(0),
   /** commandChannel is the channel button presses are written to. */
@@ -611,7 +611,7 @@ export const circleNodeConfigZ = labeledConfigZ.extend({
   /** fillColor is the fill color of the circle. */
   fillColor: color.colorZ.optional(),
   /** strokeWidth is the border stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  strokeWidth: zod.uint8.max(20).default(2),
 });
 export interface CircleNodeConfig extends z.infer<typeof circleNodeConfigZ> {}
 
@@ -689,7 +689,7 @@ export const lineNodeConfigZ = z.object({
   /** end is the second endpoint, offset from the node position. */
   end: spatial.xyZ.prefault({ x: 100, y: 0 }),
   /** strokeWidth is the stroke width of the line in pixels. */
-  strokeWidth: z.number().default(2),
+  strokeWidth: zod.uint8.min(1).max(20).default(2),
 });
 export interface LineNodeConfig extends z.infer<typeof lineNodeConfigZ> {}
 
@@ -728,7 +728,7 @@ export const polygonNodeConfigZ = labeledConfigZ.extend({
   /** fillColor is the fill color of the polygon. */
   fillColor: color.colorZ.optional(),
   /** strokeWidth is the border stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  strokeWidth: zod.uint8.max(20).default(2),
 });
 export interface PolygonNodeConfig extends z.infer<typeof polygonNodeConfigZ> {}
 

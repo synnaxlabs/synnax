@@ -68,6 +68,24 @@ lighter step or the base step in dark mode.
   step.
 - A custom icon looks precise, never cartoony: about 1.5-unit strokes on a 24 grid,
   square ends, corner radii of 1 unit or less, and filled shapes cut by clean gaps.
+- An icon centers on its ink, not its box. A star moves up 3.6% of its box, so it lines
+  up with the text and the icons next to it.
+
+### Compound icons
+
+- A compound icon is a base icon with a modifier (add, import, export) or a stack. Draw
+  it as one glyph with `Icon.createFromPath`. Do not layer icons at run time.
+- The modifier sits at top right: 9 units wide, centered at (17.5, 6.5), with a 2.5-unit
+  stem (2 on a line base). The base scales to 0.9 from its bottom-left corner.
+- Cut the base 1.75 units clear of the modifier, with no backing disc. Cut with the
+  modifier's box, with a circle on a round base, or with the modifier's outline when a
+  box removes a small detail. A cut line keeps its round caps. Remove slivers.
+- A folder holds its modifier as a knockout. The project icon replaces its top dot with
+  the modifier.
+- An explorer icon is a diagonal stack: a solid back copy at top right, cut 1.75 units
+  clear of the front copy at bottom left.
+- An item that adds to a thing that exists uses the plain base icon ("Add to active
+  plot").
 
 ### Type
 
@@ -316,16 +334,18 @@ bound, a log precision, or the line plot X channel.
   another submenu with no animation.
 - The item whose submenu is open stays lit (l4). Only one item is lit at a time. A
   highlight follows the pointer with no fade.
-- The search in a submenu is a line of text over a hairline, with no box.
+- The search of a menu or a submenu looks like the search of a select: the l3 fill and
+  an l7 hairline under it. It spans the top of the menu.
 - Typing in an open context menu or the filter menu filters its items, as in Linear. The
-  first printable key starts the filter and shows it as a line over a hairline at the
-  top. Items whose text does not match hide, and so do dividers with no match on one
-  side. With no match, one muted line says "No matches". Backspace edits the filter. Esc
-  clears it, then closes the menu. Every menu is at least 32rem (192 px) wide, filtering
-  or not. The first match takes the focus, and the arrow keys and Enter act on the items
-  that show. A submenu matches on its `textValue`, and the filter never hides its
-  content. Keys typed into a field, such as the search of a picker, never reach the
-  filter.
+  first printable key opens a search at the top, with the caret after that key. The
+  search is a normal field: a click places the caret. Items whose text does not match
+  hide, and so do dividers with no match on one side. With no match, one muted line says
+  "No matches". While the search has the focus, the first match is lit, and Enter picks
+  the lit item. The arrow keys move into the items, and a key typed on an item goes on
+  in the search. Esc closes the search, then the menu. Every menu is at least 32rem (192
+  px) wide, filtering or not. A submenu matches on its `textValue`, and the filter never
+  hides its content. Keys typed into a field, such as the search of a picker, never
+  reach the filter.
 - Every explorer filters through `View.Filter`: one menu item for each property, which
   opens its picker as a submenu. A chip opens the same picker below the chip.
 - Values have 4 px corners. A picked value tints, with no checkbox, and picked values
@@ -399,6 +419,8 @@ bound, a log precision, or the line plot X channel.
 - Hover tints the item faintly, and a press does not deepen the tint.
 - A timeline lane is checkable too, and spaces its checkbox as a tree item does. Its
   label gives up the checkbox width, so the bars stay on the time axis.
+- The first timeline lane sits 6 px below the time axis, as the first tree item sits
+  below the top of its list. The axis lines and now go on through that room.
 
 ### Explorer bars
 

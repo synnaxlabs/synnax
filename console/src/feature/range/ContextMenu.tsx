@@ -11,7 +11,7 @@ import { lineplot, ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, type Flux, Ranger, Synnax } from "@synnaxlabs/pluto";
+import { Access, type Flux, LinePlot, Ranger, Synnax } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 
 import { Sift } from "@/feature/sift";
@@ -23,18 +23,6 @@ import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
-
-const AddToNewPlotIcon = Icon.createComposite(Icon.LinePlot, {
-  topRight: Icon.Add,
-});
-
-const AddToActivePlotIcon = Icon.createComposite(Icon.LinePlot, {
-  topRight: Icon.Range,
-});
-
-export const CreateChildRangeIcon = Icon.createComposite(Icon.Range, {
-  topRight: Icon.Add,
-});
 
 const useDelete = () => {
   const dispatch = Session.useDispatch();
@@ -150,20 +138,20 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
           )}
           {hasCreatePermission && rng.variant === "persisted" && (
             <Menu.Item itemKey="addChildRange" onClick={handleAddChildRange}>
-              <CreateChildRangeIcon key="plot" />
+              <Ranger.CreateIcon />
               Create child range
             </Menu.Item>
           )}
           <Menu.Divider />
           {linePlotFocused && hasLinePlotUpdatePermission && (
             <Menu.Item itemKey="addToActivePlot" onClick={() => addToActivePlot([key])}>
-              <AddToActivePlotIcon key="plot" />
+              <Icon.LinePlot />
               Add to active plot
             </Menu.Item>
           )}
           {hasLinePlotCreatePermission && (
             <Menu.Item itemKey="addToNewPlot" onClick={() => addToNewPlot([key])}>
-              <AddToNewPlotIcon key="plot" />
+              <LinePlot.CreateIcon />
               Add to new plot
             </Menu.Item>
           )}

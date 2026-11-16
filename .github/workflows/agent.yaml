@@ -57,6 +57,10 @@ on:
         description: "Whether the job fails when recipient is empty"
         type: boolean
         default: false
+      licensed:
+        description: "Whether the agent gets the Core license as SYNNAX_LICENSE_KEY"
+        type: boolean
+        default: false
     outputs:
       pr-url:
         description: "URL of the PR the agent opened, pushed to, or commented on"
@@ -157,6 +161,8 @@ jobs:
         id: agent
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
+          SYNNAX_LICENSE_KEY:
+            ${{ inputs.licensed && secrets.SYNNAX_LICENSE_TOKEN || '' }}
           AGENT_GIT_NAME: ${{ steps.bot.outputs.name }}
           AGENT_GIT_EMAIL: ${{ steps.bot.outputs.email }}
           PROMPT: ${{ inputs.prompt }}
@@ -189,10 +195,10 @@ jobs:
           "$RUNNER_TEMP/agent/run" "${args[@]}"
 
       # The runners of a seat share its login, so at a usage limit every job on the
-      # seat fails. The seat tags the time the limit resets, which keeps the fleet
-      # controller from starting it. The drain runs outside the job: each runner stops
-      # once its job ends, then the seat powers off. A later limited job on the seat
-      # leaves a running drain alone.
+      # seat fails. The seat tags the time the limit resets, and the fleet controller
+      # moves it to the login, which no seat then starts on until then. The drain runs
+      # outside the job: each runner stops once its job ends, then the seat powers off.
+      # A later limited job on the seat leaves a running drain alone.
       - name: Leave the pool until the usage limit resets
         if: failure() && steps.agent.outputs.limited-until != ''
         env:

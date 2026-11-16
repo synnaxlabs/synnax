@@ -36,9 +36,10 @@ provider "aws" {
       owner   = "runners"
     }
   }
-  # A seat writes this tag at a usage limit, so an apply must keep it.
+  # A seat writes limited-until at a usage limit, Check - Runners writes the sign-in
+  # state, and the fleet controller writes the login, so an apply must keep these tags.
   ignore_tags {
-    keys = ["limited-until"]
+    keys = ["limited-until", "auth", "auth-checked", "login"]
   }
 }
 
@@ -71,6 +72,11 @@ data "aws_subnets" "default" {
 locals {
   account = data.aws_caller_identity.current.account_id
   subnets = data.aws_subnets.default.ids
+  # The shared Claude logins, stored by `seat.sh token`. They stay in us-east-1 for
+  # seats in any region.
+  logins = join(":", [
+    "arn:aws:secretsmanager:us-east-1", local.account, "secret:synnax-agents/logins/*",
+  ])
 }
 
 resource "aws_security_group" "runner" {
@@ -128,8 +134,8 @@ resource "aws_iam_role_policy" "deny_runner_secrets" {
   })
 }
 
-# Lets a seat record when the usage limit of its login resets, which keeps the fleet
-# controller from starting it until then.
+# Lets a seat record when the usage limit of its login resets. The fleet controller
+# moves the time to the login, which no seat then starts on until then.
 resource "aws_iam_role_policy" "limited_until" {
   name = "TagLimitedUntil"
   role = aws_iam_role.runner.id
@@ -145,6 +151,26 @@ resource "aws_iam_role_policy" "limited_until" {
           "aws:ResourceTag/pool"    = "agent"
         }
         "ForAllValues:StringEquals" = { "aws:TagKeys" = ["limited-until"] }
+      }
+    }]
+  })
+}
+
+# Lets a seat read the token of the Claude login that the fleet controller gave it.
+# The controller adds the seat's session to the login's `holders` tag, and removes it
+# once the seat stops. A tag value fits 6 sessions, so the controller gives a login to
+# at most 6 seats.
+resource "aws_iam_role_policy" "login" {
+  name = "ReadHeldLogin"
+  role = aws_iam_role.runner.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "secretsmanager:GetSecretValue"
+      Resource = local.logins
+      Condition = {
+        StringLike = { "secretsmanager:ResourceTag/holders" = "*$${aws:userid}*" }
       }
     }]
   })
@@ -168,9 +194,6 @@ resource "aws_instance" "seat" {
   instance_initiated_shutdown_behavior = "stop"
   user_data = templatefile("${path.module}/provision.sh", {
     idle_minutes = var.pools[each.value.pool].idle_minutes
-    seat         = each.key
-    agent        = each.value.agent
-    runners      = each.value.runners
     pool         = each.value.pool
   })
   root_block_device {
@@ -178,14 +201,17 @@ resource "aws_instance" "seat" {
     volume_size = var.pools[each.value.pool].disk_gb
     encrypted   = true
   }
+  # Jobs read the instance's `login` tag from the metadata service.
   metadata_options {
-    http_tokens = "required"
+    http_tokens            = "required"
+    instance_metadata_tags = "enabled"
   }
   tags = {
-    Name  = "synnax-agent-${each.key}"
-    pool  = each.value.pool
-    agent = each.value.agent
-    seat  = each.key
+    Name    = "synnax-agent-${each.key}"
+    pool    = each.value.pool
+    agent   = each.value.agent
+    seat    = each.key
+    runners = var.pools[each.value.pool].runners
   }
   # A new AMI or bootstrap script must not wipe the warm caches or the login. Replace
   # an instance on purpose with `terraform apply -replace`.
@@ -240,6 +266,31 @@ resource "aws_iam_role_policy" "start" {
             "aws:ResourceTag/pool"    = keys(var.pools)
           }
         }
+      },
+    ]
+  })
+}
+
+# Lets Agent - Requeue read the tags of the shared Claude logins, never their tokens.
+resource "aws_iam_role_policy" "start_logins" {
+  name = "ReadLoginTags"
+  role = aws_iam_role.start.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "secretsmanager:ListSecrets"
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = "secretsmanager:DescribeSecret"
+        Resource = join(":", [
+          "arn:aws:secretsmanager:us-east-1",
+          local.account,
+          "secret:synnax-agents/logins/*",
+        ])
       },
     ]
   })

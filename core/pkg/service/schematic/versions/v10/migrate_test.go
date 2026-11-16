@@ -10,6 +10,7 @@
 package v10_test
 
 import (
+	"math"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -81,6 +82,27 @@ var _ = Describe("MigrateSchematic", func() {
 		}).(v10.ValueElementConfig)
 		Expect(value.Units).To(Equal("psi"))
 	})
+
+	DescribeTable("Should give the schema default to a non-finite number",
+		func(ctx SpecContext, f float64) {
+			out := MustSucceed(v10.MigrateSchematic(ctx, v9.Schematic{
+				Configs: map[string]v9.ElementConfig{
+					"n1": {Variant: v9.PolygonElementConfig{
+						NumSides:   f,
+						SideLength: 30,
+						Rotation:   f,
+					}},
+				},
+			}))
+			polygon := out.Configs["n1"].Variant.(v10.PolygonElementConfig)
+			Expect(polygon.NumSides).To(Equal(6.0))
+			Expect(polygon.SideLength).To(Equal(30.0))
+			Expect(polygon.Rotation).To(BeZero())
+		},
+		Entry("NaN", math.NaN()),
+		Entry("positive infinity", math.Inf(1)),
+		Entry("negative infinity", math.Inf(-1)),
+	)
 
 	It("Should keep the schematic's identity", func(ctx SpecContext) {
 		key := uuid.New()

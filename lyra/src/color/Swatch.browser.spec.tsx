@@ -33,6 +33,20 @@ describe("Swatch", () => {
     expect(document.activeElement).toBe(swatch);
   });
 
+  it("should close its picker on a second click", async () => {
+    await renderThemed(
+      <Triggers.Provider>
+        <Color.Swatch value="#ff0000" onChange={() => {}} aria-label="Fill" />
+      </Triggers.Provider>,
+    );
+    const swatch = page.getByRole("button", { name: "Fill" });
+    await userEvent.click(swatch);
+    await expect.element(page.getByRole("dialog")).toBeInTheDocument();
+    await userEvent.click(swatch);
+    await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+    expect(swatch.element().getAttribute("aria-expanded")).toBe("false");
+  });
+
   describe("shadow", () => {
     const renderShadow = async (): Promise<HTMLElement> => {
       await renderThemed(

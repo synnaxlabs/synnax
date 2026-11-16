@@ -65,11 +65,10 @@ concurrency:
 
 jobs:
   start:
-    name: Start a runner
+    name: Prepare the review
     runs-on: ubuntu-latest
     permissions:
       checks: read
-      id-token: write
       pull-requests: read
     outputs:
       head: ${{ steps.pr.outputs.head }}
@@ -170,32 +169,6 @@ jobs:
         run: |
           carried=$(python3 -m review carry || echo false)
           echo "carried=$carried" >> "$GITHUB_OUTPUT"
-
-      - name: Assume the runner start role
-        if: steps.skip.outputs.skip == 'false' && steps.carry.outputs.carried != 'true'
-        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
-        with:
-          role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
-          aws-region: us-east-1
-
-      # Idle runners stop themselves, so a review starts one stopped runner. Only one of
-      # two concurrent starts sees an instance's previous state as stopped, so the other
-      # tries again. The job waits for any runner when none is stopped.
-      - name: Start a stopped runner
-        if: steps.skip.outputs.skip == 'false' && steps.carry.outputs.carried != 'true'
-        run: |
-          for _ in 1 2 3; do
-            ids=$(aws ec2 describe-instances --output text \
-              --filters Name=tag:project,Values=synnax-agents \
-              Name=tag:pool,Values=review Name=instance-state-name,Values=stopped \
-              --query 'Reservations[].Instances[].InstanceId')
-            if [ -z "$ids" ]; then exit 0; fi
-            read -ra stopped <<< "$ids"
-            id=$(shuf -n 1 -e "${stopped[@]}")
-            previous=$(aws ec2 start-instances --instance-ids "$id" --output text \
-              --query 'StartingInstances[0].PreviousState.Name')
-            if [ "$previous" = stopped ]; then exit 0; fi
-          done
 
   # A job of its own, so a deleted comment cannot stop the review.
   react:

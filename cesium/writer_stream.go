@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
@@ -214,7 +215,6 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 			v, ok := values[ch]
 			return v, ok
 		}
-
 	}
 	for _, chW := range w.virtual.internal {
 		if auth, ok := getAuth(chW.Channel.Key); ok {
@@ -542,6 +542,8 @@ type idxWriter struct {
 	// lastCommitEnd stores the end timestamp from the last successful commit,
 	// returned when Commit is called with no new data to commit.
 	lastCommitEnd telem.TimeStamp
+	// group shows every channel of a commit to readers in one step.
+	group domain.Group
 	// dataAuth tracks the most recent control authority for each data channel in this
 	// group (i.e. the keys of internal excluding the index itself). Populated when
 	// writingToIdx is true; updated by SetAuthority calls so that maxDataAuth can
@@ -773,16 +775,20 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	}
 	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
-	// A reader resolves a data domain through the index, so the index commits first.
+	// No reader sees a channel of the commit before every channel has committed, so no
+	// read finds an index sample without its data.
+	defer w.group.Publish()
+	// The index persists first: after a restart, a reader resolves a data domain
+	// through the index.
 	if w.writingToIdx {
-		err = w.internal[w.idx.ch.Key].CommitWithEnd(ctx, end.Lower)
+		err = w.internal[w.idx.ch.Key].CommitWithEnd(ctx, end.Lower, &w.group)
 	}
 	// Every channel shares the same end, so their errors repeat. Keep the first.
 	for key, chW := range w.internal {
 		if key == w.idx.ch.Key {
 			continue
 		}
-		if cErr := chW.CommitWithEnd(ctx, end.Lower); err == nil {
+		if cErr := chW.CommitWithEnd(ctx, end.Lower, &w.group); err == nil {
 			err = cErr
 		}
 	}
@@ -982,7 +988,7 @@ func (w *idxWriter) updateHighWater(s telem.Series) error {
 
 // resolveCommitEnd returns the end timestamp for a commit. For an index channel, this
 // returns the high watermark. For a non-index channel, this returns a stamp to the
-// approximation of the end
+// approximation of the end.
 func (w *idxWriter) resolveCommitEnd(
 	ctx context.Context,
 ) (index.TimeStampApproximation, error) {

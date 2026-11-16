@@ -10,6 +10,7 @@
 package license
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -141,6 +142,8 @@ const (
 var (
 	// prefix keys the accepted license keys. The stored value is the license key.
 	prefix = []byte("license/")
+	// legacyKey is where Cores before signed license keys stored a numeric key.
+	legacyKey = []byte("bGljZW5zZUtleQ==")
 	// markKey holds the latest clock reading the service has recorded.
 	markKey = []byte("highWater")
 )
@@ -172,6 +175,7 @@ var _ io.Closer = &Service{}
 // OpenService opens the service and activates cfg.Key when set. It returns an error
 // when the machine fingerprint cannot be read. A refused cfg.Key is logged, and the
 // service opens under the stored keys. A Core with no license opens in StateMissing.
+// OpenService deletes the stored numeric license keys, which no Core accepts.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
@@ -183,6 +187,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s.mu.info = Info{State: StateMissing, Fingerprint: s.fingerprint}
 	if err = s.syncClock(ctx); err != nil {
+		return nil, err
+	}
+	if err = s.removeNumeric(ctx); err != nil {
 		return nil, err
 	}
 	if err = s.load(ctx); err != nil {
@@ -316,7 +323,7 @@ func (s *Service) CheckChannelLimit(inUse types.Uint20) error {
 // up.
 func (s *Service) syncClock(ctx context.Context) error {
 	now := s.cfg.Now()
-	raw, closer, err := s.cfg.Get(ctx, markKey)
+	raw, closer, err := s.cfg.Get(markKey)
 	if errors.Is(err, query.ErrNotFound) {
 		return s.recordClock(ctx, now)
 	}
@@ -360,6 +367,44 @@ func (s *Service) recordClock(ctx context.Context, now time.Time) error {
 	raw := make([]byte, 8)
 	binary.LittleEndian.PutUint64(raw, uint64(now.UnixNano()))
 	return s.cfg.Set(ctx, markKey, raw)
+}
+
+// removeNumeric deletes the numeric license keys that Cores before 0.60 stored.
+func (s *Service) removeNumeric(ctx context.Context) error {
+	var keys [][]byte
+	_, closer, err := s.cfg.Get(legacyKey)
+	if err == nil {
+		if err = closer.Close(); err != nil {
+			return err
+		}
+		keys = append(keys, legacyKey)
+	} else if !errors.Is(err, query.ErrNotFound) {
+		return err
+	}
+	iter, err := s.cfg.OpenIterator(kv.IterPrefix(prefix))
+	if err != nil {
+		return err
+	}
+	for iter.First(); iter.Valid(); iter.Next() {
+		if numericFormat.Match(iter.Value()) {
+			keys = append(keys, bytes.Clone(iter.Key()))
+		}
+	}
+	if err = iter.Close(); err != nil {
+		return err
+	}
+	for _, key := range keys {
+		if err = s.cfg.Delete(ctx, key); err != nil {
+			return err
+		}
+	}
+	if len(keys) > 0 {
+		s.cfg.L.Info(
+			"removed stored numeric license keys, which this Core does not accept",
+			zap.Int("count", len(keys)),
+		)
+	}
+	return nil
 }
 
 // load applies the stored key that fits this machine. A key that still applies wins

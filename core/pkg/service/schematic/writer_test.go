@@ -407,6 +407,83 @@ var _ = Describe("Writer", func() {
 			)
 		})
 
+		Describe("A dispatch to a stored edge", func() {
+			var s schematic.Schematic
+			BeforeEach(func(ctx SpecContext) {
+				s = schematic.Schematic{}
+				Expect(json.Unmarshal([]byte(
+					`{"name":"edges","nodes":[`+
+						`{"key":"a","config":{"variant":"cap"}},`+
+						`{"key":"b","config":{"variant":"cap"}}],"edges":[`+
+						`{"key":"e1","source":{"node":"a","param":"o"},`+
+						`"target":{"node":"b","param":"i"},`+
+						`"config":{"variant":"pipe","stroke_color":"#ff0000"}}]}`,
+				), &s)).To(Succeed())
+				s.Project = &proj.Key
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
+			})
+
+			retrieve := func(ctx SpecContext) schematic.SegmentedEdgeConfig {
+				GinkgoHelper()
+				var res schematic.Schematic
+				Expect(svc.NewRetrieve().
+					Where(schematic.MatchKeys(s.Key)).
+					Entry(&res).
+					Exec(ctx, db)).To(Succeed())
+				pipe, ok := res.Edges[0].Config.Variant.(schematic.PipeEdgeConfig)
+				Expect(ok).To(BeTrue())
+				return pipe.SegmentedEdgeConfig
+			}
+
+			setStrokeWidth := func(w uint8) schematic.Action {
+				return schematic.NewSetAction(schematic.SetPayload{
+					Path:  []string{"edges", "e1", "config", "stroke_width"},
+					Value: w,
+				})
+			}
+
+			It("Should store the default stroke width", func(ctx SpecContext) {
+				Expect(retrieve(ctx).StrokeWidth).To(BeEquivalentTo(2))
+			})
+
+			DescribeTable("Should set a stroke width within bounds",
+				func(ctx SpecContext, w uint8) {
+					Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{
+						setStrokeWidth(w),
+					})).To(Succeed())
+					Expect(retrieve(ctx).StrokeWidth).To(Equal(w))
+				},
+				Entry("at 1", uint8(1)),
+				Entry("at 20", uint8(20)),
+			)
+
+			DescribeTable("Should reject a stroke width out of bounds",
+				func(ctx SpecContext, w uint8) {
+					Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{
+						setStrokeWidth(w),
+					})).To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("stroke_width")),
+					))
+					Expect(retrieve(ctx).StrokeWidth).To(BeEquivalentTo(2))
+				},
+				Entry("at 0", uint8(0)),
+				Entry("at 21", uint8(21)),
+			)
+
+			It("Should clear the stroke color", func(ctx SpecContext) {
+				Expect(retrieve(ctx).StrokeColor).ToNot(BeNil())
+				Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					schematic.NewSetAction(schematic.SetPayload{
+						Path: []string{"edges", "e1", "config", "stroke_color"},
+					}),
+				})).To(Succeed())
+				Expect(retrieve(ctx).StrokeColor).To(BeNil())
+			})
+		})
+
 		Describe("A dispatch to a stored group", func() {
 			var s schematic.Schematic
 			BeforeEach(func(ctx SpecContext) {
