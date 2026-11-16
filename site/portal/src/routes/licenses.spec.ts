@@ -1113,6 +1113,19 @@ describe("license routes", () => {
       expect((await licenses())[0].revokedAt).toEqual(NOW);
     });
 
+    it("should save nothing when the admin lookup fails", async () => {
+      h.portal.directory = {
+        ...h.portal.directory,
+        roster: async () => {
+          throw new Error("clerk: down");
+        },
+      };
+      h.signIn(STAFF);
+      await expectError(await post(), 500, "Internal error");
+      expect((await licenses())[0].revokedAt).toEqual(null);
+      expect(await events()).toEqual([]);
+    });
+
     it("should refuse a second revocation without mailing again", async () => {
       addPerson("user_admin", [ACME_ADMIN]);
       h.signIn(STAFF);
@@ -1252,6 +1265,19 @@ describe("license routes", () => {
         `"${lic.label}" is restored, but the email about it failed.`,
       );
       expect((await licenses())[0].revokedAt).toEqual(null);
+    });
+
+    it("should save nothing when the admin lookup fails", async () => {
+      h.portal.directory = {
+        ...h.portal.directory,
+        roster: async () => {
+          throw new Error("clerk: down");
+        },
+      };
+      h.signIn(STAFF);
+      await expectError(await post(), 500, "Internal error");
+      expect((await licenses())[0].revokedAt).toEqual(NOW);
+      expect(await events()).toEqual([]);
     });
 
     it("should refuse a license that is not revoked without mailing", async () => {
