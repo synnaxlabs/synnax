@@ -146,10 +146,7 @@ TEST_F(RackConfigTest, CheckCoreFindsAnotherVersion) {
 TEST_F(RackConfigTest, CheckCoreReturnsTheErrorOfAnUnreachableCore) {
     auto cfg = started_config();
     cfg.connection.port = 1;
-    const auto err = cfg.check_core();
-    ASSERT_TRUE(err);
-    EXPECT_FALSE(err.matches(CORE_CHANGED));
-    EXPECT_TRUE(synnax::errors::is_temporarily_unavailable(err));
+    EXPECT_TRUE(synnax::errors::is_temporarily_unavailable(cfg.check_core()));
 }
 
 /// @brief it should start only the rack status when the Core runs another minor, and
