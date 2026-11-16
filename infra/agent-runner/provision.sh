@@ -107,7 +107,6 @@ echo "PATH=/usr/local/go/bin:$HOME_DIR/go/bin:/usr/local/bin:/usr/bin:/bin" \
     > "$RUNNER_DIR/.env"
 chown -R runner:runner "$HOME_DIR"
 
-
 # Warms the Go build cache and the pnpm store before an agent seat's first job. Review
 # seats build nothing. A failed warm only makes the first job slower, so it must not
 # stop the idle timer from being installed.

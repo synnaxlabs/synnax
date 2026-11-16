@@ -121,13 +121,18 @@ case $action in
         # The token registers runners for an hour, then expires.
         token=$(gh api -X POST orgs/synnaxlabs/actions/runners/registration-token \
             --jq .token)
+        if [[ ! $runners =~ ^[1-9][0-9]*$ ]]; then
+            echo "Seat $seat has no runners tag: run terraform apply" >&2
+            exit 1
+        fi
         if [ "$pool" = review ]; then
             labels=review,seat-$seat
         else
             labels=agent,agent-$agent,seat-$seat
         fi
-        # All runners run as the runner user, so they share its agent login.
-        run "set -euo pipefail
+        # All runners run as the runner user, so they share its agent login. SSM runs
+        # the script with sh, which has no pipefail.
+        run "set -eu
 for i in \$(seq $runners); do
     dir=/home/runner/runners/\$i
     if [ ! -e \$dir/.runner ]; then
