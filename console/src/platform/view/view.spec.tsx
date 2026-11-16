@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { panel, ranger, type Synnax as Client, view } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -405,6 +405,76 @@ describe("View open in a tab", () => {
       key: wrapped.tabKey,
       type: TAB_TYPE,
     });
+  });
+});
+
+/** @returns the tabs of the panel beside the tab of the wrapper. */
+const tabsBeside = async ({ panelKey, tabKey }: TabWrapper): Promise<panel.Tab[]> => {
+  const { root } = await client.panels.retrieve(panelKey);
+  return (panel.findTabLeaf(root, tabKey)?.tabs ?? []).filter((t) => t.key !== tabKey);
+};
+
+/** Waits for one tab beside the tab of the wrapper, and returns it. */
+const waitForNewTab = async (wrapped: TabWrapper): Promise<panel.Tab> =>
+  await waitFor(async () => {
+    const added = await tabsBeside(wrapped);
+    expect(added).toHaveLength(1);
+    return added[0];
+  });
+
+const roles = new RoleClients(client);
+
+describe("View open in a new tab", () => {
+  it("opens a view in a new tab from its context menu", async () => {
+    const saved = await createView();
+    const wrapped = await renderHarness();
+    fireEvent.contextMenu(await screen.findByText(saved.name));
+    fireEvent.click(await screen.findByText("Open in new tab"));
+    expect(await waitForNewTab(wrapped)).toMatchObject(showing(saved));
+    expect(selectedViewName()).toBe("All ranges");
+  });
+
+  it("opens a view in a new tab on a Cmd+click", async () => {
+    const saved = await createView();
+    const wrapped = await renderHarness();
+    await waitFor(() => getIconButton(getViews(), "add"));
+    fireEvent.click(await screen.findByRole("tab", { name: saved.name }), {
+      metaKey: true,
+    });
+    expect(await waitForNewTab(wrapped)).toMatchObject(showing(saved));
+    expect(selectedViewName()).toBe("All ranges");
+  });
+
+  it("opens the static view in a new tab", async () => {
+    const wrapped = await renderHarness();
+    fireEvent.contextMenu(await screen.findByText("All ranges"));
+    fireEvent.click(await screen.findByText("Open in new tab"));
+    expect(await waitForNewTab(wrapped)).toMatchObject({
+      variant: "view",
+      type: TAB_TYPE,
+    });
+  });
+
+  it("offers no new tab for the saved view its tab shows", async () => {
+    const saved = await createView();
+    await renderHarness(client, showing(saved));
+    await waitFor(() => expect(selectedViewName()).toBe(saved.name));
+    fireEvent.contextMenu(screen.getByRole("tab", { name: saved.name }));
+    // Both grants answer from one policy read, so this item shows that it landed.
+    expect(await screen.findByText("Rename")).toBeTruthy();
+    expect(screen.queryByText("Open in new tab")).toBeNull();
+  });
+
+  it("offers no new tab to a user who may not change the panel", async () => {
+    const saved = await createView();
+    const wrapped = await renderHarness(await roles.get("Viewer"));
+    fireEvent.contextMenu(await screen.findByText(saved.name));
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+    expect(screen.queryByText("Open in new tab")).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: saved.name }), { metaKey: true });
+    await act(async () => {});
+    expect(selectedViewName()).toBe("All ranges");
+    expect(await tabsBeside(wrapped)).toEqual([]);
   });
 });
 

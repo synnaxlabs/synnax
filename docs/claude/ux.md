@@ -458,8 +458,11 @@ bound, a log precision, or the line plot X channel.
   static view, and "Ranges › <view>" on a saved view. A rename of the view changes it,
   and a rename of the tab renames the view. When the view is deleted, the tab shows that
   it was deleted, with Close and Restore, like the tab of any deleted resource.
-- Opening the explorer from the sidebar or the command palette focuses its tab,
-  whichever view it shows, and opens one only when the panel has none.
+- "Open in new tab" in a view's context menu, or Cmd+click (Ctrl+click on Windows and
+  Linux) on a view, opens it in a new explorer tab beside the current one. The current
+  tab keeps its view. The saved view the current tab shows has no "Open in new tab".
+- Opening the explorer from the sidebar or the command palette focuses its first tab in
+  the panel, whichever view it shows, and opens one only when the panel has none.
 
 ### Filter chips
 

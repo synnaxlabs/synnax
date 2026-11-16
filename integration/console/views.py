@@ -98,9 +98,24 @@ class ViewsClient(ResourceClient):
             self._any_tab_name() if view is None else self._tab_name(view)
         )
 
-    def close_tab(self) -> None:
-        """Close the explorer's tab, whichever view it shows."""
-        self.layout.close_tab(self._any_tab_name())
+    def close_tab(self, view: str | None = None) -> None:
+        """Close the explorer's tab, whichever view it shows.
+
+        :param view: Only close a tab that shows this view.
+        """
+        self.layout.close_tab(
+            self._any_tab_name() if view is None else self._tab_name(view)
+        )
+
+    def open_in_new_tab(self, name: str) -> None:
+        """Open a view in a new explorer tab via its context menu.
+
+        :param name: Exact name of the view.
+        """
+        item = self.get_view_item(name)
+        item.wait_for(state="visible", timeout=5000)
+        self.layout.ctx_menu.action(item, "Open in new tab")
+        self.get_tab(name).wait_for(state="visible", timeout=5000)
 
     # ── View Items ────────────────────────────────────────────────────────
 
