@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { caseconv } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
@@ -459,6 +460,20 @@ describe("HTTP Device Properties", () => {
         },
       });
       expect(result.read["/data"].index).toBe(0);
+    });
+
+    it("should keep the case of paths and pointers through a round trip", () => {
+      const properties: HTTP.Device.Properties = {
+        ...HTTP.Device.ZERO_PROPERTIES,
+        read: {
+          "/api/sensor_data": { index: 5, channels: { "/temp_c": 7, "/flowRate": 8 } },
+        },
+        write: { "/api/set_point": 9, "/api/setPoint": 10 },
+      };
+      const schema = HTTP.Device.propertiesZ;
+      const wire = caseconv.camelToSnake(properties, { schema });
+      expect(wire).toMatchObject({ read: properties.read, write: properties.write });
+      expect(caseconv.snakeToCamel(wire, { schema })).toEqual(properties);
     });
   });
 

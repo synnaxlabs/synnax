@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type device, http } from "@synnaxlabs/client";
-import { json, TimeSpan, zod } from "@synnaxlabs/x";
+import { caseconv, json, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const MAKE = "http";
@@ -206,9 +206,10 @@ const storedIndexZ = z.preprocess(
   channel.keyZ,
 );
 
+// Paths and pointers are values, not property names, so they keep their case.
 const readEndpointPropsZ = z.object({
   index: storedIndexZ,
-  channels: z.record(z.string(), channel.keyZ),
+  channels: caseconv.preserveCase(z.record(z.string(), channel.keyZ)),
 });
 
 interface ReadEndpointProps extends z.infer<typeof readEndpointPropsZ> {}
@@ -225,8 +226,8 @@ const v1PropertiesZ = v0PropertiesZ
     healthCheck: z
       .preprocess(fillValidateResponse, healthCheckZ)
       .default(ZERO_HEALTH_CHECK),
-    write: z.record(z.string(), channel.keyZ).default({}),
-    read: z.record(z.string(), readEndpointPropsZ).default({}),
+    write: caseconv.preserveCase(z.record(z.string(), channel.keyZ).default({})),
+    read: caseconv.preserveKeys(z.record(z.string(), readEndpointPropsZ).default({})),
     version: z.literal(1),
   });
 
