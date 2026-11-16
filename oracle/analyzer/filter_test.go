@@ -871,24 +871,65 @@ var _ = Describe("Filter definitions", func() {
 			))
 		})
 
-		DescribeTable("Should reject a @retrieve noun that is not lowercase words",
-			func(ctx SpecContext, noun string) {
-				_, diag := Analyze(ctx, `
-					Named struct {
-						key uuid { @key }
+		It("Should join the words of a noun in the response field", func(
+			ctx SpecContext,
+		) {
+			table, diag := Analyze(ctx, `
+				import "schemas/x/filter"
 
-						@retrieve noun `+noun+`
-					}
-				`, "test", loader)
+				Named struct {
+					key uuid { @key }
+
+					@retrieve noun "named color"
+				}
+				Where filter Named {
+					key
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			res := table.MustGet("test.RetrieveResponse").Form.(resolution.StructForm)
+			Expect(fieldNames(res)).To(Equal([]string{"named_colors"}))
+		})
+
+		DescribeTable("Should reject a @retrieve noun that is not lowercase words",
+			func(ctx SpecContext, source string) {
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring(
 					"@retrieve noun takes one string of lowercase words",
 				))
 			},
-			Entry("an uppercase letter", `"Color"`),
-			Entry("two spaces between words", `"named  color"`),
-			Entry("an identifier", "color"),
-			Entry("no value", ""),
+			Entry("an uppercase letter", `
+				Named struct {
+					key uuid { @key }
+					@retrieve noun "Color"
+				}
+			`),
+			Entry("two spaces between words", `
+				Named struct {
+					key uuid { @key }
+					@retrieve noun "named  color"
+				}
+			`),
+			Entry("an identifier", `
+				Named struct {
+					key uuid { @key }
+					@retrieve noun color
+				}
+			`),
+			Entry("no value", `
+				Named struct {
+					key uuid { @key }
+					@retrieve noun
+				}
+			`),
+			Entry("a union", `
+				Thing union on variant {
+					a {}
+					b {}
+					@retrieve noun thing
+				}
+			`),
 		)
 
 		It("Should place the request and response at the request output", func(

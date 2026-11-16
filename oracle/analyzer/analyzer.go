@@ -782,14 +782,15 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 	if !ok {
 		return
 	}
-	checkRetrieveNoun(c, def, decl.domains)
+	domains := mergeDomains(c.fileDomains, decl.domains)
+	checkRetrieveNoun(c, def, domains)
 	lo.Must0(c.table.Add(resolution.Type{
 		Name:          name,
 		Namespace:     c.namespace,
 		QualifiedName: qname,
 		FilePath:      c.filePath,
 		Form:          decl.form,
-		Domains:       mergeDomains(c.fileDomains, decl.domains),
+		Domains:       domains,
 		AST:           def,
 	}))
 	if len(decl.removed) > 0 {
@@ -1415,6 +1416,7 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 	form.Extends = decl.extends
 	form.Actions = decl.actions
 	domains := mergeDomains(c.fileDomains, decl.domains)
+	checkRetrieveNoun(c, def, domains)
 	for _, v := range decl.variants {
 		form.Variants = append(form.Variants, registerVariant(c, name, domains, v))
 	}
