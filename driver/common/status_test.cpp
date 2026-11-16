@@ -635,7 +635,9 @@ TEST(TestHandleConfigErr, ListsFieldErrors) {
 TEST(TestHandleConfigErr, testErrorAtBootWritesError) {
     x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    synnax::task::Task task{.rack = 1, .name = "task1", .type = "ni_analog_read"};
+    // The status that the Core writes when it creates a task has no rack.
+    task.status = synnax::task::Status{};
     cancel.start();
     auto [tsk, handled] = handle_config_err(
         ctx,
@@ -651,6 +653,28 @@ TEST(TestHandleConfigErr, testErrorAtBootWritesError) {
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(ctx->statuses[0].message, "Failed to configure task");
     EXPECT_FALSE(ctx->statuses[0].details.running);
+}
+
+/// @brief a config error at boot should write no status for a task moved here, since
+/// its old rack runs it until a start arrives.
+TEST(TestHandleConfigErr, testErrorAtBootOfAMovedTaskSilent) {
+    x::breaker::Breaker cancel;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    synnax::task::Task task{.rack = 1, .name = "task1", .type = "ni_analog_read"};
+    task.status = synnax::task::Status{};
+    task.status->details.rack = 2;
+    cancel.start();
+    auto [tsk, handled] = handle_config_err(
+        ctx,
+        task,
+        {ConfigureResult{}, x::errors::Error(x::errors::VALIDATION, "bad config")},
+        "",
+        cancel
+    );
+    cancel.stop();
+    EXPECT_TRUE(handled);
+    EXPECT_EQ(tsk, nullptr);
+    EXPECT_TRUE(ctx->statuses.empty());
 }
 
 /// @brief a config error at boot with auto-start requested should write an error
