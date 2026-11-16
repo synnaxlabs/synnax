@@ -38,6 +38,8 @@ const noop = () => {};
 interface HarnessProps {
   onSelectionChange: (selected: string[]) => void;
   onViewportChange: (viewport: Diagram.Viewport) => void;
+  editable?: boolean;
+  onPaste?: () => void;
 }
 
 // The diagram is controlled, so the harness feeds each selection back as the next
@@ -45,6 +47,8 @@ interface HarnessProps {
 const Harness = ({
   onSelectionChange,
   onViewportChange,
+  editable = true,
+  onPaste,
 }: HarnessProps): ReactElement => {
   const [selected, setSelected] = useState<string[]>([]);
   const handleSelectionChange = (next: string[]): void => {
@@ -60,8 +64,9 @@ const Harness = ({
         onEdgesChange={noop}
         selected={selected}
         onSelectionChange={handleSelectionChange}
-        editable
+        editable={editable}
         onEditableChange={noop}
+        onPaste={onPaste}
         viewport={VIEWPORT}
         onViewportChange={onViewportChange}
         fitViewOnResize={false}
@@ -99,13 +104,14 @@ class ImmediateResizeObserver {
   disconnect(): void {}
 }
 
-const renderDiagram = async () => {
+const renderDiagram = async (props: Partial<HarnessProps> = {}) => {
   const onSelectionChange = vi.fn<(selected: string[]) => void>();
   const onViewportChange = vi.fn<(viewport: Diagram.Viewport) => void>();
   render(
     <Harness
       onSelectionChange={onSelectionChange}
       onViewportChange={onViewportChange}
+      {...props}
     />,
     { registry: diagram.REGISTRY, render: true },
   );
@@ -187,6 +193,15 @@ describe("Diagram", () => {
       onViewportChange.mockClear();
       fireEvent.mouseDown(handle("a"), { button: 0 });
       expect(onViewportChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("clipboard", () => {
+    it("does not paste while the diagram is not editable", async () => {
+      const onPaste = vi.fn();
+      await renderDiagram({ editable: false, onPaste });
+      fireEvent.paste(document.querySelector(".pluto-diagram__container") as Element);
+      expect(onPaste).not.toHaveBeenCalled();
     });
   });
 });

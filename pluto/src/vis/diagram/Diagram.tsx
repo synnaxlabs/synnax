@@ -496,6 +496,7 @@ export const create = ({
     };
 
     const handlePaste = (e: ReactClipboardEvent<HTMLDivElement>): void => {
+      if (!editable) return;
       onPaste?.(e, cursorInDiagramSpace(e.currentTarget));
     };
 
