@@ -261,15 +261,9 @@ class TestDismissedFindings:
     def test_should_leave_out_a_finding_dismissed_outside_the_diff(
         self, gh: FakeGH
     ) -> None:
-        gh.comments = [
-            {
-                "id": 4,
-                "login": "someone",
-                "author": {"__typename": "User", "login": "someone"},
-                "authorAssociation": "MEMBER",
-                "body": "@sedosaur dismiss Samples return old data, meant",
-            }
-        ]
+        record = {"comment": 3, "path": "a.go", "title": "Samples return old data"}
+        body = f"<!-- sedosaur_answer {json.dumps(record | {'reason': ''})} -->"
+        gh.comments = [{"id": 4, "login": "sedosaur[bot]", "body": body}]
         post(review(finding()), target=TARGET, gh=gh)
         [done] = gh.written("PATCH", "check-runs/55")
         assert done["output"]["title"] == "Confidence Score: 5/5"

@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import json
-from typing import Any, ClassVar
+from typing import Any
 
 import pytest
 
@@ -98,6 +98,14 @@ class FakeGH:
         if args[:2] == ("api", "-X"):
             assert stdin is not None
             self.writes.append((args[2], args[3], json.loads(stdin)))
+            if (args[2], args[3]) == ("POST", f"repos/{REPO}/issues/7/comments"):
+                answer = issue_comment(
+                    100 + len(self.writes), json.loads(stdin)["body"]
+                )
+                bot = {"login": "sedosaur[bot]", "type": "Bot"}
+                self.comments.append(
+                    answer | {"user": bot, "author_association": "NONE"}
+                )
             return ""
         values = dict(a.split("=", 1) for a in args if "=" in a)
         if "addPullRequestReviewThreadReply" in values.get("query", ""):
@@ -320,19 +328,44 @@ class TestDismiss:
         assert gh.posted() == []
 
 
-class TestDismissOutside:
-    """Tests answering a comment that dismisses a finding outside the diff."""
+class TestDismissComment:
+    """Tests answering the dismissal comments on the pull request."""
 
-    def test_should_answer_a_dismissal_of_the_named_finding(self, gh: FakeGH) -> None:
+    def test_should_bind_a_dismissal_to_the_path_of_its_finding(
+        self, gh: FakeGH
+    ) -> None:
         gh.comments = [
             outside("Old", "Old data"),
             issue_comment(9, "@sedosaur dismiss Old data: it is meant"),
         ]
         dismiss(TARGET, gh, comment=9, key=KEY)
-        assert gh.posted() == [
+        assert gh.posted()[0].endswith(
             "Dismissed. Later reviews of this pull request will not report it."
+        )
+        gh.comments[0] = outside("Old data", path="c.go")
+        assert dismissals(TARGET, gh, []) == [
+            Dismissal(path="b.go", title="Old data", reason="it is meant")
         ]
         assert gh.checks() == []
+
+    def test_should_keep_a_dismissal_whose_finding_left_the_comment(
+        self, gh: FakeGH
+    ) -> None:
+        gh.comments = [outside("Old"), issue_comment(9, "@sedosaur dismiss Old")]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        gh.comments[0] = outside()
+        assert dismissals(TARGET, gh, []) == [
+            Dismissal(path="b.go", title="Old", reason="")
+        ]
+
+    def test_should_dismiss_and_resolve_a_finding_on_a_thread(self, gh: FakeGH) -> None:
+        gh.threads = [thread("T1")]
+        gh.comments = [outside(), issue_comment(9, "@sedosaur dismiss samples, meant")]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        assert gh.resolved == ["T1"]
+        assert dismissals(TARGET, gh, []) == [
+            Dismissal(path="a.go", title="Samples", reason="meant")
+        ]
 
     def test_should_score_the_head_5_when_no_finding_is_left(self, gh: FakeGH) -> None:
         gh.threads = [thread("T1", comment(2, "@sedosaur dismiss"))]
@@ -341,21 +374,28 @@ class TestDismissOutside:
         dismiss(TARGET, gh, comment=9, key=KEY)
         [check] = gh.checks()
         assert check["output"]["title"] == "Confidence Score: 5/5"
-        [body] = gh.posted()
-        assert body.endswith("so the head scores 5/5.")
+        assert gh.posted()[-1] == (
+            "Every finding of the review of the head is dismissed, so the head scores "
+            "5/5."
+        )
 
-    def test_should_count_a_later_dismissal_whose_run_has_not_answered(
-        self, gh: FakeGH
-    ) -> None:
+    def test_should_answer_a_comment_whose_run_never_answered(self, gh: FakeGH) -> None:
         gh.comments = [
             outside("Old", "New"),
             issue_comment(9, "@sedosaur dismiss Old"),
             issue_comment(10, "@sedosaur dismiss New"),
         ]
         gh.runs = [check_run([["b.go", "Old"], ["b.go", "New"]])]
-        dismiss(TARGET, gh, comment=9, key=KEY)
+        dismiss(TARGET, gh, comment=10, key=KEY)
+        assert len(gh.posted()) == 3
         [check] = gh.checks()
         assert check["output"]["title"] == "Confidence Score: 5/5"
+
+    def test_should_answer_each_comment_once(self, gh: FakeGH) -> None:
+        gh.comments = [outside("Old"), issue_comment(9, "@sedosaur dismiss Old")]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        assert len(gh.posted()) == 1
 
     def test_should_refuse_an_agent(self, gh: FakeGH) -> None:
         gh.comments = [
@@ -364,37 +404,29 @@ class TestDismissOutside:
         ]
         gh.runs = [check_run([["b.go", "Old"]])]
         dismiss(TARGET, gh, comment=9, key=KEY)
-        assert gh.posted() == ["Only a member can dismiss a finding, not an agent."]
+        [answer] = gh.posted()
+        assert answer.endswith("Only a member can dismiss a finding, not an agent.")
+        assert dismissals(TARGET, gh, []) == []
         assert gh.checks() == []
 
     @pytest.mark.parametrize(
-        "body", ["@sedosaur dismiss Other", "@sedosaur dismissal of Old"]
+        "body",
+        [
+            "@sedosaur dismiss Other",
+            "@sedosaur dismiss Old",
+            "@sedosaur dismiss Old path:d.go",
+        ],
     )
-    def test_should_answer_a_comment_naming_no_finding_with_the_usage(
+    def test_should_answer_a_comment_naming_no_one_finding_with_the_usage(
         self, gh: FakeGH, body: str
     ) -> None:
-        gh.comments = [outside("Old"), issue_comment(9, body)]
-        dismiss(TARGET, gh, comment=9, key=KEY)
-        [answer] = gh.posted()
-        assert answer.startswith("No one finding outside the diff has that title.")
-
-    def test_should_ask_for_the_path_of_a_shared_title(self, gh: FakeGH) -> None:
         both = outside("Old")
         both["body"] += outside("Old", path="c.go")["body"]
-        gh.comments = [both, issue_comment(9, "@sedosaur dismiss Old")]
+        gh.comments = [both, issue_comment(9, body)]
         dismiss(TARGET, gh, comment=9, key=KEY)
         [answer] = gh.posted()
         assert answer.endswith("add `path:<file>` after it.")
-
-
-class TestDismissals:
-    """Tests reading the findings that members dismissed in comments."""
-
-    FINDINGS: ClassVar = {
-        ("b.go", "Old `carry` copy"),
-        ("b.go", "Old"),
-        ("c.go", "Old"),
-    }
+        assert dismissals(TARGET, gh, []) == []
 
     @pytest.mark.parametrize(
         ("body", "found"),
@@ -405,29 +437,23 @@ class TestDismissals:
             ("@sedosaur dismiss Old path:c.go meant", ("c.go", "Old")),
         ],
     )
-    def test_should_read_the_named_finding(
+    def test_should_match_a_title_loosely(
         self, gh: FakeGH, body: str, found: tuple[str, str]
     ) -> None:
-        gh.comments = [issue_comment(9, body)]
+        listed = outside("Old `carry` copy", "Old")
+        listed["body"] += outside("Old", path="c.go")["body"]
+        gh.comments = [listed, issue_comment(9, body)]
+        dismiss(TARGET, gh, comment=9, key=KEY)
         path, title = found
-        assert dismissals(TARGET, gh, [], self.FINDINGS) == [
+        assert dismissals(TARGET, gh, []) == [
             Dismissal(path=path, title=title, reason="meant")
         ]
 
-    @pytest.mark.parametrize(
-        "c",
-        [
-            issue_comment(9, "@sedosaur dismiss Old path:c.go", kind="Bot"),
-            issue_comment(9, "@sedosaur dismiss Old path:c.go", association="NONE"),
-            issue_comment(9, "@sedosaur dismiss Old"),
-            issue_comment(9, "> @sedosaur dismiss Old path:c.go"),
-        ],
-    )
-    def test_should_ignore_any_other_comment(
-        self, gh: FakeGH, c: dict[str, Any]
-    ) -> None:
-        gh.comments = [c]
-        assert dismissals(TARGET, gh, [], self.FINDINGS) == []
+    def test_should_ignore_a_record_another_author_wrote(self, gh: FakeGH) -> None:
+        record = '<!-- sedosaur_answer {"comment": 1, "path": "b.go", "title": "Old", '
+        record += '"reason": ""} -->\n\nDismissed.'
+        gh.comments = [issue_comment(9, record)]
+        assert dismissals(TARGET, gh, []) == []
 
 
 class TestCommand:

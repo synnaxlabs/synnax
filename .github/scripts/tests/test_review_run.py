@@ -940,8 +940,11 @@ class TestMain:
         far = Finding(severity="P2", title="Stale doc", body="B.", path="b.md", line=4)
         body = render.outside([far], blob="https://github.com/o/r/blob/h")
         bot = {"__typename": "Bot", "login": "sedosaur[bot]"}
-        comment = json.dumps(
-            {"id": 3, "login": "sedosaur[bot]", "author": bot, "body": body}
+        gone = {"comment": 4, "path": "c.md", "title": "Gone", "reason": "moved"}
+        answer = f"<!-- sedosaur_answer {json.dumps(gone)} -->\n\nDismissed."
+        comment = "\n".join(
+            json.dumps({"id": i, "login": "sedosaur[bot]", "author": bot, "body": b})
+            for i, b in [(3, body), (5, answer)]
         )
         executable(
             tmp_path / "bin" / "gh",
@@ -959,6 +962,7 @@ class TestMain:
         )
         assert held in text
         assert "\n\n- `a.go`: Meant. Reason: on purpose\n" in text
+        assert "\n- `c.md`: Gone. Reason: moved\n" in text
 
     def test_should_replay_without_the_open_threads_or_a_check_run(
         self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch

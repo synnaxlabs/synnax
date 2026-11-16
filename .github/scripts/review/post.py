@@ -58,8 +58,8 @@ COMMAND = re.compile(r"@sedosaur\s+dismiss\b", re.I)
 """The reply on the thread of a finding that dismisses it."""
 MEMBERS = {"OWNER", "MEMBER", "COLLABORATOR"}
 DISMISSED = "A member dismissed every finding of the review."
-_QUOTES = "\"'\u201c\u201d\u2018\u2019"
-_PATH = re.compile(r"(?:^|\s)path:(\S+)")
+ANSWER_START = "<!-- sedosaur_answer "
+ANSWER_END = " -->"
 # The REST fields of a comment, in the shape that `member` reads from GraphQL.
 _COMMENT = (
     "{id, login: .user.login, author: {__typename: .user.type, login: .user.login}, "
@@ -105,8 +105,7 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
     """
     t = target
     found = threads(t, gh)
-    keys = {(f.path, f.title) for f in review.findings}
-    review = _drop(review, {(d.path, d.title) for d in dismissals(t, gh, found, keys)})
+    review = _drop(review, {(d.path, d.title) for d in dismissals(t, gh, found)})
     blob = f"https://github.com/{t.repo}/blob/{t.head}"
     diff = _diff_lines(t, gh)
     inline = [f for f in review.findings if set(f.lines) <= diff.get(f.path, set())]
@@ -261,41 +260,31 @@ def dismissed(found: list[Thread]) -> list[Dismissal]:
     return out
 
 
-def dismissals(
-    t: Target, gh: GH, found: list[Thread], findings: set[tuple[str, str]]
-) -> list[Dismissal]:
+def dismissals(t: Target, gh: GH, found: list[Thread]) -> list[Dismissal]:
     """Returns each finding that a member dismissed: on its thread in the threads, or
-    with a comment on the pull request that names one of the findings by its path and
-    title."""
-    out = dismissed(found)
-    for c in _comments(t, gh):
-        text = command(c["body"])
-        if text is None or not member(c):
-            continue
-        if hit := named(text, findings):
-            (path, title), reason = hit
-            out.append(Dismissal(path=path, title=title, reason=reason))
-    return out
+    with a comment on the pull request that the bot answered and bound to a finding."""
+    bound = [a for a in answers(t, comments(t, gh)) if "path" in a]
+    return dismissed(found) + [
+        Dismissal(path=a["path"], title=a["title"], reason=a["reason"]) for a in bound
+    ]
 
 
-def named(
-    text: str, findings: set[tuple[str, str]]
-) -> tuple[tuple[str, str], str] | None:
-    """Returns the one finding whose title starts the text, and the reason after it, or
-    None. Case, backticks, and quotes around the title do not count. `path:<file>` picks
-    one of the findings that share a title."""
-    text = text.replace("`", "").strip().lstrip(_QUOTES)
-    plain = {f: f[1].replace("`", "").strip().strip(_QUOTES).strip() for f in findings}
-    hits = [f for f, p in plain.items() if text.casefold().startswith(p.casefold())]
-    size = max((len(plain[f]) for f in hits), default=0)
-    hits = [f for f in hits if len(plain[f]) == size]
-    rest = text[size:].lstrip(_QUOTES)
-    if m := _PATH.search(rest):
-        hits = [f for f in hits if f[0] == m[1]]
-        rest = rest[: m.start()] + rest[m.end() :]
-    if len(hits) != 1:
-        return None
-    return hits[0], rest.strip().lstrip(",:;.").strip()
+def answers(t: Target, found: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Returns the record in each of the bot's answers to a dismissal comment, from the
+    comments on the pull request. A record holds the `comment` it answers and, when the
+    comment dismissed a finding, its `path`, `title`, and `reason`."""
+    return [
+        json.loads(c["body"][len(ANSWER_START) :].split(ANSWER_END)[0])
+        for c in found
+        if c["login"] == f"{t.bot}[bot]" and c["body"].startswith(ANSWER_START)
+    ]
+
+
+def answer(record: dict[str, Any], text: str) -> str:
+    """Renders an answer to a dismissal comment that holds a record `answers` reads."""
+    # A ">" in a title would end the HTML comment early.
+    data = json.dumps(record).replace(">", "\\u003e")
+    return f"{ANSWER_START}{data}{ANSWER_END}\n\n{text}"
 
 
 def command(body: str) -> str | None:
@@ -385,7 +374,8 @@ def outside_findings(t: Target, gh: GH) -> set[tuple[str, str]]:
     return set() if c is None else render.outside_listed(c["body"])
 
 
-def _comments(t: Target, gh: GH) -> list[dict[str, Any]]:
+def comments(t: Target, gh: GH) -> list[dict[str, Any]]:
+    """Returns the comments on the pull request in the shape that `member` reads."""
     out = gh(
         "api",
         "--paginate",
@@ -409,7 +399,7 @@ def issue_comment(t: Target, gh: GH, id: int) -> dict[str, Any] | None:
 
 
 def _outside(t: Target, gh: GH) -> dict[str, Any] | None:
-    for c in _comments(t, gh):
+    for c in comments(t, gh):
         if c["login"] == f"{t.bot}[bot]" and c["body"].startswith(render.OUTSIDE):
             return c
     return None
@@ -439,7 +429,7 @@ def recheck(t: Target, gh: GH) -> None:
 
 def rescore(t: Target, gh: GH, found: list[Thread], key: str) -> bool:
     """Scores the head 5/5 in a new check run when a member dismissed every finding of
-    its newest review, in the threads or in comments. Returns whether it did.
+    its newest review, in the threads or in answered comments. Returns whether it did.
 
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
     """
@@ -451,7 +441,7 @@ def rescore(t: Target, gh: GH, found: list[Thread], key: str) -> bool:
     listed = render.listed(run["output"]["text"] or "")
     if not listed:
         return False
-    gone = {(d.path, d.title) for d in dismissals(t, gh, found, listed)}
+    gone = {(d.path, d.title) for d in dismissals(t, gh, found)}
     if not listed <= gone:
         return False
     output = {
