@@ -164,7 +164,7 @@ func (s *Service) ResolveKeyOrName(
 // applied. It stamps t, or now when t is zero or later than now, and clears the
 // description, which explained the previous message. It returns false when the first
 // match is newer than t, and the caller must then not write the status. A match time
-// later than now counts as now.
+// later than now never blocks a set.
 func SetTarget(
 	matches []Status[any],
 	keyOrName, message, variant string,
@@ -178,7 +178,7 @@ func SetTarget(
 	st := Status[any]{Key: uuid.New().String(), Name: keyOrName}
 	if len(matches) > 0 {
 		st = matches[0]
-		if min(st.Time, now).After(t) {
+		if !st.Time.After(now) && st.Time.After(t) {
 			return st, false
 		}
 	}

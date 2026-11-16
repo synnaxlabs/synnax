@@ -580,6 +580,17 @@ var _ = Describe("SetTarget", func() {
 		Expect(st.Time).To(BeNumerically("<=", telem.Now()))
 	})
 
+	It("Should write over a match with a time later than now", func() {
+		match.Time = telem.Now().Add(telem.Hour)
+		t := telem.Now().Add(-telem.Second)
+		st, newer := status.SetTarget(
+			[]status.Status[any]{match}, "pump", "on", "success", t,
+		)
+		Expect(newer).To(BeTrue())
+		Expect(st.Time).To(Equal(t))
+		Expect(st.Message).To(Equal("on"))
+	})
+
 	It("Should write when the time equals the time of the match", func() {
 		st, newer := status.SetTarget(
 			[]status.Status[any]{match}, "pump", "on", "success", match.Time,
