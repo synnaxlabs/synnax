@@ -165,8 +165,9 @@ the Driver's tasks keep running and that the Console cannot stop them until the 
 restarts. Between sequences, the operator restarts the Driver service or pod. It updates
 at that connect (RFC 0102 §3.5), and the new Driver drains the spool and outbox.
 
-The spool and outbox files start with a format version. A Driver reads its own version
-and the version of the previous minor, so an update never strands buffered data.
+The spool and outbox files start with a format version that changes only when the format
+changes. A Driver reads every format version that a stable release wrote, so an update
+never strands buffered data.
 
 ### 3.7 Operators during an outage
 
