@@ -155,23 +155,15 @@ func buildAliasDecls(
 		lhs, rhs := name, prefix+"."+targetName
 		params := resolution.NonDefaultedTypeParams(tparams)
 		if len(params) > 0 {
-			lhs += "["
-			rhs += "["
-			var lhsSb159 strings.Builder
-			var rhsSb159 strings.Builder
+			lhsParams := make([]string, len(params))
+			rhsParams := make([]string, len(params))
 			for i, tp := range params {
-				if i > 0 {
-					lhsSb159.WriteString(", ")
-					rhsSb159.WriteString(", ")
-				}
 				tpd := processTypeParam(tp, data)
-				lhsSb159.WriteString(tpd.Name + " " + tpd.Constraint)
-				rhsSb159.WriteString(tpd.Name)
+				lhsParams[i] = tpd.Name + " " + tpd.Constraint
+				rhsParams[i] = tpd.Name
 			}
-			lhs += lhsSb159.String()
-			rhs += rhsSb159.String()
-			lhs += "]"
-			rhs += "]"
+			lhs += "[" + strings.Join(lhsParams, ", ") + "]"
+			rhs += "[" + strings.Join(rhsParams, ", ") + "]"
 		}
 		decls = append(decls, aliasDecl{Name: name, LHS: lhs, RHS: rhs, Doc: docStr})
 	}

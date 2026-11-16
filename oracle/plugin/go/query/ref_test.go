@@ -205,14 +205,12 @@ var _ = Describe("@ref", func() {
 	)
 
 	union := func(schema, field string) string {
-		imports := ""
-		var importsSb209 strings.Builder
+		var imports strings.Builder
 		for dep := range strings.SplitSeq(schema, ",") {
-			importsSb209.WriteString("import \"schemas/" + dep + "\"\n")
+			imports.WriteString("import \"schemas/" + dep + "\"\n")
 		}
-		imports += importsSb209.String()
 		return `
-			` + imports + `
+			` + imports.String() + `
 
 			@go output "core/pkg/service/device"
 

@@ -47,6 +47,9 @@ type Options struct {
 	GenerateTypes   bool
 }
 
+const orNumericString = ".or(z.string().refine((v) => !isNaN(Number(v)))" +
+	".transform(Number))"
+
 func DefaultOptions() Options {
 	return Options{
 		FileNamePattern: "types.gen.ts",
@@ -607,7 +610,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 				zodType = result.ZodType
 			}
 			if toNumber {
-				zodType = zodType + ".or(z.string().refine((v) => !isNaN(Number(v))).transform(Number))"
+				zodType += orNumericString
 			}
 			if toString {
 				zodType = fmt.Sprintf(
@@ -655,7 +658,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			zodType = result.ZodType
 		}
 		if toNumber {
-			zodType = zodType + ".or(z.string().refine((v) => !isNaN(Number(v))).transform(Number))"
+			zodType += orNumericString
 		}
 		if toString {
 			zodType = fmt.Sprintf(
