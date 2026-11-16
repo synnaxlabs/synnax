@@ -109,47 +109,47 @@ var _ = Describe("Errors", func() {
 	})
 
 	Describe("Encoding + Decoding", func() {
-		It("Should send the message of a wrap", func(ctx SpecContext) {
+		It("Should send the message of a wrap", func() {
 			err := errors.Wrap(validate.ErrValidation, "channel name already exists")
-			encoded := errors.Encode(ctx, err, false)
+			encoded := errors.Encode(err, false)
 			Expect(encoded).To(Equal(errors.Payload{
 				Type: "sy.validation",
 				Data: "channel name already exists",
 			}))
-			Expect(errors.Decode(ctx, encoded)).To(SatisfyAll(
+			Expect(errors.Decode(encoded)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError("channel name already exists: validation error"),
+				MatchError("channel name already exists"),
 			))
 		})
 
-		It("Should send the formatted message of a wrapf", func(ctx SpecContext) {
+		It("Should send the formatted message of a wrapf", func() {
 			err := errors.Wrapf(validate.ErrValidation, "rate of %d%% is too high", 50)
-			encoded := errors.Encode(ctx, err, false)
+			encoded := errors.Encode(err, false)
 			Expect(encoded.Data).To(Equal("rate of 50% is too high"))
-			Expect(errors.Decode(ctx, encoded)).To(SatisfyAll(
+			Expect(errors.Decode(encoded)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError("rate of 50% is too high: validation error"),
+				MatchError("rate of 50% is too high"),
 			))
 		})
 
-		It("Should send the message of a wrap of a wrap", func(ctx SpecContext) {
+		It("Should send the message of a wrap of a wrap", func() {
 			err := errors.Wrap(errors.Wrap(validate.ErrValidation, "inner"), "outer")
-			encoded := errors.Encode(ctx, err, false)
+			encoded := errors.Encode(err, false)
 			Expect(encoded.Data).To(Equal("outer: inner"))
-			Expect(errors.Decode(ctx, encoded)).To(SatisfyAll(
+			Expect(errors.Decode(encoded)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError("outer: inner: validation error"),
+				MatchError("outer: inner"),
 			))
 		})
 
 		DescribeTable(
 			"Should keep the message of a derived sentinel",
-			func(ctx SpecContext, err error, msg string) {
-				encoded := errors.Encode(ctx, err, false)
+			func(err error, msg string) {
+				encoded := errors.Encode(err, false)
 				Expect(encoded.Data).To(Equal(msg))
-				Expect(errors.Decode(ctx, encoded)).To(SatisfyAll(
+				Expect(errors.Decode(encoded)).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
-					MatchError(msg+": validation error"),
+					MatchError(msg),
 				))
 			},
 			Entry(
@@ -169,48 +169,48 @@ var _ = Describe("Errors", func() {
 			),
 		)
 
-		It("Should send the message of a path error", func(ctx SpecContext) {
+		It("Should send the message of a path error", func() {
 			err := validate.PathedError(validate.ErrRequired, "name")
-			encoded := errors.Encode(ctx, err, false)
+			encoded := errors.Encode(err, false)
 			Expect(encoded).To(Equal(errors.Payload{
 				Type: "sy.validation.path",
 				Data: `{"error":{"type":"sy.validation","data":"required"},` +
 					`"path":["name"]}`,
 			}))
-			Expect(errors.Decode(ctx, encoded)).To(SatisfyAll(
+			Expect(errors.Decode(encoded)).To(SatisfyAll(
 				BeAssignableToTypeOf(validate.PathError{}),
-				MatchError("name: required: validation error"),
+				MatchError("name: required"),
 			))
 		})
 
-		It("Should send the message of each joined error", func(ctx SpecContext) {
+		It("Should send the message of each joined error", func() {
 			err := errors.Join(
 				errors.Wrap(validate.ErrValidation, "first"),
 				errors.Wrap(validate.ErrValidation, "second"),
 			)
-			encoded := errors.Encode(ctx, err, false)
+			encoded := errors.Encode(err, false)
 			Expect(encoded.Data).To(Equal("first\nsecond"))
-			Expect(errors.Decode(ctx, encoded)).To(SatisfyAll(
+			Expect(errors.Decode(encoded)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError("first\nsecond: validation error"),
+				MatchError("first\nsecond"),
 			))
 		})
 
-		It("Should send a join with a typed nil member", func(ctx SpecContext) {
+		It("Should send a join with a typed nil member", func() {
 			err := errors.Join(
 				(*fieldError)(nil),
 				errors.Wrap(validate.ErrValidation, "second"),
 			)
-			Expect(errors.Encode(ctx, err, false)).To(Equal(errors.Payload{
+			Expect(errors.Encode(err, false)).To(Equal(errors.Payload{
 				Type: "sy.validation",
 				Data: "<nil>\nsecond",
 			}))
 		})
 
-		It("Should send an empty message for the bare sentinel", func(ctx SpecContext) {
-			encoded := errors.Encode(ctx, validate.ErrValidation, false)
-			Expect(encoded.Data).To(BeEmpty())
-			Expect(errors.Decode(ctx, encoded)).To(SatisfyAll(
+		It("Should send the message of the bare sentinel", func() {
+			encoded := errors.Encode(validate.ErrValidation, false)
+			Expect(encoded.Data).To(Equal("validation error"))
+			Expect(errors.Decode(encoded)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError("validation error"),
 			))
