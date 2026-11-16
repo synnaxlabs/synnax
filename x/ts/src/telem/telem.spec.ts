@@ -985,6 +985,12 @@ describe("TimeStamp", () => {
           true,
         );
       });
+
+      it("should parse a date whose midnight is skipped by the clock change", () => {
+        process.env.TZ = "America/Santiago";
+        const expected = new TimeStamp(new Date(Date.UTC(2026, 8, 6, 4)));
+        expect(TimeStamp.parse("2026-09-06", "local")?.equals(expected)).toBe(true);
+      });
     });
   });
 

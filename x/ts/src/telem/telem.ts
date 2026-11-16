@@ -614,7 +614,9 @@ export class TimeStamp
       ? [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes()]
       : [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), hour, minute];
     const parsed = [year, month, day, hour, minute];
-    if (resolved.some((v, i) => v !== parsed[i])) return null;
+    // A date with no time is the start of its day, even when the zone skips midnight.
+    const checked = timeParts.length > 0 ? parsed.length : 3;
+    if (resolved.slice(0, checked).some((v, i) => v !== parsed[i])) return null;
     return new TimeStamp(d).add(new TimeSpan(fraction));
   }
 
