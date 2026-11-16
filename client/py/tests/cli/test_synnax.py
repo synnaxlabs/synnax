@@ -8,6 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import os
+import signal
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -16,20 +18,25 @@ import pytest
 
 from synnax.cli import parser
 
+_RUN_SY = "from synnax.cli.synnax import synnax; synnax()"
 
-def run_sy(*args: str, home: Path) -> subprocess.CompletedProcess[str]:
-    env = {
+
+def sy_env(home: Path) -> dict[str, str]:
+    return {
         **os.environ,
         "HOME": str(home),
         "USERPROFILE": str(home),
         "PYTHON_KEYRING_BACKEND": "keyring.backends.null.Keyring",
     }
+
+
+def run_sy(*args: str, home: Path, input: str = "") -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, "-c", "from synnax.cli.synnax import synnax; synnax()", *args],
-        input="",
+        [sys.executable, "-c", _RUN_SY, *args],
+        input=input,
         capture_output=True,
         text=True,
-        env=env,
+        env=sy_env(home),
         timeout=60,
     )
 
@@ -52,3 +59,36 @@ class TestCommand:
         assert result.returncode == 1
         assert "Traceback" not in result.stderr
         assert result.stderr.strip().splitlines()[-1] == "No input. Cancelled."
+
+    def test_login_fails_when_core_is_unreachable(self, tmp_path: Path) -> None:
+        """Should exit with 1 and one line when no Core listens at the address."""
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+        result = run_sy(
+            "login", home=tmp_path, input=f"127.0.0.1\n{port}\nsynnax\nsecret\nn\n"
+        )
+        assert result.returncode == 1
+        assert "Traceback" not in result.stderr
+        assert result.stderr.strip().splitlines()[-1] == (
+            f"Cannot reach Synnax server at 127.0.0.1:{port}"
+        )
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="SIGINT needs a POSIX signal")
+    def test_login_exits_130_on_interrupt(self, tmp_path: Path) -> None:
+        """Should exit with 130 and no traceback when the user presses Ctrl+C."""
+        proc = subprocess.Popen(
+            [sys.executable, "-c", _RUN_SY, "login"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=sy_env(tmp_path),
+        )
+        assert proc.stdout is not None
+        # The first prompt line shows that the command waits for input.
+        proc.stdout.readline()
+        proc.send_signal(signal.SIGINT)
+        _, stderr = proc.communicate(timeout=60)
+        assert proc.returncode == 130
+        assert "Traceback" not in stderr

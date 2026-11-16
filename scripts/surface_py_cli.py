@@ -42,6 +42,8 @@ def walk(parser: argparse.ArgumentParser, *, path: str, out: list[str]) -> None:
         if isinstance(action, argparse._HelpAction):
             continue
         if isinstance(action, argparse._SubParsersAction):
+            required = json.dumps({"required": action.required})
+            out.append(f"{path} {action.dest} {required}")
             for name, sub in action.choices.items():
                 walk(sub, path=f"{path} {name}", out=out)
             continue

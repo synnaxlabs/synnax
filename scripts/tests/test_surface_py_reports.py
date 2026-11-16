@@ -20,6 +20,10 @@ class TestCLIReport:
         assert "sy login command" in lines
         assert not any('"help"' in line for line in lines)
 
+    def test_reports_whether_a_command_is_required(self) -> None:
+        lines = surface_py_cli.report().splitlines()
+        assert 'sy command {"required": true}' in lines
+
     def test_gives_each_positional_argument_its_position(self) -> None:
         parser = argparse.ArgumentParser(prog="sy")
         parser.add_argument("a")

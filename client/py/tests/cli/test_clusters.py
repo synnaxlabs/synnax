@@ -224,6 +224,18 @@ class TestLogin:
         client.users.delete(other.key)
         delete_new_keys(client, before)
 
+    def test_rejects_invalid_credentials(
+        self,
+        clusters: Clusters,
+        login_info: tuple[str, int, str, str],
+    ) -> None:
+        """Should fail, say why, and save nothing when the password is wrong."""
+        host, port, username, _ = login_info
+        scripted = Scripted(host, port, username, "not-the-password", "n")
+        assert not connect.login(scripted.prompt, clusters)
+        assert scripted.err.getvalue() == "Invalid credentials\n"
+        assert clusters.get() is None
+
     def test_keeps_password_when_save_fails(
         self,
         clusters: Clusters,
@@ -242,9 +254,9 @@ class TestLogin:
             Options(host=host, port=port, username=username, password=password),
         )
         block_config_writes(clusters)
-        mock = console.Mock(responses=[host, port, username, password, False])
-        with pytest.raises(IsADirectoryError):
-            connect.login(Context(console=mock), clusters)
+        scripted = Scripted(host, port, username, password, "n")
+        assert not connect.login(scripted.prompt, clusters)
+        assert scripted.err.getvalue().startswith("Cannot save the API key:")
         assert keyring.values == {("synnax", "default"): password}
         assert {k.key for k in client.auth.retrieve_keys()} == before
 
@@ -266,9 +278,11 @@ class TestLogin:
             keyring,
             Options(host=host, port=port, username=username, password=password),
         )
-        mock = console.Mock(responses=[host, port, username, password, False])
-        with pytest.raises(KeyringError):
-            connect.login(Context(console=mock), clusters)
+        scripted = Scripted(host, port, username, password, "n")
+        assert connect.login(scripted.prompt, clusters)
+        assert scripted.err.getvalue().startswith(
+            "Saved the API key, but cannot delete the old password: locked"
+        )
         saved = clusters.get()
         assert saved is not None
         assert saved.options.api_key.startswith("syk_")

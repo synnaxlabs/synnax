@@ -20,6 +20,7 @@ from synnax.cli.prompt import Prompt
 from synnax.config import Cluster, Clusters
 from synnax.exceptions import AuthError
 from synnax.options import Options
+from x.exceptions import Error
 
 
 def _prompt_client_options(prompt: Prompt) -> Options:
@@ -44,11 +45,13 @@ def _prompt_client_options(prompt: Prompt) -> Options:
     )
 
 
-def _save_api_key(client: Synnax, *, opts: Options, clusters: Clusters) -> None:
+def _save_api_key(
+    client: Synnax, *, opts: Options, clusters: Clusters, prompt: Prompt
+) -> None:
     """Creates an API key for the logged-in user and saves it with opts in place of
     the username and password. Deletes the key when it is not saved, and, once the new
     one is saved, deletes the key it replaces when the same account on the same Core
-    owns it.
+    owns it. Warns when that last deletion fails, because the login has succeeded.
     """
     previous = clusters.get()
     token, key = client.auth.create_key(name=f"Python CLI on {socket.gethostname()}")
@@ -64,12 +67,16 @@ def _save_api_key(client: Synnax, *, opts: Options, clusters: Clusters) -> None:
                 )
             )
         )
-    except (OSError, KeyringError):
-        # a failure after the save, such as a stale password that cannot be deleted,
-        # leaves the key in use
+    except (OSError, KeyringError) as e:
         saved = clusters.get()
-        if saved is None or saved.options.api_key != token:
+        if saved is not None and saved.options.api_key == token:
+            # The save worked, and only the cleanup of the old password failed.
+            prompt.error(f"Saved the API key, but cannot delete the old password: {e}")
+            return
+        try:
             client.auth.delete_keys(key.key)
+        except Error as cleanup:
+            e.add_note(f"The new API key {key.key} is still on the Core: {cleanup}")
         raise
     if (
         previous is None
@@ -78,9 +85,12 @@ def _save_api_key(client: Synnax, *, opts: Options, clusters: Clusters) -> None:
     ):
         return
     previous_key = api_key_id(previous.options.api_key)
-    # A key another account saved is not ours to delete.
-    if any(k.key == previous_key for k in client.auth.retrieve_keys()):
-        client.auth.delete_keys(previous_key)
+    try:
+        # A key another account saved is not ours to delete.
+        if any(k.key == previous_key for k in client.auth.retrieve_keys()):
+            client.auth.delete_keys(previous_key)
+    except Error as e:
+        prompt.error(f"Saved the new API key, but cannot delete the old one: {e}")
 
 
 def _connect(prompt: Prompt, *, opts: Options) -> Synnax | None:
@@ -112,9 +122,10 @@ def login(prompt: Prompt, clusters: Clusters) -> bool:
     if synnax is None:
         return False
     try:
-        _save_api_key(synnax, opts=options, clusters=clusters)
-    except (OSError, KeyringError) as e:
-        prompt.error(f"Cannot save the API key: {e}")
+        _save_api_key(synnax, opts=options, clusters=clusters, prompt=prompt)
+    except (OSError, KeyringError, Error) as e:
+        notes = getattr(e, "__notes__", [])
+        prompt.error(" ".join([f"Cannot save the API key: {e}", *notes]))
         return False
     prompt.info(_SUCCESSFUL_LOGIN)
     return True
