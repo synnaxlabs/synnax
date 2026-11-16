@@ -782,6 +782,7 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 	if !ok {
 		return
 	}
+	checkRetrieveNoun(c, def, decl.domains)
 	lo.Must0(c.table.Add(resolution.Type{
 		Name:          name,
 		Namespace:     c.namespace,
@@ -794,6 +795,30 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 	if len(decl.removed) > 0 {
 		c.removals = append(c.removals, removal{typ: qname, fields: decl.removed})
 	}
+}
+
+// checkRetrieveNoun reports a `@retrieve noun` in domains that is not one string of
+// lowercase words, each one space apart.
+func checkRetrieveNoun(
+	c *analysisCtx, def antlr.ParserRuleContext, domains map[string]resolution.Domain,
+) {
+	expr, ok := domains["retrieve"].Expressions.Find("noun")
+	if !ok {
+		return
+	}
+	if len(expr.Values) == 1 && expr.Values[0].Kind == resolution.ValueKindString &&
+		lo.EveryBy(strings.Split(expr.Values[0].StringValue, " "), isLowerWord) {
+		return
+	}
+	c.report(diagnostics.Errorf(
+		def, "@retrieve noun takes one string of lowercase words, such as \"color\"",
+	))
+}
+
+func isLowerWord(w string) bool {
+	return w != "" && strings.IndexFunc(w, func(r rune) bool {
+		return r < 'a' || r > 'z'
+	}) == -1
 }
 
 // structDecl is a struct declaration collected but not yet registered. Its domains

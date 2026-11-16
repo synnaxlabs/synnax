@@ -839,6 +839,58 @@ var _ = Describe("Filter definitions", func() {
 			Expect(output.Values[0].StringValue).To(Equal("service"))
 		})
 
+		It("Should name the response and its docs by a @retrieve noun", func(
+			ctx SpecContext,
+		) {
+			table, diag := Analyze(ctx, `
+				import "schemas/x/filter"
+
+				Named struct {
+					key uuid { @key }
+
+					@retrieve noun "color"
+				}
+				Where filter Named {
+					key
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			doc := func(name string) string {
+				GinkgoHelper()
+				typ := table.MustGet("test." + name)
+				return typ.Domains["doc"].Expressions[0].Values[0].StringValue
+			}
+			res := table.MustGet("test.RetrieveResponse").Form.(resolution.StructForm)
+			Expect(fieldNames(res)).To(Equal([]string{"colors"}))
+			Expect(doc("RetrieveResponse")).To(Equal(
+				"holds the colors a RetrieveRequest selects.",
+			))
+			Expect(doc("Cursor")).To(Equal(
+				"is a position in an order of colors: the sort value and the key of a " +
+					"color.",
+			))
+		})
+
+		DescribeTable("Should reject a @retrieve noun that is not lowercase words",
+			func(ctx SpecContext, noun string) {
+				_, diag := Analyze(ctx, `
+					Named struct {
+						key uuid { @key }
+
+						@retrieve noun `+noun+`
+					}
+				`, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"@retrieve noun takes one string of lowercase words",
+				))
+			},
+			Entry("an uppercase letter", `"Color"`),
+			Entry("two spaces between words", `"named  color"`),
+			Entry("an identifier", "color"),
+			Entry("no value", ""),
+		)
+
 		It("Should place the request and response at the request output", func(
 			ctx SpecContext,
 		) {
