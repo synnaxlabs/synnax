@@ -144,7 +144,7 @@
         "level": 1,
         "raw": 1
       },
-      "error": "message reading: field total: -1 is negative: validation error"
+      "error": "message reading: field total: -1 is out of range for uint64: validation error"
     },
     {
       "document": {

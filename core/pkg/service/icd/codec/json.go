@@ -70,7 +70,7 @@ type jsonField struct {
 	scale, offset float64
 	// number reads the JSON value of a scaled field as a float64.
 	number *xjson.Decoder
-	// scratch holds a scaled value between its conversions.
+	// scratch holds the float64 sample that number reads.
 	scratch []byte
 	// sample converts a JSON value to a sample of the channel's data type.
 	sample *xjson.Decoder
@@ -179,8 +179,10 @@ func newJSONField(f icd.JSONField, dt telem.DataType) (jsonField, error) {
 		offset:  b.Offset,
 	}
 	var (
-		xf       = xjson.Field{DataType: dt}
-		fallback jsontext.Value
+		xf = xjson.Field{DataType: dt}
+		// fallback is the default of a field that is not a float, as a JSON value.
+		fallback     jsontext.Value
+		floatDefault *payload.Float
 	)
 	switch v := f.Variant.(type) {
 	case icd.FloatJSONField:
@@ -188,13 +190,9 @@ func newJSONField(f icd.JSONField, dt telem.DataType) (jsonField, error) {
 		for _, e := range v.EnumValues {
 			xf.Enums = append(xf.Enums, xjson.NewEnum(e.Label, float64(e.Value)))
 		}
-		if v.Default != nil {
-			if fallback, err = appendFloat(nil, float64(*v.Default)); err != nil {
-				return jsonField{}, errors.Wrap(err, "default")
-			}
-		}
+		floatDefault = v.Default
 	case icd.IntegerJSONField:
-		field.kind = payload.KindInteger
+		field.kind, xf.Range = payload.KindInteger, telem.Int64T
 		for _, e := range v.EnumValues {
 			xf.Enums = append(xf.Enums, xjson.NewEnum(e.Label, int64(e.Value)))
 		}
@@ -202,7 +200,7 @@ func newJSONField(f icd.JSONField, dt telem.DataType) (jsonField, error) {
 			fallback = strconv.AppendInt(nil, int64(*v.Default), 10)
 		}
 	case icd.UnsignedJSONField:
-		field.kind = payload.KindUnsigned
+		field.kind, xf.Range = payload.KindUnsigned, telem.Uint64T
 		for _, e := range v.EnumValues {
 			xf.Enums = append(xf.Enums, xjson.NewEnum(e.Label, uint64(e.Value)))
 		}
@@ -263,19 +261,28 @@ func newJSONField(f icd.JSONField, dt telem.DataType) (jsonField, error) {
 				dt,
 			)
 		}
-		numberField := xjson.Field{DataType: telem.Float64T, Enums: xf.Enums}
+		numberField := xjson.Field{
+			DataType: telem.Float64T,
+			Range:    xf.Range,
+			Enums:    xf.Enums,
+		}
 		if field.number, err = xjson.NewDecoder(numberField); err != nil {
 			return jsonField{}, err
 		}
-		xf.Enums = nil
+		// A scaled value has no label and need not be an integer.
+		xf.Enums, xf.Range = nil, ""
 	}
 	if field.sample, err = xjson.NewDecoder(xf); err != nil {
 		return jsonField{}, err
 	}
-	if fallback != nil {
-		if field.fallback, err = field.decode(nil, fallback); err != nil {
-			return jsonField{}, errors.Wrap(err, "default")
-		}
+	switch {
+	case floatDefault != nil:
+		field.fallback, err = field.appendFloat(nil, float64(*floatDefault))
+	case fallback != nil:
+		field.fallback, err = field.decode(nil, fallback)
+	}
+	if err != nil {
+		return jsonField{}, errors.Wrap(err, "default")
 	}
 	return field, nil
 }
@@ -287,18 +294,12 @@ func boolSample(v bool) uint8 {
 	return 0
 }
 
-// appendFloat appends v to dst as a JSON number.
-func appendFloat(dst []byte, v float64) (jsontext.Value, error) {
-	if math.IsNaN(v) || math.IsInf(v, 0) {
-		return nil, errors.Wrapf(validate.ErrValidation, "%v is not finite", v)
-	}
-	return strconv.AppendFloat(dst, v, 'g', -1, 64), nil
-}
-
 // decode appends the sample of raw to dst.
 func (f *jsonField) decode(dst []byte, raw jsontext.Value) ([]byte, error) {
-	if err := f.checkKind(raw); err != nil {
-		return nil, err
+	if f.kind == payload.KindBoolean && raw.Kind() == '0' {
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "expected a boolean, got number %s", raw,
+		)
 	}
 	if !f.scaled {
 		return f.sample.Append(dst, raw)
@@ -307,39 +308,15 @@ func (f *jsonField) decode(dst []byte, raw jsontext.Value) ([]byte, error) {
 	if f.scratch, err = f.number.Append(f.scratch[:0], raw); err != nil {
 		return nil, err
 	}
-	v := math.Float64frombits(telem.ByteOrder.Uint64(f.scratch))*f.scale + f.offset
-	if f.scratch, err = appendFloat(f.scratch[:0], v); err != nil {
-		return nil, err
-	}
-	return f.sample.Append(dst, f.scratch)
+	return f.appendFloat(dst, math.Float64frombits(telem.ByteOrder.Uint64(f.scratch)))
 }
 
-// checkKind rejects a JSON number that the field's kind cannot hold, such as 1.5 for an
-// integer field that writes to a float channel.
-func (f *jsonField) checkKind(raw jsontext.Value) error {
-	if raw.Kind() != '0' {
-		return nil
+// appendFloat appends the sample of v to dst, scaled when the field scales.
+func (f *jsonField) appendFloat(dst []byte, v float64) ([]byte, error) {
+	if f.scaled {
+		v = v*f.scale + f.offset
 	}
-	switch f.kind {
-	case payload.KindInteger, payload.KindUnsigned:
-	case payload.KindBoolean:
-		return errors.Wrapf(
-			validate.ErrValidation, "expected a boolean, got number %s", raw,
-		)
-	default:
-		return nil
-	}
-	n, err := strconv.ParseFloat(string(raw), 64)
-	if err != nil {
-		return errors.Wrapf(validate.ErrValidation, "invalid number %q", raw)
-	}
-	if n != math.Trunc(n) {
-		return errors.Wrapf(validate.ErrValidation, "%s is not an integer", raw)
-	}
-	if f.kind == payload.KindUnsigned && n < 0 {
-		return errors.Wrapf(validate.ErrValidation, "%s is negative", raw)
-	}
-	return nil
+	return f.sample.AppendFloat(dst, v)
 }
 
 // Decode finds the message that doc belongs to and appends one sample for each of its
