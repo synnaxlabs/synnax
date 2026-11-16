@@ -531,10 +531,12 @@ func markUses(p *packages.Package, generated set.Set[string], syms map[string]*s
 }
 
 // isTestUtility reports whether the package at path holds test helpers: a path element
-// named testutil, test, or mock, or one that ends in mock.
+// named testutil, test, fake, or mock, or one that ends in mock.
 func isTestUtility(path string) bool {
 	for elem := range strings.SplitSeq(path, "/") {
-		if elem == "testutil" || elem == "test" || strings.HasSuffix(elem, "mock") {
+		switch {
+		case elem == "testutil", elem == "test", elem == "fake",
+			strings.HasSuffix(elem, "mock"):
 			return true
 		}
 	}
