@@ -410,6 +410,7 @@ resource "aws_iam_role_policies_exclusive" "sandbox" {
     aws_iam_role_policy.cost_explorer_read.name,
     aws_iam_role_policy.runner_power.name,
     aws_iam_role_policy.ssm_disk.name,
+    aws_iam_role_policy.seat_logins.name,
   ]
 }
 
