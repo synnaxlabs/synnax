@@ -20,7 +20,7 @@ const SPEC = Custom.createBuiltIn({
   svg,
   handles: [
     { key: "2", position: { x: 0.356321, y: 0.1372549 }, orientation: "left" },
-    { key: "2", position: { x: 0.5, y: 0.0196078 }, orientation: "top" },
+    { key: "4", position: { x: 0.5, y: 0.0196078 }, orientation: "top" },
     { key: "3", position: { x: 0.643679, y: 0.1372549 }, orientation: "right" },
     { key: "1", position: { x: 0.241379, y: 0.46078 }, orientation: "left" },
     { key: "5", position: { x: 0.758621, y: 0.46078 }, orientation: "right" },
