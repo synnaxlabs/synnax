@@ -28,6 +28,18 @@
     }
 }
 
+.pluto-log__link {
+    position: absolute;
+    pointer-events: none;
+}
+
+/* Waits, so a pointer that only crosses a link shows nothing. */
+.pluto-log__target {
+    overflow-wrap: anywhere;
+    animation-delay: 300ms;
+    animation-fill-mode: backwards;
+}
+
 /* Fades in only once a read has run for a while, so a fast read shows nothing. */
 .pluto-log__blank {
     position: absolute;

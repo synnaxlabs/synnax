@@ -15,8 +15,10 @@ import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box, type link, runtime, strings } from "@synnaxlabs/x";
+import { box, type link, runtime, strings, xy } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { CSS } from "@/css";
@@ -67,6 +69,34 @@ const EMPTY_CONTENT = (
     No log entries
   </Status.Summary>
 );
+
+interface TargetProps {
+  // The box of the link, from the top left of the log.
+  region: box.Box;
+  target: string;
+}
+
+// A Markdown link shows only its label, so the tooltip shows where it goes.
+const Target = ({ region, target }: TargetProps): ReactElement => {
+  const [anchor, setAnchor] = useState<HTMLSpanElement | null>(null);
+  return (
+    <>
+      <span
+        key={`${box.left(region)},${box.top(region)}`}
+        ref={setAnchor}
+        className={CSS.BE("log", "link")}
+        style={box.css(region)}
+      />
+      {anchor != null && (
+        <Tooltip.Frame anchor={anchor} className={CSS.BE("log", "target")}>
+          <Text.Text level="small" variant="code" color={11}>
+            {target}
+          </Text.Text>
+        </Tooltip.Frame>
+      )}
+    </>
+  );
+};
 
 export interface BaseProps extends UseProps, Omit<Flex.BoxProps, "color"> {
   emptyContent?: ReactElement;
@@ -143,9 +173,12 @@ export const Base = ({
   const combinedRef = useCombinedRefs(resizeRef, containerRef);
 
   const draggingRef = useRef(false);
-  const [linkHovered, setLinkHovered] = useState(false);
+  const [hovered, setHovered] = useState<(typeof links)[number]>();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
+
+  // A piece from an earlier draw can sit over other text now.
+  const hoveredLink = links.find((piece) => piece === hovered);
 
   const mouseYToEntryIndex = (clientY: number): number => {
     if (computedLineHeight <= 0) return 0;
@@ -178,7 +211,7 @@ export const Base = ({
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    setLinkHovered(linkAt(e) != null);
+    setHovered(linkAt(e));
     if (!draggingRef.current) return;
     const idx = mouseYToEntryIndex(e.clientY);
     setState((s) => ({ ...s, selectionEnd: idx }));
@@ -273,7 +306,7 @@ export const Base = ({
         tabIndex={-1}
         className={CSS.cls(
           CSS.B("log"),
-          linkHovered && CSS.BM("log", "link-hovered"),
+          hoveredLink != null && CSS.BM("log", "link-hovered"),
           className,
         )}
         onWheel={(e) => {
@@ -283,7 +316,7 @@ export const Base = ({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onMouseLeave={() => setLinkHovered(false)}
+        onMouseLeave={() => setHovered(undefined)}
         onCopy={(e) => {
           if (!hasSelection) return;
           e.preventDefault();
@@ -304,6 +337,15 @@ export const Base = ({
           <Icon.Loading aria-label="Loading" className={CSS.BE("log", "loading")} />
         )}
         {empty ? emptyContent : children}
+        {hoveredLink != null && (
+          <Target
+            region={box.translate(
+              hoveredLink.region,
+              xy.scale(box.topLeft(region), -1),
+            )}
+            target={hoveredLink.target}
+          />
+        )}
       </div>
     </Menu.ContextMenu>
   );
