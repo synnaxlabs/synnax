@@ -57,27 +57,20 @@ pub fn key_entry() -> io::Result<Entry> {
     Entry::new_with_modifiers(KEY_SERVICE, KEY_ACCOUNT, &modifiers).map_err(io::Error::other)
 }
 
-/// Returns the keychain entry of the API key. When this session has no keychain,
-/// first removes a key that an older version left in the discovery file at `path`, so
-/// the key never stays on disk in plaintext.
-pub fn key_entry_for(path: &Path) -> io::Result<Entry> {
-    key_entry().or_else(|err| {
-        drop_legacy_key(path)?;
-        Err(err)
-    })
-}
-
 /// Rewrites the discovery file at `path` without the API key that an older version
-/// saved in it. Does nothing when the file holds no key.
-fn drop_legacy_key(path: &Path) -> io::Result<()> {
-    if let Some(Legacy {
+/// saved in it, so the key never stays on disk in plaintext.
+///
+/// Returns that key, or `None` when the file holds none.
+fn take_legacy_key(path: &Path) -> io::Result<Option<String>> {
+    let Some(Legacy {
         file,
-        api_key: Some(_),
+        api_key: Some(api_key),
     }) = read_file(path)?
-    {
-        write(path, &file)?;
-    }
-    Ok(())
+    else {
+        return Ok(None);
+    };
+    write(path, &file)?;
+    Ok(Some(api_key))
 }
 
 fn read_file(path: &Path) -> io::Result<Option<Legacy>> {
@@ -96,25 +89,56 @@ fn get_key(key: &Entry) -> io::Result<Option<String>> {
     }
 }
 
-/// Returns the saved API key, or `None` when there is none. Moves a key that an older
-/// version saved in the discovery file at `path` into the keychain. Callers must
-/// serialize their calls.
-pub fn read_key(path: &Path, key: &Entry) -> io::Result<Option<String>> {
-    if let Some(Legacy {
-        file,
-        api_key: Some(api_key),
-    }) = read_file(path)?
-    {
-        let moved = match get_key(key) {
-            Ok(Some(_)) => Ok(()),
-            Ok(None) => key.set_password(&api_key).map_err(io::Error::other),
-            Err(err) => Err(err),
-        };
-        // The plaintext key leaves the file even when the keychain refuses it.
-        write(path, &file)?;
-        moved?;
-    }
-    get_key(key)
+/// The saved API key, and a key that an older version saved in the discovery file but
+/// that did not move to the keychain. The caller must revoke `dropped` in the Core, as
+/// nothing references it after this read.
+#[derive(Debug, Default, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Saved {
+    pub api_key: Option<String>,
+    pub dropped: Option<String>,
+}
+
+/// Reads the saved API key from `key`, or from no keychain when `key` is `None`. Moves a
+/// key that an older version saved in the discovery file at `path` into an empty
+/// keychain, and returns it as `dropped` when it cannot move. Callers must serialize
+/// their calls.
+pub fn read_key(path: &Path, key: Option<&Entry>) -> io::Result<Saved> {
+    let legacy = take_legacy_key(path)?;
+    let Some(key) = key else {
+        return Ok(Saved {
+            api_key: None,
+            dropped: legacy,
+        });
+    };
+    let Some(legacy) = legacy else {
+        return Ok(Saved {
+            api_key: get_key(key)?,
+            dropped: None,
+        });
+    };
+    let moved = match get_key(key) {
+        Ok(Some(current)) => {
+            let dropped = (current != legacy).then_some(legacy);
+            return Ok(Saved {
+                api_key: Some(current),
+                dropped,
+            });
+        }
+        Ok(None) => key.set_password(&legacy).map_err(io::Error::other),
+        Err(err) => Err(err),
+    };
+    // A keychain that fails here fails again in the save that follows the revoke.
+    Ok(match moved {
+        Ok(()) => Saved {
+            api_key: Some(legacy),
+            dropped: None,
+        },
+        Err(_) => Saved {
+            api_key: None,
+            dropped: Some(legacy),
+        },
+    })
 }
 
 /// Saves `api_key` in the keychain and `file` to `path`, but only when the saved key is
@@ -128,7 +152,13 @@ pub fn swap(
     api_key: &str,
     expected: Option<&str>,
 ) -> io::Result<bool> {
-    if read_key(path, key)?.as_deref() != expected {
+    let saved = read_key(path, Some(key))?;
+    if saved.dropped.is_some() {
+        return Err(io::Error::other(
+            "an older API key appeared in the discovery file; read the saved key first",
+        ));
+    }
+    if saved.api_key.as_deref() != expected {
         return Ok(false);
     }
     // The file goes first: a failed keychain write then leaves the expected key saved.
@@ -206,7 +236,7 @@ mod tests {
         assert!(swap(&path, &key, &file(), "syk_secret", None).unwrap());
         assert_eq!(key.get_password().unwrap(), "syk_secret");
         assert_eq!(
-            read_key(&path, &key).unwrap().as_deref(),
+            read_key(&path, Some(&key)).unwrap().api_key.as_deref(),
             Some("syk_secret")
         );
         assert_eq!(
@@ -230,11 +260,14 @@ mod tests {
         assert!(!swap(&path, &key, &next, "syk_next", None).unwrap());
         assert!(!swap(&path, &key, &next, "syk_next", Some("syk_other")).unwrap());
         assert_eq!(
-            read_key(&path, &key).unwrap().as_deref(),
+            read_key(&path, Some(&key)).unwrap().api_key.as_deref(),
             Some("syk_secret")
         );
         assert!(swap(&path, &key, &next, "syk_next", Some("syk_secret")).unwrap());
-        assert_eq!(read_key(&path, &key).unwrap().as_deref(), Some("syk_next"));
+        assert_eq!(
+            read_key(&path, Some(&key)).unwrap().api_key.as_deref(),
+            Some("syk_next")
+        );
         assert_eq!(stored(&path)["port"], 5432);
         assert!(!path.with_extension("json.partial").exists());
     }
@@ -250,7 +283,13 @@ mod tests {
         )
         .unwrap();
         let key = key();
-        assert_eq!(read_key(&path, &key).unwrap().as_deref(), Some("syk_old"));
+        assert_eq!(
+            read_key(&path, Some(&key)).unwrap(),
+            Saved {
+                api_key: Some("syk_old".to_string()),
+                dropped: None,
+            }
+        );
         assert_eq!(key.get_password().unwrap(), "syk_old");
         assert_eq!(
             stored(&path),
@@ -259,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    fn keeps_the_keychain_key_over_one_in_an_older_file() {
+    fn keeps_the_keychain_key_and_returns_an_older_files_key_to_revoke() {
         let dir = tempfile::tempdir().unwrap();
         let path = path(dir.path());
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -270,7 +309,13 @@ mod tests {
         .unwrap();
         let key = key();
         key.set_password("syk_new").unwrap();
-        assert_eq!(read_key(&path, &key).unwrap().as_deref(), Some("syk_new"));
+        assert_eq!(
+            read_key(&path, Some(&key)).unwrap(),
+            Saved {
+                api_key: Some("syk_new".to_string()),
+                dropped: Some("syk_old".to_string()),
+            }
+        );
         assert!(stored(&path).get("api_key").is_none());
     }
 
@@ -284,34 +329,76 @@ mod tests {
     }
 
     #[test]
-    fn drops_an_older_files_key_when_the_keychain_fails() {
+    fn returns_an_older_files_key_to_revoke_when_the_keychain_fails() {
         let dir = tempfile::tempdir().unwrap();
         let path = path(dir.path());
         write_legacy(&path);
         let key = key();
         let mock: &keyring_core::mock::Cred = key.as_any().downcast_ref().unwrap();
         mock.set_error(Error::NoStorageAccess(io::Error::other("locked").into()));
-        assert!(read_key(&path, &key).is_err());
+        assert_eq!(
+            read_key(&path, Some(&key)).unwrap(),
+            Saved {
+                api_key: None,
+                dropped: Some("syk_old".to_string()),
+            }
+        );
         assert!(stored(&path).get("api_key").is_none());
     }
 
     #[test]
-    fn drops_an_older_files_key_without_a_keychain() {
+    fn returns_an_older_files_key_to_revoke_without_a_keychain() {
         let dir = tempfile::tempdir().unwrap();
         let path = path(dir.path());
         write_legacy(&path);
-        drop_legacy_key(&path).unwrap();
+        assert_eq!(
+            read_key(&path, None).unwrap(),
+            Saved {
+                api_key: None,
+                dropped: Some("syk_old".to_string()),
+            }
+        );
         assert_eq!(
             stored(&path),
             serde_json::json!({"host": "127.0.0.1", "port": 4321, "secure": false})
         );
-        drop_legacy_key(&path).unwrap();
+        assert_eq!(read_key(&path, None).unwrap(), Saved::default());
+    }
+
+    #[test]
+    fn keeps_an_older_files_key_that_the_keychain_already_holds() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = path(dir.path());
+        write_legacy(&path);
+        let key = key();
+        key.set_password("syk_old").unwrap();
+        assert_eq!(
+            read_key(&path, Some(&key)).unwrap(),
+            Saved {
+                api_key: Some("syk_old".to_string()),
+                dropped: None,
+            }
+        );
+    }
+
+    #[test]
+    fn refuses_to_swap_over_an_older_files_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = path(dir.path());
+        write_legacy(&path);
+        let key = key();
+        key.set_password("syk_new").unwrap();
+        assert!(swap(&path, &key, &file(), "syk_next", Some("syk_new")).is_err());
+        assert_eq!(key.get_password().unwrap(), "syk_new");
     }
 
     #[test]
     fn reads_no_key_when_nothing_is_saved() {
         let dir = tempfile::tempdir().unwrap();
-        assert_eq!(read_key(&path(dir.path()), &key()).unwrap(), None);
+        assert_eq!(
+            read_key(&path(dir.path()), Some(&key())).unwrap(),
+            Saved::default()
+        );
     }
 
     #[test]
@@ -320,7 +407,7 @@ mod tests {
         let path = path(dir.path());
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, "not json").unwrap();
-        assert!(read_key(&path, &key()).is_err());
+        assert!(read_key(&path, Some(&key())).is_err());
     }
 
     #[test]

@@ -31,6 +31,17 @@ const known = async (client: Synnax, token: string): Promise<boolean> => {
   return keys.some((k) => k.key === key);
 };
 
+/**
+ * @returns The saved API key, after it revokes an older key that could not move to the
+ * keychain.
+ */
+const retrieve = async (client: Synnax): Promise<string | null> => {
+  const { apiKey, dropped } = await retrieveAPIKey();
+  const old = dropped == null ? null : recordKey(dropped);
+  if (old != null) await client.auth.deleteKeys(old);
+  return apiKey;
+};
+
 /** @returns The new key, or null when another window changed the saved key first. */
 const create = async (
   client: Synnax,
@@ -56,7 +67,7 @@ const create = async (
  * @returns The saved API key.
  */
 export const ensure = async (client: Synnax): Promise<string> => {
-  const saved = await retrieveAPIKey();
+  const saved = await retrieve(client);
   if (saved != null && (await known(client, saved))) {
     if (await saveAPIKey(saved, saved)) return saved;
   } else {
@@ -72,7 +83,7 @@ export const ensure = async (client: Synnax): Promise<string> => {
  * @returns The new API key.
  */
 export const replace = async (client: Synnax): Promise<string> => {
-  const saved = await retrieveAPIKey();
+  const saved = await retrieve(client);
   const old = saved == null ? null : recordKey(saved);
   // The delete comes first, so a reset that fails never leaves the old key working.
   if (old != null) await client.auth.deleteKeys(old);

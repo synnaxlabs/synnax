@@ -211,6 +211,19 @@ describe("Embedded.Guard API key for scripts", () => {
     await createScriptClient(apiKey).auth.retrieveSessions();
   });
 
+  it("should revoke an older key that did not move to the keychain", async () => {
+    await deleteKeysCreatedByTest(client);
+    const { token, key } = await client.auth.createKey({ name: "desktop 1.1" });
+    const { file, handlers } = createDiscoveryFile();
+    file.dropped = token;
+    const { commands } = mockSupervisor(() => live, handlers);
+    await renderGuard();
+    await waitFor(() =>
+      expect(commands).toHaveBeenCalledWith("supervisor_save_api_key"),
+    );
+    await expect.poll(async () => await retrieveKeyIDs(client)).not.toContain(key.key);
+  });
+
   it("should replace a saved key that is not an API key", async () => {
     await deleteKeysCreatedByTest(client);
     const { file, handlers } = createDiscoveryFile("edited by hand");

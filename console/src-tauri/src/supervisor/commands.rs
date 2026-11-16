@@ -262,12 +262,19 @@ pub async fn supervisor_reset<R: Runtime>(
     app.restart()
 }
 
-/// Returns the saved API key, or `None` when there is none.
+/// Returns the saved API key, and an older plaintext key that the caller must revoke.
 #[tauri::command]
-pub async fn supervisor_api_key(discovery: State<'_, Discovery>) -> Result<Option<String>, String> {
+pub async fn supervisor_api_key(
+    discovery: State<'_, Discovery>,
+) -> Result<discovery::Saved, String> {
     let path = discovery.path.clone();
     let _guard = discovery.lock.lock().await;
-    blocking(move || discovery::read_key(&path, &discovery::key_entry_for(&path)?)).await
+    blocking(move || {
+        // With no keychain, nothing is saved. The save that follows reports the error.
+        let key = discovery::key_entry().ok();
+        discovery::read_key(&path, key.as_ref())
+    })
+    .await
 }
 
 /// Saves `api_key` in the keychain and the address of the running Core in the discovery
@@ -295,7 +302,7 @@ pub async fn supervisor_save_api_key(
     blocking(move || {
         discovery::swap(
             &path,
-            &discovery::key_entry_for(&path)?,
+            &discovery::key_entry()?,
             &file,
             &api_key,
             replaces.as_deref(),

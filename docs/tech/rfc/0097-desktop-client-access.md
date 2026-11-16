@@ -40,8 +40,9 @@ The shell writes `~/.synnax/desktop.json` on every operating system: `host`, `po
 `secure`, the field names of the Python `Options`. The write goes to a partial file,
 then renames it. The API key goes to the OS keychain under service
 `com.synnaxlabs.desktop` and account `api_key`. "Erase all data" deletes the file and
-the key. Desktop 1.1 wrote `api_key` in the file. Desktop moves such a key into the
-keychain, and drops it from the file when no keychain is available.
+the key. Desktop 1.1 wrote `api_key` in the file. Desktop removes it from the file and
+moves it into an empty keychain. When it cannot move, the window revokes it in the Core,
+so a plaintext root key never stays valid.
 
 ### 3.1 A port that stays the same
 

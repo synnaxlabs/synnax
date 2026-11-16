@@ -140,6 +140,8 @@ export const mockSupervisor = (
 export interface DiscoveryFile {
   /** The API key the app saved last, or null before the first save. */
   apiKey: string | null;
+  /** An older key that the next read returns once for the app to revoke. */
+  dropped: string | null;
 }
 
 const saveArgsZ = z.object({ apiKey: z.string(), replaces: z.string().nullable() });
@@ -154,11 +156,15 @@ export const createDiscoveryFile = (
   apiKey: string | null = null,
   beforeSave?: (file: DiscoveryFile, apiKey: string) => void | Promise<void>,
 ): { file: DiscoveryFile; handlers: Record<string, CommandHandler> } => {
-  const file: DiscoveryFile = { apiKey };
+  const file: DiscoveryFile = { apiKey, dropped: null };
   return {
     file,
     handlers: {
-      supervisor_api_key: () => file.apiKey,
+      supervisor_api_key: () => {
+        const saved = { apiKey: file.apiKey, dropped: file.dropped };
+        file.dropped = null;
+        return saved;
+      },
       supervisor_save_api_key: async (args) => {
         const { apiKey, replaces } = saveArgsZ.parse(args);
         await beforeSave?.(file, apiKey);

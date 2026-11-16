@@ -146,14 +146,20 @@ export const retrieveLogTail = async (): Promise<string> =>
 export const exportDiagnostics = async (path: string): Promise<void> =>
   await invoke("supervisor_export_diagnostics", { path });
 
-/**
- * @returns The API key that scripts on this computer use, or null when none is saved.
- */
-export const retrieveAPIKey = async (): Promise<string | null> =>
-  z
-    .string()
-    .nullable()
-    .parse(await invoke("supervisor_api_key"));
+const savedAPIKeyZ = z.object({
+  /** The API key that scripts on this computer use, or null when none is saved. */
+  apiKey: z.string().nullable(),
+  /**
+   * A key that Synnax Desktop 1.1 saved in plaintext and that did not move to the
+   * keychain. Nothing references it after the read, so the caller must revoke it.
+   */
+  dropped: z.string().nullable(),
+});
+interface SavedAPIKey extends z.infer<typeof savedAPIKeyZ> {}
+
+/** @returns The saved API key, and an older key that the caller must revoke. */
+export const retrieveAPIKey = async (): Promise<SavedAPIKey> =>
+  savedAPIKeyZ.parse(await invoke("supervisor_api_key"));
 
 /**
  * Saves the API key, with the address of the running Core, where the client libraries
