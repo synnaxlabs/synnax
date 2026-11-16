@@ -122,6 +122,8 @@ export interface UseRenderParams {
   stateOverrides?: schematic.symbol.State[];
   /** The color of the whole symbol, such as the stale color. */
   strokeColor?: color.Crude;
+  /** Marks markup that ships with Pluto, which mounts without the sanitizer. */
+  builtIn?: boolean;
 }
 
 interface RenderState {
@@ -184,12 +186,12 @@ const applyStrokeScaled = (drawing: Element, strokeScaled: boolean) => {
 };
 
 const runRender = (host: Element, params: UseRenderParams, state: RenderState) => {
-  const { spec, onMount, strokeColor } = params;
+  const { spec, onMount, strokeColor, builtIn = false } = params;
   if (spec == null) return;
   if (state.prevSvg !== spec.svg) {
     state.prevSvg = spec.svg;
     state.prevState = undefined;
-    const root = Region.parseSVG(spec.svg);
+    const root = builtIn ? Region.parseTrusted(spec.svg) : Region.parseSVG(spec.svg);
     if (root == null) {
       state.drawing?.remove();
       state.drawing = null;

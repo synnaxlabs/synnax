@@ -32,6 +32,8 @@ class Explorer(Surface):
             layout=layout,
             search_placeholder=self.SEARCH_INPUT_PLACEHOLDER,
             static_view_name=self.STATIC_VIEW_NAME,
+            tab_name="Range explorer",
+            tab_prefix="Ranges",
         )
 
     def open(self) -> None:

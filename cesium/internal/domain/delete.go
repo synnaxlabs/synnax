@@ -234,7 +234,7 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	db.resourceCount.Add(1)
 	defer db.resourceCount.Add(-1)
 
-	if _, err := db.fc.gcWriters(); err != nil {
+	if err := db.fc.gcWriters(); err != nil {
 		return span.Error(err)
 	}
 

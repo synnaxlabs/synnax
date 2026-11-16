@@ -94,10 +94,7 @@ func generateEncoderCodecFile(
 	if err != nil {
 		return nil, err
 	}
-	current, err := resolveGoImportPath(parentPath, repoRoot)
-	if err != nil {
-		return nil, err
-	}
+	current := resolveGoImportPath(parentPath, repoRoot)
 	aliases := naming.ImportAliases(slices.Collect(maps.Keys(imports)), current)
 	if len(aliases) == 0 {
 		return content, nil
@@ -658,7 +655,7 @@ func buildUnionCodec(
 		var embeds []string
 		var inlineFields []resolution.Field
 		if v.Inline {
-			pform := payload.Form.(resolution.StructForm)
+			pform := resolution.MustForm[resolution.StructForm](payload)
 			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			for _, ext := range inherited {
 				parent, ok := ext.Resolve(table)
@@ -1309,10 +1306,7 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if p, ok := b.pins.Path(b.owner, typ); ok {
 		goPath = p
 	}
-	importPath, err := resolveGoImportPath(goPath, b.repoRoot)
-	if err != nil {
-		return "", err
-	}
+	importPath := resolveGoImportPath(goPath, b.repoRoot)
 	if existingAlias, ok := b.imports[importPath]; ok {
 		qualifier := existingAlias
 		if qualifier == "" {
