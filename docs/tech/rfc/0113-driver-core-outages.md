@@ -64,10 +64,14 @@ an update". A Driver that restarts while the Core is down still starts with no t
 publishes to the bus and then hands the frame to a `bypass::pipeline::Forwarder` (NEW).
 The forwarder owns the task's Core writer on its own thread and opens, writes, and
 reopens it. `WriterFactory::open_writer` registers the channels on the bus and returns
-at once. The handoff queue has a byte cap; past it, frames go to the spool (§3.2).
+at once. The handoff queue has a byte cap. While the Core is reachable, frames past it
+are dropped and counted, because a spooled frame must fall before the next live session
+(RFC 0095 §4.4).
 
-The forwarder spools only when the Core is unreachable. Any other Core error, such as a
-deleted channel or an unauthorized write, closes the forwarder, and the next
+The forwarder spools only when the Core is unreachable. It then closes the live writer,
+spools the queued frames in order, and reopens the live writer only after the queue is
+empty, so every spooled frame comes before the new session. Any other Core error, such
+as a deleted channel or an unauthorized write, closes the forwarder, and the next
 `Writer::write` returns it, so the task stops with that error as today
 (`acquisition.cpp:162-167`). The acquisition retry path stays for pipelines with no bus.
 
@@ -117,8 +121,9 @@ frame (`client/cpp/framer/writer.cpp:57-60`). The forwarder counts them as dropp
 ### 3.4 Arc statuses and ranges
 
 `outbox::Outbox` (NEW) is a queue of Core calls on disk, next to the spool, with one
-thread that sends them in order. The nearest analog, `task::StatusCache`
-(`driver/task/status_cache.cpp:32-69`), keeps only the latest status per task.
+thread that sends them in order. Each call is stored as its length-prefixed request
+proto. The nearest analog, `task::StatusCache` (`driver/task/status_cache.cpp:32-69`),
+keeps only the latest status per task.
 
 - **`status.set`**: The node stamps the time and queues the call. It returns the key of
   the last resolved set of that name, or an empty string before the first one. Today it
@@ -127,9 +132,10 @@ thread that sends them in order. The nearest analog, `task::StatusCache`
   with its start time. The Core keeps a client key (`ranger/writer.go:45-46`).
 - **`range.end`**: Queued with its end time, after its create.
 
-The outbox retries while the Core is unreachable. A create whose key exists counts as
-sent. Any other error drops the call and counts it. When full, the outbox refuses new
-calls and counts them, except `range.end`, which is small and closes a range.
+The outbox retries while the Core is unreachable. When a create fails validation, the
+outbox retrieves the key; a range that exists counts as sent. Any other error drops the
+call and counts it. When full, the outbox refuses new calls and counts them, except
+`range.end`, which is small and closes a range.
 
 On the Core, `SetByKeyOrNameRequest` gains `time`
 (`core/pkg/transport/grpc/status/status.proto:56-60`). A zero time means now. A set
@@ -154,9 +160,13 @@ reconnect the task manager deploys again only tasks whose config changed (SY-606
 
 When `check_core` finds a Core on another minor (`driver/rack/remote.cpp:209-218`), the
 Driver does not restart. It keeps its running tasks and treats the Core as unreachable,
-except for one rack status write: "Driver needs an update". Between sequences, the
-operator restarts the Driver service or pod. It updates at that connect (RFC 0102 §3.5),
-and the new Driver drains the spool and outbox.
+except for one rack status write: "Driver needs an update". Its description says that
+the Driver's tasks keep running and that the Console cannot stop them until the Driver
+restarts. Between sequences, the operator restarts the Driver service or pod. It updates
+at that connect (RFC 0102 §3.5), and the new Driver drains the spool and outbox.
+
+The spool and outbox files start with a format version. A Driver reads its own version
+and the version of the previous minor, so an update never strands buffered data.
 
 ### 3.7 Operators during an outage
 
