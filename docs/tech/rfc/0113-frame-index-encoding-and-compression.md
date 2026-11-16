@@ -2,15 +2,17 @@
 
 - **Author**: Patrick Dotson
 - **Date**: 2026-11-16
+- **Related**:
+  [RFC 0059 - Bulk telemetry read endpoint](0059-bulk-telemetry-read-endpoint.md)
 
 ## 0 Summary
 
 Frames cross the wire uncompressed. Synthetic telemetry shows that general compression
-gains little on live streams, while byte shuffling plus zstd gains 1.4 to 2 times. Large
-historical reads gain more. This RFC adds three things in order: a Core metric that
-measures real frame sizes, opt-in zstd for `/frame/read` bodies, and a constant-step
-index encoding in the frame codec. An opt-in compressed stream codec waits for real
-data.
+gains little on live streams. Byte shuffling plus zstd gains 1.2 to 2.1 times on
+streams, and up to 2.65 times on large historical reads. This RFC adds three things in
+order: a Core metric that measures real frame sizes, opt-in zstd for `/frame/read`
+bodies, and a constant-step index encoding in the frame codec. An opt-in compressed
+stream codec waits for real data.
 
 ## 1 Motivation
 
@@ -61,32 +63,46 @@ Live frames batch at 25 Hz, the stream rate. Each ratio is raw bytes over encode
   the ratios as an upper bound.
 - **The host was loaded**: The load average was 40 on one Apple silicon Mac, so the
   throughput numbers are low. Compare them with each other only.
-- **Index encoding pays only on narrow frames**: It saves 15 to 18 percent on 10
-  channels and 2 percent on 100.
-- **Shuffle is the main lever**: Plain zstd or deflate gains 1.1 to 1.3 times on scaled
-  data. Shuffling adds 0.3 to 0.7.
+- **Index encoding pays only on narrow frames**: It saves 7 to 17 percent on 10 channels
+  and 2 percent on 100.
+- **Shuffle is the main lever on raw ADC values**: On unscaled `float32`, plain zstd
+  gains 1.3 to 1.4 times, and shuffle plus zstd gains 1.6 to 2.65 times. On scaled data,
+  plain zstd gains 1.04 to 1.33 times, and shuffle adds only 0.2 to 0.3.
 - **Small frames do not compress**: A 213 B frame grows under zstd.
 
 ## 3 Decisions
 
 1. **Measure real frames first**: The Core reports encoded frame bytes and the index
-   share per stream. Phase 8 waits for that data.
+   share per stream. Phase 7 waits for that data.
 2. **No default compression on live streams**: Deflate runs at 53 MB/s and gains less
    than zstd. Most Cores run on a LAN, where compression costs more than it saves.
-3. **zstd for frame reads, when asked**: The Core compresses a `/frame/read` frame body
-   with zstd level 1 when the request sends `Accept-Encoding: zstd`. Chrome 123, Firefox
-   126, and Safari 26.3 decode it natively. A client that does not ask gets the same
-   body as today, so shipped clients do not change.
+3. **zstd for frame reads, when the client opts in**: A browser always sends
+   `Accept-Encoding` and cannot decline it (RFC 0059 §4.4), so that header alone cannot
+   be the opt-in. The Core compresses a `/frame/read` frame body with zstd level 1 only
+   when the request also asks for it with a Synnax request option, and `Accept-Encoding`
+   includes `zstd`. Chrome 123, Firefox 126, and Safari 26.3 decode it natively. A
+   client that does not opt in gets the same body as today, so shipped Consoles and
+   clients do not change. The rule of RFC 0059 §4.4 that a frame read is never
+   compressed holds unless the client opts in.
 4. **A constant-step index in a new codec version**: The encoder writes an index series
-   as start and step when every delta is equal, and as raw samples otherwise. It uses
-   the reserved extended flags byte (`codec.go`, bit 7) and a new content type,
-   `application/vnd.synnax.frame.v2`. The Core keeps the current codec for shipped
-   clients, as the release model requires for stable releases.
+   as start and step when it has at least two samples and every delta is equal, and as
+   raw samples otherwise. It uses the reserved extended flags byte (`codec.go`, bit 7)
+   and a new content type, `application/vnd.synnax.frame.v2`. The Core keeps the current
+   codec for shipped clients, as the release model requires for stable releases.
+   - **Decode limit**: A start and step can declare a large series in a few bytes. The
+     decoder counts the expanded size (length × density) against its decode limit before
+     it allocates. Every decoder that accepts v2 has a limit. The gRPC handlers set none
+     today (`core/pkg/transport/grpc/framer/handler.go:288`), so gRPC rejects bit 7
+     until the Driver RFC adds v2 there.
+   - **Older Cores**: A client asks for v2 only when the Core version from its
+     connectivity check includes Phase 4. A newer client with an older minor Core is not
+     a supported pair (RFC 0092 §3.8), but this rule keeps a patch-level skew working.
 5. **A compressed stream codec only on proof**: An opt-in content type that shuffles and
    then zstd-compresses each frame ships only when Phase 1 data from a real Core shows
    at least 1.5 times on its streams, and a user on a link under 100 Mbit/s needs it.
-6. **The Driver path is separate**: The Driver talks gRPC. gRPC compression is gzip and
-   deflate only, so a Driver change needs its own RFC.
+6. **The Driver path is separate**: The Driver and the C++ client talk gRPC, which
+   negotiates no content type. gRPC compression is gzip and deflate only. Codec v2 and
+   compression on gRPC need their own RFC, so this RFC has no C++ phase.
 
 ## 4 Implementation phases
 
@@ -100,13 +116,14 @@ Each phase merges into `main` alone. A client phase follows its Core phase.
 | 4     | Add a constant-step index to the frame codec          | `core/pkg/distribution/framer/codec`, `core/pkg/transport` | -          |
 | 5     | Decode constant-step indexes in the TypeScript client | `client/ts/src/framer`                                     | 4          |
 | 6     | Decode constant-step indexes in the Python client     | `client/py/synnax/framer`                                  | 4          |
-| 7     | Decode constant-step indexes in the C++ client        | `client/cpp/framer`                                        | 4          |
-| 8     | Add an opt-in shuffle and zstd stream codec           | `core/pkg/transport`, `client/ts`, `client/py`             | 1, 4       |
+| 7     | Add an opt-in shuffle and zstd stream codec           | `core/pkg/transport`, `client/ts`, `client/py`             | 1, 4       |
 
 ## 5 Open questions
 
-- **Python on 3.13**: urllib3 decodes zstd natively on Python 3.14. On 3.13 it needs the
-  `zstandard` package. Phase 3 either adds it as a dependency or asks for zstd only on
-  3.14 and later.
+- **Python before 3.14**: urllib3 decodes zstd natively on Python 3.14. On earlier
+  versions it needs the `zstandard` package. Phase 3 either adds it as a dependency or
+  asks for zstd only on 3.14 and later.
+- **The opt-in option**: Phase 2 picks the request option, a header or a query
+  parameter. A custom header makes a browser send a CORS preflight.
 - **Linux Console**: The WebKitGTK version that decodes zstd is not verified. The
   Console falls back to an uncompressed body when the WebView does not ask.
