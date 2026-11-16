@@ -246,9 +246,11 @@ func (r *routine) runPrelude() (ctx context.Context, err error) {
 	ctx, r.span = r.ctx.T.Prod(r.ctx, r.path())
 
 	if r.useBreaker {
-		r.breaker, err = breaker.NewBreaker(r.breakerCfg)
+		if r.breaker, err = breaker.NewBreaker(r.breakerCfg); err != nil {
+			return nil, err
+		}
 	}
-	return ctx, err
+	return ctx, nil
 }
 
 // runPostlude decides the state of the goroutine upon exiting and combines err with
