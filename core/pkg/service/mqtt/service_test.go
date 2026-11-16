@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -309,6 +310,24 @@ var _ = Describe("Service", func() {
 						"field": fieldKey(f.m, 1), "data_type": "float32",
 					}),
 				)))).To(Succeed())
+			},
+		)
+
+		It(
+			"Should refuse to delete an ICD that a read task reads",
+			func(ctx SpecContext) {
+				f := createFormat(ctx)
+				MustSucceed(tasks.Create(ctx, svc.Read, readConfigOf(icdEntry(
+					"plant/status", f.ic, readMessage(f.m, binding(f.m, 1, f.value)),
+				))))
+				err := db.WithTx(ctx, func(tx gorp.Tx) error {
+					return icds.NewWriter(tx).Delete(ctx, f.ic.Key)
+				})
+				var restrict gorp.RestrictError
+				Expect(errors.As(err, &restrict)).To(BeTrue())
+				Expect(restrict.Target).
+					To(Equal(gorp.Target{Table: "icd", Key: f.ic.Key.String()}))
+				Expect(restrict.Reference).To(Equal("entries.icd"))
 			},
 		)
 
