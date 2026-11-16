@@ -86,11 +86,14 @@ export const unorderedPrimitiveArrays = <T extends primitive.Value>(
   b: readonly T[] | T[],
 ): number => {
   if (a.length !== b.length) return a.length - b.length;
-  if (a.length === 0) return 0;
-  const compareF = newF(a[0]);
-  const aSorted = [...a].sort(compareF);
-  const bSorted = [...b].sort(compareF);
-  return aSorted.every((v, i) => v === bSorted[i]) ? 0 : -1;
+  const counts = new Map<T, number>();
+  for (const v of a) counts.set(v, (counts.get(v) ?? 0) + 1);
+  for (const v of b) {
+    const count = counts.get(v);
+    if (count == null || count === 0) return -1;
+    counts.set(v, count - 1);
+  }
+  return 0;
 };
 
 export const uniqueUnorderedPrimitiveArrays = <T extends primitive.Value>(

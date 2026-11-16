@@ -56,6 +56,18 @@ describe("compare", () => {
     });
   });
 
+  describe("unorderedPrimitiveArrays", () => {
+    it("should return 0 for arrays with the same values in a different order", () => {
+      expect(compare.unorderedPrimitiveArrays([3, 1, 2], [2, 1, 3])).toBe(0);
+    });
+    it("should return 0 for equal arrays that hold null", () => {
+      expect(compare.unorderedPrimitiveArrays([null, 1, 2], [2, 1, null])).toBe(0);
+    });
+    it("should return -1 for arrays with different values", () => {
+      expect(compare.unorderedPrimitiveArrays([1, 1, 2], [1, 2, 2])).toBe(-1);
+    });
+  });
+
   describe("mapsEqual", () => {
     it("returns true for the same reference", () => {
       const m = new Map<string, number>([["a", 1]]);
