@@ -338,6 +338,12 @@ copy a line that retrieves the task in a script.
 
 ## Tasks in code
 
+A task runs on the Driver that owns its device, not on the computer that runs your
+script. For example, a script on a Mac can configure an NI task, and the task runs on
+the Windows or Linux computer of the Driver. The platform limits of each integration
+apply to the computer of the Driver. See
+[Where the Driver runs](/reference/hardware#where-the-driver-runs).
+
 <Client.Tabs exclude={["console"]}>
   <Fragment slot="python">
 

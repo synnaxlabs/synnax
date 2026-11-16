@@ -58,6 +58,27 @@ as client 0.61 for Core 0.61. The client prints a warning when the versions diff
 the TypeScript client can stop with an error. The **Connect from code** dialog of Synnax
 Desktop gives the install command that matches.
 
+### Install without internet access
+
+If the computer for your script has no internet access, download the Python client and
+its dependencies on a computer that does. Use a computer with the same operating system,
+CPU architecture, and Python version:
+
+```bash
+pip download "synnax==0.61.*" -d synnax-wheels
+```
+
+Copy the `synnax-wheels` folder to the computer with no internet access, then install
+from it:
+
+```bash
+pip install --no-index --find-links synnax-wheels synnax
+```
+
+To download for a different computer, give its platform and Python version, such as
+`--platform win_amd64 --python-version 3.13 --only-binary=:all:`. pip needs
+`--only-binary=:all:` when you give a platform or a Python version.
+
 <Divider.Divider x />
 
 ## Connect to the Core
