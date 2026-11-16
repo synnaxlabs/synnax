@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <type_traits>
 
 #include "wasmtime.hh"
 
@@ -38,6 +39,16 @@ size_t slice_bound(const uint32_t bound, const size_t size) {
     auto b = static_cast<int64_t>(static_cast<int32_t>(bound));
     if (b < 0) b += n;
     return static_cast<size_t>(std::clamp<int64_t>(b, 0, n));
+}
+
+/// @brief returns a trap when divisor holds a zero sample of the integer type T.
+template<typename T>
+std::optional<wasmtime::Trap> check_divisor(const x::telem::Series &divisor) {
+    if constexpr (std::is_integral_v<T>)
+        for (size_t i = 0; i < divisor.size(); ++i)
+            if (divisor.at<T>(static_cast<int>(i)) == 0)
+                return wasmtime::Trap("integer divide by zero");
+    return std::nullopt;
 }
 
 /// @brief returns a trap for an index that does not fit in an i32.
@@ -179,9 +190,12 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "element_rdiv_" #suffix,                                               \
-                [ss](W v, uint32_t handle) -> uint32_t {                               \
+                [ss](W v, uint32_t handle)                                             \
+                    -> wasmtime::Result<uint32_t, wasmtime::Trap> {                    \
                     auto *s = ss->get(handle);                                         \
-                    if (s == nullptr) return 0;                                        \
+                    if (s == nullptr) return uint32_t{0};                              \
+                    if (auto trap = check_divisor<cpptype>(*s))                        \
+                        return std::move(*trap);                                       \
                     auto result = static_cast<cpptype>(v) / *s;                        \
                     return ss->store(std::move(result));                               \
                 }                                                                      \
@@ -215,9 +229,12 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "element_rmod_" #suffix,                                               \
-                [ss](W v, uint32_t handle) -> uint32_t {                               \
+                [ss](W v, uint32_t handle)                                             \
+                    -> wasmtime::Result<uint32_t, wasmtime::Trap> {                    \
                     auto *s = ss->get(handle);                                         \
-                    if (s == nullptr) return 0;                                        \
+                    if (s == nullptr) return uint32_t{0};                              \
+                    if (auto trap = check_divisor<cpptype>(*s))                        \
+                        return std::move(*trap);                                       \
                     auto result = static_cast<cpptype>(v) % *s;                        \
                     return ss->store(std::move(result));                               \
                 }                                                                      \
@@ -278,10 +295,13 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "series_div_" #suffix,                                                 \
-                [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
+                [ss](uint32_t a, uint32_t b)                                           \
+                    -> wasmtime::Result<uint32_t, wasmtime::Trap> {                    \
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
-                    if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa == nullptr || sb == nullptr) return uint32_t{0};            \
+                    if (auto trap = check_divisor<cpptype>(*sb))                       \
+                        return std::move(*trap);                                       \
                     if (sa->size() != sb->size())                                      \
                         throw std::runtime_error(                                      \
                             "arc panic: series length mismatch in series_div_" #suffix \
@@ -295,10 +315,13 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "series_mod_" #suffix,                                                 \
-                [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
+                [ss](uint32_t a, uint32_t b)                                           \
+                    -> wasmtime::Result<uint32_t, wasmtime::Trap> {                    \
                     auto *sa = ss->get(a);                                             \
                     auto *sb = ss->get(b);                                             \
-                    if (sa == nullptr || sb == nullptr) return 0;                      \
+                    if (sa == nullptr || sb == nullptr) return uint32_t{0};            \
+                    if (auto trap = check_divisor<cpptype>(*sb))                       \
+                        return std::move(*trap);                                       \
                     if (sa->size() != sb->size())                                      \
                         throw std::runtime_error(                                      \
                             "arc panic: series length mismatch in series_mod_" #suffix \

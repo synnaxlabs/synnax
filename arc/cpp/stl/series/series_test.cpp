@@ -519,6 +519,16 @@ wasmtime::Val make_wasm_val(const std::string &suffix, double v) {
         EXPECT_EQ(result[0].i32(), 0);                                                 \
     }
 
+#define TEST_REVERSE_ZERO_DIVISOR_TRAPS(suffix, op_name)                               \
+    TEST(SeriesModule, op_name##ZeroElementTraps_##suffix) {                           \
+        SETUP_ELEMENT_FIXTURE(suffix, 10, 0)                                           \
+        expect_failure(                                                                \
+            f.get(#op_name)                                                            \
+                .call(f.store, {make_wasm_val(#suffix, 5), wasmtime::Val(h)}),         \
+            "integer divide by zero"                                                   \
+        );                                                                             \
+    }
+
 #define ALL_ELEMENT_TESTS(suffix, get_val)                                             \
     TEST_ELEMENT_OP(suffix, element_add, 5, 15, get_val)                               \
     TEST_ELEMENT_OP(suffix, element_sub, 3, 7, get_val)                                \
@@ -544,7 +554,9 @@ wasmtime::Val make_wasm_val(const std::string &suffix, double v) {
     TEST_ELEMENT_OP_NULL(suffix, element_mod)                                          \
     TEST_ELEMENT_MOD_ZERO(suffix)                                                      \
     TEST_REVERSE_OP(suffix, element_rmod, 23, 3, get_val)                              \
-    TEST_REVERSE_OP_NULL(suffix, element_rmod)
+    TEST_REVERSE_OP_NULL(suffix, element_rmod)                                         \
+    TEST_REVERSE_ZERO_DIVISOR_TRAPS(suffix, element_rdiv)                              \
+    TEST_REVERSE_ZERO_DIVISOR_TRAPS(suffix, element_rmod)
 
 ALL_ELEMENT_TESTS_INT(u8, i32)
 ALL_ELEMENT_TESTS_INT(u16, i32)
@@ -562,6 +574,7 @@ ALL_ELEMENT_TESTS(f64, f64)
 #undef TEST_ELEMENT_OP_NULL
 #undef TEST_REVERSE_OP
 #undef TEST_REVERSE_OP_NULL
+#undef TEST_REVERSE_ZERO_DIVISOR_TRAPS
 #undef TEST_ELEMENT_DIV_ZERO
 #undef TEST_ELEMENT_MOD_ZERO
 #undef ALL_ELEMENT_TESTS
@@ -631,6 +644,15 @@ ALL_ELEMENT_TESTS(f64, f64)
         EXPECT_EQ(result[0].i32(), 0);                                                 \
     }
 
+#define TEST_SERIES_ZERO_DIVISOR_TRAPS(suffix, op_name)                                \
+    TEST(SeriesModule, op_name##ZeroElementTraps_##suffix) {                           \
+        SETUP_TWO_SERIES(suffix, 10, 20, 2, 0)                                         \
+        expect_failure(                                                                \
+            f.get(#op_name).call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)}),     \
+            "integer divide by zero"                                                   \
+        );                                                                             \
+    }
+
 #define ALL_SERIES_OPS(suffix, get_val)                                                \
     TEST_SERIES_OP(suffix, series_add, 10, 20, 3, 4, 13, get_val)                      \
     TEST_SERIES_OP(suffix, series_sub, 10, 20, 3, 4, 7, get_val)                       \
@@ -644,7 +666,9 @@ ALL_ELEMENT_TESTS(f64, f64)
 #define ALL_SERIES_OPS_INT(suffix, get_val)                                            \
     ALL_SERIES_OPS(suffix, get_val)                                                    \
     TEST_SERIES_OP(suffix, series_mod, 10, 20, 3, 7, 1, get_val)                       \
-    TEST_SERIES_OP_NULL(suffix, series_mod)
+    TEST_SERIES_OP_NULL(suffix, series_mod)                                            \
+    TEST_SERIES_ZERO_DIVISOR_TRAPS(suffix, series_div)                                 \
+    TEST_SERIES_ZERO_DIVISOR_TRAPS(suffix, series_mod)
 
 ALL_SERIES_OPS_INT(u8, i32)
 ALL_SERIES_OPS_INT(u16, i32)
@@ -660,6 +684,7 @@ ALL_SERIES_OPS(f64, f64)
 #undef SETUP_TWO_SERIES
 #undef TEST_SERIES_OP
 #undef TEST_SERIES_OP_NULL
+#undef TEST_SERIES_ZERO_DIVISOR_TRAPS
 #undef ALL_SERIES_OPS
 #undef ALL_SERIES_OPS_INT
 
