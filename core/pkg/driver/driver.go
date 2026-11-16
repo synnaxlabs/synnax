@@ -434,8 +434,10 @@ func (d *Driver) supervise(ctx context.Context, policy *restart.Policy) error {
 		action, err := d.runOnce(ctx, policy, startedOnce)
 		// A canceled context means Close initiated shutdown. Stop quietly regardless of
 		// the action, so a restart decision that raced the cancel never relaunches.
-		if ctx.Err() != nil {
+		select {
+		case <-ctx.Done():
 			return nil
+		default:
 		}
 		switch action {
 		case restart.Restart:

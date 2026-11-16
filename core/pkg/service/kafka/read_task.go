@@ -637,7 +637,12 @@ func (t *readTask) lastStored(
 func (t *readTask) consume(ctx context.Context) error {
 	for {
 		fetches := t.poll(ctx)
-		if ctx.Err() != nil || fetches.IsClientClosed() {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+		if fetches.IsClientClosed() {
 			return nil
 		}
 		var fatal, transient error
