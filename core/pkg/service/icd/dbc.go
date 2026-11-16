@@ -174,6 +174,9 @@ func newDBCFile(defs []dbc.Def) (dbcFile, error) {
 				f.attrs[d.Name] = d
 			case dbc.ObjectTypeUnspecified:
 				f.networkAttrs.Add(d.Name)
+			case dbc.ObjectTypeNetworkNode,
+				dbc.ObjectTypeSignal,
+				dbc.ObjectTypeEnvironmentVariable:
 			}
 		case *dbc.AttributeDefaultValueDef:
 			f.defaults[d.AttributeName] = d
@@ -191,6 +194,7 @@ func newDBCFile(defs []dbc.Def) (dbcFile, error) {
 				}
 			case dbc.ObjectTypeUnspecified:
 				f.networkValues[d.AttributeName] = d
+			case dbc.ObjectTypeNetworkNode, dbc.ObjectTypeEnvironmentVariable:
 			}
 		case *dbc.SignalValueTypeDef:
 			f.valueTypes[signalRef{message: d.MessageID, signal: string(d.SignalName)}] = d
@@ -376,6 +380,7 @@ func (f dbcFile) field(
 			bits = 32
 		case dbc.SignalValueTypeFloat64:
 			bits = 64
+		case dbc.SignalValueTypeInt:
 		}
 		if bits != 0 && s.Size != bits {
 			return BinaryField{}, dataErrorf(

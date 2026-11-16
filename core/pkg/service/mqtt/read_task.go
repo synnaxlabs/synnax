@@ -43,8 +43,11 @@ func qosLevel(q QoS) byte {
 		return 1
 	case QoSExactlyOnce:
 		return 2
+	case QoSAtMostOnce:
+		return 0
+	default:
+		panic(fmt.Sprintf("unknown QoS %q", q))
 	}
-	return 0
 }
 
 // validateTopic checks a topic that a task subscribes or publishes to. A task names
@@ -682,6 +685,11 @@ func (r *reader) convertEvent(now time.Time, msg message, b *batch) {
 			r.refreshOffline()
 			r.checkBirth(now, scope, ev.Metrics)
 		}
+	case sparkplug.NData,
+		sparkplug.DData,
+		sparkplug.NCmd,
+		sparkplug.DCmd,
+		sparkplug.State:
 	}
 	for _, m := range ev.Metrics {
 		t, ok := r.tags[tagID{tagScope: scope, name: m.Name}]

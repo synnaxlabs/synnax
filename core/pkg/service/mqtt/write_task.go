@@ -96,10 +96,12 @@ func (p payloadSlots) AppendSlot(dst []byte, field int) ([]byte, error) {
 		return p.t.encoder.Append(dst, p.sample)
 	case slotTimestamp:
 		return xjson.AppendTimeStamp(dst, telem.Now(), s.format), nil
-	default:
+	case slotUUID:
 		dst = append(dst, '"')
 		dst, err := uuid.New().AppendText(dst)
 		return append(dst, '"'), err
+	default:
+		return nil, errors.Newf("unknown slot kind %d", s.kind)
 	}
 }
 
