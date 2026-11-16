@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
+import { device, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -93,7 +93,7 @@ describe("ReplacementListener", () => {
     await renderPrompt();
     const { old, slave } = await createPair();
     const prompt = await findPrompt(`Is this your old ${old.name}?`);
-    fireEvent.click(within(prompt).getByRole("button", { name: "Yes" }));
+    fireEvent.click(await within(prompt).findByRole("button", { name: "Yes" }));
     await waitFor(async () =>
       expect(
         (
@@ -114,7 +114,7 @@ describe("ReplacementListener", () => {
     const { old, slave } = await createPair();
     const question = `Is this your old ${old.name}?`;
     const prompt = await findPrompt(question);
-    fireEvent.click(within(prompt).getByRole("button", { name: "No" }));
+    fireEvent.click(await within(prompt).findByRole("button", { name: "No" }));
     await waitFor(() => expect(screen.queryByText(question)).toBeNull());
     expect((await client.devices.retrieve({ key: slave.key })).key).toEqual(slave.key);
     const kept = await client.devices.retrieve({
@@ -122,5 +122,19 @@ describe("ReplacementListener", () => {
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
     expect(kept.properties.position).toEqual(3);
+  });
+
+  it("should offer no answer once the user configures the new slave", async () => {
+    await renderPrompt();
+    const { old, slave } = await createPair();
+    const prompt = await findPrompt(`Is this your old ${old.name}?`);
+    await within(prompt).findByRole("button", { name: "Yes" });
+    await client.devices.dispatch(
+      slave.key,
+      device.set({ path: ["configured"], value: true }),
+    );
+    await waitFor(() =>
+      expect(within(prompt).queryByRole("button", { name: "Yes" })).toBeNull(),
+    );
   });
 });
