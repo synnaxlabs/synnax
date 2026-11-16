@@ -119,8 +119,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// DefaultServiceConfig returns the default configuration for the license service.
-func DefaultServiceConfig() ServiceConfig {
+// defaultServiceConfig returns the default configuration for the license service.
+func defaultServiceConfig() ServiceConfig {
 	return ServiceConfig{
 		Anchors:       anchors,
 		Now:           time.Now,
@@ -179,7 +179,7 @@ var _ io.Closer = &Service{}
 // service opens under the stored keys. A Core with no license opens in StateMissing.
 // OpenService deletes the stored numeric license keys, which no Core accepts.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig(), cfgs...)
+	cfg, err := config.New(defaultServiceConfig(), cfgs...)
 	if err != nil {
 		return nil, err
 	}

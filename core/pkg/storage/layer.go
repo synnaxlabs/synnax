@@ -118,8 +118,8 @@ type LayerConfig struct {
 
 var _ config.Config[LayerConfig] = LayerConfig{}
 
-// DefaultLayerConfig returns the default configuration for the storage layer.
-func DefaultLayerConfig() LayerConfig {
+// defaultLayerConfig returns the default configuration for the storage layer.
+func defaultLayerConfig() LayerConfig {
 	return LayerConfig{
 		Perm:                 xfs.UserRWX,
 		InMemory:             new(false),
@@ -224,7 +224,7 @@ type Layer struct {
 // services in the Layer should be used after Close is called. It is the caller's
 // responsibility to ensure that the Layer is not accessed after it is closed.
 func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
-	cfg, err := config.New(DefaultLayerConfig(), cfgs...)
+	cfg, err := config.New(defaultLayerConfig(), cfgs...)
 	if err != nil {
 		return nil, err
 	}

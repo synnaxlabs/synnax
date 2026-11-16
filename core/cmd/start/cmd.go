@@ -163,7 +163,8 @@ func readLicenseKey() (string, error) {
 	return strings.TrimSpace(string(b)), nil
 }
 
-// GetCoreConfigFromViper builds a CoreConfig from the current viper configuration.
+// GetCoreConfigFromViper builds a CoreConfig from the current viper configuration over
+// the defaults.
 // This is used by the Windows service to start the Core with the config loaded from
 // a YAML file.
 func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
@@ -188,7 +189,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 			return CoreConfig{}, errors.Wrapf(err, "invalid --%s", FlagSecretsKey)
 		}
 	}
-	return CoreConfig{
+	return defaultCoreConfig().Override(CoreConfig{
 		Instrumentation:     ins,
 		insecure:            new(viper.GetBool(FlagInsecure)),
 		fips:                new(viper.GetBool(FlagFIPS)),
@@ -216,5 +217,5 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		enabledIntegrations:  viper.GetStringSlice(FlagEnableIntegrations),
 		disabledIntegrations: viper.GetStringSlice(FlagDisableIntegrations),
 		validateChannelNames: new(!viper.GetBool(FlagDisableChannelNameValidation)),
-	}, nil
+	}), nil
 }

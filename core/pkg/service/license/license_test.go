@@ -182,7 +182,12 @@ var _ = Describe("License", func() {
 		DescribeTable(
 			"should reject a missing field",
 			func(field string, unset func(c *license.ServiceConfig)) {
-				c := license.DefaultServiceConfig().Override(cfg)
+				c := cfg
+				c.CheckInterval = time.Hour
+				c.WarningTime = time.Hour
+				c.Grace = time.Hour
+				c.Rollback = time.Hour
+				c.Loopback = new(false)
 				unset(&c)
 				Expect(c.Validate()).To(MatchError(ContainSubstring(field)))
 			},
@@ -205,11 +210,11 @@ var _ = Describe("License", func() {
 			Entry("loopback", "loopback",
 				func(c *license.ServiceConfig) { c.Loopback = nil }),
 		)
-		It("should keep defaults the override leaves zero", func() {
-			c := license.DefaultServiceConfig().Override(cfg)
-			Expect(c.Grace).To(Equal(license.DefaultServiceConfig().Grace))
-			Expect(c.Rollback).To(Equal(license.DefaultServiceConfig().Rollback))
-			Expect(c.Validate()).To(Succeed())
+		It("should keep the values the override leaves zero", func() {
+			base := license.ServiceConfig{Grace: time.Hour, Rollback: time.Minute}
+			c := base.Override(cfg)
+			Expect(c.Grace).To(Equal(time.Hour))
+			Expect(c.Rollback).To(Equal(time.Minute))
 		})
 	})
 

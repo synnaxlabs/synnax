@@ -117,7 +117,7 @@ type LayerConfig struct {
 	// License configures the license service. The layer supplies its DB and
 	// instrumentation.
 	//
-	// [OPTIONAL] - Defaults to license.DefaultServiceConfig().
+	// [OPTIONAL] - Defaults to the license service defaults.
 	License license.ServiceConfig
 	// SecretsKey protects the value of every stored secret. It encrypts the random data
 	// key that encrypts each value.
