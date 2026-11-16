@@ -45,22 +45,18 @@ func pipeCfg(hex string) schematic.EdgeConfig {
 	if hex != "" {
 		cfg.StrokeColor = new(MustSucceed(color.Parse(hex)))
 	}
-	ec := schematic.EdgeConfig{
+	return defaults.Fill(schematic.EdgeConfig{
 		Variant: schematic.PipeEdgeConfig{SegmentedEdgeConfig: cfg},
-	}
-	ec.ApplyDefaults()
-	return ec
+	})
 }
 
 // electricCfg constructs an electric edge config with no segments.
 func electricCfg() schematic.EdgeConfig {
-	ec := schematic.EdgeConfig{Variant: schematic.ElectricEdgeConfig{
+	return defaults.Fill(schematic.EdgeConfig{Variant: schematic.ElectricEdgeConfig{
 		SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
 			Segments: []schematic.Segment{},
 		},
-	}}
-	ec.ApplyDefaults()
-	return ec
+	}})
 }
 
 // groupCfg constructs an unlocked group box config.
