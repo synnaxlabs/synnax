@@ -31,6 +31,7 @@
 .pluto-log__link {
     position: absolute;
     pointer-events: none;
+    border-bottom: 1px solid;
 }
 
 /* Waits, so a pointer that only crosses a link shows nothing. */

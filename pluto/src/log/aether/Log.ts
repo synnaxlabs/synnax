@@ -37,10 +37,17 @@ import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
-// A piece of a link on one row. A link that wraps has a piece on each of its rows.
-const linkZ = link.linkZ.extend({ region: box.box });
+// A link on screen, in the color of its line. It has a box on each of its rows.
+const linkZ = link.linkZ.extend({ color: z.string(), regions: z.array(box.box) });
 
 interface Link extends z.infer<typeof linkZ> {}
+
+// A link on screen, and how the worker draws it.
+interface LinkLayout {
+  link: Link;
+  labeled: boolean;
+  stroke: color.Color;
+}
 
 export const logStateZ = log.logZ
   .pick({
@@ -76,7 +83,7 @@ export const logStateZ = log.logZ
     computedLineHeight: z.number().default(0),
     // The entry index of each row on screen, top to bottom.
     rowEntries: z.array(z.number()).default([]),
-    // The pieces of the links on screen.
+    // The links on screen.
     links: z.array(linkZ).default([]),
   });
 
@@ -640,32 +647,44 @@ export class Log
     };
   }
 
-  // Returns the pieces of the links on each row.
-  private layoutLinks(rows: Row[], lh: number): Link[][] {
-    const { charWidth, selectionOffsetY } = this.internal;
+  // Returns the links on screen. The rows of an entry share its spans.
+  private layoutLinks(rows: Row[], lh: number): LinkLayout[] {
+    const { charWidth, selectionOffsetY, valueColors, textColor } = this.internal;
     const left = box.left(this.state.region) + CONTENT_PADDING;
     const top = box.top(this.state.region) + CONTENT_PADDING + selectionOffsetY;
-    return rows.map((row, i) => {
+    const layouts = new Map<link.Span, LinkLayout>();
+    rows.forEach((row, i) => {
       const hang = hasHangingMinus(row) ? 1 : 0;
       const rowEnd = row.start + row.value.length;
-      return row.spans.flatMap(({ start, end, kind, target }) => {
-        const from = Math.max(start, row.start) - row.start;
-        const to = Math.min(end, rowEnd) - row.start;
-        if (from >= to) return [];
+      row.spans.forEach((span) => {
+        const from = Math.max(span.start, row.start) - row.start;
+        const to = Math.min(span.end, rowEnd) - row.start;
+        if (from >= to) return;
         const column = row.prefix.length + columnsOf(row.value.slice(0, from)) - hang;
         const x = left + column * charWidth;
         const width = columnsOf(row.value.slice(from, to)) * charWidth;
-        const region = box.construct(x, top + i * lh, width, lh);
-        return [{ kind, target, region }];
+        let layout = layouts.get(span);
+        if (layout == null) {
+          const { kind, target, labeled } = span;
+          const stroke = valueColors[row.channelKey] ?? textColor;
+          layout = {
+            link: { kind, target, color: color.hex(stroke), regions: [] },
+            labeled,
+            stroke,
+          };
+          layouts.set(span, layout);
+        }
+        layout.link.regions.push(box.construct(x, top + i * lh, width, lh));
       });
     });
+    return [...layouts.values()];
   }
 
-  private renderLinks(draw2d: Draw2D, rows: Row[], links: Link[][]): void {
-    const { valueColors, textColor } = this.internal;
-    links.forEach((pieces, i) => {
-      const stroke = valueColors[rows[i].channelKey] ?? textColor;
-      pieces.forEach(({ region }) =>
+  // A label does not look like a link, so a Markdown link keeps an underline.
+  private renderLinks(draw2d: Draw2D, layouts: LinkLayout[]): void {
+    layouts.forEach(({ link: { regions }, labeled, stroke }) => {
+      if (!labeled) return;
+      regions.forEach((region) =>
         draw2d.rule({
           stroke,
           lineWidth: 1,
@@ -717,8 +736,8 @@ export class Log
     const rows = this.layoutRows(end, tail, lh);
     const sliceStart = rows.length > 0 ? rows[0].entry : end;
     const rowEntries = rows.map((row) => row.entry);
-    const rowLinks = this.layoutLinks(rows, lh);
-    const links = rowLinks.flat();
+    const layouts = this.layoutLinks(rows, lh);
+    const links = layouts.map(({ link }) => link);
     const shown = this.seeking ?? this.entries[end - 1]?.timestamp.valueOf() ?? "";
     const position = this.state.scrolling ? shown.toString() : "";
 
@@ -742,7 +761,7 @@ export class Log
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
     this.renderSelection(draw2d, rowEntries, lh);
     this.renderElements(draw2d, rows, lh);
-    this.renderLinks(draw2d, rows, rowLinks);
+    this.renderLinks(draw2d, layouts);
     this.renderScrollbar(draw2d, rows);
     clearScissor();
     const eraseRegion = box.copy(this.state.region);

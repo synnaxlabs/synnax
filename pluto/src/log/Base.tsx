@@ -71,22 +71,25 @@ const EMPTY_CONTENT = (
 );
 
 interface TargetProps {
-  // The box of the link, from the top left of the log.
-  region: box.Box;
+  // The boxes of the link, from the top left of the log.
+  regions: box.Box[];
+  color: string;
   target: string;
 }
 
-// A Markdown link shows only its label, so the tooltip shows where it goes.
-const Target = ({ region, target }: TargetProps): ReactElement => {
+// Underlines the link below the pointer, and shows where it goes in a tooltip.
+const Target = ({ regions, color, target }: TargetProps): ReactElement => {
   const [anchor, setAnchor] = useState<HTMLSpanElement | null>(null);
   return (
     <>
-      <span
-        key={`${box.left(region)},${box.top(region)}`}
-        ref={setAnchor}
-        className={CSS.BE("log", "link")}
-        style={box.css(region)}
-      />
+      {regions.map((region, i) => (
+        <span
+          key={`${box.left(region)},${box.top(region)}`}
+          ref={i === 0 ? setAnchor : undefined}
+          className={CSS.BE("log", "link")}
+          style={{ ...box.css(region), color }}
+        />
+      ))}
       {anchor != null && (
         <Tooltip.Frame anchor={anchor} className={CSS.BE("log", "target")}>
           <Text.Text level="small" variant="code" color={11}>
@@ -177,8 +180,8 @@ export const Base = ({
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
 
-  // A piece from an earlier draw can sit over other text now.
-  const hoveredLink = links.find((piece) => piece === hovered);
+  // A link from an earlier draw can sit over other text now.
+  const hoveredLink = links.find((l) => l === hovered);
 
   const mouseYToEntryIndex = (clientY: number): number => {
     if (computedLineHeight <= 0) return 0;
@@ -189,14 +192,14 @@ export const Base = ({
   };
 
   const linkAt = ({ clientX: x, clientY: y }: React.MouseEvent) =>
-    links.find((piece) => box.contains(piece.region, { x, y }));
+    links.find(({ regions }) => regions.some((r) => box.contains(r, { x, y })));
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
-    const piece = e[LINK_KEY] ? linkAt(e) : undefined;
-    if (piece != null)
+    const clicked = e[LINK_KEY] ? linkAt(e) : undefined;
+    if (clicked != null)
       return handleError(
-        async () => await onLinkOpen?.({ kind: piece.kind, target: piece.target }),
+        async () => await onLinkOpen?.({ kind: clicked.kind, target: clicked.target }),
         "Failed to open link",
       );
     const idx = mouseYToEntryIndex(e.clientY);
@@ -339,10 +342,10 @@ export const Base = ({
         {empty ? emptyContent : children}
         {hoveredLink != null && (
           <Target
-            region={box.translate(
-              hoveredLink.region,
-              xy.scale(box.topLeft(region), -1),
+            regions={hoveredLink.regions.map((r) =>
+              box.translate(r, xy.scale(box.topLeft(region), -1)),
             )}
+            color={hoveredLink.color}
             target={hoveredLink.target}
           />
         )}

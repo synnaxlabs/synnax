@@ -52,17 +52,19 @@ export type Kind = Link["kind"];
 export interface Span extends Link {
   start: number;
   end: number;
+  /** True for a Markdown link, which shows its label and not its target. */
+  labeled: boolean;
 }
 
-const find = (text: string): Span[] =>
-  Array.from(text.matchAll(embeddedRegex), (match): Span => {
+const find = (text: string): Omit<Span, "labeled">[] =>
+  Array.from(text.matchAll(embeddedRegex), (match) => {
     const { 1: url, 2: addressLead, 3: address, 4: pathLead, 5: path, index } = match;
     const start = index + (addressLead ?? pathLead ?? "").length;
     const raw = url ?? address ?? path;
     let scheme = "";
     if (address != null) scheme = "http://";
     else if (raw.startsWith("www.")) scheme = "https://";
-    const kind = path == null ? "url" : "path";
+    const kind: Kind = path == null ? "url" : "path";
     return { start, end: start + raw.length, kind, target: scheme + raw };
   });
 
@@ -84,7 +86,14 @@ export const parse = (raw: string): Parsed => {
     const label = raw[end] === ")" ? labelRegex.exec(raw.slice(last, start)) : null;
     if (label != null) [from, to, shown] = [last + label.index, end + 1, label[1]];
     text += raw.slice(last, from) + shown;
-    spans.push({ start: text.length - shown.length, end: text.length, kind, target });
+    const labeled = label != null;
+    spans.push({
+      start: text.length - shown.length,
+      end: text.length,
+      kind,
+      target,
+      labeled,
+    });
     last = to;
   }
   return { text: text + raw.slice(last), spans };
