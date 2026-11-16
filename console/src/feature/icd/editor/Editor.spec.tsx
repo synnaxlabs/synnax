@@ -264,6 +264,68 @@ describe("ICD editor", () => {
     );
   });
 
+  it("should match the JSON documents whose value at a pointer equals a string", async () => {
+    const ic = await createICD([createJSONMessage([createJSONField("Temp", "/temp")])]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByRole("button", { name: /^Match/ }));
+    fireEvent.click(await screen.findByText("String"));
+    const pointer = await screen.findByPlaceholderText("/type");
+    fireEvent.change(pointer, { target: { value: "/kind" } });
+    fireEvent.blur(pointer);
+    const value = await screen.findByLabelText(/^Value/);
+    fireEvent.change(value, { target: { value: "reading" } });
+    fireEvent.blur(value);
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+        match: { type: "string", pointer: "/kind", value: "reading" },
+      }),
+    );
+  });
+
+  it("should keep the pointer of a match when its type changes", async () => {
+    const ic = await createICD([
+      {
+        ...createJSONMessage([]),
+        payload: {
+          format: "json",
+          fields: [],
+          match: { type: "string", pointer: "/kind", value: "reading" },
+        },
+      },
+    ]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByRole("button", { name: /^Match/ }));
+    fireEvent.click(await screen.findByText("Signed integer"));
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+        match: { type: "integer", pointer: "/kind", value: "0" },
+      }),
+    );
+  });
+
+  it("should remove the match of a message that takes any document", async () => {
+    const ic = await createICD([
+      {
+        ...createJSONMessage([]),
+        payload: {
+          format: "json",
+          fields: [],
+          match: { type: "boolean", pointer: "/alarm", value: true },
+        },
+      },
+    ]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByRole("button", { name: /^Match/ }));
+    fireEvent.click(await screen.findByText("Any document"));
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload).toEqual({
+        format: "json",
+        fields: [],
+      }),
+    );
+    expect(screen.queryByPlaceholderText("/type")).toBeNull();
+  });
+
   it("should add the JSON fields a paste adds as numbers", async () => {
     const ic = await createICD([createJSONMessage([createJSONField("Temp", "/temp")])]);
     await renderEditor(ic);
