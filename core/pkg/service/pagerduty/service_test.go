@@ -15,7 +15,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
@@ -129,6 +132,50 @@ var _ = Describe("Service", func() {
 			Expect(string(staged)).To(Equal(plainKey))
 			Expect(closer.Close()).To(Succeed())
 			Expect(data["alerts"]).To(HaveLen(1))
+		})
+
+		It("Should skip the lift on a store that Core v0.62.0-rc.1 migrated", func(
+			ctx SpecContext,
+		) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+			secrets := secrettestutil.OpenService(ctx, db)
+			s := secret.Secret{Variant: secret.StoredSecret{
+				Base: secret.Base{Name: "Pump alerts routing key"},
+			}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return secrets.NewWriter(tx).Set(ctx, &s, []byte(plainKey))
+			})).To(Succeed())
+			var cfg v2.TaskConfig
+			cfg.Key, cfg.RoutingKey = uuid.New(), new(s.Base().Key)
+			Expect(gorp.WrapWriter[uuid.UUID, v2.TaskConfig](db).Set(ctx, cfg)).
+				To(Succeed())
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:        db,
+				Namespace: "pagerduty_alert_config",
+				Migrations: lo.Map(
+					[]string{
+						"v61_status_owner_keys",
+						"v61_pagerduty_routing_key_secret",
+					},
+					func(key string, _ int) gorp.Migration {
+						return migrate.New(
+							key,
+							func(context.Context, gorp.Tx, alamos.Instrumentation) error {
+								return nil
+							},
+						)
+					},
+				),
+			})).To(Succeed())
+			svc := MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
+				DB:     db,
+				Secret: secrets,
+			}))
+			data := MustSucceed(svc.Alert.Read(ctx, db, cfg.Key))
+			Expect(routingKeyOf(data)).To(Equal(s.Base().Key))
+			Expect(db.Get(ctx, v2.PlainRoutingKeyKVKey(cfg.Key))).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 	})
 

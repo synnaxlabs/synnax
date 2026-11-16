@@ -45,9 +45,10 @@ func PlainRoutingKeyKVKey(key uuid.UUID) []byte {
 }
 
 // Migration lifts each stored v1 config to v2. The v2 shape stores no plain routing
-// key, so Migration stages each one under PlainRoutingKeyKVPrefix.
+// key, so Migration stages each one under PlainRoutingKeyKVPrefix. Its key is the one
+// that Core v0.62.0-rc.1 recorded for this lift, so a store of that candidate skips it.
 var Migration = migrate.New(
-	"v62_pagerduty_stage_routing_keys",
+	"v61_pagerduty_routing_key_secret",
 	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
 		var olds []v1.TaskConfig
 		if err := gorp.NewRetrieve[uuid.UUID, v1.TaskConfig]().
