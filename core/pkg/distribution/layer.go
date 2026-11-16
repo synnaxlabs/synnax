@@ -100,8 +100,8 @@ type Layer struct {
 
 // OpenLayer opens the distribution Layer using the provided configuration(s). Later
 // configurations override the fields set in previous configurations. If the
-// configuration is invalid, or any services fail to open, OpenLayer returns a nil layer and
-// an error.
+// configuration is invalid, or any services fail to open, OpenLayer returns a nil layer
+// and an error.
 //
 // If the returned error is nil, the Layer must be closed by calling Close after use.
 // None of the services in the Layer should be used after Close is called. It is the
