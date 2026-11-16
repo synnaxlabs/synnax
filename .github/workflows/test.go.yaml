@@ -100,8 +100,8 @@ jobs:
       fail-fast: false
       matrix:
         goos:
-          ${{ fromJSON((inputs.windows || inputs.macos) &&
-          '["linux", "windows", "darwin"]' || '["linux"]') }}
+          ${{ fromJSON((inputs.windows || inputs.macos) && '["linux", "windows",
+          "darwin"]' || '["linux"]') }}
     steps:
       # Lint reports only issues since the merge base with origin/main, so it needs
       # the history back to that commit.
