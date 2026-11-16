@@ -9,6 +9,7 @@
 
 #include <array>
 #include <iostream>
+#include <limits>
 
 #include "gtest/gtest.h"
 
@@ -1569,6 +1570,30 @@ TEST(SeriesOperators, ScalarOnLeftDivision) {
 TEST(SeriesOperators, DivisionByZeroThrows) {
     auto a = Series(std::vector<double>{1.0, 2.0, 3.0});
     ASSERT_THROW(a / 0.0, std::runtime_error);
+}
+
+/// @brief Tests that a signed minimum divided by -1 wraps to the minimum.
+TEST(SeriesOperators, SignedMinDividedByNegativeOneWraps) {
+    constexpr auto min = std::numeric_limits<int64_t>::min();
+    auto a = Series(std::vector<int64_t>{min, 6});
+    auto b = Series(std::vector<int64_t>{-1, -1});
+    auto series = a / b;
+    ASSERT_EQ(series.at<int64_t>(0), min);
+    ASSERT_EQ(series.at<int64_t>(1), -6);
+    ASSERT_EQ((a / int64_t{-1}).at<int64_t>(0), min);
+    ASSERT_EQ((min / Series(std::vector<int64_t>{-1})).at<int64_t>(0), min);
+}
+
+/// @brief Tests that a signed minimum modulo -1 is zero.
+TEST(SeriesOperators, SignedMinModuloNegativeOneIsZero) {
+    constexpr auto min = std::numeric_limits<int32_t>::min();
+    auto a = Series(std::vector<int32_t>{min, 7});
+    auto b = Series(std::vector<int32_t>{-1, 3});
+    auto series = a % b;
+    ASSERT_EQ(series.at<int32_t>(0), 0);
+    ASSERT_EQ(series.at<int32_t>(1), 1);
+    ASSERT_EQ((a % int32_t{-1}).at<int32_t>(0), 0);
+    ASSERT_EQ((min % Series(std::vector<int32_t>{-1})).at<int32_t>(0), 0);
 }
 
 /// @brief Tests > comparison operator.

@@ -16,6 +16,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <variant>
 #include <vector>
 
@@ -41,6 +42,28 @@ static inline void write_u32_le(std::byte *ptr, uint32_t v) {
 }
 
 namespace x::telem {
+/// @brief returns a / b. A signed minimum divided by -1 wraps to the minimum instead of
+/// faulting.
+template<typename T>
+T divide(const T a, const T b) {
+    if constexpr (std::is_integral_v<T> && std::is_signed_v<T>)
+        if (b == -1) return static_cast<T>(0 - static_cast<std::make_unsigned_t<T>>(a));
+    return static_cast<T>(a / b);
+}
+
+/// @brief returns the remainder of a / b: % for integers, std::fmod for floats. A
+/// signed remainder by -1 is 0 instead of a fault.
+template<typename T>
+T modulo(const T a, const T b) {
+    if constexpr (std::is_floating_point_v<T>)
+        return std::fmod(a, b);
+    else {
+        if constexpr (std::is_signed_v<T>)
+            if (b == -1) return 0;
+        return static_cast<T>(a % b);
+    }
+}
+
 // NOLINTBEGIN(bugprone-signed-char-misuse): an int8_t sign-extends on purpose.
 template<typename DestType, typename SrcType>
 static void cast_to_type(std::byte *dest, SrcType *src, const size_t count) {
@@ -1415,20 +1438,14 @@ public:
     /// @brief Series-Series division operator. Returns a new Series.
     /// @throws std::runtime_error if series lengths or types don't match.
     Series operator/(const Series &other) const {
-        return apply_binary_op(other, [](auto a, auto b) { return a / b; });
+        return apply_binary_op(other, [](auto a, auto b) { return divide(a, b); });
     }
 
     /// @brief Series-Series modulo operator. Returns a new Series.
     /// Uses % for integer types, std::fmod for floating-point types.
     /// @throws std::runtime_error if series lengths or types don't match.
     Series operator%(const Series &other) const {
-        return apply_binary_op(other, [](auto a, auto b) {
-            if constexpr (std::is_integral_v<decltype(a)>) {
-                return a % b;
-            } else {
-                return std::fmod(a, b);
-            }
-        });
+        return apply_binary_op(other, [](auto a, auto b) { return modulo(a, b); });
     }
 
     /// @brief Series + scalar operator. Returns a new Series.
@@ -1454,7 +1471,7 @@ public:
     template<typename T>
     Series operator/(T scalar) const {
         if (scalar == 0) throw std::runtime_error("division by zero");
-        return apply_scalar_op(scalar, std::divides<T>());
+        return apply_scalar_op(scalar, [](auto a, auto b) { return divide(a, b); });
     }
 
     /// @brief Series % scalar operator. Returns a new Series.
@@ -1463,13 +1480,7 @@ public:
     template<typename T>
     Series operator%(T scalar) const {
         if (scalar == 0) throw std::runtime_error("modulo by zero");
-        if constexpr (std::is_integral_v<T>) {
-            return apply_scalar_op(scalar, std::modulus<T>());
-        } else {
-            return apply_scalar_op(scalar, [](auto a, auto b) {
-                return std::fmod(a, b);
-            });
-        }
+        return apply_scalar_op(scalar, [](auto a, auto b) { return modulo(a, b); });
     }
 
     /// @brief scalar + Series operator (commutative). Returns a new Series.
@@ -1493,20 +1504,18 @@ public:
     /// @brief scalar / Series operator. Computes (scalar / element) for each element.
     template<typename T>
     friend Series operator/(T scalar, const Series &s) {
-        return s.apply_reverse_scalar_op(scalar, std::divides<T>());
+        return s.apply_reverse_scalar_op(scalar, [](auto a, auto b) {
+            return divide(a, b);
+        });
     }
 
     /// @brief scalar % Series operator. Computes (scalar % element) for each element.
     /// Uses % for integer types, std::fmod for floating-point types.
     template<typename T>
     friend Series operator%(T scalar, const Series &s) {
-        if constexpr (std::is_integral_v<T>) {
-            return s.apply_reverse_scalar_op(scalar, std::modulus<T>());
-        } else {
-            return s.apply_reverse_scalar_op(scalar, [](auto a, auto b) {
-                return std::fmod(a, b);
-            });
-        }
+        return s.apply_reverse_scalar_op(scalar, [](auto a, auto b) {
+            return modulo(a, b);
+        });
     }
 
     /// @brief Series > Series comparison. Returns BOOLEAN_T Series with 0/1 values.

@@ -41,13 +41,21 @@ size_t slice_bound(const uint32_t bound, const size_t size) {
     return static_cast<size_t>(std::clamp<int64_t>(b, 0, n));
 }
 
+/// @brief returns a trap when divisor is a zero of the integer type T.
+template<typename T>
+std::optional<wasmtime::Trap> check_divisor(const T divisor) {
+    if constexpr (std::is_integral_v<T>)
+        if (divisor == 0) return wasmtime::Trap("integer divide by zero");
+    return std::nullopt;
+}
+
 /// @brief returns a trap when divisor holds a zero sample of the integer type T.
 template<typename T>
 std::optional<wasmtime::Trap> check_divisor(const x::telem::Series &divisor) {
     if constexpr (std::is_integral_v<T>)
         for (size_t i = 0; i < divisor.size(); ++i)
-            if (divisor.at<T>(static_cast<int>(i)) == 0)
-                return wasmtime::Trap("integer divide by zero");
+            if (auto trap = check_divisor(divisor.at<T>(static_cast<int>(i))))
+                return trap;
     return std::nullopt;
 }
 
@@ -152,10 +160,13 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "element_div_" #suffix,                                                \
-                [ss](uint32_t handle, W v) -> uint32_t {                               \
+                [ss](uint32_t handle, W v)                                             \
+                    -> wasmtime::Result<uint32_t, wasmtime::Trap> {                    \
                     auto *s = ss->get(handle);                                         \
-                    if (s == nullptr) return 0;                                        \
-                    if (static_cast<cpptype>(v) == 0) return 0;                        \
+                    if (s == nullptr) return uint32_t{0};                              \
+                    if (auto trap = check_divisor(static_cast<cpptype>(v)))            \
+                        return std::move(*trap);                                       \
+                    if (static_cast<cpptype>(v) == 0) return uint32_t{0};              \
                     auto result = *s / static_cast<cpptype>(v);                        \
                     return ss->store(std::move(result));                               \
                 }                                                                      \
@@ -165,10 +176,13 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
                 "element_mod_" #suffix,                                                \
-                [ss](uint32_t handle, W v) -> uint32_t {                               \
+                [ss](uint32_t handle, W v)                                             \
+                    -> wasmtime::Result<uint32_t, wasmtime::Trap> {                    \
                     auto *s = ss->get(handle);                                         \
-                    if (s == nullptr) return 0;                                        \
-                    if (static_cast<cpptype>(v) == 0) return 0;                        \
+                    if (s == nullptr) return uint32_t{0};                              \
+                    if (auto trap = check_divisor(static_cast<cpptype>(v)))            \
+                        return std::move(*trap);                                       \
+                    if (static_cast<cpptype>(v) == 0) return uint32_t{0};              \
                     auto result = *s % static_cast<cpptype>(v);                        \
                     return ss->store(std::move(result));                               \
                 }                                                                      \
