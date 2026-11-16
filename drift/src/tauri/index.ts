@@ -71,7 +71,7 @@ const monitorBoxes = async (): Promise<box.Box[]> => {
   const monitors = await availableMonitors();
   return monitors.map((monitor) => {
     const pos = parsePosition(monitor.position, monitor.scaleFactor);
-    const dims = { width: monitor.size.width, height: monitor.size.height };
+    const dims = parseSize(monitor.size, monitor.scaleFactor);
     return box.construct(pos, dims);
   });
 };
