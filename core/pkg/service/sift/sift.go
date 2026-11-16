@@ -49,11 +49,13 @@ func retrieveDevice(
 	key device.Key,
 ) (device.Device, error) {
 	var dev device.Device
-	err := cfg.Device.NewRetrieve().
+	if err := cfg.Device.NewRetrieve().
 		Where(device.MatchKeys(key)).
 		Entry(&dev).
-		Exec(ctx, cfg.DB)
-	return dev, err
+		Exec(ctx, cfg.DB); err != nil {
+		return device.Device{}, err
+	}
+	return dev, nil
 }
 
 // decodeProperties returns the connection properties of dev. It returns a validation

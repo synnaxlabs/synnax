@@ -145,21 +145,24 @@ func uploadSpan(
 			Where(ranger.MatchKeys(*args.Range)).
 			Entry(&rng).
 			Exec(ctx, cfg.DB); err != nil {
-			return "", tr, err
+			return "", telem.TimeRange{}, err
 		}
 		name, subject, tr = rng.Name, "range "+rng.Name, rng.TimeRange
 	}
 	// A span that has not ended sends the data written so far.
 	now := telem.Now()
 	if tr.Start > now {
-		return "", tr, validate.Errorf(
+		return "", telem.TimeRange{}, validate.Errorf(
 			"%s starts in the future, so it has no data yet",
 			subject,
 		)
 	}
 	tr.End = min(tr.End, now)
 	if tr.Span() <= 0 {
-		return "", tr, validate.Errorf("%s has no time span to upload", subject)
+		return "", telem.TimeRange{}, validate.Errorf(
+			"%s has no time span to upload",
+			subject,
+		)
 	}
 	return name, tr, nil
 }
