@@ -181,7 +181,6 @@ var (
 	}
 )
 
-// defaultConfig returns the default Driver configuration.
 func defaultConfig() Config {
 	return Config{
 		Integrations:         []string{},

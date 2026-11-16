@@ -99,7 +99,6 @@ var (
 	_ config.Config[Config] = Config{}
 )
 
-// defaultConfig returns the default server configuration.
 func defaultConfig() Config {
 	return Config{
 		Debug: new(false),

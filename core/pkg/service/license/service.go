@@ -119,7 +119,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// defaultServiceConfig returns the default configuration for the license service.
 func defaultServiceConfig() ServiceConfig {
 	return ServiceConfig{
 		Anchors:       anchors,

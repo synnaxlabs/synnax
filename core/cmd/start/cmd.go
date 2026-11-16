@@ -164,9 +164,8 @@ func readLicenseKey() (string, error) {
 }
 
 // GetCoreConfigFromViper builds a CoreConfig from the current viper configuration over
-// the defaults.
-// This is used by the Windows service to start the Core with the config loaded from
-// a YAML file.
+// the defaults. This is used by the Windows service to start the Core with the config
+// loaded from a YAML file.
 func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 	factoryCfg := cert.BuildCertFactoryConfig(ins)
 	listeners, err := listener.Parse()

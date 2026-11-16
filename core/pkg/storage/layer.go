@@ -118,7 +118,6 @@ type LayerConfig struct {
 
 var _ config.Config[LayerConfig] = LayerConfig{}
 
-// defaultLayerConfig returns the default configuration for the storage layer.
 func defaultLayerConfig() LayerConfig {
 	return LayerConfig{
 		Perm:                 xfs.UserRWX,
