@@ -20,6 +20,7 @@
 
 #include "client/cpp/errors/errors.h"
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/defer/defer.h"
 
 #include "driver/pipeline/acquisition.h"
 
@@ -41,8 +42,9 @@ struct ForwarderConfig {
 
 /// @brief delivers a task's frames and authority changes to the Core in order, on its
 /// own thread, so a task never waits on the Core. It opens and reopens the Core writer
-/// while the Core is unreachable. Any other Core error stops it, and its next write
-/// returns that error. All methods are safe to call from one task thread.
+/// while the Core is unreachable. Any other Core error stops it, drops and counts what
+/// it holds, and its next write returns that error. All methods are safe to call from
+/// one task thread.
 class Forwarder {
     using Op = std::variant<x::telem::Frame, ::driver::pipeline::Authorities>;
 
@@ -58,7 +60,19 @@ class Forwarder {
     size_t dropped_frames = 0;
     bool closing = false;
     x::errors::Error err = x::errors::NIL;
+    bool settled = false;
+    std::condition_variable settled_cv;
     std::thread thread;
+
+    /// @brief ends the wait in opened() with the result of the first open.
+    void settle() {
+        {
+            std::lock_guard lock(this->mu);
+            if (this->settled) return;
+            this->settled = true;
+        }
+        this->settled_cv.notify_all();
+    }
 
     static size_t byte_size(const Op &op) {
         const auto *fr = std::get_if<x::telem::Frame>(&op);
@@ -106,6 +120,7 @@ class Forwarder {
     /// stop, and records the error unless the Core was only unreachable.
     bool wait(const x::errors::Error &err) {
         if (synnax::errors::is_unreachable(err)) {
+            this->settle();
             if (!this->is_closing() && this->breaker.wait_unlimited(err)) return true;
             this->drop_queue();
             return false;
@@ -115,8 +130,12 @@ class Forwarder {
             return true;
         LOG(ERROR) << "[bypass.forwarder] " << this->config.subject.name
                    << " stopped: " << err;
-        std::lock_guard lock(this->mu);
-        this->err = err;
+        {
+            std::lock_guard lock(this->mu);
+            this->err = err;
+        }
+        this->drop_queue();
+        this->settle();
         return false;
     }
 
@@ -132,12 +151,14 @@ class Forwarder {
     }
 
     void run() {
+        x::defer::defer settle([this] { this->settle(); });
         while (true) {
             auto [writer, open_err] = this->server->open_writer(this->config);
             if (open_err) {
                 if (this->wait(open_err)) continue;
                 return;
             }
+            this->settle();
             this->breaker.reset();
             Op op;
             x::errors::Error op_err;
@@ -171,14 +192,24 @@ public:
 
     ~Forwarder() { static_cast<void>(this->close()); }
 
-    /// @brief queues fr for the Core. Drops and counts it when the queue is full.
+    /// @brief waits for the first open of the Core writer.
+    /// @returns the error that stopped the forwarder before its first open, or NIL once
+    /// a writer opens or the Core proves unreachable.
+    x::errors::Error opened() {
+        std::unique_lock lock(this->mu);
+        this->settled_cv.wait(lock, [this] { return this->settled; });
+        return this->err;
+    }
+
+    /// @brief queues fr for the Core. Drops and counts it when the queue is full. A
+    /// frame larger than the cap goes through when the queue is empty.
     /// @returns the Core error that stopped the forwarder, if any.
     x::errors::Error write(const x::telem::Frame &fr) {
         std::lock_guard lock(this->mu);
         if (this->err) return this->err;
         Op op = fr.shallow_copy();
         const auto size = byte_size(op);
-        if (this->queue_bytes + size > this->max_queue_bytes) {
+        if (this->queue_bytes > 0 && this->queue_bytes + size > this->max_queue_bytes) {
             if (this->dropped_frames++ % 1000 == 0)
                 LOG(WARNING) << "[bypass.forwarder] " << this->config.subject.name
                              << " dropped " << this->dropped_frames
