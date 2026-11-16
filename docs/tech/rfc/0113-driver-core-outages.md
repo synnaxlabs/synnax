@@ -68,9 +68,10 @@ the channel retrieve, a login, and the stream start (`client/cpp/framer/writer.c
 a cancel token (NEW), made before the call starts, and a watchdog thread cancels a call
 past its deadline through it. The forwarder then spools as above. Login no longer holds
 the shared auth lock while it waits (`client/cpp/auth/auth.h:252-297`): callers share
-one login in flight, and each leaves at its own deadline. The 64 MB queue covers the
-deadline at high rates. A reachable Core too slow for the task fills it, and `write`
-then drops the frame and counts it.
+one login in flight, and each leaves at its own deadline. The shared login has its own
+10 s deadline, and a failed login clears the slot for the next caller. The 64 MB queue
+covers the deadline at high rates. A reachable Core too slow for the task fills it, and
+`write` then drops the frame and counts it.
 
 Any other Core error, such as a deleted channel, closes the forwarder; the next `write`
 returns it and the task stops as today (`acquisition.cpp:162-167`).
