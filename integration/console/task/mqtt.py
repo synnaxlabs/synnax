@@ -196,7 +196,7 @@ class MQTTRead(MQTTTask):
                 inside = _plain(label) == title
             elif inside:
                 box = row.get_by_role("checkbox", name=read)
-                # A topic that reads several messages has a row with no box for each.
+                # A topic with several messages has a tree item with no box for each.
                 if box.count() > 0:
                     boxes.append(box)
         return boxes
