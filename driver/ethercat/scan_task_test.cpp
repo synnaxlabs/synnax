@@ -662,6 +662,32 @@ TEST_F(EtherCATScanStatusTest, KeepsAMovedDeviceWithInvalidProperties) {
     EXPECT_EQ(scanned.at(1).key, "ethercat_eth0_1_2_1");
 }
 
+/// @brief it should give a new device to a slave with no serial number that moved to
+/// another position, as the scan cannot tell it from another unit of its model.
+TEST_F(EtherCATScanStatusTest, GivesANewDeviceToASlaveWithNoSerialThatMoved) {
+    this->master->replace_slave(1, identity(1, 0x2, 0));
+    Devices devices;
+    store(devices, "ethercat_eth0_1_2_4", identity(4, 0x2, 0));
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, "ethercat_eth0_1_2_1");
+}
+
+/// @brief it should give a new device to a slave with no serial number at the position
+/// of a saved device on another network.
+TEST_F(EtherCATScanStatusTest, GivesANewDeviceToASlaveWithNoSerialOnAnotherNetwork) {
+    this->master->replace_slave(1, identity(1, 0x2, 0));
+    Devices devices;
+    store(devices, "ethercat_eth1_1_2_1", identity(1, 0x2, 0, "eth1"));
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, "ethercat_eth0_1_2_1");
+}
+
 /// @brief it should give the device of a serial number to one slave when slaves on two
 /// networks have the serial number.
 TEST_F(EtherCATScanTest, GivesADeviceToOneSlaveAcrossNetworks) {
