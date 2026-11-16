@@ -12,8 +12,10 @@ from importlib.metadata import version as _version
 from synnax import (
     color,
     ethercat,
+    group,
     http,
     kafka,
+    label,
     labjack,
     license,
     lineplot,

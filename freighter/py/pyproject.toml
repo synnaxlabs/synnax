@@ -40,6 +40,8 @@ line-length = 88
 target-version = "py312"
 
 [tool.ruff.lint]
+preview = true
+explicit-preview-rules = true
 select = [
     "F",
     "I",
@@ -49,6 +51,7 @@ select = [
     "E7",
     "E9",
     "PLE",
+    "PLW1514",
     "UP",
     "SIM",
     "C4",

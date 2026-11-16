@@ -38,7 +38,8 @@ def write_desktop_file(path: Path, *, port: int, api_key: str = "syk_k_s") -> No
     path.write_text(
         json.dumps(
             {"host": "127.0.0.1", "port": port, "secure": False, "api_key": api_key}
-        )
+        ),
+        encoding="utf-8",
     )
 
 
