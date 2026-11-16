@@ -125,7 +125,7 @@ const translateSource = "arc-analyzer"
 // ErrAnalysisPanic is returned by a request whose analysis panics.
 var ErrAnalysisPanic = errors.New("internal error while analyzing the program")
 
-// Server implements the Language Server Protocol for arc
+// Server implements the Language Server Protocol for arc.
 type Server struct {
 	protocol.UnimplementedServer
 	capabilities             protocol.ServerCapabilities
@@ -141,7 +141,7 @@ type Server struct {
 
 var _ protocol.Server = (*Server)(nil)
 
-// New creates a new LSP server
+// New creates a new LSP server.
 func New(cfgs ...Config) (*Server, error) {
 	cfg, err := config.New(defaultConfig, cfgs...)
 	if err != nil {
@@ -185,7 +185,7 @@ func New(cfgs ...Config) (*Server, error) {
 	}, nil
 }
 
-// SetClient sets the LSP client for sending notifications
+// SetClient sets the LSP client for sending notifications.
 func (s *Server) SetClient(client protocol.Client) {
 	s.client = client
 	if s.cfg.OnExternalChange != nil {
@@ -227,7 +227,7 @@ func (s *Server) getDocument(docURI uri.URI) (*document, bool) {
 	return &snapshot, true
 }
 
-// Initialize handles the initialize request
+// Initialize handles the initialize request.
 func (s *Server) Initialize(
 	_ context.Context,
 	params *protocol.InitializeParams,
@@ -242,7 +242,7 @@ func (s *Server) Initialize(
 	}, nil
 }
 
-// Initialized handles the initialized notification
+// Initialized handles the initialized notification.
 func (s *Server) Initialized(context.Context, *protocol.InitializedParams) error {
 	s.cfg.L.Debug("Arc LSP initialized")
 	return nil
@@ -289,7 +289,7 @@ func (s *Server) Shutdown(context.Context) error {
 	return nil
 }
 
-// DidOpen handles opening a document
+// DidOpen handles opening a document.
 func (s *Server) DidOpen(
 	ctx context.Context,
 	params *protocol.DidOpenTextDocumentParams,
@@ -325,7 +325,7 @@ func (s *Server) DidOpen(
 	return nil
 }
 
-// DidChange handles document changes
+// DidChange handles document changes.
 func (s *Server) DidChange(
 	_ context.Context,
 	params *protocol.DidChangeTextDocumentParams,
@@ -371,7 +371,7 @@ func (s *Server) DidSave(
 	return nil
 }
 
-// DidClose handles closing a document
+// DidClose handles closing a document.
 func (s *Server) DidClose(
 	ctx context.Context,
 	params *protocol.DidCloseTextDocumentParams,

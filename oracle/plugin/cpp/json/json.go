@@ -12,6 +12,7 @@ package json
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/samber/lo"
@@ -204,7 +205,7 @@ func (p *Plugin) generateFile(
 		filePath:      filePath,
 	}
 
-	data.AddInternal(fmt.Sprintf("%s/types.gen.h", outputPath))
+	data.AddInternal(outputPath + "/types.gen.h")
 	data.AddInternal("x/cpp/json/json.h")
 
 	for _, s := range structs {
@@ -1333,11 +1334,11 @@ func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string 
 	case resolution.ValueKindString:
 		return fmt.Sprintf("%q", v.StringValue)
 	case resolution.ValueKindInt:
-		return fmt.Sprintf("%d", v.IntValue)
+		return strconv.FormatInt(v.IntValue, 10)
 	case resolution.ValueKindFloat:
 		return fmt.Sprintf("%f", v.FloatValue)
 	case resolution.ValueKindBool:
-		return fmt.Sprintf("%t", v.BoolValue)
+		return strconv.FormatBool(v.BoolValue)
 	case resolution.ValueKindStruct:
 		if len(v.Fields) == 0 && field.Type.Name == "record" {
 			return "x::json::json::object_t{}"

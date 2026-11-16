@@ -177,7 +177,7 @@ func desugarInlineDecls(ctx context.Context[parser.IProgramContext]) {
 				next = c
 			}
 		}
-		for i := 0; i < node.GetChildCount(); i++ {
+		for i := range node.GetChildCount() {
 			walk(next, node.GetChild(i))
 		}
 	}

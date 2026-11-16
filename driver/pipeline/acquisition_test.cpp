@@ -137,7 +137,13 @@ void expect_writes_after_long_outage(const bool on_open) {
         factory,
         synnax::framer::WriterConfig(),
         std::make_shared<ScriptedSource>(std::vector<x::errors::Error>{}),
-        fast_breaker(x::breaker::RETRY_INFINITELY)
+        // Windows can round any nonzero wait up to a timer tick, so 100,000 of them can
+        // take minutes.
+        x::breaker::Config{
+            .name = "pipeline",
+            .base_interval = x::telem::TimeSpan::ZERO(),
+            .max_retries = x::breaker::RETRY_INFINITELY,
+        }
     );
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(

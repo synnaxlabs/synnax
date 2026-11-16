@@ -35,7 +35,6 @@ import (
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
-	telemv0 "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -333,7 +332,7 @@ var _ = Describe("Metrics upgrade", func() {
 			rec := channelv0.Channel{
 				Name:        ch.Name,
 				Leaseholder: ch.Leaseholder,
-				DataType:    telemv0.DataType(ch.DataType),
+				DataType:    ch.DataType,
 				IsIndex:     ch.IsIndex,
 				LocalKey:    ch.LocalKey,
 				LocalIndex:  ch.LocalIndex,

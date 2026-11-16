@@ -7,23 +7,24 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Lets a member tell the bot to stop reporting a finding on a pull request, with a
-reply of `@sedosaur dismiss` on the thread of the finding, or with a comment of
-`@sedosaur dismiss` and its title on the pull request."""
+"""Lets someone with write access to the repository tell the bot to stop reporting a
+finding on a pull request, with a reply of `@sedosaur dismiss` on the thread of the
+finding, or with a comment of `@sedosaur dismiss` and its title on the pull request."""
 
 import re
 from typing import Any
 
 from review.post import (
     GH,
+    Authority,
     Target,
     Thread,
     answer,
     answers,
+    authority,
     command,
     comments,
     issue_comment,
-    member,
     outside_findings,
     rescore,
     threads,
@@ -39,7 +40,7 @@ UNNAMED = (
     "`@sedosaur dismiss`, its title, and a reason. When two findings share the title, "
     "add `path:<file>` after it."
 )
-REFUSED = "Only a member can dismiss a finding, not an agent."
+REFUSED = "Only someone with write access to the repository can dismiss a finding."
 DONE = "Dismissed. Later reviews of this pull request will not report it."
 PASSED = (
     " Every finding of the review of the head is dismissed, so the head scores 5/5."
@@ -60,7 +61,7 @@ def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
     """Answers a comment that mentions the bot: a reply on the thread of one of its
     findings, or a comment on the pull request. Then answers each `@sedosaur dismiss` on
     the pull request that has no answer yet, so a run also does the work of a run that
-    never finished. A member's reply dismisses the finding of its thread. A member's
+    never finished. A writer's reply dismisses the finding of its thread. A writer's
     comment binds to the one open finding its title names, and the answer records that
     finding. Each dismissal resolves the finding's thread. When every finding of the
     newest review of the head is then dismissed, a new check run scores the head 5/5.
@@ -77,27 +78,28 @@ def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
     for thread, reply in hits:
         if command(reply["body"]) is None:
             _reply(gh, thread, USAGE)
-    _sweep_threads(t, gh, found)
-    _sweep_comments(t, gh, found)
-    if rescore(t, gh, found, key):
+    can = authority(t, gh)
+    _sweep_threads(t, gh, found, can)
+    _sweep_comments(t, gh, found, can)
+    if rescore(t, gh, found, key, can):
         _comment(t, gh, PASSED.strip())
 
 
-def _sweep_threads(t: Target, gh: GH, found: list[Thread]) -> None:
+def _sweep_threads(t: Target, gh: GH, found: list[Thread], can: Authority) -> None:
     """Answers each dismissal reply that no reply of the bot follows."""
     for th in found:
         for i, r in enumerate(th.replies):
             later = th.replies[i + 1 :]
             if command(r["body"]) is None or any(_by(t, c) for c in later):
                 continue
-            if not member(r):
+            if not can(r):
                 _reply(gh, th, REFUSED)
                 continue
             _reply(gh, th, DONE)
             _resolve(gh, th)
 
 
-def _sweep_comments(t: Target, gh: GH, found: list[Thread]) -> None:
+def _sweep_comments(t: Target, gh: GH, found: list[Thread], can: Authority) -> None:
     """Answers each dismissal comment on the pull request that has no answer yet."""
     posted = comments(t, gh)
     done = {a["comment"] for a in answers(t, posted)}
@@ -108,7 +110,7 @@ def _sweep_comments(t: Target, gh: GH, found: list[Thread]) -> None:
         if c["login"] == f"{t.bot}[bot]" or c["id"] in done or text is None:
             continue
         hit = _named(text, targets)
-        if not member(c):
+        if not can(c):
             _comment(t, gh, answer({"comment": c["id"]}, REFUSED))
         elif hit is None:
             _comment(t, gh, answer({"comment": c["id"]}, UNNAMED))

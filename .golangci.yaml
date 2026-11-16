@@ -62,23 +62,19 @@ linters:
     - gochecknoinits # SY-6108
     - gocognit # SY-6110
     - gocritic # SY-6115
-    - godot # SY-6114
     - gosec # SY-3843
     - iface # SY-6111
     - inamedparam # SY-6115
     - maintidx # SY-6110
-    - intrange # SY-6114
     - musttag # SY-6111
     - nestif # SY-6110
     - nilerr # SY-6111
     - nilnil # SY-6111
     - noctx # SY-6109
-    - perfsprint # SY-6114
     - prealloc # SY-6115
     - predeclared # SY-6115
     - recvcheck # SY-6111
     - spancheck # SY-6111
-    - unconvert # SY-6114
     - unparam # SY-6112
   settings:
     depguard:

@@ -46,6 +46,11 @@ var _ = Describe("Codec", func() {
 		Expect(errors.Encode(err, false).Type).To(Equal("sy.validation"))
 	})
 
+	It("Should name the decoded type when a stream does not decode", func() {
+		Expect(xmsgpack.Codec.DecodeStream(bytes.NewReader([]byte{0xc1}), &toEncode{})).
+			To(MatchError(ContainSubstring("failed to decode msgpack_test.toEncode")))
+	})
+
 	Describe("ContentType", func() {
 		It("Should report the MessagePack content type", func() {
 			Expect(xmsgpack.Codec.ContentType()).To(Equal("application/msgpack"))

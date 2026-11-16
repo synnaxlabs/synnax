@@ -11,7 +11,6 @@ package v0
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -63,7 +62,7 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 					Name:    t.Name,
 					Time:    telem.Now(),
 					Variant: status.VariantWarning,
-					Message: fmt.Sprintf("%s status unknown", t.Name),
+					Message: t.Name + " status unknown",
 					Details: StatusDetails{Task: t.Key},
 				}
 			}

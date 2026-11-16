@@ -160,7 +160,7 @@ func BenchmarkCalculator_SingleInput(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		advanceAlignment(inputFrame)
 		if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
 			b.Fatal(err)
@@ -203,7 +203,7 @@ func BenchmarkCalculator_TwoInputs_Add(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		advanceAlignment(inputFrame)
 		if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
 			b.Fatal(err)
@@ -250,7 +250,7 @@ func BenchmarkCalculator_MultipleInputs(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		advanceAlignment(inputFrame)
 		if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
 			b.Fatal(err)
@@ -292,7 +292,7 @@ func BenchmarkCalculator_NestedTwoLevel(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		advanceAlignment(inputFrame)
 		_, _ = group.Next(env.ctx, inputFrame, saveReport)
 	}
@@ -339,7 +339,7 @@ func BenchmarkCalculator_SampleCount(b *testing.B) {
 
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				advanceAlignment(inputFrame)
 				if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
 					b.Fatal(err)
@@ -384,7 +384,7 @@ func BenchmarkCalculator_ComplexExpression(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		advanceAlignment(inputFrame)
 		if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
 			b.Fatal(err)
@@ -434,7 +434,7 @@ func BenchmarkCalculator_GroupScaling(b *testing.B) {
 
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				advanceAlignment(inputFrame)
 				_, _ = group.Next(env.ctx, inputFrame, saveReport)
 			}
