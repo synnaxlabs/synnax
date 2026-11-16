@@ -911,10 +911,10 @@ func add() {a i32, b i32} i32 {
 		)
 
 		It(
-			"Should not take a comment of the document as a user module member's doc",
+			"Should take a user module member's doc from the module, not the document",
 			func(ctx SpecContext) {
 				sources := map[string]string{
-					"lib.m": "\n\n\nexport func f() i64 {\n    return 1\n}",
+					"lib.m": "\n\n// returns one\nexport func f() i64 {\n    return 1\n}",
 				}
 				server = MustSucceed(lsp.New(lsp.Config{
 					NewRoot: func() *symbol.Symbol { return NewModuleRoot(sources) },
@@ -925,6 +925,7 @@ func add() {a i32, b i32} i32 {
 				OpenArcDocument(server, ctx, uri, content)
 				hover := Hover(server, ctx, uri, 4, 28) // m.|f
 				Expect(hover).ToNot(BeNil())
+				Expect(HoverContents(hover)).To(ContainSubstring("returns one"))
 				Expect(HoverContents(hover)).ToNot(ContainSubstring("unrelated note"))
 			},
 		)
