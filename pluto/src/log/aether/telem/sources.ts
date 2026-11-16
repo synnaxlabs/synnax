@@ -321,7 +321,10 @@ export class StreamMultiChannelLog
       this.pageFailure = failed;
       this.reading = false;
       this.notify();
-      if ((await this.pageBreaker.wait()) && !signal.aborted) this.paging = false;
+      if ((await this.pageBreaker.wait()) && !signal.aborted) {
+        this.paging = false;
+        this.notify();
+      }
       return null;
     }
     [this.paging, this.reading, this.pageFailure] = [false, false, undefined];
