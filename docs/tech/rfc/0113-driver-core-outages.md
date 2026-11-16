@@ -56,12 +56,18 @@ the bus and hands the frame to a `bypass::pipeline::Forwarder` (NEW), which open
 writes, and reopens the task's Core writer on its own thread. `open_writer` returns at
 once. The handoff queue holds 64 MB.
 
-When the Core is unreachable or the queue is full, as on a silent network loss that
-takes minutes to report, the forwarder closes the live writer, spools the queued frames
-in order, and reopens the live writer only after the queue is empty. Every spooled frame
-therefore comes before the next live session, as RFC 0095 §4.4 requires. Any other Core
-error, such as a deleted channel, closes the forwarder; the next `write` returns it and
-the task stops as today (`acquisition.cpp:162-167`).
+When the Core is unreachable, the forwarder closes the live writer, spools the queued
+frames in order, and reopens the live writer only after the queue is empty. Every
+spooled frame therefore comes before the next live session, as RFC 0095 §4.4 requires.
+
+A full queue, as on a silent network loss that takes minutes to report, counts as an
+outage too. The forwarder thread is then blocked in a Core send, so `Writer::write`
+cancels the Core stream through `framer::Writer::cancel` (NEW, a gRPC context cancel)
+and queues its frame behind the others. The forwarder counts the frame in the cancelled
+send as lost and spools the queue as above.
+
+Any other Core error, such as a deleted channel, closes the forwarder; the next `write`
+returns it and the task stops as today (`acquisition.cpp:162-167`).
 
 ### 3.1 Authority
 
@@ -88,11 +94,11 @@ as length-prefixed `pb::Frame` (`x/cpp/telem/frame.h:185`). The forwarder spools
 `states->filter(fr, subject)`, the frame the bus publishes, and drops virtual calculated
 channels (`core/pkg/service/channel/writer.go:407-408`).
 
-The spool's own drainer thread sends segments on reconnect, so a segment survives its
-task stopping, a config change, a second outage, and a restart. For each segment it
-opens a `PersistOnly` writer at the segment's first timestamp with auto commit off
-(`client/cpp/framer/framer.h:282-325`), and moves its read offset only after a commit
-succeeds (RFC 0095 §4.0 and §4.4).
+The spool's own drainer thread sends segments whenever the Core is reachable, so a
+segment survives its task stopping, a config change, a second outage, and a restart. For
+each segment it opens a `PersistOnly` writer at the segment's first timestamp with auto
+commit off (`client/cpp/framer/framer.h:282-325`), and moves its read offset only after
+a commit succeeds (RFC 0095 §4.0 and §4.4).
 
 - **Open fails with `ErrUnauthorized`**: An old live writer still holds the claim. The
   drainer retries with backoff.
@@ -182,7 +188,7 @@ outage and offline data is dropped with a count; phase 7 keeps it.
 | ----- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------- |
 | 1     | Set the `status.set` time in the Driver                    | `core/pkg/transport/grpc/status`, `core/pkg/api/status`, `core/pkg/service/status`, `client/cpp/status`, `driver/arc/status` | -          |
 | 2     | Wait for an unreachable Core with no limit in the rack     | `driver/rack`                                                                                                                | -          |
-| 3     | Deliver bypass writer frames to the Core in the background | `driver/bypass/pipeline`                                                                                                     | -          |
+| 3     | Deliver bypass writer frames to the Core in the background | `driver/bypass/pipeline`, `client/cpp/framer`, `freighter/cpp/grpc`                                                          | -          |
 | 4     | Hand off authority locally while the Core is down          | `driver/control`, `driver/bypass/pipeline`, `driver/task`                                                                    | 3          |
 | 5     | Read the bypass bus while the Core is down                 | `driver/bypass/pipeline`                                                                                                     | -          |
 | 6     | Add the outage spool                                       | `driver/spool`                                                                                                               | -          |
