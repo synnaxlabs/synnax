@@ -57,6 +57,8 @@ public:
 /// driver. This context provides access to the Synnax client and allows tasks to
 /// easily update their state.
 class Context {
+    std::atomic<std::uint64_t> sequence{0};
+
 public:
     /// @brief the client used to communicate with the Synnax server.
     std::shared_ptr<synnax::Synnax> client;
@@ -80,6 +82,17 @@ public:
 
     /// @brief updates the state of the task in the Synnax cluster.
     virtual void set_status(synnax::task::Status &status) = 0;
+
+    /// @brief updates the state of the task in the Synnax cluster.
+    /// @param sequence from next_sequence when the task built status. A status with a
+    /// lower sequence than one already set is older, whatever its time says.
+    virtual void set_status(synnax::task::Status &status, std::uint64_t sequence) {
+        this->set_status(status);
+    }
+
+    /// @returns a number greater than any it returned before. Safe for concurrent
+    /// use.
+    std::uint64_t next_sequence() { return ++this->sequence; }
 };
 
 /// @brief a mock context that can be used for testing tasks.
@@ -112,6 +125,8 @@ class SynnaxContext final : public Context {
         /// task, so a re-send never lands after a newer status or a drop.
         std::mutex mu;
         synnax::task::Status status;
+        /// @brief the sequence of status.
+        std::uint64_t sequence = 0;
         bool present = false;
         bool dropped = false;
     };
@@ -159,6 +174,11 @@ public:
     synnax::rack::Key rack_key() override { return this->rack_key_; }
 
     void set_status(synnax::task::Status &status) override {
+        this->set_status(status, this->next_sequence());
+    }
+
+    void
+    set_status(synnax::task::Status &status, const std::uint64_t sequence) override {
         std::shared_ptr<Latest> latest;
         {
             std::lock_guard lock{this->latest_mu};
@@ -178,7 +198,7 @@ public:
         // Two threads of a task can report at once, so a status can arrive after a
         // newer one. It is still written, since it may answer a command, and then the
         // newer one again, so the newest status stays last.
-        if (latest->present && stamped.time < latest->status.time) {
+        if (latest->present && sequence < latest->sequence) {
             this->log_write(stamped);
             auto newest = latest->status;
             this->log_write(newest);
@@ -186,6 +206,7 @@ public:
         }
         latest->status = stamped;
         latest->status.details.cmd.clear();
+        latest->sequence = sequence;
         latest->present = true;
         this->log_write(stamped);
     }
