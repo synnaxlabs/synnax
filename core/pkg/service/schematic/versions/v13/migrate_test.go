@@ -499,6 +499,7 @@ var _ = Describe("MigrateSchematic config move", func() {
 						NumSides:    f,
 						SideLength:  30,
 						Rotation:    f,
+						StrokeColor: &color.Color{R: 1, A: f},
 						StrokeWidth: f,
 					}},
 					"e1": {Variant: v12.PipeElementConfig{
@@ -513,6 +514,7 @@ var _ = Describe("MigrateSchematic config move", func() {
 			Expect(polygon.SideLength).To(Equal(30.0))
 			Expect(polygon.Rotation).To(BeZero())
 			Expect(polygon.StrokeWidth).To(Equal(2.0))
+			Expect(polygon.StrokeColor).To(Equal(&colorv2.Color{R: 1}))
 			Expect(configOf(s, "e1").(v13.PipeEdgeConfig).Segments).
 				To(Equal([]v13.Segment{{}}))
 		},
