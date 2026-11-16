@@ -1248,7 +1248,10 @@ export class Series<T extends TelemValue = TelemValue>
   private sliceSub(sub: boolean, start: number, end?: number): Series {
     if (start <= 0 && (end == null || end >= this.length)) return this;
     if (this.dataType.isVariable) return this.sliceVariable(start, end ?? this.length);
-    const data = sub ? this.data.subarray(start, end) : this.data.slice(start, end);
+    // A UUID sample spans several elements of its typed array.
+    const per = this.dataType.density.valueOf() / this.dataType.Array.BYTES_PER_ELEMENT;
+    const [from, to] = [start * per, end == null ? undefined : end * per];
+    const data = sub ? this.data.subarray(from, to) : this.data.slice(from, to);
     return this.derive(data, start);
   }
 
