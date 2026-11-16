@@ -337,6 +337,22 @@ describe("Region.paint", () => {
   });
 });
 
+describe("Region.measure", () => {
+  it("should return the size of the view box", () => {
+    expect(
+      Region.measure('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20"/>'),
+    ).toEqual({ width: 40, height: 20 });
+  });
+
+  it.each([
+    ["empty markup", ""],
+    ["malformed markup", '<svg xmlns="http://www.w3.org/2000/svg"><rect></svg>'],
+    ["a root that is not an svg", '<div xmlns="http://www.w3.org/1999/xhtml"/>'],
+  ])("should return null for %s", (_, svg) => {
+    expect(Region.measure(svg)).toBeNull();
+  });
+});
+
 const parse = (markup: string): SVGSVGElement => {
   const doc = new DOMParser().parseFromString(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">${markup}</svg>`,

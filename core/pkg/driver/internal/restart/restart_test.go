@@ -131,6 +131,41 @@ var _ = Describe("Policy", func() {
 		})
 	})
 
+	Describe("requested restart", func() {
+		It("Should restart without consuming a retry", func(ctx SpecContext) {
+			p := instant(1, time.Minute)
+			Expect(p.Requested(time.Millisecond)).To(Equal(restart.Restart))
+			Expect(p.Decide(ctx, false, time.Millisecond)).To(Equal(restart.Restart))
+			Expect(p.Decide(ctx, false, time.Millisecond)).To(Equal(restart.GiveUp))
+		})
+
+		It(
+			"Should reset the failure counter after a run that exceeds HealthyUptime",
+			func(ctx SpecContext) {
+				p := instant(1, time.Minute)
+				Expect(
+					p.Decide(ctx, false, time.Millisecond),
+				).To(Equal(restart.Restart))
+				Expect(p.Requested(2 * time.Minute)).To(Equal(restart.Restart))
+				Expect(
+					p.Decide(ctx, false, time.Millisecond),
+				).To(Equal(restart.Restart))
+			},
+		)
+
+		It(
+			"Should keep the failure counter after a short run",
+			func(ctx SpecContext) {
+				p := instant(1, time.Minute)
+				Expect(
+					p.Decide(ctx, false, time.Millisecond),
+				).To(Equal(restart.Restart))
+				Expect(p.Requested(time.Millisecond)).To(Equal(restart.Restart))
+				Expect(p.Decide(ctx, false, time.Millisecond)).To(Equal(restart.GiveUp))
+			},
+		)
+	})
+
 	Describe("context cancellation", func() {
 		It(
 			"Should give up when the context is canceled during backoff",
