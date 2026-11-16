@@ -33,7 +33,8 @@ import (
 // or target is dropped. An edge with no edge config gets the default pipe, which the
 // Console drew for it before v0.55. Stroke widths become whole pixels as in
 // MigrateNodeConfig and MigrateSegmentedEdgeConfig. A NaN or infinite number in a
-// config becomes the schema default of its field, and a color with such an alpha becomes opaque.
+// config becomes the schema default of its field, and a color with such an alpha
+// becomes opaque.
 func MigrateSchematic(ctx context.Context, old v12.Schematic) (Schematic, error) {
 	s, err := autoMigrateSchematic(ctx, old)
 	if err != nil {

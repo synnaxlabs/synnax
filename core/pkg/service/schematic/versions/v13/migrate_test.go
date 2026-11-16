@@ -529,7 +529,7 @@ var _ = Describe("MigrateSchematic config move", func() {
 			Expect(polygon.NumSides).To(Equal(6.0))
 			Expect(polygon.SideLength).To(Equal(30.0))
 			Expect(polygon.Rotation).To(BeZero())
-			Expect(polygon.StrokeWidth).To(Equal(2.0))
+			Expect(polygon.StrokeWidth).To(Equal(uint8(2)))
 			Expect(polygon.StrokeColor).To(Equal(&colorv2.Color{R: 1, A: 255}))
 			Expect(configOf(s, "e1").(v13.PipeEdgeConfig).Segments).
 				To(Equal([]v13.Segment{{}}))
