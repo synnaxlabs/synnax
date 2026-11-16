@@ -264,8 +264,6 @@ func (f *Factory) ConfigureTask(
 	switch t.Type {
 	case ReadTaskType:
 		configured, autoStart, err = f.configureRead(ctx, t)
-	case ICDReadTaskType:
-		configured, autoStart, err = f.configureICDRead(ctx, t)
 	case WriteTaskType:
 		configured, autoStart, err = f.configureWrite(ctx, t)
 	case ScanTaskType:
@@ -348,6 +346,22 @@ func (f *Factory) retrieveChannels(
 	return byKey, nil
 }
 
+func (f *Factory) retrieveICD(ctx context.Context, key icd.Key) (icd.ICD, error) {
+	var ic icd.ICD
+	err := f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return f.cfg.ICD.NewRetrieve().
+			Where(icd.MatchKeys(key)).
+			Entry(&ic).
+			Exec(ctx, snap)
+	})
+	if errors.Is(err, query.ErrNotFound) {
+		return icd.ICD{}, errors.Wrapf(
+			validate.ErrValidation, "icd: ICD %s does not exist", key,
+		)
+	}
+	return ic, err
+}
+
 func (f *Factory) configureRead(
 	ctx context.Context,
 	t task.Task,
@@ -370,9 +384,9 @@ func (f *Factory) configureRead(
 			if entry.Disabled {
 				continue
 			}
-			for _, field := range entry.Fields {
-				if base := field.Base(); !base.Disabled {
-					keys = append(keys, base.Channel)
+			for _, m := range entry.Messages {
+				for _, b := range m.Bindings {
+					keys = append(keys, b.Channel)
 				}
 			}
 		case SparkplugReadEntry:
@@ -411,50 +425,19 @@ func (f *Factory) configureRead(
 		ins:        f.cfg.Child(t.Key.String()),
 	}
 	var (
-		// written names the entry that writes to each channel.
+		// written names the message or tag that writes to each channel.
 		written    = make(map[channel.Key]string)
 		writerKeys channel.Keys
 		indexes    channel.Keys
+		icds       = make(map[icd.Key]icd.ICD)
 	)
-	for _, variant := range enabled {
-		var (
-			name      string
-			entryKeys channel.Keys
-			index     channel.Key
-		)
-		switch entry := variant.(type) {
-		case PlainReadEntry:
-			topic, err := newReadTopic(entry, channels)
-			if err != nil {
-				return nil, cfg.AutoStart, err
-			}
-			if _, ok := src.topics[topic.topic]; ok {
-				return nil, cfg.AutoStart, errors.Wrapf(
-					validate.ErrValidation,
-					"entries: topic %s appears more than once", topic.topic,
-				)
-			}
-			src.topics[topic.topic] = topic
-			name, entryKeys, index = "topic "+topic.topic, topic.keys, topic.index
-		case SparkplugReadEntry:
-			tag, err := newReadTag(entry, channels)
-			if err != nil {
-				return nil, cfg.AutoStart, err
-			}
-			if _, ok := src.tags[tag.tagID]; ok {
-				return nil, cfg.AutoStart, errors.Wrapf(
-					validate.ErrValidation, "entries: %s appears more than once", tag,
-				)
-			}
-			src.tags[tag.tagID] = tag
-			name, entryKeys, index = tag.String(), tag.keys(), tag.index
-		default:
-			panic(errors.Newf("mqtt: unknown read entry variant %T", entry))
-		}
-		// Two entries on one index would race for the rising order of its timestamps.
-		for _, key := range entryKeys {
+	// claim takes the channels of keys and their index for the writer name. Two
+	// writers on one index would race for the rising order of its timestamps, or write
+	// frames that lack the channels of the other.
+	claim := func(name string, keys channel.Keys, index channel.Key) error {
+		for _, key := range keys {
 			if other, ok := written[key]; ok {
-				return nil, cfg.AutoStart, errors.Wrapf(
+				return errors.Wrapf(
 					validate.ErrValidation,
 					"entries: %s and %s write to the same channel %d",
 					other, name, key,
@@ -466,13 +449,57 @@ func (f *Factory) configureRead(
 		if index != 0 {
 			indexes = append(indexes, index)
 		}
+		return nil
+	}
+	for _, variant := range enabled {
+		switch entry := variant.(type) {
+		case PlainReadEntry:
+			ic, ok := icds[entry.ICD]
+			if !ok {
+				if ic, err = f.retrieveICD(ctx, entry.ICD); err != nil {
+					return nil, cfg.AutoStart, err
+				}
+				icds[entry.ICD] = ic
+			}
+			topic, err := newReadTopic(entry, ic, channels)
+			if err != nil {
+				return nil, cfg.AutoStart, err
+			}
+			if _, ok := src.topics[topic.topic]; ok {
+				return nil, cfg.AutoStart, errors.Wrapf(
+					validate.ErrValidation,
+					"entries: topic %s appears more than once", topic.topic,
+				)
+			}
+			src.topics[topic.topic] = topic
+			for _, m := range topic.messages {
+				name := "message " + m.name + " of topic " + topic.topic
+				if err := claim(name, m.keys, m.index); err != nil {
+					return nil, cfg.AutoStart, err
+				}
+			}
+		case SparkplugReadEntry:
+			tag, err := newReadTag(entry, channels)
+			if err != nil {
+				return nil, cfg.AutoStart, err
+			}
+			if _, ok := src.tags[tag.tagID]; ok {
+				return nil, cfg.AutoStart, errors.Wrapf(
+					validate.ErrValidation, "entries: %s appears more than once", tag,
+				)
+			}
+			src.tags[tag.tagID] = tag
+			if err := claim(tag.String(), tag.keys(), tag.index); err != nil {
+				return nil, cfg.AutoStart, err
+			}
+		default:
+			panic(errors.Newf("mqtt: unknown read entry variant %T", entry))
+		}
 	}
 	rt, err := f.openRead(t, src, writerKeys, indexes, cfg.DataSavingDisabled)
 	return rt, cfg.AutoStart, err
 }
 
-// openRead opens the read task of src, which writes to writerKeys. indexes holds the
-// index channels of writerKeys.
 func (f *Factory) openRead(
 	t task.Task,
 	src *readSource,

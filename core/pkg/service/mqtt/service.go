@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -28,8 +29,6 @@ import (
 const (
 	// ReadTaskType is the type of a task that reads topics and Sparkplug B tags.
 	ReadTaskType = "mqtt_read"
-	// ICDReadTaskType is the type of a task that reads topics with ICD messages.
-	ICDReadTaskType = "mqtt_icd_read"
 	// WriteTaskType is the type of a task that publishes to topics and commands
 	// Sparkplug B tags.
 	WriteTaskType = "mqtt_write"
@@ -48,6 +47,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// ICD holds the ICDs that read entries read the messages of, and creates the ICD of
+	// a read config from before ICDs.
+	//
+	// [REQUIRED]
+	ICD *icd.Service
 	alamos.Instrumentation
 }
 
@@ -57,6 +61,7 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.ICD = override.Nil(c.ICD, other.ICD)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -66,6 +71,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("mqtt.service")
 	v.NotNil("db", c.DB)
 	v.NotNil("channel", c.Channel)
+	v.NotNil("icd", c.ICD)
 	return v.Error()
 }
 
@@ -73,8 +79,6 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	// Read stores mqtt_read task configuration records.
 	Read *config.Service[ReadConfig]
-	// ICDRead stores mqtt_icd_read task configuration records.
-	ICDRead *config.Service[ICDReadConfig]
 	// Write stores mqtt_write task configuration records.
 	Write *config.Service[WriteConfig]
 	// Scan stores mqtt_scan task configuration records.
@@ -95,7 +99,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	channels := readChannels(cfg.Channel)
+	resolver := readResolver{
+		icds:     cfg.ICD,
+		channels: readChannels(cfg.Channel),
+		create:   createICD(cfg.ICD),
+		ins:      cfg.Instrumentation,
+	}
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
 			DB:              cfg.DB,
@@ -103,39 +112,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation: cfg.Instrumentation,
 			Type:            ReadTaskType,
 			Ladder:          versions.ReadConfigLadder,
-			Migrations:      []gorp.Migration{v2.NewReadMigration(channels)},
-			SetEntryKey:     (*ReadConfig).SetKey,
-			PatchEntry:      (*ReadConfig).Patch,
-			HashEntry:       (*ReadConfig).HashContent,
-			ResolveEntry: func(
-				ctx context.Context,
-				snap gorp.Snapshot,
-				_ string,
-				c *ReadConfig,
-			) (func(context.Context, gorp.Tx) error, error) {
-				return nil, resolveReadConfig(ctx, snap, channels, c)
+			Migrations: []gorp.Migration{
+				v2.NewReadMigration(resolver.channels, resolver.create),
 			},
-			ReconcileEntry: func(ctx context.Context, tx gorp.Tx, c *ReadConfig) error {
-				return v2.ReconcileReadConfig(ctx, tx, channels, cfg.Instrumentation, c)
-			},
+			SetEntryKey:   (*ReadConfig).SetKey,
+			PatchEntry:    (*ReadConfig).Patch,
+			HashEntry:     (*ReadConfig).HashContent,
+			ResolveEntry:  resolver.resolve,
 			ValidateEntry: validateReadConfig,
 		},
 	); !ok(err, s.Read) {
-		return nil, err
-	}
-	if s.ICDRead, err = config.OpenService(
-		ctx, config.ServiceConfig[ICDReadConfig]{
-			DB:              cfg.DB,
-			References:      icdReadConfigReferences(),
-			Instrumentation: cfg.Instrumentation,
-			Type:            ICDReadTaskType,
-			Ladder:          versions.ICDReadConfigLadder,
-			SetEntryKey:     (*ICDReadConfig).SetKey,
-			PatchEntry:      (*ICDReadConfig).Patch,
-			HashEntry:       (*ICDReadConfig).HashContent,
-			ValidateEntry:   (*ICDReadConfig).Validate,
-		},
-	); !ok(err, s.ICDRead) {
 		return nil, err
 	}
 	if s.Write, err = config.OpenService(
@@ -191,5 +177,5 @@ func (s *Service) Close() error { return s.closer.Close() }
 
 // Stores returns the config stores the service owns, for registry assembly.
 func (s *Service) Stores() []config.Store {
-	return []config.Store{s.Read, s.ICDRead, s.Write, s.Scan, s.Edge}
+	return []config.Store{s.Read, s.Write, s.Scan, s.Edge}
 }

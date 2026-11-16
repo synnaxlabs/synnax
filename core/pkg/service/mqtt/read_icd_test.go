@@ -70,6 +70,7 @@ func binding(m icd.Message, i int, ch channel.Channel) map[string]any {
 	return map[string]any{"field": fieldKey(m, i), "channel": ch.Key()}
 }
 
+// icdEntry returns the config of a plain read entry that reads messages of ic.
 func icdEntry(topic string, ic icd.ICD, messages ...map[string]any) map[string]any {
 	list := make([]any, len(messages))
 	for i, m := range messages {
@@ -77,12 +78,14 @@ func icdEntry(topic string, ic icd.ICD, messages ...map[string]any) map[string]a
 	}
 	return map[string]any{
 		"key":      topic,
+		"type":     "plain",
 		"topic":    topic,
 		"icd":      ic.Key,
 		"messages": list,
 	}
 }
 
+// readMessage returns the config that reads m through bindings.
 func readMessage(m icd.Message, bindings ...map[string]any) map[string]any {
 	list := make([]any, len(bindings))
 	for i, b := range bindings {
@@ -91,7 +94,7 @@ func readMessage(m icd.Message, bindings ...map[string]any) map[string]any {
 	return map[string]any{"message": m.Key, "bindings": list}
 }
 
-var _ = Describe("ICD read task", func() {
+var _ = Describe("Read task ICD messages", func() {
 	var (
 		broker  *testBroker
 		rackKey rack.Key
@@ -108,7 +111,7 @@ var _ = Describe("ICD read task", func() {
 
 	start := func(ctx context.Context, cfg msgpack.EncodedJSON) task.Task {
 		GinkgoHelper()
-		t := newTask(ctx, rackKey, mqtt.ICDReadTaskType, cfg)
+		t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
 		configured := configure(ctx, factory, t)
 		Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 			To(Succeed())
@@ -125,7 +128,7 @@ var _ = Describe("ICD read task", func() {
 			ic := createICD(ctx, m)
 			idx, data := createIndexed(ctx, telem.Float64T, telem.StringT)
 			before := telem.Now()
-			t := start(ctx, readConfig(dev, icdEntry(
+			t := start(ctx, readConfig(ctx, dev, icdEntry(
 				"plant/status", ic,
 				readMessage(m, binding(m, 0, data[0]), binding(m, 1, data[1])),
 			)))
@@ -180,7 +183,7 @@ var _ = Describe("ICD read task", func() {
 			eventRead["index"] = eventIndex
 			start(
 				ctx,
-				readConfig(dev, icdEntry("plant/all", ic, statusRead, eventRead)),
+				readConfig(ctx, dev, icdEntry("plant/all", ic, statusRead, eventRead)),
 			)
 			broker.publish("plant/all", `{"type":"s","ts":1,"temp":20}`, false)
 			broker.publish("plant/all", `{"type":"e","ts":2,"code":7}`, false)
@@ -205,7 +208,7 @@ var _ = Describe("ICD read task", func() {
 			)
 			ic := createICD(ctx, m)
 			_, data := createIndexed(ctx, telem.Float64T)
-			start(ctx, readConfig(dev, icdEntry(
+			start(ctx, readConfig(ctx, dev, icdEntry(
 				"plant/status", ic, readMessage(m, binding(m, 0, data[0])),
 			)))
 			broker.publish("plant/status", `{}`, false)
@@ -239,7 +242,7 @@ var _ = Describe("ICD read task", func() {
 				)
 				ic := createICD(ctx, m)
 				_, data := createIndexed(ctx, telem.Float64T)
-				t := start(ctx, readConfig(dev, icdEntry(
+				t := start(ctx, readConfig(ctx, dev, icdEntry(
 					"plant/status", ic, readMessage(m, binding(m, 0, data[0])),
 				)))
 				broker.publish("plant/status", `{"type":"e","temp":1}`, false)
@@ -261,7 +264,7 @@ var _ = Describe("ICD read task", func() {
 				)
 				ic := createICD(ctx, m)
 				_, data := createIndexed(ctx, telem.Float64T)
-				t := start(ctx, readConfig(dev, icdEntry(
+				t := start(ctx, readConfig(ctx, dev, icdEntry(
 					"plant/status", ic, readMessage(m, binding(m, 0, data[0])),
 				)))
 				broker.publish("plant/status", `{"temp":"hot"}`, false)
@@ -275,7 +278,7 @@ var _ = Describe("ICD read task", func() {
 
 	Describe("Configure", func() {
 		configureErr := func(ctx context.Context, cfg msgpack.EncodedJSON) error {
-			t := newTask(ctx, rackKey, mqtt.ICDReadTaskType, cfg)
+			t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
 			_, err := factory.ConfigureTask(ctx, t, "configure")
 			return err
 		}
@@ -325,7 +328,7 @@ var _ = Describe("ICD read task", func() {
 
 		DescribeTable("Should reject an invalid entry",
 			func(ctx SpecContext, build entries, msg string) {
-				cfg := readConfig(dev, build(createFormat(ctx))...)
+				cfg := readConfig(ctx, dev, build(createFormat(ctx))...)
 				Expect(configureErr(ctx, cfg)).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(msg)),
@@ -402,7 +405,7 @@ var _ = Describe("ICD read task", func() {
 			entry := icdEntry(
 				"plant/status", missing, readMessage(m, binding(m, 0, data[0])),
 			)
-			Expect(configureErr(ctx, readConfig(dev, entry))).To(SatisfyAll(
+			Expect(configureErr(ctx, readConfig(ctx, dev, entry))).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(
 					"icd: ICD %s does not exist", missing.Key,
@@ -420,7 +423,7 @@ var _ = Describe("ICD read task", func() {
 				entry := icdEntry(
 					"plant/status", ic, readMessage(m, binding(m, 0, data[0])),
 				)
-				Expect(configureErr(ctx, readConfig(dev, entry))).To(SatisfyAll(
+				Expect(configureErr(ctx, readConfig(ctx, dev, entry))).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(
 						"cannot write string values to float64 channels",
@@ -443,7 +446,7 @@ var _ = Describe("ICD read task", func() {
 					map[string]any{"field": uuid.New(), "channel": data[0].Key()},
 				},
 			})
-			Expect(configureErr(ctx, readConfig(dev, entry))).To(SatisfyAll(
+			Expect(configureErr(ctx, readConfig(ctx, dev, entry))).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("message Frame is not a JSON message")),
 			))

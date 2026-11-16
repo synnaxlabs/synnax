@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from uuid import uuid4
+
 import pytest
 from pydantic import ValidationError
 
@@ -20,6 +22,7 @@ class TestMQTTReadTask:
 
     def test_parse_plain_entry(self) -> None:
         """Should parse a stored config into a plain entry with its defaults."""
+        icd_key, message_key, field_key = uuid4(), uuid4(), uuid4()
         cfg = sy.mqtt.ReadConfig.model_validate(
             {
                 "device": "broker-1",
@@ -28,12 +31,11 @@ class TestMQTTReadTask:
                         "key": "e-1",
                         "type": "plain",
                         "topic": "plant/line1",
-                        "fields": [
+                        "icd": str(icd_key),
+                        "messages": [
                             {
-                                "type": "float",
-                                "key": "f-1",
-                                "channel": 12,
-                                "pointer": "/temperature",
+                                "message": str(message_key),
+                                "bindings": [{"field": str(field_key), "channel": 12}],
                             }
                         ],
                     }
@@ -45,7 +47,13 @@ class TestMQTTReadTask:
         assert entry.topic == "plant/line1"
         assert entry.qos == "at_most_once"
         assert entry.retained_ignored is False
-        assert entry.fields[0].pointer == "/temperature"
+        assert entry.icd == icd_key
+        message = entry.messages[0]
+        assert message.message == message_key
+        assert message.index is None
+        assert message.bindings[0].field == field_key
+        assert message.bindings[0].channel == 12
+        assert message.bindings[0].data_type == ""
         assert cfg.auto_start is False
         assert cfg.data_saving_disabled is False
 
@@ -91,53 +99,23 @@ class TestMQTTReadTask:
         ):
             sy.mqtt.PlainReadEntry.model_validate({"topic": "a", "qos": "twice"})
 
-    def test_entries_and_fields_get_keys(self) -> None:
-        """Should give each entry and field a unique key."""
+    def test_entries_get_keys(self) -> None:
+        """Should give each entry a unique key."""
         task = sy.mqtt.ReadTask(
             device="broker-1",
             entries=[
-                sy.mqtt.PlainReadEntry(
-                    topic="plant/a",
-                    fields=[
-                        sy.mqtt.FloatReadField(channel=1, pointer="/a"),
-                        sy.mqtt.FloatReadField(channel=2, pointer="/b"),
-                    ],
-                ),
-                sy.mqtt.PlainReadEntry(topic="plant/b"),
+                sy.mqtt.PlainReadEntry(topic="plant/a", icd=uuid4()),
+                sy.mqtt.PlainReadEntry(topic="plant/b", icd=uuid4()),
             ],
         )
         entries = task.config.entries
         assert len({e.key for e in entries}) == 2
         assert all(e.key for e in entries)
-        assert isinstance(entries[0], sy.mqtt.PlainReadEntry)
-        assert len({f.key for f in entries[0].fields}) == 2
 
-    def test_read_field_kinds(self) -> None:
-        """Should parse each read field by its kind and keep 64-bit values exact."""
-        entry = sy.mqtt.PlainReadEntry.model_validate(
-            {
-                "topic": "plant/a",
-                "fields": [
-                    {
-                        "type": "integer",
-                        "fill": "-9223372036854775808",
-                        "enum_values": [
-                            {"label": "MAX", "value": "9223372036854775807"}
-                        ],
-                    },
-                    {"type": "timestamp", "time_format": "unix_ms"},
-                    {"type": "json"},
-                ],
-            }
-        )
-        integer, stamp, raw = entry.fields
-        assert isinstance(integer, sy.mqtt.IntegerReadField)
-        assert integer.fill == -(2**63)
-        assert integer.enum_values[0].value == 2**63 - 1
-        assert isinstance(stamp, sy.mqtt.TimestampReadField)
-        assert isinstance(raw, sy.mqtt.JSONReadField)
-        dumped = entry.model_dump(mode="json")["fields"][0]
-        assert dumped["fill"] == "-9223372036854775808"
+    def test_reject_plain_entry_without_icd(self) -> None:
+        """Should require the ICD of a plain entry."""
+        with pytest.raises(ValidationError, match="icd"):
+            sy.mqtt.PlainReadEntry.model_validate({"topic": "plant/a"})
 
     def test_payload_type(self) -> None:
         """Should create a task of the MQTT read type."""
@@ -150,6 +128,11 @@ class TestMQTTReadTask:
         self, client: sy.Synnax, task_targets: TaskTargets
     ) -> None:
         """Should store a read config that the task class parses again."""
+        value = sy.icd.FloatJSONField(name="value", pointer="/v")
+        message = sy.icd.Message(
+            name="Status", payload=sy.icd.JSONPayload(fields=[value])
+        )
+        ic = client.icds.create(name="Line 1", messages=[message])
         task = sy.mqtt.ReadTask(
             device="some-broker",
             data_saving_disabled=True,
@@ -157,7 +140,15 @@ class TestMQTTReadTask:
                 sy.mqtt.PlainReadEntry(
                     topic="plant/line1",
                     qos="at_least_once",
-                    fields=[sy.mqtt.FloatReadField(channel=1234, pointer="/v")],
+                    icd=ic.key,
+                    messages=[
+                        sy.mqtt.ReadMessage(
+                            message=message.key,
+                            bindings=[
+                                sy.mqtt.ReadBinding(field=value.key, channel=1234)
+                            ],
+                        )
+                    ],
                 )
             ],
         )
@@ -172,9 +163,33 @@ class TestMQTTReadTask:
         entry = parsed.config.entries[0]
         assert isinstance(entry, sy.mqtt.PlainReadEntry)
         assert entry.qos == "at_least_once"
+        assert entry.icd == ic.key
         sent = task.config.entries[0]
         assert isinstance(sent, sy.mqtt.PlainReadEntry)
-        assert entry.fields[0].channel == sent.fields[0].channel
+        assert entry.messages == sent.messages
+
+    def test_reject_read_task_on_a_missing_message(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
+        """Should reject a config that reads a message its ICD lacks."""
+        ic = client.icds.create(name="Line 2")
+        task = sy.mqtt.ReadTask(
+            device="some-broker",
+            entries=[
+                sy.mqtt.PlainReadEntry(
+                    topic="plant/line2",
+                    icd=ic.key,
+                    messages=[sy.mqtt.ReadMessage(message=uuid4())],
+                )
+            ],
+        )
+        task_targets.attach(task.config)
+        with pytest.raises(sy.ValidationError, match="does not exist in ICD Line 2"):
+            client.tasks.create(
+                name="test-mqtt-read-task",
+                type="mqtt_read",
+                config=task.config.model_dump(exclude_none=True),
+            )
 
 
 @pytest.mark.mqtt
