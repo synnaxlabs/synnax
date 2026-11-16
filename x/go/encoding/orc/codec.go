@@ -42,12 +42,12 @@ func validateMagic(data []byte) error {
 // SelfDecoder is implemented by types that can decode themselves from ORC binary
 // format.
 type SelfDecoder interface {
-	DecodeOrc(*Reader) error
+	DecodeOrc(r *Reader) error
 }
 
 // SelfEncoder is implemented by types that can encode themselves to ORC binary format.
 type SelfEncoder interface {
-	EncodeOrc(*Writer) error
+	EncodeOrc(w *Writer) error
 }
 
 // SelfCodec is implemented by types that can both encode and decode themselves using

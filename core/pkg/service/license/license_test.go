@@ -181,9 +181,9 @@ var _ = Describe("License", func() {
 	Describe("ServiceConfig", func() {
 		DescribeTable(
 			"should reject a missing field",
-			func(field string, clear func(c *license.ServiceConfig)) {
+			func(field string, unset func(c *license.ServiceConfig)) {
 				c := license.DefaultServiceConfig.Override(cfg)
-				clear(&c)
+				unset(&c)
 				Expect(c.Validate()).To(MatchError(ContainSubstring(field)))
 			},
 			Entry("db", "db", func(c *license.ServiceConfig) { c.DB = nil }),

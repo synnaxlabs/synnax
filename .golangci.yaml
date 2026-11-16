@@ -64,12 +64,10 @@ linters:
     - gocognit # SY-6110
     - gocritic # SY-6115
     - gosec # SY-3843
-    - inamedparam # SY-6115
     - maintidx # SY-6110
     - nestif # SY-6110
     - noctx # SY-6109
     - prealloc # SY-6115
-    - predeclared # SY-6115
     - recvcheck # SY-6111
     - unparam # SY-6112
   settings:
