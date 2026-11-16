@@ -62,14 +62,18 @@ class Logins:
         self.role = role
 
     def read(self) -> dict[str, Login]:
-        """Every login by name. Raises KeyError or ValueError on a login whose tags
+        """Every login by name, with its current tags. A login stored in the last few
+        minutes can be missing. Raises KeyError or ValueError on a login whose tags
         seat.sh did not write."""
         found: dict[str, Login] = {}
         pages = self.secrets.get_paginator("list_secrets").paginate(
             Filters=[{"Key": "name", "Values": [PREFIX]}]
         )
         for page in pages:
-            for secret in page["SecretList"]:
+            for listed in page["SecretList"]:
+                # ListSecrets can lag tag writes by minutes. DescribeSecret is
+                # current.
+                secret = self.secrets.describe_secret(SecretId=listed["ARN"])
                 name = secret["Name"].removeprefix(PREFIX)
                 tags = {t["Key"]: t["Value"] for t in secret.get("Tags", [])}
                 found[name] = Login(

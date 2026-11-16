@@ -86,6 +86,12 @@ class TestLogins:
         with pytest.raises(KeyError):
             logins(secrets).read()
 
+    def test_should_fail_on_a_login_with_an_expiry_that_is_not_whole(self) -> None:
+        secrets = Secrets()
+        secrets.tags[f"{PREFIX}claude-1"] = {"agent": "claude", "expires": "1.5"}
+        with pytest.raises(ValueError, match="invalid literal"):
+            logins(secrets).read()
+
     def test_should_name_a_holder_by_the_session_of_its_seat(self) -> None:
         assert logins(Secrets()).holder("i-1") == "AROAROLE:i-1"
 
@@ -110,3 +116,16 @@ class TestLogins:
         logs.limit(found, until=NOW + 60)
         assert secrets.tags[name]["limited-until"] == str(NOW + 60)
         assert found.limited_until == NOW + 60
+
+    def test_should_keep_the_login_when_a_write_fails(self) -> None:
+        secrets = Secrets()
+        secrets.tags[f"{PREFIX}claude-1"] = {"agent": "claude", "expires": str(NOW)}
+        logs = logins(secrets)
+        found = logs.read()["claude-1"]
+        secrets.failing = True
+        with pytest.raises(PermissionError):
+            logs.hold(found, holders=["AROAROLE:i-1"])
+        with pytest.raises(PermissionError):
+            logs.limit(found, until=NOW + 60)
+        assert found.holders == []
+        assert found.limited_until == 0

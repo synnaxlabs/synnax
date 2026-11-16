@@ -104,16 +104,18 @@ class Secrets:
 
     def paginate(self, Filters: list[dict]) -> list[dict]:
         prefix = Filters[0]["Values"][0]
+        # The list carries no tags, so a read that trusts it sees none.
         listed = [
-            {
-                "Name": name,
-                "ARN": f"arn:{name}",
-                "Tags": [{"Key": k, "Value": v} for k, v in tags.items()],
-            }
-            for name, tags in self.tags.items()
+            {"Name": name, "ARN": f"arn:{name}", "Tags": []}
+            for name in self.tags
             if name.startswith(prefix)
         ]
         return [{"SecretList": listed}]
+
+    def describe_secret(self, SecretId: str) -> dict:
+        name = SecretId.removeprefix("arn:")
+        tags = [{"Key": k, "Value": v} for k, v in self.tags[name].items()]
+        return {"Name": name, "ARN": SecretId, "Tags": tags}
 
     def tag_resource(self, SecretId: str, Tags: list[dict]) -> None:
         if self.failing:
