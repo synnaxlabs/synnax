@@ -160,7 +160,8 @@ public:
         Sink(cfg.state_rate, cfg.output_channels(), cfg.data_saving_disabled),
         cfg(std::move(cfg)),
         make_hw(std::move(make_hw)),
-        buf(this->cfg.channels.size() + this->cfg.generators.size()) {}
+        buf(this->cfg.channels.size() + this->cfg.generators.size()),
+        written(this->buf.size()) {}
 
 private:
     /// @brief builds the hardware for each run.
@@ -172,6 +173,8 @@ private:
     /// time a command is provided. DAQmx reads one value for each channel of the
     /// task, so generators hold unused slots at the end.
     std::vector<T> buf;
+    /// @brief the values of the last write that the hardware accepted.
+    std::vector<T> written;
 
     /// @brief implements common::Sink to claim the hardware and start it.
     x::errors::Error start(const std::string &, x::breaker::Breaker &) override {
@@ -205,7 +208,11 @@ private:
                 const auto buf_index = it->second;
                 buf[buf_index] = x::telem::cast<T>(series.at(-1));
             }
-        if (const auto err = this->hw_writer->write(buf)) return translate_error(err);
+        if (const auto err = this->hw_writer->write(buf)) {
+            this->buf = this->written;
+            return translate_error(err);
+        }
+        this->written = this->buf;
         this->set_state(frame);
         return x::errors::NIL;
     }
