@@ -26,7 +26,7 @@ var _ = Describe("CanEmbed", func() {
 		ctx context.Context, source string,
 	) (resolution.StructForm, *resolution.Table) {
 		GinkgoHelper()
-		table := MustGenerateRequest(ctx, source, "test", NewMockFileLoader()).
+		table := MustGenerateRequest(source, "test", NewMockFileLoader()).
 			Resolutions
 		form, ok := MustBeOk(table.Get("test.Child")).Form.(resolution.StructForm)
 		Expect(ok).To(BeTrue(), "Child is not a struct")

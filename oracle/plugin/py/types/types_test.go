@@ -54,7 +54,7 @@ var _ = Describe("Python Types Plugin", func() {
 	Describe("Generate", func() {
 		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
 			AddFilterSchema(loader)
-			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			resp := MustGenerate(ThingFilter, "thing", loader, typesPlugin)
 			ExpectContent(resp, "thing/types_gen.py").ToContain(
 				`and_: list[Where] | None = Field(default=None, alias="and")`,
 				`or_: list[Where] | None = Field(default=None, alias="or")`,
@@ -67,7 +67,7 @@ var _ = Describe("Python Types Plugin", func() {
 			ctx SpecContext,
 		) {
 			AddFilterSchema(loader)
-			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			resp := MustGenerate(ThingFilter, "thing", loader, typesPlugin)
 			strict := `model_config = ConfigDict(populate_by_name=True, extra="forbid")`
 			ExpectContent(resp, "thing/types_gen.py").
 				ToContain(
@@ -89,7 +89,7 @@ var _ = Describe("Python Types Plugin", func() {
 				"name string { @search }",
 				1,
 			)
-			resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
+			resp := MustGenerate(source, "thing", loader, typesPlugin)
 			ExpectContent(resp, "thing/types_gen.py").ToContain(
 				`search_term: str = ""`,
 				"limit: int | None = Field(default=None, ge=0, le=4294967295)",
@@ -119,7 +119,7 @@ var _ = Describe("Python Types Plugin", func() {
 			It("Should read each operator from a plain value or a list", func(
 				ctx SpecContext,
 			) {
-				resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+				resp := MustGenerate(ThingFilter, "thing", loader, typesPlugin)
 				ExpectContent(resp, "filter/types_gen.py").ToContain(
 					"from x.filter import shorthand",
 					"    @model_validator(mode=\"before\")\n"+
@@ -134,7 +134,7 @@ var _ = Describe("Python Types Plugin", func() {
 			It("Should declare the dict form and the input of each operator", func(
 				ctx SpecContext,
 			) {
-				resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+				resp := MustGenerate(ThingFilter, "thing", loader, typesPlugin)
 				ExpectContent(resp, "filter/types_gen.py").ToContain(
 					"StringDict = TypedDict(\n"+
 						"    \"StringDict\",\n"+
@@ -155,7 +155,7 @@ var _ = Describe("Python Types Plugin", func() {
 			})
 
 			It("Should declare the partial record of a filter", func(ctx SpecContext) {
-				resp := MustGenerate(ctx, thing+`
+				resp := MustGenerate(thing+`
 					Where filter Thing {
 						key
 						name
@@ -180,7 +180,7 @@ var _ = Describe("Python Types Plugin", func() {
 			})
 
 			It("Should read a typed list line from one value", func(ctx SpecContext) {
-				resp := MustGenerate(ctx, thing+`
+				resp := MustGenerate(thing+`
 					Where filter Thing {
 						key
 						overlaps Span
@@ -210,7 +210,7 @@ var _ = Describe("Python Types Plugin", func() {
 						subject string
 					}
 				`
-				resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+				resp := MustGenerate(source, "auth", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(`key: UUID`, `subject: str`).
 					ToNotContain("hash")
@@ -231,7 +231,7 @@ var _ = Describe("Python Types Plugin", func() {
 						active bool
 					}
 				`
-					resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+					resp := MustGenerate(source, "user", loader, typesPlugin)
 					Expect(resp.Files).To(HaveLen(1))
 
 					ExpectContent(resp, "types_gen.py").
@@ -266,7 +266,7 @@ var _ = Describe("Python Types Plugin", func() {
 						` + childBody + `
 					}
 				`
-					resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+					resp := MustGenerate(source, "user", loader, typesPlugin)
 					return string(resp.Files[0].Content)
 				}
 				// A typeless override desugars to the equivalent full restatement, so
@@ -290,7 +290,7 @@ var _ = Describe("Python Types Plugin", func() {
 					name -@validate
 				}
 			`
-				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(source, "user", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(`class Child(BaseModel):`, `name: str`)
 			},
@@ -334,7 +334,7 @@ var _ = Describe("Python Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+					resp := MustGenerate(source, "auth", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain("key: int", "name: str", "rate: float").
 						ToNotContain("Record")
@@ -343,7 +343,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			It("Should declare the inherited fields", func(ctx SpecContext) {
 				resp := MustGenerate(
-					ctx,
 					schema("@py omit", "rate float64"),
 					"user",
 					loader,
@@ -362,7 +361,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 			It("Should leave out a removed field", func(ctx SpecContext) {
 				resp := MustGenerate(
-					ctx, schema("@py omit", "-secret"), "user", loader, typesPlugin,
+					schema("@py omit", "-secret"), "user", loader, typesPlugin,
 				)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(`class Shape(BaseModel):`, `name: str`).
@@ -371,7 +370,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 			It("Should inherit from a parent that generates", func(ctx SpecContext) {
 				resp := MustGenerate(
-					ctx, schema("", "rate float64"), "user", loader, typesPlugin,
+					schema("", "rate float64"), "user", loader, typesPlugin,
 				)
 				ExpectContent(resp, "types_gen.py").ToContain(`class Shape(Record):`)
 			})
@@ -388,7 +387,7 @@ var _ = Describe("Python Types Plugin", func() {
 					tags string[]?
 				}
 			`
-			table, diag := Analyze(ctx, source, "ranger", loader)
+			table, diag := Analyze(source, "ranger", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -422,7 +421,7 @@ var _ = Describe("Python Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "user", loader)
+				table, diag := Analyze(source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -453,7 +452,7 @@ var _ = Describe("Python Types Plugin", func() {
 					frequency float64 @validate gt 0.5
 				}
 			`
-				table, diag := Analyze(ctx, source, "wave", loader)
+				table, diag := Analyze(source, "wave", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				resp := MustSucceed(typesPlugin.Generate(
 					&plugin.Request{Resolutions: table},
@@ -484,7 +483,7 @@ var _ = Describe("Python Types Plugin", func() {
 					count     int32 @validate min 0
 				}
 			`
-				table, diag := Analyze(ctx, source, "range", loader)
+				table, diag := Analyze(source, "range", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				resp := MustSucceed(typesPlugin.Generate(
 					&plugin.Request{Resolutions: table},
@@ -533,7 +532,7 @@ var _ = Describe("Python Types Plugin", func() {
 					label Name @validate min_length 2
 				}
 			`
-				table, diag := Analyze(ctx, source, "range", loader)
+				table, diag := Analyze(source, "range", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				resp := MustSucceed(typesPlugin.Generate(
 					&plugin.Request{Resolutions: table},
@@ -571,7 +570,7 @@ var _ = Describe("Python Types Plugin", func() {
 					alias string? @validate max_length 64
 				}
 			`
-				table, diag := Analyze(ctx, source, "user", loader)
+				table, diag := Analyze(source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				resp := MustSucceed(typesPlugin.Generate(&plugin.Request{
 					Resolutions: table,
@@ -600,7 +599,7 @@ var _ = Describe("Python Types Plugin", func() {
 					state TaskState
 				}
 			`
-			table, diag := Analyze(ctx, source, "task", loader)
+			table, diag := Analyze(source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -632,7 +631,7 @@ var _ = Describe("Python Types Plugin", func() {
 					data_type DataType
 				}
 			`
-			table, diag := Analyze(ctx, source, "telem", loader)
+			table, diag := Analyze(source, "telem", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -672,7 +671,7 @@ var _ = Describe("Python Types Plugin", func() {
 					units Units = UnitsVolts
 				}
 			`
-				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+				resp := MustGenerate(source, "channel", loader, typesPlugin)
 				content := MustContentOf(resp, "types_gen.py")
 				Expect(content).To(ContainSubstring(`units: Units = "Volts"`))
 				Expect(content).ToNot(ContainSubstring(`default=Units.volts`))
@@ -694,7 +693,7 @@ var _ = Describe("Python Types Plugin", func() {
 					mode Mode = ModeOn
 				}
 			`
-				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+				resp := MustGenerate(source, "channel", loader, typesPlugin)
 				content := MustContentOf(resp, "types_gen.py")
 				Expect(content).To(ContainSubstring(`mode: Mode = Mode.on`))
 			},
@@ -718,7 +717,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 				AxisKey enum extends XAxisKey, YAxisKey {}
 			`
-				table, diag := Analyze(ctx, source, "lineplot", loader)
+				table, diag := Analyze(source, "lineplot", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				resp := MustSucceed(
@@ -747,7 +746,7 @@ var _ = Describe("Python Types Plugin", func() {
 					op OperationType
 				}
 			`
-				table, diag := Analyze(ctx, source, "config", loader)
+				table, diag := Analyze(source, "config", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -780,7 +779,7 @@ var _ = Describe("Python Types Plugin", func() {
 							field ` + oracleType + `
 						}
 					`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					resp := MustGenerate(source, "test", loader, typesPlugin)
 					ExpectContent(
 						resp,
 						"types_gen.py",
@@ -831,7 +830,7 @@ var _ = Describe("Python Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					resp := MustGenerate(source, "test", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").ToContain(
 						`stated: int = Field(default=1, ge=0, le=3)`,
 						`implied_min: int = Field(default=2, ge=0, le=3)`,
@@ -848,7 +847,7 @@ var _ = Describe("Python Types Plugin", func() {
 						data bytes
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				resp := MustGenerate(source, "test", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(`from x.codec import Bytes`, `data: Bytes`)
 			})
@@ -864,7 +863,7 @@ var _ = Describe("Python Types Plugin", func() {
 						value any
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					resp := MustGenerate(source, "test", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`from pydantic import BaseModel, JsonValue`,
@@ -883,7 +882,7 @@ var _ = Describe("Python Types Plugin", func() {
 						value any
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				resp := MustGenerate(source, "test", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").ToContain("    value: JsonValue\n")
 			})
 
@@ -896,7 +895,7 @@ var _ = Describe("Python Types Plugin", func() {
 						required any
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				resp := MustGenerate(source, "test", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").ToContain(
 					"    value: JsonValue | None = None\n",
 					"    required: JsonValue\n",
@@ -916,7 +915,7 @@ var _ = Describe("Python Types Plugin", func() {
 					last_name string?
 				}
 			`
-			table, diag := Analyze(ctx, source, "user", loader)
+			table, diag := Analyze(source, "user", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -944,7 +943,7 @@ var _ = Describe("Python Types Plugin", func() {
 					status string?
 				}
 			`
-			table, diag := Analyze(ctx, source, "device", loader)
+			table, diag := Analyze(source, "device", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -968,7 +967,7 @@ var _ = Describe("Python Types Plugin", func() {
 					actions string[]?
 				}
 			`
-			table, diag := Analyze(ctx, source, "policy", loader)
+			table, diag := Analyze(source, "policy", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -993,7 +992,7 @@ var _ = Describe("Python Types Plugin", func() {
 					retries int32 = 3
 				}
 			`
-			table, diag := Analyze(ctx, source, "config", loader)
+			table, diag := Analyze(source, "config", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1018,7 +1017,7 @@ var _ = Describe("Python Types Plugin", func() {
 					vals  float64[] = [1.5, 2.5]
 				}
 			`
-			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+			resp := MustGenerate(source, "config", loader, typesPlugin)
 			content := string(resp.Files[0].Content)
 			Expect(
 				content,
@@ -1039,7 +1038,7 @@ var _ = Describe("Python Types Plugin", func() {
 					uuid_key uuid   = create
 				}
 			`
-				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				resp := MustGenerate(source, "config", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(
 					content,
@@ -1063,7 +1062,7 @@ var _ = Describe("Python Types Plugin", func() {
 					p Point = { x = 1, y = 2 }
 				}
 			`
-			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+			resp := MustGenerate(source, "config", loader, typesPlugin)
 			content := string(resp.Files[0].Content)
 			Expect(
 				content,
@@ -1080,7 +1079,7 @@ var _ = Describe("Python Types Plugin", func() {
 					args record = {}
 				}
 			`
-				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				resp := MustGenerate(source, "config", loader, typesPlugin)
 				content := MustContentOf(resp, "types_gen.py")
 				Expect(
 					content,
@@ -1098,7 +1097,7 @@ var _ = Describe("Python Types Plugin", func() {
 					args record = { mode = "fast", retries = 3 }
 				}
 			`
-				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				resp := MustGenerate(source, "config", loader, typesPlugin)
 				content := MustContentOf(resp, "types_gen.py")
 				Expect(
 					content,
@@ -1118,7 +1117,7 @@ var _ = Describe("Python Types Plugin", func() {
 					timeout Duration = 0
 				}
 			`
-				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				resp := MustGenerate(source, "config", loader, typesPlugin)
 				content := MustContentOf(resp, "types_gen.py")
 				Expect(
 					content,
@@ -1138,7 +1137,7 @@ var _ = Describe("Python Types Plugin", func() {
 					rate Rate = 0.2
 				}
 			`
-				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				resp := MustGenerate(source, "config", loader, typesPlugin)
 				content := MustContentOf(resp, "types_gen.py")
 				Expect(content).To(ContainSubstring(`rate: Rate = Rate(0.200000)`))
 			},
@@ -1156,7 +1155,7 @@ var _ = Describe("Python Types Plugin", func() {
 					data_type DataType = "float32"
 				}
 			`
-				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				resp := MustGenerate(source, "config", loader, typesPlugin)
 				content := MustContentOf(resp, "types_gen.py")
 				Expect(content).To(ContainSubstring(
 					`data_type: DataType = DataType("float32")`,
@@ -1183,7 +1182,7 @@ var _ = Describe("Python Types Plugin", func() {
 					duration telem.TimeSpan = 0
 				}
 			`
-				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+				resp := MustGenerate(source, "channel", loader, typesPlugin)
 				content := MustContentOf(resp, "types_gen.py")
 				Expect(
 					content,
@@ -1206,7 +1205,7 @@ var _ = Describe("Python Types Plugin", func() {
 					email string
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1248,7 +1247,7 @@ var _ = Describe("Python Types Plugin", func() {
 					rate int32 = 10
 				}
 			`
-				resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+				resp := MustGenerate(source, "ni", loader, typesPlugin)
 				content := MustContentOf(resp, "types_gen.py")
 				Expect(content).To(ContainSubstring(`from synnax import common`))
 				Expect(
@@ -1279,7 +1278,7 @@ var _ = Describe("Python Types Plugin", func() {
 					scale common.Scale = none
 				}
 			`
-				resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+				resp := MustGenerate(source, "ni", loader, typesPlugin)
 				content := MustContentOf(resp, "types_gen.py")
 				Expect(content).To(ContainSubstring(`from synnax import common`))
 				Expect(content).To(ContainSubstring(
@@ -1303,7 +1302,7 @@ var _ = Describe("Python Types Plugin", func() {
 					name string?
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1343,7 +1342,7 @@ var _ = Describe("Python Types Plugin", func() {
 					extra string
 				}
 			`
-				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				resp := MustGenerate(source, "test", loader, typesPlugin)
 				content := MustContentOf(resp, "types_gen.py")
 				// Child should be standalone with all fields inlined
 				Expect(content).To(ContainSubstring(`class Child(BaseModel):`))
@@ -1372,7 +1371,7 @@ var _ = Describe("Python Types Plugin", func() {
 					hidden bool?
 				}
 			`
-				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				resp := MustGenerate(source, "test", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").ToContain(
 					"class Child(BaseModel):\n    item: str\n",
 				)
@@ -1394,7 +1393,7 @@ var _ = Describe("Python Types Plugin", func() {
 					active bool
 				}
 			`
-				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				resp := MustGenerate(source, "test", loader, typesPlugin)
 				content := MustContentOf(resp, "types_gen.py")
 				Expect(content).To(ContainSubstring(`class Child(Parent):`))
 				Expect(content).To(ContainSubstring(`email: str`))
@@ -1420,7 +1419,7 @@ var _ = Describe("Python Types Plugin", func() {
 					c bool
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1454,7 +1453,7 @@ var _ = Describe("Python Types Plugin", func() {
 					c bool
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1494,7 +1493,7 @@ var _ = Describe("Python Types Plugin", func() {
 					c float32
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1526,7 +1525,7 @@ var _ = Describe("Python Types Plugin", func() {
 					ripe bool
 				}
 			`
-			table, diag := Analyze(ctx, source, "animals", loader)
+			table, diag := Analyze(source, "animals", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1553,7 +1552,7 @@ var _ = Describe("Python Types Plugin", func() {
 					mango bool
 				}
 			`
-			table, diag := Analyze(ctx, source, "order", loader)
+			table, diag := Analyze(source, "order", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1585,7 +1584,7 @@ var _ = Describe("Python Types Plugin", func() {
 						@py hand
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(source, "user", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`class User(BaseModel):`))
 				Expect(content).NotTo(ContainSubstring(`InternalState`))
@@ -1606,7 +1605,7 @@ var _ = Describe("Python Types Plugin", func() {
 						@py hand
 					}
 				`
-				resp := MustGenerate(ctx, source, "status", loader, typesPlugin)
+				resp := MustGenerate(source, "status", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`class Status(IntEnum):`))
 				Expect(content).NotTo(ContainSubstring(`DebugLevel`))
@@ -1629,7 +1628,7 @@ var _ = Describe("Python Types Plugin", func() {
 						@resource type "policy"
 					}
 				`
-					resp := MustGenerate(ctx, source, "policy", loader, typesPlugin)
+					resp := MustGenerate(source, "policy", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`from synnax.resource import ID`,
@@ -1662,7 +1661,7 @@ var _ = Describe("Python Types Plugin", func() {
 						@resource type "view"
 					}
 				`
-				resp := MustGenerate(ctx, source, "view", loader, typesPlugin)
+				resp := MustGenerate(source, "view", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(
 						`TYPE_RESOURCE_ID = ID(type="view")`,
@@ -1692,7 +1691,7 @@ var _ = Describe("Python Types Plugin", func() {
 						@resource type "view"
 					}
 				`
-					resp := MustGenerate(ctx, source, "view", loader, typesPlugin)
+					resp := MustGenerate(source, "view", loader, typesPlugin)
 					ExpectContent(resp, "out/types_gen.py").
 						ToContain(`TYPE_RESOURCE_ID = ID(type="view")`)
 				},
@@ -1708,7 +1707,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 					UserID = uuid
 				`
-					resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+					resp := MustGenerate(source, "user", loader, typesPlugin)
 					content := string(resp.Files[0].Content)
 					Expect(content).To(ContainSubstring(`from typing import TypeAlias`))
 					Expect(content).To(ContainSubstring(`UserID: TypeAlias = UUID`))
@@ -1721,7 +1720,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 					UserKey uuid
 				`
-				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(source, "user", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`from typing import TypeAlias`))
 				Expect(content).To(ContainSubstring(`UserKey: TypeAlias = UUID`))
@@ -1744,7 +1743,7 @@ var _ = Describe("Python Types Plugin", func() {
 						email string
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				resp := MustGenerate(source, "test", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(
 						`class Child(BaseModel):`,
@@ -1771,7 +1770,7 @@ var _ = Describe("Python Types Plugin", func() {
 						-tags
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					resp := MustGenerate(source, "test", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").ToContain(
 						`class Child(Parent):`,
 						`embedded: bool = Field(default=False, exclude=True)`,
@@ -1797,7 +1796,7 @@ var _ = Describe("Python Types Plugin", func() {
 						e string
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				resp := MustGenerate(source, "test", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").ToContain(
 					`class Child(BaseModel):`,
 					`a: str | None = Field(default=None, exclude=True)`,
@@ -1825,7 +1824,7 @@ var _ = Describe("Python Types Plugin", func() {
 						name string
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+					resp := MustGenerate(source, "channel", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`from typing import TypeAlias, override as _override`,
@@ -1843,7 +1842,7 @@ var _ = Describe("Python Types Plugin", func() {
 					@py output "out"
 
 					` + decl
-					resp := MustGenerate(ctx, source, "node", loader, typesPlugin)
+					resp := MustGenerate(source, "node", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(`node_key: str`, `return hash(self.node_key)`).
 						ToNotContain(`self.nodeKey`)
@@ -1889,7 +1888,7 @@ var _ = Describe("Python Types Plugin", func() {
 						key?
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+					resp := MustGenerate(source, "channel", loader, typesPlugin)
 					content := string(resp.Files[0].Content)
 					newClass := content[strings.Index(content, "class New"):]
 					Expect(newClass).To(ContainSubstring(`key: Key | None`))
@@ -1922,7 +1921,7 @@ var _ = Describe("Python Types Plugin", func() {
 						age int32
 					}
 				`
-					resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+					resp := MustGenerate(source, "user", loader, typesPlugin)
 					content := string(resp.Files[0].Content)
 					Expect(
 						content,
@@ -1950,7 +1949,7 @@ var _ = Describe("Python Types Plugin", func() {
 						status int32
 					}
 				`
-					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`from typing import Generic`,
@@ -1973,7 +1972,7 @@ var _ = Describe("Python Types Plugin", func() {
 						value V
 					}
 				`
-					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`V = TypeVar("V", bound=dict[str, JsonValue])`,
@@ -1994,7 +1993,7 @@ var _ = Describe("Python Types Plugin", func() {
 						details Details
 					}
 				`
-					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`from typing_extensions import TypeVar`,
@@ -2017,7 +2016,7 @@ var _ = Describe("Python Types Plugin", func() {
 						value T
 					}
 				`
-					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`from typing_extensions import TypeVar`,
@@ -2037,7 +2036,7 @@ var _ = Describe("Python Types Plugin", func() {
 						config C
 					}
 				`
-					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+					resp := MustGenerate(source, "api", loader, typesPlugin)
 					content := MustContentOf(resp, "types_gen.py")
 					Expect(content).To(ContainSubstring(`class Task(BaseModel):`))
 					Expect(content).To(ContainSubstring(`config: dict[str, JsonValue]`))
@@ -2059,7 +2058,7 @@ var _ = Describe("Python Types Plugin", func() {
 						task_key uuid
 					}
 				`
-					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`class Status(BaseModel, Generic[D]):`,
@@ -2087,7 +2086,7 @@ var _ = Describe("Python Types Plugin", func() {
 						transfers Transfer<R>[]
 					}
 				`
-					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`from_: State[R] | None`,
@@ -2111,7 +2110,7 @@ var _ = Describe("Python Types Plugin", func() {
 						details Details
 					}
 				`
-					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(`details: Details`).
 						ToNotContain(`Details[`)
@@ -2136,7 +2135,7 @@ var _ = Describe("Python Types Plugin", func() {
 							color Color
 						}
 					`
-					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					resp := MustGenerate(source, "color", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(`from x.color.color import Color`, `color: Color`).
 						ToNotContain("class Color(")
@@ -2158,7 +2157,7 @@ var _ = Describe("Python Types Plugin", func() {
 							rgba Color
 						}
 					`
-					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					resp := MustGenerate(source, "color", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`from x.color.color import rgba as rgba_`,
@@ -2192,7 +2191,7 @@ var _ = Describe("Python Types Plugin", func() {
 							label Label
 						}
 					`
-					resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+					resp := MustGenerate(source, "task", loader, typesPlugin)
 					ExpectContent(resp, "task/types_gen.py").ToContain(
 						`from synnax import status`,
 						`from synnax.task.label import status as status_`,
@@ -2217,7 +2216,7 @@ var _ = Describe("Python Types Plugin", func() {
 							arc_key arc.Key
 						}
 					`
-					resp := MustGenerate(ctx, source, "arc_task", loader, typesPlugin)
+					resp := MustGenerate(source, "arc_task", loader, typesPlugin)
 					ExpectContent(resp, "arc/task/types_gen.py").ToContain(
 						`from synnax.arc import types_gen`,
 						`arc_key: types_gen.Key`,
@@ -2246,7 +2245,7 @@ var _ = Describe("Python Types Plugin", func() {
 							arc_key arc.Key
 						}
 					`
-					resp := MustGenerate(ctx, source, "arc_task", loader, typesPlugin)
+					resp := MustGenerate(source, "arc_task", loader, typesPlugin)
 					ExpectContent(resp, "arc/task/types_gen.py").ToContain(
 						`from synnax.arc.key import Key as Key_`,
 						`arc_key: Key_`,
@@ -2270,7 +2269,7 @@ var _ = Describe("Python Types Plugin", func() {
 						}
 					`
 					custom := types.New(types.Options{FileNamePattern: "models.py"})
-					resp := MustGenerate(ctx, source, "arc_task", loader, custom)
+					resp := MustGenerate(source, "arc_task", loader, custom)
 					ExpectContent(resp, "arc/task/models.py").ToContain(
 						`from synnax.arc import models`,
 						`arc_key: models.Key`,
@@ -2297,7 +2296,7 @@ var _ = Describe("Python Types Plugin", func() {
 							arc_key arc.Key
 						}
 					`
-					resp := MustGenerate(ctx, source, "arc_task", loader, typesPlugin)
+					resp := MustGenerate(source, "arc_task", loader, typesPlugin)
 					ExpectContent(resp, "arc/task/types_gen.py").
 						ToContain(`from synnax.arc.key import Key`, `arc_key: Key`).
 						ToNotContain("from synnax import arc\n")
@@ -2321,7 +2320,7 @@ var _ = Describe("Python Types Plugin", func() {
 							color Color
 						}
 					`
-					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					resp := MustGenerate(source, "color", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").ToContain(
 						imported,
 						`from x.color.color import `+name+` as `+name+`_`,
@@ -2354,7 +2353,7 @@ var _ = Describe("Python Types Plugin", func() {
 							color Color
 						}
 					`
-					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					resp := MustGenerate(source, "color", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").ToContain(
 						`from x.color.color import Color as Color_`,
 						`Color = TypeVar("Color")`,
@@ -2383,7 +2382,7 @@ var _ = Describe("Python Types Plugin", func() {
 							linear Scale = { type = "linear", slope = 2 }
 						}
 					`
-					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					resp := MustGenerate(source, "color", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`from x.color.scale import Scale`,
@@ -2407,7 +2406,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 						Shade = Color
 					`
-					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					resp := MustGenerate(source, "color", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(`from x.color.color import Color`, `Shade`)
 				})
@@ -2426,7 +2425,7 @@ var _ = Describe("Python Types Plugin", func() {
 							color Color
 						}
 					`
-					req := MustGenerateRequest(ctx, source, "color", loader)
+					req := MustGenerateRequest(source, "color", loader)
 					Expect(typesPlugin.Generate(req)).Error().To(MatchError(
 						ContainSubstring(
 							"types with no generated Python declaration need a " +
@@ -2464,7 +2463,7 @@ var _ = Describe("Python Types Plugin", func() {
 						stop  color.Stop
 					}
 				`)
-				resp := MustGenerateMulti(ctx, loader, typesPlugin)
+				resp := MustGenerateMulti(loader, typesPlugin)
 				ExpectContent(resp, "client/py/synnax/color/types_gen.py").
 					ToContain(
 						"from x import color",
@@ -2506,7 +2505,7 @@ var _ = Describe("Python Types Plugin", func() {
 						info status.StatusInfo
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				resp := MustGenerate(source, "task", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(
 						`from synnax import status`,
@@ -2525,7 +2524,7 @@ var _ = Describe("Python Types Plugin", func() {
 						code status.StatusCode
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				resp := MustGenerate(source, "task", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(
 						`from synnax import status`,
@@ -2546,7 +2545,7 @@ var _ = Describe("Python Types Plugin", func() {
 						details status.Details = {}
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+					resp := MustGenerate(source, "task", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`from synnax import status`,
@@ -2568,7 +2567,7 @@ var _ = Describe("Python Types Plugin", func() {
 						status status.StatusInfo
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+					resp := MustGenerate(source, "task", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`from synnax import status as status_`,
@@ -2590,7 +2589,7 @@ var _ = Describe("Python Types Plugin", func() {
 						to string?
 					}
 				`
-					resp := MustGenerate(ctx, source, "control", loader, typesPlugin)
+					resp := MustGenerate(source, "control", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`from pydantic import BaseModel, Field, ConfigDict`,
@@ -2610,7 +2609,7 @@ var _ = Describe("Python Types Plugin", func() {
 						name string
 					}
 				`
-				resp := MustGenerate(ctx, source, "example", loader, typesPlugin)
+				resp := MustGenerate(source, "example", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(
 						`from_: str = Field(alias="from")`,
@@ -2633,7 +2632,7 @@ var _ = Describe("Python Types Plugin", func() {
 						nodeKey string
 					}
 				`
-					resp := MustGenerate(ctx, source, "compiler", loader, typesPlugin)
+					resp := MustGenerate(source, "compiler", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`wasm: Bytes`,
@@ -2653,7 +2652,7 @@ var _ = Describe("Python Types Plugin", func() {
 						From string
 					}
 				`
-				resp := MustGenerate(ctx, source, "example", loader, typesPlugin)
+				resp := MustGenerate(source, "example", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(`from_: str = Field(alias="from")`)
 			})
@@ -2670,7 +2669,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 					UserID = BaseID
 				`
-					resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+					resp := MustGenerate(source, "user", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`BaseID: TypeAlias = UUID`,
@@ -2689,7 +2688,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 					UserKey = Key
 				`
-					resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+					resp := MustGenerate(source, "user", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`Key: TypeAlias = UUID`,
@@ -2720,7 +2719,7 @@ import "schemas/status"
 
 ChannelStatus = status.Status<nil>
 `
-					resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+					resp := MustGenerate(source, "channel", loader, typesPlugin)
 					ExpectContent(resp, "channel/types_gen.py").
 						ToContain(
 							"ChannelStatus: TypeAlias = status.Status\n",
@@ -2741,7 +2740,7 @@ ChannelStatus = status.Status<nil>
 						coords float64[3]
 					}
 				`
-					resp := MustGenerate(ctx, source, "geo", loader, typesPlugin)
+					resp := MustGenerate(source, "geo", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(`Tuple[float, float, float]`)
 				},
@@ -2759,7 +2758,7 @@ ChannelStatus = status.Status<nil>
 						@py name "Task"
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				resp := MustGenerate(source, "task", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(`class Task(BaseModel):`).
 					ToNotContain(`class GoTask`)
@@ -2781,7 +2780,7 @@ ChannelStatus = status.Status<nil>
 						@py name "Payload"
 					}
 				`
-					resp := MustGenerate(ctx, source, "ranger", loader, typesPlugin)
+					resp := MustGenerate(source, "ranger", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(`class Payload(Base):`).
 						ToContain(`parent: Payload | None`).
@@ -2799,7 +2798,7 @@ ChannelStatus = status.Status<nil>
 						mode string = "normal"
 					}
 				`
-				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				resp := MustGenerate(source, "config", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(`mode: str = "normal"`)
 			})
@@ -2821,7 +2820,7 @@ ChannelStatus = status.Status<nil>
 						name string
 					}
 				`
-				resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+				resp := MustGenerate(source, "api", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(
 						`P = TypeVar("P", bound=Priority)`,
@@ -2843,7 +2842,7 @@ ChannelStatus = status.Status<nil>
 						items T[]
 					}
 				`
-				resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+				resp := MustGenerate(source, "api", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(
 						`T = TypeVar("T", bound=Base)`,
@@ -2866,7 +2865,7 @@ ChannelStatus = status.Status<nil>
 						value T
 					}
 				`
-				req := MustGenerateRequest(ctx, source, "api", loader)
+				req := MustGenerateRequest(source, "api", loader)
 				Expect(typesPlugin.Generate(req)).Error().To(MatchError(
 					ContainSubstring("type parameter T of Optional conflicts"),
 				))
@@ -2885,7 +2884,7 @@ ChannelStatus = status.Status<nil>
 						name string
 					}
 				`
-					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
 							`from typing import Generic, TypeVar`,
@@ -2913,7 +2912,7 @@ ChannelStatus = status.Status<nil>
 						mode Mode = ModeAutomatic
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+					resp := MustGenerate(source, "config", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(`mode: Mode = Mode.automatic`)
 				},
@@ -2939,7 +2938,7 @@ ChannelStatus = status.Status<nil>
 						concurrency control.Concurrency = control.ConcurrencyExclusive
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+					resp := MustGenerate(source, "channel", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(`concurrency: control.Concurrency = control.Concurrency.exclusive`)
 				},
@@ -2971,7 +2970,7 @@ var _ = Describe("Python Union Generation", func() {
 				none NoneParams
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		resp := MustGenerate(source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types_gen.py").
 			ToContain(
 				`from typing import Annotated, Literal`,
@@ -2999,7 +2998,7 @@ var _ = Describe("Python Union Generation", func() {
 				password Credentials
 			}
 		`
-		resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+		resp := MustGenerate(source, "auth", loader, typesPlugin)
 		ExpectContent(resp, "types_gen.py").
 			ToContain(
 				`Method = Literal["password"]`,
@@ -3024,7 +3023,7 @@ var _ = Describe("Python Union Generation", func() {
 
 			Message struct { fields Field[] }
 		`
-			resp := MustGenerate(ctx, source, "library", loader, typesPlugin)
+			resp := MustGenerate(source, "library", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").
 				ToContain(
 					`from pydantic import BaseModel, Field as PydanticField`,
@@ -3050,7 +3049,7 @@ var _ = Describe("Python Union Generation", func() {
 				empty {}
 			}
 		`
-			resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+			resp := MustGenerate(source, "panel", loader, typesPlugin)
 			content := ExpectContent(resp, "types_gen.py")
 			content.ToContain(
 				`class ViewTab(TabBase, Labeled):`,
@@ -3082,7 +3081,7 @@ var _ = Describe("Python Union Generation", func() {
 				}
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			content := MustContentOf(resp, "types_gen.py")
 			Expect(content).
 				To(ContainSubstring("class AITempBuiltinChannel(BaseModel):"))
@@ -3106,7 +3105,7 @@ var _ = Describe("Python Union Generation", func() {
 				ai_voltage VoltageFields
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			content := MustContentOf(resp, "types_gen.py")
 			// The variant inherits BaseAIChan + VoltageFields and declares only the
 			// discriminator, so the shared fields are not duplicated into it.
@@ -3140,7 +3139,7 @@ var _ = Describe("Python Union Generation", func() {
 				ai_voltage VoltageFields
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			content := MustContentOf(resp, "ni/types_gen.py")
 			Expect(content).To(ContainSubstring(`from synnax import common`))
 			Expect(content).To(ContainSubstring(
@@ -3166,7 +3165,7 @@ var _ = Describe("Python Union Generation", func() {
 				customScale Scale
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		resp := MustGenerate(source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types_gen.py").
 			ToContain(`custom_scale: Scale`)
 	})
@@ -3183,7 +3182,7 @@ var _ = Describe("Python Union Generation", func() {
 				linear LinearParams
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		resp := MustGenerate(source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types_gen.py").
 			ToContain("class NoneParams(BaseModel):", "    pass")
 	})
@@ -3227,7 +3226,7 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 	It(
 		"Should render the union doc as a comment above the Annotated alias",
 		func(ctx SpecContext) {
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
 				"# Determines how raw values are transformed.\nScale = Annotated[",
 			)
@@ -3237,7 +3236,7 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 	It(
 		"Should keep field docs on the payload class and only a summary on the variant",
 		func(ctx SpecContext) {
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			content := MustContentOf(resp, "types_gen.py")
 			// Field docs live on the payload class (its Attributes), documented once.
 			Expect(content).To(ContainSubstring("class LinearParams(BaseModel):"))
@@ -3253,7 +3252,7 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 	It(
 		"Should resolve an array-of-union field to a list of the alias",
 		func(ctx SpecContext) {
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			ExpectContent(
 				resp,
 				"types_gen.py",
@@ -3267,7 +3266,7 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 			withDefault := source + `
 			Item struct { scale Scale = none }
 		`
-			resp := MustGenerate(ctx, withDefault, "ni", loader, typesPlugin)
+			resp := MustGenerate(withDefault, "ni", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
 				`default_factory=lambda: NoneScale(type="none")`,
 			)
@@ -3280,7 +3279,7 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 			withDefault := source + `
 			Item struct { scale Scale = { type = "linear", slope = 2 } }
 		`
-			resp := MustGenerate(ctx, withDefault, "ni", loader, typesPlugin)
+			resp := MustGenerate(withDefault, "ni", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
 				`default_factory=lambda: LinearScale(type="linear", slope=2)`,
 			)
@@ -3292,7 +3291,7 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 		func(ctx SpecContext, literal, message string) {
 			withDefault := source + "\nItem struct { scale Scale = " + literal + " }\n"
 			Expect(func() {
-				MustGenerate(ctx, withDefault, "ni", loader, typesPlugin)
+				MustGenerate(withDefault, "ni", loader, typesPlugin)
 			}).To(PanicWith(ContainSubstring(message)))
 		},
 		Entry(
@@ -3328,7 +3327,7 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 					}
 				}
 			`
-			resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+			resp := MustGenerate(source, "task", loader, typesPlugin)
 			ExpectContent(resp, "task/types_gen.py").ToContain(
 				`from synnax import status as status_`,
 				`status: status_.Info`,
@@ -3367,7 +3366,7 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 					}
 				}
 			`
-			resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+			resp := MustGenerate(source, "task", loader, typesPlugin)
 			ExpectContent(resp, "task/types_gen.py").ToContain(
 				`from synnax import status as status_`,
 				`status: status_.Info`,
@@ -3389,7 +3388,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 
 			Nodes Node[]
 		`
-		resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+		resp := MustGenerate(source, "graph", loader, typesPlugin)
 		ExpectContent(resp, "types_gen.py").ToContain("Nodes: TypeAlias = list[Node]")
 	})
 
@@ -3405,7 +3404,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 				channels map<uint32, uint8>
 			}
 		`
-			resp := MustGenerate(ctx, source, "ir", loader, typesPlugin)
+			resp := MustGenerate(source, "ir", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
 				"channels: dict[Annotated[int, Field(ge=0, le=4294967295)], " +
 					"Annotated[int, Field(ge=0, le=255)]] = " +
@@ -3430,7 +3429,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 				name   map<string, uint8>
 			}
 		`
-			resp := MustGenerate(ctx, source, "lines", loader, typesPlugin)
+			resp := MustGenerate(source, "lines", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
 				"small: dict[Annotated[int, Field(ge=0, le=255)], str]",
 				"port: dict[Annotated[int, Field(ge=0, le=65535)], str]",
@@ -3461,7 +3460,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 				name   map<string, string>
 			}
 		`
-			resp := MustGenerate(ctx, source, "values", loader, typesPlugin)
+			resp := MustGenerate(source, "values", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
 				"small: dict[str, Annotated[int, Field(ge=0, le=255)]]",
 				"port: dict[str, Annotated[int, Field(ge=0, le=65535)]]",
@@ -3487,7 +3486,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 				configs map<string, record>
 			}
 		`
-			resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+			resp := MustGenerate(source, "graph", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
 				"configs: dict[str, dict[str, JsonValue]] = Field(default_factory=dict)",
 			)
@@ -3506,7 +3505,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 				configs map<string, record> = {}
 			}
 		`
-			resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+			resp := MustGenerate(source, "graph", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
 				"configs: dict[str, dict[str, JsonValue]] = Field(default_factory=dict)",
 			)
@@ -3529,7 +3528,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 				nodes map<string, Node>
 			}
 		`
-			resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+			resp := MustGenerate(source, "graph", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
 				"nodes: dict[str, Node] = Field(default_factory=dict)",
 			)
@@ -3548,7 +3547,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 				channels map<uint32, uint8>?
 			}
 		`
-			resp := MustGenerate(ctx, source, "ir", loader, typesPlugin)
+			resp := MustGenerate(source, "ir", loader, typesPlugin)
 			ExpectContent(
 				resp,
 				"types_gen.py",
@@ -3573,7 +3572,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 
 			Nodes = Node[]
 		`
-			resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+			resp := MustGenerate(source, "graph", loader, typesPlugin)
 			content := MustContentOf(resp, "types_gen.py")
 			Expect(content).To(ContainSubstring("Nodes: TypeAlias = list[Node]"))
 			Expect(content).NotTo(ContainSubstring("Nodes: TypeAlias = Any"))
@@ -3590,7 +3589,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 
 			Authorities = map<uint32, uint8>
 		`
-			resp := MustGenerate(ctx, source, "ir", loader, typesPlugin)
+			resp := MustGenerate(source, "ir", loader, typesPlugin)
 			ExpectContent(
 				resp,
 				"types_gen.py",
@@ -3616,7 +3615,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 				key string
 			}
 		`
-			resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+			resp := MustGenerate(source, "graph", loader, typesPlugin)
 			content := MustContentOf(resp, "types_gen.py")
 			classIdx := strings.Index(content, "class Node(BaseModel):")
 			aliasIdx := strings.Index(content, "Nodes: TypeAlias = list[Node]")
@@ -3642,7 +3641,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 				children Tree[]
 			}
 		`
-			resp := MustGenerate(ctx, source, "tree", loader, typesPlugin)
+			resp := MustGenerate(source, "tree", loader, typesPlugin)
 			content := MustContentOf(resp, "types_gen.py")
 			Expect(content).To(ContainSubstring("class Tree(BaseModel):"))
 			Expect(content).To(ContainSubstring("Tree.model_rebuild()"))
@@ -3665,7 +3664,7 @@ var _ = Describe("Collection type aliases and maps", func() {
 				key string
 			}
 		`
-			resp := MustGenerate(ctx, source, "leaf", loader, typesPlugin)
+			resp := MustGenerate(source, "leaf", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToNotContain("model_rebuild()")
 		},
 	)

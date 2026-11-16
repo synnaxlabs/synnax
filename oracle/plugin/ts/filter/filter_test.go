@@ -77,7 +77,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		`
 
 		It("Should check the shared fields and tag of a union", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				import "schemas/x/filter"
 
 				@ts output "client/ts/src/view"
@@ -105,7 +105,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		})
 
 		It("Should check each bare line with its operator", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 					name
@@ -134,7 +134,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		})
 
 		It("Should walk the tree", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 				}
@@ -151,7 +151,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		})
 
 		It("Should take typed lines from the Lines table", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 					overlaps Span
@@ -179,7 +179,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		It("Should read each bare line from a value, a list, or an operator", func(
 			ctx SpecContext,
 		) {
-			resp := MustGenerate(ctx, thing+`
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 					name
@@ -211,7 +211,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		It("Should read a key, a name, or a list of either as a shortcut", func(
 			ctx SpecContext,
 		) {
-			resp := MustGenerate(ctx, thing+`
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 					name
@@ -232,7 +232,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		It(
 			"Should order positions by a sorted field, then by key",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, `
+				resp := MustGenerate(`
 				import "schemas/x/filter"
 
 				@ts output "client/ts/src/thing"
@@ -278,7 +278,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		)
 
 		It("Should order number keys by value", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				import "schemas/x/filter"
 
 				@ts output "client/ts/src/thing"
@@ -298,7 +298,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		})
 
 		It("Should order by key alone without a sorted field", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 				}
@@ -313,7 +313,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		})
 
 		It("Should take no cursor for a target with no key", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				import "schemas/x/filter"
 
 				@ts output "client/ts/src/thing"
@@ -330,7 +330,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		})
 
 		It("Should take no shortcut without a name line", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 				}
@@ -339,7 +339,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		})
 
 		It("Should take no shortcut for a free-text key", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				import "schemas/x/filter"
 
 				@ts output "client/ts/src/thing"
@@ -360,7 +360,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		It("Should read a typed line as its type, or a list from a value", func(
 			ctx SpecContext,
 		) {
-			resp := MustGenerate(ctx, thing+`
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 					overlaps Span
@@ -384,7 +384,7 @@ var _ = Describe("TS Filter Plugin", func() {
 					start int64
 				}
 			`)
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				import "schemas/x/filter"
 				import "schemas/thing"
 
@@ -408,7 +408,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		})
 
 		It("Should skip a line omitted from TypeScript", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
+			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
 					overlaps Span { @ts omit }
@@ -418,7 +418,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		})
 
 		It("Should read bare lines from the response type", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				import "schemas/x/filter"
 
 				@ts output "client/ts/src/thing"
@@ -448,7 +448,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		It("Should reject a bare line the response type does not hold", func(
 			ctx SpecContext,
 		) {
-			req := MustGenerateRequest(ctx, `
+			req := MustGenerateRequest(`
 				import "schemas/x/filter"
 
 				@ts output "client/ts/src/thing"
@@ -475,7 +475,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		It("Should reject a response type with a type parameter and no default", func(
 			ctx SpecContext,
 		) {
-			req := MustGenerateRequest(ctx, `
+			req := MustGenerateRequest(`
 				import "schemas/x/filter"
 
 				@ts output "client/ts/src/thing"
@@ -504,7 +504,7 @@ var _ = Describe("TS Filter Plugin", func() {
 					1,
 				),
 			)
-			req := MustGenerateRequest(ctx, thing+`
+			req := MustGenerateRequest(thing+`
 				Where filter Thing {
 					key
 				}
@@ -515,7 +515,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		})
 
 		It("Should skip a filter with no TypeScript output", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				import "schemas/x/filter"
 
 				Thing struct {

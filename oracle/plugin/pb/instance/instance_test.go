@@ -73,7 +73,7 @@ Direction enum {
 	desc = "desc"
 }
 `)
-		table = testutil.MustGenerateRequest(ctx, source, "thing", loader).Resolutions
+		table = testutil.MustGenerateRequest(source, "thing", loader).Resolutions
 	})
 	fieldOf := func(typeName, fieldName string) resolution.Field {
 		GinkgoHelper()

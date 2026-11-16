@@ -53,7 +53,7 @@ var _ = Describe("Python Actions Plugin", func() {
 	Describe("Generate", func() {
 		DescribeTable("Should not emit an actions_gen.py file",
 			func(ctx SpecContext, source string) {
-				resp := MustGenerate(ctx, source, "counter", loader, p)
+				resp := MustGenerate(source, "counter", loader, p)
 				Expect(resp.Files).To(BeEmpty())
 			},
 			Entry("for a struct without actions", `
@@ -88,7 +88,7 @@ var _ = Describe("Python Actions Plugin", func() {
 		It("Should emit a payload model and an envelope per action", func(
 			ctx SpecContext,
 		) {
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				@py output "client/py/synnax/counter"
 
 				Counter struct {
@@ -129,7 +129,7 @@ var _ = Describe("Python Actions Plugin", func() {
 		It("Should import a type of the namespace from the types module", func(
 			ctx SpecContext,
 		) {
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				@py output "client/py/synnax/counter"
 
 				Counter struct {
@@ -164,7 +164,7 @@ var _ = Describe("Python Actions Plugin", func() {
 					guards Guard[] = []
 				}
 			`)
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				import "schemas/patch"
 
 				@py output "client/py/synnax/counter"
@@ -194,7 +194,7 @@ var _ = Describe("Python Actions Plugin", func() {
 					@doc value "replaces the value at a path."
 				}
 			`)
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				import "schemas/patch"
 
 				@py output "client/py/synnax/counter"
@@ -223,7 +223,7 @@ var _ = Describe("Python Actions Plugin", func() {
 					@doc value "replaces the value at a path."
 				}
 			`)
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				import "schemas/patch"
 
 				@py output "client/py/synnax/counter"
@@ -252,7 +252,7 @@ var _ = Describe("Python Actions Plugin", func() {
 					hex string
 				}
 			`)
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				import "schemas/color"
 
 				@py output "client/py/synnax/counter"
@@ -274,7 +274,7 @@ var _ = Describe("Python Actions Plugin", func() {
 		It("Should give a keyword action an aliased envelope field", func(
 			ctx SpecContext,
 		) {
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				@py output "client/py/synnax/counter"
 
 				Counter struct {
@@ -295,7 +295,7 @@ var _ = Describe("Python Actions Plugin", func() {
 		})
 
 		It("Should leave an omitted field out of a payload", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				@py output "client/py/synnax/counter"
 				@go output "core/pkg/service/counter"
 
@@ -316,7 +316,7 @@ var _ = Describe("Python Actions Plugin", func() {
 		It("Should fail when a generated name hides a type of the namespace", func(
 			ctx SpecContext,
 		) {
-			req := MustGenerateRequest(ctx, `
+			req := MustGenerateRequest(`
 				@py output "client/py/synnax/counter"
 
 				SetPayload struct {

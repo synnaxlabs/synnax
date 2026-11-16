@@ -60,7 +60,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(source, "foo", loader, p)
 					Expect(resp.Files).To(HaveLen(1))
 
 					ExpectContent(resp, "retrieve.gen.go").
@@ -91,7 +91,7 @@ var _ = Describe("Go Query Plugin", func() {
 				ctx SpecContext,
 			) {
 				AddFilterSchema(loader)
-				resp := MustGenerate(ctx, `
+				resp := MustGenerate(`
 					import "schemas/x/filter"
 
 					@go output "core/pkg/service/foo"
@@ -132,7 +132,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "view", loader, p)
+				resp := MustGenerate(source, "view", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
 						"gorp.Retrieve[uuid.UUID, View]",
@@ -163,7 +163,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "view", loader, p)
+				resp := MustGenerate(source, "view", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain("gorp.Retrieve[uuid.UUID, View]")
 			})
@@ -190,7 +190,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					req := MustGenerateRequest(ctx, source, "view", loader)
+					req := MustGenerateRequest(source, "view", loader)
 					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 						"only one @retrieve type is allowed per output, found 2",
 					)))
@@ -215,7 +215,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "view", loader, p)
+					resp := MustGenerate(source, "view", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").ToContain(read)
 				},
 				Entry("filter", "@filter", "want.Contains(e.Base().Name)"),
@@ -249,7 +249,7 @@ var _ = Describe("Go Query Plugin", func() {
 						type
 					}
 				`
-				resp := MustGenerate(ctx, source, "view", loader, p)
+				resp := MustGenerate(source, "view", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").ToContain(
 					"func MatchTypes(vals ...Type) Filter",
 					"want.Contains(e.Type())",
@@ -275,7 +275,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					req := MustGenerateRequest(ctx, source, "view", loader)
+					req := MustGenerateRequest(source, "view", loader)
 					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 						"view.View: a variant drops field name, so no " + reader +
 							" can read it",
@@ -307,7 +307,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(source, "foo", loader, p)
 					Expect(resp.Files).To(HaveLen(1))
 
 					ExpectContent(resp, "retrieve.gen.go").
@@ -338,7 +338,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(source, "foo", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -376,7 +376,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "user", loader, p)
+					resp := MustGenerate(source, "user", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain("\t\ti.username,\n\t\ti.search,\n\t}")
@@ -393,7 +393,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@search
 					}
 				`
-				req := MustGenerateRequest(ctx, source, "foo", loader)
+				req := MustGenerateRequest(source, "foo", loader)
 				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 					"foo.Foo: @search goes on the fields to search, not on the type",
 				)))
@@ -416,7 +416,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(source, "foo", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain("return []string{e.Name}")
 				},
@@ -433,7 +433,7 @@ var _ = Describe("Go Query Plugin", func() {
 						name string @search
 					}
 				`
-					req := MustGenerateRequest(ctx, source, "foo", loader)
+					req := MustGenerateRequest(source, "foo", loader)
 					Expect(p.Generate(req)).Error().To(MatchError(
 						"foo.Foo: @search field name needs a @retrieve type to read it",
 					))
@@ -456,7 +456,7 @@ var _ = Describe("Go Query Plugin", func() {
 						name?
 					}
 				`
-					resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(source, "foo", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain("return []string{e.Name}")
 				},
@@ -478,7 +478,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					req := MustGenerateRequest(ctx, source, "foo", loader)
+					req := MustGenerateRequest(source, "foo", loader)
 					Expect(p.Generate(req)).Error().To(MatchError(
 						"foo.Base: @search field name needs a @retrieve type " +
 							"to read it",
@@ -499,7 +499,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					req := MustGenerateRequest(ctx, source, "foo", loader)
+					req := MustGenerateRequest(source, "foo", loader)
 					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 						"foo.Foo: @index field search collides with the search index",
 					)))
@@ -518,7 +518,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					req := MustGenerateRequest(ctx, source, "foo", loader)
+					req := MustGenerateRequest(source, "foo", loader)
 					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 						"foo.Foo: @search field text must be a string that is not " +
 							"optional",
@@ -546,7 +546,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, p)
+				resp := MustGenerate(source, "task", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
@@ -577,7 +577,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, p)
+				resp := MustGenerate(source, "task", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain("func MatchFlag(v Flag) Filter").
 					ToNotContain("func MatchFlag(v bool) Filter")
@@ -598,7 +598,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "workspace", loader, p)
+				resp := MustGenerate(source, "workspace", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
@@ -628,7 +628,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "series", loader, p)
+					resp := MustGenerate(source, "series", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -654,7 +654,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, p)
+				resp := MustGenerate(source, "user", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
@@ -683,7 +683,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "rack", loader, p)
+					resp := MustGenerate(source, "rack", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -723,7 +723,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "device", loader, p)
+					resp := MustGenerate(source, "device", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -748,7 +748,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				req := MustGenerateRequest(ctx, source, "rack", loader)
+				req := MustGenerateRequest(source, "rack", loader)
 				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 					"rack.Rack: @filter on the @key field key duplicates MatchKeys",
 				)))
@@ -785,7 +785,7 @@ var _ = Describe("Go Query Plugin", func() {
 						integrations
 					}
 				`
-					resp := MustGenerate(ctx, source, "rack", loader, p)
+					resp := MustGenerate(source, "rack", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
 							"func MatchNames(vals ...string) Filter",
@@ -819,7 +819,7 @@ var _ = Describe("Go Query Plugin", func() {
 						name
 					}
 				`
-					resp := MustGenerate(ctx, source, "rack", loader, p)
+					resp := MustGenerate(source, "rack", loader, p)
 					content := MustContentOf(resp, "retrieve.gen.go")
 					Expect(strings.Count(content, "func MatchNames(")).To(Equal(1))
 				},
@@ -842,7 +842,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve custom
 					}
 				`
-					resp := MustGenerate(ctx, source, "rack", loader, p)
+					resp := MustGenerate(source, "rack", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -871,7 +871,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve custom
 					}
 				`
-					resp := MustGenerate(ctx, source, "rack", loader, p)
+					resp := MustGenerate(source, "rack", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -905,7 +905,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve custom
 					}
 				`
-					resp := MustGenerate(ctx, source, "rack", loader, p)
+					resp := MustGenerate(source, "rack", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -929,7 +929,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve custom
 					}
 				`
-					resp := MustGenerate(ctx, source, "rack", loader, p)
+					resp := MustGenerate(source, "rack", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -960,7 +960,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "rack", loader, p)
+					resp := MustGenerate(source, "rack", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -997,7 +997,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve key "Key"
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, p)
+					resp := MustGenerate(source, "channel", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -1024,7 +1024,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve indexes
 					}
 				`
-					resp := MustGenerate(ctx, source, "status", loader, p)
+					resp := MustGenerate(source, "status", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -1058,7 +1058,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve indexes
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, p)
+				resp := MustGenerate(source, "task", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToBeValidGoSource().
 					ToContain(
@@ -1081,7 +1081,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve noun "color"
 					}
 				`
-				resp := MustGenerate(ctx, source, "color", loader, p)
+				resp := MustGenerate(source, "color", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToBeValidGoSource().
 					ToContain(
@@ -1104,7 +1104,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve indexes
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, p)
+				resp := MustGenerate(source, "task", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").ToNotContain("MatchSearch")
 			})
 
@@ -1118,7 +1118,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve indexes
 					}
 				`
-				req := MustGenerateRequest(ctx, source, "status", loader)
+				req := MustGenerateRequest(source, "status", loader)
 				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 					"status.Status: @retrieve indexes generates no matchers, so field " +
 						"name cannot take @filter",
@@ -1137,7 +1137,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve indexes
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, p)
+					resp := MustGenerate(source, "task", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
 							"type Order func(r Retrieve) gorp.OrderQuery[uint64, Task]",
@@ -1163,7 +1163,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "device", loader, p)
+				resp := MustGenerate(source, "device", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
@@ -1185,7 +1185,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "rack", loader, p)
+				resp := MustGenerate(source, "rack", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
@@ -1211,7 +1211,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "log", loader, p)
+					resp := MustGenerate(source, "log", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -1238,7 +1238,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, p)
+				resp := MustGenerate(source, "user", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(`"github.com/synnaxlabs/synnax/x/go/set"`).
@@ -1262,7 +1262,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, p)
+				resp := MustGenerate(source, "task", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToNotContain(
@@ -1286,7 +1286,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(source, "foo", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain("\"context\"", "/gorp\"").
@@ -1317,7 +1317,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(source, "foo", loader, p)
 					content := MustContentOf(resp, "retrieve.gen.go")
 
 					expectedDocPrefixes := []string{
@@ -1363,7 +1363,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "user", loader, p)
+					resp := MustGenerate(source, "user", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
 							"type indexes struct {",
@@ -1407,7 +1407,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "user", loader, p)
+					resp := MustGenerate(source, "user", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
 							"type indexes struct {",
@@ -1441,7 +1441,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "event", loader, p)
+					resp := MustGenerate(source, "event", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
 							"createdAt *gorp.SortedIndex[uuid.UUID, Event, int64]",
@@ -1482,7 +1482,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "event", loader, p)
+				resp := MustGenerate(source, "event", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
 						`"github.com/synnaxlabs/synnax/x/go/compare"`,
@@ -1511,7 +1511,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "event", loader, p)
+					resp := MustGenerate(source, "event", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToBeValidGoSource().
 						ToContain(
@@ -1543,7 +1543,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "event", loader, p)
+				resp := MustGenerate(source, "event", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
 						"spanStart *gorp.SortedIndex[uuid.UUID, Event, int64]",
@@ -1573,7 +1573,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "event", loader, p)
+					resp := MustGenerate(source, "event", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToBeValidGoSource().
 						ToContain(
@@ -1598,7 +1598,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve indexes
 					}
 				`
-				resp := MustGenerate(ctx, source, "event", loader, p)
+				resp := MustGenerate(source, "event", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToBeValidGoSource().
 					ToContain(
@@ -1627,7 +1627,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(source, "foo", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToNotContain(
 							"NameIndex",
@@ -1655,7 +1655,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					req := MustGenerateRequest(ctx, source, "views", loader)
+					req := MustGenerateRequest(source, "views", loader)
 					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 						"only one @retrieve type is allowed per output, found 2",
 					)))
@@ -1686,7 +1686,7 @@ var _ = Describe("Go Query Plugin", func() {
 						data string
 					}
 				`
-					resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(source, "foo", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain("Foo").

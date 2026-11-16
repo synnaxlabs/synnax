@@ -60,7 +60,7 @@ var _ = Describe("TS Group Plugin", func() {
 	})
 
 	It("Should emit no files when no field carries @group", func(ctx SpecContext) {
-		resp := MustGenerate(ctx, `
+		resp := MustGenerate(`
 			import "schemas/group"
 
 			Rack struct {
@@ -76,7 +76,7 @@ var _ = Describe("TS Group Plugin", func() {
 	})
 
 	It("Should emit the rule of each member next to the group", func(ctx SpecContext) {
-		resp := MustGenerate(ctx, `
+		resp := MustGenerate(`
 			import "schemas/group"
 
 			Rack struct {
@@ -146,7 +146,7 @@ var _ = Describe("TS Group Plugin", func() {
 					@resource type "channel"
 				}
 			`)
-			resp := MustGenerateMulti(ctx, loader, p)
+			resp := MustGenerateMulti(loader, p)
 			ExpectContent(resp, "members.gen.ts").
 				ToContain(
 					`import { Type } from "@/group/types.gen";`,
@@ -157,7 +157,7 @@ var _ = Describe("TS Group Plugin", func() {
 	)
 
 	It("Should return the error of a malformed @group", func(ctx SpecContext) {
-		req := MustGenerateRequest(ctx, `
+		req := MustGenerateRequest(`
 			import "schemas/group"
 
 			Rack struct {

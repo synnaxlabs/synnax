@@ -88,7 +88,6 @@ var _ = Describe("C++ JSON aliases", func() {
 				Add("schemas/x/telem", aliasTelem).
 				Add("schemas/base", aliasBase)
 			resp := MustGenerate(
-				ctx,
 				aliasHead+use,
 				"test",
 				loader,

@@ -63,11 +63,11 @@ Content union on variant {
 
 // analyzeFixture analyzes source as a version file: marshal tags are only
 // legal there.
-func analyzeFixture(ctx SpecContext, source string) *resolution.Table {
+func analyzeFixture(source string) *resolution.Table {
 	GinkgoHelper()
 	table := resolution.NewTable()
 	diag := analyzer.AnalyzeSeeded(
-		ctx, source, "schemas/synnax/versions/test/v0.oracle", "test",
+		source, "schemas/synnax/versions/test/v0.oracle", "test",
 		testutil.NewMockFileLoader(), table,
 	)
 	Expect(diag.Ok()).To(BeTrue(), func() string { return diag.String() })
@@ -89,12 +89,12 @@ var _ = Describe("Render", func() {
 	It("Should render declarations that re-analyze to the same shapes", func(
 		ctx SpecContext,
 	) {
-		table := analyzeFixture(ctx, renderFixture)
+		table := analyzeFixture(renderFixture)
 		rendered := versions.Render(declsOf(table), versions.RenderOptions{})
 		formatted := MustSucceed(formatter.Format(rendered))
 		Expect(MustSucceed(formatter.Format(formatted))).To(Equal(formatted))
 
-		again := analyzeFixture(ctx, formatted)
+		again := analyzeFixture(formatted)
 		for _, t := range table.TypesInNamespace("test") {
 			if t.Synthetic {
 				continue
@@ -122,14 +122,14 @@ var _ = Describe("Render", func() {
 	})
 
 	It("Should keep escaped whitespace in a string default", func(ctx SpecContext) {
-		table := analyzeFixture(ctx, `
+		table := analyzeFixture(`
 Framing struct {
 	delimiter string = "\n"
 	line_end string = "\r\n"
 }
 `)
 		rendered := versions.Render(declsOf(table), versions.RenderOptions{})
-		again := analyzeFixture(ctx, MustSucceed(formatter.Format(rendered)))
+		again := analyzeFixture(MustSucceed(formatter.Format(rendered)))
 		fields := MustBeOk(again.Get("test.Framing")).Form.(resolution.StructForm).Fields
 		Expect(fields[0].Default.StringValue).To(Equal("\n"))
 		Expect(fields[1].Default.StringValue).To(Equal("\r\n"))
@@ -138,9 +138,9 @@ Framing struct {
 	It("Should preserve unknown expressions and @doc through a round trip", func(
 		ctx SpecContext,
 	) {
-		table := analyzeFixture(ctx, renderFixture)
+		table := analyzeFixture(renderFixture)
 		rendered := versions.Render(declsOf(table), versions.RenderOptions{})
-		again := analyzeFixture(ctx, MustSucceed(formatter.Format(rendered)))
+		again := analyzeFixture(MustSucceed(formatter.Format(rendered)))
 		size := MustBeOk(again.Get("test.Size"))
 		_, marshal := size.Domains["go"].Expressions.Find("marshal")
 		Expect(marshal).To(BeTrue())
@@ -164,12 +164,12 @@ Proof union on method Method {
 	password Credentials
 }
 `
-			table := analyzeFixture(ctx, source)
+			table := analyzeFixture(source)
 			rendered := versions.Render(declsOf(table), versions.RenderOptions{
 				Qualifier: func(string) string { return "" },
 			})
 			Expect(rendered).To(ContainSubstring("Proof union on method Method {"))
-			again := analyzeFixture(ctx, MustSucceed(formatter.Format(rendered)))
+			again := analyzeFixture(MustSucceed(formatter.Format(rendered)))
 			form := MustBeOk(again.Get("test.Proof")).Form.(resolution.UnionForm)
 			Expect(form.Enum.Name).To(Equal("test.Method"))
 		},
@@ -196,7 +196,7 @@ Chan union on type extends Base {
 	}
 }
 `
-		table := analyzeFixture(ctx, source)
+		table := analyzeFixture(source)
 		rendered := versions.Render(declsOf(table), versions.RenderOptions{
 			Resolve: func(name string) (resolution.Type, bool) {
 				if t, ok := table.Get(name); ok {
@@ -207,7 +207,7 @@ Chan union on type extends Base {
 		})
 		Expect(rendered).To(ContainSubstring("-port"))
 
-		again := analyzeFixture(ctx, MustSucceed(formatter.Format(rendered)))
+		again := analyzeFixture(MustSucceed(formatter.Format(rendered)))
 		trimmed := MustBeOk(again.Get("test.Trimmed")).Form.(resolution.StructForm)
 		Expect(trimmed.OmittedFields).To(Equal([]string{"port"}))
 
@@ -246,7 +246,7 @@ YAxisKey enum {
 
 AxisKey enum extends XAxisKey, YAxisKey {}
 `
-		table := analyzeFixture(ctx, source)
+		table := analyzeFixture(source)
 		rendered := versions.Render(declsOf(table), versions.RenderOptions{
 			Qualifier: func(ns string) string {
 				if ns == "test" {
@@ -268,7 +268,7 @@ AxisKey enum extends XAxisKey, YAxisKey {}
 		Expect(strings.Count(rendered, "tank {")).To(Equal(1))
 		Expect(strings.Count(rendered, `x1 = "x1"`)).To(Equal(1))
 
-		again := analyzeFixture(ctx, MustSucceed(formatter.Format(rendered)))
+		again := analyzeFixture(MustSucceed(formatter.Format(rendered)))
 		element := MustBeOk(again.Get("test.ElementConfig")).Form.(resolution.UnionForm)
 		names := make([]string, 0, len(element.Variants))
 		for _, v := range element.Variants {
@@ -280,7 +280,7 @@ AxisKey enum extends XAxisKey, YAxisKey {}
 	})
 
 	It("Should render alias lines and sorted imports", func(ctx SpecContext) {
-		table := analyzeFixture(ctx, "Key = uuid\n")
+		table := analyzeFixture("Key = uuid\n")
 		decls := []versions.Decl{
 			{Type: MustBeOk(table.Get("test.Key"))},
 			{
@@ -311,7 +311,7 @@ Entry struct {
 	@ts hand
 }
 `
-		table := analyzeFixture(ctx, source)
+		table := analyzeFixture(source)
 		rendered := versions.Render(
 			[]versions.Decl{{Type: MustBeOk(table.Get("test.Entry"))}},
 			versions.RenderOptions{

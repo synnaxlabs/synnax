@@ -31,7 +31,7 @@ var _ = Describe("FieldProcessor", func() {
 
 	processorFor := func(ctx SpecContext, source string) (*types.FieldProcessor, resolution.Type, resolution.Field) {
 		GinkgoHelper()
-		req := MustGenerateRequest(ctx, source, "schema", loader)
+		req := MustGenerateRequest(source, "schema", loader)
 		fp := &types.FieldProcessor{
 			Imports:    mgr,
 			Namespace:  "schema",
@@ -79,7 +79,7 @@ var _ = Describe("FieldProcessor", func() {
 					tile Tile
 				}
 			`
-				req := MustGenerateRequest(ctx, source, "schema", loader)
+				req := MustGenerateRequest(source, "schema", loader)
 				structs := req.Resolutions.StructTypes()
 				var board resolution.Type
 				for _, s := range structs {
@@ -131,7 +131,7 @@ var _ = Describe("FieldProcessor", func() {
 					tiles Tile[]
 				}
 			`
-			req := MustGenerateRequest(ctx, source, "schema", loader)
+			req := MustGenerateRequest(source, "schema", loader)
 			var board resolution.Type
 			for _, s := range req.Resolutions.StructTypes() {
 				if s.Name == "Board" {
@@ -163,7 +163,7 @@ var _ = Describe("FieldProcessor", func() {
 					name string
 				}
 			`
-				req := MustGenerateRequest(ctx, source, "schema", loader)
+				req := MustGenerateRequest(source, "schema", loader)
 				fp := &types.FieldProcessor{
 					Imports:    mgr,
 					Namespace:  "other",

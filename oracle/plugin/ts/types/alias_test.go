@@ -126,7 +126,7 @@ var _ = Describe("TS aliases", func() {
 
 	generate := func(ctx SpecContext, use string) *ContentExpectation {
 		GinkgoHelper()
-		resp := MustGenerate(ctx, aliasHead+use, "test", loader, typesPlugin)
+		resp := MustGenerate(aliasHead+use, "test", loader, typesPlugin)
 		return ExpectContent(resp, "test/types.gen.ts")
 	}
 
@@ -256,7 +256,7 @@ var _ = Describe("TS aliases", func() {
 
 				Size = base.Size
 			`)
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				import "schemas/`+schema+`"
 
 				@ts output "client/ts/src/test"
@@ -288,7 +288,7 @@ var _ = Describe("TS aliases", func() {
 
 	DescribeTable("Should project a create field typed through an alias to its New",
 		func(ctx SpecContext, decls, expected string) {
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 			import "schemas/status"
 
 			@ts output "client/ts/src/device"

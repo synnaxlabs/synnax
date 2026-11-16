@@ -37,7 +37,7 @@ var _ = Describe("Edge Cases", func() {
 					@resource type "item"
 				}
 			`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(content).To(ContainSubstring(`""`))
 		})
@@ -51,7 +51,7 @@ var _ = Describe("Edge Cases", func() {
 					@resource type "item"
 				}
 			`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(content).To(ContainSubstring(`resourceID(0)`))
 		})
@@ -65,7 +65,7 @@ var _ = Describe("Edge Cases", func() {
 					@resource type "item"
 				}
 			`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(content).To(ContainSubstring(`resourceID(false)`))
 		})
@@ -87,7 +87,7 @@ var _ = Describe("Edge Cases", func() {
 					value V
 				}
 			`
-				resp := MustGenerate(ctx, source, "holder", loader, p)
+				resp := MustGenerate(source, "holder", loader, p)
 				content := MustContentOf(resp, "types.gen.ts")
 				Expect(content).To(ContainSubstring("variantZ"))
 			},
@@ -108,7 +108,7 @@ var _ = Describe("Edge Cases", func() {
 					name string
 				}
 			`
-				resp := MustGenerate(ctx, source, "item", loader, p)
+				resp := MustGenerate(source, "item", loader, p)
 				content := MustContentOf(resp, "types.gen.ts")
 				Expect(content).To(ContainSubstring(".default(id.create)"))
 			},
@@ -127,7 +127,7 @@ var _ = Describe("Edge Cases", func() {
 					name string
 				}
 			`
-				resp := MustGenerate(ctx, source, "item", loader, p)
+				resp := MustGenerate(source, "item", loader, p)
 				content := MustContentOf(resp, "types.gen.ts")
 				Expect(content).To(ContainSubstring(".default(uuid.create)"))
 			},

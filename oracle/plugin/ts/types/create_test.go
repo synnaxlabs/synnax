@@ -38,7 +38,7 @@ var _ = Describe("Derived New from @create", func() {
 				@create
 			}
 		`
-			resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
+			resp := MustGenerate(source, "thing", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").ToContain(
 				"export const thingZ",
 				`export interface New extends Omit<z.input<typeof thingZ>, "author"> {}`,
@@ -62,7 +62,7 @@ var _ = Describe("Derived New from @create", func() {
 				@ts concrete_types
 			}
 		`
-			resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
+			resp := MustGenerate(source, "thing", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").ToContain(
 				`optional.Optional<Thing<Properties>, "configured">`,
 			)
@@ -93,7 +93,7 @@ var _ = Describe("Derived New from @create", func() {
 				@create
 			}
 		`
-			resp := MustGenerate(ctx, source, "status", loader, typesPlugin)
+			resp := MustGenerate(source, "status", loader, typesPlugin)
 			// The output type keeps z.infer for its conditional field.
 			ExpectContent(resp, "types.gen.ts").ToContain(
 				`} & ([Details] extends [z.ZodNever] ? {} : { details?: z.infer<Details> });`,
@@ -142,7 +142,7 @@ var _ = Describe("Derived New from @create", func() {
 				@create
 			}
 		`
-			resp := MustGenerate(ctx, source, "device", loader, typesPlugin)
+			resp := MustGenerate(source, "device", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").ToContain(
 				`export type New<Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>> = optional.Optional<Omit<Device<Properties>, "status">, "key" | "configured"> & {`,
 				`status?: status.New<typeof deviceStatusDetailsZ>;`,
@@ -187,7 +187,7 @@ var _ = Describe("Derived New from @create", func() {
 				@create
 			}
 		`
-			resp := MustGenerate(ctx, source, "device", loader, typesPlugin)
+			resp := MustGenerate(source, "device", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").ToContain(
 				`import { rack } from "@/rack"`,
 				`status?: status.New<typeof rack.statusDetailsZ>;`,
@@ -235,7 +235,7 @@ var _ = Describe("Derived New from @create", func() {
 				@create
 			}
 		`
-			resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+			resp := MustGenerate(source, "task", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").ToContain(
 				`export type New<S extends TaskSchemas = TaskSchemas> = optional.Optional<Omit<Task<S>, "status">, "key"> & {`,
 				`status?: status.New<ReturnType<typeof statusDetailsZ>>;`,
@@ -262,7 +262,7 @@ var _ = Describe("Derived New from @create", func() {
 				@create
 			}
 		`
-			resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+			resp := MustGenerate(source, "panel", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").ToContain(
 				"export const tabZ = z.discriminatedUnion(",
 				"export type NewTab = z.input<typeof tabZ>;",
@@ -288,7 +288,7 @@ var _ = Describe("Derived New from @create", func() {
 				@ts name "Payload"
 			}
 		`
-			resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
+			resp := MustGenerate(source, "thing", loader, typesPlugin)
 			// The derived New must emit under its own name (New), referencing the
 			// base's renamed payloadZ schema, not re-emit a renamed payloadZ/Payload
 			// (which would be a duplicate symbol with an empty body).

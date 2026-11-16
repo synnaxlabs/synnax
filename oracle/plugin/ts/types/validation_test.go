@@ -39,7 +39,7 @@ var _ = Describe("Validation Rules", func() {
 				}
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(`.regex(/^[a-z]+$/, "must be lowercase letters")`)
 		},
@@ -55,7 +55,7 @@ var _ = Describe("Validation Rules", func() {
 				}
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`.regex(/^[a-z]+$/)`)
 	})
@@ -69,7 +69,7 @@ var _ = Describe("Validation Rules", func() {
 				high int32 @validate { max 100 }
 			}
 		`
-		resp := MustGenerate(ctx, source, "range", loader, p)
+		resp := MustGenerate(source, "range", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
 		Expect(content).To(ContainSubstring(".min(0)"))
 		Expect(content).To(ContainSubstring(".max(100)"))
@@ -84,7 +84,7 @@ var _ = Describe("Validation Rules", func() {
 				high float64 @validate { max 99.5 }
 			}
 		`
-		resp := MustGenerate(ctx, source, "range", loader, p)
+		resp := MustGenerate(source, "range", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
 		Expect(content).To(ContainSubstring(".min(0.500000)"))
 		Expect(content).To(ContainSubstring(".max(99.500000)"))
@@ -99,7 +99,7 @@ var _ = Describe("Validation Rules", func() {
 				frequency float64 @validate { gt 0.5 }
 			}
 		`
-		resp := MustGenerate(ctx, source, "wave", loader, p)
+		resp := MustGenerate(source, "wave", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
 		Expect(content).To(ContainSubstring(".gt(0)"))
 		Expect(content).To(ContainSubstring(".gt(0.500000)"))
@@ -114,7 +114,7 @@ var _ = Describe("Validation Rules", func() {
 				name string = "untitled"
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`.default("untitled")`)
 	})
@@ -129,7 +129,7 @@ var _ = Describe("Validation Rules", func() {
 				name string = "a😀b"
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(content).To(ContainSubstring("\\uD83D\\uDE00"))
 			Expect(content).ToNot(ContainSubstring("\\U"))
@@ -144,7 +144,7 @@ var _ = Describe("Validation Rules", func() {
 				count int32 = 5
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`.default(5)`)
 	})
@@ -157,7 +157,7 @@ var _ = Describe("Validation Rules", func() {
 				ratio float64 = 1.5
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`.default(1.500000)`)
 	})
@@ -170,7 +170,7 @@ var _ = Describe("Validation Rules", func() {
 				active bool = false
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`.default(false)`)
 	})
@@ -185,7 +185,7 @@ var _ = Describe("Validation Rules", func() {
 				key string = create
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(`.default(id.create)`)
 		},
@@ -201,7 +201,7 @@ var _ = Describe("Validation Rules", func() {
 				key uuid = create
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(`.default(uuid.create)`)
 		},
@@ -217,7 +217,7 @@ var _ = Describe("Validation Rules", func() {
 				vals float64[] = []
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(
 				content,
@@ -236,7 +236,7 @@ var _ = Describe("Validation Rules", func() {
 				vals float64[] = [1.5, 2.5]
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(
 				content,
@@ -264,7 +264,7 @@ var _ = Describe("Validation Rules", func() {
 				p Point = { x = 1, y = 2, level = LevelHigh }
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
 		Expect(
 			content,
@@ -289,7 +289,7 @@ var _ = Describe("Validation Rules", func() {
 				m Mid = { inner = { tags = ["a", "b"] } }
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(
 				content,
@@ -318,7 +318,7 @@ var _ = Describe("Validation Rules", func() {
 				@ts use_input
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(
 				content,
@@ -372,7 +372,7 @@ var _ = Describe("Validation Rules", func() {
 				@ts use_input
 			}
 		`
-			resp := MustGenerate(ctx, source, "item", loader, p)
+			resp := MustGenerate(source, "item", loader, p)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(
 				content,
@@ -391,7 +391,7 @@ var _ = Describe("Validation Rules", func() {
 				}
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
 		Expect(content).To(ContainSubstring(".min(1).check(zod.maxLength(64))"))
 		Expect(content).To(ContainSubstring(`import { zod } from "@synnaxlabs/x"`))
@@ -405,7 +405,7 @@ var _ = Describe("Validation Rules", func() {
 				name string @validate { min_length 2 }
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").ToContain(`.check(zod.minLength(2))`)
 	})
 
@@ -417,7 +417,7 @@ var _ = Describe("Validation Rules", func() {
 				name string = "x" @validate { max_length 64 }
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`z.string().check(zod.maxLength(64)).default("x")`)
 	})
@@ -430,7 +430,7 @@ var _ = Describe("Validation Rules", func() {
 				name string @validate { required }
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`.min(1, "name is required")`)
 	})
@@ -443,7 +443,7 @@ var _ = Describe("Validation Rules", func() {
 				name string
 			}
 		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
+		resp := MustGenerate(source, "item", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
 		Expect(content).ToNot(ContainSubstring(".min("))
 		Expect(content).ToNot(ContainSubstring(".max("))

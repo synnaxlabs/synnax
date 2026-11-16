@@ -48,7 +48,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 	Describe("Generate", func() {
 		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
 			AddFilterSchema(loader)
-			resp := MustGenerate(ctx, ThingFilter, "thing", loader, jsonPlugin)
+			resp := MustGenerate(ThingFilter, "thing", loader, jsonPlugin)
 			ExpectContent(resp, "thing/json.gen.h").ToContain(
 				`.and_ = parser.field<std::optional<std::vector<Where>>>("and"),`,
 				`.not_ = parser.field<x::mem::indirect<Where>>("not"),`,
@@ -70,7 +70,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						all   T[]
 					}
 				`
-				resp := MustGenerate(ctx, source, "thing", loader, jsonPlugin)
+				resp := MustGenerate(source, "thing", loader, jsonPlugin)
 				ExpectContent(resp, "json.gen.h").
 					ToContain(
 						`j["value"] = x::json::to_json(this->value);`,
@@ -94,7 +94,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						subject string
 					}
 				`
-				resp := MustGenerate(ctx, source, "auth", loader, jsonPlugin)
+				resp := MustGenerate(source, "auth", loader, jsonPlugin)
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`"subject"`).
 					ToNotContain("hash")
@@ -114,7 +114,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						axis_1 float64 = 0
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
 							`parser.field<double>("r0", 0)`,
@@ -132,7 +132,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 				source := `
 				@cpp output "client/cpp/types"
 			` + decls
-				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(source, "types", loader, jsonPlugin)
 				ExpectContent(resp, "json.gen.h").
 					ToContain("x::json::json j = x::json::json::object();").
 					ToNotContain("x::json::json j;")
@@ -165,7 +165,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						outputs Params
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 					Expect(resp.Files).To(HaveLen(1))
 
 					ExpectContent(resp, "json.gen.h").
@@ -196,7 +196,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						outputs Params
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -223,7 +223,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						outputs Params?
 					}
 				`
-				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(
@@ -248,7 +248,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						right Node?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 					Expect(resp.Files).To(HaveLen(1))
 
 					ExpectContent(resp, "json.gen.h").
@@ -273,7 +273,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						right Node?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -295,7 +295,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						a A?
 					}
 				`
-				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+				resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(
@@ -320,7 +320,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					}
 					BWrap B
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -345,7 +345,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						constraint Type?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -373,7 +373,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						unit Unit?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -399,7 +399,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						unit Unit?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -420,7 +420,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						metadata map<string, string> = {}
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+				resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`parser.field<std::unordered_map<std::string, std::string>>("metadata", std::unordered_map<std::string, std::string>{})`)
@@ -437,7 +437,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						ports Ports = {}
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+				resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`parser.field<Ports>("ports", Ports{})`)
@@ -456,7 +456,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						inputs Inputs = {}
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+				resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`parser.field<Inputs>("inputs", Inputs{})`)
@@ -475,7 +475,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						params Params = []
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+				resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`parser.field<Params>("params", Params{})`)
@@ -493,7 +493,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						ports Ports = { rate = 2, index = 1 }
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+				resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").ToContain(
 					`parser.field<Ports>("ports", Ports{.index = 1, .rate = 2})`,
@@ -512,7 +512,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						mode Mode = off
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+				resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`parser.field<Mode>("mode", Mode::Off)`)
@@ -534,7 +534,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						time telem.TimeStamp = now
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+				resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").ToContain(
 					`"time", x::telem::TimeStamp::now()`,
@@ -554,7 +554,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						metadata map<string, string>
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -576,7 +576,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						pairs map<string, Pair>
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -599,7 +599,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						pairs map<string, Pair>?
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -622,7 +622,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						pairs map<uint32, Pair>
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`obj[std::to_string(key)] = item.to_json();`)
@@ -642,7 +642,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						pairs map<uuid, Pair>
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`obj[key.to_string()] = item.to_json();`)
@@ -658,7 +658,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						metadata map<string, uint32>
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`j["metadata"] = this->metadata;`)
@@ -674,7 +674,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						names map<uint32, string>
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -695,7 +695,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						names map<uint16, uint8>?
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -714,7 +714,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						names map<uuid, string>
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`obj[key.to_string()] = item;`)
@@ -730,7 +730,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						values map<K, uint32>
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`obj[x::json::map_key(key)] = item;`)
@@ -750,7 +750,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						values map<K, Pair>
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`obj[x::json::map_key(key)] = item.to_json();`)
@@ -758,7 +758,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			DescribeTable("Should reject a map with an unsupported key",
 				func(ctx SpecContext, key, value string) {
-					req := MustGenerateRequest(ctx, `
+					req := MustGenerateRequest(`
 					@cpp output "client/cpp/task"
 
 					Units enum {
@@ -799,7 +799,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						pairs Pairs
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -821,7 +821,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						right uint32
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);`)
@@ -837,7 +837,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						metadata map<string, string>
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`j["metadata"] = this->metadata;`)
@@ -872,7 +872,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						constraint Type?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 					Expect(resp.Files).To(HaveLen(1))
 
 					ExpectContent(resp, "json.gen.h").
@@ -901,7 +901,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						names string[]
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -926,7 +926,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						keys Key[]
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 					ExpectContent(resp, "json.gen.h").
 						ToContain("for (const auto& item : this->keys) arr.push_back(item.to_json());")
 				},
@@ -949,7 +949,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						items Item[]
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -969,7 +969,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 					Channels uint32[]
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -996,7 +996,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 					Params Param[]
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -1017,7 +1017,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					source := `
 					@cpp output "arc/cpp/types"
 				` + decls
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -1044,7 +1044,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 					Hash uint8[32]
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 					Expect(resp.Files).To(BeEmpty())
 				},
 			)
@@ -1070,7 +1070,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						transfers Transfer<R>[]
 					}
 				`
-					resp := MustGenerate(ctx, source, "control", loader, jsonPlugin)
+					resp := MustGenerate(source, "control", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -1095,7 +1095,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						details Details
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`parser.field<Details>("details")`).
@@ -1118,7 +1118,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						label    string?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -1150,7 +1150,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						metadata map<string, string>?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -1188,7 +1188,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						duration    telem.TimeSpan = 0
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+					resp := MustGenerate(source, "config", loader, jsonPlugin)
 					ExpectContent(resp, "out/json.gen.h").
 						ToContain(
 							`parser.field<::x::telem::Rate>("stream_rate", ::x::telem::Rate(5))`,
@@ -1217,7 +1217,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						label     string = "dflt"
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+					resp := MustGenerate(source, "config", loader, jsonPlugin)
 					ExpectContent(resp, "out/json.gen.h").
 						ToContain(
 							`parser.field<::x::telem::DataType>("data_type", ::x::telem::DataType("float32"))`,
@@ -1251,7 +1251,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						count     int32 = 7
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+					resp := MustGenerate(source, "config", loader, jsonPlugin)
 					ExpectContent(resp, "out/json.gen.h").
 						ToContain(
 							`parser.field<::x::telem::Size>("threshold", ::x::telem::Size(1024))`,
@@ -1271,7 +1271,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						owner uuid?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`parser.field<std::optional<x::uuid::UUID>>("owner")`)
@@ -1290,7 +1290,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						delta_big   int64?
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -1315,7 +1315,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						id Key
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`j["id"] = this->id.to_json();`)
@@ -1335,7 +1335,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						id KeyRef
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(`j["id"] = this->id.to_json();`)
@@ -1362,7 +1362,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						hash crypto.Hash
 					}
 				`
-					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					resp := MustGenerate(source, "types", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
@@ -1400,7 +1400,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						name string
 					}
 				`
-					resp := MustGenerate(ctx, source, "derived", loader, jsonPlugin)
+					resp := MustGenerate(source, "derived", loader, jsonPlugin)
 
 					ExpectContent(resp, "derived/json.gen.h").
 						ToContain(
@@ -1436,7 +1436,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						fill color.Fill
 					}
 				`)
-				resp := MustGenerateMulti(ctx, loader, jsonPlugin)
+				resp := MustGenerateMulti(loader, jsonPlugin)
 				ExpectContent(resp, "client/cpp/color/json.gen.h").
 					ToContain(
 						`#include "x/cpp/color/json.gen.h"`,
@@ -1471,7 +1471,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						}
 					}
 				`
-				resp := MustGenerate(ctx, source, "auth", loader, jsonPlugin)
+				resp := MustGenerate(source, "auth", loader, jsonPlugin)
 				ExpectContent(resp, "auth/json.gen.h").
 					ToContain(`"key"`, `"name"`, `"rate"`).
 					ToNotContain("Record")
@@ -1493,7 +1493,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						-secret
 					}
 				`
-				resp := MustGenerate(ctx, source, "auth", loader, jsonPlugin)
+				resp := MustGenerate(source, "auth", loader, jsonPlugin)
 				ExpectContent(resp, "auth/json.gen.h").
 					ToContain(`"key"`, `"name"`).
 					ToNotContain("secret", "Record")
@@ -1511,7 +1511,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						@doc value "is a 12-bit unsigned integer identifying a node."
 					}
 				`
-					resp := MustGenerate(ctx, source, "node", loader, jsonPlugin)
+					resp := MustGenerate(source, "node", loader, jsonPlugin)
 
 					Expect(resp.Files).To(BeEmpty())
 					Expect(resp.Deletions).To(ConsistOf("client/cpp/node/json.gen.h"))
@@ -1531,7 +1531,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						@cpp hand
 					}
 				`
-					resp := MustGenerate(ctx, source, "telem", loader, jsonPlugin)
+					resp := MustGenerate(source, "telem", loader, jsonPlugin)
 
 					Expect(resp.Files).To(BeEmpty())
 					Expect(resp.Deletions).To(ConsistOf("x/cpp/telem/json.gen.h"))
@@ -1556,7 +1556,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						leaseholder node.Key
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, jsonPlugin)
+					resp := MustGenerate(source, "channel", loader, jsonPlugin)
 
 					ExpectContent(resp, "channel/json.gen.h").
 						ToContain(`#include "client/cpp/node/types.gen.h"`).
@@ -1584,7 +1584,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						leaseholder node.Key
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, jsonPlugin)
+					resp := MustGenerate(source, "channel", loader, jsonPlugin)
 
 					ExpectContent(resp, "channel/json.gen.h").
 						ToContain(`#include "client/cpp/node/key.h"`).
@@ -1620,7 +1620,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						custom_scale scales.Scale
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, jsonPlugin)
+					resp := MustGenerate(source, "channel", loader, jsonPlugin)
 
 					ExpectContent(resp, "channel/json.gen.h").
 						ToContain(
@@ -1643,7 +1643,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						all scales.Scale[]
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, jsonPlugin)
+					resp := MustGenerate(source, "channel", loader, jsonPlugin)
 
 					ExpectContent(resp, "channel/json.gen.h").
 						ToContain(
@@ -1667,7 +1667,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						none scales.NoneParams
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "task/json.gen.h").
 						ToContain(`parse_config(x::json::Parser parser) {`)
@@ -1697,7 +1697,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						info InfoRef
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "task/json.gen.h").
 						ToContain(`#include "client/cpp/common/json.gen.h"`)
@@ -1709,7 +1709,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			It(
 				"Should error when a struct's output path escapes the repository",
 				func(ctx SpecContext) {
-					req := MustGenerateRequest(ctx, `
+					req := MustGenerateRequest(`
 					@cpp output "../escape"
 
 					Bad struct { name string }
@@ -1722,7 +1722,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			It(
 				"Should error when a distinct type's output path escapes the repository",
 				func(ctx SpecContext) {
-					req := MustGenerateRequest(ctx, `
+					req := MustGenerateRequest(`
 					@cpp output "../escape"
 
 					Key uint32
@@ -1741,7 +1741,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					LinearParams struct { slope float64 }
 					NoneParams struct {}
 				`)
-					req := MustGenerateRequest(ctx, `
+					req := MustGenerateRequest(`
 					import "schemas/scales"
 
 					@cpp output "../escape"
@@ -1759,7 +1759,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			It(
 				"Should return the paths with JSON content from ContentPaths",
 				func(ctx SpecContext) {
-					req := MustGenerateRequest(ctx, `
+					req := MustGenerateRequest(`
 					@cpp output "client/cpp/types"
 
 					Item struct { name string }
@@ -1772,7 +1772,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			It(
 				"Should propagate collection errors from ContentPaths",
 				func(ctx SpecContext) {
-					req := MustGenerateRequest(ctx, `
+					req := MustGenerateRequest(`
 					@cpp output "../escape"
 
 					Bad struct { name string }
@@ -1803,7 +1803,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						time_range outside.TimeRange
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, jsonPlugin)
+					resp := MustGenerate(source, "channel", loader, jsonPlugin)
 
 					Expect(resp.Deletions).To(BeEmpty())
 				},
@@ -1844,7 +1844,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				none NoneParams
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+			resp := MustGenerate(source, "ni", loader, jsonPlugin)
 			ExpectContent(resp, "json.gen.h").
 				ToContain(
 					`inline Scale parse_scale(x::json::Parser parser) {`,
@@ -1875,7 +1875,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 			Item struct { scale Scale = none }
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+			resp := MustGenerate(source, "ni", loader, jsonPlugin)
 			ExpectContent(resp, "json.gen.h").ToContain(
 				`parser.has("scale") ? parse_scale(parser.child("scale")) ` +
 					`: Scale{NoneScale{}}`,
@@ -1898,7 +1898,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				empty {}
 			}
 		`
-			resp := MustGenerate(ctx, source, "panel", loader, jsonPlugin)
+			resp := MustGenerate(source, "panel", loader, jsonPlugin)
 			content := ExpectContent(resp, "json.gen.h")
 			content.ToContain(
 				`if (discriminator == "view") return ViewTab::parse(parser);`,
@@ -1920,7 +1920,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				none NoneParams
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+		resp := MustGenerate(source, "ni", loader, jsonPlugin)
 		ExpectContent(resp, "json.gen.h").
 			ToContain(
 				`inline LinearScale LinearScale::parse(x::json::Parser parser) {`,
@@ -1951,7 +1951,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				ai_voltage VoltageFields
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+			resp := MustGenerate(source, "ni", loader, jsonPlugin)
 			ExpectContent(resp, "ni/json.gen.h").
 				ToContain(
 					`#include "x/cpp/common/json.gen.h"`,
@@ -1980,7 +1980,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				customScale Scale
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+			resp := MustGenerate(source, "ni", loader, jsonPlugin)
 			ExpectContent(resp, "json.gen.h").
 				ToContain(
 					`.custom_scale = parse_scale(parser.child("custom_scale")),`,
@@ -2007,7 +2007,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				customScale Scale?
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+			resp := MustGenerate(source, "ni", loader, jsonPlugin)
 			ExpectContent(resp, "json.gen.h").
 				ToContain(
 					`parser.has("custom_scale") ? std::optional<Scale>(parse_scale(parser.child("custom_scale"))) : std::nullopt`,
@@ -2032,7 +2032,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				label   string = ""
 			}
 		`
-			resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+			resp := MustGenerate(source, "config", loader, jsonPlugin)
 			ExpectContent(resp, "json.gen.h").
 				ToContain(
 					`.enabled = parser.field<bool>("enabled", false),`,
@@ -2053,7 +2053,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				args record = {}
 			}
 		`
-			resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+			resp := MustGenerate(source, "config", loader, jsonPlugin)
 			ExpectContent(resp, "json.gen.h").
 				ToContain(
 					`.args = parser.field<x::json::json::object_t>("args", x::json::json::object_t{}),`,
@@ -2073,7 +2073,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				device Key = ""
 			}
 		`
-			resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+			resp := MustGenerate(source, "config", loader, jsonPlugin)
 			ExpectContent(resp, "json.gen.h").
 				ToContain(`.device = parser.field<Key>("device", Key("")),`)
 		},
@@ -2098,7 +2098,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				duration telem.TimeSpan = 0
 			}
 		`
-			resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+			resp := MustGenerate(source, "config", loader, jsonPlugin)
 			ExpectContent(resp, "out/json.gen.h").
 				ToContain(`.duration = parser.field<::x::telem::TimeSpan>("duration", ::x::telem::TimeSpan(0)),`)
 		},
@@ -2113,7 +2113,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				name string = ""
 			}
 		`
-		resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+		resp := MustGenerate(source, "config", loader, jsonPlugin)
 		ExpectContent(resp, "json.gen.h").
 			ToContain(
 				`#include "x/cpp/uuid/uuid.h"`,
@@ -2133,7 +2133,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				parent Key = create
 			}
 		`
-		resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+		resp := MustGenerate(source, "config", loader, jsonPlugin)
 		ExpectContent(resp, "json.gen.h").
 			ToContain(
 				`.key = parser.field<x::uuid::UUID>("key", x::uuid::create()),`,
@@ -2169,7 +2169,7 @@ var _ = Describe("C++ JSON Union Array Fields", func() {
 				scales Scale[]
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+		resp := MustGenerate(source, "ni", loader, jsonPlugin)
 		ExpectContent(resp, "json.gen.h").
 			ToContain(
 				`if (parser.has("scales"))`,

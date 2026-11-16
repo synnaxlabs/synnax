@@ -32,7 +32,7 @@ var _ = Describe("FieldProcessor", func() {
 
 	process := func(ctx SpecContext, source, field string) json.FieldData {
 		GinkgoHelper()
-		req := MustGenerateRequest(ctx, source, "test", loader)
+		req := MustGenerateRequest(source, "test", loader)
 		item := req.Resolutions.MustGet("test.Item")
 		f := MustBeOk(item.Form.(resolution.StructForm).Field(field))
 		fp := &json.FieldProcessor{

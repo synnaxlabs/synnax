@@ -154,7 +154,7 @@ var _ = Describe("@ref", func() {
 	It(
 		"Should register a reference to the key of another resource",
 		func(ctx SpecContext) {
-			resp := MustGenerate(ctx, device(`
+			resp := MustGenerate(device(`
 			rack rack.Key @ref on_delete restrict @ref kind use
 		`), "device", loader, p)
 			ExpectContent(resp, "retrieve.gen.go").
@@ -179,7 +179,7 @@ var _ = Describe("@ref", func() {
 	DescribeTable(
 		"Should declare the kind of a reference",
 		func(ctx SpecContext, field, kind string) {
-			resp := MustGenerate(ctx, device(field), "device", loader, p)
+			resp := MustGenerate(device(field), "device", loader, p)
 			ExpectContent(resp, "retrieve.gen.go").
 				ToContain("Kind:     gorp." + kind + ",")
 		},
@@ -233,7 +233,7 @@ var _ = Describe("@ref", func() {
 	DescribeTable(
 		"Should declare a reference on the base of a union once",
 		func(ctx SpecContext, schema, field, name, targets, match string) {
-			resp := MustGenerate(ctx, union(schema, field), "device", loader, p)
+			resp := MustGenerate(union(schema, field), "device", loader, p)
 			content := MustContentOf(resp, "retrieve.gen.go")
 			Expect(strings.Count(content, `Name:     "`+name+`",`)).To(Equal(1))
 			Expect(content).To(ContainSubstring(targets))
@@ -258,7 +258,7 @@ var _ = Describe("@ref", func() {
 	)
 
 	It("Should refuse to inline a key that a struct holds", func(ctx SpecContext) {
-		req := MustGenerateRequest(ctx, device(`
+		req := MustGenerateRequest(device(`
 				spare rack.Key @ref on_delete inline @ref kind use
 			`), "device", loader)
 		Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
@@ -269,7 +269,7 @@ var _ = Describe("@ref", func() {
 	It("Should declare a resource target for an ID reference on a union", func(
 		ctx SpecContext,
 	) {
-		resp := MustGenerate(ctx, union(
+		resp := MustGenerate(union(
 			"resource",
 			`owner resource.ID? @ref on_delete cascade @ref types device @ref kind use`,
 		), "device", loader, p)
@@ -282,7 +282,7 @@ var _ = Describe("@ref", func() {
 	It("Should name the index of a union reference after the field", func(
 		ctx SpecContext,
 	) {
-		resp := MustGenerate(ctx, union(
+		resp := MustGenerate(union(
 			"rack",
 			`rack rack.Key {
 				@ref on_delete restrict
@@ -297,7 +297,6 @@ var _ = Describe("@ref", func() {
 
 	It("Should refuse a detach reference on a union", func(ctx SpecContext) {
 		req := MustGenerateRequest(
-			ctx,
 			union("label", `labels label.Key[] @ref on_delete detach @ref kind use`),
 			"device",
 			loader,
@@ -309,7 +308,7 @@ var _ = Describe("@ref", func() {
 	})
 
 	It("Should register an optional reference to its own type", func(ctx SpecContext) {
-		resp := MustGenerate(ctx, device(`
+		resp := MustGenerate(device(`
 			parent Key? {
 				@ref {
 					on_delete cascade
@@ -353,7 +352,7 @@ var _ = Describe("@ref", func() {
 		It(
 			"Should register a reference that a variant of the union holds",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, union("rack", `
+				resp := MustGenerate(union("rack", `
 					rack rack.Key? @ref on_delete restrict @ref kind use
 				`), "device", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
@@ -373,7 +372,7 @@ var _ = Describe("@ref", func() {
 		It(
 			"Should write the variant back after a detach clears its reference",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, union("label", `
+				resp := MustGenerate(union("label", `
 					tag label.Key? @ref on_delete detach @ref kind use
 				`), "device", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").ToContain(
@@ -388,7 +387,7 @@ var _ = Describe("@ref", func() {
 		It(
 			"Should reject a variant reference that collides with the search index",
 			func(ctx SpecContext) {
-				req := MustGenerateRequest(ctx, `
+				req := MustGenerateRequest(`
 					import "schemas/rack"
 
 					@go output "core/pkg/service/device"
@@ -415,7 +414,7 @@ var _ = Describe("@ref", func() {
 	})
 
 	It("Should detach a deleted target from an array", func(ctx SpecContext) {
-		resp := MustGenerate(ctx, device(`
+		resp := MustGenerate(device(`
 			labels label.Key[] @ref on_delete detach @ref kind use
 		`), "device", loader, p)
 		ExpectContent(resp, "retrieve.gen.go").
@@ -435,7 +434,7 @@ var _ = Describe("@ref", func() {
 	})
 
 	It("Should detach an optional field and write it", func(ctx SpecContext) {
-		resp := MustGenerate(ctx, device(`
+		resp := MustGenerate(device(`
 			shelf rack.Key? @ref on_delete detach @ref kind use
 		`), "device", loader, p)
 		ExpectContent(resp, "retrieve.gen.go").
@@ -455,7 +454,7 @@ var _ = Describe("@ref", func() {
 	DescribeTable(
 		"Should hold no target while a field with a zero default is zero",
 		func(ctx SpecContext, field, zero string) {
-			resp := MustGenerate(ctx, device(field), "device", loader, p)
+			resp := MustGenerate(device(field), "device", loader, p)
 			ExpectContent(resp, "retrieve.gen.go").
 				ToContain(
 					"if e.Spare == "+zero+" {",
@@ -484,7 +483,7 @@ var _ = Describe("@ref", func() {
 	)
 
 	It("Should always hold the target of a required field", func(ctx SpecContext) {
-		resp := MustGenerate(ctx, device(`
+		resp := MustGenerate(device(`
 			rack rack.Key @ref on_delete cascade @ref kind use
 		`), "device", loader, p)
 		ExpectContent(resp, "retrieve.gen.go").
@@ -494,7 +493,7 @@ var _ = Describe("@ref", func() {
 	It(
 		"Should register a reference to resource IDs of named types",
 		func(ctx SpecContext) {
-			resp := MustGenerate(ctx, device(`
+			resp := MustGenerate(device(`
 			owner resource.ID? {
 				@ref {
 					on_delete cascade
@@ -522,7 +521,7 @@ var _ = Describe("@ref", func() {
 	DescribeTable(
 		"Should reject an invalid reference",
 		func(ctx SpecContext, fields, message string) {
-			req := MustGenerateRequest(ctx, device(fields), "device", loader)
+			req := MustGenerateRequest(device(fields), "device", loader)
 			Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(message)))
 		},
 		Entry("without on_delete", `rack rack.Key @ref`,
@@ -640,7 +639,7 @@ var _ = Describe("@ref", func() {
 					@resource type "shelf"
 				}
 			`)
-			req := MustGenerateRequest(ctx, `
+			req := MustGenerateRequest(`
 				import "schemas/rack"
 				import "schemas/shelf"
 
@@ -665,7 +664,7 @@ var _ = Describe("@ref", func() {
 	It(
 		"Should reject a reference on a type that no table stores",
 		func(ctx SpecContext) {
-			req := MustGenerateRequest(ctx, `
+			req := MustGenerateRequest(`
 			import "schemas/rack"
 
 			@go output "core/pkg/service/device"
@@ -706,7 +705,7 @@ var _ = Describe("@ref", func() {
 		It(
 			"Should generate only the indexes of a generic type over any",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, status(`
+				resp := MustGenerate(status(`
 				labels label.Key[] @ref on_delete detach @ref kind use
 				owner resource.ID? {
 					@ref {
@@ -737,7 +736,7 @@ var _ = Describe("@ref", func() {
 		)
 
 		It("Should import context for a reference that inlines", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				import "schemas/swatch"
 
 				@go output "core/pkg/service/look"
@@ -757,7 +756,7 @@ var _ = Describe("@ref", func() {
 		})
 
 		It("Should accept a primitive key type", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				import "schemas/label"
 
 				@go output "core/pkg/service/alias"
@@ -781,7 +780,6 @@ var _ = Describe("@ref", func() {
 			"Should reject",
 			func(ctx SpecContext, fields, retrieve, message string) {
 				req := MustGenerateRequest(
-					ctx,
 					status(fields, retrieve),
 					"status",
 					loader,
@@ -867,7 +865,7 @@ var _ = Describe("@ref", func() {
 
 		generate := func(ctx SpecContext, types, fields string) *ContentExpectation {
 			GinkgoHelper()
-			resp := MustGenerate(ctx, config(types, fields), "modbus", loader, p)
+			resp := MustGenerate(config(types, fields), "modbus", loader, p)
 			return ExpectContent(resp, "retrieve.gen.go")
 		}
 
@@ -1179,7 +1177,7 @@ var _ = Describe("@ref", func() {
 		It(
 			"Should generate the references that the variants of a union hold",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, `
+				resp := MustGenerate(`
 					import "schemas/rack"
 
 					@go output "core/pkg/service/modbus"
@@ -1207,7 +1205,7 @@ var _ = Describe("@ref", func() {
 		It(
 			"Should generate the references of several types in one package",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, config(`
+				resp := MustGenerate(config(`
 				WriteConfig struct {
 					key uuid {
 						@key
@@ -1228,7 +1226,7 @@ var _ = Describe("@ref", func() {
 		DescribeTable(
 			"Should reject",
 			func(ctx SpecContext, types, fields, message string) {
-				req := MustGenerateRequest(ctx, config(types, fields), "modbus", loader)
+				req := MustGenerateRequest(config(types, fields), "modbus", loader)
 				Expect(
 					p.Generate(req),
 				).Error().
@@ -1347,7 +1345,7 @@ var _ = Describe("@ref", func() {
 		It(
 			"Should check cycles through a nested reference to its own type",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, device(`
+				resp := MustGenerate(device(`
 				inner Inner
 			`)+`
 				Inner struct {
@@ -1371,7 +1369,7 @@ var _ = Describe("@ref", func() {
 		It(
 			"Should store a nested reference on a type that generates a Retrieve",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, device(`
+				resp := MustGenerate(device(`
 				inner Inner[]
 			`)+`
 				Inner struct {

@@ -10,8 +10,6 @@
 package versions_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -55,9 +53,9 @@ Holder struct {
 
 // renderVersion renders the declarations that version n of the channel chain defines,
 // with every reference left fully qualified.
-func renderVersion(ctx context.Context, files map[string]string, n int) string {
+func renderVersion(files map[string]string, n int) string {
 	GinkgoHelper()
-	f := MustSucceed(resolverFor(files).File(ctx, "schemas/synnax/channel", n))
+	f := MustSucceed(resolverFor(files).File("schemas/synnax/channel", n))
 	decls := make([]versions.Decl, 0, len(f.Defined))
 	for _, t := range f.Defined {
 		decls = append(decls, versions.Decl{Type: t})
@@ -67,9 +65,9 @@ func renderVersion(ctx context.Context, files map[string]string, n int) string {
 
 // elementVariants returns the payload type of each variant of Element at version 2 of
 // the channel chain.
-func elementVariants(ctx context.Context, files map[string]string) map[string]string {
+func elementVariants(files map[string]string) map[string]string {
 	GinkgoHelper()
-	f := MustSucceed(resolverFor(files).File(ctx, "schemas/synnax/channel", 2))
+	f := MustSucceed(resolverFor(files).File("schemas/synnax/channel", 2))
 	element := MustBeOk(versions.DefinedType(f, "Element"))
 	form := element.Form.(resolution.UnionForm)
 	variants := make(map[string]string, len(form.Variants))
@@ -83,7 +81,7 @@ var _ = Describe("Version extends", func() {
 	It("Should mix in an aliased union whose variants name its version's aliases", func(
 		ctx SpecContext,
 	) {
-		variants := elementVariants(ctx, map[string]string{
+		variants := elementVariants(map[string]string{
 			extendsV0Path: `
 Payload struct {
     value int32
@@ -121,7 +119,7 @@ Element union on variant extends Node, Edge {}
 	It("Should mix in an aliased union whose variants name a chained alias", func(
 		ctx SpecContext,
 	) {
-		variants := elementVariants(ctx, map[string]string{
+		variants := elementVariants(map[string]string{
 			extendsV0Path: `
 Payload struct {
     value int32
@@ -148,10 +146,10 @@ Element union on variant extends Node {}
 	DescribeTable("Should resolve a patch exactly like its hand-written copy", func(
 		ctx SpecContext, patch, handWritten string,
 	) {
-		Expect(renderVersion(ctx, map[string]string{
+		Expect(renderVersion(map[string]string{
 			extendsV0Path: extendsV0,
 			extendsV1Path: patch,
-		}, 1)).To(Equal(renderVersion(ctx, map[string]string{
+		}, 1)).To(Equal(renderVersion(map[string]string{
 			extendsV0Path: extendsV0,
 			extendsV1Path: handWritten,
 		}, 1)))
@@ -405,7 +403,7 @@ Holder struct extends v0.Holder {
     count int64
 }
 `
-		Expect(renderVersion(ctx, map[string]string{
+		Expect(renderVersion(map[string]string{
 			extendsV0Path: extendsV0,
 			extendsV1Path: v1,
 			extendsV2Path: `
@@ -415,7 +413,7 @@ Holder struct extends v1.Holder {
     -old
 }
 `,
-		}, 2)).To(Equal(renderVersion(ctx, map[string]string{
+		}, 2)).To(Equal(renderVersion(map[string]string{
 			extendsV0Path: extendsV0,
 			extendsV1Path: v1,
 			extendsV2Path: `
@@ -438,10 +436,10 @@ Holder struct {
 	DescribeTable("Should keep a removed field omitted where a base has it", func(
 		ctx SpecContext, v0, patch, handWritten string,
 	) {
-		Expect(renderVersion(ctx, map[string]string{
+		Expect(renderVersion(map[string]string{
 			extendsV0Path: v0,
 			extendsV1Path: patch,
-		}, 1)).To(Equal(renderVersion(ctx, map[string]string{
+		}, 1)).To(Equal(renderVersion(map[string]string{
 			extendsV0Path: v0,
 			extendsV1Path: handWritten,
 		}, 1)))
@@ -600,7 +598,7 @@ Holder struct extends v0.Holder {
     name string
 }
 `,
-		}).File(ctx, "schemas/synnax/channel", 1))
+		}).File("schemas/synnax/channel", 1))
 		holder := MustBeOk(f.Table.Get("v1.Holder"))
 		Expect(holder.Form.(resolution.StructForm).Fields).To(HaveLen(2))
 	})
@@ -617,7 +615,7 @@ Tree union on variant extends v0.Node {
     }
 }
 `,
-		}).File(ctx, "schemas/synnax/channel", 1))
+		}).File("schemas/synnax/channel", 1))
 		form := MustBeOk(f.Table.Get("v1.Tree")).Form.(resolution.UnionForm)
 		Expect(form.Included).To(ConsistOf(HaveField("Name", "v0.Node")))
 		Expect(form.Declared).To(ConsistOf(HaveField("Name", "tree")))
@@ -637,7 +635,7 @@ NodeBoxPayload struct {
 
 Node union on variant extends v0.Node {}
 `,
-		}).File(ctx, "schemas/synnax/channel", 1)).Error().To(MatchError(
+		}).File("schemas/synnax/channel", 1)).Error().To(MatchError(
 			ContainSubstring(
 				`8:0 error: union Node variant "box": inline payload name ` +
 					"v1.NodeBoxPayload collides with an existing type",
@@ -651,7 +649,7 @@ Node union on variant extends v0.Node {}
 		Expect(resolverFor(map[string]string{
 			extendsV0Path: extendsV0,
 			extendsV1Path: "Node struct extends v0.Node {}\n",
-		}).File(ctx, "schemas/synnax/channel", 1)).Error().To(MatchError(
+		}).File("schemas/synnax/channel", 1)).Error().To(MatchError(
 			ContainSubstring("struct Node: v0.Node is not a struct"),
 		))
 	})
@@ -662,7 +660,7 @@ Node union on variant extends v0.Node {}
 		Expect(resolverFor(map[string]string{
 			extendsV0Path: extendsV0,
 			extendsV1Path: "Holder union on variant extends v0.Holder {}\n",
-		}).File(ctx, "schemas/synnax/channel", 1)).Error().To(MatchError(
+		}).File("schemas/synnax/channel", 1)).Error().To(MatchError(
 			ContainSubstring("union Holder: v0.Holder is not a union"),
 		))
 	})
@@ -675,7 +673,7 @@ Node union on variant extends v0.Node {}
 			extendsV1Path: "Node = v0.Node\nHolder struct extends v0.Holder {}\n",
 			extendsV2Path: "Node = v0.Node\n" +
 				"Holder struct extends v0.Holder, v1.Holder {}\n",
-		}).File(ctx, "schemas/synnax/channel", 2)).Error().To(MatchError(
+		}).File("schemas/synnax/channel", 2)).Error().To(MatchError(
 			ContainSubstring(
 				"Holder: extends more than one earlier version of itself " +
 					"(v0.Holder and v1.Holder)",

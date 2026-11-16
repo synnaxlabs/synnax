@@ -110,7 +110,6 @@ var _ = Describe("C++ aliases", func() {
 				Add("schemas/x/telem", aliasTelem).
 				Add("schemas/base", aliasBase)
 			resp := MustGenerate(
-				ctx,
 				aliasHead+use,
 				"test",
 				loader,

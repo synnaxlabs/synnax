@@ -55,7 +55,7 @@ var _ = Describe("TS Types Plugin", func() {
 	Describe("Generate", func() {
 		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
 			AddFilterSchema(loader)
-			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			resp := MustGenerate(ThingFilter, "thing", loader, typesPlugin)
 			ExpectContent(resp, "thing/types.gen.ts").ToContain(
 				"export type Where = {",
 				"and?: Where[];",
@@ -71,7 +71,7 @@ var _ = Describe("TS Types Plugin", func() {
 			ctx SpecContext,
 		) {
 			AddFilterSchema(loader)
-			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			resp := MustGenerate(ThingFilter, "thing", loader, typesPlugin)
 			ExpectContent(resp, "thing/types.gen.ts").
 				ToContain("export const retrieveRequestZ = z.strictObject({").
 				ToNotContain("thingZ = z.strictObject", "retrieveResponseZ = z.strictObject")
@@ -81,7 +81,7 @@ var _ = Describe("TS Types Plugin", func() {
 			ctx SpecContext,
 		) {
 			AddFilterSchema(loader)
-			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			resp := MustGenerate(ThingFilter, "thing", loader, typesPlugin)
 			ExpectContent(resp, "filter/types.gen.ts").ToContain(
 				"export const stringZ = z.strictObject({",
 				"export const boolZ = z.strictObject({",
@@ -101,7 +101,7 @@ var _ = Describe("TS Types Plugin", func() {
 				"name string { @search }",
 				1,
 			)
-			resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
+			resp := MustGenerate(source, "thing", loader, typesPlugin)
 			ExpectContent(resp, "thing/types.gen.ts").
 				ToContain(
 					"searchTerm: z.string().optional(),",
@@ -115,7 +115,7 @@ var _ = Describe("TS Types Plugin", func() {
 			ctx SpecContext,
 		) {
 			AddFilterSchema(loader)
-			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			resp := MustGenerate(ThingFilter, "thing", loader, typesPlugin)
 			ExpectContent(resp, "filter/types.gen.ts").
 				ToContain("caseInsensitive: z.boolean().optional(),").
 				ToNotContain(".default(false)")
@@ -139,7 +139,7 @@ var _ = Describe("TS Types Plugin", func() {
 						extra  string
 					}
 				`
-				resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+				resp := MustGenerate(source, "auth", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain("export const childZ", "extra: z.string()").
 					ToNotContain("secret")
@@ -156,7 +156,7 @@ var _ = Describe("TS Types Plugin", func() {
 						subject string
 					}
 				`
-				resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+				resp := MustGenerate(source, "auth", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(`key: z.uuid()`, `subject: z.string()`).
 					ToNotContain("hash")
@@ -175,7 +175,7 @@ var _ = Describe("TS Types Plugin", func() {
 						active bool
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(source, "user", loader, typesPlugin)
 				Expect(resp.Files).To(HaveLen(1))
 
 				ExpectContent(resp, "types.gen.ts").
@@ -208,7 +208,7 @@ var _ = Describe("TS Types Plugin", func() {
 						` + childBody + `
 					}
 				`
-					resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+					resp := MustGenerate(source, "user", loader, typesPlugin)
 					return string(resp.Files[0].Content)
 				}
 				// A typeless override desugars to the equivalent full restatement, so
@@ -233,7 +233,7 @@ var _ = Describe("TS Types Plugin", func() {
 					name -@validate
 				}
 			`
-				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(source, "user", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(`export const childZ = z.object(`, `name: z.string()`)
 			},
@@ -277,7 +277,7 @@ var _ = Describe("TS Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+					resp := MustGenerate(source, "auth", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain("key: z.uint32()", "name: z.string()", "rate: z.number()").
 						ToNotContain("Record")
@@ -286,7 +286,6 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It("Should declare the inherited fields", func(ctx SpecContext) {
 				resp := MustGenerate(
-					ctx,
 					schema("@ts omit", "rate float64"),
 					"user",
 					loader,
@@ -305,7 +304,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It("Should leave out a removed field", func(ctx SpecContext) {
 				resp := MustGenerate(
-					ctx, schema("@ts omit", "-secret"), "user", loader, typesPlugin,
+					schema("@ts omit", "-secret"), "user", loader, typesPlugin,
 				)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(`export const shapeZ = z.object({`, `name: z.string()`).
@@ -314,7 +313,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			It("Should extend a parent that generates", func(ctx SpecContext) {
 				resp := MustGenerate(
-					ctx, schema("", "-secret"), "user", loader, typesPlugin,
+					schema("", "-secret"), "user", loader, typesPlugin,
 				)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(`export const shapeZ = recordZ`, `.omit({ secret: true })`)
@@ -332,7 +331,7 @@ var _ = Describe("TS Types Plugin", func() {
 					tags string[]?
 				}
 			`
-			table, diag := Analyze(ctx, source, "ranger", loader)
+			table, diag := Analyze(source, "ranger", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -370,7 +369,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-			table, diag := Analyze(ctx, source, "user", loader)
+			table, diag := Analyze(source, "user", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -399,7 +398,7 @@ var _ = Describe("TS Types Plugin", func() {
 					rack Key @validate { min 1 }
 				}
 			`
-				resp := MustGenerate(ctx, source, "device", loader, typesPlugin)
+				resp := MustGenerate(source, "device", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").ToContain("rack: keyZ.min(1)")
 			},
 		)
@@ -425,7 +424,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				resp := MustGenerate(source, "config", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").ToContain(
 					"rate: z.number().gt(0).default(10)",
 					"fallback: z.number().min(0)",
@@ -449,7 +448,7 @@ var _ = Describe("TS Types Plugin", func() {
 					rate Rate
 				}
 			`
-				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				resp := MustGenerate(source, "config", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").ToContain("rate: rateZ.max(100)")
 			},
 		)
@@ -465,7 +464,7 @@ var _ = Describe("TS Types Plugin", func() {
 					@validate gt 0
 				}
 			`
-				resp := MustGenerate(ctx, source, "rate", loader, typesPlugin)
+				resp := MustGenerate(source, "rate", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").ToContain(
 					"export const rateZ = z.number().gt(0);",
 				)
@@ -490,7 +489,7 @@ var _ = Describe("TS Types Plugin", func() {
 					@ts type "number"
 				}
 			`
-				resp := MustGenerate(ctx, source, "rate", loader, typesPlugin)
+				resp := MustGenerate(source, "rate", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").ToContain(
 					"export const fastZ = z.number().gt(0).max(100);",
 				)
@@ -512,7 +511,7 @@ var _ = Describe("TS Types Plugin", func() {
 					size Decimal
 				}
 			`
-				resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+				resp := MustGenerate(source, "panel", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").ToContain(
 					"export const decimalZ = z.number().min(0).max(1);",
 					"size: decimalZ,",
@@ -532,7 +531,7 @@ var _ = Describe("TS Types Plugin", func() {
 					rack Key @validate { required }
 				}
 			`
-				resp := MustGenerate(ctx, source, "device", loader, typesPlugin)
+				resp := MustGenerate(source, "device", loader, typesPlugin)
 				ExpectContent(
 					resp,
 					"types.gen.ts",
@@ -554,7 +553,7 @@ var _ = Describe("TS Types Plugin", func() {
 					state TaskState
 				}
 			`
-			table, diag := Analyze(ctx, source, "task", loader)
+			table, diag := Analyze(source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -589,7 +588,7 @@ var _ = Describe("TS Types Plugin", func() {
 					data_type DataType
 				}
 			`
-			table, diag := Analyze(ctx, source, "telem", loader)
+			table, diag := Analyze(source, "telem", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -619,7 +618,7 @@ var _ = Describe("TS Types Plugin", func() {
 					amps  = "Amps"
 				}
 			`
-				resp := MustGenerate(ctx, source, "telem", loader, typesPlugin)
+				resp := MustGenerate(source, "telem", loader, typesPlugin)
 				content := MustContentOf(resp, "types.gen.ts")
 				Expect(
 					content,
@@ -649,7 +648,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 				AxisKey enum extends XAxisKey, YAxisKey {}
 			`
-				table, diag := Analyze(ctx, source, "lineplot", loader)
+				table, diag := Analyze(source, "lineplot", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				resp := MustSucceed(
@@ -675,7 +674,7 @@ var _ = Describe("TS Types Plugin", func() {
 							field ` + oracleType + `
 						}
 					`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					resp := MustGenerate(source, "test", loader, typesPlugin)
 					ExpectContent(
 						resp,
 						"types.gen.ts",
@@ -710,7 +709,7 @@ var _ = Describe("TS Types Plugin", func() {
 						@ts to_number
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+					resp := MustGenerate(source, "channel", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`export const keyZ = z.uint32().or(z.string().refine((v) => !isNaN(Number(v))).transform(Number))`)
 				},
@@ -728,7 +727,7 @@ var _ = Describe("TS Types Plugin", func() {
 						@ts to_string
 					}
 				`
-					resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+					resp := MustGenerate(source, "user", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`export const nameZ = z.union([z.string(), z.number()]).transform(String)`)
 				},
@@ -747,7 +746,7 @@ var _ = Describe("TS Types Plugin", func() {
 					my_long_field_name string
 				}
 			`
-				table, diag := Analyze(ctx, source, "ranger", loader)
+				table, diag := Analyze(source, "ranger", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -777,7 +776,7 @@ var _ = Describe("TS Types Plugin", func() {
 					last_name string?
 				}
 			`
-				table, diag := Analyze(ctx, source, "user", loader)
+				table, diag := Analyze(source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -809,7 +808,7 @@ var _ = Describe("TS Types Plugin", func() {
 					status string?
 				}
 			`
-			table, diag := Analyze(ctx, source, "device", loader)
+			table, diag := Analyze(source, "device", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -835,7 +834,7 @@ var _ = Describe("TS Types Plugin", func() {
 					actions string[]
 				}
 			`
-				table, diag := Analyze(ctx, source, "policy", loader)
+				table, diag := Analyze(source, "policy", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -867,7 +866,7 @@ var _ = Describe("TS Types Plugin", func() {
 					operations string[]?
 				}
 			`
-				table, diag := Analyze(ctx, source, "channel", loader)
+				table, diag := Analyze(source, "channel", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -895,7 +894,7 @@ var _ = Describe("TS Types Plugin", func() {
 					layout record
 				}
 			`
-				table, diag := Analyze(ctx, source, "workspace", loader)
+				table, diag := Analyze(source, "workspace", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -924,7 +923,7 @@ var _ = Describe("TS Types Plugin", func() {
 					layout record?
 				}
 			`
-				table, diag := Analyze(ctx, source, "workspace", loader)
+				table, diag := Analyze(source, "workspace", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -953,7 +952,7 @@ var _ = Describe("TS Types Plugin", func() {
 					layout record?
 				}
 			`
-				table, diag := Analyze(ctx, source, "workspace", loader)
+				table, diag := Analyze(source, "workspace", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -983,7 +982,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "workspace", loader)
+				table, diag := Analyze(source, "workspace", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1015,7 +1014,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "workspace", loader)
+				table, diag := Analyze(source, "workspace", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1047,7 +1046,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "task", loader)
+				table, diag := Analyze(source, "task", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1084,7 +1083,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1115,7 +1114,7 @@ var _ = Describe("TS Types Plugin", func() {
 					first_name string @validate required
 				}
 			`
-				table, diag := Analyze(ctx, source, "user", loader)
+				table, diag := Analyze(source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1146,7 +1145,7 @@ var _ = Describe("TS Types Plugin", func() {
 					@ts use_input
 				}
 			`
-			table, diag := Analyze(ctx, source, "workspace", loader)
+			table, diag := Analyze(source, "workspace", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1180,7 +1179,7 @@ var _ = Describe("TS Types Plugin", func() {
 					@ts use_input
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1204,7 +1203,7 @@ var _ = Describe("TS Types Plugin", func() {
 					name string
 				}
 			`
-			table, diag := Analyze(ctx, source, "workspace", loader)
+			table, diag := Analyze(source, "workspace", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1235,7 +1234,7 @@ var _ = Describe("TS Types Plugin", func() {
 					elem Type?
 				}
 			`
-				table, diag := Analyze(ctx, source, "arc", loader)
+				table, diag := Analyze(source, "arc", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1266,7 +1265,7 @@ var _ = Describe("TS Types Plugin", func() {
 					children Node[]?
 				}
 			`
-				table, diag := Analyze(ctx, source, "tree", loader)
+				table, diag := Analyze(source, "tree", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1301,7 +1300,7 @@ var _ = Describe("TS Types Plugin", func() {
 					a A?
 				}
 			`
-				resp := MustGenerate(ctx, source, "cycle", loader, typesPlugin)
+				resp := MustGenerate(source, "cycle", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
 						`export type A = {`,
@@ -1332,7 +1331,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 				BWrap B
 			`
-				resp := MustGenerate(ctx, source, "cycle", loader, typesPlugin)
+				resp := MustGenerate(source, "cycle", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
 						`export type A = {`,
@@ -1359,7 +1358,7 @@ var _ = Describe("TS Types Plugin", func() {
 					last MosaicNode?
 				}
 			`
-				table, diag := Analyze(ctx, source, "mosaic", loader)
+				table, diag := Analyze(source, "mosaic", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1399,7 +1398,7 @@ var _ = Describe("TS Types Plugin", func() {
 					type Type
 				}
 			`
-				table, diag := Analyze(ctx, source, "arc", loader)
+				table, diag := Analyze(source, "arc", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1437,7 +1436,7 @@ var _ = Describe("TS Types Plugin", func() {
 					group Group
 				}
 			`
-				table, diag := Analyze(ctx, source, "mosaic", loader)
+				table, diag := Analyze(source, "mosaic", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1462,7 +1461,7 @@ var _ = Describe("TS Types Plugin", func() {
 					children TreeNode<K>[]?
 				}
 			`
-				table, diag := Analyze(ctx, source, "tree", loader)
+				table, diag := Analyze(source, "tree", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1495,7 +1494,7 @@ var _ = Describe("TS Types Plugin", func() {
 					children MapNode<K, V>[]?
 				}
 			`
-				table, diag := Analyze(ctx, source, "tree", loader)
+				table, diag := Analyze(source, "tree", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1540,7 +1539,7 @@ var _ = Describe("TS Types Plugin", func() {
 					children Node[]?
 				}
 			`
-				resp := MustGenerate(ctx, source, "tree", loader, typesPlugin)
+				resp := MustGenerate(source, "tree", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain("key?: Box<typeof keyZ>").
 					ToNotContain("Box<Key>")
@@ -1558,7 +1557,7 @@ var _ = Describe("TS Types Plugin", func() {
 					name string
 				}
 			`
-				table, diag := Analyze(ctx, source, "simple", loader)
+				table, diag := Analyze(source, "simple", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1595,7 +1594,7 @@ var _ = Describe("TS Types Plugin", func() {
 					config Config
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1640,7 +1639,7 @@ var _ = Describe("TS Types Plugin", func() {
 					value string
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1678,7 +1677,7 @@ var _ = Describe("TS Types Plugin", func() {
 					upper T
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1725,7 +1724,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1776,7 +1775,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1808,7 +1807,7 @@ var _ = Describe("TS Types Plugin", func() {
 					config Config
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1841,7 +1840,7 @@ var _ = Describe("TS Types Plugin", func() {
 					data    Data
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1875,7 +1874,7 @@ var _ = Describe("TS Types Plugin", func() {
 					statusData StatusData
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1915,7 +1914,7 @@ var _ = Describe("TS Types Plugin", func() {
 					email string
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1954,7 +1953,7 @@ var _ = Describe("TS Types Plugin", func() {
 					email string
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1990,7 +1989,7 @@ var _ = Describe("TS Types Plugin", func() {
 					e string
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -2022,7 +2021,7 @@ var _ = Describe("TS Types Plugin", func() {
 					name string?
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -2062,7 +2061,7 @@ var _ = Describe("TS Types Plugin", func() {
 					data record?
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				resp := MustSucceed(
@@ -2097,7 +2096,7 @@ var _ = Describe("TS Types Plugin", func() {
 					-b
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -2130,7 +2129,7 @@ var _ = Describe("TS Types Plugin", func() {
 					c bool
 				}
 			`
-				table, diag := Analyze(ctx, source, "test", loader)
+				table, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -2167,7 +2166,7 @@ var _ = Describe("TS Types Plugin", func() {
 					c bool
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -2203,7 +2202,7 @@ var _ = Describe("TS Types Plugin", func() {
 					c float32
 				}
 			`
-			table, diag := Analyze(ctx, source, "test", loader)
+			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -2229,7 +2228,7 @@ var _ = Describe("TS Types Plugin", func() {
 					mango bool
 				}
 			`
-			table, diag := Analyze(ctx, source, "order", loader)
+			table, diag := Analyze(source, "order", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -2267,7 +2266,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 				RackStatus = Status<StatusDetails>
 			`
-				table, diag := Analyze(ctx, source, "rack", loader)
+				table, diag := Analyze(source, "rack", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -2303,7 +2302,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 				Stratum = string[]
 			`
-				table, diag := Analyze(ctx, source, "arc", loader)
+				table, diag := Analyze(source, "arc", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -2349,7 +2348,7 @@ var _ = Describe("TS Types Plugin", func() {
 					optional_ops Operation[]?
 				}
 			`
-				table, diag := Analyze(ctx, source, "channel", loader)
+				table, diag := Analyze(source, "channel", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -2382,7 +2381,7 @@ var _ = Describe("TS Types Plugin", func() {
 						settings map<string, string>
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+					resp := MustGenerate(source, "config", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(
 							`settings: z.record(z.string(), z.string()).default(() => ({}))`,
@@ -2400,7 +2399,7 @@ var _ = Describe("TS Types Plugin", func() {
 						counts map<string, int64>
 					}
 				`
-					resp := MustGenerate(ctx, source, "metrics", loader, typesPlugin)
+					resp := MustGenerate(source, "metrics", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`counts: z.record(z.string(), z.int64()).default(() => ({}))`)
 				},
@@ -2420,7 +2419,7 @@ var _ = Describe("TS Types Plugin", func() {
 						entries map<string, Entry>
 					}
 				`
-					resp := MustGenerate(ctx, source, "store", loader, typesPlugin)
+					resp := MustGenerate(source, "store", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`entries: z.record(z.string(), entryZ).default(() => ({}))`)
 				},
@@ -2436,7 +2435,7 @@ var _ = Describe("TS Types Plugin", func() {
 						settings map<string, string>?
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+					resp := MustGenerate(source, "config", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(
 							`settings: zod.nullToUndefined(z.record(z.string(), z.string()))`,
@@ -2456,7 +2455,7 @@ var _ = Describe("TS Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
+					resp := MustGenerate(source, "schematic", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(
 							`configs: caseconv.preserveCase(z.record(z.string(), record.unknownZ()).default(() => ({})))`,
@@ -2480,7 +2479,7 @@ var _ = Describe("TS Types Plugin", func() {
 						@ts hand
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(source, "user", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`export const userZ`))
 				Expect(content).NotTo(ContainSubstring(`internalStateZ`))
@@ -2502,7 +2501,7 @@ var _ = Describe("TS Types Plugin", func() {
 						@ts hand
 					}
 				`
-				resp := MustGenerate(ctx, source, "status", loader, typesPlugin)
+				resp := MustGenerate(source, "status", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`export enum Status`))
 				Expect(content).NotTo(ContainSubstring(`DebugLevel`))
@@ -2526,7 +2525,7 @@ var _ = Describe("TS Types Plugin", func() {
 							color Color
 						}
 					`
-					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					resp := MustGenerate(source, "color", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(
 							`import { colorZ } from "@/color/color"`,
@@ -2550,7 +2549,7 @@ var _ = Describe("TS Types Plugin", func() {
 							name string
 						}
 					`
-					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					resp := MustGenerate(source, "color", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(
 							`import { colorZ } from "@/color/color"`,
@@ -2572,7 +2571,7 @@ var _ = Describe("TS Types Plugin", func() {
 							color Color
 						}
 					`
-					req := MustGenerateRequest(ctx, source, "color", loader)
+					req := MustGenerateRequest(source, "color", loader)
 					Expect(typesPlugin.Generate(req)).Error().To(MatchError(
 						"failed to generate x/ts/src/color: types with no generated " +
 							"TypeScript declaration need a @ts include module: color.Color",
@@ -2599,7 +2598,7 @@ var _ = Describe("TS Types Plugin", func() {
 						age int32
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(source, "user", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
 				Expect(
 					content,
@@ -2636,7 +2635,7 @@ var _ = Describe("TS Types Plugin", func() {
 						info common.Info
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				resp := MustGenerate(source, "task", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
 						`import { common } from "@/common"`,
@@ -2679,7 +2678,7 @@ var _ = Describe("TS Types Plugin", func() {
 						raw  color.Color
 					}
 				`)
-				resp := MustGenerateMulti(ctx, loader, typesPlugin)
+				resp := MustGenerateMulti(loader, typesPlugin)
 				ExpectContent(resp, "client/ts/src/look/types.gen.ts").
 					ToContain(
 						`import { color as xcolor } from "@synnaxlabs/x";`,
@@ -2718,7 +2717,7 @@ var _ = Describe("TS Types Plugin", func() {
 						kind color.Kind = color.KindSolid
 					}
 				`)
-				resp := MustGenerateMulti(ctx, loader, typesPlugin)
+				resp := MustGenerateMulti(loader, typesPlugin)
 				ExpectContent(resp, "client/ts/src/look/types.gen.ts").
 					ToContain(
 						`import { color as xcolor } from "@synnaxlabs/x";`,
@@ -2753,7 +2752,7 @@ var _ = Describe("TS Types Plugin", func() {
 						stop  color.Stop
 					}
 				`)
-				resp := MustGenerateMulti(ctx, loader, typesPlugin)
+				resp := MustGenerateMulti(loader, typesPlugin)
 				ExpectContent(resp, "client/ts/src/color/types.gen.ts").
 					ToContain(
 						`import { color } from "@synnaxlabs/x";`,
@@ -2777,7 +2776,7 @@ var _ = Describe("TS Types Plugin", func() {
 						name string
 					}
 				`)
-				req := MustGenerateRequest(ctx, `
+				req := MustGenerateRequest(`
 					import "schemas/a/color"
 					import "schemas/b/color"
 
@@ -2818,7 +2817,7 @@ var _ = Describe("TS Types Plugin", func() {
 						key string
 					}
 				`
-					resp := MustGenerate(ctx, source, "kv", loader, typesPlugin)
+					resp := MustGenerate(source, "kv", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(
 							`import * as ranger from "@/ranger/types.gen"`,
@@ -2850,7 +2849,7 @@ var _ = Describe("TS Types Plugin", func() {
 						endpoint string = ""
 					}
 				`
-				resp := MustGenerate(ctx, source, "http", loader, typesPlugin)
+				resp := MustGenerate(source, "http", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
 						`import { taskConfig } from`,
@@ -2883,7 +2882,7 @@ var _ = Describe("TS Types Plugin", func() {
 						code status.StatusCode
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				resp := MustGenerate(source, "task", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
 						`import { status } from`,
@@ -2904,7 +2903,7 @@ var _ = Describe("TS Types Plugin", func() {
 						code status.StatusCode
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+					resp := MustGenerate(source, "task", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(
 							`import { status } from`,
@@ -2939,7 +2938,7 @@ var _ = Describe("TS Types Plugin", func() {
 						name common.Name
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				resp := MustGenerate(source, "task", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(`import { common } from "@/common"`, `common.nameZ`)
 			})
@@ -2970,7 +2969,7 @@ var _ = Describe("TS Types Plugin", func() {
 						info common.Info
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+					resp := MustGenerate(source, "task", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`import { common } from "@/common"`)
 				},
@@ -2988,7 +2987,7 @@ var _ = Describe("TS Types Plugin", func() {
 						key Key
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(source, "user", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain("keyZ")
 			})
@@ -2999,7 +2998,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 					Tags = string[]
 				`
-				resp := MustGenerate(ctx, source, "tag", loader, typesPlugin)
+				resp := MustGenerate(source, "tag", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain("tagsZ")
 			})
@@ -3019,7 +3018,7 @@ var _ = Describe("TS Types Plugin", func() {
 						name string
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				resp := MustGenerate(source, "user", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain("keyZ")
 			})
@@ -3045,7 +3044,7 @@ var _ = Describe("TS Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					resp := MustGenerate(source, "test", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain("extent: boundedZ").
 						ToNotContain("extent: spanZ").
@@ -3075,7 +3074,7 @@ var _ = Describe("TS Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					resp := MustGenerate(source, "test", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(".omit({ parent: true })").
 						ToContain("parent: rangeZ.pick({ key: true }).optional()")
@@ -3099,7 +3098,7 @@ var _ = Describe("TS Types Plugin", func() {
 						name string
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					resp := MustGenerate(source, "test", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain("parentZ").
 						ToContain("childZ")
@@ -3117,7 +3116,7 @@ var _ = Describe("TS Types Plugin", func() {
 						parent Node?
 					}
 				`
-				resp := MustGenerate(ctx, source, "tree", loader, typesPlugin)
+				resp := MustGenerate(source, "tree", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain("nodeZ")
 			})
@@ -3135,7 +3134,7 @@ var _ = Describe("TS Types Plugin", func() {
 						status int32
 					}
 				`
-					resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain("responseZ")
 				},
@@ -3151,7 +3150,7 @@ var _ = Describe("TS Types Plugin", func() {
 						settings map<string, record>
 					}
 				`
-				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				resp := MustGenerate(source, "config", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain("configZ").
 					ToContain("settings:")
@@ -3172,7 +3171,7 @@ var _ = Describe("TS Types Plugin", func() {
 						extra int32
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				resp := MustGenerate(source, "test", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain("derivedZ").
 					ToContain("extra:")
@@ -3197,7 +3196,7 @@ var _ = Describe("TS Types Plugin", func() {
 						label string
 					}
 				` + child
-				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				resp := MustGenerate(source, "test", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").ToContain(expected)
 			},
 			Entry("a concrete argument", `
@@ -3262,7 +3261,7 @@ var _ = Describe("TS Types Plugin", func() {
 						info common.Info
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+					resp := MustGenerate(source, "task", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain("taskZ").
 						ToContain("common")
@@ -3293,7 +3292,7 @@ var _ = Describe("TS Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					resp := MustGenerate(source, "test", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`export interface TaskSchemas<`).
 						ToContain(`export const taskZ = <`).
@@ -3335,7 +3334,7 @@ var _ = Describe("TS Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					resp := MustGenerate(source, "test", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`export type New<`).
 						ToContain(`S extends NewSchemas = NewSchemas`).
@@ -3361,7 +3360,7 @@ var _ = Describe("TS Types Plugin", func() {
 						}
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				resp := MustGenerate(source, "test", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(`S extends TaskSchemas = TaskSchemas`).
 					ToContain(`S["data"]`)
@@ -3414,7 +3413,7 @@ var _ = Describe("TS Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					resp := MustGenerate(source, "test", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`export type New<S extends NewSchemas = NewSchemas>`).
 						ToContain(`NewWrapper<S["statusData"]>`)
@@ -3447,7 +3446,7 @@ var _ = Describe("TS Types Plugin", func() {
 						data_type telem.DataType
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+					resp := MustGenerate(source, "channel", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`import { telem } from "@synnaxlabs/x"`)
 				},
@@ -3484,7 +3483,7 @@ var _ = Describe("TS Types Plugin", func() {
 						window      telem.TimeSpan = 100
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+					resp := MustGenerate(source, "config", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(
 							`sampleRate: telem.rateZ.default(new Rate(10))`,
@@ -3509,7 +3508,7 @@ var _ = Describe("TS Types Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+					resp := MustGenerate(source, "config", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`sampleRate: z.number().default(10)`)
 				},
@@ -3532,7 +3531,7 @@ var _ = Describe("TS Types Plugin", func() {
 						mode Mode = ModeAutomatic
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+					resp := MustGenerate(source, "config", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`mode: modeZ.default(Mode.automatic)`)
 				},
@@ -3553,7 +3552,7 @@ var _ = Describe("TS Types Plugin", func() {
 						terminal TerminalConfig = cfg_default
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+					resp := MustGenerate(source, "config", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`terminal: terminalConfigZ.default("Cfg_Default")`)
 				},
@@ -3579,7 +3578,7 @@ var _ = Describe("TS Types Plugin", func() {
 						concurrency control.Concurrency = control.ConcurrencyExclusive
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+					resp := MustGenerate(source, "channel", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`concurrency: control.concurrencyZ.default(control.Concurrency.exclusive)`)
 				},
@@ -3600,7 +3599,7 @@ var _ = Describe("TS Types Plugin", func() {
 						level Level = LevelInfo
 					}
 				`
-					resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+					resp := MustGenerate(source, "config", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`level: levelZ.default("info")`)
 				},
@@ -3626,7 +3625,7 @@ var _ = Describe("TS Types Plugin", func() {
 						level text.Level = text.LevelP
 					}
 				`
-					resp := MustGenerate(ctx, source, "lineplot", loader, typesPlugin)
+					resp := MustGenerate(source, "lineplot", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
 						ToContain(`level: text.levelZ.default("p")`)
 				},
@@ -3663,7 +3662,7 @@ var _ = Describe("TS Union Generation", func() {
 				none NoneParams
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(
 					`export const linearScaleZ = linearParamsZ.extend({`,
@@ -3691,7 +3690,7 @@ var _ = Describe("TS Union Generation", func() {
 				password Credentials
 			}
 		`
-		resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+		resp := MustGenerate(source, "auth", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
 				`export const METHODS = ["password"] as const;`,
@@ -3720,7 +3719,7 @@ var _ = Describe("TS Union Generation", func() {
 				password Credentials
 			}
 		`
-		resp := MustGenerate(ctx, source, "login", loader, typesPlugin)
+		resp := MustGenerate(source, "login", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`import { auth } from "@/auth"`, `[K in auth.Method]`)
 	})
@@ -3741,7 +3740,7 @@ var _ = Describe("TS Union Generation", func() {
 		It(
 			"Should wrap each variant in z.lazy when a union has 16 variants",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, unionSource(16), "ni", loader, typesPlugin)
+				resp := MustGenerate(unionSource(16), "ni", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
 						`export const shapeZ = z.discriminatedUnion("variant", [`,
@@ -3755,7 +3754,7 @@ var _ = Describe("TS Union Generation", func() {
 		It(
 			"Should reference variants directly when a union has 15 variants",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, unionSource(15), "ni", loader, typesPlugin)
+				resp := MustGenerate(unionSource(15), "ni", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(`  v0ShapeZ,`).
 					ToNotContain(`z.lazy(`)
@@ -3782,7 +3781,7 @@ var _ = Describe("TS Union Generation", func() {
 				empty {}
 			}
 		`
-			resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+			resp := MustGenerate(source, "panel", loader, typesPlugin)
 			content := ExpectContent(resp, "types.gen.ts")
 			content.ToContain(
 				`export const resourceTabZ = tabBaseZ.extend({`,
@@ -3814,7 +3813,7 @@ var _ = Describe("TS Union Generation", func() {
 				}
 			}
 		`
-			resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+			resp := MustGenerate(source, "panel", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").ToContain(
 				`get first(): z.ZodType<Node> {`,
 				`return nodeZ;`,
@@ -3841,7 +3840,7 @@ var _ = Describe("TS Union Generation", func() {
 
 			ElementConfig union on variant extends NodeConfig, EdgeConfig {}
 		`
-		resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
+		resp := MustGenerate(source, "schematic", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").ToContain(
 			`export const boxElementConfigZ = z.object({`,
 			`width: z.number(),`,
@@ -3861,7 +3860,7 @@ var _ = Describe("TS Union Generation", func() {
 				empty {}
 			}
 		`
-			resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+			resp := MustGenerate(source, "panel", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").ToContain(
 				`export const emptyTabZ = z.object({`,
 				`variant: z.literal("empty"),`,
@@ -3888,7 +3887,7 @@ var _ = Describe("TS Union Generation", func() {
 				split Split
 			}
 		`
-			resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+			resp := MustGenerate(source, "panel", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(
 					`get first(): z.ZodType<Node> {`,
@@ -3912,7 +3911,7 @@ var _ = Describe("TS Union Generation", func() {
 				number Spec
 			}
 		`
-			resp := MustGenerate(ctx, source, "telem", loader, typesPlugin)
+			resp := MustGenerate(source, "telem", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(
 					`valueType: z.literal("boolean"),`,
@@ -3941,7 +3940,7 @@ var _ = Describe("TS Union Generation", func() {
 
 			ElementConfig union on variant extends NodeConfig, EdgeConfig {}
 		`
-			resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
+			resp := MustGenerate(source, "schematic", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(
 					`export const elementConfigZ = z.discriminatedUnion("variant", [`,
@@ -3966,7 +3965,7 @@ var _ = Describe("TS Union Generation", func() {
 				}
 			}
 		`
-			resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
+			resp := MustGenerate(source, "schematic", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(
 					`configs: caseconv.preserveKeys(z.record(z.string(), configZ).default(() => ({}))),`,
@@ -3988,7 +3987,7 @@ var _ = Describe("TS Union Generation", func() {
 				none NoneParams
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(
 					`export const SCALE_TYPES = ["linear", "none"] as const;`,
@@ -4013,7 +4012,7 @@ var _ = Describe("TS Union Generation", func() {
 				none NoneParams
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(
 					`export const SCALE_SCHEMAS: {`,
@@ -4049,7 +4048,7 @@ var _ = Describe("TS Union Generation", func() {
 				}
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			content := MustContentOf(resp, "types.gen.ts")
 			Expect(content).To(ContainSubstring(
 				"export const aiTempBuiltinChannelZ = baseAIChanZ" +
@@ -4078,7 +4077,7 @@ var _ = Describe("TS Union Generation", func() {
 				ai_voltage VoltageFields
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			content := MustContentOf(resp, "types.gen.ts")
 			// The variant composes the base and payload schemas and adds only the
 			// discriminator; the shared fields live on baseAIChanZ / voltageFieldsZ.
@@ -4112,7 +4111,7 @@ var _ = Describe("TS Union Generation", func() {
 				ai_voltage VoltageFields
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			content := MustContentOf(resp, "ni/types.gen.ts")
 			Expect(content).To(ContainSubstring(`import { common } from "@/common"`))
 			Expect(content).To(ContainSubstring(
@@ -4141,7 +4140,7 @@ var _ = Describe("TS Union Generation", func() {
 				customScale Scale
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			resp := MustGenerate(source, "ni", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").
 				ToContain(`customScale: scaleZ,`)
 		},
@@ -4165,7 +4164,7 @@ var _ = Describe("TS Union Generation", func() {
 				ai_voltage VoltageFields
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		resp := MustGenerate(source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
 				`export const aiVoltageChannelZ = voltageFieldsZ.extend({`,
@@ -4185,7 +4184,7 @@ var _ = Describe("TS Union Generation", func() {
 				@doc value "determines how raw values are transformed."
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		resp := MustGenerate(source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`Scale determines how raw values are transformed.`)
 	})
@@ -4228,7 +4227,6 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 		"Should render the union doc directly above the discriminatedUnion, not the first variant",
 		func(ctx SpecContext) {
 			resp := MustGenerate(
-				ctx,
 				scaleSource("\t\t\t\tcustomScale Scale"),
 				"ni",
 				loader,
@@ -4248,7 +4246,6 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 		"Should render a per-variant doc comment directly above the variant schema",
 		func(ctx SpecContext) {
 			resp := MustGenerate(
-				ctx,
 				scaleSource("\t\t\t\tcustomScale Scale"),
 				"ni",
 				loader,
@@ -4266,7 +4263,6 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 		"Should resolve an optional union-typed field as null-tolerant",
 		func(ctx SpecContext) {
 			resp := MustGenerate(
-				ctx,
 				scaleSource("\t\t\t\tcustomScale Scale?"),
 				"ni",
 				loader,
@@ -4280,7 +4276,6 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 
 	It("Should resolve an array-of-union field", func(ctx SpecContext) {
 		resp := MustGenerate(
-			ctx,
 			scaleSource("\t\t\t\tscales Scale[]"),
 			"ni",
 			loader,
@@ -4315,7 +4310,7 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 				customScale scales.Scale
 			}
 		`
-			resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+			resp := MustGenerate(source, "task", loader, typesPlugin)
 			ExpectContent(resp, "types.gen.ts").ToContain(`scales.scaleZ`)
 		},
 	)

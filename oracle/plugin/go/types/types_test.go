@@ -10,7 +10,6 @@
 package types_test
 
 import (
-	"context"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"go/parser"
@@ -42,7 +41,6 @@ func TestGoTypes(t *testing.T) {
 // seeded with its resource namespace, and runs the plugin with a chain-backed
 // request.
 func chainGenerate(
-	ctx context.Context,
 	goPlugin *types.Plugin,
 	files map[string]string,
 	mainRel, ns string,
@@ -57,7 +55,7 @@ func chainGenerate(
 	diskLoader := analyzer.NewStandardFileLoader(root)
 	table := resolution.NewTable()
 	diag := analyzer.AnalyzeSeeded(
-		ctx, files[mainRel], mainRel, ns, diskLoader, table,
+		files[mainRel], mainRel, ns, diskLoader, table,
 	)
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
 	req := &plugin.Request{
@@ -97,7 +95,7 @@ var _ = Describe("Go Types Plugin", func() {
 	Describe("Generate", func() {
 		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
 			AddFilterSchema(loader)
-			resp := MustGenerate(ctx, ThingFilter, "thing", loader, goPlugin)
+			resp := MustGenerate(ThingFilter, "thing", loader, goPlugin)
 			ExpectContent(resp, "thing/types.gen.go").
 				ToBeValidGoSource().
 				ToContain(
@@ -120,7 +118,7 @@ var _ = Describe("Go Types Plugin", func() {
 						subject string?
 					}
 				`
-				resp := MustGenerate(ctx, source, "auth", loader, goPlugin)
+				resp := MustGenerate(source, "auth", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").
 					ToBeValidGoSource().
 					ToContain(
@@ -143,7 +141,7 @@ var _ = Describe("Go Types Plugin", func() {
 						active bool
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+				resp := MustGenerate(source, "user", loader, goPlugin)
 				Expect(resp.Files).To(HaveLen(1))
 
 				ExpectContent(resp, "types.gen.go").
@@ -171,7 +169,7 @@ var _ = Describe("Go Types Plugin", func() {
 					tags string[]
 				}
 			`
-				table, diag := Analyze(ctx, source, "ranger", loader)
+				table, diag := Analyze(source, "ranger", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -203,7 +201,7 @@ var _ = Describe("Go Types Plugin", func() {
 					my_long_field_name string
 				}
 			`
-					table, diag := Analyze(ctx, source, "ranger", loader)
+					table, diag := Analyze(source, "ranger", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -232,7 +230,6 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 					table, diag := Analyze(
-						ctx,
 						source,
 						"compiler",
 						loader,
@@ -268,7 +265,7 @@ var _ = Describe("Go Types Plugin", func() {
 							field ` + oracleType + `
 						}
 					`
-					resp := MustGenerate(ctx, source, "test", loader, goPlugin)
+					resp := MustGenerate(source, "test", loader, goPlugin)
 					ExpectContent(resp, "types.gen.go").ToContain(expectedGoType)
 				},
 				Entry("uuid", "uuid", "Field uuid.UUID"),
@@ -299,7 +296,7 @@ var _ = Describe("Go Types Plugin", func() {
 						b record
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, goPlugin)
+					resp := MustGenerate(source, "test", loader, goPlugin)
 					ExpectContent(resp, "types.gen.go").
 						ToContain(`"uuid"`)
 				},
@@ -316,7 +313,7 @@ var _ = Describe("Go Types Plugin", func() {
 					name string
 				}
 			`
-				table, diag := Analyze(ctx, source, "user", loader)
+				table, diag := Analyze(source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -343,7 +340,7 @@ var _ = Describe("Go Types Plugin", func() {
 						name string
 					}
 				`
-				table, diag := Analyze(ctx, source, "status", loader)
+				table, diag := Analyze(source, "status", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -369,7 +366,7 @@ var _ = Describe("Go Types Plugin", func() {
 					key uuid
 				}
 			`
-				table, diag := Analyze(ctx, source, "user", loader)
+				table, diag := Analyze(source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -400,7 +397,7 @@ var _ = Describe("Go Types Plugin", func() {
 					name string
 				}
 			`
-				table, diag := Analyze(ctx, source, "user", loader)
+				table, diag := Analyze(source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -422,7 +419,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Empty struct {
 				}
 			`
-				table, diag := Analyze(ctx, source, "empty", loader)
+				table, diag := Analyze(source, "empty", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -448,7 +445,7 @@ var _ = Describe("Go Types Plugin", func() {
 					count int32
 				}
 			`
-					table, diag := Analyze(ctx, source, "simple", loader)
+					table, diag := Analyze(source, "simple", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -482,7 +479,7 @@ var _ = Describe("Go Types Plugin", func() {
 					first_name string
 				}
 			`
-				table, diag := Analyze(ctx, source, "user", loader)
+				table, diag := Analyze(source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -523,7 +520,7 @@ var _ = Describe("Go Types Plugin", func() {
 					message string
 				}
 			`
-				table, diag := Analyze(ctx, source, "status", loader)
+				table, diag := Analyze(source, "status", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -559,7 +556,7 @@ var _ = Describe("Go Types Plugin", func() {
 					rtd_type RTDType
 				}
 			`
-					table, diag := Analyze(ctx, source, "ni", loader)
+					table, diag := Analyze(source, "ni", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -596,7 +593,6 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 					table, diag := Analyze(
-						ctx,
 						source,
 						"priority",
 						loader,
@@ -631,7 +627,7 @@ var _ = Describe("Go Types Plugin", func() {
 					@doc value "indicates a compass direction."
 				}
 			`
-				table, diag := Analyze(ctx, source, "direction", loader)
+				table, diag := Analyze(source, "direction", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -659,7 +655,7 @@ var _ = Describe("Go Types Plugin", func() {
 						error = "error"
 					}
 				`
-					table, diag := Analyze(ctx, source, "status", loader)
+					table, diag := Analyze(source, "status", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					resp := MustSucceed(
@@ -694,7 +690,6 @@ var _ = Describe("Go Types Plugin", func() {
 					}
 				`
 					table, diag := Analyze(
-						ctx,
 						source,
 						"priority",
 						loader,
@@ -732,7 +727,6 @@ var _ = Describe("Go Types Plugin", func() {
 					AxisKey enum extends XAxisKey, YAxisKey {}
 				`
 					table, diag := Analyze(
-						ctx,
 						source,
 						"lineplot",
 						loader,
@@ -764,7 +758,7 @@ var _ = Describe("Go Types Plugin", func() {
 					counts map<string, int32>
 				}
 			`
-				table, diag := Analyze(ctx, source, "config", loader)
+				table, diag := Analyze(source, "config", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -792,7 +786,6 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 					table, diag := Analyze(
-						ctx,
 						source,
 						"container",
 						loader,
@@ -823,7 +816,6 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 					table, diag := Analyze(
-						ctx,
 						source,
 						"container",
 						loader,
@@ -856,7 +848,6 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 					table, diag := Analyze(
-						ctx,
 						source,
 						"container",
 						loader,
@@ -899,7 +890,7 @@ var _ = Describe("Go Types Plugin", func() {
 					@go to_any
 				}
 			`
-					resp := MustGenerate(ctx, source, "pair", loader, goPlugin)
+					resp := MustGenerate(source, "pair", loader, goPlugin)
 					ExpectContent(resp, "types.gen.go").ToContain(`
 // ToAny converts p to a Pair[any, any].
 func (p Pair[A, B]) ToAny() Pair[any, any] {
@@ -922,14 +913,14 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					value T
 				}
 			`
-				resp := MustGenerate(ctx, source, "box", loader, goPlugin)
+				resp := MustGenerate(source, "box", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToNotContain("ToAny")
 			})
 
 			DescribeTable(
 				"Should reject a type that ToAny cannot convert",
 				func(ctx SpecContext, source, msg string) {
-					table, diag := Analyze(ctx, source, "box", loader)
+					table, diag := Analyze(source, "box", loader)
 					Expect(diag.Ok()).To(BeTrue(), diag.String())
 					req := &plugin.Request{Resolutions: table}
 					Expect(goPlugin.Generate(req)).Error().To(MatchError(
@@ -1036,7 +1027,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 				Alias = Original
 			`
-				table, diag := Analyze(ctx, source, "alias", loader)
+				table, diag := Analyze(source, "alias", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1056,7 +1047,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 				Stratum = string[]
 			`
-				table, diag := Analyze(ctx, source, "ir", loader)
+				table, diag := Analyze(source, "ir", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1082,7 +1073,6 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 				}
 			`
 					table, diag := Analyze(
-						ctx,
 						source,
 						"control",
 						loader,
@@ -1111,7 +1101,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					@doc value "is the unique identifier for the label."
 				}
 			`
-				table, diag := Analyze(ctx, source, "label", loader)
+				table, diag := Analyze(source, "label", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1149,7 +1139,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 			})
 
 			It("Should import a type of the other schema", func(ctx SpecContext) {
-				resp := MustGenerateMulti(ctx, loader, goPlugin)
+				resp := MustGenerateMulti(loader, goPlugin)
 				ExpectContent(resp, "core/pkg/service/color/types.gen.go").
 					ToContain(
 						`gocolor "github.com/synnaxlabs/synnax/x/go/color"`,
@@ -1171,7 +1161,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						raw  color.Color
 					}
 				`)
-				resp := MustGenerateMulti(ctx, loader, goPlugin)
+				resp := MustGenerateMulti(loader, goPlugin)
 				ExpectContent(resp, "core/pkg/service/look/types.gen.go").
 					ToContain(
 						`servicecolor "github.com/synnaxlabs/synnax/core/pkg/service/color"`,
@@ -1200,7 +1190,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					address Address
 				}
 			`
-					table, diag := Analyze(ctx, source, "user", loader)
+					table, diag := Analyze(source, "user", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1239,7 +1229,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					status status.Status
 				}
 			`
-					table, diag := Analyze(ctx, source, "task", loader)
+					table, diag := Analyze(source, "task", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1291,7 +1281,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					variant status.Variant
 				}
 			`
-					table, diag := Analyze(ctx, source, "task", loader)
+					table, diag := Analyze(source, "task", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1333,7 +1323,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					email string
 				}
 			`
-					table, diag := Analyze(ctx, source, "user", loader)
+					table, diag := Analyze(source, "user", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1372,7 +1362,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					email string
 				}
 			`
-					table, diag := Analyze(ctx, source, "user", loader)
+					table, diag := Analyze(source, "user", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1410,7 +1400,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						` + childBody + `
 					}
 				`
-						resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+						resp := MustGenerate(source, "user", loader, goPlugin)
 						return string(resp.Files[0].Content)
 					}
 					// A typeless override desugars to the equivalent full restatement,
@@ -1434,7 +1424,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					name -@validate
 				}
 			`
-					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+					resp := MustGenerate(source, "user", loader, goPlugin)
 
 					content := string(resp.Files[0].Content)
 					// A domain removal cannot embed, so Child flattens.
@@ -1481,7 +1471,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 							}
 						}
 					`
-						resp := MustGenerate(ctx, source, "auth", loader, goPlugin)
+						resp := MustGenerate(source, "auth", loader, goPlugin)
 						ExpectContent(resp, "types.gen.go").
 							ToContain("Key uint32", "Name string", "Rate float64").
 							ToNotContain("Record")
@@ -1490,7 +1480,6 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 				It("Should declare the inherited fields", func(ctx SpecContext) {
 					resp := MustGenerate(
-						ctx,
 						schema("@go omit", "rate float64"),
 						"user",
 						loader,
@@ -1509,7 +1498,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 				It("Should leave out a removed field", func(ctx SpecContext) {
 					resp := MustGenerate(
-						ctx, schema("@go omit", "-secret"), "user", loader, goPlugin,
+						schema("@go omit", "-secret"), "user", loader, goPlugin,
 					)
 					ExpectContent(resp, "types.gen.go").
 						ToContain("type Shape struct {", "Name string").
@@ -1518,7 +1507,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 				It("Should embed a parent that generates", func(ctx SpecContext) {
 					resp := MustGenerate(
-						ctx, schema("", "rate float64"), "user", loader, goPlugin,
+						schema("", "rate float64"), "user", loader, goPlugin,
 					)
 					ExpectContent(resp, "types.gen.go").
 						ToContain("type Shape struct {\n\tRecord\n")
@@ -1547,7 +1536,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					c string
 				}
 			`
-					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+					resp := MustGenerate(source, "user", loader, goPlugin)
 
 					content := string(resp.Files[0].Content)
 					// Embedding A and B promotes Base from both, and Go rejects an
@@ -1575,7 +1564,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					range float64 = 10
 				}
 			`
-					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+					resp := MustGenerate(source, "user", loader, goPlugin)
 					// The embedded parent already declares Port. Declaring it again
 					// would shadow it with a duplicate json tag, so the override
 					// contributes a default fill alone. The child's fill must run after
@@ -1607,7 +1596,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					rate = 50
 				}
 			`
-					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+					resp := MustGenerate(source, "user", loader, goPlugin)
 					content := MustContentOf(resp, "types.gen.go")
 					Expect(content).To(ContainSubstring(
 						"type Child struct {\n\tParent\n}",
@@ -1633,7 +1622,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					port int32 = 4
 				}
 			`
-					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+					resp := MustGenerate(source, "user", loader, goPlugin)
 					// Go cannot restate an embedded field's type, so Child flattens
 					// and declares one Port of the child's type.
 					ExpectContent(resp, "types.gen.go").
@@ -1660,7 +1649,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					port string?
 				}
 			`
-					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+					resp := MustGenerate(source, "user", loader, goPlugin)
 					ExpectContent(resp, "types.gen.go").
 						ToContain("Port *string `json:\"port,omitzero\"").
 						ToNotContain("type Child struct {\n\tParent\n")
@@ -1688,7 +1677,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					email string
 				}
 			`
-					table, diag := Analyze(ctx, source, "child", loader)
+					table, diag := Analyze(source, "child", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1734,7 +1723,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					timestamp int64
 				}
 			`
-					table, diag := Analyze(ctx, source, "status", loader)
+					table, diag := Analyze(source, "status", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1766,7 +1755,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					timestamp int64
 				}
 			`
-					table, diag := Analyze(ctx, source, "status", loader)
+					table, diag := Analyze(source, "status", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1805,7 +1794,6 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 				}
 			`
 					table, diag := Analyze(
-						ctx,
 						source,
 						"entities",
 						loader,
@@ -1848,7 +1836,6 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 				}
 			`
 					table, diag := Analyze(
-						ctx,
 						source,
 						"entities",
 						loader,
@@ -1892,7 +1879,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					ripe bool
 				}
 			`
-				table, diag := Analyze(ctx, source, "animals", loader)
+				table, diag := Analyze(source, "animals", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1919,7 +1906,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					mango bool
 				}
 			`
-				table, diag := Analyze(ctx, source, "order", loader)
+				table, diag := Analyze(source, "order", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1951,7 +1938,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					age int32?
 				}
 			`
-					table, diag := Analyze(ctx, source, "user", loader)
+					table, diag := Analyze(source, "user", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1987,7 +1974,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					counts int32[]?
 				}
 			`
-				table, diag := Analyze(ctx, source, "config", loader)
+				table, diag := Analyze(source, "config", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -2015,7 +2002,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					settings map<string, string>?
 				}
 			`
-				table, diag := Analyze(ctx, source, "config", loader)
+				table, diag := Analyze(source, "config", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -2042,7 +2029,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					blob bytes
 				}
 			`
-					table, diag := Analyze(ctx, source, "config", loader)
+					table, diag := Analyze(source, "config", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -2089,7 +2076,6 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					}
 				`
 					table, diag := Analyze(
-						ctx,
 						source,
 						"compiler",
 						loader,
@@ -2137,7 +2123,6 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					}
 				`
 					table, diag := Analyze(
-						ctx,
 						source,
 						"lineplot",
 						loader,
@@ -2180,7 +2165,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						details Details
 					}
 				`
-					table, diag := Analyze(ctx, source, "rack", loader)
+					table, diag := Analyze(source, "rack", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -2210,7 +2195,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						name string
 					}
 				`
-				table, diag := Analyze(ctx, source, "channel", loader)
+				table, diag := Analyze(source, "channel", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -2251,7 +2236,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						name string
 					}
 				`
-					table, diag := Analyze(ctx, source, "module", loader)
+					table, diag := Analyze(source, "module", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -2296,7 +2281,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						metadata string
 					}
 				`
-					table, diag := Analyze(ctx, source, "ir", loader)
+					table, diag := Analyze(source, "ir", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -2332,7 +2317,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						@go imports "github.com/synnaxlabs/arc/symbol"
 					}
 				`
-					resp := MustGenerate(ctx, source, "ir", loader, goPlugin)
+					resp := MustGenerate(source, "ir", loader, goPlugin)
 					Expect(resp.Files).To(HaveLen(1))
 
 					ExpectContent(resp, "types.gen.go").
@@ -2361,7 +2346,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						@go imports "github.com/antlr4-go/antlr/v4" "github.com/custom/package"
 					}
 				`
-					resp := MustGenerate(ctx, source, "ir", loader, goPlugin)
+					resp := MustGenerate(source, "ir", loader, goPlugin)
 					Expect(resp.Files).To(HaveLen(1))
 
 					content := string(resp.Files[0].Content)
@@ -2401,7 +2386,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						@go imports "github.com/synnaxlabs/synnax/arc/go/types"
 					}
 				`
-					table, diag := Analyze(ctx, source, "ir", loader)
+					table, diag := Analyze(source, "ir", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -2447,7 +2432,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						running = 2
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, goPlugin)
+				resp := MustGenerate(source, "task", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").
 					ToContain("// StatusPending is a task that has not started.\n\tStatusPending")
 			})
@@ -2464,7 +2449,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, goPlugin)
+					resp := MustGenerate(source, "task", loader, goPlugin)
 					ExpectContent(resp, "types.gen.go").
 						ToContain("// StatusPending is a task that has not started.\nconst StatusPending")
 				},
@@ -2482,7 +2467,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						completed = 3
 					}
 				`
-					resp := MustGenerate(ctx, source, "status", loader, goPlugin)
+					resp := MustGenerate(source, "status", loader, goPlugin)
 					ExpectContent(resp, "types.gen.go").
 						ToContain("StatusPending Status = iota + 1").
 						ToNotContain("StatusPending Status = 1")
@@ -2501,7 +2486,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						completed = 5
 					}
 				`
-					resp := MustGenerate(ctx, source, "status", loader, goPlugin)
+					resp := MustGenerate(source, "status", loader, goPlugin)
 					ExpectContent(resp, "types.gen.go").
 						ToContain("StatusPending Status = iota").
 						ToNotContain("iota + 1")
@@ -2522,7 +2507,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 					Wrapper<T> Base<T>
 				`
-					resp := MustGenerate(ctx, source, "wrapper", loader, goPlugin)
+					resp := MustGenerate(source, "wrapper", loader, goPlugin)
 					ExpectContent(resp, "types.gen.go").
 						ToContain("type Wrapper[T any]")
 				},
@@ -2542,7 +2527,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 					Container<T> = Base<T>
 				`
-					resp := MustGenerate(ctx, source, "container", loader, goPlugin)
+					resp := MustGenerate(source, "container", loader, goPlugin)
 					ExpectContent(resp, "types.gen.go").
 						ToContain("type Container[T any] =")
 				},
@@ -2563,7 +2548,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 					TaskConfig = Config
 				`
-					resp := MustGenerate(ctx, source, "task", loader, goPlugin)
+					resp := MustGenerate(source, "task", loader, goPlugin)
 					ExpectContent(resp, "types.gen.go").
 						ToContain("type TaskConfig =")
 				},
@@ -2582,7 +2567,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 					StringContainer = Container<string>
 				`
-					resp := MustGenerate(ctx, source, "container", loader, goPlugin)
+					resp := MustGenerate(source, "container", loader, goPlugin)
 					ExpectContent(resp, "types.gen.go").
 						ToContain("type StringContainer =")
 				},
@@ -2598,7 +2583,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						label S
 					}
 				`
-				resp := MustGenerate(ctx, source, "labeled", loader, goPlugin)
+				resp := MustGenerate(source, "labeled", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").
 					ToContain("~string")
 			})
@@ -2611,7 +2596,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						count N
 					}
 				`
-				resp := MustGenerate(ctx, source, "counted", loader, goPlugin)
+				resp := MustGenerate(source, "counted", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").
 					ToContain("~int | ~int8 | ~int16 | ~int32 | ~int64")
 			})
@@ -2624,7 +2609,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						index N
 					}
 				`
-				resp := MustGenerate(ctx, source, "indexed", loader, goPlugin)
+				resp := MustGenerate(source, "indexed", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").
 					ToContain("~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64")
 			})
@@ -2632,7 +2617,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 		Context("version-laid-out packages", func() {
 			It("Should emit a versions/ selector alias file", func(ctx SpecContext) {
-				resp := chainGenerate(ctx, goPlugin, map[string]string{
+				resp := chainGenerate(goPlugin, map[string]string{
 					"schemas/synnax/entry.oracle": `
 @go output "out"
 
@@ -2662,7 +2647,7 @@ Entry struct {
 			It(
 				"Should emit types into types/vN with a root alias file",
 				func(ctx SpecContext) {
-					resp := chainGenerate(ctx, goPlugin, map[string]string{
+					resp := chainGenerate(goPlugin, map[string]string{
 						"schemas/synnax/entry.oracle": `
 @go output "out"
 
@@ -2710,7 +2695,7 @@ Entry struct {
 	color Color
 }
 `
-				resp := chainGenerate(ctx, goPlugin, map[string]string{
+				resp := chainGenerate(goPlugin, map[string]string{
 					"schemas/synnax/entry.oracle":             "@go output \"out\"\n" + schema,
 					"schemas/synnax/versions/entry/v1.oracle": schema,
 				}, "schemas/synnax/entry.oracle", "entry")
@@ -2735,7 +2720,7 @@ Entry struct {
 	color Color
 }
 `
-				resp := chainGenerate(ctx, goPlugin, map[string]string{
+				resp := chainGenerate(goPlugin, map[string]string{
 					"schemas/synnax/entry.oracle":             "@go output \"out\"\n" + schema,
 					"schemas/synnax/versions/entry/v1.oracle": schema,
 				}, "schemas/synnax/entry.oracle", "entry")
@@ -2751,7 +2736,7 @@ Entry struct {
 			It(
 				"Should pin persisted cross-package references to the dependency version directory",
 				func(ctx SpecContext) {
-					resp := chainGenerate(ctx, goPlugin, map[string]string{
+					resp := chainGenerate(goPlugin, map[string]string{
 						"schemas/synnax/status.oracle": `
 @go output "core/status"
 
@@ -2813,7 +2798,7 @@ BaseConfig struct {
 	@go name   "Base"
 }
 `
-					resp := chainGenerate(ctx, goPlugin, map[string]string{
+					resp := chainGenerate(goPlugin, map[string]string{
 						"schemas/synnax/status.oracle": "@go output \"core/status\"\n" +
 							statusSchema,
 						"schemas/synnax/versions/status/v1.oracle": statusSchema,
@@ -2850,7 +2835,7 @@ Rack struct extends status.BaseConfig {
 			It(
 				"Should resolve persisted and transient declarations against the pinned version",
 				func(ctx SpecContext) {
-					resp := chainGenerate(ctx, goPlugin, map[string]string{
+					resp := chainGenerate(goPlugin, map[string]string{
 						"schemas/synnax/status.oracle": `
 @go output "core/status"
 
@@ -2910,7 +2895,7 @@ Snapshot struct {
 			It(
 				"Should resolve omitted fields and transient declarations against the pinned version",
 				func(ctx SpecContext) {
-					resp := chainGenerate(ctx, goPlugin, map[string]string{
+					resp := chainGenerate(goPlugin, map[string]string{
 						"schemas/synnax/status.oracle": `
 @go output "core/status"
 
@@ -2981,7 +2966,7 @@ Entry struct {
 	status Status<record>
 }
 `
-					resp := chainGenerate(ctx, goPlugin, map[string]string{
+					resp := chainGenerate(goPlugin, map[string]string{
 						"schemas/synnax/entry.oracle":             "@go output \"out\"\n" + schema,
 						"schemas/synnax/versions/entry/v0.oracle": schema,
 					}, "schemas/synnax/entry.oracle", "entry")
@@ -3012,7 +2997,7 @@ Entry struct {
 	scale Scale
 }
 `
-					resp := chainGenerate(ctx, goPlugin, map[string]string{
+					resp := chainGenerate(goPlugin, map[string]string{
 						"schemas/synnax/entry.oracle":             "@go output \"out\"\n" + schema,
 						"schemas/synnax/versions/entry/v2.oracle": schema,
 					}, "schemas/synnax/entry.oracle", "entry")
@@ -3034,7 +3019,7 @@ Entry struct {
 			It(
 				"Should pin cross-references between laid-out packages",
 				func(ctx SpecContext) {
-					resp := chainGenerate(ctx, goPlugin, map[string]string{
+					resp := chainGenerate(goPlugin, map[string]string{
 						"schemas/synnax/b.oracle": `
 @go output "b"
 
@@ -3084,7 +3069,7 @@ Entry struct {
 			It(
 				"Should import non-laid-out packages at their root",
 				func(ctx SpecContext) {
-					resp := chainGenerate(ctx, goPlugin, map[string]string{
+					resp := chainGenerate(goPlugin, map[string]string{
 						"schemas/synnax/c.oracle": `
 @go output "c"
 
@@ -3136,7 +3121,7 @@ Entry struct {
 						name string
 					}
 				`
-					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+					resp := MustGenerate(source, "user", loader, goPlugin)
 					Expect(resp.Files).To(HaveLen(1))
 					Expect(resp.Files[0].Path).To(
 						Equal("core/pkg/service/user/types.gen.go"),
@@ -3175,7 +3160,7 @@ var _ = Describe("Go Union Generation", func() {
 				none NoneParams
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			resp := MustGenerate(source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain(
 					`type ScaleType string`,
@@ -3200,7 +3185,7 @@ var _ = Describe("Go Union Generation", func() {
 				password Credentials
 			}
 		`
-			resp := MustGenerate(ctx, source, "auth", loader, goPlugin)
+			resp := MustGenerate(source, "auth", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain(
 					`MethodPassword Method = "password"`,
@@ -3225,7 +3210,7 @@ var _ = Describe("Go Union Generation", func() {
 				second { count int32 }
 			}
 		`
-			resp := MustGenerate(ctx, source, "view", loader, goPlugin)
+			resp := MustGenerate(source, "view", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain(
 					`// Type returns the type of the active variant, or an empty type when there is none.
@@ -3257,7 +3242,7 @@ func (u View) Type() ViewType {
 				first { -size }
 			}
 		`
-			resp := MustGenerate(ctx, source, "view", loader, goPlugin)
+			resp := MustGenerate(source, "view", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain("func (u View) Type() ViewType").
 				ToNotContain("func (u View) Base() Base")
@@ -3276,7 +3261,7 @@ func (u View) Type() ViewType {
 				first { size int32 }
 			}
 		`
-			resp := MustGenerate(ctx, source, "view", loader, goPlugin)
+			resp := MustGenerate(source, "view", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain("func (u Config) Base() Base").
 				ToNotContain("func (u Config) Variant()")
@@ -3286,7 +3271,7 @@ func (u View) Type() ViewType {
 	DescribeTable(
 		"Should reject a union getter that has the name of another union method",
 		func(ctx SpecContext, source, msg string) {
-			table, diag := Analyze(ctx, source, "view", loader)
+			table, diag := Analyze(source, "view", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			req := &plugin.Request{Resolutions: table}
 			Expect(goPlugin.Generate(req)).Error().To(MatchError(
@@ -3325,7 +3310,7 @@ func (u View) Type() ViewType {
 				linear LinearParams
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			resp := MustGenerate(source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain(`type ScaleType string`, "\nconst LinearScaleType ScaleType = \"linear\"\n").
 				ToNotContain("const (\n\tLinearScaleType")
@@ -3348,7 +3333,7 @@ func (u View) Type() ViewType {
 				none NoneParams
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			resp := MustGenerate(source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToBeValidGoSource().
 				ToContain(
@@ -3373,7 +3358,7 @@ func (u View) Type() ViewType {
 				linear LinearParams
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			resp := MustGenerate(source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToBeValidGoSource().
 				ToContain(
@@ -3398,7 +3383,7 @@ func (u View) Type() ViewType {
 				none NoneParams
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			resp := MustGenerate(source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain(
 					`type ScaleVariant interface {`,
@@ -3428,7 +3413,7 @@ func (u View) Type() ViewType {
 				none NoneParams
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			resp := MustGenerate(source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain(
 					`func (u Scale) MarshalJSONTo(enc *jsontext.Encoder) error {`,
@@ -3467,7 +3452,7 @@ func (u View) Type() ViewType {
 				}
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			resp := MustGenerate(source, "ni", loader, goPlugin)
 			content := MustContentOf(resp, "types.gen.go")
 			Expect(content).To(ContainSubstring(
 				"type AITempBuiltinChannel struct {\n" +
@@ -3497,7 +3482,7 @@ func (u View) Type() ViewType {
 				ai_voltage VoltageFields
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			resp := MustGenerate(source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain(
 					`type AIChannelVariant interface {`,
@@ -3526,7 +3511,7 @@ func (u View) Type() ViewType {
 				DI { port string = "DIO4" }
 			}
 		`
-			resp := MustGenerate(ctx, source, "labjack", loader, goPlugin)
+			resp := MustGenerate(source, "labjack", loader, goPlugin)
 			// The union's base contributes Port to every variant, so restating it
 			// in a variant must change the fill alone.
 			content := MustContentOf(resp, "types.gen.go")
@@ -3561,7 +3546,7 @@ func (u View) Type() ViewType {
 				fields Field[]
 			}
 		`
-			resp := MustGenerate(ctx, source, "library", loader, goPlugin)
+			resp := MustGenerate(source, "library", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").ToContain(
 				"func (t *TaggedField) SetDefaults() {\n\tt.BaseField.SetDefaults()\n}",
 				"v.TaggedField.SetDefaults()",
@@ -3591,7 +3576,7 @@ func (u View) Type() ViewType {
 				ai_voltage VoltageFields
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			resp := MustGenerate(source, "ni", loader, goPlugin)
 			ExpectContent(resp, "ni/types.gen.go").
 				ToContain(
 					`"github.com/synnaxlabs/synnax/core/common"`,
@@ -3616,7 +3601,7 @@ func (u View) Type() ViewType {
 				ai_current { units string }
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			resp := MustGenerate(source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain(
 					"func (u AIChannel) Base() BaseAIChan {\n"+
@@ -3662,7 +3647,7 @@ func (u View) Type() ViewType {
 				ai_voltage { minVal float64 }
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			resp := MustGenerate(source, "ni", loader, goPlugin)
 			ExpectContent(resp, "ni/types.gen.go").
 				ToContain(
 					"func (u AIChannel) Base() common.BaseAIChan {",
@@ -3677,7 +3662,7 @@ func (u View) Type() ViewType {
 	DescribeTable(
 		"Should not generate Base or SetBase without one base every variant shares",
 		func(ctx SpecContext, source string) {
-			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			resp := MustGenerate(source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain("type AIChannel struct {").
 				ToNotContain(") Base() ", ") SetBase(")
@@ -3735,7 +3720,7 @@ func (u View) Type() ViewType {
 				customScale Scale
 			}
 		`
-			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			resp := MustGenerate(source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain(`CustomScale Scale ` + "`" + `json:"custom_scale" msgpack:"custom_scale"` + "`")
 		},
@@ -3751,7 +3736,7 @@ func (u View) Type() ViewType {
 				ai_voltage VoltageFields
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		resp := MustGenerate(source, "ni", loader, goPlugin)
 		ExpectContent(resp, "types.gen.go").
 			ToContain(
 				`type AIChannel struct {`,
@@ -3785,7 +3770,7 @@ func (u View) Type() ViewType {
 				ai_voltage VoltageFields
 			}
 		`
-		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		resp := MustGenerate(source, "ni", loader, goPlugin)
 		content := ""
 		for _, f := range resp.Files {
 			if strings.HasSuffix(f.Path, "types.gen.go") {
@@ -3836,7 +3821,7 @@ var _ = Describe("Go Union Field & Variant Coverage", func() {
 	It(
 		"Should render a per-variant doc comment on the variant struct",
 		func(ctx SpecContext) {
-			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			resp := MustGenerate(source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain("// LinearScale a linear scale.", "type LinearScale struct {")
 		},
@@ -3845,7 +3830,7 @@ var _ = Describe("Go Union Field & Variant Coverage", func() {
 	It(
 		"Should resolve an array-of-union field to a slice of the interface",
 		func(ctx SpecContext) {
-			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			resp := MustGenerate(source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain("Scales []Scale `" + `json:"scales" msgpack:"scales"` + "`")
 		},
@@ -4025,7 +4010,7 @@ var _ = Describe("Unversioned Consumers", func() {
 		"Should reference versioned types through the root re-export",
 		func(ctx SpecContext) {
 			resp := chainGenerate(
-				ctx, types.New(types.DefaultOptions()),
+				types.New(types.DefaultOptions()),
 				map[string]string{
 					"schemas/synnax/chan.oracle": `
 @go output "core/pkg/service/channel"

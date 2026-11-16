@@ -106,7 +106,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		`
 
 		It("Should switch on the @patch fields of a document", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, document, "doc", loader, p)
+			resp := MustGenerate(document, "doc", loader, p)
 			ExpectContent(resp, "core/pkg/service/doc/patch.gen.go").
 				ToBeValidGoSource().
 				ToContain(
@@ -135,7 +135,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		It(
 			"Should find a document whose Set action aliases patch.Set",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, `
+				resp := MustGenerate(`
 					import "schemas/x/patch"
 
 					@go output "core/pkg/service/doc"
@@ -158,7 +158,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		It(
 			"Should switch on every field of a struct a document reaches",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, document, "doc", loader, p)
+				resp := MustGenerate(document, "doc", loader, p)
 				ExpectContent(resp, "core/pkg/service/doc/patch.gen.go").ToContain(
 					"func (w *Window) Patch(c patch.Cursor) error {",
 					"return patch.Value(&w.Start, c.Next())",
@@ -179,7 +179,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		It(
 			"Should reset a removed field that has a default to that default",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, `
+				resp := MustGenerate(`
 				import "schemas/x/patch"
 
 				@go output "core/pkg/service/scale"
@@ -216,7 +216,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		It(
 			"Should reset a removed field only when its default sets a value",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, `
+				resp := MustGenerate(`
 				import "schemas/x/patch"
 
 				@go output "core/pkg/service/mode"
@@ -258,7 +258,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		It(
 			"Should decide a reset by the kind of the default",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, `
+				resp := MustGenerate(`
 				import "schemas/x/patch"
 
 				@go output "core/pkg/service/source"
@@ -320,7 +320,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		It(
 			"Should give a receiver that the cursor does not shadow",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, `
+				resp := MustGenerate(`
 				import "schemas/x/patch"
 
 				@go output "core/pkg/service/cell"
@@ -341,7 +341,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		It(
 			"Should set a struct with a hand-written JSON decoder only as a whole",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, `
+				resp := MustGenerate(`
 				import "schemas/x/patch"
 
 				@go output "core/pkg/service/doc"
@@ -377,7 +377,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		It(
 			"Should not generate for a struct without path actions",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, `
+				resp := MustGenerate(`
 				@go output "core/pkg/service/doc"
 
 				New struct {
@@ -393,7 +393,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		It(
 			"Should delete the patch file of a package with no Patch methods",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, `
+				resp := MustGenerate(`
 				@go output "core/pkg/service/doc"
 
 				Doc struct {
@@ -409,7 +409,7 @@ var _ = Describe("Go Patch Plugin", func() {
 
 		DescribeTable("Should reject a field that path actions cannot edit",
 			func(ctx SpecContext, field, msg string) {
-				req := MustGenerateRequest(ctx, `
+				req := MustGenerateRequest(`
 					import "schemas/x/patch"
 
 					@go output "core/pkg/service/doc"
@@ -437,7 +437,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		It(
 			"Should edit a list entry only through its @patch fields",
 			func(ctx SpecContext) {
-				resp := MustGenerate(ctx, `
+				resp := MustGenerate(`
 				import "schemas/x/patch"
 
 				@go output "core/pkg/service/doc"
@@ -473,7 +473,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		It(
 			"Should reject a struct with @patch fields outside a list",
 			func(ctx SpecContext) {
-				req := MustGenerateRequest(ctx, `
+				req := MustGenerateRequest(`
 				import "schemas/x/patch"
 
 				@go output "core/pkg/service/doc"
@@ -501,7 +501,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		It(
 			"Should reject a document that another document reaches",
 			func(ctx SpecContext) {
-				req := MustGenerateRequest(ctx, `
+				req := MustGenerateRequest(`
 				import "schemas/x/patch"
 
 				@go output "core/pkg/service/doc"
@@ -593,7 +593,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		It("Should switch on every field of a document with @patch", func(
 			ctx SpecContext,
 		) {
-			resp := MustGenerate(ctx, store, "cfg", loader, p)
+			resp := MustGenerate(store, "cfg", loader, p)
 			ExpectContent(resp, "core/pkg/service/cfg/patch.gen.go").
 				ToBeValidGoSource().
 				ToContain(
@@ -613,7 +613,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		It("Should apply an action to the active variant of a union", func(
 			ctx SpecContext,
 		) {
-			resp := MustGenerate(ctx, store, "cfg", loader, p)
+			resp := MustGenerate(store, "cfg", loader, p)
 			ExpectContent(resp, "core/pkg/service/cfg/patch.gen.go").ToContain(
 				"func (cv *Channel) Patch(c patch.Cursor) error {",
 				"switch v := cv.Variant.(type) {",
@@ -632,7 +632,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		It("Should reach a field through the parents that a variant embeds", func(
 			ctx SpecContext,
 		) {
-			resp := MustGenerate(ctx, store, "cfg", loader, p)
+			resp := MustGenerate(store, "cfg", loader, p)
 			ExpectContent(resp, "core/pkg/service/cfg/patch.gen.go").ToContain(
 				"return patch.Value(&ac.Base.Key, c.Next())",
 				"return patch.Defaulted(&ac.Base.Port, c.Next(), func(def *AnalogChannel) {",
@@ -646,7 +646,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		It("Should name the entries of a keyed list by their key", func(
 			ctx SpecContext,
 		) {
-			resp := MustGenerate(ctx, store, "cfg", loader, p)
+			resp := MustGenerate(store, "cfg", loader, p)
 			ExpectContent(resp, "core/pkg/service/cfg/patch.gen.go").ToContain(
 				"func (e *Entry) PatchKey() string { return e.Key }",
 				"func (cv *Channel) PatchKey() string {",
@@ -657,7 +657,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		It("Should hash every value of a document except its keys", func(
 			ctx SpecContext,
 		) {
-			resp := MustGenerate(ctx, store, "cfg", loader, p)
+			resp := MustGenerate(store, "cfg", loader, p)
 			ExpectContent(resp, "core/pkg/service/cfg/patch.gen.go").
 				ToContain(
 					"func (cv *Config) HashContent(h *content.Hash) {",
@@ -683,7 +683,7 @@ var _ = Describe("Go Patch Plugin", func() {
 		It("Should leave the hash out for a document with @patch fields", func(
 			ctx SpecContext,
 		) {
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				import "schemas/x/patch"
 
 				@go output "core/pkg/service/cell"
@@ -702,7 +702,7 @@ var _ = Describe("Go Patch Plugin", func() {
 
 		DescribeTable("Should reject a value that the hash cannot write",
 			func(ctx SpecContext, field, msg string) {
-				req := MustGenerateRequest(ctx, `
+				req := MustGenerateRequest(`
 					@go output "core/pkg/service/cfg"
 
 					Config struct {
@@ -760,7 +760,7 @@ Doc struct {
 				)
 				table := resolution.NewTable()
 				diag := analyzer.AnalyzeSeeded(
-					GinkgoT().Context(), `
+					`
 import "schemas/x/patch"
 
 @go output "core/pkg/service/doc"
