@@ -771,19 +771,32 @@ var _ = Describe("MigrateNodeConfig text", func() {
 	)
 
 	DescribeTable("Should keep the rendered text size of a saved symbol",
-		func(ctx SpecContext, size string, level text.Level) {
-			for _, variant := range []string{"button", "input", "select", "setpoint"} {
-				Expect(migrateNode(ctx, map[string]any{
-					"variant": variant,
-					"size":    size,
-				})).To(HaveField("Level", Equal(level)), variant)
-			}
+		func(ctx SpecContext, variant, size string, level text.Level) {
+			Expect(migrateNode(ctx, map[string]any{
+				"variant": variant,
+				"size":    size,
+			})).To(HaveField("Level", Equal(level)))
 		},
-		Entry("tiny", "tiny", text.LevelTiny),
-		Entry("small", "small", text.LevelSmall),
-		Entry("medium", "medium", text.LevelP),
-		Entry("large", "large", text.LevelH5),
-		Entry("huge", "huge", text.LevelH2),
+		Entry("a tiny button", "button", "tiny", text.LevelTiny),
+		Entry("a small button", "button", "small", text.LevelSmall),
+		Entry("a medium button", "button", "medium", text.LevelP),
+		Entry("a large button", "button", "large", text.LevelH5),
+		Entry("a huge button", "button", "huge", text.LevelH2),
+		Entry("a tiny input", "input", "tiny", text.LevelTiny),
+		Entry("a small input", "input", "small", text.LevelSmall),
+		Entry("a medium input", "input", "medium", text.LevelP),
+		Entry("a large input", "input", "large", text.LevelH5),
+		Entry("a huge input", "input", "huge", text.LevelH2),
+		Entry("a tiny select", "select", "tiny", text.LevelTiny),
+		Entry("a small select", "select", "small", text.LevelSmall),
+		Entry("a medium select", "select", "medium", text.LevelP),
+		Entry("a large select", "select", "large", text.LevelH5),
+		Entry("a huge select", "select", "huge", text.LevelH2),
+		Entry("a tiny setpoint", "setpoint", "tiny", text.LevelTiny),
+		Entry("a small setpoint", "setpoint", "small", text.LevelSmall),
+		Entry("a medium setpoint", "setpoint", "medium", text.LevelP),
+		Entry("a large setpoint", "setpoint", "large", text.LevelH5),
+		Entry("a huge setpoint", "setpoint", "huge", text.LevelH2),
 	)
 
 	It("Should keep a level that a saved button stores", func(ctx SpecContext) {
