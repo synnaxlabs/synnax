@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Context, UnaryClient } from "@synnaxlabs/freighter";
+import type { Context } from "@synnaxlabs/freighter";
 import { errors, id, url } from "@synnaxlabs/x";
 import { describe, expect, it, test, vi } from "vitest";
-import type { z } from "zod";
 
 import { auth } from "@/auth";
 import {
@@ -867,36 +866,32 @@ describe("auth", () => {
 
   describe("setCredentials", () => {
     it("should log in again for a request waiting on a login it made stale", async () => {
-      const stale = Promise.withResolvers<void>();
-      const session = {
-        subject: { type: "user", key: id.create() },
-        credential: "5b1b6d0e-6c3a-4c3e-9d9f-0a7c6a1f2b3c",
-        lastActive: 0,
-      };
-      const unary = {
-        send: async (
-          _: string,
-          req: { proof: { username: string } },
-          __: unknown,
-          resZ: z.ZodType,
-        ) => {
-          const { username } = req.proof;
-          if (username === "a") await stale.promise;
-          return resZ.parse({ token: `token-${username}`, session });
-        },
-      } as unknown as UnaryClient;
-      const client = new auth.Client(unary, {
-        credentials: { username: "a", password: "a" },
-      });
-      const next = vi.fn(async (ctx: Context) => ctx);
-      const sent = client.middleware()(
-        { target: "/x", params: {}, role: "client", protocol: "http" },
-        next,
+      const admin = createTestClient();
+      const second = { username: id.create(), password: "seldon" };
+      const { key: role } = await createEmptyRole(admin);
+      await admin.users.create({ ...second, role });
+      const transport = new Transport(
+        new url.URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
       );
-      client.setCredentials({ username: "b", password: "b" });
-      stale.resolve();
+      let username: string | undefined;
+      const client = new auth.Client(
+        transport.unary,
+        { credentials: TEST_CREDENTIALS },
+        { onUser: (u) => (username = u?.name) },
+      );
+      transport.use(client.middleware());
+      const next = vi.fn(async (ctx: Context) => ctx);
+      const sent = client.middleware()({ ...DUMMY_CTX, params: {} }, next);
+      client.setCredentials(second);
       await sent;
-      expect(next.mock.calls[0][0].params.Authorization).toEqual("Bearer token-b");
+      expect(username).toEqual(second.username);
+      expect(next.mock.calls[0][0].params.Authorization).toEqual(
+        `Bearer ${client.token}`,
+      );
+      await admin.close();
     });
   });
 });
