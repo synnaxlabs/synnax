@@ -56,6 +56,7 @@ var resourceTabTypes = set.New(
 	resource.TypeTask,
 	resource.TypeRange,
 	resource.TypeICD,
+	resource.TypeView,
 )
 
 // validateTree checks the structural invariants every persisted panel tree must uphold:

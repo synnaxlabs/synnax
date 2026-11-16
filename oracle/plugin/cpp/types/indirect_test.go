@@ -35,7 +35,9 @@ var _ = Describe("Indirect", func() {
 				}
 			`, "test", NewMockFileLoader())
 			node := req.Resolutions.MustGet("test.Node")
-			f := MustBeOk(node.Form.(resolution.StructForm).Field(field))
+			form, ok := node.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			f := MustBeOk(form.Field(field))
 			Expect(types.Indirect(f, node, req.Resolutions)).To(Equal(expected))
 		},
 		Entry("an optional field that holds the parent", "parent", true),

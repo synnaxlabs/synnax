@@ -16,7 +16,7 @@ package config
 type Config[C Config[C]] interface {
 	// Override sets all non-zero values from override on the config and returns the
 	// merged result.
-	Override(C) C
+	Override(override C) C
 	// Validate checks if the configuration is valid. Returns an error if it is not.
 	Validate() error
 }

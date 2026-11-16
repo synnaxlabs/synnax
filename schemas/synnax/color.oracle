@@ -13,6 +13,7 @@ import "schemas/x/filter"
 import "schemas/x/patch"
 
 @go output "core/pkg/service/color"
+@py output "client/py/synnax/color"
 @ts output "client/ts/src/color"
 
 Key = uuid {

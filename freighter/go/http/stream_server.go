@@ -11,6 +11,7 @@ package http
 
 import (
 	"context"
+	"io"
 	"os"
 	"sync"
 	"syscall"
@@ -59,12 +60,12 @@ type StreamServerOption func(*streamServerOptions)
 // stateful codecs don't need a ContentType method on every instance.
 func WithAdditionalCodec(
 	contentType string,
-	new func(context.Context) encoding.Codec,
+	newCodec func(context.Context) encoding.Codec,
 ) StreamServerOption {
 	return func(o *streamServerOptions) {
 		o.additionalCodecs = append(o.additionalCodecs, additionalCodec{
 			contentType: contentType,
-			new:         new,
+			new:         newCodec,
 		})
 	}
 }
@@ -252,7 +253,7 @@ func (s *serverStream[RQ, RS]) close(err error) (closeErr error) {
 		closeErr = errors.Combine(closeErr, s.streamCore.close())
 	}()
 	if err == nil {
-		err = freighter.EOF
+		err = io.EOF
 	}
 	closeCode := contextCancelledCloseCode
 	if !errors.Is(err, context.Canceled) {
