@@ -245,67 +245,82 @@ func validateType[T, N antlr.ParserRuleContext](
 
 	for i := 1; i < len(items); i++ {
 		nextType := infer(ctx.Child(items[i]).WithTypeHint(firstType)).Unwrap()
-
 		// Skip if this operand is Invalid - we can't check types we don't know
 		if nextType.Kind == basetypes.KindInvalid {
 			continue
 		}
-
-		// Check dimensional compatibility first if either operand has units This must
-		// be checked even for type variables since the unit is known at parse time
-		// Note: Power operations (^) are handled separately in analyzePower via
-		// ValidatePowerOp.
-		if firstType.Unit != nil || nextType.Unit != nil {
-			if !units.ValidateBinaryOp(ctx, opName, firstType, nextType) {
-				return
-			}
-		}
-
-		if firstType.Kind == basetypes.KindVariable ||
-			nextType.Kind == basetypes.KindVariable {
-			if !want.fits(ctx.Constraints, nextType, items[i]) {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
-					ctx.AST,
-					"cannot use %s in %s operation",
-					nextType,
-					opName,
-				))
-				return
-			}
-			if err := ctx.Constraints.AddCompatible(
-				firstType,
-				nextType,
-				items[i],
-				opName+" operands must be compatible",
-			); err != nil {
-				ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-				return
-			}
-			// When the first operand is a literal (type variable) and we encounter
-			// a concrete type, adopt it so subsequent operands are checked against
-			// the concrete type rather than the permissive constraint. Without this,
-			// `1000.0 - f32_ch + f64_ch` would pass because both f32 and f64
-			// individually satisfy FloatConstraint, even though f32 != f64.
-			if firstType.Kind == basetypes.KindVariable &&
-				nextType.Kind != basetypes.KindVariable {
-				firstType = nextType
-			}
-		} else {
-			// Unit compatibility is already validated above by units.ValidateBinaryOp
-			if !types.Compatible(firstType, nextType) {
-				ctx.Diagnostics.Add(
-					diagnostics.Errorf(
-						ctx.AST,
-						"type mismatch: cannot use %s and %s in %s operation",
-						firstType,
-						nextType,
-						opName,
-					),
-				)
-				return
-			}
+		var ok bool
+		if firstType, ok = validateOperand(
+			ctx, firstType, nextType, items[i], opName, want,
+		); !ok {
+			return
 		}
 	}
+}
+
+// validateOperand checks nextType against firstType and returns the type the next
+// operands are checked against. It returns false after adding a diagnostic.
+func validateOperand[N antlr.ParserRuleContext](
+	ctx context.Context[N],
+	firstType, nextType basetypes.Type,
+	item antlr.ParserRuleContext,
+	opName string,
+	want operand,
+) (basetypes.Type, bool) {
+	// Check dimensional compatibility first if either operand has units This must be
+	// checked even for type variables since the unit is known at parse time Note:
+	// Power operations (^) are handled separately in analyzePower via
+	// ValidatePowerOp.
+	if firstType.Unit != nil || nextType.Unit != nil {
+		if !units.ValidateBinaryOp(ctx, opName, firstType, nextType) {
+			return firstType, false
+		}
+	}
+	if firstType.Kind != basetypes.KindVariable &&
+		nextType.Kind != basetypes.KindVariable {
+		// Unit compatibility is already validated above by units.ValidateBinaryOp
+		if !types.Compatible(firstType, nextType) {
+			ctx.Diagnostics.Add(
+				diagnostics.Errorf(
+					ctx.AST,
+					"type mismatch: cannot use %s and %s in %s operation",
+					firstType,
+					nextType,
+					opName,
+				),
+			)
+			return firstType, false
+		}
+		return firstType, true
+	}
+	if !want.fits(ctx.Constraints, nextType, item) {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"cannot use %s in %s operation",
+			nextType,
+			opName,
+		))
+		return firstType, false
+	}
+	if err := ctx.Constraints.AddCompatible(
+		firstType,
+		nextType,
+		item,
+		opName+" operands must be compatible",
+	); err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return firstType, false
+	}
+	// When the first operand is a literal (type variable) and we encounter a concrete
+	// type, adopt it so subsequent operands are checked against the concrete type
+	// rather than the permissive constraint. Without this, `1000.0 - f32_ch + f64_ch`
+	// would pass because both f32 and f64 individually satisfy FloatConstraint, even
+	// though f32 != f64.
+	if firstType.Kind == basetypes.KindVariable &&
+		nextType.Kind != basetypes.KindVariable {
+		return nextType, true
+	}
+	return firstType, true
 }
 
 func analyzeLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) {
@@ -465,34 +480,38 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 	if innerUnary := ctx.AST.UnaryExpression(); innerUnary != nil {
 		childCtx := ctx.Child(innerUnary)
 		analyzeUnary(childCtx)
-		operandType := types.InferFromUnaryExpression(childCtx)
-		if ctx.AST.MINUS() != nil {
-			if !types.Numeric(ctx.Constraints, operandType, ctx.AST) {
-				ctx.Diagnostics.Add(
-					diagnostics.Errorf(
-						ctx.AST,
-						"operator - not supported for type %s",
-						operandType,
-					),
-				)
-				return
-			}
-		} else if ctx.AST.NOT() != nil {
-			if !types.Bool(ctx.Constraints, operandType, ctx.AST) {
-				ctx.Diagnostics.Add(
-					diagnostics.Errorf(
-						ctx.AST,
-						"operator 'not' requires boolean operand, received %s",
-						operandType,
-					),
-				)
-				return
-			}
-		}
+		checkUnaryOperand(ctx, types.InferFromUnaryExpression(childCtx))
 		return
 	}
 	if power := ctx.AST.PowerExpression(); power != nil {
 		analyzePower(ctx.Child(power))
+	}
+}
+
+func checkUnaryOperand(
+	ctx context.Context[parser.IUnaryExpressionContext],
+	operandType basetypes.Type,
+) {
+	if ctx.AST.MINUS() != nil {
+		if !types.Numeric(ctx.Constraints, operandType, ctx.AST) {
+			ctx.Diagnostics.Add(
+				diagnostics.Errorf(
+					ctx.AST,
+					"operator - not supported for type %s",
+					operandType,
+				),
+			)
+		}
+		return
+	}
+	if ctx.AST.NOT() != nil && !types.Bool(ctx.Constraints, operandType, ctx.AST) {
+		ctx.Diagnostics.Add(
+			diagnostics.Errorf(
+				ctx.AST,
+				"operator 'not' requires boolean operand, received %s",
+				operandType,
+			),
+		)
 	}
 }
 
@@ -675,26 +694,7 @@ func hasMultipleNamedOutputs(t basetypes.Type) bool {
 
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 	if head, tail := parser.PrimaryNameParts(ctx.AST); head != "" {
-		resolved, err := ctx.ResolveQualified(head, tail)
-		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-			return
-		}
-		if tracksChannelRead(resolved) {
-			fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
-			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
-				ctx.Diagnostics.Add(diagnostics.Error(fnErr, ctx.AST))
-				return
-			}
-			if fn != nil {
-				// Use SourceID if available, otherwise use symbol's own ID
-				readID := uint32(resolved.ID)
-				if resolved.SourceID != nil {
-					readID = uint32(*resolved.SourceID)
-				}
-				fn.Channels.Read[readID] = resolved.Name
-			}
-		}
+		analyzePrimaryName(ctx, head, tail)
 		return
 	}
 	if lit := ctx.AST.Literal(); lit != nil {
@@ -715,51 +715,89 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 	}
 	if typeCast := ctx.AST.TypeCast(); typeCast != nil {
 		if expr := typeCast.Expression(); expr != nil {
-			Analyze(ctx.Child(expr))
-			// Validate that the cast is allowed
-			sourceType := types.InferFromExpression(ctx.Child(expr)).Unwrap()
-			if typeCtx := typeCast.Type_(); typeCtx != nil {
-				// bool casting is not allowed. User should explicitly define their
-				// numeric comparison. E.g. `x != 0` or `y == 1.0001`
-				if prim := typeCtx.PrimitiveType(); prim != nil && prim.BOOL() != nil {
-					ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-						"boolean conversions are not supported; define the "+
-							"comparison explicitly, e.g. x != 0 or abs(x - 1) < 0.01"))
-					return
-				}
-				targetType, err := types.InferFromTypeContext(typeCtx)
-				if err != nil {
-					ctx.Diagnostics.Add(diagnostics.Error(err, typeCtx))
-					return
-				}
-				if !isValidCast(sourceType, targetType) {
-					ctx.Diagnostics.Add(
-						diagnostics.Errorf(
-							ctx.AST,
-							"cannot cast %s to %s",
-							sourceType,
-							targetType,
-						),
-					)
-					return
-				}
-				if _, ok := ctx.FloatConstant(expr); ok && targetType.IsInteger() {
-					ctx.Diagnostics.Add(diagnostics.Errorf(
-						ctx.AST,
-						"cannot cast %s to %s: NaN and infinity have no integer value",
-						expr.GetText(),
-						targetType,
-					))
-					return
-				}
-				if sourceType.Kind == basetypes.KindBool &&
-					targetType.IsNumeric() &&
-					targetType.Kind != basetypes.KindU8 {
-					ctx.Diagnostics.Add(codes.BoolCast.At(ctx.AST, targetType).
-						WithFix(expr, "u8("+sourceText(expr)+")"))
-				}
-			}
+			analyzeTypeCast(ctx, expr, typeCast.Type_())
 		}
+	}
+}
+
+func analyzePrimaryName(
+	ctx context.Context[parser.IPrimaryExpressionContext],
+	head string,
+	tail string,
+) {
+	resolved, err := ctx.ResolveQualified(head, tail)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
+	}
+	if !tracksChannelRead(resolved) {
+		return
+	}
+	fn, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
+	}
+	if fn == nil {
+		return
+	}
+	// Use SourceID if available, otherwise use symbol's own ID
+	readID := uint32(resolved.ID)
+	if resolved.SourceID != nil {
+		readID = uint32(*resolved.SourceID)
+	}
+	fn.Channels.Read[readID] = resolved.Name
+}
+
+func analyzeTypeCast(
+	ctx context.Context[parser.IPrimaryExpressionContext],
+	expr parser.IExpressionContext,
+	typeCtx parser.ITypeContext,
+) {
+	Analyze(ctx.Child(expr))
+	// Validate that the cast is allowed
+	sourceType := types.InferFromExpression(ctx.Child(expr)).Unwrap()
+	if typeCtx == nil {
+		return
+	}
+	// bool casting is not allowed. User should explicitly define their numeric
+	// comparison. E.g. `x != 0` or `y == 1.0001`
+	if prim := typeCtx.PrimitiveType(); prim != nil && prim.BOOL() != nil {
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			"boolean conversions are not supported; define the "+
+				"comparison explicitly, e.g. x != 0 or abs(x - 1) < 0.01"))
+		return
+	}
+	targetType, err := types.InferFromTypeContext(typeCtx)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, typeCtx))
+		return
+	}
+	if !isValidCast(sourceType, targetType) {
+		ctx.Diagnostics.Add(
+			diagnostics.Errorf(
+				ctx.AST,
+				"cannot cast %s to %s",
+				sourceType,
+				targetType,
+			),
+		)
+		return
+	}
+	if _, ok := ctx.FloatConstant(expr); ok && targetType.IsInteger() {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"cannot cast %s to %s: NaN and infinity have no integer value",
+			expr.GetText(),
+			targetType,
+		))
+		return
+	}
+	if sourceType.Kind == basetypes.KindBool &&
+		targetType.IsNumeric() &&
+		targetType.Kind != basetypes.KindU8 {
+		ctx.Diagnostics.Add(codes.BoolCast.At(ctx.AST, targetType).
+			WithFix(expr, "u8("+sourceText(expr)+")"))
 	}
 }
 
