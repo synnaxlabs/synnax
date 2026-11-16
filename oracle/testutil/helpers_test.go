@@ -592,10 +592,9 @@ var _ = Describe("ExpectContent", func() {
 					Path:    "out/user.go",
 					Content: []byte(content),
 				})
-				err := InterceptGomegaFailure(func() {
+				Expect(InterceptGomegaFailure(func() {
 					ExpectContent(resp, "user.go").ToPreserveOrder(substrings...)
-				})
-				Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf(
+				})).To(MatchError(ContainSubstring(fmt.Sprintf(
 					"expected %q to appear after previous substring",
 					substrings[len(substrings)-1],
 				))))
