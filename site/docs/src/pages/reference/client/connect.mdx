@@ -204,10 +204,61 @@ deletes a password that an older version saved. In the Console, the key shows in
 **Manage sign-in** for your user. When the login fails, the command prints why, saves
 nothing, and exits with code 1. Run `sy login` again to change the values.
 
+`sy login` never saves the key in a file. When the session has no keychain, the command
+fails and saves nothing. See [Connect without a keychain](#connect-without-a-keychain).
+
 With no saved login, `sy.Synnax()` connects to
 [Synnax Desktop](#connect-to-synnax-desktop). When neither is saved, it raises
 `sy.ValidationError`. When you give no host and no API key, the client ignores the other
 arguments and uses the saved login.
+
+<Divider.Divider x />
+
+## Connect with environment variables
+
+When you give no host, `sy.Synnax()` reads these environment variables. They take an API
+key, not a username and password.
+
+| Variable         | Value                                                 |
+| ---------------- | ----------------------------------------------------- |
+| `SYNNAX_HOST`    | The host of the Core. Required with `SYNNAX_API_KEY`. |
+| `SYNNAX_API_KEY` | An API key. Required with `SYNNAX_HOST`.              |
+| `SYNNAX_PORT`    | The port of the Core. The default is `9090`.          |
+| `SYNNAX_SECURE`  | `true` or `1` to use TLS. The default is `false`.     |
+| `SYNNAX_CA_CERT` | The path to the CA certificate of the Core, for TLS.  |
+
+```bash
+export SYNNAX_HOST=core.example.com
+export SYNNAX_API_KEY=syk_...
+python my_script.py
+```
+
+The client uses the first source that it finds, in this order:
+
+1. The arguments to `sy.Synnax()`, when they include a host.
+2. The environment variables.
+3. The login that `sy login` saved.
+4. Synnax Desktop on this computer.
+
+When only one of `SYNNAX_HOST` and `SYNNAX_API_KEY` is set, or when `SYNNAX_PORT` or
+`SYNNAX_SECURE` has a value that is not valid, the client raises `sy.ValidationError`
+and names the variable.
+
+### Connect without a keychain
+
+`sy login` keeps the API key in the keychain of your operating system. Some sessions
+have no keychain that works:
+
+- SSH sessions, and Linux computers with no desktop.
+- Docker containers.
+- CI jobs, cron jobs, and system services.
+
+In these sessions, set `SYNNAX_HOST` and `SYNNAX_API_KEY` instead of running `sy login`.
+When a login is saved and the keychain is not available, `sy.Synnax()` raises
+`sy.ConfigurationError`. It does not connect to Synnax Desktop or to another Core.
+
+On Linux, a keychain that is locked can wait for a password prompt that an SSH session
+cannot show. If a script stops at `sy.Synnax()` over SSH, set the environment variables.
 
 <Divider.Divider x />
 

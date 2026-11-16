@@ -7,17 +7,28 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Any
+
 from keyring.backend import KeyringBackend
-from keyring.errors import PasswordDeleteError
+from keyring.errors import InitError, KeyringLocked, NoKeyringError, PasswordDeleteError
 from pydantic import BaseModel
 
 from synnax.config.file import File
+from synnax.exceptions import ConfigurationError
 from synnax.options import Options
 
 
 class Cluster(BaseModel):
     options: Options
 
+
+KEYCHAIN_UNAVAILABLE_MSG = (
+    "No OS keychain is available in this session. Set SYNNAX_HOST and SYNNAX_API_KEY "
+    "instead."
+)
+
+# The errors that keyring raises when this session cannot use the keychain at all.
+_UNAVAILABLE = (NoKeyringError, InitError, KeyringLocked)
 
 _PASSWORD_SERVICE = "synnax"
 _API_KEY_SERVICE = "synnax.api_key"
@@ -31,7 +42,9 @@ def _api_key_entry(key: str, host: str, port: int) -> str:
 class Clusters:
     """Saves connection options per cluster. The API key lives in the keyring under its
     address and the rest in the config file. Reads a password that an older CLI saved,
-    so that connecting can replace it with a key.
+    so that connecting can replace it with a key. Never saves a key anywhere else.
+
+    Methods raise ConfigurationError when this session has no usable keychain.
     """
 
     internal: File
@@ -46,6 +59,15 @@ class Clusters:
         if c is None:
             return None
         opts = c["options"]
+        try:
+            return self._get(key, opts)
+        except _UNAVAILABLE as e:
+            raise ConfigurationError(
+                f"Cannot read the login saved for {opts['host']}:{opts['port']}. "
+                + KEYCHAIN_UNAVAILABLE_MSG
+            ) from e
+
+    def _get(self, key: str, opts: dict[str, Any]) -> Cluster:
         api_key = self.keyring.get_password(
             _API_KEY_SERVICE, _api_key_entry(key, opts["host"], opts["port"])
         )
@@ -67,6 +89,12 @@ class Clusters:
         """Saves the options and their API key, and deletes any saved password. A
         failed save leaves the saved options as they were.
         """
+        try:
+            self._set(c, key)
+        except _UNAVAILABLE as e:
+            raise ConfigurationError(KEYCHAIN_UNAVAILABLE_MSG) from e
+
+    def _set(self, c: Cluster, key: str) -> None:
         prev = self.internal.get(f"clusters.{key}.options")
         p = c.model_dump(exclude={"options": {"username", "password"}})
         entry = _api_key_entry(key, c.options.host, c.options.port)

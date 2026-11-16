@@ -11,6 +11,7 @@
 from typing import override
 
 from keyring.backend import KeyringBackend
+from keyring.backends import fail
 from keyring.errors import PasswordDeleteError
 
 
@@ -37,3 +38,8 @@ class MemoryKeyring(KeyringBackend):
     def delete_password(self, service: str, username: str) -> None:
         if self.values.pop((service, username), None) is None:
             raise PasswordDeleteError(username)
+
+
+def no_keychain() -> KeyringBackend:
+    """Returns the keyring that keyring picks when the session has no OS keychain."""
+    return fail.Keyring()  # type: ignore[no-untyped-call]

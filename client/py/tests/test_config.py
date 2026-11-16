@@ -20,16 +20,18 @@ import pytest
 
 from synnax.config import (
     DESKTOP_NOT_RUNNING_MSG,
+    KEYCHAIN_UNAVAILABLE_MSG,
     NO_OPTIONS_MSG,
     Cluster,
     Clusters,
     File,
     load_desktop_options,
+    load_env_options,
     try_load_options_if_none_provided,
 )
-from synnax.exceptions import ValidationError
+from synnax.exceptions import ConfigurationError, ValidationError
 from synnax.options import Options
-from tests.memory_keyring import MemoryKeyring
+from tests.memory_keyring import MemoryKeyring, no_keychain
 
 
 def write_desktop_file(path: Path, *, port: int, api_key: str = "syk_k_s") -> None:
@@ -84,6 +86,62 @@ class TestLoadDesktopOptions:
     def test_none_without_a_file(self, desktop_file: Path) -> None:
         """Should return None when Synnax Desktop saved nothing."""
         assert load_desktop_options(desktop_file) is None
+
+
+ENV = {"SYNNAX_HOST": "core.lab", "SYNNAX_API_KEY": "syk_env"}
+
+
+class TestLoadEnvOptions:
+    def test_none_without_variables(self) -> None:
+        """Should return None when neither SYNNAX_HOST nor SYNNAX_API_KEY is set."""
+        assert load_env_options({"SYNNAX_PORT": "1"}) is None
+
+    def test_defaults(self) -> None:
+        """Should use port 9090 and no TLS when only the host and key are set."""
+        assert load_env_options(ENV) == Options(
+            host="core.lab", port=9090, api_key="syk_env"
+        )
+
+    def test_all_variables(self) -> None:
+        """Should read the port, TLS, and CA certificate."""
+        opts = load_env_options(
+            {
+                **ENV,
+                "SYNNAX_PORT": "9091",
+                "SYNNAX_SECURE": "TRUE",
+                "SYNNAX_CA_CERT": "~/ca.crt",
+            }
+        )
+        assert opts is not None
+        assert (opts.port, opts.secure) == (9091, True)
+        assert opts.ca_cert == str(Path("~/ca.crt").expanduser())
+
+    @pytest.mark.parametrize(
+        ("value", "secure"),
+        [("1", True), ("yes", True), ("0", False), ("false", False), ("", False)],
+    )
+    def test_secure_values(self, value: str, secure: bool) -> None:
+        """Should read the true and false spellings of SYNNAX_SECURE."""
+        opts = load_env_options({**ENV, "SYNNAX_SECURE": value})
+        assert opts is not None
+        assert opts.secure is secure
+
+    @pytest.mark.parametrize(
+        ("env", "message"),
+        [
+            ({"SYNNAX_HOST": "h"}, "set SYNNAX_API_KEY with SYNNAX_HOST"),
+            ({"SYNNAX_API_KEY": "k"}, "set SYNNAX_HOST with SYNNAX_API_KEY"),
+            ({**ENV, "SYNNAX_PORT": "abc"}, "SYNNAX_PORT must be a port"),
+            ({**ENV, "SYNNAX_PORT": "0"}, "SYNNAX_PORT must be a port"),
+            ({**ENV, "SYNNAX_PORT": "65536"}, "SYNNAX_PORT must be a port"),
+            ({**ENV, "SYNNAX_SECURE": "maybe"}, "SYNNAX_SECURE must be true or false"),
+        ],
+        ids=["host-only", "key-only", "port-text", "port-zero", "port-high", "secure"],
+    )
+    def test_invalid(self, env: dict[str, str], message: str) -> None:
+        """Should name the variable that is wrong."""
+        with pytest.raises(ValidationError, match=message):
+            load_env_options(env)
 
 
 class TestTryLoadOptions:
@@ -157,6 +215,53 @@ class TestTryLoadOptions:
         )
         assert (opts.port, opts.api_key, embedded) == (4321, "syk_k_s", True)
 
+    def test_given_options_before_env(
+        self, clusters: Clusters, desktop_file: Path
+    ) -> None:
+        """Should use the given options and ignore the environment variables."""
+        opts, _ = try_load_options_if_none_provided(
+            host="h", port=1, env=ENV, clusters=clusters, desktop_file=desktop_file
+        )
+        assert (opts.host, opts.api_key) == ("h", "")
+
+    def test_env_before_saved_login(
+        self, clusters: Clusters, desktop_file: Path
+    ) -> None:
+        """Should use the environment variables before a login and Synnax Desktop."""
+        clusters.set(Cluster(options=Options(host="h", port=1, api_key="syk_saved")))
+        write_desktop_file(desktop_file, port=4321)
+        opts, embedded = try_load_options_if_none_provided(
+            env=ENV, clusters=clusters, desktop_file=desktop_file
+        )
+        assert (opts.host, opts.api_key, embedded) == ("core.lab", "syk_env", False)
+
+    def test_saved_login_without_a_keychain(
+        self, tmp_path: Path, desktop_file: Path
+    ) -> None:
+        """Should fail, and not connect to Synnax Desktop, when the keychain that holds
+        a saved login is not available.
+        """
+        config = File(config_dir=tmp_path)
+        Clusters(config, MemoryKeyring()).set(
+            Cluster(options=Options(host="h", port=1, api_key="syk_saved"))
+        )
+        write_desktop_file(desktop_file, port=4321)
+        with pytest.raises(ConfigurationError, match=KEYCHAIN_UNAVAILABLE_MSG):
+            try_load_options_if_none_provided(
+                clusters=Clusters(config, no_keychain()), desktop_file=desktop_file
+            )
+
+    def test_desktop_without_a_keychain(
+        self, tmp_path: Path, desktop_file: Path
+    ) -> None:
+        """Should use the Desktop file when no login is saved, with no keychain."""
+        write_desktop_file(desktop_file, port=4321)
+        opts, embedded = try_load_options_if_none_provided(
+            clusters=Clusters(File(config_dir=tmp_path), no_keychain()),
+            desktop_file=desktop_file,
+        )
+        assert (opts.port, embedded) == (4321, True)
+
     def test_nothing_saved(self, clusters: Clusters, desktop_file: Path) -> None:
         """Should explain how to connect when nothing is saved."""
         with pytest.raises(ValidationError, match=NO_OPTIONS_MSG):
@@ -173,7 +278,11 @@ class TestDesktopConnection:
             port = int(s.getsockname()[1])
         write_desktop_file(tmp_path / ".synnax" / "desktop.json", port=port)
         # A fresh interpreter reads the home directory of the test.
-        env = {**os.environ, "HOME": str(tmp_path), "USERPROFILE": str(tmp_path)}
+        env = {
+            **{k: v for k, v in os.environ.items() if not k.startswith("SYNNAX_")},
+            "HOME": str(tmp_path),
+            "USERPROFILE": str(tmp_path),
+        }
         result = subprocess.run(
             [sys.executable, "-c", "import synnax as sy; sy.Synnax(max_retries=0)"],
             env=env,

@@ -16,10 +16,11 @@ from keyring.errors import KeyringError
 
 import synnax as sy
 from synnax.cli import connect
-from synnax.config import Cluster, Clusters, File
+from synnax.config import KEYCHAIN_UNAVAILABLE_MSG, Cluster, Clusters, File
+from synnax.exceptions import ConfigurationError
 from synnax.options import Options
 from tests.cli.scripted import Scripted
-from tests.memory_keyring import MemoryKeyring
+from tests.memory_keyring import MemoryKeyring, no_keychain
 
 
 class UndeletableKeyring(MemoryKeyring):
@@ -52,6 +53,32 @@ def block_config_writes(clusters: Clusters) -> None:
     path = clusters.internal.config_file
     path.unlink()
     path.mkdir()
+
+
+@pytest.mark.cli
+class TestNoKeychain:
+    def test_get_without_a_saved_login(self, tmp_path: Path) -> None:
+        """Should return None without using the keychain when nothing is saved."""
+        assert Clusters(File(config_dir=tmp_path), no_keychain()).get() is None
+
+    def test_get_a_saved_login(self, tmp_path: Path) -> None:
+        """Should name the saved Core and point to the environment variables."""
+        config = File(config_dir=tmp_path)
+        Clusters(config, MemoryKeyring()).set(
+            Cluster(options=Options(host="core.lab", port=9090, api_key="syk_k"))
+        )
+        with pytest.raises(ConfigurationError) as e:
+            Clusters(config, no_keychain()).get()
+        assert str(e.value) == (
+            "Cannot read the login saved for core.lab:9090. " + KEYCHAIN_UNAVAILABLE_MSG
+        )
+
+    def test_set(self, tmp_path: Path) -> None:
+        """Should save nothing, not even to the config file."""
+        clusters = Clusters(File(config_dir=tmp_path), no_keychain())
+        with pytest.raises(ConfigurationError, match=KEYCHAIN_UNAVAILABLE_MSG):
+            clusters.set(Cluster(options=Options(host="h", port=1, api_key="syk_k")))
+        assert clusters.internal.get("clusters.default") is None
 
 
 @pytest.mark.cli
@@ -288,3 +315,21 @@ class TestLogin:
         assert saved.options.api_key.startswith("syk_")
         assert sy.auth.api_key_id(saved.options.api_key) not in before
         delete_new_keys(client, before)
+
+    def test_fails_without_a_keychain(
+        self,
+        tmp_path: Path,
+        login_info: tuple[str, int, str, str],
+        client: sy.Synnax,
+    ) -> None:
+        """Should print one line that points to the environment variables, and delete
+        the key it could not save.
+        """
+        host, port, username, password = login_info
+        before = {k.key for k in client.auth.retrieve_keys()}
+        user = Scripted(host, port, username, password, "n")
+        assert not connect.login(
+            user.prompt, Clusters(File(config_dir=tmp_path), no_keychain())
+        )
+        assert user.err.getvalue().strip() == KEYCHAIN_UNAVAILABLE_MSG
+        assert {k.key for k in client.auth.retrieve_keys()} == before
