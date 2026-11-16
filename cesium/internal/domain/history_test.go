@@ -82,4 +82,18 @@ var _ = Describe("OnHistoryChange", func() {
 		Expect(db.Delete(ctx, tr, fixedOffset(0), fixedOffset(0))).To(Succeed())
 		Expect(changes).To(BeEmpty())
 	})
+
+	It(
+		"Should not report a delete between domains of different sizes",
+		func(ctx SpecContext) {
+			write(ctx, 10, 20)
+			tr := (30 * telem.SecondTS).Range(40 * telem.SecondTS)
+			Expect(
+				testutil.WriteDomain(ctx, db, tr, []byte{1, 2, 3, 4, 5}),
+			).To(Succeed())
+			del := (15 * telem.SecondTS).Range(30 * telem.SecondTS)
+			Expect(db.Delete(ctx, del, fixedOffset(3), fixedOffset(0))).To(Succeed())
+			Expect(changes).To(BeEmpty())
+		},
+	)
 })
