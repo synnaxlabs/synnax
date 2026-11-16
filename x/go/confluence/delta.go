@@ -145,7 +145,8 @@ func (d *DynamicDeltaMultiplier[V]) Disconnect(inlets ...Inlet[V]) {
 func (d *DynamicDeltaMultiplier[V]) Stopped() <-chan struct{} { return d.stopped }
 
 // stop closes every inlet, including those whose connection is still pending, and
-// makes later calls to Connect and Disconnect return at once.
+// makes later calls to Connect and Disconnect return at once. Stopped closes before
+// any inlet does.
 func (d *DynamicDeltaMultiplier[V]) stop() {
 	close(d.stopped)
 	d.mu.Lock()
@@ -183,40 +184,50 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 		if d.timeout > 0 {
 			timer = time.NewTimer(d.timeout)
 		}
+		panicked := true
 		defer func() {
 			if timer != nil && !timer.Stop() {
 				<-timer.C
 			}
-			d.disconnectAll()
+			// The routine may run again, so drop the inlets but do not stop.
+			if panicked {
+				d.disconnectAll()
+			}
 		}()
-		for {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case inlets := <-d.connections:
-				d.connect(inlets)
-			case inlets := <-d.disconnections:
-				d.disconnect(inlets)
-			case res, ok := <-d.In.Outlet():
-				if !ok {
-					return nil
+		err := d.run(ctx, timer)
+		panicked = false
+		return err
+	}, o.Signal...)
+}
+
+func (d *DynamicDeltaMultiplier[V]) run(ctx context.Context, timer *time.Timer) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case inlets := <-d.connections:
+			d.connect(inlets)
+		case inlets := <-d.disconnections:
+			d.disconnect(inlets)
+		case res, ok := <-d.In.Outlet():
+			if !ok {
+				return nil
+			}
+			var err error
+			if timer != nil {
+				timer.Reset(d.timeout)
+				err = d.Source.SendToEachWithTimeout(ctx, res, d.timeout, timer)
+			} else {
+				err = d.Source.SendToEach(ctx, res)
+			}
+			if err != nil {
+				if !errors.Is(err, timeout.ErrTimeout) {
+					return err
 				}
-				var err error
-				if timer != nil {
-					timer.Reset(d.timeout)
-					err = d.Source.SendToEachWithTimeout(ctx, res, d.timeout, timer)
-				} else {
-					err = d.Source.SendToEach(ctx, res)
-				}
-				if err != nil {
-					if !errors.Is(err, timeout.ErrTimeout) {
-						return err
-					}
-					d.L.Warn(fmt.Sprintf("delta: %s", err))
-				}
+				d.L.Warn(fmt.Sprintf("delta: %s", err))
 			}
 		}
-	}, o.Signal...)
+	}
 }
 
 // disconnectAll closes all connected inlets and clears the output streams.
