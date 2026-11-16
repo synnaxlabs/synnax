@@ -16,8 +16,8 @@ import { CSS } from "@/css";
 import { Node } from "@/schematic/node";
 
 interface SolenoidProps {
-  normallyOpen: boolean;
-  enabled: boolean;
+  normallyOpen?: boolean;
+  enabled?: boolean;
 }
 
 const Solenoid = Node.resolveSpec("solenoid_valve").Preview as FC<SolenoidProps>;
