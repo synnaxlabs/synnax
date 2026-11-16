@@ -534,7 +534,6 @@ var _ = Describe("Failed index population", func() {
 			Exec(ctx, db)).To(Succeed())
 		Expect(matched).To(HaveExactElements(HaveField("Message", "on")))
 	})
-
 })
 
 var _ = Describe("SetTarget", func() {
