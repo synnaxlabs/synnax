@@ -43,7 +43,7 @@ type Adapter interface {
 // adapter for a requested key.
 type Factory[K comparable, A Adapter] interface {
 	// Open opens a new adapter for the given key.
-	Open(K) (A, error)
+	Open(key K) (A, error)
 }
 
 // Pool caches and reuses Adapters keyed by K, opening new ones via a Factory only when
