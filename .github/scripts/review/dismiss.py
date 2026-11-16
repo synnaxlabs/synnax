@@ -77,16 +77,14 @@ def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
     for thread, reply in hits:
         if command(reply["body"]) is None:
             _reply(gh, thread, USAGE)
-    bound = _sweep_threads(t, gh, found)
-    bound = _sweep_comments(t, gh, found) or bound
-    if bound and rescore(t, gh, found, key):
+    _sweep_threads(t, gh, found)
+    _sweep_comments(t, gh, found)
+    if rescore(t, gh, found, key):
         _comment(t, gh, PASSED.strip())
 
 
-def _sweep_threads(t: Target, gh: GH, found: list[Thread]) -> bool:
-    """Answers each dismissal reply that no reply of the bot follows. Returns whether
-    one dismissed a finding."""
-    bound = False
+def _sweep_threads(t: Target, gh: GH, found: list[Thread]) -> None:
+    """Answers each dismissal reply that no reply of the bot follows."""
     for th in found:
         for i, r in enumerate(th.replies):
             later = th.replies[i + 1 :]
@@ -97,18 +95,14 @@ def _sweep_threads(t: Target, gh: GH, found: list[Thread]) -> bool:
                 continue
             _reply(gh, th, DONE)
             _resolve(gh, th)
-            bound = True
-    return bound
 
 
-def _sweep_comments(t: Target, gh: GH, found: list[Thread]) -> bool:
-    """Answers each dismissal comment on the pull request that has no answer yet.
-    Returns whether one dismissed a finding."""
+def _sweep_comments(t: Target, gh: GH, found: list[Thread]) -> None:
+    """Answers each dismissal comment on the pull request that has no answer yet."""
     posted = comments(t, gh)
     done = {a["comment"] for a in answers(t, posted)}
     still = {(th.path, th.title): th for th in found if not th.resolved}
     targets = outside_findings(t, gh) | still.keys()
-    bound = False
     for c in posted:
         text = command(c["body"])
         if c["login"] == f"{t.bot}[bot]" or c["id"] in done or text is None:
@@ -124,8 +118,6 @@ def _sweep_comments(t: Target, gh: GH, found: list[Thread]) -> bool:
             _comment(t, gh, answer(record | {"reason": reason}, DONE))
             if (th := still.get((path, title))) is not None:
                 _resolve(gh, th)
-            bound = True
-    return bound
 
 
 def _by(t: Target, reply: dict[str, Any]) -> bool:

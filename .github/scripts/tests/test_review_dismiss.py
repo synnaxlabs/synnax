@@ -280,6 +280,16 @@ class TestDismiss:
         assert done.startswith("Dismissed.")
         assert usage.startswith("To dismiss this finding")
 
+    def test_should_score_the_head_5_after_a_run_that_did_not(self, gh: FakeGH) -> None:
+        bot = comment(4, "Dismissed.", kind="Bot")
+        bot["author"]["login"] = "sedosaur"
+        gh.threads = [thread("T1", comment(2, "@sedosaur dismiss"), bot)]
+        gh.runs = [check_run([["a.go", "Samples"]])]
+        dismiss(TARGET, gh, comment=2, key=KEY)
+        [check] = gh.checks()
+        assert check["output"]["title"] == "Confidence Score: 5/5"
+        assert gh.replies == []
+
     def test_should_post_nothing_when_run_again_on_the_same_state(
         self, gh: FakeGH
     ) -> None:
