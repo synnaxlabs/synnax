@@ -228,6 +228,29 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 		)
 	})
 
+	Describe("Diagnostics", func() {
+		It(
+			"Should place a diagnostic on the first line at its block position",
+			func(ctx SpecContext) {
+				client := &MockClient{}
+				server.SetClient(client)
+				Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+					TextDocument: protocol.TextDocumentItem{
+						URI:        generateBlockURI("diagnostic-test-1"),
+						LanguageID: "arc",
+						Version:    1,
+						Text:       "return missing * 2",
+					},
+				})).To(Succeed())
+				diags := client.Diagnostics()
+				Expect(diags).ToNot(BeEmpty())
+				Expect(diags[0].Range.Start).To(Equal(
+					protocol.Position{Line: 0, Character: 7},
+				))
+			},
+		)
+	})
+
 	Describe("Definition", func() {
 		It(
 			"Should return nil for GlobalResolver symbols (no AST)",
