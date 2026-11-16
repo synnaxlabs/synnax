@@ -658,7 +658,8 @@ func (s *Symbol) Resolve(
 }
 
 // ResolveMember resolves head, then tail as a member of head when tail is not empty.
-// options apply to head only, so a module member stays subject to export.
+// options apply to head only, so a module member stays subject to export. Only a
+// module head has members: any other head returns an UndefinedSymbolError.
 func (s *Symbol) ResolveMember(
 	ctx context.Context,
 	head, tail string,
@@ -667,6 +668,9 @@ func (s *Symbol) ResolveMember(
 	sym, err := s.Resolve(ctx, head, options...)
 	if err != nil || tail == "" {
 		return sym, err
+	}
+	if sym.Kind != KindModule && sym.Kind != KindModuleAlias {
+		return nil, &UndefinedSymbolError{ctx: ctx, Name: head + "." + tail, scope: s}
 	}
 	return sym.Resolve(ctx, tail)
 }

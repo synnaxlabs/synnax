@@ -816,6 +816,22 @@ var _ = Describe("Scope", func() {
 					},
 				)
 
+				It(
+					"Should not resolve the tail lexically when the head is not a module",
+					func(bCtx SpecContext) {
+						root := symbol.NewRoot(nil, nil)
+						for _, name := range []string{"a", "b"} {
+							MustSucceed(root.Add(bCtx, symbol.Symbol{
+								Name: name,
+								Kind: symbol.KindVariable,
+								Type: types.F64(),
+							}))
+						}
+						Expect(root.ResolveMember(bCtx, "a", "b")).Error().
+							To(MatchError(ContainSubstring("undefined symbol: a.b")))
+					},
+				)
+
 				It("Should report an undefined head", func(bCtx SpecContext) {
 					alias := buildAlias(bCtx, buildSourceModule())
 					Expect(alias.Parent.ResolveMember(bCtx, "x", "f")).Error().
