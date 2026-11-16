@@ -69,7 +69,7 @@ type jsonField struct {
 	// scaled is true when the field's scale or offset changes its value.
 	scaled        bool
 	scale, offset float64
-	// number reads the JSON value of a scaled field as a float64.
+	// number reads the JSON number of a scaled field as a float64.
 	number *xjson.Decoder
 	// scratch holds the float64 sample that number reads.
 	scratch []byte
@@ -263,16 +263,12 @@ func newJSONField(f icd.JSONField, dt telem.DataType) (jsonField, error) {
 				dt,
 			)
 		}
-		numberField := xjson.Field{
-			DataType: telem.Float64T,
-			Range:    xf.Range,
-			Enums:    xf.Enums,
-		}
+		numberField := xjson.Field{DataType: telem.Float64T, Range: xf.Range}
 		if field.number, err = xjson.NewDecoder(numberField); err != nil {
 			return jsonField{}, err
 		}
-		// A scaled value has no label and need not be an integer.
-		xf.Enums, xf.Range = nil, ""
+		// A scaled value need not be an integer.
+		xf.Range = ""
 	}
 	if field.sample, err = xjson.NewDecoder(xf); err != nil {
 		return jsonField{}, err
@@ -303,7 +299,8 @@ func (f *jsonField) decode(dst []byte, raw jsontext.Value) ([]byte, error) {
 			validate.ErrValidation, "expected a boolean, got number %s", raw,
 		)
 	}
-	if !f.scaled {
+	// An enum label maps straight to a channel value, which takes no scale.
+	if !f.scaled || raw.Kind() == '"' {
 		return f.sample.Append(dst, raw)
 	}
 	var err error
