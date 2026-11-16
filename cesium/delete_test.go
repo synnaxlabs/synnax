@@ -1647,6 +1647,11 @@ var _ = Describe("Delete", func() {
 								[]cesium.ChannelKey{data, data2, index},
 								(11 * telem.SecondTS).Range(14*telem.SecondTS),
 							)).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it", channels[0], newChannels[1]))))
+							By("Leaving the data channels untouched")
+							f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
+							Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(
+								telem.NewSeriesV[int64](100, 101, 102, 103, 104),
+							))
 						},
 					)
 				})

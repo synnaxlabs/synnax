@@ -252,18 +252,13 @@ func (db *DB) DeleteTimeRange(
 		return channel.NewNotFoundError(ch)
 	}
 
-	for _, ch := range dataChannels {
-		if udb, ok := db.mu.dbs.unary[ch]; ok {
-			if err := udb.Delete(ctx, tr); err != nil {
-				return err
-			}
-		}
-	}
-
+	deleted := set.New(dataChannels...)
 	for _, ch := range indexChannels {
 		idxDB := db.mu.dbs.unary[ch]
 		for otherDBKey, otherDB := range db.mu.dbs.unary {
-			if otherDBKey == ch || otherDB.Channel().Index != ch {
+			if otherDBKey == ch ||
+				otherDB.Channel().Index != ch ||
+				deleted.Contains(otherDBKey) {
 				continue
 			}
 			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
@@ -277,7 +272,18 @@ func (db *DB) DeleteTimeRange(
 				)
 			}
 		}
-		if err := idxDB.Delete(ctx, tr); err != nil {
+	}
+
+	for _, ch := range dataChannels {
+		uDB := db.mu.dbs.unary[ch]
+		if err := uDB.Delete(ctx, tr); err != nil {
+			return err
+		}
+	}
+
+	for _, ch := range indexChannels {
+		uDB := db.mu.dbs.unary[ch]
+		if err := uDB.Delete(ctx, tr); err != nil {
 			return err
 		}
 	}
