@@ -14,6 +14,7 @@ cc_library(
     name = "pipeline",
     hdrs = [
         "factory.h",
+        "forwarder.h",
         "streamer.h",
         "writer.h",
     ],
