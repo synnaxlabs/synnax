@@ -173,6 +173,7 @@ func buildSequentialChain(n int) (ir.IR, map[string]node.Node) {
 }
 
 func runTickBench(b *testing.B, prog ir.IR, nodes map[string]node.Node) {
+	b.Helper()
 	s, err := scheduler.New(prog, nodes)
 	if err != nil {
 		b.Fatal(err)

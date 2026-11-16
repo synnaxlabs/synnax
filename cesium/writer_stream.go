@@ -214,7 +214,6 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 			v, ok := values[ch]
 			return v, ok
 		}
-
 	}
 	for _, chW := range w.virtual.internal {
 		if auth, ok := getAuth(chW.Channel.Key); ok {

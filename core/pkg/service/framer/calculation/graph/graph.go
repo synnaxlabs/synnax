@@ -455,9 +455,9 @@ func (g *Graph) checkCircularDependency(source, target channel.Key) error {
 	checkDeps = func(key channel.Key) error {
 		if key == source {
 			// Build the full chain for logging
-			chainStrs := make([]string, len(chain))
-			for i, k := range chain {
-				chainStrs[i] = k.String()
+			chainStrs := make([]string, 0, len(chain)+1)
+			for _, k := range chain {
+				chainStrs = append(chainStrs, k.String())
 			}
 			chainStrs = append(chainStrs, source.String())
 			err := errors.Newf(

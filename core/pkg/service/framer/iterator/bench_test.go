@@ -37,6 +37,7 @@ type benchIterEnv struct {
 }
 
 func newBenchIterEnv(b *testing.B) *benchIterEnv {
+	b.Helper()
 	gomega.RegisterTestingT(b)
 	node := testutil.OpenNode(b.Context())
 
@@ -92,6 +93,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 }
 
 func (e *benchIterEnv) close(b *testing.B) {
+	b.Helper()
 	if err := e.closer.Close(); err != nil {
 		b.Errorf("failed to close env: %v", err)
 	}
@@ -102,6 +104,7 @@ func (e *benchIterEnv) createChannels(
 	prefix string,
 	numDataChannels int,
 ) (*channel.Channel, []*channel.Channel) {
+	b.Helper()
 	indexCh := &channel.Channel{
 		Name:     prefix + "_time",
 		DataType: telem.TimestampT,
@@ -134,6 +137,7 @@ func (e *benchIterEnv) writeData(
 	dataChannels []*channel.Channel,
 	samplesPerChannel int,
 ) {
+	b.Helper()
 	keys := make([]channel.Key, len(dataChannels)+1)
 	keys[0] = indexCh.Key()
 	for i, ch := range dataChannels {
@@ -174,6 +178,7 @@ func (e *benchIterEnv) createCalculation(
 	b *testing.B,
 	name, expression string,
 ) *channel.Channel {
+	b.Helper()
 	calc := &channel.Channel{
 		Name:       name,
 		DataType:   telem.Float32T,

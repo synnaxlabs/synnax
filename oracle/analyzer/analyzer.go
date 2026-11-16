@@ -503,8 +503,8 @@ func finalizeEnumExtensions(c *analysisCtx) {
 	}
 }
 
-// addTypeDiag records an error diagnostic attributed to the file that declares typ.
-func addTypeDiag(c *analysisCtx, typ resolution.Type, format string, args ...any) {
+// addTypeDiagf records an error diagnostic attributed to the file that declares typ.
+func addTypeDiagf(c *analysisCtx, typ resolution.Type, format string, args ...any) {
 	d := diagnostics.Errorf(nil, format, args...)
 	c.diag.Report(typ.FilePath, d)
 }
@@ -522,7 +522,7 @@ func effectiveEnumValues(
 		return nil, false, false
 	}
 	if visited.Contains(typ.QualifiedName) {
-		addTypeDiag(c, typ, "enum %s has a cyclic extends chain", typ.QualifiedName)
+		addTypeDiagf(c, typ, "enum %s has a cyclic extends chain", typ.QualifiedName)
 		return nil, false, false
 	}
 	visited.Add(typ.QualifiedName)
@@ -536,7 +536,7 @@ func effectiveEnumValues(
 	add := func(parentName string, v resolution.EnumValue) bool {
 		if existing, dup := byName[v.Name]; dup {
 			if existing.Value != v.Value {
-				addTypeDiag(
+				addTypeDiagf(
 					c,
 					typ,
 					"enum %s inherits member %q with conflicting values from %s",
@@ -556,7 +556,7 @@ func effectiveEnumValues(
 	for i := range form.Extends {
 		parent, _, ok := resolution.Dealias(form.Extends[i], c.table)
 		if !ok {
-			addTypeDiag(
+			addTypeDiagf(
 				c,
 				typ,
 				"enum %s extends unknown enum %q",
@@ -566,7 +566,7 @@ func effectiveEnumValues(
 			return nil, false, false
 		}
 		if _, ok := parent.Form.(resolution.EnumForm); !ok {
-			addTypeDiag(
+			addTypeDiagf(
 				c,
 				typ,
 				"enum %s extends %s, which is not an enum",
@@ -583,7 +583,7 @@ func effectiveEnumValues(
 			return nil, false, false
 		}
 		if kindSet && pInt != isInt {
-			addTypeDiag(
+			addTypeDiagf(
 				c,
 				typ,
 				"enum %s extends enums of mixed integer and string kinds",
@@ -599,7 +599,7 @@ func effectiveEnumValues(
 		}
 	}
 	if kindSet && len(form.Values) > 0 && form.IsIntEnum != isInt {
-		addTypeDiag(
+		addTypeDiagf(
 			c,
 			typ,
 			"enum %s adds members of a different kind than the enums it extends",
@@ -673,7 +673,7 @@ func effectiveUnionVariants(
 		return nil, false
 	}
 	if visited.Contains(typ.QualifiedName) {
-		addTypeDiag(c, typ, "union %s has a cyclic extends chain", typ.QualifiedName)
+		addTypeDiagf(c, typ, "union %s has a cyclic extends chain", typ.QualifiedName)
 		return nil, false
 	}
 	visited.Add(typ.QualifiedName)
@@ -683,7 +683,7 @@ func effectiveUnionVariants(
 	add := func(parentName string, v resolution.UnionVariant) bool {
 		if existing, dup := byName[v.Name]; dup {
 			if existing.Type.Name != v.Type.Name {
-				addTypeDiag(
+				addTypeDiagf(
 					c,
 					typ,
 					"union %s inherits variant %q with conflicting payload types from %s (%s vs %s)",
@@ -705,13 +705,13 @@ func effectiveUnionVariants(
 	for i := range form.Extends {
 		parent, _, ok := resolution.Dealias(form.Extends[i], c.table)
 		if !ok {
-			addTypeDiag(c, typ, "union %s extends unresolved type: %s",
+			addTypeDiagf(c, typ, "union %s extends unresolved type: %s",
 				typ.QualifiedName, form.Extends[i].Name)
 			return nil, false
 		}
 		pform, isUnion := parent.Form.(resolution.UnionForm)
 		if !isUnion {
-			addTypeDiag(
+			addTypeDiagf(
 				c,
 				typ,
 				"union %s cannot mix struct and union bases in extends; %s is not a union",
@@ -721,7 +721,7 @@ func effectiveUnionVariants(
 			return nil, false
 		}
 		if pform.Discriminator != form.Discriminator {
-			addTypeDiag(
+			addTypeDiagf(
 				c,
 				typ,
 				"union %s extends union %s with a different discriminator (%q vs %q)",
@@ -735,7 +735,7 @@ func effectiveUnionVariants(
 		pVars := pform.Variants
 		if len(pform.Extends) > 0 {
 			if !hasUnionBases(pform, c.table) {
-				addTypeDiag(c, typ,
+				addTypeDiagf(c, typ,
 					"union %s cannot extend union %s, which extends base structs",
 					typ.QualifiedName, parent.QualifiedName)
 				return nil, false

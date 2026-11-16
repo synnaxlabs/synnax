@@ -529,7 +529,6 @@ func firstImexVersion(
 		return floor, nil
 	}
 	for _, k := range slices.Backward(chain.Numbers) {
-
 		if k >= current {
 			continue
 		}

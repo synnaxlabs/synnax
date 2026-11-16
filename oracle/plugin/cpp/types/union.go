@@ -79,10 +79,9 @@ func (p *Plugin) processUnion(
 		Doc:       doc.Get(entry.Domains),
 		DiscJSON:  casing.FieldSnake(form.Discriminator),
 	}
-	pbNamespace := ""
 	if hasPBFlag(entry) && !omit.IsSkipped(entry, "pb") {
 		if pbOutputPath := output.GetPBPath(entry); pbOutputPath != "" {
-			pbNamespace = cppnaming.PBNamespace(pbOutputPath, entry.Namespace)
+			pbNamespace := cppnaming.PBNamespace(pbOutputPath, entry.Namespace)
 			ud.HasProto = true
 			ud.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, cppnaming.PBName(entry))
 			data.AddSystem("utility")

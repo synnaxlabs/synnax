@@ -37,6 +37,7 @@ type benchEnv struct {
 }
 
 func newBenchEnv(b *testing.B) *benchEnv {
+	b.Helper()
 	gomega.RegisterTestingT(b)
 	node := testutil.OpenNode(b.Context())
 	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
@@ -69,6 +70,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 }
 
 func (e *benchEnv) close(b *testing.B) {
+	b.Helper()
 	if err := e.closer.Close(); err != nil {
 		b.Errorf("failed to close env: %v", err)
 	}
@@ -79,6 +81,7 @@ func (e *benchEnv) openCalculator(
 	indexes, bases []channel.Channel,
 	calc *channel.Channel,
 ) *calculator.Calculator {
+	b.Helper()
 	if len(indexes) > 0 {
 		if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
 			return e.channelSvc.NewWriter(tx).CreateMany(e.ctx, &indexes)

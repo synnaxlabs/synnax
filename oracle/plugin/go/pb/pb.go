@@ -2006,7 +2006,7 @@ func (p *Plugin) qualifiedDistinctGoName(
 	resolved resolution.Type,
 	data *templateData,
 ) (string, bool) {
-	prefix := ""
+	var prefix string
 	goOutput := output.GetPath(resolved, "go")
 	if resolved.FilePath != data.filePath ||
 		(goOutput != "" && goOutput != data.ParentGoPath) {
