@@ -59,6 +59,16 @@ describe("patch", () => {
       ).toEqual([{ type: "set", set: { path: ["a", "v"], value: 1, guards } }]);
     });
 
+    it("should undo an insert into a null list by setting the list back to null", () => {
+      const doc: Record<string, unknown> = { l: null };
+      const inverse = patch.apply(doc, {
+        type: "insert",
+        insert: { path: ["l"], value: { key: "a" }, guards: [] },
+      });
+      inverse.forEach((a) => patch.apply(doc, a));
+      expect(doc).toEqual({ l: null });
+    });
+
     it("should undo a move to the front by moving the entry back after its neighbor", () => {
       const doc = { l: [{ key: "a" }, { key: "b" }, { key: "c" }] };
       expect(
