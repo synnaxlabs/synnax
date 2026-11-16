@@ -272,6 +272,25 @@ describe("MQTT read form", () => {
     expect(await retrieveEntries(draft.key)).toHaveLength(1);
   });
 
+  it("should add a topic by name", async () => {
+    const { draft } = await renderRead();
+    const dialog = await openAddData();
+    fireEvent.click(dialog.getByRole("button", { name: "Add a topic by name" }));
+    const topic = await screen.findByPlaceholderText("plant/line1/telemetry");
+    await waitFor(async () =>
+      expect(await retrieveEntries(draft.key)).toMatchObject([
+        { type: "plain", topic: "" },
+      ]),
+    );
+    fireEvent.change(topic, { target: { value: "plant/kiln" } });
+    fireEvent.blur(topic);
+    await waitFor(async () =>
+      expect(await retrieveEntries(draft.key)).toMatchObject([
+        { type: "plain", topic: "plant/kiln" },
+      ]),
+    );
+  });
+
   it("should show the format of a topic from the ICD of its entry", async () => {
     const kiln = await createEntry({
       topic: "plant/kiln",
@@ -656,6 +675,27 @@ describe("MQTT read form", () => {
       fireEvent.blur(name);
       await clickFailedDeploy(container);
       expect(await retrieveTopicProps(dev.key)).toBeUndefined();
+    });
+
+    it.each([
+      ["", "Topic is required"],
+      ["plant/+", "Topic must not hold the wildcards + or #"],
+    ])("should save the topic %j and refuse it on deploy", async (value, error) => {
+      const { container, draft } = await renderRead({
+        fields: [createField("temperature", "float")],
+      });
+      const topic = await screen.findByDisplayValue(TOPIC);
+      fireEvent.change(topic, { target: { value } });
+      fireEvent.blur(topic);
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[0]).topic).toBe(value),
+      );
+      await clickDeploy(container);
+      const help = await screen.findByText(error);
+      expect(help.closest(".lyra-input-help-text")).not.toBeNull();
+      expect(help.closest(".lyra-input__item")).toBe(
+        topic.closest(".lyra-input__item"),
+      );
     });
 
     it("should put the deploy errors of a tag on its fields", async () => {
