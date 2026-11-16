@@ -150,6 +150,8 @@ type mockEventSender struct {
 	err    error
 	// held makes each send wait until it closes.
 	held chan struct{}
+	// waiting counts the sends that wait on held.
+	waiting int
 }
 
 var _ pd.EventSender = (*mockEventSender)(nil)
@@ -164,6 +166,9 @@ func (m *mockEventSender) SendEvent(
 	held := m.held
 	m.mu.Unlock()
 	if held != nil {
+		m.mu.Lock()
+		m.waiting++
+		m.mu.Unlock()
 		select {
 		case <-held:
 		case <-ctx.Done():
@@ -197,6 +202,13 @@ func (m *mockEventSender) hold() (release func()) {
 	defer m.mu.Unlock()
 	m.held = make(chan struct{})
 	return func() { close(m.held) }
+}
+
+// getWaiting returns the number of sends that waited on a hold.
+func (m *mockEventSender) getWaiting() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.waiting
 }
 
 func (m *mockEventSender) setError(err error) {

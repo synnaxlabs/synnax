@@ -519,6 +519,30 @@ var _ = Describe("AlertTask", func() {
 			},
 		)
 
+		It("Should not report an error for a send that a stop cancels",
+			func(ctx context.Context) {
+				release := sender.hold()
+				defer release()
+				t := storeTask(
+					ctx,
+					"PagerDuty Test",
+					validConfig(pd.Alert{Status: "stop-in-flight"}),
+				)
+				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
+				Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				setStatus(ctx, "stop-in-flight", status.VariantError, "Trigger", nil)
+				Eventually(sender.getWaiting).Should(Equal(1))
+				Expect(tsk.Stop(false)).To(Succeed())
+				var stat task.Status
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
+					Entry(&stat).
+					Exec(ctx, db)).To(Succeed())
+				Expect(stat.Message).To(Equal("Started task"))
+				Expect(stat.Variant).To(Equal(status.VariantSuccess))
+			},
+		)
+
 		It("Should set error status when sendEvent fails",
 			func(ctx context.Context) {
 				sender.setError(errors.New("simulated PagerDuty outage"))
