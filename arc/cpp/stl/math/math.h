@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <limits>
 #include <optional>
+#include <type_traits>
 #include <vector>
 
 #include "wasmtime.hh"
@@ -33,13 +34,23 @@ namespace arc::stl::math {
 inline constexpr const char *MODULE_NAME = "math";
 inline constexpr const char *RESET_INPUT_PARAM = "reset";
 
+/// @brief raises base to exp in O(log exp) steps. The result wraps on overflow, and a
+/// negative exp gives 1.
 template<typename T>
 T int_pow(T base, T exp) {
-    if (exp == 0) return 1;
-    T result = 1;
-    for (T i = 0; i < exp; ++i)
-        result *= base;
-    return result;
+    if constexpr (std::is_signed_v<T>)
+        if (exp < 0) return 1;
+    // Unsigned math wraps instead of overflowing, and unsigned int stops a narrow type
+    // from promoting to int.
+    using N = std::make_unsigned_t<T>;
+    using U = std::common_type_t<N, unsigned>;
+    U result = 1;
+    auto b = static_cast<U>(static_cast<N>(base));
+    for (auto e = static_cast<N>(exp); e > 0; e >>= 1) {
+        if ((e & 1U) != 0) result *= b;
+        b *= b;
+    }
+    return static_cast<T>(result);
 }
 
 /// @brief Aggregator is a reduction node that computes running statistics (avg, min,

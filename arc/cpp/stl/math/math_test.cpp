@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
+#include <limits>
 #include <utility>
 
 #include "gtest/gtest.h"
@@ -1874,5 +1876,21 @@ TEST(MathConstructionTest, ErrorsWhenInputMissing) {
             x::errors::NOT_FOUND
         );
     }
+}
+
+/// @brief it should raise an integer to a power.
+TEST(MathIntPowTest, RaisesToAPower) {
+    EXPECT_EQ(int_pow<int32_t>(2, 10), 1024);
+    EXPECT_EQ(int_pow<int32_t>(-3, 3), -27);
+    EXPECT_EQ(int_pow<uint8_t>(3, 5), 243);
+    EXPECT_EQ(int_pow<int8_t>(-3, 3), -27);
+    EXPECT_EQ(int_pow<int64_t>(7, 0), 1);
+}
+
+/// @brief it should finish at once for an exponent near the maximum of its type.
+TEST(MathIntPowTest, HandlesALargeExponent) {
+    EXPECT_EQ(int_pow<uint64_t>(1, std::numeric_limits<uint64_t>::max()), 1);
+    EXPECT_EQ(int_pow<int64_t>(-1, std::numeric_limits<int64_t>::max()), -1);
+    EXPECT_EQ(int_pow<uint32_t>(2, std::numeric_limits<uint32_t>::max()), 0);
 }
 }
