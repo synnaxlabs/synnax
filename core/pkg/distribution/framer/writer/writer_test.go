@@ -594,6 +594,45 @@ var _ = Describe("Writer", func() {
 				Expect(w.Close()).To(Succeed())
 			},
 		)
+		It(
+			"Should return a storage write error from a writer that is not sync",
+			func(ctx SpecContext) {
+				host := testutil.NewNode(ctx)
+				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+					Name:        "persist_only_error_time",
+					IsIndex:     true,
+					DataType:    telem.TimestampT,
+					Leaseholder: 1,
+				}}))[0]
+				free := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+					Name:        "persist_only_error_free",
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					DataType:    telem.Int64T,
+				}}))[0]
+				keys := channel.Keys{idx.Key(), free.Key()}
+				w := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+					Keys:             keys,
+					Start:            10 * telem.SecondTS,
+					Mode:             ts.WriterModePersistOnly,
+					EnableAutoCommit: new(false),
+				}))
+				Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+					telem.NewSeriesSecondsTSV(13, 12, 11),
+					telem.NewSeriesV[int64](4, 5, 6),
+				}))).To(BeTrue())
+				committed := make(chan error)
+				go func() {
+					defer GinkgoRecover()
+					_, _, err := w.Commit()
+					committed <- err
+				}()
+				Eventually(committed).Should(Receive(
+					MatchError(ContainSubstring("index out of order")),
+				))
+				Expect(w.Close()).To(MatchError(ContainSubstring("index out of order")))
+			},
+		)
 	})
 
 	Describe("Auto-Index", func() {
