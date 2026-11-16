@@ -427,30 +427,37 @@ func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	}
 
 	if w.Channel.IsIndex {
-		ts, err := w.commitWithEnd(ctx, w.highWaterMark+1)
+		ts, err := w.commitWithEnd(ctx, w.highWaterMark+1, nil)
 		if err != nil {
 			return 0, w.wrapError(err)
 		}
 		return ts, nil
 	}
-	ts, err := w.commitWithEnd(ctx, telem.TimeStamp(0))
+	ts, err := w.commitWithEnd(ctx, telem.TimeStamp(0), nil)
 	if err != nil {
 		return 0, w.wrapError(err)
 	}
 	return ts, nil
 }
 
-func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err error) {
+// CommitWithEnd commits the written series with end as the end of the domain. When g is
+// not nil, readers see the commit only once g publishes.
+func (w *Writer) CommitWithEnd(
+	ctx context.Context,
+	end telem.TimeStamp,
+	g *domain.Group,
+) (err error) {
 	if w.closed {
 		return w.wrapError(ErrWriterClosed)
 	}
-	_, err = w.commitWithEnd(ctx, end)
+	_, err = w.commitWithEnd(ctx, end, g)
 	return w.wrapError(err)
 }
 
 func (w *Writer) commitWithEnd(
 	ctx context.Context,
 	end telem.TimeStamp,
+	g *domain.Group,
 ) (telem.TimeStamp, error) {
 	err := w.control.Authorize(func(dw *controlledWriter) error {
 		if end.IsZero() {
@@ -478,7 +485,7 @@ func (w *Writer) commitWithEnd(
 				return err
 			}
 		}
-		if err := dw.Commit(ctx, end); err != nil {
+		if err := dw.CommitIn(ctx, end, g); err != nil {
 			return err
 		}
 		dw.tracker.publish(end)
