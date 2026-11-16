@@ -18,9 +18,12 @@ import { z } from "zod";
 
 import { Status } from "@/platform/status";
 import { View } from "@/platform/view";
-import { createConsoleWrapper } from "@/testutil";
+import { createTabWrapper } from "@/platform/view/testutil";
 
 const client = createTestClient();
+
+// A View.Frame reads its view from the tab it renders in.
+const TAB = { variant: "view", type: "explorer" } as const;
 
 const path = deep.path<z.infer<typeof schema>>();
 
@@ -33,7 +36,7 @@ const PROPERTIES: View.Filter.Properties<status.Where> = {
 const Fixture = ({ where }: { where?: status.Where }): ReactElement => {
   const methods = Form.use({ schema, values: { where } });
   return (
-    <View.Frame resourceType="status" icon="Status">
+    <View.Frame resourceType="status" icon="Status" tabType={TAB.type}>
       <Form.Form<typeof schema> {...methods}>
         <View.Filter.Chips properties={PROPERTIES} />
         <Form.Field path={path.where} showLabel={false}>
@@ -46,7 +49,7 @@ const Fixture = ({ where }: { where?: status.Where }): ReactElement => {
 Fixture.displayName = "Fixture";
 
 const renderFixture = async (where?: status.Where): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client });
+  const { wrapper } = await createTabWrapper({ client, tab: TAB });
   render(<Fixture where={where} />, { wrapper });
 };
 
