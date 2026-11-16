@@ -1252,10 +1252,10 @@ public:
         const auto write_count = std::min(count, this->cap() - this->size());
         if (write_count == 0) return 0;
 
-        const auto adjusted_count = inclusive ? write_count - 1 : write_count;
+        const auto steps = inclusive ? count - 1 : count;
         const int64_t start_ns = start.nanoseconds();
         const int64_t step_ns = (end - start).nanoseconds() /
-                                static_cast<int64_t>(adjusted_count);
+                                static_cast<int64_t>(steps);
         auto *data_ptr = reinterpret_cast<int64_t *>(
             this->buffer.get() + this->size() * this->data_type().density()
         );
