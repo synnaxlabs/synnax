@@ -71,7 +71,6 @@ linters:
     - prealloc # SY-6115
     - predeclared # SY-6115
     - recvcheck # SY-6111
-    - unparam # SY-6112
   settings:
     depguard:
       rules:
