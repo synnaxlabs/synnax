@@ -892,7 +892,8 @@ export class Series<T extends TelemValue = TelemValue>
   private atUUID(index: number, required: boolean): string | undefined {
     if (index < 0) index = this.length + index;
     const uuidString = uuid.parse(
-      new Uint8Array(this.buffer, index * this.dataType.density.valueOf()),
+      this.data as Uint8Array,
+      index * this.dataType.density.valueOf(),
     );
     if (uuidString == null) {
       if (required) throw new Error(`[series] - no value at index ${index}`);
@@ -1421,7 +1422,7 @@ class UUIDSeriesIterator implements Iterator<string> {
       throw new Error("cannot create a UUID series iterator for a non-UUID series");
     this.series = series;
     this.index = 0;
-    this.data = new Uint8Array(series.buffer);
+    this.data = series.data as Uint8Array;
     this.density = DataType.UUID.density.valueOf();
   }
 
