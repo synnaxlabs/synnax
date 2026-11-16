@@ -129,6 +129,17 @@ describe("useListenForReplacements", () => {
     expect(kept.properties.position).toEqual(3);
   });
 
+  it("should offer no answer once the old module is back on the bus", async () => {
+    await renderPrompt();
+    const { old } = await createPair();
+    const prompt = await findPrompt(`Is this your old ${old.name}?`);
+    await within(prompt).findByRole("button", { name: "Yes" });
+    await createReachedStatus(client, old);
+    await waitFor(() =>
+      expect(within(prompt).queryByRole("button", { name: "Yes" })).toBeNull(),
+    );
+  });
+
   it("should offer no answer once the user configures the new slave", async () => {
     await renderPrompt();
     const { old, slave } = await createPair();

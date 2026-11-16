@@ -11,6 +11,7 @@ import { device, status, type Synnax, type task } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, deep, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
 
+import { canReplace } from "@/feature/ethercat/device/replace";
 import {
   MAKE,
   SLAVE_MODEL,
@@ -238,12 +239,14 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<
 
 export interface ReplaceParams {
   /** The disconnected slave that keeps its key, name, settings, and tasks. */
-  old: SlaveDevice;
+  old: device.Key;
   /** The new slave whose module the old slave takes. The replace deletes it. */
-  slave: SlaveDevice;
+  slave: device.Key;
 }
 
-export interface ReplaceResult extends ReplaceParams {
+export interface ReplaceResult {
+  /** The old slave as the replace found it. */
+  old: SlaveDevice;
   /** The EtherCAT tasks that the replace stopped. They stay stopped. */
   stopped: task.Task[];
 }
@@ -258,7 +261,8 @@ const REPLACE: verbs.Verbs = {
  * Gives the old slave the serial number, network, and position of the new slave, so
  * the next scan finds the module as the old slave. Then deletes the new slave. Stops
  * each EtherCAT task that runs on the network first, and leaves the tasks stopped.
- * @throws {Error} if a task fails to stop. The slaves then stay as they are.
+ * @throws {Error} if the new slave can no longer replace the old slave, or a task fails
+ * to stop. The slaves then stay as they are.
  */
 export const { useUpdate: useReplace } = Flux.createUpdate<
   ReplaceParams,
@@ -267,7 +271,18 @@ export const { useUpdate: useReplace } = Flux.createUpdate<
   name: "EtherCAT slave",
   verbs: REPLACE,
   update: async ({ client, data }) => {
-    const { old, slave } = data;
+    const [old, slave] = await Promise.all(
+      [data.old, data.slave].map(
+        async (key) =>
+          await client.devices.retrieve({
+            key,
+            schemas: SLAVE_SCHEMAS,
+            includeStatus: true,
+          }),
+      ),
+    );
+    if (!canReplace(toSlaveOnRack(old), toSlaveOnRack(slave)))
+      throw new Error(`${slave.name} can no longer take the place of ${old.name}.`);
     const stopped = await stopTasksOnNetwork(client, old);
     // A scan between the two writes would make the new slave again if the delete went
     // first.
@@ -282,6 +297,6 @@ export const { useUpdate: useReplace } = Flux.createUpdate<
       device.set({ path: ["properties", "switched_at"], value: 0 }),
     ]);
     await client.devices.delete(slave.key);
-    return { ...data, stopped };
+    return { old, stopped };
   },
 });

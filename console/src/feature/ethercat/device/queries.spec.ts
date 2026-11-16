@@ -18,6 +18,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { EtherCAT } from "@/feature/ethercat";
 import {
   CONTROL_ENTRY,
+  createReachedStatus,
   createSlaveDevice as createSlave,
   STATUS_ENTRY,
 } from "@/feature/ethercat/testutil";
@@ -680,12 +681,13 @@ describe("useReplace", () => {
     const slave = await createSlave(
       client,
       r.key,
-      { network: "eth1", position: 5, serial: 77 },
+      { network: "eth0", position: 5, serial: 77 },
       false,
     );
+    await createReachedStatus(client, slave);
     const { result } = renderHook(() => EtherCAT.Device.useReplace(), { wrapper });
     await act(async () => {
-      await result.current.updateAsync({ old, slave });
+      await result.current.updateAsync({ old: old.key, slave: slave.key });
     });
     const kept = await client.devices.retrieve({
       key: old.key,
@@ -694,7 +696,7 @@ describe("useReplace", () => {
     expect(kept.name).toEqual("Thermocouples");
     expect(kept.properties).toMatchObject({
       identifier: "tc",
-      network: "eth1",
+      network: "eth0",
       position: 5,
       serial: 77,
       switchedAt: 0,
@@ -709,6 +711,7 @@ describe("useReplace", () => {
     const old = await createSlaveDevice(r.key, { network: "eth0" });
     const neighbor = await createSlaveDevice(r.key, { network: "eth0" });
     const slave = await createSlave(client, r.key, { network: "eth0" }, false);
+    await createReachedStatus(client, slave);
     const read = await createReadTask(r, neighbor.key);
     await reportTaskRunning(client, read);
     const driver = await answerCommandsUntil([read], "stop");
@@ -723,7 +726,9 @@ describe("useReplace", () => {
       { wrapper },
     );
     await act(async () => {
-      expect(await result.current.updateAsync({ old, slave })).toBe(true);
+      expect(await result.current.updateAsync({ old: old.key, slave: slave.key })).toBe(
+        true,
+      );
     });
     expect((await driver.answered).map((c) => c.type)).toEqual(["stop"]);
     expect(stopped).toEqual([read.key]);
@@ -738,6 +743,7 @@ describe("useReplace", () => {
       { network: "eth0", position: 5 },
       false,
     );
+    await createReachedStatus(client, slave);
     const read = await createReadTask(r, old.key);
     await reportTaskRunning(client, read);
     const driver = await answerCommandsUntil([read], "start", {
@@ -745,9 +751,36 @@ describe("useReplace", () => {
     });
     const { result } = renderHook(() => EtherCAT.Device.useReplace(), { wrapper });
     await act(async () => {
-      expect(await result.current.updateAsync({ old, slave })).toBe(false);
+      expect(await result.current.updateAsync({ old: old.key, slave: slave.key })).toBe(
+        false,
+      );
     });
     expect((await driver.answered).map((c) => c.type)).toEqual(["stop", "start"]);
+    const kept = await client.devices.retrieve({
+      key: old.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    expect(kept.properties.position).toEqual(3);
+    expect((await client.devices.retrieve({ key: slave.key })).key).toEqual(slave.key);
+  });
+
+  it("should change neither slave when the old module is back on the bus", async () => {
+    const r = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const old = await createSlaveDevice(r.key, { network: "eth0", position: 3 });
+    const slave = await createSlave(
+      client,
+      r.key,
+      { network: "eth0", position: 5 },
+      false,
+    );
+    await createReachedStatus(client, slave);
+    await createReachedStatus(client, old);
+    const { result } = renderHook(() => EtherCAT.Device.useReplace(), { wrapper });
+    await act(async () => {
+      expect(await result.current.updateAsync({ old: old.key, slave: slave.key })).toBe(
+        false,
+      );
+    });
     const kept = await client.devices.retrieve({
       key: old.key,
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,

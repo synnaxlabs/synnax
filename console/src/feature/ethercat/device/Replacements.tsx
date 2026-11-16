@@ -13,12 +13,8 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { useEffect, useRef } from "react";
 import { z } from "zod";
 
-import {
-  useEverySlave,
-  useReplace,
-  useSlavesByKeys,
-} from "@/feature/ethercat/device/queries";
-import { findReplacements } from "@/feature/ethercat/device/replace";
+import { useEverySlave, useReplace } from "@/feature/ethercat/device/queries";
+import { canReplace, findReplacements } from "@/feature/ethercat/device/replace";
 import { type Notifications } from "@/platform/notifications";
 
 const detailsZ = z.object({
@@ -55,7 +51,7 @@ export const useListenForReplacements = (): void => {
 
 const Notification: Notifications.Notification = ({ status: st, silence }) => {
   const { replace } = detailsZ.parse(st.details);
-  const slaves = useSlavesByKeys([replace.slave, ...replace.old]);
+  const slaves = useEverySlave();
   const addStatus = Status.useAdder();
   const { update, variant } = useReplace({
     afterSuccess: ({ data: { old, stopped } }) => {
@@ -69,10 +65,15 @@ const Notification: Notifications.Notification = ({ status: st, silence }) => {
     },
   });
   const slave = slaves?.find((s) => s.key === replace.slave);
-  const old = (slaves ?? []).filter((s) => replace.old.includes(s.key));
-  // The user may configure the new slave from another notification first.
+  // The user may configure the new slave, or plug the old module back in, first.
+  const old =
+    slave == null
+      ? []
+      : (slaves ?? []).filter(
+          (s) => replace.old.includes(s.key) && canReplace(s, slave),
+        );
   const actions =
-    slave == null || slave.configured ? undefined : (
+    slave == null || old.length === 0 ? undefined : (
       <>
         {old
           .sort((a, b) => a.properties.position - b.properties.position)
@@ -82,7 +83,7 @@ const Notification: Notifications.Notification = ({ status: st, silence }) => {
               variant="outlined"
               size="tiny"
               status={status.keepVariants(variant, "loading")}
-              onClick={() => update({ old: o, slave })}
+              onClick={() => update({ old: o.key, slave: slave.key })}
             >
               {old.length === 1
                 ? "Yes"
