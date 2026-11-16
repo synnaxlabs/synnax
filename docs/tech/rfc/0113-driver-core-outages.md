@@ -8,15 +8,12 @@
 
 ## 0 Summary
 
-A Driver that loses its Core keeps every task and Arc fully running, with no time limit.
-Read tasks keep reading, Arcs keep deciding, and write tasks keep driving hardware, all
-over the Driver's local bus. The Driver writes the data it acquires to a capped buffer
-on disk and sends it to the Core after the outage, with its original timestamps. It
-queues the statuses and ranges that Arcs set and sends them in order. It computes local
-copies of the calculated channels its Arcs read. A Driver that reconnects to a Core on a
-newer minor keeps running its tasks as if the Core were still down and reports "Driver
-needs an update". The scope is one Driver process: a Driver that restarts while the Core
-is down starts with nothing, as it does today.
+A Driver that loses its Core keeps every task and Arc running over its local bus, with
+no time limit. It buffers acquired data on disk and queues the statuses and ranges its
+Arcs set, then sends both to the Core after the outage with their original times. It
+computes local copies of the calculated channels its Arcs read. After a Core moves to a
+new minor, the Driver keeps running as if the Core were down and reports "Driver needs
+an update". A Driver that restarts while the Core is down still starts with nothing.
 
 ## 1 Motivation
 
@@ -92,9 +89,8 @@ Core returns.
 frame as a length-prefixed `pb::Frame` (exists, `x/cpp/telem/frame.h:185`), so it adds
 no new format. It lives under the Driver's state directory (exists,
 `driver/rack/state.h:17-28`) and its size cap is a Driver config setting. There is one
-spool per forwarder, so its frames keep the writer's channels and subject. Searched:
-`driver/` has no storage (`x/cpp` neither); the nearest analog is the single held frame
-in `Acquisition::Run` (`acquisition.h`).
+spool per forwarder, so its frames keep the writer's channels and subject. The Driver
+has no storage today; the nearest analog is the one frame `Acquisition::Run` holds.
 
 When the forwarder's Core writer fails, it writes each frame to the spool instead. When
 the Core returns, it opens the live writer again and, beside it, a `PersistOnly` writer
@@ -173,9 +169,9 @@ Arcs keep running during an outage and that the fallback is the hardware's own c
 AWS IoT Greengrass stream manager, Ignition Edge store and forward, and Sparkplug B
 historical data all buffer at the edge and forward on reconnect with original
 timestamps, and Greengrass lets the user choose to drop the oldest or the newest data
-when the buffer is full. We align: a capped disk buffer, sent with original times. We
-differ in running control logic offline; those systems leave edge logic to the user, and
-Synnax already runs Arc in the Driver.
+when the buffer is full. We align: a capped disk buffer, sent with original times.
+Running control logic offline needs no new model, because Arc already runs in the Driver
+(RFC 0032).
 
 ## 6 Implementation phases
 
@@ -238,3 +234,7 @@ spool format is the frame wire format.
 2. **Default caps**: Spool size and outbox length.
 3. **Spool after an update**: Whether an updated Driver drains a spool left by the old
    one. The format is the wire format, so it can.
+4. **Frames in flight at the failure**: Core writes do not ack each frame
+   (`client/cpp/framer/writer.cpp:57-60`), so the forwarder cannot tell which sent
+   frames the Core stored. Resend them to the spool and drop the overlap, or accept the
+   loss.
