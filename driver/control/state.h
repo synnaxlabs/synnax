@@ -14,6 +14,7 @@
 #include <shared_mutex>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "absl/log/log.h"
@@ -39,6 +40,9 @@ class States {
     std::unordered_map<synnax::channel::Key, x::control::State<synnax::channel::Key>>
         states;
     std::unordered_map<std::string, Gate> gates;
+    /// @brief local writers that closed while the Core was connected. The mirror can
+    /// still name one as a holder until the Core's transfer arrives.
+    std::unordered_set<std::string> closed;
     std::uint64_t next_order = 0;
     bool connected = true;
 
@@ -118,19 +122,33 @@ public:
     }
 
     /// @brief marks the Core as lost, so local gates hand channels to each other until
-    /// the next set.
+    /// the next set. A channel that a local writer holds, or held before it closed,
+    /// goes to the local gate that the Core's rule picks. A holder the Core reported
+    /// stays.
     void disconnect() {
         std::unique_lock lock(this->mu);
         this->connected = false;
+        std::vector<synnax::channel::Key> stale;
+        for (const auto &[channel, state]: this->states)
+            if (this->gates.contains(state.subject.key) ||
+                this->closed.contains(state.subject.key))
+                stale.push_back(channel);
+        for (const auto &[_, g]: this->gates)
+            for (const auto &[channel, _]: g.authorities)
+                if (!this->states.contains(channel)) stale.push_back(channel);
+        for (const auto channel: stale)
+            this->recompute(channel);
+        this->closed.clear();
     }
 
     /// @brief replaces the mirror with the cluster's complete control state and marks
-    /// the Core as connected. A channel
-    /// the Core reports as uncontrolled goes to its local gates, so a local writer that
-    /// has not reopened on the Core yet keeps its channels.
+    /// the Core as connected. A channel the Core reports as uncontrolled goes to its
+    /// local gates, so a local writer that has not reopened on the Core yet keeps its
+    /// channels.
     void set(const std::vector<x::control::State<synnax::channel::Key>> &next) {
         std::unique_lock lock(this->mu);
         this->connected = true;
+        this->closed.clear();
         this->states.clear();
         for (const auto &state: next)
             this->states[state.resource] = state;
@@ -192,7 +210,10 @@ public:
         if (it == this->gates.end()) return;
         const auto channels = it->second.authorities;
         this->gates.erase(it);
-        if (this->connected) return;
+        if (this->connected) {
+            this->closed.insert(subject.key);
+            return;
+        }
         for (const auto &[channel, _]: channels) {
             const auto held = this->states.find(channel);
             if (held != this->states.end() && held->second.subject == subject)

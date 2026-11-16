@@ -490,4 +490,45 @@ TEST(StatesTest, KeepsARemoteHolderAfterDisconnect) {
     states.set_authority(ARC, 1, 250);
     ASSERT_TRUE(states.is_authorized(1, ARC));
 }
+
+/// @brief it should hand a channel to the next local gate on disconnect when its holder
+/// closed while the Core was connected.
+TEST(StatesTest, DisconnectHandsOffAChannelAClosedWriterHeld) {
+    States states;
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {150});
+    states.close_gate(ARC);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    states.disconnect();
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    ASSERT_FALSE(states.is_authorized(1, ARC));
+}
+
+/// @brief it should hand a channel to the next local gate on disconnect when its holder
+/// lowered its authority while the Core was connected.
+TEST(StatesTest, DisconnectAppliesADecreaseMadeWhileConnected) {
+    States states;
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {150});
+    states.set_authority(ARC, 1, 100);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    states.disconnect();
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should wait for the Core again after set marks it connected.
+TEST(StatesTest, SetWaitsForTheCoreAgain) {
+    States states;
+    states.disconnect();
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {150});
+    states.set({x::control::State<synnax::channel::Key>{
+        .subject = ARC,
+        .resource = 1,
+        .authority = 200,
+    }});
+    states.close_gate(ARC);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    ASSERT_FALSE(states.is_authorized(1, OPERATOR));
+}
 }

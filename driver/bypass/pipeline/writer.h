@@ -23,7 +23,7 @@ namespace driver::bypass::pipeline {
 /// @brief a pipeline Writer that publishes frames to the local bus, then hands them to
 /// a Forwarder that delivers them to the Core in the background. It keeps a gate in
 /// control::States, so its authority changes and its close hand channels between local
-/// writers at once, with or without the Core.
+/// writers while the Core is lost.
 class Writer final : public ::driver::pipeline::Writer {
     std::unique_ptr<Forwarder> forwarder;
     std::shared_ptr<Bus> bus;
