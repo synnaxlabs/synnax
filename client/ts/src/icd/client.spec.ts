@@ -123,6 +123,11 @@ describe("icd", () => {
     });
 
     it("should create a JSON message with each field type", async () => {
+      const match: icd.JSONMatch = {
+        type: "unsigned",
+        pointer: "/seq",
+        value: "18446744073709551615",
+      };
       const ic = await client.icds.create({
         name: "JSON",
         messages: [
@@ -130,6 +135,7 @@ describe("icd", () => {
             name: "Reading",
             payload: {
               format: "json",
+              match,
               fields: [
                 { type: "float", name: "temp", pointer: "/temp", scale: 0.1 },
                 { type: "integer", name: "delta", pointer: "/delta" },
@@ -153,6 +159,7 @@ describe("icd", () => {
       expect(await client.icds.retrieve(ic.key)).toEqual(ic);
       expect(ic.messages[0].payload).toMatchObject({
         format: "json",
+        match,
         fields: [
           { type: "float", pointer: "/temp", scale: 0.1, enumValues: [] },
           { type: "integer", pointer: "/delta" },

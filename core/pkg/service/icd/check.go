@@ -188,16 +188,13 @@ func (c *checker) checkJSONFields(
 }
 
 func (c *checker) checkMatch(path []string, m JSONMatch) {
-	if _, err := xjson.ParsePointer(m.Pointer); err != nil {
-		c.Addf(pathOf(path, "pointer"), "invalid JSON Pointer %q", m.Pointer)
+	pointer := m.Base().Pointer
+	if _, err := xjson.ParsePointer(pointer); err != nil {
+		c.Addf(pathOf(path, "pointer"), "invalid JSON Pointer %q", pointer)
 	}
-	switch m.Value.(type) {
-	case string, float64, float32, int, int8, int16, int32, int64,
-		uint, uint8, uint16, uint32, uint64:
-	case nil:
-		c.Addf(pathOf(path, "value"), "value is required")
-	default:
-		c.Addf(pathOf(path, "value"), "value must be a string or a number")
+	if f, ok := m.Variant.(FloatJSONMatch); ok &&
+		(math.IsNaN(float64(f.Value)) || math.IsInf(float64(f.Value), 0)) {
+		c.Addf(pathOf(path, "value"), "value must be finite")
 	}
 }
 
