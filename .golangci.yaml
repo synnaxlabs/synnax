@@ -40,20 +40,21 @@ linters:
     - ireturn # Constructors return interfaces for runtime polymorphism.
     - lll # golines enforces 88 columns.
     - mnd # Literal numbers are clear in context.
+    - musttag # It does not see encoding/json/v2 MarshalJSONTo methods.
+    - nilnil # go/analysis, LSP handlers, and optional values return nil, nil.
     - nlreturn # gofumpt sets our blank lines.
     - noinlineerr # if err := f(); err != nil is idiomatic.
     - nonamedreturns # Named results let a defer set the error.
     - paralleltest # Ginkgo runs specs in parallel, not t.Parallel.
     - protogetter # We read fields of messages we know are not nil.
+    - spancheck # alamos Tracer.Trace returns its span for the caller to end.
     - tagliatelle # Wire formats set the tag case.
     - varnamelen # Short names in small scopes are idiomatic Go.
     - wrapcheck # x/errors decides where to wrap.
     - wsl_v5 # gofumpt sets our blank lines.
     # Not yet adopted. Each issue tracks the work to enable it.
-    - bodyclose # SY-6111
     - containedctx # SY-6109
     - contextcheck # SY-6109
-    - errorlint # SY-6111
     - exhaustive # SY-6106
     - fatcontext # SY-6109
     - forcetypeassert # SY-6105
@@ -63,18 +64,11 @@ linters:
     - gocognit # SY-6110
     - gocritic # SY-6115
     - gosec # SY-3843
-    - iface # SY-6111
-    - inamedparam # SY-6115
     - maintidx # SY-6110
-    - musttag # SY-6111
     - nestif # SY-6110
-    - nilerr # SY-6111
-    - nilnil # SY-6111
     - noctx # SY-6109
     - prealloc # SY-6115
-    - predeclared # SY-6115
     - recvcheck # SY-6111
-    - spancheck # SY-6111
     - unparam # SY-6112
   settings:
     depguard:

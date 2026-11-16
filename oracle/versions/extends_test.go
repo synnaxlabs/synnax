@@ -69,7 +69,8 @@ func elementVariants(files map[string]string) map[string]string {
 	GinkgoHelper()
 	f := MustSucceed(resolverFor(files).File("schemas/synnax/channel", 2))
 	element := MustBeOk(versions.DefinedType(f, "Element"))
-	form := element.Form.(resolution.UnionForm)
+	form, ok := element.Form.(resolution.UnionForm)
+	Expect(ok).To(BeTrue())
 	variants := make(map[string]string, len(form.Variants))
 	for _, v := range form.Variants {
 		variants[v.Name] = v.Type.Name
@@ -599,7 +600,9 @@ Holder struct extends v0.Holder {
 `,
 		}).File("schemas/synnax/channel", 1))
 		holder := MustBeOk(f.Table.Get("v1.Holder"))
-		Expect(holder.Form.(resolution.StructForm).Fields).To(HaveLen(2))
+		form, ok := holder.Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
+		Expect(form.Fields).To(HaveLen(2))
 	})
 
 	It("Should not copy an extends of a different name", func() {
@@ -615,7 +618,8 @@ Tree union on variant extends v0.Node {
 }
 `,
 		}).File("schemas/synnax/channel", 1))
-		form := MustBeOk(f.Table.Get("v1.Tree")).Form.(resolution.UnionForm)
+		form, ok := MustBeOk(f.Table.Get("v1.Tree")).Form.(resolution.UnionForm)
+		Expect(ok).To(BeTrue())
 		Expect(form.Included).To(ConsistOf(HaveField("Name", "v0.Node")))
 		Expect(form.Declared).To(ConsistOf(HaveField("Name", "tree")))
 	})

@@ -104,8 +104,8 @@ func WithInstrumentation(i alamos.Instrumentation) Option {
 // size, in bytes, for a writer to be created on a file. Note while that a file's size
 // may still exceed this value, it is not likely to exceed by much with frequent
 // commits. Defaults to 1GB.
-func WithFileSizeCap(cap telem.Size) Option {
-	return func(o *options) { o.fileSize = cap }
+func WithFileSizeCap(size telem.Size) Option {
+	return func(o *options) { o.fileSize = size }
 }
 
 // WithRelayBufferSize sets the buffer size, in frames, of the relay's main pipe. Every

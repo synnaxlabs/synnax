@@ -34,7 +34,7 @@ type BindableTransport interface {
 	freighter.Transport
 	// BindTo registers the transport's HTTP and websocket routes on the given
 	// fiber.App.
-	BindTo(*fiber.App)
+	BindTo(app *fiber.App)
 }
 
 const (

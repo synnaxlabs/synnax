@@ -17,7 +17,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming as Base } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Schematic, Theming, TimeSpan } from "@synnaxlabs/pluto";
-import { deep, id } from "@synnaxlabs/x";
+import { deep, dimensions, id } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
@@ -156,8 +156,7 @@ export const Preview = ({
     },
   });
 
-  const onMount = (svgElement: SVGSVGElement) => {
-    setSVG(svgElement);
+  const onMount = (drawing: SVGGElement) => {
     const addInteractivity = (el: Element) => {
       if (!(el instanceof SVGElement) || el.tagName === "svg") return;
       el.classList.add(CSS.BEM("schematic", "svg-region", "hoverable"));
@@ -206,20 +205,15 @@ export const Preview = ({
 
       Array.from(el.children).forEach(addInteractivity);
     };
-    Array.from(svgElement.children[0].children).forEach(addInteractivity);
+    Array.from(drawing.children).forEach(addInteractivity);
   };
 
-  const setRenderContainer = Schematic.Node.Custom.useRender({
-    orientation: "left",
+  const setDrawing = Schematic.Node.Custom.useRender({
     activeState: selectedState,
-    externalScale: 1,
     spec,
     onMount,
   });
-  const setContainer = (el: HTMLDivElement | null) => {
-    containerRef.current = el;
-    setRenderContainer(el);
-  };
+  const dims = Schematic.Node.Region.measure(spec.svg);
 
   const handleContentsChange = (contents: string, filename?: string) => {
     const processedSVG = Schematic.Node.Region.normalizeSVG(contents);
@@ -322,7 +316,21 @@ export const Preview = ({
                 onSelect={onHandleSelect}
                 onDrag={onHandlePlace}
               />
-              <div ref={setContainer} className={CSS.B("preview")}></div>
+              <div ref={containerRef} className={CSS.B("preview")}>
+                {dims != null && (
+                  <svg
+                    ref={setSVG}
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox={dimensions.svgViewBox(dims)}
+                    {...dimensions.scale(
+                      dims,
+                      Schematic.Node.Primitive.resolveScale(spec.scale),
+                    )}
+                  >
+                    <g ref={setDrawing} />
+                  </svg>
+                )}
+              </div>
             </div>
           </Flex.Box>
         </Flex.Box>

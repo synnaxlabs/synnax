@@ -45,7 +45,7 @@ EDITS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
     pullRequest(number: $p) {
       userContentEdits(first: 100, after: $endCursor) {
         pageInfo { hasNextPage endCursor }
-        nodes { editor { __typename login } diff }
+        nodes { editor { __typename login } diff editedAt }
       }
     }
   }

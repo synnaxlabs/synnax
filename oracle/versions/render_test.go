@@ -101,7 +101,8 @@ var _ = Describe("Render", func() {
 			Expect(rt.Form).To(BeAssignableToTypeOf(t.Form), t.QualifiedName)
 			switch f := t.Form.(type) {
 			case resolution.StructForm:
-				rf := rt.Form.(resolution.StructForm)
+				rf, ok := rt.Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
 				Expect(rf.Fields).To(HaveLen(len(f.Fields)), t.QualifiedName)
 				for i := range f.Fields {
 					Expect(rf.Fields[i].Name).To(Equal(f.Fields[i].Name))
@@ -109,10 +110,12 @@ var _ = Describe("Render", func() {
 					Expect(rf.Fields[i].Optional).To(Equal(f.Fields[i].Optional))
 				}
 			case resolution.EnumForm:
-				rf := rt.Form.(resolution.EnumForm)
+				rf, ok := rt.Form.(resolution.EnumForm)
+				Expect(ok).To(BeTrue())
 				Expect(rf.Values).To(HaveLen(len(f.Values)))
 			case resolution.UnionForm:
-				rf := rt.Form.(resolution.UnionForm)
+				rf, ok := rt.Form.(resolution.UnionForm)
+				Expect(ok).To(BeTrue())
 				Expect(rf.Variants).To(HaveLen(len(f.Variants)))
 				Expect(rf.Discriminator).To(Equal(f.Discriminator))
 			}
@@ -128,7 +131,9 @@ Framing struct {
 `)
 		rendered := versions.Render(declsOf(table), versions.RenderOptions{})
 		again := analyzeFixture(MustSucceed(formatter.Format(rendered)))
-		fields := MustBeOk(again.Get("test.Framing")).Form.(resolution.StructForm).Fields
+		form, ok := MustBeOk(again.Get("test.Framing")).Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
+		fields := form.Fields
 		Expect(fields[0].Default.StringValue).To(Equal("\n"))
 		Expect(fields[1].Default.StringValue).To(Equal("\r\n"))
 	})
@@ -166,7 +171,8 @@ Proof union on method Method {
 			})
 			Expect(rendered).To(ContainSubstring("Proof union on method Method {"))
 			again := analyzeFixture(MustSucceed(formatter.Format(rendered)))
-			form := MustBeOk(again.Get("test.Proof")).Form.(resolution.UnionForm)
+			form, ok := MustBeOk(again.Get("test.Proof")).Form.(resolution.UnionForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.Enum.Name).To(Equal("test.Method"))
 		},
 	)
@@ -202,11 +208,13 @@ Chan union on type extends Base {
 		Expect(rendered).To(ContainSubstring("-port"))
 
 		again := analyzeFixture(MustSucceed(formatter.Format(rendered)))
-		trimmed := MustBeOk(again.Get("test.Trimmed")).Form.(resolution.StructForm)
+		trimmed, ok := MustBeOk(again.Get("test.Trimmed")).Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
 		Expect(trimmed.OmittedFields).To(Equal([]string{"port"}))
 
 		chanType := MustBeOk(again.Get("test.Chan"))
-		form := chanType.Form.(resolution.UnionForm)
+		form, ok := chanType.Form.(resolution.UnionForm)
+		Expect(ok).To(BeTrue())
 		names := make([]string, 0)
 		for _, f := range resolution.UnifiedVariantFields(chanType, form.Variants[1], again) {
 			names = append(names, f.Name)
@@ -261,13 +269,16 @@ AxisKey enum extends XAxisKey, YAxisKey {}
 		Expect(strings.Count(rendered, `x1 = "x1"`)).To(Equal(1))
 
 		again := analyzeFixture(MustSucceed(formatter.Format(rendered)))
-		element := MustBeOk(again.Get("test.ElementConfig")).Form.(resolution.UnionForm)
+		element, ok := MustBeOk(again.Get("test.ElementConfig")).
+			Form.(resolution.UnionForm)
+		Expect(ok).To(BeTrue())
 		names := make([]string, 0, len(element.Variants))
 		for _, v := range element.Variants {
 			names = append(names, v.Name)
 		}
 		Expect(names).To(Equal([]string{"tank", "pipe", "group"}))
-		axis := MustBeOk(again.Get("test.AxisKey")).Form.(resolution.EnumForm)
+		axis, ok := MustBeOk(again.Get("test.AxisKey")).Form.(resolution.EnumForm)
+		Expect(ok).To(BeTrue())
 		Expect(axis.Values).To(HaveLen(2))
 	})
 

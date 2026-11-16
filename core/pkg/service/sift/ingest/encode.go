@@ -167,8 +167,10 @@ func (c *column) value(a telem.Alignment) *ingestv1.IngestWithConfigDataChannelV
 				Bytes: c.variable[i],
 			},
 		}
-	default:
+	case telem.UnknownT:
 		return empty
+	default:
+		panic("unknown data type " + string(s.DataType))
 	}
 }
 

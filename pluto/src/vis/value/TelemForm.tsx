@@ -58,6 +58,7 @@ export const TelemForm = (): ReactElement => {
           <Input.Numeric
             value={value.rollingAverage ?? 1}
             bounds={{ lower: 1, upper: 100 }}
+            integer
             onChange={handleRollingAverageChange}
           />
         </Input.Item>
