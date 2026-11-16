@@ -157,6 +157,34 @@ var _ = Describe("Analyzer", func() {
 		})
 	})
 
+	Describe("Version references", func() {
+		It("Should warn on a version the table does not seed", func(ctx SpecContext) {
+			_, diag := Analyze(ctx, "Key = v0.Key\n", "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: v0.Key"))
+		})
+
+		It("Should reject a name a seeded version does not hold", func(
+			ctx SpecContext,
+		) {
+			_, diag := Analyze(ctx, "Key = v0.Key\n", "v1", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: v0.Key"))
+		})
+	})
+
+	It("Should not bind a qualified built-in name", func(ctx SpecContext) {
+		source := `
+			@go output "out"
+			Entry struct {
+				name missing.string
+			}
+		`
+		_, diag := Analyze(ctx, source, "test", loader)
+		Expect(diag.Ok()).To(BeFalse())
+		Expect(diag.String()).To(ContainSubstring("unresolved type: missing.string"))
+	})
+
 	Describe("Repeated field domain expressions", func() {
 		DescribeTable(
 			"Should reject an expression that a field declares twice",

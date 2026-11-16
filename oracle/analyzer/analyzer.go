@@ -1854,7 +1854,7 @@ func resolveTypeRef(
 	if (resolution.IsPrimitive(name) || resolution.IsConstraint(name)) &&
 		len(parts) == 1 {
 		ref.Name = name
-	} else if typ, ok := c.table.Lookup(ns, name); ok {
+	} else if typ, ok := lookupRef(c.table, len(parts) == 2, ns, name); ok {
 		ref.Name = typ.QualifiedName
 		// An omitted optional type argument is nil.
 		params := resolution.TypeParams(typ.Form)
@@ -1862,7 +1862,8 @@ func resolveTypeRef(
 			params[i].Optional && !params[i].HasDefault(); i++ {
 			ref.TypeArgs = append(ref.TypeArgs, resolution.TypeRef{Name: "nil"})
 		}
-	} else if otherResource && !namespaceSettled(c, ns) {
+	} else if otherResource && !namespaceSettled(c, ns) ||
+		isVersion && !versionsSeeded(c) {
 		c.report(diagnostics.Warningf(nil, "unresolved type: %s", ref.Name))
 	} else {
 		c.report(diagnostics.Errorf(nil, "unresolved type: %s", ref.Name))
@@ -1890,6 +1891,27 @@ func namespaceSettled(c *analysisCtx, namespace string) bool {
 		}
 	}
 	return true
+}
+
+// versionsSeeded reports whether the table holds the file's sibling versions. Only the
+// version resolver seeds them, and it analyzes under a version namespace. The LSP
+// analyzes a version file alone, under its resource namespace.
+func versionsSeeded(c *analysisCtx) bool {
+	_, ok := paths.Version(c.namespace)
+	return ok
+}
+
+// lookupRef resolves a reference. A qualified name never binds a built-in.
+func lookupRef(
+	table *resolution.Table,
+	qualified bool,
+	ns, name string,
+) (resolution.Type, bool) {
+	typ, ok := table.Lookup(ns, name)
+	if ok && qualified && typ.Namespace == "" {
+		return resolution.Type{}, false
+	}
+	return typ, ok
 }
 
 func extractTypeNormal(tr *parser.TypeRefNormalContext) string {
