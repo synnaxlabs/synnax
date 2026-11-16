@@ -282,7 +282,7 @@ resource "aws_iam_role_policy" "seat_logins" {
         Condition = {
           StringEquals = { "aws:userid" = local.sandbox_session }
           "ForAllValues:StringEquals" = {
-            "aws:TagKeys" = ["holders", "limited-until"]
+            "aws:TagKeys" = ["holders", "limited-until", "broken"]
           }
         }
       },
@@ -296,7 +296,9 @@ resource "aws_iam_role_policy" "seat_logins" {
             "ec2:ResourceTag/project" = "synnax-agents"
             "ec2:ResourceTag/pool"    = ["agent", "review"]
           }
-          "ForAllValues:StringEquals" = { "aws:TagKeys" = ["login", "limited-until"] }
+          "ForAllValues:StringEquals" = {
+            "aws:TagKeys" = ["login", "limited-until", "login-broken"]
+          }
         }
       },
       {
