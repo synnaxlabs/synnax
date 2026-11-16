@@ -616,6 +616,17 @@ var _ = Describe("Min", func() {
 		expectOutputTime(s.state, 3*telem.SecondTS)
 	})
 
+	It("Should compute the minimum of a timestamp series", func(ctx SpecContext) {
+		s := openMath(ctx, "min", types.TimeStamp(), nil)
+		*s.inputNode.Output(0) = telem.NewSeriesSecondsTSV(50, 10, 70)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
+		s.inputNode.MarkFresh(0)
+		Expect(nextChanged(ctx, s.n).Contains(0)).To(BeTrue())
+		Expect(*s.state.Node("math").Output(0)).To(
+			telem.MatchSeries(telem.NewSeriesSecondsTSV(10)),
+		)
+	})
+
 	It("Should maintain minimum across batches", func(ctx SpecContext) {
 		s := openMath(ctx, "min", types.I32(), nil)
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](50, 30)

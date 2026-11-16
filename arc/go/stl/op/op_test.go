@@ -106,6 +106,16 @@ var _ = Describe("OP", func() {
 			telem.NewSeriesSecondsTSV(7, 8, 9),
 		),
 		Entry(
+			"Timestamp GT",
+			"gt",
+			telem.NewSeriesSecondsTSV(1, 5),
+			telem.NewSeriesSecondsTSV(1, 2),
+			telem.NewSeriesSecondsTSV(3, 3),
+			telem.NewSeriesSecondsTSV(1, 2),
+			telem.NewSeriesV[bool](false, true),
+			telem.NewSeriesSecondsTSV(1, 2),
+		),
+		Entry(
 			"Keeps the lhs time when both inputs are the same length",
 			"gt",
 			telem.NewSeriesV[float32](2, 2, 2),
