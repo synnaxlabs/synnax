@@ -542,6 +542,22 @@ describe("Region.normalizeSVG", () => {
   });
 });
 
+describe("Region.parseTrusted", () => {
+  it("should return the root without sanitizing the markup", () => {
+    const href = "https://example.com/a.svg#a";
+    const root = Region.parseTrusted(
+      `<svg xmlns="http://www.w3.org/2000/svg"><use href="${href}" /></svg>`,
+    );
+    expect(root?.querySelector("use")?.getAttribute("href")).toBe(href);
+  });
+
+  it("should return null for malformed markup", () => {
+    expect(
+      Region.parseTrusted('<svg xmlns="http://www.w3.org/2000/svg"><rect></svg>'),
+    ).toBeNull();
+  });
+});
+
 describe("Region.parseSVG", () => {
   const NS =
     'xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"';
