@@ -74,12 +74,14 @@ export const Breadcrumb = ({
     gap="small"
     {...rest}
   >
-    {Children.toArray(children).map((child, i) => (
-      <Fragment key={i}>
-        {i > 0 && <Separator />}
-        {typeof child === "string" ? <Segment>{child}</Segment> : child}
-      </Fragment>
-    ))}
+    {Children.toArray(children)
+      .filter((child) => child !== "")
+      .map((child, i) => (
+        <Fragment key={i}>
+          {i > 0 && <Separator />}
+          {typeof child === "string" ? <Segment>{child}</Segment> : child}
+        </Fragment>
+      ))}
   </Text.Text>
 );
 
