@@ -741,6 +741,22 @@ describe("MQTT read form", () => {
     });
   });
 
+  describe("field details", () => {
+    it("should show the scale, offset, and units only for a number type", async () => {
+      await renderRead({
+        fields: [createField("temperature", "float"), createField("mode", "string")],
+      });
+      await selectField("temperature");
+      await screen.findByText("Units");
+      expect(screen.getByText("Scale")).toBeTruthy();
+      expect(screen.getByText("Offset")).toBeTruthy();
+      await selectField("mode");
+      await waitFor(() => expect(screen.queryByText("Units")).toBeNull());
+      expect(screen.queryByText("Scale")).toBeNull();
+      expect(screen.getByText("Enum mapping")).toBeTruthy();
+    });
+  });
+
   describe("channels", () => {
     it("should stop and start reading a field, keeping the channel of its pointer", async () => {
       const ch = await client.channels.create({

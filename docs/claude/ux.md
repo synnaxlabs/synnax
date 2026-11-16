@@ -263,6 +263,9 @@ bound, a log precision, or the line plot X channel.
   channel table, and a fields table in the topic details, which showed each field twice.
 - A topic that reads several messages holds a node for each, with its fields beneath. A
   message's details hold its name and match, from the ICD, then its timestamp.
+- A field's format stays short, so its channel shows with no scroll: Scale and Offset
+  share a line, Units shows only for a number type, and Enum mapping is one line until
+  it holds a mapping.
 - A topic that reads one message picks it in **Message format**, from the JSON messages
   of every ICD, each shown with its ICD's name. A new topic's message goes into the ICD
   that most of the task's topics read. Rejected: a stored task-level ICD, which repeats

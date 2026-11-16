@@ -555,45 +555,41 @@ export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
     if (next !== type) set(path, withJSONType(get(path).value, next));
   };
   return (
-    <>
-      <Form.Section title="Field" actions={actions}>
-        <Form.TextField path={path.name} label="Name" padHelpText={false} />
-        <Form.TextField
-          path={path.pointer}
-          label="Pointer"
-          padHelpText={false}
-          inputProps={POINTER_INPUT_PROPS}
-        />
-        <Input.Item label="Type" padHelpText={false}>
-          <Select.Simple<JSONType>
-            resourceName="type"
-            value={type}
-            onChange={handleType}
-            variant="floating"
-            allowNone={false}
-            preview={mode === "preview"}
-          >
-            {Object.entries(JSON_TYPE_NAMES).map(([key, name]) => (
-              <Select.Item key={key} itemKey={key}>
-                {name}
-              </Select.Item>
-            ))}
-          </Select.Simple>
-        </Input.Item>
-        {isNumberKind(type) && (
-          <>
+    <Form.Section title="Field" actions={actions}>
+      <Form.TextField path={path.name} label="Name" padHelpText={false} />
+      <Form.TextField
+        path={path.pointer}
+        label="Pointer"
+        padHelpText={false}
+        inputProps={POINTER_INPUT_PROPS}
+      />
+      <Input.Item label="Type" padHelpText={false}>
+        <Select.Simple<JSONType>
+          resourceName="type"
+          value={type}
+          onChange={handleType}
+          variant="floating"
+          allowNone={false}
+          preview={mode === "preview"}
+        >
+          {Object.entries(JSON_TYPE_NAMES).map(([key, name]) => (
+            <Select.Item key={key} itemKey={key}>
+              {name}
+            </Select.Item>
+          ))}
+        </Select.Simple>
+      </Input.Item>
+      {isNumberKind(type) && (
+        <>
+          <Flex.Box x>
             <Form.NumericField path={path.scale} label="Scale" padHelpText={false} />
             <Form.NumericField path={path.offset} label="Offset" padHelpText={false} />
-          </>
-        )}
-        <Form.TextField path={path.units} label="Units" padHelpText={false} />
-        {isMappable(field) && <Optional path={path} field={field} />}
-      </Form.Section>
-      {isMappable(field) && (
-        <Form.Section title="Enum mapping">
-          <EnumValues path={path} />
-        </Form.Section>
+          </Flex.Box>
+          <Form.TextField path={path.units} label="Units" padHelpText={false} />
+        </>
       )}
-    </>
+      {isMappable(field) && <Optional path={path} field={field} />}
+      <EnumValues path={path} label="Enum mapping" />
+    </Form.Section>
   );
 };
