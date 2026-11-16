@@ -113,14 +113,26 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 		})
 	})
 
-	It("Should reject a task worker count that does not fit a byte", func() {
+	DescribeTable("Should reject a task worker count that does not fit a byte",
+		func(count int) {
+			viper.Set(start.FlagInsecure, true)
+			viper.Set(start.FlagTaskWorkerCount, count)
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+				To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(start.FlagTaskWorkerCount)),
+				))
+		},
+		Entry("negative", -1),
+		Entry("one above the maximum", 256),
+		Entry("far above the maximum", 300),
+	)
+
+	It("Should accept the largest task worker count that fits a byte", func() {
 		viper.Set(start.FlagInsecure, true)
-		viper.Set(start.FlagTaskWorkerCount, 300)
+		viper.Set(start.FlagTaskWorkerCount, 255)
 		Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
-			To(And(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(start.FlagTaskWorkerCount)),
-			))
+			ToNot(HaveOccurred())
 	})
 
 	It("Should allow a Tailscale advertised listener in insecure mode", func() {
