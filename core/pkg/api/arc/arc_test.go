@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -310,6 +311,77 @@ var _ = Describe("Service", func() {
 				_, found := a.Program.Functions.Find("um_api_m.f")
 				Expect(found).To(BeTrue())
 				Expect(a.Program.WASM).ToNot(BeEmpty())
+			},
+		)
+
+		It(
+			"Should return the calculated channels that an automation reads",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name: "cc_base", DataType: telem.Int64T, Virtual: true,
+				}
+				out := channel.Channel{
+					Name: "cc_out", DataType: telem.Int64T, Virtual: true,
+				}
+				inner := channel.Channel{
+					Name:       "cc_inner",
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return cc_base + 1",
+				}
+				outer := channel.Channel{
+					Name:       "cc_outer",
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return cc_inner * 2",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					w := channelSvc.NewWriter(tx)
+					for _, ch := range []*channel.Channel{&base, &out, &inner, &outer} {
+						if err := w.Create(ctx, ch); err != nil {
+							return err
+						}
+					}
+					return nil
+				})).To(Succeed())
+				a := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+					Name: "cc_automation",
+					Source: arc.Source{Variant: arc.TextSource{
+						Text: text.Text{Raw: "cc_outer -> cc_out"},
+					}},
+				}}}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).Create(ctx, &a)
+				})).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						if err := arcSvc.NewWriter(tx).Delete(
+							ctx, a.Base().Key,
+						); err != nil {
+							return err
+						}
+						return channelSvc.NewWriter(tx).DeleteMany(ctx, []channel.Key{
+							outer.Key(), inner.Key(), out.Key(), base.Key(),
+						}, false)
+					})).To(Succeed())
+				})
+				grantOn(ctx, author.ResourceID(), access.ActionRetrieve, a.ResourceID())
+				key := a.Base().Key
+				res := MustSucceed(
+					retrieve(AuthedCtx(ctx, author), apiarc.RetrieveRequest{
+						Where:          &arc.Where{Key: &filter.Set[arc.Key]{Eq: &key}},
+						IncludeProgram: true,
+					}),
+				)
+				Expect(res.Arcs).To(HaveLen(1))
+				automation, ok := res.Arcs[0].Variant.(arc.AutomationArc)
+				Expect(ok).To(BeTrue())
+				Expect(automation.Calculations).To(HaveLen(2))
+				Expect(automation.Calculations[0].Channel).To(Equal(inner.Key()))
+				Expect(automation.Calculations[1].Channel).To(Equal(outer.Key()))
+				for _, c := range automation.Calculations {
+					Expect(c.Program.WASM).ToNot(BeEmpty())
+				}
 			},
 		)
 
