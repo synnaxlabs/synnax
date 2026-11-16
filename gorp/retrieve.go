@@ -371,9 +371,8 @@ func (r Retrieve[K, E]) Count(
 	return count, err
 }
 
-// match runs the filter's predicates against a decoded entry. Returns
-// true if no filter is set. key may be nil when the caller does not
-// have the raw key bytes available.
+// match runs the filter's predicates against a decoded entry and its stored key and
+// value. Returns true if no filter is set.
 func (r Retrieve[K, E]) match(ctx Context, e *E, key, value []byte) (bool, error) {
 	if !r.filter.keys.Contains((*e).GorpKey()) {
 		return false, nil
