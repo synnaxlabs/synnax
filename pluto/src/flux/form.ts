@@ -280,7 +280,7 @@ const persist = async <
           ...p,
           status: nextStatus,
           variant: nextStatus.variant,
-        };
+        } as Result<undefined>;
       });
     const written = params.value();
     const read = stored.current;
