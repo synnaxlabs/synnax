@@ -51,8 +51,8 @@ type binding struct {
 	DataType telem.DataType `json:"data_type"`
 }
 
-// decodeCase is one document. A document that belongs to no message sets unmatched,
-// and one that does not decode names the error. Otherwise message names the message it
+// decodeCase is one document. A document that belongs to no message sets unmatched, and
+// one that does not decode names the error. Otherwise message names the message it
 // belongs to, and samples holds one JSON value for each binding of that message.
 type decodeCase struct {
 	Document  json.RawMessage   `json:"document"`

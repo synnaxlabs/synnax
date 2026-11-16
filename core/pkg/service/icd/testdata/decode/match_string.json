@@ -83,6 +83,10 @@
       "unmatched": true
     },
     {
+      "document": { "type": 1e999, "v": 1 },
+      "unmatched": true
+    },
+    {
       "document": { "type": true, "v": 1 },
       "unmatched": true
     },

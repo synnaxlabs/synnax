@@ -20,8 +20,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// router finds the message that a document belongs to. Every match rule tests the
-// value at one pointer, so one lookup on that value finds the message.
+// router finds the message that a document belongs to. Every match rule tests the value
+// at one pointer, so one lookup on that value finds the message.
 type router struct {
 	// ruled is true when a message has a match rule.
 	ruled    bool
@@ -177,7 +177,7 @@ func (r *router) find(value jsontext.Value) (message int, ok bool, err error) {
 	case 't', 'f':
 		message, ok = r.booleans[value.Kind() == 't']
 	case '0':
-		// Parse a number only when a rule tests numbers.
+		// With no number rules, any number is no match, even one that does not parse.
 		if len(r.integers) == 0 && len(r.floats) == 0 {
 			break
 		}
