@@ -120,6 +120,11 @@ class Master final : public master::Master {
         size_t output_sz = 0;
         /// @brief the working counter of a frame that every enabled slave handled.
         int expected_wkc = 0;
+        /// @brief the enabled slaves with inputs, in ascending order. Each cycle reads
+        /// their AL status in the frames of its process data.
+        std::vector<uint16_t> state_reads;
+        /// @brief what inputless() returns. Only the cycle uses it.
+        std::vector<uint16_t> inputless;
         /// @brief whether the enabled slaves' frames carry the reference clock time.
         bool has_dc = false;
         /// @brief the DC setup of each enabled slave in a DC mode.
@@ -213,6 +218,8 @@ public:
     std::optional<x::telem::TimeStamp> dc_time() const override;
 
     [[nodiscard]] std::optional<uint32_t> shortfall() const override;
+
+    [[nodiscard]] std::span<const uint16_t> inputless() const override;
 
 private:
     /// @brief returns the record of the slave at pos in the SOEM slave table. Record 0

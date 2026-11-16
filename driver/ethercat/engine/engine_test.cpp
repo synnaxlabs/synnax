@@ -3410,6 +3410,64 @@ TEST_F(EngineTest, FullCycleDropsTheSamplesOfASlaveOutOfOP) {
     EXPECT_EQ(kept->warning(), "");
 }
 
+/// @brief it should drop the samples of a slave below SAFE-OP from the first cycle that
+/// reads its state, before the supervisor sees it.
+TEST_F(EngineTest, FullCycleDropsASlaveBelowSafeOpBeforeTheSupervisorSeesIt) {
+    this->master->add_slave(io_slave(1));
+    this->master->add_slave(io_slave(2));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 2)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    // The supervisor waits in the recovery of slave 1, so it sees no later change.
+    this->master->hold_recover();
+    x::defer::defer release([this] { this->master->release_recover(); });
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::INIT);
+    this->master->wait_until_recovering();
+    this->master->set_slave_transition_failure(2, slave::State::OP);
+    this->master->set_slave_state(2, slave::State::INIT);
+    ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
+    EXPECT_EQ(reader->warning(), "Slave 2 (Slave2) is not in OP.");
+    EXPECT_EQ(this->engine->health()[2].state, slave::State::OP);
+}
+
+/// @brief it should drop the samples of a slave below SAFE-OP that the supervisor has
+/// not seen on a short cycle that the outage explains, and keep the other readers.
+TEST_F(EngineTest, ShortCycleDropsASlaveBelowSafeOpBeforeTheSupervisorSeesIt) {
+    this->master->add_slave(io_slave(1));
+    this->master->add_slave(io_slave(2));
+    const auto kept = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 2)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    // The supervisor waits in the recovery of slave 1, so it sees no later change.
+    this->master->hold_recover();
+    x::defer::defer release([this] { this->master->release_recover(); });
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::SAFE_OP);
+    this->master->wait_until_recovering();
+    this->master->set_shortfall(2);
+    this->master->set_slave_state(2, slave::State::INIT);
+    const auto short_since = x::telem::TimeStamp::now();
+    ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
+    EXPECT_EQ(reader->warning(), "Slave 2 (Slave2) is not in OP.");
+    ASSERT_EVENTUALLY_TRUE(
+        x::telem::TimeStamp(this->read_times(*kept, 1).at<int64_t>(0)) > short_since
+    );
+    EXPECT_EQ(this->engine->health()[2].state, slave::State::OP);
+}
+
 /// @brief it should keep the samples of a slave in SAFE-OP on a full cycle, since a
 /// slave in SAFE-OP updates its inputs.
 TEST_F(EngineTest, FullCycleKeepsTheSamplesOfASlaveInSafeOp) {

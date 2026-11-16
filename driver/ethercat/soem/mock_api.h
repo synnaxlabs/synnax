@@ -17,6 +17,7 @@
 #include <deque>
 #include <functional>
 #include <map>
+#include <mutex>
 #include <optional>
 #include <set>
 #include <span>
@@ -159,6 +160,13 @@ public:
     std::atomic<uint16_t> read_state{EC_STATE_INIT};
     /// @brief read_state at each send_processdata call.
     std::vector<uint16_t> send_states;
+    /// @brief the slaves whose AL status reads get no answer.
+    std::set<uint16_t> silent_slaves;
+    /// @brief what al_status returns for each slave.
+    std::map<uint16_t, uint16_t> al_statuses;
+    /// @brief guards the slave states that readstate writes and that a cycle thread
+    /// reads in receive_processdata.
+    std::mutex state_mu;
     int sync_dc_count = 0;
     /// @brief the working counter sync_dc returns.
     int sync_dc_return = 1;
@@ -358,10 +366,26 @@ public:
         return this->send_return;
     }
 
+    /// @brief like the patched SOEM receive, reads the state each slave is in on the
+    /// bus, or 0 for a slave in silent_slaves or when the frame does not come back.
     int receive_processdata(uint8_t group, int) override {
         this->receive_count++;
         this->processdata_groups.push_back(group);
+        std::lock_guard lock(this->state_mu);
+        this->al_statuses.clear();
+        for (size_t i = 0; i < this->slave_infos.size(); ++i) {
+            const auto pos = static_cast<uint16_t>(i + 1);
+            this->al_statuses[pos] = this->receive_return < 0 ||
+                                             this->silent_slaves.contains(pos)
+                                       ? 0
+                                       : this->bus_state_of(pos);
+        }
         return this->receive_return;
+    }
+
+    [[nodiscard]] uint16_t al_status(const uint16_t slave) const override {
+        const auto it = this->al_statuses.find(slave);
+        return it == this->al_statuses.end() ? 0 : it->second;
     }
 
     /// @brief like ecx_writestate, requests the state in the slave table entry of the
@@ -377,6 +401,7 @@ public:
     }
 
     int readstate() override {
+        std::lock_guard lock(this->state_mu);
         this->readstate_count++;
         if (this->dropped_state_reads > 0) {
             this->dropped_state_reads--;
