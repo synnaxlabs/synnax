@@ -592,7 +592,7 @@ func extractRetrieveInfo(
 				// The variant walk names the index after the field, ignoring @go name.
 				info.StructField = naming.LowerFirst(naming.ToPascalCase(field.Name))
 			} else {
-				renderRetarget(&info, r, ctx)
+				renderRetarget(&info, field, r, ctx)
 				refs = append(refs, info)
 			}
 			filters = append(filters, filterInfo{

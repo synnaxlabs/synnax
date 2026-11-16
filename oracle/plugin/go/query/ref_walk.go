@@ -99,6 +99,15 @@ type walkedRef struct {
 	sites []refSite
 }
 
+// tree returns the tree that the steps of the sites of r form.
+func (r *walkedRef) tree() []*stepNode {
+	steps := make([][]refStep, len(r.sites))
+	for i, s := range r.sites {
+		steps[i] = s.steps
+	}
+	return buildTree(steps)
+}
+
 // refWalker finds every @ref field that a type holds through its fields, arrays,
 // optional structs, and unions.
 type refWalker struct {
@@ -478,12 +487,8 @@ func (rd *renderer) walk(
 func (rd *renderer) targetsBody(ref *walkedRef) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "var targets []%s\n", rd.info.TargetType())
-	steps := make([][]refStep, len(ref.sites))
-	for i, s := range ref.sites {
-		steps[i] = s.steps
-	}
 	mode := ref.sites[0].mode
-	rd.walk(&b, buildTree(steps), "e", false, func(b *strings.Builder, expr string) {
+	rd.walk(&b, ref.tree(), "e", false, func(b *strings.Builder, expr string) {
 		switch mode {
 		case leafRequired:
 			fmt.Fprintf(b, "targets = append(targets, %s)\n", rd.target(expr))
@@ -523,11 +528,7 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 	var b strings.Builder
 	mode := ref.sites[0].mode
 	if mode != leafRequired {
-		steps := make([][]refStep, len(ref.sites))
-		for i, s := range ref.sites {
-			steps[i] = s.steps
-		}
-		rd.walk(&b, buildTree(steps), "e", true, func(b *strings.Builder, expr string) {
+		rd.walk(&b, ref.tree(), "e", true, func(b *strings.Builder, expr string) {
 			switch mode {
 			case leafZero:
 				fmt.Fprintf(
@@ -629,7 +630,7 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 }
 
 // retargetBody returns the code that moves e from the target from to the target to
-// through every leaf under nodes. A slice that already holds to drops from instead.
+// through every leaf under nodes. A @ref array that holds to drops from instead.
 func (rd *renderer) retargetBody(nodes []*stepNode, mode leafMode) string {
 	var b strings.Builder
 	rd.walk(&b, nodes, "e", true, func(b *strings.Builder, expr string) {
@@ -678,8 +679,8 @@ func (rd *renderer) retargetBody(nodes []*stepNode, mode leafMode) string {
 	return b.String()
 }
 
-// operand returns the target of expr in a form that can sit in an if condition, where
-// a bare composite literal does not parse.
+// operand returns the target of expr in a form that can sit in an if condition, where a
+// bare composite literal does not parse.
 func (rd *renderer) operand(expr string) string {
 	if rd.info.IsID {
 		return "(" + rd.target(expr) + ")"
@@ -697,19 +698,15 @@ func (rd *renderer) assign(expr string) string {
 }
 
 // renderRetarget sets the RetargetBody of info, a reference on a top-level field.
-func renderRetarget(info *refInfo, r *resolver.Resolver, ctx *resolver.Context) {
-	mode := leafRequired
-	switch {
-	case info.IsSlice:
-		mode = leafSlice
-	case info.IsOptional:
-		mode = leafOptional
-	case info.Zero != "":
-		mode = leafZero
-	}
+func renderRetarget(
+	info *refInfo,
+	field resolution.Field,
+	r *resolver.Resolver,
+	ctx *resolver.Context,
+) {
 	rd := &renderer{r: r, ctx: ctx, info: *info}
 	leaf := []*stepNode{{step: refStep{kind: stepLeaf, field: info.GoName}}}
-	info.RetargetBody = rd.retargetBody(leaf, mode)
+	info.RetargetBody = rd.retargetBody(leaf, leafModeOf(field, info.IsSlice))
 }
 
 // inlineBody returns the code that replaces each union in e whose variant holds the
@@ -864,11 +861,7 @@ func renderNestedRefs(
 		if err != nil {
 			return nil, errors.Wrap(err, typ.QualifiedName)
 		}
-		steps := make([][]refStep, len(ref.sites))
-		for i, s := range ref.sites {
-			steps[i] = s.steps
-		}
-		nr.RetargetBody = rd.retargetBody(buildTree(steps), mode)
+		nr.RetargetBody = rd.retargetBody(ref.tree(), mode)
 		nr.usesSlices = rd.usesSlices
 		out = append(out, nr)
 	}
