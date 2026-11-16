@@ -21,6 +21,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 
 import { context } from "@/context";
 import { CSS } from "@/css";
@@ -85,25 +86,33 @@ export const useFilter = (): Filter => {
   const [term, setTerm] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const editedRef = useRef(false);
   useEffect(() => {
     const surface = ref.current;
     if (surface != null && !surface.contains(document.activeElement))
       surface.focus({ preventScroll: true });
   }, []);
-  // A key typed on an item goes on in the search, after the text already there.
-  useLayoutEffect(() => {
-    const search = searchRef.current;
-    if (!editedRef.current || search == null) return;
-    editedRef.current = false;
-    search.focus({ preventScroll: true });
-    search.setSelectionRange(search.value.length, search.value.length);
-  }, [term]);
   useLayoutEffect(() => {
     const surface = ref.current;
-    if (surface == null) return;
-    surface.querySelector(`[${HIGHLIGHTED}]`)?.removeAttribute(HIGHLIGHTED);
-    if (term != null) surface.querySelector(MENU_ITEMS)?.setAttribute(HIGHLIGHTED, "");
+    if (term == null || surface == null) return;
+    const light = (): void => {
+      const lit = surface.querySelector(`[${HIGHLIGHTED}]`);
+      const first = surface.querySelector(MENU_ITEMS);
+      if (lit === first) return;
+      lit?.removeAttribute(HIGHLIGHTED);
+      first?.setAttribute(HIGHLIGHTED, "");
+    };
+    light();
+    // Items can mount with no change to the term, such as after they load.
+    const observer = new MutationObserver(light);
+    observer.observe(surface, {
+      childList: true,
+      subtree: true,
+      attributeFilter: ["aria-disabled"],
+    });
+    return () => {
+      observer.disconnect();
+      surface.querySelector(`[${HIGHLIGHTED}]`)?.removeAttribute(HIGHLIGHTED);
+    };
   }, [term]);
   const closeSearch = (): void => {
     ref.current?.focus({ preventScroll: true });
@@ -113,8 +122,10 @@ export const useFilter = (): Filter => {
     e.preventDefault();
     e.stopPropagation();
     if (next == null) return closeSearch();
-    editedRef.current = true;
-    setTerm(next);
+    // A key typed on an item goes on in the search, after the text already there.
+    flushSync(() => setTerm(next));
+    searchRef.current?.focus({ preventScroll: true });
+    searchRef.current?.setSelectionRange(next.length, next.length);
   };
   const onKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
     if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;

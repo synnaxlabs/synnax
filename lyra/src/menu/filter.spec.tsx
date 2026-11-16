@@ -259,6 +259,16 @@ describe("menu filter", () => {
       expect(document.activeElement).toBe(search());
     });
 
+    it("should give the focus to an empty search on Backspace from an item", () => {
+      open();
+      type("r");
+      press("Backspace");
+      press("ArrowDown");
+      press("Backspace");
+      expect(search()?.value).toBe("");
+      expect(document.activeElement).toBe(search());
+    });
+
     it("should take a space only after the filter starts", () => {
       open();
       press(" ");

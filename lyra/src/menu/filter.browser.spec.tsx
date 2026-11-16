@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { type ReactElement, Suspense, use } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -68,6 +68,17 @@ const GROUPS = (
     </Menu.Sub>
   </Menu.Menu>
 );
+
+// Items that show once their data loads, as items that read Core data do.
+const Loaded = ({ items }: { items: Promise<void> }): ReactElement => {
+  use(items);
+  return (
+    <>
+      <Menu.Item itemKey="rename">Rename</Menu.Item>
+      <Menu.Item itemKey="remove">Remove</Menu.Item>
+    </>
+  );
+};
 
 const ContextMenu = ({
   onChange,
@@ -232,6 +243,30 @@ describe("menu filter", () => {
       await expect
         .poll(() => computed(first, "background-color"))
         .not.toBe(computed(third, "background-color"));
+    });
+
+    it("should light the first match of items that load after the search opens", async () => {
+      let load = (): void => {};
+      const items = new Promise<void>((resolve) => {
+        load = resolve;
+      });
+      await openContextMenu(
+        vi.fn(),
+        <Menu.Menu>
+          <Menu.Item itemKey="copy">Copy</Menu.Item>
+          <Suspense fallback={null}>
+            <Loaded items={items} />
+          </Suspense>
+        </Menu.Menu>,
+      );
+      await userEvent.keyboard("re");
+      await expect.element(page.getByRole("textbox")).toHaveValue("re");
+      load();
+      await expect.poll(() => page.getByRole("menuitem").elements().length).toBe(2);
+      const [first, second] = page.getByRole("menuitem").elements();
+      await expect
+        .poll(() => computed(first, "background-color"))
+        .not.toBe(computed(second, "background-color"));
     });
 
     it("should pick the item under the pointer on Enter", async () => {
