@@ -683,7 +683,7 @@ func buildUnionCodec(
 		)
 		dec = append(dec,
 			fmt.Sprintf("\tcase %q:", v.Name),
-			fmt.Sprintf("\t\tvar v %s", variantType),
+			"\t\tvar v "+variantType,
 		)
 		for _, embed := range embeds {
 			enc = append(enc, fmt.Sprintf(
@@ -826,7 +826,7 @@ func (b *encoderBuilder) processOptional(
 	b.decodeLines = append(b.decodeLines,
 		ind+"{ present, err := r.Bool(); if err != nil { return err }",
 		ind+"if present {",
-		ind+fmt.Sprintf("\tvar hv %s", goType),
+		ind+"\tvar hv "+goType,
 	)
 	b.depth++
 	b.inBlock++
@@ -992,8 +992,8 @@ func (b *encoderBuilder) processMap(
 		ind+"\tn, err := r.CollectionLen(); if err != nil { return err }",
 		ind+fmt.Sprintf("\t%s = make(map[%s]%s, n)", setPath, goKeyType, goValType),
 		ind+"\tfor range n {",
-		ind+fmt.Sprintf("\t\tvar key %s", goKeyType),
-		ind+fmt.Sprintf("\t\tvar val %s", goValType),
+		ind+"\t\tvar key "+goKeyType,
+		ind+"\t\tvar val "+goValType,
 	)
 
 	b.depth++
@@ -1088,10 +1088,10 @@ func (b *encoderBuilder) processLeaf(
 			b.encodeLines = append(b.encodeLines,
 				ind+fmt.Sprintf("w.WriteWithLen(%s)", valPath),
 			)
-			b.decodeLines = append(b.decodeLines, ind+fmt.Sprintf(
-				"%s, err = r.ReadWithLen(); if err != nil { return err }",
-				setPath,
-			))
+			b.decodeLines = append(
+				b.decodeLines,
+				ind+setPath+", err = r.ReadWithLen(); if err != nil { return err }",
+			)
 			break
 		}
 		b.encodeLines = append(b.encodeLines,

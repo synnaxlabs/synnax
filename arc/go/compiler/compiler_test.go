@@ -2249,7 +2249,7 @@ var _ = Describe("Compiler", func() {
 		})
 
 		narrowResult := func(ctx SpecContext, body string, expected float64) {
-			source := fmt.Sprintf(`func test() i64 %s`, body)
+			source := "func test() i64 " + body
 			output := MustSucceed(compileWithHostImports(ctx, source, nil))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			test := mod.ExportedFunction("test")
@@ -3583,7 +3583,7 @@ var _ = Describe("Compiler", func() {
 
 		DescribeTable("index that does not fit in an i32 traps",
 			func(ctx SpecContext, body, index string) {
-				source := fmt.Sprintf(`func test() f64 %s`, body)
+				source := "func test() f64 " + body
 				output := MustSucceed(compileWithHostImports(ctx, source, nil))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				test := mod.ExportedFunction("test")

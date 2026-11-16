@@ -105,7 +105,7 @@ var _ = Describe("MigrateDevice", func() {
 		Expect(got.Model).To(Equal(seed.Model))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Configured).To(Equal(seed.Configured))
-		Expect(got.Properties).To(Equal(msgpack.EncodedJSON(seed.Properties)))
+		Expect(got.Properties).To(Equal(seed.Properties))
 		Expect(got.Status).To(BeNil())
 		Expect(got.Parent).To(BeNil())
 	})

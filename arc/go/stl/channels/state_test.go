@@ -402,11 +402,11 @@ var _ = Describe("ProgramState", func() {
 			fr, highest, changed := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(2).Series[0]).To(telem.MatchSeries(telem.NewSeriesV(
-				telem.TimeStamp(flushNow),
-				telem.TimeStamp(flushNow+1),
-				telem.TimeStamp(flushNow+2),
+				flushNow,
+				flushNow+1,
+				flushNow+2,
 			)))
-			Expect(highest).To(Equal(telem.TimeStamp(flushNow + 2)))
+			Expect(highest).To(Equal(flushNow + 2))
 		})
 
 		It("Should start every member of a group at the same stamp", func() {
@@ -419,8 +419,8 @@ var _ = Describe("ProgramState", func() {
 			fr, _, _ := grouped.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(2).Series).To(HaveLen(1))
 			Expect(fr.Get(2).Series[0]).To(telem.MatchSeries(telem.NewSeriesV(
-				telem.TimeStamp(flushNow),
-				telem.TimeStamp(flushNow+1),
+				flushNow,
+				flushNow+1,
 			)))
 		})
 

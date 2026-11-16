@@ -41,7 +41,6 @@ func generateChain(resource, v0, v1, live string) map[string]string {
 	resolver := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
 	table := resolution.NewTable()
 	diag := analyzer.AnalyzeSeeded(
-		GinkgoT().Context(),
 		"@go output \"core/pkg/service/"+resource+"\"\n\n"+live,
 		"schemas/synnax/"+resource+".oracle", resource,
 		analyzer.NewStandardFileLoader(root), table,
@@ -91,7 +90,7 @@ Channel struct {
 		)
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), `
+			`
 @go output "core/pkg/service/channel"
 
 Channel struct {
@@ -160,7 +159,7 @@ Task struct {
 			)
 			table := resolution.NewTable()
 			diag := analyzer.AnalyzeSeeded(
-				GinkgoT().Context(), `
+				`
 @go output "core/pkg/service/task"
 
 Key = uuid
@@ -239,7 +238,7 @@ Node struct extends base.Base {
 		)
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), `
+			`
 import "schemas/synnax/base"
 
 @go output "core/pkg/service/node"
@@ -326,7 +325,7 @@ Node struct {
 		)
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), `
+			`
 import "schemas/synnax/base"
 
 @go output "core/pkg/service/node"
@@ -418,7 +417,7 @@ Node struct {
 		)
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), `
+			`
 import "schemas/synnax/base"
 
 @go output "core/pkg/service/node"
@@ -2117,7 +2116,7 @@ Channel struct {
 		)
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), `
+			`
 @go output "core/pkg/service/channel"
 
 Channel struct {
@@ -2171,7 +2170,6 @@ func generateMove(shared, nodeV0, nodeV1, live string) (string, error) {
 	resolver := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
 	table := resolution.NewTable()
 	diag := analyzer.AnalyzeSeeded(
-		GinkgoT().Context(),
 		"import \"schemas/synnax/shared\"\n\n@go output \"core/pkg/service/node\"\n\n"+
 			live,
 		"schemas/synnax/node.oracle", "node",

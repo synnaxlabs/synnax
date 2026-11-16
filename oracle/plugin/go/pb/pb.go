@@ -923,8 +923,8 @@ func (p *Plugin) buildMapElementConversion(
 				"map[%s]%s", keyType, p.instanceGoType(inst, data),
 			),
 			PBMapType:         fmt.Sprintf("map[%s]*%s", keyType, inst.Name),
-			ForwardValueExpr:  fmt.Sprintf("%sToPB(v)", inst.Name),
-			BackwardValueExpr: fmt.Sprintf("%sFromPB(v)", inst.Name),
+			ForwardValueExpr:  inst.Name + "ToPB(v)",
+			BackwardValueExpr: inst.Name + "FromPB(v)",
 			ForwardHasError:   true,
 			BackwardHasError:  true,
 		}
@@ -1096,7 +1096,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 		}
 
 		paramName := typeRef.TypeParam.Name
-		converterFunc := fmt.Sprintf("translate%s", paramName)
+		converterFunc := "translate" + paramName
 
 		// An optional value is a pointer in Go and a nullable Any in proto.
 		if isOptional {
@@ -1298,23 +1298,23 @@ func (p *Plugin) generateFixedSizeUint8ArrayConversion(
 ) (forward, backward string) {
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
-		return fmt.Sprintf("%s[:]", goField), pbField
+		return goField + "[:]", pbField
 	}
 
 	goOutput := output.GetPath(resolved, "go")
 	if goOutput == "" {
-		return fmt.Sprintf("%s[:]", goField), pbField
+		return goField + "[:]", pbField
 	}
 
 	importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
 	if err != nil {
-		return fmt.Sprintf("%s[:]", goField), pbField
+		return goField + "[:]", pbField
 	}
 
 	alias := naming.DerivePackageName(goOutput)
 	data.AddInternal(alias, importPath)
 
-	forward = fmt.Sprintf("%s.Bytes()", goField)
+	forward = goField + ".Bytes()"
 	backward = fmt.Sprintf("%s.FromBytes(%s)", alias, pbField)
 
 	return forward, backward
@@ -1431,7 +1431,7 @@ func (p *Plugin) generatePrimitiveConversion(
 	switch primitive {
 	case "uuid":
 		data.AddExternal("uuid")
-		return fmt.Sprintf("%s.String()", goField),
+		return goField + ".String()",
 			fmt.Sprintf("uuid.Parse(%s)", pbField), false, true
 	case "timestamp":
 		data.AddExternal("github.com/synnaxlabs/x/telem")
@@ -1448,7 +1448,7 @@ func (p *Plugin) generatePrimitiveConversion(
 	case "record":
 		data.AddExternal("google.golang.org/protobuf/types/known/structpb")
 		return fmt.Sprintf("structpb.NewStruct(%s)", goField),
-			fmt.Sprintf("%s.AsMap()", pbField), true, false
+			pbField + ".AsMap()", true, false
 	case "uint12":
 		data.AddExternal("github.com/synnaxlabs/x/types")
 		return fmt.Sprintf("uint32(%s)", goField),

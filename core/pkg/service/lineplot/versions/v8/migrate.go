@@ -99,17 +99,17 @@ func yAxisChannels(c Channels, k YAxisKey) []channel.Key {
 
 // builtInSpans are the rolling windows the Console offered as range keys before v8.
 var builtInSpans = map[string]telem.TimeSpan{
-	"recent":     telem.TimeSpan(30 * telem.Second),
-	"rolling1m":  telem.TimeSpan(telem.Minute),
-	"rolling5m":  telem.TimeSpan(5 * telem.Minute),
-	"rolling15m": telem.TimeSpan(15 * telem.Minute),
-	"rolling30m": telem.TimeSpan(30 * telem.Minute),
-	"rolling1h":  telem.TimeSpan(telem.Hour),
-	"rolling6h":  telem.TimeSpan(6 * telem.Hour),
-	"rolling12h": telem.TimeSpan(12 * telem.Hour),
-	"rolling1d":  telem.TimeSpan(telem.Day),
-	"rolling7d":  telem.TimeSpan(7 * telem.Day),
-	"rolling30d": telem.TimeSpan(30 * telem.Day),
+	"recent":     30 * telem.Second,
+	"rolling1m":  telem.Minute,
+	"rolling5m":  5 * telem.Minute,
+	"rolling15m": 15 * telem.Minute,
+	"rolling30m": 30 * telem.Minute,
+	"rolling1h":  telem.Hour,
+	"rolling6h":  6 * telem.Hour,
+	"rolling12h": 12 * telem.Hour,
+	"rolling1d":  telem.Day,
+	"rolling7d":  7 * telem.Day,
+	"rolling30d": 30 * telem.Day,
 }
 
 // customKey is the v7 range key that resolved to the plot's custom window.

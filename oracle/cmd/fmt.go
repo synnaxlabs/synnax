@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/oracle/formatter"
@@ -146,12 +147,12 @@ func formatFile(path string) (formatResult, error) {
 	}
 
 	if fmtCheck {
-		printInfo(fmt.Sprintf("needs formatting: %s", path))
+		printInfo("needs formatting: " + path)
 		return formatResultChanged, nil
 	}
 
 	if fmtDiff {
-		printInfo(fmt.Sprintf("would format: %s", path))
+		printInfo("would format: " + path)
 		return formatResultChanged, nil
 	}
 
@@ -182,7 +183,7 @@ func printFormatResult(formatted, unchanged int) {
 		)
 		return
 	}
-	f := countStyle.Render(fmt.Sprintf("%d", formatted))
+	f := countStyle.Render(strconv.Itoa(formatted))
 	word := "file"
 	if formatted != 1 {
 		word = "files"

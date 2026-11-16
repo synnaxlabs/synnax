@@ -1237,7 +1237,7 @@ var _ = Describe("Rack", Ordered, func() {
 					}
 				}))
 				DeferCleanup(
-					svc.OnSuspect(func(_ context.Context, s rack.Status) error {
+					svc.OnSuspect(func(_ context.Context, s rack.Outage) error {
 						if s.Name == name {
 							alerts.Add(1)
 						}
@@ -1299,7 +1299,7 @@ var _ = Describe("Rack", Ordered, func() {
 					}
 				}
 			}))
-			DeferCleanup(svc.OnSuspect(func(_ context.Context, s rack.Status) error {
+			DeferCleanup(svc.OnSuspect(func(_ context.Context, s rack.Outage) error {
 				if s.Name == name {
 					alerts.Add(1)
 				}
@@ -1323,7 +1323,7 @@ var _ = Describe("Rack", Ordered, func() {
 				const name = "copy retry test rack"
 				var failing, succeeding atomic.Int32
 				DeferCleanup(
-					svc.OnSuspect(func(_ context.Context, s rack.Status) error {
+					svc.OnSuspect(func(_ context.Context, s rack.Outage) error {
 						if s.Name == name && failing.Add(1) == 1 {
 							return errors.New("copy failed")
 						}
@@ -1331,7 +1331,7 @@ var _ = Describe("Rack", Ordered, func() {
 					}),
 				)
 				DeferCleanup(
-					svc.OnSuspect(func(_ context.Context, s rack.Status) error {
+					svc.OnSuspect(func(_ context.Context, s rack.Outage) error {
 						if s.Name == name {
 							succeeding.Add(1)
 						}
@@ -1369,7 +1369,7 @@ var _ = Describe("Rack", Ordered, func() {
 					return alertCount
 				}
 				disconnect := svc.OnSuspect(
-					func(_ context.Context, s rack.Status) error {
+					func(_ context.Context, s rack.Outage) error {
 						if *s.Owner == r.ResourceID() {
 							alertMu.Lock()
 							alertCount++
@@ -1510,7 +1510,7 @@ var _ = Describe("Rack", Ordered, func() {
 					writes := countOutages(name)
 					var copies atomic.Int32
 					DeferCleanup(
-						svc.OnSuspect(func(_ context.Context, s rack.Status) error {
+						svc.OnSuspect(func(_ context.Context, s rack.Outage) error {
 							if s.Name != name {
 								return nil
 							}
@@ -1574,6 +1574,108 @@ var _ = Describe("Rack", Ordered, func() {
 					})).To(Succeed())
 					frozenNow.Store(int64(start.Add(16 * telem.Millisecond)))
 					Eventually(writes.Load).Should(BeEquivalentTo(1))
+				},
+			)
+
+			It(
+				"Should count only a task status the monitor never saw as reported",
+				func(ctx SpecContext) {
+					const name = "seen task rack"
+					outages := make(chan rack.Outage, 1)
+					DeferCleanup(
+						svc.OnSuspect(func(_ context.Context, o rack.Outage) error {
+							if o.Name == name {
+								select {
+								case outages <- o:
+								default:
+								}
+							}
+							return nil
+						}),
+					)
+					now := telem.Now()
+					frozenNow.Store(int64(now))
+					r := rack.Rack{Name: name}
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &r)
+					})).To(Succeed())
+					t := createTask(ctx, r.Key)
+					setTaskStatus(
+						ctx,
+						t,
+						now,
+						map[string]any{"running": true, "rack": r.Key},
+					)
+					var stored status.Status[any]
+					Expect(stat.NewRetrieve[any]().
+						Where(status.MatchOwners[any](task.ResourceID(t.Key))).
+						Entry(&stored).
+						Exec(ctx, db)).To(Succeed())
+					frozenNow.Store(int64(now.Add(svc.HealthCheckInterval)))
+					var o rack.Outage
+					Eventually(outages).Should(Receive(&o))
+					Expect(o.Reported(stored.Key, stored.Time)).To(BeFalse())
+					Expect(o.Reported(stored.Key, stored.Time+1)).To(BeTrue())
+					Expect(o.Reported("unseen", stored.Time)).To(BeTrue())
+				},
+			)
+
+			It(
+				"Should count a task status stored before the Core started as seen",
+				func(ctx SpecContext) {
+					restartDB := DeferClose(gorp.Wrap(memkv.New()))
+					DeferClose(MustSucceed(gorp.OpenTable(
+						ctx,
+						gorp.TableConfig[task.Key, task.Task]{
+							DB:   restartDB,
+							Name: "task",
+						},
+					)))
+					before := openStack(ctx, restartDB, rack.ServiceConfig{})
+					r := rack.Rack{Name: "restarted rack"}
+					Expect(restartDB.WithTx(ctx, func(tx gorp.Tx) error {
+						return before.rack.NewWriter(tx).Create(ctx, &r)
+					})).To(Succeed())
+					t := task.Task{Key: uuid.New(), Rack: r.Key, Name: "restarted task"}
+					Expect(gorp.NewCreate[task.Key, task.Task]().
+						Entry(&t).
+						Exec(ctx, restartDB)).To(Succeed())
+					stored := status.Status[any]{
+						Owner:   new(task.ResourceID(t.Key)),
+						Name:    t.Name,
+						Time:    telem.Now(),
+						Variant: status.VariantSuccess,
+						Message: "Task started",
+						Details: map[string]any{"running": true, "rack": r.Key},
+					}
+					Expect(restartDB.WithTx(ctx, func(tx gorp.Tx) error {
+						return before.status.NewWriter(tx).Set(ctx, &stored)
+					})).To(Succeed())
+					Expect(before.Close()).To(Succeed())
+					var restartNow atomic.Int64
+					restartNow.Store(int64(telem.Now()))
+					after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{
+						HealthCheckInterval: 10 * telem.Millisecond,
+						Now: func() telem.TimeStamp {
+							return telem.TimeStamp(restartNow.Load())
+						},
+					}))
+					outages := make(chan rack.Outage, 1)
+					DeferCleanup(after.rack.OnSuspect(
+						func(_ context.Context, o rack.Outage) error {
+							if o.Name == r.Name {
+								select {
+								case outages <- o:
+								default:
+								}
+							}
+							return nil
+						},
+					))
+					restartNow.Add(int64(telem.Second))
+					var o rack.Outage
+					Eventually(outages).Should(Receive(&o))
+					Expect(o.Reported(stored.Key, stored.Time)).To(BeFalse())
 				},
 			)
 		})

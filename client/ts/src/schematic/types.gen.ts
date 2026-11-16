@@ -81,7 +81,7 @@ export const labelConfigZ = z.object({
   /**
    * maxInlineSize is the maximum inline size of the label in pixels before wrapping.
    */
-  maxInlineSize: z.number().default(150),
+  maxInlineSize: zod.uint16.min(1).default(150),
   /** align is the alignment of the label text within its box. */
   align: flexAlignmentZ.default("center"),
 });
@@ -588,8 +588,6 @@ export const buttonNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("button"),
   /** size is the rendered size preset of the button. */
   size: componentSizeZ.default("medium"),
-  /** level is the typography level of the button text. */
-  level: text.levelZ.optional(),
   /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
   onClickDelay: z.number().default(0),
   /** commandChannel is the channel button presses are written to. */

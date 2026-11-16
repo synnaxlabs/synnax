@@ -175,6 +175,17 @@ describe("Schematic.Node.symbolKey", () => {
 });
 
 describe("Schematic.Node.changeConfig", () => {
+  it("should keep the wrap width of a symbol that changes to a button", () => {
+    const tank = createConfig({ variant: "tank", label: { maxInlineSize: 80 } });
+    const changed = changeConfig(tank, { variant: "button" });
+    expect(changed.label.maxInlineSize).toBe(80);
+  });
+
+  it("should keep the size of a field that changes", () => {
+    const input = createConfig({ variant: "input", size: "large" });
+    expect(changeConfig(input, { variant: "button" }).size).toBe("large");
+  });
+
   it("should keep each field the new variant accepts", () => {
     const valve = createConfig({
       variant: "valve",

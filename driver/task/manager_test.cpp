@@ -1016,6 +1016,36 @@ TEST_F(TaskManagerTest, BootStopsATaskLeftRunning) {
     EXPECT_FALSE(s.details.running);
 }
 
+/// @brief it should stop a running task that the Core marked as stopped responding
+/// while the Driver was down, so the status of the outage does not stay.
+TEST_F(TaskManagerTest, BootStopsATaskTheCoreMarkedAsStoppedResponding) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    store_status(
+        client,
+        task,
+        synnax::status::VARIANT_WARNING,
+        "Task stopped responding",
+        false
+    );
+    start_manager(std::make_unique<QuietEchoTaskFactory>());
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) { return s.message == "Task stopped"; }
+    );
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(
+        s.description,
+        "The Driver restarted while the task was running. Start the task again."
+    );
+    EXPECT_FALSE(s.details.running);
+}
+
 /// @brief a factory whose tasks start at boot, as an auto-start task does.
 class AutoStartTaskFactory final : public Factory {
 public:

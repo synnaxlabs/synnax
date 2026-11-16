@@ -19,6 +19,7 @@ import { type CSSProperties, type ReactElement, type ReactNode } from "react";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
+import { SIZE_LEVELS } from "@/schematic/node/common/size";
 
 interface PrimitiveProps extends Partial<
   Omit<schematic.InputNodeConfig, "variant" | "label" | "scale">
@@ -37,7 +38,7 @@ export const Input = ({
   readback,
   orientation = "left",
   fillColor,
-  size,
+  size = "medium",
   onSend,
   disabled,
   onClickDelay,
@@ -77,11 +78,13 @@ export const Input = ({
           onChange={draft.edit}
           className={CSS.BE("symbol-field", "control")}
           size={size}
+          level={SIZE_LEVELS[size]}
           borderWidth={1}
           disabled={disabled}
         >
           <BaseButton.Button
             size={size}
+            level={SIZE_LEVELS[size]}
             variant="filled"
             onClick={() => {
               onSend?.(shown);

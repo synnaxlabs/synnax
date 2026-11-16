@@ -245,7 +245,7 @@ var _ = Describe("Math", func() {
 			var negTwo int32 = -2
 			var expected int32 = -8
 			res = rt.Call(ctx, "math", "pow_i32", testutil.I32(negTwo), testutil.U32(3))
-			Expect(testutil.AsU32(res[0])).To(Equal(uint32(uint32(expected))))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(expected)))
 		})
 
 		It("Should compute u64 power", func(ctx SpecContext) {
@@ -348,7 +348,7 @@ var _ = Describe("Math", func() {
 		It("Should negate i32 values", func(ctx SpecContext) {
 			var negFive int32 = -5
 			res := rt.Call(ctx, "math", "neg_i32", testutil.I32(5))
-			Expect(testutil.AsU32(res[0])).To(Equal(uint32(uint32(negFive))))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(negFive)))
 		})
 		It("Should negate f64 values", func(ctx SpecContext) {
 			res := rt.Call(ctx, "math", "neg_f64", testutil.F64(3.5))
@@ -357,7 +357,7 @@ var _ = Describe("Math", func() {
 		It("Should negate i8 values", func(ctx SpecContext) {
 			var negThree int32 = -3
 			res := rt.Call(ctx, "math", "neg_i8", testutil.I32(3))
-			Expect(testutil.AsU32(res[0])).To(Equal(uint32(uint32(negThree))))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(negThree)))
 		})
 		It("Should negate i64 values", func(ctx SpecContext) {
 			res := rt.Call(ctx, "math", "neg_i64", testutil.U64(42))

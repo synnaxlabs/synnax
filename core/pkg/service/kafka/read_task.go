@@ -812,7 +812,7 @@ func (t *readTask) convert(rec *kgo.Record) {
 	}
 	for i, fld := range g.fields {
 		if g.values[i] == nil {
-			t.skip(r, fmt.Sprintf("Record has no value at %s", fld.Pointer))
+			t.skip(r, "Record has no value at "+fld.Pointer)
 			g.truncate(r.pos)
 			return
 		}
