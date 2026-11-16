@@ -360,7 +360,8 @@ func (e *Engine) stream(ctx context.Context, a *attempt, l *live) (err error) {
 		return err
 	}
 	var frames <-chan framer.Frame
-	defer func() { l.drop(a.progress, frames) }()
+	l.record()
+	defer func() { l.drop(a, frames) }()
 	for {
 		start := time.Now()
 		if err = e.catchUp(ctx, a, l); err != nil {
@@ -370,7 +371,7 @@ func (e *Engine) stream(ctx context.Context, a *attempt, l *live) (err error) {
 			break
 		}
 	}
-	frames = l.forward(a.progress)
+	frames = l.forward(a)
 	if err = e.catchUp(ctx, a, l); err != nil {
 		return err
 	}
@@ -394,7 +395,7 @@ func (e *Engine) stream(ctx context.Context, a *attempt, l *live) (err error) {
 			}
 			// Marking every flow first keeps the marks of a frame that fails to send.
 			a.mark(e.flows, fr)
-			a.markPassed(fr)
+			l.pass(a)
 			for _, f := range e.flows {
 				if err = a.sendLive(ctx, f, fr); err != nil {
 					return err
@@ -432,6 +433,7 @@ func (e *Engine) catchUp(ctx context.Context, a *attempt, l *live) error {
 			telem.TimeRange{Start: a.sent[f.index.Key()], End: telem.TimeStampMax},
 			func(fr framer.Frame) error {
 				l.take(a.progress)
+				l.pass(a)
 				// A later value of a marked channel would move the attempt past its
 				// earlier ones.
 				if a.carriesMarked(f, fr) {
@@ -925,26 +927,6 @@ func (a *attempt) sendLive(ctx context.Context, f flow, fr framer.Frame) error {
 	return a.send(ctx, f, fr)
 }
 
-// markPassed marks the channels of each flow that fr holds at times the attempt passed
-// without sending their values. A read of storage that runs between the commits of an
-// index and its data passes the index without the data.
-func (a *attempt) markPassed(fr framer.Frame) {
-	for _, f := range a.engine.flows {
-		key := f.index.Key()
-		series := fr.Get(key).Series
-		if len(series) == 0 || series[0].ValueAt[telem.TimeStamp](0) >= a.sent[key] {
-			continue
-		}
-		last := series[len(series)-1].ValueAt[telem.TimeStamp](-1)
-		for _, ch := range f.channels {
-			if len(fr.Get(ch.Key()).Series) > 0 && last >= a.values[ch.Key()] &&
-				a.unindexed.mark(key, ch.Key()) {
-				a.unreported = true
-			}
-		}
-	}
-}
-
 // carriesMarked reports whether fr holds a value of a marked channel of f.
 func (a *attempt) carriesMarked(f flow, fr framer.Frame) bool {
 	for key := range a.unindexed[f.index.Key()] {
@@ -1050,6 +1032,18 @@ type live struct {
 	// closed is set once the streamer closes.
 	closed  bool
 	dropped marks
+	// recording is set while an attempt runs. arrivals then holds the spans of the
+	// frames that pass has not checked yet.
+	recording bool
+	arrivals  []arrival
+}
+
+// arrival is the time span of a live frame over an index, and the data channels it
+// holds.
+type arrival struct {
+	index    channel.Key
+	span     telem.TimeRange
+	channels []channel.Key
 }
 
 // err returns why the channel that forward returned closed.
@@ -1062,13 +1056,14 @@ func (l *live) err() error {
 	return errors.New("the live stream closed unexpectedly")
 }
 
-// forward moves the marks of the dropped frames to p, then sends each frame to the
-// returned channel until drop.
-func (l *live) forward(p *progress) <-chan framer.Frame {
+// forward marks a as take and pass do, then sends each frame to the returned channel
+// until drop.
+func (l *live) forward(a *attempt) <-chan framer.Frame {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	p.merge(l.dropped)
+	a.merge(l.dropped)
 	clear(l.dropped)
+	l.passLocked(a)
 	frames := make(chan framer.Frame, liveBuffer)
 	l.behind = false
 	if l.closed {
@@ -1079,9 +1074,17 @@ func (l *live) forward(p *progress) <-chan framer.Frame {
 	return frames
 }
 
+// record makes receive keep the spans that pass checks, until drop.
+func (l *live) record() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.recording = true
+}
+
 // drop stops sending frames to the channel that forward returned, which may be nil,
-// and marks p with the frames left in it and the dropped frames.
-func (l *live) drop(p *progress, frames <-chan framer.Frame) {
+// and marks a with the frames left in it and as take and pass do. The next attempt
+// reads the frames that a did not pass from storage.
+func (l *live) drop(a *attempt, frames <-chan framer.Frame) {
 	l.mu.Lock()
 	if l.frames != nil {
 		close(l.frames)
@@ -1090,10 +1093,16 @@ func (l *live) drop(p *progress, frames <-chan framer.Frame) {
 	l.mu.Unlock()
 	if frames != nil {
 		for fr := range frames {
-			p.mark(l.engine.flows, fr)
+			a.mark(l.engine.flows, fr)
 		}
 	}
-	l.take(p)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	a.merge(l.dropped)
+	clear(l.dropped)
+	l.passLocked(a)
+	l.recording = false
+	l.arrivals = nil
 }
 
 // take moves the marks of the dropped frames to p.
@@ -1104,9 +1113,58 @@ func (l *live) take(p *progress) {
 	clear(l.dropped)
 }
 
+// pass marks each channel that a frame holds before the positions of a but after the
+// last value a sent, since a read of storage between the commits of an index and its
+// data passes the index without the data.
+func (l *live) pass(a *attempt) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.passLocked(a)
+}
+
+func (l *live) passLocked(a *attempt) {
+	l.arrivals = slices.DeleteFunc(l.arrivals, func(ar arrival) bool {
+		if a.sent[ar.index] < ar.span.End {
+			return false
+		}
+		for _, ch := range ar.channels {
+			if a.values[ch] < ar.span.End && a.unindexed.mark(ar.index, ch) {
+				a.unreported = true
+			}
+		}
+		return true
+	})
+}
+
+// arrive keeps the span of fr over each index it carries. l.mu must be held.
+func (l *live) arrive(fr framer.Frame) {
+	for _, f := range l.engine.flows {
+		series := fr.Get(f.index.Key()).Series
+		if len(series) == 0 {
+			continue
+		}
+		var channels []channel.Key
+		for _, ch := range f.channels {
+			if len(fr.Get(ch.Key()).Series) > 0 {
+				channels = append(channels, ch.Key())
+			}
+		}
+		if len(channels) > 0 {
+			l.arrivals = append(l.arrivals, arrival{
+				index:    f.index.Key(),
+				span:     timeRange(series),
+				channels: channels,
+			})
+		}
+	}
+}
+
 func (l *live) receive(fr framer.Frame) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	if l.recording {
+		l.arrive(fr)
+	}
 	if l.frames != nil {
 		select {
 		case l.frames <- fr:
