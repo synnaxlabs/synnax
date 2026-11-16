@@ -28,11 +28,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -330,13 +335,20 @@ var _ = Describe("License", func() {
 			},
 		)
 		DescribeTable(
-			"should ignore and keep a numeric key an earlier Core stored",
+			"should remove a numeric key an earlier Core stored",
 			func(ctx SpecContext, key []byte) {
 				Expect(db.Set(ctx, key, []byte(numericKey))).To(Succeed())
-				Expect(open(ctx).Retrieve().State).To(Equal(license.StateMissing))
-				value, closer := MustSucceed2(db.Get(key))
-				Expect(string(value)).To(Equal(numericKey))
-				Expect(closer.Close()).To(Succeed())
+				store(ctx, newLicense())
+				core, logs := observer.New(zapcore.WarnLevel)
+				logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+					ZapLogger: zap.New(core),
+				}))
+				svc := open(ctx, license.ServiceConfig{
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				})
+				Expect(svc.Retrieve().State).To(Equal(license.StateOk))
+				Expect(logs.All()).To(BeEmpty())
+				Expect(db.Get(key)).Error().To(MatchError(query.ErrNotFound))
 			},
 			Entry(
 				"at the key Cores used before signed keys",
