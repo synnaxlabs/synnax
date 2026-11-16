@@ -411,6 +411,27 @@ See [Find channels](/reference/channels/find).
 - TypeScript: a writer opened with a bare channel list no longer sets `start` to now. An
   overlap with stored data fails the first write instead of the open.
 
+#### HTTP requests
+
+The retrieve requests for tasks, schematics, line plots, logs, tables, and panels select
+records with `where`. The Core refuses a 0.60 body because it refuses fields that it
+does not know. The Python and TypeScript clients send the new body.
+
+| Endpoint                     | 0.60 body                                            | 0.61 body                                                              |
+| ---------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------- |
+| `/api/v1/task/retrieve`      | `{"keys": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}` | `{"where": {"key": {"in": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}}}` |
+| `/api/v1/task/retrieve`      | `{"rack": 1}`                                        | `{"where": {"rack": {"eq": 1}}}`                                       |
+| `/api/v1/schematic/retrieve` | `{"keys": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}` | `{"where": {"key": {"in": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}}}` |
+| `/api/v1/lineplot/retrieve`  | `{"keys": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}` | `{"where": {"key": {"in": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}}}` |
+| `/api/v1/log/retrieve`       | `{"keys": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}` | `{"where": {"key": {"in": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}}}` |
+| `/api/v1/table/retrieve`     | `{"keys": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}` | `{"where": {"key": {"in": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}}}` |
+| `/api/v1/panel/retrieve`     | `{"keys": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}` | `{"where": {"key": {"in": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}}}` |
+
+The task filters `names`, `types`, `internal`, and `snapshot` also move into `where`, as
+`name`, `type`, `internal`, and `snapshot`, such as
+`{"where": {"type": {"eq": "modbus_read"}}}`. `offset` and `ignore_not_found_error` are
+gone. Page with `limit` and `after`.
+
 #### Arc
 
 - A function takes its inputs in parentheses and its triggers in braces. The Core
