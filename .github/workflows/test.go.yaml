@@ -22,8 +22,7 @@ on:
         type: string
         default: ""
       shards:
-        description:
-          How many jobs split the test suites on each OS, from 1 to 4
+        description: How many jobs split the test suites on each OS, from 1 to 4
         required: false
         type: number
         default: 1
@@ -264,8 +263,8 @@ jobs:
 
   test:
     name:
-      Test (${{ matrix.os }}${{ inputs.shards > 1 && format(',
-      {0}/{1}', matrix.shard, inputs.shards) || '' }})
+      Test (${{ matrix.os }}${{ inputs.shards > 1 && format(', {0}/{1}', matrix.shard,
+      inputs.shards) || '' }})
     strategy:
       fail-fast: false
       matrix:
