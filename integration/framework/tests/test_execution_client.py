@@ -150,6 +150,7 @@ def client(
     active: list[tuple[Any, ...]] | None = None,
     on_test_ran: Callable[[], None] = lambda: None,
     timeout_grace: float = 60.0,
+    log: Callable[[str], None] = lambda message: None,
 ) -> tuple[ExecutionClient, list[Sequence], list[models.Test]]:
     """Returns a client for the sequences, with the sequences to run and the list it
     records results in."""
@@ -176,7 +177,7 @@ def client(
         tests_lock=threading.Lock(),
         active_tests=active if active is not None else [],
         active_tests_lock=threading.Lock(),
-        log=lambda message, /, *, use_name=True: None,
+        log=lambda message, /, *, use_name=True: log(message),
         on_status_change=lambda _: None,
         on_test_ran=on_test_ran,
         timeout_grace=timeout_grace,
@@ -379,6 +380,23 @@ class TestExecutionClient:
             ("a_0", STATUS.PASSED),
             ("a_1", STATUS.FLAKY),
         ]
+
+    def test_retry_stopped_before_peers(self, cases_dir: Path) -> None:
+        """Should keep the first result of a peer that a stopped retry does not run
+        again."""
+
+        def log(message: str) -> None:
+            if "RETRYING" in message:
+                execution.stop()
+
+        execution, loaded, results = client(
+            cases_dir,
+            sequence("a", "plain", "plain", order="asynchronous", fails_once="a_1"),
+            log=log,
+        )
+        execution.run(loaded)
+        assert len(attempts(cases_dir)["a_0"]) == 1
+        assert [(t.name, t.status) for t in results] == [("a_0", STATUS.PASSED)]
 
     @pytest.mark.parametrize(
         ("order", "independent"), [("asynchronous", True), ("sequential", False)]

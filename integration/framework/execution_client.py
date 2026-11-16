@@ -98,6 +98,9 @@ class ExecutionClient:
         self._timeout_thread: threading.Thread | None = None
         self._watchdog = Watchdog(timeout_grace)
         self._abandoned: dict[threading.Thread, str] = {}
+        # The tests that passed and run again only because a test of their sequence is
+        # retried.
+        self._peers: set[str] = set()
 
     def run(self, sequences: list[Sequence]) -> None:
         """Execute all sequences."""
@@ -105,6 +108,7 @@ class ExecutionClient:
         self.should_stop = False
         self._total_tests = sum(len(seq.tests) for seq in sequences)
         self._tests_offset = 0
+        self._peers = set()
 
         self._timeout_thread = threading.Thread(
             target=self._timeout_monitor_loop,
@@ -221,7 +225,7 @@ class ExecutionClient:
         failed_keys = {str(result) for result in failed}
         # A test in an asynchronous sequence can need its peers to run at the same
         # time, so its retry runs the whole sequence, unless the sequence is
-        # independent. The result of each peer is the result of its last run.
+        # independent. A peer keeps its first result until it runs again.
         retries: list[Sequence] = []
         retry_keys: set[str] = set()
         for seq in sequences:
@@ -248,10 +252,10 @@ class ExecutionClient:
             f"WITH {peers} PEER(S) ====\n"
         )
 
-        rerun_keys = {str(td) for seq in retries for td in seq.tests}
         with self._tests_lock:
-            self._tests[:] = [t for t in self._tests if str(t) not in rerun_keys]
+            self._tests[:] = [t for t in self._tests if str(t) not in retry_keys]
             self._tests_offset = len(self._tests)
+            self._peers = {str(td) for seq in retries for td in seq.tests} - retry_keys
 
         self._total_tests = retry_total
         self._run_sequences(retries)
@@ -362,16 +366,28 @@ class ExecutionClient:
 
     def _collect_result(self, test_def: TestDefinition, future: Future[Test]) -> None:
         if future.done():
-            self._record(test_def, future.result())
+            self._record(test_def, future.result(), ran=True)
             return
         message = f"Test exceeded its timeout ({test_def.timeout}s) and did not stop"
-        self._record(test_def, self._result(test_def, STATUS.TIMEOUT, message))
+        self._record(
+            test_def, self._result(test_def, STATUS.TIMEOUT, message), ran=True
+        )
 
-    def _record(self, test_def: TestDefinition, result: Test) -> None:
+    def _record(
+        self, test_def: TestDefinition, result: Test, ran: bool = False
+    ) -> None:
+        """Records the result of a test. A test has one result: a later one is dropped,
+        unless the test ran again as the peer of a retried test."""
+        key = str(test_def)
         with self._tests_lock:
-            if any(str(r) == str(test_def) for r in self._tests):
+            i = next((i for i, r in enumerate(self._tests) if str(r) == key), None)
+            if i is None:
+                self._tests.append(result)
+            elif ran and key in self._peers:
+                self._peers.discard(key)
+                self._tests[i] = result
+            else:
                 return
-            self._tests.append(result)
             self._on_test_ran()
 
     @staticmethod
