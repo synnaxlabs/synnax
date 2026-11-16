@@ -129,7 +129,8 @@ func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error)
 	for i := range topics {
 		newest = append(
 			newest,
-			measureTopic(&topics[i], starts, ends, recent, configs)...)
+			measureTopic(&topics[i], starts, ends, recent, configs)...,
+		)
 	}
 	if err = fetchNewest(ctx, props, topics, newest); err != nil {
 		return nil, err
@@ -660,24 +661,8 @@ func fetch(
 	ranges []fetchRange,
 	visit func(*kgo.Record),
 ) (map[string]error, error) {
-	var (
-		errs    = make(map[string]error)
-		offsets = make(map[string]map[int32]kgo.Offset)
-		ends    = make(map[string]map[int32]int64)
-		left    int
-	)
-	for _, r := range ranges {
-		if r.from >= r.to {
-			continue
-		}
-		if offsets[r.topic] == nil {
-			offsets[r.topic] = make(map[int32]kgo.Offset)
-			ends[r.topic] = make(map[int32]int64)
-		}
-		offsets[r.topic][r.partition] = kgo.NewOffset().At(r.from)
-		ends[r.topic][r.partition] = r.to
-		left++
-	}
+	errs := make(map[string]error)
+	offsets, ends, left := fetchOffsets(ranges)
 	if left == 0 {
 		return errs, nil
 	}
@@ -695,14 +680,40 @@ func fetch(
 	defer cl.Close()
 	fetchCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
+	pollRanges(fetchCtx, cl, ends, left, errs, visit)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	for topic, partitions := range ends {
+		if len(partitions) > 0 && errs[topic] == nil {
+			errs[topic] = errors.Newf(
+				"The cluster did not send every record within %s.",
+				fetchTimeout,
+			)
+		}
+	}
+	return errs, nil
+}
+
+// pollRanges polls cl until it has read the left ranges in ends or ctx ends, and
+// calls visit with each record before the end of its range. It removes each read range
+// from ends and sets the first error of each topic in errs.
+func pollRanges(
+	ctx context.Context,
+	cl *kgo.Client,
+	ends map[string]map[int32]int64,
+	left int,
+	errs map[string]error,
+	visit func(*kgo.Record),
+) {
 	done := func(topic string, partition int32) {
 		if _, ok := ends[topic][partition]; ok {
 			delete(ends[topic], partition)
 			left--
 		}
 	}
-	for left > 0 && fetchCtx.Err() == nil {
-		fetches := cl.PollFetches(fetchCtx)
+	for left > 0 && ctx.Err() == nil {
+		fetches := cl.PollFetches(ctx)
 		fetches.EachError(func(topic string, partition int32, err error) {
 			if errors.Is(err, context.Canceled) ||
 				errors.Is(err, context.DeadlineExceeded) {
@@ -726,16 +737,28 @@ func fetch(
 			}
 		})
 	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	for topic, partitions := range ends {
-		if len(partitions) > 0 && errs[topic] == nil {
-			errs[topic] = errors.Newf(
-				"The cluster did not send every record within %s.",
-				fetchTimeout,
-			)
+}
+
+// fetchOffsets returns the first offset and the end offset of each non-empty range,
+// by topic and partition, and the number of such ranges.
+func fetchOffsets(ranges []fetchRange) (
+	offsets map[string]map[int32]kgo.Offset,
+	ends map[string]map[int32]int64,
+	count int,
+) {
+	offsets = make(map[string]map[int32]kgo.Offset)
+	ends = make(map[string]map[int32]int64)
+	for _, r := range ranges {
+		if r.from >= r.to {
+			continue
 		}
+		if offsets[r.topic] == nil {
+			offsets[r.topic] = make(map[int32]kgo.Offset)
+			ends[r.topic] = make(map[int32]int64)
+		}
+		offsets[r.topic][r.partition] = kgo.NewOffset().At(r.from)
+		ends[r.topic][r.partition] = r.to
+		count++
 	}
-	return errs, nil
+	return offsets, ends, count
 }
