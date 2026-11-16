@@ -93,7 +93,9 @@ jobs:
   # type-checks a module with no OS-specific code for Windows and macOS. Without a
   # limit, a hung lint holds the runner for up to 6 hours.
   lint:
-    name: Lint (${{ matrix.goos }})
+    name:
+      Lint (${{ matrix.goos }}${{ inputs.shards > 1 && format(', {0}/{1}', matrix.shard,
+      inputs.shards) || '' }})
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
@@ -102,6 +104,11 @@ jobs:
         goos:
           ${{ fromJSON((inputs.windows || inputs.macos) && '["linux", "windows",
           "darwin"]' || '["linux"]') }}
+        shard: [1, 2, 3, 4]
+        exclude:
+          - shard: ${{ inputs.shards < 2 && 2 }}
+          - shard: ${{ inputs.shards < 3 && 3 }}
+          - shard: ${{ inputs.shards < 4 && 4 }}
     steps:
       # Lint reports only issues since the merge base with origin/main, so it needs
       # the history back to that commit.
@@ -112,7 +119,7 @@ jobs:
           filter: blob:none
 
       - name: Check that the module has no OS-specific code
-        if: ${{ !inputs.os_specific && matrix.goos == 'linux' }}
+        if: ${{ !inputs.os_specific && matrix.goos == 'linux' && matrix.shard == 1 }}
         working-directory: ${{ inputs.directory }}
         run: |
           os='aix|android|darwin|dragonfly|freebsd|illumos|ios|js|linux|netbsd|openbsd'
@@ -185,7 +192,7 @@ jobs:
       # A download adds missing go.sum entries, so a changed go.mod or go.sum means the
       # committed ones were not tidy. Tidiness does not depend on GOOS.
       - name: Check that go.mod and go.sum are tidy
-        if: matrix.goos == 'linux'
+        if: matrix.goos == 'linux' && matrix.shard == 1
         working-directory: ${{ inputs.directory }}
         run: |
           git diff --exit-code -- go.mod go.sum
@@ -194,7 +201,7 @@ jobs:
       # golangci-lint drops each report on a line that a //nolint directive names,
       # including a report about the directive itself, so a grep forbids them.
       - name: Forbid //nolint directives
-        if: matrix.goos == 'linux'
+        if: matrix.goos == 'linux' && matrix.shard == 1
         working-directory: ${{ inputs.directory }}
         run: "! git grep -nE '//[/ ]*nolint( |:|$)' -- '*.go'"
 
@@ -209,8 +216,8 @@ jobs:
       # it too, so the cache it saves holds the objects that pull requests build.
       - name: Type-check for Windows and macOS
         if: >-
-          ${{ !inputs.os_specific && matrix.goos == 'linux' && (github.ref ==
-          'refs/heads/main' || !inputs.windows && !inputs.macos) }}
+          ${{ !inputs.os_specific && matrix.goos == 'linux' && matrix.shard == 1 &&
+          (github.ref == 'refs/heads/main' || !inputs.windows && !inputs.macos) }}
         working-directory: ${{ inputs.directory }}
         env:
           CGO_ENABLED: "0"
@@ -241,11 +248,17 @@ jobs:
           CGO_ENABLED: "0"
           GOOS: ${{ matrix.goos }}
           COMPLEXITY: funlen,gocognit,maintidx,nestif
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ inputs.shards }}
+        # Each shard lints every nth package in path order.
         run: |
           ./custom-gcl config verify
+          packages=$(go list -f '.{{slice .ImportPath (len .Module.Path)}}' ./... |
+            awk -v n="$SHARDS" -v s="$SHARD" 'NF && ++i % n == s % n')
+          read -ra packages <<< "${packages//$'\n'/ }"
           ./custom-gcl run --path-mode=abs --new-from-merge-base= \
-            --disable "$COMPLEXITY"
-          ./custom-gcl run --path-mode=abs --enable-only "$COMPLEXITY"
+            --disable "$COMPLEXITY" "${packages[@]}"
+          ./custom-gcl run --path-mode=abs --enable-only "$COMPLEXITY" "${packages[@]}"
 
       # Each save holds every entry it restored, so stale builds pile up until their
       # extraction fills the disk. Go and golangci-lint refresh an entry's mtime when
