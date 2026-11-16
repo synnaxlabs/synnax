@@ -157,6 +157,7 @@ jobs:
         id: agent
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
           AGENT_GIT_NAME: ${{ steps.bot.outputs.name }}
           AGENT_GIT_EMAIL: ${{ steps.bot.outputs.email }}
           PROMPT: ${{ inputs.prompt }}
