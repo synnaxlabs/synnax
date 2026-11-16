@@ -603,7 +603,7 @@ type NumericTelemConfig struct {
 	// Channel is the channel whose value the symbol displays.
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// RollingAverage is the number of samples in the rolling average.
-	RollingAverage *uint16 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
+	RollingAverage uint16 `json:"rolling_average" msgpack:"rolling_average"`
 	// Precision is the number of decimal places shown, from 0 to 17. Absent shows 2.
 	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Notation is the numeric notation used to format the value.
@@ -612,6 +612,7 @@ type NumericTelemConfig struct {
 
 // SetDefaults sets every field that has a schema default to that default.
 func (n *NumericTelemConfig) SetDefaults() {
+	n.RollingAverage = 1
 	n.Notation = "standard"
 }
 
@@ -620,9 +621,7 @@ func (n *NumericTelemConfig) SetDefaults() {
 func (n NumericTelemConfig) Validate() error {
 	v := validate.New("NumericTelemConfig")
 	v.Ternaryf("notation", !n.Notation.IsValid(), "invalid notation: %v", n.Notation)
-	if n.RollingAverage != nil {
-		v.GreaterThanEq("rolling_average", *n.RollingAverage, 1)
-	}
+	v.GreaterThanEq("rolling_average", n.RollingAverage, 1)
 	if n.Precision != nil {
 		v.LessThanEq("precision", *n.Precision, 17)
 	}
@@ -3296,7 +3295,7 @@ type TankNodeConfig struct {
 	// Channel is the channel whose value the symbol displays.
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// RollingAverage is the number of samples in the rolling average.
-	RollingAverage *uint16 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
+	RollingAverage uint16 `json:"rolling_average" msgpack:"rolling_average"`
 	// Precision is the number of decimal places shown, from 0 to 17. Absent shows 2.
 	Precision *uint8 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Notation is the numeric notation used to format the value.
@@ -3345,6 +3344,7 @@ func (TankNodeConfig) isNodeConfigVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (t *TankNodeConfig) SetDefaults() {
 	t.LabeledConfig.SetDefaults()
+	t.RollingAverage = 1
 	t.Notation = "standard"
 	t.StalenessTimeout = 5000000000
 	t.Bounds.Upper = 100
@@ -3371,9 +3371,7 @@ func (t TankNodeConfig) Validate() error {
 	v.Ternaryf("caret_side", !t.CaretSide.IsValid(), "invalid caret_side: %v", t.CaretSide)
 	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
 	v.Ternaryf("side", !t.Side.IsValid(), "invalid side: %v", t.Side)
-	if t.RollingAverage != nil {
-		v.GreaterThanEq("rolling_average", *t.RollingAverage, 1)
-	}
+	v.GreaterThanEq("rolling_average", t.RollingAverage, 1)
 	if t.Precision != nil {
 		v.LessThanEq("precision", *t.Precision, 17)
 	}

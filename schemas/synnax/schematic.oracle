@@ -1172,7 +1172,7 @@ NumericTelemConfig struct {
     channel         channel.Key?      {
         @doc value "is the channel whose value the symbol displays."
     }
-    rolling_average uint16?           {
+    rolling_average uint16 = 1 {
         @doc value    "is the number of samples in the rolling average."
         @validate min 1
     }

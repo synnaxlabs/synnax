@@ -202,7 +202,7 @@ class NumericTelemConfig(BaseModel):
     """
 
     channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
-    rolling_average: int | None = Field(default=None, ge=1, le=65535)
+    rolling_average: int = Field(default=1, ge=1, le=65535)
     precision: int | None = Field(default=None, ge=0, le=17)
     notation: notation_.Notation = "standard"
 
@@ -1049,7 +1049,7 @@ class TankNodeConfig(LabeledConfig):
 
     variant: Literal["tank"] = "tank"
     channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
-    rolling_average: int | None = Field(default=None, ge=1, le=65535)
+    rolling_average: int = Field(default=1, ge=1, le=65535)
     precision: int | None = Field(default=None, ge=0, le=17)
     notation: notation_.Notation = "standard"
     staleness_timeout: telem.TimeSpan = Field(

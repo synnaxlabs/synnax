@@ -1335,12 +1335,7 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		if v.RollingAverage != nil {
-			w.Bool(true)
-			w.Uint16(uint16(*v.RollingAverage))
-		} else {
-			w.Bool(false)
-		}
+		w.Uint16(uint16(v.RollingAverage))
 		if v.Precision != nil {
 			w.Bool(true)
 			w.Uint8(uint8(*v.Precision))
@@ -3058,18 +3053,8 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				v.Channel = &hv
 			}
 		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				var hv uint16
-				if hv, err = r.Uint16(); err != nil {
-					return err
-				}
-				v.RollingAverage = &hv
-			}
+		if v.RollingAverage, err = r.Uint16(); err != nil {
+			return err
 		}
 		{
 			present, err := r.Bool()
@@ -3318,12 +3303,7 @@ func (ntc NumericTelemConfig) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
-	if ntc.RollingAverage != nil {
-		w.Bool(true)
-		w.Uint16(uint16(*ntc.RollingAverage))
-	} else {
-		w.Bool(false)
-	}
+	w.Uint16(uint16(ntc.RollingAverage))
 	if ntc.Precision != nil {
 		w.Bool(true)
 		w.Uint8(uint8(*ntc.Precision))
@@ -3336,6 +3316,7 @@ func (ntc NumericTelemConfig) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (ntc *NumericTelemConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
 	{
 		present, err := r.Bool()
 		if err != nil {
@@ -3353,18 +3334,8 @@ func (ntc *NumericTelemConfig) DecodeOrc(r *orc.Reader) error {
 			ntc.Channel = &hv
 		}
 	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv uint16
-			if hv, err = r.Uint16(); err != nil {
-				return err
-			}
-			ntc.RollingAverage = &hv
-		}
+	if ntc.RollingAverage, err = r.Uint16(); err != nil {
+		return err
 	}
 	{
 		present, err := r.Bool()
@@ -3397,12 +3368,7 @@ func (sic ScaleIndicatorConfig) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
-	if sic.RollingAverage != nil {
-		w.Bool(true)
-		w.Uint16(uint16(*sic.RollingAverage))
-	} else {
-		w.Bool(false)
-	}
+	w.Uint16(uint16(sic.RollingAverage))
 	if sic.Precision != nil {
 		w.Bool(true)
 		w.Uint8(uint8(*sic.Precision))
@@ -3475,18 +3441,8 @@ func (sic *ScaleIndicatorConfig) DecodeOrc(r *orc.Reader) error {
 			sic.Channel = &hv
 		}
 	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv uint16
-			if hv, err = r.Uint16(); err != nil {
-				return err
-			}
-			sic.RollingAverage = &hv
-		}
+	if sic.RollingAverage, err = r.Uint16(); err != nil {
+		return err
 	}
 	{
 		present, err := r.Bool()

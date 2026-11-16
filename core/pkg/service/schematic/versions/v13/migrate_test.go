@@ -940,7 +940,7 @@ var _ = Describe("MigrateNumericTelemConfig rolling average", func() {
 	DescribeTable("Should clamp the rolling average", func(
 		ctx SpecContext,
 		in *int32,
-		out *uint16,
+		out uint16,
 	) {
 		cfg := MustSucceed(v13.MigrateNumericTelemConfig(
 			ctx,
@@ -948,11 +948,11 @@ var _ = Describe("MigrateNumericTelemConfig rolling average", func() {
 		))
 		Expect(cfg.RollingAverage).To(Equal(out))
 	},
-		Entry("missing", nil, nil),
-		Entry("whole", new(int32(10)), new(uint16(10))),
-		Entry("zero", new(int32(0)), new(uint16(1))),
-		Entry("negative", new(int32(-4)), new(uint16(1))),
-		Entry("too large", new(int32(70000)), new(uint16(65535))),
+		Entry("missing", nil, uint16(1)),
+		Entry("whole", new(int32(10)), uint16(10)),
+		Entry("zero", new(int32(0)), uint16(1)),
+		Entry("negative", new(int32(-4)), uint16(1)),
+		Entry("too large", new(int32(70000)), uint16(65535)),
 	)
 })
 
@@ -1061,7 +1061,7 @@ var _ = Describe("MigrateNodeConfig whole numbers and renames", func() {
 		}))
 		tank := out.Variant.(v13.TankNodeConfig)
 		Expect(tank.StalenessTimeout).To(Equal(2 * telem.Second))
-		Expect(tank.RollingAverage).To(HaveValue(BeEquivalentTo(1)))
+		Expect(tank.RollingAverage).To(Equal(uint16(1)))
 	})
 
 	It("Should convert the staleness timeout of a value", func(ctx SpecContext) {

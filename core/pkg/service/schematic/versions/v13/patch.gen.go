@@ -2461,7 +2461,9 @@ func (gnc *GaugeNodeConfig) Patch(c patch.Cursor) error {
 	case "channel":
 		return patch.OptionalValue(&gnc.NumericTelemConfig.Channel, c.Next())
 	case "rolling_average":
-		return patch.OptionalValue(&gnc.NumericTelemConfig.RollingAverage, c.Next())
+		return patch.Defaulted(&gnc.NumericTelemConfig.RollingAverage, c.Next(), func(def *GaugeNodeConfig) {
+			gnc.NumericTelemConfig.RollingAverage = def.NumericTelemConfig.RollingAverage
+		})
 	case "precision":
 		return patch.OptionalValue(&gnc.NumericTelemConfig.Precision, c.Next())
 	case "notation":
@@ -2784,7 +2786,9 @@ func (snc *ScaleNodeConfig) Patch(c patch.Cursor) error {
 	case "channel":
 		return patch.OptionalValue(&snc.ScaleIndicatorConfig.NumericTelemConfig.Channel, c.Next())
 	case "rolling_average":
-		return patch.OptionalValue(&snc.ScaleIndicatorConfig.NumericTelemConfig.RollingAverage, c.Next())
+		return patch.Defaulted(&snc.ScaleIndicatorConfig.NumericTelemConfig.RollingAverage, c.Next(), func(def *ScaleNodeConfig) {
+			snc.ScaleIndicatorConfig.NumericTelemConfig.RollingAverage = def.ScaleIndicatorConfig.NumericTelemConfig.RollingAverage
+		})
 	case "precision":
 		return patch.OptionalValue(&snc.ScaleIndicatorConfig.NumericTelemConfig.Precision, c.Next())
 	case "notation":
@@ -3097,7 +3101,9 @@ func (vnc *ValueNodeConfig) Patch(c patch.Cursor) error {
 	case "channel":
 		return patch.OptionalValue(&vnc.NumericTelemConfig.Channel, c.Next())
 	case "rolling_average":
-		return patch.OptionalValue(&vnc.NumericTelemConfig.RollingAverage, c.Next())
+		return patch.Defaulted(&vnc.NumericTelemConfig.RollingAverage, c.Next(), func(def *ValueNodeConfig) {
+			vnc.NumericTelemConfig.RollingAverage = def.NumericTelemConfig.RollingAverage
+		})
 	case "precision":
 		return patch.OptionalValue(&vnc.NumericTelemConfig.Precision, c.Next())
 	case "notation":
@@ -5300,7 +5306,9 @@ func (tnc *TankNodeConfig) Patch(c patch.Cursor) error {
 	case "channel":
 		return patch.OptionalValue(&tnc.Channel, c.Next())
 	case "rolling_average":
-		return patch.OptionalValue(&tnc.RollingAverage, c.Next())
+		return patch.Defaulted(&tnc.RollingAverage, c.Next(), func(def *TankNodeConfig) {
+			tnc.RollingAverage = def.RollingAverage
+		})
 	case "precision":
 		return patch.OptionalValue(&tnc.Precision, c.Next())
 	case "notation":

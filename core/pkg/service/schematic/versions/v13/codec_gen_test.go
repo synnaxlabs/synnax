@@ -109,7 +109,7 @@ var (
 	}
 	fullyPopulatedNumericTelemConfig = v13.NumericTelemConfig{
 		Channel:        new(channel.Key(2)),
-		RollingAverage: new(uint16(3)),
+		RollingAverage: 3,
 		Precision:      new(uint8(4)),
 		Notation:       notation.Notation("standard"),
 	}
@@ -125,7 +125,7 @@ var (
 	fullyPopulatedScaledConfig         = v13.ScaledConfig{Scale: 1.5}
 	fullyPopulatedScaleIndicatorConfig = v13.ScaleIndicatorConfig{
 		Channel:          new(channel.Key(2)),
-		RollingAverage:   new(uint16(3)),
+		RollingAverage:   3,
 		Precision:        new(uint8(4)),
 		Notation:         notation.Notation("standard"),
 		StalenessTimeout: telem.TimeSpan(6),
@@ -941,7 +941,7 @@ var _ = Describe("Codec", func() {
 			Entry("tank variant", v13.NodeConfig{Variant: v13.TankNodeConfig{
 				LabeledConfig:    fullyPopulatedLabeledConfig,
 				Channel:          new(channel.Key(2)),
-				RollingAverage:   new(uint16(3)),
+				RollingAverage:   3,
 				Precision:        new(uint8(4)),
 				Notation:         notation.Notation("standard"),
 				StalenessTimeout: telem.TimeSpan(6),
@@ -1055,7 +1055,7 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", fullyPopulatedNumericTelemConfig),
 			Entry("zero values", v13.NumericTelemConfig{
 				Channel:        nil,
-				RollingAverage: nil,
+				RollingAverage: 0,
 				Precision:      nil,
 				Notation:       notation.Notation(""),
 			}),
@@ -1075,7 +1075,7 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", fullyPopulatedScaleIndicatorConfig),
 			Entry("zero values", v13.ScaleIndicatorConfig{
 				Channel:          nil,
-				RollingAverage:   nil,
+				RollingAverage:   0,
 				Precision:        nil,
 				Notation:         notation.Notation(""),
 				StalenessTimeout: telem.TimeSpan(0),
@@ -3226,7 +3226,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		seed := v13.NodeConfig{Variant: v13.TankNodeConfig{
 			LabeledConfig:    fullyPopulatedLabeledConfig,
 			Channel:          new(channel.Key(2)),
-			RollingAverage:   new(uint16(3)),
+			RollingAverage:   3,
 			Precision:        new(uint8(4)),
 			Notation:         notation.Notation("standard"),
 			StalenessTimeout: telem.TimeSpan(6),
@@ -3392,7 +3392,7 @@ func FuzzDecodeNumericTelemConfig(f *testing.F) {
 	{
 		seed := v13.NumericTelemConfig{
 			Channel:        nil,
-			RollingAverage: nil,
+			RollingAverage: 0,
 			Precision:      nil,
 			Notation:       notation.Notation(""),
 		}
@@ -3436,7 +3436,7 @@ func FuzzDecodeScaleIndicatorConfig(f *testing.F) {
 	{
 		seed := v13.ScaleIndicatorConfig{
 			Channel:          nil,
-			RollingAverage:   nil,
+			RollingAverage:   0,
 			Precision:        nil,
 			Notation:         notation.Notation(""),
 			StalenessTimeout: telem.TimeSpan(0),

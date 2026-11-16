@@ -79,7 +79,7 @@ StalenessConfig struct extends v9.StalenessConfig {
 }
 
 NumericTelemConfig struct extends v12.NumericTelemConfig {
-    rolling_average uint16? {
+    rolling_average uint16 = 1 {
         @doc value    "is the number of samples in the rolling average."
         @validate min 1
     }

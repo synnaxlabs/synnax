@@ -155,7 +155,7 @@ export const numericTelemConfigZ = z.object({
   /** channel is the channel whose value the symbol displays. */
   channel: channel.keyZ.optional(),
   /** rollingAverage is the number of samples in the rolling average. */
-  rollingAverage: zod.uint16.min(1).optional(),
+  rollingAverage: zod.uint16.min(1).default(1),
   /** precision is the number of decimal places shown, from 0 to 17. Absent shows 2. */
   precision: zod.uint8.max(17).optional(),
   /** notation is the numeric notation used to format the value. */

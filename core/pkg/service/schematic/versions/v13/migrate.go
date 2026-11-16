@@ -442,11 +442,11 @@ func MigrateNumericTelemConfig(
 	return cfg, nil
 }
 
-func migrateRollingAverage(n *int32) *uint16 {
+func migrateRollingAverage(n *int32) uint16 {
 	if n == nil {
-		return nil
+		return 1
 	}
-	return new(uint16(min(max(*n, 1), math.MaxUint16)))
+	return uint16(min(max(*n, 1), math.MaxUint16))
 }
 
 const defaultStalenessTimeout = 5 * telem.Second
