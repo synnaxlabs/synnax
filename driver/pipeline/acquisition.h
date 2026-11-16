@@ -9,6 +9,9 @@
 
 #pragma once
 
+#include <map>
+#include <optional>
+
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 
@@ -75,6 +78,13 @@ public:
     /// error if the write fails, at which point the acquisition pipeline will
     /// close the writer and conditionally trigger a retry (see the close method).
     [[nodiscard]] virtual x::errors::Error write(const x::telem::Frame &fr) = 0;
+
+    /// @brief writes a frame whose write failed on an earlier writer of the same
+    /// pipeline. A writer that delivers frames somewhere besides the Core already
+    /// delivered this one there, so it sends it to the Core only.
+    [[nodiscard]] virtual x::errors::Error rewrite(const x::telem::Frame &fr) {
+        return this->write(fr);
+    }
 
     /// @brief sets the authority for channels on this writer. If
     /// authorities.keys is empty, the authority applies to all channels.
@@ -177,8 +187,26 @@ class Acquisition final : public Base {
     /// crash.
     void run() override;
 
-    /// @brief runs the pipeline once, returning true if it should run again.
-    bool run_once();
+    /// @brief the state one run of the pipeline hands to the next when the Core was
+    /// temporarily unavailable.
+    struct Run {
+        /// @brief the global authority to set on each writer that opens.
+        std::optional<x::control::Authority> pending_global_auth;
+        /// @brief the channel authorities to set on each writer that opens, after
+        /// pending_global_auth.
+        std::map<synnax::channel::Key, x::control::Authority> pending_channel_auths;
+        /// @brief the frame read but not yet written.
+        x::telem::Frame fr{0};
+        /// @brief the authority changes read but not yet set.
+        Authorities authorities;
+        /// @brief true when a write of fr already failed.
+        bool rewrite = false;
+    };
+
+    /// @brief runs the pipeline once, returning true if it should run again. A run
+    /// writes what run holds before it reads the source again, and leaves it in place
+    /// when its write fails.
+    bool run_once(Run &run);
 
 public:
     /// @brief construct an acquisition pipeline that opens writers on a Synnax
