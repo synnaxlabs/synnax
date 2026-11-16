@@ -65,9 +65,16 @@ const open = (items: ReactElement = ITEMS): HTMLElement => {
   return opener;
 };
 
+// Presses a key as a browser does: a key the page does not take edits a focused field.
 const press = (key: string, init?: KeyboardEventInit): void => {
-  if (document.activeElement == null) throw new Error("nothing has focus");
-  fireEvent.keyDown(document.activeElement, { key, code: key, ...init });
+  const el = document.activeElement;
+  if (el == null) throw new Error("nothing has focus");
+  const taken = !fireEvent.keyDown(el, { key, code: key, ...init });
+  if (taken || !(el instanceof HTMLInputElement)) return;
+  if (key === "Backspace")
+    fireEvent.change(el, { target: { value: el.value.slice(0, -1) } });
+  else if (key.length === 1)
+    fireEvent.change(el, { target: { value: el.value + key } });
 };
 
 const type = (text: string): void => {
@@ -78,6 +85,12 @@ const shown = (): string[] =>
   screen.queryAllByRole("menuitem").map((el) => el.textContent ?? "");
 
 const focused = (): string | null | undefined => document.activeElement?.textContent;
+
+const search = (): HTMLInputElement | null =>
+  document.querySelector(".lyra-menu-filter input");
+
+const lit = (): string | null | undefined =>
+  document.querySelector("[data-highlighted]")?.textContent;
 
 describe("menu filter", () => {
   describe("context menu", () => {
@@ -158,16 +171,26 @@ describe("menu filter", () => {
     it("should show every item of a submenu opened under the filter", () => {
       open();
       type("col");
-      press("ArrowRight");
+      press("Enter");
       expect(shown()).toEqual(["Color", "Red"]);
+      expect(focused()).toBe("Red");
     });
 
-    it("should show the filter as a line at the top", () => {
+    it("should open a search at the top on the first key, with the focus", () => {
       open();
       type("ren");
-      const line = document.querySelector(".lyra-menu-filter");
-      expect(line?.textContent).toBe("ren");
-      expect(screen.getByRole("menu").firstElementChild).toBe(line);
+      expect(search()?.value).toBe("ren");
+      expect(document.activeElement).toBe(search());
+      expect(screen.getByRole("menu").firstElementChild).toBe(
+        document.querySelector(".lyra-menu-filter"),
+      );
+    });
+
+    it("should keep the menu open on a click in the search", () => {
+      open();
+      type("ren");
+      fireEvent.click(search() as HTMLInputElement);
+      expect(screen.getByRole("menu")).toBeTruthy();
     });
 
     it("should say No matches when no item matches", () => {
@@ -177,21 +200,40 @@ describe("menu filter", () => {
       expect(screen.getByText("No matches")).toBeTruthy();
     });
 
-    it("should give the focus to the first match", () => {
+    it("should light the first match", () => {
       open();
       type("re");
-      expect(focused()).toBe("Rename");
+      expect(lit()).toBe("Rename");
       type("m");
+      expect(lit()).toBe("Remove");
+    });
+
+    it("should move the focus from the search over the items that show", () => {
+      open();
+      type("re");
+      press("ArrowDown");
+      expect(focused()).toBe("Rename");
+      press("ArrowDown");
+      expect(focused()).toBe("Remove");
+      press("ArrowDown");
+      expect(focused()).toBe("Rename");
+    });
+
+    it("should move the focus from the search to the last item on ArrowUp", () => {
+      open();
+      type("re");
+      press("ArrowUp");
       expect(focused()).toBe("Remove");
     });
 
-    it("should move the focus over the items that show", () => {
+    it("should go on typing in the search from an item", () => {
       open();
       type("re");
       press("ArrowDown");
-      expect(focused()).toBe("Remove");
-      press("ArrowDown");
-      expect(focused()).toBe("Rename");
+      type("m");
+      expect(search()?.value).toBe("rem");
+      expect(document.activeElement).toBe(search());
+      expect(search()?.selectionStart).toBe(3);
     });
 
     it("should take capital letters typed with Shift", () => {
@@ -211,10 +253,10 @@ describe("menu filter", () => {
     it("should take a space only after the filter starts", () => {
       open();
       press(" ");
-      expect(document.querySelector(".lyra-menu-filter")).toBeNull();
+      expect(search()).toBeNull();
       type("o");
       press(" ");
-      expect(document.querySelector(".lyra-menu-filter")?.textContent).toBe("o ");
+      expect(search()?.value).toBe("o ");
     });
 
     it("should clear the filter on Escape, then close the menu", () => {
@@ -223,7 +265,8 @@ describe("menu filter", () => {
       act(() => press("Escape"));
       expect(screen.getByRole("menu")).toBeTruthy();
       expect(shown()).toHaveLength(5);
-      expect(document.querySelector(".lyra-menu-filter")).toBeNull();
+      expect(search()).toBeNull();
+      expect(document.activeElement).toBe(screen.getByRole("menu"));
       act(() => press("Escape"));
       expect(screen.queryByRole("menu")).toBeNull();
       expect(document.activeElement).toBe(opener);

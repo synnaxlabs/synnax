@@ -118,11 +118,14 @@ describe("menu filter", () => {
   });
 
   describe("context menu", () => {
-    it("should show the filter as a line that spans the top of the menu", async () => {
+    it("should open a search that spans the top of the menu", async () => {
       const menu = await openContextMenu();
       await userEvent.keyboard("ren");
+      const search = page.getByRole("textbox");
+      await expect.element(search).toHaveValue("ren");
+      await expect.element(search).toHaveFocus();
+      expect((search.element() as HTMLInputElement).selectionStart).toBe(3);
       const line = document.querySelector(".lyra-menu-filter") as HTMLElement;
-      await expect.poll(() => line?.textContent).toBe("ren");
       const lineBox = line.getBoundingClientRect();
       const menuBox = menu.getBoundingClientRect();
       expect(menuBox.right - lineBox.right).toBe(lineBox.left - menuBox.left);
@@ -191,6 +194,34 @@ describe("menu filter", () => {
       await userEvent.keyboard("rem{Enter}");
       expect(onChange).toHaveBeenCalledExactlyOnceWith("remove");
       expect(page.getByRole("menu").query()).toBeNull();
+    });
+
+    it("should take a click in the search, with the menu open", async () => {
+      await openContextMenu();
+      await userEvent.keyboard("ren");
+      const search = page.getByRole("textbox");
+      await userEvent.click(search);
+      await userEvent.keyboard("x");
+      await expect.element(search).toHaveValue("renx");
+      expect(page.getByRole("menu").query()).not.toBeNull();
+    });
+
+    it("should light the first match while the search has the focus", async () => {
+      await openContextMenu();
+      await userEvent.keyboard("re");
+      const [first, second] = page.getByRole("menuitem").elements();
+      await expect
+        .poll(() => computed(first, "background-color"))
+        .not.toBe(computed(second, "background-color"));
+    });
+
+    it("should pick the item under the pointer on Enter", async () => {
+      const onChange = vi.fn();
+      await openContextMenu(onChange);
+      await userEvent.keyboard("re");
+      await userEvent.hover(page.getByRole("menuitem", { name: "Remove" }));
+      await userEvent.keyboard("{Enter}");
+      expect(onChange).toHaveBeenCalledExactlyOnceWith("remove");
     });
 
     it("should clear the filter on Escape, then close", async () => {
