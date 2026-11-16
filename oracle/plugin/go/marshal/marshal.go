@@ -296,8 +296,8 @@ func sortedImports(m map[string]string) []importEntry {
 	return entries
 }
 
-func resolveGoImportPath(outputPath, repoRoot string) (string, error) {
-	return gomod.ResolveImportPath(outputPath, repoRoot, gomod.DefaultModulePrefix), nil
+func resolveGoImportPath(outputPath, repoRoot string) string {
+	return gomod.ResolveImportPath(outputPath, repoRoot, gomod.DefaultModulePrefix)
 }
 
 // isVersionedPath reports whether goPath is a versions/vN package (its parent directory
