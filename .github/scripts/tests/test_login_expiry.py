@@ -7,8 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
+import os
 import subprocess
+import sys
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -16,6 +20,18 @@ import pytest
 from login_expiry import PREFIX, check
 
 NOW = datetime(2026, 11, 15, 10, 17, tzinfo=UTC)
+
+SCRIPT = Path(__file__).resolve().parents[1] / "login_expiry.py"
+
+# Prints $LISTED for list-secrets and $DESCRIBED for describe-secret. Fails with $ERROR
+# when it is set.
+AWS = """#!/usr/bin/env bash
+if [ -n "$ERROR" ]; then echo "$ERROR" >&2; exit 254; fi
+case "$2" in
+    list-secrets) echo "$LISTED" ;;
+    describe-secret) echo "$DESCRIBED" ;;
+esac
+"""
 
 
 def at(days: float) -> str:
@@ -123,3 +139,49 @@ def test_other_describe_error_raises() -> None:
 
 def test_no_login_fails() -> None:
     assert check(FakeAws({}), now=NOW) == (False, ["no login is stored"])
+
+
+def run(
+    tmp_path: Path, *, expires: datetime, error: str = ""
+) -> subprocess.CompletedProcess[str]:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    aws = bin_dir / "aws"
+    aws.write_text(AWS)
+    aws.chmod(0o755)
+    tags = [{"Key": "expires", "Value": str(int(expires.timestamp()))}]
+    return subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        env={
+            **os.environ,
+            "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "LISTED": json.dumps({"SecretList": [{"Name": f"{PREFIX}claude-1"}]}),
+            "DESCRIBED": json.dumps({"Tags": tags}),
+            "ERROR": error,
+        },
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_script_passes_for_a_login_far_from_expiry(tmp_path: Path) -> None:
+    expires = datetime.now(UTC) + timedelta(days=200)
+    result = run(tmp_path, expires=expires)
+    assert result.returncode == 0
+    assert result.stdout == f"claude-1: expires {expires:%Y-%m-%d}\n"
+
+
+def test_script_fails_for_an_expired_login(tmp_path: Path) -> None:
+    expires = datetime.now(UTC) - timedelta(days=1)
+    result = run(tmp_path, expires=expires)
+    assert result.returncode == 1
+    assert result.stdout == (
+        f"claude-1: expired {expires:%Y-%m-%d}, store a new token\n"
+    )
+
+
+def test_script_prints_the_aws_error(tmp_path: Path) -> None:
+    error = "An error occurred (AccessDeniedException) when calling ListSecrets"
+    result = run(tmp_path, expires=datetime.now(UTC), error=error)
+    assert result.returncode != 0
+    assert error in result.stderr

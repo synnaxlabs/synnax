@@ -32,13 +32,14 @@ Aws = Callable[[list[str]], Any]
 
 
 def cli(args: list[str]) -> Any:
-    out = subprocess.run(
+    run = subprocess.run(
         ["aws", *args, "--region", REGION, "--output", "json"],
-        check=True,
         capture_output=True,
         text=True,
-    ).stdout
-    return json.loads(out) if out.strip() else None
+    )
+    sys.stderr.write(run.stderr)
+    run.check_returncode()
+    return json.loads(run.stdout) if run.stdout.strip() else None
 
 
 def check(aws: Aws, *, now: datetime) -> tuple[bool, list[str]]:
