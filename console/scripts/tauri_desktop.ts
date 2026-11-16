@@ -12,14 +12,17 @@
 // binary, since the Console .deb already installs /usr/bin/synnax-console.
 
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 
 const configs = ["--config", "src-tauri/tauri.desktop.conf.json"];
 if (process.platform === "linux")
   configs.push("--config", "src-tauri/tauri.desktop.linux.conf.json");
 const [command, ...args] = process.argv.slice(2);
-const { status } = spawnSync("pnpm", ["exec", "tauri", command, ...configs, ...args], {
+// The CLI's own entry runs without a shell, so cmd.exe cannot strip the quotes of an
+// argument on Windows.
+const cli = createRequire(import.meta.url).resolve("@tauri-apps/cli/tauri.js");
+const { status } = spawnSync(process.execPath, [cli, command, ...configs, ...args], {
   stdio: "inherit",
   env: { ...process.env, VITE_DESKTOP: "true" },
-  shell: process.platform === "win32",
 });
 process.exit(status ?? 1);
