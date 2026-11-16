@@ -305,11 +305,20 @@ def sedosaur_reviews(edits: list[dict[str, Any]], repo: str) -> dict[str, int]:
     return dict(reversed(out.items()))
 
 
-def record(gh: GH, repo: str, run: int, cache: Path) -> dict[str, Any]:
-    """Returns the record of a Sedosaur review run. A record never changes, so it
+def record(gh: GH, repo: str, run: int, cache: Path) -> dict[str, Any] | None:
+    """Returns the record of a Sedosaur review run, or None when the run kept none, as
+    a run that carried an earlier review does not. A record never changes, so it
     downloads only when the cache does not hold it."""
     path = cache / f"{run}.json"
     if not path.exists():
+        kept = gh(
+            "api",
+            f"repos/{repo}/actions/runs/{run}/artifacts?name={ARTIFACT}",
+            "--jq",
+            ".artifacts[] | select(.expired | not) | .id",
+        )
+        if not kept.strip():
+            return None
         with tempfile.TemporaryDirectory() as tmp:
             gh(
                 *("run", "download", str(run), "--repo", repo),
@@ -345,7 +354,7 @@ def limits(gh: GH, repo: str, since: datetime, cache: Path) -> dict[str, Any] | 
         rec = record(gh, repo, run, cache)
         # Records from before reviews kept their limits, and reviews that Claude Code
         # reported no limits for, have none.
-        if rec["usage"].get("limits"):
+        if rec is not None and rec["usage"].get("limits"):
             return rec
     return None
 
@@ -377,7 +386,7 @@ def _read(gh: GH, repo: str, pr: int, since: datetime, cache: Path) -> _Read | N
     for head, run in runs.items():
         if head in reviews:
             rec = record(gh, repo, run, cache)
-            if datetime.fromisoformat(rec["at"]) >= since:
+            if rec is not None and datetime.fromisoformat(rec["at"]) >= since:
                 recs[head] = rec
     if not recs:
         return None

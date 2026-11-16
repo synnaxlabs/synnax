@@ -9,6 +9,7 @@
 
 import json
 import os
+import re
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
@@ -246,6 +247,7 @@ class FakeGH:
         ]
         self.pulls: list[dict[str, Any]] = []
         self.artifacts: list[dict[str, Any]] = []
+        self.kept: dict[int, bool] = {}
         self.records: dict[int, dict[str, Any]] = {}
         self.downloads: list[int] = []
 
@@ -277,6 +279,12 @@ class FakeGH:
             f"repos/{REPO}/actions/artifacts?name=sedosaur-review&per_page=100",
         ):
             return "".join(f"{json.dumps(a)}\n" for a in self.artifacts)
+        if m := re.fullmatch(
+            rf"repos/{REPO}/actions/runs/(\d+)/artifacts\?name=sedosaur-review",
+            args[1],
+        ):
+            run = int(m[1])
+            return f"{run}\n" if self.kept.get(run, run in self.records) else ""
         raise AssertionError(f"unexpected gh call: {args}")
 
 
@@ -455,6 +463,11 @@ class TestRecord:
         assert compare.record(gh, REPO, 1, tmp_path) == record(HEAD)
         assert gh.downloads == [1]
 
+    def test_should_return_none_for_a_run_that_kept_no_record(
+        self, tmp_path: Path
+    ) -> None:
+        assert compare.record(FakeGH(), REPO, 1, tmp_path) is None
+
 
 class TestLimits:
     """Tests finding the newest record of the usage limits."""
@@ -522,6 +535,12 @@ class TestPairs:
         [p] = pairs(gh, repo, recs)
         assert p.scores == (4, 4)
         assert gh.downloads == [2]
+
+    def test_should_skip_a_commit_whose_run_kept_no_record(self, repo: Repo) -> None:
+        gh = FakeGH(repo.head)
+        gh.kept[1] = False
+        assert pairs(gh, repo, [record(repo.head)]) == []
+        assert gh.downloads == []
 
     def test_should_skip_a_record_from_before_the_window(self, repo: Repo) -> None:
         old = record(repo.head)
