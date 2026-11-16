@@ -61,12 +61,12 @@ When the Core is unreachable, the forwarder closes the live writer, spools the q
 frames in order, and reopens the live writer only after the queue is empty. Every
 spooled frame therefore comes before the next live session, as RFC 0095 §4.4 requires.
 
-A silent network loss takes minutes to report (`freighter/cpp/grpc/grpc.h:55-63`), so
-the Driver pings the Core every 10 s and closes a connection whose ping goes 10 s
-without an answer. That fails every call on the connection, the forwarder's included, in
-about 20 s. The Core accepts pings as often as every 5 s. The 64 MB queue covers that
-time at high rates. A reachable Core too slow for the task fills it, and `write` then
-drops the frame and counts it.
+gRPC finds a silent network loss only when a keepalive ping goes unanswered, so the
+Driver pings the Core every 10 s and closes a connection whose ping goes 20 s without an
+answer. That fails every call on the connection, the forwarder's included, in about 30
+s. The Core accepts pings as often as every 5 s. The 64 MB queue covers that time at up
+to about 2 MB/s. A reachable Core too slow for the task fills it, and `write` then drops
+the frame and counts it.
 
 Any other Core error, such as a deleted channel, closes the forwarder; the next `write`
 returns it and the task stops as today (`acquisition.cpp:162-167`).

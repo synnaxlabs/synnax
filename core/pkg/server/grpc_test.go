@@ -142,8 +142,8 @@ var _ = Describe("gRPC", func() {
 			healthpb.NewHealthClient(conn).Watch(ctx, &healthpb.HealthCheckRequest{}),
 		)
 		MustSucceed(stream.Recv())
-		// A Core that refuses these pings closes the connection after three of them.
-		time.Sleep(35 * time.Second)
+		// A Core that refuses these pings closes the connection at the fourth of them.
+		time.Sleep(45 * time.Second)
 		healthSrv.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
 		Expect(MustSucceed(stream.Recv()).Status).
 			To(Equal(healthpb.HealthCheckResponse_NOT_SERVING))

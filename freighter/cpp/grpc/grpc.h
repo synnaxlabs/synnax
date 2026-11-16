@@ -58,8 +58,9 @@ struct Keepalive {
     std::chrono::milliseconds time = std::chrono::seconds(10);
     /// @brief how long the channel waits for the answer to any ping, a keepalive ping
     /// or a flow control ping, before it closes the connection, which fails its calls
-    /// with UNREACHABLE. With time, it finds a silent network loss in about 20 s.
-    std::chrono::milliseconds timeout = std::chrono::seconds(10);
+    /// with UNREACHABLE. With time, it finds a silent network loss in about 30 s. A
+    /// ping waits behind queued data, so a slow uplink needs this margin.
+    std::chrono::milliseconds timeout = std::chrono::seconds(20);
 };
 
 /// @brief the default Pool::unary_timeout.
