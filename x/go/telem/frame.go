@@ -345,9 +345,10 @@ func (f Frame[K]) Grow(n int) Frame[K] {
 // Prepend adds a new key-series pair to the beginning of the frame, returning the
 // updated frame.
 func (f Frame[K]) Prepend(key K, series Series) Frame[K] {
-	f.keys = append([]K{key}, f.keys...)
-	f.series = append([]Series{series}, f.series...)
-	return f
+	return Frame[K]{
+		keys:   append([]K{key}, f.KeysSlice()...),
+		series: append([]Series{series}, f.SeriesSlice()...),
+	}
 }
 
 // Empty returns true if the frame has no keys or series.

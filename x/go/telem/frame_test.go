@@ -167,6 +167,23 @@ var _ = Describe("Frame", func() {
 				telem.NewSeriesV[int32](1, 2, 3),
 			}))
 		})
+
+		It("Should keep the filter of a filtered frame", func() {
+			fr := telem.MultiFrame(
+				[]int32{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1),
+					telem.NewSeriesV[int32](2),
+					telem.NewSeriesV[int32](3),
+				},
+			).KeepKeys(set.New[int32](2))
+			fr = fr.Prepend(9, telem.NewSeriesV[int32](9))
+			Expect(fr.KeysSlice()).To(Equal([]int32{9, 2}))
+			Expect(fr.SeriesSlice()).To(Equal([]telem.Series{
+				telem.NewSeriesV[int32](9),
+				telem.NewSeriesV[int32](2),
+			}))
+		})
 	})
 
 	Describe("KeepKeys", func() {
