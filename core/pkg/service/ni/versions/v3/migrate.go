@@ -309,10 +309,10 @@ func logNumber[O, N number](l changeLog, field string, old O, next N) {
 	}
 }
 
-// logFlag logs field when its old and new values differ.
-func logFlag(l changeLog, field string, old, next bool) {
+// logDisabled logs the Disabled field when its old and new values differ.
+func logDisabled(l changeLog, old, next bool) {
 	if old != next {
-		l.warn(field, zap.Bool("old", old), zap.Bool("new", next))
+		l.warn("Disabled", zap.Bool("old", old), zap.Bool("new", next))
 	}
 }
 
@@ -390,7 +390,7 @@ func logAIChannel(l changeLog, old v2.AIChannel, migrated AIChannel) {
 	if o, ok := old.Variant.(v2.AITempBuiltinChannel); ok {
 		l.channel = o.Key
 		n := as[AITempBuiltinChannel](migrated.Variant)
-		logFlag(l, "Disabled", o.Disabled, n.Disabled)
+		logDisabled(l, o.Disabled, n.Disabled)
 		return
 	}
 	if old.Variant == nil {
@@ -399,7 +399,7 @@ func logAIChannel(l changeLog, old v2.AIChannel, migrated AIChannel) {
 	o, n := aiBases(old.Variant, migrated.Variant)
 	l.channel = o.Key
 	logNumber(l, "Port", o.Port, n.Port)
-	logFlag(l, "Disabled", o.Disabled, n.Disabled)
+	logDisabled(l, o.Disabled, n.Disabled)
 	tc, ok := old.Variant.(v2.AIThermocoupleChannel)
 	if !ok {
 		return
@@ -420,7 +420,7 @@ func logAOChannel(l changeLog, old v2.AOChannel, migrated AOChannel) {
 	o, n := old.Base(), migrated.Base()
 	l.channel = o.Key
 	logNumber(l, "Port", o.Port, n.Port)
-	logFlag(l, "Disabled", o.Disabled, n.Disabled)
+	logDisabled(l, o.Disabled, n.Disabled)
 }
 
 func logCIChannel(l changeLog, old v2.CIChannel, migrated CIChannel) {
@@ -447,21 +447,21 @@ func logCIChannel(l changeLog, old v2.CIChannel, migrated CIChannel) {
 		after := as[CIPositionAngularChannel](migrated.Variant).PulsesPerRev
 		logNumber(l, "PulsesPerRev", v.PulsesPerRev, after)
 	}
-	logFlag(l, "Disabled", o.Disabled, n.Disabled)
+	logDisabled(l, o.Disabled, n.Disabled)
 }
 
 func logDIChannel(l changeLog, old v2.DIChannel, migrated DIChannel) {
 	l.channel = old.Key
 	logNumber(l, "Port", old.Port, migrated.Port)
 	logNumber(l, "Line", old.Line, migrated.Line)
-	logFlag(l, "Disabled", old.Disabled, migrated.Disabled)
+	logDisabled(l, old.Disabled, migrated.Disabled)
 }
 
 func logDOChannel(l changeLog, old v2.DOChannel, migrated DOChannel) {
 	l.channel = old.Key
 	logNumber(l, "Port", old.Port, migrated.Port)
 	logNumber(l, "Line", old.Line, migrated.Line)
-	logFlag(l, "Disabled", old.Disabled, migrated.Disabled)
+	logDisabled(l, old.Disabled, migrated.Disabled)
 }
 
 func logAnalogRead(l changeLog, old v2.AnalogReadConfig, migrated AnalogReadConfig) {

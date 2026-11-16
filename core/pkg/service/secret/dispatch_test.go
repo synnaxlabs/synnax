@@ -20,6 +20,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+func set(path string, value any) secret.Action {
+	return secret.NewSetAction(secret.SetPayload{Path: []string{path}, Value: value})
+}
+
 var _ = Describe("Dispatch", func() {
 	type frame = actions.Scoped[secret.Key, secret.Action]
 	var (
@@ -30,11 +34,6 @@ var _ = Describe("Dispatch", func() {
 		return e.write(ctx, func(w secret.Writer) error {
 			return fn(w.WithDispatchKey("dk"))
 		})
-	}
-	set := func(path string, value any) secret.Action {
-		return secret.NewSetAction(
-			secret.SetPayload{Path: []string{path}, Value: value},
-		)
 	}
 	apply := func(ctx context.Context, acts ...secret.Action) error {
 		return write(ctx, func(w secret.Writer) error {

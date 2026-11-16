@@ -74,10 +74,10 @@ type testHost struct {
 	}
 }
 
-// startHost starts a host that follows the edge node group/edgeNode.
-func startHost(b *testBroker, group, edgeNode string) *testHost {
+// startHost starts a host that follows the edge node plant/line1.
+func startHost(b *testBroker) *testHost {
 	GinkgoHelper()
-	h := &testHost{broker: b, node: sparkplug.NodeID{Group: group, EdgeNode: edgeNode}}
+	h := &testHost{broker: b, node: sparkplug.NodeID{Group: "plant", EdgeNode: "line1"}}
 	onMessage := func(_ *mochi.Client, _ packets.Subscription, pk packets.Packet) {
 		var p pb.Payload
 		if proto.Unmarshal(pk.Payload, &p) != nil {
