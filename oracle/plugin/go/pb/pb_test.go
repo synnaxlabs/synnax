@@ -1281,8 +1281,8 @@ var _ = Describe("Go PB Plugin", func() {
 					@pb
 
 					Test struct {
-						created_at timestamp
-						time_range time_range
+						created_at int64
+						time_range string
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
@@ -2186,7 +2186,6 @@ var _ = Describe("Go PB Plugin", func() {
 
 				Test struct {
 					key uuid
-					details D
 					infos Info[]?
 				}
 			`

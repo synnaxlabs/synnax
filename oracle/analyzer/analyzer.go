@@ -1750,7 +1750,10 @@ func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 	switch form := typ.Form.(type) {
 	case resolution.StructForm:
 		for i := range form.Fields {
-			resolveTypeRef(c, typ, &form.Fields[i].Type)
+			// A typeless override takes its parent's type later.
+			if form.Fields[i].HasType() {
+				resolveTypeRef(c, typ, &form.Fields[i].Type)
+			}
 		}
 		resolveActionRefs(c, typ, form.Actions)
 		for i := range form.TypeParams {
@@ -1851,7 +1854,7 @@ func resolveTypeRef(
 	if (resolution.IsPrimitive(name) || resolution.IsConstraint(name)) &&
 		len(parts) == 1 {
 		ref.Name = name
-	} else if typ, ok := lookupRef(c.table, otherResource, ns, name); ok {
+	} else if typ, ok := lookupRef(c.table, len(parts) == 2, ns, name); ok {
 		ref.Name = typ.QualifiedName
 		// An omitted optional type argument is nil.
 		params := resolution.TypeParams(typ.Form)
@@ -1859,11 +1862,11 @@ func resolveTypeRef(
 			params[i].Optional && !params[i].HasDefault(); i++ {
 			ref.TypeArgs = append(ref.TypeArgs, resolution.TypeRef{Name: "nil"})
 		}
-	} else if otherResource && namespaceSettled(c, ns) {
-		c.report(diagnostics.Errorf(nil, "unresolved type: %s", ref.Name))
+	} else if otherResource && !namespaceSettled(c, ns) ||
+		isVersion && !versionsSeeded(c) {
+		c.report(diagnostics.Warningf(nil, "unresolved type: %s", ref.Name))
 	} else {
-		d := diagnostics.Warningf(nil, "unresolved type: %s", ref.Name)
-		c.report(d)
+		c.report(diagnostics.Errorf(nil, "unresolved type: %s", ref.Name))
 	}
 
 	for i := range ref.TypeArgs {
@@ -1890,17 +1893,25 @@ func namespaceSettled(c *analysisCtx, namespace string) bool {
 	return true
 }
 
-// lookupRef resolves a reference. A name in another resource must exist in that
-// namespace, because the bare-name fallback binds any type of that name.
+// versionsSeeded reports whether the table holds the file's sibling versions. Only the
+// version resolver seeds them, and it analyzes under a version namespace. The LSP
+// analyzes a version file alone, under its resource namespace.
+func versionsSeeded(c *analysisCtx) bool {
+	_, ok := paths.Version(c.namespace)
+	return ok
+}
+
+// lookupRef resolves a reference. A qualified name never binds a built-in.
 func lookupRef(
 	table *resolution.Table,
-	otherResource bool,
+	qualified bool,
 	ns, name string,
 ) (resolution.Type, bool) {
-	if otherResource {
-		return table.Get(ns + "." + name)
+	typ, ok := table.Lookup(ns, name)
+	if ok && qualified && typ.Namespace == "" {
+		return resolution.Type{}, false
 	}
-	return table.Lookup(ns, name)
+	return typ, ok
 }
 
 func extractTypeNormal(tr *parser.TypeRefNormalContext) string {

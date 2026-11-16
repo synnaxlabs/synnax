@@ -117,6 +117,74 @@ var _ = Describe("Analyzer", func() {
 		})
 	})
 
+	Describe("Unqualified type references", func() {
+		It("Should reject a name that only another namespace holds", func(
+			ctx SpecContext,
+		) {
+			loader.Files["schemas/x/color"] = `
+				Color struct {
+					hex string
+				}
+			`
+			source := `
+				import "schemas/x/color"
+				@go output "out"
+				Entry struct {
+					stroke color.Color
+					fill Color
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: Color"))
+		})
+
+		It("Should not report a typeless override in a variant", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Range struct {
+					min_val float64
+				}
+				Channel union on type {
+					counter extends Range {
+						min_val = 2
+					}
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.String()).ToNot(ContainSubstring("unresolved type"))
+		})
+	})
+
+	Describe("Version references", func() {
+		It("Should warn on a version the table does not seed", func(ctx SpecContext) {
+			_, diag := Analyze(ctx, "Key = v0.Key\n", "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: v0.Key"))
+		})
+
+		It("Should reject a name a seeded version does not hold", func(
+			ctx SpecContext,
+		) {
+			_, diag := Analyze(ctx, "Key = v0.Key\n", "v1", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: v0.Key"))
+		})
+	})
+
+	It("Should not bind a qualified built-in name", func(ctx SpecContext) {
+		source := `
+			@go output "out"
+			Entry struct {
+				name missing.string
+			}
+		`
+		_, diag := Analyze(ctx, source, "test", loader)
+		Expect(diag.Ok()).To(BeFalse())
+		Expect(diag.String()).To(ContainSubstring("unresolved type: missing.string"))
+	})
+
 	Describe("Repeated field domain expressions", func() {
 		DescribeTable(
 			"Should reject an expression that a field declares twice",
@@ -2416,7 +2484,7 @@ Node union on variant {
 				}
 
 				RackStatus struct extends Status<Details> {
-					timestamp timestamp
+					timestamp int64
 				}
 			`
 			table, diag := Analyze(ctx, source, "test", loader)

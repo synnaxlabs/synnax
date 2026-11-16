@@ -84,11 +84,8 @@ AllTypes struct {
 	k uint64
 	l float32
 	m float64
-	n timestamp
-	o timespan
-	p time_range
-	q record
-	r bytes
+	n record
+	o bytes
 }
 `
 
@@ -205,12 +202,12 @@ const structExtensionTemplate = `
 Base struct {
 	key uuid
 	name string
-	created_at timestamp
+	created_at int64
 }
 
 Extended struct extends Base {
 	description string
-	updated_at timestamp
+	updated_at int64
 }
 `
 

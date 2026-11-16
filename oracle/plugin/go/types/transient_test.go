@@ -34,8 +34,7 @@ Key uint32 {
 LocalKey uint20 {
 }
 Entry struct {
-	key   string   {@key}
-	local LocalKey
+	key string {@key}
 	@go marshal
 }
 APIEntry struct {
@@ -46,8 +45,7 @@ APIEntry struct {
 `,
 				"schemas/synnax/versions/thing/v0.oracle": `
 Entry struct {
-	key   string   {@key}
-	local LocalKey
+	key string {@key}
 	@go marshal
 }
 `,

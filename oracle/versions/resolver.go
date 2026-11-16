@@ -181,9 +181,8 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 
 	b := &tableBuilder{r: r, table: resolution.NewTable(), done: set.New[string]()}
 
-	// Sibling versions seed the table with their defined declarations only,
-	// so an alias targeting a non-defining version fails resolution — the
-	// alias-to-definer rule enforced structurally.
+	// Sibling versions seed the table with their defined declarations. A name a sibling
+	// aliases redirects to its definer.
 	for _, k := range chain.Numbers {
 		if k >= n {
 			break
@@ -200,6 +199,10 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 			if err := b.table.Add(copyType(t, t.Namespace, rw)); err != nil {
 				return nil, errors.Wrapf(err, "failed to seed %s v%d", livePath, k)
 			}
+		}
+		for name := range sib.Aliases {
+			alias := fmt.Sprintf("v%d.%s", k, name)
+			b.table.Redirect(alias, rw(alias))
 		}
 		for depLive, pv := range sib.Pins {
 			if err := b.addSurface(ctx, depLive, pv, DepNS(depLive, pv)); err != nil {

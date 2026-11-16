@@ -742,7 +742,7 @@ var _ = Describe("TS Types Plugin", func() {
 				@ts output "out"
 
 				Range struct {
-					created_at timestamp
+					created_at int64
 					time_range string
 					my_long_field_name string
 				}
@@ -1457,7 +1457,7 @@ var _ = Describe("TS Types Plugin", func() {
 				source := `
 				@ts output "out"
 
-				TreeNode struct<K extends schema = string> {
+				TreeNode struct<K = string> {
 					key K
 					children TreeNode<K>[]?
 				}
@@ -1489,7 +1489,7 @@ var _ = Describe("TS Types Plugin", func() {
 				source := `
 				@ts output "out"
 
-				MapNode struct<K extends schema = string, V extends schema = string> {
+				MapNode struct<K = string, V = string> {
 					key K
 					value V
 					children MapNode<K, V>[]?
@@ -1531,7 +1531,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 				Key uint32
 
-				Box struct<T extends schema> {
+				Box struct<T> {
 					value T?
 				}
 
@@ -2260,7 +2260,7 @@ var _ = Describe("TS Types Plugin", func() {
 					code int32
 				}
 
-				Status struct<D extends schema> {
+				Status struct<D> {
 					variant string
 					details D
 				}
