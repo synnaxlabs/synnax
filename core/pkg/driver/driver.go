@@ -69,8 +69,8 @@ type Config struct {
 	Insecure *bool `json:"insecure"`
 	// Enabled is used to enable or disable the embedded Driver.
 	Enabled *bool `json:"enabled"`
-	// Detached makes Open return without waiting for the Driver to start. The Driver
-	// retries registration on its own.
+	// Detached makes Open wait only until the Driver prints its first log line, not
+	// until it starts. The Driver retries registration on its own.
 	Detached *bool `json:"-"`
 	// Debug sets whether to enable debug logging.
 	Debug *bool `json:"debug"`
@@ -258,10 +258,11 @@ const restartScale = 1.1
 // as a child process that communicates with the Core.
 //
 // On startup, Open launches the subprocess and two goroutines that pipe its stdout and
-// stderr through PipeToLogger. A third goroutine waits for the process to exit. All
-// three run under an isolated signal context. Open blocks until the subprocess prints
-// "started successfully", the supervisor stops retrying, or the StartTimeout expires.
-// If startup fails, Open cleans up the process and returns (nil, err).
+// stderr through PipeToLogger. A third goroutine waits for the process to exit once
+// both pipes close. All three run under an isolated signal context. Open blocks until
+// the subprocess prints "started successfully" (when detached, its first log line), the
+// supervisor stops retrying, or the StartTimeout expires. If startup fails, Open cleans
+// up the process and returns (nil, err).
 //
 // On shutdown, Close cancels the supervisor context. The subprocess is launched via
 // exec.CommandContext, so the cancellation asks it to stop gracefully (a STOP write via
@@ -476,7 +477,14 @@ func (d *Driver) runOnce(
 	)
 	defer cancel()
 
-	var stdoutErr, stderrErr string
+	// Wait closes the pipes, so it runs only after both readers reach EOF, or a
+	// loader error written just before the exit can be lost. Cancel and the kill
+	// after WaitDelay do not depend on Wait.
+	var (
+		stdoutErr, stderrErr string
+		reads                sync.WaitGroup
+	)
+	reads.Add(2)
 	internalSCtx.Go(func(context.Context) error {
 		stdoutErr = log.PipeToLogger(
 			stdoutPipe,
@@ -485,6 +493,7 @@ func (d *Driver) runOnce(
 			startedOnce,
 			d.markRunning,
 		)
+		reads.Done()
 		return nil
 	},
 		signal.WithKey("stdout_pipe"),
@@ -499,6 +508,7 @@ func (d *Driver) runOnce(
 			startedOnce,
 			d.markRunning,
 		)
+		reads.Done()
 		return nil
 	},
 		signal.WithKey("stderr_pipe"),
@@ -506,6 +516,7 @@ func (d *Driver) runOnce(
 		signal.WithRetryOnPanic(),
 	)
 	internalSCtx.Go(func(context.Context) error {
+		reads.Wait()
 		return cmd.Wait()
 	},
 		signal.WithKey("wait"),
