@@ -126,7 +126,7 @@ describe("tree", () => {
       expect(panel.findTabWhere(tree, (t) => t.key === "c")?.key).toEqual("c");
     });
 
-    it("should return null when no tab matches", () => {
+    it("should return undefined when no tab matches", () => {
       expect(panel.findTabWhere(tree, () => false)).toBeUndefined();
     });
   });
