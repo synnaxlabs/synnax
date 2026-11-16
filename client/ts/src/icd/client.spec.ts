@@ -9,6 +9,7 @@
 
 import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
+import { type z } from "zod";
 
 import { NotFoundError, PathError } from "@/errors";
 import { icd } from "@/icd";
@@ -175,7 +176,7 @@ describe("icd", () => {
     });
 
     it("should keep the enum values and defaults of JSON fields", async () => {
-      const fields: icd.JSONField[] = [
+      const fields: z.input<typeof icd.jsonFieldZ>[] = [
         {
           type: "float",
           name: "level",
