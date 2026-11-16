@@ -279,34 +279,9 @@ func (s *source) Next(ctx node.Context) {
 			timeSeries = telem.Arrange(ctx.ReserveStamps(n), n, 1*telem.NanosecondTS)
 			timeSeries.Alignment = ser.Alignment
 		} else {
-			// Match by alignment, not position: a shared index also buffers other
-			// channels' series, so position i no longer pairs to the right timestamp.
-			// A data series can cover only part of the index series that holds it.
-			i := slices.IndexFunc(indexData.Series, func(idx telem.Series) bool {
-				b := idx.AlignmentBounds()
-				return b.Lower <= ab.Lower && ab.Upper <= b.Upper
-			})
-			if i == -1 {
+			var found bool
+			if ser, timeSeries, found = s.indexedTime(ser, indexData); !found {
 				continue
-			}
-			timeSeries = indexData.Series[i]
-			if timeSeries.AlignmentBounds() != ab {
-				var (
-					density = int64(timeSeries.DataType.Density())
-					start   = int64(ser.Alignment-timeSeries.Alignment) * density
-				)
-				timeSeries.Data = timeSeries.Data[start : start+ser.Len()*density]
-				timeSeries.Alignment = ser.Alignment
-				timeSeries.TimeRange = ser.TimeRange
-			}
-			first := firstAtOrAfter(timeSeries, s.entryStamp)
-			if first == int(ser.Len()) {
-				s.highWaterMark = ab.Upper
-				continue
-			}
-			if first > 0 {
-				ser = tail(ser, first)
-				timeSeries = tail(timeSeries, first)
 			}
 		}
 		*s.Output(0) = ser
@@ -315,6 +290,45 @@ func (s *source) Next(ctx node.Context) {
 		s.Emit(ctx, 0)
 		return
 	}
+}
+
+// indexedTime returns ser and its timestamps from indexData, both trimmed to the
+// samples at or after the entry stamp. It returns false when no samples remain.
+func (s *source) indexedTime(
+	ser telem.Series,
+	indexData telem.MultiSeries,
+) (telem.Series, telem.Series, bool) {
+	ab := ser.AlignmentBounds()
+	// Match by alignment, not position: a shared index also buffers other
+	// channels' series, so position i no longer pairs to the right timestamp.
+	// A data series can cover only part of the index series that holds it.
+	i := slices.IndexFunc(indexData.Series, func(idx telem.Series) bool {
+		b := idx.AlignmentBounds()
+		return b.Lower <= ab.Lower && ab.Upper <= b.Upper
+	})
+	if i == -1 {
+		return ser, telem.Series{}, false
+	}
+	timeSeries := indexData.Series[i]
+	if timeSeries.AlignmentBounds() != ab {
+		var (
+			density = int64(timeSeries.DataType.Density())
+			start   = int64(ser.Alignment-timeSeries.Alignment) * density
+		)
+		timeSeries.Data = timeSeries.Data[start : start+ser.Len()*density]
+		timeSeries.Alignment = ser.Alignment
+		timeSeries.TimeRange = ser.TimeRange
+	}
+	first := firstAtOrAfter(timeSeries, s.entryStamp)
+	if first == int(ser.Len()) {
+		s.highWaterMark = ab.Upper
+		return ser, timeSeries, false
+	}
+	if first > 0 {
+		ser = tail(ser, first)
+		timeSeries = tail(timeSeries, first)
+	}
+	return ser, timeSeries, true
 }
 
 type sink struct {

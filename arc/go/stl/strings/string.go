@@ -40,7 +40,36 @@ func formatHostFunc(t types.Type) *symbol.Symbol {
 // contributes. Strings contributes only its module (no bare globals).
 func NewSymbols() []*symbol.Symbol {
 	mod := &symbol.Symbol{Name: Name, Kind: symbol.KindModule, Internal: true}
+	mod.AddChild(handleSymbols()...)
 	mod.AddChild(
+		fromHostFunc("from_i32", types.I32()),
+		fromHostFunc("from_u32", types.U32()),
+		fromHostFunc("from_i64", types.I64()),
+		fromHostFunc("from_u64", types.U64()),
+		fromHostFunc("from_f32", types.F32()),
+		fromHostFunc("from_f64", types.F64()),
+		fromHostFunc("from_bool", types.Bool()),
+		formatHostFunc(types.I32()),
+		formatHostFunc(types.U32()),
+		formatHostFunc(types.I64()),
+		formatHostFunc(types.U64()),
+		formatHostFunc(types.F32()),
+		formatHostFunc(types.F64()),
+		formatHostFunc(types.String()),
+	)
+	return []*symbol.Symbol{mod}
+}
+
+func fromHostFunc(name string, t types.Type) *symbol.Symbol {
+	return symbol.InternalHostFunc(
+		name,
+		types.Params{{Name: "value", Type: t}},
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+	)
+}
+
+func handleSymbols() []*symbol.Symbol {
+	return []*symbol.Symbol{
 		symbol.InternalHostFunc(
 			"from_literal",
 			types.Params{
@@ -70,50 +99,7 @@ func NewSymbols() []*symbol.Symbol {
 			types.Params{{Name: "handle", Type: types.String()}},
 			types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 		),
-		symbol.InternalHostFunc(
-			"from_i32",
-			types.Params{{Name: "value", Type: types.I32()}},
-			types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-		),
-		symbol.InternalHostFunc(
-			"from_u32",
-			types.Params{{Name: "value", Type: types.U32()}},
-			types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-		),
-		symbol.InternalHostFunc(
-			"from_i64",
-			types.Params{{Name: "value", Type: types.I64()}},
-			types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-		),
-		symbol.InternalHostFunc(
-			"from_u64",
-			types.Params{{Name: "value", Type: types.U64()}},
-			types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-		),
-		symbol.InternalHostFunc(
-			"from_f32",
-			types.Params{{Name: "value", Type: types.F32()}},
-			types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-		),
-		symbol.InternalHostFunc(
-			"from_f64",
-			types.Params{{Name: "value", Type: types.F64()}},
-			types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-		),
-		symbol.InternalHostFunc(
-			"from_bool",
-			types.Params{{Name: "value", Type: types.Bool()}},
-			types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-		),
-		formatHostFunc(types.I32()),
-		formatHostFunc(types.U32()),
-		formatHostFunc(types.I64()),
-		formatHostFunc(types.U64()),
-		formatHostFunc(types.F32()),
-		formatHostFunc(types.F64()),
-		formatHostFunc(types.String()),
-	)
-	return []*symbol.Symbol{mod}
+	}
 }
 
 func registerFrom[T any](
@@ -172,11 +158,22 @@ func NewHost(
 	memory api.Memory,
 ) (*Host, error) {
 	h := &Host{strings: ps, memory: memory}
-	s := ps
 	if rt == nil {
 		return h, nil
 	}
 	builder := rt.NewHostModuleBuilder(Name)
+	builder = bindHandleOps(builder, h)
+	builder = bindConversions(builder, ps)
+	builder = bindFormats(builder, h)
+	if _, err := builder.Instantiate(ctx); err != nil {
+		return nil, err
+	}
+	return h, nil
+}
+
+// bindHandleOps registers the string operations that read or combine handles.
+func bindHandleOps(builder wazero.HostModuleBuilder, h *Host) wazero.HostModuleBuilder {
+	s := h.strings
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, ptr, length uint32) uint32 {
 			if h.memory == nil {
@@ -206,13 +203,21 @@ func NewHost(
 			}
 			return 0
 		}).Export("equal")
-	builder = builder.NewFunctionBuilder().
+	return builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle uint32) uint64 {
 			if str, ok := s.Get(handle); ok {
 				return uint64(len(str))
 			}
 			return 0
 		}).Export("len")
+}
+
+// bindConversions registers the from_* host functions, which store a value's
+// string form.
+func bindConversions(
+	builder wazero.HostModuleBuilder,
+	s *ProgramState,
+) wazero.HostModuleBuilder {
 	builder = registerFrom(
 		builder,
 		s,
@@ -249,12 +254,18 @@ func NewHost(
 		"from_f64",
 		func(v float64) string { return strconv.FormatFloat(v, 'g', -1, 64) },
 	)
-	builder = registerFrom(builder, s, "from_bool", func(v int32) string {
+	return registerFrom(builder, s, "from_bool", func(v int32) string {
 		if v != 0 {
 			return "true"
 		}
 		return "false"
 	})
+}
+
+// bindFormats registers the format_* host functions, which store a value
+// formatted with a spec read from guest memory.
+func bindFormats(builder wazero.HostModuleBuilder, h *Host) wazero.HostModuleBuilder {
+	s := h.strings
 	builder = registerFormat(
 		builder,
 		h,
@@ -276,7 +287,7 @@ func NewHost(
 		func(v float32) any { return float64(v) },
 	)
 	builder = registerFormat(builder, h, "format_f64", func(v float64) any { return v })
-	builder = builder.NewFunctionBuilder().
+	return builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle, ptr, length uint32) uint32 {
 			str, ok := s.Get(handle)
 			if !ok {
@@ -284,8 +295,4 @@ func NewHost(
 			}
 			return s.Create(formatWithSpec(h.memory, ptr, length, str))
 		}).Export("format_str")
-	if _, err := builder.Instantiate(ctx); err != nil {
-		return nil, err
-	}
-	return h, nil
 }

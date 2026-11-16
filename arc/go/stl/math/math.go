@@ -420,39 +420,11 @@ func (r *avgNode) Next(ctx node.Context) {
 	if r.startTime == 0 && inputTime.Len() > 0 {
 		r.startTime = inputTime.ValueAt[telem.TimeStamp](0)
 	}
-
-	shouldReset := false
-
-	if r.resetIdx >= 0 {
-		resetData := r.Input(r.resetIdx)
-		resetTime := r.InputTime(r.resetIdx)
-		for i := range resetData.Len() {
-			ts := resetTime.ValueAt[telem.TimeStamp](int(i))
-			if ts > r.lastResetTime && resetData.ValueAt[bool](int(i)) {
-				shouldReset = true
-				break
-			}
-		}
-		if resetTime.Len() > 0 {
-			r.lastResetTime = resetTime.ValueAt[telem.TimeStamp](-1)
-		}
-	}
-
-	duration := telem.TimeSpan(r.NumericInput[int64](durationInputParam))
-	if duration > 0 && inputTime.Len() > 0 {
-		currentTime := inputTime.ValueAt[telem.TimeStamp](-1)
-		if telem.TimeSpan(currentTime-r.startTime) >= duration {
-			shouldReset = true
-			r.startTime = currentTime
-		}
-	}
-
+	// Both checks update window state, so neither may short-circuit the other.
+	resetSignaled := r.resetSignaled()
+	windowElapsed := r.windowElapsed(inputTime)
 	count := r.NumericInput[int64](countInputParam)
-	if count > 0 && r.sampleCount >= count {
-		shouldReset = true
-	}
-
-	if shouldReset {
+	if resetSignaled || windowElapsed || (count > 0 && r.sampleCount >= count) {
 		r.sampleCount = 0
 		r.Output(0).Resize(0)
 	}
@@ -466,6 +438,55 @@ func (r *avgNode) Next(ctx node.Context) {
 	} else {
 		r.StampCycle(ctx, 0)
 	}
+	alignment, timeRange := r.outputBounds(inputData)
+	r.Output(0).Alignment = alignment
+	r.Output(0).TimeRange = timeRange
+	r.OutputTime(0).Alignment = alignment
+	r.OutputTime(0).TimeRange = timeRange
+	r.Emit(ctx, 0)
+}
+
+// resetSignaled reports whether the reset input fired a true sample since the last
+// call.
+func (r *avgNode) resetSignaled() bool {
+	if r.resetIdx < 0 {
+		return false
+	}
+	signaled := false
+	resetData := r.Input(r.resetIdx)
+	resetTime := r.InputTime(r.resetIdx)
+	for i := range resetData.Len() {
+		ts := resetTime.ValueAt[telem.TimeStamp](int(i))
+		if ts > r.lastResetTime && resetData.ValueAt[bool](int(i)) {
+			signaled = true
+			break
+		}
+	}
+	if resetTime.Len() > 0 {
+		r.lastResetTime = resetTime.ValueAt[telem.TimeStamp](-1)
+	}
+	return signaled
+}
+
+// windowElapsed reports whether the duration window has elapsed, and starts a new
+// window when it has.
+func (r *avgNode) windowElapsed(inputTime telem.Series) bool {
+	duration := telem.TimeSpan(r.NumericInput[int64](durationInputParam))
+	if duration <= 0 || inputTime.Len() == 0 {
+		return false
+	}
+	currentTime := inputTime.ValueAt[telem.TimeStamp](-1)
+	if telem.TimeSpan(currentTime-r.startTime) < duration {
+		return false
+	}
+	r.startTime = currentTime
+	return true
+}
+
+// outputBounds merges the alignment and time range of the input and reset series.
+func (r *avgNode) outputBounds(
+	inputData telem.Series,
+) (telem.Alignment, telem.TimeRange) {
 	alignment := inputData.Alignment
 	timeRange := inputData.TimeRange
 	if r.resetIdx >= 0 {
@@ -479,11 +500,7 @@ func (r *avgNode) Next(ctx node.Context) {
 			timeRange.End = resetData.TimeRange.End
 		}
 	}
-	r.Output(0).Alignment = alignment
-	r.Output(0).TimeRange = timeRange
-	r.OutputTime(0).Alignment = alignment
-	r.OutputTime(0).TimeRange = timeRange
-	r.Emit(ctx, 0)
+	return alignment, timeRange
 }
 
 var (

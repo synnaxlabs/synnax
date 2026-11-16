@@ -173,60 +173,72 @@ type funcImport struct {
 // function for each that simply forwards all parameters and returns.
 func buildPassthroughWASM(moduleName string, imports []funcImport) []byte {
 	var buf bytes.Buffer
-
 	// WASM magic number + version 1
 	buf.Write([]byte{0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00})
+	writeSection(&buf, 1, typeSection(imports))
+	writeSection(&buf, 2, importSection(moduleName, imports))
+	writeSection(&buf, 3, functionSection(len(imports)))
+	writeSection(&buf, 7, exportSection(imports))
+	writeSection(&buf, 10, codeSection(imports))
+	return buf.Bytes()
+}
 
-	n := len(imports)
-
-	// Type section (id=1): one func type per import
-	var typeSec bytes.Buffer
-	writeULEB128(&typeSec, uint32(n))
+// typeSection declares one func type per import.
+func typeSection(imports []funcImport) []byte {
+	var sec bytes.Buffer
+	writeULEB128(&sec, uint32(len(imports)))
 	for _, imp := range imports {
-		typeSec.WriteByte(0x60) // func type tag
-		writeULEB128(&typeSec, uint32(len(imp.params)))
+		sec.WriteByte(0x60) // func type tag
+		writeULEB128(&sec, uint32(len(imp.params)))
 		for _, p := range imp.params {
-			typeSec.WriteByte(p)
+			sec.WriteByte(p)
 		}
-		writeULEB128(&typeSec, uint32(len(imp.results)))
+		writeULEB128(&sec, uint32(len(imp.results)))
 		for _, r := range imp.results {
-			typeSec.WriteByte(r)
+			sec.WriteByte(r)
 		}
 	}
-	writeSection(&buf, 1, typeSec.Bytes())
+	return sec.Bytes()
+}
 
-	// Import section (id=2)
-	var impSec bytes.Buffer
-	writeULEB128(&impSec, uint32(n))
+func importSection(moduleName string, imports []funcImport) []byte {
+	var sec bytes.Buffer
+	writeULEB128(&sec, uint32(len(imports)))
 	for i, imp := range imports {
-		writeWASMString(&impSec, moduleName)
-		writeWASMString(&impSec, imp.name)
-		impSec.WriteByte(0x00)           // import kind: function
-		writeULEB128(&impSec, uint32(i)) // type index
+		writeWASMString(&sec, moduleName)
+		writeWASMString(&sec, imp.name)
+		sec.WriteByte(0x00)           // import kind: function
+		writeULEB128(&sec, uint32(i)) // type index
 	}
-	writeSection(&buf, 2, impSec.Bytes())
+	return sec.Bytes()
+}
 
-	// Function section (id=3): wrapper funcs with same types
-	var funcSec bytes.Buffer
-	writeULEB128(&funcSec, uint32(n))
-	for i := range imports {
-		writeULEB128(&funcSec, uint32(i))
+// functionSection declares n wrapper funcs, each with its import's type.
+func functionSection(n int) []byte {
+	var sec bytes.Buffer
+	writeULEB128(&sec, uint32(n))
+	for i := range n {
+		writeULEB128(&sec, uint32(i))
 	}
-	writeSection(&buf, 3, funcSec.Bytes())
+	return sec.Bytes()
+}
 
-	// Export section (id=7)
-	var expSec bytes.Buffer
-	writeULEB128(&expSec, uint32(n))
+func exportSection(imports []funcImport) []byte {
+	var sec bytes.Buffer
+	n := len(imports)
+	writeULEB128(&sec, uint32(n))
 	for i, imp := range imports {
-		writeWASMString(&expSec, imp.name)
-		expSec.WriteByte(0x00)             // export kind: function
-		writeULEB128(&expSec, uint32(n+i)) // func index (after imports)
+		writeWASMString(&sec, imp.name)
+		sec.WriteByte(0x00)             // export kind: function
+		writeULEB128(&sec, uint32(n+i)) // func index (after imports)
 	}
-	writeSection(&buf, 7, expSec.Bytes())
+	return sec.Bytes()
+}
 
-	// Code section (id=10): each wrapper calls the corresponding import
-	var codeSec bytes.Buffer
-	writeULEB128(&codeSec, uint32(n))
+// codeSection holds each wrapper's body, which calls the matching import.
+func codeSection(imports []funcImport) []byte {
+	var sec bytes.Buffer
+	writeULEB128(&sec, uint32(len(imports)))
 	for i, imp := range imports {
 		var body bytes.Buffer
 		writeULEB128(&body, 0) // no locals
@@ -237,13 +249,10 @@ func buildPassthroughWASM(moduleName string, imports []funcImport) []byte {
 		body.WriteByte(0x10)           // call
 		writeULEB128(&body, uint32(i)) // import function index
 		body.WriteByte(0x0b)           // end
-
-		writeULEB128(&codeSec, uint32(body.Len()))
-		codeSec.Write(body.Bytes())
+		writeULEB128(&sec, uint32(body.Len()))
+		sec.Write(body.Bytes())
 	}
-	writeSection(&buf, 10, codeSec.Bytes())
-
-	return buf.Bytes()
+	return sec.Bytes()
 }
 
 func writeSection(buf *bytes.Buffer, id byte, content []byte) {

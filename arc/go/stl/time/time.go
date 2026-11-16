@@ -87,30 +87,8 @@ var (
 // contributes: the time module plus the deprecated bare aliases (interval,
 // wait, now) whose Deprecated fields point at the canonical members.
 func NewSymbols() []*symbol.Symbol {
-	interval := &symbol.Symbol{
-		Name: intervalSymbolName,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: types.Function(types.FunctionProperties{
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-			Inputs:  types.Params{{Name: periodInputParam, Type: types.TimeSpan()}},
-		}),
-		Trigger:          symbol.TriggerOnly,
-		Doc:              intervalDoc,
-		AnalyzeArguments: rejectNonPositiveSpan(periodInputParam),
-	}
-	wait := &symbol.Symbol{
-		Name: waitSymbolName,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: types.Function(types.FunctionProperties{
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-			Inputs:  types.Params{{Name: durationInputParam, Type: types.TimeSpan()}},
-		}),
-		Trigger:          symbol.TriggerOnly,
-		Doc:              waitDoc,
-		AnalyzeArguments: rejectNonPositiveSpan(durationInputParam),
-	}
+	interval := spanTriggerSymbol(intervalSymbolName, periodInputParam, intervalDoc)
+	wait := spanTriggerSymbol(waitSymbolName, durationInputParam, waitDoc)
 	now := &symbol.Symbol{
 		Name: nowSymbolName,
 		Kind: symbol.KindFunction,
@@ -149,6 +127,23 @@ func NewSymbols() []*symbol.Symbol {
 	nowBare := *now
 	nowBare.Deprecated = now
 	return []*symbol.Symbol{mod, &intervalBare, &waitBare, &nowBare}
+}
+
+// spanTriggerSymbol returns a flow function that takes one positive span and emits
+// a u8 trigger.
+func spanTriggerSymbol(symbolName, param string, d doc.Doc) *symbol.Symbol {
+	return &symbol.Symbol{
+		Name: symbolName,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
+		Type: types.Function(types.FunctionProperties{
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+			Inputs:  types.Params{{Name: param, Type: types.TimeSpan()}},
+		}),
+		Trigger:          symbol.TriggerOnly,
+		Doc:              d,
+		AnalyzeArguments: rejectNonPositiveSpan(param),
+	}
 }
 
 // rejectNonPositiveSpan returns an AnalyzeArguments hook that rejects a
