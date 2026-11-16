@@ -393,6 +393,22 @@ TEST(BuildRequestTest, MergesURLAndPath) {
     EXPECT_EQ(r.verify_ssl, true);
 }
 
+TEST(BuildRequestTest, AppendsPathToBasePath) {
+    auto conn = ConnectionConfig(
+        x::json::Parser(json{{"base_url", "http://example.com/v2"}})
+    );
+    RequestConfig req{.method = Method::GET, .path = "/api/data"};
+    EXPECT_EQ(build_request(conn, req).url, "http://example.com/v2/api/data");
+}
+
+TEST(BuildRequestTest, AppendsPathToBasePathWithTrailingSlash) {
+    auto conn = ConnectionConfig(
+        x::json::Parser(json{{"base_url", "http://example.com/v2/"}})
+    );
+    RequestConfig req{.method = Method::GET, .path = "/api/data"};
+    EXPECT_EQ(build_request(conn, req).url, "http://example.com/v2/api/data");
+}
+
 TEST(BuildRequestTest, CarriesBaseURLAndCap) {
     auto conn = ConnectionConfig(
         x::json::Parser(
