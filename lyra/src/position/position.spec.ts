@@ -731,6 +731,27 @@ describe("position", () => {
       it(`should position dialog correctly for ${name}`, () =>
         expect(position.position(params)).toEqual(expected)),
     );
+
+    describe("disable without a dialog corner", () => {
+      const PARAMS = {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(40, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+      };
+
+      it("should accept a bare location as a disabled preference", () => {
+        const res = position.position({ ...PARAMS, disable: "top" });
+        expect(res.targetCorner.y).not.toEqual("top");
+      });
+
+      it("should accept a preference with only a target corner", () => {
+        const res = position.position({
+          ...PARAMS,
+          disable: { targetCorner: { y: "top" } },
+        });
+        expect(res.targetCorner.y).not.toEqual("top");
+      });
+    });
   });
 
   describe("parseLocationOptions", () => {
