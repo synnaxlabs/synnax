@@ -124,7 +124,7 @@ def login(prompt: Prompt, clusters: Clusters) -> bool:
     try:
         _save_api_key(synnax, opts=options, clusters=clusters, prompt=prompt)
     except ConfigurationError as e:
-        prompt.error(str(e))
+        prompt.error(" ".join([str(e), *getattr(e, "__notes__", [])]))
         return False
     except (OSError, KeyringError, Error) as e:
         notes = getattr(e, "__notes__", [])
