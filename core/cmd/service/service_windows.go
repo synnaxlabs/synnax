@@ -239,13 +239,10 @@ func Stop() (err error) {
 }
 
 // configuredShutdownTimeout returns the shutdown timeout of the Core in the service
-// configuration.
+// configuration. The service reads no environment variables, so neither does this.
 func configuredShutdownTimeout() (time.Duration, error) {
 	v := viper.New()
 	v.SetConfigFile(ConfigPath())
-	v.SetEnvPrefix("synnax")
-	v.AutomaticEnv()
-	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	flag := cmdstart.Cmd.Flags().Lookup(cmdstart.FlagShutdownTimeout)
 	if err := v.BindPFlag(cmdstart.FlagShutdownTimeout, flag); err != nil {
 		return 0, err
