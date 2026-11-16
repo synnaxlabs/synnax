@@ -126,7 +126,7 @@ func (t *Tracer) Trace(
 	}
 	spanKey := t.meta.extendPath(key)
 	ctx, otel := t.otelTracer().Start(ctx, spanKey)
-	return ctx, span{
+	return ctx, span{ //nolint:spancheck // the caller ends the span
 		key:  spanKey,
 		otel: otel,
 	}

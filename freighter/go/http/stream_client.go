@@ -98,7 +98,7 @@ func (s *streamClient[RQ, RS]) Stream(
 		},
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			ctx.Params[fiber.HeaderContentType] = s.codec.ContentType()
-			conn, res, err := s.dialer.DialContext(
+			conn, res, err := s.dialer.DialContext( //nolint:bodyclose // dialer owns it
 				ctx, "ws://"+target.String(), ctxToHeaders(ctx),
 			)
 			if err != nil {

@@ -98,9 +98,9 @@ type Layer struct {
 	closer  io.MultiCloser
 }
 
-// Open opens the distribution Layer using the provided configuration(s). Later
+// OpenLayer opens the distribution Layer using the provided configuration(s). Later
 // configurations override the fields set in previous configurations. If the
-// configuration is invalid, or any services fail to open, Open returns a nil layer and
+// configuration is invalid, or any services fail to open, OpenLayer returns a nil layer and
 // an error.
 //
 // If the returned error is nil, the Layer must be closed by calling Close after use.

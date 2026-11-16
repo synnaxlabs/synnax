@@ -124,6 +124,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 }
 
 func (e *benchStreamerEnv) close(b *testing.B) {
+	b.Helper()
 	if err := e.closer.Close(); err != nil {
 		b.Errorf("failed to close env: %v", err)
 	}
@@ -133,6 +134,7 @@ func (e *benchStreamerEnv) createVirtualChannel(
 	b *testing.B,
 	name string,
 ) *channel.Channel {
+	b.Helper()
 	ch := &channel.Channel{
 		Name:     name,
 		DataType: telem.Float32T,
@@ -151,6 +153,7 @@ func (e *benchStreamerEnv) createIndexedChannels(
 	prefix string,
 	numDataChannels int,
 ) (*channel.Channel, []*channel.Channel) {
+	b.Helper()
 	indexCh := &channel.Channel{
 		Name:     prefix + "_time",
 		DataType: telem.TimestampT,
@@ -181,6 +184,7 @@ func (e *benchStreamerEnv) createCalculation(
 	b *testing.B,
 	name, expression string,
 ) *channel.Channel {
+	b.Helper()
 	calc := &channel.Channel{
 		Name:       name,
 		DataType:   telem.Float32T,

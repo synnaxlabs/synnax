@@ -109,6 +109,7 @@ func checkImport(t *testing.T, messages []icd.Message, err error) {
 // in the given format into a new ICD and checks the result with checkImport. Nothing it
 // imports persists.
 func fuzzImport(f *testing.F, format icd.Format) func(*testing.T, []byte) {
+	f.Helper()
 	closeOnCleanup := func(c io.Closer) {
 		f.Cleanup(func() {
 			if err := c.Close(); err != nil {

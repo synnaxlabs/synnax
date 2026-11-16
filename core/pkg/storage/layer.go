@@ -205,9 +205,9 @@ type Layer struct {
 	closer xio.MultiCloser
 }
 
-// Open opens a new storage Layer with the given configuration(s). Specified fields in
+// OpenLayer opens a new storage Layer with the given configuration(s). Specified fields in
 // later configurations override those in previous configurations. If the configuration
-// is invalid, Open returns a nil Layer and the configuration error.
+// is invalid, OpenLayer returns a nil Layer and the configuration error.
 //
 // When LayerConfig.InMemory is false, Open acquires an exclusive lock on the directory
 // specified in LayerConfig.Dirname. If the lock cannot be acquired (commonly due to

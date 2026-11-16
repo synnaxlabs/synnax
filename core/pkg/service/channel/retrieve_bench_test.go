@@ -114,6 +114,7 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 }
 
 func (e *benchEnv) close(b *testing.B) {
+	b.Helper()
 	if err := e.closer.Close(); err != nil {
 		b.Errorf("failed to close env: %v", err)
 	}
@@ -121,6 +122,7 @@ func (e *benchEnv) close(b *testing.B) {
 
 // owners resolves the calculated channels indexed by key.
 func (e *benchEnv) owners(b *testing.B, key channel.Key) []channel.Channel {
+	b.Helper()
 	var owners []channel.Channel
 	if err := e.svc.NewRetrieve().
 		Where(channel.MatchCalculated()).

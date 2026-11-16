@@ -25,8 +25,8 @@ import (
 )
 
 type entryV1 struct {
-	ID   int32  `msgpack:"id"   json:"id"`
-	Data string `msgpack:"data" json:"data"`
+	ID   int32  `json:"id"   msgpack:"id"`
+	Data string `json:"data" msgpack:"data"`
 }
 
 func (e entryV1) GorpKey() int32 { return e.ID }

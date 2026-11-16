@@ -37,6 +37,7 @@ type benchEnv struct {
 }
 
 func newBenchEnv(b *testing.B) *benchEnv {
+	b.Helper()
 	gomega.RegisterTestingT(b)
 	node := testutil.OpenNode(b.Context())
 	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
@@ -69,6 +70,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 }
 
 func (e *benchEnv) close(b *testing.B) {
+	b.Helper()
 	if err := e.closer.Close(); err != nil {
 		b.Errorf("failed to close env: %v", err)
 	}

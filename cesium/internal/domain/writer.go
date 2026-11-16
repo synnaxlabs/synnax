@@ -267,7 +267,7 @@ func (w *Writer) switchFile(ctx context.Context) error {
 	return nil
 }
 
-// Writer writes binary telemetry to the domain. Write is not safe to call concurrently
+// Write writes binary telemetry to the domain. Write is not safe to call concurrently
 // with any other Writer methods. The contents of p are safe to modify after Write
 // returns.
 func (w *Writer) Write(p []byte) (int, error) {

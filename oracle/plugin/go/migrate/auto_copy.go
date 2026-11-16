@@ -9,6 +9,7 @@
 
 // auto_copy.go generates migrate_auto.gen.go files containing autoMigrateX
 // functions that convert between frozen and live type versions.
+
 package migrate
 
 import (
