@@ -1987,6 +1987,25 @@ TEST_F(EtherCATScanModeTest, ScansWriteTheSwitchTime) {
     EXPECT_LE(at, x::telem::TimeStamp::now());
 }
 
+/// @brief it should leave the switch time of a module out of the device once the
+/// device holds another module, as after the user replaces the module.
+TEST_F(EtherCATScanModeTest, ScansLeaveOutTheSwitchTimeOfAReplacedModule) {
+    this->start(true);
+    ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
+    auto replacement = this->props;
+    replacement.serial = this->props.serial + 1;
+    this->master->replace_slave(1, replacement);
+    this->master->deactivate();
+    Devices devices;
+    store(devices, this->device_key(), replacement);
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, this->device_key());
+    EXPECT_FALSE(scanned.at(0).properties.contains("switched_at"));
+}
+
 /// @brief it should find no change in a switch time that the Core gives back as a
 /// double.
 TEST_F(EtherCATScanModeTest, WritesASwitchTimeThatTheCoreKeeps) {
