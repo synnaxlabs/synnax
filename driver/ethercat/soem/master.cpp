@@ -459,9 +459,6 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
         if (const auto pos = static_cast<uint16_t>(i);
             this->config(pos).enabled && this->record(pos).Ibits > 0)
             session.state_reads.push_back(pos);
-    session.state_frames.reserve(
-        (session.state_reads.size() + MAX_STATE_READS - 1) / MAX_STATE_READS
-    );
     session.inputless.reserve(session.state_reads.size());
     // A slave can stop its process data task for good when the master reads its inputs
     // while it moves to SAFE-OP.
@@ -514,8 +511,6 @@ x::errors::Error Master::receive() {
     session.inputless.clear();
     if (session.held_err) return session.held_err;
     const int wkc = this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
-    // The AL status reads left after the process data, so they come back after it.
-    this->read_states(session, wkc < 0 ? 0 : PROCESSDATA_TIMEOUT);
 
     if (wkc < 0) {
         if (session.late_frame_err && session.frame_sent_at &&
@@ -525,6 +520,10 @@ x::errors::Error Master::receive() {
     }
     session.frame_sent_at = session.sent_at;
     this->frames.fetch_add(1, std::memory_order_release);
+    for (const auto pos: session.state_reads)
+        if (const auto state = this->api->al_status(pos) & 0x0F;
+            state != EC_STATE_SAFE_OP && state != EC_STATE_OPERATIONAL)
+            session.inputless.push_back(pos);
 
     if (wkc != session.expected_wkc) {
         if (wkc < session.expected_wkc)
@@ -561,8 +560,6 @@ x::errors::Error Master::send() {
         return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
     auto &session = *this->session;
 
-    // Frees the AL status reads of a send that no receive followed.
-    this->read_states(session, 0);
     session.held_err = x::errors::NIL;
     if (session.process_data_held.load(std::memory_order_acquire)) {
         if (session.has_dc &&
@@ -586,32 +583,7 @@ x::errors::Error Master::send() {
     if (result <= 0)
         return x::errors::Error(errors::CYCLIC_ERROR, "process data send failed");
     session.sent_at = sent_at;
-    const std::span<const uint16_t> reads = session.state_reads;
-    for (size_t i = 0; i < reads.size(); i += MAX_STATE_READS)
-        session.state_frames.push_back(this->api->send_state_read(
-            reads.subspan(i, std::min(MAX_STATE_READS, reads.size() - i))
-        ));
     return x::errors::NIL;
-}
-
-void Master::read_states(Session &session, const int timeout) {
-    const std::span<const uint16_t> reads = session.state_reads;
-    std::array<uint16_t, MAX_STATE_READS> states{};
-    for (size_t f = 0; f < session.state_frames.size(); ++f) {
-        const auto frame = reads.subspan(
-            f * MAX_STATE_READS,
-            std::min(MAX_STATE_READS, reads.size() - (f * MAX_STATE_READS))
-        );
-        const auto read = std::span(states).first(frame.size());
-        // A frame that did not come back tells nothing about its slaves.
-        if (!this->api->receive_state_read(session.state_frames[f], read, timeout))
-            continue;
-        for (size_t i = 0; i < frame.size(); ++i)
-            if (const auto state = read[i] & 0x0F;
-                state != EC_STATE_SAFE_OP && state != EC_STATE_OPERATIONAL)
-                session.inputless.push_back(frame[i]);
-    }
-    session.state_frames.clear();
 }
 
 std::optional<uint32_t> Master::shortfall() const {

@@ -2339,18 +2339,6 @@ TEST_F(SOEMMasterTest, ReceiveGivesASlaveWithNoStateAnswerAsInputless) {
     );
 }
 
-/// @brief it should give no slave as inputless when the frame of its AL status read
-/// does not come back, since the frame tells nothing about the slave.
-TEST_F(SOEMMasterTest, ReceiveGivesNoSlaveAsInputlessWhenItsStateReadIsLost) {
-    this->initialize_with_slave();
-    this->activate_master();
-    this->mock->silent_slaves = {1};
-    this->mock->lost_state_reads = 1;
-    ASSERT_NIL(this->master->send());
-    ASSERT_NIL(this->master->receive());
-    EXPECT_TRUE(this->master->inputless().empty());
-}
-
 /// @brief it should read the AL status of no slave without inputs, since its readers
 /// take no data from it.
 TEST_F(SOEMMasterTest, ReceiveReadsNoStateOfASlaveWithoutInputs) {
@@ -2365,33 +2353,6 @@ TEST_F(SOEMMasterTest, ReceiveReadsNoStateOfASlaveWithoutInputs) {
     ASSERT_NIL(this->master->send());
     ASSERT_NIL(this->master->receive());
     EXPECT_TRUE(this->master->inputless().empty());
-}
-
-/// @brief it should split the AL status reads of more slaves than one frame holds
-/// across frames, and read the slaves of each.
-TEST_F(SOEMMasterTest, ReceiveReadsTheStatesOfMoreSlavesThanOneFrameHolds) {
-    for (size_t i = 0; i <= MAX_STATE_READS; ++i)
-        this->add_default_slave();
-    ASSERT_NIL_P(this->master->scan());
-    this->activate_master();
-    this->mock->slave_infos.back().state = EC_STATE_INIT;
-    const auto sent = this->mock->state_read_count;
-    ASSERT_NIL(this->master->send());
-    EXPECT_EQ(this->mock->state_read_count - sent, 2);
-    ASSERT_NIL(this->master->receive());
-    EXPECT_EQ(
-        std::vector(this->master->inputless().begin(), this->master->inputless().end()),
-        std::vector{static_cast<uint16_t>(MAX_STATE_READS + 1)}
-    );
-}
-
-/// @brief it should free the AL status reads of a send that no receive followed.
-TEST_F(SOEMMasterTest, SendFreesTheStateReadsOfAnUnreceivedSend) {
-    this->initialize_with_slave();
-    this->activate_master();
-    ASSERT_NIL(this->master->send());
-    ASSERT_NIL(this->master->send());
-    EXPECT_EQ(this->mock->state_read_frames.size(), 1);
 }
 
 ////////////////////// Send //////////////////////

@@ -11,7 +11,6 @@
 
 #include <array>
 #include <cstdint>
-#include <cstring>
 #include <functional>
 #include <optional>
 #include <span>
@@ -23,19 +22,11 @@
 
 extern "C" {
 #include "soem/soem.h"
+
+#include "soem_patched.h"
 }
 
 namespace driver::ethercat::soem {
-
-/// @brief the bytes of one AL status read in a frame: a 10-byte datagram header, the
-/// 2-byte status, and a 2-byte working counter.
-constexpr size_t STATE_READ_SIZE = 14;
-
-/// @brief the most slaves whose AL status one frame of API::send_state_read() reads,
-/// after the EtherCAT header and before the 4-byte frame check sequence.
-constexpr size_t MAX_STATE_READS = (EC_MAXECATFRAME - ETH_HEADERSIZE - EC_ELENGTHSIZE -
-                                    4) /
-                                   STATE_READ_SIZE;
 
 /// @brief the SOEM calls that the master makes, so that tests can run the master
 /// without a bus.
@@ -83,8 +74,13 @@ public:
     virtual int send_processdata(uint8_t group) = 0;
 
     /// @brief receives the process data of a slave group with a timeout in
-    /// microseconds.
+    /// microseconds, with the AL status of each of its slaves with inputs from the same
+    /// frames.
     virtual int receive_processdata(uint8_t group, int timeout) = 0;
+
+    /// @brief returns the AL status that the latest receive_processdata() read for the
+    /// slave, or 0 when the slave did not answer or its frame did not come back.
+    [[nodiscard]] virtual uint16_t al_status(uint16_t slave) const = 0;
 
     /// @brief requests a state transition for the specified slave.
     virtual int writestate(uint16_t slave) = 0;
@@ -123,18 +119,6 @@ public:
     /// a group and waits up to timeout microseconds for it. Returns the working
     /// counter, or a value below 1 when the frame does not come back.
     virtual int sync_dc(uint8_t group, int timeout) = 0;
-
-    /// @brief sends a frame that reads the AL status of each of slaves, at most
-    /// MAX_STATE_READS of them, and returns the index of the frame. The frame passes
-    /// each slave after the frames sent before it.
-    virtual uint8_t send_state_read(std::span<const uint16_t> slaves) = 0;
-
-    /// @brief waits up to timeout microseconds for the frame at idx that
-    /// send_state_read() sent, and frees it. When it comes back, writes the AL status
-    /// of each of its slaves into states, in order, giving 0 to a slave that did not
-    /// answer, and returns true.
-    virtual bool
-    receive_state_read(uint8_t idx, std::span<uint16_t> states, int timeout) = 0;
 
     /// @brief writes data to a register of a slave with a timeout in microseconds,
     /// returning the working counter, which is 1 when the slave took the write.
@@ -215,6 +199,8 @@ public:
 /// @brief production implementation of soem::API wrapping ecx_contextt.
 class ProdAPI final : public API {
     std::unordered_map<uint16_t, std::function<void(uint16_t)>> po2so_configs;
+    /// @brief the AL status of each slave from the latest receive_processdata().
+    std::array<uint16_t, EC_MAXSLAVE> alstat{};
 
     static int run_PO2SOconfig(ecx_contextt *context, const uint16 slave) {
         static_cast<ProdAPI *>(context->userdata)->po2so_configs.at(slave)(slave);
@@ -245,7 +231,16 @@ public:
     }
 
     int receive_processdata(uint8_t group, int timeout) override {
-        return ecx_receive_processdata_group(&this->context, group, timeout);
+        return ecx_receive_processdata_group_alstat(
+            &this->context,
+            group,
+            timeout,
+            this->alstat.data()
+        );
+    }
+
+    [[nodiscard]] uint16_t al_status(const uint16_t slave) const override {
+        return this->alstat.at(slave);
     }
 
     int writestate(uint16_t slave) override {
@@ -285,61 +280,6 @@ public:
         );
         if (wkc > 0) this->context.DCtime = etohll(time);
         return wkc;
-    }
-
-    uint8_t send_state_read(const std::span<const uint16_t> slaves) override {
-        auto &port = this->context.port;
-        const uint8_t idx = ecx_getindex(&port);
-        uint16_t status = 0;
-        for (size_t i = 0; i < slaves.size(); ++i) {
-            const uint16_t adp = this->context.slavelist[slaves[i]].configadr;
-            if (i == 0)
-                ecx_setupdatagram(
-                    &port,
-                    &port.txbuf[idx],
-                    EC_CMD_FPRD,
-                    idx,
-                    adp,
-                    ECT_REG_ALSTAT,
-                    sizeof(status),
-                    &status
-                );
-            else
-                ecx_adddatagram(
-                    &port,
-                    &port.txbuf[idx],
-                    EC_CMD_FPRD,
-                    idx,
-                    i + 1 < slaves.size(),
-                    adp,
-                    ECT_REG_ALSTAT,
-                    sizeof(status),
-                    &status
-                );
-        }
-        ecx_outframe_red(&port, idx);
-        return idx;
-    }
-
-    bool receive_state_read(
-        const uint8_t idx,
-        const std::span<uint16_t> states,
-        const int timeout
-    ) override {
-        auto &port = this->context.port;
-        const bool received = ecx_waitinframe(&port, idx, timeout) > EC_NOFRAME;
-        const uint8_t *frame = port.rxbuf[idx];
-        for (size_t i = 0; received && i < states.size(); ++i) {
-            // The receive buffer starts at the EtherCAT header.
-            const size_t at = EC_HEADERSIZE + i * STATE_READ_SIZE;
-            uint16_t status = 0;
-            uint16_t wkc = 0;
-            std::memcpy(&status, &frame[at], sizeof(status));
-            std::memcpy(&wkc, &frame[at + sizeof(status)], sizeof(wkc));
-            states[i] = etohs(wkc) == 1 ? etohs(status) : 0;
-        }
-        ecx_setbufstat(&port, idx, EC_BUF_EMPTY);
-        return received;
     }
 
     int latch_receive_times(const int timeout) override {
