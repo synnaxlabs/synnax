@@ -299,7 +299,7 @@ const createRuntimeWindow = async (
   try {
     await runtime.create(label, purgeWinStateToProps(window));
   } catch (err) {
-    console.error(`[drift] - failed to create window ${label}`, err);
+    console.error(`failed to create window ${label}`, err);
     dispatch(closeWindow({ key: label }));
   }
 };
