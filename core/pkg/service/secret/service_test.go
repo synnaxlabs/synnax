@@ -152,7 +152,9 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				e := newEnv(ctx)
 				s := e.createStored(ctx, "Password", "hunter2")
-				stored := e.retrieve(ctx, s.Base().Key).Variant.(secret.StoredSecret)
+				got := e.retrieve(ctx, s.Base().Key)
+				stored, ok := got.Variant.(secret.StoredSecret)
+				Expect(ok).To(BeTrue())
 				Expect(stored.Name).To(Equal("Password"))
 				Expect(stored.Value).ToNot(BeEmpty())
 				Expect(string(stored.Value)).ToNot(ContainSubstring("hunter2"))

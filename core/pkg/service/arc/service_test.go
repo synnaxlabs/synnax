@@ -492,7 +492,10 @@ var _ = Describe("Build", func() {
 		root *symbol.Symbol,
 		opts ...arclang.Option,
 	) (arclang.Program, error) {
-		src := a.Source.Variant.(arc.TextSource)
+		src, ok := a.Source.Variant.(arc.TextSource)
+		if !ok {
+			return arclang.Program{}, errors.Newf("source is a %T", a.Source.Variant)
+		}
 		return arclang.CompileText(ctx, src.Text.Materialize(), root, opts...)
 	}
 	// openService opens a second Service over the suite's DB that compiles with

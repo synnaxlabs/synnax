@@ -42,8 +42,9 @@ const plainKey = "0123456789abcdef0123456789abcdef"
 func routingKeyOf(data msgpack.EncodedJSON) secret.Key {
 	GinkgoHelper()
 	Expect(data).ToNot(HaveKey("plain_routing_key"))
-	Expect(data["routing_key"]).To(BeAssignableToTypeOf(""))
-	return uuid.MustParse(data["routing_key"].(string))
+	key, ok := data["routing_key"].(string)
+	Expect(ok).To(BeTrue())
+	return uuid.MustParse(key)
 }
 
 // expectSecret asserts that the secret with key is named name and holds the plain
