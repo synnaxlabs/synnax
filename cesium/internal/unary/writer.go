@@ -163,8 +163,8 @@ type controlledWriter struct {
 	// and the current domain start remain consistent across owners. Reset on rollover
 	// via the domain.Writer's OnRollover hook.
 	tracker *offsetTracker
-	// highWaterMark is the last index timestamp that any owner wrote. Only valid for
-	// index channels.
+	// highWaterMark is the last index timestamp that any owner persisted. Only valid
+	// for index channels.
 	highWaterMark telem.TimeStamp
 	// sessionStart is the start of the resource's first domain since it last ended one.
 	// Commits that resolve their end from the session sample count anchor on it.
@@ -344,7 +344,7 @@ func (w *Writer) write(
 	}
 	err := w.control.Authorize(func(dw *controlledWriter) error {
 		mark := dw.highWaterMark
-		if w.Channel.IsIndex {
+		if w.Channel.IsIndex && *w.cfg.Persist {
 			var err error
 			if mark, err = checkOrder(mark, series); err != nil {
 				return err
@@ -381,8 +381,8 @@ func (w *Writer) write(
 			if _, err := dw.Write(series.Data); err != nil {
 				return err
 			}
+			dw.highWaterMark = mark
 		}
-		dw.highWaterMark = mark
 		return nil
 	})
 	if err != nil {

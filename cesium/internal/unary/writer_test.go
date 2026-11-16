@@ -205,15 +205,22 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						expectStored(ctx, telem.NewSeriesSecondsTSV(10, 10, 10, 11))
 					})
 					It(
-						"Should reject a stream only write that goes back",
+						"Should not check the order of stream only writes",
 						func(ctx SpecContext) {
-							cfg := config(10*telem.SecondTS, "foo", 1)
+							live := open(ctx, config(10*telem.SecondTS, "live", 1))
+							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10)))
+							MustSucceed(live.Commit(ctx))
+							cfg := config(10*telem.SecondTS, "stream", 2)
 							cfg.Persist = new(false)
-							w := open(ctx, cfg)
-							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 12)))
-							Expect(w.Write(telem.NewSeriesSecondsTSV(11))).
-								Error().To(MatchError(unary.ErrOutOfOrder))
-							MustSucceed(w.Close())
+							stream := open(ctx, cfg)
+							MustSucceed(stream.Write(telem.NewSeriesSecondsTSV(100)))
+							MustSucceed(stream.Write(telem.NewSeriesSecondsTSV(99)))
+							MustSucceed(stream.Close())
+							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(11)))
+							Expect(MustSucceed(live.Commit(ctx))).
+								To(Equal(11*telem.SecondTS + 1))
+							MustSucceed(live.Close())
+							expectStored(ctx, telem.NewSeriesSecondsTSV(10, 11))
 						},
 					)
 					It(
