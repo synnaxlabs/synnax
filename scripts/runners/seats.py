@@ -15,15 +15,17 @@ limit.
 
 The controller picks the login of each seat it starts (see logins.py): it tags the
 instance `login` and adds the seat to the holders of the login, which lets the seat
-read the token. A seat at a usage limit tags its own instance `limited-until`, and the
-controller moves the limit to the login."""
+read the token. Once the seat stops, the controller removes it from the holders and
+deletes its `login` tag, so a seat started outside the controller holds no login. A seat
+at a usage limit tags its own instance `limited-until`, and the controller moves the
+limit to the login."""
 
 import synnax as sy
 
 from aws import AWS
 from common import RECOMMAND_DELAY
 from log import Log
-from logins import Login, Logins
+from logins import MAX_HOLDERS, Login, Logins
 
 PROJECT = "synnax-agents"
 # Labels every seat runner carries, which name no seat.
@@ -103,7 +105,13 @@ class Seats:
             )
         }
         if enabled:
-            self.settle(seats, logins=logins, found=found, now=seconds)
+            # EC2 can report a seat stopped for some seconds after its start.
+            recent = {
+                iid
+                for iid, last in self.started.items()
+                if now.span(last) < RECOMMAND_DELAY
+            }
+            self.settle(seats, logins=logins, found=found, recent=recent, now=seconds)
         starting: set[str] = set()
         for job in queued:
             wanted = {label.lower() for label in job} - GENERIC
@@ -155,10 +163,15 @@ class Seats:
         *,
         logins: dict[str, Login],
         found: dict,
+        recent: set[str],
         now: int,
     ) -> None:
-        """Moves the usage limit each seat recorded to its login, and drops the seats
-        that are not up from the holders of each login."""
+        """Moves the usage limit each seat recorded to its login, and sets the holders
+        of each login to the seats that are up with its `login` tag, up to MAX_HOLDERS
+        with the current holders first. A seat started recently, given by recent, or
+        whose limit move failed keeps its holder entries and `login` tag. Deletes the
+        `login` tag of each other stopped seat and of each seat left out by the cap."""
+        kept = set(recent)
         for iid in seats:
             info = found[iid]
             until = info["tags"].get("limited-until")
@@ -176,6 +189,7 @@ class Seats:
                     self.logins.limit(login, until=int(until))
                 except Exception as e:
                     self.log.error(f"login {login.name} limit", e)
+                    kept.add(iid)
                     continue
             # A tag left on the seat would undo a new token's clear of the login.
             try:
@@ -185,17 +199,36 @@ class Seats:
             except Exception as e:
                 self.log.error(f"{self.name(iid, found=found)} limit clear", e)
         for login in logins.values():
-            kept = [
-                h
-                for h in login.holders
-                if found.get(h.rpartition(":")[2], {}).get("state") in UP
+            tagged = [
+                self.logins.holder(iid)
+                for iid, info in sorted(found.items())
+                if info["state"] in UP and info["tags"].get("login") == login.name
             ]
-            if kept == login.holders:
-                continue
-            try:
-                self.logins.hold(login, holders=kept)
-            except Exception as e:
-                self.log.error(f"login {login.name} release", e)
+            holders = [
+                h for h in login.holders if h in tagged or h.rpartition(":")[2] in kept
+            ]
+            holders += [h for h in tagged if h not in holders]
+            # The holders tag value has room for MAX_HOLDERS role sessions.
+            released = [h.rpartition(":")[2] for h in holders[MAX_HOLDERS:]] + [
+                iid
+                for iid, info in sorted(found.items())
+                if info["state"] == "stopped"
+                and iid not in kept
+                and info["tags"].get("login") == login.name
+            ]
+            holders = holders[:MAX_HOLDERS]
+            if holders != login.holders:
+                try:
+                    self.logins.hold(login, holders=holders)
+                except Exception as e:
+                    self.log.error(f"login {login.name} hold", e)
+            for iid in released:
+                try:
+                    self.aws.ec2[found[iid]["region"]].delete_tags(
+                        Resources=[iid], Tags=[{"Key": "login"}]
+                    )
+                except Exception as e:
+                    self.log.error(f"{self.name(iid, found=found)} login clear", e)
 
     def start(self, iid: str, *, login: Login | None, info: dict) -> None:
         """Hands the login, if any, to the stopped seat iid, then starts it."""
