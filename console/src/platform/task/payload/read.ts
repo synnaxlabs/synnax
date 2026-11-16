@@ -19,27 +19,6 @@ export type ReadOptions =
   | ({ type: "timestamp" } & payload.TimestampRead)
   | { type: "json" | "uuid" | "bytes" };
 
-const NUMERIC_DATA_TYPES = {
-  float: DataType.FLOAT64.toString(),
-  integer: DataType.INT64.toString(),
-  unsigned: DataType.UINT64.toString(),
-};
-
-/**
- * @returns the data type of the channel that configure creates for a read field. A
- * numeric field without one takes the widest data type of its kind.
- */
-export const dataTypeOf = (options: ReadOptions): string => {
-  switch (options.type) {
-    case "float":
-    case "integer":
-    case "unsigned":
-      return options.dataType?.toString() ?? NUMERIC_DATA_TYPES[options.type];
-    default:
-      return options.type;
-  }
-};
-
 type NumericOptions = Extract<ReadOptions, { type: "float" | "integer" | "unsigned" }>;
 
 interface NumericEntry {
