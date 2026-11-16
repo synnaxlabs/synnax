@@ -113,4 +113,31 @@ Details struct {
 		f := MustSucceed(r.File(ctx, "schemas/synnax/task", 0))
 		Expect(f.Transient()).To(BeEmpty())
 	})
+
+	It("Should not resolve a dependency that shares the resource name locally", func(
+		ctx SpecContext,
+	) {
+		r := resolverFor(map[string]string{
+			"schemas/x/versions/task/v0.oracle": "Details struct {\n\tcode int64\n}\n",
+			"schemas/synnax/versions/task/v0.oracle": `
+import "schemas/x/versions/task/v0"
+
+Task struct {
+	key uuid @key
+	stored task.Details
+	cached Details {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+
+Details struct {
+	running bool
+}
+`,
+		})
+		f := MustSucceed(r.File(ctx, "schemas/synnax/task", 0))
+		Expect(f.Transient().Slice()).To(ConsistOf("Details"))
+	})
 })

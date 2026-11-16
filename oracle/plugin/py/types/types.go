@@ -78,6 +78,7 @@ type pyFileGenerator struct{ fileNamePattern string }
 func (g *pyFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
 	content, err := generatePyFile(
 		ctx.Namespace,
+		ctx.FilePath,
 		ctx.OutputPath,
 		g.fileNamePattern,
 		ctx.Structs,
@@ -94,6 +95,7 @@ func (g *pyFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, 
 
 func generatePyFile(
 	namespace string,
+	filePath string,
 	outputPath string,
 	fileNamePattern string,
 	structs []resolution.Type,
@@ -104,6 +106,7 @@ func generatePyFile(
 ) ([]byte, error) {
 	data := &templateData{
 		Namespace:       namespace,
+		FilePath:        filePath,
 		OutputPath:      outputPath,
 		GeneratedModule: strings.TrimSuffix(fileNamePattern, ".py"),
 		Structs:         make([]structData, 0, len(structs)),
@@ -386,7 +389,7 @@ func typeDefRefsSameNamespaceType(td resolution.Type, table *resolution.Table) b
 		if !ok {
 			resolved, ok = table.Lookup(td.Namespace, ref.Name)
 		}
-		return ok && resolved.Namespace == td.Namespace
+		return ok && resolved.FilePath == td.FilePath
 	}
 	switch form := td.Form.(type) {
 	case resolution.AliasForm:
@@ -423,7 +426,7 @@ func structHasForwardRef(
 		if !ok {
 			resolved, ok = table.Lookup(typ.Namespace, ref.Name)
 		}
-		if !ok || resolved.Namespace != typ.Namespace {
+		if !ok || resolved.FilePath != typ.FilePath {
 			return false
 		}
 		if pos, ok := typePos[resolved.QualifiedName]; ok && pos >= selfIdx {
@@ -457,7 +460,7 @@ func processTypeDef(
 		data.imports.addTyping("TypeAlias")
 		return typeDefData{
 			Name:       typ.Name,
-			BaseType:   typeDefBaseToPython(form.Base, typ.Namespace, table, data),
+			BaseType:   typeDefBaseToPython(form.Base, typ.FilePath, table, data),
 			IsDistinct: false,
 		}, nil
 	case resolution.AliasForm:
@@ -561,7 +564,7 @@ func constraintToPython(
 	}
 	// Handle enums
 	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			outputPath := enum.FindOutputPath(resolved, table, "py")
 			if outputPath == "" {
 				outputPath = resolved.Namespace
@@ -573,7 +576,7 @@ func constraintToPython(
 	}
 	// Handle structs
 	if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
 				outputPath = resolved.Namespace
@@ -589,7 +592,7 @@ func constraintToPython(
 
 func typeDefBaseToPython(
 	typeRef resolution.TypeRef,
-	currentNamespace string,
+	filePath string,
 	table *resolution.Table,
 	data *templateData,
 ) string {
@@ -626,7 +629,7 @@ func typeDefBaseToPython(
 	}
 	switch resolved.Form.(type) {
 	case resolution.DistinctForm, resolution.AliasForm:
-		if resolved.Namespace != currentNamespace {
+		if resolved.FilePath != filePath {
 			ns := resolved.Namespace
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
@@ -920,7 +923,7 @@ func buildExtendsExpr(
 
 	// A base class defined in another schema module must be imported and
 	// referenced through its module alias (e.g. task_.ReadConfig).
-	if parent.Namespace != data.Namespace {
+	if parent.FilePath != data.FilePath {
 		outputPath := output.GetPath(parent, "py")
 		if outputPath == "" {
 			outputPath = parent.Namespace
@@ -1442,7 +1445,7 @@ func pyStructLiteral(
 	}
 	className := getPyName(resolved)
 	className = importLocalHand(resolved, className, data)
-	if resolved.Namespace != data.Namespace {
+	if resolved.FilePath != data.FilePath {
 		outputPath := output.GetPath(resolved, "py")
 		if outputPath == "" {
 			outputPath = resolved.Namespace
@@ -1551,7 +1554,7 @@ func enumVariantToPython(
 	}
 	enumName := domain.GetName(ev.Type, "py")
 	variantRef := fmt.Sprintf("%s.%s", enumName, ev.Variant.Name)
-	if ev.Type.Namespace != data.Namespace {
+	if ev.Type.FilePath != data.FilePath {
 		outputPath := enum.FindOutputPath(ev.Type, table, "py")
 		if outputPath == "" {
 			outputPath = ev.Type.Namespace
@@ -1571,7 +1574,7 @@ func unionVariantToPython(
 	data *templateData,
 ) string {
 	variantName := casing.VariantTypeName(getPyName(uv.Type), uv.Variant.Name)
-	if uv.Type.Namespace == data.Namespace {
+	if uv.Type.FilePath == data.FilePath {
 		return importLocalHand(uv.Type, variantName, data)
 	}
 	outputPath := enum.FindOutputPath(uv.Type, table, "py")
@@ -1660,7 +1663,7 @@ func boundedArgToPython(
 // declares no such type. It returns the name to reference, which is an alias when the
 // import takes one. A missing module is recorded so generation fails.
 func importLocalHand(typ resolution.Type, name string, data *templateData) string {
-	if typ.Namespace != data.Namespace || !omit.IsSkipped(typ, "py") {
+	if typ.FilePath != data.FilePath || !omit.IsSkipped(typ, "py") {
 		return name
 	}
 	module := domain.GetStringFromType(typ, "py", "include")
@@ -1757,7 +1760,7 @@ func typeToPython(
 	pyName = importLocalHand(resolved, pyName, data)
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
 				outputPath = resolved.Namespace
@@ -1768,7 +1771,7 @@ func typeToPython(
 		return pyName + typeArgsToPython(resolved, typeRef.TypeArgs, table, data)
 
 	case resolution.EnumForm:
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			outputPath := enum.FindOutputPath(resolved, table, "py")
 			if outputPath == "" {
 				outputPath = resolved.Namespace
@@ -1779,7 +1782,7 @@ func typeToPython(
 		return pyName
 
 	case resolution.DistinctForm:
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
 				outputPath = resolved.Namespace
@@ -1804,7 +1807,7 @@ func typeToPython(
 			)
 			return typeToPython(target, table, data)
 		}
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
 				outputPath = resolved.Namespace
@@ -1815,7 +1818,7 @@ func typeToPython(
 		return pyName
 
 	case resolution.UnionForm:
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
 				outputPath = resolved.Namespace
@@ -1865,7 +1868,7 @@ func typeRefToPythonAlias(
 	pyName := getPyName(resolved)
 	pyName = importLocalHand(resolved, pyName, data)
 	var baseName string
-	if resolved.Namespace != data.Namespace {
+	if resolved.FilePath != data.FilePath {
 		outputPath := output.GetPath(resolved, "py")
 		if outputPath == "" {
 			outputPath = resolved.Namespace
@@ -2141,6 +2144,9 @@ type templateData struct {
 	Resource   *resourceData
 	Namespace  string
 	OutputPath string
+	// FilePath is the schema file that this file renders. A type is local when it comes
+	// from this file: two schemas with one file name share a namespace.
+	FilePath string
 	// GeneratedModule is the module name of each generated file.
 	GeneratedModule string
 	Structs         []structData

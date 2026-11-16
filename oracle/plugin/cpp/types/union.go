@@ -101,7 +101,7 @@ func (p *Plugin) processUnion(
 
 	enumType, _, borrows := resolution.Dealias(form.Enum, data.table)
 	borrows = borrows && form.BorrowsEnum()
-	if borrows && enumType.Namespace != data.rawNs {
+	if borrows && enumType.FilePath != data.filePath {
 		if path := enum.FindOutputPath(enumType, data.table, "cpp"); path != "" {
 			data.AddInternal(fmt.Sprintf("%s/types.gen.h", path))
 		}

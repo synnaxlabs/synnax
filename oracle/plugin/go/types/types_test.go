@@ -1128,6 +1128,60 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 			})
 		})
 
+		Context("schemas with the same file name", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/x/color", `
+					@go output "x/go/color"
+
+					Color struct {
+						r uint8
+					}
+				`)
+				loader.Add("schemas/synnax/color", `
+					import "schemas/x/color"
+
+					@go output "core/pkg/service/color"
+
+					Named struct {
+						light color.Color
+					}
+				`)
+			})
+
+			It("Should import a type of the other schema", func(ctx SpecContext) {
+				resp := MustGenerateMulti(ctx, loader, goPlugin)
+				ExpectContent(resp, "core/pkg/service/color/types.gen.go").
+					ToContain(
+						`gocolor "github.com/synnaxlabs/synnax/x/go/color"`,
+						"Light gocolor.Color",
+					)
+			})
+
+			It("Should alias both packages in a schema that imports both", func(
+				ctx SpecContext,
+			) {
+				loader.Add("schemas/synnax/look", `
+					import "schemas/synnax/color"
+					import "schemas/x/color"
+
+					@go output "core/pkg/service/look"
+
+					Look struct {
+						fill color.Named
+						raw  color.Color
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, goPlugin)
+				ExpectContent(resp, "core/pkg/service/look/types.gen.go").
+					ToContain(
+						`servicecolor "github.com/synnaxlabs/synnax/core/pkg/service/color"`,
+						`gocolor "github.com/synnaxlabs/synnax/x/go/color"`,
+						"Fill servicecolor.Named",
+						"Raw gocolor.Color",
+					)
+			})
+		})
+
 		Context("type references", func() {
 			It(
 				"Should resolve same-namespace struct references",
