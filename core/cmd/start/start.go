@@ -76,10 +76,12 @@ type CoreConfig struct {
 
 var _ config.Config[CoreConfig] = CoreConfig{}
 
-var DefaultCoreConfig = CoreConfig{
-	certFactoryConfig: cert.DefaultFactoryConfig,
-	// a Core installed before the flag existed starts without it
-	sessionIdleTimeout: auth.DefaultIdleTimeout,
+func defaultCoreConfig() CoreConfig {
+	return CoreConfig{
+		certFactoryConfig: cert.DefaultFactoryConfig(),
+		// a Core installed before the flag existed starts without it
+		sessionIdleTimeout: auth.DefaultIdleTimeout,
+	}
 }
 
 // driverEnabled reports whether the embedded Driver starts with this Core.
@@ -210,7 +212,7 @@ func BootupCore(
 	onServerStarted chan struct{},
 	cfgs ...CoreConfig,
 ) (err error) {
-	cfg, err := config.New(DefaultCoreConfig, cfgs...)
+	cfg, err := config.New(defaultCoreConfig(), cfgs...)
 	if err != nil {
 		return err
 	}
