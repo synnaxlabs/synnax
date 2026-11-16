@@ -202,7 +202,9 @@ func MessageWithout(err, ref error) string {
 	if err == nil {
 		return ""
 	}
-	if ref != nil && reflect.TypeOf(ref).Comparable() && err == ref {
+	// Identity, not Is: a wrapper of ref keeps its own text.
+	if ref != nil && reflect.TypeOf(ref).Comparable() &&
+		reflect.ValueOf(err).Equal(reflect.ValueOf(ref)) {
 		return ""
 	}
 	if members, ok := joinMembers(err); ok {
