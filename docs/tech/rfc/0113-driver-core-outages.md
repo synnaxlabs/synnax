@@ -10,194 +10,172 @@
 
 A Driver that loses its Core keeps every task and Arc running over its local bus, with
 no time limit. It buffers acquired data on disk and queues the statuses and ranges its
-Arcs set, then sends both to the Core after the outage with their original times. It
-computes local copies of the calculated channels its Arcs read. After a Core moves to a
-new minor, the Driver keeps running as if the Core were down and reports "Driver needs
-an update". A Driver that restarts while the Core is down still starts with no tasks.
+Arcs set, then sends both to the Core after the outage with their original times. Its
+Arcs read local copies of calculated channels. After a Core moves to a new minor, the
+Driver keeps running as if the Core were down and reports "Driver needs an update". A
+Driver that restarts while the Core is down still starts with no tasks.
 
 ## 1 Motivation
 
 - **A Core upgrade stopped a cooldown**: An unattended package upgrade restarted a
-  customer's Core. The Driver of one fridge stopped its Arc in the middle of a cooldown
-  sequence, and nobody saw it for about 30 hours. SY-6065 now keeps task instances alive
-  through an outage, but they do no work.
-- **Pipelines wait on the Core**: Each pipeline opens its Core writer or streamer first.
-  While that fails, a read task does not read its hardware and a write task receives no
-  commands (`driver/pipeline/acquisition.cpp:111-125`,
-  `driver/pipeline/control.cpp:56-65`).
-- **The local bus needs the Core**: The bypass bus already moves frames between the
-  tasks of one Driver (RFC 0032 §2.5), but its writer and streamer open only after their
-  Core halves open (`driver/bypass/pipeline/writer.h:96-108`,
-  `driver/bypass/pipeline/streamer.h:145-147`).
-- **Arcs fail during an outage**: An Arc gets no input. Its output queue fills at 1,024
-  frames and the task fails (`arc/cpp/runtime/runtime.h:64,190-199`). `status.set` and
-  `range.create` are blocking Core calls that drop their work on failure
-  (`driver/arc/status/status.h:48-66`, `driver/arc/ranges/ranges.h:60-100`).
-- **The Driver gives up**: The rack breaker allows 200 retries capped at 60 s, about 2.8
-  hours, then stops every task and exits (`driver/rack/rack.h:340-346`,
-  `driver/rack/rack.cpp:72`).
-- **Data acquired offline is lost**: The Driver has no local storage. The Core side of
-  backfill is done: a `PersistOnly` writer can write behind a live writer (RFC 0095
-  §4.4).
-- **A new minor restarts the Driver**: A reconnect to a Core on another minor returns
-  `CORE_CHANGED`, the Driver restarts, and then refuses every integration
-  (`driver/rack/remote.cpp:197-220`, `driver/rack/factories.h:26-46`).
+  customer's Core. One fridge's Arc stopped mid-sequence, and nobody saw it for about 30
+  hours. SY-6065 keeps task instances alive through an outage, but they do no work.
+- **Every path waits on the Core**: Pipelines open their Core writer or streamer before
+  they read hardware or take commands (`driver/pipeline/acquisition.cpp:111-125`,
+  `driver/pipeline/control.cpp:56-65`). The bypass bus between tasks (RFC 0032 §2.5)
+  opens only after its Core halves (`driver/bypass/pipeline/writer.h:96-108`,
+  `driver/bypass/pipeline/streamer.h:145-147`). An Arc then gets no input, fills its
+  output queue, and fails (`arc/cpp/runtime/runtime.h:190-199`).
+- **Arc side effects are lost**: `status.set` and `range.create` block on the Core and
+  drop their work on failure (`driver/arc/status/status.h:48-66`,
+  `driver/arc/ranges/ranges.h:60-100`). Acquired data is never read, and the Driver has
+  no storage.
+- **The Driver gives up**: After about 2.8 hours it stops every task and exits
+  (`driver/rack/rack.h:340-346`, `driver/rack/rack.cpp:72`). A Core on a new minor makes
+  it restart and refuse every integration (`driver/rack/remote.cpp:197-220`).
 
 ## 2 Principles
 
 1. **The offline path is the online path**: A task writes to the local bus and never
-   waits on the Core. Delivery to the Core happens beside the task, so an outage changes
-   where frames go, not how a task runs.
-2. **Data outlives the process, configuration does not**: The spool and outbox are on
-   disk. Task configs, channels, devices, and Arc programs are not, so a restart during
-   an outage runs no tasks.
-3. **Nothing an Arc does is lost silently**: Data, statuses, and ranges either reach the
-   Core with their original times or are counted as dropped on the task's status.
+   waits on the Core. Delivery to the Core runs beside the task.
+2. **Data outlives the process, configuration does not**: Buffered data and queued calls
+   are on disk, so they survive the restart an update needs. Task configs, channels,
+   devices, and Arc programs are not, because a stored copy could run a task the Core
+   has since changed.
+3. **Nothing is lost silently**: Data, statuses, and ranges reach the Core with their
+   original times or are counted as dropped on the task's status.
 4. **Only an unreachable Core is an outage**: Every other Core error reaches the task's
-   status as it does today.
+   status as today.
 
 ## 3 Design
 
-### 3.0 The bypass writer delivers to the Core in the background
+### 3.0 Writers deliver to the Core in the background
 
-`bypass::pipeline::Writer::write` (exists, `driver/bypass/pipeline/writer.h:43-61`)
-publishes to the bus and then hands the frame to a `bypass::pipeline::Forwarder` (NEW).
-The forwarder owns the task's Core writer on its own thread and opens, writes, and
-reopens it. `WriterFactory::open_writer` registers the channels on the bus and returns
-at once. The handoff queue has a byte cap. While the Core is reachable, frames past it
-are dropped and counted, because a spooled frame must fall before the next live session
-(RFC 0095 §4.4).
+`bypass::pipeline::Writer::write` (`driver/bypass/pipeline/writer.h:43-61`) publishes to
+the bus and hands the frame to a `bypass::pipeline::Forwarder` (NEW), which opens,
+writes, and reopens the task's Core writer on its own thread. `open_writer` returns at
+once. The handoff queue holds 64 MB; while the Core is reachable, frames past it are
+dropped and counted.
 
-The forwarder spools only when the Core is unreachable. It then closes the live writer,
-spools the queued frames in order, and reopens the live writer only after the queue is
-empty, so every spooled frame comes before the new session. Any other Core error, such
-as a deleted channel or an unauthorized write, closes the forwarder, and the next
-`Writer::write` returns it, so the task stops with that error as today
-(`acquisition.cpp:162-167`). The acquisition retry path stays for pipelines with no bus.
+When the Core is unreachable, the forwarder closes the live writer, spools the queued
+frames in order, and reopens the live writer only after the queue is empty. Every
+spooled frame therefore comes before the next live session, as RFC 0095 §4.4 requires.
+Any other Core error, such as a deleted channel, closes the forwarder; the next `write`
+returns it and the task stops as today (`acquisition.cpp:162-167`).
 
-### 3.1 Authority while the Core is down
+### 3.1 Authority
 
-Today the local mirror applies only increases and waits for the Core's control channel
-for the rest (`driver/control/state.h:79-92`). During an outage, `control::States`
-tracks each local writer's authority per channel and applies decreases and closes too,
-so a handoff between two tasks on one Driver works offline. The forwarder records the
-authorities in effect and opens each Core writer with them. On reconnect, the forwarders
-open before the task manager retrieves control states
+Today the local mirror applies only increases (`driver/control/state.h:79-92`). While
+the Core is down, `control::States` tracks each local writer's authority per channel and
+applies decreases and closes too, so two tasks on one Driver can hand off a channel. The
+forwarder opens each Core writer with the authorities in effect. On reconnect, the
+forwarders open before the task manager retrieves control states
 (`driver/task/manager.cpp:260-271`).
 
-### 3.2 The bypass streamer reads the bus without the Core
+### 3.2 Streamers read the bus without the Core
 
-`bypass::pipeline::StreamerFactory::open_streamer` (exists, `streamer.h:128-159`)
-subscribes to the bus first and returns. The `Streamer`'s Core half (exists,
-`streamer.h:94-115`) opens and reopens on its own thread. An unreachable Core ends only
-that half, never `read`.
+`bypass::pipeline::StreamerFactory::open_streamer` (`streamer.h:128-159`) subscribes to
+the bus and returns. Its Core half (`streamer.h:94-115`) reopens on its own thread, and
+an unreachable Core never ends `read`.
 
 ### 3.3 The spool
 
-`spool::Spool` (NEW) is one per Driver, under the Driver's state directory
-(`driver/rack/state.h:17-28`), with a byte cap in the Driver config. It holds segments,
-one per outage of one forwarder. A segment records the cluster key, the writer's
-channels and subject, and its frames as length-prefixed `pb::Frame`
-(`x/cpp/telem/frame.h:185`). The forwarder spools `states->filter(fr, subject)`, the
-frame the bus publishes, so the spool keeps the authority rules. It drops calculated
-channels, which are virtual (`core/pkg/service/channel/writer.go:407-408`). The Driver
-has no storage today; the nearest analog is the one frame `Acquisition::Run` holds.
+`spool::Spool` (NEW) is one per Driver, in the state directory
+(`driver/rack/state.h:17-28`), capped at 10 GB by default in the Driver config. A full
+spool refuses new frames and counts them, so each segment stays contiguous. A segment
+holds one forwarder's outage: the cluster key, the channels and subject, and the frames
+as length-prefixed `pb::Frame` (`x/cpp/telem/frame.h:185`). The forwarder spools
+`states->filter(fr, subject)`, the frame the bus publishes, and drops virtual calculated
+channels (`core/pkg/service/channel/writer.go:407-408`).
 
-A drainer thread owned by the spool, not by any task, sends the segments on reconnect.
-For each segment it opens a `PersistOnly` writer with auto commit off, whose `start` is
-the segment's first timestamp (`client/cpp/framer/framer.h:282-325`), and advances its
-read offset only after a commit succeeds (RFC 0095 §4.3 and §4.4). A segment therefore
-survives its task stopping, a config change, a second outage, and a Driver restart.
+The spool's own drainer thread sends segments on reconnect, so a segment survives its
+task stopping, a config change, a second outage, and a restart. For each segment it
+opens a `PersistOnly` writer at the segment's first timestamp with auto commit off
+(`client/cpp/framer/framer.h:282-325`), and moves its read offset only after a commit
+succeeds (RFC 0095 §4.3).
 
 - **Open fails with `ErrUnauthorized`**: An old live writer still holds the claim. The
   drainer retries with backoff.
-- **Commit reaches stored data**: The drainer drops the frames that overlap and counts
-  them.
-- **Segment from another cluster**: The drainer deletes it and counts it.
+- **Commit reaches stored data**: The drainer drops the overlap and counts it.
+- **Segment from another cluster**: The drainer deletes and counts it.
 
-Frames in flight when the Core writer fails are lost, because writes do not ack each
-frame (`client/cpp/framer/writer.cpp:57-60`). The forwarder counts them as dropped.
+Frames in flight when a Core writer fails are lost, because writes are not acked per
+frame (`client/cpp/framer/writer.cpp:57-60`). The forwarder counts them.
 
 ### 3.4 Arc statuses and ranges
 
-`outbox::Outbox` (NEW) is a queue of Core calls on disk, next to the spool, with one
-thread that sends them in order. Each call is stored as its length-prefixed request
-proto. The nearest analog, `task::StatusCache` (`driver/task/status_cache.cpp:32-69`),
-keeps only the latest status per task.
+`outbox::Outbox` (NEW) is a queue of Core calls on disk next to the spool, stored as
+length-prefixed request protos and sent in order by one thread. It holds 10,000 calls.
+Unlike `task::StatusCache` (`driver/task/status_cache.cpp:32-69`), which keeps the
+latest status per task, it keeps every call, so the Core sees what happened.
 
-- **`status.set`**: The node stamps the time and queues the call. It returns the key of
-  the last resolved set of that name, or an empty string before the first one. Today it
-  blocks and returns the key of this call; the Arc docs and `status_test.cpp` change.
-- **`range.create`**: The node makes a new UUID key, returns it, and queues the create
-  with its start time. The Core keeps a client key (`ranger/writer.go:45-46`).
-- **`range.end`**: Queued with its end time, after its create.
+- **`status.set`**: The node stamps the time, queues the call, and never blocks. It
+  returns the key of the last resolved set of that name, or an empty string before the
+  first. The Arc docs and `status_test.cpp` change.
+- **`range.create`**: The node makes a UUID key, returns it, and queues the create. The
+  Core keeps a client key (`core/pkg/service/ranger/writer.go:45-46`).
+- **`range.end`**: Queued after its create.
 
-The outbox retries while the Core is unreachable. When a create fails validation, the
-outbox retrieves the key; a range that exists counts as sent. Any other error drops the
-call and counts it. When full, the outbox refuses new calls and counts them, except
-`range.end`, which is small and closes a range.
+The outbox retries while the Core is unreachable. When a create fails validation, it
+retrieves the key, and a range that exists counts as sent. Any other error drops and
+counts the call. A full outbox refuses and counts new calls, except `range.end`.
 
-On the Core, `SetByKeyOrNameRequest` gains `time`
-(`core/pkg/transport/grpc/status/status.proto:56-60`). A zero time means now. A set
+`SetByKeyOrNameRequest` gains `time`
+(`core/pkg/transport/grpc/status/status.proto:56-60`). A zero time means now, and a set
 older than the stored status does not replace it.
 
-### 3.5 Local calculated channels
+### 3.5 Calculated channels
 
-The Core compiles a calculated channel to the same `arc.Program` the Driver runs
-(`core/pkg/service/channel/calculation/compiler/compile.go:106-241`). The Arc retrieve
-with `include_program` (`core/pkg/api/arc/arc.go:325-340`) returns a compiled module for
-each calculated channel the Arc reads, nested ones included (NEW field). The Arc task
-runs each module beside the Arc on its base inputs, and its streamer asks for the base
-inputs instead of the calculated channel. An input from another Driver arrives through
-the Core and goes stale during an outage. The Core keeps computing the channel for the
-Console.
+Calculated channels are virtual and computed on demand, so the Core cannot hand one to a
+Driver. Instead, the Arc retrieve with `include_program`
+(`core/pkg/api/arc/arc.go:325-340`) returns a compiled module for each calculated
+channel the Arc reads, nested ones included (NEW field). The Core already compiles them
+to the `arc.Program` the Driver runs
+(`core/pkg/service/channel/calculation/compiler/compile.go:106-241`). The Arc task runs
+each module on its base inputs and streams those inputs instead. Inputs from another
+Driver go stale during an outage. The Core keeps computing the channel for the Console.
 
 ### 3.6 Reconnect and new minors
 
-The rack breaker no longer limits an unreachable Core (`driver/rack/rack.h:340-346`). On
-reconnect the task manager deploys again only tasks whose config changed (SY-6065,
-`driver/task/manager.cpp:714-724`).
+The rack breaker waits for an unreachable Core with no limit. On reconnect the task
+manager deploys again only tasks whose config changed
+(`driver/task/manager.cpp:714-724`).
 
 When `check_core` finds a Core on another minor (`driver/rack/remote.cpp:209-218`), the
-Driver does not restart. It keeps its running tasks and treats the Core as unreachable,
-except for one rack status write: "Driver needs an update". Its description says that
-the Driver's tasks keep running and that the Console cannot stop them until the Driver
-restarts. Between sequences, the operator restarts the Driver service or pod. It updates
-at that connect (RFC 0102 §3.5), and the new Driver drains the spool and outbox.
-
-The spool and outbox files start with a format version that changes only when the format
-changes. A Driver reads every format version that a stable release wrote, so an update
-never strands buffered data.
+Driver does not restart. It keeps its running tasks, starts no new ones, and treats the
+Core as unreachable except for one rack status: "Driver needs an update", whose
+description says the Console cannot stop its tasks until the Driver restarts. This
+narrows RFC 0102 decision 12: a Driver that keeps away from a newer Core cannot misread
+it. Between sequences, the operator restarts the Driver service or pod, it updates at
+that connect (RFC 0102 §3.5), and the new Driver drains the spool and outbox. Both files
+start with a format version, and a Driver reads every version a stable release wrote.
 
 ### 3.7 Operators during an outage
 
-The Console reaches tasks only through the Core, so an operator cannot see or stop an
-Arc while the Core is down. The Driver adds no local stop. The docs say that Arcs keep
-running during an outage and that the fallback is the hardware's own controls.
+The Console reaches tasks only through the Core, so nobody can see or stop an Arc while
+the Core is down. The Driver adds no local stop. The docs say so and name the hardware's
+own controls as the fallback.
 
 ## 4 What this RFC does not cover
 
-- **Running tasks after a restart during an outage**: Needs a local snapshot of configs,
-  channels, devices, and programs (§7, decision 1).
+- **Running tasks after a restart during an outage**: See principle 2.
 - **Resuming an Arc at its stage after a restart**: Arc state stays in memory
   (`arc/cpp/runtime/scheduler/scheduler.h:241-255`).
 - **Device and task metadata writes** (SY-4281): Task statuses already resend through
   `task::StatusCache`.
-- **Alerts during an outage**: Statuses reach alert routing only after the Core returns.
+- **Alerts during an outage**: Statuses reach alert routing after the Core returns.
 
 ## 5 Prior art
 
 AWS IoT Greengrass stream manager, Ignition Edge store and forward, and Sparkplug B
-historical data all buffer at the edge and forward on reconnect with original
-timestamps. Greengrass lets the user drop the oldest or the newest data when the buffer
-is full. We align: a capped disk buffer, sent with original times. Running control logic
-offline needs no new model, because Arc already runs in the Driver (RFC 0032).
+historical data buffer at the edge and forward with original timestamps. We align.
+Running control logic offline needs no new model, because Arc already runs in the Driver
+(RFC 0032).
 
 ## 6 Implementation phases
 
 Phases 1 and 2 help today on their own. After phases 3 and 5, tasks run through an
-outage and offline data is dropped with a count, where today it is never read. Phase 7
-then keeps it.
+outage and offline data is dropped with a count; phase 7 keeps it.
 
 | Phase | Scope                                                      | Touches                                                                                                                      | Depends on |
 | ----- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------- |
@@ -216,41 +194,4 @@ then keeps it.
 | 13    | Document Driver behavior during a Core outage              | `site/docs`                                                                                                                  | 12         |
 
 Compatibility: an older Driver sends no `status.set` time, and the Core uses now. An
-older Driver ignores the new Arc response field. The spool and outbox are new files.
-
-## 7 Resolved decisions
-
-1. **No task runs after a restart during an outage**: A local snapshot of configs,
-   channels, devices, and programs was rejected. It doubles the configuration paths, and
-   a snapshot can run a task the Core already changed. The trade is real: a pod
-   rescheduled during a long Core outage runs nothing until the Core returns.
-2. **Tasks keep fully running, not paused**: Pausing until the Core returns was
-   rejected; an Arc would freeze mid-stage for the whole outage.
-3. **The Driver computes local copies of calculated channels for its Arcs**: Moving
-   ownership to the Driver was rejected. Calculated channels are virtual and computed on
-   demand, and the Core cannot tell which Driver writes a channel. The trade is real: a
-   value is computed twice.
-4. **Every status is queued, not the latest per name**: Status history and alert routing
-   should see what happened during the outage.
-5. **The Driver sets the `status.set` time, online and offline**: The Core's receive
-   time is wrong for any queued call.
-6. **`status.set` never blocks the Arc**: A blocking resolve while the Core is up was
-   rejected; a network drop would stall the Arc for the request timeout. The trade is
-   real: the first set of a name returns an empty key.
-7. **The Driver picks range keys**: A key from the Core would leave the Arc with no key
-   to end the range.
-8. **The spool and outbox are on disk**: A memory buffer was rejected. At 10 kHz on 32
-   channels a task makes about 9 GB per hour, and the data must survive the restart that
-   an update needs.
-9. **A Driver on a new minor keeps its running tasks**: This narrows RFC 0102 decision
-   12 ("a Driver on another minor runs no tasks"). That rule guards against a Driver
-   misreading a newer Core; a Driver that keeps away from the Core cannot misread it. It
-   still starts no task.
-10. **No local stop**: A stop command on the Driver host was rejected. It is a second
-    control surface with its own login and safety rules, and the operators who need it
-    have no shell on the host.
-
-## 8 Open questions
-
-1. **Default caps**: Spool bytes, outbox length, and the forwarder handoff queue.
-2. **Spool full**: Refuse new frames, as the outbox does, or drop the oldest segment.
+older Driver ignores the new Arc response field.
