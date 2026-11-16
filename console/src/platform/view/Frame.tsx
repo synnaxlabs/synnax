@@ -24,7 +24,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Flux, Panel, View as PView } from "@synnaxlabs/pluto";
+import { Access, Errors, Flux, Panel, View as PView } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
@@ -82,6 +82,7 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
   const dispatch = Session.useDispatch();
   const open = Session.View.useSelectOpen(tab);
   const saved = PView.useResult(open == null ? null : { key: open });
+  const refresh = PView.useRefresh();
   const [searchTerm, setSearchTerm] = useState("");
   const staticViews: StaticView[] = [
     {
@@ -103,12 +104,14 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
   const { getItem } = combinedProps;
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const staticViewKeys = staticViews.map((v) => v.key);
-  const unavailable =
-    saved.variant === "error" && isUnavailable(saved.status.details.error);
-  if (saved.variant === "error" && !unavailable) throw saved.status.details.error;
+  const error = saved.variant === "error" ? saved.status.details.error : null;
+  const unavailable = error != null && isUnavailable(error);
   // A tab whose view was deleted, or that this user cannot read, shows the static view.
   const selected = open == null || unavailable ? staticViews[0].key : open;
   const ready = selected !== open || saved.variant === "success";
+  const retry = (): void => {
+    if (open != null) refresh({ key: open });
+  };
   const select = (key: view.Key) => {
     const next = staticViewKeys.includes(key) ? null : key;
     dispatch(Session.View.setOpen({ tab, view: next }));
@@ -145,6 +148,14 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
           selected={selected}
         />
         {ready && <Fragment key={selected}>{children}</Fragment>}
+        {error != null && !unavailable && (
+          <Errors.Fallback error={error} resetErrorBoundary={retry}>
+            <Button.Button variant="filled" onClick={retry}>
+              <Icon.Refresh />
+              Retry
+            </Button.Button>
+          </Errors.Fallback>
+        )}
       </Context>
     </Flex.Box>
   );

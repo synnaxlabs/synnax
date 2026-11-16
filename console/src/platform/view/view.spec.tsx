@@ -17,7 +17,7 @@ import { Access, Flux } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
@@ -372,6 +372,30 @@ describe("View open in a tab", () => {
       tab,
     });
     await waitFor(() => expect(selectedViewName()).toBe("All ranges"));
+  });
+
+  it("shows the error of a view that fails to load, and loads it on retry", async () => {
+    const saved = await createView();
+    const tab = uuid.create();
+    const subject = createTestClient();
+    const retrieve = subject.views.retrieve.bind(subject.views);
+    let failing = true;
+    vi.spyOn(subject.views, "retrieve").mockImplementation(async (...args) => {
+      if (failing && args[0] === saved.key) throw new Error("Core unreachable");
+      return await retrieve(...args);
+    });
+    await renderHarness(subject, {
+      store: await createStoreShowing(tab, saved.key),
+      tab,
+    });
+    const retry = await screen.findByRole("button", { name: "Retry" });
+    expect(screen.queryByRole("button", { name: "Filter" })).toBeNull();
+    expect(screen.getByRole("tab", { name: "All ranges" })).toBeTruthy();
+    failing = false;
+    fireEvent.click(retry);
+    expect(await screen.findByRole("button", { name: "Filter" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(selectedViewName()).toBe(saved.name);
   });
 
   it("goes back to the static view when the open view is deleted", async () => {
