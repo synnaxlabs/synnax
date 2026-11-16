@@ -182,7 +182,7 @@ var _ = Describe("License", func() {
 		DescribeTable(
 			"should reject a missing field",
 			func(field string, unset func(c *license.ServiceConfig)) {
-				c := license.DefaultServiceConfig.Override(cfg)
+				c := license.DefaultServiceConfig().Override(cfg)
 				unset(&c)
 				Expect(c.Validate()).To(MatchError(ContainSubstring(field)))
 			},
@@ -206,9 +206,9 @@ var _ = Describe("License", func() {
 				func(c *license.ServiceConfig) { c.Loopback = nil }),
 		)
 		It("should keep defaults the override leaves zero", func() {
-			c := license.DefaultServiceConfig.Override(cfg)
-			Expect(c.Grace).To(Equal(license.DefaultServiceConfig.Grace))
-			Expect(c.Rollback).To(Equal(license.DefaultServiceConfig.Rollback))
+			c := license.DefaultServiceConfig().Override(cfg)
+			Expect(c.Grace).To(Equal(license.DefaultServiceConfig().Grace))
+			Expect(c.Rollback).To(Equal(license.DefaultServiceConfig().Rollback))
 			Expect(c.Validate()).To(Succeed())
 		})
 	})

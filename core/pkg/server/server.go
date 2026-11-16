@@ -97,14 +97,17 @@ var (
 	_ alamos.ReportProvider = Config{}
 	_ alamos.ReportProvider = SecurityConfig{}
 	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default server configuration.
-	DefaultConfig = Config{
+)
+
+// DefaultConfig returns the default server configuration.
+func DefaultConfig() Config {
+	return Config{
 		Debug: new(false),
 		Security: SecurityConfig{
 			Insecure: new(false),
 		},
 	}
-)
+}
 
 // Override implements the config.Properties interface.
 func (c Config) Override(other Config) Config {
@@ -141,7 +144,7 @@ type Server struct {
 // Serve starts a new server using the provided configuration. If the configuration
 // is invalid, an error is returned. To stop the server, call the Close method.
 func Serve(cfgs ...Config) (*Server, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultConfig(), cfgs...)
 	if err != nil {
 		return nil, err
 	}

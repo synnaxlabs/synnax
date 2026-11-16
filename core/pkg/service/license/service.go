@@ -119,15 +119,17 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// DefaultServiceConfig is the default configuration for the license service.
-var DefaultServiceConfig = ServiceConfig{
-	Anchors:       anchors,
-	Now:           time.Now,
-	CheckInterval: time.Hour,
-	WarningTime:   7 * 24 * time.Hour,
-	Grace:         14 * 24 * time.Hour,
-	Rollback:      24 * time.Hour,
-	Loopback:      new(false),
+// DefaultServiceConfig returns the default configuration for the license service.
+func DefaultServiceConfig() ServiceConfig {
+	return ServiceConfig{
+		Anchors:       anchors,
+		Now:           time.Now,
+		CheckInterval: time.Hour,
+		WarningTime:   7 * 24 * time.Hour,
+		Grace:         14 * 24 * time.Hour,
+		Rollback:      24 * time.Hour,
+		Loopback:      new(false),
+	}
 }
 
 const (
@@ -177,7 +179,7 @@ var _ io.Closer = &Service{}
 // service opens under the stored keys. A Core with no license opens in StateMissing.
 // OpenService deletes the stored numeric license keys, which no Core accepts.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig(), cfgs...)
 	if err != nil {
 		return nil, err
 	}

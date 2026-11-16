@@ -77,7 +77,7 @@ type CoreConfig struct {
 var _ config.Config[CoreConfig] = CoreConfig{}
 
 var DefaultCoreConfig = CoreConfig{
-	certFactoryConfig: cert.DefaultFactoryConfig,
+	certFactoryConfig: cert.DefaultFactoryConfig(),
 	// a Core installed before the flag existed starts without it
 	sessionIdleTimeout: auth.DefaultIdleTimeout,
 }

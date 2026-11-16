@@ -60,7 +60,7 @@ var _ = Describe("storage", func() {
 					It(
 						"Should set the correct permissions on the storage directory",
 						func(ctx SpecContext) {
-							cfg.Perm = storage.DefaultLayerConfig.Perm
+							cfg.Perm = storage.DefaultLayerConfig().Perm
 							MustOpen(storage.OpenLayer(ctx, cfg))
 							stat := MustSucceed(os.Stat(cfg.Dirname))
 							Expect(stat.Mode().Perm()).To(Equal(cfg.Perm))
@@ -129,7 +129,7 @@ var _ = Describe("storage", func() {
 			spec func(storage.LayerConfig) storage.LayerConfig,
 			contains string,
 		) {
-			iCfg := storage.DefaultLayerConfig
+			iCfg := storage.DefaultLayerConfig()
 			iCfg.Dirname = "foo"
 			iCfg.Version = "0.60.0"
 			err := spec(iCfg).Validate()
