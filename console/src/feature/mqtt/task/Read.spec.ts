@@ -176,6 +176,10 @@ const retype = async (
 };
 
 /** Removes a field from the entry's message, in the ICD. */
+/** @returns the fields of the first message of an ICD. */
+const jsonFieldsOf = ({ messages: [first] }: icd.ICD): icd.JSONField[] =>
+  first.payload.format === "json" ? first.payload.fields : [];
+
 const removeField = async (
   { icd: key, messages }: MQTT.Task.PlainReadEntry,
   field: icd.JSONField,
@@ -362,7 +366,7 @@ describe("MQTT read form", () => {
     );
   });
 
-  it("should show the format of a topic from the ICD of its entry", async () => {
+  it("should show the format of a field from the ICD of its entry", async () => {
     const kiln = await createEntry({
       topic: "plant/kiln",
       fields: [createField("pressure", "float")],
@@ -371,10 +375,47 @@ describe("MQTT read form", () => {
       fields: [createField("temperature", "float")],
       entries: [kiln],
     });
-    await screen.findByDisplayValue("temperature");
-    fireEvent.click(await screen.findByRole("treeitem", { name: /plant\/kiln/ }));
-    await screen.findByDisplayValue("pressure");
-    expect(screen.queryByDisplayValue("temperature")).toBeNull();
+    await selectField("temperature");
+    await screen.findByDisplayValue("/temperature");
+    await selectField("pressure");
+    await screen.findByDisplayValue("/pressure");
+    expect(screen.queryByDisplayValue("/temperature")).toBeNull();
+  });
+
+  it("should add a field to the message of a topic, read it, and select it", async () => {
+    const temperature = createField("temperature", "float");
+    const { draft } = await renderRead({ fields: [temperature] });
+    fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+    await screen.findByDisplayValue("Field 2");
+    const { icd: icdKey, messages } = plainOf((await retrieveEntries(draft.key))[0]);
+    await waitFor(async () =>
+      expect((await client.icds.retrieve(icdKey)).messages[0].payload).toMatchObject({
+        fields: [{ key: temperature.key }, { name: "Field 2", pointer: "" }],
+      }),
+    );
+    const [, added] = jsonFieldsOf(await client.icds.retrieve(icdKey));
+    await waitFor(async () =>
+      expect(await retrieveBindings(draft.key)).toEqual([
+        messages[0].bindings[0],
+        { field: added.key, channel: 0, dataType: "" },
+      ]),
+    );
+  });
+
+  it("should remove a field from the ICD through the context menu", async () => {
+    const temperature = createField("temperature", "float");
+    const pressure = createField("pressure", "float");
+    const { draft } = await renderRead({ fields: [temperature, pressure] });
+    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /^pressure/ }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+    const { icd: icdKey } = plainOf((await retrieveEntries(draft.key))[0]);
+    await waitFor(async () =>
+      expect(
+        jsonFieldsOf(await client.icds.retrieve(icdKey)).map(({ key }) => key),
+      ).toEqual([temperature.key]),
+    );
+    expect(screen.queryByRole("treeitem", { name: /^pressure/ })).toBeNull();
   });
 
   it("should add fields to a topic in the ICD of its entry and read them", async () => {
@@ -386,7 +427,7 @@ describe("MQTT read form", () => {
       fields: [createField("temperature", "float")],
       entries: [kiln],
     });
-    await screen.findByDisplayValue("temperature");
+    await screen.findByRole("treeitem", { name: /^temperature/ });
     await addField(dev.rack, "plant/kiln", "flow");
     await waitFor(async () =>
       expect((await client.icds.retrieve(kiln.icd)).messages).toMatchObject([
@@ -643,7 +684,6 @@ describe("MQTT read form", () => {
       fireEvent.contextMenu(await item());
       const disable = await screen.findByText("Disable");
       expect(screen.queryByText("Enable")).toBeNull();
-      expect(screen.queryByText("Remove")).toBeNull();
       fireEvent.click(disable);
       await waitFor(async () => expect(await retrieveBindings(draft.key)).toEqual([]));
       fireEvent.contextMenu(await item());
@@ -916,7 +956,8 @@ describe("MQTT read form", () => {
       const { container, dev } = await renderRead({
         fields: [createField("temperature", "float")],
       });
-      const name = await screen.findByLabelText("Name 1");
+      await selectField("temperature");
+      const name = await screen.findByDisplayValue("temperature");
       fireEvent.change(name, { target: { value: "" } });
       fireEvent.blur(name);
       await clickFailedDeploy(container);

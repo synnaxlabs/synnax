@@ -42,7 +42,7 @@ const ZERO_DEFAULTS: {
   boolean: false,
 };
 
-const isMappable = (field: icd.JSONField): field is Mappable =>
+export const isMappable = (field: icd.JSONField): field is Mappable =>
   field.type in ZERO_DEFAULTS;
 
 const formatDefault = (field: Mappable): string | null => {
@@ -125,12 +125,13 @@ const Default = ({ path, type }: DefaultProps): ReactElement => {
   }
 };
 
-interface FormProps {
+export interface OptionalProps {
   path: deep.Path<icd.JSONField>;
   field: Mappable;
 }
 
-const OptionsForm = ({ path, field }: FormProps): ReactElement => {
+/** Edits whether a field is optional, and its default when it is. */
+export const Optional = ({ path, field }: OptionalProps): ReactElement => {
   const { set, remove, mode } = Form.useContext();
   const defaultPath = deep.variant(path, "type", field.type).default;
   const handleOptional = (optional: boolean) => {
@@ -138,24 +139,30 @@ const OptionsForm = ({ path, field }: FormProps): ReactElement => {
     else remove(defaultPath);
   };
   return (
-    <Form.Sections>
-      <Form.Section>
-        <Flex.Box x>
-          <Input.Item label="Optional" padHelpText={false}>
-            <Input.Checkbox
-              value={field.default != null}
-              onChange={handleOptional}
-              preview={mode === "preview"}
-              {...OPTIONAL_INPUT_PROPS}
-            />
-          </Input.Item>
-          {field.default != null && <Default path={path} type={field.type} />}
-        </Flex.Box>
-        <EnumValues path={path} label="Enum mapping" />
-      </Form.Section>
-    </Form.Sections>
+    <>
+      <Input.Item label="Optional" padHelpText={false}>
+        <Input.Checkbox
+          value={field.default != null}
+          onChange={handleOptional}
+          preview={mode === "preview"}
+          {...OPTIONAL_INPUT_PROPS}
+        />
+      </Input.Item>
+      {field.default != null && <Default path={path} type={field.type} />}
+    </>
   );
 };
+
+const OptionsForm = ({ path, field }: OptionalProps): ReactElement => (
+  <Form.Sections>
+    <Form.Section>
+      <Flex.Box x>
+        <Optional path={path} field={field} />
+      </Flex.Box>
+      <EnumValues path={path} label="Enum mapping" />
+    </Form.Section>
+  </Form.Sections>
+);
 
 export interface OptionsProps extends Pick<
   Input.TableCellProps,
