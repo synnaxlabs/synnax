@@ -12,7 +12,8 @@ import { describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
-import { renderThemed } from "@/styletest";
+import { Icon } from "@/icon";
+import { renderThemed, resolve } from "@/styletest";
 import { Tag } from "@/tag";
 
 const LABELS = ["Hotfire", "Stand 2", "Pass", "Calibration", "Cold flow", "Anomaly"];
@@ -139,6 +140,66 @@ describe("Tags", () => {
       expect(faceInside(frame)).toBe(true);
     },
   );
+
+  it("should keep the outline of an outlined group as its tags stack", async () => {
+    const group = (width: number): ReactElement => (
+      <div data-testid="frame" style={{ display: "flex", width: `${width}px` }}>
+        <Tag.Tags variant="outlined">
+          {LABELS.map((label) => (
+            <Tag.Tag key={label} color="#3774d0">
+              {label}
+            </Tag.Tag>
+          ))}
+        </Tag.Tags>
+      </div>
+    );
+    const { container } = await renderThemed(
+      <>
+        {group(1000)}
+        {group(330)}
+      </>,
+    );
+    const [wide, narrow] = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-testid=frame]"),
+    );
+    await expect.poll(() => stacked(narrow)).toBe(true);
+    const outline = (frame: HTMLElement): string =>
+      getComputedStyle(frame.querySelector(`.${CSS.B("tags")}`)!).borderTopColor;
+    expect(outline(wide)).not.toBe(resolve("transparent"));
+    expect(outline(narrow)).toBe(outline(wide));
+  });
+
+  it("should fold tags with no color dot into a count with no dots", async () => {
+    const { container } = await renderThemed(
+      <div data-testid="frame" style={{ display: "flex", width: "260px" }}>
+        <Tag.Tags>
+          {LABELS.map((label) => (
+            <Tag.Tag key={label} icon={<Icon.Python />}>
+              {label}
+            </Tag.Tag>
+          ))}
+        </Tag.Tags>
+      </div>,
+    );
+    const frame = container.querySelector<HTMLElement>("[data-testid=frame]")!;
+    await expect.poll(() => count(frame)).not.toBeNull();
+    expect(dots(frame)).toEqual([]);
+    const more = frame.querySelector<HTMLElement>(`.${CSS.BE("tags", "more")}`)!;
+    const face =
+      more.getBoundingClientRect().left +
+      parseFloat(getComputedStyle(more, "::before").left);
+    const last = visible(frame).at(-1)!;
+    expect(face).toBeGreaterThanOrEqual(last.getBoundingClientRect().right);
+    const { paddingLeft, paddingRight } = getComputedStyle(more);
+    expect(paddingLeft).toBe(paddingRight);
+    await userEvent.hover(more);
+    const list = await expect
+      .poll(() => document.querySelector(`.${CSS.BE("tags", "hidden")}`))
+      .not.toBeNull()
+      .then(() => document.querySelector(`.${CSS.BE("tags", "hidden")}`)!);
+    expect(list.textContent).toContain(LABELS[LABELS.length - 1]);
+    expect(list.querySelector("svg")).toBeNull();
+  });
 
   it("should center a tag's close over its dot", async () => {
     const { container } = await renderThemed(
