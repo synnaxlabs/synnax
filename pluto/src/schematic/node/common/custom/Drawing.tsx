@@ -65,9 +65,10 @@ export const Drawing = ({
         <g ref={setDrawing} />
       </Primitive.SVG>
       <Handle.Boundary orientation={orientation}>
-        {spec.handles.map((handle) => (
+        {spec.handles.map((handle, i) => (
           <Handle.Handle
-            key={handle.key}
+            // Some built-in specs repeat a handle key.
+            key={i}
             id={handle.key}
             location={handle.orientation}
             orientation={orientation}
