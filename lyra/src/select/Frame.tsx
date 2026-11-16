@@ -135,7 +135,7 @@ const useSelectedFirst = <K extends record.Key, E extends record.Keyed<K> | unde
       getItem == null ? data.includes(key) : getItem(key) != null;
     setFront(visible && value != null ? value.filter(readable) : EMPTY);
   }
-  const isSearching = (): boolean => registry.getTerm().trim() !== "";
+  const isSearching = (): boolean => registry.getTerm() !== "";
   const searching = useSyncExternalStore(
     value == null ? NOOP_SUBSCRIBE : registry.subscribe,
     isSearching,

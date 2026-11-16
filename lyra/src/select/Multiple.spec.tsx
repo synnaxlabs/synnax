@@ -384,6 +384,16 @@ describe("Select.Multiple", () => {
       ]);
     });
 
+    it("should treat a search of only spaces as a search", () => {
+      const { SelectMultiple } = createSelectMultiple(["3"]);
+      const c = render(<SelectMultiple />);
+      toggle(c);
+      fireEvent.change(c.getByPlaceholderText("Search Test Items..."), {
+        target: { value: " " },
+      });
+      expect(c.queryAllByRole("option")).toHaveLength(0);
+    });
+
     it("should list a selected item that the data has not loaded", () => {
       const { SelectMultiple } = createSelectMultiple(["3"], ["1", "2"]);
       const c = render(<SelectMultiple />);
