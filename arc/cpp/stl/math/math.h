@@ -24,6 +24,7 @@
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/ir/ir.h"
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/stl.h"
@@ -408,39 +409,44 @@ public:
         if (!this->state.refresh_inputs()) return x::errors::NIL;
         const auto &lhs = this->state.input(this->lhs_idx);
         const auto &rhs = this->state.input(this->rhs_idx);
+        x::errors::Error err;
         switch (this->kind) {
             case types::Kind::F64:
-                this->compute<double>(lhs, rhs);
+                err = this->compute<double>(lhs, rhs);
                 break;
             case types::Kind::F32:
-                this->compute<float>(lhs, rhs);
+                err = this->compute<float>(lhs, rhs);
                 break;
             case types::Kind::I64:
-                this->compute<int64_t>(lhs, rhs);
+                err = this->compute<int64_t>(lhs, rhs);
                 break;
             case types::Kind::I32:
-                this->compute<int32_t>(lhs, rhs);
+                err = this->compute<int32_t>(lhs, rhs);
                 break;
             case types::Kind::I16:
-                this->compute<int16_t>(lhs, rhs);
+                err = this->compute<int16_t>(lhs, rhs);
                 break;
             case types::Kind::I8:
-                this->compute<int8_t>(lhs, rhs);
+                err = this->compute<int8_t>(lhs, rhs);
                 break;
             case types::Kind::U64:
-                this->compute<uint64_t>(lhs, rhs);
+                err = this->compute<uint64_t>(lhs, rhs);
                 break;
             case types::Kind::U32:
-                this->compute<uint32_t>(lhs, rhs);
+                err = this->compute<uint32_t>(lhs, rhs);
                 break;
             case types::Kind::U16:
-                this->compute<uint16_t>(lhs, rhs);
+                err = this->compute<uint16_t>(lhs, rhs);
                 break;
             case types::Kind::U8:
-                this->compute<uint8_t>(lhs, rhs);
+                err = this->compute<uint8_t>(lhs, rhs);
                 break;
             default:
                 break;
+        }
+        if (err) {
+            ctx.report_error(err);
+            return x::errors::NIL;
         }
         auto &output = this->state.output(0);
         auto &output_time = this->state.output_time(0);
@@ -471,7 +477,16 @@ public:
 
 private:
     template<typename T>
-    void compute(const runtime::state::Series &lhs, const runtime::state::Series &rhs) {
+    x::errors::Error
+    compute(const runtime::state::Series &lhs, const runtime::state::Series &rhs) {
+        if constexpr (std::is_integral_v<T>)
+            if (this->op == Op::Divide || this->op == Op::Mod)
+                for (size_t i = 0; i < rhs->size(); i++)
+                    if (rhs->at<T>(static_cast<int>(i)) == 0)
+                        return x::errors::Error(
+                            runtime::errors::DIVIDE_BY_ZERO,
+                            "The node divided an integer by zero."
+                        );
         const auto n = std::max(lhs->size(), rhs->size());
         auto &output = this->state.output(0);
         output->resize(n);
@@ -498,6 +513,7 @@ private:
             }
             output->set(static_cast<int>(i), result);
         }
+        return x::errors::NIL;
     }
 
     template<typename T>

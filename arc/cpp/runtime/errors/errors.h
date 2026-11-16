@@ -34,6 +34,8 @@ const auto WASM_PANIC = BASE.sub("wasm_panic");
 const auto WASM_TRAP = BASE.sub("wasm_trap");
 /// @brief WASM execution used its whole loop budget in one cycle.
 const auto LOOP_BUDGET = WASM_TRAP.sub("loop_budget");
+/// @brief a node divided an integer by zero.
+const auto DIVIDE_BY_ZERO = BASE.sub("divide_by_zero");
 /// @brief the runtime stopped a WASM call that was still running.
 const auto INTERRUPTED = BASE.sub("interrupted");
 /// @brief the runtime was closed and accepts no more input.

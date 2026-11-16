@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <limits>
 #include <utility>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -1459,6 +1460,36 @@ TEST(MathModTest, ModsI32ElementWise) {
     EXPECT_EQ(checker.output(0)->at<int32_t>(0), 1);
     EXPECT_EQ(checker.output(0)->at<int32_t>(1), 3);
     EXPECT_EQ(checker.output(0)->at<int32_t>(2), 3);
+}
+
+/// @brief it should report an error and emit nothing when an integer divisor is zero.
+TEST(MathDivideTest, ReportsAZeroIntegerDivisor) {
+    for (const auto *node_type: {"divide", "mod"}) {
+        SCOPED_TRACE(node_type);
+        BinaryTestSetup setup(types::Kind::I32, node_type);
+        Module module;
+        auto node = ASSERT_NIL_P(module.create(
+            runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
+        ));
+        const auto sec = x::telem::SECOND.nanoseconds();
+        auto lhs = setup.make_lhs_node();
+        auto rhs = setup.make_rhs_node();
+        write_lhs_i32(lhs, {20, 100}, {sec, 2 * sec});
+        write_rhs_i32(rhs, {4, 0}, {sec, 2 * sec});
+        std::vector<x::errors::Error> errors;
+        bool changed = false;
+        runtime::node::Context ctx{
+            .cycle =
+                {.elapsed = x::telem::TimeSpan(0),
+                 .reason = runtime::node::RunReason::TimerTick},
+            .mark_changed = [&](size_t) { changed = true; },
+            .report_error = [&](const x::errors::Error &e) { errors.push_back(e); },
+        };
+        ASSERT_NIL(node->next(ctx));
+        ASSERT_EQ(errors.size(), 1);
+        ASSERT_MATCHES(errors[0], runtime::errors::DIVIDE_BY_ZERO);
+        EXPECT_FALSE(changed);
+    }
 }
 
 // ───────────────── Neg ─────────────────
