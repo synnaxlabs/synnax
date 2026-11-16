@@ -31,7 +31,7 @@ func RunMain() {
 		cobra.CheckErr(service.Run())
 		return
 	}
-	if err := Cmd.Execute(); err != nil {
+	if err := NewCmd().Execute(); err != nil {
 		os.Exit(exit.Code(err))
 	}
 }
