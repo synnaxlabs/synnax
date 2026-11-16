@@ -281,6 +281,22 @@ var _ = Describe("Migrate functions", func() {
 			}
 		}),
 	)
+	DescribeTable("Should keep a black theme color with a non-finite alpha",
+		func(ctx SpecContext, a float64) {
+			out := MustSucceed(v13.MigrateSchematic(ctx, withElements(v12.Schematic{
+				Configs: map[string]v12.ElementConfig{
+					"n": {Variant: v12.ValueElementConfig{
+						TextColor: &color.Color{A: a},
+					}},
+				},
+			})))
+			Expect(configOf(out, "n").(v13.ValueNodeConfig).TextColor).
+				To(Equal(&colorv2.Color{A: 255}))
+		},
+		Entry("NaN", math.NaN()),
+		Entry("positive infinity", math.Inf(1)),
+		Entry("negative infinity", math.Inf(-1)),
+	)
 	It("Should keep the zero stroke of a value", func(ctx SpecContext) {
 		out := MustSucceed(v13.MigrateSchematic(ctx, withElements(v12.Schematic{
 			Configs: map[string]v12.ElementConfig{
@@ -487,6 +503,40 @@ var _ = Describe("MigrateSchematic config move", func() {
 				"kept": {Variant: pipe},
 			},
 		),
+	)
+
+	DescribeTable("Should give the schema default to a non-finite number",
+		func(ctx SpecContext, f float64) {
+			s := migrate(ctx, v12.Schematic{
+				Nodes: []v12.Node{node("n1")},
+				Edges: []v12.Edge{edge("e1", "n1", "n1")},
+				Configs: map[string]v12.ElementConfig{
+					"n1": {Variant: v12.PolygonElementConfig{
+						NumSides:    f,
+						SideLength:  30,
+						Rotation:    f,
+						StrokeColor: &color.Color{R: 1, A: f},
+						StrokeWidth: f,
+					}},
+					"e1": {Variant: v12.PipeElementConfig{
+						SegmentedEdgeConfig: v12.SegmentedEdgeConfig{
+							Segments: []v12.Segment{{Length: f}},
+						},
+					}},
+				},
+			})
+			polygon := configOf(s, "n1").(v13.PolygonNodeConfig)
+			Expect(polygon.NumSides).To(Equal(6.0))
+			Expect(polygon.SideLength).To(Equal(30.0))
+			Expect(polygon.Rotation).To(BeZero())
+			Expect(polygon.StrokeWidth).To(Equal(uint8(2)))
+			Expect(polygon.StrokeColor).To(Equal(&colorv2.Color{R: 1, A: 255}))
+			Expect(configOf(s, "e1").(v13.PipeEdgeConfig).Segments).
+				To(Equal([]v13.Segment{{}}))
+		},
+		Entry("NaN", math.NaN()),
+		Entry("positive infinity", math.Inf(1)),
+		Entry("negative infinity", math.Inf(-1)),
 	)
 
 	It("Should not change the schematic it was given", func(ctx SpecContext) {

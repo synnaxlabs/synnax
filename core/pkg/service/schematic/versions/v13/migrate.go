@@ -11,6 +11,7 @@ package v13
 
 import (
 	"context"
+	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"math"
 	"reflect"
@@ -18,7 +19,9 @@ import (
 
 	"github.com/synnaxlabs/gorp/migrate"
 	v12 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
+	colorv0 "github.com/synnaxlabs/x/color/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v2"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -29,7 +32,9 @@ import (
 // with no node config draws nothing, so it is dropped, and so is an edge whose source
 // or target is dropped. An edge with no edge config gets the default pipe, which the
 // Console drew for it before v0.55. Stroke widths become whole pixels as in
-// MigrateNodeConfig and MigrateSegmentedEdgeConfig.
+// MigrateNodeConfig and MigrateSegmentedEdgeConfig. A NaN or infinite number in a
+// config becomes the schema default of its field, and a color with such an alpha
+// becomes opaque.
 func MigrateSchematic(ctx context.Context, old v12.Schematic) (Schematic, error) {
 	s, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
@@ -127,6 +132,37 @@ func MigrateEdge(ctx context.Context, old v12.Edge) (Edge, error) {
 	return autoMigrateEdge(ctx, old)
 }
 
+func nonFinite(f float64) bool { return math.IsNaN(f) || math.IsInf(f, 0) }
+
+// nonFiniteAbsent makes a NaN or infinite number, which JSON cannot hold, read as an
+// absent field: it encodes as null, and a null leaves the schema default in place. A
+// color with such an alpha encodes as opaque, so it stays visible.
+var nonFiniteAbsent = json.JoinOptions(
+	json.WithMarshalers(json.JoinMarshalers(
+		json.MarshalToFunc(func(enc *jsontext.Encoder, c colorv0.Color) error {
+			if !nonFinite(c.A) {
+				return errors.ErrUnsupported
+			}
+			c.A = 1
+			return json.MarshalEncode(enc, c)
+		}),
+		json.MarshalToFunc(func(enc *jsontext.Encoder, f float64) error {
+			if !nonFinite(f) {
+				return errors.ErrUnsupported
+			}
+			return enc.WriteToken(jsontext.Null)
+		}),
+	)),
+	json.WithUnmarshalers(json.UnmarshalFromFunc(
+		func(dec *jsontext.Decoder, _ *float64) error {
+			if dec.PeekKind() != jsontext.KindNull {
+				return errors.ErrUnsupported
+			}
+			return dec.SkipValue()
+		},
+	)),
+)
+
 // convert decodes the config stored under key into dst. It returns false when no config
 // is stored under key, or when the stored config is of the Other element kind.
 func convert[Other, C any](
@@ -138,15 +174,15 @@ func convert[Other, C any](
 	if !ok {
 		return false, nil
 	}
-	b, err := json.Marshal(cfg)
+	b, err := json.Marshal(cfg, nonFiniteAbsent)
 	if err != nil {
 		return false, err
 	}
-	if err = json.Unmarshal(b, dst); err == nil {
+	if err = json.Unmarshal(b, dst, nonFiniteAbsent); err == nil {
 		return true, nil
 	}
 	var other Other
-	if json.Unmarshal(b, &other) == nil {
+	if json.Unmarshal(b, &other, nonFiniteAbsent) == nil {
 		return false, nil
 	}
 	return false, err
