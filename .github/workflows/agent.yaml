@@ -57,6 +57,10 @@ on:
         description: "Whether the job fails when recipient is empty"
         type: boolean
         default: false
+      licensed:
+        description: "Whether the agent gets the Core license as SYNNAX_LICENSE_KEY"
+        type: boolean
+        default: false
     outputs:
       pr-url:
         description: "URL of the PR the agent opened, pushed to, or commented on"
@@ -157,6 +161,8 @@ jobs:
         id: agent
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
+          SYNNAX_LICENSE_KEY:
+            ${{ inputs.licensed && secrets.SYNNAX_LICENSE_TOKEN || '' }}
           AGENT_GIT_NAME: ${{ steps.bot.outputs.name }}
           AGENT_GIT_EMAIL: ${{ steps.bot.outputs.email }}
           PROMPT: ${{ inputs.prompt }}

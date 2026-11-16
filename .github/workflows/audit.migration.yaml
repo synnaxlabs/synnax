@@ -106,6 +106,7 @@ jobs:
       agent: ${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }}
       output: report
       timeout-minutes: 120
+      licensed: true
     secrets:
       CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
       CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
