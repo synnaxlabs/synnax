@@ -59,17 +59,10 @@ func (s *Server) Hover(
 
 	displayContent := d.displayContent()
 
-	operator := s.getOperatorAtPosition(displayContent, params.Position)
-	if operator != "" {
-		contents := s.getOperatorHoverContents(operator)
-		if contents != "" {
-			return &protocol.Hover{
-				Contents: &protocol.MarkupContent{
-					Kind:  protocol.MarkupKindMarkdown,
-					Value: contents,
-				},
-			}, nil
-		}
+	if contents := s.getOperatorHoverContents(
+		s.getOperatorAtPosition(displayContent, params.Position),
+	); contents != "" {
+		return markdownHover(contents), nil
 	}
 
 	word := d.getWordAtPosition(params.Position)
@@ -81,11 +74,23 @@ func (s *Server) Hover(
 		)
 		return nil, nil
 	}
+	contents := s.wordHoverContents(ctx, d, params.Position, word, displayContent)
+	if contents == "" {
+		return nil, nil
+	}
+	return markdownHover(contents), nil
+}
 
-	qualifiedWord := lsp.GetQualifiedPrefixWordAtPosition(
-		displayContent,
-		params.Position,
-	)
+// wordHoverContents returns the hover for the word at pos. It tries the qualified
+// name, then the bare word, then the user symbol that the name resolves to.
+func (s *Server) wordHoverContents(
+	ctx context.Context,
+	d *document,
+	pos protocol.Position,
+	word string,
+	displayContent string,
+) string {
+	qualifiedWord := lsp.GetQualifiedPrefixWordAtPosition(displayContent, pos)
 	var contents string
 	if qualifiedWord != word {
 		contents = s.getHoverContents(qualifiedWord)
@@ -93,31 +98,25 @@ func (s *Server) Hover(
 	if contents == "" {
 		contents = s.getHoverContents(word)
 	}
-	if contents == "" {
-		var scopeAtCursor *symbol.Symbol
-		if d.IR.Symbols != nil {
-			scopeAtCursor = d.findScopeAtPosition(params.Position)
-		} else {
-			scopeAtCursor = s.cfg.NewRoot()
-		}
-		contents = s.getUserSymbolHover(
-			ctx,
-			scopeAtCursor,
-			qualifiedWord,
-			displayContent,
-		)
+	if contents != "" {
+		return contents
 	}
-
-	if contents == "" {
-		return nil, nil
+	var scopeAtCursor *symbol.Symbol
+	if d.IR.Symbols != nil {
+		scopeAtCursor = d.findScopeAtPosition(pos)
+	} else {
+		scopeAtCursor = s.cfg.NewRoot()
 	}
+	return s.getUserSymbolHover(ctx, scopeAtCursor, qualifiedWord, displayContent)
+}
 
+func markdownHover(contents string) *protocol.Hover {
 	return &protocol.Hover{
 		Contents: &protocol.MarkupContent{
 			Kind:  protocol.MarkupKindMarkdown,
 			Value: contents,
 		},
-	}, nil
+	}
 }
 
 var operators = []string{
@@ -580,54 +579,87 @@ func (s *Server) getUserSymbolHover(
 		displayName = sym.Name
 	}
 
-	var d doc.Doc
+	d := symbolKindDoc(sym, displayName)
+	addSymbolDocs(&d, sym)
+	if docComment != "" {
+		d.Add(doc.Divider())
+		d.Add(doc.Paragraph(docComment))
+	}
+	return d.Render()
+}
+
+// symbolKindDoc returns the hover title and details for the kind of sym.
+func symbolKindDoc(sym *symbol.Symbol, displayName string) doc.Doc {
 	switch sym.Kind {
 	case symbol.KindFunction:
-		kindDesc := formatFunctionKindDescription(sym)
-		if sym.Deprecated != nil {
-			kindDesc += " (deprecated)"
-		}
-		d = doc.New(doc.TitleWithKind(displayName, kindDesc))
-		d.Add(doc.Divider())
-		d.Add(doc.Code("arc", formatFunctionSignatureContent(sym)))
-		if sym.Trigger.Target != "" {
-			d.Add(doc.Detail("Trigger", sym.Trigger.Target, true))
-		}
+		return functionDoc(sym, displayName)
 	case symbol.KindModule, symbol.KindModuleAlias:
-		d = doc.New(doc.TitleWithKind(displayName, "Module"))
+		d := doc.New(doc.TitleWithKind(displayName, "Module"))
 		if members := formatModuleMembersList(sym); len(members) > 0 {
 			d.Add(doc.Paragraph("Members: " + strings.Join(members, ", ")))
 		}
+		return d
 	case symbol.KindConstant:
-		d = doc.New(doc.TitleWithKind(displayName, "Constant"))
-		d.Add(doc.Detail("Type", sym.Type.String(), true))
+		return doc.New(doc.TitleWithKind(displayName, "Constant"), typeDetail(sym))
 	case symbol.KindVariable:
-		d = doc.New(doc.TitleWithKind(displayName, "Variable"))
-		d.Add(doc.Detail("Type", variableTypeDetail(sym), true))
+		return doc.New(
+			doc.TitleWithKind(displayName, "Variable"),
+			doc.Detail("Type", variableTypeDetail(sym), true),
+		)
 	case symbol.KindStatefulVariable:
-		d = doc.New(doc.TitleWithKind(displayName, "Stateful Variable"))
-		d.Add(doc.Paragraph("Persists across executions"))
-		d.Add(doc.Detail("Type", sym.Type.String(), true))
+		return doc.New(
+			doc.TitleWithKind(displayName, "Stateful Variable"),
+			doc.Paragraph("Persists across executions"),
+			typeDetail(sym),
+		)
 	case symbol.KindInput:
-		d = doc.New(doc.TitleWithKind(displayName, "Input Parameter"))
-		d.Add(doc.Detail("Type", sym.Type.String(), true))
+		return doc.New(
+			doc.TitleWithKind(displayName, "Input Parameter"),
+			typeDetail(sym),
+		)
 	case symbol.KindOutput:
-		d = doc.New(doc.TitleWithKind(displayName, "Output Parameter"))
-		d.Add(doc.Detail("Type", sym.Type.String(), true))
+		return doc.New(
+			doc.TitleWithKind(displayName, "Output Parameter"),
+			typeDetail(sym),
+		)
 	case symbol.KindChannel:
-		d = doc.New(doc.TitleWithKind(displayName, "Channel"))
-		d.Add(doc.Detail("Type", sym.Type.String(), true))
+		return doc.New(doc.TitleWithKind(displayName, "Channel"), typeDetail(sym))
 	case symbol.KindSequence:
-		d = doc.New(doc.TitleWithKind(displayName, "Sequence"))
+		d := doc.New(doc.TitleWithKind(displayName, "Sequence"))
 		if stages := formatSequenceStagesList(sym); len(stages) > 0 {
 			d.Add(doc.Paragraph("Stages: " + strings.Join(stages, ", ")))
 		}
+		return d
 	case symbol.KindStage:
-		d = doc.New(doc.TitleWithKind(displayName, "Stage"))
+		return doc.New(doc.TitleWithKind(displayName, "Stage"))
 	default:
-		d = doc.New(doc.Title(displayName))
-		d.Add(doc.Detail("Type", sym.Type.String(), true))
+		return doc.New(doc.Title(displayName), typeDetail(sym))
 	}
+}
+
+func typeDetail(sym *symbol.Symbol) doc.Block {
+	return doc.Detail("Type", sym.Type.String(), true)
+}
+
+func functionDoc(sym *symbol.Symbol, displayName string) doc.Doc {
+	kindDesc := formatFunctionKindDescription(sym)
+	if sym.Deprecated != nil {
+		kindDesc += " (deprecated)"
+	}
+	d := doc.New(
+		doc.TitleWithKind(displayName, kindDesc),
+		doc.Divider(),
+		doc.Code("arc", formatFunctionSignatureContent(sym)),
+	)
+	if sym.Trigger.Target != "" {
+		d.Add(doc.Detail("Trigger", sym.Trigger.Target, true))
+	}
+	return d
+}
+
+// addSymbolDocs adds the deprecation notice and the doc blocks of sym, or of the
+// target of a module alias.
+func addSymbolDocs(d *doc.Doc, sym *symbol.Symbol) {
 	docSrc := sym
 	if sym.Kind == symbol.KindModuleAlias && sym.Target != nil {
 		docSrc = sym.Target
@@ -646,11 +678,6 @@ func (s *Server) getUserSymbolHover(
 		d.Add(doc.Divider())
 		d.Add(blocks...)
 	}
-	if docComment != "" {
-		d.Add(doc.Divider())
-		d.Add(doc.Paragraph(docComment))
-	}
-	return d.Render()
 }
 
 // formatFunctionSignatureContent returns the function signature without code fences.

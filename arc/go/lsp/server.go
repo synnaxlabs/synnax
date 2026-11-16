@@ -494,32 +494,48 @@ func (s *Server) analyze(
 	cfg := parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
 
 	if meta.isFunctionBlock {
-		wrappedContent := fmt.Sprintf("{%s}", content)
-		t, err := parser.ParseBlock(wrappedContent, cfg)
-		if err != nil {
-			pDiagnostics = lsp.TranslateDiagnostics(*err, translateSource)
-		} else {
-			aCtx := acontext.NewRoot(ctx, t, s.cfg.NewRoot()).WithConfig(cfg)
-			statement.AnalyzeFunctionBody(aCtx)
-			docIR = ir.IR{Symbols: aCtx.Scope}
-			docDiag = *aCtx.Diagnostics
-			pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
-		}
+		return s.analyzeFunctionBlock(ctx, content, cfg)
+	}
+	return s.analyzeText(ctx, content, meta.isModule, cfg)
+}
+
+func (s *Server) analyzeFunctionBlock(
+	ctx context.Context,
+	content string,
+	cfg parser.Config,
+) (pDiagnostics []protocol.Diagnostic, docIR ir.IR, docDiag diagnostics.Diagnostics) {
+	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", content), cfg)
+	if err != nil {
+		pDiagnostics = lsp.TranslateDiagnostics(*err, translateSource)
 	} else {
-		t, diag := text.Parse(text.Text{Raw: content}, cfg)
-		if diag != nil {
-			pDiagnostics = lsp.TranslateDiagnostics(*diag, translateSource)
-		} else {
-			analyze := text.Analyze
-			if meta.isModule {
-				analyze = text.AnalyzeModule
-			}
-			analyzedIR, analysisDiag := analyze(ctx, t, s.cfg.NewRoot(), cfg)
-			docIR = analyzedIR
-			if analysisDiag != nil {
-				docDiag = *analysisDiag
-				pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
-			}
+		aCtx := acontext.NewRoot(ctx, t, s.cfg.NewRoot()).WithConfig(cfg)
+		statement.AnalyzeFunctionBody(aCtx)
+		docIR = ir.IR{Symbols: aCtx.Scope}
+		docDiag = *aCtx.Diagnostics
+		pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
+	}
+	return pDiagnostics, docIR, docDiag
+}
+
+func (s *Server) analyzeText(
+	ctx context.Context,
+	content string,
+	isModule bool,
+	cfg parser.Config,
+) (pDiagnostics []protocol.Diagnostic, docIR ir.IR, docDiag diagnostics.Diagnostics) {
+	t, diag := text.Parse(text.Text{Raw: content}, cfg)
+	if diag != nil {
+		pDiagnostics = lsp.TranslateDiagnostics(*diag, translateSource)
+	} else {
+		analyze := text.Analyze
+		if isModule {
+			analyze = text.AnalyzeModule
+		}
+		analyzedIR, analysisDiag := analyze(ctx, t, s.cfg.NewRoot(), cfg)
+		docIR = analyzedIR
+		if analysisDiag != nil {
+			docDiag = *analysisDiag
+			pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
 		}
 	}
 	return pDiagnostics, docIR, docDiag

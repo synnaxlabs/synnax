@@ -52,46 +52,12 @@ func (s *Server) CodeAction(
 	if !ok {
 		return nil, nil
 	}
-	s.mu.RLock()
-	content := doc.Content
-	symbols := doc.IR.Symbols
-	var analyzed diagnostics.Diagnostics
-	// A fix from the analysis of older content has the wrong ranges.
-	if doc.analyzed == content {
-		analyzed = doc.Diagnostics
-	}
-	isBlock := doc.isBlock()
-	s.mu.RUnlock()
-	snap := codeActionSnapshot{
-		URI:         doc.URI,
-		Content:     content,
-		Symbols:     symbols,
-		Diagnostics: analyzed,
-		Tokens:      tokenizeContent(content),
-		IsBlock:     isBlock,
-	}
+	snap := s.codeActionSnapshot(doc)
 	var (
-		actions []protocol.CommandOrCodeAction
-		hoist   *protocol.CodeAction
-		modules []*symbol.Symbol
-		listed  bool
+		actions     []protocol.CommandOrCodeAction
+		hoist       *protocol.CodeAction
+		listModules = s.moduleLister(ctx, snap.Symbols)
 	)
-	// Every diagnostic of a request shares one listing of the user modules.
-	listModules := func() []*symbol.Symbol {
-		if listed {
-			return modules
-		}
-		listed = true
-		r := symbols.ModuleResolver()
-		if r == nil {
-			return nil
-		}
-		var err error
-		if modules, err = r.Search(ctx, ""); err != nil {
-			s.cfg.L.Error("failed to search modules", zap.Error(err))
-		}
-		return modules
-	}
 	for _, diag := range params.Context.Diagnostics {
 		code, _ := diag.Code.(protocol.String)
 		switch string(code) {
@@ -119,6 +85,54 @@ func (s *Server) CodeAction(
 		actions = append(actions, hoist)
 	}
 	return actions, nil
+}
+
+func (s *Server) codeActionSnapshot(doc *document) codeActionSnapshot {
+	s.mu.RLock()
+	content := doc.Content
+	symbols := doc.IR.Symbols
+	var analyzed diagnostics.Diagnostics
+	// A fix from the analysis of older content has the wrong ranges.
+	if doc.analyzed == content {
+		analyzed = doc.Diagnostics
+	}
+	isBlock := doc.isBlock()
+	s.mu.RUnlock()
+	return codeActionSnapshot{
+		URI:         doc.URI,
+		Content:     content,
+		Symbols:     symbols,
+		Diagnostics: analyzed,
+		Tokens:      tokenizeContent(content),
+		IsBlock:     isBlock,
+	}
+}
+
+// moduleLister returns a function that lists the user modules once, so every
+// diagnostic of a request shares one listing.
+func (s *Server) moduleLister(
+	ctx context.Context,
+	symbols *symbol.Symbol,
+) func() []*symbol.Symbol {
+	var (
+		modules []*symbol.Symbol
+		listed  bool
+	)
+	return func() []*symbol.Symbol {
+		if listed {
+			return modules
+		}
+		listed = true
+		r := symbols.ModuleResolver()
+		if r == nil {
+			return nil
+		}
+		var err error
+		if modules, err = r.Search(ctx, ""); err != nil {
+			s.cfg.L.Error("failed to search modules", zap.Error(err))
+		}
+		return modules
+	}
 }
 
 // analyzedQuickFixes builds one action for each fix the analyzer attached to diag.
