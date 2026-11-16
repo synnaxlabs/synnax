@@ -190,7 +190,9 @@ jobs:
 
       # The runners of a seat share its login, so at a usage limit every job on the
       # seat fails. The seat tags the time the limit resets, which keeps the fleet
-      # controller from starting it, then stops. The delay lets this job report first.
+      # controller from starting it. The drain runs outside the job: each runner stops
+      # once its job ends, then the seat powers off. A later limited job on the seat
+      # leaves a running drain alone.
       - name: Leave the pool until the usage limit resets
         if: failure() && steps.agent.outputs.limited-until != ''
         env:
@@ -205,6 +207,8 @@ jobs:
           uvx --from awscli==1.46.2 aws ec2 create-tags \
             --region "$(meta placement/region)" --resources "$(meta instance-id)" \
             --tags "Key=limited-until,Value=$UNTIL"
-          sudo systemd-run --on-active=30 systemctl poweroff
+          sudo install -m 644 "$RUNNER_TEMP/agent/drain.py" /run/agent-drain.py
+          sudo systemd-run --unit agent-drain python3 /run/agent-drain.py ||
+            systemctl is-active --quiet agent-drain
           echo "::error::The seat is at its usage limit until" \
-            "$(date -u -d "@$UNTIL" '+%F %R UTC'), so it stops."
+            "$(date -u -d "@$UNTIL" '+%F %R UTC'). It stops once its jobs end."
