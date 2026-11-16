@@ -21,6 +21,13 @@ interface TestRecord {
 }
 
 describe("remove", () => {
+  it("should skip null entries after the first in a keyed array", () => {
+    const a = { a: [{ key: "x" }, null, { key: "y" }] };
+    deep.remove(a, "a.y");
+    deep.remove(a, "a.z.w");
+    expect(a).toEqual({ a: [{ key: "x" }, null] });
+  });
+
   it("should not throw on a key into an array whose first entry is null", () => {
     const a = { a: [null] };
     deep.remove(a, "a.x");

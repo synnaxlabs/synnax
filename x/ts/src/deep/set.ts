@@ -57,7 +57,7 @@ export const set = <V>(obj: V, path: string, value: unknown): void => {
             }
           }
           if (isKeyed(result)) {
-            const objIndex = result.findIndex((o) => o.key === lastPart);
+            const objIndex = result.findIndex((o) => o?.key === lastPart);
             if (objIndex !== -1) {
               result[objIndex] = value;
               return;

@@ -27,7 +27,7 @@ export const remove = <V>(obj: V, path: string): void => {
         }
 
         if (isKeyed(result)) {
-          const objIndex = result.findIndex((o) => o.key === lastPart);
+          const objIndex = result.findIndex((o) => o?.key === lastPart);
           if (objIndex !== -1) {
             result.splice(objIndex, 1);
             return;
@@ -46,10 +46,10 @@ export const remove = <V>(obj: V, path: string): void => {
       // Try to find an item with a matching key (considering periods in keys)
       for (let j = parts.length - i; j >= 1; j--) {
         const candidateKey = parts.slice(i, i + j).join(SEPARATOR);
-        const item = result.find((o) => o.key === candidateKey);
+        const item = result.find((o) => o?.key === candidateKey);
         if (item != null) {
           if (i + j === parts.length) {
-            const objIndex = result.findIndex((o) => o.key === candidateKey);
+            const objIndex = result.findIndex((o) => o?.key === candidateKey);
             if (objIndex !== -1) result.splice(objIndex, 1);
 
             return;

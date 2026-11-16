@@ -51,7 +51,7 @@ export const defaultGetter = (obj: record.Unknown, key: string): unknown => {
   if (!Array.isArray(obj)) return obj[key];
   const res = obj[key];
   if (res != null || obj.length == 0) return res;
-  if (isKeyed(obj)) return obj.find((o) => o.key === key);
+  if (isKeyed(obj)) return obj.find((o) => o?.key === key);
   return undefined;
 };
 

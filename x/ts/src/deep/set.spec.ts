@@ -21,6 +21,12 @@ interface TestRecord {
 }
 
 describe("set", () => {
+  it("should skip null entries after the first in a keyed array", () => {
+    const a = { a: [{ key: "x", v: 1 }, null, { key: "y", v: 2 }] };
+    deep.set(a, "a.y", { key: "y", v: 3 });
+    expect(a).toEqual({ a: [{ key: "x", v: 1 }, null, { key: "y", v: 3 }] });
+  });
+
   it("should not throw on a key into an array whose first entry is null", () => {
     const a = { a: [null] };
     deep.set(a, "a.x", 1);
