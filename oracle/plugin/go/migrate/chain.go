@@ -138,7 +138,7 @@ func chainFile(
 	content, err := generateAutoCopy(
 		filepath.Base(newPath), newPath, req.RepoRoot,
 		roots, diff, oldTable, newTable,
-		mapping, wrapperNames(diff, oldTable, newTable, counterpart),
+		mapping, wrapperNames(oldTable, newTable, counterpart),
 	)
 	if err != nil {
 		return plugin.File{}, false, errors.Wrapf(

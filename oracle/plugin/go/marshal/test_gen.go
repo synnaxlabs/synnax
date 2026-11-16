@@ -86,10 +86,7 @@ func generateTestCodecFile(
 	repoRoot string,
 	pins versioning.Pins,
 ) ([]byte, error) {
-	pkgImport, err := resolveGoImportPath(parentPath, repoRoot)
-	if err != nil {
-		return nil, err
-	}
+	pkgImport := resolveGoImportPath(parentPath, repoRoot)
 	imports := make(map[string]string)
 	content, err := renderTestCodecFile(
 		packageName, parentPath, pkgImport, entries, table, repoRoot, pins, nil,
@@ -1239,10 +1236,7 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if p, ok := b.pins.Path(b.owner, typ); ok {
 		goPath = p
 	}
-	importPath, err := resolveGoImportPath(goPath, b.repoRoot)
-	if err != nil {
-		return "", err
-	}
+	importPath := resolveGoImportPath(goPath, b.repoRoot)
 	alias, forced := b.aliases[importPath]
 	// A versioned sub-package (…/versions/v0) aliases to its bare resource name, which
 	// shadows that resource's root package or another already-imported package sharing

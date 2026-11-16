@@ -11,6 +11,7 @@ package testutil
 
 import (
 	"context"
+	"io"
 	"sync/atomic"
 	"time"
 
@@ -46,7 +47,7 @@ func StreamSuite(
 								ginkgo.By(
 									"Receiving a transport EOF error from the client",
 								)
-								gomega.Expect(err).To(gomega.MatchError(freighter.EOF))
+								gomega.Expect(err).To(gomega.MatchError(io.EOF))
 								return err
 							}
 							if err := server.Send(
@@ -78,10 +79,10 @@ func StreamSuite(
 				)
 				gomega.Expect(stream.CloseSend()).To(gomega.Succeed())
 
-				ginkgo.By("Receiving a freighter.EOF error from the server")
+				ginkgo.By("Receiving a io.EOF error from the server")
 				gomega.Expect(stream.Receive()).
 					Error().
-					To(gomega.MatchError(freighter.EOF))
+					To(gomega.MatchError(io.EOF))
 				gomega.Eventually(closed).Should(gomega.BeClosed())
 			},
 		)
@@ -97,7 +98,7 @@ func StreamSuite(
 						defer close(serverClosed)
 						gomega.Expect(server.Receive()).
 							Error().
-							To(gomega.MatchError(freighter.EOF))
+							To(gomega.MatchError(io.EOF))
 						gomega.Expect(server.Send(Response{ID: 1, Message: "Hello"})).
 							To(gomega.Succeed())
 						return nil
@@ -110,7 +111,7 @@ func StreamSuite(
 				gomega.Expect(msg.Message).To(gomega.Equal("Hello"))
 				gomega.Expect(stream.Receive()).
 					Error().
-					To(gomega.MatchError(freighter.EOF))
+					To(gomega.MatchError(io.EOF))
 				gomega.Eventually(serverClosed).Should(gomega.BeClosed())
 			},
 		)
@@ -206,7 +207,7 @@ func StreamSuite(
 						Error().
 						To(gomega.MatchError(gomega.ContainSubstring("zero is not allowed!")))
 					gomega.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).
-						To(gomega.MatchError(freighter.EOF))
+						To(gomega.MatchError(io.EOF))
 					gomega.Eventually(serverClosed).Should(gomega.BeClosed())
 				},
 			)
@@ -253,7 +254,7 @@ func StreamSuite(
 								defer ginkgo.GinkgoRecover()
 								gomega.Expect(server.Receive()).
 									Error().
-									To(gomega.MatchError(freighter.EOF))
+									To(gomega.MatchError(io.EOF))
 								return nil
 							},
 						)
@@ -267,7 +268,7 @@ func StreamSuite(
 							To(gomega.MatchError(freighter.ErrStreamClosed))
 						gomega.Expect(stream.Receive()).
 							Error().
-							To(gomega.MatchError(freighter.EOF))
+							To(gomega.MatchError(io.EOF))
 						gomega.Eventually(serverClosed).Should(gomega.BeClosed())
 					},
 				)
@@ -298,7 +299,7 @@ func StreamSuite(
 					stream := xtestutil.MustSucceed(client.Stream(cancelCtx, addr))
 					gomega.Eventually(func(g gomega.Gomega) {
 						g.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).
-							To(gomega.MatchError(freighter.EOF))
+							To(gomega.MatchError(io.EOF))
 					}).WithPolling(10 * time.Millisecond).Should(gomega.Succeed())
 					gomega.Eventually(serverClosed).Should(gomega.BeClosed())
 				})
@@ -318,7 +319,7 @@ func StreamSuite(
 						defer ginkgo.GinkgoRecover()
 						gomega.Expect(server.Receive()).
 							Error().
-							To(gomega.MatchError(freighter.EOF))
+							To(gomega.MatchError(io.EOF))
 						return nil
 					},
 				)
@@ -338,7 +339,7 @@ func StreamSuite(
 				gomega.Expect(stream.CloseSend()).To(gomega.Succeed())
 				gomega.Expect(stream.Receive()).
 					Error().
-					To(gomega.MatchError(freighter.EOF))
+					To(gomega.MatchError(io.EOF))
 				gomega.Eventually(serverClosed).Should(gomega.BeClosed())
 				gomega.Expect(c).To(gomega.Equal(2))
 			},
@@ -355,7 +356,7 @@ func StreamSuite(
 						defer ginkgo.GinkgoRecover()
 						gomega.Expect(server.Receive()).
 							Error().
-							To(gomega.MatchError(freighter.EOF))
+							To(gomega.MatchError(io.EOF))
 						return nil
 					},
 				)

@@ -105,9 +105,9 @@ var _ = Describe("ServiceConfig", func() {
 		return apicertificate.ServiceConfig{Certificate: &certificate.Service{}}
 	}
 	DescribeTable("Should fail when a service is missing",
-		func(clear func(*apicertificate.ServiceConfig), msg string) {
+		func(unset func(*apicertificate.ServiceConfig), msg string) {
 			cfg := full()
-			clear(&cfg)
+			unset(&cfg)
 			Expect(cfg.Validate()).To(MatchError(msg))
 		},
 		Entry("certificate",

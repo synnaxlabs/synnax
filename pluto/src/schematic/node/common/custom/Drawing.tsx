@@ -19,8 +19,9 @@ import { Region } from "@/schematic/node/common/region";
 export interface DrawingProps extends Primitive.SVGBasedProps {
   spec: schematic.symbol.Spec;
   /**
-   * Paints shapes with no stroke of their own in the symbol color, so the hover and
-   * pressed colors of a toggle reach them.
+   * Marks a drawing that ships with Pluto. Its markup mounts without the sanitizer.
+   * Shapes with no stroke of their own take the symbol color, so the hover and pressed
+   * colors of a toggle reach them.
    */
   builtIn?: boolean;
   /** Paints the active state of the spec in place of its base state. */
@@ -46,6 +47,7 @@ export const Drawing = ({
     spec,
     stateOverrides,
     strokeColor,
+    builtIn,
   });
   const dims = Region.measure(spec.svg);
   if (dims == null) return null;

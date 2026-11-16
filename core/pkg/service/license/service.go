@@ -546,7 +546,7 @@ func (s *Service) evaluate(lic License, version string) Info {
 // versionCovered reports whether version's major and minor are at most ceiling's. An
 // unparseable version, such as an empty one, passes every ceiling.
 func versionCovered(version, ceiling string) bool {
-	maj, min, ok := parseMinor(version)
+	maj, minor, ok := parseMinor(version)
 	if !ok {
 		return true
 	}
@@ -554,7 +554,7 @@ func versionCovered(version, ceiling string) bool {
 	if !ok {
 		return false
 	}
-	return maj < cMaj || (maj == cMaj && min <= cMin)
+	return maj < cMaj || (maj == cMaj && minor <= cMin)
 }
 
 // parseMinor reads the leading "major.minor" of a version string.

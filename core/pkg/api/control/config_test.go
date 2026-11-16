@@ -30,9 +30,9 @@ var _ = Describe("ServiceConfig", func() {
 
 		DescribeTable(
 			"Should fail when a service is missing",
-			func(clear func(*apicontrol.ServiceConfig), msg string) {
+			func(unset func(*apicontrol.ServiceConfig), msg string) {
 				cfg := full()
-				clear(&cfg)
+				unset(&cfg)
 				Expect(cfg.Validate()).To(MatchError(msg))
 			},
 			Entry(

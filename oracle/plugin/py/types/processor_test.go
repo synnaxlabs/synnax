@@ -41,7 +41,9 @@ var _ = Describe("FieldProcessor", func() {
 
 	field := func(item resolution.Type, name string) resolution.Field {
 		GinkgoHelper()
-		return MustBeOk(item.Form.(resolution.StructForm).Field(name))
+		form, ok := item.Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
+		return MustBeOk(form.Field(name))
 	}
 
 	It("Should declare a field with its type and default", func() {

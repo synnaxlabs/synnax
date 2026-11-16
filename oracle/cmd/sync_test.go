@@ -39,7 +39,7 @@ var _ = Describe("sync command", func() {
 		It("writes schema sources and generated outputs before buf fails", func() {
 			// The mini repo has no buf configuration, so the run stops at the
 			// buf-generate step; everything before it must have completed.
-			Expect(fail(1, "sync", "-v")).To(ContainSubstring("buf generate"))
+			Expect(fail("sync", "-v")).To(ContainSubstring("buf generate"))
 
 			schema := string(MustSucceed(os.ReadFile(
 				filepath.Join(repoDir, "schemas", "synnax", "user.oracle"),
@@ -65,7 +65,7 @@ var _ = Describe("sync command", func() {
 		// after it writes the generated files.
 		sync := func() {
 			GinkgoHelper()
-			Expect(fail(1, "sync")).To(ContainSubstring("buf generate"))
+			Expect(fail("sync")).To(ContainSubstring("buf generate"))
 		}
 
 		It("Should restore a generated file that was edited by hand", func() {
@@ -106,7 +106,7 @@ var _ = Describe("sync command", func() {
 		})
 
 		It("prints diagnostics and fails generation", func() {
-			Expect(fail(1, "sync")).To(printOnce("generation failed"))
+			Expect(fail("sync")).To(printOnce("generation failed"))
 		})
 	})
 
@@ -116,7 +116,7 @@ var _ = Describe("sync command", func() {
 		})
 
 		It("errors when no schema files exist", func() {
-			Expect(fail(1, "sync")).To(printOnce("no schema files found"))
+			Expect(fail("sync")).To(printOnce("no schema files found"))
 		})
 	})
 })
@@ -146,7 +146,7 @@ var _ = Describe("sync with a new TypeScript output", func() {
 	AfterEach(func() { cleanup() })
 
 	It("Should put a new file on disk before formatting it", func() {
-		fail(1, "sync")
+		fail("sync")
 		Expect(filepath.Join(repoDir, "client", "ts", "src", "user", "types.gen.ts")).
 			To(BeAnExistingFile())
 	})

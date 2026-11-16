@@ -34,7 +34,7 @@ type File interface {
 	//
 	// In addition, the Windows implementation of FS allows a file without write
 	// permissions to be truncated whereas Unix and our memFS implementation do not.
-	Truncate(int64) error
+	Truncate(size int64) error
 	Stat() (FileInfo, error)
 	Sync() error
 }
@@ -49,19 +49,19 @@ type FS interface {
 	Open(name string, flag int) (File, error)
 	// Sub returns a new FS rooted at the given directory. It creates the directory and
 	// its parents when they do not exist.
-	Sub(string) (FS, error)
+	Sub(name string) (FS, error)
 	// List returns a list of files in the directory SORTED by file name.
-	List(string) ([]FileInfo, error)
+	List(name string) ([]FileInfo, error)
 	// Exists returns true if the file exists, false otherwise.
-	Exists(string) (bool, error)
+	Exists(name string) (bool, error)
 	// Remove removes a file or directory recursively. It returns nil if the name does
 	// not exist.
-	Remove(string) error
+	Remove(name string) error
 	// Rename renames a file or directory. It returns an error if the target does not
 	// exist.
 	Rename(oldPath, newPath string) error
 	// Stat returns a FileInfo interface.
-	Stat(string) (FileInfo, error)
+	Stat(name string) (FileInfo, error)
 }
 
 type subFS struct {

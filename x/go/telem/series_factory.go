@@ -84,8 +84,8 @@ func NewSeriesV[T Sample](data ...T) Series { return NewSeries(data) }
 
 // MakeSeries allocates a new Series with the specified DataType and length. Note that
 // this function allocates a length and not a capacity.
-func MakeSeries(dt DataType, len int) Series {
-	return Series{DataType: dt, Data: make([]byte, len*int(dt.Density()))}
+func MakeSeries(dt DataType, length int) Series {
+	return Series{DataType: dt, Data: make([]byte, length*int(dt.Density()))}
 }
 
 // NewSeriesSecondsTSV creates a new Series containing TimeStamp values. All input
