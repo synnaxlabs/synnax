@@ -139,7 +139,6 @@ func (p *printer) isLastTokenOnLine(
 	idx int,
 	tokens []antlr.Token,
 ) bool {
-	tokLine := tok.GetLine()
 	if idx+1 >= len(tokens) {
 		return true
 	}
@@ -147,7 +146,7 @@ func (p *printer) isLastTokenOnLine(
 	if nextTok.GetTokenType() == antlr.TokenEOF {
 		return true
 	}
-	return nextTok.GetLine() != tokLine
+	return nextTok.GetLine() != lastLine(tok)
 }
 
 func (p *printer) separateTokens(

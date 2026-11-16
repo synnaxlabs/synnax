@@ -774,17 +774,28 @@ var _ = Describe("Formatter", func() {
 		})
 	})
 
-	Describe("Multi-line tokens", func() {
-		It("Should not add a blank line after a multi-line string", func() {
-			input := "func f() {\n    x := `a\nb`\n    y := 1\n}\n"
+	DescribeTable(
+		"Multi-line tokens",
+		func(input string) {
 			Expect(formatter.Format(input)).To(Equal(input))
-		})
-
-		It("Should not add a blank line after a multi-line trailing comment", func() {
-			input := "func f() {\n    x := 1 /* a\nb */\n    y := 1\n}\n"
-			Expect(formatter.Format(input)).To(Equal(input))
-		})
-	})
+		},
+		Entry(
+			"no blank line after a multi-line string",
+			"func f() {\n    x := `a\nb`\n    y := 1\n}\n",
+		),
+		Entry(
+			"no blank line after a multi-line trailing comment",
+			"func f() {\n    x := 1 /* a\nb */\n    y := 1\n}\n",
+		),
+		Entry(
+			"trailing comment after a multi-line string",
+			"func f() {\n    x := `a\nb` // note\n    y := 1\n}\n",
+		),
+		Entry(
+			"trailing comment after an expression with a multi-line string",
+			"func f() {\n    x := `a\nb` + 1 // c\n    y := 1\n}\n",
+		),
+	)
 
 	Describe("FormatRange", func() {
 		It("should format only the specified range", func() {
