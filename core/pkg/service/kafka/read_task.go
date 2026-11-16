@@ -434,8 +434,10 @@ func resetOffset(start StartOffset) kgo.Offset {
 		return kgo.NewOffset().AtStart()
 	case StartOffsetNone:
 		return kgo.NoResetOffset()
-	default:
+	case StartOffsetLatest:
 		return kgo.NewOffset().AtEnd()
+	default:
+		panic(fmt.Sprintf("unknown start offset %q", start))
 	}
 }
 

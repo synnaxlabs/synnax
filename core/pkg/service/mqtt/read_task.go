@@ -36,15 +36,19 @@ import (
 // degradedHold is how long a read task shows a warning after it last lost data.
 const degradedHold = 5 * time.Second
 
-// qosLevel returns the MQTT quality of service level of q.
-func qosLevel(q QoS) byte {
+// qosLevel returns the MQTT quality of service level of q. It returns an error that
+// wraps validate.ErrValidation for an unknown q.
+func qosLevel(q QoS) (byte, error) {
 	switch q {
+	case QoSAtMostOnce:
+		return 0, nil
 	case QoSAtLeastOnce:
-		return 1
+		return 1, nil
 	case QoSExactlyOnce:
-		return 2
+		return 2, nil
+	default:
+		return 0, errors.Wrapf(validate.ErrValidation, "qos: unknown value %q", q)
 	}
-	return 0
 }
 
 // validateTopic checks a topic that a task subscribes or publishes to. A task names
@@ -99,13 +103,17 @@ func newReadTopic(
 	entry PlainReadEntry,
 	channels map[channel.Key]channel.Channel,
 ) (*readTopic, error) {
+	qos, err := qosLevel(entry.Qos)
+	if err != nil {
+		return nil, err
+	}
 	t := &readTopic{
 		topic:           entry.Topic,
-		qos:             qosLevel(entry.Qos),
+		qos:             qos,
 		retainedIgnored: entry.RetainedIgnored,
 		indexField:      -1,
 	}
-	if err := validateTopic(entry.Topic); err != nil {
+	if err = validateTopic(entry.Topic); err != nil {
 		return nil, err
 	}
 	indexSet := false
@@ -682,6 +690,11 @@ func (r *reader) convertEvent(now time.Time, msg message, b *batch) {
 			r.refreshOffline()
 			r.checkBirth(now, scope, ev.Metrics)
 		}
+	case sparkplug.NData,
+		sparkplug.DData,
+		sparkplug.NCmd,
+		sparkplug.DCmd,
+		sparkplug.State:
 	}
 	for _, m := range ev.Metrics {
 		t, ok := r.tags[tagID{tagScope: scope, name: m.Name}]
