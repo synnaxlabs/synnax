@@ -118,315 +118,34 @@ func renderTestCodecFile(
 	aliases map[string]string,
 	imports map[string]string,
 ) ([]byte, error) {
-	fo := testFileOutput{
-		Package:      packageName,
-		PkgImport:    pkgImport,
-		ExtraImports: imports,
-	}
-
-	sharedVars := make(map[string]string)
-	varNameOwner := make(map[string]string)
-	ensureShared := func(typ resolution.Type, ref resolution.TypeRef) error {
-		form, ok := typ.Form.(resolution.StructForm)
-		if !ok || form.IsGeneric() || typ.Synthetic {
-			return nil
-		}
-		if _, ok := sharedVars[typ.QualifiedName]; ok {
-			return nil
-		}
-		varName := "fullyPopulated" + naming.GetGoName(typ)
-		if owner, taken := varNameOwner[varName]; taken && owner != typ.QualifiedName {
-			return nil
-		}
-		b := &testValueBuilder{
-			table:       table,
-			repoRoot:    repoRoot,
-			packageName: packageName,
-			parentPath:  parentPath,
-			imports:     fo.ExtraImports,
-			aliases:     aliases,
-			pins:        pins,
-			pkgPrefix:   packageName + ".",
-			mode:        modeFullyPopulated,
-		}
-		expr, err := b.valueExpr(typ, ref)
-		if err != nil {
-			return errors.Wrapf(
-				err,
-				"failed to generate shared fixture for %s",
-				typ.Name,
-			)
-		}
-		if expr == "" {
-			return nil
-		}
-		if b.needsUUID {
-			fo.NeedsUUID = true
-		}
-		varNameOwner[varName] = typ.QualifiedName
-		sharedVars[typ.QualifiedName] = varName
-		fo.SharedFixtures = append(fo.SharedFixtures, sharedFixture{
-			VarName:   varName,
-			ValueExpr: expr,
-		})
-		return nil
+	r := &testFileRenderer{
+		fo: testFileOutput{
+			Package:      packageName,
+			PkgImport:    pkgImport,
+			ExtraImports: imports,
+		},
+		table:        table,
+		repoRoot:     repoRoot,
+		packageName:  packageName,
+		parentPath:   parentPath,
+		aliases:      aliases,
+		pins:         pins,
+		sharedVars:   make(map[string]string),
+		varNameOwner: make(map[string]string),
 	}
 	for _, e := range entries {
-		uform, isUnion := e.Type.Form.(resolution.UnionForm)
-		if !isUnion {
-			continue
-		}
-		for _, ext := range uform.Extends {
-			if parent, ok := ext.Resolve(table); ok {
-				if err := ensureShared(parent, ext); err != nil {
-					return nil, err
-				}
-			}
-		}
-		for _, v := range uform.Variants {
-			payload, ok := v.Type.Resolve(table)
-			if !ok {
-				continue
-			}
-			if err := ensureShared(payload, v.Type); err != nil {
-				return nil, err
-			}
-			pform, ok := payload.Form.(resolution.StructForm)
-			if !ok || !v.Inline {
-				continue
-			}
-			for _, ext := range pform.Extends {
-				if parent, ok := ext.Resolve(table); ok {
-					if err := ensureShared(parent, ext); err != nil {
-						return nil, err
-					}
-				}
-			}
+		if err := r.addSharedFixtures(e); err != nil {
+			return nil, err
 		}
 	}
-
 	for _, e := range entries {
-		recv := receiverName(e.GoName)
-		// In test files the receiver is used as a local variable, so it must
-		// not shadow the package import alias.
-		if recv == packageName {
-			recv = recv + "v"
-		}
-
-		if uform, isUnion := e.Type.Form.(resolution.UnionForm); isUnion {
-			te := testEntry{GoName: e.GoName, Receiver: recv}
-			for _, v := range uform.Variants {
-				b := &testValueBuilder{
-					table:       table,
-					repoRoot:    repoRoot,
-					packageName: packageName,
-					parentPath:  parentPath,
-					imports:     fo.ExtraImports,
-					aliases:     aliases,
-					pins:        pins,
-					pkgPrefix:   packageName + ".",
-					mode:        modeFullyPopulated,
-					sharedVars:  sharedVars,
-				}
-				valueExpr, err := b.unionExpr(e.Type, uform, v)
-				if err != nil {
-					return nil, errors.Wrapf(
-						err,
-						"failed to generate test value for %s variant %q",
-						e.GoName,
-						v.Name,
-					)
-				}
-				if b.needsUUID {
-					fo.NeedsUUID = true
-				}
-				te.Cases = append(te.Cases, testCase{
-					Name:      v.Name + " variant",
-					ValueExpr: valueExpr,
-				})
-			}
-			fo.Tests = append(fo.Tests, te)
-			continue
-		}
-
-		form, ok := e.Type.Form.(resolution.StructForm)
-		if !ok {
-			continue
-		}
-
-		// Collect non-defaulted type params (same logic as encoder).
-		var typeParams []typeParamData
-		if form.IsGeneric() {
-			for _, tp := range form.TypeParams {
-				if tp.HasDefault() {
-					continue
-				}
-				typeParams = append(typeParams, typeParamData{
-					Name:       tp.Name,
-					Constraint: typemap.TypeParamConstraint(tp),
-				})
-			}
-		}
-		modes := []struct {
-			name string
-			mode valueMode
-		}{
-			{"fully populated", modeFullyPopulated},
-			{"zero values", modeZeroValue},
-		}
-		if typeHasCollections(e.Type, table) {
-			modes = append(modes, struct {
-				name string
-				mode valueMode
-			}{"empty collections", modeEmptyCollections})
-		}
-
-		if len(typeParams) > 0 {
-			// Generic type: substitute concrete types for type params.
-			typeArgMap := make(map[string]resolution.TypeRef)
-			for _, tp := range form.TypeParams {
-				if tp.HasDefault() {
-					typeArgMap[tp.Name] = *tp.Default
-				} else {
-					typeArgMap[tp.Name] = concreteTypeRefForConstraint(tp)
-				}
-			}
-
-			gte := genericTestEntry{
-				GoName:     e.GoName,
-				Receiver:   recv,
-				TypeParams: typeParams,
-			}
-			for _, m := range modes {
-				b := &testValueBuilder{
-					table:       table,
-					repoRoot:    repoRoot,
-					packageName: packageName,
-					parentPath:  parentPath,
-					imports:     fo.ExtraImports,
-					aliases:     aliases,
-					pins:        pins,
-					owner:       e.Type.QualifiedName,
-					sharedVars:  sharedVars,
-					pkgPrefix:   packageName + ".",
-					mode:        m.mode,
-				}
-
-				fields := resolution.UnifiedFields(e.Type, table)
-				substituted := make([]resolution.Field, len(fields))
-				for i, f := range fields {
-					substituted[i] = f
-					substituted[i].Type = resolution.SubstituteTypeRef(
-						f.Type,
-						typeArgMap,
-					)
-				}
-
-				var concreteTypeArgStrs []string
-				for _, tp := range typeParams {
-					concreteTypeArgStrs = append(
-						concreteTypeArgStrs,
-						concreteGoTypeForConstraint(tp.Constraint),
-					)
-				}
-				concreteGoName := e.GoName + "[" + strings.Join(
-					concreteTypeArgStrs,
-					", ",
-				) + "]"
-
-				var fieldExprs []string
-				for _, f := range substituted {
-					if f.Type.Name == "nil" {
-						continue
-					}
-					if domain.GetStringFromField(f, "go", "marshal") == "omit" {
-						continue
-					}
-					r, ok := f.Type.Resolve(table)
-					if !ok {
-						continue
-					}
-					b.fieldIndex++
-					fieldGoName := naming.GetFieldName(f)
-					var expr string
-					var err error
-					if f.Optional && !typemap.Nilable(f.Type, b.table) {
-						expr, err = b.optionalExpr(r, f.Type)
-					} else {
-						expr, err = b.valueExpr(r, f.Type)
-					}
-					if err != nil {
-						return nil, errors.Wrapf(
-							err,
-							"failed to generate %s test value for %s field %s",
-							m.name,
-							e.GoName,
-							fieldGoName,
-						)
-					}
-					if expr != "" {
-						fieldExprs = append(fieldExprs, fieldGoName+": "+expr)
-					}
-				}
-				if b.needsUUID {
-					fo.NeedsUUID = true
-				}
-				valueExpr := b.formatComposite(b.pkgPrefix+concreteGoName, fieldExprs)
-				gte.Cases = append(
-					gte.Cases,
-					testCase{Name: m.name, ValueExpr: valueExpr},
-				)
-			}
-			fo.GenericTests = append(fo.GenericTests, gte)
-		} else {
-			te := testEntry{GoName: e.GoName, Receiver: recv}
-			for _, m := range modes {
-				if m.mode == modeFullyPopulated {
-					if varName, ok := sharedVars[e.Type.QualifiedName]; ok {
-						te.Cases = append(
-							te.Cases,
-							testCase{Name: m.name, ValueExpr: varName},
-						)
-						continue
-					}
-				}
-				b := &testValueBuilder{
-					table:       table,
-					repoRoot:    repoRoot,
-					packageName: packageName,
-					parentPath:  parentPath,
-					imports:     fo.ExtraImports,
-					aliases:     aliases,
-					pins:        pins,
-					pkgPrefix:   packageName + ".",
-					mode:        m.mode,
-					sharedVars:  sharedVars,
-				}
-				valueExpr, err := b.buildStructLiteral(e.Type, e.GoName)
-				if err != nil {
-					return nil, errors.Wrapf(
-						err,
-						"failed to generate %s test value for %s",
-						m.name,
-						e.GoName,
-					)
-				}
-				if b.needsUUID {
-					fo.NeedsUUID = true
-				}
-				te.Cases = append(
-					te.Cases,
-					testCase{Name: m.name, ValueExpr: valueExpr},
-				)
-			}
-			fo.Tests = append(fo.Tests, te)
+		if err := r.addTests(e); err != nil {
+			return nil, err
 		}
 	}
-
-	if len(fo.Tests) == 0 && len(fo.GenericTests) == 0 {
+	if len(r.fo.Tests) == 0 && len(r.fo.GenericTests) == 0 {
 		return nil, nil
 	}
-
 	tmpl, err := template.New("codec_test").Funcs(template.FuncMap{
 		"concreteGoType": concreteGoTypeForConstraint,
 		"tpNames":        tpNames,
@@ -436,10 +155,315 @@ func renderTestCodecFile(
 		return nil, errors.Wrap(err, "failed to parse test template")
 	}
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, fo); err != nil {
+	if err := tmpl.Execute(&buf, r.fo); err != nil {
 		return nil, errors.Wrap(err, "failed to execute test template")
 	}
 	return buf.Bytes(), nil
+}
+
+// testFileRenderer accumulates the fixtures and test entries of one codec test file.
+type testFileRenderer struct {
+	fo          testFileOutput
+	table       *resolution.Table
+	repoRoot    string
+	packageName string
+	parentPath  string
+	aliases     map[string]string
+	pins        versioning.Pins
+	// sharedVars maps a struct's qualified name to its shared fixture var.
+	sharedVars map[string]string
+	// varNameOwner maps a fixture var name to the qualified name that claimed it.
+	varNameOwner map[string]string
+}
+
+type testMode struct {
+	name string
+	mode valueMode
+}
+
+func (r *testFileRenderer) newBuilder(mode valueMode) *testValueBuilder {
+	return &testValueBuilder{
+		table:       r.table,
+		repoRoot:    r.repoRoot,
+		packageName: r.packageName,
+		parentPath:  r.parentPath,
+		imports:     r.fo.ExtraImports,
+		aliases:     r.aliases,
+		pins:        r.pins,
+		pkgPrefix:   r.packageName + ".",
+		mode:        mode,
+		sharedVars:  r.sharedVars,
+	}
+}
+
+func (r *testFileRenderer) collectUUID(b *testValueBuilder) {
+	if b.needsUUID {
+		r.fo.NeedsUUID = true
+	}
+}
+
+// addSharedFixtures adds a shared fixture for each struct that a union entry embeds.
+func (r *testFileRenderer) addSharedFixtures(e codecEntry) error {
+	uform, isUnion := e.Type.Form.(resolution.UnionForm)
+	if !isUnion {
+		return nil
+	}
+	if err := r.ensureSharedExtends(uform.Extends); err != nil {
+		return err
+	}
+	for _, v := range uform.Variants {
+		payload, ok := v.Type.Resolve(r.table)
+		if !ok {
+			continue
+		}
+		if err := r.ensureShared(payload, v.Type); err != nil {
+			return err
+		}
+		pform, ok := payload.Form.(resolution.StructForm)
+		if !ok || !v.Inline {
+			continue
+		}
+		if err := r.ensureSharedExtends(pform.Extends); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *testFileRenderer) ensureSharedExtends(extends []resolution.TypeRef) error {
+	for _, ext := range extends {
+		if parent, ok := ext.Resolve(r.table); ok {
+			if err := r.ensureShared(parent, ext); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (r *testFileRenderer) ensureShared(
+	typ resolution.Type,
+	ref resolution.TypeRef,
+) error {
+	form, ok := typ.Form.(resolution.StructForm)
+	if !ok || form.IsGeneric() || typ.Synthetic {
+		return nil
+	}
+	if _, ok := r.sharedVars[typ.QualifiedName]; ok {
+		return nil
+	}
+	varName := "fullyPopulated" + naming.GetGoName(typ)
+	if owner, taken := r.varNameOwner[varName]; taken && owner != typ.QualifiedName {
+		return nil
+	}
+	b := r.newBuilder(modeFullyPopulated)
+	b.sharedVars = nil
+	expr, err := b.valueExpr(typ, ref)
+	if err != nil {
+		return errors.Wrapf(err, "failed to generate shared fixture for %s", typ.Name)
+	}
+	if expr == "" {
+		return nil
+	}
+	r.collectUUID(b)
+	r.varNameOwner[varName] = typ.QualifiedName
+	r.sharedVars[typ.QualifiedName] = varName
+	r.fo.SharedFixtures = append(r.fo.SharedFixtures, sharedFixture{
+		VarName:   varName,
+		ValueExpr: expr,
+	})
+	return nil
+}
+
+func (r *testFileRenderer) addTests(e codecEntry) error {
+	recv := receiverName(e.GoName)
+	// In test files the receiver is used as a local variable, so it must
+	// not shadow the package import alias.
+	if recv == r.packageName {
+		recv += "v"
+	}
+	if uform, isUnion := e.Type.Form.(resolution.UnionForm); isUnion {
+		return r.addUnionTest(e, uform, recv)
+	}
+	form, ok := e.Type.Form.(resolution.StructForm)
+	if !ok {
+		return nil
+	}
+	modes := []testMode{
+		{"fully populated", modeFullyPopulated},
+		{"zero values", modeZeroValue},
+	}
+	if typeHasCollections(e.Type, r.table) {
+		modes = append(modes, testMode{"empty collections", modeEmptyCollections})
+	}
+	if typeParams := nonDefaultedTypeParams(form); len(typeParams) > 0 {
+		return r.addGenericTest(e, form, recv, typeParams, modes)
+	}
+	return r.addStructTest(e, recv, modes)
+}
+
+func (r *testFileRenderer) addUnionTest(
+	e codecEntry,
+	uform resolution.UnionForm,
+	recv string,
+) error {
+	te := testEntry{GoName: e.GoName, Receiver: recv}
+	for _, v := range uform.Variants {
+		b := r.newBuilder(modeFullyPopulated)
+		valueExpr, err := b.unionExpr(e.Type, uform, v)
+		if err != nil {
+			return errors.Wrapf(
+				err,
+				"failed to generate test value for %s variant %q",
+				e.GoName,
+				v.Name,
+			)
+		}
+		r.collectUUID(b)
+		te.Cases = append(te.Cases, testCase{
+			Name:      v.Name + " variant",
+			ValueExpr: valueExpr,
+		})
+	}
+	r.fo.Tests = append(r.fo.Tests, te)
+	return nil
+}
+
+// nonDefaultedTypeParams returns the type params the encoder keeps generic.
+func nonDefaultedTypeParams(form resolution.StructForm) []typeParamData {
+	if !form.IsGeneric() {
+		return nil
+	}
+	var typeParams []typeParamData
+	for _, tp := range form.TypeParams {
+		if tp.HasDefault() {
+			continue
+		}
+		typeParams = append(typeParams, typeParamData{
+			Name:       tp.Name,
+			Constraint: typemap.TypeParamConstraint(tp),
+		})
+	}
+	return typeParams
+}
+
+// addGenericTest adds a test for a generic struct, with concrete types substituted
+// for its type params.
+func (r *testFileRenderer) addGenericTest(
+	e codecEntry,
+	form resolution.StructForm,
+	recv string,
+	typeParams []typeParamData,
+	modes []testMode,
+) error {
+	typeArgMap := make(map[string]resolution.TypeRef)
+	for _, tp := range form.TypeParams {
+		if tp.HasDefault() {
+			typeArgMap[tp.Name] = *tp.Default
+		} else {
+			typeArgMap[tp.Name] = concreteTypeRefForConstraint(tp)
+		}
+	}
+	fields := resolution.UnifiedFields(e.Type, r.table)
+	substituted := make([]resolution.Field, len(fields))
+	for i, f := range fields {
+		substituted[i] = f
+		substituted[i].Type = resolution.SubstituteTypeRef(f.Type, typeArgMap)
+	}
+	concreteTypeArgs := make([]string, 0, len(typeParams))
+	for _, tp := range typeParams {
+		concreteTypeArgs = append(
+			concreteTypeArgs,
+			concreteGoTypeForConstraint(tp.Constraint),
+		)
+	}
+	concreteGoName := e.GoName + "[" + strings.Join(concreteTypeArgs, ", ") + "]"
+	gte := genericTestEntry{GoName: e.GoName, Receiver: recv, TypeParams: typeParams}
+	for _, m := range modes {
+		b := r.newBuilder(m.mode)
+		b.owner = e.Type.QualifiedName
+		fieldExprs, field, err := b.substitutedFieldExprs(substituted)
+		if err != nil {
+			return errors.Wrapf(
+				err,
+				"failed to generate %s test value for %s field %s",
+				m.name,
+				e.GoName,
+				field,
+			)
+		}
+		r.collectUUID(b)
+		valueExpr := b.formatComposite(b.pkgPrefix+concreteGoName, fieldExprs)
+		gte.Cases = append(gte.Cases, testCase{Name: m.name, ValueExpr: valueExpr})
+	}
+	r.fo.GenericTests = append(r.fo.GenericTests, gte)
+	return nil
+}
+
+// substitutedFieldExprs returns a `Name: value` expression for each field the codec
+// encodes. On error it also returns the Go name of the failing field.
+func (b *testValueBuilder) substitutedFieldExprs(
+	fields []resolution.Field,
+) ([]string, string, error) {
+	var fieldExprs []string
+	for _, f := range fields {
+		if f.Type.Name == "nil" {
+			continue
+		}
+		if domain.GetStringFromField(f, "go", "marshal") == "omit" {
+			continue
+		}
+		r, ok := f.Type.Resolve(b.table)
+		if !ok {
+			continue
+		}
+		b.fieldIndex++
+		fieldGoName := naming.GetFieldName(f)
+		var expr string
+		var err error
+		if f.Optional && !typemap.Nilable(f.Type, b.table) {
+			expr, err = b.optionalExpr(r, f.Type)
+		} else {
+			expr, err = b.valueExpr(r, f.Type)
+		}
+		if err != nil {
+			return nil, fieldGoName, err
+		}
+		if expr != "" {
+			fieldExprs = append(fieldExprs, fieldGoName+": "+expr)
+		}
+	}
+	return fieldExprs, "", nil
+}
+
+func (r *testFileRenderer) addStructTest(
+	e codecEntry,
+	recv string,
+	modes []testMode,
+) error {
+	te := testEntry{GoName: e.GoName, Receiver: recv}
+	for _, m := range modes {
+		if m.mode == modeFullyPopulated {
+			if varName, ok := r.sharedVars[e.Type.QualifiedName]; ok {
+				te.Cases = append(te.Cases, testCase{Name: m.name, ValueExpr: varName})
+				continue
+			}
+		}
+		b := r.newBuilder(m.mode)
+		valueExpr, err := b.buildStructLiteral(e.Type, e.GoName)
+		if err != nil {
+			return errors.Wrapf(
+				err,
+				"failed to generate %s test value for %s",
+				m.name,
+				e.GoName,
+			)
+		}
+		r.collectUUID(b)
+		te.Cases = append(te.Cases, testCase{Name: m.name, ValueExpr: valueExpr})
+	}
+	r.fo.Tests = append(r.fo.Tests, te)
+	return nil
 }
 
 func concreteTypeRefForConstraint(tp resolution.TypeParam) resolution.TypeRef {
