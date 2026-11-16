@@ -577,23 +577,21 @@ func OpenService(
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	// ctx can end before the service closes.
-	life := context.WithoutCancel(ctx)
-	if s.taskSync, err = debounce.NewKeyed(life, debounce.KeyedConfig[Key]{
+	if s.taskSync, err = debounce.NewKeyed(ctx, debounce.KeyedConfig[Key]{
 		Delay:    cfg.TaskSyncDebounce.Duration(),
 		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,
 		Callback: s.resync,
 	}); !ok(err, s.taskSync) {
 		return nil, err
 	}
-	if s.importerSync, err = debounce.NewKeyed(life, debounce.KeyedConfig[Key]{
+	if s.importerSync, err = debounce.NewKeyed(ctx, debounce.KeyedConfig[Key]{
 		Delay:    cfg.TaskSyncDebounce.Duration(),
 		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,
 		Callback: s.resyncImporters,
 	}); !ok(err, s.importerSync) {
 		return nil, err
 	}
-	if s.pathSync, err = debounce.NewKeyed(life, debounce.KeyedConfig[struct{}]{
+	if s.pathSync, err = debounce.NewKeyed(ctx, debounce.KeyedConfig[struct{}]{
 		Delay:    cfg.TaskSyncDebounce.Duration(),
 		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,
 		Callback: s.resyncImporting,

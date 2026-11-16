@@ -34,6 +34,7 @@ const (
 	FlagTaskOpTimeout                = "task-op-timeout"
 	FlagTaskPollInterval             = "task-poll-interval"
 	FlagTaskShutdownTimeout          = "task-shutdown-timeout"
+	FlagShutdownTimeout              = "shutdown-timeout"
 	FlagTaskWorkerCount              = "task-worker-count"
 	FlagDisableChannelNameValidation = "disable-channel-name-validation"
 	FlagStopOnStdinClose             = "stop-on-stdin-close"
@@ -112,6 +113,11 @@ func AddFlags(cmd *cobra.Command) {
 		FlagTaskShutdownTimeout,
 		30*time.Second,
 		"Max time to wait for task workers during embedded Driver shutdown",
+	)
+	cmd.Flags().Duration(
+		FlagShutdownTimeout,
+		time.Minute,
+		"Max time to wait for the Core to shut down",
 	)
 	cmd.Flags().Int(
 		FlagTaskWorkerCount,

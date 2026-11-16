@@ -137,9 +137,8 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 	}); err != nil {
 		return nil, err
 	}
-	// ctx can end before the Graph closes.
 	if g.changed, err = coalesce.Open(
-		context.WithoutCancel(ctx),
+		ctx,
 		coalesce.Config[channel.Key, channelChange]{Handle: g.handleChanges},
 	); err != nil {
 		return nil, err

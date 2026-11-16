@@ -42,9 +42,10 @@ import (
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
-	xservice "github.com/synnaxlabs/x/service"
+	xsync "github.com/synnaxlabs/x/sync"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 type CoreConfig struct {
@@ -66,6 +67,7 @@ type CoreConfig struct {
 	enabledIntegrations  []string
 	certFactoryConfig    cert.FactoryConfig
 	taskShutdownTimeout  time.Duration
+	shutdownTimeout      time.Duration
 	taskPollInterval     time.Duration
 	taskOpTimeout        time.Duration
 	slowConsumerTimeout  time.Duration
@@ -80,6 +82,7 @@ var DefaultCoreConfig = CoreConfig{
 	certFactoryConfig: cert.DefaultFactoryConfig,
 	// a Core installed before the flag existed starts without it
 	sessionIdleTimeout: auth.DefaultIdleTimeout,
+	shutdownTimeout:    time.Minute,
 }
 
 // driverEnabled reports whether the embedded Driver starts with this Core.
@@ -118,6 +121,7 @@ func (c CoreConfig) Validate() error {
 	v.NonZero("task_op_timeout", c.taskOpTimeout)
 	v.NonZero("task_poll_interval", c.taskPollInterval)
 	v.NonZero("task_shutdown_timeout", c.taskShutdownTimeout)
+	v.Positive("shutdown_timeout", c.shutdownTimeout)
 	v.NonZero("task_worker_count", c.taskWorkerCount)
 	v.NotNil("validate_channel_names", c.validateChannelNames)
 	v.Exec(c.certFactoryConfig.Validate)
@@ -164,6 +168,7 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 			c.taskShutdownTimeout,
 			other.taskShutdownTimeout,
 		),
+		shutdownTimeout: override.Numeric(c.shutdownTimeout, other.shutdownTimeout),
 		taskWorkerCount: override.Numeric(
 			c.taskWorkerCount,
 			other.taskWorkerCount,
@@ -205,8 +210,13 @@ func (c CoreConfig) resolveSecretsKey() (secret.EncryptionKey, error) {
 // BootupCore contains the most important Core startup logic. It does and should not
 // read any variables from viper, and instead should be called with  fully configured
 // CoreConfigs.
+//
+// The lifetime of every component derives from root. The Core runs until stop ends,
+// then closes its server, app, services, and storage in that order. Shutdown ends with
+// an error once the shutdown timeout passes.
 func BootupCore(
-	ctx context.Context,
+	root context.Context,
+	stop context.Context,
 	onServerStarted chan struct{},
 	cfgs ...CoreConfig,
 ) (err error) {
@@ -235,15 +245,29 @@ func BootupCore(
 	// permission mask for all files appropriately.
 	DisablePermissionBits()
 
+	life, cancelLife := context.WithCancel(root)
+	defer cancelLife()
 	var (
 		closer xio.MultiCloser
 		// update is the update of the data that this start did not commit yet.
 		update *storage.Update
 	)
-	cleanup, ok := xservice.NewOpener(ctx, &closer)
+	ok := func(err error, c io.Closer) bool {
+		if err != nil {
+			return false
+		}
+		if c != nil {
+			closer = append(closer, c)
+		}
+		return stop.Err() == nil
+	}
 	defer func() {
-		if err = cleanup(err); err != nil && update != nil {
-			err = update.Undo(ctx, err)
+		if err == nil && stop.Err() == nil {
+			return
+		}
+		err = errors.Combine(err, shutDown(root, cfg.shutdownTimeout, closer))
+		if err != nil && update != nil {
+			err = update.Undo(root, err)
 		}
 	}()
 
@@ -266,29 +290,29 @@ func BootupCore(
 	}
 	cfg.L.Info("using working directory", zap.String("dir", workDir))
 
-	storageLayer, err := storage.OpenLayer(ctx, storage.LayerConfig{
+	storageLife, stopStorage := context.WithCancel(life)
+	storageLayer, err := storage.OpenLayer(storageLife, storage.LayerConfig{
 		Instrumentation:      cfg.Child("storage"),
 		InMemory:             cfg.memBacked,
 		Dirname:              cfg.dataPath,
 		Version:              vsn,
 		UpdateBackupDisabled: cfg.updateBackupDisabled,
 	})
-	if !ok(err, storageLayer) {
+	if !ok(err, withLifetime(stopStorage, storageLayer)) {
 		return err
 	}
 	update = storageLayer.Update
 
-	distributionCtx, distributionOpened := detachAfterOpen(ctx)
+	distributionLife, stopDistribution := context.WithCancel(life)
 	distributionLayer, err := distribution.OpenLayer(
-		distributionCtx,
+		distributionLife,
 		distribution.LayerConfig{
 			Instrumentation:  cfg.Child("distribution"),
 			AdvertiseAddress: cfg.listeners.AdvertiseAddress(),
 			Storage:          storageLayer,
 		},
 	)
-	distributionOpened()
-	if !ok(err, distributionLayer) {
+	if !ok(err, withLifetime(stopDistribution, distributionLayer)) {
 		return err
 	}
 
@@ -297,28 +321,24 @@ func BootupCore(
 		return err
 	}
 
-	serviceCtx, serviceOpened := detachAfterOpen(ctx)
-	serviceLayer, err := service.OpenLayer(
-		serviceCtx,
-		service.LayerConfig{
-			Instrumentation:    cfg.Child("service"),
-			Distribution:       distributionLayer,
-			Security:           securityProvider,
-			Storage:            storageLayer,
-			RootCredentials:    cfg.rootCredentials,
-			FIPS:               cfg.fips,
-			SessionIdleTimeout: cfg.sessionIdleTimeout,
-			License: license.ServiceConfig{
-				Key:      cfg.licenseKey,
-				Version:  version.Get(),
-				Loopback: new(cfg.listeners.Loopback()),
-			},
-			ValidateChannelNames: cfg.validateChannelNames,
-			SecretsKey:           secretsKey,
+	serviceLife, stopService := context.WithCancel(life)
+	serviceLayer, err := service.OpenLayer(serviceLife, service.LayerConfig{
+		Instrumentation:    cfg.Child("service"),
+		Distribution:       distributionLayer,
+		Security:           securityProvider,
+		Storage:            storageLayer,
+		RootCredentials:    cfg.rootCredentials,
+		FIPS:               cfg.fips,
+		SessionIdleTimeout: cfg.sessionIdleTimeout,
+		License: license.ServiceConfig{
+			Key:      cfg.licenseKey,
+			Version:  version.Get(),
+			Loopback: new(cfg.listeners.Loopback()),
 		},
-	)
-	serviceOpened()
-	if !ok(err, serviceLayer) {
+		ValidateChannelNames: cfg.validateChannelNames,
+		SecretsKey:           secretsKey,
+	})
+	if !ok(err, withLifetime(stopService, serviceLayer)) {
 		return err
 	}
 
@@ -347,9 +367,9 @@ func BootupCore(
 		return err
 	}
 
+	serverLife, stopServer := context.WithCancel(life)
 	var r *http.Router
-	// ctx ends when shutdown starts, before the server drains in-flight requests.
-	if r, err = http.NewRouter(context.WithoutCancel(ctx), http.RouterConfig{
+	if r, err = http.NewRouter(serverLife, http.RouterConfig{
 		Instrumentation:     cfg.Instrumentation,
 		StreamWriteDeadline: cfg.slowConsumerTimeout,
 	}); !ok(err, nil) {
@@ -395,7 +415,7 @@ func BootupCore(
 			Instrumentation: cfg.Child("server"),
 			Security:        server.SecurityConfig{Insecure: cfg.insecure},
 		},
-	); !ok(err, rootServer) {
+	); !ok(err, withLifetime(stopServer, rootServer)) {
 		return err
 	}
 
@@ -411,8 +431,9 @@ func BootupCore(
 
 	licenseInfo := serviceLayer.License.Retrieve()
 	covered := licenseInfo.State == license.StateOk
+	driverLife, stopDriver := context.WithCancel(life)
 	if embeddedDriver, err := driver.Open(
-		ctx,
+		driverLife,
 		driver.Config{
 			Enabled:  new(!*cfg.noDriver),
 			Insecure: cfg.insecure,
@@ -436,7 +457,7 @@ func BootupCore(
 			TaskPollInterval:    cfg.taskPollInterval,
 			TaskOpTimeout:       cfg.taskOpTimeout,
 		},
-	); !ok(err, embeddedDriver) {
+	); !ok(err, withLifetime(stopDriver, embeddedDriver)) {
 		return err
 	}
 
@@ -477,16 +498,29 @@ func BootupCore(
 	if onServerStarted != nil {
 		onServerStarted <- struct{}{}
 	}
-	<-ctx.Done()
-	return err
+	<-stop.Done()
+	return nil
 }
 
-// detachAfterOpen returns a context that ends with ctx until the returned function
-// runs, then lives on. ctx ends when shutdown starts, so a layer opens on it to keep
-// its Gorp tables until the layer closes.
-func detachAfterOpen(ctx context.Context) (context.Context, func() bool) {
-	detached, cancel := context.WithCancel(context.WithoutCancel(ctx))
-	return detached, context.AfterFunc(ctx, cancel)
+// withLifetime returns a closer that ends the lifetime of c, then closes c.
+func withLifetime(end context.CancelFunc, c io.Closer) io.Closer {
+	return xio.CloserFunc(func() error {
+		end()
+		return c.Close()
+	})
+}
+
+// shutDown closes c, or returns an error once timeout passes first.
+func shutDown(root context.Context, timeout time.Duration, c io.Closer) error {
+	ctx, cancel := context.WithTimeout(root, timeout)
+	defer cancel()
+	var g errgroup.Group
+	g.Go(c.Close)
+	err := xsync.Wait(ctx, &g)
+	if errors.Is(err, context.DeadlineExceeded) {
+		return errors.Wrapf(err, "failed to shut down within %s", timeout)
+	}
+	return err
 }
 
 func openWorkDir(cacheDir string) (string, io.Closer, error) {

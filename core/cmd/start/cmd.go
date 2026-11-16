@@ -90,8 +90,8 @@ func run(cmd *cobra.Command) error {
 		return err
 	}
 
-	sCtx.Go(func(ctx context.Context) error {
-		return BootupCore(ctx, nil, cfg)
+	sCtx.Go(func(stop context.Context) error {
+		return BootupCore(ctx, stop, nil, cfg)
 	}, xsignal.WithKey("start"), xsignal.RecoverWithErrOnPanic())
 
 	forceCtx, forceCancel := xsignal.Isolated(xsignal.WithInstrumentation(ins))
@@ -209,6 +209,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		taskOpTimeout:        viper.GetDuration(FlagTaskOpTimeout),
 		taskPollInterval:     viper.GetDuration(FlagTaskPollInterval),
 		taskShutdownTimeout:  viper.GetDuration(FlagTaskShutdownTimeout),
+		shutdownTimeout:      viper.GetDuration(FlagShutdownTimeout),
 		taskWorkerCount:      viper.GetUint8(FlagTaskWorkerCount),
 		certFactoryConfig:    factoryCfg,
 		enabledIntegrations:  viper.GetStringSlice(FlagEnableIntegrations),

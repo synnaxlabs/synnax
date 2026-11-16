@@ -77,6 +77,14 @@ var _ = Describe("Start", func() {
 		Expect(session.Out).To(gbytes.Say("second stop signal"))
 	})
 
+	It("Should fail once shutdown outlasts its timeout", func() {
+		session, _, addr := startCore("--shutdown-timeout", "100ms")
+		holdShutdown(addr)
+		session.Signal(syscall.SIGTERM)
+		Eventually(session, 4*time.Second).Should(gexec.Exit(1))
+		Expect(session.Err).To(gbytes.Say("failed to shut down within 100ms"))
+	})
+
 	It(
 		"Should shut down cleanly on the stop keyword followed by a closed stdin",
 		func() {
