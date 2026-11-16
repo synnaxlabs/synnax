@@ -12,10 +12,9 @@ import { waitFor } from "@testing-library/react";
 import { type ReactElement, useEffect } from "react";
 import { describe, expect, it } from "vitest";
 
+import { LinePlot } from "@/lineplot";
 import { lineplot } from "@/lineplot/aether";
-import { Frame, useContext } from "@/lineplot/Frame";
-import { Legend } from "@/lineplot/Legend";
-import { render } from "@/testutil/render";
+import { render } from "@/testutil";
 
 interface LegendLineProps {
   lineKey: string;
@@ -23,7 +22,7 @@ interface LegendLineProps {
 }
 
 const LegendLine = ({ lineKey, legendGroup }: LegendLineProps): null => {
-  const { setLine, removeLine } = useContext("Line");
+  const { setLine, removeLine } = LinePlot.useContext("Line");
   useEffect(() => {
     setLine({
       key: lineKey,
@@ -39,12 +38,12 @@ const LegendLine = ({ lineKey, legendGroup }: LegendLineProps): null => {
 
 const renderLegend = (lines: LegendLineProps[]): HTMLElement =>
   render(
-    <Frame aetherKey="plot">
+    <LinePlot.Frame aetherKey="plot">
       {lines.map((l): ReactElement => (
         <LegendLine key={l.lineKey} {...l} />
       ))}
-      <Legend variant="fixed" />
-    </Frame>,
+      <LinePlot.Legend variant="fixed" />
+    </LinePlot.Frame>,
     { render: true, registry: lineplot.REGISTRY },
   ).container;
 
