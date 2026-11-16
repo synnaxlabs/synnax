@@ -39,7 +39,9 @@ factory(std::vector<x::errors::Error> open_errors = {}) {
 /// @brief it should drop and count frames past its queue cap while the Core is
 /// unreachable.
 TEST(ForwarderTest, DropsFramesPastTheQueueCap) {
-    const auto server = factory(std::vector<x::errors::Error>(1000, freighter::UNREACHABLE));
+    const auto server = factory(
+        std::vector<x::errors::Error>(1000, freighter::UNREACHABLE)
+    );
     Forwarder forwarder(
         server,
         {.channels = {1}},
@@ -78,19 +80,13 @@ TEST(ForwarderTest, SendsItsQueueOnClose) {
     ASSERT_EQ(server->authority_changes->size(), 1);
 }
 
-/// @brief it should retry a license error within its retry limit, then stop, count
-/// what it holds, and return the error from later calls.
-TEST(ForwarderTest, StopsAfterTheLicenseRetryLimit) {
-    const auto server = factory(
-        std::vector<x::errors::Error>(3, synnax::errors::LICENSE_MISSING)
-    );
-    Forwarder forwarder(
-        server,
-        {.channels = {1}},
-        {.breaker = {.base_interval = x::telem::MICROSECOND, .max_retries = 2}}
-    );
+/// @brief it should stop at once on a license error, so its owner retries it, and
+/// return the error from later calls.
+TEST(ForwarderTest, StopsOnALicenseError) {
+    const auto server = factory({synnax::errors::LICENSE_MISSING});
+    Forwarder forwarder(server, {.channels = {1}});
     ASSERT_OCCURRED_AS(forwarder.opened(), synnax::errors::LICENSE_MISSING);
-    ASSERT_EQ(server->writer_opens.load(), 3);
+    ASSERT_EQ(server->writer_opens.load(), 1);
     ASSERT_OCCURRED_AS(forwarder.write(frame(1)), synnax::errors::LICENSE_MISSING);
     ASSERT_OCCURRED_AS(
         forwarder.set_authority({.keys = {1}, .authorities = {200}}),
