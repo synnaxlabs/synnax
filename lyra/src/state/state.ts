@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { state } from "@synnaxlabs/x";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 /** A state value and a setter that accepts a value or an updater. */
 export type UseReturn<NextState extends state.State> = [
@@ -89,11 +89,12 @@ export const usePersisted = <S extends state.State>(
     if (stored == null) return state.executeInitialSetter(initial);
     return JSON.parse(stored);
   });
-  const set = (value: state.SetArg<S>) =>
-    setInternal((prev) => {
-      const next = state.executeSetter(value, prev);
-      localStorage.setItem(key, JSON.stringify(next));
-      return next;
-    });
+  const latest = useRef(internal);
+  const set = (value: state.SetArg<S>) => {
+    const next = state.executeSetter(value, latest.current);
+    latest.current = next;
+    localStorage.setItem(key, JSON.stringify(next));
+    setInternal(next);
+  };
   return [internal, set];
 };
