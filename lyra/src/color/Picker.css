@@ -16,9 +16,13 @@
     /* Library and Custom tabs. One inset holds the tab boxes, the search icon, the
        titles, and the swatches: eight 21 px swatches with 6 px gaps. */
     &.lyra-color-picker--tabbed {
-        --lyra-picker-inset: 1.5rem;
+        --pluto-color-picker-inset: 1.5rem;
+        --pluto-color-picker-gap: 1rem;
 
-        width: calc(8 * var(--pluto-height-tiny) + 7rem + 2 * var(--lyra-picker-inset));
+        width: calc(
+            8 * var(--pluto-height-tiny) + 7 * var(--pluto-color-picker-gap) + 2 *
+                var(--pluto-color-picker-inset)
+        );
         min-height: 0;
         padding: 0;
 
@@ -27,7 +31,7 @@
         }
 
         & > .lyra-color-picker__header {
-            padding: 1rem var(--lyra-picker-inset);
+            padding: 1rem var(--pluto-color-picker-inset);
             border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l6);
 
             & > .lyra-color-picker__tabs {
@@ -48,7 +52,7 @@
             border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l7);
 
             & .lyra-input__start-content {
-                padding-left: var(--lyra-picker-inset);
+                padding-left: var(--pluto-color-picker-inset);
             }
         }
 
@@ -60,13 +64,13 @@
 
         & > .lyra-color-picker__palettes,
         & > .lyra-color-picker__custom {
-            padding: var(--lyra-picker-inset);
+            padding: var(--pluto-color-picker-inset);
         }
 
         & .lyra-color-picker__grid {
             display: grid;
             grid-template-columns: repeat(8, minmax(0, 1fr));
-            gap: 1rem;
+            gap: var(--pluto-color-picker-gap);
 
             & .lyra-color-swatch.lyra-btn {
                 width: 100%;

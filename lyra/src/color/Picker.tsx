@@ -310,7 +310,7 @@ const Palettes = ({
     <Flex.Box y gap={2} className={CSS.BE("color-picker", "palettes")}>
       {shown.length === 0 && (
         <Status.Summary center variant="disabled" hideIcon>
-          {`No colors match "${search.trim()}"`}
+          {term.length === 0 ? "No colors found" : `No colors match "${search.trim()}"`}
         </Status.Summary>
       )}
       {shown.map((p) => (

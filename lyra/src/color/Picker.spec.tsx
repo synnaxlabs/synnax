@@ -328,6 +328,24 @@ describe("Picker", () => {
         expect(c.queryByLabelText("Ocean")).toBeNull();
       });
 
+      it("should pick a recent color in Custom", () => {
+        vi.useFakeTimers();
+        const Recent = ({ children }: PropsWithChildren): ReactElement => (
+          <Wrapper>
+            <Color.Provider>{children}</Color.Provider>
+          </Wrapper>
+        );
+        const c = renderLibrary({ value: "#123456" }, Recent);
+        fireEvent.change(hexInput(c), { target: { value: "abcdef" } });
+        act(() => {
+          vi.advanceTimersByTime(1500);
+        });
+        c.onChange.mockClear();
+        fireEvent.click(c.getByLabelText("#abcdef"));
+        expect(lastHex(c.onChange)).toEqual("#abcdef");
+        vi.useRealTimers();
+      });
+
       it("should edit a fixed color in Custom", () => {
         const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
         fireEvent.click(c.getByText("Custom"));
@@ -438,6 +456,18 @@ describe("Picker", () => {
         search(c, "#4caf");
         expect(c.getByLabelText("Moss")).toBeTruthy();
         expect(c.queryByLabelText("Ocean")).toBeNull();
+      });
+
+      it("should say when the library has no colors", () => {
+        const c = render(
+          <Color.Picker
+            value={undefined}
+            onChange={vi.fn()}
+            library={{ palettes: [], onNamedChange: vi.fn() }}
+          />,
+          { wrapper: Wrapper },
+        );
+        expect(c.getByText("No colors found")).toBeTruthy();
       });
 
       it("should say when no color matches", () => {
