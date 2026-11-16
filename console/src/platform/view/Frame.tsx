@@ -9,12 +9,7 @@
 
 import "@/platform/view/View.css";
 
-import {
-  AccessDeniedError,
-  NotFoundError,
-  UnexpectedError,
-  view,
-} from "@synnaxlabs/client";
+import { type panel, UnexpectedError, view } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -24,13 +19,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
-import {
-  Access,
-  Errors,
-  Flux,
-  Panel as PPanel,
-  View as PView,
-} from "@synnaxlabs/pluto";
+import { Access, Flux, Panel as PPanel, View as PView } from "@synnaxlabs/pluto";
 import { caseconv, uuid } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import {
@@ -56,12 +45,11 @@ import {
 import { IconPicker, openIconPicker } from "@/platform/view/IconPicker";
 import { Search } from "@/platform/view/Search";
 import { useCreateModal } from "@/platform/view/useCreateModal";
-import { Session } from "@/session";
 
 export interface FrameProps extends PropsWithChildren {
   resourceType: view.Type;
   icon: string;
-  /** The type of the tab the frame renders in. A view opened in a new tab gets one. */
+  /** The type of the explorer tab, which shows the static view. */
   tabType: string;
 }
 
@@ -72,43 +60,46 @@ const ZERO_VARIANTS: {
   status: { type: "status" },
 };
 
-/** Fixed, so every tab and every mount names the static view of a type the same way. */
-const STATIC_KEYS: Record<view.Type, view.Key> = {
-  range: "b611d7d3-c5e9-4014-b7fb-5045af6785f9",
-  status: "020fd972-f51f-40c9-9daf-4cd3f7de4d51",
+/**
+ * Frame shows the views of a resource type above the open one. The panel stores the
+ * view a tab shows, so everyone who opens the panel sees it. Must render in an explorer
+ * tab of the given type, or in a tab of a saved view.
+ */
+export const Frame = (props: FrameProps): ReactElement => {
+  const tab = PPanel.useTab({});
+  if (tab.variant === "view") return <Body {...props} tab={tab.key} open={null} />;
+  return <SavedBody {...props} tab={tab.key} openKey={tab.resource.key} />;
 };
 
-// Flux wraps a failed fetch, so the cause is matched alongside the error itself.
-const isUnavailable = (error: unknown): boolean =>
-  [error, error instanceof Error ? error.cause : undefined].some(
-    (e) =>
-      NotFoundError.matches(e) ||
-      Flux.DeletedError.matches(e) ||
-      AccessDeniedError.matches(e),
-  );
+interface BodyProps extends FrameProps {
+  tab: panel.TabKey;
+  open: view.View | null;
+}
 
-/**
- * Frame shows the views of a resource type above the open one. The view a tab shows is
- * kept in the session, so it lasts through a reload and a move to another window. Must
- * render inside a panel tab.
- */
-export const Frame = ({
+interface SavedBodyProps extends Omit<BodyProps, "open"> {
+  openKey: view.Key;
+}
+
+const SavedBody = ({ openKey, ...rest }: SavedBodyProps): ReactElement => {
+  const open = PView.use({ key: openKey });
+  return <Body {...rest} open={open} />;
+};
+
+const Body = ({
   resourceType,
   icon,
   tabType,
+  tab,
+  open,
   children,
-}: FrameProps): ReactElement => {
-  const tab = PPanel.useTabKey();
-  const dispatch = Session.useDispatch();
+}: BodyProps): ReactElement => {
   const openTab = Panel.useOpenTab();
-  const canOpenTab = Panel.useCanOpenTab();
-  const open = Session.View.useSelectOpen(tab);
-  const saved = PView.useResult(open == null ? null : { key: open });
-  const refresh = PView.useRefresh();
+  const canChange = Panel.useCanOpenTab();
   const [searchTerm, setSearchTerm] = useState("");
+  const [staticViewKey] = useState(() => uuid.create());
   const staticViews: StaticView[] = [
     {
-      key: STATIC_KEYS[resourceType],
+      key: staticViewKey,
       name: `All ${plural(resourceType)}`,
       ...ZERO_VARIANTS[resourceType],
       static: true,
@@ -126,31 +117,29 @@ export const Frame = ({
   const { getItem } = combinedProps;
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const staticViewKeys = staticViews.map((v) => v.key);
-  const error = saved.variant === "error" ? saved.status.details.error : null;
-  const unavailable = error != null && isUnavailable(error);
-  // A tab whose view was deleted, or that this user cannot read, shows the static view.
-  const selected = open == null || unavailable ? staticViews[0].key : open;
-  const ready = selected !== open || saved.variant === "success";
-  const retry = (): void => {
-    if (open != null) refresh({ key: open });
-  };
-  const savedOf = (key: view.Key): view.Key | null =>
-    staticViewKeys.includes(key) ? null : key;
+  const selected = open?.key ?? staticViews[0].key;
   const select = (key: view.Key) => {
-    dispatch(Session.View.setOpen({ tab, view: savedOf(key) }));
+    // A user who may not change the panel keeps the view it stores.
+    if (!canChange) return;
+    // A view open in another tab of the panel focuses that tab instead.
+    openTab(
+      staticViewKeys.includes(key)
+        ? { variant: "view", key: tab, type: tabType }
+        : { variant: "resource", key: tab, resource: view.resourceID(key) },
+    );
     setSearchTerm("");
   };
-  // The new tab gets its view before it opens, so it never shows another first.
-  const openInNewTab = (key: view.Key) => {
-    const next = uuid.create();
-    dispatch(Session.View.setOpen({ tab: next, view: savedOf(key) }));
-    openTab({ variant: "view", type: tabType, key: next });
-  };
+  const openInNewTab = (key: view.Key) =>
+    openTab(
+      staticViewKeys.includes(key)
+        ? { variant: "view", type: tabType }
+        : { variant: "resource", resource: view.resourceID(key) },
+    );
   const updateGranted = Access.useUpdateGranted(view.resourceID(selected));
   // A static view saves nothing, so everyone may change it.
   const editable = staticViewKeys.includes(selected) || updateGranted;
   const getInitialView = () => {
-    const view = selected === open ? saved.data : getItem(selected);
+    const view = open ?? getItem(selected);
     if (view == null) throw new UnexpectedError("No view found");
     return view;
   };
@@ -160,7 +149,7 @@ export const Frame = ({
     editable,
     staticViews: staticViewKeys,
     select,
-    openInNewTab: canOpenTab ? openInNewTab : null,
+    openInNewTab: canChange ? openInNewTab : null,
     getInitialView,
     searchTerm,
     setSearchTerm,
@@ -177,15 +166,7 @@ export const Frame = ({
           listProps={combinedProps}
           selected={selected}
         />
-        {ready && <Fragment key={selected}>{children}</Fragment>}
-        {error != null && !unavailable && (
-          <Errors.Fallback error={error} resetErrorBoundary={retry}>
-            <Button.Button variant="filled" onClick={retry}>
-              <Icon.Refresh />
-              Retry
-            </Button.Button>
-          </Errors.Fallback>
-        )}
+        <Fragment key={selected}>{children}</Fragment>
       </Context>
     </Flex.Box>
   );
@@ -254,9 +235,16 @@ const Selector = ({
   );
 };
 
+// A panel shows a saved view in one tab at most, so the one this tab shows opens in no
+// other.
+const opensInNewTab = (
+  { openInNewTab, selected, staticViews }: ContextValue,
+  key: view.Key,
+): boolean => openInNewTab != null && (key !== selected || staticViews.includes(key));
+
 const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
-  const { selected, select, openInNewTab, staticViews, resourceType } =
-    useContext("View.Selector");
+  const ctx = useContext("View.Selector");
+  const { openInNewTab, staticViews, resourceType } = ctx;
   const { getItem } = List.useUtilContext<view.Key, View>();
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const editableKeys = keys.filter((key) => !staticViews.includes(key));
@@ -269,7 +257,6 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
       const views = getItem(keys);
       const confirmed = await confirm(views);
       if (!confirmed) return false;
-      if (keys.includes(selected)) select(staticViews[0]);
       return data;
     },
   });
@@ -277,12 +264,12 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
     Access.useUpdateGranted(view.resourceID(editableKeys)) && editableKeys.length === 1;
   const canDelete =
     Access.useDeleteGranted(view.resourceID(editableKeys)) && editableKeys.length > 0;
-  const canOpen = openInNewTab != null && keys.length === 1;
+  const canOpen = keys.length === 1 && opensInNewTab(ctx, keys[0]);
   return (
     <PlatformContextMenu.Menu>
       {canOpen && (
         <>
-          <Menu.Item itemKey="open-in-new-tab" onClick={() => openInNewTab(keys[0])}>
+          <Menu.Item itemKey="open-in-new-tab" onClick={() => openInNewTab?.(keys[0])}>
             <Icon.OpenInNewWindow />
             Open in new tab
           </Menu.Item>
@@ -352,16 +339,16 @@ interface ItemProps extends Pick<StripProps, "icon" | "onAnchorChange"> {
 
 const Item = ({ itemKey, icon, onAnchorChange }: ItemProps): ReactElement | null => {
   const item = List.useItem<view.Key, View>(itemKey);
-  const { openInNewTab } = useContext("View.Item");
+  const ctx = useContext("View.Item");
   const { update: rename } = PView.useRename();
   const canRename = Access.useUpdateGranted(view.resourceID(itemKey));
   const handleRename = (name: string) => rename({ key: itemKey, name });
   const handleRef = (tab: HTMLDivElement | null) => onAnchorChange(itemKey, tab);
-  // The capture runs before the tab selects itself, the open one included.
+  // The capture runs before the tab selects itself.
   const handleClickCapture = (e: MouseEvent) => {
-    if (openInNewTab == null || !(e.ctrlKey || e.metaKey)) return;
+    if (!(e.ctrlKey || e.metaKey) || !opensInNewTab(ctx, itemKey)) return;
     e.stopPropagation();
-    openInNewTab(itemKey);
+    ctx.openInNewTab?.(itemKey);
   };
   if (item == null) return null;
   const { name } = item;

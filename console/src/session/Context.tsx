@@ -33,7 +33,6 @@ import { Status } from "@/session/status";
 import { type Action, createStore, type State } from "@/session/store";
 import { Synchronizer } from "@/session/synchronizer";
 import { Table } from "@/session/table";
-import { View } from "@/session/view";
 
 export interface ContextProps extends Runtime.CreateDriftProps {
   children: ReactNode;
@@ -61,7 +60,6 @@ const MAIN_SYNCHRONIZERS: Synchronizer.Synchronizers<State, Action> = [
   ...Schematic.SYNCHRONIZERS,
   ...Status.SYNCHRONIZERS,
   ...Table.SYNCHRONIZERS,
-  ...View.SYNCHRONIZERS,
 ];
 
 const WINDOW_SYNCHRONIZERS: Synchronizer.Synchronizers<State, Action> =
