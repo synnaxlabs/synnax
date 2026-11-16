@@ -362,8 +362,8 @@ func (f *Factory) configureRead(
 				continue
 			}
 			for _, field := range entry.Fields {
-				if !field.Disabled {
-					keys = append(keys, field.Channel)
+				if base := field.Base(); !base.Disabled {
+					keys = append(keys, base.Channel)
 				}
 			}
 		case SparkplugReadEntry:

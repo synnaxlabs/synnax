@@ -26,14 +26,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// field returns the config of one read field.
+// field returns the config of one read field, of the kind that ch takes.
 func field(key string, ch channel.Channel, pointer string) map[string]any {
+	GinkgoHelper()
 	return map[string]any{
+		"type":    string(MustBeOk(payload.KindOf(ch.DataType))),
 		"key":     key,
 		"name":    key,
 		"channel": ch.Key(),
@@ -179,6 +182,25 @@ var _ = Describe("Read task", func() {
 			},
 		)
 
+		It("Should write the fill of a field whose value is absent",
+			func(ctx SpecContext) {
+				_, data := createIndexed(ctx, telem.Float64T, telem.Int32T)
+				count := field("count", data[1], "/count")
+				count["fill"] = "-1"
+				start(ctx, readConfig(dev, plainEntry(
+					"plant/fill", field("v", data[0], "/v"), count,
+				)))
+				broker.publish("plant/fill", `{"v": 1}`, false)
+				broker.publish("plant/fill", `{"v": 2, "count": null}`, false)
+				broker.publish("plant/fill", `{"v": 3, "count": ""}`, false)
+				broker.publish("plant/fill", `{"v": 4, "count": 5}`, false)
+				Eventually(func() int64 { return stored(ctx, data[1]).Len() }).
+					Should(BeEquivalentTo(4))
+				Expect(stored(ctx, data[1])).
+					To(telem.MatchSeriesData(telem.NewSeriesV[int32](-1, -1, -1, 5)))
+			},
+		)
+
 		It("Should store a string, and a JSON value as the payload spells it",
 			func(ctx SpecContext) {
 				_, data := createIndexed(ctx, telem.StringT, telem.JSONT)
@@ -193,6 +215,24 @@ var _ = Describe("Read task", func() {
 					Should(BeEquivalentTo(1))
 				Expect(string(stored(ctx, data[0]).At(0))).To(Equal("a\nb"))
 				Expect(string(stored(ctx, data[1]).At(0))).To(Equal(`{"z":1.0,"a":[]}`))
+			},
+		)
+
+		It("Should store null and an empty string on JSON, and empty bytes",
+			func(ctx SpecContext) {
+				_, data := createIndexed(ctx, telem.JSONT, telem.BytesT)
+				start(ctx, readConfig(dev, plainEntry(
+					"plant/line11",
+					field("j", data[0], "/j"),
+					field("b", data[1], "/b"),
+				)))
+				broker.publish("plant/line11", `{"j":null,"b":""}`, false)
+				broker.publish("plant/line11", `{"j":"","b":""}`, false)
+				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
+					Should(BeEquivalentTo(2))
+				Expect(string(stored(ctx, data[0]).At(0))).To(Equal("null"))
+				Expect(string(stored(ctx, data[0]).At(1))).To(Equal(`""`))
+				Expect(stored(ctx, data[1]).At(0)).To(BeEmpty())
 			},
 		)
 
@@ -719,7 +759,11 @@ var _ = Describe("Read task", func() {
 			Entry("a channel that does not exist",
 				func(context.Context) (msgpack.EncodedJSON, string) {
 					missing := map[string]any{
-						"key": "v", "name": "v", "channel": 4000000, "pointer": "",
+						"type":    "float",
+						"key":     "v",
+						"name":    "v",
+						"channel": 4000000,
+						"pointer": "",
 					}
 					return readConfig(dev, plainEntry("plant/x", missing)),
 						"field v of topic plant/x: channel 4000000 does not exist"
@@ -741,16 +785,29 @@ var _ = Describe("Read task", func() {
 						map[string]any{"label": "BIG", "value": 200},
 					}
 					return readConfig(dev, plainEntry("plant/x", f)),
-						`enum label "BIG": 200 is out of range for int8`
+						`enum label "BIG": 200 does not fit int8`
 				},
 			),
-			Entry("an enum value on a string channel",
+			Entry("a kind that the channel does not take",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					_, data := createIndexed(ctx, telem.StringT)
+					_, data := createIndexed(ctx, telem.Int8T)
 					f := field("v", data[0], "")
-					f["enum_values"] = []any{map[string]any{"label": "ON", "value": 1}}
+					f["type"] = "float"
 					return readConfig(dev, plainEntry("plant/x", f)),
-						`enum label "ON": a float64 value does not convert to string`
+						"a field of kind float cannot read into a channel of data " +
+							"type int8"
+				},
+			),
+			Entry("a fill on an index channel",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					idx, data := createIndexed(ctx, telem.Float64T)
+					time := field("time", idx, "/ts")
+					time["time_format"] = "unix_ms"
+					time["fill"] = "0"
+					entry := plainEntry("plant/x", time, field("v", data[0], "/v"))
+					entry["index"] = "time"
+					return readConfig(dev, entry),
+						"an index channel cannot take a fill"
 				},
 			),
 			Entry("fields of one topic on different indexes",
@@ -777,8 +834,7 @@ var _ = Describe("Read task", func() {
 					idx, _ := createIndexed(ctx)
 					entry := plainEntry("plant/x", field("time", idx, "/ts"))
 					entry["index"] = "time"
-					return readConfig(dev, entry),
-						"a timestamp channel requires a time format"
+					return readConfig(dev, entry), `unknown time format ""`
 				},
 			),
 			Entry("an index field that does not exist",
