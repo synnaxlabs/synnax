@@ -13,28 +13,24 @@ package gomod
 
 import (
 	"bufio"
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/x/errors"
 )
 
 // DefaultModulePrefix is the fallback import path when go.mod resolution fails.
 const DefaultModulePrefix = "github.com/synnaxlabs/synnax/"
 
-func parseModuleName(modPath string) (name string, err error) {
-	file, err := os.Open(modPath)
+func parseModuleName(modPath, repoRoot string) (string, error) {
+	data, err := paths.ReadFile(modPath, repoRoot)
 	if err != nil {
 		return "", err
 	}
-	defer func() {
-		if err = errors.Combine(err, file.Close()); err != nil {
-			name = ""
-		}
-	}()
-
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(bytes.NewReader(data))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if strings.HasPrefix(line, "module ") {
@@ -65,7 +61,7 @@ func ResolveImportPath(outputPath, repoRoot, fallbackPrefix string) string {
 	for {
 		modPath := filepath.Join(dir, "go.mod")
 		if info, err := os.Stat(modPath); err == nil && !info.IsDir() {
-			moduleName, err := parseModuleName(modPath)
+			moduleName, err := parseModuleName(modPath, repoRoot)
 			if err != nil {
 				break
 			}

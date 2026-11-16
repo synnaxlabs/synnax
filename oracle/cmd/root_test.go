@@ -21,6 +21,7 @@ import (
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/oracle/check"
 	"github.com/synnaxlabs/oracle/cmd"
+	"github.com/synnaxlabs/oracle/paths"
 	. "github.com/synnaxlabs/oracle/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -384,7 +385,9 @@ var _ = Describe("fmt command with file patterns", func() {
 
 	schema := func(name string) string {
 		GinkgoHelper()
-		return string(MustSucceed(os.ReadFile(filepath.Join(repoDir, "schemas", name))))
+		return string(
+			MustSucceed(paths.ReadFile(filepath.Join("schemas", name), repoDir)),
+		)
 	}
 
 	DescribeTable(

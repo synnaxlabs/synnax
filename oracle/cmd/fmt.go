@@ -12,6 +12,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 
@@ -132,7 +133,7 @@ const (
 )
 
 func formatFile(path string) (formatResult, error) {
-	source, err := os.ReadFile(path)
+	source, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return formatResultUnchanged, err
 	}

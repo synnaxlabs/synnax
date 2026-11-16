@@ -117,6 +117,22 @@ func Resolve(repoRelative, repoRoot string) string {
 	return filepath.Join(repoRoot, repoRelative)
 }
 
+// ReadFile reads the file at path, which is repo-relative or absolute. It fails when
+// the path, or a symlink on it, leads out of repoRoot.
+func ReadFile(path, repoRoot string) (data []byte, err error) {
+	if filepath.IsAbs(path) {
+		if path, err = filepath.Rel(repoRoot, path); err != nil {
+			return nil, err
+		}
+	}
+	root, err := os.OpenRoot(repoRoot)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errors.Combine(err, root.Close()) }()
+	return root.ReadFile(path)
+}
+
 // ValidateOutput ensures an output path is valid and within repo bounds. It checks for
 // path traversal attempts and invalid characters.
 func ValidateOutput(path, repoRoot string) error {
