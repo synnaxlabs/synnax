@@ -2678,6 +2678,7 @@ describe("convertDataType", () => {
   it("rounds a non-integer number when the target uses bigint", () => {
     expect(convertDataType(DataType.FLOAT64, DataType.INT64, 1.5)).toBe(2n);
     expect(convertDataType(DataType.FLOAT64, DataType.INT64, -2.4, 1n)).toBe(-3n);
+    expect(convertDataType(DataType.FLOAT64, DataType.INT64, 1.5, 0.4)).toBe(2n);
   });
 
   it("falls back to math.sub when neither source nor target use bigint", () => {

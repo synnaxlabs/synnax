@@ -2170,6 +2170,9 @@ export const isTelemValue = (value: unknown): value is TelemValue => {
   );
 };
 
+const roundToBigInt = (value: math.Numeric): bigint =>
+  typeof value === "bigint" ? value : BigInt(Math.round(value));
+
 export const convertDataType = (
   source: DataType,
   target: DataType,
@@ -2180,7 +2183,7 @@ export const convertDataType = (
   if (source.usesBigInt && !target.usesBigInt)
     return Number(BigInt(value.valueOf()) - BigInt(offset.valueOf()));
   if (!source.usesBigInt && target.usesBigInt)
-    return BigInt(Math.round(Number(value))) - BigInt(offset.valueOf());
+    return roundToBigInt(value) - roundToBigInt(offset);
   return math.sub(value, offset);
 };
 
