@@ -284,9 +284,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	return l, nil
 }
 
+// Run runs the time-series engine until ctx ends, then waits for it to stop. Writes to
+// the engine and its streamers need Run to run. Call Run once.
+func (s *Layer) Run(ctx context.Context) error { return s.TS.Run(ctx) }
+
 // Close closes the Layer, releasing the lock on the storage directory. Close
-// must be called when the Layer is no longer in use. The caller must ensure that
-// all routines interacting with the Layer have finished before calling Close.
+// must be called when the Layer is no longer in use, and after Run returns. The caller
+// must ensure that all routines interacting with the Layer have finished before calling
+// Close.
 func (s *Layer) Close() error {
 	return s.closer.Close()
 }

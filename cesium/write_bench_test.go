@@ -10,12 +10,14 @@
 package cesium_test
 
 import (
+	"context"
 	"sync"
 	"testing"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -72,7 +74,7 @@ func benchmarkWrite(b *testing.B, mem, contended bool) {
 }
 
 // openBenchDB opens a DB on an in-memory file system when mem is true, and in a
-// temporary directory otherwise. The DB closes when the benchmark ends.
+// temporary directory otherwise. The DB runs until the benchmark ends, then closes.
 func openBenchDB(b *testing.B, mem bool) *cesium.DB {
 	b.Helper()
 	opts := []cesium.Option{cesium.WithInstrumentation(alamos.New("bench"))}
@@ -85,8 +87,12 @@ func openBenchDB(b *testing.B, mem bool) *cesium.DB {
 	if err != nil {
 		b.Fatal(err)
 	}
+	ctx, cancel := context.WithCancel(b.Context())
+	ran := make(chan error, 1)
+	go func() { ran <- db.Run(ctx) }()
 	b.Cleanup(func() {
-		if err := db.Close(); err != nil {
+		cancel()
+		if err := errors.Join(<-ran, db.Close()); err != nil {
 			b.Error(err)
 		}
 	})

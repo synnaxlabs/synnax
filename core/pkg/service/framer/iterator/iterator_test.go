@@ -2835,6 +2835,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						cesium.WithChunkSize(14),
 					))),
 				}
+				StartRun(store.Run)
 				node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 				iteratorSvc, channelSvc = openServices(ctx, node)
 				createSensor(ctx, node, channelSvc)
@@ -3102,6 +3103,7 @@ var _ = Describe("Read failure", func() {
 			KV: DeferClose(memkv.New()),
 			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
 		}
+		StartRun(store.Run)
 		node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 		iteratorSvc, channelSvc = openServices(ctx, node)
 	})

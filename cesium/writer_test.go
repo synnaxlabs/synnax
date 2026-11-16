@@ -2393,6 +2393,7 @@ var _ = Describe("Writer Behavior", func() {
 										cesium.WithClock(clock),
 										cesium.WithInstrumentation(PanicLogger()),
 									))
+									StartRun(clockDB.Run)
 									Expect(clockDB.CreateChannel(
 										ctx,
 										cesium.Channel{
@@ -2513,6 +2514,7 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.WithFileSizeCap(40*telem.Byte),
 								cesium.WithInstrumentation(PanicLogger()),
 							))
+							StartRun(db2.Run)
 							Expect(db2.CreateChannel(
 								ctx,
 								cesium.Channel{
@@ -2606,6 +2608,7 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.WithFileSizeCap(40*telem.Byte),
 							cesium.WithInstrumentation(PanicLogger()),
 						))
+						StartRun(db2.Run)
 
 						Expect(db2.CreateChannel(
 							ctx,
@@ -2741,6 +2744,7 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.WithFileSizeCap(80*telem.Byte),
 								cesium.WithInstrumentation(PanicLogger()),
 							))
+							StartRun(db2.Run)
 
 							Expect(db2.CreateChannel(
 								ctx,
@@ -2882,6 +2886,7 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.WithFileSizeCap(64*telem.Byte),
 								cesium.WithInstrumentation(PanicLogger()),
 							))
+							StartRun(db2.Run)
 
 							By(
 								"Asserting that upon writing to the channels, the writes go to appropriate files",
@@ -2981,6 +2986,7 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.WithFileSizeCap(40*telem.Byte),
 							cesium.WithInstrumentation(PanicLogger()),
 						))
+						StartRun(db2.Run)
 
 						Expect(db2.CreateChannel(
 							ctx,
@@ -3104,6 +3110,7 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.WithFileSizeCap(40*telem.Byte),
 								cesium.WithInstrumentation(PanicLogger()),
 							))
+							StartRun(db2.Run)
 
 							var (
 								index2 = GenerateChannelKey()

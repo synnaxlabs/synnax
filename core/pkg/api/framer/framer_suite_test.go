@@ -68,6 +68,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		KV: DeferClose(memkv.New()),
 		TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS}))),
 	}
+	StartRun(store.Run)
 	node := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 		Insecure: new(true),

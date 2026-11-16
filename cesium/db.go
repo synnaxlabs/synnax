@@ -11,7 +11,6 @@ package cesium
 
 import (
 	"context"
-	"io"
 	"sync"
 	"sync/atomic"
 
@@ -23,6 +22,7 @@ import (
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -52,7 +52,6 @@ func NewAlignmentCounter() *AlignmentCounter {
 }
 
 type DB struct {
-	shutdown io.Closer
 	// removals tracks the background removals of deleted channel data.
 	removals sync.WaitGroup
 	*options
@@ -148,9 +147,20 @@ func (db *DB) Metrics() Metrics {
 	return Metrics{DiskSize: size}
 }
 
-// Close closes the database.
-//
-// Close is not safe to call with any other DB methods concurrently.
+// Run runs the relay that feeds writes to streamers, and the garbage collector, until
+// ctx ends. It then waits for them to stop and returns. Writes block once the relay
+// buffer fills while Run is not running, and streamers do not start. Call Run once,
+// after Open and before Close.
+func (db *DB) Run(ctx context.Context) error {
+	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(db.Instrumentation))
+	defer cancel()
+	db.relay.flow(sCtx)
+	db.startGC(sCtx, db.options)
+	return errors.Skip(sCtx.Wait(), context.Canceled)
+}
+
+// Close closes the database. Call it only after Run returns. Close is not safe to call
+// with any other DB methods concurrently.
 //
 // Writers still open when Close runs stop sending to streamers.
 //
@@ -160,10 +170,7 @@ func (db *DB) Close() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil
 	}
-
-	// Shut down without locking mutex to allow existing goroutines (e.g. GC) that
-	// require a mutex lock to exit.
-	err := db.shutdown.Close()
+	var err error
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	for _, u := range db.mu.dbs.unary {

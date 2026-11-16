@@ -105,7 +105,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		st := DeferClose(storagetestutil.OpenLayer(ctx))
+		st := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
 		node := testutil.NewNode(ctx, distribution.LayerConfig{
 			Storage: &storage.Layer{KV: hookkv.Wrap(st.KV), TS: st.TS},
 		})

@@ -94,8 +94,8 @@ func run(cmd *cobra.Command) error {
 		return err
 	}
 
-	sCtx.Go(func(ctx context.Context) error {
-		return BootupCore(ctx, nil, cfg)
+	sCtx.Go(func(stop context.Context) error {
+		return BootupCore(ctx, stop, nil, cfg)
 	}, xsignal.WithKey("start"), xsignal.RecoverWithErrOnPanic())
 
 	forceCtx, forceCancel := xsignal.Isolated(xsignal.WithInstrumentation(ins))
