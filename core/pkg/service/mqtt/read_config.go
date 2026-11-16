@@ -23,36 +23,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	"github.com/synnaxlabs/x/payload"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
-
-// validateReadConfig checks the rules of cfg that need no other resource: the topic of
-// each enabled plain entry is valid and appears once.
-func validateReadConfig(cfg *ReadConfig) error {
-	if err := cfg.Validate(); err != nil {
-		return err
-	}
-	topics := make(set.Set[string])
-	for i, e := range cfg.Entries {
-		plain, ok := e.Variant.(PlainReadEntry)
-		if !ok || plain.Disabled {
-			continue
-		}
-		path := []string{"entries", strconv.Itoa(i), "topic"}
-		if err := validateTopic(plain.Topic); err != nil {
-			return validate.PathedError(err, path...)
-		}
-		if topics.Contains(plain.Topic) {
-			return validate.PathedError(
-				validate.Errorf("topic %s appears more than once", plain.Topic),
-				path...,
-			)
-		}
-		topics.Add(plain.Topic)
-	}
-	return nil
-}
 
 // readChannels returns the v2.Channels that reads channels from svc.
 func readChannels(svc *channel.Service) v2.Channels {

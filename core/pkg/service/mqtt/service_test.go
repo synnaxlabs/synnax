@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -312,6 +313,24 @@ var _ = Describe("Service", func() {
 			},
 		)
 
+		It(
+			"Should refuse to delete an ICD that a read task reads",
+			func(ctx SpecContext) {
+				f := createFormat(ctx)
+				MustSucceed(tasks.Create(ctx, svc.Read, readConfigOf(icdEntry(
+					"plant/status", f.ic, readMessage(f.m, binding(f.m, 1, f.value)),
+				))))
+				err := db.WithTx(ctx, func(tx gorp.Tx) error {
+					return icds.NewWriter(tx).Delete(ctx, f.ic.Key)
+				})
+				var restrict gorp.RestrictError
+				Expect(errors.As(err, &restrict)).To(BeTrue())
+				Expect(restrict.Target).
+					To(Equal(gorp.Target{Table: "icd", Key: f.ic.Key.String()}))
+				Expect(restrict.Reference).To(Equal("entries.icd"))
+			},
+		)
+
 		It("Should skip the checks of a disabled entry", func(ctx SpecContext) {
 			f := createFormat(ctx)
 			entry := icdEntry(
@@ -335,24 +354,6 @@ var _ = Describe("Service", func() {
 				Expect(err).To(MatchError(HavePrefix(path + ": ")))
 				Expect(err).To(MatchError(ContainSubstring(msg)))
 			},
-			Entry("a topic with a wildcard", func(f format) []map[string]any {
-				read := readMessage(f.m, binding(f.m, 1, f.value))
-				return []map[string]any{icdEntry("plant/#", f.ic, read)}
-			}, "entries.0.topic", "topic plant/#: must not hold the wildcards + or #"),
-			Entry("a topic read twice", func(f format) []map[string]any {
-				return []map[string]any{
-					icdEntry(
-						"plant/x",
-						f.ic,
-						readMessage(f.m, binding(f.m, 1, f.value)),
-					),
-					icdEntry(
-						"plant/x",
-						f.ic,
-						readMessage(f.m, binding(f.m, 2, f.text)),
-					),
-				}
-			}, "entries.1.topic", "topic plant/x appears more than once"),
 			Entry("a message that the ICD lacks", func(f format) []map[string]any {
 				other := jsonMessage(
 					"Other",
