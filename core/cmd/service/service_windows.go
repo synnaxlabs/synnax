@@ -243,6 +243,9 @@ func Stop() (err error) {
 func configuredShutdownTimeout() (time.Duration, error) {
 	v := viper.New()
 	v.SetConfigFile(ConfigPath())
+	v.SetEnvPrefix("synnax")
+	v.AutomaticEnv()
+	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	flag := cmdstart.Cmd.Flags().Lookup(cmdstart.FlagShutdownTimeout)
 	if err := v.BindPFlag(cmdstart.FlagShutdownTimeout, flag); err != nil {
 		return 0, err
