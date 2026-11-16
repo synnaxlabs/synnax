@@ -110,6 +110,11 @@ class FakeGH:
         values = dict(a.split("=", 1) for a in args if "=" in a)
         if "addPullRequestReviewThreadReply" in values.get("query", ""):
             self.replies.append((values["t"], values["b"]))
+            reply = comment(0, values["b"], kind="Bot", association="NONE")
+            reply["author"]["login"] = "sedosaur"
+            for th in self.threads:
+                if th["id"] == values["t"]:
+                    th["comments"].append(reply)
             return "{}"
         if "resolveReviewThread" in values.get("query", ""):
             self.resolved.append(values["t"])
@@ -257,11 +262,33 @@ class TestDismiss:
                 "text": gh.runs[0]["output"]["text"],
             },
         }
-        [(_, body)] = gh.replies
-        assert body.endswith(
-            "will not report it. Every finding of the review of the head is dismissed, "
-            "so the head scores 5/5."
-        )
+        assert [t for t, _ in gh.replies] == ["T1", "T2"]
+        assert gh.posted() == [
+            "Every finding of the review of the head is dismissed, so the head scores "
+            "5/5."
+        ]
+
+    def test_should_answer_a_reply_whose_run_never_answered(self, gh: FakeGH) -> None:
+        gh.threads = [
+            thread("T1", comment(2, "@sedosaur dismiss")),
+            thread("T2", comment(3, "@sedosaur why?"), path="b.go", title="Nit"),
+        ]
+        dismiss(TARGET, gh, comment=3, key=KEY)
+        assert gh.resolved == ["T1"]
+        [(t1, done), (t2, usage)] = sorted(gh.replies)
+        assert (t1, t2) == ("T1", "T2")
+        assert done.startswith("Dismissed.")
+        assert usage.startswith("To dismiss this finding")
+
+    def test_should_post_nothing_when_run_again_on_the_same_state(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [thread("T1", comment(2, "@sedosaur dismiss"))]
+        gh.comments = [outside("Old"), issue_comment(9, "@sedosaur dismiss Old")]
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        writes, replies = len(gh.writes), len(gh.replies)
+        dismiss(TARGET, gh, comment=9, key=KEY)
+        assert (len(gh.writes), len(gh.replies)) == (writes, replies)
 
     def test_should_take_the_newest_review(self, gh: FakeGH) -> None:
         gh.threads = [thread("T1", comment(2, "@sedosaur dismiss"))]

@@ -12,6 +12,7 @@ reply of `@sedosaur dismiss` on the thread of the finding, or with a comment of
 `@sedosaur dismiss` and its title on the pull request."""
 
 import re
+from typing import Any
 
 from review.post import (
     GH,
@@ -56,12 +57,13 @@ _RESOLVE = """mutation($t: ID!) {
 
 
 def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
-    """Answers a reply that mentions the bot on the thread of one of its findings, or
-    each dismissal comment on the pull request that the bot has not answered yet. A
-    member's `@sedosaur dismiss` dismisses the finding and resolves its thread. A
+    """Answers a comment that mentions the bot: a reply on the thread of one of its
+    findings, or a comment on the pull request. Then answers each `@sedosaur dismiss` on
+    the pull request that has no answer yet, so a run also does the work of a run that
+    never finished. A member's reply dismisses the finding of its thread. A member's
     comment binds to the one open finding its title names, and the answer records that
-    finding. When every finding of the newest review of the head is then dismissed, a
-    new check run scores the head 5/5. Any other reply gets the usage.
+    finding. Each dismissal resolves the finding's thread. When every finding of the
+    newest review of the head is then dismissed, a new check run scores the head 5/5.
 
     :param comment: The database ID of the reply or the comment.
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
@@ -70,24 +72,38 @@ def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
     """
     found = threads(t, gh)
     hits = [(th, c) for th in found for c in th.replies if c["databaseId"] == comment]
-    if not hits:
-        _dismiss_outside(t, gh, found, comment=comment, key=key)
-        return
-    [(thread, reply)] = hits
-    if command(reply["body"]) is None:
-        _reply(gh, thread, USAGE)
-    elif not member(reply):
-        _reply(gh, thread, REFUSED)
-    else:
-        _reply(gh, thread, DONE + (PASSED if rescore(t, gh, found, key) else ""))
-        gh("api", "graphql", "-f", f"query={_RESOLVE}", "-f", f"t={thread.id}")
-
-
-def _dismiss_outside(
-    t: Target, gh: GH, found: list[Thread], *, comment: int, key: str
-) -> None:
-    if issue_comment(t, gh, comment) is None:
+    if not hits and issue_comment(t, gh, comment) is None:
         raise ValueError(f"comment {comment} is not on pull request {t.pr}")
+    for thread, reply in hits:
+        if command(reply["body"]) is None:
+            _reply(gh, thread, USAGE)
+    bound = _sweep_threads(t, gh, found)
+    bound = _sweep_comments(t, gh, found) or bound
+    if bound and rescore(t, gh, found, key):
+        _comment(t, gh, PASSED.strip())
+
+
+def _sweep_threads(t: Target, gh: GH, found: list[Thread]) -> bool:
+    """Answers each dismissal reply that no reply of the bot follows. Returns whether
+    one dismissed a finding."""
+    bound = False
+    for th in found:
+        for i, r in enumerate(th.replies):
+            later = th.replies[i + 1 :]
+            if command(r["body"]) is None or any(_by(t, c) for c in later):
+                continue
+            if not member(r):
+                _reply(gh, th, REFUSED)
+                continue
+            _reply(gh, th, DONE)
+            _resolve(gh, th)
+            bound = True
+    return bound
+
+
+def _sweep_comments(t: Target, gh: GH, found: list[Thread]) -> bool:
+    """Answers each dismissal comment on the pull request that has no answer yet.
+    Returns whether one dismissed a finding."""
     posted = comments(t, gh)
     done = {a["comment"] for a in answers(t, posted)}
     still = {(th.path, th.title): th for th in found if not th.resolved}
@@ -107,10 +123,17 @@ def _dismiss_outside(
             record = {"comment": c["id"], "path": path, "title": title}
             _comment(t, gh, answer(record | {"reason": reason}, DONE))
             if (th := still.get((path, title))) is not None:
-                gh("api", "graphql", "-f", f"query={_RESOLVE}", "-f", f"t={th.id}")
+                _resolve(gh, th)
             bound = True
-    if bound and rescore(t, gh, found, key):
-        _comment(t, gh, PASSED.strip())
+    return bound
+
+
+def _by(t: Target, reply: dict[str, Any]) -> bool:
+    return (reply["author"] or {}).get("login") == t.bot
+
+
+def _resolve(gh: GH, thread: Thread) -> None:
+    gh("api", "graphql", "-f", f"query={_RESOLVE}", "-f", f"t={thread.id}")
 
 
 def _named(
