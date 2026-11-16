@@ -973,11 +973,12 @@ func inferFlowNodeOutputType(ctx context.Context[parser.IFlowNodeContext]) types
 	}
 	if fn := ctx.AST.Function(); fn != nil {
 		fnName := parser.FunctionName(fn)
-		sym, err := ctx.Resolve(fnName)
+		sym, err := ctx.ResolveQualified(parser.FunctionNameParts(fn))
 		if err != nil || sym.Kind != symbol.KindFunction {
 			return types.Type{}
 		}
-		return resolveFuncOutput(ctx, sym.Type, fnName,
+		fresh := types.Freshen(sym.Type, freshenKey(fn, fnName))
+		return resolveFuncOutput(ctx, fresh, fnName,
 			"the next node in the chain expects an input")
 	}
 	if idNode := ctx.AST.Identifier(); idNode != nil {
