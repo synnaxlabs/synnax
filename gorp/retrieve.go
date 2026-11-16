@@ -417,7 +417,10 @@ func (r Retrieve[K, E]) read(
 	if match && err == nil {
 		match, err = r.matchEval(ctx, e, encoded, value)
 	}
-	return true, match && err == nil, errors.Combine(err, closer.Close())
+	if err = errors.Combine(err, closer.Close()); err != nil {
+		return false, false, err
+	}
+	return true, match, nil
 }
 
 // matchRaw runs the filter's raw-byte pre-screen against key/value.
