@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, renderHook } from "@testing-library/react";
+import { act, fireEvent, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactNode, useState } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -140,6 +140,19 @@ describe("useSelect", () => {
         act(() => result.current.onSelect("2"));
         expect(result.current.value).toEqual(["2"]);
       });
+    });
+
+    it("should select the clicked item on shift when the anchor left the order", () => {
+      let data = ["1", "2", "3"];
+      const { result, rerender } = renderMultiple({}, [], () => data);
+      act(() => result.current.onSelect("1"));
+      act(() => {
+        data = ["2", "3", "4"];
+        rerender();
+      });
+      fireEvent.keyDown(document.body, { code: "Shift" });
+      act(() => result.current.onSelect("3"));
+      expect(result.current.value).toEqual(["1", "3"]);
     });
 
     it("should clear the selection when clear() is called", () => {
