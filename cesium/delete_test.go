@@ -890,6 +890,56 @@ var _ = Describe("Delete", func() {
 					)
 				})
 
+				DescribeTable(
+					"Should delete a run of repeated timestamps as one",
+					func(ctx SpecContext, tr telem.TimeRange, expected []int64) {
+						idx, data := GenerateChannelKey(), GenerateChannelKey()
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Key:      idx,
+								Name:     "Zeno",
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							},
+							cesium.Channel{
+								Key:      data,
+								Name:     "Parmenides",
+								Index:    idx,
+								DataType: telem.Int64T,
+							},
+						)).To(Succeed())
+						Expect(db.Write(ctx, telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{idx, data},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(1, 2, 2, 2, 3),
+								telem.NewSeriesV[int64](10, 20, 30, 40, 50),
+							},
+						))).To(Succeed())
+						Expect(db.DeleteTimeRange(
+							ctx,
+							[]cesium.ChannelKey{data},
+							tr,
+						)).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
+						var got []int64
+						for _, s := range f.RawSeries() {
+							got = append(got, s.Unmarshal[int64]()...)
+						}
+						Expect(got).To(Equal(expected))
+					},
+					Entry(
+						"starting at the run",
+						(2*telem.SecondTS).Range(3*telem.SecondTS),
+						[]int64{10, 50},
+					),
+					Entry(
+						"ending at the run",
+						(1*telem.SecondTS).Range(2*telem.SecondTS),
+						[]int64{20, 30, 40, 50},
+					),
+				)
+
 				Describe("Simple Index-based channel", func() {
 					It("Should delete chunks of a channel", func(ctx SpecContext) {
 						By("Creating an indexed channel")

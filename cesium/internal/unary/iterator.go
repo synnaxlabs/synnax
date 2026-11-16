@@ -346,14 +346,21 @@ func (i *Iterator) nextChunk(ctx context.Context) bool {
 			}
 		}
 		end = domainTR.End
-		if closed = endSample < limit; closed {
-			// The chunk fills inside this domain, so it ends at the first sample it
-			// leaves behind.
-			end, err = i.stampSample(ctx, domainTR.Start, endSample)
+		var edge telem.TimeStamp
+		if endSample < limit {
+			edge, endSample, err = i.chunkEnd(
+				ctx,
+				domainTR.Start,
+				startSample,
+				endSample,
+			)
 			if err != nil {
 				i.err = err
 				return false
 			}
+		}
+		if closed = endSample < limit; closed {
+			end = edge
 			i.view.End = end
 		}
 		used, err := i.read(ctx, startSample, endSample)
@@ -428,14 +435,16 @@ func (i *Iterator) prevChunk(ctx context.Context) bool {
 			}
 		}
 		start = domainTR.Start
-		if closed = startSample > first; closed {
-			// The chunk fills inside this domain, so it starts at the earliest sample
-			// it holds.
-			start, err = i.stampSample(ctx, domainTR.Start, startSample)
+		var edge telem.TimeStamp
+		if startSample > first {
+			edge, startSample, err = i.chunkStart(ctx, domainTR.Start, startSample)
 			if err != nil {
 				i.err = err
 				return false
 			}
+		}
+		if closed = startSample > first; closed {
+			start = edge
 			i.view.Start = start
 		}
 		used, err := i.read(ctx, startSample, endSample)
@@ -451,6 +460,57 @@ func (i *Iterator) prevChunk(ctx context.Context) bool {
 	}
 	i.view.Start = max(start, i.bounds.Start)
 	return more && !i.atStart()
+}
+
+// chunkEnd returns the exclusive end of a forward chunk of the samples [start, end) of
+// the domain starting at domainStart, and the position the chunk closes at. A chunk
+// never splits a run of equal timestamps, so it closes after the run instead.
+func (i *Iterator) chunkEnd(
+	ctx context.Context,
+	domainStart telem.TimeStamp,
+	start, end int64,
+) (telem.TimeStamp, int64, error) {
+	stamp, err := i.stampSample(ctx, domainStart, end)
+	if err != nil || end == start {
+		return stamp, end, err
+	}
+	runStart, err := i.position(ctx, domainStart, stamp)
+	if err != nil || runStart == end {
+		return stamp, end, err
+	}
+	end, err = i.position(ctx, domainStart, stamp+1)
+	return stamp + 1, end, err
+}
+
+// chunkStart returns the start of a backward chunk that opens at the sample at start of
+// the domain starting at domainStart, and the position the chunk opens at. A chunk
+// never splits a run of equal timestamps, so it opens at the first sample of the run.
+func (i *Iterator) chunkStart(
+	ctx context.Context,
+	domainStart telem.TimeStamp,
+	start int64,
+) (telem.TimeStamp, int64, error) {
+	stamp, err := i.stampSample(ctx, domainStart, start)
+	if err != nil {
+		return 0, 0, err
+	}
+	start, err = i.position(ctx, domainStart, stamp)
+	return stamp, start, err
+}
+
+// position returns the position of the first sample at or after ts in the domain
+// starting at domainStart.
+func (i *Iterator) position(
+	ctx context.Context,
+	domainStart, ts telem.TimeStamp,
+) (int64, error) {
+	approx, err := i.Cache.Distance(
+		ctx,
+		i.idx,
+		domainStart.Range(ts),
+		index.MustBeContinuous,
+	)
+	return pickSampleOffset(approx), err
 }
 
 // stampSample returns the timestamp of the sample at position offset within the domain

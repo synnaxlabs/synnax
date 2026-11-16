@@ -1327,6 +1327,106 @@ var _ = Describe("Iterator Behavior", func() {
 					))
 				})
 
+				It("Should end a read before a repeated timestamp", func(
+					ctx SpecContext,
+				) {
+					pdb := open(ctx)
+					idx, data := GenerateChannelKey(), GenerateChannelKey()
+					Expect(pdb.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Key:      idx,
+							Name:     "Nansen",
+							IsIndex:  true,
+							DataType: telem.TimestampT,
+						},
+						cesium.Channel{
+							Key:      data,
+							Name:     "Mawson",
+							Index:    idx,
+							DataType: telem.Int64T,
+						},
+					)).To(Succeed())
+					Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
+						[]cesium.ChannelKey{idx, data},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(1, 2, 2, 2, 3),
+							telem.NewSeriesV[int64](10, 20, 30, 40, 50),
+						},
+					))).To(Succeed())
+					f := MustSucceed(pdb.Read(
+						ctx,
+						(1 * telem.SecondTS).Range(2*telem.SecondTS),
+						data,
+					))
+					Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(
+						telem.NewSeriesV[int64](10),
+					))
+				})
+
+				DescribeTable(
+					"Should read a repeated timestamp once across auto-span chunks",
+					func(ctx SpecContext, chunk int64, backward bool) {
+						pdb := open(ctx)
+						idx, data := GenerateChannelKey(), GenerateChannelKey()
+						Expect(pdb.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Key:      idx,
+								Name:     "Peary",
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							},
+							cesium.Channel{
+								Key:      data,
+								Name:     "Henson",
+								Index:    idx,
+								DataType: telem.Int64T,
+							},
+						)).To(Succeed())
+						Expect(pdb.Write(ctx, telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{idx, data},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(1, 2, 2, 2, 3),
+								telem.NewSeriesV[int64](10, 20, 30, 40, 50),
+							},
+						))).To(Succeed())
+						i := MustSucceed(pdb.OpenIterator(cesium.IteratorConfig{
+							Bounds:        telem.TimeRangeMax,
+							Channels:      []cesium.ChannelKey{data},
+							AutoChunkSize: chunk,
+						}))
+						var got []int64
+						if backward {
+							Expect(i.SeekLast()).To(BeTrue())
+							for i.Prev(cesium.AutoSpan) {
+								var batch []int64
+								for _, s := range i.Value().RawSeries() {
+									batch = append(batch, s.Unmarshal[int64]()...)
+								}
+								got = append(batch, got...)
+								Expect(len(got)).To(BeNumerically("<=", 5))
+							}
+						} else {
+							Expect(i.SeekFirst()).To(BeTrue())
+							for i.Next(cesium.AutoSpan) {
+								for _, s := range i.Value().RawSeries() {
+									got = append(got, s.Unmarshal[int64]()...)
+								}
+								Expect(len(got)).To(BeNumerically("<=", 5))
+							}
+						}
+						Expect(i.Close()).To(Succeed())
+						Expect(got).To(Equal([]int64{10, 20, 30, 40, 50}))
+					},
+					Entry("Next, one sample per chunk", int64(1), false),
+					Entry("Next, two samples per chunk", int64(2), false),
+					Entry("Next, three samples per chunk", int64(3), false),
+					Entry("Prev, one sample per chunk", int64(1), true),
+					Entry("Prev, two samples per chunk", int64(2), true),
+					Entry("Prev, three samples per chunk", int64(3), true),
+				)
+
 				It("Should continue from a chunked Prev across domains", func(
 					ctx SpecContext,
 				) {
