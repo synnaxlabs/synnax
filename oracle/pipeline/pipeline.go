@@ -22,7 +22,6 @@ package pipeline
 import (
 	"context"
 	"maps"
-	"os"
 	"runtime"
 	"sort"
 	"sync"
@@ -255,8 +254,7 @@ func readAndFormat(ctx context.Context, r *Result, opts Options, workers int) er
 			if err := gctx.Err(); err != nil {
 				return err
 			}
-			abs := paths.Resolve(rel, opts.RepoRoot)
-			raw, err := os.ReadFile(abs)
+			raw, err := paths.ReadFile(rel, opts.RepoRoot)
 			if err != nil {
 				return errors.Wrapf(err, "read schema %s", rel)
 			}
