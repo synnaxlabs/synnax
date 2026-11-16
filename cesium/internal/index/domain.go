@@ -165,7 +165,7 @@ func (i *Domain) seekDistanceStart(
 	// discontinuous, and we return early if the user doesn't want discontinuous
 	// results.
 	if !effectiveDomainTR.ContainsRange(tr) && continuous {
-		return effectiveDomainTR, false, newDiscontinuousTRError(tr)
+		return telem.TimeRange{}, false, newDiscontinuousTRError(tr)
 	}
 	// If the time range is zero, then the distance is zero.
 	return effectiveDomainTR, !tr.Span().IsZero(), nil
@@ -694,7 +694,7 @@ func (i *Domain) seekLastDomain(
 ) (telem.TimeStamp, int64, error) {
 	absOffset := -offset
 	if !iter.SeekLast(ctx) {
-		return ref, 0, NewDiscontinuousStampError(ref)
+		return 0, 0, NewDiscontinuousStampError(ref)
 	}
 
 	effectiveDomainBounds, effectiveDomainLen := resolveBackwardEffectiveDomainTR(iter)
@@ -705,7 +705,7 @@ func (i *Domain) seekLastDomain(
 
 	if (!effectiveDomainBounds.ContainsStamp(ref)) ||
 		(continuous && absOffset >= effectiveDomainLen) {
-		return ref, 0, newDiscontinuousOffsetError(offset, effectiveDomainLen)
+		return 0, 0, newDiscontinuousOffsetError(offset, effectiveDomainLen)
 	}
 
 	if !iter.SeekLast(ctx) {
