@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, deep, patch, type record, zod } from "@synnaxlabs/x";
+import { caseconv, deep, narrow, patch, type record, zod } from "@synnaxlabs/x";
 import { current, type Draft, isDraft, produce } from "immer";
 import { z } from "zod";
 
@@ -49,17 +49,43 @@ export interface ReduceAllResult<S, A> {
  */
 export const snapshotDraft = <T>(v: T): T => (isDraft(v) ? current(v as Draft<T>) : v);
 
+// The slot that holds one part of a path in a node: a field of an object, or the index
+// of the list entry with that key.
+const slotOf = (node: record.Unknown, part: string): string | number =>
+  Array.isArray(node)
+    ? node.findIndex((e: unknown) => narrow.isObject(e) && e.key === part)
+    : part;
+
+// Parses the value that a set or insert placed in the document through the schema at
+// its path, so a value such as a TimeStamp holds its class. The parse runs after the
+// apply, which copies the value and drops its classes. A value that fails its schema
+// stays as it is, since a form holds an invalid value in the cache until it passes.
+const decodePlaced = (doc: record.Unknown, action: patch.Action, schema: z.ZodType) => {
+  if (action.type !== "set" && action.type !== "insert") return;
+  const path = patch.pathOf(action);
+  const valueZ = zod.getFieldSchema(schema, path.join(deep.SEPARATOR), {
+    optional: true,
+    values: doc,
+  });
+  if (valueZ == null) return;
+  const parent = path
+    .slice(0, -1)
+    .reduce((node, part) => node[slotOf(node, part)] as record.Unknown, doc);
+  const slot = slotOf(parent, path[path.length - 1]);
+  const decoded = valueZ.safeParse(parent[slot]);
+  if (decoded.success) parent[slot] = decoded.data;
+};
+
 const applyInverse = <S extends object>(
   state: Draft<S>,
   action: patch.Action,
   schema: z.ZodType,
 ): patch.Action[] => {
   const opts = { schema, data: state };
-  const inverse = patch.apply(
-    state as record.Unknown,
-    patch.snakeToCamel(action, opts),
-    { snapshot: snapshotDraft },
-  );
+  const doc = state as record.Unknown;
+  const camel = patch.snakeToCamel(action, opts);
+  const inverse = patch.apply(doc, camel, { snapshot: snapshotDraft });
+  if (inverse.length > 0) decodePlaced(doc, camel, schema);
   return inverse.map((a) => patch.camelToSnake(a, opts));
 };
 
@@ -68,7 +94,8 @@ const applyInverse = <S extends object>(
  * Core stores, with snake_case keys, and the draft holds the camelCase form that the
  * client decodes. The result targets the path that the action changes, and holds the
  * inverse actions in the form the Core stores.
- * @param schema - The document's schema, which names the keys that keep their case.
+ * @param schema - The document's schema, which names the keys that keep their case and
+ * decodes the value that the action places.
  * @throws {Error} if the document cannot hold the action.
  */
 export const applyPath = <S extends object>(
@@ -85,7 +112,8 @@ export const applyPath = <S extends object>(
  * Applies a path action to an entry of the map at root in a draft of a cached document,
  * such as one element config of a schematic. The result targets that entry.
  * @param root - The path of the map.
- * @param schema - The document's schema, which names the keys that keep their case.
+ * @param schema - The document's schema, which names the keys that keep their case and
+ * decodes the value that the action places.
  * @throws {Error} if the action's path does not reach an entry of the map, or if the
  * document cannot hold the action.
  */
