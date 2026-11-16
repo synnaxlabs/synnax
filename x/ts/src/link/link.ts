@@ -57,16 +57,20 @@ export interface Span extends Link {
   labeled: boolean;
 }
 
+// A stack trace adds a line and a column to a path, and the file name has neither.
+const positionRegex = /(?::\d+){1,2}$/;
+
 const find = (text: string): Omit<Span, "labeled">[] =>
   Array.from(text.matchAll(embeddedRegex), (match) => {
     const { 1: url, 2: addressLead, 3: address, 4: pathLead, 5: path, index } = match;
     const start = index + (addressLead ?? pathLead ?? "").length;
     const raw = url ?? address ?? path;
-    let scheme = "";
-    if (address != null) scheme = "http://";
-    else if (raw.startsWith("www.")) scheme = "https://";
+    let target = raw;
+    if (address != null) target = `http://${raw}`;
+    else if (path != null) target = raw.replace(positionRegex, "");
+    else if (raw.startsWith("www.")) target = `https://${raw}`;
     const kind: Kind = path == null ? "url" : "path";
-    return { start, end: start + raw.length, kind, target: scheme + raw };
+    return { start, end: start + raw.length, kind, target };
   });
 
 const labelRegex = /\[([^[\]]+)\]\($/;

@@ -213,6 +213,14 @@ describe("parse", () => {
       ]);
     });
 
+    it.each([
+      ["a line", "/app/main.go:42", "/app/main.go"],
+      ["a line and a column", "/app/index.js:10:5", "/app/index.js"],
+      ["a line after a Windows path", "C:\\src\\main.py:42", "C:\\src\\main.py"],
+    ])("should leave %s out of the target of a path", (_, path, target) => {
+      expect(links(`at ${path} here`)).toEqual([[path, target]]);
+    });
+
     it("should end a path at a space", () => {
       expect(links("open /var/log/my run.log")).toEqual([
         ["/var/log/my", "/var/log/my"],
