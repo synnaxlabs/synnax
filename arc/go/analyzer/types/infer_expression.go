@@ -178,36 +178,10 @@ func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types
 	}
 	if len(multiplicatives) > 1 {
 		checkMinusSpacing(ctx)
-		firstType := InferMultiplicative(ctx.Child(multiplicatives[0]))
-		isSeries := firstType.Kind == types.KindSeries
-		elemType := firstType.Unwrap()
-
-		for i := 1; i < len(multiplicatives); i++ {
-			nextType := InferMultiplicative(ctx.Child(multiplicatives[i]))
-			if nextType.Kind == types.KindSeries {
-				isSeries = true
-				nextElem := nextType.Unwrap()
-				if nextElem.Kind != types.KindVariable {
-					elemType = nextElem
-				}
-				bothConcrete := elemType.Kind != types.KindVariable &&
-					nextElem.Kind != types.KindVariable
-				if bothConcrete && !Compatible(elemType, nextElem) {
-					break
-				}
-			} else {
-				var earlyReturn bool
-				elemType, earlyReturn = inferBinaryType(elemType, nextType.Unwrap())
-				if earlyReturn {
-					break
-				}
-			}
-		}
-		resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
-		ctx.TypeMap[ctx.AST] = resultType
-		return resultType
 	}
-	resultType := InferMultiplicative(ctx.Child(multiplicatives[0]))
+	resultType := inferOperandChain(len(multiplicatives), func(i int) types.Type {
+		return InferMultiplicative(ctx.Child(multiplicatives[i]))
+	})
 	ctx.TypeMap[ctx.AST] = resultType
 	return resultType
 }
@@ -219,43 +193,46 @@ func InferMultiplicative(
 	if len(unaries) == 0 {
 		return types.Type{}
 	}
-	if len(unaries) > 1 {
-		firstType := InferFromUnaryExpression(ctx.Child(unaries[0]))
-		isSeries := firstType.Kind == types.KindSeries
-		elemType := firstType.Unwrap()
-
-		for i := 1; i < len(unaries); i++ {
-			nextType := InferFromUnaryExpression(ctx.Child(unaries[i]))
-			if nextType.Kind == types.KindSeries {
-				isSeries = true
-				nextElem := nextType.Unwrap()
-				if nextElem.Kind != types.KindVariable {
-					elemType = nextElem
-				}
-				bothConcrete := elemType.Kind != types.KindVariable &&
-					nextElem.Kind != types.KindVariable
-				if bothConcrete && !Compatible(elemType, nextElem) {
-					resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
-					ctx.TypeMap[ctx.AST] = resultType
-					return resultType
-				}
-			} else {
-				var earlyReturn bool
-				elemType, earlyReturn = inferBinaryType(elemType, nextType.Unwrap())
-				if earlyReturn {
-					resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
-					ctx.TypeMap[ctx.AST] = resultType
-					return resultType
-				}
-			}
-		}
-		resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
-		ctx.TypeMap[ctx.AST] = resultType
-		return resultType
-	}
-	resultType := InferFromUnaryExpression(ctx.Child(unaries[0]))
+	resultType := inferOperandChain(len(unaries), func(i int) types.Type {
+		return InferFromUnaryExpression(ctx.Child(unaries[i]))
+	})
 	ctx.TypeMap[ctx.AST] = resultType
 	return resultType
+}
+
+// inferOperandChain infers the type of n operands joined by binary operators. It
+// stops inferring operands at the first pair of concrete types that do not match.
+func inferOperandChain(n int, inferOperand func(i int) types.Type) types.Type {
+	firstType := inferOperand(0)
+	if n == 1 {
+		return firstType
+	}
+	isSeries := firstType.Kind == types.KindSeries
+	elemType := firstType.Unwrap()
+	for i := 1; i < n; i++ {
+		nextType := inferOperand(i)
+		if nextType.Kind != types.KindSeries {
+			var mismatch bool
+			if elemType, mismatch = inferBinaryType(
+				elemType,
+				nextType.Unwrap(),
+			); mismatch {
+				break
+			}
+			continue
+		}
+		isSeries = true
+		nextElem := nextType.Unwrap()
+		if nextElem.Kind != types.KindVariable {
+			elemType = nextElem
+		}
+		bothConcrete := elemType.Kind != types.KindVariable &&
+			nextElem.Kind != types.KindVariable
+		if bothConcrete && !Compatible(elemType, nextElem) {
+			break
+		}
+	}
+	return lo.Ternary(isSeries, types.Series(elemType), elemType)
 }
 
 func inferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type {
@@ -355,20 +332,26 @@ func inferPrimaryType(
 		return InferFromExpression(ctx.Child(expr))
 	}
 	if typeCast := ctx.AST.TypeCast(); typeCast != nil {
-		if typeCtx := typeCast.Type_(); typeCtx != nil {
-			// bool conversions are rejected, so the cast has no type.
-			if prim := typeCtx.PrimitiveType(); prim != nil && prim.BOOL() != nil {
-				return types.Type{}
-			}
-			// Analysis reports a type that does not infer.
-			t, err := InferFromTypeContext(typeCtx)
-			if err != nil {
-				return types.Type{}
-			}
-			return t
-		}
+		return inferTypeCast(typeCast)
 	}
 	return types.Type{}
+}
+
+func inferTypeCast(typeCast parser.ITypeCastContext) types.Type {
+	typeCtx := typeCast.Type_()
+	if typeCtx == nil {
+		return types.Type{}
+	}
+	// bool conversions are rejected, so the cast has no type.
+	if prim := typeCtx.PrimitiveType(); prim != nil && prim.BOOL() != nil {
+		return types.Type{}
+	}
+	// Analysis reports a type that does not infer.
+	t, err := InferFromTypeContext(typeCtx)
+	if err != nil {
+		return types.Type{}
+	}
+	return t
 }
 
 // inferConstantType gives each reference to a module constant its own type variable,

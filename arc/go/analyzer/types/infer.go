@@ -24,17 +24,7 @@ func InferFromTypeContext(ctx parser.ITypeContext) (types.Type, error) {
 		return types.Type{}, nil
 	}
 	if primitive := ctx.PrimitiveType(); primitive != nil {
-		t, err := inferPrimitiveType(primitive)
-		if err != nil {
-			return types.Type{}, err
-		}
-		if unitSuffix := ctx.UnitSuffix(); unitSuffix != nil {
-			t, err = applyUnitSuffix(t, unitSuffix)
-			if err != nil {
-				return types.Type{}, err
-			}
-		}
-		return t, nil
+		return inferUnitPrimitive(primitive, ctx.UnitSuffix())
 	}
 	if channel := ctx.ChannelType(); channel != nil {
 		return inferChannelType(channel)
@@ -43,6 +33,20 @@ func InferFromTypeContext(ctx parser.ITypeContext) (types.Type, error) {
 		return inferSeriesType(series)
 	}
 	return types.Type{}, errors.New("could not determine type")
+}
+
+func inferUnitPrimitive(
+	primitive parser.IPrimitiveTypeContext,
+	unitSuffix parser.IUnitSuffixContext,
+) (types.Type, error) {
+	t, err := inferPrimitiveType(primitive)
+	if err != nil {
+		return types.Type{}, err
+	}
+	if unitSuffix == nil {
+		return t, nil
+	}
+	return applyUnitSuffix(t, unitSuffix)
 }
 
 func applyUnitSuffix(t types.Type, ctx parser.IUnitSuffixContext) (types.Type, error) {
@@ -122,15 +126,9 @@ func inferChannelType(ctx parser.IChannelTypeContext) (types.Type, error) {
 	var valueType types.Type
 	var err error
 	if primitive := ctx.PrimitiveType(); primitive != nil {
-		valueType, err = inferPrimitiveType(primitive)
+		valueType, err = inferUnitPrimitive(primitive, ctx.UnitSuffix())
 		if err != nil {
 			return types.Type{}, err
-		}
-		if unitSuffix := ctx.UnitSuffix(); unitSuffix != nil {
-			valueType, err = applyUnitSuffix(valueType, unitSuffix)
-			if err != nil {
-				return types.Type{}, err
-			}
 		}
 	} else if series := ctx.SeriesType(); series != nil {
 		valueType, err = inferSeriesType(series)
@@ -143,15 +141,9 @@ func inferChannelType(ctx parser.IChannelTypeContext) (types.Type, error) {
 
 func inferSeriesType(ctx parser.ISeriesTypeContext) (types.Type, error) {
 	if primitive := ctx.PrimitiveType(); primitive != nil {
-		valueType, err := inferPrimitiveType(primitive)
+		valueType, err := inferUnitPrimitive(primitive, ctx.UnitSuffix())
 		if err != nil {
 			return types.Type{}, err
-		}
-		if unitSuffix := ctx.UnitSuffix(); unitSuffix != nil {
-			valueType, err = applyUnitSuffix(valueType, unitSuffix)
-			if err != nil {
-				return types.Type{}, err
-			}
 		}
 		return types.Series(valueType), nil
 	}

@@ -56,20 +56,10 @@ func Check(
 	t2Wrapped := t2.Kind == types.KindChan || t2.Kind == types.KindSeries
 	if t1Wrapped != t2Wrapped && t1.Kind != types.KindVariable &&
 		t2.Kind != types.KindVariable {
-		resolved1 := cs.ApplySubstitutions(t1)
-		resolved2 := cs.ApplySubstitutions(t2)
-		if reason != "" {
-			return errors.Newf(
-				"type mismatch in %s: cannot assign %v to %v",
-				reason,
-				resolved2,
-				resolved1,
-			)
-		}
-		return errors.Newf(
-			"type mismatch: cannot assign %v to %v",
-			resolved2,
-			resolved1,
+		return wrapMismatchError(
+			cs.ApplySubstitutions(t1),
+			cs.ApplySubstitutions(t2),
+			reason,
 		)
 	}
 
@@ -164,4 +154,17 @@ func concreteTypeForHint(t types.Type) string {
 		return "f64"
 	}
 	return t.String()
+}
+
+// wrapMismatchError reports a value assigned across a channel or series wrapper.
+func wrapMismatchError(target, value types.Type, reason string) error {
+	if reason != "" {
+		return errors.Newf(
+			"type mismatch in %s: cannot assign %v to %v",
+			reason,
+			value,
+			target,
+		)
+	}
+	return errors.Newf("type mismatch: cannot assign %v to %v", value, target)
 }
