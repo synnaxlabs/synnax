@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var errRoutineFailed = errors.New("routine failed")
@@ -445,6 +446,20 @@ var _ = Describe("Signal", func() {
 			Expect(
 				time.Since(start),
 			).To(BeNumerically("~", 511*time.Millisecond, 150*time.Millisecond))
+		})
+	})
+
+	Describe("Breaker configuration", func() {
+		It("Should return an invalid config error from Wait", func() {
+			ctx, cancel := signal.Isolated()
+			defer cancel()
+			var called atomic.Bool
+			ctx.Go(func(context.Context) error {
+				called.Store(true)
+				return nil
+			}, signal.WithRetryScale(0.5))
+			Expect(ctx.Wait()).To(MatchError(validate.ErrValidation))
+			Expect(called.Load()).To(BeFalse())
 		})
 	})
 
