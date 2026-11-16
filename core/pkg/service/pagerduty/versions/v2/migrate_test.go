@@ -20,7 +20,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v2"
 	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v0"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -117,7 +117,8 @@ var _ = Describe("Migrate", func() {
 		var db *gorp.DB
 		BeforeEach(func() { db = DeferClose(gorp.Wrap(memkv.New())) })
 
-		// store writes a v1 config and, unless orphan, the task that owns it.
+		// store writes a v1 config and, unless orphan, the task that owns it. The task
+		// has the v3 shape: stored tasks have it when the migration reads them as v2.
 		store := func(ctx SpecContext, name, routingKey string, orphan bool) uuid.UUID {
 			GinkgoHelper()
 			var old v1.TaskConfig
@@ -126,9 +127,10 @@ var _ = Describe("Migrate", func() {
 				To(Succeed())
 			if !orphan {
 				Expect(gorp.WrapWriter[task.Key, task.Task](db).Set(ctx, task.Task{
-					Key:  old.Key,
-					Name: name,
-					Type: "pagerduty_alert",
+					Key:   old.Key,
+					Name:  name,
+					Type:  "pagerduty_alert",
+					Range: new(uuid.New()),
 				})).To(Succeed())
 			}
 			return old.Key
