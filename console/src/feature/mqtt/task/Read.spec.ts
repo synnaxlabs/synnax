@@ -9,6 +9,7 @@
 
 import { icd, mqtt, type rack } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { DataType, type payload, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -22,6 +23,7 @@ import {
   deployAndAwaitTask,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
+import { Session } from "@/session";
 import { findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -546,6 +548,23 @@ describe("MQTT read form", () => {
       expect(screen.getByRole("treeitem", { name: "status" })).toBeTruthy();
       expect(screen.getByRole("checkbox", { name: "Read temperature" })).toBeTruthy();
       expect(screen.getByRole("checkbox", { name: "Read mode" })).toBeTruthy();
+    });
+
+    it("should open the editor at the selected message", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const status = await addMessage(
+        entry,
+        "status",
+        [createField("mode", "string")],
+        KIND_MATCH,
+      );
+      const { store } = await renderRead({ entries: [entry] });
+      fireEvent.click(await screen.findByRole("treeitem", { name: "status" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
+      const { windows } = store.getState()[Session.ICD.SLICE_NAME];
+      expect(windows[MAIN_WINDOW]?.[entry.icd]?.selected).toEqual([status.key]);
     });
 
     it("should add a message that matches at the pointer of the others", async () => {

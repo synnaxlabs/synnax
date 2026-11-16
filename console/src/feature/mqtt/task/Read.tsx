@@ -84,6 +84,7 @@ import { ICD } from "@/platform/icd";
 import { Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+import { Session } from "@/session";
 
 const root = deep.path<Task.Values<ReadSchemas>>();
 
@@ -887,16 +888,23 @@ const FieldItem = ({
 
 interface OpenInEditorProps {
   icdKey: icd.Key;
+  /** The message the editor selects. */
+  message: icd.MessageKey;
 }
 
-const OpenInEditor = ({ icdKey }: OpenInEditorProps): ReactElement => {
+const OpenInEditor = ({ icdKey, message }: OpenInEditorProps): ReactElement => {
   const openTab = Panel.useOpenTab();
+  const dispatch = Session.useDispatch();
+  const handleClick = () => {
+    dispatch(Session.ICD.setSelected({ key: icdKey, selected: [message] }));
+    openTab({ variant: "resource", resource: icd.resourceID(icdKey) });
+  };
   return (
     <Button.Button
       variant="text"
       size="small"
       tooltip="Open in the ICD editor"
-      onClick={() => openTab({ variant: "resource", resource: icd.resourceID(icdKey) })}
+      onClick={handleClick}
     >
       <Icon.Library />
       Open in editor
@@ -946,7 +954,7 @@ const FieldDetails: FC<FieldDetailsProps> = ({ path, read, field, format, device
         <PForm.Form<typeof PICD.formSchema> {...format}>
           <ICD.JSONField
             path={fieldsPath(message)[field.key]}
-            actions={<OpenInEditor icdKey={icdKey} />}
+            actions={<OpenInEditor icdKey={icdKey} message={message} />}
           />
         </PForm.Form>
         <PForm.Section title="Channel">
@@ -1010,7 +1018,10 @@ const MessageSections: FC<MessageSectionsProps> = ({ path, read, format, device 
         </PForm.Section>
       )}
       {message != null && message.payload.format !== "json" && (
-        <PForm.Section title="Message" actions={<OpenInEditor icdKey={icdKey} />}>
+        <PForm.Section
+          title="Message"
+          actions={<OpenInEditor icdKey={icdKey} message={message.key} />}
+        >
           <Text.Text color={9}>
             The format of this message is not JSON. Open it to change its format.
           </Text.Text>
@@ -1180,7 +1191,7 @@ const MessageDetails: FC<MessageDetailsProps> = ({
               actions={
                 <>
                   <AddField onClick={onAddField} />
-                  <OpenInEditor icdKey={icdKey} />
+                  <OpenInEditor icdKey={icdKey} message={key} />
                 </>
               }
             >

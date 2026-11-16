@@ -95,13 +95,13 @@ machine reaches it through.
 Main window only, 250ms debounce. Every slice is declared in exactly one scope in
 `PERSIST_SCOPES`, alongside the schema its stored bytes are parsed through:
 
-| Scope       | Slices                                            |
-| ----------- | ------------------------------------------------- |
-| `global`    | account, core, color, theme                       |
-| `core`      | project, range, status                            |
-| `project`   | drift                                             |
-| `window`    | arc, lineplot, log, nav, panels, schematic, table |
-| `transient` | analytics, haul, link, persist — never written    |
+| Scope       | Slices                                              |
+| ----------- | --------------------------------------------------- |
+| `global`    | account, core, color, theme                         |
+| `core`      | project, range, status                              |
+| `project`   | drift                                               |
+| `window`    | arc, lineplot, log, nav, panels, schematic, table   |
+| `transient` | analytics, haul, icd, link, persist — never written |
 
 `Persist.open` throws when a slice is in none of them, so a new slice forces a decision
 about its durability.
