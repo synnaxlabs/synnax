@@ -253,7 +253,7 @@ var domainDirectives = map[string]string{
 var _ = Describe("Analyze", func() {
 	It(
 		"Should resolve the types of the source under the namespace",
-		func(ctx SpecContext) {
+		func() {
 			table, diag := Analyze(
 				"User struct {\n  name string\n}\n", "user", NewMockFileLoader(),
 			)
@@ -264,7 +264,7 @@ var _ = Describe("Analyze", func() {
 
 	It(
 		"Should return a nil table when the source fails to analyze",
-		func(ctx SpecContext) {
+		func() {
 			table, diag := Analyze(
 				"User struct {", "user", NewMockFileLoader(),
 			)
@@ -281,14 +281,14 @@ var _ = Describe("MustGenerateRequest", func() {
 		loader = NewMockFileLoader()
 	})
 
-	It("should fail the spec when the source does not analyze", func(ctx SpecContext) {
+	It("should fail the spec when the source does not analyze", func() {
 		failures := InterceptGomegaFailures(func() {
 			MustGenerateRequest("User struct {", "bad", loader)
 		})
 		Expect(failures).To(ConsistOf(ContainSubstring("failed to analyze source")))
 	})
 
-	It("should return a request with resolved types", func(ctx SpecContext) {
+	It("should return a request with resolved types", func() {
 		source := fmt.Sprintf(simpleStructTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(source, "user", loader)
 		Expect(req).NotTo(BeNil())
@@ -296,67 +296,67 @@ var _ = Describe("MustGenerateRequest", func() {
 		Expect(req.RepoRoot).To(Equal("/mock/repo"))
 	})
 
-	It("should resolve all primitive types", func(ctx SpecContext) {
+	It("should resolve all primitive types", func() {
 		source := fmt.Sprintf(allPrimitivesTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(source, "all", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
-	It("should resolve enum definitions", func(ctx SpecContext) {
+	It("should resolve enum definitions", func() {
 		source := fmt.Sprintf(intEnumTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(source, "status", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
-	It("should resolve struct extension", func(ctx SpecContext) {
+	It("should resolve struct extension", func() {
 		source := fmt.Sprintf(structExtensionTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(source, "ext", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
-	It("should resolve optional fields", func(ctx SpecContext) {
+	It("should resolve optional fields", func() {
 		source := fmt.Sprintf(optionalFieldsTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(source, "opt", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
-	It("should resolve array types", func(ctx SpecContext) {
+	It("should resolve array types", func() {
 		source := fmt.Sprintf(arrayTypesTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(source, "arr", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
-	It("should resolve generic structs", func(ctx SpecContext) {
+	It("should resolve generic structs", func() {
 		source := fmt.Sprintf(genericStructTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(source, "gen", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
-	It("should resolve field omission in extension", func(ctx SpecContext) {
+	It("should resolve field omission in extension", func() {
 		source := fmt.Sprintf(fieldOmissionTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(source, "omit", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
-	It("should resolve type aliases", func(ctx SpecContext) {
+	It("should resolve type aliases", func() {
 		source := fmt.Sprintf(typeAliasTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(source, "alias", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
-	It("should resolve distinct types", func(ctx SpecContext) {
+	It("should resolve distinct types", func() {
 		source := fmt.Sprintf(distinctTypeTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(source, "distinct", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
-	It("should resolve multiple structs in one schema", func(ctx SpecContext) {
+	It("should resolve multiple structs in one schema", func() {
 		source := fmt.Sprintf(multipleStructsTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(source, "multi", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
 	})
 
-	It("should resolve struct references", func(ctx SpecContext) {
+	It("should resolve struct references", func() {
 		source := fmt.Sprintf(structReferenceTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(source, "ref", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
@@ -364,7 +364,7 @@ var _ = Describe("MustGenerateRequest", func() {
 })
 
 var _ = Describe("MustGenerateMulti", func() {
-	It("should generate from every file on the loader", func(ctx SpecContext) {
+	It("should generate from every file on the loader", func() {
 		loader := NewMockFileLoader()
 		loader.Add(
 			"schemas/user",
@@ -376,7 +376,7 @@ var _ = Describe("MustGenerateMulti", func() {
 		Expect(p.lastReq.Resolutions).NotTo(BeNil())
 	})
 
-	It("should fail the spec when a file does not analyze", func(ctx SpecContext) {
+	It("should fail the spec when a file does not analyze", func() {
 		loader := NewMockFileLoader()
 		loader.Add("schemas/bad", "User struct {")
 		failures := InterceptGomegaFailures(func() {
@@ -393,7 +393,7 @@ var _ = Describe("MustGenerate", func() {
 		loader = NewMockFileLoader()
 	})
 
-	It("should return a response with generated files", func(ctx SpecContext) {
+	It("should return a response with generated files", func() {
 		p := &mockPlugin{
 			files: []plugin.File{
 				{Path: "out/user.go", Content: []byte("package user")},
@@ -406,7 +406,7 @@ var _ = Describe("MustGenerate", func() {
 		Expect(resp.Files[0].Path).To(Equal("out/user.go"))
 	})
 
-	It("should pass the repo root through to the request", func(ctx SpecContext) {
+	It("should pass the repo root through to the request", func() {
 		p := &reqCapturingPlugin{files: []plugin.File{
 			{Path: "out/user.go", Content: []byte("package user")},
 		}}
@@ -416,7 +416,7 @@ var _ = Describe("MustGenerate", func() {
 		Expect(p.lastReq.RepoRoot).To(Equal("/mock/repo"))
 	})
 
-	It("should pass resolutions to the plugin", func(ctx SpecContext) {
+	It("should pass resolutions to the plugin", func() {
 		p := &reqCapturingPlugin{files: []plugin.File{
 			{Path: "out/user.go", Content: []byte("package user")},
 		}}
@@ -427,7 +427,7 @@ var _ = Describe("MustGenerate", func() {
 
 	It(
 		"should return an empty response when plugin generates no files",
-		func(ctx SpecContext) {
+		func() {
 			p := &mockPlugin{files: []plugin.File{}}
 			source := fmt.Sprintf(simpleStructTemplate, domainDirectives["go"])
 			resp := MustGenerate(source, "user", loader, p)
@@ -435,7 +435,7 @@ var _ = Describe("MustGenerate", func() {
 		},
 	)
 
-	It("should return multiple generated files", func(ctx SpecContext) {
+	It("should return multiple generated files", func() {
 		p := &mockPlugin{
 			files: []plugin.File{
 				{Path: "out/user.go", Content: []byte("package user")},

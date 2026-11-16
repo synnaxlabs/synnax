@@ -30,7 +30,7 @@ var _ = Describe("Type Definition Generation", func() {
 	Describe("Distinct types with validation", func() {
 		It(
 			"Should apply min_length validation to a distinct string type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -46,7 +46,7 @@ var _ = Describe("Type Definition Generation", func() {
 
 		It(
 			"Should emit ts to_number wrapper on a distinct numeric type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -62,7 +62,7 @@ var _ = Describe("Type Definition Generation", func() {
 
 		It(
 			"Should emit ts to_string wrapper on a distinct numeric type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -80,7 +80,7 @@ var _ = Describe("Type Definition Generation", func() {
 	Describe("Union field defaults", func() {
 		It(
 			"Should prefault a union-typed field with its variant discriminator",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -107,7 +107,7 @@ var _ = Describe("Type Definition Generation", func() {
 	Describe("Aliased array types", func() {
 		It(
 			"Should render an array alias as a defaulted z.array",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -125,7 +125,7 @@ var _ = Describe("Type Definition Generation", func() {
 	Describe("Alias schema type annotations", func() {
 		It(
 			"Should annotate an alias-typed field with typeof on the alias schema",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 

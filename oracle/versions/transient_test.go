@@ -16,9 +16,7 @@ import (
 )
 
 var _ = Describe("Transient", func() {
-	It("Should mark members reachable only through omitted fields", func(
-		ctx SpecContext,
-	) {
+	It("Should mark members reachable only through omitted fields", func() {
 		r := resolverFor(map[string]string{
 			"schemas/synnax/versions/task/v0.oracle": `
 Task struct {
@@ -69,9 +67,7 @@ Ref = A
 		))
 	})
 
-	It("Should report nothing for a file without marshal declarations", func(
-		ctx SpecContext,
-	) {
+	It("Should report nothing for a file without marshal declarations", func() {
 		r := resolverFor(map[string]string{
 			"schemas/synnax/versions/task/v0.oracle": `
 Task struct {
@@ -90,9 +86,7 @@ Details struct {
 		Expect(f.Transient()).To(BeEmpty())
 	})
 
-	It("Should keep members reachable through a persisted path stored", func(
-		ctx SpecContext,
-	) {
+	It("Should keep members reachable through a persisted path stored", func() {
 		r := resolverFor(map[string]string{
 			"schemas/synnax/versions/task/v0.oracle": `
 Task struct {
@@ -114,9 +108,7 @@ Details struct {
 		Expect(f.Transient()).To(BeEmpty())
 	})
 
-	It("Should not resolve a dependency that shares the resource name locally", func(
-		ctx SpecContext,
-	) {
+	It("Should not resolve a dependency that shares the resource name locally", func() {
 		r := resolverFor(map[string]string{
 			"schemas/x/versions/task/v0.oracle": "Details struct {\n\tcode int64\n}\n",
 			"schemas/synnax/versions/task/v0.oracle": `

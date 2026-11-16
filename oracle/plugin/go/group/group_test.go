@@ -60,7 +60,7 @@ var _ = Describe("Go Group Plugin", func() {
 		Expect(p.Requires()).To(Equal([]string{"go/types"}))
 	})
 
-	It("Should emit no files when no field carries @group", func(ctx SpecContext) {
+	It("Should emit no files when no field carries @group", func() {
 		resp := MustGenerate(`
 			import "schemas/group"
 
@@ -78,7 +78,7 @@ var _ = Describe("Go Group Plugin", func() {
 		Expect(resp.Files).To(BeEmpty())
 	})
 
-	It("Should emit the rule of each member next to the group", func(ctx SpecContext) {
+	It("Should emit the rule of each member next to the group", func() {
 		resp := MustGenerate(`
 			import "schemas/group"
 
@@ -124,7 +124,7 @@ var _ = Describe("Go Group Plugin", func() {
 
 	It(
 		"Should name the resource types unqualified in their own package",
-		func(ctx SpecContext) {
+		func() {
 			loader.Add("schemas/group", `
 			@go output "core/pkg/service/group"
 
@@ -160,7 +160,7 @@ var _ = Describe("Go Group Plugin", func() {
 		},
 	)
 
-	It("Should return the error of a malformed @group", func(ctx SpecContext) {
+	It("Should return the error of a malformed @group", func() {
 		req := MustGenerateRequest(`
 			import "schemas/group"
 

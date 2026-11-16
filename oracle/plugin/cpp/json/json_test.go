@@ -46,7 +46,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 	})
 
 	Describe("Generate", func() {
-		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+		It("Should generate the recursive Where of a filter", func() {
 			AddFilterSchema(loader)
 			resp := MustGenerate(ThingFilter, "thing", loader, jsonPlugin)
 			ExpectContent(resp, "thing/json.gen.h").ToContain(
@@ -59,7 +59,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 		It(
 			"Should serialize type parameter fields through x::json",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 					@cpp output "x/cpp/thing"
 
@@ -83,7 +83,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		)
 
 		Context("field-level omit", func() {
-			It("Should leave out a field omitted in cpp", func(ctx SpecContext) {
+			It("Should leave out a field omitted in cpp", func() {
 				source := `
 					@go output "core/pkg/service/auth"
 					@cpp output "client/cpp/auth"
@@ -104,7 +104,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("field names ending in a digit", func() {
 			It(
 				"Should keep the schema name as the JSON key",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -128,7 +128,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 		DescribeTable(
 			"Should start the JSON of a struct as an object",
-			func(ctx SpecContext, decls string) {
+			func(decls string) {
 				source := `
 				@cpp output "client/cpp/types"
 			` + decls
@@ -149,7 +149,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("array alias fields (e.g., Params -> Param[])", func() {
 			It(
 				"Should generate correct parsing for array alias fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -180,7 +180,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should generate correct to_json for array alias fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -207,7 +207,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 				},
 			)
 
-			It("Should handle optional array alias fields", func(ctx SpecContext) {
+			It("Should handle optional array alias fields", func() {
 				source := `
 					@cpp output "client/cpp/types"
 
@@ -238,7 +238,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("self-referential types with indirect<T>", func() {
 			It(
 				"Should generate correct parsing for self-referential fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -263,7 +263,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should generate correct to_json for self-referential fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -284,7 +284,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 				},
 			)
 
-			It("Should handle mutually recursive types", func(ctx SpecContext) {
+			It("Should handle mutually recursive types", func() {
 				source := `
 					@cpp output "client/cpp/types"
 
@@ -308,7 +308,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should handle cycles through a distinct struct wrapper",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -334,7 +334,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should handle nested self-references via type arguments",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "arc/cpp/types"
 
@@ -359,7 +359,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("optional struct fields (non-self-referential)", func() {
 			It(
 				"Should generate correct to_json for optional struct fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -385,7 +385,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should generate correct parsing for optional struct fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -412,7 +412,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		})
 
 		Context("empty composite defaults", func() {
-			It("Should fall back to an empty map", func(ctx SpecContext) {
+			It("Should fall back to an empty map", func() {
 				source := `
 					@cpp output "client/cpp/task"
 
@@ -425,7 +425,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`parser.field<std::unordered_map<std::string, std::string>>("metadata", std::unordered_map<std::string, std::string>{})`)
 			})
-			It("Should fall back to an empty struct", func(ctx SpecContext) {
+			It("Should fall back to an empty struct", func() {
 				source := `
 					@cpp output "client/cpp/task"
 
@@ -442,7 +442,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`parser.field<Ports>("ports", Ports{})`)
 			})
-			It("Should fall back to an empty struct alias", func(ctx SpecContext) {
+			It("Should fall back to an empty struct alias", func() {
 				source := `
 					@cpp output "client/cpp/task"
 
@@ -461,7 +461,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`parser.field<Inputs>("inputs", Inputs{})`)
 			})
-			It("Should fall back to an empty array wrapper", func(ctx SpecContext) {
+			It("Should fall back to an empty array wrapper", func() {
 				source := `
 					@cpp output "client/cpp/task"
 
@@ -480,7 +480,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`parser.field<Params>("params", Params{})`)
 			})
-			It("Should fall back to a non-empty struct", func(ctx SpecContext) {
+			It("Should fall back to a non-empty struct", func() {
 				source := `
 					@cpp output "client/cpp/task"
 
@@ -499,7 +499,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					`parser.field<Ports>("ports", Ports{.index = 1, .rate = 2})`,
 				)
 			})
-			It("Should fall back to an int enum variant", func(ctx SpecContext) {
+			It("Should fall back to an int enum variant", func() {
 				source := `
 					@cpp output "client/cpp/task"
 
@@ -517,7 +517,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 				ExpectContent(resp, "json.gen.h").
 					ToContain(`parser.field<Mode>("mode", Mode::Off)`)
 			})
-			It("Should fall back to the current time", func(ctx SpecContext) {
+			It("Should fall back to the current time", func() {
 				loader.Add("schemas/telem", `
 					@cpp output "x/cpp/telem"
 
@@ -545,7 +545,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("map type handling", func() {
 			It(
 				"Should use std::unordered_map for Map types in json serialization",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -564,7 +564,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should serialize each value of a map of structs",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -587,7 +587,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should unwrap an optional map of structs",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -610,7 +610,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should stringify the numeric keys of a map of structs",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -630,7 +630,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should write the UUID keys of a map of structs as strings",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -650,7 +650,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should assign a map of scalars with string keys directly",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -666,7 +666,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should write a map of scalars with integer keys as an object",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -687,7 +687,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should unwrap an optional map of scalars with integer keys",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -706,7 +706,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should write the UUID keys of a map of scalars as strings",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -722,7 +722,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should write a generic map of scalars as an object",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -738,7 +738,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should defer the key check of a generic map of structs",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -757,7 +757,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 				},
 			)
 			DescribeTable("Should reject a map with an unsupported key",
-				func(ctx SpecContext, key, value string) {
+				func(key, value string) {
 					req := MustGenerateRequest(`
 					@cpp output "client/cpp/task"
 
@@ -785,7 +785,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should serialize a map of structs declared through an alias",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -809,7 +809,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should merge a parent into a child without iterating a temporary",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -829,7 +829,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should assign a map of primitives directly",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -848,7 +848,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("complex type structure from arc/types", func() {
 			It(
 				"Should handle the complete Type structure with FunctionProperties",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "arc/cpp/types"
 
@@ -892,7 +892,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("primitive array handling", func() {
 			It(
 				"Should generate simple assignment for primitive arrays",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -916,7 +916,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should serialize uuid arrays element by element",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -936,7 +936,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("struct arrays without alias", func() {
 			It(
 				"Should use to_array helper for struct array elements",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -963,7 +963,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("array wrapper distinct types", func() {
 			It(
 				"Should generate parse/to_json for array wrappers with primitive elements",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "arc/cpp/types"
 
@@ -986,7 +986,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should generate parse/to_json for array wrappers with struct elements",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "arc/cpp/types"
 
@@ -1013,7 +1013,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			DescribeTable(
 				"Should generate parse/to_json for fixed-size array wrappers",
-				func(ctx SpecContext, decls string) {
+				func(decls string) {
 					source := `
 					@cpp output "arc/cpp/types"
 				` + decls
@@ -1038,7 +1038,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should leave a fixed-size uint8 array to its hand-written header",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "arc/cpp/types"
 
@@ -1053,7 +1053,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("generic struct field type args", func() {
 			It(
 				"Should propagate type args to fields referencing generic structs",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "x/cpp/control"
 
@@ -1083,7 +1083,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should skip defaulted type args for non-generic structs",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "x/cpp/task"
 
@@ -1107,7 +1107,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("optional primitive defaults", func() {
 			It(
 				"Should parse optional primitives as std::optional",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -1132,7 +1132,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should leave empty optional fields out of the JSON",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -1166,7 +1166,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should wrap telem-typed numeric defaults in their constructors",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/telem", `
 					@cpp output "x/cpp/telem"
 
@@ -1199,7 +1199,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should wrap distinct string defaults in their constructors",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/telem", `
 					@cpp output "x/cpp/telem"
 
@@ -1228,7 +1228,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should wrap distinct numeric defaults in their constructors",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/telem", `
 					@cpp output "x/cpp/telem"
 
@@ -1263,7 +1263,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should parse optional uuid fields as std::optional",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -1280,7 +1280,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should parse optional signed integer fields as std::optional",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -1305,7 +1305,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("uuid detection through distinct and alias chains", func() {
 			It(
 				"Should detect a distinct type wrapping uuid and call to_json()",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -1324,7 +1324,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should detect a uuid via an alias chain and call to_json()",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/types"
 
@@ -1346,7 +1346,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("fixed-size uint8 array from another namespace", func() {
 			It(
 				"Should include the distinct-type-specific header, not json.gen.h, for a cross-namespace reference",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/crypto", `
 					@cpp output "x/cpp/crypto"
 
@@ -1382,7 +1382,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("cross-namespace struct extension", func() {
 			It(
 				"Should qualify the base type by namespace and include the base's json header",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/base", `
 					@cpp output "x/cpp/base"
 
@@ -1414,9 +1414,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		})
 
 		Context("schemas with the same file name", func() {
-			It("Should qualify the codecs of a schema with the same file name", func(
-				ctx SpecContext,
-			) {
+			It("Should qualify the codecs of a schema with the same file name", func() {
 				loader.Add("schemas/x/color", `
 					@cpp output "x/cpp/color"
 
@@ -1448,9 +1446,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		})
 
 		Context("parent omitted in C++", func() {
-			It("Should serialize an inline variant's inherited fields", func(
-				ctx SpecContext,
-			) {
+			It("Should serialize an inline variant's inherited fields", func() {
 				source := `
 					@go output "core/pkg/service/auth"
 					@cpp output "client/cpp/auth"
@@ -1477,7 +1473,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					ToNotContain("Record")
 			})
 
-			It("Should serialize the inherited fields", func(ctx SpecContext) {
+			It("Should serialize the inherited fields", func() {
 				source := `
 					@go output "core/pkg/service/auth"
 					@cpp output "client/cpp/auth"
@@ -1503,7 +1499,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("package with nothing to serialize", func() {
 			It(
 				"Should request deletion of json.gen.h instead of emitting a file",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/node"
 
@@ -1520,7 +1516,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should request deletion for packages whose types are all omitted",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "x/cpp/telem"
 
@@ -1540,7 +1536,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should include types.gen.h for references into scalar-only packages",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/node", `
 					@cpp output "client/cpp/node"
 
@@ -1566,7 +1562,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should include the header declared by @cpp include on a reference",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/node", `
 					@cpp output "client/cpp/node"
 
@@ -1610,7 +1606,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should qualify parse and to_json for a cross-namespace union field",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					import "schemas/scales"
 
@@ -1633,7 +1629,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should qualify parse and to_json for arrays of a cross-namespace union",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					import "schemas/scales"
 
@@ -1656,7 +1652,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should derive the namespace from the union in a union-only package",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					import "schemas/scales"
 
@@ -1678,7 +1674,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("cross-namespace alias targets", func() {
 			It(
 				"Should include the target's json header for an alias to a cross-namespace struct",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/common", `
 					@cpp output "client/cpp/common"
 
@@ -1708,7 +1704,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		Context("invalid output paths", func() {
 			It(
 				"Should error when a struct's output path escapes the repository",
-				func(ctx SpecContext) {
+				func() {
 					req := MustGenerateRequest(`
 					@cpp output "../escape"
 
@@ -1721,7 +1717,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should error when a distinct type's output path escapes the repository",
-				func(ctx SpecContext) {
+				func() {
 					req := MustGenerateRequest(`
 					@cpp output "../escape"
 
@@ -1734,7 +1730,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should error when a union's output path escapes the repository",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/scales", `
 					@cpp output "x/cpp/scales"
 
@@ -1758,7 +1754,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should return the paths with JSON content from ContentPaths",
-				func(ctx SpecContext) {
+				func() {
 					req := MustGenerateRequest(`
 					@cpp output "client/cpp/types"
 
@@ -1771,7 +1767,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should propagate collection errors from ContentPaths",
-				func(ctx SpecContext) {
+				func() {
 					req := MustGenerateRequest(`
 					@cpp output "../escape"
 
@@ -1784,7 +1780,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 			It(
 				"Should skip deletions for output paths outside the repository",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/outside", `
 					@cpp output "../outside"
 
@@ -1832,7 +1828,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should generate a parse dispatch and to_json overload for the union",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -1861,7 +1857,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should fall back to the defaulted variant when the field is absent",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -1885,7 +1881,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should parse inline variant fields directly on the variant struct",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -1908,7 +1904,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 		},
 	)
 
-	It("Should generate per-variant parse/to_json bodies", func(ctx SpecContext) {
+	It("Should generate per-variant parse/to_json bodies", func() {
 		source := `
 			@cpp output "out"
 
@@ -1934,7 +1930,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should parse through a union base struct from another namespace",
-		func(ctx SpecContext) {
+		func() {
 			loader.Add("schemas/common", `
 			@cpp output "x/cpp/common"
 
@@ -1964,7 +1960,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should dispatch a union-typed field through the free functions",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -1991,7 +1987,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should parse an optional union-typed field as std::optional",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -2017,7 +2013,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should parse defaulted fields with their schema defaults",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -2044,7 +2040,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should parse record fields with an empty default as an empty object",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -2063,7 +2059,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should parse defaulted distinct-typed fields with their schema defaults",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -2081,7 +2077,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 
 	It(
 		"Should wrap telem-typed numeric defaults in their constructors",
-		func(ctx SpecContext) {
+		func() {
 			loader.Add("schemas/telem", `
 			@cpp output "x/cpp/telem"
 
@@ -2104,7 +2100,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 		},
 	)
 
-	It("Should mint an id for create-defaulted string fields", func(ctx SpecContext) {
+	It("Should mint an id for create-defaulted string fields", func() {
 		source := `
 			@cpp output "out"
 
@@ -2122,7 +2118,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			)
 	})
 
-	It("Should mint a UUID for create-defaulted uuid fields", func(ctx SpecContext) {
+	It("Should mint a UUID for create-defaulted uuid fields", func() {
 		source := `
 			@cpp output "out"
 
@@ -2153,7 +2149,7 @@ var _ = Describe("C++ JSON Union Array Fields", func() {
 		jsonPlugin = json.New(json.Options{FileNamePattern: "json.gen.h"})
 	})
 
-	It("Should dispatch an array of unions element-by-element", func(ctx SpecContext) {
+	It("Should dispatch an array of unions element-by-element", func() {
 		source := `
 			@cpp output "out"
 

@@ -28,7 +28,7 @@ var _ = Describe("Edge Cases", func() {
 	})
 
 	Describe("Resource key zero values", func() {
-		It("Should emit a string zero for uuid keys", func(ctx SpecContext) {
+		It("Should emit a string zero for uuid keys", func() {
 			source := `
 				@ts output "out"
 
@@ -42,7 +42,7 @@ var _ = Describe("Edge Cases", func() {
 			Expect(content).To(ContainSubstring(`""`))
 		})
 
-		It("Should emit a numeric zero for int32 keys", func(ctx SpecContext) {
+		It("Should emit a numeric zero for int32 keys", func() {
 			source := `
 				@ts output "out"
 
@@ -56,7 +56,7 @@ var _ = Describe("Edge Cases", func() {
 			Expect(content).To(ContainSubstring(`resourceID(0)`))
 		})
 
-		It("Should emit a boolean zero for bool keys", func(ctx SpecContext) {
+		It("Should emit a boolean zero for bool keys", func() {
 			source := `
 				@ts output "out"
 
@@ -74,7 +74,7 @@ var _ = Describe("Edge Cases", func() {
 	Describe("Type parameter constraints", func() {
 		It(
 			"Should produce a typeof enum fallback for type-param fields constrained on an enum",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -97,7 +97,7 @@ var _ = Describe("Edge Cases", func() {
 	Describe("Auto-generated key defaults", func() {
 		It(
 			"Should emit id.create() default for string key fields with create",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 
@@ -116,7 +116,7 @@ var _ = Describe("Edge Cases", func() {
 
 		It(
 			"Should emit uuid.create() default for uuid key fields with create",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "out"
 

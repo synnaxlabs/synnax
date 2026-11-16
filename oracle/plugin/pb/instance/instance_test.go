@@ -61,7 +61,7 @@ Thing struct {
 
 var _ = Describe("Of", func() {
 	var table *resolution.Table
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
 		loader := testutil.NewMockFileLoader()
 		testutil.AddFilterSchema(loader)
 		loader.Add("schemas/x/order", `

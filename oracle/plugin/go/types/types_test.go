@@ -93,7 +93,7 @@ var _ = Describe("Go Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
-		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+		It("Should generate the recursive Where of a filter", func() {
 			AddFilterSchema(loader)
 			resp := MustGenerate(ThingFilter, "thing", loader, goPlugin)
 			ExpectContent(resp, "thing/types.gen.go").
@@ -106,9 +106,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("field-level omit", func() {
-			It("Should keep a wire-omitted field out of JSON and msgpack", func(
-				ctx SpecContext,
-			) {
+			It("Should keep a wire-omitted field out of JSON and msgpack", func() {
 				source := `
 					@go output "core/pkg/service/auth"
 
@@ -130,7 +128,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("basic struct generation", func() {
-			It("Should generate struct for simple types", func(ctx SpecContext) {
+			It("Should generate struct for simple types", func() {
 				source := `
 					@go output "core/pkg/service/user"
 
@@ -159,7 +157,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("array types", func() {
-			It("Should handle array types", func(ctx SpecContext) {
+			It("Should handle array types", func() {
 				source := `
 				@go output "core/ranger"
 
@@ -191,7 +189,7 @@ var _ = Describe("Go Types Plugin", func() {
 		Context("naming conventions", func() {
 			It(
 				"Should convert snake_case to PascalCase for field names",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/ranger"
 
@@ -219,7 +217,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 			It(
 				"Should preserve screaming case (all-uppercase) field names but use snake_case for JSON tags",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/compiler"
 
@@ -257,7 +255,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 		Context("primitive type mappings", func() {
 			DescribeTable("should generate correct Go type",
-				func(ctx SpecContext, oracleType, expectedGoType string) {
+				func(oracleType, expectedGoType string) {
 					source := `
 						@go output "core/test"
 
@@ -287,7 +285,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 			It(
 				"Should import required packages for special types",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/test"
 
@@ -304,7 +302,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("skipping", func() {
-			It("Should skip structs without go domain", func(ctx SpecContext) {
+			It("Should skip structs without go domain", func() {
 				source := `
 				@ts output "client/ts/user"
 
@@ -324,7 +322,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(resp.Files).To(BeEmpty())
 			})
 
-			It("Should skip omitted structs", func(ctx SpecContext) {
+			It("Should skip omitted structs", func() {
 				source := `
 					@go output "core/status"
 
@@ -358,7 +356,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("output organization", func() {
-			It("Should derive package name from output path", func(ctx SpecContext) {
+			It("Should derive package name from output path", func() {
 				source := `
 				@go output "core/pkg/service/user"
 
@@ -383,7 +381,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`package user`))
 			})
 
-			It("Should group multiple structs by output path", func(ctx SpecContext) {
+			It("Should group multiple structs by output path", func() {
 				source := `
 				@go output "core/user"
 
@@ -412,7 +410,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`type Role struct {`))
 			})
 
-			It("Should generate empty struct", func(ctx SpecContext) {
+			It("Should generate empty struct", func() {
 				source := `
 				@go output "core/empty"
 
@@ -436,7 +434,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 			It(
 				"Should not include import block when no imports needed",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/simple"
 
@@ -461,7 +459,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("documentation", func() {
-			It("Should generate doc comments from doc domain", func(ctx SpecContext) {
+			It("Should generate doc comments from doc domain", func() {
 				source := `
 				@go output "core/user"
 
@@ -505,7 +503,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("enums", func() {
-			It("Should generate string enum type and constants", func(ctx SpecContext) {
+			It("Should generate string enum type and constants", func() {
 				source := `
 				@go output "core/status"
 
@@ -543,7 +541,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 			It(
 				"Should declare acronym-named enums under their declared name",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/ni"
 
@@ -577,7 +575,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 			It(
 				"Should generate int enum type and iota constants",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/priority"
 
@@ -616,7 +614,7 @@ var _ = Describe("Go Types Plugin", func() {
 				},
 			)
 
-			It("Should generate doc comments on enums", func(ctx SpecContext) {
+			It("Should generate doc comments on enums", func() {
 				source := `
 				@go output "core/direction"
 
@@ -645,7 +643,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 			It(
 				"Should generate an IsValid method for string enums",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/status"
 
@@ -679,7 +677,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 			It(
 				"Should not generate an IsValid method for int enums",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/priority"
 
@@ -710,7 +708,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 			It(
 				"Should generate an extending enum as a standalone union of its parents",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/lineplot"
 
@@ -749,7 +747,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("map types", func() {
-			It("Should generate map types", func(ctx SpecContext) {
+			It("Should generate map types", func() {
 				source := `
 				@go output "core/config"
 
@@ -776,7 +774,7 @@ var _ = Describe("Go Types Plugin", func() {
 		Context("generics", func() {
 			It(
 				"Should generate generic struct with type parameters",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/container"
 
@@ -806,7 +804,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 			It(
 				"Should generate generic struct with constrained type parameter",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/container"
 
@@ -838,7 +836,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 			It(
 				"Should generate generic struct with comparable constraint",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/container"
 
@@ -872,7 +870,7 @@ var _ = Describe("Go Types Plugin", func() {
 		Context("to_any", func() {
 			It(
 				"Should convert every field to the any instantiation",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/pair"
 
@@ -905,7 +903,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 				},
 			)
 
-			It("Should not convert an unmarked struct", func(ctx SpecContext) {
+			It("Should not convert an unmarked struct", func() {
 				source := `
 				@go output "core/box"
 
@@ -919,7 +917,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			DescribeTable(
 				"Should reject a type that ToAny cannot convert",
-				func(ctx SpecContext, source, msg string) {
+				func(source, msg string) {
 					table, diag := Analyze(source, "box", loader)
 					Expect(diag.Ok()).To(BeTrue(), diag.String())
 					req := &plugin.Request{Resolutions: table}
@@ -1016,7 +1014,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 		})
 
 		Context("type aliases", func() {
-			It("Should generate type alias", func(ctx SpecContext) {
+			It("Should generate type alias", func() {
 				source := `
 				@go output "core/alias"
 
@@ -1041,7 +1039,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 				Expect(content).To(ContainSubstring(`type Alias = Original`))
 			})
 
-			It("Should generate type alias for array types", func(ctx SpecContext) {
+			It("Should generate type alias for array types", func() {
 				source := `
 				@go output "core/ir"
 
@@ -1064,7 +1062,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should generate doc comments on distinct type defs",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/control"
 
@@ -1093,7 +1091,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 				},
 			)
 
-			It("Should generate doc comments on type aliases", func(ctx SpecContext) {
+			It("Should generate doc comments on type aliases", func() {
 				source := `
 				@go output "core/label"
 
@@ -1138,7 +1136,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 				`)
 			})
 
-			It("Should import a type of the other schema", func(ctx SpecContext) {
+			It("Should import a type of the other schema", func() {
 				resp := MustGenerateMulti(loader, goPlugin)
 				ExpectContent(resp, "core/pkg/service/color/types.gen.go").
 					ToContain(
@@ -1147,9 +1145,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					)
 			})
 
-			It("Should alias both packages in a schema that imports both", func(
-				ctx SpecContext,
-			) {
+			It("Should alias both packages in a schema that imports both", func() {
 				loader.Add("schemas/synnax/look", `
 					import "schemas/synnax/color"
 					import "schemas/x/color"
@@ -1175,7 +1171,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 		Context("type references", func() {
 			It(
 				"Should resolve same-namespace struct references",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/user"
 
@@ -1208,7 +1204,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should resolve cross-namespace struct references with imports",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/status.oracle", `
 				@go output "core/status"
 
@@ -1257,7 +1253,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should resolve cross-namespace enum references with imports",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/status.oracle", `
 				@go output "core/status"
 
@@ -1310,7 +1306,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 		Context("struct embedding (extends)", func() {
 			It(
 				"Should generate struct embedding for basic extends",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/user"
 
@@ -1347,7 +1343,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should flatten fields when extends has omitted fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/user"
 
@@ -1385,7 +1381,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should generate a typeless override identically to a full restatement",
-				func(ctx SpecContext) {
+				func() {
 					gen := func(childBody string) string {
 						source := `
 					@go output "core/user"
@@ -1412,7 +1408,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should flatten a struct that removes an inherited domain",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/user"
 
@@ -1454,7 +1450,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 				It(
 					"Should declare an inline variant's inherited fields",
-					func(ctx SpecContext) {
+					func() {
 						source := `
 						@go output "core/pkg/service/auth"
 						
@@ -1478,7 +1474,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					},
 				)
 
-				It("Should declare the inherited fields", func(ctx SpecContext) {
+				It("Should declare the inherited fields", func() {
 					resp := MustGenerate(
 						schema("@go omit", "rate float64"),
 						"user",
@@ -1496,7 +1492,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						ToNotContain("type Record struct", "\tRecord\n")
 				})
 
-				It("Should leave out a removed field", func(ctx SpecContext) {
+				It("Should leave out a removed field", func() {
 					resp := MustGenerate(
 						schema("@go omit", "-secret"), "user", loader, goPlugin,
 					)
@@ -1505,7 +1501,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						ToNotContain("Secret", "type Record struct")
 				})
 
-				It("Should embed a parent that generates", func(ctx SpecContext) {
+				It("Should embed a parent that generates", func() {
 					resp := MustGenerate(
 						schema("", "rate float64"), "user", loader, goPlugin,
 					)
@@ -1516,7 +1512,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should flatten when two parents promote one name",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/user"
 
@@ -1550,7 +1546,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should keep embedding when a field restates only a default",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/user"
 
@@ -1584,7 +1580,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should keep embedding for a typeless default override",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/user"
 
@@ -1609,7 +1605,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should flatten when a field restates an inherited type",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/user"
 
@@ -1637,7 +1633,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should flatten when a field restates inherited optionality",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/user"
 
@@ -1658,7 +1654,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should generate cross-namespace struct embedding with import",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/parent.oracle", `
 				@go output "core/parent"
 
@@ -1706,7 +1702,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should generate struct embedding for generic parent with type args",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/status"
 
@@ -1742,7 +1738,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should generate generic child extending generic parent with passed type param",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/status"
 
@@ -1777,7 +1773,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should generate multiple embedding for multiple extends without conflicts",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/entities"
 
@@ -1817,7 +1813,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should flatten fields when multiple extends has omitted fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/entities"
 
@@ -1863,7 +1859,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 		})
 
 		Context("declaration ordering", func() {
-			It("Should preserve struct declaration order", func(ctx SpecContext) {
+			It("Should preserve struct declaration order", func() {
 				source := `
 				@go output "core/animals"
 
@@ -1896,7 +1892,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 				Expect(appleIdx).To(BeNumerically("<", mangoIdx))
 			})
 
-			It("Should preserve field declaration order", func(ctx SpecContext) {
+			It("Should preserve field declaration order", func() {
 				source := `
 				@go output "core/order"
 
@@ -1927,7 +1923,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 		Context("optional fields", func() {
 			It(
 				"Should generate pointer type with omitzero for optional fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/user"
 
@@ -1965,7 +1961,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 				},
 			)
 
-			It("Should keep slices plain and tag them omitzero", func(ctx SpecContext) {
+			It("Should keep slices plain and tag them omitzero", func() {
 				source := `
 				@go output "core/config"
 
@@ -1994,7 +1990,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 				).To(ContainSubstring("Counts []int32 `json:\"counts,omitzero\" msgpack:\"counts,omitempty\"`"))
 			})
 
-			It("Should keep maps plain and tag them omitzero", func(ctx SpecContext) {
+			It("Should keep maps plain and tag them omitzero", func() {
 				source := `
 				@go output "core/config"
 
@@ -2019,7 +2015,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should leave required slices, maps and bytes untagged",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 				@go output "core/config"
 
@@ -2055,7 +2051,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 		Context("regression tests", func() {
 			It(
 				"Should emit snake_case JSON struct tags regardless of schema field casing",
-				func(ctx SpecContext) {
+				func() {
 					// The wire format is canonically snake_case across every
 					// language. Schema field names are routed through SnakeCase
 					// regardless of how they're spelled in the schema. TypeScript
@@ -2104,7 +2100,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should preserve digit-suffixed snake field names instead of splitting on letter-digit boundaries",
-				func(ctx SpecContext) {
+				func() {
 					// A field already spelled in valid snake_case form (lowercase
 					// letters, digits, underscores) is the author's chosen wire
 					// name and must round-trip unchanged. Domain identifiers like
@@ -2146,7 +2142,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should use alias type name in struct fields instead of expanded target",
-				func(ctx SpecContext) {
+				func() {
 					// Regression test: When a struct field references a type alias, the
 					// generated code should use the alias name, not expand to the
 					// target type.
@@ -2181,7 +2177,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 				},
 			)
 
-			It("Should use distinct type name in struct fields", func(ctx SpecContext) {
+			It("Should use distinct type name in struct fields", func() {
 				// Regression test: When a struct field references a distinct type, the
 				// generated code should use the distinct type name, not the underlying
 				// primitive.
@@ -2212,7 +2208,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should respect @go name directive for embedded parent types",
-				func(ctx SpecContext) {
+				func() {
 					// Regression test: When a struct extends a parent with @go name
 					// directive, the generated embedded field should use the
 					// Go-specific name, not the schema name.
@@ -2264,7 +2260,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should respect @go name directive for same-namespace embedded types",
-				func(ctx SpecContext) {
+				func() {
 					// Regression test: When a struct extends a parent with @go name in
 					// same namespace, the generated embedded field should use the
 					// Go-specific name.
@@ -2305,7 +2301,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 		Context("extra fields and imports", func() {
 			It(
 				"Should add extra fields from @go fields directive",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "arc/go/ir"
 
@@ -2335,7 +2331,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should add multiple extra imports from @go imports directive",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "arc/go/ir"
 
@@ -2359,7 +2355,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should not duplicate imports when package is in both @go imports and type references",
-				func(ctx SpecContext) {
+				func() {
 					// Regression test: When a package is imported via @go imports AND
 					// also needed for resolving cross-namespace type references,
 					// the generated code should only include the import once.
@@ -2421,7 +2417,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 		})
 
 		Context("enum starts-at-one optimization", func() {
-			It("Should render the doc of each int enum value", func(ctx SpecContext) {
+			It("Should render the doc of each int enum value", func() {
 				source := `
 					@go output "core/pkg/service/task"
 
@@ -2439,7 +2435,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should render the doc of a single int enum value",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/task"
 
@@ -2457,7 +2453,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should use iota+1 for enums starting at 1 with sequential values",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/status"
 
@@ -2476,7 +2472,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should not use iota+1 for enums starting at 1 with non-sequential values",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/status"
 
@@ -2497,7 +2493,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 		Context("generic distinct types", func() {
 			It(
 				"Should generate a generic distinct type with type parameters",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/wrapper"
 
@@ -2517,7 +2513,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 		Context("generic alias types", func() {
 			It(
 				"Should generate a generic alias type with type parameters",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/container"
 
@@ -2537,7 +2533,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 		Context("alias to generic struct with defaulted type params", func() {
 			It(
 				"Should handle alias to a generic struct with a defaulted type parameter",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/task"
 
@@ -2556,7 +2552,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 			It(
 				"Should handle generic struct where defaulted params are skipped in output",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/container"
 
@@ -2575,7 +2571,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 		})
 
 		Context("type constraint mappings", func() {
-			It("Should map string constraint to ~string", func(ctx SpecContext) {
+			It("Should map string constraint to ~string", func() {
 				source := `
 					@go output "core/labeled"
 
@@ -2588,7 +2584,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					ToContain("~string")
 			})
 
-			It("Should map int constraint to union type", func(ctx SpecContext) {
+			It("Should map int constraint to union type", func() {
 				source := `
 					@go output "core/counted"
 
@@ -2601,7 +2597,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					ToContain("~int | ~int8 | ~int16 | ~int32 | ~int64")
 			})
 
-			It("Should map uint constraint to union type", func(ctx SpecContext) {
+			It("Should map uint constraint to union type", func() {
 				source := `
 					@go output "core/indexed"
 
@@ -2616,7 +2612,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 		})
 
 		Context("version-laid-out packages", func() {
-			It("Should emit a versions/ selector alias file", func(ctx SpecContext) {
+			It("Should emit a versions/ selector alias file", func() {
 				resp := chainGenerate(goPlugin, map[string]string{
 					"schemas/synnax/entry.oracle": `
 @go output "out"
@@ -2646,7 +2642,7 @@ Entry struct {
 
 			It(
 				"Should emit types into types/vN with a root alias file",
-				func(ctx SpecContext) {
+				func() {
 					resp := chainGenerate(goPlugin, map[string]string{
 						"schemas/synnax/entry.oracle": `
 @go output "out"
@@ -2682,7 +2678,7 @@ Entry struct {
 				},
 			)
 
-			It("Should render and transpose enum value docs", func(ctx SpecContext) {
+			It("Should render and transpose enum value docs", func() {
 				schema := `
 Color enum {
 	red = "red" { @doc value "is the color of fire." }
@@ -2707,7 +2703,7 @@ Entry struct {
 					ToContain("// ColorRed is the color of fire.")
 			})
 
-			It("Should re-export enum members as consts", func(ctx SpecContext) {
+			It("Should re-export enum members as consts", func() {
 				schema := `
 Color enum {
 	red = "red"
@@ -2735,7 +2731,7 @@ Entry struct {
 
 			It(
 				"Should pin persisted cross-package references to the dependency version directory",
-				func(ctx SpecContext) {
+				func() {
 					resp := chainGenerate(goPlugin, map[string]string{
 						"schemas/synnax/status.oracle": `
 @go output "core/status"
@@ -2783,7 +2779,7 @@ Rack struct {
 
 			It(
 				"Should resolve a pinned member with its own output and name at that package",
-				func(ctx SpecContext) {
+				func() {
 					statusSchema := `
 Status struct {
 	key uuid @key
@@ -2834,7 +2830,7 @@ Rack struct extends status.BaseConfig {
 
 			It(
 				"Should resolve persisted and transient declarations against the pinned version",
-				func(ctx SpecContext) {
+				func() {
 					resp := chainGenerate(goPlugin, map[string]string{
 						"schemas/synnax/status.oracle": `
 @go output "core/status"
@@ -2894,7 +2890,7 @@ Snapshot struct {
 
 			It(
 				"Should resolve omitted fields and transient declarations against the pinned version",
-				func(ctx SpecContext) {
+				func() {
 					resp := chainGenerate(goPlugin, map[string]string{
 						"schemas/synnax/status.oracle": `
 @go output "core/status"
@@ -2954,7 +2950,7 @@ Rack struct {
 
 			It(
 				"Should re-declare type params on generic aliases",
-				func(ctx SpecContext) {
+				func() {
 					schema := `
 Status struct<D extends record> {
 	details D
@@ -2981,7 +2977,7 @@ Entry struct {
 
 			It(
 				"Should re-export union variants and discriminators",
-				func(ctx SpecContext) {
+				func() {
 					schema := `
 LinearParams struct {
 	slope float64
@@ -3018,7 +3014,7 @@ Entry struct {
 
 			It(
 				"Should pin cross-references between laid-out packages",
-				func(ctx SpecContext) {
+				func() {
 					resp := chainGenerate(goPlugin, map[string]string{
 						"schemas/synnax/b.oracle": `
 @go output "b"
@@ -3068,7 +3064,7 @@ Entry struct {
 
 			It(
 				"Should import non-laid-out packages at their root",
-				func(ctx SpecContext) {
+				func() {
 					resp := chainGenerate(goPlugin, map[string]string{
 						"schemas/synnax/c.oracle": `
 @go output "c"
@@ -3111,7 +3107,7 @@ Entry struct {
 
 			It(
 				"Should leave non-versioned packages at the package root",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/user"
 
@@ -3148,7 +3144,7 @@ var _ = Describe("Go Union Generation", func() {
 
 	It(
 		"Should generate a discriminator type with one constant per variant",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "out"
 
@@ -3172,7 +3168,7 @@ var _ = Describe("Go Union Generation", func() {
 
 	It(
 		"Should type the discriminator with a borrowed enum and emit no constants",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "out"
 
@@ -3199,7 +3195,7 @@ var _ = Describe("Go Union Generation", func() {
 
 	It(
 		"Should generate a method for the tag",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "out"
 
@@ -3229,7 +3225,7 @@ func (u View) Type() ViewType {
 
 	It(
 		"Should generate no method for a base that a variant drops a field from",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "out"
 
@@ -3251,7 +3247,7 @@ func (u View) Type() ViewType {
 
 	It(
 		"Should generate no tag method that collides with the Variant field",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "out"
 
@@ -3270,7 +3266,7 @@ func (u View) Type() ViewType {
 
 	DescribeTable(
 		"Should reject a union getter that has the name of another union method",
-		func(ctx SpecContext, source, msg string) {
+		func(source, msg string) {
 			table, diag := Analyze(source, "view", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			req := &plugin.Request{Resolutions: table}
@@ -3300,7 +3296,7 @@ func (u View) Type() ViewType {
 
 	It(
 		"Should emit a single discriminator constant on one line",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "out"
 
@@ -3319,7 +3315,7 @@ func (u View) Type() ViewType {
 
 	It(
 		"Should document the exported union declarations and not the marker",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "out"
 
@@ -3348,7 +3344,7 @@ func (u View) Type() ViewType {
 
 	It(
 		"Should wrap an unknown discriminator in a validation error",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "out"
 
@@ -3371,7 +3367,7 @@ func (u View) Type() ViewType {
 
 	It(
 		"Should generate a sealed interface with variant structs",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "out"
 
@@ -3401,7 +3397,7 @@ func (u View) Type() ViewType {
 
 	It(
 		"Should generate internally-tagged JSON marshaling on the wrapper",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "out"
 
@@ -3430,7 +3426,7 @@ func (u View) Type() ViewType {
 
 	It(
 		"Should flatten a base a variant omits a field from",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "out"
 
@@ -3468,7 +3464,7 @@ func (u View) Type() ViewType {
 
 	It(
 		"Should embed the shared base and the payload in every variant struct",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "out"
 
@@ -3498,7 +3494,7 @@ func (u View) Type() ViewType {
 
 	It(
 		"Should not redeclare a variant field that restates a union base default",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "out"
 
@@ -3530,7 +3526,7 @@ func (u View) Type() ViewType {
 
 	It(
 		"Should set the union base defaults of each decoded variant",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "out"
 
@@ -3556,7 +3552,7 @@ func (u View) Type() ViewType {
 
 	It(
 		"Should embed a union base struct from another namespace with import",
-		func(ctx SpecContext) {
+		func() {
 			loader.Add("schemas/common", `
 			@go output "core/common"
 
@@ -3589,7 +3585,7 @@ func (u View) Type() ViewType {
 
 	It(
 		"Should generate Base and SetBase for a union whose variants share one base",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "out"
 
@@ -3632,7 +3628,7 @@ func (u View) Type() ViewType {
 
 	It(
 		"Should qualify the Base return type of a base from another namespace",
-		func(ctx SpecContext) {
+		func() {
 			loader.Add("schemas/common", `
 			@go output "core/common"
 
@@ -3661,7 +3657,7 @@ func (u View) Type() ViewType {
 
 	DescribeTable(
 		"Should not generate Base or SetBase without one base every variant shares",
-		func(ctx SpecContext, source string) {
+		func(source string) {
 			resp := MustGenerate(source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain("type AIChannel struct {").
@@ -3704,7 +3700,7 @@ func (u View) Type() ViewType {
 
 	It(
 		"Should resolve a union-typed struct field to the union wrapper",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "out"
 
@@ -3726,7 +3722,7 @@ func (u View) Type() ViewType {
 		},
 	)
 
-	It("Should preserve acronym union names verbatim", func(ctx SpecContext) {
+	It("Should preserve acronym union names verbatim", func() {
 		source := `
 			@go output "out"
 
@@ -3746,7 +3742,7 @@ func (u View) Type() ViewType {
 			)
 	})
 
-	It("Should generate Go that parses as valid source", func(ctx SpecContext) {
+	It("Should generate Go that parses as valid source", func() {
 		source := `
 			@go output "out"
 
@@ -3820,7 +3816,7 @@ var _ = Describe("Go Union Field & Variant Coverage", func() {
 
 	It(
 		"Should render a per-variant doc comment on the variant struct",
-		func(ctx SpecContext) {
+		func() {
 			resp := MustGenerate(source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain("// LinearScale a linear scale.", "type LinearScale struct {")
@@ -3829,7 +3825,7 @@ var _ = Describe("Go Union Field & Variant Coverage", func() {
 
 	It(
 		"Should resolve an array-of-union field to a slice of the interface",
-		func(ctx SpecContext) {
+		func() {
 			resp := MustGenerate(source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
 				ToContain("Scales []Scale `" + `json:"scales" msgpack:"scales"` + "`")
@@ -4008,7 +4004,7 @@ var _ = Describe("Union codec round trip", func() {
 var _ = Describe("Unversioned Consumers", func() {
 	It(
 		"Should reference versioned types through the root re-export",
-		func(ctx SpecContext) {
+		func() {
 			resp := chainGenerate(
 				types.New(types.DefaultOptions()),
 				map[string]string{

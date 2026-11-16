@@ -52,7 +52,7 @@ var _ = Describe("Python Actions Plugin", func() {
 
 	Describe("Generate", func() {
 		DescribeTable("Should not emit an actions_gen.py file",
-			func(ctx SpecContext, source string) {
+			func(source string) {
 				resp := MustGenerate(source, "counter", loader, p)
 				Expect(resp.Files).To(BeEmpty())
 			},
@@ -85,9 +85,7 @@ var _ = Describe("Python Actions Plugin", func() {
 			`),
 		)
 
-		It("Should emit a payload model and an envelope per action", func(
-			ctx SpecContext,
-		) {
+		It("Should emit a payload model and an envelope per action", func() {
 			resp := MustGenerate(`
 				@py output "client/py/synnax/counter"
 
@@ -126,9 +124,7 @@ var _ = Describe("Python Actions Plugin", func() {
 			)
 		})
 
-		It("Should import a type of the namespace from the types module", func(
-			ctx SpecContext,
-		) {
+		It("Should import a type of the namespace from the types module", func() {
 			resp := MustGenerate(`
 				@py output "client/py/synnax/counter"
 
@@ -148,9 +144,7 @@ var _ = Describe("Python Actions Plugin", func() {
 			)
 		})
 
-		It("Should import a type of another namespace through its module", func(
-			ctx SpecContext,
-		) {
+		It("Should import a type of another namespace through its module", func() {
 			loader.Add("schemas/patch", `
 				@py output "x/py/x/patch"
 
@@ -184,7 +178,7 @@ var _ = Describe("Python Actions Plugin", func() {
 			)
 		})
 
-		It("Should alias the model of an action alias", func(ctx SpecContext) {
+		It("Should alias the model of an action alias", func() {
 			loader.Add("schemas/patch", `
 				@py output "x/py/x/patch"
 
@@ -213,7 +207,7 @@ var _ = Describe("Python Actions Plugin", func() {
 			).ToNotContain("class SetPayload")
 		})
 
-		It("Should write the own doc of an action alias", func(ctx SpecContext) {
+		It("Should write the own doc of an action alias", func() {
 			loader.Add("schemas/patch", `
 				@py output "x/py/x/patch"
 
@@ -242,9 +236,7 @@ var _ = Describe("Python Actions Plugin", func() {
 			).ToNotContain("# Replaces the value at a path.\n")
 		})
 
-		It("Should alias a module import that a payload field shadows", func(
-			ctx SpecContext,
-		) {
+		It("Should alias a module import that a payload field shadows", func() {
 			loader.Add("schemas/color", `
 				@py output "x/py/x/color"
 
@@ -271,9 +263,7 @@ var _ = Describe("Python Actions Plugin", func() {
 			)
 		})
 
-		It("Should give a keyword action an aliased envelope field", func(
-			ctx SpecContext,
-		) {
+		It("Should give a keyword action an aliased envelope field", func() {
 			resp := MustGenerate(`
 				@py output "client/py/synnax/counter"
 
@@ -294,7 +284,7 @@ var _ = Describe("Python Actions Plugin", func() {
 			)
 		})
 
-		It("Should leave an omitted field out of a payload", func(ctx SpecContext) {
+		It("Should leave an omitted field out of a payload", func() {
 			resp := MustGenerate(`
 				@py output "client/py/synnax/counter"
 				@go output "core/pkg/service/counter"
@@ -313,9 +303,7 @@ var _ = Describe("Python Actions Plugin", func() {
 				ToNotContain("secret")
 		})
 
-		It("Should fail when a generated name hides a type of the namespace", func(
-			ctx SpecContext,
-		) {
+		It("Should fail when a generated name hides a type of the namespace", func() {
 			req := MustGenerateRequest(`
 				@py output "client/py/synnax/counter"
 

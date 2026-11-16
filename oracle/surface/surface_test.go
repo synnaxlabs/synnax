@@ -30,7 +30,7 @@ func report(source string) string {
 }
 
 var _ = Describe("Write", func() {
-	It("Should write structs, fields, enums, and unions", func(ctx SpecContext) {
+	It("Should write structs, fields, enums, and unions", func() {
 		Expect(report(`
 Size enum {
 	small = "small"
@@ -64,7 +64,7 @@ widget.Valve.size widget.Size
 
 	It(
 		"Should write aliases, distinct types, actions, and defaults",
-		func(ctx SpecContext) {
+		func() {
 			Expect(report(`
 Key uint32
 
@@ -99,7 +99,7 @@ widget.Valve!Rename.name string
 		},
 	)
 
-	It("Should write the actions of a union", func(ctx SpecContext) {
+	It("Should write the actions of a union", func() {
 		Expect(report(`
 Valve union on type {
 	open {}
@@ -113,7 +113,7 @@ widget.Valve!Rename.name string
 `))
 	})
 
-	It("Should write an action that aliases a struct", func(ctx SpecContext) {
+	It("Should write an action that aliases a struct", func() {
 		Expect(report(`
 Set struct {
 	path string[]
@@ -132,7 +132,7 @@ widget.Valve action Set = widget.Set
 `))
 	})
 
-	It("Should write omitted fields and borrowed enums", func(ctx SpecContext) {
+	It("Should write omitted fields and borrowed enums", func() {
 		Expect(report(`
 Method enum {
 	password = "password"
@@ -162,7 +162,7 @@ widget.Proof|password widget.Parent
 `))
 	})
 
-	It("Should write type parameters and struct defaults", func(ctx SpecContext) {
+	It("Should write type parameters and struct defaults", func() {
 		Expect(report(`
 Kind enum {
 	a = "a"
@@ -193,7 +193,7 @@ widget.Point.y int32
 `))
 	})
 
-	It("Should ignore docs and formatting", func(ctx SpecContext) {
+	It("Should ignore docs and formatting", func() {
 		Expect(report(`
 // A thing that holds a name.
 Valve struct {
@@ -203,7 +203,7 @@ Valve struct {
 `)).To(Equal(report("Valve struct { name string }")))
 	})
 
-	It("Should change when a field changes", func(ctx SpecContext) {
+	It("Should change when a field changes", func() {
 		Expect(report("Valve struct { name string }")).
 			ToNot(Equal(report("Valve struct { name string? }")))
 	})

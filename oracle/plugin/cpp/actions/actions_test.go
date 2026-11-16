@@ -51,7 +51,7 @@ var _ = Describe("C++ Actions Plugin", func() {
 
 	Describe("Generate", func() {
 		DescribeTable("Should not emit an actions.gen.h file",
-			func(ctx SpecContext, source string) {
+			func(source string) {
 				resp := MustGenerate(source, "counter", loader, p)
 				Expect(resp.Files).To(BeEmpty())
 			},
@@ -100,9 +100,7 @@ var _ = Describe("C++ Actions Plugin", func() {
 			`),
 		)
 
-		It("Should emit payload structs with a codec and a type", func(
-			ctx SpecContext,
-		) {
+		It("Should emit payload structs with a codec and a type", func() {
 			resp := MustGenerate(`
 				@cpp output "client/cpp/counter"
 
@@ -141,9 +139,7 @@ var _ = Describe("C++ Actions Plugin", func() {
 			)
 		})
 
-		It("Should emit an Action variant with a JSON envelope codec", func(
-			ctx SpecContext,
-		) {
+		It("Should emit an Action variant with a JSON envelope codec", func() {
 			resp := MustGenerate(`
 				@cpp output "client/cpp/counter"
 
@@ -179,7 +175,7 @@ var _ = Describe("C++ Actions Plugin", func() {
 			)
 		})
 
-		It("Should emit a builder per action", func(ctx SpecContext) {
+		It("Should emit a builder per action", func() {
 			resp := MustGenerate(`
 				@cpp output "client/cpp/board"
 
@@ -201,9 +197,7 @@ var _ = Describe("C++ Actions Plugin", func() {
 			)
 		})
 
-		It("Should flatten fields from an extended struct into the payload", func(
-			ctx SpecContext,
-		) {
+		It("Should flatten fields from an extended struct into the payload", func() {
 			loader.Add("schemas/patch", `
 				@cpp output "x/cpp/patch"
 
@@ -238,7 +232,7 @@ var _ = Describe("C++ Actions Plugin", func() {
 			)
 		})
 
-		It("Should alias the struct of an action alias", func(ctx SpecContext) {
+		It("Should alias the struct of an action alias", func() {
 			loader.Add("schemas/patch", `
 				@cpp output "x/cpp/patch"
 
@@ -273,7 +267,7 @@ var _ = Describe("C++ Actions Plugin", func() {
 			)
 		})
 
-		It("Should write the own doc of an action alias", func(ctx SpecContext) {
+		It("Should write the own doc of an action alias", func() {
 			loader.Add("schemas/patch", `
 				@cpp output "x/cpp/patch"
 
@@ -302,7 +296,7 @@ var _ = Describe("C++ Actions Plugin", func() {
 			).ToNotContain("/// @brief SetPayload replaces the value at a path.\n")
 		})
 
-		It("Should leave an omitted field out of a payload", func(ctx SpecContext) {
+		It("Should leave an omitted field out of a payload", func() {
 			resp := MustGenerate(`
 				@cpp output "client/cpp/counter"
 				@go output "core/pkg/service/counter"
@@ -321,9 +315,7 @@ var _ = Describe("C++ Actions Plugin", func() {
 				ToNotContain("secret")
 		})
 
-		It("Should emit actions for a union and name its codec by namespace", func(
-			ctx SpecContext,
-		) {
+		It("Should emit actions for a union and name its codec by namespace", func() {
 			resp := MustGenerate(`
 				@cpp output "client/cpp/shape"
 
