@@ -104,7 +104,8 @@ func (i *Iterator) SetBounds(bounds telem.TimeRange) {
 func (i *Iterator) Value() Frame { return i.frame }
 
 // Close closes the iterator and returns the error that stopped it, unless a seek or
-// SetBounds has cleared that error since. Closing a closed iterator returns nil.
+// SetBounds has cleared that error since. Closing a closed iterator, or one whose DB
+// lifetime ended, returns nil.
 func (i *Iterator) Close() error {
 	if i.closed {
 		return nil
@@ -113,7 +114,7 @@ func (i *Iterator) Close() error {
 	i.inlet.Close()
 	err := i.wg.Wait()
 	i.shutdown()
-	return err
+	return errors.Skip(err, context.Canceled)
 }
 
 // exec sends req and returns its acknowledgement.

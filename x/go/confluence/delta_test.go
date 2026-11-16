@@ -133,6 +133,20 @@ var _ = Describe("Delta", func() {
 			Eventually(outputOne.Outlet()).Should(BeClosed())
 		})
 
+		It("Should not block a connection change once its context ends", func() {
+			delta := NewDynamicDeltaMultiplier[int](0, Instrumentation("dev"))
+			delta.InFrom(inputOne)
+			ctx, cancel := signal.Isolated()
+			delta.Flow(ctx)
+			delta.Connect(outputOne)
+			cancel()
+			Expect(ctx.Wait()).To(MatchError(context.Canceled))
+			delta.Disconnect(outputOne)
+			Expect(outputOne.Outlet()).To(BeClosed())
+			delta.Connect(outputTwo)
+			Expect(outputTwo.Outlet()).To(BeClosed())
+		})
+
 		Describe("Timeout", func() {
 			It(
 				"Should allow the delta to operate normally if a consumer receives within the timeout",
