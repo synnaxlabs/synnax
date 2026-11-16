@@ -58,6 +58,7 @@ class Instances:
     def __init__(self) -> None:
         self.started: list[str] = []
         self.tags: dict[str, dict[str, str]] = {}
+        self.deleted: list[tuple[str, str]] = []
         self.failing = False
         self.ec2 = {"us-east-1": self}
 
@@ -73,6 +74,7 @@ class Instances:
     def delete_tags(self, Resources: list[str], Tags: list[dict]) -> None:
         for iid in Resources:
             for t in Tags:
+                self.deleted.append((iid, t["Key"]))
                 self.tags.setdefault(iid, {}).pop(t["Key"], None)
 
 
@@ -319,6 +321,32 @@ class TestSeats:
         found = {CLAUDE: seat("running", login="claude-1", until=until)}
         seats(client, aws, store).step(queued=[], found=found)
         assert store.tags[f"{PREFIX}claude-1"]["limited-until"] == seconds(until)
+        assert aws.deleted == [(CLAUDE, "limited-until")]
+
+    def test_should_keep_the_limit_on_the_seat_when_the_login_write_fails(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1")
+        store.failing = True
+        until = sy.TimeStamp.now() + sy.TimeSpan.HOUR
+        found = {CLAUDE: seat("running", login="claude-1", until=until)}
+        seats(client, aws, store).step(queued=[], found=found)
+        assert aws.deleted == []
+        assert client.written("log") == [
+            ["[ERROR] login claude-1 limit failed: PermissionError: not authorized"]
+        ]
+
+    def test_should_not_lower_the_limit_of_a_login(self, client: Client) -> None:
+        aws = Instances()
+        store = secrets("claude-1")
+        later = seconds(sy.TimeStamp.now() + 2 * sy.TimeSpan.HOUR)
+        store.tags[f"{PREFIX}claude-1"]["limited-until"] = later
+        until = sy.TimeStamp.now() + sy.TimeSpan.HOUR
+        found = {CLAUDE: seat("running", login="claude-1", until=until)}
+        seats(client, aws, store).step(queued=[], found=found)
+        assert store.tags[f"{PREFIX}claude-1"]["limited-until"] == later
+        assert aws.deleted == [(CLAUDE, "limited-until")]
 
     def test_should_ignore_a_malformed_limit(self, client: Client) -> None:
         aws = Instances()
@@ -327,6 +355,27 @@ class TestSeats:
         found[CLAUDE]["tags"]["limited-until"] = "1795266000.0"
         seats(client, aws, store).step(queued=[], found=found)
         assert "limited-until" not in store.tags[f"{PREFIX}claude-1"]
+        assert aws.deleted == [(CLAUDE, "limited-until")]
+
+    def test_should_ignore_a_limit_past_the_longest_reset(self, client: Client) -> None:
+        aws = Instances()
+        store = secrets("claude-1")
+        found = {CLAUDE: seat("running", login="claude-1")}
+        for until in (sy.TimeStamp.now() + 9 * 24 * sy.TimeSpan.HOUR, "9" * 30):
+            found[CLAUDE]["tags"]["limited-until"] = (
+                until if isinstance(until, str) else seconds(until)
+            )
+            seats(client, aws, store).step(queued=[], found=found)
+        assert "limited-until" not in store.tags[f"{PREFIX}claude-1"]
+        assert aws.deleted == [(CLAUDE, "limited-until")] * 2
+
+    def test_should_clear_the_limit_of_a_seat_without_a_login(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        until = sy.TimeStamp.now() + sy.TimeSpan.HOUR
+        seats(client, aws).step(queued=[], found={CLAUDE: seat("stopped", until=until)})
+        assert aws.deleted == [(CLAUDE, "limited-until")]
 
     def test_should_drop_a_seat_that_is_not_up_from_the_holders(
         self, client: Client

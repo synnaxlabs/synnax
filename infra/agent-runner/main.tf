@@ -129,8 +129,8 @@ resource "aws_iam_role_policy" "deny_runner_secrets" {
   })
 }
 
-# Lets a seat record when the usage limit of its login resets, which keeps the fleet
-# controller from starting it until then.
+# Lets a seat record when the usage limit of its login resets. The fleet controller
+# moves the time to the login, which no seat then starts on until then.
 resource "aws_iam_role_policy" "limited_until" {
   name = "TagLimitedUntil"
   role = aws_iam_role.runner.id

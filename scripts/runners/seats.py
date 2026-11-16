@@ -29,6 +29,8 @@ PROJECT = "synnax-agents"
 # Labels every seat runner carries, which name no seat.
 GENERIC = {"self-hosted", "linux", "x64"}
 UP = ("pending", "running", "stopping")
+# The longest usage limit of a Claude subscription is a week.
+MAX_RESET = 8 * 24 * 3600
 
 
 def seat_labels(tags: dict[str, str]) -> set[str]:
@@ -85,7 +87,7 @@ class Seats:
             if (labels := seat_labels(info["tags"]))
         }
         if enabled:
-            self.settle(seats, logins=logins, found=found)
+            self.settle(seats, logins=logins, found=found, now=seconds)
         starting: set[str] = set()
         for job in queued:
             wanted = {label.lower() for label in job} - GENERIC
@@ -129,23 +131,40 @@ class Seats:
             self.log(f"{name}: start requested on login {login.name}")
 
     def settle(
-        self, seats: dict[str, set[str]], *, logins: dict[str, Login], found: dict
+        self,
+        seats: dict[str, set[str]],
+        *,
+        logins: dict[str, Login],
+        found: dict,
+        now: int,
     ) -> None:
         """Moves the usage limit each seat recorded to its login, and drops the seats
         that are not up from the holders of each login."""
         for iid in seats:
-            tags = found[iid]["tags"]
-            login = logins.get(tags.get("login", ""))
-            # Agents can write the seat's tag, so a value that is not a whole number
-            # counts as no limit.
-            until = tags.get("limited-until", "")
-            if login is None or not until.isdecimal():
+            info = found[iid]
+            until = info["tags"].get("limited-until")
+            if until is None:
                 continue
-            if int(until) > login.limited_until:
+            login = logins.get(info["tags"].get("login", ""))
+            # Agents can write the seat's tag, so a value that is not a whole number
+            # in the next reset window counts as no limit.
+            if (
+                login is not None
+                and until.isdecimal()
+                and login.limited_until < int(until) <= now + MAX_RESET
+            ):
                 try:
                     self.logins.limit(login, until=int(until))
                 except Exception as e:
                     self.log.error(f"login {login.name} limit", e)
+                    continue
+            # A tag left on the seat would undo a new token's clear of the login.
+            try:
+                self.aws.ec2[info["region"]].delete_tags(
+                    Resources=[iid], Tags=[{"Key": "limited-until"}]
+                )
+            except Exception as e:
+                self.log.error(f"{self.name(iid, found=found)} limit clear", e)
         for login in logins.values():
             kept = [
                 h
@@ -160,10 +179,8 @@ class Seats:
                 self.log.error(f"login {login.name} release", e)
 
     def start(self, iid: str, *, login: Login, info: dict) -> None:
-        """Hands the login to the stopped seat iid, then starts it. The seat's limit
-        belongs to its last login, so it goes."""
+        """Hands the login to the stopped seat iid, then starts it."""
         ec2 = self.aws.ec2[info["region"]]
-        ec2.delete_tags(Resources=[iid], Tags=[{"Key": "limited-until"}])
         ec2.create_tags(Resources=[iid], Tags=[{"Key": "login", "Value": login.name}])
         self.logins.hold(login, holders=[*login.holders, self.logins.holder(iid)])
         ec2.start_instances(InstanceIds=[iid])
