@@ -129,26 +129,44 @@ func liftField(old ReadField, index bool, ch *Channel) (payload.Read, []string) 
 	return r, changes
 }
 
-// MigrateReadEntry lifts a v1 read entry to v2. A plain entry keeps its fields inline,
-// for ResolveReadConfig to move into an ICD.
+// MigrateReadEntry lifts a v1 read entry to v2. A plain entry has no ICD until
+// MigrateReadConfig stages it.
 func MigrateReadEntry(ctx context.Context, old v1.ReadEntry) (ReadEntry, error) {
-	e, err := autoMigrateReadEntry(ctx, old)
-	if err != nil {
-		return ReadEntry{}, err
-	}
-	if plain, ok := old.Variant.(v1.PlainReadEntry); ok {
-		lifted := e.Variant.(PlainReadEntry)
-		lifted.Messages = []ReadMessage{}
-		lifted.Inline = &InlineRead{Fields: plain.Fields, Index: plain.Index}
-		e.Variant = lifted
-	}
-	return e, nil
+	return autoMigrateReadEntry(ctx, old)
 }
 
-// MigrateReadConfig lifts a v1 read config to v2, as MigrateReadEntry lifts each of its
-// entries.
+// MigrateReadConfig lifts a v1 read config to v2. It moves each plain entry into
+// Inline,
+// for ResolveReadConfig to add back with an ICD.
 func MigrateReadConfig(ctx context.Context, old v1.ReadConfig) (ReadConfig, error) {
-	return autoMigrateReadConfig(ctx, old)
+	cfg, err := autoMigrateReadConfig(ctx, old)
+	if err != nil {
+		return ReadConfig{}, err
+	}
+	var (
+		entries = make([]ReadEntry, 0, len(cfg.Entries))
+		staged  []InlineEntry
+	)
+	for i, e := range old.Entries {
+		plain, ok := e.Variant.(v1.PlainReadEntry)
+		if !ok {
+			entries = append(entries, cfg.Entries[i])
+			continue
+		}
+		staged = append(staged, InlineEntry{
+			BaseReadEntry:   plain.BaseReadEntry,
+			At:              uint32(i),
+			Topic:           plain.Topic,
+			Qos:             plain.Qos,
+			RetainedIgnored: plain.RetainedIgnored,
+			Fields:          plain.Fields,
+			Index:           plain.Index,
+		})
+	}
+	if len(staged) > 0 {
+		cfg.Entries, cfg.Inline = entries, &InlineRead{Entries: staged}
+	}
+	return cfg, nil
 }
 
 // noteLift returns the note that logs each change the v1 lift makes to a field of the

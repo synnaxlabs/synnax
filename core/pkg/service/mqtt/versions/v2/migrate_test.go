@@ -69,12 +69,23 @@ func plainEntry(e v2.ReadEntry) v2.PlainReadEntry {
 	return plain
 }
 
-func inlineEntry(topic, index string, fields ...v2.ReadField) v2.ReadEntry {
-	return v2.ReadEntry{Variant: v2.PlainReadEntry{
+func inlineEntry(
+	at uint32,
+	topic, index string,
+	fields ...v2.ReadField,
+) v2.InlineEntry {
+	return v2.InlineEntry{
 		BaseReadEntry: v2.BaseReadEntry{Key: topic},
+		At:            at,
 		Topic:         topic,
-		Inline:        &v2.InlineRead{Fields: fields, Index: index},
-	}}
+		Fields:        fields,
+		Index:         index,
+	}
+}
+
+// inlineConfig returns a config that holds entries inline.
+func inlineConfig(entries ...v2.InlineEntry) v2.ReadConfig {
+	return v2.ReadConfig{Inline: &v2.InlineRead{Entries: entries}}
 }
 
 var _ = Describe("ResolveReadConfig", func() {
@@ -131,9 +142,7 @@ var _ = Describe("ResolveReadConfig", func() {
 		if index {
 			indexKey = old.Key
 		}
-		cfg := v2.ReadConfig{
-			Entries: []v2.ReadEntry{inlineEntry("plant/level", indexKey, old)},
-		}
+		cfg := inlineConfig(inlineEntry(0, "plant/level", indexKey, old))
 		ic := resolve(ctx, &cfg)
 		return fields(ic.Messages[0])[0], plainEntry(cfg.Entries[0]).Messages[0]
 	}
@@ -403,9 +412,9 @@ var _ = Describe("ResolveReadConfig", func() {
 		func(ctx SpecContext) {
 			disabled := storedField(telem.Float64T)
 			disabled.Key, disabled.Name, disabled.Disabled = "f2", "spare", true
-			cfg := v2.ReadConfig{Entries: []v2.ReadEntry{inlineEntry(
-				"plant/level", "", storedField(telem.Float64T), disabled,
-			)}}
+			cfg := inlineConfig(inlineEntry(
+				0, "plant/level", "", storedField(telem.Float64T), disabled,
+			))
 			msg := resolve(ctx, &cfg).Messages[0]
 			Expect(fields(msg)).To(HaveLen(2))
 			bindings := plainEntry(cfg.Entries[0]).Messages[0].Bindings
@@ -421,14 +430,15 @@ var _ = Describe("ResolveReadConfig", func() {
 				f.Key, f.Name, f.Pointer = key, name, pointer
 				return f
 			}
-			cfg := v2.ReadConfig{Entries: []v2.ReadEntry{inlineEntry(
+			cfg := inlineConfig(inlineEntry(
+				0,
 				"plant/level",
 				"",
 				named("f1", "", "/out/flow"),
 				named("f2", "level", "/a"),
 				named("f3", "level", "/b"),
 				named("f4", "", ""),
-			)}}
+			))
 			names := []string{}
 			for _, f := range fields(resolve(ctx, &cfg).Messages[0]) {
 				names = append(names, f.Base().Name)
@@ -438,9 +448,9 @@ var _ = Describe("ResolveReadConfig", func() {
 	)
 
 	It("Should drop an index that names no field", func(ctx SpecContext) {
-		cfg := v2.ReadConfig{Entries: []v2.ReadEntry{
-			inlineEntry("plant/level", "gone", storedField(telem.Float64T)),
-		}}
+		cfg := inlineConfig(
+			inlineEntry(0, "plant/level", "gone", storedField(telem.Float64T)),
+		)
 		resolve(ctx, &cfg)
 		Expect(plainEntry(cfg.Entries[0]).Messages[0].Index).To(BeNil())
 		Expect(changes).To(ConsistOf("index field gone does not exist and was dropped"))
@@ -452,12 +462,12 @@ var _ = Describe("ResolveReadConfig", func() {
 				BaseReadEntry: v2.BaseReadEntry{Key: "tag"},
 				Tag:           "speed",
 			}}
-			cfg := v2.ReadConfig{Entries: []v2.ReadEntry{
-				inlineEntry("plant/a", "", storedField(telem.Float64T)),
-				sparkplug,
-				inlineEntry("plant/a", "", storedField(telem.Float64T)),
-				inlineEntry("", "", storedField(telem.Float64T)),
-			}}
+			cfg := inlineConfig(
+				inlineEntry(0, "plant/a", "", storedField(telem.Float64T)),
+				inlineEntry(2, "plant/a", "", storedField(telem.Float64T)),
+				inlineEntry(3, "", "", storedField(telem.Float64T)),
+			)
+			cfg.Entries = []v2.ReadEntry{sparkplug}
 			ic := resolve(ctx, &cfg)
 			Expect(ic.Name).To(Equal("Plant"))
 			Expect(ic.Messages).To(HaveLen(3))
@@ -466,18 +476,37 @@ var _ = Describe("ResolveReadConfig", func() {
 				names = append(names, m.Name)
 			}
 			Expect(names).To(Equal([]string{"plant/a", "plant/a (2)", "Untitled"}))
+			Expect(cfg.Inline).To(BeNil())
+			Expect(cfg.Entries).To(HaveLen(4))
 			Expect(cfg.Entries[1]).To(Equal(sparkplug))
 			for i, j := range []int{0, 2, 3} {
 				plain := plainEntry(cfg.Entries[j])
 				Expect(plain.ICD).To(Equal(ic.Key))
-				Expect(plain.Inline).To(BeNil())
 				Expect(plain.Messages).To(HaveLen(1))
 				Expect(plain.Messages[0].Message).To(Equal(ic.Messages[i].Key))
 			}
 		},
 	)
 
-	It("Should return no write when no entry holds inline fields",
+	It("Should keep the base and the subscription of an inline entry",
+		func(ctx SpecContext) {
+			e := inlineEntry(0, "plant/a", "", storedField(telem.Float64T))
+			e.Key, e.Disabled = "e1", true
+			e.Qos, e.RetainedIgnored = v2.QoSExactlyOnce, true
+			cfg := inlineConfig(e)
+			ic := resolve(ctx, &cfg)
+			plain := plainEntry(cfg.Entries[0])
+			Expect(
+				plain.BaseReadEntry,
+			).To(Equal(v2.BaseReadEntry{Key: "e1", Disabled: true}))
+			Expect(plain.Topic).To(Equal("plant/a"))
+			Expect(plain.Qos).To(Equal(v2.QoSExactlyOnce))
+			Expect(plain.RetainedIgnored).To(BeTrue())
+			Expect(plain.ICD).To(Equal(ic.Key))
+		},
+	)
+
+	It("Should return no write when the config holds no inline entries",
 		func(ctx SpecContext) {
 			cfg := v2.ReadConfig{Entries: []v2.ReadEntry{
 				{Variant: v2.PlainReadEntry{Topic: "plant/a"}},
@@ -496,9 +525,9 @@ var _ = Describe("ResolveReadConfig", func() {
 			create = func(context.Context, gorp.Tx, icd.ICD) error {
 				return errors.New("create failed")
 			}
-			cfg := v2.ReadConfig{Entries: []v2.ReadEntry{
-				inlineEntry("plant/a", "", storedField(telem.Float64T)),
-			}}
+			cfg := inlineConfig(
+				inlineEntry(0, "plant/a", "", storedField(telem.Float64T)),
+			)
 			write := MustSucceed(v2.ResolveReadConfig(
 				ctx, nil, channels, create, "Plant", &cfg, func(_, _ string) {},
 			))
@@ -508,43 +537,52 @@ var _ = Describe("ResolveReadConfig", func() {
 })
 
 var _ = Describe("MigrateReadConfig", func() {
-	It("Should keep the fields of a plain entry inline and keep a Sparkplug entry",
+	It("Should move each plain entry inline and keep a Sparkplug entry",
 		func(ctx SpecContext) {
 			old := v1.ReadConfig{
 				Key:    uuid.New(),
 				Device: "broker",
 				Entries: []v1.ReadEntry{
-					{Variant: v1.PlainReadEntry{
+					{Variant: v1.SparkplugReadEntry{
 						BaseReadEntry: v1.BaseReadEntry{Key: "e1"},
+						Tag:           "speed",
+						DataType:      telem.Float32T,
+					}},
+					{Variant: v1.PlainReadEntry{
+						BaseReadEntry: v1.BaseReadEntry{Key: "e2"},
 						Topic:         "plant/level",
 						Qos:           v1.QoSAtLeastOnce,
 						Index:         "f1",
 						Fields:        []v1.ReadField{storedField(telem.Uint8T)},
-					}},
-					{Variant: v1.SparkplugReadEntry{
-						BaseReadEntry: v1.BaseReadEntry{Key: "e2"},
-						Tag:           "speed",
-						DataType:      telem.Float32T,
 					}},
 				},
 			}
 			cfg := MustSucceed(v2.MigrateReadConfig(ctx, old))
 			Expect(cfg.Key).To(Equal(old.Key))
 			Expect(cfg.Device).To(Equal(old.Device))
-			Expect(cfg.Entries[0]).To(Equal(v2.ReadEntry{Variant: v2.PlainReadEntry{
-				BaseReadEntry: v2.BaseReadEntry{Key: "e1"},
-				Topic:         "plant/level",
-				Qos:           v2.QoSAtLeastOnce,
-				Messages:      []v2.ReadMessage{},
-				Inline: &v2.InlineRead{
-					Fields: []v2.ReadField{storedField(telem.Uint8T)},
-					Index:  "f1",
-				},
-			}}))
-			tag, ok := cfg.Entries[1].Variant.(v2.SparkplugReadEntry)
+			Expect(cfg.Entries).To(HaveLen(1))
+			tag, ok := cfg.Entries[0].Variant.(v2.SparkplugReadEntry)
 			Expect(ok).To(BeTrue())
 			Expect(tag.Tag).To(Equal("speed"))
 			Expect(tag.DataType).To(Equal(telem.Float32T))
+			Expect(cfg.Inline).To(Equal(&v2.InlineRead{Entries: []v2.InlineEntry{{
+				BaseReadEntry: v2.BaseReadEntry{Key: "e2"},
+				At:            1,
+				Topic:         "plant/level",
+				Qos:           v2.QoSAtLeastOnce,
+				Fields:        []v2.ReadField{storedField(telem.Uint8T)},
+				Index:         "f1",
+			}}}))
+		},
+	)
+
+	It("Should hold nothing inline for a config without plain entries",
+		func(ctx SpecContext) {
+			cfg := MustSucceed(v2.MigrateReadConfig(ctx, v1.ReadConfig{
+				Entries: []v1.ReadEntry{{Variant: v1.SparkplugReadEntry{Tag: "speed"}}},
+			}))
+			Expect(cfg.Inline).To(BeNil())
+			Expect(cfg.Entries).To(HaveLen(1))
 		},
 	)
 })
@@ -637,10 +675,11 @@ var _ = Describe("NewReadMigration", func() {
 			Expect(made[0].Messages[0].Name).To(Equal("plant/level"))
 			f := fields(made[0].Messages[0])[0]
 			Expect(f.Type()).To(Equal(payload.KindInteger))
-			plain := plainEntry(read(ctx, old.Key).Entries[0])
+			migrated := read(ctx, old.Key)
+			Expect(migrated.Inline).To(BeNil())
+			plain := plainEntry(migrated.Entries[0])
 			Expect(plain.Topic).To(Equal("plant/level"))
 			Expect(plain.ICD).To(Equal(made[0].Key))
-			Expect(plain.Inline).To(BeNil())
 			Expect(plain.Messages).To(Equal([]v2.ReadMessage{{
 				Message:  made[0].Messages[0].Key,
 				Bindings: []v2.ReadBinding{{Field: f.Base().Key, Channel: 7}},

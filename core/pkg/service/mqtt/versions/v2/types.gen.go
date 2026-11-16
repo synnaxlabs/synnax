@@ -14,6 +14,7 @@ package v2
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -24,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // QoS is the MQTT quality of service of a subscription or a publish: level 0, 1, or 2.
@@ -100,8 +102,17 @@ type ReadMessage struct {
 	Bindings []ReadBinding `json:"bindings" msgpack:"bindings"`
 }
 
-// InlineRead is the read of a plain entry that holds its fields inline.
-type InlineRead struct {
+// InlineEntry is a plain entry from before ICDs, which held its fields inline.
+type InlineEntry struct {
+	BaseReadEntry
+	// At is the index of the entry in the entries of its config.
+	At uint32 `json:"at" msgpack:"at"`
+	// Topic is the topic to subscribe to.
+	Topic string `json:"topic" msgpack:"topic"`
+	// Qos is the quality of service of the subscription.
+	Qos QoS `json:"qos" msgpack:"qos"`
+	// RetainedIgnored is true when the task drops the retained message on subscribe.
+	RetainedIgnored bool `json:"retained_ignored" msgpack:"retained_ignored"`
 	// Fields are the fields of the entry.
 	Fields []ReadField `json:"fields" msgpack:"fields"`
 	// Index is the key of the index field. Empty for arrival timing.
@@ -109,9 +120,60 @@ type InlineRead struct {
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (in *InlineRead) ApplyDefaults() {
+func (in *InlineEntry) ApplyDefaults() {
+	if in.Qos == "" {
+		in.Qos = QoSAtMostOnce
+	}
 	for i := range in.Fields {
 		in.Fields[i].ApplyDefaults()
+	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (in *InlineEntry) SetDefaults() {
+	in.Qos = QoSAtMostOnce
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (in *InlineEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain InlineEntry
+	if reflect.ValueOf(*in).IsZero() {
+		in.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(in))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (in *InlineEntry) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain InlineEntry
+	if reflect.ValueOf(*in).IsZero() {
+		in.SetDefaults()
+	}
+	return dec.Decode((*plain)(in))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (in InlineEntry) Validate() error {
+	v := validate.New("InlineEntry")
+	v.Ternaryf("qos", !in.Qos.IsValid(), "invalid qos: %v", in.Qos)
+	for i := range in.Fields {
+		v.Exec(func() error { return validate.PathedError(in.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// InlineRead holds the plain entries of a read config from before ICDs.
+type InlineRead struct {
+	// Entries are the plain entries that hold their fields inline.
+	Entries []InlineEntry `json:"entries" msgpack:"entries"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (in *InlineRead) ApplyDefaults() {
+	for i := range in.Entries {
+		in.Entries[i].ApplyDefaults()
 	}
 }
 
@@ -119,8 +181,8 @@ func (in *InlineRead) ApplyDefaults() {
 // schema constraints.
 func (in InlineRead) Validate() error {
 	v := validate.New("InlineRead")
-	for i := range in.Fields {
-		v.Exec(func() error { return validate.PathedError(in.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
+	for i := range in.Entries {
+		v.Exec(func() error { return validate.PathedError(in.Entries[i].Validate(), "entries", strconv.Itoa(i)) })
 	}
 	return v.Error()
 }
@@ -156,9 +218,6 @@ type PlainReadEntry struct {
 	// Messages are the messages the topic carries. Each payload is read as the message
 	// whose match rule it meets.
 	Messages []ReadMessage `json:"messages" msgpack:"messages"`
-	// Inline is the read of an entry from before ICDs, which held its fields inline. A
-	// write moves the fields into a new ICD and clears it.
-	Inline *InlineRead `json:"inline,omitzero" msgpack:"inline,omitempty"`
 }
 
 func (PlainReadEntry) isReadEntryVariant() {}
@@ -173,9 +232,6 @@ func (p *PlainReadEntry) ApplyDefaults() {
 	if p.Qos == "" {
 		p.Qos = QoSAtMostOnce
 	}
-	if p.Inline != nil {
-		p.Inline.ApplyDefaults()
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -183,9 +239,6 @@ func (p *PlainReadEntry) ApplyDefaults() {
 func (p PlainReadEntry) Validate() error {
 	v := validate.New("PlainReadEntry")
 	v.Ternaryf("qos", !p.Qos.IsValid(), "invalid qos: %v", p.Qos)
-	if p.Inline != nil {
-		v.Exec(func() error { return validate.PathedError(p.Inline.Validate(), "inline") })
-	}
 	return v.Error()
 }
 
@@ -367,12 +420,18 @@ type ReadConfig struct {
 	Device device.Key `json:"device" msgpack:"device"`
 	// Entries contains the topics and tags to read.
 	Entries []ReadEntry `json:"entries" msgpack:"entries"`
+	// Inline holds the plain entries of a config from before ICDs. A write moves their
+	// fields into a new ICD, adds the entries, and clears it.
+	Inline *InlineRead `json:"inline,omitzero" msgpack:"inline,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *ReadConfig) ApplyDefaults() {
 	for i := range r.Entries {
 		r.Entries[i].ApplyDefaults()
+	}
+	if r.Inline != nil {
+		r.Inline.ApplyDefaults()
 	}
 }
 
@@ -382,6 +441,9 @@ func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
 	for i := range r.Entries {
 		v.Exec(func() error { return validate.PathedError(r.Entries[i].Validate(), "entries", strconv.Itoa(i)) })
+	}
+	if r.Inline != nil {
+		v.Exec(func() error { return validate.PathedError(r.Inline.Validate(), "inline") })
 	}
 	return v.Error()
 }

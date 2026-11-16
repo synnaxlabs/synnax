@@ -11,6 +11,7 @@ package v2
 
 import (
 	"context"
+	"slices"
 	"strconv"
 	"strings"
 	"uuid"
@@ -45,12 +46,13 @@ type Channels func(
 // CreateICD creates ic through tx.
 type CreateICD func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error
 
-// ResolveReadConfig moves the inline fields of the plain entries of cfg into a new ICD
-// named name, with one JSON message for each entry, named after its topic, and points
-// each entry at its message. It returns the write that creates the ICD with create, or
-// nil when no entry holds inline fields. A field takes the kind of its channel, read
-// through snap with channels, and binds no channel when that channel does not exist. A
-// disabled field gets no binding. note receives the path and each change of a field.
+// ResolveReadConfig moves the fields of the inline entries of cfg into a new ICD named
+// name, with one JSON message for each entry, named after its topic, and adds each
+// entry back to the entries of cfg, read from its message. It returns the write that
+// creates the ICD with create, or nil when cfg holds no inline entries. A field takes
+// the kind of its channel, read through snap with channels, and binds no channel when
+// that channel does not exist. A disabled field gets no binding. note receives the
+// path and each change of a field.
 func ResolveReadConfig(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -60,50 +62,62 @@ func ResolveReadConfig(
 	cfg *ReadConfig,
 	note func(path, change string),
 ) (func(context.Context, gorp.Tx) error, error) {
-	found, err := inlineChannels(ctx, snap, channels, cfg)
+	if cfg.Inline == nil {
+		return nil, nil
+	}
+	staged := cfg.Inline.Entries
+	found, err := inlineChannels(ctx, snap, channels, staged)
 	if err != nil {
 		return nil, err
 	}
-	ic := icd.ICD{Key: uuid.New(), Name: name}
+	ic := icd.ICD{
+		Key:      uuid.New(),
+		Name:     name,
+		Messages: make([]icd.Message, len(staged)),
+	}
 	names := make(set.Set[string])
-	for i, e := range cfg.Entries {
-		plain, ok := e.Variant.(PlainReadEntry)
-		if !ok || plain.Inline == nil {
-			continue
-		}
-		msg, read := liftEntry(plain.Inline, found, "entries."+strconv.Itoa(i), note)
-		msg.Name = uniqueName(names, lo.CoalesceOrEmpty(plain.Topic, "Untitled"))
-		ic.Messages = append(ic.Messages, msg)
-		plain.ICD, plain.Messages, plain.Inline = ic.Key, []ReadMessage{read}, nil
-		cfg.Entries[i].Variant = plain
+	for i, e := range staged {
+		msg, read := liftEntry(e, found, "entries."+strconv.Itoa(int(e.At)), note)
+		msg.Name = uniqueName(names, lo.CoalesceOrEmpty(e.Topic, "Untitled"))
+		ic.Messages[i] = msg
+		cfg.Entries = slices.Insert(
+			cfg.Entries,
+			min(int(e.At), len(cfg.Entries)),
+			ReadEntry{Variant: PlainReadEntry{
+				BaseReadEntry:   e.BaseReadEntry,
+				Topic:           e.Topic,
+				Qos:             e.Qos,
+				RetainedIgnored: e.RetainedIgnored,
+				ICD:             ic.Key,
+				Messages:        []ReadMessage{read},
+			}},
+		)
 	}
-	if len(ic.Messages) == 0 {
-		return nil, nil
-	}
+	cfg.Inline = nil
 	return func(ctx context.Context, tx gorp.Tx) error {
 		return create(ctx, tx, ic)
 	}, nil
 }
 
-// liftEntry returns the message that holds the fields of inline, with no name, and the
-// read of that message. path is the path of the entry that holds inline.
+// liftEntry returns the message that holds the fields of e, with no name, and the read
+// of that message. path is the path of e.
 func liftEntry(
-	inline *InlineRead,
+	e InlineEntry,
 	found map[channel.Key]Channel,
 	path string,
 	note func(path, change string),
 ) (icd.Message, ReadMessage) {
 	var (
-		fields = make([]icd.JSONField, len(inline.Fields))
+		fields = make([]icd.JSONField, len(e.Fields))
 		read   = ReadMessage{Message: uuid.New(), Bindings: []ReadBinding{}}
 		names  = make(set.Set[string])
 	)
-	for i, old := range inline.Fields {
+	for i, old := range e.Fields {
 		var ch *Channel
 		if c, exists := found[old.Channel]; exists {
 			ch = &c
 		}
-		isIndex := inline.Index != "" && old.Key == inline.Index
+		isIndex := e.Index != "" && old.Key == e.Index
 		r, changes := liftField(old, isIndex, ch)
 		for _, c := range changes {
 			note(path+".fields."+strconv.Itoa(i), c)
@@ -131,11 +145,8 @@ func liftEntry(
 		}
 		read.Bindings = append(read.Bindings, b)
 	}
-	if inline.Index != "" && read.Index == nil {
-		note(
-			path+".index",
-			"index field "+inline.Index+" does not exist and was dropped",
-		)
+	if e.Index != "" && read.Index == nil {
+		note(path+".index", "index field "+e.Index+" does not exist and was dropped")
 	}
 	return icd.Message{
 		Key:     read.Message,
@@ -212,15 +223,11 @@ func inlineChannels(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	channels Channels,
-	cfg *ReadConfig,
+	staged []InlineEntry,
 ) (map[channel.Key]Channel, error) {
 	var keys []channel.Key
-	for _, e := range cfg.Entries {
-		plain, ok := e.Variant.(PlainReadEntry)
-		if !ok || plain.Inline == nil {
-			continue
-		}
-		for _, f := range plain.Inline.Fields {
+	for _, e := range staged {
+		for _, f := range e.Fields {
 			if f.Channel != 0 {
 				keys = append(keys, f.Channel)
 			}

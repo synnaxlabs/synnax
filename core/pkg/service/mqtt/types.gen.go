@@ -67,7 +67,10 @@ type ReadMessage = versions.ReadMessage
 // BaseReadEntry carries the fields every read entry shares.
 type BaseReadEntry = versions.BaseReadEntry
 
-// InlineRead is the read of a plain entry that holds its fields inline.
+// InlineEntry is a plain entry from before ICDs, which held its fields inline.
+type InlineEntry = versions.InlineEntry
+
+// InlineRead holds the plain entries of a read config from before ICDs.
 type InlineRead = versions.InlineRead
 
 // ReadEntry is a single source of an MQTT read task. The type field selects a plain

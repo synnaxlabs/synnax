@@ -17,12 +17,53 @@ import (
 )
 
 // Patch applies the path action at c, which is not done, to the value.
+func (ie *InlineEntry) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&ie.BaseReadEntry.Key, c.Next())
+	case "disabled":
+		return patch.Value(&ie.BaseReadEntry.Disabled, c.Next())
+	case "at":
+		return patch.Value(&ie.At, c.Next())
+	case "topic":
+		return patch.Value(&ie.Topic, c.Next())
+	case "qos":
+		return patch.Defaulted(&ie.Qos, c.Next(), func(def *InlineEntry) {
+			ie.Qos = def.Qos
+		})
+	case "retained_ignored":
+		return patch.Value(&ie.RetainedIgnored, c.Next())
+	case "fields":
+		return patch.List(&ie.Fields, c.Next())
+	case "index":
+		return patch.Value(&ie.Index, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// PatchKey returns the key that paths name the value by in a list.
+func (ie *InlineEntry) PatchKey() string { return ie.BaseReadEntry.Key }
+
+// HashContent writes the content of the value to h, without its keys.
+func (ie *InlineEntry) HashContent(h *content.Hash) {
+	h.Bool(ie.BaseReadEntry.Disabled)
+	h.Uint(uint64(ie.At))
+	h.String(ie.Topic)
+	h.String(string(ie.Qos))
+	h.Bool(ie.RetainedIgnored)
+	h.Len(len(ie.Fields))
+	for i0 := range ie.Fields {
+		ie.Fields[i0].HashContent(h)
+	}
+	h.String(ie.Index)
+}
+
+// Patch applies the path action at c, which is not done, to the value.
 func (ir *InlineRead) Patch(c patch.Cursor) error {
 	switch c.Segment() {
-	case "fields":
-		return patch.List(&ir.Fields, c.Next())
-	case "index":
-		return patch.Value(&ir.Index, c.Next())
+	case "entries":
+		return patch.List(&ir.Entries, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -30,11 +71,10 @@ func (ir *InlineRead) Patch(c patch.Cursor) error {
 
 // HashContent writes the content of the value to h, without its keys.
 func (ir *InlineRead) HashContent(h *content.Hash) {
-	h.Len(len(ir.Fields))
-	for i0 := range ir.Fields {
-		ir.Fields[i0].HashContent(h)
+	h.Len(len(ir.Entries))
+	for i0 := range ir.Entries {
+		ir.Entries[i0].HashContent(h)
 	}
-	h.String(ir.Index)
 }
 
 // HashContent writes the content of the value to h, without its keys.
@@ -57,6 +97,16 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 		return patch.Value(&rc.Device, c.Next())
 	case "entries":
 		return patch.List(&rc.Entries, c.Next())
+	case "inline":
+		if c = c.Next(); c.Done() || rc.Inline == nil {
+			return patch.OptionalValue(&rc.Inline, c)
+		}
+		next := *rc.Inline
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		rc.Inline = &next
+		return nil
 	default:
 		return c.UnknownField()
 	}
@@ -70,6 +120,12 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 	h.Len(len(rc.Entries))
 	for i0 := range rc.Entries {
 		rc.Entries[i0].HashContent(h)
+	}
+	if rc.Inline == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		rc.Inline.HashContent(h)
 	}
 }
 
@@ -166,16 +222,6 @@ func (pre *PlainReadEntry) Patch(c patch.Cursor) error {
 		return patch.Value(&pre.ICD, c.Next())
 	case "messages":
 		return patch.Value(&pre.Messages, c.Next())
-	case "inline":
-		if c = c.Next(); c.Done() || pre.Inline == nil {
-			return patch.OptionalValue(&pre.Inline, c)
-		}
-		next := *pre.Inline
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		pre.Inline = &next
-		return nil
 	default:
 		return c.UnknownField()
 	}
@@ -191,12 +237,6 @@ func (pre *PlainReadEntry) HashContent(h *content.Hash) {
 	h.Len(len(pre.Messages))
 	for i0 := range pre.Messages {
 		pre.Messages[i0].HashContent(h)
-	}
-	if pre.Inline == nil {
-		h.Bool(false)
-	} else {
-		h.Bool(true)
-		pre.Inline.HashContent(h)
 	}
 }
 
