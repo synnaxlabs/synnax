@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <functional>
@@ -1046,6 +1047,34 @@ TEST(DeviceTest, DiscardsLateReply) {
     uint16_t reg = 0;
     ASSERT_OCCURRED_AS(dev->read_registers(HoldingRegister, 0, 1, &reg), UNREACHABLE);
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    ASSERT_NIL(dev->read_registers(HoldingRegister, 1, 1, &reg));
+    EXPECT_EQ(reg, 22);
+    EXPECT_EQ(slave.connections(), 1);
+    slave.stop();
+}
+
+/// @brief it should fail a reply that goes silent between two bytes for longer than
+/// the byte timeout as timed out, and serve the next request on the same connection.
+TEST(DeviceTest, TimesOutReplyThatPausesMidway) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1695;
+    slave_config.holding_registers[1] = static_cast<uint16_t>(22);
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    auto cfg = unit(1695, 1);
+    cfg.timeout = x::telem::SECOND * 2;
+    cfg.retries = 0;
+    auto dev = ASSERT_NIL_P(manager.acquire(cfg));
+
+    std::vector<uint8_t> raw{1, 0x03, 20};
+    raw.resize(raw.size() + 20, 0);
+    slave.answer_next(1, raw, 0, std::chrono::milliseconds(700));
+    std::array<uint16_t, 10> regs{};
+    const auto err = dev->read_registers(HoldingRegister, 0, 10, regs.data());
+    ASSERT_OCCURRED_AS(err, UNREACHABLE);
+    EXPECT_EQ(err.data, modbus_strerror(ETIMEDOUT));
+    uint16_t reg = 0;
     ASSERT_NIL(dev->read_registers(HoldingRegister, 1, 1, &reg));
     EXPECT_EQ(reg, 22);
     EXPECT_EQ(slave.connections(), 1);

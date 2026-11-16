@@ -62,6 +62,8 @@ const x::telem::TimeSpan ATTEMPT_SLACK = x::telem::SECOND;
 /// @brief the longest that a wait for a connect or a reply goes before it checks
 /// whether its device was interrupted.
 const x::telem::TimeSpan WAIT_STEP = x::telem::MILLISECOND * 100;
+/// @brief the longest silence between two bytes of one reply.
+const x::telem::TimeSpan BYTE_TIMEOUT = x::telem::MILLISECOND * 500;
 
 /// @brief classifies a libmodbus or system error number.
 /// @param errnum the value of errno after a failed libmodbus call.
@@ -733,7 +735,8 @@ private:
     /// ends before the first byte reads nothing, so the next step waits on.
     /// @param adu receives the reply, at least MODBUS_MAX_ADU_LENGTH bytes long.
     /// @returns the length of the reply and 0, or 0 and the error number: EINTR if
-    /// interrupted was set.
+    /// interrupted was set, and ETIMEDOUT at the deadline or after a reply goes silent
+    /// for BYTE_TIMEOUT.
     std::pair<int, int> receive(
         const Clock::time_point deadline,
         const std::atomic<bool> &interrupted,
@@ -755,12 +758,22 @@ private:
                 static_cast<std::uint32_t>(step.count() / 1000000),
                 static_cast<std::uint32_t>(step.count() % 1000000)
             );
+            modbus_set_byte_timeout(
+                this->ctx,
+                0,
+                static_cast<std::uint32_t>(BYTE_TIMEOUT.microseconds())
+            );
             clear_error();
+            const auto began = Clock::now();
             if (const int length = modbus_receive_confirmation(this->ctx, adu);
                 length != -1)
                 return {length, 0};
             if (const int errnum = last_error(); errnum != ETIMEDOUT)
                 return {0, errnum};
+            // A call that ran well past its step started a reply, then timed out
+            // between two of its bytes. Another call would read the rest as a reply.
+            if (Clock::now() - began > step + BYTE_TIMEOUT.chrono() / 2)
+                return {0, ETIMEDOUT};
         }
         return {0, EINTR};
     }
@@ -863,14 +876,11 @@ private:
             this->stale = false;
         }
         if (this->stale) {
-            // A request sent first would read the late reply as its own and lose the
-            // socket.
-            if (this->transport == Transport::TCP) {
-                std::array<std::uint8_t, MODBUS_MAX_ADU_LENGTH> late{};
-                if (this->receive(this->stale_until, interrupted, late.data()).second ==
-                    EINTR)
-                    return {EINTR};
-            }
+            // A request sent first would read the late reply as its own.
+            std::array<std::uint8_t, MODBUS_MAX_ADU_LENGTH> late{};
+            if (this->receive(this->stale_until, interrupted, late.data()).second ==
+                EINTR)
+                return {EINTR};
             modbus_flush(this->ctx);
             this->stale = false;
         }
@@ -881,7 +891,14 @@ private:
         if (result.errnum == ETIMEDOUT || result.errnum == EMBBADCRC ||
             result.errnum == EINTR) {
             this->stale = true;
-            this->stale_until = Clock::now() + cfg.timeout.chrono();
+            // An RTU unit answers within the timeout or not at all, so only an
+            // interrupted RTU request can still get its reply.
+            if (this->transport == Transport::TCP)
+                this->stale_until = Clock::now() + cfg.timeout.chrono();
+            else if (result.errnum == EINTR)
+                this->stale_until = this->sent + cfg.timeout.chrono();
+            else
+                this->stale_until = Clock::now();
         } else if (result.errnum != 0 && classify(result.errnum).matches(UNREACHABLE))
             this->disconnect();
         return result;
@@ -954,7 +971,7 @@ private:
             const auto now = Clock::now();
             auto limit = this->turn_limit(cfg, delay).chrono();
             // The late reply of an earlier request can take longer than cfg.timeout.
-            if (this->stale && this->transport == Transport::TCP)
+            if (this->stale)
                 limit += std::max(this->stale_until - now, Clock::duration::zero());
             std::lock_guard lock(this->mu);
             this->turn_ends = now + limit;
