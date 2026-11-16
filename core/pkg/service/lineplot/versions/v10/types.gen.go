@@ -154,19 +154,6 @@ type Line struct {
 	Detail Detail `json:"detail" msgpack:"detail"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *Line) ApplyDefaults() {
-	if l.StrokeWidth == 0 {
-		l.StrokeWidth = 2
-	}
-	if l.Aggregation == "" {
-		l.Aggregation = AggregationMinMax
-	}
-	if l.Detail == "" {
-		l.Detail = DetailMedium
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (l *Line) SetDefaults() {
 	l.StrokeWidth = 2
@@ -223,13 +210,6 @@ type Rule struct {
 	Units string `json:"units" msgpack:"units"`
 	// Position is the value-space position of the rule along its anchored axis.
 	Position float64 `json:"position" msgpack:"position"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *Rule) ApplyDefaults() {
-	if r.LineWidth == 0 {
-		r.LineWidth = 1
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -292,19 +272,6 @@ type LinePlot struct {
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 	// Project is the project that holds the line plot.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LinePlot) ApplyDefaults() {
-	l.Title.ApplyDefaults()
-	l.Legend.ApplyDefaults()
-	l.Axes.ApplyDefaults()
-	for i := range l.Lines {
-		l.Lines[i].ApplyDefaults()
-	}
-	for i := range l.Rules {
-		l.Rules[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.

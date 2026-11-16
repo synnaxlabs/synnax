@@ -53,7 +53,7 @@ func (s StringZ) Validate(data any) error {
 }
 
 // validateDestinationValue validates that the destination is compatible with string
-// data
+// data.
 func (s StringZ) validateDestinationValue(dest reflect.Value) error {
 	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError(string(s.dataType), dest)

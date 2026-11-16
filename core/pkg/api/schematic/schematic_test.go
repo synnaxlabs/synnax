@@ -274,7 +274,11 @@ var _ = Describe("Service", func() {
 												Param: "in",
 											},
 											Config: schematic.EdgeConfig{
-												Variant: schematic.PipeEdgeConfig{},
+												Variant: schematic.PipeEdgeConfig{
+													SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
+														StrokeWidth: 2,
+													},
+												},
 											},
 										}},
 									),

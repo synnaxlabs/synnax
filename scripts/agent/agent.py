@@ -25,7 +25,7 @@ Outputs:
 --recipient, with report, keeps the report private on a public repository: it writes
 only the report encrypted to the GPG public key file KEY, as the `report` step output.
 The agent gets no GitHub token, and its stderr, CLI state, and output files are
-discarded. It uses the seat's CLI login in place.
+discarded. It uses the agent's login in place.
 
 The last stdout line is the PR URL for pr and comment, and is also written as `pr-url`
 to $GITHUB_OUTPUT when it is set. --dry-run runs the agent but pushes, comments, and

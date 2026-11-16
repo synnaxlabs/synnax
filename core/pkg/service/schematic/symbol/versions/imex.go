@@ -31,10 +31,10 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Symbol, error) 
 		sym, err = autoDecodeEnvelope(ctx, env)
 	} else {
 		var body msgpack.EncodedJSON
-		if body, err = env.Decode[msgpack.EncodedJSON](ctx); err == nil {
+		if body, err = env.Decode[msgpack.EncodedJSON](); err == nil {
 			if err = imex.RequireFields(body, "a symbol", "data.svg"); err == nil {
 				var d legacy.Data
-				if d, err = env.Decode[legacy.Data](ctx); err == nil {
+				if d, err = env.Decode[legacy.Data](); err == nil {
 					sym, err = liftFirst(
 						ctx, v2.Symbol{Data: v2.SpecFromConsole(d.Spec)},
 					)

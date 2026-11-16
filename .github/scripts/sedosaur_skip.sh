@@ -17,7 +17,8 @@
 # A fork's code never reaches a runner. A replay and a repeat always run, and only a
 # manual dispatch asks for one. Sessions often ask again for a review of a head that
 # has one. The reviews of one pull request take turns, so a head needs no other review
-# when its last review for this pull request and base succeeded.
+# when its last review for this pull request and base succeeded under the current rules.
+# Their check runs carry RULES.
 
 set -euo pipefail
 
@@ -33,7 +34,9 @@ if [ "${REPLAY:?}" = true ] || [ "${REPEAT:?}" = true ]; then
     exit 0
 fi
 export KEY=${KEY:?}
+export RULES="<!-- sedosaur_rules:2 -->"
 RUNS="repos/${REPO}/commits/${HEAD_SHA:?}/check-runs"
 "$GH_API" "${RUNS}?check_name=Sedosaur%20Review&filter=all&per_page=100" --jq '
     [.check_runs[] | select(.app.slug == "sedosaur") | select(.external_id == env.KEY)]
-    | max_by(.started_at) | .conclusion == "success"'
+    | max_by(.started_at)
+    | .conclusion == "success" and ((.output.text // "") | contains(env.RULES))'

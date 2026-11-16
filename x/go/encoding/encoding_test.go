@@ -22,29 +22,29 @@ var errBase = errors.New("base failure")
 
 var _ = Describe("SugarDecodingError", func() {
 	It("Should return nil for a nil base error", func() {
-		Expect(encoding.SugarDecodingError([]byte{1}, new(int), nil)).To(Succeed())
+		Expect(encoding.SugarDecodingError(new(int), nil)).To(Succeed())
 	})
 
 	It("Should mark the error as a decode failure", func() {
-		Expect(encoding.SugarDecodingError([]byte{1}, new(int), errBase)).To(
+		Expect(encoding.SugarDecodingError(new(int), errBase)).To(
 			MatchError(ContainSubstring("failed to decode")),
 		)
 	})
 
 	It("Should keep the base error in the error chain", func() {
-		Expect(encoding.SugarDecodingError([]byte{1}, new(int), errBase)).To(
+		Expect(encoding.SugarDecodingError(new(int), errBase)).To(
 			MatchError(errBase),
 		)
 	})
 
 	It("Should retain the base error in the verbose format", func() {
-		err := encoding.SugarDecodingError([]byte{1}, new(int), errBase)
+		err := encoding.SugarDecodingError(new(int), errBase)
 		Expect(fmt.Sprintf("%+v", err)).To(ContainSubstring("base failure"))
 	})
 
-	It("Should describe the target and the raw data", func() {
-		Expect(encoding.SugarDecodingError([]byte{0xAB, 0xCD}, new(int), errBase)).To(
-			MatchError(ContainSubstring("kind=ptr, type=*int, data=abcd")),
+	It("Should name the type that the value points to", func() {
+		Expect(encoding.SugarDecodingError(new(int), errBase)).To(
+			MatchError("failed to decode int: base failure"),
 		)
 	})
 })

@@ -28,6 +28,7 @@ func newHTTPFramerCodec(
 	keys channel.Keys,
 	dts []telem.DataType,
 ) *framer.Codec {
+	b.Helper()
 	return framer.NewCodec(b.Context(), codec.NewStatic(keys, dts))
 }
 

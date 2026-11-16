@@ -175,6 +175,10 @@ jobs:
           if [ "$PRODUCT" = desktop ]; then
             BASE="$(cat src-tauri/tauri.desktop.conf.json)"
           fi
+          if [ "$PRODUCT" = desktop ] && [ "$OS_NAME" = linux ]; then
+            BASE="$(jq -s '.[0] * .[1]' - src-tauri/tauri.desktop.linux.conf.json \
+              <<< "$BASE")"
+          fi
           # A Desktop release sends its source maps to PostHog, which resolves exception
           # stacks with them. The chunk IDs go in after the frontend builds and before
           # tauri build bundles it.

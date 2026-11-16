@@ -426,7 +426,7 @@ func (r *avgNode) Next(ctx node.Context) {
 	if r.resetIdx >= 0 {
 		resetData := r.Input(r.resetIdx)
 		resetTime := r.InputTime(r.resetIdx)
-		for i := int64(0); i < resetData.Len(); i++ {
+		for i := range resetData.Len() {
 			ts := resetTime.ValueAt[telem.TimeStamp](int(i))
 			if ts > r.lastResetTime && resetData.ValueAt[bool](int(i)) {
 				shouldReset = true

@@ -60,6 +60,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	// Alert stores pagerduty_alert task configuration records.
 	Alert  *config.Service[TaskConfig]
+	create v2.CreateSecret
 	closer xio.MultiCloser
 }
 
@@ -72,7 +73,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	create := createSecret(cfg.Secret)
-	s = &Service{}
+	s = &Service{create: create}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.Alert, err = config.OpenService(
@@ -86,7 +87,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Legacy:          &legacy.Alert,
 			Migrations: []gorp.Migration{
 				v1.StatusKeysMigration,
-				v2.NewMigration(create),
+				v2.Migration,
 			},
 			SetEntryKey: (*TaskConfig).SetKey,
 			PatchEntry:  (*TaskConfig).Patch,

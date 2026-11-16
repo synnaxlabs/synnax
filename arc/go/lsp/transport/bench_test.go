@@ -177,7 +177,7 @@ func (h *benchHarness) openDoc() {
 func BenchmarkInitialize(b *testing.B) {
 	h := newHarness(b)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		h.request("initialize", map[string]any{
 			"clientInfo": map[string]any{"name": "bench-client"},
 		})
@@ -190,7 +190,7 @@ func BenchmarkAnalyzePublish(b *testing.B) {
 	h := newHarness(b)
 	h.openDoc()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		h.notify("textDocument/didSave", map[string]any{
 			"textDocument": map[string]any{"uri": benchURI},
 		})
@@ -203,7 +203,7 @@ func BenchmarkHover(b *testing.B) {
 	h := newHarness(b)
 	h.openDoc()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		h.request("textDocument/hover", map[string]any{
 			"textDocument": map[string]any{"uri": benchURI},
 			"position":     map[string]any{"line": 3, "character": 9},
@@ -216,7 +216,7 @@ func BenchmarkCompletion(b *testing.B) {
 	h := newHarness(b)
 	h.openDoc()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		h.request("textDocument/completion", map[string]any{
 			"textDocument": map[string]any{"uri": benchURI},
 			"position":     map[string]any{"line": 4, "character": 22},
@@ -229,7 +229,7 @@ func BenchmarkSemanticTokensFull(b *testing.B) {
 	h := newHarness(b)
 	h.openDoc()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		h.request("textDocument/semanticTokens/full", map[string]any{
 			"textDocument": map[string]any{"uri": benchURI},
 		})
@@ -244,7 +244,7 @@ func BenchmarkDidChange(b *testing.B) {
 	h.openDoc()
 	version := 1
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		version++
 		h.notify("textDocument/didChange", map[string]any{
 			"textDocument": map[string]any{"uri": benchURI, "version": version},

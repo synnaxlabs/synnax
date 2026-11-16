@@ -15,8 +15,6 @@
 package stratifier
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/set"
@@ -28,7 +26,6 @@ import (
 // The program is modified in place. Diagnostics are appended to diag; the
 // returned value is diag for convenient chaining.
 func Stratify(
-	_ context.Context,
 	prog *ir.IR,
 	diag *diagnostics.Diagnostics,
 ) *diagnostics.Diagnostics {

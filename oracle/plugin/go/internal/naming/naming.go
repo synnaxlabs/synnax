@@ -119,7 +119,7 @@ func LowerFirst(s string) string {
 			runes[j] = unicode.ToLower(runes[j])
 		}
 	} else {
-		for j := 0; j < i-1; j++ {
+		for j := range i - 1 {
 			runes[j] = unicode.ToLower(runes[j])
 		}
 	}
@@ -127,7 +127,7 @@ func LowerFirst(s string) string {
 }
 
 // DerivePackageName extracts the package name from an output path. Example:
-// "core/pkg/service/user" -> "user"
+// "core/pkg/service/user" -> "user".
 func DerivePackageName(outputPath string) string { return filepath.Base(outputPath) }
 
 // majorVersion matches a module major-version path segment ("v2", "v12").

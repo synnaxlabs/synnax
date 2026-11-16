@@ -176,7 +176,7 @@ func assemble(instructions ...any) []byte {
 	return out.Bytes()
 }
 
-// opcodeMatcher is a custom Gomega matcher for comparing opcode sequences
+// opcodeMatcher is a custom Gomega matcher for comparing opcode sequences.
 type opcodeMatcher struct {
 	expected wasm.OPCodes
 }
@@ -313,10 +313,7 @@ func (m *opcodeMatcher) NegatedFailureMessage(actual any) string {
 		return fmt.Sprintf("Expected not to match, but got invalid type %T", actual)
 	}
 
-	return fmt.Sprintf(
-		"Expected opcodes not to match, but they did:\n  %s",
-		actualOpcodes.String(),
-	)
+	return "Expected opcodes not to match, but they did:\n  " + actualOpcodes.String()
 }
 
 func opcodesFromBytes(data []byte) wasm.OPCodes {
