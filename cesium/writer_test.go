@@ -137,7 +137,7 @@ var _ = Describe("Writer Behavior", func() {
 									"Opening a streamer over the index and data channels",
 								)
 								s := MustSucceed(
-									db.NewStreamer(ctx, cesium.StreamerConfig{
+									db.NewStreamer(cesium.StreamerConfig{
 										Channels: []cesium.ChannelKey{
 											basic1,
 											basic1Index,
@@ -224,7 +224,7 @@ var _ = Describe("Writer Behavior", func() {
 									"Opening a streamer over the index and data channels",
 								)
 								s := MustSucceed(
-									db.NewStreamer(ctx, cesium.StreamerConfig{
+									db.NewStreamer(cesium.StreamerConfig{
 										Channels: []cesium.ChannelKey{idx, data},
 									}),
 								)
@@ -333,7 +333,7 @@ var _ = Describe("Writer Behavior", func() {
 
 								By("Opening a streamer over the data channel")
 								s := MustSucceed(
-									db.NewStreamer(ctx, cesium.StreamerConfig{
+									db.NewStreamer(cesium.StreamerConfig{
 										Channels: []cesium.ChannelKey{data},
 									}),
 								)
@@ -471,7 +471,7 @@ var _ = Describe("Writer Behavior", func() {
 
 								By("Opening a streamer over the data channel")
 								s := MustSucceed(
-									db.NewStreamer(ctx, cesium.StreamerConfig{
+									db.NewStreamer(cesium.StreamerConfig{
 										Channels: []cesium.ChannelKey{data},
 									}),
 								)
@@ -565,7 +565,7 @@ var _ = Describe("Writer Behavior", func() {
 
 								By("Opening a streamer over the data channel")
 								s := MustSucceed(
-									db.NewStreamer(ctx, cesium.StreamerConfig{
+									db.NewStreamer(cesium.StreamerConfig{
 										Channels: []cesium.ChannelKey{data},
 									}),
 								)
@@ -652,7 +652,7 @@ var _ = Describe("Writer Behavior", func() {
 
 								By("Opening a streamer over both data channels")
 								s := MustSucceed(
-									db.NewStreamer(ctx, cesium.StreamerConfig{
+									db.NewStreamer(cesium.StreamerConfig{
 										Channels: []cesium.ChannelKey{d1, d2},
 									}),
 								)
@@ -783,7 +783,7 @@ var _ = Describe("Writer Behavior", func() {
 								)).To(Succeed())
 
 								s := MustSucceed(
-									db.NewStreamer(ctx, cesium.StreamerConfig{
+									db.NewStreamer(cesium.StreamerConfig{
 										Channels: []cesium.ChannelKey{idx, data},
 									}),
 								)
@@ -4701,7 +4701,7 @@ var _ = Describe("Writer Behavior", func() {
 							Channels: []cesium.ChannelKey{key},
 							Start:    10 * telem.SecondTS,
 						}))
-						s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+						s := MustSucceed(db.NewStreamer(cesium.StreamerConfig{
 							Channels: []cesium.ChannelKey{key},
 						}))
 						sCtx, cancel := signal.Isolated()
@@ -5340,7 +5340,7 @@ func openObservedStreamer(
 	keys ...cesium.ChannelKey,
 ) (*alignmentObserver, confluence.Outlet[cesium.StreamerResponse], func()) {
 	GinkgoHelper()
-	s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{Channels: keys}))
+	s := MustSucceed(db.NewStreamer(cesium.StreamerConfig{Channels: keys}))
 	in, out := confluence.Attach(s, len(keys)*64)
 	sCtx, cancel := signal.WithCancel(ctx)
 	s.Flow(sCtx)
