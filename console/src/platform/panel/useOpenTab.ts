@@ -34,6 +34,8 @@ export interface OpenTabOptions {
    * instead of opening a duplicate, making the view a per-panel singleton.
    */
   singleton?: boolean;
+  /** Focuses the first matching tab of the panel, if any, instead of opening one. */
+  focus?: (tab: panel.Tab) => boolean;
   /**
    * Places the tab in a specific leaf instead of beside the current one. Ignored when
    * the leaf is gone, which an await between the drop and the open allows.
@@ -89,9 +91,13 @@ export const useOpenTabs = (): OpenTabs => {
     params: panel.NewTab[],
     options?: OpenTabOptions,
   ) => {
-    if (!query.isLive(client?.panels.watch(panelKey).getCached()))
+    const current = client?.panels.watch(panelKey).getCached();
+    if (!query.isLive(current))
       throw new NotFoundError(`Panel with key ${panelKey} not found`);
-    const { singleton, placement } = options ?? {};
+    const { singleton, placement, focus } = options ?? {};
+    const existing =
+      focus == null ? undefined : panel.findTabWhere(current.root, focus);
+    if (existing != null) return selectTab(existing.key, panelKey);
     const tabs = params.map((p): panel.Tab => panel.tabZ.parse({ ...p }));
     const last = tabs.at(-1);
     if (last == null) return;
@@ -111,8 +117,8 @@ export const useOpenTabs = (): OpenTabs => {
     });
     const applied = client?.panels.watch(panelKey).getCached();
     if (!query.isLive(applied)) return;
-    const focus = focusedTabKey(applied.root, last, singleton);
-    if (focus != null) selectTab(focus, panelKey);
+    const focused = focusedTabKey(applied.root, last, singleton);
+    if (focused != null) selectTab(focused, panelKey);
   };
   const { update: createPanel } = Panel.useCreate({
     afterOptimistic: ({

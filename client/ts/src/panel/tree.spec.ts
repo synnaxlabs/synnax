@@ -109,6 +109,28 @@ describe("tree", () => {
     });
   });
 
+  describe("findTabWhere", () => {
+    const tree: panel.Node = {
+      variant: "split",
+      direction: "x",
+      size: 0.5,
+      first: leaf("a", "b"),
+      last: leaf("c", "b2"),
+    };
+
+    it("should find the first matching tab in traversal order", () => {
+      expect(panel.findTabWhere(tree, (t) => t.key.startsWith("b"))?.key).toEqual("b");
+    });
+
+    it("should search the last child when the first holds no match", () => {
+      expect(panel.findTabWhere(tree, (t) => t.key === "c")?.key).toEqual("c");
+    });
+
+    it("should return null when no tab matches", () => {
+      expect(panel.findTabWhere(tree, () => false)).toBeUndefined();
+    });
+  });
+
   describe("findTabByType", () => {
     const withView: panel.Node = {
       variant: "split",

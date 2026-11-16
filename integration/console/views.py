@@ -73,15 +73,20 @@ class ViewsClient(ResourceClient):
 
     # ── Explorer Tab ──────────────────────────────────────────────────────
 
-    def _tab_name(self, view: str) -> str:
-        """Return the name of the explorer's tab while it shows the view."""
+    def _saved_tab_name(self, view: str) -> str:
+        """Return a pattern for the tab name on a saved view. The view's name is a
+        part of its own, so the tab's text has no space before it."""
+        return f"{re.escape(self.tab_prefix)} \u203a\\s*{view}"
+
+    def _tab_name(self, view: str) -> re.Pattern[str]:
+        """Return a pattern for the explorer's tab name while it shows the view."""
         if view == self.static_view_name:
-            return self.tab_name
-        return f"{self.tab_prefix} \u203a {view}"
+            return re.compile(f"^{re.escape(self.tab_name)}$")
+        return re.compile(f"^{self._saved_tab_name(re.escape(view))}$")
 
     def _any_tab_name(self) -> re.Pattern[str]:
         """Return a pattern for the explorer's tab name, whichever view it shows."""
-        saved = re.escape(self._tab_name("")) + ".+"
+        saved = self._saved_tab_name(".+")
         return re.compile(f"^({re.escape(self.tab_name)}|{saved})$")
 
     def get_tab(self, view: str | None = None) -> Locator:
