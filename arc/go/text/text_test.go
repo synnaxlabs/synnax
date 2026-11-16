@@ -4590,7 +4590,7 @@ time.wait(duration=500ms) -> output`
 					Expect(highEdge.Source.Node).To(Equal("demux_0"))
 					highConst := findNodeByKey(inter.Nodes, highEdge.Target.Node)
 					Expect(highConst.Type).To(Equal("constant"))
-					alarmIn := MustBeOk(ir.Edges(inter.Edges).FindByTarget(
+					alarmIn := MustBeOk(inter.Edges.FindByTarget(
 						ir.Handle{Node: alarmNode.Key, Param: "value"},
 					))
 					Expect(alarmIn.Source).To(Equal(
@@ -4601,7 +4601,7 @@ time.wait(duration=500ms) -> output`
 					Expect(lowEdge.Source.Node).To(Equal("demux_0"))
 					lowConst := findNodeByKey(inter.Nodes, lowEdge.Target.Node)
 					Expect(lowConst.Type).To(Equal("constant"))
-					loggerIn := MustBeOk(ir.Edges(inter.Edges).FindByTarget(
+					loggerIn := MustBeOk(inter.Edges.FindByTarget(
 						ir.Handle{Node: loggerNode.Key, Param: "value"},
 					))
 					Expect(loggerIn.Source).To(Equal(
@@ -4690,11 +4690,11 @@ time.wait(duration=500ms) -> output`
 					k := MustBeOk(findNodeByKey(inter.Nodes, "scale_0").Inputs.Get("k"))
 					Expect(k.Type.Kind).To(Equal(types.KindVarRef))
 					constKey := findNodeByType(inter.Nodes, "constant").Key
-					call := MustBeOk(ir.Edges(inter.Edges).FindByTarget(
+					call := MustBeOk(inter.Edges.FindByTarget(
 						ir.Handle{Node: "scale_0", Param: "b"},
 					))
 					Expect(call.Source.Node).To(Equal(constKey))
-					arg := MustBeOk(ir.Edges(inter.Edges).FindByTarget(
+					arg := MustBeOk(inter.Edges.FindByTarget(
 						ir.Handle{Node: k.Type.Name, Param: ir.DefaultInputParam},
 					))
 					Expect(arg.Source.Node).To(Equal(constKey))
@@ -4788,7 +4788,7 @@ time.wait(duration=500ms) -> output`
 				highConst := findNodeByKey(inter.Nodes, highEdge.Target.Node)
 				Expect(highConst.Type).To(Equal("constant"))
 
-				constToAmplify := MustBeOk(ir.Edges(inter.Edges).FindByTarget(
+				constToAmplify := MustBeOk(inter.Edges.FindByTarget(
 					ir.Handle{Node: "amplify_0", Param: "signal"},
 				))
 				Expect(constToAmplify.Source.Node).To(Equal(highConst.Key))
