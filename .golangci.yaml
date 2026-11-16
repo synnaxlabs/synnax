@@ -78,7 +78,6 @@ linters:
     - predeclared # SY-6115
     - recvcheck # SY-6111
     - spancheck # SY-6111
-    - unconvert # SY-6114
     - unparam # SY-6112
   settings:
     depguard:
