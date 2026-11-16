@@ -67,7 +67,7 @@ var _ = Describe("FieldProcessor", func() {
 
 		It(
 			"Should add a same-namespace zod import when a field references another schema type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "client/ts/src/schema"
 
@@ -119,7 +119,7 @@ var _ = Describe("FieldProcessor", func() {
 			Expect(mgr.SynnaxImports()).To(BeNil())
 		})
 
-		It("Should recurse through type args", func(ctx SpecContext) {
+		It("Should recurse through type args", func() {
 			source := `
 				@ts output "client/ts/src/schema"
 
@@ -155,7 +155,7 @@ var _ = Describe("FieldProcessor", func() {
 
 		It(
 			"Should not add imports for cross-namespace references",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "client/ts/src/schema"
 

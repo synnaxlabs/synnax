@@ -51,7 +51,7 @@ var _ = Describe("Go Actions Plugin", func() {
 
 	Describe("Generate", func() {
 		Context("structs without actions", func() {
-			It("Should emit no files", func(ctx SpecContext) {
+			It("Should emit no files", func() {
 				source := `
 					@go output "core/pkg/service/user"
 
@@ -66,7 +66,7 @@ var _ = Describe("Go Actions Plugin", func() {
 		})
 
 		Context("unions with actions", func() {
-			It("Should emit actions that reduce the union", func(ctx SpecContext) {
+			It("Should emit actions that reduce the union", func() {
 				source := `
 					@go output "core/pkg/service/shape"
 
@@ -105,7 +105,7 @@ var _ = Describe("Go Actions Plugin", func() {
 		Context("structs with actions", func() {
 			It(
 				"Should emit a single action type constant on one line",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/counter"
 
@@ -128,7 +128,7 @@ var _ = Describe("Go Actions Plugin", func() {
 				},
 			)
 
-			It("Should emit a discriminated-union codec", func(ctx SpecContext) {
+			It("Should emit a discriminated-union codec", func() {
 				source := `
 					@go output "core/pkg/service/counter"
 
@@ -186,7 +186,7 @@ var _ = Describe("Go Actions Plugin", func() {
 
 			It(
 				"Should flatten fields from an extended struct into the action payload",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/counter"
 
@@ -214,7 +214,7 @@ var _ = Describe("Go Actions Plugin", func() {
 
 			It(
 				"Should declare the payload of an action alias over its struct",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/patch", `
 						@go output "x/go/patch"
 
@@ -256,7 +256,7 @@ var _ = Describe("Go Actions Plugin", func() {
 
 			It(
 				"Should write the own doc of an action alias",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/patch", `
 						@go output "x/go/patch"
 
@@ -291,7 +291,7 @@ var _ = Describe("Go Actions Plugin", func() {
 
 			It(
 				"Should reduce a generic struct with any for each kept type parameter",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/report"
 
@@ -318,7 +318,7 @@ var _ = Describe("Go Actions Plugin", func() {
 
 			It(
 				"Should snake_case action names with multiple words",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/board"
 
@@ -341,7 +341,7 @@ var _ = Describe("Go Actions Plugin", func() {
 
 			It(
 				"Should not pointer-prefix slice, map, or record fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/bag"
 

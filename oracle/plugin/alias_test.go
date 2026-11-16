@@ -345,7 +345,7 @@ func generateFiles(source string, p plugin.Plugin) map[string]string {
 
 var _ = Describe("Aliases", func() {
 	DescribeTable("Should generate a use of an alias as a use of its target",
-		func(ctx SpecContext, newPlugin func() plugin.Plugin) {
+		func(newPlugin func() plugin.Plugin) {
 			aliased := generateFiles(aliasHead+aliasDecls+aliasUses, newPlugin())
 			direct := generateFiles(aliasHead+directUses(), newPlugin())
 			Expect(aliased).To(HaveLen(len(direct)))

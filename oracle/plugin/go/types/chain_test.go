@@ -1443,7 +1443,7 @@ Doc struct {
 var _ = Describe("Renamed predecessor aliases", func() {
 	It(
 		"Should alias the frozen names of a renamed enum and union",
-		func(ctx SpecContext) {
+		func() {
 			const livePath = "schemas/synnax/doc.oracle"
 			resp := chainGenerate(
 				gotypes.New(gotypes.DefaultOptions()),
@@ -2228,7 +2228,7 @@ Doc struct {
 var _ = Describe("Frozen type that only a frozen version embeds", func() {
 	It(
 		"Should give the frozen type defaults but no decode hooks",
-		func(ctx SpecContext) {
+		func() {
 			root := GinkgoT().TempDir()
 			write := func(rel, content string) {
 				GinkgoHelper()

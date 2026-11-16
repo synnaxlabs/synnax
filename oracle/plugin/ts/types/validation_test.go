@@ -29,7 +29,7 @@ var _ = Describe("Validation Rules", func() {
 
 	It(
 		"Should emit regex with custom message when pattern provides one",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -45,7 +45,7 @@ var _ = Describe("Validation Rules", func() {
 		},
 	)
 
-	It("Should emit regex without message for pattern only", func(ctx SpecContext) {
+	It("Should emit regex without message for pattern only", func() {
 		source := `
 			@ts output "out"
 
@@ -60,7 +60,7 @@ var _ = Describe("Validation Rules", func() {
 			ToContain(`.regex(/^[a-z]+$/)`)
 	})
 
-	It("Should emit min/max for number fields", func(ctx SpecContext) {
+	It("Should emit min/max for number fields", func() {
 		source := `
 			@ts output "out"
 
@@ -75,7 +75,7 @@ var _ = Describe("Validation Rules", func() {
 		Expect(content).To(ContainSubstring(".max(100)"))
 	})
 
-	It("Should emit float min/max for float fields", func(ctx SpecContext) {
+	It("Should emit float min/max for float fields", func() {
 		source := `
 			@ts output "out"
 
@@ -90,7 +90,7 @@ var _ = Describe("Validation Rules", func() {
 		Expect(content).To(ContainSubstring(".max(99.500000)"))
 	})
 
-	It("Should emit gt for number fields", func(ctx SpecContext) {
+	It("Should emit gt for number fields", func() {
 		source := `
 			@ts output "out"
 
@@ -106,7 +106,7 @@ var _ = Describe("Validation Rules", func() {
 		Expect(content).ToNot(ContainSubstring(".min("))
 	})
 
-	It("Should emit string default", func(ctx SpecContext) {
+	It("Should emit string default", func() {
 		source := `
 			@ts output "out"
 
@@ -121,7 +121,7 @@ var _ = Describe("Validation Rules", func() {
 
 	It(
 		"Should emit supplementary-plane characters as surrogate pairs, not \\U",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -136,7 +136,7 @@ var _ = Describe("Validation Rules", func() {
 		},
 	)
 
-	It("Should emit int default", func(ctx SpecContext) {
+	It("Should emit int default", func() {
 		source := `
 			@ts output "out"
 
@@ -149,7 +149,7 @@ var _ = Describe("Validation Rules", func() {
 			ToContain(`.default(5)`)
 	})
 
-	It("Should emit float default", func(ctx SpecContext) {
+	It("Should emit float default", func() {
 		source := `
 			@ts output "out"
 
@@ -162,7 +162,7 @@ var _ = Describe("Validation Rules", func() {
 			ToContain(`.default(1.500000)`)
 	})
 
-	It("Should emit bool default", func(ctx SpecContext) {
+	It("Should emit bool default", func() {
 		source := `
 			@ts output "out"
 
@@ -177,7 +177,7 @@ var _ = Describe("Validation Rules", func() {
 
 	It(
 		"Should emit id.create() default for string keys with create ident",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -193,7 +193,7 @@ var _ = Describe("Validation Rules", func() {
 
 	It(
 		"Should emit uuid.create() default for uuid keys with create ident",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -209,7 +209,7 @@ var _ = Describe("Validation Rules", func() {
 
 	It(
 		"Should default an empty array default to (() => []), not a misplaced element default",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -228,7 +228,7 @@ var _ = Describe("Validation Rules", func() {
 
 	It(
 		"Should apply a populated array default to the wrapped array, not the element",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -245,7 +245,7 @@ var _ = Describe("Validation Rules", func() {
 		},
 	)
 
-	It("Should emit a struct default as a typed object literal", func(ctx SpecContext) {
+	It("Should emit a struct default as a typed object literal", func() {
 		source := `
 			@ts output "out"
 
@@ -273,7 +273,7 @@ var _ = Describe("Validation Rules", func() {
 
 	It(
 		"Should emit nested struct and array values in a struct default",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -299,7 +299,7 @@ var _ = Describe("Validation Rules", func() {
 
 	It(
 		"Should emit .prefault() for a struct override in an extending input struct, not .partial()",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -329,7 +329,7 @@ var _ = Describe("Validation Rules", func() {
 
 	It(
 		"Should resolve enum-extends variants and generics in a nested struct default via typeless override",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -380,7 +380,7 @@ var _ = Describe("Validation Rules", func() {
 		},
 	)
 
-	It("Should emit min/max length for string fields", func(ctx SpecContext) {
+	It("Should emit min/max length for string fields", func() {
 		source := `
 			@ts output "out"
 
@@ -397,7 +397,7 @@ var _ = Describe("Validation Rules", func() {
 		Expect(content).To(ContainSubstring(`import { zod } from "@synnaxlabs/x"`))
 	})
 
-	It("Should check a minimum length above 1 in code points", func(ctx SpecContext) {
+	It("Should check a minimum length above 1 in code points", func() {
 		source := `
 			@ts output "out"
 
@@ -409,7 +409,7 @@ var _ = Describe("Validation Rules", func() {
 		ExpectContent(resp, "types.gen.ts").ToContain(`.check(zod.minLength(2))`)
 	})
 
-	It("Should keep a length check chainable with a default", func(ctx SpecContext) {
+	It("Should keep a length check chainable with a default", func() {
 		source := `
 			@ts output "out"
 
@@ -422,7 +422,7 @@ var _ = Describe("Validation Rules", func() {
 			ToContain(`z.string().check(zod.maxLength(64)).default("x")`)
 	})
 
-	It("Should emit min(1, ...) for required string", func(ctx SpecContext) {
+	It("Should emit min(1, ...) for required string", func() {
 		source := `
 			@ts output "out"
 
@@ -435,7 +435,7 @@ var _ = Describe("Validation Rules", func() {
 			ToContain(`.min(1, "name is required")`)
 	})
 
-	It("Should leave fields without validation untouched", func(ctx SpecContext) {
+	It("Should leave fields without validation untouched", func() {
 		source := `
 			@ts output "out"
 

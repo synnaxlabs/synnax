@@ -267,7 +267,7 @@ var _ = Describe("Extract", func() {
 		))
 	})
 
-	It("Should skip a type in a version file", func(ctx SpecContext) {
+	It("Should skip a type in a version file", func() {
 		table, diag := Analyze(`
 			import "schemas/group"
 		`+rack("@group scope device"), "schemas/records/versions/rack/v1", loader)

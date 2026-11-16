@@ -196,9 +196,7 @@ var _ = Describe("Removed", func() {
 
 var _ = Describe("Resolver", func() {
 	Describe("File", func() {
-		It("Should partition declarations into defined and aliased", func(
-			ctx SpecContext,
-		) {
+		It("Should partition declarations into defined and aliased", func() {
 			r := resolverFor(map[string]string{
 				"schemas/synnax/versions/channel/v0.oracle": `
 Key = uuid
@@ -227,7 +225,6 @@ Channel struct {
 		})
 
 		DescribeTable("Should record dependency pins from imports", func(
-			ctx SpecContext,
 			importPath string,
 		) {
 			r := resolverFor(map[string]string{
@@ -250,9 +247,7 @@ Channel struct {
 			Entry("with an extension", "schemas/x/versions/telem/v0.oracle"),
 		)
 
-		It("Should resolve the live schema of a versioned resource", func(
-			ctx SpecContext,
-		) {
+		It("Should resolve the live schema of a versioned resource", func() {
 			r := resolverFor(map[string]string{
 				"schemas/x/telem.oracle":             "TimeStamp = int64\n",
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
@@ -273,9 +268,7 @@ Channel struct {
 			Expect(f.Pins).To(BeEmpty())
 		})
 
-		It("Should resolve an unversioned schema through a transitive pin", func(
-			ctx SpecContext,
-		) {
+		It("Should resolve an unversioned schema through a transitive pin", func() {
 			r := resolverFor(map[string]string{
 				"schemas/x/telem.oracle":             "TimeStamp = int64\n",
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
@@ -312,9 +305,7 @@ Arc struct {
 				To(Equal("program.Program"))
 		})
 
-		It("Should resolve the live schema of an unversioned resource", func(
-			ctx SpecContext,
-		) {
+		It("Should resolve the live schema of an unversioned resource", func() {
 			r := resolverFor(map[string]string{
 				"schemas/arc/program.oracle": "Program struct {\n\twasm bytes\n}\n",
 				"schemas/synnax/versions/arc/v0.oracle": `
@@ -335,9 +326,7 @@ Arc struct {
 				To(Equal("program.Program"))
 		})
 
-		It("Should resolve transitive pins under internal namespaces", func(
-			ctx SpecContext,
-		) {
+		It("Should resolve transitive pins under internal namespaces", func() {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
 				"schemas/x/versions/telem/v1.oracle": "TimeStamp = int32\n",
@@ -367,9 +356,7 @@ Channel struct {
 				To(Equal("x/telem@v0"))
 		})
 
-		It("Should reject a pinned name that the version file does not import", func(
-			ctx SpecContext,
-		) {
+		It("Should reject a pinned name that the version file does not import", func() {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/notation/v0.oracle": `
 Notation enum {
@@ -400,7 +387,7 @@ Schematic struct {
 				)))
 		})
 
-		It("Should error on a pin cycle between resources", func(ctx SpecContext) {
+		It("Should error on a pin cycle between resources", func() {
 			r := resolverFor(map[string]string{
 				"schemas/synnax/versions/a/v0.oracle": `
 import "schemas/synnax/versions/b/v0"
@@ -423,7 +410,7 @@ B struct {
 				To(MatchError(ContainSubstring("version dependency cycle")))
 		})
 
-		It("Should error on a live path with no chain", func(ctx SpecContext) {
+		It("Should error on a live path with no chain", func() {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
 			})
@@ -431,9 +418,7 @@ B struct {
 				To(MatchError(ContainSubstring("no version chain for schemas/x/node")))
 		})
 
-		It("Should error on a version outside the chain's range", func(
-			ctx SpecContext,
-		) {
+		It("Should error on a version outside the chain's range", func() {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
 			})
@@ -441,7 +426,7 @@ B struct {
 				To(MatchError(ContainSubstring("schemas/x/telem has no version 3")))
 		})
 
-		It("Should error on an unparsable version file", func(ctx SpecContext) {
+		It("Should error on an unparsable version file", func() {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp struct {{{\n",
 			})
@@ -449,9 +434,7 @@ B struct {
 				To(MatchError(ContainSubstring("failed to parse")))
 		})
 
-		It("Should error when analysis of a version file fails", func(
-			ctx SpecContext,
-		) {
+		It("Should error when analysis of a version file fails", func() {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "Key = uuid\nKey = string\n",
 			})
@@ -459,9 +442,7 @@ B struct {
 				To(MatchError(ContainSubstring("analysis of")))
 		})
 
-		It("Should error when a version file is missing on disk", func(
-			ctx SpecContext,
-		) {
+		It("Should error when a version file is missing on disk", func() {
 			root := writeRepo(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
 			})
@@ -474,9 +455,7 @@ B struct {
 				To(MatchError(ContainSubstring("failed to load")))
 		})
 
-		It("Should copy a pinned definer's live shapes into the table", func(
-			ctx SpecContext,
-		) {
+		It("Should copy a pinned definer's live shapes into the table", func() {
 			r := resolverFor(map[string]string{
 				"schemas/x/telem.oracle": "TimeStamp = int64\n",
 				"schemas/synnax/versions/label/v0.oracle": `
@@ -509,9 +488,7 @@ Channel struct {
 	})
 
 	Describe("Pinned surface copies", func() {
-		It("Should copy every declaration form into the pin namespace", func(
-			ctx SpecContext,
-		) {
+		It("Should copy every declaration form into the pin namespace", func() {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/shape/v0.oracle": `
 Kind enum {
@@ -588,9 +565,7 @@ Name = string
 			})
 		}
 
-		It("Should locate a name defined at the requested version", func(
-			ctx SpecContext,
-		) {
+		It("Should locate a name defined at the requested version", func() {
 			r := definerFixture()
 			ns, name, ok := r.Definer("schemas/synnax/channel", 1, "Name")
 			Expect(ok).To(BeTrue())
@@ -598,9 +573,7 @@ Name = string
 			Expect(name).To(Equal("Name"))
 		})
 
-		It("Should follow alias lines to the defining version", func(
-			ctx SpecContext,
-		) {
+		It("Should follow alias lines to the defining version", func() {
 			r := definerFixture()
 			ns, name, ok := r.Definer("schemas/synnax/channel", 1, "Key")
 			Expect(ok).To(BeTrue())
@@ -608,17 +581,13 @@ Name = string
 			Expect(name).To(Equal("Key"))
 		})
 
-		It("Should report false for a name the version does not carry", func(
-			ctx SpecContext,
-		) {
+		It("Should report false for a name the version does not carry", func() {
 			r := definerFixture()
 			_, _, ok := r.Definer("schemas/synnax/channel", 0, "Name")
 			Expect(ok).To(BeFalse())
 		})
 
-		It("Should report false for a live path with no chain", func(
-			ctx SpecContext,
-		) {
+		It("Should report false for a live path with no chain", func() {
 			r := definerFixture()
 			_, _, ok := r.Definer("schemas/x/telem", 0, "TimeStamp")
 			Expect(ok).To(BeFalse())
@@ -626,9 +595,7 @@ Name = string
 	})
 
 	Describe("Ended", func() {
-		It("Should report a chain ended by an empty tombstone file", func(
-			ctx SpecContext,
-		) {
+		It("Should report a chain ended by an empty tombstone file", func() {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
 				"schemas/x/versions/telem/v1.oracle": "// gone\n",
@@ -636,18 +603,14 @@ Name = string
 			Expect(r.Ended("schemas/x/telem")).To(BeTrue())
 		})
 
-		It("Should report a chain with a declaring last version as live", func(
-			ctx SpecContext,
-		) {
+		It("Should report a chain with a declaring last version as live", func() {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
 			})
 			Expect(r.Ended("schemas/x/telem")).To(BeFalse())
 		})
 
-		It("Should reject a tombstone before the chain's last version", func(
-			ctx SpecContext,
-		) {
+		It("Should reject a tombstone before the chain's last version", func() {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
 				"schemas/x/versions/telem/v1.oracle": "// gone\n",
@@ -658,9 +621,7 @@ Name = string
 			))
 		})
 
-		It("Should reject a chain whose only version is a tombstone", func(
-			ctx SpecContext,
-		) {
+		It("Should reject a chain whose only version is a tombstone", func() {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "// gone\n",
 			})
@@ -669,7 +630,7 @@ Name = string
 			))
 		})
 
-		It("Should error on a live path with no chain", func(ctx SpecContext) {
+		It("Should error on a live path with no chain", func() {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
 			})
@@ -679,7 +640,7 @@ Name = string
 	})
 
 	Describe("Surface", func() {
-		It("Should map every name to its defining version", func(ctx SpecContext) {
+		It("Should map every name to its defining version", func() {
 			r := resolverFor(map[string]string{
 				"schemas/synnax/versions/channel/v0.oracle": `
 Key = uuid
@@ -706,7 +667,7 @@ Channel struct {
 			Expect(surf["Channel"].Type.QualifiedName).To(Equal("v1.Channel"))
 		})
 
-		It("Should drop names absent from a version", func(ctx SpecContext) {
+		It("Should drop names absent from a version", func() {
 			r := resolverFor(map[string]string{
 				"schemas/synnax/versions/channel/v0.oracle": `
 Key = uuid
@@ -724,9 +685,7 @@ Key = v0.Key
 			Expect(surf).ToNot(HaveKey("Legacy"))
 		})
 
-		It("Should follow an alias to a non-defining version transitively", func(
-			ctx SpecContext,
-		) {
+		It("Should follow an alias to a non-defining version transitively", func() {
 			r := resolverFor(map[string]string{
 				"schemas/synnax/versions/channel/v0.oracle": "Key = uuid\n",
 				"schemas/synnax/versions/channel/v1.oracle": "Key = v0.Key\n",
@@ -737,9 +696,7 @@ Key = v0.Key
 			Expect(surf["Key"].Version).To(Equal(0))
 		})
 
-		It("Should reject an alias to a version that never carried the name", func(
-			ctx SpecContext,
-		) {
+		It("Should reject an alias to a version that never carried the name", func() {
 			r := resolverFor(map[string]string{
 				"schemas/synnax/versions/channel/v0.oracle": "Key = uuid\n",
 				"schemas/synnax/versions/channel/v1.oracle": "Key = v0.Key\nName = v0.Name\n",
@@ -748,9 +705,7 @@ Key = v0.Key
 				To(MatchError(ContainSubstring("unresolved type: v0.Name")))
 		})
 
-		It("Should inherit docs from the predecessor and honor overrides", func(
-			ctx SpecContext,
-		) {
+		It("Should inherit docs from the predecessor and honor overrides", func() {
 			r := resolverFor(map[string]string{
 				"schemas/synnax/versions/channel/v0.oracle": `
 Key = uuid {
@@ -777,9 +732,7 @@ Key = int64 {
 	})
 
 	Describe("SurfaceInto", func() {
-		It("Should stamp the chain-resolved doc onto a docless redeclaration", func(
-			ctx SpecContext,
-		) {
+		It("Should stamp the chain-resolved doc onto a docless redeclaration", func() {
 			r := resolverFor(map[string]string{
 				"schemas/synnax/versions/channel/v0.oracle": `
 Key = uuid {
@@ -798,9 +751,7 @@ Key = string
 			Expect(doc.Get(t.Domains)).To(Equal("unique channel identifier"))
 		})
 
-		It("Should not re-register a namespace already in the table", func(
-			ctx SpecContext,
-		) {
+		It("Should not re-register a namespace already in the table", func() {
 			r := resolverFor(map[string]string{
 				"schemas/synnax/versions/channel/v0.oracle": "Key = uuid\n",
 			})
@@ -817,9 +768,7 @@ Key = string
 			Expect(ok).To(BeFalse())
 		})
 
-		It("Should carry the enum a union borrows into the surface", func(
-			ctx SpecContext,
-		) {
+		It("Should carry the enum a union borrows into the surface", func() {
 			r := resolverFor(map[string]string{
 				"schemas/synnax/versions/auth/v0.oracle": `
 Method enum {
@@ -839,9 +788,7 @@ Proof union on method Method {
 			Expect(form.Enum.Name).To(Equal("auth@v0.Method"))
 		})
 
-		It("Should take patched variant payloads from the patching version", func(
-			ctx SpecContext,
-		) {
+		It("Should take patched variant payloads from the patching version", func() {
 			r := resolverFor(map[string]string{
 				"schemas/synnax/versions/channel/v0.oracle": `
 Key = uuid
@@ -872,7 +819,7 @@ Node union on variant extends v0.Node {
 			Expect(width.Optional).To(BeTrue())
 		})
 
-		It("Should propagate resolution failures", func(ctx SpecContext) {
+		It("Should propagate resolution failures", func() {
 			r := resolverFor(map[string]string{
 				"schemas/synnax/versions/channel/v0.oracle": "Key struct {{{\n",
 			})

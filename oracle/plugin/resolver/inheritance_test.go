@@ -70,9 +70,7 @@ var _ = Describe("Inheritance", func() {
 	})
 
 	Describe("DefaultOnlyOverrides", func() {
-		It("Should report a field restated with the same type", func(
-			ctx SpecContext,
-		) {
+		It("Should report a field restated with the same type", func() {
 			form, table := analyze(`
 				@go output "pkg/test"
 
@@ -88,7 +86,7 @@ var _ = Describe("Inheritance", func() {
 				To(HaveKey("port"))
 		})
 
-		It("Should report a typeless override", func(ctx SpecContext) {
+		It("Should report a typeless override", func() {
 			form, table := analyze(`
 				@go output "pkg/test"
 
@@ -104,9 +102,7 @@ var _ = Describe("Inheritance", func() {
 				To(HaveKey("sample_rate"))
 		})
 
-		It("Should not report a field the parents do not declare", func(
-			ctx SpecContext,
-		) {
+		It("Should not report a field the parents do not declare", func() {
 			form, table := analyze(`
 				@go output "pkg/test"
 
@@ -122,9 +118,7 @@ var _ = Describe("Inheritance", func() {
 				To(BeEmpty())
 		})
 
-		It("Should not report an override that changes the type", func(
-			ctx SpecContext,
-		) {
+		It("Should not report an override that changes the type", func() {
 			form, table := analyze(`
 				@go output "pkg/test"
 
@@ -140,9 +134,7 @@ var _ = Describe("Inheritance", func() {
 				To(BeEmpty())
 		})
 
-		It("Should not report an override that changes the element type", func(
-			ctx SpecContext,
-		) {
+		It("Should not report an override that changes the element type", func() {
 			form, table := analyze(`
 				@go output "pkg/test"
 
@@ -166,9 +158,7 @@ var _ = Describe("Inheritance", func() {
 				To(BeEmpty())
 		})
 
-		It("Should not report an override that changes optionality", func(
-			ctx SpecContext,
-		) {
+		It("Should not report an override that changes optionality", func() {
 			form, table := analyze(`
 				@go output "pkg/test"
 
@@ -184,9 +174,7 @@ var _ = Describe("Inheritance", func() {
 				To(BeEmpty())
 		})
 
-		It("Should report overrides against the leftmost parent", func(
-			ctx SpecContext,
-		) {
+		It("Should report overrides against the leftmost parent", func() {
 			form, table := analyze(`
 				@go output "pkg/test"
 
@@ -209,7 +197,7 @@ var _ = Describe("Inheritance", func() {
 	})
 
 	Describe("CanUseInheritance", func() {
-		It("Should be false without parents", func(ctx SpecContext) {
+		It("Should be false without parents", func() {
 			form, table := analyze(`
 				@go output "pkg/test"
 
@@ -220,7 +208,7 @@ var _ = Describe("Inheritance", func() {
 			Expect(resolver.CanUseInheritance(form, "go", table)).To(BeFalse())
 		})
 
-		It("Should be true for a plain extension", func(ctx SpecContext) {
+		It("Should be true for a plain extension", func() {
 			form, table := analyze(`
 				@go output "pkg/test"
 
@@ -235,9 +223,7 @@ var _ = Describe("Inheritance", func() {
 			Expect(resolver.CanUseInheritance(form, "go", table)).To(BeTrue())
 		})
 
-		It("Should stay true when a field restates only a default", func(
-			ctx SpecContext,
-		) {
+		It("Should stay true when a field restates only a default", func() {
 			form, table := analyze(`
 				@go output "pkg/test"
 
@@ -252,9 +238,7 @@ var _ = Describe("Inheritance", func() {
 			Expect(resolver.CanUseInheritance(form, "go", table)).To(BeTrue())
 		})
 
-		It("Should be false when a field restates an inherited type", func(
-			ctx SpecContext,
-		) {
+		It("Should be false when a field restates an inherited type", func() {
 			form, table := analyze(`
 				@go output "pkg/test"
 
@@ -269,9 +253,7 @@ var _ = Describe("Inheritance", func() {
 			Expect(resolver.CanUseInheritance(form, "go", table)).To(BeFalse())
 		})
 
-		It("Should be true when the parents are disjoint", func(
-			ctx SpecContext,
-		) {
+		It("Should be true when the parents are disjoint", func() {
 			form, table := analyze(`
 				@go output "pkg/test"
 
@@ -290,9 +272,7 @@ var _ = Describe("Inheritance", func() {
 			Expect(resolver.CanUseInheritance(form, "go", table)).To(BeTrue())
 		})
 
-		It("Should be false when a parent is omitted in the language", func(
-			ctx SpecContext,
-		) {
+		It("Should be false when a parent is omitted in the language", func() {
 			form, table := analyze(`
 				@go output "pkg/test"
 				@ts output "ts/test"
@@ -312,7 +292,7 @@ var _ = Describe("Inheritance", func() {
 	})
 
 	Describe("ParentsExist", func() {
-		It("Should be true when every parent has an output", func(ctx SpecContext) {
+		It("Should be true when every parent has an output", func() {
 			form, table := analyze(`
 				@ts output "ts/test"
 
@@ -327,7 +307,7 @@ var _ = Describe("Inheritance", func() {
 			Expect(resolver.ParentsExist(form.Extends, "ts", table)).To(BeTrue())
 		})
 
-		It("Should be true for a hand-written parent", func(ctx SpecContext) {
+		It("Should be true for a hand-written parent", func() {
 			form, table := analyze(`
 				@ts output "ts/test"
 
@@ -343,7 +323,7 @@ var _ = Describe("Inheritance", func() {
 			Expect(resolver.ParentsExist(form.Extends, "ts", table)).To(BeTrue())
 		})
 
-		It("Should be false when a parent omits the language", func(ctx SpecContext) {
+		It("Should be false when a parent omits the language", func() {
 			form, table := analyze(`
 				@ts output "ts/test"
 
@@ -359,9 +339,7 @@ var _ = Describe("Inheritance", func() {
 			Expect(resolver.ParentsExist(form.Extends, "ts", table)).To(BeFalse())
 		})
 
-		It("Should be false when a parent has no output in the language", func(
-			ctx SpecContext,
-		) {
+		It("Should be false when a parent has no output in the language", func() {
 			form, table := analyze(`
 				Base struct {
 					port string = ""
@@ -378,9 +356,7 @@ var _ = Describe("Inheritance", func() {
 	})
 
 	Describe("VariantBases", func() {
-		It("Should inherit every base when the variant drops nothing", func(
-			ctx SpecContext,
-		) {
+		It("Should inherit every base when the variant drops nothing", func() {
 			form, v, table := analyzeUnion(`
 				@go output "pkg/test"
 
@@ -404,9 +380,7 @@ var _ = Describe("Inheritance", func() {
 			Expect(declared).To(BeEmpty())
 		})
 
-		It("Should declare the fields of a base absent from the language", func(
-			ctx SpecContext,
-		) {
+		It("Should declare the fields of a base absent from the language", func() {
 			form, v, table := analyzeUnion(`
 				@go output "pkg/test"
 				@cpp output "cpp/test"
@@ -430,9 +404,7 @@ var _ = Describe("Inheritance", func() {
 			Expect(declared).To(BeEmpty())
 		})
 
-		It("Should declare the other fields of a base it drops a field from", func(
-			ctx SpecContext,
-		) {
+		It("Should declare the other fields of a base it drops a field from", func() {
 			form, v, table := analyzeUnion(`
 				@go output "pkg/test"
 
@@ -460,9 +432,7 @@ var _ = Describe("Inheritance", func() {
 
 		It(
 			"Should declare the other fields of an aliased base it drops a field from",
-			func(
-				ctx SpecContext,
-			) {
+			func() {
 				form, v, table := analyzeUnion(`
 				@go output "pkg/test"
 
@@ -486,9 +456,7 @@ var _ = Describe("Inheritance", func() {
 			},
 		)
 
-		It("Should not declare a field an inherited base already supplies", func(
-			ctx SpecContext,
-		) {
+		It("Should not declare a field an inherited base already supplies", func() {
 			form, v, table := analyzeUnion(`
 				@go output "pkg/test"
 
@@ -514,9 +482,7 @@ var _ = Describe("Inheritance", func() {
 			Expect(fieldNames(declared)).ToNot(ContainElement("name"))
 		})
 
-		It("Should apply a flattened generic base's type arguments", func(
-			ctx SpecContext,
-		) {
+		It("Should apply a flattened generic base's type arguments", func() {
 			form, v, table := analyzeUnion(`
 				@go output "pkg/test"
 
@@ -535,9 +501,7 @@ var _ = Describe("Inheritance", func() {
 			Expect(declared[0].Type.Name).To(Equal("string"))
 		})
 
-		It("Should not declare a field the variant declares itself", func(
-			ctx SpecContext,
-		) {
+		It("Should not declare a field the variant declares itself", func() {
 			form, v, table := analyzeUnion(`
 				@go output "pkg/test"
 
@@ -560,7 +524,7 @@ var _ = Describe("Inheritance", func() {
 	})
 
 	Describe("SharedBase", func() {
-		It("Should return the base every variant inherits", func(ctx SpecContext) {
+		It("Should return the base every variant inherits", func() {
 			form, _, table := analyzeUnion(`
 				@go output "pkg/test"
 
@@ -583,9 +547,7 @@ var _ = Describe("Inheritance", func() {
 			Expect(base.Name).To(Equal("test.Base"))
 		})
 
-		It("Should return the base for a variant that adds a base of its own", func(
-			ctx SpecContext,
-		) {
+		It("Should return the base for a variant that adds a base of its own", func() {
 			form, _, table := analyzeUnion(`
 				@go output "pkg/test"
 
@@ -605,9 +567,7 @@ var _ = Describe("Inheritance", func() {
 			Expect(base.Name).To(Equal("test.Base"))
 		})
 
-		It("Should not return a base when a variant drops one of its fields", func(
-			ctx SpecContext,
-		) {
+		It("Should not return a base when a variant drops one of its fields", func() {
 			form, _, table := analyzeUnion(`
 				@go output "pkg/test"
 
@@ -626,9 +586,7 @@ var _ = Describe("Inheritance", func() {
 			Expect(resolver.SharedBase(form, "go", table)).To(BeZero())
 		})
 
-		It("Should not return a base when the union extends two", func(
-			ctx SpecContext,
-		) {
+		It("Should not return a base when the union extends two", func() {
 			form, _, table := analyzeUnion(`
 				@go output "pkg/test"
 
@@ -647,9 +605,7 @@ var _ = Describe("Inheritance", func() {
 			Expect(resolver.SharedBase(form, "go", table)).To(BeZero())
 		})
 
-		It("Should not return a base absent from the language", func(
-			ctx SpecContext,
-		) {
+		It("Should not return a base absent from the language", func() {
 			form, _, table := analyzeUnion(`
 				@go output "pkg/test"
 				@cpp output "cpp/test"
@@ -697,9 +653,7 @@ var _ = Describe("Inheritance", func() {
 			return names
 		}
 
-		It("Should list the base fields before an inline payload", func(
-			ctx SpecContext,
-		) {
+		It("Should list the base fields before an inline payload", func() {
 			form, v, table := analyzeUnion(source, "Chan", "builtin")
 			fields := resolver.VariantFields(form, v, "go", table)
 			Expect(
@@ -707,21 +661,20 @@ var _ = Describe("Inheritance", func() {
 			).To(Equal([]string{"Base.port", "ChanBuiltinPayload.units"}))
 		})
 
-		It("Should list the base fields before a named payload", func(
-			ctx SpecContext,
-		) {
+		It("Should list the base fields before a named payload", func() {
 			form, v, table := analyzeUnion(source, "Chan", "scaled")
 			fields := resolver.VariantFields(form, v, "go", table)
 			Expect(owned(fields)).To(Equal([]string{"Base.port", "Gain.gain"}))
 		})
 
-		It("Should list only the base fields for a payload that does not resolve", func(
-			ctx SpecContext,
-		) {
-			form, v, table := analyzeUnion(source, "Chan", "scaled")
-			v.Type = resolution.TypeRef{Name: "test.Missing"}
-			fields := resolver.VariantFields(form, v, "go", table)
-			Expect(owned(fields)).To(Equal([]string{"Base.port"}))
-		})
+		It(
+			"Should list only the base fields for a payload that does not resolve",
+			func() {
+				form, v, table := analyzeUnion(source, "Chan", "scaled")
+				v.Type = resolution.TypeRef{Name: "test.Missing"}
+				fields := resolver.VariantFields(form, v, "go", table)
+				Expect(owned(fields)).To(Equal([]string{"Base.port"}))
+			},
+		)
 	})
 })

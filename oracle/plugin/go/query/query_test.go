@@ -47,7 +47,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("minimal struct with no filters or search", func() {
 			It(
 				"Should generate a Retrieve struct with standard methods",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -87,9 +87,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should skip missing keys when a filter targets the table", func(
-				ctx SpecContext,
-			) {
+			It("Should skip missing keys when a filter targets the table", func() {
 				AddFilterSchema(loader)
 				resp := MustGenerate(`
 					import "schemas/x/filter"
@@ -112,7 +110,7 @@ var _ = Describe("Go Query Plugin", func() {
 		})
 
 		Context("union entry", func() {
-			It("Should take the key from the union's base", func(ctx SpecContext) {
+			It("Should take the key from the union's base", func() {
 				source := `
 					@go output "core/pkg/service/view"
 
@@ -140,7 +138,7 @@ var _ = Describe("Go Query Plugin", func() {
 					)
 			})
 
-			It("Should take the key from an aliased base", func(ctx SpecContext) {
+			It("Should take the key from an aliased base", func() {
 				loader.Add("schemas/base", `
 					@go output "core/pkg/service/base"
 
@@ -170,7 +168,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should reject two @retrieve types in one output",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/view"
 
@@ -199,7 +197,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			DescribeTable(
 				"Should read a shared field through the base method",
-				func(ctx SpecContext, tag, read string) {
+				func(tag, read string) {
 					source := `
 					@go output "core/pkg/service/view"
 
@@ -223,7 +221,7 @@ var _ = Describe("Go Query Plugin", func() {
 				Entry("search", "@search", "[]string{e.Base().Name}"),
 			)
 
-			It("Should read the tag through the tag method", func(ctx SpecContext) {
+			It("Should read the tag through the tag method", func() {
 				AddFilterSchema(loader)
 				source := `
 					import "schemas/x/filter"
@@ -258,7 +256,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			DescribeTable(
 				"Should reject a field that a variant drops",
-				func(ctx SpecContext, tag, reader string) {
+				func(tag, reader string) {
 					source := `
 					@go output "core/pkg/service/view"
 
@@ -291,7 +289,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("inherited key", func() {
 			It(
 				"Should find the @key field on a base struct",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -322,7 +320,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("search", func() {
 			It(
 				"Should generate a search index over the @search fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -362,7 +360,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should register the search index with the field indexes",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/user"
 
@@ -383,7 +381,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should reject @search on a type", func(ctx SpecContext) {
+			It("Should reject @search on a type", func() {
 				source := `
 					@go output "core/pkg/service/foo"
 
@@ -401,7 +399,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should search the @search fields of an extended struct",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -424,7 +422,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should reject @search on a field no @retrieve type reads",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -442,7 +440,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should accept a field that restates an inherited @search",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -464,7 +462,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should reject @search on a field that the @retrieve type removes",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -488,7 +486,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should reject an @index field that collides with the search index",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -508,7 +506,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			DescribeTable(
 				"Should reject @search on a field that is not a string",
-				func(ctx SpecContext, field string) {
+				func(field string) {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -531,7 +529,7 @@ var _ = Describe("Go Query Plugin", func() {
 		})
 
 		Context("filters", func() {
-			It("Should generate a bool filter", func(ctx SpecContext) {
+			It("Should generate a bool filter", func() {
 				source := `
 					@go output "core/pkg/service/task"
 
@@ -560,7 +558,7 @@ var _ = Describe("Go Query Plugin", func() {
 					)
 			})
 
-			It("Should take the distinct type of a bool field", func(ctx SpecContext) {
+			It("Should take the distinct type of a bool field", func() {
 				source := `
 					@go output "core/pkg/service/task"
 
@@ -583,7 +581,7 @@ var _ = Describe("Go Query Plugin", func() {
 					ToNotContain("func MatchFlag(v bool) Filter")
 			})
 
-			It("Should generate a scalar filter", func(ctx SpecContext) {
+			It("Should generate a scalar filter", func() {
 				source := `
 					@go output "core/pkg/service/workspace"
 
@@ -613,7 +611,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should pluralize an uncountable name apart in prose and identifiers",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/series"
 
@@ -639,7 +637,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should generate a slice filter", func(ctx SpecContext) {
+			It("Should generate a slice filter", func() {
 				source := `
 					@go output "core/pkg/service/user"
 
@@ -668,7 +666,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should generate a contains-style filter for a slice-typed field",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/rack"
 
@@ -700,7 +698,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should generate a filter with a cross-namespace type",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/rack", `
 					@go output "core/pkg/service/rack"
 
@@ -735,7 +733,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should reject @filter on the @key field", func(ctx SpecContext) {
+			It("Should reject @filter on the @key field", func() {
 				source := `
 					@go output "core/pkg/service/rack"
 
@@ -760,7 +758,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should generate a matcher for each bare line",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					import "schemas/x/filter"
 
@@ -798,7 +796,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should generate one matcher for a field with @filter and a bare line",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					import "schemas/x/filter"
 
@@ -829,7 +827,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("custom retrieve", func() {
 			It(
 				"Should not generate the Retrieve struct definition",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/rack"
 
@@ -858,7 +856,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should emit a Filter alias and Match/And/Or/Not bound combinators",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/rack"
 
@@ -890,7 +888,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should emit filter constructors returning Filter under @retrieve custom",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/rack"
 
@@ -917,7 +915,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should emit a Where method taking a single Filter and binding it to r",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/rack"
 
@@ -945,7 +943,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should also emit Filter machinery under a plain @retrieve (non-custom)",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/rack"
 
@@ -977,7 +975,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should use a struct-level @retrieve key override when no field has @key",
-				func(ctx SpecContext) {
+				func() {
 					// Channel uses a computed GorpKey that is not stored as a field
 					// on the struct. A struct-level `@retrieve key "Key"` override
 					// tells oracle which declared type to use for the retrieve's
@@ -1013,7 +1011,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("indexes retrieve", func() {
 			It(
 				"Should generate only the indexes of a generic type over any",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/status"
 
@@ -1046,9 +1044,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should search a non-generic type through MatchSearch", func(
-				ctx SpecContext,
-			) {
+			It("Should search a non-generic type through MatchSearch", func() {
 				source := `
 					@go output "core/pkg/service/task"
 
@@ -1069,9 +1065,7 @@ var _ = Describe("Go Query Plugin", func() {
 					ToNotContain("func (r Retrieve) Search(")
 			})
 
-			It("Should name the records in docs by a @retrieve noun", func(
-				ctx SpecContext,
-			) {
+			It("Should name the records in docs by a @retrieve noun", func() {
 				source := `
 					@go output "core/pkg/service/color"
 
@@ -1092,9 +1086,7 @@ var _ = Describe("Go Query Plugin", func() {
 					ToNotContain("nameds", "provided named ")
 			})
 
-			It("Should leave out MatchSearch with no @search field", func(
-				ctx SpecContext,
-			) {
+			It("Should leave out MatchSearch with no @search field", func() {
 				source := `
 					@go output "core/pkg/service/task"
 
@@ -1108,7 +1100,7 @@ var _ = Describe("Go Query Plugin", func() {
 				ExpectContent(resp, "retrieve.gen.go").ToNotContain("MatchSearch")
 			})
 
-			It("Should reject @filter under @retrieve indexes", func(ctx SpecContext) {
+			It("Should reject @filter under @retrieve indexes", func() {
 				source := `
 					@go output "core/pkg/service/status"
 
@@ -1127,7 +1119,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should generate orderings under @retrieve indexes",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/task"
 
@@ -1150,7 +1142,7 @@ var _ = Describe("Go Query Plugin", func() {
 		})
 
 		Context("key types", func() {
-			It("Should handle a string key type", func(ctx SpecContext) {
+			It("Should handle a string key type", func() {
 				source := `
 					@go output "core/pkg/service/device"
 
@@ -1172,7 +1164,7 @@ var _ = Describe("Go Query Plugin", func() {
 					)
 			})
 
-			It("Should handle a uint32 key type", func(ctx SpecContext) {
+			It("Should handle a uint32 key type", func() {
 				source := `
 					@go output "core/pkg/service/rack"
 
@@ -1198,7 +1190,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("imports", func() {
 			It(
 				"Should only import context and gorp for minimal structs",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/log"
 
@@ -1223,7 +1215,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should import set for variadic filters", func(ctx SpecContext) {
+			It("Should import set for variadic filters", func() {
 				source := `
 					@go output "core/pkg/service/user"
 
@@ -1245,9 +1237,7 @@ var _ = Describe("Go Query Plugin", func() {
 					ToNotContain("\"slices\"")
 			})
 
-			It("Should not import slices or set for bool-only filters", func(
-				ctx SpecContext,
-			) {
+			It("Should not import slices or set for bool-only filters", func() {
 				source := `
 					@go output "core/pkg/service/task"
 
@@ -1273,7 +1263,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should import only context and gorp for @search",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -1298,7 +1288,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("doc comments", func() {
 			It(
 				"Should include doc comments on all public methods",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -1347,7 +1337,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("indexes", func() {
 			It(
 				"Should generate a lookup index var and route MatchX through it",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/user"
 
@@ -1392,7 +1382,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should generate an index-only field when only @index is present",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/user"
 
@@ -1425,7 +1415,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should generate a sorted index with an Order closure type and OrderByX free function",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/event"
 
@@ -1468,7 +1458,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should sort a string by its text key", func(ctx SpecContext) {
+			It("Should sort a string by its text key", func() {
 				source := `
 					@go output "core/pkg/service/event"
 
@@ -1497,7 +1487,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should match a list of strings through their text keys",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/event"
 
@@ -1524,7 +1514,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should sort by a sub-field", func(ctx SpecContext) {
+			It("Should sort by a sub-field", func() {
 				source := `
 					@go output "core/pkg/service/event"
 
@@ -1557,7 +1547,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should sort by each sub-field that a mark names",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/event"
 
@@ -1587,7 +1577,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should sort a generic type over any", func(ctx SpecContext) {
+			It("Should sort a generic type over any", func() {
 				source := `
 					@go output "core/pkg/service/event"
 
@@ -1612,7 +1602,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should not emit an indexes struct when no fields have @index",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -1641,7 +1631,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("multiple structs in same output", func() {
 			It(
 				"Should reject two @retrieve structs in one output",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/views"
 
@@ -1666,7 +1656,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("struct without @retrieve is skipped", func() {
 			It(
 				"Should only generate for structs with @retrieve",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 

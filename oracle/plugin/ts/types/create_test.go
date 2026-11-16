@@ -27,7 +27,7 @@ var _ = Describe("Derived New from @create", func() {
 
 	It(
 		"Should generate a z.input New that omits @output fields",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "client/ts/src/thing"
 
@@ -49,7 +49,7 @@ var _ = Describe("Derived New from @create", func() {
 
 	It(
 		"Should derive a generic factory New that partials defaulted fields and keeps non-defaulted keys required",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "client/ts/src/thing"
 
@@ -72,7 +72,7 @@ var _ = Describe("Derived New from @create", func() {
 
 	It(
 		"Should re-project a conditional type-param field as z.input in the New",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "client/ts/src/status"
 
@@ -109,7 +109,7 @@ var _ = Describe("Derived New from @create", func() {
 
 	It(
 		"Should project a nested @create field to its New with a non-generic details schema",
-		func(ctx SpecContext) {
+		func() {
 			loader.Add("schemas/status", `
 			@ts output "client/ts/src/status"
 
@@ -152,7 +152,7 @@ var _ = Describe("Derived New from @create", func() {
 
 	It(
 		"Should import a details schema declared in another namespace",
-		func(ctx SpecContext) {
+		func() {
 			loader.Add("schemas/status", `
 			@ts output "client/ts/src/status"
 
@@ -197,7 +197,7 @@ var _ = Describe("Derived New from @create", func() {
 
 	It(
 		"Should project a nested @create field to its New with a generic details schema",
-		func(ctx SpecContext) {
+		func() {
 			loader.Add("schemas/status", `
 			@ts output "client/ts/src/status"
 
@@ -245,7 +245,7 @@ var _ = Describe("Derived New from @create", func() {
 
 	It(
 		"Should derive a z.input New<Name> alias for a @create union",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "client/ts/src/panel"
 
@@ -276,7 +276,7 @@ var _ = Describe("Derived New from @create", func() {
 
 	It(
 		"Should derive New under its own name when the base is renamed",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "client/ts/src/thing"
 

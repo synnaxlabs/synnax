@@ -581,7 +581,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 		Context("generic struct instances", func() {
 			It(
 				"Should instantiate a generic struct in each container",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -620,7 +620,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 		Context("generic struct with an omitted optional type arg", func() {
 			It(
 				"Should instantiate the omitted type arg as struct{}",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -673,7 +673,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 		Context("map field nil preservation", func() {
 			It(
 				"Should dispatch union map values through the wrapper codec",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -871,7 +871,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 		})
 
 		Context("distinct bool field", func() {
-			It("Should convert the value to and from bool", func(ctx SpecContext) {
+			It("Should convert the value to and from bool", func() {
 				source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -897,7 +897,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 
 		Context("distinct record field", func() {
 			It("Should hold a distinct value in every generated test value",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -1283,7 +1283,7 @@ var _ = Describe("Union Codecs", func() {
 
 	It(
 		"Should generate a binary wrapper codec with base and payload delegation",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1332,7 +1332,7 @@ var _ = Describe("Union Codecs", func() {
 
 	It(
 		"Should generate codecs for structs reachable only through a union",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1359,7 +1359,7 @@ var _ = Describe("Union Codecs", func() {
 
 	It(
 		"Should generate round-trip, benchmark, and fuzz harnesses covering every variant",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1396,7 +1396,7 @@ var _ = Describe("Union Codecs", func() {
 
 	It(
 		"Should encode inline variant fields directly in the union codec",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1439,7 +1439,7 @@ var _ = Describe("Union Codecs", func() {
 
 	It(
 		"Should inline a base a variant omits a field from",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1477,7 +1477,7 @@ var _ = Describe("Union Codecs", func() {
 
 	It(
 		"Should encode a variant's restated base default only once",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1514,7 +1514,7 @@ var _ = Describe("Union Codecs", func() {
 
 	It(
 		"Should share fully populated fixtures between union entries and type tables",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1557,7 +1557,7 @@ var _ = Describe("Recursive Codecs", func() {
 
 	It(
 		"Should guard a recursive struct's decode with a depth limit",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1584,7 +1584,7 @@ var _ = Describe("Recursive Codecs", func() {
 
 	It(
 		"Should populate one nested level of a recursive struct in test fixtures",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1603,7 +1603,7 @@ var _ = Describe("Recursive Codecs", func() {
 
 	It(
 		"Should guard a recursive union and its cycle members with a depth limit",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1638,7 +1638,7 @@ var _ = Describe("Recursive Codecs", func() {
 		},
 	)
 
-	It("Should not guard non-recursive decodes", func(ctx SpecContext) {
+	It("Should not guard non-recursive decodes", func() {
 		source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1931,7 +1931,7 @@ var _ = Describe("Recursive Codec Depth Guard", func() {
 })
 
 var _ = Describe("Same-Named Entries Across Namespaces", func() {
-	It("Should emit each entry's codec at its own path", func(ctx SpecContext) {
+	It("Should emit each entry's codec at its own path", func() {
 		loader := NewMockFileLoader()
 		loader.Add("schemas/panel", `
 			@go output "core/pkg/service/panel"
@@ -1961,7 +1961,7 @@ var _ = Describe("Same-Named Entries Across Namespaces", func() {
 var _ = Describe("Versioned codec requirement", func() {
 	It(
 		"Should reject a marshalled type outside a versions/vN package",
-		func(ctx SpecContext) {
+		func() {
 			loader := NewMockFileLoader()
 			source := `
 			@go output "core/pkg/service/thing"
@@ -1980,7 +1980,7 @@ var _ = Describe("Versioned codec requirement", func() {
 
 	It(
 		"Should accept a marshalled type in a versions/vN package",
-		func(ctx SpecContext) {
+		func() {
 			loader := NewMockFileLoader()
 			source := `
 			@go output "core/pkg/service/thing/versions/v2"

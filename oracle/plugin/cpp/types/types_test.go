@@ -42,7 +42,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 	Describe("Namespace Derivation", func() {
 		DescribeTable("should derive correct namespace from output path",
-			func(ctx SpecContext, outputPath, expectedNamespace string) {
+			func(outputPath, expectedNamespace string) {
 				source := `
 					@cpp output "` + outputPath + `"
 
@@ -87,7 +87,7 @@ var _ = Describe("C++ Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
-		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+		It("Should generate the recursive Where of a filter", func() {
 			AddFilterSchema(loader)
 			resp := MustGenerate(ThingFilter, "thing", loader, cppPlugin)
 			ExpectContent(resp, "thing/types.gen.h").
@@ -99,7 +99,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				ToNotContain("x::mem::indirect<std::vector<Where>>")
 		})
 
-		It("Should type filter lines to take plain values", func(ctx SpecContext) {
+		It("Should type filter lines to take plain values", func() {
 			AddFilterSchema(loader)
 			source := `
 				import "schemas/x/filter"
@@ -128,7 +128,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			)
 		})
 
-		It("Should combine filters with &&, ||, and !", func(ctx SpecContext) {
+		It("Should combine filters with &&, ||, and !", func() {
 			AddFilterSchema(loader)
 			resp := MustGenerate(ThingFilter, "thing", loader, cppPlugin)
 			ExpectContent(resp, "thing/types.gen.h").ToContain(
@@ -141,7 +141,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			)
 		})
 
-		It("Should give a retrieve request its options", func(ctx SpecContext) {
+		It("Should give a retrieve request its options", func() {
 			AddFilterSchema(loader)
 			resp := MustGenerate(ThingFilter, "thing", loader, cppPlugin)
 			ExpectContent(resp, "thing/types.gen.h").ToContain(
@@ -162,7 +162,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			)
 		})
 
-		It("Should not combine a struct that is not a filter", func(ctx SpecContext) {
+		It("Should not combine a struct that is not a filter", func() {
 			source := `
 				@cpp output "out"
 
@@ -177,7 +177,7 @@ var _ = Describe("C++ Types Plugin", func() {
 		})
 
 		Context("field-level omit", func() {
-			It("Should leave out a field omitted in cpp", func(ctx SpecContext) {
+			It("Should leave out a field omitted in cpp", func() {
 				source := `
 					@go output "core/pkg/service/auth"
 					@cpp output "client/cpp/auth"
@@ -196,7 +196,7 @@ var _ = Describe("C++ Types Plugin", func() {
 		})
 
 		Context("basic struct generation", func() {
-			It("Should generate struct for simple types", func(ctx SpecContext) {
+			It("Should generate struct for simple types", func() {
 				source := `
 					@cpp output "client/cpp/user"
 
@@ -227,9 +227,7 @@ var _ = Describe("C++ Types Plugin", func() {
 		})
 
 		Context("schemas with the same file name", func() {
-			It("Should leave out the types of a schema with no C++ output", func(
-				ctx SpecContext,
-			) {
+			It("Should leave out the types of a schema with no C++ output", func() {
 				loader.Add("schemas/x/color", `
 					@cpp output "x/cpp/color"
 					@go output  "x/go/color"
@@ -254,9 +252,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					ToNotContain("Named")
 			})
 
-			It("Should qualify types from a schema with the same file name", func(
-				ctx SpecContext,
-			) {
+			It("Should qualify types from a schema with the same file name", func() {
 				loader.Add("schemas/x/color", `
 					@cpp output "x/cpp/color"
 
@@ -293,7 +289,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		Context("primitive type mappings", func() {
 			DescribeTable("should generate correct C++ type",
-				func(ctx SpecContext, oracleType, expectedFieldDecl string) {
+				func(oracleType, expectedFieldDecl string) {
 					source := `
 						@cpp output "out"
 
@@ -321,7 +317,7 @@ var _ = Describe("C++ Types Plugin", func() {
 		})
 
 		Context("nil primitive type", func() {
-			It("Should map nil to std::monostate", func(ctx SpecContext) {
+			It("Should map nil to std::monostate", func() {
 				source := `
 					@cpp output "x/cpp/status"
 
@@ -352,7 +348,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			})
 		})
 
-		It("Should wrap optional scalars in std::optional", func(ctx SpecContext) {
+		It("Should wrap optional scalars in std::optional", func() {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -381,7 +377,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`std::optional<bool> embedded;`))
 		})
 
-		It("Should use std::optional for optional types", func(ctx SpecContext) {
+		It("Should use std::optional for optional types", func() {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -405,7 +401,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`std::optional<std::uint32_t> parent;`))
 		})
 
-		It("Should handle array types with std::vector", func(ctx SpecContext) {
+		It("Should handle array types with std::vector", func() {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -432,7 +428,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			// constructor
 		})
 
-		It("Should wrap optional arrays with std::optional", func(ctx SpecContext) {
+		It("Should wrap optional arrays with std::optional", func() {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -457,7 +453,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			).To(ContainSubstring(`std::optional<std::vector<std::string>> tags;`))
 		})
 
-		It("Should wrap optional arrays with std::optional", func(ctx SpecContext) {
+		It("Should wrap optional arrays with std::optional", func() {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -482,7 +478,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			).To(ContainSubstring(`std::optional<std::vector<std::string>> tags;`))
 		})
 
-		It("Should handle record type", func(ctx SpecContext) {
+		It("Should handle record type", func() {
 			source := `
 				@cpp output "client/cpp/task"
 
@@ -505,7 +501,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`x::json::json::object_t config;`))
 		})
 
-		It("Should handle map types", func(ctx SpecContext) {
+		It("Should handle map types", func() {
 			source := `
 				@cpp output "client/cpp/task"
 
@@ -532,7 +528,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should handle struct extension with field flattening",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@cpp output "client/cpp/rack"
 
@@ -571,7 +567,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should keep inheriting when a field restates only a default",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@cpp output "client/cpp/opc"
 
@@ -605,7 +601,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should flatten when a field restates an inherited type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@cpp output "client/cpp/opc"
 
@@ -648,7 +644,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should declare an inline variant's inherited fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/auth"
 					@cpp output "client/cpp/auth"
@@ -681,7 +677,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				},
 			)
 
-			It("Should declare the inherited fields", func(ctx SpecContext) {
+			It("Should declare the inherited fields", func() {
 				resp := MustGenerate(
 					schema("@cpp omit", "rate float64"), "auth", loader, cppPlugin,
 				)
@@ -696,7 +692,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					ToNotContain("struct Record")
 			})
 
-			It("Should leave out a removed field", func(ctx SpecContext) {
+			It("Should leave out a removed field", func() {
 				resp := MustGenerate(
 					schema("@cpp omit", "-secret"), "auth", loader, cppPlugin,
 				)
@@ -705,7 +701,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					ToNotContain("secret", "struct Record")
 			})
 
-			It("Should inherit from a parent that generates", func(ctx SpecContext) {
+			It("Should inherit from a parent that generates", func() {
 				resp := MustGenerate(
 					schema("", "rate float64"), "auth", loader, cppPlugin,
 				)
@@ -714,7 +710,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			})
 		})
 
-		It("Should handle @cpp name override", func(ctx SpecContext) {
+		It("Should handle @cpp name override", func() {
 			source := `
 				@cpp output "client/cpp/rack"
 				@cpp name "RackPayload"
@@ -738,7 +734,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`struct Rack {`))
 		})
 
-		It("Should handle @cpp name override for fields", func(ctx SpecContext) {
+		It("Should handle @cpp name override for fields", func() {
 			// This tests renaming a field, e.g., when the field name is a C++ reserved
 			// keyword
 			source := `
@@ -770,7 +766,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should automatically escape C++ reserved keyword field names",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@cpp output "arc/cpp/ir"
 
@@ -796,7 +792,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			},
 		)
 
-		It("Should handle @cpp hand", func(ctx SpecContext) {
+		It("Should handle @cpp hand", func() {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -825,7 +821,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`struct Internal {`))
 		})
 
-		It("Should generate generic structs with templates", func(ctx SpecContext) {
+		It("Should generate generic structs with templates", func() {
 			source := `
 				@cpp output "client/cpp/status"
 
@@ -851,7 +847,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should generate generic struct with type parameter field",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@cpp output "client/cpp/status"
 
@@ -879,7 +875,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should generate method declarations for generic struct",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@cpp output "client/cpp/status"
 
@@ -907,7 +903,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			},
 		)
 
-		It("Should handle optional generic fields", func(ctx SpecContext) {
+		It("Should handle optional generic fields", func() {
 			source := `
 				@cpp output "client/cpp/status"
 
@@ -931,7 +927,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`#include <type_traits>`))
 		})
 
-		It("Should include type_traits for generic structs", func(ctx SpecContext) {
+		It("Should include type_traits for generic structs", func() {
 			source := `
 				@cpp output "client/cpp/status"
 
@@ -953,7 +949,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`#include <type_traits>`))
 		})
 
-		It("Should handle inherited generic fields", func(ctx SpecContext) {
+		It("Should handle inherited generic fields", func() {
 			source := `
 				@cpp output "x/cpp/status"
 
@@ -994,7 +990,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`#include <type_traits>`))
 		})
 
-		It("Should handle type aliases", func(ctx SpecContext) {
+		It("Should handle type aliases", func() {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -1017,7 +1013,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`using Status = StatusDetails;`))
 		})
 
-		It("Should handle bytes type", func(ctx SpecContext) {
+		It("Should handle bytes type", func() {
 			source := `
 				@cpp output "client/cpp/module"
 
@@ -1039,7 +1035,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`std::vector<std::uint8_t> wasm;`))
 		})
 
-		It("Should handle array wrapper distinct types", func(ctx SpecContext) {
+		It("Should handle array wrapper distinct types", func() {
 			source := `
 				@cpp output "client/cpp/types"
 
@@ -1069,7 +1065,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should handle array wrapper of structs used in other structs",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@cpp output "client/cpp/types"
 
@@ -1106,7 +1102,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should order array wrapper after its dependency struct",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@cpp output "client/cpp/types"
 
@@ -1137,7 +1133,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should generate forward declarations for structs before array wrappers",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@cpp output "client/cpp/types"
 
@@ -1171,7 +1167,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should handle cyclic dependencies with forward declarations",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@cpp output "client/cpp/types"
 
@@ -1213,7 +1209,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should handle int enums with uint8_t underlying type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@cpp output "client/cpp/status"
 
@@ -1248,7 +1244,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should emit an extending enum as the union of its parents",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@cpp output "client/cpp/lineplot"
 
@@ -1282,7 +1278,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should use indirect for self-referential optional fields",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@cpp output "client/cpp/types"
 
@@ -1313,7 +1309,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should use indirect for mutually recursive optional fields",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@cpp output "client/cpp/types"
 
@@ -1339,7 +1335,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should use indirect for cycles through array wrappers",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@cpp output "client/cpp/types"
 
@@ -1360,7 +1356,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should use indirect for cycles through a distinct struct wrapper",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@cpp output "client/cpp/types"
 
@@ -1387,7 +1383,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should use optional for non-self-referential optional fields",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@cpp output "client/cpp/types"
 
@@ -1419,7 +1415,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should handle cross-namespace references to handwritten types",
-			func(ctx SpecContext) {
+			func() {
 				// First, set up the "status" namespace with an omitted type
 				statusSource := `
 				@cpp output "x/cpp/status"
@@ -1473,7 +1469,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 		It(
 			"Should not generate files for structs without @cpp output",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@go output "core/pkg/service/user"
 
@@ -1495,7 +1491,7 @@ var _ = Describe("C++ Types Plugin", func() {
 		)
 
 		Context("declaration and field order", func() {
-			It("Should preserve struct declaration order", func(ctx SpecContext) {
+			It("Should preserve struct declaration order", func() {
 				source := `
 					@cpp output "client/cpp/animals"
 
@@ -1528,7 +1524,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Expect(appleIdx).To(BeNumerically("<", mangoIdx))
 			})
 
-			It("Should preserve field declaration order", func(ctx SpecContext) {
+			It("Should preserve field declaration order", func() {
 				source := `
 					@cpp output "client/cpp/order"
 
@@ -1564,7 +1560,7 @@ var _ = Describe("C++ Types Plugin", func() {
 		Describe("Namespace-based enum collection", func() {
 			It(
 				"Should include standalone enums in the same namespace as structs",
-				func(ctx SpecContext) {
+				func() {
 					// This tests the fix for enums that are not referenced by struct
 					// fields but are in the same namespace and should be generated in
 					// the same file.
@@ -1598,7 +1594,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should include enums inherited from file-level output directive",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "x/cpp/status"
 
@@ -1625,7 +1621,7 @@ var _ = Describe("C++ Types Plugin", func() {
 		Describe("Cross-namespace enum references", func() {
 			It(
 				"Should use namespace-qualified name for cross-namespace int enums",
-				func(ctx SpecContext) {
+				func() {
 					// First, set up the "control" namespace with the enum
 					controlSource := `
 					@cpp output "x/cpp/control"
@@ -1689,7 +1685,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should not namespace-qualify enums in the same namespace",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/channel"
 
@@ -1720,7 +1716,7 @@ var _ = Describe("C++ Types Plugin", func() {
 		Describe("Explicit @cpp include", func() {
 			It(
 				"Should include the declared header for a cross-namespace distinct type",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/rack", `
 					@cpp output "client/cpp/rack"
 
@@ -1748,7 +1744,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should include the declared header for a cross-namespace alias",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/status", `
 					@cpp output "client/cpp/status"
 
@@ -1780,7 +1776,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should fall back to types.gen.h when no header is declared",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/rack", `
 					@cpp output "client/cpp/rack"
 
@@ -1805,7 +1801,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should include the declared header for a same-namespace hand struct",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "x/cpp/color"
 
@@ -1829,7 +1825,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should not include a header for a same-namespace generated struct",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "x/cpp/color"
 
@@ -1854,7 +1850,7 @@ var _ = Describe("C++ Types Plugin", func() {
 		Describe("Array Wrapper Generation", func() {
 			It(
 				"Should generate wrapper struct for array distinct types",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "arc/cpp/types"
 
@@ -1878,7 +1874,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should generate wrapper struct for array of structs",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "arc/cpp/types"
 
@@ -1901,7 +1897,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should generate parse/to_json declarations for array wrappers",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "arc/cpp/types"
 
@@ -1924,7 +1920,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should support @cpp methods for custom methods on array wrappers",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "arc/cpp/types"
 					@cpp methods "std::optional<Param> get(const std::string& name) const"
@@ -1946,7 +1942,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should generate initializer_list constructor for array wrappers",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "arc/cpp/types"
 
@@ -1965,7 +1961,7 @@ var _ = Describe("C++ Types Plugin", func() {
 		Context("documentation", func() {
 			It(
 				"Should generate doxygen comments from doc domain",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/user"
 
@@ -1996,7 +1992,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should generate doxygen comments for type definitions",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/node"
 
@@ -2022,7 +2018,7 @@ var _ = Describe("C++ Types Plugin", func() {
 		Context("enum variant defaults", func() {
 			It(
 				"Should generate default for same-namespace enum variant",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "out"
 					@pb
@@ -2044,7 +2040,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should zero-initialize an int enum field with no default",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "out"
 
@@ -2066,7 +2062,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should reference string enum defaults via their generated constants",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "out"
 
@@ -2088,7 +2084,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should emit scalar field defaults as member initializers",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "out"
 
@@ -2110,7 +2106,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should wrap numeric defaults on telem-typed fields in their constructors",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/telem", `
 					@cpp output "x/cpp/telem"
 
@@ -2151,7 +2147,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should leave an optional telem-typed field without a value",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/telem", `
 					@cpp output "x/cpp/telem"
 
@@ -2176,7 +2172,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should wrap string defaults in the distinct type's constructor",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/telem", `
 					@cpp output "x/cpp/telem"
 
@@ -2205,7 +2201,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should wrap numeric defaults on distinct types outside x::telem",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/units", `
 					@cpp output "x/cpp/units"
 
@@ -2238,7 +2234,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should map the now sentinel to TimeStamp::now and skip unrenderable sentinels",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/telem", `
 					@cpp output "x/cpp/telem"
 
@@ -2268,7 +2264,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should include the header of a cross-namespace string enum default",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/wiring", `
 					@cpp output "client/cpp/wiring"
 
@@ -2296,7 +2292,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should skip the header of a cross-namespace string enum with no default",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/wiring", `
 					@cpp output "client/cpp/wiring"
 
@@ -2323,7 +2319,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should generate default for cross-namespace enum variant",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/control", `
 					@cpp output "x/cpp/control"
 					@pb
@@ -2349,7 +2345,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				},
 			)
 
-			It("Should generate brace-init defaults for arrays", func(ctx SpecContext) {
+			It("Should generate brace-init defaults for arrays", func() {
 				source := `
 					@cpp output "out"
 
@@ -2366,7 +2362,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			It(
 				"Should generate designated-initializer defaults for structs",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "out"
 
@@ -2401,7 +2397,7 @@ var _ = Describe("C++ Union Generation", func() {
 
 	It(
 		"Should generate variant structs and a std::variant alias",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -2429,7 +2425,7 @@ var _ = Describe("C++ Union Generation", func() {
 		},
 	)
 
-	It("Should emit resource helpers for a union", func(ctx SpecContext) {
+	It("Should emit resource helpers for a union", func() {
 		source := `
 			@cpp output "out"
 
@@ -2458,7 +2454,7 @@ var _ = Describe("C++ Union Generation", func() {
 			)
 	})
 
-	It("Should type union resource helpers by a primitive key", func(ctx SpecContext) {
+	It("Should type union resource helpers by a primitive key", func() {
 		source := `
 			@cpp output "out"
 
@@ -2481,7 +2477,7 @@ var _ = Describe("C++ Union Generation", func() {
 
 	It(
 		"Should default the discriminator to the borrowed enum constant",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -2503,9 +2499,7 @@ var _ = Describe("C++ Union Generation", func() {
 		},
 	)
 
-	It("Should include the header of a borrowed enum from another namespace", func(
-		ctx SpecContext,
-	) {
+	It("Should include the header of a borrowed enum from another namespace", func() {
 		loader.Add("schemas/auth", `
 			@cpp output "client/cpp/auth"
 
@@ -2531,7 +2525,7 @@ var _ = Describe("C++ Union Generation", func() {
 
 	It(
 		"Should declare inline variant fields directly on the variant struct",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -2559,7 +2553,7 @@ var _ = Describe("C++ Union Generation", func() {
 
 	It(
 		"Should omit the base list for a variant whose union and payload have no extends",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -2580,7 +2574,7 @@ var _ = Describe("C++ Union Generation", func() {
 
 	It(
 		"Should flatten a base a variant omits a field from",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -2607,7 +2601,7 @@ var _ = Describe("C++ Union Generation", func() {
 
 	It(
 		"Should inherit the union base and payload in every variant struct, not flatten",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -2632,7 +2626,7 @@ var _ = Describe("C++ Union Generation", func() {
 
 	It(
 		"Should emit a base accessor for a union whose variants share one base",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -2658,7 +2652,7 @@ var _ = Describe("C++ Union Generation", func() {
 
 	It(
 		"Should qualify the base accessor type of a base from another namespace",
-		func(ctx SpecContext) {
+		func() {
 			loader.Add("schemas/common", `
 			@cpp output "x/cpp/common"
 
@@ -2686,7 +2680,7 @@ var _ = Describe("C++ Union Generation", func() {
 
 	DescribeTable(
 		"Should not emit a base accessor without one base every variant shares",
-		func(ctx SpecContext, source string) {
+		func(source string) {
 			resp := MustGenerate(source, "ni", loader, cppPlugin)
 			ExpectContent(resp, "types.gen.h").
 				ToContain("using AIChannel = std::variant<").
@@ -2731,7 +2725,7 @@ var _ = Describe("C++ Union Generation", func() {
 
 	It(
 		"Should move a variant's restated base default into a constructor",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -2760,7 +2754,7 @@ var _ = Describe("C++ Union Generation", func() {
 
 	It(
 		"Should inherit a union base struct from another namespace with include",
-		func(ctx SpecContext) {
+		func() {
 			loader.Add("schemas/common", `
 			@cpp output "x/cpp/common"
 
@@ -2790,7 +2784,7 @@ var _ = Describe("C++ Union Generation", func() {
 
 	It(
 		"Should resolve a union-typed field to the variant alias",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -2814,7 +2808,7 @@ var _ = Describe("C++ Union Generation", func() {
 
 	It(
 		"Should initialize a union-typed field with its defaulted variant",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -2850,7 +2844,7 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 
 	It(
 		"Should resolve a union field from an imported namespace",
-		func(ctx SpecContext) {
+		func() {
 			loader.Add("schemas/scale", `
 			@cpp output "client/cpp/scale"
 
@@ -2882,7 +2876,7 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 
 	It(
 		"Should render a per-variant doc comment on the variant struct",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "out"
 
@@ -2904,7 +2898,7 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 
 	It(
 		"Should route per-type cpp output overrides to their own file",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "client/cpp/task"
 
@@ -2929,7 +2923,7 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 	)
 	It(
 		"Should declare proto translators for a union that emits protobuf",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@cpp output "arc/cpp/ir"
 			@go output "arc/go/ir"
@@ -2958,7 +2952,7 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 	)
 	It(
 		"Should name a variant's proto message from its payload's package",
-		func(ctx SpecContext) {
+		func() {
 			loader.Add("schemas/hw", `
 			@cpp output "client/cpp/hw"
 			@go output "core/pkg/service/hw"

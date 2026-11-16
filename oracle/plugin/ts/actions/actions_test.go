@@ -51,7 +51,7 @@ var _ = Describe("TS Actions Plugin", func() {
 
 	Describe("Generate", func() {
 		Context("structs without actions", func() {
-			It("Should not emit an actions.gen.ts file", func(ctx SpecContext) {
+			It("Should not emit an actions.gen.ts file", func() {
 				source := `
 					@ts output "client/ts/src/user"
 
@@ -68,7 +68,7 @@ var _ = Describe("TS Actions Plugin", func() {
 		})
 
 		Context("hand-written types", func() {
-			It("Should not emit an actions.gen.ts file", func(ctx SpecContext) {
+			It("Should not emit an actions.gen.ts file", func() {
 				source := `
 					@ts output "client/ts/src/counter"
 
@@ -89,9 +89,7 @@ var _ = Describe("TS Actions Plugin", func() {
 		})
 
 		Context("field-level omit", func() {
-			It("Should leave an omitted field out of an action payload", func(
-				ctx SpecContext,
-			) {
+			It("Should leave an omitted field out of an action payload", func() {
 				source := `
 					@go output "core/pkg/service/counter"
 					@ts output "client/ts/src/counter"
@@ -116,9 +114,7 @@ var _ = Describe("TS Actions Plugin", func() {
 		})
 
 		Context("unions with actions", func() {
-			It("Should emit actions whose handlers take the union", func(
-				ctx SpecContext,
-			) {
+			It("Should emit actions whose handlers take the union", func() {
 				source := `
 					@ts output "client/ts/src/shape"
 
@@ -147,9 +143,7 @@ var _ = Describe("TS Actions Plugin", func() {
 				)
 			})
 
-			It("Should leave an omitted field out of a union action payload", func(
-				ctx SpecContext,
-			) {
+			It("Should leave an omitted field out of a union action payload", func() {
 				source := `
 					@ts output "client/ts/src/shape"
 
@@ -172,7 +166,7 @@ var _ = Describe("TS Actions Plugin", func() {
 		Context("structs with actions", func() {
 			It(
 				"Should emit a discriminated-union codec with HandlerResult/ReduceAllResult aliases and a createReduceAll wrapper delegating to @/actions",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "client/ts/src/counter"
 
@@ -226,7 +220,7 @@ var _ = Describe("TS Actions Plugin", func() {
 
 			It(
 				"Should name the state type and payload references by their TS names",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "client/ts/src/counter"
 
@@ -254,7 +248,7 @@ var _ = Describe("TS Actions Plugin", func() {
 
 			It(
 				"Should flatten fields from an extended struct into the action payload",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "client/ts/src/counter"
 
@@ -282,7 +276,7 @@ var _ = Describe("TS Actions Plugin", func() {
 
 			It(
 				"Should emit scopedActionZ, dispatchReqZ, and dispatchResZ bound to actionZ",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "client/ts/src/counter"
 
@@ -306,7 +300,7 @@ var _ = Describe("TS Actions Plugin", func() {
 
 			It(
 				"Should bind scopedActionZ and dispatchReqZ to a retrieve key override",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "client/ts/src/counter"
 
@@ -331,7 +325,7 @@ var _ = Describe("TS Actions Plugin", func() {
 
 			It(
 				"Should lowercase a multi-word type name in parse-error labels",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "client/ts/src/lineplot"
 
@@ -351,7 +345,7 @@ var _ = Describe("TS Actions Plugin", func() {
 
 			It(
 				"Should keep a proper-noun type name unchanged in parse-error labels",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "client/ts/src/arc"
 
@@ -371,7 +365,7 @@ var _ = Describe("TS Actions Plugin", func() {
 
 			It(
 				"Should not emit the inlined HandlerResult/ReduceAllResult interfaces or open-coded produce loop",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "client/ts/src/counter"
 
@@ -395,7 +389,7 @@ var _ = Describe("TS Actions Plugin", func() {
 
 			It(
 				"Should not emit a single-action createReducer factory",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "client/ts/src/counter"
 
@@ -414,7 +408,7 @@ var _ = Describe("TS Actions Plugin", func() {
 
 			It(
 				"Should snake_case action types and camelCase handler/constructor names",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "client/ts/src/board"
 
@@ -439,7 +433,7 @@ var _ = Describe("TS Actions Plugin", func() {
 
 			It(
 				"Should not import handler functions from any sibling module",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "client/ts/src/widget"
 
@@ -461,7 +455,7 @@ var _ = Describe("TS Actions Plugin", func() {
 
 			It(
 				"Should import the target type from the sibling types.gen module",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "client/ts/src/widget"
 
@@ -483,7 +477,7 @@ var _ = Describe("TS Actions Plugin", func() {
 
 			It(
 				"Should add zod imports for action field types in the same namespace",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "client/ts/src/board"
 
@@ -508,7 +502,7 @@ var _ = Describe("TS Actions Plugin", func() {
 
 			It(
 				"Should alias the zod schema and type of an action alias",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/patch", `
 						@ts output "x/ts/src/patch"
 
@@ -545,7 +539,7 @@ var _ = Describe("TS Actions Plugin", func() {
 
 			It(
 				"Should write the own doc of an action alias",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/patch", `
 						@ts output "x/ts/src/patch"
 
@@ -580,7 +574,7 @@ var _ = Describe("TS Actions Plugin", func() {
 
 			It(
 				"Should recurse through type args when collecting same-namespace zod imports",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@ts output "client/ts/src/board"
 

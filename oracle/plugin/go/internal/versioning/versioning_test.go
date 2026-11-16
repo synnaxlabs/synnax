@@ -74,7 +74,7 @@ var _ = Describe("Versioning", func() {
 			return table
 		}
 
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
 			root = GinkgoT().TempDir()
 			full := filepath.Join(root, "schemas/synnax/versions/channel")
 			Expect(os.MkdirAll(full, 0o755)).To(Succeed())

@@ -78,11 +78,11 @@ func elementVariants(files map[string]string) map[string]string {
 }
 
 var _ = Describe("Version extends", func() {
-	It("Should mix in an aliased union whose variants name its version's aliases", func(
-		ctx SpecContext,
-	) {
-		variants := elementVariants(map[string]string{
-			extendsV0Path: `
+	It(
+		"Should mix in an aliased union whose variants name its version's aliases",
+		func() {
+			variants := elementVariants(map[string]string{
+				extendsV0Path: `
 Payload struct {
     value int32
 }
@@ -91,7 +91,7 @@ Node union on variant {
     leaf Payload
 }
 `,
-			extendsV1Path: `
+				extendsV1Path: `
 Payload = v0.Payload
 
 Node union on variant extends v0.Node {
@@ -100,7 +100,7 @@ Node union on variant extends v0.Node {
     }
 }
 `,
-			extendsV2Path: `
+				extendsV2Path: `
 Payload = v0.Payload
 
 Node = v1.Node
@@ -111,14 +111,13 @@ Edge union on variant {
 
 Element union on variant extends Node, Edge {}
 `,
-		})
-		Expect(variants).To(HaveKeyWithValue("leaf", "v0.Payload"))
-		Expect(variants).To(HaveKeyWithValue("pipe", "v2.Payload"))
-	})
+			})
+			Expect(variants).To(HaveKeyWithValue("leaf", "v0.Payload"))
+			Expect(variants).To(HaveKeyWithValue("pipe", "v2.Payload"))
+		},
+	)
 
-	It("Should mix in an aliased union whose variants name a chained alias", func(
-		ctx SpecContext,
-	) {
+	It("Should mix in an aliased union whose variants name a chained alias", func() {
 		variants := elementVariants(map[string]string{
 			extendsV0Path: `
 Payload struct {
@@ -144,7 +143,7 @@ Element union on variant extends Node {}
 	})
 
 	DescribeTable("Should resolve a patch exactly like its hand-written copy", func(
-		ctx SpecContext, patch, handWritten string,
+		patch, handWritten string,
 	) {
 		Expect(renderVersion(map[string]string{
 			extendsV0Path: extendsV0,
@@ -395,7 +394,7 @@ Node union on variant {
 `),
 	)
 
-	It("Should copy through a chain of patches", func(ctx SpecContext) {
+	It("Should copy through a chain of patches", func() {
 		v1 := `
 Node = v0.Node
 
@@ -434,7 +433,7 @@ Holder struct {
 	})
 
 	DescribeTable("Should keep a removed field omitted where a base has it", func(
-		ctx SpecContext, v0, patch, handWritten string,
+		v0, patch, handWritten string,
 	) {
 		Expect(renderVersion(map[string]string{
 			extendsV0Path: v0,
@@ -581,7 +580,7 @@ Holder struct extends Base {
 `),
 	)
 
-	It("Should count an import that only the copy uses", func(ctx SpecContext) {
+	It("Should count an import that only the copy uses", func() {
 		f := MustSucceed(resolverFor(map[string]string{
 			"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
 			extendsV0Path: `
@@ -603,7 +602,7 @@ Holder struct extends v0.Holder {
 		Expect(holder.Form.(resolution.StructForm).Fields).To(HaveLen(2))
 	})
 
-	It("Should not copy an extends of a different name", func(ctx SpecContext) {
+	It("Should not copy an extends of a different name", func() {
 		f := MustSucceed(resolverFor(map[string]string{
 			extendsV0Path: extendsV0,
 			extendsV1Path: `
@@ -621,9 +620,7 @@ Tree union on variant extends v0.Node {
 		Expect(form.Declared).To(ConsistOf(HaveField("Name", "tree")))
 	})
 
-	It("Should report a copied variant's errors at the copying declaration", func(
-		ctx SpecContext,
-	) {
+	It("Should report a copied variant's errors at the copying declaration", func() {
 		Expect(resolverFor(map[string]string{
 			extendsV0Path: extendsV0,
 			extendsV1Path: `
@@ -643,9 +640,7 @@ Node union on variant extends v0.Node {}
 		))
 	})
 
-	It("Should reject a struct that extends an earlier union of its name", func(
-		ctx SpecContext,
-	) {
+	It("Should reject a struct that extends an earlier union of its name", func() {
 		Expect(resolverFor(map[string]string{
 			extendsV0Path: extendsV0,
 			extendsV1Path: "Node struct extends v0.Node {}\n",
@@ -654,9 +649,7 @@ Node union on variant extends v0.Node {}
 		))
 	})
 
-	It("Should reject a union that extends an earlier struct of its name", func(
-		ctx SpecContext,
-	) {
+	It("Should reject a union that extends an earlier struct of its name", func() {
 		Expect(resolverFor(map[string]string{
 			extendsV0Path: extendsV0,
 			extendsV1Path: "Holder union on variant extends v0.Holder {}\n",
@@ -665,9 +658,7 @@ Node union on variant extends v0.Node {}
 		))
 	})
 
-	It("Should reject more than one earlier version of itself", func(
-		ctx SpecContext,
-	) {
+	It("Should reject more than one earlier version of itself", func() {
 		Expect(resolverFor(map[string]string{
 			extendsV0Path: extendsV0,
 			extendsV1Path: "Node = v0.Node\nHolder struct extends v0.Holder {}\n",

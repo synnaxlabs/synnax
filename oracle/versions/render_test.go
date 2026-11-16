@@ -86,9 +86,7 @@ func declsOf(table *resolution.Table) []versions.Decl {
 }
 
 var _ = Describe("Render", func() {
-	It("Should render declarations that re-analyze to the same shapes", func(
-		ctx SpecContext,
-	) {
+	It("Should render declarations that re-analyze to the same shapes", func() {
 		table := analyzeFixture(renderFixture)
 		rendered := versions.Render(declsOf(table), versions.RenderOptions{})
 		formatted := MustSucceed(formatter.Format(rendered))
@@ -121,7 +119,7 @@ var _ = Describe("Render", func() {
 		}
 	})
 
-	It("Should keep escaped whitespace in a string default", func(ctx SpecContext) {
+	It("Should keep escaped whitespace in a string default", func() {
 		table := analyzeFixture(`
 Framing struct {
 	delimiter string = "\n"
@@ -135,9 +133,7 @@ Framing struct {
 		Expect(fields[1].Default.StringValue).To(Equal("\r\n"))
 	})
 
-	It("Should preserve unknown expressions and @doc through a round trip", func(
-		ctx SpecContext,
-	) {
+	It("Should preserve unknown expressions and @doc through a round trip", func() {
 		table := analyzeFixture(renderFixture)
 		rendered := versions.Render(declsOf(table), versions.RenderOptions{})
 		again := analyzeFixture(MustSucceed(formatter.Format(rendered)))
@@ -152,7 +148,7 @@ Framing struct {
 
 	It(
 		"Should render the enum a union borrows as its discriminator",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 Method enum {
 	password = "password"
@@ -175,9 +171,7 @@ Proof union on method Method {
 		},
 	)
 
-	It("Should render field omissions on structs and union variants", func(
-		ctx SpecContext,
-	) {
+	It("Should render field omissions on structs and union variants", func() {
 		source := `
 Base struct {
 	port uint8
@@ -220,9 +214,7 @@ Chan union on type extends Base {
 		Expect(names).To(Equal([]string{"enabled", "units"}))
 	})
 
-	It("Should render an extending union and enum as the declared form", func(
-		ctx SpecContext,
-	) {
+	It("Should render an extending union and enum as the declared form", func() {
 		source := `
 NodeConfig union on variant {
 	tank { width float64 }
@@ -279,7 +271,7 @@ AxisKey enum extends XAxisKey, YAxisKey {}
 		Expect(axis.Values).To(HaveLen(2))
 	})
 
-	It("Should render alias lines and sorted imports", func(ctx SpecContext) {
+	It("Should render alias lines and sorted imports", func() {
 		table := analyzeFixture("Key = uuid\n")
 		decls := []versions.Decl{
 			{Type: MustBeOk(table.Get("test.Key"))},
@@ -300,7 +292,7 @@ AxisKey enum extends XAxisKey, YAxisKey {}
 		Expect(rendered).To(ContainSubstring("Sample = v2.Sample"))
 	})
 
-	It("Should filter domains and rewrite qualifiers", func(ctx SpecContext) {
+	It("Should filter domains and rewrite qualifiers", func() {
 		source := `
 Entry struct {
 	key uuid @key

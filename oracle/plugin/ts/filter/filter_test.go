@@ -76,7 +76,7 @@ var _ = Describe("TS Filter Plugin", func() {
 			}
 		`
 
-		It("Should check the shared fields and tag of a union", func(ctx SpecContext) {
+		It("Should check the shared fields and tag of a union", func() {
 			resp := MustGenerate(`
 				import "schemas/x/filter"
 
@@ -104,7 +104,7 @@ var _ = Describe("TS Filter Plugin", func() {
 			)
 		})
 
-		It("Should check each bare line with its operator", func(ctx SpecContext) {
+		It("Should check each bare line with its operator", func() {
 			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
@@ -133,7 +133,7 @@ var _ = Describe("TS Filter Plugin", func() {
 				ToNotContain("where.key?.regex", "lines", "Lines", "@throws")
 		})
 
-		It("Should walk the tree", func(ctx SpecContext) {
+		It("Should walk the tree", func() {
 			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
@@ -150,7 +150,7 @@ var _ = Describe("TS Filter Plugin", func() {
 				)
 		})
 
-		It("Should take typed lines from the Lines table", func(ctx SpecContext) {
+		It("Should take typed lines from the Lines table", func() {
 			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
@@ -176,9 +176,7 @@ var _ = Describe("TS Filter Plugin", func() {
 				)
 		})
 
-		It("Should read each bare line from a value, a list, or an operator", func(
-			ctx SpecContext,
-		) {
+		It("Should read each bare line from a value, a list, or an operator", func() {
 			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
@@ -208,9 +206,7 @@ var _ = Describe("TS Filter Plugin", func() {
 			)
 		})
 
-		It("Should read a key, a name, or a list of either as a shortcut", func(
-			ctx SpecContext,
-		) {
+		It("Should read a key, a name, or a list of either as a shortcut", func() {
 			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
@@ -231,7 +227,7 @@ var _ = Describe("TS Filter Plugin", func() {
 
 		It(
 			"Should order positions by a sorted field, then by key",
-			func(ctx SpecContext) {
+			func() {
 				resp := MustGenerate(`
 				import "schemas/x/filter"
 
@@ -277,7 +273,7 @@ var _ = Describe("TS Filter Plugin", func() {
 			},
 		)
 
-		It("Should order number keys by value", func(ctx SpecContext) {
+		It("Should order number keys by value", func() {
 			resp := MustGenerate(`
 				import "schemas/x/filter"
 
@@ -297,7 +293,7 @@ var _ = Describe("TS Filter Plugin", func() {
 			)
 		})
 
-		It("Should order by key alone without a sorted field", func(ctx SpecContext) {
+		It("Should order by key alone without a sorted field", func() {
 			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
@@ -312,7 +308,7 @@ var _ = Describe("TS Filter Plugin", func() {
 				ToNotContain("compareNumbers", "OrderField", "LIST_FIELDS")
 		})
 
-		It("Should take no cursor for a target with no key", func(ctx SpecContext) {
+		It("Should take no cursor for a target with no key", func() {
 			resp := MustGenerate(`
 				import "schemas/x/filter"
 
@@ -329,7 +325,7 @@ var _ = Describe("TS Filter Plugin", func() {
 				ToNotContain("LIST_FIELDS", "compareCursors", "export const cursor")
 		})
 
-		It("Should take no shortcut without a name line", func(ctx SpecContext) {
+		It("Should take no shortcut without a name line", func() {
 			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
@@ -338,7 +334,7 @@ var _ = Describe("TS Filter Plugin", func() {
 			ExpectContent(resp, "where.gen.ts").ToNotContain("shortcutZ")
 		})
 
-		It("Should take no shortcut for a free-text key", func(ctx SpecContext) {
+		It("Should take no shortcut for a free-text key", func() {
 			resp := MustGenerate(`
 				import "schemas/x/filter"
 
@@ -357,9 +353,7 @@ var _ = Describe("TS Filter Plugin", func() {
 			ExpectContent(resp, "where.gen.ts").ToNotContain("shortcutZ")
 		})
 
-		It("Should read a typed line as its type, or a list from a value", func(
-			ctx SpecContext,
-		) {
+		It("Should read a typed line as its type, or a list from a value", func() {
 			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
@@ -374,9 +368,7 @@ var _ = Describe("TS Filter Plugin", func() {
 			)
 		})
 
-		It("Should import a typed line's type from an ancestor as a namespace", func(
-			ctx SpecContext,
-		) {
+		It("Should import a typed line's type from an ancestor as a namespace", func() {
 			loader.Add("schemas/thing", `
 				@ts output "client/ts/src/thing"
 
@@ -407,7 +399,7 @@ var _ = Describe("TS Filter Plugin", func() {
 			)
 		})
 
-		It("Should skip a line omitted from TypeScript", func(ctx SpecContext) {
+		It("Should skip a line omitted from TypeScript", func() {
 			resp := MustGenerate(thing+`
 				Where filter Thing {
 					key
@@ -417,7 +409,7 @@ var _ = Describe("TS Filter Plugin", func() {
 			ExpectContent(resp, "where.gen.ts").ToNotContain("overlaps")
 		})
 
-		It("Should read bare lines from the response type", func(ctx SpecContext) {
+		It("Should read bare lines from the response type", func() {
 			resp := MustGenerate(`
 				import "schemas/x/filter"
 
@@ -445,9 +437,7 @@ var _ = Describe("TS Filter Plugin", func() {
 				)
 		})
 
-		It("Should reject a bare line the response type does not hold", func(
-			ctx SpecContext,
-		) {
+		It("Should reject a bare line the response type does not hold", func() {
 			req := MustGenerateRequest(`
 				import "schemas/x/filter"
 
@@ -472,10 +462,10 @@ var _ = Describe("TS Filter Plugin", func() {
 			)))
 		})
 
-		It("Should reject a response type with a type parameter and no default", func(
-			ctx SpecContext,
-		) {
-			req := MustGenerateRequest(`
+		It(
+			"Should reject a response type with a type parameter and no default",
+			func() {
+				req := MustGenerateRequest(`
 				import "schemas/x/filter"
 
 				@ts output "client/ts/src/thing"
@@ -488,13 +478,14 @@ var _ = Describe("TS Filter Plugin", func() {
 					key
 				}
 			`, "thing", loader)
-			Expect(p.Generate(req)).Error().To(MatchError(
-				"filter thing.Where: the type parameter T of Thing needs a default, since " +
-					"the matcher names Thing with no type arguments",
-			))
-		})
+				Expect(p.Generate(req)).Error().To(MatchError(
+					"filter thing.Where: the type parameter T of Thing needs a default, since " +
+						"the matcher names Thing with no type arguments",
+				))
+			},
+		)
 
-		It("Should reject an operator member it cannot check", func(ctx SpecContext) {
+		It("Should reject an operator member it cannot check", func() {
 			loader.Add(
 				"schemas/x/filter",
 				"@ts output \"x/ts/src/filter\"\n@py output \"x/py/filter\"\n"+strings.Replace(
@@ -514,7 +505,7 @@ var _ = Describe("TS Filter Plugin", func() {
 			))
 		})
 
-		It("Should skip a filter with no TypeScript output", func(ctx SpecContext) {
+		It("Should skip a filter with no TypeScript output", func() {
 			resp := MustGenerate(`
 				import "schemas/x/filter"
 

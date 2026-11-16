@@ -106,7 +106,7 @@ Doc = record
 
 var _ = Describe("C++ PB aliases", func() {
 	DescribeTable("Should translate a use of an alias as a use of its target",
-		func(ctx SpecContext, use string, expected ...string) {
+		func(use string, expected ...string) {
 			loader := NewMockFileLoader().
 				Add("schemas/x/telem", aliasTelem).
 				Add("schemas/base", aliasBase)

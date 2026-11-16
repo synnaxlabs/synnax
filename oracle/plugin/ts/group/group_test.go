@@ -59,7 +59,7 @@ var _ = Describe("TS Group Plugin", func() {
 		Expect(p.Requires()).To(Equal([]string{"ts/types"}))
 	})
 
-	It("Should emit no files when no field carries @group", func(ctx SpecContext) {
+	It("Should emit no files when no field carries @group", func() {
 		resp := MustGenerate(`
 			import "schemas/group"
 
@@ -75,7 +75,7 @@ var _ = Describe("TS Group Plugin", func() {
 		Expect(resp.Files).To(BeEmpty())
 	})
 
-	It("Should emit the rule of each member next to the group", func(ctx SpecContext) {
+	It("Should emit the rule of each member next to the group", func() {
 		resp := MustGenerate(`
 			import "schemas/group"
 
@@ -118,7 +118,7 @@ var _ = Describe("TS Group Plugin", func() {
 
 	It(
 		"Should import the resource types from the types of their own module",
-		func(ctx SpecContext) {
+		func() {
 			loader.Add("schemas/group", `
 				@ts output "client/ts/src/group"
 
@@ -156,7 +156,7 @@ var _ = Describe("TS Group Plugin", func() {
 		},
 	)
 
-	It("Should return the error of a malformed @group", func(ctx SpecContext) {
+	It("Should return the error of a malformed @group", func() {
 		req := MustGenerateRequest(`
 			import "schemas/group"
 

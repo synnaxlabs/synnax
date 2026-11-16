@@ -27,7 +27,7 @@ var _ = Describe("Resource Generation", func() {
 		p = types.New(types.DefaultOptions())
 	})
 
-	It("Should emit resource metadata with a uuid key", func(ctx SpecContext) {
+	It("Should emit resource metadata with a uuid key", func() {
 		source := `
 			@ts output "out"
 
@@ -47,7 +47,7 @@ var _ = Describe("Resource Generation", func() {
 			)
 	})
 
-	It("Should emit resource metadata with a string key", func(ctx SpecContext) {
+	It("Should emit resource metadata with a string key", func() {
 		source := `
 			@ts output "out"
 
@@ -66,7 +66,7 @@ var _ = Describe("Resource Generation", func() {
 			)
 	})
 
-	It("Should respect a @ts type override on the key field", func(ctx SpecContext) {
+	It("Should respect a @ts type override on the key field", func() {
 		source := `
 			@ts output "out"
 
@@ -84,7 +84,7 @@ var _ = Describe("Resource Generation", func() {
 
 	It(
 		"Should respect a @ts type override on the key's distinct type definition",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -105,7 +105,7 @@ var _ = Describe("Resource Generation", func() {
 		},
 	)
 
-	It("Should emit resource metadata for a union", func(ctx SpecContext) {
+	It("Should emit resource metadata for a union", func() {
 		source := `
 			@ts output "out"
 
@@ -134,7 +134,7 @@ var _ = Describe("Resource Generation", func() {
 
 	It(
 		"Should emit resource metadata for a union whose base has another output",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 
@@ -162,7 +162,7 @@ var _ = Describe("Resource Generation", func() {
 
 	It(
 		"Should not emit resource metadata for structs without @resource",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@ts output "out"
 

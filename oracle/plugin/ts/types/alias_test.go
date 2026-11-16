@@ -248,7 +248,7 @@ var _ = Describe("TS aliases", func() {
 	)
 
 	DescribeTable("Should name an enum constraint through the package that declares it",
-		func(ctx SpecContext, schema, typeParams string, expected ...string) {
+		func(schema, typeParams string, expected ...string) {
 			loader.Add("schemas/other", `
 				import "schemas/base"
 
@@ -287,7 +287,7 @@ var _ = Describe("TS aliases", func() {
 	)
 
 	DescribeTable("Should project a create field typed through an alias to its New",
-		func(ctx SpecContext, decls, expected string) {
+		func(decls, expected string) {
 			resp := MustGenerate(`
 			import "schemas/status"
 
