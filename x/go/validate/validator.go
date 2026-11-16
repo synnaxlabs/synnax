@@ -178,8 +178,8 @@ func (v *Validator) NotEmptyString[T ~string](field string, value T) bool {
 	return v.Ternary(field, value == "", "required")
 }
 
-// MinLength returns true and attaches an error to v if the string has fewer than
-// minLen Unicode code points.
+// MinLength returns true and attaches an error to v if the string has fewer than minLen
+// Unicode code points.
 func (v *Validator) MinLength[T ~string](field string, value T, minLen int) bool {
 	return v.Ternaryf(
 		field,
@@ -189,8 +189,8 @@ func (v *Validator) MinLength[T ~string](field string, value T, minLen int) bool
 	)
 }
 
-// MaxLength returns true and attaches an error to v if the string has more than
-// maxLen Unicode code points.
+// MaxLength returns true and attaches an error to v if the string has more than maxLen
+// Unicode code points.
 func (v *Validator) MaxLength[T ~string](field string, value T, maxLen int) bool {
 	return v.Ternaryf(
 		field,
