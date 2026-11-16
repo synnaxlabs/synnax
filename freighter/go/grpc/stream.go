@@ -119,7 +119,8 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 				if err != nil {
 					return oCtx, err
 				}
-				grpcClient, err := s.ClientFunc(ctx, conn.ClientConn)
+				sCtx, cancel := context.WithCancel(ctx.Context)
+				grpcClient, err := s.ClientFunc(sCtx, conn.ClientConn)
 				oCtx = freighter.Context{
 					Context:  ctx.Context,
 					Role:     ctx.Role,
@@ -129,18 +130,21 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 					Variant:  ctx.Variant,
 				}
 				if err != nil {
+					cancel()
 					return oCtx, err
 				}
 				md, hdrErr := grpcClient.Header()
 				if hdrErr != nil {
+					cancel()
 					return oCtx, hdrErr
 				}
 				if errVals := md.Get("error"); len(errVals) > 0 {
+					cancel()
 					p := &errors.Payload{}
 					p.Unmarshal(errVals[0])
 					return oCtx, errors.Decode(*p)
 				}
-				stream = s.adaptStream(grpcClient)
+				stream = s.adaptStream(grpcClient, cancel)
 				return oCtx, nil
 			},
 		),
@@ -169,11 +173,13 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) adaptStream(
 
 func (s *StreamClient[RQ, RQT, RS, RST]) adaptStream(
 	stream GRPCClientStream[RQT, RST],
+	cancel context.CancelFunc,
 ) freighter.ClientStream[RQ, RS] {
 	return &clientStream[RQ, RQT, RS, RST]{
 		requestTranslator:  s.RequestTranslator,
 		responseTranslator: s.ResponseTranslator,
 		internal:           stream,
+		cancel:             cancel,
 	}
 }
 
@@ -281,13 +287,16 @@ type clientStream[RQ, RQT, RS, RST freighter.Payload] struct {
 	internal           GRPCClientStream[RQT, RST]
 	requestTranslator  Translator[RQ, RQT]
 	responseTranslator Translator[RS, RST]
-	closeSent          bool
+	// cancel ends the stream's context once Receive reports the stream ended.
+	cancel    context.CancelFunc
+	closeSent bool
 }
 
 // Receive implements the freighter.ClientStream interface.
 func (c *clientStream[RQ, RQT, RS, RST]) Receive() (res RS, err error) {
 	tRes, err := c.internal.Recv()
 	if err != nil {
+		c.cancel()
 		return res, translateGRPCError(err)
 	}
 	return c.responseTranslator.Backward(c.internal.Context(), tRes)
