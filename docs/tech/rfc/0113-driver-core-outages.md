@@ -193,7 +193,7 @@ outage and offline data is dropped with a count; phase 7 keeps it.
 | ----- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------- |
 | 1     | Set the `status.set` time in the Driver                    | `core/pkg/transport/grpc/status`, `core/pkg/api/status`, `core/pkg/service/status`, `client/cpp/status`, `driver/arc/status` | -          |
 | 2     | Wait for an unreachable Core with no limit in the rack     | `driver/rack`                                                                                                                | -          |
-| 3     | Deliver bypass writer frames to the Core in the background | `driver/bypass/pipeline`, `client/cpp/framer`, `freighter/cpp/grpc`                                                          | -          |
+| 3     | Deliver bypass writer frames to the Core in the background | `driver/bypass/pipeline`, `client/cpp/framer`, `client/cpp/auth`, `freighter/cpp/grpc`                                       | -          |
 | 4     | Hand off authority locally while the Core is down          | `driver/control`, `driver/bypass/pipeline`, `driver/task`                                                                    | 3          |
 | 5     | Read the bypass bus while the Core is down                 | `driver/bypass/pipeline`                                                                                                     | -          |
 | 6     | Add the outage spool                                       | `driver/spool`                                                                                                               | -          |
