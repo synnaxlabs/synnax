@@ -217,6 +217,12 @@ const repoint = async (
   ]);
 };
 
+// The details of a field show once its item in the tree is selected.
+const selectField = async (name: string) =>
+  fireEvent.click(
+    await screen.findByRole("treeitem", { name: new RegExp(`^${name}`) }),
+  );
+
 const retrieveTopicProps = async (key: string) =>
   (await client.devices.retrieve({ key, schemas: MQTT.Device.SCHEMAS })).properties
     .read[TOPIC];
@@ -339,7 +345,7 @@ describe("MQTT read form", () => {
       entries: [kiln],
     });
     await screen.findByDisplayValue("temperature");
-    fireEvent.click(await screen.findByRole("option", { name: /plant\/kiln/ }));
+    fireEvent.click(await screen.findByRole("treeitem", { name: /plant\/kiln/ }));
     await screen.findByDisplayValue("pressure");
     expect(screen.queryByDisplayValue("temperature")).toBeNull();
   });
@@ -415,7 +421,7 @@ describe("MQTT read form", () => {
     const { draft } = await renderRead({
       fields: [createField("temperature", "float")],
     });
-    const item = () => screen.findByRole("option", { name: /plant\/oven/ });
+    const item = () => screen.findByRole("treeitem", { name: /plant\/oven/ });
     fireEvent.contextMenu(await item());
     const disable = await screen.findByText("Disable");
     expect(screen.queryByText("Enable")).toBeNull();
@@ -433,7 +439,7 @@ describe("MQTT read form", () => {
   it("should read the time from the first timestamp field on payload timing", async () => {
     const time = createTimeField();
     const temperature = createField("temperature", "float");
-    const { draft } = await renderRead({
+    const { dev, draft } = await renderRead({
       fields: [temperature, time],
       bound: { [temperature.key]: 0 },
     });
@@ -448,9 +454,8 @@ describe("MQTT read form", () => {
         ],
       }),
     );
-    const box = screen.getByRole("checkbox", { name: "Read time" });
-    expect((box as HTMLInputElement).checked).toBe(true);
-    expect((box as HTMLInputElement).disabled).toBe(true);
+    await screen.findByDisplayValue(`${dev.name}_plant_oven_time`);
+    expect(screen.queryByRole("treeitem", { name: /^time/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Arrival time" }));
     await waitFor(async () =>
       expect(plainOf((await retrieveEntries(draft.key))[0]).messages[0]).toEqual({
@@ -458,6 +463,8 @@ describe("MQTT read form", () => {
         bindings: [{ field: temperature.key, channel: 0, dataType: "" }],
       }),
     );
+    const box = await screen.findByRole("checkbox", { name: "Read time" });
+    expect((box as HTMLInputElement).checked).toBe(false);
   });
 
   it("should not rename the message of a topic when the topic changes", async () => {
@@ -490,6 +497,7 @@ describe("MQTT read form", () => {
           read: { [TOPIC]: { index: 0, channels: { "/temperature": ch.key } } },
         },
       });
+      await selectField("temperature");
       const box = await screen.findByRole("checkbox", { name: "Read temperature" });
       await screen.findByDisplayValue(ch.name);
       fireEvent.click(box);
@@ -504,20 +512,42 @@ describe("MQTT read form", () => {
       await screen.findByDisplayValue(ch.name);
     });
 
+    it("should stop and start reading a field through the context menu", async () => {
+      const temperature = createField("temperature", "float");
+      const { draft } = await renderRead({ fields: [temperature] });
+      const item = () => screen.findByRole("treeitem", { name: /^temperature/ });
+      fireEvent.contextMenu(await item());
+      const disable = await screen.findByText("Disable");
+      expect(screen.queryByText("Enable")).toBeNull();
+      expect(screen.queryByText("Remove")).toBeNull();
+      fireEvent.click(disable);
+      await waitFor(async () => expect(await retrieveBindings(draft.key)).toEqual([]));
+      fireEvent.contextMenu(await item());
+      fireEvent.click(await screen.findByText("Enable"));
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toEqual([
+          { field: temperature.key, channel: 0, dataType: "" },
+        ]),
+      );
+    });
+
     it("should name the channel of a new field after the broker, topic, and field", async () => {
       const { dev } = await renderRead({
         fields: [createField("temperature", "float")],
       });
+      await selectField("temperature");
       const name = await screen.findByDisplayValue(
         `${dev.name}_plant_oven_temperature`,
       );
       expect((name as HTMLInputElement).disabled).toBe(true);
-      expect(screen.getByRole("img", { name: "New channel" })).toBeTruthy();
+      const item = screen.getByRole("treeitem", { name: /^temperature/ });
+      expect(within(item).getByRole("img", { name: "New channel" })).toBeTruthy();
     });
 
     it("should offer only the data types that the kind of a field converts to", async () => {
       const count = createField("count", "integer");
       const { container, dev, draft } = await renderRead({ fields: [count] });
+      await selectField("count");
       fireEvent.click(await findDialogTriggerByText("int64"));
       const dialogs = await screen.findAllByRole("dialog");
       const options = within(dialogs[dialogs.length - 1]);
@@ -544,6 +574,7 @@ describe("MQTT read form", () => {
       });
       const count = createField("count", "integer");
       await renderRead({ fields: [count], bound: { [count.key]: ch.key } });
+      await selectField("count");
       await screen.findByDisplayValue(ch.name);
       expect(screen.getByText("Set on the channel")).toBeTruthy();
       await findDialogTriggerByText("int16");
@@ -560,6 +591,7 @@ describe("MQTT read form", () => {
         fields: [temperature],
         bound: { [temperature.key]: ch.key },
       });
+      await selectField("temperature");
       const input = await screen.findByDisplayValue(ch.name);
       const renamed = uniqueName("oven_temperature");
       fireEvent.change(input, { target: { value: renamed } });
@@ -637,12 +669,12 @@ describe("MQTT read form", () => {
           createTagEntry("Node Control/Rebirth"),
         ],
       });
-      await screen.findByRole("option", { name: /JSON.*plant\/oven/ });
+      await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ });
       expect(
-        screen.getByRole("option", { name: /SpB.*plant\/line1\/pumpA\/flow/ }),
+        screen.getByRole("treeitem", { name: /SpB.*plant\/line1\/pumpA\/flow/ }),
       ).toBeTruthy();
       expect(
-        screen.getByRole("option", {
+        screen.getByRole("treeitem", {
           name: /SpB.*plant\/line1\/Node Control\/Rebirth/,
         }),
       ).toBeTruthy();
@@ -707,7 +739,7 @@ describe("MQTT read form", () => {
       fireEvent.click(dialog.getByRole("button", { name: "Cancel" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
       await act(async () => {});
-      expect(screen.getAllByRole("option", { name: /flow/ })).toHaveLength(1);
+      expect(screen.getAllByRole("treeitem", { name: /flow/ })).toHaveLength(1);
     });
 
     it("should count picked fields and tags apart on the add button", async () => {
@@ -1020,7 +1052,7 @@ describe("MQTT read form", () => {
           read: { [TOPIC]: { index: time.key, channels: { "/temperature": ch.key } } },
         },
       });
-      await screen.findByDisplayValue(ch.name);
+      await screen.findByRole("checkbox", { name: "Read oven" });
       await addField(dev.rack, TOPIC, "temperature");
       const added = await waitFor(async () => {
         const bindings = await retrieveBindings(draft.key);

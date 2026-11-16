@@ -22,14 +22,34 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
-import { List } from "@synnaxlabs/lyra/list";
-import { Menu } from "@synnaxlabs/lyra/menu";
+import { type Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Tree } from "@synnaxlabs/lyra/tree";
 import { Access, Channel, ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, type payload, primitive, unique, uuid } from "@synnaxlabs/x";
-import { type FC, useEffect, useRef, useState } from "react";
+import {
+  DataType,
+  deep,
+  type payload,
+  primitive,
+  type record,
+  unique,
+  uuid,
+} from "@synnaxlabs/x";
+import {
+  createContext,
+  type Dispatch,
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  type SetStateAction,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
@@ -58,7 +78,6 @@ import {
   type ReadSchemas,
   type SparkplugReadEntry,
 } from "@/feature/mqtt/task/types";
-import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { ICD } from "@/platform/icd";
@@ -416,15 +435,25 @@ interface TimestampFieldsProps {
   fields: icd.JSONField[];
   /** The index channel that the device stores for the topic, or 0. */
   indexChannel: channel.Key;
+  /** The prefix of the names of the channels that deploying creates. */
+  prefix: string;
 }
 
 type TimingMode = "arrival" | "payload";
 
 /** Picks where each sample of the topic gets its time. */
-const TimestampFields: FC<TimestampFieldsProps> = ({ path, fields, indexChannel }) => {
+const TimestampFields: FC<TimestampFieldsProps> = ({
+  path,
+  fields,
+  indexChannel,
+  prefix,
+}) => {
   const { get, set } = PForm.useContext();
   const readPath = path.messages[0];
   const held = PForm.useFieldValue(readPath.index, { optional: true });
+  const bindings = PForm.useFieldValue(readPath.bindings);
+  const entryDisabled = PForm.useFieldValue(path.disabled);
+  const indexBinding = bindings.find(({ field }) => field === held);
   const timestamps = fields.filter(({ type }) => type === "timestamp");
   const index = timestamps.find(({ key }) => key === held);
   const setIndex = (next: string | undefined) =>
@@ -477,6 +506,13 @@ const TimestampFields: FC<TimestampFieldsProps> = ({ path, fields, indexChannel 
           </Select.Simple>
         </Input.Item>
       )}
+      {indexBinding != null && (
+        <Task.ChannelNameField
+          channel={indexBinding.channel}
+          defaultName={`${prefix}_time`}
+          skipped={entryDisabled}
+        />
+      )}
     </>
   );
 };
@@ -485,8 +521,6 @@ const TimestampFields: FC<TimestampFieldsProps> = ({ path, fields, indexChannel 
 const hiddenDataTypes = (kind: payload.Kind): DataType[] =>
   DataType.ALL.filter((dt) => !converts(kind, dt.toString()));
 
-const READ_TOOLTIP = "Read the field into a channel.";
-const INDEX_TOOLTIP = "The task reads the time of each sample from this field.";
 const UNREADABLE_TOOLTIP =
   "A bytes field needs a JSON pointer. Give it one in the message format.";
 
@@ -509,83 +543,250 @@ const Unbind = ({ path, kind, channel: key }: UnbindProps) => {
   return null;
 };
 
-interface BindingProps {
-  /** The path of the topic's entry. */
+/** The open forms of the ICDs that the task's topics read, by ICD key. */
+type Formats = ReadonlyMap<icd.Key, FormatForm>;
+
+const FormatsContext = createContext<Formats>(new Map());
+FormatsContext.displayName = "MQTT.FormatsContext";
+
+interface WithFormatProps extends PropsWithChildren {
+  icdKey: icd.Key;
+}
+
+/** Opens the form of an ICD that a topic reads. Each edit updates the ICD at once. */
+const WithFormat = ({ icdKey, children }: WithFormatProps): ReactElement => {
+  const isPreview = Task.useIsPreview();
+  const canEdit = Access.useUpdateGranted(icd.resourceID(icdKey));
+  const { form, flush } = PICD.useForm({
+    query: { key: icdKey },
+    mode: isPreview || !canEdit ? "preview" : "normal",
+  });
+  PICD.useCheck({ key: icdKey, form });
+  Task.useFlushBeforeDeploy(flush);
+  const formats = new Map(useContext(FormatsContext)).set(icdKey, form);
+  return <FormatsContext value={formats}>{children}</FormatsContext>;
+};
+
+/** @returns the messages of each open ICD, by ICD key. */
+const messagesOf = (formats: Formats): Messages =>
+  new Map([...formats].map(([key, form]) => [key, form.value().messages]));
+
+/** @returns the fields of a message of an ICD. */
+const fieldsOf = (
+  formats: Formats,
+  icdKey: icd.Key,
+  message: icd.MessageKey,
+): icd.JSONField[] =>
+  jsonFields(
+    formats
+      .get(icdKey)
+      ?.value()
+      .messages.find(({ key }) => key === message),
+  );
+
+/**
+ * Starts or stops reading a field of a topic. Starting reuses the channel that the
+ * device stores for the field's pointer, unless another field reads it.
+ */
+const setRead = (
+  ctx: PForm.ContextValue,
+  entry: string,
+  field: icd.JSONField,
+  on: boolean,
+  stored: Stored,
+): void => {
+  const read = plainPath(entry).messages[0];
+  const bindings = ctx.get(read.bindings).value;
+  const bound = bindings.some(({ field: key }) => key === field.key);
+  if (bound === on || (on && !isReadable(field))) return;
+  const { topic } = ctx.get(plainPath(entry)).value;
+  const written = writtenChannels(ctx.get(root.config.entries).value);
+  ctx.set(
+    read.bindings,
+    on
+      ? [...bindings, ...bindingsOf(stored, topic, [field], written)]
+      : bindings.filter(({ field: key }) => key !== field.key),
+  );
+};
+
+interface ReadCheckboxProps {
+  /** The key of the topic's entry. */
+  entry: string;
+  field: icd.JSONField;
+  stored: Stored;
+}
+
+/** Reads the field into a channel, or stops reading it. */
+const ReadCheckbox: FC<ReadCheckboxProps> = ({ entry, field, stored }) => {
+  const ctx = PForm.useContext();
+  const isPreview = Task.useIsPreview();
+  const bindings = PForm.useFieldValue(plainPath(entry).messages[0].bindings);
+  const bound = bindings.some(({ field: key }) => key === field.key);
+  const readable = isReadable(field);
+  let tooltip: string | undefined = bound ? "Disable" : "Enable";
+  if (isPreview) tooltip = undefined;
+  else if (!readable) tooltip = UNREADABLE_TOOLTIP;
+  return (
+    <Input.Checkbox
+      value={bound}
+      onChange={(on) => setRead(ctx, entry, field, on, stored)}
+      checkedIcon={<Status.Indicator variant="success" />}
+      uncheckedIcon={<Status.Indicator variant="disabled" />}
+      size="small"
+      disabled={isPreview || !readable}
+      aria-label={`Read ${field.name}`}
+      tooltip={tooltip}
+    />
+  );
+};
+
+/** A field of a message that a topic reads, in the tree under its topic. */
+interface FieldNode {
+  kind: "field";
+  /** The key of the topic's entry. */
+  entry: string;
+  field: icd.JSONField;
+}
+
+type Node = { kind: "entry"; entry: string } | FieldNode;
+
+interface Index {
+  nodes: Tree.Node[];
+  byKey: Map<string, Node>;
+}
+
+const fieldNodeKey = (entry: string, message: icd.MessageKey, field: string): string =>
+  `${entry}/${message}/${field}`;
+
+/** Each entry key with the fields its topic shows, or null for a tag. */
+type Structure = [string, [icd.MessageKey, icd.JSONField[]] | null][];
+
+/**
+ * The entries of the task as tree nodes: each topic with the fields of its message
+ * beneath, and each tag on its own. The index field stays hidden, as the topic details
+ * edit it.
+ */
+const useIndex = (formats: Formats): Index => {
+  const { bind, get } = PForm.useContext();
+  const subscribe = (onChange: () => void) => {
+    const unbinds = [
+      bind(onChange),
+      ...[...formats.values()].map((f) => f.bind(onChange)),
+    ];
+    return () => unbinds.forEach((unbind) => unbind());
+  };
+  const getStructure = () =>
+    JSON.stringify(
+      get(root.config.entries).value.map((e): Structure[number] => {
+        if (!isPlain(e)) return [e.key, null];
+        const read = e.messages.at(0);
+        if (read == null) return [e.key, ["", []]];
+        const fields = fieldsOf(formats, e.icd, read.message);
+        return [e.key, [read.message, fields.filter(({ key }) => key !== read.index)]];
+      }),
+    );
+  const structure = useSyncExternalStore(subscribe, getStructure, getStructure);
+  const byKey = new Map<string, Node>();
+  const nodes = (JSON.parse(structure) as Structure).map(
+    ([entry, shown]): Tree.Node => {
+      byKey.set(entry, { kind: "entry", entry });
+      if (shown == null) return { key: entry };
+      const [message, fields] = shown;
+      const children = fields.map((field): Tree.Node => {
+        const key = fieldNodeKey(entry, message, field.key);
+        byKey.set(key, { kind: "field", entry, field });
+        return { key };
+      });
+      return { key: entry, children };
+    },
+  );
+  return { nodes, byKey };
+};
+
+const EntryItem = (props: Tree.ItemRenderProps<string>) => {
+  const path = root.config.entries[props.itemKey];
+  const type = PForm.useFieldValue(path.type, { optional: true });
+  const disabled = PForm.useFieldValue(path.disabled, { optional: true }) === true;
+  if (type == null) return null;
+  return (
+    <Task.Views.TreeGroupItem
+      {...props}
+      label={<EntryLabel path={path} />}
+      channel={
+        type === "sparkplug"
+          ? deep.variant(path, "type", "sparkplug").channel
+          : undefined
+      }
+      off={disabled}
+    >
+      <Task.EnabledCheckbox path={path.disabled} />
+    </Task.Views.TreeGroupItem>
+  );
+};
+
+interface FieldItemProps extends Tree.ItemRenderProps<string> {
+  node: FieldNode;
+  stored: Stored;
+}
+
+const FieldItem = ({ node: { entry, field }, stored, ...props }: FieldItemProps) => {
+  const path = plainPath(entry);
+  const bindings = PForm.useFieldValue(path.messages[0].bindings);
+  const entryOff = PForm.useFieldValue(path.disabled);
+  const i = bindings.findIndex(({ field: key }) => key === field.key);
+  return (
+    <Task.Views.TreeFieldItem
+      {...props}
+      label={field.name}
+      emptyLabel="Unnamed field"
+      channel={i < 0 ? null : path.messages[0].bindings[i].channel}
+      off={i < 0}
+      skipped={i < 0 || entryOff}
+    >
+      <ReadCheckbox entry={entry} field={field} stored={stored} />
+    </Task.Views.TreeFieldItem>
+  );
+};
+
+interface FieldDetailsProps {
   path: deep.Path<PlainReadEntry>;
   field: icd.JSONField;
   /** The prefix of the names of the channels that deploying creates. */
   prefix: string;
-  stored: Stored;
 }
 
-/** Reads a field into a channel, or not, and names the channel. */
-const Binding: FC<BindingProps> = ({ path, field, prefix, stored }) => {
-  const { get, set } = PForm.useContext();
-  const isPreview = Task.useIsPreview();
+/** Names the channel of a field that the task reads, and picks its data type. */
+const FieldDetails: FC<FieldDetailsProps> = ({ path, field, prefix }) => {
   const read = path.messages[0];
-  const topic = PForm.useFieldValue(path.topic);
-  const entryDisabled = PForm.useFieldValue(path.disabled);
-  const index = PForm.useFieldValue(read.index, { optional: true });
   const bindings = PForm.useFieldValue(read.bindings);
+  const entryDisabled = PForm.useFieldValue(path.disabled);
   const i = bindings.findIndex(({ field: key }) => key === field.key);
-  const binding = i < 0 ? undefined : bindings[i];
-  const isIndex = field.key === index;
-  const readable = isReadable(field);
-  const handleRead = (on: boolean) =>
-    set(
-      read.bindings,
-      on
-        ? [
-            ...bindings,
-            ...bindingsOf(
-              stored,
-              topic,
-              [field],
-              writtenChannels(get(root.config.entries).value),
-            ),
-          ]
-        : bindings.filter(({ field: key }) => key !== field.key),
+  if (i < 0)
+    return (
+      <Flex.Box y grow align="center" justify="center">
+        <Text.Text status="disabled">
+          Enable the field to read it into a channel
+        </Text.Text>
+      </Flex.Box>
     );
-  let tooltip = READ_TOOLTIP;
-  if (isIndex) tooltip = INDEX_TOOLTIP;
-  else if (!readable) tooltip = UNREADABLE_TOOLTIP;
+  const binding = bindings[i];
   return (
-    <Flex.Box x className={CSS.B("mqtt-read-binding")}>
-      <Input.Item label={field.name} padHelpText={false}>
-        <Input.Checkbox
-          value={binding != null}
-          onChange={handleRead}
-          disabled={isPreview || isIndex || !readable}
-          aria-label={`Read ${field.name}`}
-          tooltip={tooltip}
-        />
-      </Input.Item>
-      {binding != null && !isIndex && (
-        <Task.Payload.DataTypeField
-          path={read.bindings[i].dataType}
-          channel={binding.channel}
-          defaultDataType={DEFAULT_DATA_TYPES[field.type]}
-          hideDataTypes={hiddenDataTypes(field.type)}
-        />
-      )}
-      {binding != null && (
-        <Task.ChannelNameField
-          channel={binding.channel}
-          defaultName={
-            isIndex
-              ? `${prefix}_time`
-              : `${prefix}_${channel.escapeInvalidName(field.name)}`
-          }
-          skipped={entryDisabled}
-        />
-      )}
-      {binding != null && binding.channel !== 0 && !isPreview && (
-        <Unbind
-          path={read.bindings[i].channel}
-          kind={field.type}
-          channel={binding.channel}
-        />
-      )}
+    <Flex.Box y grow empty className={CSS.BE("details", "form")}>
+      <PForm.Sections>
+        <PForm.Section title="Channel">
+          <Task.ChannelNameField
+            channel={binding.channel}
+            defaultName={`${prefix}_${channel.escapeInvalidName(field.name)}`}
+            skipped={entryDisabled}
+          />
+          <Task.Payload.DataTypeField
+            path={read.bindings[i].dataType}
+            channel={binding.channel}
+            defaultDataType={DEFAULT_DATA_TYPES[field.type]}
+            hideDataTypes={hiddenDataTypes(field.type)}
+          />
+        </PForm.Section>
+      </PForm.Sections>
     </Flex.Box>
   );
 };
@@ -607,15 +808,6 @@ const TopicDetails: FC<TopicDetailsProps> = ({ path, format, device }) => {
   const fields = jsonFields(message);
   const read = entry.messages.at(0);
   const mixed = read == null ? [] : variableAmongFixed(readFields(fields, read));
-  const prefix = namePrefix(device.name, entry.topic);
-  const { set } = PForm.useContext();
-  const isPreview = Task.useIsPreview();
-  // An edit of the message format can leave the read one that the Core refuses to save.
-  useEffect(() => {
-    if (isPreview || read == null || message?.payload.format !== "json") return;
-    const suited = suit(read, fields);
-    if (!deep.equal(suited, read)) set(path.messages[0], suited);
-  }, [isPreview, read, message]);
   const openEditor = () =>
     openTab({ variant: "resource", resource: icd.resourceID(entry.icd) });
   return (
@@ -640,6 +832,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({ path, format, device }) => {
             path={path}
             fields={fields}
             indexChannel={device.properties.read[entry.topic]?.index ?? 0}
+            prefix={namePrefix(device.name, entry.topic)}
           />
         </PForm.Section>
         <PForm.Section
@@ -674,26 +867,54 @@ const TopicDetails: FC<TopicDetailsProps> = ({ path, format, device }) => {
               format.
             </Text.Text>
           )}
+          {mixed.length > 0 && (
+            <Input.HelpText variant="error">{mixMessage(mixed)}</Input.HelpText>
+          )}
         </PForm.Section>
-        {fields.length > 0 && (
-          <PForm.Section title="Channels">
-            {fields.map((field) => (
-              <Binding
-                key={field.key}
-                path={path}
-                field={field}
-                prefix={prefix}
-                stored={device.properties.read}
-              />
-            ))}
-            {mixed.length > 0 && (
-              <Input.HelpText variant="error">{mixMessage(mixed)}</Input.HelpText>
-            )}
-          </PForm.Section>
-        )}
       </PForm.Sections>
     </Flex.Box>
   );
+};
+
+interface SuitReadsProps {
+  path: deep.Path<PlainReadEntry>;
+}
+
+/**
+ * Keeps the read of a topic suited to its message format, whose edits can leave a read
+ * that the Core refuses to save. Unbinds each channel that its field can no longer
+ * convert to.
+ */
+const SuitReads: FC<SuitReadsProps> = ({ path }) => {
+  const { set } = PForm.useContext();
+  const isPreview = Task.useIsPreview();
+  const formats = useContext(FormatsContext);
+  const entry = PForm.useFieldValue(path);
+  const format = formats.get(entry.icd);
+  const read = entry.messages.at(0);
+  const message = PForm.useFieldValue(PICD.formPath.messages[read?.message ?? ""], {
+    optional: true,
+    ctx: format,
+  });
+  const fields = jsonFields(message);
+  useEffect(() => {
+    if (isPreview || read == null || message?.payload.format !== "json") return;
+    const suited = suit(read, fields);
+    if (!deep.equal(suited, read)) set(path.messages[0], suited);
+  }, [isPreview, read, message]);
+  if (read == null || isPreview) return null;
+  return read.bindings.map((b, i) => {
+    const field = fields.find(({ key }) => key === b.field);
+    if (field == null || b.channel === 0) return null;
+    return (
+      <Unbind
+        key={b.field}
+        path={path.messages[0].bindings[i].channel}
+        kind={field.type}
+        channel={b.channel}
+      />
+    );
+  });
 };
 
 // A Sparkplug B DateTime tag reads into a timestamp channel.
@@ -730,52 +951,49 @@ const TagDetails: FC<TagDetailsProps> = ({ path, deviceName }) => {
   );
 };
 
-const EntryItem = (props: List.ItemRenderProps<string>) => {
-  const path = root.config.entries[props.itemKey];
-  const type = PForm.useFieldValue(path.type, { optional: true });
-  const disabled = PForm.useFieldValue(path.disabled, { optional: true });
-  if (type == null) return null;
-  return (
-    <Select.Item
-      {...props}
-      justify="between"
-      align="center"
-      className={CSS.cls(disabled === true && CSS.M("off"))}
-    >
-      <EntryLabel path={path} />
-      <Task.EnabledCheckbox path={path.disabled} />
-    </Select.Item>
-  );
-};
-
 interface EntriesProps {
   device: Device;
-  /** The form of the ICD of the selected topic, or of the first topic while a tag is
-   * selected. Null while the task reads no topics. */
-  format: Format | null;
-  /** The key of the selected entry. Empty while the task has no entries. */
+  /** The key of each selected tree item. */
   selected: string[];
-  onSelect: (keys: string[]) => void;
+  onSelect: Dispatch<SetStateAction<string[]>>;
+  expanded: string[];
+  onExpand: Dispatch<SetStateAction<string[]>>;
 }
 
-/** The entries of the task beside the details of the selected one. */
-const Entries: FC<EntriesProps> = ({ device, format, selected, onSelect }) => {
+/** The entries of the task as a tree, beside the details of the selected item. */
+const Entries: FC<EntriesProps> = ({
+  device,
+  selected,
+  onSelect,
+  expanded,
+  onExpand,
+}) => {
   const client = PSynnax.use();
   const ctx = PForm.useContext();
   const handleError = Status.useErrorHandler();
-  const isPreview = Task.useIsPreview();
   const discover = useDiscoverModal();
-  const menuProps = Menu.useContextMenu();
-  const { data, push, remove } = PForm.useFieldList(root.config.entries);
+  const formats = useContext(FormatsContext);
+  const { push, remove } = PForm.useFieldList(root.config.entries);
   const entries = PForm.useFieldValue(root.config.entries);
-  const current = selected.at(0);
+  const stored = device.properties.read;
+  const { nodes, byKey } = useIndex(formats);
+  const first = entries.find(isPlain);
+  const format = first == null ? undefined : formats.get(first.icd);
+  const tree = Tree.use({
+    nodes,
+    selected,
+    onSelectedChange: onSelect,
+    expanded,
+    onExpandedChange: onExpand,
+    toggleOn: "caret",
+  });
 
   // Adds run one at a time, so a second click cannot make a second ICD.
   const adding = useRef(false);
   const add = async () => {
     if (client == null) throw new DisconnectedError();
     const plain = entries.filter(isPlain);
-    const messages = await readMessages(client, format, plain);
+    const messages = messagesOf(formats);
     const held = entries.map((e): Addition =>
       isPlain(e)
         ? { ...createDraft(e.topic), fields: jsonFields(messageOf(messages, e)) }
@@ -788,7 +1006,7 @@ const Entries: FC<EntriesProps> = ({ device, format, selected, onSelect }) => {
     const written = writtenChannels(entries);
     const bind: Bind = ({ topic, bound }, fields) =>
       bindingsOf(
-        device.properties.read,
+        stored,
         topic,
         fields.filter(({ key }) => bound.includes(key)),
         written,
@@ -796,9 +1014,15 @@ const Entries: FC<EntriesProps> = ({ device, format, selected, onSelect }) => {
     const { added, held: grown } =
       drafts.length === 0
         ? { added: [], held: [] }
-        : format == null
+        : first == null || format == null
           ? await createICD(client, icdName(ctx.get(root.name).value), drafts, bind)
-          : await addTopics({ client, format, entries: plain, drafts, bind });
+          : await addTopics({
+              client,
+              format: { key: first.icd, form: format },
+              entries: plain,
+              drafts,
+              bind,
+            });
     push([...added, ...tags]);
     grown.forEach(({ key, message, bindings }) => {
       const read = plainPath(key).messages[0];
@@ -807,14 +1031,16 @@ const Entries: FC<EntriesProps> = ({ device, format, selected, onSelect }) => {
         ctx.set(read, mqtt.readMessageZ.parse({ message, bindings }));
       else ctx.set(read.bindings, [...ctx.get(read.bindings).value, ...bindings]);
     });
-    const first = additions[0];
-    const firstKey = isDraft(first)
+    const firstAddition = additions[0];
+    const firstKey = isDraft(firstAddition)
       ? (
-          entries.find((e) => isPlain(e) && e.topic === first.topic) ??
-          added.find((e) => e.topic === first.topic)
+          entries.find((e) => isPlain(e) && e.topic === firstAddition.topic) ??
+          added.find((e) => e.topic === firstAddition.topic)
         )?.key
-      : first.key;
-    if (firstKey != null) onSelect([firstKey]);
+      : firstAddition.key;
+    if (firstKey == null) return;
+    onSelect([firstKey]);
+    tree.expand(firstKey);
   };
   const handleAdd = () =>
     handleError(async () => {
@@ -825,85 +1051,123 @@ const Entries: FC<EntriesProps> = ({ device, format, selected, onSelect }) => {
       });
     }, "Failed to add data");
 
+  const handleSelect: Tree.TreeProps<string, record.Keyed<string>>["onSelect"] = (
+    keys,
+    { clicked },
+  ) => {
+    onSelect(keys);
+    if (clicked != null && byKey.get(clicked)?.kind === "entry") tree.expand(clicked);
+  };
+
+  /** Sets whether the task reads each chosen field, and enables each chosen entry. */
   const setEnabled = (keys: string[], enabled: boolean) =>
-    keys.forEach((k) => ctx.set(root.config.entries[k].disabled, !enabled));
+    ctx.batch(() => {
+      for (const key of keys) {
+        const node = byKey.get(key);
+        if (node?.kind === "entry")
+          ctx.set(root.config.entries[node.entry].disabled, !enabled);
+        else if (node?.kind === "field")
+          setRead(ctx, node.entry, node.field, enabled, stored);
+      }
+    });
+  const isEnabled = (node: Node): boolean => {
+    if (node.kind === "entry")
+      return !ctx.get(root.config.entries[node.entry].disabled).value;
+    return ctx
+      .get(plainPath(node.entry).messages[0].bindings)
+      .value.some(({ field }) => field === node.field.key);
+  };
+  const handleRemove = (keys: string[]) => {
+    remove(keys);
+    onSelect([]);
+  };
   const contextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
-    const chosen = entries.filter(({ key }) => keys.includes(key));
+    const chosen = keys.flatMap((k) => byKey.get(k) ?? []);
     return (
       <Task.Views.ContextMenu
         keys={keys}
-        onRemove={remove}
+        onRemove={
+          chosen.every(({ kind }) => kind === "entry") ? handleRemove : undefined
+        }
         onEnable={
-          chosen.some((e) => e.disabled) ? () => setEnabled(keys, true) : undefined
+          chosen.some((n) => !isEnabled(n)) ? () => setEnabled(keys, true) : undefined
         }
-        onDisable={
-          chosen.some((e) => !e.disabled) ? () => setEnabled(keys, false) : undefined
-        }
+        onDisable={chosen.some(isEnabled) ? () => setEnabled(keys, false) : undefined}
       />
     );
   };
 
-  const entry = entries.find(({ key }) => key === current);
-  const path = entry == null ? null : root.config.entries[entry.key];
-  let details;
-  if (entry == null) details = null;
-  else if (entry.type === "sparkplug")
+  const renderItem = ({ key, ...p }: Tree.ItemRenderProps<string>) => {
+    const node = byKey.get(p.itemKey);
+    if (node?.kind === "field")
+      return <FieldItem key={key} {...p} node={node} stored={stored} />;
+    return <EntryItem key={key} {...p} />;
+  };
+
+  const current = selected.length > 0 ? byKey.get(selected[0]) : undefined;
+  const entry =
+    current == null ? undefined : entries.find(({ key }) => key === current.entry);
+  let details = null;
+  let title = null;
+  let detailsPath: deep.Target<unknown> | null = null;
+  if (entry != null && current?.kind === "field" && isPlain(entry)) {
+    const path = plainPath(entry.key);
+    const i = entry.messages[0].bindings.findIndex(
+      ({ field }) => field === current.field.key,
+    );
+    detailsPath = i < 0 ? path.messages[0] : path.messages[0].bindings[i];
+    title = (
+      <Text.Text level="p" weight={500} overflow="fade">
+        {current.field.name}
+      </Text.Text>
+    );
     details = (
-      <TagDetails
-        key={entry.key}
-        path={deep.variant(root.config.entries[entry.key], "type", "sparkplug")}
-        deviceName={device.name}
+      <FieldDetails
+        key={selected[0]}
+        path={path}
+        field={current.field}
+        prefix={namePrefix(device.name, entry.topic)}
       />
     );
-  else if (format != null)
-    details = (
-      <TopicDetails
-        key={entry.key}
-        path={plainPath(entry.key)}
-        format={format.form}
-        device={device}
-      />
-    );
+  } else if (entry != null) {
+    detailsPath = root.config.entries[entry.key];
+    title = <EntryLabel path={root.config.entries[entry.key]} />;
+    const entryFormat = isPlain(entry) ? formats.get(entry.icd) : undefined;
+    if (entry.type === "sparkplug")
+      details = (
+        <TagDetails
+          key={entry.key}
+          path={deep.variant(root.config.entries[entry.key], "type", "sparkplug")}
+          deviceName={device.name}
+        />
+      );
+    else if (entryFormat != null)
+      details = (
+        <TopicDetails
+          key={entry.key}
+          path={plainPath(entry.key)}
+          format={entryFormat}
+          device={device}
+        />
+      );
+  }
   return (
     <Task.Views.Panes
       listTitle="Entries"
       list={
-        <Flex.Box y empty grow>
-          <Menu.ContextMenu {...menuProps} menu={contextMenu}>
-            <Select.Frame<string, ReadEntry>
-              multiple
-              data={data}
-              value={selected}
-              onChange={onSelect}
-              replaceOnSingle
-              allowNone={false}
-            >
-              <List.Scroll
-                full="y"
-                className={menuProps.className}
-                onContextMenu={menuProps.open}
-              >
-                <List.Items<string>
-                  emptyContent={
-                    <Text.Text center level="small" color={9}>
-                      No entries
-                    </Text.Text>
-                  }
-                >
-                  {({ key, ...p }) => <EntryItem key={key} {...p} />}
-                </List.Items>
-              </List.Scroll>
-            </Select.Frame>
-          </Menu.ContextMenu>
-          {!isPreview && (
-            <PlatformButton.CreateListItem size="small" onClick={handleAdd}>
-              Add data
-            </PlatformButton.CreateListItem>
-          )}
-        </Flex.Box>
+        <Task.Views.TreeList
+          {...tree}
+          onSelect={handleSelect}
+          menu={contextMenu}
+          emptyMessage="No entries"
+          addLabel="Add data"
+          onAdd={handleAdd}
+        >
+          {renderItem}
+        </Task.Views.TreeList>
       }
-      detailsPath={path}
-      title={path == null ? undefined : <EntryLabel path={path} />}
+      detailsPath={detailsPath}
+      title={title ?? undefined}
     >
       {details ?? (
         <Flex.Box y grow align="center" justify="center">
@@ -914,46 +1178,41 @@ const Entries: FC<EntriesProps> = ({ device, format, selected, onSelect }) => {
   );
 };
 
-interface WithFormatProps extends Omit<EntriesProps, "format"> {
-  icdKey: icd.Key;
-}
-
-/** Opens the form of a topic's ICD, which each edit updates at once. */
-const WithFormat: FC<WithFormatProps> = ({ icdKey, ...rest }) => {
-  const isPreview = Task.useIsPreview();
-  const canEdit = Access.useUpdateGranted(icd.resourceID(icdKey));
-  const { form, flush } = PICD.useForm({
-    query: { key: icdKey },
-    mode: isPreview || !canEdit ? "preview" : "normal",
-  });
-  PICD.useCheck({ key: icdKey, form });
-  Task.useFlushBeforeDeploy(flush);
-  return <Entries {...rest} format={{ key: icdKey, form }} />;
-};
-
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const entries = PForm.useFieldValue(root.config.entries);
   const [selected, setSelected] = useState<string[]>([]);
-  const key = selected.find((k) => entries.some((e) => e.key === k));
-  const current = entries.find((e) => e.key === key) ?? entries.at(0);
-  // A selected tag keeps the ICD of the first topic open, for the topics it adds.
-  const topic = current != null && isPlain(current) ? current : entries.find(isPlain);
-  const props = {
-    device,
-    selected: current == null ? [] : [current.key],
-    onSelect: setSelected,
-  };
+  const [expanded, setExpanded] = useState<string[]>(() =>
+    entries.map(({ key }) => key),
+  );
+  const plain = entries.filter(isPlain);
   const resolve = (entry: ReadEntry) => {
     if (entry.type !== "sparkplug") return {};
     const stored = device.properties.read[sparkplugPropertiesKey(entry)];
     return { channel: stored?.channels[""] ?? 0 };
   };
+  const body = (
+    <>
+      <Entries
+        device={device}
+        selected={selected}
+        onSelect={setSelected}
+        expanded={expanded}
+        onExpand={setExpanded}
+      />
+      {plain.map(({ key }) => (
+        <SuitReads key={key} path={plainPath(key)} />
+      ))}
+    </>
+  );
   return (
     <>
-      {topic == null ? (
-        <Entries {...props} format={null} />
-      ) : (
-        <WithFormat key={topic.icd} icdKey={topic.icd} {...props} />
+      {unique.unique(plain.map((e) => e.icd)).reduceRight(
+        (child, key) => (
+          <WithFormat key={key} icdKey={key}>
+            {child}
+          </WithFormat>
+        ),
+        body,
       )}
       <Task.BindChannels path={root.config.entries} resolve={resolve} />
     </>

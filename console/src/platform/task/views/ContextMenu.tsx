@@ -17,7 +17,7 @@ import { useIsPreview } from "@/platform/task/useIsPreview";
 
 export interface ContextMenuProps {
   keys: string[];
-  onRemove: (keys: string[]) => void;
+  onRemove?: (keys: string[]) => void;
   onDuplicate?: (keys: string[]) => void;
   onRename?: (key: string) => void;
   onAddField?: () => void;
@@ -70,8 +70,12 @@ export const ContextMenu = ({
             </Menu.Item>
           )}
           <Menu.Divider />
-          <Base.RemoveItem onClick={() => onRemove(keys)} />
-          <Menu.Divider />
+          {onRemove != null && (
+            <>
+              <Base.RemoveItem onClick={() => onRemove(keys)} />
+              <Menu.Divider />
+            </>
+          )}
         </>
       )}
       <Base.ReloadConsoleItem />
