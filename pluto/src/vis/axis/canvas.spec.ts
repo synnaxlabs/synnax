@@ -69,4 +69,30 @@ describe("axis/canvas", () => {
       expect(first.x).toBeCloseTo(POSITION.x - canvasTest.ATLAS_ADVANCE / 2);
     });
   });
+
+  describe("size", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    (["bottom", "top"] as const).forEach((loc) =>
+      it(`should draw ${loc} tick labels inside the size it reports`, () => {
+        const surface = canvasTest.atlasSurface();
+        const axis = newCanvas(loc, surface.context, state(loc));
+        const { size } = axis.render(PROPS);
+        surface.clear();
+        axis.render({ ...PROPS, size });
+        const glyphs = surface.glyphs();
+        expect(glyphs.length).toBeGreaterThan(0);
+        const inkOffset =
+          canvasTest.ATLAS_BASELINE_OFFSET - canvasTest.ATLAS_INK_HEIGHT;
+        glyphs.forEach(({ y }) => {
+          expect(y + inkOffset).toBeGreaterThanOrEqual(POSITION.y);
+          expect(y + canvasTest.ATLAS_BASELINE_OFFSET).toBeLessThanOrEqual(
+            POSITION.y + size,
+          );
+        });
+      }),
+    );
+  });
 });
