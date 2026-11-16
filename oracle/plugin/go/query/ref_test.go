@@ -518,6 +518,21 @@ var _ = Describe("@ref", func() {
 			},
 		),
 		Entry(
+			"a required resource ID, changing only its key",
+			`holder resource.ID {
+				@ref {
+					on_delete cascade
+					kind      place
+					types     rack
+				}
+			}`,
+			[]string{
+				"if (gorp.Target{Table: string(e.Holder.Type), Key: e.Holder.Key}) " +
+					"== from {",
+				"e.Holder.Key = to.Key",
+			},
+		),
+		Entry(
 			"an optional resource ID, changing only its key",
 			`holder resource.ID? {
 				@ref {
@@ -1211,7 +1226,8 @@ var _ = Describe("@ref", func() {
 					"for i3 := range e.Alerts {",
 					"if e.Alerts[i3].Tag == from {",
 					"e.Alerts[i3].Tag = to",
-				)
+				).
+				ToNotContain("slices.ContainsFunc")
 		})
 
 		It("Should retarget a key in every variant of a union", func() {
