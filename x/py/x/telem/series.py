@@ -22,6 +22,8 @@ from typing import (
     NoReturn,
     Protocol,
     TypeAlias,
+    TypeIs,
+    TypeVar,
     Union,
     get_args,
     get_origin,
@@ -34,7 +36,6 @@ import numpy.typing as npt
 import pandas as pd
 from pydantic import BaseModel, GetCoreSchemaHandler, JsonValue, TypeAdapter
 from pydantic_core import core_schema
-from typing_extensions import TypeIs, TypeVar
 
 from x.interop import ArrayOperators
 from x.params import deprecate_positional
