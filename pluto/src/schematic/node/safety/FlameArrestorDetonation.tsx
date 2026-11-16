@@ -12,20 +12,12 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
+import svg from "@/schematic/node/safety/FlameArrestorDetonation.svg?raw";
 
 export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
 const SPEC = Custom.createBuiltIn({
-  svg:
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 63 69">' +
-    '<rect x="2" y="2.5" width="28" height="64" rx="3"/>' +
-    '<path d="M16 2.5L16 66.5"/>' +
-    '<path d="M2 34.5H30"/>' +
-    '<path d="M2 19H30"/>' +
-    '<path d="M2 50H30"/>' +
-    '<path d="M29.121 3.37903L61 34.5"/>' +
-    '<path d="M29.12 65.62L61 34.5"/>' +
-    "</svg>",
+  svg,
   handles: [
     { key: "1", position: { x: 0.03333, y: 0.5 }, orientation: "left" },
     { key: "2", position: { x: 0.96667, y: 0.5 }, orientation: "right" },
