@@ -134,8 +134,8 @@ resource "aws_iam_role_policy" "deny_runner_secrets" {
   })
 }
 
-# Lets a seat record when the usage limit of its login resets, which keeps the fleet
-# controller from starting it until then.
+# Lets a seat record when the usage limit of its login resets. The fleet controller
+# moves the time to the login, which no seat then starts on until then.
 resource "aws_iam_role_policy" "limited_until" {
   name = "TagLimitedUntil"
   role = aws_iam_role.runner.id
@@ -266,6 +266,31 @@ resource "aws_iam_role_policy" "start" {
             "aws:ResourceTag/pool"    = keys(var.pools)
           }
         }
+      },
+    ]
+  })
+}
+
+# Lets Agent - Requeue read the tags of the shared Claude logins, never their tokens.
+resource "aws_iam_role_policy" "start_logins" {
+  name = "ReadLoginTags"
+  role = aws_iam_role.start.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "secretsmanager:ListSecrets"
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = "secretsmanager:DescribeSecret"
+        Resource = join(":", [
+          "arn:aws:secretsmanager:us-east-1",
+          local.account,
+          "secret:synnax-agents/logins/*",
+        ])
       },
     ]
   })

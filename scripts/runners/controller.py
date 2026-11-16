@@ -84,8 +84,8 @@ instance is up longer than --boot-grace (2 min). --scale sets the start state
 state, runner_scaler_log carries its log.
 
 Seats (seats.py): starts a stopped agent or review seat when a job that asks for its
-labels queues. The scaler switch holds these starts too, and they log to
-runner_scaler_log.
+labels queues, on a login it picks (logins.py). The scaler switch holds these starts
+too, and they log to runner_scaler_log.
 
 Gate (gate.py): fans global_gh_cmd out to every <runner>_gh_cmd, disconnecting the
 fleet from GitHub without stopping instances. --gh sets the start state (enabled);
@@ -100,8 +100,9 @@ while the last 3 polls all failed), runner_controller_log (every line logged her
 Reads the GH_APP_ID, GH_APP_KEY, GH_WEBHOOK_SECRET, and SYNNAX_PASSWORD secrets (see
 common.secret).
 Needs AWS credentials from the boto3 chain that may DescribeInstances, DescribeVolumes,
-StartInstances on the agent seats, cloudwatch:GetMetricData, ce:GetCostAndUsage,
-ce:GetCostForecast, pricing:GetProducts, and ssm:GetParameter on /runners/*.
+StartInstances and tag the seats, cloudwatch:GetMetricData, ce:GetCostAndUsage,
+ce:GetCostForecast, pricing:GetProducts, ssm:GetParameter on /runners/*,
+iam:GetRole on the seat role, and list and tag the logins in Secrets Manager.
 """
 
 import argparse
@@ -144,6 +145,7 @@ from github import GitHub
 from heartbeat import Heartbeat
 from jobs import Jobs
 from log import Log
+from logins import SEAT_ROLE, Logins
 from pools import (
     POOL_INDEX,
     WAIT_INDEX,
@@ -533,7 +535,14 @@ def main() -> None:
         jobs=Jobs(github=github, log=log, pool=resync_pool),
         cost=cost,
         scaler=scaler,
-        seats=Seats(aws=aws, log=scaler_log),
+        seats=Seats(
+            aws=aws,
+            logins=Logins(
+                secrets=aws.secrets,
+                role=aws.iam.get_role(RoleName=SEAT_ROLE)["Role"]["RoleId"],
+            ),
+            log=scaler_log,
+        ),
         gate=gate,
         log=log,
         webhook=webhook,

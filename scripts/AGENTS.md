@@ -119,7 +119,9 @@ in `pools.py` must use the label the workflows request (`windows-test-bot`, not
 
 `seats.py` starts a stopped agent or review seat (`infra/agent-runner`) when a job that
 asks for its labels queues. It finds a seat by its instance tags, because the seat
-runners belong to the organization. A seat stops itself when it is idle.
+runners belong to the organization. A seat stops itself when it is idle. Each seat it
+starts gets a usable Claude login from `logins.py`, the shared pool of subscription
+tokens in Secrets Manager.
 
 Deploy with the `Deploy - Runners` workflow. Its checkboxes select the controller, a
 Core release or dev build, a backup of the Core, and the runner agents, and the steps
