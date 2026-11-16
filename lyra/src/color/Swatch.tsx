@@ -104,8 +104,6 @@ export const Swatch = ({
   library,
   ...rest
 }: SwatchProps): ReactElement => {
-  const linked =
-    library?.named == null ? undefined : findNamed(library.palettes, library.named);
   // Only an OptionalValueProps caller sets a fallback, and only then does the picker
   // show the Auto button that passes undefined.
   const onChange = propsOnChange as ((value?: color.Color) => void) | undefined;
@@ -123,6 +121,10 @@ export const Swatch = ({
     setVisible(arg);
   };
   const shownValue = pending != null ? pending.value : value;
+  // A pending change unlinks the value when the picker closes.
+  const named = pending == null ? library?.named : undefined;
+  const linked =
+    library == null || named == null ? undefined : findNamed(library.palettes, named);
   const shownMixed = mixed && pending == null;
   const auto = !custom && !shownMixed && shownValue == null;
   let tooltipText = "Click to change color";
@@ -194,6 +196,7 @@ export const Swatch = ({
                 ? undefined
                 : {
                     ...library,
+                    named,
                     onNamedChange: (key) => {
                       setPending(null);
                       library.onNamedChange(key);

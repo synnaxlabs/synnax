@@ -346,6 +346,59 @@ describe("Picker", () => {
         vi.useRealTimers();
       });
 
+      describe("recent colors", () => {
+        /** A caller that unlinks the value on each fixed color, as a real one does. */
+        const Linked = (): ReactElement => {
+          const [value, setValue] = useState<color.Crude | undefined>("#3e8bff");
+          const [named, setNamed] = useState<string | undefined>("ocean");
+          return (
+            <Color.Picker
+              value={value}
+              onChange={(c) => {
+                setValue(c);
+                setNamed(undefined);
+              }}
+              library={{ palettes: PALETTES, named, onNamedChange: setNamed }}
+            />
+          );
+        };
+
+        const renderWithRecent = (): RenderResult => {
+          vi.useFakeTimers();
+          const c = render(
+            <Color.Provider>
+              <Linked />
+            </Color.Provider>,
+            { wrapper: Wrapper },
+          );
+          fireEvent.click(c.getByText("Custom"));
+          fireEvent.change(hexInput(c), { target: { value: "abcdef" } });
+          act(() => {
+            vi.advanceTimersByTime(1500);
+          });
+          return c;
+        };
+
+        afterEach(() => {
+          vi.useRealTimers();
+        });
+
+        it("should mark the recent color equal to a fixed value", () => {
+          const c = renderWithRecent();
+          expect(c.getByLabelText("#abcdef").className).toContain(CSS.M("selected"));
+        });
+
+        it("should not mark a recent color while the value is linked", () => {
+          const c = renderWithRecent();
+          fireEvent.click(c.getByText("Library"));
+          fireEvent.click(c.getByLabelText("Ocean"));
+          fireEvent.click(c.getByText("Custom"));
+          expect(c.getByLabelText("#abcdef").className).not.toContain(
+            CSS.M("selected"),
+          );
+        });
+      });
+
       it("should edit a fixed color in Custom", () => {
         const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
         fireEvent.click(c.getByText("Custom"));
