@@ -321,6 +321,32 @@ describe("ICD editor", () => {
     );
   });
 
+  it("should keep the mappings and default a JSON field's new number type holds", async () => {
+    const ic = await createICD([
+      createJSONMessage([
+        {
+          ...createJSONBase("State", "/state"),
+          type: "integer",
+          enumValues: [
+            { label: "RUN", value: "1" },
+            { label: "HUGE", value: "9007199254740993" },
+          ],
+          default: "2",
+        },
+      ]),
+    ]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByText("Signed integer"));
+    fireEvent.click(await screen.findByText("Float"));
+    await waitFor(async () =>
+      expect(await retrieveJSONField(ic.key)).toMatchObject({
+        type: "float",
+        enumValues: [{ label: "RUN", value: 1 }],
+        default: 2,
+      }),
+    );
+  });
+
   it("should change the type of a JSON field with a blank name", async () => {
     const ic = await createICD([createJSONMessage([createJSONField("Temp", "/temp")])]);
     await renderEditor(ic);

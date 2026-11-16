@@ -14,11 +14,12 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { deep, payload, type record, uuid } from "@synnaxlabs/x";
+import { DataType, deep, payload, type record, uuid } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Options } from "@/platform/icd/Options";
+import { Task } from "@/platform/task";
 
 type Field = icd.BinaryField | icd.TextField | icd.JSONField;
 type Encoding = "binary" | icd.TextFieldType | "json";
@@ -150,14 +151,70 @@ const JSON_TYPE_NAMES: Record<JSONType, string> = {
 const jsonTypeOf = (field: icd.JSONField): JSONType =>
   field.type === "timestamp" ? field.timeFormat : field.type;
 
-/** Only a number field scales, so a field that stops being one drops its scaling. */
+/** The widest data type of each number kind, which holds every value of the kind. */
+const NUMBER_DATA_TYPES: Record<NumberKind, string> = {
+  float: DataType.FLOAT64.toString(),
+  integer: DataType.INT64.toString(),
+  unsigned: DataType.UINT64.toString(),
+};
+
+/** @returns the enum mapping and default of a number field, as a read field holds. */
+const numberOptionsOf = (
+  field: icd.JSONField,
+): Task.Payload.ReadOptions | undefined => {
+  switch (field.type) {
+    case "float":
+      return { type: field.type, enumValues: field.enumValues, fill: field.default };
+    case "integer":
+      return { type: field.type, enumValues: field.enumValues, fill: field.default };
+    case "unsigned":
+      return { type: field.type, enumValues: field.enumValues, fill: field.default };
+    default:
+      return undefined;
+  }
+};
+
+/**
+ * Only a number field scales, so a field that stops being one drops its scaling. A
+ * number field that becomes another number kind keeps each mapping and the default
+ * that the new kind holds exactly.
+ */
 const withJSONType = (field: icd.JSONField, type: JSONType): icd.JSONField => {
   const { key, name, pointer, units } = field;
   const base = { key, name, pointer, units, scale: 1, offset: 0 };
   if (isTimeFormat(type)) return { ...base, type: "timestamp", timeFormat: type };
   if (isNumberKind(type)) {
     const { scale, offset, min, max } = field;
-    return { ...base, scale, offset, min, max, type, enumValues: [] };
+    const number = { ...base, scale, offset, min, max };
+    const options = Task.Payload.readOptionsOf(
+      NUMBER_DATA_TYPES[type],
+      numberOptionsOf(field),
+    );
+    switch (options.type) {
+      case "float":
+        return {
+          ...number,
+          type: options.type,
+          enumValues: options.enumValues,
+          default: options.fill,
+        };
+      case "integer":
+        return {
+          ...number,
+          type: options.type,
+          enumValues: options.enumValues,
+          default: options.fill,
+        };
+      case "unsigned":
+        return {
+          ...number,
+          type: options.type,
+          enumValues: options.enumValues,
+          default: options.fill,
+        };
+      default:
+        throw new Error(`${type} reads as ${options.type}`);
+    }
   }
   if (type === "string" || type === "boolean") return { ...base, type, enumValues: [] };
   return { ...base, type };
