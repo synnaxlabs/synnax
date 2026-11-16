@@ -148,7 +148,7 @@ func (t joinText) SafeFormatError(p errors.Printer) error {
 
 var (
 	stackType      = reflect.TypeOf(errors.WithStack(errors.New("")))
-	joinType       = reflect.TypeOf(&joinError{})
+	joinType       = reflect.TypeFor[*joinError]()
 	stdlibJoinType = reflect.TypeOf(stderrors.Join(errors.New("")))
 )
 
