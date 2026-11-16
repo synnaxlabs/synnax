@@ -419,14 +419,18 @@ func compileAssignment(
 		}
 	}
 
-	switch sym.Kind {
-	case symbol.KindVariable:
-		if varType.Kind == types.KindChan {
-			ctx.Resolver.EmitChannelWrite(ctx.Writer, ctx.WriterID, varType.Unwrap())
-		} else {
-			ctx.Writer.WriteLocalSet(scope.ID)
-		}
-	case symbol.KindInput:
+	return storeAssignedValue(ctx, name, scope)
+}
+
+// storeAssignedValue stores the value on top of the stack into the assignment target.
+func storeAssignedValue(
+	ctx context.Context[parser.IAssignmentContext],
+	name string,
+	scope *symbol.Symbol,
+) error {
+	varType := scope.Type
+	switch scope.Kind {
+	case symbol.KindVariable, symbol.KindInput:
 		if varType.Kind == types.KindChan {
 			ctx.Resolver.EmitChannelWrite(ctx.Writer, ctx.WriterID, varType.Unwrap())
 		} else {
@@ -455,7 +459,7 @@ func compileAssignment(
 			return err
 		}
 	default:
-		return errors.Newf("cannot assign to %v '%s'", sym.Kind, name)
+		return errors.Newf("cannot assign to %v '%s'", scope.Kind, name)
 	}
 
 	return nil

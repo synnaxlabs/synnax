@@ -104,154 +104,194 @@ func compileForRange(
 		return err
 	}
 	loopCtx := ctx.WithScope(loopScope)
-
-	args := funcCall.ArgumentList().AllExpression()
-	varSym, err := loopScope.Resolve(ctx, name)
+	r, err := initRangeLoop(loopCtx, name, funcCall.ArgumentList().AllExpression())
 	if err != nil {
 		return err
 	}
-	loopVarIdx := varSym.ID
+	loopCtx, breakDepth := openLoop(loopCtx)
+	if err = r.emitExitCheck(ctx.Writer); err != nil {
+		return err
+	}
+	if err = compileLoopBody(loopCtx, breakDepth); err != nil {
+		return err
+	}
+	if err = r.emitIncrement(ctx.Writer); err != nil {
+		return err
+	}
+	closeLoop(ctx.Writer)
+	return nil
+}
 
+// rangeLoop holds the locals of a for loop over range(...).
+type rangeLoop struct {
+	varType types.Type
+	varIdx  int
+	// limitIdx and stepIdx hold the end and step, evaluated once before the loop.
+	limitIdx int
+	stepIdx  int
+	stepped  bool
+}
+
+// initRangeLoop writes the initial values of the loop variable, limit, and step.
+func initRangeLoop(
+	loopCtx context.Context[parser.IForStatementContext],
+	name string,
+	args []parser.IExpressionContext,
+) (rangeLoop, error) {
+	varSym, err := loopCtx.Scope.Resolve(loopCtx, name)
+	if err != nil {
+		return rangeLoop{}, err
+	}
+	r := rangeLoop{varType: varSym.Type, varIdx: varSym.ID}
 	var startExpr, endExpr, stepExpr parser.IExpressionContext
 	switch len(args) {
 	case 1:
 		endExpr = args[0]
 	case 2:
-		startExpr = args[0]
-		endExpr = args[1]
+		startExpr, endExpr = args[0], args[1]
 	case 3:
-		startExpr = args[0]
-		endExpr = args[1]
-		stepExpr = args[2]
+		startExpr, endExpr, stepExpr = args[0], args[1], args[2]
 	}
-
-	loopVarType := varSym.Type
-
-	hintCtx := loopCtx.WithHint(loopVarType)
+	hintCtx := loopCtx.WithHint(r.varType)
 	if startExpr != nil {
 		if _, err = expression.Compile(hintCtx.Child(startExpr)); err != nil {
-			return err
+			return rangeLoop{}, err
 		}
 	} else {
-		emitZero(ctx.Writer, loopVarType)
+		emitZero(loopCtx.Writer, r.varType)
 	}
-	ctx.Writer.WriteLocalSet(loopVarIdx)
+	loopCtx.Writer.WriteLocalSet(r.varIdx)
+	if r.limitIdx, err = initLoopLocal(hintCtx, "__for_limit", endExpr); err != nil {
+		return rangeLoop{}, err
+	}
+	if stepExpr == nil {
+		return r, nil
+	}
+	r.stepped = true
+	if r.stepIdx, err = initLoopLocal(hintCtx, "__for_step", stepExpr); err != nil {
+		return rangeLoop{}, err
+	}
+	return r, nil
+}
 
-	limitSym, err := loopScope.Resolve(ctx, "__for_limit")
+// initLoopLocal evaluates expr into the loop-scoped local with the given name and
+// returns the local's index.
+func initLoopLocal(
+	ctx context.Context[parser.IForStatementContext],
+	name string,
+	expr parser.IExpressionContext,
+) (int, error) {
+	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
+		return 0, err
+	}
+	if _, err = expression.Compile(ctx.Child(expr)); err != nil {
+		return 0, err
+	}
+	ctx.Writer.WriteLocalSet(sym.ID)
+	return sym.ID, nil
+}
+
+// emitExitCheck breaks out of the loop once the variable reaches the limit. A
+// negative step counts down.
+func (r rangeLoop) emitExitCheck(w *wasm.Writer) error {
+	if !r.stepped {
+		w.WriteLocalGet(r.varIdx)
+		w.WriteLocalGet(r.limitIdx)
+		if err := w.WriteBinaryOpInferred(">=", r.varType); err != nil {
+			return err
+		}
+		w.WriteBrIf(1)
+		return nil
+	}
+	w.WriteLocalGet(r.stepIdx)
+	emitZero(w, r.varType)
+	if err := w.WriteBinaryOpInferred(">", r.varType); err != nil {
 		return err
 	}
-	limitIdx := limitSym.ID
-	if _, err = expression.Compile(hintCtx.Child(endExpr)); err != nil {
+	w.WriteIf(wasm.BlockTypeI32)
+	w.WriteLocalGet(r.varIdx)
+	w.WriteLocalGet(r.limitIdx)
+	if err := w.WriteBinaryOpInferred(">=", r.varType); err != nil {
 		return err
 	}
-	ctx.Writer.WriteLocalSet(limitIdx)
-
-	var stepIdx int
-	if stepExpr != nil {
-		stepSym, err := loopScope.Resolve(ctx, "__for_step")
-		if err != nil {
-			return err
-		}
-		stepIdx = stepSym.ID
-		if _, err = expression.Compile(hintCtx.Child(stepExpr)); err != nil {
-			return err
-		}
-		ctx.Writer.WriteLocalSet(stepIdx)
+	w.WriteElse()
+	w.WriteLocalGet(r.varIdx)
+	w.WriteLocalGet(r.limitIdx)
+	if err := w.WriteBinaryOpInferred("<=", r.varType); err != nil {
+		return err
 	}
+	w.WriteEnd()
+	w.WriteBrIf(1)
+	return nil
+}
 
-	// block $break
-	ctx.Writer.WriteBlock(wasm.BlockTypeEmpty)
-	loopCtx = loopCtx.EnterBlock()
-	breakDepth := loopCtx.BlockDepth()
-
-	// loop $loop_header
-	ctx.Writer.WriteLoop(wasm.BlockTypeEmpty)
-	loopCtx = loopCtx.EnterBlock()
-	ctx.Writer.WriteLoopBudget(ctx.LoopBudget)
-
-	if stepExpr != nil {
-		ctx.Writer.WriteLocalGet(stepIdx)
-		emitZero(ctx.Writer, loopVarType)
-		if err = ctx.Writer.WriteBinaryOpInferred(">", loopVarType); err != nil {
-			return err
-		}
-		ctx.Writer.WriteIf(wasm.BlockTypeI32)
-		ctx.Writer.WriteLocalGet(loopVarIdx)
-		ctx.Writer.WriteLocalGet(limitIdx)
-		if err = ctx.Writer.WriteBinaryOpInferred(">=", loopVarType); err != nil {
-			return err
-		}
-		ctx.Writer.WriteElse()
-		ctx.Writer.WriteLocalGet(loopVarIdx)
-		ctx.Writer.WriteLocalGet(limitIdx)
-		if err = ctx.Writer.WriteBinaryOpInferred("<=", loopVarType); err != nil {
-			return err
-		}
-		ctx.Writer.WriteEnd()
-		ctx.Writer.WriteBrIf(1)
-	} else {
-		ctx.Writer.WriteLocalGet(loopVarIdx)
-		ctx.Writer.WriteLocalGet(limitIdx)
-		if err = ctx.Writer.WriteBinaryOpInferred(">=", loopVarType); err != nil {
-			return err
-		}
-		ctx.Writer.WriteBrIf(1)
-	}
-
-	// block $continue — continue lands at end of this block, before increment
-	ctx.Writer.WriteBlock(wasm.BlockTypeEmpty)
-	loopCtx = loopCtx.EnterBlock()
-	continueDepth := loopCtx.BlockDepth()
-
-	bodyCtx := loopCtx.EnterLoop(context.LoopEntry{
-		BreakDepth:    breakDepth,
-		ContinueDepth: continueDepth,
-	})
-
-	if block := ctx.AST.Block(); block != nil {
-		if _, err = CompileBlock(bodyCtx.Child(block)); err != nil {
-			return err
-		}
-	}
-
-	// end block $continue
-	ctx.Writer.WriteEnd()
-
-	if stepExpr != nil {
-		if err = emitStepReachesLimit(
-			ctx.Writer,
-			loopVarType,
-			loopVarIdx,
-			limitIdx,
-			stepIdx,
+func (r rangeLoop) emitIncrement(w *wasm.Writer) error {
+	if r.stepped {
+		if err := emitStepReachesLimit(
+			w,
+			r.varType,
+			r.varIdx,
+			r.limitIdx,
+			r.stepIdx,
 		); err != nil {
 			return err
 		}
-		ctx.Writer.WriteBrIf(1)
+		w.WriteBrIf(1)
 	}
-
-	ctx.Writer.WriteLocalGet(loopVarIdx)
-	if stepExpr != nil {
-		ctx.Writer.WriteLocalGet(stepIdx)
+	w.WriteLocalGet(r.varIdx)
+	if r.stepped {
+		w.WriteLocalGet(r.stepIdx)
 	} else {
-		emitOne(ctx.Writer, loopVarType)
+		emitOne(w, r.varType)
 	}
-	if err = ctx.Writer.WriteBinaryOpInferred("+", loopVarType); err != nil {
+	if err := w.WriteBinaryOpInferred("+", r.varType); err != nil {
 		return err
 	}
-	ctx.Writer.WriteLocalSet(loopVarIdx)
-
-	// br $loop_header
-	ctx.Writer.WriteBr(0)
-
-	// end loop
-	ctx.Writer.WriteEnd()
-
-	// end block $break
-	ctx.Writer.WriteEnd()
-
+	w.WriteLocalSet(r.varIdx)
 	return nil
+}
+
+// openLoop writes the $break block and the loop header with its budget check. It
+// returns the context inside the loop and the block depth that break targets.
+func openLoop(
+	loopCtx context.Context[parser.IForStatementContext],
+) (context.Context[parser.IForStatementContext], int) {
+	loopCtx.Writer.WriteBlock(wasm.BlockTypeEmpty)
+	loopCtx = loopCtx.EnterBlock()
+	breakDepth := loopCtx.BlockDepth()
+	loopCtx.Writer.WriteLoop(wasm.BlockTypeEmpty)
+	loopCtx = loopCtx.EnterBlock()
+	loopCtx.Writer.WriteLoopBudget(loopCtx.LoopBudget)
+	return loopCtx, breakDepth
+}
+
+// compileLoopBody compiles the loop body inside a $continue block, so continue lands
+// before the increment.
+func compileLoopBody(
+	loopCtx context.Context[parser.IForStatementContext],
+	breakDepth int,
+) error {
+	loopCtx.Writer.WriteBlock(wasm.BlockTypeEmpty)
+	loopCtx = loopCtx.EnterBlock()
+	bodyCtx := loopCtx.EnterLoop(context.LoopEntry{
+		BreakDepth:    breakDepth,
+		ContinueDepth: loopCtx.BlockDepth(),
+	})
+	if block := loopCtx.AST.Block(); block != nil {
+		if _, err := CompileBlock(bodyCtx.Child(block)); err != nil {
+			return err
+		}
+	}
+	loopCtx.Writer.WriteEnd()
+	return nil
+}
+
+// closeLoop branches back to the loop header, then ends the loop and $break block.
+func closeLoop(w *wasm.Writer) {
+	w.WriteBr(0)
+	w.WriteEnd()
+	w.WriteEnd()
 }
 
 func compileForSeriesIteration(
@@ -264,106 +304,88 @@ func compileForSeriesIteration(
 		return err
 	}
 	loopCtx := ctx.WithScope(loopScope)
-
-	handleSym, err := loopScope.Resolve(ctx, "__for_handle")
+	l, err := resolveSeriesLoop(loopCtx, elemName)
 	if err != nil {
 		return err
 	}
-	lenSym, err := loopScope.Resolve(ctx, "__for_len")
-	if err != nil {
-		return err
-	}
-	idxSym, err := loopScope.Resolve(ctx, "__for_idx")
-	if err != nil {
-		return err
-	}
-	elemSym, err := loopScope.Resolve(ctx, elemName)
-	if err != nil {
-		return err
-	}
-
-	handleIdx := handleSym.ID
-	lenIdx := lenSym.ID
-	idxIdx := idxSym.ID
-	elemIdx := elemSym.ID
-	elemType := elemSym.Type
-
 	if _, err = expression.Compile(loopCtx.Child(expr)); err != nil {
 		return err
 	}
-	ctx.Writer.WriteLocalSet(handleIdx)
+	w := ctx.Writer
+	w.WriteLocalSet(l.handleIdx)
+	w.WriteLocalGet(l.handleIdx)
+	ctx.Resolver.EmitSeriesLen(w, ctx.WriterID)
+	w.WriteOpcode(wasm.OpI32WrapI64)
+	w.WriteLocalSet(l.lenIdx)
+	w.WriteI32Const(0)
+	w.WriteLocalSet(l.idxIdx)
 
-	ctx.Writer.WriteLocalGet(handleIdx)
-	ctx.Resolver.EmitSeriesLen(ctx.Writer, ctx.WriterID)
-	ctx.Writer.WriteOpcode(wasm.OpI32WrapI64)
-	ctx.Writer.WriteLocalSet(lenIdx)
+	loopCtx, breakDepth := openLoop(loopCtx)
+	w.WriteLocalGet(l.idxIdx)
+	w.WriteLocalGet(l.lenIdx)
+	w.WriteOpcode(wasm.OpI32GeS)
+	w.WriteBrIf(1)
 
-	ctx.Writer.WriteI32Const(0)
-	ctx.Writer.WriteLocalSet(idxIdx)
-
-	// block $break
-	ctx.Writer.WriteBlock(wasm.BlockTypeEmpty)
-	loopCtx = loopCtx.EnterBlock()
-	breakDepth := loopCtx.BlockDepth()
-
-	// loop $loop_header
-	ctx.Writer.WriteLoop(wasm.BlockTypeEmpty)
-	loopCtx = loopCtx.EnterBlock()
-	ctx.Writer.WriteLoopBudget(ctx.LoopBudget)
-
-	ctx.Writer.WriteLocalGet(idxIdx)
-	ctx.Writer.WriteLocalGet(lenIdx)
-	ctx.Writer.WriteOpcode(wasm.OpI32GeS)
-	ctx.Writer.WriteBrIf(1)
-
-	ctx.Writer.WriteLocalGet(handleIdx)
-	ctx.Writer.WriteLocalGet(idxIdx)
-	ctx.Resolver.EmitSeriesIndex(ctx.Writer, ctx.WriterID, elemType)
-	ctx.Writer.WriteLocalSet(elemIdx)
-
+	w.WriteLocalGet(l.handleIdx)
+	w.WriteLocalGet(l.idxIdx)
+	ctx.Resolver.EmitSeriesIndex(w, ctx.WriterID, l.elemType)
+	w.WriteLocalSet(l.elemIdx)
 	if indexName != "" {
 		indexSym, err := loopScope.Resolve(ctx, indexName)
 		if err != nil {
 			return err
 		}
-		ctx.Writer.WriteLocalGet(idxIdx)
-		ctx.Writer.WriteLocalSet(indexSym.ID)
+		w.WriteLocalGet(l.idxIdx)
+		w.WriteLocalSet(indexSym.ID)
 	}
-
-	// block $continue — continue lands at end of this block, before increment
-	ctx.Writer.WriteBlock(wasm.BlockTypeEmpty)
-	loopCtx = loopCtx.EnterBlock()
-	continueDepth := loopCtx.BlockDepth()
-
-	bodyCtx := loopCtx.EnterLoop(context.LoopEntry{
-		BreakDepth:    breakDepth,
-		ContinueDepth: continueDepth,
-	})
-
-	if block := ctx.AST.Block(); block != nil {
-		if _, err = CompileBlock(bodyCtx.Child(block)); err != nil {
-			return err
-		}
+	if err = compileLoopBody(loopCtx, breakDepth); err != nil {
+		return err
 	}
-
-	// end block $continue
-	ctx.Writer.WriteEnd()
-
-	ctx.Writer.WriteLocalGet(idxIdx)
-	ctx.Writer.WriteI32Const(1)
-	ctx.Writer.WriteOpcode(wasm.OpI32Add)
-	ctx.Writer.WriteLocalSet(idxIdx)
-
-	// br $loop_header
-	ctx.Writer.WriteBr(0)
-
-	// end loop
-	ctx.Writer.WriteEnd()
-
-	// end block $break
-	ctx.Writer.WriteEnd()
-
+	w.WriteLocalGet(l.idxIdx)
+	w.WriteI32Const(1)
+	w.WriteOpcode(wasm.OpI32Add)
+	w.WriteLocalSet(l.idxIdx)
+	closeLoop(w)
 	return nil
+}
+
+// seriesLoop holds the locals of a for loop over the elements of a series.
+type seriesLoop struct {
+	elemType  types.Type
+	handleIdx int
+	lenIdx    int
+	idxIdx    int
+	elemIdx   int
+}
+
+func resolveSeriesLoop(
+	loopCtx context.Context[parser.IForStatementContext],
+	elemName string,
+) (seriesLoop, error) {
+	scope := loopCtx.Scope
+	handleSym, err := scope.Resolve(loopCtx, "__for_handle")
+	if err != nil {
+		return seriesLoop{}, err
+	}
+	lenSym, err := scope.Resolve(loopCtx, "__for_len")
+	if err != nil {
+		return seriesLoop{}, err
+	}
+	idxSym, err := scope.Resolve(loopCtx, "__for_idx")
+	if err != nil {
+		return seriesLoop{}, err
+	}
+	elemSym, err := scope.Resolve(loopCtx, elemName)
+	if err != nil {
+		return seriesLoop{}, err
+	}
+	return seriesLoop{
+		elemType:  elemSym.Type,
+		handleIdx: handleSym.ID,
+		lenIdx:    lenSym.ID,
+		idxIdx:    idxSym.ID,
+		elemIdx:   elemSym.ID,
+	}, nil
 }
 
 func compileForCondition(
