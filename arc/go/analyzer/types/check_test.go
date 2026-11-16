@@ -655,20 +655,26 @@ var _ = Describe("CastOf", func() {
 		Entry("channel elements", types.Chan(types.F32()), types.Chan(types.I32())),
 	)
 
-	It("Should give no hint or type for units of another dimension", func() {
-		m := types.Type{Kind: types.KindF64, Unit: &types.Unit{
-			Name: "m", Scale: 1, Dimensions: types.DimLength,
-		}}
-		s := types.Variable("lit", nil)
-		s.Unit = &types.Unit{Name: "s", Scale: 1, Dimensions: types.DimTime}
-		err := atypes.Check(constraints.New(), m, s, nil, "")
-		Expect(err).To(MatchError(ContainSubstring("type mismatch")))
-		var hinted diagnostics.HintProvider
-		Expect(errors.As(err, &hinted)).To(BeTrue())
-		Expect(hinted.GetHint()).To(BeEmpty())
-		_, ok := atypes.CastOf(err)
-		Expect(ok).To(BeFalse())
-	})
+	DescribeTable("Should give no hint or type for units of another dimension",
+		func(s types.Type) {
+			m := types.Type{Kind: types.KindF64, Unit: &types.Unit{
+				Name: "m", Scale: 1, Dimensions: types.DimLength,
+			}}
+			s.Unit = &types.Unit{Name: "s", Scale: 1, Dimensions: types.DimTime}
+			err := atypes.Check(constraints.New(), m, s, nil, "")
+			Expect(err).To(MatchError(ContainSubstring("type mismatch")))
+			var hinted diagnostics.HintProvider
+			Expect(errors.As(err, &hinted)).To(BeTrue())
+			Expect(hinted.GetHint()).To(BeEmpty())
+			_, ok := atypes.CastOf(err)
+			Expect(ok).To(BeFalse())
+		},
+		Entry("a unit literal", func() types.Type {
+			c := types.FloatConstraint()
+			return types.Variable("lit", &c)
+		}()),
+		Entry("a typed value", types.F64()),
+	)
 
 	It("Should give no type for a mismatch that a cast does not fix", func() {
 		err := atypes.Check(constraints.New(), types.F64(), types.String(), nil, "")
