@@ -394,6 +394,7 @@ func (e *Engine) stream(ctx context.Context, a *attempt, l *live) (err error) {
 			}
 			// Marking every flow first keeps the marks of a frame that fails to send.
 			a.mark(e.flows, fr)
+			a.markPassed(fr)
 			for _, f := range e.flows {
 				if err = a.sendLive(ctx, f, fr); err != nil {
 					return err
@@ -724,7 +725,8 @@ func (e *Engine) report(ctx context.Context, p *progress) error {
 	return nil
 }
 
-// marks holds, for each index, the data channels that arrived live without it.
+// marks holds, for each index, the data channels that arrived live without it or at
+// times it already passed.
 type marks map[channel.Key]set.Set[channel.Key]
 
 // mark marks ch for index, and reports whether it was not marked.
@@ -923,6 +925,26 @@ func (a *attempt) sendLive(ctx context.Context, f flow, fr framer.Frame) error {
 	return a.send(ctx, f, fr)
 }
 
+// markPassed marks the channels of each flow that fr holds at times the attempt passed
+// without sending their values. A read of storage that runs between the commits of an
+// index and its data passes the index without the data.
+func (a *attempt) markPassed(fr framer.Frame) {
+	for _, f := range a.engine.flows {
+		key := f.index.Key()
+		series := fr.Get(key).Series
+		if len(series) == 0 || series[0].ValueAt[telem.TimeStamp](0) >= a.sent[key] {
+			continue
+		}
+		last := series[len(series)-1].ValueAt[telem.TimeStamp](-1)
+		for _, ch := range f.channels {
+			if len(fr.Get(ch.Key()).Series) > 0 && last >= a.values[ch.Key()] &&
+				a.unindexed.mark(key, ch.Key()) {
+				a.unreported = true
+			}
+		}
+	}
+}
+
 // carriesMarked reports whether fr holds a value of a marked channel of f.
 func (a *attempt) carriesMarked(f flow, fr framer.Frame) bool {
 	for key := range a.unindexed[f.index.Key()] {
@@ -943,9 +965,8 @@ func (a *attempt) sendUnindexed(ctx context.Context) error {
 	return nil
 }
 
-// sendMarked sends the stored values of each channel of f that arrived without its
-// index, from its last value sent to the index position. It sends no other channel, so
-// Sift gets no value twice.
+// sendMarked sends the stored values of each marked channel of f, from its last value
+// sent to the index position. It sends no other channel, so Sift gets no value twice.
 func (a *attempt) sendMarked(ctx context.Context, f flow) error {
 	keys := a.unindexed[f.index.Key()]
 	end := a.sent[f.index.Key()]

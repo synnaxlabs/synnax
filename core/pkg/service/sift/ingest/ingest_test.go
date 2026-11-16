@@ -1391,6 +1391,43 @@ var _ = Describe("Engine", func() {
 					Expect(server.Invalid()).To(BeEmpty())
 				})
 
+			// A read of storage between the commits of an index and its data passes the
+			// index without the data. Only the live frame then carries the data.
+			It("Should send the values of a live frame whose index it passed",
+				func(ctx SpecContext) {
+					idx := createIndex(ctx)
+					ch := createData(ctx, idx, telem.Float64T)
+					e := open(ctx, channel.Keys{ch.Key()}, ingest.Config{
+						CheckpointInterval: 10 * telem.Millisecond,
+					})
+					stop := stream(ctx, e, ingest.Positions{idx.Key(): at(0)})
+					live()
+					write(ctx, idx, []telem.TimeStamp{at(1)}, nil)
+					Eventually(func() ingest.Positions {
+						return rec.last().Positions
+					}).Should(HaveKeyWithValue(idx.Key(), at(1)+1))
+					openWriter(ctx, channel.Keys{ch.Key()}, framer.WriterConfig{
+						Start: at(1),
+						Mode:  framer.WriterModePersistOnly,
+					})(telem.NewSeriesV(1.0))
+					openWriter(
+						ctx,
+						channel.Keys{idx.Key(), ch.Key()},
+						framer.WriterConfig{
+							Start: at(0),
+							Mode:  framer.WriterModeStreamOnly,
+						},
+					)(
+						telem.NewSeries([]telem.TimeStamp{at(1)}),
+						telem.NewSeriesV(1.0),
+					)
+					Eventually(func() []fake.Point {
+						return server.Points("stand", ch.Name)
+					}).Should(Equal([]fake.Point{point(at(1), 1.0)}))
+					Expect(stop()).To(Succeed())
+					Expect(server.Invalid()).To(BeEmpty())
+				})
+
 			It("Should resend the values of a channel written without its index",
 				func(ctx SpecContext) {
 					idx := createIndex(ctx)
