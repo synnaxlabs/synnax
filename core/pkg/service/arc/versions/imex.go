@@ -34,7 +34,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 	)
 	if env.Version > legacy.LastVersion {
 		var typed imex.Envelope
-		if typed, err = withVariantType(ctx, env); err == nil {
+		if typed, err = withVariantType(env); err == nil {
 			a, err = autoDecodeEnvelope(ctx, typed)
 		}
 	} else {
@@ -63,7 +63,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 
 // withVariantType replaces the file type in env's body with the Arc type it names, or
 // with automation when it names none.
-func withVariantType(ctx context.Context, env imex.Envelope) (imex.Envelope, error) {
+func withVariantType(env imex.Envelope) (imex.Envelope, error) {
 	t, ok := v4.TypeFromFileType(env.Type)
 	if !ok {
 		t = TypeAutomation
