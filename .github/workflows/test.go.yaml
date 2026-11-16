@@ -23,8 +23,7 @@ on:
         default: ""
       shards:
         description:
-          How many jobs split the Ginkgo suites on each OS, from 1 to 4. A cached run is
-          one job.
+          How many jobs split the test suites on each OS, from 1 to 4
         required: false
         type: number
         default: 1
@@ -265,7 +264,7 @@ jobs:
 
   test:
     name:
-      Test (${{ matrix.os }}${{ !inputs.cached && inputs.shards > 1 && format(',
+      Test (${{ matrix.os }}${{ inputs.shards > 1 && format(',
       {0}/{1}', matrix.shard, inputs.shards) || '' }})
     strategy:
       fail-fast: false
@@ -276,9 +275,9 @@ jobs:
           - os: ${{ !inputs.macos && 'macos-latest' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
           - os: ${{ !inputs.windows && 'windows-latest' }}
-          - shard: ${{ (inputs.cached || inputs.shards < 2) && 2 }}
-          - shard: ${{ (inputs.cached || inputs.shards < 3) && 3 }}
-          - shard: ${{ (inputs.cached || inputs.shards < 4) && 4 }}
+          - shard: ${{ inputs.shards < 2 && 2 }}
+          - shard: ${{ inputs.shards < 3 && 3 }}
+          - shard: ${{ inputs.shards < 4 && 4 }}
         include:
           - os: ubuntu-latest
             shard: 1
@@ -431,8 +430,11 @@ jobs:
         env:
           FLAGS:
             ${{ runner.os != 'macOS' && '-race -cover -coverprofile=cover.out' || '' }}
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ inputs.shards }}
         run: |
-          suites=$(go list -f "$SUITE" ./...)
+          suites=$(go list -f "$SUITE" ./... |
+            awk -v n="$SHARDS" -v s="$SHARD" 'NF && ++i % n == s % n')
           read -ra flags <<< "$FLAGS"
           read -ra suites <<< "${suites//$'\n'/ }"
           go test "${flags[@]}" -timeout=30m "${suites[@]}"
