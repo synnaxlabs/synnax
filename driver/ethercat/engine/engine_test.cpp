@@ -681,6 +681,20 @@ TEST_F(EngineTest, LastWriterToCloseSendsItsStopValuesBeforeTheBusStops) {
     EXPECT_EQ(this->master->get_output<int16_t>(I16_BYTE), -7);
 }
 
+/// @brief it should take each frame in flight when the bus stops, so the last receive
+/// is of the stop values.
+TEST_F(EngineTest, StopTakesEachFrameInFlight) {
+    auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {{OUT_I16, static_cast<int16_t>(-7)}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel)
+    ));
+    writer.reset();
+    ASSERT_FALSE(this->engine->running());
+    const auto log = this->master->call_log();
+    EXPECT_EQ(std::ranges::count(log, "receive"), std::ranges::count(log, "send"));
+}
+
 /// @brief it should keep the stop value a closed writer left on an output until a new
 /// writer commands the output.
 TEST_F(EngineTest, WriterKeepsTheStopValueAnotherWriterLeftUntilItCommands) {

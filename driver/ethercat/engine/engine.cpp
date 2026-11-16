@@ -38,6 +38,10 @@ const x::telem::Rate MIN_CYCLE_RATE(100);
 const x::telem::Rate MAX_CYCLE_RATE(10000);
 /// @brief how often the supervisor reads slave states.
 const auto SUPERVISOR_INTERVAL = x::telem::MILLISECOND * 100;
+/// @brief the longest wait for the frames in flight when the bus stops.
+const auto LAST_FRAME_TIMEOUT = x::telem::MILLISECOND * 10;
+/// @brief the wait between receives of a frame in flight when the bus stops.
+const auto LAST_FRAME_POLL = x::telem::MICROSECOND * 100;
 /// @brief how often a call that needs the stopped bus tries mu again.
 const auto LOCK_POLL_INTERVAL = x::telem::MILLISECOND * 10;
 /// @brief how long each step of a start may run before the task warns.
@@ -589,9 +593,21 @@ void Engine::run() {
     // Sends the stop values of the last writer to close before the slaves leave OP.
     this->write_outputs(true);
     send();
-    if (const auto err = this->master->receive(); err && !shortfall(err))
+    // Takes each frame in flight, so the last receive is of the stop values.
+    const auto deadline = this->config.host_clock.now() + LAST_FRAME_TIMEOUT;
+    x::errors::Error last_err;
+    while (!in_flight.empty()) {
+        last_err = this->master->receive();
+        if (!last_err.matches(errors::FRAME_IN_FLIGHT))
+            in_flight.erase(in_flight.begin());
+        else if (this->config.host_clock.now() < deadline)
+            this->config.host_clock.sleep(LAST_FRAME_POLL);
+        else
+            break;
+    }
+    if (last_err && !shortfall(last_err))
         LOG(WARNING) << "[ethercat] last cycle failed on " << this->iface << ": "
-                     << err.message();
+                     << last_err.message();
     if (late_frames > 0)
         LOG(WARNING) << "[ethercat] " << late_frames << " frames on " << this->iface
                      << " passed the reference clock near a SYNC0 event";
