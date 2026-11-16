@@ -762,6 +762,9 @@ int_chan -> consumer()`))
 					Expect((*ctx.Diagnostics)[0].Message).To(Equal(
 						"upstream value type i32 does not match func 'consumer' trigger parameter 'v' type f64",
 					))
+					Expect(ctx.Diagnostics.String()).To(
+						ContainSubstring("note: hint: use f64(value) to convert"),
+					)
 				},
 			)
 		})

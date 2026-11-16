@@ -141,7 +141,7 @@ func (s *System) UnifyConstraint(c Constraint) error {
 		if left.IsNumeric() && right.IsNumeric() {
 			hintType := concreteTypeForHint(left)
 			hint = fmt.Sprintf("hint: use %s(value) to convert", hintType)
-		} else if left.IsBool() && right.IsNumeric() {
+		} else if c.Kind == kindEquality && left.IsBool() && right.IsNumeric() {
 			hint = BoolHint
 		}
 		return &UnificationError{
