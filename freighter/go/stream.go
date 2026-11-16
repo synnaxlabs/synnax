@@ -148,7 +148,7 @@ type StreamReceiver[P Payload] interface {
 
 // StreamSender is an entity that can send payloads.
 type StreamSender[P Payload] interface {
-	Send(P) error
+	Send(payload P) error
 }
 
 // StreamSenderCloser is a type that can send messages as well as close the

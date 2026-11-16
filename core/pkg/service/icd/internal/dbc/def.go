@@ -15,7 +15,7 @@ import (
 type Def interface {
 	// Position returns where the definition starts.
 	Position() scanner.Position
-	parseFrom(*parser)
+	parseFrom(p *parser)
 }
 
 // VersionDef is the version of a DBC file.

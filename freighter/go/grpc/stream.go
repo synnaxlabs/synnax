@@ -315,10 +315,10 @@ type grpcServerStream[RQ, RS freighter.Payload] interface {
 	Context() context.Context
 	Send(msg RS) error
 	Recv() (RQ, error)
-	RecvMsg(any) error
-	SetHeader(metadata.MD) error
-	SendHeader(metadata.MD) error
-	SetTrailer(metadata.MD)
+	RecvMsg(msg any) error
+	SetHeader(md metadata.MD) error
+	SendHeader(md metadata.MD) error
+	SetTrailer(md metadata.MD)
 }
 
 type GRPCClientStream[RQ, RS freighter.Payload] interface {
