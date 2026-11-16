@@ -98,7 +98,7 @@ export const findTabByType = (
   return findTabByType(node.first, type) ?? findTabByType(node.last, type);
 };
 
-/** findTabWhere returns the first tab in traversal order that matches, or null. */
+/** findTabWhere returns the first tab in traversal order that matches, or undefined. */
 export const findTabWhere = (
   node: Node | undefined,
   match: (tab: Tab) => boolean,
