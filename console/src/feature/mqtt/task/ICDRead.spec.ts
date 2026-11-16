@@ -39,23 +39,31 @@ const createTimeField = (): icd.JSONField =>
     timeFormat: "unix_ms",
   });
 
-interface RenderParams {
-  /** The fields of the topic's message format. Absent renders a task with no topics. */
-  fields?: icd.JSONField[];
+interface EntryParams {
+  /** The fields of the topic's message format. */
+  fields: icd.JSONField[];
+  topic?: string;
   index?: string;
   /** The channel each field is bound to before the deploy. */
   bound?: Record<string, number>;
-  properties?: Partial<MQTT.Device.Properties>;
 }
 
-const createEntry = async (
-  fields: icd.JSONField[],
-  index: string | undefined,
-  bound: Record<string, number>,
-): Promise<MQTT.Task.ICDReadEntry> => {
+interface RenderParams extends Partial<Omit<EntryParams, "topic">> {
+  properties?: Partial<MQTT.Device.Properties>;
+  /** The entries the task reads after the one that the fields make. */
+  entries?: MQTT.Task.ICDReadEntry[];
+}
+
+/** Creates an ICD that holds one message, and an entry that reads it. */
+const createEntry = async ({
+  fields,
+  topic = TOPIC,
+  index,
+  bound = {},
+}: EntryParams): Promise<MQTT.Task.ICDReadEntry> => {
   const message: icd.Message = {
     key: uuid.create(),
-    name: TOPIC,
+    name: topic,
     payload: { format: "json", fields },
   };
   const format = await client.icds.create({
@@ -68,7 +76,7 @@ const createEntry = async (
   }));
   return mqtt.icdReadEntryZ.parse({
     icd: format.key,
-    topic: TOPIC,
+    topic,
     messages: [{ message: message.key, index, bindings }],
   });
 };
@@ -77,13 +85,15 @@ const createEntry = async (
 const renderICDRead = async ({
   fields,
   index,
-  bound = {},
+  bound,
   properties,
+  entries = [],
 }: RenderParams = {}) => {
   const dev = await createBroker(client, { properties });
+  const first = fields == null ? [] : [await createEntry({ fields, index, bound })];
   const config = MQTT.Task.ICD_READ_SCHEMAS.config.parse({
     device: dev.key,
-    entries: fields == null ? [] : [await createEntry(fields, index, bound)],
+    entries: [...first, ...entries],
   });
   const draft = await client.tasks.create(
     { name: "MQTT ICD read task", type: MQTT.Task.ICD_READ_TYPE, config },
@@ -285,6 +295,38 @@ describe("MQTT ICD read form", () => {
           }),
         ),
       );
+    });
+
+    it("should keep later messages through timing edits and deploy", async () => {
+      const time = createTimeField();
+      const entry = await createEntry({
+        fields: [createField("temperature", "float"), time],
+      });
+      const status: icd.Message = {
+        key: uuid.create(),
+        name: "plant/oven/status",
+        payload: { format: "json", fields: [createField("mode", "string")] },
+      };
+      await client.icds.dispatch(
+        entry.icd,
+        icd.insert({
+          path: ["messages"],
+          value: status,
+          after: entry.messages[0].message,
+        }),
+      );
+      const later = mqtt.icdReadMessageZ.parse({ message: status.key });
+      entry.messages.push(later);
+      const { container, draft } = await renderICDRead({ entries: [entry] });
+      fireEvent.click(await screen.findByRole("button", { name: "Payload value" }));
+      await waitFor(async () =>
+        expect((await retrieveEntries(draft.key))[0].messages).toEqual([
+          { ...entry.messages[0], index: time.key },
+          later,
+        ]),
+      );
+      const created = await deploy(container, draft.key);
+      expect(created.config.entries[0].messages[1]).toEqual(later);
     });
 
     it("should replace only the channel of a field whose kind changed", async () => {

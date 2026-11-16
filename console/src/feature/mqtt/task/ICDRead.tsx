@@ -214,12 +214,11 @@ type TimingMode = "arrival" | "payload";
 /** Picks where each sample of the topic gets its time. */
 const TimestampFields: FC<TimestampFieldsProps> = ({ path, fields }) => {
   const { set } = PForm.useContext();
-  const messages = PForm.useFieldValue(path.messages);
-  const [read] = messages;
+  const indexPath = path.messages[0].index;
+  const held = PForm.useFieldValue(indexPath, { optional: true });
   const timestamps = fields.filter(({ type }) => type === "timestamp");
-  const index = timestamps.find(({ key }) => key === read?.index)?.key;
-  const setIndex = (next: string | undefined) =>
-    set(path.messages, [{ ...read, index: next }]);
+  const index = timestamps.find(({ key }) => key === held)?.key;
+  const setIndex = (next: string | undefined) => set(indexPath, next);
   const handleMode = (mode: TimingMode) =>
     setIndex(mode === "payload" ? timestamps.at(0)?.key : undefined);
   return (
@@ -585,13 +584,11 @@ const onConfigure: Task.OnConfigure<ICDReadSchemas["config"]> = async (
         namePrefix: prefix,
         indexKey: index ?? "",
       });
-      entry.messages = [
-        {
-          message: read.message,
-          index,
-          bindings: channels.map(({ key, channel }) => ({ field: key, channel })),
-        },
-      ];
+      entry.messages[0] = {
+        message: read.message,
+        index,
+        bindings: channels.map(({ key, channel }) => ({ field: key, channel })),
+      };
     }
   } finally {
     await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
