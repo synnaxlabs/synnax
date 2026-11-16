@@ -20,7 +20,7 @@ import (
 )
 
 // InfiniteRetries lifts the retry limit: a breaker configured with it keeps waiting for
-// as long as its context is live.
+// as long as the context passed to Wait is live.
 const InfiniteRetries = -1
 
 // Config configures a Breaker.

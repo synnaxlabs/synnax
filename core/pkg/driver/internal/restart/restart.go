@@ -30,8 +30,8 @@ const (
 	// already elapsed by the time Decide returns Restart.
 	Restart
 	// GiveUp indicates the process has exited unexpectedly too many times in quick
-	// succession (or the Policy's context was canceled) and should not be restarted
-	// again.
+	// succession, or the context passed to Decide was canceled, and should not be
+	// restarted again.
 	GiveUp
 )
 
