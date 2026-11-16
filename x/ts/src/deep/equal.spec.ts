@@ -78,5 +78,8 @@ describe("deepEqual", () => {
       const b = [{ a: 1 }, { b: 2, c: 4 }];
       expect(deep.equal(a, b)).toBe(false);
     });
+    it("should return false for objects with different keys set to undefined", () => {
+      expect(deep.equal({ a: undefined }, { b: undefined })).toBe(false);
+    });
   });
 });
