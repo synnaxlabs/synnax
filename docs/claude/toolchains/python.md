@@ -27,7 +27,7 @@ Always prefix with `uv run`. Client CLI: `uv run sy --help`.
 
 ## Style
 
-- Ruff: 88-char lines, target py312. Rules: `F`, `I`, `B`, `DTZ`, `E501`, `E7`, `E9`,
+- Ruff: 88-char lines, target py313. Rules: `F`, `I`, `B`, `DTZ`, `E501`, `E7`, `E9`,
   `PLE`, `UP`, `SIM`, `C4`, `RET`, `PIE`, `PERF`, `RUF`, and `PT` (not in
   `integration`). The published packages also select the preview rule `PLW1514`: pass
   `encoding="utf-8"` to every text file open.
