@@ -154,7 +154,7 @@ const repairMembership = async (params: Params, state: Emptied): Promise<void> =
   const { records } = await client.panels
     .watch({ where: panel.visibleTo(projectKey, user) })
     .retrieve();
-  if (store.getState().project.selected !== projectKey) return;
+  if (params.ended() || store.getState().project.selected !== projectKey) return;
   applyMembership(params, state, records);
 };
 
@@ -169,7 +169,9 @@ const createMembership = (
   listen: (params) => {
     const { client, store } = params;
     const repair = (): void => {
-      repairMembership(params, state).catch(console.error);
+      repairMembership(params, state).catch((e: unknown) => {
+        if (!params.ended()) console.error(e);
+      });
     };
     // The client maintains the by-project answer itself, tracking optimistic creates
     // and project changes a manual retrieve would race.
