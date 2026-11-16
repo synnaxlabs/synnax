@@ -647,6 +647,100 @@ describe("MQTT read form", () => {
     expect((await client.icds.retrieve(entry.icd)).messages[0].name).toBe(TOPIC);
   });
 
+  describe("message format", () => {
+    /** Creates an ICD that holds one message of the fields, with a unique name. */
+    const createShared = async (fields: icd.JSONField[]) => {
+      const message: icd.Message = {
+        key: uuid.create(),
+        name: uniqueName("status"),
+        payload: { format: "json", fields },
+      };
+      const shared = await client.icds.create({
+        name: uniqueName("pump"),
+        messages: [message],
+      });
+      return { shared, message };
+    };
+
+    /** Picks the message format of the open topic, from the one it reads now. */
+    const pickFormat = async (current: string, next: string) => {
+      fireEvent.click(await findDialogTriggerByText(current));
+      const dialogs = await screen.findAllByRole("dialog");
+      fireEvent.click(await within(dialogs[dialogs.length - 1]).findByText(next));
+    };
+
+    const openTopic = async () =>
+      fireEvent.click(
+        await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ }),
+      );
+
+    it("should read a message of another ICD and the fields that share an index", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const pressure = createField("pressure", "float");
+      const mode = createField("mode", "string");
+      const { shared, message } = await createShared([pressure, mode]);
+      const { draft } = await renderRead({ entries: [entry] });
+      await openTopic();
+      await pickFormat(TOPIC, message.name);
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[0])).toMatchObject({
+          icd: shared.key,
+          messages: [
+            {
+              message: message.key,
+              bindings: [{ field: pressure.key, channel: 0, dataType: "" }],
+            },
+          ],
+        }),
+      );
+      await screen.findByRole("treeitem", { name: /^pressure/ });
+      const { messages } = await client.icds.retrieve({ key: entry.icd });
+      expect(messages.map(({ key }) => key)).toEqual([entry.messages[0].message]);
+    });
+
+    it("should remove the empty message that a topic stops reading", async () => {
+      const entry = await createEntry({ fields: [] });
+      const { shared, message } = await createShared([
+        createField("pressure", "float"),
+      ]);
+      const { draft } = await renderRead({ entries: [entry] });
+      await openTopic();
+      await pickFormat(TOPIC, message.name);
+      await waitFor(async () => {
+        expect(plainOf((await retrieveEntries(draft.key))[0]).icd).toBe(shared.key);
+        expect((await client.icds.retrieve({ key: entry.icd })).messages).toEqual([]);
+      });
+    });
+
+    it("should add a new topic to the ICD that most topics read", async () => {
+      const lone = await createEntry({ fields: [createField("temperature", "float")] });
+      const pump = await createEntry({
+        fields: [createField("pressure", "float")],
+        topic: "plant/pump/1",
+      });
+      const twin = mqtt.plainReadEntryZ.parse({
+        type: "plain",
+        icd: pump.icd,
+        topic: "plant/pump/2",
+        messages: [{ message: pump.messages[0].message }],
+      });
+      const { draft } = await renderRead({ entries: [lone, pump, twin] });
+      const dialog = await openAddData();
+      fireEvent.click(dialog.getByRole("button", { name: "Add a topic by name" }));
+      await waitFor(async () => {
+        const entries = (await retrieveEntries(draft.key)).map(plainOf);
+        expect(entries).toHaveLength(4);
+        expect(entries[3].icd).toBe(pump.icd);
+        const { messages } = await client.icds.retrieve({ key: pump.icd });
+        expect(messages.map(({ key }) => key)).toContain(
+          entries[3].messages[0].message,
+        );
+      });
+    });
+  });
+
   describe("channels", () => {
     it("should stop and start reading a field, keeping the channel of its pointer", async () => {
       const ch = await client.channels.create({
