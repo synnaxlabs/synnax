@@ -91,8 +91,9 @@ sensors = [
 sensors = client.channels.create(sensors, retrieve_if_name_exists=True)
 
 # Define the list of channels we'll write to (the sensor channels and the valve
-# responses). The writer uses auto_index, so the Core stamps the sensor time channel.
+# responses)
 write_to = [
+    sensor_time_channel.key,  # sensor time
     *[s.key for s in sensors],  # sensor data
     *[v.key for v in valve_responses],  # valve responses
 ]
@@ -112,7 +113,8 @@ sensor_states: dict[int, CrudeSeries] = {
 with client.open_streamer([channel.key for channel in valve_commands]) as streamer:
     i = 0
     # Open a writer to write data to Synnax.
-    with client.open_writer(channels=write_to, auto_index=True) as writer:
+    with client.open_writer(sy.TimeStamp.now(), write_to) as writer:
+        start = sy.TimeStamp.now()
         while loop.wait():
             # If we've received a command, update the state of the corresponding valve.
             frame = streamer.read(timeout=0)
@@ -127,5 +129,6 @@ with client.open_streamer([channel.key for channel in valve_commands]) as stream
                     )
             for j, channel in enumerate(sensors):
                 sensor_states[channel.key] = np.float32(np.sin(i / 1000) + j / 100)
+            sensor_states[sensor_time_channel.key] = sy.TimeStamp.now()
             writer.write(sensor_states)
             i += 1

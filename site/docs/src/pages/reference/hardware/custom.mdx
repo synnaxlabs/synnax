@@ -347,9 +347,7 @@ void loop() {
 
 The script creates a command channel, an index channel, and two data channels for the
 state and the value. It streams commands to the Arduino, and writes the state and the
-value from the Arduino. The Arduino sends 100 lines each second, so the script
-[writes without timestamps](/reference/client/write-data#write-without-timestamps): the
-Core stamps each write with the time that it receives it.
+value from the Arduino.
 
 <Client.Tabs exclude={["console"]}>
 
@@ -391,8 +389,7 @@ client.channels.create(
 
 device = serial.Serial(PORT, 9600)
 with client.open_streamer(["arduino_command"]) as streamer, client.open_writer(
-    channels=["arduino_state", "arduino_value"],
-    auto_index=True,
+    channels=["arduino_time", "arduino_state", "arduino_value"],
 ) as writer:
     while True:
         frame = streamer.read(timeout=0)
@@ -405,7 +402,7 @@ with client.open_streamer(["arduino_command"]) as streamer, client.open_writer(
             sample = {"arduino_state": int(state), "arduino_value": float(value)}
         except ValueError:
             continue
-        writer.write(sample)
+        writer.write({"arduino_time": sy.TimeStamp.now(), **sample})
 ```
 
 `streamer.read(timeout=0)` returns `None` at once when no command is waiting, so the
@@ -417,7 +414,7 @@ loop does not stop at the streamer.
 
 ```typescript
 import { ReadlineParser } from "@serialport/parser-readline";
-import { DataType, Synnax } from "@synnaxlabs/client";
+import { DataType, Synnax, TimeStamp } from "@synnaxlabs/client";
 import { SerialPort } from "serialport";
 
 const PORT = "/dev/ttyACM0";
@@ -449,8 +446,7 @@ const device = new SerialPort({ path: PORT, baudRate: 9600 });
 const lines = device.pipe(new ReadlineParser({ delimiter: "\n" }));
 const streamer = await client.openStreamer(["arduino_command"]);
 const writer = await client.openWriter({
-  channels: ["arduino_state", "arduino_value"],
-  autoIndex: true,
+  channels: ["arduino_time", "arduino_state", "arduino_value"],
 });
 
 const sendCommands = async () => {
@@ -463,6 +459,7 @@ const recordState = async () => {
     const match = /^(\d+),(\d+)/.exec(line);
     if (match == null) continue;
     await writer.write({
+      arduino_time: TimeStamp.now(),
       arduino_state: Number(match[1]),
       arduino_value: Number(match[2]),
     });
