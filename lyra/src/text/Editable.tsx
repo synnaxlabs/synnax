@@ -141,10 +141,11 @@ export const Editable = ({
 }: EditableProps): ReactElement => {
   const [editable, setEditable] = useState(false);
   const ref = useRef<HTMLElement>(null);
-  // Holds the text this field committed and the value it replaced. Exiting an edit
-  // repaints from value, which still carries the old text until the caller's write
-  // lands, so the committed text stands in until value moves off what it replaced.
-  const committedRef = useRef<{ text: string; replaced: string } | null>(null);
+  // Holds the texts this field committed that value has not reached yet, in commit
+  // order, and the last value seen. Exiting an edit repaints from value, which lags
+  // until the caller's writes land, so the last committed text stands in until value
+  // reaches it. A value outside the pending texts is a remote rename.
+  const committedRef = useRef<{ pending: string[]; seen: string } | null>(null);
   // Enter and Escape give the focus back here, such as to a list that answers the arrow
   // keys.
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -170,7 +171,15 @@ export const Editable = ({
 
   const getShownText = (): string => {
     const { current: committed } = committedRef;
-    return committed != null && value === committed.replaced ? committed.text : value;
+    if (committed == null) return value;
+    if (value !== committed.seen) {
+      const reached = committed.pending.indexOf(value);
+      committed.pending = reached === -1 ? [] : committed.pending.slice(reached + 1);
+      committed.seen = value;
+    }
+    if (committed.pending.length > 0) return committed.pending.at(-1) as string;
+    committedRef.current = null;
+    return value;
   };
 
   const handleUpdate = (el: HTMLElement, forceEscape = false): void => {
@@ -182,14 +191,15 @@ export const Editable = ({
       return;
     }
     if (forceEscape || (innerText.length === 0 && !allowEmpty)) {
-      committedRef.current = null;
-      el.innerText = value;
+      el.innerText = getShownText();
       el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
     } else {
-      committedRef.current = { text: innerText, replaced: value };
+      const committed = committedRef.current ?? { pending: [], seen: value };
+      committedRef.current = committed;
+      committed.pending.push(innerText);
       if (onChange?.(innerText) === false) {
-        committedRef.current = null;
-        el.innerText = value;
+        committed.pending.pop();
+        el.innerText = getShownText();
         el.dispatchEvent(new Event(ESCAPED_EVENT_NAME));
         return;
       }
@@ -237,9 +247,7 @@ export const Editable = ({
   // Editing replaces the text React rendered, so the shown text is written by hand.
   useLayoutEffect(() => {
     if (ref.current == null || editable) return;
-    const shown = getShownText();
-    if (shown === value) committedRef.current = null;
-    paintHighlight(ref.current, shown, highlight);
+    paintHighlight(ref.current, getShownText(), highlight);
   });
 
   // A ref callback, so each element Text renders listens before asyncEdit can find it.

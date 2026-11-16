@@ -255,6 +255,23 @@ describe("Editable", () => {
       expect(text.innerHTML).toBe("Hello");
     });
 
+    it("should hold a rename back to the value while the earlier write lands", () => {
+      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      fireEvent.dblClick(text);
+      text.innerText = "Hello";
+      fireEvent.keyDown(text, { key: "Enter" });
+      c.rerender(<Editable value="World" onChange={vi.fn()} />);
+      expect(text.innerHTML).toBe("Hello");
+      c.rerender(<Editable value="Hello" onChange={vi.fn()} />);
+      expect(text.innerHTML).toBe("Hello");
+      c.rerender(<Editable value="Elsewhere" onChange={vi.fn()} />);
+      expect(text.innerHTML).toBe("Elsewhere");
+    });
+
     it("should revert when the handler rejects the committed text", () => {
       const onChange = vi.fn<(value: string) => boolean>(() => false);
       const c = render(<Editable value="Hello" onChange={onChange} />);
