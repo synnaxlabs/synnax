@@ -177,6 +177,7 @@ class ViewLifecycle(ConsoleCase):
         explorer.open()
         self.test_create_views(explorer, view_a=view_a, view_b=view_b)
         self.test_switch_between_views(explorer, view_a=view_a, view_b=view_b)
+        self.test_open_in_new_tab(explorer, view_name=view_a)
         self.test_relabel_moves_item(explorer, view_a=view_a, view_b=view_b)
         self.test_delete_item_leaves_view(explorer, view_a=view_a, view_b=view_b)
         self.test_rename_view(explorer, view_name=view_a, renamed=renamed)
@@ -255,6 +256,19 @@ class ViewLifecycle(ConsoleCase):
             explorer,
             shown=[explorer.labeled_a, explorer.labeled_b, explorer.unlabeled],
             hidden=[],
+        )
+
+    def test_open_in_new_tab(self, explorer: _Explorer, *, view_name: str) -> None:
+        """Test opening a view in a new tab leaves the view of the current tab."""
+        self.log(f"Testing: Open view in new tab in {explorer.name} Explorer")
+        views = explorer.views
+        static = views.static_view_name
+        views.select(static)
+        views.open_in_new_tab(view_name)
+        views.close_tab(view_name)
+        views.get_tab(static).wait_for(state="visible", timeout=5000)
+        assert views.is_selected(static), (
+            f"'{static}' should stay selected in the tab the view opened from"
         )
 
     def test_relabel_moves_item(

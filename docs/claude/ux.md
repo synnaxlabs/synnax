@@ -430,6 +430,11 @@ bound, a log precision, or the line plot X channel.
 - The panel tab name follows the view: the explorer's name ("Range explorer") on the
   static view, and "Ranges › <view>" on a saved view. A rename of the view changes it.
   When the view is deleted, the tab goes back to the static view.
+- "Open in new tab" in a view's context menu, or Cmd+click (Ctrl+click on Windows and
+  Linux) on a view, opens it in a new explorer tab beside the current one. The current
+  tab keeps its view.
+- An open from the sidebar or the command palette focuses the panel's explorer tab. It
+  opens a new one only when the panel has none.
 
 ### Filter chips
 
