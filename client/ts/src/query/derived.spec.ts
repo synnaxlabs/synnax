@@ -77,6 +77,23 @@ describe("derived", () => {
     expect(tables.composed.get("t1")).toBeUndefined();
   });
 
+  it("drops a trimmed composed entry silently and tells its holders", () => {
+    const tables = newTables();
+    bindAll(tables);
+    tables.tasks.set(task("t1", "one"));
+    const events = vi.fn();
+    tables.composed.subscribeBatch(events);
+    const drop = vi.fn();
+    tables.composed.hold({ held: () => [], drop });
+    const version = tables.composed.version();
+    tables.tasks.trim(0);
+    tables.tasks.trim(0);
+    expect(tables.composed.has("t1")).toBe(false);
+    expect(drop).toHaveBeenCalledWith(new Set(["t1"]));
+    expect(events).not.toHaveBeenCalled();
+    expect(tables.composed.version()).toBe(version);
+  });
+
   it("materializes a composed entry when the source entry is set", () => {
     const tables = newTables();
     bindAll(tables);

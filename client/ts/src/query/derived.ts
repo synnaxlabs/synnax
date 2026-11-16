@@ -98,9 +98,7 @@ export const bindDerived = <
     // A record the derived table needs is needed in the source, which composes it.
     source.hold({
       held: () => into.held(),
-      drop: (keys) => {
-        into.evict(Array.from(keys));
-      },
+      drop: (keys) => into.drop(keys),
     }),
   ];
   recompose("all");
