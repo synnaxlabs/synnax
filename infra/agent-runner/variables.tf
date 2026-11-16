@@ -21,7 +21,7 @@ variable "repository" {
 # A seat is one Claude Max or ChatGPT login. A review seat's runners carry only the
 # `review` label, so agent jobs never land on them.
 variable "seats" {
-  description = "Agent CLI logins by name, one instance each"
+  description = "Seats by name, one instance each"
   type = map(object({
     agent = string
     pool  = optional(string, "agent")

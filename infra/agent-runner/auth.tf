@@ -7,8 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Lets Check - Runners read whether each seat's agent CLI is signed in. The role runs
-# only this document, which prints one word and never the login details.
+# Lets Check - Runners read whether each Codex seat's CLI is signed in. Claude seats run
+# on a shared login. The role runs only this document, which prints one word and never
+# the login details.
 
 resource "aws_ssm_document" "auth" {
   name            = "synnax-agent-seat-auth"
@@ -16,9 +17,9 @@ resource "aws_ssm_document" "auth" {
   document_format = "YAML"
   content = yamlencode({
     schemaVersion = "2.2"
-    description   = "Prints signed-in or signed-out for the seat's agent CLI"
+    description   = "Prints signed-in or signed-out for the seat's Codex CLI"
     parameters = {
-      agent = { type = "String", allowedValues = ["claude", "codex"] }
+      agent = { type = "String", allowedValues = ["codex"] }
     }
     mainSteps = [{
       action = "aws:runShellScript"
@@ -26,17 +27,9 @@ resource "aws_ssm_document" "auth" {
       inputs = {
         timeoutSeconds = "60"
         runCommand = [<<-EOF
-          case {{ agent }} in
-            claude)
-              sudo -iu runner claude auth status 2> /dev/null |
-                jq -r 'if .loggedIn then "signed-in" else "signed-out" end'
-              ;;
-            codex)
-              case $(sudo -iu runner codex login status 2>&1) in
-                "Logged in"*) echo signed-in ;;
-                "Not logged in"*) echo signed-out ;;
-              esac
-              ;;
+          case $(sudo -iu runner codex login status 2>&1) in
+            "Logged in"*) echo signed-in ;;
+            "Not logged in"*) echo signed-out ;;
           esac
         EOF
         ]
