@@ -34,8 +34,8 @@ import (
 // a burst of edits produces one rewrite instead of one per edit. A text edit moves the
 // Arc's last edit time only when the transaction commits.
 //
-// Apply returns a validation error when a rename or a move leaves a name that the
-// directory of the Arc cannot hold.
+// Apply returns a validation error when the reduced Arc fails Arc.Validate, or when a
+// rename or a move leaves a name that the directory of the Arc cannot hold.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	var (
 		sweep       []Action
