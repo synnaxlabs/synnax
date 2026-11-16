@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -74,6 +75,10 @@ func newTestLogger() (*alamos.Logger, *syncBuffer) {
 }
 
 var rackKey = rack.NewKey(1, 1)
+
+// notLoaded matches driver.ErrNotLoaded. MatchError uses the standard errors.Is, which
+// does not see the mark.
+func notLoaded(err error) bool { return errors.Is(err, driver.ErrNotLoaded) }
 
 // mockConfig returns a config that starts the mock Driver in new directories.
 func mockConfig(logger *alamos.Logger) driver.Config {
@@ -182,13 +187,19 @@ var _ = Describe("Open", func() {
 				Expect(os.Setenv("MOCK_LOADER_ERROR", "1")).To(Succeed())
 				defer func() { Expect(os.Unsetenv("MOCK_LOADER_ERROR")).To(Succeed()) }()
 				logger, _ := newTestLogger()
-				Expect(driver.Open(ctx, mockConfig(logger), driver.Config{
+				start := time.Now()
+				_, err := driver.Open(ctx, mockConfig(logger), driver.Config{
 					Detached:     new(true),
-					StartTimeout: 500 * time.Millisecond,
+					StartTimeout: time.Minute,
 					StopTimeout:  500 * time.Millisecond,
-				})).Error().To(MatchError(ContainSubstring(
+				})
+				Expect(err).To(MatchError(notLoaded, "driver.ErrNotLoaded"))
+				Expect(err).To(MatchError(ContainSubstring(
 					"embedded Driver did not start: driver: version `GLIBC_2.39' not found",
 				)))
+				// The first exit ends the start, with no restart and no wait for the
+				// start timeout.
+				Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second))
 			},
 		)
 
@@ -234,17 +245,23 @@ var _ = Describe("Open", func() {
 		)
 
 		It(
-			"Should name the loader error of a Driver that cannot load",
+			"Should fail at once when the Driver cannot load",
 			func(ctx SpecContext) {
 				Expect(os.Setenv("MOCK_LOADER_ERROR", "1")).To(Succeed())
 				defer func() { Expect(os.Unsetenv("MOCK_LOADER_ERROR")).To(Succeed()) }()
 				logger, _ := newTestLogger()
-				Expect(driver.Open(ctx, mockConfig(logger), driver.Config{
-					StartTimeout: 500 * time.Millisecond,
+				start := time.Now()
+				_, err := driver.Open(ctx, mockConfig(logger), driver.Config{
+					StartTimeout: time.Minute,
 					StopTimeout:  500 * time.Millisecond,
-				})).Error().To(MatchError(ContainSubstring(
+				})
+				Expect(err).To(MatchError(notLoaded, "driver.ErrNotLoaded"))
+				Expect(err).To(MatchError(ContainSubstring(
 					"embedded Driver did not start: driver: version `GLIBC_2.39' not found",
 				)))
+				// The first exit ends the start, with no restart and no wait for the
+				// start timeout.
+				Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second))
 			},
 		)
 

@@ -160,6 +160,10 @@ func (c Config) format(apiKey string) map[string]any {
 	}
 }
 
+// ErrNotLoaded marks the error of a Driver process that exited before it printed its
+// first log line, such as one the dynamic loader refuses. A restart cannot fix it.
+var ErrNotLoaded = errors.New("embedded Driver did not load")
+
 var (
 	_               config.Config[Config] = Config{}
 	AllIntegrations                       = []string{
@@ -426,7 +430,8 @@ func (d *Driver) supervise(ctx context.Context, policy *restart.Policy) error {
 			d.cfg.L.Error("giving up on embedded Driver", zap.Error(err))
 			return err
 		default:
-			// restart.Stop: a launch failure (an expected exit was caught above).
+			// restart.Stop: a launch failure or a Driver that never loaded (an expected
+			// exit was caught above).
 			return err
 		}
 	}
@@ -483,7 +488,12 @@ func (d *Driver) runOnce(
 	var (
 		stdoutErr, stderrErr string
 		reads                sync.WaitGroup
+		loaded               atomic.Bool
 	)
+	onRunning := func() {
+		loaded.Store(true)
+		d.markRunning()
+	}
 	reads.Add(2)
 	internalSCtx.Go(func(context.Context) error {
 		stdoutErr = log.PipeToLogger(
@@ -491,7 +501,7 @@ func (d *Driver) runOnce(
 			d.cfg.L,
 			d.started,
 			startedOnce,
-			d.markRunning,
+			onRunning,
 		)
 		reads.Done()
 		return nil
@@ -506,7 +516,7 @@ func (d *Driver) runOnce(
 			d.cfg.L,
 			d.started,
 			startedOnce,
-			d.markRunning,
+			onRunning,
 		)
 		reads.Done()
 		return nil
@@ -528,6 +538,13 @@ func (d *Driver) runOnce(
 	if output := cmp.Or(stderrErr, stdoutErr); !expected && output != "" && err != nil {
 		d.lastErr.Store(&output)
 		err = errors.Wrap(err, output)
+	}
+	if !expected && !loaded.Load() {
+		if err == nil {
+			err = errors.New("exited")
+		}
+		err = errors.Wrap(err, "embedded Driver did not start")
+		return restart.Stop, errors.Mark(err, ErrNotLoaded)
 	}
 	if !expected {
 		d.cfg.L.Warn("embedded Driver process exited unexpectedly", zap.Error(err))
