@@ -379,11 +379,11 @@ func (db *DB) openIndexWriter(
 ) (*idxWriter, control.Transfer, error) {
 	uW, transfer, err := u.OpenWriter(ctx, cfg.unaryConfig(i))
 	if err != nil {
-		return nil, transfer, err
+		return nil, control.Transfer{}, err
 	}
 	idxW, err := db.openDomainIdxWriter(u.Channel().Index, cfg)
 	if err != nil {
-		return nil, transfer, err
+		return nil, control.Transfer{}, err
 	}
 	idxW.writingToIdx = true
 	idxW.internal[cfg.Channels[i]] = &unaryWriterState{Writer: *uW}
@@ -411,13 +411,13 @@ func (db *DB) openDataWriters(
 		if !ok {
 			var err error
 			if idxW, err = db.openDataOnlyIdxWriter(cfg, u.Channel()); err != nil {
-				return transfers, err
+				return nil, err
 			}
 			domainWriters[idxKey] = idxW
 		}
 		uW, transfer, err := u.OpenWriter(ctx, cfg.unaryConfig(i))
 		if err != nil {
-			return transfers, err
+			return nil, err
 		}
 		if transfer.Occurred() {
 			transfers = append(transfers, transfer)
