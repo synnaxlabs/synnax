@@ -133,6 +133,20 @@ var _ = Describe("Paths", func() {
 				To(Equal([]byte("hi")))
 		})
 
+		It("Should reject a symlink inside the root that leads out of it", func() {
+			if runtime.GOOS == "windows" {
+				Skip("Windows needs a privilege to create a symlink")
+			}
+			outside := GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(outside, "a.txt"), nil, 0o644)).
+				To(Succeed())
+			Expect(os.Symlink(outside, filepath.Join(dir, "out"))).To(Succeed())
+			Expect(paths.ReadFile("out/a.txt", dir)).Error().
+				To(MatchError(ContainSubstring("escapes")))
+			Expect(paths.WriteFile("out/a.txt", dir, nil, 0o644)).
+				To(MatchError(ContainSubstring("escapes")))
+		})
+
 		DescribeTable("Should reject a path outside the root",
 			func(path func() string) {
 				Expect(paths.ReadFile(path(), dir)).Error().
