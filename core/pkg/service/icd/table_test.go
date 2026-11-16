@@ -265,8 +265,8 @@ func mapSheet(data []byte, fn func(sheet []byte) []byte) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-// replaceInSheet returns the workbook data with old replaced by new in the XML of its
-// first sheet.
+// replaceInSheet returns the workbook data with old replaced by replacement in the XML
+// of its first sheet.
 func replaceInSheet(data []byte, old, replacement string) []byte {
 	GinkgoHelper()
 	return MustSucceed(mapSheet(data, func(sheet []byte) []byte {

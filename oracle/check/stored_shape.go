@@ -43,7 +43,7 @@ func newShapes(old, next *resolution.Table) shapes {
 	}
 }
 
-// root returns why data that old wrote no longer decodes as new, or "" when it does. A
+// root returns why data that old wrote no longer decodes as next, or "" when it does. A
 // type parameter with no default binds to the same placeholder on both sides.
 func (s shapes) root(old, next resolution.Type) string {
 	oldArgs, newArgs := placeholders(old), placeholders(next)
@@ -301,7 +301,7 @@ func refKey(ref resolution.TypeRef) string {
 	return b.String()
 }
 
-// enumMembers requires every old member in new with the same value. Stored data holds
+// enumMembers requires every old member in next with the same value. Stored data holds
 // member values, so a new member leaves old data readable.
 func enumMembers(at string, old, next resolution.EnumForm) string {
 	if old.IsIntEnum != next.IsIntEnum {
