@@ -59,7 +59,7 @@ jobs:
       - name: Import the wheels in a clean environment
         working-directory: ${{ runner.temp }}
         run: |
-          uv venv --python 3.12 venv
+          uv venv --python 3.13 venv
           uv pip install --python venv "$GITHUB_WORKSPACE"/dist/*.whl
           venv/bin/python -I -c "import alamos, freighter, synnax, x"
           venv/bin/sy --help

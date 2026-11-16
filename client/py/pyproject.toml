@@ -14,7 +14,7 @@ readme = "README.md"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
-requires-python = ">=3.12,<4"
+requires-python = ">=3.13,<4"
 dependencies = [
     "alamos",
     "synnax-freighter",
@@ -94,7 +94,7 @@ known-first-party = ["synnax", "alamos", "freighter", "x"]
 combine-as-imports = true
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
 strict = true
