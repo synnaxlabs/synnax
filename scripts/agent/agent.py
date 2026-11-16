@@ -33,8 +33,8 @@ opens nothing.
 
 When Claude Code stops at the usage limit of its login, the wrapper writes the reset
 time, in Unix seconds, as the `limited-until` step output and exits with LIMITED. When
-Claude rejects the token of its login, the wrapper writes the current time, in Unix
-seconds, as the `login-broken` step output and exits with REJECTED.
+Claude rejects the token of its login, the wrapper writes the time the agent started, in
+Unix seconds, as the `login-broken` step output and exits with REJECTED.
 
 Environment: AGENT_DEFAULT picks the agent when --agent is absent. GH_TOKEN is the
 GitHub App installation token for `gh` and for Git pushes. AGENT_GIT_NAME and
@@ -308,7 +308,11 @@ class UsageLimit(Exception):
 
 class LoginRejected(Exception):
     """Claude rejected the token of the agent's login: it was revoked, expired, or is
-    invalid."""
+    invalid. The agent started at started, in Unix seconds."""
+
+    def __init__(self, message: str, *, started: int) -> None:
+        super().__init__(message)
+        self.started = started
 
 
 def claude_result(stream: str) -> tuple[str, bool, int | None, bool]:
@@ -336,6 +340,7 @@ def run_cli(
     Raises UsageLimit when Claude Code fails at a usage limit, LoginRejected when
     Claude rejects its token, and CalledProcessError on any other failure.
     """
+    started = int(time.time())
     code, stdout = run_agent(
         cmd, env=env, seconds=opts.timeout_minutes * 60, quiet=quiet
     )
@@ -347,7 +352,7 @@ def run_cli(
     if failed and until is not None:
         raise UsageLimit(until)
     if failed and rejected:
-        raise LoginRejected(message)
+        raise LoginRejected(message, started=started)
     if code != 0 or failed:
         raise subprocess.CalledProcessError(code, cmd[:1], output=message)
     return message
@@ -481,8 +486,7 @@ def main(argv: Sequence[str]) -> int:
         print(f"The agent reached the usage limit of its login: {e}", file=sys.stderr)
         return LIMITED
     except LoginRejected as e:
-        now = str(int(time.time()))
-        write_output(dict(os.environ), name="login-broken", value=now)
+        write_output(dict(os.environ), name="login-broken", value=str(e.started))
         print(f"Claude rejected the token of the agent's login: {e}", file=sys.stderr)
         return REJECTED
 

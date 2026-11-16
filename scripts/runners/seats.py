@@ -195,10 +195,19 @@ class Seats:
                         kept.add(iid)
                         continue
                 self.clear(iid, key="limited-until", found=found)
-            if "login-broken" in info["tags"]:
-                if login is not None and not login.broken:
+            at = info["tags"].get("login-broken")
+            if at is not None:
+                # A job that started before seat.sh stored the token ran on the old
+                # one. Agents can write the seat's tag, so a value that is not a whole
+                # number up to now counts as no rejection.
+                if (
+                    login is not None
+                    and not login.broken
+                    and at.isdecimal()
+                    and login.stored < int(at) <= now
+                ):
                     try:
-                        self.logins.reject(login, at=now)
+                        self.logins.reject(login, at=int(at))
                     except Exception as e:
                         self.log.error(f"login {login.name} reject", e)
                         kept.add(iid)

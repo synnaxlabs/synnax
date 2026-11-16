@@ -9,6 +9,7 @@
 
 from typing import Any, cast
 
+import pytest
 import synnax as sy
 
 from aws import AWS
@@ -40,6 +41,7 @@ def seat(
     pool: str = "agent",
     login: str | None = None,
     until: sy.TimeStamp | None = None,
+    rejected: sy.TimeStamp | None = None,
 ) -> dict:
     # Review seats run Claude Code.
     agent = "claude" if pool == "review" else name.split("-")[0]
@@ -48,6 +50,8 @@ def seat(
         tags["login"] = login
     if until is not None:
         tags["limited-until"] = seconds(until)
+    if rejected is not None:
+        tags["login-broken"] = seconds(rejected)
     return {"state": state, "region": "us-east-1", "tags": tags}
 
 
@@ -80,11 +84,11 @@ class Instances:
                 self.tags.setdefault(iid, {}).pop(t["Key"], None)
 
 
-def secrets(*names: str) -> Secrets:
+def secrets(*names: str, stored: sy.TimeStamp | None = None) -> Secrets:
     """A store with a usable login of each name, for the agent its name starts
-    with."""
+    with, stored at stored or now."""
     store = Secrets()
-    expires = seconds(sy.TimeStamp.now() + YEAR)
+    expires = seconds((stored or sy.TimeStamp.now()) + YEAR)
     for name in names:
         store.tags[f"{PREFIX}{name}"] = {
             "agent": name.split("-")[0],
@@ -443,25 +447,51 @@ class TestSeats:
         self, client: Client
     ) -> None:
         aws = Instances()
-        store = secrets("claude-1")
-        found = {CLAUDE: seat("running", login="claude-1")}
-        found[CLAUDE]["tags"]["login-broken"] = "1795266000"
+        now = sy.TimeStamp.now()
+        store = secrets("claude-1", stored=now - sy.TimeSpan.HOUR)
+        rejected = now - sy.TimeSpan.MINUTE
+        found = {CLAUDE: seat("running", login="claude-1", rejected=rejected)}
         seats(client, aws, store).step(queued=[], found=found)
-        assert store.tags[f"{PREFIX}claude-1"]["broken"].isdecimal()
+        assert store.tags[f"{PREFIX}claude-1"]["broken"] == seconds(rejected)
         assert aws.deleted == [(CLAUDE, "login-broken")]
         assert client.written("log") == [
             ["login claude-1: token rejected, marked broken"]
         ]
 
+    def test_should_ignore_a_rejection_of_a_job_started_before_the_token_was_stored(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        now = sy.TimeStamp.now()
+        store = secrets("claude-1", stored=now - sy.TimeSpan.MINUTE)
+        rejected = now - sy.TimeSpan.HOUR
+        found = {CLAUDE: seat("running", login="claude-1", rejected=rejected)}
+        seats(client, aws, store).step(queued=[], found=found)
+        assert "broken" not in store.tags[f"{PREFIX}claude-1"]
+        assert aws.deleted == [(CLAUDE, "login-broken")]
+
+    @pytest.mark.parametrize("value", ["soon", "-1", "99999999999"])
+    def test_should_ignore_a_rejection_that_is_not_a_past_time(
+        self, client: Client, value: str
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1", stored=sy.TimeStamp.now() - sy.TimeSpan.HOUR)
+        found = {CLAUDE: seat("running", login="claude-1")}
+        found[CLAUDE]["tags"]["login-broken"] = value
+        seats(client, aws, store).step(queued=[], found=found)
+        assert "broken" not in store.tags[f"{PREFIX}claude-1"]
+        assert aws.deleted == [(CLAUDE, "login-broken")]
+
     def test_should_keep_the_rejected_token_on_the_seat_when_the_login_write_fails(
         self, client: Client
     ) -> None:
         aws = Instances()
-        store = secrets("claude-1")
+        now = sy.TimeStamp.now()
+        store = secrets("claude-1", stored=now - sy.TimeSpan.HOUR)
         store.tags[f"{PREFIX}claude-1"]["holders"] = f"{ROLE}:{CLAUDE}"
         store.failing = True
-        found = {CLAUDE: seat("running", login="claude-1")}
-        found[CLAUDE]["tags"]["login-broken"] = "1795266000"
+        rejected = now - sy.TimeSpan.MINUTE
+        found = {CLAUDE: seat("running", login="claude-1", rejected=rejected)}
         seats(client, aws, store).step(queued=[], found=found)
         assert aws.deleted == []
         assert client.written("log") == [
@@ -472,11 +502,12 @@ class TestSeats:
         self, client: Client
     ) -> None:
         aws = Instances()
-        store = secrets("claude-1")
+        now = sy.TimeStamp.now()
+        store = secrets("claude-1", stored=now - sy.TimeSpan.HOUR)
         store.tags[f"{PREFIX}claude-1"]["broken"] = "1"
         store.failing = True
-        found = {CLAUDE: seat("stopped", login="claude-1")}
-        found[CLAUDE]["tags"]["login-broken"] = "1795266000"
+        rejected = now - sy.TimeSpan.MINUTE
+        found = {CLAUDE: seat("stopped", login="claude-1", rejected=rejected)}
         seats(client, aws, store).step(queued=[], found=found)
         assert store.tags[f"{PREFIX}claude-1"]["broken"] == "1"
         assert (CLAUDE, "login-broken") in aws.deleted
@@ -485,12 +516,15 @@ class TestSeats:
         self, client: Client
     ) -> None:
         aws = Instances()
+        now = sy.TimeStamp.now()
+        store = secrets("claude-1", "claude-2", stored=now - sy.TimeSpan.HOUR)
         found = {
-            CLAUDE: seat("running", login="claude-1"),
+            CLAUDE: seat(
+                "running", login="claude-1", rejected=now - sy.TimeSpan.MINUTE
+            ),
             CLAUDE_2: seat("stopped", name="claude-2"),
         }
-        found[CLAUDE]["tags"]["login-broken"] = "1795266000"
-        seats(client, aws).step(queued=[JOB], found=found)
+        seats(client, aws, store).step(queued=[JOB], found=found)
         assert aws.started == [CLAUDE_2]
         assert aws.tags[CLAUDE_2] == {"login": "claude-2"}
 

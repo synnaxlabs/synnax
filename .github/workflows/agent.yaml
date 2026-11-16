@@ -220,9 +220,10 @@ jobs:
             "$(date -u -d "@$UNTIL" '+%F %R UTC'). It stops once its jobs end."
 
       # Claude rejects a revoked, expired, or invalid token on every job of the seat.
-      # The seat tags the time, and the fleet controller marks its login broken, which
-      # no seat then starts on until a person stores a new token with `seat.sh token`.
-      # The seat drains as at a usage limit.
+      # The seat tags the time the agent started, and the fleet controller marks its
+      # login broken unless a person stored a new token after that. No seat then starts
+      # on the login until a person stores a new token with `seat.sh token`. The seat
+      # drains as at a usage limit.
       - name: Leave the pool until a person renews the login
         if: failure() && steps.agent.outputs.login-broken != ''
         env:
