@@ -78,18 +78,21 @@ func describe(err error) error {
 	switch {
 	case errors.Is(semErr.Err, json.ErrUnknownName):
 		return fieldError{msg: fmt.Sprintf("unknown field %q", field), err: semErr}
+	case field == "" && semErr.Err != nil:
+		return fieldError{msg: semErr.Err.Error(), err: semErr}
+	case field == "" && semErr.JSONKind != 0:
+		return fieldError{msg: "got JSON " + kindName(semErr.JSONKind), err: semErr}
 	case field == "":
-		msg = "unexpected JSON " + kindName(semErr.JSONKind)
+		return err
 	case semErr.GoType == nil:
 		msg = fmt.Sprintf("invalid field %q", field)
 	default:
 		msg = fmt.Sprintf("field %q expects %s", field, semErr.GoType)
-		if semErr.JSONKind != 0 {
-			msg += ", got JSON " + kindName(semErr.JSONKind)
-		}
 	}
 	if semErr.Err != nil {
 		msg += ": " + semErr.Err.Error()
+	} else if semErr.JSONKind != 0 {
+		msg += ", got JSON " + kindName(semErr.JSONKind)
 	}
 	return fieldError{msg: msg, err: semErr}
 }

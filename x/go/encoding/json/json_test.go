@@ -161,7 +161,7 @@ var _ = Describe("Codec", func() {
 		Entry(
 			"a value out of range",
 			`{"nested":{"limit":300}}`,
-			`field "nested.limit" expects uint8, got JSON number: value out of range`,
+			`field "nested.limit" expects uint8: value out of range`,
 		),
 	)
 	It("Should keep the semantic error in the chain", func() {
@@ -172,9 +172,17 @@ var _ = Describe("Codec", func() {
 		)).To(BeTrue())
 		Expect(semErr.JSONPointer).To(Equal(jsontext.Pointer("/rack")))
 	})
-	It("Should name a top-level value of the wrong kind", func() {
+	It("Should name the kind of a top-level value of the wrong kind", func() {
 		Expect(json.Codec.Decode([]byte(`[1]`), &request{})).To(MatchError(
-			"failed to decode json_test.request: unexpected JSON array",
+			"failed to decode json_test.request: got JSON array",
+		))
+	})
+	It("Should keep the cause of a top-level unmarshaler failure", func() {
+		Expect(json.Codec.Decode([]byte(`{}`), &rejected{})).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(
+				"failed to decode json_test.rejected: rejected: validation error",
+			),
 		))
 	})
 	It("Should not print the decoded data", func() {
