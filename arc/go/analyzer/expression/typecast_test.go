@@ -486,5 +486,22 @@ var _ = Describe("Type Casts", func() {
 			`, nil, "unknown unit: bogus")
 			},
 		)
+
+		It("Should reject a cast of a series to a scalar", func(ctx SpecContext) {
+			expectFailure(ctx, `
+				func testFunc() {
+					s := [7.0, 8.0]
+					y := i64(s)
+				}
+			`, nil, "cannot cast series f64 to i64")
+		})
+
+		It("Should reject a cast to a series type", func(ctx SpecContext) {
+			expectFailure(ctx, `
+				func testFunc() {
+					y := series f64(1.0)
+				}
+			`, nil, "cannot cast")
+		})
 	})
 })
