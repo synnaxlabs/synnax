@@ -10,6 +10,8 @@
 package zyn_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/validate"
@@ -73,6 +75,18 @@ var _ = Describe("Enum", func() {
 		Specify("fractional float to int", func() {
 			var dest int
 			Expect(zyn.Enum(1, 2).Parse(1.9, &dest)).
+				To(MatchError(validate.ErrValidation))
+			Expect(dest).To(BeZero())
+		})
+		Specify("negative int to same-width unsigned", func() {
+			var dest uint8
+			Expect(zyn.Enum(uint8(255)).Parse(int8(-1), &dest)).
+				To(MatchError(validate.ErrValidation))
+			Expect(dest).To(BeZero())
+		})
+		Specify("unsigned above signed max to same-width signed", func() {
+			var dest int
+			Expect(zyn.Enum(-1).Parse(uint(math.MaxUint), &dest)).
 				To(MatchError(validate.ErrValidation))
 			Expect(dest).To(BeZero())
 		})

@@ -168,10 +168,24 @@ func convertLossless(v reflect.Value, t reflect.Type) (reflect.Value, bool) {
 		return reflect.Value{}, false
 	}
 	converted := v.Convert(t)
-	if !reflect.DeepEqual(converted.Convert(v.Type()).Interface(), v.Interface()) {
+	if negative(converted) != negative(v) ||
+		!reflect.DeepEqual(converted.Convert(v.Type()).Interface(), v.Interface()) {
 		return reflect.Value{}, false
 	}
 	return converted, true
+}
+
+// negative reports whether v holds a number below zero. A same-width conversion between
+// signed and unsigned ints round-trips, so only the sign shows that it wrapped.
+func negative(v reflect.Value) bool {
+	switch {
+	case v.CanInt():
+		return v.Int() < 0
+	case v.CanFloat():
+		return v.Float() < 0
+	default:
+		return false
+	}
 }
 
 // kindFamily maps every numeric kind to reflect.Float64 and leaves other kinds as is.
