@@ -43,9 +43,13 @@ data_channel = client.channels.create(
 RATE = 1000 * sy.Rate.HZ
 SAMPLE_COUNT = 100_000
 
-# We'll start our write at the current time. This timestamp should be the same as or
-# just before the first timestamp we write.
+# We'll start our write at the current time. A second run reuses the same channels, so
+# if an earlier run wrote data that ends after now, start one period after that data
+# instead. Writing over stored data fails.
 start = sy.TimeStamp.now()
+latest = client.read_latest(time_channel.key)
+if len(latest) > 0:
+    start = max(start, sy.TimeStamp(int(latest.to_numpy()[-1]) + int(RATE.period)))
 
 # Space the int64 timestamps one period apart. The end of the time range is exclusive,
 # so it is one period after the last timestamp.

@@ -24,15 +24,6 @@ import synnax as sy
 # credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
 client = sy.Synnax()
 
-# Define 10 seconds of data at 100 Hz. The end of the time range is exclusive, so it is
-# one period after the last timestamp.
-RATE = 100 * sy.Rate.HZ
-SAMPLE_COUNT = 1000
-start = sy.TimeStamp.now()
-time_data = int(start) + np.arange(SAMPLE_COUNT, dtype=np.int64) * int(RATE.period)
-end = sy.TimeStamp(int(time_data[-1]) + int(RATE.period))
-data = np.sin(sy.elapsed_seconds(time_data))
-
 # Create an index channel that will be used to store our timestamps.
 time_channel = client.channels.create(
     name="create_range_time",
@@ -48,6 +39,20 @@ data_channel = client.channels.create(
     index=time_channel.key,
     retrieve_if_name_exists=True,
 )
+
+# Define 10 seconds of data at 100 Hz. The end of the time range is exclusive, so it is
+# one period after the last timestamp.
+RATE = 100 * sy.Rate.HZ
+SAMPLE_COUNT = 1000
+# A second run reuses the same channels, so start one period after any data that an
+# earlier run wrote past now. Writing over stored data fails.
+start = sy.TimeStamp.now()
+latest = client.read_latest(time_channel.key)
+if len(latest) > 0:
+    start = max(start, sy.TimeStamp(int(latest.to_numpy()[-1]) + int(RATE.period)))
+time_data = int(start) + np.arange(SAMPLE_COUNT, dtype=np.int64) * int(RATE.period)
+end = sy.TimeStamp(int(time_data[-1]) + int(RATE.period))
+data = np.sin(sy.elapsed_seconds(time_data))
 
 # Write the data to the Synnax cluster through the channels. Note that we need to write
 # to the index channel first, otherwise our write will fail.

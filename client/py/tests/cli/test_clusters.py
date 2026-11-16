@@ -234,3 +234,54 @@ class TestLogin:
         assert first_key in {k.key for k in client.auth.retrieve_keys()}
         client.users.delete(other.key)
         delete_new_keys(client, before)
+
+    def test_keeps_password_when_save_fails(
+        self,
+        clusters: Clusters,
+        keyring: MemoryKeyring,
+        login_info: tuple[str, int, str, str],
+        client: sy.Synnax,
+    ) -> None:
+        """Should keep the saved password and delete the new key when the config write
+        fails.
+        """
+        host, port, username, password = login_info
+        before = {k.key for k in client.auth.retrieve_keys()}
+        save_legacy_password(
+            clusters,
+            keyring,
+            Options(host=host, port=port, username=username, password=password),
+        )
+        block_config_writes(clusters)
+        mock = console.Mock(responses=[host, port, username, password, False])
+        with pytest.raises(IsADirectoryError):
+            connect.login(Context(console=mock), clusters)
+        assert keyring.values == {("synnax", "default"): password}
+        assert {k.key for k in client.auth.retrieve_keys()} == before
+
+    def test_keeps_saved_key_when_cleanup_fails(
+        self,
+        tmp_path: Path,
+        login_info: tuple[str, int, str, str],
+        client: sy.Synnax,
+    ) -> None:
+        """Should keep the saved key on the Core when the old password cannot be
+        deleted.
+        """
+        host, port, username, password = login_info
+        before = {k.key for k in client.auth.retrieve_keys()}
+        keyring = UndeletableKeyring()
+        clusters = Clusters(File(config_dir=tmp_path), keyring)
+        save_legacy_password(
+            clusters,
+            keyring,
+            Options(host=host, port=port, username=username, password=password),
+        )
+        mock = console.Mock(responses=[host, port, username, password, False])
+        with pytest.raises(KeyringError):
+            connect.login(Context(console=mock), clusters)
+        saved = clusters.get()
+        assert saved is not None
+        assert saved.options.api_key.startswith("syk_")
+        assert sy.auth.api_key_id(saved.options.api_key) not in before
+        delete_new_keys(client, before)
