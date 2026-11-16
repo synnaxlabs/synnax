@@ -168,9 +168,10 @@ class Seats:
     ) -> None:
         """Moves the usage limit each seat recorded to its login, and sets the holders
         of each login to the seats that are up with its `login` tag, up to MAX_HOLDERS
-        with the current holders first. A seat started recently, given by recent, keeps
-        its holder entries. Deletes the `login` tag of each stopped seat and of each
-        seat left out by the cap."""
+        with the current holders first. A seat started recently, given by recent, or
+        whose limit move failed keeps its holder entries and `login` tag. Deletes the
+        `login` tag of each other stopped seat and of each seat left out by the cap."""
+        kept = set(recent)
         for iid in seats:
             info = found[iid]
             until = info["tags"].get("limited-until")
@@ -188,6 +189,7 @@ class Seats:
                     self.logins.limit(login, until=int(until))
                 except Exception as e:
                     self.log.error(f"login {login.name} limit", e)
+                    kept.add(iid)
                     continue
             # A tag left on the seat would undo a new token's clear of the login.
             try:
@@ -203,9 +205,7 @@ class Seats:
                 if info["state"] in UP and info["tags"].get("login") == login.name
             ]
             holders = [
-                h
-                for h in login.holders
-                if h in tagged or h.rpartition(":")[2] in recent
+                h for h in login.holders if h in tagged or h.rpartition(":")[2] in kept
             ]
             holders += [h for h in tagged if h not in holders]
             # The holders tag value has room for MAX_HOLDERS role sessions.
@@ -213,7 +213,7 @@ class Seats:
                 iid
                 for iid, info in sorted(found.items())
                 if info["state"] == "stopped"
-                and iid not in recent
+                and iid not in kept
                 and info["tags"].get("login") == login.name
             ]
             holders = holders[:MAX_HOLDERS]

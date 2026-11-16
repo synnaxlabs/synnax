@@ -52,8 +52,8 @@ def seat(
 
 
 class Instances:
-    """Stands in for AWS, recording what is started and the tags written. Starts fail
-    while failing is set."""
+    """Stands in for AWS, recording what is started and the tags written. Starts and
+    tag deletes fail while failing is set."""
 
     def __init__(self) -> None:
         self.started: list[str] = []
@@ -72,6 +72,8 @@ class Instances:
             self.tags.setdefault(iid, {}).update({t["Key"]: t["Value"] for t in Tags})
 
     def delete_tags(self, Resources: list[str], Tags: list[dict]) -> None:
+        if self.failing:
+            raise PermissionError("not authorized")
         for iid in Resources:
             for t in Tags:
                 self.deleted.append((iid, t["Key"]))
@@ -377,6 +379,26 @@ class TestSeats:
             ["[ERROR] login claude-1 limit failed: PermissionError: not authorized"]
         ]
 
+    def test_should_keep_a_stopped_seat_on_its_login_until_its_limit_moves(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1")
+        name = f"{PREFIX}claude-1"
+        store.tags[name]["holders"] = f"{ROLE}:{CLAUDE}"
+        store.failing = True
+        until = sy.TimeStamp.now() + sy.TimeSpan.HOUR
+        found = {CLAUDE: seat("stopped", login="claude-1", until=until)}
+        s = seats(client, aws, store)
+        s.step(queued=[], found=found)
+        assert store.tags[name]["holders"] == f"{ROLE}:{CLAUDE}"
+        assert aws.deleted == []
+        store.failing = False
+        s.step(queued=[], found=found)
+        assert store.tags[name]["limited-until"] == seconds(until)
+        assert "holders" not in store.tags[name]
+        assert aws.deleted == [(CLAUDE, "limited-until"), (CLAUDE, "login")]
+
     def test_should_not_lower_the_limit_of_a_login(self, client: Client) -> None:
         aws = Instances()
         store = secrets("claude-1")
@@ -473,6 +495,48 @@ class TestSeats:
         seats(client, aws, store).step(queued=[], found=found)
         assert "holders" not in store.tags[name]
         assert aws.deleted == [(CLAUDE, "login")]
+
+    def test_should_log_a_failed_holders_write_and_still_delete_the_login_tag(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        store = secrets("claude-1")
+        name = f"{PREFIX}claude-1"
+        store.tags[name]["holders"] = f"{ROLE}:{CLAUDE}"
+        store.failing = True
+        found = {CLAUDE: seat("stopped", login="claude-1")}
+        seats(client, aws, store).step(queued=[], found=found)
+        assert store.tags[name]["holders"] == f"{ROLE}:{CLAUDE}"
+        assert aws.deleted == [(CLAUDE, "login")]
+        assert client.written("log") == [
+            ["[ERROR] login claude-1 hold failed: PermissionError: not authorized"]
+        ]
+
+    def test_should_log_each_failed_login_tag_delete_and_go_on(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        aws.failing = True
+        store = secrets("claude-1", "claude-2")
+        store.tags[f"{PREFIX}claude-1"]["holders"] = f"{ROLE}:{CLAUDE}"
+        store.tags[f"{PREFIX}claude-2"]["holders"] = f"{ROLE}:{CLAUDE_2}"
+        found = {
+            CLAUDE: seat("stopped", login="claude-1"),
+            CLAUDE_2: seat("stopped", name="claude-2", login="claude-2"),
+        }
+        seats(client, aws, store).step(queued=[], found=found)
+        assert "holders" not in store.tags[f"{PREFIX}claude-1"]
+        assert "holders" not in store.tags[f"{PREFIX}claude-2"]
+        assert client.written("log") == [
+            [
+                "[ERROR] seat claude-1 login clear failed: "
+                "PermissionError: not authorized"
+            ],
+            [
+                "[ERROR] seat claude-2 login clear failed: "
+                "PermissionError: not authorized"
+            ],
+        ]
 
     def test_should_not_add_a_seat_started_without_a_login_tag(
         self, client: Client
