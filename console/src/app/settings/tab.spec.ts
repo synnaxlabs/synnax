@@ -15,9 +15,11 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { createElement, type PropsWithChildren } from "react";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Settings } from "@/app/settings";
+import { Panel } from "@/platform/panel";
 import {
   createPanelWrapper,
   createServerPanel,
@@ -54,7 +56,13 @@ describe("Settings.useOpen", () => {
     await visible.retrieve();
     const drafts = async () =>
       await client.panels.retrieve({ projects: [proj], owners: [me] });
-    const { result } = renderHook(() => Settings.useOpen(), { wrapper });
+    const withTabs = ({ children }: PropsWithChildren) =>
+      createElement(
+        wrapper,
+        null,
+        createElement(Panel.RendererContext, { value: Settings.TABS }, children),
+      );
+    const { result } = renderHook(() => Settings.useOpen(), { wrapper: withTabs });
     await act(async () => result.current());
     await waitFor(async () => expect(await drafts()).toHaveLength(1));
     await act(async () => result.current());

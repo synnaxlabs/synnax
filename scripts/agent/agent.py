@@ -25,7 +25,7 @@ Outputs:
 --recipient, with report, keeps the report private on a public repository: it writes
 only the report encrypted to the GPG public key file KEY, as the `report` step output.
 The agent gets no GitHub token, and its stderr, CLI state, and output files are
-discarded.
+discarded. It uses the seat's CLI login in place.
 
 The last stdout line is the PR URL for pr and comment, and is also written as `pr-url`
 to $GITHUB_OUTPUT when it is set. --dry-run runs the agent but pushes, comments, and
@@ -36,8 +36,8 @@ time, in Unix seconds, as the `limited-until` step output and exits with LIMITED
 
 Environment: AGENT_DEFAULT picks the agent when --agent is absent. GH_TOKEN is the
 GitHub App installation token for `gh` and for Git pushes. AGENT_GIT_NAME and
-AGENT_GIT_EMAIL are the bot identity for commits. CLAUDE_CODE_OAUTH_TOKEN or a Codex
-login authenticates the CLI. pr and comment need a clean checkout.
+AGENT_GIT_EMAIL are the bot identity for commits. A Claude Code or Codex login
+authenticates the CLI. pr and comment need a clean checkout.
 """
 
 import argparse
@@ -341,16 +341,30 @@ def run_cli(
 
 def private_env(env: dict[str, str], *, out: Path) -> dict[str, str]:
     """Returns env with no GitHub token or step output files, and with the CLI state
-    of the agent in out, so no later job on the runner can read the session."""
-    codex = out / "codex"
+    of the agent in out, so no later job on the runner can read the session. Both CLIs
+    use the seat's login in place, so a refresh by any job on the seat reaches all."""
+    claude, codex = out / "claude", out / "codex"
+    claude.mkdir()
     codex.mkdir()
-    home = Path(env.get("CODEX_HOME") or Path.home() / ".codex")
-    for name in ("auth.json", "config.toml"):
-        if (home / name).is_file():
-            shutil.copy(home / name, codex / name)
+    # Codex writes a refresh to the target of a linked login, under a lock beside it.
+    seat_codex = Path(env.get("CODEX_HOME") or Path.home() / ".codex")
+    if (seat_codex / "auth.json").is_file():
+        (codex / "auth.json").symlink_to(seat_codex / "auth.json")
+    if (seat_codex / "config.toml").is_file():
+        shutil.copy(seat_codex / "config.toml", codex / "config.toml")
+    # Claude Code keeps its login, and the lock that guards a refresh, in this store.
+    store = "CLAUDE_SECURESTORAGE_CONFIG_DIR"
+    seat_claude = (
+        env.get(store, env.get("CLAUDE_CONFIG_DIR")) or Path.home() / ".claude"
+    )
     hidden = {"GH_TOKEN", "GITHUB_TOKEN", "GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY"}
     kept = {k: v for k, v in env.items() if k not in hidden}
-    return {**kept, "CLAUDE_CONFIG_DIR": str(out / "claude"), "CODEX_HOME": str(codex)}
+    return {
+        **kept,
+        "CLAUDE_CONFIG_DIR": str(claude),
+        store: str(seat_claude),
+        "CODEX_HOME": str(codex),
+    }
 
 
 def encrypt(text: str, *, recipient: Path) -> str:
@@ -508,8 +522,8 @@ def deliver(argv: Sequence[str]) -> int:
     cmd = agent_command(opts, prompt=prompt, out=out)
     if opts.recipient is not None:
         try:
-            env_private = {**private_env(env, out=out), "AGENT_OUT_DIR": str(out)}
-            stdout = run_cli(opts, cmd, env=env_private, quiet=True)
+            agent_env = {**private_env(env, out=out), "AGENT_OUT_DIR": str(out)}
+            stdout = run_cli(opts, cmd, env=agent_env, quiet=True)
             message = read(out / "last-message.md") or stdout.strip()
             write_output(
                 env, name="report", value=encrypt(message, recipient=opts.recipient)

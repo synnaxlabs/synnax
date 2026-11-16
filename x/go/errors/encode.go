@@ -9,10 +9,7 @@
 
 package errors
 
-import (
-	"context"
-	"strings"
-)
+import "strings"
 
 // Payload is a typed payload for transporting an error OVER a NETWORK. It includes type
 // information as well as encoded error data.
@@ -47,41 +44,41 @@ func Register(encode EncodeFunc, decode DecodeFunc) {
 // Encode encodes an error into a payload. If the type of the error cannot be
 // determined, returns a payload with type TypeUnknown and the error message. If the
 // error is nil, returns a payload with type TypeNil.
-func Encode(ctx context.Context, e error, internal bool) Payload {
+func Encode(e error, internal bool) Payload {
 	pld, ok := e.(Payload)
 	if ok {
 		return pld
 	}
-	return _registry.encode(ctx, e, internal)
+	return _registry.encode(e, internal)
 }
 
 // Expected returns true if a registered provider encodes err. Such errors, for example
 // validation, not found, and unauthorized errors, report a fault in a request, not in
 // the code, so their stack traces have no use. A joined error is expected only if
 // every member is. Expected returns false for nil.
-func Expected(ctx context.Context, err error) bool {
+func Expected(err error) bool {
 	if err == nil {
 		return false
 	}
 	if members := UnwrapMulti(err); members != nil {
 		for _, m := range members {
-			if !Expected(ctx, m) {
+			if !Expected(m) {
 				return false
 			}
 		}
 		return true
 	}
-	return _registry.encode(ctx, err, false).Type != TypeUnknown
+	return _registry.encode(err, false).Type != TypeUnknown
 }
 
 // Decode decodes a payload into an error. If the payload's type is TypeUnknown, returns
 // an error with the payload's data as the message. If the payload's type is TypeNil,
 // returns nil.
-func Decode(ctx context.Context, p Payload) error { return _registry.decode(ctx, p) }
+func Decode(p Payload) error { return _registry.decode(p) }
 
-type EncodeFunc func(context.Context, error) (Payload, bool)
+type EncodeFunc func(error) (Payload, bool)
 
-type DecodeFunc func(context.Context, Payload) (error, bool)
+type DecodeFunc func(Payload) (error, bool)
 
 type provider struct {
 	encode EncodeFunc
@@ -96,32 +93,32 @@ func newRegistry() *registry { return &registry{providers: make([]provider, 0)} 
 
 func (r *registry) register(e provider) { r.providers = append(r.providers, e) }
 
-func (r *registry) encode(ctx context.Context, e error, internal bool) Payload {
+func (r *registry) encode(e error, internal bool) Payload {
 	// If the error is nil, return a standardized payload.
 	if e == nil {
 		return Payload{Type: TypeNil}
 	}
 	for _, p := range r.providers {
-		if payload, ok := p.encode(ctx, e); ok {
+		if payload, ok := p.encode(e); ok {
 			return payload
 		}
 	}
 	if internal {
-		return roachEncode(ctx, e)
+		return roachEncode(e)
 	}
 	return Payload{Type: TypeUnknown, Data: e.Error()}
 }
 
-func (r *registry) decode(ctx context.Context, p Payload) error {
+func (r *registry) decode(p Payload) error {
 	if p.Type == TypeNil || (p.Type == "" && p.Data == "") {
 		return nil
 	}
 	for _, prov := range r.providers {
-		if err, ok := prov.decode(ctx, p); ok {
+		if err, ok := prov.decode(p); ok {
 			return err
 		}
 	}
-	if err, ok := roachDecode(ctx, p); ok {
+	if err, ok := roachDecode(p); ok {
 		return err
 	}
 	return New(p.Data)

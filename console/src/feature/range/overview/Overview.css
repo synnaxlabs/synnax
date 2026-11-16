@@ -68,8 +68,10 @@
     margin-left: -2rem;
 }
 
+/* The labels fit the room beside the color, so the select takes that room. */
 .console-range-overview__labels-select {
-    width: fit-content;
+    flex: 1 1 0;
+    min-width: 0;
 }
 
 /* Puts the chip, not the box around it, on the content edge. */

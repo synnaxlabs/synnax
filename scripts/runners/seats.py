@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Starts the agent seats, driven by controller.py's poll cycle. A seat is one EC2
-instance whose runners share an agent login. The runners belong to the organization,
-so the repository's runner list holds none of them, and a seat is found by its
-instance tags. A seat stops itself once idle, and when its login reaches a usage
+"""Starts the agent and review seats, driven by controller.py's poll cycle. A seat is
+one EC2 instance whose runners share an agent login. The runners belong to the
+organization, so the repository's runner list holds none of them, and a seat is found
+by its instance tags. A seat stops itself once idle, and when its login reaches a usage
 limit."""
 
 import synnax as sy
@@ -20,20 +20,21 @@ from common import RECOMMAND_DELAY
 from log import Log
 
 PROJECT = "synnax-agents"
-POOL = "agent"
 # Labels every seat runner carries, which name no seat.
 GENERIC = {"self-hosted", "linux", "x64"}
 
 
 def seat_labels(tags: dict[str, str]) -> set[str]:
     """The labels the runners of a seat register with, empty when the tags name no
-    seat of the agent pool."""
-    agent, seat = tags.get("agent"), tags.get("seat")
-    if tags.get("project") != PROJECT or tags.get("pool") != POOL:
+    seat."""
+    pool, agent, seat = tags.get("pool"), tags.get("agent"), tags.get("seat")
+    if tags.get("project") != PROJECT or not agent or not seat:
         return set()
-    if not agent or not seat:
-        return set()
-    return {"agent", f"agent-{agent}", f"seat-{seat}"}
+    if pool == "agent":
+        return {"agent", f"agent-{agent}", f"seat-{seat}"}
+    if pool == "review":
+        return {"review", f"seat-{seat}"}
+    return set()
 
 
 def limited(tags: dict[str, str], *, now: sy.TimeStamp) -> bool:

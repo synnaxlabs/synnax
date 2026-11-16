@@ -80,10 +80,10 @@ var _ = Describe("CheapIs", func() {
 	Describe("encode round-trip", func() {
 		It(
 			"Should match after encode→decode because decode re-wraps sentinel",
-			func(ctx SpecContext) {
+			func() {
 				original := errors.Wrap(query.ErrNotFound, "channel 123")
-				pld := errors.Encode(ctx, original, false)
-				decoded := errors.Decode(ctx, pld)
+				pld := errors.Encode(original, false)
+				decoded := errors.Decode(pld)
 				Expect(errors.CheapIs(decoded, query.ErrNotFound)).To(BeTrue())
 				Expect(errors.CheapIs(decoded, query.ErrQuery)).To(BeTrue())
 			},

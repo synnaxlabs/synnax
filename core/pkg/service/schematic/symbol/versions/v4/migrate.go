@@ -23,7 +23,7 @@ func MigrateSymbol(ctx context.Context, old v3.Symbol) (Symbol, error) {
 }
 
 // Migration lifts stored symbols from v3 to v4.
-var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateSymbol)
+var Migration = migrate.NewEntry("v62_color_alpha_byte", MigrateSymbol)
 
 // MigrateSpec lifts a v3 spec to v4.
 func MigrateSpec(ctx context.Context, old v3.Spec) (Spec, error) {

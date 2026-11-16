@@ -276,6 +276,12 @@ func (t *impl) open(ctx context.Context) (err error) {
 		closers = append(closers, xio.CloserFunc(func() error {
 			return guest.Close(ctx)
 		}))
+		if drt.budget, err = runtime.NewBudget(
+			guest,
+			t.factoryCfg.LoopBudget,
+		); err != nil {
+			return err
+		}
 		f = append(f, &wasm.Module{
 			Module:        guest,
 			Memory:        guest.Memory(),
@@ -328,7 +334,20 @@ func (t *impl) open(ctx context.Context) (err error) {
 	if !ok {
 		return errors.Newf("unknown performance %q", t.cfg.Performance)
 	}
-	ticker := &tickerRuntime{dataRuntime: drt, spin: spin}
+	ticker := &tickerRuntime{
+		dataRuntime: drt,
+		spin:        spin,
+		overrun: func(ctx context.Context, err error) {
+			t.setStatus(
+				ctx,
+				driver.NoCommand,
+				status.VariantError,
+				false,
+				"Program ran too long",
+				err.Error(),
+			)
+		},
+	}
 	pipeline.SetSegment(runtimeAddr, ticker)
 
 	var (
@@ -559,6 +578,8 @@ type dataRuntime struct {
 	timeMod   *time.Host
 	writeKeys channel.Keys
 	state     state
+	// budget limits the loop iterations and function calls of each cycle.
+	budget runtime.Budget
 }
 
 func (d *dataRuntime) next(
@@ -573,7 +594,11 @@ func (d *dataRuntime) next(
 		Reason:  reason,
 	}
 	d.timeMod.SetNow(cycle.Now)
+	d.budget.Reset()
 	d.clock.Advance(d.scheduler.Next(ctx, cycle))
+	if err := d.budget.Err(); err != nil {
+		return err
+	}
 	d.state.channel.ClearReads()
 	if d.Out != nil {
 		if err := d.flushAuthorityChanges(ctx); err != nil {
@@ -639,6 +664,8 @@ type tickerRuntime struct {
 	dataRuntime
 	// spin is how long the timer spins before each deadline.
 	spin stdtime.Duration
+	// overrun reports a cycle that used its whole loop budget.
+	overrun func(context.Context, error)
 }
 
 func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
@@ -687,6 +714,9 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				}
 			}
 			if err = r.next(ctx, res, runReason); err != nil {
+				if errors.Is(err, runtime.ErrLoopBudget) {
+					r.overrun(ctx, err)
+				}
 				return err
 			}
 			if err = arm(); err != nil {

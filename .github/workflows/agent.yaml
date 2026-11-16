@@ -7,9 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Runs Claude Code or Codex on an agent runner through scripts/agent/run. Each agent
-# writes to GitHub as its own GitHub App, never as a person. The fleet controller starts
-# a stopped runner for the queued job.
+# Runs Claude Code or Codex on an agent runner through scripts/agent/run, with the CLI
+# login of the runner's seat. Each agent writes to GitHub as its own GitHub App, never
+# as a person. The fleet controller starts a stopped runner for the queued job.
 name: Agent
 
 on:
@@ -68,8 +68,6 @@ on:
       CLAUDE_CODE_APP_ID:
         required: false
       CLAUDE_CODE_APP_PRIVATE_KEY:
-        required: false
-      CLAUDE_CODE_OAUTH_TOKEN:
         required: false
       CODEX_APP_ID:
         required: false
@@ -140,9 +138,13 @@ jobs:
           PR: ${{ inputs.pr }}
         run: gh pr checkout "$PR"
 
-      # A runner can stay stopped for weeks, so every job takes the latest agent CLIs.
-      - name: Update the agent CLIs
-        run: sudo npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest
+      # Every job installs the latest agent CLIs for itself, so an update never replaces
+      # a CLI that another job on the same instance runs.
+      - name: Install the agent CLIs
+        run: |
+          npm install --prefix "$RUNNER_TEMP/cli" \
+            @anthropic-ai/claude-code@latest @openai/codex@latest
+          echo "$RUNNER_TEMP/cli/node_modules/.bin" >> "$GITHUB_PATH"
 
       - name: Set up the task
         if: inputs.setup != ''
@@ -157,8 +159,6 @@ jobs:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           AGENT_GIT_NAME: ${{ steps.bot.outputs.name }}
           AGENT_GIT_EMAIL: ${{ steps.bot.outputs.email }}
-          CLAUDE_CODE_OAUTH_TOKEN:
-            ${{ env.AGENT == 'claude' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
           PROMPT: ${{ inputs.prompt }}
           OUTPUT: ${{ inputs.output }}
           PR: ${{ inputs.pr }}
@@ -190,7 +190,9 @@ jobs:
 
       # The runners of a seat share its login, so at a usage limit every job on the
       # seat fails. The seat tags the time the limit resets, which keeps the fleet
-      # controller from starting it, then stops. The delay lets this job report first.
+      # controller from starting it. The drain runs outside the job: each runner stops
+      # once its job ends, then the seat powers off. A later limited job on the seat
+      # leaves a running drain alone.
       - name: Leave the pool until the usage limit resets
         if: failure() && steps.agent.outputs.limited-until != ''
         env:
@@ -205,6 +207,8 @@ jobs:
           uvx --from awscli==1.46.2 aws ec2 create-tags \
             --region "$(meta placement/region)" --resources "$(meta instance-id)" \
             --tags "Key=limited-until,Value=$UNTIL"
-          sudo systemd-run --on-active=30 systemctl poweroff
+          sudo install -m 644 "$RUNNER_TEMP/agent/drain.py" /run/agent-drain.py
+          sudo systemd-run --unit agent-drain python3 /run/agent-drain.py ||
+            systemctl is-active --quiet agent-drain
           echo "::error::The seat is at its usage limit until" \
-            "$(date -u -d "@$UNTIL" '+%F %R UTC'), so it stops."
+            "$(date -u -d "@$UNTIL" '+%F %R UTC'). It stops once its jobs end."

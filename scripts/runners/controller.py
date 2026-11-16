@@ -82,8 +82,9 @@ than --boot-grace (2 min) counts as idle. --scale sets the start state (enabled)
 runner_scaler_cmd switches it at runtime, runner_scaler_enabled beats the state,
 runner_scaler_log carries its log.
 
-Seats (seats.py): starts a stopped agent seat when a job that asks for its labels
-queues. The scaler switch holds these starts too, and they log to runner_scaler_log.
+Seats (seats.py): starts a stopped agent or review seat when a job that asks for its
+labels queues. The scaler switch holds these starts too, and they log to
+runner_scaler_log.
 
 Gate (gate.py): fans global_gh_cmd out to every <runner>_gh_cmd, disconnecting the
 fleet from GitHub without stopping instances. --gh sets the start state (enabled);

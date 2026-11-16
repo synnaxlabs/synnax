@@ -30,6 +30,7 @@ const TAB: Panel.Tab = {
   Content: Panel.lazyComponent(() => import("@/feature/log/Log"), "Log"),
   Toolbar: Panel.lazyComponent(() => import("@/feature/log/toolbar"), "Toolbar"),
   Icon: Icon.Log,
+  iconKey: "log",
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Name: Panel.createEditableTabName(
     { useEnsure: Base.useEnsure, useName: Base.useName, useRename: Base.useRename },

@@ -10,6 +10,7 @@
 package testutil
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -67,6 +68,7 @@ func FinalizeContext(ctx ccontext.Context[antlr.ParserRuleContext]) []byte {
 }
 
 func assemble(instructions ...any) []byte {
+	var out bytes.Buffer
 	encoder := wasm.NewWriter()
 
 	for i := 0; i < len(instructions); i++ {
@@ -164,10 +166,14 @@ func assemble(instructions ...any) []byte {
 				// Simple opcode with no operands
 				encoder.WriteOpcode(instr)
 			}
+		case []byte:
+			out.Write(encoder.Bytes())
+			out.Write(instr)
+			encoder = wasm.NewWriter()
 		}
 	}
-
-	return encoder.Bytes()
+	out.Write(encoder.Bytes())
+	return out.Bytes()
 }
 
 // opcodeMatcher is a custom Gomega matcher for comparing opcode sequences
@@ -335,4 +341,12 @@ func ImportNames(ctx context.Context, m *wasm.Module) []string {
 		_, names[i], _ = imp.Import()
 	}
 	return names
+}
+
+// LoopBudget returns the instructions that each loop header and function entry run
+// against the loop budget global, which a root compiler context declares at index 0.
+func LoopBudget() []byte {
+	w := wasm.NewWriter()
+	w.WriteLoopBudget(0)
+	return w.Bytes()
 }

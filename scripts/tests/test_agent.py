@@ -28,6 +28,7 @@ from agent.agent import (
     instructions,
     main,
     parse,
+    private_env,
     render_body,
     run_agent,
     skill_prompt,
@@ -367,9 +368,13 @@ class TestMain:
 
 PRIVATE_AGENT = """#!/bin/sh
 echo "secret on stderr" >&2
-printf '{"type": "result", "is_error": false, "result": "%s"}\\n' \\
-    "secret report token=$GH_TOKEN summary=$GITHUB_STEP_SUMMARY"
+printf '{"type": "result", "is_error": false, "result": "%s"}\\n' \
+    "secret report token=$GH_TOKEN summary=$GITHUB_STEP_SUMMARY \
+login=$(cat "$CLAUDE_SECURESTORAGE_CONFIG_DIR/.credentials.json")"
 echo "$CLAUDE_CONFIG_DIR" > "$STATE_FILE"
+echo refreshed > "$CLAUDE_SECURESTORAGE_CONFIG_DIR/new"
+mv "$CLAUDE_SECURESTORAGE_CONFIG_DIR/new" \
+    "$CLAUDE_SECURESTORAGE_CONFIG_DIR/.credentials.json"
 """
 
 
@@ -410,6 +415,10 @@ class TestPrivateReport:
         runner_temp = tmp_path / "runner"
         runner_temp.mkdir()
         monkeypatch.setenv("RUNNER_TEMP", str(runner_temp))
+        login = tmp_path / "claude"
+        login.mkdir()
+        (login / ".credentials.json").write_text("seat")
+        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(login))
         capfd.readouterr()
         argv = ["--prompt", "Audit", "--agent", "claude", "--bin", str(agent)]
         assert main([*argv, "--output", "report", "--recipient", str(key)]) == 0
@@ -420,11 +429,34 @@ class TestPrivateReport:
         plain = subprocess.run(
             [*gpg, "--decrypt"], input=armor, capture_output=True, text=True
         ).stdout
-        assert plain == "secret report token= summary="
+        assert plain == "secret report token= summary= login=seat"
         state = Path((tmp_path / "state").read_text().strip())
         assert state.is_relative_to(runner_temp)
         assert not state.exists()
         assert not (tmp_path / "summary").exists()
+        assert (login / ".credentials.json").read_text() == "refreshed\n"
+
+    def test_should_link_the_codex_login_to_the_seat(self, tmp_path: Path) -> None:
+        seat = tmp_path / "seat"
+        seat.mkdir()
+        (seat / "auth.json").write_text("seat")
+        out = tmp_path / "out"
+        out.mkdir()
+        private = private_env({"CODEX_HOME": str(seat)}, out=out)
+        login = Path(private["CODEX_HOME"]) / "auth.json"
+        assert login.resolve() == (seat / "auth.json").resolve()
+
+    def test_should_keep_a_claude_login_store_that_the_seat_names(
+        self, tmp_path: Path
+    ) -> None:
+        env = {
+            "CLAUDE_CONFIG_DIR": str(tmp_path / "config"),
+            "CLAUDE_SECURESTORAGE_CONFIG_DIR": str(tmp_path / "store"),
+        }
+        out = tmp_path / "out"
+        out.mkdir()
+        private = private_env(env, out=out)
+        assert private["CLAUDE_SECURESTORAGE_CONFIG_DIR"] == str(tmp_path / "store")
 
 
 class TestDelivery:

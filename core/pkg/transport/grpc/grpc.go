@@ -30,8 +30,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
-	apinichassis "github.com/synnaxlabs/synnax/pkg/api/ni/chassis"
-	apinidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	apikv "github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
@@ -50,6 +48,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/control"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/device"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
+	nichassis "github.com/synnaxlabs/synnax/pkg/transport/grpc/ni/chassis"
+	nidevice "github.com/synnaxlabs/synnax/pkg/transport/grpc/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/rack"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger/kv"
@@ -76,6 +76,8 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		status.New(&t),
 		arc.New(&t),
 		control.New(&t),
+		nidevice.New(&t),
+		nichassis.New(&t),
 	}
 
 	// AUTH
@@ -133,18 +135,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ProjectDispatch = noop.UnaryServer[project.DispatchRequest, struct{}]{}
 	t.ProjectExport = noop.UnaryServer[project.ExportRequest, project.ExportResponse]{}
 	t.ProjectImport = noop.UnaryServer[project.ImportRequest, project.ImportResponse]{}
-
-	// NI DEVICE
-	t.NIDeviceCreate = noop.UnaryServer[apinidevice.CreateRequest, apinidevice.CreateResponse]{}
-	t.NIDeviceRetrieve = noop.UnaryServer[apinidevice.RetrieveRequest, apinidevice.RetrieveResponse]{}
-	t.NIDeviceUpdate = noop.UnaryServer[apinidevice.UpdateRequest, struct{}]{}
-	t.NIDeviceDelete = noop.UnaryServer[apinidevice.DeleteRequest, struct{}]{}
-
-	// NI CHASSIS
-	t.NIChassisCreate = noop.UnaryServer[apinichassis.CreateRequest, apinichassis.CreateResponse]{}
-	t.NIChassisRetrieve = noop.UnaryServer[apinichassis.RetrieveRequest, apinichassis.RetrieveResponse]{}
-	t.NIChassisUpdate = noop.UnaryServer[apinichassis.UpdateRequest, struct{}]{}
-	t.NIChassisDelete = noop.UnaryServer[apinichassis.DeleteRequest, struct{}]{}
 
 	// STATUS
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
