@@ -56,9 +56,9 @@ variable "pools" {
     runners       = number
   }))
   default = {
-    # Three agents build at once, so memory runs out before CPU.
+    # Five agents build at once at up to 11 GiB each, so memory runs out before CPU.
     agent = {
-      instance_type = "m7i.4xlarge", disk_gb = 400, idle_minutes = 20, runners = 3
+      instance_type = "r7i.4xlarge", disk_gb = 400, idle_minutes = 20, runners = 5
     }
     # Reviews only read code. The longer idle time spares most reviews in a workday
     # the wait for a stopped instance to boot.
