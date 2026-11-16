@@ -330,9 +330,9 @@ describe("position", () => {
         ],
       },
       expected: {
-        targetCorner: location.CENTER_LEFT,
-        dialogCorner: location.CENTER_RIGHT,
-        adjustedDialog: box.construct(20, 35, 20, 20),
+        targetCorner: location.CENTER_RIGHT,
+        dialogCorner: location.CENTER_LEFT,
+        adjustedDialog: box.construct(50, 35, 20, 20),
       },
     };
 
@@ -731,6 +731,27 @@ describe("position", () => {
       it(`should position dialog correctly for ${name}`, () =>
         expect(position.position(params)).toEqual(expected)),
     );
+
+    describe("prefer without a dialog corner", () => {
+      const PARAMS = {
+        container: box.construct(0, 0, 1000, 1000),
+        target: box.construct(400, 400, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+      };
+
+      it("should honor a bare location preference when every option fits", () => {
+        const res = position.position({ ...PARAMS, prefer: "bottom" });
+        expect(res.targetCorner.y).toEqual("bottom");
+      });
+
+      it("should honor a preference with only a target corner", () => {
+        const res = position.position({
+          ...PARAMS,
+          prefer: { targetCorner: { y: "bottom" } },
+        });
+        expect(res.targetCorner.y).toEqual("bottom");
+      });
+    });
   });
 
   describe("parseLocationOptions", () => {

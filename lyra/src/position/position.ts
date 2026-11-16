@@ -38,10 +38,10 @@ export interface Params {
 }
 
 export const parseLocationOptions = (initial?: Location): Partial<location.XY> => {
-  if (initial == null) return { x: undefined, y: undefined };
+  if (initial == null) return {};
   if (typeof initial !== "string") return initial;
-  if (direction.isX(initial)) return { x: initial, y: undefined };
-  return { x: undefined, y: initial };
+  if (direction.isX(initial)) return { x: initial };
+  return { y: initial };
 };
 
 export interface Return {
