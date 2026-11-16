@@ -22,7 +22,7 @@ interface RefState {
   start: xy.XY;
   mouseKey: Triggers.Key;
   // pointerId identifies the pointer that owns the active gesture, or null when idle.
-  // Moves and the terminating up from any other pointer are ignored.
+  // Moves and the terminating up or cancel from any other pointer are ignored.
   pointerId: number | null;
 }
 
@@ -64,13 +64,15 @@ export const useVirtualDrag = ({
       const mouseKey = Triggers.mouseKey(e.button);
       setRef({ start, mouseKey, pointerId: e.pointerId });
       callbacksRef.current.onStart?.(start, mouseKey, el);
-      el.addEventListener("pointerup", handleUp);
+      el.addEventListener("pointerup", handleEnd);
+      el.addEventListener("pointercancel", handleEnd);
     };
     el.addEventListener("pointerdown", handleDown);
 
-    const handleUp = (e: PointerEvent): void => {
+    const handleEnd = (e: PointerEvent): void => {
       if (e.pointerId !== stateRef.current.pointerId) return;
-      el.removeEventListener("pointerup", handleUp);
+      el.removeEventListener("pointerup", handleEnd);
+      el.removeEventListener("pointercancel", handleEnd);
       el.onpointermove = null;
       el.releasePointerCapture(e.pointerId);
       const { start, mouseKey } = stateRef.current;
@@ -80,7 +82,8 @@ export const useVirtualDrag = ({
 
     return () => {
       el.removeEventListener("pointerdown", handleDown);
-      el.removeEventListener("pointerup", handleUp);
+      el.removeEventListener("pointerup", handleEnd);
+      el.removeEventListener("pointercancel", handleEnd);
     };
   }, [ref]);
 };

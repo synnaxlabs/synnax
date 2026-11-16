@@ -192,6 +192,18 @@ describe("Cursor.useVirtualDrag", () => {
     expect(onMove).not.toHaveBeenCalled();
   });
 
+  it("should end the gesture on pointer cancel", () => {
+    const onEnd = vi.fn();
+    const onMove = vi.fn();
+    const { el } = renderTarget({ onEnd, onMove });
+    down(el, 0, 0);
+    fireEvent.pointerCancel(el, pointerInit(10, 0));
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    expect(el.hasPointerCapture(DEFAULT_POINTER.pointerId)).toBe(false);
+    move(el, 50, 0);
+    expect(onMove).not.toHaveBeenCalled();
+  });
+
   it("should end the gesture only once", () => {
     const onEnd = vi.fn();
     const { el } = renderTarget({ onEnd });
