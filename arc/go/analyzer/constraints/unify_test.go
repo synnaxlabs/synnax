@@ -831,9 +831,9 @@ var _ = Describe("Type Unification", func() {
 			Expect(err).To(
 				MatchError(ContainSubstring("u8 is not compatible with bool")),
 			)
-			Expect(err.(*constraints.UnificationError).Hint).To(
-				Equal(constraints.BoolHint),
-			)
+			var ue *constraints.UnificationError
+			Expect(errors.As(err, &ue)).To(BeTrue())
+			Expect(ue.Hint).To(Equal(constraints.BoolHint))
 		})
 
 		It("Should not hint a comparison for comparison operands", func() {
@@ -846,7 +846,9 @@ var _ = Describe("Type Unification", func() {
 			Expect(err).To(
 				MatchError(ContainSubstring("u8 is not compatible with bool")),
 			)
-			Expect(err.(*constraints.UnificationError).Hint).To(BeEmpty())
+			var ue *constraints.UnificationError
+			Expect(errors.As(err, &ue)).To(BeTrue())
+			Expect(ue.Hint).To(BeEmpty())
 		})
 	})
 
