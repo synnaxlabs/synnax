@@ -370,6 +370,9 @@ bound, a log precision, or the line plot X channel.
   count: the dots of the first hidden tags, then "+N". With no tag shown, the count
   reads "N labels", then "+N" with its dots. Only a group too narrow for that shows
   nothing.
+- Only a tag that shows a color dot shows as a dot in the count. Tags with other icons,
+  such as channels, fold into a plain "+N".
+- An outlined group, such as a select in a form, keeps its outline at every step.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
 - A value in a list item or a property panel shows no caret, at rest, on hover, or while
