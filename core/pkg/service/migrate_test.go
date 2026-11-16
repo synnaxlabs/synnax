@@ -360,13 +360,18 @@ var _ = Describe("Group drop report", func() {
 					DataType:    telem.Float32T,
 					Virtual:     true,
 				},
+				{
+					Name:        "flow_rate",
+					Leaseholder: node.KeyFree,
+					DataType:    telem.Float32T,
+					Virtual:     true,
+				},
 			}))
 			var (
 				channels = groupv0.Group{Key: uuid.New(), Name: "Channels"}
 				devices  = groupv0.Group{Key: uuid.New(), Name: "Devices"}
-				// Cryomech sorts before alpha by key and by bytes, so only a pick by
-				// name
-				// that ignores case keeps alpha.
+				// Cryomech is first by key and by bytes, so only a pick by name that
+				// ignores case keeps alpha.
 				cryomech = groupv0.Group{
 					Key:  uuid.MustParse("00000000-0000-4000-8000-000000000001"),
 					Name: "Cryomech",
@@ -376,7 +381,10 @@ var _ = Describe("Group drop report", func() {
 					Name: "alpha",
 				}
 				compressors = groupv0.Group{Key: uuid.New(), Name: "Compressors"}
-				id          = func(g groupv0.Group) resource.ID {
+				// Mixed has no parent and holds two kinds of members, so the upgrade
+				// deletes it.
+				mixed = groupv0.Group{Key: uuid.New(), Name: "Mixed"}
+				id    = func(g groupv0.Group) resource.ID {
 					return resource.ID{Type: resource.TypeGroup, Key: g.Key.String()}
 				}
 				oil = resource.ID{
@@ -387,14 +395,19 @@ var _ = Describe("Group drop report", func() {
 					Type: resource.TypeChannel,
 					Key:  chs[1].Key().String(),
 				}
+				flow = resource.ID{
+					Type: resource.TypeChannel,
+					Key:  chs[2].Key().String(),
+				}
 				groups = []groupv0.Group{
 					channels,
 					devices,
 					cryomech,
 					alpha,
 					compressors,
+					mixed,
 				}
-				res  = []ontology.Resource{{ID: oil}, {ID: water}}
+				res  = []ontology.Resource{{ID: oil}, {ID: water}, {ID: flow}}
 				recs []channelv0.Channel
 			)
 			for _, ch := range chs {
@@ -425,6 +438,11 @@ var _ = Describe("Group drop report", func() {
 				parentOf(id(cryomech), oil),
 				parentOf(id(alpha), oil),
 				parentOf(id(compressors), water),
+				parentOf(id(mixed), flow),
+				parentOf(id(mixed), resource.ID{
+					Type: resource.TypeSchematic,
+					Key:  uuid.New().String(),
+				}),
 			)).To(Succeed())
 			layer := MustOpen(svctestutil.OpenLayer(ctx, n))
 
@@ -468,6 +486,12 @@ var _ = Describe("Group drop report", func() {
 					message: "Removed channel from group",
 					description: `The upgrade removed channel "water_temp" from group ` +
 						`"Compressors", because that group cannot hold a channel.`,
+				},
+				report{
+					name:    "Mixed",
+					message: "Removed channel from group",
+					description: `The upgrade deleted group "Mixed", so channel ` +
+						`"flow_rate" is no longer in it.`,
 				},
 			))
 		},

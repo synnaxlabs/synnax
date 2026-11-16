@@ -11,11 +11,11 @@ package v1
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/synnaxlabs/gorp"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/set"
 )
 
 // The reasons a migration removes a member from a group.
@@ -33,13 +33,49 @@ const (
 	RemovedRackless ontology.RelationshipType = "v61_removed_rackless"
 )
 
-var reasons = set.New(
-	RemovedDuplicate,
-	RemovedUnheld,
-	RemovedPinned,
-	RemovedWithGroup,
-	RemovedRackless,
-)
+// descriptions writes the description of a removal for each reason, given the member's
+// type, the member's name, and the group's name.
+var descriptions = map[ontology.RelationshipType]func(
+	noun, member, group string,
+) string{
+	RemovedDuplicate: func(noun, member, group string) string {
+		return fmt.Sprintf(
+			"A %[1]s can now be in only one group, so the upgrade removed %[1]s %[2]q "+
+				"from group %[3]q. It kept the %[1]s in the group that comes first by "+
+				"name. Drag the %[1]s into %[3]q to move it back.",
+			noun, member, group,
+		)
+	},
+	RemovedUnheld: func(noun, member, group string) string {
+		return fmt.Sprintf(
+			"The upgrade removed %[1]s %[2]q from group %[3]q, because that group "+
+				"cannot hold a %[1]s.",
+			noun, member, group,
+		)
+	},
+	RemovedPinned: func(noun, member, group string) string {
+		return fmt.Sprintf(
+			"The upgrade removed %[1]s %[2]q from group %[3]q, because a %[1]s cannot "+
+				"be in a group inside a project or rack.",
+			noun, member, group,
+		)
+	},
+	RemovedWithGroup: func(noun, member, group string) string {
+		return fmt.Sprintf(
+			"The upgrade deleted group %[3]q, so %[1]s %[2]q is no longer in it.",
+			noun, member, group,
+		)
+	},
+	RemovedRackless: func(noun, member, group string) string {
+		return fmt.Sprintf(
+			"The upgrade removed %[1]s %[2]q from group %[3]q, because the rack of the "+
+				"%[1]s does not exist.",
+			noun,
+			member,
+			group,
+		)
+	},
+}
 
 // removedFromType is the type of the source of a staged removal edge. Its key is the
 // name of the group, since a later migration can delete the group.
@@ -70,13 +106,23 @@ func StageRemovals(ctx context.Context, tx gorp.Tx, removals ...Removal) error {
 	return gorp.WrapWriter[string, ontology.Relationship](tx).Set(ctx, rels...)
 }
 
+func isReason(t ontology.RelationshipType) bool {
+	_, ok := descriptions[t]
+	return ok
+}
+
+// Describe returns the description of the removal, given the member's type and name.
+func (r Removal) Describe(noun, member string) string {
+	return descriptions[r.Reason](noun, member, r.GroupName)
+}
+
 // RetrieveRemovals returns the removals that StageRemovals recorded.
 func RetrieveRemovals(ctx context.Context, tx gorp.Tx) ([]Removal, error) {
 	rels, err := ontology.RetrieveRelationships(
 		ctx,
 		tx,
 		func(r ontology.Relationship) bool {
-			return r.From.Type == removedFromType && reasons.Contains(r.Type)
+			return r.From.Type == removedFromType && isReason(r.Type)
 		},
 	)
 	if err != nil {

@@ -22,7 +22,6 @@ import (
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -53,51 +52,6 @@ var ontologyDropMigration = migrate.New(
 		return ontology.Drop(ctx, tx)
 	},
 )
-
-// removalDescriptions writes the description of a removal status for each reason a
-// migration removes a member from a group, given the member's type, the member's name,
-// and the group's name.
-var removalDescriptions = map[ontology.RelationshipType]func(
-	noun, member, group string,
-) string{
-	groupv1.RemovedDuplicate: func(noun, member, group string) string {
-		return fmt.Sprintf(
-			"A %[1]s can now be in only one group, so the upgrade removed %[1]s %[2]q "+
-				"from group %[3]q. It kept the %[1]s in the group that comes first by "+
-				"name. Drag the %[1]s into %[3]q to move it back.",
-			noun, member, group,
-		)
-	},
-	groupv1.RemovedUnheld: func(noun, member, group string) string {
-		return fmt.Sprintf(
-			"The upgrade removed %[1]s %[2]q from group %[3]q, because that group "+
-				"cannot hold a %[1]s.",
-			noun, member, group,
-		)
-	},
-	groupv1.RemovedPinned: func(noun, member, group string) string {
-		return fmt.Sprintf(
-			"The upgrade removed %[1]s %[2]q from group %[3]q, because a %[1]s cannot "+
-				"be in a group inside a project or rack.",
-			noun, member, group,
-		)
-	},
-	groupv1.RemovedWithGroup: func(noun, member, group string) string {
-		return fmt.Sprintf(
-			"The upgrade deleted group %[3]q, so %[1]s %[2]q is no longer in it.",
-			noun, member, group,
-		)
-	},
-	groupv1.RemovedRackless: func(noun, member, group string) string {
-		return fmt.Sprintf(
-			"The upgrade removed %[1]s %[2]q from group %[3]q, because the rack of the "+
-				"%[1]s does not exist.",
-			noun,
-			member,
-			group,
-		)
-	},
-}
 
 // newGroupRemovalReport returns a migration that writes a warning status for each
 // member that the group migrations removed from a group. It must run before
@@ -133,16 +87,12 @@ func newGroupRemovalReport(
 				if !ok {
 					continue
 				}
-				describe, ok := removalDescriptions[r.Reason]
-				if !ok {
-					return errors.Newf("no description for group removal %q", r.Reason)
-				}
 				noun := strings.ReplaceAll(string(r.Member.Type), "_", " ")
 				s := status.Status[any]{
 					Name:        r.GroupName,
 					Variant:     status.VariantWarning,
 					Message:     fmt.Sprintf("Removed %s from group", noun),
-					Description: describe(noun, name, r.GroupName),
+					Description: r.Describe(noun, name),
 					Time:        telem.Now(),
 				}
 				if err = w.Set(ctx, &s); err != nil {
