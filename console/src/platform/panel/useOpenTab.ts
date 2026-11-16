@@ -30,11 +30,15 @@ export interface Placement {
 
 export interface OpenTabOptions {
   /**
-   * When set and the tab is a view, an existing view of the same type is focused
-   * instead of opening a duplicate, making the view a per-panel singleton.
+   * Keeps at most one view tab of the type in the panel. The Core enforces it, so a
+   * second open from any window focuses the tab the panel has.
    */
   singleton?: boolean;
-  /** Focuses the first matching tab of the panel, if any, instead of opening one. */
+  /**
+   * Focuses the first tab of the panel that matches, if any, instead of opening one.
+   * Unlike singleton, it holds for this open only, and the panel may hold more matching
+   * tabs.
+   */
   focus?: (tab: panel.Tab) => boolean;
   /**
    * Places the tab in a specific leaf instead of beside the current one. Ignored when
