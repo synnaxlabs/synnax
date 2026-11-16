@@ -89,9 +89,11 @@ export const usePersisted = <S extends state.State>(
     if (stored == null) return state.executeInitialSetter(initial);
     return JSON.parse(stored);
   });
-  const set = (value: state.SetArg<S>) => {
-    setInternal(value);
-    localStorage.setItem(key, JSON.stringify(value));
-  };
+  const set = (value: state.SetArg<S>) =>
+    setInternal((prev) => {
+      const next = state.executeSetter(value, prev);
+      localStorage.setItem(key, JSON.stringify(next));
+      return next;
+    });
   return [internal, set];
 };

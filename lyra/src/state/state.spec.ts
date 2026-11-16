@@ -138,6 +138,13 @@ describe("state", () => {
       expect(localStorage.getItem("write-key")).toBe(JSON.stringify(7));
     });
 
+    it("should persist the value an updater returns", () => {
+      const { result } = renderHook(() => state.usePersisted<number>(1, "updater-key"));
+      act(() => result.current[1]((prev) => prev + 1));
+      expect(result.current[0]).toBe(2);
+      expect(localStorage.getItem("updater-key")).toBe(JSON.stringify(2));
+    });
+
     it("should surface a persisted value to a freshly mounted hook", () => {
       const first = renderHook(() => state.usePersisted<number>(1, "shared-key"));
       act(() => first.result.current[1](99));
