@@ -152,7 +152,7 @@ public:
     /// image once send() and receive() work, starts the DC sync of each slave in a DC
     /// mode, then moves the enabled slaves to OP while the caller cycles the bus. After
     /// an error, the caller stops the cycle it started before it calls deactivate().
-    /// Valid after scan(). Only the SOEM master starts DC sync.
+    /// Valid after scan().
     /// @returns errors::SLAVE_CONFIG_ERROR when the DC mode of a slave gives values its
     /// registers cannot hold at the period, or errors::STATE_CHANGE_REFUSED when a
     /// slave refuses SAFE-OP or OP. The SOEM master returns errors::ACTIVATION_ERROR

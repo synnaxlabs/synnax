@@ -183,4 +183,16 @@ TEST(ParseOpModesTest, ReadsSignedShiftsAndUnnamedModes) {
 TEST(ParseOpModesTest, LeavesOutAPartialMode) {
     EXPECT_TRUE(parse_op_modes(std::vector<uint8_t>(23, 0), lookup({})).empty());
 }
+
+/// @brief it should give each string by its index from 1, and an empty string for index
+/// 0, an index past the last string, or a string that runs past the category.
+TEST(ParseStringsTest, GivesEachStringByIndex) {
+    const std::vector<uint8_t> data = {3, 2, 'D', 'C', 3, 'S', 'M', 'X', 9, 'Y'};
+    const auto strings = parse_strings(data);
+    EXPECT_EQ(strings(1), "DC");
+    EXPECT_EQ(strings(2), "SMX");
+    EXPECT_EQ(strings(0), "");
+    EXPECT_EQ(strings(3), "");
+    EXPECT_EQ(strings(4), "");
+}
 }

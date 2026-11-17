@@ -1094,15 +1094,12 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
         slave.status.pdo_discovery_error = "no PDOs found";
 }
 
-/// SII category that lists the synchronization modes of a slave.
-constexpr uint16_t SII_DC_CATEGORY = 60;
-
 std::vector<dc::OpMode>
 Master::read_op_modes(const uint16_t pos, Description &description) {
     auto &known = description.op_modes;
     if (!known.empty()) return known;
     auto modes = sii::parse_op_modes(
-        this->read_sii_category(pos, SII_DC_CATEGORY),
+        this->read_sii_category(pos, sii::DC),
         this->sii_strings(pos)
     );
     this->api->eeprom2pdi(pos);

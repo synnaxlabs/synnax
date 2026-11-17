@@ -10,10 +10,13 @@
 #pragma once
 
 #include <cerrno>
+#include <cstdint>
+#include <span>
 #include <string>
 #include <system_error>
 
 #include <fcntl.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 #include "x/cpp/lib/lib.h"
@@ -34,6 +37,21 @@ inline const driver::LibraryInfo LIBRARY_INFO = {
 
 /// @brief error returned when the IgH library cannot be loaded.
 inline const auto LOAD_ERROR = driver::errors::missing_lib(LIBRARY_INFO);
+
+/// @brief the private ioctl interface of the IgH master device, which the ethercat tool
+/// uses for what libethercat does not give. The request number holds the size of its
+/// struct, so a kernel module with another layout rejects it with ENOTTY.
+namespace ioctl {
+struct SII {
+    uint16_t slave_position;
+    uint16_t offset;
+    uint32_t nwords;
+    uint16_t *words;
+};
+
+/// @brief reads words of a slave's SII from the copy that IgH read at its scan.
+const auto SII_READ = _IOWR(0xa4, 0x10, SII);
+}
 
 /// @brief API wrapper for IgH EtherCAT master library functions with dynamic loading.
 class API {
@@ -65,6 +83,11 @@ class API {
         decltype(&ecrt_master_get_sync_manager) master_get_sync_manager;
         decltype(&ecrt_master_get_pdo) master_get_pdo;
         decltype(&ecrt_master_get_pdo_entry) master_get_pdo_entry;
+        decltype(&ecrt_slave_config_dc) slave_config_dc;
+        decltype(&ecrt_master_application_time) master_application_time;
+        decltype(&ecrt_master_sync_reference_clock_to) master_sync_reference_clock_to;
+        decltype(&ecrt_master_sync_slave_clocks) master_sync_slave_clocks;
+        decltype(&ecrt_master_reference_clock_time) master_reference_clock_time;
     };
 
     /// @brief shared library handle.
@@ -126,6 +149,14 @@ public:
         resolve(f.master_get_sync_manager, "ecrt_master_get_sync_manager");
         resolve(f.master_get_pdo, "ecrt_master_get_pdo");
         resolve(f.master_get_pdo_entry, "ecrt_master_get_pdo_entry");
+        resolve(f.slave_config_dc, "ecrt_slave_config_dc");
+        resolve(f.master_application_time, "ecrt_master_application_time");
+        resolve(
+            f.master_sync_reference_clock_to,
+            "ecrt_master_sync_reference_clock_to"
+        );
+        resolve(f.master_sync_slave_clocks, "ecrt_master_sync_slave_clocks");
+        resolve(f.master_reference_clock_time, "ecrt_master_reference_clock_time");
         if (!missing.empty())
             return {
                 nullptr,
@@ -397,6 +428,77 @@ public:
             entry_pos,
             entry
         );
+    }
+
+    /// @brief configures the DC sync of a slave. IgH writes the cycles as given, so
+    /// sync1_cycle is the value of register 0x09A4.
+    [[nodiscard]] virtual int slave_config_dc(
+        ec_slave_config_t *sc,
+        uint16_t assign_activate,
+        uint32_t sync0_cycle,
+        int32_t sync0_shift,
+        uint32_t sync1_cycle,
+        int32_t sync1_shift
+    ) const {
+        return this->func_ptrs.slave_config_dc(
+            sc,
+            assign_activate,
+            sync0_cycle,
+            sync0_shift,
+            sync1_cycle,
+            sync1_shift
+        );
+    }
+
+    /// @brief gives the time in nanoseconds of the cycle that the next send starts. IgH
+    /// aligns the SYNC0 events of each slave to the first time it gets.
+    [[nodiscard]] virtual int
+    master_application_time(ec_master_t *master, uint64_t app_time) const {
+        return this->func_ptrs.master_application_time(master, app_time);
+    }
+
+    /// @brief queues a datagram that moves the reference clock toward sync_time.
+    [[nodiscard]] virtual int
+    master_sync_reference_clock_to(ec_master_t *master, uint64_t sync_time) const {
+        return this->func_ptrs.master_sync_reference_clock_to(master, sync_time);
+    }
+
+    /// @brief queues a datagram that moves the clock of each slave toward the reference
+    /// clock.
+    [[nodiscard]] virtual int master_sync_slave_clocks(ec_master_t *master) const {
+        return this->func_ptrs.master_sync_slave_clocks(master);
+    }
+
+    /// @brief reads the low 32 bits of the reference clock time that the latest
+    /// received master_sync_slave_clocks datagram carried.
+    [[nodiscard]] virtual int
+    master_reference_clock_time(const ec_master_t *master, uint32_t *time) const {
+        return this->func_ptrs.master_reference_clock_time(master, time);
+    }
+
+    /// @brief reads words from the SII of the slave at position, which counts from 0,
+    /// starting at word offset. IgH reads the SII at its scan, so this makes no bus
+    /// traffic.
+    /// @returns 0, or a negative error code: -EINVAL when the words run past the end of
+    /// the SII.
+    [[nodiscard]] virtual int sii_read(
+        unsigned int master_index,
+        uint16_t position,
+        uint16_t offset,
+        std::span<uint16_t> words
+    ) const {
+        const std::string path = "/dev/EtherCAT" + std::to_string(master_index);
+        const int fd = ::open(path.c_str(), O_RDONLY);
+        if (fd < 0) return -errno;
+        ioctl::SII sii{
+            .slave_position = position,
+            .offset = offset,
+            .nwords = static_cast<uint32_t>(words.size()),
+            .words = words.data(),
+        };
+        const int ret = ::ioctl(fd, ioctl::SII_READ, &sii) < 0 ? -errno : 0;
+        ::close(fd);
+        return ret;
     }
 };
 }

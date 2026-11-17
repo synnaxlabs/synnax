@@ -20,8 +20,22 @@
 
 /// @brief parsers for the categories of a slave's SII (EEPROM).
 namespace driver::ethercat::sii {
+/// @brief the SII word where the categories start.
+constexpr uint16_t CATEGORIES = 0x40;
+/// @brief the category type that ends the categories.
+constexpr uint16_t END = 0xFFFF;
+/// @brief the type of the strings category.
+constexpr uint16_t STRINGS = 10;
+/// @brief the type of the DC category.
+constexpr uint16_t DC = 60;
+
 /// @brief returns the SII string at index, or an empty string when index is 0.
 using Strings = std::function<std::string(uint8_t index)>;
+
+/// @brief parses the strings category. data holds the category after its length word.
+/// @returns a lookup that gives an empty string for an index the category does not
+/// hold.
+Strings parse_strings(std::span<const uint8_t> data);
 
 /// @brief parses a TxPDO or RxPDO category. data holds the category after its length
 /// word. Keeps only the PDOs on a sync manager that keep accepts, and leaves out a PDO

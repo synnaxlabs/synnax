@@ -24,6 +24,21 @@ uint32_t read(const std::span<const uint8_t> data, const size_t offset, const in
 }
 }
 
+Strings parse_strings(const std::span<const uint8_t> data) {
+    std::vector<std::string> strings;
+    const size_t count = data.empty() ? 0 : data[0];
+    for (size_t off = 1; strings.size() < count && off < data.size();) {
+        const size_t size = data[off];
+        if (off + 1 + size > data.size()) break;
+        strings.emplace_back(data.begin() + off + 1, data.begin() + off + 1 + size);
+        off += 1 + size;
+    }
+    return [strings = std::move(strings)](const uint8_t index) {
+        if (index == 0 || index > strings.size()) return std::string();
+        return strings[index - 1];
+    };
+}
+
 std::vector<pdo::PDO> parse_pdos(
     const std::span<const uint8_t> data,
     const std::function<bool(uint8_t sync)> &keep,
