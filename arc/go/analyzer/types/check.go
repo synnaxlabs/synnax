@@ -51,29 +51,6 @@ func Check(
 		}
 	}
 
-	// Check for wrapped type mismatch (series vs scalar, chan vs scalar) Skip this
-	// check if either type is a variable - let the constraint system handle it
-	t1Wrapped := t1.Kind == types.KindChan || t1.Kind == types.KindSeries
-	t2Wrapped := t2.Kind == types.KindChan || t2.Kind == types.KindSeries
-	if t1Wrapped != t2Wrapped && t1.Kind != types.KindVariable &&
-		t2.Kind != types.KindVariable {
-		resolved1 := cs.ApplySubstitutions(t1)
-		resolved2 := cs.ApplySubstitutions(t2)
-		if reason != "" {
-			return codes.TypeMismatch.Errorf(
-				"type mismatch: cannot assign %v to %v in %s",
-				resolved2,
-				resolved1,
-				reason,
-			)
-		}
-		return codes.TypeMismatch.Errorf(
-			"type mismatch: cannot assign %v to %v",
-			resolved2,
-			resolved1,
-		)
-	}
-
 	if t1.Kind == types.KindVariable && t2.Kind == types.KindVariable &&
 		t2.Constraint != nil {
 		// The untyped value takes the target's type, and never changes it, so a later
