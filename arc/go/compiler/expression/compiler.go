@@ -363,16 +363,17 @@ func compileIndexOrSlice(
 	}
 
 	var startExpr, endExpr parser.IExpressionContext
-	if len(expressions) == 1 {
+	switch {
+	case len(expressions) == 1:
 		if indexOrSlice.GetChild(1) == expressions[0] {
 			startExpr = expressions[0]
 		} else {
 			endExpr = expressions[0]
 		}
-	} else if len(expressions) == 2 {
+	case len(expressions) == 2:
 		startExpr = expressions[0]
 		endExpr = expressions[1]
-	} else {
+	default:
 		return types.Type{}, errors.Newf(
 			"expected 1 or 2 items in slice expression, received %v",
 			len(expressions),

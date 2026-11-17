@@ -357,11 +357,12 @@ func (i *Domain) Stamp(
 		}
 		err = span.EndWith(err, ErrDiscontinuous)
 	}()
-	if offset == 0 {
+	switch {
+	case offset == 0:
 		approx, err = i.zeroStamp(ctx, ref)
-	} else if offset < 0 {
+	case offset < 0:
 		approx, err = i.backwardStamp(ctx, ref, offset, continuous)
-	} else {
+	default:
 		approx, err = i.forwardStamp(ctx, ref, offset, continuous)
 	}
 	return approx, err
@@ -804,11 +805,12 @@ func (i *Domain) search(
 		if midTs, err = read(r, byteSize(mid)); err != nil {
 			return Exactly[int64](0), err
 		}
-		if ts == midTs {
+		switch {
+		case ts == midTs:
 			return Exactly(mid), nil
-		} else if midTs < ts {
+		case midTs < ts:
 			start = mid + 1
-		} else {
+		default:
 			end = mid - 1
 		}
 	}

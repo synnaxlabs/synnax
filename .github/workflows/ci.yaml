@@ -374,6 +374,7 @@ jobs:
       coverage_flag: client-py
       coverage_module: synnax
       directory: client/py
+      free_threaded: true
       macos: *full
       type_check_dir: ./synnax ./examples ./tests
       windows: *full
@@ -1243,6 +1244,7 @@ jobs:
       coverage_flag: x-py
       coverage_module: x
       directory: x/py
+      free_threaded: true
       macos: *full
       windows: *full
     secrets:

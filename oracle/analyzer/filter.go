@@ -554,7 +554,7 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 		}
 	}
 	// The request refers to the ordering types, so they resolve first.
-	created := append(ordering, resolution.Type{
+	created := append(slices.Clone(ordering), resolution.Type{
 		Name: "RetrieveRequest",
 		Form: resolution.StructForm{Fields: request},
 		Domains: withDoc(domains, fmt.Sprintf(

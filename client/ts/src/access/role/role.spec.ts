@@ -151,7 +151,7 @@ describe("role", () => {
       await expect(client.access.roles.delete(held.key)).rejects.toThrow(
         new ValidationError(
           `cannot delete role ${held.name} because user ${u.name} ` +
-            "uses it as its role: validation error",
+            "uses it as its role",
         ),
       );
       expect(expectLive(client.access.roles.watch(held.key).getCached()).key).toEqual(

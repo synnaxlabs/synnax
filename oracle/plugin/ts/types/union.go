@@ -138,7 +138,7 @@ func (p *Plugin) processUnion(
 					if !resolver.ParentsExist(bases, "ts", table) {
 						bases, declared = resolver.VariantBases(form, v, "ts", table)
 					}
-					fields = append(declared, pform.Fields...)
+					fields = slices.Concat(declared, pform.Fields)
 				}
 			}
 		}

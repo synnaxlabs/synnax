@@ -123,7 +123,7 @@ type archiveEntry struct {
 
 func readArchive(file string) []archiveEntry {
 	GinkgoHelper()
-	f := MustSucceed(os.Open(file))
+	f := MustSucceed(os.Open(filepath.Clean(file)))
 	defer func() { Expect(f.Close()).To(Succeed()) }()
 	r := tar.NewReader(f)
 	var read []archiveEntry
@@ -153,7 +153,7 @@ func archiveEntries(file string) []string {
 func dropFromArchive(file, dir string) {
 	GinkgoHelper()
 	read := readArchive(file)
-	f := MustSucceed(os.Create(file))
+	f := MustSucceed(os.Create(filepath.Clean(file)))
 	w := tar.NewWriter(f)
 	for _, e := range read {
 		if strings.HasPrefix(e.header.Name, dir+"/") {

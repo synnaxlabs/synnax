@@ -657,11 +657,12 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 		rejectTransitionIntoBranch(ctx.Child(entry))
 	}
 
-	if len(nodesBefore) == 0 && len(nodesAfter) > 0 {
+	switch {
+	case len(nodesBefore) == 0 && len(nodesAfter) > 0:
 		analyzeInputRoutingTable(ctx, nodesAfter)
-	} else if len(nodesBefore) > 0 {
+	case len(nodesBefore) > 0:
 		analyzeOutputRoutingTable(ctx, nodesBefore, nodesAfter)
-	} else {
+	default:
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
 			"routing table must have associated flow nodes",

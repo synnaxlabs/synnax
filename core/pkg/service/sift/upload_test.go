@@ -59,13 +59,13 @@ var _ = Describe("Upload", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		f = MustOpen(sift.OpenFactory(factoryConfig()))
-		server = MustOpen(fake.Open(fake.Config{APIKey: apiKey}))
+		server = MustOpen(fake.Open(fake.Config{APIKey: fakeKey}))
 		t = newTask(ctx, sift.ScanTaskType, msgpack.EncodedJSON{"rate": 1})
 		configure(ctx)
 		DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 		dev = createDevice(ctx, sift.Properties{
 			URI:    server.Address(),
-			APIKey: createAPIKey(ctx, apiKey),
+			APIKey: createAPIKey(ctx, fakeKey),
 		})
 		idx = createIndex(ctx)
 		ch = createData(ctx, idx)

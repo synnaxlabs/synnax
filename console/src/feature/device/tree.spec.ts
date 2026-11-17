@@ -172,9 +172,7 @@ describe("device/tree", () => {
       expect(statuses).toContainEqual(
         expect.objectContaining({
           message: "Failed to delete device",
-          description:
-            `cannot delete device ${dev.name} because task ${task.name} uses it: ` +
-            "validation error",
+          description: `cannot delete device ${dev.name} because task ${task.name} uses it`,
         }),
       ),
     );

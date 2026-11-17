@@ -1008,14 +1008,15 @@ func (p *Plugin) processStruct(
 			for _, field := range form.Fields {
 				parentField, existsInParent := parentFields[field.Name]
 				if existsInParent {
-					if isFieldUnchanged(parentField, field) {
+					switch {
+					case isFieldUnchanged(parentField, field):
 						continue
-					} else if isOnlyOptionalityChange(parentField, field) {
+					case isOnlyOptionalityChange(parentField, field):
 						sd.PartialFields = append(
 							sd.PartialFields,
 							fieldData{TSName: FieldName(field.Name)},
 						)
-					} else {
+					default:
 						sd.OmittedFields = append(
 							sd.OmittedFields,
 							FieldName(field.Name),
@@ -1970,7 +1971,8 @@ func (p *Plugin) processField(
 			fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
 		}
 	} else if isAnyOptional {
-		if isUnionField(field, table) {
+		switch {
+		case isUnionField(field, table):
 			// Optional union-typed fields tolerate null: the Go side
 			// marshals a nil-variant union as null.
 			addXImport(data, xImport{name: "zod", submodule: "zod"})
@@ -1979,9 +1981,9 @@ func (p *Plugin) processField(
 				"ReturnType<typeof zod.nullToUndefined<%s>>",
 				fd.ZodSchemaType,
 			)
-		} else if !field.Type.IsTypeParam() {
+		case !field.Type.IsTypeParam():
 			fd.ZodType += ".optional()"
-		} else if field.Optional {
+		case field.Optional:
 			// Optional (?) on a type-param field: the field is ALWAYS
 			// optional, even when a caller passes a concrete schema. Wrap the
 			// whole "param ?? fallback" expression in .optional() so caller
@@ -2754,11 +2756,12 @@ func (p *Plugin) applyValidation(
 	// A @ts type override (e.g. a telem.Rate field surfaced as a plain "number"
 	// in TypeScript) drives both the validation rules and the default literal off
 	// the overridden primitive, not the underlying schema type.
-	if tsTypeOverride == "number" {
+	switch {
+	case tsTypeOverride == "number":
 		effectiveType = "float64"
-	} else if tsTypeOverride != "" {
+	case tsTypeOverride != "":
 		effectiveType = tsTypeOverride
-	} else if !resolution.IsPrimitive(effectiveType) {
+	case !resolution.IsPrimitive(effectiveType):
 		// A named numeric or string type (e.g. a distinct Key over uint32) carries its
 		// constraints on the underlying primitive, so classify by that base. A
 		// hand-written schema may not be a zod number, so it keeps its own name.
@@ -2929,7 +2932,7 @@ func (p *Plugin) applyValidation(
 			if defaultVal.IdentValue == "now" &&
 				telem.IsTimeStamp(typeRef, table, "ts") {
 				addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
-				zodType = zodType + ".default(() => TimeStamp.now())"
+				zodType += ".default(() => TimeStamp.now())"
 			}
 			// Handle "create" for auto-generating keys. uuid keys generate a UUID via
 			// uuid.create(); string keys generate a short id via id.create(). uuid is a
@@ -2939,10 +2942,10 @@ func (p *Plugin) applyValidation(
 			if defaultVal.IdentValue == "create" {
 				if primitive == "uuid" {
 					addXImport(data, xImport{name: "uuid", submodule: "uuid"})
-					zodType = zodType + ".default(uuid.create)"
+					zodType += ".default(uuid.create)"
 				} else if isString || primitive == "string" {
 					addXImport(data, xImport{name: "id", submodule: "id"})
-					zodType = zodType + ".default(id.create)"
+					zodType += ".default(id.create)"
 				}
 			}
 			if ev, ok := validation.ResolveEnumVariant(
