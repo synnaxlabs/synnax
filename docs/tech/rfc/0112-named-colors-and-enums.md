@@ -15,9 +15,7 @@
 A named color is a Core record with a light value and an optional dark value. An enum is
 a Core record that maps exact values to names and colors. A state symbol holds the key
 of its enum, and a plot line holds the key of a named color. No record binds a color by
-position, and only a migrated custom symbol holds a copy of a state color, for the
-colors that no enum can carry. This RFC replaces the library items section (§4.0) of the
-general-purpose schematic RFC draft.
+position, and a node holds no copy of a state color.
 
 ## 1 Motivation
 
@@ -48,8 +46,9 @@ general-purpose schematic RFC draft.
 
 ## 3 Principles
 
-1. **One place for each fact**: A symbol holds the key of an enum, never a copy of its
-   colors. A migrated custom symbol keeps only the colors that no enum can carry.
+1. **One place for each fact**: A node holds the key of an enum, never a copy of its
+   colors. A custom symbol can still give a part a fixed color for a state through a
+   `color` look.
 2. **Bind by key**: Never by position, name, or hash.
 3. **A delete leaves every user colored**: A deleted named color stays as a fixed color.
    An enum in use refuses the delete.
