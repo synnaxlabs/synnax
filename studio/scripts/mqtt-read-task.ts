@@ -31,7 +31,7 @@ export default serverTaskScript(MQTT, {
     await submitDiscover(session, dialog, form, "Add 2 fields");
 
     const temperature = form.getByRole("treeitem").filter({
-      has: form.getByRole("checkbox", { name: "Read temperature", exact: true }),
+      has: form.page().getByRole("checkbox", { name: "Read temperature", exact: true }),
     });
     await session.waitFor(temperature);
     await session.click(temperature.getByText("temperature", { exact: true }), {

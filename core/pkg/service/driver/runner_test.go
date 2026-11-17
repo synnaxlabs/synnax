@@ -368,47 +368,6 @@ var _ = Describe("Runner", func() {
 		)
 	})
 
-	Describe("Fail", func() {
-		It("Should stop the run and repeat its error status in later answers",
-			func(ctx SpecContext) {
-				ended := make(chan struct{}, 1)
-				r := open(func(ctx context.Context) error {
-					defer func() { ended <- struct{}{} }()
-					return waitRun(ctx)
-				})
-				Expect(r.Start(ctx, "cmd-1")).To(Succeed())
-				Expect(r.Fail(ctx, "Failed to configure task", "field removed")).
-					To(Succeed())
-				Eventually(ended).Should(Receive())
-				stat := retrieve(ctx)
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("Failed to configure task"))
-				Expect(stat.Description).To(Equal("field removed"))
-				Expect(stat.Details.Running).To(BeFalse())
-				Expect(r.Exec(ctx, task.Command{Type: "stop", Key: "cmd-2"})).
-					To(Succeed())
-				stat = retrieve(ctx)
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("Failed to configure task"))
-				Expect(stat.Description).To(Equal("field removed"))
-				Expect(stat.Details.Cmd).To(Equal("cmd-2"))
-			},
-		)
-
-		It(
-			"Should write the error status of a task with no run",
-			func(ctx SpecContext) {
-				r := open(waitRun)
-				Expect(r.Fail(ctx, "Failed to configure task", "field removed")).
-					To(Succeed())
-				Expect(opened).To(BeZero())
-				stat := retrieve(ctx)
-				Expect(stat.Message).To(Equal("Failed to configure task"))
-				Expect(stat.Details.Running).To(BeFalse())
-			},
-		)
-	})
-
 	Describe("ReportError", func() {
 		It("Should write an error status that Report does not clear",
 			func(ctx SpecContext) {

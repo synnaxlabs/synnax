@@ -329,11 +329,21 @@ const appendFields = (
   return appended;
 };
 
-const createMessage = (topic: string, fields: icd.JSONField[]): icd.Message => ({
-  key: uuid.create(),
-  name: topic === "" ? "Untitled" : topic,
-  payload: { format: "json", fields },
-});
+/**
+ * @returns a message for the fields of a topic, named after the topic. A name that a
+ * message in taken holds gets a number, such as `plant/oven 2`.
+ */
+const createMessage = (
+  topic: string,
+  fields: icd.JSONField[],
+  taken: icd.Message[],
+): icd.Message => {
+  const names = new Set(taken.map(({ name }) => name));
+  const base = topic === "" ? "Untitled" : topic;
+  let name = base;
+  for (let n = 2; names.has(name); n++) name = `${base} ${n}`;
+  return { key: uuid.create(), name, payload: { format: "json", fields } };
+};
 
 const entryOf = (
   icdKey: icd.Key,
@@ -369,7 +379,9 @@ const createICD = async (
   drafts: Draft[],
   bind: Bind,
 ): Promise<AddTopicsResult> => {
-  const messages = drafts.map(({ topic, fields }) => createMessage(topic, fields));
+  const messages: icd.Message[] = [];
+  for (const { topic, fields } of drafts)
+    messages.push(createMessage(topic, fields, messages));
   const { key } = await client.icds.create({ name, messages });
   const added = drafts.map((d, i) =>
     entryOf(key, d.topic, {
@@ -428,7 +440,7 @@ const addTopics = async ({
         continue;
       }
       const prior = messages.get(key) ?? [];
-      const created = createMessage(draft.topic, draft.fields);
+      const created = createMessage(draft.topic, draft.fields, prior);
       inserterOf(key).insert(PICD.formPath.messages, created, prior.at(-1)?.key);
       messages.set(key, [...prior, created]);
       const bindings = bind(draft, draft.fields, created.key);
