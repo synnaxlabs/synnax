@@ -563,21 +563,22 @@ Channel struct {
 			To(MatchError(ContainSubstring("failed to parse")))
 	})
 
-	It("Should reject an ambiguous dependency namespace", func(ctx SpecContext) {
+	It("Should reject a surface that references two resources of one namespace", func(
+		ctx SpecContext,
+	) {
 		write("schemas/x/versions/status/v0.oracle", "Code = int64\n")
 		write("schemas/synnax/status.oracle", "Info struct {\n\tmessage string\n}\n")
 		write("schemas/synnax/versions/channel/v0.oracle", `
 import "schemas/x/versions/status/v0"
 
-Channel struct {
-	key uuid @key
+Holder struct {
 	code status.Code
-
-	@go marshal
 }
 `)
 		write("schemas/synnax/versions/channel/v1.oracle", `
 import "schemas/synnax/status"
+
+Holder = v0.Holder
 
 Channel struct {
 	key uuid @key
@@ -589,8 +590,41 @@ Channel struct {
 }
 `)
 		r, chain := resolver()
-		Expect(versions.MergeLive(ctx, r, chain, "")).Error().
-			To(MatchError(ContainSubstring("namespace status is ambiguous")))
+		Expect(versions.MergeLive(ctx, r, chain, "")).Error().To(MatchError(
+			"namespace status is ambiguous between schemas/synnax/status and " +
+				"schemas/x/status",
+		))
+	})
+
+	It("Should import only the namespace the current surface references", func(
+		ctx SpecContext,
+	) {
+		write("schemas/x/versions/status/v0.oracle", "Code = int64\n")
+		write("schemas/x/status.oracle", "Code = int64\n")
+		write("schemas/synnax/versions/status/v0.oracle", "Level = int64\n")
+		write("schemas/synnax/status.oracle", "Level = int64\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/status/v0"
+
+Channel struct {
+	key uuid @key
+	code status.Code
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", `
+import "schemas/synnax/versions/status/v0"
+
+Channel struct extends v0.Channel {
+	code status.Level
+}
+`)
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, ""))
+		Expect(merged).To(ContainSubstring(`import "schemas/synnax/status"`))
+		Expect(merged).ToNot(ContainSubstring(`import "schemas/x/status"`))
+		Expect(merged).To(ContainSubstring("code status.Level"))
 	})
 
 	It("Should carry live-owned enum value annotations", func(ctx SpecContext) {

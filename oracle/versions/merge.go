@@ -55,7 +55,7 @@ func MergeLive(
 		return "", errors.Wrapf(err, "failed to parse %s.oracle", livePath)
 	}
 
-	nsToPath, err := chainNamespacePaths(r, chain)
+	importsOf, err := importsByVersion(r, chain)
 	if err != nil {
 		return "", err
 	}
@@ -110,7 +110,7 @@ func MergeLive(
 		},
 	}
 
-	imports := set.New(lc.imports...)
+	referenced := make(set.Set[string])
 	var parts []string
 	rendered := make(set.Set[string])
 	renderMember := func(name string) {
@@ -146,10 +146,9 @@ func MergeLive(
 				continue
 			}
 			if live, _, ok := ParseDepNS(ns); ok {
-				ns = resourceOf(live)
-			}
-			if p, ok := nsToPath[ns]; ok {
-				imports.Add(p)
+				referenced.Add(live)
+			} else if p, ok := importsOf[def.Version][ns]; ok {
+				referenced.Add(p)
 			}
 		}
 		parts = append(parts, strings.TrimSuffix(Render([]Decl{{Type: t}}, opts), "\n"))
@@ -169,10 +168,12 @@ func MergeLive(
 		}
 		renderMember(name)
 	}
+	importList, err := liveImportList(lc.imports, referenced)
+	if err != nil {
+		return "", err
+	}
 
 	var b strings.Builder
-	importList := imports.Slice()
-	slices.Sort(importList)
 	for _, imp := range importList {
 		fmt.Fprintf(&b, "import %q\n", imp)
 	}
@@ -234,37 +235,47 @@ func checkErasedDocs(
 	)
 }
 
-// chainNamespacePaths maps each dependency resource namespace a chain's files can
-// reference to its live import path, unioned across every version file.
-func chainNamespacePaths(
-	r *Resolver, chain Chain,
-) (map[string]string, error) {
-	m := make(map[string]string)
-	add := func(livePath string) error {
-		ns := resourceOf(livePath)
-		if existing, ok := m[ns]; ok && existing != livePath {
-			return errors.Newf(
-				"namespace %s is ambiguous between %s and %s", ns, existing, livePath,
+// liveImportList returns the sorted imports of a merged live file: the live file's own
+// imports plus each referenced dependency path. It returns an error when two referenced
+// dependencies share a resource namespace, since the live file can import only one.
+func liveImportList(own []string, referenced set.Set[string]) ([]string, error) {
+	byNS := make(map[string]string)
+	for _, p := range slices.Sorted(maps.Keys(referenced)) {
+		ns := resourceOf(p)
+		if existing, ok := byNS[ns]; ok {
+			return nil, errors.Newf(
+				"namespace %s is ambiguous between %s and %s", ns, existing, p,
 			)
 		}
-		m[ns] = livePath
-		return nil
+		byNS[ns] = p
 	}
+	imports := set.New(own...)
+	imports.Add(referenced.Slice()...)
+	list := imports.Slice()
+	slices.Sort(list)
+	return list, nil
+}
+
+// importsByVersion maps each version of a chain to the live path of each dependency its
+// file
+// imports, keyed by resource namespace. A declaration resolves the namespaces it
+// references through the imports of the file that declares it, inherited fields
+// included.
+func importsByVersion(r *Resolver, chain Chain) (map[int]map[string]string, error) {
+	m := make(map[int]map[string]string, len(chain.Numbers))
 	for _, k := range chain.Numbers {
 		f, err := r.File(chain.LivePath(), k)
 		if err != nil {
 			return nil, err
 		}
-		for depLive := range f.Pins {
-			if err := add(depLive); err != nil {
-				return nil, err
-			}
+		byNS := make(map[string]string, len(f.Pins)+len(f.LivePaths))
+		for p := range f.Pins {
+			byNS[resourceOf(p)] = p
 		}
 		for _, p := range f.LivePaths {
-			if err := add(p); err != nil {
-				return nil, err
-			}
+			byNS[resourceOf(p)] = p
 		}
+		m[k] = byNS
 	}
 	return m, nil
 }
