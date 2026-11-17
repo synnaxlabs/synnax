@@ -10,10 +10,9 @@
 
 import Admin from "@/layouts/Admin.astro";
 import { requireStaff } from "@/access";
-import { failure, loadScoped } from "@/page";
+import { failure, type LicenseList, loadScoped, readLicenses } from "@/page";
 import { Page } from "@/ui/Page";
 import { Admin as Console } from "@/ui/admin";
-import { type Held, type Owned, listAll } from "@/server/license/list";
 import { type Listed } from "@/server/directory";
 
 const loaded = await loadScoped(Astro);
@@ -22,11 +21,11 @@ const { portal, session, organizations, scope } = loaded;
 
 let error: string | undefined;
 let teams: Listed[] = [];
-let licenses: (Owned & Held)[] = [];
+let list: LicenseList | undefined;
 try {
     requireStaff(session);
     teams = await portal.directory.teams();
-    licenses = await listAll(portal.store.query);
+    list = await readLicenses(portal, Astro.url);
 } catch (err) {
     const f = failure(err);
     Astro.response.status = f.status;
@@ -41,14 +40,9 @@ try {
     scope={scope}
     section="licenses"
 >
-    {error != null ? (
+    {list == null ? (
         <Page title="Licenses" error={error} />
     ) : (
-        <Console.Licenses
-            client:load
-            teams={teams}
-            licenses={licenses}
-            now={portal.now()}
-        />
+        <Console.Licenses client:load teams={teams} {...list} now={portal.now()} />
     )}
 </Admin>

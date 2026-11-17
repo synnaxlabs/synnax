@@ -8,12 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { type APIContext } from "astro";
+import { z } from "zod";
 
 import { type Portal } from "@/portal";
 import { type Organization, type OrganizationKind } from "@/server/db/schema";
 import { ADMIN_ROLE } from "@/server/directory";
 import { badRequest, HTTPError } from "@/server/errors";
 import { isCategory, list, type Page, type Query } from "@/server/event";
+import {
+  listPage,
+  type Page as LicensePage,
+  type Query as LicenseQuery,
+} from "@/server/license/list";
+import { isStatus } from "@/server/license/status";
 import { organizationsFor, pick } from "@/server/organization";
 import { type Session } from "@/server/session";
 import { landing, scoped } from "@/shell";
@@ -144,4 +151,46 @@ export const readActivity = async (
     olderHref = `${older.pathname}${older.search}`;
   }
   return { page, actors, olderHref };
+};
+
+/** LicenseList is a page of the license list as the staff page shows it. */
+export interface LicenseList {
+  page: LicensePage;
+  /** query is the search, status, and page the URL asks for. */
+  query: LicenseQuery;
+  /** nextHref links the next page, or is null on the last one. */
+  nextHref: string | null;
+}
+
+/**
+ * readLicenses reads the page of every license that the URL's `search`, `status`, and
+ * `after` parameters ask for. Staff only.
+ * @throws {HTTPError} 400 for a parameter that is not valid.
+ */
+export const readLicenses = async (
+  { store, now }: Portal,
+  url: URL,
+): Promise<LicenseList> => {
+  const params = url.searchParams;
+  const query: LicenseQuery = {};
+  const search = params.get("search")?.trim();
+  if (search != null && search !== "") query.search = search;
+  const status = params.get("status");
+  if (status != null) {
+    if (!isStatus(status)) throw badRequest("Invalid status");
+    query.status = status;
+  }
+  const after = params.get("after");
+  if (after != null) {
+    if (!z.uuid().safeParse(after).success) throw badRequest("Invalid page");
+    query.after = after;
+  }
+  const page = await listPage(store.query, query, now());
+  let nextHref: string | null = null;
+  if (page.next != null) {
+    const next = new URL(url);
+    next.searchParams.set("after", page.next);
+    nextHref = `${next.pathname}${next.search}`;
+  }
+  return { page, query, nextHref };
 };

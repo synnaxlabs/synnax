@@ -22,7 +22,7 @@ import {
   vi,
 } from "vitest";
 
-import { NOW } from "@/server/license/testutil";
+import { LICENSE, NOW } from "@/server/license/testutil";
 import { Admin } from "@/ui/admin";
 
 const chooseTerm = (current: string, next: string): void => {
@@ -50,22 +50,87 @@ describe("Admin.Licenses", () => {
     vi.unstubAllGlobals();
   });
 
-  beforeEach(() => {
-    render(
-      <Admin.Licenses
-        teams={[{ clerkOrgID: "org_acme", name: "Acme" }]}
-        licenses={[]}
-        now={NOW}
-      />,
-    );
-    fireEvent.click(screen.getByText("Issue a license"));
-  });
-
   afterEach(() => {
     cleanup();
   });
 
+  describe("list", () => {
+    const entry = {
+      license: LICENSE,
+      organization: {
+        key: LICENSE.organization,
+        kind: "team" as const,
+        name: "Acme",
+        clerkOrgID: "org_acme",
+        ownerUserID: null,
+        desktopChannels: null,
+        createdAt: NOW,
+      },
+      seats: 0,
+    };
+
+    it("should show the total and link the next page", () => {
+      render(
+        <Admin.Licenses
+          teams={[]}
+          page={{ entries: [entry], total: 51, next: LICENSE.key }}
+          query={{ status: "active" }}
+          nextHref={`/admin/licenses?status=active&after=${LICENSE.key}`}
+          now={NOW}
+        />,
+      );
+      expect(screen.queryByText("51 licenses")).not.toBeNull();
+      expect(screen.getByText("Next page").closest("a")?.getAttribute("href")).toBe(
+        `/admin/licenses?status=active&after=${LICENSE.key}`,
+      );
+      expect(screen.queryByText("First page")).toBeNull();
+    });
+
+    it("should link back to the first page, keeping the filter", () => {
+      render(
+        <Admin.Licenses
+          teams={[]}
+          page={{ entries: [entry], total: 51, next: null }}
+          query={{ search: "rig", after: LICENSE.key }}
+          nextHref={null}
+          now={NOW}
+        />,
+      );
+      expect(screen.getByText("First page").closest("a")?.getAttribute("href")).toBe(
+        "/admin/licenses?search=rig",
+      );
+      expect(screen.queryByText("Next page")).toBeNull();
+    });
+
+    it("should say when nothing matches the filter", () => {
+      render(
+        <Admin.Licenses
+          teams={[]}
+          page={{ entries: [], total: 0, next: null }}
+          query={{ status: "revoked" }}
+          nextHref={null}
+          now={NOW}
+        />,
+      );
+      expect(screen.queryByText("No licenses match")).not.toBeNull();
+      expect(screen.queryByText("0 licenses")).not.toBeNull();
+    });
+  });
+
   describe("issue dialog", () => {
+    beforeEach(() => {
+      render(
+        <Admin.Licenses
+          teams={[{ clerkOrgID: "org_acme", name: "Acme" }]}
+          page={{ entries: [], total: 0, next: null }}
+          query={{}}
+          nextHref={null}
+          now={NOW}
+        />,
+      );
+      fireEvent.click(screen.getByText("Issue a license"));
+    });
+
     it("should ask a subscription for its expiry only", () => {
       expect(screen.queryByText("Expires (UTC)")).not.toBeNull();
       expect(screen.queryByText("Maximum version")).toBeNull();
