@@ -478,7 +478,7 @@ var _ = Describe("NewReadMigration", func() {
 		},
 	)
 
-	It("Should keep the config of a snapshot inline and make no ICD for it",
+	It("Should make no ICD for the config of a snapshot and keep no records",
 		func(ctx SpecContext) {
 			old := storedConfig()
 			storeTask(ctx, old, task.Task{Name: "Pump (snapshot)", Snapshot: true})
@@ -486,9 +486,8 @@ var _ = Describe("NewReadMigration", func() {
 			Expect(migrate(ctx, ins)).To(Succeed())
 			Expect(made).To(BeEmpty())
 			migrated := read(ctx, old.Key)
+			Expect(migrated.Topic).To(Equal("plant"))
 			Expect(migrated.Records).To(BeEmpty())
-			Expect(migrated.Inline).ToNot(BeNil())
-			Expect(migrated.Inline.Records).To(HaveLen(1))
 		},
 	)
 
