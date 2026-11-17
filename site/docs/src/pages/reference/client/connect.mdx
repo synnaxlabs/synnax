@@ -172,15 +172,15 @@ arguments. It is part of the Python client. Run it in a terminal:
 sy login
 ```
 
-Answer the prompts. Press **Enter** to keep the default in parentheses:
+Answer the prompts. Press **Enter** to keep the default in brackets:
 
 ```
 Enter your Synnax connection parameters:
-Host (localhost): core.example.com
-Port (9090):
-Username (synnax): operator
+Host [localhost]: core.example.com
+Port [9090]:
+Username [synnax]: operator
 Password:
-Secure Connection? [y/n] (n):
+Secure connection? [y/N]:
 ```
 
 When you answer `y` to the secure prompt, the command also asks for the "CA certificate
@@ -201,8 +201,8 @@ The command saves the host, port, TLS setting, and CA certificate path in
 `~/.synnax/config.json`. It saves the API key in the keychain of your operating system,
 under the name `synnax.api_key`. It does not save your username or password, and it
 deletes a password that an older version saved. In the Console, the key shows in
-**Manage sign-in** for your user. When the login fails, the command saves nothing. Run
-`sy login` again to change the values.
+**Manage sign-in** for your user. When the login fails, the command prints why, saves
+nothing, and exits with code 1. Run `sy login` again to change the values.
 
 With no saved login, `sy.Synnax()` connects to
 [Synnax Desktop](#connect-to-synnax-desktop). When neither is saved, it raises

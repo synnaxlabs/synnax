@@ -12,9 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from synnax.cli import connect, console
-from synnax.cli.flow import Context
+from synnax.cli import connect
 from synnax.config import Clusters, File
+from tests.cli.scripted import Scripted
 from tests.memory_keyring import MemoryKeyring
 
 
@@ -36,14 +36,43 @@ class TestPromptedConnection:
     def test_connects_to_prompted_address(
         self, clusters: Clusters, closed_port: int
     ) -> None:
-        """Should connect to the host and port from the prompt responses."""
-        mock = console.Mock(
-            responses=["127.0.0.1", closed_port, "admin", "secret", False]
+        """Should connect to the host and port from the answers."""
+        user = Scripted("127.0.0.1", closed_port, "admin", "secret", "n")
+        assert not connect.login(user.prompt, clusters)
+        assert not any("CA certificate" in q for q in user.questions)
+        assert user.err.getvalue().splitlines()[-1] == (
+            f"Cannot reach Synnax server at 127.0.0.1:{closed_port}"
         )
-        connect.login(Context(console=mock), clusters)
-        messages = [e.message or "" for e in mock.output.entries]
-        assert not any("CA certificate" in m for m in messages)
-        assert messages[-1] == f"Cannot reach Synnax server at 127.0.0.1:{closed_port}"
+        assert clusters.get() is None
+
+    def test_defaults(self, clusters: Clusters) -> None:
+        """Should use the default host, port, and username for empty answers."""
+        user = Scripted("", "", "", "secret", "")
+        assert not connect.login(user.prompt, clusters)
+        assert user.questions == [
+            "Host [localhost]: ",
+            "Port [9090]: ",
+            "Username [synnax]: ",
+            "Password: ",
+            "Secure connection? [y/N]: ",
+        ]
+
+    def test_asks_again_for_a_port_that_is_not_an_integer(
+        self, clusters: Clusters, closed_port: int
+    ) -> None:
+        """Should ask for the port again until the answer is an integer."""
+        user = Scripted("127.0.0.1", "abc", closed_port, "admin", "secret", "n")
+        assert not connect.login(user.prompt, clusters)
+        assert user.questions.count("Port [9090]: ") == 2
+        assert "'abc' is not an integer." in user.err.getvalue()
+
+    def test_asks_again_for_an_unknown_yes_or_no(
+        self, clusters: Clusters, closed_port: int
+    ) -> None:
+        """Should ask the secure question again until the answer is yes or no."""
+        user = Scripted("127.0.0.1", closed_port, "admin", "secret", "maybe", "n")
+        assert not connect.login(user.prompt, clusters)
+        assert user.questions.count("Secure connection? [y/N]: ") == 2
 
     @pytest.mark.parametrize("contents", [None, "not a certificate"])
     def test_bad_ca_cert(
@@ -60,8 +89,7 @@ class TestPromptedConnection:
         if contents is not None:
             ca_cert.write_text(contents)
         monkeypatch.chdir(tmp_path)
-        mock = console.Mock(
-            responses=["127.0.0.1", closed_port, "admin", "secret", True, "ca.crt"]
-        )
-        connect.login(Context(console=mock), clusters)
-        assert str(ca_cert.resolve()) in (mock.output.entries[-1].message or "")
+        user = Scripted("127.0.0.1", closed_port, "admin", "secret", "y", "ca.crt")
+        assert not connect.login(user.prompt, clusters)
+        assert user.questions[-1] == "CA certificate path (empty for system roots): "
+        assert str(ca_cert.resolve()) in user.err.getvalue().splitlines()[-1]
