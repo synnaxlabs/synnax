@@ -31,6 +31,7 @@ import { Access, Channel, ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/plu
 import {
   DataType,
   deep,
+  errors,
   type payload,
   primitive,
   type record,
@@ -1071,7 +1072,11 @@ const TopicDetails: FC<TopicDetailsProps> = ({
   onAddMessage,
 }) => {
   const isPreview = Task.useIsPreview();
-  const reads = PForm.useFieldValue(path.messages).length;
+  const reads = PForm.useFieldValue(path.messages);
+  const encoding = PForm.useFieldValue(
+    PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload.format,
+    { optional: true, ctx: format },
+  );
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
@@ -1080,7 +1085,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
           actions={
             !isPreview && (
               <>
-                {reads === 1 && <AddField onClick={onAddField} />}
+                {encoding === "json" && <AddField onClick={onAddField} />}
                 <Button.Button variant="text" size="small" onClick={onAddMessage}>
                   <Icon.Add />
                   Add message
@@ -1102,7 +1107,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
             padHelpText={false}
           />
         </PForm.Section>
-        {reads === 1 && (
+        {reads.length === 1 && (
           <MessageSections path={path} read={0} format={format} device={device} />
         )}
       </PForm.Sections>
@@ -1364,9 +1369,13 @@ const Entries: FC<EntriesProps> = ({
     handleError(async () => {
       if (adding.current) return;
       adding.current = true;
-      await add().finally(() => {
+      try {
+        await add();
+      } catch (e) {
         adding.current = false;
-      });
+        throw errors.fromUnknown(e);
+      }
+      adding.current = false;
     }, "Failed to add data");
 
   /**
@@ -1405,6 +1414,18 @@ const Entries: FC<EntriesProps> = ({
       ]),
     );
     onSelect([messageNodeKey(entryKey, message.key)]);
+  };
+
+  /** Whether the ICD holds the message of a read of a topic, as JSON. */
+  const holdsJSON = (entryKey: string, read: number): boolean => {
+    const { icd: icdKey, messages } = ctx.get(plainPath(entryKey)).value;
+    const message = messages[read].message;
+    return (
+      formats
+        .get(icdKey)
+        ?.value()
+        .messages.find(({ key }) => key === message)?.payload.format === "json"
+    );
   };
 
   /** Adds a field to a message of a topic and to its ICD, reads it, and selects it. */
@@ -1502,9 +1523,17 @@ const Entries: FC<EntriesProps> = ({
         ? only.entry
         : undefined;
     let addField: (() => void) | undefined;
-    if (chosen.length === 1 && only.kind === "message")
+    if (
+      chosen.length === 1 &&
+      only.kind === "message" &&
+      holdsJSON(only.entry, only.read)
+    )
       addField = () => handleAddField(only.entry, only.read);
-    else if (topic != null && ctx.get(plainPath(topic).messages).value.length === 1)
+    else if (
+      topic != null &&
+      ctx.get(plainPath(topic).messages).value.length === 1 &&
+      holdsJSON(topic, 0)
+    )
       addField = () => handleAddField(topic, 0);
     const fields = chosen.filter((n): n is FieldNode => n.kind === "field");
     let onRemove: (() => void) | undefined;
