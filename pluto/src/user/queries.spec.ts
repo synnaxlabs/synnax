@@ -119,7 +119,7 @@ describe("User queries", () => {
       });
       expect(result.current.variant).toEqual("error");
       expect(result.current.status.description).toEqual(
-        `cannot change the role of root user ${root.name}: validation error`,
+        `cannot change the role of root user ${root.name}`,
       );
       expect((await client.users.retrieve(root.key)).role).not.toEqual(role.key);
     });
