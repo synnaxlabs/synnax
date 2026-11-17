@@ -112,7 +112,7 @@ x::errors::Error Outbox::load(const std::uint64_t key, const std::uint64_t pos) 
     while (true) {
         auto [record, next_err] = reader->next();
         if (next_err) return next_err;
-        if (!record) return x::errors::NIL;
+        if (!record) break;
         auto [request, decode_err] = decode(*record);
         if (decode_err) return decode_err;
         this->calls.push_back({
@@ -122,6 +122,12 @@ x::errors::Error Outbox::load(const std::uint64_t key, const std::uint64_t pos) 
             .end = reader->pos(),
         });
     }
+    if (reader->cut() > 0) {
+        this->cut_bytes += reader->cut();
+        LOG(WARNING) << "[outbox] lost " << reader->cut() << " bytes at the end of "
+                     << this->segment_path(key).string();
+    }
+    return x::errors::NIL;
 }
 
 Outbox::~Outbox() {
@@ -303,6 +309,10 @@ x::errors::Error Outbox::remove_sent() {
 
 std::uint64_t Outbox::dropped() const {
     return this->dropped_count.load();
+}
+
+std::uint64_t Outbox::cut() const {
+    return this->cut_bytes;
 }
 
 std::uint64_t Outbox::refused() const {
