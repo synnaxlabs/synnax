@@ -214,18 +214,20 @@ The schematic cutover ships in one release:
   symbol's entry colors sets the colors of the node's enumeration. When any stroke or
   fill would then show a color other than its override, such as a second `entry` look
   whose override kept the symbol's colors, the node moves to a copy of the symbol that
-  keeps each such paint as a `color` look. Nodes with the same overrides share one copy.
-  A node whose overrides equal its symbol needs neither, so no node changes its look.
+  keeps each such paint as a `color` look. Nodes share one copy only when they have the
+  same source symbol and the same overrides. A node whose overrides equal its symbol
+  needs neither, so no node changes its look.
 - The upgrade runs as a composition migration, as panels do
   (`core/pkg/service/panel/versions/v0/composition.go:41-55`). An import passes the old
   state lists beside the converted schematic, and its write step
   (`core/pkg/service/schematic/imex.go:45-64`) makes the enumerations and the symbol
-  copies with the same function as the upgrade. An import reuses an enumeration or a
-  symbol copy with equal content among the records that the importer can retrieve, as
-  the upgrade shares them, and adds a new one otherwise. A copy goes into the group of
-  its source symbol. The import needs retrieve access on the source symbol of each copy
-  that it adds, create access for each record that it adds, and update access on the
-  group of each copy. A node that gets `missing` (RFC 0114 §4.5) keeps no overrides.
+  copies with the same function as the upgrade. An import reuses an enumeration with
+  equal content, or a symbol copy with the same source symbol and equal content, among
+  the records that the importer can retrieve, as the upgrade shares them, and adds a new
+  one otherwise. A copy goes into the group of its source symbol. The import needs
+  retrieve access on the source symbol of each copy that it adds, create access for each
+  record that it adds, and update access on the group of each copy. A node that gets
+  `missing` (RFC 0114 §4.5) keeps no overrides.
 - From phase 19, a schematic export bundles every enumeration that its nodes name. RFC
   0114 phase 1 adds the same to symbol files, and RFC 0114 phase 2 to the custom symbols
   and state bindings of a schematic file. An import matches a bundled enumeration by its
@@ -260,7 +262,8 @@ rows), and #5632 (`on_delete inline` in Oracle) are merged.
 Phase 16 ships behind a flag in `console/src/flags.ts` until phase 22 deletes it. Phases
 9 and 20, and the node picker of RFC 0114 phase 2, ship without a flag. Phases 10 and 11
 ship in one release, and phase 21 in one release with RFC 0114 phase 2. RFC 0114 phase 1
-needs phases 13 to 15, and phase 21 needs RFC 0114 phase 1.
+needs phases 13 to 15, phases 19 and 21 need RFC 0114 phase 1, and RFC 0114 phase 2
+needs phase 23.
 
 | Phase | Scope                                                      | Touches                                                                                                                                | Depends on     |
 | ----- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
@@ -287,7 +290,7 @@ needs phases 13 to 15, and phase 21 needs RFC 0114 phase 1.
 | 21    | Migrate inline state colors to enumerations                | `schemas/synnax`, `core/pkg/service/schematic`, `pluto/src/schematic`, `console`, `client/py`, `integration`                           | 20             |
 | 22    | Delete the enumeration editor flag                         | `console/src/flags.ts`                                                                                                                 | 21             |
 | 23    | Carry color references in multi-edit                       | `console/src/platform/multiedit`                                                                                                       | 8              |
-| 24    | Store color references in schematic symbol colors          | `schemas/synnax`, `core/pkg/service/schematic`, `client/ts`, `client/py`                                                               | 3, 23          |
+| 24    | Store color references in the other schematic node colors  | `schemas/synnax`, `core/pkg/service/schematic`, `client/ts`, `client/py`                                                               | 3, 23          |
 | 25    | Store color references in table colors                     | `schemas/synnax`, `core/pkg/service/table`, `client/ts`, `client/py`                                                                   | 3, 23          |
 | 26    | Store color references in log colors                       | `schemas/synnax`, `core/pkg/service/log`, `client/ts`, `client/py`                                                                     | 3, 23          |
 | 27    | Store color references in label colors                     | `schemas/synnax`, `core/pkg/service/label`, `client/ts`, `client/py`                                                                   | 3, 23          |
@@ -299,15 +302,18 @@ schematic version (RFC 0053) that drops `staleness_color`. Tables keep their own
 `staleness_color` and its color path in `pluto/src/vis`. Before RFC 0114 phase 2, only a
 `select` or `state_indicator` can match no entry. Phase 19 adds the `enumeration` field
 to `select` and `state_indicator`, and moves the schematic export off the generated
-single-record `Export` (`core/pkg/service/schematic/imex.gen.go`) so that it bundles
-enumerations. Phase 21 fills the field, and RFC 0114 phase 1 adds it to symbol states.
-Phase 20 adds the enumeration picker to the Pluto forms of `select` and
-`state_indicator`, and Pluto draws each from its `enumeration`, or from `options` when
-it has none. The picker leaves `options` as they are, so clearing the picker goes back
-to them until phase 21. RFC 0114 phase 2 adds the picker to node state bindings, and RFC
-0114 phase 4 to custom symbol states. RFC 0114 phase 1 stores a `color.Ref` in custom
-symbol looks from the start. In phase 28, the Driver writes range colors
-(`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
+single-record `Export` (`core/pkg/service/schematic/imex.gen.go`), on the Oracle `imex`
+option of RFC 0114 phase 1, so that it bundles enumerations. Phase 21 fills the field,
+and RFC 0114 phase 1 adds it to symbol states. Phase 20 adds the enumeration picker to
+the Pluto forms of `select` and `state_indicator`, and Pluto draws each from its
+`enumeration`, or from `options` when it has none. The picker leaves `options` as they
+are, so clearing the picker goes back to them until phase 21. RFC 0114 phase 2 adds the
+picker to node state bindings, and RFC 0114 phase 4 to custom symbol states. RFC 0114
+phase 1 stores a `color.Ref` in custom symbol looks from the start, and RFC 0114 phase 2
+in the `color` of a `symbol` node, which the schematic multi-edit panel edits through
+phase 23. Phase 24 covers the variants that keep their own colors (RFC 0114 §4.0). In
+phase 28, the Driver writes range colors (`driver/arc/ranges/ranges.h:46-52`) as
+`fixed`.
 
 ## 7 Resolved decisions
 
