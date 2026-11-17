@@ -34,6 +34,28 @@ var _ = Describe("Close", func() {
 	})
 })
 
+var _ = Describe("Run", func() {
+	var db *cesium.DB
+	BeforeEach(func(ctx SpecContext) {
+		db = DeferClose(MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fs.NewMem()))))
+	})
+
+	It("Should fail while another Run runs", func(ctx SpecContext) {
+		StartRun(db.Run)
+		Expect(db.Run(ctx)).To(MatchError(ContainSubstring("Run called twice")))
+	})
+
+	It("Should fail after an earlier Run returns", func(ctx SpecContext) {
+		StartRun(db.Run)()
+		Expect(db.Run(ctx)).To(MatchError(ContainSubstring("Run called twice")))
+	})
+
+	It("Should fail after Close", func(ctx SpecContext) {
+		Expect(db.Close()).To(Succeed())
+		Expect(db.Run(ctx)).To(MatchError(cesium.ErrDBClosed))
+	})
+})
+
 var _ = Describe("Options", func() {
 	DescribeTable(
 		"Should reject an invalid option",
