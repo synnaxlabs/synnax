@@ -126,9 +126,6 @@ const Header = () => (
   </div>
 );
 
-/** The form paths that have fields. The status and the task keys have none. */
-const FIELD_PATHS = [formPath.name, formPath.rack, formPath.config].map(String);
-
 export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
   Form,
@@ -152,8 +149,11 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
 
     const deployChecked = useRef(false);
     const [configuring, setConfiguring] = useState(false);
+    // A Stop while a start configures cancels the start.
+    const startCancelled = useRef(false);
 
     const handleDeploy = async () => {
+      startCancelled.current = false;
       setConfiguring(true);
       try {
         await deploy();
@@ -172,21 +172,17 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
           deployChecked.current = true;
         }
         await form.validateAsync();
-        const errors = form.getStatuses().filter(({ variant }) => variant === "error");
-        // An error on a path with no field would show nowhere.
-        const hidden = errors.filter(
-          ({ key }) => !FIELD_PATHS.some((p) => key != null && deep.pathsMatch(key, p)),
-        );
-        if (hidden.length > 0) {
-          const details = hidden.map(({ key, message }) => `${key}: ${message}`);
-          throw new Error(
-            [
-              "The task has a value that the form does not show, and the value is not valid. This is a bug: report it with the error below.",
-              ...details,
-            ].join("\n"),
-          );
+        const first = form.getStatuses().find(({ variant }) => variant === "error");
+        if (first != null) {
+          // The part of the form that shows the error takes focus. With none, the toast
+          // shows it.
+          const target = first.key
+            ?.split(".")
+            .reduce<deep.Path<unknown>>((p, k) => p[k], deep.path<unknown>());
+          if (target == null || !form.focus(target, { optional: true }))
+            throw new Error(first.message);
+          return;
         }
-        if (errors.length > 0) return;
         const { config, name, rack } = form.value();
         // The form's values are the cached task, and onConfigure changes its config.
         const [newConfig, newRack] = await onConfigure(
@@ -204,6 +200,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         if (!(await flush())) return;
         await client.tasks.settled(taskKey);
       }
+      if (startCancelled.current) return;
       // A pinned start runs only the config this form shows. The Driver refuses it
       // when another client changed the config since.
       await client.tasks.executeCommand({
@@ -216,6 +213,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     };
 
     const handleStop = () => {
+      startCancelled.current = true;
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
         await client.tasks.executeCommand({ task: taskKey, type: "stop" });

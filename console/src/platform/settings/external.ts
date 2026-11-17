@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/platform/settings/background";
 export * from "@/platform/settings/Frame";
 export * from "@/platform/settings/Page";
 export * from "@/platform/settings/section";
+export * from "@/platform/settings/Table";

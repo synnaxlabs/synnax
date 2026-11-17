@@ -60,8 +60,8 @@ EdgeConfig union on variant {
     data      SegmentedEdgeConfig
 
     @doc value  """
-        is the per-edge configuration stored in the schematic configs map. The variant
-        selects the visual style of the connection.
+        is the configuration of one edge. The variant selects the visual style of the
+        connection.
     """
     @go marshal
 }
@@ -160,7 +160,8 @@ LabeledConfig struct {
 
 ScaledConfig struct {
     scale float64 = 1 {
-        @doc value "is the rendered scale multiplier of the symbol."
+        @doc value   "is the rendered scale multiplier of the symbol."
+        @validate gt 0
     }
 
     @doc value  "is the base configuration for any symbol drawn at a scale multiplier."
@@ -938,8 +939,8 @@ NodeConfig union on variant {
     }
 
     @doc value  """
-        is the per-node configuration stored in the schematic configs map. The variant
-        selects the symbol rendered for the node and the fields that accompany it.
+        is the configuration of one node. The variant selects the symbol rendered for
+        the node and the fields that accompany it.
     """
     @go marshal
 }

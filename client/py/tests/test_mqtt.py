@@ -135,7 +135,7 @@ class TestMQTTReadTask:
         assert integer.fill == -(2**63)
         assert integer.enum_values[0].value == 2**63 - 1
         assert isinstance(stamp, sy.mqtt.TimestampReadField)
-        assert isinstance(raw, sy.mqtt.JsonReadField)
+        assert isinstance(raw, sy.mqtt.JSONReadField)
         dumped = entry.model_dump(mode="json")["fields"][0]
         assert dumped["fill"] == "-9223372036854775808"
 

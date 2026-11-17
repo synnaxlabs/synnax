@@ -77,6 +77,9 @@ struct Image {
     /// @brief the DC registers of each enabled slave whose SYNC0 events the master
     /// starts.
     std::vector<dc::Registers> dc_sync;
+    /// @brief the position of the slave whose clock dc_time() reads, or nullopt when
+    /// dc_time() reads none.
+    std::optional<uint16_t> reference_clock;
     /// @brief the slaves with the layouts that their startup parameters set.
     std::vector<slave::DiscoveryResult> slaves;
     /// @brief what each enabled slave adds to the working counter of a full cycle,
@@ -172,6 +175,13 @@ public:
     /// shares of the slaves that missed the cycle.
     [[nodiscard]] virtual std::optional<uint32_t> shortfall() const = 0;
 
+    /// @brief returns the positions, in ascending order, of the enabled slaves whose
+    /// inputs in the latest receive() hold no data: a slave that the frames of the
+    /// cycle found below SAFE-OP, or whose AL status did not come back. Empty when the
+    /// master reads no state in each cycle, or no frame came back. Valid until the next
+    /// receive(), and only on the thread that calls it.
+    [[nodiscard]] virtual std::span<const uint16_t> inputless() const = 0;
+
     /// @brief returns the distributed clock system time, as a Unix timestamp, at which
     /// the latest received frame passed the reference clock. Returns nullopt when no
     /// enabled slave has a distributed clock or the master does not read it. The DC
@@ -180,13 +190,17 @@ public:
     /// short frame can miss the reference clock and leave the previous time.
     [[nodiscard]] virtual std::optional<x::telem::TimeStamp> dc_time() const = 0;
 
-    /// @brief reads the condition of each enabled slave and asks each slave that left
-    /// OP to return to it. Takes no further recovery step once breaker stops. Safe to
-    /// call from one thread while another runs receive() and send(). Valid between
-    /// activate() and deactivate().
-    /// @returns the condition of each enabled slave before any recovery step.
+    /// @brief reads the condition of each enabled slave. Safe to call from one thread
+    /// while another runs receive() and send(). Valid between activate() and
+    /// deactivate().
+    /// @returns the condition of each enabled slave.
     [[nodiscard]] virtual std::vector<slave::Health>
     check(const x::breaker::Breaker &breaker) = 0;
+
+    /// @brief asks each slave that the latest check() found out of OP to return to it.
+    /// Takes no further step once breaker stops. Can block for seconds while a slave
+    /// restores its clock. Call it from the thread that calls check().
+    virtual void recover(const x::breaker::Breaker &breaker) = 0;
 
     /// @brief writes parameters to the slave at position, in order. On a running bus, a
     /// master that can also adds them to the startup parameters of the slave, so it

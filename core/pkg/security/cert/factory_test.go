@@ -324,3 +324,11 @@ var _ = Describe("Factory", func() {
 		})
 	})
 })
+
+var _ = Describe("DefaultFactoryConfig", func() {
+	It("Should return a new value on each call", func() {
+		first := cert.DefaultFactoryConfig()
+		*first.AllowKeyReuse = true
+		Expect(*cert.DefaultFactoryConfig().AllowKeyReuse).To(BeFalse())
+	})
+})

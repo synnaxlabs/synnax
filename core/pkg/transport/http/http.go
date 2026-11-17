@@ -20,10 +20,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	"github.com/synnaxlabs/synnax/pkg/api/certificate"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
+	"github.com/synnaxlabs/synnax/pkg/api/color"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
@@ -55,7 +57,10 @@ import (
 // router's context, so a streamed body can outlive its request.
 func Bind(layer *api.Layer, router *http.Router) {
 	ctx := router.Context()
-	framerServerOption := framer.WithCodec(layer.Channel)
+	framerServerOption := framer.WithCodec(
+		layer.Channel,
+		router.StreamMessageSizeLimit(),
+	)
 	csvEncoder := framer.NewCSVEncoder(ctx)
 	layer.BindTo(api.Transport{
 		// AUTH
@@ -363,6 +368,29 @@ func Bind(layer *api.Layer, router *http.Router) {
 			"/api/v1"+api.PathLinePlotDispatch,
 		),
 
+		// ICD
+		ICDCreate: unary[icd.CreateRequest, icd.CreateResponse](
+			router,
+			"/api/v1/icd/create",
+		),
+		ICDRetrieve: unary[icd.RetrieveRequest, icd.RetrieveResponse](
+			router,
+			"/api/v1/icd/retrieve",
+		),
+		ICDCheck: unary[icd.CheckRequest, icd.CheckResponse](
+			router,
+			"/api/v1/icd/check",
+		),
+		ICDDispatch: unary[icd.DispatchRequest, struct{}](
+			router,
+			"/api/v1/icd/dispatch",
+		),
+		ICDImport: unary[icd.ImportRequest, icd.ImportResponse](
+			router,
+			"/api/v1/icd/import",
+		),
+		ICDDelete: unary[icd.DeleteRequest, struct{}](router, "/api/v1/icd/delete"),
+
 		// PANEL
 		PanelCreate: unary[panel.CreateRequest, panel.CreateResponse](
 			router,
@@ -435,6 +463,24 @@ func Bind(layer *api.Layer, router *http.Router) {
 		LabelDispatch: unary[label.DispatchRequest, struct{}](
 			router,
 			"/api/v1"+api.PathLabelDispatch,
+		),
+
+		// COLOR
+		ColorCreate: unary[color.CreateRequest, color.CreateResponse](
+			router,
+			"/api/v1/color/create",
+		),
+		ColorRetrieve: unary[color.RetrieveRequest, color.RetrieveResponse](
+			router,
+			"/api/v1/color/retrieve",
+		),
+		ColorDelete: unary[color.DeleteRequest, struct{}](
+			router,
+			"/api/v1/color/delete",
+		),
+		ColorDispatch: unary[color.DispatchRequest, struct{}](
+			router,
+			"/api/v1"+api.PathColorDispatch,
 		),
 
 		// RACK

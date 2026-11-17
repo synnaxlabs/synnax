@@ -285,7 +285,7 @@ func (rf ReadField) EncodeOrc(w *orc.Writer) error {
 		if err := v.TimestampRead.EncodeOrc(w); err != nil {
 			return err
 		}
-	case JsonReadField:
+	case JSONReadField:
 		w.String("json")
 		if err := v.BaseReadField.EncodeOrc(w); err != nil {
 			return err
@@ -368,7 +368,7 @@ func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
 		}
 		rf.Variant = v
 	case "json":
-		var v JsonReadField
+		var v JSONReadField
 		if err := v.BaseReadField.DecodeOrc(r); err != nil {
 			return err
 		}

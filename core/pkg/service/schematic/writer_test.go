@@ -40,8 +40,8 @@ var _ = Describe("Writer", func() {
 				tx := DeferClose(db.OpenTx())
 				var s schematic.Schematic
 				Expect(json.Unmarshal([]byte(
-					`{"name":"valves","nodes":[{"key":"v1"}],"configs":{"v1":`+
-						`{"variant":"valve"`+scale+`}}}`,
+					`{"name":"valves","nodes":[{"key":"v1","config":`+
+						`{"variant":"valve"`+scale+`}}]}`,
 				), &s)).To(Succeed())
 				s.Project = &proj.Key
 				Expect(svc.NewWriter(tx).Create(ctx, &s)).To(matcher)
@@ -52,7 +52,9 @@ var _ = Describe("Writer", func() {
 				`,"scale":0`,
 				SatisfyAll(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("configs.v1.scale: must be positive")),
+					MatchError(
+						ContainSubstring("scale"),
+					),
 				),
 			),
 		)
@@ -62,8 +64,8 @@ var _ = Describe("Writer", func() {
 				tx := DeferClose(db.OpenTx())
 				var s schematic.Schematic
 				Expect(json.Unmarshal([]byte(
-					`{"name":"gauges","nodes":[{"key":"g1"}],"configs":{"g1":`+
-						config+`}}`,
+					`{"name":"gauges","nodes":[{"key":"g1","config":`+
+						config+`}]}`,
 				), &s)).To(Succeed())
 				s.Project = &proj.Key
 				Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
@@ -72,7 +74,7 @@ var _ = Describe("Writer", func() {
 					Where(schematic.MatchKeys(s.Key)).
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
-				gauge, ok := res.Configs["g1"].Variant.(schematic.GaugeElementConfig)
+				gauge, ok := res.Nodes[0].Config.Variant.(schematic.GaugeNodeConfig)
 				Expect(ok).To(BeTrue())
 				Expect(gauge.Bounds).To(Equal(expected))
 			},
@@ -224,57 +226,11 @@ var _ = Describe("Writer", func() {
 				Expect(res.Name).To(Equal("test"))
 			},
 		)
-		Describe("A schematic that stores a zero scale", func() {
-			var stored schematic.Schematic
-			BeforeEach(func(ctx SpecContext) {
-				stored = schematic.Schematic{}
-				Expect(json.Unmarshal([]byte(
-					`{"name":"stored","nodes":[{"key":"v1"}],`+
-						`"configs":{"v1":{"variant":"valve","scale":0}}}`,
-				), &stored)).To(Succeed())
-				stored.Key = uuid.New()
-				stored.Project = &proj.Key
-				Expect(gorp.NewCreate[schematic.Key, schematic.Schematic]().
-					Entry(&stored).
-					Exec(ctx, db)).To(Succeed())
-			})
-
-			It("Should accept an unrelated dispatch", func(ctx SpecContext) {
-				Expect(dispatch(ctx, stored.Key, "session-1", []schematic.Action{
-					schematic.NewSetAction(schematic.SetPayload{
-						Path:  []string{"name"},
-						Value: "renamed",
-					}),
-				})).To(Succeed())
-			})
-
-			It("Should accept a dispatch that edits another field of the element", func(
-				ctx SpecContext,
-			) {
-				Expect(dispatch(ctx, stored.Key, "session-1", []schematic.Action{
-					schematic.NewSetAction(schematic.SetPayload{
-						Path:  []string{"configs", "v1", "label", "label"},
-						Value: "Inlet",
-					}),
-				})).To(Succeed())
-			})
-
-			It("Should copy the stored config", func(ctx SpecContext) {
-				var cpy schematic.Schematic
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).
-						Copy(ctx, stored.Key, "copy", &cpy)
-				})).To(Succeed())
-				Expect(cpy.Key).ToNot(Equal(stored.Key))
-				Expect(cpy.Configs).To(HaveKey("v1"))
-			})
-		})
-
 		It("Should reject a dispatch that sets a zero scale", func(ctx SpecContext) {
 			var s schematic.Schematic
 			Expect(json.Unmarshal([]byte(
-				`{"name":"valves","nodes":[{"key":"v1"}],`+
-					`"configs":{"v1":{"variant":"valve"}}}`,
+				`{"name":"valves","nodes":[{"key":"v1",`+
+					`"config":{"variant":"valve"}}]}`,
 			), &s)).To(Succeed())
 			s.Project = &proj.Key
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -282,12 +238,14 @@ var _ = Describe("Writer", func() {
 			})).To(Succeed())
 			Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{
 				schematic.NewSetAction(schematic.SetPayload{
-					Path:  []string{"configs", "v1", "scale"},
+					Path:  []string{"nodes", "v1", "config", "scale"},
 					Value: 0.0,
 				}),
 			})).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("configs.v1.scale: must be positive")),
+				MatchError(
+					ContainSubstring("scale"),
+				),
 			))
 		})
 
@@ -296,8 +254,8 @@ var _ = Describe("Writer", func() {
 		) {
 			var s schematic.Schematic
 			Expect(json.Unmarshal([]byte(
-				`{"name":"valves","nodes":[{"key":"v1"}],`+
-					`"configs":{"v1":{"variant":"valve"}}}`,
+				`{"name":"valves","nodes":[{"key":"v1",`+
+					`"config":{"variant":"valve"}}]}`,
 			), &s)).To(Succeed())
 			s.Project = &proj.Key
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -305,8 +263,8 @@ var _ = Describe("Writer", func() {
 			})).To(Succeed())
 			var edited schematic.Schematic
 			Expect(json.Unmarshal([]byte(
-				`{"name":"valves","nodes":[{"key":"v1"}],`+
-					`"configs":{"v1":{"variant":"valve","scale":0}}}`,
+				`{"name":"valves","nodes":[{"key":"v1",`+
+					`"config":{"variant":"valve","scale":0}}]}`,
 			), &edited)).To(Succeed())
 			edited.Key = s.Key
 			edited.Project = &proj.Key
@@ -314,7 +272,262 @@ var _ = Describe("Writer", func() {
 				return svc.NewWriter(tx).Create(ctx, &edited)
 			})).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("configs.v1.scale: must be positive")),
+				MatchError(
+					ContainSubstring("scale"),
+				),
+			))
+		})
+
+		DescribeTable("Should reject a create whose config has no variant",
+			func(ctx SpecContext, s schematic.Schematic, msg string) {
+				s.Project = &proj.Key
+				s.Name = "unconfigured"
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
+			},
+			Entry(
+				"on a node",
+				schematic.Schematic{Nodes: []schematic.Node{{Key: "n1"}}},
+				"nodes.0.config.variant: required",
+			),
+			Entry(
+				"on an edge",
+				schematic.Schematic{
+					Nodes: []schematic.Node{
+						{Key: "n1", Config: groupCfg()},
+						{Key: "n2", Config: groupCfg()},
+					},
+					Edges: []schematic.Edge{{
+						Key:    "e1",
+						Source: schematic.Handle{Node: "n1"},
+						Target: schematic.Handle{Node: "n2"},
+					}},
+				},
+				"edges.0.config.variant: required",
+			),
+		)
+
+		Describe("A dispatch to a stored valve", func() {
+			var s schematic.Schematic
+			BeforeEach(func(ctx SpecContext) {
+				s = schematic.Schematic{}
+				Expect(json.Unmarshal([]byte(
+					`{"name":"valves","nodes":[`+
+						`{"key":"v0","config":{"variant":"tank"}},`+
+						`{"key":"v1","config":{"variant":"valve"}}]}`,
+				), &s)).To(Succeed())
+				s.Project = &proj.Key
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
+			})
+
+			DescribeTable("Should be rejected when it",
+				func(ctx SpecContext, a schematic.Action, msg string) {
+					Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{a})).
+						To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring(msg)),
+						))
+				},
+				Entry(
+					"clears the config",
+					schematic.NewSetAction(schematic.SetPayload{
+						Path: []string{"nodes", "v1", "config"},
+					}),
+					"[nodes, v1, config]: the document requires a value",
+				),
+				Entry(
+					"sets a node with no config",
+					schematic.NewSetNodeAction(schematic.SetNodePayload{
+						Node: schematic.Node{Key: "v1"},
+					}),
+					"nodes.1.config.variant: required",
+				),
+				Entry(
+					"sets a value that fails the config's schema",
+					schematic.NewSetAction(schematic.SetPayload{
+						Path:  []string{"nodes", "v0", "config", "level"},
+						Value: "h9",
+					}),
+					"nodes.0.config.level: invalid level: h9",
+				),
+			)
+		})
+
+		Describe("A dispatch to a stored edge", func() {
+			var s schematic.Schematic
+			BeforeEach(func(ctx SpecContext) {
+				s = schematic.Schematic{}
+				Expect(json.Unmarshal([]byte(
+					`{"name":"edges","nodes":[`+
+						`{"key":"a","config":{"variant":"cap"}},`+
+						`{"key":"b","config":{"variant":"cap"}}],"edges":[`+
+						`{"key":"e1","source":{"node":"a","param":"o"},`+
+						`"target":{"node":"b","param":"i"},`+
+						`"config":{"variant":"pipe","stroke_color":"#ff0000"}}]}`,
+				), &s)).To(Succeed())
+				s.Project = &proj.Key
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
+			})
+
+			retrieve := func(ctx SpecContext) schematic.SegmentedEdgeConfig {
+				GinkgoHelper()
+				var res schematic.Schematic
+				Expect(svc.NewRetrieve().
+					Where(schematic.MatchKeys(s.Key)).
+					Entry(&res).
+					Exec(ctx, db)).To(Succeed())
+				pipe, ok := res.Edges[0].Config.Variant.(schematic.PipeEdgeConfig)
+				Expect(ok).To(BeTrue())
+				return pipe.SegmentedEdgeConfig
+			}
+
+			setStrokeWidth := func(w uint8) schematic.Action {
+				return schematic.NewSetAction(schematic.SetPayload{
+					Path:  []string{"edges", "e1", "config", "stroke_width"},
+					Value: w,
+				})
+			}
+
+			It("Should store the default stroke width", func(ctx SpecContext) {
+				Expect(retrieve(ctx).StrokeWidth).To(BeEquivalentTo(2))
+			})
+
+			DescribeTable("Should set a stroke width within bounds",
+				func(ctx SpecContext, w uint8) {
+					Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{
+						setStrokeWidth(w),
+					})).To(Succeed())
+					Expect(retrieve(ctx).StrokeWidth).To(Equal(w))
+				},
+				Entry("at 1", uint8(1)),
+				Entry("at 20", uint8(20)),
+			)
+
+			DescribeTable("Should reject a stroke width out of bounds",
+				func(ctx SpecContext, w uint8) {
+					Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{
+						setStrokeWidth(w),
+					})).To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("stroke_width")),
+					))
+					Expect(retrieve(ctx).StrokeWidth).To(BeEquivalentTo(2))
+				},
+				Entry("at 0", uint8(0)),
+				Entry("at 21", uint8(21)),
+			)
+
+			It("Should clear the stroke color", func(ctx SpecContext) {
+				Expect(retrieve(ctx).StrokeColor).ToNot(BeNil())
+				Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					schematic.NewSetAction(schematic.SetPayload{
+						Path: []string{"edges", "e1", "config", "stroke_color"},
+					}),
+				})).To(Succeed())
+				Expect(retrieve(ctx).StrokeColor).To(BeNil())
+			})
+		})
+
+		Describe("A dispatch to a stored group", func() {
+			var s schematic.Schematic
+			BeforeEach(func(ctx SpecContext) {
+				s = schematic.Schematic{}
+				Expect(json.Unmarshal([]byte(
+					`{"name":"groups","nodes":[`+
+						`{"key":"g1","config":{"variant":"group_box"}},`+
+						`{"key":"g2","config":{"variant":"group_box"},"parent":"g1"},`+
+						`{"key":"v1","config":{"variant":"valve"}}]}`,
+				), &s)).To(Succeed())
+				s.Project = &proj.Key
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
+			})
+			setParent := func(key, parent string) schematic.Action {
+				return schematic.NewSetAction(schematic.SetPayload{
+					Path:  []string{"nodes", key, "parent"},
+					Value: parent,
+				})
+			}
+
+			It("Should accept a parent that is a group box", func(ctx SpecContext) {
+				Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					setParent("v1", "g2"),
+				})).To(Succeed())
+			})
+
+			It("Should promote the children of a removed group", func(ctx SpecContext) {
+				Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					setParent("v1", "g2"),
+					schematic.NewRemoveNodeAction(
+						schematic.RemoveNodePayload{Key: "g2"},
+					),
+				})).To(Succeed())
+				var res schematic.Schematic
+				Expect(svc.NewRetrieve().
+					Where(schematic.MatchKeys(s.Key)).
+					Entry(&res).
+					Exec(ctx, db)).To(Succeed())
+				Expect(res.Nodes[1].Key).To(Equal("v1"))
+				Expect(res.Nodes[1].Parent).To(HaveValue(Equal("g1")))
+			})
+
+			DescribeTable("Should be rejected when it",
+				func(ctx SpecContext, a schematic.Action, msg string) {
+					Expect(dispatch(ctx, s.Key, "session-1", []schematic.Action{a})).
+						To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring(msg)),
+						))
+				},
+				Entry(
+					"sets a parent that is not a group box",
+					setParent("g1", "v1"),
+					"nodes.0.parent: v1 is not a group box of the schematic",
+				),
+				Entry(
+					"sets a parent that is not a node",
+					setParent("v1", "ghost"),
+					"nodes.2.parent: ghost is not a group box of the schematic",
+				),
+				Entry(
+					"sets a node as its own parent",
+					setParent("g1", "g1"),
+					"nodes.0.parent: the parents of g1 form a cycle",
+				),
+				Entry(
+					"closes a cycle of parents",
+					setParent("g1", "g2"),
+					"nodes.0.parent: the parents of g1 form a cycle",
+				),
+			)
+		})
+
+		It("Should reject a create whose parent is not a group box", func(
+			ctx SpecContext,
+		) {
+			var s schematic.Schematic
+			Expect(json.Unmarshal([]byte(
+				`{"name":"valves","nodes":[`+
+					`{"key":"v0","config":{"variant":"valve"}},`+
+					`{"key":"v1","config":{"variant":"valve"},"parent":"v0"}]}`,
+			), &s)).To(Succeed())
+			s.Project = &proj.Key
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &s)
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					ContainSubstring("nodes.1.parent: v0 is not a group box"),
+				),
 			))
 		})
 
@@ -368,7 +581,7 @@ var _ = Describe("Writer", func() {
 				Project: &proj.Key,
 				Name:    "test",
 				Nodes: []schematic.Node{
-					{Key: "n1", Position: spatial.XY{X: 0, Y: 0}},
+					{Key: "n1", Config: tankCfg("", "")},
 				},
 			}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -405,12 +618,14 @@ var _ = Describe("Writer", func() {
 							Node: schematic.Node{
 								Key:      "n1",
 								Position: spatial.XY{X: 1, Y: 2},
+								Config:   tankCfg("", ""),
 							},
 						}),
 						schematic.NewSetNodeAction(schematic.SetNodePayload{
 							Node: schematic.Node{
 								Key:      "n2",
 								Position: spatial.XY{X: 3, Y: 4},
+								Config:   tankCfg("", ""),
 							},
 						}),
 						schematic.NewAddEdgeAction(schematic.AddEdgePayload{
@@ -418,6 +633,7 @@ var _ = Describe("Writer", func() {
 								Key:    "e1",
 								Source: schematic.Handle{Node: "n1"},
 								Target: schematic.Handle{Node: "n2"},
+								Config: pipeCfg(""),
 							},
 						}),
 					}),
@@ -468,7 +684,7 @@ var _ = Describe("Writer", func() {
 				s := schematic.Schematic{
 					Project: &proj.Key,
 					Name:    "drag-storm",
-					Nodes:   []schematic.Node{{Key: "pump"}},
+					Nodes:   []schematic.Node{{Key: "pump", Config: tankCfg("", "")}},
 				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &s)
@@ -512,12 +728,14 @@ var _ = Describe("Writer", func() {
 							Node: schematic.Node{
 								Key:      "pump",
 								Position: spatial.XY{X: 0, Y: 0},
+								Config:   tankCfg("", ""),
 							},
 						}),
 						schematic.NewSetNodeAction(schematic.SetNodePayload{
 							Node: schematic.Node{
 								Key:      "valve",
 								Position: spatial.XY{X: 100, Y: 0},
+								Config:   tankCfg("", ""),
 							},
 						}),
 						schematic.NewAddEdgeAction(
@@ -531,11 +749,18 @@ var _ = Describe("Writer", func() {
 									Node:  "valve",
 									Param: "in",
 								},
+								Config: pipeCfg(""),
 							}},
 						),
-						schematic.NewSetConfigAction(schematic.SetConfigPayload{
-							Key:    "pump",
-							Config: tankCfg("Main Pump", ""),
+						schematic.NewSetAction(schematic.SetPayload{
+							Path: []string{
+								"nodes",
+								"pump",
+								"config",
+								"label",
+								"label",
+							},
+							Value: "Main Pump",
 						}),
 					}),
 				).To(Succeed())
@@ -548,7 +773,7 @@ var _ = Describe("Writer", func() {
 				).To(Succeed())
 				Expect(res.Nodes).To(HaveLen(2))
 				Expect(res.Edges).To(HaveLen(1))
-				Expect(res.Configs["pump"]).To(Equal(tankCfg("Main Pump", "")))
+				Expect(res.Nodes[0].Config).To(Equal(tankCfg("Main Pump", "")))
 			},
 		)
 
@@ -564,7 +789,7 @@ var _ = Describe("Writer", func() {
 				DeferCleanup(disconnect)
 				actions := []schematic.Action{
 					schematic.NewSetNodeAction(schematic.SetNodePayload{
-						Node: schematic.Node{Key: "n1"},
+						Node: schematic.Node{Key: "n1", Config: tankCfg("", "")},
 					}),
 					schematic.NewSetNodePositionAction(schematic.SetNodePositionPayload{
 						Key:      "n1",
@@ -598,7 +823,7 @@ var _ = Describe("Writer", func() {
 				DeferCleanup(svc.OnAction(rec.Record))
 				action := []schematic.Action{
 					schematic.NewSetNodeAction(schematic.SetNodePayload{
-						Node: schematic.Node{Key: "n1"},
+						Node: schematic.Node{Key: "n1", Config: tankCfg("", "")},
 					}),
 				}
 				for range 3 {

@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -21,6 +22,8 @@
 
 extern "C" {
 #include "soem/soem.h"
+
+#include "soem_patched.h"
 }
 
 namespace driver::ethercat::soem {
@@ -71,8 +74,13 @@ public:
     virtual int send_processdata(uint8_t group) = 0;
 
     /// @brief receives the process data of a slave group with a timeout in
-    /// microseconds.
+    /// microseconds, with the AL status of each of its slaves with inputs from the same
+    /// frames.
     virtual int receive_processdata(uint8_t group, int timeout) = 0;
+
+    /// @brief returns the AL status that the latest receive_processdata() read for the
+    /// slave, or 0 when the slave did not answer or its frame did not come back.
+    [[nodiscard]] virtual uint16_t al_status(uint16_t slave) const = 0;
 
     /// @brief requests a state transition for the specified slave.
     virtual int writestate(uint16_t slave) = 0;
@@ -86,6 +94,10 @@ public:
     /// @brief returns the number of slaves that answer a broadcast read, or a value
     /// below 1 when none answers.
     virtual int count_bus_slaves() = 0;
+
+    /// @brief requests INIT for a slave and clears its sync managers and FMMUs, as
+    /// config_init does for every slave. Returns 1 when the slave takes each write.
+    virtual int reset_slave(uint16_t slave, int timeout) = 0;
 
     /// @brief takes a slave through INIT and PRE-OP back to SAFE-OP with its stored
     /// configuration, returning the state it reached.
@@ -187,6 +199,8 @@ public:
 /// @brief production implementation of soem::API wrapping ecx_contextt.
 class ProdAPI final : public API {
     std::unordered_map<uint16_t, std::function<void(uint16_t)>> po2so_configs;
+    /// @brief the AL status of each slave from the latest receive_processdata().
+    std::array<uint16_t, EC_MAXSLAVE> alstat{};
 
     static int run_PO2SOconfig(ecx_contextt *context, const uint16 slave) {
         static_cast<ProdAPI *>(context->userdata)->po2so_configs.at(slave)(slave);
@@ -217,7 +231,16 @@ public:
     }
 
     int receive_processdata(uint8_t group, int timeout) override {
-        return ecx_receive_processdata_group(&this->context, group, timeout);
+        return ecx_receive_processdata_group_alstat(
+            &this->context,
+            group,
+            timeout,
+            this->alstat.data()
+        );
+    }
+
+    [[nodiscard]] uint16_t al_status(const uint16_t slave) const override {
+        return this->alstat.at(slave);
     }
 
     int writestate(uint16_t slave) override {
@@ -301,6 +324,35 @@ public:
             data.data(),
             timeout
         );
+    }
+
+    int reset_slave(uint16_t slave, int timeout) override {
+        const uint16_t address = this->context.slavelist[slave].configadr;
+        std::array<uint8_t, 4 * sizeof(ec_smt)> sync_managers{};
+        std::array<uint8_t, 3 * sizeof(ec_fmmut)> fmmus{};
+        return ecx_FPWRw(
+                   &this->context.port,
+                   address,
+                   ECT_REG_ALCTL,
+                   htoes(EC_STATE_INIT),
+                   timeout
+               ) == 1 &&
+               ecx_FPWR(
+                   &this->context.port,
+                   address,
+                   ECT_REG_SM0,
+                   sync_managers.size(),
+                   sync_managers.data(),
+                   timeout
+               ) == 1 &&
+               ecx_FPWR(
+                   &this->context.port,
+                   address,
+                   ECT_REG_FMMU0,
+                   fmmus.size(),
+                   fmmus.data(),
+                   timeout
+               ) == 1;
     }
 
     int reconfig_slave(uint16_t slave, int timeout) override {

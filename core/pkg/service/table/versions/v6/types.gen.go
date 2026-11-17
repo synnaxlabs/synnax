@@ -14,6 +14,7 @@ package v6
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -25,6 +26,7 @@ import (
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
@@ -85,19 +87,6 @@ func (t *TextCellConfig) SetDefaults() {
 	t.Align = FlexAlignmentCenter
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TextCellConfig) ApplyDefaults() {
-	if t.Level == "" {
-		t.Level = text.LevelH5
-	}
-	if t.Weight == 0 {
-		t.Weight = 400
-	}
-	if t.Align == "" {
-		t.Align = FlexAlignmentCenter
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (t TextCellConfig) Validate() error {
@@ -150,22 +139,6 @@ func (va *ValueCellConfig) SetDefaults() {
 	va.StalenessTimeout = 5
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (va *ValueCellConfig) ApplyDefaults() {
-	if va.RollingAverage == 0 {
-		va.RollingAverage = 1
-	}
-	if va.Notation == "" {
-		va.Notation = notation.NotationStandard
-	}
-	if va.Level == "" {
-		va.Level = text.LevelH5
-	}
-	if va.StalenessTimeout == 0 {
-		va.StalenessTimeout = 5
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (va ValueCellConfig) Validate() error {
@@ -177,8 +150,8 @@ func (va ValueCellConfig) Validate() error {
 	return v.Error()
 }
 
-// CellConfig is the per-cell configuration stored in the table cells map. The variant
-// selects which Pluto cell component renders the cell.
+// CellConfig is the configuration of one cell. The variant selects which Pluto cell
+// component renders the cell.
 type CellConfig struct {
 	Variant CellConfigVariant
 }
@@ -253,19 +226,6 @@ func (u *CellConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *CellConfig) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case TextCellConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ValueCellConfig:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or
 // the active variant violates its schema constraints.
 func (u CellConfig) Validate() error {
@@ -280,8 +240,67 @@ func (u CellConfig) Validate() error {
 	return v.Error()
 }
 
-// Row is a single row in a table, with a key, height, and ordered cell keys.
-type Row = v5.Row
+// Cell is one cell of a row, with its key and config.
+type Cell struct {
+	// Key is the unique identifier for this cell within the table.
+	Key string `json:"key" msgpack:"key"`
+	// Config is the content the cell draws and its settings.
+	Config CellConfig `json:"config" msgpack:"config"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c Cell) Validate() error {
+	v := validate.New("Cell")
+	v.Exec(func() error { return validate.PathedError(c.Config.Validate(), "config") })
+	return v.Error()
+}
+
+// Row is a single row in a table, with a key, height, and cells.
+type Row struct {
+	// Key is the unique identifier for this row within the table.
+	Key string `json:"key" msgpack:"key"`
+	// Size is the height of the row in pixels.
+	Size float64 `json:"size" msgpack:"size"`
+	// Cells are the cells of the row, from left to right.
+	Cells []Cell `json:"cells" msgpack:"cells"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *Row) SetDefaults() {
+	r.Size = 36
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *Row) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Row
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *Row) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Row
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r Row) Validate() error {
+	v := validate.New("Row")
+	v.NotEmptyString("key", r.Key)
+	v.GreaterThanEq("size", r.Size, 1)
+	for i := range r.Cells {
+		v.Exec(func() error { return validate.PathedError(r.Cells[i].Validate(), "cells", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // Column is a single column in a table, with a key and width.
 type Column = v5.Column
@@ -298,28 +317,10 @@ type Table struct {
 	Rows []Row `json:"rows" msgpack:"rows"`
 	// Columns are the table columns in display order, left to right.
 	Columns []Column `json:"columns" msgpack:"columns"`
-	// Cells contains all cells in the table, keyed by cell key. Cell positions are
-	// derived from rows[*].cells[*] references; cells not referenced by any row are
-	// orphaned and will be pruned on the next structural edit.
-	Cells map[string]CellConfig `json:"cells" msgpack:"cells"`
 	// Group is the group the table sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 	// Project is the project that holds the table.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *Table) ApplyDefaults() {
-	for i := range t.Rows {
-		t.Rows[i].ApplyDefaults()
-	}
-	for i := range t.Columns {
-		t.Columns[i].ApplyDefaults()
-	}
-	for key, value := range t.Cells {
-		value.ApplyDefaults()
-		t.Cells[key] = value
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -332,9 +333,6 @@ func (t Table) Validate() error {
 	}
 	for i := range t.Columns {
 		v.Exec(func() error { return validate.PathedError(t.Columns[i].Validate(), "columns", strconv.Itoa(i)) })
-	}
-	for key, value := range t.Cells {
-		v.Exec(func() error { return validate.PathedError(value.Validate(), "cells", key) })
 	}
 	return v.Error()
 }

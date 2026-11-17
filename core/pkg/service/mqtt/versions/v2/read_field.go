@@ -90,7 +90,7 @@ func NewReadField(base BaseReadField, r payload.Read) ReadField {
 			},
 		}
 	case payload.KindJSON:
-		return ReadField{Variant: JsonReadField{BaseReadField: base}}
+		return ReadField{Variant: JSONReadField{BaseReadField: base}}
 	case payload.KindUUID:
 		return ReadField{Variant: UuidReadField{BaseReadField: base}}
 	case payload.KindBytes:

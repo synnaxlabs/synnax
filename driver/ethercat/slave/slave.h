@@ -251,7 +251,7 @@ struct Properties {
     /// @brief revision number for hardware/firmware versioning.
     uint32_t revision{};
     /// @brief serial number of the device (if available).
-    uint32_t serial{};
+    uint64_t serial{};
     /// @brief human-readable name of the slave device.
     std::string name;
     /// @brief discovered input PDOs (TxPDO, slave→master).
@@ -330,7 +330,7 @@ struct Properties {
     /// @brief parses slave properties from JSON.
     static Properties parse(x::json::Parser &parser) {
         Properties props;
-        props.serial = parser.field<uint32_t>("serial");
+        props.serial = parser.field<uint64_t>("serial");
         props.vendor_id = parser.field<uint32_t>("vendor_id");
         props.product_code = parser.field<uint32_t>("product_code");
         props.revision = parser.field<uint32_t>("revision");
@@ -411,12 +411,6 @@ struct Status {
     /// @brief whether the slave was below PRE-OP when the master read it. The master
     /// then reads only its SII, such as its identity, PDOs, and sync modes.
     bool starting = false;
-
-    /// @brief whether the master did not read the serial number of the slave. The
-    /// serial number from its SII can then be wrong.
-    [[nodiscard]] bool serial_unread() const {
-        return this->starting || !this->serial_error.empty();
-    }
 };
 
 /// @brief what to do about a slave that reports "Invalid DC SYNC configuration". A
@@ -495,6 +489,13 @@ struct DiscoveryResult {
     /// @brief when the Engine last saw the slave restart, or std::nullopt when its
     /// master cannot see a restart. The first scan of the Engine counts as one.
     std::optional<x::telem::TimeStamp> restarted_at;
+
+    /// @brief whether the serial number of the slave is not known: its SII serial
+    /// number is 0, and the master did not read its CoE serial number.
+    [[nodiscard]] bool serial_unread() const {
+        return this->properties.serial == 0 &&
+               (this->status.starting || !this->status.serial_error.empty());
+    }
 };
 
 /// @brief gives serial number 0 to each slave that has the vendor, product, and serial
@@ -522,7 +523,7 @@ struct Identity {
     /// @brief the product code of the slave.
     uint32_t product_code = 0;
     /// @brief the serial number, or 0 when the slave is known by position.
-    uint32_t serial = 0;
+    uint64_t serial = 0;
     /// @brief the name of the slave, for errors.
     std::string name;
 
@@ -533,6 +534,7 @@ struct Identity {
     }
 };
 
+namespace details {
 /// @brief returns the indices of saved in order of saved position, then name.
 inline std::vector<size_t> by_position(const std::vector<Identity> &saved) {
     std::vector<size_t> order(saved.size());
@@ -542,6 +544,7 @@ inline std::vector<size_t> by_position(const std::vector<Identity> &saved) {
         return std::tie(saved[i].position, saved[i].name);
     });
     return order;
+}
 }
 
 /// @brief finds each saved slave on bus. A slave with a serial number is the unit with
@@ -563,10 +566,10 @@ locate(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &b
         return it == bus.end() ? nullptr : &*it;
     };
     const auto known_unit = [](const Identity &s, const DiscoveryResult &live) {
-        return !live.status.serial_unread() && s.same_unit(live.properties);
+        return !live.serial_unread() && s.same_unit(live.properties);
     };
     std::set<uint16_t> units;
-    const auto order = by_position(saved);
+    const auto order = details::by_position(saved);
     for (const auto i: order)
         if (const auto *live = at(saved[i].position);
             saved[i].serial != 0 && live != nullptr && known_unit(saved[i], *live)) {
@@ -589,7 +592,7 @@ locate(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &b
             live->properties.vendor_id != s.vendor_id ||
             live->properties.product_code != s.product_code)
             continue;
-        if (s.serial == 0 || live->status.serial_unread()) found[i] = s.position;
+        if (s.serial == 0 || live->serial_unread()) found[i] = s.position;
     }
     return found;
 }
@@ -606,7 +609,7 @@ bind(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &bus
             x::errors::Error(errors::TOPOLOGY_MISMATCH, message)
         };
     };
-    const auto order = by_position(saved);
+    const auto order = details::by_position(saved);
     for (size_t i = 1; i < order.size(); ++i)
         if (const auto &a = saved[order[i - 1]], &b = saved[order[i]];
             a.position == b.position)

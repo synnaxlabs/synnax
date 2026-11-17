@@ -147,12 +147,12 @@ func (t TimestampReadField) Validate() error {
 	return v.Error()
 }
 
-// JsonReadField reads any JSON value.
-type JsonReadField struct {
+// JSONReadField reads any JSON value.
+type JSONReadField struct {
 	BaseReadField
 }
 
-func (JsonReadField) isReadFieldVariant() {}
+func (JSONReadField) isReadFieldVariant() {}
 
 // UuidReadField reads a UUID string.
 type UuidReadField struct {
@@ -209,11 +209,11 @@ func (u ReadField) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type payload.Kind `json:"type"`
 			TimestampReadField
 		}{Type: payload.KindTimestamp, TimestampReadField: v})
-	case JsonReadField:
+	case JSONReadField:
 		return json.MarshalEncode(enc, struct {
 			Type payload.Kind `json:"type"`
-			JsonReadField
-		}{Type: payload.KindJSON, JsonReadField: v})
+			JSONReadField
+		}{Type: payload.KindJSON, JSONReadField: v})
 	case UuidReadField:
 		return json.MarshalEncode(enc, struct {
 			Type payload.Kind `json:"type"`
@@ -306,12 +306,12 @@ func (u *ReadField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	case payload.KindJSON:
 		var v struct {
 			Type payload.Kind `json:"type"`
-			JsonReadField
+			JSONReadField
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.JsonReadField
+		u.Variant = v.JSONReadField
 	case payload.KindUUID:
 		var v struct {
 			Type payload.Kind `json:"type"`
@@ -355,7 +355,7 @@ func (u ReadField) Type() payload.Kind {
 		return payload.KindBoolean
 	case TimestampReadField:
 		return payload.KindTimestamp
-	case JsonReadField:
+	case JSONReadField:
 		return payload.KindJSON
 	case UuidReadField:
 		return payload.KindUUID
@@ -392,7 +392,7 @@ func (u ReadField) Base() BaseReadField {
 		return variant.BaseReadField
 	case TimestampReadField:
 		return variant.BaseReadField
-	case JsonReadField:
+	case JSONReadField:
 		return variant.BaseReadField
 	case UuidReadField:
 		return variant.BaseReadField
@@ -423,7 +423,7 @@ func (u *ReadField) SetBase(base BaseReadField) {
 	case TimestampReadField:
 		variant.BaseReadField = base
 		u.Variant = variant
-	case JsonReadField:
+	case JSONReadField:
 		variant.BaseReadField = base
 		u.Variant = variant
 	case UuidReadField:
@@ -479,13 +479,6 @@ func (p *PlainReadEntry) SetDefaults() {
 	p.Qos = QoSAtMostOnce
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PlainReadEntry) ApplyDefaults() {
-	if p.Qos == "" {
-		p.Qos = QoSAtMostOnce
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (p PlainReadEntry) Validate() error {
@@ -521,13 +514,6 @@ func (SparkplugReadEntry) isReadEntryVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (s *SparkplugReadEntry) SetDefaults() {
 	s.DataType = "float64"
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *SparkplugReadEntry) ApplyDefaults() {
-	if s.DataType == "" {
-		s.DataType = "float64"
-	}
 }
 
 // ReadEntry is a single source of an MQTT read task. The type field selects a plain
@@ -617,19 +603,6 @@ func (u ReadEntry) Type() ReadEntryType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *ReadEntry) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case PlainReadEntry:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case SparkplugReadEntry:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or
 // the active variant violates its schema constraints.
 func (u ReadEntry) Validate() error {
@@ -675,13 +648,6 @@ type ReadConfig struct {
 	Device device.Key `json:"device" msgpack:"device"`
 	// Entries contains the topics and tags to read.
 	Entries []ReadEntry `json:"entries" msgpack:"entries"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	for i := range r.Entries {
-		r.Entries[i].ApplyDefaults()
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

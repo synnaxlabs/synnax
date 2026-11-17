@@ -76,12 +76,16 @@ import {
   IoTime,
 } from "react-icons/io5";
 import {
+  LuBadgeCheck,
+  LuChartColumn,
   LuChartNoAxesGantt,
   LuFileBadge,
+  LuInfo,
   LuKeyRound,
   LuLock,
   LuLockOpen,
   LuPipette,
+  LuSquareAsterisk,
   LuSquareFunction,
   LuUngroup,
 } from "react-icons/lu";
@@ -192,6 +196,7 @@ import {
   PiFileCsv,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
+  PiSlidersHorizontalBold,
   PiTreeViewBold,
   PiUploadSimple,
   PiWaveformBold,
@@ -283,6 +288,24 @@ export const Play = wrapSVGIcon(MdPlayArrow, "play");
 export const Replay = wrapSVGIcon(MdReplay, "replay");
 export const Stop = wrapSVGIcon(MdStop, "stop");
 export const Circle = wrapSVGIcon(MdFiberManualRecord, "circle");
+// A circle that fills its box, so its edges are the box's edges.
+export const Dot = wrapSVGIcon(
+  ({ color, size, style, ...rest }) => (
+    <svg
+      viewBox="0 0 2 2"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      color={color}
+      style={{ color, ...style }}
+      {...rest}
+    >
+      <circle cx="1" cy="1" r="1" />
+    </svg>
+  ),
+  "dot",
+);
 export const Square = wrapSVGIcon(MdSquare, "square");
 export const Edit = wrapSVGIcon(MdEdit, "edit");
 export const EditOff = wrapSVGIcon(MdEditOff, "edit-off");
@@ -368,8 +391,11 @@ export const Group = wrapSVGIcon(AiFillFolder, "group");
 export const Ungroup = wrapSVGIcon(LuUngroup, "ungroup");
 export const Lock = wrapSVGIcon(LuLock, "lock");
 export const Unlock = wrapSVGIcon(LuLockOpen, "unlock");
-export const License = wrapSVGIcon(LuFileBadge, "license");
-export const Secret = wrapSVGIcon(LuKeyRound, "secret");
+export const License = wrapSVGIcon(LuBadgeCheck, "license");
+export const UsageData = wrapSVGIcon(LuChartColumn, "usage-data");
+export const Secret = wrapSVGIcon(LuSquareAsterisk, "secret");
+export const APIKey = wrapSVGIcon(LuKeyRound, "api-key");
+export const About = wrapSVGIcon(LuInfo, "about");
 export const Certificate = wrapSVGIcon(LuFileBadge, "certificate");
 export const Project = wrapSVGIcon(MdWorkspacesFilled, "project");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
@@ -501,6 +527,7 @@ export const Type = wrapSVGIcon(MdTypeSpecimen, "type");
 export const Array = wrapSVGIcon(MdDataArray, "array");
 export const Label = wrapSVGIcon(MdLabel, "label");
 export const Library = wrapSVGIcon(PiBooks, "library");
+export const Sliders = wrapSVGIcon(PiSlidersHorizontalBold, "sliders");
 export const Details = wrapSVGIcon(MdOutlineTableRows, "details");
 export const LinkExternal = wrapSVGIcon(BiLinkExternal, "link-external");
 export const Access = wrapSVGIcon(MdShield, "access");
@@ -619,6 +646,7 @@ const icons = {
   TimeOutline,
   Acquire,
   Analyze,
+  UsageData,
   Concepts,
   Visualize,
   Panel,
@@ -646,6 +674,8 @@ const icons = {
   Lock,
   Unlock,
   Secret,
+  APIKey,
+  About,
   Certificate,
   Project,
   Box,

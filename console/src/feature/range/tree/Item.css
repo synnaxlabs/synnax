@@ -59,9 +59,12 @@
     width: var(--pluto-height-tiny);
 }
 
+/* The name takes the room the columns leave, so indentation never moves a column. It
+   never gets narrower than its text or 16 characters, whichever is less: its width sets
+   that floor, and the labels give way first. */
 .console-range-item__name {
-    flex: 1 1 0;
-    min-width: 0;
+    flex: 1 10 auto;
+    width: 16ch;
 
     & > :first-child {
         flex-shrink: 0;
@@ -74,12 +77,30 @@
     min-width: 0;
 }
 
+/* One labels column, as wide on every item. It takes the room the names leave, and its
+   tags sit at its right. When the item runs short, it shrinks in the same frame, before
+   any name passes its floor. */
 .console-range-item__labels {
     display: flex;
     flex: 0 1 auto;
     justify-content: flex-end;
     min-width: 0;
     overflow: hidden;
+
+    & .console-range-item__tags {
+        width: var(--console-range-labels-room, 0);
+        max-width: 100%;
+    }
+}
+
+/* Only its tags take a click, so a click on the room around them opens the item. */
+.console-range-item__labels--editable {
+    pointer-events: none;
+}
+
+/* A hovered item lights its labels. */
+.console-range-item:hover .console-range-item__labels {
+    --lyra-tags-lit: 1;
 }
 
 .console-range-item__when {
@@ -105,4 +126,59 @@
     justify-content: center;
     width: 4.5rem;
     min-width: 4.5rem;
+}
+
+.console-range-item__start-compact {
+    display: none;
+}
+
+/* A narrow list hides the labels. */
+@container range-list (width < 80rem) {
+    .console-range-item__labels {
+        display: none;
+    }
+}
+
+@container range-list (width < 78rem) {
+    .console-range-item__start {
+        width: 10rem;
+    }
+
+    .console-range-item__start-full {
+        display: none;
+    }
+
+    .console-range-item__start-compact {
+        display: inline;
+    }
+}
+
+/* Then the start column hides, the star shows only on hover or when set, and the indent
+   halves. Only the name and the duration share the item, so the name gives way rather
+   than push the item out. */
+@container range-list (width < 69rem) {
+    .console-range-item__start {
+        display: none;
+    }
+
+    .console-range-item:not(:hover) .console-range-item__favorite:not(:has(:checked)) {
+        display: none;
+    }
+
+    .console-range-item__name {
+        min-width: 0;
+    }
+
+    .console-range-item__indent {
+        width: calc(var(--console-range-depth, 0) * 1.5rem);
+
+        &::before {
+            background: repeating-linear-gradient(
+                to right,
+                transparent 0 calc(0.75rem - 0.5px),
+                var(--pluto-gray-l6) calc(0.75rem - 0.5px) calc(0.75rem + 0.5px),
+                transparent calc(0.75rem + 0.5px) 1.5rem
+            );
+        }
+    }
 }

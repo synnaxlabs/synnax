@@ -262,7 +262,7 @@ func (rf *ReadField) Patch(c patch.Cursor) error {
 		}
 		rf.Variant = v
 		return nil
-	case JsonReadField:
+	case JSONReadField:
 		c, ok := c.Guard("type", "json")
 		if !ok {
 			return nil
@@ -321,7 +321,7 @@ func (rf *ReadField) PatchKey() string {
 		return v.BaseReadField.Key
 	case TimestampReadField:
 		return v.BaseReadField.Key
-	case JsonReadField:
+	case JSONReadField:
 		return v.BaseReadField.Key
 	case UuidReadField:
 		return v.BaseReadField.Key
@@ -352,7 +352,7 @@ func (rf *ReadField) HashContent(h *content.Hash) {
 	case TimestampReadField:
 		h.String("timestamp")
 		v.HashContent(h)
-	case JsonReadField:
+	case JSONReadField:
 		h.String("json")
 		v.HashContent(h)
 	case UuidReadField:
@@ -628,29 +628,29 @@ func (trf *TimestampReadField) HashContent(h *content.Hash) {
 }
 
 // Patch applies the path action at c, which is not done, to the value.
-func (jrf *JsonReadField) Patch(c patch.Cursor) error {
+func (jsonrf *JSONReadField) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&jrf.BaseReadField.Key, c.Next())
+		return patch.Value(&jsonrf.BaseReadField.Key, c.Next())
 	case "name":
-		return patch.Value(&jrf.BaseReadField.Name, c.Next())
+		return patch.Value(&jsonrf.BaseReadField.Name, c.Next())
 	case "disabled":
-		return patch.Value(&jrf.BaseReadField.Disabled, c.Next())
+		return patch.Value(&jsonrf.BaseReadField.Disabled, c.Next())
 	case "channel":
-		return patch.Value(&jrf.BaseReadField.Channel, c.Next())
+		return patch.Value(&jsonrf.BaseReadField.Channel, c.Next())
 	case "pointer":
-		return patch.Value(&jrf.BaseReadField.Pointer, c.Next())
+		return patch.Value(&jsonrf.BaseReadField.Pointer, c.Next())
 	default:
 		return c.UnknownField()
 	}
 }
 
 // HashContent writes the content of the value to h, without its keys.
-func (jrf *JsonReadField) HashContent(h *content.Hash) {
-	h.String(jrf.BaseReadField.Name)
-	h.Bool(jrf.BaseReadField.Disabled)
-	h.Uint(uint64(jrf.BaseReadField.Channel))
-	h.String(jrf.BaseReadField.Pointer)
+func (jsonrf *JSONReadField) HashContent(h *content.Hash) {
+	h.String(jsonrf.BaseReadField.Name)
+	h.Bool(jsonrf.BaseReadField.Disabled)
+	h.Uint(uint64(jsonrf.BaseReadField.Channel))
+	h.String(jsonrf.BaseReadField.Pointer)
 }
 
 // Patch applies the path action at c, which is not done, to the value.

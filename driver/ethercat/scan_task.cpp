@@ -18,6 +18,7 @@
 #include <utility>
 
 #include "absl/log/log.h"
+#include "absl/log/vlog_is_on.h"
 
 #include "x/cpp/telem/telem.h"
 
@@ -113,6 +114,9 @@ std::string pdo_error_description(const std::string &error) {
 
 /// @brief the device property that holds the time of the last switch to Synnax only.
 const std::string SWITCHED_AT = "switched_at";
+/// @brief the device property that holds the name of the network that the user knows,
+/// such as "Ethernet 2".
+const std::string NETWORK_NAME = "network_name";
 
 /// @brief returns the time of the last switch to Synnax only in props, or 0 when they
 /// hold none. The Core gives the time back as a double.
@@ -179,14 +183,13 @@ bool set_setup_status(
     const bool reverted = switch_time != x::telem::TimeStamp(0) &&
                           mode.contains("switch") && !mode.at("switch").empty();
     if (props.switched() || unconfirmed) {
-        status.message = "Restart the power of the device";
+        status.message = "Waiting for a power restart";
         if (unconfirmed)
             status.description = "Synnax cannot tell if the switch took effect until "
-                                 "the device restarts.";
-        if (bus == 2) {
-            if (!status.description.empty()) status.description += ' ';
-            status.description += "First, connect Synnax to EtherCAT bus 1 IN.";
-        }
+                                 "the device restarts. ";
+        status.description += bus == 2 ? "Connect Synnax to EtherCAT bus 1 IN, then "
+                                         "restart the power of the device."
+                                       : "Restart the power of the device.";
     } else if (reverted) {
         if (reader.empty()) reader = mode.value("shared_with", "");
         const auto at = utc_minute(switch_time);
@@ -196,8 +199,11 @@ bool set_setup_status(
             .description = reader.empty()
                              ? std::format(
                                    "The device was switched to Synnax at {}, and then "
-                                   "went to a mode that its catalog does not list.",
-                                   at
+                                   "went to {}.",
+                                   at,
+                                   mode.value("unlisted", false)
+                                       ? "a mode that its catalog does not list"
+                                       : "another mode"
                                )
                              : std::format(
                                    "The device was switched to Synnax at {}, and then "
@@ -212,7 +218,9 @@ bool set_setup_status(
         if (!mode.empty())
             status.description += " In Configure, switch the device to Synnax.";
     } else if (bus == 2 && !mode.value("shared", false)) {
-        status.message = "Connect Synnax to EtherCAT bus 1 IN";
+        status.message = "Connected to EtherCAT bus 2 IN";
+        status.description = "In Synnax only mode, the device uses EtherCAT bus 1 IN. "
+                             "Connect Synnax to bus 1 IN.";
     } else
         return false;
     status.variant = synnax::status::VARIANT_WARNING;
@@ -316,6 +324,13 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::set<std::string> failures;
     std::vector<std::pair<std::string, std::string>> blocked;
     std::set<std::string> kept;
+    std::map<std::string, slave::Properties> stored;
+    if (scan_ctx.devices != nullptr)
+        for (const auto &[key, dev]: *scan_ctx.devices) {
+            if (dev.model != SLAVE_DEVICE_MODEL) continue;
+            // A device with invalid properties keeps the fields that parse.
+            stored.emplace(key, parse_properties(dev.properties).first);
+        }
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
 
@@ -364,20 +379,26 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             failures.insert(err.data);
             continue;
         }
+        const auto [engine, acquire_err] = this->pool->acquire(key);
+        if (acquire_err) return {{}, acquire_err};
         const auto health = this->pool->health(key);
-        const auto keys = slave_keys(slaves, key, scan_ctx, kept);
+        const auto keys = slave_keys(slaves, key, stored, kept);
         bool rediscovery_needed = false;
-        std::set<uint16_t> unidentified;
+        std::map<uint16_t, std::string> unidentified;
         for (size_t i = 0; i < slaves.size(); ++i) {
             const auto &slave = slaves[i];
             if (!has_identity(slave)) {
                 LOG(WARNING) << SCAN_LOG_PREFIX << "slave " << slave.properties.position
                              << " on " << key << " has no identity, rediscovering";
                 rediscovery_needed = true;
-                unidentified.insert(slave.properties.position);
+                unidentified.emplace(
+                    slave.properties.position,
+                    "Slave " + std::to_string(slave.properties.position) + " on " +
+                        engine->name() + " gives no identity. Restart its power."
+                );
                 continue;
             }
-            if (slave.status.serial_unread()) {
+            if (slave.status.starting || slave.serial_unread()) {
                 if (slave.status.starting)
                     LOG(INFO) << SCAN_LOG_PREFIX << "slave "
                               << slave.properties.position << " on " << key
@@ -388,13 +409,23 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
                         << " on " << key << " gave no serial number ("
                         << slave.status.serial_error << "), rediscovering";
                 rediscovery_needed = true;
-                if (keys[i].empty()) continue;
+                if (keys[i].empty()) {
+                    if (!slave.status.starting)
+                        unidentified.emplace(
+                            slave.properties.position,
+                            "Slave " + std::to_string(slave.properties.position) +
+                                " on " + engine->name() + " gave no serial number (" +
+                                slave.status.serial_error + "). Restart its power."
+                        );
+                    continue;
+                }
             }
             auto [dev, enabled] = this->create_slave_device(
                 slave,
                 keys[i],
                 health,
                 key,
+                engine->name(),
                 scan_ctx
             );
             rediscovery_needed |= enabled &&
@@ -407,23 +438,17 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         else if (rediscover) {
             auto &[seen, reported] = this->unidentified[key];
             reported.clear();
-            std::ranges::set_intersection(
-                unidentified,
-                seen,
-                std::inserter(reported, reported.begin())
-            );
-            seen = std::move(unidentified);
+            std::set<uint16_t> positions;
+            for (const auto &[position, failure]: unidentified) {
+                if (seen.contains(position)) reported.emplace(position, failure);
+                positions.insert(position);
+            }
+            seen = std::move(positions);
         }
         if (const auto it = this->unidentified.find(key);
-            it != this->unidentified.end() && !it->second.reported.empty()) {
-            const auto [engine, acquire_err] = this->pool->acquire(key);
-            if (acquire_err) return {{}, acquire_err};
-            for (const auto position: it->second.reported)
-                failures.insert(
-                    "Slave " + std::to_string(position) + " on " + engine->name() +
-                    " gives no identity. Restart its power."
-                );
-        }
+            it != this->unidentified.end())
+            for (const auto &[position, failure]: it->second.reported)
+                failures.insert(failure);
         if (!rediscovery_needed)
             this->next_rediscoveries.erase(key);
         else if (!scheduled || rediscover)
@@ -463,6 +488,7 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
     const std::string &key,
     const std::vector<slave::Health> &health,
     const std::string &master_key,
+    const std::string &network_name,
     const common::ScannerContext &scan_ctx
 ) const {
     const auto &props = slave.properties;
@@ -475,6 +501,7 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
     bool pdos_kept = false;
     if (!sts.starting) {
         auto slave_props = props.to_json();
+        slave_props[NETWORK_NAME] = network_name;
         // An incomplete PDO read keeps the stored PDOs, unless the slave now holds
         // another mode. A failed settings read gives no settings, so the stored ones
         // stay.
@@ -602,16 +629,9 @@ std::string Scanner::generate_slave_key(
 std::vector<std::string> Scanner::slave_keys(
     const std::vector<slave::DiscoveryResult> &slaves,
     const std::string &master_key,
-    const common::ScannerContext &scan_ctx,
+    const std::map<std::string, slave::Properties> &stored,
     std::set<std::string> &kept
 ) {
-    std::map<std::string, slave::Properties> stored;
-    if (scan_ctx.devices != nullptr)
-        for (const auto &[key, dev]: *scan_ctx.devices) {
-            if (dev.model != SLAVE_DEVICE_MODEL) continue;
-            // A device with invalid properties keeps the fields that parse.
-            stored.emplace(key, parse_properties(dev.properties).first);
-        }
     const auto find = [&](const slave::DiscoveryResult &slave, const bool by_serial) {
         const auto &live = slave.properties;
         const auto it = std::ranges::find_if(stored, [&](const auto &s) {
@@ -621,7 +641,7 @@ std::vector<std::string> Scanner::slave_keys(
                 return false;
             const bool same_slot = p.network == master_key &&
                                    p.position == live.position;
-            if (slave.status.serial_unread()) return !by_serial && same_slot;
+            if (slave.serial_unread()) return !by_serial && same_slot;
             if (by_serial && live.serial != 0) return p.serial == live.serial;
             return p.serial == 0 && same_slot;
         });
@@ -645,8 +665,9 @@ std::vector<std::string> Scanner::slave_keys(
             if (!keys[i].empty()) kept.insert(keys[i]);
         }
     for (size_t i = 0; i < slaves.size(); ++i) {
-        if (!keys[i].empty() || !has_identity(slaves[i]) ||
-            slaves[i].status.serial_unread())
+        // A starting slave has no live properties for a new device.
+        if (!keys[i].empty() || !has_identity(slaves[i]) || slaves[i].status.starting ||
+            slaves[i].serial_unread())
             continue;
         const auto base = generate_slave_key(slaves[i].properties, master_key);
         auto key = base;
@@ -845,7 +866,7 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
         this->switch_times[dev.key] = x::telem::TimeStamp::now();
     }
     // configure also returns the error of its scan after the write.
-    if (err.matches(errors::STARTUP_PARAMETER_ERROR)) {
+    if (err.matches(errors::STARTUP_PARAMETER_REJECTED)) {
         task_status.variant = synnax::status::VARIANT_WARNING;
         task_status.message = "Switched " + dev.name +
                               " to Synnax until a power restart";
@@ -858,10 +879,25 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
         this->ctx->set_status(task_status);
         return;
     }
+    // A save can outlast the write timeout, so no response leaves the save unknown.
+    if (err.matches(errors::STARTUP_PARAMETER_ERROR)) {
+        task_status.variant = synnax::status::VARIANT_WARNING;
+        task_status.message = "Switched " + dev.name +
+                              " to Synnax with no confirmed save";
+        task_status.description = std::format(
+            "The device in slot {} did not confirm the save of the switch, so it can "
+            "go back to its saved mode when its power restarts. {}",
+            position,
+            errors::sentence(err.data)
+        );
+        this->ctx->set_status(task_status);
+        return;
+    }
     // The other parameters save the mode. What a save object reads after a save
     // differs by device, so the Driver only logs it.
-    for (const auto &save: written)
-        if (!sets_mode(save)) {
+    if (VLOG_IS_ON(1))
+        for (const auto &save: written) {
+            if (sets_mode(save)) continue;
             const auto [flag, flag_err] = engine->read(
                 position,
                 save.index,

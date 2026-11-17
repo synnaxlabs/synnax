@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -123,6 +124,9 @@ public:
     /// OP to it on its own, so this takes no recovery step.
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
+    /// @brief does nothing: the IgH master brings slaves back to OP by itself.
+    void recover(const x::breaker::Breaker &) override {}
+
     /// @brief does what master::Master::write does, but on a running bus writes
     /// nothing, since IgH takes startup parameters only before activation. It does not
     /// write those parameters again when the slave restarts, so a slave that loses
@@ -143,6 +147,9 @@ public:
     [[nodiscard]] std::optional<uint32_t> shortfall() const override {
         return this->latest_shortfall;
     }
+
+    /// @brief returns no slave, since this master reads no state in each cycle.
+    [[nodiscard]] std::span<const uint16_t> inputless() const override { return {}; }
 
     /// @brief returns nullopt, since this master does not read the distributed clock.
     [[nodiscard]] std::optional<x::telem::TimeStamp> dc_time() const override {

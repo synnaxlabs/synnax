@@ -1,0 +1,60 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* The same page as a task's configure form: a card on the canvas holds the messages
+   and the selected message's sections. */
+.console-icd-editor {
+    width: 100%;
+    height: 100%;
+    padding: 0 5rem 3rem;
+    background: var(--pluto-gray-l0);
+}
+
+.console-icd-editor__header {
+    flex-shrink: 0;
+    padding: 3rem 0 2rem;
+}
+
+.console-icd-editor__name {
+    min-width: 0;
+    flex: 1 1 0;
+}
+
+.console-icd-editor__body {
+    min-height: 0;
+    border-radius: var(--pluto-border-radius-large);
+    overflow: hidden;
+    background: var(--pluto-gray-l1);
+    border-color: var(--pluto-gray-l6);
+}
+
+.console-icd-message__label,
+.console-icd-message__text {
+    min-width: 0;
+}
+
+.console-icd-editor__message {
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.console-icd-editor__details {
+    padding: var(--console-details-padding);
+}
+
+/* The fields table scrolls inside the pane instead of widening the form grid. */
+.console-icd-editor__fields {
+    contain: inline-size;
+}
+
+.console-icd-editor__flags {
+    gap: 0 3rem;
+}

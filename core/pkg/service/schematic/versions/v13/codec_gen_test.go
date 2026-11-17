@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
@@ -39,7 +40,8 @@ var (
 			B: 5,
 			A: 6,
 		}),
-		Segments: []v13.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
+		Segments:    []v13.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
+		StrokeWidth: 10,
 	}
 	fullyPopulatedStaticSymbolConfig = v13.StaticSymbolConfig{
 		Label: v13.LabelConfig{
@@ -47,7 +49,7 @@ var (
 			Level:         text.Level("h1"),
 			Orientation:   spatial.Location("top"),
 			Direction:     spatial.Direction("x"),
-			MaxInlineSize: 6.5,
+			MaxInlineSize: 7,
 			Align:         v13.FlexAlignment("start"),
 		},
 		Orientation: spatial.OuterLocation("top"),
@@ -65,28 +67,28 @@ var (
 			Level:         text.Level("h1"),
 			Orientation:   spatial.Location("top"),
 			Direction:     spatial.Direction("x"),
-			MaxInlineSize: 6.5,
+			MaxInlineSize: 7,
 			Align:         v13.FlexAlignment("start"),
 		},
 		Orientation:      spatial.OuterLocation("top"),
 		Scale:            9.5,
-		StalenessTimeout: 10.5,
+		StalenessTimeout: telem.TimeSpan(11),
 		StalenessColor: new(color.Color{
 			R: 13,
 			G: 14,
 			B: 15,
 			A: 16,
 		}),
-		StateChannel:   new(channel.Key(17)),
-		CommandChannel: new(channel.Key(18)),
-		Control: new(v13.ControlStateConfig{
+		StateChannel:   channel.Key(17),
+		CommandChannel: channel.Key(18),
+		Control: v13.ControlStateConfig{
 			Authority:       new(uint8(20)),
 			Hidden:          false,
 			ChipHidden:      true,
 			IndicatorHidden: false,
 			Orientation:     spatial.Location("top"),
-		}),
-		OnClickDelay: 24.5,
+		},
+		OnClickDelay: telem.TimeSpan(25),
 		StrokeColor: new(color.Color{
 			R: 27,
 			G: 28,
@@ -100,19 +102,19 @@ var (
 			Level:         text.Level("h1"),
 			Orientation:   spatial.Location("top"),
 			Direction:     spatial.Direction("x"),
-			MaxInlineSize: 6.5,
+			MaxInlineSize: 7,
 			Align:         v13.FlexAlignment("start"),
 		},
 		Orientation: spatial.OuterLocation("top"),
 	}
 	fullyPopulatedNumericTelemConfig = v13.NumericTelemConfig{
-		Channel:        new(channel.Key(2)),
-		RollingAverage: new(int32(3)),
+		Channel:        channel.Key(2),
+		RollingAverage: 3,
 		Precision:      new(uint8(4)),
 		Notation:       notation.Notation("standard"),
 	}
 	fullyPopulatedStalenessConfig = v13.StalenessConfig{
-		StalenessTimeout: 1.5,
+		StalenessTimeout: telem.TimeSpan(2),
 		StalenessColor: new(color.Color{
 			R: 4,
 			G: 5,
@@ -122,11 +124,11 @@ var (
 	}
 	fullyPopulatedScaledConfig         = v13.ScaledConfig{Scale: 1.5}
 	fullyPopulatedScaleIndicatorConfig = v13.ScaleIndicatorConfig{
-		Channel:          new(channel.Key(2)),
-		RollingAverage:   new(int32(3)),
+		Channel:          channel.Key(2),
+		RollingAverage:   3,
 		Precision:        new(uint8(4)),
 		Notation:         notation.Notation("standard"),
-		StalenessTimeout: 5.5,
+		StalenessTimeout: telem.TimeSpan(6),
 		StalenessColor: new(color.Color{
 			R: 8,
 			G: 9,
@@ -166,7 +168,7 @@ var (
 			Level:         text.Level("h1"),
 			Orientation:   spatial.Location("top"),
 			Direction:     spatial.Direction("x"),
-			MaxInlineSize: 6.5,
+			MaxInlineSize: 7,
 			Align:         v13.FlexAlignment("start"),
 		},
 		Orientation: spatial.OuterLocation("top"),
@@ -186,28 +188,28 @@ var (
 			Level:         text.Level("h1"),
 			Orientation:   spatial.Location("top"),
 			Direction:     spatial.Direction("x"),
-			MaxInlineSize: 6.5,
+			MaxInlineSize: 7,
 			Align:         v13.FlexAlignment("start"),
 		},
 		Orientation:      spatial.OuterLocation("top"),
 		Scale:            9.5,
-		StalenessTimeout: 10.5,
+		StalenessTimeout: telem.TimeSpan(11),
 		StalenessColor: new(color.Color{
 			R: 13,
 			G: 14,
 			B: 15,
 			A: 16,
 		}),
-		StateChannel:   new(channel.Key(17)),
-		CommandChannel: new(channel.Key(18)),
-		Control: new(v13.ControlStateConfig{
+		StateChannel:   channel.Key(17),
+		CommandChannel: channel.Key(18),
+		Control: v13.ControlStateConfig{
 			Authority:       new(uint8(20)),
 			Hidden:          false,
 			ChipHidden:      true,
 			IndicatorHidden: false,
 			Orientation:     spatial.Location("top"),
-		}),
-		OnClickDelay: 24.5,
+		},
+		OnClickDelay: telem.TimeSpan(25),
 	}
 )
 
@@ -241,6 +243,37 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("Edge", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v13.Edge) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v13.Edge
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v13.Edge{
+				Key:    "test_1",
+				Source: v13.Handle{Node: "test_3", Param: "test_4"},
+				Target: v13.Handle{Node: "test_6", Param: "test_7"},
+				Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
+			}),
+			Entry("zero values", v13.Edge{
+				Key:    "",
+				Source: v13.Handle{Node: "", Param: ""},
+				Target: v13.Handle{Node: "", Param: ""},
+				Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{
+					SegmentedEdgeConfig: v13.SegmentedEdgeConfig{
+						StrokeColor: nil,
+						Segments:    []v13.Segment{},
+						StrokeWidth: 0,
+					},
+				}},
+			}),
+		)
+	})
 	Describe("EdgeConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v13.EdgeConfig) {
@@ -261,700 +294,99 @@ var _ = Describe("Codec", func() {
 			Entry("data variant", v13.EdgeConfig{Variant: v13.DataEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
 		)
 	})
-	Describe("ElementConfig", func() {
+	Describe("LabelConfig", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v13.ElementConfig) {
+			func(original v13.LabelConfig) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v13.ElementConfig
+				var decoded v13.LabelConfig
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("cap variant", v13.ElementConfig{Variant: v13.CapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
-			Entry("filter variant", v13.ElementConfig{Variant: v13.FilterElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
-			Entry("flow_straightener variant", v13.ElementConfig{Variant: v13.FlowStraightenerElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("heater_element variant", v13.ElementConfig{Variant: v13.HeaterElementElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("iso_cap variant", v13.ElementConfig{Variant: v13.IsoCapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
-			Entry("iso_filter variant", v13.ElementConfig{Variant: v13.IsoFilterElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
-			Entry("nozzle variant", v13.ElementConfig{Variant: v13.NozzleElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
-			Entry("orifice variant", v13.ElementConfig{Variant: v13.OrificeElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
-			Entry("orifice_plate variant", v13.ElementConfig{Variant: v13.OrificePlateElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("strainer variant", v13.ElementConfig{Variant: v13.StrainerElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
-			Entry("strainer_cone variant", v13.ElementConfig{Variant: v13.StrainerConeElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("thruster variant", v13.ElementConfig{Variant: v13.ThrusterElementConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
-			Entry("vent variant", v13.ElementConfig{Variant: v13.VentElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
-			Entry("flowmeter_general variant", v13.ElementConfig{Variant: v13.FlowmeterGeneralElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("flowmeter_electromagnetic variant", v13.ElementConfig{Variant: v13.FlowmeterElectromagneticElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("flowmeter_variable_area variant", v13.ElementConfig{Variant: v13.FlowmeterVariableAreaElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("flowmeter_coriolis variant", v13.ElementConfig{Variant: v13.FlowmeterCoriolisElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("flowmeter_nozzle variant", v13.ElementConfig{Variant: v13.FlowmeterNozzleElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("flowmeter_venturi variant", v13.ElementConfig{Variant: v13.FlowmeterVenturiElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("flowmeter_ring_piston variant", v13.ElementConfig{Variant: v13.FlowmeterRingPistonElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("flowmeter_positive_displacement variant", v13.ElementConfig{Variant: v13.FlowmeterPositiveDisplacementElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("flowmeter_turbine variant", v13.ElementConfig{Variant: v13.FlowmeterTurbineElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("flowmeter_pulse variant", v13.ElementConfig{Variant: v13.FlowmeterPulseElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("flowmeter_float_sensor variant", v13.ElementConfig{Variant: v13.FlowmeterFloatSensorElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("flowmeter_orifice variant", v13.ElementConfig{Variant: v13.FlowmeterOrificeElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("box variant", v13.ElementConfig{Variant: v13.BoxElementConfig{
-				LabeledConfig: fullyPopulatedLabeledConfig,
-				StrokeColor: new(color.Color{
-					R: 3,
-					G: 4,
-					B: 5,
-					A: 6,
-				}),
-				FillColor: new(color.Color{
-					R: 8,
-					G: 9,
-					B: 10,
-					A: 11,
-				}),
-				Dimensions:   spatial.Dimensions{Width: 12.5, Height: 13.5},
-				BorderRadius: 14.5,
-				StrokeWidth:  15.5,
-			}}),
-			Entry("button variant", v13.ElementConfig{Variant: v13.ButtonElementConfig{
-				LabeledConfig:  fullyPopulatedLabeledConfig,
-				Size:           v13.ComponentSize("tiny"),
-				Level:          new(text.Level("h1")),
-				OnClickDelay:   3.5,
-				CommandChannel: new(channel.Key(5)),
-				Mode:           v13.ButtonMode("fire"),
-				FillColor: new(color.Color{
-					R: 8,
-					G: 9,
-					B: 10,
-					A: 11,
-				}),
-				Control: new(v13.ControlStateConfig{
-					Authority:       new(uint8(13)),
-					Hidden:          true,
-					ChipHidden:      false,
-					IndicatorHidden: true,
-					Orientation:     spatial.Location("top"),
-				}),
-			}}),
-			Entry("circle variant", v13.ElementConfig{Variant: v13.CircleElementConfig{
-				LabeledConfig: fullyPopulatedLabeledConfig,
-				Radius:        1.5,
-				StrokeColor: new(color.Color{
-					R: 4,
-					G: 5,
-					B: 6,
-					A: 7,
-				}),
-				FillColor: new(color.Color{
-					R: 9,
-					G: 10,
-					B: 11,
-					A: 12,
-				}),
-				StrokeWidth: 12.5,
-			}}),
-			Entry("gauge variant", v13.ElementConfig{Variant: v13.GaugeElementConfig{
-				LabeledConfig:      fullyPopulatedLabeledConfig,
-				NumericTelemConfig: fullyPopulatedNumericTelemConfig,
-				StalenessConfig:    fullyPopulatedStalenessConfig,
-				Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
-				StrokeColor: new(color.Color{
-					R: 6,
-					G: 7,
-					B: 8,
-					A: 9,
-				}),
-				Bounds:   spatial.Bounds{Lower: 10.5, Upper: 11.5},
-				BarWidth: 12.5,
-				Location: spatial.LocationXY{
-					X: spatial.XCenterLocation("left"),
-					Y: spatial.YCenterLocation("top"),
+			Entry("fully populated", v13.LabelConfig{
+				Label:         "test_1",
+				Level:         text.Level("h1"),
+				Orientation:   spatial.Location("top"),
+				Direction:     spatial.Direction("x"),
+				MaxInlineSize: 6,
+				Align:         v13.FlexAlignment("start"),
+			}),
+			Entry("zero values", v13.LabelConfig{
+				Label:         "",
+				Level:         text.Level(""),
+				Orientation:   spatial.Location(""),
+				Direction:     spatial.Direction(""),
+				MaxInlineSize: 0,
+				Align:         v13.FlexAlignment(""),
+			}),
+		)
+	})
+	Describe("LabeledConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v13.LabeledConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v13.LabeledConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedLabeledConfig),
+			Entry("zero values", v13.LabeledConfig{
+				Label: v13.LabelConfig{
+					Label:         "",
+					Level:         text.Level(""),
+					Orientation:   spatial.Location(""),
+					Direction:     spatial.Direction(""),
+					MaxInlineSize: 0,
+					Align:         v13.FlexAlignment(""),
 				},
-				Units: "test_16",
-				Level: text.Level("h1"),
-			}}),
-			Entry("input variant", v13.ElementConfig{Variant: v13.InputElementConfig{
-				LabeledConfig:   fullyPopulatedLabeledConfig,
-				StalenessConfig: fullyPopulatedStalenessConfig,
-				Size:            v13.ComponentSize("tiny"),
-				CommandChannel:  new(channel.Key(3)),
-				StateChannel:    new(channel.Key(4)),
-				Dimensions:      new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
-				FillColor: new(color.Color{
-					R: 9,
-					G: 10,
-					B: 11,
-					A: 12,
-				}),
-				Disabled:     false,
-				InlineSize:   13.5,
-				OnClickDelay: 14.5,
-				Control: new(v13.ControlStateConfig{
-					Authority:       new(uint8(17)),
-					Hidden:          true,
-					ChipHidden:      false,
-					IndicatorHidden: true,
-					Orientation:     spatial.Location("top"),
-				}),
-			}}),
-			Entry("light variant", v13.ElementConfig{Variant: v13.LightElementConfig{
-				LabeledConfig:   fullyPopulatedLabeledConfig,
-				ScaledConfig:    fullyPopulatedScaledConfig,
-				StalenessConfig: fullyPopulatedStalenessConfig,
-				Channel:         new(channel.Key(2)),
-				Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
-				StrokeColor: new(color.Color{
-					R: 7,
-					G: 8,
-					B: 9,
-					A: 10,
-				}),
-				OnColor: new(color.Color{
-					R: 12,
-					G: 13,
-					B: 14,
-					A: 15,
-				}),
-			}}),
-			Entry("line variant", v13.ElementConfig{Variant: v13.LineElementConfig{
-				StrokeColor: new(color.Color{
-					R: 3,
-					G: 4,
-					B: 5,
-					A: 6,
-				}),
-				Start:       spatial.XY{X: 7.5, Y: 8.5},
-				End:         spatial.XY{X: 10.5, Y: 11.5},
-				StrokeWidth: 12.5,
-			}}),
-			Entry("off_page_reference variant", v13.ElementConfig{Variant: v13.OffPageReferenceElementConfig{
-				LabeledConfig: fullyPopulatedLabeledConfig,
-				FillColor: new(color.Color{
-					R: 3,
-					G: 4,
-					B: 5,
-					A: 6,
-				}),
-				Page:                new(v13.Page{Type: v13.PageType("schematic"), Key: "test_8"}),
-				DblClickNavDisabled: true,
-			}}),
-			Entry("polygon variant", v13.ElementConfig{Variant: v13.PolygonElementConfig{
-				LabeledConfig:  fullyPopulatedLabeledConfig,
-				NumSides:       1.5,
-				SideLength:     2.5,
-				Rotation:       3.5,
-				CornerRounding: 4.5,
-				StrokeColor: new(color.Color{
-					R: 7,
-					G: 8,
-					B: 9,
-					A: 10,
-				}),
-				FillColor: new(color.Color{
-					R: 12,
-					G: 13,
-					B: 14,
-					A: 15,
-				}),
-				StrokeWidth: 15.5,
-			}}),
-			Entry("select variant", v13.ElementConfig{Variant: v13.SelectElementConfig{
-				LabeledConfig:   fullyPopulatedLabeledConfig,
-				StalenessConfig: fullyPopulatedStalenessConfig,
-				Size:            v13.ComponentSize("tiny"),
-				CommandChannel:  new(channel.Key(3)),
-				StateChannel:    new(channel.Key(4)),
-				FillColor: new(color.Color{
-					R: 6,
-					G: 7,
-					B: 8,
-					A: 9,
-				}),
-				InlineSize: 9.5,
-				Options: []v13.StateMapping{
-					{
-						Key:   "test_11",
-						Name:  "test_12",
-						Value: 13.5,
-						Color: new(color.Color{
-							R: 16,
-							G: 17,
-							B: 18,
-							A: 19,
-						}),
-					},
-				},
-				Disabled:     true,
-				OnClickDelay: 20.5,
-				Control: new(v13.ControlStateConfig{
-					Authority:       new(uint8(23)),
-					Hidden:          true,
-					ChipHidden:      false,
-					IndicatorHidden: true,
-					Orientation:     spatial.Location("top"),
-				}),
-			}}),
-			Entry("scale variant", v13.ElementConfig{Variant: v13.ScaleElementConfig{
-				LabeledConfig:        fullyPopulatedLabeledConfig,
-				ScaleIndicatorConfig: fullyPopulatedScaleIndicatorConfig,
-				Position:             new(spatial.XY{X: 2.5, Y: 3.5}),
-				Dimensions:           spatial.Dimensions{Width: 5.5, Height: 6.5},
-			}}),
-			Entry("setpoint variant", v13.ElementConfig{Variant: v13.SetpointElementConfig{
-				LabeledConfig:   fullyPopulatedLabeledConfig,
-				StalenessConfig: fullyPopulatedStalenessConfig,
-				Size:            v13.ComponentSize("tiny"),
-				CommandChannel:  new(channel.Key(3)),
-				StateChannel:    new(channel.Key(4)),
-				Dimensions:      new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
-				FillColor: new(color.Color{
-					R: 9,
-					G: 10,
-					B: 11,
-					A: 12,
-				}),
-				Units:        "test_12",
-				Disabled:     true,
-				InlineSize:   14.5,
-				OnClickDelay: 15.5,
-				Control: new(v13.ControlStateConfig{
-					Authority:       new(uint8(18)),
-					Hidden:          false,
-					ChipHidden:      true,
-					IndicatorHidden: false,
-					Orientation:     spatial.Location("top"),
-				}),
-			}}),
-			Entry("state_indicator variant", v13.ElementConfig{Variant: v13.StateIndicatorElementConfig{
-				LabeledConfig:   fullyPopulatedLabeledConfig,
-				StalenessConfig: fullyPopulatedStalenessConfig,
-				Channel:         new(channel.Key(2)),
-				StrokeColor: new(color.Color{
-					R: 4,
-					G: 5,
-					B: 6,
-					A: 7,
-				}),
-				InlineSize: 7.5,
-				Options: []v13.StateMapping{
-					{
-						Key:   "test_9",
-						Name:  "test_10",
-						Value: 11.5,
-						Color: new(color.Color{
-							R: 14,
-							G: 15,
-							B: 16,
-							A: 17,
-						}),
-					},
-				},
-				Size: v13.ComponentSize("tiny"),
-			}}),
-			Entry("string_display variant", v13.ElementConfig{Variant: v13.StringDisplayElementConfig{
-				LabeledConfig:   fullyPopulatedLabeledConfig,
-				StalenessConfig: fullyPopulatedStalenessConfig,
-				StrokeColor: new(color.Color{
-					R: 3,
-					G: 4,
-					B: 5,
-					A: 6,
-				}),
-				TextColor: new(color.Color{
-					R: 8,
-					G: 9,
-					B: 10,
-					A: 11,
-				}),
-				Tooltip:    []string{"test_11"},
-				InlineSize: 12.5,
-				Channel:    new(channel.Key(14)),
-				Level:      text.Level("h1"),
-			}}),
-			Entry("switch variant", v13.ElementConfig{Variant: v13.SwitchElementConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
-			Entry("text_box variant", v13.ElementConfig{Variant: v13.TextBoxElementConfig{
-				LabeledConfig: fullyPopulatedLabeledConfig,
-				TextColor: new(color.Color{
-					R: 3,
-					G: 4,
-					B: 5,
-					A: 6,
-				}),
-				Width:           6.5,
-				Align:           v13.FlexAlignment("start"),
-				AutoFitDisabled: false,
-				Level:           text.Level("h1"),
-				Value:           "test_10",
-			}}),
-			Entry("value variant", v13.ElementConfig{Variant: v13.ValueElementConfig{
-				LabeledConfig:      fullyPopulatedLabeledConfig,
-				NumericTelemConfig: fullyPopulatedNumericTelemConfig,
-				StalenessConfig:    fullyPopulatedStalenessConfig,
-				Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
-				StrokeColor: new(color.Color{
-					R: 6,
-					G: 7,
-					B: 8,
-					A: 9,
-				}),
-				TextColor: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 14,
-				}),
-				FillColor: new(color.Color{
-					R: 16,
-					G: 17,
-					B: 18,
-					A: 19,
-				}),
-				Tooltip: []string{"test_19"},
-				Redline: color.Scale{
-					Bands: []color.Band{
-						{
-							Key:       "test_22",
-							Threshold: 23.5,
-							Color:     color.Color{},
-							Flashing:  true,
+				Orientation: spatial.OuterLocation(""),
+			}),
+		)
+	})
+	Describe("Node", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v13.Node) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v13.Node
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v13.Node{
+				Key:      "test_1",
+				Position: spatial.XY{X: 3.5, Y: 4.5},
+				ZIndex:   6,
+				Config:   v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}},
+				Parent:   new(string("test_7")),
+			}),
+			Entry("zero values", v13.Node{
+				Key:      "",
+				Position: spatial.XY{X: 0, Y: 0},
+				ZIndex:   0,
+				Config: v13.NodeConfig{Variant: v13.CapNodeConfig{
+					StaticSymbolConfig: v13.StaticSymbolConfig{
+						Label: v13.LabelConfig{
+							Label:         "",
+							Level:         text.Level(""),
+							Orientation:   spatial.Location(""),
+							Direction:     spatial.Direction(""),
+							MaxInlineSize: 0,
+							Align:         v13.FlexAlignment(""),
 						},
+						Orientation: spatial.OuterLocation(""),
+						Scale:       0,
+						StrokeColor: nil,
 					},
-					Smooth: false,
-				},
-				Units:      "test_27",
-				InlineSize: 28.5,
-				Level:      text.Level("h1"),
-				Location: spatial.LocationXY{
-					X: spatial.XCenterLocation("left"),
-					Y: spatial.YCenterLocation("top"),
-				},
-			}}),
-			Entry("agitator variant", v13.ElementConfig{Variant: v13.AgitatorElementConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
-			Entry("cross_beam_agitator variant", v13.ElementConfig{Variant: v13.CrossBeamAgitatorElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("flat_blade_agitator variant", v13.ElementConfig{Variant: v13.FlatBladeAgitatorElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("heat_exchanger_general variant", v13.ElementConfig{Variant: v13.HeatExchangerGeneralElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("heat_exchanger_m variant", v13.ElementConfig{Variant: v13.HeatExchangerMElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("heat_exchanger_straight_tube variant", v13.ElementConfig{Variant: v13.HeatExchangerStraightTubeElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("helical_agitator variant", v13.ElementConfig{Variant: v13.HelicalAgitatorElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("paddle_agitator variant", v13.ElementConfig{Variant: v13.PaddleAgitatorElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("propeller_agitator variant", v13.ElementConfig{Variant: v13.PropellerAgitatorElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("rotary_mixer variant", v13.ElementConfig{Variant: v13.RotaryMixerElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("static_mixer variant", v13.ElementConfig{Variant: v13.StaticMixerElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("cavity_pump variant", v13.ElementConfig{Variant: v13.CavityPumpElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("centrifugal_compressor variant", v13.ElementConfig{Variant: v13.CentrifugalCompressorElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("compressor variant", v13.ElementConfig{Variant: v13.CompressorElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("diaphragm_pump variant", v13.ElementConfig{Variant: v13.DiaphragmPumpElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("ejection_pump variant", v13.ElementConfig{Variant: v13.EjectionPumpElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("ejector_compressor variant", v13.ElementConfig{Variant: v13.EjectorCompressorElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("liquid_ring_compressor variant", v13.ElementConfig{Variant: v13.LiquidRingCompressorElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("piston_pump variant", v13.ElementConfig{Variant: v13.PistonPumpElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("pump variant", v13.ElementConfig{Variant: v13.PumpElementConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
-			Entry("roller_vane_compressor variant", v13.ElementConfig{Variant: v13.RollerVaneCompressorElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("screw_pump variant", v13.ElementConfig{Variant: v13.ScrewPumpElementConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
-			Entry("turbo_compressor variant", v13.ElementConfig{Variant: v13.TurboCompressorElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("vacuum_pump variant", v13.ElementConfig{Variant: v13.VacuumPumpElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("burst_disc variant", v13.ElementConfig{Variant: v13.BurstDiscElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
-			Entry("flame_arrestor variant", v13.ElementConfig{Variant: v13.FlameArrestorElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("flame_arrestor_detonation variant", v13.ElementConfig{Variant: v13.FlameArrestorDetonationElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("flame_arrestor_explosion variant", v13.ElementConfig{Variant: v13.FlameArrestorExplosionElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("flame_arrestor_fire_res variant", v13.ElementConfig{Variant: v13.FlameArrestorFireResElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("flame_arrestor_fire_res_detonation variant", v13.ElementConfig{Variant: v13.FlameArrestorFireResDetonationElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("iso_burst_disc variant", v13.ElementConfig{Variant: v13.IsoBurstDiscElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("angled_valve variant", v13.ElementConfig{Variant: v13.AngledValveElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("angled_relief_valve variant", v13.ElementConfig{Variant: v13.AngledReliefValveElementConfig{
-				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
-			}}),
-			Entry("angled_spring_loaded_relief_valve variant", v13.ElementConfig{Variant: v13.AngledSpringLoadedReliefValveElementConfig{
-				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
-			}}),
-			Entry("ball_valve variant", v13.ElementConfig{Variant: v13.BallValveElementConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
-			Entry("breather_valve variant", v13.ElementConfig{Variant: v13.BreatherValveElementConfig{
-				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
-			}}),
-			Entry("butterfly_valve_one variant", v13.ElementConfig{Variant: v13.ButterflyValveOneElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("butterfly_valve_two variant", v13.ElementConfig{Variant: v13.ButterflyValveTwoElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("check_valve variant", v13.ElementConfig{Variant: v13.CheckValveElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("check_valve_with_arrow variant", v13.ElementConfig{Variant: v13.CheckValveWithArrowElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("electric_regulator variant", v13.ElementConfig{Variant: v13.ElectricRegulatorElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("electric_regulator_motorized variant", v13.ElementConfig{Variant: v13.ElectricRegulatorMotorizedElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("four_way_valve variant", v13.ElementConfig{Variant: v13.FourWayValveElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("gate_valve variant", v13.ElementConfig{Variant: v13.GateValveElementConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
-			Entry("iso_check_valve variant", v13.ElementConfig{Variant: v13.IsoCheckValveElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("manual_valve variant", v13.ElementConfig{Variant: v13.ManualValveElementConfig{
-				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
-			}}),
-			Entry("needle_valve variant", v13.ElementConfig{Variant: v13.NeedleValveElementConfig{
-				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
-			}}),
-			Entry("regulator variant", v13.ElementConfig{Variant: v13.RegulatorElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
-			Entry("regulator_manual variant", v13.ElementConfig{Variant: v13.RegulatorManualElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("relief_valve variant", v13.ElementConfig{Variant: v13.ReliefValveElementConfig{
-				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
-			}}),
-			Entry("solenoid_valve variant", v13.ElementConfig{Variant: v13.SolenoidValveElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-				NormallyOpen:       true,
-			}}),
-			Entry("spring_loaded_relief_valve variant", v13.ElementConfig{Variant: v13.SpringLoadedReliefValveElementConfig{
-				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
-			}}),
-			Entry("three_way_valve variant", v13.ElementConfig{Variant: v13.ThreeWayValveElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("three_way_ball_valve variant", v13.ElementConfig{Variant: v13.ThreeWayBallValveElementConfig{
-				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			}}),
-			Entry("valve variant", v13.ElementConfig{Variant: v13.ValveElementConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
-			Entry("cross_junction variant", v13.ElementConfig{Variant: v13.CrossJunctionElementConfig{
-				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-			}}),
-			Entry("cylinder variant", v13.ElementConfig{Variant: v13.CylinderElementConfig{
-				LabeledConfig: fullyPopulatedLabeledConfig,
-				ScaledConfig:  fullyPopulatedScaledConfig,
-				Dimensions:    spatial.Dimensions{Width: 2.5, Height: 3.5},
-				BorderRadius: new(border.Radius{
-					TopLeft:     spatial.XY{X: 6.5, Y: 7.5},
-					TopRight:    spatial.XY{X: 9.5, Y: 10.5},
-					BottomLeft:  spatial.XY{X: 12.5, Y: 13.5},
-					BottomRight: spatial.XY{X: 15.5, Y: 16.5},
-				}),
-				StrokeColor: new(color.Color{
-					R: 19,
-					G: 20,
-					B: 21,
-					A: 22,
-				}),
-				FillColor: new(color.Color{
-					R: 24,
-					G: 25,
-					B: 26,
-					A: 27,
-				}),
-			}}),
-			Entry("tank variant", v13.ElementConfig{Variant: v13.TankElementConfig{
-				LabeledConfig:    fullyPopulatedLabeledConfig,
-				Channel:          new(channel.Key(2)),
-				RollingAverage:   new(int32(3)),
-				Precision:        new(uint8(4)),
-				Notation:         notation.Notation("standard"),
-				StalenessTimeout: 5.5,
-				StalenessColor: new(color.Color{
-					R: 8,
-					G: 9,
-					B: 10,
-					A: 11,
-				}),
-				Bounds: spatial.Bounds{Lower: 12.5, Upper: 13.5},
-				LevelColor: new(color.Color{
-					R: 16,
-					G: 17,
-					B: 18,
-					A: 19,
-				}),
-				AxisColor: new(color.Color{
-					R: 21,
-					G: 22,
-					B: 23,
-					A: 24,
-				}),
-				TextColor: new(color.Color{
-					R: 26,
-					G: 27,
-					B: 28,
-					A: 29,
-				}),
-				Units:       "test_29",
-				LevelHidden: false,
-				CaretSide:   spatial.OuterLocation("top"),
-				Level:       text.Level("h1"),
-				Position:    new(spatial.XY{X: 34.5, Y: 35.5}),
-				StrokeColor: new(color.Color{
-					R: 38,
-					G: 39,
-					B: 40,
-					A: 41,
-				}),
-				FillColor: new(color.Color{
-					R: 43,
-					G: 44,
-					B: 45,
-					A: 46,
-				}),
-				Dimensions: spatial.Dimensions{Width: 47.5, Height: 48.5},
-				BorderRadius: border.Radius{
-					TopLeft:     spatial.XY{X: 51.5, Y: 52.5},
-					TopRight:    spatial.XY{X: 54.5, Y: 55.5},
-					BottomLeft:  spatial.XY{X: 57.5, Y: 58.5},
-					BottomRight: spatial.XY{X: 60.5, Y: 61.5},
-				},
-				CaretVisible: false,
-				ScaleVisible: true,
-				Side:         spatial.OuterLocation("top"),
-			}}),
-			Entry("t_junction variant", v13.ElementConfig{Variant: v13.TJunctionElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
-			Entry("custom_actuator variant", v13.ElementConfig{Variant: v13.CustomActuatorElementConfig{
-				ToggleConfig: fullyPopulatedToggleConfig,
-				SpecKey:      "test_1",
-				StateOverrides: []symbol.State{
-					{
-						Key:  "test_3",
-						Name: "test_4",
-						Regions: []symbol.Region{
-							{
-								Key:         "test_6",
-								Name:        "test_7",
-								Selectors:   []string{"test_8"},
-								StrokeColor: new(color.Color{}),
-								FillColor:   new(color.Color{}),
-							},
-						},
-					},
-				},
-			}}),
-			Entry("custom_static variant", v13.ElementConfig{Variant: v13.CustomStaticElementConfig{
-				LabeledConfig: fullyPopulatedLabeledConfig,
-				ScaledConfig:  fullyPopulatedScaledConfig,
-				SpecKey:       "test_1",
-				StateOverrides: []symbol.State{
-					{
-						Key:  "test_3",
-						Name: "test_4",
-						Regions: []symbol.Region{
-							{
-								Key:         "test_6",
-								Name:        "test_7",
-								Selectors:   []string{"test_8"},
-								StrokeColor: new(color.Color{}),
-								FillColor:   new(color.Color{}),
-							},
-						},
-					},
-				},
-			}}),
-			Entry("group_box variant", v13.ElementConfig{Variant: v13.GroupBoxElementConfig{Members: []string{"test_1"}, Locked: false}}),
-			Entry("pipe variant", v13.ElementConfig{Variant: v13.PipeElementConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
-			Entry("electric variant", v13.ElementConfig{Variant: v13.ElectricElementConfig{
-				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
-			}}),
-			Entry("secondary variant", v13.ElementConfig{Variant: v13.SecondaryElementConfig{
-				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
-			}}),
-			Entry("jacketed variant", v13.ElementConfig{Variant: v13.JacketedElementConfig{
-				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
-			}}),
-			Entry("hydraulic variant", v13.ElementConfig{Variant: v13.HydraulicElementConfig{
-				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
-			}}),
-			Entry("pneumatic variant", v13.ElementConfig{Variant: v13.PneumaticElementConfig{
-				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
-			}}),
-			Entry("data variant", v13.ElementConfig{Variant: v13.DataElementConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+				}},
+				Parent: nil,
+			}),
 		)
 	})
 	Describe("NodeConfig", func() {
@@ -1036,33 +468,32 @@ var _ = Describe("Codec", func() {
 					A: 11,
 				}),
 				Dimensions:   spatial.Dimensions{Width: 12.5, Height: 13.5},
-				BorderRadius: 14.5,
-				StrokeWidth:  15.5,
+				BorderRadius: new(uint16(15)),
+				StrokeWidth:  new(uint8(16)),
 			}}),
 			Entry("button variant", v13.NodeConfig{Variant: v13.ButtonNodeConfig{
 				LabeledConfig:  fullyPopulatedLabeledConfig,
 				Size:           v13.ComponentSize("tiny"),
-				Level:          new(text.Level("h1")),
-				OnClickDelay:   3.5,
-				CommandChannel: new(channel.Key(5)),
+				OnClickDelay:   telem.TimeSpan(3),
+				CommandChannel: channel.Key(4),
 				Mode:           v13.ButtonMode("fire"),
 				FillColor: new(color.Color{
-					R: 8,
-					G: 9,
-					B: 10,
-					A: 11,
+					R: 7,
+					G: 8,
+					B: 9,
+					A: 10,
 				}),
-				Control: new(v13.ControlStateConfig{
-					Authority:       new(uint8(13)),
-					Hidden:          true,
-					ChipHidden:      false,
-					IndicatorHidden: true,
+				Control: v13.ControlStateConfig{
+					Authority:       new(uint8(12)),
+					Hidden:          false,
+					ChipHidden:      true,
+					IndicatorHidden: false,
 					Orientation:     spatial.Location("top"),
-				}),
+				},
 			}}),
 			Entry("circle variant", v13.NodeConfig{Variant: v13.CircleNodeConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
-				Radius:        1.5,
+				Radius:        2,
 				StrokeColor: new(color.Color{
 					R: 4,
 					G: 5,
@@ -1075,13 +506,13 @@ var _ = Describe("Codec", func() {
 					B: 11,
 					A: 12,
 				}),
-				StrokeWidth: 12.5,
+				StrokeWidth: new(uint8(13)),
 			}}),
 			Entry("gauge variant", v13.NodeConfig{Variant: v13.GaugeNodeConfig{
 				LabeledConfig:      fullyPopulatedLabeledConfig,
 				NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 				StalenessConfig:    fullyPopulatedStalenessConfig,
-				Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
+				Position:           spatial.XY{X: 2.5, Y: 3.5},
 				StrokeColor: new(color.Color{
 					R: 6,
 					G: 7,
@@ -1089,7 +520,7 @@ var _ = Describe("Codec", func() {
 					A: 9,
 				}),
 				Bounds:   spatial.Bounds{Lower: 10.5, Upper: 11.5},
-				BarWidth: 12.5,
+				BarWidth: 13,
 				Location: spatial.LocationXY{
 					X: spatial.XCenterLocation("left"),
 					Y: spatial.YCenterLocation("top"),
@@ -1101,9 +532,9 @@ var _ = Describe("Codec", func() {
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Size:            v13.ComponentSize("tiny"),
-				CommandChannel:  new(channel.Key(3)),
-				StateChannel:    new(channel.Key(4)),
-				Dimensions:      new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
+				CommandChannel:  channel.Key(3),
+				StateChannel:    channel.Key(4),
+				Dimensions:      spatial.Dimensions{Width: 5.5, Height: 6.5},
 				FillColor: new(color.Color{
 					R: 9,
 					G: 10,
@@ -1111,21 +542,21 @@ var _ = Describe("Codec", func() {
 					A: 12,
 				}),
 				Disabled:     false,
-				InlineSize:   13.5,
-				OnClickDelay: 14.5,
-				Control: new(v13.ControlStateConfig{
+				InlineSize:   14,
+				OnClickDelay: telem.TimeSpan(15),
+				Control: v13.ControlStateConfig{
 					Authority:       new(uint8(17)),
 					Hidden:          true,
 					ChipHidden:      false,
 					IndicatorHidden: true,
 					Orientation:     spatial.Location("top"),
-				}),
+				},
 			}}),
 			Entry("light variant", v13.NodeConfig{Variant: v13.LightNodeConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				ScaledConfig:    fullyPopulatedScaledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
-				Channel:         new(channel.Key(2)),
+				Channel:         channel.Key(2),
 				Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
 				StrokeColor: new(color.Color{
 					R: 7,
@@ -1149,7 +580,7 @@ var _ = Describe("Codec", func() {
 				}),
 				Start:       spatial.XY{X: 7.5, Y: 8.5},
 				End:         spatial.XY{X: 10.5, Y: 11.5},
-				StrokeWidth: 12.5,
+				StrokeWidth: 13,
 			}}),
 			Entry("off_page_reference variant", v13.NodeConfig{Variant: v13.OffPageReferenceNodeConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
@@ -1159,15 +590,15 @@ var _ = Describe("Codec", func() {
 					B: 5,
 					A: 6,
 				}),
-				Page:                new(v13.Page{Type: v13.PageType("schematic"), Key: "test_8"}),
-				DblClickNavDisabled: true,
+				Page:                          v13.Page{Type: v13.PageType("schematic"), Key: "test_8"},
+				DoubleClickNavigationDisabled: true,
 			}}),
 			Entry("polygon variant", v13.NodeConfig{Variant: v13.PolygonNodeConfig{
-				LabeledConfig:  fullyPopulatedLabeledConfig,
-				NumSides:       1.5,
-				SideLength:     2.5,
-				Rotation:       3.5,
-				CornerRounding: 4.5,
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				NumSides:      2,
+				SideLength:    3,
+				Rotation:      3.5,
+				BorderRadius:  5,
 				StrokeColor: new(color.Color{
 					R: 7,
 					G: 8,
@@ -1180,21 +611,21 @@ var _ = Describe("Codec", func() {
 					B: 14,
 					A: 15,
 				}),
-				StrokeWidth: 15.5,
+				StrokeWidth: new(uint8(16)),
 			}}),
 			Entry("select variant", v13.NodeConfig{Variant: v13.SelectNodeConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Size:            v13.ComponentSize("tiny"),
-				CommandChannel:  new(channel.Key(3)),
-				StateChannel:    new(channel.Key(4)),
+				CommandChannel:  channel.Key(3),
+				StateChannel:    channel.Key(4),
 				FillColor: new(color.Color{
 					R: 6,
 					G: 7,
 					B: 8,
 					A: 9,
 				}),
-				InlineSize: 9.5,
+				InlineSize: 10,
 				Options: []v13.StateMapping{
 					{
 						Key:   "test_11",
@@ -1209,28 +640,28 @@ var _ = Describe("Codec", func() {
 					},
 				},
 				Disabled:     true,
-				OnClickDelay: 20.5,
-				Control: new(v13.ControlStateConfig{
+				OnClickDelay: telem.TimeSpan(21),
+				Control: v13.ControlStateConfig{
 					Authority:       new(uint8(23)),
 					Hidden:          true,
 					ChipHidden:      false,
 					IndicatorHidden: true,
 					Orientation:     spatial.Location("top"),
-				}),
+				},
 			}}),
 			Entry("scale variant", v13.NodeConfig{Variant: v13.ScaleNodeConfig{
 				LabeledConfig:        fullyPopulatedLabeledConfig,
 				ScaleIndicatorConfig: fullyPopulatedScaleIndicatorConfig,
-				Position:             new(spatial.XY{X: 2.5, Y: 3.5}),
+				Position:             spatial.XY{X: 2.5, Y: 3.5},
 				Dimensions:           spatial.Dimensions{Width: 5.5, Height: 6.5},
 			}}),
 			Entry("setpoint variant", v13.NodeConfig{Variant: v13.SetpointNodeConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Size:            v13.ComponentSize("tiny"),
-				CommandChannel:  new(channel.Key(3)),
-				StateChannel:    new(channel.Key(4)),
-				Dimensions:      new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
+				CommandChannel:  channel.Key(3),
+				StateChannel:    channel.Key(4),
+				Dimensions:      spatial.Dimensions{Width: 5.5, Height: 6.5},
 				FillColor: new(color.Color{
 					R: 9,
 					G: 10,
@@ -1239,27 +670,27 @@ var _ = Describe("Codec", func() {
 				}),
 				Units:        "test_12",
 				Disabled:     true,
-				InlineSize:   14.5,
-				OnClickDelay: 15.5,
-				Control: new(v13.ControlStateConfig{
+				InlineSize:   15,
+				OnClickDelay: telem.TimeSpan(16),
+				Control: v13.ControlStateConfig{
 					Authority:       new(uint8(18)),
 					Hidden:          false,
 					ChipHidden:      true,
 					IndicatorHidden: false,
 					Orientation:     spatial.Location("top"),
-				}),
+				},
 			}}),
 			Entry("state_indicator variant", v13.NodeConfig{Variant: v13.StateIndicatorNodeConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
-				Channel:         new(channel.Key(2)),
+				Channel:         channel.Key(2),
 				StrokeColor: new(color.Color{
 					R: 4,
 					G: 5,
 					B: 6,
 					A: 7,
 				}),
-				InlineSize: 7.5,
+				InlineSize: 8,
 				Options: []v13.StateMapping{
 					{
 						Key:   "test_9",
@@ -1291,8 +722,8 @@ var _ = Describe("Codec", func() {
 					A: 11,
 				}),
 				Tooltip:    []string{"test_11"},
-				InlineSize: 12.5,
-				Channel:    new(channel.Key(14)),
+				InlineSize: 13,
+				Channel:    channel.Key(14),
 				Level:      text.Level("h1"),
 			}}),
 			Entry("switch variant", v13.NodeConfig{Variant: v13.SwitchNodeConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
@@ -1304,7 +735,7 @@ var _ = Describe("Codec", func() {
 					B: 5,
 					A: 6,
 				}),
-				Width:           6.5,
+				InlineSize:      7,
 				Align:           v13.FlexAlignment("start"),
 				AutoFitDisabled: false,
 				Level:           text.Level("h1"),
@@ -1314,7 +745,7 @@ var _ = Describe("Codec", func() {
 				LabeledConfig:      fullyPopulatedLabeledConfig,
 				NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 				StalenessConfig:    fullyPopulatedStalenessConfig,
-				Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
+				Position:           spatial.XY{X: 2.5, Y: 3.5},
 				StrokeColor: new(color.Color{
 					R: 6,
 					G: 7,
@@ -1346,7 +777,7 @@ var _ = Describe("Codec", func() {
 					Smooth: false,
 				},
 				Units:      "test_27",
-				InlineSize: 28.5,
+				InlineSize: 29,
 				Level:      text.Level("h1"),
 				Location: spatial.LocationXY{
 					X: spatial.XCenterLocation("left"),
@@ -1509,11 +940,11 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("tank variant", v13.NodeConfig{Variant: v13.TankNodeConfig{
 				LabeledConfig:    fullyPopulatedLabeledConfig,
-				Channel:          new(channel.Key(2)),
-				RollingAverage:   new(int32(3)),
+				Channel:          channel.Key(2),
+				RollingAverage:   3,
 				Precision:        new(uint8(4)),
 				Notation:         notation.Notation("standard"),
-				StalenessTimeout: 5.5,
+				StalenessTimeout: telem.TimeSpan(6),
 				StalenessColor: new(color.Color{
 					R: 8,
 					G: 9,
@@ -1543,7 +974,7 @@ var _ = Describe("Codec", func() {
 				LevelHidden: false,
 				CaretSide:   spatial.OuterLocation("top"),
 				Level:       text.Level("h1"),
-				Position:    new(spatial.XY{X: 34.5, Y: 35.5}),
+				Position:    spatial.XY{X: 34.5, Y: 35.5},
 				StrokeColor: new(color.Color{
 					R: 38,
 					G: 39,
@@ -1557,12 +988,12 @@ var _ = Describe("Codec", func() {
 					A: 46,
 				}),
 				Dimensions: spatial.Dimensions{Width: 47.5, Height: 48.5},
-				BorderRadius: border.Radius{
+				BorderRadius: new(border.Radius{
 					TopLeft:     spatial.XY{X: 51.5, Y: 52.5},
 					TopRight:    spatial.XY{X: 54.5, Y: 55.5},
 					BottomLeft:  spatial.XY{X: 57.5, Y: 58.5},
 					BottomRight: spatial.XY{X: 60.5, Y: 61.5},
-				},
+				}),
 				CaretVisible: false,
 				ScaleVisible: true,
 				Side:         spatial.OuterLocation("top"),
@@ -1607,7 +1038,27 @@ var _ = Describe("Codec", func() {
 					},
 				},
 			}}),
-			Entry("group_box variant", v13.NodeConfig{Variant: v13.GroupBoxNodeConfig{Members: []string{"test_1"}, Locked: false}}),
+			Entry("group_box variant", v13.NodeConfig{Variant: v13.GroupBoxNodeConfig{Locked: true}}),
+		)
+	})
+	Describe("NumericTelemConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v13.NumericTelemConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v13.NumericTelemConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedNumericTelemConfig),
+			Entry("zero values", v13.NumericTelemConfig{
+				Channel:        channel.Key(0),
+				RollingAverage: 0,
+				Precision:      nil,
+				Notation:       notation.Notation(""),
+			}),
 		)
 	})
 	Describe("ScaleIndicatorConfig", func() {
@@ -1623,11 +1074,11 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedScaleIndicatorConfig),
 			Entry("zero values", v13.ScaleIndicatorConfig{
-				Channel:          nil,
-				RollingAverage:   nil,
+				Channel:          channel.Key(0),
+				RollingAverage:   0,
 				Precision:        nil,
 				Notation:         notation.Notation(""),
-				StalenessTimeout: 0,
+				StalenessTimeout: telem.TimeSpan(0),
 				StalenessColor:   nil,
 				Bounds:           spatial.Bounds{Lower: 0, Upper: 0},
 				LevelColor:       nil,
@@ -1662,25 +1113,26 @@ var _ = Describe("Codec", func() {
 						Key:      "test_4",
 						Position: spatial.XY{X: 6.5, Y: 7.5},
 						ZIndex:   9,
+						Config:   v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}},
+						Parent:   new(string("test_10")),
 					},
 				},
 				Edges: []v13.Edge{
 					{
-						Key:    "test_10",
-						Source: v13.Handle{Node: "test_12", Param: "test_13"},
-						Target: v13.Handle{Node: "test_15", Param: "test_16"},
+						Key:    "test_12",
+						Source: v13.Handle{Node: "test_14", Param: "test_15"},
+						Target: v13.Handle{Node: "test_17", Param: "test_18"},
+						Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
 					},
 				},
-				Configs: map[string]v13.ElementConfig{"test_17": {Variant: v13.CapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
-				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"))),
-				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
+				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
 			}),
 			Entry("zero values", v13.Schematic{
 				Key:     uuid.Nil(),
 				Name:    "",
 				Nodes:   []v13.Node{},
 				Edges:   []v13.Edge{},
-				Configs: map[string]v13.ElementConfig{},
 				Group:   nil,
 				Project: nil,
 			}),
@@ -1689,9 +1141,8 @@ var _ = Describe("Codec", func() {
 				Name:    "test_2",
 				Nodes:   []v13.Node{},
 				Edges:   []v13.Edge{},
-				Configs: map[string]v13.ElementConfig{},
-				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 			}),
 		)
 	})
@@ -1707,7 +1158,11 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", fullyPopulatedSegmentedEdgeConfig),
-			Entry("zero values", v13.SegmentedEdgeConfig{StrokeColor: nil, Segments: []v13.Segment{}}),
+			Entry("zero values", v13.SegmentedEdgeConfig{
+				StrokeColor: nil,
+				Segments:    []v13.Segment{},
+				StrokeWidth: 0,
+			}),
 			Entry("empty collections", v13.SegmentedEdgeConfig{
 				StrokeColor: new(color.Color{
 					R: 3,
@@ -1715,7 +1170,8 @@ var _ = Describe("Codec", func() {
 					B: 5,
 					A: 6,
 				}),
-				Segments: []v13.Segment{},
+				Segments:    []v13.Segment{},
+				StrokeWidth: 8,
 			}),
 		)
 	})
@@ -1731,7 +1187,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", fullyPopulatedStalenessConfig),
-			Entry("zero values", v13.StalenessConfig{StalenessTimeout: 0, StalenessColor: nil}),
+			Entry("zero values", v13.StalenessConfig{StalenessTimeout: telem.TimeSpan(0), StalenessColor: nil}),
 		)
 	})
 	Describe("StateMapping", func() {
@@ -1814,12 +1270,18 @@ var _ = Describe("Codec", func() {
 				},
 				Orientation:      spatial.OuterLocation(""),
 				Scale:            0,
-				StalenessTimeout: 0,
+				StalenessTimeout: telem.TimeSpan(0),
 				StalenessColor:   nil,
-				StateChannel:     nil,
-				CommandChannel:   nil,
-				Control:          nil,
-				OnClickDelay:     0,
+				StateChannel:     channel.Key(0),
+				CommandChannel:   channel.Key(0),
+				Control: v13.ControlStateConfig{
+					Authority:       nil,
+					Hidden:          false,
+					ChipHidden:      false,
+					IndicatorHidden: false,
+					Orientation:     spatial.Location(""),
+				},
+				OnClickDelay: telem.TimeSpan(0),
 			}),
 		)
 	})
@@ -1846,13 +1308,19 @@ var _ = Describe("Codec", func() {
 				},
 				Orientation:      spatial.OuterLocation(""),
 				Scale:            0,
-				StalenessTimeout: 0,
+				StalenessTimeout: telem.TimeSpan(0),
 				StalenessColor:   nil,
-				StateChannel:     nil,
-				CommandChannel:   nil,
-				Control:          nil,
-				OnClickDelay:     0,
-				StrokeColor:      nil,
+				StateChannel:     channel.Key(0),
+				CommandChannel:   channel.Key(0),
+				Control: v13.ControlStateConfig{
+					Authority:       nil,
+					Hidden:          false,
+					ChipHidden:      false,
+					IndicatorHidden: false,
+					Orientation:     spatial.Location(""),
+				},
+				OnClickDelay: telem.TimeSpan(0),
+				StrokeColor:  nil,
 			}),
 		)
 	})
@@ -1868,6 +1336,28 @@ func BenchmarkEncodeDecodeDummyToggleSymbolConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v13.DummyToggleSymbolConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeEdge(b *testing.B) {
+	seed := v13.Edge{
+		Key:    "test_1",
+		Source: v13.Handle{Node: "test_3", Param: "test_4"},
+		Target: v13.Handle{Node: "test_6", Param: "test_7"},
+		Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v13.Edge
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1892,8 +1382,15 @@ func BenchmarkEncodeDecodeEdgeConfig(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeElementConfig(b *testing.B) {
-	seed := v13.ElementConfig{Variant: v13.CapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
+func BenchmarkEncodeDecodeLabelConfig(b *testing.B) {
+	seed := v13.LabelConfig{
+		Label:         "test_1",
+		Level:         text.Level("h1"),
+		Orientation:   spatial.Location("top"),
+		Direction:     spatial.Direction("x"),
+		MaxInlineSize: 6,
+		Align:         v13.FlexAlignment("start"),
+	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -1901,7 +1398,47 @@ func BenchmarkEncodeDecodeElementConfig(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v13.ElementConfig
+		var decoded v13.LabelConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeLabeledConfig(b *testing.B) {
+	seed := fullyPopulatedLabeledConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v13.LabeledConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeNode(b *testing.B) {
+	seed := v13.Node{
+		Key:      "test_1",
+		Position: spatial.XY{X: 3.5, Y: 4.5},
+		ZIndex:   6,
+		Config:   v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}},
+		Parent:   new(string("test_7")),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v13.Node
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1919,6 +1456,23 @@ func BenchmarkEncodeDecodeNodeConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v13.NodeConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeNumericTelemConfig(b *testing.B) {
+	seed := fullyPopulatedNumericTelemConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v13.NumericTelemConfig
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1952,18 +1506,20 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 				Key:      "test_4",
 				Position: spatial.XY{X: 6.5, Y: 7.5},
 				ZIndex:   9,
+				Config:   v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}},
+				Parent:   new(string("test_10")),
 			},
 		},
 		Edges: []v13.Edge{
 			{
-				Key:    "test_10",
-				Source: v13.Handle{Node: "test_12", Param: "test_13"},
-				Target: v13.Handle{Node: "test_15", Param: "test_16"},
+				Key:    "test_12",
+				Source: v13.Handle{Node: "test_14", Param: "test_15"},
+				Target: v13.Handle{Node: "test_17", Param: "test_18"},
+				Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
 			},
 		},
-		Configs: map[string]v13.ElementConfig{"test_17": {Variant: v13.CapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
-		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"))),
-		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
+		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -2145,6 +1701,61 @@ func FuzzDecodeDummyToggleSymbolConfig(f *testing.F) {
 	})
 }
 
+func FuzzDecodeEdge(f *testing.F) {
+	{
+		seed := v13.Edge{
+			Key:    "test_1",
+			Source: v13.Handle{Node: "test_3", Param: "test_4"},
+			Target: v13.Handle{Node: "test_6", Param: "test_7"},
+			Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v13.Edge{
+			Key:    "",
+			Source: v13.Handle{Node: "", Param: ""},
+			Target: v13.Handle{Node: "", Param: ""},
+			Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{
+				SegmentedEdgeConfig: v13.SegmentedEdgeConfig{
+					StrokeColor: nil,
+					Segments:    []v13.Segment{},
+					StrokeWidth: 0,
+				},
+			}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v13.Edge
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v13.Edge
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeEdgeConfig(f *testing.F) {
 	{
 		seed := v13.EdgeConfig{Variant: v13.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
@@ -2224,1443 +1835,16 @@ func FuzzDecodeEdgeConfig(f *testing.F) {
 	})
 }
 
-func FuzzDecodeElementConfig(f *testing.F) {
+func FuzzDecodeLabelConfig(f *testing.F) {
 	{
-		seed := v13.ElementConfig{Variant: v13.CapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FilterElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlowStraightenerElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.HeaterElementElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.IsoCapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.IsoFilterElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.NozzleElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.OrificeElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.OrificePlateElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.StrainerElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.StrainerConeElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.ThrusterElementConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.VentElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlowmeterGeneralElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlowmeterElectromagneticElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlowmeterVariableAreaElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlowmeterCoriolisElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlowmeterNozzleElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlowmeterVenturiElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlowmeterRingPistonElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlowmeterPositiveDisplacementElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlowmeterTurbineElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlowmeterPulseElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlowmeterFloatSensorElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlowmeterOrificeElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.BoxElementConfig{
-			LabeledConfig: fullyPopulatedLabeledConfig,
-			StrokeColor: new(color.Color{
-				R: 3,
-				G: 4,
-				B: 5,
-				A: 6,
-			}),
-			FillColor: new(color.Color{
-				R: 8,
-				G: 9,
-				B: 10,
-				A: 11,
-			}),
-			Dimensions:   spatial.Dimensions{Width: 12.5, Height: 13.5},
-			BorderRadius: 14.5,
-			StrokeWidth:  15.5,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.ButtonElementConfig{
-			LabeledConfig:  fullyPopulatedLabeledConfig,
-			Size:           v13.ComponentSize("tiny"),
-			Level:          new(text.Level("h1")),
-			OnClickDelay:   3.5,
-			CommandChannel: new(channel.Key(5)),
-			Mode:           v13.ButtonMode("fire"),
-			FillColor: new(color.Color{
-				R: 8,
-				G: 9,
-				B: 10,
-				A: 11,
-			}),
-			Control: new(v13.ControlStateConfig{
-				Authority:       new(uint8(13)),
-				Hidden:          true,
-				ChipHidden:      false,
-				IndicatorHidden: true,
-				Orientation:     spatial.Location("top"),
-			}),
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.CircleElementConfig{
-			LabeledConfig: fullyPopulatedLabeledConfig,
-			Radius:        1.5,
-			StrokeColor: new(color.Color{
-				R: 4,
-				G: 5,
-				B: 6,
-				A: 7,
-			}),
-			FillColor: new(color.Color{
-				R: 9,
-				G: 10,
-				B: 11,
-				A: 12,
-			}),
-			StrokeWidth: 12.5,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.GaugeElementConfig{
-			LabeledConfig:      fullyPopulatedLabeledConfig,
-			NumericTelemConfig: fullyPopulatedNumericTelemConfig,
-			StalenessConfig:    fullyPopulatedStalenessConfig,
-			Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
-			StrokeColor: new(color.Color{
-				R: 6,
-				G: 7,
-				B: 8,
-				A: 9,
-			}),
-			Bounds:   spatial.Bounds{Lower: 10.5, Upper: 11.5},
-			BarWidth: 12.5,
-			Location: spatial.LocationXY{
-				X: spatial.XCenterLocation("left"),
-				Y: spatial.YCenterLocation("top"),
-			},
-			Units: "test_16",
-			Level: text.Level("h1"),
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.InputElementConfig{
-			LabeledConfig:   fullyPopulatedLabeledConfig,
-			StalenessConfig: fullyPopulatedStalenessConfig,
-			Size:            v13.ComponentSize("tiny"),
-			CommandChannel:  new(channel.Key(3)),
-			StateChannel:    new(channel.Key(4)),
-			Dimensions:      new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
-			FillColor: new(color.Color{
-				R: 9,
-				G: 10,
-				B: 11,
-				A: 12,
-			}),
-			Disabled:     false,
-			InlineSize:   13.5,
-			OnClickDelay: 14.5,
-			Control: new(v13.ControlStateConfig{
-				Authority:       new(uint8(17)),
-				Hidden:          true,
-				ChipHidden:      false,
-				IndicatorHidden: true,
-				Orientation:     spatial.Location("top"),
-			}),
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.LightElementConfig{
-			LabeledConfig:   fullyPopulatedLabeledConfig,
-			ScaledConfig:    fullyPopulatedScaledConfig,
-			StalenessConfig: fullyPopulatedStalenessConfig,
-			Channel:         new(channel.Key(2)),
-			Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
-			StrokeColor: new(color.Color{
-				R: 7,
-				G: 8,
-				B: 9,
-				A: 10,
-			}),
-			OnColor: new(color.Color{
-				R: 12,
-				G: 13,
-				B: 14,
-				A: 15,
-			}),
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.LineElementConfig{
-			StrokeColor: new(color.Color{
-				R: 3,
-				G: 4,
-				B: 5,
-				A: 6,
-			}),
-			Start:       spatial.XY{X: 7.5, Y: 8.5},
-			End:         spatial.XY{X: 10.5, Y: 11.5},
-			StrokeWidth: 12.5,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.OffPageReferenceElementConfig{
-			LabeledConfig: fullyPopulatedLabeledConfig,
-			FillColor: new(color.Color{
-				R: 3,
-				G: 4,
-				B: 5,
-				A: 6,
-			}),
-			Page:                new(v13.Page{Type: v13.PageType("schematic"), Key: "test_8"}),
-			DblClickNavDisabled: true,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.PolygonElementConfig{
-			LabeledConfig:  fullyPopulatedLabeledConfig,
-			NumSides:       1.5,
-			SideLength:     2.5,
-			Rotation:       3.5,
-			CornerRounding: 4.5,
-			StrokeColor: new(color.Color{
-				R: 7,
-				G: 8,
-				B: 9,
-				A: 10,
-			}),
-			FillColor: new(color.Color{
-				R: 12,
-				G: 13,
-				B: 14,
-				A: 15,
-			}),
-			StrokeWidth: 15.5,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.SelectElementConfig{
-			LabeledConfig:   fullyPopulatedLabeledConfig,
-			StalenessConfig: fullyPopulatedStalenessConfig,
-			Size:            v13.ComponentSize("tiny"),
-			CommandChannel:  new(channel.Key(3)),
-			StateChannel:    new(channel.Key(4)),
-			FillColor: new(color.Color{
-				R: 6,
-				G: 7,
-				B: 8,
-				A: 9,
-			}),
-			InlineSize: 9.5,
-			Options: []v13.StateMapping{
-				{
-					Key:   "test_11",
-					Name:  "test_12",
-					Value: 13.5,
-					Color: new(color.Color{
-						R: 16,
-						G: 17,
-						B: 18,
-						A: 19,
-					}),
-				},
-			},
-			Disabled:     true,
-			OnClickDelay: 20.5,
-			Control: new(v13.ControlStateConfig{
-				Authority:       new(uint8(23)),
-				Hidden:          true,
-				ChipHidden:      false,
-				IndicatorHidden: true,
-				Orientation:     spatial.Location("top"),
-			}),
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.ScaleElementConfig{
-			LabeledConfig:        fullyPopulatedLabeledConfig,
-			ScaleIndicatorConfig: fullyPopulatedScaleIndicatorConfig,
-			Position:             new(spatial.XY{X: 2.5, Y: 3.5}),
-			Dimensions:           spatial.Dimensions{Width: 5.5, Height: 6.5},
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.SetpointElementConfig{
-			LabeledConfig:   fullyPopulatedLabeledConfig,
-			StalenessConfig: fullyPopulatedStalenessConfig,
-			Size:            v13.ComponentSize("tiny"),
-			CommandChannel:  new(channel.Key(3)),
-			StateChannel:    new(channel.Key(4)),
-			Dimensions:      new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
-			FillColor: new(color.Color{
-				R: 9,
-				G: 10,
-				B: 11,
-				A: 12,
-			}),
-			Units:        "test_12",
-			Disabled:     true,
-			InlineSize:   14.5,
-			OnClickDelay: 15.5,
-			Control: new(v13.ControlStateConfig{
-				Authority:       new(uint8(18)),
-				Hidden:          false,
-				ChipHidden:      true,
-				IndicatorHidden: false,
-				Orientation:     spatial.Location("top"),
-			}),
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.StateIndicatorElementConfig{
-			LabeledConfig:   fullyPopulatedLabeledConfig,
-			StalenessConfig: fullyPopulatedStalenessConfig,
-			Channel:         new(channel.Key(2)),
-			StrokeColor: new(color.Color{
-				R: 4,
-				G: 5,
-				B: 6,
-				A: 7,
-			}),
-			InlineSize: 7.5,
-			Options: []v13.StateMapping{
-				{
-					Key:   "test_9",
-					Name:  "test_10",
-					Value: 11.5,
-					Color: new(color.Color{
-						R: 14,
-						G: 15,
-						B: 16,
-						A: 17,
-					}),
-				},
-			},
-			Size: v13.ComponentSize("tiny"),
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.StringDisplayElementConfig{
-			LabeledConfig:   fullyPopulatedLabeledConfig,
-			StalenessConfig: fullyPopulatedStalenessConfig,
-			StrokeColor: new(color.Color{
-				R: 3,
-				G: 4,
-				B: 5,
-				A: 6,
-			}),
-			TextColor: new(color.Color{
-				R: 8,
-				G: 9,
-				B: 10,
-				A: 11,
-			}),
-			Tooltip:    []string{"test_11"},
-			InlineSize: 12.5,
-			Channel:    new(channel.Key(14)),
-			Level:      text.Level("h1"),
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.SwitchElementConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.TextBoxElementConfig{
-			LabeledConfig: fullyPopulatedLabeledConfig,
-			TextColor: new(color.Color{
-				R: 3,
-				G: 4,
-				B: 5,
-				A: 6,
-			}),
-			Width:           6.5,
-			Align:           v13.FlexAlignment("start"),
-			AutoFitDisabled: false,
-			Level:           text.Level("h1"),
-			Value:           "test_10",
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.ValueElementConfig{
-			LabeledConfig:      fullyPopulatedLabeledConfig,
-			NumericTelemConfig: fullyPopulatedNumericTelemConfig,
-			StalenessConfig:    fullyPopulatedStalenessConfig,
-			Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
-			StrokeColor: new(color.Color{
-				R: 6,
-				G: 7,
-				B: 8,
-				A: 9,
-			}),
-			TextColor: new(color.Color{
-				R: 11,
-				G: 12,
-				B: 13,
-				A: 14,
-			}),
-			FillColor: new(color.Color{
-				R: 16,
-				G: 17,
-				B: 18,
-				A: 19,
-			}),
-			Tooltip: []string{"test_19"},
-			Redline: color.Scale{
-				Bands: []color.Band{
-					{
-						Key:       "test_22",
-						Threshold: 23.5,
-						Color:     color.Color{},
-						Flashing:  true,
-					},
-				},
-				Smooth: false,
-			},
-			Units:      "test_27",
-			InlineSize: 28.5,
-			Level:      text.Level("h1"),
-			Location: spatial.LocationXY{
-				X: spatial.XCenterLocation("left"),
-				Y: spatial.YCenterLocation("top"),
-			},
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.AgitatorElementConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.CrossBeamAgitatorElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlatBladeAgitatorElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.HeatExchangerGeneralElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.HeatExchangerMElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.HeatExchangerStraightTubeElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.HelicalAgitatorElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.PaddleAgitatorElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.PropellerAgitatorElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.RotaryMixerElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.StaticMixerElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.CavityPumpElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.CentrifugalCompressorElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.CompressorElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.DiaphragmPumpElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.EjectionPumpElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.EjectorCompressorElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.LiquidRingCompressorElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.PistonPumpElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.PumpElementConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.RollerVaneCompressorElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.ScrewPumpElementConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.TurboCompressorElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.VacuumPumpElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.BurstDiscElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlameArrestorElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlameArrestorDetonationElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlameArrestorExplosionElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlameArrestorFireResElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FlameArrestorFireResDetonationElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.IsoBurstDiscElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.AngledValveElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.AngledReliefValveElementConfig{
-			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.AngledSpringLoadedReliefValveElementConfig{
-			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.BallValveElementConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.BreatherValveElementConfig{
-			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.ButterflyValveOneElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.ButterflyValveTwoElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.CheckValveElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.CheckValveWithArrowElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.ElectricRegulatorElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.ElectricRegulatorMotorizedElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.FourWayValveElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.GateValveElementConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.IsoCheckValveElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.ManualValveElementConfig{
-			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.NeedleValveElementConfig{
-			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.RegulatorElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.RegulatorManualElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.ReliefValveElementConfig{
-			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.SolenoidValveElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			NormallyOpen:       true,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.SpringLoadedReliefValveElementConfig{
-			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.ThreeWayValveElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.ThreeWayBallValveElementConfig{
-			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.ValveElementConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.CrossJunctionElementConfig{
-			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.CylinderElementConfig{
-			LabeledConfig: fullyPopulatedLabeledConfig,
-			ScaledConfig:  fullyPopulatedScaledConfig,
-			Dimensions:    spatial.Dimensions{Width: 2.5, Height: 3.5},
-			BorderRadius: new(border.Radius{
-				TopLeft:     spatial.XY{X: 6.5, Y: 7.5},
-				TopRight:    spatial.XY{X: 9.5, Y: 10.5},
-				BottomLeft:  spatial.XY{X: 12.5, Y: 13.5},
-				BottomRight: spatial.XY{X: 15.5, Y: 16.5},
-			}),
-			StrokeColor: new(color.Color{
-				R: 19,
-				G: 20,
-				B: 21,
-				A: 22,
-			}),
-			FillColor: new(color.Color{
-				R: 24,
-				G: 25,
-				B: 26,
-				A: 27,
-			}),
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.TankElementConfig{
-			LabeledConfig:    fullyPopulatedLabeledConfig,
-			Channel:          new(channel.Key(2)),
-			RollingAverage:   new(int32(3)),
-			Precision:        new(uint8(4)),
-			Notation:         notation.Notation("standard"),
-			StalenessTimeout: 5.5,
-			StalenessColor: new(color.Color{
-				R: 8,
-				G: 9,
-				B: 10,
-				A: 11,
-			}),
-			Bounds: spatial.Bounds{Lower: 12.5, Upper: 13.5},
-			LevelColor: new(color.Color{
-				R: 16,
-				G: 17,
-				B: 18,
-				A: 19,
-			}),
-			AxisColor: new(color.Color{
-				R: 21,
-				G: 22,
-				B: 23,
-				A: 24,
-			}),
-			TextColor: new(color.Color{
-				R: 26,
-				G: 27,
-				B: 28,
-				A: 29,
-			}),
-			Units:       "test_29",
-			LevelHidden: false,
-			CaretSide:   spatial.OuterLocation("top"),
-			Level:       text.Level("h1"),
-			Position:    new(spatial.XY{X: 34.5, Y: 35.5}),
-			StrokeColor: new(color.Color{
-				R: 38,
-				G: 39,
-				B: 40,
-				A: 41,
-			}),
-			FillColor: new(color.Color{
-				R: 43,
-				G: 44,
-				B: 45,
-				A: 46,
-			}),
-			Dimensions: spatial.Dimensions{Width: 47.5, Height: 48.5},
-			BorderRadius: border.Radius{
-				TopLeft:     spatial.XY{X: 51.5, Y: 52.5},
-				TopRight:    spatial.XY{X: 54.5, Y: 55.5},
-				BottomLeft:  spatial.XY{X: 57.5, Y: 58.5},
-				BottomRight: spatial.XY{X: 60.5, Y: 61.5},
-			},
-			CaretVisible: false,
-			ScaleVisible: true,
-			Side:         spatial.OuterLocation("top"),
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
+		seed := v13.LabelConfig{
+			Label:         "test_1",
+			Level:         text.Level("h1"),
+			Orientation:   spatial.Location("top"),
+			Direction:     spatial.Direction("x"),
+			MaxInlineSize: 6,
+			Align:         v13.FlexAlignment("start"),
 		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.TJunctionElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.CustomActuatorElementConfig{
-			ToggleConfig: fullyPopulatedToggleConfig,
-			SpecKey:      "test_1",
-			StateOverrides: []symbol.State{
-				{
-					Key:  "test_3",
-					Name: "test_4",
-					Regions: []symbol.Region{
-						{
-							Key:         "test_6",
-							Name:        "test_7",
-							Selectors:   []string{"test_8"},
-							StrokeColor: new(color.Color{}),
-							FillColor:   new(color.Color{}),
-						},
-					},
-				},
-			},
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.CustomStaticElementConfig{
-			LabeledConfig: fullyPopulatedLabeledConfig,
-			ScaledConfig:  fullyPopulatedScaledConfig,
-			SpecKey:       "test_1",
-			StateOverrides: []symbol.State{
-				{
-					Key:  "test_3",
-					Name: "test_4",
-					Regions: []symbol.Region{
-						{
-							Key:         "test_6",
-							Name:        "test_7",
-							Selectors:   []string{"test_8"},
-							StrokeColor: new(color.Color{}),
-							FillColor:   new(color.Color{}),
-						},
-					},
-				},
-			},
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.GroupBoxElementConfig{Members: []string{"test_1"}, Locked: false}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.PipeElementConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.ElectricElementConfig{
-			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.SecondaryElementConfig{
-			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.JacketedElementConfig{
-			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.HydraulicElementConfig{
-			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
-		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -3668,17 +1852,14 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v13.ElementConfig{Variant: v13.PneumaticElementConfig{
-			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
+		seed := v13.LabelConfig{
+			Label:         "",
+			Level:         text.Level(""),
+			Orientation:   spatial.Location(""),
+			Direction:     spatial.Direction(""),
+			MaxInlineSize: 0,
+			Align:         v13.FlexAlignment(""),
 		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v13.ElementConfig{Variant: v13.DataElementConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -3686,7 +1867,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v13.ElementConfig
+		var decoded v13.LabelConfig
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -3696,7 +1877,121 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v13.ElementConfig
+		var redecoded v13.LabelConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeLabeledConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedLabeledConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v13.LabeledConfig{
+			Label: v13.LabelConfig{
+				Label:         "",
+				Level:         text.Level(""),
+				Orientation:   spatial.Location(""),
+				Direction:     spatial.Direction(""),
+				MaxInlineSize: 0,
+				Align:         v13.FlexAlignment(""),
+			},
+			Orientation: spatial.OuterLocation(""),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v13.LabeledConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v13.LabeledConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeNode(f *testing.F) {
+	{
+		seed := v13.Node{
+			Key:      "test_1",
+			Position: spatial.XY{X: 3.5, Y: 4.5},
+			ZIndex:   6,
+			Config:   v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}},
+			Parent:   new(string("test_7")),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v13.Node{
+			Key:      "",
+			Position: spatial.XY{X: 0, Y: 0},
+			ZIndex:   0,
+			Config: v13.NodeConfig{Variant: v13.CapNodeConfig{
+				StaticSymbolConfig: v13.StaticSymbolConfig{
+					Label: v13.LabelConfig{
+						Label:         "",
+						Level:         text.Level(""),
+						Orientation:   spatial.Location(""),
+						Direction:     spatial.Direction(""),
+						MaxInlineSize: 0,
+						Align:         v13.FlexAlignment(""),
+					},
+					Orientation: spatial.OuterLocation(""),
+					Scale:       0,
+					StrokeColor: nil,
+				},
+			}},
+			Parent: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v13.Node
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v13.Node
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -3952,8 +2247,8 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				A: 11,
 			}),
 			Dimensions:   spatial.Dimensions{Width: 12.5, Height: 13.5},
-			BorderRadius: 14.5,
-			StrokeWidth:  15.5,
+			BorderRadius: new(uint16(15)),
+			StrokeWidth:  new(uint8(16)),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3965,23 +2260,22 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		seed := v13.NodeConfig{Variant: v13.ButtonNodeConfig{
 			LabeledConfig:  fullyPopulatedLabeledConfig,
 			Size:           v13.ComponentSize("tiny"),
-			Level:          new(text.Level("h1")),
-			OnClickDelay:   3.5,
-			CommandChannel: new(channel.Key(5)),
+			OnClickDelay:   telem.TimeSpan(3),
+			CommandChannel: channel.Key(4),
 			Mode:           v13.ButtonMode("fire"),
 			FillColor: new(color.Color{
-				R: 8,
-				G: 9,
-				B: 10,
-				A: 11,
+				R: 7,
+				G: 8,
+				B: 9,
+				A: 10,
 			}),
-			Control: new(v13.ControlStateConfig{
-				Authority:       new(uint8(13)),
-				Hidden:          true,
-				ChipHidden:      false,
-				IndicatorHidden: true,
+			Control: v13.ControlStateConfig{
+				Authority:       new(uint8(12)),
+				Hidden:          false,
+				ChipHidden:      true,
+				IndicatorHidden: false,
 				Orientation:     spatial.Location("top"),
-			}),
+			},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3992,7 +2286,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	{
 		seed := v13.NodeConfig{Variant: v13.CircleNodeConfig{
 			LabeledConfig: fullyPopulatedLabeledConfig,
-			Radius:        1.5,
+			Radius:        2,
 			StrokeColor: new(color.Color{
 				R: 4,
 				G: 5,
@@ -4005,7 +2299,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 11,
 				A: 12,
 			}),
-			StrokeWidth: 12.5,
+			StrokeWidth: new(uint8(13)),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4018,7 +2312,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:      fullyPopulatedLabeledConfig,
 			NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 			StalenessConfig:    fullyPopulatedStalenessConfig,
-			Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
+			Position:           spatial.XY{X: 2.5, Y: 3.5},
 			StrokeColor: new(color.Color{
 				R: 6,
 				G: 7,
@@ -4026,7 +2320,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				A: 9,
 			}),
 			Bounds:   spatial.Bounds{Lower: 10.5, Upper: 11.5},
-			BarWidth: 12.5,
+			BarWidth: 13,
 			Location: spatial.LocationXY{
 				X: spatial.XCenterLocation("left"),
 				Y: spatial.YCenterLocation("top"),
@@ -4045,9 +2339,9 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Size:            v13.ComponentSize("tiny"),
-			CommandChannel:  new(channel.Key(3)),
-			StateChannel:    new(channel.Key(4)),
-			Dimensions:      new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
+			CommandChannel:  channel.Key(3),
+			StateChannel:    channel.Key(4),
+			Dimensions:      spatial.Dimensions{Width: 5.5, Height: 6.5},
 			FillColor: new(color.Color{
 				R: 9,
 				G: 10,
@@ -4055,15 +2349,15 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				A: 12,
 			}),
 			Disabled:     false,
-			InlineSize:   13.5,
-			OnClickDelay: 14.5,
-			Control: new(v13.ControlStateConfig{
+			InlineSize:   14,
+			OnClickDelay: telem.TimeSpan(15),
+			Control: v13.ControlStateConfig{
 				Authority:       new(uint8(17)),
 				Hidden:          true,
 				ChipHidden:      false,
 				IndicatorHidden: true,
 				Orientation:     spatial.Location("top"),
-			}),
+			},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4076,7 +2370,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			ScaledConfig:    fullyPopulatedScaledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
-			Channel:         new(channel.Key(2)),
+			Channel:         channel.Key(2),
 			Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
 			StrokeColor: new(color.Color{
 				R: 7,
@@ -4107,7 +2401,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			}),
 			Start:       spatial.XY{X: 7.5, Y: 8.5},
 			End:         spatial.XY{X: 10.5, Y: 11.5},
-			StrokeWidth: 12.5,
+			StrokeWidth: 13,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4124,8 +2418,8 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 5,
 				A: 6,
 			}),
-			Page:                new(v13.Page{Type: v13.PageType("schematic"), Key: "test_8"}),
-			DblClickNavDisabled: true,
+			Page:                          v13.Page{Type: v13.PageType("schematic"), Key: "test_8"},
+			DoubleClickNavigationDisabled: true,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4135,11 +2429,11 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	}
 	{
 		seed := v13.NodeConfig{Variant: v13.PolygonNodeConfig{
-			LabeledConfig:  fullyPopulatedLabeledConfig,
-			NumSides:       1.5,
-			SideLength:     2.5,
-			Rotation:       3.5,
-			CornerRounding: 4.5,
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			NumSides:      2,
+			SideLength:    3,
+			Rotation:      3.5,
+			BorderRadius:  5,
 			StrokeColor: new(color.Color{
 				R: 7,
 				G: 8,
@@ -4152,7 +2446,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 14,
 				A: 15,
 			}),
-			StrokeWidth: 15.5,
+			StrokeWidth: new(uint8(16)),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4165,15 +2459,15 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Size:            v13.ComponentSize("tiny"),
-			CommandChannel:  new(channel.Key(3)),
-			StateChannel:    new(channel.Key(4)),
+			CommandChannel:  channel.Key(3),
+			StateChannel:    channel.Key(4),
 			FillColor: new(color.Color{
 				R: 6,
 				G: 7,
 				B: 8,
 				A: 9,
 			}),
-			InlineSize: 9.5,
+			InlineSize: 10,
 			Options: []v13.StateMapping{
 				{
 					Key:   "test_11",
@@ -4188,14 +2482,14 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				},
 			},
 			Disabled:     true,
-			OnClickDelay: 20.5,
-			Control: new(v13.ControlStateConfig{
+			OnClickDelay: telem.TimeSpan(21),
+			Control: v13.ControlStateConfig{
 				Authority:       new(uint8(23)),
 				Hidden:          true,
 				ChipHidden:      false,
 				IndicatorHidden: true,
 				Orientation:     spatial.Location("top"),
-			}),
+			},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4207,7 +2501,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		seed := v13.NodeConfig{Variant: v13.ScaleNodeConfig{
 			LabeledConfig:        fullyPopulatedLabeledConfig,
 			ScaleIndicatorConfig: fullyPopulatedScaleIndicatorConfig,
-			Position:             new(spatial.XY{X: 2.5, Y: 3.5}),
+			Position:             spatial.XY{X: 2.5, Y: 3.5},
 			Dimensions:           spatial.Dimensions{Width: 5.5, Height: 6.5},
 		}}
 		w := orc.NewWriter(0)
@@ -4221,9 +2515,9 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Size:            v13.ComponentSize("tiny"),
-			CommandChannel:  new(channel.Key(3)),
-			StateChannel:    new(channel.Key(4)),
-			Dimensions:      new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
+			CommandChannel:  channel.Key(3),
+			StateChannel:    channel.Key(4),
+			Dimensions:      spatial.Dimensions{Width: 5.5, Height: 6.5},
 			FillColor: new(color.Color{
 				R: 9,
 				G: 10,
@@ -4232,15 +2526,15 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			}),
 			Units:        "test_12",
 			Disabled:     true,
-			InlineSize:   14.5,
-			OnClickDelay: 15.5,
-			Control: new(v13.ControlStateConfig{
+			InlineSize:   15,
+			OnClickDelay: telem.TimeSpan(16),
+			Control: v13.ControlStateConfig{
 				Authority:       new(uint8(18)),
 				Hidden:          false,
 				ChipHidden:      true,
 				IndicatorHidden: false,
 				Orientation:     spatial.Location("top"),
-			}),
+			},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4252,14 +2546,14 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		seed := v13.NodeConfig{Variant: v13.StateIndicatorNodeConfig{
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
-			Channel:         new(channel.Key(2)),
+			Channel:         channel.Key(2),
 			StrokeColor: new(color.Color{
 				R: 4,
 				G: 5,
 				B: 6,
 				A: 7,
 			}),
-			InlineSize: 7.5,
+			InlineSize: 8,
 			Options: []v13.StateMapping{
 				{
 					Key:   "test_9",
@@ -4298,8 +2592,8 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				A: 11,
 			}),
 			Tooltip:    []string{"test_11"},
-			InlineSize: 12.5,
-			Channel:    new(channel.Key(14)),
+			InlineSize: 13,
+			Channel:    channel.Key(14),
 			Level:      text.Level("h1"),
 		}}
 		w := orc.NewWriter(0)
@@ -4325,7 +2619,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 5,
 				A: 6,
 			}),
-			Width:           6.5,
+			InlineSize:      7,
 			Align:           v13.FlexAlignment("start"),
 			AutoFitDisabled: false,
 			Level:           text.Level("h1"),
@@ -4342,7 +2636,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:      fullyPopulatedLabeledConfig,
 			NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 			StalenessConfig:    fullyPopulatedStalenessConfig,
-			Position:           new(spatial.XY{X: 2.5, Y: 3.5}),
+			Position:           spatial.XY{X: 2.5, Y: 3.5},
 			StrokeColor: new(color.Color{
 				R: 6,
 				G: 7,
@@ -4374,7 +2668,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				Smooth: false,
 			},
 			Units:      "test_27",
-			InlineSize: 28.5,
+			InlineSize: 29,
 			Level:      text.Level("h1"),
 			Location: spatial.LocationXY{
 				X: spatial.XCenterLocation("left"),
@@ -4943,11 +3237,11 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	{
 		seed := v13.NodeConfig{Variant: v13.TankNodeConfig{
 			LabeledConfig:    fullyPopulatedLabeledConfig,
-			Channel:          new(channel.Key(2)),
-			RollingAverage:   new(int32(3)),
+			Channel:          channel.Key(2),
+			RollingAverage:   3,
 			Precision:        new(uint8(4)),
 			Notation:         notation.Notation("standard"),
-			StalenessTimeout: 5.5,
+			StalenessTimeout: telem.TimeSpan(6),
 			StalenessColor: new(color.Color{
 				R: 8,
 				G: 9,
@@ -4977,7 +3271,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LevelHidden: false,
 			CaretSide:   spatial.OuterLocation("top"),
 			Level:       text.Level("h1"),
-			Position:    new(spatial.XY{X: 34.5, Y: 35.5}),
+			Position:    spatial.XY{X: 34.5, Y: 35.5},
 			StrokeColor: new(color.Color{
 				R: 38,
 				G: 39,
@@ -4991,12 +3285,12 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				A: 46,
 			}),
 			Dimensions: spatial.Dimensions{Width: 47.5, Height: 48.5},
-			BorderRadius: border.Radius{
+			BorderRadius: new(border.Radius{
 				TopLeft:     spatial.XY{X: 51.5, Y: 52.5},
 				TopRight:    spatial.XY{X: 54.5, Y: 55.5},
 				BottomLeft:  spatial.XY{X: 57.5, Y: 58.5},
 				BottomRight: spatial.XY{X: 60.5, Y: 61.5},
-			},
+			}),
 			CaretVisible: false,
 			ScaleVisible: true,
 			Side:         spatial.OuterLocation("top"),
@@ -5069,7 +3363,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v13.NodeConfig{Variant: v13.GroupBoxNodeConfig{Members: []string{"test_1"}, Locked: false}}
+		seed := v13.NodeConfig{Variant: v13.GroupBoxNodeConfig{Locked: true}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -5098,6 +3392,50 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	})
 }
 
+func FuzzDecodeNumericTelemConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedNumericTelemConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v13.NumericTelemConfig{
+			Channel:        channel.Key(0),
+			RollingAverage: 0,
+			Precision:      nil,
+			Notation:       notation.Notation(""),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v13.NumericTelemConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v13.NumericTelemConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeScaleIndicatorConfig(f *testing.F) {
 	{
 		seed := fullyPopulatedScaleIndicatorConfig
@@ -5109,11 +3447,11 @@ func FuzzDecodeScaleIndicatorConfig(f *testing.F) {
 	}
 	{
 		seed := v13.ScaleIndicatorConfig{
-			Channel:          nil,
-			RollingAverage:   nil,
+			Channel:          channel.Key(0),
+			RollingAverage:   0,
 			Precision:        nil,
 			Notation:         notation.Notation(""),
-			StalenessTimeout: 0,
+			StalenessTimeout: telem.TimeSpan(0),
 			StalenessColor:   nil,
 			Bounds:           spatial.Bounds{Lower: 0, Upper: 0},
 			LevelColor:       nil,
@@ -5165,18 +3503,20 @@ func FuzzDecodeSchematic(f *testing.F) {
 					Key:      "test_4",
 					Position: spatial.XY{X: 6.5, Y: 7.5},
 					ZIndex:   9,
+					Config:   v13.NodeConfig{Variant: v13.CapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}},
+					Parent:   new(string("test_10")),
 				},
 			},
 			Edges: []v13.Edge{
 				{
-					Key:    "test_10",
-					Source: v13.Handle{Node: "test_12", Param: "test_13"},
-					Target: v13.Handle{Node: "test_15", Param: "test_16"},
+					Key:    "test_12",
+					Source: v13.Handle{Node: "test_14", Param: "test_15"},
+					Target: v13.Handle{Node: "test_17", Param: "test_18"},
+					Config: v13.EdgeConfig{Variant: v13.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
 				},
 			},
-			Configs: map[string]v13.ElementConfig{"test_17": {Variant: v13.CapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
-			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"))),
-			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
+			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -5190,7 +3530,6 @@ func FuzzDecodeSchematic(f *testing.F) {
 			Name:    "",
 			Nodes:   []v13.Node{},
 			Edges:   []v13.Edge{},
-			Configs: map[string]v13.ElementConfig{},
 			Group:   nil,
 			Project: nil,
 		}
@@ -5206,9 +3545,8 @@ func FuzzDecodeSchematic(f *testing.F) {
 			Name:    "test_2",
 			Nodes:   []v13.Node{},
 			Edges:   []v13.Edge{},
-			Configs: map[string]v13.ElementConfig{},
-			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
-			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"))),
+			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -5248,7 +3586,11 @@ func FuzzDecodeSegmentedEdgeConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v13.SegmentedEdgeConfig{StrokeColor: nil, Segments: []v13.Segment{}}
+		seed := v13.SegmentedEdgeConfig{
+			StrokeColor: nil,
+			Segments:    []v13.Segment{},
+			StrokeWidth: 0,
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -5263,7 +3605,8 @@ func FuzzDecodeSegmentedEdgeConfig(f *testing.F) {
 				B: 5,
 				A: 6,
 			}),
-			Segments: []v13.Segment{},
+			Segments:    []v13.Segment{},
+			StrokeWidth: 8,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -5303,7 +3646,7 @@ func FuzzDecodeStalenessConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v13.StalenessConfig{StalenessTimeout: 0, StalenessColor: nil}
+		seed := v13.StalenessConfig{StalenessTimeout: telem.TimeSpan(0), StalenessColor: nil}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -5458,12 +3801,18 @@ func FuzzDecodeToggleConfig(f *testing.F) {
 			},
 			Orientation:      spatial.OuterLocation(""),
 			Scale:            0,
-			StalenessTimeout: 0,
+			StalenessTimeout: telem.TimeSpan(0),
 			StalenessColor:   nil,
-			StateChannel:     nil,
-			CommandChannel:   nil,
-			Control:          nil,
-			OnClickDelay:     0,
+			StateChannel:     channel.Key(0),
+			CommandChannel:   channel.Key(0),
+			Control: v13.ControlStateConfig{
+				Authority:       nil,
+				Hidden:          false,
+				ChipHidden:      false,
+				IndicatorHidden: false,
+				Orientation:     spatial.Location(""),
+			},
+			OnClickDelay: telem.TimeSpan(0),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -5514,13 +3863,19 @@ func FuzzDecodeToggleSymbolConfig(f *testing.F) {
 			},
 			Orientation:      spatial.OuterLocation(""),
 			Scale:            0,
-			StalenessTimeout: 0,
+			StalenessTimeout: telem.TimeSpan(0),
 			StalenessColor:   nil,
-			StateChannel:     nil,
-			CommandChannel:   nil,
-			Control:          nil,
-			OnClickDelay:     0,
-			StrokeColor:      nil,
+			StateChannel:     channel.Key(0),
+			CommandChannel:   channel.Key(0),
+			Control: v13.ControlStateConfig{
+				Authority:       nil,
+				Hidden:          false,
+				ChipHidden:      false,
+				IndicatorHidden: false,
+				Orientation:     spatial.Location(""),
+			},
+			OnClickDelay: telem.TimeSpan(0),
+			StrokeColor:  nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

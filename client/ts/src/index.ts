@@ -25,6 +25,7 @@ export {
   type SynnaxParams,
   synnaxParamsZ,
 } from "@/client";
+export { color } from "@/color";
 export * from "@/connection";
 export { control } from "@/control";
 export { device } from "@/device";
@@ -61,6 +62,7 @@ export { framer } from "@/framer";
 export { Frame } from "@/framer/frame";
 export { group } from "@/group";
 export { http } from "@/http";
+export { icd } from "@/icd";
 export { imex } from "@/imex";
 export { kafka } from "@/kafka";
 export { label } from "@/label";

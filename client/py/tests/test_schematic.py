@@ -29,7 +29,6 @@ def defaults_only(cls: type[BaseModel]) -> bool:
     return all(not f.is_required() for f in cls.model_fields.values())
 
 
-ELEMENT = TypeAdapter(schematic.ElementConfig)
 NODE = TypeAdapter(schematic.NodeConfig)
 EDGE = TypeAdapter(schematic.EdgeConfig)
 
@@ -40,41 +39,61 @@ class TestSchematic:
         s = schematic.Schematic(name="Tank")
         assert s.nodes == []
         assert s.edges == []
-        assert s.configs == {}
 
     def test_round_trip(self) -> None:
-        """Should parse nodes, edges, and configs and dump them back unchanged."""
+        """Should parse nodes and edges with their configs and dump them unchanged."""
         s = schematic.Schematic.model_validate(
             {
                 "name": "Tank",
                 "nodes": [
-                    {"key": "valve", "position": {"x": 10, "y": 20}},
-                    {"key": "tank", "position": {"x": 50, "y": 20}, "z_index": 2},
+                    {
+                        "key": "valve",
+                        "position": {"x": 10, "y": 20},
+                        "config": {"variant": "solenoid_valve"},
+                    },
+                    {
+                        "key": "tank",
+                        "position": {"x": 50, "y": 20},
+                        "z_index": 2,
+                        "config": {"variant": "tank"},
+                    },
                 ],
                 "edges": [
                     {
                         "key": "pipe",
                         "source": {"node": "valve", "param": "right"},
                         "target": {"node": "tank", "param": "left"},
+                        "config": {"variant": "pipe"},
                     }
                 ],
-                "configs": {
-                    "valve": {"variant": "solenoid_valve"},
-                    "tank": {"variant": "tank"},
-                    "pipe": {"variant": "pipe"},
-                },
             }
         )
-        assert isinstance(s.configs["valve"], schematic.SolenoidValveElementConfig)
-        assert isinstance(s.configs["tank"], schematic.TankElementConfig)
-        assert isinstance(s.configs["pipe"], schematic.PipeElementConfig)
+        assert isinstance(s.nodes[0].config, schematic.SolenoidValveNodeConfig)
+        assert isinstance(s.nodes[1].config, schematic.TankNodeConfig)
+        assert isinstance(s.edges[0].config, schematic.PipeEdgeConfig)
         assert schematic.Schematic.model_validate_json(s.model_dump_json()) == s
 
     def test_unknown_variant(self) -> None:
         """Should reject a config with an unknown variant."""
         with pytest.raises(ValidationError):
             schematic.Schematic.model_validate(
-                {"name": "Tank", "configs": {"a": {"variant": "teleporter"}}}
+                {
+                    "name": "Tank",
+                    "nodes": [
+                        {
+                            "key": "a",
+                            "position": {"x": 0, "y": 0},
+                            "config": {"variant": "teleporter"},
+                        }
+                    ],
+                }
+            )
+
+    def test_node_without_config(self) -> None:
+        """Should reject a node that holds no config."""
+        with pytest.raises(ValidationError):
+            schematic.Schematic.model_validate(
+                {"name": "Tank", "nodes": [{"key": "a", "position": {"x": 0, "y": 0}}]}
             )
 
     def test_hash(self) -> None:
@@ -90,39 +109,6 @@ class TestSchematic:
         assert id.key == str(key)
 
 
-class TestElementConfig:
-    @pytest.mark.parametrize(
-        "cls",
-        [c for c in variants(schematic.ElementConfig) if defaults_only(c)],
-        ids=lambda c: c.__name__,
-    )
-    def test_dispatch(self, cls: type[BaseModel]) -> None:
-        """Should select each element variant by its discriminator."""
-        variant = cls.model_fields["variant"].default
-        config = ELEMENT.validate_python({"variant": variant})
-        assert type(config) is cls
-        assert ELEMENT.validate_json(ELEMENT.dump_json(config)) == config
-
-    def test_custom_actuator(self) -> None:
-        """Should require the spec key of a custom actuator."""
-        config = ELEMENT.validate_python(
-            {"variant": "custom_actuator", "spec_key": "pump"}
-        )
-        assert isinstance(config, schematic.CustomActuatorElementConfig)
-        assert config.state_overrides == []
-        with pytest.raises(ValidationError):
-            ELEMENT.validate_python({"variant": "custom_actuator"})
-
-    def test_group_box(self) -> None:
-        """Should keep the members of a group box."""
-        config = ELEMENT.validate_python(
-            {"variant": "group_box", "members": ["a", "b"]}
-        )
-        assert isinstance(config, schematic.GroupBoxElementConfig)
-        assert config.members == ["a", "b"]
-        assert config.locked is False
-
-
 class TestNodeConfig:
     @pytest.mark.parametrize(
         "cls",
@@ -132,7 +118,25 @@ class TestNodeConfig:
     def test_dispatch(self, cls: type[BaseModel]) -> None:
         """Should select each node variant by its discriminator."""
         variant = cls.model_fields["variant"].default
-        assert type(NODE.validate_python({"variant": variant})) is cls
+        config = NODE.validate_python({"variant": variant})
+        assert type(config) is cls
+        assert NODE.validate_json(NODE.dump_json(config)) == config
+
+    def test_custom_actuator(self) -> None:
+        """Should require the spec key of a custom actuator."""
+        config = NODE.validate_python(
+            {"variant": "custom_actuator", "spec_key": "pump"}
+        )
+        assert isinstance(config, schematic.CustomActuatorNodeConfig)
+        assert config.state_overrides == []
+        with pytest.raises(ValidationError):
+            NODE.validate_python({"variant": "custom_actuator"})
+
+    def test_group_box(self) -> None:
+        """Should default a group box to unlocked."""
+        config = NODE.validate_python({"variant": "group_box"})
+        assert isinstance(config, schematic.GroupBoxNodeConfig)
+        assert config.locked is False
 
 
 class TestEdgeConfig:
@@ -198,11 +202,72 @@ class TestSymbol:
         assert symbol.resource_id(key).key == str(key)
 
 
+class TestDefaults:
+    def test_channel(self) -> None:
+        """Should read an omitted channel as 0."""
+        config = NODE.validate_python({"variant": "value"})
+        assert isinstance(config, schematic.ValueNodeConfig)
+        assert config.channel == 0
+
+    def test_precision(self) -> None:
+        """Should leave an omitted precision absent."""
+        config = NODE.validate_python({"variant": "value"})
+        assert isinstance(config, schematic.ValueNodeConfig)
+        assert config.precision is None
+
+    def test_control_authority(self) -> None:
+        """Should leave the authority of an omitted control state absent."""
+        config = NODE.validate_python({"variant": "button"})
+        assert isinstance(config, schematic.ButtonNodeConfig)
+        assert config.command_channel == 0
+        assert config.control.authority is None
+
+    def test_light_threshold(self) -> None:
+        """Should leave an omitted light threshold absent."""
+        config = NODE.validate_python({"variant": "light"})
+        assert isinstance(config, schematic.LightNodeConfig)
+        assert config.threshold is None
+
+    def test_cylinder_border_radius(self) -> None:
+        """Should leave an omitted cylinder border radius absent."""
+        config = NODE.validate_python({"variant": "cylinder"})
+        assert isinstance(config, schematic.CylinderNodeConfig)
+        assert config.border_radius is None
+
+    def test_stroke_width(self) -> None:
+        """Should leave an omitted shape stroke width absent."""
+        config = NODE.validate_python({"variant": "circle"})
+        assert isinstance(config, schematic.CircleNodeConfig)
+        assert config.stroke_width is None
+
+    def test_text_box_value(self) -> None:
+        """Should give an omitted text box value the empty string."""
+        config = NODE.validate_python({"variant": "text_box"})
+        assert isinstance(config, schematic.TextBoxNodeConfig)
+        assert config.value == ""
+
+    def test_scale(self) -> None:
+        """Should reject a scale that is not above 0."""
+        with pytest.raises(ValidationError):
+            NODE.validate_python({"variant": "valve", "scale": 0})
+
+    def test_inline_size(self) -> None:
+        """Should reject an inline size of 0."""
+        with pytest.raises(ValidationError):
+            NODE.validate_python({"variant": "value", "inline_size": 0})
+
+    def test_page(self) -> None:
+        """Should default an omitted page to an unlinked schematic page."""
+        config = NODE.validate_python({"variant": "off_page_reference"})
+        assert isinstance(config, schematic.OffPageReferenceNodeConfig)
+        assert config.page == schematic.Page(type="schematic", key="")
+
+
 class TestBorderRadius:
     def test_shorthand(self) -> None:
-        """Should expand a shorthand border radius on an element config."""
-        config = ELEMENT.validate_python({"variant": "cylinder", "border_radius": 4})
-        assert isinstance(config, schematic.CylinderElementConfig)
+        """Should expand a shorthand border radius on a node config."""
+        config = NODE.validate_python({"variant": "cylinder", "border_radius": 4})
+        assert isinstance(config, schematic.CylinderNodeConfig)
         assert config.border_radius is not None
         assert config.border_radius.top_left.x == 4
 
@@ -228,26 +293,37 @@ class TestClient:
         assert s.name == "From Object"
 
     def test_diagram_round_trip(self, client: sy.Synnax, project: sy.Project) -> None:
-        """Should keep nodes, edges, and configs through create, retrieve, and copy."""
+        """Should keep nodes, parents, and edges through create and copy."""
         diagram = sy.Schematic(
             project=project.key,
             name="Diagram",
             nodes=[
-                schematic.Node(key="a", position=spatial.XY(x=10, y=20)),
-                schematic.Node(key="b", position=spatial.XY(x=30, y=40), z_index=2),
+                schematic.Node(
+                    key="a",
+                    position=spatial.XY(x=10, y=20),
+                    config=schematic.TextBoxNodeConfig(value="Inlet"),
+                ),
+                schematic.Node(
+                    key="b",
+                    position=spatial.XY(x=30, y=40),
+                    z_index=2,
+                    config=schematic.TankNodeConfig(),
+                    parent="g",
+                ),
+                schematic.Node(
+                    key="g",
+                    position=spatial.XY(x=0, y=0),
+                    config=schematic.GroupBoxNodeConfig(),
+                ),
             ],
             edges=[
                 schematic.Edge(
                     key="e",
                     source=schematic.Handle(node="a", param="outlet"),
                     target=schematic.Handle(node="b", param="inlet"),
+                    config=schematic.PipeEdgeConfig(),
                 )
             ],
-            configs={
-                "a": schematic.TextBoxElementConfig(value="Inlet"),
-                "b": schematic.TankElementConfig(),
-                "e": schematic.PipeElementConfig(),
-            },
         )
         created = client.schematics.create(diagram)
         retrieved = client.schematics.retrieve(key=created.key)
@@ -255,7 +331,23 @@ class TestClient:
         for s in (created, retrieved, copied):
             assert s.nodes == diagram.nodes
             assert s.edges == diagram.edges
-            assert s.configs == diagram.configs
+
+    def test_create_bad_parent(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should reject a node whose parent is not a group box."""
+        diagram = sy.Schematic(
+            project=project.key,
+            name="Bad Parent",
+            nodes=[
+                schematic.Node(
+                    key="a",
+                    position=spatial.XY(x=0, y=0),
+                    config=schematic.TankNodeConfig(),
+                    parent="ghost",
+                ),
+            ],
+        )
+        with pytest.raises(sy.ValidationError, match="ghost is not a group box"):
+            client.schematics.create(diagram)
 
     def test_create_multiple(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create multiple schematics."""

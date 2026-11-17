@@ -27,12 +27,20 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// tankConfig returns a tank node config with its schema defaults.
+func tankConfig() schematic.NodeConfig {
+	cfg := schematic.NodeConfig{Variant: schematic.TankNodeConfig{}}
+	cfg = defaults.Fill(cfg)
+	return cfg
+}
 
 // denied matches an error that denies u the action on object.
 func denied(u user.User, action access.Action, object resource.ID) types.GomegaMatcher {
@@ -183,6 +191,7 @@ var _ = Describe("Service", func() {
 										Node: schematic.Node{
 											Key:      "n1",
 											Position: spatial.XY{X: 1, Y: 2},
+											Config:   tankConfig(),
 										},
 									}),
 								},
@@ -243,12 +252,14 @@ var _ = Describe("Service", func() {
 										Node: schematic.Node{
 											Key:      "n1",
 											Position: spatial.XY{X: 1, Y: 2},
+											Config:   tankConfig(),
 										},
 									}),
 									schematic.NewSetNodeAction(schematic.SetNodePayload{
 										Node: schematic.Node{
 											Key:      "n2",
 											Position: spatial.XY{X: 3, Y: 4},
+											Config:   tankConfig(),
 										},
 									}),
 									schematic.NewAddEdgeAction(
@@ -261,6 +272,13 @@ var _ = Describe("Service", func() {
 											Target: schematic.Handle{
 												Node:  "n2",
 												Param: "in",
+											},
+											Config: schematic.EdgeConfig{
+												Variant: schematic.PipeEdgeConfig{
+													SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
+														StrokeWidth: 2,
+													},
+												},
 											},
 										}},
 									),
@@ -329,7 +347,10 @@ var _ = Describe("Service", func() {
 								DispatchKey: "session-marker-xyz",
 								Actions: []schematic.Action{
 									schematic.NewSetNodeAction(schematic.SetNodePayload{
-										Node: schematic.Node{Key: "n1"},
+										Node: schematic.Node{
+											Key:    "n1",
+											Config: tankConfig(),
+										},
 									}),
 								},
 							},

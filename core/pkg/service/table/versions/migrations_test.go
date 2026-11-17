@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
+	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -47,7 +48,7 @@ var _ = Describe("Migrations", func() {
 					"a": {Variant: v2.TextCellConfig{Value: "A"}},
 				},
 			}
-			stored.ApplyDefaults()
+			stored = defaults.Fill(stored)
 			Expect(gorp.NewCreate[v2.Key, v2.Table]().Entry(&stored).Exec(ctx, db)).
 				To(Succeed())
 			proj := projectv3.Project{Key: uuid.New(), Name: "Project"}
@@ -72,15 +73,32 @@ var _ = Describe("Migrations", func() {
 			Expect(gorp.NewRetrieve[versions.Key, versions.Table]().
 				Where(gorp.MatchKeys[versions.Key, versions.Table](stored.Key)).
 				Entry(&got).Exec(ctx, db)).To(Succeed())
+			text := func(key, value string) versions.Cell {
+				c := versions.Cell{
+					Key: key,
+					Config: versions.CellConfig{
+						Variant: versions.TextCellConfig{Value: value},
+					},
+				}
+				c.Config = defaults.Fill(c.Config)
+				return c
+			}
 			Expect(got.Rows).To(Equal([]versions.Row{
-				{Key: "row-0", Size: 36, Cells: []string{"a", "b"}},
-				{Key: "row-1", Size: 40, Cells: []string{"c", "d"}},
+				{
+					Key:   "row-0",
+					Size:  36,
+					Cells: []versions.Cell{text("a", "A"), text("b", "")},
+				},
+				{
+					Key:   "row-1",
+					Size:  40,
+					Cells: []versions.Cell{text("c", ""), text("d", "")},
+				},
 			}))
 			Expect(got.Columns).To(Equal([]versions.Column{
 				{Key: "col-0", Size: 72},
 				{Key: "col-1", Size: 100},
 			}))
-			Expect(got.Cells).To(HaveKey("a"))
 			Expect(got.Validate()).To(Succeed())
 		},
 	)
@@ -103,7 +121,7 @@ var _ = Describe("Migrations", func() {
 			"v61_table_owner",
 			"v62_table_delete_range_owned",
 			"v62_table_drop_range",
-			"v61_color_alpha_byte",
+			"v62_color_bytes_cells_in_rows",
 		}))
 	})
 })

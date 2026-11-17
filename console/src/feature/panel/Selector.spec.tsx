@@ -31,6 +31,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 
 import { Selector } from "@/feature/panel/Selector";
 import { Modals } from "@/platform/modals";
+import { Panel } from "@/platform/panel";
 import { createPanelWrapper } from "@/platform/panel/testutil";
 import { findModalButton } from "@/platform/tree/testutil";
 import { Session } from "@/session";
@@ -293,6 +294,10 @@ describe("Panel.Selector", () => {
   // The strip is the only destination a tab can reach without opening a second
   // window, so a pill has to accept a tab and the create button has to mint one.
   describe("tab drop", () => {
+    const TABS: Panel.Tabs = {
+      t: { Content: () => null, Name: () => null, Icon: () => null, iconKey: "valve" },
+    };
+
     interface Harness {
       store: TestStore;
       source: panel.Panel;
@@ -316,10 +321,12 @@ describe("Panel.Selector", () => {
       store.dispatch(Session.Panel.select({ key: source.key }));
       await act(async () => {
         render(
-          <Haul.Provider>
-            <TabDragSource source={source.key} tab={tab} />
-            <Selector />
-          </Haul.Provider>,
+          <Panel.RendererContext value={TABS}>
+            <Haul.Provider>
+              <TabDragSource source={source.key} tab={tab} />
+              <Selector />
+            </Haul.Provider>
+          </Panel.RendererContext>,
           { wrapper },
         );
       });
@@ -357,7 +364,7 @@ describe("Panel.Selector", () => {
       );
     });
 
-    it("should mint a panel for a tab dropped on the create button", async () => {
+    it("should mint a panel with the tab's icon for a tab dropped on create", async () => {
       const { store, source, tab } = await createHarness(0);
       await startDrag();
       await act(async () => {
@@ -376,6 +383,7 @@ describe("Panel.Selector", () => {
         ]);
         expect(panel.findTab(mintedDoc.root, tab.key)).toEqual(tab);
         expect(panel.findTab(srcDoc.root, tab.key)).toBeUndefined();
+        expect(mintedDoc.icon).toEqual("valve");
       });
     });
 
@@ -709,6 +717,38 @@ describe("Panel.Selector", () => {
       fireEvent.contextMenu(await screen.findByText(pan.name));
       await screen.findByText("Reload Console");
       expect(screen.queryByText("Change icon")).toBeNull();
+    });
+
+    it("should offer the edits of a draft to its owner without update access", async () => {
+      const proj = await client.projects.create({ name: uniqueName("project") });
+      const viewer = await createTestClientWithPolicy(client, {
+        name: uuid.create(),
+        objects: [
+          panel.TYPE_RESOURCE_ID,
+          project.TYPE_RESOURCE_ID,
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
+        ],
+        actions: ["retrieve"],
+      });
+      const me = (await viewer.users.current.retrieve()).key;
+      const draft = await viewer.panels.create({
+        name: uniqueName("draft"),
+        project: proj.key,
+        owner: me,
+      });
+      const { wrapper } = await createPanelWrapper({
+        client: viewer,
+        project: proj.key,
+      });
+      await act(async () => {
+        render(<Selector />, { wrapper });
+      });
+      fireEvent.contextMenu(await screen.findByText(draft.name));
+      expect(await screen.findByText("Change icon")).toBeTruthy();
+      expect(screen.getByText("Rename")).toBeTruthy();
+      expect(screen.getByText("Delete")).toBeTruthy();
     });
   });
 

@@ -7,8 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+# On Python 3.15 and later, the submodules below load when a sub-client first uses
+# them, not when synnax loads. Older versions ignore this list.
+__lazy_modules__ = ["synnax"]
+
+import threading
 import weakref
+from collections.abc import Callable
 from importlib.metadata import version as _version
+from typing import Self, overload
 
 from alamos import NOOP, Instrumentation
 from freighter import URL
@@ -19,12 +26,14 @@ from synnax import (
     auth,
     certificate,
     channel,
+    color,
     connection,
     control as control_,
     device,
     exceptions,
     framer,
     group,
+    icd,
     imex as imex_,
     label,
     license as license_,
@@ -53,6 +62,33 @@ from x.exceptions import Registry
 from x.params import deprecate_positional
 
 
+class _Lazy[T]:
+    """Builds a sub-client on its first access. The build runs once per client, even
+    when threads race for it.
+    """
+
+    def __init__(self, build: Callable[["Synnax"], T]) -> None:
+        self._build = build
+        self._name = build.__name__
+
+    @overload
+    def __get__(self, obj: None, owner: type) -> Self: ...
+
+    @overload
+    def __get__(self, obj: "Synnax", owner: type) -> T: ...
+
+    def __get__(self, obj: "Synnax | None", owner: type) -> "T | Self":
+        if obj is None:
+            return self
+        # After the first build, the value in the instance dict hides this
+        # descriptor, so later reads take no lock.
+        with obj._build_lock:
+            built = obj.__dict__
+            if self._name not in built:
+                built[self._name] = self._build(obj)
+            return built[self._name]  # type: ignore[no-any-return]
+
+
 class Synnax(framer.Client):
     """Client to perform operations against a Synnax Core.
 
@@ -79,32 +115,7 @@ class Synnax(framer.Client):
         client = sy.Synnax(host="synnax.example.com", port=9090, api_key="syk_...")
     """
 
-    channels: channel.Client
     connectivity: connection.Checker
-    access: access_.Client
-    users: user.Client
-    ranges: ranger.Client
-    control: control_.Client
-    signals: signals_.Registry
-    racks: rack.Client
-    devices: device.Client
-    tasks: task.Client
-    resources: resource.Client
-    license: license_.Client
-    statuses: status.Client
-    arcs: arc.Client
-    groups: group.Client
-    labels: label.Client
-    views: view.Client
-    secrets: secret.Client
-    certificates: certificate.Client
-    imex: imex_.Client
-    projects: project.Client
-    tables: table.Client
-    line_plots: lineplot.Client
-    panels: panel.Client
-    logs: log.Client
-    schematics: schematic.Client
 
     _transport: Transport
 
@@ -213,13 +224,9 @@ class Synnax(framer.Client):
         # that, and when an unclosed client is garbage collected.
         self._finalizer = weakref.finalize(self, self.connectivity.stop)
 
-        ch_retriever = channel.Retriever(
-            client=self._transport.unary, instrumentation=instrumentation
-        )
-        deleter = framer.Deleter(
-            client=self._transport.unary, instrumentation=instrumentation
-        )
-        ch_creator = channel.Writer(
+        self._build_lock = threading.RLock()
+        self._instrumentation = instrumentation
+        self._channel_retriever = channel.Retriever(
             client=self._transport.unary, instrumentation=instrumentation
         )
         super().__init__(
@@ -227,65 +234,152 @@ class Synnax(framer.Client):
             async_client=self._transport.stream_async,
             unary_client=self._transport.unary,
             file_transport=self._transport.file_transport,
-            retriever=ch_retriever,
-            deleter=deleter,
+            retriever=self._channel_retriever,
+            deleter=framer.Deleter(
+                client=self._transport.unary, instrumentation=instrumentation
+            ),
             registry=registry,
             instrumentation=instrumentation,
         )
-        self.groups = group.Client(self._transport.unary)
-        self.labels = label.Client(self._transport.unary)
-        self.resources = resource.Client(self._transport.unary)
-        self.channels = channel.Client(
+
+    @_Lazy
+    def channels(self) -> channel.Client:
+        return channel.Client(
             client=self._transport.unary,
             frame_client=self,
-            retriever=ch_retriever,
-            creator=ch_creator,
+            retriever=self._channel_retriever,
+            creator=channel.Writer(
+                client=self._transport.unary, instrumentation=self._instrumentation
+            ),
         )
-        range_retriever = ranger.Retriever(
-            client=self._transport.unary, instrumentation=instrumentation
+
+    @_Lazy
+    def access(self) -> access_.Client:
+        return access_.Client(self._transport.unary)
+
+    @_Lazy
+    def users(self) -> user.Client:
+        return user.Client(self._transport.unary)
+
+    @_Lazy
+    def ranges(self) -> ranger.Client:
+        return ranger.Client(
+            unary_client=self._transport.unary,
+            frame_client=self,
+            channel_retriever=self._channel_retriever,
+            writer=ranger.Writer(
+                client=self._transport.unary, instrumentation=self._instrumentation
+            ),
+            retriever=ranger.Retriever(
+                client=self._transport.unary, instrumentation=self._instrumentation
+            ),
+            signals=self.signals,
+            labels=self.labels,
         )
-        range_creator = ranger.Writer(
-            client=self._transport.unary, instrumentation=instrumentation
-        )
-        self.signals = signals_.Registry(frame_client=self, channels=ch_retriever)
-        self.racks = rack.Client(client=self._transport.unary)
-        self.devices = device.Client(client=self._transport.unary)
-        self.views = view.Client(client=self._transport.unary)
-        self.secrets = secret.Client(client=self._transport.unary)
-        self.certificates = certificate.Client(client=self._transport.unary)
-        self.imex = imex_.Client(file_transport=self._transport.file_transport)
-        self.projects = project.Client(
+
+    @_Lazy
+    def control(self) -> control_.Client:
+        return control_.Client(
+            framer=self,
+            channels=self._channel_retriever,
             client=self._transport.unary,
-            file_transport=self._transport.file_transport,
         )
-        self.tables = table.Client(client=self._transport.unary)
-        self.line_plots = lineplot.Client(client=self._transport.unary)
-        self.panels = panel.Client(client=self._transport.unary)
-        self.logs = log.Client(self._transport.unary)
-        self.schematics = schematic.Client(client=self._transport.unary)
-        self.tasks = task.Client(
+
+    @_Lazy
+    def signals(self) -> signals_.Registry:
+        return signals_.Registry(frame_client=self, channels=self._channel_retriever)
+
+    @_Lazy
+    def racks(self) -> rack.Client:
+        return rack.Client(client=self._transport.unary)
+
+    @_Lazy
+    def devices(self) -> device.Client:
+        return device.Client(client=self._transport.unary)
+
+    @_Lazy
+    def tasks(self) -> task.Client:
+        return task.Client(
             client=self._transport.unary,
             frame_client=self,
             rack_client=self.racks,
             device_client=self.devices,
         )
-        self.ranges = ranger.Client(
-            unary_client=self._transport.unary,
-            frame_client=self,
-            channel_retriever=ch_retriever,
-            writer=range_creator,
-            retriever=range_retriever,
-            signals=self.signals,
-            labels=self.labels,
+
+    @_Lazy
+    def resources(self) -> resource.Client:
+        return resource.Client(self._transport.unary)
+
+    @_Lazy
+    def license(self) -> license_.Client:
+        return license_.Client(self._transport.unary)
+
+    @_Lazy
+    def statuses(self) -> status.Client:
+        return status.Client(self._transport.unary)
+
+    @_Lazy
+    def arcs(self) -> arc.Client:
+        return arc.Client(self._transport.unary, tasks=self.tasks)
+
+    @_Lazy
+    def groups(self) -> group.Client:
+        return group.Client(self._transport.unary)
+
+    @_Lazy
+    def labels(self) -> label.Client:
+        return label.Client(self._transport.unary)
+
+    @_Lazy
+    def colors(self) -> color.Client:
+        return color.Client(self._transport.unary)
+
+    @_Lazy
+    def views(self) -> view.Client:
+        return view.Client(client=self._transport.unary)
+
+    @_Lazy
+    def secrets(self) -> secret.Client:
+        return secret.Client(client=self._transport.unary)
+
+    @_Lazy
+    def certificates(self) -> certificate.Client:
+        return certificate.Client(client=self._transport.unary)
+
+    @_Lazy
+    def icds(self) -> icd.Client:
+        return icd.Client(client=self._transport.unary)
+
+    @_Lazy
+    def imex(self) -> imex_.Client:
+        return imex_.Client(file_transport=self._transport.file_transport)
+
+    @_Lazy
+    def projects(self) -> project.Client:
+        return project.Client(
+            client=self._transport.unary,
+            file_transport=self._transport.file_transport,
         )
-        self.control = control_.Client(
-            framer=self, channels=ch_retriever, client=self._transport.unary
-        )
-        self.users = user.Client(self._transport.unary)
-        self.statuses = status.Client(self._transport.unary)
-        self.license = license_.Client(self._transport.unary)
-        self.arcs = arc.Client(self._transport.unary, tasks=self.tasks)
-        self.access = access_.Client(self._transport.unary)
+
+    @_Lazy
+    def tables(self) -> table.Client:
+        return table.Client(client=self._transport.unary)
+
+    @_Lazy
+    def line_plots(self) -> lineplot.Client:
+        return lineplot.Client(client=self._transport.unary)
+
+    @_Lazy
+    def panels(self) -> panel.Client:
+        return panel.Client(client=self._transport.unary)
+
+    @_Lazy
+    def logs(self) -> log.Client:
+        return log.Client(self._transport.unary)
+
+    @_Lazy
+    def schematics(self) -> schematic.Client:
+        return schematic.Client(client=self._transport.unary)
 
     def close(self) -> None:
         """Logs out, shuts down the client, and closes all connections. All open

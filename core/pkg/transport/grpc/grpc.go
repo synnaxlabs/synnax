@@ -21,15 +21,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	apicertificate "github.com/synnaxlabs/synnax/pkg/api/certificate"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
+	"github.com/synnaxlabs/synnax/pkg/api/color"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
-	apinichassis "github.com/synnaxlabs/synnax/pkg/api/ni/chassis"
-	apinidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	apikv "github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
@@ -48,6 +48,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/control"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/device"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
+	nichassis "github.com/synnaxlabs/synnax/pkg/transport/grpc/ni/chassis"
+	nidevice "github.com/synnaxlabs/synnax/pkg/transport/grpc/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/rack"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger/kv"
@@ -74,6 +76,8 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		status.New(&t),
 		arc.New(&t),
 		control.New(&t),
+		nidevice.New(&t),
+		nichassis.New(&t),
 	}
 
 	// AUTH
@@ -132,18 +136,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ProjectExport = noop.UnaryServer[project.ExportRequest, project.ExportResponse]{}
 	t.ProjectImport = noop.UnaryServer[project.ImportRequest, project.ImportResponse]{}
 
-	// NI DEVICE
-	t.NIDeviceCreate = noop.UnaryServer[apinidevice.CreateRequest, apinidevice.CreateResponse]{}
-	t.NIDeviceRetrieve = noop.UnaryServer[apinidevice.RetrieveRequest, apinidevice.RetrieveResponse]{}
-	t.NIDeviceUpdate = noop.UnaryServer[apinidevice.UpdateRequest, struct{}]{}
-	t.NIDeviceDelete = noop.UnaryServer[apinidevice.DeleteRequest, struct{}]{}
-
-	// NI CHASSIS
-	t.NIChassisCreate = noop.UnaryServer[apinichassis.CreateRequest, apinichassis.CreateResponse]{}
-	t.NIChassisRetrieve = noop.UnaryServer[apinichassis.RetrieveRequest, apinichassis.RetrieveResponse]{}
-	t.NIChassisUpdate = noop.UnaryServer[apinichassis.UpdateRequest, struct{}]{}
-	t.NIChassisDelete = noop.UnaryServer[apinichassis.DeleteRequest, struct{}]{}
-
 	// STATUS
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
 
@@ -171,6 +163,14 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LinePlotRetrieve = noop.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]{}
 	t.LinePlotDelete = noop.UnaryServer[lineplot.DeleteRequest, struct{}]{}
 	t.LinePlotDispatch = noop.UnaryServer[lineplot.DispatchRequest, lineplot.DispatchResponse]{}
+
+	// ICD
+	t.ICDCreate = noop.UnaryServer[icd.CreateRequest, icd.CreateResponse]{}
+	t.ICDRetrieve = noop.UnaryServer[icd.RetrieveRequest, icd.RetrieveResponse]{}
+	t.ICDCheck = noop.UnaryServer[icd.CheckRequest, icd.CheckResponse]{}
+	t.ICDDispatch = noop.UnaryServer[icd.DispatchRequest, struct{}]{}
+	t.ICDImport = noop.UnaryServer[icd.ImportRequest, icd.ImportResponse]{}
+	t.ICDDelete = noop.UnaryServer[icd.DeleteRequest, struct{}]{}
 
 	// PANEL
 	t.PanelCreate = noop.UnaryServer[panel.CreateRequest, panel.CreateResponse]{}
@@ -203,6 +203,12 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LabelAdd = noop.UnaryServer[label.AddRequest, struct{}]{}
 	t.LabelRemove = noop.UnaryServer[label.RemoveRequest, struct{}]{}
 	t.LabelDispatch = noop.UnaryServer[label.DispatchRequest, struct{}]{}
+
+	// COLOR
+	t.ColorCreate = noop.UnaryServer[color.CreateRequest, color.CreateResponse]{}
+	t.ColorRetrieve = noop.UnaryServer[color.RetrieveRequest, color.RetrieveResponse]{}
+	t.ColorDelete = noop.UnaryServer[color.DeleteRequest, struct{}]{}
+	t.ColorDispatch = noop.UnaryServer[color.DispatchRequest, struct{}]{}
 
 	// ACCESS
 	t.AccessCreatePolicy = noop.UnaryServer[policy.CreateRequest, policy.CreateResponse]{}

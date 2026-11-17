@@ -27,12 +27,14 @@ import { auth } from "@/auth";
 import { batch } from "@/batch";
 import { certificate } from "@/certificate";
 import { channel } from "@/channel";
+import { color } from "@/color";
 import { connection } from "@/connection";
 import { control } from "@/control";
 import { device } from "@/device";
 import { errorsMiddleware, isConnectionError } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
+import { icd } from "@/icd";
 import { imex } from "@/imex";
 import { label } from "@/label";
 import { license } from "@/license";
@@ -143,12 +145,14 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
     certificate.DELETE_CHANNEL_NAME,
   ),
   channel: changes(channel.SET_CHANNEL_NAME, channel.DELETE_CHANNEL_NAME),
+  color: changes(color.ACTION_CHANNEL_NAME, color.DELETE_CHANNEL_NAME),
   device: changes(device.ACTION_CHANNEL_NAME, device.DELETE_CHANNEL_NAME),
   ethercat_master: null,
   ethercat_slave: null,
   framer: null,
   group: changes(group.ACTION_CHANNEL_NAME, group.DELETE_CHANNEL_NAME),
   http_server: null,
+  icd: changes(icd.ACTION_CHANNEL_NAME, icd.DELETE_CHANNEL_NAME),
   label: changes(label.ACTION_CHANNEL_NAME, label.DELETE_CHANNEL_NAME),
   labjack_device: null,
   lineplot: changes(lineplot.SET_CHANNEL_NAME, lineplot.DELETE_CHANNEL_NAME),
@@ -197,6 +201,7 @@ export default class Synnax extends framer.Client {
   readonly resources: resource.Client;
   readonly projects: project.Client;
   readonly labels: label.Client;
+  readonly colors: color.Client;
   readonly license: license.Client;
   readonly statuses: status.Client;
   readonly tasks: task.Client;
@@ -207,6 +212,7 @@ export default class Synnax extends framer.Client {
   readonly views: view.Client;
   readonly secrets: secret.Client;
   readonly certificates: certificate.Client;
+  readonly icds: icd.Client;
   readonly schematics: schematic.Client;
   readonly lineplots: lineplot.Client;
   readonly panels: panel.Client;
@@ -324,6 +330,7 @@ export default class Synnax extends framer.Client {
           this.statuses.relabel(key, update),
       },
     });
+    this.colors = new color.Client({ unary, cache });
     this.statuses = new status.Client({ unary, cache });
     this.ranges = new ranger.Client({
       framer: this,
@@ -389,12 +396,14 @@ export default class Synnax extends framer.Client {
       usesChannels: [task.ACTION_CHANNEL_NAME, task.DELETE_CHANNEL_NAME],
     });
     this.certificates = new certificate.Client({ unary, cache });
+    this.icds = new icd.Client({ unary, cache });
     this.groups = new group.Client({
       unary,
       cache,
       batch: this.batch,
       setGroup: {
         channel: (keys, to) => this.channels.setGroupRequest(keys.map(Number), to),
+        color: (keys, to) => this.colors.setGroupRequest(keys, to),
         device: (keys, to) => this.devices.setGroupRequest(keys, to),
         lineplot: (keys, to) => this.lineplots.setGroupRequest(keys, to),
         log: (keys, to) => this.logs.setGroupRequest(keys, to),

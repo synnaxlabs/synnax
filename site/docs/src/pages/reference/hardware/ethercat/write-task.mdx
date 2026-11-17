@@ -70,6 +70,10 @@ entry in **Entry**. A new channel starts with the module of the last channel, an
 type** shows the type of the entry. To add every output of a module at once, right-click
 one of its channels and select **Add every output of** _module name_.
 
+The **Device** list ends with **Connect EtherCAT network**, which opens the list of
+modules that the Driver found and selects the module that you pick. When you select a
+module that is not configured, its Configure dialog opens.
+
 The Console creates a command channel and a state channel for each output. It names them
 after the identifier of the module and the name of the entry. If the module has more
 than one entry with that name, the Console adds the PDO name, or the address when the
@@ -80,11 +84,23 @@ module gives no PDO name. For a module with the identifier `do1` and no PDO name
 
 When you start the task, the Console uses channels that already exist where it can. It
 uses a state index named `<identifier>_state_time`, and a command index named
-`<command name>_cmd_time` for a command channel with the default name. It also uses a
-channel with the default name that a deleted device left, when the channel has the same
-index and no other module writes to it. It never reuses a command channel with a name
-that you chose. Otherwise, a channel name that is in use stops the deploy with an
-[error](#troubleshooting).
+`<entry name>_cmd_time`, such as `do1_Output_7000_01_cmd_time`, for a command channel
+with the default name. It also uses a channel with the default name that a deleted
+device left, when the channel has the same index and no other module writes to it. It
+never reuses a command channel with a name that you chose. Otherwise, a channel name
+that is in use stops the deploy with an [error](#troubleshooting).
+
+Under the channels, the task shows how many channels **Start** creates and how many are
+in use, such as "Start creates 6 channels and 4 time channels, 12 of 100 channels in
+use." When the new channels would pass the channel limit of your license, it asks you to
+delete channels first.
+
+When you click **Start**, the status shows each step: "Configuring task", "Starting
+task", "Scanning _port_" and "Starting _port_" when the network is stopped, then
+"Started task". "Waiting for another task" shows while another task starts the network,
+or while a scan or a save in the Configure dialog uses the port. "Retrying the start"
+shows when the Driver tries again after a failure. A start that takes more than 45
+seconds fails.
 
 <Video id="hardware/ethercat/write-task" />
 
@@ -254,16 +270,69 @@ is the one that the task wrote before, and it keeps the old channels.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={["Found no device with key ...", "A channel on slave ... has no entry. Pick an entry."]}>
+<Problem.Item message={["Device is required", "Entry is required"]}>
 <Problem.Cause>
 
 A channel has no module or no entry selected, such as the empty channel that the task
-opens with.
+opens with. The Console shows this problem when you start the task.
 
 </Problem.Cause>
 <Problem.Fix>
 
 Select the module in **Device** and an entry in **Entry**, or remove the channel.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Found no device with key ..."}>
+<Problem.Cause>
+
+A module of the task was deleted.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Select another module in **Device**, or remove the channel.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... is not configured. Configure it to start the task."}>
+<Problem.Cause>
+
+A module of the task is not configured.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Right-click the module, select **Configure**, and click **Save**.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Slave ... is set up for .... Switch it to Synnax before you start the task."}>
+<Problem.Cause>
+
+Another program, such as DewesoftX, sets up the module.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Switch the module to Synnax in the Configure dialog. If the message tells you to set up
+the module in the other program, do that.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"A write task on ... runs at ... Hz, above the maximum bus rate of ... Hz."}>
+<Problem.Cause>
+
+The **Execution rate** of the task is more than the network can cycle.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set an **Execution rate** of 10 kHz or less.
 
 </Problem.Fix>
 </Problem.Item>
@@ -347,6 +416,21 @@ entry, or by a channel with another data type.
 
 Set another name for the channel, or delete the old channel so that the task can create
 it again.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... has an identifier that gives the same channel names as ..."}>
+<Problem.Cause>
+
+Two modules have the same identifier, such as `do4`. The message names the slot of each
+module.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Right-click one of the modules, select **Configure**, and change its
+[identifier](/reference/hardware/devices#identifiers).
 
 </Problem.Fix>
 </Problem.Item>

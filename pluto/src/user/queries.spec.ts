@@ -94,6 +94,37 @@ describe("User queries", () => {
     });
   });
 
+  describe("useSetRole", () => {
+    it("should change a user's role", async () => {
+      const to = await createEmptyRole(client);
+      const testUser = await client.users.create({
+        username: `set-role-${id.create()}`,
+        name: "Test User",
+        password: "password123",
+        role: role.key,
+      });
+      const { result } = renderHook(() => User.useSetRole(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({ key: testUser.key, role: to.key });
+      });
+      expect(result.current.variant).toEqual("success");
+      expect((await client.users.retrieve(testUser.key)).role).toEqual(to.key);
+    });
+
+    it("should report an error when the Core refuses the change", async () => {
+      const root = await client.users.retrieve({ username: TEST_CREDENTIALS.username });
+      const { result } = renderHook(() => User.useSetRole(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({ key: root.key, role: role.key });
+      });
+      expect(result.current.variant).toEqual("error");
+      expect(result.current.status.description).toEqual(
+        `cannot change the role of root user ${root.name}: validation error`,
+      );
+      expect((await client.users.retrieve(root.key)).role).not.toEqual(role.key);
+    });
+  });
+
   describe("useRename", () => {
     it("should change a user's name", async () => {
       const testUser = await client.users.create({

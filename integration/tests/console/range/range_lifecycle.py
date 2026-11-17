@@ -11,6 +11,8 @@ import random
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
+from playwright.sync_api import expect
+
 import synnax as sy
 from console.case import ConsoleCase
 from console.plot import Plot
@@ -457,10 +459,8 @@ class RangeLifecycle(ConsoleCase):
 
         self.console.ranges.overview.add_label(self.second_label_name)
 
-        labels = self.console.ranges.overview.get_labels()
-        assert self.second_label_name in labels, (
-            f"Label '{self.second_label_name}' should be in overview"
-        )
+        overview = self.console.ranges.overview
+        expect(overview.label(self.second_label_name)).to_be_visible(timeout=5000)
 
     def test_remove_label_in_overview(self) -> None:
         """Test removing a label from a range in the overview."""
@@ -472,10 +472,8 @@ class RangeLifecycle(ConsoleCase):
 
         self.console.ranges.overview.remove_label(self.second_label_name)
 
-        labels = self.console.ranges.overview.get_labels()
-        assert self.second_label_name not in labels, (
-            f"Label '{self.second_label_name}' should be removed from overview"
-        )
+        overview = self.console.ranges.overview
+        expect(overview.label(self.second_label_name)).to_be_hidden(timeout=5000)
 
     def test_rename_range_from_tab(self) -> None:
         """Test renaming a range from the tab name."""

@@ -34,9 +34,9 @@ func set(ctx context.Context, db kv.DB, key string) error {
 	return tx.Commit(ctx)
 }
 
-func stored(ctx context.Context, db kv.DB, key string) bool {
+func stored(db kv.DB, key string) bool {
 	GinkgoHelper()
-	_, closer, err := db.Get(ctx, []byte(key))
+	_, closer, err := db.Get([]byte(key))
 	if errors.Is(err, query.ErrNotFound) {
 		return false
 	}
@@ -51,12 +51,12 @@ var _ = Describe("DB", func() {
 
 	It("Should commit a transaction that no hook intercepts", func(ctx SpecContext) {
 		Expect(set(ctx, db, "a")).To(Succeed())
-		Expect(stored(ctx, db, "a")).To(BeTrue())
+		Expect(stored(db, "a")).To(BeTrue())
 	})
 
 	It("Should run a commit through the hook of its context", func(ctx SpecContext) {
 		Expect(set(hookkv.WithHook(ctx, refuse), db, "a")).To(MatchError(errRefused))
-		Expect(stored(ctx, db, "a")).To(BeFalse())
+		Expect(stored(db, "a")).To(BeFalse())
 		Expect(set(ctx, db, "b")).To(Succeed())
 	})
 
@@ -64,7 +64,7 @@ var _ = Describe("DB", func() {
 		func(ctx SpecContext) {
 			remove := db.HookKey([]byte("mark"), refuse)
 			Expect(set(ctx, db, "x-mark-x")).To(MatchError(errRefused))
-			Expect(stored(ctx, db, "x-mark-x")).To(BeFalse())
+			Expect(stored(db, "x-mark-x")).To(BeFalse())
 			Expect(set(ctx, db, "other")).To(Succeed())
 			remove()
 			Expect(set(ctx, db, "x-mark-x")).To(Succeed())
@@ -96,11 +96,11 @@ var _ = Describe("DB", func() {
 				}()
 				Eventually(held).Should(BeClosed())
 				Consistently(first).ShouldNot(Receive())
-				Expect(stored(ctx, db, "mark-1")).To(BeFalse())
+				Expect(stored(db, "mark-1")).To(BeFalse())
 				Expect(set(ctx, db, "mark-2")).To(Succeed())
 				close(release)
 				Eventually(first).Should(Receive(BeNil()))
-				Expect(stored(ctx, db, "mark-1")).To(BeTrue())
+				Expect(stored(db, "mark-1")).To(BeTrue())
 			},
 		)
 	})

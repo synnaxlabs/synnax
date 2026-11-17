@@ -83,8 +83,8 @@ type BooleanReadField = v2.BooleanReadField
 // TimestampReadField reads a timestamp.
 type TimestampReadField = v2.TimestampReadField
 
-// JsonReadField reads any JSON value.
-type JsonReadField = v2.JsonReadField
+// JSONReadField reads any JSON value.
+type JSONReadField = v2.JSONReadField
 
 // UuidReadField reads a UUID string.
 type UuidReadField = v2.UuidReadField

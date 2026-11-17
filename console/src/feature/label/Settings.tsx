@@ -7,15 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/label/Settings.css";
-
-import { label } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
+import { label, UnexpectedError } from "@synnaxlabs/client";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -23,11 +19,10 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, Label } from "@synnaxlabs/pluto";
 import { type color } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
-import { Label as PlatformLabel } from "@/platform/label";
 import { Modals } from "@/platform/modals";
 import { Settings as PlatformSettings } from "@/platform/settings";
 
@@ -41,13 +36,14 @@ const Item = (props: List.ItemProps<label.Key>): ReactElement => {
   const name = Form.useField<string>(path.name, { ctx: form });
   const swatch = Form.useField<color.Crude, color.Color>(path.color, { ctx: form });
   const canUpdate = Access.useUpdateGranted(label.resourceID(itemKey));
+  const itemClass = PlatformSettings.useItemClass(itemKey);
   return (
     <Select.Item<label.Key>
       {...props}
       checkable
       align="center"
       aria-label={name.value}
-      className={CSS.BE("label-settings", "item")}
+      className={CSS.cls(CSS.BE("label-settings", "item"), itemClass)}
     >
       <List.Cells>
         <List.Cell>
@@ -69,6 +65,48 @@ const Item = (props: List.ItemProps<label.Key>): ReactElement => {
         </List.Cell>
       </List.Cells>
     </Select.Item>
+  );
+};
+
+const CreateLabel = (): ReactElement => {
+  const { created } = PlatformSettings.useCreate();
+  const { form, save, variant } = Label.useCreateForm({
+    query: null,
+    afterSave: ({ value }) => {
+      const { key } = value();
+      if (key == null) throw new UnexpectedError("Label key is null");
+      created(key);
+    },
+  });
+  const handleSave = (): void => {
+    if (variant !== "loading") save();
+  };
+  const onKeyDown = PlatformSettings.useCreateKeyDown(handleSave);
+  return (
+    <PlatformSettings.CreateFrame>
+      <List.Cell>
+        <Form.Form<typeof Label.createFormSchema> {...form}>
+          <Flex.Box x align="center" gap="medium">
+            <Form.Field path={path.color} showLabel={false} padHelpText={false}>
+              {(p) => <Color.Swatch aria-label="Label color" size="small" {...p} />}
+            </Form.Field>
+            <Form.Field path={path.name} showLabel={false} padHelpText={false} grow>
+              {(p) => (
+                <Input.Text
+                  placeholder="Label name"
+                  aria-label="Label name"
+                  autoFocus
+                  full="x"
+                  onKeyDown={onKeyDown}
+                  {...p}
+                />
+              )}
+            </Form.Field>
+            <PlatformSettings.CreateActions onSave={handleSave} status={variant} />
+          </Flex.Box>
+        </Form.Form>
+      </List.Cell>
+    </PlatformSettings.CreateFrame>
   );
 };
 
@@ -102,68 +140,27 @@ const LabelsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
 
 const menu = Component.renderProp(LabelsMenu);
 
-const EMPTY_CONTENT = (
-  <Flex.Box center className={CSS.BE("label-settings", "empty")}>
-    <Text.Text color={9}>No labels</Text.Text>
-  </Flex.Box>
-);
-
 /**
  * Every label, with its color. Each line renames and recolors its label in place, and
  * the menu of the selected labels renames or deletes them.
  */
 export const Settings = (): ReactElement => {
-  const { data, getItem, subscribe, more, search, answered } = Flux.useList(
-    (client) => client.labels,
-    { name: "labels", query: { order: { field: "name" } }, pageSize: 100 },
-  );
-  const [term, setTerm] = useState("");
-  const [selected, setSelected] = useState<label.Key[]>([]);
-  const menuProps = Menu.useContextMenu();
-  const create = PlatformLabel.useCreateModal();
+  const list = Flux.useList((client) => client.labels, {
+    name: "labels",
+    query: { order: { field: "name" } },
+    pageSize: 100,
+  });
   const canCreate = Access.useCreateGranted(label.TYPE_RESOURCE_ID);
-  const handleSearch = (next: string): void => {
-    setTerm(next);
-    search(next);
-  };
   return (
-    <Select.Frame<label.Key, label.Label>
-      multiple
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      onFetchMore={more}
-      value={selected}
-      onChange={setSelected}
+    <PlatformSettings.Table<label.Key, label.Label>
+      list={list}
+      columns={COLUMNS}
+      noun="labels"
+      menu={menu}
+      createLabel={canCreate ? "Create label" : undefined}
+      create={<CreateLabel />}
     >
-      <Menu.ContextMenu menu={menu} {...menuProps} />
-      <Flex.Box y gap="medium">
-        <Flex.Box x align="center" justify="between" gap="medium">
-          <Input.Text
-            value={term}
-            onChange={handleSearch}
-            placeholder="Search labels"
-            startContent={<Icon.Search />}
-            className={CSS.BE("label-settings", "search")}
-          />
-          {canCreate && (
-            <Button.Button variant="outlined" onClick={() => void create()}>
-              <Icon.Add />
-              Create label
-            </Button.Button>
-          )}
-        </Flex.Box>
-        <PlatformSettings.Card flush>
-          <List.Columns columns={COLUMNS}>
-            <List.Headings checkable />
-            <List.Scroll onContextMenu={menuProps.open}>
-              <List.Items<label.Key> emptyContent={answered && EMPTY_CONTENT}>
-                {({ key, ...p }) => <Item key={key} {...p} />}
-              </List.Items>
-            </List.Scroll>
-          </List.Columns>
-        </PlatformSettings.Card>
-      </Flex.Box>
-    </Select.Frame>
+      {({ key, ...p }) => <Item key={key} {...p} />}
+    </PlatformSettings.Table>
   );
 };

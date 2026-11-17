@@ -35,6 +35,69 @@ CHECK_SDO_READ_SUBINDEX = (
 """,
 )
 
+# An abort that answers an earlier request for another object passes as the abort of
+# this one. The patches check the index and sub-index of an abort, so a stale one fails
+# the transfer with SOEM packet error 1 (unexpected frame).
+CHECK_SDO_READ_ABORT = (
+    """         /* other slave response */
+         else
+         {
+            if ((aSDOp->Command) == ECT_SDO_ABORT) /* SDO abort frame received */
+            {
+               ecx_SDOerror(context, slave, index, subindex, etohl(aSDOp->ldata[0]));
+""",
+    """         /* other slave response */
+         else
+         {
+            if (((aSDOp->Command) == ECT_SDO_ABORT) && /* SDO abort frame received */
+                (aSDOp->Index == SDOp->Index) && (aSDOp->SubIndex == SDOp->SubIndex))
+            {
+               ecx_SDOerror(context, slave, index, subindex, etohl(aSDOp->ldata[0]));
+""",
+)
+
+CHECK_SDO_EXPEDITED_WRITE_ABORT = (
+    """               /* all OK */
+            }
+            /* unexpected response from slave */
+            else
+            {
+               if (aSDOp->Command == ECT_SDO_ABORT) /* SDO abort frame received */
+               {
+""",
+    """               /* all OK */
+            }
+            /* unexpected response from slave */
+            else
+            {
+               if ((aSDOp->Command == ECT_SDO_ABORT) && /* SDO abort frame received */
+                   (aSDOp->Index == SDOp->Index) && (aSDOp->SubIndex == SDOp->SubIndex))
+               {
+""",
+)
+
+CHECK_SDO_NORMAL_WRITE_ABORT = (
+    """                  toggle = toggle ^ 0x10; /* toggle bit for segment request */
+               }
+            }
+            /* unexpected response from slave */
+            else
+            {
+               if (aSDOp->Command == ECT_SDO_ABORT) /* SDO abort frame received */
+               {
+""",
+    """                  toggle = toggle ^ 0x10; /* toggle bit for segment request */
+               }
+            }
+            /* unexpected response from slave */
+            else
+            {
+               if ((aSDOp->Command == ECT_SDO_ABORT) && /* SDO abort frame received */
+                   (aSDOp->Index == SDOp->Index) && (aSDOp->SubIndex == SDOp->SubIndex))
+               {
+""",
+)
+
 # When the slave refuses an EEPROM read, EEPDAT still holds the word of the read before,
 # so the slave gets the wrong identity. The patch returns 0, as for a slave that does not
 # answer, and pushes SOEM packet error 30 for the slave.
@@ -58,9 +121,370 @@ FAIL_REFUSED_EEPROM_READ = (
 """,
 )
 
+# A late thread can find the receive timer expired before it reads a frame that came in
+# time. The patch reads each packet that came in, past frames of other indexes, before
+# the wait gives up.
+READ_LATE_FRAMES = (
+    """   } while (((wkc <= EC_NOFRAME) || (wkc2 <= EC_NOFRAME)) && !osal_timer_is_expired(timer));
+""",
+    """   } while (((wkc <= EC_NOFRAME) || (wkc2 <= EC_NOFRAME)) && !osal_timer_is_expired(timer));
+   if (wkc <= EC_NOFRAME)
+   {
+      do
+         wkc = ecx_inframe(port, idx, 0);
+      while (wkc == EC_OTHERFRAME);
+   }
+   if ((port->redstate != ECT_RED_NONE) && (wkc2 <= EC_NOFRAME))
+   {
+      do
+         wkc2 = ecx_inframe(port, idx, 1);
+      while (wkc2 == EC_OTHERFRAME);
+   }
+""",
+)
+
+READ_LATE_SECONDARY_FRAMES = (
+    """         } while ((wkc2 <= EC_NOFRAME) && !osal_timer_is_expired(&timer2));
+""",
+    """         } while ((wkc2 <= EC_NOFRAME) && !osal_timer_is_expired(&timer2));
+         if (wkc2 <= EC_NOFRAME)
+         {
+            do
+               wkc2 = ecx_inframe(port, idx, 1);
+            while (wkc2 == EC_OTHERFRAME);
+         }
+""",
+)
+
+# The OSAL requests the 1 ms timer period on its first clock read and never ends it,
+# and ecx_closenic ends it once per close. The patches make each bus session request it
+# in ecx_setupnic and end it in ecx_closenic.
+REQUEST_TIMER_PERIOD_PER_SESSION = (
+    """      printf("interface %s could not open with pcap\\n", ifname);
+      return 0;
+   }
+""",
+    """      printf("interface %s could not open with pcap\\n", ifname);
+      return 0;
+   }
+   if (!secondary)
+   {
+      timeBeginPeriod(1);
+   }
+""",
+)
+
+END_TIMER_PERIOD_PER_SESSION = (
+    """int ecx_closenic(ecx_portt *port)
+{
+   timeEndPeriod(1);
+
+   if (port->sockhandle != NULL)
+   {
+""",
+    """int ecx_closenic(ecx_portt *port)
+{
+   if (port->sockhandle != NULL)
+   {
+      timeEndPeriod(1);
+""",
+)
+
+OSAL_REQUESTS_NO_TIMER_PERIOD = (
+    """   {
+      timeBeginPeriod(1);
+      QueryPerformanceFrequency(&sysfrequency);
+""",
+    """   {
+      QueryPerformanceFrequency(&sysfrequency);
+""",
+)
+
+# A slave below SAFE-OP keeps its share of the working counter and sends zeros. These
+# patches read the AL status of each slave with inputs in the process data frames, so a
+# status comes back with the inputs it describes, or not at all. Reads that do not fit
+# go in frames of their own in the same send.
+INCLUDE_PATCHED_DECLARATIONS = (
+    """#include "soem/soem.h"
+""",
+    """#include "soem/soem.h"
+#include "soem_patched.h"
+""",
+)
+
+ADD_ALSTAT_HELPERS = (
+    """/** Transmit processdata to slaves.
+""",
+    """/* The bytes of an FPRD of the AL status of one slave in a frame. */
+#define EC_ALSTATSIZE (EC_HEADERSIZE - EC_ELENGTHSIZE + sizeof(uint16) + EC_WKCSIZE)
+
+/** Returns the first slave after slave in group with inputs, or 0 when there is none.
+ */
+static uint16 ecx_nextalstat(ecx_contextt *context, uint8 group, uint16 slave)
+{
+   while (++slave <= context->slavecount)
+   {
+      if ((context->slavelist[slave].group == group) &&
+          (context->slavelist[slave].Ibits > 0))
+      {
+         return slave;
+      }
+   }
+   return 0;
+}
+
+/** Adds an FPRD of the AL status of slave *next, and of each slave in group with
+ * inputs after it, to the frame at idx while the frame has room. Leaves *next at the
+ * first slave left out, or 0.
+ */
+static void ecx_addalstat(ecx_contextt *context, uint8 group, uint8 idx, uint16 *next)
+{
+   ecx_portt *port = &context->port;
+   uint8 *frame = port->txbuf[idx];
+   ec_comt *last = (ec_comt *)&frame[ETH_HEADERSIZE];
+   uint16 status = 0;
+   uint16 at;
+
+   while (etohs(last->dlength) & EC_DATAGRAMFOLLOWS)
+   {
+      last = (ec_comt *)((uint8 *)last + EC_HEADERSIZE +
+                         (etohs(last->dlength) & 0x07FF) + EC_WKCSIZE - EC_ELENGTHSIZE);
+   }
+   /* The 4-byte frame check sequence is not in the buffer. */
+   while ((*next != 0) &&
+          (port->txbuflength[idx] + EC_ALSTATSIZE <= EC_MAXECATFRAME - 4))
+   {
+      /* ecx_adddatagram flags only the first datagram as followed by another. */
+      last->dlength = htoes(etohs(last->dlength) | EC_DATAGRAMFOLLOWS);
+      at = (uint16)(port->txbuflength[idx] - EC_ELENGTHSIZE);
+      ecx_adddatagram(port, frame, EC_CMD_FPRD, idx, FALSE,
+                      context->slavelist[*next].configadr, ECT_REG_ALSTAT,
+                      sizeof(status), &status);
+      last = (ec_comt *)&frame[at];
+      *next = ecx_nextalstat(context, group, *next);
+   }
+}
+
+/** Writes the AL status of each FPRD of ECT_REG_ALSTAT in the received frame at idx
+ * into alstat at the index of its slave, or 0 when the slave did not answer.
+ */
+static void ecx_readalstat(ecx_contextt *context, uint8 idx, uint16 *alstat)
+{
+   uint8 *frame = context->port.rxbuf[idx];
+   ec_comt *datagram;
+   int at = 0;
+   int data;
+   int length;
+   int slave;
+   uint16 adp;
+   uint16 le_status;
+   uint16 le_wkc;
+
+   while (1)
+   {
+      datagram = (ec_comt *)&frame[at];
+      length = etohs(datagram->dlength) & 0x07FF;
+      data = at + EC_HEADERSIZE;
+      if (data + length + EC_WKCSIZE > EC_BUFSIZE)
+      {
+         return;
+      }
+      adp = etohs(datagram->ADP);
+      slave = adp - EC_NODEOFFSET;
+      if ((datagram->command == EC_CMD_FPRD) &&
+          (etohs(datagram->ADO) == ECT_REG_ALSTAT) && (length == sizeof(le_status)) &&
+          (slave >= 1) && (slave <= context->slavecount) &&
+          (context->slavelist[slave].configadr == adp))
+      {
+         memcpy(&le_status, &frame[data], sizeof(le_status));
+         memcpy(&le_wkc, &frame[data + length], sizeof(le_wkc));
+         alstat[slave] = (etohs(le_wkc) == 1) ? etohs(le_status) : 0;
+      }
+      if ((etohs(datagram->dlength) & EC_DATAGRAMFOLLOWS) == 0)
+      {
+         return;
+      }
+      at = data + length + EC_WKCSIZE - EC_ELENGTHSIZE;
+   }
+}
+
+/** Transmit processdata to slaves.
+""",
+)
+
+START_ALSTAT_READS = (
+    """   uint16 DCO;
+
+   wkc = 0;
+""",
+    """   uint16 DCO;
+   uint16 alstat = ecx_nextalstat(context, group, 0);
+   uint16 status = 0;
+
+   wkc = 0;
+""",
+)
+
+ADD_ALSTAT_TO_LRD = (
+    """ecx_setupdatagram(&context->port, &(context->port.txbuf[idx]), EC_CMD_LRD, idx, w1, w2, sublength, data);
+               if (first)
+               {
+                  /* FPRMW in second datagram */
+                  DCO = ecx_adddatagram(&context->port, &(context->port.txbuf[idx]), EC_CMD_FRMW, idx, FALSE,
+                                        context->slavelist[context->grouplist[group].DCnext].configadr,
+                                        ECT_REG_DCSYSTIME, sizeof(int64), &context->DCtime);
+                  first = FALSE;
+               }
+               /* send frame */
+""",
+    """ecx_setupdatagram(&context->port, &(context->port.txbuf[idx]), EC_CMD_LRD, idx, w1, w2, sublength, data);
+               if (first)
+               {
+                  /* FPRMW in second datagram */
+                  DCO = ecx_adddatagram(&context->port, &(context->port.txbuf[idx]), EC_CMD_FRMW, idx, FALSE,
+                                        context->slavelist[context->grouplist[group].DCnext].configadr,
+                                        ECT_REG_DCSYSTIME, sizeof(int64), &context->DCtime);
+                  first = FALSE;
+               }
+               ecx_addalstat(context, group, idx, &alstat);
+               /* send frame */
+""",
+)
+
+ADD_ALSTAT_TO_LRW = (
+    """ecx_setupdatagram(&context->port, &(context->port.txbuf[idx]), EC_CMD_LRW, idx, w1, w2, sublength, data);
+            if (first)
+            {
+               /* FPRMW in second datagram */
+               DCO = ecx_adddatagram(&context->port, &(context->port.txbuf[idx]), EC_CMD_FRMW, idx, FALSE,
+                                     context->slavelist[context->grouplist[group].DCnext].configadr,
+                                     ECT_REG_DCSYSTIME, sizeof(int64), &context->DCtime);
+               first = FALSE;
+            }
+            /* send frame */
+""",
+    """ecx_setupdatagram(&context->port, &(context->port.txbuf[idx]), EC_CMD_LRW, idx, w1, w2, sublength, data);
+            if (first)
+            {
+               /* FPRMW in second datagram */
+               DCO = ecx_adddatagram(&context->port, &(context->port.txbuf[idx]), EC_CMD_FRMW, idx, FALSE,
+                                     context->slavelist[context->grouplist[group].DCnext].configadr,
+                                     ECT_REG_DCSYSTIME, sizeof(int64), &context->DCtime);
+               first = FALSE;
+            }
+            ecx_addalstat(context, group, idx, &alstat);
+            /* send frame */
+""",
+)
+
+SEND_LEFT_ALSTAT_READS = (
+    """   return wkc;
+}
+
+/** Receive processdata from slaves.""",
+    """   /* Reads that did not fit in the process data frames go in frames of their
+      own. */
+   while (wkc && alstat)
+   {
+      idx = ecx_getindex(&context->port);
+      ecx_setupdatagram(&context->port, &(context->port.txbuf[idx]), EC_CMD_FPRD, idx,
+                        context->slavelist[alstat].configadr, ECT_REG_ALSTAT,
+                        sizeof(status), &status);
+      alstat = ecx_nextalstat(context, group, alstat);
+      ecx_addalstat(context, group, idx, &alstat);
+      ecx_outframe_red(&context->port, idx);
+      ecx_pushindex(context, idx, NULL, 0, 0);
+   }
+
+   return wkc;
+}
+
+/** Receive processdata from slaves.""",
+)
+
+RECEIVE_ALSTAT = (
+    """int ecx_receive_processdata_group(ecx_contextt *context, uint8 group, int timeout)
+{
+""",
+    """int ecx_receive_processdata_group(ecx_contextt *context, uint8 group, int timeout)
+{
+   return ecx_receive_processdata_group_alstat(context, group, timeout, NULL);
+}
+
+int ecx_receive_processdata_group_alstat(ecx_contextt *context, uint8 group, int timeout,
+                                         uint16 *alstat)
+{
+   uint16 slave = 0;
+""",
+)
+
+CLEAR_ALSTAT = (
+    """   idxstack = &context->idxstack;
+   rxbuf = context->port.rxbuf;
+""",
+    """   idxstack = &context->idxstack;
+   rxbuf = context->port.rxbuf;
+   while ((alstat != NULL) && ((slave = ecx_nextalstat(context, group, slave)) != 0))
+   {
+      alstat[slave] = 0;
+   }
+""",
+)
+
+# The frame gives the working counter of its last datagram, which can now be an AL
+# status read.
+COUNT_PROCESS_DATA_WKC = (
+    """               /* copy input data back to process data buffer */
+               memcpy(idxstack->data[pos], &(rxbuf[idx][EC_HEADERSIZE]), idxstack->length[pos]);
+               wkc += wkc2;
+""",
+    """               /* copy input data back to process data buffer */
+               memcpy(idxstack->data[pos], &(rxbuf[idx][EC_HEADERSIZE]), idxstack->length[pos]);
+               memcpy(&le_wkc, &(rxbuf[idx][EC_HEADERSIZE + idxstack->length[pos]]), EC_WKCSIZE);
+               wkc += etohs(le_wkc);
+""",
+)
+
+READ_ALSTAT = (
+    """      /* release buffer */
+      ecx_setbufstat(&context->port, idx, EC_BUF_EMPTY);
+""",
+    """      if ((alstat != NULL) && (wkc2 > EC_NOFRAME))
+      {
+         ecx_readalstat(context, idx, alstat);
+      }
+      /* release buffer */
+      ecx_setbufstat(&context->port, idx, EC_BUF_EMPTY);
+""",
+)
+
 PATCHES = {
-    "ec_coe.c": [CHECK_SDO_READ_SUBINDEX],
-    "ec_main.c": [FAIL_REFUSED_EEPROM_READ],
+    "ec_coe.c": [
+        CHECK_SDO_READ_SUBINDEX,
+        CHECK_SDO_READ_ABORT,
+        CHECK_SDO_EXPEDITED_WRITE_ABORT,
+        CHECK_SDO_NORMAL_WRITE_ABORT,
+    ],
+    "ec_main.c": [
+        FAIL_REFUSED_EEPROM_READ,
+        INCLUDE_PATCHED_DECLARATIONS,
+        ADD_ALSTAT_HELPERS,
+        START_ALSTAT_READS,
+        ADD_ALSTAT_TO_LRD,
+        ADD_ALSTAT_TO_LRW,
+        SEND_LEFT_ALSTAT_READS,
+        RECEIVE_ALSTAT,
+        CLEAR_ALSTAT,
+        COUNT_PROCESS_DATA_WKC,
+        READ_ALSTAT,
+    ],
+    "nicdrv.c": [
+        REQUEST_TIMER_PERIOD_PER_SESSION,
+        END_TIMER_PERIOD_PER_SESSION,
+        READ_LATE_FRAMES,
+        READ_LATE_SECONDARY_FRAMES,
+    ],
+    "osal.c": [OSAL_REQUESTS_NO_TIMER_PERIOD],
 }
 
 source, output = sys.argv[1:]

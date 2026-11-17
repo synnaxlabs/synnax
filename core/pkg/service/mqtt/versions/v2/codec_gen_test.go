@@ -204,7 +204,7 @@ var _ = Describe("Codec", func() {
 				BaseReadField: fullyPopulatedBaseReadField,
 				TimestampRead: fullyPopulatedTimestampRead,
 			}}),
-			Entry("json variant", v2.ReadField{Variant: v2.JsonReadField{BaseReadField: fullyPopulatedBaseReadField}}),
+			Entry("json variant", v2.ReadField{Variant: v2.JSONReadField{BaseReadField: fullyPopulatedBaseReadField}}),
 			Entry("uuid variant", v2.ReadField{Variant: v2.UuidReadField{BaseReadField: fullyPopulatedBaseReadField}}),
 			Entry("bytes variant", v2.ReadField{Variant: v2.BytesReadField{BaseReadField: fullyPopulatedBaseReadField}}),
 		)
@@ -566,7 +566,7 @@ func FuzzDecodeReadField(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.ReadField{Variant: v2.JsonReadField{BaseReadField: fullyPopulatedBaseReadField}}
+		seed := v2.ReadField{Variant: v2.JSONReadField{BaseReadField: fullyPopulatedBaseReadField}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

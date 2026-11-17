@@ -238,11 +238,11 @@ export const timestampReadFieldZ = baseReadFieldZ
   });
 export interface TimestampReadField extends z.infer<typeof timestampReadFieldZ> {}
 
-/** JsonReadField reads any JSON value. */
+/** JSONReadField reads any JSON value. */
 export const jsonReadFieldZ = baseReadFieldZ.extend({
   type: z.literal("json"),
 });
-export interface JsonReadField extends z.infer<typeof jsonReadFieldZ> {}
+export interface JSONReadField extends z.infer<typeof jsonReadFieldZ> {}
 
 /** UuidReadField reads a UUID string. */
 export const uuidReadFieldZ = baseReadFieldZ.extend({
@@ -278,7 +278,7 @@ export type ReadField =
   | StringReadField
   | BooleanReadField
   | TimestampReadField
-  | JsonReadField
+  | JSONReadField
   | UuidReadField
   | BytesReadField;
 

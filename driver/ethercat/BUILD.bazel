@@ -75,6 +75,7 @@ cc_library(
         "//x/cpp/lib",
         "//x/cpp/telem",
         "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/log:vlog_is_on",
     ] + select({
         ":linux": [
             "//driver/ethercat/igh",

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -15,16 +16,23 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <set>
 #include <vector>
 
 #include "gtest/gtest.h"
 #include "soem/soem.h"
+
+#include "soem_patched.h"
 
 namespace {
 /// The register addresses of the mailboxes of each slave.
 constexpr uint16_t MAILBOX_OUT = 0x1000;
 constexpr uint16_t MAILBOX_IN = 0x1100;
 constexpr uint16_t MAILBOX_LENGTH = 128;
+/// The byte that each input of a logical read gets.
+constexpr uint8_t INPUT = 0xAB;
+/// The distributed clock time that the reference clock gives.
+constexpr int64_t DC_TIME = 123'456'789;
 
 using Bytes = std::vector<uint8_t>;
 
@@ -64,6 +72,16 @@ struct Slave {
 struct Bus {
     /// @brief the slaves on the bus.
     std::map<uint16_t, Slave> slaves;
+    /// @brief the working counter of a logical read or write.
+    int process_wkc = 0;
+    /// @brief the frames, by the order in which they were sent from 0, that do not
+    /// come back.
+    std::set<int> lost;
+    /// @brief the number of frames sent with ecx_outframe_red.
+    int sent = 0;
+    /// @brief the working counter of the last datagram of each frame that came back,
+    /// by index.
+    std::map<uint8_t, int> received;
 
     /// @brief answers the frame in buf, returning the work counter of its last
     /// datagram.
@@ -86,6 +104,12 @@ struct Bus {
                 wkc = 1;
             } else if (cmd == EC_CMD_FPWR && it != this->slaves.end()) {
                 it->second.write(ado);
+                wkc = 1;
+            } else if (cmd == EC_CMD_LRW || cmd == EC_CMD_LRD) {
+                std::memset(data, INPUT, length);
+                wkc = this->process_wkc;
+            } else if (cmd == EC_CMD_FRMW && it != this->slaves.end()) {
+                std::memcpy(data, &DC_TIME, std::min(length, sizeof(DC_TIME)));
                 wkc = 1;
             }
             const auto counter = static_cast<uint16_t>(wkc);
@@ -122,6 +146,31 @@ Bytes upload_reply(
         0,
     };
 }
+
+/// @brief returns the SDO abort reply for index:sub_index with code.
+Bytes abort_reply(const uint16_t index, const uint8_t sub_index, const uint32_t code) {
+    return {
+        10,
+        0,
+        0,
+        0,
+        0,
+        ECT_MBXT_COE,
+        0x00,
+        ECT_COES_SDOREQ << 4,
+        ECT_SDO_ABORT,
+        static_cast<uint8_t>(index & 0xFF),
+        static_cast<uint8_t>(index >> 8),
+        sub_index,
+        static_cast<uint8_t>(code & 0xFF),
+        static_cast<uint8_t>((code >> 8) & 0xFF),
+        static_cast<uint8_t>((code >> 16) & 0xFF),
+        static_cast<uint8_t>(code >> 24),
+    };
+}
+
+/// The abort code of an object that does not exist.
+constexpr uint32_t NO_OBJECT = 0x0602'0000;
 
 Bus &bus_of(ecx_portt *port) {
     auto *context = reinterpret_cast<ecx_contextt *>(
@@ -163,12 +212,22 @@ int ecx_outframe(ecx_portt *, uint8, int) {
     return 0;
 }
 
-int ecx_outframe_red(ecx_portt *, uint8) {
+int ecx_outframe_red(ecx_portt *port, const uint8 idx) {
+    auto &bus = bus_of(port);
+    const auto length = port->txbuflength[idx] - ETH_HEADERSIZE;
+    std::memcpy(port->rxbuf[idx], &port->txbuf[idx][ETH_HEADERSIZE], length);
+    const int wkc = bus.answer(port->rxbuf[idx]);
+    if (!bus.lost.contains(bus.sent++)) bus.received[idx] = wkc;
     return 0;
 }
 
-int ecx_waitinframe(ecx_portt *, uint8, int) {
-    return EC_NOFRAME;
+int ecx_waitinframe(ecx_portt *port, const uint8 idx, int) {
+    auto &received = bus_of(port).received;
+    const auto it = received.find(idx);
+    if (it == received.end()) return EC_NOFRAME;
+    const int wkc = it->second;
+    received.erase(it);
+    return wkc;
 }
 
 int ecx_srconfirm(ecx_portt *port, const uint8 idx, int) {
@@ -239,6 +298,89 @@ TEST_F(SOEMTest, SDOReadFailsOnAReplyForAnotherSubIndex) {
     EXPECT_EQ(err.ErrorCode, 1);
 }
 
+/// @brief it should report the abort of the object that an SDO read asks for.
+TEST_F(SOEMTest, SDOReadReportsTheAbortOfItsObject) {
+    this->slave.respond = [] {
+        return std::vector<Bytes>{abort_reply(0x1C12, 2, NO_OBJECT)};
+    };
+    uint16_t value = 0;
+    int size = sizeof(value);
+    EXPECT_LE(
+        ecx_SDOread(this->context.get(), 1, 0x1C12, 2, FALSE, &size, &value, 100'000),
+        0
+    );
+    const auto err = this->pop_error();
+    EXPECT_EQ(err.Etype, EC_ERR_TYPE_SDO_ERROR);
+    EXPECT_EQ(err.AbortCode, NO_OBJECT);
+}
+
+/// @brief it should fail an SDO read with an unexpected frame error when the abort is
+/// for another object, as an abort of an earlier request is.
+TEST_F(SOEMTest, SDOReadFailsOnAnAbortOfAnotherObject) {
+    this->slave.respond = [] {
+        return std::vector<Bytes>{abort_reply(0x1C12, 1, NO_OBJECT)};
+    };
+    uint16_t value = 0;
+    int size = sizeof(value);
+    EXPECT_LE(
+        ecx_SDOread(this->context.get(), 1, 0x1C12, 2, FALSE, &size, &value, 100'000),
+        0
+    );
+    const auto err = this->pop_error();
+    EXPECT_EQ(err.Etype, EC_ERR_TYPE_PACKET_ERROR);
+    EXPECT_EQ(err.ErrorCode, 1);
+}
+
+/// @brief it should fail an expedited SDO write with an unexpected frame error when the
+/// abort is for another object.
+TEST_F(SOEMTest, ExpeditedSDOWriteFailsOnAnAbortOfAnotherObject) {
+    this->slave.respond = [] {
+        return std::vector<Bytes>{abort_reply(0x8040, 1, NO_OBJECT)};
+    };
+    uint16_t value = 3;
+    EXPECT_LE(
+        ecx_SDOwrite(
+            this->context.get(),
+            1,
+            0x8040,
+            2,
+            FALSE,
+            sizeof(value),
+            &value,
+            100'000
+        ),
+        0
+    );
+    const auto err = this->pop_error();
+    EXPECT_EQ(err.Etype, EC_ERR_TYPE_PACKET_ERROR);
+    EXPECT_EQ(err.ErrorCode, 1);
+}
+
+/// @brief it should fail a normal SDO write with an unexpected frame error when the
+/// abort is for another object.
+TEST_F(SOEMTest, NormalSDOWriteFailsOnAnAbortOfAnotherObject) {
+    this->slave.respond = [] {
+        return std::vector<Bytes>{abort_reply(0x8040, 1, NO_OBJECT)};
+    };
+    uint64_t value = 3;
+    EXPECT_LE(
+        ecx_SDOwrite(
+            this->context.get(),
+            1,
+            0x8040,
+            2,
+            FALSE,
+            sizeof(value),
+            &value,
+            100'000
+        ),
+        0
+    );
+    const auto err = this->pop_error();
+    EXPECT_EQ(err.Etype, EC_ERR_TYPE_PACKET_ERROR);
+    EXPECT_EQ(err.ErrorCode, 1);
+}
+
 /// @brief it should return the EEPROM word that the slave reads.
 TEST_F(SOEMTest, EEPROMReadReturnsTheWord) {
     this->slave.registers[ECT_REG_EEPDAT] = 0x0000'0002;
@@ -255,5 +397,143 @@ TEST_F(SOEMTest, EEPROMReadFailsWhenTheSlaveRefusesIt) {
     EXPECT_EQ(err.Etype, EC_ERR_TYPE_PACKET_ERROR);
     EXPECT_EQ(err.Slave, 1);
     EXPECT_EQ(err.ErrorCode, 30);
+}
+
+/// A value that no AL status read writes.
+constexpr uint16_t UNREAD = 0xFFFF;
+
+class ProcessDataTest : public testing::Test {
+protected:
+    Bus bus;
+    std::unique_ptr<ecx_contextt> context = std::make_unique<ecx_contextt>();
+    std::vector<uint8_t> iomap = std::vector<uint8_t>(EC_MAXLRWDATA);
+    std::array<uint16_t, EC_MAXSLAVE> alstat{};
+    ec_groupt &group = this->context->grouplist[1];
+
+    void SetUp() override {
+        this->context->userdata = &this->bus;
+        this->bus.process_wkc = 3;
+        this->alstat.fill(UNREAD);
+        this->set_inputs(8);
+    }
+
+    /// @brief maps bytes of inputs and no outputs in one segment of group 1.
+    void set_inputs(const uint32_t bytes) {
+        this->group.inputs = this->iomap.data();
+        this->group.outputs = this->iomap.data();
+        this->group.Ibytes = bytes;
+        this->group.Obytes = 0;
+        this->group.nsegments = 1;
+        this->group.IOsegment[0] = bytes;
+    }
+
+    /// @brief adds a slave of group 1 in state with inputs bits of inputs, and returns
+    /// its index.
+    uint16_t add_slave(const uint16_t state, const uint16_t inputs = 8) {
+        const auto slave = static_cast<uint16_t>(++this->context->slavecount);
+        auto &rec = this->context->slavelist[slave];
+        rec.configadr = EC_NODEOFFSET + slave;
+        rec.group = 1;
+        rec.Ibits = inputs;
+        this->bus.slaves[rec.configadr].registers[ECT_REG_ALSTAT] = state;
+        return slave;
+    }
+
+    /// @brief sends and receives the process data of group 1, returning the working
+    /// counter.
+    int cycle() {
+        EXPECT_GT(ecx_send_processdata_group(this->context.get(), 1), 0);
+        return ecx_receive_processdata_group_alstat(
+            this->context.get(),
+            1,
+            1000,
+            this->alstat.data()
+        );
+    }
+};
+
+/// @brief it should read the AL status of each slave with inputs in the process data
+/// frame, and no status of a slave without inputs.
+TEST_F(ProcessDataTest, ReadsTheALStatusOfEachSlaveWithInputsInTheFrame) {
+    this->add_slave(EC_STATE_OPERATIONAL);
+    this->add_slave(EC_STATE_SAFE_OP | EC_STATE_ERROR);
+    this->add_slave(EC_STATE_PRE_OP);
+    this->add_slave(EC_STATE_INIT, 0);
+    this->cycle();
+    EXPECT_EQ(this->bus.sent, 1);
+    EXPECT_EQ(this->alstat[1], EC_STATE_OPERATIONAL);
+    EXPECT_EQ(this->alstat[2], EC_STATE_SAFE_OP | EC_STATE_ERROR);
+    EXPECT_EQ(this->alstat[3], EC_STATE_PRE_OP);
+    EXPECT_EQ(this->alstat[4], UNREAD);
+}
+
+/// @brief it should return the working counter of the process data, not of the AL
+/// status read at the end of the frame.
+TEST_F(ProcessDataTest, ReturnsTheWorkingCounterOfTheProcessData) {
+    this->add_slave(EC_STATE_OPERATIONAL);
+    EXPECT_EQ(this->cycle(), 3);
+    EXPECT_EQ(this->iomap[0], INPUT);
+}
+
+/// @brief it should give 0 to a slave that does not answer its AL status read.
+TEST_F(ProcessDataTest, GivesZeroToASlaveThatDoesNotAnswer) {
+    this->add_slave(EC_STATE_OPERATIONAL);
+    const auto silent = this->add_slave(EC_STATE_OPERATIONAL);
+    this->bus.slaves.erase(this->context->slavelist[silent].configadr);
+    this->cycle();
+    EXPECT_EQ(this->alstat[1], EC_STATE_OPERATIONAL);
+    EXPECT_EQ(this->alstat[silent], 0);
+}
+
+/// @brief it should read the AL status after the distributed clock time, and still
+/// read the time.
+TEST_F(ProcessDataTest, ReadsTheALStatusAfterTheDCTime) {
+    this->add_slave(EC_STATE_OPERATIONAL);
+    this->add_slave(EC_STATE_SAFE_OP);
+    this->group.hasdc = TRUE;
+    this->group.DCnext = 1;
+    EXPECT_EQ(this->cycle(), 3);
+    EXPECT_EQ(this->context->DCtime, DC_TIME);
+    EXPECT_EQ(this->alstat[1], EC_STATE_OPERATIONAL);
+    EXPECT_EQ(this->alstat[2], EC_STATE_SAFE_OP);
+}
+
+/// @brief it should read the AL status in the logical read frame when a slave blocks
+/// logical read-writes.
+TEST_F(ProcessDataTest, ReadsTheALStatusInTheLogicalReadFrame) {
+    this->add_slave(EC_STATE_PRE_OP);
+    this->group.blockLRW = 1;
+    EXPECT_EQ(this->cycle(), 3);
+    EXPECT_EQ(this->bus.sent, 1);
+    EXPECT_EQ(this->alstat[1], EC_STATE_PRE_OP);
+}
+
+/// @brief it should put the AL status reads that do not fit in the process data frame
+/// in a frame of their own in the same send.
+TEST_F(ProcessDataTest, PutsTheReadsThatDoNotFitInAFrameOfTheirOwn) {
+    // Leaves room in the frame for one read.
+    this->set_inputs(1470);
+    this->add_slave(EC_STATE_OPERATIONAL);
+    this->add_slave(EC_STATE_SAFE_OP);
+    this->add_slave(EC_STATE_INIT);
+    EXPECT_EQ(this->cycle(), 3);
+    EXPECT_EQ(this->bus.sent, 2);
+    EXPECT_EQ(this->alstat[1], EC_STATE_OPERATIONAL);
+    EXPECT_EQ(this->alstat[2], EC_STATE_SAFE_OP);
+    EXPECT_EQ(this->alstat[3], EC_STATE_INIT);
+}
+
+/// @brief it should give 0 to the slaves whose AL status reads are in a frame that
+/// does not come back.
+TEST_F(ProcessDataTest, GivesZeroToTheSlavesOfAFrameThatDoesNotComeBack) {
+    this->set_inputs(1470);
+    this->add_slave(EC_STATE_OPERATIONAL);
+    this->add_slave(EC_STATE_OPERATIONAL);
+    this->add_slave(EC_STATE_OPERATIONAL);
+    this->bus.lost = {1};
+    EXPECT_EQ(this->cycle(), 3);
+    EXPECT_EQ(this->alstat[1], EC_STATE_OPERATIONAL);
+    EXPECT_EQ(this->alstat[2], 0);
+    EXPECT_EQ(this->alstat[3], 0);
 }
 }

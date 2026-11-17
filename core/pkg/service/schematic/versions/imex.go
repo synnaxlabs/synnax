@@ -35,7 +35,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		// The v0.56 Console export: the typed schematic it retrieved from the Core,
 		// written back out in camelCase under the Console's own version stamp.
 		var body msgpack.EncodedJSON
-		if body, err = env.Decode[msgpack.EncodedJSON](ctx); err != nil {
+		if body, err = env.Decode[msgpack.EncodedJSON](); err != nil {
 			break
 		}
 		if err = imex.RequireFields(
@@ -44,14 +44,14 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 			break
 		}
 		var doc legacy.Export
-		if doc, err = env.Decode[legacy.Export](ctx); err == nil {
+		if doc, err = env.Decode[legacy.Export](); err == nil {
 			sch, err = liftFirst(ctx, v7.SchematicFromConsole(doc))
 		}
 	default:
 		// Console states embed the document inline: ride the storage lift, which
 		// dispatches on the version stamped inside the body.
 		var body msgpack.EncodedJSON
-		if body, err = env.Decode[msgpack.EncodedJSON](ctx); err != nil {
+		if body, err = env.Decode[msgpack.EncodedJSON](); err != nil {
 			break
 		}
 		if err = imex.RequireFields(
@@ -87,7 +87,8 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 // v59_positive_scale migration does for stored schematics. A Core before that migration
 // could export a zero scale, which sizes a symbol to nothing.
 func positiveScales(sch Schematic) (Schematic, error) {
-	for key, cfg := range sch.Configs {
+	for i := range sch.Nodes {
+		cfg := sch.Nodes[i].Config
 		b, err := json.Marshal(cfg)
 		if err != nil {
 			return Schematic{}, err
@@ -107,7 +108,7 @@ func positiveScales(sch Schematic) (Schematic, error) {
 		if err = json.Unmarshal(b, &cfg); err != nil {
 			return Schematic{}, err
 		}
-		sch.Configs[key] = cfg
+		sch.Nodes[i].Config = cfg
 	}
 	return sch, nil
 }

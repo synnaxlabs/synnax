@@ -21,15 +21,15 @@ import { EnumMappingSection } from "@/platform/task/payload/EnumMappingSection";
 import { JSON_TYPE_ITEMS } from "@/platform/task/payload/JSONTypeItems";
 import { TimeFormatField } from "@/platform/task/payload/TimeFormatField";
 
-const renderSelectJSONType = Component.renderProp(
-  (
-    p: Omit<Select.SingleSimpleProps<payload.JSONType>, "children" | "resourceName">,
-  ) => (
-    <Select.Simple<payload.JSONType> {...p} resourceName="JSON type">
-      {JSON_TYPE_ITEMS}
-    </Select.Simple>
-  ),
+const SelectJSONType = (
+  p: Omit<Select.SingleSimpleProps<payload.JSONType>, "children" | "resourceName">,
+) => (
+  <Select.Simple<payload.JSONType> {...p} resourceName="JSON type">
+    {JSON_TYPE_ITEMS}
+  </Select.Simple>
 );
+
+const renderSelectJSONType = Component.renderProp(SelectJSONType);
 
 interface CommandField {
   channel: channel.Key;

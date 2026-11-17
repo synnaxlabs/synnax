@@ -21,6 +21,24 @@
 #include "driver/task/task.h"
 
 namespace driver::task {
+namespace {
+/// @returns the status that tells a command that a stop cancelled the start of task.
+synnax::task::Status cancelled_start_status(
+    const synnax::task::Key &task,
+    const std::string &name,
+    const std::string &config_hash
+) {
+    synnax::task::Status status;
+    status.owner = synnax::task::resource_id(task);
+    status.name = name;
+    status.variant = synnax::status::VARIANT_SUCCESS;
+    status.message = "Stopped task";
+    status.description = "The stop cancelled the start.";
+    status.details.running = false;
+    status.details.config_hash = config_hash;
+    return status;
+}
+}
 
 x::errors::Error Manager::open_streamer() {
     VLOG(1) << "opening streamer";
@@ -84,16 +102,25 @@ std::shared_ptr<Manager::Entry> Manager::entry_for(const synnax::task::Key &key)
     return entry;
 }
 
-void Manager::remove(const synnax::task::Key &key, const bool even_if_processing) {
+bool Manager::remove(const synnax::task::Key &key, const bool even_if_processing) {
     const auto it = this->entries.find(key);
-    if (it == this->entries.end()) return;
+    if (it == this->entries.end()) return false;
     // A claimed entry stays: its worker may act on a stale fetch and install a
     // running instance, which the not-ours start path releases later. This also
     // keeps relevant()'s instance read claim-free.
-    if (!even_if_processing && it->second->processing) return;
-    if (it->second->relevant(this->rack.key)) return;
-    this->statuses->drop(key);
+    if (!even_if_processing && it->second->processing) return false;
+    if (it->second->relevant(this->rack.key)) return false;
     this->entries.erase(it);
+    return true;
+}
+
+void Manager::discard(const synnax::task::Key &key, const bool even_if_processing) {
+    bool removed = false;
+    {
+        std::lock_guard lock{this->mu};
+        removed = this->remove(key, even_if_processing);
+    }
+    if (removed) this->statuses->drop(key);
 }
 
 x::errors::Error Manager::configure_initial_tasks() {
@@ -105,18 +132,19 @@ x::errors::Error Manager::configure_initial_tasks() {
     if (tasks_err) return tasks_err;
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
     size_t queued = 0;
+    std::vector<synnax::task::Key> gone;
     {
         std::lock_guard<std::mutex> lock(this->mu);
-        // The ops of an earlier run are for its stuck workers. This run's deploys and
-        // removes stop their instances instead, and a remove does it silently.
-        this->op_queue.clear();
-        // An entry left by a worker of an earlier run that is still stuck holds a task
-        // that may have left this Driver. Its removal waits for that worker, and the
-        // statuses that the worker sends are dropped now.
+        // A task deleted or moved during a Core outage sent no event here. Its remove
+        // waits for a worker still on it, and the statuses of that worker drop now.
+        // Its ops that an earlier run queued, such as a deploy, must never run.
         for (const auto &[key, _]: this->entries) {
             if (std::ranges::any_of(tasks, [&](const auto &t) { return t.key == key; }))
                 continue;
-            this->statuses->drop(key);
+            gone.push_back(key);
+            std::erase_if(this->op_queue, [&](const Op &op) {
+                return op.task_key == key;
+            });
             this->op_queue.push_back(Op{Op::Type::REMOVE, key, {}, {}});
         }
         for (const auto &task: tasks) {
@@ -130,7 +158,9 @@ x::errors::Error Manager::configure_initial_tasks() {
             queued++;
         }
     }
-    if (queued > 0) this->cv.notify_all();
+    this->cv.notify_all();
+    for (const auto &key: gone)
+        this->statuses->drop(key);
     VLOG(1) << "configuring initial tasks from factories";
     auto initial_tasks = this->factory->configure_initial_tasks(
         this->ctx,
@@ -163,25 +193,23 @@ void Manager::stop() {
 }
 
 x::errors::Error Manager::run(const std::function<void()> &on_started) {
-    if (this->exit_early) {
-        VLOG(1) << "exiting early";
-        return x::errors::NIL;
+    x::errors::Error err = x::errors::NIL;
+    if (!this->exit_early) {
+        ++this->runs;
+        if (!this->breaker.running()) this->start_workers();
+        err = this->serve(on_started);
     }
-    this->start_workers();
-    const auto err = this->serve(on_started);
-    // Workers run the shutdown of each task, so they stop last. The next run starts
-    // with no statuses and no control states, so it trusts nothing from before the
-    // outage, such as the status of a task deleted during it.
     // Only stop ends the Driver. Any other end of serve is a lost Core connection, and
-    // the next run connects again.
-    this->stop_all_tasks(
-        this->exit_early ? "The Driver stopped"
-                         : "The Driver lost its connection to the Core"
-    );
-    this->stop_workers();
-    this->statuses->clear();
-    this->control_states->set({});
+    // the tasks run on until the next run reconciles them.
+    if (this->exit_early) this->close();
     return err;
+}
+
+void Manager::close() {
+    if (!this->breaker.running()) return;
+    // Workers run the shutdown of each task, so they stop last.
+    this->stop_all_tasks();
+    this->stop_workers();
 }
 
 x::errors::Error Manager::serve(const std::function<void()> &on_started) {
@@ -193,6 +221,12 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
     if (const auto err = this->open_streamer()) return err;
     // A nil error with no streamer means stop() won a race with the open.
     if (this->streamer == nullptr) return x::errors::NIL;
+    if (this->boot_run == 0) this->boot_run = this->runs.load();
+    // An earlier run may have failed to write statuses, and the Core marks the tasks
+    // of a silent rack as stopped, which is false for the tasks that ran on.
+    if (this->runs > 1)
+        if (const auto err = this->statuses->resend())
+            LOG(WARNING) << "failed to send task statuses again: " << err;
     // Read after the streamer opens so a transfer arriving during the read is held by
     // the stream instead of lost; the read loop then applies it on top.
     this->retrieve_initial_control_states();
@@ -226,10 +260,11 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
 void Manager::retrieve_initial_control_states() {
     auto [states, err] = this->ctx->client->control.retrieve();
     if (err) {
-        // The mirror treats an absent entry as uncontrolled and the Core arbitrates
-        // every write, so a Driver with an empty mirror starts optimistic and
-        // converges as transfers arrive on the stream.
+        // The mirror of an earlier run may hold control that ended during an outage.
+        // An empty mirror treats every channel as uncontrolled, the Core arbitrates
+        // every write, and transfers on the stream fill the mirror again.
         LOG(WARNING) << "failed to retrieve initial control state: " << err;
+        this->control_states->set({});
         return;
     }
     this->control_states->set(states);
@@ -270,11 +305,12 @@ void Manager::process_task_set(const x::telem::Series &series) {
                          << parser.error_json().dump();
             continue;
         }
-        std::lock_guard<std::mutex> lock(this->mu);
-        // An untracked task becomes ours only when its row lands on this rack.
-        if (!this->entries.contains(task_key) && rack_key != this->rack.key) continue;
-        const auto entry = this->entry_for(task_key);
         {
+            std::lock_guard<std::mutex> lock(this->mu);
+            // An untracked task becomes ours only when its row lands on this rack.
+            if (!this->entries.contains(task_key) && rack_key != this->rack.key)
+                continue;
+            const auto entry = this->entry_for(task_key);
             std::lock_guard entry_lock{entry->mu};
             entry->row.key = task_key;
             entry->row.rack = rack_key;
@@ -282,7 +318,7 @@ void Manager::process_task_set(const x::telem::Series &series) {
             entry->row.type = type;
             entry->row.config_hash = config_hash;
         }
-        this->remove(task_key);
+        this->discard(task_key);
     }
 }
 
@@ -299,22 +335,74 @@ void Manager::process_task_cmd(const x::telem::Series &series) {
             this->process_start(cmd);
             continue;
         }
+        if (cmd.type == synnax::task::STOP_CMD_TYPE) {
+            this->process_stop(cmd);
+            continue;
+        }
         // Non-start commands go to whichever driver holds the live instance, even
         // when the stored row has moved to another rack.
         std::lock_guard<std::mutex> lock(this->mu);
+        if (!this->entries.contains(cmd.task)) continue;
+        VLOG(1) << "queuing " << cmd.type << " command for task " << cmd.task;
+        this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd});
+        this->cv.notify_one();
+    }
+}
+
+void Manager::process_stop(const synnax::task::Command &cmd) {
+    std::vector<synnax::task::Status> answers;
+    {
+        std::lock_guard<std::mutex> lock(this->mu);
         const auto it = this->entries.find(cmd.task);
-        if (it == this->entries.end()) continue;
+        if (it == this->entries.end()) return;
         const auto &entry = it->second;
         const auto &running = entry->op;
         std::shared_ptr<Operation> cancelled;
-        if (cmd.type == STOP_CMD_TYPE && running != nullptr &&
+        if (running != nullptr &&
             (running->cmd.type == synnax::task::START_CMD_TYPE || entry->booting) &&
             running->cancel(cmd))
             cancelled = running;
-        VLOG(1) << "queuing " << cmd.type << " command for task " << cmd.task;
-        this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd, cancelled});
-        this->cv.notify_one();
+        bool ours = false;
+        std::string name, hash;
+        {
+            std::lock_guard entry_lock{entry->mu};
+            ours = entry->row.rack == this->rack.key;
+            name = entry->row.name;
+            hash = entry->deployed_hash;
+        }
+        // Every Driver queues a fetch for a start of a task it does not know.
+        if (ours)
+            std::erase_if(this->op_queue, [&](const Op &op) {
+                if (op.task_key != cmd.task ||
+                    op.cmd.type != synnax::task::START_CMD_TYPE)
+                    return false;
+                auto status = cancelled_start_status(cmd.task, name, hash);
+                status.details.cmd = op.cmd.key;
+                answers.push_back(std::move(status));
+                return true;
+            });
+        // A queued deploy with no command, such as the boot deploy, can still start the
+        // task, so the stop runs after it.
+        const bool queued = std::ranges::any_of(this->op_queue, [&](const Op &op) {
+            return op.task_key == cmd.task;
+        });
+        // No worker holds the entry, so its instance is safe to read.
+        if (!answers.empty() && !queued && running == nullptr &&
+            entry->instance == nullptr) {
+            auto status = cancelled_start_status(cmd.task, name, hash);
+            status.details.cmd = cmd.key;
+            answers.push_back(std::move(status));
+        } else {
+            VLOG(1) << "queuing stop command for task " << cmd.task;
+            this->op_queue.push_back(
+                Op{Op::Type::COMMAND, cmd.task, {}, cmd, cancelled}
+            );
+            this->cv.notify_one();
+        }
     }
+    // Written here and not by a worker, because every worker may be busy.
+    for (auto &status: answers)
+        this->ctx->set_status(status);
 }
 
 void Manager::process_start(const synnax::task::Command &cmd) {
@@ -367,13 +455,13 @@ void Manager::process_start(const synnax::task::Command &cmd) {
     this->cv.notify_one();
 }
 
-void Manager::stop_all_tasks(const std::string &cause) {
+void Manager::stop_all_tasks() {
     {
         std::lock_guard<std::mutex> lock(this->mu);
         this->op_queue.clear();
         for (auto &[key, entry]: this->entries) {
             if (!entry) continue;
-            if (entry->op != nullptr) entry->op->cancel(cause);
+            if (entry->op != nullptr) entry->op->cancel("The Driver stopped");
             this->op_queue.push_back(Op{Op::Type::SHUTDOWN, key, {}, {}});
         }
     }
@@ -395,8 +483,6 @@ void Manager::stop_all_tasks(const std::string &cause) {
         }
         std::this_thread::sleep_for((50 * x::telem::MILLISECOND).chrono());
     }
-    // The entry of a worker stuck past the deadline stays, so the next run waits for
-    // that worker before it deploys or removes the task.
     std::lock_guard<std::mutex> lock(this->mu);
     std::erase_if(this->entries, [](const auto &e) { return !e.second->processing; });
 }
@@ -412,12 +498,11 @@ void Manager::process_task_delete(const x::telem::Series &series) {
 
 void Manager::start_workers() {
     this->breaker.start();
-    const auto run = ++this->runs;
     for (size_t i = 0; i < this->worker_count; i++) {
         auto done = std::make_shared<std::atomic<bool>>(false);
         this->workers.push_back(
-            {std::thread([this, done, run] {
-                 this->worker_loop(run);
+            {std::thread([this, done] {
+                 this->worker_loop();
                  *done = true;
              }),
              done}
@@ -438,21 +523,18 @@ void Manager::stop_workers() {
             w.thread.join();
         else {
             // C++ cannot kill a thread, and waiting forever would hang shutdown. The
-            // worker keeps using this Manager, which must outlive it: the Rack keeps
-            // one Manager until the process exits.
+            // worker keeps using this Manager, which must outlive it.
             LOG(WARNING) << "worker thread did not finish in time, detaching";
             w.thread.detach();
+            this->detached = true;
         }
     }
     this->workers.clear();
     if (this->monitor_thread.joinable()) this->monitor_thread.join();
 }
 
-void Manager::worker_loop(const uint64_t run) {
-    // A worker detached by an earlier run exits once its op returns.
-    const auto serving = [this, run] {
-        return this->breaker.running() && this->runs == run;
-    };
+void Manager::worker_loop() {
+    const auto serving = [this] { return this->breaker.running(); };
     while (serving()) {
         std::unique_lock<std::mutex> lock(this->mu);
         // Wait until there's work we can actually process - not just ops in the queue,
@@ -552,6 +634,7 @@ void Manager::execute_op(
         case Op::Type::DEPLOY: {
             this->statuses->claim(op.task_key);
             auto tsk = op.task;
+            bool silent = true;
             // An op without the task body needs the fetch, done here to keep
             // the streamer loop off the network.
             if (tsk.key.is_nil()) {
@@ -578,8 +661,7 @@ void Manager::execute_op(
                         status.details.config_hash = hash;
                         operation.answer(status);
                     }
-                    std::lock_guard lock{this->mu};
-                    this->remove(op.task_key, true);
+                    this->discard(op.task_key, true);
                     break;
                 }
                 tsk = std::move(fetched);
@@ -594,8 +676,7 @@ void Manager::execute_op(
                     }
                     this->clear_deploy(entry);
                     this->statuses->drop(op.task_key);
-                    std::lock_guard lock{this->mu};
-                    this->remove(op.task_key, true);
+                    this->discard(op.task_key, true);
                     break;
                 }
                 operation.set_task(tsk.name, tsk.config_hash);
@@ -625,11 +706,31 @@ void Manager::execute_op(
                     break;
                 }
             } else {
+                std::string deployed;
+                {
+                    std::lock_guard entry_lock{entry->mu};
+                    deployed = entry->deployed_hash;
+                }
+                // An instance that lived through a lost Core connection keeps its
+                // status too. One whose task failed on its own, such as a pipeline
+                // that gave up, deploys again. A failed command, such as a manual
+                // scan, leaves its task running.
+                const auto latest = this->statuses->latest(tsk.key);
+                const bool failed = latest.has_value() &&
+                                    latest->variant == synnax::status::VARIANT_ERROR &&
+                                    !latest->details.running;
+                if (entry->instance != nullptr && deployed == tsk.config_hash &&
+                    !failed)
+                    return;
+                silent = failed;
                 operation.set_task(tsk.name, tsk.config_hash);
                 this->announce_start(tsk.key, operation);
             }
             if (entry->instance != nullptr) {
-                entry->instance->stop(true);
+                // A start follows a deploy for a command. At boot, a live instance
+                // reports its own stop, and a failed one keeps the error that says
+                // why.
+                entry->instance->stop(silent);
                 entry->instance = nullptr;
             }
             LOG(INFO) << "configuring task " << tsk;
@@ -711,6 +812,7 @@ void Manager::execute_op(
             }
             this->clear_deploy(entry);
             this->statuses->drop(op.task_key);
+            this->ctx->forget(op.task_key);
             // The row is gone from the cluster, so the entry goes unconditionally.
             std::lock_guard lock{this->mu};
             this->entries.erase(op.task_key);
@@ -761,15 +863,22 @@ void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
     // A Driver that stops mid-start leaves "Starting task" stored, and the Console
     // disables Start and Stop while a start is loading. One that stops a running task
     // leaves it shown as running, with no data.
-    const bool starting = tsk.status->variant == synnax::status::VARIANT_LOADING;
-    if (!starting && !tsk.status->details.running) return;
+    const bool loading = tsk.status->variant == synnax::status::VARIANT_LOADING;
+    // The Core marks a running task as stopped responding while its Driver is down.
+    const bool running = tsk.status->details.running ||
+                         tsk.status->message == STOPPED_RESPONDING_MESSAGE;
+    if (!loading && !running) return;
     auto status = *tsk.status;
     status.time = x::telem::TimeStamp::now();
     status.details.running = false;
-    const std::string cause = this->runs == 1
+    const std::string cause = this->boot_run == 0 || this->runs == this->boot_run
                                 ? "The Driver restarted"
                                 : "The Driver lost its connection to the Core";
-    if (starting) {
+    if (loading && status.message == STOPPING_MESSAGE) {
+        status.variant = synnax::status::VARIANT_SUCCESS;
+        status.message = "Stopped task";
+        status.description = cause + " while the task was stopping.";
+    } else if (loading) {
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Failed to start task";
         status.description = cause +
@@ -798,11 +907,10 @@ void Manager::refuse_pinned_start(const synnax::task::Task &tsk, Operation &oper
                              .retrieve_by_owner<synnax::task::StatusDetails>(
                                  *status.owner
                              );
-    if (err && !err.matches(x::errors::NOT_FOUND)) {
+    // A failed read claims neither, as a task with no stored status does.
+    if (err && !err.matches(x::errors::NOT_FOUND))
         LOG(ERROR) << "failed to retrieve status of task " << tsk << ": " << err;
-        return;
-    }
-    if (!err) {
+    else if (!err) {
         status.details.running = stored.details.running;
         status.details.config_hash = stored.details.config_hash;
     }
@@ -832,15 +940,7 @@ void Manager::answer_cancelled_start(
     Operation &operation
 ) {
     const auto [name, hash] = operation.task_info();
-    synnax::task::Status status;
-    status.owner = synnax::task::resource_id(key);
-    status.name = name;
-    status.variant = synnax::status::VARIANT_SUCCESS;
-    status.message = "Stopped task";
-    status.description = "The stop cancelled the start.";
-    status.details.running = false;
-    status.details.config_hash = hash;
-    operation.answer(status);
+    operation.answer(cancelled_start_status(key, name, hash));
 }
 
 void Manager::clear_deploy(const std::shared_ptr<Entry> &entry) {

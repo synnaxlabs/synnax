@@ -38,8 +38,8 @@ type Segment = v10.Segment
 // SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
 type SegmentedEdgeConfig = v10.SegmentedEdgeConfig
 
-// EdgeConfig is the per-edge configuration stored in the schematic configs map. The
-// variant selects the visual style of the connection.
+// EdgeConfig is the configuration of one edge. The variant selects the visual style of
+// the connection.
 type EdgeConfig = v10.EdgeConfig
 
 // EdgeConfigVariant is implemented by every EdgeConfig variant.
@@ -175,8 +175,8 @@ const (
 // Page identifies a page an off-page reference links to.
 type Page = v10.Page
 
-// NodeConfig is the per-node configuration stored in the schematic configs map. The
-// variant selects the symbol rendered for the node and the fields that accompany it.
+// NodeConfig is the configuration of one node. The variant selects the symbol rendered
+// for the node and the fields that accompany it.
 type NodeConfig = v10.NodeConfig
 
 // NodeConfigVariant is implemented by every NodeConfig variant.
@@ -1028,14 +1028,6 @@ type Schematic struct {
 	// Range is the range that owns the schematic, if any. Exactly one of project and
 	// range is set.
 	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *Schematic) ApplyDefaults() {
-	for key, value := range s.Configs {
-		value.ApplyDefaults()
-		s.Configs[key] = value
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

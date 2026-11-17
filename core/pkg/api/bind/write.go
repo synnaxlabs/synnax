@@ -40,12 +40,14 @@ type Returns interface {
 // every write and returns a zero response. The subject of the request needs:
 //
 //   - create on a new record, update on a changed record, and delete on a deleted
-//     record, cascades and detaches included;
+//     record, cascades and detaches included. An owned record (ServiceConfig.Owned)
+//     that the subject owns before and after the change needs none of these;
 //   - for a changed record with no resource type, update on the record that it is
 //     placed in, its owner. A held record (ServiceConfig.Held) needs the action of the
 //     change on its owner instead, unless the subject is that owner;
 //   - update on the target of each place link added or removed, except a link to the
-//     owner;
+//     owner. For an owned record, a target in ServiceConfig.OwnedPlaces needs only
+//     retrieve;
 //   - retrieve on the target of each use link added;
 //   - retrieve on each source of a request that implements Copy;
 //   - retrieve on each record that a response implementing Returns holds and the
@@ -142,9 +144,12 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 	for _, c := range changes {
 		// owner is zero for a record with a resource type.
 		var owner gorp.Target
+		owned := s.owned(c, subject)
 		if _, ok := resourceOf(c.Record); ok {
-			if err := need(actionOf(c.Kind), c.Record); err != nil {
-				return err
+			if !owned {
+				if err := need(actionOf(c.Kind), c.Record); err != nil {
+					return err
+				}
 			}
 		} else {
 			var err error
@@ -161,7 +166,11 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 			if l.Target == owner || createdOrDeleted.Contains(l.Target) {
 				continue
 			}
-			if err := need(addedLinkAction(l.Kind), l.Target); err != nil {
+			action := addedLinkAction(l.Kind)
+			if owned && s.ownedPlace(l) {
+				action = access.ActionRetrieve
+			}
+			if err := need(action, l.Target); err != nil {
 				return err
 			}
 		}
@@ -171,7 +180,11 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 				createdOrDeleted.Contains(l.Target) {
 				continue
 			}
-			if err := need(access.ActionUpdate, l.Target); err != nil {
+			action := access.ActionUpdate
+			if owned && s.ownedPlace(l) {
+				action = access.ActionRetrieve
+			}
+			if err := need(action, l.Target); err != nil {
 				return err
 			}
 		}
@@ -193,6 +206,36 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 		}
 	}
 	return nil
+}
+
+// owned reports whether the change is to a record of an owned table that the subject
+// owns both before and after the change.
+func (s *Service) owned(c gorp.Change, subject resource.ID) bool {
+	if !slices.Contains(s.cfg.Owned, c.Record.Table) {
+		return false
+	}
+	usesSubject := func(links []gorp.Link) bool {
+		return slices.ContainsFunc(links, func(l gorp.Link) bool {
+			id, ok := resourceOf(l.Target)
+			return l.Kind == gorp.Use && ok && id == subject
+		})
+	}
+	// Links holds the links after a create or an update, and before a delete.
+	if c.Kind != gorp.ChangeUpdate {
+		return usesSubject(c.Links)
+	}
+	before := append(
+		lo.Reject(c.Links, func(l gorp.Link, _ int) bool {
+			return slices.Contains(c.Added, l)
+		}),
+		c.Removed...,
+	)
+	return usesSubject(c.Links) && usesSubject(before)
+}
+
+// ownedPlace reports whether l places an owned record in a table of OwnedPlaces.
+func (s *Service) ownedPlace(l gorp.Link) bool {
+	return l.Kind == gorp.Place && slices.Contains(s.cfg.OwnedPlaces, l.Target.Table)
 }
 
 // ownerOf returns the record that the record of c is placed in. It returns an error

@@ -17,6 +17,7 @@ import { useResultSlave } from "@/feature/ethercat/device/queries";
 import { SettingInput } from "@/feature/ethercat/device/SettingInput";
 import {
   check,
+  fill,
   findInput,
   type Note,
   problemAt,
@@ -72,9 +73,11 @@ export const ChannelSettings = ({
       </PForm.Section>
     );
   const fields = input.settings;
-  const values = held.find((s) => s.device === ch.device)?.parameters ?? [];
+  const prior = held.find((s) => s.device === ch.device)?.parameters ?? [];
+  const filled = fill(fields, prior);
+  const { values } = filled;
   const problems = check(input, values);
-  const notes = moved?.device === ch.device ? moved.notes : [];
+  const notes = [...filled.notes, ...(moved?.device === ch.device ? moved.notes : [])];
   return (
     <PForm.Section title="Settings">
       {visibleFields(fields, values).map((field) => (
@@ -85,7 +88,7 @@ export const ChannelSettings = ({
           problem={problemAt(problems, field)?.message}
           note={notes.find((n) => sameAddress(n, field))?.message}
           onChange={(value) => {
-            const change = set(fields, values, field, value);
+            const change = set(fields, prior, field, value);
             setMoved({ device: ch.device, notes: change.notes });
             onChange(withParameters(held, ch.device, change.values));
           }}

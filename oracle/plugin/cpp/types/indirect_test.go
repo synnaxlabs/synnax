@@ -20,8 +20,8 @@ import (
 
 var _ = Describe("Indirect", func() {
 	DescribeTable("Should report whether a field holds its parent through an indirect",
-		func(ctx SpecContext, field string, expected bool) {
-			req := MustGenerateRequest(ctx, `
+		func(field string, expected bool) {
+			req := MustGenerateRequest(`
 				@cpp output "out"
 
 				Leaf struct {
@@ -35,7 +35,9 @@ var _ = Describe("Indirect", func() {
 				}
 			`, "test", NewMockFileLoader())
 			node := req.Resolutions.MustGet("test.Node")
-			f := MustBeOk(node.Form.(resolution.StructForm).Field(field))
+			form, ok := node.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			f := MustBeOk(form.Field(field))
 			Expect(types.Indirect(f, node, req.Resolutions)).To(Equal(expected))
 		},
 		Entry("an optional field that holds the parent", "parent", true),

@@ -43,8 +43,11 @@ type refInfo struct {
 	ElemGoType string
 	// Tables are the names of the tables the reference may point at.
 	Tables []string
-	// OnDelete is "Restrict", "Cascade", or "Detach".
+	// OnDelete is "Restrict", "Cascade", "Detach", or "Inline".
 	OnDelete string
+	// TargetGoType is the Go type of the entries of the one target table, set when
+	// OnDelete is "Inline".
+	TargetGoType string
 	// Kind is "Place" or "Use".
 	Kind string
 	// Unique is true when at most one entry may hold each target.
@@ -141,6 +144,7 @@ var onDeleteNames = map[string]string{
 	"restrict": "Restrict",
 	"cascade":  "Cascade",
 	"detach":   "Detach",
+	"inline":   "Inline",
 }
 
 var kindNames = map[string]string{"place": "Place", "use": "Use"}
@@ -153,6 +157,8 @@ type resourceTypes struct {
 	// second resource type it identifies.
 	conflicts map[string]string
 	names     set.Set[string]
+	// records maps each resource type name to the type of its entries.
+	records map[string]resolution.Type
 }
 
 func newResourceTypes(table *resolution.Table) resourceTypes {
@@ -160,6 +166,7 @@ func newResourceTypes(table *resolution.Table) resourceTypes {
 		byKey:     make(map[string]string),
 		conflicts: make(map[string]string),
 		names:     make(set.Set[string]),
+		records:   make(map[string]resolution.Type),
 	}
 	for _, typ := range slices.Concat(table.StructTypes(), table.UnionTypes()) {
 		name := plugindomain.GetStringFromType(typ, resourceDomain, "type")
@@ -167,6 +174,7 @@ func newResourceTypes(table *resolution.Table) resourceTypes {
 			continue
 		}
 		rt.names.Add(name)
+		rt.records[name] = typ
 		fields, _ := resolution.RecordFields(typ, table)
 		for _, f := range fields {
 			if plugindomain.HasDomainFromField(f, "key") {
@@ -233,7 +241,7 @@ func extractRef(
 		"on_delete",
 	)]
 	if !ok {
-		return fail("needs on_delete cascade, restrict, or detach")
+		return fail("needs on_delete cascade, restrict, detach, or inline")
 	}
 	kind, ok := kindNames[plugindomain.GetStringFromField(field, "ref", "kind")]
 	if !ok {
@@ -292,6 +300,19 @@ func extractRef(
 		}
 		info.Tables = []string{target}
 	}
+	if onDelete == "Inline" {
+		if info.IsID {
+			return fail("needs the key type of one resource to inline")
+		}
+		record := rt.records[info.Tables[0]]
+		if len(resolution.TypeParams(record.Form)) > 0 {
+			return fail("cannot inline the generic type %s", record.Name)
+		}
+		info.TargetGoType = r.ResolveTypeRef(
+			resolution.TypeRef{Name: record.QualifiedName},
+			ctx,
+		)
+	}
 	if info.Acyclic && !slices.Contains(info.Tables, ownTable) {
 		return fail("can be acyclic only when it references its own type")
 	}
@@ -329,6 +350,11 @@ func isZeroDefault(v *resolution.ExpressionValue) bool {
 		return v.StringValue == ""
 	case resolution.ValueKindInt:
 		return v.IntValue == 0
+	case resolution.ValueKindFloat,
+		resolution.ValueKindBool,
+		resolution.ValueKindIdent,
+		resolution.ValueKindArray,
+		resolution.ValueKindStruct:
 	}
 	return false
 }

@@ -12,13 +12,10 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement } from "react";
 
 import { useOpen } from "@/app/settings/tab";
-import { Panel } from "@/platform/panel";
 
 /** The gear in the top bar that opens Settings. */
-export const Button = (): ReactElement | null => {
+export const Button = (): ReactElement => {
   const open = useOpen();
-  const canOpen = Panel.useCanOpenTab();
-  if (!canOpen) return null;
   return (
     <Base.Button
       size="small"

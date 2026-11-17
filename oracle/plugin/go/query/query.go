@@ -120,7 +120,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	for _, typ := range req.Resolutions.StructTypes() {
-		form := typ.Form.(resolution.StructForm)
+		form := resolution.MustForm[resolution.StructForm](typ)
 		inherited := resolution.InheritedFields(form.Extends, req.Resolutions)
 		for _, f := range form.Fields {
 			// An inherited @search is checked on the parent that declares it.
@@ -242,7 +242,10 @@ type retrieveInfo struct {
 	// passes them, such as [D]. Both are empty for a type with none.
 	Params, Args string
 	// GoName is the Go type of a record in the table.
-	GoName   string
+	GoName string
+	// Noun names one record in docs: the type's @retrieve noun, or its lowercase
+	// name.
+	Noun     string
 	KeyType  string
 	IsCustom bool // user defines the struct (@retrieve custom)
 	// IndexesOnly is true under @retrieve indexes: the service writes its own Retrieve
@@ -385,7 +388,9 @@ func generateRetrieveFile(
 		return nil, nil
 	}
 
-	if lo.SomeBy(infos, func(i retrieveInfo) bool { return !i.IndexesOnly }) {
+	if lo.SomeBy(infos, func(i retrieveInfo) bool {
+		return !i.IndexesOnly || inlines(i.NestedRefs)
+	}) || lo.SomeBy(refRoots, func(r referencesInfo) bool { return inlines(r.Refs) }) {
 		imps.AddExternal("context")
 	}
 	imps.AddInternal(
@@ -566,6 +571,13 @@ func extractRetrieveInfo(
 			if err != nil {
 				return nil, err
 			}
+			if info.OnDelete == "Inline" {
+				return nil, errors.Newf(
+					"%s: @ref field %s needs a union variant to hold it to inline",
+					typ.QualifiedName,
+					field.Name,
+				)
+			}
 			// The walk over a union's variants declares the reference, because each
 			// variant holds the base field.
 			if _, isUnion := typ.Form.(resolution.UnionForm); isUnion {
@@ -718,6 +730,10 @@ func extractRetrieveInfo(
 		}
 	}
 
+	noun, ok := resolution.RetrieveNoun(typ)
+	if !ok {
+		noun = strings.ToLower(name)
+	}
 	info := &retrieveInfo{
 		TableName:   ownTable,
 		Name:        name,
@@ -725,6 +741,7 @@ func extractRetrieveInfo(
 		Params:      typeParams,
 		Args:        typeArgs,
 		GoName:      name + anyArgs,
+		Noun:        noun,
 		KeyType:     keyType,
 		IsCustom:    isCustom,
 		IndexesOnly: indexesOnly,
@@ -812,7 +829,6 @@ type templateData struct {
 var templateFuncs = template.FuncMap{
 	"formatDoc": doc.FormatGo,
 	"toPascal":  naming.ToPascalCase,
-	"toLower":   strings.ToLower,
 	"pluralize": pluralize.String,
 }
 
@@ -993,7 +1009,7 @@ func resourceTarget(id {{$ret.IDGoType}}) gorp.Target {
 {{- end}}
 {{- if $ret.HasSearch}}
 
-// MatchSearch matches the {{$ret.Name | toLower | pluralize}} whose text matches term.
+// MatchSearch matches the {{$ret.Noun | pluralize}} whose text matches term.
 // The closest match comes first.
 func MatchSearch(term string) Filter{{$ret.AnyArgs}} {
 	return func(r Retrieve{{$ret.AnyArgs}}) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
@@ -1006,7 +1022,7 @@ func MatchSearch(term string) Filter{{$ret.AnyArgs}} {
 // Order is a sort that OrderBy applies. An OrderBy function builds one.
 type Order{{$ret.Params}} func(r Retrieve{{$ret.Args}}) gorp.OrderQuery[{{$ret.KeyType}}, {{$ret.Name}}{{$ret.Args}}]
 
-// OrderBy walks the {{$ret.Name | toLower | pluralize}} in the order o defines.
+// OrderBy walks the {{$ret.Noun | pluralize}} in the order o defines.
 func (r Retrieve{{$ret.Args}}) OrderBy(o Order{{$ret.Args}}) Retrieve{{$ret.Args}} {
 	r.gorp = r.gorp.OrderBy(o(r))
 	return r
@@ -1076,7 +1092,7 @@ func Not(f Filter) Filter {
 	return gorp.NotBound[Retrieve, {{$ret.KeyType}}, {{$ret.GoName}}](f)
 }
 {{if $ret.HasSearch}}
-// Search filters the {{$ret.GoName | toLower | pluralize}} to those whose text matches
+// Search filters the {{$ret.Noun | pluralize}} to those whose text matches
 // term, closest match first. An empty term adds no filter.
 func (r Retrieve) Search(term string) Retrieve {
 	if term == "" {
@@ -1086,7 +1102,7 @@ func (r Retrieve) Search(term string) Retrieve {
 }
 {{end}}
 // MatchKeys returns a filter that restricts results to
-// {{$ret.GoName | toLower | pluralize}} whose key matches any of the provided
+// {{$ret.Noun | pluralize}} whose key matches any of the provided
 // values. Composing MatchKeys at the top level of a Where clause (i.e.
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
@@ -1097,7 +1113,7 @@ func MatchKeys(keys ...{{$ret.KeyType}}) Filter {
 }
 {{range .Filters}}
 {{- if .Ref}}
-// {{.Func}} returns a filter for {{$ret.GoName | toLower | pluralize}}
+// {{.Func}} returns a filter for {{$ret.Noun | pluralize}}
 // whose {{.GoName}} {{if .IsSlice}}contains{{else}}matches{{end}} any of the provided
 // values.
 func {{.Func}}(vals ...{{.ElemGoType}}) Filter {
@@ -1115,7 +1131,7 @@ func {{.Func}}(vals ...{{.ElemGoType}}) Filter {
 }
 {{- if .Ref.HoldsNone}}
 
-// MatchHas{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose
+// MatchHas{{.GoName}} returns a filter for {{$ret.Noun | pluralize}} whose
 // {{.GoName}} holds a target when has is true, and holds none when has is false.
 func MatchHas{{.GoName}}(has bool) Filter {
 	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
@@ -1126,7 +1142,7 @@ func MatchHas{{.GoName}}(has bool) Filter {
 {{- if and (eq .Ref.OnDelete "Detach") (not .IsSlice)}}
 
 // set{{.GoName}} returns an update that sets the {{.GoName}} of the
-// {{$ret.GoName | toLower | pluralize}} with keys to v.
+// {{$ret.Noun | pluralize}} with keys to v.
 func set{{.GoName}}(
 	table *gorp.Table[{{$ret.KeyType}}, {{$ret.GoName}}],
 	v {{if .Ref.IsOptional}}*{{end}}{{.ElemGoType}},
@@ -1141,7 +1157,7 @@ func set{{.GoName}}(
 }
 {{- end}}
 {{else if .IsBool}}
-// {{.Func}} returns a filter for {{$ret.GoName | toLower | pluralize}} by their
+// {{.Func}} returns a filter for {{$ret.Noun | pluralize}} by their
 // {{.GoName}} field.
 func {{.Func}}(v {{.GoType}}) Filter {
 	return func({{if .IndexFieldName}}r {{end}}Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
@@ -1155,7 +1171,7 @@ func {{.Func}}(v {{.GoType}}) Filter {
 	}
 }
 {{else if .IsSlice}}
-// {{.Func}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose
+// {{.Func}} returns a filter for {{$ret.Noun | pluralize}} whose
 // {{.GoName}} contains the provided value.
 func {{.Func}}(v {{.ElemGoType}}) Filter {
 	return func(Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
@@ -1165,7 +1181,7 @@ func {{.Func}}(v {{.ElemGoType}}) Filter {
 	}
 }
 {{else if .IsScalar}}
-// {{.Func}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose
+// {{.Func}} returns a filter for {{$ret.Noun | pluralize}} whose
 // {{.GoName}} matches the provided value.
 func {{.Func}}(v {{.GoType}}) Filter {
 	return func({{if .IndexFieldName}}r {{end}}Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
@@ -1187,7 +1203,7 @@ func {{.Func}}(v {{.GoType}}) Filter {
 }
 {{else}}
 // {{.Func}} returns a filter for
-// {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches any of the
+// {{$ret.Noun | pluralize}} whose {{.GoName}} matches any of the
 // provided values.
 func {{.Func}}(vals ...{{.GoType}}) Filter {
 	return func({{if .IndexFieldName}}r {{end}}Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
@@ -1224,22 +1240,22 @@ func (r Retrieve) Where(filter Filter) Retrieve {
 	return r
 }
 
-// Entry binds the provided {{$ret.GoName | toLower}} as the result container for the
-// query. If multiple {{$ret.GoName | toLower | pluralize}} match, the first one is
+// Entry binds the provided {{$ret.Noun}} as the result container for the
+// query. If multiple {{$ret.Noun | pluralize}} match, the first one is
 // used.
 func (r Retrieve) Entry(e *{{$ret.GoName}}) Retrieve {
 	r.gorp = r.gorp.Entry(e)
 	return r
 }
 
-// Entries binds the provided slice of {{$ret.GoName | toLower | pluralize}} as the
+// Entries binds the provided slice of {{$ret.Noun | pluralize}} as the
 // result container for the query.
 func (r Retrieve) Entries(es *[]{{$ret.GoName}}) Retrieve {
 	r.gorp = r.gorp.Entries(es)
 	return r
 }
 
-// Limit sets the maximum number of {{$ret.GoName | toLower | pluralize}} to return.
+// Limit sets the maximum number of {{$ret.Noun | pluralize}} to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
 // After starts the query strictly past key in key order. It panics on a query with an
@@ -1250,7 +1266,7 @@ func (r Retrieve) After(key {{$ret.KeyType}}) Retrieve {
 }
 {{- if $ret.Filtered}}
 
-// SkipMissingKeys makes Exec treat a key with no {{$ret.GoName | toLower}} as a
+// SkipMissingKeys makes Exec treat a key with no {{$ret.Noun}} as a
 // non-match instead of returning query.ErrNotFound.
 func (r Retrieve) SkipMissingKeys() Retrieve {
 	r.gorp = r.gorp.SkipMissingKeys()
@@ -1262,13 +1278,13 @@ func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
 	return r.gorp.Exec(ctx, snap)
 }
 
-// Count returns the number of {{$ret.GoName | toLower | pluralize}} in snap that match
+// Count returns the number of {{$ret.Noun | pluralize}} in snap that match
 // the query. It panics when snap is nil.
 func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error) {
 	return r.gorp.Count(ctx, snap)
 }
 
-// Exists checks whether any {{$ret.GoName | toLower | pluralize}} in snap match the
+// Exists checks whether any {{$ret.Noun | pluralize}} in snap match the
 // query. It panics when snap is nil.
 func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error) {
 	return r.gorp.Exists(ctx, snap)
@@ -1302,6 +1318,16 @@ func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] 
 {{- if .DetachBody}}
 			Detach: func(e *{{.EntryType}}, t {{.TargetType}}) {
 				{{.DetachBody -}}
+			},
+{{- end}}
+{{- if .InlineBody}}
+			Inline: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				e *{{.EntryType}},
+				t {{.TargetType}},
+			) error {
+				{{.InlineBody -}}
 			},
 {{- end}}
 		}){{end}}`),

@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
@@ -39,6 +40,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/history"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -115,7 +117,7 @@ type LayerConfig struct {
 	// License configures the license service. The layer supplies its DB and
 	// instrumentation.
 	//
-	// [OPTIONAL] - Defaults to license.DefaultServiceConfig.
+	// [OPTIONAL] - Defaults to the license service defaults.
 	License license.ServiceConfig
 	// SecretsKey protects the value of every stored secret. It encrypts the random data
 	// key that encrypts each value.
@@ -203,6 +205,8 @@ type Layer struct {
 	Schematic *schematic.Service
 	// LinePlot is for working with line plot visualizations.
 	LinePlot *lineplot.Service
+	// ICD is for working with interface control documents.
+	ICD *icd.Service
 	// Log is for working with log visualizations.
 	Log *log.Service
 	// Table is for working with table visualizations.
@@ -211,7 +215,9 @@ type Layer struct {
 	Panel *panel.Service
 	// Label is for working with user-defined labels that can be attached to various
 	// data structures within Synnax.
-	Label  *label.Service
+	Label *label.Service
+	// Color stores named colors.
+	Color  *color.Service
 	Rack   *rack.Service
 	Task   *task.Service
 	Device *device.Service
@@ -365,6 +371,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Label) {
 		return nil, err
 	}
+	if l.Color, err = color.OpenService(ctx, color.ServiceConfig{
+		Instrumentation: cfg.Child("color"),
+		DB:              cfg.Distribution.DB,
+		Group:           l.Group,
+	}); !ok(err, l.Color) {
+		return nil, err
+	}
 	if l.Status, err = status.OpenService(
 		ctx,
 		status.ServiceConfig{
@@ -487,6 +500,27 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Name:     "sy_label_action_set",
 			Actions:  l.Label.Actions(),
 			Resource: label.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishTable(
+		ctx,
+		signals.TableConfig[color.Key, color.Named]{
+			SetName:    "sy_color_set",
+			DeleteName: "sy_color_delete",
+			Changes:    l.Color.Changes,
+			Resource:   color.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[color.Key, color.Action]{
+			Name:     "sy_color_action_set",
+			Actions:  l.Color.Actions(),
+			Resource: color.ResourceID,
 		},
 	); !ok(err, nil) {
 		return nil, err
@@ -711,6 +745,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.LinePlot) {
 		return nil, err
 	}
+	if l.ICD, err = icd.OpenService(ctx, icd.ServiceConfig{
+		Instrumentation: cfg.Child("icd"),
+		DB:              cfg.Distribution.DB,
+		Signals:         l.Signals,
+		ImEx:            l.ImEx,
+	}); !ok(err, l.ICD) {
+		return nil, err
+	}
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
 		Instrumentation: cfg.Child("log"),
 		DB:              cfg.Distribution.DB,
@@ -925,8 +967,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeArcDirectory:    l.Arc.DirectoryResources(),
 			resource.TypeCertificate:     l.Certificate.Resources(),
 			resource.TypeChannel:         l.Channel.Resources(),
+			resource.TypeColor:           l.Color.Resources(),
 			resource.TypeDevice:          l.Device.Resources(),
 			resource.TypeGroup:           l.Group.Resources(),
+			resource.TypeICD:             l.ICD.Resources(),
 			resource.TypeLabel:           l.Label.Resources(),
 			resource.TypeLineplot:        l.LinePlot.Resources(),
 			resource.TypeLog:             l.Log.Resources(),
@@ -985,9 +1029,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Namespace:       "Composition",
 		Migrations: append(
 			l.Panel.CompositionMigrations(),
+			newGroupRemovalReport(l.Resource, l.Status),
 			ontologyDropMigration,
 			l.Group.BuiltinDeleteMigration(),
 			rangeAliasDropMigration,
+			l.PagerDuty.SecretMigration(taskNames(l.Task)),
 		),
 	}); !ok(err, nil) {
 		return nil, err

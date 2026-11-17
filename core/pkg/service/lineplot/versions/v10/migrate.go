@@ -23,7 +23,7 @@ func MigrateLinePlot(ctx context.Context, old v9.LinePlot) (LinePlot, error) {
 }
 
 // Migration lifts stored line plots from v9 to v10.
-var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateLinePlot)
+var Migration = migrate.NewEntry("v62_color_alpha_byte", MigrateLinePlot)
 
 // MigrateLine lifts a v9 line to v10.
 func MigrateLine(ctx context.Context, old v9.Line) (Line, error) {

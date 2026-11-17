@@ -746,6 +746,14 @@ var _ = Describe("Read task", func() {
 					), "topic plant/+/temp: must not hold the wildcards + or #"
 				},
 			),
+			Entry("an unknown QoS",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, data := createIndexed(ctx, telem.Float64T)
+					entry := plainEntry("plant/x", field("v", data[0], ""))
+					entry["qos"] = "bogus"
+					return readConfig(dev, entry), `qos: unknown value "bogus"`
+				},
+			),
 			Entry("a topic that appears two times",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					_, data := createIndexed(ctx, telem.Float64T, telem.Float64T)

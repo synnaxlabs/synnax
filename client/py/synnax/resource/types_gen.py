@@ -83,6 +83,10 @@ TYPE_SECRET: Literal["secret"] = "secret"
 
 TYPE_CERTIFICATE: Literal["certificate"] = "certificate"
 
+TYPE_COLOR: Literal["color"] = "color"
+
+TYPE_ICD: Literal["icd"] = "icd"
+
 
 Type = Literal[
     "arc",
@@ -120,4 +124,6 @@ Type = Literal[
     "arc_directory",
     "secret",
     "certificate",
+    "color",
+    "icd",
 ]

@@ -34,7 +34,7 @@ type BindableTransport interface {
 	freighter.Transport
 	// BindTo registers the transport's HTTP and websocket routes on the given
 	// fiber.App.
-	BindTo(*fiber.App)
+	BindTo(app *fiber.App)
 }
 
 const (
@@ -61,7 +61,11 @@ func parseSecurityInfo(ctx fiber.Ctx) freighter.SecurityInfo {
 	var info freighter.SecurityInfo
 	if ctx.RequestCtx().IsTLS() {
 		info.TLS.Used = true
-		info.TLS.ConnectionState = ctx.RequestCtx().Conn().(*tls.Conn).ConnectionState()
+		conn, ok := ctx.RequestCtx().Conn().(*tls.Conn)
+		if !ok {
+			panic("TLS request does not run on a TLS connection")
+		}
+		info.TLS.ConnectionState = conn.ConnectionState()
 	}
 	return info
 }

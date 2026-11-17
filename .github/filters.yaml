@@ -286,6 +286,8 @@ exports_go:
   - *core
   - *freighter_integration
   - *oracle
+  - .github/exports-go.json
+  - .github/scripts/go_affected.py
 
 exports_py:
   - *client_py
@@ -405,7 +407,7 @@ protobuf:
 ci_scripts:
   - *py
   - .github/scripts/**
-  - .github/workflows/ci.yaml
+  - .github/workflows/**
   - deploy/preview/**
   - scripts/common/**
 

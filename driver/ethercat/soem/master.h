@@ -120,6 +120,11 @@ class Master final : public master::Master {
         size_t output_sz = 0;
         /// @brief the working counter of a frame that every enabled slave handled.
         int expected_wkc = 0;
+        /// @brief the enabled slaves with inputs, in ascending order. Each cycle reads
+        /// their AL status in the frames of its process data.
+        std::vector<uint16_t> state_reads;
+        /// @brief what inputless() returns. Only the cycle uses it.
+        std::vector<uint16_t> inputless;
         /// @brief whether the enabled slaves' frames carry the reference clock time.
         bool has_dc = false;
         /// @brief the DC setup of each enabled slave in a DC mode.
@@ -151,6 +156,10 @@ class Master final : public master::Master {
         x::errors::Error held_err;
         /// @brief what shortfall() returns. Only the cycle uses it.
         std::optional<uint32_t> shortfall;
+        /// @brief the working counter of the latest mismatch, and what receive()
+        /// returns for it. Only the cycle uses them.
+        int mismatched_wkc = -1;
+        x::errors::Error mismatch_err;
         /// @brief what receive() returns on a USB adapter when no frame comes back, but
         /// one did less than a second before. NIL on other adapters.
         x::errors::Error late_frame_err;
@@ -196,6 +205,8 @@ public:
     /// @brief shares only atomics with receive() and send().
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
+    void recover(const x::breaker::Breaker &breaker) override;
+
     x::errors::Error write(
         uint16_t position,
         const std::vector<slave::StartupParameter> &parameters
@@ -207,6 +218,8 @@ public:
     std::optional<x::telem::TimeStamp> dc_time() const override;
 
     [[nodiscard]] std::optional<uint32_t> shortfall() const override;
+
+    [[nodiscard]] std::span<const uint16_t> inputless() const override;
 
 private:
     /// @brief returns the record of the slave at pos in the SOEM slave table. Record 0
@@ -245,9 +258,10 @@ private:
     /// or the reason the read failed into its status.
     void read_settings(slave::DiscoveryResult &slave);
 
-    /// @brief reads the CoE serial number of the slave into its properties, or the
-    /// reason the read got no answer into its status. Keeps the SII serial number when
-    /// the slave answers the read with an error or gives serial number 0.
+    /// @brief reads the CoE serial number of a slave with SII serial number 0 into its
+    /// properties, or the reason the read got no answer into its status. Keeps serial
+    /// number 0 when the slave answers the read with an error, or gives a serial number
+    /// above 2^53 - 1.
     void read_serial(slave::DiscoveryResult &slave);
 
     /// @brief reads the identity and PDO layout of the slave at a position.
@@ -414,14 +428,14 @@ private:
     void update_lost(uint16_t pos);
 
     /// @brief takes one recovery step for a slave that is not in OP, following the SOEM
-    /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a
-    /// slave that lost power. A slave in SAFE-OP whose clock restore failed goes back
-    /// to PRE-OP, not to OP. Takes no step for a slave that rejected a startup
-    /// parameter, so it stays in PRE-OP until the next activation. After a failed clock
-    /// restore, the next one waits from 100 ms, twice as long after each failure up to
-    /// 10 s, and the wait starts again at 100 ms once the slave reaches OP. A wait for
-    /// the clock of a DC slave ends once breaker stops.
-    void recover(uint16_t pos, const x::breaker::Breaker &breaker);
+    /// ecatcheck sample: acknowledge an error, request OP, reset and reconfigure, or
+    /// restore a slave that lost power. A slave in SAFE-OP whose clock restore failed
+    /// goes back to PRE-OP, not to OP. Takes no step for a slave that rejected a
+    /// startup parameter, so it stays in PRE-OP until the next activation. After a
+    /// failed clock restore, the next one waits from 100 ms, twice as long after each
+    /// failure up to 10 s, and the wait starts again at 100 ms once the slave reaches
+    /// OP. A wait for the clock of a DC slave ends once breaker stops.
+    void recover_slave(uint16_t pos, const x::breaker::Breaker &breaker);
 
     /// @brief builds the outcome for enabled slaves that did not reach a state. It is a
     /// refusal when a slave refuses the state with an AL status code that a new start
