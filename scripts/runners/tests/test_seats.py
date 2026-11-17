@@ -7,12 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, cast
-
 import pytest
 import synnax as sy
+from mypy_boto3_ec2.type_defs import TagTypeDef
 
-from aws import AWS
 from common import RECOMMAND_DELAY, Channels
 from conftest import Client, Secrets, core
 from log import Log
@@ -66,16 +64,16 @@ class Instances:
         self.failing = False
         self.ec2 = {"us-east-1": self}
 
-    def start_instances(self, InstanceIds: list[str]) -> None:
+    def start_instances(self, *, InstanceIds: list[str]) -> None:
         if self.failing:
             raise PermissionError("not authorized")
         self.started.extend(InstanceIds)
 
-    def create_tags(self, Resources: list[str], Tags: list[dict]) -> None:
+    def create_tags(self, *, Resources: list[str], Tags: list[TagTypeDef]) -> None:
         for iid in Resources:
             self.tags.setdefault(iid, {}).update({t["Key"]: t["Value"] for t in Tags})
 
-    def delete_tags(self, Resources: list[str], Tags: list[dict]) -> None:
+    def delete_tags(self, *, Resources: list[str], Tags: list[TagTypeDef]) -> None:
         if self.failing:
             raise PermissionError("not authorized")
         for iid in Resources:
@@ -104,8 +102,8 @@ def seats(client: Client, aws: Instances, store: Secrets | None = None) -> Seats
         channel="log",
     )
     store = store or secrets("claude-1", "claude-2")
-    logins = Logins(secrets=cast(Any, store), role=ROLE)
-    return Seats(aws=cast(AWS, aws), logins=logins, log=log)
+    logins = Logins(secrets=store, role=ROLE)
+    return Seats(aws=aws, logins=logins, log=log)
 
 
 class TestSeatLabels:
