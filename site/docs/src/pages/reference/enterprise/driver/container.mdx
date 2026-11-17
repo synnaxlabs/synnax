@@ -32,7 +32,9 @@ synnax-driver start --standalone --disable-stdin-stop \
 </Note.Note>
 
 The Driver stops on SIGTERM, so `docker stop` and a Kubernetes pod shutdown stop it
-cleanly.
+cleanly. Run the Driver as the main process of the container: use the exec form of `CMD`
+or `ENTRYPOINT`, or `exec` in a wrapper script. A shell does not pass SIGTERM to the
+Driver.
 
 <Divider.Divider x />
 
@@ -60,14 +62,17 @@ The Driver writes the
 [state file](/reference/enterprise/driver/configuration#state-file) at each start, so
 its directory must be writable. Put the directory on a volume:
 
-- With `--state-file`, the Driver creates a missing directory with mode `0700`. It does
-  not change the mode or owner of a directory that exists, such as a volume mount.
-  Without the flag, the Driver treats the default directory as its own and changes its
-  mode, so always give the flag. Create the directory with the owner and mode you want
-  before the Driver starts, and make sure the user of the Driver can write to it.
-- The Driver sets the state file to mode `0600` at each start.
+- The Driver creates a missing directory with mode `0700` and a missing state file with
+  mode `0600`. It does not change the mode or owner of a directory or file that exists,
+  such as a volume mount. Create the directory with the owner and mode you want before
+  the Driver starts, and make sure the user of the Driver can write to it.
+- If the state file exists, the user of the Driver must own it, and other users must not
+  be able to read it, or the Driver does not start. Set the file to mode `0600`.
 - The directory and the file cannot be symbolic links. Do not mount the state file from
   a Kubernetes Secret or ConfigMap.
+- Driver 0.61.0 to 0.61.4 set the state file to mode `0600` at each start. Without
+  `--state-file`, they also change the mode of the directory. With these versions,
+  always give the flag.
 
 ### OPC UA certificates
 
@@ -105,7 +110,7 @@ spec:
     spec:
       containers:
         - name: driver
-          image: registry.example.com/synnax-driver:0.61.4
+          image: registry.example.com/synnax-driver:0.61.5
           command:
             - synnax-driver
             - start
