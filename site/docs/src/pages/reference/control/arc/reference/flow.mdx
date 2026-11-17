@@ -131,7 +131,7 @@ For required parameters and defaults, see
 A routing table after a function with named outputs runs the entry of each output that
 fires. Each entry is `output: flow`. Commas between entries are necessary: a newline
 alone is a parse error. Use `->` in front of the table. A `=>` fails with
-`'=>' cannot feed a routing table, use '->'`.
+`invalid flow operator: '=>' cannot feed a routing table, use '->'`.
 
 ```arc channels="tank_pt, vent_vlv_cmd"
 tank_pt > 500.0 -> select() -> {
@@ -145,7 +145,7 @@ tank_pt > 500.0 -> select() -> {
 Each entry is a full flow, such as `true: 1 -> vent_vlv_cmd`, or an inline stage or
 sequence. The output starts the entry, but its value does not pass into the entry. An
 entry with only a target fails with
-`routing entry must be a full statement, e.g. 'true: true => next' to transition or 'true: false -> some_chan' to send false`.
+`invalid routing table: routing entry must be a full statement, e.g. 'true: true => next' to transition or 'true: false -> some_chan' to send false`.
 
 An inline stage or sequence has no name. It cannot use `next`:
 `invalid transition target: 'next' is not valid inside an inline routing case body`.
