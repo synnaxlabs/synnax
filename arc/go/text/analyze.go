@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -494,8 +495,15 @@ func analyzeIdentifierByRole(
 
 	switch sym.Kind {
 	case symbol.KindConstant:
-		// Every module constant holds a float64.
-		value := sym.DefaultValue.(float64)
+		value, ok := sym.DefaultValue.(float64)
+		if !ok {
+			ctx.Diagnostics.Add(diagnostics.Error(errors.Newf(
+				"constant %s holds a %T, not a float64",
+				sym.Name,
+				sym.DefaultValue,
+			), ctx.AST))
+			return flowNodeResult{}, false
+		}
 		t := ctx.TypeMap[ctx.AST]
 		n := newConstNode(
 			kg.generate("const", sym.Name),
@@ -1588,7 +1596,52 @@ func analyzeUnit(
 		return unit{ir: i}, aCtx.Diagnostics
 	}
 
-	for _, c := range i.Symbols.Children() {
+	i.Functions = collectFunctions(i.Symbols)
+	kg := newKeyGenerator(&i.Functions, root.Name)
+	shell := newShellBuilder(collectSynthByAST(aCtx.Scope.Root()))
+	collectVarNodes(aCtx.Scope.Root(), kg, shell)
+	// Every unit reads the variable nodes of the modules loaded before it. Only an
+	// automation links their code.
+	deps := loadedDeps(root, shell)
+	var units []*unit
+	if !module {
+		units = deps
+	}
+
+	// The root scope is always parallel and always-live.
+	i.Root = ir.Scope{
+		Mode:     ir.ScopeModeParallel,
+		Liveness: ir.LivenessAlways,
+	}
+	rootMembers, ok := lowerTopLevelItems(aCtx, &i, kg, shell)
+	if !ok {
+		return unit{ir: i}, aCtx.Diagnostics
+	}
+
+	// Inline bodies live as members of their enclosing scope; their flat IR
+	// still registers in the program's global node and edge lists.
+	i.Nodes = append(i.Nodes, shell.inlineNodes...)
+	appendDispatcherFunctions(aCtx, &i, root, kg, shell)
+	rootMembers = appendRootNodes(&i, rootMembers, shell.rootNodes)
+	i.Edges = append(i.Edges, shell.edges...)
+
+	if len(rootMembers) > 0 {
+		i.Root.Strata = []ir.Members{rootMembers}
+	}
+
+	bound := set.New[string]()
+	bindActivations(&i.Root, shell.activations, bound)
+	link(&i, units, shell, bound)
+	checkActivationsBound(aCtx, shell.activations, bound)
+	if d := resolveAndStratify(aCtx, &i, deps, module); d != nil {
+		return unit{ir: i}, d
+	}
+	return unit{ir: i, varNodes: shell.varNodes}, aCtx.Diagnostics
+}
+
+func collectFunctions(scope *symbol.Symbol) []ir.Function {
+	var fns []ir.Function
+	for _, c := range scope.Children() {
 		if c.Kind != symbol.KindFunction || c.AST == nil {
 			continue
 		}
@@ -1600,7 +1653,7 @@ func analyzeUnit(
 		if fnDecl, ok := c.AST.(parser.IFunctionDeclarationContext); ok {
 			bodyAst = fnDecl.Block()
 		}
-		i.Functions = append(i.Functions, ir.Function{
+		fns = append(fns, ir.Function{
 			Key:      c.QualifiedName(),
 			Body:     ir.Body{Raw: bodyAst.GetText(), AST: bodyAst},
 			Inputs:   c.Type.Inputs,
@@ -1609,94 +1662,137 @@ func analyzeUnit(
 			Symbol:   c,
 		})
 	}
-	kg := newKeyGenerator(&i.Functions, root.Name)
-	shell := newShellBuilder(collectSynthByAST(aCtx.Scope.Root()))
-	collectVarNodes(aCtx.Scope.Root(), kg, shell)
-	// Every unit reads the variable nodes of the modules loaded before it. Only an
-	// automation links their code.
-	var deps, units []*unit
-	if l := loaderOf(root); l != nil {
-		deps = l.loaded()
+	return fns
+}
+
+func loadedDeps(root *symbol.Symbol, shell *shellBuilder) []*unit {
+	l := loaderOf(root)
+	if l == nil {
+		return nil
 	}
+	deps := l.loaded()
 	for _, u := range deps {
 		maps.Copy(shell.varNodes, u.varNodes)
 	}
-	if !module {
-		units = deps
-	}
+	return deps
+}
 
-	// The root scope is always parallel and always-live.
-	i.Root = ir.Scope{
-		Mode:     ir.ScopeModeParallel,
-		Liveness: ir.LivenessAlways,
-	}
-	// rootMembers accumulates every top-level item as a Member of the root
-	// scope. Module-scope flow nodes become leaf-node members; top-level
-	// sequence and stage declarations become nested Scope members.
-	var rootMembers ir.Members
-
-	for _, item := range t.AST.AllTopLevelItem() {
-		if decl := item.VariableDeclaration(); decl != nil {
-			e, ok := lowerVarDecl(aCtx.Child(decl), kg, shell)
-			if !ok {
-				return unit{ir: i}, aCtx.Diagnostics
-			}
-			// The init node and register precede the flows that read them.
-			if e.init != nil {
-				i.Nodes = append(i.Nodes, *e.init)
-				rootMembers = append(rootMembers,
-					ir.Member{NodeKey: new(e.init.Key)},
-					ir.Member{NodeKey: new(e.register.Key)},
-				)
-			}
-		} else if flow := item.FlowStatement(); flow != nil {
-			nodes, edges, inlineMembers, _, ok := analyzeFlow(
-				aCtx.Child(flow),
-				kg,
-				shell,
-			)
-			if !ok {
-				return unit{ir: i}, aCtx.Diagnostics
-			}
-			for _, n := range nodes {
-				rootMembers = append(rootMembers, ir.Member{NodeKey: new(n.Key)})
-			}
-			rootMembers = append(rootMembers, inlineMembers...)
-			i.Nodes = append(i.Nodes, nodes...)
-			i.Edges = append(i.Edges, edges...)
-		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
-			seqScope, nodes, edges, ok := analyzeSequence(
-				aCtx.Child(seqDecl),
-				kg,
-				shell,
-			)
-			if !ok {
-				return unit{ir: i}, aCtx.Diagnostics
-			}
-			rootMembers = append(rootMembers, ir.Member{Scope: &seqScope})
-			i.Nodes = append(i.Nodes, nodes...)
-			i.Edges = append(i.Edges, edges...)
-		} else if stageDecl := item.StageDeclaration(); stageDecl != nil {
-			stgScope, nodes, edges, ok := analyzeTopLevelStage(
-				aCtx.Child(stageDecl),
-				kg,
-				shell,
-			)
-			if !ok {
-				return unit{ir: i}, aCtx.Diagnostics
-			}
-			rootMembers = append(rootMembers, ir.Member{Scope: &stgScope})
-			i.Nodes = append(i.Nodes, nodes...)
-			i.Edges = append(i.Edges, edges...)
+// appendRootNodes appends the always-live nodes to i, adds each one not already in
+// members to it, and returns members.
+func appendRootNodes(i *ir.IR, members ir.Members, nodes []*ir.Node) ir.Members {
+	owned := memberNodeKeys(members)
+	for _, vn := range nodes {
+		i.Nodes = append(i.Nodes, *vn)
+		if !owned.Contains(vn.Key) {
+			members = append(members, ir.Member{NodeKey: new(vn.Key)})
 		}
 	}
+	return members
+}
 
-	// Inline bodies live as members of their enclosing scope; their flat IR
-	// still registers in the program's global node and edge lists.
-	i.Nodes = append(i.Nodes, shell.inlineNodes...)
+// checkActivationsBound is a safety net: analyzeNamedRef should reject any `=> X`
+// whose X is neither an enclosing-sequence member nor a top-level scope, so every
+// registered activation should bind. If one does not, something upstream
+// registered an activation without going through analyzeNamedRef.
+func checkActivationsBound(
+	aCtx acontext.Context[parser.IProgramContext],
+	activations map[string][]ir.Activation,
+	bound set.Set[string],
+) {
+	for key := range activations {
+		if !bound.Contains(key) {
+			aCtx.Diagnostics.Add(diagnostics.Errorf(
+				aCtx.AST,
+				"internal: activation target '%s' did not bind to any "+
+					"scope; this should have been rejected by analyzeNamedRef",
+				key,
+			))
+		}
+	}
+}
 
-	// A reassigned variable's dispatcher gains its union channel triggers. A
-	// loaded module's dispatchers already carry theirs.
+// lowerTopLevelItems lowers every top-level item into i and returns the members of
+// the root scope. Module-scope flow nodes become leaf-node members; top-level
+// sequence and stage declarations become nested Scope members.
+func lowerTopLevelItems(
+	aCtx acontext.Context[parser.IProgramContext],
+	i *ir.IR,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) (ir.Members, bool) {
+	var rootMembers ir.Members
+	for _, item := range aCtx.AST.AllTopLevelItem() {
+		members, nodes, edges, ok := lowerTopLevelItem(aCtx, item, kg, shell)
+		if !ok {
+			return nil, false
+		}
+		rootMembers = append(rootMembers, members...)
+		i.Nodes = append(i.Nodes, nodes...)
+		i.Edges = append(i.Edges, edges...)
+	}
+	return rootMembers, true
+}
+
+func lowerTopLevelItem(
+	aCtx acontext.Context[parser.IProgramContext],
+	item parser.ITopLevelItemContext,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) (ir.Members, []ir.Node, []ir.Edge, bool) {
+	if decl := item.VariableDeclaration(); decl != nil {
+		e, ok := lowerVarDecl(aCtx.Child(decl), kg, shell)
+		if !ok || e.init == nil {
+			return nil, nil, nil, ok
+		}
+		// The init node and register precede the flows that read them.
+		members := ir.Members{
+			{NodeKey: new(e.init.Key)},
+			{NodeKey: new(e.register.Key)},
+		}
+		return members, []ir.Node{*e.init}, nil, true
+	}
+	if flow := item.FlowStatement(); flow != nil {
+		nodes, edges, inlineMembers, _, ok := analyzeFlow(aCtx.Child(flow), kg, shell)
+		if !ok {
+			return nil, nil, nil, false
+		}
+		members := make(ir.Members, 0, len(nodes)+len(inlineMembers))
+		for _, n := range nodes {
+			members = append(members, ir.Member{NodeKey: new(n.Key)})
+		}
+		return append(members, inlineMembers...), nodes, edges, true
+	}
+	if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
+		seqScope, nodes, edges, ok := analyzeSequence(aCtx.Child(seqDecl), kg, shell)
+		if !ok {
+			return nil, nil, nil, false
+		}
+		return ir.Members{{Scope: &seqScope}}, nodes, edges, true
+	}
+	if stageDecl := item.StageDeclaration(); stageDecl != nil {
+		stgScope, nodes, edges, ok := analyzeTopLevelStage(
+			aCtx.Child(stageDecl),
+			kg,
+			shell,
+		)
+		if !ok {
+			return nil, nil, nil, false
+		}
+		return ir.Members{{Scope: &stgScope}}, nodes, edges, true
+	}
+	return nil, nil, nil, true
+}
+
+// appendDispatcherFunctions gives each reassigned variable's dispatcher in root its
+// union channel triggers and appends its function to i. A loaded module's
+// dispatchers already carry theirs.
+func appendDispatcherFunctions(
+	aCtx acontext.Context[parser.IProgramContext],
+	i *ir.IR,
+	root *symbol.Symbol,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) {
 	disps := make([]*dispatcher, 0, len(shell.varNodes))
 	for sym, e := range shell.varNodes {
 		if e.disp != nil && sym.Root() == root {
@@ -1717,91 +1813,74 @@ func analyzeUnit(
 			Channels: d.node.Channels.Copy(),
 		})
 	}
-	owned := memberNodeKeys(rootMembers)
-	for _, vn := range shell.rootNodes {
-		i.Nodes = append(i.Nodes, *vn)
-		if !owned.Contains(vn.Key) {
-			rootMembers = append(rootMembers, ir.Member{NodeKey: new(vn.Key)})
-		}
-	}
-	i.Edges = append(i.Edges, shell.edges...)
+}
 
-	if len(rootMembers) > 0 {
-		i.Root.Strata = []ir.Members{rootMembers}
+// bindActivations stamps each deferred activation (`trigger => main`, or an
+// inline body gated by its upstream handle) onto the matching scope member under
+// s, and adds the key of each bound scope to bound.
+func bindActivations(
+	s *ir.Scope,
+	activations map[string][]ir.Activation,
+	bound set.Set[string],
+) {
+	visit := func(m *ir.Member) {
+		if m.Scope == nil {
+			return
+		}
+		if a, ok := activations[m.Scope.Key]; ok {
+			m.Scope.Activations = a
+			bound.Add(m.Scope.Key)
+		}
+		bindActivations(m.Scope, activations, bound)
 	}
+	for si := range s.Strata {
+		for mi := range s.Strata[si] {
+			visit(&s.Strata[si][mi])
+		}
+	}
+	for mi := range s.Steps {
+		visit(&s.Steps[mi])
+	}
+}
 
-	// Stamp each deferred activation (`trigger => main`, or an inline body gated
-	// by its upstream handle) onto the matching scope member wherever it lives.
-	bound := set.New[string]()
-	var bindActivations func(s *ir.Scope)
-	bindActivations = func(s *ir.Scope) {
-		visit := func(m *ir.Member) {
-			if m.Scope == nil {
-				return
-			}
-			if a, ok := shell.activations[m.Scope.Key]; ok {
-				m.Scope.Activations = a
-				bound.Add(m.Scope.Key)
-			}
-			bindActivations(m.Scope)
-		}
-		for si := range s.Strata {
-			for mi := range s.Strata[si] {
-				visit(&s.Strata[si][mi])
-			}
-		}
-		for mi := range s.Steps {
-			visit(&s.Steps[mi])
+// resolveAndStratify resolves the node types of i and stratifies it. It returns
+// the diagnostics to report when either step fails, and nil otherwise.
+func resolveAndStratify(
+	aCtx acontext.Context[parser.IProgramContext],
+	i *ir.IR,
+	deps []*unit,
+	module bool,
+) *diagnostics.Diagnostics {
+	if len(i.Nodes) == 0 {
+		return nil
+	}
+	// A module's edges reach the variable nodes of the modules it imports,
+	// so it is checked beside them and keeps only its own nodes after.
+	own, ownEdges := len(i.Nodes), len(i.Edges)
+	if module {
+		for _, u := range deps {
+			i.Nodes = append(i.Nodes, u.ir.Nodes...)
+			i.Edges = append(i.Edges, u.ir.Edges...)
 		}
 	}
-	if len(shell.activations) > 0 {
-		bindActivations(&i.Root)
+	ok := analyzer.ResolveNodeTypes(
+		i.Nodes,
+		i.Edges,
+		aCtx.Constraints,
+		aCtx.Diagnostics,
+	)
+	var d *diagnostics.Diagnostics
+	if ok {
+		d = stratifier.Stratify(i, aCtx.Diagnostics)
 	}
-	link(&i, units, shell, bound)
-	// Safety net: analyzeNamedRef should reject any `=> X` whose X is
-	// neither an enclosing-sequence member nor a top-level scope, so every
-	// registered activation should bind. If one does not, something upstream
-	// registered an activation without going through analyzeNamedRef.
-	for key := range shell.activations {
-		if !bound.Contains(key) {
-			aCtx.Diagnostics.Add(diagnostics.Errorf(
-				t.AST,
-				"internal: activation target '%s' did not bind to any "+
-					"scope; this should have been rejected by analyzeNamedRef",
-				key,
-			))
-		}
+	i.Nodes, i.Edges = i.Nodes[:own:own], i.Edges[:ownEdges:ownEdges]
+	if !ok {
+		return aCtx.Diagnostics
 	}
-
-	if len(i.Nodes) > 0 {
-		// A module's edges reach the variable nodes of the modules it imports,
-		// so it is checked beside them and keeps only its own nodes after.
-		own, ownEdges := len(i.Nodes), len(i.Edges)
-		if module {
-			for _, u := range deps {
-				i.Nodes = append(i.Nodes, u.ir.Nodes...)
-				i.Edges = append(i.Edges, u.ir.Edges...)
-			}
-		}
-		ok := analyzer.ResolveNodeTypes(
-			i.Nodes,
-			i.Edges,
-			aCtx.Constraints,
-			aCtx.Diagnostics,
-		)
-		var d *diagnostics.Diagnostics
-		if ok {
-			d = stratifier.Stratify(&i, aCtx.Diagnostics)
-		}
-		i.Nodes, i.Edges = i.Nodes[:own:own], i.Edges[:ownEdges:ownEdges]
-		if !ok {
-			return unit{ir: i}, aCtx.Diagnostics
-		}
-		if d != nil && !d.Ok() {
-			return unit{ir: i}, d
-		}
+	if d != nil && !d.Ok() {
+		return d
 	}
-	return unit{ir: i, varNodes: shell.varNodes}, aCtx.Diagnostics
+	return nil
 }
 
 type flowChainProcessor struct {
@@ -2158,159 +2237,207 @@ func extractInputValues(
 	if ctx.AST == nil {
 		return input, nil, true
 	}
-	var args []ir.Node
+	p := inputParser{ctx: ctx, node: &node, fnSym: fnSym, kg: kg, shell: shell}
+	ok := true
+	if named := ctx.AST.NamedInputValues(); named != nil {
+		ok = p.parseNamed(named, input)
+	} else if anon := ctx.AST.AnonymousInputValues(); anon != nil {
+		ok = p.parseAnonymous(anon, input)
+	}
+	if !ok {
+		return nil, nil, false
+	}
+	return input, p.args, true
+}
 
-	parseInputExpr := func(
-		expr parser.IExpressionContext,
-		paramType types.Type,
-		paramName string,
-	) (any, types.Type, bool) {
-		if paramType.Kind == types.KindChan {
-			channelName := parser.GetExpressionText(expr)
-			sym, err := ctx.Scope.Resolve(ctx, channelName)
-			if err != nil {
-				ctx.Diagnostics.Add(diagnostics.Error(err, expr))
-				return nil, paramType, false
-			}
-			if isExprReadVar(sym) {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
-					expr,
-					"input value for '%s' must be a channel",
-					paramName,
-				))
-				return nil, paramType, false
-			}
-			if err := paramType.ChanDirection.CheckCompatibility(
-				sym.Type.ChanDirection,
-			); err != nil {
-				ctx.Diagnostics.Add(diagnostics.Error(err, expr))
-				return nil, paramType, false
-			}
-			// Top-level channel aliases cannot be rebound, so they collapse into
-			// their declared channel; so does any alias with no rebind sites in
-			// the source. Any other alias reads its register's live key instead.
-			if e := shell.varNodes[sym]; e.register != nil && sym.IsValueVariable() &&
-				sym.Type.Kind == types.KindChan {
-				shell.edges = append(shell.edges, ir.Edge{
-					Source: ir.Handle{
-						Node:  e.register.Key,
-						Param: ir.DefaultOutputParam,
-					},
-					Target: ir.Handle{Node: node.Key, Param: paramName},
-					Kind:   ir.EdgeKindContinuous,
-				})
-				symbol.ResolveInputChannel(
-					&node.Channels, fnSym, paramName, channelKey(sym), sym.Name,
-				)
-				for key, name := range sym.Channels.Read {
-					symbol.ResolveInputChannel(
-						&node.Channels,
-						fnSym,
-						paramName,
-						key,
-						name,
-					)
-				}
-				for key, name := range sym.Channels.Write {
-					symbol.ResolveInputChannel(
-						&node.Channels,
-						fnSym,
-						paramName,
-						key,
-						name,
-					)
-				}
-				return nil, paramType, true
-			}
-			key := channelKey(sym)
-			symbol.ResolveInputChannel(&node.Channels, fnSym, paramName, key, sym.Name)
-			return key, paramType, true
+type inputParser struct {
+	ctx   acontext.Context[parser.IInputValuesContext]
+	node  *ir.Node
+	fnSym *symbol.Symbol
+	kg    *keyGenerator
+	shell *shellBuilder
+	// args holds the nodes lowered from non-literal input expressions.
+	args []ir.Node
+}
+
+func (p *inputParser) parseNamed(
+	named parser.INamedInputValuesContext,
+	input types.Params,
+) bool {
+	for _, cv := range named.AllNamedInputValue() {
+		expr := cv.Expression()
+		if expr == nil {
+			continue
 		}
-
-		// Top-level literal variables cannot be reassigned, so they inline; so
-		// does any literal variable with no write sites in the source. Any
-		// other value variable stamps a var ref to its node instead.
-		if head, tail := parser.ExpressionNameParts(expr); head != "" {
-			sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
-			if err == nil && (sym.IsLiteral() || isExprReadVar(sym)) {
-				if rn := shell.varNodes[sym].readNode(sym); rn != nil {
-					t := sym.Type.UnwrapChan()
-					return varValue(sym), types.VarRef(t, rn.Key), true
-				}
-				if !sym.Reassigned && sym.DefaultValue != nil {
-					return sym.DefaultValue, paramType, true
-				}
-			}
-			if err == nil && sym.Type.Kind == types.KindChan {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
-					expr,
-					"input value for '%s' cannot be a channel",
-					paramName,
-				))
-				return nil, paramType, false
-			}
+		key := cv.IDENTIFIER().GetText()
+		idx := input.GetIndex(key)
+		value, typ, ok := p.parse(expr, input[idx].Type, key)
+		if !ok {
+			return false
 		}
+		input[idx].Value = value
+		input[idx].Type = typ
+	}
+	return true
+}
 
-		if value, ok := ctx.FloatConstant(expr); ok {
-			return types.EncodeFloat(value), paramType, true
+func (p *inputParser) parseAnonymous(
+	anon parser.IAnonymousInputValuesContext,
+	input types.Params,
+) bool {
+	exprs := anon.AllExpression()
+	pos := 0
+	for i := range input {
+		if input[i].Name == p.fnSym.Trigger.Target {
+			continue
 		}
-
-		// Any other expression becomes a node that fires with the call and is
-		// sampled through a var ref, so its value is the one at fire time.
-		if !parser.IsLiteral(expr) {
-			res, ok := analyzeExpression(ctx.Child(expr), kg, shell, true)
-			if !ok {
-				return nil, paramType, false
-			}
-			args = append(args, res.node)
-			t := res.node.Outputs[0].Type
-			return types.Zero(t), types.VarRef(t, res.node.Key), true
+		if pos >= len(exprs) {
+			break
 		}
+		value, typ, ok := p.parse(
+			exprs[pos], input[i].Type, fmt.Sprintf("position %d", pos),
+		)
+		if !ok {
+			return false
+		}
+		input[i].Value = value
+		input[i].Type = typ
+		pos++
+	}
+	return true
+}
 
-		parsedValue, err := literal.ParseConst(expr, paramType)
-		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+func (p *inputParser) parse(
+	expr parser.IExpressionContext,
+	paramType types.Type,
+	paramName string,
+) (any, types.Type, bool) {
+	if paramType.Kind == types.KindChan {
+		return p.parseChannel(expr, paramType, paramName)
+	}
+	// Top-level literal variables cannot be reassigned, so they inline; so
+	// does any literal variable with no write sites in the source. Any
+	// other value variable stamps a var ref to its node instead.
+	if head, tail := parser.ExpressionNameParts(expr); head != "" {
+		if value, typ, ok, done := p.parseName(
+			expr, head, tail, paramType, paramName,
+		); done {
+			return value, typ, ok
+		}
+	}
+	if value, ok := p.ctx.FloatConstant(expr); ok {
+		return types.EncodeFloat(value), paramType, true
+	}
+	// Any other expression becomes a node that fires with the call and is
+	// sampled through a var ref, so its value is the one at fire time.
+	if !parser.IsLiteral(expr) {
+		res, ok := analyzeExpression(p.ctx.Child(expr), p.kg, p.shell, true)
+		if !ok {
 			return nil, paramType, false
 		}
-		return parsedValue.Value, paramType, true
+		p.args = append(p.args, res.node)
+		t := res.node.Outputs[0].Type
+		return types.Zero(t), types.VarRef(t, res.node.Key), true
 	}
+	parsedValue, err := literal.ParseConst(expr, paramType)
+	if err != nil {
+		p.ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+		return nil, paramType, false
+	}
+	return parsedValue.Value, paramType, true
+}
 
-	if named := ctx.AST.NamedInputValues(); named != nil {
-		for _, cv := range named.AllNamedInputValue() {
-			key := cv.IDENTIFIER().GetText()
-			idx := input.GetIndex(key)
-			if expr := cv.Expression(); expr != nil {
-				value, typ, ok := parseInputExpr(expr, input[idx].Type, key)
-				if !ok {
-					return nil, nil, false
-				}
-				input[idx].Value = value
-				input[idx].Type = typ
-			}
+// parseName parses an input expression that names a symbol. done is false when
+// the expression falls through to the other input forms.
+func (p *inputParser) parseName(
+	expr parser.IExpressionContext,
+	head string,
+	tail string,
+	paramType types.Type,
+	paramName string,
+) (value any, typ types.Type, ok, done bool) {
+	sym, err := p.ctx.Scope.ResolveMember(p.ctx, head, tail)
+	if err != nil {
+		return nil, paramType, false, false
+	}
+	if sym.IsLiteral() || isExprReadVar(sym) {
+		if rn := p.shell.varNodes[sym].readNode(sym); rn != nil {
+			t := sym.Type.UnwrapChan()
+			return varValue(sym), types.VarRef(t, rn.Key), true, true
 		}
-	} else if anon := ctx.AST.AnonymousInputValues(); anon != nil {
-		exprs := anon.AllExpression()
-		pos := 0
-		for i := range input {
-			if input[i].Name == fnSym.Trigger.Target {
-				continue
-			}
-			if pos >= len(exprs) {
-				break
-			}
-			value, typ, ok := parseInputExpr(
-				exprs[pos], input[i].Type, fmt.Sprintf("position %d", pos),
-			)
-			if !ok {
-				return nil, nil, false
-			}
-			input[i].Value = value
-			input[i].Type = typ
-			pos++
+		if !sym.Reassigned && sym.DefaultValue != nil {
+			return sym.DefaultValue, paramType, true, true
 		}
 	}
+	if sym.Type.Kind == types.KindChan {
+		p.ctx.Diagnostics.Add(diagnostics.Errorf(
+			expr,
+			"input value for '%s' cannot be a channel",
+			paramName,
+		))
+		return nil, paramType, false, true
+	}
+	return nil, paramType, false, false
+}
 
-	return input, args, true
+func (p *inputParser) parseChannel(
+	expr parser.IExpressionContext,
+	paramType types.Type,
+	paramName string,
+) (any, types.Type, bool) {
+	channelName := parser.GetExpressionText(expr)
+	sym, err := p.ctx.Scope.Resolve(p.ctx, channelName)
+	if err != nil {
+		p.ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+		return nil, paramType, false
+	}
+	if isExprReadVar(sym) {
+		p.ctx.Diagnostics.Add(diagnostics.Errorf(
+			expr,
+			"input value for '%s' must be a channel",
+			paramName,
+		))
+		return nil, paramType, false
+	}
+	if err := paramType.ChanDirection.CheckCompatibility(
+		sym.Type.ChanDirection,
+	); err != nil {
+		p.ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+		return nil, paramType, false
+	}
+	// Top-level channel aliases cannot be rebound, so they collapse into
+	// their declared channel; so does any alias with no rebind sites in
+	// the source. Any other alias reads its register's live key instead.
+	if e := p.shell.varNodes[sym]; e.register != nil && sym.IsValueVariable() &&
+		sym.Type.Kind == types.KindChan {
+		p.bindAliasRegister(sym, e.register, paramName)
+		return nil, paramType, true
+	}
+	key := channelKey(sym)
+	symbol.ResolveInputChannel(&p.node.Channels, p.fnSym, paramName, key, sym.Name)
+	return key, paramType, true
+}
+
+// bindAliasRegister feeds the live key of a rebindable channel alias into the
+// paramName input from the alias's register.
+func (p *inputParser) bindAliasRegister(
+	sym *symbol.Symbol,
+	register *ir.Node,
+	paramName string,
+) {
+	p.shell.edges = append(p.shell.edges, ir.Edge{
+		Source: ir.Handle{Node: register.Key, Param: ir.DefaultOutputParam},
+		Target: ir.Handle{Node: p.node.Key, Param: paramName},
+		Kind:   ir.EdgeKindContinuous,
+	})
+	channels := &p.node.Channels
+	symbol.ResolveInputChannel(channels, p.fnSym, paramName, channelKey(sym), sym.Name)
+	for key, name := range sym.Channels.Read {
+		symbol.ResolveInputChannel(channels, p.fnSym, paramName, key, name)
+	}
+	for key, name := range sym.Channels.Write {
+		symbol.ResolveInputChannel(channels, p.fnSym, paramName, key, name)
+	}
 }
 
 // collectSynthByAST returns a map from each inline-body declaration in the tree

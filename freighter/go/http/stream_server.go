@@ -147,7 +147,10 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx fiber.Ctx) error {
 		address.Address(s.path),
 		true,
 	)
-	headerContentType := iCtx.GetDefault(fiber.HeaderContentType, "").(string)
+	headerContentType, ok := iCtx.GetDefault(fiber.HeaderContentType, "").(string)
+	if !ok {
+		return upgradeCtx.SendStatus(fiber.StatusUnsupportedMediaType)
+	}
 	newCodec, ok := s.resolveStreamCodec(headerContentType)
 	if !ok {
 		return upgradeCtx.SendStatus(fiber.StatusUnsupportedMediaType)

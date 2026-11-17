@@ -30,7 +30,9 @@ configured in the root `.golangci.yaml`), 88-char lines, standard Go idioms. Imp
 grouped: stdlib, then all others (gci). Format with `golangci-lint fmt` in the module,
 check with `golangci-lint fmt --diff`. `golangci-lint run` (CI) also fails on
 unformatted files. CI lints each module for both `GOOS=linux` and `GOOS=windows`, so
-reproduce a Windows-only failure with `GOOS=windows CGO_ENABLED=0 golangci-lint run`.
+reproduce a Windows-only failure with `GOOS=windows CGO_ENABLED=0 golangci-lint run`. A
+plain run reports only lines changed since the merge base with `origin/main`. CI lints
+the whole module with `--new-from-merge-base=` for all but the complexity linters.
 
 ## Packages & naming
 

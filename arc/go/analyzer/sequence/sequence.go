@@ -169,11 +169,15 @@ func desugarInlineDecls(ctx context.Context[parser.IProgramContext]) {
 			}
 		}
 		next := enclosing
-		switch node.(type) {
-		case parser.ISequenceDeclarationContext, parser.IStageDeclarationContext:
-			if c, err := enclosing.GetChildByParserRule(
-				node.(antlr.ParserRuleContext),
-			); err == nil {
+		var decl antlr.ParserRuleContext
+		switch n := node.(type) {
+		case parser.ISequenceDeclarationContext:
+			decl = n
+		case parser.IStageDeclarationContext:
+			decl = n
+		}
+		if decl != nil {
+			if c, err := enclosing.GetChildByParserRule(decl); err == nil {
 				next = c
 			}
 		}

@@ -13,6 +13,84 @@
     width: 44rem;
     padding: 1.5rem;
 
+    /* Library and Custom tabs. One inset holds the tab boxes, the search icon, the
+       titles, and the swatches: eight 21 px swatches across, with 6 px gaps. */
+    &.lyra-color-picker--tabbed {
+        --pluto-color-picker-columns: 8;
+        --pluto-color-picker-inset: 1.5rem;
+        --pluto-color-picker-gap: 1rem;
+
+        width: calc(
+            var(--pluto-color-picker-columns) * var(--pluto-height-tiny) +
+                (var(--pluto-color-picker-columns) - 1) *
+                var(--pluto-color-picker-gap) + 2 * var(--pluto-color-picker-inset)
+        );
+        min-height: 0;
+        padding: 0;
+
+        & > * {
+            flex-shrink: 0;
+        }
+
+        & > .lyra-color-picker__header {
+            padding: 1rem var(--pluto-color-picker-inset);
+            border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l6);
+
+            & > .lyra-color-picker__tabs {
+                flex: 1 1 0;
+
+                & > .lyra-select-btn {
+                    flex: 1 1 0;
+                    justify-content: center;
+                }
+            }
+        }
+
+        & > .lyra-color-picker__search {
+            min-height: var(--pluto-height-medium);
+            height: var(--pluto-height-medium);
+            border: none;
+            border-radius: 0;
+            border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l7);
+
+            & .lyra-input__start-content {
+                padding-left: var(--pluto-color-picker-inset);
+            }
+        }
+
+        & > .lyra-color-picker__palettes {
+            flex-shrink: 1;
+            min-height: 0;
+            overflow-y: auto;
+        }
+
+        & > .lyra-color-picker__palettes,
+        & > .lyra-color-picker__custom {
+            padding: var(--pluto-color-picker-inset);
+        }
+
+        & .lyra-color-picker__grid {
+            display: grid;
+            grid-template-columns: repeat(
+                var(--pluto-color-picker-columns),
+                minmax(0, 1fr)
+            );
+            gap: var(--pluto-color-picker-gap);
+
+            & .lyra-color-swatch.lyra-btn {
+                width: 100%;
+                min-width: 0;
+                height: auto;
+                min-height: 0;
+                aspect-ratio: 1;
+            }
+
+            & .lyra--selected.lyra-color-swatch {
+                box-shadow: var(--pluto-selected-ring);
+            }
+        }
+    }
+
     .lyra-color-picker__plane,
     .lyra-color-picker__slider {
         position: relative;
@@ -28,7 +106,7 @@
 
     .lyra-color-picker__plane {
         height: 22rem;
-        border-radius: var(--pluto-border-radius-medium);
+        border-radius: var(--pluto-border-radius-tiny);
         background:
             linear-gradient(to top, #000, transparent),
             linear-gradient(to right, #fff, transparent),

@@ -201,79 +201,99 @@ func (d *Decoder) Append(dst []byte, raw jsontext.Value) ([]byte, error) {
 		}
 		return telem.ByteOrder.AppendUint64(dst, uint64(ts)), nil
 	case telem.StringT:
-		if raw.Kind() != '"' {
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "expected a string, got %s", kindName(raw),
-			)
-		}
-		if len(d.enums) > 0 {
-			if err := d.unquote(raw); err != nil {
-				return nil, err
-			}
-			if sample, ok := d.enum(); ok {
-				dst = telem.ByteOrder.AppendUint32(dst, uint32(len(sample)))
-				return append(dst, sample...), nil
-			}
-		}
-		start := len(dst)
-		dst = append(dst, make([]byte, variablePrefix)...)
-		var err error
-		if dst, err = jsontext.AppendUnquote(dst, raw); err != nil {
-			return nil, errors.Wrap(validate.ErrValidation, err.Error())
-		}
-		return endVariable(dst, start), nil
+		return d.appendString(dst, raw)
 	case telem.JSONT:
-		start := len(dst)
-		dst = append(dst, make([]byte, variablePrefix)...)
-		dst = append(dst, raw...)
-		if kind := raw.Kind(); kind == '{' || kind == '[' {
-			v := jsontext.Value(dst[start+variablePrefix:])
-			if err := v.Compact(rejectDuplicateNames...); err != nil {
-				return nil, errors.Wrap(validate.ErrValidation, err.Error())
-			}
-			dst = dst[:start+variablePrefix+len(v)]
-		}
-		return endVariable(dst, start), nil
+		return appendJSON(dst, raw)
 	case telem.UUIDT:
-		if raw.Kind() != '"' {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"expected a UUID string, got %s",
-				kindName(raw),
-			)
-		}
-		if err := d.unquote(raw); err != nil {
-			return nil, err
-		}
-		var id uuid.UUID
-		if err := id.UnmarshalText(d.text); err != nil {
-			return nil, errors.Wrapf(validate.ErrValidation, "invalid UUID %q", d.text)
-		}
-		return append(dst, id[:]...), nil
+		return d.appendUUID(dst, raw)
 	case telem.BytesT:
-		if raw.Kind() != '"' {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"expected a base64 string, got %s",
-				kindName(raw),
-			)
-		}
+		return d.appendBytes(dst, raw)
+	}
+	return d.appendNumeric(dst, raw)
+}
+
+func (d *Decoder) appendString(dst []byte, raw jsontext.Value) ([]byte, error) {
+	if raw.Kind() != '"' {
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "expected a string, got %s", kindName(raw),
+		)
+	}
+	if len(d.enums) > 0 {
 		if err := d.unquote(raw); err != nil {
 			return nil, err
 		}
-		if bytes.ContainsAny(d.text, "\r\n") {
-			return nil, errors.Wrap(
-				validate.ErrValidation, "base64 must not hold a line break",
-			)
+		if sample, ok := d.enum(); ok {
+			dst = telem.ByteOrder.AppendUint32(dst, uint32(len(sample)))
+			return append(dst, sample...), nil
 		}
-		start := len(dst)
-		dst = append(dst, make([]byte, variablePrefix)...)
-		var err error
-		if dst, err = strictBase64.AppendDecode(dst, d.text); err != nil {
+	}
+	start := len(dst)
+	dst = append(dst, make([]byte, variablePrefix)...)
+	var err error
+	if dst, err = jsontext.AppendUnquote(dst, raw); err != nil {
+		return nil, errors.Wrap(validate.ErrValidation, err.Error())
+	}
+	return endVariable(dst, start), nil
+}
+
+func appendJSON(dst []byte, raw jsontext.Value) ([]byte, error) {
+	start := len(dst)
+	dst = append(dst, make([]byte, variablePrefix)...)
+	dst = append(dst, raw...)
+	if kind := raw.Kind(); kind == '{' || kind == '[' {
+		v := jsontext.Value(dst[start+variablePrefix:])
+		if err := v.Compact(rejectDuplicateNames...); err != nil {
 			return nil, errors.Wrap(validate.ErrValidation, err.Error())
 		}
-		return endVariable(dst, start), nil
+		dst = dst[:start+variablePrefix+len(v)]
 	}
+	return endVariable(dst, start), nil
+}
+
+func (d *Decoder) appendUUID(dst []byte, raw jsontext.Value) ([]byte, error) {
+	if raw.Kind() != '"' {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"expected a UUID string, got %s",
+			kindName(raw),
+		)
+	}
+	if err := d.unquote(raw); err != nil {
+		return nil, err
+	}
+	var id uuid.UUID
+	if err := id.UnmarshalText(d.text); err != nil {
+		return nil, errors.Wrapf(validate.ErrValidation, "invalid UUID %q", d.text)
+	}
+	return append(dst, id[:]...), nil
+}
+
+func (d *Decoder) appendBytes(dst []byte, raw jsontext.Value) ([]byte, error) {
+	if raw.Kind() != '"' {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"expected a base64 string, got %s",
+			kindName(raw),
+		)
+	}
+	if err := d.unquote(raw); err != nil {
+		return nil, err
+	}
+	if bytes.ContainsAny(d.text, "\r\n") {
+		return nil, errors.Wrap(
+			validate.ErrValidation, "base64 must not hold a line break",
+		)
+	}
+	start := len(dst)
+	dst = append(dst, make([]byte, variablePrefix)...)
+	var err error
+	if dst, err = strictBase64.AppendDecode(dst, d.text); err != nil {
+		return nil, errors.Wrap(validate.ErrValidation, err.Error())
+	}
+	return endVariable(dst, start), nil
+}
+
+func (d *Decoder) appendNumeric(dst []byte, raw jsontext.Value) ([]byte, error) {
 	if raw.Kind() == '"' {
 		if err := d.unquote(raw); err != nil {
 			return nil, err

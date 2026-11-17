@@ -332,12 +332,10 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 			fillColor = &v
 		}
 		return NodeConfig{Variant: ButtonNodeConfig{
-			LabeledConfig:  labeledConfig,
-			Size:           variant.Size,
-			CommandChannel: variant.CommandChannel,
-			Mode:           variant.Mode,
-			FillColor:      fillColor,
-			Control:        variant.Control,
+			LabeledConfig: labeledConfig,
+			Size:          variant.Size,
+			Mode:          variant.Mode,
+			FillColor:     fillColor,
 		}}, nil
 	case v12.CircleNodeConfig:
 		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
@@ -390,7 +388,6 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 			LabeledConfig:      labeledConfig,
 			NumericTelemConfig: numericTelemConfig,
 			StalenessConfig:    stalenessConfig,
-			Position:           variant.Position,
 			StrokeColor:        strokeColor,
 			Bounds:             variant.Bounds,
 			Location:           variant.Location,
@@ -418,12 +415,8 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 			LabeledConfig:   labeledConfig,
 			StalenessConfig: stalenessConfig,
 			Size:            variant.Size,
-			CommandChannel:  variant.CommandChannel,
-			StateChannel:    variant.StateChannel,
-			Dimensions:      variant.Dimensions,
 			FillColor:       fillColor,
 			Disabled:        variant.Disabled,
-			Control:         variant.Control,
 		}}, nil
 	case v12.LightNodeConfig:
 		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
@@ -454,7 +447,6 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 			LabeledConfig:   labeledConfig,
 			ScaledConfig:    variant.ScaledConfig,
 			StalenessConfig: stalenessConfig,
-			Channel:         variant.Channel,
 			Threshold:       variant.Threshold,
 			StrokeColor:     strokeColor,
 			OnColor:         onColor,
@@ -489,7 +481,6 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 		return NodeConfig{Variant: OffPageReferenceNodeConfig{
 			LabeledConfig: labeledConfig,
 			FillColor:     fillColor,
-			Page:          variant.Page,
 		}}, nil
 	case v12.PolygonNodeConfig:
 		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
@@ -545,12 +536,9 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 			LabeledConfig:   labeledConfig,
 			StalenessConfig: stalenessConfig,
 			Size:            variant.Size,
-			CommandChannel:  variant.CommandChannel,
-			StateChannel:    variant.StateChannel,
 			FillColor:       fillColor,
 			Options:         options,
 			Disabled:        variant.Disabled,
-			Control:         variant.Control,
 		}}, nil
 	case v12.ScaleNodeConfig:
 		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
@@ -564,7 +552,6 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 		return NodeConfig{Variant: ScaleNodeConfig{
 			LabeledConfig:        labeledConfig,
 			ScaleIndicatorConfig: scaleIndicatorConfig,
-			Position:             variant.Position,
 			Dimensions:           variant.Dimensions,
 		}}, nil
 	case v12.SetpointNodeConfig:
@@ -588,13 +575,9 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 			LabeledConfig:   labeledConfig,
 			StalenessConfig: stalenessConfig,
 			Size:            variant.Size,
-			CommandChannel:  variant.CommandChannel,
-			StateChannel:    variant.StateChannel,
-			Dimensions:      variant.Dimensions,
 			FillColor:       fillColor,
 			Units:           variant.Units,
 			Disabled:        variant.Disabled,
-			Control:         variant.Control,
 		}}, nil
 	case v12.StateIndicatorNodeConfig:
 		labeledConfig, err := MigrateLabeledConfig(ctx, variant.LabeledConfig)
@@ -622,7 +605,6 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 		return NodeConfig{Variant: StateIndicatorNodeConfig{
 			LabeledConfig:   labeledConfig,
 			StalenessConfig: stalenessConfig,
-			Channel:         variant.Channel,
 			StrokeColor:     strokeColor,
 			Options:         options,
 			Size:            variant.Size,
@@ -658,7 +640,6 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 			StrokeColor:     strokeColor,
 			TextColor:       textColor,
 			Tooltip:         variant.Tooltip,
-			Channel:         variant.Channel,
 			Level:           variant.Level,
 		}}, nil
 	case v12.SwitchNodeConfig:
@@ -735,7 +716,6 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 			LabeledConfig:      labeledConfig,
 			NumericTelemConfig: numericTelemConfig,
 			StalenessConfig:    stalenessConfig,
-			Position:           variant.Position,
 			StrokeColor:        strokeColor,
 			TextColor:          textColor,
 			FillColor:          fillColor,
@@ -1278,7 +1258,6 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 		}
 		return NodeConfig{Variant: TankNodeConfig{
 			LabeledConfig:  labeledConfig,
-			Channel:        variant.Channel,
 			Precision:      variant.Precision,
 			Notation:       variant.Notation,
 			StalenessColor: stalenessColor,
@@ -1290,11 +1269,9 @@ func autoMigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig,
 			LevelHidden:    variant.LevelHidden,
 			CaretSide:      variant.CaretSide,
 			Level:          variant.Level,
-			Position:       variant.Position,
 			StrokeColor:    strokeColor,
 			FillColor:      fillColor,
 			Dimensions:     variant.Dimensions,
-			BorderRadius:   variant.BorderRadius,
 			CaretVisible:   variant.CaretVisible,
 			ScaleVisible:   variant.ScaleVisible,
 			Side:           variant.Side,
@@ -1439,7 +1416,6 @@ func autoMigrateLabeledConfig(ctx context.Context, old v12.LabeledConfig) (Label
 
 func autoMigrateNumericTelemConfig(_ context.Context, old v12.NumericTelemConfig) (NumericTelemConfig, error) {
 	return NumericTelemConfig{
-		Channel:   old.Channel,
 		Precision: old.Precision,
 		Notation:  old.Notation,
 	}, nil
@@ -1561,9 +1537,6 @@ func autoMigrateToggleConfig(ctx context.Context, old v12.ToggleConfig) (ToggleC
 		LabeledConfig:   labeledConfig,
 		ScaledConfig:    old.ScaledConfig,
 		StalenessConfig: stalenessConfig,
-		StateChannel:    old.StateChannel,
-		CommandChannel:  old.CommandChannel,
-		Control:         old.Control,
 	}, nil
 }
 
