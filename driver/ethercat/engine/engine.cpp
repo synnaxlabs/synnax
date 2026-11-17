@@ -412,6 +412,9 @@ void Engine::run() {
     in_flight.reserve(master::MAX_FRAMES_IN_FLIGHT + 1);
     // Whether a frame is left to take before the next wait.
     bool taking = false;
+    // The newest DC time of the frames taken since the last wait. The timer shifts
+    // once a wait, since an older frame measured a phase that this shift corrects too.
+    std::optional<x::telem::TimeStamp> wake_dc;
     Clock clock;
     // The working counter falls short until the slaves reach OP.
     const auto shortfall = [this](const x::errors::Error &err) {
@@ -468,6 +471,7 @@ void Engine::run() {
                     phase.reset();
                 else
                     phase.emplace(sched->rate, syncs);
+                wake_dc.reset();
                 // Moves each reader's next sample to the first cycle at or after the
                 // time it was due.
                 if (prev > x::telem::Rate(0))
@@ -480,6 +484,15 @@ void Engine::run() {
             }
         }
         if (!taking) {
+            if (wake_dc && phase) {
+                timer.shift(phase->update(*wake_dc));
+                if (!this->starting.load(std::memory_order_acquire) && phase->lost() &&
+                    late_frames++ == 0)
+                    LOG(WARNING) << "[ethercat] cycles on " << this->iface
+                                 << " run late: a frame passed the reference clock "
+                                    "near a SYNC0 event";
+            }
+            wake_dc.reset();
             timer.wait();
             if (!this->bus.running()) break;
         }
@@ -539,13 +552,7 @@ void Engine::run() {
                            (dropped != nullptr && ref &&
                             std::ranges::find(*dropped, *ref) == dropped->end());
         const auto dc = timed ? this->master->dc_time() : std::nullopt;
-        if (dc && phase) {
-            timer.shift(phase->update(*dc));
-            if (!starting && phase->lost() && late_frames++ == 0)
-                LOG(WARNING) << "[ethercat] cycles on " << this->iface
-                             << " run late: a frame passed the reference clock near "
-                                "a SYNC0 event";
-        }
+        if (dc) wake_dc = dc;
         if (!err) {
             if (dc && host_timed) {
                 // The distributed clock can drift from the host times of the short
