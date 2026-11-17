@@ -22,17 +22,17 @@ import { getIconButton, queryIconButton, renderWithConsole } from "@/testutil";
 
 const path = deep.path<{ config: { channels: Channel[] } }>();
 
-const listItem = Component.renderProp(({ itemKey }: { itemKey: string }) => (
-  <span>item-{itemKey}</span>
-));
+const ListItem = ({ itemKey }: { itemKey: string }) => <span>item-{itemKey}</span>;
 
-const selectItem = Component.renderProp(
-  ({ itemKey, ...p }: Task.ChannelListItemProps) => (
-    <Select.Item itemKey={itemKey} {...p}>
-      item-{itemKey}
-    </Select.Item>
-  ),
+const listItem = Component.renderProp(ListItem);
+
+const SelectItem = ({ itemKey, ...p }: Task.ChannelListItemProps) => (
+  <Select.Item itemKey={itemKey} {...p}>
+    item-{itemKey}
+  </Select.Item>
 );
+
+const selectItem = Component.renderProp(SelectItem);
 
 const resolve = () => null;
 

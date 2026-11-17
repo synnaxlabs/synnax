@@ -68,7 +68,8 @@ class Finding:
 
 @dataclass(frozen=True, kw_only=True)
 class Dismissal:
-    """A finding that a member told the bot to stop reporting on a pull request."""
+    """A finding that someone with write access told the bot to stop reporting on a
+    pull request."""
 
     path: str
     title: str

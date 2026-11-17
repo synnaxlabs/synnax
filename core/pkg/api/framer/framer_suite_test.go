@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -93,6 +94,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel: svc.Channel,
 		RBAC:    svc.RBAC,
 		Records: svc.Signals.Records(),
+		Errors:  errors.NewCodec(),
 	}))
 	Expect(svc.User.NewRetrieve().
 		Where(user.MatchRootUser(true)).
@@ -114,17 +116,13 @@ func subjectCtx(ctx SpecContext, subject resource.ID) freighter.Context {
 	return fCtx
 }
 
-// createUserGranted creates a user that may take the action on the objects.
-func createUserGranted(
-	ctx SpecContext,
-	action access.Action,
-	objects ...resource.ID,
-) user.User {
+// createUserGranted creates a user that may retrieve the objects.
+func createUserGranted(ctx SpecContext, objects ...resource.ID) user.User {
 	GinkgoHelper()
 	u := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "api-framer-" + uuid.New().String(),
 	}))
-	actions := []access.Action{action}
+	actions := []access.Action{access.ActionRetrieve}
 	MustSucceed(
 		rbactestutil.Grant(ctx, db, rbacSvc, userSvc, u.Key, actions, objects...),
 	)

@@ -534,6 +534,14 @@ func (s *ScaledConfig) SetDefaults() {
 	s.Scale = 1
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScaledConfig) Validate() error {
+	v := validate.New("ScaledConfig")
+	v.GreaterThan("scale", s.Scale, 0)
+	return v.Error()
+}
+
 // StalenessConfig is the staleness detection shared by every symbol that reads a
 // channel.
 type StalenessConfig struct {
@@ -652,6 +660,7 @@ func (t *ToggleConfig) SetDefaults() {
 func (t ToggleConfig) Validate() error {
 	v := validate.New("ToggleConfig")
 	v.Exec(t.LabeledConfig.Validate)
+	v.Exec(t.ScaledConfig.Validate)
 	if t.Control != nil {
 		v.Exec(func() error { return validate.PathedError(t.Control.Validate(), "control") })
 	}
@@ -677,6 +686,7 @@ func (s *StaticSymbolConfig) SetDefaults() {
 func (s StaticSymbolConfig) Validate() error {
 	v := validate.New("StaticSymbolConfig")
 	v.Exec(s.LabeledConfig.Validate)
+	v.Exec(s.ScaledConfig.Validate)
 	return v.Error()
 }
 
@@ -726,6 +736,7 @@ func (d *DummyToggleSymbolConfig) SetDefaults() {
 func (d DummyToggleSymbolConfig) Validate() error {
 	v := validate.New("DummyToggleSymbolConfig")
 	v.Exec(d.LabeledConfig.Validate)
+	v.Exec(d.ScaledConfig.Validate)
 	return v.Error()
 }
 
@@ -1772,6 +1783,7 @@ func (l *LightNodeConfig) SetDefaults() {
 func (l LightNodeConfig) Validate() error {
 	v := validate.New("LightNodeConfig")
 	v.Exec(l.LabeledConfig.Validate)
+	v.Exec(l.ScaledConfig.Validate)
 	return v.Error()
 }
 
@@ -3258,6 +3270,7 @@ func (c *CylinderNodeConfig) SetDefaults() {
 func (c CylinderNodeConfig) Validate() error {
 	v := validate.New("CylinderNodeConfig")
 	v.Exec(c.LabeledConfig.Validate)
+	v.Exec(c.ScaledConfig.Validate)
 	return v.Error()
 }
 
@@ -3416,6 +3429,7 @@ func (c *CustomStaticNodeConfig) SetDefaults() {
 func (c CustomStaticNodeConfig) Validate() error {
 	v := validate.New("CustomStaticNodeConfig")
 	v.Exec(c.LabeledConfig.Validate)
+	v.Exec(c.ScaledConfig.Validate)
 	return v.Error()
 }
 
@@ -6223,6 +6237,7 @@ func (l *LightElementConfig) SetDefaults() {
 func (l LightElementConfig) Validate() error {
 	v := validate.New("LightElementConfig")
 	v.Exec(l.LabeledConfig.Validate)
+	v.Exec(l.ScaledConfig.Validate)
 	return v.Error()
 }
 
@@ -7709,6 +7724,7 @@ func (c *CylinderElementConfig) SetDefaults() {
 func (c CylinderElementConfig) Validate() error {
 	v := validate.New("CylinderElementConfig")
 	v.Exec(c.LabeledConfig.Validate)
+	v.Exec(c.ScaledConfig.Validate)
 	return v.Error()
 }
 
@@ -7867,6 +7883,7 @@ func (c *CustomStaticElementConfig) SetDefaults() {
 func (c CustomStaticElementConfig) Validate() error {
 	v := validate.New("CustomStaticElementConfig")
 	v.Exec(c.LabeledConfig.Validate)
+	v.Exec(c.ScaledConfig.Validate)
 	return v.Error()
 }
 

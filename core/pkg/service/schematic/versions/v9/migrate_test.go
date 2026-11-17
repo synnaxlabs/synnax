@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"math"
 	"os"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -129,14 +130,16 @@ var _ = Describe("Config typing", func() {
 		Entry("value",
 			msgpack.EncodedJSON{"variant": "value", "telem": pipeline(valueStream)},
 			func(v v9.ElementConfigVariant) {
-				cfg := v.(v9.ValueElementConfig)
+				cfg, ok := v.(v9.ValueElementConfig)
+				Expect(ok).To(BeTrue())
 				Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(7)))
 				Expect(cfg.RollingAverage).To(HaveValue(BeEquivalentTo(5)))
 			}),
 		Entry("gauge",
 			msgpack.EncodedJSON{"variant": "gauge", "telem": pipeline(valueStream)},
 			func(v v9.ElementConfigVariant) {
-				cfg := v.(v9.GaugeElementConfig)
+				cfg, ok := v.(v9.GaugeElementConfig)
+				Expect(ok).To(BeTrue())
 				Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(7)))
 				Expect(cfg.RollingAverage).To(HaveValue(BeEquivalentTo(5)))
 			}),
@@ -149,7 +152,8 @@ var _ = Describe("Config typing", func() {
 				}),
 			},
 			func(v v9.ElementConfigVariant) {
-				cfg := v.(v9.ValueElementConfig)
+				cfg, ok := v.(v9.ValueElementConfig)
+				Expect(ok).To(BeTrue())
 				Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(7)))
 				Expect(cfg.RollingAverage).To(HaveValue(BeEquivalentTo(2)))
 			}),
@@ -159,7 +163,8 @@ var _ = Describe("Config typing", func() {
 				"telem":   pipeline(valueStream),
 			},
 			func(v v9.ElementConfigVariant) {
-				cfg := v.(v9.StringDisplayElementConfig)
+				cfg, ok := v.(v9.StringDisplayElementConfig)
+				Expect(ok).To(BeTrue())
 				Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(7)))
 			}),
 		Entry("light", msgpack.EncodedJSON{
@@ -171,7 +176,8 @@ var _ = Describe("Config typing", func() {
 				},
 			}),
 		}, func(v v9.ElementConfigVariant) {
-			cfg := v.(v9.LightElementConfig)
+			cfg, ok := v.(v9.LightElementConfig)
+			Expect(ok).To(BeTrue())
 			Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(7)))
 			Expect(cfg.Threshold).To(
 				HaveValue(Equal(spatial.Bounds{Lower: 1, Upper: 2})),
@@ -183,7 +189,8 @@ var _ = Describe("Config typing", func() {
 				"source":  pipeline(valueStream),
 			},
 			func(v v9.ElementConfigVariant) {
-				cfg := v.(v9.StateIndicatorElementConfig)
+				cfg, ok := v.(v9.StateIndicatorElementConfig)
+				Expect(ok).To(BeTrue())
 				Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(7)))
 			}),
 		Entry("setpoint", msgpack.EncodedJSON{
@@ -191,19 +198,22 @@ var _ = Describe("Config typing", func() {
 			"source":  pipeline(valueStream),
 			"sink":    pipeline(setter),
 		}, func(v v9.ElementConfigVariant) {
-			cfg := v.(v9.SetpointElementConfig)
+			cfg, ok := v.(v9.SetpointElementConfig)
+			Expect(ok).To(BeTrue())
 			Expect(cfg.CommandChannel).To(HaveValue(BeEquivalentTo(8)))
 		}),
 		Entry("button",
 			msgpack.EncodedJSON{"variant": "button", "sink": pipeline(setter)},
 			func(v v9.ElementConfigVariant) {
-				cfg := v.(v9.ButtonElementConfig)
+				cfg, ok := v.(v9.ButtonElementConfig)
+				Expect(ok).To(BeTrue())
 				Expect(cfg.CommandChannel).To(HaveValue(BeEquivalentTo(8)))
 			}),
 		Entry("input",
 			msgpack.EncodedJSON{"variant": "input", "sink": pipeline(setter)},
 			func(v v9.ElementConfigVariant) {
-				cfg := v.(v9.InputElementConfig)
+				cfg, ok := v.(v9.InputElementConfig)
+				Expect(ok).To(BeTrue())
 				Expect(cfg.CommandChannel).To(HaveValue(BeEquivalentTo(8)))
 			}),
 		Entry("toggle", msgpack.EncodedJSON{
@@ -211,7 +221,8 @@ var _ = Describe("Config typing", func() {
 			"source":  pipeline(valueStream),
 			"sink":    pipeline(setter),
 		}, func(v v9.ElementConfigVariant) {
-			cfg := v.(v9.ValveElementConfig)
+			cfg, ok := v.(v9.ValveElementConfig)
+			Expect(ok).To(BeTrue())
 			Expect(cfg.StateChannel).To(HaveValue(BeEquivalentTo(7)))
 			Expect(cfg.CommandChannel).To(HaveValue(BeEquivalentTo(8)))
 		}),
@@ -219,7 +230,8 @@ var _ = Describe("Config typing", func() {
 			"variant":   "scale",
 			"indicator": map[string]any{"telem": pipeline(valueStream)},
 		}, func(v v9.ElementConfigVariant) {
-			cfg := v.(v9.ScaleElementConfig)
+			cfg, ok := v.(v9.ScaleElementConfig)
+			Expect(ok).To(BeTrue())
 			Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(7)))
 			Expect(cfg.RollingAverage).To(HaveValue(BeEquivalentTo(5)))
 		}),
@@ -227,7 +239,8 @@ var _ = Describe("Config typing", func() {
 			"variant": "tank",
 			"fill":    map[string]any{"telem": pipeline(valueStream)},
 		}, func(v v9.ElementConfigVariant) {
-			cfg := v.(v9.TankElementConfig)
+			cfg, ok := v.(v9.TankElementConfig)
+			Expect(ok).To(BeTrue())
 			Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(7)))
 			Expect(cfg.RollingAverage).To(HaveValue(BeEquivalentTo(5)))
 		}),
@@ -237,7 +250,8 @@ var _ = Describe("Config typing", func() {
 				"stringifier": {"precision": 4.0, "notation": "scientific"},
 			}),
 		}, func(v v9.ElementConfigVariant) {
-			cfg := v.(v9.ValueElementConfig)
+			cfg, ok := v.(v9.ValueElementConfig)
+			Expect(ok).To(BeTrue())
 			Expect(cfg.Precision).To(Equal(4.0))
 			Expect(cfg.Notation).To(BeEquivalentTo("scientific"))
 		}),
@@ -247,7 +261,8 @@ var _ = Describe("Config typing", func() {
 				"stringifier": {"precision": 0.0, "notation": "engineering"},
 			}),
 		}, func(v v9.ElementConfigVariant) {
-			cfg := v.(v9.GaugeElementConfig)
+			cfg, ok := v.(v9.GaugeElementConfig)
+			Expect(ok).To(BeTrue())
 			Expect(cfg.Precision).To(BeZero())
 			Expect(cfg.Notation).To(BeEquivalentTo("engineering"))
 		}),
@@ -259,7 +274,8 @@ var _ = Describe("Config typing", func() {
 				"showIndicator": false,
 			},
 		}, func(v v9.ElementConfigVariant) {
-			cfg := v.(v9.ValveElementConfig)
+			cfg, ok := v.(v9.ValveElementConfig)
+			Expect(ok).To(BeTrue())
 			Expect(cfg.Control).ToNot(BeNil())
 			Expect(cfg.Control.Hidden).To(BeTrue())
 			Expect(cfg.Control.ChipHidden).To(BeTrue())
@@ -274,7 +290,8 @@ var _ = Describe("Config typing", func() {
 				"indicator": map[string]any{},
 			},
 		}, func(v v9.ElementConfigVariant) {
-			cfg := v.(v9.ValveElementConfig)
+			cfg, ok := v.(v9.ValveElementConfig)
+			Expect(ok).To(BeTrue())
 			Expect(cfg.Control).ToNot(BeNil())
 			Expect(cfg.Control.Authority).To(HaveValue(BeEquivalentTo(200)))
 		}),
@@ -1044,7 +1061,7 @@ var _ = Describe("Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Schematic",
-			Migrations: append(chain, v9.Migration),
+			Migrations: slices.Concat(chain, []gorp.Migration{v9.Migration}),
 		})).To(Succeed())
 		var got v9.Schematic
 		Expect(gorp.NewRetrieve[v9.Key, v9.Schematic]().
@@ -1106,7 +1123,10 @@ var _ = Describe("ScaleMigration", func() {
 			Entry(&got).Exec(ctx, db)).To(Succeed())
 		scaleOf := func(key string) float64 {
 			GinkgoHelper()
-			return MustSucceed(v9.ElementConfigFields(got.Configs[key]))["scale"].(float64)
+			fields := MustSucceed(v9.ElementConfigFields(got.Configs[key]))
+			scale, ok := fields["scale"].(float64)
+			Expect(ok).To(BeTrue())
+			return scale
 		}
 		Expect(scaleOf("zero")).To(Equal(1.0))
 		Expect(scaleOf("negative")).To(Equal(1.0))
@@ -1143,8 +1163,9 @@ var _ = Describe("ScaleMigration", func() {
 			Expect(gorp.NewRetrieve[v9.Key, v9.Schematic]().
 				Where(gorp.MatchKeys[v9.Key, v9.Schematic](stored.Key)).
 				Entry(&got).Exec(ctx, db)).To(Succeed())
-			Expect(got.Configs["scale"].Variant.(v9.SwitchElementConfig).Scale).
-				To(Equal(1.0))
+			cfg, ok := got.Configs["scale"].Variant.(v9.SwitchElementConfig)
+			Expect(ok).To(BeTrue())
+			Expect(cfg.Scale).To(Equal(1.0))
 			Expect(DeepEqual(got.Configs["polygon"], stored.Configs["polygon"])).
 				To(BeTrue())
 		},

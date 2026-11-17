@@ -32,17 +32,15 @@ func newHTTPFramerCodec(
 	return framer.NewCodec(b.Context(), codec.NewStatic(keys, dts))
 }
 
-func httpBenchFrame(
-	numChannels, samples int,
-) (channel.Keys, []telem.DataType, framer.Frame) {
+func httpBenchFrame(numChannels int) (channel.Keys, []telem.DataType, framer.Frame) {
 	keys := make(channel.Keys, numChannels)
 	dts := make([]telem.DataType, numChannels)
 	for i := range numChannels {
 		keys[i] = channel.Key(i + 1)
 		dts[i] = telem.Float32T
 	}
-	data := make([]float32, samples)
-	for i := range samples {
+	data := make([]float32, 100)
+	for i := range data {
 		data[i] = float32(i)
 	}
 	series := make([]telem.Series, numChannels)
@@ -89,7 +87,7 @@ func httpIteratorFrame(
 func BenchmarkHTTPCodec_WriteRequest_Encode(b *testing.B) {
 	for _, nc := range []int{1, 8, 64} {
 		b.Run(fmt.Sprintf("channels=%d", nc), func(b *testing.B) {
-			keys, dts, fr := httpBenchFrame(nc, 100)
+			keys, dts, fr := httpBenchFrame(nc)
 			c := newHTTPFramerCodec(b, keys, dts)
 			msg := http.WSMessage[framer.WriterRequest]{
 				Type: "data",
@@ -113,7 +111,7 @@ func BenchmarkHTTPCodec_WriteRequest_Encode(b *testing.B) {
 func BenchmarkHTTPCodec_WriteRequest_Decode(b *testing.B) {
 	for _, nc := range []int{1, 8, 64} {
 		b.Run(fmt.Sprintf("channels=%d", nc), func(b *testing.B) {
-			keys, dts, fr := httpBenchFrame(nc, 100)
+			keys, dts, fr := httpBenchFrame(nc)
 			c := newHTTPFramerCodec(b, keys, dts)
 			msg := http.WSMessage[framer.WriterRequest]{
 				Type: "data",
@@ -141,7 +139,7 @@ func BenchmarkHTTPCodec_WriteRequest_Decode(b *testing.B) {
 func BenchmarkHTTPCodec_StreamerResponse_Encode(b *testing.B) {
 	for _, nc := range []int{1, 8, 64} {
 		b.Run(fmt.Sprintf("channels=%d", nc), func(b *testing.B) {
-			keys, dts, fr := httpBenchFrame(nc, 100)
+			keys, dts, fr := httpBenchFrame(nc)
 			c := newHTTPFramerCodec(b, keys, dts)
 			msg := http.WSMessage[framer.StreamerResponse]{
 				Type:    "data",
@@ -162,7 +160,7 @@ func BenchmarkHTTPCodec_StreamerResponse_Encode(b *testing.B) {
 func BenchmarkHTTPCodec_StreamerResponse_Decode(b *testing.B) {
 	for _, nc := range []int{1, 8, 64} {
 		b.Run(fmt.Sprintf("channels=%d", nc), func(b *testing.B) {
-			keys, dts, fr := httpBenchFrame(nc, 100)
+			keys, dts, fr := httpBenchFrame(nc)
 			c := newHTTPFramerCodec(b, keys, dts)
 			msg := http.WSMessage[framer.StreamerResponse]{
 				Type:    "data",

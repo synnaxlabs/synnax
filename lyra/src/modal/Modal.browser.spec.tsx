@@ -19,12 +19,15 @@ import { Nav } from "@/nav";
 import { computed, renderThemed } from "@/styletest";
 import { Triggers } from "@/triggers";
 
-const renderModal = async (body: ReactNode = "Body"): Promise<Element> => {
+const renderModal = async (
+  body: ReactNode = "Body",
+  header: ReactNode = <Modal.Header>Title</Modal.Header>,
+): Promise<Element> => {
   await renderThemed(
     <Triggers.Provider>
       <Dialog.Frame variant="modal" visible>
         <Modal.Frame>
-          <Modal.Header>Title</Modal.Header>
+          {header}
           <Modal.Body>{body}</Modal.Body>
           <Modal.Footer>
             <Nav.Bar.End>
@@ -67,5 +70,23 @@ describe("Modal", () => {
     const body = part(modal, "modal", "body");
     expect(body.scrollHeight).toBeGreaterThan(body.clientHeight);
     expect(computed(body, "overflow-y")).toBe("auto");
+  });
+
+  it("should keep the close button in the header when the badge is too wide", async () => {
+    await page.viewport(400, 600);
+    const badge = (
+      <span style={{ minWidth: 0, overflow: "hidden", whiteSpace: "nowrap" }}>
+        {"location ".repeat(40)}
+      </span>
+    );
+    const modal = await renderModal(
+      "Body",
+      <Modal.Header badge={badge}>Title</Modal.Header>,
+    );
+    const header = part(modal, "modal", "header");
+    const close = page.getByRole("button", { name: "Close" }).element();
+    expect(close.getBoundingClientRect().right).toBeLessThanOrEqual(
+      header.getBoundingClientRect().right,
+    );
   });
 });

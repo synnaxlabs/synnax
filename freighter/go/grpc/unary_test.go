@@ -42,6 +42,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 				RequestTranslator:  requestBackwardTranslator{},
 				ResponseTranslator: responseForwardTranslator{},
 				ServiceDesc:        &v1.TestUnaryService_ServiceDesc,
+				Errors:             errorCodec(),
 				Internal:           true,
 			}
 			uServer.BindTo(reg)
@@ -55,6 +56,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 				ResponseTranslator: responseTranslator{},
 				Pool:               pool,
 				ServiceDesc:        &v1.TestUnaryService_ServiceDesc,
+				Errors:             errorCodec(),
 				Exec: func(
 					ctx context.Context,
 					conn grpc.ClientConnInterface,

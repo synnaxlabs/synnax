@@ -26,8 +26,8 @@ type Factory interface {
 	// ConfigureTask should return ErrNotHandled if it does not handle the task type.
 	// cmdKey is the start command driving the deploy, NoCommand at boot. A factory
 	// returning any other error must first write a status carrying cmdKey: that
-	// status is what answers the caller waiting on the command. Given NoCommand
-	// there is no caller, so failures on tasks that do not auto-start are logged.
+	// status is what answers the caller waiting on the command. Given NoCommand, the
+	// status replaces the one stored by the last run.
 	ConfigureTask(ctx context.Context, t task.Task, cmdKey string) (Task, error)
 	// InitialTasks returns the internal tasks this factory needs on the driver's
 	// rack, such as a scan task. The driver creates each task whose type the rack

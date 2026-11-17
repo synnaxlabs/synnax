@@ -57,6 +57,9 @@ class NotificationsClient:
         """All visible notifications. Each notification carries role=status."""
         return self.page.get_by_role("status")
 
+    def _read(self) -> object:
+        return self._all().evaluate_all(_READ_JS)
+
     def check(
         self, *, timeout: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND
     ) -> list[sy.Status]:
@@ -74,9 +77,7 @@ class NotificationsClient:
         while timer.elapsed() < timeout_span:
             # One call reads every notification, so a toast that arrives mid-read cannot
             # shift the others.
-            notifications = _NOTIFICATIONS.validate_python(
-                self._all().evaluate_all(_READ_JS)
-            )
+            notifications = _NOTIFICATIONS.validate_python(self._read())
             if len(notifications) > 0:
                 return notifications
             sy.sleep(poll_interval)

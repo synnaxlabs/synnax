@@ -12,6 +12,7 @@ package json
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/samber/lo"
@@ -73,11 +74,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		unions := c.unions.Get(outputPath)
 
 		var filePath string
-		if len(structs) > 0 {
+		switch {
+		case len(structs) > 0:
 			filePath = structs[0].FilePath
-		} else if len(distinctTypes) > 0 {
+		case len(distinctTypes) > 0:
 			filePath = distinctTypes[0].FilePath
-		} else {
+		default:
 			filePath = unions[0].FilePath
 		}
 
@@ -204,7 +206,7 @@ func (p *Plugin) generateFile(
 		filePath:      filePath,
 	}
 
-	data.AddInternal(fmt.Sprintf("%s/types.gen.h", outputPath))
+	data.AddInternal(outputPath + "/types.gen.h")
 	data.AddInternal("x/cpp/json/json.h")
 
 	for _, s := range structs {
@@ -244,7 +246,10 @@ func (p *Plugin) processArrayWrapper(
 	if !serializesArray(dt, data.table) {
 		return nil
 	}
-	base, _ := arrays.Wrapped(dt.Form.(resolution.DistinctForm), data.table)
+	base, _ := arrays.Wrapped(
+		resolution.MustForm[resolution.DistinctForm](dt),
+		data.table,
+	)
 	var arraySize int64
 	if base.ArraySize != nil {
 		arraySize = *base.ArraySize
@@ -966,6 +971,11 @@ func (p *Plugin) compositeFallback(
 	switch field.Default.Kind {
 	case resolution.ValueKindStruct, resolution.ValueKindArray:
 		return cppType + p.defaultRenderer(data).Literal(field.Type, *field.Default)
+	case resolution.ValueKindString,
+		resolution.ValueKindInt,
+		resolution.ValueKindFloat,
+		resolution.ValueKindBool,
+		resolution.ValueKindIdent:
 	}
 	return ""
 }
@@ -1316,6 +1326,10 @@ func isScalarDefault(val *resolution.ExpressionValue) bool {
 		resolution.ValueKindInt,
 		resolution.ValueKindFloat:
 		return true
+	case resolution.ValueKindBool,
+		resolution.ValueKindIdent,
+		resolution.ValueKindArray,
+		resolution.ValueKindStruct:
 	}
 	return false
 }
@@ -1333,11 +1347,11 @@ func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string 
 	case resolution.ValueKindString:
 		return fmt.Sprintf("%q", v.StringValue)
 	case resolution.ValueKindInt:
-		return fmt.Sprintf("%d", v.IntValue)
+		return strconv.FormatInt(v.IntValue, 10)
 	case resolution.ValueKindFloat:
 		return fmt.Sprintf("%f", v.FloatValue)
 	case resolution.ValueKindBool:
-		return fmt.Sprintf("%t", v.BoolValue)
+		return strconv.FormatBool(v.BoolValue)
 	case resolution.ValueKindStruct:
 		if len(v.Fields) == 0 && field.Type.Name == "record" {
 			return "x::json::json::object_t{}"
@@ -1377,6 +1391,8 @@ func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string 
 			return "x::telem::TimeStamp::now()"
 		}
 		// Other unresolvable idents have no C++ rendering; the field stays required.
+		return ""
+	case resolution.ValueKindArray:
 		return ""
 	}
 	return ""

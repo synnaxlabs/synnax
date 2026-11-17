@@ -222,6 +222,29 @@ var _ = Describe("ResolveNodeTypes", func() {
 		Entry("str into f64", types.String(), types.F64()),
 	)
 
+	It("Should hint a comparison for a numeric edge into a bool input", func() {
+		nodes := ir.Nodes{
+			{
+				Key:     "source",
+				Type:    "on",
+				Outputs: types.Params{{Name: "output", Type: types.U8()}},
+			},
+			{
+				Key:    "gate",
+				Type:   "select",
+				Inputs: types.Params{{Name: "output", Type: types.Bool()}},
+			},
+		}
+		edges := ir.Edges{{
+			Source: ir.Handle{Node: "source", Param: "output"},
+			Target: ir.Handle{Node: "gate", Param: "output"},
+		}}
+		Expect(analyzer.ResolveNodeTypes(nodes, edges, cs, diag)).To(BeFalse())
+		Expect(diag.String()).To(ContainSubstring(
+			"note: hint: compare the value to get a bool, such as value != 0",
+		))
+	})
+
 	DescribeTable("Should describe the edge when a resolved type variable mismatches",
 		func(src types.Type) {
 			nodes := ir.Nodes{

@@ -266,6 +266,14 @@ when most types need it, declare it file-level and omit the exceptions.
   `@go wire omit` keeps it out of JSON and msgpack (`json:"-" msgpack:"-"`), so the API
   can return a stored record without a secret. Both are version-owned.
 
+## Protobuf field numbers
+
+A message numbers its fields by position. To change a field's wire type, give it a new
+number with `@pb number N` and reserve the old one with `@pb reserved N` on the struct
+or inline union variant, so old and new readers skip each other's field. One
+`@pb reserved` line lists every reserved number. A number two fields share, or a field
+on a reserved number, fails generation.
+
 ## Path actions
 
 `@patch` marks a field of a document (a struct with `action Set = patch.Set`) that path

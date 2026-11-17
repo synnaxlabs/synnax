@@ -43,6 +43,31 @@ public:
 };
 }}
 
+namespace driver::ethercat::testutil { namespace {
+class MasterTest : public ::testing::Test {
+protected:
+    Bus bus;
+    x::breaker::Breaker brk;
+
+    void SetUp() override { this->brk.start(); }
+
+    void TearDown() override { this->brk.stop(); }
+};
+
+/// @brief it should leave a slave that leaves OP after the latest check, since a
+/// recovery acts on the states that check() read.
+TEST_F(MasterTest, RecoverLeavesASlaveThatLeftOPAfterTheLatestCheck) {
+    this->bus.add_slave();
+    auto &master = this->bus.master();
+    master.check(this->brk);
+    master.recover(this->brk);
+    ASSERT_EQ(master.check(this->brk).at(0).state, slave::State::OP);
+    master.set_slave_state(1, slave::State::INIT);
+    master.recover(this->brk);
+    EXPECT_EQ(master.check(this->brk).at(0).state, slave::State::INIT);
+}
+}}
+
 namespace driver::ethercat::master::contract {
 INSTANTIATE_TYPED_TEST_SUITE_P(Fake, Contract, testutil::Bus);
 }

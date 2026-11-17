@@ -11,6 +11,7 @@ package testutil_test
 
 import (
 	"context"
+	"io"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -94,7 +95,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				}
 			}()
 			Expect(stream.Receive()).Error().To(MatchError("handler failed"))
-			Eventually(sent).Should(Receive(MatchError(freighter.EOF)))
+			Eventually(sent).Should(Receive(MatchError(io.EOF)))
 		}
 	})
 
@@ -120,7 +121,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		})
 		stream := MustSucceed(dialer.Stream(ctx, "localhost:0"))
 		Eventually(values).Should(Receive(Equal("value")))
-		Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+		Expect(stream.Receive()).Error().To(MatchError(io.EOF))
 	})
 
 	It("Should unblock a parked handler and tell the peer why when middleware cancels",

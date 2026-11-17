@@ -40,14 +40,14 @@ type Config struct {
 	Level alamos.Environment
 }
 
-// Validate implements config.Config
+// Validate implements config.Config.
 func (cfg Config) Validate() error {
 	v := validate.New("falamos.config")
 	v.NotNil("instrumentation", cfg.Instrumentation)
 	return v.Error()
 }
 
-// Override implements config.Config
+// Override implements config.Config.
 func (cfg Config) Override(other Config) Config {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.EnablePropagation = override.Nil(cfg.EnableLogging, other.EnableLogging)
@@ -58,17 +58,15 @@ func (cfg Config) Override(other Config) Config {
 
 var _ config.Config[Config] = Config{}
 
-var defaultConfig = Config{
-	Level:             alamos.EnvironmentProd,
-	EnableTracing:     new(true),
-	EnablePropagation: new(true),
-	EnableLogging:     new(true),
-}
-
 // Middleware adds traces and logs to incoming and outgoing requests and ensures
 // that they are propagated across the network.
 func Middleware(configs ...Config) (freighter.Middleware, error) {
-	cfg, err := config.New(defaultConfig, configs...)
+	cfg, err := config.New(Config{
+		Level:             alamos.EnvironmentProd,
+		EnableTracing:     new(true),
+		EnablePropagation: new(true),
+		EnableLogging:     new(true),
+	}, configs...)
 	if err != nil {
 		return nil, err
 	}

@@ -14,6 +14,7 @@ import (
 	"bytes"
 	"io"
 	"strings"
+	"testing/iotest"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,6 +42,23 @@ func write(entries ...[2]string) []byte {
 	return buf.Bytes()
 }
 
+// writeRaw writes one entry whose stored bytes, method, and checksum are given as is.
+func writeRaw(method uint16, crc uint32, contents string) []byte {
+	GinkgoHelper()
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	f := MustSucceed(zw.CreateRaw(&zip.FileHeader{
+		Name:               "valve.json",
+		Method:             method,
+		CRC32:              crc,
+		CompressedSize64:   uint64(len(contents)),
+		UncompressedSize64: uint64(len(contents)),
+	}))
+	MustSucceed(f.Write([]byte(contents)))
+	Expect(zw.Close()).To(Succeed())
+	return buf.Bytes()
+}
+
 // read unpacks b into the file map it was encoded from.
 func read(b []byte) xzip.Files {
 	GinkgoHelper()
@@ -60,32 +78,30 @@ var _ = Describe("Codec", func() {
 		})
 	})
 	Describe("Encode", func() {
-		It("Should encode every file into a readable archive", func(ctx SpecContext) {
+		It("Should encode every file into a readable archive", func() {
 			files := xzip.Files{
 				"manifest.json": []byte(`{"version":2}`),
 				"valve.json":    []byte(`{"name":"valve"}`),
 			}
 			Expect(read(MustSucceed(xzip.Codec.Encode(files)))).To(Equal(files))
 		})
-		It("Should encode an empty file map into an empty archive", func(
-			ctx SpecContext,
-		) {
+		It("Should encode an empty file map into an empty archive", func() {
 			Expect(
 				read(MustSucceed(xzip.Codec.Encode(xzip.Files{}))),
 			).To(BeEmpty())
 		})
-		It("Should preserve an empty file's contents", func(ctx SpecContext) {
+		It("Should preserve an empty file's contents", func() {
 			b := MustSucceed(xzip.Codec.Encode(xzip.Files{"empty.json": {}}))
 			Expect(read(b)).To(HaveKeyWithValue("empty.json", BeEmpty()))
 		})
-		It("Should encode equal file maps to equal bytes", func(ctx SpecContext) {
+		It("Should encode equal file maps to equal bytes", func() {
 			first := xzip.Files{"a.json": []byte("1"), "b.json": []byte("2")}
 			second := xzip.Files{"b.json": []byte("2"), "a.json": []byte("1")}
 			Expect(xzip.Codec.Encode(first)).
 				To(Equal(MustSucceed(xzip.Codec.Encode(second))))
 		})
 		DescribeTable("Should reject a value that is not a file map",
-			func(ctx SpecContext, value any) {
+			func(value any) {
 				Expect(xzip.Codec.Encode(value)).Error().
 					To(MatchError(ContainSubstring("failed to encode")))
 			},
@@ -93,7 +109,7 @@ var _ = Describe("Codec", func() {
 			Entry("a string map", map[string]string{"a.json": "1"}),
 			Entry("a byte slice", []byte("valve")),
 		)
-		It("Should encode nested entry paths", func(ctx SpecContext) {
+		It("Should encode nested entry paths", func() {
 			files := xzip.Files{
 				"manifest.json":                  []byte(`{"version":1}`),
 				"propulsion/pressurization.json": []byte(`{"name":"press"}`),
@@ -102,7 +118,7 @@ var _ = Describe("Codec", func() {
 			Expect(read(MustSucceed(xzip.Codec.Encode(files)))).To(Equal(files))
 		})
 		DescribeTable("Should reject an invalid entry name",
-			func(ctx SpecContext, name, reason string) {
+			func(name, reason string) {
 				Expect(xzip.Codec.Encode(xzip.Files{name: []byte("1")})).Error().
 					To(SatisfyAll(
 						MatchError(validate.ErrValidation),
@@ -125,20 +141,18 @@ var _ = Describe("Codec", func() {
 		)
 	})
 	Describe("EncodeStream", func() {
-		It("Should write the archive to the writer", func(ctx SpecContext) {
+		It("Should write the archive to the writer", func() {
 			files := xzip.Files{"valve.json": []byte(`{"name":"valve"}`)}
 			var buf bytes.Buffer
 			Expect(xzip.Codec.EncodeStream(&buf, files)).To(Succeed())
 			Expect(read(buf.Bytes())).To(Equal(files))
 		})
-		It("Should reject a value that is not a file map", func(ctx SpecContext) {
+		It("Should reject a value that is not a file map", func() {
 			var buf bytes.Buffer
 			Expect(xzip.Codec.EncodeStream(&buf, "valve")).
 				To(MatchError(ContainSubstring("failed to encode")))
 		})
-		It("Should write nothing when an entry name is invalid", func(
-			ctx SpecContext,
-		) {
+		It("Should write nothing when an entry name is invalid", func() {
 			files := xzip.Files{"a.json": []byte("1"), `nested\b.json`: []byte("2")}
 			var buf bytes.Buffer
 			Expect(xzip.Codec.EncodeStream(&buf, files)).
@@ -147,7 +161,7 @@ var _ = Describe("Codec", func() {
 		})
 	})
 	Describe("Decode", func() {
-		It("Should decode every entry into the file map", func(ctx SpecContext) {
+		It("Should decode every entry into the file map", func() {
 			files := xzip.Files{
 				"manifest.json": []byte(`{"version":2}`),
 				"valve.json":    []byte(`{"name":"valve"}`),
@@ -158,16 +172,14 @@ var _ = Describe("Codec", func() {
 			)).To(Succeed())
 			Expect(decoded).To(Equal(files))
 		})
-		It("Should decode an empty archive into an empty file map", func(
-			ctx SpecContext,
-		) {
+		It("Should decode an empty archive into an empty file map", func() {
 			var decoded xzip.Files
 			Expect(xzip.Codec.Decode(
 				MustSucceed(xzip.Codec.Encode(xzip.Files{})), &decoded,
 			)).To(Succeed())
 			Expect(decoded).To(BeEmpty())
 		})
-		It("Should preserve an empty file's contents", func(ctx SpecContext) {
+		It("Should preserve an empty file's contents", func() {
 			var decoded xzip.Files
 			Expect(xzip.Codec.Decode(
 				MustSucceed(xzip.Codec.Encode(xzip.Files{"empty.json": {}})),
@@ -175,22 +187,29 @@ var _ = Describe("Codec", func() {
 			)).To(Succeed())
 			Expect(decoded).To(HaveKeyWithValue("empty.json", BeEmpty()))
 		})
-		It("Should reject a value that is not a file map pointer", func(
-			ctx SpecContext,
-		) {
+		It("Should reject a value that is not a file map pointer", func() {
 			b := write([2]string{"valve.json", "1"})
 			var wrong map[string]string
 			Expect(xzip.Codec.Decode(b, &wrong)).
 				To(MatchError(ContainSubstring("failed to decode")))
 		})
-		It("Should reject bytes that are not a zip archive", func(ctx SpecContext) {
+		It("Should reject bytes that are not a zip archive", func() {
 			var decoded xzip.Files
 			Expect(xzip.Codec.Decode([]byte("not a zip"), &decoded)).
 				To(MatchError(ContainSubstring("failed to decode")))
 		})
-		It("Should reject an archive that repeats an entry name", func(
-			ctx SpecContext,
-		) {
+		It("Should reject an entry with an unknown compression method", func() {
+			var decoded xzip.Files
+			Expect(xzip.Codec.Decode(writeRaw(99, 0, "1"), &decoded)).To(MatchError(
+				"failed to decode map[string][]uint8: zip: unsupported compression algorithm",
+			))
+		})
+		It("Should reject an entry whose checksum does not match", func() {
+			var decoded xzip.Files
+			Expect(xzip.Codec.Decode(writeRaw(zip.Store, 1, "1"), &decoded)).
+				To(MatchError("failed to decode map[string][]uint8: zip: checksum error"))
+		})
+		It("Should reject an archive that repeats an entry name", func() {
 			b := write([2]string{"valve.json", "1"}, [2]string{"valve.json", "2"})
 			var decoded xzip.Files
 			Expect(xzip.Codec.Decode(b, &decoded)).To(SatisfyAll(
@@ -199,7 +218,7 @@ var _ = Describe("Codec", func() {
 			))
 		})
 		DescribeTable("Should reject an invalid entry name",
-			func(ctx SpecContext, name, reason string) {
+			func(name, reason string) {
 				var decoded xzip.Files
 				Expect(xzip.Codec.Decode(write([2]string{name, "1"}), &decoded)).
 					To(SatisfyAll(
@@ -211,9 +230,7 @@ var _ = Describe("Codec", func() {
 			Entry("a backslash", `nested\valve.json`, "holds a backslash"),
 			Entry("the parent directory", "..", "not a valid relative path"),
 		)
-		It("Should reject a parent segment beside a root entry", func(
-			ctx SpecContext,
-		) {
+		It("Should reject a parent segment beside a root entry", func() {
 			b := write(
 				[2]string{"nested/../valve.json", "1"},
 				[2]string{"other.json", "2"},
@@ -224,7 +241,7 @@ var _ = Describe("Codec", func() {
 				MatchError(ContainSubstring("not a valid relative path")),
 			))
 		})
-		It("Should decode a nested entry beside a root entry", func(ctx SpecContext) {
+		It("Should decode a nested entry beside a root entry", func() {
 			b := write([2]string{"a.json", "1"}, [2]string{"nested/b.json", "2"})
 			var decoded xzip.Files
 			Expect(xzip.Codec.Decode(b, &decoded)).To(Succeed())
@@ -233,7 +250,7 @@ var _ = Describe("Codec", func() {
 				"nested/b.json": []byte("2"),
 			}))
 		})
-		It("Should unwrap a root directory all entries share", func(ctx SpecContext) {
+		It("Should unwrap a root directory all entries share", func() {
 			b := write(
 				[2]string{"grp/", ""},
 				[2]string{"grp/manifest.json", `{"version":2}`},
@@ -249,13 +266,13 @@ var _ = Describe("Codec", func() {
 				"valve.json":    []byte(`{"name":"valve"}`),
 			}))
 		})
-		It("Should unwrap nested shared root directories", func(ctx SpecContext) {
+		It("Should unwrap nested shared root directories", func() {
 			b := write([2]string{"outer/inner/valve.json", "1"})
 			var decoded xzip.Files
 			Expect(xzip.Codec.Decode(b, &decoded)).To(Succeed())
 			Expect(decoded).To(HaveKeyWithValue("valve.json", []byte("1")))
 		})
-		It("Should skip macOS metadata beside root entries", func(ctx SpecContext) {
+		It("Should skip macOS metadata beside root entries", func() {
 			b := write(
 				[2]string{"valve.json", "1"},
 				[2]string{".DS_Store", "junk"},
@@ -265,9 +282,7 @@ var _ = Describe("Codec", func() {
 			Expect(xzip.Codec.Decode(b, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(xzip.Files{"valve.json": []byte("1")}))
 		})
-		It("Should reject contents decompressing past the cap", func(
-			ctx SpecContext,
-		) {
+		It("Should reject contents decompressing past the cap", func() {
 			// Two half-budget entries plus one byte: small compressed, over the cap
 			// decompressed, and neither entry alone crosses it.
 			half := strings.Repeat("0", maxDecodedSize/2)
@@ -278,13 +293,13 @@ var _ = Describe("Codec", func() {
 				MatchError(ContainSubstring("decompress past")),
 			))
 		})
-		It("Should decode contents exactly at the cap", func(ctx SpecContext) {
+		It("Should decode contents exactly at the cap", func() {
 			b := write([2]string{"a.json", strings.Repeat("0", maxDecodedSize)})
 			var decoded xzip.Files
 			Expect(xzip.Codec.Decode(b, &decoded)).To(Succeed())
 			Expect(decoded["a.json"]).To(HaveLen(maxDecodedSize))
 		})
-		It("Should skip a directory entry", func(ctx SpecContext) {
+		It("Should skip a directory entry", func() {
 			b := write([2]string{"nested/", ""}, [2]string{"valve.json", "1"})
 			var decoded xzip.Files
 			Expect(xzip.Codec.Decode(b, &decoded)).To(Succeed())
@@ -292,7 +307,7 @@ var _ = Describe("Codec", func() {
 		})
 	})
 	Describe("DecodeStream", func() {
-		It("Should decode the archive from the reader", func(ctx SpecContext) {
+		It("Should decode the archive from the reader", func() {
 			files := xzip.Files{"valve.json": []byte(`{"name":"valve"}`)}
 			var decoded xzip.Files
 			Expect(xzip.Codec.DecodeStream(
@@ -300,6 +315,13 @@ var _ = Describe("Codec", func() {
 				&decoded,
 			)).To(Succeed())
 			Expect(decoded).To(Equal(files))
+		})
+		It("Should return the error of the reader", func() {
+			var decoded xzip.Files
+			Expect(
+				xzip.Codec.DecodeStream(iotest.ErrReader(io.ErrClosedPipe), &decoded),
+			).
+				To(MatchError(io.ErrClosedPipe))
 		})
 	})
 })

@@ -290,35 +290,10 @@ func (t *table) readField(row int, cells []string) (BinaryField, error) {
 	if f.Name == "" {
 		return BinaryField{}, rowErrorf(row, columnField, "is required")
 	}
-	startBit, err := t.uint(row, cells, columnStartBit, 16)
+	var err error
+	f.StartBit, f.BitLength, f.ByteOrder, err = t.readLayout(row, cells)
 	if err != nil {
 		return BinaryField{}, err
-	}
-	bitLength, err := t.uint(row, cells, columnBitLength, 8)
-	if err != nil {
-		return BinaryField{}, err
-	}
-	if bitLength < 1 || bitLength > maxBitLength {
-		return BinaryField{}, rowErrorf(
-			row,
-			columnBitLength,
-			"%d is not 1 to %d",
-			bitLength,
-			maxBitLength,
-		)
-	}
-	f.StartBit, f.BitLength = uint16(startBit), uint8(bitLength)
-	switch s := strings.ToLower(t.cell(cells, columnByteOrder)); s {
-	case "", "little_endian", "intel":
-	case "big_endian", "motorola":
-		f.ByteOrder = ByteOrderBigEndian
-	default:
-		return BinaryField{}, rowErrorf(
-			row,
-			columnByteOrder,
-			"invalid byte order %q",
-			s,
-		)
 	}
 	if s := t.cell(cells, columnSigned); s != "" {
 		if f.Signed, err = parseBool(row, columnSigned, s); err != nil {
@@ -351,6 +326,45 @@ func (t *table) readField(row int, cells []string) (BinaryField, error) {
 		return BinaryField{}, err
 	}
 	return f, nil
+}
+
+// readLayout returns the start bit, the bit length, and the byte order of the field
+// in a row.
+func (t *table) readLayout(
+	row int,
+	cells []string,
+) (startBit uint16, bitLength uint8, order ByteOrder, err error) {
+	start, err := t.uint(row, cells, columnStartBit, 16)
+	if err != nil {
+		return 0, 0, "", err
+	}
+	length, err := t.uint(row, cells, columnBitLength, 8)
+	if err != nil {
+		return 0, 0, "", err
+	}
+	if length < 1 || length > maxBitLength {
+		return 0, 0, "", rowErrorf(
+			row,
+			columnBitLength,
+			"%d is not 1 to %d",
+			length,
+			maxBitLength,
+		)
+	}
+	order = ByteOrderLittleEndian
+	switch s := strings.ToLower(t.cell(cells, columnByteOrder)); s {
+	case "", "little_endian", "intel":
+	case "big_endian", "motorola":
+		order = ByteOrderBigEndian
+	default:
+		return 0, 0, "", rowErrorf(
+			row,
+			columnByteOrder,
+			"invalid byte order %q",
+			s,
+		)
+	}
+	return uint16(start), uint8(length), order, nil
 }
 
 // number returns the finite number in the named column, or nil when the cell is empty.

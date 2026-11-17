@@ -1613,7 +1613,7 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 			defer func() { Expect(table.Close()).To(Succeed()) }()
 
 			keys := MustSucceed(toIdx.Get(ctx, nil, "x"))
-			asStrings := []string{string(keys[0]), string(keys[1])}
+			asStrings := []string{keys[0], keys[1]}
 			Expect(asStrings).To(ConsistOf("a->x", "c->x"))
 			Expect(toIdx.Get(ctx, nil, "y")).To(HaveLen(1))
 			Expect(toIdx.Get(ctx, nil, "missing")).To(BeEmpty())
@@ -1635,7 +1635,7 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 				Exec(ctx, idxDB)).To(Succeed())
 			keys := MustSucceed(toIdx.Get(ctx, nil, "x"))
 			Expect(keys).To(HaveLen(1))
-			Expect(string(keys[0])).To(Equal("a->x"))
+			Expect(keys[0]).To(Equal("a->x"))
 		})
 
 		It("Should remove entries from the index on delete", func(ctx SpecContext) {
@@ -1764,7 +1764,7 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 
 				keys := MustSucceed(toIdx.Get(ctx, nil, "x"))
 				Expect(keys).To(HaveLen(1))
-				Expect(string(keys[0])).To(Equal("a->x"))
+				Expect(keys[0]).To(Equal("a->x"))
 			},
 		)
 
@@ -1777,11 +1777,7 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 			Expect(tx.Close()).To(Succeed())
 
 			keys := MustSucceed(toIdx.Get(ctx, nil, "x"))
-			asStrings := make([]string, len(keys))
-			for i, k := range keys {
-				asStrings[i] = string(k)
-			}
-			Expect(asStrings).To(ConsistOf("a->x", "q->x"))
+			Expect(keys).To(ConsistOf("a->x", "q->x"))
 		})
 
 		// A graph walk that writes an edge and then filters on it in the same tx, such

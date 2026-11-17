@@ -13,7 +13,7 @@ import pytest
 import synnax as sy
 
 from common import BUSY, IDLE, OFFLINE, RECOMMAND_DELAY, Channels, channel_name
-from conftest import Client, Writer, core
+from conftest import Client, Writer
 from gate import Gate
 from log import Log
 from publisher import OPEN_LEEWAY
@@ -32,16 +32,16 @@ def instance(state: str) -> dict:
 
 
 def scaler(client: Client, *, cooldown: sy.TimeSpan = NO_COOLDOWN) -> Scaler:
-    channels = Channels(client=core(client), enabled=False)
+    channels = Channels(client=client, enabled=False)
     return Scaler(
-        client=core(client),
+        client=client,
         cooldown=cooldown,
         boot_grace=sy.TimeSpan.MINUTE * 2,
-        log=Log(client=core(client), channels=channels, channel="log"),
+        log=Log(client=client, channels=channels, channel="log"),
         gate=Gate(
-            client=core(client),
+            client=client,
             channels=channels,
-            log=Log(client=core(client), channels=channels, channel="gh_log"),
+            log=Log(client=client, channels=channels, channel="gh_log"),
         ),
     )
 

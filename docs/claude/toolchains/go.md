@@ -29,8 +29,11 @@ golangci-lint built-in formatters (gofmt, gofumpt, gci, goimports, golines, swag
 configured in the root `.golangci.yaml`), 88-char lines, standard Go idioms. Imports
 grouped: stdlib, then all others (gci). Format with `golangci-lint fmt` in the module,
 check with `golangci-lint fmt --diff`. `golangci-lint run` (CI) also fails on
-unformatted files. CI lints each module for both `GOOS=linux` and `GOOS=windows`, so
-reproduce a Windows-only failure with `GOOS=windows CGO_ENABLED=0 golangci-lint run`.
+unformatted files. Pull request CI lints only for `GOOS=linux`, and the nightly run also
+lints for Windows and macOS. Reproduce a Windows-only failure with
+`GOOS=windows CGO_ENABLED=0 golangci-lint run`. A plain run reports only lines changed
+since the merge base with `origin/main`. CI lints the whole module with
+`--new-from-merge-base=` for all but the complexity linters.
 
 ## Packages & naming
 
@@ -72,8 +75,8 @@ and third-party error packages. Use `errors.New(msg)`, `errors.Newf(format, ...)
 If callers (including tests) will branch on an error condition, represent it as an
 exported package-level `var Err<Condition>` — never a one-off `errors.New` that forces
 substring matching. **Reuse existing sentinels first** by wrapping them
-(`query.ErrNotFound`, `validate.ErrValidation`, `freighter.EOF`) — this keeps
-`errors.Is` matching for both the specific and general shape:
+(`query.ErrNotFound`, `validate.ErrValidation`, `freighter.ErrStreamClosed`) — this
+keeps `errors.Is` matching for both the specific and general shape:
 
 ```go
 var ErrNotFound = errors.Wrap(query.ErrNotFound, "channel not found")
@@ -99,9 +102,9 @@ return v.Error()
 ```
 
 This generalizes: wrap the best-fitting existing general-purpose error
-(`validate.ErrValidation`, `query.ErrNotFound`, `freighter.EOF`, ...) instead of a fresh
-one-off. Introduce a new error type only when none fits, and justify it in conversation,
-not a comment.
+(`validate.ErrValidation`, `query.ErrNotFound`, `freighter.ErrStreamClosed`, ...)
+instead of a fresh one-off. Introduce a new error type only when none fits, and justify
+it in conversation, not a comment.
 
 ### Rule 5: No throwaway debug scripts
 
