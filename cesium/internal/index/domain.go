@@ -32,7 +32,8 @@ type Domain struct {
 	Channel channel.Channel
 }
 
-var sampleDensity = telem.TimestampT.Density()
+// sampleDensity is the density of telem.TimestampT.
+const sampleDensity = telem.Bit64
 
 func sampleCount(size telem.Size) int64 {
 	return sampleDensity.SampleCount(size)

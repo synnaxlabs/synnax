@@ -1509,9 +1509,9 @@ Node union on variant {
 				Expect(form.Extends).To(HaveLen(2))
 				Expect(form.IsIntEnum).To(BeFalse())
 				Expect(form.Values).To(HaveLen(4))
-				var names []string
-				for _, v := range form.Values {
-					names = append(names, v.Name)
+				names := make([]string, len(form.Values))
+				for i, v := range form.Values {
+					names[i] = v.Name
 				}
 				Expect(names).To(Equal([]string{"x1", "x2", "y1", "y2"}))
 				Expect(form.Values[2].StringValue()).To(Equal("y1"))
@@ -1634,9 +1634,9 @@ Node union on variant {
 				Expect(diag.Ok()).To(BeTrue())
 				form, ok := table.MustGet("x.Diamond").Form.(resolution.EnumForm)
 				Expect(ok).To(BeTrue())
-				var names []string
-				for _, v := range form.Values {
-					names = append(names, v.Name)
+				names := make([]string, len(form.Values))
+				for i, v := range form.Values {
+					names[i] = v.Name
 				}
 				// Base contributed once through each branch but is de-duplicated.
 				Expect(names).To(Equal([]string{"b", "l", "r"}))
@@ -1653,9 +1653,9 @@ Node union on variant {
 			Expect(diag.Ok()).To(BeTrue())
 			form, ok := table.MustGet("x.A").Form.(resolution.EnumForm)
 			Expect(ok).To(BeTrue())
-			var names []string
-			for _, v := range form.Values {
-				names = append(names, v.Name)
+			names := make([]string, len(form.Values))
+			for i, v := range form.Values {
+				names[i] = v.Name
 			}
 			Expect(names).To(Equal([]string{"c", "b", "a"}))
 		})
@@ -2585,7 +2585,8 @@ Node union on variant {
 			`
 			table, diag := Analyze(source, "test", loader)
 			Expect(table).To(BeNil())
-			Expect(diag.Flat().Errors()).To(HaveExactElements(
+			flat := diag.Flat()
+			Expect(flat.Errors()).To(HaveExactElements(
 				HaveField("Message", "struct Self cannot extend itself"),
 			))
 		})
@@ -3750,9 +3751,10 @@ Node union on variant {
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 				form, ok := table.MustGet("test.Wrapper").Form.(resolution.StructForm)
 				Expect(ok).To(BeTrue())
-				var got []string
-				for _, arg := range findField(form.Fields, "value").Type.TypeArgs {
-					got = append(got, arg.Name)
+				typeArgs := findField(form.Fields, "value").Type.TypeArgs
+				got := make([]string, len(typeArgs))
+				for i, arg := range typeArgs {
+					got[i] = arg.Name
 				}
 				Expect(got).To(Equal(want))
 			},
@@ -5540,9 +5542,10 @@ var _ = Describe("Union enum discriminator", func() {
 			Expect(form.BorrowsEnum()).To(BeTrue())
 			Expect(form.Enum.Name).To(Equal("payload.Kind"))
 			float := MustBeOk(form.Variant("float"))
-			names := make([]string, 0)
-			for _, f := range resolution.UnifiedVariantFields(field, float, table) {
-				names = append(names, f.Name)
+			fields := resolution.UnifiedVariantFields(field, float, table)
+			names := make([]string, len(fields))
+			for i, f := range fields {
+				names[i] = f.Name
 			}
 			Expect(names).To(Equal([]string{"key", "fill"}))
 		})

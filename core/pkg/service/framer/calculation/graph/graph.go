@@ -52,6 +52,10 @@ type Config struct {
 
 var _ config.Config[Config] = Config{}
 
+// ErrCycle is returned by Add when a calculated channel reads itself through other
+// calculated channels.
+var ErrCycle = errors.New("circular dependency detected")
+
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -588,10 +592,7 @@ func (g *Graph) addInternal(
 ) error {
 	if info := g.channels[ch.Key()]; info != nil {
 		if info.processing {
-			return errors.Newf(
-				"circular dependency detected involving channel %v",
-				ch.Key(),
-			)
+			return errors.Wrapf(ErrCycle, "channel %v", ch.Key())
 		}
 		return nil
 	}

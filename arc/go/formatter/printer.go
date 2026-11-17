@@ -582,6 +582,7 @@ func (p *printer) inInlineParenList() bool {
 	switch p.parenContextStack[depth-1] {
 	case parenContextInputList, parenContextInputValues, parenContextMultiOutput:
 		return true
+	case parenContextDefault, parenContextAuthority, parenContextImport:
 	}
 	return false
 }

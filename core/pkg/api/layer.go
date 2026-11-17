@@ -1050,6 +1050,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Instrumentation: cfg.Instrumentation,
 		Arc:             cfg.Service.Arc,
 		Status:          cfg.Service.Status,
+		Channel:         cfg.Service.Channel,
 		RBAC:            cfg.Service.RBAC,
 		DispatchChannel: bind.Write(l.binder, l.Channel.Dispatch),
 		Stopper:         cfg.Service.TaskStopper,

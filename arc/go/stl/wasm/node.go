@@ -395,6 +395,8 @@ func setValueAt(s telem.Series, i int, v uint64) {
 		telem.ByteOrder.PutUint32(s.Data[offset:offset+4], uint32(v))
 	case telem.Bit64:
 		telem.ByteOrder.PutUint64(s.Data[offset:offset+8], v)
+	case telem.UnknownDensity, telem.Bit128:
+		panic("unsupported data density for WASM conversion")
 	}
 }
 
@@ -418,7 +420,7 @@ func valueAt(s telem.Series, i int) uint64 {
 		return uint64(telem.ByteOrder.Uint32(data))
 	case telem.Bit64:
 		return telem.ByteOrder.Uint64(data)
-	default:
-		panic("unsupported data density for WASM conversion")
+	case telem.UnknownDensity, telem.Bit128:
 	}
+	panic("unsupported data density for WASM conversion")
 }

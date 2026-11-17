@@ -61,16 +61,11 @@ linters:
     # Not yet adopted. Each issue tracks the work to enable it.
     - containedctx # SY-6109
     - contextcheck # SY-6109
-    - exhaustive # SY-6106
     - fatcontext # SY-6109
-    - forcetypeassert # SY-6105
     - gochecknoglobals # SY-6107
     - gochecknoinits # SY-6108
     - gosec # SY-3843
     - noctx # SY-6109
-    - prealloc # SY-6115
-    - recvcheck # SY-6111
-    - unparam # SY-6112
   settings:
     depguard:
       rules:
@@ -111,6 +106,17 @@ linters:
       ignore-rules:
         - performnace
         - teh
+    recvcheck:
+      # Decode and patch methods write to their receiver, so they take a pointer even
+      # on a value type. MarshalJSONTo takes a value even on a pointer type, as the
+      # built-in rule allows for MarshalJSON, so that it also runs on a value.
+      exclusions:
+        - "*.DecodeMsgpack"
+        - "*.DecodeOrc"
+        - "*.MarshalJSONTo"
+        - "*.Patch"
+        - "*.UnmarshalJSON"
+        - "*.UnmarshalJSONFrom"
     govet:
       enable-all: true
       disable:
