@@ -75,8 +75,10 @@ using SetStatusDone = std::function<
 
 /// @brief a queue of Core calls on disk, which one thread sends in order. The queue
 /// keeps its calls across process restarts. It syncs a call to the disk within about
-/// a second, so a power loss can lose the calls of the last second. After a crash, it
-/// can send the calls of the last second again. While the Core is temporarily
+/// a second, and before each retry wait, so a power loss can lose the calls of the last
+/// second. It saves its send position about once a second, so after a crash it can
+/// send the calls of the last second again. This is safe, because the Core does not
+/// let an older status set replace a newer one. While the Core is temporarily
 /// unavailable, the thread retries the first call with no limit. Any other error drops
 /// the call. Safe for concurrent use.
 class Outbox {
@@ -117,6 +119,9 @@ class Outbox {
     std::pair<std::uint64_t, x::errors::Error> append(const pb::Call &request);
     /// @brief starts a new tail segment at the next call.
     void end_tail();
+    /// @brief syncs the tail segment, or only when a sync is due unless forced.
+    /// Requires mu.
+    void sync_tail(bool forced);
     void run();
     x::errors::Error send(const Call &call) const;
     /// @brief takes the sent call off the queue. Saves the offset when the queue is

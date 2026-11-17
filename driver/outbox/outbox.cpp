@@ -209,17 +209,20 @@ void Outbox::end_tail() {
     this->tail_calls = 0;
 }
 
+void Outbox::sync_tail(const bool forced) {
+    if (this->writer == nullptr) return;
+    const auto err = forced ? this->writer->sync() : this->writer->sync_if_due();
+    if (!err) return;
+    LOG(ERROR) << "[outbox] failed to sync a segment: " << err;
+    this->end_tail();
+}
+
 void Outbox::run() {
     while (true) {
         Call call;
         {
             std::unique_lock lock(this->mu);
-            if (this->writer != nullptr) {
-                if (const auto err = this->writer->sync_if_due()) {
-                    LOG(ERROR) << "[outbox] failed to sync a segment: " << err;
-                    this->end_tail();
-                }
-            }
+            this->sync_tail(false);
             const auto ready = this->cv.wait_for(lock, SYNC_INTERVAL.chrono(), [this] {
                 return this->stopped || !this->calls.empty();
             });
@@ -229,6 +232,10 @@ void Outbox::run() {
         }
         const auto err = this->send(call);
         if (synnax::errors::is_temporarily_unavailable(err)) {
+            {
+                std::lock_guard lock(this->mu);
+                this->sync_tail(true);
+            }
             if (!this->breaker.wait_unlimited(err)) return;
             continue;
         }
