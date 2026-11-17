@@ -748,6 +748,7 @@ describe("createDocumentForm", () => {
         result.current.form.batch(() => result.current.form.set(path.name, "x")),
       );
       await act(async () => expect(await result.current.flush()).toBe(false));
+      expect(result.current.form.get(path.name).value).toBe(t.name);
       expect((await fetchStored(t.key)).name).toBe(t.name);
     });
   });
