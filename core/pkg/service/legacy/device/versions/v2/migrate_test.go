@@ -59,6 +59,7 @@ var _ = Describe("Group migrations", func() {
 	) {
 		GinkgoHelper()
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		for k, name := range names {
 			g := groupv0.Group{Key: k, Name: name}
 			Expect(gorp.NewCreate[groupv0.Key, groupv0.Group]().

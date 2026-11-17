@@ -80,8 +80,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	faultyFS = WrapFaultyFS(xfs.NewMem())
 	tsDB := DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS})))
 	StartRun(tsDB.Run)
+	hookedDB := gorp.Wrap(hookedKV)
+	StartRun(hookedDB.Run)
 	node := testutil.NewNode(ctx, distribution.LayerConfig{
-		Storage: &storage.Layer{KV: hookedKV, TS: tsDB},
+		Storage: &storage.Layer{KV: hookedKV, TS: tsDB, Gorp: hookedDB},
 	})
 	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{

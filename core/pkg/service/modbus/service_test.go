@@ -342,6 +342,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			stored := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(stored.Run)
 			MustSucceed(gorp.OpenTable(
 				ctx, gorp.TableConfig[uuid.UUID, v1.ReadConfig]{DB: stored},
 			))
