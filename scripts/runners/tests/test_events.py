@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from common import Channels, channel_name
-from conftest import Client, core
+from conftest import Client
 from events import MAX_PENDING, Events
 
 RUNNER = "ubuntu-build-bot-i-0f44"
@@ -17,8 +17,8 @@ CHANNEL = channel_name("events", runner=RUNNER)
 
 def events(client: Client) -> Events:
     return Events(
-        client=core(client),
-        channels=Channels(client=core(client), enabled=False),
+        client=client,
+        channels=Channels(client=client, enabled=False),
         runners={RUNNER},
     )
 

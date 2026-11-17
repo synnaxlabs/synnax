@@ -947,7 +947,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(f.Key).To(Equal(alerts.Key))
 			Expect(f.DispatchKey).To(Equal("dk-1"))
 			Expect(f.Seq).To(BeNumerically(">", 0))
-			Expect(f.Actions).To(Equal(append(acts, computed...)))
+			Expect(f.Actions).To(Equal(slices.Concat(acts, computed)))
 		})
 
 		It(
@@ -978,7 +978,7 @@ var _ = Describe("Task", Ordered, func() {
 					set([]string{"config_hash"}, stored.ConfigHash),
 				}))
 				Expect(*frames).To(HaveLen(1))
-				Expect((*frames)[0].Actions).To(Equal(append(acts, computed...)))
+				Expect((*frames)[0].Actions).To(Equal(slices.Concat(acts, computed)))
 			},
 		)
 

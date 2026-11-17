@@ -386,7 +386,7 @@ func BenchmarkCalculator_GroupScaling(b *testing.B) {
 				{Name: "base", DataType: telem.Int64T, Virtual: true},
 			}
 
-			var group calculator.Group
+			group := make(calculator.Group, 0, size)
 			prevName := "base"
 			for i := range size {
 				calcCh := channel.Channel{

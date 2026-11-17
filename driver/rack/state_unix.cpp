@@ -132,6 +132,14 @@ fs::path user_dir() {
     return {};
 }
 
+bool sudo() {
+    if (geteuid() != 0) return false;
+    const char *sudo_user = std::getenv("SUDO_USER");
+    if (sudo_user == nullptr) return false;
+    const passwd *user = getpwnam(sudo_user);
+    return user == nullptr || user->pw_uid != 0;
+}
+
 x::errors::Error prepare(const fs::path &path) {
     FD dir{open(
         path.parent_path().c_str(),
@@ -148,18 +156,24 @@ x::errors::Error prepare(const fs::path &path) {
     }
     struct stat st{};
     if (fstat(file.fd, &st) != 0) return errno_error("failed to read state file");
-    if (!trusted_owner(st.st_uid))
+    if (!trusted_owner(st.st_uid)) {
+        const auto owner = user_name(st.st_uid);
+        const auto fix = geteuid() == 0
+                           ? "Run the Driver as " + owner + ", or delete the file"
+                           : "Run 'chown " + user_name(geteuid()) + " " +
+                                 path.string() + "', then start the Driver again";
         return x::errors::Error(
             STATE_ERROR,
-            user_name(st.st_uid) + " owns the state file " + path.string() +
-                ". Run 'chown " + user_name(geteuid()) + " " + path.string() +
-                "', then start the Driver again"
+            owner + " owns the state file " + path.string() + ". " + fix
         );
+    }
     if ((st.st_mode & (S_IRGRP | S_IROTH)) != 0)
         return x::errors::Error(
             STATE_ERROR,
             "other users can read the API key in " + path.string() +
-                ". Run 'chmod 600 " + path.string() + "', then start the Driver again"
+                ". Run 'chmod 600 " + path.string() +
+                "', then start the Driver again. In Kubernetes, set "
+                "fsGroupChangePolicy to OnRootMismatch or remove fsGroup"
         );
     return x::errors::NIL;
 }

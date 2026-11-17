@@ -249,12 +249,16 @@ func installation() (service.Installation, bool, error) {
 
 // copyBinary copies the binary at src to dst, which anyone can run.
 func copyBinary(src, dst string) (err error) {
-	in, err := os.Open(src)
+	in, err := os.Open(filepath.Clean(src))
 	if err != nil {
 		return err
 	}
 	defer func() { err = errors.Combine(err, in.Close()) }()
-	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
+	out, err := os.OpenFile(
+		filepath.Clean(dst),
+		os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
+		0o755,
+	)
 	if err != nil {
 		return err
 	}

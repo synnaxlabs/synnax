@@ -21,16 +21,20 @@ runner before its install, and stops the idle ones after.
 
 import argparse
 import base64
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING, Protocol, TypedDict
 from urllib.request import Request, urlopen
 
 import synnax as sy
 
 from aws import AWS
-from common import add_connection_args, connect, parameter_store
+from common import Samples, Writes, add_connection_args, connect, parameter_store
 from scaler import SCALER_CMD, SCALER_ENABLED
+
+if TYPE_CHECKING:
+    from mypy_boto3_ssm.type_defs import CommandInvocationTypeDef
 
 SOURCE = "https://raw.githubusercontent.com/synnaxlabs/synnax/{}/scripts/runners"
 IMDS = "http://169.254.169.254/latest"
@@ -99,7 +103,37 @@ def install_commands(*, commit: str, host: str, ca: str) -> tuple[list[str], lis
     return linux, windows
 
 
-def invocation(aws: AWS, *, region: str, command: str, iid: str) -> tuple[str, str]:
+class Invocations(TypedDict):
+    CommandInvocations: list["CommandInvocationTypeDef"]
+
+
+class Commands(Protocol):
+    def list_command_invocations(
+        self, *, CommandId: str, InstanceId: str, Details: bool
+    ) -> Invocations: ...
+
+
+class Starter(Protocol):
+    def start_instances(self, *, InstanceIds: list[str]) -> object: ...
+
+
+class Fleet(Protocol):
+    """The AWS calls run() makes, as aws.AWS has them."""
+
+    @property
+    def ec2(self) -> Mapping[str, Starter]: ...
+
+    @property
+    def ssm(self) -> Mapping[str, Commands]: ...
+
+    def instances(self) -> dict[str, dict]: ...
+
+    def run(
+        self, iid: str, *, info: dict, linux: list[str], windows: list[str]
+    ) -> str: ...
+
+
+def invocation(aws: Fleet, *, region: str, command: str, iid: str) -> tuple[str, str]:
     """The status and the output of a command on an instance."""
     found = aws.ssm[region].list_command_invocations(
         CommandId=command, InstanceId=iid, Details=True
@@ -112,7 +146,7 @@ def invocation(aws: AWS, *, region: str, command: str, iid: str) -> tuple[str, s
 
 
 def run(
-    aws: AWS, *, linux: list[str], windows: list[str], start_stopped: bool = False
+    aws: Fleet, *, linux: list[str], windows: list[str], start_stopped: bool = False
 ) -> bool:
     """Runs the commands on every running runner and prints a line for each runner. With
     start_stopped, it first starts each stopped runner and leaves it up.
@@ -167,7 +201,13 @@ def run(
     return all(results[i] == "Success" for i in runners if i not in skipped)
 
 
-def scaler_enabled(client: sy.Synnax) -> bool | None:
+class Core(Writes, Protocol):
+    """The part of the Core that switches the scaler and reads its state."""
+
+    def read(self, tr: sy.TimeRange, channel: str, /) -> Samples: ...
+
+
+def scaler_enabled(client: Core) -> bool | None:
     """The scaler state that the controller last reported, or None when the controller
     does not run."""
     now = sy.TimeStamp.now()
@@ -175,7 +215,7 @@ def scaler_enabled(client: sy.Synnax) -> bool | None:
     return bool(beats[-1]) if len(beats) else None
 
 
-def switch_scaler(client: sy.Synnax, *, enabled: bool) -> None:
+def switch_scaler(client: Core, *, enabled: bool) -> None:
     writer = client.open_writer(sy.TimeStamp.now(), [SCALER_CMD])
     try:
         writer.write({SCALER_CMD: enabled})
@@ -184,7 +224,7 @@ def switch_scaler(client: sy.Synnax, *, enabled: bool) -> None:
 
 
 @contextmanager
-def scaler_paused(client: sy.Synnax) -> Iterator[None]:
+def scaler_paused(client: Core) -> Iterator[None]:
     """Keeps a scaler that is on turned off inside the block, then turns it on again.
 
     :raises TimeoutError: if the controller does not turn the scaler off.

@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Literal, NoReturn, TypeAlias, cast, overload, override
+from typing import Literal, NoReturn, Protocol, TypeAlias, overload, override
 from uuid import uuid4
 
 from pydantic import BaseModel
@@ -20,7 +20,6 @@ from freighter import (
     EOF,
     ExceptionPayload,
     Stream,
-    WebsocketClient,
 )
 from freighter.transport import P
 from freighter.websocket import Message
@@ -32,6 +31,7 @@ from synnax.framer.codec import (
 )
 from synnax.framer.frame import CrudeFrame, FramePayload, K
 from synnax.telem import CrudeSeries, CrudeTimeStamp, TimeSpan, TimeStamp
+from x.codec import Codec
 from x.control import Authority, CrudeAuthority, Subject
 from x.exceptions import Error, Registry
 from x.lists import normalize
@@ -115,12 +115,11 @@ class _WSWriterCodec(WSCodec):
 
     @override
     def decode(self, data: bytes, pld_t: type[P]) -> P:
-        if data[0] == LOW_PERF_SPECIAL_CHAR:
-            return self.lower_perf_codec.decode(data[1:], pld_t)
-        frame = self.codec.decode(data, offset=1)
-        msg: Message[WriterRequest] = Message(type="data")
-        msg.payload = WriterRequest(command=WriterCommand.WRITE, frame=frame)
-        return cast(P, msg)
+        if data[0] != LOW_PERF_SPECIAL_CHAR:
+            raise ValueError(
+                "received a high-performance data frame on the writer response stream"
+            )
+        return self.lower_perf_codec.decode(data[1:], pld_t)
 
 
 def _parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
@@ -144,6 +143,23 @@ _ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
 
 
 class WriterClosed(Error): ...
+
+
+class Dialer(Protocol):
+    """Opens the writer stream."""
+
+    def stream(
+        self,
+        target: str,
+        req_t: type[WriterRequest],
+        res_t: type[WriterResponse],
+    ) -> Stream[WriterRequest, WriterResponse]: ...
+
+
+class Transport(Protocol):
+    """The stream transport a Writer needs, such as a freighter.WebsocketClient."""
+
+    def with_codec(self, codec: Codec) -> Dialer: ...
 
 
 class Writer:
@@ -199,7 +215,7 @@ class Writer:
         self,
         *,
         start: CrudeTimeStamp | None,
-        client: WebsocketClient,
+        client: Transport,
         registry: Registry,
         adapter: WriteFrameAdapter,
         name: str = "",
@@ -214,8 +230,8 @@ class Writer:
         self.start = start
         self._adapter = adapter
         self._registry = registry
-        client = client.with_codec(_WSWriterCodec(adapter.codec))
-        self._stream = client.stream("/frame/write", WriterRequest, WriterResponse)
+        dialer = client.with_codec(_WSWriterCodec(adapter.codec))
+        self._stream = dialer.stream("/frame/write", WriterRequest, WriterResponse)
         config = WriterConfig(
             control_subject=Subject(name=name, key=str(uuid4()), group=group),
             keys=self._adapter.keys,
