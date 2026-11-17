@@ -658,6 +658,7 @@ var _ = Describe("Framer", func() {
 				Framer:  framerSvc,
 				Channel: channelSvc,
 				RBAC:    rbacSvc,
+				Errors:  errors.NewCodec(),
 				Records: map[channel.Key]signals.Record{
 					records.Key(): {Of: func(sample []byte) (resource.ID, error) {
 						id, err := strconv.Unquote(string(sample))

@@ -41,6 +41,10 @@ type UnaryClientConfig struct {
 	//
 	// [REQUIRED] - At least one decoder must be supplied.
 	Decoders []xhttp.Decoder
+	// Errors decodes the errors that the server returns.
+	//
+	// [REQUIRED]
+	Errors *errors.Codec
 }
 
 // Validate implements config.Config.
@@ -48,6 +52,7 @@ func (c UnaryClientConfig) Validate() error {
 	v := validate.New("http.unary_client")
 	v.NotNil("encoder", c.Encoder)
 	v.NotEmptySlice("decoders", c.Decoders)
+	v.NotNil("errors", c.Errors)
 	return v.Error()
 }
 
@@ -55,6 +60,7 @@ func (c UnaryClientConfig) Validate() error {
 func (c UnaryClientConfig) Override(other UnaryClientConfig) UnaryClientConfig {
 	c.Encoder = override.Nil(c.Encoder, other.Encoder)
 	c.Decoders = override.Slice(c.Decoders, other.Decoders)
+	c.Errors = override.Nil(c.Errors, other.Errors)
 	return c
 }
 
@@ -76,6 +82,7 @@ func NewUnaryClient[RQ, RS freighter.Payload](
 		encoder:      cfg.Encoder,
 		decoders:     cfg.Decoders,
 		acceptHeader: buildAcceptHeader(cfg.Decoders),
+		errs:         cfg.Errors,
 	}, nil
 }
 
@@ -83,6 +90,7 @@ type unaryClient[RQ, RS freighter.Payload] struct {
 	encoder      xhttp.Encoder
 	decoders     []xhttp.Decoder
 	acceptHeader string
+	errs         *errors.Codec
 	freighter.MiddlewareCollector
 }
 
@@ -171,7 +179,7 @@ func (u *unaryClient[RQ, RS]) Send(
 				if err := decoder.DecodeStream(httpRes.Body, &pld); err != nil {
 					return outCtx, err
 				}
-				return outCtx, errors.Decode(pld)
+				return outCtx, u.errs.Decode(pld)
 			}
 			return outCtx, decoder.DecodeStream(httpRes.Body, &res)
 		}),

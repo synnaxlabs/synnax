@@ -154,7 +154,8 @@ var _ = Describe("Validate", func() {
 		})
 
 		DescribeTable("Should decode a failure with its exact text", func(err error) {
-			decoded := errors.Decode(errors.Encode(err, false))
+			codec := errors.NewCodec(validate.ErrorProvider())
+			decoded := codec.Decode(codec.Encode(err, false))
 			Expect(decoded).To(MatchError(validate.ErrValidation))
 			Expect(decoded.Error()).To(Equal(err.Error()))
 		},
