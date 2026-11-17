@@ -14,10 +14,17 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-var _ = BeforeSuite(func() { ShouldNotLeakGoroutines() })
+var db *gorp.DB
+
+var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
+	db = DeferClose(gorp.Wrap(memkv.New()))
+})
 
 func TestDevice(t *testing.T) {
 	RegisterFailHandler(Fail)

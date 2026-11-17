@@ -10,6 +10,7 @@
 import "schemas/synnax/channel"
 import "schemas/synnax/rack"
 import "schemas/synnax/status"
+import "schemas/x/filter"
 
 @cpp output "client/cpp/labjack/device"
 @go output  "core/pkg/service/labjack/device"
@@ -131,6 +132,7 @@ Device struct {
     status            Status?     {
         @doc value  "is the current operational status of the device."
         @go marshal omit
+        @include
     }
     model             Model       {
         @doc value         """
@@ -211,4 +213,15 @@ Update union on group {
     }
 
     @doc value "is a write to one field group of a device."
+}
+
+Where filter Device {
+    key
+    name
+    serial
+    model
+    rack
+
+    @doc value         "is a filter that selects LabJack devices."
+    @go request_output "core/pkg/api/labjack/device"
 }

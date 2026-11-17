@@ -45,6 +45,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
+	labjackdevice "github.com/synnaxlabs/synnax/pkg/api/labjack/device"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
@@ -280,6 +281,9 @@ type Transport struct {
 	OPCUAServerRetrieve freighter.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]
 	OPCUAServerUpdate   freighter.UnaryServer[server.UpdateRequest, struct{}]
 	OPCUAServerDelete   freighter.UnaryServer[server.DeleteRequest, struct{}]
+
+	// LABJACK DEVICE
+	LabJackDeviceRetrieve freighter.UnaryServer[labjackdevice.RetrieveRequest, labjackdevice.RetrieveResponse]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -363,31 +367,32 @@ type Layer struct {
 	// Password creates, sets, renames, and lists passwords.
 	Password *password.Service
 	// OIDC links, lists, and unlinks OpenID Connect provider accounts.
-	OIDC        *oidc.Service
-	Schematic   *schematic.Service
-	Symbol      *symbol.Service
-	View        *view.Service
-	Secret      *secret.Service
-	Certificate *certificate.Service
-	Table       *table.Service
-	Panel       *panel.Service
-	Label       *label.Service
-	Color       *color.Service
-	Enumeration *enumeration.Service
-	Rack        *rack.Service
-	Task        *task.Service
-	Device      *device.Service
-	NIDevice    *nidevice.Service
-	NIChassis   *nichassis.Service
-	OPCUAServer *server.Service
-	Policy      *policy.Service
-	Role        *role.Service
-	Arc         *arc.Service
-	Status      *status.Service
-	ImEx        *imex.Service
-	Batch       *batch.Service
-	binder      *bind.Service
-	config      config.LayerConfig
+	OIDC          *oidc.Service
+	Schematic     *schematic.Service
+	Symbol        *symbol.Service
+	View          *view.Service
+	Secret        *secret.Service
+	Certificate   *certificate.Service
+	Table         *table.Service
+	Panel         *panel.Service
+	Label         *label.Service
+	Color         *color.Service
+	Enumeration   *enumeration.Service
+	Rack          *rack.Service
+	Task          *task.Service
+	Device        *device.Service
+	NIDevice      *nidevice.Service
+	NIChassis     *nichassis.Service
+	OPCUAServer   *server.Service
+	LabJackDevice *labjackdevice.Service
+	Policy        *policy.Service
+	Role          *role.Service
+	Arc           *arc.Service
+	Status        *status.Service
+	ImEx          *imex.Service
+	Batch         *batch.Service
+	binder        *bind.Service
+	config        config.LayerConfig
 }
 
 // Errors returns the codec that encodes the errors the API sends to clients.
@@ -615,6 +620,9 @@ func (l *Layer) BindTo(t Transport) {
 		t.OPCUAServerRetrieve,
 		t.OPCUAServerUpdate,
 		t.OPCUAServerDelete,
+
+		// LABJACK DEVICE
+		t.LabJackDeviceRetrieve,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -920,6 +928,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.OPCUAServerUpdate.BindHandler(bind.Write(l.binder, l.OPCUAServer.Update))
 	t.OPCUAServerDelete.BindHandler(bind.Write(l.binder, l.OPCUAServer.Delete))
 
+	// LABJACK DEVICE
+	t.LabJackDeviceRetrieve.BindHandler(bind.Read(l.binder, l.LabJackDevice.Retrieve))
+
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
 	t.AccessDeletePolicy.BindHandler(bind.Write(l.binder, l.Policy.Delete))
@@ -1181,6 +1192,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Device: cfg.Service.Device,
 		Status: cfg.Service.Status,
 		RBAC:   cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.LabJackDevice, err = labjackdevice.NewService(labjackdevice.ServiceConfig{
+		Device: cfg.Service.LabJack.Devices,
+		Status: cfg.Service.Status,
 	}); err != nil {
 		return nil, err
 	}
