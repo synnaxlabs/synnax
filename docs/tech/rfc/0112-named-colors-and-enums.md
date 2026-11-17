@@ -122,10 +122,11 @@ a valve paints its symbol color, then the theme, as today.
 
 An absent `enum` on a state binding means the symbol's default enum. A built-in symbol
 names it in its Pluto file, and a custom symbol on its Core record. A state with no enum
-at either level, such as a new custom symbol state, has no entries: it takes no unknown
-mark for its value, and its `entry` paint goes on to the symbol color. A node stores no
-look and no state color. It changes a look only through its enum, color, match, default,
-and bounds. An edit to a built-in enum changes every symbol that uses it by default.
+at either level, such as a new custom symbol state, has no entries: only no data and NaN
+give it the unknown mark, and its `entry` paint goes on to the symbol color. A node
+stores no look and no state color. It changes a look only through its enum, color,
+match, default, and bounds. An edit to a built-in enum changes every symbol that uses it
+by default.
 
 Each state stores its match: `exact`, or `band`, which reads a value inside the band as
 1 and every other number as 0, as today's threshold does. The migration writes the band
@@ -184,7 +185,9 @@ The schematic cutover ships in one release:
   values sets the entry colors. Each stroke or fill whose colors equal the entries at
   every value where it is set becomes one `entry` look, with a `when` for those values.
   Every other stroke or fill keeps its `color` looks, so no stored symbol changes its
-  look. The symbol import applies the same rewrite to an old symbol file.
+  look. Every symbol import, alone or in a group, applies the same rewrite to an old
+  symbol file, and makes and reuses enums by the rule and access of the schematic import
+  below.
 - In a node's `state_overrides`, the override of the stroke or fill that sets the
   symbol's entry colors sets the colors of the node's enum. When any stroke or fill
   would then show a color other than its override, such as a second `entry` look whose
@@ -196,10 +199,11 @@ The schematic cutover ships in one release:
   state lists beside the converted schematic, and its write step
   (`core/pkg/service/schematic/imex.go:45-64`) makes the enums and the symbol copies
   with the same function as the upgrade. An import reuses an enum or a symbol copy with
-  equal content, as the upgrade shares them. It needs retrieve access on each enum or
-  copy that it reuses and on the source symbol of each copy that it adds, and create
-  access for each record that it adds. A node that gets `missing` (RFC 0114 §4.5) keeps
-  no overrides.
+  equal content, as the upgrade shares them. A copy goes into the group of its source
+  symbol. The import needs retrieve access on each enum or copy that it reuses and on
+  the source symbol of each copy that it adds, create access for each record that it
+  adds, and update access on the group of each copy. A node that gets `missing` (RFC
+  0114 §4.5) keeps no overrides.
 
 The line plot migration stores the color that each uncolored line and rule shows today
 as `fixed`. The old 14 colors are frozen in the migration's version package. Each other
