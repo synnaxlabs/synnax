@@ -224,3 +224,20 @@ describe("Read", () => {
     expect(bCh.index).toBe(index.key);
   });
 });
+
+describe("readPlotChannels", () => {
+  it("should find the enabled fields of every record", () => {
+    const config = {
+      records: [
+        {
+          fields: [
+            { channel: 1, disabled: false },
+            { channel: 2, disabled: true },
+          ],
+        },
+        { fields: [{ channel: 3, disabled: false }] },
+      ],
+    };
+    expect(Kafka.Task.readPlotChannels(config)).toEqual([1, 3]);
+  });
+});

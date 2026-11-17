@@ -9,8 +9,8 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { ReadSelectable } from "@/feature/labjack/task/Read";
-import { PREFIX } from "@/feature/labjack/task/types";
+import { readPlotChannels, ReadSelectable } from "@/feature/labjack/task/Read";
+import { PREFIX, READ_TYPE } from "@/feature/labjack/task/types";
 import { WriteSelectable } from "@/feature/labjack/task/Write";
 import { type Task } from "@/platform/task";
 
@@ -19,4 +19,5 @@ export const INTEGRATION: Task.Integration = {
   name: "LabJack",
   icon: <Icon.Logo.LabJack />,
   selectables: [ReadSelectable, WriteSelectable],
+  plotChannels: { [READ_TYPE]: readPlotChannels },
 };

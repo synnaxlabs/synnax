@@ -19,13 +19,15 @@ import { createHTTPDevice } from "@/feature/http/testutil";
 import { Device } from "@/platform/device";
 import {
   awaitEditableForm,
+  awaitTare,
   clickDeploy,
   commitFieldInput,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
+  reportTaskRunning,
 } from "@/platform/task/testutil";
-import { getLabeledInput, uniqueName } from "@/testutil";
+import { findIconButton, getLabeledInput, uniqueName } from "@/testutil";
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
@@ -250,6 +252,33 @@ describe("Read", () => {
     fireEvent.blur(path);
     fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /\/api\/v1/ }));
     expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
+  it("should tare a float field from its button while the task runs", async () => {
+    const client = createTestClient();
+    const dev = await createHTTPDevice(client);
+    const float = await client.channels.create({
+      name: uniqueName("tare"),
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    const draft = await createDraft(
+      client,
+      createReadConfig(dev.key, [
+        {
+          ...http.readEndpointZ.parse({}),
+          key: "ep1",
+          path: "/data",
+          fields: [createReadField("f1", "/value", { channel: float.key })],
+        },
+      ]),
+    );
+    await reportTaskRunning(client, draft);
+    const args = await awaitTare(client, draft.key, async () => {
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await findIconButton(container, "tare"));
+    });
+    expect(args).toEqual({ keys: [float.key] });
   });
 
   it("should seed the form from the task row's config", async () => {
@@ -945,5 +974,22 @@ describe("Read", () => {
       schemas: HTTP.Device.SCHEMAS,
     });
     expect(updated.properties.read["/data"].index).toBe(idxCh.key);
+  });
+});
+
+describe("readPlotChannels", () => {
+  it("should find the enabled fields of every endpoint", () => {
+    const config = {
+      endpoints: [
+        {
+          fields: [
+            { channel: 1, disabled: false },
+            { channel: 2, disabled: true },
+          ],
+        },
+        { fields: [{ channel: 3, disabled: false }] },
+      ],
+    };
+    expect(HTTP.Task.readPlotChannels(config)).toEqual([1, 3]);
   });
 });

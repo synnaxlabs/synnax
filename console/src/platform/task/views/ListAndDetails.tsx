@@ -35,7 +35,7 @@ export interface DetailsProps<C extends Channel> {
 
 export interface ListAndDetailsProps<C extends Channel> extends Pick<
   ChannelListProps<C>,
-  "onTare" | "allowTare" | "listItem" | "contextMenuItems" | "path" | "resolve"
+  "tareable" | "listItem" | "contextMenuItems" | "path" | "resolve"
 > {
   details: Component.RenderProp<DetailsProps<C>>;
   /** Names the selected channel in the details header, typically by its port. */
@@ -55,7 +55,6 @@ export const ListAndDetails = <C extends Channel>({
   const { path } = rest;
   const [selected, setSelected] = useState<string[]>([]);
   const [view, setView] = useState<View>("list");
-  const handleCreateChannel = (channels: C[]) => createChannel(channels, selected[0]);
   const handleDuplicateChannels = (allChannels: C[], keys: string[]) => {
     const newlyMade: C[] = [];
     keys.forEach((key) => {
@@ -64,11 +63,7 @@ export const ListAndDetails = <C extends Channel>({
     });
     return newlyMade;
   };
-  const handleAdd = useAdd({
-    path,
-    createChannel: handleCreateChannel,
-    onSelect: setSelected,
-  });
+  const handleAdd = useAdd({ path, createChannel, onSelect: setSelected });
   // The list shows a status at its own path. Selecting a channel shows its details,
   // where its fields show their statuses.
   Form.useFocusHandler(path, (target) => {
@@ -95,7 +90,7 @@ export const ListAndDetails = <C extends Channel>({
           }
           selected={selected}
           onSelect={setSelected}
-          createChannel={handleCreateChannel}
+          createChannel={createChannel}
           createChannels={handleDuplicateChannels}
         />
       }

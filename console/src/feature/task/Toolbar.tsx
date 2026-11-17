@@ -28,7 +28,7 @@ import { useState } from "react";
 
 import { ArcItem } from "@/feature/task/ArcItem";
 import { useOpenSelector } from "@/feature/task/Selector";
-import { ownedChannelsOf } from "@/feature/task/types";
+import { ownedChannelsOf, PLOT_CHANNELS } from "@/feature/task/types";
 import {
   type SetDataSavingParams,
   useSetDataSaving,
@@ -493,6 +493,11 @@ const ContextMenu = ({
   onDisableDataSaving,
 }: ContextMenuProps) => {
   const selectedTasks = Store.useItems({ keys, subscribe, getItem });
+  const plot = PlatformTask.usePlot();
+  const plotTasks = selectedTasks.flatMap(({ name, type, config }) => {
+    const plotChannels = PLOT_CHANNELS[type];
+    return plotChannels == null ? [] : [{ name, config, plotChannels }];
+  });
   const resourceIDs = task.resourceID(keys);
   // Deleting the row of an Arc deletes the Arc.
   const arcIDs = arc.resourceID(
@@ -607,6 +612,12 @@ const ContextMenu = ({
             </Menu.Item>
           )}
         </>
+      )}
+      {plotTasks.length > 0 && (
+        <Menu.Item itemKey="plot" onClick={() => plot(plotTasks)}>
+          <Icon.LinePlot />
+          Plot
+        </Menu.Item>
       )}
       <Menu.Divider />
       {isSingle && (

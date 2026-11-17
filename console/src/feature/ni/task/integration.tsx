@@ -9,12 +9,26 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { AnalogReadSelectable } from "@/feature/ni/task/AnalogRead";
+import {
+  analogReadPlotChannels,
+  AnalogReadSelectable,
+} from "@/feature/ni/task/AnalogRead";
 import { AnalogWriteSelectable } from "@/feature/ni/task/AnalogWrite";
-import { CounterReadSelectable } from "@/feature/ni/task/CounterRead";
-import { DigitalReadSelectable } from "@/feature/ni/task/DigitalRead";
+import {
+  counterReadPlotChannels,
+  CounterReadSelectable,
+} from "@/feature/ni/task/CounterRead";
+import {
+  digitalReadPlotChannels,
+  DigitalReadSelectable,
+} from "@/feature/ni/task/DigitalRead";
 import { DigitalWriteSelectable } from "@/feature/ni/task/DigitalWrite";
-import { PREFIX } from "@/feature/ni/task/types";
+import {
+  ANALOG_READ_TYPE,
+  COUNTER_READ_TYPE,
+  DIGITAL_READ_TYPE,
+  PREFIX,
+} from "@/feature/ni/task/types";
 import { type Task } from "@/platform/task";
 
 export const INTEGRATION: Task.Integration = {
@@ -28,4 +42,9 @@ export const INTEGRATION: Task.Integration = {
     DigitalReadSelectable,
     DigitalWriteSelectable,
   ],
+  plotChannels: {
+    [ANALOG_READ_TYPE]: analogReadPlotChannels,
+    [COUNTER_READ_TYPE]: counterReadPlotChannels,
+    [DIGITAL_READ_TYPE]: digitalReadPlotChannels,
+  },
 };

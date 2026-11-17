@@ -10,8 +10,8 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { EdgeSelectable } from "@/feature/mqtt/task/Edge";
-import { ReadSelectable } from "@/feature/mqtt/task/Read";
-import { PREFIX } from "@/feature/mqtt/task/types";
+import { readPlotChannels, ReadSelectable } from "@/feature/mqtt/task/Read";
+import { PREFIX, READ_TYPE } from "@/feature/mqtt/task/types";
 import { WriteSelectable } from "@/feature/mqtt/task/Write";
 import { type Task } from "@/platform/task";
 
@@ -20,4 +20,5 @@ export const INTEGRATION: Task.Integration = {
   name: "MQTT",
   icon: <Icon.Logo.MQTT />,
   selectables: [ReadSelectable, WriteSelectable, EdgeSelectable],
+  plotChannels: { [READ_TYPE]: readPlotChannels },
 };

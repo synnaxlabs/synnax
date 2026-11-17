@@ -9,8 +9,8 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { ReadSelectable } from "@/feature/opcua/task/Read";
-import { PREFIX } from "@/feature/opcua/task/types";
+import { readPlotChannels, ReadSelectable } from "@/feature/opcua/task/Read";
+import { PREFIX, READ_TYPE } from "@/feature/opcua/task/types";
 import { WriteSelectable } from "@/feature/opcua/task/Write";
 import { type Task } from "@/platform/task";
 
@@ -19,4 +19,5 @@ export const INTEGRATION: Task.Integration = {
   name: "OPC UA",
   icon: <Icon.Logo.OPCUA />,
   selectables: [ReadSelectable, WriteSelectable],
+  plotChannels: { [READ_TYPE]: readPlotChannels },
 };
