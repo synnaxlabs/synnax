@@ -53,17 +53,23 @@ The `--state-file` flag of `start --standalone`, `login`, and `clear` sets a dif
 path. The service always uses the default path.
 
 On Linux and macOS, the Driver creates a missing state directory with mode `0700` and a
-missing state file with mode `0600`. Each `start`, `login`, and `clear` sets the state
-file to `0600` again, at any path. At the default path, each one also:
+missing state file with mode `0600`. From Driver 0.61.0 to 0.61.4, these commands also
+change the owners and modes of existing paths. They replace the values that a setup
+step, such as an init container, gives these paths:
 
-- On Linux, when root runs it and a `synnax` user exists, gives the directory to root
-  and the `synnax` group with mode `0751`, and gives the state file and the `opcua`
-  directory to the `synnax` user.
-- Else, sets a state directory that the Driver user owns to `0700`, and replaces a state
-  file that another user owns with a copy that the Driver user owns.
-
-These steps replace the owners and modes that a setup step, such as an init container,
-gives these paths.
+- `start`, `login`, and `clear` set the state file to mode `0600`, at any path. At a
+  `--state-file` path, the user that runs the Driver must own the file, or the command
+  fails.
+- At the default path, `install`, `start`, `login`, and `clear` also do one of these:
+  - On Linux, when root runs the command and a `synnax` user exists, they give the
+    directory to root and the `synnax` group with mode `0751`. They give the state file
+    to the `synnax` user. They create the `opcua` directory if it is missing and give it
+    to the `synnax` user with mode `0700`.
+  - Else, they set a state directory that the Driver user owns to `0700`. They replace a
+    state file that another user owns with a copy that the Driver user owns, so the
+    Driver user must be able to write to the directory.
+- The state directory and the state file must not be symbolic links, such as a file in a
+  mounted Kubernetes Secret, or the command fails.
 
 To remove the saved login, run `synnax-driver clear`. Run `login` again before the next
 start.

@@ -455,17 +455,25 @@ gone. Page with `limit` and `after`.
 
 #### Driver state file
 
-On Linux and macOS, each `start`, `login`, and `clear` of a Driver sets the mode and
-owner of its state, and replaces the values that a setup step, such as an init
-container, gives them:
+From Driver 0.61.0 to 0.61.4, on Linux and macOS, these commands change the owners and
+modes of the Driver state. They replace the values that a setup step, such as an init
+container, gives these paths:
 
-- The state file gets mode `0600`, also at a `--state-file` path.
-- At the default path on Linux, when root runs the Driver and a `synnax` user exists,
-  the directory goes to root and the `synnax` group with mode `0751`. The state file and
-  the `opcua` directory go to the `synnax` user.
-- Else, at the default path, a state directory that the Driver user owns gets mode
-  `0700`. A state file that another user owns is replaced with a copy that the Driver
-  user owns.
+- `start`, `login`, and `clear` set the state file to mode `0600`, at any path. At a
+  `--state-file` path, the user that runs the Driver must own the file, or the command
+  fails.
+- At the default path, `install`, `start`, `login`, and `clear` also do one of these:
+  - On Linux, when root runs the command and a `synnax` user exists, they give the
+    directory to root and the `synnax` group with mode `0751`. They give the state file
+    to the `synnax` user. They create the `opcua` directory if it is missing and give it
+    to the `synnax` user with mode `0700`.
+  - Else, they set a state directory that the Driver user owns to `0700`. They replace a
+    state file that another user owns with a copy that the Driver user owns, so the
+    Driver user must be able to write to the directory.
+- The state directory and the state file must not be symbolic links, such as a file in a
+  mounted Kubernetes Secret, or the command fails.
+
+Give the state directory and the state file to the user that runs the Driver.
 
 #### Hardware
 
