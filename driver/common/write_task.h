@@ -513,7 +513,12 @@ public:
             ctx,
             breaker_cfg,
             std::move(sink),
-            bypass::pipeline::create_writer_factory(ctx),
+            bypass::pipeline::create_writer_factory(
+                ctx,
+                [this](const std::string &message, const std::string &description) {
+                    this->state.set_background_warning({message, description});
+                }
+            ),
             bypass::pipeline::create_streamer_factory(ctx, {task.name, task.name})
         ) {}
 
