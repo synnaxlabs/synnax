@@ -562,6 +562,64 @@ describe("AnalogRead with several selected channels", () => {
     );
   });
 
+  it("should not edit coefficients that the selected channels hold apart", async () => {
+    const polynomial = (forwardCoeffs: number[]) =>
+      NI.Task.SCALE_SCHEMAS.polynomial.parse({ type: "polynomial", forwardCoeffs });
+    await renderSelected([
+      createChannel("ai_voltage", 0, {
+        name: "chan_a",
+        customScale: polynomial([1, 2]),
+      }),
+      createChannel("ai_voltage", 1, { name: "chan_b", customScale: polynomial([3]) }),
+    ]);
+    expect(
+      await screen.findByText("Mixed. Select one channel to edit its coefficients."),
+    ).toBeTruthy();
+    expect(screen.queryByText("c0")).toBeNull();
+  });
+
+  it("should not edit table points that the selected channels hold apart", async () => {
+    const table = (scaledVals: number[]) =>
+      NI.Task.SCALE_SCHEMAS.table.parse({
+        type: "table",
+        preScaledVals: [0, 1],
+        scaledVals,
+      });
+    await renderSelected([
+      createChannel("ai_voltage", 0, { name: "chan_a", customScale: table([0, 10]) }),
+      createChannel("ai_voltage", 1, { name: "chan_b", customScale: table([0, 20]) }),
+    ]);
+    expect(
+      await screen.findByText(
+        "Mixed. Load a CSV to set every channel, or select one channel.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("Table CSV")).toBeTruthy();
+    expect(screen.queryByText("Pre-scaled")).toBeNull();
+  });
+
+  it("should offer only the terminal configurations that every selected port takes", async () => {
+    const dev = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    await renderSelected([
+      createChannel("ai_voltage", 0, {
+        name: "chan_a",
+        device: dev.key,
+        terminalConfig: "RSE",
+      }),
+      createChannel("ai_voltage", 9, {
+        name: "chan_b",
+        device: dev.key,
+        terminalConfig: "RSE",
+      }),
+    ]);
+    fireEvent.click(await findDialogTriggerByText("Referenced single ended"));
+    expect(await screen.findByText("Non-referenced single ended")).toBeTruthy();
+    expect(screen.getByText("Default")).toBeTruthy();
+    expect(screen.queryByText("Differential")).toBeNull();
+  });
+
   it("should ask for channels of one type when the selected types differ", async () => {
     await renderSelected([
       createChannel("ai_voltage", 0, { name: "chan_volts" }),

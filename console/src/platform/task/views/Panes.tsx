@@ -31,6 +31,8 @@ export interface PanesProps {
   listActions?: ReactNode;
   /** The form path of the selected item, or null when nothing is selected. */
   detailsPath: deep.Target<unknown> | null;
+  /** Every selected item, when several are. The copy button copies them as a list. */
+  selectedPaths?: deep.Target<unknown>[];
   /** Names the selected item in the details header. */
   title?: ReactNode;
   /** The details body, or a placeholder when nothing is selected. */
@@ -51,6 +53,7 @@ export const Panes = ({
   list,
   listActions,
   detailsPath,
+  selectedPaths,
   title,
   children,
 }: PanesProps) => {
@@ -147,7 +150,11 @@ export const Panes = ({
         className={CSS.BE("panes", "details")}
         onClickCapture={backdrop ? handleDetailsClickCapture : undefined}
       >
-        <DetailsHeader path={detailsPath} start={visible ? undefined : toggle}>
+        <DetailsHeader
+          path={detailsPath}
+          paths={selectedPaths}
+          start={visible ? undefined : toggle}
+        >
           {title}
         </DetailsHeader>
         {children}

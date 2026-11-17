@@ -11,7 +11,7 @@ import { type ni } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select as PSelect } from "@synnaxlabs/lyra/select";
-import { deep, record } from "@synnaxlabs/x";
+import { deep, record, unique } from "@synnaxlabs/x";
 import { type FC, type ReactNode } from "react";
 
 import { Select } from "@/feature/ni/device/Select";
@@ -56,6 +56,7 @@ import {
 import {
   allowedTypes,
   useAnalogInputPort,
+  useAnalogInputPorts,
   useChannelDevice,
 } from "@/feature/ni/task/usePort";
 import { Task } from "@/platform/task";
@@ -74,33 +75,43 @@ const SelectTerminalConfigField = Form.buildSelectField<TerminalConfig>({
   },
 });
 
-// The configurations the port takes, and "Default" named by what it gives there.
-const terminalConfigItems = (port: ni.AnalogInputPort, current: TerminalConfig) =>
-  TERMINAL_CONFIGS.filter(
-    (c) => c === "Cfg_Default" || c === current || accepts(port.terminalConfigs, c),
-  ).map((c) => {
-    const resolved = port.defaultTerminalConfig;
-    return (
-      <PSelect.Item<TerminalConfig> key={c} itemKey={c}>
-        {c !== "Cfg_Default" || resolved === "Cfg_Default"
-          ? TERMINAL_CONFIG_NAMES[c]
-          : `${TERMINAL_CONFIG_NAMES[c]} (${TERMINAL_CONFIG_NAMES[resolved]})`}
-      </PSelect.Item>
-    );
-  });
+// The configurations that every known port takes, and "Default" named by what it gives
+// when every port gives the same. A port not known takes every configuration.
+const terminalConfigItems = (
+  ports: (ni.AnalogInputPort | undefined)[],
+  current: TerminalConfig | undefined,
+) => {
+  const defaults = unique.unique(ports.map((p) => p?.defaultTerminalConfig));
+  const resolved = defaults.length === 1 ? defaults[0] : undefined;
+  return TERMINAL_CONFIGS.filter(
+    (c) =>
+      c === "Cfg_Default" ||
+      c === current ||
+      ports.every((p) => p == null || accepts(p.terminalConfigs, c)),
+  ).map((c) => (
+    <PSelect.Item<TerminalConfig> key={c} itemKey={c}>
+      {c !== "Cfg_Default" || resolved == null || resolved === "Cfg_Default"
+        ? TERMINAL_CONFIG_NAMES[c]
+        : `${TERMINAL_CONFIG_NAMES[c]} (${TERMINAL_CONFIG_NAMES[resolved]})`}
+    </PSelect.Item>
+  ));
+};
 
 const TerminalConfigField = ({
   path,
 }: {
   path: deep.Path<{ terminalConfig: TerminalConfig; device: string; port: number }>;
 }) => {
-  const port = useAnalogInputPort(path);
-  const current = Form.useFieldValue(path.terminalConfig);
-  if (port == null) return <SelectTerminalConfigField path={path.terminalConfig} />;
+  const ports = useAnalogInputPorts(path);
+  const { value, mixed } = Form.useFieldState(path.terminalConfig);
+  if (ports.every((p) => p == null))
+    return <SelectTerminalConfigField path={path.terminalConfig} />;
   return (
     <SelectTerminalConfigField
       path={path.terminalConfig}
-      inputProps={{ children: terminalConfigItems(port, current) }}
+      inputProps={{
+        children: terminalConfigItems(ports, mixed === true ? undefined : value),
+      }}
     />
   );
 };

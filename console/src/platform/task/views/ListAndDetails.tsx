@@ -118,6 +118,7 @@ export const ListAndDetails = <C extends Channel>({
         />
       }
       detailsPath={detailsPath}
+      selectedPaths={multi ? selected.map((key) => path[key]) : undefined}
       title={title}
     >
       {detailsPath != null ? (
