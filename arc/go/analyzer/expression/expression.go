@@ -554,7 +554,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		return
 	}
 	if call, callee := nonFunctionCall(ctx.AST); call != nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.NotCallable.Atf(
 			call,
 			"cannot call non-function %s",
 			callee,
@@ -570,7 +570,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		return
 	}
 	if scope.Kind != symbol.KindFunction {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.NotCallable.Atf(
 			funcCalls[0],
 			"cannot call non-function %s of type %s",
 			funcName,
@@ -626,7 +626,7 @@ func AnalyzeCallSite[T antlr.ParserRuleContext](
 		return
 	}
 	if callerFn != nil && callee.Exec == symbol.ExecFlow {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.NotCallable.Atf(
 			ctx.AST,
 			"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s()",
 			funcName,
@@ -646,7 +646,7 @@ func AnalyzeCallSite[T antlr.ParserRuleContext](
 			"",
 		)
 	} else if hasMultipleNamedOutputs(fnType) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.NotCallable.Atf(
 			site,
 			"cannot call function %s: functions with multiple named outputs are not callable",
 			funcName,

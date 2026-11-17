@@ -124,17 +124,67 @@ var (
 		Severity: protocol.DiagnosticSeverityWarning,
 	}
 
+	// NotCallable is a call of a name that the code cannot call there.
+	NotCallable = diagnostics.Kind{
+		Code:     "E3000",
+		Severity: protocol.DiagnosticSeverityError,
+	}
 	// FuncArgMissing is a call with no argument for a required parameter.
 	FuncArgMissing = diagnostics.Kind{
-		Code:     "ARC3001",
+		Code:     "E3001",
 		Severity: protocol.DiagnosticSeverityError,
 		Message:  "missing required argument for parameter '%s' of func '%s'",
 	}
 	// FuncArgExtra is a call with more arguments than parameters.
 	FuncArgExtra = diagnostics.Kind{
-		Code:     "ARC3003",
+		Code:     "E3002",
 		Severity: protocol.DiagnosticSeverityError,
 		Message:  "too many arguments for func '%s': expected at most %d",
+	}
+	// FuncArgName is a named argument that is a duplicate or has no parameter.
+	FuncArgName = diagnostics.Kind{
+		Code:     "E3003",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// FuncArgValue is a constant argument with a value the function rejects.
+	FuncArgValue = diagnostics.Kind{
+		Code:     "E3004",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// ParamOrder is a required parameter after an optional parameter.
+	ParamOrder = diagnostics.Kind{
+		Code:     "E3005",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// ReturnValue is a return with a value missing or a value not allowed.
+	ReturnValue = diagnostics.Kind{
+		Code:     "E3006",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// MisplacedStatement is a break, continue, or return outside its construct.
+	MisplacedStatement = diagnostics.Kind{
+		Code:     "E3007",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// StatefulVariable is a stateful variable in a place that does not allow one.
+	StatefulVariable = diagnostics.Kind{
+		Code:     "E3008",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// AssignmentTarget is an assignment to a target that does not accept it.
+	AssignmentTarget = diagnostics.Kind{
+		Code:     "E3009",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// CircularCall is a function that calls itself through a chain of calls.
+	CircularCall = diagnostics.Kind{
+		Code:     "E3010",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// OutputNeverAssigned is a named output that no path of its function sets.
+	OutputNeverAssigned = diagnostics.Kind{
+		Code:     "W3000",
+		Severity: protocol.DiagnosticSeverityWarning,
 	}
 
 	// DeprecatedSymbol is a reference to a name that has a replacement.
@@ -178,8 +228,18 @@ var All = []diagnostics.Kind{
 	TruthyCondition,
 	BoolCast,
 	UnitPrecisionLoss,
+	NotCallable,
 	FuncArgMissing,
 	FuncArgExtra,
+	FuncArgName,
+	FuncArgValue,
+	ParamOrder,
+	ReturnValue,
+	MisplacedStatement,
+	StatefulVariable,
+	AssignmentTarget,
+	CircularCall,
+	OutputNeverAssigned,
 	DeprecatedSymbol,
 	DeclarationAfterStep,
 	UnusedImport,

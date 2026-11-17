@@ -100,11 +100,11 @@ describe("Problem.Item", () => {
   it("should anchor at the diagnostic code and show the severity", async () => {
     const { get } = await render({
       message: "Unknown channel",
-      code: "ARC3001",
+      code: "E3001",
       severity: "error",
     });
-    expect(get("problem").properties.id).toEqual("arc3001");
-    expect(text(get("problem__code"))).toEqual("ARC3001");
+    expect(get("problem").properties.id).toEqual("e3001");
+    expect(text(get("problem__code"))).toEqual("E3001");
     const severity = get("problem__severity");
     expect(text(severity)).toEqual("Error");
     expect(hasClass(severity, "problem__severity--error")).toBe(true);

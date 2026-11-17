@@ -1315,7 +1315,7 @@ func analyzeFunctionNode(
 		return lowerSynthNode(ctx, synth, kg, shell, triggered)
 	}
 	if sym.Type.Kind != types.KindFunction {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.NotCallable.Atf(
 			ctx.AST,
 			"expected function type, got %s",
 			sym.Type,

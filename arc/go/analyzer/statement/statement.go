@@ -107,7 +107,9 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 			return
 		}
 		if bound, _ := rhsBindsChannel(ctx, expr); bound {
-			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, statefulChannelInitMsg))
+			ctx.Diagnostics.Add(
+				codes.StatefulVariable.Atf(ctx.AST, statefulChannelInitMsg),
+			)
 			return
 		}
 		flow.AnalyzeSingleExpression(ctx.Child(expr))
@@ -129,7 +131,7 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 			return
 		}
 		if ref.Kind == symbol.KindStatefulVariable {
-			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			ctx.Diagnostics.Add(codes.StatefulVariable.Atf(ctx.AST,
 				"stateful variables cannot be assigned to ':=' variables"))
 			return
 		}
@@ -204,7 +206,9 @@ func CheckStatefulInitializers[T antlr.ParserRuleContext](ctx context.Context[T]
 			continue
 		}
 		if decl, ok := expr.GetParent().(parser.IStatefulVariableContext); ok {
-			ctx.Diagnostics.Add(diagnostics.Errorf(decl, statefulChannelInitMsg))
+			ctx.Diagnostics.Add(
+				codes.StatefulVariable.Atf(decl, statefulChannelInitMsg),
+			)
 		}
 	}
 }
@@ -518,7 +522,7 @@ func getChannelSourceFromExpr[ASTNode antlr.ParserRuleContext](
 
 func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext]) {
 	if ctx.Scope == ctx.Scope.Root() {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+		ctx.Diagnostics.Add(codes.StatefulVariable.Atf(ctx.AST,
 			"stateful variables cannot be declared at the top level"))
 		return
 	}
@@ -762,7 +766,7 @@ func analyzeForRange(
 ) {
 	args := funcCall.ArgumentList()
 	if args == nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.FuncArgMissing.Atf(
 			ctx.AST, "range() requires 1 to 3 arguments",
 		))
 		return
@@ -770,7 +774,11 @@ func analyzeForRange(
 
 	argExprs := args.AllExpression()
 	if len(argExprs) < 1 || len(argExprs) > 3 {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		kind := codes.FuncArgMissing
+		if len(argExprs) > 3 {
+			kind = codes.FuncArgExtra
+		}
+		ctx.Diagnostics.Add(kind.Atf(
 			ctx.AST, "range() requires 1 to 3 arguments, got %d",
 			len(argExprs),
 		))
@@ -881,7 +889,7 @@ func addHiddenLocal(
 func analyzeBreakStatement(ctx context.Context[parser.IBreakStatementContext]) {
 	_, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindLoop)
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.MisplacedStatement.Atf(
 			ctx.AST,
 			"break can only be used inside a for loop",
 		))
@@ -891,7 +899,7 @@ func analyzeBreakStatement(ctx context.Context[parser.IBreakStatementContext]) {
 func analyzeContinueStatement(ctx context.Context[parser.IContinueStatementContext]) {
 	_, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindLoop)
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.MisplacedStatement.Atf(
 			ctx.AST,
 			"continue can only be used inside a for loop",
 		))
@@ -903,7 +911,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	if err != nil {
 		enclosingScope, err = ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.MisplacedStatement.Atf(
 				ctx.AST,
 				"return statement can only be used inside a function body",
 			))
@@ -927,7 +935,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 		// Check for void function first - this error applies even in type inference
 		// mode
 		if !expectedReturnType.IsValid() && !ctx.InTypeInferenceMode {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.ReturnValue.Atf(
 				ctx.AST,
 				"cannot return a value from a function with no return type",
 			))
@@ -987,7 +995,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 		return
 	}
 	if expectedReturnType.IsValid() {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+		ctx.Diagnostics.Add(codes.ReturnValue.Atf(ctx.AST,
 			"return statement in '%s' missing value of type %s",
 			funcName,
 			expectedReturnType,
@@ -1109,7 +1117,7 @@ func analyzeIndexedAssignment(
 	// 2. Only support single index (not slices) for now
 	if indexOrSlice.COLON() != nil {
 		ctx.Diagnostics.Add(
-			diagnostics.Errorf(ctx.AST, "slice assignment not supported"),
+			codes.AssignmentTarget.Atf(ctx.AST, "slice assignment not supported"),
 		)
 		return
 	}
@@ -1176,7 +1184,10 @@ func analyzeIndexedCompoundAssignment(
 
 	if indexOrSlice.COLON() != nil {
 		ctx.Diagnostics.Add(
-			diagnostics.Errorf(ctx.AST, "slice compound assignment not supported"),
+			codes.AssignmentTarget.Atf(
+				ctx.AST,
+				"slice compound assignment not supported",
+			),
 		)
 		return
 	}
@@ -1330,7 +1341,7 @@ func analyzeCompoundAssignment(
 
 	if varType.Kind == types.KindChan {
 		ctx.Diagnostics.Add(
-			diagnostics.Errorf(
+			codes.AssignmentTarget.Atf(
 				ctx.AST,
 				"compound assignment not supported on channels",
 			),
@@ -1400,7 +1411,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 	}
 
 	if varScope.Kind == symbol.KindLoopVariable {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.AssignmentTarget.Atf(
 			ctx.AST, "cannot assign to loop variable '%s'", name,
 		))
 		return

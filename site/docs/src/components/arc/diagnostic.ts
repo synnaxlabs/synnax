@@ -34,7 +34,7 @@ const fill = (code: string, format: string, values: string[]): string => {
 
 /**
  * Gives a `Problem.Item` the code, severity, and message of an Arc diagnostic kind.
- * @param code - The code of the kind, for example `ARC3001`.
+ * @param code - The code of the kind, for example `E3001`.
  * @param values - For each message to show, the text that stands for each verb of the
  * message format, in order. With no list, the format has no verbs and shows as it is.
  * @returns The props. They have no message when the kind takes its message from an

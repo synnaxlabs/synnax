@@ -588,13 +588,13 @@ src_chan -> demux() -> {
 			},
 			Entry("unknown named argument",
 				`len(unknown=label) -> count`,
-				"unknown parameter 'unknown' for func 'len'"),
+				"[E3003]: unknown parameter 'unknown' for func 'len'"),
 			Entry("too many positional arguments",
 				`len(label, label) -> count`,
 				"too many arguments for func 'len': expected at most 1"),
 			Entry("duplicate named argument",
 				`len(input=label, input=label) -> count`,
-				"duplicate argument for parameter 'input' of func 'len'"),
+				"[E3003]: duplicate argument for parameter 'input' of func 'len'"),
 			Entry("too many positional arguments in a func body",
 				`func f() {} i64 {
     return len(label, label)

@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -79,7 +78,7 @@ func bindArguments[T antlr.ParserRuleContext](
 			continue
 		}
 		if supplied.Contains(param.Name) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.FuncArgName.Atf(
 				arg.AST,
 				"duplicate argument for parameter '%s' of func '%s'",
 				param.Name,
@@ -107,7 +106,7 @@ func matchParam[T antlr.ParserRuleContext](
 	if arg.Name != "" {
 		param, ok := fnType.Inputs.Get(arg.Name)
 		if !ok {
-			ctx.Diagnostics.Add(diagnostics.Errorf(arg.AST,
+			ctx.Diagnostics.Add(codes.FuncArgName.Atf(arg.AST,
 				"unknown parameter '%s' for func '%s'", arg.Name, fnName).
 				WithNote("signature: " + signature))
 			return types.Param{}, false

@@ -26,6 +26,7 @@ import (
 	"slices"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
@@ -110,7 +111,7 @@ func collectInputs[T antlr.ParserRuleContext](
 			defaultValue = value.Value
 			seenOptional = true
 		} else if seenOptional {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.ParamOrder.Atf(
 				cfg,
 				"required input parameter %s cannot follow optional input parameters",
 				inputName,
@@ -171,7 +172,7 @@ func collectTriggers(
 			defaultValue = value.Value
 			seenOptional = true
 		} else if seenOptional {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.ParamOrder.Atf(
 				trigger,
 				"required parameter %s cannot follow optional parameters",
 				triggerName,
@@ -255,7 +256,7 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 		statement.AnalyzeBlock(ctx.Child(block).WithScope(fn))
 		oParam, hasOutput := fn.Type.Outputs.Get(ir.DefaultOutputParam)
 		if hasOutput && !BlockAlwaysReturns(block) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			ctx.Diagnostics.Add(codes.ReturnValue.Atf(ctx.AST,
 				"function '%s' must return a value of type %s on all paths",
 				name,
 				oParam.Type,
@@ -264,7 +265,7 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 		for _, output := range fn.Type.Outputs {
 			if output.Name != ir.DefaultOutputParam &&
 				!checkOutputAssignedInBlock(block, output.Name) {
-				ctx.Diagnostics.Add(diagnostics.Warningf(ctx.AST,
+				ctx.Diagnostics.Add(codes.OutputNeverAssigned.Atf(ctx.AST,
 					"output '%s' is never assigned in function '%s'",
 					output.Name,
 					name,

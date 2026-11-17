@@ -1090,7 +1090,7 @@ var _ = DescribeTable(
 	Entry(
 		"zero interval period",
 		"import time\n\ntime.interval(period=0ms) -> out",
-		"period must be positive, got 0s",
+		"[E3004]: period must be positive, got 0s",
 	),
 	Entry(
 		"negative interval period",

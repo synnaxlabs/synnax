@@ -33,7 +33,7 @@ func RejectReactiveAssignment(
 ) {
 	name := assign.IDENTIFIER().GetText()
 	d.Add(
-		diagnostics.Errorf(
+		codes.AssignmentTarget.Atf(
 			assign,
 			"use '<value> -> %s' to write to '%s'",
 			name,
@@ -54,7 +54,7 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 		return
 	}
 	if assign.CompoundOp() != nil || assign.IndexOrSlice() != nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
+		ctx.Diagnostics.Add(codes.AssignmentTarget.Atf(assign,
 			"compound and indexed assignment to a variable are not yet supported"))
 		return
 	}

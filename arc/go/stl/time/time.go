@@ -14,6 +14,7 @@ import (
 	"reflect"
 	stdtime "time"
 
+	acodes "github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
@@ -185,7 +186,7 @@ func rejectNonPositiveSpan(param string) symbol.ArgumentsHook {
 				span = -span
 			}
 			if span <= 0 {
-				diags.Add(diagnostics.Errorf(
+				diags.Add(acodes.FuncArgValue.Atf(
 					arg.AST, "%s must be positive, got %s", param, span,
 				))
 			}

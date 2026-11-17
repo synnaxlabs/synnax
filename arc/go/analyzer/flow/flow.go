@@ -511,7 +511,9 @@ func resolveFunc[T antlr.ParserRuleContext](
 		return nil, name
 	}
 	if sym.Kind != symbol.KindFunction {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "%s is not a function", name))
+		ctx.Diagnostics.Add(
+			codes.NotCallable.Atf(ctx.AST, "%s is not a function", name),
+		)
 		return nil, name
 	}
 	return sym, name

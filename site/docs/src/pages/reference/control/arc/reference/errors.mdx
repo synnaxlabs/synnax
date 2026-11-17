@@ -17,7 +17,7 @@ note. An error stops the automation from compiling. A warning does not. In a sta
 diagnostic looks like this:
 
 ```text
-5:14 error [ARC3001]: missing required argument for parameter 'y' of func 'add'
+5:14 error [E3001]: missing required argument for parameter 'y' of func 'add'
   note: signature: add(x f64, y f64) f64
 ```
 
@@ -61,7 +61,7 @@ In the messages below, `<name>` stands for a value that changes.
   <Problem.Fix>Cast the `bool` to `u8` first, such as `i32(u8(b))`.</Problem.Fix>
 </Problem.Item>
 
-<Problem.Item {...Arc.diagnostic("ARC3001", ["<p>", "<f>"])}>
+<Problem.Item {...Arc.diagnostic("E3001", ["<p>", "<f>"])}>
   <Problem.Cause>The call has no argument for a required parameter.</Problem.Cause>
   <Problem.Fix>Add the argument. The note shows the signature.</Problem.Fix>
 </Problem.Item>
@@ -76,7 +76,7 @@ In the messages below, `<name>` stands for a value that changes.
   </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item {...Arc.diagnostic("ARC3003", ["<f>", "<n>"])}>
+<Problem.Item {...Arc.diagnostic("E3002", ["<f>", "<n>"])}>
   <Problem.Cause>
     The call has more arguments than the function has parameters.
   </Problem.Cause>

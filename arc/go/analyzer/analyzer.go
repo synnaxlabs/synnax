@@ -15,6 +15,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/constant"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
@@ -215,7 +216,11 @@ func detectCallCycles(edges *[]acontext.CallEdge, diag *diagnostics.Diagnostics)
 			cycle, closingSite := findCycleInSCC(scc, sccSet, callGraph)
 			chain := strings.Join(cycle, " -> ")
 			diag.Add(
-				diagnostics.Errorf(closingSite, "circular function call: %s", chain),
+				codes.CircularCall.Atf(
+					closingSite,
+					"circular function call: %s",
+					chain,
+				),
 			)
 		}
 	}

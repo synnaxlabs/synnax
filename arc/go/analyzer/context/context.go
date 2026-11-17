@@ -207,7 +207,7 @@ func (c Context[AST]) RejectTopLevel(sym *symbol.Symbol, name string) bool {
 	if !sym.IsValueVariable() || sym.Parent != sym.Root() {
 		return false
 	}
-	c.Diagnostics.Add(diagnostics.Errorf(c.AST,
+	c.Diagnostics.Add(codes.AssignmentTarget.Atf(c.AST,
 		"cannot reassign top-level variable '%s'", name))
 	return true
 }
