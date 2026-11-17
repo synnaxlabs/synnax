@@ -65,7 +65,7 @@ describe("TimeStamp", () => {
   });
 
   test("now should advance in steps finer than a millisecond with Temporal", () => {
-    const limit = "Temporal" in globalThis ? TimeSpan.MILLISECOND : TimeSpan.DAY;
+    const limit = typeof Temporal !== "undefined" ? TimeSpan.MILLISECOND : TimeSpan.DAY;
     // A paused thread lengthens one step, so only the finest step counts. A CI VM
     // clock can tick coarsely for a few milliseconds, so the budget is clock time.
     let finest = TimeSpan.MAX;
@@ -79,6 +79,23 @@ describe("TimeStamp", () => {
       prev = now;
     }
     expect(finest.lessThan(limit)).toBe(true);
+  });
+
+  describe("now", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("should read Temporal when it exists", () => {
+      const epochNanoseconds = 1_700_000_000_123_456_789n;
+      vi.stubGlobal("Temporal", { Now: { instant: () => ({ epochNanoseconds }) } });
+      expect(TimeStamp.now().valueOf()).toBe(epochNanoseconds);
+    });
+
+    it("should read Date when Temporal does not exist", () => {
+      vi.stubGlobal("Temporal", undefined);
+      expect(TimeStamp.now().valueOf() % TimeSpan.MILLISECOND.valueOf()).toBe(0n);
+    });
   });
 
   test("encode", () => {

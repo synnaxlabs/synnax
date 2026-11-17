@@ -622,7 +622,7 @@ export class TimeStamp
    * runtimes that have `Temporal`, and a millisecond in other runtimes.
    */
   static now(): TimeStamp {
-    if ("Temporal" in globalThis)
+    if (typeof Temporal !== "undefined")
       return new TimeStamp(Temporal.Now.instant().epochNanoseconds);
     return new TimeStamp(new Date());
   }
