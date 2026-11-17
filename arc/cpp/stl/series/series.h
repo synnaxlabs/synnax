@@ -11,7 +11,6 @@
 
 #include <cstring>
 #include <memory>
-#include <stdexcept>
 
 #include "wasmtime.hh"
 
