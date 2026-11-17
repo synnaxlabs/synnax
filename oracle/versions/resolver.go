@@ -177,7 +177,12 @@ func (r *Resolver) file(livePath string, n int) (*File, error) {
 		)
 	}
 
-	b := &tableBuilder{r: r, table: resolution.NewTable(), done: set.New[string]()}
+	b := &tableBuilder{
+		r:       r,
+		table:   resolution.NewTable(),
+		done:    set.New[string](),
+		claimed: set.New[string](),
+	}
 
 	// Sibling versions seed the table with their defined declarations. A name a sibling
 	// aliases redirects to its definer.
@@ -448,7 +453,7 @@ func (r *Resolver) seedRewriter(
 			def.Name,
 		)
 	}
-	rewrites, err := r.pinRewrites(sib.Pins)
+	rewrites, err := r.pinRewrites(sib)
 	if err != nil {
 		return nil, err
 	}
@@ -505,6 +510,9 @@ type tableBuilder struct {
 	r     *Resolver
 	table *resolution.Table
 	done  set.Set[string]
+	// claimed holds each plain namespace that a pinned surface took, which a live
+	// namespace must not join.
+	claimed set.Set[string]
 }
 
 // addSurface registers livePath's surface at version n into the table under namespace
@@ -520,6 +528,7 @@ func (b *tableBuilder) addSurface(
 		return nil
 	}
 	b.done.Add(key)
+	b.claimed.Add(ns)
 	// A pin registered under its plain resource namespace claims that resource: an
 	// unversioned schema the file also imports may reach it live, and analyzing that
 	// file again would redeclare every type. Marking the live path resolves those
@@ -540,7 +549,7 @@ func (b *tableBuilder) addSurface(
 		if err != nil {
 			return err
 		}
-		rewrites, err := b.r.pinRewrites(definer.Pins)
+		rewrites, err := b.r.pinRewrites(definer)
 		if err != nil {
 			return err
 		}
@@ -582,7 +591,7 @@ func (b *tableBuilder) addSurface(
 		if err != nil {
 			return err
 		}
-		rewrites, err := b.r.pinRewrites(definer.Pins)
+		rewrites, err := b.r.pinRewrites(definer)
 		if err != nil {
 			return err
 		}
@@ -609,7 +618,7 @@ func (b *tableBuilder) addSurface(
 // the same schema resolves to these copies instead of redeclaring every type.
 func (b *tableBuilder) addLive(f *File) error {
 	for i, ns := range f.Live {
-		if b.done.Contains(ns) {
+		if b.done.Contains(ns) || b.claimed.Contains(ns) {
 			continue
 		}
 		b.done.Add(ns)
@@ -643,7 +652,7 @@ func (r *Resolver) SurfaceInto(
 			done.Add(t.Namespace)
 		}
 	}
-	b := &tableBuilder{r: r, table: table, done: done}
+	b := &tableBuilder{r: r, table: table, done: done, claimed: set.New[string]()}
 	return b.addSurface(livePath, n, ns)
 }
 
