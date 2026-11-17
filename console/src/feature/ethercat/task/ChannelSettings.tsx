@@ -63,7 +63,7 @@ export const ChannelSettings = ({
   const [moved, setMoved] = useState<{ device: string; notes: Note[] }>();
   const input = findInput(slave?.properties.settings, ch);
   if (input == null || slave == null) return null;
-  const reader = setUpBy(slave.properties);
+  const reader = setUpBy(slave.properties.settings);
   const fields = input.settings;
   const prior = held.find((s) => s.device === ch.device)?.parameters ?? [];
   const filled = reader == null ? fill(fields, prior) : { values: [], notes: [] };

@@ -47,10 +47,10 @@ const setParameter = (
  * scan, read only. Renders nothing for a slave whose catalog describes none.
  */
 export const SlaveSettings = (): ReactElement | null => {
-  const properties = Form.useFieldValue(PATH);
+  const settings = Form.useFieldValue(PATH.settings, { optional: true });
   const { value: stored, onChange } = Form.useField(PATH.startupParameters);
-  const reader = setUpBy(properties);
-  const fields = properties.settings?.device ?? [];
+  const reader = setUpBy(settings);
+  const fields = settings?.device ?? [];
   if (fields.length === 0) return null;
   const parameters = reader == null ? stored : [];
   return (
