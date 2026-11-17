@@ -69,8 +69,8 @@ The errors page is generated from the kinds. `errors.mdx` has no item for each c
   `codes.go`. It holds the code, severity, message, problem text, and examples of each
   kind. The docs site and any other tool read only this file.
 - **One Markdown file for each code**: It lives beside `codes.go`, as the Rust compiler
-  does (`E0308.md`). It has three parts: the problem, an example that fails, and the
-  corrected example. The generator copies them into `codes.gen.json`.
+  does (`E0308.md`). It has two parts: the problem and an example that fails. The
+  generator copies them into `codes.gen.json`.
 - **Real messages**: `go generate` compiles the failing example, checks that it reports
   the code, and writes the message to `codes.gen.json`. The page shows that message, so
   no person names the `%s` values.
