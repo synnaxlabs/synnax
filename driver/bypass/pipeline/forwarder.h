@@ -57,8 +57,8 @@ struct ForwarderConfig {
     /// @brief the shortest time between two reports of a new drop count.
     x::telem::TimeSpan drop_report_interval = 5 * x::telem::SECOND;
     /// @brief warns when the queue passes half its cap, until it drains below a
-    /// quarter. Once a frame drops, it reports the drop count instead until the
-    /// forwarder closes. Called from the forwarder thread only.
+    /// quarter. Once a frame drops, it reports the drop count instead, and leaves the
+    /// final count when the forwarder closes. Called from the forwarder thread only.
     Warn warn;
     /// @brief backs off from an unreachable Core, with no retry limit.
     x::breaker::Config breaker{
@@ -133,11 +133,21 @@ class Forwarder {
         this->warn(message, description);
     }
 
+    void show_drops(const size_t dropped) {
+        this->drops_shown_at = std::chrono::steady_clock::now();
+        this->show(
+            "Dropped frames",
+            "Dropped " + std::to_string(dropped) +
+                (dropped == 1 ? " frame" : " frames") +
+                " because the Core could not take them fast enough."
+        );
+    }
+
     /// @brief shows on the task status whether the queue lags or drops frames.
     void report() {
         if (!this->warn) return;
-        size_t bytes;
-        size_t dropped;
+        size_t bytes = 0;
+        size_t dropped = 0;
         {
             std::lock_guard lock(this->mu);
             bytes = this->queue_bytes;
@@ -148,26 +158,38 @@ class Forwarder {
         else if (bytes * 4 < this->max_queue_bytes)
             this->lagging = false;
         if (dropped > 0) {
-            const auto now = std::chrono::steady_clock::now();
-            if (this->shown_message == "Dropped frames" &&
-                now - this->drops_shown_at < this->drop_report_interval)
-                return;
-            this->drops_shown_at = now;
-            return this->show(
-                "Dropped frames",
-                "Dropped " + std::to_string(dropped) +
-                    (dropped == 1 ? " frame" : " frames") +
-                    " because the Core could not take them fast enough."
-            );
+            if (this->shown_message != "Dropped frames" ||
+                std::chrono::steady_clock::now() - this->drops_shown_at >=
+                    this->drop_report_interval)
+                this->show_drops(dropped);
+            return;
         }
-        if (!this->lagging) return this->show("", "");
-        const auto mb = this->max_queue_bytes / (1024 * 1024);
+        if (!this->lagging) {
+            this->show("", "");
+            return;
+        }
+        const auto mb = this->max_queue_bytes / (size_t{1024} * 1024);
         this->show(
             "Falling behind the Core",
             "More than " + std::to_string(mb / 2) +
                 " MB of frames wait for the Core. Frames drop when " +
                 std::to_string(mb) + " MB wait."
         );
+    }
+
+    /// @brief leaves the final drop count on the task status, which shows it in the
+    /// stop status, or clears the warning when no frame dropped.
+    void report_closed() {
+        if (!this->warn) return;
+        size_t dropped = 0;
+        {
+            std::lock_guard lock(this->mu);
+            dropped = this->dropped_frames;
+        }
+        if (dropped == 0)
+            this->show("", "");
+        else
+            this->show_drops(dropped);
     }
 
     /// @brief waits for an op, or returns false once closing leaves none.
@@ -238,7 +260,7 @@ class Forwarder {
     void run() {
         x::defer::defer settle([this] {
             this->settle();
-            if (this->warn) this->show("", "");
+            this->report_closed();
         });
         while (true) {
             this->report();

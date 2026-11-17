@@ -278,6 +278,50 @@ TEST(ForwarderTest, ReportsDroppedFramesAtMostOncePerInterval) {
     ASSERT_EVENTUALLY_EQ(server->written.load(), 6);
     EXPECT_EQ(last().first, "Dropped frames");
     ASSERT_NIL(forwarder.close());
-    EXPECT_EQ(last().first, "");
+    EXPECT_EQ(
+        last().second,
+        "Dropped 2 frames because the Core could not take them fast enough."
+    );
+}
+
+/// @brief it should leave the count of the frames it drops on close for the stop
+/// status.
+TEST(ForwarderTest, ReportsFramesDroppedOnClose) {
+    const auto server = factory(
+        std::vector<x::errors::Error>(1000, freighter::UNREACHABLE)
+    );
+    const auto warnings = std::make_shared<Warnings>();
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {.warn = record(warnings), .breaker = {.base_interval = x::telem::MILLISECOND}}
+    );
+    for (int i = 0; i < 3; i++)
+        ASSERT_NIL(forwarder.write(frame(static_cast<float>(i))));
+    ASSERT_NIL(forwarder.close());
+    ASSERT_EQ(warnings->size(), 1);
+    EXPECT_EQ(warnings->at(0).first, "Dropped frames");
+    EXPECT_EQ(
+        warnings->at(0).second,
+        "Dropped 3 frames because the Core could not take them fast enough."
+    );
+}
+
+/// @brief it should report the frames it drops when a permanent error stops it.
+TEST(ForwarderTest, ReportsFramesDroppedOnAPermanentError) {
+    const auto server = factory();
+    std::promise<void> gate;
+    server->open_gate = gate.get_future().share();
+    server->open_errors = {x::errors::VALIDATION};
+    const auto warnings = std::make_shared<Warnings>();
+    Forwarder forwarder(server, {.channels = {1}}, {.warn = record(warnings)});
+    ASSERT_NIL(forwarder.write(frame(0)));
+    gate.set_value();
+    ASSERT_OCCURRED_AS(forwarder.close(), x::errors::VALIDATION);
+    ASSERT_EQ(warnings->size(), 1);
+    EXPECT_EQ(
+        warnings->at(0).second,
+        "Dropped 1 frame because the Core could not take them fast enough."
+    );
 }
 }
