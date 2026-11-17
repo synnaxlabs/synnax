@@ -11,7 +11,12 @@
 
 package device
 
-import labjackdevice "github.com/synnaxlabs/synnax/pkg/service/labjack/device"
+import (
+	"strconv"
+
+	labjackdevice "github.com/synnaxlabs/synnax/pkg/service/labjack/device"
+	"github.com/synnaxlabs/x/validate"
+)
 
 // Cursor is a position in an order of devices: the sort value and the key of a device.
 type Cursor struct {
@@ -37,4 +42,14 @@ type RetrieveRequest struct {
 type RetrieveResponse struct {
 	// Devices are the devices the request selects.
 	Devices []labjackdevice.Device `json:"devices" msgpack:"devices"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveResponse) Validate() error {
+	v := validate.New("RetrieveResponse")
+	for i := range r.Devices {
+		v.Exec(func() error { return validate.PathedError(r.Devices[i].Validate(), "devices", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }
