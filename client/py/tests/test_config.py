@@ -72,20 +72,16 @@ class TestLoadDesktopOptions:
     def test_reads_utf8_text(self, desktop_file: Path) -> None:
         """Should decode the file as UTF-8 whatever the locale code page is."""
         cert = "C:\\Users\\Zoë\\ca.pem"
+        keychain = MemoryKeyring()
+        keychain.set_password(DESKTOP_KEY_SERVICE, DESKTOP_KEY_ACCOUNT, "syk_k_s")
         desktop_file.parent.mkdir(parents=True, exist_ok=True)
         desktop_file.write_bytes(
             json.dumps(
-                {
-                    "host": "127.0.0.1",
-                    "port": 4321,
-                    "secure": True,
-                    "api_key": "syk_k_s",
-                    "ca_cert": cert,
-                },
+                {"host": "127.0.0.1", "port": 4321, "secure": True, "ca_cert": cert},
                 ensure_ascii=False,
             ).encode("utf-8")
         )
-        opts = load_desktop_options(desktop_file)
+        opts = load_desktop_options(keychain, desktop_file)
         assert opts is not None
         assert opts.ca_cert == cert
 
@@ -103,7 +99,8 @@ class TestLoadDesktopOptions:
         desktop_file.write_text(
             json.dumps(
                 {"host": "127.0.0.1", "port": 1, "secure": False, "api_key": "syk_k"}
-            )
+            ),
+            encoding="utf-8",
         )
         with pytest.raises(ConfigurationError, match=OLD_DESKTOP_MSG):
             load_desktop_options(MemoryKeyring(), desktop_file)
