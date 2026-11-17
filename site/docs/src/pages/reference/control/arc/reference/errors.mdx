@@ -83,7 +83,7 @@ In the messages below, `<name>` stands for a value that changes.
   <Problem.Fix>Remove the extra arguments. The note shows the signature.</Problem.Fix>
 </Problem.Item>
 
-<Problem.Item {...Arc.diagnostic("ARC4003", ["<old>", "<new>"])}>
+<Problem.Item {...Arc.diagnostic("W4001", ["<old>", "<new>"])}>
   <Problem.Cause>The code uses an old name, such as `interval`.</Problem.Cause>
   <Problem.Fix>Use the qualified name, such as `time.interval`.</Problem.Fix>
 </Problem.Item>
@@ -95,7 +95,7 @@ In the messages below, `<name>` stands for a value that changes.
   <Problem.Fix>Move the declaration above the first flow or transition.</Problem.Fix>
 </Problem.Item>
 
-<Problem.Item {...Arc.diagnostic("ARC5001", ["<m>"])}>
+<Problem.Item {...Arc.diagnostic("W4000", ["<m>"])}>
   <Problem.Cause>The code imports a module and does not use it.</Problem.Cause>
   <Problem.Fix>Remove the import.</Problem.Fix>
 </Problem.Item>
@@ -118,8 +118,6 @@ In the messages below, `<name>` stands for a value that changes.
 </Problem.Item>
 
 </Problem.List>
-
-Codes ARC4001 and ARC4002 are reserved. The compiler does not emit them.
 
 <Divider.Divider x />
 

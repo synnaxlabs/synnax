@@ -23,7 +23,7 @@ import (
 
 var _ = Describe("All", func() {
 	It("Should give each kind a code that no other kind has", func() {
-		seen := set.New(codes.SymbolUndefined, codes.SymbolRedefined)
+		seen := set.New[diagnostics.ErrorCode]()
 		for _, kind := range codes.All {
 			Expect(string(kind.Code)).To(MatchRegexp(`^(ARC|E|W)\d{4}$`))
 			Expect(seen.Contains(kind.Code)).To(BeFalse(), string(kind.Code))

@@ -21,13 +21,13 @@ describe("Arc.diagnostic", () => {
   });
 
   it("should put the values in place of the verbs", () => {
-    expect(Arc.diagnostic("ARC4003", ["<old>", "<new>"]).message).toEqual(
+    expect(Arc.diagnostic("W4001", ["<old>", "<new>"]).message).toEqual(
       "'<old>' is deprecated, use '<new>' instead",
     );
   });
 
   it("should put the value of a quoted verb in quotes", () => {
-    expect(Arc.diagnostic("ARC5001", ["<m>"]).message).toEqual(
+    expect(Arc.diagnostic("W4000", ["<m>"]).message).toEqual(
       'imported module "<m>" is unused',
     );
   });
@@ -50,8 +50,8 @@ describe("Arc.diagnostic", () => {
   });
 
   it("should throw when a verb has no value", () => {
-    expect(() => Arc.diagnostic("ARC4003", ["<old>"])).toThrow(
-      "ARC4003 has a verb with no value",
+    expect(() => Arc.diagnostic("W4001", ["<old>"])).toThrow(
+      "W4001 has a verb with no value",
     );
   });
 

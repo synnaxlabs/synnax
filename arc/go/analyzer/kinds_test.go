@@ -75,5 +75,15 @@ var _ = Describe("Diagnostic kinds", func() {
 			"func a() {\n b()\n}\nfunc b() {\n a()\n}", codes.CircularCall),
 		Entry("a named output that no path sets",
 			"func f() (out i32) {\n}", codes.OutputNeverAssigned),
+		Entry("an import of a module that does not exist",
+			"import nope", codes.ImportFailed),
+		Entry("an import after a declaration",
+			"func f() {\n}\nimport time", codes.ImportDeclaration),
+		Entry("an export in a program",
+			"export func f() {\n}", codes.ModuleDeclaration),
+		Entry("a name that no scope declares",
+			"func f() {\n x := y\n}", codes.SymbolUndefined),
+		Entry("a name declared two times",
+			"func f() {\n x := 1\n x := 2\n}", codes.SymbolRedefined),
 	)
 })

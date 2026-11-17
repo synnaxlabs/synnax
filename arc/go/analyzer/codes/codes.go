@@ -17,14 +17,6 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// Reserved codes. The compiler does not report them.
-const (
-	// SymbolUndefined indicates a referenced symbol was not found.
-	SymbolUndefined diagnostics.ErrorCode = "ARC4001"
-	// SymbolRedefined indicates a symbol was declared more than once in the same scope.
-	SymbolRedefined diagnostics.ErrorCode = "ARC4002"
-)
-
 var (
 	// Syntax is source text that the parser rejects.
 	Syntax = diagnostics.Kind{
@@ -187,24 +179,54 @@ var (
 		Severity: protocol.DiagnosticSeverityWarning,
 	}
 
+	// ImportFailed is an import of a module that does not exist or does not load.
+	ImportFailed = diagnostics.Kind{
+		Code:     "E4000",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// ImportDeclaration is an import that is a duplicate or is out of place.
+	ImportDeclaration = diagnostics.Kind{
+		Code:     "E4001",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// NotExported is a reference to a member that its module does not export.
+	NotExported = diagnostics.Kind{
+		Code:     "E4002",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// ModuleDeclaration is a declaration that a module, or a program, cannot hold.
+	ModuleDeclaration = diagnostics.Kind{
+		Code:     "E4003",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// SymbolUndefined is a reference to a name that no scope declares.
+	SymbolUndefined = diagnostics.Kind{
+		Code:     "E4004",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// SymbolRedefined is a declaration of a name that its scope already has.
+	SymbolRedefined = diagnostics.Kind{
+		Code:     "E4005",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// UnusedImport is an imported module that nothing references.
+	UnusedImport = diagnostics.Kind{
+		Code:     "W4000",
+		Severity: protocol.DiagnosticSeverityWarning,
+		Message:  "imported module %q is unused",
+	}
 	// DeprecatedSymbol is a reference to a name that has a replacement.
 	DeprecatedSymbol = diagnostics.Kind{
-		Code:     "ARC4003",
+		Code:     "W4001",
 		Severity: protocol.DiagnosticSeverityWarning,
 		Message:  "'%s' is deprecated, use '%s' instead",
 	}
+
 	// DeclarationAfterStep is a variable declared after a step of its scope.
 	DeclarationAfterStep = diagnostics.Kind{
 		Code:     "ARC4004",
 		Severity: protocol.DiagnosticSeverityWarning,
 		Message:  "declare variables at the top of a stage or sequence",
-	}
-
-	// UnusedImport is an imported module that nothing references.
-	UnusedImport = diagnostics.Kind{
-		Code:     "ARC5001",
-		Severity: protocol.DiagnosticSeverityWarning,
-		Message:  "imported module %q is unused",
 	}
 )
 
@@ -240,7 +262,13 @@ var All = []diagnostics.Kind{
 	AssignmentTarget,
 	CircularCall,
 	OutputNeverAssigned,
+	ImportFailed,
+	ImportDeclaration,
+	NotExported,
+	ModuleDeclaration,
+	SymbolUndefined,
+	SymbolRedefined,
+	UnusedImport,
 	DeprecatedSymbol,
 	DeclarationAfterStep,
-	UnusedImport,
 }

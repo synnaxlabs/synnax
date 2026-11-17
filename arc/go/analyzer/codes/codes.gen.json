@@ -1,15 +1,7 @@
 {
-  "ARC4003": {
-    "severity": "warning",
-    "message": "'%s' is deprecated, use '%s' instead"
-  },
   "ARC4004": {
     "severity": "warning",
     "message": "declare variables at the top of a stage or sequence"
-  },
-  "ARC5001": {
-    "severity": "warning",
-    "message": "imported module %q is unused"
   },
   "E1000": {
     "severity": "error",
@@ -115,6 +107,30 @@
     "severity": "error",
     "message": ""
   },
+  "E4000": {
+    "severity": "error",
+    "message": ""
+  },
+  "E4001": {
+    "severity": "error",
+    "message": ""
+  },
+  "E4002": {
+    "severity": "error",
+    "message": ""
+  },
+  "E4003": {
+    "severity": "error",
+    "message": ""
+  },
+  "E4004": {
+    "severity": "error",
+    "message": ""
+  },
+  "E4005": {
+    "severity": "error",
+    "message": ""
+  },
   "W2000": {
     "severity": "warning",
     "message": "non-boolean conditions are deprecated, use an explicit comparison like x != 0"
@@ -130,5 +146,13 @@
   "W3000": {
     "severity": "warning",
     "message": ""
+  },
+  "W4000": {
+    "severity": "warning",
+    "message": "imported module %q is unused"
+  },
+  "W4001": {
+    "severity": "warning",
+    "message": "'%s' is deprecated, use '%s' instead"
   }
 }

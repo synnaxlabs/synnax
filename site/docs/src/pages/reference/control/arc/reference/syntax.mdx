@@ -182,7 +182,7 @@ t.interval(period=1min) -> vent_vlv_cmd
 | -------------------------------------- | ----------------------------------------------------------------------- |
 | Imports come before all other code.    | `import statements must appear before any other top-level declarations` |
 | Each module must exist.                | `unknown module "foo"`                                                  |
-| Each import should be used.            | `imported module "time" is unused` (warning `ARC5001`)                  |
+| Each import should be used.            | `imported module "time" is unused` (warning `W4000`)                    |
 | Each import needs its own name.        | `duplicate import: "tank" is already imported`. Add `as` to one.        |
 | A member of a module needs the import. | `undefined symbol: time`, with a note to add `import time`              |
 

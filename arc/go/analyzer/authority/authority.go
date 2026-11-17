@@ -14,6 +14,7 @@ import (
 	"strconv"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
@@ -99,7 +100,7 @@ func analyzeEntry(
 		}
 		sym, err := ctx.Resolve(name)
 		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.SymbolUndefined.Atf(
 				entry,
 				"channel '%s' not found",
 				name,
