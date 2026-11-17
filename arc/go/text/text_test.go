@@ -9962,6 +9962,12 @@ var _ = Describe("Sequences and stages with parameters", func() {
 			Type: types.Chan(types.F64()),
 			ID:   104,
 		},
+		{
+			Name: "label",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.String()),
+			ID:   105,
+		},
 	}
 	const declaration = `
 		sequence main(limit f64, out chan f64) {
@@ -9971,6 +9977,14 @@ var _ = Describe("Sequences and stages with parameters", func() {
 			}
 			stage vent {
 				0.0 -> out
+			}
+		}
+	`
+	const lastStageNext = `
+		sequence main(out chan f64) {
+			stage vent {
+				0.0 -> out
+				pressure > 5.0 => next
 			}
 		}
 	`
@@ -10022,6 +10036,80 @@ var _ = Describe("Sequences and stages with parameters", func() {
 		Expect(inter.Nodes).To(BeEmpty())
 		Expect(inter.Edges).To(BeEmpty())
 		Expect(inter.Root.Strata).To(BeEmpty())
+	})
+
+	DescribeTable("Should report an error in a declaration one time",
+		func(ctx SpecContext, source, message string) {
+			parsed := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsed, NewRoot(nil, resolver...))
+			Expect(diagnostics.Errors()).To(HaveLen(1), diagnostics.String())
+			Expect(diagnostics.Errors()[0].Message).To(Equal(message))
+		},
+		Entry("with no call of a sequence", lastStageNext,
+			"'next' in last stage 'vent' has no next stage"),
+		Entry("with no call of a stage", `
+			stage hold(out chan f64) {
+				0.0 -> out
+				pressure > 5.0 => next
+			}
+		`, "'next' used outside of a sequence"),
+		Entry("with no call, for a channel parameter as a value input", `
+			func scale(k f64) {v f64} f64 {
+				return v * k
+			}
+			sequence main(src chan f64, out chan f64) {
+				stage run {
+					pressure -> scale(k=src) -> out
+				}
+			}
+		`, "input value for 'k' cannot be a channel"),
+		Entry("with no call, for a target with no steps", `
+			sequence empty {}
+			sequence main(out chan f64) {
+				stage run {
+					0.0 -> out
+					pressure > 5.0 => empty
+				}
+			}
+		`, "sequence 'empty' has no steps"),
+		Entry("with a call after the declaration", lastStageNext+`
+			start => main(valve)
+		`, "'next' in last stage 'vent' has no next stage"),
+		Entry("with a call before the declaration", `
+			start => main(valve)
+		`+lastStageNext, "'next' in last stage 'vent' has no next stage"),
+		Entry("with two calls", lastStageNext+`
+			start => main(valve)
+			start => main(valve_b)
+		`, "'next' in last stage 'vent' has no next stage"),
+	)
+
+	It("Should add nothing to the program for a declaration with no call", func(
+		ctx SpecContext,
+	) {
+		program := declaration + `
+			start => main(50.0, valve)
+		`
+		alone := analyze(ctx, program)
+		beside := analyze(ctx, program+`
+			sequence watch(limit f64, out chan f64, id i64) {
+				stage armed {
+					f"id {id}" -> label
+					pressure > limit => stage {
+						1.0 -> out
+					}
+				}
+			}
+		`)
+		keys := func(inter ir.IR) []string {
+			return lo.Map(inter.Nodes, func(n ir.Node, _ int) string { return n.Key })
+		}
+		Expect(keys(beside)).To(Equal(keys(alone)))
+		Expect(beside.Edges).To(Equal(alone.Edges))
+		Expect(beside.Root).To(Equal(alone.Root))
+		for _, f := range beside.Functions {
+			Expect(f.Key).ToNot(HavePrefix(compiler.FmtStrSyntheticPrefix))
+		}
 	})
 
 	It("Should still lower a sequence with no parameters beside one", func(

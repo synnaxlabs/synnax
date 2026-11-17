@@ -383,6 +383,36 @@ trig > 0 => m.set(out8)
 				findTopLevelScope(i, "m.$m.set_0")
 				findTopLevelScope(i, "$m.set_0")
 			})
+
+			Context("With an error in the sequence", func() {
+				const source = "export sequence set(target chan u8) {\n" +
+					"    stage a { trig > 0 => next }\n}\n" +
+					"export stage ok { trig -> out8 }"
+				BeforeEach(func() { sources["m"] = source })
+
+				It("Should not compile the module", func(ctx SpecContext) {
+					_, diag := analyzeModule(ctx, source)
+					Expect(diag.Errors()).To(HaveLen(1), diag.String())
+					Expect(diag.Errors()[0].Message).
+						To(Equal("'next' in last stage 'a' has no next stage"))
+				})
+
+				DescribeTable("Should report the error once, at the import",
+					func(ctx SpecContext, flow string) {
+						diag := analyze(ctx, "import m\n\n"+flow)
+						Expect(*diag).To(HaveLen(1), diag.String())
+						Expect((*diag)[0].Message).To(Equal(
+							`module "m" does not compile: ` +
+								`2:26 'next' in last stage 'a' has no next stage`,
+						))
+						Expect((*diag)[0].Range.Start.Line).To(BeZero())
+					},
+					Entry("to an importer that calls the sequence",
+						"trig > 0 => m.set(out8)"),
+					Entry("to an importer that calls a different member",
+						"trig > 0 => m.ok"),
+				)
+			})
 		})
 
 		Describe("Search", func() {

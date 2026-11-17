@@ -630,6 +630,27 @@ func instantiate[T antlr.ParserRuleContext](
 	return true
 }
 
+// checkDeclaration reports the errors of a sequence or stage that only a call lowers.
+func checkDeclaration[T identifierAST](
+	ctx acontext.Context[T],
+	shell *shellBuilder,
+) bool {
+	body, ok := resolveDeclScope(ctx)
+	if !ok {
+		return false
+	}
+	args := make(map[*symbol.Symbol]argument, len(body.Type.Inputs))
+	for _, param := range body.Type.Inputs {
+		sym := body.FindChild(param.Name)
+		args[sym] = argument{value: types.Zero(param.Type), channel: uint32(sym.ID)}
+	}
+	// A builder and a key generator of its own keep the output out of the program.
+	scratch := newShellBuilder(shell.synthByAST)
+	scratch.varNodes = shell.varNodes
+	kg := newKeyGenerator(new(ir.Functions), "")
+	return instantiate(ctx, body, args, body.QualifiedName(), kg, scratch)
+}
+
 // bodyDispatchers returns the dispatcher of each variable declared under scope.
 func bodyDispatchers(scope *symbol.Symbol, shell *shellBuilder) []*dispatcher {
 	var disps []*dispatcher
@@ -784,7 +805,7 @@ func collectVarNodes(s *symbol.Symbol, kg *keyGenerator, shell *shellBuilder) {
 		if c.Kind == symbol.KindModuleAlias {
 			continue
 		}
-		// A sequence or stage with parameters is not lowered at its declaration.
+		// A sequence or stage with parameters gets its variable nodes in each instance.
 		if c.IsParameterized() {
 			continue
 		}
@@ -1911,8 +1932,11 @@ func analyzeUnit(
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
 		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
-			// A declaration with parameters lowers nothing here.
+			// A declaration with parameters adds nothing to the program here.
 			if seqDecl.InputList() != nil {
+				if !checkDeclaration(aCtx.Child(seqDecl), shell) {
+					return unit{ir: i}, aCtx.Diagnostics
+				}
 				continue
 			}
 			seqScope, nodes, edges, ok := analyzeSequence(
@@ -1928,6 +1952,9 @@ func analyzeUnit(
 			i.Edges = append(i.Edges, edges...)
 		} else if stageDecl := item.StageDeclaration(); stageDecl != nil {
 			if stageDecl.InputList() != nil {
+				if !checkDeclaration(aCtx.Child(stageDecl), shell) {
+					return unit{ir: i}, aCtx.Diagnostics
+				}
 				continue
 			}
 			stgScope, nodes, edges, ok := analyzeStage(

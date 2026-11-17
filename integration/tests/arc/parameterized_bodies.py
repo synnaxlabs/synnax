@@ -35,6 +35,16 @@ export stage hold(out chan f32, value f32) {
 }
 """
 
+# No flow calls the sequence, and its last stage has no stage after it.
+UNCALLED_SOURCE = """
+export sequence drain(valve chan bool) {
+    stage open {
+        true -> valve
+        pb_mod_go => next
+    }
+}
+"""
+
 # pb_start starts every instance, and each instance marks its readiness on entry.
 AUTOMATION_SOURCE = Template("""
 import $library
@@ -242,6 +252,7 @@ class ParameterizedBodies(ArcCase):
     8. An inline body in the sequence belongs to one instance.
     9. The automation calls a sequence and a stage that a module exports, two times
        each. The sequence calls one that the module does not export.
+    10. A module does not compile when a sequence that no flow calls has an error.
     """
 
     arc_source = AUTOMATION_SOURCE.template
@@ -273,6 +284,7 @@ class ParameterizedBodies(ArcCase):
         self._verify_call_from_an_instance()
         self._verify_inline_body()
         self._verify_module()
+        self._verify_uncalled_declaration()
 
     def _wait_for_ready(self, *channels: str) -> None:
         for channel in channels:
@@ -359,3 +371,9 @@ class ParameterizedBodies(ArcCase):
         self.log("Waiting for each instance of the exported stage")
         self.wait_for_eq("pb_mod_hold_a", 8)
         self.wait_for_eq("pb_mod_hold_b", 9)
+
+    def _verify_uncalled_declaration(self) -> None:
+        self.log("Creating a module with an error in a sequence that no flow calls")
+        path = self.load_module(UNCALLED_SOURCE, name_prefix="pb_uncalled")
+        status = self.wait_for_module_status(path, "error", 10 * sy.TimeSpan.SECOND)
+        assert "'next' in last stage 'open'" in status.description, status
