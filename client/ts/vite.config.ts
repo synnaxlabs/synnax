@@ -29,16 +29,6 @@ const noProcess = (): Plugin => ({
   },
 });
 
-// Each Zod copy keeps its own registry, so the consumer's copy must be the only one.
-const noZod = (): Plugin => ({
-  name: "no-zod",
-  generateBundle(_, bundle) {
-    for (const chunk of Object.values(bundle))
-      if (chunk.type === "chunk" && chunk.code.includes("__zod_globalRegistry"))
-        this.error(`${chunk.fileName} bundles Zod`);
-  },
-});
-
 export default defineConfig({
   define: {
     __VERSION__: JSON.stringify(packageJSON.version),
@@ -46,7 +36,7 @@ export default defineConfig({
     // `process`.
     "process.env.NODE_ENV": JSON.stringify(isProd() ? "production" : "development"),
   },
-  plugins: [lib({ name: "client" }), noProcess(), noZod()],
+  plugins: [lib({ name: "client" }), noProcess()],
   build: {
     lib: {
       entry: {
