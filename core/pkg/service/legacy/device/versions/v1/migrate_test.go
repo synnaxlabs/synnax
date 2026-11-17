@@ -34,6 +34,7 @@ var _ = Describe("MigrateDevice", func() {
 	migrateSeed := func(ctx SpecContext, seed v0.Device) v1.Device {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Device]{DB: db}))
 		Expect(gorp.NewCreate[v0.Key, v0.Device]().
 			Entry(&seed).Exec(ctx, db)).To(Succeed())
@@ -154,6 +155,7 @@ var _ = Describe("HTTPHealthCheckMigration", func() {
 	migrateDevice := func(ctx SpecContext, d v1.Device) v1.Device {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		Expect(gorp.NewCreate[v1.Key, v1.Device]().Entry(&d).Exec(ctx, db)).
 			To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{

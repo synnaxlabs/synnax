@@ -204,7 +204,8 @@ func (c CoreConfig) resolveSecretsKey() (secret.EncryptionKey, error) {
 	return secret.LoadEncryptionKey(filepath.Join(c.dataPath, secretsKeyFileName))
 }
 
-// storageStopTimeout bounds the wait for the storage layer to stop at shutdown.
+// storageStopTimeout bounds the wait for the Gorp DB and the storage layer to stop at
+// shutdown.
 const storageStopTimeout = 20 * time.Second
 
 // BootupCore contains the most important Core startup logic. It does and should not
@@ -212,8 +213,8 @@ const storageStopTimeout = 20 * time.Second
 // CoreConfigs.
 //
 // The Core opens under stop and runs until stop ends or a component fails. It then
-// closes its components, and stops the storage layer last. The lifetime of the storage
-// layer derives from root, so it outlives stop.
+// closes its components, stops the Gorp DB, and stops the storage layer last. The
+// lifetime of the storage layer derives from root, so it outlives stop.
 func BootupCore(
 	root context.Context,
 	stop context.Context,
@@ -301,6 +302,7 @@ func BootupCore(
 	}
 	cfg.L.Info("using working directory", zap.String("dir", workDir))
 
+	var storageLife context.Context
 	if storageLayer, err = storage.OpenLayer(stop, storage.LayerConfig{
 		Instrumentation:      cfg.Child("storage"),
 		InMemory:             cfg.memBacked,
@@ -309,7 +311,7 @@ func BootupCore(
 		UpdateBackupDisabled: cfg.updateBackupDisabled,
 	}); err == nil {
 		update = storageLayer.Update
-		lifetimes.Go(root, "storage", storageLayer.Run)
+		storageLife = lifetimes.Go(root, "storage", storageLayer.Run)
 	}
 	if !ok(err, nil) {
 		return err
@@ -323,6 +325,7 @@ func BootupCore(
 	if !ok(err, distributionLayer) {
 		return err
 	}
+	lifetimes.Go(storageLife, "gorp", distributionLayer.DB.Run)
 
 	secretsKey, err := cfg.resolveSecretsKey()
 	if !ok(err, nil) {

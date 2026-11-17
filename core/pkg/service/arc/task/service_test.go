@@ -35,6 +35,7 @@ var _ = Describe("Service", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 		a := arc.Arc{
 			Variant: arc.AutomationArc{Base: arc.Base{

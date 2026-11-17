@@ -78,6 +78,105 @@ func (f gatedFile) SyncData() error {
 }
 
 var _ = Describe("DB", func() {
+	Describe("Run", func() {
+		var (
+			runDB   *gorp.DB
+			nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
+		)
+		BeforeEach(func() {
+			runDB = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+			nameIdx = gorp.NewLookupIndex(
+				"name", func(e *indexedEntry) string { return e.Name },
+			)
+		})
+		openTable := func(ctx context.Context) (*gorp.Table[int32, indexedEntry], error) {
+			return gorp.OpenTable(ctx, gorp.TableConfig[int32, indexedEntry]{
+				DB:      runDB,
+				Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
+			})
+		}
+
+		It(
+			"Should open a table without indexes before Run starts",
+			func(ctx SpecContext) {
+				MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: runDB}))
+			},
+		)
+
+		It(
+			"Should fail to open a table with indexes before Run starts, and leave its "+
+				"indexes unused",
+			func(ctx SpecContext) {
+				Expect(openTable(ctx)).Error().
+					To(MatchError(ContainSubstring("before DB.Run started")))
+				StartRun(runDB.Run)
+				MustOpen(openTable(ctx))
+				Expect(gorp.WrapWriter[int32, indexedEntry](runDB).
+					Set(ctx, indexedEntry{ID: 1, Name: "a"})).To(Succeed())
+				Expect(nameIdx.Get(ctx, runDB, "a")).To(Equal([]int32{1}))
+			},
+		)
+
+		It(
+			"Should fail to open a table with indexes after Run stops",
+			func(ctx SpecContext) {
+				StartRun(runDB.Run)()
+				Expect(openTable(ctx)).Error().
+					To(MatchError(ContainSubstring("after DB.Run stopped")))
+			},
+		)
+
+		It("Should fail a second Run", func(ctx SpecContext) {
+			StartRun(runDB.Run)
+			Expect(runDB.Run(ctx)).To(MatchError(ContainSubstring("Run called twice")))
+		})
+
+		It("Should fail Close while Run runs", func() {
+			// The cleanup closes runDB after Run returns, and asserts that it succeeds.
+			StartRun(runDB.Run)
+			Expect(runDB.Close()).To(MatchError(ContainSubstring("while Run runs")))
+		})
+
+		Describe("Populate", func() {
+			var kvs *blockingDB
+			BeforeEach(func(ctx SpecContext) {
+				kvs = &blockingDB{DB: memkv.New(), release: make(chan struct{})}
+				runDB = DeferClose(gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec)))
+				Expect(gorp.WrapWriter[int32, indexedEntry](runDB).
+					Set(ctx, indexedEntry{ID: 1, Name: "a"})).To(Succeed())
+			})
+
+			It(
+				"Should stop a populate in progress when the context of Run ends",
+				func(ctx SpecContext) {
+					runCtx, cancel := context.WithCancel(ctx)
+					stop := GoRun(runCtx, runDB.Run)
+					DeferCleanup(stop)
+					MustOpen(openTable(ctx))
+					cancel()
+					close(kvs.release)
+					Expect(stop()).To(Succeed())
+					Expect(nameIdx.Get(ctx, runDB, "a")).Error().
+						To(MatchError(gorp.ErrIndexInvalid))
+				},
+			)
+
+			It("Should stop a populate in progress when its table closes", func(
+				ctx SpecContext,
+			) {
+				StartRun(runDB.Run)
+				table := MustSucceed(openTable(ctx))
+				closed := make(chan error, 1)
+				go func() { closed <- table.Close() }()
+				Consistently(closed).ShouldNot(Receive())
+				close(kvs.release)
+				Eventually(closed).Should(Receive(BeNil()))
+				Expect(nameIdx.Get(ctx, runDB, "a")).Error().
+					To(MatchError(gorp.ErrIndexInvalid))
+			})
+		})
+	})
+
 	Describe("WithTx", func() {
 		It(
 			"Should commit the transaction if the callback returns nil",
@@ -130,6 +229,7 @@ var _ = Describe("DB", func() {
 				gorp.WithCodec(msgpack.Codec),
 				gorp.WithInstrumentation(ins),
 			))
+			StartRun(lockDB.Run)
 		})
 		openAsync := func() <-chan gorp.Tx {
 			opened := make(chan gorp.Tx, 1)

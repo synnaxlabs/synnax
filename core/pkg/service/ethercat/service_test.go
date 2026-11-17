@@ -166,6 +166,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			devices, _ := openDevices(ctx, db)
 			var read v1.ReadConfig
 			read.Key = uuid.New()
@@ -230,6 +231,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			var applied []gorp.Migration
 			for _, key := range []string{
 				"normalize_keys",

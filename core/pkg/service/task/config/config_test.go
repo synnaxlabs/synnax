@@ -403,6 +403,7 @@ var _ = Describe("Service", func() {
 			) (*config.Service[arctask.Config], *tasktestutil.Tasks, *gorp.DB) {
 				GinkgoHelper()
 				db := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(db.Run)
 				resolving := MustOpen(config.OpenService(
 					ctx,
 					config.ServiceConfig[arctask.Config]{
@@ -760,6 +761,7 @@ var _ = Describe("Service", func() {
 			)
 			BeforeEach(func(ctx SpecContext) {
 				reconDB = DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(reconDB.Run)
 				reconciling = MustOpen(config.OpenService(
 					ctx,
 					config.ServiceConfig[arctask.Config]{
@@ -1063,6 +1065,7 @@ var _ = Describe("With a detach reference", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		ldb = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(ldb.Run)
 		targets = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, target]{
 			DB:   ldb,
 			Name: targetTable,

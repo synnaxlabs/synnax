@@ -167,6 +167,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 
 	It("Should be idempotent across repeated runs", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		passwordSvc := MustOpen(
 			password.OpenService(ctx, password.ServiceConfig{DB: db}),
 		)
@@ -212,6 +213,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 		ctx SpecContext,
 	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		passwordSvc := MustOpen(
 			password.OpenService(ctx, password.ServiceConfig{DB: db}),
 		)
