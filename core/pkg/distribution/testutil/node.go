@@ -61,8 +61,8 @@ func (n Node) CreateChannels(
 }
 
 // NewNode opens a Node and registers its teardown via testutil.DeferClose. It must be
-// called from within a Ginkgo node; use OpenNode from plain Go tests and benchmarks. The
-// storage of the Node runs until the teardown, even when ctx ends first.
+// called from within a Ginkgo node; use OpenNode from plain Go tests and benchmarks.
+// The storage of the Node runs until the teardown, even when ctx ends first.
 func NewNode(ctx context.Context, overrides ...distribution.LayerConfig) Node {
 	ginkgo.GinkgoHelper()
 	return testutil.DeferClose(openNode(ctx, ginkgo.GinkgoT().Context(), overrides...))
