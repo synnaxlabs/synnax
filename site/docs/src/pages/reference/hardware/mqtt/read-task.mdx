@@ -35,8 +35,9 @@ and recorded in one channel.
   lacks a field, or holds a value that the channel cannot store, is skipped. In code, a
   field's `default` is written in place of a missing value.
 
-A topic can be in a task once, and it cannot hold the wildcards `+` or `#`. All fields
-of one topic share one index channel, and two topics cannot write to the same channel.
+A topic can be in a task once, and it cannot hold the wildcards `+` or `#`. The fields
+of one message share one index channel. Two messages cannot share an index channel, and
+two topics cannot write to the same channel.
 
 <Divider.Divider x />
 
