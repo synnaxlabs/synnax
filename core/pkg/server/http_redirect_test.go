@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security"
+	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
 	"github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/synnax/pkg/server"
@@ -54,8 +55,11 @@ var _ = Describe("HttpRedirect", func() {
 			},
 		}))
 
+		l := MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: fs}))
 		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: &tls.Config{
+				RootCAs: certPool(MustSucceed(l.TrustAnchorsPEM())),
+			},
 		}
 		client := &http.Client{Transport: tr}
 		resp := MustSucceed(client.Get("http://" + b.Addresses()[0].String()))

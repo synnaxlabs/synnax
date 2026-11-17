@@ -65,7 +65,7 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("NewWriter", func() {
-		It("Should create a writer with transaction", func(ctx SpecContext) {
+		It("Should create a writer with transaction", func() {
 			tx := DeferClose(db.OpenTx())
 			writer := svc.NewWriter(tx)
 			Expect(writer).ToNot(BeNil())
@@ -73,7 +73,7 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("NewRetrieve", func() {
-		It("Should create a retrieve query builder", func(ctx SpecContext) {
+		It("Should create a retrieve query builder", func() {
 			retrieve := svc.NewRetrieve()
 			Expect(retrieve).ToNot(BeNil())
 		})

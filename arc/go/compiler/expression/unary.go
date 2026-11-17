@@ -52,6 +52,12 @@ func compileUnary(
 					elemType,
 				)
 			}
+		case types.KindInvalid, types.KindString, types.KindChan, types.KindVariable,
+			types.KindNumericConstant, types.KindIntegerConstant,
+			types.KindFloatConstant, types.KindExactIntegerFloatConstant,
+			types.KindFunction, types.KindSequence, types.KindStage, types.KindVarRef,
+			types.KindBool:
+			fallthrough
 		default:
 			return types.Type{}, errors.Newf("cannot negate type %s", innerType)
 		}

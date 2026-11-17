@@ -22,14 +22,6 @@ import (
 // Note: For U64, returns math.MaxInt64 for comparison safety since MaxUint64 cannot be
 // represented in int64.
 func (t Type) IntegerMaxValue() int64 {
-	if !t.IsInteger() {
-		panic(
-			fmt.Sprintf(
-				"[type.IntegerMaxValue] attempted to call on non-integer %s",
-				t,
-			),
-		)
-	}
 	switch t.Kind {
 	case KindI8:
 		return math.MaxInt8
@@ -37,7 +29,7 @@ func (t Type) IntegerMaxValue() int64 {
 		return math.MaxInt16
 	case KindI32:
 		return math.MaxInt32
-	case KindI64:
+	case KindI64, KindU64, KindIntegerConstant:
 		return math.MaxInt64
 	case KindU8:
 		return math.MaxUint8
@@ -45,24 +37,18 @@ func (t Type) IntegerMaxValue() int64 {
 		return math.MaxUint16
 	case KindU32:
 		return math.MaxUint32
-	case KindU64:
-		return math.MaxInt64
-	default:
-		return math.MaxInt64
+	case KindInvalid, KindF32, KindF64, KindString, KindChan, KindSeries, KindVariable,
+		KindNumericConstant, KindFloatConstant, KindExactIntegerFloatConstant,
+		KindFunction, KindSequence, KindStage, KindVarRef, KindBool:
 	}
+	panic(
+		fmt.Sprintf("[type.IntegerMaxValue] attempted to call on non-integer %s", t),
+	)
 }
 
 // IntegerMinValue returns the minimum value representable by this integer type. Panics
 // if the type is not an integer type. Returns 0 for unsigned integer types.
 func (t Type) IntegerMinValue() int64 {
-	if !t.IsInteger() {
-		panic(
-			fmt.Sprintf(
-				"[types.IntegerMinValue] attempted to call on non-integer %s",
-				t,
-			),
-		)
-	}
 	switch t.Kind {
 	case KindI8:
 		return math.MinInt8
@@ -70,16 +56,20 @@ func (t Type) IntegerMinValue() int64 {
 		return math.MinInt16
 	case KindI32:
 		return math.MinInt32
-	case KindI64:
+	case KindI64, KindIntegerConstant:
 		return math.MinInt64
 	case KindU8, KindU16, KindU32, KindU64:
 		return 0
-	default:
-		return math.MinInt64
+	case KindInvalid, KindF32, KindF64, KindString, KindChan, KindSeries, KindVariable,
+		KindNumericConstant, KindFloatConstant, KindExactIntegerFloatConstant,
+		KindFunction, KindSequence, KindStage, KindVarRef, KindBool:
 	}
+	panic(
+		fmt.Sprintf("[types.IntegerMinValue] attempted to call on non-integer %s", t),
+	)
 }
 
-// String returns the string representation of the type
+// String returns the string representation of the type.
 func (t Type) String() string {
 	var base string
 	switch t.Kind {
@@ -237,7 +227,7 @@ func (t Type) Unwrap() Type {
 }
 
 // UnwrapChan returns the effective value type when a type is used as a value. Channels
-// are implicitly read: chan<T> -> T Series stay as series: series<T> -> series<T>
+// are implicitly read: chan<T> -> T Series stay as series: series<T> -> series<T>.
 func (t Type) UnwrapChan() Type {
 	if t.Kind == KindChan && t.Elem != nil {
 		return *t.Elem
@@ -282,9 +272,12 @@ func (t Type) Density() int {
 		return 4
 	case KindU64, KindI64, KindF64:
 		return 8
-	default:
-		panic("Density: type is not a fixed-size primitive: " + t.String())
+	case KindInvalid, KindString, KindChan, KindSeries, KindVariable,
+		KindNumericConstant, KindIntegerConstant, KindFloatConstant,
+		KindExactIntegerFloatConstant, KindFunction, KindSequence, KindStage,
+		KindVarRef:
 	}
+	panic("Density: type is not a fixed-size primitive: " + t.String())
 }
 
 // ToTelem converts the Arc type to a telemetry data type.

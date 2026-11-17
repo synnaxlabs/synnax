@@ -193,7 +193,7 @@ var _ = Describe("Migrate", func() {
 				) error {
 					r := gorp.WrapReader[int32, entryV1](tx)
 					e := MustSucceed(r.Get(ctx, 1))
-					e.Data = e.Data + "_raw"
+					e.Data += "_raw"
 					w := gorp.WrapWriter[int32, entryV1](tx)
 					return w.Set(ctx, e)
 				})
@@ -300,7 +300,9 @@ var _ = Describe("Migrate", func() {
 			})).To(Succeed())
 			var counts []int64
 			for _, e := range logs.FilterMessage("migration progress").All() {
-				counts = append(counts, e.ContextMap()["entries"].(int64))
+				entries, ok := e.ContextMap()["entries"].(int64)
+				Expect(ok).To(BeTrue())
+				counts = append(counts, entries)
 			}
 			Expect(counts).To(Equal([]int64{1, 10, 100, 1000, 2000}))
 		},

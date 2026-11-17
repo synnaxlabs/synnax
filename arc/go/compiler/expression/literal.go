@@ -134,11 +134,26 @@ func compileNumericLiteral(
 		return types.Type{}, err
 	}
 
+	unexpected := func() error {
+		return errors.Newf(
+			"unexpected value type %T for %s literal",
+			parsed.Value,
+			parsed.Type.Kind,
+		)
+	}
 	switch parsed.Type.Kind {
 	case types.KindF32:
-		ctx.Writer.WriteF32Const(parsed.Value.(float32))
+		v, ok := parsed.Value.(float32)
+		if !ok {
+			return types.Type{}, unexpected()
+		}
+		ctx.Writer.WriteF32Const(v)
 	case types.KindF64:
-		ctx.Writer.WriteF64Const(parsed.Value.(float64))
+		v, ok := parsed.Value.(float64)
+		if !ok {
+			return types.Type{}, unexpected()
+		}
+		ctx.Writer.WriteF64Const(v)
 	case types.KindI8,
 		types.KindI16,
 		types.KindI32,
@@ -160,11 +175,7 @@ func compileNumericLiteral(
 		case uint32:
 			i32Val = int32(v)
 		default:
-			return types.Type{}, errors.Newf(
-				"unexpected value type %T for %s literal",
-				parsed.Value,
-				parsed.Type.Kind,
-			)
+			return types.Type{}, unexpected()
 		}
 		ctx.Writer.WriteI32Const(i32Val)
 	case types.KindI64:
@@ -175,15 +186,21 @@ func compileNumericLiteral(
 		case telem.TimeSpan:
 			i64Val = int64(v)
 		default:
-			return types.Type{}, errors.Newf(
-				"unexpected value type %T for %s literal",
-				parsed.Value,
-				parsed.Type.Kind,
-			)
+			return types.Type{}, unexpected()
 		}
 		ctx.Writer.WriteI64Const(i64Val)
 	case types.KindU64:
-		ctx.Writer.WriteI64Const(int64(parsed.Value.(uint64)))
+		v, ok := parsed.Value.(uint64)
+		if !ok {
+			return types.Type{}, unexpected()
+		}
+		ctx.Writer.WriteI64Const(int64(v))
+	case types.KindInvalid, types.KindString, types.KindChan, types.KindSeries,
+		types.KindVariable, types.KindNumericConstant, types.KindIntegerConstant,
+		types.KindFloatConstant, types.KindExactIntegerFloatConstant,
+		types.KindFunction, types.KindSequence, types.KindStage, types.KindVarRef,
+		types.KindBool:
+		fallthrough
 	default:
 		return types.Type{}, errors.Newf("unsupported numeric type: %s", parsed.Type)
 	}

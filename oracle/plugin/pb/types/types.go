@@ -85,9 +85,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 
-	pbPathFunc := func(typ resolution.Type, table *resolution.Table) string {
-		return enum.FindPBOutputPath(typ, table)
-	}
 	err := structCollector.ForEach(
 		func(outputPath string, structs []resolution.Type) error {
 			namespace := ""
@@ -102,7 +99,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 					outputPath,
 					req.Resolutions,
 					"pb",
-					pbPathFunc,
+					enum.FindPBOutputPath,
 				),
 			)
 			var unions []resolution.Type
@@ -194,7 +191,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 					outputPath,
 					req.Resolutions,
 					"pb",
-					pbPathFunc,
+					enum.FindPBOutputPath,
 				),
 			)
 			content, err := p.generateFile(
@@ -245,11 +242,12 @@ func (p *Plugin) generateFile(
 	repoRoot string,
 ) ([]byte, error) {
 	var namespace, filePath string
-	if len(structs) > 0 {
+	switch {
+	case len(structs) > 0:
 		namespace, filePath = structs[0].Namespace, structs[0].FilePath
-	} else if len(unions) > 0 {
+	case len(unions) > 0:
 		namespace, filePath = unions[0].Namespace, unions[0].FilePath
-	} else if len(enums) > 0 {
+	case len(enums) > 0:
 		namespace, filePath = enums[0].Namespace, enums[0].FilePath
 	}
 
@@ -699,7 +697,7 @@ func (p *Plugin) processUnion(
 	entry resolution.Type,
 	data *templateData,
 ) (messageData, error) {
-	form := entry.Form.(resolution.UnionForm)
+	form := resolution.MustForm[resolution.UnionForm](entry)
 	name := getPBName(entry)
 	if name == "" {
 		name = entry.Name

@@ -371,8 +371,9 @@ var _ = Describe("Migrations", func() {
 				Where(task.MatchNames("Stored PD Task")).
 				Entry(&migratedPD).
 				Exec(ctx, db)).To(Succeed())
-			Expect(migratedPD.Config["routing_key"]).To(BeAssignableToTypeOf(""))
-			routingKey := uuid.MustParse(migratedPD.Config["routing_key"].(string))
+			rawKey, ok := migratedPD.Config["routing_key"].(string)
+			Expect(ok).To(BeTrue())
+			routingKey := uuid.MustParse(rawKey)
 			Expect(secrets.Reveal(ctx, db, routingKey)).
 				To(HaveKeyWithValue(routingKey, []byte("rk-stored")))
 			Expect(migratedPD.Config).ToNot(HaveKey("data_saving"))

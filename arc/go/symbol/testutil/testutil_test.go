@@ -120,10 +120,10 @@ var _ = Describe("StaticResolver", func() {
 		})
 	})
 
-	Describe("Add", func() {
+	Describe("With", func() {
 		It("Should append a symbol so it becomes resolvable", func(ctx SpecContext) {
 			r := StaticResolver{}
-			r.Add(
+			r = r.With(
 				symbol.Symbol{
 					Name: "sensor",
 					Kind: symbol.KindChannel,
@@ -138,7 +138,7 @@ var _ = Describe("StaticResolver", func() {
 			r := StaticResolver{}
 			read := func() (*symbol.Symbol, error) { return r.Resolve(ctx, "ch") }
 			Expect(read()).Error().To(MatchError(query.ErrNotFound))
-			r.Add(
+			r = r.With(
 				symbol.Symbol{
 					Name: "ch",
 					Kind: symbol.KindChannel,
@@ -150,13 +150,13 @@ var _ = Describe("StaticResolver", func() {
 		})
 	})
 
-	Describe("Remove", func() {
+	Describe("Without", func() {
 		It("Should delete the entry with the given name", func(ctx SpecContext) {
 			r := StaticResolver{
 				{Name: "a", Kind: symbol.KindVariable},
 				{Name: "b", Kind: symbol.KindVariable},
 			}
-			r.Remove("a")
+			r = r.Without("a")
 			Expect(r.Resolve(ctx, "a")).Error().To(MatchError(query.ErrNotFound))
 			Expect(MustSucceed(r.Resolve(ctx, "b")).Name).To(Equal("b"))
 		})
@@ -167,15 +167,15 @@ var _ = Describe("StaticResolver", func() {
 				{Name: "b", Kind: symbol.KindVariable},
 				{Name: "c", Kind: symbol.KindVariable},
 			}
-			r.Remove("b")
+			r = r.Without("b")
 			results := MustSucceed(r.Search(ctx, ""))
 			names := []string{results[0].Name, results[1].Name}
 			Expect(names).To(Equal([]string{"a", "c"}))
 		})
 
-		It("Should be a no-op when no entry matches", func(ctx SpecContext) {
+		It("Should be a no-op when no entry matches", func() {
 			r := StaticResolver{{Name: "a", Kind: symbol.KindVariable}}
-			r.Remove("missing")
+			r = r.Without("missing")
 			Expect(r).To(HaveLen(1))
 		})
 
@@ -186,7 +186,7 @@ var _ = Describe("StaticResolver", func() {
 					{Name: "dup", Kind: symbol.KindVariable, Type: types.I32()},
 					{Name: "dup", Kind: symbol.KindVariable, Type: types.I64()},
 				}
-				r.Remove("dup")
+				r = r.Without("dup")
 				Expect(r).To(HaveLen(1))
 				Expect(MustSucceed(r.Resolve(ctx, "dup")).Type).To(Equal(types.I64()))
 			},

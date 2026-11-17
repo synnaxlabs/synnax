@@ -35,7 +35,7 @@ func validateNonZero(expr parser.IPostfixExpressionContext, opName string) {
 	}
 }
 
-// Compile compiles an expression and returns its type
+// Compile compiles an expression and returns its type.
 func Compile(
 	ctx context.Context[parser.IExpressionContext],
 ) (types.Type, error) {
@@ -363,16 +363,17 @@ func compileIndexOrSlice(
 	}
 
 	var startExpr, endExpr parser.IExpressionContext
-	if len(expressions) == 1 {
+	switch {
+	case len(expressions) == 1:
 		if indexOrSlice.GetChild(1) == expressions[0] {
 			startExpr = expressions[0]
 		} else {
 			endExpr = expressions[0]
 		}
-	} else if len(expressions) == 2 {
+	case len(expressions) == 2:
 		startExpr = expressions[0]
 		endExpr = expressions[1]
-	} else {
+	default:
 		return types.Type{}, errors.Newf(
 			"expected 1 or 2 items in slice expression, received %v",
 			len(expressions),
@@ -498,6 +499,11 @@ func emitLiteralValue[T antlr.ParserRuleContext](
 		ctx.Writer.WriteI32Const(int32(offset))
 		ctx.Writer.WriteI32Const(int32(len(strBytes)))
 		ctx.Resolver.EmitStringFromLiteral(ctx.Writer, ctx.WriterID)
+	case types.KindInvalid, types.KindChan, types.KindSeries, types.KindVariable,
+		types.KindNumericConstant, types.KindIntegerConstant, types.KindFloatConstant,
+		types.KindExactIntegerFloatConstant, types.KindFunction, types.KindSequence,
+		types.KindStage, types.KindVarRef:
+		fallthrough
 	default:
 		return errors.Newf("unsupported default value type: %s", paramType)
 	}
@@ -539,9 +545,14 @@ func compileBuiltinLen[T antlr.ParserRuleContext](
 		}
 		ctx.Resolver.EmitStringLen(ctx.Writer, ctx.WriterID)
 		return types.I64(), nil
-	default:
-		return types.Type{}, errors.Newf(
-			"argument 1 of %s: expected series or str, got %s", funcName, argType,
-		)
+	case types.KindInvalid, types.KindU8, types.KindU16, types.KindU32, types.KindU64,
+		types.KindI8, types.KindI16, types.KindI32, types.KindI64, types.KindF32,
+		types.KindF64, types.KindChan, types.KindVariable, types.KindNumericConstant,
+		types.KindIntegerConstant, types.KindFloatConstant,
+		types.KindExactIntegerFloatConstant, types.KindFunction, types.KindSequence,
+		types.KindStage, types.KindVarRef, types.KindBool:
 	}
+	return types.Type{}, errors.Newf(
+		"argument 1 of %s: expected series or str, got %s", funcName, argType,
+	)
 }

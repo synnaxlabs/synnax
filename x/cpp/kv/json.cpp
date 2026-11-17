@@ -90,7 +90,6 @@ JSONFile::open_file(const JSONFileConfig &config) {
             };
         }
 
-        std::filesystem::permissions(config.path, config.file_mode);
         std::ifstream file(config.path);
         if (!file.is_open())
             return {

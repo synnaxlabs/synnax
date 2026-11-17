@@ -98,6 +98,13 @@ export const findTabByType = (
   return findTabByType(node.first, type) ?? findTabByType(node.last, type);
 };
 
+/** tabs returns every tab in traversal order. */
+export const tabs = (node: Node | undefined): Tab[] => {
+  if (node == null) return [];
+  if (node.variant === "leaf") return node.tabs;
+  return [...tabs(node.first), ...tabs(node.last)];
+};
+
 /** leafTabGroups returns each leaf's ordered tab keys, leaves in traversal order. */
 export const leafTabGroups = (node: Node | undefined): TabKey[][] => {
   if (node == null) return [];

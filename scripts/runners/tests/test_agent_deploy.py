@@ -10,11 +10,12 @@
 import base64
 import sys
 from pathlib import Path
-from typing import cast
 from urllib.request import Request
 
 import pytest
 import synnax as sy
+from mypy_boto3_ssm.literals import CommandInvocationStatusType
+from mypy_boto3_ssm.type_defs import CommandPluginTypeDef
 
 import agent_deploy
 import conftest
@@ -22,12 +23,12 @@ from agent_deploy import (
     POLL,
     STOP_LINUX,
     STOP_WINDOWS,
+    Invocations,
     install_commands,
     public_address,
     run,
     scaler_paused,
 )
-from aws import AWS
 from conftest import core
 from scaler import SCALER_CMD
 
@@ -62,7 +63,7 @@ class Fleet:
     def __init__(self, **instances: dict) -> None:
         self.found = {i.replace("_", "-"): info for i, info in instances.items()}
         self.sent: dict[str, list[str]] = {}
-        self.statuses: dict[str, list[str | None]] = {}
+        self.statuses: dict[str, list[CommandInvocationStatusType | None]] = {}
         self.outputs: dict[str, str] = {}
         self.rejections: dict[str, int] = {}
         self.started: list[str] = []
@@ -92,19 +93,21 @@ class Fleet:
 
     def list_command_invocations(
         self, *, CommandId: str, InstanceId: str, Details: bool
-    ) -> dict:
+    ) -> Invocations:
         assert CommandId == f"command-{InstanceId}"
         queue = self.statuses.get(InstanceId, ["Success"])
         status = queue.pop(0) if len(queue) > 1 else queue[0]
         if status is None:
             return {"CommandInvocations": []}
-        plugin = {"Output": self.outputs.get(InstanceId, "")}
-        return {"CommandInvocations": [{"Status": status, "CommandPlugins": [plugin]}]}
+        plugins: list[CommandPluginTypeDef] = [
+            {"Output": self.outputs.get(InstanceId, "")}
+        ]
+        return {"CommandInvocations": [{"Status": status, "CommandPlugins": plugins}]}
 
 
 def send(fleet: Fleet, *, start_stopped: bool = False) -> bool:
     return run(
-        cast(AWS, fleet),
+        fleet,
         linux=LINUX_COMMANDS,
         windows=WINDOWS_COMMANDS,
         start_stopped=start_stopped,
@@ -300,11 +303,14 @@ class TestPublicAddress:
 
 
 class Switch(conftest.Writer):
+    def __init__(self, *, controller: "Controller", start: sy.TimeStamp) -> None:
+        super().__init__(client=controller, start=start)
+        self.controller = controller
+
     def write(self, frame: dict) -> None:
         super().write(frame)
-        controller = cast(Controller, self.client)
-        if not controller.deaf:
-            controller.state = frame[SCALER_CMD]
+        if not self.controller.deaf:
+            self.controller.state = frame[SCALER_CMD]
 
 
 class Controller(conftest.Client):
@@ -321,7 +327,7 @@ class Controller(conftest.Client):
     def open_writer(
         self, start: sy.TimeStamp, *args: object, **kwargs: object
     ) -> Switch:
-        return Switch(client=self, start=start)
+        return Switch(controller=self, start=start)
 
     def read(self, time_range: sy.TimeRange, name: str) -> list[bool]:
         return [] if self.state is None else [self.state]

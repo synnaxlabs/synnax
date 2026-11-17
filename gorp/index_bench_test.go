@@ -79,7 +79,7 @@ func BenchmarkLookupSetup(b *testing.B) {
 			}
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				nameIdx := gorp.NewLookupIndex(
 					"name", func(e *indexBenchEntry) string { return e.Name },
 				)
@@ -140,7 +140,7 @@ func BenchmarkLookupQueryViaIndex(b *testing.B) {
 			target := "name-" + strconv.Itoa(size/2)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				var out []indexBenchEntry
 				if err := table.NewRetrieve().
 					Where(nameIdx.Filter(target)).
@@ -188,7 +188,7 @@ func BenchmarkLookupQueryViaScan(b *testing.B) {
 			target := "name-" + strconv.Itoa(size/2)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				var out []indexBenchEntry
 				if err := table.NewRetrieve().
 					Where(gorp.Match(func(_ gorp.Context, e *indexBenchEntry) (bool, error) {
@@ -242,7 +242,7 @@ func BenchmarkLookupUpdate(b *testing.B) {
 			}()
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for i := range b.N {
 				e := indexBenchEntry{
 					ID:    int32(size + i),
 					Name:  "new-" + strconv.Itoa(i),
@@ -279,7 +279,7 @@ func BenchmarkSortedSetup(b *testing.B) {
 			}
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				scoreIdx := gorp.NewSortedIndex(
 					"score", func(e *indexBenchEntry) int64 { return e.Score },
 				)
@@ -340,7 +340,7 @@ func BenchmarkSortedUpdate(b *testing.B) {
 			midScore := int64(size / 2)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for i := range b.N {
 				e := indexBenchEntry{
 					ID:    int32(size + i),
 					Name:  "new-" + strconv.Itoa(i),
@@ -414,7 +414,7 @@ func BenchmarkComposeAndIndexed(b *testing.B) {
 			targetCat := "cat-" + strconv.Itoa((size/2)%indexBenchCategoryCount)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				var out []indexBenchEntry
 				if err := table.NewRetrieve().
 					Where(gorp.And(
@@ -467,7 +467,7 @@ func BenchmarkComposeAndScan(b *testing.B) {
 			targetCat := "cat-" + strconv.Itoa((size/2)%indexBenchCategoryCount)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				var out []indexBenchEntry
 				if err := table.NewRetrieve().
 					Where(gorp.And(
@@ -511,7 +511,7 @@ func BenchmarkComposeOrIndexed(b *testing.B) {
 			targetB := "name-" + strconv.Itoa((3*size)/4)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				var out []indexBenchEntry
 				if err := table.NewRetrieve().
 					Where(gorp.Or(
@@ -551,7 +551,7 @@ func BenchmarkComposeOrIndexedShared(b *testing.B) {
 			)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				var out []indexBenchEntry
 				if err := table.NewRetrieve().
 					Where(shared).
@@ -585,7 +585,7 @@ func BenchmarkComposeNestedAnd(b *testing.B) {
 			targetCat := "cat-" + strconv.Itoa((size/2)%indexBenchCategoryCount)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				inner := gorp.And(
 					nameIdx.Filter(targetName),
 					categoryIdx.Filter(targetCat),

@@ -92,6 +92,19 @@ var _ = Describe("Ferrors", Ordered, func() {
 					Expect(pld.Data).To(Equal("unknown"))
 				},
 			)
+			It("Should return a bare payload unchanged", func() {
+				pld := errors.Payload{Type: "relayed", Data: "data"}
+				Expect(errors.Encode(pld, false)).To(Equal(pld))
+			})
+			It("Should keep the wrap message of a wrapped payload", func() {
+				pld := errors.Payload{Type: "relayed", Data: "data"}
+				Expect(errors.Encode(errors.Wrap(pld, "ctx"), false)).To(Equal(
+					errors.Payload{
+						Type: errors.TypeUnknown,
+						Data: "ctx: relayed---data",
+					},
+				))
+			})
 		})
 	})
 	Describe("Expected", func() {
@@ -179,6 +192,27 @@ var _ = Describe("Ferrors", Ordered, func() {
 					Expect(errors.Decode(errors.Payload{})).To(Succeed())
 				},
 			)
+		})
+	})
+
+	Describe("ParsePayload", func() {
+		It("Should parse the text of Payload.Error", func() {
+			p := errors.Payload{Type: "sy.validation", Data: "bad field"}
+			Expect(errors.ParsePayload(p.Error())).To(Equal(p))
+		})
+
+		It("Should parse text in any other form as an unknown payload", func() {
+			Expect(errors.ParsePayload("connection reset")).To(Equal(errors.Payload{
+				Type: errors.TypeUnknown,
+				Data: "connection reset",
+			}))
+		})
+
+		It("Should parse text with more than one separator as unknown", func() {
+			Expect(errors.ParsePayload("a---b---c")).To(Equal(errors.Payload{
+				Type: errors.TypeUnknown,
+				Data: "a---b---c",
+			}))
 		})
 	})
 })

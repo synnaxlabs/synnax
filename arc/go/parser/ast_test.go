@@ -400,7 +400,7 @@ var _ = Describe("AST Utilities", func() {
 			if fn, ok := t.(parser.IFunctionContext); ok {
 				return fn
 			}
-			for i := 0; i < t.GetChildCount(); i++ {
+			for i := range t.GetChildCount() {
 				if found := findFunction(t.GetChild(i)); found != nil {
 					return found
 				}

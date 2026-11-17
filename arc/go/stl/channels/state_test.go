@@ -132,7 +132,9 @@ func writeValue(s *channels.ProgramState, key uint32, value telem.Series) {
 			fn, arg = "write_f32", stltest.F32(value.ValueAt[float32](i))
 		case telem.Float64T:
 			fn, arg = "write_f64", stltest.F64(value.ValueAt[float64](i))
-		default:
+		case telem.UnknownT, telem.Uint8T, telem.Uint16T, telem.Uint32T,
+			telem.Uint64T, telem.Int8T, telem.Int16T, telem.Int64T, telem.TimestampT,
+			telem.UUIDT, telem.StringT, telem.BytesT, telem.JSONT, telem.BooleanT:
 			Fail("unsupported data type " + string(value.DataType))
 		}
 		rt.CallVoid(ctx, channels.Name, fn, stltest.U32(key), arg)
@@ -402,11 +404,11 @@ var _ = Describe("ProgramState", func() {
 			fr, highest, changed := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(2).Series[0]).To(telem.MatchSeries(telem.NewSeriesV(
-				telem.TimeStamp(flushNow),
-				telem.TimeStamp(flushNow+1),
-				telem.TimeStamp(flushNow+2),
+				flushNow,
+				flushNow+1,
+				flushNow+2,
 			)))
-			Expect(highest).To(Equal(telem.TimeStamp(flushNow + 2)))
+			Expect(highest).To(Equal(flushNow + 2))
 		})
 
 		It("Should start every member of a group at the same stamp", func() {
@@ -419,8 +421,8 @@ var _ = Describe("ProgramState", func() {
 			fr, _, _ := grouped.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(2).Series).To(HaveLen(1))
 			Expect(fr.Get(2).Series[0]).To(telem.MatchSeries(telem.NewSeriesV(
-				telem.TimeStamp(flushNow),
-				telem.TimeStamp(flushNow+1),
+				flushNow,
+				flushNow+1,
 			)))
 		})
 

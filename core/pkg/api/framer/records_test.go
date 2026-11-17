@@ -60,7 +60,6 @@ var _ = Describe("Change channels", func() {
 		GinkgoHelper()
 		return createUserGranted(
 			ctx,
-			access.ActionRetrieve,
 			append(svcframer.ResourceIDs(channel.Keys{ch.Key()}), granted...)...,
 		)
 	}

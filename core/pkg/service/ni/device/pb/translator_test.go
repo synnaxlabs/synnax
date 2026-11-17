@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -28,7 +27,7 @@ import (
 var _ = Describe("Translator", func() {
 	It("Should round trip a device with its port maps and status", func() {
 		key := uuid.New()
-		chassisKey := chassis.Key(uuid.New())
+		chassisKey := uuid.New()
 		d := device.Device{
 			Key:          key,
 			Rack:         rack.NewKey(1, 2),
@@ -65,7 +64,7 @@ var _ = Describe("Translator", func() {
 				Owner:   new(device.ResourceID(key)),
 				Variant: status.VariantSuccess,
 				Message: "Device present",
-				Labels:  []label.Key{label.Key(uuid.New())},
+				Labels:  []label.Key{uuid.New()},
 				Details: device.StatusDetails{Rack: rack.NewKey(1, 2), Device: key},
 			},
 		}

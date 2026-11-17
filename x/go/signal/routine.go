@@ -75,7 +75,7 @@ const (
 const (
 	// cancelOnExit defines if the routine should cancel the context upon exiting.
 	cancelOnExit contextPolicy = iota + 1
-	// cancelOnFail defines if the routine should cancel the context upon exiting
+	// cancelOnFail defines if the routine should cancel the context upon exiting.
 	cancelOnFail
 )
 
@@ -140,7 +140,7 @@ func RecoverWithoutErrOnPanic() RoutineOption {
 
 // WithBaseRetryInterval sets the base interval for the breaker used to restart the
 // goroutine. The base retry interval is how much time the breaker waits before trying
-// to restart for the first time. (Default: 1 second)
+// to restart for the first time. (Default: 1 second).
 func WithBaseRetryInterval(retryInterval time.Duration) RoutineOption {
 	return func(r *routineOptions) {
 		r.breakerCfg.BaseInterval = retryInterval
@@ -166,7 +166,7 @@ func WithRetryOnPanic(maxRetries ...int) RoutineOption {
 }
 
 // WithRetryScale sets the scale on the breaker used to restart the goroutine. The scale
-// defines the rate by which the interval between two retries grow. (Default: 1)
+// defines the rate by which the interval between two retries grow. (Default: 1).
 func WithRetryScale(scale float64) RoutineOption {
 	return func(r *routineOptions) {
 		r.breakerCfg.Scale = scale

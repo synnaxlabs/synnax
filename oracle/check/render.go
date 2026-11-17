@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -36,8 +37,10 @@ func Render(w io.Writer, r *Report, f Format, verbose bool) error {
 	switch f {
 	case FormatJSON:
 		return renderJSON(w, r)
-	default:
+	case FormatText:
 		return renderText(w, r, verbose)
+	default:
+		return errors.Newf("unknown format %q", f)
 	}
 }
 
@@ -80,7 +83,7 @@ func renderText(w io.Writer, r *Report, verbose bool) error {
 			sym = checkSkip.Render(symGateSkip)
 			label = checkSkip.Render(g.Gate + " (skipped)")
 		}
-		elapsed := checkDim.Render(fmt.Sprintf(" %s", fmtDuration(g.Elapsed)))
+		elapsed := checkDim.Render(" " + fmtDuration(g.Elapsed))
 		if _, err := fmt.Fprintf(w, "%s %s%s\n", sym, label, elapsed); err != nil {
 			return err
 		}
@@ -118,7 +121,7 @@ func renderFinding(w io.Writer, f Finding) error {
 		severity = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFE66D")).
 			Render(severity)
-	default:
+	case SeverityInfo:
 		severity = checkDim.Render(severity)
 	}
 	if loc != "" {
