@@ -11,7 +11,11 @@
 
 package device
 
-import "github.com/synnaxlabs/synnax/pkg/service/labjack/device/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/labjack/device/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // Key uniquely identifies a LabJack device.
 type Key = versions.Key
@@ -61,3 +65,23 @@ type T7Device = versions.T7Device
 
 // T8Device is a T8.
 type T8Device = versions.T8Device
+
+// Where is a filter that selects LabJack devices.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Serial selects by serial.
+	Serial *filter.Ordered[uint32] `json:"serial,omitzero" msgpack:"serial,omitempty"`
+	// Model selects by model.
+	Model *filter.Set[Model] `json:"model,omitzero" msgpack:"model,omitempty"`
+	// Rack selects by rack.
+	Rack *filter.Set[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
+}

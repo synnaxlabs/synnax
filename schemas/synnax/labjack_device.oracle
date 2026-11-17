@@ -10,6 +10,7 @@
 import "schemas/synnax/channel"
 import "schemas/synnax/rack"
 import "schemas/synnax/status"
+import "schemas/x/filter"
 
 @cpp output "client/cpp/labjack/device"
 @go output  "core/pkg/service/labjack/device"
@@ -102,6 +103,7 @@ Base struct {
     status            Status?     {
         @doc value  "is the current operational status of the device."
         @go marshal omit
+        @include
     }
 
     @doc value  "carries the fields that every LabJack device shares."
@@ -125,4 +127,15 @@ Device union on model Model extends Base {
     @go migrate
     @resource type "labjack_device"
     @retrieve
+}
+
+Where filter Device {
+    key
+    name
+    serial
+    model
+    rack
+
+    @doc value         "is a filter that selects LabJack devices."
+    @go request_output "core/pkg/api/labjack/device"
 }

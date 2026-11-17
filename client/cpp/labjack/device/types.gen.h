@@ -14,19 +14,28 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <utility>
 #include <variant>
+#include <vector>
 
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/rack/key.h"
 #include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
+#include "x/cpp/filter/field.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/mem/indirect.h"
 #include "x/cpp/uuid/uuid.h"
 
 namespace synnax::labjack::device {
 
 struct StatusDetails;
+struct Cursor;
+struct Where;
+struct RetrieveRequest;
 struct Base;
+struct RetrieveResponse;
 
 constexpr const char *CONNECTION_USB = "LJM_ctUSB";
 constexpr const char *CONNECTION_TCP = "LJM_ctTCP";
@@ -48,7 +57,106 @@ struct StatusDetails {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Cursor is a position in an order of devices: the sort value and the key of a
+/// device.
+struct Cursor {
+    /// @brief key is the key of the device at the position.
+    Key key;
+
+    static Cursor parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Where is a filter that selects LabJack devices.
+struct Where {
+    /// @brief and_ matches when every child matches.
+    std::optional<std::vector<Where>> and_;
+    /// @brief or_ matches when any child matches.
+    std::optional<std::vector<Where>> or_;
+    /// @brief not_ matches when the child does not match.
+    x::mem::indirect<Where> not_;
+    /// @brief key selects by key.
+    ::x::filter::Field<::x::filter::Set<Key>> key;
+    /// @brief name selects by name.
+    ::x::filter::Field<::x::filter::String> name;
+    /// @brief serial selects by serial.
+    ::x::filter::Field<::x::filter::Ordered<std::uint32_t>> serial;
+    /// @brief model selects by model.
+    ::x::filter::Field<::x::filter::Set<std::string>> model;
+    /// @brief rack selects by rack.
+    ::x::filter::Field<::x::filter::Set<::synnax::rack::Key>> rack;
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
+
+    static Where parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the devices that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief after starts the devices strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most devices to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
+/// @brief RetrieveRequest is a request to retrieve devices.
+struct RetrieveRequest {
+    /// @brief where selects the devices to retrieve. An absent where selects all of
+    /// them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the devices that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief after starts the devices strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most devices to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .after = options.after,
+            .limit = options.limit,
+            .include_status = options.include_status,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief Base carries the fields that every LabJack device shares.
 struct Base {
@@ -112,6 +220,15 @@ Device parse_device(x::json::Parser parser);
 [[nodiscard]] inline const Base &base(const Device &value) {
     return std::visit([](const auto &v) -> const Base & { return v; }, value);
 }
+
+/// @brief RetrieveResponse holds the devices a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief devices are the devices the request selects.
+    std::vector<Device> devices;
+
+    static RetrieveResponse parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 const synnax::resource::ID TYPE_RESOURCE_ID("labjack_device", "");
 
