@@ -1144,8 +1144,26 @@ TEST_F(IGHMasterTest, RecoverBacksOffWhileASlaveStaysFaulted) {
     EXPECT_EQ(this->api->resets, 3);
 }
 
-/// @brief it should start the backoff over once a check finds no faulted slave.
-TEST_F(IGHMasterTest, RecoverStartsTheBackoffOverOnceNoSlaveIsFaulted) {
+/// @brief it should keep backing off while a faulted slave is configured again after a
+/// reset, which clears its AL error flag until it refuses again.
+TEST_F(IGHMasterTest, RecoverBacksOffWhileAFaultedSlaveIsConfiguredAgain) {
+    auto &slave = this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    slave.reaches = EC_AL_STATE_SAFEOP;
+    slave.refuses = true;
+    slave.info.error_flag = 1;
+    slave.reads_to_reconfigure = 1;
+    ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+    this->master.recover(this->brk);
+    EXPECT_EQ(this->api->resets, 1);
+    ASSERT_FALSE(this->master.check(this->brk)[0].faulted);
+    ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+    this->master.recover(this->brk);
+    EXPECT_EQ(this->api->resets, 1);
+}
+
+/// @brief it should start the backoff over once a check finds every slave in OP.
+TEST_F(IGHMasterTest, RecoverStartsTheBackoffOverOnceEverySlaveIsInOP) {
     auto &slave = this->api->add_slave();
     ASSERT_NIL(this->scan_and_activate());
     slave.reaches = EC_AL_STATE_SAFEOP;
@@ -1187,6 +1205,20 @@ TEST_F(IGHMasterTest, RecoverDoesNothingOnceTheBreakerStops) {
     this->brk.stop();
     this->master.recover(this->brk);
     EXPECT_EQ(this->api->resets, 0);
+}
+
+/// @brief it should start the reset backoff over after a deactivate.
+TEST_F(IGHMasterTest, DeactivateStartsTheResetBackoffOver) {
+    auto &slave = this->api->add_slave();
+    for (int i = 1; i <= 2; i++) {
+        ASSERT_NIL(this->scan_and_activate());
+        slave.info.al_state = EC_AL_STATE_SAFEOP;
+        slave.info.error_flag = 1;
+        ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+        this->master.recover(this->brk);
+        EXPECT_EQ(this->api->resets, i);
+        this->master.deactivate();
+    }
 }
 
 /// @brief it should deactivate and release the master.

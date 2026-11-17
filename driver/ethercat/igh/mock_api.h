@@ -104,6 +104,9 @@ public:
         int reads_to_reach = 0;
         /// @brief whether a master reset makes the slave reach OP.
         bool recovers_on_reset = false;
+        /// @brief how many state reads after a master reset the slave takes to reach
+        /// its state again, as IgH configures it again.
+        int reads_to_reconfigure = 0;
         /// @brief how many state reads remain before a master reset takes effect, or -1
         /// with no reset pending.
         int reads_to_reset = -1;
@@ -298,8 +301,11 @@ public:
             slave.reads_to_reset--;
         else if (slave.reads_to_reset == 0) {
             slave.reads_to_reset = -1;
+            // IgH configures a faulted slave again from INIT.
+            if (slave.info.error_flag != 0) slave.info.al_state = EC_AL_STATE_INIT;
             slave.info.error_flag = 0;
             slave.settled = false;
+            slave.reads_to_reach = slave.reads_to_reconfigure;
             if (slave.recovers_on_reset) {
                 slave.reaches = EC_AL_STATE_OP;
                 slave.refuses = false;

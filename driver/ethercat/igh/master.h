@@ -81,8 +81,8 @@ class Master final : public master::Master {
     std::optional<uint32_t> latest_shortfall;
     /// @brief whether the latest check() found a slave with its AL error flag set.
     bool faulted = false;
-    /// @brief the resets that recover() asked for since check() last found no faulted
-    /// slave.
+    /// @brief the resets that recover() asked for since check() last found every slave
+    /// in OP.
     size_t resets = 0;
     /// @brief when recover() can ask for the next reset.
     std::chrono::steady_clock::time_point next_reset;
@@ -135,8 +135,8 @@ public:
 
     /// @brief resets the master when the latest check() found a slave with its AL
     /// error flag set, since IgH configures such a slave again only after a reset. It
-    /// brings the other slaves back to OP by itself. The resets back off while the
-    /// faulted slaves stay faulted.
+    /// brings the other slaves back to OP by itself. The resets back off until a
+    /// check() finds every slave in OP.
     void recover(const x::breaker::Breaker &breaker) override;
 
     /// @brief does what master::Master::write does, but on a running bus writes

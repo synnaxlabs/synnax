@@ -572,6 +572,9 @@ void Master::deactivate() {
     this->output_sz = 0;
     this->full_working_counter.reset();
     this->latest_shortfall.reset();
+    this->faulted = false;
+    this->resets = 0;
+    this->next_reset = {};
 }
 
 x::errors::Error Master::receive() {
@@ -646,6 +649,7 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
     std::vector<slave::Health> health;
     health.reserve(this->slave_configs.size());
     this->faulted = false;
+    bool operational = true;
     for (const auto &[pos, sc]: this->slave_configs) {
         ec_slave_config_state_t state{};
         ec_slave_info_t info{};
@@ -658,6 +662,7 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
                           ) == 0;
         const bool faulted = read && info.error_flag != 0;
         this->faulted = this->faulted || faulted;
+        operational = operational && read && !faulted && state.operational != 0;
         health.push_back({
             .position = pos,
             .state = slave::from_al_state(state.al_state),
@@ -665,7 +670,9 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
             .lost = !read || state.online == 0,
         });
     }
-    if (!this->faulted) {
+    // A reset clears the AL error flags while IgH configures the slaves again, so only
+    // a bus back in OP ends the backoff.
+    if (operational) {
         this->resets = 0;
         this->next_reset = {};
     }
