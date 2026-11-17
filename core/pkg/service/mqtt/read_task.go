@@ -73,8 +73,6 @@ type topicSubscription struct {
 	retainedIgnored bool
 }
 
-func (s topicSubscription) subscription() topicSubscription { return s }
-
 // topicSample holds the samples that one message on a topic gives.
 type topicSample struct {
 	// index is the index channel of keys. Zero for virtual channels.
@@ -83,12 +81,6 @@ type topicSample struct {
 	// series can share memory that the next convert of the topic overwrites.
 	series []telem.Series
 	stamp  telem.TimeStamp
-}
-
-// topicReader converts the messages of one subscribed topic into samples.
-type topicReader interface {
-	subscription() topicSubscription
-	convert(msg message) (topicSample, error)
 }
 
 // topicMessage reads the documents of one ICD message into its bound channels.
@@ -117,8 +109,6 @@ type readTopic struct {
 	// text holds a payload that is not JSON as a JSON string.
 	text []byte
 }
-
-var _ topicReader = (*readTopic)(nil)
 
 // newReadTopic validates entry against ic, the ICD it names, and channels, which holds
 // every channel that a binding of the entry names.
@@ -342,7 +332,7 @@ func (b *batch) result() driver.Batch {
 // readSource is the driver.Source of an MQTT read task.
 type readSource struct {
 	pool   *pool
-	topics map[string]topicReader
+	topics map[string]*readTopic
 	// tags holds the Sparkplug B tags of the task.
 	tags map[tagID]readTag
 	// lastStamp is the last timestamp of each index channel, stored or written by any
@@ -457,7 +447,7 @@ func (r *reader) subscribe(ctx context.Context) error {
 		return err
 	}
 	for _, t := range r.topics {
-		sub := t.subscription()
+		sub := t.topicSubscription
 		if err := r.attachment.subscribe(ctx, sub.topic, sub.qos); err != nil {
 			return err
 		}
@@ -656,7 +646,7 @@ func (r *reader) convert(now time.Time, msg message, b *batch) {
 	if !ok {
 		return
 	}
-	sub := t.subscription()
+	sub := t.topicSubscription
 	if msg.retained && sub.retainedIgnored {
 		return
 	}
