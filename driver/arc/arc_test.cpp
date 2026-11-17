@@ -899,7 +899,9 @@ TEST(ArcErrorHandling, WasmTrapSendsWarning) {
     expect_status(*warning, synnax::status::VARIANT_WARNING, true);
     EXPECT_EQ(warning->message, "Node failed");
     EXPECT_TRUE(warning->description.starts_with("The divide_by_zero node failed: "));
-    EXPECT_TRUE(warning->description.contains("integer divide by zero"));
+    EXPECT_TRUE(
+        warning->description.ends_with("at sample 0/1: integer divide by zero")
+    );
     EXPECT_EQ(
         find_status_by_variant(ctx->statuses, synnax::status::VARIANT_ERROR),
         nullptr
