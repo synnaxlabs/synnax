@@ -145,15 +145,15 @@ per second.
 
 `next` lists two or more `fixed` commands on one state, each with its own value, and the
 Core refuses any other list on save. It sends the one listed command whose value differs
-from the state's value, so a click on an open valve sends Close. When the value is
-unknown or stale, a command is pending, or the command channel disagrees with the state,
-`next` opens a menu of its commands. A `fixed` command writes its value. An `ask`
-command opens an input that its state's type picks, such as a menu of enum entries or a
-number field, and the typed value stays in Pluto until sent. A command writes to its
-state's `command` channel or `local` value, or with no state, to its `CommandBinding`
-channel. An interaction whose commands have no channel takes no clicks. One Pluto
-function sends every write, from the node and the command key. Built-in states are
-`position`, `run`, `on`, and `level`, and built-in commands are `open`, `close`,
+from the last state value, also while it is stale, so a click on an open valve sends
+Close. When the value is unknown, a command is pending, or the command channel disagrees
+with the state, `next` opens a menu of its commands. A `fixed` command writes its value.
+An `ask` command opens an input that its state's type picks, such as a menu of enum
+entries or a number field, and the typed value stays in Pluto until sent. A command
+writes to its state's `command` channel or `local` value, or with no state, to its
+`CommandBinding` channel. An interaction whose commands have no channel takes no clicks.
+One Pluto function sends every write, from the node and the command key. Built-in states
+are `position`, `run`, `on`, and `level`, and built-in commands are `open`, `close`,
 `start`, `stop`, and `set`, which asks. A shipped key never changes.
 
 ### 4.4 Edits and customization
@@ -275,6 +275,9 @@ the WebKit benchmark, and no built-in moves until it passes at 1,000 moving part
 14. **A custom symbol in use refuses the delete**: `detach` breaks running schematics,
     and `inline` copies the design onto every node.
 15. **The number format is on the binding**: A built-in cannot know a channel's units.
+16. **A click on stale data sends one command, as today**: A menu on stale data adds a
+    step to each click while a task restarts. The trade is real: a stale reading can
+    send the wrong command, and the user keeps one click.
 
 ## 8 Open questions
 
