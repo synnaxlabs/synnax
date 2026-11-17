@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, type Synnax } from "@synnaxlabs/client";
+import { device, type Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Device as PDevice } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
 import { createTestDevice, renderMenuItem } from "@/platform/device/testutil";
 import { createSelection } from "@/platform/tree/testutil";
-import { uniqueName } from "@/testutil";
+import { awaitGranted, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -96,14 +97,17 @@ describe("TaskContextMenuItems", () => {
       ...items,
     ];
 
-    const setupSeveral = async (configured: boolean) => {
+    const setupSeveral = async (configured: boolean, sameRack = true) => {
       const name = uniqueName("Zq Wv");
+      const rack = sameRack
+        ? (await client.racks.create({ name: uniqueName("rack") })).key
+        : undefined;
       const devices = [
-        await createTestDevice(client, { configured, name }),
-        await createTestDevice(client, { configured, name }),
+        await createTestDevice(client, { configured, name, rack }),
+        await createTestDevice(client, { configured, name, rack }),
       ];
       const onConfigure = vi.fn();
-      await renderMenuItem(
+      const { wrapper } = await renderMenuItem(
         <Device.TaskContextMenuItems
           client={client}
           onConfigure={onConfigure}
@@ -114,7 +118,7 @@ describe("TaskContextMenuItems", () => {
         />,
         { client },
       );
-      return { onConfigure, keys: devices.map((d) => d.key) };
+      return { onConfigure, wrapper, keys: devices.map((d) => d.key) };
     };
 
     beforeEach(() => multiCreate.mockClear());
@@ -124,6 +128,18 @@ describe("TaskContextMenuItems", () => {
       expect(await screen.findByText("Create Multi Task")).toBeTruthy();
       expect(screen.queryByText("Create Read Task")).toBeNull();
       expect(screen.queryByText("Create Write Task")).toBeNull();
+    });
+
+    it("should offer no item for devices on different racks", async () => {
+      await awaitGranted(client, task.TYPE_RESOURCE_ID);
+      const { keys, wrapper } = await setupSeveral(true, false);
+      const { result } = renderHook(
+        () => PDevice.useResultMultiple({ where: { key: { in: keys } } }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.data).toHaveLength(2));
+      await act(async () => {});
+      expect(screen.queryByText("Create Multi Task")).toBeNull();
     });
 
     it("should configure the devices without a dialog, then create one task", async () => {

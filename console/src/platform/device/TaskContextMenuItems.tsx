@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device, query, task } from "@synnaxlabs/client";
-import { Access } from "@synnaxlabs/pluto";
+import { Access, Device } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import {
@@ -88,7 +88,16 @@ export const TaskContextMenuItems = ({
 }: TaskContextMenuItemsProps) => {
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
   const deviceKeys = ids.map(({ key }) => key);
-  const shown = deviceKeys.length === 1 ? items : items.filter((i) => i.multiDevice);
+  const several = deviceKeys.length > 1;
+  const { data: devices } = Device.useResultMultiple(
+    several ? { where: { key: { in: deviceKeys } } } : null,
+  );
+  // A task runs on one rack.
+  const oneRack =
+    devices?.length === deviceKeys.length &&
+    new Set(devices.map(({ rack }) => rack)).size === 1;
+  let shown = items;
+  if (several) shown = oneRack ? items.filter((i) => i.multiDevice) : [];
   if (!hasCreatePermission || shown.length === 0) return null;
   const maybeConfigure = () => {
     const dev = client.devices.watch(deviceKeys[0]).getCached();

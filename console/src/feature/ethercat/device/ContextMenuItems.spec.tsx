@@ -319,7 +319,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     });
 
     it("should leave a slave with no outputs out of the write task", async () => {
-      const { second, store } = await renderNewSlaves();
+      const { first, second, store } = await renderNewSlaves();
       fireEvent.click(await screen.findByText("Create write task"));
       const key = await retrieveFocusedKey(store);
       const write = await client.tasks.retrieve({
@@ -327,6 +327,9 @@ describe("EtherCAT device ContextMenuItems", () => {
         schemas: EtherCAT.Task.WRITE_SCHEMAS,
       });
       expect(write.config.channels.map((ch) => ch.device)).toEqual([second.key]);
+      expect((await client.devices.retrieve({ key: first.key })).configured).toBe(
+        false,
+      );
     });
   });
 

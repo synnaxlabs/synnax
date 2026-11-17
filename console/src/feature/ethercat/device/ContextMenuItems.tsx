@@ -58,17 +58,26 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
 
   const { allDisabled, allEnabled } = useEnabledState({ keys });
   const slaves = useSlavesByKeys(keys) ?? [];
-  const hasInputs = slaves.some(({ properties }) => properties.pdos.inputs.length > 0);
-  const hasOutputs = slaves.some(
-    ({ properties }) => properties.pdos.outputs.length > 0,
-  );
-  // One task runs the modules of one network.
-  const oneNetwork =
-    unique.unique(slaves.map(({ rack, properties }) => `${rack}/${properties.network}`))
-      .length <= 1;
-  const taskItems = oneNetwork
-    ? [...(hasInputs ? [READ_TASK_ITEM] : []), ...(hasOutputs ? [WRITE_TASK_ITEM] : [])]
-    : [];
+  // A task takes only the slaves with entries on its side, all on one network.
+  const selectionOf = (side: Task.PDOType) => {
+    const used = slaves.filter(({ properties }) => properties.pdos[side].length > 0);
+    if (unique.unique(used.map(({ properties }) => properties.network)).length !== 1)
+      return null;
+    const usedKeys = new Set(used.map(({ key }) => key));
+    return {
+      ...props.selection,
+      ids: props.selection.ids.filter(({ key }) => usedKeys.has(key)),
+    };
+  };
+  const taskItems = (
+    [
+      [READ_TASK_ITEM, "inputs"],
+      [WRITE_TASK_ITEM, "outputs"],
+    ] as const
+  ).flatMap(([item, side]) => {
+    const selection = selectionOf(side);
+    return selection == null ? [] : [{ item, selection }];
+  });
 
   const handleDisable = () => {
     toggleEnabled({ keys, enabled: false });
@@ -86,7 +95,14 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
       <Menu.Divider />
       {taskItems.length > 0 && (
         <>
-          <Device.TaskContextMenuItems {...props} items={taskItems} />
+          {taskItems.map(({ item, selection }) => (
+            <Device.TaskContextMenuItems
+              key={item.itemKey}
+              {...props}
+              selection={selection}
+              items={[item]}
+            />
+          ))}
           <Menu.Divider />
         </>
       )}
