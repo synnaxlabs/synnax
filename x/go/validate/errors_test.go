@@ -110,14 +110,15 @@ var _ = Describe("Errors", func() {
 	})
 
 	Describe("Encoding + Decoding", func() {
+		codec := errors.NewCodec(query.ErrorProvider(), validate.ErrorProvider())
 		It("Should send the message of a wrap", func() {
 			err := errors.Wrap(validate.ErrValidation, "channel name already exists")
-			encoded := errors.Encode(err, false)
+			encoded := codec.Encode(err, false)
 			Expect(encoded).To(Equal(errors.Payload{
 				Type: "sy.validation",
 				Data: "channel name already exists",
 			}))
-			Expect(errors.Decode(encoded)).To(SatisfyAll(
+			Expect(codec.Decode(encoded)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError("channel name already exists"),
 			))
@@ -125,9 +126,9 @@ var _ = Describe("Errors", func() {
 
 		It("Should send the formatted message of a wrapf", func() {
 			err := errors.Wrapf(validate.ErrValidation, "rate of %d%% is too high", 50)
-			encoded := errors.Encode(err, false)
+			encoded := codec.Encode(err, false)
 			Expect(encoded.Data).To(Equal("rate of 50% is too high"))
-			Expect(errors.Decode(encoded)).To(SatisfyAll(
+			Expect(codec.Decode(encoded)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError("rate of 50% is too high"),
 			))
@@ -135,9 +136,9 @@ var _ = Describe("Errors", func() {
 
 		It("Should send the message of a wrap of a wrap", func() {
 			err := errors.Wrap(errors.Wrap(validate.ErrValidation, "inner"), "outer")
-			encoded := errors.Encode(err, false)
+			encoded := codec.Encode(err, false)
 			Expect(encoded.Data).To(Equal("outer: inner"))
-			Expect(errors.Decode(encoded)).To(SatisfyAll(
+			Expect(codec.Decode(encoded)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError("outer: inner"),
 			))
@@ -146,9 +147,9 @@ var _ = Describe("Errors", func() {
 		DescribeTable(
 			"Should keep the message of a derived sentinel",
 			func(err error, msg string) {
-				encoded := errors.Encode(err, false)
+				encoded := codec.Encode(err, false)
 				Expect(encoded.Data).To(Equal(msg))
-				Expect(errors.Decode(encoded)).To(SatisfyAll(
+				Expect(codec.Decode(encoded)).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(msg),
 				))
@@ -172,13 +173,13 @@ var _ = Describe("Errors", func() {
 
 		It("Should send the message of a path error", func() {
 			err := validate.PathedError(validate.ErrRequired, "name")
-			encoded := errors.Encode(err, false)
+			encoded := codec.Encode(err, false)
 			Expect(encoded).To(Equal(errors.Payload{
 				Type: "sy.validation.path",
 				Data: `{"error":{"type":"sy.validation","data":"required"},` +
 					`"path":["name"]}`,
 			}))
-			Expect(errors.Decode(encoded)).To(SatisfyAll(
+			Expect(codec.Decode(encoded)).To(SatisfyAll(
 				BeAssignableToTypeOf(validate.PathError{}),
 				MatchError("name: required"),
 			))
@@ -189,9 +190,9 @@ var _ = Describe("Errors", func() {
 				errors.Wrap(validate.ErrValidation, "first"),
 				errors.Wrap(validate.ErrValidation, "second"),
 			)
-			encoded := errors.Encode(err, false)
+			encoded := codec.Encode(err, false)
 			Expect(encoded.Data).To(Equal("first\nsecond"))
-			Expect(errors.Decode(encoded)).To(SatisfyAll(
+			Expect(codec.Decode(encoded)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError("first\nsecond"),
 			))
@@ -202,16 +203,16 @@ var _ = Describe("Errors", func() {
 				(*fieldError)(nil),
 				errors.Wrap(validate.ErrValidation, "second"),
 			)
-			Expect(errors.Encode(err, false)).To(Equal(errors.Payload{
+			Expect(codec.Encode(err, false)).To(Equal(errors.Payload{
 				Type: "sy.validation",
 				Data: "<nil>\nsecond",
 			}))
 		})
 
 		It("Should send the message of the bare sentinel", func() {
-			encoded := errors.Encode(validate.ErrValidation, false)
+			encoded := codec.Encode(validate.ErrValidation, false)
 			Expect(encoded.Data).To(Equal("validation error"))
-			Expect(errors.Decode(encoded)).To(SatisfyAll(
+			Expect(codec.Decode(encoded)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError("validation error"),
 			))

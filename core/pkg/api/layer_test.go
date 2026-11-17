@@ -402,4 +402,14 @@ var _ = Describe("NewLayer", func() {
 			Distribution: node.Layer,
 		})).Error().To(MatchError(ContainSubstring("errors: must be non-nil")))
 	})
+
+	It("Should return the configured error codec", func() {
+		codec := api.NewErrorCodec()
+		l := MustSucceed(api.NewLayer(api.LayerConfig{
+			Service:      svc,
+			Distribution: node.Layer,
+			Errors:       codec,
+		}))
+		Expect(l.Errors()).To(BeIdenticalTo(codec))
+	})
 })
