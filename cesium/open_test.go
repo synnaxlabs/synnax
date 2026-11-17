@@ -42,12 +42,12 @@ var _ = Describe("Run", func() {
 
 	It("Should fail while another Run runs", func(ctx SpecContext) {
 		StartRun(db.Run)
-		Expect(db.Run(ctx)).To(MatchError(ContainSubstring("Run called twice")))
+		Expect(db.Run(ctx)).To(MatchError(resource.ErrOpen))
 	})
 
 	It("Should fail after an earlier Run returns", func(ctx SpecContext) {
 		StartRun(db.Run)()
-		Expect(db.Run(ctx)).To(MatchError(ContainSubstring("Run called twice")))
+		Expect(db.Run(ctx)).To(MatchError(resource.ErrOpen))
 	})
 
 	It("Should fail after Close", func(ctx SpecContext) {
