@@ -20,7 +20,7 @@ interface BaseProps {
   problem?: string;
   /** Says why the value changed. A problem hides it. */
   note?: string;
-  /** Shows the value as one that other software sets. */
+  /** Shows the field as one that other software sets. Pass no value with it. */
   disabled?: boolean;
 }
 

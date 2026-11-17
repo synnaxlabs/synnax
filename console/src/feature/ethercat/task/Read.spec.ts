@@ -431,8 +431,21 @@ describe("Read", () => {
         "DewesoftX sets these values. Synnax does not change them.",
       ),
     ).toBeTruthy();
-    const measurement = screen.getByRole("button", { name: /^Measurement.*Bridge/ });
+    const measurement = screen.getByRole("button", { name: /^Measurement/ });
     expect(measurement.getAttribute("aria-disabled")).toBe("true");
+    expect(measurement.textContent).toContain("Bridge");
+  });
+
+  it("should show no value for a setting that the scan did not read on a slave that DewesoftX sets up", async () => {
+    const slave = await createSharedSlave();
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    const measurement = await screen.findByRole("button", { name: /^Measurement/ });
+    expect(measurement.getAttribute("aria-disabled")).toBe("true");
+    expect(measurement.textContent).not.toContain("Voltage");
   });
 
   it("should name a slave in DewesoftX mode before Start and offer the switch", async () => {

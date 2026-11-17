@@ -60,11 +60,7 @@ export const SlaveSettings = (): ReactElement | null => {
         <SettingInput
           key={`${field.index}_${field.subIndex}_${field.name}`}
           field={field}
-          value={
-            reader == null
-              ? parameters.find((p) => sameAddress(p, field))?.value
-              : field.value
-          }
+          value={parameters.find((p) => sameAddress(p, field))?.value}
           onChange={(value) => onChange(setParameter(parameters, field, value))}
           disabled={reader != null}
           allowNone

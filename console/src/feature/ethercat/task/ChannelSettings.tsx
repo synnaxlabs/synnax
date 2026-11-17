@@ -82,7 +82,7 @@ export const ChannelSettings = ({
         <SettingInput
           key={`${field.index}_${field.subIndex}_${field.name}`}
           field={field}
-          value={valueAt(fields, values, field)}
+          value={reader == null ? valueAt(fields, values, field) : undefined}
           problem={problemAt(problems, field)?.message}
           note={notes.find((n) => sameAddress(n, field))?.message}
           onChange={(value) => {

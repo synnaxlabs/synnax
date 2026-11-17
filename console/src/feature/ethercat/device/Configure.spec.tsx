@@ -1026,8 +1026,9 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       settings.device = settings.device.map((f) => ({ ...f, value: 12 }));
       await setup({ settings, inputs: [STRAIN_ENTRY] });
       expect(await screen.findByText("DewesoftX sets up this device")).toBeTruthy();
-      const rate = screen.getByRole("button", { name: /^Sample rate.*1 kS\/s/ });
+      const rate = screen.getByRole("button", { name: /^Sample rate/ });
       expect(rate.getAttribute("aria-disabled")).toBe("true");
+      expect(rate.textContent).toContain("1 kS/s");
       expect(
         screen.getByText("DewesoftX sets these values. Synnax does not change them."),
       ).toBeTruthy();
