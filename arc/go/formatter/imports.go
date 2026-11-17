@@ -10,6 +10,7 @@
 package formatter
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -48,7 +49,7 @@ func AddImport(root *symbol.Symbol, module string) []protocol.TextEdit {
 				name += " as " + item.IDENTIFIER().GetText()
 			}
 			names = append(names, name)
-			stmt := item.GetParent().(antlr.ParserRuleContext)
+			stmt := statementOf(item)
 			if !seen.Contains(stmt) {
 				seen.Add(stmt)
 				stmts = append(stmts, stmt)
@@ -83,7 +84,7 @@ func AddImport(root *symbol.Symbol, module string) []protocol.TextEdit {
 
 // RemoveImport returns the edit that removes item, or its statement when it is alone.
 func RemoveImport(item parser.IImportItemContext) protocol.TextEdit {
-	stmt := item.GetParent().(parser.IImportStatementContext)
+	stmt := statementOf(item)
 	items := stmt.AllImportItem()
 	if len(items) == 1 {
 		return removeStatement(stmt)
@@ -122,4 +123,13 @@ func endOf(t antlr.Token) protocol.Position {
 		Line:      uint32(t.GetLine() - 1),
 		Character: uint32(t.GetColumn() + len(t.GetText())),
 	}
+}
+
+// statementOf returns the import statement that holds item.
+func statementOf(item parser.IImportItemContext) parser.IImportStatementContext {
+	stmt, ok := item.GetParent().(parser.IImportStatementContext)
+	if !ok {
+		panic(fmt.Sprintf("import item parent is a %T", item.GetParent()))
+	}
+	return stmt
 }

@@ -784,11 +784,7 @@ var _ = Describe("Service", func() {
 				ctx SpecContext,
 			) {
 				key := []byte("reconcile_test_performance")
-				reconcile = func(
-					ctx context.Context,
-					tx gorp.Tx,
-					c *arctask.Config,
-				) error {
+				reconcile = func(_ context.Context, tx gorp.Tx, c *arctask.Config) error {
 					v, closer, err := tx.Get(key)
 					if err != nil {
 						return err
@@ -815,11 +811,10 @@ var _ = Describe("Service", func() {
 			It("Should reconcile the entry after applying its defaults", func(
 				ctx SpecContext,
 			) {
-				reconcile = func(_ context.Context, _ gorp.Tx, c *arctask.Config) error {
+				reconcile = infallible(func(c *arctask.Config) {
 					Expect(c.Performance).To(Equal(arctask.PerformanceAuto))
 					c.Performance = arctask.PerformanceHigh
-					return nil
-				}
+				})
 				out := MustSucceed(reconciling.Normalize(ctx, reconDB, 0,
 					msgpack.EncodedJSON{"arcKey": uuid.New().String()},
 				))
@@ -914,10 +909,9 @@ var _ = Describe("Service", func() {
 			decoded := MustSucceed(decoding.Decode(ctx, 0, msgpack.EncodedJSON{
 				"module": arcKey.String(),
 			}))
-			reconcile = func(_ context.Context, _ gorp.Tx, c *arctask.Config) error {
+			reconcile = infallible(func(c *arctask.Config) {
 				c.Performance = arctask.PerformanceHigh
-				return nil
-			}
+			})
 			out := MustSucceed(decoded.Normalize(ctx, db))
 			Expect(out).To(HaveKeyWithValue("arc_key", arcKey.String()))
 			Expect(out).To(HaveKeyWithValue("performance", "high"))
@@ -1212,3 +1206,13 @@ var _ = Describe("TaskOf", func() {
 		Expect(ok).To(BeFalse())
 	})
 })
+
+// infallible returns a reconcile hook that applies f and never fails.
+func infallible(
+	f func(*arctask.Config),
+) func(context.Context, gorp.Tx, *arctask.Config) error {
+	return func(_ context.Context, _ gorp.Tx, c *arctask.Config) error {
+		f(c)
+		return nil
+	}
+}

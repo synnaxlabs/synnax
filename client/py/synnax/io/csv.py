@@ -60,7 +60,7 @@ class CSVReader(ExtensionMatcher):
         self._cached_reader = None
 
     def _detect_delimiter(self) -> str:
-        with open(self._path) as file:
+        with open(self._path, encoding="utf-8") as file:
             sample = file.read(1024)
             dialect = csv.Sniffer().sniff(sample)
             return dialect.delimiter
@@ -153,7 +153,7 @@ class CSVReader(ExtensionMatcher):
 
 def _estimate_row_count(path: Path) -> int:
     """Estimates the number of rows in a CSV file."""
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         f.readline()
         row = f.readline()
         row_size = len(row.encode("utf-8"))

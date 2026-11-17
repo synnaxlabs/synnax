@@ -90,6 +90,14 @@ func createCertificateWithKey(ctx SpecContext, name string) certificate.Certific
 	return c
 }
 
+// storedOf returns the stored variant of c.
+func storedOf(c certificate.Certificate) certificate.StoredCertificate {
+	GinkgoHelper()
+	s, ok := c.Variant.(certificate.StoredCertificate)
+	Expect(ok).To(BeTrue())
+	return s
+}
+
 func retrieveCertificate(ctx SpecContext, key certificate.Key) certificate.Certificate {
 	GinkgoHelper()
 	var c certificate.Certificate
@@ -145,7 +153,7 @@ var _ = Describe("Service", func() {
 						PrivateKeyPem: keyPEM,
 					}}},
 				))
-				stored := res.Certificates[0].Variant.(certificate.StoredCertificate)
+				stored := storedOf(res.Certificates[0])
 				Expect(stored.Details.Subject).To(Equal("CN=plant"))
 				Expect(stored.PrivateKey).ToNot(BeNil())
 			},
@@ -164,8 +172,9 @@ var _ = Describe("Service", func() {
 						Details:         &certificate.Details{Subject: "CN=plant"},
 					}}},
 				))
-				file := retrieveCertificate(ctx, res.Certificates[0].Base().Key).
+				file, ok := retrieveCertificate(ctx, res.Certificates[0].Base().Key).
 					Variant.(certificate.FileCertificate)
+				Expect(ok).To(BeTrue())
 				Expect(*file.PrivateKeyFile).To(Equal(keyFile))
 				Expect(file.Details.Subject).To(Equal("CN=plant"))
 			},
@@ -283,7 +292,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				c := createCertificateWithKey(ctx, "Plant")
-				stored := c.Variant.(certificate.StoredCertificate)
+				stored := storedOf(c)
 				grant(
 					ctx,
 					u.ResourceID(),
@@ -312,7 +321,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				c := createCertificateWithKey(ctx, "Plant")
-				key := *c.Variant.(certificate.StoredCertificate).PrivateKey
+				key := *storedOf(c).PrivateKey
 				grant(
 					ctx,
 					u.ResourceID(),
@@ -478,7 +487,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				c := createCertificateWithKey(ctx, "Before")
-				key := *c.Variant.(certificate.StoredCertificate).PrivateKey
+				key := *storedOf(c).PrivateKey
 				grant(
 					ctx,
 					u.ResourceID(),
@@ -502,7 +511,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				c := createCertificateWithKey(ctx, "Before")
-				key := *c.Variant.(certificate.StoredCertificate).PrivateKey
+				key := *storedOf(c).PrivateKey
 				grant(
 					ctx,
 					u.ResourceID(),
@@ -565,7 +574,7 @@ var _ = Describe("Service", func() {
 					}}},
 				))
 				c := res.Certificates[0]
-				key := *c.Variant.(certificate.StoredCertificate).PrivateKey
+				key := *storedOf(c).PrivateKey
 				u := createUser(ctx)
 				grant(
 					ctx,

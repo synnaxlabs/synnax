@@ -168,9 +168,13 @@ func unwrapJoin(err error) []error {
 
 // joinMembers returns the members of err if err is a Join or a standard library join.
 func joinMembers(err error) ([]error, bool) {
+	joined, ok := err.(multiCause)
+	if !ok {
+		return nil, false
+	}
 	switch reflect.TypeOf(err) {
 	case joinType, stdlibJoinType:
-		return err.(multiCause).Unwrap(), true
+		return joined.Unwrap(), true
 	}
 	return nil, false
 }

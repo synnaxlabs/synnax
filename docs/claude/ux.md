@@ -370,6 +370,9 @@ bound, a log precision, or the line plot X channel.
   count: the dots of the first hidden tags, then "+N". With no tag shown, the count
   reads "N labels", then "+N" with its dots. Only a group too narrow for that shows
   nothing.
+- Only a tag that shows a color dot shows as a dot in the count. Tags with other icons,
+  such as channels, fold into a plain "+N".
+- An outlined group, such as a select in a form, keeps its outline at every step.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
 - A value in a list item or a property panel shows no caret, at rest, on hover, or while
@@ -474,6 +477,19 @@ bound, a log precision, or the line plot X channel.
   is 12 px and l8, and it takes the text color on hover.
 - A part that opens something gets l3 on hover and l4 on press.
 - The dots of a labels value overlap a little, as one group.
+
+### Record headers
+
+- The header of a record page, such as a range overview, puts its actions on the top
+  line, beside the parents. The name takes the full width under them.
+- A parent shows its color square, as the explorer does, at 80% opacity, then its name
+  at weight 500 in gray l9. A caret the size of the text separates two parents. The
+  parents never wrap: the furthest up fades first.
+- In a narrow pane, the parents move to their own line under the actions. When the pane
+  is narrower still, the copy, download, and link buttons fold into a "⋮" menu. Plot and
+  the star stay.
+- A word of a time line ("started", "ended") wraps with its time, never alone.
+- In a narrow pane, a field of a record shows its value under its name.
 
 ### Page sections
 

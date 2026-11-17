@@ -366,6 +366,14 @@ var _ = Describe("Migrate functions", func() {
 	})
 })
 
+func edge(key, source, target string) v12.Edge {
+	return v12.Edge{
+		Key:    key,
+		Source: v12.Handle{Node: source, Param: "out"},
+		Target: v12.Handle{Node: target, Param: "in"},
+	}
+}
+
 var _ = Describe("MigrateSchematic config move", func() {
 	var (
 		valve      = v12.ValveElementConfig{Orientation: "left", Scale: 2}
@@ -387,13 +395,6 @@ var _ = Describe("MigrateSchematic config move", func() {
 	)
 	node := func(key string) v12.Node {
 		return v12.Node{Key: key, Position: spatial.XY{X: 1, Y: 2}, ZIndex: 3}
-	}
-	edge := func(key, source, target string) v12.Edge {
-		return v12.Edge{
-			Key:    key,
-			Source: v12.Handle{Node: source, Param: "out"},
-			Target: v12.Handle{Node: target, Param: "in"},
-		}
 	}
 	migrate := func(ctx SpecContext, old v12.Schematic) v13.Schematic {
 		GinkgoHelper()

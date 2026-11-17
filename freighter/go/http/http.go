@@ -61,7 +61,11 @@ func parseSecurityInfo(ctx fiber.Ctx) freighter.SecurityInfo {
 	var info freighter.SecurityInfo
 	if ctx.RequestCtx().IsTLS() {
 		info.TLS.Used = true
-		info.TLS.ConnectionState = ctx.RequestCtx().Conn().(*tls.Conn).ConnectionState()
+		conn, ok := ctx.RequestCtx().Conn().(*tls.Conn)
+		if !ok {
+			panic("TLS request does not run on a TLS connection")
+		}
+		info.TLS.ConnectionState = conn.ConnectionState()
 	}
 	return info
 }
