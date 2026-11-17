@@ -442,11 +442,12 @@ phases 13 to 15, the enumeration record, its API and built-ins, and its clients 
 Pluto queries, because its migration writes enumerations and its editor shows entry
 names. Phase 1 stores the `Spec` fields of §4.1 and adds the symbol checks of §4.4. It
 adds the function that turns a state list into an enumeration (RFC 0112 §4.6), and its
-migration writes the default enumeration of each custom symbol with it. It moves the
+migration writes the default enumeration of each custom symbol with it. Pluto draws
+`entry` paint from the start, so no migrated symbol changes its look. It moves the
 symbol editor and the clients to the new shape, and phase 3 redesigns the editor. Until
 phase 2 deletes them, it keeps `variant`, which picks the node variant on placement, and
 today's state shape, under its own name, for `state_overrides`. Phase 2 ships with RFC
-0112 phases 19 to 22. Each family is redesigned after phase 5 in its own PR.
+0112 phases 19 to 21. Each family is redesigned after phase 5 in its own PR.
 
 Phase 2 is one cutover of the stored node shape: a node variant with channel references,
 its checks with the Core list of built-ins and its route, the removal of the bindings
