@@ -76,28 +76,28 @@ comment. A push, a new base, or a reply alone starts none. Sedosaur reacts with 
 when it takes the request. A head gets no second review on one base once one succeeds,
 and a request after a push that leaves the diff the same, as a merge of the base does,
 gets the last review at once. To review that head again, comment
-`@sedosaur review repeat=true`. Sedosaur replies when it skips a person's request. To
-make Sedosaur stop reporting a finding, someone with write access replies
-`@sedosaur dismiss` and a reason on its thread. A finding outside the diff has no
-thread: they comment `@sedosaur dismiss`, its title, and a reason on the PR, with
-`path:<file>` when two findings share the title. Sedosaur resolves the thread, later
-reviews of the PR leave the finding out, and the head scores 5/5 once every finding is
-dismissed. The review reads no other replies. The gate does not wait for a human
-approval on either tier. A pull request Dependabot opened and wrote every commit of
-passes the gate without a review. `OK` is the CI workflow's last job: it fails when any
-check the PR's paths select failed. A merge into `main` goes through a merge queue,
-which reruns CI with the integration suite added before the branch moves. A queue
-entry's CI builds `main` with the entries ahead of it and the entry itself, but selects
-checks from the entry's own changes. An entry that changes only unit tests skips the
-integration suite. Each entry merges only when its own CI passes: an entry that fails
-leaves the queue, and GitHub rebuilds the entries behind it. GitHub refuses a queue on a
-wildcard branch pattern, so a `release/**` merge goes in directly, and CI runs again on
-the pushed commit. The queue also runs the gate again. A release runs the integration
-suite itself. Nobody bypasses the rules on `main`: when Sedosaur is down, pull requests
-wait for it. The gate script is `.github/scripts/check_review.sh`, the rulesets
-`.github/rulesets/main.json` and `.github/rulesets/release.json`. An admin applies a
-changed ruleset file by hand; the `Check - Rulesets` workflow fails each day until
-GitHub matches the files.
+`@sedosaur review repeat=true`. Sedosaur replies when it skips a person's comment that
+starts a line with `@sedosaur review`. To make Sedosaur stop reporting a finding,
+someone with write access replies `@sedosaur dismiss` and a reason on its thread. A
+finding outside the diff has no thread: they comment `@sedosaur dismiss`, its title, and
+a reason on the PR, with `path:<file>` when two findings share the title. Sedosaur
+resolves the thread, later reviews of the PR leave the finding out, and the head scores
+5/5 once every finding is dismissed. The review reads no other replies. The gate does
+not wait for a human approval on either tier. A pull request Dependabot opened and wrote
+every commit of passes the gate without a review. `OK` is the CI workflow's last job: it
+fails when any check the PR's paths select failed. A merge into `main` goes through a
+merge queue, which reruns CI with the integration suite added before the branch moves. A
+queue entry's CI builds `main` with the entries ahead of it and the entry itself, but
+selects checks from the entry's own changes. An entry that changes only unit tests skips
+the integration suite. Each entry merges only when its own CI passes: an entry that
+fails leaves the queue, and GitHub rebuilds the entries behind it. GitHub refuses a
+queue on a wildcard branch pattern, so a `release/**` merge goes in directly, and CI
+runs again on the pushed commit. The queue also runs the gate again. A release runs the
+integration suite itself. Nobody bypasses the rules on `main`: when Sedosaur is down,
+pull requests wait for it. The gate script is `.github/scripts/check_review.sh`, the
+rulesets `.github/rulesets/main.json` and `.github/rulesets/release.json`. An admin
+applies a changed ruleset file by hand; the `Check - Rulesets` workflow fails each day
+until GitHub matches the files.
 
 A pull request into `main` also cannot merge while CodeQL finds a new alert in its
 changes with a security severity of medium or higher, or a severity of error. Alerts
