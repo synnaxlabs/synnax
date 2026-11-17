@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -217,9 +218,11 @@ var _ = Describe("Close", func() {
 var _ = Describe("Read failure", func() {
 	It("Should return the read error from Close", func(ctx SpecContext) {
 		faulty := WrapFaultyFS(xfs.NewMem())
+		kv := DeferClose(memkv.New())
 		store := &storage.Layer{
-			KV: DeferClose(memkv.New()),
-			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
+			KV:   kv,
+			Gorp: gorp.Wrap(kv),
+			TS:   DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
 		}
 		StartRun(store.Run)
 		host := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})

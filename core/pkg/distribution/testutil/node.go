@@ -32,14 +32,12 @@ type Node struct {
 	Storage *storage.Layer
 	// ownedStorage is Storage when the Node opened it, and nil otherwise.
 	ownedStorage io.Closer
-	// stopDB stops the run of DB.
-	stopDB func() error
 }
 
-// Close closes the distribution layer, stops the run of DB, then closes the storage
-// layer if the Node opened it. It shadows the embedded Layer.Close.
+// Close closes the distribution layer, then the storage layer if the Node opened it. It
+// shadows the embedded Layer.Close.
 func (n Node) Close() error {
-	err := errors.Join(n.Layer.Close(), n.stopDB())
+	err := n.Layer.Close()
 	if n.ownedStorage != nil {
 		err = errors.Join(err, n.ownedStorage.Close())
 	}
@@ -64,7 +62,7 @@ func (n Node) CreateChannels(
 
 // NewNode opens a Node and registers its teardown via testutil.DeferClose. It must be
 // called from within a Ginkgo node; use OpenNode from plain Go tests and benchmarks.
-// The storage and the DB of the Node run until the teardown, even when ctx ends first.
+// The storage of the Node runs until the teardown, even when ctx ends first.
 func NewNode(ctx context.Context, overrides ...distribution.LayerConfig) Node {
 	ginkgo.GinkgoHelper()
 	return testutil.DeferClose(openNode(ctx, ginkgo.GinkgoT().Context(), overrides...))
@@ -72,9 +70,9 @@ func NewNode(ctx context.Context, overrides ...distribution.LayerConfig) Node {
 
 // OpenNode opens a Node. The overrides are layered on top of the base
 // distribution.LayerConfig. The Node opens its own storage layer unless an override
-// passes one, which the caller then closes and runs. The storage and the DB of the Node
-// run until Close or until ctx ends, so ctx must outlive the Node. The caller closes
-// the returned Node.
+// passes one, which the caller then closes and runs. The storage of the Node runs
+// until Close or until ctx ends, so ctx must outlive the Node. The caller closes the
+// returned Node.
 func OpenNode(ctx context.Context, overrides ...distribution.LayerConfig) Node {
 	ginkgo.GinkgoHelper()
 	return openNode(ctx, ctx, overrides...)
@@ -100,7 +98,6 @@ func openNode(
 	cfg := distribution.LayerConfig{Storage: n.Storage, AdvertiseAddress: addr}
 	cfgs := append([]distribution.LayerConfig{cfg}, overrides...)
 	n.Layer = testutil.MustSucceed(distribution.OpenLayer(ctx, cfgs...))
-	n.stopDB = testutil.GoRun(life, n.DB.Run)
 	n.Framer.SetFreeIndexResolver(nopFreeIndexResolver{})
 	return n
 }

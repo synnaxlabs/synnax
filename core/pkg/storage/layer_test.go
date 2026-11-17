@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/confluence"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -25,6 +26,13 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+type entry struct {
+	Key  int32
+	Name string
+}
+
+func (e entry) GorpKey() int32 { return e.Key }
 
 var _ = Describe("storage", func() {
 	Describe("Run", func() {
@@ -49,6 +57,33 @@ var _ = Describe("storage", func() {
 			Eventually(responses.Outlet()).Should(Receive())
 			requests.Close()
 			Eventually(sCtx.Stopped()).Should(BeClosed())
+		})
+
+		It("Should run the Gorp DB until its context ends", func(ctx SpecContext) {
+			l := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+				InMemory: new(true),
+			}))
+			StartRun(l.Run)
+			// A table with indexes opens only once Run runs the Gorp DB.
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
+				DB: l.Gorp,
+				Indexes: []gorp.Index[int32, entry]{
+					gorp.NewLookupIndex(
+						"name",
+						func(e *entry) string { return e.Name },
+					),
+				},
+			}))
+		})
+
+		It("Should stop the time-series engine when the Gorp DB fails", func(
+			ctx SpecContext,
+		) {
+			l := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+				InMemory: new(true),
+			}))
+			StartRun(l.Gorp.Run)
+			Expect(l.Run(ctx)).To(MatchError(ContainSubstring("Run called twice")))
 		})
 	})
 
