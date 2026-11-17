@@ -27,6 +27,8 @@ namespace driver::spool {
 namespace {
 const std::string SEGMENT_EXT = ".seg";
 const std::string OFFSET_EXT = ".offset";
+/// @brief marks the temp files that a crash in journal file creation can leave.
+const std::string TEMP_INFIX = ".tmp.";
 constexpr std::uint8_t HEADER_TYPE = 1;
 constexpr std::uint8_t FRAME_TYPE = 2;
 
@@ -351,6 +353,7 @@ std::pair<std::unique_ptr<Spool>, x::errors::Error> Spool::open(Config cfg) {
     auto [lock, l_err] = journal::Lock::open(cfg.dir);
     if (l_err) return {nullptr, l_err};
     auto spool = std::unique_ptr<Spool>(new Spool(std::move(cfg), std::move(lock)));
+    if (const auto err = spool->remove_temp_files()) return {nullptr, err};
     std::vector<std::uint64_t> keys;
     for (const auto &entry: std::filesystem::directory_iterator(spool->cfg.dir, ec)) {
         const auto &path = entry.path();
@@ -417,6 +420,18 @@ void Spool::close(const std::uint64_t key, const std::uint64_t size) {
 x::errors::Error Spool::remove_files(const std::uint64_t key) {
     if (const auto err = journal::remove(this->segment_path(key))) return err;
     return journal::remove(this->offset_path(key));
+}
+
+x::errors::Error Spool::remove_temp_files() const {
+    std::error_code ec;
+    std::vector<std::filesystem::path> temps;
+    for (const auto &entry: std::filesystem::directory_iterator(this->cfg.dir, ec))
+        if (entry.path().filename().string().contains(TEMP_INFIX))
+            temps.push_back(entry.path());
+    if (ec) return fs_error("failed to list spool directory", ec);
+    for (const auto &path: temps)
+        if (const auto err = journal::remove(path)) return err;
+    return x::errors::NIL;
 }
 
 x::errors::Error Spool::remove_orphan_offsets() const {
