@@ -457,7 +457,10 @@ StatusHandler &start(StatusHandler &handler) {
 
 /// @brief it should show a background warning while the task runs.
 TEST(TestBackgroundWarning, ShowsWhileRunning) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     StatusHandler handler(ctx, task, 10 * x::telem::MILLISECOND);
     start(handler).set_background_warning(BACKGROUND);
@@ -472,7 +475,10 @@ TEST(TestBackgroundWarning, ShowsWhileRunning) {
 
 /// @brief it should not show a background warning while the task is stopped.
 TEST(TestBackgroundWarning, HiddenWhileStopped) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     const auto window = 10 * x::telem::MILLISECOND;
     StatusHandler handler(ctx, task, window);
@@ -485,7 +491,10 @@ TEST(TestBackgroundWarning, HiddenWhileStopped) {
 /// @brief it should show a warning of the task in place of the background warning,
 /// and show the background warning again once the task clears its own.
 TEST(TestBackgroundWarning, TaskWarningOverridesIt) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     StatusHandler handler(ctx, task, 10 * x::telem::MILLISECOND);
     start(handler).set_background_warning(BACKGROUND);
@@ -498,7 +507,10 @@ TEST(TestBackgroundWarning, TaskWarningOverridesIt) {
 
 /// @brief it should stop showing the background warning once it is cleared.
 TEST(TestBackgroundWarning, Clears) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     StatusHandler handler(ctx, task, 10 * x::telem::MILLISECOND);
     start(handler).set_background_warning(BACKGROUND);
@@ -514,7 +526,10 @@ TEST(TestBackgroundWarning, Clears) {
 /// @brief it should hide a background warning behind an error of the task, and not
 /// show it again while the error stands.
 TEST(TestBackgroundWarning, ErrorHidesIt) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     const auto window = 10 * x::telem::MILLISECOND;
     StatusHandler handler(ctx, task, window);
@@ -533,7 +548,10 @@ TEST(TestBackgroundWarning, ErrorHidesIt) {
 
 /// @brief it should send nothing for a background warning after the handler closes.
 TEST(TestBackgroundWarning, SendsNothingAfterClose) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     const auto window = 10 * x::telem::MILLISECOND;
     StatusHandler handler(ctx, task, window);
@@ -545,7 +563,10 @@ TEST(TestBackgroundWarning, SendsNothingAfterClose) {
 
 /// @brief it should send a repeated identical background warning only once.
 TEST(TestBackgroundWarning, SendsRepeatsOnce) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     const auto window = 10 * x::telem::MILLISECOND;
     StatusHandler handler(ctx, task, window);
