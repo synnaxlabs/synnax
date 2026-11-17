@@ -7,7 +7,8 @@ uv workspace (members defined in root `pyproject.toml`): `/client/py/` (Synnax c
 conductor). Internal deps resolve via workspace sources. Build backend: hatchling.
 
 The workspace and CI run the Python in `.python-version`. Published packages support
-3.12+: Ruff `target-version` and mypy `python_version` reject newer syntax and APIs.
+3.13+ (SPEC 0): Ruff `target-version` and mypy `python_version` reject newer syntax and
+APIs.
 
 ## Commands
 
@@ -26,7 +27,7 @@ Always prefix with `uv run`. Client CLI: `uv run sy --help`.
 
 ## Style
 
-- Ruff: 88-char lines, target py312. Rules: `F`, `I`, `B`, `DTZ`, `E501`, `E7`, `E9`,
+- Ruff: 88-char lines, target py313. Rules: `F`, `I`, `B`, `DTZ`, `E501`, `E7`, `E9`,
   `PLE`, `UP`, `SIM`, `C4`, `RET`, `PIE`, `PERF`, `RUF`, and `PT` (not in
   `integration`). The published packages also select the preview rule `PLW1514`: pass
   `encoding="utf-8"` to every text file open.

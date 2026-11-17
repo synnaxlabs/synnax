@@ -88,6 +88,8 @@ func stratifyScope(
 				}
 			}
 		}
+	case ir.ScopeModeUnspecified:
+		panic("scope " + s.Key + " has no mode")
 	}
 	return diag
 }

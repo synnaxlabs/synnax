@@ -290,6 +290,7 @@ func (s *Server) baseBranchContext(l Listener) BranchContext {
 		Debug:           *s.Debug,
 		Security:        s.Security,
 		ServerName:      l.Address.Host(),
+		TLS:             l.TLS,
 	}
 }
 

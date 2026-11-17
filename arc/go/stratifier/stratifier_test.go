@@ -101,6 +101,17 @@ var _ = Describe("Stratify", func() {
 			Expect(root.IsZero()).To(BeTrue())
 		})
 
+		It("Should panic when a non-empty scope has no mode", func() {
+			prog := ir.IR{Root: ir.Scope{Key: "main"}}
+			Expect(func() {
+				Expect(
+					stratifier.Stratify(&prog, &diagnostics.Diagnostics{}),
+				).To(BeNil())
+			}).To(
+				PanicWith("scope main has no mode"),
+			)
+		})
+
 		It("Should preserve a parallel scope with no members", func() {
 			root := run(programOf(nil, nil))
 			Expect(root.Mode).To(Equal(ir.ScopeModeParallel))

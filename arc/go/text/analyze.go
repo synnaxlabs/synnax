@@ -519,7 +519,10 @@ func analyzeIdentifierByRole(
 			return flowNodeResult{}, false
 		}
 		return flowNodeResult{transition: &intent}, true
-	default:
+	case symbol.KindVariable, symbol.KindStatefulVariable, symbol.KindChannel,
+		symbol.KindFunction, symbol.KindBlock, symbol.KindInput, symbol.KindOutput,
+		symbol.KindLoop, symbol.KindLoopVariable, symbol.KindModule,
+		symbol.KindModuleAlias, symbol.KindAmbient:
 		if isSink && sym.Root().UserDefined && sym.Root() != ctx.Scope.Root() {
 			ctx.Diagnostics.Add(codes.ReadOnlyWrite.Atf(ctx.AST,
 				"cannot write to '%s': it belongs to an imported module", name))
@@ -555,6 +558,7 @@ func analyzeIdentifierByRole(
 		}
 		return flowNodeResult{node: r}, ok
 	}
+	panic("unknown symbol kind " + sym.Kind.String())
 }
 
 // bindReadToAlias feeds a read node's channel param from the alias's register

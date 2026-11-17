@@ -111,6 +111,15 @@ describe("color.Client", () => {
     });
   });
 
+  describe("retrieveBuiltins", () => {
+    it("should return the shipped values of the built-in colors", async () => {
+      const builtins = await client.colors.retrieveBuiltins();
+      expect(builtins).toHaveLength(16);
+      expect(builtins[0].name).toEqual("Series 1");
+      expect(xcolor.hex(builtins[0].light)).toEqual("#dc136c");
+    });
+  });
+
   describe("store", () => {
     beforeAll(async () => {
       await client.connect();
@@ -199,6 +208,56 @@ describe("color.Client", () => {
       await expect
         .poll(() => list.getCached()?.records.map((n) => n.key))
         .toEqual([named.key]);
+    });
+
+    it("should set the positions of named colors in one batch", async () => {
+      const [a, b] = await Promise.all([createNamed(), createNamed()]);
+      await client.batch.send([
+        client.colors.setPositionRequest(a.key, "a1"),
+        client.colors.setPositionRequest(b.key, "a0"),
+      ]);
+      expect(expectLive(client.colors.watch(a.key).getCached()).position).toBe("a1");
+      const reader = createTestClient();
+      expect((await reader.colors.retrieve(a.key)).position).toBe("a1");
+      expect((await reader.colors.retrieve(b.key)).position).toBe("a0");
+    });
+
+    it("should delete a palette and its named colors in one batch", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: `palette-${id.create()}`,
+      });
+      const named = await createNamed();
+      await client.batch.send(moveRequests(named, palette));
+      await client.batch.send([
+        client.colors.deleteRequest(named.key),
+        client.groups.deleteRequest(palette.key),
+      ]);
+      const reader = createTestClient();
+      await expect(reader.colors.retrieve(named.key)).rejects.toThrow(NotFoundError);
+      await expect(reader.groups.retrieve({ key: palette.key })).rejects.toThrow(
+        NotFoundError,
+      );
+    });
+
+    it("should keep every named color when the palette delete fails", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: `palette-${id.create()}`,
+      });
+      const [deleted, kept] = await Promise.all([createNamed(), createNamed()]);
+      await client.batch.send([
+        ...moveRequests(deleted, palette),
+        ...moveRequests(kept, palette),
+      ]);
+      await expect(
+        client.batch.send([
+          client.colors.deleteRequest(deleted.key),
+          client.groups.deleteRequest(palette.key),
+        ]),
+      ).rejects.toThrow(`cannot delete group ${palette.name} because it is not empty`);
+      const reader = createTestClient();
+      expect((await reader.colors.retrieve(deleted.key)).key).toBe(deleted.key);
     });
 
     it("should refuse a move into a group of another scope", async () => {

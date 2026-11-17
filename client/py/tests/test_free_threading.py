@@ -24,6 +24,4 @@ def test_gil_stays_disabled_after_import() -> None:
     turns the GIL back on with only a warning.
     """
     importlib.import_module("synnax")
-    # mypy targets 3.12 until the floor rises, and its stubs add this only for 3.13.
-    is_gil_enabled = vars(sys)["_is_gil_enabled"]
-    assert not is_gil_enabled()
+    assert not sys._is_gil_enabled()

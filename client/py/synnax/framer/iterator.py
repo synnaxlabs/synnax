@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 import synnax.channel.payload as channel
 from alamos import NOOP, Instrumentation
-from freighter import EOF, ExceptionPayload, Stream, WebsocketClient
+from freighter import EOF, ExceptionPayload, Stream, StreamClient
 from freighter.transport import P
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSCodec
@@ -107,7 +107,7 @@ class Iterator:
         self,
         *,
         tr: TimeRange,
-        client: WebsocketClient,
+        client: StreamClient,
         adapter: ReadFrameAdapter,
         chunk_size: int = 100000,
         reduction: Reduction | None = None,

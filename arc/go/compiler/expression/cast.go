@@ -163,6 +163,8 @@ func convertOpcode(from, to wasm.ValueType, fromSigned, toSigned bool) wasm.Opco
 			return lo.Ternary(fromSigned, wasm.OpF32ConvertI32S, wasm.OpF32ConvertI32U)
 		case wasm.F64:
 			return lo.Ternary(fromSigned, wasm.OpF64ConvertI32S, wasm.OpF64ConvertI32U)
+		case wasm.I32:
+			panic("cast between equal wasm types")
 		}
 	case wasm.I64:
 		switch to {
@@ -172,6 +174,8 @@ func convertOpcode(from, to wasm.ValueType, fromSigned, toSigned bool) wasm.Opco
 			return lo.Ternary(fromSigned, wasm.OpF32ConvertI64S, wasm.OpF32ConvertI64U)
 		case wasm.F64:
 			return lo.Ternary(fromSigned, wasm.OpF64ConvertI64S, wasm.OpF64ConvertI64U)
+		case wasm.I64:
+			panic("cast between equal wasm types")
 		}
 	case wasm.F32:
 		switch to {
@@ -181,6 +185,8 @@ func convertOpcode(from, to wasm.ValueType, fromSigned, toSigned bool) wasm.Opco
 			return lo.Ternary(toSigned, wasm.OpI64TruncF32S, wasm.OpI64TruncF32U)
 		case wasm.F64:
 			return wasm.OpF64PromoteF32
+		case wasm.F32:
+			panic("cast between equal wasm types")
 		}
 	case wasm.F64:
 		switch to {
@@ -190,6 +196,8 @@ func convertOpcode(from, to wasm.ValueType, fromSigned, toSigned bool) wasm.Opco
 			return lo.Ternary(toSigned, wasm.OpI64TruncF64S, wasm.OpI64TruncF64U)
 		case wasm.F32:
 			return wasm.OpF32DemoteF64
+		case wasm.F64:
+			panic("cast between equal wasm types")
 		}
 	}
 	return 0
