@@ -75,7 +75,9 @@ export const DEFAULT_CONNECTOR: Connector = {
     Object.keys(headers).length === 0
       ? new WebSocket(url)
       : openWithOptions(url, { headers }),
-  sendsHeaders: runtime.RUNTIME === "node",
+  // An Electron renderer or jsdom page sets process.versions.node but has a DOM
+  // WebSocket.
+  sendsHeaders: runtime.RUNTIME === "node" && typeof document === "undefined",
 };
 
 // A CA list replaces the default list in Node and Bun, so it must keep the defaults.
