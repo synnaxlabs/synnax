@@ -14,7 +14,9 @@ import {
   box,
   color,
   DataType,
+  deep,
   type destructor,
+  link,
   notation,
   text,
   TimeStamp,
@@ -34,6 +36,18 @@ import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
+
+// A link on screen, in the color of its line. It has a box on each of its rows.
+const linkZ = link.linkZ.extend({ color: z.string(), regions: z.array(box.box) });
+
+interface Link extends z.infer<typeof linkZ> {}
+
+// A link on screen, and how the worker draws it.
+interface LinkLayout {
+  link: Link;
+  labeled: boolean;
+  stroke: color.Color;
+}
 
 export const logStateZ = log.logZ
   .pick({
@@ -69,6 +83,8 @@ export const logStateZ = log.logZ
     computedLineHeight: z.number().default(0),
     // The entry index of each row on screen, top to bottom.
     rowEntries: z.array(z.number()).default([]),
+    // The links on screen.
+    links: z.array(linkZ).default([]),
   });
 
 const lineZ = z.object({ text: z.string(), color: z.string() });
@@ -144,6 +160,9 @@ interface Row {
   entry: number;
   prefix: string;
   value: string;
+  // The links in the value of the entry, and the index in it where value starts.
+  spans: link.Span[];
+  start: number;
   channelKey: string;
   first: boolean;
   day?: boolean;
@@ -154,6 +173,7 @@ interface EntryLayout {
   entry: number;
   prefix: string;
   value: string;
+  spans: link.Span[];
   channelKey: string;
   indent: string;
   columns: number;
@@ -232,6 +252,16 @@ const wrapStarts = (value: string, columns: number): number[] => {
   }
   return starts;
 };
+
+// Returns the columns that the text takes, where a wide character takes two.
+const columnsOf = (text: string): number => {
+  let columns = 0;
+  for (let i = 0; i < text.length; i++) columns += WIDE.test(text[i]) ? 2 : 1;
+  return columns;
+};
+
+// A leading minus sign hangs one column left of the value.
+const hasHangingMinus = ({ first, value }: Row): boolean => first && value[0] === "-";
 
 const INTEGER = /^-?\d+$/;
 
@@ -529,11 +559,12 @@ export class Log
   }
 
   private layoutEntry(entry: number): EntryLayout {
-    const { prefix, value, channelKey } = this.formatEntry(this.entries[entry]);
+    const { prefix, value: raw, channelKey } = this.formatEntry(this.entries[entry]);
+    const { text: value, spans } = link.parse(raw);
     const width = box.width(this.state.region) - CONTENT_PADDING * 2 - SCROLLBAR_WIDTH;
     const fullColumns = Math.floor(width / this.internal.charWidth);
     const columns = fullColumns - prefix.length;
-    const base = { entry, prefix, value, channelKey };
+    const base = { entry, prefix, value, spans, channelKey };
     const wide = WIDE.test(value);
     const startsOf = (cols: number): number[] => this.wrapStarts(entry, value, cols);
     const rowsOf = (cols: number): { rows: number; starts?: number[] } => {
@@ -577,15 +608,17 @@ export class Log
 
   private rowOf(layout: EntryLayout, row: number): Row {
     const { entry, prefix, value, channelKey, indent, columns, lead, starts } = layout;
-    const start = (row - lead) * columns;
-    const text =
-      starts != null
-        ? value.slice(starts[row - lead], starts[row - lead + 1])
-        : value.slice(wrapPoint(value, start), wrapPoint(value, start + columns));
+    // A lead row holds no value, so it takes the start of the first piece.
+    const piece = Math.max(0, row - lead);
+    const start = starts != null ? starts[piece] : wrapPoint(value, piece * columns);
+    const end =
+      starts != null ? starts[piece + 1] : wrapPoint(value, (piece + 1) * columns);
     return {
       entry,
       prefix: row === 0 ? prefix : indent,
-      value: row < lead ? "" : text,
+      value: row < lead ? "" : value.slice(start, end),
+      spans: layout.spans,
+      start,
       channelKey,
       first: row === 0,
     };
@@ -602,7 +635,67 @@ export class Log
 
   private dayRow(entry: number): Row {
     const prefix = dayText(this.entries[entry], this.state.timeZone);
-    return { entry, prefix, value: "", channelKey: "", first: false, day: true };
+    return {
+      entry,
+      prefix,
+      value: "",
+      spans: [],
+      start: 0,
+      channelKey: "",
+      first: false,
+      day: true,
+    };
+  }
+
+  // Returns the links on screen. The rows of an entry share its spans.
+  private layoutLinks(rows: Row[], lh: number): LinkLayout[] {
+    const { charWidth, selectionOffsetY, valueColors, textColor } = this.internal;
+    const left = box.left(this.state.region) + CONTENT_PADDING;
+    const top = box.top(this.state.region) + CONTENT_PADDING + selectionOffsetY;
+    const layouts = new Map<link.Span, LinkLayout>();
+    rows.forEach((row, i) => {
+      const hang = hasHangingMinus(row) ? 1 : 0;
+      const rowEnd = row.start + row.value.length;
+      row.spans.forEach((span) => {
+        const from = Math.max(span.start, row.start) - row.start;
+        const to = Math.min(span.end, rowEnd) - row.start;
+        if (from >= to) return;
+        const column = row.prefix.length + columnsOf(row.value.slice(0, from)) - hang;
+        const x = left + column * charWidth;
+        const width = columnsOf(row.value.slice(from, to)) * charWidth;
+        let layout = layouts.get(span);
+        if (layout == null) {
+          const { kind, target, labeled } = span;
+          const stroke = valueColors[row.channelKey] ?? textColor;
+          layout = {
+            link: { kind, target, color: color.hex(stroke), regions: [] },
+            labeled,
+            stroke,
+          };
+          layouts.set(span, layout);
+        }
+        layout.link.regions.push(box.construct(x, top + i * lh, width, lh));
+      });
+    });
+    return [...layouts.values()];
+  }
+
+  // A label does not look like a link, so a Markdown link keeps an underline.
+  private renderLinks(draw2d: Draw2D, layouts: LinkLayout[]): void {
+    layouts.forEach(({ link: { regions }, labeled, stroke }) => {
+      if (!labeled) return;
+      regions.forEach((region) =>
+        draw2d.rule({
+          stroke,
+          lineWidth: 1,
+          lineDash: 0,
+          direction: "x",
+          region,
+          // A line on a half pixel stays one pixel wide.
+          position: Math.round(box.bottom(region)) - 0.5,
+        }),
+      );
+    });
   }
 
   // Lays out the rows that fit above the entry at end, less its bottom tail rows, and
@@ -643,6 +736,8 @@ export class Log
     const rows = this.layoutRows(end, tail, lh);
     const sliceStart = rows.length > 0 ? rows[0].entry : end;
     const rowEntries = rows.map((row) => row.entry);
+    const layouts = this.layoutLinks(rows, lh);
+    const links = layouts.map(({ link }) => link);
     const shown = this.seeking ?? this.entries[end - 1]?.timestamp.valueOf() ?? "";
     const position = this.state.scrolling ? shown.toString() : "";
 
@@ -650,7 +745,8 @@ export class Log
       this.state.position !== position ||
       this.state.visibleStart !== sliceStart ||
       this.state.computedLineHeight !== lh ||
-      !sameEntries(this.state.rowEntries, rowEntries)
+      !sameEntries(this.state.rowEntries, rowEntries) ||
+      !deep.equal(this.state.links, links)
     )
       this.setState((s) => ({
         ...s,
@@ -658,12 +754,14 @@ export class Log
         visibleStart: sliceStart,
         computedLineHeight: lh,
         rowEntries,
+        links,
       }));
 
     const reg = this.state.region;
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
     this.renderSelection(draw2d, rowEntries, lh);
     this.renderElements(draw2d, rows, lh);
+    this.renderLinks(draw2d, layouts);
     this.renderScrollbar(draw2d, rows);
     clearScissor();
     const eraseRegion = box.copy(this.state.region);
@@ -932,7 +1030,7 @@ export class Log
     const regTopX = box.left(reg);
     const regTopY = box.top(reg);
     for (let i = 0; i < rows.length; i++) {
-      const { prefix, value, channelKey, first } = rows[i];
+      const { prefix, value, channelKey } = rows[i];
       const entryColor = valueColors[channelKey] ?? textColor;
       const prefixColor = prefixColors[channelKey] ?? defaultPrefixColor;
       const posX = regTopX + CONTENT_PADDING;
@@ -945,7 +1043,7 @@ export class Log
         code: true,
       });
       const valueX = posX + prefix.length * charWidth;
-      const isNegative = first && value[0] === "-";
+      const isNegative = hasHangingMinus(rows[i]);
       const displayValue = isNegative ? value.slice(1) : value;
       if (isNegative)
         draw2D.text({

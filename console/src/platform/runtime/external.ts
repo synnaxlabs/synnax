@@ -9,5 +9,6 @@
 
 export * from "@/platform/runtime/files";
 export * from "@/platform/runtime/openExternal";
+export * from "@/platform/runtime/openLink";
 export * from "@/platform/runtime/useDownload";
 export * from "@/platform/runtime/useExternalLinkHandler";

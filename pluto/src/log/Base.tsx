@@ -15,9 +15,11 @@ import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box, strings } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useRef } from "react";
+import { box, deep, type link, runtime, strings, xy } from "@synnaxlabs/x";
+import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { log } from "@/log/aether";
@@ -39,6 +41,9 @@ const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
 };
 
 const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
+
+// Control with a click opens the context menu on macOS, so Meta opens a link there.
+const LINK_KEY = runtime.getOS() === "macOS" ? "metaKey" : "ctrlKey";
 
 const toText = (lines: log.Line[]): string => lines.map((l) => l.text).join("\n");
 
@@ -65,12 +70,45 @@ const EMPTY_CONTENT = (
   </Status.Summary>
 );
 
+interface TargetProps {
+  // The boxes of the link, from the top left of the log.
+  regions: box.Box[];
+  color: string;
+  target: string;
+}
+
+// Underlines the link below the pointer, and shows where it goes in a tooltip.
+const Target = ({ regions, color, target }: TargetProps): ReactElement => {
+  const [anchor, setAnchor] = useState<HTMLSpanElement | null>(null);
+  return (
+    <>
+      {regions.map((region, i) => (
+        <span
+          key={`${box.left(region)},${box.top(region)}`}
+          ref={i === 0 ? setAnchor : undefined}
+          className={CSS.BE("log", "link")}
+          style={{ ...box.css(region), color }}
+        />
+      ))}
+      {anchor != null && (
+        <Tooltip.Frame anchor={anchor} className={CSS.BE("log", "target")}>
+          <Text.Text level="small" variant="code" color={11}>
+            {target}
+          </Text.Text>
+        </Tooltip.Frame>
+      )}
+    </>
+  );
+};
+
 export interface BaseProps extends UseProps, Omit<Flex.BoxProps, "color"> {
   emptyContent?: ReactElement;
   extraContextMenuItems?: ReactNode;
   /** When set, the context menu offers undo and redo for the host document. */
   undoRedo?: Menu.UndoRedoItemsProps;
   enableTriggers?: Triggers.Condition;
+  /** Called with the link on a click with Meta on macOS, or Control elsewhere. */
+  onLinkOpen?: (link: link.Link) => void | Promise<void>;
 }
 
 export const Base = ({
@@ -93,6 +131,7 @@ export const Base = ({
   onHold,
   position,
   onLeave,
+  onLinkOpen,
   children,
   ...rest
 }: BaseProps): ReactElement | null => {
@@ -124,6 +163,7 @@ export const Base = ({
     visibleStart,
     computedLineHeight,
     rowEntries,
+    links,
   } = state;
 
   const setHold = (hold: boolean) => {
@@ -136,6 +176,12 @@ export const Base = ({
   const combinedRef = useCombinedRefs(resizeRef, containerRef);
 
   const draggingRef = useRef(false);
+  const [hovered, setHovered] = useState<(typeof links)[number]>();
+  const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
+
+  // A link that moved since the hover can sit over other text now.
+  const hoveredLink = links.find((l) => deep.equal(l, hovered));
 
   const mouseYToEntryIndex = (clientY: number): number => {
     if (computedLineHeight <= 0) return 0;
@@ -145,8 +191,17 @@ export const Base = ({
     return rowEntries[Math.min(Math.max(0, lineIndex), rowEntries.length - 1)];
   };
 
+  const linkAt = ({ clientX: x, clientY: y }: React.MouseEvent) =>
+    links.find(({ regions }) => regions.some((r) => box.contains(r, { x, y })));
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
+    const clicked = e[LINK_KEY] ? linkAt(e) : undefined;
+    if (clicked != null)
+      return handleError(
+        async () => await onLinkOpen?.({ kind: clicked.kind, target: clicked.target }),
+        "Failed to open link",
+      );
     const idx = mouseYToEntryIndex(e.clientY);
     draggingRef.current = true;
     if (e.shiftKey) setState((s) => ({ ...s, selectionEnd: idx }));
@@ -159,6 +214,7 @@ export const Base = ({
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    setHovered(linkAt(e));
     if (!draggingRef.current) return;
     const idx = mouseYToEntryIndex(e.clientY);
     setState((s) => ({ ...s, selectionEnd: idx }));
@@ -167,9 +223,6 @@ export const Base = ({
   const handleMouseUp = () => {
     draggingRef.current = false;
   };
-
-  const addStatus = Status.useAdder();
-  const handleError = Status.useErrorHandler();
 
   // The worker formats the lines only now, so a large selection costs nothing until a
   // copy. The write must start inside the user gesture, so the item holds promises. An
@@ -254,7 +307,11 @@ export const Base = ({
         ref={combinedRef}
         role="log"
         tabIndex={-1}
-        className={CSS.cls(CSS.B("log"), className)}
+        className={CSS.cls(
+          CSS.B("log"),
+          hoveredLink != null && CSS.BM("log", "link-hovered"),
+          className,
+        )}
         onWheel={(e) => {
           if (e.deltaY < 0 && !scrolling) setHold(true);
           setState((s) => ({ ...s, wheelPos: s.wheelPos - e.deltaY }));
@@ -262,6 +319,7 @@ export const Base = ({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onMouseLeave={() => setHovered(undefined)}
         onCopy={(e) => {
           if (!hasSelection) return;
           e.preventDefault();
@@ -282,6 +340,15 @@ export const Base = ({
           <Icon.Loading aria-label="Loading" className={CSS.BE("log", "loading")} />
         )}
         {empty ? emptyContent : children}
+        {hoveredLink != null && (
+          <Target
+            regions={hoveredLink.regions.map((r) =>
+              box.translate(r, xy.scale(box.topLeft(region), -1)),
+            )}
+            color={hoveredLink.color}
+            target={hoveredLink.target}
+          />
+        )}
       </div>
     </Menu.ContextMenu>
   );

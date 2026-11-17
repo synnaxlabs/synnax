@@ -38,6 +38,7 @@ export interface UseProps
         | "selectionEnd"
         | "visibleStart"
         | "rowEntries"
+        | "links"
         | "computedLineHeight"
         | "channelNames"
         | "channelDataTypes"

@@ -44,6 +44,9 @@
       "dangerousInsecureTransportProtocol": true
     },
     "deep-link": { "mobile": [], "desktop": { "schemes": ["synnax"] } },
+    "shell": {
+      "open": "^((mailto:\\w+)|(tel:\\w+)|(https?://\\w+)|(synnax://\\w+)).+"
+    },
     "fs": { "scopeDroppedPaths": false }
   },
   "app": {

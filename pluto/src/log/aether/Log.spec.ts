@@ -1997,6 +1997,306 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("links", () => {
+    const LINE_HEIGHT = THEME.typography.p.size * THEME.sizes.base;
+    const CHAR_WIDTH = 8;
+    const PADDING = 6;
+    const TEXT_COLOR = color.hex(THEME.colors.gray.l11);
+    // The ink fills the row, so the box of a link starts at the top of its row.
+    const FULL_INK = {
+      width: CHAR_WIDTH,
+      fontBoundingBoxAscent: LINE_HEIGHT,
+      actualBoundingBoxAscent: LINE_HEIGHT,
+      actualBoundingBoxDescent: 0,
+    };
+    // The ink is shorter than the row, so the log moves each band to fit it.
+    const SHORT_INK = {
+      width: CHAR_WIDTH,
+      fontBoundingBoxAscent: 10,
+      actualBoundingBoxAscent: 8,
+      actualBoundingBoxDescent: 2,
+    };
+    const NO_PREFIX = { timestampsHidden: true, channelNamesHidden: true };
+    // Each row starts with the seven characters of the channel name and its space.
+    const NAMED = {
+      timestampsHidden: true,
+      channels: [clientLog.channelEntryZ.parse({ channel: 1 })],
+      channelNames: { "1": "rack" },
+    };
+    // A row with no prefix holds 20 columns.
+    const NARROW = box.construct({ x: 0, y: 0 }, { width: 178, height: 500 });
+
+    const cell = (column: number, row: number, columns: number): box.Box =>
+      box.construct(
+        PADDING + column * CHAR_WIDTH,
+        PADDING + row * LINE_HEIGHT,
+        columns * CHAR_WIDTH,
+        LINE_HEIGHT,
+      );
+
+    // The underline fills the bottom pixel row of the box.
+    const underline = (region: box.Box): number[] => {
+      const y = Math.round(box.bottom(region)) - 0.5;
+      return [box.left(region), y, box.right(region), y];
+    };
+
+    // Returns the two ends of each line that the log drew.
+    const lines = (recorder: ReturnType<typeof canvasTest.record>): unknown[][] => {
+      const { calls } = recorder.lower2d;
+      return calls.flatMap(({ op, args }, i) =>
+        op === "lineTo" ? [[...calls[i - 1].args, ...args]] : [],
+      );
+    };
+
+    const texts = (recorder: ReturnType<typeof canvasTest.record>): string[] =>
+      recorder.lower2d.calls
+        .filter(({ op }) => op === "fillText")
+        .map(({ args }) => String(args[0]));
+
+    // Mounts a log that measures its font as the given ink.
+    const setupLinks = (
+      values: string[],
+      state: Record<string, unknown> = NO_PREFIX,
+      region: box.Box = REGION_500,
+      ink: Record<string, number> = FULL_INK,
+    ) => {
+      const entries = values.map((value, i) => ({ ...makeEntry(i), value }));
+      const mounted = setup(entries, region, state);
+      mounted.recorder.lower2d.measureText = () => ink;
+      mounted.updateState(state);
+      mounted.recorder.clear();
+      mounted.log.render();
+      return mounted;
+    };
+
+    it("should send no links for values that hold none", () => {
+      const { log } = setupLinks(["valve opened", "42"]);
+      expect(log.state.links).toEqual([]);
+    });
+
+    it("should send a link with its target, its color, and a box on its text", () => {
+      const { log } = setupLinks(["see https://example.com now"]);
+      expect(log.state.links).toEqual([
+        {
+          kind: "url",
+          target: "https://example.com",
+          color: TEXT_COLOR,
+          regions: [cell(4, 0, 19)],
+        },
+      ]);
+    });
+
+    it("should send each link of a row", () => {
+      const { log } = setupLinks(["10.0.0.1 wrote /var/log/run.log"]);
+      expect(log.state.links).toMatchObject([
+        { kind: "url", target: "http://10.0.0.1", regions: [cell(0, 0, 8)] },
+        { kind: "path", target: "/var/log/run.log", regions: [cell(15, 0, 16)] },
+      ]);
+    });
+
+    it("should put the link of each entry on its row", () => {
+      const { log } = setupLinks([
+        "https://a.example.com",
+        "no link",
+        "https://b.example.com",
+      ]);
+      expect(log.state.links.map(({ regions }) => regions)).toEqual([
+        [cell(0, 0, 21)],
+        [cell(0, 2, 21)],
+      ]);
+    });
+
+    it("should give the boxes in the coordinates of the region", () => {
+      const region = box.construct({ x: 20, y: 200 }, { width: 400, height: 500 });
+      const { log } = setupLinks(["see https://example.com now"], NO_PREFIX, region);
+      expect(log.state.links[0].regions).toEqual([
+        box.translate(cell(4, 0, 19), { x: 20, y: 200 }),
+      ]);
+    });
+
+    it("should start a link after the prefix of its row", () => {
+      const { log } = setupLinks(["https://example.com"], NAMED);
+      expect(log.state.links[0].regions).toEqual([cell(7, 0, 19)]);
+    });
+
+    it("should put a link below the day row, after the time", () => {
+      const { log } = setupLinks(["https://example.com"], { channelNamesHidden: true });
+      expect(log.state.links[0].regions).toEqual([cell(11, 1, 19)]);
+    });
+
+    it("should follow a value that hangs its minus sign in the margin", () => {
+      const { log, recorder } = setupLinks(["-5 https://example.com"], NAMED);
+      const value = recorder.lower2d.calls.find(
+        ({ op, args }) => op === "fillText" && args[0] === "5 https://example.com",
+      );
+      assert(value != null);
+      const [region] = log.state.links[0].regions;
+      expect(box.left(region)).toBe(Number(value.args[1]) + 2 * CHAR_WIDTH);
+    });
+
+    it("should give a wide character two columns", () => {
+      const { log } = setupLinks(["日本 https://example.com/日本"]);
+      expect(log.state.links[0].regions).toEqual([cell(5, 0, 24)]);
+    });
+
+    it("should give an emoji two columns", () => {
+      const { log } = setupLinks(["🚀 https://example.com"]);
+      expect(log.state.links[0].regions).toEqual([cell(3, 0, 19)]);
+    });
+
+    describe("wrapped values", () => {
+      it("should give a link one box for each row it is on", () => {
+        const value = `see https://example.com/${"a".repeat(10)}`;
+        const { log } = setupLinks([value], NO_PREFIX, NARROW);
+        expect(log.state.links).toHaveLength(1);
+        expect(log.state.links[0].regions).toEqual([cell(4, 0, 16), cell(0, 1, 14)]);
+      });
+
+      it("should find a link on the second row of a wide value", () => {
+        const value = `${"日".repeat(10)}https://example.com`;
+        const { log } = setupLinks([value], NO_PREFIX, NARROW);
+        expect(log.state.links[0].regions).toEqual([cell(0, 1, 19)]);
+      });
+
+      it("should put a link below a prefix that leaves it no room", () => {
+        const { log } = setupLinks(["https://example.com"], NAMED, NARROW);
+        expect(log.state.rowEntries).toEqual([0, 0]);
+        expect(log.state.links[0].regions).toEqual([cell(0, 1, 19)]);
+      });
+
+      it("should give a link no box for a row above the view", () => {
+        const height = PADDING * 2 + 2 * LINE_HEIGHT;
+        const region = box.construct({ x: 0, y: 0 }, { width: 178, height });
+        const value = `https://example.com/${"a".repeat(30)}`;
+        const { log } = setupLinks([value], NO_PREFIX, region);
+        expect(log.state.links[0].regions).toEqual([cell(0, 0, 20), cell(0, 1, 10)]);
+      });
+    });
+
+    describe("Markdown links", () => {
+      const DOCS = "see [the docs](https://docs.synnaxlabs.com) now";
+
+      it("should show a Markdown link as its label, with a box on the label", () => {
+        const { log, recorder } = setupLinks([DOCS]);
+        expect(texts(recorder)).toContain("see the docs now");
+        expect(log.state.links).toMatchObject([
+          {
+            kind: "url",
+            target: "https://docs.synnaxlabs.com",
+            regions: [cell(4, 0, 8)],
+          },
+        ]);
+      });
+
+      it("should underline a Markdown link", () => {
+        const { recorder } = setupLinks([DOCS]);
+        expect(lines(recorder)).toEqual([underline(cell(4, 0, 8))]);
+      });
+
+      it("should underline each row of a wrapped Markdown link", () => {
+        const value = `[${"x".repeat(30)}](https://example.com)`;
+        const { recorder } = setupLinks([value], NO_PREFIX, NARROW);
+        expect(lines(recorder)).toEqual([
+          underline(cell(0, 0, 20)),
+          underline(cell(0, 1, 10)),
+        ]);
+      });
+
+      it("should draw no line below a link with no label", () => {
+        const { log, recorder } = setupLinks(["see https://example.com now"]);
+        expect(log.state.links).toHaveLength(1);
+        expect(lines(recorder)).toEqual([]);
+      });
+    });
+
+    describe("color", () => {
+      const RED = {
+        ...NO_PREFIX,
+        channels: [
+          clientLog.channelEntryZ.parse({
+            channel: 1,
+            color: color.construct("#ff0000"),
+          }),
+        ],
+      };
+
+      it("should give a link the color of its channel", () => {
+        const { log } = setupLinks(["https://example.com"], RED);
+        expect(log.state.links[0].color).toBe("#ff0000");
+      });
+
+      it("should give a link the text color of the log", () => {
+        const { log } = setupLinks(["https://example.com"], {
+          ...NO_PREFIX,
+          color: "#00ff00",
+        });
+        expect(log.state.links[0].color).toBe("#00ff00");
+      });
+
+      it("should underline a Markdown link in the color of its channel", () => {
+        const { recorder } = setupLinks(["[docs](https://example.com)"], RED);
+        const strokes = recorder.lower2d.calls
+          .filter(({ op }) => op === "set:strokeStyle")
+          .map(({ args }) => args[0]);
+        expect(strokes).toEqual(["#ff0000"]);
+      });
+    });
+
+    it("should put the box of a link on the selection band of its row", () => {
+      const state = { ...NO_PREFIX, selectionStart: 0, selectionEnd: 0 };
+      const { log, recorder } = setupLinks(
+        ["https://example.com"],
+        state,
+        REGION_500,
+        SHORT_INK,
+      );
+      const band = recorder.lower2d.calls.find(({ op }) => op === "rect");
+      assert(band != null);
+      const [, top, , height] = band.args;
+      const [region] = log.state.links[0].regions;
+      expect([box.top(region), box.height(region)]).toEqual([top, height]);
+      expect(top).not.toBe(PADDING);
+    });
+
+    it("should send only the links on screen", () => {
+      const values = Array.from({ length: 100 }, (_, i) => `line ${i}`);
+      values[0] = "https://old.example.com";
+      values[99] = "https://new.example.com";
+      const { log } = setupLinks(values);
+      expect(log.state.links.map(({ target }) => target)).toEqual([
+        "https://new.example.com",
+      ]);
+    });
+
+    it("should move the box of a link when its row moves", () => {
+      const capacity = Math.floor((box.height(REGION_500) - PADDING * 2) / LINE_HEIGHT);
+      const values = Array.from({ length: capacity }, () => "no link");
+      values[capacity - 1] = "https://example.com";
+      const { log, source } = setupLinks(values);
+      expect(log.state.links[0].regions).toEqual([cell(0, capacity - 1, 19)]);
+      source.push({ ...makeEntry(capacity), value: "no link" });
+      source.notify();
+      log.render();
+      expect(log.state.links[0].regions).toEqual([cell(0, capacity - 2, 19)]);
+    });
+
+    it("should send new links when a link changes on the same rows", () => {
+      const { log } = setupLinks(["https://a.example.com"]);
+      log.entries[0] = { ...log.entries[0], value: "https://b.example.com" };
+      log.render();
+      expect(log.state.links.map(({ target }) => target)).toEqual([
+        "https://b.example.com",
+      ]);
+    });
+
+    it("should keep the links it sent when a redraw changes nothing", () => {
+      const { log } = setupLinks(["https://example.com"]);
+      const { links } = log.state;
+      log.render();
+      expect(log.state.links).toBe(links);
+    });
+  });
+
   describe("theme handling", () => {
     it("should work with light theme", () => {
       const lightTheme = theme.themeZ.parse(theme.SYNNAX_LIGHT);
