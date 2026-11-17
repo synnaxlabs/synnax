@@ -29,8 +29,7 @@ runs:
         PACKAGE: ${{ inputs.package }}
       run: |
         version=$(pnpm --filter "@synnaxlabs/$PACKAGE" exec playwright --version)
-        # Packages install different browsers, so each gets its own cache.
-        prefix=browsers-$ImageOS-$RUNNER_ARCH-$PACKAGE-
+        prefix=browsers-$ImageOS-$RUNNER_ARCH-
         echo "prefix=$prefix" >> "$GITHUB_OUTPUT"
         echo "version=${version##* }" >> "$GITHUB_OUTPUT"
         echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
