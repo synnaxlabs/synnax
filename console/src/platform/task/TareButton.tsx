@@ -10,8 +10,10 @@
 import { type channel } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Channel } from "@synnaxlabs/pluto";
 
-import { useTare, useTareable } from "@/platform/task/useTare";
+import { useIsRunning } from "@/platform/task/useStatus";
+import { useTare } from "@/platform/task/useTare";
 
 export interface TareButtonProps {
   /** The Synnax channel to tare, or 0 when the task has not created it. */
@@ -25,14 +27,17 @@ export interface TareButtonProps {
  * any other channel.
  */
 export const TareButton = ({ channel, disabled = false }: TareButtonProps) => {
-  const { floats, running } = useTareable([channel]);
+  const { data: dataType } = Channel.useResultDataType(
+    channel === 0 ? null : { key: channel },
+  );
+  const running = useIsRunning();
   const tare = useTare();
-  if (floats.length === 0) return null;
+  if (dataType == null || !dataType.isFloat) return null;
   return (
     <Button.Button
       variant="outlined"
       disabled={disabled || !running}
-      onClick={() => tare(floats)}
+      onClick={() => tare([channel])}
       size="small"
       tooltip="Tare"
     >
