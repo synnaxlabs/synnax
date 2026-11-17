@@ -12,6 +12,8 @@
 package statement
 
 import (
+	"slices"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
@@ -73,6 +75,22 @@ func AnalyzeVariableDeclaration(
 ) {
 	analyzeVariableDeclaration(ctx)
 	inferVarKind(ctx)
+	reportShadowers(ctx)
+}
+
+// reportShadowers reports each nested declaration that reuses the name ctx declares.
+func reportShadowers(ctx context.Context[parser.IVariableDeclarationContext]) {
+	decl, ok := ctx.AST.GetChild(0).(antlr.ParserRuleContext)
+	if !ok {
+		return
+	}
+	sym, err := ctx.Scope.GetChildByParserRule(decl)
+	if err != nil {
+		return
+	}
+	for _, shadower := range sym.Shadowers() {
+		ctx.Diagnostics.Add(diagnostics.Error(sym.NameConflict(), shadower.AST))
+	}
 }
 
 // inferVarKind classifies the just-declared value variable from its RHS and
@@ -1590,11 +1608,21 @@ func collectStatementReturnTypes(
 func getIfStatementReturnTypes(
 	ctx context.Context[parser.IIfStatementContext],
 ) (bool, []types.Type) {
+	blocks := []parser.IBlockContext{ctx.AST.Block()}
+	for _, elseIfClause := range ctx.AST.AllElseIfClause() {
+		blocks = append(blocks, elseIfClause.Block())
+	}
+	elseClause := ctx.AST.ElseClause()
+	if elseClause != nil {
+		blocks = append(blocks, elseClause.Block())
+	}
+	// No else clause means not all paths return
+	allPathsReturn := elseClause != nil
 	var returnTypes []types.Type
-	allPathsReturn := true
-
-	// Check main if block
-	if block := ctx.AST.Block(); block != nil {
+	for _, block := range blocks {
+		if block == nil {
+			continue
+		}
 		hasReturn, blockTypes := getBlockReturnTypes(ctx.Child(block))
 		if hasReturn {
 			returnTypes = append(returnTypes, blockTypes...)
@@ -1602,34 +1630,6 @@ func getIfStatementReturnTypes(
 			allPathsReturn = false
 		}
 	}
-
-	// Check else-if clauses
-	for _, elseIfClause := range ctx.AST.AllElseIfClause() {
-		if block := elseIfClause.Block(); block != nil {
-			hasReturn, blockTypes := getBlockReturnTypes(ctx.Child(block))
-			if hasReturn {
-				returnTypes = append(returnTypes, blockTypes...)
-			} else {
-				allPathsReturn = false
-			}
-		}
-	}
-
-	// Check else clause
-	if elseClause := ctx.AST.ElseClause(); elseClause != nil {
-		if block := elseClause.Block(); block != nil {
-			hasReturn, blockTypes := getBlockReturnTypes(ctx.Child(block))
-			if hasReturn {
-				returnTypes = append(returnTypes, blockTypes...)
-			} else {
-				allPathsReturn = false
-			}
-		}
-	} else {
-		// No else clause means not all paths return
-		allPathsReturn = false
-	}
-
 	return allPathsReturn, returnTypes
 }
 
@@ -1664,29 +1664,10 @@ func unifyReturnTypes(
 	for i, t := range returnTypes {
 		unwrappedTypes[i] = t.Unwrap()
 	}
-
 	if len(unwrappedTypes) == 1 {
-		t := unwrappedTypes[0]
-		// If it's a type variable (literal), resolve it to a concrete default type
-		if t.Kind == types.KindVariable {
-			if t.Constraint != nil && t.Constraint.Kind == types.KindIntegerConstant {
-				return types.I64(), nil
-			}
-			if t.Constraint != nil && t.Constraint.Kind == types.KindFloatConstant {
-				return types.F64(), nil
-			}
-			if t.Constraint != nil && t.Constraint.Kind == types.KindNumericConstant {
-				return types.F64(), nil
-			}
-			if t.Constraint != nil &&
-				t.Constraint.Kind == types.KindExactIntegerFloatConstant {
-				return types.F64(), nil
-			}
-		}
-		return t, nil
+		return defaultLiteralType(unwrappedTypes[0]), nil
 	}
 
-	// Separate type variables from concrete types (now all unwrapped)
 	var concreteTypes []types.Type
 	var typeVariables []types.Type
 	for _, t := range unwrappedTypes {
@@ -1696,152 +1677,143 @@ func unifyReturnTypes(
 			concreteTypes = append(concreteTypes, t)
 		}
 	}
-
-	// If all are type variables (all literals), unify them to a concrete default type
 	if len(concreteTypes) == 0 {
-		// All literals should unify to a default concrete type
-		// For integers, default to i64; for floats, default to f64
-		firstVar := typeVariables[0]
-		if firstVar.Constraint != nil &&
-			firstVar.Constraint.Kind == types.KindIntegerConstant {
-			return types.I64(), nil
-		}
-		if firstVar.Constraint != nil &&
-			firstVar.Constraint.Kind == types.KindFloatConstant {
-			return types.F64(), nil
-		}
-		if firstVar.Constraint != nil &&
-			firstVar.Constraint.Kind == types.KindNumericConstant {
-			return types.F64(), nil
-		}
-		if firstVar.Constraint != nil &&
-			firstVar.Constraint.Kind == types.KindExactIntegerFloatConstant {
-			return types.F64(), nil
-		}
-		return typeVariables[0], nil
+		return defaultLiteralType(typeVariables[0]), nil
 	}
 
-	// If we have concrete types, use them to guide the unification
-	// Replace type variables with types compatible with the concrete types
 	resolvedTypes := make([]types.Type, 0, len(unwrappedTypes))
 	for _, t := range unwrappedTypes {
-		if t.Kind == types.KindVariable {
-			// Infer appropriate type based on concrete types present
-			resolved := resolveTypeVariableWithContext(t, concreteTypes)
-			resolvedTypes = append(resolvedTypes, resolved)
-		} else {
-			resolvedTypes = append(resolvedTypes, t)
+		resolvedTypes = append(
+			resolvedTypes,
+			resolveTypeVariableWithContext(t, concreteTypes),
+		)
+	}
+	if allTypesEqual(resolvedTypes) {
+		return resolvedTypes[0], nil
+	}
+	return unifyNumericTypes(returnTypes, resolvedTypes)
+}
+
+// defaultLiteralType resolves a literal's type variable to its default concrete type:
+// i64 for integer literals and f64 for other numeric literals. It returns any other
+// type unchanged.
+func defaultLiteralType(t types.Type) types.Type {
+	if t.Kind != types.KindVariable || t.Constraint == nil {
+		return t
+	}
+	switch t.Constraint.Kind {
+	case types.KindIntegerConstant:
+		return types.I64()
+	case types.KindFloatConstant,
+		types.KindNumericConstant,
+		types.KindExactIntegerFloatConstant:
+		return types.F64()
+	default:
+		return t
+	}
+}
+
+func allTypesEqual(ts []types.Type) bool {
+	for _, t := range ts[1:] {
+		if !types.Equal(ts[0], t) {
+			return false
 		}
 	}
+	return true
+}
 
-	firstType := resolvedTypes[0]
-	allEqual := true
-	for _, t := range resolvedTypes[1:] {
-		if !types.Equal(firstType, t) {
-			allEqual = false
-			break
-		}
-	}
-	if allEqual {
-		return firstType, nil
-	}
+type numericClass struct {
+	hasFloat    bool
+	hasSigned   bool
+	hasUnsigned bool
+	maxBits     int
+}
 
-	allNumeric := true
-	hasFloat := false
-	hasSigned := false
-	hasUnsigned := false
-	maxBits := 0
-
-	for _, t := range resolvedTypes {
+func classifyNumericTypes(ts []types.Type) (numericClass, bool) {
+	var c numericClass
+	for _, t := range ts {
 		if !t.IsNumeric() {
-			allNumeric = false
-			break
+			return c, false
 		}
-
-		// Unwrap channel/series types to get the actual value type for classification
 		unwrapped := t.Unwrap()
-
 		if unwrapped.IsFloat() {
-			hasFloat = true
+			c.hasFloat = true
+			bits := 64
 			if unwrapped.Kind == types.KindF32 {
-				if maxBits < 32 {
-					maxBits = 32
-				}
-			} else {
-				if maxBits < 64 {
-					maxBits = 64
-				}
+				bits = 32
 			}
+			c.maxBits = max(c.maxBits, bits)
 		} else if unwrapped.IsInteger() {
 			if unwrapped.IsSignedInteger() {
-				hasSigned = true
+				c.hasSigned = true
 			} else if unwrapped.IsUnsignedInteger() {
-				hasUnsigned = true
+				c.hasUnsigned = true
 			}
-
-			bits := getTypeBits(unwrapped)
-			if bits > maxBits {
-				maxBits = bits
-			}
+			c.maxBits = max(c.maxBits, getTypeBits(unwrapped))
 		}
 	}
+	return c, true
+}
 
-	if !allNumeric {
+// unifyNumericTypes finds the smallest numeric type that holds every one of
+// resolvedTypes. returnTypes are the original types, used for error messages.
+func unifyNumericTypes(
+	returnTypes []types.Type,
+	resolvedTypes []types.Type,
+) (types.Type, error) {
+	c, ok := classifyNumericTypes(resolvedTypes)
+	if !ok {
 		return types.Type{}, errors.Newf(
 			"incompatible return types: cannot unify %s and %s",
 			returnTypes[0],
 			returnTypes[1],
 		)
 	}
-
-	if hasFloat {
-		hasInteger := false
-		for _, t := range returnTypes {
-			if t.IsInteger() {
-				hasInteger = true
-				break
-			}
-		}
-		if hasInteger {
+	if c.hasFloat {
+		if slices.ContainsFunc(returnTypes, types.Type.IsInteger) {
 			return types.Type{}, errors.New(
 				"mixed integer and floating-point returns are not allowed",
 			)
 		}
-		if maxBits > 32 {
+		if c.maxBits > 32 {
 			return types.F64(), nil
 		}
 		return types.F32(), nil
 	}
+	if c.hasSigned && c.hasUnsigned {
+		// A signed type twice as wide holds every value of both.
+		return smallestSignedType(2 * c.maxBits), nil
+	}
+	if c.hasSigned {
+		return smallestSignedType(c.maxBits), nil
+	}
+	return smallestUnsignedType(c.maxBits), nil
+}
 
-	if hasSigned && hasUnsigned {
-		if maxBits <= 8 {
-			return types.I16(), nil
-		} else if maxBits <= 16 {
-			return types.I32(), nil
-		} else if maxBits <= 32 {
-			return types.I64(), nil
-		}
-		return types.I64(), nil
+func smallestSignedType(bits int) types.Type {
+	switch {
+	case bits <= 8:
+		return types.I8()
+	case bits <= 16:
+		return types.I16()
+	case bits <= 32:
+		return types.I32()
+	default:
+		return types.I64()
 	}
+}
 
-	if hasSigned {
-		if maxBits <= 8 {
-			return types.I8(), nil
-		} else if maxBits <= 16 {
-			return types.I16(), nil
-		} else if maxBits <= 32 {
-			return types.I32(), nil
-		}
-		return types.I64(), nil
+func smallestUnsignedType(bits int) types.Type {
+	switch {
+	case bits <= 8:
+		return types.U8()
+	case bits <= 16:
+		return types.U16()
+	case bits <= 32:
+		return types.U32()
+	default:
+		return types.U64()
 	}
-	if maxBits <= 8 {
-		return types.U8(), nil
-	} else if maxBits <= 16 {
-		return types.U16(), nil
-	} else if maxBits <= 32 {
-		return types.U32(), nil
-	}
-	return types.U64(), nil
 }
 
 func getTypeBits(t types.Type) int {
@@ -1867,68 +1839,46 @@ func resolveTypeVariableWithContext(
 	tv types.Type,
 	concreteTypes []types.Type,
 ) types.Type {
-	if tv.Kind != types.KindVariable {
+	if tv.Kind != types.KindVariable || tv.Constraint == nil {
 		return tv
 	}
-	if tv.Constraint != nil && tv.Constraint.Kind == types.KindIntegerConstant {
-		// Check if any concrete type is a float - integer literals can be coerced to
-		// floats
-		for _, t := range concreteTypes {
-			if t.IsFloat() {
-				// Integer constant can be coerced to match the float type
-				return t
-			}
-		}
+	switch tv.Constraint.Kind {
+	case types.KindIntegerConstant:
+		return resolveIntegerLiteral(concreteTypes)
+	case types.KindFloatConstant:
+		return firstTypeOr(concreteTypes, types.Type.IsFloat, types.F64())
+	case types.KindNumericConstant:
+		return types.F64()
+	case types.KindExactIntegerFloatConstant:
+		return firstTypeOr(concreteTypes, types.Type.IsNumeric, types.F64())
+	default:
+		return tv
+	}
+}
 
-		// All concrete types are integers, determine the best matching integer type
-		allUnsigned := true
-		for _, t := range concreteTypes {
-			if !t.IsInteger() {
-				// Not a numeric type we can work with, default to I32
-				return types.I32()
-			}
-			if t.IsSignedInteger() {
-				allUnsigned = false
-			}
-		}
-		if allUnsigned {
-			maxBits := 0
-			for _, t := range concreteTypes {
-				bits := getTypeBits(t)
-				if bits > maxBits {
-					maxBits = bits
-				}
-			}
-			if maxBits <= 8 {
-				return types.U8()
-			} else if maxBits <= 16 {
-				return types.U16()
-			} else if maxBits <= 32 {
-				return types.U32()
-			}
-			return types.U64()
-		}
-		return types.I32()
+// resolveIntegerLiteral picks the type of an integer literal that sits alongside
+// concreteTypes. A float wins, since an integer literal coerces to it.
+func resolveIntegerLiteral(concreteTypes []types.Type) types.Type {
+	if i := slices.IndexFunc(concreteTypes, types.Type.IsFloat); i >= 0 {
+		return concreteTypes[i]
 	}
-	if tv.Constraint != nil && tv.Constraint.Kind == types.KindFloatConstant {
-		for _, t := range concreteTypes {
-			if t.IsFloat() {
-				return t
-			}
+	maxBits := 0
+	for _, t := range concreteTypes {
+		if !t.IsInteger() || t.IsSignedInteger() {
+			return types.I32()
 		}
-		return types.F64()
+		maxBits = max(maxBits, getTypeBits(t))
 	}
-	if tv.Constraint != nil && tv.Constraint.Kind == types.KindNumericConstant {
-		return types.F64()
+	return smallestUnsignedType(maxBits)
+}
+
+func firstTypeOr(
+	ts []types.Type,
+	match func(types.Type) bool,
+	fallback types.Type,
+) types.Type {
+	if i := slices.IndexFunc(ts, match); i >= 0 {
+		return ts[i]
 	}
-	if tv.Constraint != nil &&
-		tv.Constraint.Kind == types.KindExactIntegerFloatConstant {
-		for _, t := range concreteTypes {
-			if t.IsNumeric() {
-				return t
-			}
-		}
-		return types.F64()
-	}
-	return tv
+	return fallback
 }

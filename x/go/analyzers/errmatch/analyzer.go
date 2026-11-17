@@ -37,8 +37,16 @@ var (
 		"EventuallyWithOffset",
 		"ConsistentlyWithOffset",
 	)
-	errorType = types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
+	errorType = errorInterface()
 )
+
+func errorInterface() *types.Interface {
+	i, ok := types.Universe.Lookup("error").Type().Underlying().(*types.Interface)
+	if !ok {
+		panic("the universe error type is not an interface")
+	}
+	return i
+}
 
 // actualIndex maps each assertion function to the position of its actual value.
 var actualIndex = map[string]int{

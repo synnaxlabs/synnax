@@ -202,16 +202,24 @@ func fetch(
 	if err != nil {
 		return nil, errors.Combine(err, r.Close())
 	}
-	r.ReadCloser = res.Body
+	if r.ReadCloser, err = body(res, url); err != nil {
+		return nil, errors.Combine(err, r.Close())
+	}
+	return r, nil
+}
+
+// body returns the body of res when its status is OK. Otherwise, it closes the body.
+func body(res *http.Response, url string) (io.ReadCloser, error) {
+	var err error
 	switch res.StatusCode {
 	case http.StatusOK:
-		return r, nil
+		return res.Body, nil
 	case http.StatusNotFound:
 		err = errors.Wrapf(ErrNotFound, "%s", url)
 	default:
 		err = errors.Newf("failed to download %s: %s", url, res.Status)
 	}
-	return nil, errors.Combine(err, r.Close())
+	return nil, errors.Combine(err, res.Body.Close())
 }
 
 // stallReader reads a response body and cancels its request when no data arrives for

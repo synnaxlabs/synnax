@@ -184,7 +184,7 @@ func buildAliasDecls(
 		}
 	case declEnum:
 		addType(name, target, typeDoc, nil)
-		form := d.typ.Form.(resolution.EnumForm)
+		form := resolution.MustForm[resolution.EnumForm](d.typ)
 		decl := &decls[len(decls)-1]
 		for _, v := range form.Values {
 			member := naming.ToPascalCase(v.Name)

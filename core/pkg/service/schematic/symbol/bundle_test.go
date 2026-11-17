@@ -244,10 +244,10 @@ var _ = Describe("ExportGroup", func() {
 var _ = Describe("ImportGroup", func() {
 	var tx gorp.Tx
 	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
-	manifest := func(version int, name string) []byte {
+	manifest := func(name string) []byte {
 		GinkgoHelper()
 		return MustSucceed(json.Marshal(map[string]any{
-			"version": version, "type": "symbol_group", "name": name,
+			"version": 2, "type": "symbol_group", "name": name,
 		}))
 	}
 	member := func(name string) []byte {
@@ -280,14 +280,14 @@ var _ = Describe("ImportGroup", func() {
 	It("Should create a top-level symbol group named by the manifest", func(
 		ctx SpecContext,
 	) {
-		g := importGroup(ctx, zip.Files{"manifest.json": manifest(2, "Valves")})
+		g := importGroup(ctx, zip.Files{"manifest.json": manifest("Valves")})
 		Expect(g.Name).To(Equal("Valves"))
 		Expect(g.Scope).To(Equal(resource.TypeSchematicSymbol))
 		Expect(g.Parent).To(BeNil())
 	})
 	It("Should import every member into the created group", func(ctx SpecContext) {
 		g := importGroup(ctx, zip.Files{
-			"manifest.json": manifest(2, "Valves"),
+			"manifest.json": manifest("Valves"),
 			"Inlet.json":    member("Inlet"),
 			"Outlet.json":   member("Outlet"),
 		})
@@ -329,7 +329,7 @@ var _ = Describe("ImportGroup", func() {
 			"data":    map[string]any{"svg": "<svg/>", "variant": "valve"},
 		}))
 		g := importGroup(ctx, zip.Files{
-			"manifest.json":         manifest(2, "Valves"),
+			"manifest.json":         manifest("Valves"),
 			"Standalone Valve.json": nameless,
 		})
 		Expect(childNames(ctx, g)).To(ConsistOf("Standalone Valve"))
@@ -337,14 +337,14 @@ var _ = Describe("ImportGroup", func() {
 	It("Should import a legacy Console symbol file", func(ctx SpecContext) {
 		legacy := MustSucceed(os.ReadFile("versions/testdata/import_console.json"))
 		g := importGroup(ctx, zip.Files{
-			"manifest.json": manifest(2, "Valves"),
+			"manifest.json": manifest("Valves"),
 			"Console.json":  legacy,
 		})
 		Expect(childNames(ctx, g)).To(ConsistOf("Console Symbol"))
 	})
 	It("Should ignore files that are not members", func(ctx SpecContext) {
 		g := importGroup(ctx, zip.Files{
-			"manifest.json": manifest(2, "Valves"),
+			"manifest.json": manifest("Valves"),
 			"Inlet.json":    member("Inlet"),
 			"README.md":     []byte("# Valves"),
 			".gitignore":    []byte("*.tmp"),
@@ -352,7 +352,7 @@ var _ = Describe("ImportGroup", func() {
 		Expect(childNames(ctx, g)).To(ConsistOf("Inlet"))
 	})
 	It("Should import a manifest alone as an empty group", func(ctx SpecContext) {
-		g := importGroup(ctx, zip.Files{"manifest.json": manifest(2, "Empty")})
+		g := importGroup(ctx, zip.Files{"manifest.json": manifest("Empty")})
 		Expect(childNames(ctx, g)).To(BeEmpty())
 	})
 
@@ -500,7 +500,7 @@ var _ = Describe("ImportGroup", func() {
 		ctx SpecContext,
 	) {
 		files := zip.Files{
-			"manifest.json": manifest(2, "Valves"),
+			"manifest.json": manifest("Valves"),
 			"Inlet.json":    member("Inlet"),
 			"inlet.json":    member("inlet"),
 		}
@@ -511,7 +511,7 @@ var _ = Describe("ImportGroup", func() {
 	})
 	It("Should reject a member that is not a schematic symbol", func(ctx SpecContext) {
 		files := zip.Files{
-			"manifest.json": manifest(2, "Valves"),
+			"manifest.json": manifest("Valves"),
 			"Plot.json": []byte(
 				`{"version":1,"type":"lineplot","name":"Plot"}`,
 			),
@@ -525,7 +525,7 @@ var _ = Describe("ImportGroup", func() {
 		ctx SpecContext,
 	) {
 		files := zip.Files{
-			"manifest.json": manifest(2, "Valves"),
+			"manifest.json": manifest("Valves"),
 			"Inlet.json":    []byte("not json"),
 		}
 		Expect(svc.ImportGroup(ctx, tx, files)).Error().

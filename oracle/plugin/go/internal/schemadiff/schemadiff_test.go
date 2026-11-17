@@ -588,7 +588,8 @@ var _ = Describe("PersistedFields", func() {
 			"Channel struct {\n\tkey uuid @key\n\ttmp string {\n" +
 				"\t\t@go marshal omit\n\t}\n\tname string\n}\n",
 		)
-		form := typeIn(table, "Channel").Form.(resolution.StructForm)
+		form, ok := typeIn(table, "Channel").Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
 		fields := schemadiff.PersistedFields(form.Fields)
 		names := make([]string, len(fields))
 		for i, f := range fields {

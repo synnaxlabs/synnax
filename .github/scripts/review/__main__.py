@@ -13,7 +13,7 @@
     python3 -m review post <review.json>
     python3 -m review carry
     python3 -m review dismiss
-    python3 -m review compare <days>
+    python3 -m review compare <days> <records>
 
 Run it from `.github/scripts`. Environment: GH_TOKEN, GITHUB_REPOSITORY, PR, HEAD_SHA,
 BASE_SHA, CHECK_RUN, RUN_URL, and BOT, the slug of the GitHub App the review posts as.
@@ -32,7 +32,8 @@ comment that dismisses a finding outside the diff: an `@sedosaur dismiss` from s
 with write access dismisses the finding, and scores the head 5/5 when no finding of its
 review is left. It also takes KEY. `compare` takes only GH_TOKEN and GITHUB_REPOSITORY,
 runs in a clone with full history, and prints a Markdown comparison of the records of
-the last days with Greptile's reviews of the same commits.
+the last days with Greptile's reviews of the same commits. It keeps each record it
+downloads in the records directory, and reads it from there on the next run.
 """
 
 import contextlib
@@ -240,16 +241,16 @@ def _before(head: Path, commit: str, tip: str) -> bool:
 
 
 def main(argv: list[str]) -> None:
-    args = {"run": 2, "post": 2, "carry": 1, "dismiss": 1, "compare": 2}
+    args = {"run": 2, "post": 2, "carry": 1, "dismiss": 1, "compare": 3}
     if not argv or args.get(argv[0]) != len(argv):
         sys.exit(__doc__)
     env = os.environ
     if argv[0] == "compare":
         since = datetime.now(UTC) - timedelta(days=int(argv[1]))
         repo = env["GITHUB_REPOSITORY"]
-        recs = compare.records(gh, repo, since)
-        ps = compare.pairs(gh, compare.git, repo, recs)
-        print(compare.report(ps, recs, since=since))
+        cache = Path(argv[2])
+        ps = compare.pairs(gh, compare.git, repo, since, cache)
+        print(compare.report(ps, compare.limits(gh, repo, since, cache), since=since))
         return
     target = Target(
         repo=env["GITHUB_REPOSITORY"],

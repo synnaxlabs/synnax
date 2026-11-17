@@ -10,6 +10,7 @@
 package resolution
 
 import (
+	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -136,6 +137,16 @@ func (t Type) Actions() []Action {
 
 type TypeForm interface {
 	typeForm()
+}
+
+// MustForm returns the form of t as an F. It panics if t has another form, which is a
+// caller bug: callers only ask for the form they selected t by.
+func MustForm[F TypeForm](t Type) F {
+	form, ok := t.Form.(F)
+	if !ok {
+		panic(fmt.Sprintf("%s is a %T, not a %T", t.QualifiedName, t.Form, form))
+	}
+	return form
 }
 
 type StructForm struct {

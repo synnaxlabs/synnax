@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, status, type task } from "@synnaxlabs/client";
+import { device, status, type Synnax, type task } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, deep, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
-import { z } from "zod";
 
 import {
   MAKE,
@@ -22,6 +21,7 @@ import {
 } from "@/feature/ethercat/device/types";
 import {
   type Channel,
+  devicesOf,
   READ_TYPE,
   SCAN_TYPE,
   WRITE_TYPE,
@@ -120,10 +120,6 @@ const SWITCH: verbs.Verbs = {
   participle: "switching",
 };
 
-const channelDevicesZ = z.object({
-  channels: z.array(z.object({ device: z.string() })).default(() => []),
-});
-
 export interface SetStandaloneParams {
   slave: SlaveDevice;
 }
@@ -140,6 +136,55 @@ export interface SetStandaloneResult extends SetStandaloneParams {
  */
 const SWITCH_TIMEOUT = TimeSpan.seconds(50);
 
+const startTasks = async (tasks: task.Task[]): Promise<void> => {
+  // A task that fails to start shows its own error.
+  await Promise.allSettled(
+    tasks.map(async (t) => await t.executeCommandSync({ type: "start" })),
+  );
+};
+
+/**
+ * Stops each EtherCAT read and write task that runs on the network of the slave. When
+ * a stop fails, starts the tasks again.
+ * @returns the stopped tasks.
+ * @throws {Error} if a task fails to stop.
+ */
+const stopTasksOnNetwork = async (
+  client: Synnax,
+  { rack, properties }: SlaveDevice,
+): Promise<task.Task[]> => {
+  const running = (await client.tasks.retrieve({ rack, includeStatus: true })).filter(
+    (t) =>
+      (t.type === READ_TYPE || t.type === WRITE_TYPE) &&
+      t.status?.details.running === true,
+  );
+  const keys = unique.unique(running.flatMap((t) => devicesOf(t.config)));
+  const onNetwork = new Set(
+    (keys.length === 0
+      ? []
+      : await client.devices.retrieve({ key: keys, schemas: SLAVE_SCHEMAS })
+    )
+      .filter((s) => s.properties.network === properties.network)
+      .map((s) => s.key),
+  );
+  const tasks = running.filter((t) =>
+    devicesOf(t.config).some((k) => onNetwork.has(k)),
+  );
+  let stopped = false;
+  try {
+    await Promise.all(
+      tasks.map(async (t) => {
+        const res = await t.executeCommandSync({ type: "stop" });
+        if (res.variant === "error") throw status.toError(res);
+      }),
+    );
+    stopped = true;
+  } finally {
+    if (!stopped) await startTasks(tasks);
+  }
+  return tasks;
+};
+
 /**
  * Stops each EtherCAT task that runs on the network of the slave, then switches the
  * slave to Synnax only. When a stop fails or the Driver refuses the switch, starts the
@@ -153,45 +198,9 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<
   name: "EtherCAT slave",
   verbs: SWITCH,
   update: async ({ client, data }) => {
-    const { rack, key, properties } = data.slave;
-    const running = (await client.tasks.retrieve({ rack, includeStatus: true })).filter(
-      (t) =>
-        (t.type === READ_TYPE || t.type === WRITE_TYPE) &&
-        t.status?.details.running === true,
-    );
-    const devicesOf = (config: unknown): string[] =>
-      channelDevicesZ.parse(config).channels.map((ch) => ch.device);
-    const keys = unique.unique(running.flatMap((t) => devicesOf(t.config)));
-    const onNetwork = new Set(
-      (keys.length === 0
-        ? []
-        : await client.devices.retrieve({ key: keys, schemas: SLAVE_SCHEMAS })
-      )
-        .filter((s) => s.properties.network === properties.network)
-        .map((s) => s.key),
-    );
-    const tasks = running.filter((t) =>
-      devicesOf(t.config).some((k) => onNetwork.has(k)),
-    );
+    const { rack, key } = data.slave;
     const scanTask = await client.tasks.retrieve({ type: SCAN_TYPE, rack, one: true });
-    const restart = async (): Promise<void> => {
-      // A task that fails to start shows its own error.
-      await Promise.allSettled(
-        tasks.map(async (t) => await t.executeCommandSync({ type: "start" })),
-      );
-    };
-    let stopped = false;
-    try {
-      await Promise.all(
-        tasks.map(async (t) => {
-          const res = await t.executeCommandSync({ type: "stop" });
-          if (res.variant === "error") throw status.toError(res);
-        }),
-      );
-      stopped = true;
-    } finally {
-      if (!stopped) await restart();
-    }
+    const tasks = await stopTasksOnNetwork(client, data.slave);
     const res = await scanTask
       .executeCommandSync({
         type: SET_STANDALONE_COMMAND,
@@ -206,7 +215,7 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<
         });
       });
     if (res.variant === "error") {
-      await restart();
+      await startTasks(tasks);
       throw status.toError(res);
     }
     // The scan task writes the properties and status of each device at a scan. It also

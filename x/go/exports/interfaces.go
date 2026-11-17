@@ -10,6 +10,7 @@
 package exports
 
 import (
+	"fmt"
 	"go/token"
 	"go/types"
 	"strings"
@@ -55,7 +56,7 @@ func collectInterfaces(fset *token.FileSet, pkgs []*packages.Package) interfaces
 		}
 	}
 	declared := func(tn *types.TypeName) iface {
-		i := iface{it: tn.Type().Underlying().(*types.Interface)}
+		i := iface{it: interfaceOf(tn.Type())}
 		if tn.Pkg() != nil {
 			i.pkg = strings.TrimSuffix(tn.Pkg().Path(), "_test")
 			i.key = key(fset.Position(tn.Pos()), tn)
@@ -79,7 +80,7 @@ func collectInterfaces(fset *token.FileSet, pkgs []*packages.Package) interfaces
 			return
 		}
 		ifaces.crossed.Add(k)
-		for e := range named.Underlying().(*types.Interface).EmbeddedTypes() {
+		for e := range interfaceOf(named).EmbeddedTypes() {
 			if en, ok := types.Unalias(e).(*types.Named); ok && types.IsInterface(en) {
 				cross(en)
 			}
@@ -194,7 +195,7 @@ func (ifaces interfaces) satisfied(m *types.Func) bool {
 func (ifaces interfaces) satisfiedBy(t *types.Named, m *types.Func) bool {
 	ptr := types.NewPointer(t)
 	sel := types.NewMethodSet(ptr).Lookup(m.Pkg(), m.Name())
-	if sel == nil || sel.Obj().(*types.Func).Origin() != m {
+	if sel == nil || methodOf(sel).Origin() != m {
 		return false
 	}
 	pkg := m.Pkg().Path()
@@ -223,7 +224,7 @@ func coversByArity(named *types.Named, it *types.Interface) bool {
 		if sel == nil {
 			return false
 		}
-		got := sel.Obj().Type().(*types.Signature)
+		got := methodOf(sel).Signature()
 		want := im.Signature()
 		if got.Params().Len() != want.Params().Len() ||
 			got.Results().Len() != want.Results().Len() {
@@ -313,4 +314,22 @@ func (ifaces interfaces) indexEmbedders(tp *types.Package) {
 			}
 		}
 	}
+}
+
+// interfaceOf returns the interface underlying t, which must be an interface type.
+func interfaceOf(t types.Type) *types.Interface {
+	it, ok := t.Underlying().(*types.Interface)
+	if !ok {
+		panic(fmt.Sprintf("%s is not an interface", t))
+	}
+	return it
+}
+
+// methodOf returns the method that sel, a method set selection, selects.
+func methodOf(sel *types.Selection) *types.Func {
+	fn, ok := sel.Obj().(*types.Func)
+	if !ok {
+		panic(fmt.Sprintf("method set selection %s is not a method", sel))
+	}
+	return fn
 }

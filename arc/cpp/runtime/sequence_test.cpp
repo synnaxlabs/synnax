@@ -4823,9 +4823,9 @@ TEST(ParametersTest, RunsATopLevelStageWithParameters) {
 TEST(ParametersTest, TakesATopLevelConstantAndATopLevelAlias) {
     using namespace parameters;
     auto h = new_h(FILL + R"(
-    limit f32 := 10
-    valve := %valve_b%
-    %start_a% == 1 => fill(limit, valve))");
+    threshold f32 := 10
+    sink := %valve_b%
+    %start_a% == 1 => fill(threshold, sink))");
     h.trigger("start_a");
     EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_b")), 1);
     level(h, 15);

@@ -18,12 +18,16 @@ import (
 
 // Helper to get StructFullContext from a struct definition.
 func asStructFull(structDef parser.IStructDefContext) *parser.StructFullContext {
-	return structDef.(*parser.StructFullContext)
+	full, ok := structDef.(*parser.StructFullContext)
+	Expect(ok).To(BeTrue())
+	return full
 }
 
 // Helper to get TypeRefNormalContext from a type reference.
 func asTypeRefNormal(typeRef parser.ITypeRefContext) *parser.TypeRefNormalContext {
-	return typeRef.(*parser.TypeRefNormalContext)
+	normal, ok := typeRef.(*parser.TypeRefNormalContext)
+	Expect(ok).To(BeTrue())
+	return normal
 }
 
 var _ = Describe("Parser", func() {

@@ -90,7 +90,7 @@ func (p *Plugin) frozenCodecFiles(
 		if domain.GetStringFromType(dt, "go", "marshal") != "flex" {
 			continue
 		}
-		form := dt.Form.(resolution.DistinctForm)
+		form := resolution.MustForm[resolution.DistinctForm](dt)
 		goName := naming.GetGoName(dt)
 		flex = append(flex, flexCodec{
 			GoName:   goName,

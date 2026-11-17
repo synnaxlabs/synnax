@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/set"
 )
@@ -490,8 +491,8 @@ func addUnificationError(
 	err error,
 	fallbackCtx antlr.ParserRuleContext,
 ) {
-	if ue, ok := err.(*constraints.UnificationError); ok && ue.Constraint != nil &&
-		ue.Constraint.Source != nil {
+	var ue *constraints.UnificationError
+	if errors.As(err, &ue) && ue.Constraint != nil && ue.Constraint.Source != nil {
 		diag.Add(diagnostics.Error(err, ue.Constraint.Source))
 	} else {
 		diag.Add(diagnostics.Error(err, fallbackCtx))

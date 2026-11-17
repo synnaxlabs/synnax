@@ -2096,7 +2096,9 @@ var _ = Describe("Writer in concurrent transactions", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewRetrieve().Where(task.MatchKeys(key)).Entry(&t).Exec(ctx, tx)
 		})).To(Succeed())
-		Expect(t.ConfigHash).To(Equal(hashes[t.Config["routing_key"].(string)]))
+		rawKey, ok := t.Config["routing_key"].(string)
+		Expect(ok).To(BeTrue())
+		Expect(t.ConfigHash).To(Equal(hashes[rawKey]))
 	}
 	applyUntil := func(ctx context.Context, done *atomic.Bool, key task.Key) func() {
 		return func() {

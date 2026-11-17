@@ -22,6 +22,7 @@ import (
 	"syscall"
 	"testing/fstest"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,11 +31,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -91,8 +95,30 @@ func mockConfig(logger *alamos.Logger) driver.Config {
 		BinaryDirname:   GinkgoT().TempDir(),
 		Keys:            keys,
 		DB:              db,
+		License:         licenses,
 		RackKey:         rackKey,
 	}
+}
+
+// openUnlicensed opens a license service that does not cover the Core.
+func openUnlicensed(ctx context.Context) *license.Service {
+	GinkgoHelper()
+	return MustOpen(license.OpenService(ctx, license.ServiceConfig{
+		DB:      DeferClose(memkv.New()),
+		Anchors: signer.Anchors,
+	}))
+}
+
+// activate gives svc a new license that covers the Core and returns its ID.
+func activate(ctx context.Context, svc *license.Service) uuid.UUID {
+	GinkgoHelper()
+	lic := svctestutil.NewLicense()
+	Expect(svc.Activate(ctx, signer.Sign(lic))).To(HaveField("State", license.StateOk))
+	return lic.Jti
+}
+
+func countStarts(buffer *syncBuffer) func() int {
+	return func() int { return strings.Count(buffer.String(), "started successfully") }
 }
 
 func openMockDriver(
@@ -147,6 +173,7 @@ var _ = Describe("Open", func() {
 					Address:         "localhost:9090",
 					Keys:            keys,
 					DB:              db,
+					License:         licenses,
 					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
 					BinaryDirname:   GinkgoT().TempDir(),
@@ -164,14 +191,14 @@ var _ = Describe("Open", func() {
 		)
 
 		It(
-			"Should return before the Driver starts when detached",
+			"Should return before the Driver starts when unlicensed",
 			func(ctx SpecContext) {
 				Expect(os.Setenv("MOCK_DELAY_MS", "30000")).To(Succeed())
 				defer func() { Expect(os.Unsetenv("MOCK_DELAY_MS")).To(Succeed()) }()
 				logger, _ := newTestLogger()
 				start := time.Now()
 				d := openMockDriver(ctx, logger, driver.Config{
-					Detached:     new(true),
+					License:      openUnlicensed(ctx),
 					StartTimeout: 10 * time.Second,
 					StopTimeout:  500 * time.Millisecond,
 				})
@@ -182,14 +209,14 @@ var _ = Describe("Open", func() {
 		)
 
 		It(
-			"Should fail when detached and the Driver cannot load",
+			"Should fail when unlicensed and the Driver cannot load",
 			func(ctx SpecContext) {
 				Expect(os.Setenv("MOCK_LOADER_ERROR", "1")).To(Succeed())
 				defer func() { Expect(os.Unsetenv("MOCK_LOADER_ERROR")).To(Succeed()) }()
 				logger, _ := newTestLogger()
 				start := time.Now()
 				Expect(driver.Open(ctx, mockConfig(logger), driver.Config{
-					Detached:     new(true),
+					License:      openUnlicensed(ctx),
 					StartTimeout: time.Minute,
 					StopTimeout:  500 * time.Millisecond,
 				})).Error().To(SatisfyAll(
@@ -217,6 +244,7 @@ var _ = Describe("Open", func() {
 					Address:         "localhost:9090",
 					Keys:            keys,
 					DB:              db,
+					License:         licenses,
 					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
 					BinaryDirname:   GinkgoT().TempDir(),
@@ -299,6 +327,7 @@ var _ = Describe("Open", func() {
 					Address:         "localhost:9090",
 					Keys:            keys,
 					DB:              db,
+					License:         licenses,
 					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
 					BinaryDirname:   GinkgoT().TempDir(),
@@ -321,6 +350,7 @@ var _ = Describe("Open", func() {
 					Address:             "localhost:9090",
 					Keys:                keys,
 					DB:                  db,
+					License:             licenses,
 					RackKey:             rackKey,
 					ParentDirname:       GinkgoT().TempDir(),
 					BinaryDirname:       GinkgoT().TempDir(),
@@ -342,6 +372,7 @@ var _ = Describe("Open", func() {
 					Address:         "localhost:9090",
 					Keys:            keys,
 					DB:              db,
+					License:         licenses,
 					RackKey:         rackKey,
 					ParentDirname:   GinkgoT().TempDir(),
 					BinaryDirname:   GinkgoT().TempDir(),
@@ -447,8 +478,9 @@ var _ = Describe("Open", func() {
 			Expect(d.Close()).To(Succeed())
 			Expect(conn).ToNot(HaveKey("username"))
 			Expect(conn).ToNot(HaveKey("password"))
-			Expect(authenticate(ctx, conn["api_key"].(string)).Subject).
-				To(Equal(rackKey.ResourceID()))
+			apiKey, ok := conn["api_key"].(string)
+			Expect(ok).To(BeTrue())
+			Expect(authenticate(ctx, apiKey).Subject).To(Equal(rackKey.ResourceID()))
 		})
 
 		It("Should reuse its API key across Core processes", func(ctx SpecContext) {
@@ -506,6 +538,7 @@ var _ = Describe("Open", func() {
 				KeyDirname:      keyDir,
 				Keys:            keys,
 				DB:              db,
+				License:         licenses,
 				RackKey:         rackKey,
 			})).Error().To(MatchError(syscall.EISDIR))
 			Expect(count()).To(Equal(before))
@@ -678,8 +711,70 @@ func readDriverConnection(parentDirname string) map[string]any {
 	b := MustSucceed(os.ReadFile(filepath.Join(parentDirname, "driver", "config.json")))
 	var cfg map[string]any
 	Expect(json.Unmarshal(b, &cfg)).To(Succeed())
-	return cfg["connection"].(map[string]any)
+	conn, ok := cfg["connection"].(map[string]any)
+	Expect(ok).To(BeTrue())
+	return conn
 }
+
+var _ = Describe("license", func() {
+	It(
+		"Should restart the Driver once when a license activates",
+		func(ctx SpecContext) {
+			logger, buffer := newTestLogger()
+			svc := openUnlicensed(ctx)
+			d := openMockDriver(ctx, logger, driver.Config{License: svc})
+			Eventually(countStarts(buffer)).Should(Equal(1))
+			activate(ctx, svc)
+			Eventually(countStarts(buffer)).Should(Equal(2))
+			activate(ctx, svc)
+			Consistently(countStarts(buffer), 500*time.Millisecond).Should(Equal(2))
+			Expect(buffer.String()).ToNot(ContainSubstring("exited unexpectedly"))
+			Expect(d.Close()).To(Succeed())
+		},
+	)
+
+	It(
+		"Should not restart the Driver when the Core starts licensed",
+		func(ctx SpecContext) {
+			logger, buffer := newTestLogger()
+			svc := openUnlicensed(ctx)
+			activate(ctx, svc)
+			d := openMockDriver(ctx, logger, driver.Config{License: svc})
+			activate(ctx, svc)
+			Consistently(countStarts(buffer), 500*time.Millisecond).Should(Equal(1))
+			Expect(d.Close()).To(Succeed())
+		},
+	)
+
+	It(
+		"Should restart the Driver again when a lost license activates",
+		func(ctx SpecContext) {
+			logger, buffer := newTestLogger()
+			svc := openUnlicensed(ctx)
+			jti := activate(ctx, svc)
+			d := openMockDriver(ctx, logger, driver.Config{License: svc})
+			Eventually(countStarts(buffer)).Should(Equal(1))
+			Expect(svc.Deactivate(ctx, jti)).
+				ToNot(HaveField("State", license.StateOk))
+			Consistently(countStarts(buffer), 500*time.Millisecond).Should(Equal(1))
+			activate(ctx, svc)
+			Eventually(countStarts(buffer)).Should(Equal(2))
+			Expect(d.Close()).To(Succeed())
+		},
+	)
+
+	It("Should stop cleanly when closed during a restart", func(ctx SpecContext) {
+		logger, buffer := newTestLogger()
+		svc := openUnlicensed(ctx)
+		d := openMockDriver(ctx, logger, driver.Config{
+			License:     svc,
+			StopTimeout: 500 * time.Millisecond,
+		})
+		activate(ctx, svc)
+		Expect(d.Close()).To(Succeed())
+		Expect(buffer.String()).ToNot(ContainSubstring("exited unexpectedly"))
+	})
+})
 
 var _ = Describe("restart", func() {
 	It(
@@ -715,6 +810,7 @@ var _ = Describe("restart", func() {
 			Address:         "localhost:9090",
 			Keys:            keys,
 			DB:              db,
+			License:         licenses,
 			RackKey:         rackKey,
 			ParentDirname:   GinkgoT().TempDir(),
 			BinaryDirname:   GinkgoT().TempDir(),
@@ -758,12 +854,15 @@ var _ = Describe("restart", func() {
 
 	DescribeTable(
 		"Should restart a Driver that crashes before its first log line",
-		func(ctx SpecContext, detached bool) {
+		func(ctx SpecContext, licensed bool) {
 			Expect(os.Setenv("MOCK_CRASH_BANNER", "1")).To(Succeed())
 			defer func() { Expect(os.Unsetenv("MOCK_CRASH_BANNER")).To(Succeed()) }()
 			logger, _ := newTestLogger()
-			Expect(driver.Open(ctx, mockConfig(logger), driver.Config{
-				Detached:            new(detached),
+			cfg := mockConfig(logger)
+			if !licensed {
+				cfg.License = openUnlicensed(ctx)
+			}
+			Expect(driver.Open(ctx, cfg, driver.Config{
 				StartTimeout:        time.Minute,
 				StopTimeout:         500 * time.Millisecond,
 				RestartBaseInterval: time.Millisecond,
@@ -775,8 +874,8 @@ var _ = Describe("restart", func() {
 				)),
 			))
 		},
-		Entry("attached", false),
-		Entry("detached", true),
+		Entry("licensed", true),
+		Entry("unlicensed", false),
 	)
 
 	It("Should launch the same binary after a restart", func(ctx SpecContext) {

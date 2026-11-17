@@ -51,6 +51,8 @@ def save_legacy_password(
 
 
 def block_config_writes(clusters: Clusters) -> None:
+    """Replaces the config file with a directory. Opening it for writing then raises
+    IsADirectoryError on POSIX and PermissionError on Windows."""
     path = clusters.internal.config_file
     path.unlink()
     path.mkdir()
@@ -110,7 +112,7 @@ class TestClustersConfig:
         """Should keep the old address with its own key when the config write fails."""
         clusters.set(Cluster(options=Options(host="a", port=1, api_key="ka")))
         block_config_writes(clusters)
-        with pytest.raises(IsADirectoryError):
+        with pytest.raises((IsADirectoryError, PermissionError)):
             clusters.set(Cluster(options=Options(host="b", port=1, api_key="kb")))
         assert keyring.values == {("synnax.api_key", "default@a:1"): "ka"}
         got = clusters.get()
@@ -124,7 +126,7 @@ class TestClustersConfig:
         opts = Options(host="h", port=1, username="u", password="p")
         save_legacy_password(clusters, keyring, opts)
         block_config_writes(clusters)
-        with pytest.raises(IsADirectoryError):
+        with pytest.raises((IsADirectoryError, PermissionError)):
             clusters.set(Cluster(options=Options(host="h", port=1, api_key="k")))
         assert keyring.values == {("synnax", "default"): "p"}
         got = clusters.get()

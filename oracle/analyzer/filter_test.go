@@ -82,7 +82,8 @@ var _ = Describe("Filter definitions", func() {
 		It("Should expand the tree fields and lines in declared order", func() {
 			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			form := table.MustGet("test.Where").Form.(resolution.StructForm)
+			form, ok := table.MustGet("test.Where").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(fieldNames(form)).To(Equal([]string{
 				"and", "or", "not", "key", "name", "overlaps", "active", "count",
 				"owner", "kind", "tags",
@@ -95,9 +96,9 @@ var _ = Describe("Filter definitions", func() {
 		It("Should pick each bare line's operator from its field type", func() {
 			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			types := fieldTypes(
-				table.MustGet("test.Where").Form.(resolution.StructForm),
-			)
+			form, ok := table.MustGet("test.Where").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			types := fieldTypes(form)
 			Expect(types["and"]).To(Equal(resolution.TypeRef{
 				Name:     "Array",
 				TypeArgs: []resolution.TypeRef{{Name: "test.Where"}},
@@ -154,7 +155,8 @@ var _ = Describe("Filter definitions", func() {
 		It("Should keep a line's doc and give a bare line one", func() {
 			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			form := table.MustGet("test.Where").Form.(resolution.StructForm)
+			form, ok := table.MustGet("test.Where").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			doc := func(name string) string {
 				GinkgoHelper()
 				f := MustBeOk(form.Field(name))
@@ -170,7 +172,8 @@ var _ = Describe("Filter definitions", func() {
 		It("Should mark the expanded struct recursive", func() {
 			table, diag := Analyze(source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			form := table.MustGet("test.Where").Form.(resolution.StructForm)
+			form, ok := table.MustGet("test.Where").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(form.IsRecursive).To(BeTrue())
 		})
 
@@ -192,9 +195,9 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			types := fieldTypes(
-				table.MustGet("test.Where").Form.(resolution.StructForm),
-			)
+			form, ok := table.MustGet("test.Where").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			types := fieldTypes(form)
 			Expect(types["name"]).To(Equal(resolution.TypeRef{Name: "filter.String"}))
 		})
 
@@ -218,9 +221,9 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			types := fieldTypes(
-				table.MustGet("test.Where").Form.(resolution.StructForm),
-			)
+			form, ok := table.MustGet("test.Where").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			types := fieldTypes(form)
 			Expect(types["kind"]).To(Equal(resolution.TypeRef{
 				Name:     "filter.Set",
 				TypeArgs: []resolution.TypeRef{{Name: "test.Kind"}},
@@ -263,9 +266,9 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			types := fieldTypes(
-				table.MustGet("test.Where").Form.(resolution.StructForm),
-			)
+			form, ok := table.MustGet("test.Where").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			types := fieldTypes(form)
 			Expect(types["kinds"]).To(Equal(resolution.TypeRef{
 				Name:     "filter.Contains",
 				TypeArgs: []resolution.TypeRef{{Name: "test.Kind"}},
@@ -289,9 +292,9 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			types := fieldTypes(
-				table.MustGet("test.Where").Form.(resolution.StructForm),
-			)
+			form, ok := table.MustGet("test.Where").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			types := fieldTypes(form)
 			Expect(types["kind"]).To(Equal(resolution.TypeRef{
 				Name:     "filter.Set",
 				TypeArgs: []resolution.TypeRef{{Name: "test.Kind"}},
@@ -313,9 +316,9 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			types := fieldTypes(
-				table.MustGet("test.Where").Form.(resolution.StructForm),
-			)
+			form, ok := table.MustGet("test.Where").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			types := fieldTypes(form)
 			Expect(types["key"]).To(Equal(resolution.TypeRef{
 				Name:     "filter.Set",
 				TypeArgs: []resolution.TypeRef{{Name: "test.Key"}},
@@ -501,7 +504,8 @@ var _ = Describe("Filter definitions", func() {
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			req := table.MustGet("test.RetrieveRequest")
-			form := req.Form.(resolution.StructForm)
+			form, ok := req.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(fieldNames(form)).To(Equal([]string{
 				"where", "search_term", "after", "limit", "include_labels",
 			}))
@@ -528,7 +532,9 @@ var _ = Describe("Filter definitions", func() {
 				"include_labels": {Kind: resolution.ValueKindBool},
 			}))
 			Expect(req.Domains).To(HaveKey("go"))
-			res := table.MustGet("test.RetrieveResponse").Form.(resolution.StructForm)
+			res, ok := table.MustGet("test.RetrieveResponse").
+				Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(fieldTypes(res)).To(Equal(map[string]resolution.TypeRef{
 				"things": {
 					Name:     "Array",
@@ -562,7 +568,9 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
-				req := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
+				req, ok := table.MustGet("test.RetrieveRequest").
+					Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
 				Expect(fieldNames(req)).To(Equal([]string{
 					"where", "after", "limit", "include_program",
 				}))
@@ -595,7 +603,9 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
-				req := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
+				req, ok := table.MustGet("test.RetrieveRequest").
+					Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
 				Expect(fieldNames(req)).To(Equal([]string{
 					"where", "after", "limit", "include_program",
 				}))
@@ -644,7 +654,9 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			form := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
+			form, ok := table.MustGet("test.RetrieveRequest").
+				Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(fieldNames(form)).To(Equal([]string{"where", "after", "limit"}))
 		})
 
@@ -666,16 +678,21 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			form := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
+			form, ok := table.MustGet("test.RetrieveRequest").
+				Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(fieldNames(form)).
 				To(Equal([]string{"where", "order", "after", "limit"}))
-			field := table.MustGet("test.OrderField").Form.(resolution.EnumForm)
+			field, ok := table.MustGet("test.OrderField").Form.(resolution.EnumForm)
+			Expect(ok).To(BeTrue())
 			Expect(lo.Map(field.Values, func(v resolution.EnumValue, _ int) string {
 				return v.StringValue()
 			})).To(Equal([]string{"name", "span_start"}))
-			order := table.MustGet("test.Order").Form.(resolution.StructForm)
+			order, ok := table.MustGet("test.Order").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(fieldNames(order)).To(Equal([]string{"field", "descending"}))
-			cursor := table.MustGet("test.Cursor").Form.(resolution.StructForm)
+			cursor, ok := table.MustGet("test.Cursor").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(fieldNames(cursor)).To(Equal([]string{"key", "name", "span_start"}))
 			start := lo.Must(cursor.Field("span_start"))
 			Expect(start.Optional).To(BeTrue())
@@ -696,7 +713,8 @@ var _ = Describe("Filter definitions", func() {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			_, hasOrder := table.Get("test.Order")
 			Expect(hasOrder).To(BeFalse())
-			cursor := table.MustGet("test.Cursor").Form.(resolution.StructForm)
+			cursor, ok := table.MustGet("test.Cursor").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(fieldNames(cursor)).To(Equal([]string{"key"}))
 		})
 
@@ -712,7 +730,9 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			form := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
+			form, ok := table.MustGet("test.RetrieveRequest").
+				Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(fieldNames(form)).To(Equal([]string{"where", "limit"}))
 		})
 
@@ -773,7 +793,9 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			res := table.MustGet("test.RetrieveResponse").Form.(resolution.StructForm)
+			res, ok := table.MustGet("test.RetrieveResponse").
+				Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(fieldTypes(res)["things"]).To(Equal(resolution.TypeRef{
 				Name: "Array",
 				TypeArgs: []resolution.TypeRef{{
@@ -805,7 +827,9 @@ var _ = Describe("Filter definitions", func() {
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			res := table.MustGet("test.RetrieveResponse")
-			Expect(fieldTypes(res.Form.(resolution.StructForm))["things"]).To(Equal(
+			form, ok := res.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			Expect(fieldTypes(form)["things"]).To(Equal(
 				resolution.TypeRef{
 					Name:     "Array",
 					TypeArgs: []resolution.TypeRef{{Name: "test.Wire"}},
@@ -837,7 +861,9 @@ var _ = Describe("Filter definitions", func() {
 				typ := table.MustGet("test." + name)
 				return typ.Domains["doc"].Expressions[0].Values[0].StringValue
 			}
-			res := table.MustGet("test.RetrieveResponse").Form.(resolution.StructForm)
+			res, ok := table.MustGet("test.RetrieveResponse").
+				Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(fieldNames(res)).To(Equal([]string{"colors"}))
 			Expect(doc("RetrieveResponse")).To(Equal(
 				"holds the colors a RetrieveRequest selects.",
@@ -862,7 +888,9 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			res := table.MustGet("test.RetrieveResponse").Form.(resolution.StructForm)
+			res, ok := table.MustGet("test.RetrieveResponse").
+				Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(fieldNames(res)).To(Equal([]string{"named_colors"}))
 		})
 
@@ -952,7 +980,9 @@ var _ = Describe("Filter definitions", func() {
 				}
 			`, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			req := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
+			req, ok := table.MustGet("test.RetrieveRequest").
+				Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
 			Expect(fieldNames(req)).To(Equal([]string{
 				"where", "after", "limit", "include_status",
 			}))
