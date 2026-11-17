@@ -51,6 +51,7 @@ if [ "$action" = token ]; then
     trap 'rm -f "$file"' EXIT
     printf '%s' "$token" > "$file"
     unset token
+    # The fleet controller reads the store time as a year before expires.
     expires=$(($(date +%s) + 365 * 24 * 3600))
     if deleted=$(aws secretsmanager describe-secret --secret-id "$name" \
         --query DeletedDate --output text 2> /dev/null); then

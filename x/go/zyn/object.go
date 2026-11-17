@@ -94,7 +94,7 @@ func (o ObjectZ) initializeFields() ObjectZ {
 	return o
 }
 
-// validateDestination validates that the destination is compatible with object data
+// validateDestination validates that the destination is compatible with object data.
 func (o ObjectZ) validateDestination(dest reflect.Value) error {
 	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError(string(ObjectT), dest)

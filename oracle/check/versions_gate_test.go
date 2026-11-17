@@ -54,7 +54,7 @@ Channel struct {
 		GinkgoHelper()
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), source,
+			source,
 			"schemas/synnax/channel.oracle", "channel",
 			analyzer.NewStandardFileLoader(root), table,
 		)
@@ -1256,7 +1256,6 @@ Tone struct {
 			GinkgoHelper()
 			loader := analyzer.NewStandardFileLoader(root)
 			table, diag := analyzer.Analyze(
-				GinkgoT().Context(),
 				[]string{
 					"schemas/synnax/tone",
 					"schemas/synnax/label",

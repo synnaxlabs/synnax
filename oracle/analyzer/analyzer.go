@@ -10,7 +10,7 @@
 package analyzer
 
 import (
-	"context"
+	"fmt"
 	"maps"
 	"slices"
 	"strconv"
@@ -27,7 +27,6 @@ import (
 )
 
 type analysisCtx struct {
-	context.Context
 	fileDomains map[string]resolution.Domain
 	diag        *diagnostics.Files
 	table       *resolution.Table
@@ -53,7 +52,6 @@ type parsedRule interface {
 func (c *analysisCtx) report(d diagnostics.Diagnostic) { c.diag.Report(c.filePath, d) }
 
 func Analyze(
-	ctx context.Context,
 	files []string,
 	loader FileLoader,
 ) (*resolution.Table, *diagnostics.Files) {
@@ -78,7 +76,6 @@ func Analyze(
 			continue
 		}
 		c := &analysisCtx{
-			Context:     ctx,
 			diag:        diag,
 			table:       table,
 			loader:      loader,
@@ -104,7 +101,6 @@ func Analyze(
 // versions, pinned dependency surfaces) and mark their import paths on the table so the
 // import walk does not re-load them.
 func AnalyzeSeeded(
-	ctx context.Context,
 	source, filePath, namespace string,
 	loader FileLoader,
 	table *resolution.Table,
@@ -116,7 +112,6 @@ func AnalyzeSeeded(
 		return diag
 	}
 	c := &analysisCtx{
-		Context:     ctx,
 		diag:        diag,
 		table:       table,
 		loader:      loader,
@@ -312,7 +307,6 @@ func analyze(c *analysisCtx) {
 			continue
 		}
 		ic := &analysisCtx{
-			Context:     c.Context,
 			diag:        c.diag,
 			table:       c.table,
 			loader:      c.loader,
@@ -1053,7 +1047,10 @@ func collectTypeRef(
 		return collectMapTypeRef(mapCtx, typeParams)
 	}
 
-	normalCtx := tr.(*parser.TypeRefNormalContext)
+	normalCtx, ok := tr.(*parser.TypeRefNormalContext)
+	if !ok {
+		panic(fmt.Sprintf("type reference is a %T", tr))
+	}
 	rawType := extractTypeNormal(normalCtx)
 
 	ref := resolution.TypeRef{Name: rawType}

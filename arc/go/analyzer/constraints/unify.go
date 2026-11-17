@@ -38,6 +38,10 @@ var (
 	errConvergence = errors.Wrap(errConstraints, "unification did not converge")
 )
 
+// BoolHint is the hint for a numeric value where a bool is expected. Arc has no cast
+// to bool.
+const BoolHint = "hint: compare the value to get a bool, such as value != 0"
+
 // UnificationError captures context about a failed type unification.
 type UnificationError struct {
 	// Constraint that failed to unify.
@@ -137,6 +141,8 @@ func (s *System) UnifyConstraint(c Constraint) error {
 		if left.IsNumeric() && right.IsNumeric() {
 			hintType := concreteTypeForHint(left)
 			hint = fmt.Sprintf("hint: use %s(value) to convert", hintType)
+		} else if c.Kind == kindEquality && left.IsBool() && right.IsNumeric() {
+			hint = BoolHint
 		}
 		return &UnificationError{
 			Constraint: &c,
@@ -272,7 +278,7 @@ func (s *System) openIntegerTarget(a, b types.Type) (types.Type, bool) {
 	return types.Type{}, false
 }
 
-// unifyTypeVariableWithVisited is the internal recursive function with cycle detection
+// unifyTypeVariableWithVisited is the internal recursive function with cycle detection.
 func (s *System) unifyTypeVariableWithVisited(
 	tv, other types.Type,
 	source Constraint,

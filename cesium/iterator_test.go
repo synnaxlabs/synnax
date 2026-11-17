@@ -466,7 +466,7 @@ var _ = Describe("Iterator Behavior", func() {
 
 				DescribeTable(
 					"should align an auto-span read with the samples it returns",
-					func(ctx SpecContext, start telem.TimeStamp, expected []int64, alignment uint32) {
+					func(start telem.TimeStamp, expected []int64, alignment uint32) {
 						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 							Bounds:        start.Range(telem.TimeStampMax),
 							Channels:      []cesium.ChannelKey{dataKey},
@@ -507,7 +507,6 @@ var _ = Describe("Iterator Behavior", func() {
 				DescribeTable(
 					"should return every sample once across auto-span chunks",
 					func(
-						ctx SpecContext,
 						bounds telem.TimeRange,
 						chunk int64,
 						expected []int64,
@@ -561,7 +560,6 @@ var _ = Describe("Iterator Behavior", func() {
 				DescribeTable(
 					"should align a backward auto-span read with the samples it returns",
 					func(
-						ctx SpecContext,
 						bounds telem.TimeRange,
 						chunk int64,
 						expected []int64,
@@ -622,7 +620,7 @@ var _ = Describe("Iterator Behavior", func() {
 				// chunks then tile the data without a gap or an overlap.
 				DescribeTable(
 					"should close every chunk on a sample",
-					func(ctx SpecContext, fwd bool, expected []telem.TimeRange) {
+					func(fwd bool, expected []telem.TimeRange) {
 						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 							Bounds:        telem.SecondTS.Range(telem.TimeStampMax),
 							Channels:      []cesium.ChannelKey{dataKey},
@@ -718,7 +716,6 @@ var _ = Describe("Iterator Behavior", func() {
 				DescribeTable(
 					"should read every sample after the gap",
 					func(
-						ctx SpecContext,
 						start telem.TimeStamp,
 						chunk int64,
 						expected []int64,
@@ -757,7 +754,6 @@ var _ = Describe("Iterator Behavior", func() {
 				DescribeTable(
 					"should read every sample before the gap",
 					func(
-						ctx SpecContext,
 						start telem.TimeStamp,
 						chunk int64,
 						expected []int64,
@@ -855,7 +851,7 @@ var _ = Describe("Iterator Behavior", func() {
 
 				DescribeTable(
 					"should return every sample once across two domains",
-					func(ctx SpecContext, chunk int64) {
+					func(chunk int64) {
 						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 							Bounds: (4*telem.SecondTS + 1).
 								Range(200 * telem.SecondTS),

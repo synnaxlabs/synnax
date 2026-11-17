@@ -91,7 +91,7 @@ var (
 	// UnusedImport is an imported module that nothing references.
 	UnusedImport = diagnostics.Kind{
 		Code:     "ARC5001",
-		Severity: protocol.DiagnosticSeverityError,
+		Severity: protocol.DiagnosticSeverityWarning,
 		Message:  "imported module %q is unused",
 	}
 

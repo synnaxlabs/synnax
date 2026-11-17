@@ -230,12 +230,14 @@ lighter step or the base step in dark mode.
   the submit button. The note keeps its space while empty, so nothing moves when it
   shows. It is one plain sentence ("Incorrect username or password."), and it is empty
   before the first attempt.
-- A span of time (a timeout, a delay, a window) is a typed duration field
-  (`Form.TimeSpanField`, or `Input.TimeSpan inline`), never a number with a unit suffix.
-  The person types "500ms", "2.5s", or "1min 30s". A number alone takes the unit of the
-  stored value. The readings and a hint show under the field while it has focus, also
-  when it already has a value. A bound is a message under the field ("Timeout must be
-  1min or less"), never a silent clamp.
+- A span of time (a timeout, a delay, a window) is a typed duration field, never a
+  number with a unit suffix. Use `Form.TimeSpanField` when the stored unit is the unit
+  of a number typed alone, and `Input.TimeSpan inline` with its own `unit` when they
+  differ. The person types "500ms", "2.5s", or "1min 30s". A number alone takes the unit
+  people think in for that field, such as milliseconds for a click delay and seconds for
+  a timeout, whatever unit the value is stored in. The readings and a hint show under
+  the field while it has focus, also when it already has a value. A bound is a message
+  under the field ("Timeout must be 1min or less"), never a silent clamp.
 - A range duration on the timeline keeps the popover editor (`Input.TimeSpan`), because
   it reads as a value, not as a form field.
 
@@ -318,6 +320,24 @@ bound, a log precision, or the line plot X channel.
   layout does not move. The arrow keys and the pointer move one highlight, and Enter
   picks the highlighted item.
 
+### Color picker
+
+- With named colors, two tabs split the picker's width: Library (`Icon.Library`) and
+  Custom (`Icon.Sliders`). It opens on Library while the value is linked or absent, and
+  on Custom while the value is a fixed color.
+- One 1.5rem inset holds the tab boxes, the search icon, the titles, and the swatches.
+  Swatches are 21 px with 1rem gaps across and down. Eight across set the width: 38rem.
+- Library has the select dialog's search under the tab bar's hairline, with a hairline
+  under it. Each palette sits under its title, which ends with the name of the hovered
+  color, else the linked one. Swatches have no tooltips.
+- A swatch shows the color's value for the current theme only.
+- An edit in Custom stores a fixed color and unlinks the value. There is no unlink
+  button.
+- An optional color puts a square Auto button at the right of the tab bar, on both tabs.
+- The saturation and brightness plane has the tiny radius.
+- The hex and alpha inputs pack into one control, and the alpha input keeps its opacity
+  icon. Hex codes use the code font, so every code takes the same width and fits.
+
 ### Menus and selects
 
 - Menus use 13 px text in 28 px items. This includes context menus, the filter menu, and
@@ -368,6 +388,9 @@ bound, a log precision, or the line plot X channel.
   count: the dots of the first hidden tags, then "+N". With no tag shown, the count
   reads "N labels", then "+N" with its dots. Only a group too narrow for that shows
   nothing.
+- Only a tag that shows a color dot shows as a dot in the count. Tags with other icons,
+  such as channels, fold into a plain "+N".
+- An outlined group, such as a select in a form, keeps its outline at every step.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
 - A value in a list item or a property panel shows no caret, at rest, on hover, or while
@@ -446,6 +469,21 @@ bound, a log precision, or the line plot X channel.
   same picker as panels. The fixed view shows the explorer's icon.
 - Create view opens a modal like the project modal: an icon button, then the name. The
   name has no default value.
+- The panel stores the view each explorer tab shows, so the view lasts through a reload
+  and a move to another window, and everyone who opens the panel sees it. Opening a view
+  changes the tab in place. A user who may not change the panel cannot open another view
+  in it.
+- A panel shows a saved view in one tab at most. Opening a view that another tab shows
+  focuses that tab.
+- The panel tab name follows the view: the explorer's name ("Range explorer") on the
+  static view, and "Ranges › <view>" on a saved view. A rename of the view changes it,
+  and a rename of the tab renames the view. When the view is deleted, the tab shows that
+  it was deleted, with Close and Restore, like the tab of any deleted resource.
+- "Open in new tab" in a view's context menu, or Cmd+click (Ctrl+click on Windows and
+  Linux) on a view, opens it in a new explorer tab beside the current one. The current
+  tab keeps its view. The saved view the current tab shows has no "Open in new tab".
+- Opening the explorer from the sidebar or the command palette focuses its first tab in
+  the panel, whichever view it shows, and opens one only when the panel has none.
 
 ### Filter chips
 
@@ -457,6 +495,19 @@ bound, a log precision, or the line plot X channel.
   is 12 px and l8, and it takes the text color on hover.
 - A part that opens something gets l3 on hover and l4 on press.
 - The dots of a labels value overlap a little, as one group.
+
+### Record headers
+
+- The header of a record page, such as a range overview, puts its actions on the top
+  line, beside the parents. The name takes the full width under them.
+- A parent shows its color square, as the explorer does, at 80% opacity, then its name
+  at weight 500 in gray l9. A caret the size of the text separates two parents. The
+  parents never wrap: the furthest up fades first.
+- In a narrow pane, the parents move to their own line under the actions. When the pane
+  is narrower still, the copy, download, and link buttons fold into a "⋮" menu. Plot and
+  the star stay.
+- A word of a time line ("started", "ended") wraps with its time, never alone.
+- In a narrow pane, a field of a record shows its value under its name.
 
 ### Page sections
 

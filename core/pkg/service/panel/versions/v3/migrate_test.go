@@ -86,10 +86,14 @@ var _ = Describe("ArcExplorerTabsMigration", func() {
 		}
 		got := migrate(ctx, p)
 		Expect(got[0].Name).To(Equal("Ops"))
-		root := got[0].Root.Variant.(v3.SplitNode)
+		root, ok := got[0].Root.Variant.(v3.SplitNode)
+		Expect(ok).To(BeTrue())
 		Expect(root.First).To(Equal(leaf(rangeExplorer, log)))
-		last := root.Last.Variant.(v3.SplitNode)
-		Expect(last.First.Variant.(v3.LeafNode).Tabs).To(BeEmpty())
+		last, ok := root.Last.Variant.(v3.SplitNode)
+		Expect(ok).To(BeTrue())
+		first, ok := last.First.Variant.(v3.LeafNode)
+		Expect(ok).To(BeTrue())
+		Expect(first.Tabs).To(BeEmpty())
 		Expect(last.Last).To(Equal(leaf(docs)))
 	})
 

@@ -1839,7 +1839,13 @@ var _ = Describe("Statement Compiler", func() {
 	})
 
 	Describe("Chan-typed Input Parameter Operations", func() {
-		compileWithChanInput := func(bCtx SpecContext, source, inputName string, inputType types.Type) []byte {
+		// compileWithChanInput compiles source in a function with a chan-typed input
+		// "ch".
+		compileWithChanInput := func(
+			bCtx SpecContext,
+			source string,
+			inputType types.Type,
+		) []byte {
 			GinkgoHelper()
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
@@ -1852,7 +1858,7 @@ var _ = Describe("Statement Compiler", func() {
 			fn := MustSucceed(aCtx.Scope.Resolve(aCtx, "testFunc"))
 			aCtx.Scope = fn
 			MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
-				Name: inputName,
+				Name: "ch",
 				Kind: symbol.KindInput,
 				Type: inputType,
 			}))
@@ -1874,7 +1880,7 @@ var _ = Describe("Statement Compiler", func() {
 			func(bCtx SpecContext) {
 				bytecode := compileWithChanInput(bCtx,
 					`ch = 77.0`,
-					"ch", types.Chan(types.F32()),
+					types.Chan(types.F32()),
 				)
 				Expect(bytecode).To(MatchOpcodes(
 					OpLocalGet, 0,
@@ -1889,7 +1895,7 @@ var _ = Describe("Statement Compiler", func() {
 			func(bCtx SpecContext) {
 				bytecode := compileWithChanInput(bCtx,
 					`ch = 3.14`,
-					"ch", types.Chan(types.F64()),
+					types.Chan(types.F64()),
 				)
 				Expect(bytecode).To(MatchOpcodes(
 					OpLocalGet, 0,
@@ -1904,7 +1910,7 @@ var _ = Describe("Statement Compiler", func() {
 			func(bCtx SpecContext) {
 				bytecode := compileWithChanInput(bCtx,
 					`ch = 42`,
-					"ch", types.Chan(types.I32()),
+					types.Chan(types.I32()),
 				)
 				Expect(bytecode).To(MatchOpcodes(
 					OpLocalGet, 0,
@@ -1919,7 +1925,7 @@ var _ = Describe("Statement Compiler", func() {
 			func(bCtx SpecContext) {
 				bytecode := compileWithChanInput(bCtx,
 					`x f32 := ch`,
-					"ch", types.Chan(types.F32()),
+					types.Chan(types.F32()),
 				)
 				Expect(bytecode).To(MatchOpcodes(
 					OpLocalGet, 0,
@@ -1935,7 +1941,7 @@ var _ = Describe("Statement Compiler", func() {
 				bytecode := compileWithChanInput(bCtx,
 					`value f64 := ch
 				ch = value * 2.0`,
-					"ch", types.Chan(types.F64()),
+					types.Chan(types.F64()),
 				)
 				Expect(bytecode).To(MatchOpcodes(
 					OpLocalGet, 0,

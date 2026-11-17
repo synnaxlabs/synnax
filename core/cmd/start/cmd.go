@@ -35,17 +35,21 @@ import (
 	"go.uber.org/zap"
 )
 
-// Cmd represents the start command
-var Cmd = &cobra.Command{
-	Use:     "start",
-	Short:   "Starts a Synnax Core",
-	Long:    "Starts a Synnax Core using the data directory specified by the --data flag, and listening on the address specified by the --listen flag.",
-	Example: "synnax start --listen localhost:9091 --data /mnt/ssd1 --insecure",
-	Args:    cobra.NoArgs,
-	PreRunE: func(cmd *cobra.Command, _ []string) error {
-		return viper.BindPFlags(cmd.Flags())
-	},
-	RunE: func(cmd *cobra.Command, _ []string) error { return start(cmd) },
+// NewCmd returns the command that starts a Synnax Core.
+func NewCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "start",
+		Short:   "Starts a Synnax Core",
+		Long:    "Starts a Synnax Core using the data directory specified by the --data flag, and listening on the address specified by the --listen flag.",
+		Example: "synnax start --listen localhost:9091 --data /mnt/ssd1 --insecure",
+		Args:    cobra.NoArgs,
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
+			return viper.BindPFlags(cmd.Flags())
+		},
+		RunE: func(cmd *cobra.Command, _ []string) error { return start(cmd) },
+	}
+	AddFlags(cmd)
+	return cmd
 }
 
 // start is the entrypoint for starting a Synnax Core. It handles stop requests and
@@ -143,8 +147,6 @@ func run(cmd *cobra.Command) error {
 	return nil
 }
 
-func init() { AddFlags(Cmd) }
-
 // readLicenseKey returns the trimmed license key from the key flag, or the trimmed
 // contents of the file the path flag names when the key flag is empty.
 func readLicenseKey() (string, error) {
@@ -162,9 +164,9 @@ func readLicenseKey() (string, error) {
 	return strings.TrimSpace(string(b)), nil
 }
 
-// GetCoreConfigFromViper builds a CoreConfig from the current viper configuration.
-// This is used by the Windows service to start the Core with the config loaded from
-// a YAML file.
+// GetCoreConfigFromViper builds a CoreConfig from the current viper configuration over
+// the defaults. This is used by the Windows service to start the Core with the config
+// loaded from a YAML file.
 func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 	factoryCfg := cert.BuildCertFactoryConfig(ins)
 	listeners, err := listener.Parse()
@@ -196,7 +198,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 			taskWorkerCount,
 		)
 	}
-	return CoreConfig{
+	return defaultCoreConfig().Override(CoreConfig{
 		Instrumentation:     ins,
 		insecure:            new(viper.GetBool(FlagInsecure)),
 		fips:                new(viper.GetBool(FlagFIPS)),
@@ -224,5 +226,5 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		enabledIntegrations:  viper.GetStringSlice(FlagEnableIntegrations),
 		disabledIntegrations: viper.GetStringSlice(FlagDisableIntegrations),
 		validateChannelNames: new(!viper.GetBool(FlagDisableChannelNameValidation)),
-	}, nil
+	}), nil
 }

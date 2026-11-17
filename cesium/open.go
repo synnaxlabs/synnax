@@ -136,20 +136,9 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) (err error) {
 	// For non-index channels, resolve the index DB. The index DB is always a
 	// fixed-density unary DB (index channels are TimestampT with IsIndex=true).
 	if u.Channel().Index != 0 && !u.Channel().IsIndex {
-		idxDB, ok := db.mu.dbs.unary[u.Channel().Index]
-		if !ok {
-			if err = db.openVirtualOrUnary(
-				ctx,
-				Channel{Key: u.Channel().Index},
-			); err != nil {
-				return err
-			}
-			if idxDB, ok = db.mu.dbs.unary[u.Channel().Index]; !ok {
-				return validate.PathedError(
-					indexChannelNotFoundError(u.Channel().Index),
-					"index",
-				)
-			}
+		var idxDB unary.DB
+		if idxDB, err = db.openIndex(ctx, u.Channel().Index); err != nil {
+			return err
 		}
 		u.SetIndex(idxDB.Index())
 		// A failed truncation does not stop the DB from opening. The channel opens
@@ -164,6 +153,21 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) (err error) {
 	}
 	db.mu.dbs.unary[ch.Key] = *u
 	return nil
+}
+
+// openIndex returns the DB of the index channel key, opening it when it is not open.
+func (db *DB) openIndex(ctx context.Context, key ChannelKey) (unary.DB, error) {
+	if idxDB, ok := db.mu.dbs.unary[key]; ok {
+		return idxDB, nil
+	}
+	if err := db.openVirtualOrUnary(ctx, Channel{Key: key}); err != nil {
+		return unary.DB{}, err
+	}
+	idxDB, ok := db.mu.dbs.unary[key]
+	if !ok {
+		return unary.DB{}, validate.PathedError(indexChannelNotFoundError(key), "index")
+	}
+	return idxDB, nil
 }
 
 func (db *DB) openVirtualOrUnary(ctx context.Context, ch Channel) error {

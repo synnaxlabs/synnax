@@ -66,9 +66,9 @@ var _ = Describe("Actions", func() {
 
 		DescribeTable(
 			"Should fail when a required field is missing",
-			func(clear func(*signals.ActionConfig[uuid.UUID, action]), field string) {
+			func(unset func(*signals.ActionConfig[uuid.UUID, action]), field string) {
 				cfg := full()
-				clear(&cfg)
+				unset(&cfg)
 				Expect(cfg.Validate()).To(MatchError(ContainSubstring(field)))
 			},
 			Entry(

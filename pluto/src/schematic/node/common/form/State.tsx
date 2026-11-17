@@ -30,9 +30,9 @@ export const StateSection = ({ filter }: StateSectionProps): ReactElement => {
       <Input.Item label="Channel" padHelpText={false}>
         <Channel.SelectSingle
           allowNone
-          value={value.stateChannel ?? 0}
+          value={value.stateChannel}
           onChange={(v: channel.Key | null) =>
-            onChange({ ...value, stateChannel: v ?? undefined })
+            onChange({ ...value, stateChannel: v ?? 0 })
           }
           filter={filter}
         />

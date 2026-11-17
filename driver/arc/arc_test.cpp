@@ -3606,4 +3606,22 @@ TEST(ArcTests, testWriteOnlyNoReadChannels) {
     task->stop("test_stop", true);
 }
 
+/// @brief it should write the error of a boot configure that fails, so a status that
+/// the Core wrote while the Driver was down does not stay.
+TEST(ArcFactory, BootConfigureErrorWritesStatus) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto ctx = std::make_shared<driver::task::MockContext>(client);
+    synnax::task::Task task{.name = "arc_missing", .type = TASK_TYPE};
+    task.config = nlohmann::json{{"arc_key", x::uuid::create().to_string()}};
+    Factory factory;
+    x::breaker::Breaker cancel;
+    auto [tsk, handled] = factory.configure_task(ctx, task, task::NO_COMMAND, cancel);
+    EXPECT_TRUE(handled);
+    EXPECT_EQ(tsk, nullptr);
+    const auto statuses = ctx->snapshot();
+    ASSERT_EQ(statuses.size(), 1);
+    EXPECT_EQ(statuses[0].variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(statuses[0].message, "Failed to configure task");
+    EXPECT_FALSE(statuses[0].details.running);
+}
 }

@@ -11,6 +11,7 @@ package device
 
 import (
 	"encoding/json/v2"
+	"fmt"
 	"maps"
 	"slices"
 
@@ -111,7 +112,11 @@ func editProperties(d Device, path []string, a patch.Action) (Device, error) {
 	if err = a.Apply(doc); err != nil {
 		return Device{}, err
 	}
-	d.Properties = doc[propertiesField].(map[string]any)
+	props, ok := doc[propertiesField].(map[string]any)
+	if !ok {
+		panic(fmt.Sprintf("edited properties are a %T", doc[propertiesField]))
+	}
+	d.Properties = props
 	return d, nil
 }
 
