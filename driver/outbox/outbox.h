@@ -136,9 +136,10 @@ public:
     Outbox &operator=(const Outbox &) = delete;
 
     /// @brief opens the outbox in the directory of the config, creates the directory
-    /// when it does not exist, locks it, and starts the send thread. The first call
-    /// that is cut off or fails its checksum ends its segment, and the outbox keeps
-    /// the calls before it and counts the bytes from it on in cut().
+    /// when it does not exist, locks it, removes the temporary files a crash left, and
+    /// starts the send thread. The first call that is cut off or fails its checksum
+    /// ends its segment, and the outbox keeps the calls before it and counts the bytes
+    /// from it on in cut().
     /// @returns UNKNOWN_VERSION when a segment has a call kind this Driver cannot
     /// send. CORRUPT when a call does not decode. journal::LOCKED when another
     /// outbox has the directory. The errors of journal::Reader::open and

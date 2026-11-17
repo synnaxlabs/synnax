@@ -11,6 +11,7 @@
 #include <charconv>
 #include <string>
 #include <system_error>
+#include <vector>
 
 #include "absl/log/log.h"
 
@@ -66,8 +67,14 @@ std::pair<std::unique_ptr<Outbox>, x::errors::Error> Outbox::open(Config cfg) {
     if (lock_err) return {nullptr, lock_err};
     auto outbox = std::unique_ptr<Outbox>(new Outbox(std::move(cfg)));
     outbox->dir_lock = std::move(dir_lock);
+    std::vector<std::filesystem::path> stale;
     for (const auto &entry: std::filesystem::directory_iterator(outbox->cfg.dir, ec)) {
         const auto &path = entry.path();
+        // A crash during a journal file replace leaves its temporary file.
+        if (path.filename().string().contains(".tmp.")) {
+            stale.push_back(path);
+            continue;
+        }
         if (path.extension() != SEGMENT_EXT) continue;
         const auto stem = path.stem().string();
         std::uint64_t key = 0;
@@ -81,6 +88,9 @@ std::pair<std::unique_ptr<Outbox>, x::errors::Error> Outbox::open(Config cfg) {
         outbox->segments.insert(key);
     }
     if (ec) return {nullptr, fs_error("failed to list outbox directory", ec)};
+    for (const auto &path: stale)
+        if (std::filesystem::remove(path, ec); ec)
+            return {nullptr, fs_error("failed to remove " + path.string(), ec)};
     const auto [saved, offset_err] = journal::read_offset(
         outbox->cfg.dir / OFFSET_FILE,
         OFFSET_MAGIC
