@@ -133,7 +133,11 @@ fs::path user_dir() {
 }
 
 bool sudo() {
-    return geteuid() == 0 && std::getenv("SUDO_USER") != nullptr;
+    if (geteuid() != 0) return false;
+    const char *sudo_user = std::getenv("SUDO_USER");
+    if (sudo_user == nullptr) return false;
+    const passwd *user = getpwnam(sudo_user);
+    return user == nullptr || user->pw_uid != 0;
 }
 
 x::errors::Error prepare(const fs::path &path) {
