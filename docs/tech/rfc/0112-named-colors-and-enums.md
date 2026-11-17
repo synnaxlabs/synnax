@@ -1,4 +1,4 @@
-# 112 Named colors and enums
+# 112 Named colors and enumerations
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-11-14
@@ -12,10 +12,10 @@
 
 ## 0 Summary
 
-A named color is a Core record with a light value and an optional dark value. An enum is
-a Core record that maps exact values to names and colors. A state symbol holds the key
-of its enum, and a plot line holds the key of a named color. No record binds a color by
-position, and a node holds no copy of a state color.
+A named color is a Core record with a light value and an optional dark value. An
+enumeration is a Core record that maps exact values to names and colors. A state symbol
+holds the key of its enumeration, and a plot line holds the key of a named color. No
+record binds a color by position, and a node holds no copy of a state color.
 
 ## 1 Motivation
 
@@ -34,7 +34,8 @@ position, and a node holds no copy of a state color.
 - **Named color** (`color.Named` in code): A Core record with a name, a light value, and
   an optional dark value.
 - **Palette**: A group (RFC 0100 §4.3) of named colors. It is not a record type.
-- **Enum**: A Core record with a list of entries. It is the state map of a symbol.
+- **Enumeration**: A Core record with a list of entries. It is the state map of a
+  symbol.
 - **Color reference**: A `color.Ref`: a named color key or a fixed color.
 - **Symbol color**: A color that carries no state, set on each node, such as a fill or a
   label.
@@ -42,16 +43,16 @@ position, and a node holds no copy of a state color.
   current entry.
 - **Indicator**: A sign that Pluto draws on a symbol (RFC 0114). The stale and unknown
   indicators are the first two.
-- **Built-in**: A named color or an enum that Synnax ships with a fixed key.
+- **Built-in**: A named color or an enumeration that Synnax ships with a fixed key.
 
 ## 3 Principles
 
-1. **One place for each fact**: A node holds the key of an enum, never a copy of its
-   colors. A custom symbol can still give a part a fixed color for a state through a
+1. **One place for each fact**: A node holds the key of an enumeration, never a copy of
+   its colors. A custom symbol can still give a part a fixed color for a state through a
    `color` look.
 2. **Bind by key**: Never by position, name, or hash.
 3. **A delete leaves every user colored**: A deleted named color stays as a fixed color.
-   An enum in use refuses the delete.
+   An enumeration in use refuses the delete.
 4. **Absent means the theme picks**: RFC 0061 rule 1 holds for every color reference.
 5. **Warn, never block**: Some sites use red for closed on purpose.
 
@@ -100,56 +101,58 @@ inside the union. Before Gorp removes the color, a generated function for each r
 sets each union that names it to `target.Inline()`, a hand-written method on
 `color.Named` that returns the `fixed` variant. Each holder's service sends the
 rewritten record to open Consoles from its rewrite hook, as line plots do for a detached
-channel (`core/pkg/service/lineplot/service.go:107-113`). "Replace with..." for enums
-uses the same hook.
+channel (`core/pkg/service/lineplot/service.go:107-113`). "Replace with..." for
+enumerations uses the same hook.
 
-### 4.2 Enums
+### 4.2 Enumerations
 
-An enum is the state map. Each entry holds a generated `key`, one exact `float64`
+An enumeration is the state map. Each entry holds a generated `key`, one exact `float64`
 `value` that selects and buttons write, a `name`, an `abnormal` flag (false by default),
-and an optional `color.Ref`. Values are unique in an enum, and the writer refuses a
-duplicate. Two color conventions for one set of states need two enums. A site difference
-goes through the named colors that the entries reference.
+and an optional `color.Ref`. Values are unique in an enumeration, and the writer refuses
+a duplicate. Two color conventions for one set of states need two enumerations. A site
+difference goes through the named colors that the entries reference.
 
-Each enum state of a symbol (RFC 0114) has an optional default `enum`, and each state
-binding on a node an optional `enum` that replaces it. `select` and `state_indicator`,
-which keep their variants (RFC 0114 §4.0), each get an optional `enum`. All three use
-`@ref on_delete restrict`. The delete dialog lists the users from `resource.Dependents`
-(`core/pkg/service/resource/resource.go:59-74`) and offers "Replace with...", which
-moves every user to another enum and then deletes. A built-in enum cannot be deleted, so
-a default enum that only a Pluto file names always exists.
+Each enumeration state of a symbol (RFC 0114) has an optional default `enumeration`, and
+each state binding on a node an optional `enumeration` that replaces it. `select` and
+`state_indicator`, which keep their variants (RFC 0114 §4.0), each get an optional
+`enumeration`. All three use `@ref on_delete restrict`. The delete dialog lists the
+users from `resource.Dependents` (`core/pkg/service/resource/resource.go:59-74`) and
+offers "Replace with...", which moves every user to another enumeration and then
+deletes. A built-in enumeration cannot be deleted, so a default enumeration that only a
+Pluto file names always exists.
 
 ### 4.3 State symbols
 
-A symbol state shows its enum (RFC 0114). A look with `entry` paint takes the color of
-the current entry, then the symbol color, then the theme. The built-in valve strokes
-`body` at 0 and fills it at 1 with `entry` paint. The "Valve" entries have no color, so
-a valve paints its symbol color, then the theme, as today.
+A symbol state shows its enumeration (RFC 0114). A look with `entry` paint takes the
+color of the current entry, then the symbol color, then the theme. The built-in valve
+strokes `body` at 0 and fills it at 1 with `entry` paint. The "Valve" entries have no
+color, so a valve paints its symbol color, then the theme, as today.
 
-An absent `enum` on a state binding means the symbol's default enum. A built-in symbol
-names it in its Pluto file, and a custom symbol on its Core record. A state with no enum
-at either level, such as a new custom symbol state, has no entries: only no data and NaN
-give it the unknown indicator, and its `entry` paint goes on to the symbol color. A node
-stores no look and no state color. It changes a look only through its enum, color,
-match, default, and bounds. An edit to a built-in enum changes every symbol that uses it
-by default.
+An absent `enumeration` on a state binding means the symbol's default enumeration. A
+built-in symbol names it in its Pluto file, and a custom symbol on its Core record. A
+state with no enumeration at either level, such as a new custom symbol state, has no
+entries: only no data and NaN give it the unknown indicator, and its `entry` paint goes
+on to the symbol color. A node stores no look and no state color. It changes a look only
+through its enumeration, color, match, default, and bounds. An edit to a built-in
+enumeration changes every symbol that uses it by default.
 
-Each state stores its match: `exact`, or `band`, which reads a value inside the band as
-1 and every other number as 0, as today's threshold does. Each built-in state with two
-entries ships the band 0.9 to 1.1 in its spec (`DEFAULT_THRESHOLD`,
-`pluto/src/schematic/node/common/telem/telem.ts:16`), so the migration writes no band on
-a toggle, and a node can change it. Each enum state names the value of a default entry,
-such as Closed on a valve. A state with a source but no data yet, NaN, and a value that
-equals no entry after its match draw the default entry, and Pluto adds the unknown
-indicator. A band reads 0.5 as 0, so a valve at 0.5 shows Closed with no indicator, as
-today. A state with no source draws its default entry with no indicator. When no entry
-has the default value, `entry` paint goes on to the symbol color. Stale data keeps its
-entry and gets the stale indicator, and `staleness_color` leaves `StalenessConfig` for
-every symbol.
+Each state stores its match: `exact`, or `within`, which reads a value inside its
+`spatial.Bounds` as 1 and every other number as 0, as today's threshold does. Each
+built-in state with two entries ships `within` 0.9 to 1.1 in its spec
+(`DEFAULT_THRESHOLD`, `pluto/src/schematic/node/common/telem/telem.ts:16`), so the
+migration writes no match on a toggle, and a node can change it. Each enumeration state
+names the value of a default entry, such as Closed on a valve. A state with a source but
+no data yet, NaN, and a value that equals no entry after its match draw the default
+entry, and Pluto adds the unknown indicator. `within` 0.9 to 1.1 reads 0.5 as 0, so a
+valve at 0.5 shows Closed with no indicator, as today. A state with no source, or with a
+`channel` source that has no `key`, draws its default entry with no indicator. When no
+entry has the default value, `entry` paint goes on to the symbol color. Stale data keeps
+its entry and gets the stale indicator, and `staleness_color` leaves `StalenessConfig`
+for every symbol.
 
-The light gets the built-in "Light" enum (Off 0, On 1). A light whose threshold differs
-from the band of its spec gets that threshold as its node's band, and its `stroke_color`
-becomes the symbol color.
+The light gets the built-in "Light" enumeration (Off 0, On 1). A light whose threshold
+differs from the bounds of its spec gets that threshold as its node's `within` match,
+and its `stroke_color` becomes the symbol color.
 
 A `select` or `state_indicator` has no symbol state, so it has no default entry. A value
 that matches no entry keeps today's look and gets the unknown indicator: a
@@ -171,51 +174,51 @@ least in its plot, and a tie goes to the first by position. A user can pick any 
 
 ### 4.5 Editor checks
 
-The enum editor warns, never blocks, on: under 3:1 contrast in either theme, entries too
-alike under color-blind simulation, a state shown by color alone, and an alarm color on
-an entry that is not `abnormal`.
+The enumeration editor warns, never blocks, on: under 3:1 contrast in either theme,
+entries too alike under color-blind simulation, a state shown by color alone, and an
+alarm color on an entry that is not `abnormal`.
 
 ### 4.6 Migration
 
 The schematic cutover ships in one release:
 
-- Each inline state list becomes an enum. Lists with the same set of (value, name,
-  color) share one, with keys and order ignored. Lists that differ stay separate, and
-  "Replace with..." merges them later. When a list repeats a value, the first entry
+- Each inline state list becomes an enumeration. Lists with the same set of (value,
+  name, color) share one, with keys and order ignored. Lists that differ stay separate,
+  and "Replace with..." merges them later. When a list repeats a value, the first entry
   stays.
-- Phase 22 adds the function that turns a state list into an enum, and gives each
-  `select` and `state_indicator` an `enum` key for its `options`, which it removes. An
-  empty list gets no enum. The RFC 0114 phase 2 node migration, which merges after phase
-  22, calls the function to give a state binding an `enum` key when its node had its own
-  non-empty state list, an `on_color`, or `state_overrides` that change the entry
-  colors, and removes those fields.
+- Phase 22 adds the function that turns a state list into an enumeration, and gives each
+  `select` and `state_indicator` an `enumeration` key for its `options`, which it
+  removes. An empty list gets no enumeration. The RFC 0114 phase 2 node migration, which
+  merges after phase 22, calls the function to give a state binding an `enumeration` key
+  when its node had its own non-empty state list, an `on_color`, or `state_overrides`
+  that change the entry colors, and removes those fields.
 - In a custom symbol, RFC 0114 phase 1 made each state index a value with default 0, and
   each region color a `color` look on that value. Phase 22 gives the symbol state a
-  default enum and rewrites only looks in that shape: one `color` paint with a `when` on
-  one value. Each new `entry` look takes the place of the first look that it replaces,
-  and every other look stays. The first stroke or fill whose color changes between
-  values sets the entry colors. Each stroke or fill whose colors equal the entries at
-  every value where it is set becomes one `entry` look, with a `when` for those values.
-  Every other stroke or fill keeps its `color` looks, so no stored symbol changes its
-  look. Every symbol import, alone or in a group, applies the same rewrite to an old
-  symbol file, and makes and reuses enums by the rule and access of the schematic import
-  below.
+  default enumeration and rewrites only looks in that shape: one `color` paint with a
+  `when` on one value. Each new `entry` look takes the place of the first look that it
+  replaces, and every other look stays. The first stroke or fill whose color changes
+  between values sets the entry colors. Each stroke or fill whose colors equal the
+  entries at every value where it is set becomes one `entry` look, with a `when` for
+  those values. Every other stroke or fill keeps its `color` looks, so no stored symbol
+  changes its look. Every symbol import, alone or in a group, applies the same rewrite
+  to an old symbol file, and makes and reuses enumerations by the rule and access of the
+  schematic import below.
 - In a node's `state_overrides`, the override of the stroke or fill that sets the
-  symbol's entry colors sets the colors of the node's enum. When any stroke or fill
-  would then show a color other than its override, such as a second `entry` look whose
-  override kept the symbol's colors, the node moves to a copy of the symbol that keeps
-  each such paint as a `color` look. Nodes with the same overrides share one copy. A
-  node whose overrides equal its symbol needs neither, so no node changes its look.
+  symbol's entry colors sets the colors of the node's enumeration. When any stroke or
+  fill would then show a color other than its override, such as a second `entry` look
+  whose override kept the symbol's colors, the node moves to a copy of the symbol that
+  keeps each such paint as a `color` look. Nodes with the same overrides share one copy.
+  A node whose overrides equal its symbol needs neither, so no node changes its look.
 - The upgrade runs as a composition migration, as panels do
   (`core/pkg/service/panel/versions/v0/composition.go:41-55`). An import passes the old
   state lists beside the converted schematic, and its write step
-  (`core/pkg/service/schematic/imex.go:45-64`) makes the enums and the symbol copies
-  with the same function as the upgrade. An import reuses an enum or a symbol copy with
-  equal content, as the upgrade shares them. A copy goes into the group of its source
-  symbol. The import needs retrieve access on each enum or copy that it reuses and on
-  the source symbol of each copy that it adds, create access for each record that it
-  adds, and update access on the group of each copy. A node that gets `missing` (RFC
-  0114 §4.5) keeps no overrides.
+  (`core/pkg/service/schematic/imex.go:45-64`) makes the enumerations and the symbol
+  copies with the same function as the upgrade. An import reuses an enumeration or a
+  symbol copy with equal content among the records that the importer can retrieve, as
+  the upgrade shares them, and adds a new one otherwise. A copy goes into the group of
+  its source symbol. The import needs retrieve access on the source symbol of each copy
+  that it adds, create access for each record that it adds, and update access on the
+  group of each copy. A node that gets `missing` (RFC 0114 §4.5) keeps no overrides.
 
 The line plot migration stores the color that each uncolored line and rule shows today
 as `fixed`. The old 14 colors are frozen in the migration's version package. Each other
@@ -253,17 +256,17 @@ flag. Phases 10 and 11 ship in one release, and phases 19 to 22 in one release w
 | 10    | Store color references on line plot lines and rules      | `schemas/synnax`, `core/pkg/service/lineplot`, `client/ts`                                                                                        | 5              |
 | 11    | Resolve and write line color references in Pluto         | `pluto/src/lineplot`, `console/src/feature/lineplot`                                                                                              | 6, 7, 10       |
 | 12    | Read every data color from the series colors             | `lyra/src/theme`, `pluto/src`                                                                                                                     | 5, 6, 7, 8, 11 |
-| 13    | Add the enum record                                      | `schemas/synnax`, `core/pkg/service/enum`                                                                                                         | 3              |
-| 14    | Add the enum API, used-by list, and built-in enums       | `core/pkg/api/enum`, `core/pkg/service/enum`                                                                                                      | 5, 13          |
-| 15    | Add enums to the clients and Pluto queries               | `client/ts`, `client/py`, `pluto/src/enum`                                                                                                        | 14             |
-| 16    | Add the Console enum editor with its checks              | `console/src/feature/enum`                                                                                                                        | 9, 15          |
-| 17    | Add Replace with for enums                               | `core/pkg/api/enum`, `console/src/feature/enum`                                                                                                   | 1, 16          |
-| 18    | Draw stale and unknown indicators instead of colors      | `pluto/src/schematic`, `pluto/src/vis`, `schemas/synnax`, `core/pkg/service/schematic`, `console/src/feature/schematic`                           | -              |
-| 19    | Add enum references to symbol states                     | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `core/pkg/service/schematic`                                                               | 13             |
+| 13    | Add the enumeration record                               | `schemas/synnax`, `core/pkg/service/enumeration`                                                                                                  | 3              |
+| 14    | Add the enumeration API, used-by list, and built-ins     | `core/pkg/api/enumeration`, `core/pkg/service/enumeration`                                                                                        | 5, 13          |
+| 15    | Add enumerations to the clients and Pluto queries        | `client/ts`, `client/py`, `pluto/src/enumeration`                                                                                                 | 14             |
+| 16    | Add the Console enumeration editor with its checks       | `console/src/feature/enumeration`                                                                                                                 | 9, 15          |
+| 17    | Add Replace with for enumerations                        | `core/pkg/api/enumeration`, `console/src/feature/enumeration`                                                                                     | 1, 16          |
+| 18    | Draw stale and unknown indicators instead of colors      | `pluto/src/schematic`, `pluto/src/vis`, `schemas/synnax`, `core/pkg/service/schematic`, `console/src/feature/schematic`, `integration`            | -              |
+| 19    | Add enumeration references to symbol states              | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `core/pkg/service/schematic`                                                               | 13             |
 | 20    | Draw entry paint in Pluto                                | `pluto/src/schematic`                                                                                                                             | 15, 19         |
-| 21    | Add the enum picker to the symbol forms                  | `pluto/src/schematic`, `console/src/feature/schematic`                                                                                            | 16, 19         |
-| 22    | Migrate inline state colors to enums                     | `schemas/synnax`, `core/pkg/service/schematic`, `core/pkg/service/schematic/symbol`, `pluto/src/schematic`, `console`, `client/py`, `integration` | 20, 21         |
-| 23    | Delete the named colors and enums flag                   | `console/src/flags.ts`                                                                                                                            | 22             |
+| 21    | Add the enumeration picker to the symbol forms           | `pluto/src/schematic`, `console/src/feature/schematic`                                                                                            | 16, 19         |
+| 22    | Migrate inline state colors to enumerations              | `schemas/synnax`, `core/pkg/service/schematic`, `core/pkg/service/schematic/symbol`, `pluto/src/schematic`, `console`, `client/py`, `integration` | 20, 21         |
+| 23    | Delete the named colors and enumerations flag            | `console/src/flags.ts`                                                                                                                            | 22             |
 | 24    | Carry color references in multi-edit                     | `console/src/platform/multiedit`                                                                                                                  | 8              |
 | 25    | Store color references in schematic symbol colors        | `schemas/synnax`, `core/pkg/service/schematic`, `client/ts`, `client/py`                                                                          | 3, 24          |
 | 26    | Store color references in table colors                   | `schemas/synnax`, `core/pkg/service/table`, `client/ts`, `client/py`                                                                              | 3, 24          |
@@ -275,19 +278,19 @@ flag. Phases 10 and 11 ship in one release, and phases 19 to 22 in one release w
 Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. Phase 18 mints a
 schematic version (RFC 0053) that drops `staleness_color`. Tables keep their own
 `staleness_color` and its color path in `pluto/src/vis`. Before RFC 0114 phase 2, only a
-`select` or `state_indicator` can match no entry. Phase 19 also adds the `enum` field to
-`select` and `state_indicator`, and phase 22 fills it. Phase 21 adds the enum picker to
-the Pluto forms of `select` and `state_indicator`, and the Console passes the flag to
-them as a prop. RFC 0114 phase 2 adds it to node state bindings, and RFC 0114 phase 4 to
-custom symbol states. RFC 0114 phase 1 stores a `color.Ref` in custom symbol looks from
-the start. In phase 29, the Driver writes range colors
+`select` or `state_indicator` can match no entry. Phase 19 also adds the `enumeration`
+field to `select` and `state_indicator`, and phase 22 fills it. Phase 21 adds the
+enumeration picker to the Pluto forms of `select` and `state_indicator`, and the Console
+passes the flag to them as a prop. RFC 0114 phase 2 adds it to node state bindings, and
+RFC 0114 phase 4 to custom symbol states. RFC 0114 phase 1 stores a `color.Ref` in
+custom symbol looks from the start. In phase 29, the Driver writes range colors
 (`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
 
 ## 7 Resolved decisions
 
-1. **The enum is the state map, and a palette is a group**: A palette record for each
-   enum adds a third record and a map that follows every entry edit. The trade is real:
-   two conventions for one set of states need two enums.
+1. **The enumeration is the state map, and a palette is a group**: A palette record for
+   each enumeration adds a third record and a map that follows every entry edit. The
+   trade is real: two conventions for one set of states need two enumerations.
 2. **A required light value and an optional dark value**: The band cannot rotate hue;
    yellow goes olive when only darkened (`lyra/src/theme/theme.ts:189-190`). The trade
    is real: a dark value deviates from RFC 0061 rule 4.
@@ -311,7 +314,8 @@ the start. In phase 29, the Driver writes range colors
 7. **A `fixed` reference keeps one value**: A deleted color inlines its light value, and
    the symbol lightness band adapts it on schematic symbols. The trade is real: in the
    dark theme, a deleted color with a dark value shows its light value.
-8. **An enum in use refuses the delete**: A symbol with no enum loses its states.
+8. **An enumeration in use refuses the delete**: A symbol with no enumeration loses its
+   states.
 9. **Built-ins are editable, and a release changes them by migration**: The migration
    compares each field with the old shipped value. Copy-to-edit makes each site keep a
    copy. Overwrite at startup erases edits on each release. A stored list of edited
@@ -322,23 +326,25 @@ the start. In phase 29, the Driver writes range colors
     rename or recolor it.
 11. **Built-in colors do not color the Console**: The trade is real: shipped error red
     is in two places and can drift.
-12. **One migration at upgrade**: A manual "Make enum" action keeps two code paths.
+12. **One migration at upgrade**: A manual "Make enumeration" action keeps two code
+    paths.
 13. **The plot migration writes fixed colors**: Series keys by position recolor old
     plots, because 16 colors replace 14.
 14. **Built-ins keep a vibrant look**: Gray until abnormal changes every schematic.
-15. **Exact values, and a stored band for two-state states**: Selects and buttons write
-    one value, so an entry is one value. Valves, pumps, and lights store today's band on
-    the state, so every number reads as today, and an enum edit never switches a valve
-    to exact matches. The trade is real: a valve stuck at 0.5 shows Closed with no
-    indicator, as today. Ranges belong to the `limit` type.
+15. **Exact values, and a stored `within` match for two-state states**: Selects and
+    buttons write one value, so an entry is one value. Valves, pumps, and lights store
+    today's threshold as a `within` match on the state, so every number reads as today,
+    and an enumeration edit never switches a valve to exact matches. The trade is real:
+    a valve stuck at 0.5 shows Closed with no indicator, as today. Ranges belong to the
+    `limit` type.
 16. **Entry values are `float64`**: Every state symbol reads and writes numbers, and a
     `float64` holds each integer state code exactly. A value of any channel type adds a
     type to each entry and a conversion to each match. The trade is real: a string
-    channel cannot drive an enum.
-17. **The default enum is on the symbol state**: A setting for each symbol is a second
-    place for the same fact.
+    channel cannot drive an enumeration.
+17. **The default enumeration is on the symbol state**: A setting for each symbol is a
+    second place for the same fact.
 18. **The cutover ships with the consolidation**: One node migration then writes the new
-    variant and its enum keys, not one migration for each old variant.
+    variant and its enumeration keys, not one migration for each old variant.
 19. **The union is `color.Ref` and the record is `color.Named`**: A fixed variant is not
     a swatch, and the `named` variant names a `color.Named`. The trade is real: the
     Synnax `color` schema shares its name with the x value type, so Oracle aliases one
@@ -348,14 +354,16 @@ the start. In phase 29, the Driver writes range colors
     the color. Figma stores the order of its styles the same way. The trade is real: no
     other record stores an order that a user sets, and the Console needs a drag to
     reorder.
-21. **Node overrides move into symbol copies**: Overrides that an enum cannot carry go
-    to a copy of the symbol, so no node repaints at upgrade. Dropping them repaints
-    nodes that users colored by hand. The trade is real: the symbol tree gains copies,
-    and a copied node misses later edits to its source symbol's drawing, commands, and
-    interactions.
+21. **Node overrides move into symbol copies**: Overrides that an enumeration cannot
+    carry go to a copy of the symbol, so no node repaints at upgrade. Dropping them
+    repaints nodes that users colored by hand. The trade is real: the symbol tree gains
+    copies, and a copied node misses later edits to its source symbol's drawing,
+    commands, and interactions.
+22. **The record is an enumeration**: `enum` is reserved in Oracle and in TypeScript, so
+    the record is `enumeration.Enumeration`, with the TypeScript namespace
+    `Enumeration`.
 
 ## 8 Open questions
 
-- **TypeScript namespace for enums**: `enum` is a reserved word in TypeScript.
 - **Built-in values**: The final series color values, chosen on a line plot in both
-  themes, and the built-in enums beyond "Valve" and "Light".
+  themes, and the built-in enumerations beyond "Valve" and "Light".

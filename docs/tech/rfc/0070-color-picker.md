@@ -4,7 +4,7 @@
 - **Date**: 2026-09-27
 - **Related**: [RFC 0061 - Theme-resolved color](0061-theme-resolved-color.md),
   [RFC 0066 - Lyra primitives package](0066-lyra-primitives-package.md),
-  [RFC 0112 - Named colors and enums](0112-named-colors-and-enums.md)
+  [RFC 0112 - Named colors and enumerations](0112-named-colors-and-enums.md)
 
 ## 0 Summary
 
