@@ -15,8 +15,18 @@ package service.ni_device.pb;
 
 import "core/pkg/service/status/pb/status.proto";
 import "x/go/filter/pb/filter.proto";
+import "x/go/spatial/pb/spatial.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/ni/device/pb";
+
+// TerminalConfig selects the terminal configuration for an analog input channel.
+enum TerminalConfig {
+  TERMINAL_CONFIG_CFG_DEFAULT = 0;
+  TERMINAL_CONFIG_RSE = 1;
+  TERMINAL_CONFIG_NRSE = 2;
+  TERMINAL_CONFIG_DIFF = 3;
+  TERMINAL_CONFIG_PSEUDO_DIFF = 4;
+}
 
 // Device is an NI module in a chassis, or a standalone USB or PCIe device.
 message Device {
@@ -35,21 +45,24 @@ message Device {
   string model = 6;
   // chassis is the chassis that holds the device. Absent for a standalone device.
   optional string chassis = 7;
+  // hardware is what the Driver read from DAQmx about the device. Absent until the
+  // Driver reads it.
+  optional Hardware hardware = 8;
   // identifier is the prefix of the device's channel names. The device is unconfigured
   // while it is empty.
-  string identifier = 8;
+  string identifier = 9;
   // analog_input are the channels of the analog input ports.
-  AnalogInputPorts analog_input = 9;
+  AnalogInputPorts analog_input = 10;
   // analog_output maps an analog output port number to its channels.
-  map<uint32, AnalogOutputChannels> analog_output = 10;
+  map<uint32, AnalogOutputChannels> analog_output = 11;
   // counter_input maps a counter number to its channels.
-  map<uint32, CounterInputChannels> counter_input = 11;
+  map<uint32, CounterInputChannels> counter_input = 12;
   // digital_input maps a digital port number to its input channels.
-  map<uint32, DigitalInputChannels> digital_input = 12;
+  map<uint32, DigitalInputChannels> digital_input = 13;
   // digital_output maps a digital port number to its output channels.
-  map<uint32, DigitalOutputChannels> digital_output = 13;
+  map<uint32, DigitalOutputChannels> digital_output = 14;
   // status is the current operational status of the device.
-  optional .service.status.pb.Status status = 14;
+  optional .service.status.pb.Status status = 15;
 }
 message WhereList {
   repeated Where values = 1;
@@ -174,6 +187,9 @@ message Identity {
   string model = 4;
   // chassis is the chassis that holds the device. Absent for a standalone device.
   optional string chassis = 5;
+  // hardware is what the Driver read from DAQmx about the device. An update without it
+  // keeps the stored value.
+  optional Hardware hardware = 6;
 }
 
 // Configuration holds the device fields that the user owns.
@@ -193,6 +209,93 @@ message Configuration {
   map<uint32, DigitalInputChannels> digital_input = 6;
   // digital_output maps a digital port number to its output channels.
   map<uint32, DigitalOutputChannels> digital_output = 7;
+}
+
+// AnalogInputPort is an analog input port of an NI device.
+message AnalogInputPort {
+  // port is the number in the DAQmx name of the port, such as 3 for ai3.
+  uint32 port = 1;
+  // terminal_configs are the terminal configurations that the port accepts.
+  repeated TerminalConfig terminal_configs = 2;
+  // default_terminal_config is the terminal configuration that Cfg_Default gives on the
+  // port. The value Cfg_Default means that the Driver did not read it. DAQmx always
+  // reads back a real configuration.
+  TerminalConfig default_terminal_config = 3;
+  // types are the channel types that the port accepts, such as ai_voltage.
+  repeated string types = 4;
+  // negative is the port that a differential channel on this port uses as its negative
+  // input. 0 means that the port has no pair. Port 0 is never a negative port.
+  uint32 negative = 5;
+}
+
+// AnalogOutputPort is an analog output port of an NI device.
+message AnalogOutputPort {
+  // port is the number in the DAQmx name of the port, such as 1 for ao1.
+  uint32 port = 1;
+  // terminal_configs are the terminal configurations that the port accepts.
+  repeated TerminalConfig terminal_configs = 2;
+  // types are the channel types that the port accepts, such as ao_voltage.
+  repeated string types = 3;
+}
+
+// CounterPort is a counter of an NI device.
+message CounterPort {
+  // port is the number in the DAQmx name of the counter, such as 0 for ctr0.
+  uint32 port = 1;
+  // types are the channel types that the counter accepts, such as ci_frequency.
+  repeated string types = 2;
+}
+
+// DigitalPort is a digital port of an NI device.
+message DigitalPort {
+  // port is the number in the DAQmx name of the port, such as 0 for port0.
+  uint32 port = 1;
+  // lines is the number of lines in the port.
+  uint32 lines = 2;
+  // input is true when the port reads digital input.
+  bool input = 3;
+  // output is true when the port writes digital output.
+  bool output = 4;
+}
+
+// Hardware is what the Driver reads from DAQmx about the ports, rates, and ranges of an
+// NI device.
+message Hardware {
+  // analog_inputs are the analog input ports of the device.
+  repeated AnalogInputPort analog_inputs = 1;
+  // analog_outputs are the analog output ports of the device.
+  repeated AnalogOutputPort analog_outputs = 2;
+  // counter_inputs are the counters of the device that read input.
+  repeated CounterPort counter_inputs = 3;
+  // counter_outputs are the counters of the device that write output.
+  repeated CounterPort counter_outputs = 4;
+  // digital_ports are the digital ports of the device.
+  repeated DigitalPort digital_ports = 5;
+  // terminals are the terminals of the device, such as PFI0, without the device name.
+  repeated string terminals = 6;
+  // ai_min_rate is the lowest analog input sample rate, in Hz. 0 means that the device
+  // does not support the attribute.
+  double ai_min_rate = 7;
+  // ai_max_single_channel_rate is the highest analog input sample rate of one channel,
+  // in Hz. 0 means that the device does not support the attribute.
+  double ai_max_single_channel_rate = 8;
+  // ai_max_multi_channel_rate is the highest analog input sample rate of the device, in
+  // Hz. A task with several channels divides it by the channel count. 0 means that the
+  // device does not support the attribute.
+  double ai_max_multi_channel_rate = 9;
+  // ao_max_rate is the highest analog output sample rate, in Hz. 0 means that the
+  // device does not support the attribute.
+  double ao_max_rate = 10;
+  // ai_voltage_ranges are the analog input voltage ranges of the device, ends included.
+  repeated .x.spatial.pb.Bounds ai_voltage_ranges = 11;
+  // ai_current_ranges are the analog input current ranges of the device, ends included.
+  repeated .x.spatial.pb.Bounds ai_current_ranges = 12;
+  // ao_voltage_ranges are the analog output voltage ranges of the device, ends
+  // included.
+  repeated .x.spatial.pb.Bounds ao_voltage_ranges = 13;
+  // ao_current_ranges are the analog output current ranges of the device, ends
+  // included.
+  repeated .x.spatial.pb.Bounds ao_current_ranges = 14;
 }
 
 // Update is a write to one field group of a device.

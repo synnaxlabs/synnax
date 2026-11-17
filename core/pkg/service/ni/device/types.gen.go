@@ -124,13 +124,6 @@ type Identity struct {
 	Hardware *Hardware `json:"hardware,omitzero" msgpack:"hardware,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *Identity) ApplyDefaults() {
-	if i.Hardware != nil {
-		i.Hardware.ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (i Identity) Validate() error {
@@ -193,11 +186,6 @@ type IdentityUpdate struct {
 }
 
 func (IdentityUpdate) isUpdateVariant() {}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *IdentityUpdate) ApplyDefaults() {
-	i.Identity.ApplyDefaults()
-}
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
@@ -307,24 +295,16 @@ func (u Update) Group() UpdateType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *Update) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case IdentityUpdate:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Update) Validate() error {
+	v := validate.New("Update")
+	v.Ternary("group", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case IdentityUpdate:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case ConfigurationUpdate:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
