@@ -314,6 +314,16 @@ TEST_F(OutboxTest, IgnoresZeroFilledTail) {
     ASSERT_EQ(outbox->cut(), 64);
 }
 
+/// @brief it should count a segment that a crash cut off in its file start as cut.
+TEST_F(OutboxTest, CutsSegmentWithCutOffFileStart) {
+    std::filesystem::create_directories(this->dir);
+    std::ofstream(this->segment(), std::ios::binary).write(SEGMENT_MAGIC.data(), 5);
+    const auto outbox = this->open_unreachable();
+    ASSERT_EQ(outbox->size(), 0);
+    ASSERT_EQ(outbox->cut(), 5);
+    ASSERT_FALSE(std::filesystem::exists(this->segment()));
+}
+
 /// @brief it should refuse to open a segment from a newer format version.
 TEST_F(OutboxTest, RefusesUnknownVersion) {
     std::filesystem::create_directories(this->dir);
