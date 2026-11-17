@@ -25,6 +25,7 @@ namespace driver::journal {
 namespace {
 const Magic SEGMENT = {'S', 'Y', 'T', 'E', 'S', 'T', 'S', 'G'};
 const Magic OTHER = {'S', 'Y', 'T', 'E', 'S', 'T', 'O', 'F'};
+const Magic OFFSET = {'S', 'Y', 'T', 'E', 'S', 'T', 'O', 'F'};
 const std::filesystem::path TESTDATA = "driver/journal/testdata";
 
 std::string read_file(const std::filesystem::path &path) {
@@ -133,6 +134,20 @@ TEST_F(JournalTest, WritesV1Segment) {
     EXPECT_EQ(writer->pos(), HEADER_SIZE + 4 * RECORD_PREFIX_SIZE + 12);
     ASSERT_NIL(writer->close());
     EXPECT_EQ(read_file(this->path), read_file(TESTDATA / "v1_segment.bin"));
+}
+
+/// @brief it should read a v1 offset file, which every later Driver must read.
+TEST_F(JournalTest, ReadsV1Offset) {
+    const auto offset = ASSERT_NIL_P(read_offset(TESTDATA / "v1_offset.bin", OFFSET));
+    EXPECT_EQ(offset.value().segment, 7);
+    EXPECT_EQ(offset.value().pos, 42);
+}
+
+/// @brief it should write the same bytes as the v1 offset fixture.
+TEST_F(JournalTest, WritesV1Offset) {
+    const auto offset_path = this->dir / "0.offset";
+    ASSERT_NIL(commit_offset(offset_path, OFFSET, {.segment = 7, .pos = 42}));
+    EXPECT_EQ(read_file(offset_path), read_file(TESTDATA / "v1_offset.bin"));
 }
 
 /// @brief it should append after the records of an existing file.
@@ -385,6 +400,55 @@ TEST_F(JournalTest, CutOffFileStartIsEmptyLog) {
     EXPECT_FALSE(ASSERT_NIL_P(reader->next()).has_value());
     EXPECT_EQ(reader->cut(), 4);
     EXPECT_EQ(reader->pos(), 0);
+}
+
+/// @brief it should read the last committed offset, and nothing before a commit.
+TEST_F(JournalTest, CommitsAndReopensOffset) {
+    const auto offset_path = this->dir / "0.offset";
+    EXPECT_FALSE(ASSERT_NIL_P(read_offset(offset_path, OFFSET)).has_value());
+    ASSERT_NIL(commit_offset(offset_path, OFFSET, {.segment = 1, .pos = 20}));
+    ASSERT_NIL(commit_offset(offset_path, OFFSET, {.segment = 2, .pos = 30}));
+    const auto offset = ASSERT_NIL_P(read_offset(offset_path, OFFSET));
+    EXPECT_EQ(offset.value().segment, 2);
+    EXPECT_EQ(offset.value().pos, 30);
+}
+
+/// @brief it should return CORRUPT for an offset file with bytes after its record.
+TEST_F(JournalTest, OffsetWithExtraBytesIsCorrupt) {
+    const auto offset_path = this->dir / "0.offset";
+    ASSERT_NIL(commit_offset(offset_path, OFFSET, {.segment = 1, .pos = 20}));
+    append_file(offset_path, std::string(4, '\0'));
+    ASSERT_OCCURRED_AS_P(read_offset(offset_path, OFFSET), CORRUPT);
+}
+
+/// @brief it should return CORRUPT for an offset record with the wrong length.
+TEST_F(JournalTest, OffsetWithWrongLengthIsCorrupt) {
+    const auto offset_path = this->dir / "0.offset";
+    ASSERT_NIL(commit_offset(offset_path, OFFSET, {.segment = 1, .pos = 20}));
+    auto data = read_file(offset_path).substr(0, HEADER_SIZE);
+    write_file(offset_path, data + encode(1, std::string(15, 'a')));
+    ASSERT_OCCURRED_AS_P(read_offset(offset_path, OFFSET), CORRUPT);
+}
+
+/// @brief it should return UNKNOWN_MAGIC for a file that is not an offset file.
+TEST_F(JournalTest, OffsetWithBadMagicIsUnknownMagic) {
+    this->write({});
+    ASSERT_OCCURRED_AS_P(read_offset(this->path, OFFSET), UNKNOWN_MAGIC);
+}
+
+/// @brief it should remove a file.
+TEST_F(JournalTest, RemovesFile) {
+    this->write({});
+    ASSERT_NIL(journal::remove(this->path));
+    EXPECT_FALSE(std::filesystem::exists(this->path));
+}
+
+/// @brief it should refuse a second lock on a directory until the first releases.
+TEST_F(JournalTest, LockIsExclusive) {
+    auto lock = ASSERT_NIL_P(Lock::open(this->dir));
+    ASSERT_OCCURRED_AS_P(Lock::open(this->dir), LOCKED);
+    lock.reset();
+    ASSERT_NIL_P(Lock::open(this->dir));
 }
 
 /// @brief it should sync when sync_interval passes or sync_bytes are written.
