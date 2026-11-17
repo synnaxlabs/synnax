@@ -467,6 +467,7 @@ TEST(StatesTest, EarlierGateTakesBackATieAfterDisconnect) {
 /// who takes the channel next.
 TEST(StatesTest, WaitsForTheCoreWhileConnected) {
     States states;
+    states.opened_on_core(ARC);
     states.open_gate(ARC, {1}, {200});
     states.open_gate(OPERATOR, {1}, {100});
     states.set_authority(ARC, 1, 50);
@@ -495,6 +496,7 @@ TEST(StatesTest, KeepsARemoteHolderAfterDisconnect) {
 /// closed while the Core was connected.
 TEST(StatesTest, DisconnectHandsOffAChannelAClosedWriterHeld) {
     States states;
+    states.opened_on_core(ARC);
     states.open_gate(ARC, {1}, {200});
     states.open_gate(OPERATOR, {1}, {150});
     states.close_gate(ARC);
@@ -508,6 +510,7 @@ TEST(StatesTest, DisconnectHandsOffAChannelAClosedWriterHeld) {
 /// lowered its authority while the Core was connected.
 TEST(StatesTest, DisconnectAppliesADecreaseMadeWhileConnected) {
     States states;
+    states.opened_on_core(ARC);
     states.open_gate(ARC, {1}, {200});
     states.open_gate(OPERATOR, {1}, {150});
     states.set_authority(ARC, 1, 100);
@@ -522,6 +525,7 @@ TEST(StatesTest, SetWaitsForTheCoreAgain) {
     states.disconnect();
     states.open_gate(ARC, {1}, {200});
     states.open_gate(OPERATOR, {1}, {150});
+    states.opened_on_core(ARC);
     states.set({x::control::State<synnax::channel::Key>{
         .subject = ARC,
         .resource = 1,
@@ -530,5 +534,37 @@ TEST(StatesTest, SetWaitsForTheCoreAgain) {
     states.close_gate(ARC);
     ASSERT_TRUE(states.is_authorized(1, ARC));
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should keep the local rule after reconnect for a writer that has not
+/// opened on the Core again, and wait for the Core once it has.
+TEST(StatesTest, KeepsTheLocalRuleUntilAWriterReopens) {
+    States states;
+    states.opened_on_core(ARC);
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {150});
+    states.disconnect();
+    states.set({});
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    states.set_authority(ARC, 1, 100);
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    states.opened_on_core(OPERATOR);
+    states.set_authority(OPERATOR, 1, 50);
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    states.close_gate(OPERATOR);
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should hand a channel to the next local gate when a writer that has not
+/// opened on the Core again closes after reconnect.
+TEST(StatesTest, HandsOffWhenAWriterClosesBeforeItReopens) {
+    States states;
+    states.opened_on_core(ARC);
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {150});
+    states.disconnect();
+    states.set({});
+    states.close_gate(ARC);
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
 }
 }

@@ -63,6 +63,8 @@ struct ForwarderConfig {
     /// quarter. Once a frame drops, it reports the drop count instead, and leaves the
     /// final count when the forwarder closes. Called from the forwarder thread only.
     Warn warn;
+    /// @brief called from the forwarder thread each time the Core writer opens.
+    std::function<void()> on_open;
     /// @brief backs off from an unreachable Core, with no retry limit.
     x::breaker::Config breaker{
         .name = "forwarder",
@@ -85,6 +87,7 @@ class Forwarder {
     const size_t max_queue_bytes;
     const std::chrono::nanoseconds drop_report_interval;
     const Warn warn;
+    const std::function<void()> on_open;
     x::breaker::Breaker breaker;
 
     // Only the forwarder thread touches these.
@@ -272,6 +275,7 @@ class Forwarder {
                 if (this->wait(open_err)) continue;
                 return;
             }
+            if (this->on_open) this->on_open();
             this->settle();
             this->breaker.reset();
             Op op;
@@ -299,6 +303,7 @@ public:
         max_queue_bytes(cfg.max_queue_bytes),
         drop_report_interval(cfg.drop_report_interval.chrono()),
         warn(cfg.warn),
+        on_open(cfg.on_open),
         breaker(cfg.breaker),
         dropped_frames(cfg.dropped) {
         this->breaker.start();

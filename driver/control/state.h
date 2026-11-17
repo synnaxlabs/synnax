@@ -25,10 +25,11 @@
 
 namespace driver::control {
 /// @brief maintains a local mirror of per-channel authority state. It also keeps a
-/// gate for each local writer. While the Core is connected, the mirror takes authority
-/// increases at once and waits for the Core's control updates for the rest. After
-/// disconnect, it applies the Core's rule over the local gates itself: the highest
-/// authority holds, and the earlier gate wins a tie.
+/// gate for each local writer. For a writer open on a connected Core, the mirror takes
+/// authority increases at once and waits for the Core's control updates for the rest.
+/// After disconnect, and for a writer not yet open on the Core, it applies the Core's
+/// rule over the local gates itself: the highest authority holds, and the earlier gate
+/// wins a tie.
 class States {
     struct Gate {
         x::control::Subject subject;
@@ -43,8 +44,14 @@ class States {
     /// @brief local writers that closed while the Core was connected. The mirror can
     /// still name one as a holder until the Core's transfer arrives.
     std::unordered_set<std::string> closed;
+    /// @brief local writers open on the Core since it was last lost.
+    std::unordered_set<std::string> seen;
     std::uint64_t next_order = 0;
     bool connected = true;
+
+    [[nodiscard]] bool local(const x::control::Subject &subject) const {
+        return !this->connected || !this->seen.contains(subject.key);
+    }
 
     Gate &gate(const x::control::Subject &subject) {
         auto [it, added] = this->gates.try_emplace(subject.key);
@@ -84,8 +91,8 @@ class States {
     ) {
         this->gate(subject).authorities[channel] = authority;
         const auto it = this->states.find(channel);
-        if (!this->connected && (it == this->states.end() ||
-                                 this->gates.contains(it->second.subject.key))) {
+        if (this->local(subject) && (it == this->states.end() ||
+                                     this->gates.contains(it->second.subject.key))) {
             this->recompute(channel);
             return;
         }
@@ -139,12 +146,13 @@ public:
         for (const auto channel: stale)
             this->recompute(channel);
         this->closed.clear();
+        this->seen.clear();
     }
 
     /// @brief replaces the mirror with the cluster's complete control state and marks
     /// the Core as connected. A channel the Core reports as uncontrolled goes to its
     /// local gates, so a local writer that has not reopened on the Core yet keeps its
-    /// channels.
+    /// channels. Such a writer keeps the local rule until opened_on_core.
     void set(const std::vector<x::control::State<synnax::channel::Key>> &next) {
         std::unique_lock lock(this->mu);
         this->connected = true;
@@ -155,6 +163,14 @@ public:
         for (const auto &[_, g]: this->gates)
             for (const auto &[channel, _]: g.authorities)
                 if (!this->states.contains(channel)) this->recompute(channel);
+    }
+
+    /// @brief records that the writer of subject opened on the Core. Until the next
+    /// disconnect, its decreases and close wait for the Core's transfers while the Core
+    /// is connected. Safe to call before its gate opens.
+    void opened_on_core(const x::control::Subject &subject) {
+        std::unique_lock lock(this->mu);
+        this->seen.insert(subject.key);
     }
 
     /// @brief applies the control updates carried by a series from the control channel.
@@ -202,15 +218,17 @@ public:
         this->set_authority_locked(subject, channel, authority);
     }
 
-    /// @brief closes the gate of a local writer. After disconnect, each channel it held
-    /// goes to the next local gate.
+    /// @brief closes the gate of a local writer. After disconnect, or before the writer
+    /// opened on the Core, each channel it held goes to the next local gate.
     void close_gate(const x::control::Subject &subject) {
         std::unique_lock lock(this->mu);
         const auto it = this->gates.find(subject.key);
         if (it == this->gates.end()) return;
         const auto channels = it->second.authorities;
         this->gates.erase(it);
-        if (this->connected) {
+        const bool local = this->local(subject);
+        this->seen.erase(subject.key);
+        if (!local) {
             this->closed.insert(subject.key);
             return;
         }

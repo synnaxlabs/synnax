@@ -770,4 +770,28 @@ TEST(WriterTest, StartsEachRunWithNoDrops) {
     for (size_t i = first_run; i < warnings->size(); i++)
         EXPECT_NE(warnings->at(i).first, "Dropped frames");
 }
+
+/// @brief it should mark a writer open on the Core once its forwarder opens, so a
+/// decrease waits for the Core's transfer.
+TEST(WriterTest, MarksAWriterOpenOnTheCore) {
+    auto states = std::make_shared<control::States>();
+    WriterFactory factory(
+        std::make_shared<::driver::pipeline::testutil::WriterFactory>(),
+        std::make_shared<Bus>(),
+        states,
+        0
+    );
+    const x::control::Subject arc{.key = "arc-1", .name = "arc"};
+    const x::control::Subject op{.key = "op-1", .name = "operator"};
+    auto arc_writer = ASSERT_NIL_P(
+        factory.open_writer({.channels = {1}, .authorities = {200}, .subject = arc})
+    );
+    auto op_writer = ASSERT_NIL_P(
+        factory.open_writer({.channels = {1}, .authorities = {100}, .subject = op})
+    );
+    ASSERT_NIL(arc_writer->set_authority({.keys = {1}, .authorities = {50}}));
+    ASSERT_TRUE(states->is_authorized(1, arc));
+    ASSERT_NIL(op_writer->close());
+    ASSERT_NIL(arc_writer->close());
+}
 }

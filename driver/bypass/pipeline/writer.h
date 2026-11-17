@@ -138,6 +138,9 @@ public:
         this->bus->register_channels(cfg.channels);
         auto forwarder_cfg = this->forwarder;
         forwarder_cfg.dropped = this->carried_drops->load();
+        forwarder_cfg.on_open = [states = this->states, subject = cfg.subject] {
+            states->opened_on_core(subject);
+        };
         auto forwarder = std::make_unique<Forwarder>(this->server, cfg, forwarder_cfg);
         if (auto err = forwarder->opened()) return {nullptr, err};
         this->states->open_gate(cfg.subject, cfg.channels, cfg.authorities);
