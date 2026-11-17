@@ -62,8 +62,9 @@ label.
 A `review/human` reviewer reads the changed interface and its tests, approves or
 requests changes, and confirms a stored shape change carries a migration. A change to
 the mode, owner, or location of a file or directory that a deployment manages, such as
-the Driver state directory, is breaking. Its PR description says so, and the release
-notes of its product must list it.
+the Driver state directory, is breaking. The generated release notes show only PR
+titles, so the same PR adds the change to the breaking changes on the next release's
+page in `site/docs/src/releases/`.
 
 Two statuses gate a merge into `main` or a `release/**` branch. `Review gate` stays
 pending until the PR has one tier label and a finished Sedosaur review of the head. A
