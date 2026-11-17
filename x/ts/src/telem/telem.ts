@@ -618,12 +618,13 @@ export class TimeStamp
   }
 
   /**
-   * @returns the current UTC time from the default {@link Clock}. The resolution is
-   * finer than a millisecond in Node.js, Deno, and Bun, and in browsers that do not
-   * coarsen `performance.now`. Consecutive calls can return equal values.
+   * @returns the current UTC time. The resolution is finer than a millisecond in
+   * runtimes that have `Temporal`, and a millisecond in other runtimes.
    */
   static now(): TimeStamp {
-    return DEFAULT_CLOCK.now();
+    if ("Temporal" in globalThis)
+      return new TimeStamp(Temporal.Now.instant().epochNanoseconds);
+    return new TimeStamp(new Date());
   }
 
   /** @returns the latest of the given timestamps. */
@@ -2058,61 +2059,6 @@ export interface CrudeTimeRange {
   start: CrudeTimeStamp;
   end: CrudeTimeStamp;
 }
-
-/** The time sources that a {@link Clock} reads, in milliseconds. */
-export interface ClockSources {
-  /** Reads the wall-clock time since the Unix epoch, such as `Date.now`. */
-  wall: () => number;
-  /** Reads the monotonic time since `origin`, such as `performance.now`. */
-  monotonic: () => number;
-  /** The wall-clock time at which `monotonic` was zero: `performance.timeOrigin`. */
-  origin: number;
-}
-
-const msToNs = (ms: number): bigint =>
-  BigInt(Math.trunc(ms)) * TimeSpan.MILLISECOND.valueOf() +
-  BigInt(Math.round((ms % 1) * 1e6));
-
-/**
- * Reads the wall-clock time with the resolution of a monotonic clock. A monotonic clock
- * does not follow wall-clock steps, and it can pause while the host sleeps. When the
- * reading is more than `maxDrift` from the wall clock, the clock moves to the wall
- * clock. The time can then step backward.
- */
-export class Clock {
-  private readonly sources: ClockSources;
-  private readonly maxDrift: bigint;
-  private anchor: bigint;
-  private anchorMonotonic = 0;
-
-  constructor(
-    sources: ClockSources,
-    maxDrift: CrudeTimeSpan = TimeSpan.milliseconds(2),
-  ) {
-    this.sources = sources;
-    this.maxDrift = new TimeSpan(maxDrift).valueOf();
-    this.anchor = msToNs(sources.origin);
-  }
-
-  /** @returns the current UTC time. */
-  now(): TimeStamp {
-    const monotonic = this.sources.monotonic();
-    const wall = msToNs(this.sources.wall());
-    const ns = this.anchor + msToNs(monotonic - this.anchorMonotonic);
-    // The wall clock truncates to the millisecond.
-    const latest = wall + TimeSpan.MILLISECOND.valueOf() + this.maxDrift;
-    if (ns >= wall - this.maxDrift && ns < latest) return new TimeStamp(ns);
-    this.anchor = wall;
-    this.anchorMonotonic = monotonic;
-    return new TimeStamp(wall);
-  }
-}
-
-const DEFAULT_CLOCK = new Clock({
-  wall: () => Date.now(),
-  monotonic: () => performance.now(),
-  origin: performance.timeOrigin,
-});
 
 export const numericTimeRangeZ = z.object({
   start: z.number(),
