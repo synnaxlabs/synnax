@@ -113,6 +113,16 @@ class TestRangeNotCreated:
         with pytest.raises(sy.ConfigurationError):
             _ = rng.my_channel
 
+    def test_underscore_channel_index(self) -> None:
+        """Should treat an index that starts with an underscore as a channel query,
+        which needs a range that was created"""
+        rng = sy.Range(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        with pytest.raises(sy.ConfigurationError):
+            _ = rng["_x"]
+
     def test_private_attribute_miss(self) -> None:
         """Should raise an AttributeError, not query a channel, for a missing private
         attribute on a range built without __init__"""
@@ -151,6 +161,14 @@ class TestRangeClient:
                 ),
             ]
         )
+
+    def test_retrieved_copies_equal(
+        self, client: sy.Synnax, two_ranges: list[sy.Range]
+    ) -> None:
+        """Should treat two retrievals of one range as equal, though each holds its
+        own caches"""
+        key = two_ranges[0].key
+        assert client.ranges.retrieve(key=key) == client.ranges.retrieve(key=key)
 
     def test_create_single(self, client: sy.Synnax) -> None:
         """Should create a single valid range"""
