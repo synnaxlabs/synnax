@@ -265,6 +265,7 @@ jobs:
       coverage_flag: alamos-ts
       directory: alamos/ts
       macos: *full
+      node_lts: true
       package: alamos
       packed: true
       windows: *full
@@ -412,8 +413,12 @@ jobs:
       coverage_flag: client-ts
       directory: client/ts
       examples_package: "@synnaxlabs/client-examples"
+      macos: *full
+      node_lts: true
       package: client
       packed: true
+      runtimes: true
+      windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -723,24 +728,25 @@ jobs:
       - name: Check names that are public without need
         run: uv run --project scripts scripts/check_exports_py.py
 
-  # Fails on the Python suppressions the change adds: `# type: ignore`, `# noqa`,
-  # `# pyright: ignore`, `cast` calls, and `TYPE_CHECKING`. Ones on the base pass.
+  # Fails on any Python suppression in the repository: `# type: ignore`, `# noqa`,
+  # `# pyright: ignore`, `cast` calls, and `TYPE_CHECKING`.
   suppressions-py:
     needs: changes
     if:
-      ${{ !inputs.full && (needs.changes.outputs.suppressions_py == 'true' ||
-      contains(fromJSON(needs.changes.outputs.ci), 'suppressions-py')) }}
+      inputs.full || needs.changes.outputs.suppressions_py == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'suppressions-py')
     runs-on: ubuntu-latest
     steps:
-      # The first parent is the code the change applies to: the target branch of a pull
-      # request, or the merge group entries ahead.
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 2
 
-      - name: Check for added Python suppressions
-        run: python3 scripts/check_suppressions_py.py --base HEAD^1
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: latest-known
+
+      - name: Check for Python suppressions
+        run: uv run --project scripts scripts/check_suppressions_py.py
 
   format:
     uses: ./.github/workflows/test.format.yaml
@@ -875,6 +881,7 @@ jobs:
       coverage_flag: freighter-ts
       directory: freighter/ts
       freighter_image: ${{ needs.freighter-image.outputs.image }}
+      node_lts: true
       package: freighter
       packed: true
     secrets:
@@ -1298,6 +1305,7 @@ jobs:
       coverage_flag: x-ts
       directory: x/ts
       macos: *full
+      node_lts: true
       package: x
       packed: true
       windows: *full

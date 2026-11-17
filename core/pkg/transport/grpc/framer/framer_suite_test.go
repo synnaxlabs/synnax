@@ -55,7 +55,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	var pool *fgrpc.Pool
 	addr := StartServer(func(reg grpc.ServiceRegistrar, p *fgrpc.Pool) {
-		bindable = grpcframer.New(&transport, apiChannelSvc)
+		bindable = grpcframer.New(&transport, apiChannelSvc, api.NewErrorCodec())
 		bindable.BindTo(reg)
 		pool = p
 	})

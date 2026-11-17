@@ -82,8 +82,8 @@ var _ = Describe("CheapIs", func() {
 			"Should match after encode→decode because decode re-wraps sentinel",
 			func() {
 				original := errors.Wrap(query.ErrNotFound, "channel 123")
-				pld := errors.Encode(original, false)
-				decoded := errors.Decode(pld)
+				codec := errors.NewCodec(query.ErrorProvider())
+				decoded := codec.Decode(codec.Encode(original, false))
 				Expect(errors.CheapIs(decoded, query.ErrNotFound)).To(BeTrue())
 				Expect(errors.CheapIs(decoded, query.ErrQuery)).To(BeTrue())
 			},

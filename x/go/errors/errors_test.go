@@ -279,7 +279,7 @@ var _ = Describe("Is", func() {
 				}
 				joined := errors.Join(members...)
 				Expect(joined.Error()).To(Equal(want))
-				payload := errors.Encode(joined, false)
+				payload := errors.NewCodec().Encode(joined, false)
 				Expect(payload.Data).To(Equal(want))
 			},
 			Entry("before one character", "z", "", "z"),
@@ -297,11 +297,12 @@ var _ = Describe("Is", func() {
 
 		It("Should stay matchable after transport", func() {
 			sentinel := errors.New("sentinel")
-			payload := errors.Encode(
+			codec := errors.NewCodec()
+			payload := codec.Encode(
 				errors.Join(errors.Wrap(sentinel, "context"), errors.New("other")),
 				true,
 			)
-			decoded := errors.Decode(payload)
+			decoded := codec.Decode(payload)
 			Expect(decoded).To(MatchError("context: sentinel\nother"))
 			Expect(errors.Is(decoded, sentinel)).To(BeTrue())
 			Expect(errors.UnwrapMulti(decoded)).To(HaveLen(2))
@@ -337,7 +338,7 @@ var _ = Describe("Is", func() {
 			),
 			Entry("transport encoding under Wrap",
 				func(err error) string {
-					return errors.Encode(err, true).Data
+					return errors.NewCodec().Encode(err, true).Data
 				},
 				func(err error) error { return errors.Wrap(err, "context") },
 			),

@@ -12,6 +12,15 @@ name = "synnax-console"
 version = "0.0.0"
 edition = "2024"
 rust-version = "1.99"
+default-run = "synnax-console"
+
+[lib]
+name = "desktop"
+
+[[bin]]
+name = "synnax-desktop-key"
+path = "src/key.rs"
+required-features = ["desktop"]
 
 # See more keys and their definitions at
 # https://doc.rust-lang.org/cargo/reference/manifest.html

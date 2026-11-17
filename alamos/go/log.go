@@ -153,11 +153,16 @@ func (l *Logger) WithOptions(opts ...zap.Option) *Logger {
 	return nil
 }
 
-func CustomZapCore(core zapcore.Core) zapcore.Core {
-	return customCore{c: core}
+// CustomZapCore wraps core so that it drops the stack traces of errors that errs
+// reports as expected.
+func CustomZapCore(core zapcore.Core, errs *errors.Codec) zapcore.Core {
+	return customCore{c: core, errs: errs}
 }
 
-type customCore struct{ c zapcore.Core }
+type customCore struct {
+	c    zapcore.Core
+	errs *errors.Codec
+}
 
 var _ zapcore.Core = (*customCore)(nil)
 
@@ -168,7 +173,7 @@ func (c customCore) Enabled(level zapcore.Level) bool { return c.c.Enabled(level
 func (c customCore) With(
 	fields []zapcore.Field,
 ) zapcore.Core {
-	return &customCore{c.c.With(fields)}
+	return &customCore{c: c.c.With(fields), errs: c.errs}
 }
 
 // Check implements zapcore.Core.
@@ -208,7 +213,7 @@ func (c customCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 		if !ok {
 			continue
 		}
-		if !errors.Expected(err) {
+		if !c.errs.Expected(err) {
 			entry.Stack = errors.GetStackTrace(err).String()
 			unexpected = true
 			continue

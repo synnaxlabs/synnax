@@ -36,7 +36,7 @@ const (
 	unsupported       = typePrefix + ".unsupported"
 )
 
-func encode(err error) (errors.Payload, bool) {
+func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, ErrNotFound) {
 		return errors.Payload{Type: notFound, Data: err.Error()}, true
 	}
@@ -55,7 +55,7 @@ func encode(err error) (errors.Payload, bool) {
 	return errors.Payload{}, false
 }
 
-func decode(pld errors.Payload) (error, bool) {
+func decode(_ *errors.Codec, pld errors.Payload) (error, bool) {
 	switch pld.Type {
 	case notFound:
 		return errors.Wrap(ErrNotFound, pld.Data), true
@@ -72,6 +72,7 @@ func decode(pld errors.Payload) (error, bool) {
 	return nil, false
 }
 
-func init() {
-	errors.Register(encode, decode)
+// ErrorProvider encodes and decodes query errors for an errors.Codec.
+func ErrorProvider() errors.Provider {
+	return errors.Provider{Encode: encode, Decode: decode}
 }
