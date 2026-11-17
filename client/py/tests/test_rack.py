@@ -82,6 +82,17 @@ class TestRackClient:
         finally:
             client.racks.rename(rack.key, rack.name)
 
+    def test_rename_embedded_by_integration(self, client: sy.Synnax) -> None:
+        """Should return the new name of an embedded rack retrieved by integration
+        after a rename."""
+        rack = client.racks.retrieve_embedded_rack("pagerduty")
+        try:
+            client.racks.rename(rack.key, "After Rename")
+            renamed = client.racks.retrieve_embedded_rack("pagerduty")
+            assert renamed.name == "After Rename"
+        finally:
+            client.racks.rename(rack.key, rack.name)
+
     def test_retrieve_by_name_multiple_found(self, client: sy.Synnax) -> None:
         """Should raise when more than one rack has the name"""
         name = str(uuid4())

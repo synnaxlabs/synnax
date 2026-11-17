@@ -201,8 +201,8 @@ func (m *monitor) outageStatus(r Rack, state rackState, now telem.TimeStamp) Sta
 	if m.svc.EmbeddedDriverDisabled && r.Key == m.svc.EmbeddedKey {
 		stat.Variant = status.VariantDisabled
 		stat.Message = "Driver disabled"
-		stat.Description = "The Core started with --no-driver, so the embedded " +
-			"Driver does not run."
+		stat.Description = "The Core runs without its embedded Driver, because it " +
+			"started with --no-driver or was built without the Driver."
 		return stat
 	}
 	m.L.Warn(

@@ -66,8 +66,8 @@ type ServiceConfig struct {
 	// [OPTIONAL - defaults to telem.Now]
 	Now func() telem.TimeStamp
 	// EmbeddedDriverDisabled is true when the embedded Driver does not run. The Core
-	// then creates no rack for it. A stored rack stays, can be deleted, and passes a
-	// disabled status to its tasks and devices.
+	// then creates no rack for it. A stored rack stays with no integrations, can be
+	// deleted, and passes a disabled status to its tasks and devices.
 	//
 	// [OPTIONAL - defaults to false]
 	EmbeddedDriverDisabled bool
@@ -211,8 +211,18 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 		if errors.Is(err, query.ErrNotFound) {
 			return nil
 		}
+		if err != nil {
+			return err
+		}
 		s.EmbeddedKey = r.Key
-		return err
+		if len(r.Integrations) == 0 {
+			return nil
+		}
+		// The Driver sets its integrations again when it next starts.
+		return s.NewWriter(tx).Apply(ctx, r.Key, NewSetAction(SetPayload{
+			Path:  []string{"integrations"},
+			Value: []string{},
+		}))
 	})
 }
 

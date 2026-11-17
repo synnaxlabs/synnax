@@ -990,6 +990,16 @@ var _ = Describe("Rack", Ordered, func() {
 				}
 				before := openStack(ctx, restartDB, cfg)
 				key := before.rack.EmbeddedKey
+				Expect(restartDB.WithTx(ctx, func(tx gorp.Tx) error {
+					return before.rack.NewWriter(tx).Apply(
+						ctx,
+						key,
+						rack.NewSetAction(rack.SetPayload{
+							Path:  []string{"integrations"},
+							Value: []string{"arc", "modbus"},
+						}),
+					)
+				})).To(Succeed())
 				Eventually(func(g Gomega) {
 					s := MustSucceed(
 						retrieveStatusTx(ctx, before.status, restartDB, key),
@@ -1000,6 +1010,9 @@ var _ = Describe("Rack", Ordered, func() {
 				cfg.EmbeddedDriverDisabled = true
 				after := DeferClose(openStack(ctx, restartDB, cfg))
 				Expect(after.rack.EmbeddedKey).To(Equal(key))
+				Expect(MustSucceed(after.rack.NewRetrieve().
+					Where(rack.MatchIntegration("arc")).
+					Exists(ctx, restartDB))).To(BeFalse())
 				var copied atomic.Pointer[rack.Outage]
 				DeferCleanup(after.rack.OnSuspect(
 					func(_ context.Context, o rack.Outage) error {
