@@ -385,9 +385,10 @@ var _ = Describe("CounterReadMigration", func() {
 		Expect(ch.PulsesPerRev).To(Equal(uint32(1)))
 		Expect(ch.Port).To(BeZero())
 		Expect(ch.Disabled).To(BeTrue())
-		fields := []any{}
-		for _, e := range logs.FilterMessage("narrowed an NI channel field").All() {
-			fields = append(fields, e.ContextMap()["field"])
+		logged := logs.FilterMessage("narrowed an NI channel field").All()
+		fields := make([]any, len(logged))
+		for i, e := range logged {
+			fields[i] = e.ContextMap()["field"]
 		}
 		Expect(fields).To(ConsistOf("Port", "PulsesPerRev", "Disabled"))
 	})
@@ -439,9 +440,10 @@ var _ = Describe("AnalogReadMigration", func() {
 			Namespace:       "ni_analog_read_config",
 			Migrations:      []gorp.Migration{v3.AnalogReadMigration},
 		})).To(Succeed())
-		fields := []any{}
-		for _, e := range logs.FilterMessage("narrowed an NI channel field").All() {
-			fields = append(fields, e.ContextMap()["field"])
+		logged := logs.FilterMessage("narrowed an NI channel field").All()
+		fields := make([]any, len(logged))
+		for i, e := range logged {
+			fields[i] = e.ContextMap()["field"]
 		}
 		Expect(fields).To(ConsistOf("Cjc.Port", "Disabled"))
 	})
@@ -491,9 +493,10 @@ func runStored[I, O gorp.Entry[uuid.UUID]](
 	Expect(gorp.NewRetrieve[uuid.UUID, O]().
 		Where(gorp.MatchKeys[uuid.UUID, O](old.GorpKey())).
 		Entry(&got).Exec(ctx, db)).To(Succeed())
-	fields := []any{}
-	for _, e := range logs.FilterMessage("narrowed an NI channel field").All() {
-		fields = append(fields, e.ContextMap()["field"])
+	logged := logs.FilterMessage("narrowed an NI channel field").All()
+	fields := make([]any, len(logged))
+	for i, e := range logged {
+		fields[i] = e.ContextMap()["field"]
 	}
 	return got, fields
 }

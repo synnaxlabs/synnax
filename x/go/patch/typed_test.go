@@ -341,7 +341,7 @@ var _ = Describe("Patch", func() {
 					"s", "b", "f", "f32", "i", "i8", "i16", "i32", "i64", "u", "u8",
 					"u16", "u32", "u64",
 				}
-				var entries []TableEntry
+				entries := make([]TableEntry, 0, len(fields)*len(values))
 				for _, f := range fields {
 					for _, v := range values {
 						entries = append(

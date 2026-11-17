@@ -198,13 +198,13 @@ func BenchmarkStreamFixedSpan(b *testing.B) {
 // indexes. It returns their keys, index first.
 func createStreamChannels(b *testing.B, db *cesium.DB, n int) []cesium.ChannelKey {
 	b.Helper()
-	keys := []cesium.ChannelKey{1}
-	channels := []cesium.Channel{{
+	keys := append(make([]cesium.ChannelKey, 0, 1+n), 1)
+	channels := append(make([]cesium.Channel, 0, 1+n), cesium.Channel{
 		Key:      1,
 		Name:     "time",
 		IsIndex:  true,
 		DataType: telem.TimestampT,
-	}}
+	})
 	for i := range n {
 		key := cesium.ChannelKey(i + 2)
 		keys = append(keys, key)
