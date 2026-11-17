@@ -10,7 +10,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:https";
-import { type AddressInfo } from "node:net";
+import { type AddressInfo, createServer as createTCPServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -19,7 +19,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { WebSocketServer } from "ws";
 import { z } from "zod";
 
-import { HTTPClient, trustCA, WebSocketClient } from "@/index";
+import { HTTPClient, trustCA, Unreachable, WebSocketClient } from "@/index";
 
 const messageZ = z.object({ message: z.string() });
 
@@ -129,7 +129,29 @@ describe("trustCA", () => {
       codec: binary.JSON_CODEC,
       secure: true,
     });
-    await expect(client.stream("/", messageZ, messageZ)).rejects.toThrow();
+    // Node hides the TLS cause of a failed WebSocket dial.
+    const err = await client.stream("/", messageZ, messageZ).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(Unreachable.matches(err)).toBe(true);
+  });
+
+  it("should throw Unreachable when a stream cannot connect", async () => {
+    const tcp = createTCPServer();
+    await new Promise<void>((resolve) => tcp.listen(0, "127.0.0.1", resolve));
+    const { port } = tcp.address() as AddressInfo;
+    await new Promise((resolve) => tcp.close(resolve));
+    const client = new WebSocketClient({
+      endpoint: new url.URL({ host: "127.0.0.1", port }),
+      codec: binary.JSON_CODEC,
+      connector: trustCA(ca),
+    });
+    const err = await client.stream("/", messageZ, messageZ).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(Unreachable.matches(err)).toBe(true);
   });
 
   describe("in runtimes without a CA option for WebSockets", () => {

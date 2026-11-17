@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type IncomingMessage } from "node:http";
-import { type AddressInfo } from "node:net";
+import { type AddressInfo, createServer } from "node:net";
 
 import { binary, errors, sleep, TimeSpan, url } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -16,10 +16,13 @@ import { type WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
 
 import {
+  type Connector,
   type Context,
   EOF,
   type FlowControl,
   ReceiveOverflow,
+  type Socket,
+  Unreachable,
   WebSocketClient,
 } from "@/index";
 
@@ -111,6 +114,96 @@ describe("websocket", () => {
         myClient.stream("stream/middlewareCheck", messageSchema, messageSchema),
       ).rejects.toThrow("test param not found");
     });
+  });
+});
+
+describe("unreachable server", () => {
+  test("should throw Unreachable when nothing listens on the port", async () => {
+    const server = createServer();
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address() as AddressInfo;
+    await new Promise((resolve) => server.close(resolve));
+    const endpoint = new url.URL({ host: "127.0.0.1", port });
+    const c = new WebSocketClient({ endpoint, codec: binary.JSON_CODEC });
+    const err = await c.stream("stream", messageSchema, messageSchema).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(Unreachable.matches(err)).toBe(true);
+    expect(err).toMatchObject({ url: { protocol: "ws", port, path: "stream/" } });
+  });
+
+  const failingConnector = (
+    fail: (socket: Socket) => void,
+    readyState: number = globalThis.WebSocket.CONNECTING,
+  ): Connector => ({
+    fetch: async () => await Promise.reject(new Error("not used")),
+    dial: async () => {
+      const socket: Socket = {
+        binaryType: "",
+        bufferedAmount: 0,
+        readyState,
+        send: () => {},
+        close: () => {},
+        onopen: null,
+        onmessage: null,
+        onclose: null,
+        onerror: null,
+      };
+      setTimeout(() => fail(socket));
+      return socket;
+    },
+  });
+
+  const streamError = async (connector: Connector): Promise<unknown> => {
+    const c = new WebSocketClient({ endpoint, codec: binary.JSON_CODEC, connector });
+    return await c.stream("stream", messageSchema, messageSchema).then(
+      () => null,
+      (e: unknown) => e,
+    );
+  };
+
+  const withCode = (message: string, code: string): Error =>
+    Object.assign(new Error(message), { code });
+
+  const networkError = (message: string): Error =>
+    new DOMException(message, "NetworkError");
+
+  test.each([
+    ["a Bun refused dial", withCode("Failed to connect", "ECONNREFUSED"), true],
+    [
+      "a Bun TLS failure",
+      withCode("TLS handshake failed", "UNABLE_TO_VERIFY_LEAF_SIGNATURE"),
+      false,
+    ],
+    ["a Deno refused dial", networkError("tcp connect error"), true],
+    [
+      "a Deno TLS failure",
+      networkError("invalid peer certificate: UnknownIssuer"),
+      false,
+    ],
+    ["a Bun refused upgrade", new Error("Expected 101 status code: 404"), false],
+    ["a Deno refused upgrade", networkError("Invalid status code: 502"), false],
+  ])("should map %s", async (_, error, unreachable) => {
+    const err = await streamError(
+      failingConnector((socket) => socket.onerror?.({ error })),
+    );
+    expect(Unreachable.matches(err)).toBe(unreachable);
+    expect(err).toMatchObject({ cause: error });
+  });
+
+  test("should throw Unreachable when the socket closes before it opens", async () => {
+    const err = await streamError(
+      failingConnector((socket) => socket.onclose?.({ code: 1006 })),
+    );
+    expect(Unreachable.matches(err)).toBe(true);
+  });
+
+  test("should throw Unreachable when the dial returns a closed socket", async () => {
+    const err = await streamError(
+      failingConnector(() => {}, globalThis.WebSocket.CLOSED),
+    );
+    expect(Unreachable.matches(err)).toBe(true);
   });
 });
 
