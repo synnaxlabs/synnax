@@ -64,6 +64,8 @@ const UNREACHABLE_CODES = new Set([
   "UND_ERR_SOCKET",
 ]);
 
+const DENO_TCP_CONNECT_ERROR = "client error (Connect): tcp connect error";
+
 const shouldCastToUnreachable = (
   err: Error & { code?: unknown; errno?: unknown },
 ): boolean => {
@@ -74,6 +76,15 @@ const shouldCastToUnreachable = (
       : undefined;
   const code = causeCode ?? err.code ?? err.errno;
   if (typeof code === "string" && UNREACHABLE_CODES.has(code)) return true;
+
+  // Deno's fetch error has no code, so its cause message is the only signal. The text
+  // stops at "tcp connect error" so that TLS and DNS failures do not match.
+  if (
+    err.name === "TypeError" &&
+    err.cause instanceof Error &&
+    err.cause.message.includes(DENO_TCP_CONNECT_ERROR)
+  )
+    return true;
 
   // Browser/Safari fallback: detect canonical network-failure TypeError messages
   if (err.name === "TypeError") {
