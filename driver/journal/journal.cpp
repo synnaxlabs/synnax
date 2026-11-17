@@ -72,15 +72,21 @@ Writer::~Writer() {
 }
 
 std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig cfg) {
-    std::error_code ec;
-    const bool exists = std::filesystem::exists(cfg.path, ec);
-    if (ec) return {nullptr, fs_error("failed to stat " + cfg.path.string(), ec)};
-    if (!exists)
-        if (auto err = create(cfg.path, encode_header(cfg.magic, cfg.flags)))
-            return {nullptr, err};
     auto [file, err] = File::open(cfg.path);
     if (err) return {nullptr, err};
     if (err = file->lock(); err) return {nullptr, err};
+    std::error_code ec;
+    const auto start = std::filesystem::file_size(cfg.path, ec);
+    if (ec) return {nullptr, fs_error("failed to stat " + cfg.path.string(), ec)};
+    // A file shorter than a file start is new, or a crash cut it before any record.
+    if (start < HEADER_SIZE) {
+        if (err = file->truncate(0); err) return {nullptr, err};
+        if (err = file->write(encode_header(cfg.magic, cfg.flags)); err)
+            return {nullptr, err};
+        if (err = cfg.on_sync(file->sync()); err) return {nullptr, err};
+        const auto dir = cfg.path.parent_path();
+        if (err = sync_dir(dir.empty() ? "." : dir); err) return {nullptr, err};
+    }
     auto [reader, r_err] = Reader::open({.path = cfg.path, .magic = cfg.magic});
     if (r_err) return {nullptr, r_err};
     if (reader->header.version != VERSION)
