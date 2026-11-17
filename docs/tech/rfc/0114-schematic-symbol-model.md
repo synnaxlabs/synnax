@@ -160,15 +160,15 @@ are `position`, `run`, `on`, and `level`, and built-in commands are `open`, `clo
 ### 4.4 Edits and customization
 
 A save that changes states, commands, or interactions lists the schematics that use the
-symbol (`core/pkg/service/resource/resource.go:59-74`), marks those under control, and
-asks to confirm. The save carries the list that the user confirmed, and the Core refuses
-it when the list or its control marks changed, so the dialog asks again. The custom
-`symbol.Ref` uses `@ref on_delete restrict`, so a custom symbol in use refuses the
-delete, and the dialog lists its schematics. A built-in file is never edited: a node
-changes a built-in through its label, color, size, rotation, enum, match, and default,
-and a site through RFC 0112 enums and named colors. "Duplicate as custom" stores the
-built-in's name in `origin`, and "Change symbol" moves nodes to another symbol by
-binding key.
+symbol (`core/pkg/service/resource/resource.go:59-74`) and shows which of them are under
+control, then asks to confirm. The save carries the list that the user confirmed, and
+the Core refuses the save when the list, or which of them are under control, changed, so
+the dialog asks again. The custom `symbol.Ref` uses `@ref on_delete restrict`, so a
+custom symbol in use refuses the delete, and the dialog lists its schematics. A built-in
+file is never edited: a node changes a built-in through its label, color, size,
+rotation, enum, match, and default, and a site through RFC 0112 enums and named colors.
+"Duplicate as custom" stores the built-in's name in `origin`, and "Change symbol" moves
+nodes to another symbol by binding key.
 
 An import brings the custom symbols that its schematics use. Every symbol import, alone,
 in a group, or in a schematic, follows one rule. When the Core already has a symbol with
