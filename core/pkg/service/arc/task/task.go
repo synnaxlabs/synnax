@@ -159,8 +159,10 @@ func (t *impl) start(ctx context.Context, cmdKey string) (err, answerErr error) 
 // must call before it releases the runtime. It writes no statuses: start owns them.
 func (t *impl) open(ctx context.Context) (flow func(), err error) {
 	drt := dataRuntime{
-		clock:     telem.MonoClock{Source: t.factoryCfg.Now},
-		errorLogs: make(map[string]*errorLog, len(t.prog.Program.Nodes)),
+		clock: telem.MonoClock{Source: t.factoryCfg.Now},
+		errorLogs: &errorLogs{
+			nodes: make(map[string]*errorLog, len(t.prog.Program.Nodes)),
+		},
 	}
 	var deps runtime.Dependencies
 	if err = t.factoryCfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
@@ -311,7 +313,7 @@ func (t *impl) open(ctx context.Context) (flow func(), err error) {
 			return nil, nodeErr
 		}
 		nodes[irNode.Key] = n
-		drt.errorLogs[irNode.Key] = &errorLog{}
+		drt.errorLogs.nodes[irNode.Key] = &errorLog{}
 	}
 
 	sched, err := scheduler.New(t.prog.Program.IR, nodes)
@@ -325,7 +327,8 @@ func (t *impl) open(ctx context.Context) (flow func(), err error) {
 		scheduler.ErrorHandlerFunc(
 			func(ctx context.Context, nodeKey string, err error) {
 				text := err.Error()
-				skipped, ok := drt.errorLogs[nodeKey].take(text, drt.elapsed())
+				logs := drt.errorLogs
+				skipped, ok := logs.nodes[nodeKey].take(text, logs.now)
 				if ok {
 					t.factoryCfg.L.Warn("runtime error in arc node",
 						zap.String("node", nodeKey),
@@ -595,8 +598,8 @@ type dataRuntime struct {
 	state     state
 	// budget limits the loop iterations and function calls of each cycle.
 	budget runtime.Budget
-	// errorLogs limits the log lines of each node, by node key.
-	errorLogs map[string]*errorLog
+	// errorLogs limits the log lines of each node.
+	errorLogs *errorLogs
 }
 
 func (d *dataRuntime) next(
@@ -611,6 +614,7 @@ func (d *dataRuntime) next(
 		Reason:  reason,
 	}
 	d.timeMod.SetNow(cycle.Now)
+	d.errorLogs.now = cycle.Now
 	d.budget.Reset()
 	d.clock.Advance(d.scheduler.Next(ctx, cycle))
 	if err := d.budget.Err(); err != nil {

@@ -24,8 +24,8 @@ const (
 
 type loggedError struct {
 	text string
-	// at is the elapsed time of the log line.
-	at telem.TimeSpan
+	// at is the stamp of the cycle that logged the line.
+	at telem.TimeStamp
 }
 
 // errorLog limits the log lines of one node. A node logs each different error one time
@@ -37,11 +37,11 @@ type errorLog struct {
 	skipped int
 }
 
-// take reports whether the node can log text at the elapsed time now. With a line, it
+// take reports whether the node can log text in the cycle stamped now. With a line, it
 // returns the count of errors not logged since the last line.
-func (l *errorLog) take(text string, now telem.TimeSpan) (skipped int, ok bool) {
+func (l *errorLog) take(text string, now telem.TimeStamp) (skipped int, ok bool) {
 	l.logged = slices.DeleteFunc(l.logged, func(e loggedError) bool {
-		return now-e.at >= errorLogInterval
+		return e.at.Span(now) >= errorLogInterval
 	})
 	logged := slices.ContainsFunc(l.logged, func(e loggedError) bool {
 		return e.text == text
@@ -53,4 +53,11 @@ func (l *errorLog) take(text string, now telem.TimeSpan) (skipped int, ok bool) 
 	l.logged = append(l.logged, loggedError{text: text, at: now})
 	skipped, l.skipped = l.skipped, 0
 	return skipped, true
+}
+
+// errorLogs holds the errorLog of each node of a runtime, by node key.
+type errorLogs struct {
+	// now is the stamp of the current cycle.
+	now   telem.TimeStamp
+	nodes map[string]*errorLog
 }

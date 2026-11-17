@@ -17,6 +17,7 @@ import (
 	"math"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 	"uuid"
 
@@ -3985,6 +3986,9 @@ var _ = Describe("Task", Ordered, func() {
 		Describe("Error log", func() {
 			const message = "runtime error in arc node"
 
+			var now atomic.Int64
+			BeforeEach(func() { now.Store(int64(telem.Now())) })
+
 			// run starts one divide node for each name. settle waits for each frame.
 			run := func(ctx SpecContext, names ...string) (
 				logs *observer.ObservedLogs,
@@ -3993,10 +3997,8 @@ var _ = Describe("Task", Ordered, func() {
 			) {
 				GinkgoHelper()
 				inputCh := createVirtualCh(ctx, "log_input", telem.Int32T)
-				var (
-					raw     strings.Builder
-					outputs channel.Keys
-				)
+				var raw strings.Builder
+				outputs := make(channel.Keys, 0, len(names))
 				for _, name := range names {
 					outputCh := createVirtualCh(ctx, "log_output", telem.Int32T)
 					outputs = append(outputs, outputCh.Key())
@@ -4023,6 +4025,9 @@ var _ = Describe("Task", Ordered, func() {
 					arc.Text{Raw: raw.String()},
 					arctask.FactoryConfig{
 						Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+						Now: func() telem.TimeStamp {
+							return telem.TimeStamp(now.Load())
+						},
 					},
 				).ConfigureTask(ctx, svcTask, "cmd-1"))
 				responses, closeStreamer := openTestStreamer(ctx, outputs, 100)
@@ -4030,11 +4035,10 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 				DeferCleanup(func() { Expect(t.Stop(true)).To(Succeed()) })
 				time.Sleep(20 * time.Millisecond)
-				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				w := MustOpen(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 					Keys:  []channel.Key{inputCh.Key()},
 					Start: telem.Now(),
 				}))
-				DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
 				write = func(samples ...int32) {
 					GinkgoHelper()
 					Expect(w.Write(
@@ -4075,10 +4079,8 @@ var _ = Describe("Task", Ordered, func() {
 					for range 20 {
 						write(0)
 					}
-					Eventually(func() int {
-						return logs.FilterMessage(message).Len()
-					}).Should(BeNumerically(">=", 1))
-					time.Sleep(5100 * time.Millisecond)
+					settle()
+					now.Add(int64(6 * telem.Second))
 					write(0)
 					settle()
 					entries := logs.FilterMessage(message).All()
