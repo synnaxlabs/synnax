@@ -44,6 +44,7 @@ func (t MessageType) InSession() bool {
 	switch t {
 	case NBirth, NDeath, DBirth, DDeath, NData, DData:
 		return true
+	case NCmd, DCmd, State:
 	}
 	return false
 }
@@ -56,6 +57,7 @@ func (t MessageType) hasDevice() (device, ok bool) {
 		return true, true
 	case NBirth, NDeath, NData, NCmd:
 		return false, true
+	case State:
 	}
 	return false, false
 }

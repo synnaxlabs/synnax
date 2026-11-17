@@ -176,7 +176,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					)
 					MustSucceed(w2.Write([]byte{50, 51, 52}))
 					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(9)))
-					Expect(w2.Commit(ctx, 52*telem.SecondTS+1)).To(Succeed())
+					Expect(w2.Commit(ctx, 52*telem.SecondTS+1, nil)).To(Succeed())
 					Expect(w2.Close()).To(Succeed())
 					Expect(w1.Close()).To(Succeed())
 
@@ -365,7 +365,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						By(
 							"Closing the writer and expecting garbage collection to occur",
 						)
-						Expect(w.Commit(ctx, 14*telem.SecondTS+1)).To(Succeed())
+						Expect(w.Commit(ctx, 14*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(w.Close()).To(Succeed())
 
 						Expect(db.GarbageCollect(ctx)).To(Succeed())

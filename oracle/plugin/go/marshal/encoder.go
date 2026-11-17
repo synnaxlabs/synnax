@@ -94,10 +94,7 @@ func generateEncoderCodecFile(
 	if err != nil {
 		return nil, err
 	}
-	current, err := resolveGoImportPath(parentPath, repoRoot)
-	if err != nil {
-		return nil, err
-	}
+	current := resolveGoImportPath(parentPath, repoRoot)
 	aliases := naming.ImportAliases(slices.Collect(maps.Keys(imports)), current)
 	if len(aliases) == 0 {
 		return content, nil
@@ -658,7 +655,7 @@ func buildUnionCodec(
 		var embeds []string
 		var inlineFields []resolution.Field
 		if v.Inline {
-			pform := payload.Form.(resolution.StructForm)
+			pform := resolution.MustForm[resolution.StructForm](payload)
 			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			for _, ext := range inherited {
 				parent, ok := ext.Resolve(table)
@@ -683,7 +680,7 @@ func buildUnionCodec(
 		)
 		dec = append(dec,
 			fmt.Sprintf("\tcase %q:", v.Name),
-			fmt.Sprintf("\t\tvar v %s", variantType),
+			"\t\tvar v "+variantType,
 		)
 		for _, embed := range embeds {
 			enc = append(enc, fmt.Sprintf(
@@ -826,7 +823,7 @@ func (b *encoderBuilder) processOptional(
 	b.decodeLines = append(b.decodeLines,
 		ind+"{ present, err := r.Bool(); if err != nil { return err }",
 		ind+"if present {",
-		ind+fmt.Sprintf("\tvar hv %s", goType),
+		ind+"\tvar hv "+goType,
 	)
 	b.depth++
 	b.inBlock++
@@ -992,8 +989,8 @@ func (b *encoderBuilder) processMap(
 		ind+"\tn, err := r.CollectionLen(); if err != nil { return err }",
 		ind+fmt.Sprintf("\t%s = make(map[%s]%s, n)", setPath, goKeyType, goValType),
 		ind+"\tfor range n {",
-		ind+fmt.Sprintf("\t\tvar key %s", goKeyType),
-		ind+fmt.Sprintf("\t\tvar val %s", goValType),
+		ind+"\t\tvar key "+goKeyType,
+		ind+"\t\tvar val "+goValType,
 	)
 
 	b.depth++
@@ -1088,10 +1085,10 @@ func (b *encoderBuilder) processLeaf(
 			b.encodeLines = append(b.encodeLines,
 				ind+fmt.Sprintf("w.WriteWithLen(%s)", valPath),
 			)
-			b.decodeLines = append(b.decodeLines, ind+fmt.Sprintf(
-				"%s, err = r.ReadWithLen(); if err != nil { return err }",
-				setPath,
-			))
+			b.decodeLines = append(
+				b.decodeLines,
+				ind+setPath+", err = r.ReadWithLen(); if err != nil { return err }",
+			)
 			break
 		}
 		b.encodeLines = append(b.encodeLines,
@@ -1309,10 +1306,7 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if p, ok := b.pins.Path(b.owner, typ); ok {
 		goPath = p
 	}
-	importPath, err := resolveGoImportPath(goPath, b.repoRoot)
-	if err != nil {
-		return "", err
-	}
+	importPath := resolveGoImportPath(goPath, b.repoRoot)
 	if existingAlias, ok := b.imports[importPath]; ok {
 		qualifier := existingAlias
 		if qualifier == "" {

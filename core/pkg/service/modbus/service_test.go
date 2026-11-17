@@ -39,9 +39,12 @@ func register(fields map[string]any) map[string]any {
 // channel returns the only channel of a normalized or stored config.
 func channel(cfg msgpack.EncodedJSON) map[string]any {
 	GinkgoHelper()
-	chs := cfg["channels"].([]any)
+	chs, ok := cfg["channels"].([]any)
+	Expect(ok).To(BeTrue())
 	Expect(chs).To(HaveLen(1))
-	return chs[0].(map[string]any)
+	ch, ok := chs[0].(map[string]any)
+	Expect(ok).To(BeTrue())
+	return ch
 }
 
 var _ = Describe("Service", func() {
@@ -361,7 +364,9 @@ var _ = Describe("Service", func() {
 			migrated := MustOpen(modbus.OpenService(
 				ctx, modbus.ServiceConfig{DB: stored},
 			))
-			chs := MustSucceed(migrated.Read.Read(ctx, stored, key))["channels"].([]any)
+			data := MustSucceed(migrated.Read.Read(ctx, stored, key))
+			chs, ok := data["channels"].([]any)
+			Expect(ok).To(BeTrue())
 			Expect(chs).To(HaveLen(2))
 			Expect(chs[0]).ToNot(HaveKey("bytes_swapped"))
 			Expect(chs[0]).ToNot(HaveKey("words_swapped"))

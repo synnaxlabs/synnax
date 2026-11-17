@@ -11,7 +11,9 @@ package v13_test
 
 import (
 	"context"
+	"encoding/json/v2"
 	"math"
+	"strconv"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,6 +27,7 @@ import (
 	colorv1 "github.com/synnaxlabs/x/color/versions/v1"
 	colorv2 "github.com/synnaxlabs/x/color/versions/v2"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -110,18 +113,22 @@ var _ = Describe("Migration", func() {
 				Where(gorp.MatchKeys[v13.Key, v13.Schematic](old.Key)).
 				Entry(&got).Exec(ctx, db)).To(Succeed())
 			n := func(r uint8) *colorv2.Color { return &colorv2.Color{R: r, A: expected} }
-			Expect(configOf(got, "cap").(v13.CapNodeConfig).StrokeColor).
-				To(Equal(n(1)))
-			Expect(configOf(got, "pipe").(v13.PipeEdgeConfig).StrokeColor).
-				To(Equal(n(2)))
-			value := configOf(got, "value").(v13.ValueNodeConfig)
+			capCfg, ok := configOf(got, "cap").(v13.CapNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(capCfg.StrokeColor).To(Equal(n(1)))
+			pipeCfg, ok := configOf(got, "pipe").(v13.PipeEdgeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(pipeCfg.StrokeColor).To(Equal(n(2)))
+			value, ok := configOf(got, "value").(v13.ValueNodeConfig)
+			Expect(ok).To(BeTrue())
 			Expect(value.StrokeColor).To(Equal(n(3)))
 			Expect(value.TextColor).To(Equal(n(4)))
 			Expect(value.FillColor).To(Equal(n(5)))
 			Expect(
 				value.Redline.Bands,
 			).To(Equal([]colorv2.Band{{Key: "b", Color: *n(6)}}))
-			custom := configOf(got, "custom").(v13.CustomStaticNodeConfig)
+			custom, ok := configOf(got, "custom").(v13.CustomStaticNodeConfig)
+			Expect(ok).To(BeTrue())
 			Expect(custom.StateOverrides).To(Equal([]symbolv4.State{{
 				Key: "on",
 				Regions: []symbolv4.Region{
@@ -153,7 +160,9 @@ var _ = Describe("Migrate functions", func() {
 					}},
 				},
 			})))
-			return configOf(out, "n").(v13.CapNodeConfig).StrokeColor
+			capCfg, ok := configOf(out, "n").(v13.CapNodeConfig)
+			Expect(ok).To(BeTrue())
+			return capCfg.StrokeColor
 		}),
 		Entry("MigrateNodeConfig", func(ctx context.Context) *colorv2.Color {
 			GinkgoHelper()
@@ -162,7 +171,9 @@ var _ = Describe("Migrate functions", func() {
 					StaticSymbolConfig: v12.StaticSymbolConfig{StrokeColor: half()},
 				},
 			}))
-			return out.Variant.(v13.CapNodeConfig).StrokeColor
+			cfg, ok := out.Variant.(v13.CapNodeConfig)
+			Expect(ok).To(BeTrue())
+			return cfg.StrokeColor
 		}),
 		Entry("MigrateEdgeConfig", func(ctx context.Context) *colorv2.Color {
 			GinkgoHelper()
@@ -171,7 +182,9 @@ var _ = Describe("Migrate functions", func() {
 					SegmentedEdgeConfig: v12.SegmentedEdgeConfig{StrokeColor: half()},
 				},
 			}))
-			return out.Variant.(v13.PipeEdgeConfig).StrokeColor
+			cfg, ok := out.Variant.(v13.PipeEdgeConfig)
+			Expect(ok).To(BeTrue())
+			return cfg.StrokeColor
 		}),
 		Entry("MigrateStaticSymbolConfig", func(ctx context.Context) *colorv2.Color {
 			GinkgoHelper()
@@ -242,14 +255,16 @@ var _ = Describe("Migrate functions", func() {
 			StalenessColor: &color.Color{},
 			TextColor:      &color.Color{},
 		}, func(v any) []*colorv2.Color {
-			c := v.(v13.ValueNodeConfig)
+			c, ok := v.(v13.ValueNodeConfig)
+			Expect(ok).To(BeTrue())
 			return []*colorv2.Color{c.StalenessColor, c.TextColor}
 		}),
 		Entry("a gauge", v12.GaugeElementConfig{
 			StalenessColor: &color.Color{},
 			StrokeColor:    &color.Color{},
 		}, func(v any) []*colorv2.Color {
-			c := v.(v13.GaugeNodeConfig)
+			c, ok := v.(v13.GaugeNodeConfig)
+			Expect(ok).To(BeTrue())
 			return []*colorv2.Color{c.StalenessColor, c.StrokeColor}
 		}),
 		Entry("a scale", v12.ScaleElementConfig{
@@ -258,7 +273,8 @@ var _ = Describe("Migrate functions", func() {
 			AxisColor:      &color.Color{},
 			TextColor:      &color.Color{},
 		}, func(v any) []*colorv2.Color {
-			c := v.(v13.ScaleNodeConfig)
+			c, ok := v.(v13.ScaleNodeConfig)
+			Expect(ok).To(BeTrue())
 			return []*colorv2.Color{
 				c.StalenessColor,
 				c.LevelColor,
@@ -272,7 +288,8 @@ var _ = Describe("Migrate functions", func() {
 			AxisColor:      &color.Color{},
 			TextColor:      &color.Color{},
 		}, func(v any) []*colorv2.Color {
-			c := v.(v13.TankNodeConfig)
+			c, ok := v.(v13.TankNodeConfig)
+			Expect(ok).To(BeTrue())
 			return []*colorv2.Color{
 				c.StalenessColor,
 				c.LevelColor,
@@ -290,8 +307,9 @@ var _ = Describe("Migrate functions", func() {
 					}},
 				},
 			})))
-			Expect(configOf(out, "n").(v13.ValueNodeConfig).TextColor).
-				To(Equal(&colorv2.Color{A: 255}))
+			valueCfg, ok := configOf(out, "n").(v13.ValueNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(valueCfg.TextColor).To(Equal(&colorv2.Color{A: 255}))
 		},
 		Entry("NaN", math.NaN()),
 		Entry("positive infinity", math.Inf(1)),
@@ -303,8 +321,9 @@ var _ = Describe("Migrate functions", func() {
 				"n": {Variant: v12.ValueElementConfig{StrokeColor: &color.Color{}}},
 			},
 		})))
-		Expect(configOf(out, "n").(v13.ValueNodeConfig).StrokeColor).
-			To(HaveValue(Equal(colorv2.Color{})))
+		valueCfg, ok := configOf(out, "n").(v13.ValueNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(valueCfg.StrokeColor).To(HaveValue(Equal(colorv2.Color{})))
 	})
 	It("Should keep a zero color that painted transparent", func(ctx SpecContext) {
 		zero := &color.Color{}
@@ -318,10 +337,12 @@ var _ = Describe("Migrate functions", func() {
 				}},
 			},
 		})))
-		Expect(configOf(out, "cap").(v13.CapNodeConfig).StrokeColor).
-			To(HaveValue(Equal(colorv2.Color{})))
-		Expect(configOf(out, "pipe").(v13.PipeEdgeConfig).StrokeColor).
-			To(HaveValue(Equal(colorv2.Color{})))
+		capCfg, ok := configOf(out, "cap").(v13.CapNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(capCfg.StrokeColor).To(HaveValue(Equal(colorv2.Color{})))
+		pipeCfg, ok := configOf(out, "pipe").(v13.PipeEdgeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(pipeCfg.StrokeColor).To(HaveValue(Equal(colorv2.Color{})))
 	})
 	It("Should keep a zero region color in a state override", func(ctx SpecContext) {
 		out := MustSucceed(v13.MigrateSchematic(ctx, withElements(v12.Schematic{
@@ -338,18 +359,32 @@ var _ = Describe("Migrate functions", func() {
 				}},
 			},
 		})))
-		node := configOf(out, "n").(v13.CustomStaticNodeConfig)
+		node, ok := configOf(out, "n").(v13.CustomStaticNodeConfig)
+		Expect(ok).To(BeTrue())
 		Expect(node.StateOverrides[0].Regions[0].FillColor).
 			To(HaveValue(Equal(colorv2.Color{})))
 	})
 })
+
+func edge(key, source, target string) v12.Edge {
+	return v12.Edge{
+		Key:    key,
+		Source: v12.Handle{Node: source, Param: "out"},
+		Target: v12.Handle{Node: target, Param: "in"},
+	}
+}
 
 var _ = Describe("MigrateSchematic config move", func() {
 	var (
 		valve      = v12.ValveElementConfig{Orientation: "left", Scale: 2}
 		pipe       = v12.PipeElementConfig{Segments: []v12.Segment{}}
 		movedValve = v13.NodeConfig{
-			Variant: v13.ValveNodeConfig{Orientation: "left", Scale: 2},
+			Variant: v13.ValveNodeConfig{
+				Label:            v13.LabelConfig{MaxInlineSize: 1},
+				Orientation:      "left",
+				Scale:            2,
+				StalenessTimeout: 5 * telem.Second,
+			},
 		}
 		movedPipe = v13.EdgeConfig{Variant: v13.PipeEdgeConfig{
 			SegmentedEdgeConfig: v13.SegmentedEdgeConfig{
@@ -360,13 +395,6 @@ var _ = Describe("MigrateSchematic config move", func() {
 	)
 	node := func(key string) v12.Node {
 		return v12.Node{Key: key, Position: spatial.XY{X: 1, Y: 2}, ZIndex: 3}
-	}
-	edge := func(key, source, target string) v12.Edge {
-		return v12.Edge{
-			Key:    key,
-			Source: v12.Handle{Node: source, Param: "out"},
-			Target: v12.Handle{Node: target, Param: "in"},
-		}
 	}
 	migrate := func(ctx SpecContext, old v12.Schematic) v13.Schematic {
 		GinkgoHelper()
@@ -525,14 +553,16 @@ var _ = Describe("MigrateSchematic config move", func() {
 					}},
 				},
 			})
-			polygon := configOf(s, "n1").(v13.PolygonNodeConfig)
-			Expect(polygon.NumSides).To(Equal(6.0))
-			Expect(polygon.SideLength).To(Equal(30.0))
+			polygon, ok := configOf(s, "n1").(v13.PolygonNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(polygon.NumSides).To(Equal(uint8(6)))
+			Expect(polygon.SideLength).To(Equal(uint16(30)))
 			Expect(polygon.Rotation).To(BeZero())
 			Expect(polygon.StrokeWidth).To(Equal(uint8(2)))
 			Expect(polygon.StrokeColor).To(Equal(&colorv2.Color{R: 1, A: 255}))
-			Expect(configOf(s, "e1").(v13.PipeEdgeConfig).Segments).
-				To(Equal([]v13.Segment{{}}))
+			pipeCfg, ok := configOf(s, "e1").(v13.PipeEdgeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(pipeCfg.Segments).To(Equal([]v13.Segment{{}}))
 		},
 		Entry("NaN", math.NaN()),
 		Entry("positive infinity", math.Inf(1)),
@@ -696,6 +726,124 @@ var _ = Describe("MigrateNodeConfig stroke widths", func() {
 	})
 })
 
+// migrateNode migrates a v12 node config decoded from raw.
+func migrateNode(ctx SpecContext, raw map[string]any) v13.NodeConfigVariant {
+	GinkgoHelper()
+	var cfg v12.NodeConfig
+	Expect(json.Unmarshal(MustSucceed(json.Marshal(raw)), &cfg)).To(Succeed())
+	return MustSucceed(v13.MigrateNodeConfig(ctx, cfg)).Variant
+}
+
+var _ = Describe("MigrateNodeConfig text", func() {
+	It("Should keep a saved button's size and wrap width", func(ctx SpecContext) {
+		Expect(migrateNode(ctx, map[string]any{
+			"variant": "button",
+			"size":    "large",
+			"label":   map[string]any{"max_inline_size": 80.0},
+		})).To(SatisfyAll(
+			HaveField("Size", Equal(v13.ComponentSizeLarge)),
+			HaveField("LabeledConfig.Label.MaxInlineSize", BeEquivalentTo(80)),
+		))
+	})
+
+	DescribeTable("Should keep the wrap width of a saved symbol",
+		func(ctx SpecContext, variant string, label map[string]any, width uint16) {
+			Expect(migrateNode(ctx, map[string]any{
+				"variant": variant,
+				"label":   label,
+			})).To(SatisfyAll(
+				HaveField("LabeledConfig.Label.MaxInlineSize", Equal(width)),
+				HaveField("LabeledConfig.Label.Label", Equal("P1")),
+			))
+		},
+		Entry("a button with no width", "button",
+			map[string]any{"label": "P1"}, uint16(65535)),
+		Entry("a button with a width of 0", "button",
+			map[string]any{"label": "P1", "max_inline_size": 0.0}, uint16(1)),
+		Entry("a button with the default", "button",
+			map[string]any{"label": "P1", "max_inline_size": 150.0}, uint16(65535)),
+		Entry("a button with a negative width", "button",
+			map[string]any{"label": "P1", "max_inline_size": -20.0}, uint16(65535)),
+		Entry("a button with a chosen width", "button",
+			map[string]any{"label": "P1", "max_inline_size": 80.0}, uint16(80)),
+		Entry("a value with no width", "value",
+			map[string]any{"label": "P1"}, uint16(150)),
+		Entry("a value with a negative width", "value",
+			map[string]any{"label": "P1", "max_inline_size": -20.0}, uint16(65535)),
+		Entry("a cap with a fractional width", "cap",
+			map[string]any{"label": "P1", "max_inline_size": 80.6}, uint16(81)),
+		Entry("a valve with a width of 0", "valve",
+			map[string]any{"label": "P1", "max_inline_size": 0.0}, uint16(1)),
+		Entry("a relief valve with a fractional width", "relief_valve",
+			map[string]any{"label": "P1", "max_inline_size": 80.6}, uint16(81)),
+	)
+
+	It("Should migrate a saved label through storage", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v12.Key, v12.Schematic]{DB: db}))
+		old := withElements(v12.Schematic{
+			Key: uuid.New(),
+			Configs: map[string]v12.ElementConfig{
+				"b": {Variant: v12.ButtonElementConfig{
+					LabeledConfig: v12.LabeledConfig{
+						Label: v12.LabelConfig{Label: "P1", MaxInlineSize: 150},
+					},
+					Size: v12.ComponentSizeHuge,
+				}},
+			},
+		})
+		Expect(gorp.NewCreate[v12.Key, v12.Schematic]().Entry(&old).Exec(ctx, db)).
+			To(Succeed())
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v13.Key, v13.Schematic]{
+			DB: db, Migrations: []gorp.Migration{v13.Migration},
+		}))
+		var got v13.Schematic
+		Expect(gorp.NewRetrieve[v13.Key, v13.Schematic]().
+			Where(gorp.MatchKeys[v13.Key, v13.Schematic](old.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(configOf(got, "b")).To(SatisfyAll(
+			HaveField("Size", Equal(v13.ComponentSizeHuge)),
+			HaveField("LabeledConfig.Label.MaxInlineSize", BeEquivalentTo(65535)),
+		))
+	})
+})
+
+var _ = Describe("MigrateLabelConfig", func() {
+	DescribeTable("Should round and clamp the wrap width", func(
+		ctx SpecContext,
+		in float64,
+		out uint16,
+	) {
+		cfg := MustSucceed(v13.MigrateLabelConfig(
+			ctx,
+			v12.LabelConfig{Label: "P1", MaxInlineSize: in},
+		))
+		Expect(cfg.MaxInlineSize).To(Equal(out))
+		Expect(cfg.Label).To(Equal("P1"))
+	},
+		Entry("whole", 80.0, uint16(80)),
+		Entry("round up", 80.6, uint16(81)),
+		Entry("round down", 80.4, uint16(80)),
+		Entry("below 1", 0.3, uint16(1)),
+		Entry("negative", -20.0, uint16(65535)),
+		Entry("negative infinite", math.Inf(-1), uint16(65535)),
+		Entry("too large", 1e9, uint16(65535)),
+		Entry("infinite", math.Inf(1), uint16(65535)),
+		Entry("zero", 0.0, uint16(1)),
+		Entry("NaN", math.NaN(), uint16(150)),
+	)
+})
+
+var _ = Describe("MigrateLabeledConfig", func() {
+	It("Should migrate the wrap width of the label", func(ctx SpecContext) {
+		cfg := MustSucceed(v13.MigrateLabeledConfig(ctx, v12.LabeledConfig{
+			Label: v12.LabelConfig{Label: "P1", MaxInlineSize: 80.6},
+		}))
+		Expect(cfg.Label.MaxInlineSize).To(BeEquivalentTo(81))
+		Expect(cfg.Label.Label).To(Equal("P1"))
+	})
+})
+
 var _ = Describe("MigrateSegmentedEdgeConfig", func() {
 	It("Should give the edge the default stroke width", func(ctx SpecContext) {
 		Expect(MustSucceed(v13.MigrateSegmentedEdgeConfig(
@@ -724,5 +872,265 @@ var _ = Describe("MigrateEdge", func() {
 			Source: source,
 			Target: target,
 		}))).To(Equal(v13.Edge{Key: "e1", Source: source, Target: target}))
+	})
+})
+
+// maxSpan is the largest span a JavaScript number holds exactly.
+const maxSpan = telem.TimeSpan(1<<53 - 1)
+
+var _ = Describe("MigrateStalenessConfig", func() {
+	DescribeTable("Should convert the timeout from seconds to a span", func(
+		ctx SpecContext,
+		in float64,
+		out telem.TimeSpan,
+	) {
+		cfg := MustSucceed(v13.MigrateStalenessConfig(
+			ctx,
+			v12.StalenessConfig{StalenessTimeout: in},
+		))
+		Expect(cfg.StalenessTimeout).To(Equal(out))
+	},
+		Entry("whole", 5.0, 5*telem.Second),
+		Entry("fraction", 1.5, 1500*telem.Millisecond),
+		Entry("one second", 1.0, telem.Second),
+		Entry("below a second", 0.5, telem.Second),
+		Entry("zero", 0.0, 5*telem.Second),
+		Entry("negative", -2.0, 5*telem.Second),
+		Entry("below a nanosecond", 1e-10, telem.Second),
+		Entry("negative infinite", math.Inf(-1), 5*telem.Second),
+		Entry("NaN", math.NaN(), 5*telem.Second),
+		Entry("too large", 1e12, maxSpan),
+		Entry("infinite", math.Inf(1), maxSpan),
+	)
+
+	It("Should clamp to a span that survives a JavaScript number", func(
+		ctx SpecContext,
+	) {
+		cfg := MustSucceed(v13.MigrateStalenessConfig(
+			ctx,
+			v12.StalenessConfig{StalenessTimeout: math.Inf(1)},
+		))
+		var wire struct {
+			StalenessTimeout string `json:"staleness_timeout"`
+		}
+		Expect(json.Unmarshal(MustSucceed(json.Marshal(cfg)), &wire)).To(Succeed())
+		// The TypeScript client holds the span as a float64 and sends it as a number.
+		asNumber := MustSucceed(strconv.ParseFloat(wire.StalenessTimeout, 64))
+		var back v13.StalenessConfig
+		Expect(json.Unmarshal(
+			MustSucceed(
+				json.Marshal(map[string]float64{"staleness_timeout": asNumber}),
+			),
+			&back,
+		)).To(Succeed())
+		Expect(back.StalenessTimeout).To(Equal(cfg.StalenessTimeout))
+	})
+
+	It("Should keep the staleness color", func(ctx SpecContext) {
+		stale := color.Color{R: 255, A: 1}
+		cfg := MustSucceed(v13.MigrateStalenessConfig(
+			ctx,
+			v12.StalenessConfig{StalenessTimeout: 2, StalenessColor: &stale},
+		))
+		Expect(cfg.StalenessColor).To(HaveValue(Equal(colorv2.Color{R: 255, A: 255})))
+	})
+})
+
+var _ = Describe("MigrateToggleConfig", func() {
+	DescribeTable("Should convert the click delay from milliseconds to a span", func(
+		ctx SpecContext,
+		in float64,
+		out telem.TimeSpan,
+	) {
+		cfg := MustSucceed(v13.MigrateToggleConfig(
+			ctx,
+			v12.ToggleConfig{OnClickDelay: in},
+		))
+		Expect(cfg.OnClickDelay).To(Equal(out))
+	},
+		Entry("whole", 250.0, 250*telem.Millisecond),
+		Entry("fraction", 0.5, 500*telem.Microsecond),
+		Entry("zero", 0.0, telem.TimeSpan(0)),
+		Entry("negative", -10.0, telem.TimeSpan(0)),
+		Entry("NaN", math.NaN(), telem.TimeSpan(0)),
+		Entry("too large", 1e15, math.MaxInt32*telem.Millisecond),
+		Entry("infinite", math.Inf(1), math.MaxInt32*telem.Millisecond),
+	)
+})
+
+var _ = Describe("MigrateNumericTelemConfig rolling average", func() {
+	DescribeTable("Should clamp the rolling average", func(
+		ctx SpecContext,
+		in *int32,
+		out uint16,
+	) {
+		cfg := MustSucceed(v13.MigrateNumericTelemConfig(
+			ctx,
+			v12.NumericTelemConfig{RollingAverage: in},
+		))
+		Expect(cfg.RollingAverage).To(Equal(out))
+	},
+		Entry("missing", nil, uint16(1)),
+		Entry("whole", new(int32(10)), uint16(10)),
+		Entry("zero", new(int32(0)), uint16(1)),
+		Entry("negative", new(int32(-4)), uint16(1)),
+		Entry("too large", new(int32(70000)), uint16(65535)),
+	)
+})
+
+var _ = Describe("MigrateNodeConfig whole numbers and renames", func() {
+	DescribeTable("Should round and clamp a pixel size",
+		func(ctx SpecContext, old v12.NodeConfigVariant, field string, want uint16) {
+			out := MustSucceed(v13.MigrateNodeConfig(
+				ctx,
+				v12.NodeConfig{Variant: old},
+			))
+			Expect(out.Variant).To(HaveField(field, Equal(want)))
+		},
+		Entry("input inline size", v12.InputNodeConfig{InlineSize: 150.6},
+			"InlineSize", uint16(151)),
+		Entry("select inline size at NaN",
+			v12.SelectNodeConfig{InlineSize: math.NaN()}, "InlineSize", uint16(100)),
+		Entry("setpoint inline size negative",
+			v12.SetpointNodeConfig{InlineSize: -5}, "InlineSize", uint16(0)),
+		Entry(
+			"state indicator inline size too large",
+			v12.StateIndicatorNodeConfig{
+				InlineSize: 1e9,
+			},
+			"InlineSize",
+			uint16(65535),
+		),
+		Entry("string display inline size",
+			v12.StringDisplayNodeConfig{InlineSize: 99.4}, "InlineSize", uint16(99)),
+		Entry("value inline size at NaN",
+			v12.ValueNodeConfig{InlineSize: math.NaN()}, "InlineSize", uint16(70)),
+		Entry("text box width", v12.TextBoxNodeConfig{Width: 80.5},
+			"InlineSize", uint16(81)),
+		Entry("text box width at NaN", v12.TextBoxNodeConfig{Width: math.NaN()},
+			"InlineSize", uint16(75)),
+		Entry("circle radius", v12.CircleNodeConfig{Radius: 20.2},
+			"Radius", uint16(20)),
+		Entry("circle radius at NaN", v12.CircleNodeConfig{Radius: math.NaN()},
+			"Radius", uint16(20)),
+		Entry("polygon side length", v12.PolygonNodeConfig{SideLength: 24.7},
+			"SideLength", uint16(25)),
+		Entry("polygon corner rounding", v12.PolygonNodeConfig{CornerRounding: 4.4},
+			"BorderRadius", uint16(4)),
+		Entry("polygon corner rounding negative",
+			v12.PolygonNodeConfig{CornerRounding: -1}, "BorderRadius", uint16(0)),
+		Entry("box border radius", v12.BoxNodeConfig{BorderRadius: 3.5},
+			"BorderRadius", uint16(4)),
+		Entry("box border radius at NaN",
+			v12.BoxNodeConfig{BorderRadius: math.NaN()}, "BorderRadius", uint16(3)),
+		Entry("gauge bar width", v12.GaugeNodeConfig{BarWidth: 9.6},
+			"BarWidth", uint16(10)),
+		Entry("gauge bar width too large", v12.GaugeNodeConfig{BarWidth: 1e6},
+			"BarWidth", uint16(65535)),
+	)
+
+	DescribeTable("Should clamp the polygon sides to 3 through 255",
+		func(ctx SpecContext, in float64, want uint8) {
+			out := MustSucceed(v13.MigrateNodeConfig(ctx, v12.NodeConfig{
+				Variant: v12.PolygonNodeConfig{NumSides: in},
+			}))
+			Expect(out.Variant).To(HaveField("NumSides", Equal(want)))
+		},
+		Entry("whole", 6.0, uint8(6)),
+		Entry("fraction", 7.6, uint8(8)),
+		Entry("below 3", 2.0, uint8(3)),
+		Entry("negative", -5.0, uint8(3)),
+		Entry("too large", 1000.0, uint8(255)),
+		Entry("NaN", math.NaN(), uint8(6)),
+	)
+
+	DescribeTable(
+		"Should convert the click delay of an actuated symbol",
+		func(ctx SpecContext, old v12.NodeConfigVariant) {
+			out := MustSucceed(v13.MigrateNodeConfig(
+				ctx,
+				v12.NodeConfig{Variant: old},
+			))
+			Expect(out.Variant).To(
+				HaveField("OnClickDelay", Equal(250*telem.Millisecond)),
+			)
+		},
+		Entry("button", v12.ButtonNodeConfig{OnClickDelay: 250}),
+		Entry("input", v12.InputNodeConfig{OnClickDelay: 250}),
+		Entry("select", v12.SelectNodeConfig{OnClickDelay: 250}),
+		Entry("setpoint", v12.SetpointNodeConfig{OnClickDelay: 250}),
+		Entry(
+			"valve",
+			v12.ValveNodeConfig{OnClickDelay: 250},
+		),
+	)
+
+	It("Should keep the double-click navigation setting", func(ctx SpecContext) {
+		out := MustSucceed(v13.MigrateNodeConfig(ctx, v12.NodeConfig{
+			Variant: v12.OffPageReferenceNodeConfig{DblClickNavDisabled: true},
+		}))
+		Expect(out.Variant).To(HaveField("DoubleClickNavigationDisabled", BeTrue()))
+	})
+
+	It("Should migrate the staleness and rolling average of a tank", func(
+		ctx SpecContext,
+	) {
+		out := MustSucceed(v13.MigrateNodeConfig(ctx, v12.NodeConfig{
+			Variant: v12.TankNodeConfig{
+				StalenessTimeout: 2,
+				RollingAverage:   new(int32(0)),
+			},
+		}))
+		tank, ok := out.Variant.(v13.TankNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(tank.StalenessTimeout).To(Equal(2 * telem.Second))
+		Expect(tank.RollingAverage).To(Equal(uint16(1)))
+	})
+
+	It("Should convert the staleness timeout of a value", func(ctx SpecContext) {
+		out := MustSucceed(v13.MigrateNodeConfig(ctx, v12.NodeConfig{
+			Variant: v12.ValueNodeConfig{
+				StalenessConfig: v12.StalenessConfig{StalenessTimeout: 10},
+			},
+		}))
+		Expect(out.Variant).To(HaveField("StalenessTimeout", Equal(10*telem.Second)))
+	})
+
+	DescribeTable("Should fill the default of a field a saved symbol is missing",
+		func(ctx SpecContext, variant, field string, want any) {
+			Expect(migrateNode(ctx, map[string]any{"variant": variant})).
+				To(HaveField(field, Equal(want)))
+		},
+		Entry("input inline size", "input", "InlineSize", uint16(150)),
+		Entry("text box inline size", "text_box", "InlineSize", uint16(75)),
+		Entry("circle radius", "circle", "Radius", uint16(20)),
+		Entry("polygon sides", "polygon", "NumSides", uint8(6)),
+		Entry("polygon border radius", "polygon", "BorderRadius", uint16(0)),
+		Entry("gauge bar width", "gauge", "BarWidth", uint16(10)),
+		Entry("button click delay", "button", "OnClickDelay", telem.TimeSpan(0)),
+		Entry("value staleness timeout", "value", "StalenessTimeout", 5*telem.Second),
+		Entry("off-page reference navigation", "off_page_reference",
+			"DoubleClickNavigationDisabled", false),
+	)
+
+	It("Should keep a renamed field through storage", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v12.Key, v12.Schematic]{DB: db}))
+		old := withElements(v12.Schematic{
+			Key: uuid.New(),
+			Configs: map[string]v12.ElementConfig{
+				"t": {Variant: v12.TextBoxElementConfig{Width: 120}},
+			},
+		})
+		Expect(gorp.NewCreate[v12.Key, v12.Schematic]().Entry(&old).Exec(ctx, db)).
+			To(Succeed())
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v13.Key, v13.Schematic]{
+			DB: db, Migrations: []gorp.Migration{v13.Migration},
+		}))
+		var got v13.Schematic
+		Expect(gorp.NewRetrieve[v13.Key, v13.Schematic]().
+			Where(gorp.MatchKeys[v13.Key, v13.Schematic](old.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(configOf(got, "t")).To(HaveField("InlineSize", BeEquivalentTo(120)))
 	})
 })

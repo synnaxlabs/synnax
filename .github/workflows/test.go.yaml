@@ -107,8 +107,13 @@ jobs:
           ${{ fromJSON((inputs.os_specific || inputs.windows || inputs.macos) &&
           '["linux", "windows", "darwin"]' || '["linux"]') }}
     steps:
+      # Lint reports only issues since the merge base with origin/main, so it needs
+      # the history back to that commit.
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
 
       - name: Check that the module has no OS-specific code
         if: ${{ !inputs.os_specific && matrix.goos == 'linux' }}
@@ -190,6 +195,13 @@ jobs:
           git diff --exit-code -- go.mod go.sum
           go mod tidy -diff
 
+      # golangci-lint drops each report on a line that a //nolint directive names,
+      # including a report about the directive itself, so a grep forbids them.
+      - name: Forbid //nolint directives
+        if: matrix.goos == 'linux'
+        working-directory: ${{ inputs.directory }}
+        run: "! git grep -nE '//[/ ]*nolint( |:|$)' -- '*.go'"
+
       # Each job and GOOS restores its own module cache from an earlier run, and a
       # download checks go.sum only for modules it fetches.
       - name: Verify the Go module cache
@@ -223,14 +235,21 @@ jobs:
           # the paths resolve, which the action adds only to a lint it runs itself.
           problem-matchers: true
 
+      # The config reports only lines changed since the merge base, which the
+      # complexity linters need until their old findings are split (SY-6110). Every
+      # other linter reports the whole module, so the merge queue and main still catch
+      # a finding on a line no change touched.
       - name: Lint
         working-directory: ${{ inputs.directory }}
         env:
           CGO_ENABLED: "0"
           GOOS: ${{ matrix.goos }}
+          COMPLEXITY: funlen,gocognit,maintidx,nestif
         run: |
           ./custom-gcl config verify
-          ./custom-gcl run --path-mode=abs
+          ./custom-gcl run --path-mode=abs --new-from-merge-base= \
+            --disable "$COMPLEXITY"
+          ./custom-gcl run --path-mode=abs --enable-only "$COMPLEXITY"
 
       # Each save holds every entry it restored, so stale builds pile up until their
       # extraction fills the disk. Go and golangci-lint refresh an entry's mtime when

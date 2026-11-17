@@ -10,13 +10,22 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
+import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
+import svg from "@/schematic/node/fittings/FlowStraightener.svg?raw";
 
 export interface FlowStraightenerProps
   extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
-const DIMENSIONS = { width: 72, height: 36 };
+const SPEC = Custom.createBuiltIn({
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.03, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 0.97, y: 0.5 }, orientation: "right" },
+    { key: "3", position: { x: 0.5, y: 0.06 }, orientation: "top" },
+    { key: "4", position: { x: 0.5, y: 0.93 }, orientation: "bottom" },
+  ],
+});
 
 export const FlowStraightener = ({
   className,
@@ -26,22 +35,12 @@ export const FlowStraightener = ({
   ...rest
 }: FlowStraightenerProps): ReactElement => (
   <Primitive.Div className={CSS.cls(CSS.B("flow-straightener"), className)} {...rest}>
-    <Handle.Rectangle
-      orientation={orientation}
-      left={3}
-      top={6}
-      right={97}
-      bottom={93}
-    />
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Rect x="2.5" y="2.5" width="67" height="31" rx="2" />
-      <Primitive.Path d="M10.5 26.5H60.5" strokeLinecap="round" />
-      <Primitive.Path d="M10.5 9.5H60.5" strokeLinecap="round" />
-    </Primitive.SVG>
+    />
   </Primitive.Div>
 );

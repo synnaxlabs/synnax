@@ -390,7 +390,7 @@ func (s *Service) includeStatus(
 	return nil
 }
 
-// LSPMessage represents a single JSON-RPC message for the LSP
+// LSPMessage represents a single JSON-RPC message for the LSP.
 type LSPMessage = arctransport.JSONRPCMessage
 
 // LSP serves the Arc language server over stream. The server treats the channels and

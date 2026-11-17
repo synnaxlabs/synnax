@@ -90,7 +90,7 @@ func (s *scanner) browseSparkplug(
 			validate.ErrValidation, "invalid arguments: %s", err.Error(),
 		)
 	}
-	_, props, cfg, err := s.browseConfig(ctx, args.Device)
+	props, cfg, err := s.browseConfig(ctx, args.Device)
 	if err != nil {
 		return browseSparkplugResult{}, err
 	}
