@@ -106,7 +106,8 @@ duplicate. Two color conventions for one set of states need two enums. A site di
 goes through the named colors that the entries reference.
 
 Each enum state of a symbol (RFC 0114) has an optional default `enum`, and each state
-binding on a node an optional `enum` that replaces it. Both use
+binding on a node an optional `enum` that replaces it. `select` and `state_indicator`,
+which keep their variants (RFC 0114 §4.0), each get an optional `enum`. All three use
 `@ref on_delete restrict`. The delete dialog lists the users from `resource.Dependents`
 (`core/pkg/service/resource/resource.go:59-74`) and offers "Replace with...", which
 moves every user to another enum and then deletes. A built-in enum cannot be deleted, so
@@ -137,6 +138,10 @@ every symbol.
 The light gets the built-in "Light" enum (Off 0, On 1). Its threshold, or 0.9 to 1.1
 when it has none, becomes its band, and its `stroke_color` becomes the symbol color.
 
+A `select` or `state_indicator` has no symbol state, so it has no default entry. A value
+that matches no entry shows the symbol color and the "Unknown" label, as today, with the
+unknown mark.
+
 ### 4.4 Series colors
 
 Eight built-in named colors, each with a light and a dark value, replace the 14. Each
@@ -163,8 +168,9 @@ The schematic cutover is one migration in one release:
   "Replace with..." merges them later. When a list repeats a value, the first entry
   stays.
 - A state binding gets an `enum` key when its node had its own state list,
-  `state_overrides`, or `on_color`. RFC 0114 phase 2 writes these with this section's
-  function. The old fields are removed.
+  `state_overrides`, or `on_color`, and a `select` or `state_indicator` gets one for its
+  `options`. RFC 0114 phase 2 writes these with this section's function. The old fields
+  are removed.
 - In a custom symbol, RFC 0114 phase 1 made each state index a value with default 0, and
   each region color a look on that value. A part whose looks paint one color for every
   value keeps one `color` look. A part whose color changes gets one `entry` look, and
@@ -221,7 +227,7 @@ needs RFC 0114 phase 1.
 | 19    | Add enum references to symbol states                     | `schemas/synnax`, `core/pkg/service/schematic/symbol`                                                  | 13             |
 | 20    | Draw entry paint in Pluto                                | `pluto/src/schematic`                                                                                  | 15, 19         |
 | 21    | Add the enum picker to the symbol forms                  | `console/src/feature/schematic`                                                                        | 16, 19         |
-| 22    | Migrate inline state colors to enums                     | `core/pkg/service/schematic`, `pluto/src/schematic`, `console`                                         | 20, 21         |
+| 22    | Migrate inline state colors to enums                     | `schemas/synnax`, `core/pkg/service/schematic`, `pluto/src/schematic`, `console`                       | 20, 21         |
 | 23    | Delete the named colors and enums flag                   | `console/src/flags.ts`                                                                                 | 22             |
 | 24    | Carry color references in multi-edit                     | `console/src/platform/multiedit`                                                                       | 8              |
 | 25    | Store color references in schematic symbol colors        | `schemas/synnax`, `core/pkg/service/schematic`, `client/ts`, `client/py`                               | 3, 24          |
@@ -232,10 +238,10 @@ needs RFC 0114 phase 1.
 | 30    | Store color references in panel colors                   | `schemas/synnax`, `core/pkg/service/panel`, `client/ts`, `client/py`                                   | 3, 24          |
 
 Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. Phase 18 mints a
-schematic version (RFC 0053) that drops `staleness_color`. Until phase 20, a select or
-state indicator whose value matches no state keeps today's look, its symbol color and
-the "Unknown" label, and gets the unknown mark. RFC 0114 phase 1 stores a `color.Ref` in
-custom symbol looks from the start. In phase 29, the Driver writes range colors
+schematic version (RFC 0053) that drops `staleness_color`. Before RFC 0114 phase 2, only
+a select or state indicator can match no entry. Phase 22 adds the `enum` field to
+`select` and `state_indicator`. RFC 0114 phase 1 stores a `color.Ref` in custom symbol
+looks from the start. In phase 29, the Driver writes range colors
 (`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
 
 ## 7 Resolved decisions
