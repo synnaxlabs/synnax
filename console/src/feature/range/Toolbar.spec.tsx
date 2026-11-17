@@ -16,7 +16,7 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -266,6 +266,43 @@ describe("range/Toolbar", () => {
       expect(child.parent).toBe(parent.key);
       expect(isRunning(child)).toBe(true);
     });
+
+    it("should start a child range from the menu of a running range", async () => {
+      const parent = await createRunning(uniqueRangeName("parent"));
+      const name = uniqueRangeName("child");
+      await renderToolbar();
+      const line = await findLine("Running", parent.name);
+      await openContextMenu(() => line);
+      fireEvent.click(
+        await screen.findByRole("menuitem", { name: "Start child range" }),
+      );
+      await typeDraft(name);
+      const child = await waitFor(async () => await readRange(name));
+      expect(child.parent).toBe(parent.key);
+    });
+
+    it("should open the create form for a child of a range that is not running", async () => {
+      const rng = await createRange(
+        uniqueRangeName("ended"),
+        new TimeRange(TimeStamp.now().sub(TimeSpan.minutes(2)), TimeStamp.now()),
+      );
+      await renderToolbar({ favorites: [rng] });
+      const line = await findLine("Favorites", rng.name);
+      await openContextMenu(() => line);
+      fireEvent.click(
+        await screen.findByRole("menuitem", { name: "Start child range" }),
+      );
+      expect(await screen.findByRole("button", { name: "Create" })).toBeTruthy();
+    });
+
+    it("should open a collapsed Running group to show the draft", async () => {
+      const { store } = await renderToolbar();
+      store.dispatch(
+        Session.Range.setGroupCollapsed({ group: "running", collapsed: true }),
+      );
+      fireEvent.click(await screen.findByRole("button", { name: "Start range" }));
+      expect(await draftInput()).toBeTruthy();
+    });
   });
 
   describe("next", () => {
@@ -309,6 +346,68 @@ describe("range/Toolbar", () => {
         expect(r.timeRange.end.valueOf()).toBe(next.timeRange.start.valueOf());
         expect(p.timeRange.end.valueOf()).toBe(next.timeRange.start.valueOf());
       });
+    });
+
+    /** Creates a running run under a running campaign and shows it in Running. */
+    const renderRun = async (name = uniqueRangeName("run")) => {
+      const campaign = await createRunning(uniqueRangeName("campaign"));
+      const run = await createRunning(name, { parent: campaign.key });
+      await renderToolbar();
+      return { campaign, run, line: await findLine("Running", run.name) };
+    };
+
+    it("should start the next range from the menu", async () => {
+      const { campaign, run, line } = await renderRun();
+      const name = uniqueRangeName("next");
+      await openContextMenu(() => line);
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Next" }));
+      await typeDraft(name);
+      const next = await waitFor(async () => await readRange(name));
+      expect(next.parent).toBe(campaign.key);
+      await waitFor(async () =>
+        expect((await readRange(run.name)).timeRange.end.valueOf()).toBe(
+          next.timeRange.start.valueOf(),
+        ),
+      );
+    });
+
+    it("should leave the range running when Escape closes the draft", async () => {
+      const { run, line } = await renderRun();
+      fireEvent.click(
+        await within(line).findByRole("button", { name: "Stop and start next" }),
+      );
+      fireEvent.keyDown(await draftInput(), { key: "Escape" });
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Range name")).toBeNull(),
+      );
+      expect(isRunning(await readRange(run.name))).toBe(true);
+    });
+
+    it("should close the draft when its range stops", async () => {
+      const { line } = await renderRun();
+      fireEvent.click(
+        await within(line).findByRole("button", { name: "Stop and start next" }),
+      );
+      await draftInput();
+      fireEvent.click(within(line).getByRole("button", { name: "Stop" }));
+      await waitFor(
+        () => expect(screen.queryByPlaceholderText("Range name")).toBeNull(),
+        { timeout: 5_000 },
+      );
+    });
+
+    it("should keep a newer draft when an earlier suggestion answers late", async () => {
+      const token = uniqueRangeName("run");
+      const { line } = await renderRun(`${token} 7`);
+      fireEvent.click(
+        await within(line).findByRole("button", { name: "Stop and start next" }),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Start range" }));
+      const input = await draftInput();
+      // Long enough for the suggestion of the first draft to answer.
+      await sleep.sleep(TimeSpan.milliseconds(500));
+      expect(input.value).toBe("");
+      expect(screen.getByPlaceholderText<HTMLInputElement>("Range name")).toBe(input);
     });
   });
 

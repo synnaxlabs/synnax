@@ -17,7 +17,7 @@ import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Flux, Ranger } from "@synnaxlabs/pluto";
-import { color, TimeSpan, type TimeStamp } from "@synnaxlabs/x";
+import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type CSSProperties, Fragment, type ReactElement } from "react";
 
 import { formatSpan, nextSecond } from "@/feature/range/toolbar/time";
@@ -50,29 +50,37 @@ const usePath = (range: ranger.Range): string[] => {
   return chain.map((c) => names.get(c)).filter((n): n is string => n != null);
 };
 
-const useChildren = (range: ranger.Range): ranger.Range[] => {
+interface Children {
+  children: ranger.Range[];
+  /** Whether `children` holds every child, not only the first page. */
+  complete: boolean;
+}
+
+const useChildren = (range: ranger.Range): Children => {
   const list = Flux.useList((c) => c.ranges, {
     name: "ranges",
     query: { where: { parents: [range.key] }, order: OLDEST },
     initialSize: 50,
     eager: true,
   });
-  return Store.useItems({
+  const children = Store.useItems({
     keys: list.data,
     subscribe: list.subscribe,
     getItem: list.getItem,
   });
+  return { children, complete: list.complete };
 };
 
 export const Card = ({ range }: { range: ranger.Range }): ReactElement => {
   const now = useNow(nextSecond);
   const path = usePath(range);
-  const children = useChildren(range);
+  const { children, complete } = useChildren(range);
   const labels = Ranger.useLabels(range.key) ?? [];
   const tr = range.timeRange.makeValid();
   const stage = Ranger.getStage(range.timeRange, now);
   const StageIcon = Ranger.STAGE_ICONS[stage];
   const live = stage === "in_progress";
+  const openEnd = !live && tr.end.equals(TimeStamp.MAX);
   const end = live ? now : tr.end;
   const total = Math.max(1, end.nanoseconds - tr.start.nanoseconds);
   const sameDay =
@@ -111,18 +119,27 @@ export const Card = ({ range }: { range: ranger.Range }): ReactElement => {
       <div className={CSS.BE(B, "time")}>
         <span>
           {at(tr.start, now, true)}
-          <Icon.Arrow.Right />
-          {live ? "Now" : at(end, now, !sameDay)}
+          {!openEnd && (
+            <>
+              <Icon.Arrow.Right />
+              {live ? "Now" : at(end, now, !sameDay)}
+            </>
+          )}
         </span>
-        <span className={CSS.BE(B, "total")}>{formatSpan(tr.start, end)}</span>
+        {!openEnd && (
+          <span className={CSS.BE(B, "total")}>{formatSpan(tr.start, end)}</span>
+        )}
       </div>
       {children.length > 0 && (
         <>
-          <div className={CSS.BE(B, "strip")}>
-            {children.map((c) => (
-              <span key={c.key} style={position(c)} />
-            ))}
-          </div>
+          {/* A strip needs both ends and every child to place them in time. */}
+          {complete && !openEnd && (
+            <div className={CSS.BE(B, "strip")}>
+              {children.map((c) => (
+                <span key={c.key} style={position(c)} />
+              ))}
+            </div>
+          )}
           <div className={CSS.BE(B, "children")}>
             {children.slice(0, CHILD_LIMIT).map((c) => {
               const v = c.timeRange.makeValid();
@@ -144,7 +161,8 @@ export const Card = ({ range }: { range: ranger.Range }): ReactElement => {
             })}
             {children.length > CHILD_LIMIT && (
               <Text.Text level="small" color={9} className={CSS.BE(B, "more")}>
-                {children.length - CHILD_LIMIT} more
+                {children.length - CHILD_LIMIT}
+                {complete ? "" : "+"} more
               </Text.Text>
             )}
           </div>

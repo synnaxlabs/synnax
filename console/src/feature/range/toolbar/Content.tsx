@@ -39,7 +39,12 @@ import {
 
 import { Explorer } from "@/feature/range/explorer";
 import { Card } from "@/feature/range/toolbar/Card";
-import { type Forest, forest, useGroups } from "@/feature/range/toolbar/data";
+import {
+  type Forest,
+  forest,
+  type Groups,
+  useGroups,
+} from "@/feature/range/toolbar/data";
 import { suggest, type Suggestion } from "@/feature/range/toolbar/suggest";
 import {
   formatAgo,
@@ -49,6 +54,7 @@ import {
   nextSecond,
 } from "@/feature/range/toolbar/time";
 import { Tree } from "@/feature/range/tree";
+import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Range } from "@/platform/range";
 import { Toolbar } from "@/platform/toolbar";
@@ -215,7 +221,8 @@ const StopButton = ({ range }: { range: ranger.Range }): ReactElement => {
 
 interface DraftContextValue {
   draft: DraftState | null;
-  onDone: () => void;
+  onSave: (draft: DraftState, name: string, color: DraftState["color"]) => void;
+  onCancel: () => void;
   onNext: (range: ranger.Range, below: ranger.Range[]) => void;
   onStartChild: (range: ranger.Range) => void;
 }
@@ -301,36 +308,19 @@ const Draft = ({
   draft: DraftState;
   depth?: number;
 }): ReactElement => {
-  const { onDone } = useDraftContext("Range.Draft");
+  const { onSave, onCancel } = useDraftContext("Range.Draft");
   const [name, setName] = useState(draft.name);
   const [chosen, setChosen] = useState(draft.color);
   const { colors } = Theming.use();
   const inputRef = useRef<HTMLInputElement>(null);
   // The suggested name starts selected, so typing replaces it.
   useEffect(() => inputRef.current?.select(), []);
-  const { update: create } = Ranger.useCreate();
-  const { update: setTimeRange } = Ranger.useSetTimeRange();
-  const save = () => {
-    const trimmed = name.trim();
-    if (trimmed === "") return;
-    for (const stop of draft.stops ?? [])
-      setTimeRange({
-        key: stop.key,
-        timeRange: new TimeRange(stop.timeRange.start, draft.startedAt),
-      });
-    create({
-      name: trimmed,
-      color: chosen,
-      parent: draft.parent,
-      timeRange: new TimeRange(draft.startedAt, TimeStamp.MAX),
-    });
-    onDone();
-  };
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Enter") save();
+    const trimmed = name.trim();
+    if (e.key === "Enter" && trimmed !== "") onSave(draft, trimmed, chosen);
     else if (e.key === "Escape") {
       e.stopPropagation();
-      onDone();
+      onCancel();
     }
   };
   return (
@@ -381,7 +371,7 @@ const Draft = ({
           textColor={9}
           tooltip="Cancel"
           tooltipLocation="left"
-          onClick={onDone}
+          onClick={onCancel}
         >
           <Icon.Close />
         </Button.Button>
@@ -556,20 +546,30 @@ const AllRanges = (): ReactElement => {
   );
 };
 
-const FavoriteMeta = ({ range }: { range: ranger.Range }): ReactElement => {
-  const now = useNow(nextMinute);
-  if (Ranger.getStage(range.timeRange, now) === "in_progress")
-    return (
-      <>
-        <Icon.InProgress />
-        <Elapsed start={startOf(range)} />
-      </>
-    );
-  return <>{formatStart(startOf(range), now)}</>;
+const FavoriteLine = ({ range }: { range: ranger.Range }): ReactElement => {
+  const now = Ranger.useClock(range.timeRange);
+  const live = Ranger.getStage(range.timeRange, now) === "in_progress";
+  return (
+    <Line
+      range={range}
+      path
+      live={live}
+      meta={
+        live ? (
+          <>
+            <Icon.InProgress />
+            <Elapsed start={startOf(range)} />
+          </>
+        ) : (
+          formatStart(startOf(range), now)
+        )
+      }
+      actions={<Star range={range} />}
+    />
+  );
 };
 
 const FavoriteLines = ({ favorites }: { favorites: ranger.Range[] }): ReactElement => {
-  const now = useNow(nextMinute);
   if (favorites.length === 0)
     return (
       <div className={CSS.BE(B, "hint")}>
@@ -580,22 +580,14 @@ const FavoriteLines = ({ favorites }: { favorites: ranger.Range[] }): ReactEleme
   return (
     <>
       {favorites.map((r) => (
-        <Line
-          key={r.key}
-          range={r}
-          path
-          live={Ranger.getStage(r.timeRange, now) === "in_progress"}
-          meta={<FavoriteMeta range={r} />}
-          actions={<Star range={r} />}
-        />
+        <FavoriteLine key={r.key} range={r} />
       ))}
     </>
   );
 };
 
-const Body = (): ReactElement => {
+const Body = ({ groups }: { groups: Groups }): ReactElement => {
   const { draft, onNext, onStartChild } = useDraftContext("Range.Body");
-  const groups = useGroups();
   const menuProps = Menu.useContextMenu();
   const [expanded, toggle] = useExpanded();
   const running = forest(groups.running);
@@ -658,27 +650,73 @@ const Body = (): ReactElement => {
 
 export const Content = (): ReactElement => {
   const [draft, setDraft] = useState<DraftState | null>(null);
+  // Counts draft requests, so a suggestion that answers late opens no draft.
+  const latest = useRef(0);
   const client = Synnax.use();
+  const dispatch = Session.useDispatch();
+  const groups = useGroups();
   const openExplorer = Explorer.useOpenTab();
   const openCreate = Range.useCreateModal();
+  const { capture } = Analytics.use();
+  const { updateAsync: create } = Ranger.useCreate();
+  const { update: setTimeRange } = Ranger.useSetTimeRange();
+  const isRunning = (key: ranger.Key) => groups.running.some((r) => r.key === key);
+  // A draft shows under the range that it follows or starts in, so it closes when that
+  // range stops.
+  const anchor = draft?.after?.key ?? draft?.parent;
+  if (anchor != null && !isRunning(anchor)) setDraft(null);
+  const open = (next: DraftState) => {
+    dispatch(Session.Range.setGroupCollapsed({ group: "running", collapsed: false }));
+    setDraft(next);
+  };
+  const openSuggested = (next: Omit<DraftState, "name" | "color">) => {
+    const id = ++latest.current;
+    if (client == null || next.parent == null) return;
+    void suggest(client, next.parent, next.after?.key).then((s) => {
+      if (id === latest.current) open({ ...s, ...next });
+    });
+  };
+  const cancel = () => {
+    latest.current++;
+    setDraft(null);
+  };
   const drafts: DraftContextValue = {
     draft,
-    onDone: () => setDraft(null),
-    onNext: (range, below) => {
-      if (client == null || range.parent == null) return;
-      const startedAt = TimeStamp.now();
-      const parent = range.parent;
-      void suggest(client, parent, range.key).then((s) =>
-        setDraft({ ...s, startedAt, parent, after: range, stops: [range, ...below] }),
-      );
+    onCancel: cancel,
+    onSave: (saved, name, c) => {
+      cancel();
+      // Old ranges stop only once the new one exists, so a failed start leaves no gap.
+      void create({
+        name,
+        color: c,
+        parent: saved.parent,
+        timeRange: new TimeRange(saved.startedAt, TimeStamp.MAX),
+      }).then((created) => {
+        if (!created) return;
+        capture("range_created", {});
+        for (const stop of saved.stops ?? [])
+          setTimeRange({
+            key: stop.key,
+            timeRange: new TimeRange(stop.timeRange.start, saved.startedAt),
+          });
+      });
     },
+    onNext: (range, below) =>
+      openSuggested({
+        startedAt: TimeStamp.now(),
+        parent: range.parent,
+        after: range,
+        stops: [range, ...below],
+      }),
     onStartChild: (range) => {
-      if (client == null) return;
-      const startedAt = TimeStamp.now();
-      void suggest(client, range.key).then((s) =>
-        setDraft({ ...s, startedAt, parent: range.key }),
-      );
+      // The child starts now, so only a running range takes it in place.
+      if (!isRunning(range.key)) return openCreate({ parent: range.key });
+      openSuggested({ startedAt: TimeStamp.now(), parent: range.key });
     },
+  };
+  const startRange = () => {
+    latest.current++;
+    open({ startedAt: TimeStamp.now(), name: "" });
   };
   const addPast = () => {
     const now = TimeStamp.now();
@@ -709,10 +747,7 @@ export const Content = (): ReactElement => {
             <Toolbar.CreateAction tooltip="Create past range" onClick={addPast} />
           )}
           {canCreate && (
-            <Toolbar.CreateAction
-              tooltip="Start range"
-              onClick={() => setDraft({ startedAt: TimeStamp.now(), name: "" })}
-            >
+            <Toolbar.CreateAction tooltip="Start range" onClick={startRange}>
               <Icon.Play />
             </Toolbar.CreateAction>
           )}
@@ -720,7 +755,7 @@ export const Content = (): ReactElement => {
       </Toolbar.Header>
       <Toolbar.Body>
         <DraftContext value={drafts}>
-          <Body />
+          <Body groups={groups} />
         </DraftContext>
       </Toolbar.Body>
     </Toolbar.Content>
