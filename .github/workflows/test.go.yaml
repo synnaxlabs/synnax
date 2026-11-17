@@ -22,7 +22,8 @@ on:
         type: string
         default: ""
       shards:
-        description: How many jobs split the test suites on each OS, from 1 to 4
+        description:
+          How many jobs split the test suites and the lint on each OS, from 1 to 4
         required: false
         type: number
         default: 1
