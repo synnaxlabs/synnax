@@ -247,7 +247,9 @@ class BinaryField(BaseField):
     byte_order: ByteOrder = "little_endian"
     kind: payload_.Kind = "unsigned"
     multiplexor: FieldKey | None = None
-    multiplex_values: list[int] = Field(default_factory=list)
+    multiplex_values: list[Annotated[int, Field(ge=-2147483648, le=2147483647)]] = (
+        Field(default_factory=list)
+    )
 
 
 class JSONBaseField(BaseField):
