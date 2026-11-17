@@ -662,7 +662,7 @@ TEST_F(OutboxTest, WritesV1Segment) {
     ASSERT_EQ(read_file(this->segment()), read_file(TESTDATA / "v1_segment.bin"));
 }
 
-/// @brief v1 range calls must stay readable by every later Driver.
+/// @brief it should send the v1 range calls, which every later Driver must read.
 TEST_F(OutboxTest, SendsV1RangeSegment) {
     std::filesystem::create_directories(this->dir);
     std::filesystem::copy_file(TESTDATA / "v1_range_segment.bin", this->segment());
