@@ -77,18 +77,33 @@ class TestCommand:
     @pytest.mark.skipif(sys.platform == "win32", reason="SIGINT needs a POSIX signal")
     def test_login_exits_130_on_interrupt(self, tmp_path: Path) -> None:
         """Should exit with 130 and no traceback when the user presses Ctrl+C."""
-        proc = subprocess.Popen(
+        with subprocess.Popen(
             [sys.executable, "-c", _RUN_SY, "login"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             env=sy_env(tmp_path),
-        )
-        assert proc.stdout is not None
-        # The first prompt line shows that the command waits for input.
-        proc.stdout.readline()
-        proc.send_signal(signal.SIGINT)
-        _, stderr = proc.communicate(timeout=60)
+        ) as proc:
+            assert proc.stdout is not None
+            assert proc.stderr is not None
+            # The first prompt line shows that the command waits for input.
+            proc.stdout.readline()
+            # stdin stays open until the exit, or the command can read end of input
+            # before it handles the signal. A SIGINT that lands before input() starts
+            # its read only sets a flag, and the read then blocks, so it is sent again
+            # until the command exits, as a user presses Ctrl+C again. The long gap
+            # keeps a second SIGINT away from a slow exit.
+            for _ in range(12):
+                proc.send_signal(signal.SIGINT)
+                try:
+                    proc.wait(timeout=5)
+                    break
+                except subprocess.TimeoutExpired:
+                    continue
+            else:
+                proc.kill()
+                proc.wait()
+            stderr = proc.stderr.read()
         assert proc.returncode == 130
         assert "Traceback" not in stderr
