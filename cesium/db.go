@@ -169,7 +169,7 @@ func (db *DB) Run(ctx context.Context) error {
 // returns an error and closes nothing. Close is not safe to call with any other DB
 // methods concurrently.
 //
-// Writers still open when Close runs stop sending to streamers.
+// Writers still open after Run returns stop sending to streamers.
 //
 // If there is an error in closing the cesium database, the database will be marked as
 // closed regardless of whether an error occurred.
