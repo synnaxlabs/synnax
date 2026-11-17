@@ -98,13 +98,10 @@ const readRange = async (name: string): Promise<ranger.Range> => {
 const groupOf = (title: string): HTMLElement =>
   screen.getByRole("region", { name: title });
 
-const findLine = async (
-  title: string,
-  name: string,
-  timeout?: number,
-): Promise<HTMLElement> =>
+// The toolbar's first fetch can outlast the default 1 s wait on a busy runner.
+const findLine = async (title: string, name: string): Promise<HTMLElement> =>
   await waitFor(() => within(groupOf(title)).getByRole("listitem", { name }), {
-    timeout,
+    timeout: 10_000,
   });
 
 /** Running shows only while a range runs, so its group can be absent. */
@@ -216,7 +213,7 @@ describe("range/Toolbar", () => {
           name: "Stop",
         }),
       );
-      const ended = await findLine("Recent", run.name, 10_000);
+      const ended = await findLine("Recent", run.name);
       await waitFor(() => expect(queryLine("Recent", phase.name)).toBeNull());
       fireEvent.click(within(ended).getByRole("button", { name: "Expand" }));
       expect(await findLine("Recent", phase.name)).toBeTruthy();
