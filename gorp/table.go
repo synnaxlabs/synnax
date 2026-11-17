@@ -91,7 +91,8 @@ func (t *Table[K, E]) Close() error {
 // the current prefix and key encoding format. After migrations complete, OpenTable
 // returns immediately; DB.Run populates any secondary indexes in cfg.Indexes from one
 // scan of the table. For a table with indexes or references, OpenTable waits for DB.Run
-// to start, and returns an error when ctx ends first or DB.Run has stopped.
+// to start. It returns the error of ctx when ctx ends first, and an error wrapping
+// context.Canceled when DB.Run has stopped.
 //
 // idx.Filter and SortedIndex.FilterRange inside Retrieve block the query until the
 // index has finished populating. After populate completes the index serves queries

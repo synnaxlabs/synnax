@@ -182,7 +182,7 @@ var _ = Describe("DB", func() {
 			func(ctx SpecContext) {
 				StartRun(runDB.Run)()
 				Expect(openTable(ctx)).Error().
-					To(MatchError(ContainSubstring("after DB.Run stopped")))
+					To(MatchError(context.Canceled))
 			},
 		)
 
