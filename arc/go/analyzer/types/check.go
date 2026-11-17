@@ -14,6 +14,7 @@ import (
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -59,14 +60,14 @@ func Check(
 		resolved1 := cs.ApplySubstitutions(t1)
 		resolved2 := cs.ApplySubstitutions(t2)
 		if reason != "" {
-			return errors.Newf(
+			return codes.TypeMismatch.Errorf(
 				"type mismatch in %s: cannot assign %v to %v",
 				reason,
 				resolved2,
 				resolved1,
 			)
 		}
-		return errors.Newf(
+		return codes.TypeMismatch.Errorf(
 			"type mismatch: cannot assign %v to %v",
 			resolved2,
 			resolved1,
@@ -108,7 +109,7 @@ func Check(
 func newTypeMismatchError(
 	expected, actual types.Type,
 	reason string,
-) *typeMismatchError {
+) error {
 	var msg string
 	if reason != "" {
 		msg = fmt.Sprintf(
@@ -131,7 +132,9 @@ func newTypeMismatchError(
 	} else if expected.IsBool() && actual.IsNumeric() {
 		hint = constraints.BoolHint
 	}
-	return &typeMismatchError{Message: msg, Hint: hint, Cast: cast}
+	return codes.TypeMismatch.Mark(
+		&typeMismatchError{Message: msg, Hint: hint, Cast: cast},
+	)
 }
 
 // CastOf returns the type that a cast of the value fixes err with, if there is one.

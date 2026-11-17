@@ -839,6 +839,36 @@ var _ = Describe("Diagnostics", func() {
 			})
 		})
 
+		Describe("Kind.Mark", func() {
+			kind := diagnostics.Kind{
+				Code:     "TEST008",
+				Severity: protocol.DiagnosticSeverityWarning,
+			}
+
+			It("Should give the diagnostic of a marked error the kind", func() {
+				d := diagnostics.Error(kind.Errorf("value %d out of range", 300), nil)
+				Expect(d.Code).To(Equal(diagnostics.ErrorCode("TEST008")))
+				Expect(d.Severity).To(Equal(protocol.DiagnosticSeverityWarning))
+				Expect(d.Message).To(Equal("value 300 out of range"))
+			})
+
+			It("Should keep the kind and the hint under a wrapping error", func() {
+				marked := kind.Mark(hintedError{msg: "type mismatch", hint: "cast it"})
+				d := diagnostics.Error(errors.Wrap(marked, "bad default"), nil)
+				Expect(d.Code).To(Equal(diagnostics.ErrorCode("TEST008")))
+				Expect(d.Message).To(Equal("bad default: type mismatch"))
+				Expect(d.Notes).To(Equal([]protocol.DiagnosticRelatedInformation{
+					{Message: "cast it"},
+				}))
+			})
+
+			It("Should leave an unmarked error with no code", func() {
+				d := diagnostics.Error(errors.New("plain"), nil)
+				Expect(d.Code).To(BeEmpty())
+				Expect(d.Severity).To(Equal(protocol.DiagnosticSeverityError))
+			})
+		})
+
 		Describe("Kind.Wrap", func() {
 			It("Should give the diagnostic of an error the code and severity", func() {
 				kind := diagnostics.Kind{

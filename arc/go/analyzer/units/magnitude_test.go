@@ -12,6 +12,7 @@ package units_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/types"
@@ -37,6 +38,7 @@ var _ = Describe("Magnitude Safety", func() {
 				Expect(units.ValidateBinaryOp(ctx, "+", left, right)).To(BeTrue())
 				warnings := testutil.Warnings(ctx.Diagnostics)
 				Expect(warnings).To(HaveLen(1))
+				Expect(warnings[0].Code).To(Equal(codes.UnitPrecisionLoss.Code))
 				Expect(warnings[0].Message).To(ContainSubstring(expectedMagnitude))
 				Expect(warnings[0].Message).To(ContainSubstring("orders of magnitude"))
 			},

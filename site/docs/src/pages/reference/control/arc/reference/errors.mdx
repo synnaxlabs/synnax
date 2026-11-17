@@ -31,7 +31,7 @@ In the messages below, `<name>` stands for a value that changes.
 
 <Problem.Item
   {...Arc.diagnostic(
-    "ARC2004",
+    "E2010",
     ["<op>", "<name>", "false", "<check>"],
     ["!=", "<name>", "true", "not <check>"],
   )}
@@ -49,12 +49,12 @@ In the messages below, `<name>` stands for a value that changes.
   </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item {...Arc.diagnostic("ARC2005")}>
+<Problem.Item {...Arc.diagnostic("W2000")}>
   <Problem.Cause>An `if` or a `=>` uses a non-boolean value as a condition.</Problem.Cause>
   <Problem.Fix>Write a comparison, such as `x != 0`.</Problem.Fix>
 </Problem.Item>
 
-<Problem.Item {...Arc.diagnostic("ARC2006", ["<T>"])}>
+<Problem.Item {...Arc.diagnostic("W2001", ["<T>"])}>
   <Problem.Cause>
     A cast converts a `bool` to a number type other than `u8`, such as `i32(b)`.
   </Problem.Cause>
@@ -67,7 +67,7 @@ In the messages below, `<name>` stands for a value that changes.
 </Problem.Item>
 
 <Problem.Item
-  {...Arc.diagnostic("ARC3002")}
+  {...Arc.diagnostic("E2001")}
   message="type mismatch in argument '<p>' of '<f>': expected <T>, got <U>"
 >
   <Problem.Cause>An argument has the wrong type.</Problem.Cause>
@@ -100,7 +100,7 @@ In the messages below, `<name>` stands for a value that changes.
   <Problem.Fix>Remove the import.</Problem.Fix>
 </Problem.Item>
 
-<Problem.Item {...Arc.diagnostic("ARC6001", ["<value>", "<T>"])}>
+<Problem.Item {...Arc.diagnostic("E2008", ["<value>", "<T>"])}>
   <Problem.Cause>
     An expression made only of integer literals has a value that does not fit its type,
     such as `x i8 := 100 + 100`.
@@ -108,7 +108,7 @@ In the messages below, `<name>` stands for a value that changes.
   <Problem.Fix>Use a wider type, such as `i16`, or change the values.</Problem.Fix>
 </Problem.Item>
 
-<Problem.Item {...Arc.diagnostic("ARC6002", ["division"], ["modulo"])}>
+<Problem.Item {...Arc.diagnostic("E2000", ["division"], ["modulo"])}>
   <Problem.Cause>
     An integer `/` or `%` divides by a zero made only of literals: `x := 1 / 0`.
   </Problem.Cause>
@@ -119,8 +119,7 @@ In the messages below, `<name>` stands for a value that changes.
 
 </Problem.List>
 
-Codes ARC2001, ARC2003, ARC4001, and ARC4002 are reserved. The compiler does not emit
-them.
+Codes ARC4001 and ARC4002 are reserved. The compiler does not emit them.
 
 <Divider.Divider x />
 

@@ -11,14 +11,14 @@ package units
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 )
 
 var (
-	ErrDimensions             = errors.New("dimensions")
+	ErrDimensions             = codes.DimensionMismatch.Mark(errors.New("dimensions"))
 	ErrIncompatibleDimensions = errors.Wrap(ErrDimensions, "incompatible")
 )
 
@@ -48,7 +48,7 @@ func ValidateBinaryOp[AST antlr.ParserRuleContext](
 		return true
 	}
 	if !left.Unit.Dimensions.Equal(right.Unit.Dimensions) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.DimensionMismatch.Atf(
 			ctx.AST,
 			"incompatible dimensions: %s vs %s",
 			left.Unit.Dimensions,

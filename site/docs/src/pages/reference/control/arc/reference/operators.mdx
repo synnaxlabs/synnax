@@ -81,7 +81,7 @@ sequence main {
 
 Use [`math.is_nan`](/reference/control/arc/standard-library/math#float-checks) to test
 for NaN. `x != math.nan` is always `true`, and `==`, `<`, `>`, `<=`, or `>=` with
-`math.nan` is always `false`. The compiler rejects each with error ARC2004: write
+`math.nan` is always `false`. The compiler rejects each with error E2010: write
 `math.is_nan(x)` and `not math.is_nan(x)`. `x != x` is `true` only for NaN, but the
 check is easier to read.
 
@@ -167,7 +167,7 @@ To mix types, cast one side. See [casts](/reference/control/arc/reference/types#
 
 Before `=>`, a number is true when it is not zero. A `str` is true when it is not empty.
 A non-boolean value before `=>` or in an `if` condition gives the warning
-[ARC2005](/reference/control/arc/reference/errors#arc2005).
+[W2000](/reference/control/arc/reference/errors#w2000).
 
 In an `if`, a number works only when its type has 32 bits or less. An `i64`, `u64`,
 `f32`, or `f64` condition compiles with the warning, then fails to load with

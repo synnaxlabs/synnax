@@ -13,11 +13,12 @@ import (
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/x/errors"
 	"go.lsp.dev/protocol"
 )
 
 // ErrorCode identifies a diagnostic category. Each language defines its own
-// constants (e.g. ARC2001 for Arc type-mismatch errors).
+// constants (e.g. E2001 for Arc type-mismatch errors).
 type ErrorCode string
 
 // Kind is the declaration of a diagnostic.
@@ -57,4 +58,21 @@ func (k Kind) Wrap(err error, ctx antlr.ParserRuleContext) Diagnostic {
 	d := Error(err, ctx)
 	d.Code, d.Severity = k.Code, k.Severity
 	return d
+}
+
+// kindError is an error that carries the kind of its diagnostic.
+type kindError struct {
+	error
+	kind Kind
+}
+
+func (e *kindError) Unwrap() error { return e.error }
+
+// Mark returns err as an error of the kind. Error gives the diagnostic of a marked
+// error the code and severity of the kind, also when another error wraps it.
+func (k Kind) Mark(err error) error { return &kindError{error: err, kind: k} }
+
+// Errorf returns an error of the kind with the message of format and args.
+func (k Kind) Errorf(format string, args ...any) error {
+	return k.Mark(errors.Newf(format, args...))
 }

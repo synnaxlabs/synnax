@@ -88,7 +88,7 @@ func analyzeRebind(
 		return
 	}
 	if !types.Equal(alias.Type.Unwrap(), rhs.Type.Unwrap()) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+		ctx.Diagnostics.Add(codes.TypeMismatch.Atf(ctx.AST,
 			"type mismatch: cannot rebind '%s' (%s) to '%s' (%s)",
 			alias.Name, alias.Type, rhs.Name, rhs.Type))
 		return

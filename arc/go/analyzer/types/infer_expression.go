@@ -428,7 +428,7 @@ func inferSeriesLiteralType(
 			allLiterals = false
 		}
 		if !compatible {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 				exprs[i],
 				"series element %d has incompatible type %s, expected %s",
 				i+1,

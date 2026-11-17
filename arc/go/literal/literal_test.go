@@ -12,9 +12,11 @@ package literal_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -387,8 +389,11 @@ var _ = Describe("Literal Parser", func() {
 		Context("Error cases", func() {
 			It("Should return error for unknown units", func() {
 				lit := getLiteral("5foobar")
-				Expect(literal.Parse(lit, types.Type{})).
-					Error().To(MatchError(ContainSubstring("unknown unit")))
+				_, err := literal.Parse(lit, types.Type{})
+				Expect(err).To(MatchError(ContainSubstring("unknown unit")))
+				Expect(
+					diagnostics.Error(err, nil).Code,
+				).To(Equal(codes.UnknownType.Code))
 			})
 
 			It("Should return error for range overflow", func() {

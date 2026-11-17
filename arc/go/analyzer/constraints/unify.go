@@ -14,6 +14,7 @@ import (
 	"maps"
 	"strings"
 
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -24,18 +25,28 @@ var (
 	// errConstraints is the base constraints error type.
 	errConstraints = errors.New("constraints")
 	// errCyclicType indicates a type variable occurs within its own substitution.
-	errCyclicType = errors.Wrap(errConstraints, "cyclic type dependency")
+	errCyclicType = codes.UnresolvedType.Mark(
+		errors.Wrap(errConstraints, "cyclic type dependency"),
+	)
 	// errConstraintViolation indicates a type does not satisfy a type variable's
 	// constraint.
-	errConstraintViolation = errors.Wrap(errConstraints, "constraint violation")
+	errConstraintViolation = codes.TypeMismatch.Mark(
+		errors.Wrap(errConstraints, "constraint violation"),
+	)
 	// errUnresolvable indicates two types cannot be unified.
-	errUnresolvable = errors.Wrap(errConstraints, "types are not unifiable")
+	errUnresolvable = codes.TypeMismatch.Mark(
+		errors.Wrap(errConstraints, "types are not unifiable"),
+	)
 	// ErrUnresolvedVariable indicates a type variable could not be resolved to a
 	// concrete type.
-	ErrUnresolvedVariable = errors.Wrap(errConstraints, "unresolved type variable")
+	ErrUnresolvedVariable = codes.UnresolvedType.Mark(
+		errors.Wrap(errConstraints, "unresolved type variable"),
+	)
 	// errConvergence indicates the unification algorithm did not converge within
 	// iteration limit.
-	errConvergence = errors.Wrap(errConstraints, "unification did not converge")
+	errConvergence = codes.UnresolvedType.Mark(
+		errors.Wrap(errConstraints, "unification did not converge"),
+	)
 )
 
 // BoolHint is the hint for a numeric value where a bool is expected. Arc has no cast
@@ -144,13 +155,13 @@ func (s *System) UnifyConstraint(c Constraint) error {
 		} else if c.Kind == kindEquality && left.IsBool() && right.IsNumeric() {
 			hint = BoolHint
 		}
-		return &UnificationError{
+		return codes.TypeMismatch.Mark(&UnificationError{
 			Constraint: &c,
 			Left:       left,
 			Right:      right,
 			Message:    msg,
 			Hint:       hint,
-		}
+		})
 	}
 	return nil
 }

@@ -15,6 +15,7 @@ import (
 	"slices"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/analyzer/flow"
@@ -327,7 +328,7 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 					isLiteral := isLiteralExpression(ctx.Child(expression))
 					if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, varType, exprType, ctx.AST)) ||
 						(!isLiteral && !assignable(varType, exprType)) {
-						ctx.Diagnostics.Add(diagnostics.Errorf(
+						ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 							ctx.AST,
 							"type mismatch: cannot assign %s to '%s' (type %s)",
 							exprType,
@@ -344,7 +345,7 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 	if expression != nil {
 		return atypes.InferFromExpression(ctx.Child(expression))
 	}
-	ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "no type declaration found"))
+	ctx.Diagnostics.Add(codes.UnresolvedType.Atf(ctx.AST, "no type declaration found"))
 	return types.Type{}
 }
 
@@ -697,7 +698,7 @@ func analyzeForSingleIdent(
 		return
 	}
 
-	ctx.Diagnostics.Add(diagnostics.Errorf(
+	ctx.Diagnostics.Add(codes.InvalidOperand.Atf(
 		ctx.AST,
 		"cannot iterate over %s; did you mean range(%s)?",
 		exprType,
@@ -718,7 +719,7 @@ func analyzeForTwoIdent(
 	exprType := atypes.InferFromExpression(ctx.Child(expr))
 
 	if exprType.Kind != types.KindSeries || exprType.Elem == nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.InvalidOperand.Atf(
 			ctx.AST,
 			"two-variable for loop requires a series, got %s",
 			exprType,
@@ -785,7 +786,7 @@ func analyzeForRange(
 			return
 		}
 		if !argType.IsInteger() && !isIntegerLiteral(argType) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 				ctx.AST,
 				"range() argument %d must be an integer type, got %s",
 				i+1, argType,
@@ -799,7 +800,7 @@ func analyzeForRange(
 		if !loopVarType.IsValid() {
 			loopVarType = argType
 		} else if !atypes.Compatible(loopVarType, argType) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 				ctx.AST,
 				"type mismatch: cannot use %s and %s in range()",
 				loopVarType, argType,
@@ -962,7 +963,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 						actualReturnType,
 						ctx.AST,
 					) {
-						ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+						ctx.Diagnostics.Add(codes.TypeMismatch.Atf(ctx.AST,
 							"cannot return %s from '%s': expected %s",
 							actualReturnType,
 							funcName,
@@ -972,7 +973,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 					}
 				} else {
 					if !assignable(expectedReturnType, actualReturnType) {
-						ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+						ctx.Diagnostics.Add(codes.TypeMismatch.Atf(ctx.AST,
 							"cannot return %s from '%s': expected %s",
 							actualReturnType,
 							funcName,
@@ -1006,14 +1007,14 @@ func analyzeExprReadReassignment(
 	}
 	expression.Analyze(ctx.Child(expr))
 	if !rhsTracksChannel(ctx, expr) && !rhsReadsVariable(ctx, expr) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+		ctx.Diagnostics.Add(codes.TypeMismatch.Atf(ctx.AST,
 			"type mismatch: cannot reassign '%s' (%s) from a constant value",
 			sym.Name, sym.Type.Unwrap()))
 		return
 	}
 	exprType := atypes.InferFromExpression(ctx.Child(expr)).UnwrapChan()
 	if exprType.IsValid() && !types.StructuralMatch(sym.Type.Unwrap(), exprType) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+		ctx.Diagnostics.Add(codes.TypeMismatch.Atf(ctx.AST,
 			"type mismatch: cannot reassign '%s' (%s) from a %s expression",
 			sym.Name, sym.Type.Unwrap(), exprType))
 		return
@@ -1080,7 +1081,7 @@ func analyzeChannelAssignment(
 		if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, chanValueType, exprType, ctx.AST)) ||
 			(!isLiteral && !assignable(chanValueType, exprType)) {
 			channelName := ctx.AST.IDENTIFIER().GetText()
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 				ctx.AST, "type mismatch: cannot write %s to channel '%s' (type %s)",
 				exprType,
 				channelName,
@@ -1098,7 +1099,7 @@ func analyzeIndexedAssignment(
 ) {
 	// 1. Verify base is a series type
 	if varScope.Type.Kind != types.KindSeries {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.InvalidOperand.Atf(
 			ctx.AST,
 			"indexed assignment only supported on series types",
 		))
@@ -1148,7 +1149,7 @@ func analyzeIndexedAssignment(
 	isLiteral := isLiteralExpression(ctx.Child(valueExpr))
 	if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, elemType, exprType, ctx.AST)) ||
 		(!isLiteral && !assignable(elemType, exprType)) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 			ctx.AST,
 			"type mismatch: cannot assign %s to series element of type %s",
 			exprType,
@@ -1166,7 +1167,7 @@ func analyzeIndexedCompoundAssignment(
 	compoundOp parser.ICompoundOpContext,
 ) {
 	if varScope.Type.Kind != types.KindSeries {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.InvalidOperand.Atf(
 			ctx.AST,
 			"indexed compound assignment only supported on series types",
 		))
@@ -1184,7 +1185,7 @@ func analyzeIndexedCompoundAssignment(
 	if elemType.Kind == types.KindString {
 		if compoundOp.PLUS_ASSIGN() == nil {
 			ctx.Diagnostics.Add(
-				diagnostics.Errorf(
+				codes.InvalidOperand.Atf(
 					ctx.AST,
 					"string series elements only support += operator",
 				),
@@ -1192,7 +1193,7 @@ func analyzeIndexedCompoundAssignment(
 			return
 		}
 	} else if !atypes.Numeric(ctx.Constraints, elemType, ctx.AST) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.InvalidOperand.Atf(
 			ctx.AST,
 			"compound assignment requires numeric element type, got %s",
 			elemType,
@@ -1228,7 +1229,7 @@ func analyzeIndexedCompoundAssignment(
 	isLiteral := isLiteralExpression(ctx.Child(expr))
 	if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, elemType, exprType, ctx.AST)) ||
 		(!isLiteral && !assignable(elemType, exprType)) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 			ctx.AST,
 			"type mismatch: cannot use %s in compound assignment to series element of type %s",
 			exprType,
@@ -1249,13 +1250,16 @@ func analyzeSeriesCompoundAssignment(
 	if elemType.Kind == types.KindString {
 		if compoundOp.PLUS_ASSIGN() == nil {
 			ctx.Diagnostics.Add(
-				diagnostics.Errorf(ctx.AST, "string series only support += operator"),
+				codes.InvalidOperand.Atf(
+					ctx.AST,
+					"string series only support += operator",
+				),
 			)
 			return
 		}
 	} else if !atypes.Numeric(ctx.Constraints, elemType, ctx.AST) {
 		ctx.Diagnostics.Add(
-			diagnostics.Errorf(
+			codes.InvalidOperand.Atf(
 				ctx.AST,
 				"compound assignment requires numeric element type, got %s",
 				elemType,
@@ -1291,7 +1295,7 @@ func analyzeSeriesCompoundAssignment(
 	if exprType.Kind == types.KindSeries {
 		rhsElemType := *exprType.Elem
 		if !atypes.Compatible(elemType, rhsElemType) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 				ctx.AST,
 				"type mismatch: cannot use %s in compound assignment to %s",
 				exprType,
@@ -1302,7 +1306,7 @@ func analyzeSeriesCompoundAssignment(
 		isLiteral := isLiteralExpression(ctx.Child(expr))
 		if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, elemType, exprType, ctx.AST)) ||
 			(!isLiteral && !atypes.Compatible(elemType, exprType)) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 				ctx.AST,
 				"type mismatch: cannot use %s in compound assignment to series of %s",
 				exprType,
@@ -1342,12 +1346,12 @@ func analyzeCompoundAssignment(
 	if varType.Kind == types.KindString {
 		if compoundOp.PLUS_ASSIGN() == nil {
 			ctx.Diagnostics.Add(
-				diagnostics.Errorf(ctx.AST, "strings only support += operator"),
+				codes.InvalidOperand.Atf(ctx.AST, "strings only support += operator"),
 			)
 			return
 		}
 	} else if !varType.IsNumeric() {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.InvalidOperand.Atf(
 			ctx.AST,
 			"compound assignment requires numeric type, got %s",
 			varType,
@@ -1379,7 +1383,7 @@ func analyzeCompoundAssignment(
 	if assignable(varType, exprType) {
 		return
 	}
-	ctx.Diagnostics.Add(diagnostics.Errorf(
+	ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 		ctx.AST,
 		"type mismatch: cannot use %s in compound assignment to %s",
 		exprType,
@@ -1456,7 +1460,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 
 	// Check structural compatibility (series/channel structure must match)
 	if !types.StructuralMatch(varType, exprType) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 			ctx.AST,
 			"type mismatch: cannot assign %s to '%s' (type %s)",
 			exprType,
@@ -1472,7 +1476,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		target,
 		exprType,
 	) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 			ctx.AST,
 			"type mismatch: cannot assign %s to '%s' (type %s)",
 			exprType,
@@ -1726,7 +1730,7 @@ func unifyNumericTypes(
 ) (types.Type, error) {
 	c, ok := classifyNumericTypes(resolvedTypes)
 	if !ok {
-		return types.Type{}, errors.Newf(
+		return types.Type{}, codes.TypeMismatch.Errorf(
 			"incompatible return types: cannot unify %s and %s",
 			returnTypes[0],
 			returnTypes[1],
@@ -1734,7 +1738,7 @@ func unifyNumericTypes(
 	}
 	if c.hasFloat {
 		if slices.ContainsFunc(returnTypes, types.Type.IsInteger) {
-			return types.Type{}, errors.New(
+			return types.Type{}, codes.TypeMismatch.Errorf(
 				"mixed integer and floating-point returns are not allowed",
 			)
 		}

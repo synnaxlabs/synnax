@@ -16,6 +16,7 @@ import (
 	"slices"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
@@ -338,7 +339,7 @@ func consultTrigger[T antlr.ParserRuleContext](
 		}
 		if err := atypes.Check(ctx.Constraints, targetParam.Type, upstreamType, ctx.AST,
 			"upstream connection to func '"+name+"'"); err != nil {
-			d := diagnostics.Errorf(
+			d := codes.TypeMismatch.Atf(
 				ctx.AST,
 				"upstream value type %s does not match func '%s' trigger parameter '%s' type %s",
 				upstreamType,
@@ -436,7 +437,7 @@ func analyzeIdentifier(
 				ctx.AST,
 				"flow to channel sink",
 			); err != nil {
-				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+				ctx.Diagnostics.Add(codes.TypeMismatch.Atf(ctx.AST,
 					"%s does not match channel %s value type %s",
 					srcDesc, name, chanValueType,
 				))
@@ -800,7 +801,7 @@ func checkEntryHeadParamMapping(
 	headType := inferFlowNodeOutputType(ctx)
 	if err := atypes.Check(ctx.Constraints, headType, param.Type, ctx.AST,
 		"routing table parameter mapping"); err != nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 			ctx.AST,
 			"type mismatch: output type %s does not match target parameter %s type %s",
 			headType,
@@ -936,7 +937,7 @@ func analyzeRoutingTargetWithParam(
 			if param, exists := nextFuncType.Inputs.Get(*targetParam); exists {
 				if err := atypes.Check(ctx.Constraints, outputType, param.Type, ctx.AST,
 					"routing table parameter mapping"); err != nil {
-					ctx.Diagnostics.Add(diagnostics.Errorf(
+					ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 						ctx.AST,
 						"type mismatch: func %s output type %s does not match target parameter %s type %s",
 						fnName,

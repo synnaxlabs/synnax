@@ -19,11 +19,6 @@ import (
 
 // Reserved codes. The compiler does not report them.
 const (
-	// TypeMismatch indicates incompatible types in an operation or assignment.
-	TypeMismatch diagnostics.ErrorCode = "ARC2001"
-	// TypeConstraintViolation indicates a type doesn't satisfy a type variable's
-	// constraint.
-	TypeConstraintViolation diagnostics.ErrorCode = "ARC2003"
 	// SymbolUndefined indicates a referenced symbol was not found.
 	SymbolUndefined diagnostics.ErrorCode = "ARC4001"
 	// SymbolRedefined indicates a symbol was declared more than once in the same scope.
@@ -53,24 +48,80 @@ var (
 		Message:  "subtraction requires whitespace on both sides of '-'",
 	}
 
-	// NaNComparison indicates a comparison with a NaN constant, which always has the
-	// same result.
+	// DivisionByZero is a constant integer division or modulo by zero.
+	DivisionByZero = diagnostics.Kind{
+		Code:     "E2000",
+		Severity: protocol.DiagnosticSeverityError,
+		Message:  "integer %s by zero",
+	}
+	// TypeMismatch is a value of one type where the code needs a different type.
+	TypeMismatch = diagnostics.Kind{
+		Code:     "E2001",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// UnknownType is a type name or a unit name that does not exist.
+	UnknownType = diagnostics.Kind{
+		Code:     "E2002",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// UnresolvedType is a value that has no type the compiler can determine.
+	UnresolvedType = diagnostics.Kind{
+		Code:     "E2003",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// InvalidOperand is an operator or statement on a type that it does not support.
+	InvalidOperand = diagnostics.Kind{
+		Code:     "E2005",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// InvalidCast is a cast between two types that Arc does not convert.
+	InvalidCast = diagnostics.Kind{
+		Code:     "E2006",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// NotConstant is a computed value where the code needs a constant.
+	NotConstant = diagnostics.Kind{
+		Code:     "E2007",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// ConstantOverflow is a constant that does not fit its type.
+	ConstantOverflow = diagnostics.Kind{
+		Code:     "E2008",
+		Severity: protocol.DiagnosticSeverityError,
+		Message:  "constant %s overflows %s",
+	}
+	// DimensionMismatch is an operation on units that have different dimensions.
+	DimensionMismatch = diagnostics.Kind{
+		Code:     "E2009",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// NaNComparison is a comparison with a NaN constant, which always has one result.
 	NaNComparison = diagnostics.Kind{
-		Code:     "ARC2004",
+		Code:     "E2010",
 		Severity: protocol.DiagnosticSeverityError,
 		Message:  "%s with %s is always %t, use %s instead",
 	}
+	// InvalidLiteral is a number literal that is malformed or has no exact value.
+	InvalidLiteral = diagnostics.Kind{
+		Code:     "E2011",
+		Severity: protocol.DiagnosticSeverityError,
+	}
 	// TruthyCondition is a number or a string used as a condition.
 	TruthyCondition = diagnostics.Kind{
-		Code:     "ARC2005",
+		Code:     "W2000",
 		Severity: protocol.DiagnosticSeverityWarning,
 		Message:  "non-boolean conditions are deprecated, use an explicit comparison like x != 0",
 	}
 	// BoolCast is a cast of a bool to a number type other than u8.
 	BoolCast = diagnostics.Kind{
-		Code:     "ARC2006",
+		Code:     "W2001",
 		Severity: protocol.DiagnosticSeverityWarning,
 		Message:  "bool to %s is experimental; a future release may only allow bool to u8",
+	}
+	// UnitPrecisionLoss is a unit operation that can lose precision or overflow.
+	UnitPrecisionLoss = diagnostics.Kind{
+		Code:     "W2003",
+		Severity: protocol.DiagnosticSeverityWarning,
 	}
 
 	// FuncArgMissing is a call with no argument for a required parameter.
@@ -78,11 +129,6 @@ var (
 		Code:     "ARC3001",
 		Severity: protocol.DiagnosticSeverityError,
 		Message:  "missing required argument for parameter '%s' of func '%s'",
-	}
-	// FuncArgType indicates a function argument has the wrong type.
-	FuncArgType = diagnostics.Kind{
-		Code:     "ARC3002",
-		Severity: protocol.DiagnosticSeverityError,
 	}
 	// FuncArgExtra is a call with more arguments than parameters.
 	FuncArgExtra = diagnostics.Kind{
@@ -110,19 +156,6 @@ var (
 		Severity: protocol.DiagnosticSeverityWarning,
 		Message:  "imported module %q is unused",
 	}
-
-	// ConstantOverflow is a constant integer that does not fit its type.
-	ConstantOverflow = diagnostics.Kind{
-		Code:     "ARC6001",
-		Severity: protocol.DiagnosticSeverityError,
-		Message:  "constant %s overflows %s",
-	}
-	// DivisionByZero is a constant integer division or modulo by zero.
-	DivisionByZero = diagnostics.Kind{
-		Code:     "ARC6002",
-		Severity: protocol.DiagnosticSeverityError,
-		Message:  "integer %s by zero",
-	}
 )
 
 // All is each kind of the table.
@@ -131,15 +164,23 @@ var All = []diagnostics.Kind{
 	SourceLimit,
 	InvalidStringLiteral,
 	SubtractionSpacing,
+	DivisionByZero,
+	TypeMismatch,
+	UnknownType,
+	UnresolvedType,
+	InvalidOperand,
+	InvalidCast,
+	NotConstant,
+	ConstantOverflow,
+	DimensionMismatch,
 	NaNComparison,
+	InvalidLiteral,
 	TruthyCondition,
 	BoolCast,
+	UnitPrecisionLoss,
 	FuncArgMissing,
-	FuncArgType,
 	FuncArgExtra,
 	DeprecatedSymbol,
 	DeclarationAfterStep,
 	UnusedImport,
-	ConstantOverflow,
-	DivisionByZero,
 }

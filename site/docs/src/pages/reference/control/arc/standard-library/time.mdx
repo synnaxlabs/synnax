@@ -21,7 +21,7 @@ The `period` and `duration` parameters have the type `i64 ns`. They take a durat
 literal, such as `500ms`, or a variable of type `i64 ns`. A frequency such as `10hz`
 fails with `cannot convert time^-1 to time^1: incompatible: dimensions`. For 10 times a
 second, use `100ms`. A variable declared as `hold := 5s` has the type `i64 s`, and gives
-error ARC3002 `expected i64 ns, got i64 s`. Declare it with the type:
+error E2001 `expected i64 ns, got i64 s`. Declare it with the type:
 
 ```arc channels="ign_cmd" bodies="fire"
 import time

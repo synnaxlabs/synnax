@@ -226,7 +226,7 @@ var _ = Describe("Server Diagnostics", func() {
 				)
 
 				Expect(client.Diagnostics()).To(HaveLen(1))
-				Expect(DiagnosticCode(client.Diagnostics()[0])).To(Equal("ARC3002"))
+				Expect(DiagnosticCode(client.Diagnostics()[0])).To(Equal("E2001"))
 			},
 		)
 	})

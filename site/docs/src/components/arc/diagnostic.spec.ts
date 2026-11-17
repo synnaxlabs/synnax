@@ -33,14 +33,14 @@ describe("Arc.diagnostic", () => {
   });
 
   it("should give one message for each list of values", () => {
-    expect(Arc.diagnostic("ARC6002", ["division"], ["modulo"]).message).toEqual([
+    expect(Arc.diagnostic("E2000", ["division"], ["modulo"]).message).toEqual([
       "integer division by zero",
       "integer modulo by zero",
     ]);
   });
 
   it("should give no message for a kind that takes it from an error", () => {
-    expect(Arc.diagnostic("ARC3002")).toEqual({ code: "ARC3002", severity: "error" });
+    expect(Arc.diagnostic("E2001")).toEqual({ code: "E2001", severity: "error" });
   });
 
   it("should throw for a code that no kind has", () => {

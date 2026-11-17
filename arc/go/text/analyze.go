@@ -20,6 +20,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/authority"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/compiler"
@@ -750,7 +751,7 @@ func lowerComputedDecl(
 	shell *shellBuilder,
 ) (varEntry, bool) {
 	if e.register == nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+		ctx.Diagnostics.Add(codes.NotConstant.Atf(ctx.AST,
 			"variable '%s' of type %s cannot have a computed initializer",
 			sym.Name, sym.Type))
 		return varEntry{}, false
