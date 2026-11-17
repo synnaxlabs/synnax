@@ -14,6 +14,7 @@ import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
+import { createSlaveDevice } from "@/feature/ethercat/testutil";
 import { createTestDevice } from "@/platform/device/testutil";
 import { CaptureStatuses, createConsoleWrapper, uniqueName } from "@/testutil";
 
@@ -42,42 +43,53 @@ const renderListener = async (): Promise<{
 describe("device/useListenForChanges", () => {
   it("notifies once when a new unconfigured device connects", async () => {
     const { statuses } = await renderListener();
-    const name = uniqueName("device");
-    const dev = await createTestDevice(client, { configured: false, name });
+    const model = uniqueName("model");
+    const dev = await createTestDevice(client, { configured: false, model });
     await waitFor(() =>
       expect(
-        statuses().find((s) => s.message === `New ${name} connected`),
+        statuses().find((s) => s.message === `New ${model} connected`),
       ).toBeDefined(),
     );
     await client.devices.dispatch(
       dev.key,
       device.set({ path: ["location"], value: uniqueName("location") }),
     );
-    const other = uniqueName("device");
-    await createTestDevice(client, { configured: false, name: other });
+    const other = uniqueName("model");
+    await createTestDevice(client, { configured: false, model: other });
     await waitFor(() =>
       expect(
         statuses().find((s) => s.message === `New ${other} connected`),
       ).toBeDefined(),
     );
-    const first = statuses().find((s) => s.message === `New ${name} connected`);
+    const first = statuses().find((s) => s.message === `New ${model} connected`);
     expect(first?.count).toBe(1);
     expect(first?.name).toBe(dev.name);
   });
 
-  it("does not notify for devices that are already configured", async () => {
+  it("names a model by the name that its integration gives it", async () => {
     const { statuses } = await renderListener();
-    const configuredName = uniqueName("device");
-    await createTestDevice(client, { configured: true, name: configuredName });
-    const name = uniqueName("device");
-    await createTestDevice(client, { configured: false, name });
+    const rack = await client.racks.create({ name: uniqueName("rack") });
+    await createSlaveDevice(client, rack.key, {}, false);
     await waitFor(() =>
       expect(
-        statuses().find((s) => s.message === `New ${name} connected`),
+        statuses().find((s) => s.message === "New module connected"),
+      ).toBeDefined(),
+    );
+  });
+
+  it("does not notify for devices that are already configured", async () => {
+    const { statuses } = await renderListener();
+    const configuredModel = uniqueName("model");
+    await createTestDevice(client, { configured: true, model: configuredModel });
+    const model = uniqueName("model");
+    await createTestDevice(client, { configured: false, model });
+    await waitFor(() =>
+      expect(
+        statuses().find((s) => s.message === `New ${model} connected`),
       ).toBeDefined(),
     );
     expect(
-      statuses().find((s) => s.message === `New ${configuredName} connected`),
+      statuses().find((s) => s.message === `New ${configuredModel} connected`),
     ).toBeUndefined();
   });
 });
