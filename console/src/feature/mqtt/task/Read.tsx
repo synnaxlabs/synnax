@@ -230,12 +230,47 @@ const writtenChannels = (entries: ReadEntry[]): Set<channel.Key> => {
   return written;
 };
 
+/** @returns the key of the device properties that store the channels of a message. */
+const storedKey = (topic: string, message: icd.MessageKey): string =>
+  `${topic}#${message}`;
+
 /**
- * The key of the device properties that store the channels of a message that a topic
- * reads. The first message of a topic stores under the topic.
+ * @returns the channels that the device stores for read r of the entry. An older
+ * Console stored the channels of a topic under the bare topic. They belong to the
+ * message that binds one of them, or else to the first message.
  */
-const storedKey = (topic: string, read: number, message: icd.MessageKey): string =>
-  read === 0 ? topic : `${topic}#${message}`;
+const storedOf = (
+  stored: Stored,
+  { topic, messages }: Pick<PlainReadEntry, "topic" | "messages">,
+  r: number,
+): Stored[string] | undefined => {
+  const own = stored[storedKey(topic, messages[r].message)];
+  if (own != null) return own;
+  const legacy = stored[topic];
+  if (legacy == null) return undefined;
+  const channels = new Set([legacy.index, ...Object.values(legacy.channels)]);
+  channels.delete(0);
+  const owner = messages.findIndex(({ bindings }) =>
+    bindings.some(({ channel }) => channels.has(channel)),
+  );
+  return Math.max(owner, 0) === r ? legacy : undefined;
+};
+
+/**
+ * @returns the channel that the device stores for each pointer under any message of the
+ * topic. The channels of the message itself come first.
+ */
+const topicChannels = (
+  stored: Stored,
+  topic: string,
+  message: icd.MessageKey,
+): Record<string, channel.Key> => {
+  const channels: Record<string, channel.Key> = {};
+  for (const [key, props] of Object.entries(stored))
+    if (key === topic || key.startsWith(`${topic}#`))
+      Object.assign(channels, props.channels);
+  return { ...channels, ...stored[storedKey(topic, message)]?.channels };
+};
 
 /**
  * The prefix of the names of the channels that deploying creates for a message. A
@@ -252,18 +287,17 @@ const messagePrefix = (
 };
 
 /**
- * @returns the bindings of fields, each to the channel the device stores for it under
- * the key. A field whose stored channel is in written gets no channel, as the Core
- * refuses a channel that two bindings write. Adds the channels it binds to written.
+ * @returns the bindings of fields, each to the channel stored for its pointer. A field
+ * whose stored channel is in written gets no channel, as the Core refuses a channel
+ * that two bindings write. Adds the channels it binds to written.
  */
 const bindingsOf = (
-  stored: Stored,
-  key: string,
+  stored: Record<string, channel.Key>,
   fields: icd.JSONField[],
   written: Set<channel.Key>,
 ): ReadBinding[] =>
   fields.map(({ key: field, pointer }) => {
-    const ch = stored[key]?.channels[pointer] ?? 0;
+    const ch = stored[pointer] ?? 0;
     if (written.has(ch)) return mqtt.readBindingZ.parse({ field });
     if (ch !== 0) written.add(ch);
     return mqtt.readBindingZ.parse({ field, channel: ch });
@@ -318,8 +352,12 @@ interface AddTopicsResult {
   held: { key: string; message?: icd.MessageKey; bindings: ReadBinding[] }[];
 }
 
-/** @returns the bindings of the fields of a draft that the task reads. */
-type Bind = (draft: Draft, fields: icd.JSONField[]) => ReadBinding[];
+/** @returns the bindings of the fields of a draft that the message reads. */
+type Bind = (
+  draft: Draft,
+  fields: icd.JSONField[],
+  message: icd.MessageKey,
+) => ReadBinding[];
 
 /** @returns the name of the ICD of a task named name. */
 const icdName = (name: string): string => (name.trim() === "" ? DEFAULT_NAME : name);
@@ -334,7 +372,10 @@ const createICD = async (
   const messages = drafts.map(({ topic, fields }) => createMessage(topic, fields));
   const { key } = await client.icds.create({ name, messages });
   const added = drafts.map((d, i) =>
-    entryOf(key, d.topic, { message: messages[i].key, bindings: bind(d, d.fields) }),
+    entryOf(key, d.topic, {
+      message: messages[i].key,
+      bindings: bind(d, d.fields, messages[i].key),
+    }),
   );
   return { added, held: [] };
 };
@@ -380,14 +421,17 @@ const addTopics = async ({
       const message = entry == null ? undefined : messageOf(messages, entry, 0);
       if (entry != null && message != null) {
         const appended = appendFields(inserterOf(key), message, draft.fields);
-        result.held.push({ key: entry.key, bindings: bind(draft, appended) });
+        result.held.push({
+          key: entry.key,
+          bindings: bind(draft, appended, message.key),
+        });
         continue;
       }
       const prior = messages.get(key) ?? [];
       const created = createMessage(draft.topic, draft.fields);
       inserterOf(key).insert(PICD.formPath.messages, created, prior.at(-1)?.key);
       messages.set(key, [...prior, created]);
-      const bindings = bind(draft, draft.fields);
+      const bindings = bind(draft, draft.fields, created.key);
       if (entry == null)
         result.added.push(
           entryOf(key, draft.topic, { message: created.key, bindings }),
@@ -403,14 +447,10 @@ const addTopics = async ({
 const isReadable = ({ type, pointer }: icd.JSONField): boolean =>
   type !== "bytes" || pointer !== "";
 
-const isIndexable = (field?: icd.JSONField): boolean =>
-  field?.type === "timestamp" && field.default == null;
-
 /**
  * @returns read, changed to suit the fields of its message: no binding of a field that
  * is gone or that the Core cannot read, no data type that its field cannot convert to,
- * and no index that is not a timestamp field. An index field with a default stays, for
- * its error to show.
+ * and no index that is not a timestamp field.
  */
 const suit = (read: mqtt.ReadMessage, fields: icd.JSONField[]): mqtt.ReadMessage => {
   const byKey = new Map(fields.map((f) => [f.key, f]));
@@ -494,13 +534,13 @@ const TimestampFields: FC<TimestampFieldsProps> = ({ path, read, fields, device 
   const { get, set } = PForm.useContext();
   const readPath = path.messages[read];
   const topic = PForm.useFieldValue(path.topic);
-  const message = PForm.useFieldValue(readPath.message);
+  const messages = PForm.useFieldValue(path.messages);
   const held = PForm.useFieldValue(readPath.index, { optional: true });
   const bindings = PForm.useFieldValue(readPath.bindings);
   const entryDisabled = PForm.useFieldValue(path.disabled);
   const prefix = usePrefix(device.name, path, read);
   const indexChannel =
-    device.properties.read[storedKey(topic, read, message)]?.index ?? 0;
+    storedOf(device.properties.read, { topic, messages }, read)?.index ?? 0;
   const indexBinding = bindings.find(({ field }) => field === held);
   const timestamps = fields.filter(({ type }) => type === "timestamp");
   const index = timestamps.find(({ key }) => key === held);
@@ -508,7 +548,6 @@ const TimestampFields: FC<TimestampFieldsProps> = ({ path, read, fields, device 
     set(readPath, reindex(get(readPath).value, next, indexChannel));
   const handleMode = (mode: TimingMode) =>
     setIndex(mode === "payload" ? timestamps.at(0)?.key : undefined);
-  const invalid = index != null && !isIndexable(index);
   return (
     <>
       <Input.Item
@@ -530,16 +569,7 @@ const TimestampFields: FC<TimestampFieldsProps> = ({ path, read, fields, device 
         </Select.Buttons>
       </Input.Item>
       {index != null && (
-        <Input.Item
-          label="Field"
-          padHelpText={false}
-          helpText={
-            invalid
-              ? `${index.name} has a default, so it cannot be the index. Remove its default in the message format.`
-              : undefined
-          }
-          status={invalid ? "error" : undefined}
-        >
+        <Input.Item label="Field" padHelpText={false}>
           <Select.Simple<string>
             value={index.key}
             onChange={setIndex}
@@ -565,7 +595,7 @@ const TimestampFields: FC<TimestampFieldsProps> = ({ path, read, fields, device 
   );
 };
 
-/** The data types that a channel of a field of each kind can take. */
+/** @returns the data types that a channel of a field of the kind cannot take. */
 const hiddenDataTypes = (kind: payload.Kind): DataType[] =>
   DataType.ALL.filter((dt) => !ICD.converts(kind, dt.toString()));
 
@@ -642,14 +672,12 @@ const setRead = (
   const bindings = ctx.get(path.bindings).value;
   const bound = bindings.some(({ field: key }) => key === field.key);
   if (bound === on || (on && !isReadable(field))) return;
-  const { topic } = ctx.get(plainPath(entry)).value;
-  const { message } = ctx.get(path).value;
+  const channels = storedOf(stored, ctx.get(plainPath(entry)).value, read)?.channels;
   const written = writtenChannels(ctx.get(root.config.entries).value);
-  const key = storedKey(topic, read, message);
   ctx.set(
     path.bindings,
     on
-      ? [...bindings, ...bindingsOf(stored, key, [field], written)]
+      ? [...bindings, ...bindingsOf(channels ?? {}, [field], written)]
       : bindings.filter(({ field: k }) => k !== field.key),
   );
 };
@@ -1283,10 +1311,9 @@ const Entries: FC<EntriesProps> = ({
     const drafts = additions.filter(isDraft);
     const tags = additions.filter((a): a is SparkplugReadEntry => !isDraft(a));
     const written = writtenChannels(entries);
-    const bind: Bind = ({ topic, bound }, fields) =>
+    const bind: Bind = ({ topic, bound }, fields, message) =>
       bindingsOf(
-        stored,
-        topic,
+        topicChannels(stored, topic, message),
         fields.filter(({ key }) => bound.includes(key)),
         written,
       );
@@ -1689,9 +1716,9 @@ const boundMessage = (
   const readMessage = entry.messages[read];
   const fields = readFields(message.payload.fields, readMessage);
   const index = fields.find(({ key }) => key === readMessage.index);
-  if (index != null && !isIndexable(index))
+  if (index != null && index.type !== "timestamp")
     throw new ValidationError(
-      `In ${where}, the index field ${index.name} must be a timestamp field with no default`,
+      `In ${where}, the index field ${index.name} must be a timestamp field`,
     );
   if (fields.length === 0)
     throw new ValidationError(`The task reads no fields of ${where}`);
@@ -1741,8 +1768,13 @@ const configureMessage = async (
 ): Promise<void> => {
   const read = entry.messages[r];
   const index = fields.find(({ key }) => key === read.index)?.key;
-  const propertiesKey = storedKey(entry.topic, r, read.message);
-  const stored = dev.properties.read[propertiesKey]?.channels ?? {};
+  const propertiesKey = storedKey(entry.topic, read.message);
+  const props = storedOf(dev.properties.read, entry, r);
+  if (props != null && dev.properties.read[propertiesKey] == null) {
+    dev.properties.read[propertiesKey] = props;
+    delete dev.properties.read[entry.topic];
+  }
+  const stored = props?.channels ?? {};
   const bindingOf = (f: icd.JSONField): ReadBinding =>
     read.bindings.find(({ field }) => field === f.key) ??
     mqtt.readBindingZ.parse({ field: f.key });

@@ -252,7 +252,7 @@ var _ = Describe("Service", func() {
 		// channels on one index to bind them to.
 		type format struct {
 			ic         icd.ICD
-			m, stamped icd.Message
+			m          icd.Message
 			idx, value channel.Channel
 			text       channel.Channel
 		}
@@ -267,25 +267,17 @@ var _ = Describe("Service", func() {
 				jsonField("state", "/state", icd.StringJSONField{}),
 				jsonField("raw", "", icd.BytesJSONField{}),
 			)
-			stamp := telem.SecondTS
-			stamped := jsonMessage("Stamped", nil, jsonField(
-				"ts", "/ts", icd.TimestampJSONField{
-					TimeFormat: payload.TimeFormatUnixSec,
-					Default:    &stamp,
-				},
-			))
-			ic := icd.ICD{Name: "Plant", Messages: []icd.Message{m, stamped}}
+			ic := icd.ICD{Name: "Plant", Messages: []icd.Message{m}}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return icds.NewWriter(tx).Create(ctx, &ic)
 			})).To(Succeed())
 			idx := createChannel(ctx, telem.TimestampT, channel.Channel{})
 			return format{
-				ic:      ic,
-				m:       m,
-				stamped: stamped,
-				idx:     idx,
-				value:   createChannel(ctx, telem.Float64T, idx),
-				text:    createChannel(ctx, telem.StringT, idx),
+				ic:    ic,
+				m:     m,
+				idx:   idx,
+				value: createChannel(ctx, telem.Float64T, idx),
+				text:  createChannel(ctx, telem.StringT, idx),
 			}
 		}
 
@@ -401,11 +393,6 @@ var _ = Describe("Service", func() {
 				"entries.0.messages.0.index",
 				"the index field temp must be a timestamp field",
 			),
-			Entry("an index field with a default", func(f format) []map[string]any {
-				read := readMessage(f.stamped, binding(f.stamped, 0, f.idx))
-				read["index"] = fieldKey(f.stamped, 0)
-				return []map[string]any{icdEntry("plant/x", f.ic, read)}
-			}, "entries.0.messages.0.index", "the index field ts cannot take a default"),
 			Entry("an index field with no binding", func(f format) []map[string]any {
 				read := readMessage(f.m, binding(f.m, 1, f.value))
 				read["index"] = fieldKey(f.m, 0)

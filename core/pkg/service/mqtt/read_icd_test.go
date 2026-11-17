@@ -621,6 +621,9 @@ var _ = Describe("Read task ICD messages", func() {
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Details.Running).To(BeFalse())
+			Expect(configured.Exec(ctx, task.Command{Type: "stop", Key: "stop"})).
+				To(Succeed())
+			Expect(taskStatus(ctx, t).Message).To(Equal("Failed to configure task"))
 			Expect(factory.ConfigureTask(ctx, t, "again")).Error().
 				To(MatchError(stat.Description))
 			count := stored(ctx, data).Len()
@@ -634,6 +637,60 @@ var _ = Describe("Read task ICD messages", func() {
 			Expect(again.Message).To(Equal("Failed to start task"))
 			Expect(again.Description).To(Equal(stat.Description))
 		})
+
+		It(
+			"Should read again after a later save fixes the task",
+			func(ctx SpecContext) {
+				t := newTask(ctx, rackKey, mqtt.ReadTaskType,
+					readTemp(ctx, "plant/status", ic, m, data),
+				)
+				configured := configure(ctx, factory, t)
+				Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
+					To(Succeed())
+				Eventually(latest(ctx, "plant/status", data)).Should(Equal(2.0))
+				removeTemp(ctx)
+				Eventually(func() string { return taskStatus(ctx, t).Message }).
+					Should(Equal("Failed to configure task"))
+				temp := m.Payload.Variant.(icd.JSONPayload).Fields[0]
+				base := temp.Base()
+				base.Scale = 3
+				temp.SetBase(base)
+				editICD(ctx, ic.Key, icd.NewInsertAction(icd.InsertPayload{
+					Path:  fieldsPath(m),
+					Value: temp,
+				}))
+				Eventually(func(g Gomega) {
+					g.Expect(configured.Exec(
+						ctx, task.Command{Type: "start", Key: "again"},
+					)).To(Succeed())
+					g.Expect(taskStatus(ctx, t).Details.Running).To(BeTrue())
+				}).Should(Succeed())
+				Eventually(latest(ctx, "plant/status", data)).Should(Equal(6.0))
+			},
+		)
+
+		It("Should not configure again a task whose auto start failed",
+			func(ctx SpecContext) {
+				port := broker.port
+				broker.stop()
+				broker = startBrokerWith(brokerOptions{
+					port:    port,
+					refused: []string{"plant/denied"},
+				})
+				cfg := readTemp(ctx, "plant/denied", ic, m, data)
+				cfg["auto_start"] = true
+				t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
+				Expect(factory.ConfigureTask(ctx, t, driver.NoCommand)).Error().
+					To(MatchError(ContainSubstring(
+						"the broker refused the subscription to plant/denied",
+					)))
+				Expect(taskStatus(ctx, t).Message).To(Equal("Failed to start task"))
+				removeTemp(ctx)
+				Consistently(func() string { return taskStatus(ctx, t).Message }).
+					WithTimeout(250 * time.Millisecond).
+					Should(Equal("Failed to start task"))
+			},
+		)
 
 		It("Should leave a task that reads another ICD untouched",
 			func(ctx SpecContext) {

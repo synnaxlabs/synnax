@@ -17,6 +17,7 @@ import {
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
+  type SyntheticEvent,
   useEffect,
   useRef,
   useState,
@@ -165,6 +166,13 @@ const MOVES: Partial<Record<string, Move>> = {
   ArrowUp: (dims, from) => grid.move(dims, from, { x: 0, y: -1 }),
 };
 
+/**
+ * @returns whether the event comes from the table itself. React also passes up the
+ * events of a portal that a cell opens, such as a dialog.
+ */
+const isOwn = (e: SyntheticEvent): boolean =>
+  e.target instanceof Node && e.currentTarget.contains(e.target);
+
 type ColumnElement = ReactElement<TableColumnProps>;
 
 export interface TableProps
@@ -177,6 +185,11 @@ export interface TableProps
   preview?: boolean;
   /** Labels a row's gutter cell. Omitted, no gutter column renders. */
   rowLabel?: (index: number) => string;
+  /**
+   * Identifies a row, so the state of its cells, such as an open dialog, stays with it
+   * when the rows above it change. Defaults to the index.
+   */
+  rowKey?: (index: number) => string;
   /**
    * Builds each new row: the one the add button appends, and each one a paste adds.
    * Defaults to the column default values.
@@ -227,6 +240,7 @@ export const Table = ({
   children,
   preview = false,
   rowLabel,
+  rowKey,
   createRow,
   resourceName = "row",
   cellStatus,
@@ -277,7 +291,7 @@ export const Table = ({
   };
 
   const handlePaste = (e: ClipboardEvent) => {
-    if (preview) return;
+    if (preview || !isOwn(e)) return;
     const block = parseBlock(
       e.clipboardData.getData("text/plain"),
       columns,
@@ -345,6 +359,7 @@ export const Table = ({
   };
 
   const handleCellFocus = (e: FocusEvent<HTMLTableCellElement>, at: xy.XY) => {
+    if (!isOwn(e)) return;
     anchor.current = at;
     if (initial.current != null || !(e.target instanceof HTMLInputElement)) return;
     initial.current = { value: value[at.y]?.[at.x], text: e.target.value };
@@ -352,13 +367,13 @@ export const Table = ({
   };
 
   const handleCellBlur = (e: FocusEvent<HTMLTableCellElement>) => {
-    if (!e.currentTarget.contains(e.relatedTarget)) initial.current = null;
+    if (isOwn(e) && !e.currentTarget.contains(e.relatedTarget)) initial.current = null;
   };
 
   // Runs before the cell, which blurs on an Esc that is not prevented and discards
   // any text it has not committed.
   const handleKeyDownCapture = (e: KeyboardEvent) => {
-    if (e.key !== "Escape") return;
+    if (e.key !== "Escape" || !isOwn(e)) return;
     if (!(e.target instanceof HTMLInputElement) || initial.current == null) return;
     const { value: was, text } = initial.current;
     const at = anchor.current;
@@ -371,7 +386,7 @@ export const Table = ({
 
   const handleKeyDown = (e: KeyboardEvent) => {
     // Enter on the add and remove buttons must reach their native activation.
-    if (!(e.target instanceof HTMLInputElement)) return;
+    if (!isOwn(e) || !(e.target instanceof HTMLInputElement)) return;
     // An Esc that put a cell back stops here, so it does not close a parent dialog.
     if (e.key === "Escape") {
       if (e.defaultPrevented) e.stopPropagation();
@@ -398,7 +413,9 @@ export const Table = ({
         onKeyDown={handleKeyDown}
         onKeyDownCapture={handleKeyDownCapture}
         // Any edit after a restore lets the next Esc restore again.
-        onInput={() => (restored.current = false)}
+        onInput={(e) => {
+          if (isOwn(e)) restored.current = false;
+        }}
         {...rest}
       >
         <colgroup>
@@ -425,7 +442,7 @@ export const Table = ({
         )}
         <tbody>
           {value.map((row, i) => (
-            <tr key={i}>
+            <tr key={rowKey?.(i) ?? i}>
               {hasGutter && (
                 <th scope="row" className={CSS.BE("input", "table-gutter")}>
                   <Text.Text level="small" color={9}>

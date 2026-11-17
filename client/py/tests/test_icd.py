@@ -159,12 +159,6 @@ class TestICD:
                 enum_values=[payload.BooleanEntry(label="yes", value=True)],
                 default=False,
             ),
-            sy.icd.TimestampJSONField(
-                name="time",
-                pointer="/ts",
-                time_format="unix_ns",
-                default=sy.TimeStamp(2**62 + 1),
-            ),
         ]
         ic = client.icds.create(
             name="Defaults",

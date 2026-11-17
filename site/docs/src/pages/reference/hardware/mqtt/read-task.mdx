@@ -206,8 +206,8 @@ Each message takes the timestamps of its samples from one of two sources:
 
 To read the time from the payload in the Console, set the **Type** of the field to a
 timestamp type, such as **Timestamp (ms)**. Then, under **Timestamp**, set **Source** to
-**Payload value** and select the **Field**. The field cannot have a default. The list
-does not show the field, and **Channel** under **Timestamp** names its index channel.
+**Payload value** and select the **Field**. The list does not show the field, and
+**Channel** under **Timestamp** names its index channel.
 
 Timestamps in an index channel must increase. The task skips a payload whose timestamp
 is not after the last one it wrote. A broker can send such a payload when it delivers a
@@ -524,7 +524,7 @@ See [field types](#field-types).
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={["the index field ... must be a timestamp field", "the index field ... cannot take a default", "the index field ... must write to an index channel", "only the index field can write to index channel ..."]}>
+<Problem.Item message={["the index field ... must be a timestamp field", "the index field ... must write to an index channel", "only the index field can write to index channel ..."]}>
 <Problem.Cause>
 
 The `index` of a message names a field that cannot give timestamps, or a field other
@@ -533,8 +533,8 @@ than the index writes to an index channel.
 </Problem.Cause>
 <Problem.Fix>
 
-Set `index` to a timestamp field with no default, and bind it to the index channel. Bind
-each other field to a data channel.
+Set `index` to a timestamp field, and bind it to the index channel. Bind each other
+field to a data channel.
 
 </Problem.Fix>
 </Problem.Item>

@@ -75,8 +75,6 @@ type topicSubscription struct {
 	retainedIgnored bool
 }
 
-func (s topicSubscription) subscription() topicSubscription { return s }
-
 // topicSample holds the samples that one message on a topic gives.
 type topicSample struct {
 	// index is the index channel of keys. Zero for virtual channels.
@@ -85,12 +83,6 @@ type topicSample struct {
 	// series can share memory that the next convert of the topic overwrites.
 	series []telem.Series
 	stamp  telem.TimeStamp
-}
-
-// topicReader converts the messages of one subscribed topic into samples.
-type topicReader interface {
-	subscription() topicSubscription
-	convert(msg message) (topicSample, error)
 }
 
 // topicMessage reads the documents of one ICD message into its bound channels.
@@ -119,8 +111,6 @@ type readTopic struct {
 	// text holds a payload that is not JSON as a JSON string.
 	text []byte
 }
-
-var _ topicReader = (*readTopic)(nil)
 
 // newReadTopic validates entry against ic, the ICD it names, and channels, which holds
 // every channel that a binding of the entry names.
@@ -347,7 +337,7 @@ type readSource struct {
 	// mu guards what a change of an ICD that the task reads configures again.
 	mu struct {
 		// topics holds the reader of each plain topic.
-		topics map[string]topicReader
+		topics map[string]*readTopic
 		// err is the error of the last configure after an ICD change. No run opens
 		// while it is set.
 		err error
@@ -401,14 +391,14 @@ func (t *readTask) Stop(sendStatus bool) error {
 
 // configure points the source at topics, or at err when the task no longer configures.
 // An open run reads its next message with topics.
-func (s *readSource) configure(topics map[string]topicReader, err error) {
+func (s *readSource) configure(topics map[string]*readTopic, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.mu.topics, s.mu.err = topics, err
 }
 
 // topic returns the reader of the plain topic name.
-func (s *readSource) topic(name string) (topicReader, bool) {
+func (s *readSource) topic(name string) (*readTopic, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	t, ok := s.mu.topics[name]
@@ -425,7 +415,7 @@ func (s *readSource) subscriptions() ([]topicSubscription, error) {
 	}
 	subs := make([]topicSubscription, 0, len(s.mu.topics))
 	for _, t := range s.mu.topics {
-		subs = append(subs, t.subscription())
+		subs = append(subs, t.topicSubscription)
 	}
 	return subs, nil
 }
@@ -725,7 +715,7 @@ func (r *reader) convert(now time.Time, msg message, b *batch) {
 	if !ok {
 		return
 	}
-	sub := t.subscription()
+	sub := t.topicSubscription
 	if msg.retained && sub.retainedIgnored {
 		return
 	}
