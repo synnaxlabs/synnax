@@ -88,6 +88,8 @@ public:
         return this->forwarder->set_authority(authorities);
     }
 
+    ~Writer() override { this->states->close_gate(this->cfg.subject); }
+
     [[nodiscard]] x::errors::Error close() override {
         this->states->close_gate(this->cfg.subject);
         auto err = this->forwarder->close();

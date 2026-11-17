@@ -290,6 +290,47 @@ TEST(WriterTest, CloseHandsOffLocallyWhileTheCoreIsUnreachable) {
     ASSERT_TRUE(states->is_authorized(1, {"other", "other-1"}));
 }
 
+/// @brief it should hand a channel to the next local writer when the holder is
+/// destroyed without a close, with the Core unreachable.
+TEST(WriterTest, DestroyHandsOffLocallyWhileTheCoreIsUnreachable) {
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    states->disconnect();
+    const x::control::Subject arc{"arc", "arc-1"};
+    const x::control::Subject op{"operator", "op-1"};
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector<x::errors::Error>(1000, freighter::UNREACHABLE)
+    );
+    WriterFactory factory(
+        mock_factory,
+        bus,
+        states,
+        0,
+        {.breaker = {.base_interval = x::telem::MILLISECOND}}
+    );
+    auto op_writer = ASSERT_NIL_P(factory.open_writer({
+        .channels = {1},
+        .authorities = {150},
+        .subject = op,
+    }));
+    auto arc_writer = ASSERT_NIL_P(factory.open_writer({
+        .channels = {1},
+        .authorities = {200},
+        .subject = arc,
+    }));
+    ASSERT_FALSE(states->is_authorized(1, op));
+    arc_writer.reset();
+    ASSERT_TRUE(states->is_authorized(1, op));
+    auto sub = bus->subscribe({1});
+    x::telem::Frame fr;
+    fr.emplace(1, x::telem::Series(static_cast<float>(1.0)));
+    ASSERT_NIL(op_writer->write(fr));
+    x::telem::Frame received;
+    ASSERT_TRUE(sub->try_pop(received));
+    ASSERT_NIL(op_writer->close());
+}
+
 TEST(WriterTest, SetAuthorityGlobalKeysExpandsToWriterChannels) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
