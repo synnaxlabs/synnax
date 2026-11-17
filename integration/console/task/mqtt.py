@@ -16,7 +16,7 @@ from playwright.sync_api import Locator, expect
 from console.page import PageType
 from console.task_page import TaskPage
 
-BROKER_FIELD_LABEL = "MQTT broker"
+_BROKER_FIELD_LABEL = "MQTT broker"
 _DETAILS_SELECTOR = ".console-details__form"
 _ENTRY_TITLE_SELECTOR = ".console-mqtt-entry-label > .lyra-text--overflow-fade"
 _FIELD_POINTER_SELECTOR = ".console-field-pointer"
@@ -98,7 +98,7 @@ class MQTTTask(TaskPage):
 
         :param name: Name of the broker device.
         """
-        self.select_device(BROKER_FIELD_LABEL, name=name)
+        self.select_device(_BROKER_FIELD_LABEL, name=name)
         self._add_button().wait_for(state="visible", timeout=10000)
 
     def add_topics(self, topics: list[str]) -> None:
@@ -274,7 +274,7 @@ class MQTTEdge(TaskPage):
 
         :param name: Name of the broker device.
         """
-        self.select_device(BROKER_FIELD_LABEL, name=name)
+        self.select_device(_BROKER_FIELD_LABEL, name=name)
         self._add_button().wait_for(state="visible", timeout=10000)
 
     def set_node(self, group: str, edge_node: str) -> None:

@@ -28,15 +28,11 @@ import {
   Values,
 } from "@/feature/mqtt/task/discover/Values";
 import { leavesOf, pointerLabel, sampleAt } from "@/feature/mqtt/task/entries";
+import { type Leaf } from "@/feature/mqtt/task/leaves";
 import { isSparkplugTopic } from "@/feature/mqtt/task/sparkplug";
-import {
-  type ReadEntry,
-  type ReadField,
-  type WriteTarget,
-} from "@/feature/mqtt/task/types";
+import { type HeldEntry } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
-import { Task } from "@/platform/task";
 
 const prettyPayload = (payload: string): string => {
   try {
@@ -56,7 +52,7 @@ const toFilter = (scope: string): string => {
 
 /** A browsed topic with the fields its payload offers, parsed once per listen. */
 interface ListedTopic extends KeyedTopic {
-  leaves: ReadField[];
+  leaves: Leaf[];
 }
 
 const NO_TOPICS: ListedTopic[] = [];
@@ -135,7 +131,7 @@ const branchPaths = (topics: ListedTopic[]): string[] =>
  * single pick takes the first.
  */
 const defaultPointers = (
-  leaves: ReadField[],
+  leaves: Leaf[],
   taken: Set<string> | undefined,
   single: boolean,
 ): Set<string> => {
@@ -147,7 +143,7 @@ const defaultPointers = (
 
 /** The values picked from one topic, with the fields they came from. */
 export interface TopicPick {
-  leaves: ReadField[];
+  leaves: Leaf[];
   pointers: Set<string>;
 }
 
@@ -157,7 +153,7 @@ export type TopicPicks = Map<string, TopicPick>;
 type Taken = Map<string, Set<string>>;
 
 const takenBy = (
-  entries: (ReadEntry | WriteTarget)[],
+  entries: HeldEntry[],
   topics: ListedTopic[],
   single: boolean,
 ): Taken => {
@@ -235,7 +231,7 @@ const TopicValues = ({ topic, value, taken, single, onChange }: TopicValuesProps
     key: l.pointer,
     name: pointerLabel(l.pointer),
     sample: sampleAt(topic, l.pointer),
-    dataType: Task.Payload.dataTypeOf(l),
+    dataType: l.dataType,
     taken: taken.has(l.pointer),
   }));
   return (
@@ -289,7 +285,7 @@ const SKELETON: Picker.SkeletonItem[] = [
 export interface TopicPickerProps {
   device: Device;
   /** What the task holds now. */
-  entries: (ReadEntry | WriteTarget)[];
+  entries: HeldEntry[];
   /** Each topic takes one value, and a topic that the task holds takes none. */
   single?: boolean;
   value: TopicPicks;
