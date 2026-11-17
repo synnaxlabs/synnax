@@ -7,8 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Stops the agent on every running runner, or installs it at a commit on every runner,
-over SSM.
+"""Stops the agent on every running runner, or installs it and the GitHub runner's start
+script at a commit on every runner, over SSM.
 
     uv run agent_deploy.py stop
     uv run agent_deploy.py install --commit <sha> --username controller --secure \
@@ -47,6 +47,24 @@ GONE = {"shutting-down", "terminated"}
 BEAT_WINDOW = 30 * sy.TimeSpan.SECOND
 SWITCH_TIMEOUT = 1 * sy.TimeSpan.MINUTE
 
+# The runner name prefix and the labels each pool's runners register with, by the Name
+# tag of their instances.
+STARTS = {
+    "ubuntu-build-new": ("ubuntu-build-bot", "self-hosted,linux,x64,ubuntu-build-bot"),
+    "ubuntu": (
+        "ubuntu-tester",
+        "self-hosted,linux,x64,ubuntu-latest,ubuntu,ubuntu-test-bot",
+    ),
+    "windows-build-new": (
+        "windows-build-bot",
+        "self-hosted,Windows,X64,windows-build-bot",
+    ),
+    "windows-tester-new": (
+        "windows-tester",
+        "self-hosted,Windows,X64,windows-latest,windows-test-bot",
+    ),
+}
+
 STOP_LINUX = [
     "if systemctl cat runner-agent.service > /dev/null 2>&1; then "
     "systemctl stop runner-agent.service; fi"
@@ -84,13 +102,22 @@ def public_address(fetch: Callable[[Request], bytes]) -> str:
     return address.decode().strip()
 
 
-def install_commands(*, commit: str, host: str, ca: str) -> tuple[list[str], list[str]]:
-    """The Linux and Windows commands that run the install script of the commit. ca is
-    the certificate of the Core in base64."""
+def install_commands(
+    *, commit: str, host: str, ca: str, info: dict
+) -> tuple[list[str], list[str]]:
+    """The Linux and Windows commands that run the install script of the commit on the
+    instance info describes. ca is the certificate of the Core in base64.
+
+    :raises LookupError: if no pool in STARTS has the instance's Name tag.
+    """
+    name = info["tags"].get("Name", "")
+    if name not in STARTS:
+        raise LookupError(f"no runner pool for an instance named {name!r}")
+    prefix, labels = STARTS[name]
     source = SOURCE.format(commit)
     linux = [
         f"curl -fsSL -o /tmp/agent_install.sh {source}/agent_install.sh && "
-        f"bash /tmp/agent_install.sh {commit} {host} {ca}"
+        f"bash /tmp/agent_install.sh {commit} {host} {ca} {prefix} {labels}"
     ]
     windows = [
         "[Net.ServicePointManager]::SecurityProtocol = "
@@ -98,7 +125,8 @@ def install_commands(*, commit: str, host: str, ca: str) -> tuple[list[str], lis
         "try { $install = (Invoke-WebRequest "
         f"'{source}/agent_install.ps1' -UseBasicParsing).Content; "
         f"& ([scriptblock]::Create($install)) -Commit '{commit}' -CoreHost '{host}' "
-        f"-Ca '{ca}' }} catch {{ Write-Output $_; exit 1 }}",
+        f"-Ca '{ca}' -Prefix '{prefix}' -Labels '{labels}' }} "
+        "catch { Write-Output $_; exit 1 }",
     ]
     return linux, windows
 
@@ -146,9 +174,13 @@ def invocation(aws: Fleet, *, region: str, command: str, iid: str) -> tuple[str,
 
 
 def run(
-    aws: Fleet, *, linux: list[str], windows: list[str], start_stopped: bool = False
+    aws: Fleet,
+    *,
+    commands: Callable[[dict], tuple[list[str], list[str]]],
+    start_stopped: bool = False,
 ) -> bool:
-    """Runs the commands on every running runner and prints a line for each runner. With
+    """Runs the Linux and Windows commands that commands gives for each runner's
+    instance info on every running runner, and prints a line for each runner. With
     start_stopped, it first starts each stopped runner and leaves it up.
 
     :returns: whether the commands succeeded on every runner they were meant for.
@@ -172,6 +204,7 @@ def run(
                 if status not in UNFINISHED or late:
                     results[iid], outputs[iid] = status, output
             elif info["running"]:
+                linux, windows = commands(info)
                 try:
                     sent[iid] = aws.run(iid, info=info, linux=linux, windows=windows)
                 # SSM rejects an instance until its SSM agent is up.
@@ -254,16 +287,18 @@ def main() -> int:
     args = p.parse_args()
     aws = AWS()
     if args.action == "stop":
-        return 0 if run(aws, linux=STOP_LINUX, windows=STOP_WINDOWS) else 1
-    linux, windows = install_commands(
-        commit=args.commit,
-        host=public_address(metadata),
-        ca=base64.b64encode(Path(args.ca_cert).read_bytes()).decode(),
-    )
+        stop = (STOP_LINUX, STOP_WINDOWS)
+        return 0 if run(aws, commands=lambda _: stop) else 1
+    host = public_address(metadata)
+    ca = base64.b64encode(Path(args.ca_cert).read_bytes()).decode()
+
+    def install_on(info: dict) -> tuple[list[str], list[str]]:
+        return install_commands(commit=args.commit, host=host, ca=ca, info=info)
+
     client = connect(args, store=parameter_store())
     try:
         with scaler_paused(client):
-            passed = run(aws, linux=linux, windows=windows, start_stopped=True)
+            passed = run(aws, commands=install_on, start_stopped=True)
     finally:
         client.close()
     return 0 if passed else 1

@@ -7,9 +7,11 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Installs agent_boot.py at $Commit on a Windows runner and restarts the agent.
+# Installs agent_boot.py at $Commit on a Windows runner and restarts the agent. Also
+# installs start-runner.ps1 and the GitHubActionsRunner task for the runner name prefix
+# $Prefix and the $Labels of the runner's pool.
 
-param($Commit, $CoreHost, $Ca)
+param($Commit, $CoreHost, $Ca, $Prefix, $Labels)
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -20,6 +22,11 @@ $Task = 'RunnerAgent'
 $Uv = 'https://github.com/astral-sh/uv/releases/download/0.12.5'
 $Source = "https://raw.githubusercontent.com/synnaxlabs/synnax/$Commit/scripts/runners"
 
+$Runner = 'C:\actions-runner'
+if (-not (Test-Path (Join-Path $Runner 'config.cmd'))) { throw "No GitHub runner in $Runner" }
+if (-not [Environment]::GetEnvironmentVariable('GITHUB_PAT', 'Machine')) {
+    throw 'GITHUB_PAT is not set'
+}
 New-Item -ItemType Directory -Force -Path $Dir | Out-Null
 if (-not (Test-Path (Join-Path $Dir 'uv.exe'))) {
     $zip = Join-Path $Dir 'uv.zip'
@@ -27,20 +34,28 @@ if (-not (Test-Path (Join-Path $Dir 'uv.exe'))) {
     Expand-Archive -Path $zip -DestinationPath $Dir -Force
     Remove-Item $zip
 }
-# The agent starts the GitHub runner, so the runner must not start at boot.
-$runner = Get-ScheduledTask -TaskName 'GitHubActionsRunner' -ErrorAction Ignore
-if ($runner -and ($runner.Triggers | Where-Object Enabled)) {
-    $runner.Triggers | ForEach-Object { $_.Enabled = $false }
-    Set-ScheduledTask -InputObject $runner | Out-Null
-}
 # Every download ends before the first write, so a failure keeps the old install.
 $staging = Join-Path $env:TEMP 'runner-agent-install'
 Remove-Item $staging -Recurse -Force -ErrorAction Ignore
 New-Item -ItemType Directory -Force -Path $staging | Out-Null
-foreach ($file in 'agent_boot.py', 'pyproject.toml', 'uv.lock') {
+foreach ($file in 'agent_boot.py', 'pyproject.toml', 'uv.lock', 'start-runner.ps1') {
     $out = Join-Path $staging $file
     Invoke-WebRequest "$Source/$file" -OutFile $out -UseBasicParsing
 }
+# A running runner already read its script, so the copy does not disturb it.
+Move-Item (Join-Path $staging 'start-runner.ps1') $Runner -Force
+# The agent starts the GitHub runner, so the task has no trigger.
+$start = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument (
+    "-ExecutionPolicy Bypass -NoProfile -File $Runner\start-runner.ps1 " +
+    "-Prefix $Prefix -Labels $Labels")
+$runnerPrincipal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' `
+    -LogonType ServiceAccount -RunLevel Highest
+$runnerSettings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew `
+    -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable `
+    -ExecutionTimeLimit (New-TimeSpan -Hours 72) -RestartCount 3 `
+    -RestartInterval (New-TimeSpan -Minutes 1)
+Register-ScheduledTask -TaskName 'GitHubActionsRunner' -Action $start `
+    -Principal $runnerPrincipal -Settings $runnerSettings -Force | Out-Null
 [IO.File]::WriteAllBytes((Join-Path $Dir 'ca.crt'), [Convert]::FromBase64String($Ca))
 $log = Join-Path $Dir 'agent.out.log'
 if ((Test-Path $log) -and ((Get-Item $log).Length -gt 5MB)) { Clear-Content $log }
