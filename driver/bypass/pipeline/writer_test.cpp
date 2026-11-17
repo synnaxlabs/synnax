@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
+#include <chrono>
+#include <thread>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/errors/errors.h"
@@ -599,20 +603,35 @@ TEST(WriterTest, CarriesDropsAcrossAReopen) {
         EXPECT_EQ(warnings->at(i), dropped);
 }
 
-/// @brief it should start the drop count of a new run at 0, even when the last run
-/// stopped with a close error that the pipeline retries.
+/// @brief a source that sends a set number of frames, then empty ones.
+class BoundedSource final : public ::driver::pipeline::Source {
+public:
+    std::atomic<size_t> remaining = 0;
+
+    x::errors::Error read(
+        x::breaker::Breaker &,
+        x::telem::Frame &fr,
+        ::driver::pipeline::Authorities &
+    ) override {
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        if (this->remaining == 0) return x::errors::NIL;
+        this->remaining--;
+        fr.emplace(1, x::telem::Series(static_cast<float>(1.0)));
+        return x::errors::NIL;
+    }
+};
+
+/// @brief it should start the drop count of a new run at 0, after a run that dropped
+/// frames.
 TEST(WriterTest, StartsEachRunWithNoDrops) {
-    constexpr size_t outage_opens = 20;
-    std::vector<x::errors::Error> close_errors(outage_opens, x::errors::NIL);
-    close_errors.push_back(synnax::errors::LICENSE_MISSING);
     const auto server = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
         std::make_shared<x::sync::List<x::telem::Frame>>(),
-        std::vector<x::errors::Error>(outage_opens, freighter::UNREACHABLE),
-        close_errors
+        std::vector<x::errors::Error>(1000, freighter::UNREACHABLE)
     );
     using Warnings = x::sync::List<std::pair<std::string, std::string>>;
     const auto warnings = std::make_shared<Warnings>();
-    constexpr size_t frame_size = FRAME_OVERHEAD + SERIES_OVERHEAD + sizeof(uint64_t);
+    constexpr size_t frame_size = FRAME_OVERHEAD + SERIES_OVERHEAD + sizeof(float);
+    const auto source = std::make_shared<BoundedSource>();
     auto pipeline = ::driver::pipeline::Acquisition(
         std::make_shared<WriterFactory>(
             server,
@@ -629,17 +648,23 @@ TEST(WriterTest, StartsEachRunWithNoDrops) {
             }
         ),
         synnax::framer::WriterConfig{.channels = {1}},
-        std::make_shared<CountingSource>(),
+        source,
         x::breaker::Config{.base_interval = x::telem::MICROSECOND * 10}
     );
+    source->remaining = 5;
     ASSERT_TRUE(pipeline.start());
-    ASSERT_EVENTUALLY_GE(server->writes->size(), 1);
+    ASSERT_EVENTUALLY_EQ(source->remaining.load(), 0);
     ASSERT_TRUE(pipeline.stop());
-    ASSERT_EQ(warnings->at(warnings->size() - 1).first, "Dropped frames");
+    ASSERT_EQ(
+        warnings->at(warnings->size() - 1).second,
+        "Dropped 5 frames because the Core could not take them fast enough."
+    );
     const auto first_run = warnings->size();
-    const auto writes = server->writes->size();
+    // Ends the outage for the second run.
+    server->open_errors.clear();
+    source->remaining = 2;
     ASSERT_TRUE(pipeline.start());
-    ASSERT_EVENTUALLY_GE(server->writes->size(), writes + 10);
+    ASSERT_EVENTUALLY_EQ(server->writes->size(), 2);
     ASSERT_TRUE(pipeline.stop());
     for (size_t i = first_run; i < warnings->size(); i++)
         EXPECT_NE(warnings->at(i).first, "Dropped frames");

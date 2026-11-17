@@ -46,6 +46,7 @@ cc_test(
         "//driver/pipeline",
         "//driver/pipeline/testutil",
         "//x/cpp/breaker",
+        "//x/cpp/defer",
         "//x/cpp/sync",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
