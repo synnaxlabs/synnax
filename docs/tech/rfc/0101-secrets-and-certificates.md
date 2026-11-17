@@ -155,7 +155,7 @@ with no check, because they run in the Core. A rack reads a secret when:
 A user who saves a device or task that names a secret must be able to retrieve that
 secret, or the save fails. Otherwise a user could make a rack or a Core integration use
 a secret the user cannot see. A secret reference is a use link, so the write binder
-makes this check on every save (`core/pkg/api/bind/write.go:51`). Phase 14 adds the
+makes this check on every save (`core/pkg/api/bind/write.go:51`). Phase 15 adds the
 first rule, with the Driver's reader.
 
 A grant covers commands that run before a device is saved: a connect dialog's test and
@@ -176,7 +176,9 @@ Operator can read and write any command
 Console's own command, against the Console's server, even when the Driver drops or never
 sees the Console's command. At worst, a copied key spends the grant first and the
 Console's test fails. Without grants, an Operator could send a saved password to a
-server of their choice.
+server of their choice. Phase 4 stores a grant with only its subject and secrets
+(`schemas/synnax/grant.oracle`). Phase 14 adds the task and the command, before any
+Driver integration reads a secret.
 
 A user who can edit a device can still point it at their own server, as in Grafana and
 Ignition. Write-only keeps secrets from people who can only view, and out of statuses,
@@ -198,7 +200,7 @@ a union on its source, and Oracle reads `@ref` inside a union variant (#4920).
 
 A file item names the rack that reads it: a Driver's rack for OPC UA and HTTP, or the
 Core's own rack (`core/pkg/service/driver/driver.go:92`) for Kafka, MQTT, and PagerDuty.
-Phase 5 adds the `rack` field with the Core's reader, and phase 14 adds the Driver's
+Phase 5 adds the `rack` field with the Core's reader, and phase 15 adds the Driver's
 reader. Until then a file item names no rack, and PagerDuty refuses a routing key that
 names a file secret with "routing_key: must be a stored secret, not a file". A file
 certificate names the path of its certificate and the name of its key file in the rack's
@@ -332,10 +334,11 @@ the device.
 
 Phases 2 and 3 are the stores with no users, and Phase 4 their Console and first user.
 Phase 4 landed as eight PRs, #4434 to #4505. Phases 5 to 10 add file items, the two file
-browsers, and the certificate field. Phase 14 lets the Driver read items, before the
-first Driver integration moves. OPC UA and HTTP move their secrets first and their
-certificates second, and each migration ships with the change that reads the new field.
-Phase 19 needs only the certificate service, so it can start at any time.
+browsers, and the certificate field. Phase 14 binds each grant to its task and command,
+and phase 15 lets the Driver read items, before the first Driver integration moves. OPC
+UA and HTTP move their secrets first and their certificates second, and each migration
+ships with the change that reads the new field. Phase 20 needs only the certificate
+service, so it can start at any time.
 
 | Phase | Scope                                                  | Touches                                                                                                                                                                                                                                                                 | Depends on |
 | ----- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
@@ -352,12 +355,13 @@ Phase 19 needs only the certificate service, so it can start at any time.
 | 11    | Move the Kafka password and CA certificate to items    | `schemas/synnax`, `core/pkg/service/kafka`, `core/pkg/service/certificate`, `core/pkg/service/layer.go`, `console/src/feature/kafka`, `client/ts`, `client/py`                                                                                                          | 5, 9       |
 | 12    | Add a client certificate to Kafka                      | `schemas/synnax`, `core/pkg/service/kafka`, `console/src/feature/kafka`, `client/ts`, `client/py`                                                                                                                                                                       | 11         |
 | 13    | Move MQTT to secrets and certificates                  | `schemas/synnax`, `core/pkg/service/mqtt`, `core/pkg/service/layer.go`, `console/src/feature/mqtt`, `client/ts`, `client/py`                                                                                                                                            | 11         |
-| 14    | Read secrets and certificates in the Driver            | `client/cpp`, `driver/secret`, `driver/rack`, `core/pkg/service/secret`, `core/pkg/api/secret`, `core/pkg/api/certificate`                                                                                                                                              | 5, 7       |
-| 15    | Move the OPC UA password to a secret                   | `schemas/synnax`, `core/pkg/service/opcua`, `core/pkg/service/layer.go`, `driver/opcua`, `console/src/feature/opcua`, `client/ts`, `client/py`, `client/cpp`, `integration/tests`                                                                                       | 14         |
-| 16    | Move OPC UA certificates to the certificate service    | `schemas/synnax`, `core/pkg/service/opcua`, `core/pkg/service/layer.go`, `driver/opcua`, `console/src/feature/opcua`, `client/ts`, `client/py`, `client/cpp`, `integration/tests`                                                                                       | 9, 15      |
-| 17    | Move HTTP auth values to secrets                       | `schemas/synnax`, `core/pkg/service/http`, `core/pkg/service/layer.go`, `driver/http`, `console/src/feature/http`, `client/ts`, `client/py`, `client/cpp`, `integration/tests`                                                                                          | 14         |
-| 18    | Add CA and client certificates to HTTP devices         | `schemas/synnax`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http`, `client/ts`, `client/py`, `client/cpp`                                                                                                                                            | 9, 17      |
-| 19    | Report the expiry of the Core's own certificates       | `core/pkg/service/certificate`, `core/pkg/security/cert`, `core/pkg/service/layer.go`                                                                                                                                                                                   | 3          |
+| 14    | Bind each grant to a task and its command              | `schemas/synnax`, `core/pkg/service/secret`, `core/pkg/api/secret`, `client/ts`, `client/py`                                                                                                                                                                            | 4          |
+| 15    | Read secrets and certificates in the Driver            | `client/cpp`, `driver/secret`, `driver/rack`, `core/pkg/service/secret`, `core/pkg/api/secret`, `core/pkg/api/certificate`                                                                                                                                              | 5, 7, 14   |
+| 16    | Move the OPC UA password to a secret                   | `schemas/synnax`, `core/pkg/service/opcua`, `core/pkg/service/layer.go`, `driver/opcua`, `console/src/feature/opcua`, `client/ts`, `client/py`, `client/cpp`, `integration/tests`                                                                                       | 15         |
+| 17    | Move OPC UA certificates to the certificate service    | `schemas/synnax`, `core/pkg/service/opcua`, `core/pkg/service/layer.go`, `driver/opcua`, `console/src/feature/opcua`, `client/ts`, `client/py`, `client/cpp`, `integration/tests`                                                                                       | 9, 16      |
+| 18    | Move HTTP auth values to secrets                       | `schemas/synnax`, `core/pkg/service/http`, `core/pkg/service/layer.go`, `driver/http`, `console/src/feature/http`, `client/ts`, `client/py`, `client/cpp`, `integration/tests`                                                                                          | 15         |
+| 19    | Add CA and client certificates to HTTP devices         | `schemas/synnax`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http`, `client/ts`, `client/py`, `client/cpp`                                                                                                                                            | 9, 18      |
+| 20    | Report the expiry of the Core's own certificates       | `core/pkg/service/certificate`, `core/pkg/security/cert`, `core/pkg/service/layer.go`                                                                                                                                                                                   | 3          |
 
 ## 5 Resolved decisions
 
