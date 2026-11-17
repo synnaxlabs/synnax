@@ -209,7 +209,8 @@ func bindIndexConversions(builder wazero.HostModuleBuilder) wazero.HostModuleBui
 		}).Export("index_from_u64")
 }
 
-// bindHandleOps registers len, slice, and not, which work on a series of any type.
+// bindHandleOps registers len and slice, which work on a series of any type, and not,
+// which works on a bool series.
 func bindHandleOps(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
