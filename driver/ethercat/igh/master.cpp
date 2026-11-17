@@ -552,7 +552,7 @@ x::errors::Error Master::receive() {
         working_counter += std::min<uint32_t>(state.working_counter, full);
         if (state.wc_state != EC_WC_ZERO) continue;
         silent++;
-        if (domain.share.inputs > 0) this->latest_inputless.push_back(domain.position);
+        this->latest_inputless.push_back(domain.position);
     }
     if (working_counter == expected) return x::errors::NIL;
     this->latest_shortfall = expected - working_counter;

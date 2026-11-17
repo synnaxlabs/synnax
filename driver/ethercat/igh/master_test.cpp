@@ -911,9 +911,9 @@ TEST_F(IGHMasterTest, ReceiveReportsThePartOfASlaveThatFellShort) {
     EXPECT_TRUE(this->master.inputless().empty());
 }
 
-/// @brief it should report each slave whose domain gave nothing as inputless when it
-/// has inputs, and count its whole share in the shortfall.
-TEST_F(IGHMasterTest, ReceiveReportsEachSilentSlaveWithInputsAsInputless) {
+/// @brief it should report each slave whose domain gave nothing as inputless, one with
+/// only outputs too, and count its whole share in the shortfall.
+TEST_F(IGHMasterTest, ReceiveReportsEachSilentSlaveAsInputless) {
     create_io(this->api->add_slave());
     create_io(this->api->add_slave());
     this->api->add_slave().syncs = {{EC_DIR_OUTPUT, {{0x1600, {{0x7000, 0x01, 8}}}}}};
@@ -926,7 +926,7 @@ TEST_F(IGHMasterTest, ReceiveReportsEachSilentSlaveWithInputsAsInputless) {
     EXPECT_EQ(this->master.shortfall(), 4);
     EXPECT_EQ(
         std::vector(this->master.inputless().begin(), this->master.inputless().end()),
-        std::vector<uint16_t>{2}
+        (std::vector<uint16_t>{2, 3})
     );
     this->api->domain_of(this->api->slaves[1]).state.wc_state = EC_WC_COMPLETE;
     this->api->domain_of(this->api->slaves[2]).state.wc_state = EC_WC_COMPLETE;
@@ -1054,21 +1054,24 @@ TEST_F(IGHMasterTest, CheckReportsTheErrorFlagAsFaulted) {
     EXPECT_TRUE(health[0].faulted);
 }
 
-/// @brief it should keep the health of a slave whose domain answers while IgH scans the
-/// bus again, and report a slave whose domain gives nothing as lost.
+/// @brief it should keep the health of a slave whose domain answers, or that has no
+/// domain, while IgH scans the bus again, and report a slave whose domain gives nothing
+/// as lost.
 TEST_F(IGHMasterTest, CheckKeepsTheHealthOfAnAnsweringSlaveDuringAScan) {
     create_io(this->api->add_slave());
     create_io(this->api->add_slave());
+    this->api->add_slave();
     ASSERT_NIL(this->scan_and_activate());
     const auto before = this->master.check(this->brk);
     this->api->scanning = true;
     this->api->domain_of(this->api->slaves[1]).state.wc_state = EC_WC_ZERO;
     const auto health = this->master.check(this->brk);
-    ASSERT_EQ(health.size(), 2);
+    ASSERT_EQ(health.size(), 3);
     EXPECT_EQ(health[0], before[0]);
     EXPECT_FALSE(health[0].lost);
     EXPECT_EQ(health[0].state, slave::State::OP);
     EXPECT_TRUE(health[1].lost);
+    EXPECT_EQ(health[2], before[2]);
 }
 
 /// @brief it should deactivate and release the master.

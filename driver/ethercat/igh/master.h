@@ -131,7 +131,8 @@ public:
     /// @brief reports each configured slave. The IgH master returns slaves that leave
     /// OP to it on its own, so this takes no recovery step. While IgH scans the bus
     /// again, which it does when a slave loses power, it reads no slave state. A slave
-    /// whose domain still answers then keeps the health of the previous check().
+    /// whose domain still answers then keeps the health of the previous check(), and so
+    /// does a slave with no domain, which gives no other sign.
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
     /// @brief does nothing: the IgH master brings slaves back to OP by itself.
@@ -156,8 +157,9 @@ public:
         return this->latest_shortfall;
     }
 
-    /// @brief returns the slaves with inputs whose domain gave no working counter in
-    /// the latest receive(), or none when no slave answered.
+    /// @brief returns the slaves whose domain gave no working counter in the latest
+    /// receive(), or none when no slave answered. A slave with only outputs counts too,
+    /// so that the engine can explain its share of the shortfall.
     [[nodiscard]] std::span<const uint16_t> inputless() const override {
         return this->latest_inputless;
     }
