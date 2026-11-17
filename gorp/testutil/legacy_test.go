@@ -32,7 +32,7 @@ var _ = Describe("SetPreV54Row", func() {
 			encodedKey := MustSucceed(msgpack.Codec.Encode(e.ID))
 			Expect(key).To(Equal(append(prefix, encodedKey...)))
 
-			raw, closer := MustSucceed2(kvDB.Get(ctx, key))
+			raw, closer := MustSucceed2(kvDB.Get(key))
 			var stored entry
 			Expect(msgpack.Codec.Decode(raw, &stored)).To(Succeed())
 			Expect(closer.Close()).To(Succeed())

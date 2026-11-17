@@ -10,7 +10,6 @@
 package testutil
 
 import (
-	"context"
 	"time"
 
 	"github.com/synnaxlabs/x/errors"
@@ -32,7 +31,7 @@ var ErrCustom = errors.New("my custom error")
 
 func init() {
 	errors.Register(
-		func(_ context.Context, err error) (errors.Payload, bool) {
+		func(err error) (errors.Payload, bool) {
 			if errors.Is(err, ErrCustom) {
 				return errors.Payload{
 					Type: "myCustomError",
@@ -41,7 +40,7 @@ func init() {
 			}
 			return errors.Payload{}, false
 		},
-		func(ctx context.Context, f errors.Payload) (error, bool) {
+		func(f errors.Payload) (error, bool) {
 			if f.Type != "myCustomError" {
 				return nil, false
 			}

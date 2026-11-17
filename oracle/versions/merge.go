@@ -37,7 +37,7 @@ func MergeLive(
 	ctx context.Context, r *Resolver, chain Chain, source string,
 ) (string, error) {
 	livePath := chain.LivePath()
-	surf, err := r.Surface(ctx, livePath, chain.Current())
+	surf, err := r.Surface(livePath, chain.Current())
 	if err != nil {
 		return "", err
 	}
@@ -46,7 +46,7 @@ func MergeLive(
 	if len(surf) == 0 {
 		return "", nil
 	}
-	cur, err := r.File(ctx, livePath, chain.Current())
+	cur, err := r.File(livePath, chain.Current())
 	if err != nil {
 		return "", err
 	}
@@ -55,7 +55,7 @@ func MergeLive(
 		return "", errors.Wrapf(err, "failed to parse %s.oracle", livePath)
 	}
 
-	nsToPath, err := chainNamespacePaths(ctx, r, chain)
+	nsToPath, err := chainNamespacePaths(r, chain)
 	if err != nil {
 		return "", err
 	}
@@ -64,7 +64,7 @@ func MergeLive(
 			return versionOwned(domain, expr.Name)
 		},
 		Qualifier: func(ns string) string {
-			if versionNS.MatchString(ns) || ns == chain.Resource {
+			if versionNS.MatchString(ns) {
 				return ""
 			}
 			if live, _, ok := ParseDepNS(ns); ok {
@@ -74,7 +74,7 @@ func MergeLive(
 		},
 		Resolve: func(name string) (resolution.Type, bool) {
 			for _, k := range chain.Numbers {
-				f, err := r.File(ctx, livePath, k)
+				f, err := r.File(livePath, k)
 				if err != nil {
 					continue
 				}
@@ -142,7 +142,7 @@ func MergeLive(
 		}
 		t.Domains = domains
 		for ns := range referencedNamespaces(t, opts.Resolve) {
-			if versionNS.MatchString(ns) || ns == chain.Resource {
+			if versionNS.MatchString(ns) {
 				continue
 			}
 			if live, _, ok := ParseDepNS(ns); ok {
@@ -237,7 +237,7 @@ func checkErasedDocs(
 // chainNamespacePaths maps each dependency resource namespace a chain's files can
 // reference to its live import path, unioned across every version file.
 func chainNamespacePaths(
-	ctx context.Context, r *Resolver, chain Chain,
+	r *Resolver, chain Chain,
 ) (map[string]string, error) {
 	m := make(map[string]string)
 	add := func(livePath string) error {
@@ -251,7 +251,7 @@ func chainNamespacePaths(
 		return nil
 	}
 	for _, k := range chain.Numbers {
-		f, err := r.File(ctx, chain.LivePath(), k)
+		f, err := r.File(chain.LivePath(), k)
 		if err != nil {
 			return nil, err
 		}

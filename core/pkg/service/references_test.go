@@ -64,7 +64,7 @@ var _ = Describe("References", Ordered, func() {
 				return layer.Channel.NewWriter(tx).Create(ctx, &ch)
 			})).To(Succeed())
 			dev = device.Device{
-				Key:      device.Key(UniqueChannelName()),
+				Key:      UniqueChannelName(),
 				Rack:     layer.Rack.EmbeddedKey,
 				Name:     "plc",
 				Make:     "modbus",
@@ -75,7 +75,7 @@ var _ = Describe("References", Ordered, func() {
 				return layer.Device.NewWriter(tx).Create(ctx, &dev)
 			})).To(Succeed())
 			tsk = createTask(ctx, "modbus_read", msgpack.EncodedJSON{
-				"device": string(dev.Key),
+				"device": dev.Key,
 				"channels": []any{map[string]any{
 					"type":    "coil",
 					"key":     "coil-1",
@@ -133,7 +133,7 @@ var _ = Describe("References", Ordered, func() {
 		"Should clear the status of a PagerDuty alert and keep the alert",
 		func(ctx SpecContext) {
 			st := status.Status[any]{
-				Key:     status.Key(UniqueChannelName()),
+				Key:     UniqueChannelName(),
 				Name:    "pressure",
 				Variant: status.VariantWarning,
 				Time:    telem.Now(),
@@ -144,7 +144,7 @@ var _ = Describe("References", Ordered, func() {
 			tsk := createTask(ctx, pagerduty.AlertTaskType, msgpack.EncodedJSON{
 				"alerts": []any{map[string]any{
 					"key":    "alert-1",
-					"status": string(st.Key),
+					"status": st.Key,
 				}},
 			})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

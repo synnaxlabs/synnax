@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -146,6 +147,9 @@ public:
     [[nodiscard]] std::optional<uint32_t> shortfall() const override {
         return this->latest_shortfall;
     }
+
+    /// @brief returns no slave, since this master reads no state in each cycle.
+    [[nodiscard]] std::span<const uint16_t> inputless() const override { return {}; }
 
     /// @brief returns nullopt, since this master does not read the distributed clock.
     [[nodiscard]] std::optional<x::telem::TimeStamp> dc_time() const override {

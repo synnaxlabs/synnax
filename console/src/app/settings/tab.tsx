@@ -16,6 +16,7 @@ const TAB_TYPE = "settings";
 
 const TAB: Panel.Tab = {
   Icon: Icon.Settings,
+  iconKey: "gear",
   Name: Panel.createStaticTabName({ name: "Settings", icon: <Icon.Settings /> }),
   Content: Panel.lazyComponent(() => import("@/app/settings/Settings"), "Settings"),
 };
@@ -40,7 +41,7 @@ export const useOpen = (section?: string): (() => void) => {
     if (section != null) dispatch(Session.Nav.selectSettingsSection({ section }));
     openTab(
       { variant: "view", type: TAB_TYPE },
-      { singleton: true, draft: { name: "Settings", icon: "gear" } },
+      { singleton: true, draft: { name: "Settings" } },
     );
   };
 };

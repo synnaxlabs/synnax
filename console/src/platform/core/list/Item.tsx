@@ -9,7 +9,6 @@
 
 import "@/platform/core/list/List.css";
 
-import { type connection } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -20,6 +19,7 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 
+import { Connection } from "@/platform/connection";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
@@ -30,15 +30,6 @@ interface ListItemProps extends List.ItemProps<string> {
   item: Session.Core.Core;
   loading: boolean;
 }
-
-const LABELS: Record<connection.Status["variant"], string> = {
-  success: "Connected",
-  info: "Connected",
-  loading: "Connecting",
-  warning: "Reconnecting",
-  error: "Unreachable",
-  disabled: "Disconnected",
-};
 
 const Base = ({ item, loading, ...rest }: ListItemProps): ReactElement | null => {
   const dispatch = Session.useDispatch();
@@ -53,10 +44,11 @@ const Base = ({ item, loading, ...rest }: ListItemProps): ReactElement | null =>
     secure: item.secure,
   });
   let statusVariant = status?.variant ?? "disabled";
-  let statusMessage = LABELS[statusVariant];
+  let statusMessage =
+    status == null ? Connection.VARIANT_LABELS.disabled : Connection.label(status);
   if (loading) {
-    statusMessage = "Connecting";
     statusVariant = "loading";
+    statusMessage = Connection.VARIANT_LABELS.loading;
   }
   return (
     <List.Item

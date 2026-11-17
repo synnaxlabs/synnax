@@ -90,15 +90,17 @@ describe("Menu.Dialog", () => {
   });
 
   describe("selection", () => {
-    it("should draw its search as a line of text over a hairline", async () => {
+    it("should draw its search as a select does, over a hairline", async () => {
       const dialog = await openSelect();
       const search = dialog.querySelector(".lyra-input") as HTMLElement;
       expect(height(search)).toBe(36);
-      expect(computed(search, "background-color")).toBe(resolve("transparent"));
+      expect(computed(search, "background-color")).toBe(
+        resolve("var(--pluto-gray-l3)"),
+      );
       expect(computed(search, "border-top-width")).toBe("0px");
       expect(computed(search, "border-bottom-width")).toBe("1px");
       expect(computed(search, "border-bottom-color")).toBe(
-        resolve("var(--pluto-gray-l6)"),
+        resolve("var(--pluto-gray-l7)"),
       );
       expect(computed(search, "font-size")).toBe("13px");
     });

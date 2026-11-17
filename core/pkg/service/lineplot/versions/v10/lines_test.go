@@ -22,12 +22,12 @@ import (
 
 var plotKey = uuid.MustParse("11111111-2222-4333-8444-555555555555")
 
-func defaultLine(yAxis v10.YAxisKey, yChannel, xChannel channel.Key) v10.Line {
+func defaultLine(yAxis v10.YAxisKey, yChannel channel.Key) v10.Line {
 	return v10.Line{
-		Key:         v8.LineKey(plotKey, yAxis, yChannel, xChannel),
+		Key:         v8.LineKey(plotKey, yAxis, yChannel, 10),
 		YAxis:       yAxis,
 		YChannel:    yChannel,
-		XChannel:    xChannel,
+		XChannel:    10,
 		StrokeWidth: 2,
 		Aggregation: v10.AggregationMinMax,
 		Detail:      v10.DetailMedium,
@@ -38,9 +38,9 @@ var _ = Describe("ReconcileLines", func() {
 	It("Should create one default line per bound y-channel", func() {
 		channels := v10.Channels{X1: 10, Y1: []channel.Key{5, 6}, Y2: []channel.Key{7}}
 		Expect(v10.ReconcileLines(plotKey, channels, nil)).To(Equal([]v10.Line{
-			defaultLine("y1", 5, 10),
-			defaultLine("y1", 6, 10),
-			defaultLine("y2", 7, 10),
+			defaultLine("y1", 5),
+			defaultLine("y1", 6),
+			defaultLine("y2", 7),
 		}))
 	})
 
@@ -81,6 +81,6 @@ var _ = Describe("ReconcileLines", func() {
 			plotKey,
 			v10.Channels{X1: 10, Y1: []channel.Key{5}},
 			[]v10.Line{existing},
-		)).To(Equal([]v10.Line{defaultLine("y1", 5, 10)}))
+		)).To(Equal([]v10.Line{defaultLine("y1", 5)}))
 	})
 })

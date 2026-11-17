@@ -61,8 +61,8 @@ var _ = Describe("Migrate", func() {
 				db,
 				func(v0.Relationship) bool { return true },
 			)).To(ConsistOf(rel))
-			Expect(db.Get(ctx, legacyRes)).Error().To(MatchError(query.ErrNotFound))
-			Expect(db.Get(ctx, legacyRel)).Error().To(MatchError(query.ErrNotFound))
+			Expect(db.Get(legacyRes)).Error().To(MatchError(query.ErrNotFound))
+			Expect(db.Get(legacyRel)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
 })

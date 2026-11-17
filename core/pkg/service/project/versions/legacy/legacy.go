@@ -88,7 +88,6 @@ type Member struct {
 // in layoutData, in layout-key order. A record whose file the bundle does not hold is a
 // validation error.
 func Members(
-	ctx context.Context,
 	layoutData []byte,
 	files zip.Files,
 ) ([]Member, error) {
@@ -189,7 +188,7 @@ func CreatePanels(
 ) error {
 	var t tiling
 	if err := imex.Codec.Decode(layoutData, &t); err != nil {
-		return nil
+		t = tiling{}
 	}
 	// The slice only names panels, so a failed decode falls back to window keys.
 	var slice layoutSlice

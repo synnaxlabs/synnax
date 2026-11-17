@@ -230,6 +230,7 @@ const addressRangeIssue = (
   if (nextAddress(ch) <= ADDRESS_LIMIT) return null;
   return {
     code: "custom",
+    continue: true,
     message: `Channel ends past address ${ADDRESS_LIMIT - 1}`,
     path: [i, "address"],
     input: channels,
@@ -251,6 +252,7 @@ const validateReadChannels = ({
       return;
     }
     issues.push({
+      continue: true,
       code: "custom",
       message: "Another channel reads the same address and data type",
       path: [i, "address"],
@@ -282,6 +284,7 @@ const validateWriteChannels = ({
     enabled.push(ch);
     if (overlap == null) return;
     issues.push({
+      continue: true,
       code: "custom",
       message: `Overlaps the ${overlap.type.replaceAll("_", " ")} at address ${overlap.address}`,
       path: [i, "address"],

@@ -38,6 +38,7 @@ type benchEnv struct {
 
 // newBenchEnv creates count calculated channels off one stored channel.
 func newBenchEnv(b *testing.B, count int) *benchEnv {
+	b.Helper()
 	gomega.RegisterTestingT(b)
 	node := testutil.OpenNode(b.Context())
 	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
@@ -67,12 +68,32 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 	if err != nil {
 		b.Fatalf("failed to open channel service: %v", err)
 	}
+	indexes := createBenchChannels(b, node.DB, svc, count)
+	return &benchEnv{
+		svc:     svc,
+		indexes: indexes,
+		closer: io.MultiCloser{
+			node, groupSvc, svc, statusSvc, labelSvc,
+		},
+	}
+}
+
+// createBenchChannels creates an index channel, a stored channel on it, and count
+// calculated channels off the stored channel. It returns the indexes of the calculated
+// channels.
+func createBenchChannels(
+	b *testing.B,
+	db *gorp.DB,
+	svc *channel.Service,
+	count int,
+) []channel.Key {
+	b.Helper()
 	idx := channel.Channel{
 		Name:     "bench_time",
 		DataType: telem.TimestampT,
 		IsIndex:  true,
 	}
-	if err := node.DB.WithTx(b.Context(), func(tx gorp.Tx) error {
+	if err := db.WithTx(b.Context(), func(tx gorp.Tx) error {
 		return svc.NewWriter(tx).Create(b.Context(), &idx)
 	}); err != nil {
 		b.Fatalf("failed to create index channel: %v", err)
@@ -82,7 +103,7 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 		DataType:   telem.Float32T,
 		LocalIndex: idx.LocalKey,
 	}
-	if err := node.DB.WithTx(b.Context(), func(tx gorp.Tx) error {
+	if err := db.WithTx(b.Context(), func(tx gorp.Tx) error {
 		return svc.NewWriter(tx).Create(b.Context(), &base)
 	}); err != nil {
 		b.Fatalf("failed to create base channel: %v", err)
@@ -95,7 +116,7 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 			Expression: "return bench_base * 2",
 		}
 	}
-	if err := node.DB.WithTx(b.Context(), func(tx gorp.Tx) error {
+	if err := db.WithTx(b.Context(), func(tx gorp.Tx) error {
 		return svc.NewWriter(tx).CreateMany(b.Context(), &calcs)
 	}); err != nil {
 		b.Fatalf("failed to create calculated channels: %v", err)
@@ -104,16 +125,11 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 	for i, c := range calcs {
 		indexes[i] = c.Index()
 	}
-	return &benchEnv{
-		svc:     svc,
-		indexes: indexes,
-		closer: io.MultiCloser{
-			node, groupSvc, svc, statusSvc, labelSvc,
-		},
-	}
+	return indexes
 }
 
 func (e *benchEnv) close(b *testing.B) {
+	b.Helper()
 	if err := e.closer.Close(); err != nil {
 		b.Errorf("failed to close env: %v", err)
 	}
@@ -121,6 +137,7 @@ func (e *benchEnv) close(b *testing.B) {
 
 // owners resolves the calculated channels indexed by key.
 func (e *benchEnv) owners(b *testing.B, key channel.Key) []channel.Channel {
+	b.Helper()
 	var owners []channel.Channel
 	if err := e.svc.NewRetrieve().
 		Where(channel.MatchCalculated()).

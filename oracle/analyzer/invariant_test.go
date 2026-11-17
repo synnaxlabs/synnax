@@ -25,8 +25,8 @@ var _ = Describe("Default Invariant", func() {
 	// never raises a false positive.
 	DescribeTable(
 		"a required field with a static default",
-		func(ctx SpecContext, source, wantErr string) {
-			_, diag := Analyze(ctx, source, "x", loader)
+		func(source, wantErr string) {
+			_, diag := Analyze(source, "x", loader)
 			if wantErr == "" {
 				Expect(diag.Ok()).To(BeTrue())
 			} else {
@@ -105,8 +105,8 @@ var _ = Describe("Optional Default Invariant", func() {
 	// structural and fires for every field type, so the table exercises bools,
 	// strings, numbers, enums, and struct references, not just the bool case.
 	DescribeTable("a field that is both nullable and defaulted",
-		func(ctx SpecContext, source, wantErr string) {
-			_, diag := Analyze(ctx, source, "x", loader)
+		func(source, wantErr string) {
+			_, diag := Analyze(source, "x", loader)
 			if wantErr == "" {
 				Expect(diag.Ok()).To(BeTrue())
 			} else {
@@ -180,8 +180,8 @@ var _ = Describe("Default Groups", func() {
 
 	DescribeTable(
 		"a field marked with `@default group`",
-		func(ctx SpecContext, source, wantErr string) {
-			_, diag := Analyze(ctx, source, "x", loader)
+		func(source, wantErr string) {
+			_, diag := Analyze(source, "x", loader)
 			if wantErr == "" {
 				Expect(diag.Ok()).To(BeTrue())
 			} else {

@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -40,9 +41,11 @@ func AnyFromPBAny(a *anypb.Any) (any, error) {
 
 	// For typed protos, unmarshal using the type registry and convert to JSON
 	msg, err := anypb.UnmarshalNew(a, proto.UnmarshalOptions{})
-	if err != nil {
-		// If we can't unmarshal, return nil (unknown type)
+	if errors.Is(err, protoregistry.NotFound) {
 		return nil, nil
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	// Convert the proto message to JSON

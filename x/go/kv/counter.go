@@ -34,7 +34,7 @@ func NewCounter(
 	ctx context.Context, db ReadWriter, key []byte,
 ) (*AtomicInt64Counter, error) {
 	c := &AtomicInt64Counter{db: db, key: key}
-	b, closer, err := db.Get(ctx, key)
+	b, closer, err := db.Get(key)
 	if err != nil {
 		if errors.Is(err, query.ErrNotFound) {
 			return c, nil

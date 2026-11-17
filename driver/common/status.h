@@ -284,8 +284,8 @@ inline std::string config_err_description(const x::errors::Error &err) {
 
 /// @brief a utility function that appropriately handles configuration errors and
 /// communicates them back to Synnax in the standard format. cmd_key is the start
-/// command driving the deploy, or NO_COMMAND at boot. A configure with no command that
-/// does not auto-start logs its failures instead of reporting them. A successful
+/// command driving the deploy, or NO_COMMAND at boot. A failed configure writes an
+/// error status, except at boot for a task that another rack runs. A successful
 /// configure writes no status: the start that follows it answers the command. Only a
 /// configure with no command auto-starts the task, because a start command that drives
 /// a deploy starts the task with its own key. An auto-start first writes a loading
@@ -313,7 +313,10 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
         status.description = config_err_description(res.second);
         // Ack the start so a waiting caller resolves with the failure, not a timeout.
         status.details.cmd = cmd_key;
-        if (!commanded && !res.first.auto_start)
+        // A task moved here runs on its old Driver until a start arrives.
+        const bool moved = task.status.has_value() && task.status->details.running &&
+                           task.status->details.rack != task.rack;
+        if (!commanded && moved)
             LOG(WARNING) << "[driver] failed to configure task " << task.name << ": "
                          << res.second;
         else

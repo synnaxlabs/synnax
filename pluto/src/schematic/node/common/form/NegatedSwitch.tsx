@@ -18,8 +18,8 @@ export interface NegatedSwitchFieldProps extends Omit<
 
 /**
  * Binds a switch to a stored boolean that states its non-default condition, such as
- * `levelHidden` or `dblClickNavDisabled`. The switch reads and writes the affirmative,
- * so `label` names what the switch turns on.
+ * `levelHidden` or `doubleClickNavigationDisabled`. The switch reads and writes the
+ * affirmative, so `label` names what the switch turns on.
  */
 export const NegatedSwitchField = (props: NegatedSwitchFieldProps): ReactElement => (
   <Form.Field {...props}>

@@ -12,7 +12,6 @@ package check
 import (
 	"context"
 	"io/fs"
-	"os"
 	"runtime"
 	"sync"
 
@@ -132,7 +131,7 @@ func (g generatedGate) checkOne(
 			FixHint:  "fix the formatter for this extension and re-run `oracle sync`",
 		}, true
 	}
-	existing, err := os.ReadFile(abs)
+	existing, err := paths.ReadFile(f.Path, env.RepoRoot)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return Finding{

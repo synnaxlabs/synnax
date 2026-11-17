@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 // visibility.go decides whether a type's developer migrate wrapper is exported.
+
 package migrate
 
 import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
-	"github.com/synnaxlabs/oracle/plugin/go/internal/schemadiff"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -22,7 +22,6 @@ import (
 // counterpart maps a qualified name in oldTable to the name newTable files the same
 // type under.
 func wrapperNames(
-	diff map[string]schemadiff.TypeDiff,
 	oldTable, newTable *resolution.Table,
 	counterpart func(string) string,
 ) map[string]string {

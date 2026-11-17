@@ -10,13 +10,20 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
+import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { Label } from "@/schematic/node/flowmeters/Label";
 import { type Props } from "@/schematic/node/flowmeters/props";
+import svg from "@/schematic/node/flowmeters/Venturi.svg?raw";
 
-const DIMENSIONS = { width: 71, height: 36 };
-const LABELS = { x: 56, y: 29 };
+const SPEC = Custom.createBuiltIn({
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.04, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 0.983333, y: 0.5 }, orientation: "right" },
+    { key: "3", position: { x: 0.5, y: 0.05714 }, orientation: "top" },
+    { key: "4", position: { x: 0.5, y: 0.94386 }, orientation: "bottom" },
+  ],
+});
 
 export const Venturi = ({
   id,
@@ -27,48 +34,12 @@ export const Venturi = ({
   ...rest
 }: Props): ReactElement => (
   <Primitive.Div {...rest} className={CSS.cls(CSS.B("flowmeter-Venturi"), className)}>
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={4}
-        top={50}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle.Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={5.714}
-        id="3"
-      />
-      <Handle.Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
-    </Handle.Boundary>
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Primitive.Path d="M8 33L26.5329 22.3" strokeLinecap="round" />
-      <Primitive.Path d="M8 2L26.5329 12.7" strokeLinecap="round" />
-      <Primitive.Path d="M56 33L26.5876 22.2948" strokeLinecap="round" />
-      <Primitive.Path d="M56 2L26.5876 12.7052" strokeLinecap="round" />
-      <Label position={LABELS} strokeColor={strokeColor} />
-    </Primitive.SVG>
+    />
   </Primitive.Div>
 );

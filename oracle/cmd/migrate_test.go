@@ -10,11 +10,11 @@
 package cmd_test
 
 import (
-	"os"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/oracle/paths"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -47,19 +47,19 @@ var _ = Describe("migrate command", func() {
 			next := filepath.Join(
 				repoDir, "schemas", "synnax", "versions", "channel", "v1.oracle",
 			)
-			content := string(MustSucceed(os.ReadFile(next)))
+			content := string(MustSucceed(paths.ReadFile(next, repoDir)))
 			Expect(content).NotTo(BeEmpty())
 		})
 
 		It("errors when no resources are named", func() {
 			Expect(
-				fail(1, "migrate"),
+				fail("migrate"),
 			).To(printOnce("name the resources to bump"))
 		})
 
 		It("errors for an unknown resource", func() {
 			Expect(
-				fail(1, "migrate", "ghost"),
+				fail("migrate", "ghost"),
 			).To(printOnce(`no version chain matches "ghost"`))
 		})
 
@@ -67,7 +67,7 @@ var _ = Describe("migrate command", func() {
 			// Naming the resource twice makes the second scaffold hit the file the
 			// first one just wrote.
 			Expect(
-				fail(1, "migrate", "channel", "channel"),
+				fail("migrate", "channel", "channel"),
 			).To(printOnce("already exists"))
 		})
 	})
@@ -82,7 +82,7 @@ var _ = Describe("migrate command", func() {
 
 		It("rejects an ambiguous resource name", func() {
 			Expect(
-				fail(1, "migrate", "channel"),
+				fail("migrate", "channel"),
 			).To(printOnce(`"channel" is ambiguous`))
 		})
 
@@ -108,7 +108,7 @@ var _ = Describe("migrate command", func() {
 
 		It("errors when no chains exist", func() {
 			Expect(
-				fail(1, "migrate", "channel"),
+				fail("migrate", "channel"),
 			).To(printOnce("no version chains exist"))
 		})
 	})

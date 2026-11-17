@@ -57,7 +57,7 @@ func migrateReadField(
 	note := func(format string, args ...any) {
 		changes = append(changes, fmt.Sprintf(format, args...))
 	}
-	dt := telem.DataType(old.DataType)
+	dt := old.DataType
 	if dt == "" {
 		dt = telem.Float64T
 	}
@@ -83,39 +83,66 @@ func migrateReadField(
 			kind,
 		)
 	}
+	return NewReadField(BaseReadField{
+		Key:      old.Key,
+		Name:     old.Name,
+		Disabled: old.Disabled,
+		Channel:  old.Channel,
+		Pointer:  old.Pointer,
+	}, migrateRead(old, kind, dt, known && ch == nil, note)), changes
+}
+
+// enumFilter keeps the enum entries that a lifted field can use and notes each one it
+// drops.
+type enumFilter struct {
+	seen set.Set[string]
+	note func(format string, args ...any)
+}
+
+func (f enumFilter) drop(e payload.EnumEntry, why string) {
+	f.note("enum label %q was dropped: %s", e.Label, why)
+}
+
+// usable reports whether the lifted field can keep e: its label is not empty, and no
+// earlier entry has it.
+func (f enumFilter) usable(e payload.EnumEntry) bool {
+	if e.Label == "" {
+		f.drop(e, "it is empty")
+		return false
+	}
+	if f.seen.Contains(e.Label) {
+		f.drop(e, "it repeats an earlier label")
+		return false
+	}
+	f.seen.Add(e.Label)
+	return true
+}
+
+// migrateRead returns the read options of kind for old and notes each enum entry that
+// it drops. A typed number read keeps dt as its data type.
+func migrateRead(
+	old v1.ReadField,
+	kind payload.Kind,
+	dt telem.DataType,
+	typed bool,
+	note func(format string, args ...any),
+) payload.Read {
 	r := payload.Read{Kind: kind}
-	drop := func(e payload.EnumEntry, why string) {
-		note("enum label %q was dropped: %s", e.Label, why)
-	}
-	seen := set.New[string]()
-	// usable reports whether e is an entry the lifted field can keep: its label is not
-	// empty, and no earlier entry has it.
-	usable := func(e payload.EnumEntry) bool {
-		if e.Label == "" {
-			drop(e, "it is empty")
-			return false
-		}
-		if seen.Contains(e.Label) {
-			drop(e, "it repeats an earlier label")
-			return false
-		}
-		seen.Add(e.Label)
-		return true
-	}
+	filter := enumFilter{seen: set.New[string](), note: note}
 	switch kind {
 	case payload.KindFloat, payload.KindInteger, payload.KindUnsigned:
-		if known && ch == nil {
+		if typed {
 			r.Number.DataType = &dt
 		}
 		for _, e := range old.EnumValues {
 			v, ok := payload.FloatNumber(payload.Float(e.Value)).To(kind)
 			switch {
 			case !ok:
-				drop(
+				filter.drop(
 					e,
 					strconv.FormatFloat(e.Value, 'g', -1, 64)+" is not "+string(kind),
 				)
-			case usable(e):
+			case filter.usable(e):
 				r.Number.EnumValues = append(
 					r.Number.EnumValues,
 					payload.NumberEntry{Label: e.Label, Value: v},
@@ -124,7 +151,7 @@ func migrateReadField(
 		}
 	case payload.KindBoolean:
 		for _, e := range old.EnumValues {
-			if !usable(e) {
+			if !filter.usable(e) {
 				continue
 			}
 			r.Boolean.EnumValues = append(
@@ -141,16 +168,10 @@ func migrateReadField(
 	if kind != payload.KindFloat && kind != payload.KindInteger &&
 		kind != payload.KindUnsigned && kind != payload.KindBoolean {
 		for _, e := range old.EnumValues {
-			drop(e, "a "+string(kind)+" field takes no numeric entries")
+			filter.drop(e, "a "+string(kind)+" field takes no numeric entries")
 		}
 	}
-	return NewReadField(BaseReadField{
-		Key:      old.Key,
-		Name:     old.Name,
-		Disabled: old.Disabled,
-		Channel:  old.Channel,
-		Pointer:  old.Pointer,
-	}, r), changes
+	return r
 }
 
 // migrateReadConfig lifts a v1 read config to v2, with the channels of its fields in

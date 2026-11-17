@@ -57,16 +57,6 @@ type Log struct {
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *Log) ApplyDefaults() {
-	if l.TimeZone == "" {
-		l.TimeZone = "local"
-	}
-	for i := range l.Channels {
-		l.Channels[i].ApplyDefaults()
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (l *Log) SetDefaults() {
 	l.TimeZone = "local"
