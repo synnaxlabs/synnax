@@ -627,6 +627,79 @@ Channel struct extends v0.Channel {
 		Expect(merged).To(ContainSubstring("code status.Level"))
 	})
 
+	Describe("Live imports", func() {
+		BeforeEach(func() {
+			write("schemas/x/versions/status/v0.oracle", "Code = int64\n")
+			write("schemas/synnax/versions/status/v0.oracle", "Level = int64\n")
+			write("schemas/synnax/status.oracle", "Level = int64\n")
+			write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/synnax/versions/status/v0"
+
+Channel struct {
+	key uuid @key
+	level status.Level
+
+	@go marshal
+}
+`)
+		})
+
+		It("Should replace a live import whose namespace a dependency now takes", func(
+			ctx SpecContext,
+		) {
+			live := `import "schemas/x/status"
+
+Channel struct {
+	key uuid @key
+	level status.Code
+}
+`
+			r, chain := resolver()
+			merged := MustSucceed(versions.MergeLive(ctx, r, chain, live))
+			Expect(merged).To(ContainSubstring(`import "schemas/synnax/status"`))
+			Expect(merged).ToNot(ContainSubstring(`import "schemas/x/status"`))
+		})
+
+		It("Should keep a live import that a live-only declaration uses", func(
+			ctx SpecContext,
+		) {
+			live := `import "schemas/x/label"
+import "schemas/x/telem"
+
+Channel struct {
+	key uuid @key
+}
+
+Wire struct {
+	span telem.TimeSpan
+}
+`
+			r, chain := resolver()
+			merged := MustSucceed(versions.MergeLive(ctx, r, chain, live))
+			Expect(merged).To(ContainSubstring(`import "schemas/x/telem"`))
+			Expect(merged).ToNot(ContainSubstring(`import "schemas/x/label"`))
+		})
+
+		It("Should reject live imports that share a namespace", func(ctx SpecContext) {
+			live := `import "schemas/x/telem"
+import "schemas/y/telem"
+
+Channel struct {
+	key uuid @key
+}
+
+Wire struct {
+	span telem.TimeSpan
+}
+`
+			r, chain := resolver()
+			Expect(versions.MergeLive(ctx, r, chain, live)).Error().To(MatchError(
+				"namespace telem is ambiguous between schemas/x/telem and " +
+					"schemas/y/telem",
+			))
+		})
+	})
+
 	It("Should carry live-owned enum value annotations", func(ctx SpecContext) {
 		write("schemas/synnax/versions/channel/v0.oracle", `
 Kind enum {

@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/parser"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -168,7 +169,22 @@ func MergeLive(
 		}
 		renderMember(name)
 	}
-	importList, err := liveImportList(lc.imports, referenced)
+	var body strings.Builder
+	if len(lc.fileDomains) > 0 {
+		body.WriteString(strings.Join(lc.fileDomains, "\n"))
+		body.WriteString("\n\n")
+	}
+	body.WriteString(strings.Join(parts, "\n\n"))
+	body.WriteString("\n")
+	bodyAST, diag := parser.Parse(body.String())
+	if diag != nil && !diag.Ok() {
+		return "", errors.Newf(
+			"failed to parse merged %s.oracle: %s", livePath, diag.String(),
+		)
+	}
+	importList, err := liveImportList(
+		lc.imports, referenced, analyzer.UsedNamespaces(bodyAST),
+	)
 	if err != nil {
 		return "", err
 	}
@@ -180,12 +196,7 @@ func MergeLive(
 	if len(importList) > 0 {
 		b.WriteString("\n")
 	}
-	if len(lc.fileDomains) > 0 {
-		b.WriteString(strings.Join(lc.fileDomains, "\n"))
-		b.WriteString("\n\n")
-	}
-	b.WriteString(strings.Join(parts, "\n\n"))
-	b.WriteString("\n")
+	b.WriteString(body.String())
 
 	formatted, err := formatter.Format(b.String())
 	if err != nil {
@@ -235,25 +246,38 @@ func checkErasedDocs(
 	)
 }
 
-// liveImportList returns the sorted imports of a merged live file: the live file's own
-// imports plus each referenced dependency path. It returns an error when two referenced
-// dependencies share a resource namespace, since the live file can import only one.
-func liveImportList(own []string, referenced set.Set[string]) ([]string, error) {
+// liveImportList returns the sorted imports of a merged live file: each referenced
+// dependency path, plus each import of the existing live file whose namespace the
+// merged file uses and no referenced path takes. It returns an error when two of these
+// imports share a resource namespace, since the live file can import only one.
+func liveImportList(own []string, referenced, used set.Set[string]) ([]string, error) {
 	byNS := make(map[string]string)
-	for _, p := range slices.Sorted(maps.Keys(referenced)) {
+	add := func(p string) error {
 		ns := resourceOf(p)
-		if existing, ok := byNS[ns]; ok {
-			return nil, errors.Newf(
-				"namespace %s is ambiguous between %s and %s", ns, existing, p,
+		if existing, ok := byNS[ns]; ok && existing != p {
+			return errors.Newf(
+				"namespace %s is ambiguous between %s and %s",
+				ns, min(existing, p), max(existing, p),
 			)
 		}
 		byNS[ns] = p
+		return nil
 	}
-	imports := set.New(own...)
-	imports.Add(referenced.Slice()...)
-	list := imports.Slice()
-	slices.Sort(list)
-	return list, nil
+	for _, p := range slices.Sorted(maps.Keys(referenced)) {
+		if err := add(p); err != nil {
+			return nil, err
+		}
+	}
+	taken := set.New(slices.Collect(maps.Keys(byNS))...)
+	for _, p := range own {
+		if ns := resourceOf(p); taken.Contains(ns) || !used.Contains(ns) {
+			continue
+		}
+		if err := add(p); err != nil {
+			return nil, err
+		}
+	}
+	return slices.Sorted(maps.Values(byNS)), nil
 }
 
 // importsByVersion maps each version of a chain to the live path of each dependency its
