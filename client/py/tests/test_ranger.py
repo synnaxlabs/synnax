@@ -82,6 +82,27 @@ class TestRangeNotCreated:
         with pytest.raises(sy.ConfigurationError):
             rng.retrieve_labels()
 
+    def test_write_keys_without_series(self) -> None:
+        """Should raise a ValidationError before opening a writer when channels are
+        given without series"""
+        rng = sy.Range(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        with pytest.raises(sy.ValidationError, match="No series provided"):
+            untyped(rng.write)(["a", "b"])
+
+    def test_write_frame_with_series(self) -> None:
+        """Should raise a TypeError before opening a writer when a frame is given
+        with series"""
+        rng = sy.Range(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        frame = sy.Frame(channels=[1], series=[sy.Series([1.0])])
+        with pytest.raises(TypeError, match="when series is provided"):
+            untyped(rng.write)(frame, [sy.Series([1.0])])
+
 
 @pytest.mark.ranger
 class TestRangeClient:
