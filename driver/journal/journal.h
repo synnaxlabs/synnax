@@ -183,12 +183,14 @@ class Reader {
     std::pair<std::optional<Record>, x::errors::Error> next_record();
 
 public:
-    /// @brief the start of the file.
+    /// @brief the start of the file, or the default for a file with no full start.
     Header header;
 
-    /// @brief opens the file of the config and reads its start.
-    /// @returns UNKNOWN_MAGIC, UNKNOWN_VERSION, or CORRUPT when the start is not
-    /// valid. CORRUPT when pos is outside the records of the file.
+    /// @brief opens the file of the config and reads its start. A file shorter than a
+    /// file start holds no records, as Writer::open treats it, and cut() returns its
+    /// size.
+    /// @returns UNKNOWN_MAGIC or UNKNOWN_VERSION when the start is not one this
+    /// reader reads. CORRUPT when pos is outside the records of the file.
     static std::pair<std::unique_ptr<Reader>, x::errors::Error> open(ReaderConfig cfg);
 
     /// @brief reads the next record. The first record that is cut off or fails its

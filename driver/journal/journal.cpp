@@ -176,9 +176,14 @@ std::pair<std::unique_ptr<Reader>, x::errors::Error> Reader::open(ReaderConfig c
     reader->file.open(reader->cfg.path, std::ios::binary);
     if (!reader->file)
         return {nullptr, x::errors::Error(BASE_ERROR, "failed to open " + path)};
+    if (reader->size < HEADER_SIZE) {
+        reader->cfg.pos = 0;
+        reader->cut_bytes = reader->size;
+        return {std::move(reader), x::errors::NIL};
+    }
     std::array<char, HEADER_SIZE> buf{};
-    if (reader->size < HEADER_SIZE || !reader->file.read(buf.data(), buf.size()))
-        return {nullptr, x::errors::Error(CORRUPT, path + " has no full file start")};
+    if (!reader->file.read(buf.data(), buf.size()))
+        return {nullptr, x::errors::Error(BASE_ERROR, "failed to read " + path)};
     const auto &magic = reader->cfg.magic;
     if (!std::equal(magic.begin(), magic.end(), buf.begin()))
         return {nullptr, x::errors::Error(UNKNOWN_MAGIC, path)};
