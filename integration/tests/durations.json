@@ -68,8 +68,6 @@
   "console/task/modbus_read_task": 14.9,
   "console/task/modbus_write_task": 14.9,
   "console/task/mqtt_edge_task": 9.4,
-  "console/task/mqtt_invalid": 15.9,
-  "console/task/mqtt_read_task": 19.9,
   "console/task/mqtt_write_task": 18.7,
   "console/task/ni_analog_write_forms": 14.3,
   "console/task/ni_counter_read_forms": 22.1,
