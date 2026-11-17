@@ -74,6 +74,7 @@ sudo synnax-driver login
 ```
 Host [localhost]: 10.0.0.45
 Port [9090]:
+CA certificate file [none]:
 Secure (Y/N) [N]:
 Username: driver
 Password:
@@ -158,6 +159,11 @@ or `false`.
 
 <Field.Item name="--secure" default="false">
   Connect to the Core over TLS. Takes a value: `--secure true`.
+</Field.Item>
+
+<Field.Item name="--ca-cert">
+  The path to a PEM file of the CA certificates that sign the certificate of the Core.
+  Turns TLS on unless `--secure false` is also given, which is an error.
 </Field.Item>
 
 <Field.Item name="--correct-skew" default="true">

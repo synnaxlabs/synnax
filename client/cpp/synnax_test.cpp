@@ -33,7 +33,7 @@ synnax::Config load(const std::string &json) {
     return cfg;
 }
 
-/// @brief a fresh config leaves secure unset and connects without TLS.
+/// @brief it should leave secure unset and connect without TLS by default.
 TEST(ConfigSecure, InsecureByDefault) {
     const synnax::Config cfg;
     EXPECT_EQ(cfg.secure, std::nullopt);
@@ -57,7 +57,7 @@ TEST(ConfigPersist, SecureFlagFalse) {
     EXPECT_EQ(loaded.secure, false);
 }
 
-/// @brief an unset secure stays unset across a save/load.
+/// @brief it should keep an unset secure unset across a save and load.
 TEST(ConfigPersist, SecureUnset) {
     const synnax::Config cfg;
     const auto loaded = load(cfg.to_json().dump());
@@ -87,7 +87,7 @@ TEST(ConfigPersist, AllFields) {
     EXPECT_EQ(loaded.api_key, "syk_key");
 }
 
-/// @brief a config without the secure flag leaves it unset.
+/// @brief it should leave secure unset when the config has no secure flag.
 TEST(ConfigOverride, AbsentFlagIsUnset) {
     const auto cfg = load(R"({"username":"op"})");
     EXPECT_EQ(cfg.secure, std::nullopt);
@@ -112,6 +112,53 @@ TEST(ConfigOverride, LaterExplicitFlagWins) {
     auto second = x::json::Parser(std::string(R"({"secure":false})"));
     cfg.override(second);
     EXPECT_EQ(cfg.secure, false);
+}
+
+/// @brief it should replace both secure and ca_cert when a later source sets only
+/// the CA certificate.
+TEST(ConfigOverride, CACertReplacesEarlierSecure) {
+    synnax::Config cfg;
+    auto saved = x::json::Parser(std::string(R"({"secure":false})"));
+    cfg.override(saved);
+    auto later = x::json::Parser(std::string(R"({"ca_cert":"/etc/synnax/ca.pem"})"));
+    cfg.override(later);
+    EXPECT_EQ(cfg.secure, std::nullopt);
+    EXPECT_EQ(cfg.ca_cert, "/etc/synnax/ca.pem");
+    const auto tls = ASSERT_NIL_P(cfg.tls());
+    EXPECT_TRUE(tls.enabled);
+}
+
+/// @brief it should drop an earlier CA certificate when a later source sets only
+/// secure.
+TEST(ConfigOverride, SecureReplacesEarlierCACert) {
+    synnax::Config cfg;
+    auto saved = x::json::Parser(std::string(R"({"ca_cert":"/etc/synnax/ca.pem"})"));
+    cfg.override(saved);
+    auto later = x::json::Parser(std::string(R"({"secure":false})"));
+    cfg.override(later);
+    EXPECT_EQ(cfg.secure, false);
+    EXPECT_EQ(cfg.ca_cert, "");
+    const auto tls = ASSERT_NIL_P(cfg.tls());
+    EXPECT_FALSE(tls.enabled);
+}
+
+/// @brief it should keep the earlier pair when a later source sets neither field.
+TEST(ConfigOverride, PairSurvivesLaterOverride) {
+    synnax::Config cfg;
+    auto saved = x::json::Parser(
+        std::string(R"({"secure":true,"ca_cert":"/etc/synnax/ca.pem"})")
+    );
+    cfg.override(saved);
+    auto later = x::json::Parser(std::string(R"({"host":"node1"})"));
+    cfg.override(later);
+    EXPECT_EQ(cfg.secure, true);
+    EXPECT_EQ(cfg.ca_cert, "/etc/synnax/ca.pem");
+}
+
+/// @brief it should fail when one source sets secure false and a CA certificate.
+TEST(ConfigOverride, SecureFalseWithCACertInOneSourceIsError) {
+    const auto cfg = load(R"({"secure":false,"ca_cert":"/etc/synnax/ca.pem"})");
+    ASSERT_OCCURRED_AS_P(cfg.tls(), x::errors::VALIDATION);
 }
 
 /// @brief absent keys keep their defaults.
@@ -262,7 +309,7 @@ protected:
 };
 }
 
-/// @brief a CA certificate with secure unset turns TLS on.
+/// @brief it should turn TLS on for a CA certificate with secure unset.
 TEST_F(ConfigTLS, CACertAloneUsesTLS) {
     synnax::Config cfg;
     cfg.ca_cert = CA_CERT_PATH;
@@ -273,7 +320,7 @@ TEST_F(ConfigTLS, CACertAloneUsesTLS) {
     EXPECT_EQ(res.payload(), "Read request: ping");
 }
 
-/// @brief a CA certificate with secure true uses TLS.
+/// @brief it should use TLS for a CA certificate with secure true.
 TEST_F(ConfigTLS, CACertWithSecureUsesTLS) {
     synnax::Config cfg;
     cfg.secure = true;
@@ -282,7 +329,7 @@ TEST_F(ConfigTLS, CACertWithSecureUsesTLS) {
     EXPECT_EQ(res.payload(), "Read request: ping");
 }
 
-/// @brief a CA certificate with an explicit secure false is an error.
+/// @brief it should fail every call for a CA certificate with secure false.
 TEST_F(ConfigTLS, CACertWithSecureFalseIsError) {
     synnax::Config cfg;
     cfg.secure = false;
@@ -291,7 +338,7 @@ TEST_F(ConfigTLS, CACertWithSecureFalseIsError) {
     ASSERT_OCCURRED_AS_P(send(cfg), x::errors::VALIDATION);
 }
 
-/// @brief SYNNAX_CA_CERT gives the CA certificate when ca_cert is empty.
+/// @brief it should read SYNNAX_CA_CERT when secure and ca_cert are unset.
 TEST_F(ConfigTLS, CACertFromEnvironmentUsesTLS) {
     x::env::set("SYNNAX_CA_CERT", CA_CERT_PATH);
     x::defer::defer unset_env([] { x::env::unset("SYNNAX_CA_CERT"); });
@@ -300,23 +347,25 @@ TEST_F(ConfigTLS, CACertFromEnvironmentUsesTLS) {
     EXPECT_EQ(res.payload(), "Read request: ping");
 }
 
-/// @brief SYNNAX_CA_CERT with an explicit secure false is an error.
-TEST_F(ConfigTLS, CACertFromEnvironmentWithSecureFalseIsError) {
+/// @brief it should ignore SYNNAX_CA_CERT when the config sets secure.
+TEST_F(ConfigTLS, SecureFromConfigIgnoresEnvironmentCACert) {
     x::env::set("SYNNAX_CA_CERT", CA_CERT_PATH);
     x::defer::defer unset_env([] { x::env::unset("SYNNAX_CA_CERT"); });
     synnax::Config cfg;
     cfg.secure = false;
-    ASSERT_OCCURRED_AS_P(send(cfg), x::errors::VALIDATION);
+    const auto tls = ASSERT_NIL_P(cfg.tls());
+    EXPECT_FALSE(tls.enabled);
+    ASSERT_OCCURRED_AS_P(send(cfg), freighter::UNREACHABLE);
 }
 
-/// @brief a CA certificate that does not exist fails every call.
+/// @brief it should fail every call when the CA certificate does not exist.
 TEST_F(ConfigTLS, MissingCACertIsError) {
     synnax::Config cfg;
     cfg.ca_cert = "freighter/cpp/grpc/testutil/missing.pem";
     ASSERT_OCCURRED_AS_P(send(cfg), x::fs::NOT_FOUND);
 }
 
-/// @brief without a CA certificate, the client cannot reach a TLS Core.
+/// @brief it should connect without TLS when no CA certificate is set.
 TEST_F(ConfigTLS, NoCACertIsPlaintext) {
     const synnax::Config cfg;
     ASSERT_OCCURRED_AS_P(send(cfg), freighter::UNREACHABLE);

@@ -71,7 +71,8 @@ struct Config {
     /// certificate is set. See tls.
     std::optional<bool> secure;
     /// @brief the path to a PEM file of CA certificates that sign the Core's
-    /// certificate. When empty, the client reads SYNNAX_CA_CERT. See tls.
+    /// certificate. When both it and secure are unset, the client reads
+    /// SYNNAX_CA_CERT. See tls.
     std::string ca_cert;
     /// @brief sets the clock skew threshold at which a warning will be logged.
     x::telem::TimeSpan clock_skew_threshold = x::telem::SECOND * 1;
@@ -81,14 +82,26 @@ struct Config {
     /// ignored.
     std::string api_key;
 
+    /// @brief overrides each field that parser sets. secure and ca_cert are a pair: a
+    /// parser that sets either one replaces both.
     template<typename ParserT>
     void override(ParserT &parser) {
         this->host = parser.field("host", this->host);
         this->port = parser.field("port", this->port);
         this->username = parser.field("username", this->username);
         this->password = parser.field("password", this->password);
-        this->secure = parser.field("secure", this->secure);
-        this->ca_cert = parser.field("ca_cert", this->ca_cert);
+        const auto secure = parser.field("secure", std::optional<bool>());
+        const auto ca_cert = parser.field("ca_cert", std::string());
+        if (secure.has_value() || !ca_cert.empty()) {
+            // The env parser reads a bool relative to its default, so it gets the
+            // current value.
+            this->secure = secure.has_value()
+                             ? std::optional(
+                                   parser.field("secure", this->secure.value_or(false))
+                               )
+                             : std::nullopt;
+            this->ca_cert = ca_cert;
+        }
         this->clock_skew_threshold = x::telem::TimeSpan(parser.field(
             "clock_skew_threshold",
             this->clock_skew_threshold.nanoseconds()
@@ -120,13 +133,14 @@ struct Config {
         return this->host + ":" + std::to_string(this->port);
     }
 
-    /// @brief resolves how the client secures its connection. A CA certificate, from
-    /// ca_cert or else SYNNAX_CA_CERT, turns TLS on when secure is unset.
+    /// @brief resolves how the client secures its connection. When secure and ca_cert
+    /// are both unset, the CA certificate comes from SYNNAX_CA_CERT. A CA certificate
+    /// turns TLS on when secure is unset.
     /// @returns the TLS settings, or a validation error when secure is false and a CA
     /// certificate is set.
     [[nodiscard]] std::pair<TLS, x::errors::Error> tls() const {
         auto ca_cert = this->ca_cert;
-        if (ca_cert.empty())
+        if (ca_cert.empty() && !this->secure.has_value())
             ca_cert = x::env::Parser("SYNNAX").field("ca_cert", std::string());
         if (ca_cert.empty())
             return {TLS{.enabled = this->secure.value_or(false)}, x::errors::NIL};

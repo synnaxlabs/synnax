@@ -163,6 +163,7 @@ Then it asks for the username and the password:
 ```
 Host [localhost]: 10.0.0.45
 Port [9090]:
+CA certificate file [none]:
 Secure (Y/N) [N]:
 Username: driver
 Password:
@@ -191,7 +192,9 @@ Console:
 
 Answer `Y` to `Secure` when the Core uses TLS, and give the host name of the
 certificate, not an IP address. A certificate from a public authority, such as Let's
-Encrypt, needs no more setup.
+Encrypt, needs no more setup. For a certificate from your own authority, give the path
+of the CA certificate at `CA certificate file`. The Driver then uses TLS and trusts only
+that file, and `login` does not ask for `Secure`.
 
 For a certificate from your own authority, or from a Core that runs with `--auto-cert`:
 

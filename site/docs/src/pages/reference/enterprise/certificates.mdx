@@ -84,7 +84,7 @@ The Console and browsers use the Keychain. A standalone Driver does not. For the
 service, point it at the file in `/etc/synnax/driver.env`, then restart the service:
 
 ```bash
-SYNNAX_CA_CERT=/path/to/synnax-ca.crt
+SYNNAX_DRIVER_CA_CERT=/path/to/synnax-ca.crt
 ```
 
 For `synnax-driver start --standalone`, export the variable in the shell instead.
@@ -94,8 +94,8 @@ For `synnax-driver start --standalone`, export the variable in the shell instead
 </Platform.Tabs>
 
 <Note.Note variant="warning">
-  `SYNNAX_CA_CERT` replaces every certificate the Driver trusts, and turns TLS on. Set
-  it only for a Core with a self-signed certificate.
+  `SYNNAX_DRIVER_CA_CERT` replaces every certificate the Driver trusts, and turns TLS
+  on. Set it only for a Core with a certificate from your own authority.
 </Note.Note>
 
 <Divider.Divider x />
