@@ -30,7 +30,7 @@ from urllib.request import Request, urlopen
 import synnax as sy
 
 from aws import AWS
-from common import add_connection_args, connect, parameter_store
+from common import Samples, Writes, add_connection_args, connect, parameter_store
 from scaler import SCALER_CMD, SCALER_ENABLED
 
 if TYPE_CHECKING:
@@ -201,7 +201,13 @@ def run(
     return all(results[i] == "Success" for i in runners if i not in skipped)
 
 
-def scaler_enabled(client: sy.Synnax) -> bool | None:
+class Core(Writes, Protocol):
+    """The part of the Core that switches the scaler and reads its state."""
+
+    def read(self, tr: sy.TimeRange, channel: str, /) -> Samples: ...
+
+
+def scaler_enabled(client: Core) -> bool | None:
     """The scaler state that the controller last reported, or None when the controller
     does not run."""
     now = sy.TimeStamp.now()
@@ -209,7 +215,7 @@ def scaler_enabled(client: sy.Synnax) -> bool | None:
     return bool(beats[-1]) if len(beats) else None
 
 
-def switch_scaler(client: sy.Synnax, *, enabled: bool) -> None:
+def switch_scaler(client: Core, *, enabled: bool) -> None:
     writer = client.open_writer(sy.TimeStamp.now(), [SCALER_CMD])
     try:
         writer.write({SCALER_CMD: enabled})
@@ -218,7 +224,7 @@ def switch_scaler(client: sy.Synnax, *, enabled: bool) -> None:
 
 
 @contextmanager
-def scaler_paused(client: sy.Synnax) -> Iterator[None]:
+def scaler_paused(client: Core) -> Iterator[None]:
     """Keeps a scaler that is on turned off inside the block, then turns it on again.
 
     :raises TimeoutError: if the controller does not turn the scaler off.

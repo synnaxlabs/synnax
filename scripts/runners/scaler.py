@@ -16,7 +16,7 @@ to <runner>_gh_cmd for agent.py to act on, and a start or a stop writes
 import synnax as sy
 
 from commander import Commander
-from common import IDLE, OFFLINE, instance_for
+from common import IDLE, OFFLINE, Writes, instance_for
 from gate import Gate
 from log import Log
 from pools import POOLS, Pool, pool_of
@@ -48,7 +48,7 @@ class Scaler:
     def __init__(
         self,
         *,
-        client: sy.Synnax,
+        client: Writes,
         cooldown: sy.TimeSpan,
         boot_grace: sy.TimeSpan,
         log: Log,

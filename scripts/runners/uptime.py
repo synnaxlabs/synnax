@@ -18,6 +18,7 @@ from common import (
     IDLE,
     STOP_TIMEOUT,
     Channels,
+    Writes,
     channel_name,
     instance_for,
     uptime_channels,
@@ -38,7 +39,7 @@ class Uptime:
     def __init__(
         self,
         *,
-        client: sy.Synnax,
+        client: Writes,
         channels: Channels,
         report: Callable[[str, Exception], None] = warn,
     ) -> None:

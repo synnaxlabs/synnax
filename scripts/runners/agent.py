@@ -51,7 +51,7 @@ import psutil
 import synnax as sy
 
 from agent_log import RUNNER_DIRS, Log
-from gh_runner import Runner, Sink
+from gh_runner import Core, Runner, Sink
 
 INTERVAL = 5 * sy.TimeSpan.SECOND
 # The runner starts anyway if Synnax stays unreachable this long after boot.
@@ -109,7 +109,7 @@ class Control(Protocol):
 
     def apply(self, enabled: bool, why: str) -> None: ...
 
-    def listen(self, client: sy.Synnax, name: str, state: str, sink: Sink) -> None: ...
+    def listen(self, client: Core, name: str, state: str, sink: Sink) -> None: ...
 
     def tick(self) -> None: ...
 

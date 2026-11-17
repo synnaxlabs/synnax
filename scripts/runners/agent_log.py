@@ -10,6 +10,7 @@
 """The runner's log channel, for agent.py."""
 
 from pathlib import Path
+from typing import Protocol
 
 import synnax as sy
 
@@ -24,6 +25,25 @@ LOG_BUDGET = 1 << 20
 PUBLISH_AUTHORITY = sy.Authority.ABSOLUTE
 
 
+class Writer(Protocol):
+    def write(self, frame: dict, /) -> object: ...
+
+    def close(self) -> object: ...
+
+
+class Writes(Protocol):
+    """The part of the Core that opens writers."""
+
+    def open_writer(
+        self,
+        start: sy.TimeStamp,
+        channels: list[str],
+        *,
+        authorities: sy.Authority,
+        name: str,
+    ) -> Writer: ...
+
+
 class Log:
     """Tails the actions-runner page logs and streams new lines to a virtual channel.
 
@@ -31,7 +51,7 @@ class Log:
     so a line split across two reads arrives whole. Lines queued with log() go first.
     """
 
-    def __init__(self, client: sy.Synnax, name: str) -> None:
+    def __init__(self, client: Writes, name: str) -> None:
         self.name = name
         self.queue: list[str] = []
         self.writer = client.open_writer(

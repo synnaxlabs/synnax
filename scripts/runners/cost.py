@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any, NotRequired, Protocol, TypedDict
 import synnax as sy
 
 from aws import REGIONS
-from common import channel_name, instance_for, instance_prefix, latest
+from common import ReadsLatest, channel_name, instance_for, instance_prefix, latest
 from log import Log
 
 if TYPE_CHECKING:
@@ -102,6 +102,17 @@ class Usage(TypedDict):
 class MetricData(TypedDict):
     MetricDataResults: list["MetricDataResultTypeDef"]
     NextToken: NotRequired[str]
+
+
+class Lister(Protocol):
+    def retrieve(self, channels: list[str], /) -> list[sy.Channel]: ...
+
+
+class Core(ReadsLatest, Protocol):
+    """The part of the Core that the cost state reads."""
+
+    @property
+    def channels(self) -> Lister: ...
 
 
 class Pricing(Protocol):
@@ -375,7 +386,7 @@ class Cost:
         )
         return out
 
-    def create_state(self, client: sy.Synnax, *, known: set[str]) -> None:
+    def create_state(self, client: Core, *, known: set[str]) -> None:
         """The types, the last values, and the last fetch time on the Core, so the
         fetch cadence and the live writes hold across a restart."""
         self.known = sorted(r for r in known if instance_prefix(r) is not None)
