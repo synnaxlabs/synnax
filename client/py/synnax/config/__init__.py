@@ -11,19 +11,30 @@ import json
 import os
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import keyring
 
-from synnax.config.clusters import KEYCHAIN_UNAVAILABLE_MSG, Cluster, Clusters
+from synnax.config.clusters import (
+    KEYCHAIN_UNAVAILABLE_MSG,
+    Cluster,
+    Clusters,
+    Keyring,
+    _unavailable,
+)
 from synnax.config.file import File
-from synnax.exceptions import ValidationError
+from synnax.exceptions import ConfigurationError, ValidationError
 from synnax.options import Options
 
 __all__ = [
+    "DESKTOP_KEY_ACCOUNT",
+    "DESKTOP_KEY_SERVICE",
     "KEYCHAIN_UNAVAILABLE_MSG",
+    "OLD_DESKTOP_MSG",
     "Cluster",
     "Clusters",
     "File",
+    "Keyring",
     "default_clusters",
     "load_desktop_options",
     "load_env_options",
@@ -38,17 +49,51 @@ def default_clusters() -> Clusters:
     return Clusters(File(config_dir=CONFIG_FILE_PATH), keyring.get_keyring())
 
 
-def load_desktop_options(path: Path = DESKTOP_FILE_PATH) -> Options | None:
-    """Loads the options that Synnax Desktop saved for scripts on this computer.
+DESKTOP_KEY_SERVICE = "com.synnaxlabs.desktop"
+DESKTOP_KEY_ACCOUNT = "api_key"
 
-    :param path: The file Synnax Desktop writes.
-    :returns: The options, or None if Synnax Desktop has saved none.
-    """
+OLD_DESKTOP_MSG = (
+    "Synnax Desktop saved its API key in an older format. Update Synnax Desktop and "
+    "open it."
+)
+
+
+def _read_desktop_file(path: Path) -> dict[str, Any] | None:
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return None
-    return Options.model_validate(raw)
+    return raw
+
+
+def load_desktop_options(
+    keychain: Keyring, path: Path = DESKTOP_FILE_PATH
+) -> Options | None:
+    """Loads the options that Synnax Desktop saved for scripts on this computer: the
+    address in a file, and the API key in the OS keychain.
+
+    :param keychain: The keychain that holds the API key.
+    :param path: The file Synnax Desktop writes.
+    :returns: The options, or None if Synnax Desktop has saved none.
+    :raises ConfigurationError: If no OS keychain is available, or if an older Synnax
+        Desktop saved the key in the file.
+    """
+    raw = _read_desktop_file(path)
+    if raw is None:
+        return None
+    if "api_key" in raw:
+        raise ConfigurationError(OLD_DESKTOP_MSG)
+    try:
+        api_key = keychain.get_password(DESKTOP_KEY_SERVICE, DESKTOP_KEY_ACCOUNT)
+    except Exception as e:
+        if not _unavailable(e):
+            raise
+        raise ConfigurationError(
+            "Cannot read the API key of Synnax Desktop. " + KEYCHAIN_UNAVAILABLE_MSG
+        ) from e
+    if api_key is None:
+        return None
+    return Options.model_validate({**raw, "api_key": api_key})
 
 
 _TRUE = ("1", "true", "yes")
@@ -107,11 +152,16 @@ def _saved_by_desktop(opts: Options, path: Path) -> bool:
     if not opts.api_key:
         return False
     try:
-        return opts == load_desktop_options(path)
+        raw = _read_desktop_file(path)
     except (ValueError, OSError):
         # The file changes only the advice of errors, so a broken one must not break
         # a connection that names its Core.
         return False
+    # The address alone tells the Core, so the check needs no keychain.
+    return raw is not None and (raw.get("host"), raw.get("port")) == (
+        opts.host,
+        opts.port,
+    )
 
 
 NO_OPTIONS_MSG = (
@@ -149,8 +199,9 @@ def try_load_options_if_none_provided(
     :returns: The options, and whether they are the options Synnax Desktop saved.
     :raises ValidationError: If an API key has no host, the environment variables are
         not valid, or nothing is saved.
-    :raises ConfigurationError: If `sy login` saved a login and no OS keychain is
-        available to read its key.
+    :raises ConfigurationError: If no OS keychain is available to read the key of the
+        saved login or of Synnax Desktop, or if an older Synnax Desktop left its key in
+        the discovery file.
     """
     if len(host) == 0:
         if api_key:
@@ -163,7 +214,7 @@ def try_load_options_if_none_provided(
         cluster = clusters.get()
         if cluster is not None:
             return cluster.options, False
-        opts = load_desktop_options(desktop_file)
+        opts = load_desktop_options(clusters.keyring, desktop_file)
         if opts is None:
             raise ValidationError(NO_OPTIONS_MSG)
         return opts, True
