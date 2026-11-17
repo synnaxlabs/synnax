@@ -129,7 +129,12 @@ describe("trustCA", () => {
       codec: binary.JSON_CODEC,
       secure: true,
     });
-    await expect(client.stream("/", messageZ, messageZ)).rejects.toThrow();
+    // Node hides the TLS cause of a failed WebSocket dial.
+    const err = await client.stream("/", messageZ, messageZ).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(Unreachable.matches(err)).toBe(true);
   });
 
   it("should throw Unreachable when a stream cannot connect", async () => {

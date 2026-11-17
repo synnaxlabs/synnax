@@ -16,10 +16,12 @@ import { type WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
 
 import {
+  type Connector,
   type Context,
   EOF,
   type FlowControl,
   ReceiveOverflow,
+  type Socket,
   Unreachable,
   WebSocketClient,
 } from "@/index";
@@ -129,6 +131,58 @@ describe("unreachable server", () => {
     );
     expect(Unreachable.matches(err)).toBe(true);
     expect(err).toMatchObject({ url: { protocol: "ws", port, path: "stream/" } });
+  });
+
+  const failingConnector = (error: Error): Connector => ({
+    fetch: async () => await Promise.reject(new Error("not used")),
+    dial: async () => {
+      const socket: Socket = {
+        binaryType: "",
+        bufferedAmount: 0,
+        readyState: 0,
+        send: () => {},
+        close: () => {},
+        onopen: null,
+        onmessage: null,
+        onclose: null,
+        onerror: null,
+      };
+      setTimeout(() => socket.onerror?.({ error }));
+      return socket;
+    },
+  });
+
+  const withCode = (message: string, code: string): Error =>
+    Object.assign(new Error(message), { code });
+
+  const networkError = (message: string): Error =>
+    new DOMException(message, "NetworkError");
+
+  test.each([
+    ["a Bun refused dial", withCode("Failed to connect", "ECONNREFUSED"), true],
+    [
+      "a Bun TLS failure",
+      withCode("TLS handshake failed", "UNABLE_TO_VERIFY_LEAF_SIGNATURE"),
+      false,
+    ],
+    ["a Deno refused dial", networkError("tcp connect error"), true],
+    [
+      "a Deno TLS failure",
+      networkError("invalid peer certificate: UnknownIssuer"),
+      false,
+    ],
+  ])("should map %s", async (_, error, unreachable) => {
+    const c = new WebSocketClient({
+      endpoint,
+      codec: binary.JSON_CODEC,
+      connector: failingConnector(error),
+    });
+    const err = await c.stream("stream", messageSchema, messageSchema).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(Unreachable.matches(err)).toBe(unreachable);
+    expect(err).toMatchObject({ cause: error });
   });
 });
 

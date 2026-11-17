@@ -244,6 +244,25 @@ const eventCause = (ev: object): unknown =>
 const eventMessage = (ev: object): string =>
   "message" in ev && typeof ev.message === "string" ? ev.message : "websocket error";
 
+const eventError = (ev: object): Error =>
+  new Error(eventMessage(ev), { cause: eventCause(ev) });
+
+// Bun gives a code and Deno a message. Node and browsers hide the cause of a failed
+// dial, so a TLS failure there becomes Unreachable.
+const TLS_CODE = /CERT|SIGNATURE|^ERR_TLS_|^ERR_SSL_/;
+const TLS_MESSAGE = /TLS handshake|invalid peer certificate/;
+
+const isTLSError = (cause: unknown): boolean => {
+  if (typeof cause !== "object" || cause === null) return false;
+  if ("code" in cause && typeof cause.code === "string" && TLS_CODE.test(cause.code))
+    return true;
+  return (
+    "message" in cause &&
+    typeof cause.message === "string" &&
+    TLS_MESSAGE.test(cause.message)
+  );
+};
+
 /** Configures a {@link WebSocketClient}. */
 export interface WebSocketClientConfig {
   /** A base URL to use as a prefix for all requests. */
@@ -338,12 +357,15 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
       const unreachable = (cause: unknown) =>
         reject(new Unreachable({ url: this.baseUrl.child(target), cause }));
       ws.onclose = unreachable;
-      ws.onerror = (ev: object) => unreachable(eventCause(ev));
+      ws.onerror = (ev: object) => {
+        const cause = eventCause(ev);
+        if (isTLSError(cause)) reject(eventError(ev));
+        else unreachable(cause);
+      };
       // Node fails a blocked port, such as 1, before the dial returns the socket.
       if (ws.readyState === WebSocket.CLOSED) unreachable(undefined);
       ws.onopen = () => {
-        ws.onerror = (ev: object) =>
-          reject(new Error(eventMessage(ev), { cause: eventCause(ev) }));
+        ws.onerror = (ev: object) => reject(eventError(ev));
         const oWs = new WebSocketStream<RQ, RS>(
           ws,
           this.encoder,
