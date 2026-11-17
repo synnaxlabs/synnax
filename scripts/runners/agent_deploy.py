@@ -29,6 +29,7 @@ from urllib.request import Request, urlopen
 
 import synnax as sy
 
+from agent_log import WINDOWS_RUNNER_DIRS
 from aws import AWS
 from common import Samples, Writes, add_connection_args, connect, parameter_store
 from scaler import SCALER_CMD, SCALER_ENABLED
@@ -126,6 +127,7 @@ def install_commands(
     instance info describes, which check_pools accepted. ca is the certificate of the
     Core in base64."""
     prefix, labels = STARTS[info["tags"]["Name"]]
+    runners = ", ".join(f"'{d}'" for d in WINDOWS_RUNNER_DIRS)
     source = SOURCE.format(commit)
     linux = [
         f"curl -fsSL -o /tmp/agent_install.sh {source}/agent_install.sh && "
@@ -137,7 +139,8 @@ def install_commands(
         "try { $install = (Invoke-WebRequest "
         f"'{source}/agent_install.ps1' -UseBasicParsing).Content; "
         f"& ([scriptblock]::Create($install)) -Commit '{commit}' -CoreHost '{host}' "
-        f"-Ca '{ca}' -Prefix '{prefix}' -Labels '{labels}' }} "
+        f"-Ca '{ca}' -Prefix '{prefix}' -Labels '{labels}' "
+        f"-Runners {runners} }} "
         "catch { Write-Output $_; exit 1 }",
     ]
     return linux, windows

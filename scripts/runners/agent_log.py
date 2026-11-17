@@ -14,9 +14,12 @@ from typing import Protocol
 
 import synnax as sy
 
+WINDOWS_RUNNER_DIRS = (
+    "C:\\actions-runner",
+    "C:\\Users\\Administrator\\Desktop\\actions-runner",
+)
 RUNNER_DIRS = (
-    Path("C:/actions-runner"),
-    Path("C:/Users/Administrator/Desktop/actions-runner"),
+    *(Path(d) for d in WINDOWS_RUNNER_DIRS),
     Path("/home/ubuntu/actions-runner"),
 )
 LOG_DIRS = tuple(p / "_diag" / "pages" for p in RUNNER_DIRS)
