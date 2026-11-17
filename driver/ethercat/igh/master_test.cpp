@@ -831,8 +831,8 @@ TEST_F(IGHMasterTest, DCTimeGivesNoneForAFrameWithNoTime) {
     }
 }
 
-/// @brief it should find the reference clock again on a scan after a failed one, as
-/// the bus can change in between.
+/// @brief it should find the reference clock again on a scan after a failed one, as the
+/// bus can change in between.
 TEST_F(IGHMasterTest, ScanFindsTheReferenceClockAgainAfterAFailedScan) {
     this->api->add_slave();
     this->api->add_slave();
