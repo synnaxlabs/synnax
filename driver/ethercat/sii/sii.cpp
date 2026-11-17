@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/ethercat/soem/sii.h"
+#include "driver/ethercat/sii/sii.h"
 
-namespace driver::ethercat::soem::sii {
+namespace driver::ethercat::sii {
 namespace {
 constexpr size_t PDO_HEADER_SIZE = 8;
 constexpr size_t PDO_ENTRY_SIZE = 8;

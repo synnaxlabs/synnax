@@ -11,9 +11,9 @@
 
 #include "gtest/gtest.h"
 
-#include "driver/ethercat/soem/sii.h"
+#include "driver/ethercat/sii/sii.h"
 
-namespace driver::ethercat::soem::sii {
+namespace driver::ethercat::sii {
 namespace {
 /// @brief returns the strings of a slave whose SII holds strings.
 Strings lookup(const std::map<uint8_t, std::string> &strings) {

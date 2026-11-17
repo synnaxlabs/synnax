@@ -27,9 +27,9 @@
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/esi/settings.h"
+#include "driver/ethercat/sii/sii.h"
 #include "driver/ethercat/slave/slave.h"
 #include "driver/ethercat/soem/master.h"
-#include "driver/ethercat/soem/sii.h"
 #include "driver/ethercat/soem/util.h"
 #include "driver/ethercat/telem/telem.h"
 

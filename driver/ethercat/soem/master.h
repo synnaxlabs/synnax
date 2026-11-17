@@ -35,8 +35,8 @@
 #include "driver/ethercat/dc/dc.h"
 #include "driver/ethercat/master/master.h"
 #include "driver/ethercat/pdo/pdo.h"
+#include "driver/ethercat/sii/sii.h"
 #include "driver/ethercat/soem/api.h"
-#include "driver/ethercat/soem/sii.h"
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {

@@ -19,7 +19,7 @@
 #include "driver/ethercat/pdo/pdo.h"
 
 /// @brief parsers for the categories of a slave's SII (EEPROM).
-namespace driver::ethercat::soem::sii {
+namespace driver::ethercat::sii {
 /// @brief returns the SII string at index, or an empty string when index is 0.
 using Strings = std::function<std::string(uint8_t index)>;
 
