@@ -527,6 +527,20 @@ TEST_F(SpoolTest, RemovesOrphanOffset) {
     ASSERT_FALSE(std::filesystem::exists(this->dir / "2.offset"));
 }
 
+/// @brief it should remove the temp files that a crash can leave.
+TEST_F(SpoolTest, RemovesTempFiles) {
+    {
+        const auto spool = this->open_spool();
+        this->write_frames(*spool, header_of(1), 1);
+    }
+    for (const auto *name: {"0.offset.tmp.12345", "1.seg.tmp.7"})
+        append_file(this->dir / name, "partial");
+    const auto spool = this->open_spool();
+    ASSERT_FALSE(std::filesystem::exists(this->dir / "0.offset.tmp.12345"));
+    ASSERT_FALSE(std::filesystem::exists(this->dir / "1.seg.tmp.7"));
+    ASSERT_EQ(spool->segments(), std::vector<std::uint64_t>{0});
+}
+
 /// @brief it should fail to open a segment with an unknown format version.
 TEST_F(SpoolTest, RejectsUnknownVersion) {
     std::filesystem::create_directories(this->dir);

@@ -161,12 +161,13 @@ class Spool {
     void release(std::uint64_t bytes);
     void close(std::uint64_t key, std::uint64_t size);
     x::errors::Error remove_files(std::uint64_t key);
+    [[nodiscard]] x::errors::Error remove_temp_files() const;
     [[nodiscard]] x::errors::Error remove_orphan_offsets() const;
 
 public:
     /// @brief opens the spool in the directory of the config, and creates the
     /// directory when it does not exist. Removes segments that a crash left without a
-    /// header, and read offsets without a segment.
+    /// header, read offsets without a segment, and temp files.
     /// @returns journal::LOCKED when another process has the spool open. CORRUPT or
     /// a journal error when a segment is not valid.
     static std::pair<std::unique_ptr<Spool>, x::errors::Error> open(Config cfg);
