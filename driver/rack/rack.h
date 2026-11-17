@@ -277,11 +277,12 @@ struct Config {
 
     static x::errors::Error clear_persisted_state(x::args::Parser &args);
 
-    /// @brief applies the persisted state ownership and modes without opening the
-    /// state. Run as root once the Linux service user exists, it gives that user the
-    /// state that an earlier login left to root. Skips state that does not exist. On
-    /// Windows, it creates the state directory of the computer for LocalSystem and the
-    /// administrators alone, and returns an error when another user owns it.
+    /// @brief sets the owner and mode of the persisted state without opening it. Only
+    /// root commands call it, and without root it changes nothing. As root on Linux, it
+    /// gives the state to the service user. With a --state-file, it changes only that
+    /// file. Skips state that does not exist. On Windows, it creates the state
+    /// directory for LocalSystem and the administrators alone, and returns an error
+    /// when another user owns it.
     static x::errors::Error secure_persisted_state(x::args::Parser &args);
 
     /// @brief moves the state and OPC UA certificates of the user to the state of the
