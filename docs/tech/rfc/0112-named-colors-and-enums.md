@@ -282,7 +282,7 @@ needs phases 13 to 15, and phase 21 needs RFC 0114 phase 1.
 | 16    | Add the Console enumeration editor with its checks         | `console/src/feature/enumeration`                                                                                                      | 9, 15          |
 | 17    | Add Replace with for enumerations                          | `core/pkg/api/enumeration`, `console/src/feature/enumeration`                                                                          | 1, 16          |
 | 18    | Draw stale and unknown indicators instead of colors        | `pluto/src/schematic`, `pluto/src/vis`, `schemas/synnax`, `core/pkg/service/schematic`, `console/src/feature/schematic`, `integration` | -              |
-| 19    | Add and bundle enumeration keys on selects and indicators  | `schemas/synnax`, `core/pkg/service/schematic`                                                                                         | 14             |
+| 19    | Add and bundle enumeration keys on selects and indicators  | `schemas/synnax`, `core/pkg/service/schematic`, `core/pkg/service/imex`, `core/pkg/service/enumeration`                                | 14             |
 | 20    | Pick and draw enumerations in selects and state indicators | `pluto/src/schematic`, `console/src/feature/schematic`                                                                                 | 16, 19         |
 | 21    | Migrate inline state colors to enumerations                | `schemas/synnax`, `core/pkg/service/schematic`, `pluto/src/schematic`, `console`, `client/py`, `integration`                           | 20             |
 | 22    | Delete the enumeration editor flag                         | `console/src/flags.ts`                                                                                                                 | 21             |
@@ -298,8 +298,10 @@ Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. Phase 18 m
 schematic version (RFC 0053) that drops `staleness_color`. Tables keep their own
 `staleness_color` and its color path in `pluto/src/vis`. Before RFC 0114 phase 2, only a
 `select` or `state_indicator` can match no entry. Phase 19 adds the `enumeration` field
-to `select` and `state_indicator`, phase 21 fills it, and RFC 0114 phase 1 adds it to
-symbol states. Phase 20 adds the enumeration picker to the Pluto forms of `select` and
+to `select` and `state_indicator`, and moves the schematic export off the generated
+single-record `Export` (`core/pkg/service/schematic/imex.gen.go`) so that it bundles
+enumerations. Phase 21 fills the field, and RFC 0114 phase 1 adds it to symbol states.
+Phase 20 adds the enumeration picker to the Pluto forms of `select` and
 `state_indicator`, and Pluto draws each from its `enumeration`, or from `options` when
 it has none. The picker leaves `options` as they are, so clearing the picker goes back
 to them until phase 21. RFC 0114 phase 2 adds the picker to node state bindings, and RFC
