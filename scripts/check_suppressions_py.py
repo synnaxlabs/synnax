@@ -74,7 +74,7 @@ def added_lines(diff: str) -> dict[str, set[int]]:
 
 
 def _generated(source: str) -> bool:
-    return any("Code generated" in line for line in source.splitlines()[:30])
+    return any(line.startswith("# Code generated") for line in source.splitlines()[:30])
 
 
 def _cast_lines(tree: ast.Module) -> set[int]:
