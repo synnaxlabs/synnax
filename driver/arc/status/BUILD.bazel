@@ -17,9 +17,9 @@ cc_library(
     deps = [
         "//arc/cpp/runtime/node",
         "//arc/cpp/stl",
-        "//client/cpp:synnax",
         "//client/cpp/status",
         "//driver/arc:reporter",
+        "//driver/outbox",
         "//x/cpp/errors",
     ],
 )
@@ -36,6 +36,7 @@ cc_test(
         "//arc/cpp/stl/testutil",
         "//client/cpp/testutil",
         "//x/cpp/testutil",
+        "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],
 )

@@ -97,17 +97,18 @@ struct TaskConfig : ::synnax::task::PersistConfig {
 
 /// @brief arc runtime task that manages both read and write pipelines.
 class Task final : public task::Task {
-    std::shared_ptr<::arc::runtime::Runtime> runtime;
-    std::unique_ptr<pipeline::Acquisition> acquisition;
-    std::unique_ptr<pipeline::Control> control;
     /// @brief guards state, opening, and pending_starts, which the command, pipeline,
-    /// and runtime threads all touch.
+    /// runtime, and outbox threads all touch.
     std::mutex state_mu;
     common::StatusHandler state;
     /// @brief true from a start until the command streamer opens or fails to open.
     bool opening = false;
     /// @brief the start commands to answer once the command streamer opens.
     std::vector<std::string> pending_starts;
+    // Declared after state, so the status module stops its reports before state ends.
+    std::shared_ptr<::arc::runtime::Runtime> runtime;
+    std::unique_ptr<pipeline::Acquisition> acquisition;
+    std::unique_ptr<pipeline::Control> control;
 
     /// @brief answers every pending start with the current status. Requires state_mu.
     void answer_pending_starts() {
@@ -238,7 +239,7 @@ public:
             .factories =
                 {
                     std::make_shared<::driver::arc::status::Module>(
-                        ctx->client,
+                        ctx->outbox(),
                         [task_ptr = task.get()](
                             const std::string &message,
                             const std::string &description
