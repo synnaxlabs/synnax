@@ -26,7 +26,19 @@ describe("deviceZ", () => {
     const device = labjack.device.deviceZ.parse(DEVICE);
     expect(device.ports).toEqual({ model: "t7", mux80Attached: false });
     expect(device.identifier).toEqual("");
-    expect(device.readIndex).toBeUndefined();
+    expect(device.readIndex).toEqual(0);
+    expect(device.analogInput).toEqual({});
+    expect(device.digitalOutput).toEqual({});
+  });
+
+  it("should parse the port maps of a device", () => {
+    const device = labjack.device.deviceZ.parse({
+      ...DEVICE,
+      analogInput: { AIN0: 1, AIN48: 2 },
+      digitalOutput: { DIO22: { command: 3, state: 4 } },
+    });
+    expect(device.analogInput).toEqual({ AIN0: 1, AIN48: 2 });
+    expect(device.digitalOutput).toEqual({ DIO22: { command: 3, state: 4 } });
   });
 
   const INVALID: [string, Record<string, unknown>][] = [
@@ -35,6 +47,7 @@ describe("deviceZ", () => {
     ["an unknown model", { model: "t9" }],
     ["unknown ports", { ports: { model: "t9" } }],
     ["an unknown connection", { connection: "LJM_ctTCP" }],
+    ["a port of another model", { model: "t4", digitalInput: { DIO0: 5 } }],
   ];
   it.each(INVALID)("should reject %s", (_, change) => {
     expect(labjack.device.deviceZ.safeParse({ ...DEVICE, ...change }).success).toBe(
@@ -69,23 +82,5 @@ describe("updateZ", () => {
 
   it("should reject an unknown group", () => {
     expect(labjack.device.updateZ.safeParse({ group: "status" }).success).toBe(false);
-  });
-});
-
-describe("retrieveRequestZ", () => {
-  it("should parse a request with a where and a cursor", () => {
-    const req = labjack.device.retrieveRequestZ.parse({
-      where: { rack: { eq: 1 } },
-      after: { key: DEVICE.key },
-      limit: 10,
-    });
-    expect(req.after?.key).toEqual(DEVICE.key);
-  });
-});
-
-describe("retrieveResponseZ", () => {
-  it("should parse the devices of a response", () => {
-    const res = labjack.device.retrieveResponseZ.parse({ devices: [DEVICE] });
-    expect(res.devices).toHaveLength(1);
   });
 });

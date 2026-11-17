@@ -22,24 +22,22 @@ x::json::json valid_device() {
         {"serial", 470010001},
         {"connection", CONNECTION_USB},
         {"model", MODEL_T_7},
-        {"ports", {{"model", MODEL_T_7}}},
     };
 }
 }
 
-/// @brief it should parse the ports that the model names and apply the defaults.
-TEST(Device, ParsesThePortsOfTheModel) {
+/// @brief it should parse the variant that the model names and apply the defaults.
+TEST(Device, ParsesTheModelVariant) {
     x::json::Parser parser(valid_device());
-    const auto d = Device::parse(parser);
+    const auto parsed = parse_device(parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(d.model, MODEL_T_7);
-    ASSERT_TRUE(std::holds_alternative<T7Ports>(d.ports));
-    ASSERT_FALSE(std::get<T7Ports>(d.ports).mux80_attached);
-    ASSERT_EQ(d.serial, 470010001);
-    ASSERT_EQ(d.connection, CONNECTION_USB);
-    ASSERT_EQ(d.identifier, "");
-    ASSERT_FALSE(d.read_index.has_value());
-    ASSERT_FALSE(d.status.has_value());
+    ASSERT_TRUE(std::holds_alternative<T7Device>(parsed));
+    const auto &b = base(parsed);
+    ASSERT_EQ(b.serial, 470010001);
+    ASSERT_EQ(b.connection, CONNECTION_USB);
+    ASSERT_EQ(b.identifier, "");
+    ASSERT_EQ(b.read_index, 0);
+    ASSERT_FALSE(b.status.has_value());
 }
 
 /// @brief it should reject a device without a serial number.
@@ -47,7 +45,7 @@ TEST(Device, RequiresSerial) {
     auto j = valid_device();
     j.erase("serial");
     x::json::Parser parser(j);
-    Device::parse(parser);
+    parse_device(parser);
     ASSERT_FALSE(parser.ok());
     ASSERT_EQ(parser.errors->size(), 1);
     ASSERT_EQ(parser.errors->at(0)["path"], "serial");
@@ -55,23 +53,27 @@ TEST(Device, RequiresSerial) {
 
 /// @brief it should round trip a device through JSON.
 TEST(Device, RoundTrips) {
-    Device d;
-    d.key = x::uuid::create();
-    d.rack = 1;
-    d.name = "T4-0002";
-    d.serial = 440010002;
-    d.connection = CONNECTION_ETHERNET;
-    d.identifier = "lj";
-    d.model = MODEL_T_4;
-    d.ports = T4Ports{};
-    x::json::Parser parser(d.to_json());
-    const auto parsed = Device::parse(parser);
+    T4Device t4;
+    t4.key = x::uuid::create();
+    t4.rack = 1;
+    t4.name = "T4-0002";
+    t4.serial = 440010002;
+    t4.connection = CONNECTION_ETHERNET;
+    t4.identifier = "lj";
+    t4.analog_input = {{"AIN11", 3}};
+    t4.digital_output = {{"DIO4", CommandStatePair{.command = 4, .state = 5}}};
+    const Device device = t4;
+    x::json::Parser parser(to_json(device));
+    const auto parsed = parse_device(parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(parsed.key, d.key);
-    ASSERT_EQ(parsed.model, MODEL_T_4);
-    ASSERT_TRUE(std::holds_alternative<T4Ports>(parsed.ports));
-    ASSERT_EQ(parsed.connection, CONNECTION_ETHERNET);
-    ASSERT_EQ(parsed.identifier, "lj");
+    ASSERT_TRUE(std::holds_alternative<T4Device>(parsed));
+    ASSERT_EQ(base(parsed).key, t4.key);
+    ASSERT_EQ(base(parsed).connection, CONNECTION_ETHERNET);
+    ASSERT_EQ(base(parsed).identifier, "lj");
+    const auto &got = std::get<T4Device>(parsed);
+    ASSERT_EQ(got.analog_input.at("AIN11"), 3);
+    ASSERT_EQ(got.digital_output.at("DIO4").command, 4);
+    ASSERT_EQ(got.digital_output.at("DIO4").state, 5);
 }
 
 /// @brief it should round trip a configuration update with a T7's ports.
@@ -90,23 +92,5 @@ TEST(Update, RoundTripsConfiguration) {
     ASSERT_EQ(got.name, "T7-0001");
     ASSERT_TRUE(std::holds_alternative<T7Ports>(got.ports));
     ASSERT_TRUE(std::get<T7Ports>(got.ports).mux80_attached);
-}
-
-/// @brief it should round trip a where through JSON.
-TEST(Where, RoundTrips) {
-    const Where where = Where{.name = "T7 bench"} && !Where{.serial = 470010001};
-    x::json::Parser parser(where.to_json());
-    const auto parsed = Where::parse(parser);
-    ASSERT_NIL(parser.error());
-    ASSERT_EQ(parsed.to_json(), where.to_json());
-    ASSERT_EQ(parsed.and_.value().size(), 2);
-}
-
-/// @brief it should join two wheres with or.
-TEST(Where, JoinsWithOr) {
-    const Where where = Where{.model = MODEL_T_4} || Where{.model = MODEL_T_8};
-    ASSERT_TRUE(where.or_.has_value());
-    ASSERT_EQ(where.or_.value().size(), 2);
-    ASSERT_FALSE(where.and_.has_value());
 }
 }

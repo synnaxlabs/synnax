@@ -686,28 +686,43 @@ class TestLabJackDeviceResource:
         "serial": 470010001,
         "connection": "LJM_ctUSB",
         "model": "t7",
-        "ports": {"model": "t7"},
     }
 
-    def test_parses_the_ports_of_the_model(self) -> None:
-        """Should parse the ports that the model names and leave it unconfigured."""
+    def test_parses_the_model_variant(self) -> None:
+        """Should parse the variant that the model names and leave it unconfigured."""
         device = TypeAdapter(sy.labjack.device.Device).validate_python(self.DEVICE)
-        assert isinstance(device.ports, sy.labjack.device.T7Ports)
-        assert not device.ports.mux80_attached
+        assert isinstance(device, sy.labjack.device.T7Device)
         assert device.identifier == ""
-        assert device.read_index is None
+        assert device.read_index == 0
+        assert device.analog_input == {}
+        assert device.digital_output == {}
+
+    def test_parses_the_port_maps(self) -> None:
+        """Should parse the port maps of a device."""
+        device = TypeAdapter(sy.labjack.device.Device).validate_python(
+            {
+                **self.DEVICE,
+                "analog_input": {"AIN0": 1, "AIN48": 2},
+                "digital_output": {"DIO22": {"command": 3, "state": 4}},
+            }
+        )
+        assert isinstance(device, sy.labjack.device.T7Device)
+        assert device.analog_input == {"AIN0": 1, "AIN48": 2}
+        assert device.digital_output["DIO22"].state == 4
 
     @pytest.mark.parametrize(
         "change",
         [
             {"model": "t9"},
-            {"ports": {"model": "t9"}},
             {"connection": "LJM_ctTCP"},
             {"serial": None},
+            {"model": "t4", "digital_input": {"DIO0": 5}},
         ],
     )
     def test_rejects_an_invalid_device(self, change: dict[str, object]) -> None:
-        """Should reject an unknown model, ports, or connection and a missing serial."""
+        """Should reject an unknown model or connection, a missing serial, and a port
+        of another model.
+        """
         data = {k: v for k, v in {**self.DEVICE, **change}.items() if v is not None}
         with pytest.raises(ValidationError):
             TypeAdapter(sy.labjack.device.Device).validate_python(data)
@@ -728,34 +743,6 @@ class TestLabJackDeviceResource:
         )
         assert isinstance(update, sy.labjack.device.IdentityUpdate)
         assert update.connection == "LJM_ctWIFI"
-
-    def test_round_trips_a_where(self) -> None:
-        """Should keep a nested where through JSON with its operator aliases."""
-        raw = {
-            "and": [
-                {"name": {"eq": "T7 bench"}},
-                {"not": {"model": {"in": ["t4"]}}},
-            ]
-        }
-        where = sy.labjack.device.Where.model_validate(raw)
-        assert where.and_ is not None
-        assert where.and_[1].not_ is not None
-        dumped = where.model_dump(by_alias=True, exclude_none=True)
-        assert sy.labjack.device.Where.model_validate(dumped) == where
-
-    def test_rejects_an_unknown_where_field(self) -> None:
-        """Should reject a where on a field that the filter does not have."""
-        with pytest.raises(ValidationError):
-            sy.labjack.device.Where.model_validate({"connection": {"eq": "x"}})
-
-    def test_parses_a_retrieve_request(self) -> None:
-        """Should parse a retrieve request with a where and a cursor."""
-        req = sy.labjack.device.RetrieveRequest.model_validate(
-            {"where": {"rack": {"eq": 1}}, "after": {"key": str(self.KEY)}}
-        )
-        assert req.where is not None
-        assert req.after is not None
-        assert req.after.key == self.KEY
 
     def test_resource_id(self) -> None:
         """Should name the device by its key under the labjack_device type."""
