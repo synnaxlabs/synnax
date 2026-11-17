@@ -23,27 +23,29 @@ const path = deep.path<{ config: { channels: Channel[] } }>();
 // layouts List as its listItem render prop.
 const renderItem = (
   extra: Partial<Parameters<typeof Task.Views.ListAndDetailsChannelItem>[0]> = {},
-) =>
-  renderInTaskForm(
+) => {
+  const ChannelItem = (p: Task.ChannelListItemProps) => (
+    <Task.Views.ListAndDetailsChannelItem
+      {...p}
+      port="AI0"
+      portMaxChars={4}
+      canTare
+      channel={12}
+      path={path.config.channels[p.itemKey]}
+      hasTareButton
+      {...extra}
+    />
+  );
+  return renderInTaskForm(
     <Task.Views.List<Channel>
       path={path.config.channels}
       createChannel={() => null}
       resolve={() => null}
-      listItem={Component.renderProp((p) => (
-        <Task.Views.ListAndDetailsChannelItem
-          {...p}
-          port="AI0"
-          portMaxChars={4}
-          canTare
-          channel={12}
-          path={path.config.channels[p.itemKey]}
-          hasTareButton
-          {...extra}
-        />
-      ))}
+      listItem={Component.renderProp(ChannelItem)}
     />,
     { values: { config: { channels: [{ key: "a", disabled: false }] } } },
   );
+};
 
 describe("layouts.ListAndDetailsChannelItem", () => {
   it("should invoke onTare with the channel key when the tare button is pressed", async () => {
