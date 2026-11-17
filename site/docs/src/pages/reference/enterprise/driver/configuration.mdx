@@ -125,7 +125,7 @@ To learn what each parameter does, see [Parameters](#parameters).
 
 On Linux, NI Linux Real-Time, and macOS, the service and `login` read
 `/etc/synnax/driver.env`. Write one `KEY=value` on each line, with no `export`. `login`
-uses the file only for variables such as `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH`. It does not
+uses the file only for variables such as `SYNNAX_CA_CERT`. It does not
 read the `SYNNAX_DRIVER_` variables. On macOS, `login` reads the file only while the
 service is installed.
 
@@ -206,7 +206,13 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 </Field.Item>
 
 <Field.Item name="secure" default="false">
-  Connect to the Core over TLS.
+  Connect to the Core over TLS. With `ca_cert` set and `secure` not set, the Driver uses
+  TLS. With `ca_cert` set and `secure` false, the Driver fails to connect.
+</Field.Item>
+
+<Field.Item name="ca_cert">
+  The path to a PEM file of the CA certificates that sign the certificate of the Core.
+  Without it, the Driver reads `SYNNAX_CA_CERT`, then uses the system trust store.
 </Field.Item>
 
 <Field.Item name="correct_skew" default="true">

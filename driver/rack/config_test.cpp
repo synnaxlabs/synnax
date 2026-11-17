@@ -610,7 +610,36 @@ TEST_F(RackConfigTest, LoadSecureFromEnvironmentVariables) {
     x::env::set("SYNNAX_DRIVER_SECURE", "true");
     x::defer::defer unset_env([] { x::env::unset("SYNNAX_DRIVER_SECURE"); });
     const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
-    ASSERT_TRUE(cfg.connection.secure);
+    ASSERT_EQ(cfg.connection.secure, true);
+}
+
+/// @brief it should leave secure unset when no source sets it.
+TEST_F(RackConfigTest, SecureUnsetByDefault) {
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
+    ASSERT_EQ(cfg.connection.secure, std::nullopt);
+}
+
+/// @brief it should load the CA certificate from environment variables.
+TEST_F(RackConfigTest, LoadCACertFromEnvironmentVariables) {
+    x::env::set("SYNNAX_DRIVER_CA_CERT", "/etc/synnax/ca.pem");
+    x::defer::defer unset_env([] { x::env::unset("SYNNAX_DRIVER_CA_CERT"); });
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
+    ASSERT_EQ(cfg.connection.ca_cert, "/etc/synnax/ca.pem");
+}
+
+/// @brief it should load the CA certificate from command line arguments.
+TEST_F(RackConfigTest, LoadCACertFromCommandLineArgs) {
+    x::args::Parser ca_args(
+        std::vector<std::string>{
+            "program",
+            "--state-file",
+            "/tmp/rack-config-test/state.json",
+            "--ca-cert",
+            "/etc/synnax/ca.pem"
+        }
+    );
+    const auto cfg = ASSERT_NIL_P(Config::resolve(ca_args, brk));
+    ASSERT_EQ(cfg.connection.ca_cert, "/etc/synnax/ca.pem");
 }
 
 /// @brief it should load the secure flag from the config file.
@@ -630,7 +659,7 @@ TEST_F(RackConfigTest, LoadSecureFromConfigFile) {
         }
     );
     const auto cfg = ASSERT_NIL_P(Config::resolve(config_args, brk));
-    ASSERT_TRUE(cfg.connection.secure);
+    ASSERT_EQ(cfg.connection.secure, true);
 }
 
 /// @brief it should load the secure flag from command line arguments.
@@ -645,14 +674,14 @@ TEST_F(RackConfigTest, LoadSecureFromCommandLineArgs) {
         }
     );
     const auto cfg = ASSERT_NIL_P(Config::resolve(secure_args, brk));
-    ASSERT_TRUE(cfg.connection.secure);
+    ASSERT_EQ(cfg.connection.secure, true);
 }
 
 /// @brief it should load the secure flag saved by the login command.
 TEST_F(RackConfigTest, LoadSecureFromPersistedState) {
     ASSERT_NIL(Config::save_conn_params(args, {.secure = true}));
     const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
-    ASSERT_TRUE(cfg.connection.secure);
+    ASSERT_EQ(cfg.connection.secure, true);
 }
 
 /// @brief it should let command line arguments turn secure off.
@@ -674,7 +703,7 @@ TEST_F(RackConfigTest, ArgsOverrideSecureFromFile) {
         }
     );
     const auto cfg = ASSERT_NIL_P(Config::resolve(insecure_args, brk));
-    ASSERT_FALSE(cfg.connection.secure);
+    ASSERT_EQ(cfg.connection.secure, false);
 }
 
 /// @brief it should respect configuration precedence: args > env > file.

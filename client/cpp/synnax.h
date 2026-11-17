@@ -10,6 +10,9 @@
 #pragma once
 
 #include <memory>
+#include <optional>
+#include <string>
+#include <utility>
 
 #include "absl/log/log.h"
 
@@ -25,6 +28,8 @@
 #include "client/cpp/transport.h"
 #include "client/cpp/version/version.h"
 #include "freighter/cpp/grpc/grpc.h"
+#include "x/cpp/env/env.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
 
@@ -42,6 +47,15 @@ inline void check_little_endian() {
 }
 }
 
+/// @brief how a client secures its connection to a Core.
+struct TLS {
+    /// @brief whether the client connects with TLS.
+    bool enabled = false;
+    /// @brief the path to a PEM file that verifies the Core's certificate. Empty for
+    /// the default trust anchors.
+    std::string ca_cert;
+};
+
 /// @brief Configuration for opening a Synnax client.
 /// @see Synnax
 struct Config {
@@ -53,9 +67,12 @@ struct Config {
     std::string username = "synnax";
     /// @brief the password to use when authenticating with the Core.
     std::string password = "seldon";
-    /// @brief use TLS encryption. The system trust store verifies the Core's
-    /// certificate.
-    bool secure = false;
+    /// @brief whether to use TLS. When unset, the client uses TLS only if a CA
+    /// certificate is set. See tls.
+    std::optional<bool> secure;
+    /// @brief the path to a PEM file of CA certificates that sign the Core's
+    /// certificate. When empty, the client reads SYNNAX_CA_CERT. See tls.
+    std::string ca_cert;
     /// @brief sets the clock skew threshold at which a warning will be logged.
     x::telem::TimeSpan clock_skew_threshold = x::telem::SECOND * 1;
     /// @brief sets the maximum number of login retries before giving up.
@@ -71,6 +88,7 @@ struct Config {
         this->username = parser.field("username", this->username);
         this->password = parser.field("password", this->password);
         this->secure = parser.field("secure", this->secure);
+        this->ca_cert = parser.field("ca_cert", this->ca_cert);
         this->clock_skew_threshold = x::telem::TimeSpan(parser.field(
             "clock_skew_threshold",
             this->clock_skew_threshold.nanoseconds()
@@ -89,7 +107,10 @@ struct Config {
            << "  " << x::log::SHALE() << "api key" << x::log::RESET() << ": "
            << x::log::sensitive_string(cfg.api_key) << "\n"
            << "  " << x::log::SHALE() << "secure" << x::log::RESET() << ": "
-           << x::log::bool_to_str(cfg.secure);
+           << (cfg.secure.has_value() ? x::log::bool_to_str(*cfg.secure) : "unset");
+        if (!cfg.ca_cert.empty())
+            os << "\n  " << x::log::SHALE() << "ca cert" << x::log::RESET() << ": "
+               << cfg.ca_cert;
         return os;
     }
 
@@ -99,26 +120,52 @@ struct Config {
         return this->host + ":" + std::to_string(this->port);
     }
 
+    /// @brief resolves how the client secures its connection. A CA certificate, from
+    /// ca_cert or else SYNNAX_CA_CERT, turns TLS on when secure is unset.
+    /// @returns the TLS settings, or a validation error when secure is false and a CA
+    /// certificate is set.
+    [[nodiscard]] std::pair<TLS, x::errors::Error> tls() const {
+        auto ca_cert = this->ca_cert;
+        if (ca_cert.empty())
+            ca_cert = x::env::Parser("SYNNAX").field("ca_cert", std::string());
+        if (ca_cert.empty())
+            return {TLS{.enabled = this->secure.value_or(false)}, x::errors::NIL};
+        if (this->secure == false)
+            return {
+                TLS{},
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "secure is false, but the CA certificate " + ca_cert +
+                        " is set. Set secure to true, or remove the CA certificate"
+                )
+            };
+        return {TLS{.enabled = true, .ca_cert = ca_cert}, x::errors::NIL};
+    }
+
     [[nodiscard]] x::json::json to_json() const {
-        return {
+        x::json::json j = {
             {"host", this->host},
             {"port", this->port},
             {"username", this->username},
             {"password", this->password},
-            {"secure", this->secure},
+            {"ca_cert", this->ca_cert},
             {"clock_skew_threshold", this->clock_skew_threshold.nanoseconds()},
             {"max_retries", this->max_retries},
             {"api_key", this->api_key}
         };
+        if (this->secure.has_value()) j["secure"] = *this->secure;
+        return j;
     }
 };
 
 namespace details {
-/// @brief returns the connection pool for cfg. A pool that cannot build its credentials
+/// @brief returns the connection pool for cfg. A pool for an invalid TLS configuration
 /// fails every call with the reason.
 inline std::shared_ptr<freighter::grpc::Pool> new_pool(const Config &cfg) {
-    if (!cfg.secure) return std::make_shared<freighter::grpc::Pool>();
-    auto [creds, err] = freighter::grpc::ssl_credentials("");
+    const auto [tls, tls_err] = cfg.tls();
+    if (tls_err) return std::make_shared<freighter::grpc::Pool>(tls_err);
+    if (!tls.enabled) return std::make_shared<freighter::grpc::Pool>();
+    auto [creds, err] = freighter::grpc::ssl_credentials(tls.ca_cert);
     if (err) return std::make_shared<freighter::grpc::Pool>(err);
     return std::make_shared<freighter::grpc::Pool>(creds);
 }

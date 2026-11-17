@@ -9,6 +9,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <optional>
 
 #include "gtest/gtest.h"
 
@@ -55,6 +56,19 @@ TEST_F(XEnvTest, RejectIntegerWithTrailingText) {
     EXPECT_EQ(parser.field("TEST_TRAILING", static_cast<uint16_t>(100)), 100);
     EXPECT_FALSE(parser.ok());
     unset("TEST_TRAILING");
+}
+
+/// @brief it should tell an unset variable from one set to the default.
+TEST_F(XEnvTest, LoadOptional) {
+    Parser parser;
+    const std::optional<bool> unset_default;
+    EXPECT_EQ(parser.field("TEST_OPTIONAL_BOOL", unset_default), std::nullopt);
+    set("TEST_OPTIONAL_BOOL", "false");
+    EXPECT_EQ(parser.field("TEST_OPTIONAL_BOOL", unset_default), false);
+    set("TEST_OPTIONAL_BOOL", "true");
+    EXPECT_EQ(parser.field("TEST_OPTIONAL_BOOL", unset_default), true);
+    unset("TEST_OPTIONAL_BOOL");
+    ASSERT_NIL(parser.error());
 }
 
 /// @brief it should load string values from environment variables.

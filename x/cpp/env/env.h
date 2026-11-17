@@ -10,8 +10,10 @@
 #pragma once
 
 #include <charconv>
+#include <concepts>
 #include <cstdlib>
 #include <filesystem>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -78,6 +80,18 @@ public:
             );
             return default_value;
         }
+    }
+
+    /// @brief parses an optional field, so a caller can tell an unset variable from one
+    /// set to the default.
+    /// @returns default_value when the variable is unset.
+    template<typename O>
+        requires std::same_as<O, std::optional<typename O::value_type>>
+    O field(const std::string &name, const O &default_value) {
+        const auto screaming_name = caseconv::snake_to_scream(this->prefix + name);
+        if (std::getenv(screaming_name.c_str()) == nullptr) return default_value;
+        using T = O::value_type;
+        return this->field<T>(name, T{});
     }
 
     /// @brief binds an error to the given field name.

@@ -9,12 +9,19 @@
 
 #include <sstream>
 #include <string>
+#include <thread>
 
 #include "google/protobuf/empty.pb.h"
 #include "gtest/gtest.h"
 
 #include "client/cpp/synnax.h"
+#include "freighter/cpp/grpc/testutil/freighter/cpp/grpc/testutil/service.grpc.pb.h"
+#include "freighter/cpp/grpc/testutil/server.h"
+#include "x/cpp/defer/defer.h"
+#include "x/cpp/env/env.h"
+#include "x/cpp/fs/fs.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "core/pkg/transport/grpc/channel/channel.pb.h"
 
@@ -26,10 +33,12 @@ synnax::Config load(const std::string &json) {
     return cfg;
 }
 
-/// @brief a fresh config is insecure.
+/// @brief a fresh config leaves secure unset and connects without TLS.
 TEST(ConfigSecure, InsecureByDefault) {
     const synnax::Config cfg;
-    EXPECT_FALSE(cfg.secure);
+    EXPECT_EQ(cfg.secure, std::nullopt);
+    const auto tls = ASSERT_NIL_P(cfg.tls());
+    EXPECT_FALSE(tls.enabled);
 }
 
 /// @brief secure persists across a save/load.
@@ -37,7 +46,7 @@ TEST(ConfigPersist, SecureFlagTrue) {
     synnax::Config cfg;
     cfg.secure = true;
     const auto loaded = load(cfg.to_json().dump());
-    EXPECT_TRUE(loaded.secure);
+    EXPECT_EQ(loaded.secure, true);
 }
 
 /// @brief insecure persists across a save/load.
@@ -45,7 +54,14 @@ TEST(ConfigPersist, SecureFlagFalse) {
     synnax::Config cfg;
     cfg.secure = false;
     const auto loaded = load(cfg.to_json().dump());
-    EXPECT_FALSE(loaded.secure);
+    EXPECT_EQ(loaded.secure, false);
+}
+
+/// @brief an unset secure stays unset across a save/load.
+TEST(ConfigPersist, SecureUnset) {
+    const synnax::Config cfg;
+    const auto loaded = load(cfg.to_json().dump());
+    EXPECT_EQ(loaded.secure, std::nullopt);
 }
 
 /// @brief every field survives the round-trip.
@@ -56,6 +72,7 @@ TEST(ConfigPersist, AllFields) {
     cfg.username = "op";
     cfg.password = "op123";
     cfg.secure = true;
+    cfg.ca_cert = "/etc/synnax/ca.pem";
     cfg.max_retries = 9;
     cfg.api_key = "syk_key";
 
@@ -64,15 +81,16 @@ TEST(ConfigPersist, AllFields) {
     EXPECT_EQ(loaded.port, 8080);
     EXPECT_EQ(loaded.username, "op");
     EXPECT_EQ(loaded.password, "op123");
-    EXPECT_TRUE(loaded.secure);
+    EXPECT_EQ(loaded.secure, true);
+    EXPECT_EQ(loaded.ca_cert, "/etc/synnax/ca.pem");
     EXPECT_EQ(loaded.max_retries, 9);
     EXPECT_EQ(loaded.api_key, "syk_key");
 }
 
-/// @brief a config without the secure flag loads insecure.
-TEST(ConfigOverride, AbsentFlagIsInsecure) {
+/// @brief a config without the secure flag leaves it unset.
+TEST(ConfigOverride, AbsentFlagIsUnset) {
     const auto cfg = load(R"({"username":"op"})");
-    EXPECT_FALSE(cfg.secure);
+    EXPECT_EQ(cfg.secure, std::nullopt);
 }
 
 /// @brief a later override without the secure flag keeps the earlier value.
@@ -82,7 +100,7 @@ TEST(ConfigOverride, SecureSurvivesLaterOverride) {
     cfg.override(first);
     auto second = x::json::Parser(std::string(R"({"host":"node1"})"));
     cfg.override(second);
-    EXPECT_TRUE(cfg.secure);
+    EXPECT_EQ(cfg.secure, true);
     EXPECT_EQ(cfg.host, "node1");
 }
 
@@ -93,7 +111,7 @@ TEST(ConfigOverride, LaterExplicitFlagWins) {
     cfg.override(first);
     auto second = x::json::Parser(std::string(R"({"secure":false})"));
     cfg.override(second);
-    EXPECT_FALSE(cfg.secure);
+    EXPECT_EQ(cfg.secure, false);
 }
 
 /// @brief absent keys keep their defaults.
@@ -101,13 +119,13 @@ TEST(ConfigOverride, EmptyKeepsDefaults) {
     const auto cfg = load("{}");
     EXPECT_EQ(cfg.host, "localhost");
     EXPECT_EQ(cfg.port, 9090);
-    EXPECT_FALSE(cfg.secure);
+    EXPECT_EQ(cfg.secure, std::nullopt);
 }
 
 /// @brief present keys override, absent keys are untouched.
 TEST(ConfigOverride, PartialDoesNotClobber) {
     const auto cfg = load(R"({"secure":true})");
-    EXPECT_TRUE(cfg.secure);
+    EXPECT_EQ(cfg.secure, true);
     EXPECT_EQ(cfg.host, "localhost");
 }
 
@@ -200,4 +218,106 @@ TEST(SynnaxConnectivity, ProbeFailsAgainstUnreachableCore) {
     EXPECT_EQ(state.status, synnax::connection::Status::FAILED);
     EXPECT_TRUE(state.error.matches(freighter::UNREACHABLE));
     EXPECT_FALSE(state.message.empty());
+}
+
+namespace {
+const std::string CA_CERT_PATH = "freighter/cpp/grpc/testutil/test_ca_cert.pem";
+/// A leaf certificate signed by the CA at CA_CERT_PATH.
+const std::string LEAF_CERT_PATH = "freighter/cpp/grpc/testutil/test_leaf_cert.pem";
+const std::string LEAF_KEY_PATH = "freighter/cpp/grpc/testutil/test_leaf_key.pem";
+const std::string TLS_TARGET = "localhost:8086";
+
+/// @brief serves the Freighter test service over TLS with a certificate that the test
+/// CA signs.
+class ConfigTLS : public ::testing::Test {
+protected:
+    std::thread server;
+
+    void SetUp() override {
+        this->server = std::thread(
+            freighter::grpc::testutil::tls_server,
+            TLS_TARGET,
+            LEAF_CERT_PATH,
+            LEAF_KEY_PATH
+        );
+        freighter::grpc::testutil::wait_for_servers();
+    }
+
+    void TearDown() override {
+        freighter::grpc::testutil::stop_servers();
+        this->server.join();
+    }
+
+    /// @brief sends one request to the TLS server through the pool for cfg.
+    static std::pair<test::Message, x::errors::Error> send(const synnax::Config &cfg) {
+        auto client = freighter::grpc::
+            UnaryClient<test::Message, test::Message, test::UnaryMessageService>(
+                synnax::details::new_pool(cfg),
+                TLS_TARGET
+            );
+        test::Message req;
+        req.set_payload("ping");
+        return client.send("", req);
+    }
+};
+}
+
+/// @brief a CA certificate with secure unset turns TLS on.
+TEST_F(ConfigTLS, CACertAloneUsesTLS) {
+    synnax::Config cfg;
+    cfg.ca_cert = CA_CERT_PATH;
+    const auto tls = ASSERT_NIL_P(cfg.tls());
+    EXPECT_TRUE(tls.enabled);
+    EXPECT_EQ(tls.ca_cert, CA_CERT_PATH);
+    const auto res = ASSERT_NIL_P(send(cfg));
+    EXPECT_EQ(res.payload(), "Read request: ping");
+}
+
+/// @brief a CA certificate with secure true uses TLS.
+TEST_F(ConfigTLS, CACertWithSecureUsesTLS) {
+    synnax::Config cfg;
+    cfg.secure = true;
+    cfg.ca_cert = CA_CERT_PATH;
+    const auto res = ASSERT_NIL_P(send(cfg));
+    EXPECT_EQ(res.payload(), "Read request: ping");
+}
+
+/// @brief a CA certificate with an explicit secure false is an error.
+TEST_F(ConfigTLS, CACertWithSecureFalseIsError) {
+    synnax::Config cfg;
+    cfg.secure = false;
+    cfg.ca_cert = CA_CERT_PATH;
+    ASSERT_OCCURRED_AS_P(cfg.tls(), x::errors::VALIDATION);
+    ASSERT_OCCURRED_AS_P(send(cfg), x::errors::VALIDATION);
+}
+
+/// @brief SYNNAX_CA_CERT gives the CA certificate when ca_cert is empty.
+TEST_F(ConfigTLS, CACertFromEnvironmentUsesTLS) {
+    x::env::set("SYNNAX_CA_CERT", CA_CERT_PATH);
+    x::defer::defer unset_env([] { x::env::unset("SYNNAX_CA_CERT"); });
+    const synnax::Config cfg;
+    const auto res = ASSERT_NIL_P(send(cfg));
+    EXPECT_EQ(res.payload(), "Read request: ping");
+}
+
+/// @brief SYNNAX_CA_CERT with an explicit secure false is an error.
+TEST_F(ConfigTLS, CACertFromEnvironmentWithSecureFalseIsError) {
+    x::env::set("SYNNAX_CA_CERT", CA_CERT_PATH);
+    x::defer::defer unset_env([] { x::env::unset("SYNNAX_CA_CERT"); });
+    synnax::Config cfg;
+    cfg.secure = false;
+    ASSERT_OCCURRED_AS_P(send(cfg), x::errors::VALIDATION);
+}
+
+/// @brief a CA certificate that does not exist fails every call.
+TEST_F(ConfigTLS, MissingCACertIsError) {
+    synnax::Config cfg;
+    cfg.ca_cert = "freighter/cpp/grpc/testutil/missing.pem";
+    ASSERT_OCCURRED_AS_P(send(cfg), x::fs::NOT_FOUND);
+}
+
+/// @brief without a CA certificate, the client cannot reach a TLS Core.
+TEST_F(ConfigTLS, NoCACertIsPlaintext) {
+    const synnax::Config cfg;
+    ASSERT_OCCURRED_AS_P(send(cfg), freighter::UNREACHABLE);
 }

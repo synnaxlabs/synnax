@@ -131,16 +131,20 @@ Config::login(x::args::Parser &args, const synnax::Config &conn) {
     if (auto err = cfg.load_persisted_state(args)) return {cfg, err};
     const auto &saved = cfg.connection;
     if (!saved.api_key.empty()) {
+        const auto [conn_tls, conn_err] = conn.tls();
+        if (conn_err) return {cfg, conn_err};
+        const auto [saved_tls, saved_err] = saved.tls();
+        if (saved_err) return {cfg, saved_err};
         // Only the Core that issued the saved key may receive it, and never in
         // plaintext when the key was saved with TLS.
         if (saved.host == conn.host && saved.port == conn.port &&
-            (conn.secure || !saved.secure)) {
+            (conn_tls.enabled || !saved_tls.enabled)) {
             const auto [info, err] = retrieve_key_rack(conn, saved.api_key);
             if (err) return {cfg, err};
             if (info.rack_key != 0) cfg.remote_info = info;
         } else
             LOG(WARNING) << "the saved API key is for " << saved.address()
-                         << (saved.secure ? " with TLS" : "")
+                         << (saved_tls.enabled ? " with TLS" : "")
                          << ", so login does not send it to " << conn.address()
                          << " and does not keep the rack of that key";
     }
