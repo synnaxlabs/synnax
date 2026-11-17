@@ -231,11 +231,12 @@ var _ = Describe("ParentMigration", func() {
 				"member":     member.String(),
 			}
 		}
-		var got []map[string]any
-		for _, e := range logs.FilterMessage(
+		logged := logs.FilterMessage(
 			"dropped a member from a group that cannot hold it",
-		).All() {
-			got = append(got, e.ContextMap())
+		).All()
+		got := make([]map[string]any, len(logged))
+		for i, e := range logged {
+			got[i] = e.ContextMap()
 		}
 		Expect(got).To(ConsistOf(
 			dropped(mixed, "Mixed", channel),

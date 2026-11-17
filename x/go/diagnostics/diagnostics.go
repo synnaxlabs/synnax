@@ -201,8 +201,8 @@ var _ error = (*Diagnostics)(nil)
 
 // Ok returns true if there are no error-level diagnostics. Warnings, info, and hints
 // are allowed.
-func (d Diagnostics) Ok() bool {
-	for _, diag := range d {
+func (d *Diagnostics) Ok() bool {
+	for _, diag := range *d {
 		if diag.Severity == protocol.DiagnosticSeverityError {
 			return false
 		}
@@ -211,16 +211,16 @@ func (d Diagnostics) Ok() bool {
 }
 
 // Empty returns true if there are no diagnostics at all.
-func (d Diagnostics) Empty() bool { return len(d) == 0 }
+func (d *Diagnostics) Empty() bool { return len(*d) == 0 }
 
 // Error implements the error interface.
-func (d Diagnostics) Error() string { return d.String() }
+func (d *Diagnostics) Error() string { return d.String() }
 
 // Unwrap returns the errors that the diagnostics were created from, so that errors.Is
 // matches them.
-func (d Diagnostics) Unwrap() []error {
+func (d *Diagnostics) Unwrap() []error {
 	var causes []error
-	for _, diag := range d {
+	for _, diag := range *d {
 		if diag.cause != nil {
 			causes = append(causes, diag.cause)
 		}
@@ -266,9 +266,9 @@ func (d *Diagnostics) AtLocation(start protocol.Position) []int {
 }
 
 // Errors returns only error-level diagnostics.
-func (d Diagnostics) Errors() []Diagnostic {
+func (d *Diagnostics) Errors() []Diagnostic {
 	var errors []Diagnostic
-	for _, diag := range d {
+	for _, diag := range *d {
 		if diag.Severity == protocol.DiagnosticSeverityError {
 			errors = append(errors, diag)
 		}
@@ -278,12 +278,12 @@ func (d Diagnostics) Errors() []Diagnostic {
 
 // String formats all diagnostics as a human-readable string with line:column severity:
 // message format. The line:column prefix is omitted for diagnostics without a range.
-func (d Diagnostics) String() string {
-	if len(d) == 0 {
+func (d *Diagnostics) String() string {
+	if len(*d) == 0 {
 		return "analysis successful"
 	}
 	var sb strings.Builder
-	for i, diag := range d {
+	for i, diag := range *d {
 		if i > 0 {
 			sb.WriteString("\n")
 		}

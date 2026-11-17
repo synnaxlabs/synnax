@@ -11,7 +11,7 @@
 name = "synnax-runners"
 version = "0.0.0"
 description = "Self-hosted CI runner fleet controller"
-requires-python = ">=3.12,<4"
+requires-python = ">=3.13,<4"
 classifiers = ["Private :: Do Not Upload"]
 dependencies = [
     "boto3>=1.43,<2",

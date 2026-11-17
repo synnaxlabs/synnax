@@ -8,10 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan } from "@synnaxlabs/x";
-import { afterEach, assert, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type connection } from "@/connection";
-import { DisconnectedError, InvalidCredentialsError, type Synnax } from "@/index";
+import {
+  DisconnectedError,
+  InvalidCredentialsError,
+  Synnax,
+  ValidationError,
+} from "@/index";
 import { label } from "@/label";
 import {
   createTestClient,
@@ -30,6 +35,47 @@ const FAST_RETRY = {
   scale: 1,
   maxRetries: 2,
 };
+
+describe("constructor", () => {
+  beforeEach(() => {
+    vi.stubEnv("SYNNAX_HOST", "core.env");
+    vi.stubEnv("SYNNAX_PORT", "9091");
+    vi.stubEnv("SYNNAX_API_KEY", "syk_env");
+    vi.stubEnv("SYNNAX_SECURE", "true");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("should fill the missing options from the variables", async () => {
+    const client = new Synnax();
+    expect(client.params).toMatchObject({
+      host: "core.env",
+      port: 9091,
+      apiKey: "syk_env",
+      secure: true,
+    });
+    await client.close();
+  });
+
+  it("should use an argument over its variable", async () => {
+    const client = new Synnax({ host: "rig", port: 1 });
+    expect(client.params).toMatchObject({
+      host: "rig",
+      port: 1,
+      apiKey: "syk_env",
+      secure: true,
+    });
+    await client.close();
+  });
+
+  it("should throw when neither an argument nor a variable gives a host", () => {
+    vi.stubEnv("SYNNAX_HOST", "");
+    expect(() => new Synnax()).toThrow(ValidationError);
+    expect(() => new Synnax()).toThrow("give a host, or set SYNNAX_HOST");
+  });
+});
 
 describe("connect", () => {
   it("should await the client's first success", async () => {

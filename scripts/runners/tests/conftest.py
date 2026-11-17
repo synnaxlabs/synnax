@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import datetime as dt
-from typing import Literal, cast
+from typing import Literal
 
 import numpy as np
 import pytest
@@ -54,6 +54,19 @@ class Streamer:
         pass
 
 
+class ChannelStore:
+    """Stands in for the Core's channels: records every channel created."""
+
+    def __init__(self) -> None:
+        self.created: list[sy.Channel] = []
+
+    def create(
+        self, channels: list[sy.Channel], /, *, retrieve_if_name_exists: bool
+    ) -> list[sy.Channel]:
+        self.created += channels
+        return channels
+
+
 class Client:
     """Stands in for the Core: records every frame written, rejects a timestamp before
     the writer's start, fails writes while failing is set, moves the clock latency
@@ -67,6 +80,7 @@ class Client:
         self.elapsed = sy.TimeSpan(0)
         self.streamed: list[dict] = []
         self.latest: dict[str, np.ndarray] = {}
+        self.channels = ChannelStore()
 
     def open_writer(
         self, start: sy.TimeStamp, *args: object, **kwargs: object
@@ -92,10 +106,6 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Client:
         sy.TimeStamp, "now", classmethod(lambda _: sy.TimeStamp(now() + c.elapsed))
     )
     return c
-
-
-def core(client: Client) -> sy.Synnax:
-    return cast(sy.Synnax, client)
 
 
 class SecretsExceptions:

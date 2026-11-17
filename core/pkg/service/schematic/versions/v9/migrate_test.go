@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"math"
 	"os"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1060,7 +1061,7 @@ var _ = Describe("Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Schematic",
-			Migrations: append(chain, v9.Migration),
+			Migrations: slices.Concat(chain, []gorp.Migration{v9.Migration}),
 		})).To(Succeed())
 		var got v9.Schematic
 		Expect(gorp.NewRetrieve[v9.Key, v9.Schematic]().

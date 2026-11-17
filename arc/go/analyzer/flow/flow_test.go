@@ -2122,7 +2122,7 @@ sequence main {
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, customResolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			var msgs []string
+			msgs := make([]string, 0, len(*ctx.Diagnostics))
 			for _, d := range *ctx.Diagnostics {
 				msgs = append(msgs, d.Message)
 			}
@@ -2161,7 +2161,7 @@ sequence main {
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, customResolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			var msgs []string
+			msgs := make([]string, 0, len(*ctx.Diagnostics))
 			for _, d := range *ctx.Diagnostics {
 				msgs = append(msgs, d.Message)
 			}
@@ -2660,7 +2660,7 @@ sequence main {
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, customResolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				var msgs []string
+				msgs := make([]string, 0, len(*ctx.Diagnostics))
 				for _, d := range *ctx.Diagnostics {
 					msgs = append(msgs, d.Message)
 				}
@@ -2693,7 +2693,7 @@ sequence main {
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, customResolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				var msgs []string
+				msgs := make([]string, 0, len(*ctx.Diagnostics))
 				for _, d := range *ctx.Diagnostics {
 					msgs = append(msgs, d.Message)
 				}

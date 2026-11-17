@@ -21,8 +21,8 @@ from freighter import (
     AsyncStream,
     AsyncStreamClient,
     Stream,
+    StreamClient,
     Unreachable,
-    WebsocketClient,
 )
 from freighter.transport import P
 from synnax.framer.adapter import ReadFrameAdapter
@@ -131,7 +131,7 @@ class Streamer:
     def __init__(
         self,
         *,
-        client: WebsocketClient,
+        client: StreamClient,
         adapter: ReadFrameAdapter,
         downsample_factor: int = 1,
         throttle_rate: float = 0,

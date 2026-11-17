@@ -10,6 +10,8 @@
 package statement
 
 import (
+	"slices"
+
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/expression"
 	"github.com/synnaxlabs/arc/compiler/wasm"
@@ -355,7 +357,16 @@ func compileCompoundAssignment(
 		}
 	}
 
-	switch sym.Kind {
+	return emitCompoundStore(ctx, scope)
+}
+
+// emitCompoundStore stores the result of a compound assignment in its target.
+func emitCompoundStore(
+	ctx context.Context[parser.IAssignmentContext],
+	scope *symbol.Symbol,
+) error {
+	varType := scope.Type
+	switch scope.Kind {
 	case symbol.KindVariable, symbol.KindInput:
 		ctx.Writer.WriteLocalSet(scope.ID)
 	case symbol.KindStatefulVariable:
@@ -377,7 +388,7 @@ func compileCompoundAssignment(
 		symbol.KindAmbient:
 		fallthrough
 	default:
-		return errors.Newf("compound assignment not supported for %v", sym.Kind)
+		return errors.Newf("compound assignment not supported for %v", scope.Kind)
 	}
 
 	return nil
@@ -429,7 +440,18 @@ func compileAssignment(
 		}
 	}
 
-	switch sym.Kind {
+	return emitAssignmentStore(ctx, name, scope)
+}
+
+// emitAssignmentStore stores the value on top of the stack in the target of an
+// assignment.
+func emitAssignmentStore(
+	ctx context.Context[parser.IAssignmentContext],
+	name string,
+	scope *symbol.Symbol,
+) error {
+	varType := scope.Type
+	switch scope.Kind {
 	case symbol.KindVariable:
 		if varType.Kind == types.KindChan {
 			ctx.Resolver.EmitChannelWrite(ctx.Writer, ctx.WriterID, varType.Unwrap())
@@ -469,7 +491,7 @@ func compileAssignment(
 		symbol.KindModule, symbol.KindModuleAlias, symbol.KindAmbient:
 		fallthrough
 	default:
-		return errors.Newf("cannot assign to %v '%s'", sym.Kind, name)
+		return errors.Newf("cannot assign to %v '%s'", scope.Kind, name)
 	}
 
 	return nil
@@ -491,26 +513,15 @@ func compileOutputAssignment(
 	ctx.Writer.WriteLocalSet(scope.ID)
 
 	// Step 2: Find the output index
-	outputIndex := -1
-	for i, oParam := range ctx.Outputs {
-		if oParam.Name == outputName {
-			outputIndex = i
-			break
-		}
-	}
+	outputIndex := slices.IndexFunc(ctx.Outputs, func(p types.Param) bool {
+		return p.Name == outputName
+	})
 	if outputIndex == -1 {
 		return errors.Newf("output '%s' not found in outputs list", outputName)
 	}
 
 	// Step 3: Calculate memory offset for this output
-	offset := ctx.OutputMemoryBase + 8 // Skip dirty flags
-	for i := range outputIndex {
-		if ctx.Outputs[i].Type.Kind == types.KindString {
-			offset += 4
-		} else {
-			offset += uint32(ctx.Outputs[i].Type.Density())
-		}
-	}
+	offset := outputOffset(ctx.Outputs, ctx.OutputMemoryBase, outputIndex)
 
 	// Step 4: Write value to output memory
 	// Store instruction needs: [address, value]
@@ -519,28 +530,8 @@ func compileOutputAssignment(
 	// Stack: [address, value]
 
 	// Write the appropriate store instruction based on type
-	switch scope.Type.Kind {
-	case types.KindI8, types.KindU8, types.KindBool:
-		ctx.Writer.WriteMemoryOp(wasm.OpI32Store8, 0, 0)
-	case types.KindI16, types.KindU16:
-		ctx.Writer.WriteMemoryOp(wasm.OpI32Store16, 1, 0)
-	case types.KindI32, types.KindU32:
-		ctx.Writer.WriteMemoryOp(wasm.OpI32Store, 2, 0)
-	case types.KindI64, types.KindU64:
-		ctx.Writer.WriteMemoryOp(wasm.OpI64Store, 3, 0)
-	case types.KindF32:
-		ctx.Writer.WriteMemoryOp(wasm.OpF32Store, 2, 0)
-	case types.KindF64:
-		ctx.Writer.WriteMemoryOp(wasm.OpF64Store, 3, 0)
-	case types.KindString:
-		ctx.Writer.WriteMemoryOp(wasm.OpI32Store, 2, 0)
-	case types.KindInvalid, types.KindChan, types.KindSeries, types.KindVariable,
-		types.KindNumericConstant, types.KindIntegerConstant, types.KindFloatConstant,
-		types.KindExactIntegerFloatConstant, types.KindFunction, types.KindSequence,
-		types.KindStage, types.KindVarRef:
-		fallthrough
-	default:
-		return errors.Newf("unsupported output type %v", scope.Type)
+	if err := emitOutputStore(ctx.Writer, scope.Type); err != nil {
+		return err
 	}
 
 	// Step 5: Set the dirty flag bit
@@ -556,5 +547,47 @@ func compileOutputAssignment(
 	ctx.Writer.WriteOpcode(wasm.OpI64Or)
 	// Stack: [address, new_value]
 	ctx.Writer.WriteMemoryOp(wasm.OpI64Store, 3, 0)
+	return nil
+}
+
+// outputOffset returns the memory address of the output at index, past the 8-byte
+// dirty flags at base.
+func outputOffset(outputs types.Params, base uint32, index int) uint32 {
+	offset := base + 8
+	for i := range index {
+		if outputs[i].Type.Kind == types.KindString {
+			offset += 4
+		} else {
+			offset += uint32(outputs[i].Type.Density())
+		}
+	}
+	return offset
+}
+
+// emitOutputStore writes the store instruction for an output of type t.
+func emitOutputStore(w *wasm.Writer, t types.Type) error {
+	switch t.Kind {
+	case types.KindI8, types.KindU8, types.KindBool:
+		w.WriteMemoryOp(wasm.OpI32Store8, 0, 0)
+	case types.KindI16, types.KindU16:
+		w.WriteMemoryOp(wasm.OpI32Store16, 1, 0)
+	case types.KindI32, types.KindU32:
+		w.WriteMemoryOp(wasm.OpI32Store, 2, 0)
+	case types.KindI64, types.KindU64:
+		w.WriteMemoryOp(wasm.OpI64Store, 3, 0)
+	case types.KindF32:
+		w.WriteMemoryOp(wasm.OpF32Store, 2, 0)
+	case types.KindF64:
+		w.WriteMemoryOp(wasm.OpF64Store, 3, 0)
+	case types.KindString:
+		w.WriteMemoryOp(wasm.OpI32Store, 2, 0)
+	case types.KindInvalid, types.KindChan, types.KindSeries, types.KindVariable,
+		types.KindNumericConstant, types.KindIntegerConstant, types.KindFloatConstant,
+		types.KindExactIntegerFloatConstant, types.KindFunction, types.KindSequence,
+		types.KindStage, types.KindVarRef:
+		fallthrough
+	default:
+		return errors.Newf("unsupported output type %v", t)
+	}
 	return nil
 }

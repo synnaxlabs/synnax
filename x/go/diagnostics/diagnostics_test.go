@@ -80,7 +80,7 @@ var _ = Describe("Diagnostics", func() {
 	It("Should unwrap to the errors the diagnostics were created from", func() {
 		var d diagnostics.Diagnostics
 		d.Add(diagnostics.Error(context.Canceled, nil))
-		Expect(d).To(MatchError(context.Canceled))
+		Expect(&d).To(MatchError(context.Canceled))
 	})
 
 	It("Should drop a diagnostic whose cause was already reported", func() {
