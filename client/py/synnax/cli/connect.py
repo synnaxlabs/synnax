@@ -17,13 +17,7 @@ from freighter.exceptions import Unreachable
 from synnax import Synnax
 from synnax.auth import api_key_id
 from synnax.cli.flow import Context
-from synnax.config import (
-    DESKTOP_FILE_PATH,
-    DESKTOP_NOT_RUNNING_MSG,
-    Cluster,
-    Clusters,
-    load_desktop_options,
-)
+from synnax.config import Cluster, Clusters
 from synnax.exceptions import AuthError
 from synnax.options import Options
 
@@ -55,36 +49,6 @@ def _prompt_client_options(ctx: Context) -> Options:
         secure=secure,
         ca_cert=ca_cert,
     )
-
-
-def from_clusters(
-    ctx: Context, clusters: Clusters, desktop_file: Path = DESKTOP_FILE_PATH
-) -> Synnax | None:
-    """Connects to a Synnax server. Without saved connection parameters, it connects
-    to Synnax Desktop, or prompts the user when Synnax Desktop saved none either. A
-    saved password is replaced with an API key after the connection succeeds.
-
-    :param ctx: The context of the current flow.
-    :param clusters: The saved connection parameters.
-    :param desktop_file: The file where Synnax Desktop saves its connection
-        parameters.
-    :returns: The connected client, or None if the connection failed.
-    """
-    cluster = clusters.get()
-    if cluster is None:
-        opts = load_desktop_options(desktop_file)
-        if opts is None:
-            return _from_context(ctx, opts=_prompt_client_options(ctx))
-        ctx.console.info("Using Synnax Desktop.")
-        return _from_context(ctx, opts=opts, unreachable=DESKTOP_NOT_RUNNING_MSG)
-    ctx.console.info("Using saved credentials.")
-    client = _from_context(ctx, opts=cluster.options)
-    if client is not None and not cluster.options.api_key:
-        try:
-            _save_api_key(client, opts=cluster.options, clusters=clusters)
-        except (OSError, KeyringError, AuthError, Unreachable) as e:
-            ctx.console.warn(f"Cannot replace the saved password with an API key: {e}")
-    return client
 
 
 def _save_api_key(client: Synnax, *, opts: Options, clusters: Clusters) -> None:
@@ -126,24 +90,18 @@ def _save_api_key(client: Synnax, *, opts: Options, clusters: Clusters) -> None:
         client.auth.delete_keys(previous_key)
 
 
-def _from_context(
-    ctx: Context, *, opts: Options, unreachable: str | None = None
-) -> Synnax | None:
+def _from_context(ctx: Context, *, opts: Options) -> Synnax | None:
     """Connects to a Synnax server. Prints user-friendly messages to the console if
     the connection fails.
 
     :param ctx: The context of the current flow.
     :param opts: The options to connect with.
-    :param unreachable: The message to print when the server cannot be reached, in
-        place of one that names the address.
     :returns: The connected client, or None if the connection failed.
     """
     try:
         client = Synnax(**opts.model_dump())
     except Unreachable:
-        ctx.console.error(
-            unreachable or f"Cannot reach Synnax server at {opts.host}:{opts.port}"
-        )
+        ctx.console.error(f"Cannot reach Synnax server at {opts.host}:{opts.port}")
         return None
     except AuthError:
         ctx.console.error("Invalid credentials")

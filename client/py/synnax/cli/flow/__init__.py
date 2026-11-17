@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from collections.abc import Callable
-
 from synnax.cli.console import Console, Sugared
 
 
@@ -17,28 +15,3 @@ class Context:
 
     def __init__(self, *, console: Console, prompt_enabled: bool = True):
         self.console = Sugared(prompt=console, print=console, enabled=prompt_enabled)
-
-
-class Flow[T]:
-    steps: dict[str, Callable[[Context, T], str | None]]
-    context: Context
-
-    def __init__(self, ctx: Context):
-        self.steps = {}
-        self.context = ctx
-
-    def add(self, name: str, step: Callable[[Context, T], str | None]) -> None:
-        self.steps[name] = step
-
-    def run(self, req: T, *, root: str) -> None:
-        root_step = self.steps[root]
-        self._run(root_step, req)
-
-    def _run(
-        self,
-        step: Callable[[Context, T], str | None],
-        request: T,
-    ) -> None:
-        next_step = step(self.context, request)
-        if next_step is not None:
-            self._run(self.steps[next_step], request)
