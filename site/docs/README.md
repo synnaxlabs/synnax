@@ -63,4 +63,5 @@ train's release branch (`release/docs-X.Y` for 0.60 and 0.61), and deploy the tr
 a patch of the train shipped from `main`, first merge its tag into the branch. A 0.60 or
 0.61 release deploys its `release/docs-X.Y` branch as it is, so pick the docs of a patch
 onto that branch before the release. Only the root serves release notes, so a note for a
-patch of an older train also goes onto the newest train's branch.
+patch of an older train also goes onto the newest train's branch. From 0.62 on, if that
+branch does not exist, first cut `release/X.Y` from the train's newest stable Core tag.
