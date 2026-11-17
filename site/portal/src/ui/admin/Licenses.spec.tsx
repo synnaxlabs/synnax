@@ -25,6 +25,13 @@ import {
 import { LICENSE, NOW } from "@/server/license/testutil";
 import { Admin } from "@/ui/admin";
 
+// jsdom cannot navigate, so the spec reads where a page load would have gone.
+const { navigate } = vi.hoisted(() => ({ navigate: vi.fn<(url: string) => void>() }));
+vi.mock("@/ui/api", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  navigate,
+}));
+
 const chooseTerm = (current: string, next: string): void => {
   fireEvent.click(screen.getByText(current));
   fireEvent.click(screen.getByText(next));
@@ -73,7 +80,7 @@ describe("Admin.Licenses", () => {
       render(
         <Admin.Licenses
           teams={[]}
-          page={{ entries: [entry], total: 51, next: LICENSE.key }}
+          page={{ entries: [entry], total: 51, next: { key: LICENSE.key } }}
           query={{ status: "active" }}
           nextHref={`/admin/licenses?status=active&after=${LICENSE.key}`}
           now={NOW}
@@ -91,7 +98,7 @@ describe("Admin.Licenses", () => {
         <Admin.Licenses
           teams={[]}
           page={{ entries: [entry], total: 51, next: null }}
-          query={{ search: "rig", after: LICENSE.key }}
+          query={{ search: "rig", after: { key: LICENSE.key } }}
           nextHref={null}
           now={NOW}
         />,
@@ -114,6 +121,52 @@ describe("Admin.Licenses", () => {
       );
       expect(screen.queryByText("No licenses match")).not.toBeNull();
       expect(screen.queryByText("0 licenses")).not.toBeNull();
+    });
+
+    describe("navigation", () => {
+      beforeEach(() => {
+        navigate.mockClear();
+        render(
+          <Admin.Licenses
+            teams={[]}
+            page={{ entries: [], total: 51, next: null }}
+            query={{ search: "rig", status: "active", after: { key: LICENSE.key } }}
+            nextHref={null}
+            now={NOW}
+          />,
+        );
+      });
+
+      const type = (text: string): HTMLElement => {
+        const input = screen.getByDisplayValue("rig");
+        fireEvent.change(input, { target: { value: text } });
+        return input;
+      };
+
+      it("should search on Enter from the first page, keeping the status", () => {
+        fireEvent.keyDown(type(" bench "), { key: "Enter" });
+        expect(navigate).toHaveBeenCalledWith(
+          "/admin/licenses?search=bench&status=active",
+        );
+      });
+
+      it("should not search before Enter", () => {
+        type("bench");
+        expect(navigate).not.toHaveBeenCalled();
+      });
+
+      it("should filter by a status with the search typed so far", () => {
+        type("bench");
+        fireEvent.click(screen.getByText("Revoked"));
+        expect(navigate).toHaveBeenCalledWith(
+          "/admin/licenses?search=bench&status=revoked",
+        );
+      });
+
+      it("should clear the status when it is clicked again", () => {
+        fireEvent.click(screen.getByText("Active"));
+        expect(navigate).toHaveBeenCalledWith("/admin/licenses?search=rig");
+      });
     });
   });
 

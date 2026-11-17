@@ -74,8 +74,18 @@ export interface Query {
   /** search keeps the licenses whose label, organization name, or key holds it. */
   search?: string;
   status?: Status;
-  /** after is the key of the last license on the page before this one. */
-  after?: string;
+  /** after is the last license on the page before this one. */
+  after?: Cursor;
+}
+
+/** Cursor is the last license on a page, which the page after it starts from. */
+export interface Cursor {
+  key: string;
+  /**
+   * expiresAt is the license's expiry when its page was read. The expiring status
+   * needs it, since a renewal can change the expiry before the next page is read.
+   */
+  expiresAt?: Date;
 }
 
 export interface Page {
@@ -83,7 +93,7 @@ export interface Page {
   /** total counts every license that matches the search and status. */
   total: number;
   /** next is the `after` that reads the page after this one, or null on the last. */
-  next: string | null;
+  next: Cursor | null;
 }
 
 const live = isNull(license.revokedAt);
@@ -111,7 +121,7 @@ const STATUS_WHERE: Record<Status, (now: Date, soon: Date) => SQL | undefined> =
 };
 
 const matches = ({ search = "", status }: Query, now: Date): SQL | undefined => {
-  const needle = search.trim().toLowerCase();
+  const needle = search.trim();
   return and(
     status == null
       ? undefined
@@ -119,8 +129,19 @@ const matches = ({ search = "", status }: Query, now: Date): SQL | undefined => 
     needle === ""
       ? undefined
       : sql`strpos(lower(${license.label} || ' ' || ${organization.name} || ' ' ||
-          ${license.key}::text), ${needle}) > 0`,
+          ${license.key}::text), lower(${needle})) > 0`,
   );
+};
+
+const after = (cursor: Cursor | undefined, soonest: boolean): SQL | undefined => {
+  if (cursor == null) return undefined;
+  if (!soonest)
+    return sql`(${license.issuedAt}, ${license.key}) < (select c.issued_at, c.key
+      from ${license} c where c.key = ${cursor.key})`;
+  if (cursor.expiresAt == null)
+    throw new Error("A cursor in the expiring order needs an expiry");
+  return sql`(${license.expiresAt}, ${license.key}) >
+    (${cursor.expiresAt.toISOString()}::timestamptz, ${cursor.key}::uuid)`;
 };
 
 /**
@@ -131,15 +152,6 @@ const matches = ({ search = "", status }: Query, now: Date): SQL | undefined => 
 export const listPage = async (db: Reader, query: Query, now: Date): Promise<Page> => {
   const where = matches(query, now);
   const soonest = query.status === "expiring";
-  // Expiring licenses all have an expiry, so the row comparison never meets a null.
-  const cursor =
-    query.after == null
-      ? undefined
-      : soonest
-        ? sql`(${license.expiresAt}, ${license.key}) > (select c.expires_at, c.key
-            from ${license} c where c.key = ${query.after})`
-        : sql`(${license.issuedAt}, ${license.key}) < (select c.issued_at, c.key
-            from ${license} c where c.key = ${query.after})`;
   const rows = await db
     .select({ license, organization, seats: count(activation.key) })
     .from(license)
@@ -148,7 +160,7 @@ export const listPage = async (db: Reader, query: Query, now: Date): Promise<Pag
       activation,
       and(eq(activation.license, license.key), isNull(activation.releasedAt)),
     )
-    .where(and(where, cursor))
+    .where(and(where, after(query.after, soonest)))
     .groupBy(license.key, organization.key)
     .orderBy(
       ...(soonest
@@ -162,11 +174,11 @@ export const listPage = async (db: Reader, query: Query, now: Date): Promise<Pag
     .innerJoin(organization, eq(license.organization, organization.key))
     .where(where);
   const entries = rows.slice(0, PAGE_SIZE);
-  return {
-    entries,
-    total,
-    next: rows.length > PAGE_SIZE ? entries[entries.length - 1].license.key : null,
-  };
+  if (rows.length <= PAGE_SIZE) return { entries, total, next: null };
+  const { key, expiresAt } = entries[entries.length - 1].license;
+  const next: Cursor = { key };
+  if (soonest && expiresAt != null) next.expiresAt = expiresAt;
+  return { entries, total, next };
 };
 
 const listActivatableWhere = async (

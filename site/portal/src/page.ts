@@ -163,8 +163,8 @@ export interface LicenseList {
 }
 
 /**
- * readLicenses reads the page of every license that the URL's `search`, `status`, and
- * `after` parameters ask for. Staff only.
+ * readLicenses reads the page of every license that the URL's `search`, `status`,
+ * `after`, and `expiry` parameters ask for. Staff only.
  * @throws {HTTPError} 400 for a parameter that is not valid.
  */
 export const readLicenses = async (
@@ -183,13 +183,20 @@ export const readLicenses = async (
   const after = params.get("after");
   if (after != null) {
     if (!z.uuid().safeParse(after).success) throw badRequest("Invalid page");
-    query.after = after;
+    query.after = { key: after };
+    if (query.status === "expiring") {
+      const expiry = new Date(Number(params.get("expiry") ?? NaN));
+      if (Number.isNaN(expiry.getTime())) throw badRequest("Invalid page");
+      query.after.expiresAt = expiry;
+    }
   }
   const page = await listPage(store.query, query, now());
   let nextHref: string | null = null;
   if (page.next != null) {
     const next = new URL(url);
-    next.searchParams.set("after", page.next);
+    next.searchParams.set("after", page.next.key);
+    if (page.next.expiresAt != null)
+      next.searchParams.set("expiry", String(page.next.expiresAt.getTime()));
     nextHref = `${next.pathname}${next.search}`;
   }
   return { page, query, nextHref };

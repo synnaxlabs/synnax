@@ -310,12 +310,33 @@ describe("page", () => {
         await createLicense(store, { organization: org.key });
       const first = await read("?status=active");
       expect(first.page.entries).toHaveLength(PAGE_SIZE);
-      const next = first.page.next ?? "";
+      const next = first.page.next?.key ?? "";
       expect(first.nextHref).toBe(`/admin/licenses?status=active&after=${next}`);
       const second = await read(`?status=active&after=${next}`);
-      expect(second.query.after).toBe(next);
+      expect(second.query.after).toEqual({ key: next });
       expect(second.page.entries).toHaveLength(1);
       expect(second.nextHref).toBeNull();
+    });
+
+    it("should carry the expiry of the next page's cursor when expiring", async () => {
+      const expiresAt = new Date(NOW.getTime() + 24 * 60 * 60 * 1000);
+      for (let i = 0; i < PAGE_SIZE + 1; i++)
+        await createLicense(store, { organization: org.key, expiresAt });
+      const first = await read("?status=expiring");
+      const next = first.page.next?.key ?? "";
+      const ms = expiresAt.getTime();
+      expect(first.nextHref).toBe(
+        `/admin/licenses?status=expiring&after=${next}&expiry=${ms}`,
+      );
+      const second = await read(`?status=expiring&after=${next}&expiry=${ms}`);
+      expect(second.query.after).toEqual({ key: next, expiresAt });
+      expect(second.page.entries).toHaveLength(1);
+    });
+
+    it("should refuse an expiring page without an expiry", async () => {
+      await expect(
+        read(`?status=expiring&after=${crypto.randomUUID()}`),
+      ).rejects.toThrow(new HTTPError(400, "Invalid page"));
     });
 
     it("should refuse a status it does not know", async () => {

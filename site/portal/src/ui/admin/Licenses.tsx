@@ -31,12 +31,11 @@ export interface LicensesProps extends LicenseList {
   now: Date;
 }
 
-const licensesHref = ({ search, status, after }: Query): string => {
+const licensesHref = ({ search, status }: Query): string => {
   const params = new URLSearchParams();
   const trimmed = search?.trim() ?? "";
   if (trimmed !== "") params.set("search", trimmed);
   if (status != null) params.set("status", status);
-  if (after != null) params.set("after", after);
   const query = params.toString();
   return query === "" ? "/admin/licenses" : `/admin/licenses?${query}`;
 };
@@ -51,7 +50,7 @@ export const Licenses = ({
 }: LicensesProps): ReactElement => {
   const [search, setSearch] = useState(query.search ?? "");
   const filtered = query.search != null || query.status != null;
-  const firstHref = licensesHref({ ...query, after: undefined });
+  const firstHref = licensesHref(query);
   return (
     <Page
       title="Licenses"
@@ -85,9 +84,7 @@ export const Licenses = ({
               <Select.Buttons<Status>
                 value={query.status}
                 onChange={(status: Status | null) =>
-                  navigate(
-                    licensesHref({ search: query.search, status: status ?? undefined }),
-                  )
+                  navigate(licensesHref({ search, status: status ?? undefined }))
                 }
                 allowNone
               >

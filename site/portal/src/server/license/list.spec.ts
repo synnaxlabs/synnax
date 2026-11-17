@@ -7,11 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { type License, license, type Organization } from "@/server/db/schema";
+import {
+  type License,
+  license,
+  type Organization,
+  organization,
+} from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import {
+  type Cursor,
   findActivatable,
   findSeat,
   listActivatable,
@@ -107,7 +114,7 @@ describe("list", () => {
 
     const readAll = async (query: Query = {}): Promise<License[]> => {
       const read: License[] = [];
-      let after: string | undefined;
+      let after: Cursor | undefined;
       for (;;) {
         const page = await listPage(store.query, { ...query, after }, NOW);
         read.push(...page.entries.map((e) => e.license));
@@ -161,8 +168,12 @@ describe("list", () => {
         newer.key,
         ...keys.slice(0, PAGE_SIZE - 1),
       ]);
-      expect(first.next).toBe(keys[PAGE_SIZE - 2]);
-      const second = await listPage(store.query, { after: first.next ?? "" }, NOW);
+      expect(first.next).toEqual({ key: keys[PAGE_SIZE - 2] });
+      const second = await listPage(
+        store.query,
+        { after: first.next ?? undefined },
+        NOW,
+      );
       expect(second.entries.map((e) => e.license.key)).toEqual(keys.slice(-2));
       expect(second.total).toBe(PAGE_SIZE + 2);
       expect(second.next).toBeNull();
@@ -177,7 +188,11 @@ describe("list", () => {
       await createMany(PAGE_SIZE + 1);
       const unfiltered = await listPage(store.query, {}, NOW);
       expect(unfiltered.entries.map((e) => e.license)).not.toContainEqual(needle);
-      for (const search of ["north BENCH", "globex", needle.key.slice(9, 23)]) {
+      await store.query
+        .update(organization)
+        .set({ name: "ÉQUIPE" })
+        .where(eq(organization.key, globex.key));
+      for (const search of ["north BENCH", "équipe", needle.key.slice(9, 23)]) {
         const page = await listPage(store.query, { search: ` ${search} ` }, NOW);
         expect(page.entries.map((e) => e.license)).toEqual([needle]);
         expect(page.total).toBe(1);
@@ -236,6 +251,24 @@ describe("list", () => {
       expect(read.slice(-2).map((l) => l.key)).toEqual(later.map((l) => l.key).sort());
       const expiries = read.map((l) => l.expiresAt?.getTime() ?? 0);
       expect(expiries).toEqual([...expiries].sort((a, b) => a - b));
+    });
+
+    it("should page on from the expiry its cursor read, even after a renewal", async () => {
+      const licenses = await createMany(PAGE_SIZE + 2, { expiresAt: days(20) });
+      const first = await listPage(store.query, { status: "expiring" }, NOW);
+      const anchor = first.next?.key ?? "";
+      expect(first.next?.expiresAt).toEqual(days(20));
+      await store.query
+        .update(license)
+        .set({ expiresAt: null })
+        .where(eq(license.key, anchor));
+      const second = await listPage(
+        store.query,
+        { status: "expiring", after: first.next ?? undefined },
+        NOW,
+      );
+      const keys = licenses.map((l) => l.key).sort();
+      expect(second.entries.map((e) => e.license.key)).toEqual(keys.slice(-2));
     });
   });
 
