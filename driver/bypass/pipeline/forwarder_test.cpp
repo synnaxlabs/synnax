@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
+#include <condition_variable>
 #include <future>
+#include <mutex>
 
 #include "gtest/gtest.h"
 
@@ -26,6 +29,56 @@ x::telem::Frame frame(const float value) {
     fr.emplace(1, x::telem::Series(value));
     return fr;
 }
+
+/// @brief opens Core writers that take a frame only once the test allows it.
+class GatedFactory final : public ::driver::pipeline::WriterFactory {
+    std::mutex mu;
+    std::condition_variable cv;
+    size_t credits = 0;
+
+    class Writer final : public ::driver::pipeline::Writer {
+        GatedFactory &factory;
+
+    public:
+        explicit Writer(GatedFactory &factory): factory(factory) {}
+
+        x::errors::Error write(const x::telem::Frame &) override {
+            std::unique_lock lock(this->factory.mu);
+            this->factory.cv.wait(lock, [this] { return this->factory.credits > 0; });
+            this->factory.credits--;
+            this->factory.written++;
+            return x::errors::NIL;
+        }
+
+        x::errors::Error close() override { return x::errors::NIL; }
+    };
+
+public:
+    std::atomic<size_t> written = 0;
+
+    void allow(const size_t frames) {
+        {
+            std::lock_guard lock(this->mu);
+            this->credits += frames;
+        }
+        this->cv.notify_all();
+    }
+
+    std::pair<std::unique_ptr<::driver::pipeline::Writer>, x::errors::Error>
+    open_writer(const synnax::framer::WriterConfig &) override {
+        return {std::make_unique<Writer>(*this), x::errors::NIL};
+    }
+};
+
+using Warnings = x::sync::List<std::pair<std::string, std::string>>;
+
+Warn record(const std::shared_ptr<Warnings> &warnings) {
+    return [warnings](const std::string &message, const std::string &description) {
+        warnings->push_back({message, description});
+    };
+}
+
+constexpr size_t FRAME_SIZE = FRAME_OVERHEAD + SERIES_OVERHEAD + sizeof(float);
 
 std::shared_ptr<::driver::pipeline::testutil::WriterFactory>
 factory(std::vector<x::errors::Error> open_errors = {}) {
@@ -154,5 +207,77 @@ TEST(ForwarderTest, SendsOpsInQueueOrderAcrossAReopen) {
     EXPECT_EQ(server->authority_changes->at(0).authorities[0], 100);
     EXPECT_EQ(server->authority_changes->at(1).authorities[0], 200);
     EXPECT_EQ(server->config.authorities, std::vector<x::control::Authority>{100});
+}
+
+/// @brief it should warn once when the queue passes half its cap, stop warning once it
+/// drains below a quarter, and warn again when it passes half again.
+TEST(ForwarderTest, WarnsWhileFallingBehindTheCore) {
+    const auto server = std::make_shared<GatedFactory>();
+    const auto warnings = std::make_shared<Warnings>();
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {.max_queue_bytes = 8 * FRAME_SIZE, .warn = record(warnings)}
+    );
+    for (int i = 0; i < 5; i++)
+        ASSERT_NIL(forwarder.write(frame(static_cast<float>(i))));
+    server->allow(1);
+    ASSERT_EVENTUALLY_EQ(warnings->size(), 1);
+    EXPECT_EQ(warnings->at(0).first, "Falling behind the Core");
+    server->allow(2);
+    ASSERT_EVENTUALLY_EQ(server->written.load(), 3);
+    EXPECT_EQ(warnings->size(), 1);
+    server->allow(1);
+    ASSERT_EVENTUALLY_EQ(warnings->size(), 2);
+    EXPECT_EQ(warnings->at(1).first, "");
+    for (int i = 0; i < 5; i++)
+        ASSERT_NIL(forwarder.write(frame(static_cast<float>(i))));
+    server->allow(1);
+    ASSERT_EVENTUALLY_EQ(warnings->size(), 3);
+    EXPECT_EQ(warnings->at(2).first, "Falling behind the Core");
+    server->allow(100);
+    ASSERT_NIL(forwarder.close());
+    ASSERT_EQ(warnings->size(), 4);
+    EXPECT_EQ(warnings->at(3).first, "");
+    ASSERT_EQ(forwarder.dropped(), 0);
+}
+
+/// @brief it should report the count of dropped frames at most once per interval, and
+/// keep it after the queue drains, until the forwarder closes.
+TEST(ForwarderTest, ReportsDroppedFramesAtMostOncePerInterval) {
+    const auto server = std::make_shared<GatedFactory>();
+    const auto warnings = std::make_shared<Warnings>();
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {.max_queue_bytes = 4 * FRAME_SIZE,
+         .drop_report_interval = x::telem::HOUR,
+         .warn = record(warnings)}
+    );
+    for (int i = 0; i < 5; i++)
+        ASSERT_NIL(forwarder.write(frame(static_cast<float>(i))));
+    ASSERT_EQ(forwarder.dropped(), 1);
+    server->allow(1);
+    const auto last = [&] { return warnings->at(warnings->size() - 1); };
+    ASSERT_EVENTUALLY_EQ(server->written.load(), 1);
+    ASSERT_EVENTUALLY_EQ(last().first, "Dropped frames");
+    EXPECT_EQ(
+        last().second,
+        "Dropped 1 frame because the Core could not take them fast enough."
+    );
+    const auto reports = warnings->size();
+    for (int i = 0; i < 2; i++)
+        ASSERT_NIL(forwarder.write(frame(static_cast<float>(i))));
+    ASSERT_EQ(forwarder.dropped(), 2);
+    server->allow(2);
+    ASSERT_EVENTUALLY_EQ(server->written.load(), 3);
+    EXPECT_EQ(warnings->size(), reports);
+    server->allow(100);
+    ASSERT_EVENTUALLY_EQ(server->written.load(), 5);
+    ASSERT_NIL(forwarder.write(frame(0)));
+    ASSERT_EVENTUALLY_EQ(server->written.load(), 6);
+    EXPECT_EQ(last().first, "Dropped frames");
+    ASSERT_NIL(forwarder.close());
+    EXPECT_EQ(last().first, "");
 }
 }
