@@ -625,7 +625,10 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				Channel: channelSvc,
 				ICD:     icdSvc,
 			})).Stores(),
-			MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db})).Stores(),
+			MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
+				DB:     db,
+				Status: statusSvc,
+			})).Stores(),
 			MustOpen(modbus.OpenService(ctx, modbus.ServiceConfig{DB: db})).Stores(),
 			MustOpen(ni.OpenService(ctx, ni.ServiceConfig{
 				DB:     db,
