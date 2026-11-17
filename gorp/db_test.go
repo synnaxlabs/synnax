@@ -116,6 +116,31 @@ var _ = Describe("DB", func() {
 			Eventually(opened).Should(Receive(BeNil()))
 		})
 
+		It("Should warn once when a table open waits long for Run", func(
+			ctx SpecContext,
+		) {
+			core, logs := observer.New(zap.WarnLevel)
+			ins := alamos.New("gorp", alamos.WithLogger(MustSucceed(
+				alamos.NewLogger(alamos.LoggerConfig{ZapLogger: zap.New(core)}),
+			)))
+			runDB = DeferClose(gorp.Wrap(
+				memkv.New(),
+				gorp.WithCodec(msgpack.Codec),
+				gorp.WithInstrumentation(ins),
+			))
+			opened := make(chan error, 1)
+			go func() {
+				_, err := openTable(ctx)
+				opened <- err
+			}()
+			Consistently(opened, 600*time.Millisecond).ShouldNot(Receive())
+			StartRun(runDB.Run)
+			Eventually(opened).Should(Receive(BeNil()))
+			Expect(logs.FilterMessage(
+				"gorp table open waited long for DB.Run to start",
+			).Len()).To(Equal(1))
+		})
+
 		It(
 			"Should fail to open a table with indexes when its context ends before Run "+
 				"starts, and leave its indexes unused",
