@@ -11,19 +11,10 @@ import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 
-import { useCreateRead } from "@/feature/kafka/task/Read";
 import { useCreateWrite } from "@/feature/kafka/task/Write";
 import { Command } from "@/platform/command";
 
 const useVisible = () => Access.useCreateGranted(task.TYPE_RESOURCE_ID);
-
-const CreateReadCommand = Command.create({
-  key: "kafka_create_read_task",
-  name: "Create Kafka read task",
-  icon: <Icon.Logo.Kafka />,
-  useOnSelect: useCreateRead,
-  useVisible,
-});
 
 const CreateWriteCommand = Command.create({
   key: "kafka_create_write_task",
@@ -33,4 +24,4 @@ const CreateWriteCommand = Command.create({
   useVisible,
 });
 
-export const COMMANDS = [CreateReadCommand, CreateWriteCommand];
+export const COMMANDS = [CreateWriteCommand];
