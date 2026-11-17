@@ -169,9 +169,10 @@ The schematic cutover ships in one release:
   "Replace with..." merges them later. When a list repeats a value, the first entry
   stays.
 - Phase 22 adds the function that turns a state list into an enum, and gives each
-  `select` and `state_indicator` an `enum` key for its `options`. The RFC 0114 phase 2
-  node migration calls the function to give a state binding an `enum` key when its node
-  had its own state list, `state_overrides`, or `on_color`. The old fields are removed.
+  `select` and `state_indicator` an `enum` key for its `options`, which it removes. The
+  RFC 0114 phase 2 node migration, which merges after phase 22, calls the function to
+  give a state binding an `enum` key when its node had its own state list,
+  `state_overrides`, or `on_color`, and removes those fields.
 - In a custom symbol, RFC 0114 phase 1 made each state index a value with default 0, and
   each region color a `color` look on that value. The first stroke or fill whose color
   changes between values sets the entry colors. Each stroke or fill whose colors equal
