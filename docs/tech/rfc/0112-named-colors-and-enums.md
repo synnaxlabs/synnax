@@ -126,13 +126,16 @@ and bounds. An edit to a built-in enum changes every symbol that uses it by defa
 Each state stores its match: `exact`, or `band`, which reads a value inside the band as
 1 and keeps other values. The migration writes the band 0.9 to 1.1 on every toggle
 (`DEFAULT_THRESHOLD`, `pluto/src/schematic/node/common/telem/telem.ts:16`), and a node
-can change it. Each enum state names a default entry, such as Closed on a valve. A value
-that matches no entry, such as NaN or 0.5, and a state with no data yet, draw the
-default entry, and Pluto adds the unknown mark. A 0 still shows its entry. Stale data
-keeps its entry and gets the stale mark, not a color.
+can change it. Each enum state names the value of a default entry, such as Closed on a
+valve. A value that matches no entry, such as NaN or 0.5, and a state with a source but
+no data yet, draw the default entry, and Pluto adds the unknown mark. A 0 still shows
+its entry, and a state with no source draws its default entry with no mark. When no
+entry has the default value, `entry` paint goes on to the symbol color. Stale data keeps
+its entry and gets the stale mark. `staleness_color` leaves `StalenessConfig` with no
+migration, for every symbol.
 
-The light gets the built-in "Light" enum (Off 0, On 1). Its threshold becomes its match,
-its `stroke_color` becomes the symbol color, and its `staleness_color` goes.
+The light gets the built-in "Light" enum (Off 0, On 1). Its threshold, or 0.9 to 1.1
+when it has none, becomes its band, and its `stroke_color` becomes the symbol color.
 
 ### 4.4 Series colors
 
@@ -214,7 +217,7 @@ needs RFC 0114 phase 1.
 | 15    | Add enums to the clients and Pluto queries               | `client/ts`, `client/py`, `pluto/src/enum`                                          | 14             |
 | 16    | Add the Console enum editor with its checks              | `console/src/feature/enum`                                                          | 9, 15          |
 | 17    | Add Replace with for enums                               | `core/pkg/api/enum`, `console/src/feature/enum`                                     | 1, 16          |
-| 18    | Draw stale and unknown marks instead of colors           | `pluto/src/schematic`                                                               | -              |
+| 18    | Draw stale and unknown marks instead of colors           | `pluto/src/schematic`, `schemas/synnax`, `console/src/feature/schematic`            | -              |
 | 19    | Add enum references to symbol states                     | `schemas/synnax`, `core/pkg/service/schematic/symbol`                               | 13             |
 | 20    | Draw entry paint in Pluto                                | `pluto/src/schematic`                                                               | 15, 19         |
 | 21    | Add the enum picker to the symbol forms                  | `console/src/feature/schematic`                                                     | 16, 19         |
@@ -228,9 +231,12 @@ needs RFC 0114 phase 1.
 | 29    | Store color references in range colors                   | `schemas/synnax`, `core/pkg/service/ranger`, `client/ts`, `client/py`, `driver/arc` | 3, 24          |
 | 30    | Store color references in panel colors                   | `schemas/synnax`, `core/pkg/service/panel`, `client/ts`, `client/py`                | 3, 24          |
 
-Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. RFC 0114 phase 1
-stores a `color.Ref` in custom symbol looks from the start. In phase 29, the Driver
-writes range colors (`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
+Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. Phase 18 removes
+`staleness_color`. Until phase 20, a select or state indicator whose value matches no
+state keeps today's look, its symbol color and the "Unknown" label, and gets the unknown
+mark. RFC 0114 phase 1 stores a `color.Ref` in custom symbol looks from the start. In
+phase 29, the Driver writes range colors (`driver/arc/ranges/ranges.h:46-52`) as
+`fixed`.
 
 ## 7 Resolved decisions
 
@@ -240,8 +246,8 @@ writes range colors (`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
 2. **A required light value and an optional dark value**: The band cannot rotate hue;
    yellow goes olive when only darkened (`lyra/src/theme/theme.ts:189-190`). The trade
    is real: a dark value deviates from RFC 0061 rule 4.
-3. **A node stores only its enum**: A per-state or per-look override brings the copies
-   back.
+3. **A node stores no look and no state color**: A per-state or per-look override brings
+   the copies back.
 4. **A default entry and an unknown mark**: A symbol always shows a real state, and
    Pluto's mark keeps the fault in view on every screen. A Core-wide unknown look showed
    no state at all. The trade is real: apart from its mark, bad data looks like the
@@ -286,8 +292,8 @@ writes range colors (`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
     channel cannot drive an enum.
 17. **The default enum is on the symbol state**: A setting for each symbol is a second
     place for the same fact.
-18. **Consolidation before the cutover**: The cutover then changes 3 behaviors, not each
-    variant.
+18. **The cutover ships with the consolidation**: One node migration then writes the new
+    variant and its enum keys, not one migration for each old variant.
 19. **The union is `color.Ref` and the record is `color.Named`**: A fixed variant is not
     a swatch, and the `named` variant names a `color.Named`. The trade is real: the
     Synnax `color` schema shares its name with the x value type, so Oracle aliases one
