@@ -43,6 +43,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
+	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
@@ -56,6 +57,9 @@ const (
 	testType = pagerduty.AlertTaskType
 	// namedType is a task type whose config hook records the task name it receives.
 	namedType = "named"
+	// watchedType is a task type whose config hash covers the message of the status
+	// that its device field names.
+	watchedType = "watched"
 )
 
 // routingKey1 and routingKey2 are secret keys for the routing keys of alert configs.
@@ -165,11 +169,50 @@ var _ = Describe("Task", Ordered, func() {
 				},
 			}),
 		)
+		watched := MustOpen(
+			config.OpenService(ctx, config.ServiceConfig[kafka.WriteConfig]{
+				DB:          db,
+				Type:        watchedType,
+				Ladder:      kafkaversions.WriteConfigLadder,
+				SetEntryKey: (*kafka.WriteConfig).SetKey,
+				PatchEntry:  (*kafka.WriteConfig).Patch,
+				HashEntry:   (*kafka.WriteConfig).HashContent,
+				References: []gorp.Reference[uuid.UUID, kafka.WriteConfig]{
+					gorp.NewKeyReference(
+						gorp.KeyReferenceConfig[uuid.UUID, kafka.WriteConfig, string]{
+							Name:     "device",
+							Table:    "status",
+							OnDelete: gorp.Restrict,
+							Kind:     gorp.Use,
+							Targets: func(c *kafka.WriteConfig) []string {
+								return []string{string(c.Device)}
+							},
+						},
+					),
+				},
+				HashReferences: func(
+					ctx context.Context,
+					snap gorp.Snapshot,
+					c *kafka.WriteConfig,
+					h *content.Hash,
+				) error {
+					var st status.Status[any]
+					if err := stat.NewRetrieve[any]().
+						Where(status.MatchKeys[any](string(c.Device))).
+						Entry(&st).
+						Exec(ctx, snap); err != nil {
+						return err
+					}
+					h.String(st.Message)
+					return nil
+				},
+			}),
+		)
 		configs = MustSucceed(config.NewRegistry(slices.Concat(
 			pd.Stores(),
 			at.Stores(),
 			lj.Stores(),
-			[]config.Store{named},
+			[]config.Store{named, watched},
 		)...))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:      db,
@@ -1037,6 +1080,59 @@ var _ = Describe("Task", Ordered, func() {
 				set([]string{"config"}, stored.Config),
 				set([]string{"config_hash"}, stored.ConfigHash),
 			}))
+		})
+
+		Describe("A write to a record that a config uses", func() {
+			var watched *task.Task
+			setWatched := func(ctx context.Context, message string) {
+				GinkgoHelper()
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return stat.NewWriter(tx).Set(ctx, &status.Status[any]{
+						Key:     "st-watch",
+						Name:    "st-watch",
+						Message: message,
+						Variant: status.VariantInfo,
+						Time:    telem.Now(),
+					})
+				})).To(Succeed())
+			}
+			BeforeEach(func(ctx SpecContext) {
+				setWatched(ctx, "a")
+				watched = &task.Task{
+					Type:   watchedType,
+					Rack:   testRack.Key,
+					Name:   "Watched",
+					Config: msgpack.EncodedJSON{"device": "st-watch"},
+				}
+				createCommitted(ctx, watched)
+			})
+
+			It("Should store and broadcast the new config hash", func(
+				ctx SpecContext,
+			) {
+				frames := collect()
+				setWatched(ctx, "b")
+				stored := retrieve(ctx, watched.Key)
+				Expect(stored.ConfigHash).ToNot(Equal(watched.ConfigHash))
+				Expect(stored.ConfigHash).To(Equal(MustSucceed(
+					MustBeOk(configs.Store(watchedType)).Hash(ctx, db, watched.Key),
+				)))
+				Expect(*frames).To(HaveLen(1))
+				Expect((*frames)[0].Key).To(Equal(watched.Key))
+				Expect((*frames)[0].Actions).To(Equal([]task.Action{
+					set([]string{"config_hash"}, stored.ConfigHash),
+				}))
+			})
+
+			It("Should not broadcast when the config hash does not change", func(
+				ctx SpecContext,
+			) {
+				frames := collect()
+				setWatched(ctx, "a")
+				Expect(retrieve(ctx, watched.Key).ConfigHash).
+					To(Equal(watched.ConfigHash))
+				Expect(*frames).To(BeEmpty())
+			})
 		})
 	})
 
