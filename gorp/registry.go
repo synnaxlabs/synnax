@@ -32,11 +32,12 @@ type registeredTable interface {
 	// detach removes or inlines the targets of ops in the entry with the text key k and
 	// writes it back as a detach.
 	detach(ctx context.Context, tx Tx, k string, ops []detachOp) error
-	// watchesTargets reports whether the table runs a hook when a target of its entries
-	// is set.
-	watchesTargets() bool
-	// targetSet runs the hook of the table for the entry with the text key k.
-	targetSet(ctx context.Context, tx Tx, k string) error
+	// watches reports whether the table runs a hook when an entry of the table named
+	// table that its entries hold is set.
+	watches(table string) bool
+	// targetSet runs the hook of the table for a set of an entry of the table named
+	// table, with the entry of the text key k.
+	targetSet(ctx context.Context, tx Tx, k, table string) error
 }
 
 // registeredReference is the part of a Reference that the delete walk reaches.
@@ -207,7 +208,7 @@ func (r *registry) dependents(
 }
 
 // watchers returns the Use references to the table named table whose owner tables
-// watch their targets.
+// watch it.
 func (r *registry) watchers(table string) []registeredReference {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -216,7 +217,7 @@ func (r *registry) watchers(table string) []registeredReference {
 		if ref.linkKind() != Use {
 			continue
 		}
-		if t, ok := r.tables[ref.ownerTable()]; ok && t.watchesTargets() {
+		if t, ok := r.tables[ref.ownerTable()]; ok && t.watches(table) {
 			out = append(out, ref)
 		}
 	}
@@ -241,7 +242,7 @@ func (r *registry) targetSet(
 			return err
 		}
 		for _, k := range keys {
-			if err = owner.targetSet(ctx, tx, k); err != nil {
+			if err = owner.targetSet(ctx, tx, k, target.Table); err != nil {
 				return err
 			}
 		}
