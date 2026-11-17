@@ -60,10 +60,11 @@ The Driver writes the
 [state file](/reference/enterprise/driver/configuration#state-file) at each start, so
 its directory must be writable. Put the directory on a volume:
 
-- The Driver creates a missing directory with mode `0700`. It does not change the mode
-  or owner of a directory that exists, such as a volume mount. Create the directory with
-  the owner and mode you want before the Driver starts, and make sure the user of the
-  Driver can write to it.
+- With `--state-file`, the Driver creates a missing directory with mode `0700`. It does
+  not change the mode or owner of a directory that exists, such as a volume mount.
+  Without the flag, the Driver treats the default directory as its own and changes its
+  mode, so always give the flag. Create the directory with the owner and mode you want
+  before the Driver starts, and make sure the user of the Driver can write to it.
 - The Driver sets the state file to mode `0600` at each start.
 - The directory and the file cannot be symbolic links. Do not mount the state file from
   a Kubernetes Secret or ConfigMap.
