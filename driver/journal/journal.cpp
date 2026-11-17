@@ -20,6 +20,9 @@
 
 namespace driver::journal {
 namespace {
+constexpr std::uint8_t OFFSET_TYPE = 1;
+constexpr std::uint32_t OFFSET_SIZE = 16;
+
 template<std::integral T>
 void put(std::string &buf, const T value) {
     const auto bytes = x::binary::to_little_endian(value);
@@ -250,5 +253,68 @@ std::uint64_t Reader::pos() const {
 
 std::uint64_t Reader::cut() const {
     return this->cut_bytes;
+}
+
+std::pair<std::optional<Offset>, x::errors::Error>
+read_offset(const std::filesystem::path &path, const Magic &magic) {
+    std::error_code ec;
+    if (!std::filesystem::exists(path, ec)) {
+        if (ec) return {std::nullopt, fs_error("failed to stat " + path.string(), ec)};
+        return {std::nullopt, x::errors::NIL};
+    }
+    auto [reader, err] = Reader::open(
+        {.path = path, .magic = magic, .types = {OFFSET_TYPE}}
+    );
+    if (err) return {std::nullopt, err};
+    auto [record, r_err] = reader->next();
+    if (r_err) return {std::nullopt, r_err};
+    if (!record || record->payload.size() != OFFSET_SIZE)
+        return {std::nullopt, x::errors::Error(CORRUPT, path.string())};
+    // The file is renamed into place whole, so any bytes after the record are corrupt.
+    auto [extra, e_err] = reader->next();
+    if (e_err || extra || reader->cut() > 0)
+        return {std::nullopt, x::errors::Error(CORRUPT, path.string())};
+    return {
+        Offset{
+            .segment = get<std::uint64_t>(record->payload.data()),
+            .pos = get<std::uint64_t>(record->payload.data() + 8),
+        },
+        x::errors::NIL
+    };
+}
+
+x::errors::Error commit_offset(
+    const std::filesystem::path &path,
+    const Magic &magic,
+    const Offset &offset
+) {
+    Record record{.type = OFFSET_TYPE};
+    put(record.payload, offset.segment);
+    put(record.payload, offset.pos);
+    auto buf = encode_header(magic, 0);
+    encode_record(buf, record);
+    return create(path, buf);
+}
+
+x::errors::Error remove(const std::filesystem::path &path) {
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    if (ec) return fs_error("failed to remove " + path.string(), ec);
+    const auto dir = path.parent_path();
+    return sync_dir(dir.empty() ? "." : dir);
+}
+
+Lock::Lock(std::unique_ptr<File> file): file(std::move(file)) {}
+
+Lock::~Lock() = default;
+
+std::pair<std::unique_ptr<Lock>, x::errors::Error>
+Lock::open(const std::filesystem::path &dir) {
+    auto [file, err] = File::open(dir / "LOCK");
+    if (err) return {nullptr, err};
+    if (err = file->lock(); err.matches(LOCKED))
+        return {nullptr, x::errors::Error(LOCKED, dir.string() + " is in use")};
+    if (err) return {nullptr, err};
+    return {std::unique_ptr<Lock>(new Lock(std::move(file))), x::errors::NIL};
 }
 }
