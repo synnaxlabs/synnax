@@ -238,8 +238,8 @@ public:
     /// @brief the host clock that the reference clock of host_dc_offset and
     /// latch_receive_times run on.
     x::loop::HostClock clock;
-    /// @brief when set, each send_processdata sets the DC time to the clock time plus
-    /// this, in nanoseconds, like a reference clock that runs on.
+    /// @brief when set, each frame carries the clock time of its send plus this, in
+    /// nanoseconds, like a reference clock that runs on. Its receive sets the DC time.
     std::optional<int64_t> host_dc_offset;
     /// @brief the number of latch_receive_times calls.
     int latch_count = 0;
