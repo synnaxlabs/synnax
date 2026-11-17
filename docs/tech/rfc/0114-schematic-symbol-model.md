@@ -290,12 +290,12 @@ clicks. One Pluto function sends every write, from the node and the command key.
 clickable built-in has one enumeration state, `active`, which is 0 at rest and 1 when
 driven, and its built-in enumeration names the two values. Its two `fixed` commands are
 `deactivate`, which writes 0, and `activate`, which writes 1, named to match, such as
-Close and Open. A tank has the number state `level` and the command `set`, which asks.
-"Change symbol" between any two clickable built-ins keeps their channels. The Core's
-code lists each built-in symbol by name, with its state keys and types, and its command
-keys with the state that each targets, and a read-only route returns the list. Pluto
-keeps the drawings. A shipped key never changes, and a shipped built-in name never
-changes.
+Close and Open. When `tank` moves into `symbol` (§4.0), it gets the number state `level`
+and the command `set`, which asks, and joins the Core list then. "Change symbol" between
+any two clickable built-ins keeps their channels. The Core's code lists each built-in
+symbol by name, with its state keys and types, and its command keys with the state that
+each targets, and a read-only route returns the list. Pluto keeps the drawings. A
+shipped key never changes, and a shipped built-in name never changes.
 
 ### 4.4 Edits and customization
 
