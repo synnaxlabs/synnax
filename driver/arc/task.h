@@ -417,12 +417,14 @@ public:
     bool stop(const std::string &cmd_key, const bool propagate_state) {
         auto control_stopped = true;
         if (this->control) control_stopped = this->control->stop();
+        const auto calc_err = this->calculator.reset();
         this->runtime->close_outputs();
         auto acq_stopped = true;
         if (this->acquisition) acq_stopped = this->acquisition->stop();
         const auto runtime_stopped = this->runtime->stop();
         if (this->rt_handle != nullptr) this->rt_handle->release();
         std::lock_guard lock(this->state_mu);
+        if (calc_err) this->state.error(calc_err, "Failed to reset calculations");
         // A start the streamer never answered still needs its reply.
         for (const auto &key: this->pending_starts)
             this->state.ack(key, false);

@@ -126,6 +126,20 @@ TEST_F(CalculatorTest, WaitsForMissingInputs) {
     ASSERT_EQ(second.at<int64_t>(calc.key, 0), 7);
 }
 
+/// @brief it should compute only from the inputs it read since the last reset.
+TEST_F(CalculatorTest, ResetDropsEarlierInputs) {
+    const auto a = this->create_base("calc_a");
+    const auto b = this->create_base("calc_b");
+    const auto calc = this->create_calculated("calc_sum", a.name + " + " + b.name);
+    auto calculator = this->load(calc);
+    x::telem::Frame first(a.key, x::telem::Series(static_cast<int64_t>(3)));
+    calculator.compute(first);
+    ASSERT_NIL(calculator.reset());
+    x::telem::Frame second(b.key, x::telem::Series(static_cast<int64_t>(4)));
+    calculator.compute(second);
+    ASSERT_FALSE(second.contains(calc.key));
+}
+
 /// @brief it should stream the base inputs in place of the calculated channels.
 TEST_F(CalculatorTest, StreamsBaseInputs) {
     const auto base = this->create_base("calc_base");
