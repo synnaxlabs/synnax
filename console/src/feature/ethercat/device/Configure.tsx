@@ -24,7 +24,11 @@ import { deep, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { clashMessage, findClash } from "@/feature/ethercat/device/identifier";
-import { formatLocation, suggestIdentifiers } from "@/feature/ethercat/device/location";
+import {
+  formatLocation,
+  slotZ,
+  suggestIdentifiers,
+} from "@/feature/ethercat/device/location";
 import { SetupNote } from "@/feature/ethercat/device/SetupNote";
 import { SlaveSettings } from "@/feature/ethercat/device/SlaveSettings";
 import { StartupParameters } from "@/feature/ethercat/device/StartupParameters";
@@ -284,6 +288,8 @@ const beforeSave = async ({
   return true;
 };
 
+const SLOT_FORMAT: PDevice.LocationFormat = { shape: "slot" };
+
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
@@ -292,7 +298,6 @@ const NAME_INPUT_PROPS = {
 } as const;
 
 const General = (): ReactElement => {
-  const location = Form.useFieldValue(path.location);
   const networkName =
     Form.useFieldValue(path.properties.networkName, { optional: true }) ?? undefined;
   const position = Form.useFieldValue(path.properties.position);
@@ -301,11 +306,6 @@ const General = (): ReactElement => {
   const ideas = suggestIdentifiers(slot);
   return (
     <Form.Section title="General">
-      <Input.Item label="Location" padHelpText={false}>
-        <Text.Text variant="code" className={CSS.BE("ethercat-configure", "location")}>
-          {formatLocation(location, slot)}
-        </Text.Text>
-      </Input.Item>
       <Form.TextField
         path={path.properties.identifier}
         label="Identifier"
@@ -362,6 +362,7 @@ export const Configure = ({
   });
   // Save sets configured, so the dialog keeps the slave as it was at open.
   const [opened] = useState(form.value);
+  const openedSlot = slotZ.parse(opened.properties);
   const checked = useRef(false);
   // The checks show the platform's messages in place of the stored schema's.
   useEffect(() => form.addCheck(path.name, Device.nameZ), [form]);
@@ -462,8 +463,17 @@ export const Configure = ({
         !shared && CSS.M("wide"),
       )}
     >
-      <Modal.Header icon={<Icon.Logo.EtherCAT />}>
-        {[opened.name, "Configure"]}
+      <Modal.Header
+        icon={<Icon.Logo.EtherCAT />}
+        badge={
+          <Device.LocationBadge
+            value={formatLocation(opened.location, openedSlot)}
+            // An older Driver names no network, so show only the slot of its location.
+            format={openedSlot.networkName == null ? SLOT_FORMAT : undefined}
+          />
+        }
+      >
+        {["Configure", opened.name]}
       </Modal.Header>
       <Modal.Body align="stretch" gap="large">
         <Form.Form<PDevice.FormSchema<typeof SLAVE_SCHEMAS>> {...form}>

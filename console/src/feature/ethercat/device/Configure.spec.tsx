@@ -284,9 +284,9 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
     expect(identifierInput().value).toEqual("e2_s3");
   });
 
-  it("should show the location and suggest only slot identifiers when the Driver names no network", async () => {
+  it("should show the slot and suggest only slot identifiers when the Driver names no network", async () => {
     await setup({ position: 3 });
-    expect(screen.getByText("test-location")).toBeTruthy();
+    expect(screen.getByText("Slot 3")).toBeTruthy();
     findButton("s3");
     findButton("slot3");
     expect(screen.queryByRole("button", { name: /_s3$/ })).toBeNull();
