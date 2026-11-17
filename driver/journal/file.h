@@ -61,7 +61,7 @@ x::errors::Error
 replace(const std::filesystem::path &from, const std::filesystem::path &to);
 
 /// @brief writes a file at path with data, and replaces an existing file. A crash
-/// leaves the old file or the new one. A failure or a crash can leave a temp file
-/// named `<path>.tmp.<n>`. Returns after the new file is on the disk.
+/// leaves the old file or the new one, and can leave a temp file named
+/// `<path>.tmp.<n>`. Returns after the new file is on the disk.
 x::errors::Error create(const std::filesystem::path &path, std::string_view data);
 }

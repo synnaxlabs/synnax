@@ -9,22 +9,33 @@
 
 #include <random>
 #include <string>
+#include <system_error>
 
 #include "driver/journal/file.h"
 
 namespace driver::journal {
+namespace {
+x::errors::Error
+write_synced(const std::filesystem::path &path, std::string_view data) {
+    auto [file, err] = File::open(path);
+    if (err) return err;
+    if (err = file->truncate(0); err) return err;
+    if (err = file->write(data); err) return err;
+    return file->sync();
+}
+}
+
 x::errors::Error
 create(const std::filesystem::path &path, const std::string_view data) {
     auto tmp = path;
     tmp += ".tmp." + std::to_string(std::random_device()());
-    {
-        auto [file, err] = File::open(tmp);
-        if (err) return err;
-        if (err = file->truncate(0); err) return err;
-        if (err = file->write(data); err) return err;
-        if (err = file->sync(); err) return err;
+    auto err = write_synced(tmp, data);
+    if (!err) err = replace(tmp, path);
+    if (err) {
+        std::error_code ec;
+        std::filesystem::remove(tmp, ec);
+        return err;
     }
-    if (auto err = replace(tmp, path)) return err;
     const auto dir = path.parent_path();
     return sync_dir(dir.empty() ? "." : dir);
 }

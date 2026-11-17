@@ -124,4 +124,27 @@ TEST_F(FileTest, LockIsExclusive) {
     first.reset();
     ASSERT_NIL(second->lock());
 }
+
+/// @brief it should let another handle read a file while it is locked.
+TEST_F(FileTest, LockDoesNotBlockReads) {
+    const auto path = this->dir / "a";
+    const auto file = ASSERT_NIL_P(File::open(path));
+    ASSERT_NIL(file->write("data"));
+    ASSERT_NIL(file->lock());
+    EXPECT_EQ(read_file(path), "data");
+}
+
+/// @brief it should remove its temp file when it fails.
+TEST_F(FileTest, CreateRemovesTempFileOnFailure) {
+    const auto path = this->dir / "a";
+    std::filesystem::create_directories(path / "child");
+    ASSERT_OCCURRED_AS(create(path, "data"), BASE_ERROR);
+    EXPECT_EQ(
+        std::distance(
+            std::filesystem::directory_iterator(this->dir),
+            std::filesystem::directory_iterator()
+        ),
+        1
+    );
+}
 }
