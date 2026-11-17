@@ -29,8 +29,6 @@ export const READ_TYPE = `${PREFIX}_read`;
 
 export interface ReadRecord extends kafka.ReadRecord {}
 
-export interface ReadBinding extends kafka.ReadBinding {}
-
 export type StartOffset = kafka.StartOffset;
 
 // The Core skips disabled records, so they may share a key with an enabled one.

@@ -12,7 +12,7 @@ import "@/feature/kafka/task/Task.css";
 import {
   channel,
   DisconnectedError,
-  icd,
+  type icd,
   kafka,
   type Synnax,
   ValidationError,
@@ -22,23 +22,17 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
-import { Access, Channel, ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, type payload, type record, unique, uuid } from "@synnaxlabs/x";
+import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { DataType, deep, type record, unique, uuid } from "@synnaxlabs/x";
 import {
-  createContext,
   type Dispatch,
   type FC,
-  type PropsWithChildren,
-  type ReactElement,
   type SetStateAction,
-  useContext,
-  useEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -59,7 +53,6 @@ import {
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { ICD } from "@/platform/icd";
-import { Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -70,12 +63,6 @@ const DEFAULT_NAME = "Kafka read task";
 const ANY_KEY = "Any key";
 
 const recordPath = (key: string) => root.config.records[key];
-
-/** The form that edits the ICD holding the message formats of a record. */
-type FormatForm = ReturnType<typeof PICD.useForm>["form"];
-
-/** The messages of each ICD, by ICD key. */
-type Messages = Map<icd.Key, icd.Message[]>;
 
 const SELECT_TRIGGER_PROPS = { className: CSS.BE("kafka-select", "trigger") };
 
@@ -131,43 +118,13 @@ const Properties = () => (
   </>
 );
 
-const isVariable = ({ type }: icd.JSONField): boolean =>
-  new DataType(ICD.DEFAULT_DATA_TYPES[type]).isVariable;
-
-/**
- * The fields of a message share one index, which a variable-length channel cannot have.
- * @returns the variable-length fields among fields that also hold fixed ones.
- */
-const variableAmongFixed = (fields: icd.JSONField[]): icd.JSONField[] =>
-  fields.every(isVariable) ? [] : fields.filter(isVariable);
-
-const mixMessage = (fields: icd.JSONField[]): string =>
-  `${fields.map(({ name }) => name).join(", ")}: a string, JSON, or bytes field cannot share a message with number, boolean, or timestamp fields.`;
-
-const jsonFields = (message?: icd.Message | null): icd.JSONField[] =>
-  message?.payload.format === "json" ? message.payload.fields : [];
-
-/** @returns the fields that a read gives channels: the bound ones and the index. */
-const readFields = (
-  fields: icd.JSONField[],
-  { index, bindings }: Pick<kafka.ReadMessage, "index" | "bindings">,
-): icd.JSONField[] =>
-  fields.filter(
-    ({ key }) => key === index || bindings.some(({ field }) => field === key),
-  );
-
 /** @returns a message that the record reads, from the record's own ICD. */
 const messageOf = (
-  messages: Messages,
+  messages: ICD.Messages,
   rec: ReadRecord,
   read: number,
 ): icd.Message | undefined =>
   messages.get(rec.icd)?.find(({ key }) => key === rec.messages.at(read)?.message);
-
-const retrieveMessages = async (client: Synnax, keys: icd.Key[]): Promise<Messages> => {
-  const icds = await client.icds.retrieve(unique.unique(keys));
-  return new Map(icds.map(({ key, messages }) => [key, messages]));
-};
 
 /** @returns the record key, or a stand-in for a record that reads any key. */
 const recordLabel = ({ recordKey }: Pick<ReadRecord, "recordKey">): string =>
@@ -188,9 +145,6 @@ const messagePrefix = (
   if (recordKey !== "") prefix += `_${channel.escapeInvalidName(recordKey)}`;
   return read === 0 ? prefix : `${prefix}_${channel.escapeInvalidName(name)}`;
 };
-
-const fieldsPath = (key: icd.MessageKey) =>
-  deep.variant(PICD.formPath.messages[key].payload, "format", "json").fields;
 
 /** @returns base, numbered from 2 until no message of the ICD has the name. */
 const uniqueName = (base: string, taken: icd.Message[]): string => {
@@ -213,76 +167,13 @@ const recordOf = (icdKey: icd.Key, message: icd.MessageKey): ReadRecord =>
 /** @returns the name of the ICD of a task named name. */
 const icdName = (name: string): string => (name.trim() === "" ? DEFAULT_NAME : name);
 
-/** @returns whether the Core can read the field: a bytes field needs a pointer. */
-const isReadable = ({ type, pointer }: icd.JSONField): boolean =>
-  type !== "bytes" || pointer !== "";
-
-const isIndexable = (field?: icd.JSONField): boolean =>
-  field?.type === "timestamp" && field.default == null;
-
-/**
- * @returns read, changed to suit the fields of its message: no binding of a field that
- * is gone or that the Core cannot read, no data type that its field cannot convert to,
- * and no index that is not a timestamp field. An index field with a default stays, for
- * its error to show.
- */
-const suit = (read: kafka.ReadMessage, fields: icd.JSONField[]): kafka.ReadMessage => {
-  const byKey = new Map(fields.map((f) => [f.key, f]));
-  const indexField = read.index == null ? undefined : byKey.get(read.index);
-  const index = indexField?.type === "timestamp" ? read.index : undefined;
-  const bindings = read.bindings.flatMap((b) => {
-    const field = byKey.get(b.field);
-    // The binding of a former index field writes to an index channel.
-    if (
-      field == null ||
-      !isReadable(field) ||
-      (b.field === read.index && index == null)
-    )
-      return [];
-    if (b.dataType === "" || ICD.converts(field.type, b.dataType)) return [b];
-    return [{ ...b, dataType: "" }];
-  });
-  return { message: read.message, ...(index == null ? {} : { index }), bindings };
-};
-
-/**
- * @returns read, indexed on the field of next, or stamped by Kafka when next is
- * undefined. A new index field keeps the index channel of the old one.
- */
-const reindex = (
-  read: kafka.ReadMessage,
-  next: string | undefined,
-): kafka.ReadMessage => {
-  const indexChannel =
-    read.bindings.find(({ field }) => field === read.index)?.channel ?? 0;
-  const bindings = read.bindings.filter(
-    ({ field }) => field !== read.index && field !== next,
-  );
-  if (next == null) return { message: read.message, bindings };
-  const binding = kafka.readBindingZ.parse({ field: next, channel: indexChannel });
-  return { message: read.message, index: next, bindings: [...bindings, binding] };
-};
-
-/** The open forms of the ICDs that the task's records read, by ICD key. */
-type Formats = ReadonlyMap<icd.Key, FormatForm>;
-
-const FormatsContext = createContext<Formats>(new Map());
-FormatsContext.displayName = "Kafka.FormatsContext";
-
-/** @returns the open form of an ICD that a record reads. */
-const formatOf = (formats: Formats, key: icd.Key): FormatForm => {
-  const format = formats.get(key);
-  if (format == null) throw new Error(`The form of ICD ${key} is not open`);
-  return format;
-};
-
 /** @returns the prefix of the channel names of a message, current with its name. */
 const usePrefix = (
   deviceName: string,
   path: deep.Path<ReadRecord>,
   read: number,
 ): string => {
-  const formats = useContext(FormatsContext);
+  const formats = ICD.useFormats();
   const topic = PForm.useFieldValue(root.config.topic);
   const recordKey = PForm.useFieldValue(path.recordKey);
   const icdKey = PForm.useFieldValue(path.icd);
@@ -293,146 +184,6 @@ const usePrefix = (
   });
   return messagePrefix(deviceName, topic, recordKey, read, name ?? "");
 };
-
-interface TimestampFieldsProps {
-  path: deep.Path<ReadRecord>;
-  /** The index of the message in the record's reads. */
-  read: number;
-  /** The fields of the message format. */
-  fields: icd.JSONField[];
-  device: Device;
-}
-
-type TimingMode = "kafka" | "payload";
-
-/** Picks where each sample of a message gets its time. */
-const TimestampFields: FC<TimestampFieldsProps> = ({ path, read, fields, device }) => {
-  const { get, set } = PForm.useContext();
-  const readPath = path.messages[read];
-  const held = PForm.useFieldValue(readPath.index, { optional: true });
-  const bindings = PForm.useFieldValue(readPath.bindings);
-  const recordDisabled = PForm.useFieldValue(path.disabled);
-  const prefix = usePrefix(device.name, path, read);
-  const indexBinding = bindings.find(({ field }) => field === held);
-  const timestamps = fields.filter(({ type }) => type === "timestamp");
-  const index = timestamps.find(({ key }) => key === held);
-  const setIndex = (next: string | undefined) =>
-    set(readPath, reindex(get(readPath).value, next));
-  const handleMode = (mode: TimingMode) =>
-    setIndex(mode === "payload" ? timestamps.at(0)?.key : undefined);
-  const invalid = index != null && !isIndexable(index);
-  return (
-    <>
-      <Input.Item
-        label="Source"
-        helpText={
-          timestamps.length === 0
-            ? "Give a field a timestamp type to read the time from the payload."
-            : undefined
-        }
-      >
-        <Select.Buttons<TimingMode>
-          value={index == null ? "kafka" : "payload"}
-          onChange={handleMode}
-        >
-          <Select.Item<TimingMode> itemKey="kafka">Kafka timestamp</Select.Item>
-          <Select.Item<TimingMode> itemKey="payload" disabled={timestamps.length === 0}>
-            Payload value
-          </Select.Item>
-        </Select.Buttons>
-      </Input.Item>
-      {index != null && (
-        <Input.Item
-          label="Field"
-          padHelpText={false}
-          helpText={
-            invalid
-              ? `${index.name} has a default, so it cannot be the index. Remove its default in the message format.`
-              : undefined
-          }
-          status={invalid ? "error" : undefined}
-        >
-          <Select.Simple<string>
-            value={index.key}
-            onChange={setIndex}
-            resourceName="field"
-            allowNone={false}
-          >
-            {timestamps.map(({ key, name }) => (
-              <Select.Item<string> key={key} itemKey={key}>
-                {name}
-              </Select.Item>
-            ))}
-          </Select.Simple>
-        </Input.Item>
-      )}
-      {indexBinding != null && (
-        <Task.ChannelNameField
-          channel={indexBinding.channel}
-          defaultName={`${prefix}_time`}
-          skipped={recordDisabled}
-        />
-      )}
-    </>
-  );
-};
-
-/** The data types that a channel of a field of each kind can take. */
-const hiddenDataTypes = (kind: payload.Kind): DataType[] =>
-  DataType.ALL.filter((dt) => !ICD.converts(kind, dt.toString()));
-
-const UNREADABLE_TOOLTIP =
-  "A bytes field needs a JSON pointer. Give it one in the message format.";
-
-interface UnbindProps {
-  path: deep.Target<channel.Key>;
-  kind: payload.Kind;
-  channel: channel.Key;
-}
-
-/**
- * Unbinds a channel that the field's kind can no longer convert to, so deploying
- * creates a new one.
- */
-const Unbind = ({ path, kind, channel: key }: UnbindProps) => {
-  const { set } = PForm.useContext();
-  const dataType = Channel.useResultDataType({ key }).data?.toString();
-  useEffect(() => {
-    if (dataType != null && !ICD.converts(kind, dataType)) set(path, 0);
-  }, [dataType, kind]);
-  return null;
-};
-
-interface WithFormatProps extends PropsWithChildren {
-  icdKey: icd.Key;
-}
-
-/** Opens the form of an ICD that a record reads. Each edit updates the ICD at once. */
-const WithFormat = ({ icdKey, children }: WithFormatProps): ReactElement => {
-  const isPreview = Task.useIsPreview();
-  const canEdit = Access.useUpdateGranted(icd.resourceID(icdKey));
-  const { form, flush } = PICD.useForm({
-    query: { key: icdKey },
-    mode: isPreview || !canEdit ? "preview" : "normal",
-  });
-  PICD.useCheck({ key: icdKey, form });
-  Task.useFlushBeforeDeploy(flush);
-  const formats = new Map(useContext(FormatsContext)).set(icdKey, form);
-  return <FormatsContext value={formats}>{children}</FormatsContext>;
-};
-
-/** @returns the fields of a message of an ICD. */
-const fieldsOf = (
-  formats: Formats,
-  icdKey: icd.Key,
-  message: icd.MessageKey,
-): icd.JSONField[] =>
-  jsonFields(
-    formats
-      .get(icdKey)
-      ?.value()
-      .messages.find(({ key }) => key === message),
-  );
 
 /** Starts or stops reading a field of a message. */
 const setRead = (
@@ -445,44 +196,12 @@ const setRead = (
   const path = recordPath(rec).messages[read].bindings;
   const bindings = ctx.get(path).value;
   const bound = bindings.some(({ field: key }) => key === field.key);
-  if (bound === on || (on && !isReadable(field))) return;
+  if (bound === on || (on && !ICD.isReadable(field))) return;
   ctx.set(
     path,
     on
       ? [...bindings, kafka.readBindingZ.parse({ field: field.key })]
       : bindings.filter(({ field: k }) => k !== field.key),
-  );
-};
-
-interface ReadCheckboxProps {
-  /** The key of the record. */
-  rec: string;
-  /** The index of the message in the record's reads. */
-  read: number;
-  field: icd.JSONField;
-}
-
-/** Reads the field into a channel, or stops reading it. */
-const ReadCheckbox: FC<ReadCheckboxProps> = ({ rec, read, field }) => {
-  const ctx = PForm.useContext();
-  const isPreview = Task.useIsPreview();
-  const bindings = PForm.useFieldValue(recordPath(rec).messages[read].bindings);
-  const bound = bindings.some(({ field: key }) => key === field.key);
-  const readable = isReadable(field);
-  let tooltip: string | undefined = bound ? "Disable" : "Enable";
-  if (isPreview) tooltip = undefined;
-  else if (!readable) tooltip = UNREADABLE_TOOLTIP;
-  return (
-    <Input.Checkbox
-      value={bound}
-      onChange={(on) => setRead(ctx, rec, read, field, on)}
-      checkedIcon={<Status.Indicator variant="success" />}
-      uncheckedIcon={<Status.Indicator variant="disabled" />}
-      size="small"
-      disabled={isPreview || !readable}
-      aria-label={`Read ${field.name}`}
-      tooltip={tooltip}
-    />
   );
 };
 
@@ -531,7 +250,7 @@ type Structure = [string, [icd.MessageKey, icd.JSONField[]][]][];
  * a node for each message when it reads several. The index field stays hidden, as the
  * timestamp section edits it.
  */
-const useIndex = (formats: Formats): Index => {
+const useIndex = (formats: ICD.Formats): Index => {
   const { bind, get } = PForm.useContext();
   const subscribe = (onChange: () => void) => {
     const unbinds = [
@@ -546,7 +265,7 @@ const useIndex = (formats: Formats): Index => {
         r.key,
         r.messages.map(({ message, index }) => [
           message,
-          fieldsOf(formats, r.icd, message).filter(({ key }) => key !== index),
+          ICD.fieldsOf(formats, r.icd, message).filter(({ key }) => key !== index),
         ]),
       ]),
     );
@@ -607,29 +326,6 @@ const RecordItem = (props: Tree.ItemRenderProps<string>) => {
   );
 };
 
-interface MessageLabelProps {
-  path: deep.Path<ReadRecord>;
-  /** The index of the message in the record's reads. */
-  read: number;
-}
-
-/** Names a message that a record reads by its name in the ICD. */
-const MessageLabel = ({ path, read }: MessageLabelProps) => {
-  const formats = useContext(FormatsContext);
-  const icdKey = PForm.useFieldValue(path.icd);
-  const message = PForm.useFieldValue(path.messages[read].message);
-  const name = PForm.useFieldValue(PICD.formPath.messages[message].name, {
-    optional: true,
-    ctx: formats.get(icdKey),
-  });
-  return (
-    <Text.Text level="small" weight={500} color={name == null ? 8 : 10} overflow="fade">
-      <Icon.JSON />
-      {name ?? "Message not found"}
-    </Text.Text>
-  );
-};
-
 interface MessageItemProps extends Tree.ItemRenderProps<string> {
   node: MessageNode;
 }
@@ -637,7 +333,7 @@ interface MessageItemProps extends Tree.ItemRenderProps<string> {
 const MessageItem = ({ node: { rec, read }, ...props }: MessageItemProps) => (
   <Task.Views.TreeGroupItem
     {...props}
-    label={<MessageLabel path={recordPath(rec)} read={read} />}
+    label={<ICD.MessageLabel path={recordPath(rec)} read={read} />}
   />
 );
 
@@ -646,6 +342,7 @@ interface FieldItemProps extends Tree.ItemRenderProps<string> {
 }
 
 const FieldItem = ({ node: { rec, read, field }, ...props }: FieldItemProps) => {
+  const ctx = PForm.useContext();
   const path = recordPath(rec).messages[read];
   const bindings = PForm.useFieldValue(path.bindings);
   const recordOff = PForm.useFieldValue(recordPath(rec).disabled);
@@ -659,154 +356,82 @@ const FieldItem = ({ node: { rec, read, field }, ...props }: FieldItemProps) => 
       off={i < 0}
       skipped={i < 0 || recordOff}
     >
-      <ReadCheckbox rec={rec} read={read} field={field} />
+      <ICD.ReadCheckbox
+        bindings={path.bindings}
+        field={field}
+        onChange={(on) => setRead(ctx, rec, read, field, on)}
+      />
     </Task.Views.TreeFieldItem>
   );
 };
 
-interface OpenInEditorProps {
-  icdKey: icd.Key;
-}
-
-const OpenInEditor = ({ icdKey }: OpenInEditorProps): ReactElement => {
-  const openTab = Panel.useOpenTab();
-  return (
-    <Button.Button
-      variant="text"
-      size="small"
-      tooltip="Open in the ICD editor"
-      onClick={() => openTab({ variant: "resource", resource: icd.resourceID(icdKey) })}
-    >
-      <Icon.Library />
-      Open in editor
-    </Button.Button>
-  );
-};
-
-interface AddFieldProps {
-  onClick: () => void;
-}
-
-const AddField = ({ onClick }: AddFieldProps): ReactElement | null => {
-  const isPreview = Task.useIsPreview();
-  if (isPreview) return null;
-  return (
-    <Button.Button variant="text" size="small" onClick={onClick}>
-      <Icon.Add />
-      Add field
-    </Button.Button>
-  );
-};
-
-interface FieldDetailsProps {
-  path: deep.Path<ReadRecord>;
-  /** The index of the message in the record's reads. */
-  read: number;
-  field: icd.JSONField;
-  format: FormatForm;
-  device: Device;
-}
-
-/**
- * The format of a field, which each edit saves to the ICD at once, then the channel
- * that the task reads it into.
- */
-const FieldDetails: FC<FieldDetailsProps> = ({ path, read, field, format, device }) => {
-  const readPath = path.messages[read];
-  const bindings = PForm.useFieldValue(readPath.bindings);
-  const message = PForm.useFieldValue(readPath.message);
-  const icdKey = PForm.useFieldValue(path.icd);
-  const recordDisabled = PForm.useFieldValue(path.disabled);
+/** @returns the props that the panels of a message of a record share. */
+const useMessageProps = (
+  device: Device,
+  path: deep.Path<ReadRecord>,
+  read: number,
+): Omit<ICD.MessageSectionsProps, "format"> => {
+  const { index, bindings } = PForm.useFieldValue(path.messages[read]);
   const prefix = usePrefix(device.name, path, read);
-  const i = bindings.findIndex(({ field: key }) => key === field.key);
-  return (
-    <Flex.Box y grow empty className={CSS.BE("details", "form")}>
-      <PForm.Sections>
-        <PForm.Form<typeof PICD.formSchema> {...format}>
-          <ICD.JSONField
-            path={fieldsPath(message)[field.key]}
-            actions={<OpenInEditor icdKey={icdKey} />}
-          />
-        </PForm.Form>
-        <PForm.Section title="Channel">
-          {i < 0 ? (
-            <Text.Text status="disabled">
-              The task does not read this field. Click its dot to read it.
-            </Text.Text>
-          ) : (
-            <>
-              <Task.ChannelNameField
-                channel={bindings[i].channel}
-                defaultName={`${prefix}_${channel.escapeInvalidName(field.name)}`}
-                skipped={recordDisabled}
-              />
-              <Task.Payload.DataTypeField
-                path={readPath.bindings[i].dataType}
-                channel={bindings[i].channel}
-                defaultDataType={ICD.DEFAULT_DATA_TYPES[field.type]}
-                hideDataTypes={hiddenDataTypes(field.type)}
-              />
-            </>
-          )}
-        </PForm.Section>
-      </PForm.Sections>
-    </Flex.Box>
-  );
+  return {
+    path,
+    read,
+    prefix,
+    // A new index field keeps the channel of the old one.
+    indexChannel: bindings.find(({ field }) => field === index)?.channel ?? 0,
+    sourceLabel: "Kafka timestamp",
+    missingDescription:
+      "The ICD no longer has this message. Add a message to the record, then remove this one.",
+  };
 };
 
-interface MessageSectionsProps {
+interface MessagePanelProps {
   path: deep.Path<ReadRecord>;
   /** The index of the message in the record's reads. */
   read: number;
-  format: FormatForm;
+  format: ICD.FormatForm;
   device: Device;
 }
 
-/** The timestamp of a message that a record reads, and the problems of its format. */
-const MessageSections: FC<MessageSectionsProps> = ({ path, read, format, device }) => {
-  const icdKey = PForm.useFieldValue(path.icd);
-  const readMessage = PForm.useFieldValue(path.messages[read]);
-  const message = PForm.useFieldValue(PICD.formPath.messages[readMessage.message], {
-    optional: true,
-    ctx: format,
-  });
-  const fields = jsonFields(message);
-  const mixed = variableAmongFixed(readFields(fields, readMessage));
+const MessageSections = ({ device, path, read, format }: MessagePanelProps) => {
+  const props = useMessageProps(device, path, read);
+  return <ICD.MessageSections {...props} format={format} />;
+};
+
+interface MessageDetailsProps extends MessagePanelProps {
+  onAddField: () => void;
+}
+
+const MessageDetails = ({
+  device,
+  path,
+  read,
+  format,
+  onAddField,
+}: MessageDetailsProps) => {
+  const props = useMessageProps(device, path, read);
   return (
-    <>
-      {message == null && (
-        <PForm.Section title="Message">
-          <Status.Summary
-            variant="warning"
-            message="Message not found"
-            description="The ICD no longer has this message. Add a message to the record, then remove this one."
-            center={false}
-          />
-        </PForm.Section>
-      )}
-      {message != null && message.payload.format !== "json" && (
-        <PForm.Section title="Message" actions={<OpenInEditor icdKey={icdKey} />}>
-          <Text.Text color={9}>
-            The format of this message is not JSON. Open it to change its format.
-          </Text.Text>
-        </PForm.Section>
-      )}
-      <PForm.Section title="Timestamp">
-        <TimestampFields path={path} read={read} fields={fields} device={device} />
-        {mixed.length > 0 && (
-          <Input.HelpText variant="error">{mixMessage(mixed)}</Input.HelpText>
-        )}
-      </PForm.Section>
-      <PForm.Form<typeof PICD.formSchema> {...format}>
-        <ICD.FieldsStatus path={fieldsPath(readMessage.message)} />
-      </PForm.Form>
-    </>
+    <ICD.MessageDetails
+      {...props}
+      format={format}
+      matchTitle="Values"
+      onAddField={onAddField}
+    />
   );
+};
+
+interface FieldDetailsProps extends MessagePanelProps {
+  field: icd.JSONField;
+}
+
+const FieldDetails = ({ device, ...rest }: FieldDetailsProps) => {
+  const prefix = usePrefix(device.name, rest.path, rest.read);
+  return <ICD.FieldDetails {...rest} prefix={prefix} />;
 };
 
 interface RecordDetailsProps {
   path: deep.Path<ReadRecord>;
-  format: FormatForm;
+  format: ICD.FormatForm;
   device: Device;
   /** Adds a field to the message of a record that reads one. */
   onAddField: () => void;
@@ -835,7 +460,7 @@ const RecordDetails: FC<RecordDetailsProps> = ({
           actions={
             !isPreview && (
               <>
-                {reads === 1 && <AddField onClick={onAddField} />}
+                {reads === 1 && <ICD.AddField onClick={onAddField} />}
                 <Button.Button variant="text" size="small" onClick={onAddMessage}>
                   <Icon.Add />
                   Add message
@@ -857,109 +482,6 @@ const RecordDetails: FC<RecordDetailsProps> = ({
       </PForm.Sections>
     </Flex.Box>
   );
-};
-
-interface MessageDetailsProps {
-  path: deep.Path<ReadRecord>;
-  /** The index of the message in the record's reads. */
-  read: number;
-  format: FormatForm;
-  device: Device;
-  onAddField: () => void;
-}
-
-/** The name and match of a message of a record that reads several. */
-const MessageDetails: FC<MessageDetailsProps> = ({
-  path,
-  read,
-  format,
-  device,
-  onAddField,
-}) => {
-  const icdKey = PForm.useFieldValue(path.icd);
-  const key = PForm.useFieldValue(path.messages[read].message);
-  const encoding = PForm.useFieldValue(PICD.formPath.messages[key].payload.format, {
-    optional: true,
-    ctx: format,
-  });
-  return (
-    <Flex.Box y grow empty className={CSS.BE("details", "form")}>
-      <PForm.Sections>
-        {encoding === "json" && (
-          <PForm.Form<typeof PICD.formSchema> {...format}>
-            <PForm.Section
-              title="Message"
-              actions={
-                <>
-                  <AddField onClick={onAddField} />
-                  <OpenInEditor icdKey={icdKey} />
-                </>
-              }
-            >
-              <PForm.TextField
-                path={PICD.formPath.messages[key].name}
-                label="Name"
-                padHelpText={false}
-              />
-            </PForm.Section>
-            <PForm.Section title="Values">
-              <ICD.Match
-                path={deep.variant(
-                  PICD.formPath.messages[key].payload,
-                  "format",
-                  "json",
-                )}
-              />
-            </PForm.Section>
-          </PForm.Form>
-        )}
-        <MessageSections path={path} read={read} format={format} device={device} />
-      </PForm.Sections>
-    </Flex.Box>
-  );
-};
-
-interface SuitReadProps {
-  path: deep.Path<ReadRecord>;
-  /** The index of the message in the record's reads. */
-  read: number;
-}
-
-/**
- * Keeps the read of a message suited to its format, whose edits can leave a read that
- * the Core refuses to save. Unbinds each channel that its field can no longer convert
- * to.
- */
-const SuitRead: FC<SuitReadProps> = ({ path, read }) => {
-  const { set } = PForm.useContext();
-  const isPreview = Task.useIsPreview();
-  const formats = useContext(FormatsContext);
-  const icdKey = PForm.useFieldValue(path.icd);
-  const readPath = path.messages[read];
-  const readMessage = PForm.useFieldValue(readPath);
-  const message = PForm.useFieldValue(PICD.formPath.messages[readMessage.message], {
-    optional: true,
-    ctx: formats.get(icdKey),
-  });
-  const fields = jsonFields(message);
-  useEffect(() => {
-    if (isPreview || message?.payload.format !== "json") return;
-    const suited = suit(readMessage, fields);
-    if (!deep.equal(suited, readMessage)) set(readPath, suited);
-  }, [isPreview, readMessage, message]);
-  if (isPreview) return null;
-  return readMessage.bindings.map((b, i) => {
-    const field = fields.find(({ key }) => key === b.field);
-    if (field == null || b.channel === 0) return null;
-    return (
-      <Unbind
-        key={b.field}
-        path={readPath.bindings[i].channel}
-        kind={field.type}
-        channel={b.channel}
-      />
-    );
-  });
 };
 
 /**
@@ -993,7 +515,7 @@ const Records: FC<RecordsProps> = ({
   const client = PSynnax.use();
   const ctx = PForm.useContext();
   const handleError = Status.useErrorHandler();
-  const formats = useContext(FormatsContext);
+  const formats = ICD.useFormats();
   const { push, remove } = PForm.useFieldList(root.config.records);
   const records = PForm.useFieldValue(root.config.records);
   const { nodes, byKey } = useIndex(formats);
@@ -1048,7 +570,7 @@ const Records: FC<RecordsProps> = ({
   const handleAddMessage = (recKey: string) => {
     const path = recordPath(recKey);
     const rec = ctx.get(path).value;
-    const form = formatOf(formats, rec.icd);
+    const form = ICD.formatOf(formats, rec.icd);
     const held = form.value().messages;
     const rule = rec.messages
       .map(({ message }) => held.find(({ key }) => key === message)?.payload)
@@ -1074,9 +596,13 @@ const Records: FC<RecordsProps> = ({
   const handleAddField = (recKey: string, read: number) => {
     const rec = ctx.get(recordPath(recKey)).value;
     const { message } = rec.messages[read];
-    const fields = fieldsOf(formats, rec.icd, message);
+    const fields = ICD.fieldsOf(formats, rec.icd, message);
     const field = ICD.createJSONField(fields.map(({ name }) => name));
-    formatOf(formats, rec.icd).insert(fieldsPath(message), field, fields.at(-1)?.key);
+    ICD.formatOf(formats, rec.icd).insert(
+      ICD.fieldsPath(message),
+      field,
+      fields.at(-1)?.key,
+    );
     setRead(ctx, recKey, read, field, true);
     const parent = rec.messages.length > 1 ? [messageNodeKey(recKey, message)] : [];
     onExpand((prev) => unique.unique([...prev, recKey, ...parent]));
@@ -1087,7 +613,9 @@ const Records: FC<RecordsProps> = ({
   const handleRemoveFields = (chosen: FieldNode[]) => {
     for (const { rec, read, field } of chosen) {
       const { icd: icdKey, messages } = ctx.get(recordPath(rec)).value;
-      formatOf(formats, icdKey).remove(fieldsPath(messages[read].message)[field.key]);
+      ICD.formatOf(formats, icdKey).remove(
+        ICD.fieldsPath(messages[read].message)[field.key],
+      );
     }
     onSelect([]);
   };
@@ -1229,7 +757,7 @@ const Records: FC<RecordsProps> = ({
     );
   } else if (rec != null && format != null && current?.kind === "message") {
     detailsPath = recordPath(rec.key).messages[current.read];
-    title = <MessageLabel path={recordPath(rec.key)} read={current.read} />;
+    title = <ICD.MessageLabel path={recordPath(rec.key)} read={current.read} />;
     details = (
       <MessageDetails
         key={selected[0]}
@@ -1297,16 +825,16 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
       />
       {records.flatMap(({ key, messages }) =>
         messages.map(({ message }, read) => (
-          <SuitRead key={`${key}/${message}`} path={recordPath(key)} read={read} />
+          <ICD.SuitRead key={`${key}/${message}`} path={recordPath(key)} read={read} />
         )),
       )}
     </>
   );
   return unique.unique(records.map((r) => r.icd)).reduceRight(
     (child, key) => (
-      <WithFormat key={key} icdKey={key}>
+      <ICD.WithFormat key={key} icdKey={key}>
         {child}
-      </WithFormat>
+      </ICD.WithFormat>
     ),
     body,
   );
@@ -1342,7 +870,7 @@ interface BoundMessage {
  * @throws {ValidationError} if the task cannot read the message.
  */
 const boundMessage = (
-  messages: Messages,
+  messages: ICD.Messages,
   rec: ReadRecord,
   read: number,
 ): BoundMessage => {
@@ -1353,16 +881,17 @@ const boundMessage = (
   if (message?.payload.format !== "json")
     throw new ValidationError(`The message format of ${where} is missing or not JSON`);
   const readMessage = rec.messages[read];
-  const fields = readFields(message.payload.fields, readMessage);
+  const fields = ICD.readFields(message.payload.fields, readMessage);
   const index = fields.find(({ key }) => key === readMessage.index);
-  if (index != null && !isIndexable(index))
+  if (index != null && !ICD.isIndexable(index))
     throw new ValidationError(
       `In ${where}, the index field ${index.name} must be a timestamp field with no default`,
     );
   if (fields.length === 0)
     throw new ValidationError(`The task reads no fields of ${where}`);
-  const mixed = variableAmongFixed(fields);
-  if (mixed.length > 0) throw new ValidationError(`In ${where}, ${mixMessage(mixed)}`);
+  const mixed = ICD.variableAmongFixed(fields);
+  if (mixed.length > 0)
+    throw new ValidationError(`In ${where}, ${ICD.mixMessage(mixed)}`);
   return { rec, read, message, fields };
 };
 
@@ -1426,7 +955,7 @@ const configureMessage = async (
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
   const enabled = config.records.filter(({ disabled }) => !disabled);
-  const messages = await retrieveMessages(
+  const messages = await ICD.retrieveMessages(
     client,
     enabled.map((r) => r.icd),
   );
