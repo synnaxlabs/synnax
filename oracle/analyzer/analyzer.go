@@ -155,6 +155,39 @@ func defaultTokens(rules ...parsedRule) [][]antlr.Token {
 	return out
 }
 
+// UsedNamespaces returns the namespaces that a parsed file references, which are the
+// namespaces it must import.
+func UsedNamespaces(ast parser.ISchemaContext) set.Set[string] {
+	return usedNamespaces(ast, defaultTokens(ast))
+}
+
+// QualifiedNames returns each qualified name ("qualifier.member") that src references,
+// where src is any run of Oracle source, such as a declaration or one line of one.
+func QualifiedNames(src string) set.Set[string] {
+	lexer := parser.NewOracleLexer(antlr.NewInputStream(src))
+	lexer.RemoveErrorListeners()
+	var toks []antlr.Token
+	for {
+		t := lexer.NextToken()
+		if t.GetTokenType() == antlr.TokenEOF {
+			return usedQualifiedNames([][]antlr.Token{toks})
+		}
+		if t.GetChannel() == antlr.TokenDefaultChannel {
+			toks = append(toks, t)
+		}
+	}
+}
+
+// usedNamespaces returns the qualifiers that runs reference, plus the filter namespace
+// when ast declares a filter, whose bare lines read the filter schema's types.
+func usedNamespaces(ast parser.ISchemaContext, runs [][]antlr.Token) set.Set[string] {
+	used := usedQualifiers(runs)
+	if declaresFilter(ast) {
+		used.Add(resolution.FilterNamespace)
+	}
+	return used
+}
+
 // usedQualifiers collects the package qualifiers the token runs reference: every
 // identifier immediately followed by a dot, in any position (type references, extends
 // clauses, domain expressions).
@@ -201,10 +234,7 @@ type importUse struct {
 // declared file paths.
 func reportUnusedImports(c *analysisCtx, imports []importUse) {
 	runs := defaultTokens(append([]parsedRule{c.ast}, c.copied...)...)
-	qualifiers := usedQualifiers(runs)
-	if declaresFilter(c.ast) {
-		qualifiers.Add(resolution.FilterNamespace)
-	}
+	qualifiers := usedNamespaces(c.ast, runs)
 	names := usedQualifiedNames(runs)
 	byNS := make(map[string][]importUse)
 	for _, iu := range imports {
