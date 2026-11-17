@@ -256,16 +256,18 @@ func (s *Service) RetrieveOrCreateEmbedded(
 ) (r Rack, err error) {
 	err = s.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.NewWriter(tx)
-		if r, err = s.retrieveEmbedded(ctx, tx, name); errors.Is(err, query.ErrNotFound) {
+		r, err = s.retrieveEmbedded(ctx, tx, name)
+		switch {
+		case errors.Is(err, query.ErrNotFound):
 			if r, err = Reduce(Rack{Name: name, Embedded: true}, acts...); err != nil {
 				return err
 			}
 			if err = w.Create(ctx, &r); err != nil {
 				return err
 			}
-		} else if err != nil {
+		case err != nil:
 			return err
-		} else if len(acts) > 0 {
+		case len(acts) > 0:
 			if err = w.Apply(ctx, r.Key, acts...); err != nil {
 				return err
 			}
