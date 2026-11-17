@@ -117,7 +117,7 @@ Arc union on type Type extends Base {
             @doc value  "is what changed in the automation since its task was deployed."
             @go marshal omit
         }
-        calculations Calculation[]?   {
+        calculations Calculation[]    {
             @doc value  """
                 are the calculated channels that the program reads, nested ones
                 included. Dependencies come before the channels that read them.

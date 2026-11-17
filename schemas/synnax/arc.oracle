@@ -98,7 +98,7 @@ Arc union on type Type extends Base {
             @go marshal omit
             @include
         }
-        calculations Calculation[]?   {
+        calculations Calculation[]    {
             @doc value  """
                 are the calculated channels that the program reads, nested ones
                 included. Dependencies come before the channels that read them.

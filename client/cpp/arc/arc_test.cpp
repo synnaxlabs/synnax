@@ -424,7 +424,7 @@ TEST(TestArc, testRetrieveWithCalculations) {
     const auto retrieved = ASSERT_NIL_P(
         client.arcs.retrieve(base(arc).key, RetrieveOptions{.include_program = true})
     );
-    const auto &calculations = std::get<AutomationArc>(retrieved).calculations.value();
+    const auto &calculations = std::get<AutomationArc>(retrieved).calculations;
     ASSERT_EQ(calculations.size(), 2);
     ASSERT_EQ(calculations[0].channel, inner.key);
     ASSERT_EQ(calculations[1].channel, outer.key);
