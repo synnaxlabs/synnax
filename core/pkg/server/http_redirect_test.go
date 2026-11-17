@@ -145,5 +145,18 @@ var _ = Describe("HttpRedirect", func() {
 				requestTarget,
 			),
 		)
+		It("Should redirect an absolute-form request to its path and query", func() {
+			conn := MustOpen(net.Dial("tcp", b.Addresses()[0].String()))
+			MustSucceed(fmt.Fprint(
+				conn,
+				"GET http://localhost:9443/a/b?c=d HTTP/1.1\r\n"+
+					"Host: localhost:9443\r\n\r\n",
+			))
+			res := MustSucceed(http.ReadResponse(bufio.NewReader(conn), nil))
+			Expect(res.Body.Close()).To(Succeed())
+			Expect(res.StatusCode).To(Equal(http.StatusMovedPermanently))
+			Expect(res.Header.Get("Location")).
+				To(Equal("https://localhost:9443/a/b?c=d"))
+		})
 	})
 })
