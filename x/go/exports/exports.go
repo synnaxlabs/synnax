@@ -291,7 +291,7 @@ func check(ctx context.Context, cfg Config) (findings []Finding, err error) {
 					Name:     s.obj.Name(),
 				}
 				if s.kind == "method" {
-					f.Receiver = receiver(s.obj.(*types.Func)).Name()
+					f.Receiver = receiver(s.method()).Name()
 				}
 				merged[k] = f
 			}
@@ -360,6 +360,15 @@ type symbol struct {
 	kept     bool
 	tested   bool
 	internal bool
+}
+
+// method returns the method that s, a symbol of kind "method", declares.
+func (s *symbol) method() *types.Func {
+	fn, ok := s.obj.(*types.Func)
+	if !ok {
+		panic(fmt.Sprintf("method symbol %s is a %T", s.obj.Name(), s.obj))
+	}
+	return fn
 }
 
 var versionsPattern = regexp.MustCompile(`/versions/(.+/)?v[0-9]+$`)
@@ -568,8 +577,8 @@ func keepRest(fset *token.FileSet, pkgs []*packages.Package, syms map[string]*sy
 		switch {
 		case groups.Contains(s.group):
 			s.kept = true
-		case s.kind == "method" && (ifaces.satisfied(s.obj.(*types.Func)) ||
-			templated.Contains(receiver(s.obj.(*types.Func)))):
+		case s.kind == "method" && (ifaces.satisfied(s.method()) ||
+			templated.Contains(receiver(s.method()))):
 			s.kept = true
 		}
 	}

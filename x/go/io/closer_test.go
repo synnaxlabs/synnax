@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/io"
 )
 
-// mockCloser is a test helper that tracks Close() calls
+// mockCloser is a test helper that tracks Close() calls.
 type mockCloser struct {
 	err    error
 	closed bool

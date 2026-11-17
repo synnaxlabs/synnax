@@ -13,6 +13,7 @@ import uuid
 from datetime import UTC, datetime, timedelta, tzinfo
 from fractions import Fraction
 from math import trunc
+from time import time_ns
 from typing import Any, ClassVar, Literal, NoReturn, TypeAlias, overload, override
 
 import numpy as np
@@ -183,7 +184,7 @@ class TimeStamp(int):
     @classmethod
     def now(cls) -> TimeStamp:
         """:returns: the current time as a TimeStamp."""
-        return TimeStamp(datetime.now(UTC))
+        return TimeStamp(time_ns())
 
     @classmethod
     def since(cls, ts: CrudeTimeStamp) -> TimeSpan:

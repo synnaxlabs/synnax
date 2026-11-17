@@ -259,7 +259,7 @@ export const Timeline = ({
   const endName = cellName("End", end);
 
   const endCell = (
-    <>
+    <Flex.Box x align="center" gap="small">
       {ended && (
         <Text.Text level={level} color={9} className={CSS.BE("range-timeline", "word")}>
           ends
@@ -278,7 +278,7 @@ export const Timeline = ({
         effect={endEffect}
         {...cell}
       />
-    </>
+    </Flex.Box>
   );
 
   return (
@@ -300,96 +300,108 @@ export const Timeline = ({
       />
       {stage === "to_do" && (
         <>
-          {scheduled && (
-            <Text.Text
-              level={level}
-              color={9}
-              className={CSS.BE("range-timeline", "word")}
-            >
-              starts
-            </Text.Text>
-          )}
-          <Input.DateTime
-            value={start}
-            onChange={handleStart}
-            anchors={startAnchors}
-            aria-label={startName}
-            emptyValue={UNSET}
-            placeholder="Set a start time"
-            clearLabel="Unschedule"
-            bound="start"
-            effect={startEffect}
-            {...cell}
-          />
+          <Flex.Box x align="center" gap="small">
+            {scheduled && (
+              <Text.Text
+                level={level}
+                color={9}
+                className={CSS.BE("range-timeline", "word")}
+              >
+                starts
+              </Text.Text>
+            )}
+            <Input.DateTime
+              value={start}
+              onChange={handleStart}
+              anchors={startAnchors}
+              aria-label={startName}
+              emptyValue={UNSET}
+              placeholder="Set a start time"
+              clearLabel="Unschedule"
+              bound="start"
+              effect={startEffect}
+              {...cell}
+            />
+          </Flex.Box>
           {scheduled && endCell}
         </>
       )}
       {stage === "in_progress" && (
         <>
-          <Text.Text
-            level={level}
-            color={9}
-            className={CSS.BE("range-timeline", "word")}
-          >
-            started
-          </Text.Text>
-          <Input.DateTime
-            value={start}
-            onChange={handleStart}
-            anchors={startAnchors}
-            aria-label={startName}
-            bound="start"
-            effect={startEffect}
-            {...cell}
-          />
+          <Flex.Box x align="center" gap="small">
+            <Text.Text
+              level={level}
+              color={9}
+              className={CSS.BE("range-timeline", "word")}
+            >
+              started
+            </Text.Text>
+            <Input.DateTime
+              value={start}
+              onChange={handleStart}
+              anchors={startAnchors}
+              aria-label={startName}
+              bound="start"
+              effect={startEffect}
+              {...cell}
+            />
+          </Flex.Box>
           {ended && endCell}
-          <Dot level={level} />
-          <Input.TimeSpan
-            value={0}
-            onChange={handleSpan}
-            elapsedSince={start}
-            {...cell}
-          />
+          <Flex.Box x align="center" gap="small">
+            <Dot level={level} />
+            <Input.TimeSpan
+              value={0}
+              onChange={handleSpan}
+              elapsedSince={start}
+              {...cell}
+            />
+          </Flex.Box>
           {!ended && endCell}
         </>
       )}
       {stage === "completed" && (
         <>
-          <Text.Text
-            level={level}
-            color={9}
-            className={CSS.BE("range-timeline", "word")}
-          >
-            started
-          </Text.Text>
-          <Input.DateTime
-            value={start}
-            onChange={handleStart}
-            anchors={startAnchors}
-            aria-label={startName}
-            bound="start"
-            effect={startEffect}
-            {...cell}
-          />
-          <Text.Text
-            level={level}
-            color={9}
-            className={CSS.BE("range-timeline", "word")}
-          >
-            ended
-          </Text.Text>
-          <Input.DateTime
-            value={end}
-            onChange={handleEnd}
-            anchors={endAnchors}
-            aria-label={endName}
-            sharedDay={start}
-            bound="end"
-            effect={endEffect}
-            {...cell}
-          />
-          <Dot level={level} />
-          <Input.TimeSpan value={end - start} onChange={handleSpan} {...cell} />
+          <Flex.Box x align="center" gap="small">
+            <Text.Text
+              level={level}
+              color={9}
+              className={CSS.BE("range-timeline", "word")}
+            >
+              started
+            </Text.Text>
+            <Input.DateTime
+              value={start}
+              onChange={handleStart}
+              anchors={startAnchors}
+              aria-label={startName}
+              bound="start"
+              effect={startEffect}
+              {...cell}
+            />
+          </Flex.Box>
+          <Flex.Box x align="center" gap="small">
+            <Text.Text
+              level={level}
+              color={9}
+              className={CSS.BE("range-timeline", "word")}
+            >
+              ended
+            </Text.Text>
+            <Input.DateTime
+              value={end}
+              onChange={handleEnd}
+              anchors={endAnchors}
+              aria-label={endName}
+              sharedDay={start}
+              bound="end"
+              effect={endEffect}
+              {...cell}
+            />
+          </Flex.Box>
+          <Flex.Box x align="center" gap="small">
+            <Dot level={level} />
+            <Input.TimeSpan value={end - start} onChange={handleSpan} {...cell} />
+          </Flex.Box>
         </>
       )}
     </Flex.Box>

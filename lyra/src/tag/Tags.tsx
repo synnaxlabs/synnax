@@ -49,7 +49,7 @@ interface Hidden {
 
 // A tag's name, and the color of its dot if it has one.
 const describe = (tag: Element): Hidden => {
-  const icon = tag.querySelector("svg");
+  const icon = tag.querySelector(`:scope > .${CSS.BM("icon", "dot")}`);
   return {
     name: tag.textContent ?? "",
     color: icon == null ? undefined : getComputedStyle(icon).color,

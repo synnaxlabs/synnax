@@ -231,7 +231,7 @@ func (t *refText) String() string {
 	vis := t.visible()
 	runes := make([]rune, len(vis))
 	for i, e := range vis {
-		runes[i] = rune(e.char)
+		runes[i] = e.char
 	}
 	t.str = string(runes)
 	t.strValid = true

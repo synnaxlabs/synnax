@@ -33,8 +33,14 @@ if ($runner -and ($runner.Triggers | Where-Object Enabled)) {
     $runner.Triggers | ForEach-Object { $_.Enabled = $false }
     Set-ScheduledTask -InputObject $runner | Out-Null
 }
-$boot = Join-Path $Dir 'agent_boot.py'
-Invoke-WebRequest "$Source/agent_boot.py" -OutFile $boot -UseBasicParsing
+# Every download ends before the first write, so a failure keeps the old install.
+$staging = Join-Path $env:TEMP 'runner-agent-install'
+Remove-Item $staging -Recurse -Force -ErrorAction Ignore
+New-Item -ItemType Directory -Force -Path $staging | Out-Null
+foreach ($file in 'agent_boot.py', 'pyproject.toml', 'uv.lock') {
+    $out = Join-Path $staging $file
+    Invoke-WebRequest "$Source/$file" -OutFile $out -UseBasicParsing
+}
 [IO.File]::WriteAllBytes((Join-Path $Dir 'ca.crt'), [Convert]::FromBase64String($Ca))
 $log = Join-Path $Dir 'agent.out.log'
 if ((Test-Path $log) -and ((Get-Item $log).Length -gt 5MB)) { Clear-Content $log }
@@ -45,9 +51,13 @@ $agent = 'runner-telemetry\\agent\.py|[ "]agent(_boot)?\.py'
 Get-CimInstance Win32_Process |
     Where-Object { $_.Name -match 'python|uv|cmd' -and $_.CommandLine -match $agent } |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction Ignore }
+Move-Item (Join-Path $staging '*') $Dir -Force
+Remove-Item $staging -Recurse -Force
+# agent_boot.py then downloads every agent file at the deployed commit.
+Remove-Item (Join-Path $Dir 'agent_commit.txt') -ErrorAction Ignore
 
-$argument = "/c set UV_CACHE_DIR=$Dir\uv-cache&& `"$Dir\uv.exe`" run agent_boot.py " +
-    "--host $CoreHost --secure >> agent.out.log 2>&1"
+$argument = "/c set UV_CACHE_DIR=$Dir\uv-cache&& `"$Dir\uv.exe`" run --project . " +
+    "--frozen --no-dev agent_boot.py --host $CoreHost --secure >> agent.out.log 2>&1"
 $action = New-ScheduledTaskAction -Execute 'cmd.exe' -WorkingDirectory $Dir `
     -Argument $argument
 # A task does not restart a program that exits, so a second trigger repeats the start.

@@ -125,7 +125,7 @@ func ParentsExist(
 // - A parent does not exist in lang
 // - There are omitted fields (can't omit fields with inheritance)
 // - A field removes an inherited domain (must flatten to drop it)
-// - A field restates an inherited field's type or optionality
+// - A field restates an inherited field's type or optionality.
 func CanUseInheritance(
 	form resolution.StructForm,
 	lang string,
@@ -286,7 +286,7 @@ func VariantFields(
 	}
 	inherited, flattened := VariantBases(form, v, lang, table)
 	addBases(inherited)
-	payloadForm := payload.Form.(resolution.StructForm)
+	payloadForm := resolution.MustForm[resolution.StructForm](payload)
 	bases := slices.Concat(form.Extends, payloadForm.Extends)
 	for _, f := range flattened {
 		out = append(

@@ -11,8 +11,8 @@ import { type Component } from "@synnaxlabs/lyra/component";
 import { type text } from "@synnaxlabs/x";
 
 /**
- * The text level a symbol renders at for each size rung. A symbol must store this level
- * for it to apply: Lyra's default level for a size is smaller on every rung below huge.
+ * The text level a symbol renders at for each size rung. A symbol must pass this level
+ * to Lyra, whose default level for a size is smaller on every rung below huge.
  */
 export const SIZE_LEVELS: Record<Component.Size, text.Level> = {
   tiny: "small",

@@ -144,7 +144,7 @@ var _ = math.Mod
 const unaryFuncTemplate = `{{range $.UnaryOps}}
 func {{.Name}}{{$.Type.Name}}(input telem.Series, output *telem.Series) {
 	inputLen := input.Len()
-	output.Resize(inputLen)
+	*output = output.Resized(inputLen)
 
 	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
 	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
@@ -174,7 +174,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	if freshStart {
@@ -192,7 +192,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	// Find minimum in new input samples
@@ -218,7 +218,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	// Find maximum in new input samples
@@ -252,7 +252,7 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
@@ -306,7 +306,7 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
@@ -349,7 +349,7 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 const scalarArithFuncTemplate = `{{range $.Operations}}
 func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
 	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
@@ -365,7 +365,7 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 const scalarCompFuncTemplate = `{{range $.Operations}}
 func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
 	outData := output.Data
@@ -385,7 +385,7 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 const reverseScalarArithFuncTemplate = `{{range $.Operations}}
 func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
 	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
@@ -402,8 +402,8 @@ func Derivative{{$.Type.Name}}(input, inputTime telem.Series, prevVal *float64, 
 	n := input.Len()
 	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
 	inTime := unsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	output.Resize(n)
-	outputTime.Resize(n)
+	*output = output.Resized(n)
+	*outputTime = outputTime.Resized(n)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 	outTime := unsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
 	for i := int64(0); i < n; i++ {
@@ -436,7 +436,7 @@ func Modulo{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
@@ -479,7 +479,7 @@ func Modulo{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 const floatModuloScalarFuncTemplate = `
 func ModuloScalar{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
 	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
@@ -494,7 +494,7 @@ func ModuloScalar{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, 
 const floatReverseModuloScalarFuncTemplate = `
 func ReverseModuloScalar{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
 	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)

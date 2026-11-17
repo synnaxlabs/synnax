@@ -69,6 +69,8 @@ target-version = "py312"
 extend-exclude = ["*_pb2.py", "*_pb2.pyi"]
 
 [tool.ruff.lint]
+preview = true
+explicit-preview-rules = true
 select = [
     "F",
     "I",
@@ -78,6 +80,7 @@ select = [
     "E7",
     "E9",
     "PLE",
+    "PLW1514",
     "UP",
     "SIM",
     "C4",

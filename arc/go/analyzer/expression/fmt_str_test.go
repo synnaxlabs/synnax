@@ -559,7 +559,7 @@ trig -> f()`
 					}
 				}
 			}
-			for i := 0; i < t.GetChildCount(); i++ {
+			for i := range t.GetChildCount() {
 				if found := findStringTerminal(t.GetChild(i)); found != nil {
 					return found
 				}

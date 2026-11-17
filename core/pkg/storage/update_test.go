@@ -38,7 +38,7 @@ func startUpdate(ctx context.Context, dir, version string) *storage.Layer {
 	return l
 }
 
-func readValue(ctx context.Context, l *storage.Layer) string {
+func readValue(l *storage.Layer) string {
 	GinkgoHelper()
 	value, closer := MustSucceed2(l.KV.Get([]byte("key")))
 	defer func() { Expect(closer.Close()).To(Succeed()) }()
@@ -93,7 +93,7 @@ var _ = Describe("Update", func() {
 		Expect(recordedVersion(dir)).To(Equal("0.59.0"))
 		Expect(updateState(dir, "0.60.0")).To(Equal(storage.UpdateUndone))
 		l = openLayer(ctx, dir, "0.59.0")
-		Expect(readValue(ctx, l)).To(Equal("before"))
+		Expect(readValue(l)).To(Equal("before"))
 		Expect(l.Close()).To(Succeed())
 	})
 
@@ -109,7 +109,7 @@ var _ = Describe("Update", func() {
 		Expect(filepath.Join(dir, failedUpdateFile)).ToNot(BeAnExistingFile())
 		Expect(updateState(dir, "0.60.0")).To(Equal(storage.UpdateNotStarted))
 		l = openLayer(ctx, dir, "0.59.0")
-		Expect(readValue(ctx, l)).To(Equal("before"))
+		Expect(readValue(l)).To(Equal("before"))
 		Expect(l.Close()).To(Succeed())
 		Expect(startUpdate(ctx, dir, "0.60.0").Close()).To(Succeed())
 	})
@@ -167,7 +167,7 @@ var _ = Describe("Update", func() {
 			Expect(filepath.Join(dir, updateMarkerFile)).ToNot(BeAnExistingFile())
 			Expect(updateState(dir, "0.60.0")).To(Equal(storage.UpdateUndone))
 			l = openLayer(ctx, dir, "0.59.0")
-			Expect(readValue(ctx, l)).To(Equal("before"))
+			Expect(readValue(l)).To(Equal("before"))
 			Expect(l.Close()).To(Succeed())
 		},
 	)
@@ -179,7 +179,7 @@ var _ = Describe("Update", func() {
 			Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
 			Expect(l.Close()).To(Succeed())
 			l = openLayer(ctx, dir, "0.59.0")
-			Expect(readValue(ctx, l)).To(Equal("before"))
+			Expect(readValue(l)).To(Equal("before"))
 			Expect(l.Close()).To(Succeed())
 			Expect(MustSucceed(os.ReadFile(filepath.Join(dir, failedUpdateFile)))).
 				To(BeEquivalentTo("0.60.0"))

@@ -10,11 +10,21 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
+import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
+import svg from "@/schematic/node/process/StaticMixer.svg?raw";
+
 export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
-const DIMENSIONS = { width: 66, height: 30 };
+const SPEC = Custom.createBuiltIn({
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.015152, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 0.984848, y: 0.5 }, orientation: "right" },
+    { key: "3", position: { x: 0.5, y: 0.033333 }, orientation: "top" },
+    { key: "4", position: { x: 0.5, y: 0.966667 }, orientation: "bottom" },
+  ],
+});
 
 export const StaticMixer = ({
   strokeColor,
@@ -28,28 +38,12 @@ export const StaticMixer = ({
     className={CSS.cls(CSS.B("static-mixer"), className)}
     orientation={orientation}
   >
-    <Handle.Rectangle
-      orientation={orientation}
-      left={1.5152}
-      top={3.3333}
-      right={98.4848}
-      bottom={96.6667}
-    />
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Rect x="1" y="1" width="64" height="28" rx="2" ry="2" />
-      <Primitive.Path
-        d="M17 10C23 10 27 20 33 20C39 20 43 10 49 10"
-        strokeLinecap="round"
-      />
-      <Primitive.Path
-        d="M17 20C23 20 27 10 33 10C39 10 43 20 49 20"
-        strokeLinecap="round"
-      />
-    </Primitive.SVG>
+    />
   </Primitive.Div>
 );
