@@ -231,7 +231,7 @@ func (t *refText) String() string {
 	vis := t.visible()
 	runes := make([]rune, len(vis))
 	for i, e := range vis {
-		runes[i] = rune(e.char)
+		runes[i] = e.char
 	}
 	t.str = string(runes)
 	t.strValid = true
@@ -259,13 +259,14 @@ func (t *refText) Insert(index int, text string) []crdt.Insert {
 	}
 	vis := t.visible()
 	var left *refElement
-	if index <= 0 {
+	switch {
+	case index <= 0:
 		left = t.root
-	} else if index-1 < len(vis) {
+	case index-1 < len(vis):
 		left = vis[index-1]
-	} else if len(vis) > 0 {
+	case len(vis) > 0:
 		left = vis[len(vis)-1]
-	} else {
+	default:
 		left = t.root
 	}
 	var right *refElement

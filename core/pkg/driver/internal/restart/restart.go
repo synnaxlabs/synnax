@@ -103,3 +103,13 @@ func (p *Policy) Decide(
 	}
 	return GiveUp
 }
+
+// Requested returns Restart for an exit that the supervisor requested so that the
+// process starts again at once. It does not wait or count a failure, but it resets the
+// failure counter when uptime is at least HealthyUptime, as Decide does.
+func (p *Policy) Requested(uptime time.Duration) Action {
+	if uptime >= p.healthyUptime {
+		p.breaker.Reset()
+	}
+	return Restart
+}

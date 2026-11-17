@@ -17,6 +17,7 @@ from x.telem.series import (
     Series,
     TypedCrudeSeries,
     elapsed_seconds,
+    is_crude_series,
     to_float,
     to_int,
 )
@@ -92,6 +93,7 @@ __all__ = [
     "Window",
     "convert_time_units",
     "elapsed_seconds",
+    "is_crude_series",
     "seconds_linspace",
     "to_float",
     "to_int",

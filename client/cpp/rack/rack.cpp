@@ -60,7 +60,12 @@ std::pair<Rack, x::errors::Error> Client::retrieve(
         return {Rack{}, errors::paged_one_error()};
     auto [racks, err] = this->retrieve(where, options);
     if (err) return {Rack{}, err};
-    if (const auto one_err = errors::check_one("rack", where.to_json(), racks.size()))
+    if (const auto one_err = errors::check_one(
+            "rack",
+            where.to_json(),
+            options.search_term,
+            racks.size()
+        ))
         return {Rack{}, one_err};
     return {std::move(racks[0]), x::errors::NIL};
 }

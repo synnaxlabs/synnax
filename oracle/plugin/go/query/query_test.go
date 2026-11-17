@@ -47,7 +47,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("minimal struct with no filters or search", func() {
 			It(
 				"Should generate a Retrieve struct with standard methods",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -60,7 +60,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(source, "foo", loader, p)
 					Expect(resp.Files).To(HaveLen(1))
 
 					ExpectContent(resp, "retrieve.gen.go").
@@ -87,11 +87,9 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should skip missing keys when a filter targets the table", func(
-				ctx SpecContext,
-			) {
+			It("Should skip missing keys when a filter targets the table", func() {
 				AddFilterSchema(loader)
-				resp := MustGenerate(ctx, `
+				resp := MustGenerate(`
 					import "schemas/x/filter"
 
 					@go output "core/pkg/service/foo"
@@ -112,7 +110,7 @@ var _ = Describe("Go Query Plugin", func() {
 		})
 
 		Context("union entry", func() {
-			It("Should take the key from the union's base", func(ctx SpecContext) {
+			It("Should take the key from the union's base", func() {
 				source := `
 					@go output "core/pkg/service/view"
 
@@ -132,7 +130,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "view", loader, p)
+				resp := MustGenerate(source, "view", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
 						"gorp.Retrieve[uuid.UUID, View]",
@@ -140,7 +138,7 @@ var _ = Describe("Go Query Plugin", func() {
 					)
 			})
 
-			It("Should take the key from an aliased base", func(ctx SpecContext) {
+			It("Should take the key from an aliased base", func() {
 				loader.Add("schemas/base", `
 					@go output "core/pkg/service/base"
 
@@ -163,14 +161,14 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "view", loader, p)
+				resp := MustGenerate(source, "view", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain("gorp.Retrieve[uuid.UUID, View]")
 			})
 
 			It(
 				"Should reject two @retrieve types in one output",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/view"
 
@@ -190,7 +188,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					req := MustGenerateRequest(ctx, source, "view", loader)
+					req := MustGenerateRequest(source, "view", loader)
 					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 						"only one @retrieve type is allowed per output, found 2",
 					)))
@@ -199,7 +197,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			DescribeTable(
 				"Should read a shared field through the base method",
-				func(ctx SpecContext, tag, read string) {
+				func(tag, read string) {
 					source := `
 					@go output "core/pkg/service/view"
 
@@ -215,7 +213,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "view", loader, p)
+					resp := MustGenerate(source, "view", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").ToContain(read)
 				},
 				Entry("filter", "@filter", "want.Contains(e.Base().Name)"),
@@ -223,7 +221,7 @@ var _ = Describe("Go Query Plugin", func() {
 				Entry("search", "@search", "[]string{e.Base().Name}"),
 			)
 
-			It("Should read the tag through the tag method", func(ctx SpecContext) {
+			It("Should read the tag through the tag method", func() {
 				AddFilterSchema(loader)
 				source := `
 					import "schemas/x/filter"
@@ -249,7 +247,7 @@ var _ = Describe("Go Query Plugin", func() {
 						type
 					}
 				`
-				resp := MustGenerate(ctx, source, "view", loader, p)
+				resp := MustGenerate(source, "view", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").ToContain(
 					"func MatchTypes(vals ...Type) Filter",
 					"want.Contains(e.Type())",
@@ -258,7 +256,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			DescribeTable(
 				"Should reject a field that a variant drops",
-				func(ctx SpecContext, tag, reader string) {
+				func(tag, reader string) {
 					source := `
 					@go output "core/pkg/service/view"
 
@@ -275,7 +273,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					req := MustGenerateRequest(ctx, source, "view", loader)
+					req := MustGenerateRequest(source, "view", loader)
 					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 						"view.View: a variant drops field name, so no " + reader +
 							" can read it",
@@ -291,7 +289,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("inherited key", func() {
 			It(
 				"Should find the @key field on a base struct",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -307,7 +305,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(source, "foo", loader, p)
 					Expect(resp.Files).To(HaveLen(1))
 
 					ExpectContent(resp, "retrieve.gen.go").
@@ -322,7 +320,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("search", func() {
 			It(
 				"Should generate a search index over the @search fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -338,7 +336,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(source, "foo", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -362,7 +360,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should register the search index with the field indexes",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/user"
 
@@ -376,14 +374,14 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "user", loader, p)
+					resp := MustGenerate(source, "user", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain("\t\ti.username,\n\t\ti.search,\n\t}")
 				},
 			)
 
-			It("Should reject @search on a type", func(ctx SpecContext) {
+			It("Should reject @search on a type", func() {
 				source := `
 					@go output "core/pkg/service/foo"
 
@@ -393,7 +391,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@search
 					}
 				`
-				req := MustGenerateRequest(ctx, source, "foo", loader)
+				req := MustGenerateRequest(source, "foo", loader)
 				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 					"foo.Foo: @search goes on the fields to search, not on the type",
 				)))
@@ -401,7 +399,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should search the @search fields of an extended struct",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -416,7 +414,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(source, "foo", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain("return []string{e.Name}")
 				},
@@ -424,7 +422,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should reject @search on a field no @retrieve type reads",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -433,7 +431,7 @@ var _ = Describe("Go Query Plugin", func() {
 						name string @search
 					}
 				`
-					req := MustGenerateRequest(ctx, source, "foo", loader)
+					req := MustGenerateRequest(source, "foo", loader)
 					Expect(p.Generate(req)).Error().To(MatchError(
 						"foo.Foo: @search field name needs a @retrieve type to read it",
 					))
@@ -442,7 +440,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should accept a field that restates an inherited @search",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -456,7 +454,7 @@ var _ = Describe("Go Query Plugin", func() {
 						name?
 					}
 				`
-					resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(source, "foo", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain("return []string{e.Name}")
 				},
@@ -464,7 +462,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should reject @search on a field that the @retrieve type removes",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -478,7 +476,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					req := MustGenerateRequest(ctx, source, "foo", loader)
+					req := MustGenerateRequest(source, "foo", loader)
 					Expect(p.Generate(req)).Error().To(MatchError(
 						"foo.Base: @search field name needs a @retrieve type " +
 							"to read it",
@@ -488,7 +486,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should reject an @index field that collides with the search index",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -499,7 +497,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					req := MustGenerateRequest(ctx, source, "foo", loader)
+					req := MustGenerateRequest(source, "foo", loader)
 					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 						"foo.Foo: @index field search collides with the search index",
 					)))
@@ -508,7 +506,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			DescribeTable(
 				"Should reject @search on a field that is not a string",
-				func(ctx SpecContext, field string) {
+				func(field string) {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -518,7 +516,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					req := MustGenerateRequest(ctx, source, "foo", loader)
+					req := MustGenerateRequest(source, "foo", loader)
 					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 						"foo.Foo: @search field text must be a string that is not " +
 							"optional",
@@ -531,7 +529,7 @@ var _ = Describe("Go Query Plugin", func() {
 		})
 
 		Context("filters", func() {
-			It("Should generate a bool filter", func(ctx SpecContext) {
+			It("Should generate a bool filter", func() {
 				source := `
 					@go output "core/pkg/service/task"
 
@@ -546,7 +544,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, p)
+				resp := MustGenerate(source, "task", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
@@ -560,7 +558,7 @@ var _ = Describe("Go Query Plugin", func() {
 					)
 			})
 
-			It("Should take the distinct type of a bool field", func(ctx SpecContext) {
+			It("Should take the distinct type of a bool field", func() {
 				source := `
 					@go output "core/pkg/service/task"
 
@@ -577,13 +575,13 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, p)
+				resp := MustGenerate(source, "task", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain("func MatchFlag(v Flag) Filter").
 					ToNotContain("func MatchFlag(v bool) Filter")
 			})
 
-			It("Should generate a scalar filter", func(ctx SpecContext) {
+			It("Should generate a scalar filter", func() {
 				source := `
 					@go output "core/pkg/service/workspace"
 
@@ -598,7 +596,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "workspace", loader, p)
+				resp := MustGenerate(source, "workspace", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
@@ -613,7 +611,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should pluralize an uncountable name apart in prose and identifiers",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/series"
 
@@ -628,7 +626,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "series", loader, p)
+					resp := MustGenerate(source, "series", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -639,7 +637,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should generate a slice filter", func(ctx SpecContext) {
+			It("Should generate a slice filter", func() {
 				source := `
 					@go output "core/pkg/service/user"
 
@@ -654,7 +652,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, p)
+				resp := MustGenerate(source, "user", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
@@ -668,7 +666,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should generate a contains-style filter for a slice-typed field",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/rack"
 
@@ -683,7 +681,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "rack", loader, p)
+					resp := MustGenerate(source, "rack", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -700,7 +698,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should generate a filter with a cross-namespace type",
-				func(ctx SpecContext) {
+				func() {
 					loader.Add("schemas/rack", `
 					@go output "core/pkg/service/rack"
 
@@ -723,7 +721,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "device", loader, p)
+					resp := MustGenerate(source, "device", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -735,7 +733,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should reject @filter on the @key field", func(ctx SpecContext) {
+			It("Should reject @filter on the @key field", func() {
 				source := `
 					@go output "core/pkg/service/rack"
 
@@ -748,7 +746,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				req := MustGenerateRequest(ctx, source, "rack", loader)
+				req := MustGenerateRequest(source, "rack", loader)
 				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 					"rack.Rack: @filter on the @key field key duplicates MatchKeys",
 				)))
@@ -760,7 +758,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should generate a matcher for each bare line",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					import "schemas/x/filter"
 
@@ -785,7 +783,7 @@ var _ = Describe("Go Query Plugin", func() {
 						integrations
 					}
 				`
-					resp := MustGenerate(ctx, source, "rack", loader, p)
+					resp := MustGenerate(source, "rack", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
 							"func MatchNames(vals ...string) Filter",
@@ -798,7 +796,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should generate one matcher for a field with @filter and a bare line",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					import "schemas/x/filter"
 
@@ -819,7 +817,7 @@ var _ = Describe("Go Query Plugin", func() {
 						name
 					}
 				`
-					resp := MustGenerate(ctx, source, "rack", loader, p)
+					resp := MustGenerate(source, "rack", loader, p)
 					content := MustContentOf(resp, "retrieve.gen.go")
 					Expect(strings.Count(content, "func MatchNames(")).To(Equal(1))
 				},
@@ -829,7 +827,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("custom retrieve", func() {
 			It(
 				"Should not generate the Retrieve struct definition",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/rack"
 
@@ -842,7 +840,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve custom
 					}
 				`
-					resp := MustGenerate(ctx, source, "rack", loader, p)
+					resp := MustGenerate(source, "rack", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -858,7 +856,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should emit a Filter alias and Match/And/Or/Not bound combinators",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/rack"
 
@@ -871,7 +869,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve custom
 					}
 				`
-					resp := MustGenerate(ctx, source, "rack", loader, p)
+					resp := MustGenerate(source, "rack", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -890,7 +888,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should emit filter constructors returning Filter under @retrieve custom",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/rack"
 
@@ -905,7 +903,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve custom
 					}
 				`
-					resp := MustGenerate(ctx, source, "rack", loader, p)
+					resp := MustGenerate(source, "rack", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -917,7 +915,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should emit a Where method taking a single Filter and binding it to r",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/rack"
 
@@ -929,7 +927,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve custom
 					}
 				`
-					resp := MustGenerate(ctx, source, "rack", loader, p)
+					resp := MustGenerate(source, "rack", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -945,7 +943,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should also emit Filter machinery under a plain @retrieve (non-custom)",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/rack"
 
@@ -960,7 +958,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "rack", loader, p)
+					resp := MustGenerate(source, "rack", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -977,7 +975,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should use a struct-level @retrieve key override when no field has @key",
-				func(ctx SpecContext) {
+				func() {
 					// Channel uses a computed GorpKey that is not stored as a field
 					// on the struct. A struct-level `@retrieve key "Key"` override
 					// tells oracle which declared type to use for the retrieve's
@@ -997,7 +995,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve key "Key"
 					}
 				`
-					resp := MustGenerate(ctx, source, "channel", loader, p)
+					resp := MustGenerate(source, "channel", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -1013,7 +1011,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("indexes retrieve", func() {
 			It(
 				"Should generate only the indexes of a generic type over any",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/status"
 
@@ -1024,7 +1022,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve indexes
 					}
 				`
-					resp := MustGenerate(ctx, source, "status", loader, p)
+					resp := MustGenerate(source, "status", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -1046,9 +1044,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should search a non-generic type through MatchSearch", func(
-				ctx SpecContext,
-			) {
+			It("Should search a non-generic type through MatchSearch", func() {
 				source := `
 					@go output "core/pkg/service/task"
 
@@ -1058,7 +1054,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve indexes
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, p)
+				resp := MustGenerate(source, "task", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToBeValidGoSource().
 					ToContain(
@@ -1069,9 +1065,7 @@ var _ = Describe("Go Query Plugin", func() {
 					ToNotContain("func (r Retrieve) Search(")
 			})
 
-			It("Should name the records in docs by a @retrieve noun", func(
-				ctx SpecContext,
-			) {
+			It("Should name the records in docs by a @retrieve noun", func() {
 				source := `
 					@go output "core/pkg/service/color"
 
@@ -1081,7 +1075,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve noun "color"
 					}
 				`
-				resp := MustGenerate(ctx, source, "color", loader, p)
+				resp := MustGenerate(source, "color", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToBeValidGoSource().
 					ToContain(
@@ -1092,9 +1086,7 @@ var _ = Describe("Go Query Plugin", func() {
 					ToNotContain("nameds", "provided named ")
 			})
 
-			It("Should leave out MatchSearch with no @search field", func(
-				ctx SpecContext,
-			) {
+			It("Should leave out MatchSearch with no @search field", func() {
 				source := `
 					@go output "core/pkg/service/task"
 
@@ -1104,11 +1096,11 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve indexes
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, p)
+				resp := MustGenerate(source, "task", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").ToNotContain("MatchSearch")
 			})
 
-			It("Should reject @filter under @retrieve indexes", func(ctx SpecContext) {
+			It("Should reject @filter under @retrieve indexes", func() {
 				source := `
 					@go output "core/pkg/service/status"
 
@@ -1118,7 +1110,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve indexes
 					}
 				`
-				req := MustGenerateRequest(ctx, source, "status", loader)
+				req := MustGenerateRequest(source, "status", loader)
 				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 					"status.Status: @retrieve indexes generates no matchers, so field " +
 						"name cannot take @filter",
@@ -1127,7 +1119,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should generate orderings under @retrieve indexes",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/task"
 
@@ -1137,7 +1129,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve indexes
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, p)
+					resp := MustGenerate(source, "task", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
 							"type Order func(r Retrieve) gorp.OrderQuery[uint64, Task]",
@@ -1150,7 +1142,7 @@ var _ = Describe("Go Query Plugin", func() {
 		})
 
 		Context("key types", func() {
-			It("Should handle a string key type", func(ctx SpecContext) {
+			It("Should handle a string key type", func() {
 				source := `
 					@go output "core/pkg/service/device"
 
@@ -1163,7 +1155,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "device", loader, p)
+				resp := MustGenerate(source, "device", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
@@ -1172,7 +1164,7 @@ var _ = Describe("Go Query Plugin", func() {
 					)
 			})
 
-			It("Should handle a uint32 key type", func(ctx SpecContext) {
+			It("Should handle a uint32 key type", func() {
 				source := `
 					@go output "core/pkg/service/rack"
 
@@ -1185,7 +1177,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "rack", loader, p)
+				resp := MustGenerate(source, "rack", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
@@ -1198,7 +1190,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("imports", func() {
 			It(
 				"Should only import context and gorp for minimal structs",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/log"
 
@@ -1211,7 +1203,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "log", loader, p)
+					resp := MustGenerate(source, "log", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
@@ -1223,7 +1215,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should import set for variadic filters", func(ctx SpecContext) {
+			It("Should import set for variadic filters", func() {
 				source := `
 					@go output "core/pkg/service/user"
 
@@ -1238,16 +1230,14 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, p)
+				resp := MustGenerate(source, "user", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(`"github.com/synnaxlabs/synnax/x/go/set"`).
 					ToNotContain("\"slices\"")
 			})
 
-			It("Should not import slices or set for bool-only filters", func(
-				ctx SpecContext,
-			) {
+			It("Should not import slices or set for bool-only filters", func() {
 				source := `
 					@go output "core/pkg/service/task"
 
@@ -1262,7 +1252,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "task", loader, p)
+				resp := MustGenerate(source, "task", loader, p)
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToNotContain(
@@ -1273,7 +1263,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should import only context and gorp for @search",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -1286,7 +1276,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(source, "foo", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain("\"context\"", "/gorp\"").
@@ -1298,7 +1288,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("doc comments", func() {
 			It(
 				"Should include doc comments on all public methods",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -1317,7 +1307,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(source, "foo", loader, p)
 					content := MustContentOf(resp, "retrieve.gen.go")
 
 					expectedDocPrefixes := []string{
@@ -1347,7 +1337,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("indexes", func() {
 			It(
 				"Should generate a lookup index var and route MatchX through it",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/user"
 
@@ -1363,7 +1353,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "user", loader, p)
+					resp := MustGenerate(source, "user", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
 							"type indexes struct {",
@@ -1392,7 +1382,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should generate an index-only field when only @index is present",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/user"
 
@@ -1407,7 +1397,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "user", loader, p)
+					resp := MustGenerate(source, "user", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
 							"type indexes struct {",
@@ -1425,7 +1415,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should generate a sorted index with an Order closure type and OrderByX free function",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/event"
 
@@ -1441,7 +1431,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "event", loader, p)
+					resp := MustGenerate(source, "event", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain(
 							"createdAt *gorp.SortedIndex[uuid.UUID, Event, int64]",
@@ -1468,7 +1458,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should sort a string by its text key", func(ctx SpecContext) {
+			It("Should sort a string by its text key", func() {
 				source := `
 					@go output "core/pkg/service/event"
 
@@ -1482,7 +1472,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "event", loader, p)
+				resp := MustGenerate(source, "event", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
 						`"github.com/synnaxlabs/synnax/x/go/compare"`,
@@ -1497,7 +1487,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should match a list of strings through their text keys",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/event"
 
@@ -1511,7 +1501,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "event", loader, p)
+					resp := MustGenerate(source, "event", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToBeValidGoSource().
 						ToContain(
@@ -1524,7 +1514,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should sort by a sub-field", func(ctx SpecContext) {
+			It("Should sort by a sub-field", func() {
 				source := `
 					@go output "core/pkg/service/event"
 
@@ -1543,7 +1533,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-				resp := MustGenerate(ctx, source, "event", loader, p)
+				resp := MustGenerate(source, "event", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
 						"spanStart *gorp.SortedIndex[uuid.UUID, Event, int64]",
@@ -1557,7 +1547,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should sort by each sub-field that a mark names",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/event"
 
@@ -1573,7 +1563,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "event", loader, p)
+					resp := MustGenerate(source, "event", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToBeValidGoSource().
 						ToContain(
@@ -1587,7 +1577,7 @@ var _ = Describe("Go Query Plugin", func() {
 				},
 			)
 
-			It("Should sort a generic type over any", func(ctx SpecContext) {
+			It("Should sort a generic type over any", func() {
 				source := `
 					@go output "core/pkg/service/event"
 
@@ -1598,7 +1588,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve indexes
 					}
 				`
-				resp := MustGenerate(ctx, source, "event", loader, p)
+				resp := MustGenerate(source, "event", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToBeValidGoSource().
 					ToContain(
@@ -1612,7 +1602,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 			It(
 				"Should not emit an indexes struct when no fields have @index",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -1627,7 +1617,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(source, "foo", loader, p)
 					ExpectContent(resp, "retrieve.gen.go").
 						ToNotContain(
 							"NameIndex",
@@ -1641,7 +1631,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("multiple structs in same output", func() {
 			It(
 				"Should reject two @retrieve structs in one output",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/views"
 
@@ -1655,7 +1645,7 @@ var _ = Describe("Go Query Plugin", func() {
 						@retrieve
 					}
 				`
-					req := MustGenerateRequest(ctx, source, "views", loader)
+					req := MustGenerateRequest(source, "views", loader)
 					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
 						"only one @retrieve type is allowed per output, found 2",
 					)))
@@ -1666,7 +1656,7 @@ var _ = Describe("Go Query Plugin", func() {
 		Context("struct without @retrieve is skipped", func() {
 			It(
 				"Should only generate for structs with @retrieve",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/foo"
 
@@ -1686,7 +1676,7 @@ var _ = Describe("Go Query Plugin", func() {
 						data string
 					}
 				`
-					resp := MustGenerate(ctx, source, "foo", loader, p)
+					resp := MustGenerate(source, "foo", loader, p)
 
 					ExpectContent(resp, "retrieve.gen.go").
 						ToContain("Foo").

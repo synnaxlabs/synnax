@@ -10,10 +10,11 @@
 import { Status } from "@synnaxlabs/lyra/status";
 
 import { Panel } from "@/platform/panel";
+import { View } from "@/platform/view";
 
 export const TAB_TYPE = "status_explorer";
 
-const TAB: Panel.Tab = {
+export const TAB: Panel.Tab = {
   Content: Panel.lazyComponent(
     () => import("@/feature/status/explorer/Explorer"),
     "Explorer",
@@ -29,7 +30,5 @@ export const TABS: Panel.Tabs = {
   [TAB_TYPE]: TAB,
 };
 
-export const useOpenTab = (): (() => void) => {
-  const openTab = Panel.useOpenTab();
-  return () => openTab({ variant: "view", type: TAB_TYPE }, { singleton: true });
-};
+export const useOpenTab = (): (() => void) =>
+  View.useOpenExplorer({ resourceType: "status", tabType: TAB_TYPE });

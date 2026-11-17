@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -56,11 +57,12 @@ func (responseTranslator) Backward(
 	}, nil
 }
 
-func New(t *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	s := &server{
 		RequestTranslator:  grpc.EmptyTranslator{},
 		ResponseTranslator: responseTranslator{},
 		ServiceDesc:        &ConnectivityService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.ConnectivityCheck = s
 	return s

@@ -16,6 +16,7 @@ import { Access, Flux } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { useState } from "react";
 
+import { TAB_TYPE } from "@/feature/status/explorer/external";
 import { contextMenu } from "@/feature/status/list/ContextMenu";
 import { Label } from "@/platform/label";
 import { type Panel } from "@/platform/panel";
@@ -30,7 +31,7 @@ const PROPERTIES: View.Filter.Properties<status.Where> = {
 };
 
 export const Explorer: Panel.Content = () => (
-  <View.Frame resourceType="status" icon="Status">
+  <View.Frame resourceType="status" icon="Status" tabType={TAB_TYPE}>
     <Internal />
   </View.Frame>
 );

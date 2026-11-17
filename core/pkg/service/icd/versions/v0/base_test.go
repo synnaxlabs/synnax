@@ -61,7 +61,9 @@ var _ = Describe("Base", func() {
 			updated := jsonPayload
 			updated.UpdateFieldBases(rename)
 			Expect(updated.FieldBases()).To(Equal([]v0.BaseField{{Name: "volts!"}, {}}))
-			fields := updated.Variant.(v0.JSONPayload).Fields
+			payload, ok := updated.Variant.(v0.JSONPayload)
+			Expect(ok).To(BeTrue())
+			fields := payload.Fields
 			Expect(fields[0].Base().Pointer).To(Equal("/v"))
 			Expect(jsonPayload.FieldBases()[0].Name).To(Equal("volts"))
 		})

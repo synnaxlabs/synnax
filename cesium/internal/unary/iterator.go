@@ -68,12 +68,7 @@ func (i IteratorConfig) Validate() error {
 	return v.Error()
 }
 
-var (
-	_                     config.Config[IteratorConfig] = IteratorConfig{}
-	defaultIteratorConfig                               = IteratorConfig{
-		AutoChunkSize: 1e5,
-	}
-)
+var _ config.Config[IteratorConfig] = IteratorConfig{}
 
 func IterRange(tr telem.TimeRange) IteratorConfig {
 	return IteratorConfig{Bounds: domain.IterRange(tr).Bounds, AutoChunkSize: 0}
@@ -115,7 +110,9 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 	if db.closed.Load() {
 		return nil, db.wrapError(ErrDBClosed)
 	}
-	cfg, err := config.New(defaultIteratorConfig, cfgs...)
+	cfg, err := config.New(IteratorConfig{
+		AutoChunkSize: 1e5,
+	}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -318,32 +315,16 @@ func (i *Iterator) nextChunk(ctx context.Context) bool {
 			}
 			continue
 		}
-		startApprox, err := i.approximateStart(ctx)
+		// limit is the sample after the last one this domain can give the chunk.
+		startSample, limit, err := i.sliceDomain(ctx)
 		if err != nil {
 			i.err = err
 			return false
 		}
-		endApprox, err := i.approximateEnd(ctx)
+		endSample, err := i.chunkEnd(ctx, startSample, limit, nRemaining)
 		if err != nil {
 			i.err = err
 			return false
-		}
-		var (
-			startSample = pickSampleOffset(startApprox)
-			// limit is the sample after the last one this domain can give the chunk.
-			limit     = pickSampleOffset(endApprox)
-			endSample = min(startSample+nRemaining, limit)
-		)
-		if i.groupSize > 1 {
-			if nRemaining > 0 {
-				endSample, err = i.groupEnd(ctx, startSample, limit, nRemaining)
-			} else {
-				endSample, err = i.cutGroupEnd(ctx, startSample, limit)
-			}
-			if err != nil {
-				i.err = err
-				return false
-			}
 		}
 		end = domainTR.End
 		if closed = endSample < limit; closed {
@@ -400,32 +381,16 @@ func (i *Iterator) prevChunk(ctx context.Context) bool {
 			}
 			continue
 		}
-		startApprox, err := i.approximateStart(ctx)
+		// first is the earliest sample of this domain the chunk can reach.
+		first, endSample, err := i.sliceDomain(ctx)
 		if err != nil {
 			i.err = err
 			return false
 		}
-		endApprox, err := i.approximateEnd(ctx)
+		startSample, err := i.chunkStart(ctx, first, endSample, nRemaining)
 		if err != nil {
 			i.err = err
 			return false
-		}
-		var (
-			// first is the earliest sample of this domain the chunk can reach.
-			first       = pickSampleOffset(startApprox)
-			endSample   = pickSampleOffset(endApprox)
-			startSample = max(endSample-nRemaining, first)
-		)
-		if i.groupSize > 1 {
-			if nRemaining > 0 {
-				startSample, err = i.groupStart(ctx, first, endSample, nRemaining)
-			} else {
-				startSample, err = i.cutGroupStart(ctx, first, endSample)
-			}
-			if err != nil {
-				i.err = err
-				return false
-			}
 		}
 		start = domainTR.Start
 		if closed = startSample > first; closed {
@@ -451,6 +416,36 @@ func (i *Iterator) prevChunk(ctx context.Context) bool {
 	}
 	i.view.Start = max(start, i.bounds.Start)
 	return more && !i.atStart()
+}
+
+// chunkEnd returns the sample after the last one a forward chunk reads from a domain,
+// given the chunk's first sample and the domain's limit.
+func (i *Iterator) chunkEnd(
+	ctx context.Context,
+	start, limit, nRemaining int64,
+) (int64, error) {
+	if i.groupSize <= 1 {
+		return min(start+nRemaining, limit), nil
+	}
+	if nRemaining > 0 {
+		return i.groupEnd(ctx, start, limit, nRemaining)
+	}
+	return i.cutGroupEnd(ctx, start, limit)
+}
+
+// chunkStart returns the first sample a backward chunk reads from a domain, given the
+// domain's first reachable sample and the chunk's end.
+func (i *Iterator) chunkStart(
+	ctx context.Context,
+	first, end, nRemaining int64,
+) (int64, error) {
+	if i.groupSize <= 1 {
+		return max(end-nRemaining, first), nil
+	}
+	if nRemaining > 0 {
+		return i.groupStart(ctx, first, end, nRemaining)
+	}
+	return i.cutGroupStart(ctx, first, end)
 }
 
 // stampSample returns the timestamp of the sample at position offset within the domain

@@ -25,8 +25,8 @@ Core.
 ## Connect to Synnax Desktop
 
 Scripts on the same computer as Synnax Desktop can connect to its Core while it runs.
-Synnax Desktop saves the address of its Core and an API key in `~/.synnax/desktop.json`,
-which only your user can read. The Python client reads this file when you give no
+Synnax Desktop saves the address of its Core in `~/.synnax/desktop.json` and an API key
+in the keychain of your operating system. The Python client reads both when you give no
 arguments:
 
 ```python
@@ -41,8 +41,7 @@ uses that login, not Synnax Desktop.
 To get the code for each client, click the code button in the top bar of Synnax Desktop,
 or run the **Connect from code** command. The dialog shows the install command that
 matches the version of Synnax Desktop, and code that you can copy. The **TypeScript**
-tab gives code with the address and the API key filled in. Other clients, such as C++
-and LabVIEW, can use the host, the port, and the API key from that code.
+tab gives code with the address and the API key filled in.
 
 <Video id="client/connect/desktop" />
 
@@ -104,8 +103,8 @@ throws the same errors.
 
 </Client.Tabs>
 
-To keep credentials out of a script, read them from environment variables that you set.
-The clients read no environment variables by themselves.
+To keep credentials out of a script, set them in the
+[environment variables](#connect-with-environment-variables).
 
 <Divider.Divider x />
 
@@ -173,15 +172,15 @@ arguments. It is part of the Python client. Run it in a terminal:
 sy login
 ```
 
-Answer the prompts. Press **Enter** to keep the default in parentheses:
+Answer the prompts. Press **Enter** to keep the default in brackets:
 
 ```
 Enter your Synnax connection parameters:
-Host (localhost): core.example.com
-Port (9090):
-Username (synnax): operator
+Host [localhost]: core.example.com
+Port [9090]:
+Username [synnax]: operator
 Password:
-Secure Connection? [y/n] (n):
+Secure connection? [y/N]:
 ```
 
 When you answer `y` to the secure prompt, the command also asks for the "CA certificate
@@ -202,13 +201,112 @@ The command saves the host, port, TLS setting, and CA certificate path in
 `~/.synnax/config.json`. It saves the API key in the keychain of your operating system,
 under the name `synnax.api_key`. It does not save your username or password, and it
 deletes a password that an older version saved. In the Console, the key shows in
-**Manage sign-in** for your user. When the login fails, the command saves nothing. Run
-`sy login` again to change the values.
+**Manage sign-in** for your user. When the login fails, the command prints why, saves
+nothing, and exits with code 1. Run `sy login` again to change the values.
 
-With no saved login, `sy.Synnax()` connects to
-[Synnax Desktop](#connect-to-synnax-desktop). When neither is saved, it raises
+`sy login` never saves the key in a file. When the session has no keychain, the command
+fails and saves nothing. See [Connect without a keychain](#connect-without-a-keychain).
+
+With no host, `sy.Synnax()` first reads the
+[environment variables](#connect-with-environment-variables), then the saved login, then
+[Synnax Desktop](#connect-to-synnax-desktop). When none of them is set, it raises
 `sy.ValidationError`. When you give no host and no API key, the client ignores the other
-arguments and uses the saved login.
+arguments.
+
+<Divider.Divider x />
+
+## Connect with environment variables
+
+The clients read these environment variables. They take an API key, not a username and
+password.
+
+| Variable         | Value                                                             |
+| ---------------- | ----------------------------------------------------------------- |
+| `SYNNAX_HOST`    | The host of the Core.                                             |
+| `SYNNAX_API_KEY` | An API key.                                                       |
+| `SYNNAX_PORT`    | The port of the Core. The default is `9090`.                      |
+| `SYNNAX_SECURE`  | `true` or `1` to use TLS. The default is `false`.                 |
+| `SYNNAX_CA_CERT` | The path to the CA certificate of the Core, for TLS. Python only. |
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+When you give no host, `sy.Synnax()` reads the variables. Set `SYNNAX_HOST` and
+`SYNNAX_API_KEY` together.
+
+```bash
+export SYNNAX_HOST=core.example.com
+export SYNNAX_API_KEY=syk_...
+python my_script.py
+```
+
+The client uses the first source that it finds, in this order:
+
+1. The arguments to `sy.Synnax()`, when they include a host.
+2. The environment variables.
+3. The login that `sy login` saved.
+4. Synnax Desktop on this computer.
+
+When only one of `SYNNAX_HOST` and `SYNNAX_API_KEY` is set, or when `SYNNAX_PORT` or
+`SYNNAX_SECURE` has a value that is not valid, the client raises `sy.ValidationError`
+and names the variable.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+The client fills each option that you do not give from its variable, then from its
+default:
+
+| Option   | 1. Argument | 2. Variable      | 3. Default |
+| -------- | ----------- | ---------------- | ---------- |
+| `host`   | `host`      | `SYNNAX_HOST`    | None       |
+| `port`   | `port`      | `SYNNAX_PORT`    | `9090`     |
+| `apiKey` | `apiKey`    | `SYNNAX_API_KEY` | None       |
+| `secure` | `secure`    | `SYNNAX_SECURE`  | `false`    |
+
+To keep the API key out of your code, give the host and set only `SYNNAX_API_KEY`:
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax({ host: "core.example.com", port: 9090 });
+```
+
+```bash
+export SYNNAX_API_KEY=syk_...
+node my_script.js
+```
+
+The client does not read `SYNNAX_API_KEY` when you give a username, a password, or a
+token. With no host from the argument or `SYNNAX_HOST`, or when `SYNNAX_PORT` or
+`SYNNAX_SECURE` has a value that is not valid, the constructor throws `ValidationError`.
+
+The client reads the variables in Node.js, Deno, and Bun. A browser has no environment
+variables. In Deno, run the script with `--allow-env` to read the variables. Without it,
+the client treats them as unset, so give the options as arguments. In a terminal, Deno
+can ask for access first. Add `--deny-env` to stop the question.
+
+  </Fragment>
+
+</Client.Tabs>
+
+### Connect without a keychain
+
+`sy login` keeps the API key in the keychain of your operating system. Some sessions
+have no keychain that works:
+
+- SSH sessions, and Linux computers with no desktop.
+- Docker containers.
+- CI jobs, cron jobs, and system services.
+
+In these sessions, set `SYNNAX_HOST` and `SYNNAX_API_KEY` instead of running `sy login`.
+When a login is saved and the keychain is not available, `sy.Synnax()` raises
+`sy.ConfigurationError`. It does not connect to Synnax Desktop or to another Core.
+
+On Linux, a keychain that is locked can wait for a password prompt that an SSH session
+cannot show. If a script stops at `sy.Synnax()` over SSH, set the environment variables.
 
 <Divider.Divider x />
 
@@ -318,8 +416,9 @@ A Node.js script does not exit until you close the client.
 <Field.List>
 
 <Field.Item name="host" id="python-host" type="str">
-  The hostname or IP address of the Core. With no host, the client uses the values that
-  `sy login` saved, or Synnax Desktop.
+  The hostname or IP address of the Core. With no host, the client uses the `SYNNAX_*`
+  environment variables, the values that `sy login` saved, or Synnax Desktop, in that
+  order.
 </Field.Item>
 
 <Field.Item name="port" id="python-port" type="int">
@@ -400,15 +499,17 @@ A Node.js script does not exit until you close the client.
 <Field.List>
 
 <Field.Item name="host" id="typescript-host" type="string">
-  The hostname or IP address of the Core.
+  The hostname or IP address of the Core. The default is `SYNNAX_HOST`. See [Connect
+  with environment variables](#connect-with-environment-variables).
 </Field.Item>
 
 <Field.Item name="port" id="typescript-port" type="number | string">
-  The port of the Core.
+  The port of the Core. The default is `SYNNAX_PORT`, then `9090`.
 </Field.Item>
 
 <Field.Item name="apiKey" id="typescript-api-key" type="string">
-  The API key to log in with. See [Connect with an API key](#connect-with-an-api-key).
+  The API key to log in with. The default is `SYNNAX_API_KEY`. See [Connect with an API
+  key](#connect-with-an-api-key).
 </Field.Item>
 
 <Field.Item name="username" id="typescript-username" type="string">
@@ -420,7 +521,7 @@ A Node.js script does not exit until you close the client.
 </Field.Item>
 
 <Field.Item name="secure" id="typescript-secure" type="boolean" default="false">
-  Connect with TLS.
+  Connect with TLS. The default is `SYNNAX_SECURE`, then `false`.
 </Field.Item>
 
 <Field.Item

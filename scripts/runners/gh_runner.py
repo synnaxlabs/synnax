@@ -36,6 +36,42 @@ class Sink(Protocol):
     def log(self, line: str) -> None: ...
 
 
+class Samples(Protocol):
+    def __len__(self) -> int: ...
+
+    def __getitem__(self, index: int, /) -> object: ...
+
+
+class Frame(Protocol):
+    def get(self, key: str | int, /) -> Samples | None: ...
+
+
+class Streamer(Protocol):
+    def read(self, *, timeout: sy.TimeSpan) -> Frame | None: ...
+
+    def close(self) -> object: ...
+
+
+class Keyed(Protocol):
+    @property
+    def key(self) -> int: ...
+
+
+class Retriever(Protocol):
+    def retrieve(self, channel: str, /) -> Keyed: ...
+
+
+class Core(Protocol):
+    """The part of the Core that the runner reads its commands from."""
+
+    @property
+    def channels(self) -> Retriever: ...
+
+    def read(self, tr: sy.TimeRange, channel: str, /) -> Samples: ...
+
+    def open_streamer(self, channels: list[str], /) -> Streamer: ...
+
+
 class Runner:
     def __init__(self) -> None:
         self.sink: Sink | None = None
@@ -46,7 +82,7 @@ class Runner:
         self.stopping = threading.Event()
         self.thread: threading.Thread | None = None
 
-    def listen(self, client: sy.Synnax, name: str, state: str, sink: Sink) -> None:
+    def listen(self, client: Core, name: str, state: str, sink: Sink) -> None:
         """Applies the last state, then each write to the command channel from a
         thread until stop_listening()."""
         self.sink = sink
@@ -70,7 +106,7 @@ class Runner:
 
     def _listen(
         self,
-        client: sy.Synnax,
+        client: Core,
         name: str,
         labels: tuple[str, int],
         stopping: threading.Event,

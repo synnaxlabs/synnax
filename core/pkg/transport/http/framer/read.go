@@ -40,12 +40,15 @@ const recordHeaderSize = 5
 // Data records hold the requested channels, and only those, encoded by the frame codec.
 // The last record is a terminator: empty when the read completed, a JSON error payload
 // when it did not. A body that ends without a terminator was cut short in transit. ctx
-// bounds the iterators the encoder opens.
-func NewFrameEncoder(ctx context.Context) xhttp.Encoder {
-	return frameEncoder{ctx: ctx}
+// bounds the iterators the encoder opens, and errs encodes the error payload.
+func NewFrameEncoder(ctx context.Context, errs *errors.Codec) xhttp.Encoder {
+	return frameEncoder{ctx: ctx, errs: errs}
 }
 
-type frameEncoder struct{ ctx context.Context }
+type frameEncoder struct {
+	ctx  context.Context
+	errs *errors.Codec
+}
 
 // ContentType implements http.Encoder.
 func (frameEncoder) ContentType() string { return frameContentType }
@@ -83,7 +86,7 @@ func (e frameEncoder) EncodeStream(w io.Writer, value any) error {
 	readErr := drainer(res)(iter, write)
 	var payload []byte
 	if readErr != nil {
-		fErr := errors.Encode(readErr, false)
+		fErr := e.errs.Encode(readErr, false)
 		if payload, err = json.Codec.Encode(fErr); err != nil {
 			return err
 		}

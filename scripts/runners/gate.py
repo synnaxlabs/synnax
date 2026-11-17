@@ -10,10 +10,20 @@
 """Disconnects the fleet from GitHub without stopping instances, by writing
 <runner>_gh_cmd for agent.py to act on. Stepped by controller.py each poll."""
 
+from typing import Protocol
+
 import synnax as sy
 
 from commander import Commander
-from common import Channels, channel_name, instance_prefix, latest
+from common import (
+    Channels,
+    ReadsLatest,
+    Streams,
+    Writes,
+    channel_name,
+    instance_prefix,
+    latest,
+)
 from log import Log
 from publisher import Publisher, on_change
 from subscription import Subscription
@@ -27,13 +37,17 @@ GATE_STATE_INDEX = "gh_state_time"
 DRAIN_TIMEOUT = sy.TimeSpan.MILLISECOND * 10
 
 
+class Core(Writes, Streams, ReadsLatest, Protocol):
+    """The part of the Core that the gate writes, streams, and reads."""
+
+
 class Gate:
     """Fans global_gh_cmd out to every runner, once per change, and reports what is
     on each <runner>_gh_cmd, whoever wrote it, in <runner>_gh_state on change. A
     fan-out whose write fails is sent again on the next step."""
 
     def __init__(
-        self, *, client: sy.Synnax, channels: Channels, log: Log, enabled: bool = True
+        self, *, client: Core, channels: Channels, log: Log, enabled: bool = True
     ) -> None:
         self.commander = Commander(
             client=client, command="gh_cmd", name="GH Gate", log=log

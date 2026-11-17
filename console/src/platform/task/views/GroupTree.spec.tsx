@@ -59,17 +59,23 @@ const branches = deep.widen<Branch[]>(path.config.groups);
 
 const fieldsOf = (groupKey: string) => deep.present(branches[groupKey].fields);
 
-const groupLabel = Component.renderProp(({ groupKey }: Task.Views.GroupProps<Item>) => (
+const GroupLabel = ({ groupKey }: Task.Views.GroupProps<Item>) => (
   <span>group-{groupKey}</span>
-));
+);
 
-const groupDetails = Component.renderProp(({ path }: Task.Views.GroupProps<Item>) => (
-  <span>details-for-{String(path)}</span>
-));
+const groupLabel = Component.renderProp(GroupLabel);
 
-const fieldDetails = Component.renderProp(({ path }: Task.Views.FieldProps<Field>) => (
+const GroupDetails = ({ path }: Task.Views.GroupProps<Item>) => (
   <span>details-for-{String(path)}</span>
-));
+);
+
+const groupDetails = Component.renderProp(GroupDetails);
+
+const FieldDetails = ({ path }: Task.Views.FieldProps<Field>) => (
+  <span>details-for-{String(path)}</span>
+);
+
+const fieldDetails = Component.renderProp(FieldDetails);
 
 const createGroups = async (): Promise<Item[]> => [
   { key: id.create(), label: "", disabled: false, index: "", fields: [] },
@@ -328,23 +334,23 @@ describe("GroupTree", () => {
 
   it("should re-render no group when a field takes a keystroke", async () => {
     const updates: string[] = [];
-    const countedLabel = Component.renderProp(
-      ({ groupKey }: Task.Views.GroupProps<Item>) => (
-        <Profiler
-          id={groupKey}
-          onRender={(groupKey, phase) => {
-            if (phase !== "mount") updates.push(groupKey);
-          }}
-        >
-          <span>group-{groupKey}</span>
-        </Profiler>
-      ),
+    const CountedLabel = ({ groupKey }: Task.Views.GroupProps<Item>) => (
+      <Profiler
+        id={groupKey}
+        onRender={(groupKey, phase) => {
+          if (phase !== "mount") updates.push(groupKey);
+        }}
+      >
+        <span>group-{groupKey}</span>
+      </Profiler>
     );
-    const pointerDetails = Component.renderProp(
-      ({ path }: Task.Views.FieldProps<Field>) => (
-        <Form.TextField path={path.pointer} label="Pointer" />
-      ),
+
+    const countedLabel = Component.renderProp(CountedLabel);
+    const PointerDetails = ({ path }: Task.Views.FieldProps<Field>) => (
+      <Form.TextField path={path.pointer} label="Pointer" />
     );
+
+    const pointerDetails = Component.renderProp(PointerDetails);
     const other: Group = { ...GROUP, key: "h", fields: [field("w", "/wind")] };
     await renderTree([GROUP, other], {
       groupLabel: countedLabel,

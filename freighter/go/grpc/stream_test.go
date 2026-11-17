@@ -11,6 +11,7 @@ package grpc_test
 
 import (
 	"context"
+	"io"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -61,6 +62,7 @@ func startPair() (
 			RequestTranslator:  requestBackwardTranslator{},
 			ResponseTranslator: responseForwardTranslator{},
 			ServiceDesc:        &v1.TestStreamService_ServiceDesc,
+			Errors:             errorCodec(),
 			Internal:           true,
 		}
 		sServer.BindTo(reg)
@@ -74,6 +76,7 @@ func startPair() (
 			ResponseTranslator: responseTranslator{},
 			Pool:               pool,
 			ServiceDesc:        &v1.TestStreamService_ServiceDesc,
+			Errors:             errorCodec(),
 			ClientFunc: func(
 				ctx context.Context,
 				conn grpc.ClientConnInterface,
@@ -130,9 +133,9 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			})
 			stream := MustSucceed(client.Stream(ctx, addr))
 			Expect(stream.CloseSend()).To(Succeed())
-			Eventually(errs).Should(Receive(MatchError(freighter.EOF)))
-			Eventually(errs).Should(Receive(MatchError(freighter.EOF)))
-			Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+			Eventually(errs).Should(Receive(MatchError(io.EOF)))
+			Eventually(errs).Should(Receive(MatchError(io.EOF)))
+			Expect(stream.Receive()).Error().To(MatchError(io.EOF))
 		},
 	)
 

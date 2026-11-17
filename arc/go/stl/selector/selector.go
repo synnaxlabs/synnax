@@ -113,10 +113,10 @@ func (s *selectNode) Next(ctx node.Context) {
 	trueTime := s.OutputTime(trueOutputIdx)
 	falseData := s.Output(falseOutputIdx)
 	falseTime := s.OutputTime(falseOutputIdx)
-	trueData.Resize(trueCount)
-	trueTime.Resize(trueCount)
-	falseData.Resize(falseCount)
-	falseTime.Resize(falseCount)
+	*trueData = trueData.Resized(trueCount)
+	*trueTime = trueTime.Resized(trueCount)
+	*falseData = falseData.Resized(falseCount)
+	*falseTime = falseTime.Resized(falseCount)
 	trueData.Alignment = data.Alignment
 	trueData.TimeRange = data.TimeRange
 	trueTime.Alignment = data.Alignment

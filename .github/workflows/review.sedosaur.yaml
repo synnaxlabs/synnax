@@ -295,6 +295,21 @@ jobs:
             @anthropic-ai/claude-code@latest
           echo "$RUNNER_TEMP/claude/node_modules/.bin" >> "$GITHUB_PATH"
 
+      # The fleet controller started the runner on a shared Claude login, which only
+      # this runner's machine may read.
+      - name: Read the Claude login
+        run: |
+          imds=http://169.254.169.254/latest
+          imds_token=$(curl -fsS -X PUT "$imds/api/token" \
+            -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
+          login=$(curl -fsS -H "X-aws-ec2-metadata-token: $imds_token" \
+            "$imds/meta-data/tags/instance/login")
+          token=$(uvx --from awscli==1.46.2 aws secretsmanager get-secret-value \
+            --region us-east-1 --secret-id "synnax-agents/logins/$login" \
+            --query SecretString --output text)
+          echo "::add-mask::$token"
+          echo "CLAUDE_CODE_OAUTH_TOKEN=$token" >> "$GITHUB_ENV"
+
       - name: Review
         working-directory: .github/scripts
         env:
@@ -304,7 +319,6 @@ jobs:
           POLICY_SHA: ${{ steps.policy.outputs.sha }}
           REPLAY: ${{ inputs.replay }}
           HEAD_DIR: ${{ runner.temp }}/head
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.SEDOSAUR_CLAUDE_CODE_OAUTH_TOKEN }}
         run: python3 -m review run "$RUNNER_TEMP/review.json"
 
       # The trial report compares these records with Greptile's reviews.
@@ -316,12 +330,26 @@ jobs:
           retention-days: 90
           overwrite: true
 
+      # Its own token, minted after Claude Code exits: resolveReviewThread needs
+      # contents: write, which the review must never hold.
+      - name: Mint the token to post the review
+        if: ${{ !inputs.replay }}
+        id: post
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-checks: write
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+
       - name: Post the review
         if: ${{ !inputs.replay }}
         working-directory: .github/scripts
         env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
-          BOT: ${{ steps.app.outputs.app-slug }}
+          GH_TOKEN: ${{ steps.post.outputs.token }}
+          BOT: ${{ steps.post.outputs.app-slug }}
         run: python3 -m review post "$RUNNER_TEMP/review.json"
 
   # Takes the eyes away however the review ends, even when its runner is lost.

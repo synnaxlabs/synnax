@@ -15,7 +15,7 @@ type Middleware[I, O any] interface {
 	// Exec executes the middleware. It receives a context and a request. It also
 	// receives a next function that can be used to execute the next middleware in the
 	// chain.
-	Exec(I, func(I) (O, error)) (O, error)
+	Exec(req I, next func(req I) (O, error)) (O, error)
 }
 
 // Finalizer is the final middleware in a chain, and is expected to execute the request.

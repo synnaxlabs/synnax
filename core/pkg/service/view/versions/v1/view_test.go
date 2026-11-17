@@ -119,7 +119,7 @@ var _ = Describe("View", func() {
 				w := orc.NewWriter(0)
 				Expect(view.EncodeOrc(w)).To(Succeed())
 				b := w.Bytes()
-				for n := range len(b) {
+				for n := range b {
 					var decoded v1.View
 					r := orc.NewReader(nil)
 					r.ResetBytes(b[:n])
