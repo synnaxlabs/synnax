@@ -127,9 +127,9 @@ A symbol state shows its enumeration (RFC 0114). A look with `entry` paint takes
 color of the current entry, then the symbol color, then the theme. The built-in valve
 strokes `body` at 0 and fills it at 1 with `entry` paint. The built-in enumerations of
 RFC 0114 §4.5 are "Valve" (0 Closed, 1 Open), "Normally open valve" (0 Open, 1 Closed),
-"Pump" (0 Stopped, 1 Running), "Switch" (0 Off, 1 On), and "Light" (0 Off, 1 On). The
-first four have entries with no color, so a valve, pump, or switch paints its symbol
-color, then the theme, as today.
+"Pump" (0 Stopped, 1 Running), "Switch" (0 Off, 1 On), and "Light" (0 Off, 1 On). Their
+entries have no color, so each symbol paints its symbol color, then the theme, as today.
+A light keeps its `on_color` through its own enumeration (§4.6).
 
 An absent `enumeration` on a state binding means the symbol's default enumeration. A
 built-in symbol names it in its Pluto file, and a custom symbol on its Core record. A
