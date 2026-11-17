@@ -98,10 +98,20 @@ var _ = Describe("Read field", func() {
 		return f
 	}
 
+	firstEntry := func(cfg msgpack.EncodedJSON) map[string]any {
+		GinkgoHelper()
+		entries, ok := cfg["entries"].([]any)
+		Expect(ok).To(BeTrue())
+		entry, ok := entries[0].(map[string]any)
+		Expect(ok).To(BeTrue())
+		return entry
+	}
+
 	fieldsOf := func(data msgpack.EncodedJSON) []any {
 		GinkgoHelper()
-		entries := data["entries"].([]any)
-		return entries[0].(map[string]any)["fields"].([]any)
+		fields, ok := firstEntry(data)["fields"].([]any)
+		Expect(ok).To(BeTrue())
+		return fields
 	}
 
 	Describe("Write", func() {
@@ -148,7 +158,7 @@ var _ = Describe("Read field", func() {
 		It("Should skip the fields of a disabled entry", func(ctx SpecContext) {
 			ch := createChannel(ctx, telem.Int32T)
 			cfg := readConfig(readField("float", ch, nil))
-			cfg["entries"].([]any)[0].(map[string]any)["disabled"] = true
+			firstEntry(cfg)["disabled"] = true
 			data := MustSucceed(prepare(ctx, cfg))
 			Expect(fieldsOf(data)[0]).To(HaveKeyWithValue("type", "float"))
 		})
@@ -230,7 +240,9 @@ var _ = Describe("Read field", func() {
 		) map[string]any {
 			GinkgoHelper()
 			data := MustSucceed(svc.Read.Normalize(ctx, db, 2, readConfig(fields...)))
-			return fieldsOf(data)[0].(map[string]any)
+			field, ok := fieldsOf(data)[0].(map[string]any)
+			Expect(ok).To(BeTrue())
+			return field
 		}
 
 		DescribeTable(
@@ -386,7 +398,7 @@ var _ = Describe("Read field", func() {
 				"channel": ch.Key(),
 				"pointer": "/ts",
 			})
-			cfg["entries"].([]any)[0].(map[string]any)["index"] = "stamp"
+			firstEntry(cfg)["index"] = "stamp"
 			data := MustSucceed(svc.Read.Normalize(ctx, db, 1, cfg))
 			Expect(fieldsOf(data)[0]).To(SatisfyAll(
 				HaveKeyWithValue("type", "timestamp"),

@@ -468,9 +468,11 @@ var _ = Describe("NewReadMigration", func() {
 				Namespace:       "mqtt_read_config",
 				Migrations:      []gorp.Migration{v2.NewReadMigration(channels)},
 			})).To(Succeed())
-			logged := []string{}
+			logged := make([]string, 0, len(logs.All()))
 			for _, e := range logs.All() {
-				logged = append(logged, e.ContextMap()["change"].(string))
+				change, ok := e.ContextMap()["change"].(string)
+				Expect(ok).To(BeTrue())
+				logged = append(logged, change)
 			}
 			Expect(logged).To(ConsistOf(changes))
 			var got v2.ReadConfig

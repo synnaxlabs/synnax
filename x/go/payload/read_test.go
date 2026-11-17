@@ -22,11 +22,12 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+func floatRead(fill *payload.Float, entries ...payload.FloatEntry) payload.Read {
+	return payload.FromFloat(payload.FloatRead{EnumValues: entries, Fill: fill})
+}
+
 var _ = Describe("Read", func() {
 	nan := payload.Float(math.NaN())
-	floatRead := func(fill *payload.Float, entries ...payload.FloatEntry) payload.Read {
-		return payload.FromFloat(payload.FloatRead{EnumValues: entries, Fill: fill})
-	}
 
 	Describe("Reconcile", func() {
 		DescribeTable(

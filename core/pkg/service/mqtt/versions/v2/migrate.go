@@ -164,6 +164,7 @@ func migrateRead(
 		if old.TimeFormat != nil {
 			r.Timestamp.TimeFormat = *old.TimeFormat
 		}
+	case payload.KindString, payload.KindJSON, payload.KindUUID, payload.KindBytes:
 	}
 	if kind != payload.KindFloat && kind != payload.KindInteger &&
 		kind != payload.KindUnsigned && kind != payload.KindBoolean {

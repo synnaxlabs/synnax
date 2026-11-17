@@ -52,8 +52,11 @@ func (n Number) boolean() (v, ok bool) {
 		return n.i != 0, true
 	case KindUnsigned:
 		return n.u != 0, true
+	case KindFloat:
+		return n.f != 0, !math.IsNaN(n.f)
+	case KindString, KindBoolean, KindTimestamp, KindJSON, KindUUID, KindBytes:
 	}
-	return n.f != 0, !math.IsNaN(n.f)
+	panic("payload: a number has kind " + string(n.kind))
 }
 
 // String implements fmt.Stringer.
@@ -63,8 +66,11 @@ func (n Number) String() string {
 		return strconv.FormatInt(n.i, 10)
 	case KindUnsigned:
 		return strconv.FormatUint(n.u, 10)
+	case KindFloat:
+		return strconv.FormatFloat(n.f, 'g', -1, 64)
+	case KindString, KindBoolean, KindTimestamp, KindJSON, KindUUID, KindBytes:
 	}
-	return strconv.FormatFloat(n.f, 'g', -1, 64)
+	panic("payload: a number has kind " + string(n.kind))
 }
 
 // exact returns n as an exact big.Float, or nil when n is NaN or infinite.
@@ -74,11 +80,14 @@ func (n Number) exact() *big.Float {
 		return new(big.Float).SetInt64(n.i)
 	case KindUnsigned:
 		return new(big.Float).SetUint64(n.u)
+	case KindFloat:
+		if math.IsNaN(n.f) || math.IsInf(n.f, 0) {
+			return nil
+		}
+		return new(big.Float).SetFloat64(n.f)
+	case KindString, KindBoolean, KindTimestamp, KindJSON, KindUUID, KindBytes:
 	}
-	if math.IsNaN(n.f) || math.IsInf(n.f, 0) {
-		return nil
-	}
-	return new(big.Float).SetFloat64(n.f)
+	panic("payload: a number has kind " + string(n.kind))
 }
 
 // To returns n as a value of the numeric kind k. ok is false when k does not hold n
@@ -106,6 +115,8 @@ func (n Number) To(k Kind) (out Number, ok bool) {
 			return Number{}, false
 		}
 		out.u, acc = b.Uint64()
+	case KindString, KindBoolean, KindTimestamp, KindJSON, KindUUID, KindBytes:
+		fallthrough
 	default:
 		return Number{}, false
 	}
@@ -132,6 +143,7 @@ func (n Number) fits(dt telem.DataType) bool {
 		v, ok := n.To(k)
 		bits := 8 * int(dt.Density())
 		return ok && (bits == 64 || v.u < 1<<bits)
+	case KindString, KindBoolean, KindTimestamp, KindJSON, KindUUID, KindBytes:
 	}
 	return false
 }
@@ -142,33 +154,43 @@ func (n Number) float64() float64 {
 		return float64(n.i)
 	case KindUnsigned:
 		return float64(n.u)
+	case KindFloat:
+		return n.f
+	case KindString, KindBoolean, KindTimestamp, KindJSON, KindUUID, KindBytes:
 	}
-	return n.f
+	panic("payload: a number has kind " + string(n.kind))
 }
 
 // appendTo appends n to dst as one sample of the numeric data type dt, which must
 // hold n.
 func (n Number) appendTo(dst []byte, dt telem.DataType) []byte {
 	order := telem.ByteOrder
+	var bits uint64
 	switch dt {
 	case telem.Float64T:
 		return order.AppendUint64(dst, math.Float64bits(n.float64()))
 	case telem.Float32T:
 		return order.AppendUint32(dst, math.Float32bits(float32(n.float64())))
-	}
-	k, _ := KindOf(dt)
-	v, _ := n.To(k)
-	bits := v.u
-	if k == KindInteger {
+	case telem.Int64T, telem.Int32T, telem.Int16T, telem.Int8T:
+		v, _ := n.To(KindInteger)
 		bits = uint64(v.i)
+	case telem.Uint64T, telem.Uint32T, telem.Uint16T, telem.Uint8T:
+		v, _ := n.To(KindUnsigned)
+		bits = v.u
+	case telem.UnknownT, telem.TimestampT, telem.UUIDT, telem.StringT, telem.BytesT,
+		telem.JSONT, telem.BooleanT:
+		panic("payload: a number has no samples of " + string(dt))
 	}
 	switch dt.Density() {
-	case 1:
+	case telem.Bit8:
 		return append(dst, byte(bits))
-	case 2:
+	case telem.Bit16:
 		return order.AppendUint16(dst, uint16(bits))
-	case 4:
+	case telem.Bit32:
 		return order.AppendUint32(dst, uint32(bits))
+	case telem.Bit64:
+		return order.AppendUint64(dst, bits)
+	case telem.UnknownDensity, telem.Bit128:
 	}
-	return order.AppendUint64(dst, bits)
+	panic("payload: a number has no samples of " + string(dt))
 }
