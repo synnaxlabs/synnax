@@ -27,6 +27,8 @@ import { useIsPreview } from "@/platform/task/useIsPreview";
 export interface ContextMenuItemProps<C extends Channel> {
   keys: string[];
   channels: C[];
+  /** The item the menu opened over. */
+  target: HTMLElement | null;
 }
 
 interface ContextMenuProps<C extends Channel> extends Pick<
@@ -34,6 +36,7 @@ interface ContextMenuProps<C extends Channel> extends Pick<
   "data" | "remove"
 > {
   keys: string[];
+  target: HTMLElement | null;
   allowTare?: (keys: string[], channels: C[]) => boolean;
   onDuplicate?: (channels: C[], keys: string[]) => void;
   onSelect: (keys: string[]) => void;
@@ -45,6 +48,7 @@ interface ContextMenuProps<C extends Channel> extends Pick<
 const ContextMenu = <C extends Channel>({
   allowTare,
   keys,
+  target,
   onDuplicate,
   onSelect,
   onTare,
@@ -82,7 +86,7 @@ const ContextMenu = <C extends Channel>({
             </Menu.Item>
           )}
           <Menu.Divider />
-          {contextMenuItems?.({ channels, keys }) ?? null}
+          {contextMenuItems?.({ channels, keys, target }) ?? null}
           {canEnable && (
             <Menu.Item itemKey="enable" onClick={handleEnable}>
               <Icon.Enable />
@@ -119,7 +123,7 @@ export interface ChannelListItemProps extends List.ItemProps<string> {}
 
 export interface ChannelListProps<C extends Channel>
   extends
-    Omit<ContextMenuProps<C>, "keys">,
+    Omit<ContextMenuProps<C>, "keys" | "target">,
     Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow" | "style"> {
   /**
    * Null for a list whose entries an outer BindChannels binds, or whose channels no

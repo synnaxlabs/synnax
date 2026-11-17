@@ -365,6 +365,33 @@ describe("Editable", () => {
       await expect(promise).resolves.toEqual(["World", true]);
     });
 
+    it("should edit the copy inside the given element when two share an id", () => {
+      const c = render(
+        <>
+          <div>
+            <Editable id="shared" value="First" onChange={vi.fn()} />
+          </div>
+          <div data-testid="second">
+            <Editable id="shared" value="Second" onChange={vi.fn()} />
+          </div>
+        </>,
+      );
+      act(() => edit("shared", c.getByTestId("second")));
+      expect(c.getByText("Second").getAttribute("contenteditable")).toBe("true");
+      expect(c.getByText("First").getAttribute("contenteditable")).not.toBe("true");
+    });
+
+    it("should edit the first copy in the document when the element holds none", () => {
+      const c = render(
+        <>
+          <Editable id="elsewhere" value="Name" onChange={vi.fn()} />
+          <div data-testid="item">Item</div>
+        </>,
+      );
+      act(() => edit("elsewhere", c.getByTestId("item")));
+      expect(c.getByText("Name").getAttribute("contenteditable")).toBe("true");
+    });
+
     it("should start an edit after a level change renders a new element", async () => {
       const onChange = vi.fn();
       const c = render(

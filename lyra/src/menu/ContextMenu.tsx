@@ -33,6 +33,8 @@ interface ContextMenuState {
   keys: string[];
   position: xy.XY;
   cursor: xy.XY;
+  /** The context target the menu opened over. Null for a menu opened at a point. */
+  target: HTMLElement | null;
 }
 
 /** Supported event types for triggering a context menu. */
@@ -62,6 +64,7 @@ const INITIAL_STATE: ContextMenuState = {
   position: xy.ZERO,
   cursor: xy.ZERO,
   keys: [],
+  target: null,
 };
 
 const CONTEXT_MENU_CONTAINER = CSS.BE("menu-context", "container");
@@ -126,6 +129,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
     if (active instanceof HTMLElement && menuRef.current?.contains(active) !== true)
       returnFocusRef.current = active;
     let keys: string[] = [];
+    let opened: HTMLElement | null = null;
     if (typeof e === "object" && "preventDefault" in e) {
       e.preventDefault();
       e.stopPropagation();
@@ -140,10 +144,11 @@ export const useContextMenu = (): UseContextMenuReturn => {
       // when the menu acts on a wider selection.
       if (target.classList.contains(CONTEXT_TARGET)) {
         targetRef.current = target;
+        opened = target;
         target.setAttribute(CONTEXT_OPEN_ATTRIBUTE, "");
       }
     }
-    setMenuState({ visible: true, keys, position: p, cursor: p });
+    setMenuState({ visible: true, keys, position: p, cursor: p, target: opened });
   };
 
   const calculatePosition = () => {
@@ -249,6 +254,7 @@ const Surface = ({
   keys,
   className,
   cursor,
+  target,
   style,
   onClick,
   onKeyDown,
@@ -281,7 +287,9 @@ const Surface = ({
         e.stopPropagation();
       }}
     >
-      <Filtered filter={filter}>{menu?.({ keys, visible, position, cursor })}</Filtered>
+      <Filtered filter={filter}>
+        {menu?.({ keys, visible, position, cursor, target })}
+      </Filtered>
     </Flex.Box>,
     document.body,
   );
