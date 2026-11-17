@@ -17,5 +17,5 @@ with client.open_streamer("sy_task_set") as s:
     for frame in s:
         for task in frame["sy_task_set"]:
             t = client.tasks.retrieve(key=sy.task.Payload.model_validate(task).key)
-            with open("task.json", "w") as f:
+            with open("task.json", "w", encoding="utf-8") as f:
                 json.dump(t.config, f, indent=4)

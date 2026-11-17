@@ -168,28 +168,6 @@ export const getInputByItemLabel = (
   return input;
 };
 
-/**
- * Finds the button whose subtree renders every one of the given pluto icons, for
- * icon-only composite buttons (e.g. group + add) with no accessible text.
- */
-export const getCompositeIconButton = (
-  container: ParentNode,
-  icons: string[],
-): HTMLButtonElement => {
-  const [btn] = getCompositeIconButtons(container, icons);
-  if (btn == null) throw new Error(`no button with icons ${icons.join(", ")}`);
-  return btn;
-};
-
-/** Like getCompositeIconButton, but returns every match instead of throwing on none. */
-export const getCompositeIconButtons = (
-  container: ParentNode,
-  icons: string[],
-): HTMLButtonElement[] =>
-  Array.from(container.querySelectorAll("button")).filter((b) =>
-    icons.every((i) => b.querySelector(`.lyra-icon--${i}`) != null),
-  );
-
 /** A handle on the pluto input table inside an input item. */
 export interface InputTable {
   /** The button that appends a row. */

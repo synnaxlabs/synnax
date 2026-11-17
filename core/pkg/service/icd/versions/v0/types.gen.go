@@ -207,13 +207,6 @@ type BaseField struct {
 	Max *float64 `json:"max,omitzero" msgpack:"max,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BaseField) ApplyDefaults() {
-	if b.Scale == 0 {
-		b.Scale = 1
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (b *BaseField) SetDefaults() {
 	b.Scale = 1
@@ -247,20 +240,6 @@ type BinaryField struct {
 	// MultiplexValues are the raw values of the multiplexor for which this field is
 	// present.
 	MultiplexValues []int32 `json:"multiplex_values" msgpack:"multiplex_values"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BinaryField) ApplyDefaults() {
-	if b.BitLength == 0 {
-		b.BitLength = 8
-	}
-	if b.ByteOrder == "" {
-		b.ByteOrder = ByteOrderLittleEndian
-	}
-	if b.Kind == "" {
-		b.Kind = payload.KindUnsigned
-	}
-	b.BaseField.ApplyDefaults()
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -331,11 +310,6 @@ func (d *DelimitedTextField) SetDefaults() {
 	d.BaseField.SetDefaults()
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (d *DelimitedTextField) ApplyDefaults() {
-	d.BaseField.ApplyDefaults()
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (d DelimitedTextField) Validate() error {
@@ -356,11 +330,6 @@ func (TaggedTextField) isTextFieldVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (t *TaggedTextField) SetDefaults() {
 	t.BaseField.SetDefaults()
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TaggedTextField) ApplyDefaults() {
-	t.BaseField.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -458,19 +427,6 @@ func (u TextField) Encoding() TextFieldType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *TextField) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case DelimitedTextField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case TaggedTextField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or
 // the active variant violates its schema constraints.
 func (u TextField) Validate() error {
@@ -518,11 +474,6 @@ type JSONBaseField struct {
 	Pointer string `json:"pointer" msgpack:"pointer"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (j *JSONBaseField) ApplyDefaults() {
-	j.BaseField.ApplyDefaults()
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (j *JSONBaseField) SetDefaults() {
 	j.BaseField.SetDefaults()
@@ -557,11 +508,6 @@ func (f *FloatJSONField) SetDefaults() {
 	f.JSONBaseField.SetDefaults()
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (f *FloatJSONField) ApplyDefaults() {
-	f.JSONBaseField.ApplyDefaults()
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (f FloatJSONField) Validate() error {
@@ -584,11 +530,6 @@ func (IntegerJSONField) isJSONFieldVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (i *IntegerJSONField) SetDefaults() {
 	i.JSONBaseField.SetDefaults()
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *IntegerJSONField) ApplyDefaults() {
-	i.JSONBaseField.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -615,11 +556,6 @@ func (u *UnsignedJSONField) SetDefaults() {
 	u.JSONBaseField.SetDefaults()
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (u *UnsignedJSONField) ApplyDefaults() {
-	u.JSONBaseField.ApplyDefaults()
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (u UnsignedJSONField) Validate() error {
@@ -642,11 +578,6 @@ func (StringJSONField) isJSONFieldVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (s *StringJSONField) SetDefaults() {
 	s.JSONBaseField.SetDefaults()
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StringJSONField) ApplyDefaults() {
-	s.JSONBaseField.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -673,11 +604,6 @@ func (b *BooleanJSONField) SetDefaults() {
 	b.JSONBaseField.SetDefaults()
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BooleanJSONField) ApplyDefaults() {
-	b.JSONBaseField.ApplyDefaults()
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (b BooleanJSONField) Validate() error {
@@ -702,11 +628,6 @@ func (t *TimestampJSONField) SetDefaults() {
 	t.JSONBaseField.SetDefaults()
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TimestampJSONField) ApplyDefaults() {
-	t.JSONBaseField.ApplyDefaults()
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (t TimestampJSONField) Validate() error {
@@ -726,11 +647,6 @@ func (JSONJSONField) isJSONFieldVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (j *JSONJSONField) SetDefaults() {
 	j.JSONBaseField.SetDefaults()
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (j *JSONJSONField) ApplyDefaults() {
-	j.JSONBaseField.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -753,11 +669,6 @@ func (u *UuidJSONField) SetDefaults() {
 	u.JSONBaseField.SetDefaults()
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (u *UuidJSONField) ApplyDefaults() {
-	u.JSONBaseField.ApplyDefaults()
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (u UuidJSONField) Validate() error {
@@ -776,11 +687,6 @@ func (BytesJSONField) isJSONFieldVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (b *BytesJSONField) SetDefaults() {
 	b.JSONBaseField.SetDefaults()
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BytesJSONField) ApplyDefaults() {
-	b.JSONBaseField.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -994,40 +900,6 @@ func (u JSONField) Type() payload.Kind {
 		return payload.KindBytes
 	}
 	return ""
-}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *JSONField) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case FloatJSONField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case IntegerJSONField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case UnsignedJSONField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case StringJSONField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case BooleanJSONField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case TimestampJSONField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case JSONJSONField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case UuidJSONField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case BytesJSONField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or
@@ -1400,13 +1272,6 @@ type BinaryPayload struct {
 
 func (BinaryPayload) isPayloadVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BinaryPayload) ApplyDefaults() {
-	for i := range b.Fields {
-		b.Fields[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (b BinaryPayload) Validate() error {
@@ -1438,16 +1303,6 @@ func (t *TextPayload) SetDefaults() {
 	t.Delimiter = ","
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TextPayload) ApplyDefaults() {
-	if t.Delimiter == "" {
-		t.Delimiter = ","
-	}
-	for i := range t.Fields {
-		t.Fields[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (t TextPayload) Validate() error {
@@ -1469,13 +1324,6 @@ type JSONPayload struct {
 }
 
 func (JSONPayload) isPayloadVariant() {}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (j *JSONPayload) ApplyDefaults() {
-	for i := range j.Fields {
-		j.Fields[i].ApplyDefaults()
-	}
-}
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
@@ -1592,22 +1440,6 @@ func (u Payload) Format() PayloadType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *Payload) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case BinaryPayload:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case TextPayload:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case JSONPayload:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or
 // the active variant violates its schema constraints.
 func (u Payload) Validate() error {
@@ -1634,11 +1466,6 @@ type Message struct {
 	Payload Payload `json:"payload" msgpack:"payload"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (m *Message) ApplyDefaults() {
-	m.Payload.ApplyDefaults()
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (m Message) Validate() error {
@@ -1657,13 +1484,6 @@ type ICD struct {
 	Name string `json:"name" msgpack:"name"`
 	// Messages are the messages the ICD holds.
 	Messages []Message `json:"messages" msgpack:"messages"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (ic *ICD) ApplyDefaults() {
-	for i := range ic.Messages {
-		ic.Messages[i].ApplyDefaults()
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

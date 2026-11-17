@@ -464,6 +464,7 @@ export class Client extends query.Retriever<
    * @param params - The keys or the names of the channels to retrieve, or a request.
    * Note that this method does not support mixing keys and names in the same call. A
    * name matches exactly. To match a pattern, pass `{ where: { name: { regex } } }`.
+   * An empty array retrieves no channels. To retrieve every channel, pass `{}`.
    */
   async retrieve(
     params: PrimitiveParams | Payload[] | query.RequestInput<typeof retrieveParamsZ>,

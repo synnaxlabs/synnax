@@ -268,6 +268,34 @@ describe("lineplot/toolbar/Data", () => {
       await expectRanges(key, [{ variant: "key", key: created.key }]);
     });
 
+    it("lists the plotted favorites first", async () => {
+      const favorite = (key: string, name: string, start: number) => ({
+        variant: "static" as const,
+        key,
+        name,
+        timeRange: { start, end: start + 1_000_000_000 },
+      });
+      const alpha = favorite(
+        "5b1c3d7e-2f4a-4b6c-9d0e-1a2b3c4d5e6f",
+        "Alpha",
+        1_000_000_000,
+      );
+      const bravo = favorite(
+        "6c2d4e8f-3a5b-4c7d-8e1f-2b3c4d5e6f7a",
+        "Bravo",
+        3_000_000_000,
+      );
+      await renderData(
+        [{ variant: "window", window: staticWindow(new TimeRange(bravo.timeRange)) }],
+        [alpha, bravo],
+      );
+      openSearch();
+      const options = await screen.findAllByRole("option");
+      const names = options.map((o) => o.textContent ?? "");
+      const at = (name: string) => names.findIndex((n) => n.includes(name));
+      expect(at("Bravo")).toBeLessThan(at("Alpha"));
+    });
+
     it("marks each key reference's tag with the stage of its range", async () => {
       const now = TimeStamp.now();
       const create = async (start: TimeSpan, end: TimeSpan): Promise<ranger.Ref> => {

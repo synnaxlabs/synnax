@@ -67,6 +67,13 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Provides", func() {
+		It("Should report whether a type has a Provider", func() {
+			Expect(svc.Provides(resource.TypeChannel)).To(BeTrue())
+			Expect(svc.Provides(resource.TypeTask)).To(BeFalse())
+		})
+	})
+
 	Describe("Search", func() {
 		It("Should merge the matches of every type, closest match first",
 			func(ctx SpecContext) {

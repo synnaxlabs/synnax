@@ -7,11 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-# /// script
-# requires-python = ">=3.12,<4"
-# dependencies = ["boto3", "psutil", "synnax>=0.61,<0.62"]
-# ///
-
 """Writes this machine's CPU, memory, and disk usage to Synnax every 5 seconds.
 
 Runs on each runner instance, started by agent_boot.py. Four float32 channels on one

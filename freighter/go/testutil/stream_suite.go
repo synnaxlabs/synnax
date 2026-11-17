@@ -11,6 +11,7 @@ package testutil
 
 import (
 	"context"
+	"io"
 	"sync/atomic"
 	"time"
 
@@ -22,385 +23,421 @@ import (
 	xtestutil "github.com/synnaxlabs/x/testutil"
 )
 
-func StreamSuite(
-	deps func() (
-		freighter.StreamServer[Request, Response],
-		freighter.StreamClient[Request, Response],
-		address.Address,
-	),
-) {
-	ginkgo.Describe("Normal Operation", func() {
-		ginkgo.It(
-			"Should exchange messages between a client and a server",
-			func(ctx ginkgo.SpecContext) {
-				server, client, addr := deps()
-				closed := make(chan struct{})
+type streamDeps = func() (
+	freighter.StreamServer[Request, Response],
+	freighter.StreamClient[Request, Response],
+	address.Address,
+)
 
-				server.BindHandler(
-					func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
-						defer ginkgo.GinkgoRecover()
-						defer close(closed)
-						for {
-							req, err := server.Receive()
-							if err != nil {
-								ginkgo.By(
-									"Receiving a transport EOF error from the client",
-								)
-								gomega.Expect(err).To(gomega.MatchError(freighter.EOF))
-								return err
-							}
-							if err := server.Send(
-								Response{ID: req.ID + 1, Message: req.Message},
-							); err != nil {
-								return err
-							}
-						}
-					},
-				)
+type streamSpec = func(ctx ginkgo.SpecContext)
 
-				cancelCtx, cancel := context.WithCancel(ctx)
-				defer cancel()
+func StreamSuite(deps streamDeps) {
+	ginkgo.Describe("Normal Operation", func() { normalStreamSpecs(deps) })
+	ginkgo.Describe("Error Handling", func() { streamErrorSpecs(deps) })
+	ginkgo.Describe("Middleware", func() { streamMiddlewareSpecs(deps) })
+}
 
-				ginkgo.By("Opening the stream to the target without error")
-				stream := xtestutil.MustSucceed(client.Stream(cancelCtx, addr))
+func normalStreamSpecs(deps streamDeps) {
+	ginkgo.It(
+		"Should exchange messages between a client and a server",
+		exchangeEchoMessages(deps),
+	)
+	ginkgo.It(
+		"Should allow the server to continue sending messages after CloseSend is called",
+		sendAfterCloseSend(deps),
+	)
+	ginkgo.It(
+		"Should exchange messages in excess of the write deadline",
+		exchangeBeyondWriteDeadline(deps),
+	)
+}
 
-				ginkgo.By("Exchanging ten echo messages")
-				for i := range 10 {
-					gomega.Expect(stream.Send(Request{ID: i, Message: "Hello"})).
-						To(gomega.Succeed())
-					msg := xtestutil.MustSucceed(stream.Receive())
-					gomega.Expect(msg.ID).To(gomega.Equal(i + 1))
-					gomega.Expect(msg.Message).To(gomega.Equal("Hello"))
-				}
+func exchangeEchoMessages(deps streamDeps) streamSpec {
+	return func(ctx ginkgo.SpecContext) {
+		server, client, addr := deps()
+		closed := make(chan struct{})
 
-				ginkgo.By(
-					"Successfully letting the server know we're done sending messages",
-				)
-				gomega.Expect(stream.CloseSend()).To(gomega.Succeed())
-
-				ginkgo.By("Receiving a freighter.EOF error from the server")
-				gomega.Expect(stream.Receive()).
-					Error().
-					To(gomega.MatchError(freighter.EOF))
-				gomega.Eventually(closed).Should(gomega.BeClosed())
-			},
-		)
-
-		ginkgo.It(
-			"Should allow the server to continue sending messages after CloseSend is called",
-			func(ctx ginkgo.SpecContext) {
-				server, client, addr := deps()
-				serverClosed := make(chan struct{})
-				server.BindHandler(
-					func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
-						defer ginkgo.GinkgoRecover()
-						defer close(serverClosed)
-						gomega.Expect(server.Receive()).
-							Error().
-							To(gomega.MatchError(freighter.EOF))
-						gomega.Expect(server.Send(Response{ID: 1, Message: "Hello"})).
-							To(gomega.Succeed())
-						return nil
-					},
-				)
-				stream := xtestutil.MustSucceed(client.Stream(ctx, addr))
-				gomega.Expect(stream.CloseSend()).To(gomega.Succeed())
-				msg := xtestutil.MustSucceed(stream.Receive())
-				gomega.Expect(msg.ID).To(gomega.Equal(1))
-				gomega.Expect(msg.Message).To(gomega.Equal("Hello"))
-				gomega.Expect(stream.Receive()).
-					Error().
-					To(gomega.MatchError(freighter.EOF))
-				gomega.Eventually(serverClosed).Should(gomega.BeClosed())
-			},
-		)
-
-		ginkgo.It(
-			"Should exchange messages in excess of the write deadline",
-			func(ctx ginkgo.SpecContext) {
-				server, client, addr := deps()
-				serverClosed := make(chan struct{})
-				server.BindHandler(
-					func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
-						defer ginkgo.GinkgoRecover()
-						defer close(serverClosed)
-						for {
-							req, err := server.Receive()
-							if err != nil {
-								return err
-							}
-							time.Sleep(WriteDeadline * 5)
-							if err := server.Send(
-								Response{ID: req.ID + 1, Message: req.Message},
-							); err != nil {
-								return err
-							}
-						}
-					},
-				)
-
-				stream := xtestutil.MustSucceed(client.Stream(ctx, addr))
-				gomega.Expect(stream.Send(Request{ID: 1, Message: "Hello"})).
-					To(gomega.Succeed())
-				msg := xtestutil.MustSucceed(stream.Receive())
-				gomega.Expect(msg.ID).To(gomega.Equal(2))
-				gomega.Expect(msg.Message).To(gomega.Equal("Hello"))
-				time.Sleep(WriteDeadline * 2)
-				gomega.Expect(stream.Send(Request{ID: 1, Message: "Hello"})).
-					To(gomega.Succeed())
-				msg = xtestutil.MustSucceed(stream.Receive())
-				gomega.Expect(msg.ID).To(gomega.Equal(2))
-				gomega.Expect(msg.Message).To(gomega.Equal("Hello"))
-				gomega.Expect(stream.CloseSend()).To(gomega.Succeed())
-				gomega.Eventually(serverClosed).Should(gomega.BeClosed())
-			},
-		)
-	})
-
-	ginkgo.Describe("Error Handling", func() {
-		ginkgo.Describe("Stream returns a non-nil error", func() {
-			ginkgo.It(
-				"Should send the error to the client",
-				func(ctx ginkgo.SpecContext) {
-					server, client, addr := deps()
-					serverClosed := make(chan struct{})
-					server.BindHandler(
-						func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
-							defer ginkgo.GinkgoRecover()
-							defer close(serverClosed)
-							gomega.Expect(server.Receive()).
-								Error().
-								ToNot(gomega.HaveOccurred())
-							return errors.New("zero is not allowed!")
-						},
-					)
-					stream := xtestutil.MustSucceed(client.Stream(ctx, addr))
-					gomega.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).
-						To(gomega.Succeed())
-					gomega.Expect(stream.Receive()).
-						Error().
-						To(gomega.MatchError(gomega.ContainSubstring("zero is not allowed!")))
-					gomega.Eventually(serverClosed).Should(gomega.BeClosed())
-				},
-			)
-
-			ginkgo.Specify(
-				"If the client calls Send, it should return an EOF error",
-				func(ctx ginkgo.SpecContext) {
-					server, client, addr := deps()
-					serverClosed := make(chan struct{})
-					server.BindHandler(
-						func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
-							defer ginkgo.GinkgoRecover()
-							defer close(serverClosed)
-							gomega.Expect(server.Receive()).
-								Error().
-								ToNot(gomega.HaveOccurred())
-							return errors.New("zero is not allowed!")
-						},
-					)
-					stream := xtestutil.MustSucceed(client.Stream(ctx, addr))
-					gomega.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).
-						To(gomega.Succeed())
-					gomega.Expect(stream.Receive()).
-						Error().
-						To(gomega.MatchError(gomega.ContainSubstring("zero is not allowed!")))
-					gomega.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).
-						To(gomega.MatchError(freighter.EOF))
-					gomega.Eventually(serverClosed).Should(gomega.BeClosed())
-				},
-			)
-		})
-
-		ginkgo.Describe("StreamClient cancels the context", func() {
-			ginkgo.It(
-				"Should propagate the context cancellation to both the server and the client",
-				func(ctx ginkgo.SpecContext) {
-					server, client, addr := deps()
-					serverClosed := make(chan struct{})
-					server.BindHandler(
-						func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
-							defer close(serverClosed)
-							defer ginkgo.GinkgoRecover()
-							gomega.Expect(server.Receive()).
-								Error().
-								To(gomega.MatchError(context.Canceled))
-							return nil
-						},
-					)
-					cancelCtx, cancel := context.WithCancel(ctx)
-					stream := xtestutil.MustSucceed(client.Stream(cancelCtx, addr))
-					cancel()
-					gomega.Expect(stream.Receive()).
-						Error().
-						To(gomega.MatchError(context.Canceled))
-					gomega.Eventually(serverClosed).Should(gomega.BeClosed())
-				},
-			)
-		})
-
-		ginkgo.Describe(
-			"StreamClient attempts to send a message after calling close send",
-			func() {
-				ginkgo.It(
-					"Should return a StreamClosed error",
-					func(ctx ginkgo.SpecContext) {
-						server, client, addr := deps()
-						serverClosed := make(chan struct{})
-						server.BindHandler(
-							func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
-								defer close(serverClosed)
-								defer ginkgo.GinkgoRecover()
-								gomega.Expect(server.Receive()).
-									Error().
-									To(gomega.MatchError(freighter.EOF))
-								return nil
-							},
+		server.BindHandler(
+			func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+				defer ginkgo.GinkgoRecover()
+				defer close(closed)
+				for {
+					req, err := server.Receive()
+					if err != nil {
+						ginkgo.By(
+							"Receiving a transport EOF error from the client",
 						)
-
-						cancelCtx, cancel := context.WithCancel(ctx)
-						defer cancel()
-
-						stream := xtestutil.MustSucceed(client.Stream(cancelCtx, addr))
-						gomega.Expect(stream.CloseSend()).To(gomega.Succeed())
-						gomega.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).
-							To(gomega.MatchError(freighter.ErrStreamClosed))
-						gomega.Expect(stream.Receive()).
-							Error().
-							To(gomega.MatchError(freighter.EOF))
-						gomega.Eventually(serverClosed).Should(gomega.BeClosed())
-					},
-				)
-			},
-		)
-
-		ginkgo.Describe(
-			"StreamClient attempts to send a message after the server closes",
-			func() {
-				ginkgo.It("Should return a EOF error", func(ctx ginkgo.SpecContext) {
-					server, client, addr := deps()
-					serverClosed := make(chan struct{})
-					server.BindHandler(
-						func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
-							defer close(serverClosed)
-							for i := range 10 {
-								req := xtestutil.MustSucceed(server.Receive())
-								gomega.Expect(server.Send(Response{
-									ID:      req.ID + i,
-									Message: req.Message,
-								})).To(gomega.Succeed())
-							}
-							return nil
-						},
-					)
-					cancelCtx, cancel := context.WithCancel(ctx)
-					defer cancel()
-					stream := xtestutil.MustSucceed(client.Stream(cancelCtx, addr))
-					gomega.Eventually(func(g gomega.Gomega) {
-						g.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).
-							To(gomega.MatchError(freighter.EOF))
-					}).WithPolling(10 * time.Millisecond).Should(gomega.Succeed())
-					gomega.Eventually(serverClosed).Should(gomega.BeClosed())
-				})
-			},
-		)
-	})
-
-	ginkgo.Describe("Middleware", func() {
-		ginkgo.It(
-			"Should correctly execute a middleware in the chain",
-			func(ctx ginkgo.SpecContext) {
-				server, client, addr := deps()
-				serverClosed := make(chan struct{})
-				server.BindHandler(
-					func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
-						defer close(serverClosed)
-						defer ginkgo.GinkgoRecover()
-						gomega.Expect(server.Receive()).
-							Error().
-							To(gomega.MatchError(freighter.EOF))
-						return nil
-					},
-				)
-				c := 0
-				server.Use(freighter.MiddlewareFunc(func(
-					ctx freighter.Context,
-					next freighter.Next,
-				) (freighter.Context, error) {
-					c++
-					oMd, err := next(ctx)
-					c++
-					return oMd, err
-				}))
-				cancelCtx, cancel := context.WithCancel(ctx)
-				defer cancel()
-				stream := xtestutil.MustSucceed(client.Stream(cancelCtx, addr))
-				gomega.Expect(stream.CloseSend()).To(gomega.Succeed())
-				gomega.Expect(stream.Receive()).
-					Error().
-					To(gomega.MatchError(freighter.EOF))
-				gomega.Eventually(serverClosed).Should(gomega.BeClosed())
-				gomega.Expect(c).To(gomega.Equal(2))
-			},
-		)
-
-		ginkgo.It(
-			"Should correctly propagate an error that arises in a middleware",
-			func(ctx ginkgo.SpecContext) {
-				server, client, addr := deps()
-				serverClosed := make(chan struct{})
-				server.BindHandler(
-					func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
-						defer close(serverClosed)
-						defer ginkgo.GinkgoRecover()
-						gomega.Expect(server.Receive()).
-							Error().
-							To(gomega.MatchError(freighter.EOF))
-						return nil
-					},
-				)
-				server.Use(freighter.MiddlewareFunc(func(
-					ctx freighter.Context,
-					next freighter.Next,
-				) (freighter.Context, error) {
-					return ctx, errors.New("middleware error")
-				}))
-				cancelCtx, cancel := context.WithCancel(ctx)
-				defer cancel()
-				gomega.Expect(client.Stream(cancelCtx, addr)).
-					Error().
-					To(gomega.MatchError(gomega.ContainSubstring("middleware error")))
-			},
-		)
-
-		ginkgo.It(
-			"Should return the error when a middleware rejects with a zero context",
-			func(ctx ginkgo.SpecContext) {
-				server, client, addr := deps()
-				server.BindHandler(
-					func(context.Context, freighter.ServerStream[Request, Response]) error {
-						return nil
-					},
-				)
-				// the server outlives this spec, so the middleware must stop rejecting
-				var rejecting atomic.Bool
-				rejecting.Store(true)
-				ginkgo.DeferCleanup(func() { rejecting.Store(false) })
-				server.Use(freighter.MiddlewareFunc(func(
-					ctx freighter.Context,
-					next freighter.Next,
-				) (freighter.Context, error) {
-					if !rejecting.Load() {
-						return next(ctx)
+						gomega.Expect(err).To(gomega.MatchError(io.EOF))
+						return err
 					}
-					return freighter.Context{}, errors.New("middleware error")
-				}))
-				cancelCtx, cancel := context.WithCancel(ctx)
-				defer cancel()
-				gomega.Expect(client.Stream(cancelCtx, addr)).
-					Error().
-					To(gomega.MatchError(gomega.ContainSubstring("middleware error")))
+					if err := server.Send(
+						Response{ID: req.ID + 1, Message: req.Message},
+					); err != nil {
+						return err
+					}
+				}
 			},
 		)
+
+		cancelCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		ginkgo.By("Opening the stream to the target without error")
+		stream := xtestutil.MustSucceed(client.Stream(cancelCtx, addr))
+
+		ginkgo.By("Exchanging ten echo messages")
+		for i := range 10 {
+			gomega.Expect(stream.Send(Request{ID: i, Message: "Hello"})).
+				To(gomega.Succeed())
+			msg := xtestutil.MustSucceed(stream.Receive())
+			gomega.Expect(msg.ID).To(gomega.Equal(i + 1))
+			gomega.Expect(msg.Message).To(gomega.Equal("Hello"))
+		}
+
+		ginkgo.By(
+			"Successfully letting the server know we're done sending messages",
+		)
+		gomega.Expect(stream.CloseSend()).To(gomega.Succeed())
+
+		ginkgo.By("Receiving a io.EOF error from the server")
+		gomega.Expect(stream.Receive()).
+			Error().
+			To(gomega.MatchError(io.EOF))
+		gomega.Eventually(closed).Should(gomega.BeClosed())
+	}
+}
+
+func sendAfterCloseSend(deps streamDeps) streamSpec {
+	return func(ctx ginkgo.SpecContext) {
+		server, client, addr := deps()
+		serverClosed := make(chan struct{})
+		server.BindHandler(
+			func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+				defer ginkgo.GinkgoRecover()
+				defer close(serverClosed)
+				gomega.Expect(server.Receive()).
+					Error().
+					To(gomega.MatchError(io.EOF))
+				gomega.Expect(server.Send(Response{ID: 1, Message: "Hello"})).
+					To(gomega.Succeed())
+				return nil
+			},
+		)
+		stream := xtestutil.MustSucceed(client.Stream(ctx, addr))
+		gomega.Expect(stream.CloseSend()).To(gomega.Succeed())
+		msg := xtestutil.MustSucceed(stream.Receive())
+		gomega.Expect(msg.ID).To(gomega.Equal(1))
+		gomega.Expect(msg.Message).To(gomega.Equal("Hello"))
+		gomega.Expect(stream.Receive()).
+			Error().
+			To(gomega.MatchError(io.EOF))
+		gomega.Eventually(serverClosed).Should(gomega.BeClosed())
+	}
+}
+
+func exchangeBeyondWriteDeadline(deps streamDeps) streamSpec {
+	return func(ctx ginkgo.SpecContext) {
+		server, client, addr := deps()
+		serverClosed := make(chan struct{})
+		server.BindHandler(
+			func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+				defer ginkgo.GinkgoRecover()
+				defer close(serverClosed)
+				for {
+					req, err := server.Receive()
+					if err != nil {
+						return err
+					}
+					time.Sleep(WriteDeadline * 5)
+					if err := server.Send(
+						Response{ID: req.ID + 1, Message: req.Message},
+					); err != nil {
+						return err
+					}
+				}
+			},
+		)
+
+		stream := xtestutil.MustSucceed(client.Stream(ctx, addr))
+		gomega.Expect(stream.Send(Request{ID: 1, Message: "Hello"})).
+			To(gomega.Succeed())
+		msg := xtestutil.MustSucceed(stream.Receive())
+		gomega.Expect(msg.ID).To(gomega.Equal(2))
+		gomega.Expect(msg.Message).To(gomega.Equal("Hello"))
+		time.Sleep(WriteDeadline * 2)
+		gomega.Expect(stream.Send(Request{ID: 1, Message: "Hello"})).
+			To(gomega.Succeed())
+		msg = xtestutil.MustSucceed(stream.Receive())
+		gomega.Expect(msg.ID).To(gomega.Equal(2))
+		gomega.Expect(msg.Message).To(gomega.Equal("Hello"))
+		gomega.Expect(stream.CloseSend()).To(gomega.Succeed())
+		gomega.Eventually(serverClosed).Should(gomega.BeClosed())
+	}
+}
+
+func streamErrorSpecs(deps streamDeps) {
+	ginkgo.Describe("Stream returns a non-nil error", func() {
+		ginkgo.It("Should send the error to the client", sendHandlerError(deps))
+		ginkgo.Specify(
+			"If the client calls Send, it should return an EOF error",
+			sendAfterHandlerError(deps),
+		)
 	})
+	ginkgo.Describe("StreamClient cancels the context", func() {
+		ginkgo.It(
+			"Should propagate the context cancellation to both the server and the client",
+			propagateCancellation(deps),
+		)
+	})
+	ginkgo.Describe(
+		"StreamClient attempts to send a message after calling close send",
+		func() {
+			ginkgo.It("Should return a StreamClosed error", sendAfterClientClose(deps))
+		},
+	)
+	ginkgo.Describe(
+		"StreamClient attempts to send a message after the server closes",
+		func() {
+			ginkgo.It("Should return a EOF error", sendAfterServerClose(deps))
+		},
+	)
+}
+
+func sendHandlerError(deps streamDeps) streamSpec {
+	return func(ctx ginkgo.SpecContext) {
+		server, client, addr := deps()
+		serverClosed := make(chan struct{})
+		server.BindHandler(
+			func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+				defer ginkgo.GinkgoRecover()
+				defer close(serverClosed)
+				gomega.Expect(server.Receive()).
+					Error().
+					ToNot(gomega.HaveOccurred())
+				return errors.New("zero is not allowed!")
+			},
+		)
+		stream := xtestutil.MustSucceed(client.Stream(ctx, addr))
+		gomega.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).
+			To(gomega.Succeed())
+		gomega.Expect(stream.Receive()).
+			Error().
+			To(gomega.MatchError(gomega.ContainSubstring("zero is not allowed!")))
+		gomega.Eventually(serverClosed).Should(gomega.BeClosed())
+	}
+}
+
+func sendAfterHandlerError(deps streamDeps) streamSpec {
+	return func(ctx ginkgo.SpecContext) {
+		server, client, addr := deps()
+		serverClosed := make(chan struct{})
+		server.BindHandler(
+			func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+				defer ginkgo.GinkgoRecover()
+				defer close(serverClosed)
+				gomega.Expect(server.Receive()).
+					Error().
+					ToNot(gomega.HaveOccurred())
+				return errors.New("zero is not allowed!")
+			},
+		)
+		stream := xtestutil.MustSucceed(client.Stream(ctx, addr))
+		gomega.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).
+			To(gomega.Succeed())
+		gomega.Expect(stream.Receive()).
+			Error().
+			To(gomega.MatchError(gomega.ContainSubstring("zero is not allowed!")))
+		gomega.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).
+			To(gomega.MatchError(io.EOF))
+		gomega.Eventually(serverClosed).Should(gomega.BeClosed())
+	}
+}
+
+func propagateCancellation(deps streamDeps) streamSpec {
+	return func(ctx ginkgo.SpecContext) {
+		server, client, addr := deps()
+		serverClosed := make(chan struct{})
+		server.BindHandler(
+			func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+				defer close(serverClosed)
+				defer ginkgo.GinkgoRecover()
+				gomega.Expect(server.Receive()).
+					Error().
+					To(gomega.MatchError(context.Canceled))
+				return nil
+			},
+		)
+		cancelCtx, cancel := context.WithCancel(ctx)
+		stream := xtestutil.MustSucceed(client.Stream(cancelCtx, addr))
+		cancel()
+		gomega.Expect(stream.Receive()).
+			Error().
+			To(gomega.MatchError(context.Canceled))
+		gomega.Eventually(serverClosed).Should(gomega.BeClosed())
+	}
+}
+
+func sendAfterClientClose(deps streamDeps) streamSpec {
+	return func(ctx ginkgo.SpecContext) {
+		server, client, addr := deps()
+		serverClosed := make(chan struct{})
+		server.BindHandler(
+			func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+				defer close(serverClosed)
+				defer ginkgo.GinkgoRecover()
+				gomega.Expect(server.Receive()).
+					Error().
+					To(gomega.MatchError(io.EOF))
+				return nil
+			},
+		)
+
+		cancelCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		stream := xtestutil.MustSucceed(client.Stream(cancelCtx, addr))
+		gomega.Expect(stream.CloseSend()).To(gomega.Succeed())
+		gomega.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).
+			To(gomega.MatchError(freighter.ErrStreamClosed))
+		gomega.Expect(stream.Receive()).
+			Error().
+			To(gomega.MatchError(io.EOF))
+		gomega.Eventually(serverClosed).Should(gomega.BeClosed())
+	}
+}
+
+func sendAfterServerClose(deps streamDeps) streamSpec {
+	return func(ctx ginkgo.SpecContext) {
+		server, client, addr := deps()
+		serverClosed := make(chan struct{})
+		server.BindHandler(
+			func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+				defer close(serverClosed)
+				for i := range 10 {
+					req := xtestutil.MustSucceed(server.Receive())
+					gomega.Expect(server.Send(Response{
+						ID:      req.ID + i,
+						Message: req.Message,
+					})).To(gomega.Succeed())
+				}
+				return nil
+			},
+		)
+		cancelCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		stream := xtestutil.MustSucceed(client.Stream(cancelCtx, addr))
+		gomega.Eventually(func(g gomega.Gomega) {
+			g.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).
+				To(gomega.MatchError(io.EOF))
+		}).WithPolling(10 * time.Millisecond).Should(gomega.Succeed())
+		gomega.Eventually(serverClosed).Should(gomega.BeClosed())
+	}
+}
+
+func streamMiddlewareSpecs(deps streamDeps) {
+	ginkgo.It(
+		"Should correctly execute a middleware in the chain",
+		executeMiddleware(deps),
+	)
+	ginkgo.It(
+		"Should correctly propagate an error that arises in a middleware",
+		propagateMiddlewareError(deps),
+	)
+	ginkgo.It(
+		"Should return the error when a middleware rejects with a zero context",
+		rejectWithZeroContext(deps),
+	)
+}
+
+func executeMiddleware(deps streamDeps) streamSpec {
+	return func(ctx ginkgo.SpecContext) {
+		server, client, addr := deps()
+		serverClosed := make(chan struct{})
+		server.BindHandler(
+			func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+				defer close(serverClosed)
+				defer ginkgo.GinkgoRecover()
+				gomega.Expect(server.Receive()).
+					Error().
+					To(gomega.MatchError(io.EOF))
+				return nil
+			},
+		)
+		c := 0
+		server.Use(freighter.MiddlewareFunc(func(
+			ctx freighter.Context,
+			next freighter.Next,
+		) (freighter.Context, error) {
+			c++
+			oMd, err := next(ctx)
+			c++
+			return oMd, err
+		}))
+		cancelCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		stream := xtestutil.MustSucceed(client.Stream(cancelCtx, addr))
+		gomega.Expect(stream.CloseSend()).To(gomega.Succeed())
+		gomega.Expect(stream.Receive()).
+			Error().
+			To(gomega.MatchError(io.EOF))
+		gomega.Eventually(serverClosed).Should(gomega.BeClosed())
+		gomega.Expect(c).To(gomega.Equal(2))
+	}
+}
+
+func propagateMiddlewareError(deps streamDeps) streamSpec {
+	return func(ctx ginkgo.SpecContext) {
+		server, client, addr := deps()
+		serverClosed := make(chan struct{})
+		server.BindHandler(
+			func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
+				defer close(serverClosed)
+				defer ginkgo.GinkgoRecover()
+				gomega.Expect(server.Receive()).
+					Error().
+					To(gomega.MatchError(io.EOF))
+				return nil
+			},
+		)
+		server.Use(freighter.MiddlewareFunc(func(
+			ctx freighter.Context,
+			next freighter.Next,
+		) (freighter.Context, error) {
+			return ctx, errors.New("middleware error")
+		}))
+		cancelCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		gomega.Expect(client.Stream(cancelCtx, addr)).
+			Error().
+			To(gomega.MatchError(gomega.ContainSubstring("middleware error")))
+	}
+}
+
+func rejectWithZeroContext(deps streamDeps) streamSpec {
+	return func(ctx ginkgo.SpecContext) {
+		server, client, addr := deps()
+		server.BindHandler(
+			func(context.Context, freighter.ServerStream[Request, Response]) error {
+				return nil
+			},
+		)
+		// the server outlives this spec, so the middleware must stop rejecting
+		var rejecting atomic.Bool
+		rejecting.Store(true)
+		ginkgo.DeferCleanup(func() { rejecting.Store(false) })
+		server.Use(freighter.MiddlewareFunc(func(
+			ctx freighter.Context,
+			next freighter.Next,
+		) (freighter.Context, error) {
+			if !rejecting.Load() {
+				return next(ctx)
+			}
+			return freighter.Context{}, errors.New("middleware error")
+		}))
+		cancelCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		gomega.Expect(client.Stream(cancelCtx, addr)).
+			Error().
+			To(gomega.MatchError(gomega.ContainSubstring("middleware error")))
+	}
 }

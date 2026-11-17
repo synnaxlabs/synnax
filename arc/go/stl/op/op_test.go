@@ -946,7 +946,7 @@ var _ = Describe("Literal inputs", func() {
 
 var _ = Describe("Construction validation", func() {
 	DescribeTable("Should error at construction when an input param is missing",
-		func(ctx SpecContext, nodeType string) {
+		func(nodeType string) {
 			prog := ir.IR{Nodes: ir.Nodes{{
 				Key:     "op",
 				Type:    nodeType,

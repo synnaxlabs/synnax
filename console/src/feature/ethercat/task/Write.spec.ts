@@ -128,9 +128,7 @@ describe("Write", () => {
       .filter((o) => !/0x7000:01/.test(o.textContent));
     await waitFor(() => expect(empty.getAttribute("aria-selected")).toBe("true"));
     expect(empty.classList.contains("lyra--status-error")).toBe(true);
-    expect(
-      await screen.findByText("A channel has no device. Pick a device."),
-    ).toBeTruthy();
+    expect(await screen.findByText("Device is required")).toBeTruthy();
   });
 
   it("should not name the channels of a slave without an identifier", async () => {
@@ -232,21 +230,30 @@ describe("Write", () => {
     expect(alone.classList.contains("lyra--status-error")).toBe(false);
   });
 
-  it("should show why a channel with no entry cannot run", async () => {
+  it("should show that an added channel has no entry only after a start", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
       network: "eth0",
       pdos: createPDOs(),
     });
-    await renderWrite({
+    const { container } = await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      channels: [{ ...EtherCAT.Task.createWriteChannel([]), device: slave.key }],
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
     });
+    // The footer shows once the form loads the slaves that its checks read.
+    await screen.findByText(/^Start creates /);
+    fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
+    const added = await screen.findByRole("option", { name: /No entry/ });
     expect(
-      await screen.findByText(
-        `A channel on slave ${slave.name} has no entry. Pick an entry.`,
-      ),
-    ).toBeTruthy();
+      screen
+        .getAllByRole("option")
+        .map((o) => o.classList.contains("lyra--status-error")),
+    ).toEqual([false, false]);
+    await clickDeploy(container);
+    await waitFor(() =>
+      expect(added.classList.contains("lyra--status-error")).toBe(true),
+    );
+    expect(await screen.findByText("Entry is required")).toBeTruthy();
   });
 
   it("should add a channel for every unused output of a slave from the context menu", async () => {

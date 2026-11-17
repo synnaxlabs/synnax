@@ -58,7 +58,7 @@ func OpenIdentity(
 	db kv.DB,
 	host address.Address,
 ) (Identity, error) {
-	b, closer, err := db.Get(ctx, identityKey)
+	b, closer, err := db.Get(identityKey)
 	if errors.Is(err, query.ErrNotFound) {
 		return createIdentity(ctx, db, host)
 	}

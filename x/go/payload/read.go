@@ -262,109 +262,137 @@ func (r Read) Reconcile(dt telem.DataType, index bool) (Read, []string) {
 	if !ok {
 		return r, nil
 	}
-	var (
-		out     = Read{Kind: k}
-		changes []string
-		note    = func(format string, args ...any) {
-			changes = append(changes, fmt.Sprintf(format, args...))
-		}
-	)
+	out := Read{Kind: k}
+	c := &reconciler{kind: k, dt: dt, seen: set.New[string]()}
 	if r.Kind != k {
-		note("kind %s became %s", r.Kind, k)
+		c.notef("kind %s became %s", r.Kind, k)
 	}
 	if r.Number.DataType != nil {
-		note("data type %s was cleared", *r.Number.DataType)
-	}
-	seen := set.New[string]()
-	unique := func(label string) bool {
-		if label == "" && k != KindString {
-			note("an empty enum label was dropped")
-			return false
-		}
-		if seen.Contains(label) {
-			note("enum label %q was dropped as a repeat", label)
-			return false
-		}
-		seen.Add(label)
-		return true
+		c.notef("data type %s was cleared", *r.Number.DataType)
 	}
 	switch {
 	case isNumeric(k) && isNumeric(r.Kind):
-		for _, e := range r.Number.EnumValues {
-			v, ok := e.Value.To(k)
-			if !ok || !v.Fits(dt) {
-				note(
-					"enum label %q was dropped: %s does not fit %s",
-					e.Label,
-					e.Value,
-					dt,
-				)
-				continue
-			}
-			if unique(e.Label) {
-				out.Number.EnumValues = append(
-					out.Number.EnumValues, NumberEntry{Label: e.Label, Value: v},
-				)
-			}
-		}
-		if f := r.Number.Fill; f != nil {
-			if v, ok := f.To(k); ok && v.Fits(dt) {
-				out.Number.Fill = &v
-			} else {
-				note("fill %s was dropped: it does not fit %s", f, dt)
-			}
-		}
+		out.Number = c.numbers(r.Number)
 	case k == KindBoolean && isNumeric(r.Kind):
-		for _, e := range r.Number.EnumValues {
-			v, ok := e.Value.Boolean()
-			if !ok {
-				note("enum label %q was dropped: %s is not a boolean", e.Label, e.Value)
-				continue
-			}
-			if unique(e.Label) {
-				out.Boolean.EnumValues = append(
-					out.Boolean.EnumValues, BooleanEntry{Label: e.Label, Value: v},
-				)
-			}
-		}
-		if f := r.Number.Fill; f != nil {
-			if v, ok := f.Boolean(); ok {
-				out.Boolean.Fill = &v
-			} else {
-				note("fill %s was dropped: it is not a boolean", f)
-			}
-		}
+		out.Boolean = c.booleans(r.Number)
 	case k == r.Kind && k == KindString:
 		out.String.Fill = r.String.Fill
 		out.String.EnumValues = lo.Filter(
 			r.String.EnumValues,
-			func(e StringEntry, _ int) bool { return unique(e.Label) },
+			func(e StringEntry, _ int) bool { return c.unique(e.Label) },
 		)
 	case k == r.Kind && k == KindBoolean:
 		out.Boolean.Fill = r.Boolean.Fill
 		out.Boolean.EnumValues = lo.Filter(
 			r.Boolean.EnumValues,
-			func(e BooleanEntry, _ int) bool { return unique(e.Label) },
+			func(e BooleanEntry, _ int) bool { return c.unique(e.Label) },
 		)
 	case k == r.Kind && k == KindTimestamp:
 		out.Timestamp = r.Timestamp
 	default:
 		if n := len(r.labels()); n > 0 {
-			note("%d enum entries were dropped", n)
+			c.notef("%d enum entries were dropped", n)
 		}
 		if r.hasFill() {
-			note("the fill was dropped")
+			c.notef("the fill was dropped")
 		}
 		if k == KindTimestamp {
 			out.Timestamp.TimeFormat = TimeFormatISO8601
 		}
 	}
 	if index && out.hasFill() {
-		note("the fill was dropped, because an index channel takes none")
+		c.notef("the fill was dropped, because an index channel takes none")
 		out.String.Fill, out.Boolean.Fill = nil, nil
 		out.Number.Fill, out.Timestamp.Fill = nil, nil
 	}
-	return out, changes
+	return out, c.changes
+}
+
+// reconciler holds what the cases of Reconcile share: the target kind and data type,
+// the labels kept so far, and the changes made.
+type reconciler struct {
+	kind    Kind
+	dt      telem.DataType
+	seen    set.Set[string]
+	changes []string
+}
+
+func (c *reconciler) notef(format string, args ...any) {
+	c.changes = append(c.changes, fmt.Sprintf(format, args...))
+}
+
+// unique reports whether an entry with label can stay: it repeats no earlier label, and
+// it is empty only on a string kind.
+func (c *reconciler) unique(label string) bool {
+	if label == "" && c.kind != KindString {
+		c.notef("an empty enum label was dropped")
+		return false
+	}
+	if c.seen.Contains(label) {
+		c.notef("enum label %q was dropped as a repeat", label)
+		return false
+	}
+	c.seen.Add(label)
+	return true
+}
+
+// numbers returns the entries and the fill of in that the numeric kind holds exactly
+// and that fit the data type.
+func (c *reconciler) numbers(in NumberRead) NumberRead {
+	var out NumberRead
+	for _, e := range in.EnumValues {
+		v, ok := e.Value.To(c.kind)
+		if !ok || !v.Fits(c.dt) {
+			c.notef(
+				"enum label %q was dropped: %s does not fit %s",
+				e.Label,
+				e.Value,
+				c.dt,
+			)
+			continue
+		}
+		if c.unique(e.Label) {
+			out.EnumValues = append(
+				out.EnumValues,
+				NumberEntry{Label: e.Label, Value: v},
+			)
+		}
+	}
+	if f := in.Fill; f != nil {
+		if v, ok := f.To(c.kind); ok && v.Fits(c.dt) {
+			out.Fill = &v
+		} else {
+			c.notef("fill %s was dropped: it does not fit %s", f, c.dt)
+		}
+	}
+	return out
+}
+
+// booleans returns the entries and the fill of in as booleans: true when not 0. A NaN
+// drops.
+func (c *reconciler) booleans(in NumberRead) BooleanRead {
+	var out BooleanRead
+	for _, e := range in.EnumValues {
+		v, ok := e.Value.Boolean()
+		if !ok {
+			c.notef("enum label %q was dropped: %s is not a boolean", e.Label, e.Value)
+			continue
+		}
+		if c.unique(e.Label) {
+			out.EnumValues = append(
+				out.EnumValues,
+				BooleanEntry{Label: e.Label, Value: v},
+			)
+		}
+	}
+	if f := in.Fill; f != nil {
+		if v, ok := f.Boolean(); ok {
+			out.Fill = &v
+		} else {
+			c.notef("fill %s was dropped: it is not a boolean", f)
+		}
+	}
+	return out
 }
 
 // Field returns the xjson.Field that reads r into a channel of data type dt, which r

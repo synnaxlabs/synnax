@@ -9,7 +9,7 @@
 
 import { type schematic } from "@synnaxlabs/client";
 import { useInitializerRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { color, dimensions, direction, id, location } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x";
 import { type RefCallback, useLayoutEffect, useRef } from "react";
 
 import { CSS } from "@/css";
@@ -18,16 +18,19 @@ import { Region } from "@/schematic/node/common/region";
 
 const ORIGINAL_FILL_ATTRIBUTE = "data-original-fill";
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
-
-const createSVGElement = <K extends keyof SVGElementTagNameMap>(
-  doc: Document,
-  tag: K,
-  attributes: Record<string, string | number>,
-): SVGElementTagNameMap[K] => {
-  const el = doc.createElementNS(SVG_NAMESPACE, tag);
-  Object.entries(attributes).forEach(([k, v]) => el.setAttribute(k, v.toString()));
-  return el;
-};
+const XMLNS_NAMESPACE = "http://www.w3.org/2000/xmlns/";
+// Primitive.SVG sizes the drawing, and the symbol CSS overrides the fill and stroke of
+// the root, so these root attributes stay behind.
+const ROOT_ONLY_ATTRIBUTES = new Set([
+  "width",
+  "height",
+  "viewBox",
+  "x",
+  "y",
+  "preserveAspectRatio",
+  "fill",
+  "stroke",
+]);
 
 const iterElements = (
   state: schematic.symbol.State,
@@ -82,15 +85,6 @@ const applyState = (
   });
 };
 
-// The root carries the band class as on built-in symbols, so rules that read the
-// display color, such as the toggle states, apply to the drawing.
-const applySymbolColor = (svgElement: SVGSVGElement, symbolColor?: color.Crude) => {
-  svgElement.classList.add(CSS.symbolColored, CSS.B("custom-drawing"));
-  const rgba = color.rgbaString(symbolColor);
-  if (rgba == null) svgElement.style.removeProperty(Primitive.SYMBOL_COLOR);
-  else svgElement.style.setProperty(Primitive.SYMBOL_COLOR, rgba);
-};
-
 const isStoredStrokeShown = (el: Element): boolean => {
   const stroke = el.getAttribute("stroke");
   if (stroke == null || stroke === "none") return false;
@@ -121,37 +115,28 @@ const applySymbolStrokes = (
 };
 
 export interface UseRenderParams {
-  orientation: location.Outer;
   activeState: string;
-  externalScale: number;
   spec?: schematic.symbol.Spec;
-  onMount?: (svgElement: SVGSVGElement) => void;
+  /** Called with the <g> that holds the drawing each time the drawing mounts. */
+  onMount?: (drawing: SVGGElement) => void;
   stateOverrides?: schematic.symbol.State[];
   /** The color of the whole symbol, such as the stale color. */
   strokeColor?: color.Crude;
-  /** True in a delayed toggle, so the drawing fills inside its shapes while held. */
-  delayed?: boolean;
+  /** Marks markup that ships with Pluto, which mounts without the sanitizer. */
+  builtIn?: boolean;
 }
 
 interface RenderState {
-  svgElement: SVGSVGElement | null;
-  // The <g> that holds the drawing's own shapes, so region selectors cannot reach the
-  // hold fill.
   drawing: SVGGElement | null;
-  baseDims: dimensions.Dimensions;
-  // The markup of the mounted element, or of markup that failed to parse.
+  // The markup of the mounted drawing, or of markup that failed to parse.
   prevSvg: string | undefined;
-  prevDelayed: boolean;
-  // The state whose colors are on the element, so the next state can undo them.
+  // The state whose colors are on the drawing, so the next state can undo them.
   prevState: schematic.symbol.State | undefined;
 }
 
 const createRenderState = (): RenderState => ({
-  svgElement: null,
   drawing: null,
-  baseDims: { width: 0, height: 0 },
   prevSvg: undefined,
-  prevDelayed: false,
   prevState: undefined,
 });
 
@@ -165,99 +150,29 @@ const selectState = ({
 };
 
 /**
- * @returns whether svg is markup the renderer can mount. See {@link Region.parseSVG}.
+ * @returns whether svg is markup the renderer can mount. See {@link Region.measure}.
  */
-export const isValidSVG = (svg: string): boolean => Region.parseSVG(svg) != null;
+export const isValidSVG = (svg: string): boolean => Region.measure(svg) != null;
 
-// The hold fill paints inside the drawing's shapes through a mask, as on built-in
-// symbols. Returns the new <g> that holds the drawing.
-const appendHoldFill = (g: SVGGElement, dims: dimensions.Dimensions): SVGGElement => {
-  const doc = g.ownerDocument;
-  const key = id.create();
-  const drawing = createSVGElement(doc, "g", { id: key });
-  while (g.firstChild != null) drawing.appendChild(g.firstChild);
-  const box = Primitive.holdBox(dims);
-  const mask = createSVGElement(doc, "mask", {
-    id: `${key}-mask`,
-    class: CSS.BE("symbol-hold", "mask"),
-    maskUnits: "userSpaceOnUse",
-    ...box,
-  });
-  mask.append(createSVGElement(doc, "use", { href: `#${key}` }));
-  const fill = createSVGElement(doc, "rect", {
-    class: CSS.BE("symbol-hold", "fill"),
-    mask: `url(#${key}-mask)`,
-    ...box,
-  });
-  g.append(drawing, mask, fill);
-  return drawing;
-};
-
-// buildSVG records the parsed element's base dimensions, wraps its contents in one new
-// <g> for the stylesheet to turn, adds the hold fill when delayed, mounts it into the
-// container, and notifies onMount. The element starts from raw markup, so every derived
-// attribute (state colors, dimensions, orientation, stroke scaling) must be re-applied
-// by the caller afterwards.
-const buildSVG = (
-  container: HTMLElement,
+// buildDrawing moves the contents of root into one new <g> in the host. The <g> takes
+// the other root attributes, such as stroke-width. The caller re-applies state colors
+// and stroke scaling afterwards.
+const buildDrawing = (
+  host: Element,
   state: RenderState,
-  svgElement: SVGSVGElement,
-  delayed: boolean,
-  onMount?: (svgElement: SVGSVGElement) => void,
+  root: SVGSVGElement,
+  onMount?: (drawing: SVGGElement) => void,
 ) => {
-  if (state.svgElement != null) {
-    state.svgElement.remove();
-    state.svgElement = null;
-  }
-  const doc = svgElement.ownerDocument;
-  state.svgElement = svgElement;
-
-  const viewBoxAttr = svgElement.getAttribute("viewBox");
-  if (viewBoxAttr) {
-    const [, , width, height] = viewBoxAttr.split(" ").map(Number);
-    state.baseDims = { width, height };
-  } else if (svgElement.viewBox?.baseVal)
-    state.baseDims = {
-      width: svgElement.viewBox.baseVal.width,
-      height: svgElement.viewBox.baseVal.height,
-    };
-  else state.baseDims = { width: 100, height: 100 };
-
-  const g = createSVGElement(doc, "g", {});
-  while (svgElement.firstChild != null) g.appendChild(svgElement.firstChild);
-  state.drawing = delayed ? appendHoldFill(g, state.baseDims) : g;
-  svgElement.append(g);
-  container.appendChild(svgElement);
-  onMount?.(svgElement);
+  state.drawing?.remove();
+  const drawing = root.ownerDocument.createElementNS(SVG_NAMESPACE, "g");
+  for (const { namespaceURI, name, value } of Array.from(root.attributes))
+    if (namespaceURI !== XMLNS_NAMESPACE && !ROOT_ONLY_ATTRIBUTES.has(name))
+      drawing.setAttributeNS(namespaceURI, name, value);
+  while (root.firstChild != null) drawing.appendChild(root.firstChild);
+  host.appendChild(drawing);
+  state.drawing = drawing;
+  onMount?.(drawing);
 };
-
-const applyScale = (
-  state: RenderState,
-  orientation: location.Outer,
-  scale: number,
-  externalScale: number,
-) => {
-  if (state.svgElement == null) return;
-  let preScaledDims = state.baseDims;
-  if (direction.construct(orientation) === "y")
-    preScaledDims = dimensions.swap(preScaledDims);
-  const scaledDims = dimensions.scale(
-    preScaledDims,
-    Primitive.resolveScale(scale) * Primitive.resolveScale(externalScale),
-  );
-  state.svgElement.setAttribute("width", scaledDims.width.toString());
-  state.svgElement.setAttribute("height", scaledDims.height.toString());
-  state.svgElement.setAttribute(
-    "viewBox",
-    `0 0 ${preScaledDims.width} ${preScaledDims.height}`,
-  );
-};
-
-// The location class turns the drawing, as on built-in symbols.
-const applyOrientation = (svgElement: SVGSVGElement, orientation: location.Outer) =>
-  location.OUTER_LOCATIONS.forEach((loc) =>
-    svgElement.classList.toggle(CSS.loc(loc), loc === orientation),
-  );
 
 const applyStrokeScaled = (drawing: Element, strokeScaled: boolean) => {
   const pathElements = drawing.querySelectorAll(
@@ -270,88 +185,61 @@ const applyStrokeScaled = (drawing: Element, strokeScaled: boolean) => {
   else pathElements.forEach((el) => el.removeAttribute("vector-effect"));
 };
 
-const runRender = (
-  container: HTMLElement,
-  params: UseRenderParams,
-  state: RenderState,
-) => {
-  const {
-    orientation,
-    externalScale,
-    spec,
-    onMount,
-    strokeColor,
-    delayed = false,
-  } = params;
+const runRender = (host: Element, params: UseRenderParams, state: RenderState) => {
+  const { spec, onMount, strokeColor, builtIn = false } = params;
   if (spec == null) return;
-  if (state.prevSvg !== spec.svg || state.prevDelayed !== delayed) {
+  if (state.prevSvg !== spec.svg) {
     state.prevSvg = spec.svg;
-    state.prevDelayed = delayed;
     state.prevState = undefined;
-    const root = Region.parseSVG(spec.svg);
+    const root = builtIn ? Region.parseTrusted(spec.svg) : Region.parseSVG(spec.svg);
     if (root == null) {
-      state.svgElement?.remove();
-      state.svgElement = null;
+      state.drawing?.remove();
       state.drawing = null;
       return;
     }
-    buildSVG(container, state, root, delayed, onMount);
+    buildDrawing(host, state, root, onMount);
   }
-  const { svgElement, drawing } = state;
+  const { drawing } = state;
   // Markup that failed to parse mounts nothing until it changes.
-  if (svgElement == null || drawing == null) return;
-  applySymbolColor(svgElement, strokeColor);
+  if (drawing == null) return;
   const currState = selectState(params);
   if (currState != null) {
     applyState(drawing, currState, state.prevState);
     state.prevState = currState;
   }
   applySymbolStrokes(drawing, currState, strokeColor);
-  applyScale(state, orientation, spec.scale, externalScale);
-  applyOrientation(svgElement, orientation);
   applyStrokeScaled(drawing, spec.strokeScaled);
 };
 
-/// useRender returns a ref callback that drives the SVG mount/state/scale lifecycle for
-/// a custom symbol. The returned callback is stable across renders. When the container
-/// element attaches, the SVG is built and inserted; when it detaches, the SVG is
-/// removed and internal state is cleared so the next attach re-creates the SVG cleanly
-/// (including after a Missing→Resolved→Missing→Resolved cycle and under StrictMode's
-/// simulated remount). The SVG updates when a param it draws changes identity, so copy
-/// the spec on change and never change it in place.
-export const useRender = (params: UseRenderParams): RefCallback<HTMLElement> => {
-  const { orientation, externalScale, spec, strokeColor, delayed } = params;
-  const containerRef = useRef<HTMLElement | null>(null);
+/// useRender returns a ref callback that mounts the drawing of a custom symbol into the
+/// element it attaches to, as one <g>, and keeps its state colors and strokes applied.
+/// Attach it inside an <svg> that sizes and turns the drawing, such as Primitive.SVG.
+/// The returned callback is stable across renders. When the element detaches, the
+/// drawing is removed and internal state is cleared so the next attach re-creates it
+/// cleanly (including after a Missing→Resolved→Missing→Resolved cycle and under
+/// StrictMode's simulated remount). The drawing updates when a param it draws changes
+/// identity, so copy the spec on change and never change it in place.
+export const useRender = (params: UseRenderParams): RefCallback<Element> => {
+  const { spec, strokeColor } = params;
+  const hostRef = useRef<Element | null>(null);
   const paramsRef = useSyncedRef(params);
   const stateRef = useInitializerRef<RenderState>(createRenderState);
   const currState = selectState(params);
   const strokeRGBA = color.rgbaString(strokeColor);
 
   useLayoutEffect(() => {
-    if (containerRef.current != null)
-      runRender(containerRef.current, paramsRef.current, stateRef.current);
-  }, [
-    paramsRef,
-    stateRef,
-    orientation,
-    externalScale,
-    spec?.svg,
-    spec?.scale,
-    spec?.strokeScaled,
-    currState,
-    strokeRGBA,
-    delayed,
-  ]);
+    if (hostRef.current != null)
+      runRender(hostRef.current, paramsRef.current, stateRef.current);
+  }, [paramsRef, stateRef, spec?.svg, spec?.strokeScaled, currState, strokeRGBA]);
 
   return (el) => {
     if (el == null) {
-      const { svgElement } = stateRef.current;
-      if (svgElement != null) svgElement.remove();
+      stateRef.current.drawing?.remove();
       stateRef.current = createRenderState();
-      containerRef.current = null;
+      hostRef.current = null;
       return;
     }
-    containerRef.current = el;
+    hostRef.current = el;
     runRender(el, paramsRef.current, stateRef.current);
   };
 };

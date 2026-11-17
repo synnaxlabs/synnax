@@ -67,7 +67,7 @@ func (p *Plugin) processUnion(
 	entry resolution.Type,
 	data *templateData,
 ) ([]structData, unionData) {
-	form := entry.Form.(resolution.UnionForm)
+	form := resolution.MustForm[resolution.UnionForm](entry)
 	name := domain.GetName(entry, "cpp")
 	data.AddSystem("variant")
 	data.AddSystem("string")
@@ -79,10 +79,9 @@ func (p *Plugin) processUnion(
 		Doc:       doc.Get(entry.Domains),
 		DiscJSON:  casing.FieldSnake(form.Discriminator),
 	}
-	pbNamespace := ""
 	if hasPBFlag(entry) && !omit.IsSkipped(entry, "pb") {
 		if pbOutputPath := output.GetPBPath(entry); pbOutputPath != "" {
-			pbNamespace = cppnaming.PBNamespace(pbOutputPath, entry.Namespace)
+			pbNamespace := cppnaming.PBNamespace(pbOutputPath, entry.Namespace)
 			ud.HasProto = true
 			ud.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, cppnaming.PBName(entry))
 			data.AddSystem("utility")
@@ -101,9 +100,9 @@ func (p *Plugin) processUnion(
 
 	enumType, _, borrows := resolution.Dealias(form.Enum, data.table)
 	borrows = borrows && form.BorrowsEnum()
-	if borrows && enumType.Namespace != data.rawNs {
+	if borrows && enumType.FilePath != data.filePath {
 		if path := enum.FindOutputPath(enumType, data.table, "cpp"); path != "" {
-			data.AddInternal(fmt.Sprintf("%s/types.gen.h", path))
+			data.AddInternal(path + "/types.gen.h")
 		}
 	}
 	variants := make([]structData, 0, len(form.Variants))
@@ -154,7 +153,7 @@ func (p *Plugin) processUnion(
 				sd.ProtoType = fmt.Sprintf("%s::%s", ns, sd.ProtoClass)
 			}
 			if v.Inline {
-				pform := payload.Form.(resolution.StructForm)
+				pform := resolution.MustForm[resolution.StructForm](payload)
 				// A field that only restates an inherited default keeps the base's
 				// member; the new default moves into a generated constructor.
 				defaultOnly := resolver.DefaultOnlyOverrides(
@@ -195,7 +194,7 @@ func (p *Plugin) processUnion(
 // enumMember returns the member of enumType whose value is value. The analyzer
 // guarantees one exists for every variant of a union that borrows the enum.
 func enumMember(enumType resolution.Type, value string) (resolution.EnumValue, bool) {
-	form := enumType.Form.(resolution.EnumForm)
+	form := resolution.MustForm[resolution.EnumForm](enumType)
 	for _, m := range form.Values {
 		if m.StringValue() == value {
 			return m, true

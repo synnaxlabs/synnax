@@ -119,16 +119,6 @@ type InlineEntry struct {
 	Index string `json:"index" msgpack:"index"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (in *InlineEntry) ApplyDefaults() {
-	if in.Qos == "" {
-		in.Qos = QoSAtMostOnce
-	}
-	for i := range in.Fields {
-		in.Fields[i].ApplyDefaults()
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (in *InlineEntry) SetDefaults() {
 	in.Qos = QoSAtMostOnce
@@ -168,13 +158,6 @@ func (in InlineEntry) Validate() error {
 type InlineRead struct {
 	// Entries are the plain entries that hold their fields inline.
 	Entries []InlineEntry `json:"entries" msgpack:"entries"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (in *InlineRead) ApplyDefaults() {
-	for i := range in.Entries {
-		in.Entries[i].ApplyDefaults()
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -227,13 +210,6 @@ func (p *PlainReadEntry) SetDefaults() {
 	p.Qos = QoSAtMostOnce
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PlainReadEntry) ApplyDefaults() {
-	if p.Qos == "" {
-		p.Qos = QoSAtMostOnce
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (p PlainReadEntry) Validate() error {
@@ -266,13 +242,6 @@ func (SparkplugReadEntry) isReadEntryVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (s *SparkplugReadEntry) SetDefaults() {
 	s.DataType = "float64"
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *SparkplugReadEntry) ApplyDefaults() {
-	if s.DataType == "" {
-		s.DataType = "float64"
-	}
 }
 
 // ReadEntry is a single source of an MQTT read task. The type field selects a plain
@@ -362,19 +331,6 @@ func (u ReadEntry) Type() ReadEntryType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *ReadEntry) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case PlainReadEntry:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case SparkplugReadEntry:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or
 // the active variant violates its schema constraints.
 func (u ReadEntry) Validate() error {
@@ -423,16 +379,6 @@ type ReadConfig struct {
 	// Inline holds the plain entries of a config from before ICDs. A write moves their
 	// fields into a new ICD, adds the entries, and clears it.
 	Inline *InlineRead `json:"inline,omitzero" msgpack:"inline,omitempty"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	for i := range r.Entries {
-		r.Entries[i].ApplyDefaults()
-	}
-	if r.Inline != nil {
-		r.Inline.ApplyDefaults()
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

@@ -21,10 +21,13 @@ import {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 
 import { context } from "@/context";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
+// The input imports the menu, so the menu imports the search directly.
+import { Search, type SearchProps } from "@/input/Search";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 import { ACTIVATION_KEYS, isMoveKey, moveIndex } from "@/util";
@@ -39,6 +42,8 @@ export { FilterContext };
 const MENU_ITEMS = '[role="menuitem"]:not([aria-disabled="true"])';
 
 const SURFACES = `[role="menu"], .${CSS.B("menu-dialog")}`;
+
+const HIGHLIGHTED = "data-highlighted";
 
 /** @returns the strings and numbers in a node, read through element children. */
 export const nodeText = (node: ReactNode): string => {
@@ -59,44 +64,68 @@ export const useMatches = (text: string): boolean => {
 
 /** What a menu surface needs to filter its items as the user types. */
 export interface Filter {
-  /** The typed filter, empty when the menu is not filtering. */
-  term: string;
+  /** The typed filter, or null while the menu shows no search. */
+  term: string | null;
   /** Attach to the menu surface. */
   ref: RefObject<HTMLDivElement | null>;
   /** Handles the filter and move keys. Pass it to the menu surface. */
   onKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
+  /** Props for the search. */
+  search: Required<Pick<SearchProps, "ref" | "onChange" | "onKeyDown">>;
 }
 
 /**
  * Lets a menu surface filter its items as the user types. Call it in a part that
- * mounts only while the menu is open, so each opening starts with no filter. The
- * surface takes the focus when it mounts unless the focus is already in it. The first
- * printable key starts the filter, Backspace edits it, and Escape clears it before it
- * closes the menu. The arrow keys move the focus over the items that show. Keys from a
- * field, or from a submenu, keep their own meaning.
+ * mounts only while the menu is open. The surface takes the focus when it mounts,
+ * unless the focus is already in it. The first printable key opens a search at the
+ * top. While the search has the focus, the first match is lit and Enter picks it.
+ * Escape closes the search, then the menu. Keys from another field or a submenu keep
+ * their own meaning.
  */
 export const useFilter = (): Filter => {
-  const [term, setTerm] = useState("");
+  const [term, setTerm] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
-  const editedRef = useRef(false);
+  const searchRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const surface = ref.current;
     if (surface != null && !surface.contains(document.activeElement))
       surface.focus({ preventScroll: true });
   }, []);
-  // The focused item can hide, so the first item that shows takes the focus.
   useLayoutEffect(() => {
     const surface = ref.current;
-    if (!editedRef.current || surface == null) return;
-    editedRef.current = false;
-    const first = surface.querySelector<HTMLElement>(MENU_ITEMS);
-    (first ?? surface).focus({ preventScroll: true });
+    if (term == null || surface == null) return;
+    const light = (): void => {
+      const lit = surface.querySelector(`[${HIGHLIGHTED}]`);
+      const first = surface.querySelector(MENU_ITEMS);
+      if (lit === first) return;
+      lit?.removeAttribute(HIGHLIGHTED);
+      first?.setAttribute(HIGHLIGHTED, "");
+    };
+    light();
+    // Items can mount with no change to the term, such as after they load.
+    const observer = new MutationObserver(light);
+    observer.observe(surface, {
+      childList: true,
+      subtree: true,
+      attributeFilter: ["aria-disabled"],
+    });
+    return () => {
+      observer.disconnect();
+      surface.querySelector(`[${HIGHLIGHTED}]`)?.removeAttribute(HIGHLIGHTED);
+    };
   }, [term]);
-  const edit = (e: KeyboardEvent<HTMLElement>, next: string): void => {
+  const closeSearch = (): void => {
+    ref.current?.focus({ preventScroll: true });
+    setTerm(null);
+  };
+  const edit = (e: KeyboardEvent<HTMLElement>, next: string | null): void => {
     e.preventDefault();
     e.stopPropagation();
-    editedRef.current = true;
-    setTerm(next);
+    if (next == null) return closeSearch();
+    // A key typed on an item goes on in the search, after the text already there.
+    flushSync(() => setTerm(next));
+    searchRef.current?.focus({ preventScroll: true });
+    searchRef.current?.setSelectionRange(next.length, next.length);
   };
   const onKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
     if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
@@ -104,12 +133,10 @@ export const useFilter = (): Filter => {
     const target = e.target as HTMLElement;
     if (target !== surface && target.closest(SURFACES) !== surface) return;
     if (target !== surface && !target.matches(MENU_ITEMS)) return;
-    if (e.key === "Escape" || e.key === "Backspace") {
-      if (term === "") return;
-      return edit(e, e.key === "Escape" ? "" : term.slice(0, -1));
-    }
-    if (e.key.length === 1 && (e.key !== " " || term !== ""))
-      return edit(e, term + e.key);
+    if (term != null && (e.key === "Escape" || e.key === "Backspace"))
+      return edit(e, e.key === "Escape" ? null : term.slice(0, -1));
+    if (e.key.length === 1 && (e.key !== " " || (term ?? "") !== ""))
+      return edit(e, (term ?? "") + e.key);
     if (e.shiftKey) return;
     // The menu keeps these keys from a list behind it that answers window keys.
     if (ACTIVATION_KEYS.includes(e.key)) return e.stopPropagation();
@@ -122,29 +149,63 @@ export const useFilter = (): Filter => {
     const index = moveIndex(key, items.indexOf(target), items.length, e.repeat);
     if (index != null) items[index].focus();
   };
-  return { term, ref, onKeyDown };
+  const onSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
+    const surface = ref.current;
+    if (surface == null) return;
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      return closeSearch();
+    }
+    // Enter picks the lit item: the one under the pointer, else the first match.
+    if (e.key === "Enter") {
+      e.stopPropagation();
+      const item =
+        surface.querySelector<HTMLElement>(`${MENU_ITEMS}:hover`) ??
+        surface.querySelector<HTMLElement>(MENU_ITEMS);
+      return item?.click();
+    }
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    e.stopPropagation();
+    const items = Array.from(surface.querySelectorAll<HTMLElement>(MENU_ITEMS));
+    const index = moveIndex(e.key, -1, items.length, e.repeat);
+    if (index != null) items[index]?.focus();
+  };
+  return {
+    term,
+    ref,
+    onKeyDown,
+    search: { ref: searchRef, onChange: setTerm, onKeyDown: onSearchKeyDown },
+  };
 };
 
 /** Props for {@link Filtered}. */
 export interface FilteredProps extends PropsWithChildren {
-  /** The typed filter. */
-  term: string;
+  filter: Filter;
 }
 
 /**
- * The items of a menu under its filter. While the user types, the filter shows as a
- * line at the top, and a muted line says when no item matches.
+ * The items of a menu under its filter. While the user types, a search at the top
+ * holds the filter, and a muted line says when no item matches.
  */
-export const Filtered = ({ term, children }: FilteredProps): ReactElement => (
-  <FilterContext value={term}>
-    {term !== "" && (
-      <Text.Text overflow="nowrap" className={CSS.B("menu-filter")}>
-        <Icon.Search />
-        {term}
-      </Text.Text>
+export const Filtered = ({
+  filter: { term, search },
+  children,
+}: FilteredProps): ReactElement => (
+  <FilterContext value={term ?? ""}>
+    {term != null && (
+      <Search
+        {...search}
+        value={term}
+        className={CSS.B("menu-filter")}
+        flush
+        startContent={<Icon.Search />}
+        placeholder="Search..."
+        full="x"
+      />
     )}
     {children}
-    {term !== "" && (
+    {term != null && term !== "" && (
       <Text.Text color={8} className={CSS.BE("menu-filter", "empty")}>
         No matches
       </Text.Text>

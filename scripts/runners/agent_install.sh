@@ -31,7 +31,15 @@ fi
 if systemctl is-enabled --quiet github-runner.service 2> /dev/null; then
     systemctl disable github-runner.service
 fi
-curl -fsSL -o "$dir/agent_boot.py" "$source/agent_boot.py"
+# Every download ends before the first write, so a failure keeps the old install.
+staging=$(mktemp -d)
+trap 'rm -rf "$staging"' EXIT
+for file in agent_boot.py pyproject.toml uv.lock; do
+    curl -fsSL -o "$staging/$file" "$source/$file"
+done
+mv "$staging"/* "$dir/"
+# agent_boot.py then downloads every agent file at the deployed commit.
+rm -f "$dir/agent_commit.txt"
 base64 -d <<< "$ca" > "$dir/ca.crt"
 log=$dir/agent.out.log
 if [[ -f $log ]] && (($(stat -c%s "$log") > 5242880)); then
@@ -47,7 +55,8 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=$dir
 Environment=UV_CACHE_DIR=$dir/uv-cache
-ExecStart=$dir/uv run $dir/agent_boot.py --host $host --secure
+ExecStart=$dir/uv run --project $dir --frozen --no-dev $dir/agent_boot.py \\
+    --host $host --secure
 Restart=always
 RestartSec=15
 Nice=19

@@ -112,13 +112,16 @@ disabling a sanitizer wholesale.
 The controller for the self-hosted CI runners, deployed to the `Sandbox-Windows` EC2
 instance. `controller.py` polls GitHub and EC2, writes fleet state to the Synnax Core on
 that box, and runs the scaler; `dispatch.py` turns the scaler's commands into EC2 starts
-and stops. Its own uv project and CI job. A pool in `pools.py` must use the label the
-workflows request (`windows-test-bot`, not `windows-latest`), or its jobs never start an
-instance.
+and stops. The scaler drains a runner with `<runner>_gh_cmd` first, and its instance
+stops only after GitHub shows the runner offline. Its own uv project and CI job. A pool
+in `pools.py` must use the label the workflows request (`windows-test-bot`, not
+`windows-latest`), or its jobs never start an instance.
 
-`seats.py` starts a stopped agent seat (`infra/agent-runner`) when a job that asks for
-its labels queues. It finds a seat by its instance tags, because the seat runners belong
-to the organization. A seat stops itself when it is idle.
+`seats.py` starts a stopped agent or review seat (`infra/agent-runner`) when a job that
+asks for its labels queues. It finds a seat by its instance tags, because the seat
+runners belong to the organization. A seat stops itself when it is idle. Each seat it
+starts gets a usable Claude login from `logins.py`, the shared pool of subscription
+tokens in Secrets Manager.
 
 Deploy with the `Deploy - Runners` workflow. Its checkboxes select the controller, a
 Core release or dev build, a backup of the Core, and the runner agents, and the steps

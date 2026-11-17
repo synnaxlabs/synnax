@@ -19,10 +19,15 @@ from tests.proxy import Proxy
 from tests.task_targets import TaskTargets
 from x.strings import random_name
 
-HOST = os.environ.get("SYNNAX_HOST", "localhost")
-PORT = int(os.environ.get("SYNNAX_PORT", 9090))
+HOST = os.environ.get("SYNNAX_TEST_HOST", "localhost")
+PORT = int(os.environ.get("SYNNAX_TEST_PORT", 9090))
 USERNAME = "synnax"
 PASSWORD = "seldon"
+
+# Fixtures that reach the Core. Every other Core fixture depends on one of these.
+CORE_FIXTURES = frozenset(
+    ("client", "login_info", "counted_client", "proxy", "early_proxy")
+)
 
 
 @pytest.fixture(scope="session")
@@ -154,9 +159,14 @@ def pytest_configure(config: pytest.Config) -> None:
     )
 
 
+# Runs before the `-m` filter, which reads the `core` marks.
+@pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
+    for item in items:
+        if CORE_FIXTURES.intersection(getattr(item, "fixturenames", ())):
+            item.add_marker(pytest.mark.core)
     if config.getoption("--run-multi-node"):
         # If the flag is provided, no filtering is needed
         return

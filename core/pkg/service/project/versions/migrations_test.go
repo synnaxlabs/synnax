@@ -64,7 +64,7 @@ var _ = Describe("Pre-v0.54 workspace key normalization", func() {
 
 			By("Staging the layout blob for the panel composition migration")
 			blob, closer := MustSucceed2(
-				db.Get(ctx, []byte(v1.LegacyLayoutKVPrefix+wsKey.String())),
+				db.Get([]byte(v1.LegacyLayoutKVPrefix + wsKey.String())),
 			)
 			var got msgpack.EncodedJSON
 			Expect(json.Unmarshal(blob, &got)).To(Succeed())
@@ -72,7 +72,7 @@ var _ = Describe("Pre-v0.54 workspace key normalization", func() {
 			Expect(got).To(Equal(layout))
 
 			By("Deleting the legacy-prefix row")
-			Expect(db.Get(ctx, legacyRow)).Error().To(MatchError(query.ErrNotFound))
+			Expect(db.Get(legacyRow)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
 

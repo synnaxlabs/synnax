@@ -69,18 +69,18 @@ const Filtering = ({
       }}
       {...rest}
     >
-      <Filtered term={filter.term}>{children}</Filtered>
+      <Filtered filter={filter}>{children}</Filtered>
     </Base.Dialog>
   );
 };
 
 /**
  * A menu that opens in a dialog, on the surface of a context menu. It holds menu items,
- * or the search and options of a selection: the search is a line of text over a
- * hairline, and the options are menu items. As the content of a {@link Sub}, it opens
- * beside the menu with its first item level with the item of the submenu. Otherwise it
- * takes the focus when it opens, unless a field in it has it, and filters its items as
- * the user types, as a context menu does.
+ * or the search and options of a selection: the search spans the top, and the options
+ * are menu items. As the content of a {@link Sub}, it opens beside the menu with its
+ * first item level with the item of the submenu. Otherwise it takes the focus when it
+ * opens, unless a field in it has it, and filters its items as the user types, as a
+ * context menu does.
  *
  * @example
  * <Dialog.Frame>

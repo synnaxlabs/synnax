@@ -486,17 +486,10 @@ var _ = Describe("setNode.Next", func() {
 					Entries(&rows).
 					Exec(ctx, db),
 			).To(Succeed())
-			warning, info := 0, 0
-			for _, r := range rows {
-				switch r.Variant {
-				case status.VariantWarning:
-					warning++
-				case status.VariantInfo:
-					info++
-				}
-			}
-			Expect(warning).To(Equal(1))
-			Expect(info).To(Equal(1))
+			Expect(rows).To(ConsistOf(
+				HaveField("Variant", status.VariantWarning),
+				HaveField("Variant", status.VariantInfo),
+			))
 		},
 	)
 

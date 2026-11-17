@@ -569,7 +569,7 @@ func (s *State) HasTime(paramIndex int) bool {
 // cycle stamp, reusing its buffer. Nodes with no input time to copy use it.
 func (s *State) StampCycle(ctx Context, outputIdx int) {
 	t := s.OutputTime(outputIdx)
-	t.Resize(1)
+	*t = t.Resized(1)
 	t.SetValueAt(0, ctx.Now)
 }
 

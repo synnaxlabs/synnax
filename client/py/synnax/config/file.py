@@ -37,7 +37,7 @@ class File:
         """
         if not self.config_file.exists():
             self.save()
-        with open(self.config_file) as f:
+        with open(self.config_file, encoding="utf-8") as f:
             self.config = json.load(f)
 
     def save(self) -> None:
@@ -49,7 +49,7 @@ class File:
             parents=True,
             exist_ok=True,
         )
-        with open(self.config_file, "w") as f:
+        with open(self.config_file, "w", encoding="utf-8") as f:
             json.dump(config, f)
 
     def get(self, key: str) -> Any:

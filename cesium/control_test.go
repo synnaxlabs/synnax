@@ -1213,7 +1213,7 @@ var _ = Describe("Control", func() {
 							Sync:              new(true),
 						}))
 						dataStreamer := MustSucceed(
-							db.NewStreamer(ctx, cesium.StreamerConfig{
+							db.NewStreamer(cesium.StreamerConfig{
 								Channels: []cesium.ChannelKey{
 									virtualChKey,
 									indexChKey,

@@ -219,7 +219,6 @@ var _ = Describe("Delete", func() {
 								By("Opening a streamer on the channel")
 								s := MustSucceed(
 									db.NewStreamer(
-										ctx,
 										cesium.StreamerConfig{
 											Channels: []cesium.ChannelKey{vChannelKey},
 										},
@@ -249,7 +248,6 @@ var _ = Describe("Delete", func() {
 								By("Opening a streamer on the channel")
 								s := MustSucceed(
 									db.NewStreamer(
-										ctx,
 										cesium.StreamerConfig{
 											Channels: []cesium.ChannelKey{uChannelKey},
 										},

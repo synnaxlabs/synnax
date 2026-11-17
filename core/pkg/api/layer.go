@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/certificate"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
+	"github.com/synnaxlabs/synnax/pkg/api/color"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
@@ -189,6 +190,12 @@ type Transport struct {
 	LabelRemove   freighter.UnaryServer[label.RemoveRequest, struct{}]
 	// LabelDispatch applies path actions to a label.
 	LabelDispatch freighter.UnaryServer[label.DispatchRequest, struct{}]
+	// COLOR
+	ColorCreate   freighter.UnaryServer[color.CreateRequest, color.CreateResponse]
+	ColorRetrieve freighter.UnaryServer[color.RetrieveRequest, color.RetrieveResponse]
+	ColorDelete   freighter.UnaryServer[color.DeleteRequest, struct{}]
+	// ColorDispatch applies path actions to a named color.
+	ColorDispatch freighter.UnaryServer[color.DispatchRequest, struct{}]
 	// RACK
 	RackCreate   freighter.UnaryServer[rack.CreateRequest, rack.CreateResponse]
 	RackRetrieve freighter.UnaryServer[rack.RetrieveRequest, rack.RetrieveResponse]
@@ -302,6 +309,7 @@ type Layer struct {
 	Table        *table.Service
 	Panel        *panel.Service
 	Label        *label.Service
+	Color        *color.Service
 	Rack         *rack.Service
 	Task         *task.Service
 	Device       *device.Service
@@ -479,6 +487,12 @@ func (l *Layer) BindTo(t Transport) {
 		t.LabelAdd,
 		t.LabelRemove,
 		t.LabelDispatch,
+
+		// COLOR
+		t.ColorCreate,
+		t.ColorRetrieve,
+		t.ColorDelete,
+		t.ColorDispatch,
 
 		// RACK
 		t.RackCreate,
@@ -732,6 +746,12 @@ func (l *Layer) BindTo(t Transport) {
 	t.LabelRemove.BindHandler(bind.Write(l.binder, l.Label.Remove))
 	t.LabelDispatch.BindHandler(bind.Write(l.binder, l.Label.Dispatch))
 
+	// COLOR
+	t.ColorCreate.BindHandler(bind.Write(l.binder, l.Color.Create))
+	t.ColorRetrieve.BindHandler(bind.Read(l.binder, l.Color.Retrieve))
+	t.ColorDelete.BindHandler(bind.Write(l.binder, l.Color.Delete))
+	t.ColorDispatch.BindHandler(bind.Write(l.binder, l.Color.Dispatch))
+
 	// RACK
 	t.RackCreate.BindHandler(bind.Write(l.binder, l.Rack.Create))
 	t.RackRetrieve.BindHandler(bind.Read(l.binder, l.Rack.Retrieve))
@@ -962,6 +982,11 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Label:  cfg.Service.Label,
 		Ranger: cfg.Service.Ranger,
 		Status: cfg.Service.Status,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Color, err = color.NewService(color.ServiceConfig{
+		Color: cfg.Service.Color,
 	}); err != nil {
 		return nil, err
 	}

@@ -80,7 +80,7 @@ func addOperatorInput(
 	if len(params) > 0 {
 		args = "[" + value + "]"
 	} else {
-		eq, ok := typ.Form.(resolution.StructForm).Field("eq")
+		eq, ok := resolution.MustForm[resolution.StructForm](typ).Field("eq")
 		if !ok {
 			return errors.Newf("operator %s has no eq member", typ.QualifiedName)
 		}
@@ -114,7 +114,7 @@ func addWhereInput(
 	table *resolution.Table,
 	data *templateData,
 ) error {
-	form := typ.Form.(resolution.StructForm)
+	form := resolution.MustForm[resolution.StructForm](typ)
 	input := sd.PyName + "Input"
 	keys := []string{
 		fmt.Sprintf(`"and": list["%s"]`, input),
@@ -185,7 +185,7 @@ func lineInput(
 		)
 	}
 	name := getPyName(op) + "Input"
-	if op.Namespace != data.Namespace {
+	if op.FilePath != data.FilePath {
 		modulePath := toPythonModulePath(output.GetPath(op, "py"))
 		name = addCrossNamespaceImport(op, modulePath, name, data)
 	}
