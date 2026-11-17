@@ -296,11 +296,11 @@ struct Order {
     static Order parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::api::ni_device::pb::RetrieveRequest;
-    [[nodiscard]] std::pair<::api::ni_device::pb::RetrieveRequest, x::errors::Error>
+    using proto_type = ::api::ni_device::pb::Order;
+    [[nodiscard]] std::pair<::api::ni_device::pb::Order, x::errors::Error>
     to_proto() const;
-    static std::pair<RetrieveRequest, x::errors::Error>
-    from_proto(const ::api::ni_device::pb::RetrieveRequest &pb);
+    static std::pair<Order, x::errors::Error>
+    from_proto(const ::api::ni_device::pb::Order &pb);
 };
 
 using Status = ::synnax::status::Status<StatusDetails>;
@@ -377,6 +377,12 @@ struct RetrieveRequest {
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::ni_device::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::ni_device::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::ni_device::pb::RetrieveRequest &pb);
 };
 
 /// @brief Device is an NI module in a chassis, or a standalone USB or PCIe device.
