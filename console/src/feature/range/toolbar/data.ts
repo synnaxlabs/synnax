@@ -1,0 +1,96 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type ranger } from "@synnaxlabs/client";
+import { useNow } from "@synnaxlabs/lyra/hooks";
+import { Store } from "@synnaxlabs/lyra/store";
+import { Flux, Ranger } from "@synnaxlabs/pluto";
+import { TimeStamp } from "@synnaxlabs/x";
+import { useState } from "react";
+
+import { Session } from "@/session";
+
+const NEWEST: ranger.Order = { field: "time_range_start", descending: true };
+// Recent shows how long ago each range ended, so it sorts by the end.
+const LATEST_END: ranger.Order = { field: "time_range_end", descending: true };
+const STAGES: ranger.Where = { stages: ["in_progress", "completed"] };
+
+export interface Forest {
+  roots: ranger.Range[];
+  children: Map<ranger.Key, ranger.Range[]>;
+}
+
+/** Nests each range under its parent when the parent is in the same set. */
+export const forest = (ranges: ranger.Range[]): Forest => {
+  const keys = new Set(ranges.map((r) => r.key));
+  const roots: ranger.Range[] = [];
+  const children = new Map<ranger.Key, ranger.Range[]>();
+  for (const r of ranges)
+    if (r.parent == null || !keys.has(r.parent)) roots.push(r);
+    else {
+      const siblings = children.get(r.parent) ?? [];
+      siblings.push(r);
+      children.set(r.parent, siblings);
+    }
+  return { roots, children };
+};
+
+export interface Groups {
+  running: ranger.Range[];
+  recent: ranger.Range[];
+  favorites: ranger.Range[];
+  getItem: ReturnType<typeof Flux.useList<ranger.Key, ranger.Range>>["getItem"];
+  subscribe: ReturnType<typeof Flux.useList<ranger.Key, ranger.Range>>["subscribe"];
+}
+
+export const useGroups = (): Groups => {
+  // The Core answers the stage filters as of `at`, so `at` moves to each start or end.
+  const [at, setAt] = useState(() => TimeStamp.now());
+  const runningList = Flux.useList((c) => c.ranges, {
+    name: "ranges",
+    query: { where: Ranger.stageWhere("in_progress", at), order: NEWEST },
+    initialSize: 100,
+    eager: true,
+  });
+  const recentList = Flux.useList((c) => c.ranges, {
+    name: "ranges",
+    query: { where: Ranger.stageWhere("completed", at), order: LATEST_END },
+    initialSize: 250,
+    eager: true,
+  });
+  const running = Store.useItems({
+    keys: runningList.data,
+    subscribe: runningList.subscribe,
+    getItem: runningList.getItem,
+  });
+  const recent = Store.useItems({
+    keys: recentList.data,
+    subscribe: recentList.subscribe,
+    getItem: recentList.getItem,
+  });
+  const upcoming = Ranger.useNextRanges(STAGES, at);
+  const crossing = Ranger.nextCrossing(STAGES, upcoming, at);
+  const now = useNow(() => crossing);
+  if (crossing != null && !now.before(crossing)) setAt(now);
+  const favoriteKeys = Session.Range.useSelectFavoriteKeys();
+  const { data: favoriteData } = Ranger.useResultMultiple(
+    favoriteKeys.length === 0 ? null : { keys: favoriteKeys },
+  );
+  const byKey = new Map((favoriteData ?? []).map((r) => [r.key, r]));
+  const favorites = favoriteKeys
+    .map((k) => byKey.get(k))
+    .filter((r): r is ranger.Range => r != null);
+  return {
+    running,
+    recent,
+    favorites,
+    getItem: runningList.getItem,
+    subscribe: runningList.subscribe,
+  };
+};

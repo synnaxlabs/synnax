@@ -11,8 +11,10 @@ import "@/feature/lineplot/RangeSelect.css";
 
 import { lineplot, NotFoundError, type ranger } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -166,22 +168,20 @@ const formatExact = ({ start, end }: TimeRange): string =>
 interface StaticTagProps {
   itemKey: string;
   window: StaticWindow;
-  name?: string;
 }
 
-const StaticTag = ({ itemKey, window, name }: StaticTagProps): ReactElement => {
+const StaticTag = ({ itemKey, window }: StaticTagProps): ReactElement => {
   const { onSelect } = Select.useItemState(itemKey);
   const timeRange = resolveWindow(window, TimeStamp.now());
   // The day prefix changes at midnight.
   const now = useNow((now) => Telem.Text.nextMidnight(now));
-  const exact = formatExact(timeRange);
   return (
     <Tag.Tag
       icon={<Ranger.StageIcon timeRange={timeRange} />}
       onClose={onSelect}
       level="small"
       size="small"
-      tooltip={name == null ? exact : `${name}: ${exact}`}
+      tooltip={formatExact(timeRange)}
     >
       {formatWindow(timeRange, now)}
     </Tag.Tag>
@@ -289,7 +289,7 @@ export interface RangeSelectProps extends Omit<
 /**
  * Selects what the plot shows: at most one rolling window, favorite ranges, and static
  * windows. A duration typed into the search lists a live option, and Enter sets it. A
- * static window's tag edits the window in place.
+ * static window's tag edits the window in place. A range dropped on it joins the plot.
  */
 export const RangeSelect = (props: RangeSelectProps): ReactElement => {
   const refs = LinePlot.useRanges();
@@ -315,6 +315,19 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
   const span = rolling == null ? undefined : new TimeSpan(rolling.window.timeSpan);
   const setRanges = (ranges: ranger.Ref[]) =>
     dispatch(lineplot.setRanges({ ranges: dedupe(ranges) }));
+  const dragging = Haul.useDraggingState();
+  const dropProps = Haul.useDrop({
+    type: "line_plot_range_select",
+    canDrop: Ranger.canDropHaulItem,
+    onDrop: ({ items }) => {
+      const dropped = Ranger.filterHaulItems(items);
+      setRanges([
+        ...refs,
+        ...dropped.map(({ key }): ranger.Ref => ({ variant: "key", key })),
+      ]);
+      return dropped;
+    },
+  });
   const setRolling = (next?: TimeSpan) => {
     if (next == null) return setRanges(refs.filter((r) => !isRolling(r)));
     if (rolling == null) return setRanges([...refs, rollingRef(next)]);
@@ -349,18 +362,10 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
     if (ref.variant === "key") return <KeyTag key={itemKey} range={ref} />;
     if (ref.window.variant === "dynamic")
       return <RollingTag key={itemKey} itemKey={itemKey} window={ref.window} />;
-    const state = states.find((s) => s.key === itemKey);
-    return (
-      <StaticTag
-        key={itemKey}
-        itemKey={itemKey}
-        window={ref.window}
-        name={state?.variant === "static" ? state.name : undefined}
-      />
-    );
+    return <StaticTag key={itemKey} itemKey={itemKey} window={ref.window} />;
   };
   return (
-    <Input.Item x label="Ranges" {...props}>
+    <Input.Item x label="Ranges" {...props} {...dropProps}>
       <Dialog.Frame variant="floating" location={ABOVE}>
         <Select.Frame<string>
           multiple
@@ -374,6 +379,7 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
             icon={<Icon.Range />}
             placeholder="Select ranges"
             aria-label="Ranges"
+            className={PCSS.cls(PCSS.dropRegion(Ranger.canDropHaulItem(dragging)))}
           >
             {renderTag}
           </Select.MultipleTrigger>

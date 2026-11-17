@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { array, numericTimeRangeZ, TimeSpan } from "@synnaxlabs/x";
+import { array, narrow, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 /**
@@ -22,41 +22,22 @@ const persistedStateZ = z.object({
 
 export interface PersistedState extends z.infer<typeof persistedStateZ> {}
 
-/** A fixed window the session owns, saved to the Core only on request. */
-const staticStateZ = z.object({
-  variant: z.literal("static"),
-  key: z.string(),
-  name: z.string(),
-  timeRange: numericTimeRangeZ,
-});
-
-export interface StaticState extends z.infer<typeof staticStateZ> {}
-
 /** A window of the given span ending now. The Core has no notion of one. */
-const dynamicStateZ = z.object({
-  variant: z.literal("dynamic"),
-  key: z.string(),
-  name: z.string(),
-  span: z.number(),
-});
+export interface DynamicState {
+  variant: "dynamic";
+  key: string;
+  name: string;
+  span: number;
+}
 
-export interface DynamicState extends z.infer<typeof dynamicStateZ> {}
-
-export const stateZ = z.discriminatedUnion("variant", [
-  persistedStateZ,
-  staticStateZ,
-  dynamicStateZ,
-]);
-
-export type State = z.infer<typeof stateZ>;
+export type State = PersistedState | DynamicState;
 
 export const RECENT_KEY = "recent";
 
 /**
  * The rolling windows every session offers. Held in code rather than written into
  * stored state, so a release can revise them and no session can lose one. The list
- * always leads with {@link RECENT_KEY}, which callers fall back to when nothing is
- * selected.
+ * always leads with {@link RECENT_KEY}, the window new plots and channels open with.
  */
 export const BUILT_IN: DynamicState[] = [
   {
@@ -127,14 +108,34 @@ export const BUILT_IN: DynamicState[] = [
   },
 ];
 
-export const sliceStateZ = z.object({
-  version: z.literal(0).default(0),
-  selected: z.string().optional(),
-  /** The ranges the session added. The built-ins are not among them. */
-  ranges: z.array(stateZ).default([]),
-  /** Whether line plots no longer hold keys of the session's static ranges. */
-  staticKeysRewritten: z.boolean().default(false),
-});
+export const groupZ = z.enum(["running", "favorites", "recent"]);
+
+/** A group of the ranges toolbar. */
+export type Group = z.infer<typeof groupZ>;
+
+const toolbarStateZ = z.object({ collapsed: z.array(groupZ).default([]) });
+
+export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
+
+// Version 0 could also hold ranges kept only in the Console. Version 1 drops them.
+const migrateV0 = (raw: unknown): unknown => {
+  if (!narrow.isObject(raw) || (raw.version ?? 0) !== 0) return raw;
+  if (!Array.isArray(raw.ranges)) return { ...raw, version: 1 };
+  const ranges = raw.ranges.filter(
+    (r) => !narrow.isObject(r) || r.variant !== "static",
+  );
+  return { ...raw, version: 1, ranges };
+};
+
+export const sliceStateZ = z.preprocess(
+  migrateV0,
+  z.object({
+    version: z.literal(1).default(1),
+    /** The Core ranges the session added. The built-ins are not among them. */
+    ranges: z.array(persistedStateZ).default([]),
+    toolbar: toolbarStateZ.prefault({}),
+  }),
+);
 
 export const ZERO_SLICE_STATE = sliceStateZ.parse({});
 
@@ -146,18 +147,16 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export type AddPayload = State | State[];
+export type AddPayload = PersistedState | PersistedState[];
 
 interface RemovePayload {
   keys: string[];
 }
 
-interface RenamePayload {
-  key: string;
-  name: string;
+export interface SetGroupCollapsedPayload {
+  group: Group;
+  collapsed: boolean;
 }
-
-type SelectPayload = string;
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
@@ -167,31 +166,19 @@ export const { actions, reducer } = createSlice({
       const ranges = array.toArray(range);
       const keys = ranges.map(({ key }) => key);
       state.ranges = [...state.ranges.filter((r) => !keys.includes(r.key)), ...ranges];
-      if (ranges.length > 0) state.selected = ranges[ranges.length - 1].key;
     },
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
-      if (state.selected != null && keys.includes(state.selected))
-        state.selected = undefined;
       state.ranges = state.ranges.filter(({ key }) => !keys.includes(key));
     },
-    select: (state, { payload }: PayloadAction<SelectPayload>) => {
-      state.selected = payload;
-    },
-    clearSelected: (state) => {
-      state.selected = undefined;
-    },
-    markStaticKeysRewritten: (state) => {
-      state.staticKeysRewritten = true;
-    },
-    // A persisted range is renamed on the Core, which is where its name lives.
-    rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
-      const r = state.ranges.find((r) => r.key === key);
-      if (r == null || r.variant === "persisted") return;
-      r.name = name;
+    setGroupCollapsed: (
+      { toolbar },
+      { payload: { group, collapsed } }: PayloadAction<SetGroupCollapsedPayload>,
+    ) => {
+      toolbar.collapsed = toolbar.collapsed.filter((g) => g !== group);
+      if (collapsed) toolbar.collapsed.push(group);
     },
   },
 });
-export const { add, clearSelected, markStaticKeysRewritten, remove, rename, select } =
-  actions;
+export const { add, remove, setGroupCollapsed } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

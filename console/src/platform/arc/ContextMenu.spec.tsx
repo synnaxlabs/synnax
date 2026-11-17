@@ -41,6 +41,7 @@ const renderMenu = async (a: arc.Arc, as: Client = client): Promise<void> => {
         visible
         position={{ x: 0, y: 0 }}
         cursor={{ x: 0, y: 0 }}
+        target={null}
       />
       <Modals.Stack />
     </>,

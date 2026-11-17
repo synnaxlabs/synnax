@@ -76,7 +76,6 @@ class Surface(ResourceClient):
         self,
         name: str,
         *,
-        persisted: bool = True,
         parent: str | None = None,
         labels: list[str] | None = None,
         stage: str | None = None,
@@ -118,10 +117,5 @@ class Surface(ResourceClient):
         if labels is not None:
             self.layout.select_labels(labels, scope=modal)
 
-        if persisted:
-            save_button = modal.get_by_role("button", name="Save to Core")
-        else:
-            save_button = modal.get_by_role("button", name="Save locally")
-
-        save_button.click(timeout=2000)
+        modal.get_by_role("button", name="Create", exact=True).click(timeout=2000)
         modal.wait_for(state="hidden", timeout=5000)

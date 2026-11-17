@@ -19,42 +19,25 @@ import { renderHookWithConsole } from "@/testutil";
 
 const client = createTestClient();
 
-const createLocal = (): Session.Range.StaticState => {
-  const start = TimeStamp.now();
-  return {
-    variant: "static",
-    key: uuid.create(),
-    name: uniqueRangeName("local"),
-    timeRange: { start: Number(start), end: Number(start.add(TimeSpan.seconds(1))) },
-  };
-};
-
 const preloadedFor = (
-  ranges: Session.Range.State[],
-  selected?: string,
+  ranges: Session.Range.PersistedState[],
 ): { range: Session.Range.SliceState } => ({
-  [Session.Range.SLICE_NAME]: {
-    version: 0,
-    selected,
-    ranges,
-    staticKeysRewritten: false,
-  },
+  [Session.Range.SLICE_NAME]: { ...Session.Range.ZERO_SLICE_STATE, ranges },
 });
 
-const renderResolveMultiple = async (ranges: Session.Range.State[], keys?: string[]) =>
+const renderResolveMultiple = async (
+  ranges: Session.Range.PersistedState[],
+  keys?: string[],
+) =>
   await renderHookWithConsole(() => Range.useResolveMultiple(keys), {
     client,
     preloadedState: preloadedFor(ranges),
   });
 
-const renderResolve = async (
-  ranges: Session.Range.State[],
-  key?: string,
-  selected?: string,
-) =>
+const renderResolve = async (ranges: Session.Range.PersistedState[], key: string) =>
   await renderHookWithConsole(() => Range.useResolve(key), {
     client,
-    preloadedState: preloadedFor(ranges, selected),
+    preloadedState: preloadedFor(ranges),
   });
 
 describe("Range.useResolveMultiple", () => {
@@ -100,12 +83,6 @@ describe("Range.useResolveMultiple", () => {
         },
       ]),
     );
-  });
-
-  it("should pass a range the session owns through untouched", async () => {
-    const local = createLocal();
-    const { result } = await renderResolveMultiple([local], [local.key]);
-    expect(result.current).toEqual([local]);
   });
 
   it("should pass a rolling range through untouched", async () => {
@@ -166,32 +143,34 @@ describe("Range.useResolveMultiple", () => {
 
   it("should put a range the session does not hold after the session's", async () => {
     const outside = await createTestRange(client);
-    const local = createLocal();
-    const { result } = await renderResolveMultiple([local], [outside.key, local.key]);
+    const held = await createTestRange(client);
+    const { result } = await renderResolveMultiple(
+      Session.Range.fromClient(held.payload),
+      [outside.key, held.key],
+    );
     await waitFor(() =>
-      expect(result.current.map(({ key }) => key)).toEqual([local.key, outside.key]),
+      expect(result.current.map(({ key }) => key)).toEqual([held.key, outside.key]),
     );
   });
 
   it("should keep the session's order", async () => {
-    const created = await createTestRange(client);
-    const local = createLocal();
+    const first = await createTestRange(client);
+    const second = await createTestRange(client);
     const { result } = await renderResolveMultiple(
-      [...Session.Range.fromClient(created.payload), local],
-      [created.key, local.key],
+      Session.Range.fromClient([second.payload, first.payload]),
+      [first.key, second.key],
     );
     await waitFor(() =>
-      expect(result.current.map(({ key }) => key)).toEqual([created.key, local.key]),
+      expect(result.current.map(({ key }) => key)).toEqual([second.key, first.key]),
     );
   });
 });
 
 describe("Range.useResolve", () => {
-  it("should resolve the selected range when given no key", async () => {
+  it("should resolve a Core range the session holds", async () => {
     const created = await createTestRange(client);
     const { result } = await renderResolve(
       Session.Range.fromClient(created.payload),
-      undefined,
       created.key,
     );
     await waitFor(() => expect(result.current?.key).toBe(created.key));

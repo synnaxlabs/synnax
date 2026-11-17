@@ -1,0 +1,734 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/feature/range/toolbar/Content.css";
+
+import { ranger } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Caret } from "@synnaxlabs/lyra/caret";
+import { Color } from "@synnaxlabs/lyra/color";
+import { context } from "@synnaxlabs/lyra/context";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { useNow } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Access, Ranger, Synnax } from "@synnaxlabs/pluto";
+import { color, location, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  type CSSProperties,
+  Fragment,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
+import { Explorer } from "@/feature/range/explorer";
+import { Card } from "@/feature/range/toolbar/Card";
+import { type Forest, forest, useGroups } from "@/feature/range/toolbar/data";
+import { suggest, type Suggestion } from "@/feature/range/toolbar/suggest";
+import {
+  formatAgo,
+  formatSpan,
+  formatStart,
+  nextMinute,
+  nextSecond,
+} from "@/feature/range/toolbar/time";
+import { Tree } from "@/feature/range/tree";
+import { CSS } from "@/platform/css";
+import { Range } from "@/platform/range";
+import { Toolbar } from "@/platform/toolbar";
+import { Session } from "@/session";
+
+const B = "range-toolbar";
+
+const Elapsed = ({ start }: { start: TimeStamp }): ReactElement => {
+  const now = useNow(nextSecond);
+  return <>{formatSpan(start, now)}</>;
+};
+
+const Ago = ({ end }: { end: TimeStamp }): ReactElement => {
+  const now = useNow(nextMinute);
+  return <>{formatAgo(end, now)}</>;
+};
+
+const startOf = (r: ranger.Range): TimeStamp => r.timeRange.makeValid().start;
+const endOf = (r: ranger.Range): TimeStamp => r.timeRange.makeValid().end;
+
+const stopPropagation = (e: MouseEvent) => e.stopPropagation();
+
+const HAUL_SOURCE = "range_toolbar";
+
+const CARD_LOCATION = {
+  targetCorner: location.TOP_RIGHT,
+  dialogCorner: location.TOP_LEFT,
+};
+
+const Parent = ({ parent }: { parent: ranger.Key }): ReactElement | null => {
+  const range = Ranger.useResult({ key: parent }).data;
+  if (range == null) return null;
+  return (
+    <Text.Text level="small" color={9} overflow="fade" className={CSS.BE(B, "parent")}>
+      {range.name}
+    </Text.Text>
+  );
+};
+
+interface CaretState {
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+interface LineProps {
+  range: ranger.Range;
+  depth?: number;
+  path?: boolean;
+  live?: boolean;
+  ending?: boolean;
+  caret?: CaretState | null;
+  meta?: ReactNode;
+  actions?: ReactNode;
+}
+
+const rangeStyle = (r: ranger.Range, depth: number): CSSProperties =>
+  ({
+    "--console-range-depth": depth,
+    ...(r.color == null ? {} : { "--console-range-color": color.hex(r.color) }),
+  }) as CSSProperties;
+
+const Line = ({
+  range,
+  depth = 0,
+  path = false,
+  live = false,
+  ending = false,
+  caret,
+  meta,
+  actions,
+}: LineProps): ReactElement => {
+  const open = Range.useOpen();
+  const { update: rename } = Ranger.useRename();
+  const canEdit = Access.useUpdateGranted(ranger.resourceID(range.key));
+  const { startDrag, onDragEnd } = Haul.useDrag({ type: HAUL_SOURCE });
+  const [dragging, setDragging] = useState(false);
+  return (
+    <Tooltip.Dialog location={CARD_LOCATION} hide={dragging}>
+      <Card range={range} />
+      <div
+        id={range.key}
+        draggable
+        onDragStart={() => {
+          setDragging(true);
+          startDrag([Ranger.createHaulItem(range.payload)]);
+        }}
+        onDragEnd={(e) => {
+          setDragging(false);
+          onDragEnd(e.nativeEvent);
+        }}
+        role="listitem"
+        aria-label={range.name}
+        className={CSS.cls(
+          CSS.BE(B, "line"),
+          Menu.CONTEXT_TARGET,
+          "lyra--reveals",
+          live && CSS.BEM(B, "line", "live"),
+          ending && CSS.BEM(B, "line", "ending"),
+        )}
+        style={rangeStyle(range, depth)}
+        onClick={() => open(range.key)}
+      >
+        <span className={CSS.BE(B, "indent")} />
+        <span className={CSS.BE(B, "gutter")}>
+          {caret != null && (
+            <Button.Button
+              variant="text"
+              size="tiny"
+              textColor={8}
+              className={CSS.cls(
+                CSS.BE(B, "caret"),
+                caret.expanded && CSS.BEM(B, "caret", "expanded"),
+              )}
+              aria-label={caret.expanded ? "Collapse" : "Expand"}
+              onClick={(e) => {
+                e.stopPropagation();
+                caret.onToggle();
+              }}
+            >
+              <Icon.Caret.Right />
+            </Button.Button>
+          )}
+        </span>
+        <span className={CSS.BE(B, "mark")} />
+        <span className={CSS.BE(B, "text")}>
+          <Text.MaybeEditable
+            id={List.itemNameID(range.key)}
+            value={range.name}
+            level="p"
+            overflow="fade"
+            allowDoubleClick={false}
+            className={CSS.BE(B, "name")}
+            onChange={canEdit ? (name) => rename({ key: range.key, name }) : undefined}
+          />
+          {path && range.parent != null && <Parent parent={range.parent} />}
+        </span>
+        {meta != null && <span className={CSS.BE(B, "meta")}>{meta}</span>}
+        {actions != null && (
+          <span className={CSS.BE(B, "actions")} onClick={stopPropagation}>
+            {actions}
+          </span>
+        )}
+      </div>
+    </Tooltip.Dialog>
+  );
+};
+
+const StopButton = ({ range }: { range: ranger.Range }): ReactElement => {
+  const stop = Tree.useStop();
+  return (
+    <Button.Button
+      variant="text"
+      size="tiny"
+      textColor={9}
+      tooltip="Stop"
+      tooltipLocation="left"
+      className={CSS.BE(B, "stop")}
+      onClick={() => stop(range)}
+    >
+      <Icon.Stop />
+    </Button.Button>
+  );
+};
+
+interface DraftContextValue {
+  draft: DraftState | null;
+  onDone: () => void;
+  onNext: (range: ranger.Range, below: ranger.Range[]) => void;
+  onStartChild: (range: ranger.Range) => void;
+}
+
+const [DraftContext, useDraftContext] = context.create<DraftContextValue>({
+  displayName: "Range.DraftContext",
+  providerName: "Range.DraftContext",
+});
+
+const RunningActions = ({
+  range,
+  onNext,
+}: {
+  range: ranger.Range;
+  onNext?: () => void;
+}): ReactElement => {
+  const { onStartChild } = useDraftContext("Range.RunningActions");
+  const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
+  const canUpdate = Access.useUpdateGranted(ranger.resourceID(range.key));
+  const next = canCreate && canUpdate ? onNext : undefined;
+  return (
+    <>
+      <span className={CSS.BE(B, "more")}>
+        {canCreate && (
+          <Button.Button
+            variant="text"
+            size="tiny"
+            textColor={9}
+            reveal
+            tooltip="Start child range"
+            tooltipLocation="left"
+            onClick={() => onStartChild(range)}
+          >
+            <Ranger.CreateIcon />
+          </Button.Button>
+        )}
+        {next != null && (
+          <Button.Button
+            variant="text"
+            size="tiny"
+            textColor={9}
+            tooltip="Stop and start next"
+            tooltipLocation="left"
+            className={CSS.BE(B, "next")}
+            onClick={next}
+          >
+            <Tree.NextIcon />
+          </Button.Button>
+        )}
+      </span>
+      {next == null && <span className={CSS.BE(B, "slot")} />}
+      {canUpdate ? (
+        <StopButton range={range} />
+      ) : (
+        <span className={CSS.BE(B, "slot")} />
+      )}
+    </>
+  );
+};
+
+const Star = ({ range }: { range: ranger.Range }): ReactElement => (
+  <Range.FavoriteButton
+    range={range}
+    reveal
+    size="tiny"
+    className={CSS.BE(B, "star")}
+  />
+);
+
+interface DraftState extends Suggestion {
+  startedAt: TimeStamp;
+  parent?: ranger.Key;
+  /** The running range that the new one follows. */
+  after?: ranger.Range;
+  /** The ranges that stop as the new one starts: `after` and all that run below it. */
+  stops?: ranger.Range[];
+}
+
+const Draft = ({
+  draft,
+  depth = 0,
+}: {
+  draft: DraftState;
+  depth?: number;
+}): ReactElement => {
+  const { onDone } = useDraftContext("Range.Draft");
+  const [name, setName] = useState(draft.name);
+  const [chosen, setChosen] = useState(draft.color);
+  const { colors } = Theming.use();
+  const inputRef = useRef<HTMLInputElement>(null);
+  // The suggested name starts selected, so typing replaces it.
+  useEffect(() => inputRef.current?.select(), []);
+  const { update: create } = Ranger.useCreate();
+  const { update: setTimeRange } = Ranger.useSetTimeRange();
+  const save = () => {
+    const trimmed = name.trim();
+    if (trimmed === "") return;
+    for (const stop of draft.stops ?? [])
+      setTimeRange({
+        key: stop.key,
+        timeRange: new TimeRange(stop.timeRange.start, draft.startedAt),
+      });
+    create({
+      name: trimmed,
+      color: chosen,
+      parent: draft.parent,
+      timeRange: new TimeRange(draft.startedAt, TimeStamp.MAX),
+    });
+    onDone();
+  };
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Enter") save();
+    else if (e.key === "Escape") {
+      e.stopPropagation();
+      onDone();
+    }
+  };
+  return (
+    <div
+      className={CSS.cls(
+        CSS.BE(B, "line"),
+        CSS.BEM(B, "line", "live"),
+        CSS.BEM(B, "line", "draft"),
+      )}
+      style={{ "--console-range-depth": depth } as CSSProperties}
+    >
+      <span className={CSS.BE(B, "indent")} />
+      <span className={CSS.BE(B, "gutter")} />
+      <Color.Swatch
+        variant="text"
+        size="tiny"
+        value={chosen}
+        fallback={colors.gray.l7}
+        onChange={setChosen}
+        // The picker hands focus back to the swatch as it closes, so the name takes it
+        // back on the next frame, ready for Enter or Esc.
+        onVisibleChange={(visible) => {
+          if (!visible) requestAnimationFrame(() => inputRef.current?.focus());
+        }}
+        tooltip="Color"
+        aria-label="Color"
+        className={CSS.BE(B, "draft-color")}
+      />
+      <Input.Text
+        autoFocus
+        ref={inputRef}
+        variant="text"
+        size="small"
+        level="p"
+        value={name}
+        onChange={setName}
+        placeholder="Range name"
+        className={CSS.BE(B, "draft-input")}
+        onKeyDown={handleKeyDown}
+      />
+      <span className={CSS.BE(B, "meta")}>
+        <Elapsed start={draft.startedAt} />
+      </span>
+      <span className={CSS.BE(B, "actions")}>
+        <Button.Button
+          variant="text"
+          size="tiny"
+          textColor={9}
+          tooltip="Cancel"
+          tooltipLocation="left"
+          onClick={onDone}
+        >
+          <Icon.Close />
+        </Button.Button>
+      </span>
+    </div>
+  );
+};
+
+const Group = ({
+  id,
+  title,
+  count,
+  children,
+  icon,
+}: {
+  id: Session.Range.Group;
+  title: string;
+  count?: number;
+  children: ReactNode;
+  icon?: ReactNode;
+}): ReactElement => {
+  const collapsed = Session.Range.useSelectGroupCollapsed(id);
+  const dispatch = Session.useDispatch();
+  const toggle = () =>
+    dispatch(Session.Range.setGroupCollapsed({ group: id, collapsed: !collapsed }));
+  return (
+    <section className={CSS.BE(B, "group")} aria-label={title}>
+      <Button.Button
+        variant="text"
+        full="x"
+        justify="start"
+        className={CSS.BE(B, "group-header")}
+        aria-expanded={!collapsed}
+        onClick={toggle}
+      >
+        <span className={CSS.BE(B, "group-icon")}>{icon}</span>
+        {title}
+        {count != null && count > 0 && (
+          <span className={CSS.BE(B, "group-count")}>{count}</span>
+        )}
+        <Caret.Animated
+          className={CSS.BE(B, "group-caret")}
+          enabled={!collapsed}
+          enabledLoc="bottom"
+          disabledLoc="left"
+        />
+      </Button.Button>
+      {!collapsed && <div className={CSS.BE(B, "group-body")}>{children}</div>}
+    </section>
+  );
+};
+
+const runningBelow = (key: ranger.Key, tree: Forest): ranger.Range[] =>
+  (tree.children.get(key) ?? []).flatMap((c) => [c, ...runningBelow(c.key, tree)]);
+
+const RunningLines = ({
+  nodes,
+  tree,
+  depth,
+}: {
+  nodes: ranger.Range[];
+  tree: Forest;
+  depth: number;
+}): ReactElement => {
+  const { draft, onNext } = useDraftContext("Range.RunningLines");
+  return (
+    <>
+      {nodes.map((r) => {
+        const children = tree.children.get(r.key) ?? [];
+        const follows = draft?.after?.key === r.key;
+        return (
+          <Fragment key={r.key}>
+            <Line
+              range={r}
+              depth={depth}
+              path={depth === 0}
+              live
+              ending={draft?.stops?.some((stop) => stop.key === r.key) ?? false}
+              meta={<Elapsed start={startOf(r)} />}
+              actions={
+                <RunningActions
+                  range={r}
+                  onNext={
+                    r.parent == null
+                      ? undefined
+                      : () => onNext(r, runningBelow(r.key, tree))
+                  }
+                />
+              }
+            />
+            <RunningLines nodes={children} tree={tree} depth={depth + 1} />
+            {follows && (
+              <Draft key={draft.startedAt.toString()} draft={draft} depth={depth} />
+            )}
+            {draft != null && draft.after == null && draft.parent === r.key && (
+              <Draft key={draft.startedAt.toString()} draft={draft} depth={depth + 1} />
+            )}
+          </Fragment>
+        );
+      })}
+    </>
+  );
+};
+
+const RECENT_LIMIT = 10;
+
+const RecentLines = ({
+  nodes,
+  tree,
+  depth,
+  expanded,
+  onToggle,
+}: {
+  nodes: ranger.Range[];
+  tree: Forest;
+  depth: number;
+  expanded: Set<ranger.Key>;
+  onToggle: (key: ranger.Key) => void;
+}): ReactElement => (
+  <>
+    {nodes.map((r) => {
+      const kids = tree.children.get(r.key) ?? [];
+      const open = expanded.has(r.key);
+      return (
+        <Fragment key={r.key}>
+          <Line
+            range={r}
+            depth={depth}
+            path={depth === 0}
+            caret={
+              kids.length === 0
+                ? null
+                : { expanded: open, onToggle: () => onToggle(r.key) }
+            }
+            meta={<Ago end={endOf(r)} />}
+            actions={<Star range={r} />}
+          />
+          {open && (
+            <RecentLines
+              nodes={kids}
+              tree={tree}
+              depth={depth + 1}
+              expanded={expanded}
+              onToggle={onToggle}
+            />
+          )}
+        </Fragment>
+      );
+    })}
+  </>
+);
+
+const useExpanded = (): [Set<ranger.Key>, (key: ranger.Key) => void] => {
+  const [expanded, setExpanded] = useState<Set<ranger.Key>>(() => new Set());
+  const toggle = (key: ranger.Key) => {
+    const next = new Set(expanded);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setExpanded(next);
+  };
+  return [expanded, toggle];
+};
+
+const AllRanges = (): ReactElement => {
+  const openExplorer = Explorer.useOpenTab();
+  return (
+    <Button.Button
+      variant="text"
+      size="small"
+      textColor={9}
+      gap="small"
+      className={CSS.BE(B, "all")}
+      onClick={() => openExplorer()}
+    >
+      <Icon.Explore />
+      All ranges
+    </Button.Button>
+  );
+};
+
+const FavoriteMeta = ({ range }: { range: ranger.Range }): ReactElement => {
+  const now = useNow(nextMinute);
+  if (Ranger.getStage(range.timeRange, now) === "in_progress")
+    return (
+      <>
+        <Icon.InProgress />
+        <Elapsed start={startOf(range)} />
+      </>
+    );
+  return <>{formatStart(startOf(range), now)}</>;
+};
+
+const FavoriteLines = ({ favorites }: { favorites: ranger.Range[] }): ReactElement => {
+  const now = useNow(nextMinute);
+  if (favorites.length === 0)
+    return (
+      <div className={CSS.BE(B, "hint")}>
+        <Icon.StarOutlined />
+        Star a range to add it here
+      </div>
+    );
+  return (
+    <>
+      {favorites.map((r) => (
+        <Line
+          key={r.key}
+          range={r}
+          path
+          live={Ranger.getStage(r.timeRange, now) === "in_progress"}
+          meta={<FavoriteMeta range={r} />}
+          actions={<Star range={r} />}
+        />
+      ))}
+    </>
+  );
+};
+
+const Body = (): ReactElement => {
+  const { draft, onNext, onStartChild } = useDraftContext("Range.Body");
+  const groups = useGroups();
+  const menuProps = Menu.useContextMenu();
+  const [expanded, toggle] = useExpanded();
+  const running = forest(groups.running);
+  const recent = forest(groups.recent);
+  const keys = [
+    ...groups.running.map((r) => r.key),
+    ...groups.favorites.map((r) => r.key),
+    ...groups.recent.map((r) => r.key),
+  ];
+  return (
+    <List.Frame data={keys} getItem={groups.getItem} subscribe={groups.subscribe}>
+      <Menu.ContextMenu
+        menu={(p) => (
+          <Tree.ContextMenu
+            {...p}
+            onStartChild={onStartChild}
+            onNext={(r) => onNext(r, runningBelow(r.key, running))}
+          />
+        )}
+        {...menuProps}
+      />
+      <div className={CSS.BE(B, "frame")} onContextMenu={menuProps.open}>
+        <div className={CSS.B(B)} role="list">
+          {(running.roots.length > 0 || draft != null) && (
+            <Group
+              id="running"
+              title="Running"
+              count={groups.running.length}
+              icon={<Icon.InProgress />}
+            >
+              {draft != null && draft.parent == null && (
+                <Draft key={draft.startedAt.toString()} draft={draft} />
+              )}
+              <RunningLines nodes={running.roots} tree={running} depth={0} />
+            </Group>
+          )}
+          <Group
+            id="favorites"
+            title="Favorites"
+            count={groups.favorites.length}
+            icon={<Icon.StarFilled color="goldenrod" />}
+          >
+            <FavoriteLines favorites={groups.favorites} />
+          </Group>
+          <Group id="recent" title="Recent" icon={<Icon.Completed />}>
+            <RecentLines
+              nodes={recent.roots.slice(0, RECENT_LIMIT)}
+              tree={recent}
+              depth={0}
+              expanded={expanded}
+              onToggle={toggle}
+            />
+            <AllRanges />
+          </Group>
+        </div>
+      </div>
+    </List.Frame>
+  );
+};
+
+export const Content = (): ReactElement => {
+  const [draft, setDraft] = useState<DraftState | null>(null);
+  const client = Synnax.use();
+  const openExplorer = Explorer.useOpenTab();
+  const openCreate = Range.useCreateModal();
+  const drafts: DraftContextValue = {
+    draft,
+    onDone: () => setDraft(null),
+    onNext: (range, below) => {
+      if (client == null || range.parent == null) return;
+      const startedAt = TimeStamp.now();
+      const parent = range.parent;
+      void suggest(client, parent, range.key).then((s) =>
+        setDraft({ ...s, startedAt, parent, after: range, stops: [range, ...below] }),
+      );
+    },
+    onStartChild: (range) => {
+      if (client == null) return;
+      const startedAt = TimeStamp.now();
+      void suggest(client, range.key).then((s) =>
+        setDraft({ ...s, startedAt, parent: range.key }),
+      );
+    },
+  };
+  const addPast = () => {
+    const now = TimeStamp.now();
+    openCreate({
+      timeRange: { start: now.sub(TimeSpan.HOUR).nanoseconds, end: now.nanoseconds },
+    });
+  };
+  const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
+  const canRetrieve = Access.useRetrieveGranted(ranger.TYPE_RESOURCE_ID);
+  return (
+    <Toolbar.Content className={CSS.BE(B, "content")}>
+      <Toolbar.Header>
+        <Toolbar.Title>
+          <Icon.Range />
+          Ranges
+        </Toolbar.Title>
+        <Toolbar.Actions>
+          {canRetrieve && (
+            <Toolbar.Action
+              className={CSS.BE(B, "explore")}
+              tooltip="Open range explorer"
+              onClick={() => openExplorer()}
+            >
+              <Icon.Explore />
+            </Toolbar.Action>
+          )}
+          {canCreate && (
+            <Toolbar.CreateAction tooltip="Create past range" onClick={addPast} />
+          )}
+          {canCreate && (
+            <Toolbar.CreateAction
+              tooltip="Start range"
+              onClick={() => setDraft({ startedAt: TimeStamp.now(), name: "" })}
+            >
+              <Icon.Play />
+            </Toolbar.CreateAction>
+          )}
+        </Toolbar.Actions>
+      </Toolbar.Header>
+      <Toolbar.Body>
+        <DraftContext value={drafts}>
+          <Body />
+        </DraftContext>
+      </Toolbar.Body>
+    </Toolbar.Content>
+  );
+};
