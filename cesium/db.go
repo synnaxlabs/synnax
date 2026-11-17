@@ -166,8 +166,8 @@ func (db *DB) Run(ctx context.Context) error {
 }
 
 // Close closes the database. Call it only after Run returns: while Run runs, Close
-// returns an error and closes nothing. Close is not safe to call with any other DB
-// methods concurrently.
+// returns an error wrapping resource.ErrOpen and closes nothing. Close is not safe to
+// call with any other DB methods concurrently.
 //
 // Writers still open after Run returns stop sending to streamers.
 //
@@ -175,7 +175,7 @@ func (db *DB) Run(ctx context.Context) error {
 // closed regardless of whether an error occurred.
 func (db *DB) Close() error {
 	if db.running.Load() {
-		return errors.New("close called while Run runs")
+		return errors.Wrap(resource.ErrOpen, "close called while Run runs")
 	}
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil
