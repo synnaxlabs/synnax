@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type IncomingMessage } from "node:http";
-import { type AddressInfo } from "node:net";
+import { type AddressInfo, createServer } from "node:net";
 
 import { binary, errors, sleep, TimeSpan, url } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -20,6 +20,7 @@ import {
   EOF,
   type FlowControl,
   ReceiveOverflow,
+  Unreachable,
   WebSocketClient,
 } from "@/index";
 
@@ -111,6 +112,23 @@ describe("websocket", () => {
         myClient.stream("stream/middlewareCheck", messageSchema, messageSchema),
       ).rejects.toThrow("test param not found");
     });
+  });
+});
+
+describe("unreachable server", () => {
+  test("should throw Unreachable when nothing listens on the port", async () => {
+    const server = createServer();
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address() as AddressInfo;
+    await new Promise((resolve) => server.close(resolve));
+    const endpoint = new url.URL({ host: "127.0.0.1", port });
+    const c = new WebSocketClient({ endpoint, codec: binary.JSON_CODEC });
+    const err = await c.stream("stream", messageSchema, messageSchema).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(Unreachable.matches(err)).toBe(true);
+    expect(err).toMatchObject({ url: { protocol: "ws", port, path: "stream/" } });
   });
 });
 

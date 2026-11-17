@@ -11,7 +11,7 @@ import { type binary, errors, sleep, TimeSpan, url } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Connector, DEFAULT_CONNECTOR, type Socket } from "@/connector";
-import { EOF, ReceiveOverflow, StreamClosed } from "@/errors";
+import { EOF, ReceiveOverflow, StreamClosed, Unreachable } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY, FREIGHTER_METADATA_PREFIX } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type Stream, type StreamClient } from "@/stream";
@@ -237,6 +237,13 @@ class WebSocketStream<
 
 const CLOSE_NORMAL = 1000;
 
+// The DOM, undici, Deno, and Bun error events carry the error in different fields.
+const eventCause = (ev: object): unknown =>
+  "error" in ev && ev.error != null ? ev.error : ev;
+
+const eventMessage = (ev: object): string =>
+  "message" in ev && typeof ev.message === "string" ? ev.message : "websocket error";
+
 /** Configures a {@link WebSocketClient}. */
 export interface WebSocketClientConfig {
   /** A base URL to use as a prefix for all requests. */
@@ -328,7 +335,15 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     resSchema: RS,
   ): Promise<WebSocketStream<RQ, RS>> {
     return await new Promise((resolve, reject) => {
+      const unreachable = (cause: unknown) =>
+        reject(new Unreachable({ url: this.baseUrl.child(target), cause }));
+      ws.onclose = unreachable;
+      ws.onerror = (ev: object) => unreachable(eventCause(ev));
+      // Node fails a blocked port, such as 1, before the dial returns the socket.
+      if (ws.readyState === WebSocket.CLOSED) unreachable(undefined);
       ws.onopen = () => {
+        ws.onerror = (ev: object) =>
+          reject(new Error(eventMessage(ev), { cause: eventCause(ev) }));
         const oWs = new WebSocketStream<RQ, RS>(
           ws,
           this.encoder,
@@ -341,10 +356,6 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
           .receiveOpenAck()
           .then(() => resolve(oWs))
           .catch((err: unknown) => reject(errors.fromUnknown(err)));
-      };
-      ws.onerror = (ev: object) => {
-        const ev_ = ev as ErrorEvent;
-        reject(new Error(ev_.message ?? "websocket error", { cause: ev_.error ?? ev }));
       };
     });
   }
