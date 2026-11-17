@@ -164,12 +164,12 @@ it when the list or its control marks changed, so the dialog asks again. The cus
 `symbol.Ref` uses `@ref on_delete restrict`, so a custom symbol in use refuses the
 delete, and the dialog lists its schematics. An import brings the custom symbols that
 its schematics use. When the Core already has a symbol with a bundled key, the import
-keeps the key and uses the Core's symbol, and if the two differ, it reports a warning
-status that names the symbol. Otherwise it mints a new key and points each node at it. A
-built-in file is never edited: a node changes a built-in through its label, color, size,
-rotation, enum, match, and default, and a site through RFC 0112 enums and named colors.
-"Duplicate as custom" stores the built-in's name in `origin`, and "Change symbol" moves
-nodes to another symbol by binding key.
+uses the Core's symbol, and if the two differ, it reports a warning status that names
+the symbol. Otherwise it adds the bundled symbol under its bundled key, so a later
+import of the same file reuses it. A built-in file is never edited: a node changes a
+built-in through its label, color, size, rotation, enum, match, and default, and a site
+through RFC 0112 enums and named colors. "Duplicate as custom" stores the built-in's
+name in `origin`, and "Change symbol" moves nodes to another symbol by binding key.
 
 A custom symbol holds only shapes. It starts from an SVG upload or a blank canvas, and
 the editor's drawing tools save SVG markup. A part names its shapes by `#id`, `.class`,
@@ -180,6 +180,8 @@ declares its own handles, each linked to one member's handle, and outside pipes 
 only to those.
 
 ### 4.5 Migration
+
+Phase 2 migrates nodes by this table, and phase 1 migrates stored custom symbols.
 
 | Today              | `symbol`                                    | Bindings                                                        |
 | ------------------ | ------------------------------------------- | --------------------------------------------------------------- |
@@ -200,9 +202,10 @@ time fields keep their values, and `state_overrides` become enums by RFC 0112 §
 
 The migration and an import give a node whose custom symbol does not exist `missing`
 with the old key, and keep its bindings. Pluto draws today's "Missing custom symbol"
-look, and "Change symbol" moves the node to another symbol. An import maps symbol keys
-by §4.4, so only a symbol absent from both the import and the Core gives `missing`. A
-key never comes back on its own.
+look, and "Change symbol" moves the node to another symbol. Because an import keeps
+symbol keys (§4.4), only a symbol absent from both the import and the Core gives
+`missing`. A node stays `missing` until "Change symbol" moves it, also after an import
+adds a symbol with its key.
 
 In a stored custom symbol, `svg` becomes an `svg` drawing, each region becomes a part,
 state `i` becomes value `i` of one state `state` with default 0, and each region color
@@ -233,11 +236,11 @@ migration calls, and ships with RFC 0112 phases 19 to 22. Each family is redesig
 after phase 5 in its own PR.
 
 Phase 2 is one cutover of the stored node shape: a node variant, a Core migration, an
-export that bundles a schematic's custom symbols with an import that maps their keys, a
-renderer with its marks, a form with the enum picker, and the deletion of 86 variants.
-It is larger than a usual PR because no smaller step leaves one node shape in `main`.
-Phase 5 starts with the WebKit benchmark, and no built-in moves until it passes at 1,000
-moving parts.
+export that bundles a schematic's custom symbols with their keys, an import that keeps
+those keys, a renderer with its marks, a form with the enum picker, and the deletion of
+86 variants. It is larger than a usual PR because no smaller step leaves one node shape
+in `main`. Phase 5 starts with the WebKit benchmark, and no built-in moves until it
+passes at 1,000 moving parts.
 
 | Phase | Scope                                                  | Touches                                                                                                               | Depends on |
 | ----- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ---------- |
@@ -284,11 +287,11 @@ moving parts.
 16. **A click on stale data sends one command, as today**: A menu on stale data adds a
     step to each click while a task restarts. The trade is real: a stale reading can
     send the wrong command, and the user keeps one click.
-17. **An import reuses a symbol that the Core already has**: Each import of one template
-    then links to one symbol, so a save reaches all of its nodes, as today. A copy for
-    each import splits the nodes across duplicates. The trade is real: the bundled
-    design is not applied when the Core already has the symbol, and only a warning
-    reports the difference.
+17. **An import reuses a symbol that the Core already has**: The import keeps each
+    bundled key, so every import of one template links to one symbol, and a save reaches
+    all of its nodes, as today. A copy for each import splits the nodes across
+    duplicates. The trade is real: the bundled design is not applied when the Core
+    already has the symbol, and only a warning reports the difference.
 
 ## 8 Open questions
 
