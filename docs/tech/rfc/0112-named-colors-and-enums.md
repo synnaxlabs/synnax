@@ -117,7 +117,8 @@ a default enum that only a Pluto file names always exists.
 
 A symbol state shows its enum (RFC 0114). A look with `entry` paint takes the color of
 the current entry, then the symbol color, then the theme. The built-in valve strokes
-`body` at 0 and fills it at 1 with `entry` paint, so the "Valve" enum looks as today.
+`body` at 0 and fills it at 1 with `entry` paint. The "Valve" entries have no color, so
+a valve paints its symbol color, then the theme, as today.
 
 An absent `enum` on a state binding means the symbol's default enum. A built-in symbol
 names it in its Pluto file, and a custom symbol on its Core record. A node stores no
@@ -174,11 +175,14 @@ The schematic cutover ships in one release:
   give a state binding an `enum` key when its node had its own state list,
   `state_overrides`, or `on_color`, and removes those fields.
 - In a custom symbol, RFC 0114 phase 1 made each state index a value with default 0, and
-  each region color a `color` look on that value. The first stroke or fill whose color
-  changes between values sets the entry colors. Each stroke or fill whose colors equal
-  the entries at every value where it is set becomes one `entry` look, with a `when` for
-  those values. Every other stroke or fill keeps its `color` looks, so no stored symbol
-  changes its look.
+  each region color a `color` look on that value. Phase 22 gives the symbol state a
+  default enum and rewrites only looks in that shape: one `color` paint with a `when` on
+  one value. Each new `entry` look takes the place of the first look that it replaces,
+  and every other look stays. The first stroke or fill whose color changes between
+  values sets the entry colors. Each stroke or fill whose colors equal the entries at
+  every value where it is set becomes one `entry` look, with a `when` for those values.
+  Every other stroke or fill keeps its `color` looks, so no stored symbol changes its
+  look.
 - In a node's `state_overrides`, the override of the stroke or fill that sets the
   symbol's entry colors sets the colors of the node's enum. When any stroke or fill
   would then show a color other than its override, such as a second `entry` look whose
@@ -189,8 +193,9 @@ The schematic cutover ships in one release:
   (`core/pkg/service/panel/versions/v0/composition.go:41-55`). An import passes the old
   state lists beside the converted schematic, and its write step
   (`core/pkg/service/schematic/imex.go:45-64`) makes the enums and the symbol copies
-  with the same function as the upgrade. A node that gets `missing` (RFC 0114 §4.5)
-  keeps no overrides.
+  with the same function as the upgrade. An import reuses an enum or a symbol copy with
+  equal content, as the upgrade shares them, and needs create access for each one that
+  it adds. A node that gets `missing` (RFC 0114 §4.5) keeps no overrides.
 
 The line plot migration stores the color that each uncolored line and rule shows today
 as `fixed`. The old 14 colors are frozen in the migration's version package. Each other
@@ -237,7 +242,7 @@ needs RFC 0114 phase 1.
 | 19    | Add enum references to symbol states                     | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `core/pkg/service/schematic`                                     | 13             |
 | 20    | Draw entry paint in Pluto                                | `pluto/src/schematic`                                                                                                   | 15, 19         |
 | 21    | Add the enum picker to the symbol forms                  | `console/src/feature/schematic`                                                                                         | 16, 19         |
-| 22    | Migrate inline state colors to enums                     | `schemas/synnax`, `core/pkg/service/schematic`, `pluto/src/schematic`, `console`                                        | 20, 21         |
+| 22    | Migrate inline state colors to enums                     | `schemas/synnax`, `core/pkg/service/schematic`, `core/pkg/service/schematic/symbol`, `pluto/src/schematic`, `console`   | 20, 21         |
 | 23    | Delete the named colors and enums flag                   | `console/src/flags.ts`                                                                                                  | 22             |
 | 24    | Carry color references in multi-edit                     | `console/src/platform/multiedit`                                                                                        | 8              |
 | 25    | Store color references in schematic symbol colors        | `schemas/synnax`, `core/pkg/service/schematic`, `client/ts`, `client/py`                                                | 3, 24          |
@@ -252,9 +257,9 @@ schematic version (RFC 0053) that drops `staleness_color`. Tables keep their own
 `staleness_color` and its color path in `pluto/src/vis`. Before RFC 0114 phase 2, only a
 select or state indicator can match no entry. Phase 19 also adds the `enum` field to
 `select` and `state_indicator`, and phase 22 fills it. Phase 21 adds the enum picker to
-`select`, `state_indicator`, and the custom symbol editor, and RFC 0114 phase 2 adds it
-to node state bindings. RFC 0114 phase 1 stores a `color.Ref` in custom symbol looks
-from the start. In phase 29, the Driver writes range colors
+`select` and `state_indicator`. RFC 0114 phase 2 adds it to node state bindings, and RFC
+0114 phase 4 to custom symbol states. RFC 0114 phase 1 stores a `color.Ref` in custom
+symbol looks from the start. In phase 29, the Driver writes range colors
 (`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
 
 ## 7 Resolved decisions
