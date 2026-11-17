@@ -4127,15 +4127,27 @@ var _ = Describe("Module constants in flows", func() {
 })
 
 var _ = Describe("Polymorphic funcs in routing entries", func() {
-	It("Should give each call its own type variables", func(bCtx SpecContext) {
-		root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+	newRoot := func(lowName string) *symbol.Symbol {
+		return symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
 			Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1,
 		}, &symbol.Symbol{
 			Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2,
 		}, &symbol.Symbol{
-			Name: "b", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 3,
+			Name: lowName,
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.I64()),
+			ID:   3,
 		}))
-		ast := MustSucceed(parser.Parse(`
+	}
+
+	DescribeTable("Should give each call its own type variables",
+		func(bCtx SpecContext, program string) {
+			ast := MustSucceed(parser.Parse(program))
+			ctx := context.NewRoot(bCtx, ast, newRoot("b"))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		},
+		Entry("single call", `
 		import math
 		func split() {value f64} (high f64, low f64) {
 			high = value
@@ -4143,32 +4155,8 @@ var _ = Describe("Polymorphic funcs in routing entries", func() {
 		x -> split() -> {
 			high: a -> math.avg() -> a,
 			low: b -> math.avg() -> b
-		}`))
-		ctx := context.NewRoot(bCtx, ast, root)
-		analyzer.AnalyzeProgram(ctx)
-		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-	})
-
-	It(
-		"Should give each call in a chain its own type variables",
-		func(bCtx SpecContext) {
-			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
-				Name: "x",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.F64()),
-				ID:   1,
-			}, &symbol.Symbol{
-				Name: "a",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.F32()),
-				ID:   2,
-			}, &symbol.Symbol{
-				Name: "b",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.I64()),
-				ID:   3,
-			}))
-			ast := MustSucceed(parser.Parse(`
+		}`),
+		Entry("chain of calls", `
 		import math
 		func split() {value f64} (high f64, low f64) {
 			high = value
@@ -4176,21 +4164,10 @@ var _ = Describe("Polymorphic funcs in routing entries", func() {
 		x -> split() -> {
 			high: a -> math.avg() -> math.max() -> a,
 			low: b -> math.avg() -> math.max() -> b
-		}`))
-			ctx := context.NewRoot(bCtx, ast, root)
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		},
+		}`),
 	)
 
 	It("Should carry a chained call's type to the next node", func(bCtx SpecContext) {
-		root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
-			Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1,
-		}, &symbol.Symbol{
-			Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2,
-		}, &symbol.Symbol{
-			Name: "c", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 3,
-		}))
 		ast := MustSucceed(parser.Parse(`
 		import math
 		func split() {value f64} (high f64, low f64) {
@@ -4199,7 +4176,7 @@ var _ = Describe("Polymorphic funcs in routing entries", func() {
 		x -> split() -> {
 			high: a -> math.avg() -> math.max() -> c
 		}`))
-		ctx := context.NewRoot(bCtx, ast, root)
+		ctx := context.NewRoot(bCtx, ast, newRoot("c"))
 		analyzer.AnalyzeProgram(ctx)
 		Expect(ctx.Diagnostics.String()).To(ContainSubstring(
 			"func math.max output type f32 does not match channel c value type i64",
