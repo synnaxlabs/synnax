@@ -58,8 +58,7 @@ const x::errors::Error CORE_CHANGED = x::errors::SY.sub("driver").sub("core_chan
 /// Linux service user owns it.
 const std::string OPCUA_STATE_DIR = "opcua";
 
-/// @brief the directory in the state directory that holds the outbox. The Linux
-/// service user owns it.
+/// @brief the directory in the data directory that holds the outbox.
 const std::string OUTBOX_DIR = "outbox";
 
 /// @brief the flag that selects the state of the computer, which the Driver service

@@ -25,6 +25,7 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/rack/rack.h"
+#include "driver/rack/state.h"
 
 namespace driver::rack {
 /// @brief it should keep the state of a user in the folder of that user while the
@@ -294,5 +295,12 @@ TEST(StateTest, RefuseReadableRelativeStateFile) {
     );
     Config cfg;
     ASSERT_OCCURRED_AS(cfg.load_persisted_state(args), STATE_ERROR);
+}
+
+/// @brief it should keep data in the state directory when it is not the directory of
+/// the computer.
+TEST(StateTest, DataDirIsTheStateDirOutsideTheComputerDir) {
+    const std::filesystem::path dir = "/tmp/rack-data-dir-test";
+    ASSERT_EQ(ASSERT_NIL_P(state::data_dir(dir)), dir);
 }
 }
