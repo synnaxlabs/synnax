@@ -33,7 +33,9 @@ THREADS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
           isResolved
           path
           comments(first: 100) {
-            nodes { databaseId author { __typename login } body }
+            nodes {
+              databaseId author { __typename login } body originalCommit { oid }
+            }
           }
         }
       }
@@ -50,6 +52,20 @@ EDITS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
     }
   }
 }"""
+BLOBS = """query($o: String!, $r: String!, $a: String!, $b: String!) {
+  repository(owner: $o, name: $r) {
+    old: object(expression: $a) { oid }
+    new: object(expression: $b) { oid }
+  }
+}"""
+REPLY = """mutation($t: ID!, $b: String!) {
+  addPullRequestReviewThreadReply(input: {pullRequestReviewThreadId: $t, body: $b}) {
+    comment { id }
+  }
+}"""
+RESOLVE = """mutation($t: ID!) {
+  resolveReviewThread(input: {threadId: $t}) { thread { id } }
+}"""
 THREAD_NODES = (
     ".data.repository.pullRequest.reviewThreads.nodes[]"
     " | {id, path, resolved: .isResolved, comments: .comments.nodes} | tojson"
@@ -62,6 +78,7 @@ WRITE = {"admin", "write"}
 """The repository permissions that can dismiss a finding. GitHub reports maintain as
 write."""
 DISMISSED = "Someone with write access dismissed every finding of the review."
+SETTLED = "The review of {head} no longer reports this finding."
 ANSWER_START = "<!-- sedosaur_answer "
 ANSWER_END = " -->"
 # The REST fields of a comment, in the shape that GraphQL serves.
@@ -104,13 +121,17 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
     inline threads, skipping any finding an unresolved thread of the bot already holds.
     Such a thread gets the finding's new heading when its severity changed, and keeps
     the rest of its comment. The findings outside the diff go in one comment the bot
-    edits on each review. The summary in the pull request body is replaced, and the
-    check run completes.
+    edits on each review. An unresolved thread of the bot whose finding the review no
+    longer reports gets a reply and is resolved, when its file changed after the
+    thread's commit. The summary in the pull request body is replaced, and the check run
+    completes.
     """
     t = target
     found = threads(t, gh)
     can = authority(t, gh)
-    review = _drop(review, {(d.path, d.title) for d in dismissals(t, gh, found, can)})
+    gone = {(d.path, d.title) for d in dismissals(t, gh, found, can)}
+    reported = {(f.path, f.title) for f in review.findings}
+    review = _drop(review, gone)
     blob = f"https://github.com/{t.repo}/blob/{t.head}"
     diff = _diff_lines(t, gh)
     inline = [f for f in review.findings if set(f.lines) <= diff.get(f.path, set())]
@@ -131,6 +152,12 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
             "comments": comments,
         }
         write(gh, "POST", f"repos/{t.repo}/pulls/{t.pr}/reviews", payload)
+    for th in found:
+        if th.resolved or (th.path, th.title) in reported | gone:
+            continue
+        if _changed(t, gh, th):
+            reply(gh, th, SETTLED.format(head=t.head))
+            resolve(gh, th)
     outside = [f for f in review.findings if f not in inline]
     _upsert_outside(t, gh, render.outside(outside, blob=blob), created=bool(outside))
     message = gh("api", f"repos/{t.repo}/commits/{t.head}", "--jq", ".commit.message")
@@ -203,6 +230,8 @@ class Thread:
     """The finding's comment."""
     comment: int
     """The database ID of the finding's comment."""
+    commit: str | None
+    """The commit the finding was posted on, or None when GitHub no longer has it."""
     resolved: bool
     replies: list[dict[str, Any]]
     """The comments after the finding, oldest first, as GraphQL serves them."""
@@ -247,11 +276,53 @@ def threads(t: Target, gh: GH) -> list[Thread]:
                     title=title,
                     body=first["body"],
                     comment=first["databaseId"],
+                    commit=(first["originalCommit"] or {}).get("oid"),
                     resolved=node["resolved"],
                     replies=replies,
                 )
             )
     return found
+
+
+def _changed(t: Target, gh: GH, th: Thread) -> bool:
+    if th.commit is None:
+        return False
+    owner, name = t.repo.split("/")
+    out = gh(
+        "api",
+        "graphql",
+        "-f",
+        f"query={BLOBS}",
+        "-f",
+        f"o={owner}",
+        "-f",
+        f"r={name}",
+        "-f",
+        f"a={th.commit}:{th.path}",
+        "-f",
+        f"b={t.head}:{th.path}",
+        "--jq",
+        ".data.repository | [.old.oid, .new.oid] | tojson",
+    )
+    old, new = json.loads(out)
+    return old is not None and old != new
+
+
+def reply(gh: GH, thread: Thread, body: str) -> None:
+    gh(
+        "api",
+        "graphql",
+        "-f",
+        f"query={REPLY}",
+        "-f",
+        f"t={thread.id}",
+        "-f",
+        f"b={body}",
+    )
+
+
+def resolve(gh: GH, thread: Thread) -> None:
+    gh("api", "graphql", "-f", f"query={RESOLVE}", "-f", f"t={thread.id}")
 
 
 def dismissed(found: list[Thread], can: Authority) -> list[Dismissal]:

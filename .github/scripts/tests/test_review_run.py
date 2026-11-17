@@ -920,7 +920,12 @@ class TestMain:
     ) -> None:
         def node(title: str, *replies: str) -> dict[str, Any]:
             bot = {"__typename": "Bot", "login": "sedosaur"}
-            first = {"databaseId": 1, "author": bot, "body": f"<img> **{title}**"}
+            first = {
+                "databaseId": 1,
+                "author": bot,
+                "body": f"<img> **{title}**",
+                "originalCommit": {"oid": "c"},
+            }
             person = {"__typename": "User", "login": "m"}
             later = [{"author": person, "body": r} for r in replies]
             comments = [first, *later]

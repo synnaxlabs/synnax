@@ -60,6 +60,7 @@ def thread(
 ) -> dict[str, Any]:
     first = comment(1, f"<picture></picture> **{title}**\n\nText.", kind="Bot")
     first["author"]["login"] = "sedosaur"
+    first["originalCommit"] = {"oid": "c"}
     return {"id": id, "path": path, "resolved": False, "comments": [first, *replies]}
 
 
@@ -202,6 +203,7 @@ class TestDismissed:
             title="Samples",
             body="<picture></picture> **Samples**\n\nBody.",
             comment=1,
+            commit="c",
             resolved=True,
             replies=[comment(2, "Meant. @Sedosaur  Dismiss")],
         )
@@ -229,6 +231,7 @@ class TestDismissed:
             title="Samples",
             body="<picture></picture> **Samples**\n\nBody.",
             comment=1,
+            commit="c",
             resolved=False,
             replies=[reply],
         )
@@ -241,6 +244,7 @@ class TestDismissed:
             title="Samples",
             body="<picture></picture> **Samples**\n\nBody.",
             comment=1,
+            commit="c",
             resolved=False,
             replies=[comment(2, "Hi."), comment(3, "@sedosaur dismiss")],
         )
