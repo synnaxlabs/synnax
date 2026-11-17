@@ -12,7 +12,7 @@ from __future__ import annotations
 from asyncio import Future
 from collections.abc import Callable
 from threading import Event, RLock
-from typing import Any, Protocol, TypeAlias, cast, overload, override
+from typing import Any, Protocol, TypeAlias, overload, override
 
 import numpy as np
 
@@ -276,12 +276,8 @@ class Controller:
         authority: CrudeAuthority | None = None,
     ) -> None:
         if isinstance(value, dict):
-            # Overloads guarantee homogeneous key types; widen for uniform access
-            auth = cast(
-                dict[channel_.Key | str | channel_.Payload, CrudeAuthority], value
-            )
             resolved: dict[channel_.Key | str | channel_.Payload, CrudeAuthority] = {}
-            for k, a in auth.items():
+            for k, a in value.items():
                 ch = self._resolve(k)
                 resolved[ch.key] = a
                 resolved[ch.index] = a
