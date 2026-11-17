@@ -522,7 +522,11 @@ x::errors::Error Master::receive() {
         // A frame that is not back yet can come back in a later cycle.
         wkc = this->api->receive_processdata(ENABLED_GROUP, 0);
         if (wkc < 0) {
-            if (session.cycles.size() < master::MAX_FRAMES_IN_FLIGHT)
+            const auto in_flight = session.cycles.size();
+            const auto age = this->cfg.clock.steady() - session.cycles.front().sent_at;
+            if (in_flight < master::MAX_FRAMES_IN_FLIGHT &&
+                (in_flight < master::MIN_FRAMES_IN_FLIGHT ||
+                 age < master::MAX_FRAME_AGE.chrono()))
                 return x::errors::Error(
                     errors::FRAME_IN_FLIGHT,
                     "process data frame has not come back"
