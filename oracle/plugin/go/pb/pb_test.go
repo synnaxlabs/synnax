@@ -1131,7 +1131,6 @@ var _ = Describe("Go PB Plugin", func() {
 						ToContain("AuthoritiesListFromPB(pb.Authorities)")
 				},
 			)
-
 		})
 
 		Context("slice translator name collisions", func() {
@@ -1313,8 +1312,10 @@ var _ = Describe("Go PB Plugin", func() {
 					ToNotContain("func UuidSetsToPB(rs []")
 			})
 
-			It("Should ignore a type of another output with the same namespace", func() {
-				loader.Add("schemas/x/color", `
+			It(
+				"Should ignore a type of another output with the same namespace",
+				func() {
+					loader.Add("schemas/x/color", `
 					@go output "x/go/color"
 					@pb
 
@@ -1322,7 +1323,7 @@ var _ = Describe("Go PB Plugin", func() {
 						count int32
 					}
 				`)
-				loader.Add("schemas/synnax/color", `
+					loader.Add("schemas/synnax/color", `
 					@go output "core/pkg/service/color"
 					@pb
 
@@ -1334,18 +1335,21 @@ var _ = Describe("Go PB Plugin", func() {
 						stops Stop[]
 					}
 				`)
-				resp := MustGenerateMulti(loader, pbPlugin)
+					resp := MustGenerateMulti(loader, pbPlugin)
 
-				ExpectContent(resp, "core/pkg/service/color/pb/translator.gen.go").
-					ToContain(
-						"func StopsToPB(rs []color.Stop)",
-						"StopsToPB(r.Stops)",
-					).
-					ToNotContain("StopList")
-			})
+					ExpectContent(resp, "core/pkg/service/color/pb/translator.gen.go").
+						ToContain(
+							"func StopsToPB(rs []color.Stop)",
+							"StopsToPB(r.Stops)",
+						).
+						ToNotContain("StopList")
+				},
+			)
 
-			It("Should name an ancestor's slice translators by the ancestor's output", func() {
-				loader.Add("schemas/base", `
+			It(
+				"Should name an ancestor's slice translators by the ancestor's output",
+				func() {
+					loader.Add("schemas/base", `
 					@go output "core/pkg/service/base"
 					@pb
 
@@ -1357,7 +1361,7 @@ var _ = Describe("Go PB Plugin", func() {
 						count int32
 					}
 				`)
-				loader.Add("schemas/derived", `
+					loader.Add("schemas/derived", `
 					import "schemas/base"
 
 					@go output "core/pkg/service/derived"
@@ -1366,7 +1370,7 @@ var _ = Describe("Go PB Plugin", func() {
 						extra string
 					}
 				`)
-				loader.Add("schemas/holder", `
+					loader.Add("schemas/holder", `
 					import "schemas/derived"
 
 					@go output "core/pkg/service/holder"
@@ -1376,11 +1380,12 @@ var _ = Describe("Go PB Plugin", func() {
 						items derived.Special[]
 					}
 				`)
-				resp := MustGenerateMulti(loader, pbPlugin)
+					resp := MustGenerateMulti(loader, pbPlugin)
 
-				ExpectContent(resp, "core/pkg/service/holder/pb/translator.gen.go").
-					ToContain("basepb.ItemListToPB(")
-			})
+					ExpectContent(resp, "core/pkg/service/holder/pb/translator.gen.go").
+						ToContain("basepb.ItemListToPB(")
+				},
+			)
 		})
 
 		Context("nested array of struct", func() {
