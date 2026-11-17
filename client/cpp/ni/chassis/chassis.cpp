@@ -73,8 +73,12 @@ std::pair<Chassis, x::errors::Error> Client::retrieve(
         return {Chassis{}, errors::paged_one_error()};
     auto [chassis, err] = this->retrieve(where, options);
     if (err) return {Chassis{}, err};
-    if (const auto
-            one_err = errors::check_one("chassis", where.to_json(), chassis.size()))
+    if (const auto one_err = errors::check_one(
+            "chassis",
+            where.to_json(),
+            options.search_term,
+            chassis.size()
+        ))
         return {Chassis{}, one_err};
     return {std::move(chassis[0]), x::errors::NIL};
 }
