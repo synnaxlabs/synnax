@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/icd/Fields.css";
+
 import { type icd } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep, payload, type record, uuid } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -228,7 +230,19 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
   ],
 };
 
+const createJSON = (name: string): icd.JSONField => ({
+  key: uuid.create(),
+  name,
+  scale: 1,
+  offset: 0,
+  units: "",
+  type: "float",
+  pointer: "",
+  enumValues: [],
+});
+
 const createField = (encoding: Encoding, name: string = ""): Field => {
+  if (encoding === "json") return createJSON(name);
   const base = { key: uuid.create(), name, scale: 1, offset: 0, units: "" };
   switch (encoding) {
     case "binary":
@@ -244,8 +258,6 @@ const createField = (encoding: Encoding, name: string = ""): Field => {
       return { ...base, encoding, position: 0 };
     case "tagged":
       return { ...base, encoding, tag: "" };
-    case "json":
-      return { ...base, type: "float", pointer: "", enumValues: [] };
   }
 };
 
@@ -255,6 +267,10 @@ const uniqueFieldName = (names: string[]): string => {
   while (taken.has(`Field ${i}`)) i++;
   return `Field ${i}`;
 };
+
+/** @returns a float field that reads the whole document, named apart from taken. */
+export const createJSONField = (taken: string[]): icd.JSONField =>
+  createJSON(uniqueFieldName(taken));
 
 /**
  * Rebuilds the fields a grid shows from its rows. Each row updates the field at its
@@ -391,7 +407,7 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
   let helpText = status?.message;
   if (failing !== -1) helpText = `Field ${failing + 1}: ${helpText}`;
   return (
-    <Flex.Box y gap="small" className={CSS.BE("icd-editor", "fields")}>
+    <Flex.Box y gap="small" className={CSS.B("icd-fields")}>
       <Input.Table
         value={rows}
         onChange={handleChange}
@@ -407,5 +423,70 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
         <Input.HelpText variant={status?.variant}>{helpText}</Input.HelpText>
       )}
     </Flex.Box>
+  );
+};
+
+export interface FieldsStatusProps {
+  /** The form path of the message's fields. */
+  path: deep.Target<unknown[]>;
+}
+
+/** Shows a problem with the fields of a message as a whole. */
+export const FieldsStatus = ({ path }: FieldsStatusProps): ReactElement | null => {
+  const status = Form.useStatuses(path).find(({ key }) => key === String(path));
+  if (status == null) return null;
+  return <Input.HelpText variant={status.variant}>{status.message}</Input.HelpText>;
+};
+
+const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
+
+export interface JSONFieldProps {
+  /** The form path of the field. */
+  path: deep.Path<icd.JSONField>;
+  /** Actions in the header of the field's section. */
+  actions?: ReactNode;
+}
+
+/** Edits one field of a JSON message: its name, pointer, type, and conversion. */
+export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
+  const { get, set, mode } = Form.useContext();
+  const field = Form.useFieldValue(path);
+  const type = jsonTypeOf(field);
+  const handleType = (next: JSONType) => {
+    if (next !== type) set(path, withJSONType(get(path).value, next));
+  };
+  return (
+    <Form.Section title="Field" actions={actions}>
+      <Form.TextField path={path.name} label="Name" padHelpText={false} />
+      <Form.TextField
+        path={path.pointer}
+        label="Pointer"
+        padHelpText={false}
+        inputProps={POINTER_INPUT_PROPS}
+      />
+      <Input.Item label="Type" padHelpText={false}>
+        <Select.Simple<JSONType>
+          resourceName="type"
+          value={type}
+          onChange={handleType}
+          variant="floating"
+          allowNone={false}
+          preview={mode === "preview"}
+        >
+          {Object.entries(JSON_TYPE_NAMES).map(([key, name]) => (
+            <Select.Item key={key} itemKey={key}>
+              {name}
+            </Select.Item>
+          ))}
+        </Select.Simple>
+      </Input.Item>
+      {isNumberKind(type) && (
+        <>
+          <Form.NumericField path={path.scale} label="Scale" padHelpText={false} />
+          <Form.NumericField path={path.offset} label="Offset" padHelpText={false} />
+        </>
+      )}
+      <Form.TextField path={path.units} label="Units" padHelpText={false} />
+    </Form.Section>
   );
 };

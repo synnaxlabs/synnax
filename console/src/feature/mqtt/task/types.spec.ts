@@ -19,8 +19,14 @@ const issuesOf = (result: z.ZodSafeParseResult<unknown>) =>
   }));
 
 describe("MQTT Task Types", () => {
-  const field = { type: "float", key: "f1", pointer: "/temperature", channel: 1 };
-  const entry = { type: "plain", key: "e1", topic: "plant/temp", fields: [field] };
+  const read = { message: "8d6a1ec4-7c8e-4f0a-9b8e-0c7f0d5c1a02" };
+  const entry = {
+    type: "plain",
+    key: "e1",
+    topic: "plant/temp",
+    icd: "8d6a1ec4-7c8e-4f0a-9b8e-0c7f0d5c1a01",
+    messages: [read],
+  };
   const tagID = {
     group: "plant",
     edgeNode: "line1",
@@ -40,8 +46,8 @@ describe("MQTT Task Types", () => {
       expect(result.entries[0]).toMatchObject({
         qos: "at_most_once",
         retainedIgnored: false,
-        index: "",
         disabled: false,
+        messages: [{ ...read, bindings: [] }],
       });
     });
 
@@ -54,7 +60,7 @@ describe("MQTT Task Types", () => {
   });
 
   describe("deployReadConfigZ", () => {
-    it("should accept a plain entry with one field", () => {
+    it("should accept a plain entry that reads one message", () => {
       const result = MQTT.Task.deployReadConfigZ.safeParse(readConfig(entry));
       expect(issuesOf(result)).toEqual([]);
     });
@@ -95,11 +101,7 @@ describe("MQTT Task Types", () => {
 
     it("should reject a topic that two enabled entries share", () => {
       const result = MQTT.Task.deployReadConfigZ.safeParse(
-        readConfig(entry, {
-          ...entry,
-          key: "e2",
-          fields: [{ ...field, key: "f2", channel: 2 }],
-        }),
+        readConfig(entry, { ...entry, key: "e2" }),
       );
       expect(issuesOf(result)).toEqual([
         { message: 'Duplicate topic "plant/temp"', path: "entries.1.topic" },
@@ -117,13 +119,7 @@ describe("MQTT Task Types", () => {
       const result = MQTT.Task.deployReadConfigZ.safeParse(
         readConfig(
           entry,
-          {
-            type: "plain",
-            key: "e2",
-            topic: "",
-            disabled: true,
-            fields: [{ type: "float", key: "f2", pointer: "temperature" }],
-          },
+          { ...entry, key: "e2", topic: "", disabled: true },
           { type: "sparkplug", key: "s2", disabled: true },
         ),
       );
@@ -229,249 +225,6 @@ describe("MQTT Task Types", () => {
         readConfig({ ...entry, disabled: true }, tagEntry),
       );
       expect(issuesOf(result)).toEqual([]);
-    });
-
-    it("should reject a pointer that two fields of an entry share", () => {
-      const result = MQTT.Task.deployReadConfigZ.safeParse(
-        readConfig({
-          ...entry,
-          fields: [field, { ...field, key: "f2", channel: 2 }],
-        }),
-      );
-      expect(issuesOf(result)).toEqual([
-        {
-          message: 'Pointer "/temperature" is already used by another field',
-          path: "entries.0.fields.1.pointer",
-        },
-      ]);
-    });
-
-    it("should reject two fields that take the whole payload", () => {
-      const result = MQTT.Task.deployReadConfigZ.safeParse(
-        readConfig({
-          ...entry,
-          fields: [
-            { ...field, pointer: "" },
-            { ...field, key: "f2", channel: 2, pointer: "" },
-          ],
-        }),
-      );
-      expect(issuesOf(result)).toEqual([
-        {
-          message: 'Pointer "" is already used by another field',
-          path: "entries.0.fields.1.pointer",
-        },
-      ]);
-    });
-
-    it("should allow the same pointer in two entries", () => {
-      const result = MQTT.Task.deployReadConfigZ.safeParse(
-        readConfig(entry, {
-          ...entry,
-          key: "e2",
-          topic: "plant/other",
-          fields: [{ ...field, key: "f2", channel: 2 }],
-        }),
-      );
-      expect(issuesOf(result)).toEqual([]);
-    });
-
-    it("should reject a pointer that is not RFC 6901", () => {
-      const result = MQTT.Task.deployReadConfigZ.safeParse(
-        readConfig({ ...entry, fields: [{ ...field, pointer: "temperature" }] }),
-      );
-      expect(issuesOf(result)).toEqual([
-        {
-          message: "must be a valid JSON pointer (RFC 6901)",
-          path: "entries.0.fields.0.pointer",
-        },
-      ]);
-    });
-
-    it("should reject an index field that does not read a timestamp", () => {
-      const result = MQTT.Task.deployReadConfigZ.safeParse(
-        readConfig({
-          ...entry,
-          index: "ts",
-          fields: [field, { ...field, key: "ts", pointer: "/ts", channel: 2 }],
-        }),
-      );
-      expect(issuesOf(result)).toEqual([
-        {
-          message: "The index field must read a timestamp",
-          path: "entries.0.fields.1.type",
-        },
-      ]);
-    });
-
-    it("should reject a timestamp field with no time format", () => {
-      const result = MQTT.Task.deployReadConfigZ.safeParse(
-        readConfig({ ...entry, fields: [{ ...field, type: "timestamp" }] }),
-      );
-      expect(issuesOf(result).map(({ path }) => path)).toEqual([
-        "entries.0.fields.0.timeFormat",
-      ]);
-    });
-
-    it("should accept an index field with a time format", () => {
-      const result = MQTT.Task.deployReadConfigZ.safeParse(
-        readConfig({
-          ...entry,
-          index: "ts",
-          fields: [
-            field,
-            {
-              type: "timestamp",
-              key: "ts",
-              pointer: "/ts",
-              channel: 2,
-              timeFormat: "unix_ms",
-            },
-          ],
-        }),
-      );
-      expect(issuesOf(result)).toEqual([]);
-    });
-
-    it("should reject fixed-length and variable-length fields in one entry", () => {
-      const result = MQTT.Task.deployReadConfigZ.safeParse(
-        readConfig({
-          ...entry,
-          fields: [field, { type: "string", key: "f2", pointer: "/unit", channel: 2 }],
-        }),
-      );
-      expect(issuesOf(result)).toEqual([
-        {
-          message:
-            "The fields of a topic share one index, so a variable-length data type cannot mix with the others",
-          path: "entries.0.fields.1.type",
-        },
-      ]);
-    });
-
-    it("should allow a disabled variable-length field beside fixed-length fields", () => {
-      const result = MQTT.Task.deployReadConfigZ.safeParse(
-        readConfig({
-          ...entry,
-          fields: [
-            field,
-            {
-              type: "string",
-              key: "f2",
-              pointer: "/unit",
-              channel: 2,
-              disabled: true,
-            },
-          ],
-        }),
-      );
-      expect(issuesOf(result)).toEqual([]);
-    });
-
-    it("should accept disabled fields that are not filled in", () => {
-      const result = MQTT.Task.deployReadConfigZ.safeParse(
-        readConfig({
-          ...entry,
-          fields: [
-            field,
-            { type: "float", key: "f2", pointer: "unit", disabled: true },
-            {
-              type: "string",
-              key: "f3",
-              pointer: "/temperature",
-              disabled: true,
-            },
-          ],
-        }),
-      );
-      expect(issuesOf(result)).toEqual([]);
-    });
-
-    it("should reject an enum label that a field maps twice", () => {
-      const result = MQTT.Task.deployReadConfigZ.safeParse(
-        readConfig({
-          ...entry,
-          fields: [
-            {
-              ...field,
-              enumValues: [
-                { label: "ON", value: 1 },
-                { label: "ON", value: 2 },
-              ],
-            },
-          ],
-        }),
-      );
-      expect(issuesOf(result)).toEqual([
-        {
-          message: 'Duplicate enum label "ON"',
-          path: "entries.0.fields.0.enumValues.1.label",
-        },
-      ]);
-    });
-
-    it("should hold a field whose labels the Core would refuse", () => {
-      const config = (fieldOverrides: object) =>
-        readConfig({ ...entry, fields: [{ ...field, ...fieldOverrides }] });
-      const { config: shape } = MQTT.Task.READ_SCHEMAS;
-      expect(
-        shape.safeParse(config({ enumValues: [{ label: "", value: 0 }] })).success,
-      ).toBe(false);
-      expect(
-        shape.safeParse(
-          config({
-            enumValues: [
-              { label: "ON", value: 1 },
-              { label: "ON", value: 2 },
-            ],
-          }),
-        ).success,
-      ).toBe(false);
-      expect(
-        shape.safeParse(
-          config({ type: "string", enumValues: [{ label: "", value: "none" }] }),
-        ).success,
-      ).toBe(true);
-    });
-
-    it("should hold an enabled bytes field with no pointer", () => {
-      const { config: shape } = MQTT.Task.READ_SCHEMAS;
-      const bytes = (overrides: object) =>
-        readConfig({
-          ...entry,
-          fields: [{ ...field, type: "bytes", pointer: "", ...overrides }],
-        });
-      expect(shape.safeParse(bytes({})).success).toBe(false);
-      expect(shape.safeParse(bytes({ disabled: true })).success).toBe(true);
-      expect(shape.safeParse(bytes({ pointer: "/raw" })).success).toBe(true);
-    });
-
-    it("should reject an empty enum label on a numeric field", () => {
-      const result = MQTT.Task.deployReadConfigZ.safeParse(
-        readConfig({
-          ...entry,
-          fields: [{ ...field, enumValues: [{ label: "", value: 0 }] }],
-        }),
-      );
-      expect(issuesOf(result)).toEqual([
-        {
-          message: "Enum label cannot be empty",
-          path: "entries.0.fields.0.enumValues.0.label",
-        },
-      ]);
-    });
-
-    it("should reject a channel that two fields of an entry write", () => {
-      const result = MQTT.Task.deployReadConfigZ.safeParse(
-        readConfig({
-          ...entry,
-          fields: [field, { ...field, key: "f2", pointer: "/pressure" }],
-        }),
-      );
-      expect(issuesOf(result).map(({ path }) => path)).toEqual([
-        "entries.0.fields.0.channel",
-        "entries.0.fields.1.channel",
-      ]);
     });
   });
 

@@ -12,10 +12,12 @@ package mqtt
 import (
 	"context"
 	"io"
+	"slices"
 	"sync"
 	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -36,6 +38,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // FactoryConfig is the configuration for the MQTT task factory.
@@ -141,19 +144,26 @@ func (c FactoryConfig) Validate() error {
 
 // Factory configures the MQTT task types. Its tasks share one connection for each
 // broker device, and an edit of the properties of a broker device reaches that
-// connection, whether or not a scan task runs. Safe for concurrent use.
+// connection, whether or not a scan task runs. A change of an ICD configures again each
+// configured read task that reads it. Safe for concurrent use.
 type Factory struct {
 	pool     *pool
 	reporter driver.ConfigReporter
 	cfg      FactoryConfig
-	// edited holds the keys of the broker devices that changed since the last
+	// edited holds the broker devices and the ICDs that changed since the last
 	// reconfigure.
 	edited struct {
-		keys set.Set[device.Key]
+		brokers set.Set[device.Key]
+		icds    set.Set[icd.Key]
 		sync.Mutex
 	}
 	// wake signals that edited holds a key.
-	wake       chan struct{}
+	wake chan struct{}
+	// reads holds the read tasks that the driver has not stopped.
+	reads struct {
+		tasks set.Set[*readTask]
+		sync.Mutex
+	}
 	disconnect observe.Disconnect
 	shutdown   io.Closer
 }
@@ -183,15 +193,22 @@ func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 		},
 		wake: make(chan struct{}, 1),
 	}
-	f.edited.keys = make(set.Set[device.Key])
+	f.edited.brokers = make(set.Set[device.Key])
+	f.edited.icds = make(set.Set[icd.Key])
+	f.reads.tasks = make(set.Set[*readTask])
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	sCtx.Go(f.reconfigureEdited, signal.RecoverWithErrOnPanic())
 	f.shutdown = signal.NewHardShutdown(sCtx, cancel)
-	f.disconnect = cfg.Device.Observe().OnChange(f.onDeviceChange)
+	disconnectDevices := cfg.Device.Observe().OnChange(f.onDeviceChange)
+	disconnectICDs := cfg.ICD.Observe().OnChange(f.onICDChange)
+	f.disconnect = func() {
+		disconnectDevices()
+		disconnectICDs()
+	}
 	return f, nil
 }
 
-// Close stops following the edits of broker devices.
+// Close stops following the edits of broker devices and ICDs.
 func (f *Factory) Close() error {
 	f.disconnect()
 	return f.shutdown.Close()
@@ -208,17 +225,35 @@ func (f *Factory) onDeviceChange(
 			continue
 		}
 		f.edited.Lock()
-		f.edited.keys.Add(ch.Key)
+		f.edited.brokers.Add(ch.Key)
 		f.edited.Unlock()
-		select {
-		case f.wake <- struct{}{}:
-		default:
-		}
+		f.notify()
 	}
 }
 
-// reconfigureEdited points the connection of each edited broker at its new properties
-// until ctx is cancelled.
+// onICDChange runs in the commit of an ICD change, so it hands the changed ICDs to
+// reconfigureEdited and never waits.
+func (f *Factory) onICDChange(_ context.Context, r gorp.TxReader[icd.Key, icd.ICD]) {
+	f.edited.Lock()
+	for ch := range r {
+		f.edited.icds.Add(ch.Key)
+	}
+	f.edited.Unlock()
+	f.notify()
+}
+
+// notify wakes reconfigureEdited, or leaves it to the wake that is pending.
+func (f *Factory) notify() {
+	select {
+	case f.wake <- struct{}{}:
+	default:
+	}
+}
+
+// reconfigureEdited points the connection of each edited broker at its new properties,
+// and configures again each read task that reads a changed ICD, until ctx is cancelled.
+// The changes that arrive while it works go into one pass, which reads the latest
+// version of each record.
 func (f *Factory) reconfigureEdited(ctx context.Context) error {
 	for {
 		select {
@@ -227,11 +262,15 @@ func (f *Factory) reconfigureEdited(ctx context.Context) error {
 		case <-f.wake:
 		}
 		f.edited.Lock()
-		keys := f.edited.keys
-		f.edited.keys = make(set.Set[device.Key])
+		brokers, icds := f.edited.brokers, f.edited.icds
+		f.edited.brokers = make(set.Set[device.Key])
+		f.edited.icds = make(set.Set[icd.Key])
 		f.edited.Unlock()
-		for key := range keys {
+		for key := range brokers {
 			f.pool.reconfigure(ctx, key)
+		}
+		for _, t := range f.readsOf(icds) {
+			f.reconfigureRead(ctx, t)
 		}
 	}
 }
@@ -281,7 +320,8 @@ func (f *Factory) ConfigureTask(
 	// command, and a "configured" status would answer it first with running false.
 	if autoStart {
 		if err = configured.Start(ctx, driver.NoCommand); err != nil {
-			return nil, err
+			// The driver drops a task that fails to start, so this stops it.
+			return nil, errors.Combine(err, configured.Stop(false))
 		}
 	}
 	return configured, nil
@@ -362,76 +402,148 @@ func (f *Factory) retrieveICD(ctx context.Context, key icd.Key) (icd.ICD, error)
 	return ic, err
 }
 
+// readPlan is a read config resolved against the broker, channels, and ICDs that it
+// names.
+type readPlan struct {
+	cfg    ReadConfig
+	broker device.Key
+	topics map[string]topicReader
+	tags   map[tagID]readTag
+	// writerKeys holds the channels that the task writes, and indexes their index
+	// channels.
+	writerKeys, indexes channel.Keys
+	// icds holds the ICDs that the enabled plain entries read.
+	icds set.Set[icd.Key]
+}
+
+// planRead resolves the read config of t. The plan holds the config whenever it
+// unmarshals, also with an error.
+func (f *Factory) planRead(ctx context.Context, t task.Task) (readPlan, error) {
+	var p readPlan
+	if err := t.Config.Unmarshal(&p.cfg); err != nil {
+		return p, err
+	}
+	dev, err := f.retrieveDevice(ctx, p.cfg.Device)
+	if err != nil {
+		return p, err
+	}
+	enabled, keys, err := enabledReadEntries(p.cfg.Entries)
+	if err != nil {
+		return p, err
+	}
+	channels, err := f.retrieveChannels(ctx, keys)
+	if err != nil {
+		return p, err
+	}
+	icds, err := f.retrieveICDs(ctx, enabled)
+	if err != nil {
+		return p, err
+	}
+	p.broker = dev.Key
+	p.topics = make(map[string]topicReader)
+	p.tags = make(map[tagID]readTag)
+	w := writers{names: make(map[channel.Key]string)}
+	for _, variant := range enabled {
+		if err = p.addEntry(variant, icds, channels, &w); err != nil {
+			return p, err
+		}
+	}
+	p.writerKeys, p.indexes = w.keys, w.indexes
+	p.icds = set.New(lo.Keys(icds)...)
+	return p, nil
+}
+
 func (f *Factory) configureRead(
 	ctx context.Context,
 	t task.Task,
 ) (autoStarter, bool, error) {
-	var cfg ReadConfig
-	if err := t.Config.Unmarshal(&cfg); err != nil {
-		return nil, false, err
-	}
-	dev, err := f.retrieveDevice(ctx, cfg.Device)
+	p, err := f.planRead(ctx, t)
 	if err != nil {
-		return nil, cfg.AutoStart, err
-	}
-	enabled, keys, err := enabledReadEntries(cfg.Entries)
-	if err != nil {
-		return nil, cfg.AutoStart, err
-	}
-	channels, err := f.retrieveChannels(ctx, keys)
-	if err != nil {
-		return nil, cfg.AutoStart, err
-	}
-	icds, err := f.retrieveICDs(ctx, enabled)
-	if err != nil {
-		return nil, cfg.AutoStart, err
+		return nil, p.cfg.AutoStart, err
 	}
 	src := &readSource{
 		pool:       f.pool,
-		broker:     dev.Key,
+		broker:     p.broker,
 		queueSize:  f.cfg.QueueSize,
 		birthGrace: f.cfg.BirthGrace,
-		topics:     make(map[string]topicReader),
-		tags:       make(map[tagID]readTag),
+		tags:       p.tags,
 		lastStamp:  make(map[channel.Key]telem.TimeStamp),
 		framer:     f.cfg.Framer,
 		subject:    control.Subject{Key: t.Key.String(), Name: t.Name},
 		ins:        f.cfg.Child(t.Key.String()),
 	}
-	writerKeys, indexes, err := src.addEntries(enabled, icds, channels)
-	if err != nil {
-		return nil, cfg.AutoStart, err
-	}
-	rt, err := f.openRead(t, src, writerKeys, indexes, cfg.DataSavingDisabled)
-	return rt, cfg.AutoStart, err
-}
-
-func (f *Factory) openRead(
-	t task.Task,
-	src *readSource,
-	writerKeys, indexes channel.Keys,
-	dataSavingDisabled bool,
-) (autoStarter, error) {
+	src.configure(p.topics, nil)
 	mode := framer.WriterModePersistStream
-	if dataSavingDisabled {
+	if p.cfg.DataSavingDisabled {
 		mode = framer.WriterModeStreamOnly
 	} else {
-		src.stored = indexes
+		src.stored = p.indexes
 	}
-	rt, err := driver.NewReadTask(driver.ReadTaskConfig{
+	inner, err := driver.NewReadTask(driver.ReadTaskConfig{
 		Instrumentation: f.cfg.Child(t.Key.String()),
 		Source:          src,
 		DB:              f.cfg.DB,
 		Status:          f.cfg.Status,
 		Framer:          f.cfg.Framer,
-		Channels:        writerKeys,
+		Channels:        p.writerKeys,
 		Task:            t,
 		Mode:            mode,
 	})
 	if err != nil {
-		return nil, err
+		return nil, p.cfg.AutoStart, err
 	}
-	return rt, nil
+	rt := &readTask{ReadTask: inner, t: t, src: src, icds: p.icds, forget: f.forget}
+	f.reads.Lock()
+	f.reads.tasks.Add(rt)
+	f.reads.Unlock()
+	return rt, p.cfg.AutoStart, nil
+}
+
+// forget stops following t, which the driver stopped.
+func (f *Factory) forget(t *readTask) {
+	f.reads.Lock()
+	defer f.reads.Unlock()
+	f.reads.tasks.Remove(t)
+}
+
+// readsOf returns the configured read tasks that read any of icds.
+func (f *Factory) readsOf(icds set.Set[icd.Key]) []*readTask {
+	f.reads.Lock()
+	defer f.reads.Unlock()
+	var tasks []*readTask
+	for t := range f.reads.tasks {
+		if slices.ContainsFunc(icds.Slice(), t.icds.Contains) {
+			tasks = append(tasks, t)
+		}
+	}
+	return tasks
+}
+
+// reconfigureRead configures t again with the ICDs that it reads now. When the config
+// no longer resolves, it stops t and gives it the status of a failed configure.
+func (f *Factory) reconfigureRead(ctx context.Context, t *readTask) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.mu.stopped {
+		return
+	}
+	p, err := f.planRead(ctx, t.t)
+	if err == nil {
+		t.src.configure(p.topics, nil)
+		return
+	}
+	if ctx.Err() != nil {
+		return
+	}
+	t.src.configure(nil, err)
+	if err := t.ReadTask.Stop(false); err != nil {
+		f.cfg.L.Error(
+			"failed to stop read task",
+			zap.Stringer("task", t.t),
+			zap.Error(err),
+		)
+	}
+	f.reporter.Report(ctx, t.t, driver.NoCommand, err)
 }
 
 // enabledReadEntries returns the enabled entries and the channels that they name.
@@ -525,24 +637,9 @@ func (w *writers) claim(name string, keys channel.Keys, index channel.Key) error
 	return nil
 }
 
-// addEntries adds the topics and tags of enabled to s. icds holds the ICD of each plain
-// entry. It returns the channels that the entries write to and their index channels.
-func (s *readSource) addEntries(
-	enabled []ReadEntryVariant,
-	icds map[icd.Key]icd.ICD,
-	channels map[channel.Key]channel.Channel,
-) (writerKeys, indexes channel.Keys, err error) {
-	w := writers{names: make(map[channel.Key]string)}
-	for _, variant := range enabled {
-		if err = s.addEntry(variant, icds, channels, &w); err != nil {
-			return nil, nil, err
-		}
-	}
-	return w.keys, w.indexes, nil
-}
-
-// addEntry adds the topic or tag of variant to s, and claims its channels in w.
-func (s *readSource) addEntry(
+// addEntry adds the topic or tag of variant to p, and claims its channels in w. icds
+// holds the ICD of each plain entry.
+func (p *readPlan) addEntry(
 	variant ReadEntryVariant,
 	icds map[icd.Key]icd.ICD,
 	channels map[channel.Key]channel.Channel,
@@ -554,13 +651,13 @@ func (s *readSource) addEntry(
 		if err != nil {
 			return err
 		}
-		if _, ok := s.topics[topic.topic]; ok {
+		if _, ok := p.topics[topic.topic]; ok {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"entries: topic %s appears more than once", topic.topic,
 			)
 		}
-		s.topics[topic.topic] = topic
+		p.topics[topic.topic] = topic
 		for _, m := range topic.messages {
 			name := "message " + m.name + " of topic " + topic.topic
 			if err = w.claim(name, m.keys, m.index); err != nil {
@@ -573,12 +670,12 @@ func (s *readSource) addEntry(
 		if err != nil {
 			return err
 		}
-		if _, ok := s.tags[tag.tagID]; ok {
+		if _, ok := p.tags[tag.tagID]; ok {
 			return errors.Wrapf(
 				validate.ErrValidation, "entries: %s appears more than once", tag,
 			)
 		}
-		s.tags[tag.tagID] = tag
+		p.tags[tag.tagID] = tag
 		return w.claim(tag.String(), tag.keys(), tag.index)
 	default:
 		panic(errors.Newf("mqtt: unknown read entry variant %T", entry))

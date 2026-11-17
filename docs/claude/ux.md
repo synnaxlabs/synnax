@@ -286,6 +286,14 @@ bound, a log precision, or the line plot X channel.
   so and offers to connect one ("Connect MQTT broker"), then selects the new device.
   Otherwise it says "No device selected" and offers "Select device", which opens the
   device select.
+- A task that reads fields of an ICD message, such as MQTT read, lists them in a tree
+  under their topic, like a group tree. Each field shows once, in the tree. The topic
+  details hold the subscription and the timestamp. A field's details hold its format,
+  which saves to the ICD, then its channel. A field that the task does not read is
+  struck through, and its dot starts reading it. Rejected: a list of topics with a
+  channel table, and a fields table in the topic details, which showed each field twice.
+- A topic that reads several messages holds a node for each, with its fields beneath. A
+  message's details hold its name and match, from the ICD, then its timestamp.
 - A task form is at most 1000 px wide. A task whose channel table needs more room sets
   `--console-task-form-max-width`. Modbus uses 1200 px.
 - Port banks sit side by side in columns eight ports wide, each under its title. They

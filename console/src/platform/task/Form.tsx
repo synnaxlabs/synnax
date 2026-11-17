@@ -22,7 +22,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
 import { deep, narrow, primitive } from "@synnaxlabs/x";
-import { type FC, useRef, useState } from "react";
+import { createContext, type FC, useContext, useEffect, useRef, useState } from "react";
 import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -41,6 +41,28 @@ export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
     name: string,
   ): Promise<[z.infer<Config>, rack.Key]>;
 }
+
+/** Sends the edits that a form holds. Resolves false when an edit stays unsent. */
+type Flush = () => Promise<boolean>;
+
+const FlushesContext = createContext<Set<Flush> | null>(null);
+FlushesContext.displayName = "Task.FlushesContext";
+
+/**
+ * Sends the edits of a form nested in a task form before the task deploys, so the
+ * deploy reads what the form shows. An edit that stays unsent stops the deploy.
+ */
+export const useFlushBeforeDeploy = (flush: Flush): void => {
+  const flushes = useContext(FlushesContext);
+  if (flushes == null)
+    throw new Error("useFlushBeforeDeploy must be called inside a task form");
+  useEffect(() => {
+    flushes.add(flush);
+    return () => {
+      flushes.delete(flush);
+    };
+  }, [flushes, flush]);
+};
 
 export interface getInitialValuesParams {
   client: Synnax;
@@ -142,6 +164,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const handleError = Status.useErrorHandler();
     const { capture } = Analytics.use();
     const { form, flush } = useForm({ query: { key: taskKey } });
+    const [nested] = useState(() => new Set<Flush>());
 
     // The form saves on every edit, so a subject who cannot write the task gets it
     // read-only rather than fields that revert once the save is refused.
@@ -166,7 +189,8 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const deploy = async () => {
       if (client == null) throw new DisconnectedError();
       if (canEdit) {
-        if (!(await flush())) return;
+        const flushed = await Promise.all([flush(), ...[...nested].map((f) => f())]);
+        if (!flushed.every(Boolean)) return;
         if (!deployChecked.current) {
           form.addCheck(formPath.config, deployConfigZ);
           deployChecked.current = true;
@@ -245,7 +269,9 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
               empty
             >
               <Errors.SuspenseBoundary>
-                <Form />
+                <FlushesContext value={nested}>
+                  <Form />
+                </FlushesContext>
               </Errors.SuspenseBoundary>
             </Section.Section>
             {showControls && (

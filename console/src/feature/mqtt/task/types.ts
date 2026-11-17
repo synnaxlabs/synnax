@@ -39,6 +39,11 @@ export const nodeKey = ({
 export const tagKey = (id: SparkplugTagID): string =>
   `${nodeKey(id)}/${id.device}/${id.tag}`;
 
+/** What a browse dialog reads from an item that a task holds. */
+export type HeldEntry =
+  | { type: "plain"; topic: string; fields: { pointer: string }[] }
+  | ({ type: "sparkplug" } & SparkplugTagID);
+
 const deployTopicZ = z
   .string()
   .min(1, "Topic is required")
@@ -63,164 +68,52 @@ const validateEnabled =
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-export type ReadField = mqtt.ReadField;
-
-/** @returns the fields that every kind of read field shares. */
-export const readBaseOf = ({
-  key,
-  name,
-  disabled,
-  channel,
-  pointer,
-}: ReadField): mqtt.BaseReadField => ({ key, name, disabled, channel, pointer });
-
-/** @returns a read field of base with the kind and the options. */
-export const createReadField = (
-  options: Task.Payload.ReadOptions,
-  base: Partial<mqtt.BaseReadField> = {},
-): ReadField => mqtt.readFieldZ.parse({ ...base, ...options });
-
-/**
- * @returns field with the kind that a channel of the given data type takes. A field of
- * that kind comes back as it is.
- */
-export const matchDataType = (field: ReadField, dataType: string): ReadField =>
-  payload.kindOf(dataType) === field.type
-    ? field
-    : { ...readBaseOf(field), ...Task.Payload.readOptionsOf(dataType, field) };
-
 export interface PlainReadEntry extends mqtt.PlainReadEntry {}
 
 export interface SparkplugReadEntry extends mqtt.SparkplugReadEntry {}
 
 export type ReadEntry = PlainReadEntry | SparkplugReadEntry;
 
-// The Core refuses a repeated label, and an empty one on any kind but string, when it
-// saves a config. The form holds a list that breaks either rule until it is fixed.
-const enumValuesZ = <E extends z.ZodType<{ label: string }>>(
-  entry: E,
-  emptyLabel: boolean,
-) =>
-  entry
-    .array()
-    .default(() => [])
-    .check((ctx) => {
-      const seen = new Set<string>();
-      ctx.value.forEach(({ label }, i) => {
-        if (label === "" && !emptyLabel)
-          ctx.issues.push({
-            code: "custom",
-            input: ctx.value,
-            message: "Enum label cannot be empty",
-            path: [i, "label"],
-          });
-        else if (seen.has(label))
-          ctx.issues.push({
-            code: "custom",
-            input: ctx.value,
-            message: `Duplicate enum label "${label}"`,
-            path: [i, "label"],
-          });
-        else seen.add(label);
-      });
-    });
+export interface ReadBinding extends mqtt.ReadBinding {}
 
-const readFieldZ = z.discriminatedUnion("type", [
-  mqtt.floatReadFieldZ.extend({ enumValues: enumValuesZ(payload.floatEntryZ, false) }),
-  mqtt.integerReadFieldZ.extend({
-    enumValues: enumValuesZ(payload.integerEntryZ, false),
-  }),
-  mqtt.unsignedReadFieldZ.extend({
-    enumValues: enumValuesZ(payload.unsignedEntryZ, false),
-  }),
-  mqtt.stringReadFieldZ.extend({ enumValues: enumValuesZ(payload.stringEntryZ, true) }),
-  mqtt.booleanReadFieldZ.extend({
-    enumValues: enumValuesZ(payload.booleanEntryZ, false),
-  }),
-  mqtt.timestampReadFieldZ,
-  mqtt.jsonReadFieldZ,
-  mqtt.uuidReadFieldZ,
-  // The Core refuses an enabled bytes field with no pointer.
-  mqtt.bytesReadFieldZ.check((ctx) => {
-    if (!ctx.value.disabled && ctx.value.pointer === "")
-      ctx.issues.push({
-        continue: true,
-        code: "custom",
-        input: ctx.value,
-        message: "A bytes field requires a JSON pointer",
-        path: ["pointer"],
-      });
-  }),
-]);
-
-const readConfigZ = mqtt.readConfigZ.extend({
-  entries: z
-    .discriminatedUnion("type", [
-      mqtt.plainReadEntryZ.extend({ fields: readFieldZ.array().default(() => []) }),
-      mqtt.sparkplugReadEntryZ,
-    ])
-    .array()
-    .default(() => []),
-});
-
-const validateReadField = (ctx: z.core.ParsePayload<ReadField>) => {
-  const { value } = ctx;
-  const pointer = json.pointerZ.safeParse(value.pointer);
-  if (!pointer.success)
-    for (const { message } of pointer.error.issues)
-      ctx.issues.push({ code: "custom", input: value, message, path: ["pointer"] });
+/** The data type of the channel that a field of each kind reads into by default. */
+export const DEFAULT_DATA_TYPES: Record<payload.Kind, string> = {
+  float: DataType.FLOAT64.toString(),
+  integer: DataType.INT64.toString(),
+  unsigned: DataType.UINT64.toString(),
+  boolean: DataType.UINT8.toString(),
+  string: DataType.STRING.toString(),
+  timestamp: DataType.TIMESTAMP.toString(),
+  json: DataType.JSON.toString(),
+  uuid: DataType.UUID.toString(),
+  bytes: DataType.BYTES.toString(),
 };
 
-const deployReadFieldZ = readFieldZ.check(validateReadField);
-
-const isVariable = (field: ReadField): boolean =>
-  new DataType(Task.Payload.dataTypeOf(field)).isVariable;
-
-const validateReadEntry = (ctx: z.core.ParsePayload<PlainReadEntry>) => {
-  const { value } = ctx;
-  const pointers = new Set<string>();
-  const enabled = value.fields.filter(({ disabled }) => !disabled);
-  // A variable-length channel is virtual and has no index.
-  const mixed = enabled.some(isVariable) && !enabled.every(isVariable);
-  value.fields.forEach((field, i) => {
-    if (field.disabled) return;
-    if (mixed && isVariable(field))
-      ctx.issues.push({
-        continue: true,
-        code: "custom",
-        input: value,
-        message:
-          "The fields of a topic share one index, so a variable-length data type cannot mix with the others",
-        path: ["fields", i, "type"],
-      });
-    if (pointers.has(field.pointer))
-      ctx.issues.push({
-        continue: true,
-        code: "custom",
-        input: value,
-        message: `Pointer "${field.pointer}" is already used by another field`,
-        path: ["fields", i, "pointer"],
-      });
-    else pointers.add(field.pointer);
-    if (field.key === value.index && field.type !== "timestamp")
-      ctx.issues.push({
-        continue: true,
-        code: "custom",
-        input: value,
-        message: "The index field must read a timestamp",
-        path: ["fields", i, "type"],
-      });
-  });
+/**
+ * @returns whether the Core writes the values of a field kind to a channel of the data
+ * type. A number or a boolean also writes to a float, and an unsigned number or a
+ * boolean to any integer.
+ */
+export const converts = (kind: payload.Kind, dataType: string): boolean => {
+  const to = payload.kindOf(dataType);
+  if (to === kind) return true;
+  switch (to) {
+    case "float":
+      return kind === "integer" || kind === "unsigned" || kind === "boolean";
+    case "integer":
+      return kind === "unsigned" || kind === "boolean";
+    case "unsigned":
+      return kind === "boolean";
+    default:
+      return false;
+  }
 };
 
-const deployPlainReadEntryZ = mqtt.plainReadEntryZ
-  .extend({
-    topic: deployTopicZ,
-    fields: mqtt.readFieldZ
-      .array()
-      .check(validateEnabled(deployReadFieldZ), Task.validateReadChannels),
-  })
-  .check(validateReadEntry);
+/** @returns the data type of the channel that deploying creates for a binding. */
+export const bindingDataType = (
+  { dataType }: Pick<ReadBinding, "dataType">,
+  kind: payload.Kind,
+): string => (dataType === "" ? DEFAULT_DATA_TYPES[kind] : dataType);
 
 const DEPLOY_SPARKPLUG_TAG_SHAPE = {
   group: sparkplugIDZ("Group").min(1, "Group is required"),
@@ -230,7 +123,7 @@ const DEPLOY_SPARKPLUG_TAG_SHAPE = {
 };
 
 const deployReadEntryZ = z.discriminatedUnion("type", [
-  deployPlainReadEntryZ,
+  mqtt.plainReadEntryZ.extend({ topic: deployTopicZ }),
   mqtt.sparkplugReadEntryZ.extend(DEPLOY_SPARKPLUG_TAG_SHAPE),
 ]);
 
@@ -269,7 +162,7 @@ const validateItems = (label: string) => (ctx: z.core.ParsePayload<Item[]>) => {
   });
 };
 
-export const deployReadConfigZ = readConfigZ.extend({
+export const deployReadConfigZ = mqtt.readConfigZ.extend({
   device: Task.deviceKeyZ,
   entries: mqtt.readEntryZ
     .array()
@@ -278,7 +171,7 @@ export const deployReadConfigZ = readConfigZ.extend({
 
 export const READ_SCHEMAS = {
   type: z.literal(READ_TYPE),
-  config: readConfigZ,
+  config: mqtt.readConfigZ,
   statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;
 

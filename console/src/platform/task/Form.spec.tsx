@@ -400,6 +400,59 @@ describe("wrapForm", () => {
       await waitFor(() => expect(configured).toBe(true));
     });
 
+    it("should flush a nested form before it configures", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      const order: string[] = [];
+      const NestedForm: FC = () => {
+        Task.useFlushBeforeDeploy(async () => {
+          order.push("flush");
+          return true;
+        });
+        return null;
+      };
+      const Renderer = createRenderer({
+        Form: NestedForm,
+        deployConfigZ: z.unknown(),
+        onConfigure: async (_client, config) => {
+          order.push("configure");
+          return [config, 0];
+        },
+      });
+      const { container } = await renderTaskFormTab(Renderer, {
+        client,
+        taskKey: draft.key,
+      });
+      await clickDeploy(container);
+      await waitFor(() => expect(order).toEqual(["flush", "configure"]));
+    });
+
+    it("should not deploy while a nested form holds an unsent edit", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      const flush = vi.fn(async () => false);
+      const NestedForm: FC = () => {
+        Task.useFlushBeforeDeploy(flush);
+        return null;
+      };
+      const onConfigure = vi.fn<Task.OnConfigure<(typeof schemas)["config"]>>(
+        async (_client, config) => [config, 0],
+      );
+      const Renderer = createRenderer({
+        Form: NestedForm,
+        deployConfigZ: z.unknown(),
+        onConfigure,
+      });
+      const { container } = await renderTaskFormTab(Renderer, {
+        client,
+        taskKey: draft.key,
+      });
+      await clickDeploy(container);
+      await waitFor(() => expect(flush).toHaveBeenCalledOnce());
+      await act(async () => {});
+      expect(onConfigure).not.toHaveBeenCalled();
+    });
+
     it("should not deploy while a field holds a value that fails its schema", async () => {
       const client = createTestClient();
       const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
