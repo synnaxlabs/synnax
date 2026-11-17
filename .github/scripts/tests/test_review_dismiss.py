@@ -422,6 +422,24 @@ class TestDismiss:
         dismiss(TARGET, gh, comment=3, key=KEY)
         assert len(gh.replies) == 1
 
+    def test_should_answer_a_thread_whose_run_never_answered_with_the_usage(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [
+            thread("T1", comment(2, "Fixed in abc123.")),
+            thread("T2", comment(3, "See the test."), path="b.go", title="Nit"),
+        ]
+        dismiss(TARGET, gh, comment=3, key=KEY)
+        assert [t for t, _ in gh.replies] == ["T1", "T2"]
+
+    def test_should_not_answer_a_resolved_thread_with_the_usage(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [thread("T1", comment(2, "Thanks."))]
+        gh.threads[0]["resolved"] = True
+        dismiss(TARGET, gh, comment=2, key=KEY)
+        assert gh.replies == []
+
     def test_should_fail_on_a_comment_of_another_pull_request(self, gh: FakeGH) -> None:
         gh.comments = [issue_comment(9, "@sedosaur dismiss Old", pr=8)]
         with pytest.raises(ValueError, match="comment 9 is not on pull request 7"):

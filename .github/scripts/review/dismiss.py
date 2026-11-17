@@ -53,13 +53,13 @@ _PATH = re.compile(r"(?:^|\s)path:(\S+)")
 
 def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
     """Answers a reply on the thread of one of the bot's findings, or a comment on the
-    pull request. A reply with no dismiss command gets the usage once per thread. Then
-    answers each `@sedosaur dismiss` on the pull request that has no answer yet, so a
-    run also does the work of a run that never finished. A writer's reply dismisses the
-    finding of its thread. A writer's comment binds to the one open finding its title
-    names, and the answer records that finding. Each dismissal resolves the finding's
-    thread. When every finding of the newest review of the head is then dismissed, a new
-    check run scores the head 5/5.
+    pull request, and each reply and comment on the pull request that has no answer
+    yet, so a run also does the work of a run that never finished. A writer's
+    `@sedosaur dismiss` reply dismisses the finding of its thread. An open thread whose
+    replies hold no dismiss command gets the usage once. A writer's comment binds to the
+    one open finding its title names, and the answer records that finding. Each
+    dismissal resolves the finding's thread. When every finding of the newest review of
+    the head is then dismissed, a new check run scores the head 5/5.
 
     :param comment: The database ID of the reply or the comment.
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
@@ -67,13 +67,9 @@ def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
         comment on the pull request.
     """
     found = threads(t, gh)
-    hits = [(th, c) for th in found for c in th.replies if c["databaseId"] == comment]
-    if not hits and issue_comment(t, gh, comment) is None:
+    hit = any(c["databaseId"] == comment for th in found for c in th.replies)
+    if not hit and issue_comment(t, gh, comment) is None:
         raise ValueError(f"comment {comment} is not on pull request {t.pr}")
-    for thread, c in hits:
-        told = any(_by(t, r) and r["body"] == USAGE for r in thread.replies)
-        if command(c["body"]) is None and not told:
-            reply(gh, thread, USAGE)
     can = authority(t, gh)
     _sweep_threads(t, gh, found, can)
     _sweep_comments(t, gh, found, can)
@@ -82,8 +78,11 @@ def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
 
 
 def _sweep_threads(t: Target, gh: GH, found: list[Thread], can: Authority) -> None:
-    """Answers each dismissal reply that no reply of the bot follows."""
+    """Answers each dismissal reply that no reply of the bot follows, and gives the
+    usage to each open thread that has other replies only."""
     for th in found:
+        if not th.resolved and _needs_usage(t, th):
+            reply(gh, th, USAGE)
         for i, r in enumerate(th.replies):
             later = th.replies[i + 1 :]
             if _by(t, r) or command(r["body"]) is None or any(_by(t, c) for c in later):
@@ -93,6 +92,15 @@ def _sweep_threads(t: Target, gh: GH, found: list[Thread], can: Authority) -> No
                 continue
             reply(gh, th, DONE)
             resolve(gh, th)
+
+
+def _needs_usage(t: Target, th: Thread) -> bool:
+    people = [r for r in th.replies if not _by(t, r)]
+    return (
+        bool(people)
+        and all(command(r["body"]) is None for r in people)
+        and not any(_by(t, r) and r["body"] == USAGE for r in th.replies)
+    )
 
 
 def _sweep_comments(t: Target, gh: GH, found: list[Thread], can: Authority) -> None:
