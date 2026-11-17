@@ -95,7 +95,7 @@ TEST_F(JSONTest, Persistence) {
     }
 }
 
-/// @brief it should set an existing file to the configured mode.
+/// @brief it should keep the mode of an existing file.
 TEST_F(JSONTest, ExistingFileMode) {
 #ifdef _WIN32
     GTEST_SKIP() << "Windows files have no POSIX mode";
@@ -103,16 +103,17 @@ TEST_F(JSONTest, ExistingFileMode) {
     JSONFileConfig config;
     config.path = temp_path;
     config.dir_mode = std::filesystem::perms::owner_all;
-    config.file_mode = std::filesystem::perms::owner_read |
-                       std::filesystem::perms::owner_write |
-                       std::filesystem::perms::others_read;
+    const auto mode = std::filesystem::perms::owner_read |
+                      std::filesystem::perms::owner_write |
+                      std::filesystem::perms::others_read;
+    config.file_mode = mode;
     ASSERT_NIL_P(JSONFile::open_file(config));
     config.file_mode = std::filesystem::perms::owner_read |
                        std::filesystem::perms::owner_write;
     ASSERT_NIL_P(JSONFile::open_file(config));
     ASSERT_EQ(
         std::filesystem::status(temp_path).permissions() & std::filesystem::perms::all,
-        config.file_mode
+        mode
     );
 }
 }
