@@ -723,6 +723,19 @@ class TestWriteFrameAdapter:
         adapted = adapter.adapt(ch.name, "hello")
         assert adapted[ch.key][0] == "hello"
 
+    def test_adapt_list_of_strings_to_single_channel(self, client: sy.Synnax) -> None:
+        """Should adapt a list of strings for one channel into one string series"""
+        ch = client.channels.create(
+            name=f"test_{random_name()}",
+            virtual=True,
+            data_type=sy.DataType.STRING,
+        )
+        adapter = WriteFrameAdapter(retriever=client.channels._retriever)
+        adapter.update(ch.name)
+        adapted = adapter.adapt(ch.name, ["hello", "world"])
+        assert adapted.channels == [ch.key]
+        assert list(adapted[ch.key]) == ["hello", "world"]
+
 
 @pytest.mark.framer
 class TestReadFrameAdapter:
