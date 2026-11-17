@@ -426,6 +426,28 @@ describe("MQTT read form", () => {
     expect(screen.queryByRole("treeitem", { name: /^pressure/ })).toBeNull();
   });
 
+  it("should store the default and mapping set in the details of a field", async () => {
+    const { draft } = await renderRead({ fields: [createField("state", "integer")] });
+    await selectField("state");
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Optional" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add mapping" }));
+    for (const [label, value] of [
+      ["Label 1", "RUN"],
+      ["Value 1", "1"],
+    ]) {
+      const input = await screen.findByLabelText(label);
+      fireEvent.change(input, { target: { value } });
+      fireEvent.blur(input);
+    }
+    const { icd: icdKey } = plainOf((await retrieveEntries(draft.key))[0]);
+    await waitFor(async () =>
+      expect(jsonFieldsOf(await client.icds.retrieve(icdKey))[0]).toMatchObject({
+        default: "0",
+        enumValues: [{ label: "RUN", value: "1" }],
+      }),
+    );
+  });
+
   it("should add fields to a topic in the ICD of its entry and read them", async () => {
     const kiln = await createEntry({
       topic: "plant/kiln",
