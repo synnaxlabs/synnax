@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -57,6 +59,8 @@ struct FakeStore final : Store<Resource> {
     x::errors::Error update_err;
     /// @brief runs inside update_identity, as a signal that arrives during a scan.
     std::function<void()> during_update;
+    /// @brief runs inside find, as a second scan that starts during a scan.
+    std::function<void()> during_find;
 
     [[nodiscard]] std::string match_key(const Resource &r) const override {
         return r.serial;
@@ -80,6 +84,7 @@ struct FakeStore final : Store<Resource> {
 
     std::pair<std::optional<Resource>, x::errors::Error>
     find(const Resource &found) override {
+        if (const auto hook = std::exchange(this->during_find, nullptr)) hook();
         if (this->find_err) return {std::nullopt, this->find_err};
         for (const auto &r: this->stored)
             if (r.serial == found.serial) return {r, x::errors::NIL};
@@ -369,5 +374,21 @@ TEST(Sync, SkipsResourceDeletedDuringScan) {
     store->during_update = [s] { s->on_delete(std::string("key-01A")); };
     ASSERT_NIL(sync->sync({found("01A", "9211")}));
     ASSERT_FALSE(sync->get("01A").has_value());
+}
+
+/// @brief it should create new hardware once when a second scan starts during a scan.
+TEST(Sync, CreatesOnceForConcurrentScans) {
+    auto [sync, store] = new_sync();
+    ASSERT_NIL(sync->init());
+    auto *s = sync.get();
+    std::thread second;
+    store->during_find = [&] {
+        second = std::thread([s] { ASSERT_NIL(s->sync({found("01A")})); });
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    };
+    ASSERT_NIL(sync->sync({found("01A")}));
+    second.join();
+    ASSERT_EQ(store->creates, 1);
+    ASSERT_EQ(store->stored.size(), 1);
 }
 }

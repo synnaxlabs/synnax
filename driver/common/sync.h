@@ -70,12 +70,15 @@ struct Store {
 /// finds on a rack. It creates new hardware with both field groups, writes only the
 /// identity group after that, takes hardware over from a rack that has gone silent,
 /// and marks hardware that a scan no longer finds as disconnected. It never deletes.
-/// Sync is safe for concurrent use, and it holds no lock while it calls the store.
+/// Sync is safe for concurrent use. Calls to sync run one at a time, and signals do not
+/// wait for the store calls of a scan.
 template<typename D>
 class Sync {
     std::unique_ptr<Store<D>> store;
     synnax::rack::Key rack;
     std::string log_prefix;
+    /// @brief held for a whole scan, so two scans do not create the same hardware.
+    std::mutex scan_mu;
     std::mutex mu;
     /// @brief the tracked resources by match key.
     std::unordered_map<std::string, D> tracked;
@@ -165,6 +168,7 @@ public:
     /// what a new resource holds, and the status the scanner reports, if any.
     /// @returns the first error, after it tries every resource.
     x::errors::Error sync(std::vector<D> found) {
+        std::lock_guard scan_lock(this->scan_mu);
         x::errors::Error first_err;
         const auto keep = [&](const x::errors::Error &err) {
             if (err && !first_err) first_err = err;
