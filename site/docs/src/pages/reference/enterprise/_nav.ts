@@ -77,6 +77,10 @@ export const ENTERPRISE_NAV: Nav.PageNavNode = {
           name: "Configuration",
         },
         {
+          href: "/reference/enterprise/driver/container",
+          name: "Run in a container",
+        },
+        {
           href: "/reference/enterprise/driver/cli-reference",
           name: "CLI reference",
         },
