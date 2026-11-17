@@ -16,7 +16,7 @@ import pytest
 import synnax as sy
 from synnax import rack
 from x import filter
-from x.testutil import assert_eventually
+from x.testutil import assert_eventually, untyped
 
 
 @pytest.mark.rack
@@ -251,12 +251,12 @@ class TestRackClient:
         """Should reject a plain name beside a limit, since a page could hide a
         match."""
         with pytest.raises(sy.ValidationError, match="cannot set a limit"):
-            client.racks.retrieve(name="test", limit=1)  # type: ignore[call-overload]
+            untyped(client.racks.retrieve)(name="test", limit=1)
 
     def test_retrieve_none_field(self, client: sy.Synnax) -> None:
         """Should reject a field set to None, since it would select every rack."""
         with pytest.raises(sy.ValidationError, match="embedded is None"):
-            client.racks.retrieve(embedded=None)  # type: ignore[call-overload]
+            untyped(client.racks.retrieve)(embedded=None)
 
     def test_retrieve_single_with_status_typed(self, client: sy.Synnax) -> None:
         """Should return one rack when a key or name is given."""
