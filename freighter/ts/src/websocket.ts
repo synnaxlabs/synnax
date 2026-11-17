@@ -237,6 +237,20 @@ class WebSocketStream<
 
 const CLOSE_NORMAL = 1000;
 
+/** Configures a {@link WebSocketClient}. */
+export interface WebSocketClientConfig {
+  /** A base URL to use as a prefix for all requests. */
+  endpoint: url.URL;
+  /** Encodes messages and decodes responses. */
+  codec: binary.Codec;
+  /** Whether to connect over WSS. Defaults to false. */
+  secure?: boolean;
+  /** Overrides for the default flow control limits. */
+  flowControl?: Partial<FlowControl>;
+  /** Opens the WebSockets. Defaults to the global WebSocket. */
+  connector?: Connector;
+}
+
 /**
  * WebSocketClient is an implementation of StreamClient that is backed by websockets.
  */
@@ -249,35 +263,29 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
 
   static readonly MESSAGE_TYPE = "arraybuffer";
 
-  /**
-   * @param encoder - The encoder to use for encoding messages and decoding responses.
-   * @param baseEndpoint - A base url to use as a prefix for all requests.
-   * @param flowControl - Overrides for the default flow control limits.
-   * @param connector - Opens the WebSockets. Defaults to the global WebSocket.
-   */
-  constructor(
-    baseEndpoint: url.URL,
-    encoder: binary.Codec,
+  constructor({
+    endpoint,
+    codec,
     secure = false,
-    flowControl: Partial<FlowControl> = {},
-    connector: Connector = DEFAULT_CONNECTOR,
-  ) {
+    flowControl = {},
+    connector = DEFAULT_CONNECTOR,
+  }: WebSocketClientConfig) {
     super();
     this.secure = secure;
     this.flowControl = { ...DEFAULT_FLOW_CONTROL, ...flowControl };
-    this.baseUrl = baseEndpoint.replace({ protocol: secure ? "wss" : "ws" });
-    this.encoder = encoder;
+    this.baseUrl = endpoint.replace({ protocol: secure ? "wss" : "ws" });
+    this.encoder = codec;
     this.connector = connector;
   }
 
   withCodec(codec: binary.Codec): WebSocketClient {
-    const c = new WebSocketClient(
-      this.baseUrl,
+    const c = new WebSocketClient({
+      endpoint: this.baseUrl,
       codec,
-      this.secure,
-      this.flowControl,
-      this.connector,
-    );
+      secure: this.secure,
+      flowControl: this.flowControl,
+      connector: this.connector,
+    });
     c.use(...this.middleware);
     return c;
   }

@@ -79,7 +79,12 @@ describe("trustCA", () => {
   });
 
   const httpClient = () =>
-    new HTTPClient(endpoint, binary.JSON_CODEC, true, undefined, trustCA(ca));
+    new HTTPClient({
+      endpoint,
+      codec: binary.JSON_CODEC,
+      secure: true,
+      connector: trustCA(ca),
+    });
 
   it("should send a request to a server that the CA signs", async () => {
     const res = await httpClient().send("/", { message: "hi" }, messageZ, messageZ);
@@ -100,27 +105,30 @@ describe("trustCA", () => {
   });
 
   it("should open a stream to a server that the CA signs", async () => {
-    const client = new WebSocketClient(
+    const client = new WebSocketClient({
       endpoint,
-      binary.JSON_CODEC,
-      true,
-      undefined,
-      trustCA(ca),
-    );
+      codec: binary.JSON_CODEC,
+      secure: true,
+      connector: trustCA(ca),
+    });
     const stream = await client.stream("/", messageZ, messageZ);
     expect(await stream.receive()).toEqual({ message: "hi" });
     stream.closeSend();
   });
 
   it("should reject a request without the CA", async () => {
-    const client = new HTTPClient(endpoint, binary.JSON_CODEC, true);
+    const client = new HTTPClient({ endpoint, codec: binary.JSON_CODEC, secure: true });
     await expect(
       client.send("/", { message: "" }, messageZ, messageZ),
     ).rejects.toMatchObject({ cause: { code: "UNABLE_TO_VERIFY_LEAF_SIGNATURE" } });
   });
 
   it("should reject a stream without the CA", async () => {
-    const client = new WebSocketClient(endpoint, binary.JSON_CODEC, true);
+    const client = new WebSocketClient({
+      endpoint,
+      codec: binary.JSON_CODEC,
+      secure: true,
+    });
     await expect(client.stream("/", messageZ, messageZ)).rejects.toThrow();
   });
 

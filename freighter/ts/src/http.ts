@@ -158,16 +158,25 @@ const toSendableBody = async (body: UploadBody): Promise<UploadBody> => {
   return await new Response(body).blob();
 };
 
-/**
- * HTTPClientFactory provides a POST and GET implementation of the Unary protocol.
- * @param url - The base URL of the API.
- * @param encoder - The encoder/decoder to use for the request/response.
- * @param timeout - The longest a send waits for its response, body included. Defaults
- * to 60 seconds. A timeout of zero, infinity, or more than 2^31 - 1 milliseconds (about
- * 24.8 days) sets no limit. File transfers have no limit, since their bodies can take
- * longer.
- * @param connector - Sends the requests. Defaults to the global fetch.
- */
+/** Configures an {@link HTTPClient}. */
+export interface HTTPClientConfig {
+  /** The base URL of the API. */
+  endpoint: url.URL;
+  /** Encodes requests and decodes responses. */
+  codec: binary.Codec;
+  /** Whether to send requests over HTTPS. Defaults to false. */
+  secure?: boolean;
+  /**
+   * The longest a send waits for its response, body included. Defaults to 60 seconds.
+   * A timeout of zero, infinity, or more than 2^31 - 1 milliseconds (about 24.8 days)
+   * sets no limit. File transfers have no limit, since their bodies can take longer.
+   */
+  timeout?: CrudeTimeSpan;
+  /** Sends the requests. Defaults to the global fetch. */
+  connector?: Connector;
+}
+
+/** HTTPClient provides a POST implementation of the Unary protocol. */
 export class HTTPClient
   extends MiddlewareCollector
   implements UnaryClient, FileTransport
@@ -177,16 +186,16 @@ export class HTTPClient
   private readonly timeout: TimeSpan | null;
   private readonly connector: Connector;
 
-  constructor(
-    endpoint: url.URL,
-    encoder: binary.Codec,
-    secure: boolean = false,
-    timeout: CrudeTimeSpan = DEFAULT_TIMEOUT,
-    connector: Connector = DEFAULT_CONNECTOR,
-  ) {
+  constructor({
+    endpoint,
+    codec,
+    secure = false,
+    timeout = DEFAULT_TIMEOUT,
+    connector = DEFAULT_CONNECTOR,
+  }: HTTPClientConfig) {
     super();
     this.endpoint = endpoint.replace({ protocol: secure ? "https" : "http" });
-    this.encoder = encoder;
+    this.encoder = codec;
     this.timeout = limitOf(timeout);
     this.connector = connector;
 
