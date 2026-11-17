@@ -312,8 +312,7 @@ func (f *Factory) ConfigureTask(
 		f.reads.Lock()
 		f.reads.tasks.Add(rt)
 		f.reads.Unlock()
-		// An ICD change that commits after configureRead and before the task joins
-		// reads
+		// A change that commits after configureRead and before the task joins reads
 		// finds no task to configure again.
 		if f.icdChanges.Load() != changes {
 			f.reconfigureRead(ctx, rt)
