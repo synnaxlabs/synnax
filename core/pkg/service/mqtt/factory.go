@@ -407,7 +407,7 @@ func (f *Factory) retrieveICD(ctx context.Context, key icd.Key) (icd.ICD, error)
 type readPlan struct {
 	cfg    ReadConfig
 	broker device.Key
-	topics map[string]topicReader
+	topics map[string]*readTopic
 	tags   map[tagID]readTag
 	// writerKeys holds the channels that the task writes, and indexes their index
 	// channels.
@@ -440,7 +440,7 @@ func (f *Factory) planRead(ctx context.Context, t task.Task) (readPlan, error) {
 		return p, err
 	}
 	p.broker = dev.Key
-	p.topics = make(map[string]topicReader)
+	p.topics = make(map[string]*readTopic)
 	p.tags = make(map[tagID]readTag)
 	w := writers{names: make(map[channel.Key]string)}
 	for _, variant := range enabled {
