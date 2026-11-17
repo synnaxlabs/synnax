@@ -175,5 +175,6 @@ The TypeScript client supports:
   `bundler` or `nodenext`, and set `lib` to `ES2024` or later.
 - **Browsers** -> each version that is
   [Baseline Widely available](https://web.dev/baseline).
-- **Deno and Bun** -> the latest stable release. Deno needs the `--allow-net` and
-  `--allow-env` flags.
+- **Deno and Bun** -> the latest stable release. Deno needs the `--allow-net` flag. When
+  you give no host and the client reads the `SYNNAX_*` environment variables, Deno also
+  needs `--allow-env`.
