@@ -449,7 +449,7 @@ it passes at 1,000 moving parts.
 | ----- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
 | 1     | Store parts, states, commands, and looks on all specs    | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `pluto/src/schematic`, `console/src/feature/schematic/symbol`, `client/ts`, `client/py`  | -          |
 | 2     | Replace equipment variants with one `symbol` variant     | `schemas/synnax`, `core/pkg/service/schematic`, `core/pkg/api/schematic`, `core/pkg/service/imex`, `pluto/src/schematic`, `console/src/feature` | 1          |
-| 3     | Edit parts and looks, duplicate built-ins, confirm saves | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                     | 1          |
+| 3     | Edit parts and looks, duplicate built-ins, confirm saves | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                     | 2          |
 | 4     | Edit states, commands, and clicks                        | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                     | 2, 3       |
 | 5     | Benchmark motion in WebKit, then draw it                 | `pluto/src/schematic/node/common/custom`                                                                                                        | 2          |
 
