@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
-	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -106,17 +105,17 @@ func liftRecord(
 			ch = &c
 		}
 		isIndex := r.Index != "" && old.Key == r.Index
-		lifted, changes := liftField(old, isIndex, ch)
-		for _, c := range changes {
-			note(path+".fields."+strconv.Itoa(i), c)
-		}
 		key := uuid.New()
-		fields[i] = jsonField(icd.JSONBaseField{
+		field, dataType, changes := liftField(old, isIndex, ch, icd.JSONBaseField{
 			Key:     key,
 			Name:    uniqueName(names, fieldName(old)),
 			Scale:   1,
 			Pointer: old.Pointer,
-		}, lifted)
+		})
+		for _, c := range changes {
+			note(path+".fields."+strconv.Itoa(i), c)
+		}
+		fields[i] = field
 		if isIndex {
 			read.Index = &key
 		}
@@ -126,8 +125,8 @@ func liftRecord(
 		b := ReadBinding{Field: key}
 		if ch != nil {
 			b.Channel = old.Channel
-		} else if lifted.Number.DataType != nil {
-			b.DataType = *lifted.Number.DataType
+		} else if dataType != "" {
+			b.DataType = dataType
 		}
 		read.Bindings = append(read.Bindings, b)
 	}
@@ -157,52 +156,6 @@ func uniqueName(taken set.Set[string], name string) string {
 	}
 	taken.Add(unique)
 	return unique
-}
-
-// jsonField returns the JSON field of base with the kind and the options of r.
-func jsonField(base icd.JSONBaseField, r payload.Read) icd.JSONField {
-	switch r.Kind {
-	case payload.KindFloat:
-		f := r.Float()
-		return icd.JSONField{Variant: icd.FloatJSONField{
-			JSONBaseField: base, EnumValues: f.EnumValues, Default: f.Fill,
-		}}
-	case payload.KindInteger:
-		f := r.Integer()
-		return icd.JSONField{Variant: icd.IntegerJSONField{
-			JSONBaseField: base, EnumValues: f.EnumValues, Default: f.Fill,
-		}}
-	case payload.KindUnsigned:
-		f := r.Unsigned()
-		return icd.JSONField{Variant: icd.UnsignedJSONField{
-			JSONBaseField: base, EnumValues: f.EnumValues, Default: f.Fill,
-		}}
-	case payload.KindString:
-		return icd.JSONField{Variant: icd.StringJSONField{
-			JSONBaseField: base,
-			EnumValues:    r.String.EnumValues,
-			Default:       r.String.Fill,
-		}}
-	case payload.KindBoolean:
-		return icd.JSONField{Variant: icd.BooleanJSONField{
-			JSONBaseField: base,
-			EnumValues:    r.Boolean.EnumValues,
-			Default:       r.Boolean.Fill,
-		}}
-	case payload.KindTimestamp:
-		return icd.JSONField{Variant: icd.TimestampJSONField{
-			JSONBaseField: base,
-			TimeFormat:    r.Timestamp.TimeFormat,
-			Default:       r.Timestamp.Fill,
-		}}
-	case payload.KindJSON:
-		return icd.JSONField{Variant: icd.JSONJSONField{JSONBaseField: base}}
-	case payload.KindUUID:
-		return icd.JSONField{Variant: icd.UuidJSONField{JSONBaseField: base}}
-	case payload.KindBytes:
-		return icd.JSONField{Variant: icd.BytesJSONField{JSONBaseField: base}}
-	}
-	panic("unknown read field kind " + string(r.Kind))
 }
 
 func inlineChannels(
