@@ -377,7 +377,9 @@ class TestArcTask:
             "hash": "abc",
             "data_saving_disabled": True,
         }
-        task = sy.arc.Task(internal=sy.task.Task(type="arc", config=stored))
+        task = sy.arc.Task(
+            internal=sy.task.Task(name="Test Task", type="arc", config=stored)
+        )
         config = task.to_payload().config
         assert config["hash"] == "abc"
         assert config["data_saving_disabled"] is True
