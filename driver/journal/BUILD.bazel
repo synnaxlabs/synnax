@@ -36,3 +36,28 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "journal",
+    srcs = ["journal.cpp"],
+    hdrs = ["journal.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":file",
+        "//x/cpp/binary",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "@abseil-cpp//absl/crc:crc32c",
+    ],
+)
+
+cc_test(
+    name = "journal_test",
+    srcs = ["journal_test.cpp"],
+    data = glob(["testdata/*.bin"]),
+    deps = [
+        ":journal",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
