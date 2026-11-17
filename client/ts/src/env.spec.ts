@@ -120,6 +120,13 @@ describe("resolveParams", () => {
     );
   });
 
+  it.each<[Env, boolean]>([
+    [{}, true],
+    [{ SYNNAX_SECURE: "false" }, false],
+  ])("should default secure with a CA certificate and %j to %s", (env, secure) => {
+    expect(resolveParams({ host: "rig", caCert: "pem" }, env).secure).toEqual(secure);
+  });
+
   it("should read no variable for a field the params give", () => {
     const params = { host: "rig", port: 80, apiKey: "k", secure: false };
     expect(resolveParams(params, throwing(new Error("read")))).toEqual(params);

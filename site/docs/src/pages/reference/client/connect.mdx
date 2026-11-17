@@ -370,10 +370,25 @@ const client = new Synnax({
 ```
 
 The TypeScript client checks the certificate of the Core. When the Core uses a
-self-signed certificate, the computer must trust its CA certificate. The TypeScript
-client has no CA certificate option. In a browser,
-[install the CA certificate](/reference/enterprise/certificates) on the computer. For
-Node.js, see [Node.js](/reference/enterprise/certificates#nodejs).
+self-signed certificate, give the text of its CA certificate in `caCert`:
+
+```typescript
+import { readFileSync } from "node:fs";
+
+const client = new Synnax({
+  host: "core.example.com",
+  port: 9090,
+  username: "operator",
+  password: "secret",
+  secure: true,
+  caCert: readFileSync("/path/to/ca.crt", "utf8"),
+});
+```
+
+`caCert` works in Node.js and Bun. In Deno, leave out `caCert` and start Deno with
+`--cert /path/to/ca.crt`. A browser cannot use `caCert`.
+[Install the CA certificate](/reference/enterprise/certificates) on the computer
+instead.
 
   </Fragment>
 
@@ -565,7 +580,15 @@ A Node.js script does not exit until you close the client.
 </Field.Item>
 
 <Field.Item name="secure" id="typescript-secure" type="boolean" default="false">
-  Connect with TLS. The default is `SYNNAX_SECURE`, then `false`.
+  Connect with TLS. The default is `SYNNAX_SECURE`, then `true` with
+  [`caCert`](#typescript-ca-cert), else `false`.
+</Field.Item>
+
+<Field.Item name="caCert" id="typescript-ca-cert" type="string">
+  The PEM text of the CA certificate that signs the certificate of the Core. With
+  `caCert`, the client connects with TLS when you leave out `secure`. With `caCert` and
+  `secure` set to false, the client throws an error. The client also trusts the default
+  CA certificates of the runtime. Node.js and Bun only.
 </Field.Item>
 
 <Field.Item
