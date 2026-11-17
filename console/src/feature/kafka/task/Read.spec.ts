@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd, kafka } from "@synnaxlabs/client";
+import { type device, icd, kafka } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { DataType, type payload, uuid } from "@synnaxlabs/x";
@@ -16,8 +16,11 @@ import { describe, expect, it } from "vitest";
 
 import { Kafka } from "@/feature/kafka";
 import { createKafkaDevice } from "@/feature/kafka/testutil";
+import { startRackHeartbeat } from "@/platform/device/testutil";
 import {
+  answerNextCommand,
   clickDeploy,
+  type CommandAnswer,
   deployAndAwaitTask,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
@@ -194,12 +197,62 @@ const createTimeChannel = async () =>
     isIndex: true,
   });
 
+const createInferredField = (
+  pointer: string,
+  dataType: string,
+  type: "number" | "boolean" | "string",
+  timeFormat?: payload.TimeFormat,
+) => ({ pointer, dataType, type, timeFormat, enum: [], count: 2, mismatched: 0 });
+
+/** Two keys of values that hold a time, a temperature, and a state. */
+const OVEN_SHAPE = {
+  sources: ["oven-1", "oven-2"],
+  fields: [
+    createInferredField("/time", "timestamp", "number", "unix_ms"),
+    createInferredField("/temperature", "float64", "number"),
+    createInferredField("/state", "string", "string"),
+  ],
+  index: 0,
+  count: 2,
+};
+
+/**
+ * Opens the Add data dialog of the task on dev, and answers its sample command.
+ * @returns queries scoped to the dialog.
+ */
+const openAddData = async (
+  dev: device.Device,
+  answer: Omit<CommandAnswer, "type"> = {},
+) => {
+  const rck = await client.racks.retrieve({ key: dev.rack });
+  await startRackHeartbeat(client, rck);
+  const scan = await rck.createTask({
+    name: uniqueName("kafka_scan"),
+    type: Kafka.Task.SCAN_TYPE,
+    config: {},
+  });
+  const { answered } = await answerNextCommand(client, scan, answer);
+  fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
+  const dialog = within(await screen.findByRole("dialog"));
+  const cmd = await answered;
+  expect(cmd.args).toEqual({ device: dev.key, topics: [TOPIC] });
+  return dialog;
+};
+
+/** @returns the data of a sample of TOPIC that read values of the shapes. */
+const sampleOf = (...shapes: object[]) => ({
+  topics: [{ topic: TOPIC, records: [], shapes, error: "" }],
+  truncated: false,
+});
+
 describe("Kafka read form", () => {
   describe("records", () => {
     it("should create an ICD named after the task for the first record", async () => {
-      const { draft } = await renderRead();
-      await screen.findByText("Add a record to read its messages");
-      fireEvent.click(await screen.findByRole("button", { name: "Add record" }));
+      const { draft, dev } = await renderRead();
+      await screen.findByText("Add data to read the records of the topic");
+      const dialog = await openAddData(dev, { data: sampleOf() });
+      await dialog.findByText(/holds no JSON records/);
+      fireEvent.click(dialog.getByRole("button", { name: "Add empty record" }));
       const [rec] = await waitFor(async () => {
         const records = await retrieveRecords(draft.key);
         expect(records).toHaveLength(1);
@@ -219,11 +272,12 @@ describe("Kafka read form", () => {
     });
 
     it("should add a later record to the ICD of the first", async () => {
-      const { draft } = await renderRead({
+      const { draft, dev } = await renderRead({
         fields: [createField("temperature", "float")],
       });
       await screen.findByRole("treeitem", { name: /^temperature/ });
-      fireEvent.click(await screen.findByRole("button", { name: "Add record" }));
+      const dialog = await openAddData(dev, { data: sampleOf() });
+      fireEvent.click(dialog.getByRole("button", { name: "Add empty record" }));
       const records = await waitFor(async () => {
         const next = await retrieveRecords(draft.key);
         expect(next).toHaveLength(2);
@@ -272,6 +326,105 @@ describe("Kafka read form", () => {
       const rec = await createRecord({ fields: [createField("temperature", "float")] });
       await renderRead({ records: [rec], beforeRender: () => removeMessage(rec) });
       await screen.findByText("Message not found");
+    });
+  });
+
+  describe("adding data", () => {
+    it("should add a message of the picked fields and a record for each key", async () => {
+      const { draft, dev } = await renderRead();
+      const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE) });
+      fireEvent.click(
+        await dialog.findByRole("checkbox", { name: "Read /temperature" }),
+      );
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      const records = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(2);
+        return next;
+      });
+      expect(records.map(({ recordKey }) => recordKey)).toEqual(["oven-1", "oven-2"]);
+      const format = await client.icds.retrieve(records[0].icd);
+      expect(format.name).toBe("Kafka read task");
+      expect(format.messages).toHaveLength(1);
+      const [message] = format.messages;
+      expect(message).toMatchObject({
+        name: "oven-1",
+        payload: {
+          format: "json",
+          fields: [
+            {
+              name: "time",
+              pointer: "/time",
+              type: "timestamp",
+              timeFormat: "unix_ms",
+            },
+            { name: "temperature", pointer: "/temperature", type: "float" },
+          ],
+        },
+      });
+      const fields = message.payload.format === "json" ? message.payload.fields : [];
+      for (const rec of records)
+        expect(rec).toMatchObject({
+          icd: format.key,
+          messages: [
+            {
+              message: message.key,
+              index: fields[0].key,
+              bindings: fields.map(({ key }) => ({ field: key, channel: 0 })),
+            },
+          ],
+        });
+    });
+
+    it("should keep a string field out of a message with a timestamp", async () => {
+      const { dev } = await renderRead();
+      const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE) });
+      const state = await dialog.findByRole("checkbox", { name: "Read /state" });
+      expect(state).toHaveProperty("disabled", true);
+      dialog.getByText(/A string field cannot share a message/);
+    });
+
+    it("should add later messages to the ICD of the first record", async () => {
+      const { draft, dev } = await renderRead({
+        fields: [createField("temperature", "float")],
+        recordKey: "oven-1",
+      });
+      await screen.findByRole("treeitem", { name: /^temperature/ });
+      const pump = {
+        sources: ["pump"],
+        fields: [createInferredField("/pressure", "int64", "number")],
+        index: -1,
+        count: 1,
+      };
+      const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE, pump) });
+      await dialog.findByText("oven-1, oven-2");
+      expect(
+        dialog.getByRole("checkbox", { name: "Read /temperature" }),
+      ).toHaveProperty("disabled", false);
+      fireEvent.click(dialog.getByRole("checkbox", { name: "Read /pressure" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      const records = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(2);
+        return next;
+      });
+      expect(records[1]).toMatchObject({ icd: records[0].icd, recordKey: "pump" });
+      expect(records[1].messages[0].index).toBeUndefined();
+      const { messages } = await client.icds.retrieve(records[0].icd);
+      expect(messages.map(({ name }) => name)).toEqual(["oven-1", "pump"]);
+      expect(messages[1].payload).toMatchObject({
+        fields: [{ name: "pressure", pointer: "/pressure", type: "integer" }],
+      });
+    });
+
+    it("should show why the sample failed", async () => {
+      const { dev } = await renderRead();
+      const dialog = await openAddData(dev, {
+        variant: "error",
+        message: "Failed to reach the cluster",
+      });
+      await dialog.findByText("Failed to read records");
+      dialog.getByText(/Failed to reach the cluster/);
     });
   });
 

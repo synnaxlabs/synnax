@@ -12,7 +12,7 @@ import "@/feature/kafka/task/Task.css";
 import {
   channel,
   DisconnectedError,
-  type icd,
+  icd,
   kafka,
   type Synnax,
   ValidationError,
@@ -42,6 +42,12 @@ import { use } from "@/feature/kafka/device/queries";
 import { Select as SelectDevice, useNoneSelected } from "@/feature/kafka/device/Select";
 import { type Device, MAKE, SCHEMAS } from "@/feature/kafka/device/types";
 import { useConnectModal } from "@/feature/kafka/device/useConnectModal";
+import { useAddDataModal } from "@/feature/kafka/task/AddData";
+import {
+  createAdditions,
+  createRecords,
+  uniqueName,
+} from "@/feature/kafka/task/additions";
 import {
   deployReadConfigZ,
   READ_SCHEMAS,
@@ -144,15 +150,6 @@ const messagePrefix = (
   let prefix = `${channel.escapeInvalidName(deviceName)}_${channel.escapeInvalidName(topic)}`;
   if (recordKey !== "") prefix += `_${channel.escapeInvalidName(recordKey)}`;
   return read === 0 ? prefix : `${prefix}_${channel.escapeInvalidName(name)}`;
-};
-
-/** @returns base, numbered from 2 until no message of the ICD has the name. */
-const uniqueName = (base: string, taken: icd.Message[]): string => {
-  const names = new Set(taken.map(({ name }) => name));
-  if (!names.has(base)) return base;
-  let n = 2;
-  while (names.has(`${base} ${n}`)) n++;
-  return `${base} ${n}`;
 };
 
 const createMessage = (name: string, match?: icd.JSONMatch): icd.Message => ({
@@ -528,30 +525,77 @@ const Records: FC<RecordsProps> = ({
     toggleOn: "caret",
   });
 
+  const addData = useAddDataModal();
+  const label = (recordKey: string) => recordLabel({ recordKey });
+
   /**
-   * Adds a record that reads any key, with a new message in the ICD of the first
-   * record. A task with no record gets a new ICD.
+   * Puts messages in the ICD of the first record, or in a new ICD for a task with no
+   * record, then adds the records that read them. The records go in once the Core
+   * holds the messages, since the Core saves no record of a missing message.
    */
-  const add = async () => {
+  const addRecords = async (
+    messages: icd.Message[],
+    recordsOf: (icdKey: icd.Key) => ReadRecord[],
+  ) => {
     if (client == null) throw new DisconnectedError();
     const first = records.at(0);
-    const format = first == null ? undefined : formats.get(first.icd);
-    let rec: ReadRecord;
-    if (first == null || format == null) {
-      const message = createMessage(ANY_KEY);
+    let icdKey: icd.Key;
+    if (first == null) {
       const name = icdName(ctx.get(root.name).value);
-      const { key } = await client.icds.create({ name, messages: [message] });
-      rec = recordOf(key, message.key);
+      icdKey = (await client.icds.create({ name, messages })).key;
     } else {
-      const held = format.value().messages;
-      const message = createMessage(uniqueName(ANY_KEY, held));
-      format.insert(PICD.formPath.messages, message, held.at(-1)?.key);
-      rec = recordOf(first.icd, message.key);
+      icdKey = first.icd;
+      let after = ICD.formatOf(formats, icdKey).value().messages.at(-1)?.key;
+      const actions = messages.map((value) => {
+        const action = icd.insert({
+          path: [String(PICD.formPath.messages)],
+          value,
+          after,
+        });
+        after = value.key;
+        return action;
+      });
+      if (!(await client.icds.dispatch(icdKey, actions)))
+        throw new Error(`ICD ${icdKey} is not loaded`);
     }
-    push(rec);
-    onSelect([rec.key]);
-    tree.expand(rec.key);
+    const added = recordsOf(icdKey);
+    push(added);
+    onSelect([added[0].key]);
+    tree.expand(added[0].key);
   };
+
+  /** @returns the messages of the ICD of the first record. */
+  const heldMessages = (): icd.Message[] => {
+    const first = records.at(0);
+    return first == null ? [] : ICD.formatOf(formats, first.icd).value().messages;
+  };
+
+  /** Adds a record that reads any key. */
+  const addRecord = async () => {
+    const message = createMessage(uniqueName(ANY_KEY, heldMessages()));
+    await addRecords([message], (icdKey) => [recordOf(icdKey, message.key)]);
+  };
+
+  /** Adds the fields that the user picks from records of the topic, or one record. */
+  const add = async () => {
+    const topic = ctx.get(root.config.topic).value;
+    const result = await addData({ device, topic, records, label });
+    if (result == null) return;
+    if (result.variant === "record") return await addRecord();
+    const additions = createAdditions(
+      result.shapes,
+      result.picks,
+      records,
+      heldMessages(),
+      label,
+    );
+    if (additions.length === 0) return;
+    await addRecords(
+      additions.map(({ message }) => message),
+      (icdKey) => createRecords(icdKey, additions),
+    );
+  };
+
   // Adds run one at a time, so a second click cannot make a second ICD.
   const adding = useRef(false);
   const handleAdd = () =>
@@ -561,7 +605,7 @@ const Records: FC<RecordsProps> = ({
       await add().finally(() => {
         adding.current = false;
       });
-    }, "Failed to add record");
+    }, "Failed to add data");
 
   /**
    * Adds a message with no fields to the record and to its ICD. The match tests the
@@ -792,7 +836,7 @@ const Records: FC<RecordsProps> = ({
           onSelect={handleSelect}
           menu={contextMenu}
           emptyMessage="No records"
-          addLabel="Add record"
+          addLabel="Add data"
           onAdd={handleAdd}
         >
           {renderItem}
@@ -803,7 +847,9 @@ const Records: FC<RecordsProps> = ({
     >
       {details ?? (
         <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">Add a record to read its messages</Text.Text>
+          <Text.Text status="disabled">
+            Add data to read the records of the topic
+          </Text.Text>
         </Flex.Box>
       )}
     </Task.Views.Panes>

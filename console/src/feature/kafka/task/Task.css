@@ -65,3 +65,50 @@
     flex-grow: 1;
     min-width: 0;
 }
+
+.console-kafka-add-data {
+    --console-divider: var(--pluto-border-width) solid var(--pluto-gray-l4);
+
+    width: min(150rem, calc(100vw - 8rem));
+    height: min(110rem, calc(100vh - 8rem));
+
+    .console-kafka-add-data__body {
+        gap: 3rem;
+        padding: 3rem;
+        overflow: auto;
+    }
+
+    .console-kafka-add-data__shape {
+        flex-shrink: 0;
+        border: var(--console-divider);
+        border-radius: var(--pluto-border-radius-large);
+        background: var(--pluto-gray-l1);
+        overflow: hidden;
+    }
+
+    .console-kafka-add-data__title {
+        display: flex;
+        gap: 2rem;
+        padding: 1.5rem 2rem;
+        background: var(--pluto-gray-l2);
+        border-bottom: var(--console-divider);
+    }
+
+    .console-kafka-add-data__note {
+        padding: 1.5rem 2rem;
+        border-top: var(--console-divider);
+    }
+
+    .console-kafka-add-data__field {
+        display: grid;
+        grid-template-columns: 3rem minmax(16rem, 1fr) minmax(14rem, 1.3fr) 11rem;
+        column-gap: 2rem;
+        align-items: center;
+        height: 5.5rem;
+        padding: 0 2rem;
+
+        > * {
+            min-width: 0;
+        }
+    }
+}
