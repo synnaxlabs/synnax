@@ -155,8 +155,8 @@ const client = new Synnax({
 
 In Node.js, Deno, and Bun, the client sends its session token in the `Authorization`
 header of each stream connection. A browser cannot set headers on a WebSocket, so a
-browser client puts the token in the URL of each stream connection. Proxies and servers
-can log this URL.
+browser client sends the token in the `Sec-WebSocket-Protocol` header. The client never
+puts the token in the URL.
 
   </Fragment>
 
