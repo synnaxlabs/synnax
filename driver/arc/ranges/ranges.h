@@ -9,7 +9,10 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cctype>
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -42,9 +45,14 @@ class Calls {
     /// @brief held while a report runs, which can wait on the Core.
     std::mutex report_mu;
     Reporter reporter;
+    /// @brief the reports of refused calls, as the count and last reason of each
+    /// message.
+    struct Refused {
+        size_t count = 0;
+        std::string reason;
+    };
     std::mutex refused_mu;
-    size_t refused_calls = 0;
-    std::string refused_reason;
+    std::map<std::string, Refused> refused;
 
 public:
     explicit Calls(Reporter reporter): reporter(std::move(reporter)) {}
@@ -55,28 +63,28 @@ public:
         if (this->reporter != nullptr) this->reporter(message, description);
     }
 
-    /// @brief counts a create the outbox refused, without waiting on the Core.
-    void refuse(const std::string &reason) {
+    /// @brief counts a call the outbox refused, to report later as message, without
+    /// waiting on the Core.
+    void refuse(const std::string &message, const std::string &reason) {
         std::lock_guard lock(this->refused_mu);
-        this->refused_calls++;
-        this->refused_reason = reason;
+        auto &r = this->refused[message];
+        r.count++;
+        r.reason = reason;
     }
 
-    /// @brief reports the creates refused since the last call, if any. It can wait on
+    /// @brief reports the calls refused since the last call, if any. It can wait on
     /// the Core, so only the outbox thread calls it.
     void report_refused() {
-        size_t count = 0;
-        std::string reason;
+        std::map<std::string, Refused> reports;
         {
             std::lock_guard lock(this->refused_mu);
-            count = std::exchange(this->refused_calls, 0);
-            reason = this->refused_reason;
+            std::swap(reports, this->refused);
         }
-        if (count == 0) return;
-        this->report(
-            CREATE_FAILURE_MSG,
-            reason + " Dropped " + std::to_string(count) + " creates."
-        );
+        for (const auto &[message, r]: reports)
+            this->report(
+                message,
+                r.reason + " Dropped " + std::to_string(r.count) + " calls."
+            );
     }
 
     /// @brief stops reports, and waits for a report in progress, so the reporter can
@@ -100,8 +108,8 @@ on_done(const std::shared_ptr<Calls> &calls, const std::string &message) {
 
 /// @brief queues the create of an open range that starts now, and reports failures
 /// as warnings. Never waits for the Core.
-/// @returns the key of the new range, or "" when the color or parent is not valid or
-/// the outbox refuses the create.
+/// @returns the key of the new range, or "" when the name, color, or parent is not
+/// valid or the outbox refuses the create.
 inline std::string queue_create(
     ::driver::outbox::Outbox &outbox,
     const std::shared_ptr<Calls> &calls,
@@ -109,6 +117,12 @@ inline std::string queue_create(
     const std::string &parent,
     const std::string &color_hex
 ) {
+    if (std::ranges::all_of(name, [](const unsigned char ch) {
+            return std::isspace(ch) != 0;
+        })) {
+        calls->report(CREATE_FAILURE_MSG, "The range name is empty.");
+        return "";
+    }
     std::optional<x::color::Color> c;
     if (!color_hex.empty()) {
         auto [parsed, err] = x::color::parse(color_hex);
@@ -141,7 +155,7 @@ inline std::string queue_create(
         r.parent = uid;
     }
     if (const auto err = outbox.create_range(r, on_done(calls, CREATE_FAILURE_MSG))) {
-        calls->refuse(err.data);
+        calls->refuse(CREATE_FAILURE_MSG, err.data);
         return "";
     }
     return r.key.to_string();
@@ -168,7 +182,7 @@ inline std::string queue_end(
             x::telem::TimeStamp::now(),
             on_done(calls, END_FAILURE_MSG)
         )) {
-        calls->report(END_FAILURE_MSG, err.data);
+        calls->refuse(END_FAILURE_MSG, err.data);
         return "";
     }
     return uid.to_string();

@@ -275,6 +275,37 @@ TEST_F(RangesTest, WarnsOnInvalidColor) {
     );
 }
 
+/// @brief it should warn, emit an empty key, and queue nothing for a blank name.
+TEST_F(RangesTest, WarnsOnBlankName) {
+    const auto reports = std::make_shared<Reports>();
+    const auto f = create_spec().config({" ", "", ""});
+    this->run(f, recordingReporter(reports));
+    EXPECT_EQ(output_of(f), "");
+    EXPECT_EQ(this->outbox->size(), 0);
+    const auto calls = reports->snapshot();
+    ASSERT_EQ(calls.size(), 1u);
+    EXPECT_EQ(calls[0].message, "Failed to create range");
+    EXPECT_EQ(calls[0].description, "The range name is empty.");
+}
+
+/// @brief it should warn and drop a create the Core rejects.
+TEST_F(RangesTest, WarnsWhenCoreRejectsCreate) {
+    const auto reports = std::make_shared<Reports>();
+    const auto f = create_spec().config(
+        {unique_name("cpp_orphan_"), x::uuid::create().to_string(), ""}
+    );
+    Module module(this->outbox, recordingReporter(reports));
+    auto node = ASSERT_NIL_P(module.create(f.make_config()));
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+    this->wait_sent();
+    EXPECT_EQ(this->outbox->dropped(), 1);
+    const auto calls = reports->snapshot();
+    ASSERT_EQ(calls.size(), 1u);
+    EXPECT_EQ(calls[0].message, "Failed to create range");
+    EXPECT_FALSE(calls[0].description.empty());
+}
+
 /// @brief it should read a var-bound parent when the node runs.
 TEST_F(RangesTest, ReadsAVarBoundParentAtFireTime) {
     const auto reports = std::make_shared<Reports>();
@@ -385,18 +416,22 @@ TEST_F(RangesTest, RefusesCreateButNotEndWhenFull) {
     EXPECT_TRUE(reports->snapshot().empty());
 }
 
-/// @brief it should report the refused creates once, with their count and reason.
-TEST(CallsTest, ReportsRefusedCreatesOnce) {
+/// @brief it should report the refused calls of each message once, with their count
+/// and reason.
+TEST(CallsTest, ReportsRefusedCallsOnce) {
     const auto reports = std::make_shared<Reports>();
     Calls calls(recordingReporter(reports));
-    calls.refuse("outbox is full.");
-    calls.refuse("outbox is full.");
+    calls.refuse(CREATE_FAILURE_MSG, "outbox is full.");
+    calls.refuse(CREATE_FAILURE_MSG, "outbox is full.");
+    calls.refuse(END_FAILURE_MSG, "outbox is full.");
     calls.report_refused();
     calls.report_refused();
     const auto got = reports->snapshot();
-    ASSERT_EQ(got.size(), 1u);
+    ASSERT_EQ(got.size(), 2u);
     EXPECT_EQ(got[0].message, CREATE_FAILURE_MSG);
-    EXPECT_EQ(got[0].description, "outbox is full. Dropped 2 creates.");
+    EXPECT_EQ(got[0].description, "outbox is full. Dropped 2 calls.");
+    EXPECT_EQ(got[1].message, END_FAILURE_MSG);
+    EXPECT_EQ(got[1].description, "outbox is full. Dropped 1 calls.");
 }
 
 #ifndef _WIN32
@@ -440,6 +475,37 @@ TEST_F(RangesTest, CreatesAndEndsRangeWhileCoreUnreachable) {
     EXPECT_LE(r.time_range.start, created_to);
     EXPECT_GE(r.time_range.end, ended_from);
     EXPECT_LE(r.time_range.end, ended_to);
+    this->outbox.reset();
+}
+
+/// @brief it should report the creates a full outbox refused once it sends a call.
+TEST_F(RangesTest, ReportsRefusedCreatesOnceSent) {
+    CorePipe pipe(test_client_config().port);
+    pipe.pause();
+    auto cfg = test_client_config();
+    cfg.host = "127.0.0.1";
+    cfg.port = pipe.port;
+    this->outbox.reset();
+    this->outbox = this->open_outbox(std::make_shared<synnax::Synnax>(cfg), 1);
+    const auto reports = std::make_shared<Reports>();
+    Module module(this->outbox, recordingReporter(reports));
+    auto ctx = make_context();
+    const auto first = create_spec().config({unique_name("cpp_drain_"), "", ""});
+    auto first_node = ASSERT_NIL_P(module.create(first.make_config()));
+    const auto second = create_spec().config({unique_name("cpp_drain_"), "", ""});
+    auto second_node = ASSERT_NIL_P(module.create(second.make_config()));
+    ASSERT_NIL(first_node->next(ctx));
+    ASSERT_NIL(second_node->next(ctx));
+    EXPECT_EQ(this->outbox->refused(), 1);
+    EXPECT_TRUE(reports->snapshot().empty());
+
+    pipe.resume();
+    this->wait_sent();
+    ASSERT_EVENTUALLY_EQ(reports->snapshot().size(), 1u);
+    const auto calls = reports->snapshot();
+    EXPECT_EQ(calls[0].message, "Failed to create range");
+    EXPECT_TRUE(calls[0].description.ends_with(" Dropped 1 calls."));
+    EXPECT_FALSE(this->retrieve(output_of(first)).name.empty());
     this->outbox.reset();
 }
 #endif
