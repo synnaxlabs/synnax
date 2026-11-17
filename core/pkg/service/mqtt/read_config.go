@@ -271,10 +271,6 @@ func checkIndex(
 		return validate.Errorf(
 			"the index field %s must be a timestamp field", f.Base().Name,
 		)
-	case f.Variant.(icd.TimestampJSONField).Default != nil:
-		return validate.Errorf(
-			"the index field %s cannot take a default", f.Base().Name,
-		)
 	case !slices.ContainsFunc(rm.Bindings, func(b ReadBinding) bool {
 		return b.Field == *rm.Index
 	}):

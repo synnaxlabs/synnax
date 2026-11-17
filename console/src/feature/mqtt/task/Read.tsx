@@ -447,14 +447,10 @@ const addTopics = async ({
 const isReadable = ({ type, pointer }: icd.JSONField): boolean =>
   type !== "bytes" || pointer !== "";
 
-const isIndexable = (field?: icd.JSONField): boolean =>
-  field?.type === "timestamp" && field.default == null;
-
 /**
  * @returns read, changed to suit the fields of its message: no binding of a field that
  * is gone or that the Core cannot read, no data type that its field cannot convert to,
- * and no index that is not a timestamp field. An index field with a default stays, for
- * its error to show.
+ * and no index that is not a timestamp field.
  */
 const suit = (read: mqtt.ReadMessage, fields: icd.JSONField[]): mqtt.ReadMessage => {
   const byKey = new Map(fields.map((f) => [f.key, f]));
@@ -552,7 +548,6 @@ const TimestampFields: FC<TimestampFieldsProps> = ({ path, read, fields, device 
     set(readPath, reindex(get(readPath).value, next, indexChannel));
   const handleMode = (mode: TimingMode) =>
     setIndex(mode === "payload" ? timestamps.at(0)?.key : undefined);
-  const invalid = index != null && !isIndexable(index);
   return (
     <>
       <Input.Item
@@ -574,16 +569,7 @@ const TimestampFields: FC<TimestampFieldsProps> = ({ path, read, fields, device 
         </Select.Buttons>
       </Input.Item>
       {index != null && (
-        <Input.Item
-          label="Field"
-          padHelpText={false}
-          helpText={
-            invalid
-              ? `${index.name} has a default, so it cannot be the index. Remove its default in the message format.`
-              : undefined
-          }
-          status={invalid ? "error" : undefined}
-        >
+        <Input.Item label="Field" padHelpText={false}>
           <Select.Simple<string>
             value={index.key}
             onChange={setIndex}
@@ -1730,9 +1716,9 @@ const boundMessage = (
   const readMessage = entry.messages[read];
   const fields = readFields(message.payload.fields, readMessage);
   const index = fields.find(({ key }) => key === readMessage.index);
-  if (index != null && !isIndexable(index))
+  if (index != null && index.type !== "timestamp")
     throw new ValidationError(
-      `In ${where}, the index field ${index.name} must be a timestamp field with no default`,
+      `In ${where}, the index field ${index.name} must be a timestamp field`,
     );
   if (fields.length === 0)
     throw new ValidationError(`The task reads no fields of ${where}`);
