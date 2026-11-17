@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
-	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -107,10 +106,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	plotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
 		DB:   node.DB,
 		ImEx: imex.NewService(),
-		Color: MustOpen(color.OpenService(ctx, color.ServiceConfig{
-			DB:    node.DB,
-			Group: groupSvc,
-		})),
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
 		DB: node.DB,

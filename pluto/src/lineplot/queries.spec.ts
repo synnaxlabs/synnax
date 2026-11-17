@@ -876,29 +876,6 @@ describe("lineplot queries", () => {
       expect(result.current.lines[1].pickedColor).toBeUndefined();
     });
 
-    it("useLines shows the series color that the Core stores on an added line", async () => {
-      const [first] = await retrieveSeries();
-      const created = await createPlot();
-      const channel = await createChannel();
-      const { result } = await loadAndUse(created.key, () => ({
-        lines: LinePlot.useLines({ key: created.key }),
-        dispatch: LinePlot.useDispatch(),
-      }));
-      await act(async () => {
-        await result.current.dispatch.dispatchAsync({
-          key: created.key,
-          actions: [lineplotClient.addChannel({ axisKey: "y1", channel })],
-        });
-      });
-      await waitFor(() =>
-        expect(result.current.lines[0]?.pickedColor).toEqual({
-          type: "named",
-          key: first.key,
-        }),
-      );
-      expect(result.current.lines[0].color).toEqual(first.light);
-    });
-
     it("useLineCount reflects the number of lines", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({

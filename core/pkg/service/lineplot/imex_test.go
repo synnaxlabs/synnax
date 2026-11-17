@@ -323,7 +323,7 @@ var _ = Describe("ImEx", func() {
 		)
 
 		It(
-			"Should give a line whose named color is missing a series color",
+			"Should leave a line whose named color is missing in Auto",
 			func(ctx SpecContext) {
 				custom := color.Named{
 					Name:  "Custom",
@@ -362,10 +362,7 @@ var _ = Describe("ImEx", func() {
 					Where(lineplot.MatchKeys(MustSucceed(uuid.Parse(id.Key)))).
 					Entry(&res).
 					Exec(ctx, db)).To(Succeed())
-				series := MustSucceed(colorSvc.Series(ctx, db))
-				Expect(res.Lines[0].Color).To(Equal(
-					&color.Ref{Variant: color.NamedRef{Key: series[0]}},
-				))
+				Expect(res.Lines[0].Color).To(BeNil())
 			},
 		)
 	})

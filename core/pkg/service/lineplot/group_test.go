@@ -20,7 +20,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
@@ -453,14 +452,9 @@ var _ = Describe("Writer in concurrent transactions", func() {
 			projects := MustOpen(project.OpenService(ctx, project.ServiceConfig{
 				DB: moveDB,
 			}))
-			colors := MustOpen(color.OpenService(ctx, color.ServiceConfig{
-				DB:    moveDB,
-				Group: groups,
-			}))
 			plots = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-				DB:    moveDB,
-				ImEx:  imex.NewService(),
-				Color: colors,
+				DB:   moveDB,
+				ImEx: imex.NewService(),
 			}))
 			tops := make([]resource.ID, 2)
 			for i := range tops {

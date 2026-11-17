@@ -92,9 +92,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 	}))
 	svc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-		DB:    db,
-		ImEx:  imexSvc,
-		Color: colorSvc,
+		DB:   db,
+		ImEx: imexSvc,
 	}))
 	proj.Name = "test-project"
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

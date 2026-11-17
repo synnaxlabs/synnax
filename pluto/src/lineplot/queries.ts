@@ -111,8 +111,8 @@ const useColors = (): Colors => ({
 
 // autoKeys returns the key of the series color that each element takes when it has no
 // stored color: the one that the fewest other elements use, with a tie going to the
-// first. Each element with no stored color uses the key it takes, as the Core gives a
-// new line one.
+// first. An element with no stored color counts as using the key it takes, so Auto
+// elements take different colors.
 const autoKeys = (
   stored: (color.Ref | undefined)[],
   series: color.Key[],
