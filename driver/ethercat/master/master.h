@@ -171,8 +171,9 @@ public:
     /// come back and the master keeps it in flight, so a later receive() takes it.
     /// Each send(), failed or not, gets exactly one result other than FRAME_IN_FLIGHT,
     /// in send order. With MAX_FRAMES_IN_FLIGHT frames in flight, the master drops the
-    /// oldest frame and returns an error in place of FRAME_IN_FLIGHT.
-    [[nodiscard]] virtual x::errors::Error receive() = 0;
+    /// oldest frame and returns an error in place of FRAME_IN_FLIGHT. The error stays
+    /// valid until the next receive() or deactivate().
+    [[nodiscard]] virtual const x::errors::Error &receive() = 0;
 
     /// @brief queues output data and sends to the EtherCAT network.
     [[nodiscard]] virtual x::errors::Error send() = 0;

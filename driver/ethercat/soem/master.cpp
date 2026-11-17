@@ -129,6 +129,17 @@ static_assert(DISABLED_GROUP < EC_MAXGROUP);
 constexpr size_t DEFAULT_IOMAP_SIZE = 131072;
 /// What receive() says when no frame comes back.
 constexpr auto NO_FRAME = "process data receive failed";
+// receive() returns these by reference, so a cycle builds no error.
+const x::errors::Error NOT_ACTIVATED(errors::CYCLIC_ERROR, "master not activated");
+const x::errors::Error NO_FRAME_ERROR(errors::CYCLIC_ERROR, NO_FRAME);
+const x::errors::Error
+    FRAME_NOT_BACK(errors::FRAME_IN_FLIGHT, "process data frame has not come back");
+const x::errors::Error
+    REFERENCE_CLOCK_FRAME_FAILED(errors::CYCLIC_ERROR, "reference clock frame failed");
+const x::errors::Error PROCESS_DATA_HELD(
+    errors::WORKING_COUNTER_ERROR,
+    "no process data passes the slaves until they reach SAFE-OP"
+);
 /// How recently a frame must have come back for a failed receive on a USB adapter to
 /// blame a late frame. A dead link gets the plain reason after it.
 constexpr auto LATE_FRAME_WINDOW = std::chrono::seconds(1);
@@ -509,36 +520,32 @@ void Master::deactivate() {
     }
 }
 
-x::errors::Error Master::receive() {
-    if (!this->session)
-        return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
+const x::errors::Error &Master::receive() {
+    if (!this->session) return NOT_ACTIVATED;
     auto &session = *this->session;
 
     session.shortfall.reset();
     session.inputless.clear();
-    if (session.cycles.empty()) return x::errors::Error(errors::CYCLIC_ERROR, NO_FRAME);
+    if (session.cycles.empty()) return NO_FRAME_ERROR;
     int wkc = EC_NOFRAME;
     if (session.cycles.front().frames > 0) {
         // A frame that is not back yet can come back in a later cycle.
         wkc = this->api->receive_processdata(ENABLED_GROUP, 0);
         if (wkc < 0) {
             if (session.cycles.size() < master::MAX_FRAMES_IN_FLIGHT)
-                return x::errors::Error(
-                    errors::FRAME_IN_FLIGHT,
-                    "process data frame has not come back"
-                );
+                return FRAME_NOT_BACK;
             this->api->drop_processdata();
         }
     }
-    const Cycle cycle = std::move(session.cycles.front());
+    const Cycle cycle = session.cycles.front();
     session.cycles.erase(session.cycles.begin());
-    if (cycle.held_err) return cycle.held_err;
+    if (cycle.held_err != nullptr) return *cycle.held_err;
 
     if (wkc < 0) {
         if (session.late_frame_err && session.frame_sent_at &&
             this->cfg.clock.steady() - *session.frame_sent_at < LATE_FRAME_WINDOW)
             return session.late_frame_err;
-        return x::errors::Error(errors::CYCLIC_ERROR, NO_FRAME);
+        return NO_FRAME_ERROR;
     }
     session.frame_sent_at = cycle.sent_at;
     this->frames.fetch_add(1, std::memory_order_release);
@@ -586,17 +593,11 @@ x::errors::Error Master::send() {
     if (session.process_data_held.load(std::memory_order_acquire)) {
         if (session.has_dc &&
             this->api->sync_dc(ENABLED_GROUP, PROCESSDATA_TIMEOUT) <= 0) {
-            cycle.held_err = x::errors::Error(
-                errors::CYCLIC_ERROR,
-                "reference clock frame failed"
-            );
-            return cycle.held_err;
+            cycle.held_err = &REFERENCE_CLOCK_FRAME_FAILED;
+            return REFERENCE_CLOCK_FRAME_FAILED;
         }
         if (session.has_dc) this->frames.fetch_add(1, std::memory_order_release);
-        cycle.held_err = x::errors::Error(
-            errors::WORKING_COUNTER_ERROR,
-            "no process data passes the slaves until they reach SAFE-OP"
-        );
+        cycle.held_err = &PROCESS_DATA_HELD;
         return x::errors::NIL;
     }
     cycle.sent_at = this->cfg.clock.steady();
