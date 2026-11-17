@@ -11,8 +11,10 @@
 #include <array>
 #include <cmath>
 #include <format>
+#include <iterator>
 #include <numeric>
 #include <set>
+#include <span>
 #include <tuple>
 #include <utility>
 
@@ -385,6 +387,9 @@ void Engine::run() {
     outage.positions.reserve(this->image.slaves.size());
     outage.silent.reserve(this->image.slaves.size());
     outage.inputless.reserve(this->image.slaves.size());
+    // The slaves that a cycle drops, when the frame adds inputless ones to the outage.
+    std::vector<uint16_t> cycle_dropped;
+    cycle_dropped.reserve(this->image.slaves.size());
     uint64_t outage_version = 0;
     // How far the time of the latest full cycle ran ahead of its send. A short cycle
     // keeps it, since its DC time can be stale.
@@ -475,7 +480,9 @@ void Engine::run() {
         const bool starting = this->starting.load(std::memory_order_acquire);
         // A full cycle drops the inputs of the slaves that give none, since a slave
         // below SAFE-OP can keep its share of the working counter. A cycle short by
-        // what the slaves out of OP can miss drops the inputs of each of them.
+        // what the slaves out of OP can miss drops the inputs of each of them. The
+        // state read of the cycle adds the slaves that give none before the supervisor
+        // sees them.
         const std::vector<uint16_t> *dropped = nullptr;
         if (!starting) {
             if (this->outage_version.load(std::memory_order_acquire) !=
@@ -494,6 +501,16 @@ void Engine::run() {
                 dropped = &outage.positions;
                 latched_at = sent_at + lead;
                 host_timed = true;
+            }
+            if (const auto inputless = this->master->inputless();
+                !inputless.empty() && (!err || dropped != nullptr)) {
+                cycle_dropped.clear();
+                std::ranges::set_union(
+                    dropped == nullptr ? std::span<const uint16_t>() : *dropped,
+                    inputless,
+                    std::back_inserter(cycle_dropped)
+                );
+                dropped = &cycle_dropped;
             }
         }
         // After the slaves reach OP, a short frame carries the DC time only when it
@@ -914,7 +931,7 @@ Engine::plan_locked(const std::vector<SavedSlave> &saved) const {
                 [](const slave::DiscoveryResult &d) { return d.properties.position; }
             );
             (owner->second->serial != 0 || identity.serial != 0) &&
-            live != this->slaves.end() && live->status.serial_unread())
+            live != this->slaves.end() && live->serial_unread())
             return {
                 {},
                 x::errors::Error(
@@ -1508,7 +1525,7 @@ void Engine::track_restarts_locked(const std::set<uint16_t> &restarted) {
         const auto &props = slave.properties;
         auto key = restart_key(props);
         auto it = this->restarts.find(key);
-        const bool unread = slave.status.serial_unread();
+        const bool unread = slave.serial_unread();
         // An unread serial number differs from the read one, so a slave with one, or
         // with one at its last discovery, is the slave of its model at its position.
         if (unread || it == this->restarts.end())

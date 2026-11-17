@@ -83,8 +83,8 @@ Modular slices (`core`, `nav`, `panels`, `lineplot`, `schematic`, `table`, `proj
 `drift`, ...), each with `SLICE_NAME`, `sliceStateZ`, `SliceState`, `ZERO_SLICE_STATE`,
 and `createSlice` reducers. Side effects go in middleware.
 
-**A Core record's key is opaque** — `LOCAL`, `DEMO`, `SERVED`, a UUID for the rest — so
-editing an address never moves an entry. Stored state is partitioned by the **cluster
+**A Core record's key is opaque** — `LOCAL`, `SERVED`, `EMBEDDED`, a UUID for the rest —
+so editing an address never moves an entry. Stored state is partitioned by the **cluster
 key** the record caches on connect, so two records reaching one cluster share its state.
 The record's key is machine-local, so deep links name the cluster instead
 (`synnax://cluster/<cluster-key>/<type>/<key>`) and resolve to whatever record this

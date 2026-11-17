@@ -1729,7 +1729,6 @@ var _ = Describe("Time", func() {
 			return node.New(analyzed)
 		}
 		newNode := func(
-			ctx context.Context,
 			s *node.ProgramState,
 			nodeKey, typ, param string,
 		) node.Node {
@@ -1775,7 +1774,7 @@ var _ = Describe("Time", func() {
 		})
 		It("Should park an interval and report the error once", func(ctx SpecContext) {
 			s := newState(ctx, "interval_1", "interval", "period", 0)
-			n := newNode(ctx, s, "interval_1", "interval", "period")
+			n := newNode(s, "interval_1", "interval", "period")
 			tick(ctx, n, 0)
 			tick(ctx, n, telem.Second)
 			Expect(changed).To(BeEmpty())
@@ -1792,7 +1791,7 @@ var _ = Describe("Time", func() {
 			"Should report an interval error again after a reset",
 			func(ctx SpecContext) {
 				s := newState(ctx, "interval_1", "interval", "period", 0)
-				n := newNode(ctx, s, "interval_1", "interval", "period")
+				n := newNode(s, "interval_1", "interval", "period")
 				tick(ctx, n, 0)
 				n.Reset(node.Context{})
 				tick(ctx, n, telem.Second)
@@ -1801,7 +1800,7 @@ var _ = Describe("Time", func() {
 		)
 		It("Should park a wait and report the error once", func(ctx SpecContext) {
 			s := newState(ctx, "wait_1", "wait", "duration", 0)
-			n := newNode(ctx, s, "wait_1", "wait", "duration")
+			n := newNode(s, "wait_1", "wait", "duration")
 			tick(ctx, n, 0)
 			tick(ctx, n, telem.Second)
 			Expect(changed).To(BeEmpty())
@@ -1816,7 +1815,7 @@ var _ = Describe("Time", func() {
 		})
 		It("Should park a wait with a negative duration", func(ctx SpecContext) {
 			s := newState(ctx, "wait_1", "wait", "duration", int64(-telem.Second))
-			n := newNode(ctx, s, "wait_1", "wait", "duration")
+			n := newNode(s, "wait_1", "wait", "duration")
 			tick(ctx, n, 0)
 			Expect(changed).To(BeEmpty())
 			Expect(deadlines).To(BeEmpty())

@@ -60,7 +60,7 @@ var _ = Describe("storage", func() {
 					It(
 						"Should set the correct permissions on the storage directory",
 						func(ctx SpecContext) {
-							cfg.Perm = storage.DefaultLayerConfig.Perm
+							cfg.Perm = xfs.UserRWX
 							MustOpen(storage.OpenLayer(ctx, cfg))
 							stat := MustSucceed(os.Stat(cfg.Dirname))
 							Expect(stat.Mode().Perm()).To(Equal(cfg.Perm))
@@ -112,11 +112,11 @@ var _ = Describe("storage", func() {
 					Expect(l.Close()).To(Succeed())
 					l = MustOpen(storage.OpenLayer(ctx, cfg))
 					for _, key := range deleted {
-						Expect(l.KV.Get(ctx, []byte(key))).Error().
+						Expect(l.KV.Get([]byte(key))).Error().
 							To(MatchError(query.ErrNotFound))
 					}
 					for _, key := range kept {
-						value, closer := MustSucceed2(l.KV.Get(ctx, []byte(key)))
+						value, closer := MustSucceed2(l.KV.Get([]byte(key)))
 						Expect(value).To(Equal([]byte("value")))
 						Expect(closer.Close()).To(Succeed())
 					}
@@ -129,7 +129,13 @@ var _ = Describe("storage", func() {
 			spec func(storage.LayerConfig) storage.LayerConfig,
 			contains string,
 		) {
-			iCfg := storage.DefaultLayerConfig
+			iCfg := storage.LayerConfig{
+				Perm:                 xfs.UserRWX,
+				InMemory:             new(false),
+				KVEngine:             storage.KVEnginePebble,
+				TSEngine:             storage.TSEngineCesium,
+				UpdateBackupDisabled: new(false),
+			}
 			iCfg.Dirname = "foo"
 			iCfg.Version = "0.60.0"
 			err := spec(iCfg).Validate()

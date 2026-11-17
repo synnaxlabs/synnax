@@ -9,6 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
+.console-range-tree__list {
+    container: range-list / inline-size;
+}
+
 .console-range-tree__list .console-range-item {
     padding-right: 1.5rem;
 }

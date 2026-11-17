@@ -10,6 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
+import { Border } from "@/schematic/node/common/border";
 import { Tank as TankPrimitive } from "@/schematic/node/vessels/tank/Primitive";
 
 interface RenderProps extends Omit<
@@ -19,6 +20,9 @@ interface RenderProps extends Omit<
   className?: string;
 }
 
-export const Box = ({ borderRadius, ...rest }: RenderProps): ReactElement => (
+export const Box = ({
+  borderRadius = Border.DEFAULT_BOX_RADIUS,
+  ...rest
+}: RenderProps): ReactElement => (
   <TankPrimitive {...rest} boxBorderRadius={borderRadius} />
 );

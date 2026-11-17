@@ -1424,8 +1424,8 @@ TEST_F(EngineTest, SlaveWithAnUnreadSerialTakesTheSettingsAtItsPosition) {
     EXPECT_EQ(this->master->config(1).startup_parameters, params);
 }
 
-/// @brief it should give a slave that was below PRE-OP at the scan the settings saved
-/// at its position.
+/// @brief it should give a slave with SII serial number 0 that was below PRE-OP at the
+/// scan the settings saved at its position.
 TEST_F(EngineTest, StartingSlaveTakesTheSettingsAtItsPosition) {
     this->master->add_slave(io_slave(1));
     this->master->set_starting(1, true);
@@ -1534,11 +1534,10 @@ TEST_F(EngineTest, StartFailsAConflictWhoseSerialStaysUnread) {
 }
 
 /// @brief it should fail the start when two saved devices with different settings find
-/// a slave that stays below PRE-OP, and say that the slave is still starting up.
+/// a slave with SII serial number 0 that stays below PRE-OP, and say that the slave is
+/// still starting up.
 TEST_F(EngineTest, StartFailsAConflictOfASlaveThatStaysStarting) {
-    auto unit = io_slave(1);
-    unit.serial = 7;
-    this->master->add_slave(unit);
+    this->master->add_slave(io_slave(1));
     this->master->set_starting(1, true);
     this->engine = std::make_shared<Engine>(
         "eth0",
@@ -1559,6 +1558,34 @@ TEST_F(EngineTest, StartFailsAConflictOfASlaveThatStaysStarting) {
         "still starting up."
     );
     EXPECT_GT(this->master->call_count("scan"), 1);
+}
+
+/// @brief it should start a slave that was below PRE-OP at the scan with the settings
+/// saved for its nonzero SII serial number, as that serial number is final.
+TEST_F(EngineTest, StartingSlaveTakesTheSettingsOfItsSIISerial) {
+    auto unit = io_slave(1);
+    unit.serial = 7;
+    this->master->add_slave(unit);
+    this->master->set_starting(1, true);
+    const std::vector<slave::StartupParameter> params{
+        {.index = 0x8000,
+         .sub_index = 0x15,
+         .data_type = x::telem::UINT16_T,
+         .value = 3}
+    };
+    this->engine = std::make_shared<Engine>(
+        "eth0",
+        this->master,
+        replaced_unit_config(params)
+    );
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    EXPECT_EQ(this->master->config(1).startup_parameters, params);
+    EXPECT_EQ(this->master->call_count("scan"), 1);
 }
 
 /// @brief it should fail the start at once when two saved devices with no serial number
@@ -3381,6 +3408,64 @@ TEST_F(EngineTest, FullCycleDropsTheSamplesOfASlaveOutOfOP) {
     EXPECT_EQ(reader->warning(), "Slave 1 (Slave1) is not in OP.");
     EXPECT_EQ(this->read_times(*kept, 1).size(), 1);
     EXPECT_EQ(kept->warning(), "");
+}
+
+/// @brief it should drop the samples of a slave below SAFE-OP from the first cycle that
+/// reads its state, before the supervisor sees it.
+TEST_F(EngineTest, FullCycleDropsASlaveBelowSafeOpBeforeTheSupervisorSeesIt) {
+    this->master->add_slave(io_slave(1));
+    this->master->add_slave(io_slave(2));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 2)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    // The supervisor waits in the recovery of slave 1, so it sees no later change.
+    this->master->hold_recover();
+    x::defer::defer release([this] { this->master->release_recover(); });
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::INIT);
+    this->master->wait_until_recovering();
+    this->master->set_slave_transition_failure(2, slave::State::OP);
+    this->master->set_slave_state(2, slave::State::INIT);
+    ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
+    EXPECT_EQ(reader->warning(), "Slave 2 (Slave2) is not in OP.");
+    EXPECT_EQ(this->engine->health()[2].state, slave::State::OP);
+}
+
+/// @brief it should drop the samples of a slave below SAFE-OP that the supervisor has
+/// not seen on a short cycle that the outage explains, and keep the other readers.
+TEST_F(EngineTest, ShortCycleDropsASlaveBelowSafeOpBeforeTheSupervisorSeesIt) {
+    this->master->add_slave(io_slave(1));
+    this->master->add_slave(io_slave(2));
+    const auto kept = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 2)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    // The supervisor waits in the recovery of slave 1, so it sees no later change.
+    this->master->hold_recover();
+    x::defer::defer release([this] { this->master->release_recover(); });
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::SAFE_OP);
+    this->master->wait_until_recovering();
+    this->master->set_shortfall(2);
+    this->master->set_slave_state(2, slave::State::INIT);
+    const auto short_since = x::telem::TimeStamp::now();
+    ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
+    EXPECT_EQ(reader->warning(), "Slave 2 (Slave2) is not in OP.");
+    ASSERT_EVENTUALLY_TRUE(
+        x::telem::TimeStamp(this->read_times(*kept, 1).at<int64_t>(0)) > short_since
+    );
+    EXPECT_EQ(this->engine->health()[2].state, slave::State::OP);
 }
 
 /// @brief it should keep the samples of a slave in SAFE-OP on a full cycle, since a

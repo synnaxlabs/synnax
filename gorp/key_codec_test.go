@@ -332,7 +332,7 @@ var _ = Describe("KeyCodec", func() {
 
 				var ids []uint32
 				for iter.First(); iter.Valid(); iter.Next() {
-					ids = append(ids, iter.Value(ctx).GorpKey())
+					ids = append(ids, iter.Value().GorpKey())
 				}
 				Expect(iter.Error()).ToNot(HaveOccurred())
 				Expect(ids).To(Equal([]uint32{1, 200, 300}))
@@ -356,7 +356,7 @@ var _ = Describe("KeyCodec", func() {
 
 				var ids []int16
 				for iter.First(); iter.Valid(); iter.Next() {
-					ids = append(ids, iter.Value(ctx).GorpKey())
+					ids = append(ids, iter.Value().GorpKey())
 				}
 				Expect(iter.Error()).ToNot(HaveOccurred())
 				Expect(ids).To(HaveLen(3))

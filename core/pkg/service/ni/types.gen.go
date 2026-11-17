@@ -937,13 +937,6 @@ type AnalogInputPort struct {
 	Negative uint16 `json:"negative" msgpack:"negative"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AnalogInputPort) ApplyDefaults() {
-	if a.DefaultTerminalConfig == "" {
-		a.DefaultTerminalConfig = TerminalConfigCfgDefault
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (a *AnalogInputPort) SetDefaults() {
 	a.DefaultTerminalConfig = TerminalConfigCfgDefault
@@ -1052,13 +1045,6 @@ type Hardware struct {
 	// AoCurrentRanges are the analog output current ranges of the device, ends
 	// included.
 	AoCurrentRanges []spatial.Bounds `json:"ao_current_ranges" msgpack:"ao_current_ranges"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (h *Hardware) ApplyDefaults() {
-	for i := range h.AnalogInputs {
-		h.AnalogInputs[i].ApplyDefaults()
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

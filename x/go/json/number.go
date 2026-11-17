@@ -155,7 +155,7 @@ func parseDecimal(text []byte, scale int) (d decimal, ok bool) {
 	shift := exp + scale - len(frac)
 	count := len(whole) + len(frac)
 	for i := range count {
-		c := byte(0)
+		var c byte
 		if i < len(whole) {
 			c = whole[i] - '0'
 		} else {

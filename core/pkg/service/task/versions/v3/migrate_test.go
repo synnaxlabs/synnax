@@ -343,7 +343,7 @@ var _ = Describe("NewMigration", func() {
 			Type: resource.TypeTask,
 			Key:  key.String(),
 		})).To(BeFalse())
-		staged, closer := MustSucceed2(db.Get(ctx, v3.QuarantineKVKey(key)))
+		staged, closer := MustSucceed2(db.Get(v3.QuarantineKVKey(key)))
 		Expect(string(staged)).To(ContainSubstring("Bogus Task"))
 		Expect(closer.Close()).To(Succeed())
 	})
@@ -363,7 +363,7 @@ var _ = Describe("NewMigration", func() {
 			Where(gorp.MatchKeys[v2.Key, v2.Task](key)).
 			Exists(ctx, db)).To(BeFalse())
 		Expect(store.Read(ctx, db, key)).Error().To(MatchError(query.ErrNotFound))
-		staged, closer := MustSucceed2(db.Get(ctx, v3.QuarantineKVKey(key)))
+		staged, closer := MustSucceed2(db.Get(v3.QuarantineKVKey(key)))
 		Expect(string(staged)).To(ContainSubstring("Orphaned Arc Task"))
 		Expect(closer.Close()).To(Succeed())
 	})
@@ -389,7 +389,7 @@ var _ = Describe("NewMigration", func() {
 			run(ctx, store)
 
 			Expect(store.Read(ctx, db, key)).Error().To(MatchError(query.ErrNotFound))
-			ran, closer := MustSucceed2(db.Get(ctx, []byte("hook")))
+			ran, closer := MustSucceed2(db.Get([]byte("hook")))
 			Expect(string(ran)).To(Equal("ran"))
 			Expect(closer.Close()).To(Succeed())
 		},
@@ -410,7 +410,7 @@ var _ = Describe("NewMigration", func() {
 			Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
 				Where(gorp.MatchKeys[v2.Key, v2.Task](key)).
 				Exists(ctx, db)).To(BeFalse())
-			staged, closer := MustSucceed2(db.Get(ctx, v3.QuarantineKVKey(key)))
+			staged, closer := MustSucceed2(db.Get(v3.QuarantineKVKey(key)))
 			Expect(string(staged)).To(ContainSubstring("Broken Arc Task"))
 			Expect(closer.Close()).To(Succeed())
 		},
@@ -441,7 +441,7 @@ var _ = Describe("NewMigration", func() {
 			Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
 				Where(gorp.MatchKeys[v2.Key, v2.Task](key)).
 				Exists(ctx, db)).To(BeFalse())
-			staged, closer := MustSucceed2(db.Get(ctx, v3.QuarantineKVKey(key)))
+			staged, closer := MustSucceed2(db.Get(v3.QuarantineKVKey(key)))
 			Expect(string(staged)).To(ContainSubstring("NaN Task"))
 			// The config is dropped from the staged row: JSON cannot carry it.
 			Expect(string(staged)).ToNot(ContainSubstring("value"))
@@ -463,7 +463,7 @@ var _ = Describe("NewMigration", func() {
 			Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
 				Where(gorp.MatchKeys[v2.Key, v2.Task](key)).
 				Exists(ctx, db)).To(BeFalse())
-			staged, closer := MustSucceed2(db.Get(ctx, v3.QuarantineKVKey(key)))
+			staged, closer := MustSucceed2(db.Get(v3.QuarantineKVKey(key)))
 			Expect(string(staged)).To(ContainSubstring("Retired Task"))
 			Expect(closer.Close()).To(Succeed())
 		},

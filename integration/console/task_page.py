@@ -11,6 +11,7 @@ from playwright.sync_api import Locator, Page, expect
 
 import synnax as sy
 from console.layout import LayoutClient
+from console.notifications import click_past
 from console.page import ConsolePage
 
 _STATUS_CLASS_PREFIX = "lyra--status-"
@@ -106,10 +107,9 @@ class TaskPage(ConsolePage):
             wait.
         """
         controls = self._controls()
-        self.notifications.close_all()
         play = controls.locator("button:has(.lyra-icon--play)")
         play.wait_for(state="visible", timeout=5000)
-        play.click()
+        click_past(play)
         if expect is not None:
             self.wait_for_status(expect)
 
@@ -118,8 +118,7 @@ class TaskPage(ConsolePage):
         controls = self._controls()
         stop_btn = controls.locator("button:has(.lyra-icon--stop)")
         stop_btn.wait_for(state="visible", timeout=5000)
-        self.notifications.close_all()
-        stop_btn.click()
+        click_past(stop_btn)
         self.wait_for_status(self.STOPPED_MESSAGE)
 
     def wait_for_status(self, substr: str, *, timeout: float = 30000) -> str:

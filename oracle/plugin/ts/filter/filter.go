@@ -191,7 +191,8 @@ func generateFile(
 	if !ok {
 		return fail("has no derived retrieve response")
 	}
-	elem := response.Form.(resolution.StructForm).Fields[0].Type.TypeArgs[0]
+	responseForm := resolution.MustForm[resolution.StructForm](response)
+	elem := responseForm.Fields[0].Type.TypeArgs[0]
 	record, _, ok := resolution.Dealias(elem, table)
 	if !ok {
 		return fail("unknown response type %s", elem.Name)
@@ -221,6 +222,7 @@ func generateFile(
 	fp := &tstypes.FieldProcessor{
 		Imports:    data.Manager,
 		Namespace:  where.Namespace,
+		FilePath:   where.FilePath,
 		OutputPath: outputPath,
 		Request:    req,
 	}
@@ -229,7 +231,7 @@ func generateFile(
 		fp.CollectTypeImports(&ref)
 		return fp.ProcessField(resolution.Field{Type: ref}, where).ZodType
 	}
-	form := where.Form.(resolution.StructForm)
+	form := resolution.MustForm[resolution.StructForm](where)
 	var key *resolution.TypeRef
 	named := false
 	for _, line := range where.Filter.Lines {
@@ -331,7 +333,9 @@ func generateFile(
 				)
 			}
 		}
-		keyField := lo.Must(cursor.Form.(resolution.StructForm).Field("key"))
+		keyField := lo.Must(
+			resolution.MustForm[resolution.StructForm](cursor).Field("key"),
+		)
 		switch keyType := resolution.PrimitiveBase(keyField.Type, table); {
 		case keyType == "string":
 			data.KeyCompare = "compare.codePoints"

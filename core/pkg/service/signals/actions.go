@@ -82,11 +82,7 @@ type actionFeed[K gorp.Key, A any] struct {
 	ch  channel.Channel
 }
 
-func (f *actionFeed[K, A]) append(
-	_ context.Context,
-	c gorp.Commit,
-	fr framer.Frame,
-) framer.Frame {
+func (f *actionFeed[K, A]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 	batches := f.cfg.Actions.Of(c)
 	if f.cfg.Table != "" {
 		f.check(c, batches)

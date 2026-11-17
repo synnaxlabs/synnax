@@ -12,6 +12,7 @@
 package update
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -29,7 +30,7 @@ func matchOwner(dir string) error {
 	if err != nil {
 		return err
 	}
-	owner := info.Sys().(*syscall.Stat_t)
+	owner := status(info)
 	if owner.Uid == 0 {
 		return nil
 	}
@@ -40,9 +41,17 @@ func matchOwner(dir string) error {
 		if info, err = d.Info(); err != nil {
 			return err
 		}
-		if info.Sys().(*syscall.Stat_t).Uid != 0 {
+		if status(info).Uid != 0 {
 			return nil
 		}
 		return os.Lchown(path, int(owner.Uid), int(owner.Gid))
 	})
+}
+
+func status(info fs.FileInfo) *syscall.Stat_t {
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		panic(fmt.Sprintf("file info of %s is a %T", info.Name(), info.Sys()))
+	}
+	return st
 }

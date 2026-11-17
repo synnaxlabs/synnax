@@ -78,6 +78,8 @@ const (
 	TypeSecret Type = v0.TypeSecret
 	// TypeCertificate identifies a certificate.
 	TypeCertificate Type = v0.TypeCertificate
+	// TypeColor identifies a named color.
+	TypeColor Type = v0.TypeColor
 	// TypeICD identifies an interface control document.
 	TypeICD Type = v0.TypeICD
 )

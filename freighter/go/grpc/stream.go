@@ -79,24 +79,32 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 		}),
 	)
 	if !attachedInitialMetaData {
-		md := metadata.Pairs()
-		if err != nil {
-			md.Append("error", errors.Encode(ctx, err, s.Internal).Error())
-		} else {
-			for k, v := range oCtx.Params {
-				if vStr, ok := v.(string); ok {
-					md.Append(k, vStr)
-				}
-			}
-		}
-		if err := stream.SendHeader(md); err != nil {
+		if err := s.sendHeader(stream, oCtx, err); err != nil {
 			return err
 		}
 	}
 	if err == nil || errors.Is(err, io.EOF) {
 		return nil
 	}
-	return errors.Encode(ctx, err, s.Internal)
+	return errors.Encode(err, s.Internal)
+}
+
+func (s *StreamServerCore[RQ, RQT, RS, RST]) sendHeader(
+	stream grpcServerStream[RQT, RST],
+	oCtx freighter.Context,
+	execErr error,
+) error {
+	md := metadata.Pairs()
+	if execErr != nil {
+		md.Append("error", errors.Encode(execErr, s.Internal).Error())
+	} else {
+		for k, v := range oCtx.Params {
+			if vStr, ok := v.(string); ok {
+				md.Append(k, vStr)
+			}
+		}
+	}
+	return stream.SendHeader(md)
 }
 
 func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
@@ -138,7 +146,7 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 				if errVals := md.Get("error"); len(errVals) > 0 {
 					p := &errors.Payload{}
 					p.Unmarshal(errVals[0])
-					return oCtx, errors.Decode(ctx, *p)
+					return oCtx, errors.Decode(*p)
 				}
 				stream = s.adaptStream(grpcClient)
 				return oCtx, nil
@@ -315,10 +323,10 @@ type grpcServerStream[RQ, RS freighter.Payload] interface {
 	Context() context.Context
 	Send(msg RS) error
 	Recv() (RQ, error)
-	RecvMsg(any) error
-	SetHeader(metadata.MD) error
-	SendHeader(metadata.MD) error
-	SetTrailer(metadata.MD)
+	RecvMsg(msg any) error
+	SetHeader(md metadata.MD) error
+	SendHeader(md metadata.MD) error
+	SetTrailer(md metadata.MD)
 }
 
 type GRPCClientStream[RQ, RS freighter.Payload] interface {
@@ -331,10 +339,10 @@ type GRPCClientStream[RQ, RS freighter.Payload] interface {
 
 func translateGRPCError(err error) error {
 	if err == nil {
-		return err
+		return nil
 	}
 	if errors.Is(err, io.EOF) {
-		return freighter.EOF
+		return io.EOF
 	}
 	s := status.Convert(err)
 	if s.Code() == codes.Canceled {
@@ -342,7 +350,7 @@ func translateGRPCError(err error) error {
 	}
 	p := &errors.Payload{}
 	p.Unmarshal(s.Message())
-	if decoded := errors.Decode(context.Background(), *p); decoded != nil {
+	if decoded := errors.Decode(*p); decoded != nil {
 		return decoded
 	}
 	return errors.WithStackDepth(err, 1)

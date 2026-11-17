@@ -14,3 +14,24 @@
 .console-status__list-item-indicator {
     margin-left: round(1.1667rem, 1px);
 }
+
+/* The name and message truncate, then the labels give way. */
+.console-status__list-item-summary {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.console-status__list-item-text {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.console-status__list-item-meta {
+    flex: 0 1 auto;
+    min-width: 0;
+
+    & > :not(.console-status__list-item-labels) {
+        flex-shrink: 0;
+    }
+}

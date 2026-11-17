@@ -15,6 +15,7 @@ import (
 	"maps"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -75,8 +76,8 @@ const (
 )
 
 // generateTestCodecFile renders the codec test file, then renders it again when it
-// imports more than one version of a dependency, so the aliases follow
-// naming.VersionAliases.
+// imports two packages that derive one alias, so the aliases follow
+// naming.ImportAliases.
 func generateTestCodecFile(
 	packageName string,
 	parentPath string,
@@ -85,10 +86,7 @@ func generateTestCodecFile(
 	repoRoot string,
 	pins versioning.Pins,
 ) ([]byte, error) {
-	pkgImport, err := resolveGoImportPath(parentPath, repoRoot)
-	if err != nil {
-		return nil, err
-	}
+	pkgImport := resolveGoImportPath(parentPath, repoRoot)
 	imports := make(map[string]string)
 	content, err := renderTestCodecFile(
 		packageName, parentPath, pkgImport, entries, table, repoRoot, pins, nil,
@@ -97,7 +95,7 @@ func generateTestCodecFile(
 	if err != nil {
 		return nil, err
 	}
-	aliases := naming.VersionAliases(slices.Collect(maps.Keys(imports)), pkgImport)
+	aliases := naming.ImportAliases(slices.Collect(maps.Keys(imports)), pkgImport)
 	if len(aliases) == 0 {
 		return content, nil
 	}
@@ -996,21 +994,21 @@ func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
 			base = "true"
 		}
 	case "int8":
-		base = fmt.Sprintf("%d", (idx%126)+1)
+		base = strconv.Itoa((idx % 126) + 1)
 	case "int16":
-		base = fmt.Sprintf("%d", idx+1)
+		base = strconv.Itoa(idx + 1)
 	case "int32":
-		base = fmt.Sprintf("%d", idx+1)
+		base = strconv.Itoa(idx + 1)
 	case "int64":
-		base = fmt.Sprintf("%d", idx+1)
+		base = strconv.Itoa(idx + 1)
 	case "uint8":
-		base = fmt.Sprintf("%d", (idx%254)+1)
+		base = strconv.Itoa((idx % 254) + 1)
 	case "uint12", "uint16":
-		base = fmt.Sprintf("%d", idx+1)
+		base = strconv.Itoa(idx + 1)
 	case "uint20", "uint32":
-		base = fmt.Sprintf("%d", idx+1)
+		base = strconv.Itoa(idx + 1)
 	case "uint64":
-		base = fmt.Sprintf("%d", idx+1)
+		base = strconv.Itoa(idx + 1)
 	case "float32":
 		base = fmt.Sprintf("%d.5", idx)
 	case "float64":
@@ -1238,10 +1236,7 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if p, ok := b.pins.Path(b.owner, typ); ok {
 		goPath = p
 	}
-	importPath, err := resolveGoImportPath(goPath, b.repoRoot)
-	if err != nil {
-		return "", err
-	}
+	importPath := resolveGoImportPath(goPath, b.repoRoot)
 	alias, forced := b.aliases[importPath]
 	// A versioned sub-package (…/versions/v0) aliases to its bare resource name, which
 	// shadows that resource's root package or another already-imported package sharing

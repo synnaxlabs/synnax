@@ -12,6 +12,7 @@ package mqtt
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"maps"
 	"net"
 	"net/url"
@@ -256,7 +257,7 @@ type reconnectHooks struct {
 // reconnect connects with a backoff until ctx is cancelled, and connects again after
 // each connection that drops.
 func reconnect(ctx context.Context, ins alamos.Instrumentation, hooks reconnectHooks) {
-	brk, err := breaker.NewBreaker(ctx, breaker.Config{
+	brk, err := breaker.NewBreaker(breaker.Config{
 		BaseInterval: time.Second,
 		Scale:        2,
 		MaxInterval:  maxReconnectInterval,
@@ -279,7 +280,7 @@ func reconnect(ctx context.Context, ins alamos.Instrumentation, hooks reconnectH
 			if hooks.failed != nil {
 				hooks.failed()
 			}
-			if !brk.Wait() {
+			if !brk.Wait(ctx) {
 				return
 			}
 			continue
@@ -293,7 +294,7 @@ func reconnect(ctx context.Context, ins alamos.Instrumentation, hooks reconnectH
 		if time.Since(connectedAt) > maxReconnectInterval {
 			brk.Reset()
 		}
-		if !brk.Wait() {
+		if !brk.Wait(ctx) {
 			return
 		}
 	}
@@ -781,8 +782,12 @@ const subscribeRefused = 0x80
 // refusedFilters returns the filters that the broker refused in the answer to a
 // completed subscribe token.
 func refusedFilters(token paho.Token) set.Set[string] {
+	subToken, ok := token.(*paho.SubscribeToken)
+	if !ok {
+		panic(fmt.Sprintf("subscribe token is a %T", token))
+	}
 	refused := make(set.Set[string])
-	for filter, code := range token.(*paho.SubscribeToken).Result() {
+	for filter, code := range subToken.Result() {
 		if code >= subscribeRefused {
 			refused.Add(filter)
 		}

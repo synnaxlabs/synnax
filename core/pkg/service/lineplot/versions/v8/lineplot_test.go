@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/defaults"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
 
@@ -36,10 +37,10 @@ var _ = Describe("LinePlot", func() {
 		})
 	})
 
-	Describe("ApplyDefaults", func() {
+	Describe("Defaults", func() {
 		It("Should fill schema-declared defaults", func() {
 			lp := v8.LinePlot{Lines: []v8.Line{{}}, Rules: []v8.Rule{{}}}
-			lp.ApplyDefaults()
+			lp = defaults.Fill(lp)
 			Expect(lp.Title.Level).To(Equal(text.LevelH4))
 			Expect(lp.Axes.X1.Key).To(Equal(v8.AxisKeyX1))
 			Expect(lp.Axes.X1.TickSpacing).To(Equal(75.0))

@@ -10,7 +10,6 @@
 package query
 
 import (
-	"context"
 	"strings"
 
 	"github.com/synnaxlabs/x/errors"
@@ -37,7 +36,7 @@ const (
 	unsupported       = typePrefix + ".unsupported"
 )
 
-func encode(_ context.Context, err error) (errors.Payload, bool) {
+func encode(err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, ErrNotFound) {
 		return errors.Payload{Type: notFound, Data: err.Error()}, true
 	}
@@ -56,7 +55,7 @@ func encode(_ context.Context, err error) (errors.Payload, bool) {
 	return errors.Payload{}, false
 }
 
-func decode(_ context.Context, pld errors.Payload) (error, bool) {
+func decode(pld errors.Payload) (error, bool) {
 	switch pld.Type {
 	case notFound:
 		return errors.Wrap(ErrNotFound, pld.Data), true

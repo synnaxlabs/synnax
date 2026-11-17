@@ -25,8 +25,7 @@ var Analyzer = &analysis.Analyzer{
 
 This analyzer finds type expressions where a map is used as a set (with struct{} or bool
 values) and reports that they should be replaced with set.Set[T] from
-github.com/synnaxlabs/x/set. If the map[T]bool{} genuinely needs a three-state
-representation, this linter can be disabled with a //nolint:set comment.`,
+github.com/synnaxlabs/x/set.`,
 	Run: run,
 }
 

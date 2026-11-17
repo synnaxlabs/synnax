@@ -24,7 +24,7 @@ func MigrateLog(ctx context.Context, old v4.Log) (Log, error) {
 }
 
 // Migration lifts stored logs from v4 to v5.
-var Migration = migrate.NewEntry("v61_color_alpha_byte", MigrateLog)
+var Migration = migrate.NewEntry("v62_color_alpha_byte", MigrateLog)
 
 // MigrateChannelEntry lifts a v4 channel entry to v5. A zero color becomes absent, as
 // v4 stored the zero color to mean no color.

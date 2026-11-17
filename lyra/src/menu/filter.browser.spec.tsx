@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { type ReactElement, Suspense, use } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -69,6 +69,17 @@ const GROUPS = (
   </Menu.Menu>
 );
 
+// Items that show once their data loads, as items that read Core data do.
+const Loaded = ({ items }: { items: Promise<void> }): ReactElement => {
+  use(items);
+  return (
+    <>
+      <Menu.Item itemKey="rename">Rename</Menu.Item>
+      <Menu.Item itemKey="remove">Remove</Menu.Item>
+    </>
+  );
+};
+
 const ContextMenu = ({
   onChange,
   menu,
@@ -118,11 +129,14 @@ describe("menu filter", () => {
   });
 
   describe("context menu", () => {
-    it("should show the filter as a line that spans the top of the menu", async () => {
+    it("should open a search that spans the top of the menu", async () => {
       const menu = await openContextMenu();
       await userEvent.keyboard("ren");
+      const search = page.getByRole("textbox");
+      await expect.element(search).toHaveValue("ren");
+      await expect.element(search).toHaveFocus();
+      expect((search.element() as HTMLInputElement).selectionStart).toBe(3);
       const line = document.querySelector(".lyra-menu-filter") as HTMLElement;
-      await expect.poll(() => line?.textContent).toBe("ren");
       const lineBox = line.getBoundingClientRect();
       const menuBox = menu.getBoundingClientRect();
       expect(menuBox.right - lineBox.right).toBe(lineBox.left - menuBox.left);
@@ -191,6 +205,77 @@ describe("menu filter", () => {
       await userEvent.keyboard("rem{Enter}");
       expect(onChange).toHaveBeenCalledExactlyOnceWith("remove");
       expect(page.getByRole("menu").query()).toBeNull();
+    });
+
+    it("should take a click in the search, with the menu open", async () => {
+      await openContextMenu();
+      await userEvent.keyboard("ren");
+      const search = page.getByRole("textbox");
+      await userEvent.click(search);
+      await userEvent.keyboard("x");
+      await expect.element(search).toHaveValue("renx");
+      expect(page.getByRole("menu").query()).not.toBeNull();
+    });
+
+    it("should light the first match while the search has the focus", async () => {
+      await openContextMenu();
+      await userEvent.keyboard("re");
+      const [first, second] = page.getByRole("menuitem").elements();
+      await expect
+        .poll(() => computed(first, "background-color"))
+        .not.toBe(computed(second, "background-color"));
+    });
+
+    it("should keep the first match lit under the pointer on a disabled item", async () => {
+      await openContextMenu(
+        vi.fn(),
+        <Menu.Menu>
+          <Menu.Item itemKey="rename">Rename</Menu.Item>
+          <Menu.Item itemKey="remove" disabled>
+            Remove
+          </Menu.Item>
+          <Menu.Item itemKey="reload">Reload</Menu.Item>
+        </Menu.Menu>,
+      );
+      await userEvent.keyboard("re");
+      const [first, , third] = page.getByRole("menuitem").elements();
+      await userEvent.hover(page.getByRole("menuitem", { name: "Remove" }));
+      await expect
+        .poll(() => computed(first, "background-color"))
+        .not.toBe(computed(third, "background-color"));
+    });
+
+    it("should light the first match of items that load after the search opens", async () => {
+      let load = (): void => {};
+      const items = new Promise<void>((resolve) => {
+        load = resolve;
+      });
+      await openContextMenu(
+        vi.fn(),
+        <Menu.Menu>
+          <Menu.Item itemKey="copy">Copy</Menu.Item>
+          <Suspense fallback={null}>
+            <Loaded items={items} />
+          </Suspense>
+        </Menu.Menu>,
+      );
+      await userEvent.keyboard("re");
+      await expect.element(page.getByRole("textbox")).toHaveValue("re");
+      load();
+      await expect.poll(() => page.getByRole("menuitem").elements().length).toBe(2);
+      const [first, second] = page.getByRole("menuitem").elements();
+      await expect
+        .poll(() => computed(first, "background-color"))
+        .not.toBe(computed(second, "background-color"));
+    });
+
+    it("should pick the item under the pointer on Enter", async () => {
+      const onChange = vi.fn();
+      await openContextMenu(onChange);
+      await userEvent.keyboard("re");
+      await userEvent.hover(page.getByRole("menuitem", { name: "Remove" }));
+      await userEvent.keyboard("{Enter}");
+      expect(onChange).toHaveBeenCalledExactlyOnceWith("remove");
     });
 
     it("should clear the filter on Escape, then close", async () => {

@@ -11,7 +11,6 @@ package check
 
 import (
 	"cmp"
-	"context"
 	"fmt"
 	"maps"
 	"slices"
@@ -36,7 +35,6 @@ type Release struct {
 // marks as removed passes. resolver resolves the current chains, and is nil when there
 // are none.
 func checkShipped(
-	ctx context.Context,
 	r *GateReport,
 	repoRoot string,
 	chains map[string]versions.Chain,
@@ -84,7 +82,7 @@ func checkShipped(
 			}
 			ns := versions.DepNS(livePath, n)
 			old, now := resolution.NewTable(), resolution.NewTable()
-			if err := shipped.SurfaceInto(ctx, old, livePath, n, ns); err != nil {
+			if err := shipped.SurfaceInto(old, livePath, n, ns); err != nil {
 				r.fail(Finding{
 					Path:     filePath,
 					Severity: SeverityError,
@@ -92,7 +90,7 @@ func checkShipped(
 				})
 				continue
 			}
-			if err := resolver.SurfaceInto(ctx, now, livePath, n, ns); err != nil {
+			if err := resolver.SurfaceInto(now, livePath, n, ns); err != nil {
 				r.fail(Finding{
 					Path: filePath, Severity: SeverityError, Message: err.Error(),
 				})

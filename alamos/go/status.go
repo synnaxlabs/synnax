@@ -28,6 +28,6 @@ func (s Status) otel() codes.Code {
 }
 
 const (
-	statusOk    Status = iota
-	statusError        = 1
+	statusOk Status = iota
+	statusError
 )

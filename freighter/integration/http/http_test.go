@@ -32,7 +32,7 @@ type message struct {
 var _ = Describe("BindTo", func() {
 	It("Should register every integration endpoint on the provided Fiber app", func() {
 		app := fiber.New(fiber.Config{})
-		Expect(ihttp.BindTo(app)).To(Succeed())
+		Expect(ihttp.BindTo(GinkgoT().Context(), app)).To(Succeed())
 		registered := set.New[string]()
 		for _, r := range app.GetRoutes() {
 			registered = registered.Add(r.Path)
@@ -64,7 +64,7 @@ var _ = Describe("BindTo", func() {
 		"Should respond to /unary/echo with the request payload and the ID incremented",
 		func() {
 			app := fiber.New(fiber.Config{})
-			Expect(ihttp.BindTo(app)).To(Succeed())
+			Expect(ihttp.BindTo(GinkgoT().Context(), app)).To(Succeed())
 
 			body := MustSucceed(json.Marshal(message{Message: "hello", ID: 1}))
 			req := MustSucceed(
@@ -89,7 +89,7 @@ var _ = Describe("BindTo", func() {
 
 	It("Should reject /unary/middlewareCheck when the Test header is missing", func() {
 		app := fiber.New(fiber.Config{})
-		Expect(ihttp.BindTo(app)).To(Succeed())
+		Expect(ihttp.BindTo(GinkgoT().Context(), app)).To(Succeed())
 
 		body := MustSucceed(json.Marshal(message{Message: "hello", ID: 1}))
 		req := MustSucceed(
@@ -111,7 +111,7 @@ var _ = Describe("BindTo", func() {
 		"Should pass /unary/middlewareCheck when the Test header is set to 'test'",
 		func() {
 			app := fiber.New(fiber.Config{})
-			Expect(ihttp.BindTo(app)).To(Succeed())
+			Expect(ihttp.BindTo(GinkgoT().Context(), app)).To(Succeed())
 
 			body := MustSucceed(json.Marshal(message{Message: "hello", ID: 7}))
 			req := MustSucceed(
@@ -140,7 +140,7 @@ var _ = Describe("unaryParamEcho", func() {
 	postParamEcho := func(query, text string) message {
 		GinkgoHelper()
 		app := fiber.New(fiber.Config{})
-		Expect(ihttp.BindTo(app)).To(Succeed())
+		Expect(ihttp.BindTo(GinkgoT().Context(), app)).To(Succeed())
 
 		target := "http://localhost/unary/paramEcho"
 		if query != "" {
@@ -213,7 +213,7 @@ var _ = Describe("flakyUnavailable", func() {
 
 	It("Should respond with a retryable 503 the first time it sees a message", func() {
 		app := fiber.New(fiber.Config{})
-		Expect(ihttp.BindTo(app)).To(Succeed())
+		Expect(ihttp.BindTo(GinkgoT().Context(), app)).To(Succeed())
 
 		resp := post(app, message{Message: "flaky-first-503", ID: 1})
 		Expect(resp.StatusCode).To(Equal(http.StatusServiceUnavailable))
@@ -227,7 +227,7 @@ var _ = Describe("flakyUnavailable", func() {
 		"Should echo nominally with the ID incremented when the same message is retried",
 		func() {
 			app := fiber.New(fiber.Config{})
-			Expect(ihttp.BindTo(app)).To(Succeed())
+			Expect(ihttp.BindTo(GinkgoT().Context(), app)).To(Succeed())
 
 			first := post(app, message{Message: "flaky-recovers", ID: 1})
 			Expect(first.StatusCode).To(Equal(http.StatusServiceUnavailable))
@@ -242,7 +242,7 @@ var _ = Describe("flakyUnavailable", func() {
 
 	It("Should track the first-seen state of each message independently", func() {
 		app := fiber.New(fiber.Config{})
-		Expect(ihttp.BindTo(app)).To(Succeed())
+		Expect(ihttp.BindTo(GinkgoT().Context(), app)).To(Succeed())
 
 		Expect(post(app, message{Message: "flaky-a", ID: 1}).StatusCode).
 			To(Equal(http.StatusServiceUnavailable))
@@ -256,7 +256,7 @@ var _ = Describe("flakyUnavailable", func() {
 var _ = Describe("emptyResponse", func() {
 	It("Should respond with 200 OK and a genuinely empty body", func() {
 		app := fiber.New(fiber.Config{})
-		Expect(ihttp.BindTo(app)).To(Succeed())
+		Expect(ihttp.BindTo(GinkgoT().Context(), app)).To(Succeed())
 
 		body := MustSucceed(json.Marshal(message{Message: "x", ID: 1}))
 		req := MustSucceed(
@@ -279,11 +279,11 @@ var _ = Describe("emptyResponse", func() {
 var _ = Describe("Test error", func() {
 	It(
 		"Should round-trip through the freighter errors registry",
-		func(ctx SpecContext) {
+		func() {
 			payload := errors.Payload{Type: "integration.error", Data: "7,boom"}
-			decoded := errors.Decode(ctx, payload)
+			decoded := errors.Decode(payload)
 			Expect(decoded).To(MatchError("boom"))
-			Expect(errors.Encode(ctx, decoded, false)).To(Equal(payload))
+			Expect(errors.Encode(decoded, false)).To(Equal(payload))
 		},
 	)
 })

@@ -11,6 +11,7 @@ package http_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net"
@@ -67,7 +68,7 @@ func openLicensed(ctx SpecContext, creds auth.Credentials) *fiber.App {
 		Service:      svc,
 		Distribution: node.Layer,
 	}))
-	router := MustSucceed(fhttp.NewRouter())
+	router := MustSucceed(fhttp.NewRouter(context.Background()))
 	thttp.Bind(layer, router)
 	app := fiber.New()
 	router.BindTo(app)
@@ -101,11 +102,22 @@ func postJSON(
 	}))
 }
 
+// A browser sends back the name and value only, for every Core on the host.
+func withCookie(host string, cs ...*http.Cookie) map[string]string {
+	pairs := lo.Map(cs, func(c *http.Cookie, _ int) string {
+		return c.Name + "=" + c.Value
+	})
+	return map[string]string{
+		fiber.HeaderHost:   host,
+		fiber.HeaderCookie: strings.Join(pairs, "; "),
+	}
+}
+
 var _ = Describe("HTTP", func() {
 	Describe("Bind", func() {
 		var app *fiber.App
 		BeforeEach(func() {
-			router := MustSucceed(fhttp.NewRouter())
+			router := MustSucceed(fhttp.NewRouter(context.Background()))
 			thttp.Bind(apiLayer, router)
 			app = fiber.New()
 			router.BindTo(app)
@@ -243,7 +255,7 @@ var _ = Describe("HTTP", func() {
 				Service:      svc,
 				Distribution: node.Layer,
 			}))
-			router := MustSucceed(fhttp.NewRouter())
+			router := MustSucceed(fhttp.NewRouter(context.Background()))
 			thttp.Bind(layer, router)
 			app = fiber.New()
 			router.BindTo(app)
@@ -276,7 +288,7 @@ var _ = Describe("HTTP", func() {
 
 		DescribeTable(
 			"Should reject a MessagePack request",
-			func(ctx SpecContext, path string) {
+			func(path string) {
 				req := httptest.NewRequest(
 					http.MethodPost,
 					path,
@@ -328,9 +340,7 @@ var _ = Describe("HTTP", func() {
 			),
 		)
 
-		It("Should refuse a gated endpoint while no license is active", func(
-			ctx SpecContext,
-		) {
+		It("Should refuse a gated endpoint while no license is active", func() {
 			status, body := post(
 				"/api/v1/channel/retrieve",
 				login(),
@@ -339,7 +349,7 @@ var _ = Describe("HTTP", func() {
 			Expect(status).To(Equal(http.StatusBadRequest))
 			var pld errors.Payload
 			Expect(json.Unmarshal(body, &pld)).To(Succeed())
-			Expect(errors.Decode(ctx, pld)).To(MatchError(license.ErrMissing))
+			Expect(errors.Decode(pld)).To(MatchError(license.ErrMissing))
 		})
 
 		It("Should keep a cookie's token out of a refused response", func() {
@@ -403,16 +413,6 @@ var _ = Describe("HTTP", func() {
 				cookies[0].MaxAge,
 			).To(Equal(int(auth.DefaultIdleTimeout / time.Second)))
 			return cookies[0]
-		}
-		// a browser sends back the name and value only, for every Core on the host
-		withCookie := func(host string, cs ...*http.Cookie) map[string]string {
-			pairs := lo.Map(cs, func(c *http.Cookie, _ int) string {
-				return c.Name + "=" + c.Value
-			})
-			return map[string]string{
-				fiber.HeaderHost:   host,
-				fiber.HeaderCookie: strings.Join(pairs, "; "),
-			}
 		}
 		It("Should authenticate a request that carries only the cookie", func() {
 			cookie := loginWithCookie("localhost:9090")

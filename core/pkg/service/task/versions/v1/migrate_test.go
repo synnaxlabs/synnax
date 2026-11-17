@@ -86,7 +86,7 @@ var _ = Describe("MigrateTask", func() {
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Type).To(Equal(seed.Type))
-		Expect(got.Config).To(Equal(msgpack.EncodedJSON(seed.Config)))
+		Expect(got.Config).To(Equal(seed.Config))
 		Expect(got.Internal).To(Equal(seed.Internal))
 		Expect(got.Snapshot).To(Equal(seed.Snapshot))
 		Expect(got.Status).To(BeNil())
@@ -107,7 +107,7 @@ var _ = Describe("MigrateTask", func() {
 					Variant:     "success",
 					Message:     "task acquiring",
 					Description: "5 channels",
-					Time:        telem.TimeStamp(telem.Now()),
+					Time:        telem.Now(),
 					Details: v0.StatusDetails{
 						Task:    key,
 						Running: true,

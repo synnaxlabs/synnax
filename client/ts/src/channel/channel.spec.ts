@@ -325,6 +325,14 @@ describe("Channel", () => {
         async () => await client.channels.retrieve("1-1000"),
       ).rejects.toThrow(NotFoundError);
     });
+    test("retrieve no channels for an empty array", async () => {
+      await client.channels.create({
+        name: id.create(),
+        virtual: true,
+        dataType: DataType.FLOAT32,
+      });
+      expect(await client.channels.retrieve([])).toEqual([]);
+    });
     test("retrieve by search term", async () => {
       const prefix = id.create();
       const names = [`${prefix}_1`, `${prefix}_2`];
