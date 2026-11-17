@@ -11,6 +11,7 @@ packages:
   - alamos/ts
   - arc/ts
   - client/ts
+  - client/ts/examples/node
   - configs/**
   - console
   - drift

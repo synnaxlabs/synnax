@@ -411,6 +411,7 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: client-ts
       directory: client/ts
+      examples_package: "@synnaxlabs/client-examples"
       package: client
       packed: true
     secrets:

@@ -31,6 +31,13 @@ on:
         description: The directory containing the package
         required: true
         type: string
+      examples_package:
+        description:
+          The pnpm package whose examples script runs against the Core, or empty for
+          none
+        required: false
+        type: string
+        default: ""
       freighter_image:
         description:
           Freighter integration server image to test against, or empty for none
@@ -226,6 +233,17 @@ jobs:
         run: |
           read -ra args <<< "$COVERAGE_ARGS $SHARD_ARG $TEST_ARGS"
           pnpm cov:"$PACKAGE" --log-order=stream --log-prefix=none -- "${args[@]}"
+
+      - name: Run the examples
+        if:
+          inputs.test && inputs.examples_package != '' && runner.os == 'Linux' &&
+          inputs.core_image != ''
+        shell: bash
+        timeout-minutes: 5
+        env:
+          PACKAGE: ${{ inputs.examples_package }}
+        run:
+          pnpm turbo examples --filter "$PACKAGE" --log-order=stream --log-prefix=none
 
       - name: Test in WebKit
         if: inputs.test && inputs.browsers

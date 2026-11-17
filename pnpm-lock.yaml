@@ -790,6 +790,22 @@ importers:
         specifier: 'catalog:'
         version: 8.22.0
 
+  client/ts/examples/node:
+    dependencies:
+      '@synnaxlabs/client':
+        specifier: 'catalog:'
+        version: link:../..
+    devDependencies:
+      '@synnaxlabs/tsconfig':
+        specifier: 'catalog:'
+        version: link:../../../../configs/ts
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+
   configs/eslint:
     dependencies:
       '@babel/core':
