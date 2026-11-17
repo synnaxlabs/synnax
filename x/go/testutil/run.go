@@ -11,6 +11,7 @@ package testutil
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 
@@ -21,8 +22,10 @@ import (
 )
 
 // GoRun calls run in a goroutine with a child of ctx. It returns once that goroutine
-// first blocks or returns, or after blockTimeout, so the goroutines that run starts
-// before it blocks are in the baseline of a later leak check. The returned stop ends
+// and
+// every goroutine started after it are blocked or gone and no new one appears between
+// two polls, or after blockTimeout. The goroutines that run starts, nested ones
+// included, are then in the baseline of a later leak check. The returned stop ends
 // the child, waits for run to return, and returns its error. Later calls to stop
 // return the same error. GoRun works outside Ginkgo, such as in benchmarks.
 func GoRun(
@@ -36,7 +39,7 @@ func GoRun(
 		id <- goroutine.Current().ID
 		errs <- run(ctx)
 	}()
-	waitUntilBlocked(<-id)
+	waitUntilSettled(<-id)
 	return sync.OnceValue(func() error {
 		cancel()
 		return <-errs
@@ -75,19 +78,32 @@ const (
 	blockPollInterval = time.Millisecond
 )
 
-func waitUntilBlocked(id uint64) {
+// waitUntilSettled waits until no goroutine with an ID of at least first runs and the
+// set of those goroutines is the same in two polls in a row. Goroutine IDs only grow,
+// so the set holds every goroutine that the goroutine with ID first started.
+func waitUntilSettled(first uint64) {
 	deadline := time.Now().Add(blockTimeout)
-	for running(id) && time.Now().Before(deadline) {
+	var prev []uint64
+	for time.Now().Before(deadline) {
+		ids, busy := since(first)
+		if !busy && slices.Equal(ids, prev) {
+			return
+		}
+		prev = ids
 		time.Sleep(blockPollInterval)
 	}
 }
 
-// running reports whether the goroutine with the given ID exists and is not blocked.
-func running(id uint64) bool {
+// since returns the sorted IDs of the goroutines with an ID of at least first, and
+// whether one of them is running or runnable.
+func since(first uint64) (ids []uint64, busy bool) {
 	for _, g := range goroutine.Goroutines() {
-		if g.ID == id {
-			return g.State == "running" || g.State == "runnable"
+		if g.ID < first {
+			continue
 		}
+		ids = append(ids, g.ID)
+		busy = busy || g.State == "running" || g.State == "runnable"
 	}
-	return false
+	slices.Sort(ids)
+	return ids, busy
 }

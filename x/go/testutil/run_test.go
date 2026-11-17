@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
+	"golang.org/x/sync/errgroup"
 )
 
 var _ = Describe("StartRun", func() {
@@ -99,5 +100,26 @@ var _ = Describe("GoRun", func() {
 		Expect(blocked.Load()).To(BeTrue())
 		Expect(stop()).To(MatchError("stopped"))
 		Expect(stop()).To(MatchError("stopped"))
+	})
+
+	It("returns once the goroutines that the run nests are blocked", func(
+		ctx SpecContext,
+	) {
+		var nestedStarted atomic.Bool
+		stop := GoRun(ctx, func(ctx context.Context) error {
+			var g errgroup.Group
+			g.Go(func() error {
+				g.Go(func() error {
+					nestedStarted.Store(true)
+					<-ctx.Done()
+					return nil
+				})
+				<-ctx.Done()
+				return nil
+			})
+			return g.Wait()
+		})
+		Expect(nestedStarted.Load()).To(BeTrue())
+		Expect(stop()).To(Succeed())
 	})
 })
