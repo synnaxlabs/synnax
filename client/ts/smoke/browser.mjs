@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Serves the consumer project at argv[2] and loads two pages in Chromium and WebKit: a
-// Vite bundle, and importmap.html, which loads the packed files with no bundler.
+// Serves the consumer project at argv[2] and loads two pages in Chromium, Firefox, and
+// WebKit: a Vite bundle, and importmap.html, which loads the packed files with no
+// bundler.
 
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join } from "node:path";
 
-import { chromium, webkit } from "playwright";
+import { chromium, firefox, webkit } from "playwright";
 import { build } from "vite";
 
 const root = process.argv[2];
@@ -43,7 +44,7 @@ const env = {
 };
 
 try {
-  for (const type of [chromium, webkit]) {
+  for (const type of [chromium, firefox, webkit]) {
     const browser = await type.launch();
     try {
       for (const page of ["dist/index.html", "importmap.html"]) {
