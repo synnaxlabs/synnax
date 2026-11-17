@@ -613,7 +613,15 @@ var _ = Describe("Service", func() {
 			It("Should not change when a message the task does not read changes",
 				func(ctx SpecContext) {
 					before := hash(ctx)
-					set(ctx, pointerPath(f.stamped, 0), "/time")
+					other := jsonMessage(
+						"Other",
+						nil,
+						jsonField("ts", "/ts", icd.TimestampJSONField{
+							TimeFormat: payload.TimeFormatUnixSec,
+						}),
+					)
+					set(ctx, []string{"messages"}, []icd.Message{f.m, other})
+					set(ctx, pointerPath(other, 0), "/time")
 					Expect(hash(ctx)).To(Equal(before))
 				},
 			)
