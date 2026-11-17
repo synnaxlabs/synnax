@@ -431,10 +431,11 @@ var _ = Describe("FieldRules", func() {
 var _ = Describe("Number", func() {
 	It("should compare integers past float precision exactly", func() {
 		big := validation.Number{Int: 9007199254740993, IsInt: true}
+		same := validation.Number{Int: 9007199254740993, IsInt: true}
 		less := validation.Number{Int: 9007199254740992, IsInt: true}
 		Expect(big.Compare(less)).To(Equal(1))
 		Expect(less.Compare(big)).To(Equal(-1))
-		Expect(big.Compare(big)).To(Equal(0))
+		Expect(big.Compare(same)).To(Equal(0))
 	})
 
 	It("should compare an integer with a float", func() {
