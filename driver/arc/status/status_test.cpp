@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
 #include <filesystem>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -166,15 +168,17 @@ protected:
 
     [[nodiscard]] std::shared_ptr<::driver::outbox::Outbox> open_outbox(
         const std::shared_ptr<synnax::Synnax> &c,
-        const std::size_t cap = ::driver::outbox::DEFAULT_CAP
+        const std::size_t cap = ::driver::outbox::DEFAULT_CAP,
+        const x::telem::TimeSpan retry = x::telem::SECOND
     ) const {
-        return ASSERT_NIL_P(
-            ::driver::outbox::Outbox::open({
-                .dir = this->dir,
-                .statuses = c->statuses,
-                .cap = cap,
-            })
-        );
+        ::driver::outbox::Config cfg{
+            .dir = this->dir,
+            .statuses = c->statuses,
+            .cap = cap,
+        };
+        cfg.retry.base_interval = retry;
+        cfg.retry.max_interval = retry;
+        return ASSERT_NIL_P(::driver::outbox::Outbox::open(cfg));
     }
 
     void wait_sent() const { ASSERT_EVENTUALLY_EQ(this->outbox->size(), 0); }
@@ -423,23 +427,40 @@ TEST_F(StatusTest, OutputIsTruthyOnceQueued) {
     EXPECT_FALSE(created->is_output_truthy(0));
 }
 
-/// @brief it should count a set the full outbox refuses without reporting it on the
-/// caller's thread, which must never wait on the Core.
-TEST_F(StatusTest, CountsARefusedSetWithoutReporting) {
+/// @brief it should report a set the full outbox refuses from the outbox thread, with
+/// no later set, since the caller must never wait on the Core.
+TEST_F(StatusTest, ReportsARefusedSetFromTheOutboxThread) {
     this->outbox.reset();
     auto cfg = test_client_config();
     cfg.port = 1;
-    this->outbox = this->open_outbox(std::make_shared<synnax::Synnax>(cfg), 1);
+    this->outbox = this->open_outbox(
+        std::make_shared<synnax::Synnax>(cfg),
+        1,
+        x::telem::MILLISECOND
+    );
     const auto reports = std::make_shared<Reports>();
+    const auto caller = std::this_thread::get_id();
+    std::atomic<bool> on_caller = false;
+    const auto record = recordingReporter(reports);
     const auto f = set_spec().config({unique_name("set_full_"), "msg", "info"});
-    Module module(this->outbox, recordingReporter(reports));
+    Module module(
+        this->outbox,
+        [&, record](const std::string &message, const std::string &description) {
+            if (std::this_thread::get_id() == caller) on_caller = true;
+            record(message, description);
+        }
+    );
     auto created = ASSERT_NIL_P(module.create(f.make_config()));
 
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
     ASSERT_NIL(created->next(ctx));
     EXPECT_EQ(this->outbox->refused(), 1);
-    EXPECT_TRUE(reports->snapshot().empty());
+    ASSERT_EVENTUALLY_FALSE(reports->snapshot().empty());
+    const auto got = reports->snapshot();
+    EXPECT_EQ(got[0].message, SET_FAILURE_MSG);
+    EXPECT_NE(got[0].description.find("Dropped 1 sets."), std::string::npos);
+    EXPECT_FALSE(on_caller.load());
 }
 
 /// @brief it should report the refused sets once, with their count and reason.
