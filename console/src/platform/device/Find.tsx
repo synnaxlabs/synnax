@@ -218,28 +218,22 @@ const DeviceItem = ({
   );
 };
 
-interface RackCardProps extends Pick<
-  Hardware,
-  "formatLocation" | "modelNames" | "ScanAction"
-> {
+interface RackCardProps {
+  hardware: Hardware;
   rack: rack.Rack;
   scanner: task.Task | undefined;
   devices: device.Device[];
-  name: string;
   /** Whether a Scan now of this rack finished. */
   scanned: boolean;
   onConfigure: (key: device.Key) => void;
 }
 
 const RackCard = ({
+  hardware: { name, formatLocation, modelNames, ScanAction },
   rack: r,
   scanner,
   devices,
-  name,
   scanned,
-  formatLocation,
-  modelNames,
-  ScanAction,
   onConfigure,
 }: RackCardProps): ReactElement => (
   <Pane.Pane>
@@ -312,24 +306,13 @@ export interface FindProps {
  * action to scan now, and what to check when the hardware is missing.
  */
 export const Find = ({
-  hardware: {
-    key,
-    name,
-    title,
-    icon,
-    make,
-    scanType,
-    checks,
-    location,
-    formatLocation,
-    modelNames,
-    ScanAction,
-  },
+  hardware,
   rack: rackKey,
   filter,
   onBack,
   onConfigure,
 }: FindProps): ReactElement => {
+  const { key, name, title, icon, make, scanType, checks, location } = hardware;
   const allRacks = Rack.useResultMultiple({}).data;
   const scope = allRacks?.find((r) => r.key === rackKey);
   const running = allRacks?.some(isReady) === true;
@@ -400,14 +383,11 @@ export const Find = ({
         {racks?.map((r) => (
           <RackCard
             key={r.key}
+            hardware={hardware}
             rack={r}
             scanner={scanners?.find((s) => s.rack === r.key)}
             devices={found.filter((d) => d.rack === r.key)}
-            name={name}
             scanned={scanned.includes(r.key)}
-            formatLocation={formatLocation}
-            modelNames={modelNames}
-            ScanAction={ScanAction}
             onConfigure={onConfigure}
           />
         ))}
