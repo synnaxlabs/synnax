@@ -351,7 +351,7 @@ var _ = Describe("createNode.Next", func() {
 			Expect(r.TimeRange.Start).To(BeNumerically("<=", telem.Now()))
 			Expect(rep.get()).To(BeEmpty())
 
-			Expect((*state.OutputTime(0)).Len()).To(Equal(int64(1)))
+			Expect(state.OutputTime(0).Len()).To(Equal(int64(1)))
 		},
 	)
 

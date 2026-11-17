@@ -318,8 +318,9 @@
             content: "";
         }
 
-        /* The name runs on under the next tag, whose face cuts it. */
-        & > .lyra-text {
+        /* The name runs on under the next tag, whose face cuts it. With no tag over it,
+           a last or lifted tag fades its name at the cap as a full tag does. */
+        &:not([data-last], [data-lifted]) > .lyra-text {
             flex-shrink: 0;
         }
     }

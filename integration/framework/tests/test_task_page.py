@@ -7,28 +7,18 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Self, cast
-
 import pytest
-from playwright.sync_api import Locator
 from pydantic import ValidationError
 
 from console.task_page import TaskPage
 
 
-class FakeStatusLocator:
+class FakeStatusElement:
     def __init__(self, classes: str | None, text: str) -> None:
         self.classes = classes
         self.text = text
 
-    def locator(self, _: str) -> Self:
-        return self
-
-    @property
-    def first(self) -> Self:
-        return self
-
-    def get_attribute(self, _: str) -> str | None:
+    def get_attribute(self, name: str) -> str | None:
         return self.classes
 
     def inner_text(self) -> str:
@@ -37,10 +27,10 @@ class FakeStatusLocator:
 
 class FakeTaskPage(TaskPage):
     def __init__(self, classes: str | None, text: str) -> None:
-        self.controls = FakeStatusLocator(classes, text)
+        self.element = FakeStatusElement(classes, text)
 
-    def _controls(self) -> Locator:
-        return cast(Locator, self.controls)
+    def _status_element(self) -> FakeStatusElement:
+        return self.element
 
 
 class TestStatus:

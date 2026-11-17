@@ -536,7 +536,7 @@ var _ = Describe("Reducer", func() {
 		It(
 			"Should apply a 50-action editor session and converge to a coherent schematic",
 			func() {
-				var actions []schematic.Action
+				actions := make([]schematic.Action, 0, 23)
 				for i := range 5 {
 					actions = append(
 						actions,

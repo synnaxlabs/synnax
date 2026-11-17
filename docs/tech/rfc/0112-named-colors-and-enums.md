@@ -199,8 +199,9 @@ PRs #4260 (color v2), #5621 (configs on nodes, group membership as `Node.parent`
 #5625 (WCAG contrast), #5626 (custom strokes through the band), #5627 (table cells in
 rows), and #5632 (`on_delete inline` in Oracle) are merged.
 
-Phases 9, 16, and 21 ship behind one flag in `console/src/flags.ts`. Phases 10 and 11
-ship in one release, and phases 19 to 22 in one release after the symbol consolidation.
+Phases 16 and 21 ship behind one flag in `console/src/flags.ts`. Phase 9 ships without a
+flag. Phases 10 and 11 ship in one release, and phases 19 to 22 in one release after the
+symbol consolidation.
 
 | Phase | Scope                                                    | Touches                                                                             | Depends on     |
 | ----- | -------------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------- |
@@ -212,7 +213,7 @@ ship in one release, and phases 19 to 22 in one release after the symbol consoli
 | 6     | Add named colors to the clients and Pluto queries        | `client/ts/src/color`, `client/py/synnax/color`, `pluto/src/color`                  | 4              |
 | 7     | Resolve a light and dark pair for the theme mode in Lyra | `lyra/src/theme`, `lyra/src/color`                                                  | -              |
 | 8     | Store a color reference from the color picker            | `lyra/src/color`, `docs/tech/rfc/0070-color-picker.md`                              | 7              |
-| 9     | Add the Console named color toolbar and editor           | `console/src/feature/color`, `console/src/flags.ts`                                 | 3, 6, 8        |
+| 9     | Add the Console named color toolbar and editor           | `console/src/feature/color`                                                         | 3, 6, 8        |
 | 10    | Store color references on line plot lines and rules      | `schemas/synnax`, `core/pkg/service/lineplot`, `client/ts`                          | 5              |
 | 11    | Resolve and write line color references in Pluto         | `pluto/src/lineplot`, `console/src/feature/lineplot`                                | 6, 7, 10       |
 | 12    | Read every data color from the series colors             | `lyra/src/theme`, `pluto/src`                                                       | 5, 6, 7, 8, 11 |

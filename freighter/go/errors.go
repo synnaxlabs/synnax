@@ -26,7 +26,7 @@ const (
 	streamClosedErrorType = freighterErrorType + "stream_closed"
 )
 
-func encodeErr(err error) (errors.Payload, bool) {
+func encodeErr(_ *errors.Codec, err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, io.EOF) {
 		return errors.Payload{Type: eofErrorType, Data: err.Error()}, true
 	}
@@ -36,7 +36,7 @@ func encodeErr(err error) (errors.Payload, bool) {
 	return errors.Payload{}, false
 }
 
-func decodeErr(pld errors.Payload) (error, bool) {
+func decodeErr(_ *errors.Codec, pld errors.Payload) (error, bool) {
 	switch pld.Type {
 	case eofErrorType:
 		return io.EOF, true
@@ -49,6 +49,7 @@ func decodeErr(pld errors.Payload) (error, bool) {
 	return nil, false
 }
 
-func init() {
-	errors.Register(encodeErr, decodeErr)
+// ErrorProvider encodes and decodes freighter errors for an errors.Codec.
+func ErrorProvider() errors.Provider {
+	return errors.Provider{Encode: encodeErr, Decode: decodeErr}
 }

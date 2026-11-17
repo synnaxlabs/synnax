@@ -34,6 +34,7 @@ import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   awaitTextEditing,
+  awaitTextEditingElement,
   commitTextEdit,
   createTestClientWithGrants,
   createTestStore,
@@ -552,6 +553,31 @@ describe("range/explorer/Explorer", () => {
       await waitFor(async () =>
         expect((await client.ranges.retrieve(rng.key)).name).toBe(renamed),
       );
+    });
+
+    it("should rename the copy that was right-clicked when two lists show the range", async () => {
+      const rng = await createRange(uniqueRangeName("rename"));
+      const { wrapper } = await createTabWrapper({
+        client,
+        tab: { variant: "view", type: TAB_TYPE },
+      });
+      await renderSuspended(
+        <>
+          <Explorer />
+          <Explorer />
+        </>,
+        { wrapper },
+      );
+      for (const input of await screen.findAllByPlaceholderText("Search ranges..."))
+        fireEvent.change(input, { target: { value: rng.name } });
+      const copies = await waitFor(() => {
+        const found = screen.getAllByRole("listitem", { name: rng.name });
+        expect(found).toHaveLength(2);
+        return found;
+      });
+      await openContextMenu(() => copies[1]);
+      fireEvent.click(await menuItem("Rename"));
+      expect(copies[1].contains(await awaitTextEditingElement())).toBe(true);
     });
 
     it("should start a planned range now with no end", async () => {

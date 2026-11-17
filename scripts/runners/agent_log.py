@@ -10,18 +10,41 @@
 """The runner's log channel, for agent.py."""
 
 from pathlib import Path
+from typing import Protocol
 
 import synnax as sy
 
+WINDOWS_RUNNER_DIRS = (
+    "C:\\actions-runner",
+    "C:\\Users\\Administrator\\Desktop\\actions-runner",
+)
 RUNNER_DIRS = (
-    Path("C:/actions-runner"),
-    Path("C:/Users/Administrator/Desktop/actions-runner"),
+    *(Path(d) for d in WINDOWS_RUNNER_DIRS),
     Path("/home/ubuntu/actions-runner"),
 )
 LOG_DIRS = tuple(p / "_diag" / "pages" for p in RUNNER_DIRS)
 LOG_BUDGET = 1 << 20
 # Measured values cannot be taken over and spoofed.
 PUBLISH_AUTHORITY = sy.Authority.ABSOLUTE
+
+
+class Writer(Protocol):
+    def write(self, frame: dict, /) -> object: ...
+
+    def close(self) -> object: ...
+
+
+class Writes(Protocol):
+    """The part of the Core that opens writers."""
+
+    def open_writer(
+        self,
+        start: sy.TimeStamp,
+        channels: list[str],
+        *,
+        authorities: sy.Authority,
+        name: str,
+    ) -> Writer: ...
 
 
 class Log:
@@ -31,7 +54,7 @@ class Log:
     so a line split across two reads arrives whole. Lines queued with log() go first.
     """
 
-    def __init__(self, client: sy.Synnax, name: str) -> None:
+    def __init__(self, client: Writes, name: str) -> None:
         self.name = name
         self.queue: list[str] = []
         self.writer = client.open_writer(
@@ -84,8 +107,7 @@ class Log:
 
     def write(self) -> None:
         if lines := self.queue + self.read():
-            # CrudeFrame's annotation omits name-keyed dicts, which write accepts.
-            self.writer.write({self.name: lines})  # pyright: ignore[reportArgumentType]
+            self.writer.write({self.name: lines})
             self.queue.clear()
 
     def close(self) -> None:

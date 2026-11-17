@@ -77,6 +77,7 @@ func newStreamCore[RQ, RS freighter.Payload](
 
 type streamCoreConfig struct {
 	codec encoding.Codec
+	errs  *errors.Codec
 	conn  *websocket.Conn
 	alamos.Instrumentation
 	writeDeadline time.Duration
@@ -129,18 +130,20 @@ func (c *streamCore[I, O]) Receive() (I, error) {
 	}
 	msg, err := c.receiveRaw()
 	if err != nil {
-		if cause := c.forcedCause(); cause != nil {
+		cause := c.forcedCause()
+		switch {
+		case cause != nil:
 			c.peerCloseErr = cause
-		} else if websocket.IsCloseError(
+		case websocket.IsCloseError(
 			err,
 			websocket.CloseNormalClosure,
 			websocket.CloseNoStatusReceived,
 			websocket.CloseAbnormalClosure,
-		) {
+		):
 			c.peerCloseErr = io.EOF
-		} else if websocket.IsCloseError(err, contextCancelledCloseCode) {
+		case websocket.IsCloseError(err, contextCancelledCloseCode):
 			c.peerCloseErr = context.Canceled
-		} else {
+		default:
 			c.peerCloseErr = freighter.ErrStreamClosed
 		}
 		c.peerCloseErr = errors.WithStack(c.peerCloseErr)
@@ -148,7 +151,7 @@ func (c *streamCore[I, O]) Receive() (I, error) {
 		return i, c.peerCloseErr
 	}
 	if msg.Type == WSMessageTypeClose {
-		c.peerCloseErr = errors.Decode(msg.Err)
+		c.peerCloseErr = c.errs.Decode(msg.Err)
 		if c.peerCloseErr == nil {
 			c.peerCloseErr = io.EOF
 		}

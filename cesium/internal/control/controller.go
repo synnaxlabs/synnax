@@ -46,12 +46,7 @@ type Config struct {
 	Concurrency control.Concurrency
 }
 
-var (
-	_             config.Config[Config] = Config{}
-	defaultConfig                       = Config{
-		Concurrency: control.ConcurrencyExclusive,
-	}
-)
+var _ config.Config[Config] = Config{}
 
 // Validate implements config.Config.
 func (c Config) Validate() error { return nil }
@@ -79,7 +74,9 @@ type Controller[R Resource] struct {
 
 // New creates a new Controller that controls access to the specified resource type.
 func New[R Resource](cfg Config) (*Controller[R], error) {
-	cfg, err := config.New(defaultConfig, cfg)
+	cfg, err := config.New(Config{
+		Concurrency: control.ConcurrencyExclusive,
+	}, cfg)
 	if err != nil {
 		return nil, err
 	}

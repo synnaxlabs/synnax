@@ -290,3 +290,42 @@ var _ = Describe("Delete", func() {
 		Expect(colorExists(ctx, n.Key)).To(BeTrue())
 	})
 })
+
+var _ = Describe("RetrieveBuiltins", func() {
+	It(
+		"Should return the shipped values of the built-in colors",
+		func(ctx SpecContext) {
+			res := MustSucceed(apiSvc.RetrieveBuiltins(ctx, struct{}{}))
+			Expect(res.Colors).To(Equal(color.Builtins()))
+			Expect(res.Colors).To(HaveLen(16))
+		},
+	)
+
+	It("Should return the shipped values after a built-in is edited", func(
+		ctx SpecContext,
+	) {
+		shipped := color.Builtins()[0]
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Color.NewWriter(tx).Apply(
+				ctx,
+				shipped.Key,
+				color.NewSetAction(
+					color.SetPayload{Path: []string{"name"}, Value: "Edited"},
+				),
+			)
+		})).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Color.NewWriter(tx).Apply(
+					ctx,
+					shipped.Key,
+					color.NewSetAction(
+						color.SetPayload{Path: []string{"name"}, Value: shipped.Name},
+					),
+				)
+			})).To(Succeed())
+		})
+		res := MustSucceed(apiSvc.RetrieveBuiltins(ctx, struct{}{}))
+		Expect(res.Colors[0].Name).To(Equal(shipped.Name))
+	})
+})

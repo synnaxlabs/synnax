@@ -91,6 +91,22 @@ const KeyMenu = ({ onKeys }: { onKeys: (keys: string[]) => void }): ReactElement
   );
 };
 
+const TargetMenu = ({
+  onTarget,
+}: {
+  onTarget: (target: HTMLElement | null) => void;
+}): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu menu={({ target }) => <>{onTarget(target)}</>} {...ctx}>
+      <div className={Menu.CONTEXT_TARGET} onContextMenu={ctx.open}>
+        <span>Right click me</span>
+      </div>
+      <button onClick={() => ctx.open({ x: 10, y: 10 })}>Open at a point</button>
+    </Menu.ContextMenu>
+  );
+};
+
 const FocusMenu = (): ReactElement => {
   const ctx = Menu.useContextMenu();
   return (
@@ -159,6 +175,32 @@ describe("ContextMenu", () => {
     render(<KeyMenu onKeys={(keys) => (captured = keys)} />);
     fireEvent.contextMenu(screen.getByText("Right click me"));
     expect(captured).toEqual(["semantic-key"]);
+  });
+
+  it("should give the menu the context target it opened over", () => {
+    let captured: HTMLElement | null = null;
+    render(
+      <TargetMenu
+        onTarget={(target) => {
+          captured = target;
+        }}
+      />,
+    );
+    fireEvent.contextMenu(screen.getByText("Right click me"));
+    expect(captured).toBe(screen.getByText("Right click me").parentElement);
+  });
+
+  it("should give the menu no target when it opens at a point", () => {
+    let captured: HTMLElement | null | undefined;
+    render(
+      <TargetMenu
+        onTarget={(target) => {
+          captured = target;
+        }}
+      />,
+    );
+    act(() => screen.getByText("Open at a point").click());
+    expect(captured).toBeNull();
   });
 
   it("should display the menu on context menu event", () => {

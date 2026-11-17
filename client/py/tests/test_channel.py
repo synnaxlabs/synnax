@@ -17,7 +17,7 @@ import synnax as sy
 from x import filter
 from x.strings import random_name
 from x.telem import seconds_linspace
-from x.testutil import assert_eventually
+from x.testutil import assert_eventually, untyped
 
 
 def channel_name() -> str:
@@ -976,14 +976,14 @@ class TestChannelRetrieveFilters:
         """Should reject a single key beside a limit, since a page could hide a
         match"""
         with pytest.raises(sy.ValidationError, match="cannot set a limit"):
-            client.channels.retrieve(create_channels[0].key, limit=1)  # type: ignore[call-overload]
+            untyped(client.channels.retrieve)(create_channels[0].key, limit=1)
 
     def test_none_field(self, client: sy.Synnax) -> None:
         """Should reject a field set to None, even beside an empty list of keys"""
         with pytest.raises(sy.ValidationError, match="virtual is None"):
-            client.channels.retrieve(virtual=None)  # type: ignore[call-overload]
+            untyped(client.channels.retrieve)(virtual=None)
         with pytest.raises(sy.ValidationError, match="virtual is None"):
-            client.channels.retrieve([], virtual=None)  # type: ignore[call-overload]
+            untyped(client.channels.retrieve)([], virtual=None)
 
     def test_no_params(self, client: sy.Synnax) -> None:
         """Should retrieve a list of channels when no key or name is given"""

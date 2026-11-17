@@ -50,7 +50,7 @@ func Read[R, W any](entity string) (Vectors[R, W], error) {
 		filepath.Dir(file),
 		"../../../../testdata/filter/vectors.json",
 	)
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return v, err
 	}
