@@ -10,7 +10,7 @@
 # Installs agent_boot.py at $Commit on a Windows runner and restarts the agent. Also
 # installs start-runner.ps1 and the GitHubActionsRunner task for the runner name prefix
 # $Prefix and the $Labels of the runner's pool, in the first of the $Runners folders
-# that holds a configured GitHub runner.
+# that holds a GitHub runner, registered or not.
 
 param($Commit, $CoreHost, $Ca, $Prefix, $Labels, [string[]]$Runners)
 
@@ -23,7 +23,7 @@ $Task = 'RunnerAgent'
 $Uv = 'https://github.com/astral-sh/uv/releases/download/0.12.5'
 $Source = "https://raw.githubusercontent.com/synnaxlabs/synnax/$Commit/scripts/runners"
 
-$Runner = $Runners | Where-Object { Test-Path (Join-Path $_ '.runner') } |
+$Runner = $Runners | Where-Object { Test-Path (Join-Path $_ 'config.cmd') } |
     Select-Object -First 1
 if (-not $Runner) { throw "No GitHub runner in $($Runners -join ', ')" }
 if (-not [Environment]::GetEnvironmentVariable('GITHUB_PAT', 'Machine')) {
