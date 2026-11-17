@@ -13,6 +13,7 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/common/factory.h"
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/task/task.h"
 
 namespace driver::common {
@@ -108,7 +109,10 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_Success) {
     x::breaker::Breaker cancel;
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    const auto ctx = std::make_shared<driver::task::MockContext>(client);
+    const auto ctx = std::make_shared<driver::task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     const auto factory = std::make_unique<MockFactory>();
     cancel.start();
     auto tasks = configure_initial_factory_tasks(
@@ -134,7 +138,10 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_ExistingTask) {
     x::breaker::Breaker cancel;
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto factory = std::make_unique<MockFactory>();
     synnax::task::Task existing_task{
         .rack = rack.key,
@@ -162,7 +169,10 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_ConfigurationFailure) {
     x::breaker::Breaker cancel;
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto factory = std::make_unique<MockFactory>();
     factory->should_fail = true;
     cancel.start();
@@ -188,7 +198,10 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_MultipleConfigurations) {
     x::breaker::Breaker cancel;
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto factory = std::make_unique<MockFactory>();
     cancel.start();
     auto tasks1 = configure_initial_factory_tasks(

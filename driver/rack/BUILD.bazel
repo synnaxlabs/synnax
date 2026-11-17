@@ -68,6 +68,7 @@ cc_library(
         "//driver/modbus:names",
         "//driver/ni:names",
         "//driver/opcua",
+        "//driver/outbox",
         "//driver/rack/status",
         "//driver/task",
         "//x/cpp/args",
@@ -103,6 +104,7 @@ cc_test(
     deps = [
         "//driver/labjack:names",
         "//driver/ni:names",
+        "//driver/outbox/testutil",
         "//driver/rack",
         "//driver/task",
         "@googletest//:gtest_main",
@@ -117,6 +119,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/ni:names",
+        "//driver/outbox/testutil",
         "//driver/rack",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
@@ -131,6 +134,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/labjack:names",
+        "//driver/outbox/testutil",
         "//driver/rack",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
@@ -162,8 +166,12 @@ cc_test(
     tags = ["requires-core"],
     deps = [
         "//client/cpp/testutil",
+        "//driver/journal",
+        "//driver/outbox",
+        "//driver/outbox/testutil",
         "//driver/rack",
         "//driver/rack/status",
+        "//x/cpp/defer",
         "//x/cpp/kv",
         "@googletest//:gtest_main",
     ],

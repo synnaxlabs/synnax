@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -17,9 +18,12 @@
 #include "client/cpp/auth/auth.h"
 #include "client/cpp/testutil/pipe.h"
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/kv/kv.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/journal/journal.h"
+#include "driver/outbox/outbox.h"
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
@@ -119,5 +123,53 @@ TEST(RackTest, WaitsForAnUnreachableCorePastTheRetryLimit) {
     ASSERT_FALSE(shut_down);
     pipe.resume();
     ASSERT_NIL(r.stop());
+}
+
+/// @brief returns arguments that log the rack in to the test Core.
+x::args::Parser core_args() {
+    const auto conn = test_client_config();
+    return fresh_args({
+        "--host",
+        conn.host,
+        "--port",
+        std::to_string(conn.port),
+        "--username",
+        conn.username,
+        "--password",
+        conn.password,
+    });
+}
+
+/// @brief it should open the outbox in the state directory.
+TEST(RackTest, OpensOutbox) {
+    const auto outbox = std::filesystem::path(RACK_STATE_PATH).parent_path() /
+                        OUTBOX_DIR;
+    std::filesystem::remove_all(outbox);
+    auto args = core_args();
+    Rack r;
+    r.start(args);
+    ASSERT_EVENTUALLY_TRUE(std::filesystem::exists(outbox));
+    ASSERT_NIL(r.stop());
+}
+
+/// @brief it should call on_shutdown and return the error when the outbox cannot
+/// open.
+TEST(RackTest, OutboxErrorStopsRack) {
+    const auto outbox = std::filesystem::path(RACK_STATE_PATH).parent_path() /
+                        OUTBOX_DIR;
+    std::filesystem::remove_all(outbox);
+    std::filesystem::create_directories(outbox);
+    {
+        std::ofstream file(outbox / "0.calls", std::ios::binary);
+        file.write(outbox::SEGMENT_MAGIC.data(), outbox::SEGMENT_MAGIC.size());
+        file.write("\x02\x00\x00\x00", 4);
+    }
+    x::defer::defer cleanup([&] { std::filesystem::remove_all(outbox); });
+    auto args = core_args();
+    std::atomic shut_down = false;
+    Rack r;
+    r.start(args, [&] { shut_down = true; });
+    ASSERT_EVENTUALLY_TRUE(shut_down.load());
+    ASSERT_OCCURRED_AS(r.stop(), journal::UNKNOWN_VERSION);
 }
 }

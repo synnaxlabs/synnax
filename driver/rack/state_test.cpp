@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -25,6 +26,7 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/rack/rack.h"
+#include "driver/rack/state.h"
 
 namespace driver::rack {
 /// @brief it should keep the state of a user in the folder of that user while the
@@ -294,5 +296,67 @@ TEST(StateTest, RefuseReadableRelativeStateFile) {
     );
     Config cfg;
     ASSERT_OCCURRED_AS(cfg.load_persisted_state(args), STATE_ERROR);
+}
+
+/// @brief restores STATE_DIRECTORY after each spec.
+class DataDirTest : public ::testing::Test {
+    std::optional<std::string> previous;
+
+protected:
+    void SetUp() override {
+        if (const char *v = std::getenv("STATE_DIRECTORY")) this->previous = v;
+    }
+
+    void TearDown() override {
+        if (this->previous.has_value())
+            x::env::set("STATE_DIRECTORY", *this->previous);
+        else
+            x::env::unset("STATE_DIRECTORY");
+    }
+
+    /// @brief sets STATE_DIRECTORY as systemd does for the service. An empty value
+    /// unsets it.
+    static void set_service_dirs(const std::string &dirs) {
+        if (dirs.empty())
+            x::env::unset("STATE_DIRECTORY");
+        else
+            x::env::set("STATE_DIRECTORY", dirs);
+    }
+};
+
+/// @brief it should keep data in the state directory when it is not the directory of
+/// the computer, even in a service.
+TEST_F(DataDirTest, StateDirOutsideTheComputerDir) {
+    set_service_dirs("/tmp/rack-data-dir-service");
+    const std::filesystem::path dir = "/tmp/rack-data-dir-test";
+    ASSERT_EQ(ASSERT_NIL_P(state::data_dir(dir)), dir);
+}
+
+/// @brief it should keep data in the directory of the computer outside a service, as
+/// in a container that mounts it as a volume.
+TEST_F(DataDirTest, ComputerDirOutsideAService) {
+    set_service_dirs("");
+    ASSERT_EQ(
+        ASSERT_NIL_P(state::data_dir(state::machine_dir())),
+        state::machine_dir()
+    );
+}
+
+/// @brief it should keep the data of the service in the first directory that systemd
+/// gives it, and create the folder there.
+TEST_F(DataDirTest, FirstServiceStateDirectory) {
+#ifdef _WIN32
+    GTEST_SKIP() << "Windows has no systemd";
+#else
+    if (geteuid() == 0) GTEST_SKIP() << "root keeps its data in its state directory";
+    const auto service = std::filesystem::temp_directory_path() / "rack-data-dir-test";
+    std::filesystem::remove_all(service);
+    std::filesystem::create_directories(service);
+    x::defer::defer cleanup([&] { std::filesystem::remove_all(service); });
+    set_service_dirs(service.string() + ":/var/lib/synnax-driver/bin");
+    const auto dir = ASSERT_NIL_P(state::data_dir(state::machine_dir()));
+    ASSERT_EQ(dir, service / "driver");
+    ASSERT_TRUE(std::filesystem::is_directory(dir));
+#endif
 }
 }

@@ -74,6 +74,7 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/labjack",
         "//driver/labjack/device:mock",
+        "//driver/outbox/testutil",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

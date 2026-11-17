@@ -40,6 +40,7 @@ cc_test(
         "//client/cpp/connection",
         "//client/cpp/status",
         "//client/cpp/testutil",
+        "//driver/outbox/testutil",
         "//driver/rack/status",
         "//freighter/cpp:freighter",
         "//x/cpp/defer",

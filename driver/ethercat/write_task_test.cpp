@@ -18,6 +18,7 @@
 #include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/testutil/master.h"
 #include "driver/ethercat/write_task.h"
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
 #include "engine/engine.h"
 
@@ -78,7 +79,10 @@ protected:
 
         rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
-        ctx = std::make_shared<task::MockContext>(client);
+        ctx = std::make_shared<task::MockContext>(
+            client,
+            ::driver::outbox::testutil::open(client->statuses)
+        );
 
         slave_device = create_slave_device(
             SLAVE_SERIAL,

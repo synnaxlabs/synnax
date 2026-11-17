@@ -20,6 +20,7 @@
 #include "driver/ni/daqmx/mock.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/write_task.h"
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::ni {
@@ -126,7 +127,10 @@ protected:
         cfg = std::make_unique<WriteTaskConfig>(client, p, "ni_analog_write");
         ASSERT_NIL(p.error());
 
-        ctx = std::make_shared<driver::task::MockContext>(client);
+        ctx = std::make_shared<driver::task::MockContext>(
+            client,
+            ::driver::outbox::testutil::open(client->statuses)
+        );
         mock_writer_factory = std::make_shared<
             driver::pipeline::testutil::WriterFactory>();
     }
@@ -413,7 +417,10 @@ TEST_F(SingleChannelAnalogWriteTest, testFunctionGeneratorIsNotCommanded) {
     ASSERT_EQ(cfg->buf_indexes.size(), 1);
     EXPECT_EQ(cfg->buf_indexes.at(cmd_ch_1.key), 0);
 
-    ctx = std::make_shared<driver::task::MockContext>(client);
+    ctx = std::make_shared<driver::task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     mock_writer_factory = std::make_shared<driver::pipeline::testutil::WriterFactory>();
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     constexpr double v = 3;
@@ -574,7 +581,10 @@ protected:
                 x::errors::NIL,
             };
         };
-        run.ctx = std::make_shared<task::MockContext>(this->client);
+        run.ctx = std::make_shared<task::MockContext>(
+            this->client,
+            ::driver::outbox::testutil::open(this->client->statuses)
+        );
         run.writers = std::make_shared<pipeline::testutil::CoreWriterFactory>(
             this->client
         );

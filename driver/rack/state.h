@@ -10,12 +10,21 @@
 #pragma once
 
 #include <filesystem>
+#include <utility>
 
 #include "x/cpp/errors/errors.h"
 
 namespace driver::rack::state {
 /// @brief the state directory of the computer, which the Driver service reads.
 std::filesystem::path machine_dir();
+
+/// @brief returns the directory for data the Driver keeps across restarts, such as the
+/// outbox, and creates it when missing. A systemd service that is not root and uses
+/// the state directory of the computer keeps it in the first directory of
+/// STATE_DIRECTORY, which the service user owns, so a Driver that updates itself can
+/// write it. Every other process keeps it in state_dir.
+std::pair<std::filesystem::path, x::errors::Error>
+data_dir(const std::filesystem::path &state_dir);
 
 /// @brief the state directory of the user, or of the user that ran sudo. Empty on
 /// Linux, where every process uses the directory of the computer.

@@ -121,6 +121,19 @@ fs::path machine_dir() {
 #endif
 }
 
+std::pair<fs::path, x::errors::Error> data_dir(const fs::path &state_dir) {
+    // Only systemd sets STATE_DIRECTORY, and its first directory is the one the
+    // service user owns. Root keeps its data in its own state directory.
+    const char *service_dirs = std::getenv("STATE_DIRECTORY");
+    if (service_dirs == nullptr || state_dir != machine_dir() || geteuid() == 0)
+        return {state_dir, x::errors::NIL};
+    const std::string dirs = service_dirs;
+    const auto dir = fs::path(dirs.substr(0, dirs.find(':'))) / "driver";
+    if (mkdir(dir.c_str(), S_IRWXU) != 0 && errno != EEXIST)
+        return {{}, errno_error("failed to create data directory")};
+    return {dir, x::errors::NIL};
+}
+
 fs::path user_dir() {
 #ifdef __APPLE__
     const char *home = std::getenv("HOME");

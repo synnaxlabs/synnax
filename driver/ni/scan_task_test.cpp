@@ -32,6 +32,7 @@
 #include "driver/ni/ni.h"
 #include "driver/ni/scan_task.h"
 #include "driver/ni/syscfg/api.h"
+#include "driver/outbox/testutil/testutil.h"
 
 namespace driver::ni {
 /// @brief it should parse scan task configuration with defaults and custom values.
@@ -696,7 +697,8 @@ TEST(ScannerTest, testWarnsUntilLibraryLoads) {
         }
     );
     const auto ctx = std::make_shared<task::MockContext>(
-        std::make_shared<synnax::Synnax>(new_test_client())
+        std::make_shared<synnax::Synnax>(new_test_client()),
+        ::driver::outbox::testutil::open({})
     );
     cancel.start();
     auto [scan_task, handled] = factory.configure_task(

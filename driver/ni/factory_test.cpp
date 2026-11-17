@@ -17,6 +17,7 @@
 
 #include "driver/ni/daqmx/mock.h"
 #include "driver/ni/ni.h"
+#include "driver/outbox/testutil/testutil.h"
 
 namespace driver::ni {
 /// @brief the description of a configure that fails because DAQmx does not load.
@@ -51,7 +52,10 @@ protected:
     void SetUp() override {
         this->cancel.start();
         const auto client = std::make_shared<synnax::Synnax>(new_test_client());
-        this->ctx = std::make_shared<task::MockContext>(client);
+        this->ctx = std::make_shared<task::MockContext>(
+            client,
+            ::driver::outbox::testutil::open(client->statuses)
+        );
         const auto rack = ASSERT_NIL_P(client->racks.create("ni_factory"));
         auto dev = synnax::device::Device{
             .key = make_unique_channel_name("ni_factory_device"),

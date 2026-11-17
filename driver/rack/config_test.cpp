@@ -19,6 +19,7 @@
 #include "x/cpp/kv/kv.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/rack/rack.h"
 #include "driver/rack/status/status.h"
 #include "driver/version/version.h"
@@ -153,7 +154,10 @@ TEST_F(RackConfigTest, IncompatibleCoreRunsOnlyRackStatus) {
     x::breaker::Breaker cancel;
     cancel.start();
     auto tasks = factory->configure_initial_tasks(
-        std::make_shared<task::MockContext>(client),
+        std::make_shared<task::MockContext>(
+            client,
+            ::driver::outbox::testutil::open(client->statuses)
+        ),
         rack,
         cancel
     );

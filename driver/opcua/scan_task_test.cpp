@@ -28,6 +28,7 @@
 #include "driver/opcua/scan_task.h"
 #include "driver/opcua/testutil/server.h"
 #include "driver/opcua/testutil/testutil.h"
+#include "driver/outbox/testutil/testutil.h"
 
 namespace driver::opcua {
 class TestScanTask : public ::testing::Test {
@@ -68,7 +69,10 @@ protected:
     void SetUp() override {
         this->cancel.start();
         client = std::make_shared<synnax::Synnax>(new_test_client());
-        ctx = std::make_shared<task::MockContext>(client);
+        ctx = std::make_shared<task::MockContext>(
+            client,
+            ::driver::outbox::testutil::open(client->statuses)
+        );
         dir = std::filesystem::temp_directory_path() /
               ("opcua-scan-" + x::uuid::create().to_string());
         std::filesystem::copy(store_dir, dir, std::filesystem::copy_options::recursive);
