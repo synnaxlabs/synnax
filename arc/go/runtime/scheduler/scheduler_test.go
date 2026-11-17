@@ -3815,11 +3815,13 @@ var _ = Describe("Scheduler", func() {
 		}
 		// program puts trigger first in the root, then scopes in the given order.
 		program := func(nodeKeys []string, scopes ...ir.Scope) ir.IR {
-			irNodes := []ir.Node{irNode("trigger", "output")}
+			irNodes := make([]ir.Node, 0, 1+len(nodeKeys))
+			irNodes = append(irNodes, irNode("trigger", "output"))
 			for _, k := range nodeKeys {
 				irNodes = append(irNodes, irNode(k, "output"))
 			}
-			members := []ir.Member{{NodeKey: new("trigger")}}
+			members := make([]ir.Member, 0, 1+len(scopes))
+			members = append(members, ir.Member{NodeKey: new("trigger")})
 			for i := range scopes {
 				members = append(members, ir.Member{Scope: new(scopes[i])})
 			}

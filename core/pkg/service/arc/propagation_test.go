@@ -77,12 +77,14 @@ var _ = Describe("Change propagation", Ordered, func() {
 		editor++
 		client := crdt.New(editor)
 		client.Load(doc.Inserts, doc.Deletes)
-		var acts []arc.Action
-		for _, op := range client.Delete(0, client.Len()) {
+		deletes := client.Delete(0, client.Len())
+		inserts := client.Insert(0, raw)
+		acts := make([]arc.Action, 0, len(deletes)+len(inserts))
+		for _, op := range deletes {
 			del := arc.DeleteCharPayload{ID: op.ID}
 			acts = append(acts, arc.NewDeleteCharAction(del))
 		}
-		for _, op := range client.Insert(0, raw) {
+		for _, op := range inserts {
 			acts = append(acts, arc.NewInsertCharAction(arc.InsertCharPayload{
 				ID: op.ID, Origin: op.Origin, Side: op.Side, Char: op.Char,
 			}))
@@ -248,11 +250,12 @@ var _ = Describe("Change propagation", Ordered, func() {
 			key := deploy(ctx, a)
 			before := settledHash(ctx, key)
 			client := crdt.New(2)
-			var acts []arc.Action
-			for _, op := range client.Insert(0, moduleV1) {
-				acts = append(acts, arc.NewInsertCharAction(arc.InsertCharPayload{
+			ops := client.Insert(0, moduleV1)
+			acts := make([]arc.Action, len(ops))
+			for i, op := range ops {
+				acts[i] = arc.NewInsertCharAction(arc.InsertCharPayload{
 					ID: op.ID, Origin: op.Origin, Side: op.Side, Char: op.Char,
-				}))
+				})
 			}
 			Expect(dispatch(ctx, m.Base().Key, "dk", acts)).To(Succeed())
 			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))

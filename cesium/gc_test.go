@@ -82,11 +82,11 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 						By("Writing data to the channel")
 						for i := 1; i <= 9; i++ {
-							var data []int64
-							var timestamps []telem.TimeStamp
-							for j := range 10 {
-								data = append(data, int64(i*100+j*10))
-								timestamps = append(timestamps, telem.TimeStamp(i*10+j))
+							data := make([]int64, 10)
+							timestamps := make([]telem.TimeStamp, 10)
+							for j := range data {
+								data[j] = int64(i*100 + j*10)
+								timestamps[j] = telem.TimeStamp(i*10 + j)
 							}
 
 							Expect(
@@ -186,11 +186,11 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 						By("Writing data to the channel")
 						for i := 1; i <= 9; i++ {
-							var data []int64
-							var timestamps []telem.TimeStamp
-							for j := range 10 {
-								data = append(data, int64(i*100+j*10))
-								timestamps = append(timestamps, telem.TimeStamp(i*10+j))
+							data := make([]int64, 10)
+							timestamps := make([]telem.TimeStamp, 10)
+							for j := range data {
+								data[j] = int64(i*100 + j*10)
+								timestamps[j] = telem.TimeStamp(i*10 + j)
 							}
 
 							Expect(
@@ -309,11 +309,11 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 						By("Writing data to the channel")
 						for i := 1; i <= 9; i++ {
-							var data []int64
-							var timestamps []telem.TimeStamp
-							for j := range 10 {
-								data = append(data, int64(i*100+j*10))
-								timestamps = append(timestamps, telem.TimeStamp(i*10+j))
+							data := make([]int64, 10)
+							timestamps := make([]telem.TimeStamp, 10)
+							for j := range data {
+								data[j] = int64(i*100 + j*10)
+								timestamps[j] = telem.TimeStamp(i*10 + j)
 							}
 
 							Expect(

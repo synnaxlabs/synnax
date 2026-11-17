@@ -401,10 +401,7 @@ func (p *Plugin) renderFile(
 	// Structs come first so that when there's a cycle, typedefs (like array types) are
 	// placed after their element types. Array typedefs can't use getters, so they must
 	// come after their element types are defined.
-	var combinedTypes []resolution.Type
-	combinedTypes = append(combinedTypes, structs...)
-	combinedTypes = append(combinedTypes, dependentTypeDefs...)
-	combinedTypes = append(combinedTypes, unions...)
+	combinedTypes := slices.Concat(structs, dependentTypeDefs, unions)
 
 	// Sort topologically so dependencies come before dependents
 	sortedTypes := req.Resolutions.TopologicalSort(combinedTypes)

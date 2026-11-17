@@ -91,7 +91,7 @@ func fieldNamed(m icd.Message, name string) icd.BinaryField {
 // toExpected converts parsed messages to the shape of the cantools decoding.
 func toExpected(messages []icd.Message) []expectedMessage {
 	GinkgoHelper()
-	var out []expectedMessage
+	out := make([]expectedMessage, 0, len(messages))
 	for _, m := range messages {
 		p := binaryPayloadOf(m)
 		id := canIdentifier(m)

@@ -77,9 +77,10 @@ var _ = Describe("SnapshotMigration", func() {
 				"reason": reason,
 			}
 		}
-		var got []map[string]any
-		for _, e := range logs.FilterMessage("deleted a visualization").All() {
-			got = append(got, e.ContextMap())
+		logged := logs.FilterMessage("deleted a visualization").All()
+		got := make([]map[string]any, len(logged))
+		for i, e := range logged {
+			got[i] = e.ContextMap()
 		}
 		Expect(got).To(ConsistOf(
 			deleted(snapshot, "snapshot"),
