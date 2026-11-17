@@ -34,6 +34,11 @@ Mountain Time, that the stable `core/vX.Y.0` release was published. Notes with n
 Core release show "Unreleased" and no links. Never pass a `date` to the notes of 0.59 or
 later. Earlier notes keep the prop, because their tags are `synnax-v*`.
 
+Draft notes for an unreleased version go in `src/releases/X-Y-Z.draft.md`. The site, the
+search index, and the redirects read only `.mdx` files, so a draft is not served. To
+publish a draft, rename it to `.mdx`, wrap it in `<Releases.Release version="X.Y.Z">`,
+and import it in `src/pages/releases/index.mdx`.
+
 ## Versions
 
 `DOCS_VERSION` names the version a build describes: a train such as `0.61`, or `next`
