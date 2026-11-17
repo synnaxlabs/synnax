@@ -35,12 +35,12 @@ import { TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@/testutil";
 import { Transport } from "@/transport";
 
 const liveUnary = (): UnaryClient => {
-  const transport = new Transport(
-    new url.URL({
+  const transport = new Transport({
+    url: new url.URL({
       host: TEST_CLIENT_PARAMS.host,
       port: Number(TEST_CLIENT_PARAMS.port),
     }),
-  );
+  });
   const client = new auth.Client(transport.unary, { credentials: TEST_CREDENTIALS });
   transport.use(client.middleware());
   return transport.unary;

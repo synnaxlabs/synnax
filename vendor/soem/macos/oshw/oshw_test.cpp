@@ -12,13 +12,16 @@ extern "C" {
 #include "oshw.h"
 }
 
+#include <array>
+#include <cstdio>
 #include <cstring>
 #include <set>
 #include <string>
+#include <vector>
 
+#include "gtest/gtest.h"
 #include <arpa/inet.h>
 #include <pcap.h>
-#include "gtest/gtest.h"
 
 /// @brief Test fixture for byte order conversion tests.
 class OshwByteOrderTest : public ::testing::Test {};
@@ -192,6 +195,106 @@ TEST_F(OshwBufferTest, SetBufStatSetsEmpty) {
     this->port.rxbufstat[idx] = EC_BUF_COMPLETE;
     ecx_setbufstat(&this->port, idx, EC_BUF_EMPTY);
     EXPECT_EQ(this->port.rxbufstat[idx], EC_BUF_EMPTY);
+}
+
+/// @brief the source MAC of a frame that passed the slaves, which change the MAC.
+constexpr std::array<uint16, 3> SLAVE_MAC = {0x0202, 0x0000, 0x0001};
+
+/// @brief a port that reads the packets of an in-memory capture.
+class OshwReceiveTest : public OshwBufferTest {
+protected:
+    std::vector<uint8_t> capture;
+
+    void add(const std::vector<uint8_t> &bytes) {
+        this->capture.insert(this->capture.end(), bytes.begin(), bytes.end());
+    }
+
+    void add32(const uint32_t value) {
+        this->add({
+            static_cast<uint8_t>(value),
+            static_cast<uint8_t>(value >> 8),
+            static_cast<uint8_t>(value >> 16),
+            static_cast<uint8_t>(value >> 24),
+        });
+    }
+
+    void SetUp() override {
+        OshwBufferTest::SetUp();
+        auto &stack = this->port.stack;
+        stack.pcap_handle = &this->port.pcap_handle;
+        stack.txbuf = &this->port.txbuf;
+        stack.txbuflength = &this->port.txbuflength;
+        stack.tempbuf = &this->port.tempinbuf;
+        stack.rxbuf = &this->port.rxbuf;
+        stack.rxbufstat = &this->port.rxbufstat;
+        stack.rxsa = &this->port.rxsa;
+        // The capture header: version 2.4, a 65535 byte snap length, and Ethernet.
+        this->add32(0xa1b2c3d4);
+        this->add32(0x00040002);
+        this->add32(0);
+        this->add32(0);
+        this->add32(65535);
+        this->add32(1);
+    }
+
+    void TearDown() override {
+        if (this->port.pcap_handle != nullptr) pcap_close(this->port.pcap_handle);
+        OshwBufferTest::TearDown();
+    }
+
+    /// @brief adds a frame of one datagram with 2 data bytes for the index, from the
+    /// source MAC with the words mac.
+    void add_frame(const uint8 idx, const uint16 wkc, const std::array<uint16, 3> mac) {
+        std::vector<uint8_t> frame(ETH_HEADERSIZE + EC_HEADERSIZE + 2 + EC_WKCSIZE);
+        std::memset(frame.data(), 0xff, 6);
+        for (int i = 0; i < 3; i++) {
+            frame[6 + 2 * i] = static_cast<uint8_t>(mac[i] >> 8);
+            frame[7 + 2 * i] = static_cast<uint8_t>(mac[i]);
+        }
+        frame[12] = ETH_P_ECAT >> 8;
+        frame[13] = ETH_P_ECAT & 0xff;
+        const uint16 length = EC_ECATTYPE + EC_HEADERSIZE + 2;
+        frame[ETH_HEADERSIZE] = static_cast<uint8_t>(length);
+        frame[ETH_HEADERSIZE + 1] = static_cast<uint8_t>(length >> 8);
+        frame[ETH_HEADERSIZE + 3] = idx;
+        frame[frame.size() - 2] = static_cast<uint8_t>(wkc);
+        frame[frame.size() - 1] = static_cast<uint8_t>(wkc >> 8);
+        this->add32(0);
+        this->add32(0);
+        this->add32(static_cast<uint32_t>(frame.size()));
+        this->add32(static_cast<uint32_t>(frame.size()));
+        this->add(frame);
+        this->port.txbuflength[idx] = static_cast<int>(frame.size());
+    }
+
+    void open() {
+        FILE *file = fmemopen(this->capture.data(), this->capture.size(), "rb");
+        ASSERT_NE(file, nullptr);
+        char err[PCAP_ERRBUF_SIZE];
+        this->port.pcap_handle = pcap_fopen_offline(file, err);
+        ASSERT_NE(this->port.pcap_handle, nullptr) << err;
+    }
+};
+
+/// @brief it should read past the echo of a frame and a frame of another index to the
+/// frame that it waits for, even with no time to wait.
+TEST_F(OshwReceiveTest, WaitReadsPastOtherPacketsWithNoTimeout) {
+    constexpr uint8 idx = 3;
+    this->add_frame(idx, 0, {priMAC[0], priMAC[1], priMAC[2]});
+    this->add_frame(5, 1, SLAVE_MAC);
+    this->add_frame(idx, 7, SLAVE_MAC);
+    this->port.rxbufstat[idx] = EC_BUF_TX;
+    ASSERT_NO_FATAL_FAILURE(this->open());
+    EXPECT_EQ(ecx_waitinframe(&this->port, idx, 0), 7);
+}
+
+/// @brief it should return no frame when the capture holds none for the index.
+TEST_F(OshwReceiveTest, WaitReturnsNoFrameWhenNoneCameIn) {
+    constexpr uint8 idx = 3;
+    this->add_frame(5, 1, SLAVE_MAC);
+    this->port.rxbufstat[idx] = EC_BUF_TX;
+    ASSERT_NO_FATAL_FAILURE(this->open());
+    EXPECT_EQ(ecx_waitinframe(&this->port, idx, 0), EC_NOFRAME);
 }
 
 TEST_F(OshwAdapterTest, FindAdaptersReturnsNonNull) {

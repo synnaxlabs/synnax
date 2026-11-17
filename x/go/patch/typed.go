@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"fmt"
 	"math"
 	"slices"
 	"unicode/utf8"
@@ -248,9 +249,10 @@ func whole[T any](dst *T, c Cursor) error {
 		return decode(dst, c)
 	case kindRemove:
 		return zero(dst, c)
-	default:
+	case kindInsert, kindMove:
 		return c.notList()
 	}
+	panic(fmt.Sprintf("patch: invalid action kind %d", c.kind))
 }
 
 // zero leaves the zero value in a required field that the action empties, which only a
@@ -290,9 +292,10 @@ func optional[T any](dst **T, c Cursor) error {
 	case kindRemove:
 		*dst = nil
 		return nil
-	default:
+	case kindInsert, kindMove:
 		return c.notList()
 	}
+	panic(fmt.Sprintf("patch: invalid action kind %d", c.kind))
 }
 
 // decode stores the action's value in dst as a JSON round trip would. A strict cursor

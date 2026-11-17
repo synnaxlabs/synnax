@@ -28,7 +28,7 @@ type TimeSpan = v0.TimeSpan
 // predictable boundary handling.
 type TimeRange = v0.TimeRange
 
-// Window is a window of time: a rolling span that ends now, or a fixed range.
+// Window is a window of time: a rolling span or a fixed range.
 type Window = v0.Window
 
 // WindowVariant is implemented by every Window variant.

@@ -169,8 +169,8 @@ func measureTopic(
 	starts, ends, recent kadm.ListedOffsets,
 	configs kadm.ResourceConfigs,
 ) []fetchRange {
-	var newest []fetchRange
 	partitions, err := partitionRanges(t.Name, starts, ends)
+	newest := make([]fetchRange, 0, len(partitions))
 	for _, p := range partitions {
 		t.Records += p.to - p.from
 		after, ok := recent.Lookup(p.topic, p.partition)
@@ -551,11 +551,11 @@ func shapeTopic(t *sampledTopic, rs []*kgo.Record) []sampledRecord {
 			cmp.Compare(a.Offset, b.Offset),
 		)
 	})
-	var sampled []sampledRecord
+	sampled := make([]sampledRecord, len(rs))
 	docs := make([]xjson.Document, len(rs))
 	for j, r := range rs {
 		rec := newSampledRecord(r)
-		sampled = append(sampled, rec)
+		sampled[j] = rec
 		docs[j] = xjson.Document{Source: rec.Key, Data: r.Value, Time: rec.Time}
 	}
 	t.Shapes = xjson.Infer(docs)

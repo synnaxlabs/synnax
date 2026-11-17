@@ -107,20 +107,47 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 		return nil, err
 	}
 
-	p := plumber.New()
-	p.SetSource[framer.StreamerResponse](streamerAddr, strm)
-	p.SetSegment[framer.WriterRequest, framer.WriterResponse](writerAddr, wrt)
-
 	streamerRequests := confluence.NewStream[framer.StreamerRequest](10)
 	strm.InFrom(streamerRequests)
 	opened := make(chan struct{})
-	c := &transform{
+	p := newGroupPipeline(cfg, strm, wrt, &transform{
 		streamerRequests: streamerRequests,
 		calculators:      cfg.calculators,
 		report:           cfg.report,
 		opened:           opened,
-	}
+	})
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
+	p.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.WithRetryOnPanic())
 
+	g := &group{
+		shutdown:         signal.NewGracefulShutdown(sCtx, cancel),
+		streamerRequests: streamerRequests,
+		Calculators:      cfg.calculators,
+	}
+	// Waiting for the source streamer's open ack means a source write issued after
+	// openGroup returns reaches the calculators.
+	select {
+	case <-opened:
+	case <-ctx.Done():
+		return nil, errors.Join(ctx.Err(), g.Close())
+	}
+	cfg.L.Debug("group pipeline opened successfully",
+		zap.Int("calculator_count", len(cfg.calculators)),
+	)
+	return g, nil
+}
+
+// newGroupPipeline returns a pipeline that streams the reads of the calculators of the
+// group into c and writes its output with wrt.
+func newGroupPipeline(
+	cfg groupConfig,
+	strm framer.Streamer,
+	wrt writer.StreamWriter,
+	c *transform,
+) *plumber.Pipeline {
+	p := plumber.New()
+	p.SetSource[framer.StreamerResponse](streamerAddr, strm)
+	p.SetSegment[framer.WriterRequest, framer.WriterResponse](writerAddr, wrt)
 	p.SetSegment[framer.StreamerResponse, framer.WriterRequest](calculatorAddr, c)
 	o := confluence.NewObservableSubscriber[framer.WriterResponse]()
 	o.OnChange(func(ctx context.Context, res framer.WriterResponse) {
@@ -142,23 +169,5 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 		writerObserverAddr,
 		defaultPipelineBufferSize,
 	)
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-	p.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.WithRetryOnPanic())
-
-	g := &group{
-		shutdown:         signal.NewGracefulShutdown(sCtx, cancel),
-		streamerRequests: streamerRequests,
-		Calculators:      cfg.calculators,
-	}
-	// Waiting for the source streamer's open ack means a source write issued after
-	// openGroup returns reaches the calculators.
-	select {
-	case <-opened:
-	case <-ctx.Done():
-		return nil, errors.Join(ctx.Err(), g.Close())
-	}
-	cfg.L.Debug("group pipeline opened successfully",
-		zap.Int("calculator_count", len(cfg.calculators)),
-	)
-	return g, nil
+	return p
 }

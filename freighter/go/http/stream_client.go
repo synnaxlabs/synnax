@@ -40,18 +40,24 @@ type StreamClientConfig struct {
 	//
 	// [REQUIRED]
 	Codec xhttp.Codec
+	// Errors decodes the errors that the server sends.
+	//
+	// [REQUIRED]
+	Errors *errors.Codec
 }
 
 // Validate implements config.Config.
 func (c StreamClientConfig) Validate() error {
 	v := validate.New("http.stream_client")
 	v.NotNil("codec", c.Codec)
+	v.NotNil("errors", c.Errors)
 	return v.Error()
 }
 
 // Override implements config.Config.
 func (c StreamClientConfig) Override(other StreamClientConfig) StreamClientConfig {
 	c.Codec = override.Nil(c.Codec, other.Codec)
+	c.Errors = override.Nil(c.Errors, other.Errors)
 	return c
 }
 
@@ -66,12 +72,13 @@ func NewStreamClient[RQ, RS freighter.Payload](
 	if err != nil {
 		return nil, err
 	}
-	return &streamClient[RQ, RS]{codec: cfg.Codec}, nil
+	return &streamClient[RQ, RS]{codec: cfg.Codec, errs: cfg.Errors}, nil
 }
 
 type streamClient[RQ, RS freighter.Payload] struct {
 	alamos.Instrumentation
 	codec  xhttp.Codec
+	errs   *errors.Codec
 	dialer ws.Dialer
 	freighter.MiddlewareCollector
 }
@@ -117,6 +124,7 @@ func (s *streamClient[RQ, RS]) Stream(
 				streamCoreConfig{
 					conn:            conn,
 					codec:           s.codec,
+					errs:            s.errs,
 					Instrumentation: s.Instrumentation,
 				},
 				ctx.Done(),
@@ -126,7 +134,7 @@ func (s *streamClient[RQ, RS]) Stream(
 				return oCtx, err
 			}
 			if msg.Type != WSMessageTypeOpen {
-				return oCtx, errors.Decode(msg.Err)
+				return oCtx, s.errs.Decode(msg.Err)
 			}
 			stream = &clientStream[RQ, RS]{streamCore: core}
 			return oCtx, nil

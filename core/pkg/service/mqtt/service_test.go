@@ -69,9 +69,10 @@ var _ = Describe("Service", func() {
 
 	Describe("Stores", func() {
 		It("Should expose one store per MQTT task type", func() {
-			types := []string{}
-			for _, s := range svc.Stores() {
-				types = append(types, s.Type())
+			stores := svc.Stores()
+			types := make([]string, len(stores))
+			for i, s := range stores {
+				types[i] = s.Type()
 			}
 			Expect(types).To(ConsistOf(
 				mqtt.ReadTaskType,

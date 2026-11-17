@@ -768,8 +768,9 @@ var _ = Describe("Iterator Behavior", func() {
 						// Chunks arrive newest first, so each one goes in front of the
 						// ones already read.
 						for i.Prev(cesium.AutoSpan) {
-							var batch []int64
-							for _, s := range i.Value().RawSeries() {
+							frame := i.Value()
+							batch := make([]int64, 0, frame.Len())
+							for _, s := range frame.RawSeries() {
 								batch = append(
 									batch,
 									s.Unmarshal[int64]()...,
@@ -1327,8 +1328,9 @@ var _ = Describe("Iterator Behavior", func() {
 					}))
 					values := func() []int64 {
 						GinkgoHelper()
-						var out []int64
-						for _, s := range i.Value().Get(data).Series {
+						series := i.Value().Get(data)
+						out := make([]int64, 0, series.Len())
+						for _, s := range series.Series {
 							out = append(out, s.Unmarshal[int64]()...)
 						}
 						return out
@@ -1941,8 +1943,8 @@ var _ = Describe("Iterator index lookups", func() {
 		for i := range stamps {
 			stamps[i] = telem.TimeStamp(i) * telem.SecondTS
 		}
-		keys := []cesium.ChannelKey{idxKey}
-		series := []telem.Series{telem.NewSeries(stamps)}
+		keys := append(make([]cesium.ChannelKey, 0, 5), idxKey)
+		series := append(make([]telem.Series, 0, 5), telem.NewSeries(stamps))
 		for i := range 4 {
 			key := GenerateChannelKey()
 			Expect(db.CreateChannel(ctx, cesium.Channel{

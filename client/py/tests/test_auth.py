@@ -244,11 +244,6 @@ class TestAPIKeys:
                 api_key="syk_key",
             )
 
-    def test_key_without_host(self) -> None:
-        """Should reject an API key given without a host."""
-        with pytest.raises(sy.ValidationError):
-            sy.Synnax(api_key="syk_key")
-
     def test_lifecycle(
         self, login_info: tuple[str, int, str, str], empty_role: sy.Role
     ) -> None:

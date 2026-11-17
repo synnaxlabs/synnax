@@ -519,7 +519,7 @@ class LayoutClient:
         sy.sleep(0.1)
 
     @contextmanager
-    def _bring_to_front(self, element: Locator) -> Generator[Locator, None, None]:
+    def _bring_to_front(self, element: Locator) -> Generator[Locator]:
         """Context manager that temporarily brings an element to the front.
 
         Sets z-index to 9999 to ensure the element is clickable even if other

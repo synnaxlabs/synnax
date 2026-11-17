@@ -27,7 +27,7 @@ on:
         description: Back up the Core
         type: boolean
       agents:
-        description: Deploy the runner agents
+        description: Deploy the runner agents and the GitHub runner start scripts
         type: boolean
 
 permissions:

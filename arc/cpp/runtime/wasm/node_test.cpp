@@ -756,6 +756,104 @@ func divide_by_zero() {val i32} i32 {
     EXPECT_FALSE(done);
 }
 
+/// @brief it should emit no samples when one sample of a series traps.
+TEST(NodeTest, NextDropsCycleOnWasmTrap) {
+    const auto client = new_test_client();
+
+    auto index_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("time"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    ASSERT_NIL(client.channels.create(index_ch));
+    auto input_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("input"),
+        .data_type = x::telem::INT32_T,
+        .index = index_ch.key,
+    };
+    ASSERT_NIL(client.channels.create(input_ch));
+    auto output_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("output"),
+        .data_type = x::telem::INT32_T,
+        .index = index_ch.key,
+    };
+    ASSERT_NIL(client.channels.create(output_ch));
+
+    const std::string source = R"(
+func reciprocal() {val i32} i32 {
+    return 10 / val
+}
+)" + input_ch.name + " -> reciprocal() -> " +
+                               output_ch.name;
+
+    auto mod = testutil::compile_text(client, source);
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
+    const auto *func_node = find_node_by_type(mod, "reciprocal");
+    ASSERT_NE(func_node, nullptr);
+
+    state::State state(
+        state::Config{
+            .ir = static_cast<const arc::ir::IR &>(mod),
+            .channels =
+                {{index_ch.key, x::telem::TIMESTAMP_T, 0},
+                 {input_ch.key, x::telem::INT32_T, index_ch.key},
+                 {output_ch.key, x::telem::INT32_T, index_ch.key}}
+        },
+        arc::runtime::errors::noop_handler
+    );
+
+    const auto *on_node = find_node_by_type(mod, "on");
+    ASSERT_NE(on_node, nullptr);
+
+    auto on_node_state = ASSERT_NIL_P(state.node(on_node->key));
+    auto on_data = x::telem::Series(std::vector<int32_t>{5, 0, 2});
+    on_data.alignment = x::telem::Alignment(1, 0);
+    on_node_state.output(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::move(on_data)
+    );
+    auto on_time = x::telem::Series(
+        std::vector{
+            x::telem::TimeStamp(1 * x::telem::MICROSECOND),
+            x::telem::TimeStamp(2 * x::telem::MICROSECOND),
+            x::telem::TimeStamp(3 * x::telem::MICROSECOND),
+        }
+    );
+    on_time.alignment = x::telem::Alignment(1, 0);
+    on_node_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::move(on_time)
+    );
+    on_node_state.mark_fresh(0);
+
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("reciprocal"));
+
+    wasm::Node node(mod, *func_node, std::move(node_state), func, wasm_mod->strings());
+
+    auto ctx = make_context();
+    std::vector<x::errors::Error> reported_errors;
+    ctx.report_error = [&](const x::errors::Error &err) {
+        reported_errors.push_back(err);
+    };
+    size_t changes = 0;
+    ctx.mark_changed = [&](size_t) { changes++; };
+    bool done = false;
+    ctx.mark_done = [&] { done = true; };
+
+    ASSERT_NIL(node.next(ctx));
+    ASSERT_EQ(reported_errors.size(), 1);
+    EXPECT_TRUE(reported_errors[0].matches(arc::runtime::errors::WASM_TRAP));
+    EXPECT_EQ(
+        reported_errors[0].data,
+        "WASM execution failed in node " + func_node->key +
+            " at sample 1/3: integer divide by zero"
+    );
+    EXPECT_EQ(changes, 0);
+    EXPECT_FALSE(done);
+
+    auto result_state = ASSERT_NIL_P(state.node(func_node->key));
+    EXPECT_EQ(result_state.output(0)->size(), 0);
+}
+
 /// @brief Node::is_output_truthy returns false for nonexistent outputs.
 TEST(NodeTest, IsOutputTruthyReturnsFalseForNonexistent) {
     const auto client = new_test_client();

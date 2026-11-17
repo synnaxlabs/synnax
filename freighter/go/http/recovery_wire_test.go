@@ -30,7 +30,9 @@ var _ = Describe("Recovery (wire)", func() {
 			"/health",
 			func(c fiber.Ctx) error { return c.SendStatus(fiber.StatusOK) },
 		)
-		router := MustSucceed(fhttp.NewRouter(ctx))
+		router := MustSucceed(
+			fhttp.NewRouter(ctx, fhttp.RouterConfig{Errors: errorCodec()}),
+		)
 		server := router.NewUnaryServer[testutil.Request, testutil.Response]("/")
 		server.Use(recovery.Middleware(alamos.Instrumentation{}))
 
@@ -50,7 +52,9 @@ var _ = Describe("Recovery (wire)", func() {
 		}).WithPolling(time.Millisecond).Should(Succeed())
 
 		client := MustSucceed(
-			fhttp.NewUnaryClient[testutil.Request, testutil.Response](),
+			fhttp.NewUnaryClient[testutil.Request, testutil.Response](
+				fhttp.UnaryClientConfig{Errors: errorCodec()},
+			),
 		)
 
 		By(

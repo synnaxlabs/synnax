@@ -14,7 +14,7 @@ import pytest
 import synnax as sy
 from synnax import panel
 from synnax.exceptions import NotFoundError, ValidationError
-from x.testutil import assert_eventually
+from x.testutil import assert_eventually, untyped
 
 
 class TestPanel:
@@ -248,7 +248,7 @@ class TestClient:
     ) -> None:
         """Should reject a field set to None beside a project with no panels."""
         with pytest.raises(ValidationError, match="key is None"):
-            client.panels.retrieve(projects=[project], key=None)  # type: ignore[call-overload]
+            untyped(client.panels.retrieve)(projects=[project], key=None)
 
     def test_rename(self, client: sy.Synnax, project: sy.project.Key) -> None:
         """Should rename a panel."""
