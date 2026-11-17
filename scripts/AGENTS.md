@@ -40,8 +40,10 @@ Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo scr
   Each Python package's CI job runs it.
 - `python3 scripts/check_suppressions_py.py [--base REF]` reports the Python
   suppressions that the working tree adds against `REF` (default `origin/main`):
-  `# type: ignore`, `# noqa`, `# pyright: ignore`, and `cast` calls. The
-  `suppressions-py` CI job runs it against the first parent.
+  `# type: ignore`, `# noqa`, and `# pyright: ignore` comments, file-level directives
+  such as `# ruff: noqa` and `# mypy: ignore-errors`, and `typing.cast` calls under any
+  name. Untracked files count in full. It skips generated files. The `suppressions-py`
+  CI job runs it against the first parent.
 - `python3 scripts/check_exports_ts.py` — reports TypeScript exports that only their own
   module or test code use. It runs Knip in production mode, then traces each finding. An
   export that only other modules' tests use is allowed only in a test utility directory

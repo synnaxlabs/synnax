@@ -9,15 +9,18 @@
 
 """Reports Python suppressions that a change adds against a base revision.
 
-A suppression is a `# type: ignore`, `# noqa`, or `# pyright: ignore` comment, or a
-`cast(...)` or `typing.cast(...)` call. Ruff and mypy only flag blanket or unused ones.
-The check reads comments and calls from tokens, so a string that holds the text is not
-a finding. Only added lines count.
+A suppression is a `# type: ignore`, `# noqa`, or `# pyright: ignore` comment, a
+file-level directive such as `# ruff: noqa` or `# mypy: ignore-errors`, or a call to
+`typing.cast` under any name. Ruff and mypy only flag blanket or unused ones. The check
+reads comments from tokens and calls from the syntax tree, so a string that holds the
+text is not a finding. Only lines added to tracked files and the lines of untracked
+files count. Generated files are skipped: fix their generator instead.
 
     uv run --project scripts scripts/check_suppressions_py.py [--base REF]
 """
 
 import argparse
+import ast
 import io
 import re
 import subprocess
@@ -26,9 +29,27 @@ import tokenize
 from dataclasses import dataclass
 from pathlib import Path
 
-_COMMENT = re.compile(r"#\s*(type:\s*ignore|noqa|pyright:\s*ignore)\b")
+_COMMENT = re.compile(
+    r"#\s*(type:\s*ignore|(?:(?:ruff|flake8):\s*)?noqa|pyright:\s*ignore"
+    r"|mypy:\s*(?:ignore-errors|disable-error-code)"
+    r"|pyright:\s*(?:basic|report\w+\s*=\s*(?:false|none)))\b",
+    re.IGNORECASE,
+)
 _FILE = re.compile(r"^\+\+\+ b/(.+)$")
 _HUNK = re.compile(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@")
+_TYPING = {"typing", "typing_extensions"}
+# Git flags that fix the diff format whatever the user's configuration.
+_DIFF = [
+    "-c",
+    "core.quotePath=false",
+    "diff",
+    "--no-ext-diff",
+    "--no-color",
+    "--src-prefix=a/",
+    "--dst-prefix=b/",
+    "--unified=0",
+    "--diff-filter=d",
+]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -52,51 +73,69 @@ def added_lines(diff: str) -> dict[str, set[int]]:
     return added
 
 
-def _is_cast(tokens: list[tokenize.TokenInfo], i: int) -> bool:
-    if tokens[i].string != "cast" or tokens[i + 1].string != "(":
-        return False
-    before = tokens[i - 1].string if i > 0 else ""
-    if before == "def":
-        return False
-    if before == ".":
-        return i > 1 and tokens[i - 2].string == "typing"
-    return True
+def _generated(source: str) -> bool:
+    return any("Code generated" in line for line in source.splitlines()[:30])
+
+
+def _cast_lines(tree: ast.Module) -> set[int]:
+    names = {"cast"}
+    modules = set(_TYPING)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module in _TYPING:
+            names |= {a.asname for a in node.names if a.name == "cast" and a.asname}
+        elif isinstance(node, ast.Import):
+            modules |= {a.asname for a in node.names if a.name in _TYPING and a.asname}
+    lines = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        f = node.func
+        if (isinstance(f, ast.Name) and f.id in names) or (
+            isinstance(f, ast.Attribute)
+            and f.attr == "cast"
+            and isinstance(f.value, ast.Name)
+            and f.value.id in modules
+        ):
+            lines.add(f.lineno)
+    return lines
 
 
 def check_source(source: str, *, path: str, lines: set[int]) -> list[Finding]:
     """Returns the suppressions on the given lines of one file."""
-    tokens = [
-        t
+    if _generated(source):
+        return []
+    findings = [
+        Finding(
+            path=path,
+            line=t.start[0],
+            message=f"remove the `{m.group(0)}`; fix the type or the code",
+        )
         for t in tokenize.generate_tokens(io.StringIO(source).readline)
-        if t.type not in (tokenize.NL, tokenize.NEWLINE, tokenize.INDENT)
+        if t.type == tokenize.COMMENT
+        and t.start[0] in lines
+        and (m := _COMMENT.search(t.string))
     ]
-    findings = []
-    for i, token in enumerate(tokens[:-1]):
-        line = token.start[0]
-        if line not in lines:
-            continue
-        if token.type == tokenize.COMMENT and (m := _COMMENT.search(token.string)):
-            message = f"remove the `{m.group(0)}`; fix the type or the code"
-        elif token.type == tokenize.NAME and _is_cast(tokens, i):
-            message = "remove the `cast`; narrow the type instead"
-        else:
-            continue
-        findings.append(Finding(path=path, line=line, message=message))
-    return findings
+    findings += [
+        Finding(path=path, line=n, message="remove the `cast`; narrow the type instead")
+        for n in _cast_lines(ast.parse(source, filename=path)) & lines
+    ]
+    return sorted(findings, key=lambda f: f.line)
+
+
+def _git(root: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", *args], cwd=root, check=True, capture_output=True, text=True
+    ).stdout
 
 
 def check(base: str, *, root: Path) -> list[Finding]:
     """Returns the suppressions that the working tree adds against base."""
-    diff = subprocess.run(
-        ["git", "diff", "--unified=0", "--diff-filter=d", base, "--", "*.py"],
-        cwd=root,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout
+    added = added_lines(_git(root, *_DIFF, base, "--", "*.py"))
+    untracked = _git(root, "ls-files", "--others", "--exclude-standard", "--", "*.py")
     findings = []
-    for path, lines in sorted(added_lines(diff).items()):
+    for path in sorted(added.keys() | set(untracked.splitlines())):
         source = (root / path).read_text(encoding="utf-8")
+        lines = added.get(path, set(range(1, source.count("\n") + 2)))
         findings.extend(check_source(source, path=path, lines=lines))
     return findings
 
