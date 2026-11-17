@@ -180,10 +180,11 @@ The schematic cutover ships in one release:
   those values. Every other stroke or fill keeps its `color` looks, so no stored symbol
   changes its look.
 - In a node's `state_overrides`, the override of the stroke or fill that sets the
-  symbol's entry colors sets the colors of the node's enum. A node whose other overrides
-  differ from its symbol moves to a copy of the symbol that carries them, and nodes with
-  the same overrides share one copy. A node whose overrides equal its symbol needs
-  neither, so no node changes its look.
+  symbol's entry colors sets the colors of the node's enum. When any stroke or fill
+  would then show a color other than its override, such as a second `entry` look whose
+  override kept the symbol's colors, the node moves to a copy of the symbol that keeps
+  each such paint as a `color` look. Nodes with the same overrides share one copy. A
+  node whose overrides equal its symbol needs neither, so no node changes its look.
 - The upgrade runs as a composition migration, as panels do
   (`core/pkg/service/panel/versions/v0/composition.go:41-55`). An import passes the old
   state lists beside the converted schematic, and its write step
