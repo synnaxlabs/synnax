@@ -51,8 +51,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ImEx *imex.Service
-	// Color is the service that holds the series colors, which a writer gives to new
-	// lines.
+	// Color holds the series colors that a writer gives to lines and rules with no
+	// color.
 	//
 	// [REQUIRED]
 	Color *color.Service
