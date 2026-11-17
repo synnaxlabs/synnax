@@ -289,7 +289,10 @@ func Zero(t Type) any {
 		return ""
 	case KindBool:
 		return false
-	default:
+	case KindInvalid, KindChan, KindSeries, KindVariable, KindNumericConstant,
+		KindIntegerConstant, KindFloatConstant, KindExactIntegerFloatConstant,
+		KindFunction, KindSequence, KindStage, KindVarRef:
 		return nil
 	}
+	panic("unknown type kind " + t.Kind.String())
 }

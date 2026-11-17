@@ -272,10 +272,14 @@ func emitZeroValue[ASTNode antlr.ParserRuleContext](
 		ctx.Writer.WriteF32Const(0.0)
 	case types.KindF64:
 		ctx.Writer.WriteF64Const(0.0)
-	case types.KindString:
+	case types.KindInvalid, types.KindString, types.KindChan, types.KindSeries,
+		types.KindVariable, types.KindNumericConstant, types.KindIntegerConstant,
+		types.KindFloatConstant, types.KindExactIntegerFloatConstant,
+		types.KindFunction, types.KindSequence, types.KindStage, types.KindVarRef,
+		types.KindBool:
 		ctx.Writer.WriteI32Const(0)
 	default:
-		ctx.Writer.WriteI32Const(0)
+		panic("unknown type kind " + t.Kind.String())
 	}
 }
 

@@ -131,8 +131,10 @@ func (t Type) String() string {
 		return "sequence"
 	case KindStage:
 		return "stage"
-	default:
+	case KindInvalid:
 		return "invalid"
+	default:
+		return t.Kind.String()
 	}
 
 	if t.Unit != nil && t.Unit.Name != "" {
@@ -162,9 +164,11 @@ func (t Type) IsNumeric() bool {
 		KindF32, KindF64,
 		KindNumericConstant, KindIntegerConstant, KindFloatConstant, KindExactIntegerFloatConstant:
 		return true
-	default:
+	case KindInvalid, KindString, KindChan, KindSeries, KindVariable, KindFunction,
+		KindSequence, KindStage, KindVarRef, KindBool:
 		return false
 	}
+	panic("unknown type kind " + unwrapped.Kind.String())
 }
 
 // IsInteger returns true if the type is an integer type (signed or unsigned) or an
@@ -175,9 +179,12 @@ func (t Type) IsInteger() bool {
 		KindI8, KindI16, KindI32, KindI64,
 		KindIntegerConstant:
 		return true
-	default:
+	case KindInvalid, KindF32, KindF64, KindString, KindChan, KindSeries, KindVariable,
+		KindNumericConstant, KindFloatConstant, KindExactIntegerFloatConstant,
+		KindFunction, KindSequence, KindStage, KindVarRef, KindBool:
 		return false
 	}
+	panic("unknown type kind " + t.Kind.String())
 }
 
 // IsSignedInteger returns true if the type is a signed integer type.
@@ -185,9 +192,13 @@ func (t Type) IsSignedInteger() bool {
 	switch t.Kind {
 	case KindI8, KindI16, KindI32, KindI64:
 		return true
-	default:
+	case KindInvalid, KindU8, KindU16, KindU32, KindU64, KindF32, KindF64, KindString,
+		KindChan, KindSeries, KindVariable, KindNumericConstant, KindIntegerConstant,
+		KindFloatConstant, KindExactIntegerFloatConstant, KindFunction, KindSequence,
+		KindStage, KindVarRef, KindBool:
 		return false
 	}
+	panic("unknown type kind " + t.Kind.String())
 }
 
 // IsSigned returns true if the type is a signed type (integer or float).
@@ -198,9 +209,13 @@ func (t Type) IsUnsignedInteger() bool {
 	switch t.Kind {
 	case KindU8, KindU16, KindU32, KindU64:
 		return true
-	default:
+	case KindInvalid, KindI8, KindI16, KindI32, KindI64, KindF32, KindF64, KindString,
+		KindChan, KindSeries, KindVariable, KindNumericConstant, KindIntegerConstant,
+		KindFloatConstant, KindExactIntegerFloatConstant, KindFunction, KindSequence,
+		KindStage, KindVarRef, KindBool:
 		return false
 	}
+	panic("unknown type kind " + t.Kind.String())
 }
 
 // IsFloat returns true if the type is a floating-point type.
@@ -208,9 +223,13 @@ func (t Type) IsFloat() bool {
 	switch t.Kind {
 	case KindF32, KindF64:
 		return true
-	default:
+	case KindInvalid, KindU8, KindU16, KindU32, KindU64, KindI8, KindI16, KindI32,
+		KindI64, KindString, KindChan, KindSeries, KindVariable, KindNumericConstant,
+		KindIntegerConstant, KindFloatConstant, KindExactIntegerFloatConstant,
+		KindFunction, KindSequence, KindStage, KindVarRef, KindBool:
 		return false
 	}
+	panic("unknown type kind " + t.Kind.String())
 }
 
 // IsBool reports whether the type is boolean.
@@ -243,9 +262,13 @@ func (t Type) Is64Bit() bool {
 	switch t.Kind {
 	case KindI64, KindU64, KindF64:
 		return true
-	default:
+	case KindInvalid, KindU8, KindU16, KindU32, KindI8, KindI16, KindI32, KindF32,
+		KindString, KindChan, KindSeries, KindVariable, KindNumericConstant,
+		KindIntegerConstant, KindFloatConstant, KindExactIntegerFloatConstant,
+		KindFunction, KindSequence, KindStage, KindVarRef, KindBool:
 		return false
 	}
+	panic("unknown type kind " + t.Kind.String())
 }
 
 // IsFixedWidth reports whether the type is a primitive occupying a fixed number of
@@ -256,9 +279,13 @@ func (t Type) IsFixedWidth() bool {
 		KindI8, KindI16, KindI32, KindI64,
 		KindF32, KindF64, KindBool:
 		return true
-	default:
+	case KindInvalid, KindString, KindChan, KindSeries, KindVariable,
+		KindNumericConstant, KindIntegerConstant, KindFloatConstant,
+		KindExactIntegerFloatConstant, KindFunction, KindSequence, KindStage,
+		KindVarRef:
 		return false
 	}
+	panic("unknown type kind " + t.Kind.String())
 }
 
 // Density returns the size in bytes of the primitive type.
@@ -311,7 +338,10 @@ func (t Type) ToTelem() telem.DataType {
 		return telem.Int32T
 	case KindI64:
 		return telem.Int64T
-	default:
+	case KindInvalid, KindChan, KindSeries, KindVariable, KindNumericConstant,
+		KindIntegerConstant, KindFloatConstant, KindExactIntegerFloatConstant,
+		KindFunction, KindSequence, KindStage, KindVarRef:
 		return telem.UnknownT
 	}
+	panic("unknown type kind " + t.Kind.String())
 }

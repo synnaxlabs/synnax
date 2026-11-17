@@ -61,7 +61,6 @@ linters:
     # Not yet adopted. Each issue tracks the work to enable it.
     - containedctx # SY-6109
     - contextcheck # SY-6109
-    - exhaustive # SY-6106
     - fatcontext # SY-6109
     - gochecknoglobals # SY-6107
     - gochecknoinits # SY-6108
