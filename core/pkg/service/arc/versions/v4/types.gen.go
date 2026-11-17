@@ -196,13 +196,6 @@ type Base struct {
 	Directory *uuid.UUID `json:"directory,omitzero" msgpack:"directory,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *Base) ApplyDefaults() {
-	if b.Source.Variant == nil {
-		b.Source.Variant = TextSource{}
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (b *Base) SetDefaults() {
 	b.Source.Variant = TextSource{}
@@ -280,11 +273,6 @@ func (a *AutomationArc) SetDefaults() {
 	a.Base.SetDefaults()
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AutomationArc) ApplyDefaults() {
-	a.Base.ApplyDefaults()
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (a AutomationArc) Validate() error {
@@ -311,11 +299,6 @@ func (ModuleArc) isArcVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (m *ModuleArc) SetDefaults() {
 	m.Base.SetDefaults()
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (m *ModuleArc) ApplyDefaults() {
-	m.Base.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -411,19 +394,6 @@ func (u Arc) Type() Type {
 		return TypeModule
 	}
 	return ""
-}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *Arc) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case AutomationArc:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ModuleArc:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or

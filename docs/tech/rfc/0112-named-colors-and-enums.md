@@ -1,0 +1,309 @@
+# 112 Named colors and enums
+
+- **Author**: Emiliano Bonilla
+- **Date**: 2026-11-14
+- **Related**:
+  [RFC 0053 - Oracle explicit schema versioning](0053-oracle-explicit-schema-versioning.md),
+  [RFC 0061 - Theme-resolved color](0061-theme-resolved-color.md),
+  [RFC 0070 - Color picker](0070-color-picker.md),
+  [RFC 0100 - Gorp references](0100-gorp-references.md),
+  [PR #4260 - SY-5125: Store colors as one RGBA uint32 and send them as hex](https://github.com/synnaxlabs/synnax/pull/4260)
+
+## 0 Summary
+
+A named color is a Core record with a light value and an optional dark value. An enum is
+a Core record that maps exact values to names and colors. A state symbol holds the key
+of its enum, and a plot line holds the key of a named color. No record holds a copy of a
+state color or binds a color by position. This RFC replaces the library items section
+(§4.0) of the general-purpose schematic RFC draft.
+
+## 1 Motivation
+
+- **State colors are copies**: Each select, state indicator, light, and custom symbol
+  state keeps its own colors (`schemas/synnax/schematic.oracle:312-328`, `:489`;
+  `schemas/synnax/symbol.oracle:24-63`). A new fault red is an edit to every symbol.
+- **A pick stores paint**: A click on a picker preset stores a literal, also for a theme
+  preset (`lyra/src/color/Swatches.tsx:50-56`, `:121`).
+- **Plot colors follow position**: A line with no color takes `palette[index % length]`
+  (`pluto/src/lineplot/queries.ts:105-114`), so a removed line repaints the lines after
+  it. Both themes share one 14-color list (`lyra/src/theme/theme.ts:250-265`), and 10 of
+  the 14 are under 3:1 contrast on the light canvas.
+
+## 2 Vocabulary
+
+- **Named color** (`color.Named` in code): A Core record with a name, a light value, and
+  an optional dark value.
+- **Palette**: A group (RFC 0100 §4.3) of named colors. It is not a record type.
+- **Enum**: A Core record with a list of entries. It is the state map of a symbol.
+- **Color reference**: A `color.Ref`: a named color key or a fixed color.
+- **Look color**: A color that carries no state, such as a fill or a label.
+- **Mark**: A region of a drawing state that takes the entry color, as `stroke` or
+  `fill`.
+- **Built-in**: A named color or an enum that Synnax ships with a fixed key.
+
+## 3 Principles
+
+1. **One place for each fact**: A symbol holds the key of an enum, never a copy of its
+   colors.
+2. **Bind by key**: Never by position, name, or hash.
+3. **A delete leaves every user colored**: A deleted named color stays as a fixed color.
+   An enum in use refuses the delete.
+4. **Absent means the theme picks**: RFC 0061 rule 1 holds for every color reference.
+5. **Warn, never block**: Some sites use red for closed on purpose.
+
+## 4 Design
+
+### 4.0 Named colors
+
+A named color holds a required `light` and an optional `dark` `color.Color`. The values
+are opaque: a stroke uses the color at full strength, and a fill uses a tint. An absent
+dark value comes from the RFC 0061 band. A stored dark value also sets lightness, which
+deviates from RFC 0061 rule 4 (`docs/tech/rfc/0061-theme-resolved-color.md:59-60`). Lyra
+stays Synnax-blind (RFC 0070 §3): it resolves a light and dark pair that its caller
+passes, and the picker shows the groups that its caller passes.
+
+A named color has an optional `position`, a fractional index key. A palette sorts its
+colors by position, compared by code point, and a color with none comes last. A move
+writes a key between its two neighbors, so it changes only the moved color, as in Figma
+([Figma](https://www.figma.com/blog/realtime-editing-of-ordered-sequences/)). The Core
+refuses a key that is not valid. Palettes sort by name.
+
+Built-in named colors are normal records with fixed keys. At startup, the Core makes
+each built-in that is missing, as it makes a missing built-in role
+(`core/pkg/service/access/rbac/builtin/provision.go:117-119`). Unlike a built-in role, a
+built-in that exists never changes at startup. A user can edit a built-in. A field is
+edited when it differs from the value that Synnax ships. A release that ships a new
+value adds a migration (`gorp/migrate.go`) that writes the new value only where the
+stored value equals the old one, so an edit stays. "Restore default" writes the shipped
+values. A built-in cannot be deleted, as a built-in role cannot
+(`core/pkg/service/access/rbac/role/writer.go:101-112`). A built-in is named by what it
+does ("Breaker, red closed"), never by a standard.
+
+The Console's own look keeps the Lyra theme, so an edit to the built-in "Error" never
+changes Console buttons. Error, warning, and grays are in both places and can differ.
+Series colors are only in the Core: the theme's data list is deleted, and every data
+color (control, gauge, scale, redline, picker presets) reads the series colors.
+
+### 4.1 The color reference
+
+`color.Ref` is one union, `named` (a `color.Named` key) or `fixed` (a `color.Color` in
+its `value` field), in every field that takes a color. Both live in
+`schemas/synnax/color.oracle`, beside the value type in `schemas/x/color.oracle`.
+`client/py/synnax/color` re-exports each public name of `x.color`, so `sy.color`
+(`client/py/synnax/__init__.py:125`) keeps working. A delete of a named color that is
+not a built-in is never refused. The `named` key declares `@ref on_delete inline` once,
+inside the union. Before Gorp removes the color, a generated function for each reference
+sets each union that names it to `target.Inline()`, a hand-written method on
+`color.Named` that returns the `fixed` variant. Each holder's service sends the
+rewritten record to open Consoles from its rewrite hook, as line plots do for a detached
+channel (`core/pkg/service/lineplot/service.go:107-113`). "Replace with..." for enums
+uses the same hook.
+
+### 4.2 Enums
+
+An enum is the state map. Each entry holds a generated `key`, one exact `float64`
+`value` that selects and buttons write, a `name`, an `abnormal` flag (false by default),
+and an optional `color.Ref`. Values are unique in an enum, and the writer refuses a
+duplicate. Two color conventions for one set of states need two enums. A site difference
+goes through the named colors that the entries reference.
+
+A state symbol has an optional `enum` reference with `@ref on_delete restrict`. A custom
+drawing's default enum uses the same rule. The delete dialog lists the users from
+`resource.Dependents` (`core/pkg/service/resource/resource.go:61-74`) and offers
+"Replace with...", which moves every user to another enum and then deletes. A built-in
+enum cannot be deleted, so a default enum that only a Pluto file names always exists.
+
+### 4.3 State symbols
+
+After the symbol consolidation, every state symbol is a drawing. A drawing declares its
+regions once, with selectors and look colors. Each drawing state has a `value` and
+marks. The live value picks the drawing state (shape) and the entry (color). A mark
+takes the entry color, then the symbol's look color, then the theme. The built-in valve
+marks `body` as `stroke` at 0 and `fill` at 1, so the "Valve" enum looks as today.
+
+An absent `enum` means the drawing's default enum. A built-in drawing names it in its
+Pluto `symbol.Spec` file, and a custom drawing on its Core record. A symbol stores no
+state colors and has no override for one state. An edit to a built-in enum changes every
+symbol that uses it by default.
+
+A value that matches no entry shows one unknown look and the raw value. The look is one
+Core-wide setting that points at a named color, by default the built-in "Unknown".
+
+A two-state symbol (a valve, a pump, or any built-in drawing with two states) keeps
+today's 0.9 to 1.1 threshold (`DEFAULT_THRESHOLD`,
+`pluto/src/schematic/node/common/telem/telem.ts:16`). The threshold maps the value to 1
+or 0 before the enum, as the light's threshold does. A symbol with more than two states
+matches exact values. The light gets the built-in "Light" enum (Off 0, On 1). Its
+`stroke_color` and `staleness_color` stay look colors.
+
+### 4.4 Series colors
+
+Sixteen built-in named colors in a palette named "Series", each with a light and a dark
+value, replace the 14. Each value has 3:1 contrast on the canvas of its theme. Under
+normal vision and each color vision deficiency that `color.simulate` models, no two of
+the first eight are closer than 0.05 in OKLab, in either theme. The first eight keep the
+hues of `#DC136C`, `#20A4F3`, `#52FFB8`, `#F18F01`, `#FE5F55`, `#8075FF`, `#F7AEF8`, and
+`#791E94` from today's list, and a hue moves only to pass a check. The last eight fill
+the hue gaps and pass only the contrast check: a repeated color is a sure mix-up, and a
+near color only a possible one. A new line gets the first series color that no other
+line in its plot uses, and stores its key. Past 16 lines, it gets the series color used
+least in its plot, and a tie goes to the first by position. A user can pick any color.
+
+### 4.5 Editor checks
+
+The enum editor warns, never blocks, on: under 3:1 contrast in either theme, entries too
+alike under color-blind simulation, a state shown by color alone, and an alarm color on
+an entry that is not `abnormal`.
+
+### 4.6 Migration
+
+The schematic cutover is one migration in one release:
+
+- Each inline state list becomes an enum. Lists with the same set of (value, name,
+  color) share one, with keys and order ignored. Lists that differ stay separate, and
+  "Replace with..." merges them later. When a list repeats a value, the first entry
+  stays.
+- A symbol gets an `enum` key when it had its own state list or its own state colors.
+  The old fields are removed.
+- In a custom symbol, each state takes its position as its value (0, 1, 2, and so on).
+  The regions move up to the drawing. A region with one color in each state keeps it as
+  a look color. A region whose color changes gets a mark, and its colors move to the
+  entries. When two changing regions differ in one state, the first wins and the Core
+  logs the symbol name.
+- Each light `on_color` moves to the On entry of an enum.
+- The upgrade runs as a composition migration, as panels do
+  (`core/pkg/service/panel/versions/v0/composition.go:41-55`). An import passes the old
+  state lists beside the converted schematic, and its write step
+  (`core/pkg/service/schematic/imex.go:45-64`) makes the enums with the same function as
+  the upgrade.
+
+Until the cutover, an in-memory adapter reads stored custom symbols in the new format.
+The cutover deletes it.
+
+The line plot migration stores the color that each uncolored line and rule shows today
+as `fixed`. The old 14 colors are frozen in the migration's version package. Each other
+record that moves to `color.Ref` (phases 25 to 31) mints a version (RFC 0053) that
+stores each old color as `fixed`, and its hand-written client code writes the union
+(`client/py/synnax/ranger/client.py:831`, `client/py/synnax/label/client.py:93`).
+
+## 5 What this RFC does not cover
+
+- **Limits**: Value ranges that mean one state belong to the `limit` type.
+- **Symbol consolidation**: The general-purpose schematic RFC. The cutover lands after
+  it.
+
+## 6 Implementation phases
+
+PRs #4260 (color v2), #5621 (configs on nodes, group membership as `Node.parent`), #5622
+(color-blind simulation), #5623 (`luminance` rounding), #5624 (unused `color.Palette`),
+#5625 (WCAG contrast), #5626 (custom strokes through the band), #5627 (table cells in
+rows), and #5632 (`on_delete inline` in Oracle) are merged.
+
+Phases 9, 16, and 21 ship behind one flag in `console/src/flags.ts`. Phases 10 and 11
+ship in one release, and phases 19 to 22 in one release after the symbol consolidation.
+
+| Phase | Scope                                                    | Touches                                                                             | Depends on     |
+| ----- | -------------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------- |
+| 1     | Add a Gorp retarget that rewrites every reference        | `x/go/gorp`                                                                         | -              |
+| 2     | Generate two schemas that share a name                   | `oracle`                                                                            | -              |
+| 3     | Add the named color record and the color reference       | `schemas/synnax/color.oracle`, `core/pkg/service/color`                             | 2              |
+| 4     | Add the named color API, access, search, and signals     | `core/pkg/api/color`, `core/pkg/service/color`                                      | 3              |
+| 5     | Add built-in named colors                                | `core/pkg/service/color`                                                            | 4              |
+| 6     | Add named colors to the clients and Pluto queries        | `client/ts/src/color`, `client/py/synnax/color`, `pluto/src/color`                  | 4              |
+| 7     | Resolve a light and dark pair for the theme mode in Lyra | `lyra/src/theme`, `lyra/src/color`                                                  | -              |
+| 8     | Store a color reference from the color picker            | `lyra/src/color`, `docs/tech/rfc/0070-color-picker.md`                              | 7              |
+| 9     | Add the Console named color toolbar and editor           | `console/src/feature/color`, `console/src/flags.ts`                                 | 3, 6, 8        |
+| 10    | Store color references on line plot lines and rules      | `schemas/synnax`, `core/pkg/service/lineplot`, `client/ts`                          | 5              |
+| 11    | Resolve and write line color references in Pluto         | `pluto/src/lineplot`, `console/src/feature/lineplot`                                | 6, 7, 10       |
+| 12    | Read every data color from the series colors             | `lyra/src/theme`, `pluto/src`                                                       | 5, 6, 7, 8, 11 |
+| 13    | Add the enum record                                      | `schemas/synnax`, `core/pkg/service/enum`                                           | 3              |
+| 14    | Add the enum API, used-by list, and built-in enums       | `core/pkg/api/enum`, `core/pkg/service/enum`                                        | 5, 13          |
+| 15    | Add enums to the clients and Pluto queries               | `client/ts`, `client/py`, `pluto/src/enum`                                          | 14             |
+| 16    | Add the Console enum editor with its checks              | `console/src/feature/enum`                                                          | 9, 15          |
+| 17    | Add Replace with for enums                               | `core/pkg/api/enum`, `console/src/feature/enum`                                     | 1, 16          |
+| 18    | Add the Core-wide unknown color setting                  | `core/pkg/service`, `console/src/feature`                                           | 5              |
+| 19    | Add enum references and marks to state symbols           | `schemas/synnax`, `core/pkg/service/schematic`                                      | 13             |
+| 20    | Paint state symbols from their enum in Pluto             | `pluto/src/schematic`                                                               | 15, 19         |
+| 21    | Add the enum picker to the symbol forms                  | `console/src/feature/schematic`                                                     | 16, 19         |
+| 22    | Migrate inline state colors to enums                     | `core/pkg/service/schematic`, `pluto/src/schematic`, `console`                      | 20, 21         |
+| 23    | Delete the named colors and enums flag                   | `console/src/flags.ts`                                                              | 22             |
+| 24    | Carry color references in multi-edit                     | `console/src/platform/multiedit`                                                    | 8              |
+| 25    | Store color references in schematic look colors          | `schemas/synnax`, `core/pkg/service/schematic`, `client/ts`, `client/py`            | 3, 24          |
+| 26    | Store color references in table colors                   | `schemas/synnax`, `core/pkg/service/table`, `client/ts`, `client/py`                | 3, 24          |
+| 27    | Store color references in log colors                     | `schemas/synnax`, `core/pkg/service/log`, `client/ts`, `client/py`                  | 3, 24          |
+| 28    | Store color references in label colors                   | `schemas/synnax`, `core/pkg/service/label`, `client/ts`, `client/py`                | 3, 24          |
+| 29    | Store color references in range colors                   | `schemas/synnax`, `core/pkg/service/ranger`, `client/ts`, `client/py`, `driver/arc` | 3, 24          |
+| 30    | Store color references in panel colors                   | `schemas/synnax`, `core/pkg/service/panel`, `client/ts`, `client/py`                | 3, 24          |
+| 31    | Store color references in custom symbol look colors      | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `client/ts`, `client/py`     | 3, 24          |
+
+Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. Phase 18 is a new
+pattern: the Core has no settings store. In phase 29, the Driver writes range colors
+(`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
+
+## 7 Resolved decisions
+
+1. **The enum is the state map, and a palette is a group**: A palette record for each
+   enum adds a third record and a map that follows every entry edit. The trade is real:
+   two conventions for one set of states need two enums.
+2. **A required light value and an optional dark value**: The band cannot rotate hue;
+   yellow goes olive when only darkened (`lyra/src/theme/theme.ts:189-190`). The trade
+   is real: a dark value deviates from RFC 0061 rule 4.
+3. **A symbol stores only its enum**: A per-state override brings the copies back.
+4. **One unknown look for the Core**: A look for each user, enum, or symbol lets a data
+   fault look like a valid state on another screen.
+5. **Series colors by first unused key**: An index repaints on a remove. A hash gives a
+   4-line plot a shared color 59% of the time with 8 colors.
+6. **A deleted named color becomes fixed**: Each user keeps the color, as with a deleted
+   Figma style
+   ([Figma](https://webcf.waybackmachine.org/web/20210815191134/https://help.figma.com/hc/en-us/articles/360039238753-Styles-in-Figma)).
+   One `on_delete inline` rule on the key serves every holder. A rule set by the holding
+   field (`restrict` for entries, `detach` for looks) needs an Oracle special case for
+   one union with two rules. A refusal everywhere plus "Replace with..." adds a step to
+   each delete. The trade is real: the color loses its link to later edits. An archive
+   that hides a color but keeps its users, as Linear does for labels, can come later if
+   users ask.
+7. **A `fixed` reference keeps one value**: A deleted color inlines its light value, and
+   the symbol lightness band adapts it on schematic symbols. The trade is real: in the
+   dark theme, a deleted color with a dark value shows its light value.
+8. **An enum in use refuses the delete**: A symbol with no enum loses its states.
+9. **Built-ins are editable, and a release changes them by migration**: The migration
+   compares each field with the old shipped value. Copy-to-edit makes each site keep a
+   copy. Overwrite at startup erases edits on each release. A stored list of edited
+   fields is a second place for a fact that the compare finds. The trade is real: a user
+   value equal to the old shipped value takes the new one.
+10. **Built-ins cannot be deleted**: Only edited and restored, as built-in roles. The
+    trade is real: a site cannot remove a shipped color it never uses. It can only
+    rename or recolor it.
+11. **Built-in colors do not color the Console**: The trade is real: shipped error red
+    is in two places and can drift.
+12. **One migration at upgrade**: A manual "Make enum" action keeps two code paths.
+13. **The plot migration writes fixed colors**: Series keys by position recolor old
+    plots, because 16 colors replace 14.
+14. **Built-ins keep a vibrant look**: Gray until abnormal changes every schematic.
+15. **Exact values, and a threshold for two-state symbols**: Selects and buttons write
+    one value, so an entry is one value. Valves, pumps, and lights keep today's
+    threshold, so noisy feedback still reads as on or off. Ranges belong to the `limit`
+    type.
+16. **Entry values are `float64`**: Every state symbol reads and writes numbers, and a
+    `float64` holds each integer state code exactly. A value of any channel type adds a
+    type to each entry and a conversion to each match. The trade is real: a string
+    channel cannot drive an enum.
+17. **The default enum is on the drawing**: A setting for each drawing is a second place
+    for the same fact.
+18. **Consolidation before the cutover**: The cutover then changes 3 behaviors, not each
+    variant.
+19. **The union is `color.Ref` and the record is `color.Named`**: A fixed variant is not
+    a swatch, and the `named` variant names a `color.Named`. The trade is real: the
+    Synnax `color` schema shares its name with the x value type, so Oracle aliases one
+    import where a file uses both.
+20. **Colors keep a stored position**: The series order picks the color of each new
+    line. A name order lets a rename or a new color change that pick, so a name binds
+    the color. Figma stores the order of its styles the same way. The trade is real: no
+    other record stores an order that a user sets, and the Console needs a drag to
+    reorder.
+
+## 8 Open questions
+
+- **TypeScript namespace for enums**: `enum` is a reserved word in TypeScript.
+- **Built-in values**: The final series color values, chosen on a line plot in both
+  themes, and the built-in enums beyond "Valve" and "Light".

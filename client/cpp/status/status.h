@@ -214,8 +214,12 @@ public:
             return {synnax::status::Status<Details>{}, errors::paged_one_error()};
         auto [statuses, err] = this->retrieve<Details>(where, options);
         if (err) return {synnax::status::Status<Details>{}, err};
-        if (const auto
-                one_err = errors::check_one("status", where.to_json(), statuses.size()))
+        if (const auto one_err = errors::check_one(
+                "status",
+                where.to_json(),
+                options.search_term,
+                statuses.size()
+            ))
             return {synnax::status::Status<Details>{}, one_err};
         return {std::move(statuses[0]), x::errors::NIL};
     }
@@ -248,17 +252,21 @@ public:
     /// @param key_or_name UUID-form key or name.
     /// @param message Message to set on the status.
     /// @param variant Variant to set on the status.
+    /// @param time When the status was set. A zero time or a time later than the
+    /// Core's clock means now. A set older than the stored status does not replace it.
     /// @returns A pair of the result (resolved key and multi-match flag) and an
     /// error where ok() is false if the status could not be set.
     [[nodiscard]] std::pair<SetByKeyOrNameResult, x::errors::Error> set_by_key_or_name(
         const std::string &key_or_name,
         const std::string &message,
-        const std::string &variant
+        const std::string &variant,
+        const x::telem::TimeStamp time
     ) const {
         grpc::status::SetByKeyOrNameRequest req;
         req.set_key_or_name(key_or_name);
         req.set_message(message);
         req.set_variant(variant);
+        req.set_time(time.nanoseconds());
         auto [res, err] = this->set_by_key_or_name_client->send(
             "/status/set_by_key_or_name",
             req

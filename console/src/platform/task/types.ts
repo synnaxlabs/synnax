@@ -62,8 +62,14 @@ export const validateChannels = ({
     const index = keyToIndexMap.get(key) as number;
     const code = "custom";
     const message = `Key ${key} is used for multiple channels`;
-    issues.push({ code, message, path: [index, "key"], input: channels });
-    issues.push({ code, message, path: [i, "key"], input: channels });
+    issues.push({
+      continue: true,
+      code,
+      message,
+      path: [index, "key"],
+      input: channels,
+    });
+    issues.push({ continue: true, code, message, path: [i, "key"], input: channels });
   });
 };
 
@@ -83,6 +89,7 @@ export const validateChannelDevices = ({
   channels.forEach(({ device }, i) => {
     if (device !== "") return;
     issues.push({
+      continue: true,
       code: "custom",
       message: "Device is required",
       path: [i, "device"],
@@ -97,6 +104,7 @@ export const validateEnabledChannel = ({
 }: z.core.ParsePayload<Channel[]>) => {
   if (channels.some(({ disabled }) => !disabled)) return;
   issues.push({
+    continue: true,
     code: "custom",
     message: "At least one enabled channel is required",
     input: channels,
@@ -121,8 +129,20 @@ export const validateReadChannels = (
       const index = nameToIndexMap.get(name) as number;
       const code = "custom";
       const message = `Name ${name} is used for multiple channels`;
-      issues.push({ code, message, path: [index, "name"], input: channels });
-      issues.push({ code, message, path: [i, "name"], input: channels });
+      issues.push({
+        continue: true,
+        code,
+        message,
+        path: [index, "name"],
+        input: channels,
+      });
+      issues.push({
+        continue: true,
+        code,
+        message,
+        path: [i, "name"],
+        input: channels,
+      });
     }
     // The Driver skips a disabled channel, so it can share a Synnax channel.
     if (channel === 0 || disabled) return;
@@ -133,8 +153,20 @@ export const validateReadChannels = (
     const index = channelToIndexMap.get(channel) as number;
     const code = "custom";
     const message = `Synnax channel with key ${channel} is used for multiple channels`;
-    issues.push({ code, message, path: [index, "channel"], input: channels });
-    issues.push({ code, message, path: [i, "channel"], input: channels });
+    issues.push({
+      continue: true,
+      code,
+      message,
+      path: [index, "channel"],
+      input: channels,
+    });
+    issues.push({
+      continue: true,
+      code,
+      message,
+      path: [i, "channel"],
+      input: channels,
+    });
   });
 };
 
@@ -182,12 +214,19 @@ export const validateWriteChannels = (
         const code = "custom";
         const message = `Name ${cmdChannelName} is used for multiple channels`;
         issues.push({
+          continue: true,
           code,
           message,
           path: [index, `${type}ChannelName`],
           input: channels,
         });
-        issues.push({ code, message, path: [i, "cmdChannelName"], input: channels });
+        issues.push({
+          continue: true,
+          code,
+          message,
+          path: [i, "cmdChannelName"],
+          input: channels,
+        });
       }
       // The Driver skips a disabled channel, so it can share a Synnax channel.
       if (cmdChannel !== 0 && !disabled)
@@ -196,12 +235,19 @@ export const validateWriteChannels = (
           const code = "custom";
           const message = `Synnax channel with key ${cmdChannel} is used on multiple channels`;
           issues.push({
+            continue: true,
             code,
             message,
             path: [index, `${type}Channel`],
             input: channels,
           });
-          issues.push({ code, message, path: [i, "cmdChannel"], input: channels });
+          issues.push({
+            continue: true,
+            code,
+            message,
+            path: [i, "cmdChannel"],
+            input: channels,
+          });
         } else channelsToIndexMap.set(cmdChannel, { index: i, type: "cmd" });
       if (stateChannelName !== "") {
         if (!nameToIndexMap.has(stateChannelName)) {
@@ -212,12 +258,19 @@ export const validateWriteChannels = (
         const code = "custom";
         const message = `Name ${stateChannelName} is used for multiple channels`;
         issues.push({
+          continue: true,
           code,
           message,
           path: [index, `${type}ChannelName`],
           input: channels,
         });
-        issues.push({ code, message, path: [i, "stateChannelName"], input: channels });
+        issues.push({
+          continue: true,
+          code,
+          message,
+          path: [i, "stateChannelName"],
+          input: channels,
+        });
       }
       if (stateChannel === 0 || disabled) return;
       if (channelsToIndexMap.has(stateChannel)) {
@@ -225,12 +278,19 @@ export const validateWriteChannels = (
         const code = "custom";
         const message = `Synnax channel with key ${stateChannel} is used for multiple channels`;
         issues.push({
+          continue: true,
           code,
           message,
           path: [index, `${type}Channel`],
           input: channels,
         });
-        issues.push({ code, message, path: [i, "stateChannel"], input: channels });
+        issues.push({
+          continue: true,
+          code,
+          message,
+          path: [i, "stateChannel"],
+          input: channels,
+        });
       } else channelsToIndexMap.set(stateChannel, { index: i, type: "state" });
     },
   );
@@ -249,6 +309,7 @@ export const validateStreamRate = (
   } = ctx;
   if (sampleRate < streamRate)
     issues.push({
+      continue: true,
       code: "custom",
       message: "Stream rate must be less than or equal to the sample rate",
       path: ["streamRate"],

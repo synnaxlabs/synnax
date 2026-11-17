@@ -91,6 +91,12 @@ export interface ContextValue {
   close: () => void;
   open: () => void;
   toggle: () => void;
+  /**
+   * Opens the dialog at `target`, a part of the trigger such as a tag, or closes it if
+   * it is open there. While open, the dialog keeps its first x until the window
+   * resizes, so a change to the tags never moves it sideways.
+   */
+  toggleAt: (target: HTMLElement) => void;
   visible: boolean;
   variant: Variant;
   /** The corner of the trigger the dialog opens from. */
@@ -108,6 +114,7 @@ const [Context, useContext] = context.create<ContextValue>({
     location: location.BOTTOM_LEFT,
     open: () => {},
     toggle: () => {},
+    toggleAt: () => {},
     variant: "floating",
     visible: false,
     triggerRef: () => {},
@@ -249,9 +256,27 @@ export const Frame = ({
   // Read through a ref, so a caller's onVisibleChange can change identity without
   // re-subscribing the outside-click and Escape listeners below.
   const setVisibleRef = useSyncedRef(setVisible);
+  // The part of the trigger the dialog opened against, if not the whole frame.
+  const [openedAt, setOpenedAt] = useState<HTMLElement | null>(null);
+  // The x a dialog opened at a tag keeps, and the tag's last box for when it goes.
+  const heldLeft = useRef<number | null>(null);
+  const openedAtBox = useRef<box.Box>(box.ZERO);
   const close = () => setVisibleRef.current(false);
-  const open = () => setVisibleRef.current(true);
-  const toggle = () => setVisibleRef.current((prev) => !prev);
+  const open = () => {
+    setOpenedAt(null);
+    setVisibleRef.current(true);
+  };
+  const toggle = () => {
+    setOpenedAt(null);
+    setVisibleRef.current((prev) => !prev);
+  };
+  const toggleAt = (target: HTMLElement) => {
+    if (visible && openedAt === target) return close();
+    heldLeft.current = null;
+    setOpenedAt(target);
+    setVisibleRef.current(true);
+  };
+  const anchorEl = anchor ?? openedAt;
 
   const id = useId();
   const visibleRef = useSyncedRef(visible);
@@ -270,10 +295,14 @@ export const Frame = ({
     useState<State>({ ...ZERO_STATE, modalPosition: propsModalPosition });
 
   const calculatePosition = () => {
-    const targetEl = anchor ?? targetRef.current;
+    const targetEl = anchorEl ?? targetRef.current;
     if (targetEl == null || dialogRef.current == null || !visibleRef.current) return;
-    const target = box.construct(targetEl);
-    if (box.areaIsZero(target) && variant !== "modal") return close();
+    let target = box.construct(targetEl);
+    const atTag = targetEl === openedAt;
+    // The tag can go or fold into the count as the dialog changes the value.
+    if (atTag && box.areaIsZero(target)) target = openedAtBox.current;
+    else if (atTag) openedAtBox.current = target;
+    else if (box.areaIsZero(target) && variant !== "modal") return close();
 
     // Layout size, not the painted box: the entrance animation scales the dialog.
     const { offsetWidth, offsetHeight } = dialogRef.current;
@@ -322,7 +351,12 @@ export const Frame = ({
     });
     prevLocationPreference.current = locations;
     const { targetCorner, dialogCorner } = locations;
-    const roundedDialog = box.round(adjustedDialog);
+    let roundedDialog = box.round(adjustedDialog);
+    if (atTag) {
+      const left = heldLeft.current ?? box.left(roundedDialog);
+      heldLeft.current = left;
+      roundedDialog = box.translate(roundedDialog, "x", left - box.left(roundedDialog));
+    }
     if (
       positionsEqual(roundedDialog, prevBox.current) &&
       prevWindowBox.current != null &&
@@ -369,7 +403,7 @@ export const Frame = ({
   const combinedTargetRef = useCombinedRefs(targetRef, resizeTargetRef);
 
   const resizeAnchorRef = useResize(calculatePosition, { enabled: visible });
-  useEffect(() => resizeAnchorRef(anchor ?? null), [anchor, resizeAnchorRef]);
+  useEffect(() => resizeAnchorRef(anchorEl), [anchorEl, resizeAnchorRef]);
 
   useEffect(() => {
     const frame = targetRef.current;
@@ -378,7 +412,10 @@ export const Frame = ({
     return () => frame.removeEventListener(OPEN_EVENT_NAME, open);
   }, [open]);
 
-  useWindowResize(calculatePosition);
+  useWindowResize(() => {
+    heldLeft.current = null;
+    calculatePosition();
+  });
 
   const exclude = (e: MouseEvent) => {
     if (!visibleRef.current || dialogRef.current == null || targetRef.current == null)
@@ -469,6 +506,7 @@ export const Frame = ({
     close,
     open,
     toggle,
+    toggleAt,
     visible,
     onPointerEnter,
     variant,

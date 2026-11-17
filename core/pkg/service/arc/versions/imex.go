@@ -34,7 +34,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 	)
 	if env.Version > legacy.LastVersion {
 		var typed imex.Envelope
-		if typed, err = withVariantType(ctx, env); err == nil {
+		if typed, err = withVariantType(env); err == nil {
 			a, err = autoDecodeEnvelope(ctx, typed)
 		}
 	} else {
@@ -63,12 +63,12 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 
 // withVariantType replaces the file type in env's body with the Arc type it names, or
 // with automation when it names none.
-func withVariantType(ctx context.Context, env imex.Envelope) (imex.Envelope, error) {
+func withVariantType(env imex.Envelope) (imex.Envelope, error) {
 	t, ok := v4.TypeFromFileType(env.Type)
 	if !ok {
 		t = TypeAutomation
 	}
-	body, err := env.Decode[map[string]jsontext.Value](ctx)
+	body, err := env.Decode[map[string]jsontext.Value]()
 	if err != nil {
 		return imex.Envelope{}, err
 	}
@@ -88,7 +88,7 @@ func withVariantType(ctx context.Context, env imex.Envelope) (imex.Envelope, err
 }
 
 func decodeConsole(ctx context.Context, env imex.Envelope) (legacy.Document, error) {
-	body, err := env.Decode[msgpack.EncodedJSON](ctx)
+	body, err := env.Decode[msgpack.EncodedJSON]()
 	if err != nil {
 		return legacy.Document{}, err
 	}
@@ -98,7 +98,7 @@ func decodeConsole(ctx context.Context, env imex.Envelope) (legacy.Document, err
 	if !isConsoleState(body) {
 		// The export taken from an Arc that was not open: the typed Arc the Console
 		// retrieved from the Core, spread into the file.
-		e, err := env.Decode[legacy.Export](ctx)
+		e, err := env.Decode[legacy.Export]()
 		if err != nil {
 			return legacy.Document{}, err
 		}

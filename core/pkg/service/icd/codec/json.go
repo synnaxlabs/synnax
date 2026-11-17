@@ -15,6 +15,7 @@ import (
 	"math"
 	"strconv"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
@@ -180,109 +181,145 @@ func newJSONField(f icd.JSONField, dt telem.DataType) (jsonField, error) {
 		scale:    b.Scale,
 		offset:   b.Offset,
 	}
-	var (
-		xf = xjson.Field{DataType: dt}
-		// fallback is the default of a field that is not a float, as a JSON value.
-		fallback     jsontext.Value
-		floatDefault *payload.Float
-	)
-	switch v := f.Variant.(type) {
+	v, err := field.readVariant(f)
+	if err != nil {
+		return jsonField{}, err
+	}
+	if err = field.compile(v); err != nil {
+		return jsonField{}, err
+	}
+	return field, nil
+}
+
+// jsonVariant is what the variant of a JSON field sets: the options of its samples and
+// its default.
+type jsonVariant struct {
+	sample xjson.Field
+	// fallback is the default of a field that is not a float, as a JSON value.
+	fallback     jsontext.Value
+	floatDefault *payload.Float
+}
+
+// readVariant sets the kind of f from the variant of jf, and the fallback of a
+// timestamp field. It returns the rest of what the variant sets.
+func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
+	out := jsonVariant{sample: xjson.Field{DataType: f.dataType, Enums: enumsOf(jf)}}
+	var err error
+	switch v := jf.Variant.(type) {
 	case icd.FloatJSONField:
-		field.kind = payload.KindFloat
-		for _, e := range v.EnumValues {
-			xf.Enums = append(xf.Enums, xjson.NewEnum(e.Label, float64(e.Value)))
-		}
-		floatDefault = v.Default
+		f.kind = payload.KindFloat
+		out.floatDefault = v.Default
 	case icd.IntegerJSONField:
-		field.kind, xf.Range = payload.KindInteger, telem.Int64T
-		for _, e := range v.EnumValues {
-			xf.Enums = append(xf.Enums, xjson.NewEnum(e.Label, int64(e.Value)))
-		}
+		f.kind, out.sample.Range = payload.KindInteger, telem.Int64T
 		if v.Default != nil {
-			fallback = strconv.AppendInt(nil, int64(*v.Default), 10)
+			out.fallback = strconv.AppendInt(nil, int64(*v.Default), 10)
 		}
 	case icd.UnsignedJSONField:
-		field.kind, xf.Range = payload.KindUnsigned, telem.Uint64T
-		for _, e := range v.EnumValues {
-			xf.Enums = append(xf.Enums, xjson.NewEnum(e.Label, uint64(e.Value)))
-		}
+		f.kind, out.sample.Range = payload.KindUnsigned, telem.Uint64T
 		if v.Default != nil {
-			fallback = strconv.AppendUint(nil, uint64(*v.Default), 10)
+			out.fallback = strconv.AppendUint(nil, uint64(*v.Default), 10)
 		}
 	case icd.StringJSONField:
-		field.kind = payload.KindString
-		for _, e := range v.EnumValues {
-			xf.Enums = append(xf.Enums, xjson.NewEnum(e.Label, e.Value))
-		}
+		f.kind = payload.KindString
 		if v.Default != nil {
-			if fallback, err = jsontext.AppendQuote(nil, *v.Default); err != nil {
-				return jsonField{}, errors.Wrap(validate.ErrValidation, err.Error())
+			if out.fallback, err = jsontext.AppendQuote(nil, *v.Default); err != nil {
+				return jsonVariant{}, errors.Wrap(validate.ErrValidation, err.Error())
 			}
 		}
 	case icd.BooleanJSONField:
-		field.kind = payload.KindBoolean
-		for _, e := range v.EnumValues {
-			xf.Enums = append(xf.Enums, xjson.NewEnum(e.Label, boolSample(e.Value)))
-		}
+		f.kind = payload.KindBoolean
 		if v.Default != nil {
-			fallback = strconv.AppendBool(nil, *v.Default)
+			out.fallback = strconv.AppendBool(nil, *v.Default)
 		}
 	case icd.TimestampJSONField:
-		field.kind = payload.KindTimestamp
-		if xf.TimeFormat, err = xjson.ParseTimeFormat(
-			string(v.TimeFormat),
-		); err != nil {
-			return jsonField{}, err
+		f.kind = payload.KindTimestamp
+		format := string(v.TimeFormat)
+		if out.sample.TimeFormat, err = xjson.ParseTimeFormat(format); err != nil {
+			return jsonVariant{}, err
 		}
 		if v.Default != nil {
-			field.fallback = telem.ByteOrder.AppendUint64(nil, uint64(*v.Default))
+			f.fallback = telem.ByteOrder.AppendUint64(nil, uint64(*v.Default))
 		}
 	case icd.JSONJSONField:
-		field.kind = payload.KindJSON
+		f.kind = payload.KindJSON
 	case icd.UuidJSONField:
-		field.kind = payload.KindUUID
+		f.kind = payload.KindUUID
 	case icd.BytesJSONField:
-		field.kind = payload.KindBytes
+		f.kind = payload.KindBytes
 	default:
-		return jsonField{}, errors.Wrap(validate.ErrValidation, "type is required")
+		return jsonVariant{}, errors.Wrap(validate.ErrValidation, "type is required")
 	}
-	if !Converts(field.kind, dt) {
-		return jsonField{}, errors.Wrapf(
+	return out, nil
+}
+
+// enumsOf returns the enum labels of jf.
+func enumsOf(jf icd.JSONField) []xjson.Enum {
+	switch v := jf.Variant.(type) {
+	case icd.FloatJSONField:
+		return lo.Map(v.EnumValues, func(e payload.FloatEntry, _ int) xjson.Enum {
+			return xjson.NewEnum(e.Label, float64(e.Value))
+		})
+	case icd.IntegerJSONField:
+		return lo.Map(v.EnumValues, func(e payload.IntegerEntry, _ int) xjson.Enum {
+			return xjson.NewEnum(e.Label, int64(e.Value))
+		})
+	case icd.UnsignedJSONField:
+		return lo.Map(v.EnumValues, func(e payload.UnsignedEntry, _ int) xjson.Enum {
+			return xjson.NewEnum(e.Label, uint64(e.Value))
+		})
+	case icd.StringJSONField:
+		return lo.Map(v.EnumValues, func(e payload.StringEntry, _ int) xjson.Enum {
+			return xjson.NewEnum(e.Label, e.Value)
+		})
+	case icd.BooleanJSONField:
+		return lo.Map(v.EnumValues, func(e payload.BooleanEntry, _ int) xjson.Enum {
+			return xjson.NewEnum(e.Label, boolSample(e.Value))
+		})
+	}
+	return nil
+}
+
+// compile checks that the kind of f converts to its data type, then builds the decoders
+// of f from v and sets its fallback from the default of v.
+func (f *jsonField) compile(v jsonVariant) error {
+	if !Converts(f.kind, f.dataType) {
+		return errors.Wrapf(
 			validate.ErrValidation,
 			"cannot write %s values to %s channels",
-			field.kind,
-			dt,
+			f.kind,
+			f.dataType,
 		)
 	}
-	field.scaled = b.Scale != 1 || b.Offset != 0
-	if field.scaled {
-		if dt != telem.Float32T && dt != telem.Float64T {
-			return jsonField{}, errors.Wrapf(
+	var err error
+	f.scaled = f.scale != 1 || f.offset != 0
+	if f.scaled {
+		if f.dataType != telem.Float32T && f.dataType != telem.Float64T {
+			return errors.Wrapf(
 				validate.ErrValidation,
 				"a scaled field requires a float channel, not %s",
-				dt,
+				f.dataType,
 			)
 		}
-		numberField := xjson.Field{DataType: telem.Float64T, Range: xf.Range}
-		if field.number, err = xjson.NewDecoder(numberField); err != nil {
-			return jsonField{}, err
+		numberField := xjson.Field{DataType: telem.Float64T, Range: v.sample.Range}
+		if f.number, err = xjson.NewDecoder(numberField); err != nil {
+			return err
 		}
 		// A scaled value need not be an integer.
-		xf.Range = ""
+		v.sample.Range = ""
 	}
-	if field.sample, err = xjson.NewDecoder(xf); err != nil {
-		return jsonField{}, err
+	if f.sample, err = xjson.NewDecoder(v.sample); err != nil {
+		return err
 	}
 	switch {
-	case floatDefault != nil:
-		field.fallback, err = field.appendFloat(nil, float64(*floatDefault))
-	case fallback != nil:
-		field.fallback, err = field.decode(nil, fallback)
+	case v.floatDefault != nil:
+		f.fallback, err = f.appendFloat(nil, float64(*v.floatDefault))
+	case v.fallback != nil:
+		f.fallback, err = f.decode(nil, v.fallback)
 	}
 	if err != nil {
-		return jsonField{}, errors.Wrap(err, "default")
+		return errors.Wrap(err, "default")
 	}
-	return field, nil
+	return nil
 }
 
 func boolSample(v bool) uint8 {

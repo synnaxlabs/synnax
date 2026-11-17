@@ -53,7 +53,7 @@ func (s StringZ) Validate(data any) error {
 }
 
 // validateDestinationValue validates that the destination is compatible with string
-// data
+// data.
 func (s StringZ) validateDestinationValue(dest reflect.Value) error {
 	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError(string(s.dataType), dest)
@@ -120,8 +120,8 @@ func (s StringZ) Dump(data any) (any, error) {
 			}
 			return val.String(), nil
 		case reflect.Array:
-			if val.Type() == reflect.TypeFor[uuid.UUID]() {
-				return val.Interface().(uuid.UUID).String(), nil
+			if id, ok := reflect.TypeAssert[uuid.UUID](val); ok {
+				return id.String(), nil
 			}
 			fallthrough
 		default:

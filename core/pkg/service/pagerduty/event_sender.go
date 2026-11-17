@@ -17,7 +17,10 @@ import (
 
 // EventSender abstracts PagerDuty event sending for testability.
 type EventSender interface {
-	SendEvent(context.Context, pagerduty.V2Event) (*pagerduty.V2EventResponse, error)
+	SendEvent(
+		ctx context.Context,
+		event pagerduty.V2Event,
+	) (*pagerduty.V2EventResponse, error)
 }
 
 type defaultEventSenderImpl struct{}

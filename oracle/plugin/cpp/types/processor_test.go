@@ -30,21 +30,23 @@ var _ = Describe("FieldProcessor", func() {
 		mgr = includes.NewManager()
 	})
 
-	process := func(ctx SpecContext, source, field string) types.FieldData {
+	process := func(source, field string) types.FieldData {
 		GinkgoHelper()
-		req := MustGenerateRequest(ctx, source, "test", loader)
+		req := MustGenerateRequest(source, "test", loader)
 		item := req.Resolutions.MustGet("test.Item")
-		f := MustBeOk(item.Form.(resolution.StructForm).Field(field))
+		form, ok := item.Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
+		f := MustBeOk(form.Field(field))
 		fp := &types.FieldProcessor{
-			Includes:  mgr,
-			Namespace: "test",
-			Table:     req.Resolutions,
+			Includes: mgr,
+			FilePath: item.FilePath,
+			Table:    req.Resolutions,
 		}
 		return fp.ProcessField(f, item)
 	}
 
-	It("Should declare a required field with its zero value", func(ctx SpecContext) {
-		fd := process(ctx, `
+	It("Should declare a required field with its zero value", func() {
+		fd := process(`
 			@cpp output "client/cpp/test"
 
 			Item struct {
@@ -58,8 +60,8 @@ var _ = Describe("FieldProcessor", func() {
 		Expect(mgr.SystemIncludes()).To(ContainElement("cstdint"))
 	})
 
-	It("Should wrap an optional field in std::optional", func(ctx SpecContext) {
-		fd := process(ctx, `
+	It("Should wrap an optional field in std::optional", func() {
+		fd := process(`
 			@cpp output "client/cpp/test"
 
 			Item struct {
@@ -70,8 +72,8 @@ var _ = Describe("FieldProcessor", func() {
 		Expect(mgr.SystemIncludes()).To(ContainElement("optional"))
 	})
 
-	It("Should name a type of the namespace by its bare name", func(ctx SpecContext) {
-		fd := process(ctx, `
+	It("Should name a type of the namespace by its bare name", func() {
+		fd := process(`
 			@cpp output "client/cpp/test"
 
 			Tile struct {
@@ -86,9 +88,7 @@ var _ = Describe("FieldProcessor", func() {
 		Expect(mgr.InternalIncludes()).To(BeEmpty())
 	})
 
-	It("Should qualify a type of another namespace and include its header", func(
-		ctx SpecContext,
-	) {
+	It("Should qualify a type of another namespace and include its header", func() {
 		loader.Add("schemas/patch", `
 			@cpp output "x/cpp/patch"
 
@@ -96,7 +96,7 @@ var _ = Describe("FieldProcessor", func() {
 				value string
 			}
 		`)
-		fd := process(ctx, `
+		fd := process(`
 			import "schemas/patch"
 
 			@cpp output "client/cpp/test"

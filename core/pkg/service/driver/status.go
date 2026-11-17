@@ -197,26 +197,9 @@ type ConfigReporter struct {
 	alamos.Instrumentation
 }
 
-// Report reports err for t, which failed to configure. It writes the status of Fail
-// when a caller waits on cmdKey or the task starts automatically, and logs a warning
-// otherwise.
+// Report reports err for t, which failed to configure. It writes an error status that
+// answers cmdKey, or NoCommand at boot.
 func (r ConfigReporter) Report(
-	ctx context.Context,
-	t task.Task,
-	cmdKey string,
-	autoStart bool,
-	err error,
-) {
-	if cmdKey == NoCommand && !autoStart {
-		r.L.Warn("failed to configure task", zap.Stringer("task", t), zap.Error(err))
-		return
-	}
-	r.Fail(ctx, t, cmdKey, err)
-}
-
-// Fail writes the error status of t, which failed to configure with err, and answers
-// cmdKey.
-func (r ConfigReporter) Fail(
 	ctx context.Context,
 	t task.Task,
 	cmdKey string,

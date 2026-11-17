@@ -42,7 +42,7 @@ def load_desktop_options(path: Path = DESKTOP_FILE_PATH) -> Options | None:
     :returns: The options, or None if Synnax Desktop has saved none.
     """
     try:
-        raw = json.loads(path.read_text())
+        raw = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return None
     return Options.model_validate(raw)

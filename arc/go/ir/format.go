@@ -16,7 +16,7 @@ import (
 )
 
 // FormatFunctionSignature returns a human-readable function signature in Arc syntax.
-// Format: "name(param type, param type) returnType"
+// Format: "name(param type, param type) returnType".
 func FormatFunctionSignature(name string, t types.Type) string {
 	if t.Kind != types.KindFunction {
 		return name

@@ -10,6 +10,7 @@
 package resolution
 
 import (
+	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -51,6 +52,16 @@ func RetrieveKey(typ Type) (TypeRef, bool) {
 		name = typ.Namespace + "." + name
 	}
 	return TypeRef{Name: name}, true
+}
+
+// RetrieveNoun returns the noun that a `@retrieve noun` expression declares on typ.
+// Generated field names and docs use it and its plural in place of the type name.
+func RetrieveNoun(typ Type) (string, bool) {
+	expr, ok := typ.Domains["retrieve"].Expressions.Find("noun")
+	if !ok || len(expr.Values) == 0 {
+		return "", false
+	}
+	return expr.Values[0].StringValue, true
 }
 
 // FilterNamespace is the namespace of the operator types that a filter's bare lines
@@ -126,6 +137,16 @@ func (t Type) Actions() []Action {
 
 type TypeForm interface {
 	typeForm()
+}
+
+// MustForm returns the form of t as an F. It panics if t has another form, which is a
+// caller bug: callers only ask for the form they selected t by.
+func MustForm[F TypeForm](t Type) F {
+	form, ok := t.Form.(F)
+	if !ok {
+		panic(fmt.Sprintf("%s is a %T, not a %T", t.QualifiedName, t.Form, form))
+	}
+	return form
 }
 
 type StructForm struct {

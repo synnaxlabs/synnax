@@ -67,7 +67,10 @@ func messageNamed(messages []icd.Message, name string) icd.Message {
 }
 
 func canIdentifier(m icd.Message) icd.CanIdentifier {
-	return binaryPayloadOf(m).Identifier.Variant.(icd.CanIdentifier)
+	GinkgoHelper()
+	id, ok := binaryPayloadOf(m).Identifier.Variant.(icd.CanIdentifier)
+	Expect(ok).To(BeTrue())
+	return id
 }
 
 func binaryFields(m icd.Message) []icd.BinaryField {
@@ -91,7 +94,7 @@ func toExpected(messages []icd.Message) []expectedMessage {
 	var out []expectedMessage
 	for _, m := range messages {
 		p := binaryPayloadOf(m)
-		id := p.Identifier.Variant.(icd.CanIdentifier)
+		id := canIdentifier(m)
 		em := expectedMessage{
 			Name:     m.Name,
 			ID:       id.ID,
@@ -607,5 +610,11 @@ SG_MUL_VAL_ 256 A Missing 0-0;
 
 SIG_VALTYPE_ 256 A : 1;
 `, "line 12: signal A is a 32-bit float but has 16 bits"),
+		Entry("a signal with no bits", `BO_ 256 Engine: 8 Ecu
+ SG_ A : 0|0@1+ (1,0) [0|0] "" Ecu
+`, "line 10: signal A has 0 bits, not 1 to 64"),
+		Entry("a signal of more than 64 bits", `BO_ 256 Engine: 8 Ecu
+ SG_ A : 0|65@1+ (1,0) [0|0] "" Ecu
+`, "line 10: signal A has 65 bits, not 1 to 64"),
 	)
 })

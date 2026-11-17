@@ -174,11 +174,11 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	for _, outputPath := range outputOrder {
 		structs := outputStructs[outputPath]
 		unions := outputUnions[outputPath]
-		namespace := ""
+		var namespace, filePath string
 		if len(structs) > 0 {
-			namespace = structs[0].Namespace
+			namespace, filePath = structs[0].Namespace, structs[0].FilePath
 		} else if len(unions) > 0 {
-			namespace = unions[0].Namespace
+			namespace, filePath = unions[0].Namespace, unions[0].FilePath
 		}
 
 		enums := enum.CollectReferenced(structs, req.Resolutions)
@@ -188,12 +188,20 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if standalone, ok := standaloneEnums[outputPath]; ok {
 			enums = append(enums, standalone...)
 			if namespace == "" && len(standalone) > 0 {
-				namespace = standalone[0].Namespace
+				namespace, filePath = standalone[0].Namespace, standalone[0].FilePath
 			}
 		}
 
 		content, err := p.generateProto(
-			outputPath, structs, unions, enums, namespace, jsonPaths, protoPaths, req,
+			outputPath,
+			structs,
+			unions,
+			enums,
+			namespace,
+			filePath,
+			jsonPaths,
+			protoPaths,
+			req,
 		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate proto for %s", outputPath)
@@ -232,6 +240,7 @@ func (p *Plugin) generateProto(
 	unions []resolution.Type,
 	enums []resolution.Type,
 	namespace string,
+	filePath string,
 	jsonPaths set.Set[string],
 	protoPaths set.Set[string],
 	req *plugin.Request,
@@ -247,6 +256,7 @@ func (p *Plugin) generateProto(
 		jsonPaths:        jsonPaths,
 		protoPaths:       protoPaths,
 		rawNs:            namespace,
+		filePath:         filePath,
 		processedEnums:   make(set.Set[string]),
 		instances:        make(set.Set[string]),
 	}
@@ -258,7 +268,7 @@ func (p *Plugin) generateProto(
 	}
 
 	data.AddSystem("utility")
-	data.AddInternal(fmt.Sprintf("%s/types.gen.h", outputPath))
+	data.AddInternal(outputPath + "/types.gen.h")
 	data.AddInternal(data.jsonInclude(outputPath))
 	data.AddInternal("x/cpp/errors/errors.h")
 	data.AddInternal("x/cpp/pb/pb.h")
@@ -320,7 +330,7 @@ func (p *Plugin) generateProto(
 		if omit.IsSkipped(e, "cpp") || omit.IsSkipped(e, "pb") {
 			continue
 		}
-		if e.Namespace != namespace {
+		if e.FilePath != filePath {
 			continue
 		}
 		if data.processedEnums.Contains(e.QualifiedName) {
@@ -381,7 +391,7 @@ func (p *Plugin) resolveExtendsType(
 ) string {
 	name := domain.GetName(parent, "cpp")
 
-	if parent.Namespace != data.rawNs {
+	if parent.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(parent, "cpp")
 		if targetOutputPath != "" {
 			if data.protoPaths.Contains(targetOutputPath) {
@@ -476,7 +486,7 @@ func (p *Plugin) unionTranslatorNames(
 ) (toProto, fromProto string) {
 	fromProto = casing.FieldSnake(domain.GetName(resolved, "cpp")) + "_from_proto"
 	ns := data.Namespace
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		if targetOutputPath := output.GetPath(resolved, "cpp"); targetOutputPath != "" {
 			data.addConversionIncludes(targetOutputPath)
 			ns = naming.Namespace(targetOutputPath)
@@ -645,7 +655,7 @@ func (p *Plugin) generateFieldConversion(
 	typeRef := field.Type
 	pbFieldName := casing.FieldSnake(field.Name)
 	pbAccessorName := keywords.Escape(pbFieldName)
-	pbSetter := fmt.Sprintf("pb.set_%s", pbAccessorName)
+	pbSetter := "pb.set_" + pbAccessorName
 
 	if p.isFixedSizeUint8Array(typeRef, data.table) {
 		return p.generateFixedSizeUint8ArrayConversion(field, data)
@@ -934,7 +944,7 @@ func (p *Plugin) generateStructConversion(
 			pbAccessorName,
 		)
 	}
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			data.addConversionIncludes(targetOutputPath)
@@ -1035,7 +1045,7 @@ func (p *Plugin) typeRefToCppForTranslator(
 		}
 	}
 
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			ns := naming.Namespace(targetOutputPath)
@@ -1138,7 +1148,7 @@ func (p *Plugin) generateEnumConversion(
 
 	cppEnumType := domain.GetName(resolved, "cpp")
 	funcNamespace := ""
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			ns := naming.Namespace(targetOutputPath)
@@ -1226,10 +1236,10 @@ func (p *Plugin) generateHandWrittenConversion(
 }
 
 // handWrittenName returns the C++ name of a type hand-written in C++, qualified when
-// it lives in another namespace.
+// it lives in another schema.
 func handWrittenName(resolved resolution.Type, data *templateData) string {
 	cppName := domain.GetName(resolved, "cpp")
-	if resolved.Namespace == data.rawNs {
+	if resolved.FilePath == data.filePath {
 		return cppName
 	}
 	if target := output.GetPath(resolved, "cpp"); target != "" {
@@ -1331,7 +1341,7 @@ func (p *Plugin) generateArrayElementConversion(
 	if !resolution.IsPrimitive(elemType.Name) {
 		if resolved, _, ok := resolution.Dealias(elemType, data.table); ok {
 			if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
-				if resolved.Namespace != data.rawNs {
+				if resolved.FilePath != data.filePath {
 					targetOutputPath := output.GetPath(resolved, "cpp")
 					if targetOutputPath != "" {
 						data.addConversionIncludes(targetOutputPath)
@@ -1440,7 +1450,7 @@ func (p *Plugin) elementConversion(
 ) (toPB, fromPB func(string) string, ok bool) {
 	if key.ResolvePrimitive(elemType, data.table) == "uuid" {
 		toPB = func(add string) string {
-			return fmt.Sprintf("%s(item.to_string());", add)
+			return add + "(item.to_string());"
 		}
 		fromPB = func(dst string) string {
 			return fmt.Sprintf(`auto [v, err] = x::uuid::UUID::parse(item);
@@ -1457,7 +1467,7 @@ func (p *Plugin) elementConversion(
 		omit.IsSkipped(resolved, "cpp") {
 		cppName := handWrittenName(resolved, data)
 		toPB = func(add string) string {
-			return fmt.Sprintf("%s(item.to_proto());", add)
+			return add + "(item.to_proto());"
 		}
 		fromPB = func(dst string) string {
 			return fmt.Sprintf("%spush_back(%s::from_proto(item));", dst, cppName)
@@ -1470,7 +1480,7 @@ func (p *Plugin) elementConversion(
 	}
 	cppEnumType := domain.GetName(resolved, "cpp")
 	funcNamespace := ""
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		if target := output.GetPath(resolved, "cpp"); target != "" {
 			data.addConversionIncludes(target)
 			ns := naming.Namespace(target)
@@ -1629,7 +1639,7 @@ func (p *Plugin) generateMapLoops(
 
 	if dealiased {
 		if _, isStruct := value.Form.(resolution.StructForm); isStruct {
-			if value.Namespace != data.rawNs {
+			if value.FilePath != data.filePath {
 				targetOutputPath := output.GetPath(value, "cpp")
 				if targetOutputPath != "" {
 					data.addConversionIncludes(targetOutputPath)
@@ -1718,7 +1728,7 @@ func (p *Plugin) generateNestedArrayConversion(
 		if innerElem, ok := arrays.ElementType(elemType, data.table); ok {
 			if innerResolved, _, ok := resolution.Dealias(innerElem, data.table); ok {
 				if _, isStruct := innerResolved.Form.(resolution.StructForm); isStruct {
-					if innerResolved.Namespace != data.rawNs {
+					if innerResolved.FilePath != data.filePath {
 						targetOutputPath := output.GetPath(innerResolved, "cpp")
 						if targetOutputPath != "" {
 							data.addConversionIncludes(targetOutputPath)
@@ -1848,6 +1858,7 @@ type templateData struct {
 	protoPaths  set.Set[string]
 	Namespace   string
 	rawNs       string
+	filePath    string
 	pbNamespace string
 	Translators []translatorData
 	// InstanceTranslators translate the generic uses that have their own message.

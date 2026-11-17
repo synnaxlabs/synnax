@@ -1145,48 +1145,76 @@ TEST_F(SOEMMasterTest, ScanReadsTheCoESerialNumber) {
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
-/// @brief it should keep the SII serial number of a slave whose CoE identity object has
-/// no serial number.
-TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWithoutACoESerial) {
+/// @brief it should read a serial number of 8 bytes, as IOLITE modules give.
+TEST_F(SOEMMasterTest, ScanReadsAnEightByteCoESerialNumber) {
     auto slave = create_coe_slave(0);
-    slave.eep_ser = 0xABCD;
+    slave.sdo_objects.clear();
+    slave.sdo_objects_64[{0x1018, 4}] = 0x000000DB21014087;
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0x000000DB21014087);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should give serial number 0 and no serial read error to a slave whose CoE
+/// identity object has no serial number.
+TEST_F(SOEMMasterTest, ScanGivesNoSerialWithoutACoESerial) {
+    auto slave = create_coe_slave(0);
     slave.sdo_objects.clear();
     this->add_slave(slave);
     const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should give serial number 0 to a slave whose CoE serial number is 0.
+TEST_F(SOEMMasterTest, ScanGivesNoSerialWhenTheCoESerialIsZero) {
+    this->add_slave(create_coe_slave(0));
+    EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0);
+}
+
+/// @brief it should keep the nonzero SII serial number of a slave over its CoE serial
+/// number, as saved devices have the SII serial number as their identity.
+TEST_F(SOEMMasterTest, ScanKeepsANonzeroSIISerialOverTheCoESerial) {
+    auto slave = create_coe_slave(0x5555);
+    slave.eep_ser = 0xABCD;
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
     EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
-/// @brief it should keep the SII serial number of a slave whose CoE serial number is
-/// 0.
-TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheCoESerialIsZero) {
+/// @brief it should give serial number 0 to a slave whose CoE serial number is too
+/// large for the Core to store exactly.
+TEST_F(SOEMMasterTest, ScanGivesNoSerialWhenTheCoESerialIsTooLarge) {
     auto slave = create_coe_slave(0);
-    slave.eep_ser = 0xABCD;
+    slave.sdo_objects.clear();
+    slave.sdo_objects_64[{0x1018, 4}] = uint64_t{1} << 53;
     this->add_slave(slave);
-    EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0xABCD);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
-/// @brief it should keep the SII serial number of a slave that aborts the read of its
-/// CoE serial number.
-TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveAbortsTheRead) {
+/// @brief it should give serial number 0 and no serial read error to a slave that
+/// aborts the read of its CoE serial number.
+TEST_F(SOEMMasterTest, ScanGivesNoSerialWhenTheSlaveAbortsTheRead) {
     auto slave = create_coe_slave(0x5555);
-    slave.eep_ser = 0xABCD;
     slave.sdo_read_aborts[{0x1018, 4}] = 0x06010000;
     this->add_slave(slave);
     const auto slaves = ASSERT_NIL_P(this->master->scan());
-    EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
+    EXPECT_EQ(slaves[0].properties.serial, 0);
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
-/// @brief it should keep the SII serial number of a slave that answers the read of its
-/// CoE serial number with a mailbox error.
-TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveGivesAMailboxError) {
+/// @brief it should give serial number 0 and no serial read error to a slave that
+/// answers the read of its CoE serial number with a mailbox error.
+TEST_F(SOEMMasterTest, ScanGivesNoSerialWhenTheSlaveGivesAMailboxError) {
     auto slave = create_coe_slave(0x5555);
-    slave.eep_ser = 0xABCD;
     slave.sdo_read_mailbox_errors.insert({0x1018, 4});
     this->add_slave(slave);
     const auto slaves = ASSERT_NIL_P(this->master->scan());
-    EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
+    EXPECT_EQ(slaves[0].properties.serial, 0);
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
@@ -2306,6 +2334,63 @@ TEST_F(SOEMMasterTest, ReceiveWkcMatch) {
     this->initialize_with_slave();
     this->activate_master();
     ASSERT_NIL(this->master->receive());
+}
+
+/// @brief it should give each slave below SAFE-OP in the AL status read of the frame
+/// as inputless, and keep a slave in SAFE-OP with an error.
+TEST_F(SOEMMasterTest, ReceiveGivesTheSlavesBelowSafeOpAsInputless) {
+    this->add_default_slave();
+    this->add_default_slave();
+    this->add_default_slave();
+    ASSERT_NIL_P(this->master->scan());
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_SAFE_OP | EC_STATE_ERROR;
+    this->mock->slave_infos[2].state = EC_STATE_PRE_OP;
+    ASSERT_NIL(this->master->send());
+    ASSERT_NIL(this->master->receive());
+    EXPECT_EQ(
+        std::vector(this->master->inputless().begin(), this->master->inputless().end()),
+        std::vector<uint16_t>{3}
+    );
+}
+
+/// @brief it should give a slave that does not answer its AL status read as inputless.
+TEST_F(SOEMMasterTest, ReceiveGivesASlaveWithNoStateAnswerAsInputless) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->silent_slaves = {1};
+    ASSERT_NIL(this->master->send());
+    ASSERT_NIL(this->master->receive());
+    EXPECT_EQ(
+        std::vector(this->master->inputless().begin(), this->master->inputless().end()),
+        std::vector<uint16_t>{1}
+    );
+}
+
+/// @brief it should give no slave as inputless when no frame comes back.
+TEST_F(SOEMMasterTest, ReceiveGivesNoSlaveAsInputlessWhenNoFrameComesBack) {
+    this->initialize_with_slave();
+    this->activate_master();
+    ASSERT_NIL(this->master->send());
+    this->mock->receive_return = -1;
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::CYCLIC_ERROR);
+    EXPECT_TRUE(this->master->inputless().empty());
+}
+
+/// @brief it should read the AL status of no slave without inputs, since its readers
+/// take no data from it.
+TEST_F(SOEMMasterTest, ReceiveReadsNoStateOfASlaveWithoutInputs) {
+    this->add_default_slave();
+    MockSlaveInfo outputs_only;
+    outputs_only.state = EC_STATE_PRE_OP;
+    outputs_only.Obits = 8;
+    this->add_slave(outputs_only);
+    ASSERT_NIL_P(this->master->scan());
+    this->activate_master();
+    this->mock->slave_infos[1].state = EC_STATE_PRE_OP;
+    ASSERT_NIL(this->master->send());
+    ASSERT_NIL(this->master->receive());
+    EXPECT_TRUE(this->master->inputless().empty());
 }
 
 ////////////////////// Send //////////////////////

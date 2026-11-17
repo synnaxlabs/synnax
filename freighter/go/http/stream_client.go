@@ -11,6 +11,7 @@ package http
 
 import (
 	"context"
+	"io"
 	"net/http"
 
 	ws "github.com/fasthttp/websocket"
@@ -104,6 +105,10 @@ func (s *streamClient[RQ, RS]) Stream(
 			if err != nil {
 				return freighter.Context{Target: target}, err
 			}
+			if err = res.Body.Close(); err != nil {
+				err = errors.Combine(err, conn.Close())
+				return freighter.Context{Target: target}, err
+			}
 			oCtx := parseResponseCtx(res, target, true)
 			if res.StatusCode != fiber.StatusSwitchingProtocols {
 				return oCtx, errors.New("[ws] - unable to upgrade connection")
@@ -121,7 +126,7 @@ func (s *streamClient[RQ, RS]) Stream(
 				return oCtx, err
 			}
 			if msg.Type != WSMessageTypeOpen {
-				return oCtx, errors.Decode(ctx, msg.Err)
+				return oCtx, errors.Decode(msg.Err)
 			}
 			stream = &clientStream[RQ, RS]{streamCore: core}
 			return oCtx, nil
@@ -147,8 +152,8 @@ type clientStream[RQ, RS freighter.Payload] struct {
 
 // Send implements the freighter.ClientStream interface.
 func (s *clientStream[RQ, RS]) Send(req RQ) error {
-	if s.peerCloseErr != nil {
-		return freighter.EOF
+	if s.peerClosed() {
+		return io.EOF
 	}
 	if s.sendClosed {
 		return freighter.ErrStreamClosed
@@ -167,7 +172,7 @@ func (s *clientStream[RQ, RS]) Receive() (RS, error) {
 
 // CloseSend implements the freighter.ClientStream interface.
 func (s *clientStream[RQ, RS]) CloseSend() error {
-	if s.peerCloseErr != nil || s.sendClosed {
+	if s.peerClosed() || s.sendClosed {
 		return nil
 	}
 	s.sendClosed = true

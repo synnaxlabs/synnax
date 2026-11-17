@@ -1,0 +1,27 @@
+<!--
+  Copyright 2026 Synnax Labs, Inc.
+
+  Use of this software is governed by the Business Source License included in the file
+  licenses/BSL.txt.
+
+  As of the Change Date specified in that file, in accordance with the Business Source
+  License, use of this software will be governed by the Apache License, Version 2.0,
+  included in the file licenses/APL.txt.
+  -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 71 36">
+  <rect x="2" y="2" width="67" height="31" rx="2" />
+  <path d="M2 17.6024H28.5" stroke-linecap="round" />
+  <path d="M28.5 17.6024L34.6834 14.0324" stroke-linecap="round" />
+  <path d="M34.8 14L45.9058 20.9666" stroke-linecap="round" />
+  <path d="M51.5 17.6024L46.0141 20.8987" stroke-linecap="round" />
+  <path d="M20.5 17.6024L26.6574 14.0474" stroke-linecap="round" />
+  <path d="M26.75 14.1024L37.788 21.0265" stroke-linecap="round" />
+  <path d="M43.5 17.6024L37.8427 21.0017" stroke-linecap="round" />
+  <path d="M43.5 17.6024H69" stroke-linecap="round" />
+  <text
+        x="58"
+        y="29"
+        style="fill: rgb(var(--pluto-symbol-color, var(--pluto-text-color-rgb)))"
+        stroke="none"
+    >F</text>
+</svg>

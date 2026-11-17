@@ -31,7 +31,7 @@ func SetPreV54Row(
 	entryKey, value any,
 ) []byte {
 	ginkgo.GinkgoHelper()
-	prefix := testutil.MustSucceed(key.LegacyPrefix(ctx, typeName))
+	prefix := testutil.MustSucceed(key.LegacyPrefix(typeName))
 	encodedKey := testutil.MustSucceed(msgpack.Codec.Encode(entryKey))
 	fullKey := make([]byte, 0, len(prefix)+len(encodedKey))
 	fullKey = append(fullKey, prefix...)

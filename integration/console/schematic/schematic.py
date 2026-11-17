@@ -14,6 +14,7 @@ from playwright.sync_api import Locator, expect
 import synnax as sy
 from console.layout import LayoutClient
 from console.multiedit import Colors
+from console.notifications import click_past
 from console.page import ConsolePage, PageType
 from console.schematic.symbol import (
     Properties,
@@ -368,15 +369,14 @@ class Schematic(ConsolePage):
 
         :param name: The name of the symbol in the symbols tab (e.g. "Solenoid").
         """
-        self.notifications.close_all()
-        self.page.get_by_label("Change symbol", exact=True).click(timeout=5000)
+        click_past(self.page.get_by_label("Change symbol", exact=True))
         symbols = self.page.locator(".console-schematic__symbols")
         self.layout.wait_for_visible(symbols)
         symbols.locator("input[role='textbox']").first.fill(name)
         item = symbols.locator(".console-schematic-symbols__button").filter(
             has=self.page.locator("small").get_by_text(name, exact=True)
         )
-        item.first.click(timeout=5000)
+        click_past(item.first)
         self.layout.wait_for_hidden(self.page.locator(".console-schematic__change"))
 
     def set_authority(self, authority: int) -> None:
@@ -385,8 +385,7 @@ class Schematic(ConsolePage):
             raise ValueError(
                 f"Control Authority must be between 0 and 255, got {authority}"
             )
-        self.notifications.close_all()
-        self.page.get_by_text("Control", exact=True).first.dispatch_event("click")
+        click_past(self.page.get_by_text("Control", exact=True).first)
         self.layout.fill_input_field("Control Authority", str(authority))
 
     def set_properties(
@@ -396,8 +395,7 @@ class Schematic(ConsolePage):
         show_control_legend: bool | None = None,
     ) -> None:
         """Set schematic properties."""
-        self.notifications.close_all()
-        self.page.get_by_text("Control", exact=True).first.dispatch_event("click")
+        click_past(self.page.get_by_text("Control", exact=True).first)
 
         if control_authority is not None:
             if control_authority < 0 or control_authority > 255:
@@ -417,7 +415,7 @@ class Schematic(ConsolePage):
             if legend_toggle.count() > 0:
                 current_state = legend_toggle.is_checked()
                 if current_state != show_control_legend:
-                    legend_toggle.click()
+                    click_past(legend_toggle)
 
     # The control and edit toggles name themselves by the action they offer, so
     # the visible label doubles as the state: a "Release control" button means
@@ -496,8 +494,7 @@ class Schematic(ConsolePage):
         :returns: Dict with control_authority and show_control_legend keys.
         """
         self.layout.show_visualization_toolbar()
-        self.notifications.close_all()
-        self.page.get_by_text("Control", exact=True).first.dispatch_event("click")
+        click_past(self.page.get_by_text("Control", exact=True).first)
 
         control_authority = Authority(self.layout.get_input_field("Control Authority"))
 

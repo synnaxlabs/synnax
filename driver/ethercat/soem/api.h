@@ -22,6 +22,8 @@
 
 extern "C" {
 #include "soem/soem.h"
+
+#include "soem_patched.h"
 }
 
 namespace driver::ethercat::soem {
@@ -72,8 +74,13 @@ public:
     virtual int send_processdata(uint8_t group) = 0;
 
     /// @brief receives the process data of a slave group with a timeout in
-    /// microseconds.
+    /// microseconds, with the AL status of each of its slaves with inputs from the same
+    /// frames.
     virtual int receive_processdata(uint8_t group, int timeout) = 0;
+
+    /// @brief returns the AL status that the latest receive_processdata() read for the
+    /// slave, or 0 when the slave did not answer or its frame did not come back.
+    [[nodiscard]] virtual uint16_t al_status(uint16_t slave) const = 0;
 
     /// @brief requests a state transition for the specified slave.
     virtual int writestate(uint16_t slave) = 0;
@@ -192,6 +199,8 @@ public:
 /// @brief production implementation of soem::API wrapping ecx_contextt.
 class ProdAPI final : public API {
     std::unordered_map<uint16_t, std::function<void(uint16_t)>> po2so_configs;
+    /// @brief the AL status of each slave from the latest receive_processdata().
+    std::array<uint16_t, EC_MAXSLAVE> alstat{};
 
     static int run_PO2SOconfig(ecx_contextt *context, const uint16 slave) {
         static_cast<ProdAPI *>(context->userdata)->po2so_configs.at(slave)(slave);
@@ -222,7 +231,16 @@ public:
     }
 
     int receive_processdata(uint8_t group, int timeout) override {
-        return ecx_receive_processdata_group(&this->context, group, timeout);
+        return ecx_receive_processdata_group_alstat(
+            &this->context,
+            group,
+            timeout,
+            this->alstat.data()
+        );
+    }
+
+    [[nodiscard]] uint16_t al_status(const uint16_t slave) const override {
+        return this->alstat.at(slave);
     }
 
     int writestate(uint16_t slave) override {

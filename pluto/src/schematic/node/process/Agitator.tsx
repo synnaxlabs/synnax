@@ -10,12 +10,18 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
-import { Primitive } from "@/schematic/node/common/primitive";
+import { Custom } from "@/schematic/node/common/custom";
+import { type Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
+import svg from "@/schematic/node/process/Agitator.svg?raw";
+
 export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
-const DIMENSIONS = { width: 88, height: 86 };
+const SPEC = Custom.createBuiltIn({
+  variant: "actuator",
+  svg,
+  handles: [{ key: "4", position: { x: 0.5, y: 0.01 }, orientation: "top" }],
+});
 
 export const Agitator = ({
   orientation = "left",
@@ -24,23 +30,12 @@ export const Agitator = ({
   ...rest
 }: Props): ReactElement => (
   <Toggle.Button {...rest} className={CSS.cls(CSS.B("agitator"))}>
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={1}
-        id="4"
-      />
-    </Handle.Boundary>
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Path d="M1 85V48.8541C1 46.624 3.34694 45.1735 5.34164 46.1708L80.6584 83.8292 C82.6531 84.8265 85 83.376 85 81.1459 V44" />
-      <Primitive.Path d="M43 1L45 65" />
-    </Primitive.SVG>
+    />
   </Toggle.Button>
 );

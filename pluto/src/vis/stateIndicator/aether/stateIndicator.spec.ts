@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeSpan } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/testutil";
@@ -54,25 +55,29 @@ describe("stateIndicator/aether/StateIndicator", () => {
     afterEach(() => vi.useRealTimers());
 
     it("should start out live", () => {
-      const { h } = setup({ stalenessTimeout: 1 });
+      const { h } = setup({ stalenessTimeout: TimeSpan.seconds(1).nanoseconds });
       expect(h.state.stale).toBe(false);
     });
 
     it("should stay live before the source has ever sent", () => {
-      const { h } = setup({ stalenessTimeout: 1 });
+      const { h } = setup({ stalenessTimeout: TimeSpan.seconds(1).nanoseconds });
       vi.advanceTimersByTime(10000);
       expect(h.state.stale).toBe(false);
     });
 
     it("should turn stale when the source stops sending", () => {
-      const { h, source } = setup({ stalenessTimeout: 1 });
+      const { h, source } = setup({
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+      });
       source.setValue(1);
       vi.advanceTimersByTime(1250);
       expect(h.state.stale).toBe(true);
     });
 
     it("should stay live while the source keeps sending", () => {
-      const { h, source } = setup({ stalenessTimeout: 5 });
+      const { h, source } = setup({
+        stalenessTimeout: TimeSpan.seconds(5).nanoseconds,
+      });
       for (let i = 0; i < 10; i++) {
         vi.advanceTimersByTime(1000);
         source.setValue(i % 2);
@@ -82,7 +87,10 @@ describe("stateIndicator/aether/StateIndicator", () => {
 
     // A channel parked on one state still delivers samples, so it must not read stale.
     it("should stay live while the source repeats the same value", () => {
-      const { h, source } = setup({ sourceValue: 1, stalenessTimeout: 5 });
+      const { h, source } = setup({
+        sourceValue: 1,
+        stalenessTimeout: TimeSpan.seconds(5).nanoseconds,
+      });
       for (let i = 0; i < 10; i++) {
         vi.advanceTimersByTime(1000);
         source.setValue(1);
@@ -91,7 +99,9 @@ describe("stateIndicator/aether/StateIndicator", () => {
     });
 
     it("should turn live again when the source sends after going stale", () => {
-      const { h, source } = setup({ stalenessTimeout: 1 });
+      const { h, source } = setup({
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+      });
       source.setValue(1);
       vi.advanceTimersByTime(1250);
       expect(h.state.stale).toBe(true);
@@ -101,7 +111,9 @@ describe("stateIndicator/aether/StateIndicator", () => {
 
     // The fill encodes the state, so a stale indicator must keep the matched option.
     it("should keep the matched option while stale", () => {
-      const { h, source } = setup({ stalenessTimeout: 1 });
+      const { h, source } = setup({
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+      });
       source.setValue(1);
       vi.advanceTimersByTime(1250);
       expect(h.state.stale).toBe(true);
@@ -109,7 +121,7 @@ describe("stateIndicator/aether/StateIndicator", () => {
     });
 
     it("should release its registration on delete", () => {
-      const { h } = setup({ stalenessTimeout: 1 });
+      const { h } = setup({ stalenessTimeout: TimeSpan.seconds(1).nanoseconds });
       h.unmount();
       expect(vi.getTimerCount()).toEqual(0);
     });

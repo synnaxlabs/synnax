@@ -33,7 +33,7 @@ type MigrationConfig struct {
 	Roles builtin.ProvisionResult
 }
 
-// Migration (Phase 2) reads the persisted user-to-policy mapping from KV (written by
+// NewMigration (Phase 2) reads the persisted user-to-policy mapping from KV (written by
 // Phase 1 in the policy package), queries users for their RootUser flag, determines the
 // appropriate role for each user, and sets it as the user's role. It does nothing for a
 // store that a v0.53 Core already migrated.

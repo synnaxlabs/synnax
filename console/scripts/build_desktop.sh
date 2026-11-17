@@ -22,7 +22,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONSOLE_DIR="$(dirname "$SCRIPT_DIR")"
 REPO_ROOT="$(dirname "$CONSOLE_DIR")"
-DESKTOP_CONFIG="src-tauri/tauri.desktop.conf.json"
 
 DEV=false
 if [ "${1:-}" = "--dev" ]; then
@@ -46,8 +45,7 @@ echo "Building the workspace packages..."
 echo "Building Synnax Desktop..."
 cd "$CONSOLE_DIR"
 # The updater artifacts need the release signing key, so a local build leaves them out.
-pnpm exec tauri build --no-sign \
-    --config "$DESKTOP_CONFIG" \
+node scripts/tauri_desktop.ts build --no-sign \
     --config '{"bundle":{"createUpdaterArtifacts":false}}' \
     "$@"
 

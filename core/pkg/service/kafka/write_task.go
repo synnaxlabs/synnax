@@ -90,10 +90,12 @@ func (r *recordSlots) AppendSlot(dst []byte, field int) ([]byte, error) {
 		return append(dst, r.wc.name...), nil
 	case slotTimestamp:
 		return xjson.AppendTimeStamp(dst, r.ts, s.format), nil
-	default:
+	case slotUUID:
 		dst = append(dst, '"')
 		dst, err := uuid.New().AppendText(dst)
 		return append(dst, '"'), err
+	default:
+		return nil, errors.Newf("unknown slot kind %d", s.kind)
 	}
 }
 
@@ -152,22 +154,9 @@ func (f *factory) configureWrite(
 	); err != nil {
 		return nil, err
 	}
-	var keys channel.Keys
-	for _, wc := range cfg.Channels {
-		if wc.Disabled {
-			continue
-		}
-		if wc.Channel == 0 {
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "channel %q: channel must be set", wc.Key,
-			)
-		}
-		keys = append(keys, wc.Channel)
-	}
-	if len(keys) == 0 {
-		return nil, errors.Wrap(
-			validate.ErrValidation, "channels: at least one must be enabled",
-		)
+	keys, err := enabledWriteKeys(cfg.Channels)
+	if err != nil {
+		return nil, err
 	}
 	channels, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, keys)
 	if err != nil {
@@ -190,39 +179,81 @@ func (f *factory) configureWrite(
 		template:   tmpl,
 		slots:      recordSlots{slots: slots},
 	}
-	streamed := make(set.Set[channel.Key], len(keys))
-	for _, wc := range cfg.Channels {
+	if err = wt.addChannels(channels); err != nil {
+		return nil, err
+	}
+	return wt, nil
+}
+
+// addChannels adds the enabled channels of the task to t and streams each of them and
+// its index. channels holds the channel of each enabled one.
+func (t *writeTask) addChannels(channels map[channel.Key]channel.Channel) error {
+	streamed := make(set.Set[channel.Key], len(channels))
+	for _, wc := range t.cfg.Channels {
 		if wc.Disabled {
 			continue
 		}
 		ch := channels[wc.Channel]
-		if ch.DataType == telem.TimestampT {
-			if wc.TimeFormat == nil {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"channel %q: time_format is required for timestamp channel %s",
-					wc.Key, ch.Name,
-				)
-			}
-			if wc.JSONType != payload.JSONTypeNumber || len(wc.EnumValues) > 0 {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"channel %q: time_format alone encodes timestamp channel %s",
-					wc.Key, ch.Name,
-				)
-			}
+		if err := validateTimestampChannel(wc, ch); err != nil {
+			return err
 		}
-		if wt.channels[wc.Channel], err = newWriteChannel(cfg, wc, ch); err != nil {
-			return nil, err
+		var err error
+		if t.channels[wc.Channel], err = newWriteChannel(t.cfg, wc, ch); err != nil {
+			return err
 		}
 		for _, k := range []channel.Key{ch.Key(), ch.Index()} {
 			if k != 0 && !streamed.Contains(k) {
 				streamed.Add(k)
-				wt.keys = append(wt.keys, k)
+				t.keys = append(t.keys, k)
 			}
 		}
 	}
-	return wt, nil
+	return nil
+}
+
+// enabledWriteKeys returns the channels of the enabled write channels.
+func enabledWriteKeys(channels []WriteChannel) (channel.Keys, error) {
+	var keys channel.Keys
+	for _, wc := range channels {
+		if wc.Disabled {
+			continue
+		}
+		if wc.Channel == 0 {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "channel %q: channel must be set", wc.Key,
+			)
+		}
+		keys = append(keys, wc.Channel)
+	}
+	if len(keys) == 0 {
+		return nil, errors.Wrap(
+			validate.ErrValidation, "channels: at least one must be enabled",
+		)
+	}
+	return keys, nil
+}
+
+// validateTimestampChannel checks that wc encodes ch with a time format alone when ch
+// is a timestamp channel.
+func validateTimestampChannel(wc WriteChannel, ch channel.Channel) error {
+	if ch.DataType != telem.TimestampT {
+		return nil
+	}
+	if wc.TimeFormat == nil {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"channel %q: time_format is required for timestamp channel %s",
+			wc.Key, ch.Name,
+		)
+	}
+	if wc.JSONType != payload.JSONTypeNumber || len(wc.EnumValues) > 0 {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"channel %q: time_format alone encodes timestamp channel %s",
+			wc.Key, ch.Name,
+		)
+	}
+	return nil
 }
 
 func newWriteChannel(
@@ -310,31 +341,38 @@ func templateFields(rec Record) ([]xjson.TemplateField, []slot, error) {
 		}
 	}
 	for _, field := range rec.Fields {
-		var (
-			base    http.BaseWriteField
-			literal []byte
-			s       slot
-			err     error
-		)
-		switch v := field.Variant.(type) {
-		case http.StaticWriteField:
-			base = v.BaseWriteField
-			literal, err = xjson.Marshal(v.Value)
-		case http.GeneratedWriteField:
-			base = v.BaseWriteField
-			s, err = generatorSlot(v)
-		default:
-			return nil, nil, errors.Newf("unknown write field variant %T", v)
-		}
-		label := fmt.Sprintf("field %q", base.Key)
+		base, literal, s, err := fieldSlot(field)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, label)
+			return nil, nil, err
 		}
-		if err = add(label, base.Pointer, literal, s); err != nil {
+		if err = add(
+			fmt.Sprintf("field %q", base.Key), base.Pointer, literal, s,
+		); err != nil {
 			return nil, nil, err
 		}
 	}
 	return fields, slots, nil
+}
+
+// fieldSlot returns the base of field and either its literal value or the slot that
+// fills it.
+func fieldSlot(
+	field http.WriteField,
+) (base http.BaseWriteField, literal []byte, s slot, err error) {
+	switch v := field.Variant.(type) {
+	case http.StaticWriteField:
+		if literal, err = xjson.Marshal(v.Value); err != nil {
+			return base, nil, s, errors.Wrapf(err, "field %q", v.Key)
+		}
+		return v.BaseWriteField, literal, s, nil
+	case http.GeneratedWriteField:
+		if s, err = generatorSlot(v); err != nil {
+			return base, nil, s, errors.Wrapf(err, "field %q", v.Key)
+		}
+		return v.BaseWriteField, nil, s, nil
+	default:
+		return base, nil, s, errors.Newf("unknown write field variant %T", v)
+	}
 }
 
 // generatorSlot returns the slot that fills a generated field.
@@ -464,19 +502,7 @@ func (t *writeTask) stop(
 // open connects the producer and streams the channels into it. It writes no
 // statuses: start owns them.
 func (t *writeTask) open(ctx context.Context) (err error) {
-	props, err := resolveProperties(
-		ctx,
-		t.factoryCfg.DB,
-		t.factoryCfg.Device,
-		t.cfg.Device,
-	)
-	if err != nil {
-		return err
-	}
-	cl, err := openClient(props,
-		kgo.DefaultProduceTopic(t.cfg.Topic),
-		kgo.AllowAutoTopicCreation(),
-	)
+	cl, err := t.openProducer(ctx)
 	if err != nil {
 		return err
 	}
@@ -512,63 +538,105 @@ func (t *writeTask) open(ctx context.Context) (err error) {
 		confluence.CloseOutputInletsOnExit(),
 		confluence.RecoverWithErrOnPanic(),
 	)
-	// Start succeeds only once the relay streams the channels, so no early sample is
-	// missed.
-	select {
-	case <-ctx.Done():
-		// Nothing drains the responses yet, so the streamer only exits on cancel.
-		cancel()
-		return errors.Join(ctx.Err(), shutdown.Close())
-	case _, ok := <-responses.Outlet():
-		if !ok {
-			return errors.Join(
-				errors.New("streamer closed before opening"),
-				shutdown.Close(),
-			)
-		}
+	if err = awaitStreamerOpen(ctx, responses.Outlet(), cancel, shutdown); err != nil {
+		return err
 	}
 	t.client = cl
 	t.sCtx = sCtx
 	t.lastErr = ""
 	t.closer = xio.MultiCloser{
 		xio.CloserFunc(t.closeClient),
-		xio.CloserFunc(func() error {
-			// Produce blocks on a full buffer until its context ends, so a lost cluster
-			// would hold the graceful wait forever. The first of the drain and the
-			// deadline to settle decides the outcome.
-			timeout := t.factoryCfg.PingTimeout.Duration()
-			var settled atomic.Bool
-			deadline := time.AfterFunc(timeout, func() {
-				if settled.CompareAndSwap(false, true) {
-					cancel()
-				}
-			})
-			err := shutdown.Close()
-			deadline.Stop()
-			if settled.CompareAndSwap(false, true) {
-				return err
-			}
-			return errors.Join(
-				errors.Newf("timed out producing records after %s", timeout),
-				errors.Skip(err, context.Canceled),
-			)
-		}),
+		xio.CloserFunc(func() error { return t.drain(shutdown, cancel) }),
 	}
 	sCtx.Go(func(ctx context.Context) error {
-		// The client has finished with a record by the time it calls the promise.
-		promise := func(rec *kgo.Record, err error) {
-			defer t.promises.Done()
-			if err != nil {
-				t.reportError(ctx, "Produce failed: "+err.Error())
-			}
-			t.records.Put(rec)
-		}
-		for res := range responses.Outlet() {
-			t.produce(ctx, res.Frame, promise)
-		}
+		t.produceAll(ctx, responses.Outlet())
 		return nil
 	}, signal.RecoverWithErrOnPanic())
 	return nil
+}
+
+// openProducer returns a client that produces to the topic of the task.
+func (t *writeTask) openProducer(ctx context.Context) (*kgo.Client, error) {
+	props, err := resolveProperties(
+		ctx,
+		t.factoryCfg.DB,
+		t.factoryCfg.Device,
+		t.cfg.Device,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return openClient(props,
+		kgo.DefaultProduceTopic(t.cfg.Topic),
+		kgo.AllowAutoTopicCreation(),
+	)
+}
+
+// awaitStreamerOpen waits for the open acknowledgement of a streamer, so that start
+// succeeds only once the relay streams the channels and no early sample is missed. On
+// failure, it cancels the streamer and closes shutdown.
+func awaitStreamerOpen(
+	ctx context.Context,
+	responses <-chan framer.StreamerResponse,
+	cancel context.CancelFunc,
+	shutdown io.Closer,
+) error {
+	select {
+	case <-ctx.Done():
+		// Nothing drains the responses yet, so the streamer only exits on cancel.
+		cancel()
+		return errors.Join(ctx.Err(), shutdown.Close())
+	case _, ok := <-responses:
+		if !ok {
+			return errors.Join(
+				errors.New("streamer closed before opening"),
+				shutdown.Close(),
+			)
+		}
+		return nil
+	}
+}
+
+// drain closes shutdown, which waits for the producer to finish, and cancels the
+// producer when it takes longer than the ping timeout.
+func (t *writeTask) drain(shutdown io.Closer, cancel context.CancelFunc) error {
+	// Produce blocks on a full buffer until its context ends, so a lost cluster would
+	// hold the graceful wait forever. The first of the drain and the deadline to
+	// settle decides the outcome.
+	timeout := t.factoryCfg.PingTimeout.Duration()
+	var settled atomic.Bool
+	deadline := time.AfterFunc(timeout, func() {
+		if settled.CompareAndSwap(false, true) {
+			cancel()
+		}
+	})
+	err := shutdown.Close()
+	deadline.Stop()
+	if settled.CompareAndSwap(false, true) {
+		return err
+	}
+	return errors.Join(
+		errors.Newf("timed out producing records after %s", timeout),
+		errors.Skip(err, context.Canceled),
+	)
+}
+
+// produceAll produces the frame of each response until responses closes.
+func (t *writeTask) produceAll(
+	ctx context.Context,
+	responses <-chan framer.StreamerResponse,
+) {
+	// The client has finished with a record by the time it calls the promise.
+	promise := func(rec *kgo.Record, err error) {
+		defer t.promises.Done()
+		if err != nil {
+			t.reportError(ctx, "Produce failed: "+err.Error())
+		}
+		t.records.Put(rec)
+	}
+	for res := range responses {
+		t.produce(ctx, res.Frame, promise)
+	}
 }
 
 // closeClient flushes the buffered records, closes the producer, and waits for every
