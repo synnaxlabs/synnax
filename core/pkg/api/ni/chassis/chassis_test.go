@@ -359,7 +359,7 @@ var _ = Describe("Service", func() {
 					slices.Reverse(b[:])
 					return bytes.Compare(a[:], b[:])
 				})
-				byName = append(tie, beta, gamma)
+				byName = []chassis.Key{tie[0], tie[1], beta, gamma}
 				grantRetrieve(ctx)
 			})
 			page := func(ctx SpecContext, order apichassis.Order) []chassis.Key {
