@@ -13,6 +13,10 @@
 #include <string>
 #include <vector>
 
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/defer/defer.h"
@@ -142,5 +146,50 @@ TEST_P(StateModeTest, RefuseReadableStateFile) {
         std::string::npos
     );
     ASSERT_EQ(this->mode(this->path), file_mode);
+}
+
+/// @brief it should change no mode when a process without root secures the state.
+TEST_P(StateModeTest, SecureWithoutRootKeepsModes) {
+#ifndef _WIN32
+    if (geteuid() == 0) GTEST_SKIP() << "root changes modes";
+#endif
+    const auto dir = this->path.parent_path();
+    fs::create_directories(dir);
+    const auto dir_mode = fs::perms::owner_all | fs::perms::group_read |
+                          fs::perms::group_exec;
+    fs::permissions(dir, dir_mode);
+    std::ofstream(this->path) << "{}";
+    const auto file_mode = fs::perms::owner_read | fs::perms::owner_write |
+                           fs::perms::group_read;
+    fs::permissions(this->path, file_mode);
+    ASSERT_NIL(Config::secure_persisted_state(this->args));
+    ASSERT_EQ(this->mode(dir), dir_mode);
+    ASSERT_EQ(this->mode(this->path), file_mode);
+}
+
+/// @brief it should refuse a readable state file given by a bare file name.
+TEST(StateTest, RefuseReadableRelativeStateFile) {
+#ifdef _WIN32
+    GTEST_SKIP() << "Windows files have no POSIX mode";
+#endif
+    const auto dir = fs::temp_directory_path() / "rack-state-relative-test";
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    const auto previous = fs::current_path();
+    x::defer::defer restore([&] {
+        fs::current_path(previous);
+        fs::remove_all(dir);
+    });
+    fs::current_path(dir);
+    std::ofstream("state.json") << "{}";
+    fs::permissions(
+        "state.json",
+        fs::perms::owner_read | fs::perms::owner_write | fs::perms::group_read
+    );
+    auto args = x::args::Parser(
+        std::vector<std::string>{"program", "--state-file", "state.json"}
+    );
+    Config cfg;
+    ASSERT_OCCURRED_AS(cfg.load_persisted_state(args), STATE_ERROR);
 }
 }

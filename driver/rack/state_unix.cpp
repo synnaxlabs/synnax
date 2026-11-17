@@ -143,11 +143,11 @@ x::errors::Error prepare(const fs::path &path) {
 }
 
 /// @brief opens the state directory and file without following links, so a link put
-/// in their place is refused. A file that does not exist yet is skipped. When root
-/// runs it, root keeps the directory and the Linux service user gets read access to it
-/// and owns the file and the OPC UA directory. The service can then read and write its
-/// key but cannot put a link in the directory for root to follow. A process that is not
-/// root and does not own the file takes it over first.
+/// in their place is refused. A file that does not exist yet is skipped. Only root
+/// changes a mode or owner. Root keeps the directory and the Linux service user gets
+/// read access to it and owns the file and the OPC UA directory. The service can then
+/// read and write its key but cannot put a link in the directory for root to follow.
+/// Without a service user, root makes the directory owner-only and takes the file.
 x::errors::Error secure(const fs::path &path) {
     FD dir{open(
         path.parent_path().c_str(),
@@ -157,20 +157,22 @@ x::errors::Error secure(const fs::path &path) {
         if (errno == ENOENT) return x::errors::NIL;
         return errno_error("failed to open state directory");
     }
+    const bool root = geteuid() == 0;
     const passwd *service_user = nullptr;
 #ifdef __linux__
-    if (geteuid() == 0) service_user = getpwnam("synnax");
+    if (root) service_user = getpwnam("synnax");
 #endif
-    struct stat st{};
-    if (fstat(dir.fd, &st) != 0) return errno_error("failed to read state directory");
     if (service_user != nullptr) {
         // Other users may pass through to run the service binary in bin/.
         if (fchown(dir.fd, 0, service_user->pw_gid) != 0 ||
             fchmod(dir.fd, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH) != 0)
             return errno_error("failed to secure state directory");
         if (auto err = give_opcua_dir(dir.fd, *service_user)) return err;
-    } else {
-        if (st.st_uid == geteuid() && fchmod(dir.fd, S_IRWXU) != 0)
+    } else if (root) {
+        struct stat st{};
+        if (fstat(dir.fd, &st) != 0)
+            return errno_error("failed to read state directory");
+        if (st.st_uid == 0 && fchmod(dir.fd, S_IRWXU) != 0)
             return errno_error("failed to secure state directory");
         if (auto err = take_state_file(dir.fd, path.filename().string())) return err;
     }

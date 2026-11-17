@@ -31,7 +31,8 @@ const std::string STATE_FILE = "persisted-state.json";
 
 std::string get_persisted_state_path(x::args::Parser &parser) {
     auto p_path = parser.field<std::string>("--state-file", "");
-    if (!p_path.empty()) return p_path;
+    // A bare file name has no parent directory to open.
+    if (!p_path.empty()) return fs::absolute(p_path).string();
     auto dir = state::user_dir();
     if (dir.empty() || parser.flag(MACHINE_STATE_FLAG)) dir = state::machine_dir();
     return (dir / STATE_FILE).string();
