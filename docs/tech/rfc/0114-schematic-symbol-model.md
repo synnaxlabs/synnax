@@ -273,14 +273,16 @@ with the unknown indicator. A blink stays under three flashes per second.
 
 ### 4.3 Clicks and writes
 
-`next` lists two `fixed` commands on one state whose values differ after the state's
-match, and the Core refuses any other list on save. It compares the last state value
-with each command value, both after the match, also while the state is stale. When the
-value equals one command's value, `next` sends the other command, so a click on an open
-valve sends Close. When the value equals neither, the value is unknown, a command is
-pending, or the command channel's value after the match disagrees with the state, `next`
-opens a menu of its commands. A `fixed` command writes its value. An `ask` command opens
-an input that its state's type picks, such as a menu of enumeration entries or a number
+`next` lists two `fixed` commands on one state whose values differ after the symbol's
+match for that state, and the Core refuses any other list on save. Command values belong
+to the symbol, so they pass through the symbol's match, and the state value passes
+through the node's match, which can replace it. `next` compares the last state value
+with each command value, also while the state is stale. When the value equals one
+command's value, `next` sends the other command, so a click on an open valve sends
+Close. When the value equals neither, the value is unknown, a command is pending, or the
+command channel's value after the symbol's match disagrees with the state, `next` opens
+a menu of its commands. A `fixed` command writes its value. An `ask` command opens an
+input that its state's type picks, such as a menu of enumeration entries or a number
 field, and the typed value stays in Pluto until sent. A command writes to the `command`
 channel of its state's `channel` source, or to its `local` value, or with no state, to
 its `CommandBinding` channel. An interaction whose commands have no channel takes no
