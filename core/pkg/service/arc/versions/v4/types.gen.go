@@ -283,7 +283,7 @@ type AutomationArc struct {
 	Changes []Change `json:"changes,omitzero" msgpack:"changes,omitempty"`
 	// Calculations are the calculated channels that the program reads, nested ones
 	// included. Dependencies come before the channels that read them.
-	Calculations []Calculation `json:"calculations,omitzero" msgpack:"calculations,omitempty"`
+	Calculations []Calculation `json:"calculations" msgpack:"calculations"`
 }
 
 func (AutomationArc) isArcVariant() {}

@@ -316,7 +316,7 @@ struct AutomationArc : public Base {
     std::optional<std::vector<Change>> changes;
     /// @brief calculations are the calculated channels that the program reads, nested
     /// ones included. Dependencies come before the channels that read them.
-    std::optional<std::vector<Calculation>> calculations;
+    std::vector<Calculation> calculations;
 
     static AutomationArc parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

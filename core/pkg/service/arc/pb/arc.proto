@@ -113,9 +113,6 @@ message SourceGraphPayload {
 message ChangeList {
   repeated Change values = 1;
 }
-message CalculationList {
-  repeated Calculation values = 1;
-}
 message ArcAutomationPayload {
   // program is the compiled module output including IR and WebAssembly bytecode.
   optional .arc.program.pb.Program program = 1;
@@ -123,7 +120,7 @@ message ArcAutomationPayload {
   ChangeList changes = 2;
   // calculations are the calculated channels that the program reads, nested ones
   // included. Dependencies come before the channels that read them.
-  CalculationList calculations = 3;
+  repeated Calculation calculations = 3;
 }
 message ArcModulePayload {
   // status is the result of the module's last compile on the Core.

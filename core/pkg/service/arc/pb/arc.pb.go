@@ -744,50 +744,6 @@ func (x *ChangeList) GetValues() []*Change {
 	return nil
 }
 
-type CalculationList struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Values        []*Calculation         `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CalculationList) Reset() {
-	*x = CalculationList{}
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CalculationList) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CalculationList) ProtoMessage() {}
-
-func (x *CalculationList) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CalculationList.ProtoReflect.Descriptor instead.
-func (*CalculationList) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *CalculationList) GetValues() []*Calculation {
-	if x != nil {
-		return x.Values
-	}
-	return nil
-}
-
 type ArcAutomationPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// program is the compiled module output including IR and WebAssembly bytecode.
@@ -796,14 +752,14 @@ type ArcAutomationPayload struct {
 	Changes *ChangeList `protobuf:"bytes,2,opt,name=changes,proto3" json:"changes,omitempty"`
 	// calculations are the calculated channels that the program reads, nested ones
 	// included. Dependencies come before the channels that read them.
-	Calculations  *CalculationList `protobuf:"bytes,3,opt,name=calculations,proto3" json:"calculations,omitempty"`
+	Calculations  []*Calculation `protobuf:"bytes,3,rep,name=calculations,proto3" json:"calculations,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ArcAutomationPayload) Reset() {
 	*x = ArcAutomationPayload{}
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[11]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -815,7 +771,7 @@ func (x *ArcAutomationPayload) String() string {
 func (*ArcAutomationPayload) ProtoMessage() {}
 
 func (x *ArcAutomationPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[11]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -828,7 +784,7 @@ func (x *ArcAutomationPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArcAutomationPayload.ProtoReflect.Descriptor instead.
 func (*ArcAutomationPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{11}
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ArcAutomationPayload) GetProgram() *pb1.Program {
@@ -845,7 +801,7 @@ func (x *ArcAutomationPayload) GetChanges() *ChangeList {
 	return nil
 }
 
-func (x *ArcAutomationPayload) GetCalculations() *CalculationList {
+func (x *ArcAutomationPayload) GetCalculations() []*Calculation {
 	if x != nil {
 		return x.Calculations
 	}
@@ -862,7 +818,7 @@ type ArcModulePayload struct {
 
 func (x *ArcModulePayload) Reset() {
 	*x = ArcModulePayload{}
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[12]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -874,7 +830,7 @@ func (x *ArcModulePayload) String() string {
 func (*ArcModulePayload) ProtoMessage() {}
 
 func (x *ArcModulePayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[12]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -887,7 +843,7 @@ func (x *ArcModulePayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArcModulePayload.ProtoReflect.Descriptor instead.
 func (*ArcModulePayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{12}
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ArcModulePayload) GetStatus() *pb4.Status {
@@ -911,7 +867,7 @@ type Source struct {
 
 func (x *Source) Reset() {
 	*x = Source{}
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[13]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -923,7 +879,7 @@ func (x *Source) String() string {
 func (*Source) ProtoMessage() {}
 
 func (x *Source) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[13]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -936,7 +892,7 @@ func (x *Source) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Source.ProtoReflect.Descriptor instead.
 func (*Source) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{13}
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *Source) GetVariant() isSource_Variant {
@@ -996,7 +952,7 @@ type Arc struct {
 
 func (x *Arc) Reset() {
 	*x = Arc{}
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[14]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1008,7 +964,7 @@ func (x *Arc) String() string {
 func (*Arc) ProtoMessage() {}
 
 func (x *Arc) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[14]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1021,7 +977,7 @@ func (x *Arc) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Arc.ProtoReflect.Descriptor instead.
 func (*Arc) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{14}
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Arc) GetBase() *Base {
@@ -1115,13 +1071,11 @@ const file_core_pkg_service_arc_pb_arc_proto_rawDesc = "" +
 	"\x05graph\x18\x01 \x01(\v2\x13.arc.graph.pb.GraphR\x05graph\"<\n" +
 	"\n" +
 	"ChangeList\x12.\n" +
-	"\x06values\x18\x01 \x03(\v2\x16.service.arc.pb.ChangeR\x06values\"F\n" +
-	"\x0fCalculationList\x123\n" +
-	"\x06values\x18\x01 \x03(\v2\x1b.service.arc.pb.CalculationR\x06values\"\xd5\x01\n" +
+	"\x06values\x18\x01 \x03(\v2\x16.service.arc.pb.ChangeR\x06values\"\xd1\x01\n" +
 	"\x14ArcAutomationPayload\x126\n" +
 	"\aprogram\x18\x01 \x01(\v2\x17.arc.program.pb.ProgramH\x00R\aprogram\x88\x01\x01\x124\n" +
-	"\achanges\x18\x02 \x01(\v2\x1a.service.arc.pb.ChangeListR\achanges\x12C\n" +
-	"\fcalculations\x18\x03 \x01(\v2\x1f.service.arc.pb.CalculationListR\fcalculationsB\n" +
+	"\achanges\x18\x02 \x01(\v2\x1a.service.arc.pb.ChangeListR\achanges\x12?\n" +
+	"\fcalculations\x18\x03 \x03(\v2\x1b.service.arc.pb.CalculationR\fcalculationsB\n" +
 	"\n" +
 	"\b_program\"U\n" +
 	"\x10ArcModulePayload\x126\n" +
@@ -1165,7 +1119,7 @@ func file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP() []byte {
 }
 
 var file_core_pkg_service_arc_pb_arc_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_core_pkg_service_arc_pb_arc_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_core_pkg_service_arc_pb_arc_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_core_pkg_service_arc_pb_arc_proto_goTypes = []any{
 	(Type)(0),                    // 0: service.arc.pb.Type
 	(ChangeKind)(0),              // 1: service.arc.pb.ChangeKind
@@ -1180,19 +1134,18 @@ var file_core_pkg_service_arc_pb_arc_proto_goTypes = []any{
 	(*SourceTextPayload)(nil),    // 10: service.arc.pb.SourceTextPayload
 	(*SourceGraphPayload)(nil),   // 11: service.arc.pb.SourceGraphPayload
 	(*ChangeList)(nil),           // 12: service.arc.pb.ChangeList
-	(*CalculationList)(nil),      // 13: service.arc.pb.CalculationList
-	(*ArcAutomationPayload)(nil), // 14: service.arc.pb.ArcAutomationPayload
-	(*ArcModulePayload)(nil),     // 15: service.arc.pb.ArcModulePayload
-	(*Source)(nil),               // 16: service.arc.pb.Source
-	(*Arc)(nil),                  // 17: service.arc.pb.Arc
-	(*pb.String)(nil),            // 18: x.filter.pb.String
-	(*pb1.Program)(nil),          // 19: arc.program.pb.Program
-	(*pb2.Text)(nil),             // 20: arc.text.pb.Text
-	(*pb3.Graph)(nil),            // 21: arc.graph.pb.Graph
-	(*pb4.Status)(nil),           // 22: service.status.pb.Status
+	(*ArcAutomationPayload)(nil), // 13: service.arc.pb.ArcAutomationPayload
+	(*ArcModulePayload)(nil),     // 14: service.arc.pb.ArcModulePayload
+	(*Source)(nil),               // 15: service.arc.pb.Source
+	(*Arc)(nil),                  // 16: service.arc.pb.Arc
+	(*pb.String)(nil),            // 17: x.filter.pb.String
+	(*pb1.Program)(nil),          // 18: arc.program.pb.Program
+	(*pb2.Text)(nil),             // 19: arc.text.pb.Text
+	(*pb3.Graph)(nil),            // 20: arc.graph.pb.Graph
+	(*pb4.Status)(nil),           // 21: service.status.pb.Status
 }
 var file_core_pkg_service_arc_pb_arc_proto_depIdxs = []int32{
-	16, // 0: service.arc.pb.Base.source:type_name -> service.arc.pb.Source
+	15, // 0: service.arc.pb.Base.source:type_name -> service.arc.pb.Source
 	0,  // 1: service.arc.pb.Change.type:type_name -> service.arc.pb.Type
 	1,  // 2: service.arc.pb.Change.kind:type_name -> service.arc.pb.ChangeKind
 	8,  // 3: service.arc.pb.WhereList.values:type_name -> service.arc.pb.Where
@@ -1201,27 +1154,26 @@ var file_core_pkg_service_arc_pb_arc_proto_depIdxs = []int32{
 	5,  // 6: service.arc.pb.Where.or:type_name -> service.arc.pb.WhereList
 	8,  // 7: service.arc.pb.Where.not:type_name -> service.arc.pb.Where
 	7,  // 8: service.arc.pb.Where.key:type_name -> service.arc.pb.UuidSet
-	18, // 9: service.arc.pb.Where.name:type_name -> x.filter.pb.String
+	17, // 9: service.arc.pb.Where.name:type_name -> x.filter.pb.String
 	6,  // 10: service.arc.pb.Where.directories:type_name -> service.arc.pb.UuidList
-	19, // 11: service.arc.pb.Calculation.program:type_name -> arc.program.pb.Program
-	20, // 12: service.arc.pb.SourceTextPayload.text:type_name -> arc.text.pb.Text
-	21, // 13: service.arc.pb.SourceGraphPayload.graph:type_name -> arc.graph.pb.Graph
+	18, // 11: service.arc.pb.Calculation.program:type_name -> arc.program.pb.Program
+	19, // 12: service.arc.pb.SourceTextPayload.text:type_name -> arc.text.pb.Text
+	20, // 13: service.arc.pb.SourceGraphPayload.graph:type_name -> arc.graph.pb.Graph
 	4,  // 14: service.arc.pb.ChangeList.values:type_name -> service.arc.pb.Change
-	9,  // 15: service.arc.pb.CalculationList.values:type_name -> service.arc.pb.Calculation
-	19, // 16: service.arc.pb.ArcAutomationPayload.program:type_name -> arc.program.pb.Program
-	12, // 17: service.arc.pb.ArcAutomationPayload.changes:type_name -> service.arc.pb.ChangeList
-	13, // 18: service.arc.pb.ArcAutomationPayload.calculations:type_name -> service.arc.pb.CalculationList
-	22, // 19: service.arc.pb.ArcModulePayload.status:type_name -> service.status.pb.Status
-	10, // 20: service.arc.pb.Source.text:type_name -> service.arc.pb.SourceTextPayload
-	11, // 21: service.arc.pb.Source.graph:type_name -> service.arc.pb.SourceGraphPayload
-	3,  // 22: service.arc.pb.Arc.base:type_name -> service.arc.pb.Base
-	14, // 23: service.arc.pb.Arc.automation:type_name -> service.arc.pb.ArcAutomationPayload
-	15, // 24: service.arc.pb.Arc.module:type_name -> service.arc.pb.ArcModulePayload
-	25, // [25:25] is the sub-list for method output_type
-	25, // [25:25] is the sub-list for method input_type
-	25, // [25:25] is the sub-list for extension type_name
-	25, // [25:25] is the sub-list for extension extendee
-	0,  // [0:25] is the sub-list for field type_name
+	18, // 15: service.arc.pb.ArcAutomationPayload.program:type_name -> arc.program.pb.Program
+	12, // 16: service.arc.pb.ArcAutomationPayload.changes:type_name -> service.arc.pb.ChangeList
+	9,  // 17: service.arc.pb.ArcAutomationPayload.calculations:type_name -> service.arc.pb.Calculation
+	21, // 18: service.arc.pb.ArcModulePayload.status:type_name -> service.status.pb.Status
+	10, // 19: service.arc.pb.Source.text:type_name -> service.arc.pb.SourceTextPayload
+	11, // 20: service.arc.pb.Source.graph:type_name -> service.arc.pb.SourceGraphPayload
+	3,  // 21: service.arc.pb.Arc.base:type_name -> service.arc.pb.Base
+	13, // 22: service.arc.pb.Arc.automation:type_name -> service.arc.pb.ArcAutomationPayload
+	14, // 23: service.arc.pb.Arc.module:type_name -> service.arc.pb.ArcModulePayload
+	24, // [24:24] is the sub-list for method output_type
+	24, // [24:24] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_arc_pb_arc_proto_init() }
@@ -1232,13 +1184,13 @@ func file_core_pkg_service_arc_pb_arc_proto_init() {
 	file_core_pkg_service_arc_pb_arc_proto_msgTypes[0].OneofWrappers = []any{}
 	file_core_pkg_service_arc_pb_arc_proto_msgTypes[4].OneofWrappers = []any{}
 	file_core_pkg_service_arc_pb_arc_proto_msgTypes[5].OneofWrappers = []any{}
+	file_core_pkg_service_arc_pb_arc_proto_msgTypes[10].OneofWrappers = []any{}
 	file_core_pkg_service_arc_pb_arc_proto_msgTypes[11].OneofWrappers = []any{}
-	file_core_pkg_service_arc_pb_arc_proto_msgTypes[12].OneofWrappers = []any{}
-	file_core_pkg_service_arc_pb_arc_proto_msgTypes[13].OneofWrappers = []any{
+	file_core_pkg_service_arc_pb_arc_proto_msgTypes[12].OneofWrappers = []any{
 		(*Source_Text)(nil),
 		(*Source_Graph)(nil),
 	}
-	file_core_pkg_service_arc_pb_arc_proto_msgTypes[14].OneofWrappers = []any{
+	file_core_pkg_service_arc_pb_arc_proto_msgTypes[13].OneofWrappers = []any{
 		(*Arc_Automation)(nil),
 		(*Arc_Module)(nil),
 	}
@@ -1248,7 +1200,7 @@ func file_core_pkg_service_arc_pb_arc_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_arc_pb_arc_proto_rawDesc), len(file_core_pkg_service_arc_pb_arc_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   15,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

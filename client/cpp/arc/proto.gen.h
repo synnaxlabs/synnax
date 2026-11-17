@@ -521,13 +521,10 @@ AutomationArc::to_proto() const {
             *wrapper->add_values() = v;
         }
     }
-    if (this->calculations.has_value()) {
-        auto *wrapper = pb.mutable_calculations();
-        for (const auto &item: *this->calculations) {
-            auto [v, err] = item.to_proto();
-            if (err) return {{}, err};
-            *wrapper->add_values() = v;
-        }
+    for (const auto &item: this->calculations) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_calculations() = v;
     }
     return {pb, x::errors::NIL};
 }
@@ -548,14 +545,11 @@ AutomationArc::from_proto(const ::service::arc::pb::ArcAutomationPayload &pb) {
             ))
             return {{}, err};
     }
-    if (pb.has_calculations()) {
-        cpp.calculations.emplace();
-        if (auto err = x::pb::from_proto_repeated<Calculation>(
-                *cpp.calculations,
-                pb.calculations().values()
-            ))
-            return {{}, err};
-    }
+    if (auto err = x::pb::from_proto_repeated<Calculation>(
+            cpp.calculations,
+            pb.calculations()
+        ))
+        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 

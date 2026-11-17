@@ -185,7 +185,7 @@ export const automationArcZ = baseZ.extend({
    * calculations are the calculated channels that the program reads, nested ones
    * included. Dependencies come before the channels that read them.
    */
-  calculations: zod.nullToUndefined(calculationZ.array()),
+  calculations: calculationZ.array().default(() => []),
 });
 export interface AutomationArc extends z.infer<typeof automationArcZ> {}
 
