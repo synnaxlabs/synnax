@@ -260,24 +260,28 @@ The integration has no client interface, as with Kafka's kfake and MQTT's mochi 
 
 ## 5 Implementation phases
 
-Each phase merged into `main` on 2026-11-13, as one or more PRs:
+Each phase merged into `main` as one PR on 2026-11-13. In order, the phases are #4836,
+#4837, #4838, #4839, #4846, #4848, #4852, #4854, #4855, #4857, #4859, #4860, #4865,
+#4867, #4868, and #4869.
 
-- **Phase 1**: #4836.
-- **Phase 2**: #4837.
-- **Phase 3**: #4838 (runs), #4839 (upload), #4857 (plain time spans, last asset).
-- **Phase 4**: #4846.
-- **Phase 5**: #4848 (TypeScript types), #4852 (device), #4854 (stream form), #4855
-  (range upload), #4859 (asset picker), #4860 (range overview), #4865 (line plot).
-- **Phase 6**: #4867 (Python), #4868 (docs), #4869 (flag removal).
-
-| Phase | Scope                                                | Touches                                                                                      | Depends on |
-| ----- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Add the Sift ingest engine and fake server           | `core/pkg/service/sift/ingest`, `core/pkg/service/sift/fake`, `core/go.mod`, `x/go/validate` | -          |
-| 2     | Add the Sift device and connection commands          | `schemas/synnax/sift.oracle`, `core/pkg/service/sift`, `core/pkg/service/layer.go`           | 1          |
-| 3     | Upload stored data to Sift                           | `core/pkg/service/sift`, `schemas/synnax/sift.oracle`, `core/go.mod`                         | 2          |
-| 4     | Stream live data to Sift                             | `core/pkg/service/sift`, `schemas/synnax/sift.oracle`                                        | 3          |
-| 5     | Add the Sift Console feature behind a flag           | `client/ts/src/sift`, `console/src/feature/sift`, `console/src/flags.ts`, `lyra/src/icon`    | 3, 4       |
-| 6     | Add the Sift Python client and docs, remove the flag | `client/py/synnax/sift`, `site/docs/src/pages/reference`, `console/src/flags.ts`             | 5          |
+| Phase | Scope                                          | Touches                                                                                           | Depends on |
+| ----- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Add the Sift ingest engine and fake server     | `core/pkg/service/sift/ingest`, `core/pkg/service/sift/fake`, `core/go.mod`, `x/go/validate`      | -          |
+| 2     | Add the Sift device and connection commands    | `schemas/synnax/sift.oracle`, `core/pkg/service/sift`, `core/pkg/service/layer.go`                | 1          |
+| 3     | Add Sift ad hoc runs to the ingest engine      | `core/pkg/service/sift/ingest`, `core/pkg/service/sift/fake`, `core/go.mod`                       | 1          |
+| 4     | Upload range data to Sift                      | `core/pkg/service/sift`, `schemas/synnax/sift.oracle`                                             | 2, 3       |
+| 5     | Stream live data to Sift                       | `core/pkg/service/sift`, `schemas/synnax/sift.oracle`                                             | 4          |
+| 6     | Add the Sift TypeScript types                  | `client/ts/src/sift`, `schemas/synnax/sift.oracle`                                                | 5          |
+| 7     | Connect Sift devices in the Console            | `console/src/feature/sift`, `console/src/feature/device`, `console/src/flags.ts`, `lyra/src/icon` | 6          |
+| 8     | Add the Sift stream task form                  | `console/src/feature/sift`, `console/src/feature/task`                                            | 7          |
+| 9     | Upload a range to Sift from the Console        | `console/src/feature/sift`, `console/src/feature/range`                                           | 8          |
+| 10    | Upload a plain time span to Sift               | `core/pkg/service/sift`, `schemas/synnax/sift.oracle`, `client/ts/src/sift`                       | 9          |
+| 11    | Pick the Sift asset from the assets Sift lists | `console/src/feature/sift`                                                                        | 10         |
+| 12    | Show Sift uploads on the range overview        | `console/src/feature/sift`, `console/src/feature/range`                                           | 11         |
+| 13    | Upload a line plot selection to Sift           | `console/src/feature/sift`, `console/src/feature/lineplot`                                        | 12         |
+| 14    | Add the Sift Python client                     | `client/py/synnax/sift`, `client/py/tests`                                                        | 10         |
+| 15    | Document sending data to Sift                  | `site/docs/src/pages/reference/ranges`                                                            | 13, 14     |
+| 16    | Remove the Sift flags                          | `console/src/flags.ts`, `console/src/feature/sift`, `site/docs/src/pages/reference/ranges`        | 15         |
 
 ## 6 Resolved decisions
 
@@ -302,7 +306,7 @@ Each phase merged into `main` on 2026-11-13, as one or more PRs:
    real: a status cleanup added later must skip pending Sift statuses.
 6. **API key as a secret from the start**: Rejected plain text as in Kafka. A Viewer can
    read every device's properties (`core/pkg/api/device/device.go:189`) and stream
-   `test_connection` arguments. Cost: Phases 2 to 4 waited on PR #4410.
+   `test_connection` arguments. Cost: the Core phases waited on PR #4410.
 7. **Label filter for runs**: Rejected a run for every range, because plot selections
    would flood Sift. Rejected the children of one parent range, because tests filed
    elsewhere would get no run.
