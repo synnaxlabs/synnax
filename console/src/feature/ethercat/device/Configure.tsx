@@ -482,6 +482,7 @@ export const Configure = ({
             {shared ? (
               <Form.Sections>
                 <General />
+                <SlaveSettings />
                 {syncMode}
               </Form.Sections>
             ) : (
