@@ -88,6 +88,13 @@ linters:
               desc: use github.com/synnaxlabs/x/errors
     errcheck:
       check-blank: true
+    exhaustive:
+      # Stdlib kind enums; each switch handles a subset on purpose.
+      # golangci-lint v2 renamed ignore-enum-types to ignore-types
+      # (pkg/config/linters_settings.go).
+      ignore-types:
+        - ^reflect\.Kind$
+        - ^encoding/json/jsontext\.Kind$
     forbidigo:
       forbid:
         - pattern: ^fmt\.Errorf$
