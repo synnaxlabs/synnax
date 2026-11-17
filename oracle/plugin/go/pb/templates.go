@@ -12,33 +12,11 @@ package pb
 import (
 	"strings"
 	"text/template"
-
-	"github.com/synnaxlabs/oracle/resolution"
-	"github.com/synnaxlabs/x/pluralize"
 )
 
 var templateFuncs = template.FuncMap{
 	"join":    strings.Join,
 	"lcFirst": lcFirst,
-}
-
-// sliceName returns the name of the slice translators for a type that translates as
-// name in namespace. It is the plural of name, or name plus "List" when the plural is
-// name itself or names the translators of another type in namespace.
-func sliceName(name, namespace string, table *resolution.Table) string {
-	plural := pluralize.String(name)
-	if plural == name {
-		return name + "List"
-	}
-	for _, t := range table.TypesInNamespace(namespace) {
-		switch t.Form.(type) {
-		case resolution.StructForm, resolution.UnionForm, resolution.EnumForm:
-			if translatorName(t) == plural {
-				return name + "List"
-			}
-		}
-	}
-	return plural
 }
 
 // lcFirst lowercases the first character of a string.
