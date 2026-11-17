@@ -22,6 +22,9 @@
     "url": "git+https://github.com/synnaxlabs/synnax.git",
     "directory": "client/ts"
   },
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "build": "vite build",
     "check-types": "tsc --noEmit",
