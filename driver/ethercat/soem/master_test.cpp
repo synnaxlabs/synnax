@@ -2250,6 +2250,25 @@ TEST_F(SOEMMasterTest, ReceiveDropsTheOldestFrameWhenTooManyAreInFlight) {
     );
 }
 
+/// @brief it should give the result of a failed send after the result of the frame
+/// in flight before it.
+TEST_F(SOEMMasterTest, ReceiveKeepsAFailedSendBehindTheFrameInFlight) {
+    this->initialize_with_slave();
+    this->activate_master();
+    ASSERT_NIL(this->master->send());
+    this->mock->receive_return = EC_NOFRAME;
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    this->mock->send_return = 0;
+    ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
+    this->mock->receive_return = 3;
+    ASSERT_NIL(this->master->receive());
+    const auto receives = this->mock->receive_count;
+    const auto err = this->master->receive();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "process data receive failed");
+    EXPECT_EQ(this->mock->receive_count, receives);
+}
+
 /// @brief it should say that a USB adapter can hold frames back when no frame comes
 /// back, but only while a frame came back less than a second before, even when the
 /// sends fail.
@@ -2952,6 +2971,28 @@ TEST_F(SOEMMasterTest, CheckIgnoresTheDCTimeOfAFrameWithAWorkingCounterMismatch)
     this->mock->host_dc_offset = 9'000'000'000;
     ASSERT_NIL(this->master->send());
     ASSERT_OCCURRED_AS(this->master->receive(), errors::WORKING_COUNTER_ERROR);
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->register_values[{1, 0x0918}] = 2'000;
+    this->supervise_while_cycling();
+    const auto error = this->written_offset(1) -
+                       (this->mock->latched_at + 7'000'000'000 - 2'000);
+    EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
+}
+
+/// @brief it should take the DC time of a frame that comes back late as of the send of
+/// its own cycle, not of the latest send.
+TEST_F(SOEMMasterTest, CheckRestoresFromTheSendTimeOfALateFrame) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->mock->host_dc_offset = 7'000'000'000;
+    this->activate_master();
+    ASSERT_NIL(this->master->send());
+    this->mock->receive_return = EC_NOFRAME;
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    this->skip(x::telem::SECOND * 3);
+    ASSERT_NIL(this->master->send());
+    this->mock->receive_return = 3;
+    ASSERT_NIL(this->master->receive());
+    this->mock->receive_return = 2;
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->mock->register_values[{1, 0x0918}] = 2'000;
     this->supervise_while_cycling();
