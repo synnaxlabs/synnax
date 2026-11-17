@@ -381,11 +381,10 @@ describe("local server", () => {
       expect(req.url).toContain("freighterctxContent-Type=application/json");
     });
 
-    test("should send the token in the URL when dial cannot send headers", async () => {
+    test("should send the token in the URL when dial does not send headers", async () => {
       const req = await authorize({
         fetch: async () => await Promise.reject(new Error("not used")),
         dial: async (u) => new globalThis.WebSocket(u),
-        headerless: true,
       });
       expect(req.headers.authorization).toBeUndefined();
       expect(req.url).toContain(`freighterctxAuthorization=${encodeURI(TOKEN)}`);

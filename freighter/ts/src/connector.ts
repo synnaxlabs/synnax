@@ -53,8 +53,11 @@ export type Dial = (url: string, headers: Record<string, string>) => Promise<Soc
 export interface Connector {
   fetch: Fetch;
   dial: Dial;
-  /** True when dial cannot send headers and ignores them, as in a browser. */
-  headerless?: boolean;
+  /**
+   * True when dial sends the headers. Otherwise the client puts them in the URL, as a
+   * browser WebSocket cannot send headers.
+   */
+  sendsHeaders?: boolean;
 }
 
 // Node, Bun, and Deno take a headers option that the DOM types do not have.
@@ -64,15 +67,15 @@ const openWithOptions = (url: string, options: object): Socket => {
   return ws;
 };
 
-// A browser reads the second argument as a list of subprotocols.
-const BROWSER = runtime.RUNTIME !== "node";
-
 /** Opens connections with the runtime's global fetch and WebSocket. */
 export const DEFAULT_CONNECTOR: Connector = {
   fetch: async (target, init) => await fetch(target, init),
+  // A browser reads a second argument as a list of subprotocols.
   dial: async (url, headers) =>
-    BROWSER ? new WebSocket(url) : openWithOptions(url, { headers }),
-  headerless: BROWSER,
+    Object.keys(headers).length === 0
+      ? new WebSocket(url)
+      : openWithOptions(url, { headers }),
+  sendsHeaders: runtime.RUNTIME === "node",
 };
 
 // A CA list replaces the default list in Node and Bun, so it must keep the defaults.
@@ -117,6 +120,7 @@ const nodeConnector = (ca: string): Connector => {
       const { WebSocket, dispatcher } = await load();
       return new WebSocket(url, { dispatcher, headers });
     },
+    sendsHeaders: true,
   };
 };
 
@@ -129,6 +133,7 @@ const bunConnector = (ca: string): Connector => {
       return await fetch(target, req);
     },
     dial: async (url, headers) => openWithOptions(url, { headers, tls: await load() }),
+    sendsHeaders: true,
   };
 };
 

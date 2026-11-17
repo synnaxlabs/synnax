@@ -341,7 +341,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
         const { [AUTHORIZATION_HEADER_KEY]: authorization, ...params } = ctx.params;
         // A browser cannot set WebSocket headers, so the token stays in the URL.
         const ws =
-          authorization == null || this.connector.headerless === true
+          authorization == null || this.connector.sendsHeaders !== true
             ? await this.connector.dial(this.buildURL(target, ctx.params), {})
             : await this.connector.dial(this.buildURL(target, params), {
                 [AUTHORIZATION_HEADER_KEY]: authorization,
