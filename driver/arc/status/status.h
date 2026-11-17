@@ -45,8 +45,8 @@ inline std::string multi_match_description(
            ". Give each status a unique name, or set it by key.";
 }
 
-/// @brief the shared state of the status module, which outlives a module while the
-/// outbox holds its sets. Safe for concurrent use.
+/// @brief the shared state of the status module. The outbox holds it only weakly, so
+/// reports stop once the module closes it. Safe for concurrent use.
 class Sets {
     /// @brief held while a report runs, which can wait on the Core.
     std::mutex report_mu;
