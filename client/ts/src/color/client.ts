@@ -44,8 +44,8 @@ import { query } from "@/query";
 export const ACTION_CHANNEL_NAME = "sy_color_action_set";
 export const DELETE_CHANNEL_NAME = "sy_color_delete";
 
-const createReqZ = z.object({ nameds: namedZ.array(), dispatchKey: z.string() });
-const createResZ = z.object({ nameds: namedZ.array() });
+const createReqZ = z.object({ colors: namedZ.array(), dispatchKey: z.string() });
+const createResZ = z.object({ colors: namedZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 
@@ -138,14 +138,14 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Na
           async (dispatchKey) =>
             await this.unary.send(
               "/color/create",
-              { nameds: optimistic, dispatchKey },
+              { colors: optimistic, dispatchKey },
               createReqZ,
               createResZ,
             ),
         ),
     });
-    this.store.set(res.nameds);
-    return isMany ? res.nameds : res.nameds[0];
+    this.store.set(res.colors);
+    return isMany ? res.colors : res.colors[0];
   }
 
   /**
@@ -187,6 +187,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Na
       retrieveRequestZ,
       retrieveResponseZ,
     );
-    return res.nameds;
+    return res.colors;
   }
 }

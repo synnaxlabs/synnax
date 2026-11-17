@@ -120,7 +120,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	for _, typ := range req.Resolutions.StructTypes() {
-		form := typ.Form.(resolution.StructForm)
+		form := resolution.MustForm[resolution.StructForm](typ)
 		inherited := resolution.InheritedFields(form.Extends, req.Resolutions)
 		for _, f := range form.Fields {
 			// An inherited @search is checked on the parent that declares it.

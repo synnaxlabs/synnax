@@ -38,7 +38,8 @@ def write_desktop_file(path: Path, *, port: int, api_key: str = "syk_k_s") -> No
     path.write_text(
         json.dumps(
             {"host": "127.0.0.1", "port": port, "secure": False, "api_key": api_key}
-        )
+        ),
+        encoding="utf-8",
     )
 
 
@@ -59,6 +60,26 @@ class TestLoadDesktopOptions:
         assert load_desktop_options(desktop_file) == Options(
             host="127.0.0.1", port=4321, secure=False, api_key="syk_k_s"
         )
+
+    def test_reads_utf8_text(self, desktop_file: Path) -> None:
+        """Should decode the file as UTF-8 whatever the locale code page is."""
+        cert = "C:\\Users\\Zoë\\ca.pem"
+        desktop_file.parent.mkdir(parents=True, exist_ok=True)
+        desktop_file.write_bytes(
+            json.dumps(
+                {
+                    "host": "127.0.0.1",
+                    "port": 4321,
+                    "secure": True,
+                    "api_key": "syk_k_s",
+                    "ca_cert": cert,
+                },
+                ensure_ascii=False,
+            ).encode("utf-8")
+        )
+        opts = load_desktop_options(desktop_file)
+        assert opts is not None
+        assert opts.ca_cert == cert
 
     def test_none_without_a_file(self, desktop_file: Path) -> None:
         """Should return None when Synnax Desktop saved nothing."""

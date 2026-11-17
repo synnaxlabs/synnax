@@ -177,6 +177,8 @@ jobs:
           uv run ruff format --check --diff . ||
             { echo "::error::Run scripts/fix.sh to format the changed files."; exit 1; }
 
+      # Windows and macOS rows exist only in full runs (nightly and release), so mypy
+      # checks each OS's stubs there and only Linux on other runs.
       - name: Check types
         shell: bash
         env:
@@ -184,6 +186,12 @@ jobs:
         run: |
           read -ra directories <<< "$TYPE_CHECK_DIR"
           uv run mypy "${directories[@]}"
+
+      # Only the Linux runners start a Core, so the others skip the tests that need one.
+      - name: Skip the tests that need a Core
+        if: runner.os != 'Linux' && inputs.core_image != ''
+        shell: bash
+        run: echo 'PYTEST_ADDOPTS=-m "not core"' >> "$GITHUB_ENV"
 
       # Without a limit, a hung test run holds the job for up to 6 hours. Only the newest
       # Python measures coverage.

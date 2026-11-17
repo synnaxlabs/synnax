@@ -213,7 +213,7 @@ func zeroFill(goName string, v resolution.ExpressionValue) (defaultFillData, boo
 		lit = "false"
 	case resolution.ValueKindArray:
 		lit = "nil"
-	default:
+	case resolution.ValueKindIdent, resolution.ValueKindStruct:
 		return defaultFillData{}, false
 	}
 	return defaultFillData{GoName: goName, Expr: lit}, true
@@ -398,8 +398,7 @@ func literalAssignments(
 			return nil, false
 		}
 		return append(setup, selector+" = "+expr), true
-	}
-	if v.Kind == resolution.ValueKindIdent {
+	case resolution.ValueKindIdent:
 		if expr, defaulted, ok := emptyVariant(v.IdentValue, typeRef, data); ok {
 			var lines []string
 			if defaulted {
@@ -416,6 +415,10 @@ func literalAssignments(
 			}
 			return append(lines, selector+".Variant = "+expr), true
 		}
+	case resolution.ValueKindString,
+		resolution.ValueKindInt,
+		resolution.ValueKindFloat,
+		resolution.ValueKindBool:
 	}
 	lit, ok := goLiteral(typeRef, &v, data)
 	if !ok {
@@ -549,7 +552,7 @@ func goLiteral(
 	case resolution.ValueKindString:
 		return strconv.Quote(v.StringValue), true
 	case resolution.ValueKindInt:
-		return fmt.Sprintf("%d", v.IntValue), true
+		return strconv.FormatInt(v.IntValue, 10), true
 	case resolution.ValueKindFloat:
 		return strconv.FormatFloat(v.FloatValue, 'g', -1, 64), true
 	case resolution.ValueKindBool:
@@ -560,6 +563,7 @@ func goLiteral(
 			return "", false
 		}
 		return enumConstRef(typeRef, ev, data), true
+	case resolution.ValueKindArray, resolution.ValueKindStruct:
 	}
 	return "", false
 }
@@ -589,7 +593,7 @@ func scalarFill(
 		}
 		return defaultFillData{
 			GoName: goName,
-			Expr:   fmt.Sprintf("%d", d.IntValue),
+			Expr:   strconv.FormatInt(d.IntValue, 10),
 		}, true
 	case resolution.ValueKindFloat:
 		if d.FloatValue == 0 {
@@ -627,6 +631,9 @@ func scalarFill(
 			GoName: goName,
 			Expr:   enumConstRef(typeRef, ev, data),
 		}, true
+	case resolution.ValueKindBool,
+		resolution.ValueKindArray,
+		resolution.ValueKindStruct:
 	}
 	return defaultFillData{}, false
 }
@@ -1126,6 +1133,9 @@ func groupMember(f resolution.Field, data *templateData) (groupMemberData, bool)
 			return groupMemberData{}, false
 		}
 		return groupMemberData{GoName: name, ZeroLit: `""`}, true
+	case resolution.ValueKindBool,
+		resolution.ValueKindArray,
+		resolution.ValueKindStruct:
 	}
 	return groupMemberData{}, false
 }

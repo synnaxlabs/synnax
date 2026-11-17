@@ -7,16 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-# /// script
-# requires-python = ">=3.12,<4"
-# dependencies = [
-#     "boto3",
-#     "certifi>=2026.10.19",
-#     "PyJWT[crypto]>=2.10,<3",
-#     "synnax>=0.61,<0.62",
-# ]
-# ///
-
 """Stops the EC2 instance behind a runner that GitHub shows offline with no job.
 
     uv run ec2_off.py windows-build-bot-i-0f44

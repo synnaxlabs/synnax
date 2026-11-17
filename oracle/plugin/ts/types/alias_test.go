@@ -124,14 +124,14 @@ var _ = Describe("TS aliases", func() {
 		typesPlugin = types.New(types.DefaultOptions())
 	})
 
-	generate := func(ctx SpecContext, use string) *ContentExpectation {
+	generate := func(use string) *ContentExpectation {
 		GinkgoHelper()
-		resp := MustGenerate(ctx, aliasHead+use, "test", loader, typesPlugin)
+		resp := MustGenerate(aliasHead+use, "test", loader, typesPlugin)
 		return ExpectContent(resp, "test/types.gen.ts")
 	}
 
-	It("Should extend the schema of an aliased parent", func(ctx SpecContext) {
-		generate(ctx, `
+	It("Should extend the schema of an aliased parent", func() {
+		generate(`
 			Panel struct extends Labeled {
 				width float64
 			}
@@ -140,8 +140,8 @@ var _ = Describe("TS aliases", func() {
 		)
 	})
 
-	It("Should extend the schema of a generic aliased parent", func(ctx SpecContext) {
-		generate(ctx, `
+	It("Should extend the schema of a generic aliased parent", func() {
+		generate(`
 			Crate struct<T> extends Box<T> {
 				count int32
 			}
@@ -151,16 +151,16 @@ var _ = Describe("TS aliases", func() {
 		)
 	})
 
-	It("Should extend a variant from an aliased payload", func(ctx SpecContext) {
-		generate(ctx, `
+	It("Should extend a variant from an aliased payload", func() {
+		generate(`
 			Node union on variant {
 				valve Valve
 			}
 		`).ToContain("export const valveNodeZ = valveZ.extend({")
 	})
 
-	It("Should extend a variant from an aliased union base", func(ctx SpecContext) {
-		generate(ctx, `
+	It("Should extend a variant from an aliased union base", func() {
+		generate(`
 			Shape union on kind extends Labeled {
 				circle Credentials
 			}
@@ -171,8 +171,8 @@ var _ = Describe("TS aliases", func() {
 
 	It(
 		"Should omit a field a variant drops from an aliased base",
-		func(ctx SpecContext) {
-			generate(ctx, `
+		func() {
+			generate(`
 			Node union on variant {
 				tank extends Labeled {
 					-hidden
@@ -185,24 +185,24 @@ var _ = Describe("TS aliases", func() {
 		},
 	)
 
-	It("Should keep an aliased optional union nullable", func(ctx SpecContext) {
-		generate(ctx, `
+	It("Should keep an aliased optional union nullable", func() {
+		generate(`
 			Panel struct {
 				edge Edge?
 			}
 		`).ToContain("edge: zod.nullToUndefined(edgeZ),")
 	})
 
-	It("Should type the fields of an aliased struct default", func(ctx SpecContext) {
-		generate(ctx, `
+	It("Should type the fields of an aliased struct default", func() {
+		generate(`
 			Panel struct {
 				sized Sized = { size = large }
 			}
 		`).ToContain(`sized: sizedZ.prefault({ size: "large" }),`)
 	})
 
-	It("Should constrain a type parameter by an aliased enum", func(ctx SpecContext) {
-		generate(ctx, `
+	It("Should constrain a type parameter by an aliased enum", func() {
+		generate(`
 			Tray struct<T extends Size> {
 				item T
 			}
@@ -211,8 +211,8 @@ var _ = Describe("TS aliases", func() {
 
 	DescribeTable(
 		"Should parse a field of an alias as a field of its target",
-		func(ctx SpecContext, field, expected string) {
-			generate(ctx, "Panel struct {\n"+field+"\n}\n").ToContain(expected)
+		func(field, expected string) {
+			generate("Panel struct {\n" + field + "\n}\n").ToContain(expected)
 		},
 		Entry("a now default on an alias of a timestamp",
 			"created Stamp = now", "created: stampZ.default(() => TimeStamp.now()),"),
@@ -226,6 +226,17 @@ var _ = Describe("TS aliases", func() {
 			"a numeric default on an alias hand-written as a number",
 			"span telem.NumericTimeSpan = 5",
 			"span: telem.numericTimeSpanZ.default(5),",
+		),
+		Entry(
+			"bounds on an alias hand-written as a number",
+			"span telem.NumericTimeSpan = 5 {\n@validate min 1\n@validate max 9\n}",
+			"span: telem.numericTimeSpanZ.check(z.gte(1), z.lte(9)).default(5),",
+		),
+		Entry(
+			"bounds on a field typed as an alias hand-written as a number",
+			"span telem.TimeSpan = 5 {\n@ts type telem.NumericTimeSpan\n"+
+				"@validate min 1\n@validate max 9\n}",
+			"span: telem.numericTimeSpanZ.check(z.gte(1), z.lte(9)).default(5),",
 		),
 		Entry("an alias of a record", "data Data", "data: dataZ.default(() => ({})),"),
 		Entry("an optional alias of a record",
@@ -248,7 +259,7 @@ var _ = Describe("TS aliases", func() {
 	)
 
 	DescribeTable("Should name an enum constraint through the package that declares it",
-		func(ctx SpecContext, schema, typeParams string, expected ...string) {
+		func(schema, typeParams string, expected ...string) {
 			loader.Add("schemas/other", `
 				import "schemas/base"
 
@@ -256,7 +267,7 @@ var _ = Describe("TS aliases", func() {
 
 				Size = base.Size
 			`)
-			resp := MustGenerate(ctx, `
+			resp := MustGenerate(`
 				import "schemas/`+schema+`"
 
 				@ts output "client/ts/src/test"
@@ -287,8 +298,8 @@ var _ = Describe("TS aliases", func() {
 	)
 
 	DescribeTable("Should project a create field typed through an alias to its New",
-		func(ctx SpecContext, decls, expected string) {
-			resp := MustGenerate(ctx, `
+		func(decls, expected string) {
+			resp := MustGenerate(`
 			import "schemas/status"
 
 			@ts output "client/ts/src/device"

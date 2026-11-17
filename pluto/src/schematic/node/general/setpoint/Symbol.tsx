@@ -49,7 +49,7 @@ const Readback = ({
   stalenessTimeout,
 }: ReadbackProps): ReactElement => {
   const theme = Theming.use();
-  const level = Primitive.readoutLevel(size);
+  const level = Primitive.READOUT_LEVELS[size];
   const fontHeight = theme.typography[level].size * theme.sizes.base;
   const textInset = 6 + fontHeight * 0.75;
   const offset = xy.construct(READOUT_INSET - textInset, Component.HEIGHTS[size]);
@@ -124,7 +124,6 @@ export const Symbol = ({
         onClickDelay={onClickDelay}
         inlineSize={inlineSize}
         readback={
-          stateChannel != null &&
           stateChannel !== 0 && (
             <Readback
               nodeKey={nodeKey}

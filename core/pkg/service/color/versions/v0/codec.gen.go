@@ -39,6 +39,12 @@ func (nv Named) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	if nv.Position != nil {
+		w.Bool(true)
+		w.String(*nv.Position)
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -78,6 +84,19 @@ func (nv *Named) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			nv.Group = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			nv.Position = &hv
 		}
 	}
 	return nil

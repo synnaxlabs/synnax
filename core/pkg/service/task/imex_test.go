@@ -233,8 +233,9 @@ var _ = Describe("ImEx", Ordered, func() {
 				}`)
 				imported := reimport(ctx, legacy)
 				Expect(imported.Config).ToNot(HaveKey("plain_routing_key"))
-				Expect(imported.Config["routing_key"]).To(BeAssignableToTypeOf(""))
-				routingKey := uuid.MustParse(imported.Config["routing_key"].(string))
+				rawKey, ok := imported.Config["routing_key"].(string)
+				Expect(ok).To(BeTrue())
+				routingKey := uuid.MustParse(rawKey)
 				var s secret.Secret
 				Expect(secretSvc.NewRetrieve().
 					Where(secret.MatchKeys(routingKey)).
@@ -273,7 +274,9 @@ var _ = Describe("ImEx", Ordered, func() {
 					Where(task.MatchKeys(uuid.MustParse(id.Key))).
 					Entry(&imported).
 					Exec(ctx, tx)).To(Succeed())
-				routingKey := uuid.MustParse(imported.Config["routing_key"].(string))
+				rawKey, ok := imported.Config["routing_key"].(string)
+				Expect(ok).To(BeTrue())
+				routingKey := uuid.MustParse(rawKey)
 				var s secret.Secret
 				Expect(secretSvc.NewRetrieve().
 					Where(secret.MatchKeys(routingKey)).

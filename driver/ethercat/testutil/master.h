@@ -79,6 +79,8 @@ class Master final : public master::Master {
     std::optional<uint32_t> cycle_shortfall;
     /// @brief what shortfall() returns.
     std::optional<uint32_t> latest_shortfall;
+    /// @brief what inputless() returns.
+    std::vector<uint16_t> latest_inputless;
     bool initialized{false};
     bool activated{false};
     mutable std::mutex mu;
@@ -142,8 +144,8 @@ class Master final : public master::Master {
     bool recover_held{false};
     /// @brief whether a recover() waits for release_recover().
     bool recovering{false};
-    /// @brief whether the latest check() reported a slave out of OP.
-    bool checked_out{false};
+    /// @brief the slaves that the latest check() reported out of OP.
+    std::set<uint16_t> checked_out;
     /// @brief whether an activate() is blocked now.
     bool activating{false};
 
@@ -235,16 +237,19 @@ public:
                 slave.properties.settings = settings;
     }
 
-    /// @brief makes the serial number read of the slave at position fail with error.
+    /// @brief makes the serial number read of the slave at position fail with error,
+    /// which gives the slave serial number 0.
     void fail_serial_read(const uint16_t position, const std::string &error) {
         std::lock_guard lock(this->mu);
         for (auto &slave: this->slave_list)
-            if (slave.properties.position == position)
+            if (slave.properties.position == position) {
                 slave.status.serial_error = error;
+                slave.properties.serial = 0;
+            }
     }
 
-    /// @brief makes the serial number read of the slave at position fail with error in
-    /// the next new scan only.
+    /// @brief makes the serial number read of the slave at position fail with error,
+    /// and its serial number 0, in the next new scan only.
     void fail_next_serial_read(const uint16_t position, const std::string &error) {
         std::lock_guard lock(this->mu);
         this->next_serial_errors[position] = error;
@@ -517,8 +522,10 @@ public:
                 if (const auto it = this->next_serial_errors.find(
                         slave.properties.position
                     );
-                    it != this->next_serial_errors.end())
+                    it != this->next_serial_errors.end()) {
                     slave.status.serial_error = it->second;
+                    slave.properties.serial = 0;
+                }
             this->next_serial_errors.clear();
         }
         this->initialized = true;
@@ -705,6 +712,16 @@ public:
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("receive");
         this->latest_shortfall.reset();
+        this->latest_inputless.clear();
+        for (const auto &slave: this->slave_list) {
+            const auto pos = slave.properties.position;
+            const auto state = slave.status.state;
+            if (this->on_bus(pos) &&
+                (this->lost_slaves.contains(pos) ||
+                 (state != slave::State::SAFE_OP && state != slave::State::OP)))
+                this->latest_inputless.push_back(pos);
+        }
+        std::ranges::sort(this->latest_inputless);
         if (!this->activated)
             return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
         const auto err = this->short_until_op ? x::errors::Error(
@@ -739,6 +756,12 @@ public:
     std::optional<uint32_t> shortfall() const override {
         std::lock_guard lock(this->mu);
         return this->latest_shortfall;
+    }
+
+    /// @brief returns the slaves on the bus that are lost or below SAFE-OP at the
+    /// latest receive(), as a master that reads their states in each cycle.
+    std::span<const uint16_t> inputless() const override {
+        return this->latest_inputless;
     }
 
     std::optional<x::telem::TimeStamp> dc_time() const override {
@@ -814,22 +837,22 @@ public:
                 .startup_error = startup_failed ? startup->second : "",
             });
         }
-        this->checked_out = std::ranges::any_of(health, [](const slave::Health &h) {
-            return !h.operational();
-        });
+        this->checked_out.clear();
+        for (const auto &h: health)
+            if (!h.operational()) this->checked_out.insert(h.position);
         return health;
     }
 
-    /// @brief brings each slave on the bus to OP, except a lost slave, a slave with a
-    /// failed clock restore or startup, and a slave that set_slave_transition_failure()
-    /// keeps from OP. After hold_recover(), waits for release_recover() first when the
-    /// latest check() reported a slave out of OP, as a recovery step acts on the states
-    /// that check() read.
+    /// @brief brings each slave that the latest check() reported out of OP to OP, as a
+    /// recovery step acts on the states that check() read. Skips a lost slave, a slave
+    /// with a failed clock restore or startup, and a slave that
+    /// set_slave_transition_failure() keeps from OP. After hold_recover(), waits for
+    /// release_recover() first when there is such a slave.
     void recover(const x::breaker::Breaker &breaker) override {
         bool out = false;
         {
             std::lock_guard lock(this->mu);
-            out = this->checked_out;
+            out = !this->checked_out.empty();
         }
         if (out) {
             std::unique_lock lock(this->recover_mu);
@@ -842,7 +865,8 @@ public:
         for (auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
             const auto blocked = this->state_transition_failures.find(pos);
-            if (!this->on_bus(pos) || this->lost_slaves.contains(pos) ||
+            if (!this->checked_out.contains(pos) || !this->on_bus(pos) ||
+                this->lost_slaves.contains(pos) ||
                 this->dc_restore_errors.contains(pos) ||
                 this->startup_errors.contains(pos) || !breaker.running() ||
                 (blocked != this->state_transition_failures.end() &&

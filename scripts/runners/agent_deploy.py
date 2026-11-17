@@ -7,11 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-# /// script
-# requires-python = ">=3.12,<4"
-# dependencies = ["boto3", "synnax>=0.61,<0.62"]
-# ///
-
 """Stops the agent on every running runner, or installs it at a commit on every runner,
 over SSM.
 

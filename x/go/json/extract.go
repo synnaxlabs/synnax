@@ -126,7 +126,7 @@ func (e *Extractor) Extract(doc []byte, values []jsontext.Value) error {
 	if err := e.walk(d, e.root, values, 0); err != nil {
 		return err
 	}
-	if _, err := d.dec.ReadToken(); err != io.EOF {
+	if _, err := d.dec.ReadToken(); !errors.Is(err, io.EOF) {
 		if err == nil {
 			err = errors.New("unexpected data after the top-level value")
 		}
@@ -142,79 +142,109 @@ func (e *Extractor) walk(
 	level int,
 ) error {
 	if len(n.pointers) > 0 {
-		raw, err := d.readValue()
+		return e.walkAddressed(d, n, values, level)
+	}
+	switch d.dec.PeekKind() {
+	case '{':
+		return e.walkObject(d, n, values, level)
+	case '[':
+		return e.walkArray(d, n, values, level)
+	default:
+		return d.dec.SkipValue()
+	}
+}
+
+// walkAddressed stores the next value at each pointer of n, then walks the children of
+// n inside that value with a decoder one level deeper.
+func (e *Extractor) walkAddressed(
+	d *documentDecoder,
+	n *pathNode,
+	values []jsontext.Value,
+	level int,
+) error {
+	raw, err := d.readValue()
+	if err != nil {
+		return err
+	}
+	for _, p := range n.pointers {
+		if values[p] != nil {
+			return errors.Newf("duplicate value at %s", d.dec.StackPointer())
+		}
+		values[p] = raw
+	}
+	if n.children == nil {
+		return nil
+	}
+	level++
+	if level == len(e.decoders) {
+		e.decoders = append(e.decoders, &documentDecoder{})
+	}
+	sub := e.decoders[level]
+	sub.reset(raw, e.opts)
+	return e.walk(sub, n.children, values, level)
+}
+
+func (e *Extractor) walkObject(
+	d *documentDecoder,
+	n *pathNode,
+	values []jsontext.Value,
+	level int,
+) error {
+	dec := &d.dec
+	if n.names == nil {
+		return dec.SkipValue()
+	}
+	if _, err := dec.ReadToken(); err != nil {
+		return err
+	}
+	for dec.PeekKind() != '}' {
+		name, err := dec.ReadValue()
 		if err != nil {
 			return err
 		}
-		for _, p := range n.pointers {
-			if values[p] != nil {
-				return errors.Newf("duplicate value at %s", d.dec.StackPointer())
-			}
-			values[p] = raw
+		c, err := e.member(n, name)
+		if err != nil {
+			return err
 		}
-		if n.children == nil {
-			return nil
+		if c != nil {
+			err = e.walk(d, c, values, level)
+		} else {
+			err = dec.SkipValue()
 		}
-		level++
-		if level == len(e.decoders) {
-			e.decoders = append(e.decoders, &documentDecoder{})
+		if err != nil {
+			return err
 		}
-		sub := e.decoders[level]
-		sub.reset(raw, e.opts)
-		return e.walk(sub, n.children, values, level)
 	}
+	_, err := dec.ReadToken()
+	return err
+}
+
+func (e *Extractor) walkArray(
+	d *documentDecoder,
+	n *pathNode,
+	values []jsontext.Value,
+	level int,
+) error {
 	dec := &d.dec
-	switch dec.PeekKind() {
-	case '{':
-		if n.names == nil {
-			return dec.SkipValue()
-		}
-		if _, err := dec.ReadToken(); err != nil {
-			return err
-		}
-		for dec.PeekKind() != '}' {
-			name, err := dec.ReadValue()
-			if err != nil {
-				return err
-			}
-			c, err := e.member(n, name)
-			if err != nil {
-				return err
-			}
-			if c != nil {
-				err = e.walk(d, c, values, level)
-			} else {
-				err = dec.SkipValue()
-			}
-			if err != nil {
-				return err
-			}
-		}
-		_, err := dec.ReadToken()
-		return err
-	case '[':
-		if n.elements == nil {
-			return dec.SkipValue()
-		}
-		if _, err := dec.ReadToken(); err != nil {
-			return err
-		}
-		for i := 0; dec.PeekKind() != ']'; i++ {
-			var err error
-			if c, ok := n.elements[i]; ok {
-				err = e.walk(d, c, values, level)
-			} else {
-				err = dec.SkipValue()
-			}
-			if err != nil {
-				return err
-			}
-		}
-		_, err := dec.ReadToken()
-		return err
-	default:
+	if n.elements == nil {
 		return dec.SkipValue()
 	}
+	if _, err := dec.ReadToken(); err != nil {
+		return err
+	}
+	for i := 0; dec.PeekKind() != ']'; i++ {
+		var err error
+		if c, ok := n.elements[i]; ok {
+			err = e.walk(d, c, values, level)
+		} else {
+			err = dec.SkipValue()
+		}
+		if err != nil {
+			return err
+		}
+	}
+	_, err := dec.ReadToken()
+	return err
 }
 
 // member returns the step n takes on the object member with the quoted name, or nil

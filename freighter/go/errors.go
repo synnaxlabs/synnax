@@ -16,14 +16,9 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-var (
-	// EOF is returned when either the receiving or sending end of a Stream
-	// exits normally.
-	EOF = io.EOF
-	// ErrStreamClosed is returned when a caller attempts to send or receive a message
-	// from a stream that is already closed.
-	ErrStreamClosed = errors.New("[freighter] - stream closed")
-)
+// ErrStreamClosed is returned when a caller attempts to send or receive a message
+// from a stream that is already closed.
+var ErrStreamClosed = errors.New("[freighter] - stream closed")
 
 const (
 	freighterErrorType    = "freighter."
@@ -32,7 +27,7 @@ const (
 )
 
 func encodeErr(err error) (errors.Payload, bool) {
-	if errors.CheapIs(err, EOF) {
+	if errors.CheapIs(err, io.EOF) {
 		return errors.Payload{Type: eofErrorType, Data: err.Error()}, true
 	}
 	if errors.CheapIs(err, ErrStreamClosed) {
@@ -44,7 +39,7 @@ func encodeErr(err error) (errors.Payload, bool) {
 func decodeErr(pld errors.Payload) (error, bool) {
 	switch pld.Type {
 	case eofErrorType:
-		return EOF, true
+		return io.EOF, true
 	case streamClosedErrorType:
 		return ErrStreamClosed, true
 	}

@@ -26,7 +26,7 @@ import (
 // design.
 func Scaffold(ctx context.Context, r *Resolver, chain Chain) (string, error) {
 	current := chain.Current()
-	cur, err := r.File(ctx, chain.LivePath(), current)
+	cur, err := r.File(chain.LivePath(), current)
 	if err != nil {
 		return "", err
 	}
@@ -36,7 +36,7 @@ func Scaffold(ctx context.Context, r *Resolver, chain Chain) (string, error) {
 				"revive it", chain.LivePath(), current,
 		)
 	}
-	surf, err := r.Surface(ctx, chain.LivePath(), current)
+	surf, err := r.Surface(chain.LivePath(), current)
 	if err != nil {
 		return "", err
 	}
