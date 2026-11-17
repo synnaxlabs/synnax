@@ -63,14 +63,12 @@ linters:
     - contextcheck # SY-6109
     - exhaustive # SY-6106
     - fatcontext # SY-6109
-    - forcetypeassert # SY-6105
     - gochecknoglobals # SY-6107
     - gochecknoinits # SY-6108
     - gosec # SY-3843
     - noctx # SY-6109
     - prealloc # SY-6115
     - recvcheck # SY-6111
-    - unparam # SY-6112
   settings:
     depguard:
       rules:
