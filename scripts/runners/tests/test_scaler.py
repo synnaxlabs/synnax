@@ -237,23 +237,6 @@ class TestScaler:
         assert server.deletes() == [f"{API}/repos/{REPO}/actions/runners/7"]
         assert len(client.written("log")) == 1
 
-    def test_should_keep_the_registration_of_a_tester(self, client: Client) -> None:
-        tester = "ubuntu-tester-i-0aaa"
-        server = Server(Clock())
-        server.registered[tester] = 7
-        s = scaler(client, server=server)
-        poll: dict[str, Any] = {
-            "known": {tester},
-            "labels": {tester: {"self-hosted", "ubuntu-test-bot"}},
-            "queued": {},
-            "found": {"i-0aaa": instance("running")},
-            "running": set(),
-        }
-        cycle(s, status={tester: IDLE}, **poll)
-        cycle(s, status={tester: OFFLINE}, **poll)
-        assert server.registered == {tester: 7}
-        assert instance_commands(client, runner=tester) == [False]
-
     def test_should_start_a_deleted_runner_from_its_stored_labels(
         self, client: Client, tmp_path: Path
     ) -> None:

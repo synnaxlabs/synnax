@@ -25,18 +25,11 @@ class Spec(NamedTuple):
     channel: str
     # Whether the scaler starts and stops its runners.
     scaled: bool = True
-    # Whether the scaler deletes a runner's GitHub registration before it stops the
-    # instance. Only for pools whose start script registers the runner again.
-    unregistered: bool = False
 
 
 POOLS: dict[Pool, Spec] = {
-    "windows-build-bot": Spec(
-        title="Windows Build", channel="win_build", unregistered=True
-    ),
-    "ubuntu-build-bot": Spec(
-        title="Ubuntu Build", channel="ubuntu_build", unregistered=True
-    ),
+    "windows-build-bot": Spec(title="Windows Build", channel="win_build"),
+    "ubuntu-build-bot": Spec(title="Ubuntu Build", channel="ubuntu_build"),
     "windows-test-bot": Spec(title="Windows Test", channel="win_test"),
     "ubuntu-test-bot": Spec(title="Ubuntu Test", channel="ubuntu_test"),
     "macos-build-bot": Spec(title="macOS Build", channel="macos_build", scaled=False),
