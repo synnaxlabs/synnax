@@ -113,7 +113,7 @@ var _ = Describe("Factory", func() {
 			Device:      dev,
 			Topic:       uniqueTopic(),
 			StartOffset: kafka.StartOffsetEarliest,
-			Records: []kafka.ReadRecord{{
+			Records: lift(ctx, kafka.InlineRecord{
 				Key: "r",
 				Fields: []kafka.ReadField{{
 					Key:      "v",
@@ -121,7 +121,7 @@ var _ = Describe("Factory", func() {
 					Pointer:  "/v",
 					DataType: telem.Float64T,
 				}},
-			}},
+			}),
 		}
 	}
 	writeConfig := func(ctx context.Context, dev device.Key, autoStart bool) any {

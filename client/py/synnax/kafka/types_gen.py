@@ -16,7 +16,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import channel as channel_, device as device_, http, task
+from synnax import channel as channel_, device as device_, http, icd as icd_, task
 from x import payload, telem
 
 START_OFFSET_LATEST: Literal["latest"] = "latest"
@@ -50,36 +50,6 @@ class Credentials(BaseModel):
 
 class ScanConfig(task.ScanConfig):
     """Configures a Kafka scan task."""
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
-class ReadField(BaseModel):
-    """Is a single value extracted from a record's JSON value.
-
-    Attributes:
-        key: Uniquely identifies the field within the task.
-        disabled: Is true when the field is excluded from the task.
-        name: Is the name given to the channel when the task creates it.
-        channel: Is the Synnax channel the extracted value is written to.
-        pointer: Is the JSON Pointer to the value within the record value.
-        data_type: Is the data type of the extracted value.
-        time_format: Is the encoding of the JSON value when the target channel holds
-            timestamps. Required for timestamp channels.
-        enum_values: Maps string labels in the record to numeric or boolean channel
-            values.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    disabled: bool = False
-    name: str = ""
-    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    pointer: str = ""
-    data_type: telem.DataType = telem.DataType("float64")
-    time_format: payload.TimeFormat | None = None
-    enum_values: list[payload.EnumEntry] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:
@@ -132,6 +102,22 @@ class Record(BaseModel):
     fields: list[http.WriteField] = Field(default_factory=list)
 
 
+class ReadBinding(BaseModel):
+    """Writes the value of one message field to a channel.
+
+    Attributes:
+        field: Is the key of the message field to read.
+        channel: Is the channel the value of the field is written to.
+        data_type: Is the data type of the channel that a client creates for the field.
+            Empty takes the default of the field's kind. The Core ignores it once the
+            channel exists.
+    """
+
+    field: icd_.FieldKey
+    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    data_type: telem.DataType = telem.DataType("")
+
+
 class NoneSASL(BaseModel):
     """Authenticates with no credentials."""
 
@@ -163,28 +149,6 @@ SASL = Annotated[
 ]
 
 
-class ReadRecord(BaseModel):
-    """Is a set of fields read from the records with one Kafka key.
-
-    Attributes:
-        key: Uniquely identifies the record within the task.
-        record_key: Is the Kafka key of the records read here. Empty reads every record
-            that no other record of the task claims, keyless ones included.
-        index: Is the key of the field whose channel indexes the others. Empty when the
-            task stamps samples on arrival.
-        fields: Contains the values to extract from the record.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    record_key: str = ""
-    index: str = ""
-    fields: list[ReadField] = Field(default_factory=list)
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
 class WriteConfig(task.StartConfig):
     """Configures a Kafka write task, which produces one record per sample of each
     channel to a topic.
@@ -208,6 +172,21 @@ class WriteConfig(task.StartConfig):
         return hash(self.key)
 
 
+class ReadMessage(BaseModel):
+    """Reads the record values of one ICD message.
+
+    Attributes:
+        message: Is the key of the ICD message to read.
+        index: Is the key of the field whose channel indexes the others. Absent when the
+            task stamps samples with the Kafka timestamp of the record.
+        bindings: Are the fields the task reads. A field with no binding is not read.
+    """
+
+    message: icd_.MessageKey
+    index: icd_.FieldKey | None = None
+    bindings: list[ReadBinding] = Field(default_factory=list)
+
+
 class Properties(BaseModel):
     """Configures the connection to a Kafka cluster device.
 
@@ -225,9 +204,33 @@ class Properties(BaseModel):
     sasl: SASL = Field(default_factory=lambda: NoneSASL(mechanism="none"))
 
 
+class ReadRecord(BaseModel):
+    """Reads the records with one Kafka key as the messages of an ICD.
+
+    Attributes:
+        key: Uniquely identifies the record within the task.
+        disabled: Is true when the record is excluded from the task.
+        record_key: Is the Kafka key of the records read here. Empty reads every record
+            that no other record of the task claims, keyless ones included.
+        icd: Is the key of the ICD that holds the messages of the records.
+        messages: Are the messages the records carry. Each record value is read as the
+            message whose match rule it meets.
+    """
+
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    disabled: bool = False
+    record_key: str = ""
+    icd: icd_.Key
+    messages: list[ReadMessage] = Field(default_factory=list)
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
 class ReadConfig(task.PersistConfig):
-    """Configures a Kafka read task, which consumes a topic and writes record fields
-    into channels.
+    """Configures a Kafka read task, which consumes a topic and writes the fields of ICD
+    messages into channels.
 
     Attributes:
         device: Is the key of the Kafka cluster device to consume from.

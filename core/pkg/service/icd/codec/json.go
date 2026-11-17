@@ -146,9 +146,9 @@ func newJSONMessage(m JSONMessage) (jsonMessage, error) {
 	return msg, nil
 }
 
-// converts reports whether a field of kind k converts to samples of dt. A number or
+// Converts reports whether a field of kind k converts to samples of dt. A number or
 // boolean also converts to a float, and an unsigned number or boolean to any integer.
-func converts(k payload.Kind, dt telem.DataType) bool {
+func Converts(k payload.Kind, dt telem.DataType) bool {
 	dk, ok := payload.KindOf(dt)
 	if !ok {
 		return false
@@ -282,7 +282,7 @@ func enumsOf(jf icd.JSONField) []xjson.Enum {
 // compile checks that the kind of f converts to its data type, then builds the decoders
 // of f from v and sets its fallback from the default of v.
 func (f *jsonField) compile(v jsonVariant) error {
-	if !converts(f.kind, f.dataType) {
+	if !Converts(f.kind, f.dataType) {
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"cannot write %s values to %s channels",
