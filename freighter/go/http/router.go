@@ -19,7 +19,9 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type route struct {
@@ -29,10 +31,13 @@ type route struct {
 	method    string
 }
 
-// RouterConfig configures a Router. All fields are optional; pass the zero value to
-// accept the defaults.
+// RouterConfig configures a Router.
 type RouterConfig struct {
 	alamos.Instrumentation
+	// Errors encodes the errors that handlers return.
+	//
+	// [REQUIRED]
+	Errors *errors.Codec
 	// StreamWriteDeadline sets the default duration for the write deadline of a stream
 	// transport. After the duration has been exceeded, the transport will be closed.
 	//
@@ -48,11 +53,16 @@ type RouterConfig struct {
 var _ config.Config[RouterConfig] = RouterConfig{}
 
 // Validate implements config.Config.
-func (RouterConfig) Validate() error { return nil }
+func (r RouterConfig) Validate() error {
+	v := validate.New("http.router")
+	v.NotNil("errors", r.Errors)
+	return v.Error()
+}
 
 // Override implements config.Config.
 func (r RouterConfig) Override(other RouterConfig) RouterConfig {
 	r.Instrumentation = override.Zero(r.Instrumentation, other.Instrumentation)
+	r.Errors = override.Nil(r.Errors, other.Errors)
 	r.StreamWriteDeadline = override.Numeric(
 		r.StreamWriteDeadline, other.StreamWriteDeadline,
 	)
@@ -170,6 +180,7 @@ func (r *Router) NewStreamServer[RQ, RS freighter.Payload](
 	s := &streamServer[RQ, RS]{
 		streamServerOptions: newStreamServerOptions(opts),
 		path:                path,
+		errs:                r.cfg.Errors,
 		Instrumentation:     r.cfg.Instrumentation,
 		serverCtx:           r.streamCtx,
 		writeDeadline:       r.cfg.StreamWriteDeadline,
@@ -191,6 +202,7 @@ func (r *Router) NewUnaryServer[RQ, RS freighter.Payload](
 	us := &unaryServer[RQ, RS]{
 		unaryServerOptions: newUnaryServerOptions(opts),
 		path:               path,
+		errs:               r.cfg.Errors,
 		Instrumentation:    r.cfg.Instrumentation,
 	}
 	r.register(path, http.MethodPost, us, us.fiberHandler)

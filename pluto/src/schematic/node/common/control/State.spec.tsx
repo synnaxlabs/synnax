@@ -11,6 +11,7 @@ import { type channel } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { waitFor } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
+import { type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -20,17 +21,28 @@ import { Grid } from "@/schematic/node/common/grid";
 import { control } from "@/telem/control/aether";
 import { render } from "@/testutil/render";
 
+interface RenderOptions {
+  config?: Control.StateConfig;
+  registry?: aether.ComponentRegistry;
+  children?: ReactNode;
+}
+
 const renderState = (
   channel: channel.Key,
-  config: Control.StateConfig = Control.stateConfigZ.parse({}),
-  registry: aether.ComponentRegistry = control.REGISTRY,
+  {
+    config = Control.stateConfigZ.parse({}),
+    registry = control.REGISTRY,
+    children,
+  }: RenderOptions = {},
 ) =>
   render(
     <ReactFlowProvider>
       <Haul.Provider>
         <div data-id="node">
           <Grid.Grid nodeKey="node" editable={false}>
-            <Control.State config={config} channel={channel} />
+            <Control.State config={config} channel={channel}>
+              {children}
+            </Control.State>
           </Grid.Grid>
         </div>
       </Haul.Provider>
@@ -41,6 +53,14 @@ const renderState = (
 describe("Control.State", () => {
   it("should show nothing for the zero channel", () => {
     const { queryAllByRole } = renderState(0);
+    expect(queryAllByRole("button")).toHaveLength(0);
+  });
+
+  it("should show its children for the zero channel", () => {
+    const { getByText, queryAllByRole } = renderState(0, {
+      children: <span>child</span>,
+    });
+    expect(getByText("child")).toBeTruthy();
     expect(queryAllByRole("button")).toHaveLength(0);
   });
 });
@@ -76,7 +96,7 @@ describe("Control.State authority", () => {
   });
 
   it("should acquire control with absolute authority by default", async () => {
-    renderState(7, Control.stateConfigZ.parse({}), STUB_REGISTRY);
+    renderState(7, { registry: STUB_REGISTRY });
     await waitFor(() =>
       expect(chipSinks).toHaveBeenCalledWith(
         control.acquireChannelControl({ channel: 7, authority: 255 }),
@@ -85,7 +105,10 @@ describe("Control.State authority", () => {
   });
 
   it("should acquire control with the configured authority", async () => {
-    renderState(7, Control.stateConfigZ.parse({ authority: 100 }), STUB_REGISTRY);
+    renderState(7, {
+      config: Control.stateConfigZ.parse({ authority: 100 }),
+      registry: STUB_REGISTRY,
+    });
     await waitFor(() =>
       expect(chipSinks).toHaveBeenCalledWith(
         control.acquireChannelControl({ channel: 7, authority: 100 }),

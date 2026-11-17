@@ -54,7 +54,7 @@ from synnax import (
     user,
     view,
 )
-from synnax.config import DESKTOP_NOT_RUNNING_MSG, try_load_options_if_none_provided
+from synnax.config import DESKTOP_NOT_RUNNING_MSG, load_options
 from synnax.exceptions import ValidationError
 from synnax.options import Options
 from synnax.telem import CrudeTimeSpan, TimeSpan
@@ -148,7 +148,7 @@ class Synnax(framer.Client):
         port: int = 0,
         username: str = "",
         password: str = "",
-        secure: bool = False,
+        secure: bool | None = None,
         open_timeout: CrudeTimeSpan = TimeSpan.SECOND * 5,
         read_timeout: CrudeTimeSpan = TimeSpan.SECOND * 5,
         keep_alive: CrudeTimeSpan = TimeSpan.SECOND * 30,
@@ -158,18 +158,20 @@ class Synnax(framer.Client):
         ca_cert: str | None = None,
         api_key: str = "",
     ):
-        """Creates a new client. Without a host, the client connects with the
-        SYNNAX_HOST, SYNNAX_PORT, SYNNAX_API_KEY, SYNNAX_SECURE, and SYNNAX_CA_CERT
-        environment variables, then with the credentials that `sy login` saved, then
-        to the Core of Synnax Desktop on this computer.
+        """Creates a new client. Each option comes from the argument, then from its
+        SYNNAX_* environment variable, then from the default. When neither gives a host,
+        the Core that `sy login` saved, or else the Core of Synnax Desktop on this
+        computer, comes before the default. The credentials and the TLS options (secure,
+        ca_cert) each come whole from the first source that sets one of them.
 
         :param host: Hostname of a Core in the Synnax cluster.
         :param port: Port of the Core.
         :param username: Username to authenticate with.
         :param password: Password to authenticate with.
-        :param secure: Whether to use TLS when connecting to the Core. The client
-            verifies the Core's certificate against ca_cert, or the system trust roots
-            when ca_cert is None.
+        :param secure: Whether to use TLS when connecting to the Core. None means True
+            with a ca_cert, else the choice of the next source. The client verifies the
+            Core's certificate against ca_cert, or the system trust roots when ca_cert
+            is None.
         :param open_timeout: The time to wait for a connection. A bare number is
             seconds.
         :param read_timeout: The time to wait for a response. A bare number is seconds.
@@ -177,7 +179,7 @@ class Synnax(framer.Client):
         :param clock_skew_threshold: The maximum allowable clock skew between this
             host and Synnax Core before a warning is issued. Defaults to 1 second.
         :param api_key: API key to authenticate with, in place of a username and
-            password. Requires a host.
+            password.
         :param ca_cert: The path to a PEM file of CA certificates that sign the Core's
             certificate, such as the ca.crt that the Core generates.
         """
@@ -185,7 +187,7 @@ class Synnax(framer.Client):
             raise ValidationError(
                 "give either an API key or a username and password, not both"
             )
-        opts, embedded = try_load_options_if_none_provided(
+        opts, embedded = load_options(
             env=os.environ,
             host=host,
             port=port,

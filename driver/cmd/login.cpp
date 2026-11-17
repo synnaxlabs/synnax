@@ -17,6 +17,12 @@
 
 namespace driver::cmd::sub {
 int login(x::args::Parser &args) {
+    // Root takes over or hands off the saved state before login reads it. It runs
+    // before the prompts, so state that cannot be used fails at once.
+    if (const auto err = rack::Config::secure_persisted_state(args)) {
+        LOG(ERROR) << err.data;
+        return 1;
+    }
     synnax::Config config;
     config.host = x::cli::prompt("Host", "localhost");
     config.port = x::cli::prompt<uint16_t>("Port", static_cast<uint16_t>(9090));
@@ -34,11 +40,6 @@ int login(x::args::Parser &args) {
     config.username = x::cli::prompt("Username");
     config.password = x::cli::prompt("Password", std::nullopt, true);
 
-    // Root takes over or hands off the saved state before login reads it.
-    if (const auto sec_err = rack::Config::secure_persisted_state(args)) {
-        LOG(ERROR) << "failed to secure the saved API key: " << sec_err;
-        return 1;
-    }
     const auto [cfg, err] = rack::Config::login(args, config);
     // Login can save the API key and then fail, so the key is secured either way.
     const auto sec_err = rack::Config::secure_persisted_state(args);

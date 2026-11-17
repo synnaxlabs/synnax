@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/ni/chassis/pb"
 	svcchassis "github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
 	chassispb "github.com/synnaxlabs/synnax/pkg/service/ni/chassis/pb"
+	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -133,29 +134,33 @@ func (deleteRequestTranslator) Backward(
 }
 
 // New binds the NI chassis routes to t and returns their gRPC transport.
-func New(t *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
 		ServiceDesc:        &NIChassisCreateService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.NIChassisCreate = create
 	retrieve := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
 		ServiceDesc:        &NIChassisRetrieveService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.NIChassisRetrieve = retrieve
 	update := &updateServer{
 		RequestTranslator:  updateRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &NIChassisUpdateService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.NIChassisUpdate = update
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &NIChassisDeleteService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.NIChassisDelete = del
 	return grpc.CompoundBindableTransport{create, retrieve, update, del}

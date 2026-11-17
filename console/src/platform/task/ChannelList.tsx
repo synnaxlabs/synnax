@@ -26,16 +26,17 @@ import { TareItem } from "@/platform/task/TareItem";
 import { type Channel } from "@/platform/task/types";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 
-export interface ContextMenuItemProps<C extends Channel> {
-  keys: string[];
+export interface ContextMenuItemProps<C extends Channel> extends Pick<
+  Menu.ContextMenuMenuProps,
+  "keys" | "target"
+> {
   channels: C[];
 }
 
-interface ContextMenuProps<C extends Channel> extends Pick<
-  Form.UseFieldListReturn<C>,
-  "data" | "remove"
-> {
-  keys: string[];
+interface ContextMenuProps<C extends Channel>
+  extends
+    Pick<Form.UseFieldListReturn<C>, "data" | "remove">,
+    Pick<Menu.ContextMenuMenuProps, "keys" | "target"> {
   onDuplicate?: (channels: C[], keys: string[]) => void;
   onSelect: (keys: string[]) => void;
   /** The list's float read channels can tare while the task runs. */
@@ -50,6 +51,7 @@ const boundChannel = (c: Channel): channel.Key =>
 
 const ContextMenu = <C extends Channel>({
   keys,
+  target,
   onDuplicate,
   onSelect,
   tareable = false,
@@ -85,7 +87,7 @@ const ContextMenu = <C extends Channel>({
             </Menu.Item>
           )}
           <Menu.Divider />
-          {contextMenuItems?.({ channels, keys }) ?? null}
+          {contextMenuItems?.({ channels, keys, target }) ?? null}
           {canEnable && (
             <Menu.Item itemKey="enable" onClick={handleEnable}>
               <Icon.Enable />
@@ -122,7 +124,7 @@ export interface ChannelListItemProps extends List.ItemProps<string> {
 
 export interface ChannelListProps<C extends Channel>
   extends
-    Omit<ContextMenuProps<C>, "keys">,
+    Omit<ContextMenuProps<C>, "keys" | "target">,
     Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow" | "style"> {
   /**
    * Null for a list whose entries an outer BindChannels binds, or whose channels no

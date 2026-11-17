@@ -35,7 +35,7 @@ $listing = Invoke-RestMethod -Headers $headers -Uri "$api`?name=$name"
 $listed = $listing.total_count
 if ($null -eq $listed) { throw 'No runner count in the GitHub response' }
 
-Set-Location 'C:\actions-runner'
+Set-Location $PSScriptRoot
 if ((Test-Path '.runner') -and $listed -gt 0) {
     # Sets the pool's labels in place, which a new registration would do but would
     # strand a job GitHub bound to this one. GitHub sets the default labels itself.

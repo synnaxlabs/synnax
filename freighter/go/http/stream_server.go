@@ -91,6 +91,7 @@ type streamServer[RQ, RS freighter.Payload] struct {
 	alamos.Instrumentation
 	serverCtx context.Context
 	streamServerOptions
+	errs    *errors.Codec
 	handler func(context.Context, freighter.ServerStream[RQ, RS]) error
 	wg      *sync.WaitGroup
 	path    string
@@ -182,6 +183,7 @@ func (s *streamServer[RQ, RS]) handleSocket(
 			writeDeadline: s.writeDeadline,
 			conn:          c.Conn,
 			codec:         codec,
+			errs:          s.errs,
 			forced:        forced,
 			cause: func() error {
 				if handlerCtx == nil {
@@ -262,7 +264,7 @@ func (s *serverStream[RQ, RS]) close(err error) (closeErr error) {
 		closeCode = ws.CloseNormalClosure
 		if err = s.send(WSMessage[RS]{
 			Type: WSMessageTypeClose,
-			Err:  errors.Encode(err, false),
+			Err:  s.errs.Encode(err, false),
 		}); err != nil {
 			return err
 		}

@@ -64,7 +64,6 @@ linters:
     - fatcontext # SY-6109
     - gochecknoglobals # SY-6107
     - gochecknoinits # SY-6108
-    - gosec # SY-3843
     - noctx # SY-6109
   settings:
     depguard:
@@ -101,6 +100,23 @@ linters:
     gocritic:
       disabled-checks:
         - unlambda # Entries build before BeforeEach, so method values bind too early.
+    gosec:
+      excludes:
+        - G103 # Codecs and key encoders use unsafe on purpose to skip copies.
+        - G115 # Binary codecs and telemetry convert integer widths on purpose.
+        - G124 # Insecure mode serves sessions over HTTP, which drops a Secure cookie.
+        - G204 # Each exec runs a known tool or binary with an argument list, no shell.
+        - G401 # SHA-1 makes v5 UUIDs and certificate fingerprints, not security checks.
+        - G402 # Broker trust is a user setting: MQTT can skip certificate checks.
+        - G404 # Seeded specs need a reproducible math/rand; no secret comes from it.
+        - G407 # gosec reads the nil nonce that NewGCMWithRandomNonce requires as fixed.
+        - G505 # SHA-1 makes v5 UUIDs and certificate fingerprints, not security checks.
+        - G710 # Redirects keep the request path; gosec flags any path from a request.
+      config:
+        # Sources, executables, and directories can be world-readable, not writable.
+        G301: "0755"
+        G302: "0755"
+        G306: "0755"
     misspell:
       # Specs use these typos on purpose.
       ignore-rules:
