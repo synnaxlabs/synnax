@@ -9,14 +9,13 @@
 
 import asyncio
 from types import MappingProxyType
-from typing import Any, cast
 
 import numpy as np
 import pandas as pd
 import pytest
 
 import synnax as sy
-from freighter import EOF, WebsocketClient
+from freighter import EOF
 from freighter.mock import MockUnaryClient
 from synnax.channel.retrieve import Retriever
 from synnax.exceptions import create_registry
@@ -998,14 +997,19 @@ class _EndableTransport:
     def with_codec(self, codec: Codec) -> "_EndableTransport":
         return self
 
-    def stream(self, target: str, req_t: Any, res_t: Any) -> _EndableStream:
+    def stream(
+        self,
+        target: str,
+        req_t: type[WriterRequest],
+        res_t: type[WriterResponse],
+    ) -> _EndableStream:
         return self.stream_
 
 
 def _open_endable(transport: _EndableTransport) -> Writer:
     return Writer(
         start=None,
-        client=cast(WebsocketClient, transport),
+        client=transport,
         registry=create_registry(),
         adapter=WriteFrameAdapter(retriever=Retriever(client=MockUnaryClient())),
     )
