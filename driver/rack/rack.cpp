@@ -15,6 +15,7 @@
 #include "x/cpp/thread/thread.h"
 
 #include "driver/outbox/outbox.h"
+#include "driver/rack/state.h"
 #include "rack.h"
 
 namespace driver::rack {
@@ -61,8 +62,13 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
     VLOG(1) << "loaded config. starting task manager";
     const auto rt_manager = std::make_shared<x::thread::rt::Manager>();
     const auto client = cfg.new_client();
+    auto [data, data_err] = state::data_dir(cfg.state_dir);
+    if (data_err) {
+        this->should_exit(data_err, on_shutdown);
+        return;
+    }
     auto [outbox, outbox_err] = outbox::Outbox::open({
-        .dir = cfg.state_dir / OUTBOX_DIR,
+        .dir = data / OUTBOX_DIR,
         .statuses = client->statuses,
     });
     if (outbox_err) {

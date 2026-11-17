@@ -121,6 +121,19 @@ fs::path machine_dir() {
 #endif
 }
 
+std::pair<fs::path, x::errors::Error> data_dir(const fs::path &state_dir) {
+#ifdef __linux__
+    // Root keeps its data in its own state directory, never in one the service owns.
+    if (state_dir == machine_dir() && geteuid() != 0) {
+        const fs::path dir = "/var/lib/synnax/driver";
+        if (mkdir(dir.c_str(), S_IRWXU) != 0 && errno != EEXIST)
+            return {{}, errno_error("failed to create data directory")};
+        return {dir, x::errors::NIL};
+    }
+#endif
+    return {state_dir, x::errors::NIL};
+}
+
 fs::path user_dir() {
 #ifdef __APPLE__
     const char *home = std::getenv("HOME");

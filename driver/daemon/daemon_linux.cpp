@@ -59,7 +59,7 @@ AmbientCapabilities=CAP_NET_RAW
 WatchdogSec=30s
 
 # State directory
-StateDirectory=synnax synnax-driver/bin synnax-driver/outbox
+StateDirectory=synnax synnax-driver/bin
 ConfigurationDirectory=synnax
 CacheDirectory=synnax
 LogsDirectory=synnax
