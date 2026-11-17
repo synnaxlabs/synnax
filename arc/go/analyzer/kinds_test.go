@@ -17,7 +17,9 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -28,7 +30,12 @@ var _ = Describe("Diagnostic kinds", func() {
 			aCtx := context.NewRoot(
 				ctx,
 				MustSucceed(parser.Parse(source)),
-				NewRoot(nil),
+				NewRoot(nil, symbol.Symbol{
+					Name: "sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   1,
+				}),
 			)
 			analyzer.AnalyzeProgram(aCtx)
 			reported := lo.Map(
@@ -45,6 +52,30 @@ var _ = Describe("Diagnostic kinds", func() {
 			"func f() {\n x := i32(\"a\")\n}", codes.InvalidCast),
 		Entry("a function that reads a variable with a computed initializer",
 			"k := 1 + 2\nfunc f() i64 {\n return k\n}", codes.NotConstant),
+		Entry(
+			"two routing tables in one flow",
+			"func split() {v f64} (a f64, b f64) {\n a = v\n b = v\n}\n"+
+				"{v: sensor} -> split() -> {a: sensor, b: sensor}",
+			codes.RoutingTable,
+		),
+		Entry("a flow call of a variable",
+			"x := 1\nsensor -> x()", codes.NotCallable),
+		Entry(
+			"a call of a function with more than one named output",
+			"func split(v f64) (a f64, b f64) {\n a = v\n b = v\n}\n"+
+				"func f() {\n x := split(1.0)\n}",
+			codes.NotCallable,
+		),
+		Entry("an operator other than += on a string",
+			"func f() {\n b := \"a\"\n b -= \"c\"\n}", codes.InvalidOperand),
+		Entry("an operator other than += on a string series",
+			"func f() {\n s series str := [\"a\"]\n s -= [\"b\"]\n}",
+			codes.InvalidOperand),
+		Entry("an operator other than += on a string series element",
+			"func f() {\n s series str := [\"a\"]\n s[0] -= \"b\"\n}",
+			codes.InvalidOperand),
+		Entry("a return with no value in a function that returns one",
+			"func f() i64 {\n return\n}", codes.ReturnValue),
 		Entry("a literal with no exact value",
 			"func f(x i32 = 1.5) {\n}", codes.InvalidLiteral),
 		Entry("a literal that does not fit its type",

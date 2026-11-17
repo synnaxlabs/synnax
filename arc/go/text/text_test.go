@@ -7873,6 +7873,18 @@ time.wait(duration=500ms) -> output`
 					},
 					"[E5005]: 'next' used outside of a sequence",
 				),
+				Entry("a func with no output before a channel",
+					"func sink() {v f32} {\n}\ninput -> sink() -> input",
+					[]symbol.Symbol{
+						{
+							Name: "input",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F32()),
+							ID:   10081,
+						},
+					},
+					"[E5004]: function 'sink' has no output to connect in flow chain",
+				),
 				Entry("next inside inline routing stage body",
 					`
 					sequence main {
