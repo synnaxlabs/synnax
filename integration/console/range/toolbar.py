@@ -44,7 +44,7 @@ class Toolbar(Surface):
         :param group: The group to open.
         """
         heading = self._group(group).locator(
-            ".console-range-toolbar__group-header[aria-expanded='false']"
+            ".console-range-toolbar__group-header [aria-expanded='false']"
         )
         if heading.count() > 0:
             heading.click(timeout=5000)

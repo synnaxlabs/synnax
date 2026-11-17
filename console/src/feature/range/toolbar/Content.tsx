@@ -11,10 +11,10 @@ import "@/feature/range/toolbar/Content.css";
 
 import { ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Caret } from "@synnaxlabs/lyra/caret";
 import { Color } from "@synnaxlabs/lyra/color";
 import { context } from "@synnaxlabs/lyra/context";
 import { Haul } from "@synnaxlabs/lyra/haul";
+import { Header } from "@synnaxlabs/lyra/header";
 import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -405,30 +405,24 @@ const Group = ({
 }): ReactElement => {
   const collapsed = Session.Range.useSelectGroupCollapsed(id);
   const dispatch = Session.useDispatch();
-  const toggle = () =>
-    dispatch(Session.Range.setGroupCollapsed({ group: id, collapsed: !collapsed }));
+  const handleOpenChange = (open: boolean) =>
+    dispatch(Session.Range.setGroupCollapsed({ group: id, collapsed: !open }));
   return (
     <section className={CSS.BE(B, "group")} aria-label={title}>
-      <Button.Button
-        variant="text"
-        full="x"
-        justify="start"
+      <Header.Group
+        size="medium"
+        open={!collapsed}
+        onOpenChange={handleOpenChange}
         className={CSS.BE(B, "group-header")}
-        aria-expanded={!collapsed}
-        onClick={toggle}
       >
         <span className={CSS.BE(B, "group-icon")}>{icon}</span>
         {title}
         {count != null && count > 0 && (
-          <span className={CSS.BE(B, "group-count")}>{count}</span>
+          <Text.Text level="tiny" color={9}>
+            {count}
+          </Text.Text>
         )}
-        <Caret.Animated
-          className={CSS.BE(B, "group-caret")}
-          enabled={!collapsed}
-          enabledLoc="bottom"
-          disabledLoc="left"
-        />
-      </Button.Button>
+      </Header.Group>
       {!collapsed && <div className={CSS.BE(B, "group-body")}>{children}</div>}
     </section>
   );

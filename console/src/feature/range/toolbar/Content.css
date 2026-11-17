@@ -54,22 +54,13 @@
     padding: 0.5rem 0;
 }
 
-/* Each section opens with a bar that rests on l2. The icon sits over the item carets,
-   the title over the color marks, and the caret over the actions. */
+/* The icon sits over the item carets, the title over the color marks, and the caret
+   over the actions. */
 .console-range-toolbar .console-range-toolbar__group-header {
-    --pluto-bg: var(--pluto-gray-l2);
     --icon: 2rem;
 
-    display: flex;
-    flex-shrink: 0;
-    align-items: center;
-    gap: 1rem;
-    width: auto;
-    height: var(--pluto-height-medium);
     margin: 0 var(--inset);
     padding: 0 1.375rem 0 calc(var(--pad) + (var(--caret) - var(--icon)) / 2);
-    border-radius: var(--pluto-border-radius-small);
-    color: var(--pluto-gray-l11);
 
     & .console-range-toolbar__group-icon {
         display: flex;
@@ -80,18 +71,6 @@
             height: var(--icon);
         }
     }
-}
-
-.console-range-toolbar__group-count {
-    margin-left: -0.25rem;
-    color: var(--pluto-gray-l9);
-    font-size: var(--pluto-tiny-size);
-    font-weight: 450;
-    font-variant-numeric: tabular-nums;
-}
-
-.console-range-toolbar__group-caret {
-    margin-left: auto;
 }
 
 .console-range-toolbar__line {
