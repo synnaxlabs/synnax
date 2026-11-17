@@ -60,6 +60,10 @@ codesign --verify --verbose "$BINARY"
 zip -j "$WORK/notarize.zip" "$BINARY"
 NOTARY=(--apple-id "$APPLE_ID" --password "$APPLE_PASSWORD"
     --team-id "$APPLE_TEAM_ID" --output-format json)
+# The budget covers the uploads and the polls, and leaves the step limit room to
+# report the last status.
+BUDGET=$((40 * 60))
+START=$(date +%s)
 # An upload to the Apple notary service fails at times, so a failed one is sent again.
 for ATTEMPT in 1 2 3; do
     echo "Notarization upload attempt $ATTEMPT of 3"
@@ -76,8 +80,6 @@ ID=$(jq -r .id <<< "$SUBMISSION")
 # A second upload would start again at the end of the queue, so the script polls the
 # same submission until the budget ends. A poll that fails, such as on a timeout or a
 # 401, is tried again.
-BUDGET=$((45 * 60))
-START=$(date +%s)
 STATUS=""
 while :; do
     if INFO=$(xcrun notarytool info "$ID" "${NOTARY[@]}"); then

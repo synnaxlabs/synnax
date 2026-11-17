@@ -943,7 +943,7 @@ jobs:
         run: .github/scripts/import_apple_certificate.sh
 
       - name: Sign and notarize binary
-        # The script polls the Apple notary service for up to 45 min.
+        # The script spends up to 40 min with the Apple notary service.
         timeout-minutes: 50
         env:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}

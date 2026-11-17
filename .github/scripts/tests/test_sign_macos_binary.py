@@ -171,22 +171,22 @@ class TestSignMacosBinary:
         assert calls.count("submit") == 1
         assert calls.count("info abc") == 4
 
-    def test_should_fail_when_still_in_progress_after_45_minutes(
+    def test_should_fail_when_still_in_progress_after_40_minutes(
         self, tmp_path: Path
     ) -> None:
         result, calls = sign(tmp_path, statuses=("In Progress",))
         assert result.returncode == 1
         assert calls.count("submit") == 1
-        assert calls.count("sleep 30") == 90
-        assert calls.count("info abc") == 91
+        assert calls.count("sleep 30") == 80
+        assert calls.count("info abc") == 81
         assert "log abc" not in calls
-        assert "Submission abc still In Progress after 45 min" in result.stderr
+        assert "Submission abc still In Progress after 40 min" in result.stderr
 
     def test_should_fail_when_no_poll_gets_a_status(self, tmp_path: Path) -> None:
         result, calls = sign(tmp_path, statuses=("fail",))
         assert result.returncode == 1
-        assert calls.count("info abc") == 91
-        assert "Got no status for submission abc in 45 min" in result.stderr
+        assert calls.count("info abc") == 81
+        assert "Got no status for submission abc in 40 min" in result.stderr
 
     def test_should_print_the_log_when_the_submission_is_invalid(
         self, tmp_path: Path
