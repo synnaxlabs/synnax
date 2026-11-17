@@ -55,6 +55,11 @@ OLD_DESKTOP_MSG = (
     "open it."
 )
 
+DESKTOP_NOT_RUNNING_MSG = (
+    "Synnax Desktop is not running. Open it and try again. To connect to another "
+    "Core, give a host and a port."
+)
+
 NO_KEY_HELPER_MSG = (
     "Synnax Desktop saved no key helper. Update Synnax Desktop and open it."
 )
@@ -90,6 +95,9 @@ def _read_desktop_file(path: Path) -> dict[str, Any] | None:
 def _read_key(helper: Path, run: RunHelper) -> str:
     try:
         result = run(helper)
+    except FileNotFoundError as e:
+        # The helper of an AppImage goes away with its mount when Synnax Desktop closes.
+        raise ConfigurationError(DESKTOP_NOT_RUNNING_MSG) from e
     except OSError as e:
         raise ConfigurationError(
             f"Cannot run the key helper of Synnax Desktop at {helper}: {e.strerror}. "
@@ -213,11 +221,6 @@ NO_OPTIONS_MSG = (
 NO_CREDENTIALS_MSG = (
     "No credentials were given. Set SYNNAX_API_KEY, or give an API key or a username "
     "and password."
-)
-
-DESKTOP_NOT_RUNNING_MSG = (
-    "Synnax Desktop is not running. Open it and try again. To connect to another "
-    "Core, give a host and a port."
 )
 
 DEFAULT_PORT = 9090

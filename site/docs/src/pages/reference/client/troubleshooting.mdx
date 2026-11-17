@@ -555,7 +555,8 @@ Synnax Desktop is not running. Open it and try again. To connect to another Core
 
 You created a Python client with no arguments, and it found the Core of
 [Synnax Desktop](/reference/client/connect#connect-to-synnax-desktop). Synnax Desktop is
-closed, or its Core has not started.
+closed, or its Core has not started. On Linux, the key helper of an AppImage is gone
+after Synnax Desktop closes, so the client cannot get the API key.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -580,14 +581,14 @@ You created a Python client with no arguments, and it ran `synnax-desktop-key` t
 the API key of [Synnax Desktop](/reference/client/connect#connect-to-synnax-desktop).
 The program could not read the key from the keychain of your operating system. The text
 after `failed:` tells why. A message that says `Cannot run the key helper` means that
-the program is not at the path in `~/.synnax/desktop.json`.
+the program at the path in `~/.synnax/desktop.json` cannot start.
 
 </Problem.Cause>
 <Problem.Fix>
 
 Open Synnax Desktop and wait until the workspace shows, then run the script again. If
-the program is missing, update or install Synnax Desktop again. Over SSH or in a session
-with no keychain, set `SYNNAX_HOST` and `SYNNAX_API_KEY` instead.
+the program cannot start, update or install Synnax Desktop again. Over SSH or in a
+session with no keychain, set `SYNNAX_HOST` and `SYNNAX_API_KEY` instead.
 
 </Problem.Fix>
 </Problem.Body>

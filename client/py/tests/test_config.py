@@ -160,12 +160,23 @@ class TestLoadDesktopOptions:
             load_desktop_options(desktop_file, FakeHelper())
 
     def test_missing_helper(self, desktop_file: Path, tmp_path: Path) -> None:
-        """Should name the helper when it does not exist."""
-        helper = tmp_path / "missing"
-        write_desktop_file(desktop_file, port=4321, helper=helper)
-        with pytest.raises(ConfigurationError, match="Cannot run the key helper") as e:
+        """Should say that Synnax Desktop is not running when its helper is gone, as
+        an AppImage helper is after Synnax Desktop closes.
+        """
+        write_desktop_file(desktop_file, port=4321, helper=tmp_path / "missing")
+        with pytest.raises(ConfigurationError, match=DESKTOP_NOT_RUNNING_MSG):
             load_desktop_options(desktop_file)
-        assert str(helper) in str(e.value)
+
+    def test_helper_cannot_start(self, desktop_file: Path) -> None:
+        """Should name the helper when it exists but cannot start."""
+        write_desktop_file(desktop_file, port=4321)
+
+        def deny(path: Path) -> subprocess.CompletedProcess[str]:
+            raise PermissionError(13, "Permission denied")
+
+        with pytest.raises(ConfigurationError, match="Cannot run the key helper") as e:
+            load_desktop_options(desktop_file, deny)
+        assert str(HELPER) in str(e.value)
 
     def test_failed_helper(self, desktop_file: Path) -> None:
         """Should give the error line of a helper that fails."""
