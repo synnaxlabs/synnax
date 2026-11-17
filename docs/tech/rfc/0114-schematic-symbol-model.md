@@ -170,12 +170,14 @@ Otherwise it adds the bundled symbol under its bundled key, so a later import of
 same file reuses it. A group import applies the same rule to the group: a new manifest
 version carries the group key, and the import uses the Core's group with that key or
 adds the group under it. A reused symbol stays in its group, and a new symbol joins the
-imported group. An old manifest with no key creates a new group, as today. Phase 2
-changes the symbol importer to keep keys. Copies that an import made before phase 2 stay
-separate symbols. A built-in file is never edited: a node changes a built-in through its
-label, color, size, rotation, enum, match, and default, and a site through RFC 0112
-enums and named colors. "Duplicate as custom" stores the built-in's name in `origin`,
-and "Change symbol" moves nodes to another symbol by binding key.
+imported group. An old manifest with no key creates a new group only when a new symbol
+joins it. The importer needs update access on a reused group, and the Core refuses a
+reused group that is not a top-level `schematic_symbol` group. Phase 2 changes the
+symbol importer to keep keys. Copies that an import made before phase 2 stay separate
+symbols. A built-in file is never edited: a node changes a built-in through its label,
+color, size, rotation, enum, match, and default, and a site through RFC 0112 enums and
+named colors. "Duplicate as custom" stores the built-in's name in `origin`, and "Change
+symbol" moves nodes to another symbol by binding key.
 
 A custom symbol holds only shapes. It starts from an SVG upload or a blank canvas, and
 the editor's drawing tools save SVG markup. A part names its shapes by `#id`, `.class`,
