@@ -38,10 +38,7 @@ std::string get_persisted_state_path(x::args::Parser &parser) {
 }
 
 x::errors::Error rack::Config::secure_persisted_state(x::args::Parser &args) {
-    return state::secure(
-        get_persisted_state_path(args),
-        args.field<std::string>("--state-file", "").empty()
-    );
+    return state::secure(get_persisted_state_path(args));
 }
 
 x::errors::Error rack::Config::move_user_state(x::args::Parser &args) {
@@ -69,7 +66,7 @@ x::errors::Error rack::Config::move_user_state(x::args::Parser &args) {
             "failed to create state directory: " + ec.message()
         );
     // Secured before the copy, so the key is never readable by other users.
-    if (auto err = state::secure(to, true)) return err;
+    if (auto err = state::secure(to)) return err;
     fs::copy_file(from, to, ec);
     if (ec)
         return x::errors::Error(
@@ -91,7 +88,7 @@ x::errors::Error rack::Config::move_user_state(x::args::Parser &args) {
             STATE_ERROR,
             "failed to copy the OPC UA certificates: " + ec.message()
         );
-    if (auto err = state::secure(to, true)) return err;
+    if (auto err = state::secure(to)) return err;
     fs::remove(from, ec);
     if (!ec) fs::remove_all(opcua, ec);
     if (ec)
@@ -104,16 +101,15 @@ x::errors::Error rack::Config::move_user_state(x::args::Parser &args) {
 
 std::pair<std::shared_ptr<x::kv::KV>, x::errors::Error>
 open_kv(x::args::Parser &parser) {
-    if (auto err = rack::Config::secure_persisted_state(parser)) return {nullptr, err};
-    auto [kv, err] = x::kv::JSONFile::open_file(
+    const auto path = get_persisted_state_path(parser);
+    if (auto err = state::prepare(path)) return {nullptr, err};
+    return x::kv::JSONFile::open_file(
         x::kv::JSONFileConfig{
-            .path = get_persisted_state_path(parser),
+            .path = path,
             .dir_mode = PERSISTED_STATE_DIR_PERMISSIONS,
             .file_mode = PERSISTED_STATE_FILE_PERMISSIONS,
         }
     );
-    if (!err) err = rack::Config::secure_persisted_state(parser);
-    return {kv, err};
 }
 
 x::errors::Error rack::Config::load_persisted_state(x::args::Parser &args) {

@@ -39,6 +39,10 @@ int login(x::args::Parser &args) {
         LOG(ERROR) << "failed to enroll the rack: " << err;
         return 1;
     }
+    if (const auto sec_err = rack::Config::secure_persisted_state(args)) {
+        LOG(ERROR) << "failed to secure the saved API key: " << sec_err;
+        return 1;
+    }
     LOG(INFO) << x::log::GREEN() << "enrolled rack " << cfg.rack.name << " ("
               << cfg.rack.key << ") and saved its API key" << x::log::RESET();
     LOG(INFO) << "start driver: " << x::log::BLUE() << "synnax-driver start -s"
