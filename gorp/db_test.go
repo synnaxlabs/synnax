@@ -97,11 +97,32 @@ var _ = Describe("DB", func() {
 		}
 
 		It(
-			"Should open a table without indexes before Run starts",
+			"Should open a table without indexes or references before Run starts",
 			func(ctx SpecContext) {
 				MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: runDB}))
 			},
 		)
+
+		It("Should wait for Run to start to open a table with only references", func(
+			ctx SpecContext,
+		) {
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
+				DB:   runDB,
+				Name: "rack",
+			}))
+			opened := make(chan error, 1)
+			go func() {
+				_, err := gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
+					DB:         runDB,
+					Name:       "device",
+					References: newDeviceRefs().all(),
+				})
+				opened <- err
+			}()
+			Consistently(opened).ShouldNot(Receive())
+			StartRun(runDB.Run)
+			Eventually(opened).Should(Receive(BeNil()))
+		})
 
 		It("Should wait for Run to start to open a table with indexes", func(
 			ctx SpecContext,

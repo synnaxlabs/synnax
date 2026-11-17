@@ -163,9 +163,9 @@ func (db *DB) WithSnapshot(_ context.Context, f func(Snapshot) error) error {
 
 // Run populates the indexes of the tables that open on the DB until ctx ends. It then
 // waits for the populates in progress to stop and returns nil. A populate that ctx ends
-// leaves its indexes invalid. OpenTable for a table with indexes waits for Run to start
-// and fails after Run stops. Commits to a table wait for its indexes to populate. Call
-// Run once, and Close only after Run returns.
+// leaves its indexes invalid. OpenTable for a table with indexes or references waits
+// for Run to start and fails after Run stops. Commits to a table wait for its indexes
+// to populate. Call Run once, and Close only after Run returns.
 func (db *DB) Run(ctx context.Context) error {
 	if !db.run.started.CompareAndSwap(false, true) {
 		return errors.New("[gorp] - Run called twice")
@@ -198,12 +198,12 @@ func (db *DB) goPopulate(ctx context.Context, populate func(context.Context)) er
 			return nil
 		case <-db.run.stopped:
 			return errors.New(
-				"[gorp] - a table with indexes opened after DB.Run stopped",
+				"[gorp] - a table with indexes or references opened after DB.Run stopped",
 			)
 		case <-ctx.Done():
 			return errors.Wrap(
 				ctx.Err(),
-				"[gorp] - a table with indexes waited for DB.Run",
+				"[gorp] - a table with indexes or references waited for DB.Run",
 			)
 		case <-warn.C:
 			db.Instrumentation.L.Warn("gorp table open waited long for DB.Run to start")
