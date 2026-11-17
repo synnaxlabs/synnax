@@ -36,6 +36,7 @@ export interface UseProps
         | "wheelPos"
         | "selectionStart"
         | "selectionEnd"
+        | "selecting"
         | "visibleStart"
         | "rowEntries"
         | "computedLineHeight"
