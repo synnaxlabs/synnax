@@ -475,8 +475,8 @@ container, gives these paths:
 
 Give the state directory and the state file to the user that runs the Driver.
 
-Driver 0.61.5 stops these changes. `start`, `login`, and `clear` do not change the mode
-or owner of a state directory or state file that exists. Only `install` and `login` that
+Driver 0.61.5 stops these changes in `start` and `clear`: they do not change the mode or
+owner of a state directory or state file that exists. Only `install` and `login` that
 root runs change them. A command fails if other users can read the state file, or if a
 user other than the Driver user owns it. When root runs the Driver, the `synnax` user
 can also own it. Set the state file to mode `0600` and give it to the user that runs the
