@@ -22,14 +22,12 @@ Each entry starts from what you see, then gives the cause and the fix.
 <Problem.Body>
 <Problem.Cause>
 
-Your role is Viewer, or the schematic is a snapshot. A viewer cannot control hardware,
-and nobody can control a snapshot.
+Your role is Viewer. A viewer cannot control hardware.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Ask an administrator for the Operator role or higher. For a snapshot, open the schematic
-that the snapshot came from.
+Ask an administrator for the Operator role or higher.
 
 </Problem.Fix>
 </Problem.Body>
@@ -99,8 +97,7 @@ that used a deleted channel.
 <Problem.Body>
 <Problem.Cause>
 
-Your role is Operator, or the schematic is a snapshot. Operators cannot edit schematics,
-so they write at authority 1.
+Your role is Operator. Operators cannot edit schematics, so they write at authority 1.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -285,15 +282,15 @@ No fix is necessary when the sensor streams. See
 <Problem.Body>
 <Problem.Cause>
 
-A runtime error, such as an index out of bounds. On a Driver, the status shows "Failed
-to run Arc program" with this text in the description, and the automation stops. On the
-Core, the status shows "Node failed", and the Core drops the cycle and keeps running.
+A runtime error, such as an index out of bounds. The status shows "Node failed" with
+this text in the description. The automation drops the output of that part for the cycle
+and keeps running.
 
 </Problem.Cause>
 <Problem.Fix>
 
 Fix the code. See
-[errors while it runs](/reference/control/arc/execution-model#errors-while-it-runs).
+[runtime errors](/reference/control/arc/execution-model#runtime-errors).
 
 </Problem.Fix>
 </Problem.Body>

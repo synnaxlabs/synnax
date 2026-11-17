@@ -26,15 +26,20 @@ var _ = Describe("TimeStamp", func() {
 		})
 
 		It("Should advance in steps finer than 0.1 ms", func() {
-			start := telem.Now()
-			var step telem.TimeSpan
-			for range 10_000_000 {
-				if step = start.Span(telem.Now()); step > 0 {
-					break
+			const limit = 100 * telem.Microsecond
+			// A paused goroutine lengthens one step, so only the finest step counts. A
+			// CI VM clock can tick coarsely for a few milliseconds, so the budget is
+			// clock time, not a sample count.
+			finest := telem.TimeSpanMax
+			start := time.Now()
+			prev := telem.Now()
+			for finest >= limit && time.Since(start) < time.Second {
+				now := telem.Now()
+				if step := prev.Span(now); step > 0 {
+					finest, prev = min(finest, step), now
 				}
 			}
-			Expect(step).To(BeNumerically(">", 0))
-			Expect(step).To(BeNumerically("<", 100*telem.Microsecond))
+			Expect(finest).To(BeNumerically("<", limit))
 		})
 	})
 

@@ -154,19 +154,6 @@ type Line struct {
 	Detail Detail `json:"detail" msgpack:"detail"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *Line) ApplyDefaults() {
-	if l.StrokeWidth == 0 {
-		l.StrokeWidth = 2
-	}
-	if l.Aggregation == "" {
-		l.Aggregation = AggregationMinMax
-	}
-	if l.Detail == "" {
-		l.Detail = DetailMedium
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (l *Line) SetDefaults() {
 	l.StrokeWidth = 2
@@ -241,19 +228,6 @@ type LinePlot struct {
 	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LinePlot) ApplyDefaults() {
-	l.Title.ApplyDefaults()
-	l.Legend.ApplyDefaults()
-	l.Axes.ApplyDefaults()
-	for i := range l.Lines {
-		l.Lines[i].ApplyDefaults()
-	}
-	for i := range l.Rules {
-		l.Rules[i].ApplyDefaults()
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (l *LinePlot) SetDefaults() {
 	l.Title.SetDefaults()
@@ -284,9 +258,11 @@ func (l *LinePlot) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (l LinePlot) Validate() error {
 	v := validate.New("LinePlot")
-	v.NotEmptyString("name", l.Name)
 	v.Exec(func() error { return validate.PathedError(l.Title.Validate(), "title") })
 	v.Exec(func() error { return validate.PathedError(l.Legend.Validate(), "legend") })
+	for i := range l.Ranges {
+		v.Exec(func() error { return validate.PathedError(l.Ranges[i].Validate(), "ranges", strconv.Itoa(i)) })
+	}
 	v.Exec(func() error { return validate.PathedError(l.Axes.Validate(), "axes") })
 	for i := range l.Lines {
 		v.Exec(func() error { return validate.PathedError(l.Lines[i].Validate(), "lines", strconv.Itoa(i)) })

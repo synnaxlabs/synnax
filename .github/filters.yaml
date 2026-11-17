@@ -286,6 +286,8 @@ exports_go:
   - *core
   - *freighter_integration
   - *oracle
+  - .github/exports-go.json
+  - .github/scripts/go_affected.py
 
 exports_py:
   - *client_py
@@ -350,11 +352,19 @@ driver: &driver
 
 soem:
   - *cpp
+  - vendor/open62541/codegen.bzl
   - vendor/soem/**
 
 # Every path that changes a C++ CodeQL analysis.
 codeql_cpp:
   - *driver
+  - .github/workflows/codeql.yaml
+
+# Every path that changes a Rust CodeQL analysis.
+codeql_rust:
+  - "**/*.rs"
+  - "**/Cargo.lock"
+  - "**/Cargo.toml"
   - .github/workflows/codeql.yaml
 
 buildifier:
@@ -397,7 +407,7 @@ protobuf:
 ci_scripts:
   - *py
   - .github/scripts/**
-  - .github/workflows/ci.yaml
+  - .github/workflows/**
   - deploy/preview/**
   - scripts/common/**
 
@@ -405,6 +415,9 @@ scripts:
   - *py
   - client/py/**
   - scripts/**
+
+suppressions_py:
+  - "**/*.py"
 
 runners:
   - *py

@@ -49,22 +49,7 @@ func literalOnly[N antlr.ParserRuleContext](
 	node antlr.Tree,
 ) bool {
 	if prim, ok := node.(parser.IPrimaryExpressionContext); ok {
-		if lit := prim.Literal(); lit != nil {
-			return lit.NumericLiteral() != nil
-		}
-		if qid := prim.QualifiedIdentifier(); qid != nil {
-			head, tail := parser.QualifiedNameParts(qid)
-			scope, err := ctx.Scope.Resolve(ctx, head)
-			if err != nil {
-				return false
-			}
-			sym, err := scope.Resolve(ctx, tail)
-			return err == nil && sym.Kind == symbol.KindConstant
-		}
-		if prim.LPAREN() == nil || prim.Expression() == nil {
-			return false
-		}
-		return literalOnly(ctx, prim.Expression())
+		return primaryLiteralOnly(ctx, prim)
 	}
 	for _, child := range node.GetChildren() {
 		if _, ok := child.(antlr.TerminalNode); ok {
@@ -75,6 +60,28 @@ func literalOnly[N antlr.ParserRuleContext](
 		}
 	}
 	return true
+}
+
+func primaryLiteralOnly[N antlr.ParserRuleContext](
+	ctx context.Context[N],
+	prim parser.IPrimaryExpressionContext,
+) bool {
+	if lit := prim.Literal(); lit != nil {
+		return lit.NumericLiteral() != nil
+	}
+	if qid := prim.QualifiedIdentifier(); qid != nil {
+		head, tail := parser.QualifiedNameParts(qid)
+		scope, err := ctx.Scope.Resolve(ctx, head)
+		if err != nil {
+			return false
+		}
+		sym, err := scope.Resolve(ctx, tail)
+		return err == nil && sym.Kind == symbol.KindConstant
+	}
+	if prim.LPAREN() == nil || prim.Expression() == nil {
+		return false
+	}
+	return literalOnly(ctx, prim.Expression())
 }
 
 // CompileOperand compiles operand in the unit that it and the value on the stack, of
@@ -126,6 +133,100 @@ var arithmeticOperators = map[int]string{
 	parser.ArcLexerPERCENT: "%",
 }
 
+// operatorTokens returns the arithmetic operators among the children of node, in
+// order.
+func operatorTokens(node antlr.Tree) []string {
+	var operators []string
+	for _, child := range node.GetChildren() {
+		if term, ok := child.(antlr.TerminalNode); ok {
+			if op, ok := arithmeticOperators[term.GetSymbol().GetTokenType()]; ok {
+				operators = append(operators, op)
+			}
+		}
+	}
+	return operators
+}
+
+// arithmeticChain tracks the running type of a left-associative chain of arithmetic
+// operators. Once a series operand appears, the rest of the chain is series math.
+type arithmeticChain struct {
+	result types.Type
+	hint   types.Type
+	elem   types.Type
+	series bool
+}
+
+func newArithmeticChain(first types.Type) *arithmeticChain {
+	c := &arithmeticChain{result: first, hint: first}
+	if first.Kind == types.KindSeries {
+		c.series = true
+		c.elem = *first.Elem
+	}
+	if first.Kind == types.KindChan {
+		c.hint = first.Unwrap()
+	}
+	return c
+}
+
+func (c *arithmeticChain) resultType() types.Type {
+	if c.series {
+		return c.result
+	}
+	return c.hint
+}
+
+// setUnit gives the chain the unit of the result of its next operator.
+func (c *arithmeticChain) setUnit(unit *types.Unit) {
+	c.hint.Unit, c.elem.Unit = unit, unit
+	if c.series {
+		c.result = types.Series(c.elem)
+	}
+}
+
+// resultUnit returns the unit of left op right, which meet in the unit common.
+func resultUnit(op string, left, right, common *types.Unit) *types.Unit {
+	switch op {
+	case "*":
+		return types.ProductUnit(left, right)
+	case "/":
+		return types.QuotientUnit(left, right)
+	default:
+		return common
+	}
+}
+
+// emitArithmetic writes op applied to the chain so far and an operand of type
+// operand, already on the stack.
+func emitArithmetic[N antlr.ParserRuleContext](
+	ctx context.Context[N],
+	c *arithmeticChain,
+	op string,
+	operand types.Type,
+) error {
+	operandIsSeries := operand.Kind == types.KindSeries
+	switch {
+	case c.series:
+		return ctx.Resolver.EmitSeriesArithmetic(
+			ctx.Writer, ctx.WriterID, op, c.elem, !operandIsSeries,
+		)
+	case operandIsSeries:
+		elem := *operand.Elem
+		elem.Unit = c.hint.Unit
+		if err := ctx.Resolver.EmitSeriesReverseArithmetic(
+			ctx.Writer, ctx.WriterID, op, elem,
+		); err != nil {
+			return err
+		}
+		c.result, c.elem, c.series = types.Series(elem), elem, true
+		return nil
+	case c.hint.Kind == types.KindString && op == "+":
+		ctx.Resolver.EmitStringConcat(ctx.Writer, ctx.WriterID)
+		return nil
+	default:
+		return ctx.Writer.WriteArithmetic(op, c.hint)
+	}
+}
+
 // compileArithmetic compiles operands, which the operators of ctx.AST join, from left
 // to right.
 func compileArithmetic[N, O antlr.ParserRuleContext](
@@ -133,87 +234,42 @@ func compileArithmetic[N, O antlr.ParserRuleContext](
 	operands []O,
 	compile func(context.Context[O]) (types.Type, error),
 ) (types.Type, error) {
-	resultType, err := compile(
+	first, err := compile(
 		ctx.Child(operands[0]).WithHint(firstOperandHint(ctx, operands)),
 	)
 	if err != nil {
 		return types.Type{}, err
 	}
-	firstIsSeries := resultType.Kind == types.KindSeries
-	var elemType types.Type
-	if firstIsSeries {
-		elemType = *resultType.Elem
-	}
-	hintType := resultType
-	if resultType.Kind == types.KindChan {
-		hintType = resultType.Unwrap()
-	}
-	var operators []string
-	for _, child := range ctx.AST.GetChildren() {
-		if term, ok := child.(antlr.TerminalNode); ok {
-			if op, ok := arithmeticOperators[term.GetSymbol().GetTokenType()]; ok {
-				operators = append(operators, op)
-			}
-		}
-	}
+	chain := newArithmeticChain(first)
+	operators := operatorTokens(ctx.AST)
 	for i, operand := range operands[1:] {
-		op, left := operators[i], hintType
-		if firstIsSeries {
-			left = resultType
-		}
+		left := chain.resultType()
 		operandType, unit, err := CompileOperand(ctx, left, operand, compile)
 		if err != nil {
 			return types.Type{}, err
 		}
-		switch leftUnit, rightUnit := left.Unwrap().Unit, operandType.Unwrap().Unit; op {
-		case "*":
-			unit = types.ProductUnit(leftUnit, rightUnit)
-		case "/":
-			unit = types.QuotientUnit(leftUnit, rightUnit)
-		}
-		hintType.Unit, elemType.Unit = unit, unit
-		if firstIsSeries {
-			resultType = types.Series(elemType)
-		}
-		secondIsSeries := operandType.Kind == types.KindSeries
-		switch {
-		case firstIsSeries:
-			err = ctx.Resolver.EmitSeriesArithmetic(
-				ctx.Writer, ctx.WriterID, op, elemType, !secondIsSeries,
-			)
-		case secondIsSeries:
-			elemType = *operandType.Elem
-			elemType.Unit = unit
-			err = ctx.Resolver.EmitSeriesReverseArithmetic(
-				ctx.Writer, ctx.WriterID, op, elemType,
-			)
-			resultType, firstIsSeries = types.Series(elemType), true
-		case hintType.Kind == types.KindString && op == "+":
-			ctx.Resolver.EmitStringConcat(ctx.Writer, ctx.WriterID)
-		default:
-			err = ctx.Writer.WriteArithmetic(op, hintType)
-		}
-		if err != nil {
+		chain.setUnit(resultUnit(
+			operators[i], left.Unwrap().Unit, operandType.Unwrap().Unit, unit,
+		))
+		if err = emitArithmetic(ctx, chain, operators[i], operandType); err != nil {
 			return types.Type{}, err
 		}
 	}
-	if firstIsSeries {
-		return resultType, nil
-	}
-	return hintType, nil
+	return chain.resultType(), nil
 }
 
 func compileBinaryRelational(
 	ctx context.Context[parser.IRelationalExpressionContext],
 ) (types.Type, error) {
 	var op string
-	if ctx.AST.LT(0) != nil {
+	switch {
+	case ctx.AST.LT(0) != nil:
 		op = "<"
-	} else if ctx.AST.GT(0) != nil {
+	case ctx.AST.GT(0) != nil:
 		op = ">"
-	} else if ctx.AST.LEQ(0) != nil {
+	case ctx.AST.LEQ(0) != nil:
 		op = "<="
-	} else if ctx.AST.GEQ(0) != nil {
+	case ctx.AST.GEQ(0) != nil:
 		op = ">="
 	}
 	return compileComparison(ctx, ctx.AST.AllAdditiveExpression(), op, compileAdditive)

@@ -12,14 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import {
-  caseconv,
-  deep,
-  type direction,
-  location,
-  type notation,
-  primitive,
-} from "@synnaxlabs/x";
+import { caseconv, deep, type direction, location, notation } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -36,18 +29,33 @@ export const colorFallbacks = {
   textColor: VisScale.textColorFallback,
 } satisfies ColorFallbacks;
 
-const PRECISION_INPUT_PROPS: Partial<Input.NumericProps> = {
-  bounds: { lower: 0, upper: 10 },
-};
 const WINDOW_SIZE_INPUT_PROPS: Partial<Input.NumericProps> = {
   bounds: { lower: 1, upper: 100 },
+  integer: true,
 };
 
-const NotationSelect = Component.renderProp(
-  ({ value, onChange }: Input.Control<notation.Notation>): ReactElement => (
-    <Notation.Select value={value} onChange={onChange} />
-  ),
+const PrecisionNumeric = ({
+  value,
+  onChange,
+}: Input.Control<number | undefined>): ReactElement => (
+  <Input.Numeric
+    value={value ?? 2}
+    onChange={onChange}
+    integer
+    bounds={notation.PRECISION_BOUNDS}
+  />
 );
+
+const PrecisionInput = Component.renderProp(PrecisionNumeric);
+
+const NotationSelectInput = ({
+  value,
+  onChange,
+}: Input.Control<notation.Notation>): ReactElement => (
+  <Notation.Select value={value} onChange={onChange} />
+);
+
+const NotationSelect = Component.renderProp(NotationSelectInput);
 
 const SIDES: readonly location.Outer[] = [
   ...location.Y_LOCATIONS,
@@ -77,24 +85,22 @@ const SideField = ({ path, label, sides }: SideFieldProps): ReactElement => (
 );
 
 export interface TelemFormProps {
-  /** When true, clearing the channel unbinds the scale instead of pinning it to 0. */
+  /** When true, the channel can be cleared, which unbinds the scale. */
   allowNone?: boolean;
 }
 
 /** TelemForm renders telemetry sections; place it inside `Form.Sections`. */
 export const TelemForm = ({ allowNone = false }: TelemFormProps): ReactElement => {
   const { set } = Base.useContext();
-  const channel = Base.useFieldValue(root.channel, { optional: true });
-  const handleChannelChange = (key: channel.Key | null): void => {
-    if (allowNone && !primitive.isNonZero(key)) return set(root.channel, undefined);
+  const channel = Base.useFieldValue(root.channel);
+  const handleChannelChange = (key: channel.Key | null): void =>
     set(root.channel, key ?? 0);
-  };
   return (
     <>
       <Base.Section title="Source">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
-            value={channel ?? 0}
+            value={channel}
             onChange={handleChannelChange}
             allowNone={allowNone}
           />
@@ -113,12 +119,9 @@ export const TelemForm = ({ allowNone = false }: TelemFormProps): ReactElement =
         <Base.Field path={root.notation} label="Notation" padHelpText={false}>
           {NotationSelect}
         </Base.Field>
-        <Base.NumericField
-          path={root.precision}
-          label="Precision"
-          padHelpText={false}
-          inputProps={PRECISION_INPUT_PROPS}
-        />
+        <Base.Field path={root.precision} label="Precision" padHelpText={false}>
+          {PrecisionInput}
+        </Base.Field>
         <NodeForm.UnitsField path={root.units} />
       </Base.Section>
       <Base.Section title="Staleness">

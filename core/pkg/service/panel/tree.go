@@ -45,9 +45,6 @@ var errTabNotFound = errors.New("tab not found in tree")
 // tab count.
 var errIndexOutOfRange = errors.New("index out of range")
 
-// errInvalidSize is returned when a split size ratio falls outside [0, 1].
-var errInvalidSize = errors.Wrap(validate.ErrValidation, "split size must be in [0, 1]")
-
 // resourceTabTypes is the set of resource types a tab may display: the resource subset
 // of the Console renderer registry, promoted to a schema invariant.
 var resourceTabTypes = set.New(
@@ -58,13 +55,15 @@ var resourceTabTypes = set.New(
 	resource.TypeArc,
 	resource.TypeTask,
 	resource.TypeRange,
+	resource.TypeICD,
+	resource.TypeView,
 )
 
 // validateTree checks the structural invariants every persisted panel tree must uphold:
-// every node has a variant, split sizes are within [0, 1], tab keys are unique across
-// the tree, every resource backs at most one tab, and every resource tab displays a
-// type in resourceTabTypes. Called before any tree is persisted, both for
-// caller-provided trees on create and for reduced trees on dispatch.
+// every node has a variant, tab keys are unique across the tree, every resource backs
+// at most one tab, and every resource tab displays a type in resourceTabTypes. Called
+// before any tree is persisted, both for caller-provided trees on create and for
+// reduced trees on dispatch.
 func validateTree(root Node) error {
 	return validateNode(root, set.New[uuid.UUID](), set.New[resource.ID]())
 }
@@ -104,9 +103,6 @@ func validateNode(
 		}
 		return nil
 	case SplitNode:
-		if v.Size < 0 || v.Size > 1 {
-			return errInvalidSize
-		}
 		if err := validateNode(v.First, seen, seenResources); err != nil {
 			return err
 		}
@@ -396,9 +392,9 @@ func directionAndSideForLocation(
 		return spatial.DirectionY, spatial.OrderFirst, nil
 	case spatial.LocationBottom:
 		return spatial.DirectionY, spatial.OrderLast, nil
-	default:
-		return "", "", errors.New("invalid split location")
+	case spatial.LocationCenter:
 	}
+	return "", "", errors.New("invalid split location")
 }
 
 // splitLeafAt replaces the leaf at leafPath with a split node containing the

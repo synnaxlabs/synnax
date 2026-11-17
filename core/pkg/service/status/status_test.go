@@ -47,6 +47,7 @@ var _ = Describe("Status", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		store = memkv.New()
 		db = DeferClose(gorp.Wrap(store))
+		StartRun(db.Run)
 		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))
@@ -798,6 +799,38 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
+		Describe("WherePrefix", func() {
+			It("Should retrieve the statuses whose key has the prefix",
+				func(ctx SpecContext) {
+					var statuses []status.Status[any]
+					Expect(
+						svc.NewRetrieve[any]().
+							WherePrefix("retrieve-").
+							Where(status.MatchNames[any]("Status A", "Status B")).
+							Entries(&statuses).
+							Exec(ctx, tx),
+					).To(Succeed())
+					Expect(statuses).To(ConsistOf(
+						HaveField("Key", "retrieve-a"),
+						HaveField("Key", "retrieve-b"),
+					))
+				})
+
+			It(
+				"Should retrieve nothing for a prefix no key has",
+				func(ctx SpecContext) {
+					var statuses []status.Status[any]
+					Expect(
+						svc.NewRetrieve[any]().
+							WherePrefix("missing-").
+							Entries(&statuses).
+							Exec(ctx, tx),
+					).To(Succeed())
+					Expect(statuses).To(BeEmpty())
+				},
+			)
+		})
+
 		Describe("MatchNames", func() {
 			It("Should retrieve a status with a single name", func(ctx SpecContext) {
 				var statuses []status.Status[any]
@@ -1207,7 +1240,7 @@ var _ = Describe("Status", Ordered, func() {
 			var keys []status.Key
 			DeferCleanup(
 				db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
-					for ch := range svc.Changes(ctx, c) {
+					for ch := range svc.Changes(c) {
 						keys = append(keys, ch.Key)
 					}
 				}),

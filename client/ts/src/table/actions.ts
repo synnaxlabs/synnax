@@ -60,16 +60,58 @@ const move = <T>(items: T[], from: number, to: number): void => {
 };
 
 // expandTemplate returns count replicas of template with keys derived via deriveKey.
+// Each replica holds its own copy of the config, as an edit to one changes it in place.
 const expandTemplate = (template: Cell, count: number): Cell[] =>
   Array.from({ length: count }, (_, i) => ({
     key: deriveKey(template.key, i),
-    config: template.config,
+    config: structuredClone(template.config),
   }));
 
-const applyPath = (state: Draft<Table>, action: patch.Action): HandlerResult =>
-  patch.pathOf(action)[0] === "cells"
-    ? actions.applyEntryPath(state, action, ["cells"], tableZ)
-    : actions.applyPath(state, action, tableZ);
+const ROWS_FIELD = "rows";
+const CELLS_FIELD = "cells";
+const CONFIG_FIELD = "config";
+
+// A path into the rows goes into the config of one cell. The result targets the cell.
+const applyPath = (state: Draft<Table>, action: patch.Action): HandlerResult => {
+  const path = patch.pathOf(action);
+  if (path[0] !== ROWS_FIELD) return actions.applyPath(state, action, tableZ);
+  if (path.length < 5 || path[2] !== CELLS_FIELD || path[4] !== CONFIG_FIELD)
+    throw new Error("[Table] - a path into rows must go into the config of one cell");
+  const result = actions.applyPath(state, action, tableZ);
+  if (result.inverse.length === 0) return result;
+  return { ...result, targets: [path[3]] };
+};
+
+const keysOf = (cells: Cell[]): string[] => cells.map((c) => c.key);
+
+// setConfig replaces the config of the cell with the key, and returns the replaced
+// config. Returns undefined when no row holds the cell.
+const setConfig = (
+  state: Draft<Table>,
+  key: string,
+  config: CellConfig,
+): CellConfig | undefined => {
+  for (const row of state.rows) {
+    const i = row.cells.findIndex((c) => c.key === key);
+    if (i === -1) continue;
+    const prev = actions.snapshotDraft(row.cells[i].config);
+    row.cells[i].config = config;
+    return prev;
+  }
+  return undefined;
+};
+
+// removeColAt removes the cell at index from every row that holds one, and returns the
+// removed cells. A row with no cell at index is skipped, not padded.
+const removeColAt = (state: Draft<Table>, index: number): Cell[] => {
+  const removed: Cell[] = [];
+  for (const row of state.rows) {
+    if (index >= row.cells.length) continue;
+    removed.push(actions.snapshotDraft(row.cells[index]));
+    row.cells.splice(index, 1);
+  }
+  return removed;
+};
 
 const handlers: Handlers = {
   create: (state, payload) => {
@@ -90,33 +132,25 @@ const handlers: Handlers = {
       for (let i = 0; i < cells.length; i++)
         state.columns.push(baseCol(deriveKey(payload.key, i)));
     const index = Math.min(payload.index, state.rows.length);
-    const keys = cells.map((c) => c.key);
     state.rows.splice(index, 0, {
       key: payload.key,
       size: Math.max(payload.size, MIN_CELL_DIM),
-      cells: keys,
+      cells: [...cells],
     });
-    for (const c of cells) state.cells[c.key] = c.config;
     return {
       inverse: [removeRow({ key: payload.key })],
-      targets: [payload.key, ...keys],
+      targets: [payload.key, ...keysOf(cells)],
     };
   },
 
   removeRow: (state, { key }) => {
     const index = findIndex(state.rows, key);
     if (index === -1) return actions.NO_OP_RESULT;
-    const removed = actions.snapshotDraft(state.rows[index]);
-    const cells: Cell[] = [];
-    for (const k of removed.cells) {
-      const c = state.cells[k];
-      if (c != null) cells.push({ key: k, config: actions.snapshotDraft(c) });
-    }
+    const { size, cells } = actions.snapshotDraft(state.rows[index]);
     state.rows.splice(index, 1);
-    for (const k of removed.cells) delete state.cells[k];
     return {
-      inverse: [addRow({ index, key, size: removed.size, cells })],
-      targets: [key, ...removed.cells],
+      inverse: [addRow({ index, key, size, cells })],
+      targets: [key, ...keysOf(cells)],
     };
   },
 
@@ -135,38 +169,27 @@ const handlers: Handlers = {
       key: payload.key,
       size: Math.max(payload.size, MIN_CELL_DIM),
     });
-    for (let i = 0; i < state.rows.length; i++) {
-      if (i >= cells.length) break;
-      const rowIdx = Math.min(idx, state.rows[i].cells.length);
-      state.rows[i].cells.splice(rowIdx, 0, cells[i].key);
-    }
-    for (const c of cells) state.cells[c.key] = c.config;
+    const added = cells.slice(0, state.rows.length);
+    added.forEach((cell, i) => {
+      const row = state.rows[i];
+      row.cells.splice(Math.min(idx, row.cells.length), 0, cell);
+    });
     return {
       inverse: [removeCol({ key: payload.key })],
-      targets: [payload.key, ...cells.map((c) => c.key)],
+      targets: [payload.key, ...keysOf(added)],
     };
   },
 
   removeCol: (state, { key }) => {
     const index = findIndex(state.columns, key);
     if (index === -1) return actions.NO_OP_RESULT;
-    const oldSize = state.columns[index].size;
-    const removedCells: Cell[] = [];
+    const { size } = state.columns[index];
     state.columns.splice(index, 1);
-    // Rows missing a cell at this column are skipped, not padded. Go AddCol
-    // short-circuits when len(cells) < len(rows), so the inverse repopulates
-    // only the rows we captured.
-    for (let i = 0; i < state.rows.length; i++) {
-      if (index >= state.rows[i].cells.length) continue;
-      const k = state.rows[i].cells[index];
-      const c = state.cells[k];
-      if (c != null) removedCells.push({ key: k, config: actions.snapshotDraft(c) });
-      delete state.cells[k];
-      state.rows[i].cells.splice(index, 1);
-    }
+    // The inverse repopulates only the rows that held a cell at this column.
+    const cells = removeColAt(state, index);
     return {
-      inverse: [addCol({ index, key, size: oldSize, cells: removedCells })],
-      targets: [key, ...removedCells.map((c) => c.key)],
+      inverse: [addCol({ index, key, size, cells })],
+      targets: [key, ...keysOf(cells)],
     };
   },
 
@@ -204,10 +227,8 @@ const handlers: Handlers = {
   },
 
   setCell: (state, { cell: { key, config } }) => {
-    const existing = state.cells[key];
-    if (existing == null) return actions.NO_OP_RESULT;
-    const oldConfig = actions.snapshotDraft(existing);
-    state.cells[key] = config;
+    const oldConfig = setConfig(state, key, config);
+    if (oldConfig == null) return actions.NO_OP_RESULT;
     return {
       inverse: [setCell({ cell: { key, config: oldConfig } })],
       targets: [key],
@@ -220,7 +241,8 @@ const handlers: Handlers = {
     const rowPosOf = new Map<string, { row: number; col: number }>();
     for (let r = 0; r < state.rows.length; r++) {
       const cells = state.rows[r].cells;
-      for (let c = 0; c < cells.length; c++) rowPosOf.set(cells[c], { row: r, col: c });
+      for (let c = 0; c < cells.length; c++)
+        rowPosOf.set(cells[c].key, { row: r, col: c });
     }
     const rowTally = new Map<number, number>();
     const colTally = new Map<number, number>();
@@ -245,38 +267,22 @@ const handlers: Handlers = {
     // unshift the inverse so undo replays it in ascending order.
     for (let i = fullRowIdx.length - 1; i >= 0; i--) {
       const index = fullRowIdx[i];
-      const removed = actions.snapshotDraft(state.rows[index]);
-      const cells: Cell[] = [];
-      for (const key of removed.cells) {
-        const c = state.cells[key];
-        if (c != null) cells.push({ key, config: actions.snapshotDraft(c) });
-      }
+      const { key, size, cells } = actions.snapshotDraft(state.rows[index]);
       state.rows.splice(index, 1);
-      for (const k of removed.cells) delete state.cells[k];
-      inverse.unshift(addRow({ index, key: removed.key, size: removed.size, cells }));
-      targets.push(removed.key, ...removed.cells);
+      inverse.unshift(addRow({ index, key, size, cells }));
+      targets.push(key, ...keysOf(cells));
     }
     for (let i = fullColIdx.length - 1; i >= 0; i--) {
       const index = fullColIdx[i];
-      const { key, size: oldSize } = state.columns[index];
-      const removedCells: Cell[] = [];
+      const { key, size } = state.columns[index];
       state.columns.splice(index, 1);
-      for (let r = 0; r < state.rows.length; r++) {
-        if (index >= state.rows[r].cells.length) continue;
-        const k = state.rows[r].cells[index];
-        const c = state.cells[k];
-        if (c != null) removedCells.push({ key: k, config: actions.snapshotDraft(c) });
-        delete state.cells[k];
-        state.rows[r].cells.splice(index, 1);
-      }
-      inverse.unshift(addCol({ index, key, size: oldSize, cells: removedCells }));
-      targets.push(key, ...removedCells.map((c) => c.key));
+      const cells = removeColAt(state, index);
+      inverse.unshift(addCol({ index, key, size, cells }));
+      targets.push(key, ...keysOf(cells));
     }
     for (const key of selected) {
-      const existing = state.cells[key];
-      if (existing == null) continue;
-      const oldConfig = actions.snapshotDraft(existing);
-      state.cells[key] = payload.template;
+      const oldConfig = setConfig(state, key, structuredClone(payload.template));
+      if (oldConfig == null) continue;
       inverse.push(setCell({ cell: { key, config: oldConfig } }));
       targets.push(key);
     }
@@ -285,9 +291,16 @@ const handlers: Handlers = {
   ...actions.createPathHandlers(applyPath),
 };
 
-export const reduceAll = createReduceAll(handlers);
+const reduce = createReduceAll(handlers);
+
+// The handlers put the objects of an action into the state, where a later action in
+// the batch edits them in place. A copy keeps the caller's actions unchanged.
+export const reduceAll = (state: Table, actions: Action[]) =>
+  reduce(state, structuredClone(actions));
 
 export interface SetChangedArgs {
+  /** The key of the row that holds the cell. */
+  row: string;
   /** The key of the cell. */
   key: string;
   base: CellConfig;
@@ -299,8 +312,10 @@ export interface SetChangedArgs {
  * concurrent edit to another field of the cell survives.
  * @returns the actions to dispatch, with none when nothing differs.
  */
-export const setChanged = ({ key, base, next }: SetChangedArgs): Action[] =>
-  patch.diff(cellConfigZ, base, next).map((a) => patch.prefix(a, ["cells", key]));
+export const setChanged = ({ row, key, base, next }: SetChangedArgs): Action[] =>
+  patch
+    .diff(cellConfigZ, base, next)
+    .map((a) => patch.prefix(a, [ROWS_FIELD, row, CELLS_FIELD, key, CONFIG_FIELD]));
 
 /**
  * Converts a path action from the camelCase form of the cached table into the
@@ -326,8 +341,8 @@ export const createOf = (action: Action) =>
 const cellOf = (action: Action): string | undefined => {
   if (action.type === "set_cell") return action.setCell.cell.key;
   if (action.type !== "set" && action.type !== "remove") return undefined;
-  const [root, cell] = patch.pathOf(action);
-  return root === "cells" ? cell : undefined;
+  const [root, , , cell] = patch.pathOf(action);
+  return root === ROWS_FIELD ? cell : undefined;
 };
 
 // kindOf classifies an action batch for the undoable store's per-kind coalesce window.

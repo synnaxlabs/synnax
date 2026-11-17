@@ -9,9 +9,28 @@
 
 #pragma once
 
+#include <string>
+#include <utility>
+
 #include "x/cpp/errors/errors.h"
 
 namespace x::pb {
+
+/// @brief converts a protobuf integer to the narrower integer type T.
+/// @param v the value to convert.
+/// @returns the value as T, and a VALIDATION error when v does not fit in T.
+template<typename T, typename S>
+std::pair<T, x::errors::Error> narrow(const S v) {
+    if (!std::in_range<T>(v))
+        return {
+            T{},
+            x::errors::Error(
+                x::errors::VALIDATION,
+                std::to_string(v) + " is out of range"
+            )
+        };
+    return {static_cast<T>(v), x::errors::NIL};
+}
 
 /// @brief Converts a protobuf repeated field to a container of C++ objects.
 /// @tparam CppElem The C++ element type (must have static from_proto method).

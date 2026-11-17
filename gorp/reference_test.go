@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/types"
@@ -74,6 +75,24 @@ type refGroup struct {
 }
 
 func (g refGroup) GorpKey() string { return g.Key }
+
+type refSwatch struct {
+	Key   string
+	Group string
+	Value string
+}
+
+func (s refSwatch) GorpKey() string { return s.Key }
+
+// refFill holds a swatch by key, or a value once the swatch is gone.
+type refFill struct {
+	Key    string
+	Group  string
+	Swatch string
+	Value  string
+}
+
+func (f refFill) GorpKey() string { return f.Key }
 
 type refSchematic struct {
 	Key     string
@@ -170,6 +189,7 @@ var _ = Describe("Reference", func() {
 			db = DeferClose(
 				gorp.Wrap(memkv.New(), append(opts, gorp.WithCodec(msgpack.Codec))...),
 			)
+			StartRun(db.Run)
 			racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
 				DB:   db,
 				Name: "rack",
@@ -549,6 +569,49 @@ var _ = Describe("Reference", func() {
 					To(ConsistOf("a"))
 				return nil
 			})).To(Succeed())
+		})
+	})
+
+	Describe("Referenced", func() {
+		all := func(string) bool { return true }
+		BeforeEach(func(ctx SpecContext) {
+			open(ctx)
+			createRack(ctx, 1)
+			createRack(ctx, 2)
+			createRack(ctx, 3)
+			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "b", Rack: 2})).To(Succeed())
+		})
+
+		It("Should return the targets that an entry holds", func(ctx SpecContext) {
+			Expect(deviceRef.rack.Referenced(ctx, db, all, 1, 2, 3)).
+				To(Equal(set.New[uint32](1, 2)))
+		})
+
+		It("Should count only the entries that in accepts", func(ctx SpecContext) {
+			Expect(createDevice(ctx, refDevice{Key: "c", Rack: 2})).To(Succeed())
+			c := func(k string) bool { return k == "c" }
+			Expect(deviceRef.rack.Referenced(ctx, db, c, 1, 2, 3)).
+				To(Equal(set.New[uint32](2)))
+		})
+
+		It("Should see writes staged in the same transaction", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			Expect(devices.NewCreate().
+				Entry(&refDevice{Key: "a", Rack: 3}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(deviceRef.rack.Referenced(ctx, tx, all, 1, 2, 3)).
+				To(Equal(set.New[uint32](2, 3)))
+			Expect(deviceRef.rack.Referenced(ctx, db, all, 1, 2, 3)).
+				To(Equal(set.New[uint32](1, 2)))
+		})
+
+		It("Should drop a target once no entry holds it", func(ctx SpecContext) {
+			Expect(devices.NewDelete().
+				Where(gorp.MatchKeys[string, refDevice]("b")).
+				Exec(ctx, db)).To(Succeed())
+			Expect(deviceRef.rack.Referenced(ctx, db, all, 1, 2)).
+				To(Equal(set.New[uint32](1)))
 		})
 	})
 
@@ -957,6 +1020,7 @@ var _ = Describe("Reference", func() {
 					Entry(&refDevice{Key: "d1", Rack: 1}).
 					Exec(ctx, pre)).To(Succeed())
 				db = DeferClose(gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec)))
+				StartRun(db.Run)
 				racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
 					DB:   db,
 					Name: "rack",
@@ -977,6 +1041,7 @@ var _ = Describe("Reference", func() {
 			func(ctx SpecContext) {
 				kvs := &blockingDB{DB: memkv.New(), release: make(chan struct{})}
 				db = DeferClose(gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec)))
+				StartRun(db.Run)
 				racks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
 					DB:   db,
 					Name: "rack",
@@ -1011,6 +1076,7 @@ var _ = Describe("Reference", func() {
 					&failOnceDB{DB: kvs, err: errors.New("populate boom")},
 					gorp.WithCodec(msgpack.Codec),
 				)
+				StartRun(db.Run)
 				deviceRef = newDeviceRefs()
 				devices = MustOpen(
 					gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
@@ -1051,6 +1117,20 @@ var _ = Describe("Reference", func() {
 					Entries(&unlabeled).
 					Exec(ctx, db)).To(Succeed())
 				Expect(unlabeled).To(HaveLen(1))
+			})
+
+			It("Should scan the table in Referenced", func(ctx SpecContext) {
+				createRack(ctx, 2)
+				tx := DeferClose(db.OpenTx())
+				Expect(devices.NewCreate().
+					Entry(&refDevice{Key: "d2", Rack: 2}).
+					Exec(ctx, tx)).To(Succeed())
+				all := func(string) bool { return true }
+				Expect(deviceRef.rack.Referenced(ctx, tx, all, 1, 2)).
+					To(Equal(set.New[uint32](1, 2)))
+				d1 := func(k string) bool { return k == "d1" }
+				Expect(deviceRef.rack.Referenced(ctx, tx, d1, 1, 2)).
+					To(Equal(set.New[uint32](1)))
 			})
 
 			It("Should fail a filter on another entry type", func(ctx SpecContext) {
@@ -1148,7 +1228,7 @@ var _ = Describe("Reference", func() {
 				Table:   "label",
 				Kind:    gorp.Use,
 				Targets: func(*refProject) []string { return nil },
-			}, "project.references.1.on_delete: must be Restrict, Cascade, or Detach"),
+			}, "project.references.1.on_delete: must be Restrict, Cascade, Detach, or Inline"),
 			Entry("with no kind", gorp.KeyReferenceConfig[string, refProject, string]{
 				Name:     "label",
 				Table:    "label",
@@ -1165,6 +1245,17 @@ var _ = Describe("Reference", func() {
 					Targets:  func(*refProject) []string { return nil },
 				},
 				"project.references.1.detach: must be set when on_delete is Detach",
+			),
+			Entry(
+				"inlining with no Inline",
+				gorp.KeyReferenceConfig[string, refProject, string]{
+					Name:     "label",
+					Table:    "label",
+					OnDelete: gorp.Inline,
+					Kind:     gorp.Use,
+					Targets:  func(*refProject) []string { return nil },
+				},
+				"project.references.1.inline: must be set when on_delete is Inline",
 			),
 			Entry(
 				"acyclic across tables",
@@ -1196,6 +1287,7 @@ var _ = Describe("Reference closure", func() {
 		db = DeferClose(
 			gorp.Wrap(memkv.New(), append(opts, gorp.WithCodec(msgpack.Codec))...),
 		)
+		StartRun(db.Run)
 		projects = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refProject]{
 			DB:   db,
 			Name: "project",
@@ -1296,6 +1388,7 @@ var _ = Describe("Reference migrations", func() {
 	var db *gorp.DB
 	BeforeEach(func() {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
 	})
 
 	It(
@@ -1438,6 +1531,7 @@ var _ = Describe("DropDangling", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
 		racks := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refRack]{
 			DB:   db,
 			Name: "rack",
@@ -1562,5 +1656,183 @@ var _ = Describe("DropDangling", func() {
 				"[gorp] - dangling migration drop runs only in the config of its table",
 			)))
 		})
+	})
+})
+
+var _ = Describe("Inline reference", func() {
+	var (
+		db       *gorp.DB
+		groups   *gorp.Table[string, refGroup]
+		swatches *gorp.Table[string, refSwatch]
+		fills    *gorp.Table[string, refFill]
+		// inlineErr fails each Inline when it is not nil.
+		inlineErr error
+		// rewritten holds each fill that the detach hook gets.
+		rewritten []refFill
+	)
+	BeforeEach(func(ctx SpecContext) {
+		inlineErr, rewritten = nil, nil
+		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
+		groups = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refGroup]{
+			DB:   db,
+			Name: "group",
+		}))
+		swatches = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refSwatch]{
+			DB:   db,
+			Name: "swatch",
+			References: []gorp.Reference[string, refSwatch]{
+				gorp.NewKeyReference(gorp.KeyReferenceConfig[string, refSwatch, string]{
+					Name:     "group",
+					Table:    "group",
+					OnDelete: gorp.Cascade,
+					Kind:     gorp.Place,
+					Targets:  func(s *refSwatch) []string { return []string{s.Group} },
+				}),
+			},
+		}))
+		fills = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refFill]{
+			DB:   db,
+			Name: "fill",
+			References: []gorp.Reference[string, refFill]{
+				gorp.NewKeyReference(gorp.KeyReferenceConfig[string, refFill, string]{
+					Name:     "group",
+					Table:    "group",
+					OnDelete: gorp.Cascade,
+					Kind:     gorp.Place,
+					Targets: func(f *refFill) []string {
+						if f.Group == "" {
+							return nil
+						}
+						return []string{f.Group}
+					},
+				}),
+				gorp.NewKeyReference(gorp.KeyReferenceConfig[string, refFill, string]{
+					Name:     "swatch",
+					Table:    "swatch",
+					OnDelete: gorp.Inline,
+					Kind:     gorp.Use,
+					Targets: func(f *refFill) []string {
+						if f.Swatch == "" {
+							return nil
+						}
+						return []string{f.Swatch}
+					},
+					Inline: func(
+						ctx context.Context,
+						tx gorp.Tx,
+						f *refFill,
+						key string,
+					) error {
+						if inlineErr != nil {
+							return inlineErr
+						}
+						var s refSwatch
+						if err := gorp.NewRetrieve[string, refSwatch]().
+							Where(gorp.MatchKeys[string, refSwatch](key)).
+							Entry(&s).
+							Exec(ctx, tx); err != nil {
+							return err
+						}
+						f.Swatch, f.Value = "", s.Value
+						return nil
+					},
+				}),
+			},
+			OnDetach: func(_ context.Context, _ gorp.Tx, f refFill) error {
+				rewritten = append(rewritten, f)
+				return nil
+			},
+		}))
+		Expect(groups.NewCreate().Entry(&refGroup{Key: "g"}).Exec(ctx, db)).
+			To(Succeed())
+		Expect(swatches.NewCreate().
+			Entries(&[]refSwatch{
+				{Key: "red", Group: "g", Value: "#ff0000"},
+				{Key: "blue", Group: "g", Value: "#0000ff"},
+			}).
+			Exec(ctx, db)).To(Succeed())
+		Expect(fills.NewCreate().
+			Entries(&[]refFill{
+				{Key: "a", Swatch: "red"},
+				{Key: "b", Swatch: "red"},
+				{Key: "c", Swatch: "blue"},
+				{Key: "d", Group: "g", Swatch: "red"},
+			}).
+			Exec(ctx, db)).To(Succeed())
+	})
+	retrieveFills := func(ctx SpecContext) []refFill {
+		GinkgoHelper()
+		var out []refFill
+		Expect(fills.NewRetrieve().Entries(&out).Exec(ctx, db)).To(Succeed())
+		return out
+	}
+
+	It(
+		"Should replace a deleted target with the value read from it",
+		func(ctx SpecContext) {
+			Expect(swatches.NewDelete().
+				Where(gorp.MatchKeys[string, refSwatch]("red")).
+				Exec(ctx, db)).To(Succeed())
+			Expect(retrieveFills(ctx)).To(ConsistOf(
+				refFill{Key: "a", Value: "#ff0000"},
+				refFill{Key: "b", Value: "#ff0000"},
+				refFill{Key: "c", Swatch: "blue"},
+				refFill{Key: "d", Group: "g", Value: "#ff0000"},
+			))
+			Expect(rewritten).To(ConsistOf(
+				refFill{Key: "a", Value: "#ff0000"},
+				refFill{Key: "b", Value: "#ff0000"},
+				refFill{Key: "d", Group: "g", Value: "#ff0000"},
+			))
+			Expect(MustSucceed(swatches.NewRetrieve().
+				Where(gorp.MatchKeys[string, refSwatch]("red")).
+				Exists(ctx, db))).To(BeFalse())
+		},
+	)
+
+	It(
+		"Should inline the targets of a cascade in each holder the cascade keeps",
+		func(ctx SpecContext) {
+			Expect(groups.NewDelete().
+				Where(gorp.MatchKeys[string, refGroup]("g")).
+				Exec(ctx, db)).To(Succeed())
+			Expect(retrieveFills(ctx)).To(ConsistOf(
+				refFill{Key: "a", Value: "#ff0000"},
+				refFill{Key: "b", Value: "#ff0000"},
+				refFill{Key: "c", Value: "#0000ff"},
+			))
+			Expect(rewritten).To(HaveLen(3))
+			Expect(rewritten).ToNot(ContainElement(HaveField("Key", "d")))
+		},
+	)
+
+	It("Should fail the delete when an Inline fails", func(ctx SpecContext) {
+		inlineErr = errors.New("inline failed")
+		Expect(swatches.NewDelete().
+			Where(gorp.MatchKeys[string, refSwatch]("red")).
+			Exec(ctx, db)).To(MatchError(inlineErr))
+		Expect(retrieveFills(ctx)).To(ContainElement(refFill{Key: "a", Swatch: "red"}))
+		Expect(MustSucceed(swatches.NewRetrieve().
+			Where(gorp.MatchKeys[string, refSwatch]("red")).
+			Exists(ctx, db))).To(BeTrue())
+	})
+
+	It("Should refuse Inline on a target reference", func(ctx SpecContext) {
+		Expect(gorp.OpenTable(ctx, gorp.TableConfig[string, refStatus]{
+			DB:   db,
+			Name: "status",
+			References: []gorp.Reference[string, refStatus]{
+				gorp.NewTargetReference(gorp.TargetReferenceConfig[string, refStatus]{
+					Name:     "owner",
+					Tables:   []string{"swatch"},
+					OnDelete: gorp.Inline,
+					Kind:     gorp.Use,
+					Targets:  func(*refStatus) []gorp.Target { return nil },
+				}),
+			},
+		})).Error().To(MatchError(ContainSubstring(
+			"status.references.0.on_delete: cannot be Inline on a TargetReference",
+		)))
 	})
 })

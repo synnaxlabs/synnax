@@ -11,7 +11,6 @@ import { query, schematic } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { type RefObject } from "react";
 
-import { Group } from "@/schematic/group";
 import { useSingleDispatch } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
 import { Synnax } from "@/synnax";
@@ -37,30 +36,30 @@ export const useClipboard = ({
   const key = useKey();
   const dispatch = useSingleDispatch();
   const client = Synnax.use();
-  const adapter: Diagram.ClipboardAdapter<
-    schematic.Node,
-    schematic.Edge,
-    schematic.ElementConfig
-  > = {
+  // Nodes and edges carry their own configs, so the clipboard holds no others.
+  const adapter: Diagram.ClipboardAdapter<schematic.Node, schematic.Edge, never> = {
     mime: MIME,
     edgeKey: (edge) => edge.key,
     getSnapshot: () => {
       const cached = client?.schematics.watch(key).getCached();
       if (!query.isLive(cached)) return null;
-      const { nodes, edges, configs } = cached;
-      return { nodes, edges, configs };
+      const { nodes, edges } = cached;
+      return { nodes, edges, configs: {} };
     },
     apply: ({ nodes, edges, remap }) => {
       const actions: schematic.Action[] = [];
-      for (const { node, config } of nodes)
+      // A pasted node keeps its group only when the group was pasted with it.
+      for (const { node } of nodes) {
+        const { parent, ...rest } = node;
+        const pastedParent = parent == null ? undefined : remap[parent];
         actions.push(
-          schematic.setNode({ node, config: Group.remapMembers(config, remap) }),
+          schematic.setNode({
+            node: pastedParent == null ? rest : { ...rest, parent: pastedParent },
+          }),
         );
-      for (const { edge, config } of edges) {
-        const edgeKey = uuid.create();
-        actions.push(schematic.addEdge({ edge: { ...edge, key: edgeKey } }));
-        if (config != null) actions.push(schematic.setConfig({ key: edgeKey, config }));
       }
+      for (const { edge } of edges)
+        actions.push(schematic.addEdge({ edge: { ...edge, key: uuid.create() } }));
       dispatch(actions);
       if (actions.length > 0) onPaste?.(Object.values(remap));
     },

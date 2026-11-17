@@ -10,7 +10,6 @@
 package http
 
 import (
-	"context"
 	"strconv"
 	"strings"
 
@@ -34,7 +33,7 @@ func (t testError) Error() string {
 	return t.Message
 }
 
-func encodeTestError(_ context.Context, err error) (errors.Payload, bool) {
+func encodeTestError(_ *errors.Codec, err error) (errors.Payload, bool) {
 	var errTest testError
 	ok := errors.As(err, &errTest)
 	if !ok {
@@ -46,7 +45,7 @@ func encodeTestError(_ context.Context, err error) (errors.Payload, bool) {
 	}, true
 }
 
-func decodeTestError(_ context.Context, pld errors.Payload) (error, bool) {
+func decodeTestError(_ *errors.Codec, pld errors.Payload) (error, bool) {
 	if pld.Type != "integration.error" {
 		return nil, false
 	}
@@ -64,6 +63,6 @@ func decodeTestError(_ context.Context, pld errors.Payload) (error, bool) {
 	}, true
 }
 
-func init() {
-	errors.Register(encodeTestError, decodeTestError)
+func errorProvider() errors.Provider {
+	return errors.Provider{Encode: encodeTestError, Decode: decodeTestError}
 }

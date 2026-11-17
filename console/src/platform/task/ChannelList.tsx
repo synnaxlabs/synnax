@@ -24,16 +24,17 @@ import { BindChannels, type BindChannelsProps } from "@/platform/task/BindChanne
 import { type Channel } from "@/platform/task/types";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 
-export interface ContextMenuItemProps<C extends Channel> {
-  keys: string[];
+export interface ContextMenuItemProps<C extends Channel> extends Pick<
+  Menu.ContextMenuMenuProps,
+  "keys" | "target"
+> {
   channels: C[];
 }
 
-interface ContextMenuProps<C extends Channel> extends Pick<
-  Form.UseFieldListReturn<C>,
-  "data" | "remove"
-> {
-  keys: string[];
+interface ContextMenuProps<C extends Channel>
+  extends
+    Pick<Form.UseFieldListReturn<C>, "data" | "remove">,
+    Pick<Menu.ContextMenuMenuProps, "keys" | "target"> {
   allowTare?: (keys: string[], channels: C[]) => boolean;
   onDuplicate?: (channels: C[], keys: string[]) => void;
   onSelect: (keys: string[]) => void;
@@ -45,6 +46,7 @@ interface ContextMenuProps<C extends Channel> extends Pick<
 const ContextMenu = <C extends Channel>({
   allowTare,
   keys,
+  target,
   onDuplicate,
   onSelect,
   onTare,
@@ -82,7 +84,7 @@ const ContextMenu = <C extends Channel>({
             </Menu.Item>
           )}
           <Menu.Divider />
-          {contextMenuItems?.({ channels, keys }) ?? null}
+          {contextMenuItems?.({ channels, keys, target }) ?? null}
           {canEnable && (
             <Menu.Item itemKey="enable" onClick={handleEnable}>
               <Icon.Enable />
@@ -119,7 +121,7 @@ export interface ChannelListItemProps extends List.ItemProps<string> {}
 
 export interface ChannelListProps<C extends Channel>
   extends
-    Omit<ContextMenuProps<C>, "keys">,
+    Omit<ContextMenuProps<C>, "keys" | "target">,
     Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow" | "style"> {
   /**
    * Null for a list whose entries an outer BindChannels binds, or whose channels no
@@ -167,6 +169,7 @@ export const ChannelList = <C extends Channel>({
 }: ChannelListProps<C>) => {
   const { onSelect, path, data } = rest;
   const { status } = Form.useFieldState(path);
+  Form.useStatusDisplay(path);
   const handleChange = (keys: string[]) => onSelect(keys);
   const menuProps = Menu.useContextMenu();
   const headingsRef = useRef<HTMLDivElement>(null);

@@ -1,0 +1,223 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Send data to Sift"
+description: "Upload stored data and stream live data from Synnax to Sift."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax sends channel data to [Sift](https://www.siftstack.com) in two ways:
+
+- **Upload** -> sends the stored data of a [range](/reference/ranges) or of a time span
+  once, for example after a test.
+- **Stream** -> a stream task sends live data while it runs. After a stop, it sends the
+  data that Synnax stored while the task was stopped.
+
+The Synnax Core sends the data, so the computer that runs the Core needs network access
+to the Sift gRPC API. Synnax keeps the data. Sift gets a copy on the Sift asset that you
+choose for each upload or task.
+
+<Divider.Divider x />
+
+## Connect Sift
+
+Before you start, get the address of your Sift gRPC API, such as
+`grpc-api.siftstack.com:443`, and a Sift API key. Synnax keeps the API key as a secret,
+never in plain text.
+
+<Client.Tabs exclude={["typescript"]}>
+  <Fragment slot="console">
+
+1. Run the "Connect Sift" command from the
+   [command palette](/reference/get-started/ui-overview#search-and-command-palette).
+2. Enter a **Name** and the **URI** of the Sift gRPC API.
+3. Under **API key**, select the secret that holds the key. To add one, select **New
+   secret** and paste the key.
+4. Leave **Connect from** set to the Core.
+5. Click **Connect**. The Console tests the connection before it saves it.
+
+  </Fragment>
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+api_key = client.secrets.set(name="Sift API key", value="<your-sift-api-key>")
+rack = client.racks.retrieve(embedded=True, integrations=sy.sift.INTEGRATION)[0]
+sift = client.devices.create(
+    sy.sift.Device(
+        uri="grpc-api.siftstack.com:443",
+        api_key=api_key.key,
+        rack=rack.key,
+        name="Sift",
+    )
+)
+```
+
+  </Fragment>
+</Client.Tabs>
+
+A URI on `localhost` or a loopback address, such as `127.0.0.1`, connects without TLS.
+Every other URI uses TLS.
+
+<Divider.Divider x />
+
+## Upload data
+
+<Client.Tabs exclude={["typescript"]}>
+  <Fragment slot="console">
+
+Open the upload dialog from one of these places:
+
+- **A range** -> right-click the range in the ranges toolbar or in a range list, and
+  select <Icon.Logo.Sift /> **Upload to Sift**.
+- **The range overview** -> click <Icon.Add /> in the **Sift uploads** section.
+- **A line plot selection** ->
+  [select a region](/reference/visualize/line-plots#select-a-region), right-click it,
+  and select **Upload region to Sift**.
+- **A range annotation** -> right-click the annotation on a line plot and select
+  **Upload to Sift**.
+
+Then:
+
+1. Select the **Sift connection**.
+2. Select the **Asset**. The list holds the assets that Sift has, and starts at the
+   asset of the last upload through the connection. To make an asset, click **New
+   asset** and enter its name.
+3. Select the **Channels** to upload.
+4. Click **Upload**.
+
+  </Fragment>
+  <Fragment slot="python">
+
+```python
+rng = client.ranges.retrieve(name="Hotfire 12")
+pressure = client.channels.retrieve("pressure")
+
+upload = sy.sift.upload(
+    client.tasks,
+    sift,
+    asset="Test stand 1",
+    channels=[pressure.key],
+    range_key=rng.key,
+)
+print(client.statuses.retrieve(key=upload).message)
+```
+
+`upload` returns the key of the status of the upload. To upload a time span with no
+range, pass `time_range=sy.TimeRange(start, end)` in place of `range_key`.
+
+  </Fragment>
+</Client.Tabs>
+
+The Core queues the upload and sends it in the background:
+
+- **Progress** -> the **Sift uploads** section of the range overview shows each upload
+  of the range, its progress, and its result or error. An upload of a time span shows
+  only in the [status](/reference/alarms/statuses) list.
+- **Runs** -> an upload of a range makes a Sift run with the name and span of the range.
+  The labels of the range become the tags of the run. When you upload the range again to
+  the same asset, the same run gets the new name, span, and tags. An upload of a time
+  span makes no run.
+- **Failures** -> when Sift is not available, the upload shows **Retrying upload to
+  Sift** and tries again. It continues from the data that Sift confirmed. After a
+  restart of the Core, the upload continues in the same way.
+- **Cancel** -> click <Icon.Close /> on the upload. Sift keeps the data that the upload
+  sent before you cancel it. The same button removes a finished upload from the list.
+
+An upload of a range that has not ended sends the data up to the current time.
+
+<Divider.Divider x />
+
+## Stream live data
+
+<Client.Tabs exclude={["typescript"]}>
+  <Fragment slot="console">
+
+1. Run the "Create Sift stream task" command from the command palette, or right-click
+   the Sift connection in the devices toolbar and select **Create stream task**.
+2. Select the **Sift connection** and the **Asset**.
+3. Under **Data**, select the **Channels** to send.
+4. Optional: under **Runs**, select **Labels**. A range with one of these labels becomes
+   a Sift run.
+5. Click <Icon.Play /> (**Start**).
+
+  </Fragment>
+  <Fragment slot="python">
+
+```python
+hotfire = client.labels.retrieve(name="Hotfire")
+
+stream = sy.sift.StreamTask(
+    device=sift.key,
+    name="Test stand 1 to Sift",
+    asset="Test stand 1",
+    channels=[pressure.key],
+    labels=[hotfire.key],
+    auto_start=True,
+)
+client.tasks.configure(stream)
+```
+
+  </Fragment>
+</Client.Tabs>
+
+How the stream task sends data:
+
+- **First start** -> the task sends the data from the time that it starts. It does not
+  send older data. Upload older data instead.
+- **Restarts** -> the task saves how far Sift has confirmed the data every 10 seconds.
+  After a stop, a restart of the Core, or a lost connection, it sends the data from that
+  point. Sift can get a short span of data a second time. The task starts again with the
+  Core only when **Auto start** is on.
+- **Runs** -> when a range with one of the task labels ends and Sift has its data, the
+  task makes a Sift run for it. A change to the name, span, or labels of the range
+  updates the run. When a range loses its last task label while the task is stopped, the
+  task no longer sees the range, so the run keeps its old tags. Upload the range again
+  to the same asset to update them.
+- **Errors** -> when Sift rejects the API key, the task stops with an error. When Sift
+  rejects the run of one range, the task shows a warning and keeps sending data. Change
+  the range to make the run again.
+
+The task follows the standard
+[task lifecycle](/reference/hardware/tasks#task-lifecycle). It saves its progress in a
+[status](/reference/alarms/statuses) with the name of the task, and the task form shows
+it under **Progress**. To start again from the current time, stop the task and delete
+that status.
+
+<Divider.Divider x />
+
+## Channels
+
+Sift stores the data of each channel with the timestamps of its index channel. Synnax
+sends the index channel of each channel that you select, so you do not select index
+channels.
+
+- **Virtual and calculated channels** -> cannot be sent, because Synnax does not store
+  their data.
+- **Data types** -> Sift stores floats, integers, booleans, strings, and bytes. Synnax
+  sends `timestamp` values as `int64`, and `json` and `uuid` values as `string`.
+- **Channels written later than their index** -> when a channel is written alone, at
+  timestamps that its index channel already has, the stream task sends the values that
+  are later than the last value of the channel that Sift has. It does not send earlier
+  values, or values written this way while the task is stopped or the Core is off.
+  Upload the range again to send them.
+
+<Divider.Divider x />
+
+## Stream task options
+
+| Console label   | Python field | Default | Notes                                                    |
+| --------------- | ------------ | ------- | -------------------------------------------------------- |
+| Sift connection | `device`     | -       | The Sift device to send to.                              |
+| Asset           | `asset`      | -       | The Sift asset that gets the data.                       |
+| Channels        | `channels`   | -       | At least one channel.                                    |
+| Labels          | `labels`     | Empty   | Labels that make a range a Sift run. Empty makes no run. |
+| Auto start      | `auto_start` | Off     | Starts the task when you configure it.                   |

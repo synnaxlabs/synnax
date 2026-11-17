@@ -24,14 +24,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -60,7 +60,6 @@ var _ = Describe("Change channels", func() {
 		GinkgoHelper()
 		return createUserGranted(
 			ctx,
-			access.ActionRetrieve,
 			append(svcframer.ResourceIDs(channel.Keys{ch.Key()}), granted...)...,
 		)
 	}
@@ -113,6 +112,19 @@ var _ = Describe("Change channels", func() {
 	newLabel := func() label.Label {
 		return label.Label{Key: uuid.New(), Name: "change-channel"}
 	}
+	createColors := func(ctx SpecContext, named ...color.Named) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Color.NewWriter(tx).CreateMany(ctx, named)
+		})).To(Succeed())
+	}
+	newColor := func() color.Named {
+		return color.Named{
+			Key:   uuid.New(),
+			Name:  "change-channel",
+			Light: MustSucceed(xcolor.Parse("#ff0000")),
+		}
+	}
 	newRange := func(ctx SpecContext) ranger.Range {
 		GinkgoHelper()
 		r := ranger.Range{
@@ -127,31 +139,6 @@ var _ = Describe("Change channels", func() {
 			return svc.Ranger.NewWriter(tx).Create(ctx, &r)
 		})).To(Succeed())
 		return r
-	}
-	newChannel := func(ctx SpecContext) channel.Channel {
-		GinkgoHelper()
-		c := channel.Channel{
-			Name:     UniqueChannelName(),
-			DataType: telem.Float32T,
-			Virtual:  true,
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Channel.NewWriter(tx).Create(ctx, &c)
-		})).To(Succeed())
-		return c
-	}
-	// setAliases aliases c on each range in one commit.
-	setAliases := func(ctx SpecContext, c channel.Channel, ranges ...ranger.Range) {
-		GinkgoHelper()
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			w := svc.Alias.NewWriter(tx)
-			for _, r := range ranges {
-				if err := w.Set(ctx, r.Key, c.Key(), "change-channel"); err != nil {
-					return err
-				}
-			}
-			return nil
-		})).To(Succeed())
 	}
 	pairs := func(ranges ...ranger.Range) []kv.Pair {
 		out := make([]kv.Pair, len(ranges))
@@ -217,6 +204,49 @@ var _ = Describe("Change channels", func() {
 			},
 		),
 		Entry(
+			"a named color set",
+			"sy_color_set",
+			func(SpecContext) (resource.ID, change) {
+				GinkgoHelper()
+				readable, denied := newColor(), newColor()
+				return color.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
+					createColors(ctx, readable, denied)
+				}
+			},
+		),
+		Entry(
+			"a named color action",
+			"sy_color_action_set",
+			func(SpecContext) (resource.ID, change) {
+				GinkgoHelper()
+				readable, denied := newColor(), newColor()
+				return color.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
+					createColors(ctx, readable, denied)
+				}
+			},
+		),
+		Entry(
+			"a named color delete",
+			"sy_color_delete",
+			func(ctx SpecContext) (resource.ID, change) {
+				GinkgoHelper()
+				readable, denied := newColor(), newColor()
+				createColors(ctx, readable, denied)
+				return color.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.Color.NewWriter(tx).Delete(
+							ctx,
+							readable.Key,
+							denied.Key,
+						)
+					})).To(Succeed())
+				}
+			},
+		),
+		Entry(
 			"a range KV set",
 			"sy_range_kv_set",
 			func(ctx SpecContext) (resource.ID, change) {
@@ -251,39 +281,6 @@ var _ = Describe("Change channels", func() {
 						w := svc.KV.NewWriter(tx)
 						for _, p := range pairs(readable, denied) {
 							if err := w.Delete(ctx, p.Range, p.Key); err != nil {
-								return err
-							}
-						}
-						return nil
-					})).To(Succeed())
-				}
-			},
-		),
-		Entry(
-			"a range alias set",
-			"sy_range_alias_set",
-			func(ctx SpecContext) (resource.ID, change) {
-				GinkgoHelper()
-				readable, denied, c := newRange(ctx), newRange(ctx), newChannel(ctx)
-				return alias.ResourceID(readable.Key, c.Key()), func(ctx SpecContext) {
-					GinkgoHelper()
-					setAliases(ctx, c, readable, denied)
-				}
-			},
-		),
-		Entry(
-			"a range alias delete",
-			"sy_range_alias_delete",
-			func(ctx SpecContext) (resource.ID, change) {
-				GinkgoHelper()
-				readable, denied, c := newRange(ctx), newRange(ctx), newChannel(ctx)
-				setAliases(ctx, c, readable, denied)
-				return alias.ResourceID(readable.Key, c.Key()), func(ctx SpecContext) {
-					GinkgoHelper()
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						w := svc.Alias.NewWriter(tx)
-						for _, r := range []ranger.Range{readable, denied} {
-							if err := w.Delete(ctx, r.Key, c.Key()); err != nil {
 								return err
 							}
 						}

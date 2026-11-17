@@ -10,11 +10,17 @@
 package start_test
 
 import (
+	"io"
+	"net"
 	"os"
+	"os/exec"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
+	"github.com/onsi/gomega/gexec"
 	"github.com/synnaxlabs/synnax/cmd"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -33,6 +39,37 @@ func TestMain(m *testing.M) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+// launchCore launches a Core with in-memory storage and the given extra flags. It
+// returns the Core's session, the writing end of its stdin, and its address.
+func launchCore(flags ...string) (*gexec.Session, io.WriteCloser, string) {
+	GinkgoHelper()
+	l := MustSucceed(net.Listen("tcp", "127.0.0.1:0"))
+	addr := l.Addr().String()
+	Expect(l.Close()).To(Succeed())
+	dir := GinkgoT().TempDir()
+	cmd := exec.Command(
+		MustSucceed(os.Executable()),
+		append([]string{
+			"start", "--mem", "--insecure", "--no-driver",
+			"--listen", addr, "--data", dir,
+		}, flags...)...,
+	)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), coreEnv+"=1")
+	stdin := MustSucceed(cmd.StdinPipe())
+	session := MustSucceed(gexec.Start(cmd, GinkgoWriter, GinkgoWriter))
+	DeferCleanup(func() { session.Kill().Wait() })
+	return session, stdin, addr
+}
+
+// startCore launches a Core as launchCore does and returns once the Core is running.
+func startCore(flags ...string) (*gexec.Session, io.WriteCloser, string) {
+	GinkgoHelper()
+	session, stdin, addr := launchCore(flags...)
+	Eventually(session.Out, 30*time.Second).Should(gbytes.Say("Synnax is running"))
+	return session, stdin, addr
+}
 
 func TestStart(t *testing.T) {
 	RegisterFailHandler(Fail)

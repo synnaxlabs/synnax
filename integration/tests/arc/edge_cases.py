@@ -337,15 +337,6 @@ func get_now() i64 ns {
 start_edge_case_cmd -> get_now()
 """
 
-# Module imported but never referenced.
-ARC_IMPORT_UNUSED = """
-import time
-func passthrough() {
-    ch1 = ch1 + 1.0
-}
-start_edge_case_cmd -> passthrough()
-"""
-
 # Import names a module the resolver does not expose.
 ARC_IMPORT_UNKNOWN = """
 import banana
@@ -370,11 +361,6 @@ IMPORT_CASES = [
         "Missing",
         ARC_IMPORT_MISSING,
         'module "time" is not imported',
-    ),
-    Case(
-        "Unused",
-        ARC_IMPORT_UNUSED,
-        'imported module "time" is unused',
     ),
     Case(
         "UnknownModule",
@@ -500,6 +486,72 @@ ROUTING_TABLE_CASES = [
         "TransitionIntoSelect",
         ARC_TRANSITION_INTO_SELECT,
         "cannot feed select",
+    ),
+]
+
+# ── Name reuse across scopes (invalid, caught at configure time) ──
+
+ARC_TOP_LEVEL_AFTER_SEQUENCE = """
+sequence main {
+    limit := 1.0
+}
+limit := 5.0
+"""
+
+ARC_SEQUENCE_AFTER_STAGE = """
+sequence main {
+    stage hold {
+        limit := 1.0
+    }
+    limit := 5.0
+}
+"""
+
+ARC_STAGE_AFTER_NESTED_SEQUENCE = """
+sequence main {
+    stage hold {
+        sequence inner {
+            limit := 1.0
+        }
+        limit := 5.0
+    }
+}
+"""
+
+ARC_TOP_LEVEL_AFTER_FUNCTION_VARIABLE = """
+func scale(v f64) f64 {
+    limit := 1.0
+    return v * limit
+}
+limit := 5.0
+"""
+
+ARC_TOP_LEVEL_AFTER_FUNCTION_PARAMETER = """
+func scale(limit f64) f64 {
+    return limit * 2.0
+}
+limit := 5.0
+"""
+
+VARIABLE_CONFLICT = "name limit conflicts with existing variable"
+
+NAME_CONFLICT_CASES = [
+    Case("TopLevelAfterSequence", ARC_TOP_LEVEL_AFTER_SEQUENCE, VARIABLE_CONFLICT),
+    Case("SequenceAfterStage", ARC_SEQUENCE_AFTER_STAGE, VARIABLE_CONFLICT),
+    Case(
+        "StageAfterNestedSequence",
+        ARC_STAGE_AFTER_NESTED_SEQUENCE,
+        VARIABLE_CONFLICT,
+    ),
+    Case(
+        "TopLevelAfterFunctionVariable",
+        ARC_TOP_LEVEL_AFTER_FUNCTION_VARIABLE,
+        VARIABLE_CONFLICT,
+    ),
+    Case(
+        "TopLevelAfterFunctionParameter",
+        ARC_TOP_LEVEL_AFTER_FUNCTION_PARAMETER,
+        VARIABLE_CONFLICT,
     ),
 ]
 
@@ -794,6 +846,16 @@ class EdgeCases(ArcCase):
                 substr=case.wait_substr,
             )
 
+    def _verify_name_conflict_cases(self) -> None:
+        self.log("=== Name reuse detection ===")
+        for case in NAME_CONFLICT_CASES:
+            self.log(f"[{case.label}] Testing name reuse")
+            self._assert_configure_error(
+                case.source,
+                name_prefix=f"NameConflict{case.label}",
+                substr=case.wait_substr,
+            )
+
     def _verify_read_only_monitor(self) -> None:
         self.log("=== Read-only monitor (no write channels) ===")
         name = self.load_arc(
@@ -822,5 +884,6 @@ class EdgeCases(ArcCase):
         self._verify_time_format_invalid()
         self._verify_type_mismatch_cases()
         self._verify_routing_table_cases()
+        self._verify_name_conflict_cases()
         self._verify_import_cases()
         self._verify_read_only_monitor()

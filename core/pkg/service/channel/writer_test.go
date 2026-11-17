@@ -266,7 +266,7 @@ var _ = Describe("Writer", func() {
 				})).
 					To(MatchError(ContainSubstring(msg)))
 			},
-			Entry("empty name", "", "name cannot be empty"),
+			Entry("empty name", "", "name: required"),
 			Entry("name starting with a digit", "1sensor", "cannot start with a digit"),
 			Entry("name with spaces", "my channel", "contains invalid characters"),
 			Entry(
@@ -1231,6 +1231,20 @@ var _ = Describe("Writer", func() {
 				})).
 					To(MatchError(ContainSubstring("name: required")))
 			})
+			It("Should reject renaming to an empty name", func(ctx SpecContext) {
+				ch := channel.Channel{
+					Name:        "named",
+					DataType:    telem.Float64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Rename(ctx, ch.Key(), "", false)
+				})).To(MatchError(ContainSubstring("name: required")))
+			})
 			It(
 				"Should allow renaming to a name with special characters",
 				func(ctx SpecContext) {
@@ -1353,8 +1367,9 @@ var _ = Describe("Writer", func() {
 					tsDB := DeferClose(
 						MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fsys))),
 					)
+					StartRun(tsDB.Run)
 					slow := testutil.NewNode(ctx, distribution.LayerConfig{
-						Storage: &storage.Layer{KV: base.KV, TS: tsDB},
+						Storage: &storage.Layer{KV: base.KV, TS: tsDB, Gorp: base.Gorp},
 					})
 					slowSvc := openService(ctx, slow)
 					ch := channel.Channel{
@@ -1380,6 +1395,8 @@ var _ = Describe("Writer", func() {
 						})
 					}()
 					Eventually(removing).Should(BeClosed())
+					// The removal can start before the delete commits.
+					Eventually(deleted).Should(Receive(BeNil()))
 					read := make(chan bool, 1)
 					go func() {
 						defer GinkgoRecover()
@@ -1388,7 +1405,6 @@ var _ = Describe("Writer", func() {
 							Exists(ctx, slow.DB))
 					}()
 					Eventually(read).Should(Receive(BeFalse()))
-					Eventually(deleted).Should(Receive(BeNil()))
 				},
 			)
 		})
@@ -1662,6 +1678,13 @@ var _ = Describe("Writer", func() {
 					})).To(MatchError(ContainSubstring("contains invalid characters")))
 				})
 			})
+			Context("new name is empty", func() {
+				It("Should return the same error as create", func(ctx SpecContext) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Rename(ctx, ch.Key(), "", false)
+					})).To(MatchError(ContainSubstring("name: required")))
+				})
+			})
 			Context("new name is a duplicate", func() {
 				It("Should return an error", func(ctx SpecContext) {
 					secondCh := channel.Channel{
@@ -1843,7 +1866,7 @@ var _ = Describe("Writer", func() {
 			"Should allow creating channels after deleting some to stay under the limit",
 			func(ctx SpecContext) {
 				// Create channels up to the limit
-				channels := make([]channel.Channel, int(limit))
+				channels := make([]channel.Channel, limit)
 				for i := range limit {
 					ch := channel.Channel{
 						IsIndex:     true,
@@ -1901,7 +1924,7 @@ var _ = Describe("Writer", func() {
 
 		It("Should allow retrieving channels even at the limit", func(ctx SpecContext) {
 			// Create channels up to the limit
-			createdChannels := make([]channel.Channel, int(limit))
+			createdChannels := make([]channel.Channel, limit)
 			for i := range limit {
 				ch := channel.Channel{
 					IsIndex:     true,
@@ -1949,7 +1972,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should not allocate keys or storage for a create rejected by the limit",
 			func(ctx SpecContext) {
-				channels := make([]channel.Channel, int(limit))
+				channels := make([]channel.Channel, limit)
 				for i := range limit {
 					ch := channel.Channel{
 						IsIndex:     true,
@@ -1999,7 +2022,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should not edit the channel limit if a deletion fails in TS",
 			func(ctx SpecContext) {
-				createdChannels := make([]channel.Channel, int(limit))
+				createdChannels := make([]channel.Channel, limit)
 				for i := range limit {
 					ch := channel.Channel{
 						IsIndex:     true,

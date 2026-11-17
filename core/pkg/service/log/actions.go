@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/patch"
 )
 
@@ -203,9 +204,7 @@ func channelEntryIndex(entries []ChannelEntry, key channel.Key) int {
 }
 
 // defaultChannelEntry builds a channel entry with the schema's default display
-// configuration. A zero color renders in the text color of the log.
+// configuration. It has no color, so it renders in the text color of the log.
 func defaultChannelEntry(key channel.Key) ChannelEntry {
-	e := ChannelEntry{Channel: key}
-	e.ApplyDefaults()
-	return e
+	return defaults.Fill(ChannelEntry{Channel: key})
 }

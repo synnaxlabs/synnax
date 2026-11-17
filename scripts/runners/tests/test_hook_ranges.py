@@ -7,17 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, cast
-
 import pytest
 from botocore.exceptions import ClientError
-from mypy_boto3_ec2.client import EC2Client
+from mypy_boto3_ec2.type_defs import IpPermissionOutputTypeDef, IpPermissionTypeDef
 
 import hook_ranges
 from controller import WEBHOOK_PORT
 
 
-def rule(port: int, *cidrs: str) -> dict:
+def rule(port: int, *cidrs: str) -> IpPermissionOutputTypeDef:
     return {
         "IpProtocol": "tcp",
         "FromPort": port,
@@ -31,7 +29,7 @@ class Group:
     """Stands in for EC2 with one security group, applying the ingress rules it is
     told to add and revoke. Fails every call while failing is set."""
 
-    def __init__(self, *rules: dict) -> None:
+    def __init__(self, *rules: IpPermissionOutputTypeDef) -> None:
         self.rules = list(rules)
         self.calls: list[str] = []
         self.failing = False
@@ -41,20 +39,29 @@ class Group:
             raise ClientError({"Error": {"Code": "UnauthorizedOperation"}}, name)
         self.calls.append(name)
 
-    def describe_security_groups(self, GroupIds: list[str]) -> dict:
+    def describe_security_groups(self, *, GroupIds: list[str]) -> hook_ranges.Groups:
         self._call("describe")
         assert GroupIds == [hook_ranges.GROUP]
         return {"SecurityGroups": [{"IpPermissions": self.rules}]}
 
     def authorize_security_group_ingress(
-        self, GroupId: str, IpPermissions: list[dict]
+        self, *, GroupId: str, IpPermissions: list[IpPermissionTypeDef]
     ) -> None:
         self._call("authorize")
         assert GroupId == hook_ranges.GROUP
-        self.rules.extend(IpPermissions)
+        self.rules.extend(
+            {
+                "IpProtocol": p["IpProtocol"],
+                "FromPort": p["FromPort"],
+                "ToPort": p["ToPort"],
+                "IpRanges": list(p["IpRanges"]),
+                "Ipv6Ranges": list(p["Ipv6Ranges"]),
+            }
+            for p in IpPermissions
+        )
 
     def revoke_security_group_ingress(
-        self, GroupId: str, IpPermissions: list[dict]
+        self, *, GroupId: str, IpPermissions: list[IpPermissionTypeDef]
     ) -> None:
         self._call("revoke")
         assert GroupId == hook_ranges.GROUP
@@ -81,7 +88,7 @@ class Group:
 
 
 def sync(group: Group, *cidrs: str) -> list[str]:
-    return hook_ranges.run(ec2=cast(EC2Client, group), fetch=lambda: list(cidrs))
+    return hook_ranges.run(ec2=group, fetch=lambda: list(cidrs))
 
 
 class TestRun:
@@ -98,7 +105,7 @@ class TestRun:
     def test_should_describe_added_ranges(self) -> None:
         group = Group()
         sync(group, "9.234.106.48/28", "2a0a:a440::/29")
-        added: dict[str, Any] = group.rules[0]
+        added = group.rules[0]
         assert added["IpRanges"][0]["Description"] == hook_ranges.DESCRIPTION
         assert added["Ipv6Ranges"][0]["Description"] == hook_ranges.DESCRIPTION
 

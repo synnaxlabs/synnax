@@ -20,9 +20,15 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
-import { deep, strings, TimeSpan } from "@synnaxlabs/x";
+import { deep, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
+import { clashMessage, findClash } from "@/feature/ethercat/device/identifier";
+import {
+  formatLocation,
+  slotZ,
+  suggestIdentifiers,
+} from "@/feature/ethercat/device/location";
 import { SetupNote } from "@/feature/ethercat/device/SetupNote";
 import { SlaveSettings } from "@/feature/ethercat/device/SlaveSettings";
 import { StartupParameters } from "@/feature/ethercat/device/StartupParameters";
@@ -260,16 +266,29 @@ const useForm = PDevice.createForm(SLAVE_SCHEMAS, INITIAL_VALUES);
 
 // A check reports issues without making the form invalid, so its errors stop the save.
 const beforeSave = async ({
+  client,
   getStatuses,
   set,
+  setStatus,
+  value,
 }: Flux.FormBeforeSaveParams<
   PDevice.RetrieveQuery,
   PDevice.FormSchema<typeof SLAVE_SCHEMAS>
 >): Promise<boolean> => {
   if (getStatuses().some(({ variant }) => variant === "error")) return false;
+  const other = findClash(value(), await client.devices.retrieve({}));
+  if (other != null) {
+    setStatus(path.properties.identifier, {
+      variant: "error",
+      message: clashMessage(other),
+    });
+    return false;
+  }
   set(path.configured, true);
   return true;
 };
+
+const SLOT_FORMAT: PDevice.LocationFormat = { shape: "slot" };
 
 const NAME_INPUT_PROPS = {
   level: "h2",
@@ -279,8 +298,12 @@ const NAME_INPUT_PROPS = {
 } as const;
 
 const General = (): ReactElement => {
-  const name = Form.useFieldValue(path.name);
+  const networkName =
+    Form.useFieldValue(path.properties.networkName, { optional: true }) ?? undefined;
+  const position = Form.useFieldValue(path.properties.position);
   const { set } = Form.useContext();
+  const slot = { networkName, position };
+  const ideas = suggestIdentifiers(slot);
   return (
     <Form.Section title="General">
       <Form.TextField
@@ -293,19 +316,30 @@ const General = (): ReactElement => {
         <Text.Text level="small" color={9}>
           A short prefix for every channel on this device.
         </Text.Text>
-        <Flex.Box x align="center" wrap>
-          <Icon.Bolt />
-          {strings.createShortIdentifiers(name ?? "").map((id) => (
-            <Button.Button
-              key={id}
-              onClick={() => set(path.properties.identifier, id)}
-              size="small"
-              variant="text"
+        {ideas.length > 0 && (
+          // The ideas wrap apart from the icon, so the icon never sits alone on a line.
+          <Flex.Box x align="start" gap="small">
+            <Flex.Box
+              x
+              align="center"
+              className={CSS.BE("ethercat-configure", "ideas-icon")}
             >
-              {id}
-            </Button.Button>
-          ))}
-        </Flex.Box>
+              <Icon.Bolt />
+            </Flex.Box>
+            <Flex.Box x align="center" wrap>
+              {ideas.map((id) => (
+                <Button.Button
+                  key={id}
+                  onClick={() => set(path.properties.identifier, id)}
+                  size="small"
+                  variant="text"
+                >
+                  {id}
+                </Button.Button>
+              ))}
+            </Flex.Box>
+          </Flex.Box>
+        )}
       </Flex.Box>
     </Form.Section>
   );
@@ -328,6 +362,7 @@ export const Configure = ({
   });
   // Save sets configured, so the dialog keeps the slave as it was at open.
   const [opened] = useState(form.value);
+  const openedSlot = slotZ.parse(opened.properties);
   const checked = useRef(false);
   // The checks show the platform's messages in place of the stored schema's.
   useEffect(() => form.addCheck(path.name, Device.nameZ), [form]);
@@ -428,8 +463,17 @@ export const Configure = ({
         !shared && CSS.M("wide"),
       )}
     >
-      <Modal.Header icon={<Icon.Logo.EtherCAT />}>
-        {[opened.name, "Configure"]}
+      <Modal.Header
+        icon={<Icon.Logo.EtherCAT />}
+        badge={
+          <Device.LocationBadge
+            value={formatLocation(opened.location, openedSlot)}
+            // An older Driver names no network, so show only the slot of its location.
+            format={openedSlot.networkName == null ? SLOT_FORMAT : undefined}
+          />
+        }
+      >
+        {["Configure", opened.name]}
       </Modal.Header>
       <Modal.Body align="stretch" gap="large">
         <Form.Form<PDevice.FormSchema<typeof SLAVE_SCHEMAS>> {...form}>

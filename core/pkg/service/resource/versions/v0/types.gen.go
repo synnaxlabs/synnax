@@ -47,7 +47,7 @@ const (
 	TypeRack Type = "rack"
 	// TypeRange identifies a range.
 	TypeRange Type = "range"
-	// TypeRangeAlias identifies an alias of a channel on a range.
+	// TypeRangeAlias identifies a range alias. The Core no longer stores range aliases.
 	TypeRangeAlias Type = "range-alias"
 	// TypeRole identifies an access control role.
 	TypeRole Type = "role"
@@ -78,13 +78,17 @@ const (
 	TypeSecret Type = "secret"
 	// TypeCertificate identifies a certificate.
 	TypeCertificate Type = "certificate"
+	// TypeColor identifies a named color.
+	TypeColor Type = "color"
+	// TypeICD identifies an interface control document.
+	TypeICD Type = "icd"
 )
 
 // IsValid reports whether t is one of the defined Type
 // values.
 func (t Type) IsValid() bool {
 	switch t {
-	case TypeArc, TypeBuiltin, TypeChannel, TypeDevice, TypeFramer, TypeGroup, TypeLabel, TypeLineplot, TypeLog, TypeNode, TypePanel, TypePolicy, TypeProject, TypeRack, TypeRange, TypeRangeAlias, TypeRole, TypeSchematic, TypeSchematicSymbol, TypeStatus, TypeTable, TypeTask, TypeUser, TypeView, TypeEthercatMaster, TypeEthercatSlave, TypeHTTPServer, TypeLabjackDevice, TypeModbusServer, TypeNiChassis, TypeNiDevice, TypeOpcuaServer, TypeArcDirectory, TypeSecret, TypeCertificate:
+	case TypeArc, TypeBuiltin, TypeChannel, TypeDevice, TypeFramer, TypeGroup, TypeLabel, TypeLineplot, TypeLog, TypeNode, TypePanel, TypePolicy, TypeProject, TypeRack, TypeRange, TypeRangeAlias, TypeRole, TypeSchematic, TypeSchematicSymbol, TypeStatus, TypeTable, TypeTask, TypeUser, TypeView, TypeEthercatMaster, TypeEthercatSlave, TypeHTTPServer, TypeLabjackDevice, TypeModbusServer, TypeNiChassis, TypeNiDevice, TypeOpcuaServer, TypeArcDirectory, TypeSecret, TypeCertificate, TypeColor, TypeICD:
 		return true
 	default:
 		return false

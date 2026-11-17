@@ -30,13 +30,14 @@ var _ = Describe("Resources", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		svc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))
 	})
 
 	It("Should name each label by its name", func(ctx SpecContext) {
-		l := label.Label{Name: "Nominal", Color: MustSucceed(color.FromHex("#00FF00"))}
+		l := label.Label{Name: "Nominal", Color: MustSucceed(color.Parse("#00FF00"))}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &l)
 		})).To(Succeed())
@@ -56,7 +57,7 @@ var _ = Describe("Resources", func() {
 	})
 
 	It("Should leave out an ID that names no label", func(ctx SpecContext) {
-		l := label.Label{Name: "Nominal", Color: MustSucceed(color.FromHex("#00FF00"))}
+		l := label.Label{Name: "Nominal", Color: MustSucceed(color.Parse("#00FF00"))}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &l)
 		})).To(Succeed())
@@ -69,7 +70,7 @@ var _ = Describe("Resources", func() {
 	})
 
 	It("Should list each label by its name", func(ctx SpecContext) {
-		l := label.Label{Name: "Nominal", Color: MustSucceed(color.FromHex("#00FF00"))}
+		l := label.Label{Name: "Nominal", Color: MustSucceed(color.Parse("#00FF00"))}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &l)
 		})).To(Succeed())

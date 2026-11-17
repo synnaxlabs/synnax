@@ -202,10 +202,12 @@ env:
   GOPROXY: https://proxy.golang.org|direct
   RELEASE_TAG: ${{ inputs.release_tag }}
   # Desktop Console update files that every Core embeds, downloaded one call each so a
-  # missing file fails the build. A Windows install updates with the installer it came
-  # from, so both stay. The manifest carries the signatures, so the .sig files stay out.
+  # missing file fails the build. A Windows or Linux install updates with the installer
+  # it came from, so each stays. The manifest carries the signatures, so the .sig files
+  # stay out.
   CONSOLE_UPDATE_FILES:
     latest.json Synnax.app.tar.gz Synnax_*_x64-setup.exe Synnax_*_x64_en-US.msi
+    Synnax_*_amd64.AppImage Synnax_*_amd64.deb
 
 permissions:
   contents: read
@@ -217,7 +219,11 @@ jobs:
       VERSION: ${{ steps.version.outputs.VERSION }}
       PURE_VERSION: ${{ steps.version.outputs.PURE_VERSION }}
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      build_matrix: ${{ steps.set-matrix.outputs.build_matrix }}
       console_tauri_matrix: ${{ steps.set-console-tauri-matrix.outputs.matrix }}
+      tauri_macos_matrix: ${{ steps.set-console-tauri-matrix.outputs.macos }}
+      tauri_windows_matrix: ${{ steps.set-console-tauri-matrix.outputs.windows }}
+      tauri_linux_matrix: ${{ steps.set-console-tauri-matrix.outputs.linux }}
       GO_BUILD_TAGS: ${{ steps.go-tags.outputs.GO_BUILD_TAGS }}
     steps:
       - name: Checkout repository
@@ -273,25 +279,41 @@ jobs:
       - name: Generate OS matrix
         id: set-matrix
         run: |
-          MATRIX=$(.github/scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}" "${{ inputs.sign_binaries }}")
+          MATRIX=$(.github/scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}")
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          # build-macos builds macOS.
+          BUILD_MATRIX=$(.github/scripts/generate_os_matrix.sh "${{ inputs.windows }}" false "${{ inputs.ubuntu }}")
+          echo "build_matrix=$BUILD_MATRIX" >> "$GITHUB_OUTPUT"
 
       - name: Generate Console Tauri matrix
         id: set-console-tauri-matrix
         run: |
-          OS_LIST=""
+          MACOS=""
+          WINDOWS=""
           if [ "${{ inputs.macos }}" = "true" ]; then
             if [ "${{ inputs.sign_binaries }}" = "true" ]; then
-              OS_LIST="\"macos-latest\""
+              MACOS="\"macos-latest\""
             else
-              OS_LIST="\"macos-build-bot\""
+              MACOS="\"macos-build-bot\""
             fi
           fi
           if [ "${{ inputs.windows }}" = "true" ]; then
-            [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
-            OS_LIST="${OS_LIST}\"windows-latest\""
+            WINDOWS="\"windows-latest\""
           fi
-          echo "matrix=[${OS_LIST}]" >> "$GITHUB_OUTPUT"
+          # The oldest hosted Ubuntu gives the AppImage and the .deb the widest glibc
+          # range.
+          LINUX=""
+          if [ "${{ inputs.ubuntu }}" = "true" ]; then
+            LINUX="\"ubuntu-22.04\""
+          fi
+          OS_LIST="${MACOS}${MACOS:+${WINDOWS:+,}}${WINDOWS}"
+          OS_LIST="${OS_LIST}${OS_LIST:+${LINUX:+,}}${LINUX}"
+          {
+            echo "matrix=[${OS_LIST}]"
+            echo "macos=[${MACOS}]"
+            echo "windows=[${WINDOWS}]"
+            echo "linux=[${LINUX}]"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Verify build configuration
         run: |
@@ -331,17 +353,25 @@ jobs:
   build:
     name: Build (${{ matrix.os }})
     needs: setup
-    if: needs.setup.outputs.matrix != '[]'
-    # Hosted macOS builds the Driver with no Bazel cache, which can take 95 minutes.
-    timeout-minutes: ${{ matrix.os == 'macos-latest' && 180 || 75 }}
-    permissions:
+    if: needs.setup.outputs.build_matrix != '[]'
+    timeout-minutes: 75
+    permissions: &build_permissions
       actions: read
       contents: write
       packages: write
-    env:
+    env: &build_env
+      # A hosted runner signs the macOS binaries and uploads them under their final
+      # names, since the Developer ID key must never reach a build bot.
+      SIGNING_DEFERRED: ${{ inputs.sign_binaries && matrix.os-name == 'macos' }}
+      # A signed macOS Core embeds the signed Driver, so build-macos-core builds it.
+      CORE_DEFERRED:
+        ${{ inputs.sign_binaries && matrix.os-name == 'macos' && inputs.driver }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
       GH_TOKEN: ${{ github.token }}
+      # The HTTP/2 client in Go stalls downloads on the Mac build bots: Bazelisk, and
+      # gh when it downloads a release asset.
+      GODEBUG: http2client=0
       DRIVER_REF_RUN_ID:
         ${{ fromJSON(inputs.driver_ref_run_id || '{}')[matrix.os-name] }}
       CONSOLE_REF_RUN_ID:
@@ -357,9 +387,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(needs.setup.outputs.matrix) }}
+        include: ${{ fromJSON(needs.setup.outputs.build_matrix) }}
     runs-on: ${{ matrix.os }}
-    steps:
+    steps: &build_steps
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -427,9 +457,6 @@ jobs:
       - name: Build Driver (macOS)
         if:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && startsWith(matrix.os, 'macos')
-        env:
-          # The HTTP/2 client in Go stalls Bazelisk downloads on the Mac build bots.
-          GODEBUG: http2client=0
         run: |
           read -ra flags <<< "$BAZEL_BUILD_FLAGS"
           bazel build "${flags[@]}" --config=opt-unix //driver
@@ -551,79 +578,9 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - name: Import Apple Developer Certificate
-        if: inputs.sign_binaries && startsWith(matrix.os, 'macos')
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-          KEYCHAIN_NAME: build-${{ runner.name }}.keychain
-        run: .github/scripts/import_apple_certificate.sh
-
-      - name: Sign Driver (macOS)
-        if: inputs.sign_binaries && inputs.driver && startsWith(matrix.os, 'macos')
-        env:
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: |
-          cat > driver-entitlements.plist << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>com.apple.security.cs.allow-jit</key>
-              <true/>
-              <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-              <true/>
-              <key>com.apple.security.cs.disable-library-validation</key>
-              <true/>
-          </dict>
-          </plist>
-          EOF
-
-          CERT_INFO=$(security find-identity -v -p codesigning "$KEYCHAIN_NAME" | grep "Developer ID Application")
-          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
-          codesign --force --options runtime --timestamp --entitlements driver-entitlements.plist --sign "$CERT_ID" bazel-bin/driver/driver
-
-          # Unlock keychain before verification (in case it locked)
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
-
-          codesign --verify --verbose bazel-bin/driver/driver
-
-      - name: Notarize macOS Driver binary
-        if: inputs.sign_binaries && inputs.driver && startsWith(matrix.os, 'macos')
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          # Create a zip for notarization (notarytool requires a container format)
-          zip -j driver-notarize.zip bazel-bin/driver/driver
-
-          # Retry logic for notarization (Apple's servers can be flaky)
-          for attempt in 1 2 3; do
-            echo "Notarization attempt $attempt of 3..."
-            if xcrun notarytool submit driver-notarize.zip \
-              --apple-id "$APPLE_ID" \
-              --password "$APPLE_PASSWORD" \
-              --team-id "$APPLE_TEAM_ID" \
-              --wait; then
-              echo "Notarization succeeded on attempt $attempt"
-              break
-            elif [ $attempt -lt 3 ]; then
-              echo "Notarization attempt $attempt failed, retrying in 10 seconds..."
-              sleep 10
-            else
-              echo "Notarization failed after 3 attempts"
-              rm driver-notarize.zip
-              exit 1
-            fi
-          done
-
-          rm driver-notarize.zip
-
-      - name: Install trusted-signing-cli
+      - name: Set up trusted-signing-cli
         if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
-        run: cargo install trusted-signing-cli
+        uses: ./.github/actions/setup-trusted-signing-cli
 
       - name: Remove read-only attribute from Driver for signing
         if: inputs.sign_binaries && inputs.driver && matrix.os == 'windows-build-bot'
@@ -651,7 +608,10 @@ jobs:
           env.CORE_REF_RUN_ID == ''
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: synnax-driver-${{ matrix.os-name }}
+          # A cached run names its artifacts without the version.
+          name:
+            ${{ env.DRIVER_REF_ARTIFACT || format('synnax-driver-{0}', matrix.os-name)
+            }}
           path: ${{ runner.temp }}/cached-driver
           run-id: ${{ env.DRIVER_REF_RUN_ID }}
           github-token: ${{ github.token }}
@@ -678,7 +638,8 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
-            ${{ inputs.use_simple_artifact_names && format('synnax-driver-{0}',
+            ${{ env.SIGNING_DEFERRED == 'true' && 'unsigned-' || '' }}${{
+            inputs.use_simple_artifact_names && format('synnax-driver-{0}',
             matrix.os-name) || format('synnax-driver-v{0}-{1}',
             needs.setup.outputs.VERSION, matrix.os-name) }}
           path:
@@ -688,7 +649,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload Driver to release
-        if: inputs.driver && inputs.release_tag != ''
+        if: inputs.driver && inputs.release_tag != '' && env.SIGNING_DEFERRED != 'true'
         uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4
         with:
           shell: bash
@@ -786,7 +747,9 @@ jobs:
           env.CORE_REF_RUN_ID == ''
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: synnax-console-assets-${{ matrix.os-name }}
+          name:
+            ${{ env.CONSOLE_REF_ARTIFACT || format('synnax-console-assets-{0}',
+            matrix.os-name) }}
           path: console/dist
           run-id: ${{ env.CONSOLE_REF_RUN_ID }}
           github-token: ${{ github.token }}
@@ -841,7 +804,7 @@ jobs:
           key: ${{ steps.go-toolchain.outputs.key }}
 
       - name: Set up Go
-        if: inputs.core && env.CORE_REF_RUN_ID == ''
+        if: inputs.core && env.CORE_REF_RUN_ID == '' && env.CORE_DEFERRED != 'true'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: core/go.mod
@@ -859,12 +822,12 @@ jobs:
           key: ${{ steps.go-toolchain.outputs.key }}
 
       - name: Download the Go modules
-        if: inputs.core && env.CORE_REF_RUN_ID == ''
+        if: inputs.core && env.CORE_REF_RUN_ID == '' && env.CORE_DEFERRED != 'true'
         shell: bash
         run: .github/scripts/go_mod_download.sh core
 
       - name: Build Core
-        if: inputs.core && env.CORE_REF_RUN_ID == ''
+        if: inputs.core && env.CORE_REF_RUN_ID == '' && env.CORE_DEFERRED != 'true'
         working-directory: core
         shell: bash
         run: |
@@ -874,69 +837,6 @@ jobs:
               -X github.com/synnaxlabs/synnax/pkg/version.gitCommit=${{ github.sha }} \
               -X github.com/synnaxlabs/synnax/pkg/version.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
-
-      - name: Sign macOS Core binary
-        if: inputs.sign_binaries && inputs.core && startsWith(matrix.os, 'macos')
-        working-directory: core
-        env:
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: |
-          cat > server-entitlements.plist << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>com.apple.security.cs.allow-jit</key>
-              <true/>
-              <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-              <true/>
-          </dict>
-          </plist>
-          EOF
-
-          CERT_INFO=$(security find-identity -v -p codesigning "$KEYCHAIN_NAME" | grep "Developer ID Application")
-          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
-          codesign --force --options runtime --timestamp \
-            --entitlements server-entitlements.plist \
-            --sign "$CERT_ID" ./synnax-v${{ needs.setup.outputs.VERSION }}
-
-          # Unlock keychain before verification (in case it locked)
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
-
-          codesign --verify --verbose ./synnax-v${{ needs.setup.outputs.VERSION }}
-
-      - name: Notarize macOS Core binary
-        if: inputs.sign_binaries && inputs.core && startsWith(matrix.os, 'macos')
-        working-directory: core
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          # Create a zip for notarization (notarytool requires a container format)
-          zip -j server-notarize.zip ./synnax-v${{ needs.setup.outputs.VERSION }}
-
-          # Retry logic for notarization (Apple's servers can be flaky)
-          for attempt in 1 2 3; do
-            echo "Notarization attempt $attempt of 3..."
-            if xcrun notarytool submit server-notarize.zip \
-              --apple-id "$APPLE_ID" \
-              --password "$APPLE_PASSWORD" \
-              --team-id "$APPLE_TEAM_ID" \
-              --wait; then
-              echo "Notarization succeeded on attempt $attempt"
-              break
-            elif [ $attempt -lt 3 ]; then
-              echo "Notarization attempt $attempt failed, retrying in 10 seconds..."
-              sleep 10
-            else
-              echo "Notarization failed after 3 attempts"
-              rm server-notarize.zip
-              exit 1
-            fi
-          done
-
-          rm server-notarize.zip
 
       - name: Sign Windows Core binary
         if: inputs.sign_binaries && inputs.core && matrix.os == 'windows-build-bot'
@@ -950,11 +850,12 @@ jobs:
           core/synnax-v${{ needs.setup.outputs.VERSION }}.exe
 
       - name: Upload Core binary as artifact
-        if: inputs.core && env.CORE_REF_RUN_ID == ''
+        if: inputs.core && env.CORE_REF_RUN_ID == '' && env.CORE_DEFERRED != 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name:
-            ${{ inputs.use_simple_artifact_names && format('synnax-core-{0}',
+            ${{ env.SIGNING_DEFERRED == 'true' && 'unsigned-' || '' }}${{
+            inputs.use_simple_artifact_names && format('synnax-core-{0}',
             matrix.os-name) || format('synnax-core-v{0}-{1}',
             needs.setup.outputs.VERSION, matrix.os-name) }}
           path: core/synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
@@ -962,13 +863,13 @@ jobs:
           if-no-files-found: error
 
       - name: Rename Core binary for release
-        if: inputs.core && inputs.release_tag != ''
+        if: inputs.core && inputs.release_tag != '' && env.SIGNING_DEFERRED != 'true'
         working-directory: core
         run: |
           cp synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }} synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
       - name: Upload Core to release
-        if: inputs.core && inputs.release_tag != ''
+        if: inputs.core && inputs.release_tag != '' && env.SIGNING_DEFERRED != 'true'
         uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4
         with:
           shell: bash
@@ -986,6 +887,138 @@ jobs:
         if: always() && matrix.os == 'windows-build-bot'
         shell: powershell
         run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 30
+
+  # macOS builds in a job of its own, so the signing jobs do not wait for the builds of
+  # the other systems.
+  build-macos:
+    name: Build (${{ matrix.os }})
+    needs: setup
+    if: inputs.macos
+    timeout-minutes: 75
+    permissions: *build_permissions
+    env: *build_env
+    strategy: &macos_strategy
+      matrix:
+        include:
+          - os: macos-build-bot
+            os-name: macos
+            executable: ""
+    runs-on: ${{ matrix.os }}
+    steps: *build_steps
+
+  sign-macos-driver:
+    name: Sign Driver (macOS)
+    needs: [setup, build-macos]
+    if: inputs.sign_binaries && inputs.macos && inputs.driver
+    timeout-minutes: 60
+    permissions: &sign_macos_permissions
+      contents: write
+    runs-on: macos-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ARTIFACT:
+        ${{ inputs.use_simple_artifact_names && 'synnax-driver-macos' ||
+        format('synnax-driver-v{0}-macos', needs.setup.outputs.VERSION) }}
+      BINARY: synnax-driver-v${{ needs.setup.outputs.VERSION }}-macos
+      RELEASE_ASSET: synnax-driver-v${{ needs.setup.outputs.VERSION }}-macos
+      ENTITLEMENTS:
+        allow-jit allow-unsigned-executable-memory disable-library-validation
+    steps: &sign_macos_steps
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Download unsigned binary
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: unsigned-${{ env.ARTIFACT }}
+
+      - name: Import Apple Developer Certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          KEYCHAIN_NAME: build-${{ runner.name }}.keychain
+        run: .github/scripts/import_apple_certificate.sh
+
+      - name: Sign and notarize binary
+        # The script spends up to 40 min with the Apple notary service.
+        timeout-minutes: 50
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          read -ra entitlements <<< "$ENTITLEMENTS"
+          .github/scripts/sign_macos_binary.sh "$BINARY" "${entitlements[@]}"
+
+      - name: Upload signed binary as artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ${{ env.ARTIFACT }}
+          path: ${{ env.BINARY }}
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Name binary for release
+        if: inputs.release_tag != '' && env.BINARY != env.RELEASE_ASSET
+        run: cp "$BINARY" "$RELEASE_ASSET"
+
+      - name: Upload signed binary to release
+        if: inputs.release_tag != ''
+        uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4
+        with:
+          shell: bash
+          timeout_minutes: 5
+          max_attempts: 3
+          command: gh release upload --clobber "$RELEASE_TAG" "$RELEASE_ASSET"
+
+  # The Core embeds the Driver, so this build waits for the signed Driver. It takes the
+  # Driver and the Console assets of this run as it takes those of a cached run.
+  build-macos-core:
+    name: Build Core (${{ matrix.os }})
+    needs: [setup, sign-macos-driver]
+    if: inputs.sign_binaries && inputs.macos && inputs.driver && inputs.core
+    timeout-minutes: 30
+    permissions: *build_permissions
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GODEBUG: http2client=0
+      SIGNING_DEFERRED: true
+      DRIVER_REF_RUN_ID: ${{ github.run_id }}
+      DRIVER_REF_ARTIFACT:
+        ${{ inputs.use_simple_artifact_names && 'synnax-driver-macos' ||
+        format('synnax-driver-v{0}-macos', needs.setup.outputs.VERSION) }}
+      CONSOLE_REF_RUN_ID: ${{ github.run_id }}
+      CONSOLE_REF_ARTIFACT:
+        ${{ inputs.use_simple_artifact_names && 'synnax-console-assets-macos' ||
+        format('synnax-console-assets-v{0}-macos', needs.setup.outputs.VERSION) }}
+    strategy: *macos_strategy
+    runs-on: ${{ matrix.os }}
+    steps: *build_steps
+
+  sign-macos-core:
+    name: Sign Core (macOS)
+    needs: [setup, build-macos, build-macos-core]
+    # build-macos-core skips when the run builds no Driver for the Core to embed.
+    if: >-
+      ${{ !cancelled() && inputs.sign_binaries && inputs.macos && inputs.core &&
+      needs.build-macos.result == 'success' && needs.build-macos-core.result ==
+      (inputs.driver && 'success' || 'skipped') }}
+    timeout-minutes: 60
+    permissions: *sign_macos_permissions
+    runs-on: macos-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ARTIFACT:
+        ${{ inputs.use_simple_artifact_names && 'synnax-core-macos' ||
+        format('synnax-core-v{0}-macos', needs.setup.outputs.VERSION) }}
+      BINARY: synnax-v${{ needs.setup.outputs.VERSION }}
+      RELEASE_ASSET: synnax-v${{ needs.setup.outputs.VERSION }}-macos
+      ENTITLEMENTS: allow-jit allow-unsigned-executable-memory
+    steps: *sign_macos_steps
 
   republish:
     name: Republish cached (${{ matrix.os-name }})
@@ -1087,11 +1120,17 @@ jobs:
           if-no-files-found: error
 
   # synnax update checks these signatures before it runs a downloaded binary. The job
-  # runs after the build, so it signs the files that each OS signed.
+  # runs after the build and the macOS signing, so it signs the files that each OS
+  # signed. A build job skips when the run has no system for it, and a macOS signing job
+  # skips when the run has nothing for it to sign.
   sign:
     name: Sign release binaries
-    needs: [setup, build]
-    if: inputs.release_tag != '' && (inputs.core || inputs.driver)
+    needs:
+      [setup, build, build-macos, sign-macos-driver, build-macos-core, sign-macos-core]
+    if: >-
+      ${{ !cancelled() && inputs.release_tag != '' && (inputs.core || inputs.driver) &&
+      needs.setup.outputs.matrix != '[]' && !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -1121,13 +1160,15 @@ jobs:
 
   docker:
     name: Build Docker image
-    needs: [setup, build, republish]
+    needs: [setup, build, build-macos, republish]
     # A release builds the image alone from the Console and Driver releases, with no
-    # platform, so build and republish skip.
+    # platform, so the builds and republish skip. With a platform, republish runs, and a
+    # build job skips only when the run has no system for it.
     if: >-
       ${{ !cancelled() && inputs.docker && needs.setup.result == 'success' &&
       (needs.setup.outputs.matrix == '[]' && !inputs.driver && !inputs.console ||
-      needs.build.result == 'success' && needs.republish.result == 'success') }}
+      needs.republish.result == 'success' && !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1281,7 +1322,7 @@ jobs:
       release_tag: ${{ inputs.release_tag }}
       use_simple_artifact_names: ${{ inputs.use_simple_artifact_names }}
       updater_channel: ${{ inputs.updater_channel }}
-    secrets:
+    secrets: &tauri_secrets
       APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
       APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -1296,33 +1337,94 @@ jobs:
       TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
-  build-desktop-tauri:
-    name: Build Synnax Desktop
-    needs: [setup, build, republish]
-    # build.tauri.yaml uploads the bundles to the draft release.
+  # Only the bundles of Desktop need the Core, so on macOS the app compiles while the
+  # Driver and the Core build and get their signatures. This stage signs nothing.
+  compile-desktop-macos:
+    name: Compile Synnax Desktop (macOS)
+    needs: setup
+    # build.tauri.yaml asks for the permission. This stage uploads only an artifact.
     permissions:
       contents: write
-    if: inputs.desktop && needs.setup.outputs.console_tauri_matrix != '[]'
+    if: inputs.desktop && needs.setup.outputs.tauri_macos_matrix != '[]'
     uses: ./.github/workflows/build.tauri.yaml
     with:
       desktop: true
-      os: ${{ needs.setup.outputs.console_tauri_matrix }}
+      stage: compile
+      os: ${{ needs.setup.outputs.tauri_macos_matrix }}
       version: ${{ needs.setup.outputs.VERSION }}
       app_version: ${{ inputs.desktop_version }}
       sign_binaries: ${{ inputs.sign_binaries }}
       use_simple_artifact_names: ${{ inputs.use_simple_artifact_names }}
       updater_channel: ${{ inputs.updater_channel }}
     secrets:
-      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-      APPLE_ID: ${{ secrets.APPLE_ID }}
-      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
       POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
-      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
+  bundle-desktop-macos:
+    name: Bundle Synnax Desktop (macOS)
+    needs:
+      - setup
+      - build-macos
+      - republish
+      - sign-macos-driver
+      - build-macos-core
+      - sign-macos-core
+      - compile-desktop-macos
+    # build.tauri.yaml uploads the bundles to the draft release.
+    permissions:
+      contents: write
+    # Desktop bundles the signed macOS Core. A macOS signing job skips when the run has
+    # nothing for it to sign.
+    if: >-
+      ${{ !cancelled() && inputs.desktop && needs.setup.outputs.tauri_macos_matrix !=
+      '[]' && !contains(needs.*.result, 'failure') && !contains(needs.*.result,
+      'cancelled') }}
+    uses: ./.github/workflows/build.tauri.yaml
+    with:
+      desktop: true
+      stage: bundle
+      os: ${{ needs.setup.outputs.tauri_macos_matrix }}
+      version: ${{ needs.setup.outputs.VERSION }}
+      app_version: ${{ inputs.desktop_version }}
+      sign_binaries: ${{ inputs.sign_binaries }}
+      use_simple_artifact_names: ${{ inputs.use_simple_artifact_names }}
+      updater_channel: ${{ inputs.updater_channel }}
+    secrets: *tauri_secrets
+
+  # Desktop on Windows or Linux needs only the Core of its OS, so it does not wait for
+  # macOS.
+  build-desktop-windows:
+    name: Build Synnax Desktop (Windows)
+    needs: [setup, build, republish]
+    # build.tauri.yaml uploads the bundles to the draft release.
+    permissions:
+      contents: write
+    if: inputs.desktop && needs.setup.outputs.tauri_windows_matrix != '[]'
+    uses: ./.github/workflows/build.tauri.yaml
+    with:
+      desktop: true
+      os: ${{ needs.setup.outputs.tauri_windows_matrix }}
+      version: ${{ needs.setup.outputs.VERSION }}
+      app_version: ${{ inputs.desktop_version }}
+      sign_binaries: ${{ inputs.sign_binaries }}
+      use_simple_artifact_names: ${{ inputs.use_simple_artifact_names }}
+      updater_channel: ${{ inputs.updater_channel }}
+    secrets: *tauri_secrets
+
+  build-desktop-linux:
+    name: Build Synnax Desktop (Linux)
+    needs: [setup, build, republish]
+    # build.tauri.yaml uploads the bundles to the draft release.
+    permissions:
+      contents: write
+    if: inputs.desktop && needs.setup.outputs.tauri_linux_matrix != '[]'
+    uses: ./.github/workflows/build.tauri.yaml
+    with:
+      desktop: true
+      os: ${{ needs.setup.outputs.tauri_linux_matrix }}
+      version: ${{ needs.setup.outputs.VERSION }}
+      app_version: ${{ inputs.desktop_version }}
+      sign_binaries: ${{ inputs.sign_binaries }}
+      use_simple_artifact_names: ${{ inputs.use_simple_artifact_names }}
+      updater_channel: ${{ inputs.updater_channel }}
+    secrets: *tauri_secrets

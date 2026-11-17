@@ -9,6 +9,8 @@
 
 import threading
 import time
+from functools import partial
+from operator import eq
 
 import pytest
 
@@ -44,13 +46,13 @@ class TestWaitFor:
     def test_should_return_true_when_the_last_value_matches(self) -> None:
         stream = Stream()
         stream.push(frame(0.0, 1.0))
-        assert latency.wait_for(stream, CHANNEL, 1.0, timeout_s=5)
+        assert latency.wait_for(stream, CHANNEL, partial(eq, 1.0), timeout_s=5)
 
     def test_should_skip_frames_whose_last_value_differs(self) -> None:
         stream = Stream()
         stream.push(frame(1.0, 0.0))
         stream.push(frame(0.0, 1.0))
-        assert latency.wait_for(stream, CHANNEL, 1.0, timeout_s=5)
+        assert latency.wait_for(stream, CHANNEL, partial(eq, 1.0), timeout_s=5)
         assert stream.read(timeout=sy.TimeSpan.from_seconds(0.01)) is None
 
     def test_should_return_false_at_the_deadline_despite_other_frames(self) -> None:
@@ -67,7 +69,9 @@ class TestWaitFor:
         pusher.start()
         start = time.perf_counter()
         try:
-            assert not latency.wait_for(stream, CHANNEL, 1.0, timeout_s=0.05)
+            assert not latency.wait_for(
+                stream, CHANNEL, partial(eq, 1.0), timeout_s=0.05
+            )
         finally:
             stop.set()
             pusher.join()

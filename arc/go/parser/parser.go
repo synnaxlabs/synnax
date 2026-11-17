@@ -36,6 +36,7 @@ package parser
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/x/diagnostics"
 	"go.lsp.dev/protocol"
 )
@@ -176,11 +177,15 @@ func parseWithContext[T any](
 	cfg Config,
 	position Position,
 	parseFn func(*ArcParser) T,
-) (T, *diagnostics.Diagnostics) {
+) (result T, _ *diagnostics.Diagnostics) {
+	diag := &diagnostics.Diagnostics{}
+	if len(source) > maxSourceSize {
+		diag.Add(sizeDiagnostic(source))
+		return result, diag
+	}
 	var (
 		lexer              = NewLexer(source, cfg)
 		tokens antlr.Lexer = lexer
-		diag               = &diagnostics.Diagnostics{}
 		errLis             = &errorListener{Diagnostics: diag}
 		lexLis             = errLis
 	)
@@ -195,22 +200,42 @@ func parseWithContext[T any](
 		stream = antlr.NewCommonTokenStream(tokens, 0)
 		parser = NewArcParser(stream)
 		sllErr = &syntaxErrorFlag{}
+		limit  = &depthLimit{}
 	)
 	lexer.RemoveErrorListeners()
 	lexer.AddErrorListener(lexLis)
 	parser.RemoveErrorListeners()
+	parser.AddParseListener(limit)
+	parse := func() (exceeded *depthExceeded) {
+		defer func() {
+			if r := recover(); r != nil {
+				d, ok := r.(depthExceeded)
+				if !ok {
+					panic(r)
+				}
+				exceeded = &d
+			}
+		}()
+		limit.depth = 0
+		result = parseFn(parser)
+		return nil
+	}
 	// SLL prediction is much faster than LL, and when it reports no syntax error it
 	// returns the tree LL would. Only source that fails SLL is parsed again with LL.
 	parser.AddErrorListener(sllErr)
 	parser.GetInterpreter().SetPredictionMode(antlr.PredictionModeSLL)
-	result := parseFn(parser)
-	if sllErr.reported {
+	exceeded := parse()
+	if exceeded == nil && sllErr.reported {
 		stream.Seek(0)
 		parser.SetTokenStream(stream)
 		parser.RemoveErrorListeners()
 		parser.AddErrorListener(errLis)
 		parser.GetInterpreter().SetPredictionMode(antlr.PredictionModeLL)
-		result = parseFn(parser)
+		exceeded = parse()
+	}
+	if exceeded != nil {
+		var zeroT T
+		return zeroT, &diagnostics.Diagnostics{exceeded.diagnostic()}
 	}
 	if !diag.Ok() {
 		var zeroT T
@@ -296,17 +321,10 @@ func (e *errorListener) SyntaxError(
 	if e.position != nil {
 		line, column = e.position(line, column)
 	}
-	e.Add(diagnostics.Diagnostic{
-		Severity: protocol.DiagnosticSeverityError,
-		Range: protocol.Range{
-			Start: protocol.Position{Line: uint32(line - 1), Character: uint32(column)},
-			End: protocol.Position{
-				Line:      uint32(line - 1),
-				Character: uint32(column + 1),
-			},
-		},
-		Message: msg,
-	})
+	e.Add(codes.Syntax.Atf(nil, "%s", msg).WithRange(
+		protocol.Position{Line: uint32(line - 1), Character: uint32(column)},
+		protocol.Position{Line: uint32(line - 1), Character: uint32(column + 1)},
+	))
 }
 
 // TokensAdjacent returns true if two tokens are adjacent with no whitespace between

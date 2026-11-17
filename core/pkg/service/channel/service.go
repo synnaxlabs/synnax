@@ -187,11 +187,8 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
 }
 
 // Changes returns the changes that c made to channels.
-func (s *Service) Changes(
-	ctx context.Context,
-	c gorp.Commit,
-) gorp.TxReader[Key, Channel] {
-	return s.table.Changes(ctx, c)
+func (s *Service) Changes(c gorp.Commit) gorp.TxReader[Key, Channel] {
+	return s.table.Changes(c)
 }
 
 // NewRetrieve opens a retrieve query that fails when a retrieved external channel is
@@ -200,6 +197,14 @@ func (s *Service) NewRetrieve() Retrieve {
 	r := s.newRetrieve()
 	r.gorp = r.gorp.Validate(s.validateChannels)
 	return r
+}
+
+// CountLimited returns how many channels count against the license channel limit (not
+// internal, not virtual).
+func (s *Service) CountLimited() uint32 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return uint32(s.mu.externalNonVirtualSet.Size())
 }
 
 // Close releases the resources held by the Service.
@@ -261,21 +266,9 @@ func (s *Service) CalculationInputs(
 	for len(channels) > 0 {
 		var next Keys
 		for _, ch := range channels {
-			if !ch.IsCalculated() {
-				continue
-			}
-			result, err := analyzer.Analyze(ctx, ch)
-			if errors.As(err, new(*diagnostics.Diagnostics)) {
-				continue
-			}
+			reads, err := calculationReads(ctx, analyzer, ch)
 			if err != nil {
 				return nil, err
-			}
-			reads := result.Deps
-			for _, op := range ch.Operations {
-				if op.ResetChannel != 0 {
-					reads = append(reads, op.ResetChannel)
-				}
 			}
 			for _, k := range reads {
 				// A channel among channels that is not stored yet has no local key.
@@ -299,6 +292,33 @@ func (s *Service) CalculationInputs(
 		}
 	}
 	return inputs.Unique(), nil
+}
+
+// calculationReads returns the channels that ch reads, including the channels that
+// reset its operations. It returns none when ch is not calculated or its expression
+// fails analysis.
+func calculationReads(
+	ctx context.Context,
+	analyzer *CalculationAnalyzer,
+	ch Channel,
+) (Keys, error) {
+	if !ch.IsCalculated() {
+		return nil, nil
+	}
+	result, err := analyzer.Analyze(ctx, ch)
+	if errors.As(err, new(*diagnostics.Diagnostics)) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	reads := result.Deps
+	for _, op := range ch.Operations {
+		if op.ResetChannel != 0 {
+			reads = append(reads, op.ResetChannel)
+		}
+	}
+	return reads, nil
 }
 
 // freeIndexResolver adapts the Service to the distribution framer writer's

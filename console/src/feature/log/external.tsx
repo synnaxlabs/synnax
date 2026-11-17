@@ -30,6 +30,7 @@ const TAB: Panel.Tab = {
   Content: Panel.lazyComponent(() => import("@/feature/log/Log"), "Log"),
   Toolbar: Panel.lazyComponent(() => import("@/feature/log/toolbar"), "Toolbar"),
   Icon: Icon.Log,
+  iconKey: "log",
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Name: Panel.createEditableTabName(
     { useEnsure: Base.useEnsure, useName: Base.useName, useRename: Base.useRename },
@@ -37,11 +38,10 @@ const TAB: Panel.Tab = {
   ),
   restore: async ({ client, project, resource }) => {
     const corpse = query.requireCorpse(client.logs.watch(resource.key).getCached());
-    // A restored record comes back in the project, as its range or group may be gone.
+    // A restored record comes back in the project, as its group may be gone.
     await client.logs.create({
       ...corpse,
       project,
-      range: undefined,
       group: undefined,
     });
   },

@@ -21,10 +21,12 @@ export { Channel } from "@/channel/client";
 export { isCalculated } from "@/channel/payload";
 export {
   type ConnectOptions,
+  type ConstructorParams,
   default as Synnax,
   type SynnaxParams,
   synnaxParamsZ,
 } from "@/client";
+export { color } from "@/color";
 export * from "@/connection";
 export { control } from "@/control";
 export { device } from "@/device";
@@ -61,6 +63,7 @@ export { framer } from "@/framer";
 export { Frame } from "@/framer/frame";
 export { group } from "@/group";
 export { http } from "@/http";
+export { icd } from "@/icd";
 export { imex } from "@/imex";
 export { kafka } from "@/kafka";
 export { label } from "@/label";
@@ -82,6 +85,7 @@ export { ranger } from "@/ranger";
 export { resource } from "@/resource";
 export { schematic } from "@/schematic";
 export { secret } from "@/secret";
+export { sift } from "@/sift";
 export { status } from "@/status";
 export type { StatusZodObject } from "@/status/types.gen";
 export { table } from "@/table";

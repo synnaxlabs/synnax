@@ -38,8 +38,8 @@ import {
   captureBrowserDownloads,
   countEditableText,
   createTestClientWithGrants,
-  getCompositeIconButton,
-  getCompositeIconButtons,
+  getIconButton,
+  getIconButtons,
   type Grants,
   removeSaveFilePicker,
   uniqueName,
@@ -82,8 +82,7 @@ describe("Schematic toolbar Symbols", () => {
     await waitFor(async () => {
       const retrieved = await client.schematics.retrieve(key);
       expect(retrieved.nodes).toHaveLength(1);
-      const nodeKey = retrieved.nodes[0].key;
-      expect(retrieved.configs[nodeKey]).toMatchObject({ variant: "gauge" });
+      expect(retrieved.nodes[0].config).toMatchObject({ variant: "gauge" });
     });
   });
 
@@ -117,8 +116,7 @@ describe("Schematic toolbar Symbols", () => {
     await waitFor(async () => {
       const retrieved = await client.schematics.retrieve(key);
       expect(retrieved.nodes).toHaveLength(1);
-      const nodeKey = retrieved.nodes[0].key;
-      expect(retrieved.configs[nodeKey]).toMatchObject({ specKey: symbols[0].key });
+      expect(retrieved.nodes[0].config).toMatchObject({ specKey: symbols[0].key });
     });
   });
 
@@ -231,11 +229,11 @@ describe("Schematic toolbar Symbols", () => {
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
-  it("creates a new symbol group through the actions bar", async () => {
-    const { result } = await renderSymbolsToolbar();
+  it("creates a new symbol group through the actions bar and selects it", async () => {
+    const { key, result, store } = await renderSymbolsToolbar();
     await screen.findByText("Gauge");
     const createGroup = await waitFor(() =>
-      getCompositeIconButton(result.container, ["group", "add"]),
+      getIconButton(result.container, "group-create"),
     );
     fireEvent.click(createGroup);
     const input = await screen.findByPlaceholderText<HTMLInputElement>("Name");
@@ -249,6 +247,17 @@ describe("Schematic toolbar Symbols", () => {
     });
     expect(created.scope).toBe("schematic_symbol");
     expect(created.parent).toBeUndefined();
+    await waitFor(() =>
+      expect(
+        documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar
+          .selectedSymbolGroup,
+      ).toBe(created.key),
+    );
+    expect(await screen.findByText("No symbols found")).toBeDefined();
+    expect(
+      documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar
+        .selectedSymbolGroup,
+    ).toBe(created.key);
   });
 });
 
@@ -275,13 +284,9 @@ describe("schematic/toolbar/Symbols permissions", () => {
     const { result } = await renderSymbolsToolbar(await createEditor());
     await screen.findByText("Gauge");
     await waitFor(() =>
-      expect(getCompositeIconButtons(result.container, ["group", "add"])).toHaveLength(
-        0,
-      ),
+      expect(getIconButtons(result.container, "group-create")).toHaveLength(0),
     );
-    expect(
-      getCompositeIconButtons(result.container, ["schematic", "add"]),
-    ).toHaveLength(0);
+    expect(getIconButtons(result.container, "schematic-create")).toHaveLength(0);
   });
 
   it("should withhold symbol and group rename from an editor who cannot update them", async () => {
@@ -308,13 +313,9 @@ describe("schematic/toolbar/Symbols permissions", () => {
     const { result } = await renderSymbolsToolbar(editor);
     await screen.findByText("Gauge");
     await waitFor(() =>
-      expect(getCompositeIconButtons(result.container, ["group", "add"])).toHaveLength(
-        1,
-      ),
+      expect(getIconButtons(result.container, "group-create")).toHaveLength(1),
     );
-    expect(
-      getCompositeIconButtons(result.container, ["schematic", "add"]),
-    ).toHaveLength(1);
+    expect(getIconButtons(result.container, "schematic-create")).toHaveLength(1);
   });
 
   const openSymbolMenu = async (as: Client) => {

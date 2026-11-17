@@ -74,9 +74,15 @@ start_stl_ranges_cmd -> ranges.create(name="RangeFlow_RGB_2", color="rgb(0, 255,
 start_stl_ranges_cmd -> ranges.create(name="RangeFlow_RGB_3", color="rgb(0, 0, 255)")
 
 // RGBA
-start_stl_ranges_cmd -> ranges.create(name="RangeFlow_RGBA_1", color="rgba(255, 0, 0, 0.5)")
-start_stl_ranges_cmd -> ranges.create(name="RangeFlow_RGBA_2", color="rgba(0, 255, 0, 0.25)")
-start_stl_ranges_cmd -> ranges.create(name="RangeFlow_RGBA_3", color="rgba(0, 0, 255, 0.75)")
+start_stl_ranges_cmd -> ranges.create(
+    name="RangeFlow_RGBA_1", color="rgba(255, 0, 0, 0.5)"
+)
+start_stl_ranges_cmd -> ranges.create(
+    name="RangeFlow_RGBA_2", color="rgba(0, 255, 0, 0.25)"
+)
+start_stl_ranges_cmd -> ranges.create(
+    name="RangeFlow_RGBA_3", color="rgba(0, 0, 255, 0.75)"
+)
 
 // Hex
 start_stl_ranges_cmd -> ranges.create(name="RangeFlow_Hex_1", color="#112233")
@@ -95,7 +101,9 @@ sequence flow_capture_seq {
         time.wait(100ms) -> next
     }
     stage create_children {
-        1 -> ranges.create(name="RangeFlow_Child", parent=fp_key, color="rgb(10, 20, 30)")
+        1 -> ranges.create(
+            name="RangeFlow_Child", parent=fp_key, color="rgb(10, 20, 30)"
+        )
         1 -> ranges.create(name="RangeFlow_Child_NoColor", parent=fp_key)
         time.wait(100ms) -> next
     }
@@ -124,7 +132,7 @@ sequence computed_key_seq {
     ck_key := ranges.create("RangeFlow_Computed")
     ck_key -> computed_key_out // For verification
 }
-"""  # noqa: E501
+"""
 
 
 class Case(NamedTuple):

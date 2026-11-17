@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -52,6 +53,7 @@ import (
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -103,9 +105,12 @@ var _ = Describe("Task", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		st := DeferClose(storagetestutil.OpenLayer(ctx))
+		st := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
+		hookedKV := hookkv.Wrap(st.KV)
+		hookedDB := gorp.Wrap(hookedKV)
+		StartRun(hookedDB.Run)
 		node := testutil.NewNode(ctx, distribution.LayerConfig{
-			Storage: &storage.Layer{KV: hookkv.Wrap(st.KV), TS: st.TS},
+			Storage: &storage.Layer{KV: hookedKV, TS: st.TS, Gorp: hookedDB},
 		})
 		db = node.DB
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -243,7 +248,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	configToMap := func(cfg arctask.Config) map[string]any {
 		GinkgoHelper()
-		cfg.ApplyDefaults()
+		cfg = defaults.Fill(cfg)
 		cfgJSON := MustSucceed(json.Marshal(cfg))
 		var cfgMap map[string]any
 		Expect(json.Unmarshal(cfgJSON, &cfgMap)).To(Succeed())
@@ -284,7 +289,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	openTestStreamer := func(ctx context.Context, keys channel.Keys, bufferSize int) (
 		responses <-chan framer.StreamerResponse,
-		close func(),
+		stop func(),
 	) {
 		GinkgoHelper()
 		streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
@@ -768,7 +773,7 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
-			"Should not write a status when config is invalid at boot",
+			"Should write an error status when config is invalid at boot",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
 					DB:         db,
@@ -790,12 +795,15 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
-					Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				Expect(stat.Variant).To(BeEquivalentTo("error"))
+				Expect(stat.Message).To(Equal("Failed to configure task"))
+				Expect(stat.Details.Running).To(BeFalse())
 			},
 		)
 
 		It(
-			"Should not write a status when GetProgram fails at boot",
+			"Should write an error status when GetProgram fails at boot",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
 					DB:         db,
@@ -817,7 +825,10 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
-					Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				Expect(stat.Variant).To(BeEquivalentTo("error"))
+				Expect(stat.Message).To(Equal("Failed to configure task"))
+				Expect(stat.Details.Running).To(BeFalse())
 			},
 		)
 
@@ -931,6 +942,7 @@ var _ = Describe("Task", Ordered, func() {
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) { return svcarc.AutomationArc{}, nil },
 				Ranger:     rangerSvc,
 				Now:        telem.Now,
+				LoopBudget: 1000,
 			}
 		}
 
@@ -941,9 +953,9 @@ var _ = Describe("Task", Ordered, func() {
 
 			DescribeTable(
 				"Should fail when a required field is missing",
-				func(clear func(*arctask.FactoryConfig), field string) {
+				func(unset func(*arctask.FactoryConfig), field string) {
 					cfg := full()
-					clear(&cfg)
+					unset(&cfg)
 					Expect(cfg.Validate()).To(MatchError(ContainSubstring(field)))
 				},
 				Entry(
@@ -976,6 +988,11 @@ var _ = Describe("Task", Ordered, func() {
 					func(c *arctask.FactoryConfig) { c.Ranger = nil },
 					"ranger",
 				),
+				Entry(
+					"loop_budget",
+					func(c *arctask.FactoryConfig) { c.LoopBudget = 0 },
+					"loop_budget",
+				),
 			)
 		})
 
@@ -989,6 +1006,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(merged.Ranger).To(BeIdenticalTo(src.Ranger))
 				Expect(merged.GetProgram).ToNot(BeNil())
 				Expect(merged.Now).ToNot(BeNil())
+				Expect(merged.LoopBudget).To(Equal(src.LoopBudget))
 			})
 
 			It("Should preserve the receiver's fields when other's are nil", func() {
@@ -1037,7 +1055,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(arcTask.Exec(ctx, task.Command{Type: "stop"})).To(Succeed())
 		})
 
-		It("Should be idempotent on stop", func(ctx SpecContext) {
+		It("Should be idempotent on stop", func() {
 			Expect(arcTask.Stop(true)).To(Succeed())
 			Expect(arcTask.Stop(true)).To(Succeed())
 		})
@@ -3665,6 +3683,54 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Runtime Error Handling", func() {
+		DescribeTable("Should stop a task whose cycle uses its whole loop budget", func(
+			ctx SpecContext,
+			source string,
+		) {
+			prog := arc.Text{Raw: source}
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-tick-limit",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			createTask(ctx, svcTask)
+			factory := newTextFactory(
+				ctx,
+				prog,
+				arctask.FactoryConfig{LoopBudget: 1000},
+			)
+			t := MustSucceed(factory.ConfigureTask(ctx, svcTask, "cmd-1"))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			Eventually(func(g Gomega) {
+				var stat task.Status
+				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				g.Expect(stat.Variant).To(Equal(status.VariantError))
+				g.Expect(stat.Message).To(Equal("Program ran too long"))
+				g.Expect(stat.Details.Running).To(BeFalse())
+			}).Should(Succeed())
+			Expect(t.Stop(false)).To(MatchError(runtime.ErrLoopBudget))
+		},
+			Entry("one looping node", `
+				func spin() {
+					for {}
+				}
+				interval(period=10ms) -> spin()
+			`),
+			Entry("two looping nodes on one trigger", `
+				func spin() {
+					for {}
+				}
+				func spin_again() {
+					for {}
+				}
+				interval(period=10ms) -> spin()
+				interval(period=10ms) -> spin_again()
+			`),
+		)
+
 		It("Should trap a cycle that makes too many strings", func(ctx SpecContext) {
 			prog := arc.Text{Raw: `
 				func grow() {
@@ -3749,7 +3815,7 @@ var _ = Describe("Task", Ordered, func() {
 					g.Expect(stat.Description).
 						To(HavePrefix("The divide_test node failed: "))
 					g.Expect(stat.Description).
-						To(ContainSubstring("integer divide by zero"))
+						To(HaveSuffix(": integer divide by zero"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}).Should(Succeed())
 			},

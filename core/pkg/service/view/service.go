@@ -42,7 +42,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// Validate implements config.Config
+// Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("view.service")
 	v.NotNil("db", c.DB)

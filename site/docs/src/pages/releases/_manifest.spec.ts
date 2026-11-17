@@ -16,7 +16,12 @@ const listing = (...tags: string[]): Releases =>
   new Releases({
     fetch: async () =>
       Response.json(
-        tags.map((tag_name) => ({ tag_name, draft: false, prerelease: false })),
+        tags.map((tag_name) => ({
+          tag_name,
+          draft: false,
+          prerelease: false,
+          published_at: null,
+        })),
       ),
   });
 

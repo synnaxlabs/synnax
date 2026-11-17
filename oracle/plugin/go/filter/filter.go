@@ -134,9 +134,9 @@ type lineData struct {
 	Path string
 	// GoName is the Where field that holds the line.
 	GoName string
-	// Func is the matcher of a bare line, or the hand-written function of a typed line.
+	// Func is the matcher of a bare line, or the function a typed line calls.
 	Func string
-	// Typed is true when the line calls a hand-written matcher.
+	// Typed is true when the line calls a matcher that takes its value.
 	Typed bool
 	// Members are the members of a bare line's operator.
 	Members []string
@@ -150,7 +150,7 @@ type lineData struct {
 	Pointer bool
 	// Variadic is true when a typed line's value is a slice passed as variadic values.
 	Variadic bool
-	// Enum is true when a bare line selects string enum values, which it validates.
+	// Enum is true when a line selects string enum values, which it validates.
 	Enum bool
 	// Text is true when a bare line's operator is filter.String.
 	Text bool
@@ -275,14 +275,18 @@ func generateFile(
 		data.Target += data.TypeArgs
 	}
 
-	form := where.Form.(resolution.StructForm)
+	form := resolution.MustForm[resolution.StructForm](where)
 	for _, line := range where.Filter.Lines {
 		field := lo.Must(form.Field(line.Name))
 		ld := lineData{Path: line.Name, GoName: naming.GetFieldName(field)}
 		if line.HasType() {
 			ld.Typed = true
 			ld.Func = "Match" + ld.GoName
-			if funcs.Contains(ld.Func) {
+			// A `@go match` names a declared matcher that takes the line's value.
+			match := plugindomain.GetStringFromField(line, "go", "match")
+			if match != "" {
+				ld.Func = match
+			} else if funcs.Contains(ld.Func) {
 				return fail(
 					"typed line %s calls %s, which the generated code already "+
 						"declares; rename the line",
@@ -293,6 +297,11 @@ func generateFile(
 			ld.Variadic = arrays.IsArray(field.Type, table) &&
 				arrays.Size(field.Type, table) == nil
 			ld.Pointer = !typemap.Nilable(field.Type, table)
+			value := field.Type
+			if ld.Variadic {
+				value = field.Type.TypeArgs[0]
+			}
+			ld.Enum = isStringEnum(value, table)
 			data.Lines = append(data.Lines, ld)
 			continue
 		}
@@ -417,8 +426,9 @@ func generateRequestFile(
 	)); n > 0 {
 		data.Args = "[" + strings.Join(slices.Repeat([]string{"any"}, n), ", ") + "]"
 	}
-	_, data.Search = request.Form.(resolution.StructForm).Field("search_term")
-	_, data.After = request.Form.(resolution.StructForm).Field("after")
+	requestForm := resolution.MustForm[resolution.StructForm](request)
+	_, data.Search = requestForm.Field("search_term")
+	_, data.After = requestForm.Field("after")
 	fields, _ := resolution.RecordFields(target, req.Resolutions)
 	sorts, err := resolution.Sorts(fields, req.Resolutions)
 	if err != nil {
@@ -562,6 +572,24 @@ func MatchWhere{{.TypeParams}}(w Where) (Filter{{.TypeArgs}}, error) {
 		}
 {{- end}}
 {{- if .Typed}}
+{{- if and .Enum .Variadic}}
+		for i, v := range l {
+			if !v.IsValid() {
+				return nil, validate.PathedError(
+					errors.Wrapf(validate.ErrValidation, "invalid {{.Path}} %q", v),
+					"{{.Path}}",
+					strconv.Itoa(i),
+				)
+			}
+		}
+{{- else if .Enum}}
+		if !l.IsValid() {
+			return nil, validate.PathedError(
+				errors.Wrapf(validate.ErrValidation, "invalid {{.Path}} %q", *l),
+				"{{.Path}}",
+			)
+		}
+{{- end}}
 		fs = append(fs, {{.Func}}{{$.TypeArgs}}({{if .Pointer}}*{{end}}l{{if .Variadic}}...{{end}}))
 {{- else if .Text}}
 		text := *l

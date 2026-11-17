@@ -25,6 +25,7 @@ import psutil
 from examples.modbus import ModbusSim
 
 import synnax as sy
+from framework.utils import hold
 from synnax import modbus
 from tests.driver.modbus_read import ModbusReadInputRegister
 from tests.driver.opcua_task import OPCUAReadTaskCase
@@ -126,7 +127,7 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
         for task in all_tasks:
             task._internal.execute_command("start")
 
-        sy.sleep(DEADLOCK_DURATION)  # noqa: TID251 keeps the simulator frozen
+        hold(DEADLOCK_DURATION, reason="keeps the simulator frozen")
 
         # Step 5: Health probe — can the driver still run a Modbus task?
         self._check_driver_responsive()
@@ -216,12 +217,6 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
                     os.kill(self.frozen_pid, signal.SIGCONT)
             except (OSError, psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
-        # Task deletion does not wait for the Driver, so a running task keeps its writer
-        # open and the channel delete in the parent teardown fails.
-        with self._try_to("stop the OPC UA tasks"):
-            for task in (self.tsk, *self.extra_tasks):
-                if task is not None:
-                    task.stop(timeout=HEALTH_TIMEOUT)
         if self.modbus_task is not None:
             try:
                 self.client.tasks.delete(self.modbus_task.key)

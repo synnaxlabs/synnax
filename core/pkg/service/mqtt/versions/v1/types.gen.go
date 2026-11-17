@@ -19,8 +19,9 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	"github.com/synnaxlabs/x/errors"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -47,42 +48,6 @@ func (q QoS) IsValid() bool {
 	default:
 		return false
 	}
-}
-
-// TimeFormat is the encoding of a timestamp value within a JSON payload.
-type TimeFormat string
-
-const (
-	// TimeFormatISO8601 is an ISO 8601 string.
-	TimeFormatISO8601 TimeFormat = "iso8601"
-	// TimeFormatUnixSec is a count of seconds since the Unix epoch.
-	TimeFormatUnixSec TimeFormat = "unix_sec"
-	// TimeFormatUnixMs is a count of milliseconds since the Unix epoch.
-	TimeFormatUnixMs TimeFormat = "unix_ms"
-	// TimeFormatUnixUs is a count of microseconds since the Unix epoch.
-	TimeFormatUnixUs TimeFormat = "unix_us"
-	// TimeFormatUnixNs is a count of nanoseconds since the Unix epoch.
-	TimeFormatUnixNs TimeFormat = "unix_ns"
-)
-
-// IsValid reports whether t is one of the defined TimeFormat
-// values.
-func (t TimeFormat) IsValid() bool {
-	switch t {
-	case TimeFormatISO8601, TimeFormatUnixSec, TimeFormatUnixMs, TimeFormatUnixUs, TimeFormatUnixNs:
-		return true
-	default:
-		return false
-	}
-}
-
-// EnumEntry maps a string label in a JSON payload to a numeric channel value for
-// enum-style parsing (e.g. "ON" -> 1, "OFF" -> 0).
-type EnumEntry struct {
-	// Label is the string label in the JSON payload.
-	Label string `json:"label" msgpack:"label"`
-	// Value is the numeric channel value the label maps to.
-	Value float64 `json:"value" msgpack:"value"`
 }
 
 // SparkplugDataType is the Sparkplug B data type of a tag.
@@ -146,16 +111,9 @@ type ReadField struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// TimeFormat is the encoding of the JSON value when the target channel holds
 	// timestamps. Required for timestamp channels.
-	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	TimeFormat *payload.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps string labels in the payload to numeric channel values.
-	EnumValues []EnumEntry `json:"enum_values" msgpack:"enum_values"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadField) ApplyDefaults() {
-	if r.DataType == "" {
-		r.DataType = "float64"
-	}
+	EnumValues []payload.EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -180,6 +138,16 @@ func (r *ReadField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 		r.SetDefaults()
 	}
 	return dec.Decode((*plain)(r))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadField) Validate() error {
+	v := validate.New("ReadField")
+	if r.TimeFormat != nil {
+		v.Ternaryf("time_format", !r.TimeFormat.IsValid(), "invalid time_format: %v", *r.TimeFormat)
+	}
+	return v.Error()
 }
 
 // BaseReadEntry carries the fields every read entry shares.
@@ -229,21 +197,14 @@ func (p *PlainReadEntry) SetDefaults() {
 	p.Qos = QoSAtMostOnce
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PlainReadEntry) ApplyDefaults() {
-	if p.Qos == "" {
-		p.Qos = QoSAtMostOnce
-	}
-	for i := range p.Fields {
-		p.Fields[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (p PlainReadEntry) Validate() error {
 	v := validate.New("PlainReadEntry")
 	v.Ternaryf("qos", !p.Qos.IsValid(), "invalid qos: %v", p.Qos)
+	for i := range p.Fields {
+		v.Exec(func() error { return validate.PathedError(p.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }
 
@@ -271,13 +232,6 @@ func (SparkplugReadEntry) isReadEntryVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (s *SparkplugReadEntry) SetDefaults() {
 	s.DataType = "float64"
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *SparkplugReadEntry) ApplyDefaults() {
-	if s.DataType == "" {
-		s.DataType = "float64"
-	}
 }
 
 // ReadEntry is a single source of an MQTT read task. The type field selects a plain
@@ -367,27 +321,16 @@ func (u ReadEntry) Type() ReadEntryType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *ReadEntry) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case PlainReadEntry:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case SparkplugReadEntry:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u ReadEntry) Validate() error {
+	v := validate.New("ReadEntry")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case PlainReadEntry:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -425,13 +368,6 @@ type ReadConfig struct {
 	Entries []ReadEntry `json:"entries" msgpack:"entries"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	for i := range r.Entries {
-		r.Entries[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (r ReadConfig) Validate() error {
@@ -442,50 +378,6 @@ func (r ReadConfig) Validate() error {
 	return v.Error()
 }
 
-// JSONType is the JSON type a channel value is serialized as in a payload.
-type JSONType string
-
-const (
-	// JSONTypeNumber writes the value as a JSON number.
-	JSONTypeNumber JSONType = "number"
-	// JSONTypeString writes the value as a JSON string.
-	JSONTypeString JSONType = "string"
-	// JSONTypeBoolean writes the value as a JSON boolean.
-	JSONTypeBoolean JSONType = "boolean"
-)
-
-// IsValid reports whether j is one of the defined JSONType
-// values.
-func (j JSONType) IsValid() bool {
-	switch j {
-	case JSONTypeNumber, JSONTypeString, JSONTypeBoolean:
-		return true
-	default:
-		return false
-	}
-}
-
-// GeneratorType is the kind of value produced for a generated write field.
-type GeneratorType string
-
-const (
-	// GeneratorTypeUUID produces a new UUID for each message.
-	GeneratorTypeUUID GeneratorType = "uuid"
-	// GeneratorTypeTimestamp produces the time of the message.
-	GeneratorTypeTimestamp GeneratorType = "timestamp"
-)
-
-// IsValid reports whether g is one of the defined GeneratorType
-// values.
-func (g GeneratorType) IsValid() bool {
-	switch g {
-	case GeneratorTypeUUID, GeneratorTypeTimestamp:
-		return true
-	default:
-		return false
-	}
-}
-
 // ChannelField is the command channel value placed into the payload of a target.
 type ChannelField struct {
 	// Pointer is the JSON Pointer where the channel value is placed in the payload. An
@@ -493,7 +385,7 @@ type ChannelField struct {
 	// target may not declare any additional fields.
 	Pointer string `json:"pointer" msgpack:"pointer"`
 	// JSONType is the JSON type the channel value is serialized as.
-	JSONType JSONType `json:"json_type" msgpack:"json_type"`
+	JSONType payload.JSONType `json:"json_type" msgpack:"json_type"`
 	// Channel is the Synnax command channel that triggers the publish.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// Name is the human-readable name of the command channel.
@@ -502,25 +394,15 @@ type ChannelField struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// TimeFormat is the output encoding when the command channel holds timestamps. An
 	// unset format is ISO 8601.
-	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	TimeFormat *payload.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps numeric channel values to string labels. Only valid when
 	// json_type is 'string'.
-	EnumValues []EnumEntry `json:"enum_values" msgpack:"enum_values"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *ChannelField) ApplyDefaults() {
-	if c.JSONType == "" {
-		c.JSONType = JSONTypeNumber
-	}
-	if c.DataType == "" {
-		c.DataType = "float64"
-	}
+	EnumValues []payload.EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
 func (c *ChannelField) SetDefaults() {
-	c.JSONType = JSONTypeNumber
+	c.JSONType = payload.JSONTypeNumber
 	c.DataType = "float64"
 }
 
@@ -548,6 +430,9 @@ func (c *ChannelField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (c ChannelField) Validate() error {
 	v := validate.New("ChannelField")
 	v.Ternaryf("json_type", !c.JSONType.IsValid(), "invalid json_type: %v", c.JSONType)
+	if c.TimeFormat != nil {
+		v.Ternaryf("time_format", !c.TimeFormat.IsValid(), "invalid time_format: %v", *c.TimeFormat)
+	}
 	return v.Error()
 }
 
@@ -579,7 +464,7 @@ type WriteFieldVariant interface {
 type StaticWriteField struct {
 	BaseWriteField
 	// JSONType is the JSON type the value is serialized as.
-	JSONType JSONType `json:"json_type" msgpack:"json_type"`
+	JSONType payload.JSONType `json:"json_type" msgpack:"json_type"`
 	// Value is the fixed JSON value placed at the pointer.
 	Value any `json:"value" msgpack:"value"`
 }
@@ -588,14 +473,7 @@ func (StaticWriteField) isWriteFieldVariant() {}
 
 // SetDefaults sets every field that has a schema default to that default.
 func (s *StaticWriteField) SetDefaults() {
-	s.JSONType = JSONTypeNumber
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StaticWriteField) ApplyDefaults() {
-	if s.JSONType == "" {
-		s.JSONType = JSONTypeNumber
-	}
+	s.JSONType = payload.JSONTypeNumber
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -610,23 +488,16 @@ func (s StaticWriteField) Validate() error {
 type GeneratedWriteField struct {
 	BaseWriteField
 	// Generator is the generator that produces a fresh value per publish.
-	Generator GeneratorType `json:"generator" msgpack:"generator"`
+	Generator payload.GeneratorType `json:"generator" msgpack:"generator"`
 	// TimeFormat is the output encoding for timestamp generators. Defaults to iso8601.
-	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	TimeFormat *payload.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 }
 
 func (GeneratedWriteField) isWriteFieldVariant() {}
 
 // SetDefaults sets every field that has a schema default to that default.
 func (g *GeneratedWriteField) SetDefaults() {
-	g.Generator = GeneratorTypeUUID
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (g *GeneratedWriteField) ApplyDefaults() {
-	if g.Generator == "" {
-		g.Generator = GeneratorTypeUUID
-	}
+	g.Generator = payload.GeneratorTypeUUID
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -634,6 +505,9 @@ func (g *GeneratedWriteField) ApplyDefaults() {
 func (g GeneratedWriteField) Validate() error {
 	v := validate.New("GeneratedWriteField")
 	v.Ternaryf("generator", !g.Generator.IsValid(), "invalid generator: %v", g.Generator)
+	if g.TimeFormat != nil {
+		v.Ternaryf("time_format", !g.TimeFormat.IsValid(), "invalid time_format: %v", *g.TimeFormat)
+	}
 	return v.Error()
 }
 
@@ -724,29 +598,18 @@ func (u WriteField) Type() WriteFieldType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *WriteField) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case StaticWriteField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case GeneratedWriteField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u WriteField) Validate() error {
+	v := validate.New("WriteField")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case StaticWriteField:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case GeneratedWriteField:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -820,17 +683,6 @@ func (p *PlainWriteTarget) SetDefaults() {
 	p.Qos = QoSAtLeastOnce
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PlainWriteTarget) ApplyDefaults() {
-	if p.Qos == "" {
-		p.Qos = QoSAtLeastOnce
-	}
-	p.Channel.ApplyDefaults()
-	for i := range p.Fields {
-		p.Fields[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (p PlainWriteTarget) Validate() error {
@@ -867,13 +719,6 @@ func (SparkplugWriteTarget) isWriteTargetVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (s *SparkplugWriteTarget) SetDefaults() {
 	s.TagType = SparkplugDataTypeDouble
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *SparkplugWriteTarget) ApplyDefaults() {
-	if s.TagType == "" {
-		s.TagType = SparkplugDataTypeDouble
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -971,29 +816,18 @@ func (u WriteTarget) Type() WriteTargetType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *WriteTarget) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case PlainWriteTarget:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case SparkplugWriteTarget:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u WriteTarget) Validate() error {
+	v := validate.New("WriteTarget")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case PlainWriteTarget:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SparkplugWriteTarget:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -1031,13 +865,6 @@ type WriteConfig struct {
 	Targets []WriteTarget `json:"targets" msgpack:"targets"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteConfig) ApplyDefaults() {
-	for i := range w.Targets {
-		w.Targets[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (w WriteConfig) Validate() error {
@@ -1051,11 +878,6 @@ func (w WriteConfig) Validate() error {
 // ScanConfig configures an MQTT scan task.
 type ScanConfig struct {
 	task.ScanConfig
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScanConfig) ApplyDefaults() {
-	s.ScanConfig.ApplyDefaults()
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -1110,13 +932,6 @@ type EdgeTag struct {
 	CommandChannelName *string `json:"command_channel_name,omitzero" msgpack:"command_channel_name,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (e *EdgeTag) ApplyDefaults() {
-	if e.TagType == "" {
-		e.TagType = SparkplugDataTypeDouble
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (e *EdgeTag) SetDefaults() {
 	e.TagType = SparkplugDataTypeDouble
@@ -1164,13 +979,6 @@ type EdgeConfig struct {
 	Authority uint8 `json:"authority" msgpack:"authority"`
 	// Tags contains the tags the edge node publishes.
 	Tags []EdgeTag `json:"tags" msgpack:"tags"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (e *EdgeConfig) ApplyDefaults() {
-	for i := range e.Tags {
-		e.Tags[i].ApplyDefaults()
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

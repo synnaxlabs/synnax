@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <map>
 #include <mutex>
 #include <set>
@@ -62,6 +63,16 @@ struct SlaveConfig {
     bool serial = false;
 };
 
+/// @brief a frame that a slave sends in place of a reply.
+struct Answer {
+    /// @brief the unit, function code, and data of the frame.
+    std::vector<uint8_t> raw;
+    /// @brief added to the transaction ID of the request.
+    int tid_offset = 0;
+    /// @brief a silence after the function code of the frame. TCP slaves only.
+    std::chrono::milliseconds pause{0};
+};
+
 /// @brief A simple mock Modbus slave server using libmodbus
 class Slave {
     modbus_t *ctx;
@@ -81,8 +92,14 @@ class Slave {
     std::vector<int> request_log;
     /// @brief the one-time delay before the next reply to each unit. Guarded by mu.
     std::map<int, std::chrono::milliseconds> stalls;
+    /// @brief whether a request that stall_next delays has arrived. Guarded by mu.
+    bool stalled = false;
+    std::condition_variable stalled_cv;
     /// @brief the units whose next reply goes out damaged. Guarded by mu.
     std::set<int> damaged;
+    /// @brief the frame that goes out in place of the next reply to each unit. Guarded
+    /// by mu.
+    std::map<int, Answer> answers;
     /// @brief the number of client connections accepted. Guarded by mu.
     std::size_t accepted_connections = 0;
     /// @brief set to ask the server loop to close every client connection.
@@ -252,14 +269,34 @@ class Slave {
             if (const auto it = stalls.find(unit); it != stalls.end()) {
                 stall = it->second;
                 stalls.erase(it);
+                stalled = true;
             }
         }
+        stalled_cv.notify_all();
         std::this_thread::sleep_for(stall);
-        std::lock_guard lock(mu);
+        std::unique_lock lock(mu);
         requests_by_function[function_code]++;
         requests_by_unit[unit]++;
         request_log.push_back(function_code);
         if (this->config.silent_units.contains(unit)) return;
+        if (const auto it = this->answers.find(unit); it != this->answers.end()) {
+            const auto [raw, tid_offset, pause] = it->second;
+            const int tid = this->config.serial ? 0 : (query[0] << 8 | query[1]);
+            if (pause.count() > 0) {
+                this->answers.erase(it);
+                lock.unlock();
+                this->send_with_pause(raw, tid + tid_offset, pause);
+                return;
+            }
+            modbus_send_raw_request_tid(
+                ctx,
+                raw.data(),
+                static_cast<int>(raw.size()),
+                tid + tid_offset
+            );
+            this->answers.erase(it);
+            return;
+        }
         const auto reply = [&] {
             if (this->config.gateway_failed_units.contains(unit))
                 modbus_reply_exception(ctx, query, MODBUS_EXCEPTION_GATEWAY_TARGET);
@@ -276,6 +313,31 @@ class Slave {
                 reply();
                 modbus_set_socket(ctx, this->terminal.fd());
             });
+    }
+
+    /// @brief sends raw, a unit and a PDU, as a TCP frame with the transaction ID, and
+    /// waits for the pause after its function code.
+    void send_with_pause(
+        const std::vector<uint8_t> &raw,
+        const int tid,
+        const std::chrono::milliseconds pause
+    ) const {
+        std::vector<uint8_t> frame{
+            static_cast<uint8_t>(tid >> 8),
+            static_cast<uint8_t>(tid & 0xFF),
+            0,
+            0,
+            static_cast<uint8_t>(raw.size() >> 8),
+            static_cast<uint8_t>(raw.size() & 0xFF),
+        };
+        frame.insert(frame.end(), raw.begin(), raw.end());
+        // The header is 7 bytes with the unit, so the function code ends at byte 8.
+        constexpr std::size_t split = 8;
+        const auto socket = modbus_get_socket(ctx);
+        const auto *data = reinterpret_cast<const char *>(frame.data());
+        ::send(socket, data, static_cast<int>(split), 0);
+        std::this_thread::sleep_for(pause);
+        ::send(socket, data + split, static_cast<int>(frame.size() - split), 0);
     }
 
     /// @brief serves RTU frames from the pseudo-terminal. libmodbus drops each RTU
@@ -518,11 +580,32 @@ public:
         stalls[unit] = delay;
     }
 
+    /// @brief waits until a request that stall_next delays arrives, or until the
+    /// timeout.
+    /// @returns true if one arrived.
+    bool wait_for_stall(const std::chrono::milliseconds timeout) {
+        std::unique_lock lock(mu);
+        return stalled_cv.wait_for(lock, timeout, [this] { return stalled; });
+    }
+
     /// @brief flips the last CRC byte of the next reply to the unit, as line noise
     /// would. Serial slaves only.
     void damage_next(const int unit) {
         std::lock_guard lock(mu);
         this->damaged.insert(unit);
+    }
+
+    /// @brief answers the next request to the unit with raw, a unit and a PDU, in place
+    /// of its reply. A TCP frame carries the transaction ID of the request plus
+    /// tid_offset, and pauses after its function code for pause.
+    void answer_next(
+        const int unit,
+        std::vector<uint8_t> raw,
+        const int tid_offset = 0,
+        const std::chrono::milliseconds pause = std::chrono::milliseconds(0)
+    ) {
+        std::lock_guard lock(mu);
+        this->answers[unit] = {std::move(raw), tid_offset, pause};
     }
 
     /// @brief sets whether the slave answers the unit.

@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/keywords"
 	"github.com/synnaxlabs/oracle/resolution"
-	"github.com/synnaxlabs/x/set"
 )
 
 func isScreamingCase(s string) bool {
@@ -47,10 +46,10 @@ func isScreamingCase(s string) bool {
 // identifiers (e.g., "Xy" → "XY", "Id" → "ID").
 var goAcronyms = []string{
 	"Acl", "Api", "Ascii", "Cpu", "Css", "Dns", "Eof", "Guid", "Html", "Http",
-	"Https", "Id", "Io", "Ip", "Iso", "Json", "Lhs", "Qps", "Ram", "Rhs",
+	"Https", "Icd", "Id", "Io", "Ip", "Iso", "Json", "Lhs", "Qps", "Ram", "Rhs",
 	"Rpc", "Sla", "Smtp", "Sql", "Ssh", "Svg", "Tcp", "Tls", "Ttl", "Udp",
-	"Ui", "Uid", "Uri", "Url", "Utc", "Utf", "Uuid", "Vm", "Xml", "Xmpp",
-	"Xss", "Xy",
+	"Ui", "Uid", "Uri", "Url", "Usb", "Utc", "Utf", "Uuid", "Vm", "Xml",
+	"Xmpp", "Xss", "Xy",
 }
 
 // pascalWord matches one word of a PascalCase identifier.
@@ -113,14 +112,15 @@ func LowerFirst(s string) string {
 	if i == 0 {
 		return s
 	}
-	if i == 1 {
+	switch {
+	case i == 1:
 		runes[0] = unicode.ToLower(runes[0])
-	} else if i == len(runes) {
+	case i == len(runes):
 		for j := range runes {
 			runes[j] = unicode.ToLower(runes[j])
 		}
-	} else {
-		for j := 0; j < i-1; j++ {
+	default:
+		for j := range i - 1 {
 			runes[j] = unicode.ToLower(runes[j])
 		}
 	}
@@ -128,7 +128,7 @@ func LowerFirst(s string) string {
 }
 
 // DerivePackageName extracts the package name from an output path. Example:
-// "core/pkg/service/user" -> "user"
+// "core/pkg/service/user" -> "user".
 func DerivePackageName(outputPath string) string { return filepath.Base(outputPath) }
 
 // majorVersion matches a module major-version path segment ("v2", "v12").
@@ -181,23 +181,24 @@ func DeriveVersionedAlias(outputPath, currentPackage string) string {
 	return base
 }
 
-// VersionAliases returns the import aliases for the version packages
-// (".../<resource>/versions/vN") among the import paths of one generated file, keyed by
-// path. When a file imports more than one version of a resource, the newest takes the
-// bare resource name and each older one takes the version-suffixed name ("irv0"). When
-// another import in the file is a non-version package with the resource's name, such as
-// the resource's root, every version takes the suffixed name. When two imported
-// resources share a name, both prefix it with their parent directory ("arctask",
-// "arctaskv0"). The result leaves out a resource imported at one version with no name
-// clash, and the versions of the file's own resource that sit beside currentPath.
-func VersionAliases(paths []string, currentPath string) map[string]string {
+// ImportAliases returns the import aliases among the import paths of one generated
+// file, keyed by path. Two packages with one name both prefix it with their parent
+// directory ("xcolor", "servicecolor"), as do two resources with one name ("arctask",
+// "arctaskv0"). When a file imports more than one version of a resource
+// (".../<resource>/versions/vN"), the newest takes the bare resource name and each
+// older one takes the version-suffixed name ("irv0"). When another import in the file
+// is a package with the resource's name, every version takes the suffixed name. The
+// result leaves out each package and resource with no name clash, and the versions of
+// the file's own resource that sit beside currentPath.
+func ImportAliases(paths []string, currentPath string) map[string]string {
 	byResource := make(map[string][]string)
-	plainNames := make(set.Set[string])
+	plainByName := make(map[string][]string)
 	for _, p := range paths {
 		dir := filepath.Dir(p)
 		if filepath.Base(dir) != "versions" ||
 			!majorVersion.MatchString(filepath.Base(p)) {
-			plainNames.Add(filepath.Base(p))
+			name := filepath.Base(p)
+			plainByName[name] = append(plainByName[name], p)
 			continue
 		}
 		if dir == filepath.Dir(currentPath) {
@@ -211,13 +212,21 @@ func VersionAliases(paths []string, currentPath string) map[string]string {
 		rootsByName[filepath.Base(root)]++
 	}
 	aliases := make(map[string]string)
+	for name, plain := range plainByName {
+		if len(plain) < 2 {
+			continue
+		}
+		for _, p := range plain {
+			aliases[p] = keywords.Escape(filepath.Base(filepath.Dir(p)) + name)
+		}
+	}
 	for root, versions := range byResource {
 		resource := filepath.Base(root)
 		shared := rootsByName[resource] > 1
 		if shared {
 			resource = filepath.Base(filepath.Dir(root)) + resource
 		}
-		bareTaken := plainNames.Contains(resource)
+		_, bareTaken := plainByName[resource]
 		if len(versions) < 2 && !bareTaken && !shared {
 			continue
 		}

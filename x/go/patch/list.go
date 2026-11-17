@@ -10,6 +10,8 @@
 package patch
 
 import (
+	"fmt"
+
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -33,9 +35,10 @@ func List[T any, P Entry[T]](dst *[]T, c Cursor) error {
 			return insertEntry[T, P](dst, c)
 		case kindMove:
 			return moveEntry[T, P](dst, c)
-		default:
+		case kindSet, kindRemove:
 			return whole(dst, c)
 		}
+		panic(fmt.Sprintf("patch: invalid action kind %d", c.kind))
 	}
 	key := c.Segment()
 	next := c.Next()
@@ -53,9 +56,10 @@ func List[T any, P Entry[T]](dst *[]T, c Cursor) error {
 			return setEntry(dst, i, key, c)
 		case kindRemove:
 			return removeEntry[T, P](dst, key, c)
-		default:
+		case kindInsert, kindMove:
 			return c.notList()
 		}
+		panic(fmt.Sprintf("patch: invalid action kind %d", c.kind))
 	}
 	entries := make([]T, len(list))
 	copy(entries, list)
@@ -64,6 +68,20 @@ func List[T any, P Entry[T]](dst *[]T, c Cursor) error {
 	}
 	*dst = entries
 	return nil
+}
+
+// EntryFields applies the action at c to a field of one entry of a list whose entries
+// take path actions only through their fields. It returns an error wrapping
+// validate.ErrValidation for a path that ends at the list or at an entry.
+func EntryFields[T any, P Entry[T]](dst *[]T, c Cursor) error {
+	if c.Done() || c.Next().Done() {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"%s: the path must go into an editable field of one entry",
+			format(c.path),
+		)
+	}
+	return List[T, P](dst, c)
 }
 
 // setEntry replaces the entry at index i, whose key is key.

@@ -40,10 +40,17 @@ export interface SnippetProps {
   code: Lines;
   /** The code to copy, when it differs from what the snippet shows. */
   copy?: Lines;
+  /** Fills and labels the copy button, for a snippet whose copy is the main action. */
+  primary?: boolean;
 }
 
 /** Shows colored code with a button that copies it. */
-export const Snippet = ({ label, code, copy = code }: SnippetProps): ReactElement => (
+export const Snippet = ({
+  label,
+  code,
+  copy = code,
+  primary = false,
+}: SnippetProps): ReactElement => (
   <Flex.Box x align="start" className={CSS.B("code-snippet")}>
     <pre aria-label={label}>
       {code.map((line, i) => (
@@ -63,10 +70,12 @@ export const Snippet = ({ label, code, copy = code }: SnippetProps): ReactElemen
     </pre>
     <Button.Copy
       text={toText(copy)}
-      variant="text"
+      variant={primary ? "filled" : "text"}
       size="small"
-      textColor={9}
+      textColor={primary ? undefined : 9}
       aria-label={`Copy ${label}`}
-    />
+    >
+      {primary && "Copy"}
+    </Button.Copy>
   </Flex.Box>
 );

@@ -176,11 +176,6 @@ func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
 	return nil
 }
 
-// liveTasks matches the tasks of the arc with key that are not snapshots.
-func liveTasks(matchTasks func(arcs ...Key) task.Filter, key Key) task.Filter {
-	return task.And(matchTasks(key), task.MatchSnapshot(false))
-}
-
 func retrieveTaskKeys(
 	ctx context.Context,
 	tasks *task.Service,
@@ -223,7 +218,7 @@ func (w Writer) UpdateTask(
 	key Key,
 	update TaskUpdate,
 ) (*task.Task, error) {
-	existing, err := retrieveTaskKeys(ctx, w.tasks, w.tx, liveTasks(w.matchTasks, key))
+	existing, err := retrieveTaskKeys(ctx, w.tasks, w.tx, w.matchTasks(key))
 	if err != nil {
 		return nil, err
 	}
@@ -252,16 +247,17 @@ func (w Writer) UpdateTask(
 			validate.ErrValidation, "a module cannot be bound to a rack",
 		)
 	}
-	if len(existing) > 0 {
+	switch {
+	case len(existing) > 0:
 		if tsk, cfg, err = w.retrieveTask(ctx, existing[0]); err != nil {
 			return nil, err
 		}
-	} else if update.Rack == nil {
+	case update.Rack == nil:
 		return nil, errors.Wrap(
 			validate.ErrValidation,
 			"cannot set the performance of an arc with no rack",
 		)
-	} else {
+	default:
 		cfg.SetDefaults()
 	}
 	if update.Rack != nil {
@@ -442,7 +438,7 @@ func (w Writer) retrieveTask(
 func (w Writer) syncTask(ctx context.Context, a Arc, built Build) error {
 	b := a.Base()
 	existing, err := retrieveTaskKeys(
-		ctx, w.tasks, w.tx, liveTasks(w.matchTasks, b.Key),
+		ctx, w.tasks, w.tx, w.matchTasks(b.Key),
 	)
 	if err != nil || len(existing) == 0 {
 		return err

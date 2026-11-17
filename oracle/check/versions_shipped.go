@@ -11,7 +11,6 @@ package check
 
 import (
 	"cmp"
-	"context"
 	"fmt"
 	"maps"
 	"slices"
@@ -32,11 +31,12 @@ type Release struct {
 
 // checkShipped fails on every version file whose stored types no longer decode the
 // data a stable release wrote. It compares filled-in shapes, so a type may move to
-// another file or chain, and an enum or union may gain members. resolver resolves the
-// current chains, and is nil when there are none.
+// another file or chain, and an enum or union may gain members. A chain that repoRoot
+// marks as removed passes. resolver resolves the current chains, and is nil when there
+// are none.
 func checkShipped(
-	ctx context.Context,
 	r *GateReport,
+	repoRoot string,
 	chains map[string]versions.Chain,
 	resolver *versions.Resolver,
 	release Release,
@@ -46,27 +46,22 @@ func checkShipped(
 		r.fail(Finding{Severity: SeverityError, Message: err.Error()})
 		return
 	}
+	removed, err := versions.Removed(repoRoot)
+	if err != nil {
+		r.fail(Finding{Severity: SeverityError, Message: err.Error()})
+		return
+	}
 	shipped := versions.NewResolver(
 		shippedChains, analyzer.NewStandardFileLoader(release.Root),
 	)
 	for _, livePath := range slices.Sorted(maps.Keys(shippedChains)) {
+		if removed.Contains(livePath) {
+			continue
+		}
 		chain := shippedChains[livePath]
 		for _, n := range chain.Numbers {
 			filePath := chain.FilePath(n) + ".oracle"
-			fail := func(format string, args ...any) {
-				r.fail(Finding{
-					Path:     filePath,
-					Severity: SeverityError,
-					Message: fmt.Sprintf(
-						"%s v%d %s, which %s shipped",
-						livePath, n, fmt.Sprintf(format, args...), release.Tag,
-					),
-					FixHint: fmt.Sprintf(
-						"restore %s from %s and change the shape in a new version",
-						filePath, release.Tag,
-					),
-				})
-			}
+			fail := r.shippedFail(release, filePath, livePath, n)
 			current, ok := chains[livePath]
 			if !ok || !slices.Contains(current.Numbers, n) {
 				fail("is gone")
@@ -74,7 +69,7 @@ func checkShipped(
 			}
 			ns := versions.DepNS(livePath, n)
 			old, now := resolution.NewTable(), resolution.NewTable()
-			if err := shipped.SurfaceInto(ctx, old, livePath, n, ns); err != nil {
+			if err := shipped.SurfaceInto(old, livePath, n, ns); err != nil {
 				r.fail(Finding{
 					Path:     filePath,
 					Severity: SeverityError,
@@ -82,7 +77,7 @@ func checkShipped(
 				})
 				continue
 			}
-			if err := resolver.SurfaceInto(ctx, now, livePath, n, ns); err != nil {
+			if err := resolver.SurfaceInto(now, livePath, n, ns); err != nil {
 				r.fail(Finding{
 					Path: filePath, Severity: SeverityError, Message: err.Error(),
 				})
@@ -90,6 +85,27 @@ func checkShipped(
 			}
 			compareStored(old, now, ns, fail)
 		}
+	}
+}
+
+func (r *GateReport) shippedFail(
+	release Release,
+	filePath, livePath string,
+	n int,
+) func(format string, args ...any) {
+	return func(format string, args ...any) {
+		r.fail(Finding{
+			Path:     filePath,
+			Severity: SeverityError,
+			Message: fmt.Sprintf(
+				"%s v%d %s, which %s shipped",
+				livePath, n, fmt.Sprintf(format, args...), release.Tag,
+			),
+			FixHint: fmt.Sprintf(
+				"restore %s from %s and change the shape in a new version",
+				filePath, release.Tag,
+			),
+		})
 	}
 }
 

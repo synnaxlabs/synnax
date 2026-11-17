@@ -19,9 +19,6 @@ from framework.run_with_connection import run_scripts
 from framework.test_case import Config
 from framework.utils import assert_envelope, assert_link_format
 from tests.driver.simulator_case import SimulatorCase
-from x import random_name
-
-RANGE_NAME = f"Task Lifecycle Range {random_name()}"
 
 
 @dataclass
@@ -103,12 +100,6 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
                     self.client.tasks.delete([t.key for t in tasks])
             except (sy.NotFoundError, TypeError):
                 pass
-        # Deleting the range deletes its task snapshots, which use the channels.
-        try:
-            rng = self.client.ranges.retrieve(name=RANGE_NAME)
-            self.client.ranges.delete(rng.key)
-        except sy.NotFoundError:
-            pass
         with self._try_to("delete example channels"):
             for names in EXAMPLE_CHANNELS:
                 try:
@@ -124,7 +115,6 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.test_export_task()
         self.test_open_task_config()
         self.test_open_task_via_search()
-        self.test_snapshot_to_active_range()
         self.test_rename_channel_sync()
         self.test_rename_task()
         self.test_delete_task()
@@ -239,18 +229,6 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
             f"Opened page name should be '{name}', got '{task_page.page_name}'"
         )
         self.console.close_all_tabs()
-
-    def test_snapshot_to_active_range(self) -> None:
-        """Snapshot tasks to the active range (individual and group)."""
-        self.console.ranges.create(RANGE_NAME, persisted=True)
-        self.console.ranges.favorite(RANGE_NAME)
-        self.console.ranges.set_active(RANGE_NAME)
-
-        self.log("Testing: Snapshot single task to active range")
-        self.console.tasks.snapshot([TASK_NAMES[0]], range_name=RANGE_NAME)
-
-        self.log("Testing: Snapshot multiple tasks to active range")
-        self.console.tasks.snapshot(TASK_NAMES[1:], range_name=RANGE_NAME)
 
     def test_rename_channel_sync(self) -> None:
         """Rename channels from toolbar, verify in task config; rename back from task

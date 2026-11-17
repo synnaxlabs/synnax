@@ -11,6 +11,7 @@ package iterator_test
 
 import (
 	"context"
+	"encoding/json/v2"
 	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1366,8 +1367,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				) {
 					GinkgoHelper()
 					start := telem.SecondTS * stamps[0]
-					keys := []channel.Key{index.Key()}
-					series := []telem.Series{telem.NewSeriesSecondsTSV(stamps...)}
+					keys := append(make([]channel.Key, 0, 1+len(channels)), index.Key())
+					series := append(
+						make([]telem.Series, 0, 1+len(channels)),
+						telem.NewSeriesSecondsTSV(stamps...),
+					)
 					for i, ch := range channels {
 						keys = append(keys, ch.Key())
 						series = append(series, telem.NewSeriesV[float32](values[i]...))
@@ -2559,21 +2563,47 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				}},
 				"aggregation: invalid aggregation: median",
 			),
+			Entry(
+				"a limit without an aggregation",
+				iterator.Config{Reduction: telem.Reduction{
+					Variant: telem.LimitReduction{PointLimit: 10},
+				}},
+				"aggregation: invalid aggregation: ",
+			),
 		)
 
-		It("Should reduce to min and max when a limit names no aggregation", func(
-			ctx SpecContext,
-		) {
-			v := read(ctx, iteratorSvc, iterator.Config{
-				Keys:   []channel.Key{sensorCh.Key()},
-				Bounds: bounds,
-				Reduction: telem.Reduction{
-					Variant: telem.LimitReduction{PointLimit: 10},
-				},
-			}).Get(sensorCh.Key())
-			Expect(v.Series).To(HaveLen(1))
-			Expect(v.Series[0].Unmarshal[float32]()).To(Equal(groupEnds(ramp(1), 20)))
-		})
+		// decode decodes a reduction from JSON, as a client request does.
+		decode := func(data string) telem.Reduction {
+			GinkgoHelper()
+			var r telem.Reduction
+			Expect(json.Unmarshal([]byte(data), &r)).To(Succeed())
+			return r
+		}
+
+		It("Should reduce to min and max when a decoded limit omits the aggregation",
+			func(ctx SpecContext) {
+				v := read(ctx, iteratorSvc, iterator.Config{
+					Keys:      []channel.Key{sensorCh.Key()},
+					Bounds:    bounds,
+					Reduction: decode(`{"variant":"limit","point_limit":10}`),
+				}).Get(sensorCh.Key())
+				Expect(v.Series).To(HaveLen(1))
+				Expect(v.Series[0].Unmarshal[float32]()).
+					To(Equal(groupEnds(ramp(1), 20)))
+			},
+		)
+
+		It("Should reject a decoded limit with an explicit empty aggregation",
+			func(ctx SpecContext) {
+				Expect(iteratorSvc.Open(ctx, iterator.Config{
+					Keys:   []channel.Key{sensorCh.Key()},
+					Bounds: bounds,
+					Reduction: decode(
+						`{"variant":"limit","point_limit":10,"aggregation":""}`,
+					),
+				})).Error().To(MatchError(ContainSubstring("invalid aggregation")))
+			},
+		)
 
 		It("Should reduce concrete channels in storage", func(ctx SpecContext) {
 			fr := read(ctx, iteratorSvc, aggregated(indexCh.Key(), sensorCh.Key()))
@@ -2799,8 +2829,10 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			)
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
+				kv := DeferClose(memkv.New())
 				store := &storage.Layer{
-					KV: DeferClose(memkv.New()),
+					KV:   kv,
+					Gorp: gorp.Wrap(kv),
 					TS: DeferClose(MustSucceed(cesium.Open(
 						ctx,
 						"",
@@ -2808,13 +2840,14 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						cesium.WithChunkSize(14),
 					))),
 				}
+				StartRun(store.Run)
 				node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 				iteratorSvc, channelSvc = openServices(ctx, node)
 				createSensor(ctx, node, channelSvc)
 			})
 			// values returns the samples of every series in m, in order.
 			values := func(m telem.MultiSeries) []float32 {
-				var out []float32
+				out := make([]float32, 0, m.Len())
 				for _, s := range m.Series {
 					out = append(out, s.Unmarshal[float32]()...)
 				}
@@ -3071,10 +3104,13 @@ var _ = Describe("Read failure", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		faulty = WrapFaultyFS(xfs.NewMem())
+		kv := DeferClose(memkv.New())
 		store := &storage.Layer{
-			KV: DeferClose(memkv.New()),
-			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
+			KV:   kv,
+			Gorp: gorp.Wrap(kv),
+			TS:   DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
 		}
+		StartRun(store.Run)
 		node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 		iteratorSvc, channelSvc = openServices(ctx, node)
 	})

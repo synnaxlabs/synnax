@@ -40,24 +40,24 @@ describe("plan", () => {
   });
 
   it("should build a train from a branch that holds its newest tag", async () => {
-    const branches = { "release/core-0.62": ["core/v0.62.0", "core/v0.62.1"] };
+    const branches = { "release/0.62": ["core/v0.62.0", "core/v0.62.1"] };
     expect(await plan(["0.62"], {}, lookups(["0.63", "0.62"], branches))).toEqual([
       {
         version: "0.62",
-        ref: "release/core-0.62",
+        ref: "release/0.62",
         host: "v0-62.docs.synnaxlabs.com",
       },
     ]);
   });
 
   it("should build a train from its newest tag when the branch lacks it", async () => {
-    const branches = { "release/core-0.62": ["core/v0.62.0"] };
+    const branches = { "release/0.62": ["core/v0.62.0"] };
     const [{ ref }] = await plan(["0.62"], {}, lookups(["0.63", "0.62"], branches));
     expect(ref).toEqual("core/v0.62.1");
   });
 
   it.each(["0.60", "0.61"])("should build %s from its docs branch", async (train) => {
-    const branches = { [`release/core-${train}`]: [`core/v${NEWEST[train]}`] };
+    const branches = { [`release/${train}`]: [`core/v${NEWEST[train]}`] };
     const [{ ref }] = await plan([train], {}, lookups(["0.61", "0.60"], branches));
     expect(ref).toEqual(`release/docs-${train}`);
   });

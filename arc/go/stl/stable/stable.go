@@ -173,7 +173,7 @@ func (s *forNode) Next(ctx node.Context) {
 		return
 	}
 	out := s.Output(0)
-	out.Resize(int64(len(stamps)))
+	*out = out.Resized(int64(len(stamps)))
 	copy(out.Data, held)
 	*s.OutputTime(0) = telem.NewSeriesV(stamps...)
 	s.Emit(ctx, 0)

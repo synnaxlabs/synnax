@@ -52,11 +52,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:    svc.RBAC,
 		Channel: svc.Channel,
 		Status:  svc.Status,
-		Alias:   svc.Alias,
 	}))
 	var pool *fgrpc.Pool
 	addr := StartServer(func(reg grpc.ServiceRegistrar, p *fgrpc.Pool) {
-		bindable = grpcframer.New(&transport, apiChannelSvc)
+		bindable = grpcframer.New(&transport, apiChannelSvc, api.NewErrorCodec())
 		bindable.BindTo(reg)
 		pool = p
 	})

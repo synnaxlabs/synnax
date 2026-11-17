@@ -8,8 +8,12 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <future>
+#include <limits>
 #include <memory>
+#include <stdexcept>
 #include <thread>
 #include <variant>
 
@@ -24,6 +28,10 @@
 #include "arc/cpp/runtime/loop/loop.h"
 #include "driver/arc/arc.h"
 #include "driver/arc/task.h"
+#include "driver/bypass/bypass.h"
+#include "driver/bypass/pipeline/streamer.h"
+#include "driver/bypass/pipeline/writer.h"
+#include "driver/control/state.h"
 #include "driver/pipeline/testutil/pipeline.h"
 #include "driver/task/task.h"
 
@@ -791,7 +799,8 @@ void expect_status(
     }
 }
 
-TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
+/// @brief it should send a warning and keep the task running when a node traps.
+TEST(ArcErrorHandling, WasmTrapSendsWarning) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto input_idx_name = make_unique_channel_name("trap_input_idx");
@@ -880,22 +889,283 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
     );
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-
-    auto *error_status = find_status_by_variant(
-        ctx->statuses,
-        synnax::status::VARIANT_ERROR
+    ASSERT_EVENTUALLY_TRUE(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_WARNING) !=
+        nullptr
     );
-    ASSERT_NE(error_status, nullptr) << "Fatal WASM trap should produce error status";
-    expect_status(*error_status, synnax::status::VARIANT_ERROR, false);
-    EXPECT_EQ(error_status->message, "Failed to run Arc program");
+    const auto *warning = find_status_by_variant(
+        ctx->statuses,
+        synnax::status::VARIANT_WARNING
+    );
+    expect_status(*warning, synnax::status::VARIANT_WARNING, true);
+    EXPECT_EQ(warning->message, "Node failed");
+    EXPECT_TRUE(warning->description.starts_with("The divide_by_zero node failed: "));
     EXPECT_TRUE(
-        error_status->description.starts_with("The divide_by_zero node failed: ")
+        warning->description.ends_with("at sample 0/1: integer divide by zero")
+    );
+    EXPECT_EQ(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_ERROR),
+        nullptr
     );
 
     task->stop("test_stop", true);
+}
+
+/// @brief it should stop a program whose cycle uses its whole loop budget.
+TEST(ArcErrorHandling, LoopBudgetStopsProgram) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    synnax::arc::AutomationArc arc_prog{
+        {.name = make_unique_channel_name("loop_budget_test")}
+    };
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func spin() {\n    for {}\n}\ninterval(period=10ms) -> spin()\n"
+        }
+    };
+    ASSERT_NIL(create_automation(client, arc_prog));
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_loop_budget_rack"))
+    );
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_loop_budget_test",
+        .type = "arc_runtime",
+    };
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            std::make_shared<pipeline::testutil::WriterFactory>(),
+            pipeline::testutil::simple_streamer_factory(
+                {},
+                std::make_shared<std::vector<x::telem::Frame>>()
+            )
+        )
+    );
+    task->start("test_start");
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        [&] {
+            auto statuses = ctx->snapshot();
+            return find_status_by_variant(statuses, synnax::status::VARIANT_ERROR) !=
+                   nullptr;
+        }(),
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(50)
+    );
+    auto statuses = ctx->snapshot();
+    const auto *error_status = find_status_by_variant(
+        statuses,
+        synnax::status::VARIANT_ERROR
+    );
+    expect_status(*error_status, synnax::status::VARIANT_ERROR, false);
+    EXPECT_EQ(error_status->message, "Program ran too long");
+    EXPECT_TRUE(error_status->description.starts_with("The spin node failed: "));
+    task->stop("test_stop", true);
+}
+
+/// @brief streams a frame that triggers a channel every 5ms until the pipeline closes.
+class TriggerStreamer final : public pipeline::Streamer {
+    synnax::channel::Key idx;
+    synnax::channel::Key ch;
+    std::atomic<bool> closed = false;
+
+public:
+    TriggerStreamer(const synnax::channel::Key idx, const synnax::channel::Key ch):
+        idx(idx), ch(ch) {}
+
+    std::pair<x::telem::Frame, x::errors::Error> read() override {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        if (this->closed) return {x::telem::Frame{}, freighter::STREAM_CLOSED};
+        x::telem::Frame fr(2);
+        fr.emplace(this->idx, x::telem::Series(x::telem::TimeStamp::now()));
+        fr.emplace(this->ch, x::telem::Series(static_cast<int32_t>(1)));
+        return {std::move(fr), x::errors::NIL};
+    }
+
+    void close_send() override { this->closed = true; }
+
+    x::errors::Error close() override { return x::errors::NIL; }
+};
+
+class TriggerStreamerFactory final : public pipeline::StreamerFactory {
+    synnax::channel::Key idx;
+    synnax::channel::Key ch;
+
+public:
+    TriggerStreamerFactory(
+        const synnax::channel::Key idx,
+        const synnax::channel::Key ch
+    ):
+        idx(idx), ch(ch) {}
+
+    std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
+    open_streamer(synnax::framer::StreamerConfig) override {
+        return {std::make_unique<TriggerStreamer>(this->idx, this->ch), x::errors::NIL};
+    }
+};
+
+/// @brief it should keep the loop budget status while input keeps arriving after the
+/// program stops.
+TEST(ArcErrorHandling, LoopBudgetStatusSurvivesLaterInput) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto input_idx = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("budget_input_idx"),
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto input_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("budget_input"),
+        x::telem::INT32_T,
+        input_idx.key
+    ));
+    synnax::arc::AutomationArc arc_prog{
+        {.name = make_unique_channel_name("budget_input_test")}
+    };
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func spin() {val i32} {\n"
+                   "    for {}\n"
+                   "}\n" +
+                   input_ch.name + " -> spin()\n"
+        }
+    };
+    ASSERT_NIL(create_automation(client, arc_prog));
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_budget_input_rack"))
+    );
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_budget_input_test",
+        .type = "arc_runtime",
+    };
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+    task_cfg.loop_budget = 1000;
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            std::make_shared<pipeline::testutil::WriterFactory>(),
+            std::make_shared<TriggerStreamerFactory>(input_idx.key, input_ch.key)
+        )
+    );
+    task->start("test_start");
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        [&] {
+            auto statuses = ctx->snapshot();
+            return find_status_by_variant(statuses, synnax::status::VARIANT_ERROR) !=
+                   nullptr;
+        }(),
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(50)
+    );
+    // Gives the streamer time to send frames after the runtime stopped.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    task->stop("test_stop", true);
+    for (const auto &s: ctx->snapshot()) {
+        if (s.variant == synnax::status::VARIANT_ERROR) {
+            EXPECT_EQ(s.message, "Program ran too long");
+        }
+    }
+}
+
+/// @brief it should stop a program that runs an infinite loop, and report a successful
+/// stop with no error.
+TEST(ArcErrorHandling, StopInterruptsInfiniteLoop) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto input_idx = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("spin_input_idx"),
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto input_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("spin_input"),
+        x::telem::INT32_T,
+        input_idx.key
+    ));
+    auto output_idx = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("spin_output_idx"),
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto output_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("spin_output"),
+        x::telem::INT32_T,
+        output_idx.key
+    ));
+    synnax::arc::AutomationArc arc_prog{
+        {.name = make_unique_channel_name("spin_test")}
+    };
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func spin() {val i32} i32 {\n"
+                   "    for { val = val + 1 }\n"
+                   "    return val\n"
+                   "}\n" +
+                   input_ch.name + " -> spin() -> " + output_ch.name + "\n"
+        }
+    };
+    ASSERT_NIL(create_automation(client, arc_prog));
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_spin_test_rack"))
+    );
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_spin_test",
+        .type = "arc_runtime",
+    };
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+    task_cfg.loop_budget = std::numeric_limits<std::int64_t>::max();
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame trigger_fr(2);
+    auto idx_series = x::telem::Series(x::telem::TimeStamp::now());
+    idx_series.alignment = x::telem::Alignment(1, 0);
+    auto val_series = x::telem::Series(static_cast<int32_t>(1));
+    val_series.alignment = x::telem::Alignment(1, 0);
+    trigger_fr.emplace(input_idx.key, std::move(idx_series));
+    trigger_fr.emplace(input_ch.key, std::move(val_series));
+    input_frames->push_back(std::move(trigger_fr));
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            std::make_shared<pipeline::testutil::WriterFactory>(),
+            pipeline::testutil::simple_streamer_factory(
+                {input_idx.key, input_ch.key},
+                input_frames
+            )
+        )
+    );
+
+    task->start("test_start");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    const auto stopping = std::chrono::steady_clock::now();
+    task->stop("test_stop", true);
+    EXPECT_LT(std::chrono::steady_clock::now() - stopping, std::chrono::seconds(1));
+    EXPECT_EQ(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_ERROR),
+        nullptr
+    );
+    const auto stop_state = ctx->statuses.back();
+    EXPECT_EQ(stop_state.details.cmd, "test_stop");
+    EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(stop_state.message, "Stopped task");
 }
 
 TEST(ArcErrorHandling, NodeWarningKeepsProgramRunning) {
@@ -1105,14 +1375,14 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     );
 
     task->start("test_start_1");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-
-    auto *error_status = find_status_by_variant(
-        ctx->statuses,
-        synnax::status::VARIANT_ERROR
+    ASSERT_EVENTUALLY_TRUE(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_WARNING) !=
+        nullptr
     );
-    EXPECT_NE(error_status, nullptr) << "Should have error status after WASM trap";
+    EXPECT_EQ(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_ERROR),
+        nullptr
+    );
 
     task->stop("test_stop_1", true);
 
@@ -1401,6 +1671,7 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
 }
 
 TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
+    x::breaker::Breaker cancel;
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto input_idx_name = make_unique_channel_name("stop_cmd_input_idx");
@@ -1481,7 +1752,9 @@ TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
         .type = "start",
         .key = "stop_cmd_test_start",
     };
-    task->exec(start_cmd);
+    cancel.start();
+    task->exec(start_cmd, cancel);
+    cancel.stop();
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
     synnax::task::Command stop_cmd{
@@ -1489,7 +1762,9 @@ TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
         .type = "stop",
         .key = "stop_cmd_test_stop",
     };
-    task->exec(stop_cmd);
+    cancel.start();
+    task->exec(stop_cmd, cancel);
+    cancel.stop();
 
     bool found_stop_reply = false;
     for (const auto &s: ctx->statuses)
@@ -3341,4 +3616,210 @@ TEST(ArcTests, testWriteOnlyNoReadChannels) {
     task->stop("test_stop", true);
 }
 
+/// @brief it should run the first cycle after the command streamer opens, so that the
+/// program reads its own first write.
+TEST(ArcTests, ReadsItsOwnFirstWrite) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto first = synnax::channel::Channel{
+        .name = make_unique_channel_name("own_write_first"),
+        .data_type = x::telem::UINT8_T,
+        .is_virtual = true,
+    };
+    ASSERT_NIL(client->channels.create(first));
+    auto second = synnax::channel::Channel{
+        .name = make_unique_channel_name("own_write_second"),
+        .data_type = x::telem::UINT8_T,
+        .is_virtual = true,
+    };
+    ASSERT_NIL(client->channels.create(second));
+
+    synnax::arc::AutomationArc arc_prog{
+        {.name = make_unique_channel_name("own_write_test")}
+    };
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "1 -> " + first.name + "\n" + first.name + " -> " + second.name +
+                   "\n"
+        }
+    };
+    ASSERT_NIL(create_automation(client, arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_own_write_rack"))
+    );
+
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_own_write_test",
+        .type = "arc_runtime",
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
+    task_meta.config = cfg;
+
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
+        {first.key},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    std::promise<void> open;
+    mock_streamer->open_gate = open.get_future().share();
+
+    auto bus = std::make_shared<bypass::Bus>();
+    auto ctx = std::make_shared<task::MockContext>(client);
+
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            std::make_shared<bypass::pipeline::WriterFactory>(
+                mock_writer,
+                bus,
+                std::make_shared<control::States>(),
+                0
+            ),
+            std::make_shared<bypass::pipeline::StreamerFactory>(
+                mock_streamer,
+                bus,
+                x::control::Subject{},
+                x::breaker::default_config("arc_test")
+            )
+        )
+    );
+
+    task->start("test_start");
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    EXPECT_EQ(mock_writer->writes->size(), 0);
+    open.set_value();
+    ASSERT_EVENTUALLY_TRUE(
+        std::ranges::any_of(mock_writer->writes->snapshot(), [&](const auto &fr) {
+            return fr.contains(second.key);
+        })
+    );
+
+    task->stop("test_stop", true);
+}
+
+/// @brief the state of a pipeline thread that a HeldFailure holds in its catch block.
+struct Hold {
+    std::atomic<bool> entered{false};
+    std::atomic<bool> released{false};
+};
+
+/// @brief a failure that holds the thread that caught it until its Hold is released.
+class HeldFailure final : public std::runtime_error {
+    std::shared_ptr<Hold> hold;
+
+public:
+    explicit HeldFailure(std::shared_ptr<Hold> hold):
+        std::runtime_error("held failure"), hold(std::move(hold)) {}
+
+    ~HeldFailure() override {
+        if (this->hold == nullptr || this->hold->entered.exchange(true)) return;
+        this->hold->released.wait(false);
+    }
+};
+
+/// @brief a streamer factory whose open throws a HeldFailure.
+class HeldFailureFactory final : public pipeline::StreamerFactory {
+    std::shared_ptr<Hold> hold;
+
+public:
+    explicit HeldFailureFactory(std::shared_ptr<Hold> hold): hold(std::move(hold)) {}
+
+    std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
+    open_streamer(synnax::framer::StreamerConfig) override {
+        throw HeldFailure(this->hold);
+    }
+};
+
+/// @brief it should answer a start that arrives while the pipeline of a failed start is
+/// still on its way out.
+TEST(ArcTests, AnswersStartWhileFailedStartExits) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto input = synnax::channel::Channel{
+        .name = make_unique_channel_name("failed_start_input"),
+        .data_type = x::telem::UINT8_T,
+        .is_virtual = true,
+    };
+    ASSERT_NIL(client->channels.create(input));
+    auto output = synnax::channel::Channel{
+        .name = make_unique_channel_name("failed_start_output"),
+        .data_type = x::telem::UINT8_T,
+        .is_virtual = true,
+    };
+    ASSERT_NIL(client->channels.create(output));
+
+    synnax::arc::AutomationArc arc_prog{
+        {.name = make_unique_channel_name("failed_start_test")}
+    };
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{.raw = input.name + " -> " + output.name + "\n"}
+    };
+    ASSERT_NIL(create_automation(client, arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_failed_start_rack"))
+    );
+
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_failed_start_test",
+        .type = "arc_runtime",
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
+    task_meta.config = cfg;
+
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto hold = std::make_shared<Hold>();
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            std::make_shared<pipeline::testutil::WriterFactory>(),
+            std::make_shared<HeldFailureFactory>(hold)
+        )
+    );
+    // The release comes first, because the stop joins the held thread.
+    x::defer::defer cleanup([&] {
+        hold->released.store(true);
+        hold->released.notify_all();
+        task->stop("test_stop", true);
+    });
+
+    task->start("failed_start");
+    ASSERT_EVENTUALLY_TRUE(hold->entered.load());
+    task->start("next_start");
+    ASSERT_EVENTUALLY_TRUE(std::ranges::any_of(ctx->snapshot(), [](const auto &s) {
+        return s.details.cmd == "next_start" && !s.details.running;
+    }));
+}
+
+/// @brief it should write the error of a boot configure that fails, so a status that
+/// the Core wrote while the Driver was down does not stay.
+TEST(ArcFactory, BootConfigureErrorWritesStatus) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto ctx = std::make_shared<driver::task::MockContext>(client);
+    synnax::task::Task task{.name = "arc_missing", .type = TASK_TYPE};
+    task.config = nlohmann::json{{"arc_key", x::uuid::create().to_string()}};
+    Factory factory;
+    x::breaker::Breaker cancel;
+    auto [tsk, handled] = factory.configure_task(ctx, task, task::NO_COMMAND, cancel);
+    EXPECT_TRUE(handled);
+    EXPECT_EQ(tsk, nullptr);
+    const auto statuses = ctx->snapshot();
+    ASSERT_EQ(statuses.size(), 1);
+    EXPECT_EQ(statuses[0].variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(statuses[0].message, "Failed to configure task");
+    EXPECT_FALSE(statuses[0].details.running);
+}
 }

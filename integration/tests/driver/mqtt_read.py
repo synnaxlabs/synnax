@@ -17,6 +17,7 @@ import synnax as sy
 from synnax import mqtt
 from tests.driver.mqtt_task import MQTTReadTaskCase
 from tests.driver.task import create_channel, create_index
+from x import payload
 
 
 class MQTTReadJSON(MQTTReadTaskCase):
@@ -62,8 +63,8 @@ class MQTTReadJSON(MQTTReadTaskCase):
                         channel=running,
                         data_type=sy.DataType.UINT8,
                         enum_values=[
-                            mqtt.EnumEntry(label="idle", value=0),
-                            mqtt.EnumEntry(label="running", value=1),
+                            payload.EnumEntry(label="idle", value=0),
+                            payload.EnumEntry(label="running", value=1),
                         ],
                     ),
                 ],

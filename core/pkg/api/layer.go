@@ -31,22 +31,25 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/certificate"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
+	"github.com/synnaxlabs/synnax/pkg/api/color"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
+	nichassis "github.com/synnaxlabs/synnax/pkg/api/ni/chassis"
+	nidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
-	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
@@ -58,6 +61,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // LayerConfig is the configuration for opening the API layer.
@@ -86,8 +90,14 @@ type Transport struct {
 	UserDispatch freighter.UnaryServer[user.DispatchRequest, struct{}]
 	// CHANNEL
 	ChannelCreate   freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
-	ChannelRetrieve freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
+	ChannelRetrieve freighter.UnaryServer[channel.RetrieveRequest, channel.RetrieveResponse]
 	ChannelDelete   freighter.UnaryServer[channel.DeleteRequest, struct{}]
+	// ChannelCountLimited returns how many channels count against the license channel
+	// limit.
+	ChannelCountLimited freighter.UnaryServer[
+		channel.CountLimitedRequest,
+		channel.CountLimitedResponse,
+	]
 	// ChannelDispatch applies actions to a channel.
 	ChannelDispatch freighter.UnaryServer[channel.DispatchRequest, channel.DispatchResponse]
 	// CONNECTIVITY
@@ -116,14 +126,6 @@ type Transport struct {
 	KVDelete freighter.UnaryServer[kv.DeleteRequest, struct{}]
 	// KVDispatch applies path actions to a range key-value pair.
 	KVDispatch freighter.UnaryServer[kv.DispatchRequest, struct{}]
-	// ALIAS
-	AliasSet      freighter.UnaryServer[alias.SetRequest, struct{}]
-	AliasResolve  freighter.UnaryServer[alias.ResolveRequest, alias.ResolveResponse]
-	AliasDelete   freighter.UnaryServer[alias.DeleteRequest, struct{}]
-	AliasList     freighter.UnaryServer[alias.ListRequest, alias.ListResponse]
-	AliasRetrieve freighter.UnaryServer[alias.RetrieveRequest, alias.RetrieveResponse]
-	// AliasDispatch applies path actions to a range alias.
-	AliasDispatch freighter.UnaryServer[alias.DispatchRequest, struct{}]
 	// RESOURCE
 	ResourceSearch   freighter.UnaryServer[apiresource.SearchRequest, apiresource.SearchResponse]
 	ResourceRetrieve freighter.UnaryServer[apiresource.RetrieveRequest, apiresource.RetrieveResponse]
@@ -169,6 +171,13 @@ type Transport struct {
 	LinePlotRetrieve freighter.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]
 	LinePlotDelete   freighter.UnaryServer[lineplot.DeleteRequest, struct{}]
 	LinePlotDispatch freighter.UnaryServer[lineplot.DispatchRequest, lineplot.DispatchResponse]
+	// ICD
+	ICDCreate   freighter.UnaryServer[icd.CreateRequest, icd.CreateResponse]
+	ICDRetrieve freighter.UnaryServer[icd.RetrieveRequest, icd.RetrieveResponse]
+	ICDCheck    freighter.UnaryServer[icd.CheckRequest, icd.CheckResponse]
+	ICDDispatch freighter.UnaryServer[icd.DispatchRequest, struct{}]
+	ICDImport   freighter.UnaryServer[icd.ImportRequest, icd.ImportResponse]
+	ICDDelete   freighter.UnaryServer[icd.DeleteRequest, struct{}]
 	// PANEL
 	PanelCreate   freighter.UnaryServer[panel.CreateRequest, panel.CreateResponse]
 	PanelRetrieve freighter.UnaryServer[panel.RetrieveRequest, panel.RetrieveResponse]
@@ -182,6 +191,14 @@ type Transport struct {
 	LabelRemove   freighter.UnaryServer[label.RemoveRequest, struct{}]
 	// LabelDispatch applies path actions to a label.
 	LabelDispatch freighter.UnaryServer[label.DispatchRequest, struct{}]
+	// COLOR
+	ColorCreate   freighter.UnaryServer[color.CreateRequest, color.CreateResponse]
+	ColorRetrieve freighter.UnaryServer[color.RetrieveRequest, color.RetrieveResponse]
+	ColorDelete   freighter.UnaryServer[color.DeleteRequest, struct{}]
+	// ColorDispatch applies path actions to a named color.
+	ColorDispatch freighter.UnaryServer[color.DispatchRequest, struct{}]
+	// ColorRetrieveBuiltins returns the shipped values of the built-in named colors.
+	ColorRetrieveBuiltins freighter.UnaryServer[struct{}, color.RetrieveBuiltinsResponse]
 	// RACK
 	RackCreate   freighter.UnaryServer[rack.CreateRequest, rack.CreateResponse]
 	RackRetrieve freighter.UnaryServer[rack.RetrieveRequest, rack.RetrieveResponse]
@@ -201,6 +218,18 @@ type Transport struct {
 	DeviceDelete   freighter.UnaryServer[device.DeleteRequest, struct{}]
 	// DeviceDispatch applies actions to a device.
 	DeviceDispatch freighter.UnaryServer[device.DispatchRequest, struct{}]
+
+	// NI DEVICE
+	NIDeviceCreate   freighter.UnaryServer[nidevice.CreateRequest, nidevice.CreateResponse]
+	NIDeviceRetrieve freighter.UnaryServer[nidevice.RetrieveRequest, nidevice.RetrieveResponse]
+	NIDeviceUpdate   freighter.UnaryServer[nidevice.UpdateRequest, struct{}]
+	NIDeviceDelete   freighter.UnaryServer[nidevice.DeleteRequest, struct{}]
+
+	// NI CHASSIS
+	NIChassisCreate   freighter.UnaryServer[nichassis.CreateRequest, nichassis.CreateResponse]
+	NIChassisRetrieve freighter.UnaryServer[nichassis.RetrieveRequest, nichassis.RetrieveResponse]
+	NIChassisUpdate   freighter.UnaryServer[nichassis.UpdateRequest, struct{}]
+	NIChassisDelete   freighter.UnaryServer[nichassis.DeleteRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -262,6 +291,7 @@ type Transport struct {
 type Layer struct {
 	Project      *project.Service
 	LinePlot     *lineplot.Service
+	ICD          *icd.Service
 	User         *user.Service
 	Framer       *framer.Service
 	Channel      *channel.Service
@@ -271,7 +301,6 @@ type Layer struct {
 	Resource     *apiresource.Service
 	Range        *ranger.Service
 	KV           *kv.Service
-	Alias        *alias.Service
 	Group        *group.Service
 	Log          *log.Service
 	Auth         *auth.Service
@@ -283,9 +312,12 @@ type Layer struct {
 	Table        *table.Service
 	Panel        *panel.Service
 	Label        *label.Service
+	Color        *color.Service
 	Rack         *rack.Service
 	Task         *task.Service
 	Device       *device.Service
+	NIDevice     *nidevice.Service
+	NIChassis    *nichassis.Service
 	Policy       *policy.Service
 	Role         *role.Service
 	Arc          *arc.Service
@@ -295,6 +327,9 @@ type Layer struct {
 	binder       *bind.Service
 	config       config.LayerConfig
 }
+
+// Errors returns the codec that encodes the errors the API sends to clients.
+func (l *Layer) Errors() *errors.Codec { return l.config.Errors }
 
 // BindTo binds the API layer to the provided Transport implementation.
 func (l *Layer) BindTo(t Transport) {
@@ -359,6 +394,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ChannelCreate,
 		t.ChannelRetrieve,
 		t.ChannelDelete,
+		t.ChannelCountLimited,
 		t.ChannelDispatch,
 
 		// FRAME
@@ -394,14 +430,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.KVDelete,
 		t.KVDispatch,
 
-		// ALIAS
-		t.AliasSet,
-		t.AliasResolve,
-		t.AliasRetrieve,
-		t.AliasList,
-		t.AliasDelete,
-		t.AliasDispatch,
-
 		// PROJECT
 		t.ProjectDelete,
 		t.ProjectCreate,
@@ -432,6 +460,14 @@ func (l *Layer) BindTo(t Transport) {
 		t.LinePlotRetrieve,
 		t.LinePlotDelete,
 
+		// ICD
+		t.ICDCreate,
+		t.ICDRetrieve,
+		t.ICDCheck,
+		t.ICDDispatch,
+		t.ICDImport,
+		t.ICDDelete,
+
 		// PANEL
 		t.PanelCreate,
 		t.PanelRetrieve,
@@ -458,6 +494,13 @@ func (l *Layer) BindTo(t Transport) {
 		t.LabelRemove,
 		t.LabelDispatch,
 
+		// COLOR
+		t.ColorCreate,
+		t.ColorRetrieve,
+		t.ColorDelete,
+		t.ColorDispatch,
+		t.ColorRetrieveBuiltins,
+
 		// RACK
 		t.RackCreate,
 		t.RackRetrieve,
@@ -476,6 +519,18 @@ func (l *Layer) BindTo(t Transport) {
 		t.DeviceRetrieve,
 		t.DeviceDelete,
 		t.DeviceDispatch,
+
+		// NI DEVICE
+		t.NIDeviceCreate,
+		t.NIDeviceRetrieve,
+		t.NIDeviceUpdate,
+		t.NIDeviceDelete,
+
+		// NI CHASSIS
+		t.NIChassisCreate,
+		t.NIChassisRetrieve,
+		t.NIChassisUpdate,
+		t.NIChassisDelete,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -586,6 +641,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ChannelRetrieve.BindHandler(bind.Read(l.binder, l.Channel.Retrieve))
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
 	t.ChannelDelete.BindHandler(bind.Write(l.binder, l.Channel.Delete))
+	t.ChannelCountLimited.BindHandler(bind.Read(l.binder, l.Channel.CountLimited))
 	t.ChannelDispatch.BindHandler(bind.Write(l.binder, l.Channel.Dispatch))
 
 	// FRAME
@@ -625,14 +681,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.KVDelete.BindHandler(bind.Write(l.binder, l.KV.Delete))
 	t.KVDispatch.BindHandler(bind.Write(l.binder, l.KV.Dispatch))
 
-	// ALIAS
-	t.AliasSet.BindHandler(bind.Write(l.binder, l.Alias.Set))
-	t.AliasResolve.BindHandler(bind.Read(l.binder, l.Alias.Resolve))
-	t.AliasRetrieve.BindHandler(bind.Read(l.binder, l.Alias.Retrieve))
-	t.AliasList.BindHandler(bind.Read(l.binder, l.Alias.List))
-	t.AliasDelete.BindHandler(bind.Write(l.binder, l.Alias.Delete))
-	t.AliasDispatch.BindHandler(bind.Write(l.binder, l.Alias.Dispatch))
-
 	// PROJECT
 	t.ProjectCreate.BindHandler(bind.Write(l.binder, l.Project.Create))
 	t.ProjectDelete.BindHandler(bind.Write(l.binder, l.Project.Delete))
@@ -671,6 +719,14 @@ func (l *Layer) BindTo(t Transport) {
 	t.LinePlotRetrieve.BindHandler(bind.Read(l.binder, l.LinePlot.Retrieve))
 	t.LinePlotDelete.BindHandler(bind.Write(l.binder, l.LinePlot.Delete))
 
+	// ICD
+	t.ICDCreate.BindHandler(bind.Write(l.binder, l.ICD.Create))
+	t.ICDRetrieve.BindHandler(bind.Read(l.binder, l.ICD.Retrieve))
+	t.ICDCheck.BindHandler(bind.Read(l.binder, l.ICD.Check))
+	t.ICDDispatch.BindHandler(bind.Write(l.binder, l.ICD.Dispatch))
+	t.ICDImport.BindHandler(bind.Write(l.binder, l.ICD.Import))
+	t.ICDDelete.BindHandler(bind.Write(l.binder, l.ICD.Delete))
+
 	// PANEL
 	t.PanelCreate.BindHandler(bind.Write(l.binder, l.Panel.Create))
 	t.PanelRetrieve.BindHandler(bind.Read(l.binder, l.Panel.Retrieve))
@@ -697,6 +753,13 @@ func (l *Layer) BindTo(t Transport) {
 	t.LabelRemove.BindHandler(bind.Write(l.binder, l.Label.Remove))
 	t.LabelDispatch.BindHandler(bind.Write(l.binder, l.Label.Dispatch))
 
+	// COLOR
+	t.ColorCreate.BindHandler(bind.Write(l.binder, l.Color.Create))
+	t.ColorRetrieve.BindHandler(bind.Read(l.binder, l.Color.Retrieve))
+	t.ColorDelete.BindHandler(bind.Write(l.binder, l.Color.Delete))
+	t.ColorDispatch.BindHandler(bind.Write(l.binder, l.Color.Dispatch))
+	t.ColorRetrieveBuiltins.BindHandler(l.Color.RetrieveBuiltins)
+
 	// RACK
 	t.RackCreate.BindHandler(bind.Write(l.binder, l.Rack.Create))
 	t.RackRetrieve.BindHandler(bind.Read(l.binder, l.Rack.Retrieve))
@@ -717,6 +780,18 @@ func (l *Layer) BindTo(t Transport) {
 	t.DeviceRetrieve.BindHandler(bind.Read(l.binder, l.Device.Retrieve))
 	t.DeviceDelete.BindHandler(bind.Write(l.binder, l.Device.Delete))
 	t.DeviceDispatch.BindHandler(bind.Write(l.binder, l.Device.Dispatch))
+
+	// NI DEVICE
+	t.NIDeviceCreate.BindHandler(bind.Write(l.binder, l.NIDevice.Create))
+	t.NIDeviceRetrieve.BindHandler(bind.Read(l.binder, l.NIDevice.Retrieve))
+	t.NIDeviceUpdate.BindHandler(bind.Write(l.binder, l.NIDevice.Update))
+	t.NIDeviceDelete.BindHandler(bind.Write(l.binder, l.NIDevice.Delete))
+
+	// NI CHASSIS
+	t.NIChassisCreate.BindHandler(bind.Write(l.binder, l.NIChassis.Create))
+	t.NIChassisRetrieve.BindHandler(bind.Read(l.binder, l.NIChassis.Retrieve))
+	t.NIChassisUpdate.BindHandler(bind.Write(l.binder, l.NIChassis.Update))
+	t.NIChassisDelete.BindHandler(bind.Write(l.binder, l.NIChassis.Delete))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
@@ -787,9 +862,11 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	l := &Layer{config: cfg}
 	if l.binder, err = bind.NewService(bind.ServiceConfig{
-		DB:   cfg.Distribution.DB,
-		RBAC: cfg.Service.RBAC,
-		Held: auth.HeldTables(),
+		DB:          cfg.Distribution.DB,
+		RBAC:        cfg.Service.RBAC,
+		Held:        auth.HeldTables(),
+		Owned:       panel.OwnedTables(),
+		OwnedPlaces: panel.OwnedPlaces(),
 	}); err != nil {
 		return nil, err
 	}
@@ -829,6 +906,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Channel:         cfg.Service.Channel,
 		RBAC:            cfg.Service.RBAC,
 		Records:         cfg.Service.Signals.Records(),
+		Errors:          cfg.Errors,
 	}); err != nil {
 		return nil, err
 	}
@@ -837,7 +915,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		RBAC:    cfg.Service.RBAC,
 		Channel: cfg.Service.Channel,
 		Status:  cfg.Service.Status,
-		Alias:   cfg.Service.Alias,
 	}); err != nil {
 		return nil, err
 	}
@@ -874,11 +951,6 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}); err != nil {
 		return nil, err
 	}
-	if l.Alias, err = alias.NewService(alias.ServiceConfig{
-		Alias: cfg.Service.Alias,
-	}); err != nil {
-		return nil, err
-	}
 	if l.Group, err = group.NewService(group.ServiceConfig{
 		Group: cfg.Service.Group,
 	}); err != nil {
@@ -905,6 +977,11 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}); err != nil {
 		return nil, err
 	}
+	if l.ICD, err = icd.NewService(icd.ServiceConfig{
+		ICD: cfg.Service.ICD,
+	}); err != nil {
+		return nil, err
+	}
 	if l.Panel, err = panel.NewService(panel.ServiceConfig{
 		Panel: cfg.Service.Panel,
 	}); err != nil {
@@ -914,6 +991,11 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Label:  cfg.Service.Label,
 		Ranger: cfg.Service.Ranger,
 		Status: cfg.Service.Status,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Color, err = color.NewService(color.ServiceConfig{
+		Color: cfg.Service.Color,
 	}); err != nil {
 		return nil, err
 	}
@@ -941,6 +1023,18 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}); err != nil {
 		return nil, err
 	}
+	if l.NIChassis, err = nichassis.NewService(nichassis.ServiceConfig{
+		Chassis: cfg.Service.NI.Chassis,
+		Status:  cfg.Service.Status,
+	}); err != nil {
+		return nil, err
+	}
+	if l.NIDevice, err = nidevice.NewService(nidevice.ServiceConfig{
+		Device: cfg.Service.NI.Devices,
+		Status: cfg.Service.Status,
+	}); err != nil {
+		return nil, err
+	}
 	if l.Log, err = log.NewService(log.ServiceConfig{
 		Log: cfg.Service.Log,
 	}); err != nil {
@@ -961,6 +1055,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Instrumentation: cfg.Instrumentation,
 		Arc:             cfg.Service.Arc,
 		Status:          cfg.Service.Status,
+		Channel:         cfg.Service.Channel,
 		RBAC:            cfg.Service.RBAC,
 		DispatchChannel: bind.Write(l.binder, l.Channel.Dispatch),
 		Stopper:         cfg.Service.TaskStopper,

@@ -272,7 +272,7 @@ var _ = Describe("Constraint System", func() {
 			Expect(str).To(ContainSubstring("T2"))
 		})
 
-		It("should show resolved and unresolved type variables", func() {
+		It("should show resolved and unresolved type: type variables", func() {
 			var (
 				constraint = types.NumericConstraint()
 				tv1        = types.Variable("Resolved", &constraint)

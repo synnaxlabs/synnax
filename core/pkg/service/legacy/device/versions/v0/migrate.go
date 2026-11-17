@@ -11,7 +11,6 @@ package v0
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -45,7 +44,7 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 
 			var devices []Device
 			for iter.First(); iter.Valid(); iter.Next() {
-				d := iter.Value(ctx)
+				d := iter.Value()
 				if err = iter.Error(); err != nil {
 					return err
 				}
@@ -62,7 +61,7 @@ func newMigration(cfg MigrationConfig) gorp.Migration {
 					Name:    d.Name,
 					Time:    telem.Now(),
 					Variant: status.VariantWarning,
-					Message: fmt.Sprintf("%s state unknown", d.Name),
+					Message: d.Name + " state unknown",
 					Details: StatusDetails{Rack: d.Rack, Device: d.Key},
 				}
 			}

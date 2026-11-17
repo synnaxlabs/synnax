@@ -18,9 +18,10 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
+	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -76,11 +77,6 @@ type ScanConfig struct {
 	task.ScanConfig
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScanConfig) ApplyDefaults() {
-	s.ScanConfig.ApplyDefaults()
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (s *ScanConfig) SetDefaults() {
 	s.ScanConfig.SetDefaults()
@@ -129,16 +125,9 @@ type ReadField struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// TimeFormat is the encoding of the JSON value when the target channel holds
 	// timestamps. Required for timestamp channels.
-	TimeFormat *http.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	TimeFormat *payload.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps string labels in the record to numeric or boolean channel values.
-	EnumValues []http.EnumEntry `json:"enum_values" msgpack:"enum_values"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadField) ApplyDefaults() {
-	if r.DataType == "" {
-		r.DataType = "float64"
-	}
+	EnumValues []payload.EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -165,6 +154,16 @@ func (r *ReadField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	return dec.Decode((*plain)(r))
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadField) Validate() error {
+	v := validate.New("ReadField")
+	if r.TimeFormat != nil {
+		v.Ternaryf("time_format", !r.TimeFormat.IsValid(), "invalid time_format: %v", *r.TimeFormat)
+	}
+	return v.Error()
+}
+
 // ReadRecord is a set of fields read from the records with one Kafka key.
 type ReadRecord struct {
 	// Key uniquely identifies the record within the task.
@@ -179,11 +178,14 @@ type ReadRecord struct {
 	Fields []ReadField `json:"fields" msgpack:"fields"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadRecord) ApplyDefaults() {
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadRecord) Validate() error {
+	v := validate.New("ReadRecord")
 	for i := range r.Fields {
-		r.Fields[i].ApplyDefaults()
+		v.Exec(func() error { return validate.PathedError(r.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
 	}
+	return v.Error()
 }
 
 // ReadConfig configures a Kafka read task, which consumes a topic and writes record
@@ -201,16 +203,6 @@ type ReadConfig struct {
 	StartOffset StartOffset `json:"start_offset" msgpack:"start_offset"`
 	// Records contains the records the task reads, one per record key.
 	Records []ReadRecord `json:"records" msgpack:"records"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	if r.StartOffset == "" {
-		r.StartOffset = StartOffsetLatest
-	}
-	for i := range r.Records {
-		r.Records[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -242,6 +234,9 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
 	v.Ternaryf("start_offset", !r.StartOffset.IsValid(), "invalid start_offset: %v", r.StartOffset)
+	for i := range r.Records {
+		v.Exec(func() error { return validate.PathedError(r.Records[i].Validate(), "records", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }
 
@@ -254,25 +249,18 @@ type WriteChannel struct {
 	// Channel is the Synnax channel whose samples are produced.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// JSONType is the JSON type the sample value is serialized as.
-	JSONType http.JSONType `json:"json_type" msgpack:"json_type"`
+	JSONType payload.JSONType `json:"json_type" msgpack:"json_type"`
 	// TimeFormat is the output encoding when the channel holds timestamps. Required for
 	// timestamp channels.
-	TimeFormat *http.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
+	TimeFormat *payload.TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps numeric or boolean channel values to string labels. Only valid
 	// when json_type is 'string'.
-	EnumValues []http.EnumEntry `json:"enum_values" msgpack:"enum_values"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteChannel) ApplyDefaults() {
-	if w.JSONType == "" {
-		w.JSONType = http.JSONTypeNumber
-	}
+	EnumValues []payload.EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
 func (w *WriteChannel) SetDefaults() {
-	w.JSONType = http.JSONTypeNumber
+	w.JSONType = payload.JSONTypeNumber
 }
 
 // UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
@@ -299,6 +287,9 @@ func (w *WriteChannel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (w WriteChannel) Validate() error {
 	v := validate.New("WriteChannel")
 	v.Ternaryf("json_type", !w.JSONType.IsValid(), "invalid json_type: %v", w.JSONType)
+	if w.TimeFormat != nil {
+		v.Ternaryf("time_format", !w.TimeFormat.IsValid(), "invalid time_format: %v", *w.TimeFormat)
+	}
 	return v.Error()
 }
 
@@ -313,28 +304,15 @@ type Record struct {
 	// omits the timestamp.
 	TimestampPointer *string `json:"timestamp_pointer,omitzero" msgpack:"timestamp_pointer,omitempty"`
 	// TimeFormat is the encoding of the sample timestamp.
-	TimeFormat http.TimeFormat `json:"time_format" msgpack:"time_format"`
+	TimeFormat payload.TimeFormat `json:"time_format" msgpack:"time_format"`
 	// Fields contains additional static or generated record fields.
 	Fields []http.WriteField `json:"fields" msgpack:"fields"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *Record) ApplyDefaults() {
-	if r.ValuePointer == "" {
-		r.ValuePointer = "/value"
-	}
-	if r.TimeFormat == "" {
-		r.TimeFormat = http.TimeFormatUnixNs
-	}
-	for i := range r.Fields {
-		r.Fields[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
 func (r *Record) SetDefaults() {
 	r.ValuePointer = "/value"
-	r.TimeFormat = http.TimeFormatUnixNs
+	r.TimeFormat = payload.TimeFormatUnixNs
 }
 
 // UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
@@ -381,17 +359,6 @@ type WriteConfig struct {
 	Record Record `json:"record" msgpack:"record"`
 	// Channels contains the channels whose samples are produced.
 	Channels []WriteChannel `json:"channels" msgpack:"channels"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteConfig) ApplyDefaults() {
-	if w.RecordKey == "" {
-		w.RecordKey = RecordKeyChannelName
-	}
-	w.Record.ApplyDefaults()
-	for i := range w.Channels {
-		w.Channels[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.

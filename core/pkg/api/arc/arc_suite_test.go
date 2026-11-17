@@ -109,7 +109,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:    rbacSvc,
 		Channel: channelSvc,
 		Status:  svc.Status,
-		Alias:   svc.Alias,
 	}))
 	binder = MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   db,
@@ -120,6 +119,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:              db,
 		Arc:             arcSvc,
 		Status:          statusSvc,
+		Channel:         channelSvc,
 		RBAC:            rbacSvc,
 		DispatchChannel: bind.Write(binder, apiChannelSvc.Dispatch),
 		Stopper:         svc.TaskStopper,

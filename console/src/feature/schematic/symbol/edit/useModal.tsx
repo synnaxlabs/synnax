@@ -92,7 +92,7 @@ const Editor = ({
       name: `Region ${currentState.regions.length + 1}`,
       selectors: [],
       strokeColor: theme.colors.gray.l10,
-      fillColor: color.setAlpha(theme.colors.gray.l10, 0),
+      fillColor: color.setOpacity(theme.colors.gray.l10, 0),
     };
 
     form.set(path.data.states[selectedStateRef.current].regions, [

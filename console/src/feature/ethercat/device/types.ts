@@ -58,6 +58,8 @@ const modeZ = z.object({
   index: z.number(),
   subIndex: z.number(),
   value: z.number(),
+  /** Whether the catalog lists no entry for the value. */
+  unlisted: z.boolean().optional(),
   /** Whether other software also sets up the slave. */
   shared: z.boolean(),
   /** The software that sets up the slave while Synnax still reads its data. */
@@ -168,6 +170,10 @@ export const slavePropertiesZ = z.object({
   startupParameters: z.array(ethercat.startupParameterZ).default(() => []),
   /** The fields that the slave's catalog describes, read from the slave at scan. */
   settings: descriptionZ.extend({ mode: modeZ.optional() }).optional(),
+  /** When the Driver last switched the slave to Synnax only, in nanoseconds. */
+  switchedAt: z.number().optional(),
+  /** The name of the network that the user knows, such as "Ethernet 2". */
+  networkName: z.string().optional(),
 });
 export interface SlaveProperties extends z.infer<typeof slavePropertiesZ> {}
 
@@ -195,6 +201,16 @@ export interface SlaveDevice extends device.Device<
   typeof makeZ,
   typeof modelZ
 > {}
+
+/** A slave with whether it is connected in place of its status. */
+export interface SlaveOnRack extends Omit<SlaveDevice, "status"> {
+  connected: boolean;
+}
+
+export const toSlaveOnRack = ({ status, ...slave }: SlaveDevice): SlaveOnRack => ({
+  ...slave,
+  connected: status?.details.connected === true,
+});
 
 export const SLAVE_SCHEMAS = {
   properties: slavePropertiesZ,

@@ -365,6 +365,56 @@ describe("Editable", () => {
       await expect(promise).resolves.toEqual(["World", true]);
     });
 
+    it("should edit the copy inside the given element when two share an id", () => {
+      const c = render(
+        <>
+          <div>
+            <Editable id="shared" value="First" onChange={vi.fn()} />
+          </div>
+          <div data-testid="second">
+            <Editable id="shared" value="Second" onChange={vi.fn()} />
+          </div>
+        </>,
+      );
+      act(() => edit("shared", c.getByTestId("second")));
+      expect(c.getByText("Second").getAttribute("contenteditable")).toBe("true");
+      expect(c.getByText("First").getAttribute("contenteditable")).not.toBe("true");
+    });
+
+    it("should edit the copy nearest the element when the element holds none", () => {
+      const c = render(
+        <>
+          <div>
+            <Editable id="shared" value="First" onChange={vi.fn()} />
+          </div>
+          <div>
+            <Editable id="shared" value="Second" onChange={vi.fn()} />
+            <div data-testid="item">Item</div>
+          </div>
+        </>,
+      );
+      act(() => edit("shared", c.getByTestId("item")));
+      expect(c.getByText("Second").getAttribute("contenteditable")).toBe("true");
+      expect(c.getByText("First").getAttribute("contenteditable")).not.toBe("true");
+    });
+
+    it("should edit nothing when the nearest copy is read-only", async () => {
+      const c = render(
+        <>
+          <div>
+            <Editable id="shared" value="Editable" onChange={vi.fn()} />
+          </div>
+          <div data-testid="item">
+            <MaybeEditable id="shared" value="Read only" />
+          </div>
+        </>,
+      );
+      await expect(asyncEdit("shared", c.getByTestId("item"))).rejects.toThrow(
+        "The nearest element with id shared is read-only",
+      );
+      expect(c.getByText("Editable").getAttribute("contenteditable")).not.toBe("true");
+    });
+
     it("should start an edit after a level change renders a new element", async () => {
       const onChange = vi.fn();
       const c = render(
@@ -395,32 +445,6 @@ describe("Editable", () => {
       text.innerText = "Hello";
       fireEvent.keyDown(text, { key: "Enter" });
       await expect(promise).resolves.toEqual(["Hello", false]);
-    });
-
-    it("resolves asyncEdit with the initialValue the caller supplies", async () => {
-      const c = render(<Editable id="aliased" value="Alias" onChange={vi.fn()} />);
-      const text = c.getByText("Alias");
-      let promise!: Promise<[string, boolean]>;
-      act(() => {
-        promise = asyncEdit("aliased", { initialValue: "RealName" });
-      });
-      expect(text.innerText).toBe("RealName");
-      fireEvent.keyDown(text, { key: "Escape" });
-      await expect(promise).resolves.toEqual(["Alias", false]);
-    });
-
-    it("treats an unchanged initialValue as a cancel", async () => {
-      const onChange = vi.fn();
-      const c = render(<Editable id="alias-kept" value="Alias" onChange={onChange} />);
-      const text = c.getByText("Alias");
-      let promise!: Promise<[string, boolean]>;
-      act(() => {
-        promise = asyncEdit("alias-kept", { initialValue: "RealName" });
-      });
-      fireEvent.keyDown(text, { key: "Enter" });
-      await expect(promise).resolves.toEqual(["Alias", false]);
-      expect(onChange).not.toHaveBeenCalled();
-      expect(text.innerText).toBe("Alias");
     });
 
     it("resolves asyncEdit with renamed=false on escape", async () => {

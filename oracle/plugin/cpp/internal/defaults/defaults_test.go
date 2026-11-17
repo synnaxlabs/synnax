@@ -63,7 +63,8 @@ var _ = Describe("Renderer", func() {
 
 	literal := func(name string) string {
 		GinkgoHelper()
-		form := task.Form.(resolution.StructForm)
+		form, ok := task.Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
 		field := MustBeOk(lo.Find(
 			form.Fields,
 			func(f resolution.Field) bool { return f.Name == name },
@@ -71,13 +72,13 @@ var _ = Describe("Renderer", func() {
 		return renderer.Literal(field.Type, *field.Default)
 	}
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
 		loader := testutil.NewMockFileLoader()
-		table := testutil.MustGenerateRequest(ctx, source, "task", loader).Resolutions
+		table := testutil.MustGenerateRequest(source, "task", loader).Resolutions
 		task = MustBeOk(table.Lookup("task", "Task"))
 		renderer = defaults.Renderer{
-			Table:     table,
-			Namespace: "task",
+			Table:    table,
+			FilePath: task.FilePath,
 			TypeName: func(typeRef resolution.TypeRef) string {
 				return typeRef.Name
 			},
@@ -110,7 +111,9 @@ var _ = Describe("Renderer", func() {
 		variant := func(enumName, member string) validation.EnumVariant {
 			GinkgoHelper()
 			typ := MustBeOk(renderer.Table.Lookup("task", enumName))
-			values := typ.Form.(resolution.EnumForm).Values
+			form, ok := typ.Form.(resolution.EnumForm)
+			Expect(ok).To(BeTrue())
+			values := form.Values
 			value := MustBeOk(lo.Find(
 				values,
 				func(v resolution.EnumValue) bool { return v.Name == member },
@@ -127,10 +130,25 @@ var _ = Describe("Renderer", func() {
 				To(Equal("COLOR_DEEP_RED"))
 		})
 
-		It("Should qualify a variant from another namespace", func() {
-			renderer.Namespace = "other"
+		It("Should qualify a variant from another schema", func() {
+			renderer.FilePath = "other.oracle"
 			Expect(renderer.EnumVariant(variant("Mode", "on"))).
 				To(Equal("::synnax::task::Mode::On"))
+		})
+
+		It("Should include the header of a variant from another schema", func() {
+			var included []string
+			renderer.FilePath = "other.oracle"
+			renderer.Include = func(path string) { included = append(included, path) }
+			renderer.EnumVariant(variant("Color", "deep_red"))
+			Expect(included).To(Equal([]string{"client/cpp/task/types.gen.h"}))
+		})
+
+		It("Should not include a header for a variant in the same namespace", func() {
+			var included []string
+			renderer.Include = func(path string) { included = append(included, path) }
+			renderer.EnumVariant(variant("Color", "deep_red"))
+			Expect(included).To(BeEmpty())
 		})
 	})
 })

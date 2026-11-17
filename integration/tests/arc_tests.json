@@ -71,6 +71,10 @@
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
+          "case": "arc/runtime_errors",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
           "case": "arc/stage_routing",
           "parameters": { "rack_key": [65537, 65538] }
         },
@@ -126,6 +130,10 @@
         { "case": "arc/stl_time", "parameters": { "rack_key": [65537, 65538] } },
         { "case": "arc/parked_wait", "parameters": { "rack_key": [65537, 65538] } }
       ]
+    },
+    {
+      "sequence_name": "core_restart",
+      "tests": [{ "case": "arc/core_restart" }]
     }
   ]
 }

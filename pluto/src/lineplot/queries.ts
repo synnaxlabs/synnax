@@ -108,7 +108,7 @@ const resolveColor = (
   palette: color.Crude[],
 ): ResolvedColor => {
   const autoColor = color.construct(
-    palette[index % Math.max(palette.length, 1)] ?? color.ZERO,
+    palette[index % Math.max(palette.length, 1)] ?? color.TRANSPARENT,
   );
   return { color: stored ?? autoColor, pickedColor: stored, autoColor };
 };

@@ -16,8 +16,103 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (cf ChannelField) EncodeOrc(w *orc.Writer) error {
+	w.String(cf.Pointer)
+	w.String(string(cf.JSONType))
+	w.Uint32(uint32(cf.Channel))
+	w.String(cf.Name)
+	w.String(string(cf.DataType))
+	if cf.TimeFormat != nil {
+		w.Bool(true)
+		w.String(string(*cf.TimeFormat))
+	} else {
+		w.Bool(false)
+	}
+	w.Bool(cf.EnumValues != nil)
+	if cf.EnumValues != nil {
+		w.Uint32(uint32(len(cf.EnumValues)))
+		for i := range cf.EnumValues {
+			if err := cf.EnumValues[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (cf *ChannelField) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if cf.Pointer, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		cf.JSONType = payload.JSONType(rawV)
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		cf.Channel = channel.Key(rawV)
+	}
+	if cf.Name, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		cf.DataType = telem.DataType(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv payload.TimeFormat
+			{
+				rawV, err := r.String()
+				if err != nil {
+					return err
+				}
+				hv = payload.TimeFormat(rawV)
+			}
+			cf.TimeFormat = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			cf.EnumValues = make([]payload.EnumEntry, n)
+			for i := range cf.EnumValues {
+				if err = cf.EnumValues[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (rc ReadConfig) EncodeOrc(w *orc.Writer) error {
@@ -295,13 +390,13 @@ func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv TimeFormat
+			var hv payload.TimeFormat
 			{
 				rawV, err := r.String()
 				if err != nil {
 					return err
 				}
-				hv = TimeFormat(rawV)
+				hv = payload.TimeFormat(rawV)
 			}
 			rf.TimeFormat = &hv
 		}
@@ -316,13 +411,280 @@ func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			rf.EnumValues = make([]EnumEntry, n)
+			rf.EnumValues = make([]payload.EnumEntry, n)
 			for i := range rf.EnumValues {
 				if err = rf.EnumValues[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
 		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wc WriteConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(wc.Key[:])
+	w.Bool(wc.AutoStart)
+	w.String(wc.Device)
+	w.Bool(wc.Endpoints != nil)
+	if wc.Endpoints != nil {
+		w.Uint32(uint32(len(wc.Endpoints)))
+		for i := range wc.Endpoints {
+			if err := wc.Endpoints[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wc *WriteConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(wc.Key[:]); err != nil {
+		return err
+	}
+	if wc.AutoStart, err = r.Bool(); err != nil {
+		return err
+	}
+	if wc.Device, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wc.Endpoints = make([]WriteEndpoint, n)
+			for i := range wc.Endpoints {
+				if err = wc.Endpoints[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (we WriteEndpoint) EncodeOrc(w *orc.Writer) error {
+	w.String(we.Key)
+	w.Bool(we.Disabled)
+	w.String(string(we.Method))
+	w.String(we.Path)
+	w.Bool(we.Headers != nil)
+	if we.Headers != nil {
+		w.Uint32(uint32(len(we.Headers)))
+		for i := range we.Headers {
+			if err := we.Headers[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.Bool(we.QueryParams != nil)
+	if we.QueryParams != nil {
+		w.Uint32(uint32(len(we.QueryParams)))
+		for i := range we.QueryParams {
+			if err := we.QueryParams[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	if err := we.Channel.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.Bool(we.Fields != nil)
+	if we.Fields != nil {
+		w.Uint32(uint32(len(we.Fields)))
+		for i := range we.Fields {
+			if err := we.Fields[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (we *WriteEndpoint) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if we.Key, err = r.String(); err != nil {
+		return err
+	}
+	if we.Disabled, err = r.Bool(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		we.Method = Method(rawV)
+	}
+	if we.Path, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			we.Headers = make([]Header, n)
+			for i := range we.Headers {
+				if err = we.Headers[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			we.QueryParams = make([]QueryParam, n)
+			for i := range we.QueryParams {
+				if err = we.QueryParams[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if err = we.Channel.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			we.Fields = make([]WriteField, n)
+			for i := range we.Fields {
+				if err = we.Fields[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wf WriteField) EncodeOrc(w *orc.Writer) error {
+	switch v := wf.Variant.(type) {
+	case StaticWriteField:
+		w.String("static")
+		if err := v.BaseWriteField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(string(v.JSONType))
+		{
+			b, err := json.Marshal(v.Value)
+			if err != nil {
+				return err
+			}
+			w.WriteWithLen(b)
+		}
+	case GeneratedWriteField:
+		w.String("generated")
+		if err := v.BaseWriteField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(string(v.Generator))
+		if v.TimeFormat != nil {
+			w.Bool(true)
+			w.String(string(*v.TimeFormat))
+		} else {
+			w.Bool(false)
+		}
+	default:
+		return errors.Newf("WriteField: nil or unknown variant %T", wf.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wf *WriteField) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "static":
+		var v StaticWriteField
+		if err := v.BaseWriteField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.JSONType = payload.JSONType(rawV)
+		}
+		{
+			b, err := r.ReadWithLen()
+			if err != nil {
+				return err
+			}
+			if err = json.Unmarshal(b, &v.Value); err != nil {
+				return err
+			}
+		}
+		wf.Variant = v
+	case "generated":
+		var v GeneratedWriteField
+		if err := v.BaseWriteField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Generator = payload.GeneratorType(rawV)
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv payload.TimeFormat
+				{
+					rawV, err := r.String()
+					if err != nil {
+						return err
+					}
+					hv = payload.TimeFormat(rawV)
+				}
+				v.TimeFormat = &hv
+			}
+		}
+		wf.Variant = v
+	default:
+		return errors.Newf("WriteField: unknown variant %q", tag)
 	}
 	return nil
 }

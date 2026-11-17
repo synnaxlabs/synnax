@@ -335,9 +335,10 @@ var _ = Describe("AST Utilities", func() {
 	Describe("CollectNamedPrimaries", func() {
 		DescribeTable("collects the names an expression reads",
 			func(code string, expected []string) {
-				var names []string
-				for _, pe := range parser.CollectNamedPrimaries(parseExpr(code)) {
-					names = append(names, parser.PrimaryName(pe))
+				primaries := parser.CollectNamedPrimaries(parseExpr(code))
+				names := make([]string, len(primaries))
+				for i, pe := range primaries {
+					names[i] = parser.PrimaryName(pe)
 				}
 				Expect(names).To(Equal(expected))
 			},
@@ -348,9 +349,9 @@ var _ = Describe("AST Utilities", func() {
 				[]string{"a", "b", "c", "i", "d"}),
 			Entry("function call name and args", "foo(a, b)",
 				[]string{"foo", "a", "b"}),
-			Entry("literal only", "42", nil),
+			Entry("literal only", "42", []string{}),
 			Entry("format string braces are token text, not identifiers",
-				`f"hi {x}"`, nil),
+				`f"hi {x}"`, []string{}),
 			Entry("qualified names", "m.doubled + x", []string{"m.doubled", "x"}),
 		)
 	})
@@ -400,7 +401,7 @@ var _ = Describe("AST Utilities", func() {
 			if fn, ok := t.(parser.IFunctionContext); ok {
 				return fn
 			}
-			for i := 0; i < t.GetChildCount(); i++ {
+			for i := range t.GetChildCount() {
 				if found := findFunction(t.GetChild(i)); found != nil {
 					return found
 				}

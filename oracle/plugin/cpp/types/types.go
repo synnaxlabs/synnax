@@ -218,15 +218,16 @@ func (p *Plugin) generateFile(
 	aliases []resolution.Type,
 	table *resolution.Table,
 ) ([]byte, error) {
-	namespace := ""
-	if len(structs) > 0 {
-		namespace = structs[0].Namespace
-	} else if len(typeDefs) > 0 {
-		namespace = typeDefs[0].Namespace
-	} else if len(aliases) > 0 {
-		namespace = aliases[0].Namespace
-	} else if len(enums) > 0 {
-		namespace = enums[0].Namespace
+	var namespace, filePath string
+	switch {
+	case len(structs) > 0:
+		namespace, filePath = structs[0].Namespace, structs[0].FilePath
+	case len(typeDefs) > 0:
+		namespace, filePath = typeDefs[0].Namespace, typeDefs[0].FilePath
+	case len(aliases) > 0:
+		namespace, filePath = aliases[0].Namespace, aliases[0].FilePath
+	case len(enums) > 0:
+		namespace, filePath = enums[0].Namespace, enums[0].FilePath
 	}
 
 	data := &templateData{
@@ -236,13 +237,13 @@ func (p *Plugin) generateFile(
 		SortedDecls: make([]sortedDeclData, 0),
 		Manager:     includes.NewManager(),
 		table:       table,
-		rawNs:       namespace,
+		filePath:    filePath,
 	}
 
 	declaredNames := make(set.Set[string])
 
 	for _, e := range enums {
-		if e.Namespace == namespace && !omit.IsSkipped(e, "cpp") {
+		if e.FilePath == filePath && !omit.IsSkipped(e, "cpp") {
 			data.Enums = append(data.Enums, p.processEnum(e))
 		}
 	}
@@ -257,8 +258,10 @@ func (p *Plugin) generateFile(
 	if namespace != "" {
 		allNamespaceTypes := table.TypesInNamespace(namespace)
 		existingQNames := make(set.Set[string])
+		files := make(set.Set[string])
 		for _, t := range combinedTypes {
 			existingQNames.Add(t.QualifiedName)
+			files.Add(t.FilePath)
 		}
 		for _, t := range allNamespaceTypes {
 			// Synthetic inline variant payloads flatten into their variant
@@ -266,9 +269,11 @@ func (p *Plugin) generateFile(
 			if existingQNames.Contains(t.QualifiedName) || t.Synthetic {
 				continue
 			}
-			// Types routed to a different file by a per-type @cpp output
-			// override belong to that file, not this one.
-			if p := output.GetPath(t, "cpp"); p != "" && p != outputPath {
+			// A type belongs to the file its @cpp output names. One with no output
+			// belongs here only when its schema does, since two schemas with one file
+			// name share a namespace.
+			if p := output.GetPath(t, "cpp"); p != outputPath &&
+				(p != "" || !files.Contains(t.FilePath)) {
 				continue
 			}
 			combinedTypes = append(combinedTypes, t)
@@ -526,7 +531,7 @@ func (p *Plugin) aliasTargetToCpp(
 		}
 	}
 
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		if isOmitted || targetOutputPath == "" {
 			if cppInclude != "" {
 				data.AddInternal(cppInclude)
@@ -954,11 +959,12 @@ func (p *Plugin) filterLineType(
 
 func (p *Plugin) defaultRenderer(data *templateData) defaults.Renderer {
 	return defaults.Renderer{
-		Table:     data.table,
-		Namespace: data.rawNs,
+		Table:    data.table,
+		FilePath: data.filePath,
 		TypeName: func(typeRef resolution.TypeRef) string {
 			return p.typeRefToCpp(typeRef, data)
 		},
+		Include: data.AddInternal,
 	}
 }
 
@@ -1021,7 +1027,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 // name, adding the cross-namespace include when the union lives elsewhere.
 func (p *Plugin) resolveUnionType(resolved resolution.Type, data *templateData) string {
 	name := domain.GetName(resolved, "cpp")
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
@@ -1077,7 +1083,7 @@ func (p *Plugin) resolveStructType(
 
 	targetOutputPath := output.GetPath(resolved, "cpp")
 
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		if isOmitted || targetOutputPath == "" {
 			if cppInclude != "" {
 				data.AddInternal(cppInclude)
@@ -1113,7 +1119,7 @@ func (p *Plugin) resolveEnumType(
 
 	name := resolved.Name
 
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		targetOutputPath := enum.FindOutputPath(resolved, data.table, "cpp")
 		if targetOutputPath != "" {
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
@@ -1159,7 +1165,7 @@ func (p *Plugin) resolveDistinctType(
 ) string {
 	name := domain.GetName(resolved, "cpp")
 
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			includePath := explicitInclude(resolved)
@@ -1181,7 +1187,7 @@ func (p *Plugin) resolveAliasType(
 	data *templateData,
 ) string {
 	name := domain.GetName(resolved, "cpp")
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			includePath := explicitInclude(resolved)
@@ -1268,7 +1274,7 @@ type templateData struct {
 	table        *resolution.Table
 	OutputPath   string
 	Namespace    string
-	rawNs        string
+	filePath     string
 	ForwardDecls []string
 	Enums        []enumData
 	SortedDecls  []sortedDeclData
@@ -1408,7 +1414,7 @@ func (p *Plugin) resolveExtendsType(
 	name := domain.GetName(parent, "cpp")
 
 	// Check for cross-namespace reference
-	if parent.Namespace != data.rawNs {
+	if parent.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(parent, "cpp")
 		if targetOutputPath != "" {
 			// Add include for the parent's header

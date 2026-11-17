@@ -9,3 +9,4 @@
 
 export * from "@/feature/version/commands";
 export * from "@/feature/version/Guard";
+export * from "@/feature/version/Settings";

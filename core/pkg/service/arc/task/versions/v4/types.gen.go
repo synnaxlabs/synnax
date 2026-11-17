@@ -17,7 +17,7 @@ import (
 	"reflect"
 
 	arc "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
@@ -58,13 +58,6 @@ type Config struct {
 	Hash string `json:"hash" msgpack:"hash"`
 	// Performance sets how closely the runtime holds timer deadlines.
 	Performance Performance `json:"performance" msgpack:"performance"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *Config) ApplyDefaults() {
-	if c.Performance == "" {
-		c.Performance = PerformanceAuto
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.

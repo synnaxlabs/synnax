@@ -36,7 +36,7 @@ var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
 	var pool *fgrpc.Pool
 	addr := StartServer(func(reg grpc.ServiceRegistrar, p *fgrpc.Pool) {
-		grpcrack.New(&transport).BindTo(reg)
+		grpcrack.New(&transport, api.NewErrorCodec()).BindTo(reg)
 		pool = p
 	})
 	conn = MustSucceed(pool.Acquire(addr))

@@ -99,6 +99,7 @@ const desktopShell = (connection: Record<string, string | number>): string => `(
     JSON.stringify({ level, ts: Date.now() / 1000 - age, logger, msg });
   const answers = {
     supervisor_api_key: () => apiKey,
+    supervisor_legacy_api_key: () => null,
     supervisor_save_api_key: (args) => {
       apiKey = args.apiKey;
       return true;
@@ -113,6 +114,8 @@ const desktopShell = (connection: Record<string, string | number>): string => `(
         readyAt: Date.now() - 540000,
         timeToReadyMs: 1840,
         lastExit: null,
+        waits: 0,
+        lastWaitMs: null,
       },
       dataDir: "/Users/synnax/Library/Application Support/Synnax/core",
       logDir: "/Users/synnax/Library/Logs/Synnax",

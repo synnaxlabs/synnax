@@ -17,6 +17,7 @@
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/ir/ir.h"
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/wasm/module.h"
@@ -210,6 +211,7 @@ public:
             }
 
             const auto err = this->func.call(this->inputs, this->results);
+            if (err.matches(errors::INTERRUPTED)) return x::errors::NIL;
             if (err) {
                 ctx.report_error(
                     x::errors::Error(
@@ -219,8 +221,13 @@ public:
                             std::to_string(max_length) + ": " + err.data
                     )
                 );
+                // A trap drops the cycle, so output never depends on where it landed.
+                for (auto &offset: this->offsets)
+                    offset = 0;
+                for (auto &strings: string_results)
+                    strings.clear();
                 trapped = true;
-                continue;
+                break;
             }
 
             x::telem::TimeStamp ts{};

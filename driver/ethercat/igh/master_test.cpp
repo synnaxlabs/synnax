@@ -340,12 +340,24 @@ TEST_F(IGHMasterTest, ScanReportsAFailedSettingsRead) {
     );
 }
 
-/// @brief it should return the number of slaves on the bus.
-TEST_F(IGHMasterTest, CountSlavesReportsTheSlavesOnTheBus) {
+/// @brief it should report a change once IgH finds another model at a position.
+TEST_F(IGHMasterTest, ChangedOnceAnotherModelIsAtAPosition) {
+    this->api->add_slave("EL3102", 0x2, 0x0C1E3052);
+    ASSERT_NIL_P(this->master.scan());
+    EXPECT_FALSE(ASSERT_NIL_P(this->master.changed()).stale);
+    this->api->slaves[0].info.product_code = 0x03F03052;
+    const auto change = ASSERT_NIL_P(this->master.changed());
+    EXPECT_TRUE(change.stale);
+    EXPECT_TRUE(change.restarted.empty());
+    EXPECT_FALSE(this->master.restarts_visible());
+}
+
+/// @brief it should fail to compare the bus with the scan when IgH cannot read a slave.
+TEST_F(IGHMasterTest, ChangedFailsWhenASlaveIsUnreadable) {
     this->api->add_slave();
     ASSERT_NIL_P(this->master.scan());
-    this->api->add_slave();
-    EXPECT_EQ(ASSERT_NIL_P(this->master.count_slaves()), 2);
+    this->api->slaves[0].unreadable = true;
+    ASSERT_OCCURRED_AS_P(this->master.changed(), errors::MASTER_INIT_ERROR);
 }
 
 /// @brief it should fail activation when the IgH master does not activate.
@@ -593,7 +605,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveRejectsAStartupParameter) {
     this->api->add_slave().download_aborts[{0x8000, 0x15}] = 0x06090031;
     this->configs = {{1, {.startup_parameters = {FILTER}}}};
     const auto err = this->scan_and_activate();
-    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_REJECTED);
     EXPECT_EQ(
         err.data,
         "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
@@ -609,6 +621,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveDoesNotAnswerAStartupParameter) {
     this->configs = {{1, {.startup_parameters = {FILTER}}}};
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_FALSE(err.matches(errors::STARTUP_PARAMETER_REJECTED));
     EXPECT_EQ(
         err.data,
         "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): no response"
@@ -883,6 +896,44 @@ TEST_F(IGHMasterTest, ReceiveFailsOnAnIncompleteWorkingCounter) {
     const auto err = this->master.receive();
     ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
     EXPECT_EQ(err.data, "incomplete working counter: output 1, input 2");
+}
+
+/// @brief it should report no shortfall before a complete cycle gives the full working
+/// counter.
+TEST_F(IGHMasterTest, ReceiveReportsNoShortfallBeforeACompleteCycle) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->outputs.state = {.working_counter = 0, .wc_state = EC_WC_ZERO};
+    ASSERT_OCCURRED_AS(this->master.receive(), errors::WORKING_COUNTER_ERROR);
+    EXPECT_EQ(this->master.shortfall(), std::nullopt);
+}
+
+/// @brief it should report how far the working counter fell below the latest complete
+/// cycle.
+TEST_F(IGHMasterTest, ReceiveReportsTheShortfallBelowTheLatestCompleteCycle) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->outputs.state = {.working_counter = 1, .wc_state = EC_WC_COMPLETE};
+    this->api->inputs.state = {.working_counter = 1, .wc_state = EC_WC_COMPLETE};
+    ASSERT_NIL(this->master.receive());
+    this->api->outputs.state = {.working_counter = 0, .wc_state = EC_WC_ZERO};
+    ASSERT_OCCURRED_AS(this->master.receive(), errors::WORKING_COUNTER_ERROR);
+    EXPECT_EQ(this->master.shortfall(), 1);
+}
+
+/// @brief it should give each enabled slave a working counter share of 1 in each domain
+/// that holds one of its entries.
+TEST_F(IGHMasterTest, ImageGivesTheWorkingCounterShareOfEachSlave) {
+    create_io(this->api->add_slave());
+    this->api->add_slave().syncs = {{EC_DIR_INPUT, {{0x1A00, {{0x6000, 0x01, 16}}}}}};
+    ASSERT_NIL(this->scan_and_activate());
+    EXPECT_EQ(
+        this->image.working_counter_shares,
+        (std::map<uint16_t, master::WorkingCounterShare>{
+            {1, {.outputs = 1, .inputs = 1}},
+            {2, {.inputs = 1}},
+        })
+    );
 }
 
 /// @brief it should not count the zero working counter of an empty domain, which

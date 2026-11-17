@@ -25,6 +25,7 @@ def review(
     *,
     key: str = "7:main",
     app: str = "sedosaur",
+    text: str | None = "<!-- sedosaur_rules:2 -->",
 ) -> dict[str, object]:
     """A check run of a Sedosaur review."""
     return {
@@ -32,6 +33,7 @@ def review(
         "external_id": key,
         "started_at": started,
         "conclusion": conclusion,
+        "output": {"text": text},
     }
 
 
@@ -82,6 +84,13 @@ class TestRequest:
         harness.reviews(review(BEFORE))
         assert harness.run()
 
+    @pytest.mark.parametrize("text", [None, "<!-- sedosaur_findings [] -->"])
+    def test_should_review_a_head_reviewed_under_older_rules(
+        self, harness: Harness, text: str | None
+    ) -> None:
+        harness.reviews(review(BEFORE, text=text))
+        assert not harness.run()
+
     def test_should_review_a_head_whose_last_review_failed(
         self, harness: Harness
     ) -> None:
@@ -97,7 +106,7 @@ class TestRequest:
     def test_should_ignore_a_review_against_another_base(
         self, harness: Harness
     ) -> None:
-        harness.reviews(review(BEFORE, key="7:release/core-0.57"))
+        harness.reviews(review(BEFORE, key="7:release/0.57"))
         assert not harness.run()
 
     def test_should_ignore_a_check_run_of_another_app(self, harness: Harness) -> None:

@@ -11,7 +11,7 @@
 name = "synnax-scripts"
 version = "0.0.0"
 description = "Synnax repository scripts"
-requires-python = ">=3.12,<4"
+requires-python = ">=3.13,<4"
 classifiers = ["Private :: Do Not Upload"]
 
 [dependency-groups]
@@ -28,7 +28,7 @@ dev = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = [

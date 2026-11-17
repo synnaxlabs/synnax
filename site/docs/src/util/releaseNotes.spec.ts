@@ -12,7 +12,12 @@ import os from "os";
 import path from "path";
 import { describe, expect, it } from "vitest";
 
-import { listReleaseNotes, releaseAnchor, releaseLinks } from "@/util/releaseNotes";
+import {
+  listReleaseNotes,
+  releaseAnchor,
+  releaseDate,
+  releaseLinks,
+} from "@/util/releaseNotes";
 
 const write = (files: Record<string, string>): string => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "release-notes-"));
@@ -51,6 +56,16 @@ describe("listReleaseNotes", () => {
     const notes = listReleaseNotes();
     expect(notes.length).toBeGreaterThan(0);
     expect(notes.find(({ name }) => name === "0-31-0")?.anchor).toBe("0-31-1");
+  });
+});
+
+describe("releaseDate", () => {
+  it("should format the day in Mountain Time", () => {
+    expect(releaseDate(new Date("2026-11-12T05:57:37Z"))).toBe("Nov 11, 2026");
+  });
+
+  it("should keep the day of a release published in the morning", () => {
+    expect(releaseDate(new Date("2026-10-07T16:00:00Z"))).toBe("Oct 7, 2026");
   });
 });
 

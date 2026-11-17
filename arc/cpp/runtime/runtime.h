@@ -76,6 +76,9 @@ struct Config {
     x::telem::NowFunc now;
     /// @brief receives the warnings the time module's `format` raises. Required.
     stl::time::Reporter report;
+    /// @brief loop iterations and function calls that the program can run in one
+    /// cycle. A cycle that runs more stops the runtime with errors::LOOP_BUDGET.
+    std::int64_t loop_budget = wasm::DEFAULT_LOOP_BUDGET;
 };
 
 /// @brief callback invoked when a fatal error occurs in the runtime.
@@ -173,7 +176,13 @@ public:
                                          : node::RunReason::ChannelInput
                 };
                 this->time_module->set_now(cycle.now);
+                if (this->mod != nullptr) this->mod->reset_loop_budget();
                 this->clock.advance(this->scheduler->next(cycle));
+                // The node that ran out reported the error, so the runtime only stops.
+                if (this->mod != nullptr && this->mod->loop_budget_used()) {
+                    this->inputs.close();
+                    return;
+                }
                 deadline = this->scheduler->next_deadline();
                 Output out;
                 out.authority_changes = this->state->flush_authority_changes();
@@ -206,10 +215,14 @@ public:
         if (this->breaker.running()) return false;
         this->inputs.reset();
         this->outputs.reset();
+        this->mod->resume();
         this->breaker.start();
         this->run_thread = std::thread([this]() { this->run(); });
         return true;
     }
+
+    /// @brief returns true from a start until the stop that follows it.
+    [[nodiscard]] bool running() const { return this->breaker.running(); }
 
     /// @brief closes the output queue, unblocking any pending read() calls.
     /// Call this before stopping consumers of the output queue.
@@ -217,6 +230,7 @@ public:
 
     bool stop() {
         if (!this->breaker.stop()) return false;
+        this->mod->interrupt();
         this->loop->wake();
         this->run_thread.join();
         this->inputs.close();
@@ -349,6 +363,7 @@ inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(
         .program = cfg.program,
         .modules = stl_modules,
         .strings = str_st,
+        .loop_budget = cfg.loop_budget,
     };
     auto [mod, mod_err] = wasm::Module::open(module_cfg);
     if (mod_err) return {nullptr, mod_err};

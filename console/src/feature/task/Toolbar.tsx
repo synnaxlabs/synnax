@@ -9,7 +9,7 @@
 
 import "@/feature/task/Toolbar.css";
 
-import { arc, query, task } from "@synnaxlabs/client";
+import { arc, channel, query, task } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -22,12 +22,13 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { Access, Arc, type Flux, Synnax, Task } from "@synnaxlabs/pluto";
-import { array } from "@synnaxlabs/x";
+import { array, errors, unique } from "@synnaxlabs/x";
+import pluralize from "pluralize";
 import { useState } from "react";
 
 import { ArcItem } from "@/feature/task/ArcItem";
 import { useOpenSelector } from "@/feature/task/Selector";
-import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
+import { ownedChannelsOf } from "@/feature/task/types";
 import {
   type SetDataSavingParams,
   useSetDataSaving,
@@ -44,7 +45,6 @@ import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { type Nav } from "@/platform/nav";
 import { Panel } from "@/platform/panel";
-import { Range } from "@/platform/range";
 import { Task as PlatformTask } from "@/platform/task";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
@@ -62,14 +62,59 @@ const EmptyContent = () => {
 };
 
 const INITIAL_QUERY: Task.ListQuery = {
-  where: { internal: { eq: false }, snapshot: { eq: false } },
+  where: { internal: { eq: false } },
 };
 
-const filter = (task: task.Task) => !task.internal && !task.snapshot;
+const filter = (task: task.Task) => !task.internal;
+
+const DELETE_CONCURRENCY = 8;
+
+// The Core refuses a whole batch when a task or a channel uses one of its channels, so
+// each channel goes in its own request. Returns the error of each channel that stayed.
+const deleteEach = async (
+  channels: channel.Client,
+  keys: channel.Key[],
+): Promise<Error[]> => {
+  const queue = [...keys];
+  const failures: Error[] = [];
+  const work = async (): Promise<void> => {
+    for (let key = queue.shift(); key != null; key = queue.shift())
+      await channels
+        .delete(key)
+        .catch((e: unknown) => failures.push(errors.fromUnknown(e)));
+  };
+  await Promise.all(Array.from({ length: DELETE_CONCURRENCY }, work));
+  return failures;
+};
+
+interface Owned {
+  channels: channel.Key[];
+  /** The indexes of the channels that the tasks do not own. */
+  indexes: channel.Key[];
+}
+
+const retrieveOwned = async (
+  channels: channel.Client | undefined,
+  keys: channel.Key[],
+): Promise<Owned> => {
+  if (channels == null || keys.length === 0) return { channels: [], indexes: [] };
+  const owned = await channels.retrieve({ where: { key: { in: keys } } });
+  return {
+    channels: owned.map(({ key }) => key),
+    indexes: unique
+      .unique(owned.map(({ index }) => index))
+      .filter((key) => key !== 0 && !keys.includes(key)),
+  };
+};
+
+const CHANNELS_DESCRIPTION =
+  "Their recorded data is deleted too. A channel that another task uses stays. Arc " +
+  "automations are not checked.";
 
 const Content = () => {
   const [selected, setSelected] = useState<task.Key[]>([]);
   const confirmDelete = Modals.useConfirmDelete({ type: "Task" });
+  const canDeleteChannels = Access.useDeleteGranted(channel.TYPE_RESOURCE_ID);
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
   const openSelector = useOpenSelector();
@@ -91,14 +136,13 @@ const Content = () => {
   });
 
   // The row of an Arc deletes the Arc, as the menu of the Arc does.
-  const { update: handleDelete } = Task.useDelete({
+  const { updateAsync: deleteTasks } = Task.useDelete({
     beforeUpdate: async ({
       data: keys,
     }: Flux.BeforeUpdateParams<Task.DeleteParams>) => {
       setSelected([]);
       if (keys.length === 0) return false;
       const rows = getItem(array.toArray(keys));
-      if (!(await confirmDelete(rows))) return false;
       const arcKeys = rows.map(arc.task.arcKeyOf).filter((key) => key != null);
       if (arcKeys.length > 0) deleteArcs(arcKeys);
       const taskKeys = rows
@@ -107,6 +151,49 @@ const Content = () => {
       return taskKeys.length > 0 ? taskKeys : false;
     },
   });
+
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
+  const addStatus = Status.useAdder();
+  // The Core refuses to delete a channel that a task uses, and an index that a channel
+  // uses, so the tasks go first, then the channels, then their indexes.
+  const handleDelete = (keys: task.Key[]) => {
+    const rows = getItem(keys);
+    const ownedKeys = canDeleteChannels
+      ? unique.unique(rows.flatMap(ownedChannelsOf))
+      : [];
+    handleError(
+      async () => {
+        const { channels, indexes } = await retrieveOwned(client?.channels, ownedKeys);
+        const count = channels.length + indexes.length;
+        let withChannels = false;
+        if (count === 0) {
+          if (!(await confirmDelete(rows))) return;
+        } else {
+          const answer = await confirmDelete(rows, {
+            label: `Also delete the ${pluralize("channel", count, true)} ${
+              rows.length === 1 ? "it" : "they"
+            } created`,
+            description: CHANNELS_DESCRIPTION,
+          });
+          if (answer == null) return;
+          withChannels = answer.option;
+        }
+        if (!(await deleteTasks(keys)) || !withChannels || client == null) return;
+        const failures = [
+          ...(await deleteEach(client.channels, channels)),
+          ...(await deleteEach(client.channels, indexes)),
+        ];
+        if (failures.length > 0)
+          addStatus({
+            variant: "warning",
+            message: `Kept ${pluralize("channel", failures.length, true)}`,
+            description: failures.map(({ message }) => message).join("\n"),
+          });
+      },
+      `Failed to delete ${pluralize("task", keys.length)}`,
+    );
+  };
 
   const { capture } = Analytics.use();
   const { update: runCommand } = Task.useCommand({
@@ -406,14 +493,11 @@ const ContextMenu = ({
   onDisableDataSaving,
 }: ContextMenuProps) => {
   const selectedTasks = Store.useItems({ keys, subscribe, getItem });
-  const activeRange = Range.useResolve();
-  const snapshotToActiveRange = useRangeSnapshot();
   const resourceIDs = task.resourceID(keys);
   // Deleting the row of an Arc deletes the Arc.
   const arcIDs = arc.resourceID(
     selectedTasks.map(arc.task.arcKeyOf).filter((key) => key != null),
   );
-  const hasCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
   const hasDeletePermission = Access.useDeleteGranted([...resourceIDs, ...arcIDs]);
   const hasUpdatePermission = Access.useUpdateGranted(resourceIDs);
   const canControl = Framer.useCanCommand();
@@ -463,10 +547,6 @@ const ContextMenu = ({
       });
     copyLinkToClipboard({ name, resourceID: task.resourceID(key) });
   };
-  // The menu of an Arc has no snapshot.
-  const snapshotTasks = selectedTasks.filter(({ type }) => type !== arc.task.TYPE);
-  const showSnapshotToActiveRange =
-    activeRange?.variant === "persisted" && snapshotTasks.length > 0;
   return (
     <PlatformContextMenu.Menu>
       {canControl && (
@@ -527,20 +607,6 @@ const ContextMenu = ({
             </Menu.Item>
           )}
         </>
-      )}
-      {hasCreatePermission && showSnapshotToActiveRange && (
-        <Range.SnapshotMenuItem
-          range={activeRange}
-          key="snapshot"
-          onClick={() =>
-            snapshotToActiveRange({
-              tasks: snapshotTasks.map(({ name, resourceID: { key } }) => ({
-                key,
-                name,
-              })),
-            })
-          }
-        />
       )}
       <Menu.Divider />
       {isSingle && (

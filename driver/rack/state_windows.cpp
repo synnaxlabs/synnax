@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <string>
 #include <system_error>
+#include <utility>
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -38,6 +39,10 @@ fs::path user_dir() {
     if (const char *appdata = std::getenv("LOCALAPPDATA"))
         return fs::path(appdata) / "synnax-driver";
     return {};
+}
+
+bool sudo() {
+    return false;
 }
 
 namespace {
@@ -92,14 +97,21 @@ x::errors::Error check_owner(const std::wstring &dir) {
             ". Delete it, then install the Driver again"
     );
 }
+
+/// @brief creates dir for LocalSystem and the administrators alone if it is missing.
+/// Each user can create and read a new folder in ProgramData. Returns whether dir
+/// existed.
+std::pair<bool, x::errors::Error>
+create_dir(const std::wstring &dir, const PSECURITY_DESCRIPTOR descriptor) {
+    // Created with its access in one step, so no user can add a file to it first.
+    SECURITY_ATTRIBUTES attributes{sizeof(attributes), descriptor, FALSE};
+    if (CreateDirectoryW(dir.c_str(), &attributes) != 0) return {false, x::errors::NIL};
+    const DWORD code = GetLastError();
+    if (code == ERROR_ALREADY_EXISTS) return {true, x::errors::NIL};
+    return {false, state_error("failed to create state directory", code)};
 }
 
-/// @brief creates the state directory of the computer for LocalSystem and the
-/// administrators alone, or gives an existing one to them alone. Each user can create
-/// and read a new folder in ProgramData.
-x::errors::Error secure(const fs::path &path, const bool dedicated) {
-    if (!dedicated || path.parent_path() != machine_dir()) return x::errors::NIL;
-    auto dir = path.parent_path().wstring();
+std::pair<PSECURITY_DESCRIPTOR, x::errors::Error> parse_descriptor() {
     PSECURITY_DESCRIPTOR descriptor = nullptr;
     if (ConvertStringSecurityDescriptorToSecurityDescriptorW(
             DESCRIPTOR,
@@ -107,13 +119,34 @@ x::errors::Error secure(const fs::path &path, const bool dedicated) {
             &descriptor,
             nullptr
         ) == 0)
-        return state_error("failed to secure state directory", GetLastError());
+        return {
+            nullptr,
+            state_error("failed to secure state directory", GetLastError())
+        };
+    return {descriptor, x::errors::NIL};
+}
+}
+
+x::errors::Error prepare(const fs::path &path) {
+    if (path.parent_path() != machine_dir()) return x::errors::NIL;
+    auto [descriptor, err] = parse_descriptor();
+    if (err) return err;
     x::defer::defer free_descriptor([&] { LocalFree(descriptor); });
-    // Created with its access in one step, so no user can add a file to it first.
-    SECURITY_ATTRIBUTES attributes{sizeof(attributes), descriptor, FALSE};
-    if (CreateDirectoryW(dir.c_str(), &attributes) == 0)
-        if (const DWORD code = GetLastError(); code != ERROR_ALREADY_EXISTS)
-            return state_error("failed to create state directory", code);
+    const auto dir = path.parent_path().wstring();
+    auto [existed, create_err] = create_dir(dir, descriptor);
+    if (create_err || !existed) return create_err;
+    return check_owner(dir);
+}
+
+/// @brief creates the state directory of the computer for LocalSystem and the
+/// administrators alone, or gives an existing one to them alone.
+x::errors::Error secure(const fs::path &path, const bool dedicated) {
+    if (!dedicated || path.parent_path() != machine_dir()) return x::errors::NIL;
+    auto dir = path.parent_path().wstring();
+    auto [descriptor, desc_err] = parse_descriptor();
+    if (desc_err) return desc_err;
+    x::defer::defer free_descriptor([&] { LocalFree(descriptor); });
+    if (auto [_, err] = create_dir(dir, descriptor); err) return err;
     if (auto err = check_owner(dir)) return err;
     BOOL present = FALSE;
     BOOL defaulted = FALSE;

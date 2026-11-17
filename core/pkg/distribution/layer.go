@@ -22,9 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/encoding"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -33,12 +30,6 @@ import (
 
 // LayerConfig is the configuration for opening the distribution layer.
 type LayerConfig struct {
-	// GorpCodec sets the codec used to encode/decode data structures within the
-	// metadata DB.
-	//
-	// [OPTIONAL] - Defaults to encoding.NewDecodeFallbackCodec(orc.Codec,
-	// msgpack.Codec)
-	GorpCodec encoding.Codec
 	// Storage is the storage layer that the distribution layer will use for persisting
 	// data across its various services.
 	//
@@ -61,7 +52,6 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.AdvertiseAddress = override.String(c.AdvertiseAddress, other.AdvertiseAddress)
-	c.GorpCodec = override.Nil(c.GorpCodec, other.GorpCodec)
 	return c
 }
 
@@ -69,8 +59,10 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 func (c LayerConfig) Validate() error {
 	v := validate.New("distribution")
 	v.NotNil("storage", c.Storage)
+	if c.Storage != nil {
+		v.NotNil("storage.gorp", c.Storage.Gorp)
+	}
 	v.NotEmptyString("advertise_address", c.AdvertiseAddress)
-	v.NotNil("gorp_codec", c.GorpCodec)
 	return v.Error()
 }
 
@@ -82,7 +74,7 @@ func (c LayerConfig) Validate() error {
 // the public fields in this struct, or to access these fields after Close has been
 // called.
 type Layer struct {
-	// DB stores the metadata of the Core.
+	// DB stores the metadata of the Core. It is the Gorp DB of the storage layer.
 	DB *gorp.DB
 	// Identity names the Core: its cluster key and host key.
 	Identity cluster.Identity
@@ -98,18 +90,16 @@ type Layer struct {
 	closer  io.MultiCloser
 }
 
-// Open opens the distribution Layer using the provided configuration(s). Later
+// OpenLayer opens the distribution Layer using the provided configuration(s). Later
 // configurations override the fields set in previous configurations. If the
-// configuration is invalid, or any services fail to open, Open returns a nil layer and
-// an error.
+// configuration is invalid, or any services fail to open, OpenLayer returns a nil layer
+// and an error.
 //
 // If the returned error is nil, the Layer must be closed by calling Close after use.
 // None of the services in the Layer should be used after Close is called. It is the
 // caller's responsibility to ensure that the Layer is not accessed after it is closed.
 func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
-	cfg, err := config.New(LayerConfig{
-		GorpCodec: encoding.NewDecodeFallbackCodec(orc.Codec, msgpack.Codec),
-	}, cfgs...)
+	cfg, err := config.New(LayerConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +115,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	l.Host = node.Node{Key: l.Identity.HostKey, Address: cfg.AdvertiseAddress}
-	l.DB = gorp.Wrap(cfg.Storage.KV, gorp.WithCodec(cfg.GorpCodec))
+	l.DB = cfg.Storage.Gorp
 
 	if l.Channel, err = channel.NewService(ctx, channel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),

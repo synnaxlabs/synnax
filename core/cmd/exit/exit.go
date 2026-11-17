@@ -11,6 +11,7 @@
 package exit
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/driver"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -22,6 +23,13 @@ const (
 	// DataRefused is the code of a Core that refuses its data until a person acts. It
 	// is the BSD code for a data format error.
 	DataRefused = 65
+	// Unavailable is the code of a Core whose embedded Driver cannot load on this
+	// system, so a restart fails the same way. It is the BSD code for an unavailable
+	// service.
+	Unavailable = 69
+	// DataLocked is the code of a Core whose data directory another process holds. It
+	// is the BSD code for a temporary failure: a start after that process exits works.
+	DataLocked = 75
 	// Config is the code of a flag or config value that a person must fix. It is the
 	// BSD code for a configuration error.
 	Config = 78
@@ -34,6 +42,10 @@ func Code(err error) int {
 		return 0
 	case errors.Is(err, storage.ErrRefused):
 		return DataRefused
+	case errors.Is(err, driver.ErrNotLoaded):
+		return Unavailable
+	case errors.Is(err, storage.ErrLocked):
+		return DataLocked
 	case errors.Is(err, validate.ErrValidation):
 		return Config
 	default:

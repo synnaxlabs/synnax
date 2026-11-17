@@ -48,19 +48,19 @@ TEST(ErrorsTest, NotFoundErrorWithName) {
 
 /// @brief it should accept exactly one record.
 TEST(ErrorsTest, CheckOneFound) {
-    ASSERT_NIL(check_one("range", x::json::json{{"key", {{"eq", 12}}}}, 1));
+    ASSERT_NIL(check_one("range", x::json::json{{"key", {{"eq", 12}}}}, "", 1));
 }
 
 /// @brief it should describe the filter when no record matched.
 TEST(ErrorsTest, CheckOneNotFound) {
-    const auto err = check_one("range", x::json::json{{"key", {{"eq", 12}}}}, 0);
+    const auto err = check_one("range", x::json::json{{"key", {{"eq", 12}}}}, "", 0);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
     EXPECT_EQ(err.data, "Found no range where key = 12");
 }
 
 /// @brief it should leave out the filter when it sets no conditions.
 TEST(ErrorsTest, CheckOneNotFoundEmptyFilter) {
-    const auto err = check_one("range", x::json::json::object(), 0);
+    const auto err = check_one("range", x::json::json::object(), "", 0);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
     EXPECT_EQ(err.data, "Found no range");
 }
@@ -71,6 +71,7 @@ TEST(ErrorsTest, CheckOneMultipleFound) {
     const auto err = check_one(
         "range",
         x::json::json{{"name", {{"starts_with", "press"}}}},
+        "",
         2
     );
     ASSERT_MATCHES(err, x::errors::MULTIPLE_RESULTS);
@@ -80,9 +81,25 @@ TEST(ErrorsTest, CheckOneMultipleFound) {
     );
 }
 
+/// @brief it should name the search term before the filter when no record matched.
+TEST(ErrorsTest, CheckOneNotFoundSearchTerm) {
+    const auto
+        err = check_one("range", x::json::json{{"key", {{"eq", 12}}}}, "press", 0);
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    EXPECT_EQ(err.data, R"(Found no range matching "press" where key = 12)");
+}
+
+/// @brief it should name the search term when more than one record matched.
+TEST(ErrorsTest, CheckOneMultipleFoundSearchTerm) {
+    const auto err = check_one("range", x::json::json::object(), "press", 2);
+    ASSERT_MATCHES(err, x::errors::MULTIPLE_RESULTS);
+    EXPECT_EQ(err.data, R"(Expected one range matching "press", but found 2)");
+}
+
 /// @brief it should match only the errors that clear without a restart.
 TEST(ErrorsTest, IsTemporarilyUnavailable) {
     EXPECT_TRUE(is_temporarily_unavailable(freighter::UNREACHABLE));
+    EXPECT_TRUE(is_temporarily_unavailable(freighter::TIMEOUT));
     EXPECT_TRUE(is_temporarily_unavailable(LICENSE_MISSING));
     EXPECT_TRUE(is_temporarily_unavailable(LICENSE_EXPIRED));
     EXPECT_FALSE(is_temporarily_unavailable(LICENSE));

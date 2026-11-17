@@ -22,6 +22,15 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// OwnedTables returns the tables of the records that a user can own, so the write
+// binder lets the owner change them without other access. A draft panel is owned by
+// the user it uses.
+func OwnedTables() []string { return []string{string(resource.TypePanel)} }
+
+// OwnedPlaces returns the tables that the owner of a draft panel can place it in with
+// only retrieve on the target: its project. A group still needs update.
+func OwnedPlaces() []string { return []string{string(resource.TypeProject)} }
+
 // ServiceConfig is the configuration for the panel API service.
 type ServiceConfig struct {
 	// Panel stores and retrieves panels.
@@ -67,8 +76,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		// Panels are the panels to create. Each panel belongs to exactly one of a
-		// project and a range.
+		// Panels are the panels to create. Each panel belongs to a project.
 		Panels []panel.Panel `json:"panels" msgpack:"panels"`
 		// DispatchKey is stamped onto the create broadcasts so the sender skips its
 		// echo.
@@ -80,7 +88,7 @@ type (
 )
 
 // Create creates the panels. It returns a validation error when a panel does not belong
-// to exactly one project or range, or when a panel with its key exists.
+// to a project, or when a panel with its key exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,

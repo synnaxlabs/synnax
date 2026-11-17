@@ -24,7 +24,6 @@ var allObjects = []resource.ID{
 	{Type: resource.TypeGroup},
 	{Type: resource.TypeRange},
 	{Type: resource.TypeFramer},
-	{Type: resource.TypeRangeAlias},
 	{Type: resource.TypeUser},
 	{Type: resource.TypeProject},
 	{Type: resource.TypePanel},
@@ -52,6 +51,8 @@ var allObjects = []resource.ID{
 	{Type: resource.TypeView},
 	{Type: resource.TypeSecret},
 	{Type: resource.TypeCertificate},
+	{Type: resource.TypeColor},
+	{Type: resource.TypeICD},
 }
 
 var (
@@ -87,7 +88,6 @@ var (
 				{Type: resource.TypeGroup},
 				{Type: resource.TypeRange},
 				{Type: resource.TypeFramer},
-				{Type: resource.TypeRangeAlias},
 				{Type: resource.TypeProject},
 				{Type: resource.TypePanel},
 				{Type: resource.TypeSchematic},
@@ -111,6 +111,8 @@ var (
 				{Type: resource.TypeView},
 				{Type: resource.TypeSecret},
 				{Type: resource.TypeCertificate},
+				{Type: resource.TypeColor},
+				{Type: resource.TypeICD},
 			},
 			Actions:  access.AllActions,
 			Internal: true,

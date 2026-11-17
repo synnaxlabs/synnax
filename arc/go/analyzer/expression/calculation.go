@@ -51,9 +51,9 @@ func CheckUnits[T antlr.ParserRuleContext](
 ) (converts, ok bool) {
 	from, to := w.Source.Unwrap().Unit, w.Target.Unwrap().Unit
 	if types.UnitsIncompatible(from, to) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.DimensionMismatch.Atf(
 			w.AST,
-			"incompatible dimensions: cannot write %s to %s (%s)",
+			"cannot write %s to %s (%s)",
 			from.Name,
 			w.Subject,
 			to.Name,
@@ -61,7 +61,9 @@ func CheckUnits[T antlr.ParserRuleContext](
 		return false, false
 	}
 	if from != nil && to == nil && w.Target.IsNumeric() {
-		d := codes.UnitMissing.At(w.AST, w.Subject, from.Name)
+		d := codes.UnitMissing.Atf(
+			w.AST, "%s has no unit and cannot take a value in %s", w.Subject, from.Name,
+		)
 		t := types.Concrete(ctx.Constraints.ApplySubstitutions(w.Target))
 		inUnit := t
 		inUnit.Unit = from
@@ -85,7 +87,7 @@ func CheckUnits[T antlr.ParserRuleContext](
 	}
 	isLiteral := w.Expr != nil && parser.IsLiteral(w.Expr)
 	if seriesToSeries(w) && !isLiteral {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 			w.AST,
 			"%s is a series in %s and cannot take a series in %s",
 			w.Subject,
@@ -98,36 +100,51 @@ func CheckUnits[T antlr.ParserRuleContext](
 		TakeUnit(ctx, w.Expr, to)
 	}
 	if !w.Lowered && truncates(ctx, w, isLiteral) {
-		d := codes.UnitTruncation.At(w.AST, from.Name, to.Name)
-		t := types.Concrete(ctx.Constraints.ApplySubstitutions(w.Target))
-		if decl, ok := redeclarable(w); ok && t.IsInteger() {
-			float := diagnostics.Replacement{Node: decl, Text: redeclared(
-				decl,
-				types.Type{Kind: types.KindF64, Unit: to}.String(),
-				sourceText(decl.Expression()),
-			)}
-			// A value that is not a literal needs a cast that keeps its unit.
-			if isLiteral {
-				d = d.WithReplacements(float)
-			} else if value := valueOf(w); value != nil {
-				d = d.WithReplacements(float, diagnostics.Replacement{
-					Node: value,
-					Text: types.Type{Kind: types.KindF64, Unit: from}.String() +
-						"(" + sourceText(value) + ")",
-				})
-			}
-			if init, ok := converted(decl.Expression(), t, to, from); ok {
-				typ := ""
-				if decl.Type_() != nil {
-					t.Unit = from
-					typ = t.String()
-				}
-				d = d.WithFix(decl, redeclared(decl, typ, init))
-			}
-		}
-		ctx.Diagnostics.Add(d)
+		ctx.Diagnostics.Add(truncationOf(ctx, w, from, to, isLiteral))
 	}
 	return !isLiteral, true
+}
+
+// truncationOf returns the warning for the write w, which truncates an integer on its
+// way from the unit from to to, with each fix that the declaration of the target
+// allows.
+func truncationOf[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	w Write,
+	from, to *types.Unit,
+	isLiteral bool,
+) diagnostics.Diagnostic {
+	d := truncation(w.AST, from, to)
+	t := types.Concrete(ctx.Constraints.ApplySubstitutions(w.Target))
+	decl, ok := redeclarable(w)
+	if !ok || !t.IsInteger() {
+		return d
+	}
+	float := diagnostics.Replacement{Node: decl, Text: redeclared(
+		decl,
+		types.Type{Kind: types.KindF64, Unit: to}.String(),
+		sourceText(decl.Expression()),
+	)}
+	// A value that is not a literal needs a cast that keeps its unit.
+	if isLiteral {
+		d = d.WithReplacements(float)
+	} else if value := valueOf(w); value != nil {
+		d = d.WithReplacements(float, diagnostics.Replacement{
+			Node: value,
+			Text: types.Type{Kind: types.KindF64, Unit: from}.String() +
+				"(" + sourceText(value) + ")",
+		})
+	}
+	init, ok := converted(decl.Expression(), t, to, from)
+	if !ok {
+		return d
+	}
+	typ := ""
+	if decl.Type_() != nil {
+		t.Unit = from
+		typ = t.String()
+	}
+	return d.WithFix(decl, redeclared(decl, typ, init))
 }
 
 // warnDroppedUnit warns when the value of w is a cast with no unit of a value in
@@ -153,7 +170,11 @@ func warnDroppedUnit[T antlr.ParserRuleContext](
 	if !types.UnitsConvertible(from, to) {
 		return
 	}
-	d := codes.UnitDropped.At(w.AST, castType, from.Name, w.Subject, to.Name)
+	d := codes.UnitDropped.Atf(
+		w.AST,
+		"the cast to %s removes the unit %s, so %s takes the number in %s",
+		castType, from.Name, w.Subject, to.Name,
+	)
 	castType.Unit = to
 	var number parser.INumericLiteralContext
 	if parser.IsLiteral(value) {
@@ -291,6 +312,18 @@ func integersTruncate[T antlr.ParserRuleContext](
 	return true
 }
 
+// truncation returns the warning for an integer that converts from the unit from to to.
+func truncation(
+	ast antlr.ParserRuleContext,
+	from, to *types.Unit,
+) diagnostics.Diagnostic {
+	return codes.UnitPrecisionLoss.Atf(
+		ast,
+		"unit conversion from %s to %s truncates an integer toward zero",
+		from.Name, to.Name,
+	)
+}
+
 // CheckOperandUnits checks the operand that converts to the unit of the other operand
 // of a calculation. ok is false when it reports an error.
 func CheckOperandUnits[T antlr.ParserRuleContext](
@@ -313,7 +346,7 @@ func CheckOperandUnits[T antlr.ParserRuleContext](
 	); left.Kind == types.KindSeries &&
 		!exact {
 		elem.Unit = nil
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.InvalidOperand.Atf(
 			ctx.AST,
 			"a series of %s in %s does not convert to %s, use a float series or the "+
 				"same unit",
@@ -322,7 +355,7 @@ func CheckOperandUnits[T antlr.ParserRuleContext](
 		return false
 	}
 	if integersTruncate(ctx, left, right) {
-		ctx.Diagnostics.Add(codes.UnitTruncation.At(ctx.AST, from.Name, to.Name))
+		ctx.Diagnostics.Add(truncation(ctx.AST, from, to))
 	}
 	return true
 }

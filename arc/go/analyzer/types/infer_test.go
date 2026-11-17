@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
@@ -183,6 +184,7 @@ var _ = Describe("Binary minus spacing", func() {
 			atypes.InferFromExpression(ctx)
 			for _, d := range *ctx.Diagnostics {
 				if strings.Contains(d.Message, "whitespace on both sides") {
+					Expect(d.Code).To(Equal(codes.SubtractionSpacing.Code))
 					Expect(d.Range.Start.Character).To(Equal(uint32(2)))
 					Expect(d.Range.End.Character).To(Equal(uint32(3)))
 					return

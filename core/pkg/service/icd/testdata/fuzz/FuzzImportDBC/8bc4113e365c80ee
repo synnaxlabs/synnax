@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("BO_ 0A0:1A SG_ A:0|0@0+(0,0)[0|0]\"\"A")

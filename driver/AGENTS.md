@@ -18,8 +18,8 @@ Modbus TCP/IP) to Synnax.
    (discovery).
 3. **Pipelines** (`/driver/pipeline/`) — generic streaming: **Acquisition** (Source →
    Writer → Synnax) and **Control** (Synnax → Streamer → Sink). Automatic retry when
-   `synnax::errors::is_temporarily_unavailable` matches (unreachable or unlicensed
-   Core), breaker pattern (exponential backoff), thread management.
+   `synnax::errors::is_temporarily_unavailable` matches (unreachable, timed out, or
+   unlicensed Core), breaker pattern (exponential backoff), thread management.
 4. **Device integrations** — each implements
    `Factory → {Read|Write|Scan}Task → Source/Sink → Device API`.
 
@@ -46,6 +46,8 @@ Shared task bases in `/driver/task/common/`: `sample_clock.h` (hardware/software
 - **OPC UA** (`/driver/opcua/`) — vendored open62541 on BCR mbedtls.
   `util::ConnectionPool` shared clients; ReadTask modes for array vs scalar reads;
   NodeId-based writes; security policy support. Windows/Linux/macOS.
+- **EtherCAT** (`/driver/ethercat/`): SOEM and IgH masters. Read `ethercat/DEWESOFT.md`
+  before work on Dewesoft modules: it holds hardware facts the code does not show.
 
 ## Plugin pattern
 

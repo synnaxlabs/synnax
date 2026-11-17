@@ -209,11 +209,11 @@ func FmtStrParse(body string) ([]FmtStrSegment, error) {
 		if open == len(body) {
 			return segments, nil
 		}
-		close, err := findPlaceholderClose(body, open)
+		closeIdx, err := findPlaceholderClose(body, open)
 		if err != nil {
 			return nil, err
 		}
-		expr := body[open+1 : close]
+		expr := body[open+1 : closeIdx]
 		exprPart, spec, err := splitSpec(expr)
 		if err != nil {
 			return nil, err
@@ -227,10 +227,10 @@ func FmtStrParse(body string) ([]FmtStrSegment, error) {
 			Spec:          spec,
 			IsPlaceholder: true,
 			Start:         open,
-			End:           close + 1,
+			End:           closeIdx + 1,
 			SpecOffset:    specOffset,
 		})
-		pos = close + 1
+		pos = closeIdx + 1
 	}
 	return segments, nil
 }

@@ -239,9 +239,8 @@ const tagHoverSeverity =
 
 const useTheme = (hasCustomTheme: boolean) => {
   const theme = Theming.use();
-  const prefersDark = theme.key.includes("Dark");
-  if (hasCustomTheme) return prefersDark ? BASE_THEMES.dark : BASE_THEMES.light;
-  return prefersDark ? "vs-dark" : "vs";
+  if (hasCustomTheme) return theme.dark ? BASE_THEMES.dark : BASE_THEMES.light;
+  return theme.dark ? "vs-dark" : "vs";
 };
 
 interface UseReturn {
@@ -571,7 +570,7 @@ const EditorInternal = ({
         selection.startColumn !== selection.endColumn);
 
     return (
-      <Menu.Menu level="small" gap="small">
+      <Menu.Menu gap="small">
         <Menu.Item
           itemKey="cut"
           trigger={Triggers.CUT}

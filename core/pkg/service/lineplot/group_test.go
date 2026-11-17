@@ -214,7 +214,7 @@ var _ = Describe("Apply of a move", func() {
 			target.Key,
 			lineplot.NewRemoveAction(lineplot.RemovePayload{Key: "project"}),
 		)).Error().To(MatchError(ContainSubstring(
-			"project: must belong to exactly one of a project and a range",
+			"project: must belong to a project",
 		)))
 		Expect(retrieve(ctx, target.Key).Project).To(Equal(&proj.Key))
 	})
@@ -437,6 +437,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 		"Should keep the line plots of a group in its project during concurrent moves",
 		func(ctx SpecContext) {
 			moveDB := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(moveDB.Run)
 			var plots *lineplot.Service
 			groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB: moveDB,

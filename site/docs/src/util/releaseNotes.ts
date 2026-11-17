@@ -40,9 +40,22 @@ export const listReleaseNotes = (dir: string = RELEASE_NOTES_DIR): Notes[] =>
       return { name: f.replace(/\.mdx$/, ""), anchor: releaseAnchor(version) };
     });
 
+const DATE = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "America/Denver",
+});
+
+/** Formats the day a release was published in Mountain Time, such as `Nov 11, 2026`. */
+export const releaseDate = (publishedAt: Date): string => DATE.format(publishedAt);
+
 export interface Release {
   version: string;
-  /** When the release shipped. A release without a date has not shipped. */
+  /**
+   * When the release shipped. A release without a date has not shipped. Notes from
+   * v0.59 pass none: their date is the publish date of the stable Core release.
+   */
   date?: string;
   desktopVersion?: string;
   /** The TypeScript client's version, or null if none shipped. Defaults to version. */

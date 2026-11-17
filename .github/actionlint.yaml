@@ -12,7 +12,6 @@ self-hosted-runner:
     - hitl
     - macos-build-bot
     - review
-    - ubuntu-agent-bot
     - ubuntu-build-bot
     - ubuntu-test-bot
     - windows-build-bot
@@ -30,6 +29,7 @@ config-variables:
   - PREVIEW_ROLE_ARN
   - S3_CACHE_BUCKET
   - S3_CACHE_REGION
+  - SECURITY_REPORT_PUBLIC_KEY
   - TURBO_TEAM
   - WINDOWS_TEST_BOTS
 

@@ -113,9 +113,9 @@ var _ = Describe("ServiceConfig", func() {
 		}
 	}
 	DescribeTable("Should fail when a service is missing",
-		func(clear func(*apisecret.ServiceConfig), msg string) {
+		func(unset func(*apisecret.ServiceConfig), msg string) {
 			cfg := full()
-			clear(&cfg)
+			unset(&cfg)
 			Expect(cfg.Validate()).To(MatchError(msg))
 		},
 		Entry("secret", func(c *apisecret.ServiceConfig) { c.Secret = nil },
@@ -388,7 +388,9 @@ var _ = Describe("Service", func() {
 					secretType,
 				)
 				cert = createCertificate(ctx)
-				key = *cert.Variant.(certificate.StoredCertificate).PrivateKey
+				stored, ok := cert.Variant.(certificate.StoredCertificate)
+				Expect(ok).To(BeTrue())
+				key = *stored.PrivateKey
 			})
 			It("Should return the resources that use each secret",
 				func(ctx SpecContext) {

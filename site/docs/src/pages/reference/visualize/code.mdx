@@ -25,8 +25,7 @@ The examples use a client that is connected to a Synnax Core. See
 
 ## Create a project
 
-Each visualization that a script creates belongs to a project, or to a range when it is
-a snapshot.
+Each visualization that a script creates belongs to a project.
 
 <Client.Tabs exclude={["console"]}>
 
@@ -157,8 +156,8 @@ const events = await client.logs.create({
 
 ## Copy a schematic
 
-Draw a schematic in the Console, then copy it from a script. A common job is to take a
-[snapshot](/reference/ranges/snapshots) of the schematic at the end of each test.
+Draw a schematic in the Console, then copy it from a script. A common job is to keep a
+copy of the schematic at the end of each test.
 
 <Client.Tabs exclude={["console"]}>
 
@@ -169,17 +168,9 @@ schematics = client.schematics.retrieve(projects=project.key)
 pid = next((s for s in schematics if s.name == "Stand 2 P&ID"), None)
 if pid is None:
     raise ValueError("No schematic is named Stand 2 P&ID")
-burn = client.ranges.retrieve(name="Burn 2")
 
-client.schematics.copy(
-    pid.key,
-    name="Stand 2 P&ID (Snapshot)",
-    snapshot=True,
-    range=burn.key,
-)
+client.schematics.copy(pid.key, name="Stand 2 P&ID (Burn 2)")
 ```
-
-Leave out `snapshot` and `range` to make a copy that you can change.
 
   </Fragment>
 
@@ -190,25 +181,15 @@ const query = { projects: [project.key] };
 const schematics = await client.schematics.retrieve(query);
 const pid = schematics.find((s) => s.name === "Stand 2 P&ID");
 if (pid == null) throw new Error("No schematic is named Stand 2 P&ID");
-const burn = await client.ranges.retrieve("Burn 2");
 
-await client.schematics.copy({
-  key: pid.key,
-  name: "Stand 2 P&ID (Snapshot)",
-  snapshot: true,
-  range: burn.key,
-});
+await client.schematics.copy({ key: pid.key, name: "Stand 2 P&ID (Burn 2)" });
 ```
-
-Set `snapshot` to `false` and leave out `range` to make a copy that you can change.
 
   </Fragment>
 
 </Client.Tabs>
 
-A snapshot shows on the range overview, and nobody can change it. It is the same as
-**Snapshot to** in the Console. A copy that is not a snapshot goes in the project of the
-original schematic.
+The copy goes in the project of the original schematic.
 
 <Divider.Divider x />
 

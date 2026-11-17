@@ -13,8 +13,8 @@
 # outputs (key=value lines).
 # Usage: resolve_version.sh <product> <prerelease> <ref> [bump] [core]
 #
-# Every product releases only from main or a release branch:
-# release/<console|core|driver>-X.Y, or release/desktop-X.Y for Desktop.
+# Every product releases only from main or a release branch: release/X.Y, the one
+# branch of train X.Y, or release/desktop-X.Y, which releases only Desktop.
 #
 # Console, Core, and Driver: main resolves the minor after the product's newest stable
 # tag. A release branch resolves the next patch on X.Y, or X.Y.0 when the product has
@@ -76,10 +76,10 @@ require_last_patch() {
     fi
 }
 
-# Prints X.Y when the ref is a release branch of one of the products in pattern $1.
+# Prints X.Y when the ref is release/, then the prefix $1, then X.Y.
 release_train() {
-    if [[ $REF =~ ^release/($1)-((0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$ ]]; then
-        echo "${BASH_REMATCH[2]}"
+    if [[ $REF =~ ^release/$1((0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$ ]]; then
+        echo "${BASH_REMATCH[1]}"
     fi
 }
 
@@ -89,16 +89,19 @@ case "$PRODUCT" in
             echo "$PRODUCT takes no bump; the ref sets its version" >&2
             exit 1
         fi
-        TRAIN=$(release_train "console|core|driver")
+        TRAIN=$(release_train "")
+        if [ -n "$(release_train desktop-)" ]; then
+            echo "$REF releases only Desktop. Leave $PRODUCT out of the run" >&2
+            exit 1
+        fi
         if [ -z "$TRAIN" ] && [ "$REF" != main ]; then
-            echo "releases run only from main or release/<console|core|driver>-X.Y," \
-                "not '$REF'" >&2
+            echo "releases run only from main or release/X.Y, not '$REF'" >&2
             exit 1
         fi
         if [ -z "$TRAIN" ] && [[ $PRODUCT =~ ^(ts|py)$ ]]; then
             if [ -z "$RUN_CORE" ]; then
                 echo "$PRODUCT releases from main only with the Core. To release it" \
-                    "alone, run from release/core-X.Y" >&2
+                    "alone, run from release/X.Y" >&2
                 exit 1
             fi
             if ! [[ $RUN_CORE =~ ^([0-9]+\.[0-9]+)\.[0-9]+$ ]]; then
@@ -152,7 +155,7 @@ case "$PRODUCT" in
         fi
         ;;
     desktop)
-        TRAIN=$(release_train desktop)
+        TRAIN=$(release_train desktop-)
         if [ "$REF" != main ] && [ -z "$TRAIN" ]; then
             echo "desktop releases only from main or release/desktop-X.Y, not '$REF'" >&2
             exit 1

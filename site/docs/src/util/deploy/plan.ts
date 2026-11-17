@@ -79,7 +79,7 @@ export const plan = async (
     const docs = DOCS_BRANCHES.get(name);
     if (docs != null) return docs;
     const tag = `core/v${await newest(name)}`;
-    const branch = `release/core-${name}`;
+    const branch = `release/${name}`;
     return (await holds(branch, tag)) ? branch : tag;
   };
   return await Promise.all(

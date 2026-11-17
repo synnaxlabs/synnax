@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
@@ -37,7 +38,8 @@ public:
     virtual void stopped_with_err(const x::errors::Error &_) {}
 
     /// @brief called on the pipeline thread each time the streamer opens. Frames
-    /// written to the Core after it is called reach write().
+    /// written to the Core after it is called reach write(), unless the streamer opens
+    /// before its Core half, as the bypass streamer does while the Core is unreachable.
     virtual void opened() {}
 
     virtual ~Sink() = default;
@@ -56,10 +58,10 @@ public:
     virtual std::pair<x::telem::Frame, x::errors::Error> read() = 0;
 
     /// @brief closes the streamer, returning any error that occurred during normal
-    /// operation. If synnax::errors::is_temporarily_unavailable matches the returned
-    /// error, the control pipeline will trigger a breaker (temporary backoff), and then
-    /// retry until the configured number of maximum retries is exceeded. Any other
-    /// error will be considered permanent and the pipeline will exit.
+    /// operation. If the Core is unreachable, the control pipeline backs off and
+    /// retries with no retry limit. If the Core has no valid license, it retries up to
+    /// the breaker limit. Any other error will be considered permanent and the pipeline
+    /// will exit.
     virtual x::errors::Error close() = 0;
 
     /// @brief signals the streamer that the caller is done sending requests, and that
@@ -76,10 +78,10 @@ public:
 class StreamerFactory {
 public:
     /// @brief opens a streamer with the given configuration, returning the streamer and
-    /// an error if one occurs. If synnax::errors::is_temporarily_unavailable matches
-    /// the error, the control pipeline will trigger a breaker (temporary backoff), and
-    /// then retry until the configured number of maximum retries is exceeded. Any other
-    /// error is considered permanent and the pipeline will exit.
+    /// an error if one occurs. If the Core is unreachable, the control pipeline backs
+    /// off and retries with no retry limit. If the Core has no valid license, it
+    /// retries up to the breaker limit. Any other error is considered permanent and the
+    /// pipeline will exit.
     virtual std::pair<std::unique_ptr<Streamer>, x::errors::Error>
     open_streamer(synnax::framer::StreamerConfig config) = 0;
 
@@ -135,6 +137,8 @@ class Control final : public Base {
     synnax::framer::StreamerConfig config;
     /// @brief the sink that the control pipeline will write frames to.
     std::shared_ptr<Sink> sink;
+    /// @brief protects streamer, which a stop reads from another thread.
+    std::mutex streamer_mu;
     /// @brief the current open streamer reading data from the network.
     std::unique_ptr<Streamer> streamer = nullptr;
 
@@ -142,6 +146,9 @@ class Control final : public Base {
     /// @returns true when the Core was temporarily unavailable and the breaker allows
     /// another run.
     bool run_once();
+
+    /// @brief ends the read of the open streamer.
+    void interrupt() override;
 
 public:
     /// @brief constructs a new control pipeline that opens streamers on a Synnax Core.
@@ -178,10 +185,6 @@ public:
         const x::breaker::Config &breaker_config,
         std::string thread_name = ""
     );
-
-    /// @brief stops the control pipeline, blocking until the control thread has exited.
-    /// If the pipeline has already stopped, this method will return immediately.
-    bool stop() override;
 
     void run() override;
 

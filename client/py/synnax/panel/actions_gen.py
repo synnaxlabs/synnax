@@ -106,7 +106,7 @@ class ResizeSplitPayload(BaseModel):
     """Adjusts the size ratio of a split node. size in [0, 1]."""
 
     split: int = Field(ge=-2147483648, le=2147483647)
-    size: spatial.Decimal
+    size: spatial.Decimal = Field(ge=0, le=1, allow_inf_nan=False)
 
 
 class SetTabResourcePayload(BaseModel):

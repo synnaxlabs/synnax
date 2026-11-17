@@ -46,6 +46,7 @@ var _ = Describe("Migration", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		gSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: db,
 		}))
@@ -173,6 +174,27 @@ var _ = Describe("Migration", func() {
 		},
 	)
 	It(
+		"Should swap the ends of a range that starts after it ends",
+		func(ctx SpecContext) {
+			bareTable := MustSucceed(gorp.OpenTable(
+				ctx, gorp.TableConfig[v0.Key, v0.Range]{DB: db},
+			))
+			r := v0.Range{
+				Key:       uuid.New(),
+				Name:      "Inverted",
+				TimeRange: telem.TimeRange{Start: 20, End: 10},
+			}
+			Expect(bareTable.NewCreate().Entry(&r).Exec(ctx, db)).To(Succeed())
+			Expect(bareTable.Close()).To(Succeed())
+			runMigration(ctx)
+			var res v0.Range
+			Expect(gorp.NewRetrieve[v0.Key, v0.Range]().
+				Where(gorp.MatchKeys[v0.Key, v0.Range](r.Key)).
+				Entry(&res).Exec(ctx, db)).To(Succeed())
+			Expect(res.TimeRange).To(Equal(telem.TimeRange{Start: 10, End: 20}))
+		},
+	)
+	It(
 		"Should keep a Ranges group on a store a v0.53 Core already migrated",
 		func(ctx SpecContext) {
 			Expect(db.Set(
@@ -200,6 +222,7 @@ var _ = Describe("NormalizeKeys", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
+			StartRun(db.Run)
 			e := v0.Range{Key: uuid.New(), Name: "burst"}
 			legacy := gorptestutil.SetPreV54Row(
 				ctx,
@@ -217,7 +240,7 @@ var _ = Describe("NormalizeKeys", func() {
 				Where(gorp.MatchKeys[v0.Key, v0.Range](e.GorpKey())).
 				Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(e))
-			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
+			Expect(db.Get(legacy)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
 
@@ -225,6 +248,7 @@ var _ = Describe("NormalizeKeys", func() {
 		ctx SpecContext,
 	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		// Ranges a v0.51.3 Python client created with the colors "red" and "#f00".
 		rows := map[string]string{
 			"a552616e6765c4107906433e134f4567b139a9fcfc171f3e": "84a46e616d65a772616e" +

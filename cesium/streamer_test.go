@@ -37,7 +37,7 @@ func openStreamer(ctx context.Context, db *cesium.DB, cfg cesium.StreamerConfig)
 	io.Closer,
 ) {
 	GinkgoHelper()
-	streamer := MustSucceed(db.NewStreamer(ctx, cfg))
+	streamer := MustSucceed(db.NewStreamer(cfg))
 	requests := confluence.NewStream[cesium.StreamerRequest](1)
 	responses := confluence.NewStream[cesium.StreamerResponse](2)
 	streamer.InFrom(requests)
@@ -581,7 +581,7 @@ var _ = Describe("Streamer Behavior", func() {
 							IsIndex:  true,
 						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
-						Expect(subDB.NewStreamer(ctx, cesium.StreamerConfig{
+						Expect(subDB.NewStreamer(cesium.StreamerConfig{
 							Channels: []cesium.ChannelKey{key},
 						})).Error().To(MatchError(cesium.ErrDBClosed))
 
@@ -628,4 +628,19 @@ var _ = Describe("Virtual Channel Streaming", func() {
 			})
 		})
 	}
+})
+
+var _ = Describe("Streamer after Run stops", func() {
+	It("Should end the streamer with a closed DB error", func(ctx SpecContext) {
+		db := DeferClose(openDBOnFS(ctx, FileSystems["memFS"]()))
+		stop := StartRun(db.Run)
+		key := GenerateChannelKey()
+		Expect(db.CreateChannel(ctx, virtualChannel(key, "boulder"))).To(Succeed())
+		_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
+			Channels: []cesium.ChannelKey{key},
+		})
+		stop()
+		Eventually(o.Outlet()).Should(BeClosed())
+		Expect(closer.Close()).To(MatchError(cesium.ErrDBClosed))
+	})
 })

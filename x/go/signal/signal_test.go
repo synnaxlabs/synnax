@@ -28,7 +28,7 @@ func immediatelyReturnError(context.Context) error {
 	return errRoutineFailed
 }
 
-func immediatelyPanic(context.Context) error { panic("routine panicked") }
+func immediatelyPanic() error { panic("routine panicked") }
 
 func immediatelyReturnNil(context.Context) error { return nil }
 
@@ -155,7 +155,7 @@ var _ = Describe("Signal", func() {
 				})
 				v <- 1
 				v <- 2
-				Eventually(func() int32 { return c.Load() }).Should(Equal(int32(2)))
+				Eventually(c.Load).Should(Equal(int32(2)))
 				cancel()
 				v <- 3
 				Expect(ctx.Wait()).To(MatchError(context.Canceled))
@@ -173,7 +173,7 @@ var _ = Describe("Signal", func() {
 				})
 				v <- 1
 				v <- 2
-				Eventually(func() int32 { return c.Load() }).Should(Equal(int32(2)))
+				Eventually(c.Load).Should(Equal(int32(2)))
 				close(v)
 				Expect(ctx.Wait()).ToNot(HaveOccurred())
 				Eventually(ctx.Stopped()).Should(BeClosed())
@@ -193,7 +193,7 @@ var _ = Describe("Signal", func() {
 				})
 				v <- 1
 				v <- 2
-				Eventually(func() int32 { return c.Load() }).Should(Equal(int32(1)))
+				Eventually(c.Load).Should(Equal(int32(1)))
 				Expect(ctx.Wait()).To(MatchError(err))
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
@@ -213,7 +213,7 @@ var _ = Describe("Signal", func() {
 					},
 				)
 				Eventually(
-					func() int32 { return c.Load() },
+					c.Load,
 				).Should(BeNumerically(">", int32(3)))
 				cancel()
 				Expect(ctx.Wait()).To(MatchError(context.Canceled))
@@ -231,7 +231,7 @@ var _ = Describe("Signal", func() {
 				ctx.Go(immediatelyReturnNil, signal.Defer(func() {
 					c.Add(1)
 				}))
-				Eventually(func() int32 { return c.Load() }).Should(Equal(int32(1)))
+				Eventually(c.Load).Should(Equal(int32(1)))
 				Expect(ctx.Wait()).ToNot(HaveOccurred())
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
@@ -305,7 +305,7 @@ var _ = Describe("Signal", func() {
 		It("Should error a panic when instructed", func() {
 			ctx, _ := signal.Isolated()
 			ctx.Go(func(ctx context.Context) error {
-				return immediatelyPanic(ctx)
+				return immediatelyPanic()
 			}, signal.RecoverWithErrOnPanic())
 
 			Expect(ctx.Wait()).To(MatchError(ContainSubstring("routine panicked")))
@@ -314,7 +314,7 @@ var _ = Describe("Signal", func() {
 		It("Should not error when instructed to not error", func() {
 			ctx, _ := signal.Isolated()
 			ctx.Go(func(ctx context.Context) error {
-				return immediatelyPanic(ctx)
+				return immediatelyPanic()
 			}, signal.RecoverWithoutErrOnPanic())
 
 			Expect(ctx.Wait()).To(Succeed())

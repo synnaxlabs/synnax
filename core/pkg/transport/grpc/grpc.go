@@ -21,8 +21,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	apicertificate "github.com/synnaxlabs/synnax/pkg/api/certificate"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
+	"github.com/synnaxlabs/synnax/pkg/api/color"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
@@ -30,7 +32,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
-	apialias "github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	apikv "github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
@@ -47,9 +48,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/control"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/device"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
+	nichassis "github.com/synnaxlabs/synnax/pkg/transport/grpc/ni/chassis"
+	nidevice "github.com/synnaxlabs/synnax/pkg/transport/grpc/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/rack"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger"
-	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/status"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/task"
@@ -58,23 +60,28 @@ import (
 // Bind constructs the gRPC transport for every API service, binds the API layer's
 // handlers and middleware to it, and returns the bindable transports for registration
 // with the server's gRPC branch. The framer codec resolves channel data types through
-// the API layer's channel service.
+// the API layer's channel service, and the services encode errors with the API layer's
+// codec.
 func Bind(layer *api.Layer) []grpc.BindableTransport {
-	var t api.Transport
+	var (
+		t    api.Transport
+		errs = layer.Errors()
+	)
 	transports := grpc.CompoundBindableTransport{
-		channel.New(&t),
-		framer.New(&t, layer.Channel),
-		connectivity.New(&t),
-		auth.New(&t),
-		ranger.New(&t),
-		kv.New(&t),
-		alias.New(&t),
-		rack.New(&t),
-		task.New(&t),
-		device.New(&t),
-		status.New(&t),
-		arc.New(&t),
-		control.New(&t),
+		channel.New(&t, errs),
+		framer.New(&t, layer.Channel, errs),
+		connectivity.New(&t, errs),
+		auth.New(&t, errs),
+		ranger.New(&t, errs),
+		kv.New(&t, errs),
+		rack.New(&t, errs),
+		task.New(&t, errs),
+		device.New(&t, errs),
+		status.New(&t, errs),
+		arc.New(&t, errs),
+		control.New(&t, errs),
+		nidevice.New(&t, errs),
+		nichassis.New(&t, errs),
 	}
 
 	// AUTH
@@ -90,6 +97,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LicenseDeactivate = noop.UnaryServer[license.DeactivateRequest, license.DeactivateResponse]{}
 
 	// CHANNEL
+	t.ChannelCountLimited = noop.UnaryServer[
+		apichannel.CountLimitedRequest,
+		apichannel.CountLimitedResponse,
+	]{}
 	t.ChannelDispatch = noop.UnaryServer[
 		apichannel.DispatchRequest,
 		apichannel.DispatchResponse,
@@ -133,7 +144,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
 
 	// RANGE
-	t.AliasDispatch = noop.UnaryServer[apialias.DispatchRequest, struct{}]{}
 	t.KVDispatch = noop.UnaryServer[apikv.DispatchRequest, struct{}]{}
 
 	// SCHEMATIC
@@ -157,6 +167,14 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LinePlotRetrieve = noop.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]{}
 	t.LinePlotDelete = noop.UnaryServer[lineplot.DeleteRequest, struct{}]{}
 	t.LinePlotDispatch = noop.UnaryServer[lineplot.DispatchRequest, lineplot.DispatchResponse]{}
+
+	// ICD
+	t.ICDCreate = noop.UnaryServer[icd.CreateRequest, icd.CreateResponse]{}
+	t.ICDRetrieve = noop.UnaryServer[icd.RetrieveRequest, icd.RetrieveResponse]{}
+	t.ICDCheck = noop.UnaryServer[icd.CheckRequest, icd.CheckResponse]{}
+	t.ICDDispatch = noop.UnaryServer[icd.DispatchRequest, struct{}]{}
+	t.ICDImport = noop.UnaryServer[icd.ImportRequest, icd.ImportResponse]{}
+	t.ICDDelete = noop.UnaryServer[icd.DeleteRequest, struct{}]{}
 
 	// PANEL
 	t.PanelCreate = noop.UnaryServer[panel.CreateRequest, panel.CreateResponse]{}
@@ -189,6 +207,16 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LabelAdd = noop.UnaryServer[label.AddRequest, struct{}]{}
 	t.LabelRemove = noop.UnaryServer[label.RemoveRequest, struct{}]{}
 	t.LabelDispatch = noop.UnaryServer[label.DispatchRequest, struct{}]{}
+
+	// COLOR
+	t.ColorCreate = noop.UnaryServer[color.CreateRequest, color.CreateResponse]{}
+	t.ColorRetrieve = noop.UnaryServer[color.RetrieveRequest, color.RetrieveResponse]{}
+	t.ColorDelete = noop.UnaryServer[color.DeleteRequest, struct{}]{}
+	t.ColorDispatch = noop.UnaryServer[color.DispatchRequest, struct{}]{}
+	t.ColorRetrieveBuiltins = noop.UnaryServer[
+		struct{},
+		color.RetrieveBuiltinsResponse,
+	]{}
 
 	// ACCESS
 	t.AccessCreatePolicy = noop.UnaryServer[policy.CreateRequest, policy.CreateResponse]{}

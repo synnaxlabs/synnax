@@ -18,17 +18,18 @@ import { computed, renderThemed, resolve } from "@/styletest";
 import { Triggers } from "@/triggers";
 
 const TALL = <div style={{ height: 2000, flexShrink: 0 }}>Tall</div>;
+const WIDE = <p>{"wide ".repeat(200)}</p>;
 
 const openDialog = async (
   variant: Dialog.FrameProps["variant"],
   content: ReactNode = <p>Content</p>,
-  size?: Dialog.DialogProps["size"],
+  dialogProps: Dialog.DialogProps = {},
 ): Promise<{ trigger: Element; dialog: Element; unmount: () => unknown }> => {
   const { getByText, unmount } = await renderThemed(
     <Triggers.Provider>
       <Dialog.Frame variant={variant}>
         <Dialog.Trigger>Toggle</Dialog.Trigger>
-        <Dialog.Dialog size={size}>{content}</Dialog.Dialog>
+        <Dialog.Dialog {...dialogProps}>{content}</Dialog.Dialog>
       </Dialog.Frame>
     </Triggers.Provider>,
   );
@@ -44,10 +45,20 @@ const openDialog = async (
 
 /** @returns the height of a floating dialog of the size, holding tall content. */
 const capOf = async (size?: Dialog.DialogProps["size"]): Promise<number> => {
-  const { dialog, unmount } = await openDialog("floating", TALL, size);
+  const { dialog, unmount } = await openDialog("floating", TALL, { size });
   const { height } = dialog.getBoundingClientRect();
   await unmount();
   return height;
+};
+
+/** @returns the width of a floating dialog holding a long line of text. */
+const widthOf = async (maxWidth?: string): Promise<number> => {
+  const style: CSS.VarProperties =
+    maxWidth == null ? {} : { "--pluto-dialog-max-width": maxWidth };
+  const { dialog, unmount } = await openDialog("floating", WIDE, { style });
+  const { width } = dialog.getBoundingClientRect();
+  await unmount();
+  return width;
 };
 
 /** @returns true when the element is the topmost one at its own center. */
@@ -109,6 +120,21 @@ const openDropdown = async (content: ReactNode): Promise<HTMLElement> => {
   await userEvent.keyboard("{Enter}");
   await expect.element(page.getByLabelText("Search")).toHaveFocus();
   return trigger;
+};
+
+/** A dropdown whose trigger grows to the left on a click in the dropdown. */
+const Growing = (): ReactElement => {
+  const [name, setName] = useState("Menu");
+  return (
+    <div style={{ display: "flex", justifyContent: "flex-end", width: "300px" }}>
+      <Dialog.Frame>
+        <Dialog.Trigger>{name}</Dialog.Trigger>
+        <Dialog.Dialog>
+          <button onClick={() => setName("A much longer menu")}>Grow</button>
+        </Dialog.Dialog>
+      </Dialog.Frame>
+    </div>
+  );
 };
 
 /** An item that closes its dropdown when clicked, and cannot take the focus. */
@@ -220,11 +246,10 @@ describe("Dialog", () => {
       expect(computed(trigger, "border-top-color")).toBe(resolve("transparent"));
     });
 
-    it("should hide its caret at rest", async () => {
+    it("should show no caret, even on hover", async () => {
       const trigger = await renderShadow();
-      const caret = trigger.querySelector(`.${CSS.B("caret-animated")}`);
-      assert(caret != null);
-      expect(computed(caret, "opacity")).toBe("0");
+      await userEvent.hover(trigger);
+      expect(trigger.querySelector(`.${CSS.B("caret-animated")}`)).toBeNull();
     });
   });
 
@@ -245,6 +270,20 @@ describe("Dialog", () => {
       expect(d.top >= t.bottom || d.bottom <= t.top).toBe(true);
     });
 
+    it("should follow its trigger as the trigger moves", async () => {
+      await renderThemed(<Growing />);
+      await userEvent.click(button("Menu"));
+      const dialog = page.getByRole("dialog").element();
+      await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+      const before = dialog.getBoundingClientRect().left;
+      await userEvent.click(button("Grow"));
+      const trigger = button("A much longer menu");
+      await expect
+        .poll(() => dialog.getBoundingClientRect().left)
+        .toBeCloseTo(trigger.getBoundingClientRect().left, 0);
+      expect(dialog.getBoundingClientRect().left).toBeLessThan(before);
+    });
+
     it("should cap the height of tall content", async () => {
       expect(await capOf()).toBeLessThan(2000);
     });
@@ -253,6 +292,11 @@ describe("Dialog", () => {
       const medium = await capOf();
       expect(await capOf("small")).toBeLessThan(medium);
       expect(await capOf("large")).toBeGreaterThan(medium);
+    });
+
+    it("should wrap its content at the maximum width its caller sets", async () => {
+      expect(await widthOf()).toBeGreaterThan(300);
+      expect(await widthOf("200px")).toBeCloseTo(200, 0);
     });
 
     describe("focus", () => {

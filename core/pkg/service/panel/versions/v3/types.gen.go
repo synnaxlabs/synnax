@@ -117,14 +117,6 @@ type Panel struct {
 	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *Panel) ApplyDefaults() {
-	if p.Root.Variant == nil {
-		v0 := LeafNode{}
-		p.Root.Variant = v0
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (p *Panel) SetDefaults() {
 	{
@@ -156,7 +148,6 @@ func (p *Panel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (p Panel) Validate() error {
 	v := validate.New("Panel")
-	v.NotEmptyString("name", p.Name)
 	v.Exec(func() error { return validate.PathedError(p.Root.Validate(), "root") })
 	return v.Error()
 }

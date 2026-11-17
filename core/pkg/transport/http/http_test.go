@@ -11,6 +11,7 @@ package http_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net"
@@ -63,11 +64,15 @@ func openLicensed(ctx SpecContext, creds auth.Credentials) *fiber.App {
 		License:         license.ServiceConfig{Anchors: signer.Anchors},
 		SecretsKey:      secret.NewEncryptionKey(),
 	}))
+	errs := api.NewErrorCodec()
 	layer := MustSucceed(api.NewLayer(api.LayerConfig{
 		Service:      svc,
 		Distribution: node.Layer,
+		Errors:       errs,
 	}))
-	router := MustSucceed(fhttp.NewRouter())
+	router := MustSucceed(
+		fhttp.NewRouter(context.Background(), fhttp.RouterConfig{Errors: errs}),
+	)
 	thttp.Bind(layer, router)
 	app := fiber.New()
 	router.BindTo(app)
@@ -101,11 +106,25 @@ func postJSON(
 	}))
 }
 
+// A browser sends back the name and value only, for every Core on the host.
+func withCookie(host string, cs ...*http.Cookie) map[string]string {
+	pairs := lo.Map(cs, func(c *http.Cookie, _ int) string {
+		return c.Name + "=" + c.Value
+	})
+	return map[string]string{
+		fiber.HeaderHost:   host,
+		fiber.HeaderCookie: strings.Join(pairs, "; "),
+	}
+}
+
 var _ = Describe("HTTP", func() {
 	Describe("Bind", func() {
 		var app *fiber.App
 		BeforeEach(func() {
-			router := MustSucceed(fhttp.NewRouter())
+			errs := api.NewErrorCodec()
+			router := MustSucceed(
+				fhttp.NewRouter(context.Background(), fhttp.RouterConfig{Errors: errs}),
+			)
 			thttp.Bind(apiLayer, router)
 			app = fiber.New()
 			router.BindTo(app)
@@ -119,12 +138,57 @@ var _ = Describe("HTTP", func() {
 			},
 			Entry("unary auth login", http.MethodPost, "/api/v1/auth/login"),
 			Entry("unary channel create", http.MethodPost, "/api/v1/channel/create"),
+			Entry(
+				"unary channel count limited",
+				http.MethodPost,
+				"/api/v1/channel/count-limited",
+			),
 			Entry("unary frame delete", http.MethodPost, "/api/v1/frame/delete"),
 			Entry("unary frame read", http.MethodPost, "/api/v1/frame/read"),
 			Entry("stream frame writer", http.MethodGet, "/api/v1/frame/write"),
 			Entry("unary task dispatch", http.MethodPost, "/api/v1/task/dispatch"),
 			Entry("unary device dispatch", http.MethodPost, "/api/v1/device/dispatch"),
 			Entry("unary rack dispatch", http.MethodPost, "/api/v1/rack/dispatch"),
+			Entry(
+				"unary NI device create",
+				http.MethodPost,
+				"/api/v1/ni/device/create",
+			),
+			Entry(
+				"unary NI device retrieve",
+				http.MethodPost,
+				"/api/v1/ni/device/retrieve",
+			),
+			Entry(
+				"unary NI device update",
+				http.MethodPost,
+				"/api/v1/ni/device/update",
+			),
+			Entry(
+				"unary NI device delete",
+				http.MethodPost,
+				"/api/v1/ni/device/delete",
+			),
+			Entry(
+				"unary NI chassis create",
+				http.MethodPost,
+				"/api/v1/ni/chassis/create",
+			),
+			Entry(
+				"unary NI chassis retrieve",
+				http.MethodPost,
+				"/api/v1/ni/chassis/retrieve",
+			),
+			Entry(
+				"unary NI chassis update",
+				http.MethodPost,
+				"/api/v1/ni/chassis/update",
+			),
+			Entry(
+				"unary NI chassis delete",
+				http.MethodPost,
+				"/api/v1/ni/chassis/delete",
+			),
 			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
 			Entry("unary view dispatch", http.MethodPost, "/api/v1/view/dispatch"),
 			Entry("unary secret resolve", http.MethodPost, "/api/v1/secret/resolve"),
@@ -194,11 +258,15 @@ var _ = Describe("HTTP", func() {
 				License:         license.ServiceConfig{Anchors: signer.Anchors},
 				SecretsKey:      secret.NewEncryptionKey(),
 			}))
+			errs := api.NewErrorCodec()
 			layer := MustSucceed(api.NewLayer(api.LayerConfig{
 				Service:      svc,
 				Distribution: node.Layer,
+				Errors:       errs,
 			}))
-			router := MustSucceed(fhttp.NewRouter())
+			router := MustSucceed(
+				fhttp.NewRouter(context.Background(), fhttp.RouterConfig{Errors: errs}),
+			)
 			thttp.Bind(layer, router)
 			app = fiber.New()
 			router.BindTo(app)
@@ -231,7 +299,7 @@ var _ = Describe("HTTP", func() {
 
 		DescribeTable(
 			"Should reject a MessagePack request",
-			func(ctx SpecContext, path string) {
+			func(path string) {
 				req := httptest.NewRequest(
 					http.MethodPost,
 					path,
@@ -283,9 +351,7 @@ var _ = Describe("HTTP", func() {
 			),
 		)
 
-		It("Should refuse a gated endpoint while no license is active", func(
-			ctx SpecContext,
-		) {
+		It("Should refuse a gated endpoint while no license is active", func() {
 			status, body := post(
 				"/api/v1/channel/retrieve",
 				login(),
@@ -294,7 +360,7 @@ var _ = Describe("HTTP", func() {
 			Expect(status).To(Equal(http.StatusBadRequest))
 			var pld errors.Payload
 			Expect(json.Unmarshal(body, &pld)).To(Succeed())
-			Expect(errors.Decode(ctx, pld)).To(MatchError(license.ErrMissing))
+			Expect(api.NewErrorCodec().Decode(pld)).To(MatchError(license.ErrMissing))
 		})
 
 		It("Should keep a cookie's token out of a refused response", func() {
@@ -359,16 +425,6 @@ var _ = Describe("HTTP", func() {
 			).To(Equal(int(auth.DefaultIdleTimeout / time.Second)))
 			return cookies[0]
 		}
-		// a browser sends back the name and value only, for every Core on the host
-		withCookie := func(host string, cs ...*http.Cookie) map[string]string {
-			pairs := lo.Map(cs, func(c *http.Cookie, _ int) string {
-				return c.Name + "=" + c.Value
-			})
-			return map[string]string{
-				fiber.HeaderHost:   host,
-				fiber.HeaderCookie: strings.Join(pairs, "; "),
-			}
-		}
 		It("Should authenticate a request that carries only the cookie", func() {
 			cookie := loginWithCookie("localhost:9090")
 			res := post(
@@ -402,7 +458,7 @@ var _ = Describe("HTTP", func() {
 			res := post(
 				"/api/v1/channel/retrieve",
 				withCookie("localhost:9090", cookie),
-				channel.RetrieveRequest{},
+				map[string]int{"unknown": 1},
 			)
 			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
 			Expect(res.Cookies()).To(BeEmpty())

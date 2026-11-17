@@ -29,6 +29,7 @@ const TAB: Panel.Tab = {
   Content: Panel.lazyComponent(() => import("@/feature/lineplot/LinePlot"), "LinePlot"),
   Toolbar: Panel.lazyComponent(() => import("@/feature/lineplot/toolbar"), "Toolbar"),
   Icon: Icon.LinePlot,
+  iconKey: "line-plot",
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Name: Panel.createEditableTabName(
     { useEnsure: Base.useEnsure, useName: Base.useName, useRename: Base.useRename },
@@ -38,11 +39,10 @@ const TAB: Panel.Tab = {
     const corpse = query.requireCorpse(
       client.lineplots.watch(resource.key).getCached(),
     );
-    // A restored record comes back in the project, as its range or group may be gone.
+    // A restored record comes back in the project, as its group may be gone.
     await client.lineplots.create({
       ...corpse,
       project,
-      range: undefined,
       group: undefined,
     });
   },

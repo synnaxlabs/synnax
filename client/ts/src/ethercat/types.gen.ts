@@ -193,8 +193,8 @@ export interface SlaveStartupParameters extends z.infer<
 > {}
 
 export const writeConfigZ = task.persistConfigZ.extend({
-  stateRate: z.number().default(25),
-  executionRate: z.number().default(1000),
+  stateRate: z.number().gt(0).default(25),
+  executionRate: z.number().gt(0).default(1000),
   channels: writeChannelZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}

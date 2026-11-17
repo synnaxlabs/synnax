@@ -10,7 +10,6 @@
 package validate
 
 import (
-	"context"
 	"encoding/json/v2"
 	"slices"
 	"strings"
@@ -102,10 +101,10 @@ const (
 	pathErrorType = baseErrorType + ".path"
 )
 
-func encode(ctx context.Context, err error) (errors.Payload, bool) {
+func encode(c *errors.Codec, err error) (errors.Payload, bool) {
 	var errPath PathError
 	if errors.As(err, &errPath) {
-		internal := errors.Encode(ctx, errPath.Err, false)
+		internal := c.Encode(errPath.Err, false)
 		return errors.Payload{
 			Type: pathErrorType,
 			Data: string(lo.Must(json.Marshal(encodedPathError{
@@ -115,12 +114,17 @@ func encode(ctx context.Context, err error) (errors.Payload, bool) {
 		}, true
 	}
 	if errors.CheapIs(err, ErrValidation) {
-		return errors.Payload{Type: "sy.validation", Data: err.Error()}, true
+		msg := errors.MessageWithout(err, ErrValidation)
+		// The bare sentinel has no message but its own.
+		if msg == "" {
+			msg = err.Error()
+		}
+		return errors.Payload{Type: baseErrorType, Data: msg}, true
 	}
 	return errors.Payload{}, false
 }
 
-func decode(ctx context.Context, p errors.Payload) (error, bool) {
+func decode(c *errors.Codec, p errors.Payload) (error, bool) {
 	if !strings.HasPrefix(p.Type, baseErrorType) {
 		return nil, false
 	}
@@ -131,10 +135,13 @@ func decode(ctx context.Context, p errors.Payload) (error, bool) {
 		}
 		return PathError{
 			Path: errDecodedPath.Path,
-			Err:  errors.Decode(ctx, errDecodedPath.Error),
+			Err:  c.Decode(errDecodedPath.Error),
 		}, true
 	}
 	return ruleError{errors.New(p.Data)}, true
 }
 
-func init() { errors.Register(encode, decode) }
+// ErrorProvider encodes and decodes validation errors for an errors.Codec.
+func ErrorProvider() errors.Provider {
+	return errors.Provider{Encode: encode, Decode: decode}
+}

@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
@@ -39,6 +40,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/history"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -61,12 +63,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
@@ -115,7 +117,7 @@ type LayerConfig struct {
 	// License configures the license service. The layer supplies its DB and
 	// instrumentation.
 	//
-	// [OPTIONAL] - Defaults to license.DefaultServiceConfig.
+	// [OPTIONAL] - Defaults to the license service defaults.
 	License license.ServiceConfig
 	// SecretsKey protects the value of every stored secret. It encrypts the random data
 	// key that encrypts each value.
@@ -193,8 +195,6 @@ type Layer struct {
 	Auth *auth.Service
 	// Ranger is for working with ranges.
 	Ranger *ranger.Service
-	// Alias is for working with channel aliases on ranges.
-	Alias *alias.Service
 	// KV is for working with key-value pairs on ranges.
 	KV *kv.Service
 	// Project is for working with Projects.
@@ -205,6 +205,8 @@ type Layer struct {
 	Schematic *schematic.Service
 	// LinePlot is for working with line plot visualizations.
 	LinePlot *lineplot.Service
+	// ICD is for working with interface control documents.
+	ICD *icd.Service
 	// Log is for working with log visualizations.
 	Log *log.Service
 	// Table is for working with table visualizations.
@@ -213,11 +215,14 @@ type Layer struct {
 	Panel *panel.Service
 	// Label is for working with user-defined labels that can be attached to various
 	// data structures within Synnax.
-	Label  *label.Service
+	Label *label.Service
+	// Color stores named colors.
+	Color  *color.Service
 	Rack   *rack.Service
 	Task   *task.Service
 	Device *device.Service
-	// NI owns the stored configuration records of the NI task types.
+	// NI owns the NI chassis, devices, and stored configuration records of the NI task
+	// types.
 	NI *ni.Service
 	// OPCUA owns the stored configuration records of the OPC UA task types.
 	OPCUA *opcua.Service
@@ -242,6 +247,8 @@ type Layer struct {
 	PagerDuty *pdruntime.Service
 	// MQTT owns the stored configuration records of the MQTT task types.
 	MQTT *mqtt.Service
+	// Sift owns the stored configuration records of the Sift task types.
+	Sift *sift.Service
 	// Framer is for reading, writing, and streaming frames of telemetry from channels.
 	Framer *framer.Service
 	// Channel is the highest-level channel service and owns calculated channel
@@ -362,6 +369,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("label"),
 		DB:              cfg.Distribution.DB,
 	}); !ok(err, l.Label) {
+		return nil, err
+	}
+	if l.Color, err = color.OpenService(ctx, color.ServiceConfig{
+		Instrumentation: cfg.Child("color"),
+		DB:              cfg.Distribution.DB,
+		Group:           l.Group,
+	}); !ok(err, l.Color) {
 		return nil, err
 	}
 	if l.Status, err = status.OpenService(
@@ -486,6 +500,27 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Name:     "sy_label_action_set",
 			Actions:  l.Label.Actions(),
 			Resource: label.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishTable(
+		ctx,
+		signals.TableConfig[color.Key, color.Named]{
+			SetName:    "sy_color_set",
+			DeleteName: "sy_color_delete",
+			Changes:    l.Color.Changes,
+			Resource:   color.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[color.Key, color.Action]{
+			Name:     "sy_color_action_set",
+			Actions:  l.Color.Actions(),
+			Resource: color.ResourceID,
 		},
 	); !ok(err, nil) {
 		return nil, err
@@ -710,6 +745,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.LinePlot) {
 		return nil, err
 	}
+	if l.ICD, err = icd.OpenService(ctx, icd.ServiceConfig{
+		Instrumentation: cfg.Child("icd"),
+		DB:              cfg.Distribution.DB,
+		Signals:         l.Signals,
+		ImEx:            l.ImEx,
+	}); !ok(err, l.ICD) {
+		return nil, err
+	}
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
 		Instrumentation: cfg.Child("log"),
 		DB:              cfg.Distribution.DB,
@@ -754,12 +797,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Signals:         l.Signals,
 		Status:          l.Status,
 		Rack:            l.Rack,
+		References: []gorp.Reference[device.Key, device.Device]{
+			sift.APIKeyReference(),
+		},
 	}); !ok(err, l.Device) {
 		return nil, err
 	}
 	if l.NI, err = ni.OpenService(ctx, ni.ServiceConfig{
 		Instrumentation: cfg.Child("ni"),
 		DB:              cfg.Distribution.DB,
+		Status:          l.Status,
+		Signals:         l.Signals,
 	}); !ok(err, l.NI) {
 		return nil, err
 	}
@@ -839,10 +887,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.MQTT) {
 		return nil, err
 	}
+	if l.Sift, err = sift.OpenService(ctx, sift.ServiceConfig{
+		Instrumentation: cfg.Child("sift"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.Sift) {
+		return nil, err
+	}
 	configStores := slices.Concat(
 		l.NI.Stores(), l.OPCUA.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
 		l.EtherCAT.Stores(), l.HTTP.Stores(), l.Kafka.Stores(), l.ArcTask.Stores(),
-		l.RackTask.Stores(), l.PagerDuty.Stores(), l.MQTT.Stores(),
+		l.RackTask.Stores(), l.PagerDuty.Stores(), l.MQTT.Stores(), l.Sift.Stores(),
 	)
 	taskConfigs, err := taskconfig.NewRegistry(configStores...)
 	if !ok(err, nil) {
@@ -888,15 +942,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, l.Arc) {
 		return nil, err
 	}
-	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{
-		Instrumentation: cfg.Child("alias"),
-		DB:              cfg.Distribution.DB,
-		Signals:         l.Signals,
-		Channel:         l.Channel,
-		ParentRetriever: l.Ranger,
-	}); !ok(err, l.Alias) {
-		return nil, err
-	}
 	if l.View, err = view.OpenService(
 		ctx,
 		view.ServiceConfig{
@@ -922,18 +967,21 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeArcDirectory:    l.Arc.DirectoryResources(),
 			resource.TypeCertificate:     l.Certificate.Resources(),
 			resource.TypeChannel:         l.Channel.Resources(),
+			resource.TypeColor:           l.Color.Resources(),
 			resource.TypeDevice:          l.Device.Resources(),
 			resource.TypeGroup:           l.Group.Resources(),
+			resource.TypeICD:             l.ICD.Resources(),
 			resource.TypeLabel:           l.Label.Resources(),
 			resource.TypeLineplot:        l.LinePlot.Resources(),
 			resource.TypeLog:             l.Log.Resources(),
+			resource.TypeNiChassis:       l.NI.Chassis.Resources(),
+			resource.TypeNiDevice:        l.NI.Devices.Resources(),
 			resource.TypeNode:            l.Node.Resources(),
 			resource.TypePanel:           l.Panel.Resources(),
 			resource.TypePolicy:          l.RBAC.Policy.Resources(),
 			resource.TypeProject:         l.Project.Resources(),
 			resource.TypeRack:            l.Rack.Resources(),
 			resource.TypeRange:           l.Ranger.Resources(),
-			resource.TypeRangeAlias:      l.Alias.Resources(),
 			resource.TypeRole:            l.RBAC.Role.Resources(),
 			resource.TypeSchematic:       l.Schematic.Resources(),
 			resource.TypeSchematicSymbol: l.Schematic.Symbol.Resources(),
@@ -981,13 +1029,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Namespace:       "Composition",
 		Migrations: append(
 			l.Panel.CompositionMigrations(),
+			newGroupRemovalReport(l.Resource, l.Status),
 			ontologyDropMigration,
 			l.Group.BuiltinDeleteMigration(),
+			rangeAliasDropMigration,
+			l.PagerDuty.SecretMigration(taskNames(l.Task)),
 		),
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if err = deleteOntologyChannels(
+	if err = deleteRetiredChannels(
 		ctx,
 		cfg.Distribution.DB,
 		l.Channel,
@@ -1043,6 +1094,21 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, mqttFactory) {
 		return nil, err
 	}
+	siftFactory, err := sift.OpenFactory(sift.FactoryConfig{
+		Instrumentation: cfg.Child("sift"),
+		DB:              cfg.Distribution.DB,
+		Device:          l.Device,
+		Status:          l.Status,
+		Secret:          l.Secret,
+		Ranger:          l.Ranger,
+		Channel:         l.Channel,
+		Framer:          l.Framer,
+		Label:           l.Label,
+		Task:            l.Task,
+	})
+	if !ok(err, siftFactory) {
+		return nil, err
+	}
 	if l.Driver, err = driver.Open(ctx, driver.Config{
 		Instrumentation: cfg.Child("driver"),
 		DB:              cfg.Distribution.DB,
@@ -1056,6 +1122,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			pdFactory,
 			kafkaFactory,
 			mqttFactory,
+			siftFactory,
 		},
 		HostKey: cfg.Distribution.Identity.HostKey,
 	}); !ok(err, l.Driver) {

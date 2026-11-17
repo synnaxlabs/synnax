@@ -67,7 +67,7 @@ var _ = Describe("CheckUnits", func() {
 			found := testutil.Warnings(diag)
 			Expect(found).To(HaveLen(warnings), diag.String())
 			for _, w := range found {
-				Expect(w.Code).To(Equal(codes.UnitTruncation.Code))
+				Expect(w.Code).To(Equal(codes.UnitPrecisionLoss.Code))
 			}
 		},
 		Entry("the same unit", "x", i64(unitS), false, 0),
@@ -92,12 +92,12 @@ var _ = Describe("CheckUnits", func() {
 			Expect(diag.Errors()[0].Message).To(Equal(message))
 		},
 		Entry("a target with no unit", i64(unitS), types.I64(),
-			"'d' has no unit and cannot take a value in s"),
+			"missing unit: 'd' has no unit and cannot take a value in s"),
 		Entry("another dimension", i64(unitS), i64(unitPa),
 			"incompatible dimensions: cannot write s to 'd' (Pa)"),
 		Entry("a series in another unit",
 			types.Series(i64(unitS)), types.Series(i64(unitMS)),
-			"'d' is a series in ms and cannot take a series in s"),
+			"type mismatch: 'd' is a series in ms and cannot take a series in s"),
 	)
 
 	It("Should leave the truncation warning to the lowering", func(bCtx SpecContext) {
@@ -141,7 +141,7 @@ var _ = Describe("Unit fixes", func() {
 
 	DescribeTable("a write that truncates an integer",
 		func(bCtx SpecContext, source string, expected ...[]string) {
-			expectFixes(bCtx, source, codes.UnitTruncation.Code, expected)
+			expectFixes(bCtx, source, codes.UnitPrecisionLoss.Code, expected)
 		},
 		Entry("a declaration", "func f() {\nd i64 min := 90s\n}",
 			fix("d f64 min := 90s"), fix("d i64 s := 90s")),
@@ -215,7 +215,7 @@ var _ = Describe("CheckOperandUnits", func() {
 			found := testutil.Warnings(diag)
 			Expect(found).To(HaveLen(len(warnings)), diag.String())
 			for i, w := range found {
-				Expect(w.Code).To(Equal(codes.UnitTruncation.Code))
+				Expect(w.Code).To(Equal(codes.UnitPrecisionLoss.Code))
 				Expect(w.Message).To(ContainSubstring(warnings[i]))
 			}
 		},
@@ -243,7 +243,7 @@ var _ = Describe("CheckOperandUnits", func() {
 			diag, ok := check(bCtx, left, right)
 			Expect(ok).To(BeFalse())
 			Expect(diag.Errors()).To(HaveLen(1), diag.String())
-			Expect(diag.Errors()[0].Message).To(Equal(message))
+			Expect(diag.Errors()[0].Message).To(Equal("invalid operand: " + message))
 		},
 		Entry("a series on the left",
 			types.Series(in(types.I64(), unitPsi)), in(types.I64(), unitPa),

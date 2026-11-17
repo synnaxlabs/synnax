@@ -20,20 +20,23 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	"github.com/synnaxlabs/synnax/pkg/api/certificate"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
+	"github.com/synnaxlabs/synnax/pkg/api/color"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
+	nichassis "github.com/synnaxlabs/synnax/pkg/api/ni/chassis"
+	nidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
-	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	apiresource "github.com/synnaxlabs/synnax/pkg/api/resource"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
@@ -54,7 +57,10 @@ import (
 // router's context, so a streamed body can outlive its request.
 func Bind(layer *api.Layer, router *http.Router) {
 	ctx := router.Context()
-	framerServerOption := framer.WithCodec(layer.Channel)
+	framerServerOption := framer.WithCodec(
+		layer.Channel,
+		router.StreamMessageSizeLimit(),
+	)
 	csvEncoder := framer.NewCSVEncoder(ctx)
 	layer.BindTo(api.Transport{
 		// AUTH
@@ -122,7 +128,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/channel/create",
 		),
-		ChannelRetrieve: unary[channel.AliasedRetrieveRequest, channel.RetrieveResponse](
+		ChannelRetrieve: unary[channel.RetrieveRequest, channel.RetrieveResponse](
 			router,
 			"/api/v1/channel/retrieve",
 		),
@@ -130,6 +136,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/channel/delete",
 		),
+		ChannelCountLimited: unary[
+			channel.CountLimitedRequest,
+			channel.CountLimitedResponse,
+		](router, "/api/v1/channel/count-limited"),
 		ChannelDispatch: unary[channel.DispatchRequest, channel.DispatchResponse](
 			router,
 			"/api/v1"+api.PathChannelDispatch,
@@ -179,7 +189,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/frame/read",
 			http.WithResponseEncoders(
-				framer.NewFrameEncoder(ctx),
+				framer.NewFrameEncoder(ctx, layer.Errors()),
 				csvEncoder,
 				framer.NewTDMSEncoder(ctx),
 			),
@@ -256,32 +266,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 		KVDispatch: unary[kv.DispatchRequest, struct{}](
 			router,
 			"/api/v1"+api.PathRangeKVDispatch,
-		),
-
-		// ALIAS
-		AliasSet: unary[alias.SetRequest, struct{}](
-			router,
-			"/api/v1/range/alias/set",
-		),
-		AliasResolve: unary[alias.ResolveRequest, alias.ResolveResponse](
-			router,
-			"/api/v1/range/alias/resolve",
-		),
-		AliasRetrieve: unary[alias.RetrieveRequest, alias.RetrieveResponse](
-			router,
-			"/api/v1/range/alias/retrieve",
-		),
-		AliasList: unary[alias.ListRequest, alias.ListResponse](
-			router,
-			"/api/v1/range/alias/list",
-		),
-		AliasDelete: unary[alias.DeleteRequest, struct{}](
-			router,
-			"/api/v1/range/alias/delete",
-		),
-		AliasDispatch: unary[alias.DispatchRequest, struct{}](
-			router,
-			"/api/v1"+api.PathRangeAliasDispatch,
 		),
 
 		// PROJECT
@@ -384,6 +368,29 @@ func Bind(layer *api.Layer, router *http.Router) {
 			"/api/v1"+api.PathLinePlotDispatch,
 		),
 
+		// ICD
+		ICDCreate: unary[icd.CreateRequest, icd.CreateResponse](
+			router,
+			"/api/v1/icd/create",
+		),
+		ICDRetrieve: unary[icd.RetrieveRequest, icd.RetrieveResponse](
+			router,
+			"/api/v1/icd/retrieve",
+		),
+		ICDCheck: unary[icd.CheckRequest, icd.CheckResponse](
+			router,
+			"/api/v1/icd/check",
+		),
+		ICDDispatch: unary[icd.DispatchRequest, struct{}](
+			router,
+			"/api/v1/icd/dispatch",
+		),
+		ICDImport: unary[icd.ImportRequest, icd.ImportResponse](
+			router,
+			"/api/v1/icd/import",
+		),
+		ICDDelete: unary[icd.DeleteRequest, struct{}](router, "/api/v1/icd/delete"),
+
 		// PANEL
 		PanelCreate: unary[panel.CreateRequest, panel.CreateResponse](
 			router,
@@ -458,6 +465,28 @@ func Bind(layer *api.Layer, router *http.Router) {
 			"/api/v1"+api.PathLabelDispatch,
 		),
 
+		// COLOR
+		ColorCreate: unary[color.CreateRequest, color.CreateResponse](
+			router,
+			"/api/v1/color/create",
+		),
+		ColorRetrieve: unary[color.RetrieveRequest, color.RetrieveResponse](
+			router,
+			"/api/v1/color/retrieve",
+		),
+		ColorDelete: unary[color.DeleteRequest, struct{}](
+			router,
+			"/api/v1"+api.PathColorDelete,
+		),
+		ColorDispatch: unary[color.DispatchRequest, struct{}](
+			router,
+			"/api/v1"+api.PathColorDispatch,
+		),
+		ColorRetrieveBuiltins: unary[struct{}, color.RetrieveBuiltinsResponse](
+			router,
+			"/api/v1/color/retrieve-builtins",
+		),
+
 		// RACK
 		RackCreate: unary[rack.CreateRequest, rack.CreateResponse](
 			router,
@@ -514,6 +543,42 @@ func Bind(layer *api.Layer, router *http.Router) {
 		DeviceDispatch: unary[device.DispatchRequest, struct{}](
 			router,
 			"/api/v1"+api.PathDeviceDispatch,
+		),
+
+		// NI DEVICE
+		NIDeviceCreate: unary[nidevice.CreateRequest, nidevice.CreateResponse](
+			router,
+			"/api/v1/ni/device/create",
+		),
+		NIDeviceRetrieve: unary[nidevice.RetrieveRequest, nidevice.RetrieveResponse](
+			router,
+			"/api/v1/ni/device/retrieve",
+		),
+		NIDeviceUpdate: unary[nidevice.UpdateRequest, struct{}](
+			router,
+			"/api/v1/ni/device/update",
+		),
+		NIDeviceDelete: unary[nidevice.DeleteRequest, struct{}](
+			router,
+			"/api/v1/ni/device/delete",
+		),
+
+		// NI CHASSIS
+		NIChassisCreate: unary[nichassis.CreateRequest, nichassis.CreateResponse](
+			router,
+			"/api/v1/ni/chassis/create",
+		),
+		NIChassisRetrieve: unary[nichassis.RetrieveRequest, nichassis.RetrieveResponse](
+			router,
+			"/api/v1/ni/chassis/retrieve",
+		),
+		NIChassisUpdate: unary[nichassis.UpdateRequest, struct{}](
+			router,
+			"/api/v1/ni/chassis/update",
+		),
+		NIChassisDelete: unary[nichassis.DeleteRequest, struct{}](
+			router,
+			"/api/v1/ni/chassis/delete",
 		),
 
 		// ACCESS

@@ -14,6 +14,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/units"
@@ -157,20 +158,11 @@ func checkMinusSpacing(ctx context.Context[parser.IAdditiveExpressionContext]) {
 		if left.GetStop().GetStop()+1 == op.GetStart() ||
 			op.GetStop()+1 == right.GetStart().GetStart() {
 			col := op.GetColumn()
-			ctx.Diagnostics.Add(diagnostics.Diagnostic{
-				Severity: protocol.DiagnosticSeverityError,
-				Message:  "subtraction requires whitespace on both sides of '-'",
-				Range: protocol.Range{
-					Start: protocol.Position{
-						Line:      uint32(op.GetLine() - 1),
-						Character: uint32(col),
-					},
-					End: protocol.Position{
-						Line:      uint32(op.GetLine() - 1),
-						Character: uint32(col + len(op.GetText())),
-					},
-				},
-			})
+			line, end := uint32(op.GetLine()-1), uint32(col+len(op.GetText()))
+			ctx.Diagnostics.Add(codes.SubtractionSpacing.At(nil).WithRange(
+				protocol.Position{Line: line, Character: uint32(col)},
+				protocol.Position{Line: line, Character: end},
+			))
 		}
 	}
 }
@@ -469,7 +461,7 @@ func inferSeriesLiteralType(
 			unit = types.CommonUnit(unit, nextType.Unit)
 		}
 		if !compatible {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.TypeMismatch.Atf(
 				exprs[i],
 				"series element %d has incompatible type %s, expected %s",
 				i+1,
@@ -607,9 +599,13 @@ func constraintAccepts(constraint *types.Type, concreteType types.Type) bool {
 		return concreteType.IsNumeric()
 	case types.KindFloatConstant:
 		return concreteType.IsFloat()
-	default:
-		return types.Equal(*constraint, concreteType)
+	case types.KindInvalid, types.KindU8, types.KindU16, types.KindU32, types.KindU64,
+		types.KindI8, types.KindI16, types.KindI32, types.KindI64, types.KindF32,
+		types.KindF64, types.KindString, types.KindChan, types.KindSeries,
+		types.KindVariable, types.KindFunction, types.KindSequence, types.KindStage,
+		types.KindVarRef, types.KindBool:
 	}
+	return types.Equal(*constraint, concreteType)
 }
 
 func inferNumericLiteralType(
@@ -703,7 +699,11 @@ func resolveLiteralConstraint(t types.Type) types.Type {
 		result := types.F64()
 		result.Unit = t.Unit
 		return result
-	default:
-		return t
+	case types.KindInvalid, types.KindU8, types.KindU16, types.KindU32, types.KindU64,
+		types.KindI8, types.KindI16, types.KindI32, types.KindI64, types.KindF32,
+		types.KindF64, types.KindString, types.KindChan, types.KindSeries,
+		types.KindVariable, types.KindFunction, types.KindSequence, types.KindStage,
+		types.KindVarRef, types.KindBool:
 	}
+	return t
 }

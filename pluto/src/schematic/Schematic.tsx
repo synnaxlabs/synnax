@@ -43,6 +43,7 @@ import {
 import { useKey } from "@/schematic/Suspended";
 import { Tooltip } from "@/schematic/Tooltip";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
+import { Staleness } from "@/vis/staleness";
 
 export interface SchematicProps extends Omit<
   BaseDiagram.DiagramProps,
@@ -68,6 +69,7 @@ interface Hovered {
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
 const CONTROL_STATE_SELECTOR = `.${Node.Control.STATE_CLASS}`;
+const STALE_BADGE_SELECTOR = `.${Staleness.BADGE_CLASS}`;
 
 export const Schematic = ({
   className,
@@ -162,7 +164,7 @@ export const Schematic = ({
 
   // Clicking a member selects its whole group; delete, copy, and cut then cover it.
   const handleSelectionChange = (keys: string[]) =>
-    onSelectionChange?.(Group.closure(keys, parentOfRef.current, configsRef.current));
+    onSelectionChange?.(Group.closure(keys, parentOfRef.current));
 
   // Double-clicking a grouped member drills in, selecting only that member.
   const handleNodeDoubleClick: NonNullable<
@@ -177,12 +179,15 @@ export const Schematic = ({
 
   const [hovered, setHovered] = useState<Hovered | null>(null);
   // The control chip is inside the node, so moves over it close the tooltip instead.
+  // The stale badge beside the chip keeps the tooltip, which tells its sample age.
   const handleNodeMouseMove: NonNullable<
     BaseDiagram.DiagramProps["onNodeMouseMove"]
   > = (e, node) => {
     const { target, currentTarget: anchor } = e;
     const overControl =
-      target instanceof Element && target.closest(CONTROL_STATE_SELECTOR) != null;
+      target instanceof Element &&
+      target.closest(CONTROL_STATE_SELECTOR) != null &&
+      target.closest(STALE_BADGE_SELECTOR) == null;
     setHovered((prev) => {
       if (overControl || !(anchor instanceof HTMLElement)) return null;
       if (prev?.nodeKey === node.id) return prev;
@@ -205,7 +210,7 @@ export const Schematic = ({
 
   const contextMenu = Menu.useContextMenu();
   const renderMenu: Component.RenderProp<Menu.ContextMenuMenuProps> = (menuProps) => (
-    <Menu.Menu level="small" gap="small">
+    <Menu.Menu gap="small">
       {editable && (
         <>
           <BaseDiagram.Menu.ClipboardItems

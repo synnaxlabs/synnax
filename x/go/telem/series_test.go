@@ -742,18 +742,18 @@ var _ = Describe("Series", func() {
 		})
 	})
 
-	Describe("Resize", func() {
+	Describe("Resized", func() {
 		Context("Fixed Length Data Types", func() {
 			It("Should shrink a series by truncating data", func() {
 				s := telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6)
-				s.Resize(3)
+				s = s.Resized(3)
 				Expect(s.Len()).To(Equal(int64(3)))
 				Expect(s.Unmarshal[int64]()).To(Equal([]int64{1, 2, 3}))
 			})
 
 			It("Should grow a series by extending with zeros", func() {
 				s := telem.NewSeriesV[int64](1, 2, 3)
-				s.Resize(6)
+				s = s.Resized(6)
 				Expect(s.Len()).To(Equal(int64(6)))
 				Expect(
 					s.Unmarshal[int64](),
@@ -764,14 +764,14 @@ var _ = Describe("Series", func() {
 				original := telem.NewSeriesV[int64](1, 2, 3, 4)
 				originalData := make([]byte, len(original.Data))
 				copy(originalData, original.Data)
-				original.Resize(4)
+				original = original.Resized(4)
 				Expect(original.Len()).To(Equal(int64(4)))
 				Expect(original.Data).To(Equal(originalData))
 			})
 
 			It("Should work with different numeric types", func() {
 				s := telem.NewSeriesV(1.1, 2.2, 3.3, 4.4, 5.5)
-				s.Resize(3)
+				s = s.Resized(3)
 				Expect(s.Len()).To(Equal(int64(3)))
 				Expect(
 					s.Unmarshal[float64](),
@@ -780,7 +780,7 @@ var _ = Describe("Series", func() {
 
 			It("Should work with uint8", func() {
 				s := telem.NewSeriesV[uint8](1, 2, 3)
-				s.Resize(5)
+				s = s.Resized(5)
 				Expect(s.Len()).To(Equal(int64(5)))
 				Expect(
 					s.Unmarshal[uint8](),
@@ -789,14 +789,14 @@ var _ = Describe("Series", func() {
 
 			It("Should work with float32", func() {
 				s := telem.NewSeriesV[float32](1.0, 2.0, 3.0, 4.0)
-				s.Resize(2)
+				s = s.Resized(2)
 				Expect(s.Len()).To(Equal(int64(2)))
 				Expect(s.Unmarshal[float32]()).To(Equal([]float32{1.0, 2.0}))
 			})
 
 			It("Should work with timestamps", func() {
 				s := telem.NewSeriesSecondsTSV(1, 2, 3)
-				s.Resize(5)
+				s = s.Resized(5)
 				Expect(s.Len()).To(Equal(int64(5)))
 				result := s.Unmarshal[telem.TimeStamp]()
 				Expect(result[0]).To(Equal(telem.TimeStamp(1 * telem.Second)))
@@ -808,21 +808,21 @@ var _ = Describe("Series", func() {
 
 			It("Should resize to zero length", func() {
 				s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
-				s.Resize(0)
+				s = s.Resized(0)
 				Expect(s.Len()).To(Equal(int64(0)))
 				Expect(s.Data).To(BeEmpty())
 			})
 
 			It("Should handle resizing an empty series", func() {
 				s := telem.Series{DataType: telem.Int64T}
-				s.Resize(3)
+				s = s.Resized(3)
 				Expect(s.Len()).To(Equal(int64(3)))
 				Expect(s.Unmarshal[int64]()).To(Equal([]int64{0, 0, 0}))
 			})
 
 			It("Should handle large resize operations", func() {
 				s := telem.NewSeriesV[int32](1, 2, 3)
-				s.Resize(1000)
+				s = s.Resized(1000)
 				Expect(s.Len()).To(Equal(int64(1000)))
 				result := s.Unmarshal[int32]()
 				Expect(result[0]).To(Equal(int32(1)))
@@ -837,19 +837,19 @@ var _ = Describe("Series", func() {
 		Context("Variable Length Data Types", func() {
 			It("Should panic when trying to resize a string series", func() {
 				s := telem.NewSeriesV("a", "b", "c")
-				Expect(func() { s.Resize(5) }).To(Panic())
+				Expect(func() { s.Resized(5) }).To(Panic())
 			})
 
 			It("Should panic when trying to resize a JSON series", func() {
 				s := MustSucceed(telem.NewJSONSeriesV(map[string]any{"a": 1}))
-				Expect(func() { s.Resize(3) }).To(Panic())
+				Expect(func() { s.Resized(3) }).To(Panic())
 			})
 		})
 
 		Context("Error Cases", func() {
 			It("Should panic when resizing to a negative length", func() {
 				s := telem.NewSeriesV[int64](1, 2, 3)
-				Expect(func() { s.Resize(-1) }).To(Panic())
+				Expect(func() { s.Resized(-1) }).To(Panic())
 			})
 
 			It("Should panic with a meaningful message for negative length", func() {
@@ -859,7 +859,7 @@ var _ = Describe("Series", func() {
 						Expect(r).To(Equal("cannot resize series to negative length"))
 					}
 				}()
-				s.Resize(-10)
+				s.Resized(-10)
 			})
 
 			It(
@@ -871,7 +871,7 @@ var _ = Describe("Series", func() {
 							Expect(r).To(Equal("cannot resize variable-density series"))
 						}
 					}()
-					s.Resize(5)
+					s.Resized(5)
 				},
 			)
 		})
@@ -1270,14 +1270,14 @@ var _ = Describe("Series", func() {
 		})
 	})
 
-	Describe("CopyFrom", func() {
+	Describe("CopiedFrom", func() {
 		It("Should copy data and metadata into the receiver", func() {
 			src := telem.NewSeriesV[int64](1, 2, 3)
 			src.TimeRange = telem.TimeRange{Start: 100, End: 200}
 			src.Alignment = telem.NewAlignment(1, 5)
 			src.AlignmentMultiple = 3
 			var dst telem.Series
-			dst.CopyFrom(src)
+			dst = dst.CopiedFrom(src)
 			Expect(dst.DataType).To(Equal(telem.Int64T))
 			Expect(dst.TimeRange).To(Equal(src.TimeRange))
 			Expect(dst.Alignment).To(Equal(src.Alignment))
@@ -1288,16 +1288,16 @@ var _ = Describe("Series", func() {
 		It("Should not share data with the source", func() {
 			src := telem.NewSeriesV[int64](1, 2, 3)
 			var dst telem.Series
-			dst.CopyFrom(src)
+			dst = dst.CopiedFrom(src)
 			src.SetValueAt[int64](0, 99)
 			Expect(dst.ValueAt[int64](0)).To(Equal(int64(1)))
 		})
 
 		It("Should reuse the receiver's buffer across copies", func() {
 			var dst telem.Series
-			dst.CopyFrom(telem.NewSeriesV[int64](1, 2, 3))
+			dst = dst.CopiedFrom(telem.NewSeriesV[int64](1, 2, 3))
 			first := &dst.Data[0]
-			dst.CopyFrom(telem.NewSeriesV[int64](7))
+			dst = dst.CopiedFrom(telem.NewSeriesV[int64](7))
 			Expect(&dst.Data[0]).To(BeIdenticalTo(first))
 			Expect(dst.Unmarshal[int64]()).To(Equal([]int64{7}))
 		})
@@ -1305,7 +1305,7 @@ var _ = Describe("Series", func() {
 		It("Should work with variable density types", func() {
 			src := telem.NewSeriesV("foo", "bar")
 			var dst telem.Series
-			dst.CopyFrom(src)
+			dst = dst.CopiedFrom(src)
 			Expect(dst.DataType).To(Equal(telem.StringT))
 			Expect(dst.Unmarshal[string]()).To(Equal([]string{"foo", "bar"}))
 		})

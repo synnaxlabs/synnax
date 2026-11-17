@@ -9,15 +9,7 @@
 
 import "@/feature/channel/tree.css";
 
-import {
-  channel,
-  isCalculated,
-  query,
-  ranger,
-  resource,
-  status,
-  type Synnax,
-} from "@synnaxlabs/client";
+import { channel, isCalculated, query, status, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -28,7 +20,6 @@ import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import {
   Access,
   Channel as PChannel,
-  type Flux,
   Schematic as PSchematic,
 } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
@@ -40,9 +31,7 @@ import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Group } from "@/platform/group";
 import { Link } from "@/platform/link";
-import { Range } from "@/platform/range";
 import { Tree } from "@/platform/tree";
-import { Session } from "@/session";
 
 const haulItems: Tree.HaulItems = ({ name, id: { key } }, client) => {
   const ch = client.channels.watch(Number(key)).getCached();
@@ -61,49 +50,11 @@ const useDelete = Tree.createUseDelete({
   convertKey: Number,
 });
 
-const beforeSetAlias = async ({
-  data,
-}: Flux.BeforeUpdateParams<PChannel.UpdateAliasParams>) => {
-  if (data.channel == null) return false;
-  const [alias, renamed] = await Text.asyncEdit(
-    List.itemNameID(resource.idToString(channel.resourceID(data.channel))),
-  );
-  if (!renamed) return false;
-  return { ...data, alias };
-};
-
-const useSetAlias = ({
-  selection: {
-    ids: [firstID],
-  },
-}: Tree.ContextMenuProps): (() => void) => {
-  const activeRange = Session.Range.useSelectSelectedKey();
-  const { update } = PChannel.useUpdateAlias({ beforeUpdate: beforeSetAlias });
-  return () =>
-    update({
-      range: activeRange ?? undefined,
-      channel: Number(firstID.key),
-      alias: "",
-    });
-};
-
 const useRename = Tree.createUseRename({
   useUpdate: PChannel.useRename,
   resourceID: channel.resourceID,
   convertKey: Number,
 });
-
-const useDeleteAlias = ({
-  selection: { ids },
-}: Tree.ContextMenuProps): (() => void) => {
-  const activeRange = Session.Range.useSelectSelectedKey();
-  const { update } = PChannel.useDeleteAlias();
-  return () =>
-    update({
-      range: activeRange ?? undefined,
-      channels: ids.map((id) => Number(id.key)),
-    });
-};
 
 const useEditCalculated = () => {
   const open = Channel.useCalculatedModal();
@@ -122,18 +73,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     selection: { ids, rootID, parentID },
     state,
   } = props;
-  const activeRange = Range.useResolve();
   const groupFromSelection = Group.useCreateFromSelection();
-  const handleSetAlias = useSetAlias(props);
   const resources = Tree.useResources(state, ids);
   const channelKeys = ids.map((r) => Number(r.key));
-  const channels = PChannel.useMultiple({
-    rangeKey: activeRange?.key,
-    where: { key: { in: channelKeys } },
-  });
-  const showDeleteAlias = channels.some((c) => c.alias != null);
+  const channels = PChannel.useMultiple({ where: { key: { in: channelKeys } } });
   const first = resources[0];
-  const handleDeleteAlias = useDeleteAlias(props);
   const handleDelete = useDelete(props);
 
   const hasUpdatePermission = Access.useUpdateGranted(
@@ -141,12 +85,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
   const hasDeletePermission = Access.useDeleteGranted(
     ids.map((id) => channel.resourceID(Number(id.key))),
-  );
-  const hasAliasCreatePermission = Access.useCreateGranted(
-    ids.map((id) => ranger.alias.resourceID(activeRange?.key ?? "", Number(id.key))),
-  );
-  const hasAliasDeletePermission = Access.useDeleteGranted(
-    ids.map((id) => ranger.alias.resourceID(activeRange?.key ?? "", Number(id.key))),
   );
   const handleRename = useRename(props);
 
@@ -180,26 +118,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         />
       )}
       <Menu.Divider />
-      {activeRange != null &&
-        activeRange.variant === "persisted" &&
-        (singleResource || showDeleteAlias) &&
-        (hasAliasCreatePermission || hasAliasDeletePermission) && (
-          <>
-            {singleResource && hasAliasCreatePermission && renamable && (
-              <Menu.Item itemKey="alias" onClick={handleSetAlias}>
-                <Icon.Rename />
-                Set alias under {activeRange.name}
-              </Menu.Item>
-            )}
-            {showDeleteAlias && hasAliasDeletePermission && (
-              <Menu.Item itemKey="deleteAlias" onClick={handleDeleteAlias}>
-                <Icon.Delete />
-                Remove alias under {activeRange.name}
-              </Menu.Item>
-            )}
-          </>
-        )}
-      <Menu.Divider />
       <Tree.CopyContextMenuItem {...props} />
       {singleResource && (
         <>
@@ -218,12 +136,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 };
 
 const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
-  const activeRange = Range.useResolve();
-  const params = { key: Number(resource.id.key), rangeKey: activeRange?.key };
-  const { data: alias } = PChannel.useResultAlias(params);
+  const params = { key: Number(resource.id.key) };
   const { data: chStatus } = PChannel.useResultStatus(params);
   const { data: kind } = PChannel.useResultKind(params);
-  const name = alias ?? resource.name;
   const DataTypeIcon = kind?.icon ?? Icon.Channel;
   const statusVariant = status.keepVariants(chStatus?.variant, ["error", "warning"]);
   const highlight = Tree.useHighlight();
@@ -233,7 +148,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
       <Text.MaybeEditable
         id={List.itemNameID(resource.key)}
         allowDoubleClick={false}
-        value={name}
+        value={resource.name}
         overflow="fade"
         className={CSS.BE("channel-tree-item", "name")}
         grow

@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-const nonFiniteZ = z.enum(["NaN", "Infinity", "-Infinity"]);
+const nonFiniteZ = z.literal(["NaN", "Infinity", "-Infinity"]);
 const numberZ = z.custom<number>((v) => typeof v === "number");
 
 /**

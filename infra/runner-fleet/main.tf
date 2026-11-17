@@ -47,6 +47,10 @@ locals {
   # Limits a statement to sessions of the sandbox instance.
   sandbox_session = "${aws_iam_role.sandbox.unique_id}:${var.sandbox_instance}"
   runner_os       = ["ubuntu", "windows"]
+  # The agent CLI logins that seats run on, stored by `seat.sh token`.
+  logins = join(":", [
+    "arn:aws:secretsmanager:us-east-1", local.account, "secret:synnax-agents/logins/*",
+  ])
 }
 
 # The sandbox instance starts, stops, and inspects the runners.
@@ -177,18 +181,34 @@ resource "aws_iam_role_policy" "runner_power" {
   role = aws_iam_role.sandbox.id
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Sid      = "SandboxRunnerPower"
-      Effect   = "Allow"
-      Action   = ["ec2:StartInstances", "ec2:StopInstances"]
-      Resource = "arn:aws:ec2:*:${local.account}:instance/*"
-      Condition = {
-        StringEquals = {
-          "aws:userid"               = local.sandbox_session
-          "ec2:ResourceTag/RunnerOS" = local.runner_os
+    Statement = [
+      {
+        Sid      = "SandboxRunnerPower"
+        Effect   = "Allow"
+        Action   = ["ec2:StartInstances", "ec2:StopInstances"]
+        Resource = "arn:aws:ec2:*:${local.account}:instance/*"
+        Condition = {
+          StringEquals = {
+            "aws:userid"               = local.sandbox_session
+            "ec2:ResourceTag/RunnerOS" = local.runner_os
+          }
         }
-      }
-    }]
+      },
+      # An agent or review seat stops itself, so the controller only starts it.
+      {
+        Sid      = "SandboxSeatStart"
+        Effect   = "Allow"
+        Action   = "ec2:StartInstances"
+        Resource = "arn:aws:ec2:*:${local.account}:instance/*"
+        Condition = {
+          StringEquals = {
+            "aws:userid"              = local.sandbox_session
+            "ec2:ResourceTag/project" = "synnax-agents"
+            "ec2:ResourceTag/pool"    = ["agent", "review"]
+          }
+        }
+      },
+    ]
   })
 }
 
@@ -230,6 +250,62 @@ resource "aws_iam_role_policy" "ssm_disk" {
             "ssm:resourceTag/RunnerOS" = local.runner_os
           }
         }
+      },
+    ]
+  })
+}
+
+# The controller hands each seat it starts a login (scripts/runners/logins.py). It
+# reads and tags the logins, and never reads a token.
+resource "aws_iam_role_policy" "seat_logins" {
+  name = "SandboxSeatLogins"
+  role = aws_iam_role.sandbox.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect    = "Allow"
+        Action    = "secretsmanager:ListSecrets"
+        Resource  = "*"
+        Condition = { StringEquals = { "aws:userid" = local.sandbox_session } }
+      },
+      {
+        Effect    = "Allow"
+        Action    = "secretsmanager:DescribeSecret"
+        Resource  = local.logins
+        Condition = { StringEquals = { "aws:userid" = local.sandbox_session } }
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["secretsmanager:TagResource", "secretsmanager:UntagResource"]
+        Resource = local.logins
+        Condition = {
+          StringEquals = { "aws:userid" = local.sandbox_session }
+          "ForAllValues:StringEquals" = {
+            "aws:TagKeys" = ["holders", "limited-until", "broken"]
+          }
+        }
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["ec2:CreateTags", "ec2:DeleteTags"]
+        Resource = "arn:aws:ec2:*:${local.account}:instance/*"
+        Condition = {
+          StringEquals = {
+            "aws:userid"              = local.sandbox_session
+            "ec2:ResourceTag/project" = "synnax-agents"
+            "ec2:ResourceTag/pool"    = ["agent", "review"]
+          }
+          "ForAllValues:StringEquals" = {
+            "aws:TagKeys" = ["login", "limited-until", "login-broken"]
+          }
+        }
+      },
+      {
+        Effect    = "Allow"
+        Action    = "iam:GetRole"
+        Resource  = "arn:aws:iam::${local.account}:role/synnax-agent-runner"
+        Condition = { StringEquals = { "aws:userid" = local.sandbox_session } }
       },
     ]
   })
@@ -305,6 +381,25 @@ resource "aws_iam_role_policy" "deny_runner_secrets" {
   })
 }
 
+import {
+  to = aws_iam_role_policy.runner_agent_read
+  id = "EC2-SSM-Role:RunnerAgentRead"
+}
+
+# The agent on a runner reads its API key and its deployed commit from this path.
+resource "aws_iam_role_policy" "runner_agent_read" {
+  name = "RunnerAgentRead"
+  role = aws_iam_role.runner.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "ssm:GetParameter"
+      Resource = "arn:aws:ssm:${var.region}:${local.account}:parameter/runner-agents/*"
+    }]
+  })
+}
+
 # Inline policies and managed attachments not declared here show up as drift, and an
 # apply removes them.
 
@@ -317,6 +412,7 @@ resource "aws_iam_role_policies_exclusive" "sandbox" {
     aws_iam_role_policy.cost_explorer_read.name,
     aws_iam_role_policy.runner_power.name,
     aws_iam_role_policy.ssm_disk.name,
+    aws_iam_role_policy.seat_logins.name,
   ]
 }
 
@@ -326,8 +422,11 @@ resource "aws_iam_role_policy_attachments_exclusive" "sandbox" {
 }
 
 resource "aws_iam_role_policies_exclusive" "runner" {
-  role_name    = aws_iam_role.runner.name
-  policy_names = [aws_iam_role_policy.deny_runner_secrets.name]
+  role_name = aws_iam_role.runner.name
+  policy_names = [
+    aws_iam_role_policy.deny_runner_secrets.name,
+    aws_iam_role_policy.runner_agent_read.name,
+  ]
 }
 
 resource "aws_iam_role_policy_attachments_exclusive" "runner" {

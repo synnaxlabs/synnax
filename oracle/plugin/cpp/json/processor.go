@@ -24,9 +24,9 @@ type FieldData = fieldData
 type FieldProcessor struct {
 	// Includes receives the headers that the expressions need.
 	Includes *includes.Manager
-	// Namespace is the schema namespace of the file. A type in this namespace renders
-	// by its bare name.
-	Namespace string
+	// FilePath is the schema file of the generated file. A type from this schema
+	// renders by its bare name.
+	FilePath string
 	// OutputPath is the output path of the file. It sets the C++ namespace that
 	// qualifies calls to the union codecs of the namespace.
 	OutputPath string
@@ -50,7 +50,7 @@ func (fp *FieldProcessor) ProcessField(
 		jsonPaths:  fp.JSONPaths,
 		OutputPath: fp.OutputPath,
 		Namespace:  cppnaming.Namespace(fp.OutputPath),
-		rawNs:      fp.Namespace,
+		filePath:   fp.FilePath,
 	}
 	return New(DefaultOptions()).processField(field, parent, data)
 }

@@ -16,6 +16,8 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -216,25 +218,25 @@ var _ = Describe("Check", func() {
 				"f32 with f64",
 				types.F32(),
 				types.F64(),
-				"type mismatch in test: expected f32, got f64",
+				"type mismatch: expected f32, got f64 in test",
 			),
 			Entry(
 				"i32 with i64",
 				types.I32(),
 				types.I64(),
-				"type mismatch in test: expected i32, got i64",
+				"type mismatch: expected i32, got i64 in test",
 			),
 			Entry(
 				"u8 with i8",
 				types.U8(),
 				types.I8(),
-				"type mismatch in test: expected u8, got i8",
+				"type mismatch: expected u8, got i8 in test",
 			),
 			Entry(
 				"string with i32",
 				types.String(),
 				types.I32(),
-				"type mismatch in test: expected str, got i32",
+				"type mismatch: expected str, got i32 in test",
 			),
 		)
 	})
@@ -372,37 +374,37 @@ var _ = Describe("Check", func() {
 				"chan with scalar",
 				types.Chan(types.F32()),
 				types.F32(),
-				"type mismatch in test: expected chan f32, got f32",
+				"type mismatch: expected chan f32, got f32 in test",
 			),
 			Entry(
 				"scalar with chan",
 				types.F32(),
 				types.Chan(types.F32()),
-				"type mismatch in test: expected f32, got chan f32",
+				"type mismatch: expected f32, got chan f32 in test",
 			),
 			Entry(
 				"series with scalar",
 				types.Series(types.I64()),
 				types.I64(),
-				"type mismatch in test: expected series i64, got i64",
+				"type mismatch: expected series i64, got i64 in test",
 			),
 			Entry(
 				"scalar with series",
 				types.I64(),
 				types.Series(types.I64()),
-				"type mismatch in test: expected i64, got series i64",
+				"type mismatch: expected i64, got series i64 in test",
 			),
 			Entry(
 				"chan with series",
 				types.Chan(types.F32()),
 				types.Series(types.F32()),
-				"type mismatch in test: expected chan f32, got series f32",
+				"type mismatch: expected chan f32, got series f32 in test",
 			),
 			Entry(
 				"series with chan",
 				types.Series(types.I32()),
 				types.Chan(types.I32()),
-				"type mismatch in test: expected series i32, got chan i32",
+				"type mismatch: expected series i32, got chan i32 in test",
 			),
 		)
 	})
@@ -427,7 +429,7 @@ var _ = Describe("Check", func() {
 				atypes.Check(cs, types.Chan(types.F32()), types.Chan(types.F64()), ast, "test"),
 			).
 				Error().
-				To(MatchError(ContainSubstring("type mismatch in test (element types): expected f32, got f64")))
+				To(MatchError(ContainSubstring("type mismatch: expected f32, got f64 in test (element types)")))
 		})
 
 		It("should fail for channel with different integer element types", func() {
@@ -436,7 +438,7 @@ var _ = Describe("Check", func() {
 				atypes.Check(cs, types.Chan(types.I32()), types.Chan(types.I64()), ast, "test"),
 			).
 				Error().
-				To(MatchError(ContainSubstring("type mismatch in test (element types): expected i32, got i64")))
+				To(MatchError(ContainSubstring("type mismatch: expected i32, got i64 in test (element types)")))
 		})
 
 		It("should succeed for nested matching channels", func() {
@@ -452,7 +454,7 @@ var _ = Describe("Check", func() {
 			t2 := types.Chan(types.Chan(types.I64()))
 			Expect(atypes.Check(cs, t1, t2, ast, "test")).
 				Error().
-				To(MatchError(ContainSubstring("type mismatch in test (element types) (element types): expected i32, got i64")))
+				To(MatchError(ContainSubstring("type mismatch: expected i32, got i64 in test (element types) (element types)")))
 		})
 
 		It("should fail for nested channel depth mismatch", func() {
@@ -461,7 +463,7 @@ var _ = Describe("Check", func() {
 			t2 := types.Chan(types.I32())
 			Expect(atypes.Check(cs, t1, t2, ast, "test")).
 				Error().
-				To(MatchError(ContainSubstring("type mismatch in test (element types): expected chan i32, got i32")))
+				To(MatchError(ContainSubstring("type mismatch: expected chan i32, got i32 in test (element types)")))
 		})
 
 		It("should add constraint for channel with variable element", func() {
@@ -497,7 +499,7 @@ var _ = Describe("Check", func() {
 				atypes.Check(cs, types.Series(types.F32()), types.Series(types.F64()), ast, "test"),
 			).
 				Error().
-				To(MatchError(ContainSubstring("type mismatch in test (element types): expected f32, got f64")))
+				To(MatchError(ContainSubstring("type mismatch: expected f32, got f64 in test (element types)")))
 		})
 
 		It("should fail for series with different integer element types", func() {
@@ -506,7 +508,7 @@ var _ = Describe("Check", func() {
 				atypes.Check(cs, types.Series(types.I32()), types.Series(types.U32()), ast, "test"),
 			).
 				Error().
-				To(MatchError(ContainSubstring("type mismatch in test (element types): expected i32, got u32")))
+				To(MatchError(ContainSubstring("type mismatch: expected i32, got u32 in test (element types)")))
 		})
 
 		It("should succeed for nested matching series", func() {
@@ -522,7 +524,7 @@ var _ = Describe("Check", func() {
 			t2 := types.Series(types.Series(types.F64()))
 			Expect(atypes.Check(cs, t1, t2, ast, "test")).
 				Error().
-				To(MatchError(ContainSubstring("type mismatch in test (element types) (element types): expected f32, got f64")))
+				To(MatchError(ContainSubstring("type mismatch: expected f32, got f64 in test (element types) (element types)")))
 		})
 
 		It("should fail for nested series depth mismatch", func() {
@@ -531,7 +533,7 @@ var _ = Describe("Check", func() {
 			t2 := types.Series(types.I32())
 			Expect(atypes.Check(cs, t1, t2, ast, "test")).
 				Error().
-				To(MatchError(ContainSubstring("type mismatch in test (element types): expected series i32, got i32")))
+				To(MatchError(ContainSubstring("type mismatch: expected series i32, got i32 in test (element types)")))
 		})
 
 		It("should add constraint for series with variable element", func() {
@@ -564,7 +566,7 @@ var _ = Describe("Check", func() {
 			t2 := types.Chan(types.Series(types.F64()))
 			Expect(atypes.Check(cs, t1, t2, ast, "test")).
 				Error().
-				To(MatchError(ContainSubstring("type mismatch in test (element types) (element types): expected f32, got f64")))
+				To(MatchError(ContainSubstring("type mismatch: expected f32, got f64 in test (element types) (element types)")))
 		})
 
 		It("should fail for channel vs series at same level", func() {
@@ -573,7 +575,7 @@ var _ = Describe("Check", func() {
 			t2 := types.Chan(types.Chan(types.F32()))
 			Expect(atypes.Check(cs, t1, t2, ast, "test")).
 				Error().
-				To(MatchError(ContainSubstring("type mismatch in test (element types): expected series f32, got chan f32")))
+				To(MatchError(ContainSubstring("type mismatch: expected series f32, got chan f32 in test (element types)")))
 		})
 
 		It("should add constraint for deeply nested variable", func() {
@@ -666,6 +668,18 @@ var _ = Describe("Check", func() {
 			Expect(cs.Constraints[0].Reason).To(Equal("first"))
 			Expect(cs.Constraints[1].Reason).To(Equal("second"))
 		})
+	})
+})
+
+var _ = Describe("Hint", func() {
+	It("Should hint a comparison for a numeric value into a bool", func() {
+		err := atypes.Check(constraints.New(), types.Bool(), types.U8(), nil, "")
+		Expect(err).To(MatchError("type mismatch: expected bool, got u8"))
+		var hinted diagnostics.HintProvider
+		Expect(errors.As(err, &hinted)).To(BeTrue())
+		Expect(hinted.GetHint()).To(Equal(constraints.BoolHint))
+		_, ok := atypes.CastOf(err)
+		Expect(ok).To(BeFalse())
 	})
 })
 

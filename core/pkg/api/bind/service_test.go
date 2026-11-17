@@ -20,9 +20,11 @@ import (
 var _ = Describe("ServiceConfig", func() {
 	full := func() bind.ServiceConfig {
 		return bind.ServiceConfig{
-			DB:   &gorp.DB{},
-			RBAC: &rbac.Service{},
-			Held: []string{"held"},
+			DB:          &gorp.DB{},
+			RBAC:        &rbac.Service{},
+			Held:        []string{"held"},
+			Owned:       []string{"owned"},
+			OwnedPlaces: []string{"place"},
 		}
 	}
 
@@ -33,9 +35,9 @@ var _ = Describe("ServiceConfig", func() {
 
 		DescribeTable(
 			"Should fail when a field is missing",
-			func(clear func(*bind.ServiceConfig), msg string) {
+			func(unset func(*bind.ServiceConfig), msg string) {
 				cfg := full()
-				clear(&cfg)
+				unset(&cfg)
 				Expect(cfg.Validate()).To(MatchError(msg))
 			},
 			Entry(
@@ -68,6 +70,8 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Held).To(Equal(cfg.Held))
+			Expect(merged.Owned).To(Equal(cfg.Owned))
+			Expect(merged.OwnedPlaces).To(Equal(cfg.OwnedPlaces))
 		})
 
 		It("Should keep the receiver's fields when the other's are nil", func() {
@@ -76,6 +80,8 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Held).To(Equal(cfg.Held))
+			Expect(merged.Owned).To(Equal(cfg.Owned))
+			Expect(merged.OwnedPlaces).To(Equal(cfg.OwnedPlaces))
 		})
 	})
 })

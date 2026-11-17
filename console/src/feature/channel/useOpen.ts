@@ -10,7 +10,6 @@
 import { type channel, lineplot, log, panel, type resource } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { color } from "@synnaxlabs/x";
 
 import { Analytics } from "@/platform/analytics";
 import { LinePlot } from "@/platform/lineplot";
@@ -62,7 +61,7 @@ export const useOpen = (): ((resource: resource.Resource) => void) => {
         const { key } = await client.logs.create({
           project,
           name: "Log",
-          channels: [{ channel: channelKey, color: color.ZERO }],
+          channels: [{ channel: channelKey }],
         });
         store.dispatch(Session.Log.create({ key }));
         openTab({ variant: "resource", resource: log.resourceID(key) });

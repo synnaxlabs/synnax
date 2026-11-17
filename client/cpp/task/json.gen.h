@@ -56,7 +56,6 @@ inline Task Task::parse(x::json::Parser parser) {
         .config = parser.field<x::json::json::object_t>("config"),
         .config_hash = parser.field<std::string>("config_hash", ""),
         .internal = parser.field<bool>("internal", false),
-        .snapshot = parser.field<bool>("snapshot", false),
         .status = parser.field<std::optional<Status>>("status"),
     };
 }
@@ -70,7 +69,6 @@ inline x::json::json Task::to_json() const {
     j["config"] = this->config;
     j["config_hash"] = this->config_hash;
     j["internal"] = this->internal;
-    j["snapshot"] = this->snapshot;
     if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;
 }
@@ -87,7 +85,6 @@ inline Where Where::parse(x::json::Parser parser) {
             "rack"
         ),
         .internal = parser.field<std::optional<::x::filter::Bool>>("internal"),
-        .snapshot = parser.field<std::optional<::x::filter::Bool>>("snapshot"),
     };
 }
 
@@ -101,7 +98,6 @@ inline x::json::json Where::to_json() const {
     if (this->type.has_value()) j["type"] = this->type->to_json();
     if (this->rack.has_value()) j["rack"] = this->rack->to_json();
     if (this->internal.has_value()) j["internal"] = this->internal->to_json();
-    if (this->snapshot.has_value()) j["snapshot"] = this->snapshot->to_json();
     return j;
 }
 

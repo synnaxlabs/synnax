@@ -34,7 +34,7 @@ type TimeSpan = versions.TimeSpan
 // predictable boundary handling.
 type TimeRange = versions.TimeRange
 
-// Window is a window of time: a rolling span that ends now, or a fixed range.
+// Window is a window of time: a rolling span or a fixed range.
 type Window = versions.Window
 
 // WindowVariant is implemented by every Window variant.
@@ -57,7 +57,8 @@ type DynamicWindow = versions.DynamicWindow
 type StaticWindow = versions.StaticWindow
 
 // Rate is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition
-// frequencies and calculate sample counts over time intervals.
+// frequencies and calculate sample counts over time intervals. A rate is never
+// negative.
 type Rate = versions.Rate
 
 // Size is a byte measurement used for storage capacity and data volume representation.
@@ -173,13 +174,6 @@ func (l *LimitReduction) SetDefaults() {
 	l.Aggregation = AggregationMinMax
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LimitReduction) ApplyDefaults() {
-	if l.Aggregation == "" {
-		l.Aggregation = AggregationMinMax
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (l LimitReduction) Validate() error {
@@ -263,22 +257,14 @@ func (u *Reduction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *Reduction) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case LimitReduction:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Reduction) Validate() error {
+	v := validate.New("Reduction")
+	v.Ternary("variant", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case LimitReduction:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
