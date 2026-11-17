@@ -9,9 +9,10 @@
 
 # Installs agent_boot.py at $Commit on a Windows runner and restarts the agent. Also
 # installs start-runner.ps1 and the GitHubActionsRunner task for the runner name prefix
-# $Prefix and the $Labels of the runner's pool.
+# $Prefix and the $Labels of the runner's pool, in the first of the $Runners folders
+# that holds a configured GitHub runner.
 
-param($Commit, $CoreHost, $Ca, $Prefix, $Labels)
+param($Commit, $CoreHost, $Ca, $Prefix, $Labels, [string[]]$Runners)
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -22,10 +23,9 @@ $Task = 'RunnerAgent'
 $Uv = 'https://github.com/astral-sh/uv/releases/download/0.12.5'
 $Source = "https://raw.githubusercontent.com/synnaxlabs/synnax/$Commit/scripts/runners"
 
-$Runner = 'C:\actions-runner'
-if (-not (Test-Path (Join-Path $Runner 'config.cmd'))) {
-    throw "No GitHub runner in $Runner"
-}
+$Runner = $Runners | Where-Object { Test-Path (Join-Path $_ '.runner') } |
+    Select-Object -First 1
+if (-not $Runner) { throw "No GitHub runner in $($Runners -join ', ')" }
 if (-not [Environment]::GetEnvironmentVariable('GITHUB_PAT', 'Machine')) {
     throw 'GITHUB_PAT is not set'
 }
@@ -48,7 +48,7 @@ foreach ($file in 'agent_boot.py', 'pyproject.toml', 'uv.lock', 'start-runner.ps
 Move-Item (Join-Path $staging 'start-runner.ps1') $Runner -Force
 # The agent starts the GitHub runner, so the task has no trigger.
 $start = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument (
-    "-ExecutionPolicy Bypass -NoProfile -File $Runner\start-runner.ps1 " +
+    "-ExecutionPolicy Bypass -NoProfile -File `"$Runner\start-runner.ps1`" " +
     "-Prefix $Prefix -Labels $Labels")
 $runnerPrincipal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' `
     -LogonType ServiceAccount -RunLevel Highest
