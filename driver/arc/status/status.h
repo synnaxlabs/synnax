@@ -143,11 +143,13 @@ validate_string(const ::arc::types::Params &params, const std::string &name) {
 
 /// @brief Flow node for `status.set`. Queues a set on every trigger and emits the
 /// last resolved key on Output(0). Inputs are read at fire time so
-/// var-bound params track the referenced variable's latest value.
+/// var-bound params track the referenced variable's latest value. Its output is truthy
+/// once it queues a set, so a sequence step moves on before the set resolves.
 class SetStatus : public ::arc::runtime::node::Node {
     ::arc::runtime::state::Node state;
     std::shared_ptr<::driver::outbox::Outbox> outbox;
     std::shared_ptr<Sets> sets;
+    bool queued = false;
 
 public:
     SetStatus(
@@ -167,15 +169,17 @@ public:
         );
         *this->state.output(0) = x::telem::Series(resolved_key);
         *this->state.output_time(0) = x::telem::Series(ctx.cycle.now);
+        this->queued = true;
         this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
-    void reset(::arc::runtime::node::Context &) override { this->state.reset(); }
-
-    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
-        return this->state.is_output_truthy(output_idx);
+    void reset(::arc::runtime::node::Context &) override {
+        this->state.reset();
+        this->queued = false;
     }
+
+    [[nodiscard]] bool is_output_truthy(size_t) const override { return this->queued; }
 };
 
 class Module : public ::arc::stl::Module, public ::arc::stl::strings::StateConsumer {
