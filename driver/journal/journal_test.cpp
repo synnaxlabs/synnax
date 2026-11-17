@@ -330,6 +330,45 @@ TEST_F(JournalTest, NewerVersionIsUnknownVersion) {
     );
 }
 
+/// @brief it should write a new file start over a file shorter than one.
+TEST_F(JournalTest, WriterReplacesCutOffFileStart) {
+    write_file(this->path, "SYTE");
+    auto writer = ASSERT_NIL_P(Writer::open({.path = this->path, .magic = SEGMENT}));
+    EXPECT_EQ(writer->pos(), HEADER_SIZE);
+    ASSERT_NIL(writer->write({.type = 1, .payload = "a"}));
+    ASSERT_NIL(writer->close());
+    const auto reader = this->open_reader();
+    EXPECT_EQ(read_all(*reader).size(), 1);
+}
+
+/// @brief it should cut a last record that fails its checksum, with zeros after it.
+TEST_F(JournalTest, RecoversBadChecksumAtTail) {
+    this->write({{.type = 1, .payload = "a"}});
+    const auto size = std::filesystem::file_size(this->path);
+    auto bad = encode(1, "bc");
+    bad[4] = static_cast<char>(bad[4] ^ 0xFF);
+    append_file(this->path, bad + std::string(100, '\0'));
+    auto writer = ASSERT_NIL_P(Writer::open({.path = this->path, .magic = SEGMENT}));
+    EXPECT_EQ(writer->cut(), bad.size() + 100);
+    EXPECT_EQ(writer->pos(), size);
+}
+
+/// @brief it should return an error for a file that does not exist.
+TEST_F(JournalTest, ReaderMissingFileIsError) {
+    ASSERT_OCCURRED_AS_P(
+        Reader::open({.path = this->dir / "missing", .magic = SEGMENT}),
+        BASE_ERROR
+    );
+}
+
+/// @brief it should return an error for a file in a directory that does not exist.
+TEST_F(JournalTest, WriterMissingDirectoryIsError) {
+    ASSERT_OCCURRED_AS_P(
+        Writer::open({.path = this->dir / "missing" / "0.seg", .magic = SEGMENT}),
+        BASE_ERROR
+    );
+}
+
 /// @brief it should return CORRUPT for a file start that is cut off.
 TEST_F(JournalTest, CutOffFileStartIsCorrupt) {
     write_file(this->path, "SYTE");
@@ -338,6 +377,7 @@ TEST_F(JournalTest, CutOffFileStartIsCorrupt) {
 
 /// @brief it should sync when sync_interval passes or sync_bytes are written.
 TEST_F(JournalTest, SyncsByTimeAndBytes) {
+    this->write({});
     auto now = x::telem::TimeStamp(0);
     int syncs = 0;
     auto writer = ASSERT_NIL_P(
@@ -375,6 +415,7 @@ TEST_F(JournalTest, SyncsByTimeAndBytes) {
 
 /// @brief it should refuse all later writes and syncs after a sync error.
 TEST_F(JournalTest, SyncErrorIsFatal) {
+    this->write({});
     const auto injected = x::errors::Error(BASE_ERROR, "disk failed");
     int syncs = 0;
     auto writer = ASSERT_NIL_P(
