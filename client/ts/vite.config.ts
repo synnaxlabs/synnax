@@ -46,7 +46,7 @@ export default defineConfig({
     },
     rolldownOptions: {
       external: [
-        "zod",
+        /^zod(\/|$)/,
         "vitest",
         /^@vitest\//,
         /^node:/,

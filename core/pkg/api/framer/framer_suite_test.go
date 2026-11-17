@@ -65,10 +65,13 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	faultyFS = WrapFaultyFS(xfs.NewMem())
+	kv := DeferClose(memkv.New())
 	store := &storage.Layer{
-		KV: DeferClose(memkv.New()),
-		TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS}))),
+		KV:   kv,
+		Gorp: gorp.Wrap(kv),
+		TS:   DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS}))),
 	}
+	StartRun(store.Run)
 	node := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 		Insecure: new(true),

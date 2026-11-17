@@ -56,6 +56,7 @@ type stack struct {
 func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db,
 	}))
