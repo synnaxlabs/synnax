@@ -122,13 +122,14 @@ CommandBinding struct { key string, channel channel.Key }  // a command with no 
 ### 4.2 Values and looks
 
 A state reads its source, then its match. `band` reads a value from `lower` up to, but
-not including, `upper` as 1, as today's threshold does, and keeps other values. An
+not including, `upper` as 1, and every other number as 0, as today's threshold does. An
 absent bound is open, and the Core refuses a band whose `lower` is above its `upper`.
 The editor writes the band 0.9 to 1.1 on a new state with two entries. An enum state
-draws its `default` entry, such as Closed on a valve, while no data has arrived and when
-the value equals no entry, such as NaN or 0.5. Pluto then adds the unknown mark, and 0
-still shows Closed. A state with no source draws its default entry with no mark. The
-binding holds the number format, as each readout does today
+draws its `default` entry, such as Closed on a valve, while no data has arrived, for
+NaN, and, with an `exact` match, for a value that equals no entry. Pluto then adds the
+unknown mark. A band leaves no number unmatched, so 0.5 on a valve shows Closed with no
+mark, as today. A state with no source draws its default entry with no mark. The binding
+holds the number format, as each readout does today
 (`schemas/synnax/schematic.oracle:1224-1249`).
 
 Looks apply in order, and a later look wins on each field it sets. Stale data keeps the
@@ -190,7 +191,8 @@ only to those.
 
 A toggle's source comes from `state_channel`, else `command_channel`, and its `command`
 from `command_channel`. A light with no `threshold` gets the band 0.9 to 1.1, as it
-reads today. An inverted `threshold` is swapped, as today's check swaps it. The light's
+reads today. An inverted `threshold` is swapped, as today's check swaps it. With these
+bands, each migrated toggle and light reads every number as it does today. The light's
 `on_color` moves to an enum. `stroke_color` becomes `color`, `staleness_color` goes, the
 time fields keep their values, and `state_overrides` become enums by RFC 0112 §4.6.
 
