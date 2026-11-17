@@ -677,6 +677,26 @@ describe("MQTT read form", () => {
     expect((await client.icds.retrieve(entry.icd)).messages[0].name).toBe(TOPIC);
   });
 
+  it("should number the name of a new message that the ICD already holds", async () => {
+    const { dev, draft } = await renderRead({
+      fields: [createField("temperature", "float")],
+    });
+    const input = await screen.findByDisplayValue(TOPIC);
+    fireEvent.change(input, { target: { value: "plant/kiln" } });
+    fireEvent.blur(input);
+    const entry = await waitFor(async () => {
+      const [first] = await retrieveEntries(draft.key);
+      expect(plainOf(first).topic).toBe("plant/kiln");
+      return plainOf(first);
+    });
+    await addField(dev.rack, TOPIC, "flow");
+    await waitFor(async () =>
+      expect(
+        (await client.icds.retrieve(entry.icd)).messages.map(({ name }) => name),
+      ).toEqual([TOPIC, `${TOPIC} 2`]),
+    );
+  });
+
   describe("channels", () => {
     it("should stop and start reading a field, keeping the channel of its pointer", async () => {
       const ch = await client.channels.create({
