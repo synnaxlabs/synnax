@@ -1712,17 +1712,17 @@ var _ = Describe("Line colors", func() {
 			})
 			rec := &Recorder[lineplot.Key, lineplot.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
-			clear := lineplot.NewSetLineColorAction(
+			cleared := lineplot.NewSetLineColorAction(
 				lineplot.SetLineColorPayload{Key: p.Lines[0].Key},
 			)
-			Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{clear})).To(Succeed())
+			Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{cleared})).To(Succeed())
 			Expect(
 				colors(retrieve(ctx, p.Key)),
 			).To(Equal([]*color.Ref{named(series[1]), named(series[0])}))
 			seen := rec.Snapshot()
 			Expect(seen).To(HaveLen(1))
 			Expect(seen[0].Actions).To(Equal([]lineplot.Action{
-				clear,
+				cleared,
 				lineplot.NewSetLineColorAction(lineplot.SetLineColorPayload{
 					Key: p.Lines[0].Key, Color: named(series[1]),
 				}),
