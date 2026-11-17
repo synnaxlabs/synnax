@@ -150,8 +150,8 @@ class Clock:
 class Server:
     """Answers GitHub requests from memory, minting token-1, token-2, and so on, each
     valid for an hour from the clock. Fails the next request to a URL in failures with
-    its status code. Lists the runners in registered by name, deletes them, and refuses
-    with a 422 to delete one in busy."""
+    its status code. Lists the runners in registered as online, looks them up by name,
+    deletes them, and refuses with a 422 to delete one in busy."""
 
     def __init__(self, clock: Clock) -> None:
         self.clock = clock
@@ -178,6 +178,19 @@ class Server:
                 "expires_at": expires.strftime("%Y-%m-%dT%H:%M:%SZ"),
             }
         runners = f"{API}/repos/{REPO}/actions/runners"
+        if url.startswith(f"{runners}?per_page="):
+            return {
+                "runners": [
+                    {
+                        "id": i,
+                        "name": n,
+                        "status": "online",
+                        "busy": False,
+                        "labels": [],
+                    }
+                    for n, i in self.registered.items()
+                ]
+            }
         if url.startswith(f"{runners}?name="):
             name = url.removeprefix(f"{runners}?name=")
             if name not in self.registered:

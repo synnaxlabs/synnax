@@ -177,6 +177,16 @@ def resolve(futures: list[Future]) -> list:
     return [f.result() for f in futures]
 
 
+def fleet_status(
+    listed: dict[str, int], *, labels: dict[str, set[str]], found: dict[str, dict]
+) -> dict[str, int]:
+    """The status GitHub lists for each runner, and offline for a runner GitHub does not
+    list that has an EC2 instance, such as one whose registration the scaler deleted."""
+    return {
+        r: OFFLINE for r in labels if instance_for(r, found=found) is not None
+    } | listed
+
+
 class Core(Writes, Streams, Protocol):
     """The part of the Core that the controller writes and streams."""
 
@@ -245,10 +255,7 @@ class Controller:
         (listed, labels), found = self.fetch()
         self.runners.add(labels)
         labels = self.runners.labels()
-        # GitHub no longer lists a runner whose registration the scaler deleted.
-        status = {
-            r: OFFLINE for r in labels if instance_for(r, found=found) is not None
-        } | listed
+        status = fleet_status(listed, labels=labels, found=found)
         cost = self.cost.step(
             sy.TimeStamp.now(), known=self.runners.snapshot(), found=found
         )

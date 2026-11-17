@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import urllib.error
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -15,10 +16,12 @@ import synnax as sy
 
 from common import BUSY, IDLE, OFFLINE, RECOMMAND_DELAY, Channels, channel_name
 from conftest import Client, Clock, Server, Writer, github
+from controller import fleet_status
 from gate import Gate
 from github import API, REPO
 from log import Log
 from publisher import OPEN_LEEWAY
+from registry import RunnerRegistry
 from scaler import Scaler
 
 POOL = "ubuntu-build-bot"
@@ -213,13 +216,11 @@ class TestScaler:
         assert server.registered == {}
         assert instance_commands(client) == [False]
 
-    def test_should_keep_the_instance_of_a_runner_github_has_a_job_for(
-        self, client: Client
-    ) -> None:
+    def test_should_start_the_runner_github_has_a_job_for(self, client: Client) -> None:
         server = Server(Clock())
         server.registered[A] = 7
         server.busy.add(A)
-        s = scaler(client, server=server)
+        s = scaler(client, cooldown=sy.TimeSpan.HOUR, server=server)
         poll: dict[str, Any] = {
             "known": {A},
             "labels": {A: LABELS},
@@ -227,12 +228,54 @@ class TestScaler:
             "found": {"i-0aaa": instance("running")},
             "running": set(),
         }
+        s.idle_since[A] = LONG_AGO
         cycle(s, status={A: IDLE}, **poll)
         cycle(s, status={A: OFFLINE}, **poll)
-        assert instance_commands(client) == []
-        server.busy.clear()
         cycle(s, status={A: OFFLINE}, **poll)
-        assert instance_commands(client) == [False]
+        assert runner_commands(client) == [True, False, True]
+        assert instance_commands(client) == []
+        assert server.deletes() == [f"{API}/repos/{REPO}/actions/runners/7"]
+        assert len(client.written("log")) == 1
+
+    def test_should_keep_the_registration_of_a_tester(self, client: Client) -> None:
+        tester = "ubuntu-tester-i-0aaa"
+        server = Server(Clock())
+        server.registered[tester] = 7
+        s = scaler(client, server=server)
+        poll: dict[str, Any] = {
+            "known": {tester},
+            "labels": {tester: {"self-hosted", "ubuntu-test-bot"}},
+            "queued": {},
+            "found": {"i-0aaa": instance("running")},
+            "running": set(),
+        }
+        cycle(s, status={tester: IDLE}, **poll)
+        cycle(s, status={tester: OFFLINE}, **poll)
+        assert server.registered == {tester: 7}
+        assert instance_commands(client, runner=tester) == [False]
+
+    def test_should_start_a_deleted_runner_from_its_stored_labels(
+        self, client: Client, tmp_path: Path
+    ) -> None:
+        registry = RunnerRegistry(tmp_path / "registry.json")
+        registry.add({A: LABELS})
+        gh = github(Server(Clock()))
+        listed, seen = gh.runner_status()
+        registry.add(seen)
+        labels = registry.labels()
+        found = {"i-0aaa": instance("stopped")}
+        status = fleet_status(listed, labels=labels, found=found)
+        assert status == {A: OFFLINE}
+        s = scaler(client)
+        s.step(
+            known=registry.snapshot(),
+            status=status,
+            labels=labels,
+            queued={POOL: 1},
+            found=found,
+            running=set(),
+        )
+        assert started(client) == [A]
 
     def test_should_fail_when_github_refuses_the_delete(self, client: Client) -> None:
         server = Server(Clock())

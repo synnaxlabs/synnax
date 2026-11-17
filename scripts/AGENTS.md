@@ -119,10 +119,11 @@ The controller for the self-hosted CI runners, deployed to the `Sandbox-Windows`
 instance. `controller.py` polls GitHub and EC2, writes fleet state to the Synnax Core on
 that box, and runs the scaler; `dispatch.py` turns the scaler's commands into EC2 starts
 and stops. The scaler drains a runner with `<runner>_gh_cmd` first. Once GitHub shows
-the runner offline, the scaler deletes its registration, then stops its instance; the
-GitHub App needs administration write for the delete. Its own uv project and CI job. A
-pool in `pools.py` must use the label the workflows request (`windows-test-bot`, not
-`windows-latest`), or its jobs never start an instance.
+the runner offline, the scaler deletes its registration in an `unregistered` pool, then
+stops its instance; the GitHub App needs administration write for the delete. Mark a
+pool `unregistered` only when its start script registers the runner again. Its own uv
+project and CI job. A pool in `pools.py` must use the label the workflows request
+(`windows-test-bot`, not `windows-latest`), or its jobs never start an instance.
 
 The agent deploy also installs `start-runner.sh` and `start-runner.ps1`. On each start
 they set the labels of a runner GitHub lists, and register a runner it does not list.
