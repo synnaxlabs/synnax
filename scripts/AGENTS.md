@@ -118,9 +118,10 @@ disabling a sanitizer wholesale.
 The controller for the self-hosted CI runners, deployed to the `Sandbox-Windows` EC2
 instance. `controller.py` polls GitHub and EC2, writes fleet state to the Synnax Core on
 that box, and runs the scaler; `dispatch.py` turns the scaler's commands into EC2 starts
-and stops. The scaler drains a runner with `<runner>_gh_cmd` first, and its instance
-stops only after GitHub shows the runner offline. Its own uv project and CI job. A pool
-in `pools.py` must use the label the workflows request (`windows-test-bot`, not
+and stops. The scaler drains a runner with `<runner>_gh_cmd` first. Once GitHub shows
+the runner offline, the scaler deletes its registration, then stops its instance; the
+GitHub App needs administration write for the delete. Its own uv project and CI job. A
+pool in `pools.py` must use the label the workflows request (`windows-test-bot`, not
 `windows-latest`), or its jobs never start an instance.
 
 The agent deploy also installs `start-runner.sh` and `start-runner.ps1`. On each start

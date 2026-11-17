@@ -10,7 +10,7 @@
 import synnax as sy
 
 from common import Channels
-from conftest import Client
+from conftest import Client, Clock, Server, github
 from controller import FAILED_POLLS, Health, Toggle, wait_for_cmds
 from gate import Gate
 from heartbeat import Heartbeat
@@ -34,6 +34,7 @@ class TestWaitForCmds:
                 channels=channels,
                 log=Log(client=client, channels=channels, channel="gh_log"),
             ),
+            github=github(Server(Clock())),
         )
         beat = Heartbeat(
             client=client,

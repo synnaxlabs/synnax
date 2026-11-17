@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/arc/pb"
 	arcpb "github.com/synnaxlabs/synnax/pkg/service/arc/pb"
+	"github.com/synnaxlabs/x/errors"
 	xpb "github.com/synnaxlabs/x/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -169,21 +170,24 @@ func (deleteRequestTranslator) Backward(
 	return arc.DeleteRequest{Keys: keys}, nil
 }
 
-func New(t *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	c := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
 		ServiceDesc:        &ArcCreateService_ServiceDesc,
+		Errors:             errs,
 	}
 	r := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
 		ServiceDesc:        &ArcRetrieveService_ServiceDesc,
+		Errors:             errs,
 	}
 	d := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &ArcDeleteService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.ArcCreate = c
 	t.ArcRetrieve = r
