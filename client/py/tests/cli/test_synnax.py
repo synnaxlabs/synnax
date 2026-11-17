@@ -92,11 +92,12 @@ class TestCommand:
             # stdin stays open until the exit, or the command can read end of input
             # before it handles the signal. A SIGINT that lands before input() starts
             # its read only sets a flag, and the read then blocks, so it is sent again
-            # until the command exits, as a user presses Ctrl+C again.
-            for _ in range(120):
+            # until the command exits, as a user presses Ctrl+C again. The long gap
+            # keeps a second SIGINT away from a slow exit.
+            for _ in range(12):
                 proc.send_signal(signal.SIGINT)
                 try:
-                    proc.wait(timeout=0.5)
+                    proc.wait(timeout=5)
                     break
                 except subprocess.TimeoutExpired:
                     continue
