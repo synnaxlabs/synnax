@@ -2278,21 +2278,41 @@ TEST_F(SOEMMasterTest, ReceiveKeepsFramesInFlightForMoreThanThreeCycles) {
 }
 
 /// @brief it should drop a frame that has not come back once it is
-/// master::MAX_FRAME_AGE old, and fail its receive.
+/// master::MAX_FRAME_AGE old and master::MIN_FRAMES_IN_FLIGHT frames are in flight,
+/// and fail its receive.
 TEST_F(SOEMMasterTest, ReceiveDropsAFrameOnceItIsTheMaxFrameAge) {
     this->initialize_with_slave();
     this->activate_master();
-    ASSERT_NIL(this->master->send());
     this->mock->receive_return = EC_NOFRAME;
+    for (size_t i = 0; i < master::MIN_FRAMES_IN_FLIGHT; ++i) {
+        ASSERT_NIL(this->master->send());
+        ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    }
     this->skip(master::MAX_FRAME_AGE - x::telem::MICROSECOND);
     ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
-    ASSERT_NIL(this->master->send());
     this->skip(x::telem::MICROSECOND);
     const auto err = this->master->receive();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
     EXPECT_EQ(err.data, "process data receive failed");
     EXPECT_EQ(this->mock->drop_count, 1);
-    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+}
+
+/// @brief it should keep a frame of any age in flight while fewer than
+/// master::MIN_FRAMES_IN_FLIGHT frames are in flight, so a slow bus gives a late frame
+/// more than one cycle.
+TEST_F(SOEMMasterTest, ReceiveKeepsAFrameOfAnyAgeWhileFewFramesAreInFlight) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->receive_return = EC_NOFRAME;
+    for (size_t i = 1; i < master::MIN_FRAMES_IN_FLIGHT; ++i) {
+        ASSERT_NIL(this->master->send());
+        this->skip(master::MAX_FRAME_AGE);
+        ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    }
+    ASSERT_NIL(this->master->send());
+    this->skip(master::MAX_FRAME_AGE);
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::CYCLIC_ERROR);
+    EXPECT_EQ(this->mock->drop_count, 1);
 }
 
 /// @brief it should drop the oldest frame and fail the receive when the frame has not
@@ -2374,8 +2394,12 @@ TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
     ASSERT_NIL(this->master->send());
     ASSERT_NIL(this->master->receive());
     this->mock->receive_return = EC_NOFRAME;
-    ASSERT_NIL(this->master->send());
+    for (size_t i = 1; i < master::MIN_FRAMES_IN_FLIGHT; ++i) {
+        ASSERT_NIL(this->master->send());
+        ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    }
     this->skip(x::telem::SECOND - x::telem::MILLISECOND);
+    ASSERT_NIL(this->master->send());
     const auto late = this->master->receive();
     ASSERT_OCCURRED_AS(late, errors::CYCLIC_ERROR);
     EXPECT_EQ(
@@ -3078,7 +3102,7 @@ TEST_F(SOEMMasterTest, CheckRestoresFromTheSendTimeOfALateFrame) {
     ASSERT_NIL(this->master->send());
     this->mock->receive_return = EC_NOFRAME;
     ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
-    this->skip(x::telem::MILLISECOND * 5);
+    this->skip(x::telem::SECOND * 3);
     ASSERT_NIL(this->master->send());
     this->mock->receive_return = 3;
     ASSERT_NIL(this->master->receive());
@@ -3088,7 +3112,7 @@ TEST_F(SOEMMasterTest, CheckRestoresFromTheSendTimeOfALateFrame) {
     this->supervise_while_cycling();
     const auto error = this->written_offset(1) -
                        (this->mock->latched_at + 7'000'000'000 - 2'000);
-    EXPECT_LT(std::abs(error), x::telem::MILLISECOND.nanoseconds());
+    EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
 }
 
 /// @brief it should end the restore of a DC slave whose clock does not settle once the

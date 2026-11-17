@@ -44,6 +44,10 @@ constexpr size_t MAX_FRAMES_IN_FLIGHT = 32;
 /// rate.
 inline const x::telem::TimeSpan MAX_FRAME_AGE = x::telem::MILLISECOND * 10;
 
+/// @brief how many frames a master keeps in flight at any age, so a frame of a slow bus
+/// gets more than one receive().
+constexpr size_t MIN_FRAMES_IN_FLIGHT = 3;
+
 /// @brief information about an available EtherCAT master or network.
 struct Info {
     /// @brief unique identifier for this master (e.g., "igh:0" or "eth0").
@@ -176,9 +180,10 @@ public:
     /// processes its inputs. Returns errors::FRAME_IN_FLIGHT when the frame has not
     /// come back and the master keeps it in flight, so a later receive() takes it.
     /// Each send(), failed or not, gets exactly one result other than FRAME_IN_FLIGHT,
-    /// in send order. Once the oldest frame is MAX_FRAME_AGE old, or once
-    /// MAX_FRAMES_IN_FLIGHT frames are in flight, the master drops it and returns an
-    /// error in place of FRAME_IN_FLIGHT.
+    /// in send order. Once the oldest frame is MAX_FRAME_AGE old and
+    /// MIN_FRAMES_IN_FLIGHT frames are in flight, or once MAX_FRAMES_IN_FLIGHT frames
+    /// are in flight, the master drops it and returns an error in place of
+    /// FRAME_IN_FLIGHT.
     [[nodiscard]] virtual x::errors::Error receive() = 0;
 
     /// @brief queues output data and sends to the EtherCAT network.

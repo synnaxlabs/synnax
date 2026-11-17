@@ -38,6 +38,8 @@ const x::telem::Rate MIN_CYCLE_RATE(100);
 const x::telem::Rate MAX_CYCLE_RATE(10000);
 /// @brief how often the supervisor reads slave states.
 const auto SUPERVISOR_INTERVAL = x::telem::MILLISECOND * 100;
+/// @brief the longest wait for the frames in flight when the bus stops.
+const auto LAST_FRAME_TIMEOUT = x::telem::MILLISECOND * 10;
 /// @brief the wait between receives of a frame in flight when the bus stops.
 const auto LAST_FRAME_POLL = x::telem::MICROSECOND * 100;
 /// @brief how often a call that needs the stopped bus tries mu again.
@@ -596,7 +598,7 @@ void Engine::run() {
         send();
     }
     const auto take_in_flight = [&] {
-        const auto deadline = this->config.host_clock.now() + master::MAX_FRAME_AGE;
+        const auto deadline = this->config.host_clock.now() + LAST_FRAME_TIMEOUT;
         x::errors::Error err;
         while (!in_flight.empty()) {
             err = this->master->receive();
