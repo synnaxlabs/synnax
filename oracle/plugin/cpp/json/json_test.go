@@ -706,7 +706,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should write the keys of a map keyed by a string enum as they are",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -723,7 +723,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						pairs    map<Port, Pair>
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
