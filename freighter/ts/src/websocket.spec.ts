@@ -133,13 +133,16 @@ describe("unreachable server", () => {
     expect(err).toMatchObject({ url: { protocol: "ws", port, path: "stream/" } });
   });
 
-  const failingConnector = (error: Error): Connector => ({
+  const failingConnector = (
+    fail: (socket: Socket) => void,
+    readyState: number = globalThis.WebSocket.CONNECTING,
+  ): Connector => ({
     fetch: async () => await Promise.reject(new Error("not used")),
     dial: async () => {
       const socket: Socket = {
         binaryType: "",
         bufferedAmount: 0,
-        readyState: 0,
+        readyState,
         send: () => {},
         close: () => {},
         onopen: null,
@@ -147,10 +150,18 @@ describe("unreachable server", () => {
         onclose: null,
         onerror: null,
       };
-      setTimeout(() => socket.onerror?.({ error }));
+      setTimeout(() => fail(socket));
       return socket;
     },
   });
+
+  const streamError = async (connector: Connector): Promise<unknown> => {
+    const c = new WebSocketClient({ endpoint, codec: binary.JSON_CODEC, connector });
+    return await c.stream("stream", messageSchema, messageSchema).then(
+      () => null,
+      (e: unknown) => e,
+    );
+  };
 
   const withCode = (message: string, code: string): Error =>
     Object.assign(new Error(message), { code });
@@ -171,18 +182,28 @@ describe("unreachable server", () => {
       networkError("invalid peer certificate: UnknownIssuer"),
       false,
     ],
+    ["a Bun refused upgrade", new Error("Expected 101 status code: 404"), false],
+    ["a Deno refused upgrade", networkError("Invalid status code: 502"), false],
   ])("should map %s", async (_, error, unreachable) => {
-    const c = new WebSocketClient({
-      endpoint,
-      codec: binary.JSON_CODEC,
-      connector: failingConnector(error),
-    });
-    const err = await c.stream("stream", messageSchema, messageSchema).then(
-      () => null,
-      (e: unknown) => e,
+    const err = await streamError(
+      failingConnector((socket) => socket.onerror?.({ error })),
     );
     expect(Unreachable.matches(err)).toBe(unreachable);
     expect(err).toMatchObject({ cause: error });
+  });
+
+  test("should throw Unreachable when the socket closes before it opens", async () => {
+    const err = await streamError(
+      failingConnector((socket) => socket.onclose?.({ code: 1006 })),
+    );
+    expect(Unreachable.matches(err)).toBe(true);
+  });
+
+  test("should throw Unreachable when the dial returns a closed socket", async () => {
+    const err = await streamError(
+      failingConnector(() => {}, globalThis.WebSocket.CLOSED),
+    );
+    expect(Unreachable.matches(err)).toBe(true);
   });
 });
 

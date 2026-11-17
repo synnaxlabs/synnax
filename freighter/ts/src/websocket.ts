@@ -247,19 +247,24 @@ const eventMessage = (ev: object): string =>
 const eventError = (ev: object): Error =>
   new Error(eventMessage(ev), { cause: eventCause(ev) });
 
-// Bun gives a code and Deno a message. Node and browsers hide the cause of a failed
-// dial, so a TLS failure there becomes Unreachable.
-const TLS_CODE = /CERT|SIGNATURE|^ERR_TLS_|^ERR_SSL_/;
-const TLS_MESSAGE = /TLS handshake|invalid peer certificate/;
+// Bun and Deno name a failure from a server that answered: a TLS failure, or an upgrade
+// refused with an HTTP status. Node and browsers give no cause for a failed dial, so
+// these failures there become Unreachable.
+const ANSWERED_CODE = /CERT|SIGNATURE|^ERR_TLS_|^ERR_SSL_/;
+const ANSWERED_MESSAGE = /TLS handshake|invalid peer certificate|status code/;
 
-const isTLSError = (cause: unknown): boolean => {
+const isAnswered = (cause: unknown): boolean => {
   if (typeof cause !== "object" || cause === null) return false;
-  if ("code" in cause && typeof cause.code === "string" && TLS_CODE.test(cause.code))
+  if (
+    "code" in cause &&
+    typeof cause.code === "string" &&
+    ANSWERED_CODE.test(cause.code)
+  )
     return true;
   return (
     "message" in cause &&
     typeof cause.message === "string" &&
-    TLS_MESSAGE.test(cause.message)
+    ANSWERED_MESSAGE.test(cause.message)
   );
 };
 
@@ -319,7 +324,8 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   /**
    * Implements the StreamClient interface.
    * @throws {Unreachable} if the socket fails or closes before it opens. A TLS failure
-   * that the runtime names (Bun and Deno) throws the runtime error instead.
+   * or a refused upgrade that the runtime names (Bun and Deno) throws the runtime
+   * error instead.
    */
   async stream<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
@@ -363,7 +369,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
       ws.onclose = unreachable;
       ws.onerror = (ev: object) => {
         const cause = eventCause(ev);
-        if (isTLSError(cause)) reject(eventError(ev));
+        if (isAnswered(cause)) reject(eventError(ev));
         else unreachable(cause);
       };
       // Node fails a blocked port, such as 1, before the dial returns the socket.
