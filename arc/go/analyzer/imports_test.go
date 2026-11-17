@@ -10,6 +10,8 @@
 package analyzer_test
 
 import (
+	stdctx "context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -18,8 +20,19 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+type failingModules struct{}
+
+func (failingModules) Resolve(_ stdctx.Context, path string) (*symbol.Symbol, error) {
+	return nil, errors.Newf("%q is an automation and cannot be imported", path)
+}
+
+func (failingModules) Search(stdctx.Context, string) ([]*symbol.Symbol, error) {
+	return nil, nil
+}
 
 var _ = Describe("Import Pass", func() {
 	// A fresh "time" module is allocated in BeforeEach so each test's
@@ -95,6 +108,19 @@ var _ = Describe("Import Pass", func() {
 				ctx.Diagnostics.String(),
 			).To(ContainSubstring(`unknown module "banana"`))
 		})
+
+		It(
+			"Should give a code to each error of the module resolver",
+			func(bCtx SpecContext) {
+				root := symbol.NewRoot(nil, nil, symbol.WithModules(failingModules{}))
+				prog := MustSucceed(parser.Parse(`import fill`))
+				ctx := context.NewRoot(bCtx, prog, root)
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+					`[E4000]: import failed: "fill" is an automation and cannot be imported`,
+				))
+			},
+		)
 
 		It(
 			"Should not double-report an unknown module as unused",

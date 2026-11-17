@@ -118,5 +118,8 @@ func lookupModule(
 	if errors.Is(err, symbol.ErrModuleNotFound) {
 		return nil, codes.ImportFailed.Errorf("unknown module %q", path)
 	}
-	return module, err
+	if err != nil {
+		return nil, codes.ImportFailed.Mark(err)
+	}
+	return module, nil
 }

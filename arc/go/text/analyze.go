@@ -2149,7 +2149,10 @@ func (p *flowChainProcessor) consumeTransition(
 	ast parser.IFlowNodeContext,
 ) bool {
 	if p.prevNode == nil {
-		panic(errors.New("transition target requires a source"))
+		p.ctx.Diagnostics.Add(codes.TransitionTarget.Atf(
+			ast, "transition target requires a source",
+		))
+		return false
 	}
 	if len(p.prevNode.Outputs) == 0 {
 		p.ctx.Diagnostics.Add(codes.FlowConnection.Atf(

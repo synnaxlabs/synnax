@@ -7863,6 +7863,26 @@ time.wait(duration=500ms) -> output`
 					"no next stage",
 				),
 				Entry(
+					"next as the first node of a flow",
+					`
+					sequence main {
+					    stage first {
+					        next -> output
+					    }
+					    stage second {
+					    }
+					}`,
+					[]symbol.Symbol{
+						{
+							Name: "output",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F32()),
+							ID:   10082,
+						},
+					},
+					"[E5005]: invalid transition target: transition target requires a source",
+				),
+				Entry(
 					"next outside sequence",
 					`input > 10 => next`,
 					[]symbol.Symbol{

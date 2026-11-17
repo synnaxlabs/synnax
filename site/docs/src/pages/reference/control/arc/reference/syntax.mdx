@@ -113,8 +113,8 @@ A prefix before the quote changes the string:
 In an `f` string, `{expr}` inserts the value of `expr`. `{expr:spec}` formats the value
 with a spec. A placeholder can hold a number, a `str`, or a `bool`. With no spec, a
 number prints in its shortest form: `{p}` with `3.0` gives `3`. A `bool` takes no spec:
-`{b:s}` fails with `cannot format type bool`. Write `{{` for a literal `{` and `}}` for
-a literal `}`.
+`{b:s}` fails with `invalid string literal: cannot format type bool`. Write `{{` for a
+literal `{` and `}}` for a literal `}`.
 
 ```arc channels="tank_pt, tank_msg" bodies="describe"
 func describe() {p f64} str {
@@ -178,13 +178,13 @@ tank_pt -> math.avg(duration=1s) -> tank_pt_avg
 t.interval(period=1min) -> vent_vlv_cmd
 ```
 
-| Rule                                   | Error                                                                   |
-| -------------------------------------- | ----------------------------------------------------------------------- |
-| Imports come before all other code.    | `import statements must appear before any other top-level declarations` |
-| Each module must exist.                | `unknown module "foo"`                                                  |
-| Each import should be used.            | `unused import: "time"` (warning `W4000`)                               |
-| Each import needs its own name.        | `duplicate import: "tank" is already imported`. Add `as` to one.        |
-| A member of a module needs the import. | `undefined symbol: time`, with a note to add `import time`              |
+| Rule                                   | Error                                                                                            |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Imports come before all other code.    | `import after other code: import statements must appear before any other top-level declarations` |
+| Each module must exist.                | `import failed: unknown module "foo"`                                                            |
+| Each import should be used.            | `unused import: "time"` (warning `W4000`)                                                        |
+| Each import needs its own name.        | `duplicate import: "tank" is already imported`. Add `as` to one.                                 |
+| A member of a module needs the import. | `undefined symbol: time`, with a note to add `import time`                                       |
 
 <Divider.Divider x />
 
