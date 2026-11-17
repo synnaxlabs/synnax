@@ -270,7 +270,9 @@ func NoteLift(ins alamos.Instrumentation, key uuid.UUID) func(path, change strin
 
 // NewReadMigration returns the migration that lifts stored v0 read configs to v1. It
 // resolves each config as ResolveReadConfig does, with the name of its task, creates
-// the ICD with create, and logs each change to a field.
+// the ICD with create, and logs each change to a field. The config of a snapshot task
+// stays inline and gets no ICD, because the task service deletes snapshots after this
+// migration runs.
 func NewReadMigration(channels Channels, create CreateICD) gorp.Migration {
 	return migrate.New(
 		"v62_kafka_read_icd",
@@ -281,18 +283,24 @@ func NewReadMigration(channels Channels, create CreateICD) gorp.Migration {
 				Exec(ctx, tx); err != nil || len(olds) == 0 {
 				return err
 			}
-			names, err := taskNames(ctx, tx, olds)
+			tasks, err := retrieveTasks(ctx, tx, olds)
 			if err != nil {
 				return err
 			}
 			news := make([]ReadConfig, len(olds))
 			for i, old := range olds {
+				if tasks[old.Key].Snapshot {
+					if news[i], err = MigrateReadConfig(ctx, old); err != nil {
+						return errors.Wrapf(err, "config %s", old.Key)
+					}
+					continue
+				}
 				if news[i], err = migrateStored(
 					ctx,
 					tx,
 					channels,
 					create,
-					names[old.Key],
+					tasks[old.Key].Name,
 					old,
 					NoteLift(ins, old.Key),
 				); err != nil {
@@ -324,12 +332,12 @@ func migrateStored(
 	return cfg, create(ctx, tx, ic)
 }
 
-// taskNames returns the name of the task of each config of cfgs, read through tx.
-func taskNames(
+// retrieveTasks returns the task of each config of cfgs by key, read through tx.
+func retrieveTasks(
 	ctx context.Context,
 	tx gorp.Tx,
 	cfgs []v0.ReadConfig,
-) (map[uuid.UUID]string, error) {
+) (map[uuid.UUID]task.Task, error) {
 	var tasks []task.Task
 	if err := gorp.NewRetrieve[task.Key, task.Task]().
 		Where(gorp.MatchKeys[task.Key, task.Task](
@@ -339,7 +347,5 @@ func taskNames(
 		Exec(ctx, tx); err != nil {
 		return nil, errors.Wrap(err, "tasks of Kafka read configs")
 	}
-	return lo.SliceToMap(tasks, func(t task.Task) (uuid.UUID, string) {
-		return t.Key, t.Name
-	}), nil
+	return lo.KeyBy(tasks, func(t task.Task) uuid.UUID { return t.Key }), nil
 }

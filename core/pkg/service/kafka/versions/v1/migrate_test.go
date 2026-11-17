@@ -288,6 +288,39 @@ var _ = Describe("ResolveReadConfig", func() {
 	)
 })
 
+var _ = Describe("MigrateReadRecord", func() {
+	It("Should keep the key and the record key and name no ICD or messages",
+		func(ctx SpecContext) {
+			r := MustSucceed(v1.MigrateReadRecord(ctx, v0.ReadRecord{
+				Key:       "r1",
+				RecordKey: "pump",
+				Index:     "ts",
+				Fields:    []v0.ReadField{storedField("level", telem.Float64T)},
+			}))
+			Expect(r).To(Equal(v1.ReadRecord{Key: "r1", RecordKey: "pump"}))
+		},
+	)
+})
+
+var _ = Describe("NoteLift", func() {
+	It("Should log each change as a warning with the config and the field",
+		func() {
+			ins, logs := observe()
+			key := uuid.New()
+			v1.NoteLift(ins, key)("records.0.fields.1", "a change")
+			Expect(logs.All()).To(HaveLen(1))
+			entry := logs.All()[0]
+			Expect(entry.Level).To(Equal(zapcore.WarnLevel))
+			Expect(entry.Message).To(Equal("changed a Kafka read field to v1"))
+			Expect(entry.ContextMap()).To(Equal(map[string]any{
+				"config": key.String(),
+				"field":  "records.0.fields.1",
+				"change": "a change",
+			}))
+		},
+	)
+})
+
 var _ = Describe("MigrateReadConfig", func() {
 	It("Should move each record inline and keep the rest of the config",
 		func(ctx SpecContext) {
@@ -356,18 +389,23 @@ var _ = Describe("NewReadMigration", func() {
 		}
 	})
 
-	// store writes old and, unless orphan, a task named name that owns it.
-	store := func(ctx SpecContext, name string, old v0.ReadConfig, orphan bool) {
+	// storeTask writes old and the task t that owns it, with the key of old.
+	storeTask := func(ctx SpecContext, old v0.ReadConfig, t task.Task) {
 		GinkgoHelper()
 		Expect(gorp.WrapWriter[uuid.UUID, v0.ReadConfig](db).Set(ctx, old)).
 			To(Succeed())
+		t.Key, t.Type = old.Key, "kafka_read"
+		Expect(gorp.WrapWriter[task.Key, task.Task](db).Set(ctx, t)).To(Succeed())
+	}
+	// store writes old and, unless orphan, a task named name that owns it.
+	store := func(ctx SpecContext, name string, old v0.ReadConfig, orphan bool) {
+		GinkgoHelper()
 		if !orphan {
-			Expect(gorp.WrapWriter[task.Key, task.Task](db).Set(ctx, task.Task{
-				Key:  old.Key,
-				Name: name,
-				Type: "kafka_read",
-			})).To(Succeed())
+			storeTask(ctx, old, task.Task{Name: name})
+			return
 		}
+		Expect(gorp.WrapWriter[uuid.UUID, v0.ReadConfig](db).Set(ctx, old)).
+			To(Succeed())
 	}
 	migrate := func(ctx SpecContext, ins alamos.Instrumentation) error {
 		return gorp.Migrate(ctx, gorp.MigrateConfig{
@@ -437,6 +475,20 @@ var _ = Describe("NewReadMigration", func() {
 				"change",
 				"data type float64 became int32, the data type of its channel",
 			))
+		},
+	)
+
+	It("Should keep the config of a snapshot inline and make no ICD for it",
+		func(ctx SpecContext) {
+			old := storedConfig()
+			storeTask(ctx, old, task.Task{Name: "Pump (snapshot)", Snapshot: true})
+			ins, _ := observe()
+			Expect(migrate(ctx, ins)).To(Succeed())
+			Expect(made).To(BeEmpty())
+			migrated := read(ctx, old.Key)
+			Expect(migrated.Records).To(BeEmpty())
+			Expect(migrated.Inline).ToNot(BeNil())
+			Expect(migrated.Inline.Records).To(HaveLen(1))
 		},
 	)
 

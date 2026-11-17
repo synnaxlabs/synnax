@@ -1785,6 +1785,22 @@ var _ = Describe("Read task", func() {
 				},
 				"does not exist in ICD Plant",
 			),
+			Entry("a binding with no channel",
+				func(ctx context.Context, index, _ channel.Channel) []kafka.ReadRecord {
+					m := stampedMessage("Reading", nil)
+					rm := read(m, index, index)
+					rm.Bindings[1] = kafka.ReadBinding{
+						Field: fieldKey(m, 1), DataType: telem.Float64T,
+					}
+					return []kafka.ReadRecord{record("", createICD(ctx, m), rm)}
+				}, "message Reading: binding 1 has no channel"),
+			Entry("a channel that does not exist",
+				func(ctx context.Context, index, _ channel.Channel) []kafka.ReadRecord {
+					m := stampedMessage("Reading", nil)
+					rm := read(m, index, index)
+					rm.Bindings[1].Channel = 999999
+					return []kafka.ReadRecord{record("", createICD(ctx, m), rm)}
+				}, "message Reading: channel 999999 does not exist"),
 			Entry("a message that binds no fields",
 				func(ctx context.Context, _, _ channel.Channel) []kafka.ReadRecord {
 					m := stampedMessage("Reading", nil)
@@ -1908,6 +1924,47 @@ var _ = Describe("Read task", func() {
 								"write to the same index channel "+index.Name,
 						)),
 					))
+			},
+		)
+
+		It("Should name the index channel that two Kafka-stamped records share",
+			func(ctx SpecContext) {
+				index, data := createIndexed(ctx, telem.Float64T)
+				other := channel.Channel{
+					Name:       "other_" + data.Name,
+					DataType:   telem.Float64T,
+					LocalIndex: index.LocalKey,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
+				m := stampedMessage("Reading", nil)
+				ic := createICD(ctx, m)
+				value := func(ch channel.Channel) kafka.ReadMessage {
+					return kafka.ReadMessage{
+						Message:  m.Key,
+						Bindings: []kafka.ReadBinding{bind(m, 1, ch)},
+					}
+				}
+				dev := createDevice(ctx, clusterProperties())
+				cfg := kafka.ReadConfig{
+					Device: dev.Key,
+					Topic:  "t",
+					Records: []kafka.ReadRecord{
+						record("a", ic, value(data)),
+						record("b", ic, value(other)),
+					},
+				}
+				Expect(
+					f.ConfigureTask(
+						ctx,
+						newTask(ctx, kafka.ReadTaskType, cfg),
+						"cmd-1",
+					),
+				).Error().To(MatchError(ContainSubstring(
+					`message Reading of key "a" and message Reading of key "b" ` +
+						"write to the same index channel " + index.Name,
+				)))
 			},
 		)
 

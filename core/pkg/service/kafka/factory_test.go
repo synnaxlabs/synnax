@@ -47,6 +47,16 @@ var _ = Describe("Factory", func() {
 				Status:  statusSvc,
 			})).Error().To(MatchError(ContainSubstring("db: must be non-nil")))
 		})
+
+		It("Should reject a config without an ICD service", func() {
+			Expect(kafka.NewFactory(kafka.FactoryConfig{
+				DB:      db,
+				Device:  deviceSvc,
+				Channel: channelSvc,
+				Framer:  framerSvc,
+				Status:  statusSvc,
+			})).Error().To(MatchError(ContainSubstring("icd: must be non-nil")))
+		})
 	})
 
 	It("Should be named after the device make", func() {
