@@ -444,7 +444,7 @@ names. Phase 1 stores the `Spec` fields of §4.1 and adds the symbol checks of �
 adds the function that turns a state list into an enumeration (RFC 0112 §4.6), and its
 migration writes the default enumeration of each custom symbol with it. A symbol import
 of an old file decodes the old state list beside the converted symbol, and its write
-step (`core/pkg/service/schematic/symbol/imex.go:46`) makes the enumeration with the
+step (`core/pkg/service/schematic/symbol/imex.go:45-55`) makes the enumeration with the
 same function in its transaction, as a schematic import does (RFC 0112 §4.6). Pluto
 draws `entry` paint from the start, so no migrated symbol changes its look. It moves the
 symbol editor and the clients to the new shape, and phase 3 redesigns the editor. Until
