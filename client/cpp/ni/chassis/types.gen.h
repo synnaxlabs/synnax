@@ -224,6 +224,12 @@ struct Order {
 
     static Order parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::ni_chassis::pb::Order;
+    [[nodiscard]] std::pair<::api::ni_chassis::pb::Order, x::errors::Error>
+    to_proto() const;
+    static std::pair<Order, x::errors::Error>
+    from_proto(const ::api::ni_chassis::pb::Order &pb);
 };
 
 using Status = ::synnax::status::Status<StatusDetails>;
