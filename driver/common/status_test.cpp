@@ -491,6 +491,26 @@ TEST(TestBackgroundWarning, SendsNothingAfterClose) {
     ASSERT_EQ(ctx->snapshot().size(), 1);
 }
 
+/// @brief it should add a background warning to the stop status and clear it, so the
+/// next run starts without it.
+TEST(TestBackgroundWarning, StopReportsAndClearsIt) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    const auto window = 10 * x::telem::MILLISECOND;
+    StatusHandler handler(ctx, task, window);
+    start(handler).set_background_warning(BACKGROUND);
+    handler.send_stop("stop");
+    const auto stopped = ctx->snapshot().back();
+    EXPECT_EQ(stopped.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(stopped.message, "Stopped task");
+    EXPECT_EQ(stopped.description, BACKGROUND.description);
+    handler.send_start("start");
+    std::this_thread::sleep_for((3 * window).chrono());
+    const auto started = ctx->snapshot().back();
+    EXPECT_EQ(started.message, "Started task");
+    EXPECT_EQ(started.variant, synnax::status::VARIANT_SUCCESS);
+}
+
 /// @brief it should send a repeated identical background warning only once.
 TEST(TestBackgroundWarning, SendsRepeatsOnce) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
