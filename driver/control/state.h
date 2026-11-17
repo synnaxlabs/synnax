@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <shared_mutex>
 #include <string>
@@ -35,6 +36,7 @@ class States {
         x::control::Subject subject;
         std::unordered_map<synnax::channel::Key, x::control::Authority> authorities;
         std::uint64_t order = 0;
+        std::function<void()> reopen;
     };
 
     mutable std::shared_mutex mu;
@@ -47,6 +49,7 @@ class States {
     /// @brief local writers whose Core writer is open.
     std::unordered_set<std::string> on_core;
     std::uint64_t next_order = 0;
+    std::uint64_t disconnects = 0;
     bool connected = true;
 
     [[nodiscard]] bool local(const x::control::Subject &subject) const {
@@ -131,10 +134,13 @@ public:
     /// @brief marks the Core as lost, so local gates hand channels to each other until
     /// the next set. A channel that a local writer holds, or held before it closed,
     /// goes to the local gate that the Core's rule picks. A holder the Core reported
-    /// stays.
+    /// stays. Each local writer then reopens on the Core, so it waits for the Core's
+    /// transfers again only after it opens on the Core that follows.
     void disconnect() {
         std::unique_lock lock(this->mu);
         this->connected = false;
+        this->disconnects++;
+        this->on_core.clear();
         std::vector<synnax::channel::Key> stale;
         for (const auto &[channel, state]: this->states)
             if (this->gates.contains(state.subject.key) ||
@@ -146,6 +152,30 @@ public:
         for (const auto channel: stale)
             this->recompute(channel);
         this->closed.clear();
+        for (const auto &[_, g]: this->gates)
+            if (g.reopen) g.reopen();
+    }
+
+    /// @brief returns a count that changes on each disconnect, for set_reopen.
+    [[nodiscard]] std::uint64_t epoch() const {
+        std::shared_lock lock(this->mu);
+        return this->disconnects;
+    }
+
+    /// @brief sets the function that reopens the Core writer of subject on each
+    /// disconnect, until its gate closes. Calls it at once when a disconnect ran after
+    /// since, an epoch read before the writer first opened. reopen runs under the lock
+    /// of States, so it must not call back into States.
+    void set_reopen(
+        const x::control::Subject &subject,
+        const std::uint64_t since,
+        std::function<void()> reopen
+    ) {
+        std::unique_lock lock(this->mu);
+        const auto it = this->gates.find(subject.key);
+        if (it == this->gates.end()) return;
+        it->second.reopen = std::move(reopen);
+        if (this->disconnects != since) it->second.reopen();
     }
 
     /// @brief replaces the mirror with the cluster's complete control state and marks

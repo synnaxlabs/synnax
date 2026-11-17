@@ -543,7 +543,6 @@ TEST(StatesTest, KeepsTheLocalRuleUntilAWriterReopens) {
     states.opened_on_core(ARC);
     states.open_gate(ARC, {1}, {200});
     states.open_gate(OPERATOR, {1}, {150});
-    states.closed_on_core(ARC);
     states.disconnect();
     states.set({});
     ASSERT_TRUE(states.is_authorized(1, ARC));
@@ -563,15 +562,14 @@ TEST(StatesTest, HandsOffWhenAWriterClosesBeforeItReopens) {
     states.opened_on_core(ARC);
     states.open_gate(ARC, {1}, {200});
     states.open_gate(OPERATOR, {1}, {150});
-    states.closed_on_core(ARC);
     states.disconnect();
     states.set({});
     states.close_gate(ARC);
     ASSERT_TRUE(states.is_authorized(1, OPERATOR));
 }
 
-/// @brief it should wait for the Core's transfers after reconnect when a writer reopens
-/// on the Core before the disconnect runs.
+/// @brief it should wait for the Core's transfers after reconnect when a writer opens
+/// on the Core again after a disconnect, even if it also reopened before it.
 TEST(StatesTest, KeepsAWriterThatReopenedBeforeTheDisconnect) {
     States states;
     states.opened_on_core(ARC);
@@ -580,6 +578,7 @@ TEST(StatesTest, KeepsAWriterThatReopenedBeforeTheDisconnect) {
     states.closed_on_core(ARC);
     states.opened_on_core(ARC);
     states.disconnect();
+    states.opened_on_core(ARC);
     states.set({x::control::State<synnax::channel::Key>{
         .subject = ARC,
         .resource = 1,
@@ -590,5 +589,38 @@ TEST(StatesTest, KeepsAWriterThatReopenedBeforeTheDisconnect) {
     states.close_gate(ARC);
     ASSERT_TRUE(states.is_authorized(1, ARC));
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should keep the local rule after reconnect for a writer marked before the
+/// disconnect that has not opened on the Core since.
+TEST(StatesTest, DisconnectClearsEveryMark) {
+    States states;
+    states.opened_on_core(ARC);
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {150});
+    states.disconnect();
+    states.set({});
+    states.set_authority(ARC, 1, 100);
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should ask each local writer to reopen on disconnect, and at once for a
+/// writer whose reopen is set after a disconnect it missed.
+TEST(StatesTest, DisconnectReopensEachWriter) {
+    States states;
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {150});
+    int arc_reopens = 0;
+    int op_reopens = 0;
+    states.set_reopen(ARC, states.epoch(), [&arc_reopens] { arc_reopens++; });
+    const auto epoch = states.epoch();
+    states.disconnect();
+    ASSERT_EQ(arc_reopens, 1);
+    states.set_reopen(OPERATOR, epoch, [&op_reopens] { op_reopens++; });
+    ASSERT_EQ(op_reopens, 1);
+    states.close_gate(ARC);
+    states.disconnect();
+    ASSERT_EQ(arc_reopens, 1);
+    ASSERT_EQ(op_reopens, 2);
 }
 }

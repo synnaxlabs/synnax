@@ -144,9 +144,13 @@ public:
         forwarder_cfg.on_close = [states = this->states, subject = cfg.subject] {
             states->closed_on_core(subject);
         };
+        const auto epoch = this->states->epoch();
         auto forwarder = std::make_unique<Forwarder>(this->server, cfg, forwarder_cfg);
         if (auto err = forwarder->opened()) return {nullptr, err};
         this->states->open_gate(cfg.subject, cfg.channels, cfg.authorities);
+        this->states->set_reopen(cfg.subject, epoch, [f = forwarder.get()] {
+            f->reopen();
+        });
         VLOG(1) << "[bus.writer_factory] opened writer for " << cfg.channels.size()
                 << " channels, group=" << this->group;
         return {

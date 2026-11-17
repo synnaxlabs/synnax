@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <future>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -791,6 +792,114 @@ TEST(WriterTest, MarksAWriterOpenOnTheCore) {
     );
     ASSERT_NIL(arc_writer->set_authority({.keys = {1}, .authorities = {50}}));
     ASSERT_TRUE(states->is_authorized(1, arc));
+    ASSERT_NIL(op_writer->close());
+    ASSERT_NIL(arc_writer->close());
+}
+
+namespace {
+x::telem::Frame frame(const float value) {
+    x::telem::Frame fr;
+    fr.emplace(1, x::telem::Series(value));
+    return fr;
+}
+
+x::control::State<synnax::channel::Key>
+held(const x::control::Subject &subject, const x::control::Authority authority) {
+    return {.subject = subject, .resource = 1, .authority = authority};
+}
+}
+
+/// @brief it should reopen a writer whose forwarder missed a Core restart on
+/// disconnect, and keep the local rule for it until that reopen.
+TEST(WriterTest, DisconnectReopensAWriterThatMissedARestart) {
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    const x::control::Subject arc{"arc", "arc-1"};
+    const x::control::Subject op{"operator", "op-1"};
+    auto arc_core = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
+    auto op_core = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
+    WriterFactory arc_factory(arc_core, bus, states, 0);
+    WriterFactory op_factory(op_core, bus, states, 0);
+    auto arc_writer = ASSERT_NIL_P(arc_factory.open_writer({
+        .channels = {1},
+        .authorities = {150},
+        .subject = arc,
+    }));
+    auto op_writer = ASSERT_NIL_P(op_factory.open_writer({
+        .channels = {1},
+        .authorities = {200},
+        .subject = op,
+    }));
+    std::promise<void> gate;
+    op_core->open_gate = gate.get_future().share();
+    states->disconnect();
+    states->set({held(op, 200)});
+    ASSERT_NIL(op_writer->set_authority({.keys = {1}, .authorities = {100}}));
+    ASSERT_TRUE(states->is_authorized(1, arc));
+    ASSERT_NIL(op_writer->set_authority({.keys = {1}, .authorities = {200}}));
+    ASSERT_TRUE(states->is_authorized(1, op));
+    ASSERT_EQ(op_core->writer_opens.load(), 1);
+    gate.set_value();
+    ASSERT_NIL(op_writer->write(frame(1)));
+    ASSERT_EVENTUALLY_EQ(op_core->writes->size(), 1);
+    ASSERT_EQ(op_core->writer_opens.load(), 2);
+    ASSERT_NIL(op_writer->set_authority({.keys = {1}, .authorities = {100}}));
+    ASSERT_TRUE(states->is_authorized(1, op));
+    ASSERT_FALSE(states->is_authorized(1, arc));
+    ASSERT_NIL(op_writer->close());
+    ASSERT_NIL(arc_writer->close());
+}
+
+/// @brief it should mark a writer that reopened before a disconnect again only after
+/// the reopen that the disconnect forces.
+TEST(WriterTest, DisconnectReopensAWriterThatReopenedBeforeIt) {
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    const x::control::Subject arc{"arc", "arc-1"};
+    const x::control::Subject op{"operator", "op-1"};
+    auto arc_core = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{freighter::UNREACHABLE},
+        std::vector<int>{0}
+    );
+    auto op_core = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
+    WriterFactory arc_factory(
+        arc_core,
+        bus,
+        states,
+        0,
+        {.breaker = {.base_interval = x::telem::MILLISECOND}}
+    );
+    WriterFactory op_factory(op_core, bus, states, 0);
+    auto arc_writer = ASSERT_NIL_P(arc_factory.open_writer({
+        .channels = {1},
+        .authorities = {200},
+        .subject = arc,
+    }));
+    auto op_writer = ASSERT_NIL_P(op_factory.open_writer({
+        .channels = {1},
+        .authorities = {150},
+        .subject = op,
+    }));
+    ASSERT_NIL(arc_writer->write(frame(0)));
+    ASSERT_EVENTUALLY_EQ(arc_core->writes->size(), 1);
+    ASSERT_EQ(arc_core->writer_opens.load(), 2);
+    std::promise<void> gate;
+    arc_core->open_gate = gate.get_future().share();
+    states->disconnect();
+    states->set({held(arc, 200)});
+    ASSERT_NIL(arc_writer->set_authority({.keys = {1}, .authorities = {100}}));
+    ASSERT_TRUE(states->is_authorized(1, op));
+    ASSERT_NIL(arc_writer->set_authority({.keys = {1}, .authorities = {200}}));
+    ASSERT_TRUE(states->is_authorized(1, arc));
+    gate.set_value();
+    ASSERT_NIL(arc_writer->write(frame(1)));
+    ASSERT_EVENTUALLY_EQ(arc_core->writes->size(), 2);
+    ASSERT_EQ(arc_core->writer_opens.load(), 3);
+    ASSERT_NIL(arc_writer->set_authority({.keys = {1}, .authorities = {100}}));
+    ASSERT_TRUE(states->is_authorized(1, arc));
+    ASSERT_FALSE(states->is_authorized(1, op));
     ASSERT_NIL(op_writer->close());
     ASSERT_NIL(arc_writer->close());
 }
