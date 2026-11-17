@@ -14,12 +14,12 @@ from pathlib import Path
 from typing import Any
 
 import keyring
-from keyring.backend import KeyringBackend
 
 from synnax.config.clusters import (
     KEYCHAIN_UNAVAILABLE_MSG,
     Cluster,
     Clusters,
+    Keyring,
     _unavailable,
 )
 from synnax.config.file import File
@@ -34,6 +34,7 @@ __all__ = [
     "Cluster",
     "Clusters",
     "File",
+    "Keyring",
     "default_clusters",
     "load_desktop_options",
     "load_env_options",
@@ -66,7 +67,7 @@ def _read_desktop_file(path: Path) -> dict[str, Any] | None:
 
 
 def load_desktop_options(
-    keychain: KeyringBackend, path: Path = DESKTOP_FILE_PATH
+    keychain: Keyring, path: Path = DESKTOP_FILE_PATH
 ) -> Options | None:
     """Loads the options that Synnax Desktop saved for scripts on this computer: the
     address in a file, and the API key in the OS keychain.

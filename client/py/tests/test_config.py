@@ -17,7 +17,6 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from keyring.backend import KeyringBackend
 
 from synnax.config import (
     DESKTOP_KEY_ACCOUNT,
@@ -29,6 +28,7 @@ from synnax.config import (
     Cluster,
     Clusters,
     File,
+    Keyring,
     load_desktop_options,
     load_env_options,
     try_load_options_if_none_provided,
@@ -39,7 +39,7 @@ from tests.memory_keyring import MemoryKeyring, NoKeychain
 
 
 def write_desktop_file(
-    path: Path, keychain: KeyringBackend, *, port: int, api_key: str = "syk_k_s"
+    path: Path, keychain: Keyring, *, port: int, api_key: str = "syk_k_s"
 ) -> None:
     """Saves the address and the API key the way Synnax Desktop does."""
     keychain.set_password(DESKTOP_KEY_SERVICE, DESKTOP_KEY_ACCOUNT, api_key)
@@ -227,7 +227,7 @@ class TestTryLoadOptions:
             host="127.0.0.1",
             port=4321,
             api_key="syk_other_s",
-            clusters=Clusters(File(config_dir=tmp_path / "empty"), no_keychain()),
+            clusters=Clusters(File(config_dir=tmp_path / "empty"), NoKeychain()),
             desktop_file=desktop_file,
         )
         assert embedded
@@ -351,13 +351,19 @@ class TestDesktopConnection:
             "HOME": str(tmp_path),
             "USERPROFILE": str(tmp_path),
         }
+        # keyring.set_keyring accepts only a KeyringBackend, which this script defines.
         script = (
             "import keyring\n"
-            "from tests.memory_keyring import MemoryKeyring\n"
-            "keychain = MemoryKeyring()\n"
-            f"keychain.set_password({DESKTOP_KEY_SERVICE!r}, "
-            f"{DESKTOP_KEY_ACCOUNT!r}, 'syk_k_s')\n"
-            "keyring.set_keyring(keychain)\n"
+            "from keyring.backend import KeyringBackend\n"
+            "class Keychain(KeyringBackend):\n"
+            "    priority = 1\n"
+            "    def get_password(self, service, username):\n"
+            f"        if (service, username) == ({DESKTOP_KEY_SERVICE!r}, "
+            f"{DESKTOP_KEY_ACCOUNT!r}):\n"
+            "            return 'syk_k_s'\n"
+            "    def set_password(self, service, username, password): pass\n"
+            "    def delete_password(self, service, username): pass\n"
+            "keyring.set_keyring(Keychain())\n"
             "import synnax as sy\n"
             "sy.Synnax(max_retries=0)\n"
         )
