@@ -241,7 +241,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
     fireEvent.change(identifierInput(), { target: { value: `${base}_a` } });
     await save();
     await screen.findByText(
-      `Slave ${other.name} in slot 4 has an identifier that gives the same channel ` +
+      `Module ${other.name} in slot 4 has an identifier that gives the same channel ` +
         "names. Pick another identifier.",
     );
     const unchanged = await retrieve(slave.key);

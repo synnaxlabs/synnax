@@ -31,7 +31,7 @@ type DeviceCrude = status.Crude<ReturnType<typeof device.deviceZ>>;
 const createCrude = (dev: device.Device): DeviceCrude => ({
   key: uniqueName("status"),
   variant: "info",
-  message: `New ${dev.model} connected`,
+  message: `New ${dev.name} connected`,
   details: dev,
 });
 
@@ -64,7 +64,7 @@ describe("device/notifications", () => {
       make: NI.Device.MAKE,
     });
     await addStatus(createCrude(dev));
-    expect(await screen.findByText(`New ${dev.model} connected`)).toBeTruthy();
+    expect(await screen.findByText(`New ${dev.name} connected`)).toBeTruthy();
     expect(screen.queryByText("Configure")).toBeNull();
   });
 
@@ -74,7 +74,7 @@ describe("device/notifications", () => {
       make: OPCUA.Device.MAKE,
     });
     await addStatus(createCrude(dev));
-    expect(await screen.findByText(`New ${dev.model} connected`)).toBeTruthy();
+    expect(await screen.findByText(`New ${dev.name} connected`)).toBeTruthy();
     expect(screen.queryByText("Configure")).toBeNull();
   });
 

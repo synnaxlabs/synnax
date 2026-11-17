@@ -28,12 +28,13 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Steps } from "@synnaxlabs/lyra/steps";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, Rack, Synnax, Task } from "@synnaxlabs/pluto";
-import { type ReactElement, type ReactNode, useState } from "react";
+import { type ComponentType, type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { ConnectFrame } from "@/platform/device/ConnectFrame";
 import { type Hardware } from "@/platform/device/integration";
 import { isReady } from "@/platform/device/racks";
+import { type ScanActionProps } from "@/platform/device/types";
 import { Modals } from "@/platform/modals";
 import { type Session } from "@/session";
 
@@ -78,12 +79,14 @@ interface ScannerStateProps {
   rack: rack.Rack;
   scanner: task.Task | undefined;
   name: string;
+  ScanAction?: ComponentType<ScanActionProps>;
 }
 
 const ScannerState = ({
   rack: r,
   scanner,
   name,
+  ScanAction,
 }: ScannerStateProps): ReactElement | null => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
@@ -132,6 +135,7 @@ const ScannerState = ({
         variant={scanStatus.variant}
         message={scanStatus.message}
         description={scanStatus.description}
+        action={ScanAction != null && <ScanAction scanner={scanner} />}
       />
     );
   return null;
@@ -172,7 +176,7 @@ const ScanResult = ({ devices, name }: ScanResultProps): ReactElement => {
   );
 };
 
-interface DeviceItemProps extends Pick<Hardware, "formatLocation"> {
+interface DeviceItemProps extends Pick<Hardware, "formatLocation" | "modelNames"> {
   device: device.Device;
   onConfigure: (key: device.Key) => void;
 }
@@ -180,6 +184,7 @@ interface DeviceItemProps extends Pick<Hardware, "formatLocation"> {
 const DeviceItem = ({
   device: d,
   formatLocation,
+  modelNames,
   onConfigure,
 }: DeviceItemProps): ReactElement => {
   const location = formatLocation?.(d) ?? d.location;
@@ -190,7 +195,7 @@ const DeviceItem = ({
           {d.name}
         </Text.Text>
         <Text.Text level="small" color={9}>
-          {d.model}
+          {modelNames?.[d.model] ?? d.model}
           {location.length > 0 && (
             <span className={CSS.BE("device-find", "location")}>{location}</span>
           )}
@@ -215,7 +220,10 @@ const DeviceItem = ({
   );
 };
 
-interface RackCardProps extends Pick<Hardware, "formatLocation"> {
+interface RackCardProps extends Pick<
+  Hardware,
+  "formatLocation" | "modelNames" | "ScanAction"
+> {
   rack: rack.Rack;
   scanner: task.Task | undefined;
   devices: device.Device[];
@@ -232,6 +240,8 @@ const RackCard = ({
   name,
   scanned,
   formatLocation,
+  modelNames,
+  ScanAction,
   onConfigure,
 }: RackCardProps): ReactElement => (
   <Pane.Pane>
@@ -249,13 +259,14 @@ const RackCard = ({
         <Rack.StatusIndicator status={r.status} />
       </Header.Actions>
     </Pane.Header>
-    <ScannerState rack={r} scanner={scanner} name={name} />
+    <ScannerState rack={r} scanner={scanner} name={name} ScanAction={ScanAction} />
     {scanned && <ScanResult devices={devices} name={name} />}
     {devices.map((d) => (
       <DeviceItem
         key={d.key}
         device={d}
         formatLocation={formatLocation}
+        modelNames={modelNames}
         onConfigure={onConfigure}
       />
     ))}
@@ -313,6 +324,8 @@ export const Find = ({
     checks,
     location,
     formatLocation,
+    modelNames,
+    ScanAction,
   },
   rack: rackKey,
   filter,
@@ -395,6 +408,8 @@ export const Find = ({
             name={name}
             scanned={scanned.includes(r.key)}
             formatLocation={formatLocation}
+            modelNames={modelNames}
+            ScanAction={ScanAction}
             onConfigure={onConfigure}
           />
         ))}
