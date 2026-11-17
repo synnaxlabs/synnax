@@ -166,9 +166,12 @@ cc_test(
     tags = ["requires-core"],
     deps = [
         "//client/cpp/testutil",
+        "//driver/journal",
+        "//driver/outbox",
         "//driver/outbox/testutil",
         "//driver/rack",
         "//driver/rack/status",
+        "//x/cpp/defer",
         "//x/cpp/kv",
         "@googletest//:gtest_main",
     ],

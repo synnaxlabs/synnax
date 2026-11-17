@@ -234,7 +234,8 @@ synnax::task::Task create_field_task(const x::json::json &field) {
 }
 
 /// @brief asserts that a task with the given field fails to parse.
-/// @param client the client that the parse retrieves channels with.
+/// @param client the client that the parse retrieves channels with, or null when the
+/// parse fails before it retrieves any.
 /// @param field the JSON config of the field.
 /// @param message text that the error must hold.
 void expect_field_rejected(
@@ -242,9 +243,10 @@ void expect_field_rejected(
     const x::json::json &field,
     const std::string &message
 ) {
+    // A parse sends no status sets, so the outbox needs no client.
     auto ctx = std::make_shared<task::MockContext>(
         client,
-        ::driver::outbox::testutil::open(client->statuses)
+        ::driver::outbox::testutil::open({})
     );
     auto [_, err] = ReadTaskConfig::parse(ctx, create_field_task(field));
     ASSERT_TRUE(err.matches(x::errors::VALIDATION));

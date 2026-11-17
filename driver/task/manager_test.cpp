@@ -3920,6 +3920,17 @@ TEST_F(TaskManagerTest, RetrievesInitialControlStateOnStart) {
 
 using SynnaxContextTest = TaskManagerTest;
 
+/// @brief it should give tasks the outbox it was built with.
+TEST_F(SynnaxContextTest, ReturnsInjectedOutbox) {
+    const auto outbox = ::driver::outbox::testutil::open(client->statuses);
+    const auto ctx = std::make_shared<SynnaxContext>(
+        client,
+        std::make_shared<StatusCache>(client->statuses),
+        outbox
+    );
+    ASSERT_EQ(ctx->outbox(), outbox);
+}
+
 /// @brief it should send the latest status of each task again, with no command key.
 TEST_F(SynnaxContextTest, ResendsLatestStatuses) {
     const auto ctx = std::make_shared<SynnaxContext>(
