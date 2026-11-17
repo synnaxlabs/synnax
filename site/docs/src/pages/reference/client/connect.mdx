@@ -580,8 +580,9 @@ A Node.js script does not exit until you close the client.
 </Field.Item>
 
 <Field.Item name="secure" id="typescript-secure" type="boolean" default="false">
-  Connect with TLS. The default is `SYNNAX_SECURE`, then `true` with
-  [`caCert`](#typescript-ca-cert), else `false`.
+  Connect with TLS. With [`caCert`](#typescript-ca-cert), the default is `true`, and the
+  client does not read `SYNNAX_SECURE`. Without it, the default is `SYNNAX_SECURE`, then
+  `false`.
 </Field.Item>
 
 <Field.Item name="caCert" id="typescript-ca-cert" type="string">

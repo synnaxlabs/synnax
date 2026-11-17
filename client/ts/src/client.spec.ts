@@ -131,11 +131,11 @@ describe("constructor with caCert", () => {
     ).toThrow("caCert requires secure; leave secure out or set it to true");
   });
 
-  it("should reject a CA certificate with SYNNAX_SECURE false", () => {
+  it("should use TLS for a CA certificate with SYNNAX_SECURE false", async () => {
     vi.stubEnv("SYNNAX_SECURE", "false");
-    expect(() => new Synnax({ host: "localhost", port: 9090, caCert: PEM })).toThrow(
-      "caCert requires secure",
-    );
+    const client = new Synnax({ host: "localhost", port: 9090, caCert: PEM });
+    expect(client.params.secure).toBe(true);
+    await client.close();
   });
 
   it("should reject a CA certificate that is not PEM text", () => {

@@ -61,9 +61,8 @@ const readPort = (env: Env): number => {
   return port;
 };
 
-const readSecure = (env: Env): boolean | undefined => {
+const readSecure = (env: Env): boolean => {
   const raw = read(env, "SYNNAX_SECURE");
-  if (raw === "") return undefined;
   const secure = TRUE.includes(raw.toLowerCase());
   if (!secure && !FALSE.includes(raw.toLowerCase()))
     throw new ValidationError(`SYNNAX_SECURE must be true or false, not "${raw}"`);
@@ -72,10 +71,12 @@ const readSecure = (env: Env): boolean | undefined => {
 
 /**
  * Fills each connection parameter from the params, then its environment variable,
- * then its default (port 9090, secure true with a CA certificate, else false).
- * SYNNAX_API_KEY fills the API key only when the params give no credentials or token.
- * Reads only the variables of missing fields. Variable values are trimmed, and an empty
- * value is unset. In Deno, a variable the script has no permission to read is unset.
+ * then its default (port 9090, secure false). SYNNAX_API_KEY fills the API key only
+ * when the params give no credentials or token. Secure and the CA certificate come as a
+ * pair: when the params give either one, SYNNAX_SECURE is not read, and a CA
+ * certificate with no secure turns secure on. Reads only the variables of missing
+ * fields. Variable values are trimmed, and an empty value is unset. In Deno, a variable
+ * the script has no permission to read is unset.
  * @throws {ValidationError} If neither the params nor SYNNAX_HOST give a host, or if
  * SYNNAX_PORT or SYNNAX_SECURE is not valid.
  */
@@ -94,6 +95,9 @@ export const resolveParams = <P extends Given>(
     host,
     port: params.port ?? readPort(env),
     apiKey: envKey === "" ? apiKey : envKey,
-    secure: params.secure ?? readSecure(env) ?? params.caCert != null,
+    secure:
+      params.secure != null || params.caCert != null
+        ? (params.secure ?? true)
+        : readSecure(env),
   };
 };

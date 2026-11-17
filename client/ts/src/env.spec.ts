@@ -120,11 +120,13 @@ describe("resolveParams", () => {
     );
   });
 
-  it.each<[Env, boolean]>([
-    [{}, true],
-    [{ SYNNAX_SECURE: "false" }, false],
-  ])("should default secure with a CA certificate and %j to %s", (env, secure) => {
-    expect(resolveParams({ host: "rig", caCert: "pem" }, env).secure).toEqual(secure);
+  it.each<[Given, Env, boolean]>([
+    [{ caCert: "pem" }, {}, true],
+    [{ caCert: "pem" }, { SYNNAX_SECURE: "false" }, true],
+    [{ caCert: "pem", secure: false }, { SYNNAX_SECURE: "true" }, false],
+    [{ secure: false }, { SYNNAX_SECURE: "true" }, false],
+  ])("should take secure and the CA from %j over %j", (params, env, secure) => {
+    expect(resolveParams({ host: "rig", ...params }, env).secure).toEqual(secure);
   });
 
   it("should read no variable for a field the params give", () => {

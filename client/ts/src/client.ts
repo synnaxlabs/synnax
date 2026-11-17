@@ -269,8 +269,8 @@ export default class Synnax extends framer.Client {
    * @param props.connectivityPollFrequency - Heartbeat cadence while the connection is
    * healthy. Defaults to 30 seconds.
    * @param props.secure - Whether to connect to the cluster using TLS. The cluster must
-   * be configured to support TLS. Defaults to SYNNAX_SECURE, then true with
-   * props.caCert, else false. A Synnax client must be closed when it is no longer
+   * be configured to support TLS. Defaults to true with props.caCert, else to
+   * SYNNAX_SECURE, then false. A Synnax client must be closed when it is no longer
    * needed. This stops the connection machine and closes the change stream.
    * @param props.caCert - The PEM text of a CA certificate that signs the Core's
    * certificate. Turns on props.secure when it is not given.
