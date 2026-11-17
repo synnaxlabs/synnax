@@ -595,7 +595,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				GinkgoHelper()
 				idxData := telem.NewSeriesSecondsTSV(stamp)
 				idxData.Alignment = telem.NewAlignment(domain, 0)
-				series := []telem.Series{idxData}
+				series := append(make([]telem.Series, 0, 1+len(values)), idxData)
 				for _, v := range values {
 					d := telem.NewSeriesV[int64](v)
 					d.Alignment = telem.NewAlignment(domain, 0)

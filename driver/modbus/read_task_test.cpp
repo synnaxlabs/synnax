@@ -503,7 +503,7 @@ TEST(ReadTask, testStopInterruptsReadWaitingForTurn) {
 }
 
 /// @brief it should stop at once with no error when the read that holds the turn waits
-/// for a reply that does not come.
+/// for its reply, at the largest timeout.
 TEST(ReadTask, testStopEndsReadThatHoldsTurn) {
     x::breaker::Breaker cancel;
     testutil::SlaveConfig slave_cfg;
@@ -526,7 +526,7 @@ TEST(ReadTask, testStopEndsReadThatHoldsTurn) {
     ));
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     device::ConnectionConfig conn{"127.0.0.1", 1688};
-    conn.timeout = x::telem::MILLISECOND * 300;
+    conn.timeout = x::telem::SECOND * 60;
     conn.retries = 3;
     synnax::device::Device dev{
         .key = make_unique_channel_name("modbus"),

@@ -15,13 +15,28 @@ dispatch.py calls run() when 0 is written to <runner>_ec2_cmd.
 """
 
 import argparse
+from collections.abc import Mapping
+from typing import Protocol
 
 from aws import AWS
 from common import parameter_store, secret
 from github import GitHub
 
 
-def run(runner: str, *, aws: AWS, github: GitHub) -> str | None:
+class Stopper(Protocol):
+    def stop_instances(self, *, InstanceIds: list[str]) -> object: ...
+
+
+class Fleet(Protocol):
+    """The AWS calls run() makes, as aws.AWS has them."""
+
+    @property
+    def ec2(self) -> Mapping[str, Stopper]: ...
+
+    def instance(self, runner: str) -> tuple[str, dict]: ...
+
+
+def run(runner: str, *, aws: Fleet, github: GitHub) -> str | None:
     # An online runner can take a job before the instance goes down, so its runner is
     # stopped first, with <runner>_gh_cmd.
     if not github.offline(runner):

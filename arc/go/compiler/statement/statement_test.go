@@ -1211,9 +1211,11 @@ var _ = Describe("Statement Compiler", func() {
 					}
 					source := "test_ch = " + valueCode
 					bytecode := compileWithChannels(bCtx, source, resolver)
-					expected := []any{OpI32Const, int32(100)}
-					expected = append(expected, expectedValueOps...)
-					expected = append(expected, OpCall, uint32(0))
+					expected := slices.Concat(
+						[]any{OpI32Const, int32(100)},
+						expectedValueOps,
+						[]any{OpCall, uint32(0)},
+					)
 					Expect(bytecode).To(MatchOpcodes(expected...))
 				},
 				Entry("i8", "i8", types.I8(), "42", OpI32Const, int32(42)),

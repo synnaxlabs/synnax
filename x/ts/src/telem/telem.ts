@@ -617,8 +617,13 @@ export class TimeStamp
     return new TimeStamp(d).add(new TimeSpan(fraction));
   }
 
-  /** @returns the current UTC time, accurate only to the millisecond. */
+  /**
+   * @returns the current UTC time. The resolution is finer than a millisecond in
+   * runtimes that have `Temporal`, and a millisecond in other runtimes.
+   */
   static now(): TimeStamp {
+    if (typeof Temporal !== "undefined")
+      return new TimeStamp(Temporal.Now.instant().epochNanoseconds);
     return new TimeStamp(new Date());
   }
 

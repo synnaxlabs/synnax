@@ -49,13 +49,13 @@ const Row = (props: List.ItemProps<panel.Key>): ReactElement => {
   );
 };
 
-const listItem = Component.renderProp(
-  (props: List.ItemProps<panel.Key>): ReactElement => (
-    <Errors.SuspenseBoundary loading={null} FallbackComponent={RowFallback}>
-      <Row {...props} />
-    </Errors.SuspenseBoundary>
-  ),
+const ListItem = (props: List.ItemProps<panel.Key>): ReactElement => (
+  <Errors.SuspenseBoundary loading={null} FallbackComponent={RowFallback}>
+    <Row {...props} />
+  </Errors.SuspenseBoundary>
 );
+
+const listItem = Component.renderProp(ListItem);
 
 export interface MovePickerParams {
   /** The tab being moved, and the panel it currently sits in. */

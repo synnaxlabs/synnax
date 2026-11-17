@@ -80,7 +80,7 @@ var _ = Describe("Diagnostics", func() {
 	It("Should unwrap to the errors the diagnostics were created from", func() {
 		var d diagnostics.Diagnostics
 		d.Add(diagnostics.Error(context.Canceled, nil))
-		Expect(d).To(MatchError(context.Canceled))
+		Expect(&d).To(MatchError(context.Canceled))
 	})
 
 	It("Should drop a diagnostic whose cause was already reported", func() {
@@ -1022,27 +1022,27 @@ var _ = Describe("Diagnostics", func() {
 	})
 })
 
-var _ = Describe("Diagnostic.SetRange", func() {
+var _ = Describe("Diagnostic.Range", func() {
 	It("Should convert 1-indexed ANTLR lines to a 0-indexed range", func() {
-		var d diagnostics.Diagnostic
-		d.SetRange(ruleCtxAt(
+		d := diagnostics.Errorf(ruleCtxAt(
 			&fakeToken{line: 3, column: 4, text: "foo"},
 			&fakeToken{line: 5, column: 2, text: "bar"},
-		))
+		), "msg")
 		Expect(d.Range.Start).To(Equal(protocol.Position{Line: 2, Character: 4}))
 		Expect(d.Range.End).To(Equal(protocol.Position{Line: 4, Character: 5}))
 	})
 
 	It("Should derive the end from the start token when stop is missing", func() {
-		var d diagnostics.Diagnostic
-		d.SetRange(ruleCtxAt(&fakeToken{line: 2, column: 1, text: "name"}, nil))
+		d := diagnostics.Errorf(
+			ruleCtxAt(&fakeToken{line: 2, column: 1, text: "name"}, nil),
+			"msg",
+		)
 		Expect(d.Range.Start).To(Equal(protocol.Position{Line: 1, Character: 1}))
 		Expect(d.Range.End).To(Equal(protocol.Position{Line: 1, Character: 5}))
 	})
 
 	It("Should leave the range zero for a nil context", func() {
-		var d diagnostics.Diagnostic
-		d.SetRange(nil)
+		d := diagnostics.Errorf(nil, "msg")
 		Expect(d.Range).To(Equal(protocol.Range{}))
 	})
 })

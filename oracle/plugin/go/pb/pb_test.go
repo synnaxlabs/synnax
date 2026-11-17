@@ -2827,7 +2827,7 @@ var _ = Describe("Go PB Plugin", func() {
 				`)
 					resp := MustGenerateMulti(loader, pbPlugin)
 
-					var translatorFiles []string
+					translatorFiles := make([]string, 0, len(resp.Files))
 					for _, f := range resp.Files {
 						translatorFiles = append(translatorFiles, f.Path)
 						if strings.HasSuffix(f.Path, "/translator.gen.go") {

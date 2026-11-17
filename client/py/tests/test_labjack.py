@@ -7,8 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from collections.abc import Callable, Iterator
-from typing import cast
+from collections.abc import Iterator
 
 import pytest
 from pydantic import ValidationError
@@ -17,6 +16,7 @@ import synnax as sy
 from tests.json_value import obj
 from tests.task_targets import TaskTargets
 from x.strings import random_name
+from x.testutil import untyped
 
 
 @pytest.mark.labjack
@@ -191,7 +191,7 @@ class TestLabJackReadTask:
             )
 
         # Invalid thermocouple type
-        channel = cast(Callable[..., object], sy.labjack.ThermocoupleReadChannel)
+        channel = untyped(sy.labjack.ThermocoupleReadChannel)
         with pytest.raises(ValidationError):
             channel(
                 type="thermocouple",
@@ -490,8 +490,8 @@ class TestLabJackDevice:
     def test_invalid_model(self) -> None:
         """Should reject a model that Synnax does not support."""
         with pytest.raises(ValueError, match="Invalid model 'LJM_dtDIGIT'"):
-            sy.labjack.Device(
-                model=cast(sy.labjack.SUPPORTED_MODELS, "LJM_dtDIGIT"),
+            untyped(sy.labjack.Device)(
+                model="LJM_dtDIGIT",
                 serial_number=1,
             )
 

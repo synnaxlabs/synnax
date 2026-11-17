@@ -34,22 +34,28 @@ const WINDOW_SIZE_INPUT_PROPS: Partial<Input.NumericProps> = {
   integer: true,
 };
 
-const PrecisionInput = Component.renderProp(
-  ({ value, onChange }: Input.Control<number | undefined>): ReactElement => (
-    <Input.Numeric
-      value={value ?? 2}
-      onChange={onChange}
-      integer
-      bounds={notation.PRECISION_BOUNDS}
-    />
-  ),
+const PrecisionNumeric = ({
+  value,
+  onChange,
+}: Input.Control<number | undefined>): ReactElement => (
+  <Input.Numeric
+    value={value ?? 2}
+    onChange={onChange}
+    integer
+    bounds={notation.PRECISION_BOUNDS}
+  />
 );
 
-const NotationSelect = Component.renderProp(
-  ({ value, onChange }: Input.Control<notation.Notation>): ReactElement => (
-    <Notation.Select value={value} onChange={onChange} />
-  ),
+const PrecisionInput = Component.renderProp(PrecisionNumeric);
+
+const NotationSelectInput = ({
+  value,
+  onChange,
+}: Input.Control<notation.Notation>): ReactElement => (
+  <Notation.Select value={value} onChange={onChange} />
 );
+
+const NotationSelect = Component.renderProp(NotationSelectInput);
 
 const SIDES: readonly location.Outer[] = [
   ...location.Y_LOCATIONS,

@@ -278,9 +278,13 @@ func (db *DB) assembleStreamWriter(
 	keyToIdx map[ChannelKey]*idxWriter,
 ) *streamWriter {
 	w := &streamWriter{
-		WriterConfig:       cfg,
-		internal:           make([]*idxWriter, 0, len(domainWriters)),
-		relay:              db.relay.inlet,
+		WriterConfig: cfg,
+		internal:     make([]*idxWriter, 0, len(domainWriters)),
+		relay:        db.relay.inlet,
+		validateCommand: validate.NewInclusiveBoundsChecker(
+			WriterCommandWrite,
+			writerCommandEndDomain,
+		),
 		virtual:            &virtualWriter{internal: virtualWriters},
 		keyToIdx:           keyToIdx,
 		authorizeEndDomain: db.authorizeEndDomain,

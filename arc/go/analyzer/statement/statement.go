@@ -75,6 +75,22 @@ func AnalyzeVariableDeclaration(
 ) {
 	analyzeVariableDeclaration(ctx)
 	inferVarKind(ctx)
+	reportShadowers(ctx)
+}
+
+// reportShadowers reports each nested declaration that reuses the name ctx declares.
+func reportShadowers(ctx context.Context[parser.IVariableDeclarationContext]) {
+	decl, ok := ctx.AST.GetChild(0).(antlr.ParserRuleContext)
+	if !ok {
+		return
+	}
+	sym, err := ctx.Scope.GetChildByParserRule(decl)
+	if err != nil {
+		return
+	}
+	for _, shadower := range sym.Shadowers() {
+		ctx.Diagnostics.Add(diagnostics.Error(sym.NameConflict(), shadower.AST))
+	}
 }
 
 // inferVarKind classifies the just-declared value variable from its RHS and
@@ -1671,9 +1687,13 @@ func defaultLiteralType(t types.Type) types.Type {
 		types.KindNumericConstant,
 		types.KindExactIntegerFloatConstant:
 		return types.F64()
-	default:
-		return t
+	case types.KindInvalid, types.KindU8, types.KindU16, types.KindU32,
+		types.KindU64, types.KindI8, types.KindI16, types.KindI32, types.KindI64,
+		types.KindF32, types.KindF64, types.KindString, types.KindChan, types.KindSeries,
+		types.KindVariable, types.KindFunction, types.KindSequence, types.KindStage,
+		types.KindVarRef, types.KindBool:
 	}
+	return t
 }
 
 func allTypesEqual(ts []types.Type) bool {
@@ -1793,9 +1813,13 @@ func getTypeBits(t types.Type) int {
 		return 32
 	case types.KindF64:
 		return 64
-	default:
-		return 0
+	case types.KindInvalid, types.KindString, types.KindChan, types.KindSeries,
+		types.KindVariable, types.KindNumericConstant, types.KindIntegerConstant,
+		types.KindFloatConstant, types.KindExactIntegerFloatConstant,
+		types.KindFunction, types.KindSequence, types.KindStage, types.KindVarRef,
+		types.KindBool:
 	}
+	return 0
 }
 
 func resolveTypeVariableWithContext(
@@ -1814,9 +1838,13 @@ func resolveTypeVariableWithContext(
 		return types.F64()
 	case types.KindExactIntegerFloatConstant:
 		return firstTypeOr(concreteTypes, types.Type.IsNumeric, types.F64())
-	default:
-		return tv
+	case types.KindInvalid, types.KindU8, types.KindU16, types.KindU32,
+		types.KindU64, types.KindI8, types.KindI16, types.KindI32, types.KindI64,
+		types.KindF32, types.KindF64, types.KindString, types.KindChan, types.KindSeries,
+		types.KindVariable, types.KindFunction, types.KindSequence, types.KindStage,
+		types.KindVarRef, types.KindBool:
 	}
+	return tv
 }
 
 // resolveIntegerLiteral picks the type of an integer literal that sits alongside

@@ -37,7 +37,8 @@ pub struct Paths {
     log_dir: PathBuf,
 }
 
-/// The discovery file, managed as app state. Each window of the app writes it.
+/// The discovery file and API key, managed as app state. Each window of the app writes
+/// them.
 pub struct Discovery {
     path: PathBuf,
     /// Makes the compare and the write of each save one step.
@@ -248,22 +249,58 @@ pub async fn supervisor_reset<R: Runtime>(
         eprintln!("failed to record the reset: {err}");
     }
     supervisor.reset().await.map_err(|err| err.to_string())?;
-    // The erased Core took the key of the discovery file with it.
+    // The erased Core took the saved API key with it.
     let path = discovery.path.clone();
-    blocking(move || discovery::remove(&path)).await?;
+    blocking(move || discovery::remove_file(&path)).await?;
+    // The data is gone, so a keychain that fails must not stop the restart. Without a
+    // keychain there is no key to delete.
+    if let Err(err) =
+        blocking(|| discovery::key_entry().and_then(|key| discovery::remove_key(&key))).await
+    {
+        eprintln!("failed to delete the API key from the keychain: {err}");
+    }
     app.restart()
 }
 
-/// Returns the API key in the discovery file, or `None` when there is no file.
+/// Returns the API key saved in the keychain, or null when none is saved. With no
+/// keychain, nothing is saved, and the save that follows reports the error.
 #[tauri::command]
 pub async fn supervisor_api_key(discovery: State<'_, Discovery>) -> Result<Option<String>, String> {
-    let path = discovery.path.clone();
-    let file = blocking(move || discovery::read(&path)).await?;
-    Ok(file.map(|file| file.api_key))
+    let _guard = discovery.lock.lock().await;
+    blocking(|| match discovery::key_entry() {
+        Ok(key) => discovery::read_key(&key),
+        Err(_) => Ok(None),
+    })
+    .await
 }
 
-/// Writes the discovery file with the address of the running Core and `api_key`, but
-/// only while the file holds `replaces`, the key the caller read. `None` means no file.
+/// Returns the API key that Synnax Desktop 1.1 saved in plaintext in the discovery
+/// file, or null. The caller revokes it in the Core, then calls
+/// `supervisor_forget_legacy_api_key`.
+#[tauri::command]
+pub async fn supervisor_legacy_api_key(
+    discovery: State<'_, Discovery>,
+) -> Result<Option<String>, String> {
+    let path = discovery.path.clone();
+    let _guard = discovery.lock.lock().await;
+    blocking(move || discovery::legacy_key(&path)).await
+}
+
+/// Removes `api_key`, a key from `supervisor_legacy_api_key`, from the discovery file.
+/// Call it only after the Core revoked the key.
+#[tauri::command]
+pub async fn supervisor_forget_legacy_api_key(
+    api_key: String,
+    discovery: State<'_, Discovery>,
+) -> Result<(), String> {
+    let path = discovery.path.clone();
+    let _guard = discovery.lock.lock().await;
+    blocking(move || discovery::forget_legacy_key(&path, &api_key)).await
+}
+
+/// Saves `api_key` in the keychain and the address of the running Core in the discovery
+/// file, but only while the saved key is `replaces`, the key the caller read. `None`
+/// means no saved key.
 ///
 /// Returns false, with no write, when another window changed the key first.
 #[tauri::command]
@@ -280,11 +317,19 @@ pub async fn supervisor_save_api_key(
         host: connection.host,
         port: connection.port,
         secure: false,
-        api_key,
     };
     let path = discovery.path.clone();
     let _guard = discovery.lock.lock().await;
-    blocking(move || discovery::swap(&path, &file, replaces.as_deref())).await
+    blocking(move || {
+        discovery::swap(
+            &path,
+            &discovery::key_entry()?,
+            &file,
+            &api_key,
+            replaces.as_deref(),
+        )
+    })
+    .await
 }
 
 /// Stores the size of the data a reset is about to erase, for the next launch to report.

@@ -163,6 +163,8 @@ func convertOpcode(from, to wasm.ValueType, fromSigned, toSigned bool) wasm.Opco
 			return lo.Ternary(fromSigned, wasm.OpF32ConvertI32S, wasm.OpF32ConvertI32U)
 		case wasm.F64:
 			return lo.Ternary(fromSigned, wasm.OpF64ConvertI32S, wasm.OpF64ConvertI32U)
+		case wasm.I32:
+			panic("cast between equal wasm types")
 		}
 	case wasm.I64:
 		switch to {
@@ -172,6 +174,8 @@ func convertOpcode(from, to wasm.ValueType, fromSigned, toSigned bool) wasm.Opco
 			return lo.Ternary(fromSigned, wasm.OpF32ConvertI64S, wasm.OpF32ConvertI64U)
 		case wasm.F64:
 			return lo.Ternary(fromSigned, wasm.OpF64ConvertI64S, wasm.OpF64ConvertI64U)
+		case wasm.I64:
+			panic("cast between equal wasm types")
 		}
 	case wasm.F32:
 		switch to {
@@ -181,6 +185,8 @@ func convertOpcode(from, to wasm.ValueType, fromSigned, toSigned bool) wasm.Opco
 			return lo.Ternary(toSigned, wasm.OpI64TruncF32S, wasm.OpI64TruncF32U)
 		case wasm.F64:
 			return wasm.OpF64PromoteF32
+		case wasm.F32:
+			panic("cast between equal wasm types")
 		}
 	case wasm.F64:
 		switch to {
@@ -190,6 +196,8 @@ func convertOpcode(from, to wasm.ValueType, fromSigned, toSigned bool) wasm.Opco
 			return lo.Ternary(toSigned, wasm.OpI64TruncF64S, wasm.OpI64TruncF64U)
 		case wasm.F32:
 			return wasm.OpF32DemoteF64
+		case wasm.F64:
+			panic("cast between equal wasm types")
 		}
 	}
 	return 0
@@ -225,9 +233,14 @@ func narrowBounds(t types.Type) (lower, upper float64, ok bool) {
 		return math.MinInt8, math.MaxInt8, true
 	case types.KindI16:
 		return math.MinInt16, math.MaxInt16, true
-	default:
-		return 0, 0, false
+	case types.KindInvalid, types.KindU32, types.KindU64, types.KindI32, types.KindI64,
+		types.KindF32, types.KindF64, types.KindString, types.KindChan,
+		types.KindSeries, types.KindVariable, types.KindNumericConstant,
+		types.KindIntegerConstant, types.KindFloatConstant,
+		types.KindExactIntegerFloatConstant, types.KindFunction, types.KindSequence,
+		types.KindStage, types.KindVarRef, types.KindBool:
 	}
+	return 0, 0, false
 }
 
 // fitsIn reports whether to holds every value of from.
@@ -239,7 +252,12 @@ func fitsIn(from, to types.Type) bool {
 		return to.Kind == types.KindU16 || to.Kind == types.KindI16
 	case types.KindI8:
 		return to.Kind == types.KindI16
-	default:
-		return false
+	case types.KindInvalid, types.KindU16, types.KindU32, types.KindU64, types.KindI16,
+		types.KindI32, types.KindI64, types.KindF32, types.KindF64, types.KindString,
+		types.KindChan, types.KindSeries, types.KindVariable, types.KindNumericConstant,
+		types.KindIntegerConstant, types.KindFloatConstant,
+		types.KindExactIntegerFloatConstant, types.KindFunction, types.KindSequence,
+		types.KindStage, types.KindVarRef:
 	}
+	return false
 }

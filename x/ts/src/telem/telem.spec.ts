@@ -64,6 +64,40 @@ describe("TimeStamp", () => {
     expect(tsString).toEqual("1970-04-01T00:20:00.283Z");
   });
 
+  test("now should advance in steps finer than a millisecond with Temporal", () => {
+    const limit = typeof Temporal !== "undefined" ? TimeSpan.MILLISECOND : TimeSpan.DAY;
+    // A paused thread lengthens one step, so only the finest step counts. A CI VM
+    // clock can tick coarsely for a few milliseconds, so the budget is clock time.
+    let finest = TimeSpan.MAX;
+    const start = Date.now();
+    let prev = TimeStamp.now();
+    while (finest.greaterThanOrEqual(limit) && Date.now() - start < 1000) {
+      const now = TimeStamp.now();
+      if (!now.after(prev)) continue;
+      const step = prev.span(now);
+      if (step.lessThan(finest)) finest = step;
+      prev = now;
+    }
+    expect(finest.lessThan(limit)).toBe(true);
+  });
+
+  describe("now", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("should read Temporal when it exists", () => {
+      const epochNanoseconds = 1_700_000_000_123_456_789n;
+      vi.stubGlobal("Temporal", { Now: { instant: () => ({ epochNanoseconds }) } });
+      expect(TimeStamp.now().valueOf()).toBe(epochNanoseconds);
+    });
+
+    it("should read Date when Temporal does not exist", () => {
+      vi.stubGlobal("Temporal", undefined);
+      expect(TimeStamp.now().valueOf() % TimeSpan.MILLISECOND.valueOf()).toBe(0n);
+    });
+  });
+
   test("encode", () => {
     const ts = TimeStamp.now();
     new binary.JSONCodec().encode(ts);

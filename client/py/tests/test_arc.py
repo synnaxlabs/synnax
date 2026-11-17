@@ -13,7 +13,7 @@ import pytest
 
 import synnax as sy
 from x import filter
-from x.testutil import assert_eventually
+from x.testutil import assert_eventually, untyped
 from x.uuid import NIL
 
 
@@ -162,7 +162,7 @@ class TestArc:
     def test_retrieve_none_field(self, client: sy.Synnax) -> None:
         """Should reject a field set to None, since it would select every Arc."""
         with pytest.raises(sy.ValidationError, match="key is None"):
-            client.arcs.retrieve(key=None)  # type: ignore[call-overload]
+            untyped(client.arcs.retrieve)(key=None)
 
     def test_retrieve_compiled(self, client: sy.Synnax) -> None:
         """Should return the compiled program when include_program is True."""
