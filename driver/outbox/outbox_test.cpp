@@ -281,7 +281,8 @@ TEST_F(OutboxTest, RefusesCallsWhenFull) {
     ASSERT_EQ(outbox->size(), 2);
 }
 
-/// @brief it should keep the calls before a call that a crash cut off.
+/// @brief it should keep the calls before a call that a crash cut off, and count the
+/// bytes it lost.
 TEST_F(OutboxTest, KeepsCallsBeforeCutOffTail) {
     {
         const auto outbox = this->open_unreachable();
@@ -292,11 +293,12 @@ TEST_F(OutboxTest, KeepsCallsBeforeCutOffTail) {
     std::filesystem::resize_file(this->segment(), size - 3);
     const auto outbox = this->open_unreachable();
     ASSERT_EQ(outbox->size(), 1);
+    ASSERT_GT(outbox->cut(), 0);
     ASSERT_NIL(outbox->set_status(set_of("third"), nullptr));
     ASSERT_EQ(outbox->size(), 2);
 }
 
-/// @brief it should ignore a tail that a power loss left zero-filled.
+/// @brief it should cut and count a tail that a power loss left zero-filled.
 TEST_F(OutboxTest, IgnoresZeroFilledTail) {
     {
         const auto outbox = this->open_unreachable();
@@ -309,6 +311,7 @@ TEST_F(OutboxTest, IgnoresZeroFilledTail) {
     }
     const auto outbox = this->open_unreachable();
     ASSERT_EQ(outbox->size(), 1);
+    ASSERT_EQ(outbox->cut(), 64);
 }
 
 /// @brief it should refuse to open a segment from a newer format version.
@@ -367,6 +370,7 @@ TEST_F(OutboxTest, SendsV1Segment) {
     const auto outbox = this->open_outbox(transport);
     ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
     ASSERT_EQ(messages_of(*transport), (std::vector<std::string>{"first", "second"}));
+    ASSERT_EQ(outbox->cut(), 0);
     for (const auto &req: transport->requests) {
         EXPECT_EQ(req.key_or_name(), "status");
         EXPECT_EQ(req.variant(), "info");

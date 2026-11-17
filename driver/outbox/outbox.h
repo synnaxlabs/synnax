@@ -109,6 +109,7 @@ class Outbox {
     x::telem::TimeStamp last_save;
     std::atomic<std::uint64_t> dropped_count = 0;
     std::atomic<std::uint64_t> refused_count = 0;
+    std::uint64_t cut_bytes = 0;
     std::thread sender;
 
     explicit Outbox(Config cfg);
@@ -135,8 +136,9 @@ public:
     Outbox &operator=(const Outbox &) = delete;
 
     /// @brief opens the outbox in the directory of the config, creates the directory
-    /// when it does not exist, locks it, and starts the send thread. A call that a
-    /// crash cut off ends its segment, and the outbox keeps the calls before it.
+    /// when it does not exist, locks it, and starts the send thread. The first call
+    /// that is cut off or fails its checksum ends its segment, and the outbox keeps
+    /// the calls before it and counts the bytes from it on in cut().
     /// @returns UNKNOWN_VERSION when a segment has a call kind this Driver cannot
     /// send. CORRUPT when a call does not decode. journal::LOCKED when another
     /// outbox has the directory. The errors of journal::Reader::open and
@@ -158,6 +160,10 @@ public:
 
     /// @returns the number of calls the outbox refused because it was full.
     [[nodiscard]] std::uint64_t refused() const;
+
+    /// @returns the number of bytes open lost at the ends of segments, which a crash,
+    /// a power loss, or a damaged disk left. Not 0 means the outbox lost calls.
+    [[nodiscard]] std::uint64_t cut() const;
 
     /// @returns the number of calls the outbox holds.
     [[nodiscard]] std::size_t size() const;
