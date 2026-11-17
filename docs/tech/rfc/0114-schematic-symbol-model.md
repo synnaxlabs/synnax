@@ -214,7 +214,10 @@ StateBinding struct extends FormatConfig {
     key         string
     source      Source?
     // these replace the symbol's
-    enumeration enumeration.Key?
+    enumeration enumeration.Key? {
+        @ref kind      use
+        @ref on_delete restrict
+    }
     match       Match?
     bounds      spatial.Bounds?
     default     float64?
@@ -334,20 +337,21 @@ When it changes the type of a state, the confirm lists the node overrides of the
 type. When it gives a command a state, the confirm lists the `CommandBinding`s of that
 command. The Core removes them in the same transaction.
 
-An import brings the custom symbols that its schematics use. Every symbol import, alone,
-in a group, or in a schematic, follows one rule. When the Core already has a symbol with
-a bundled key, the import uses it, needs retrieve access on it, and reports a warning
-status that names it if the two differ. The import then drops each node binding that
-names a state or command that the Core's copy lacks, each override of the wrong type,
-and each `CommandBinding` of a command that has a state, and the warning status names
-them. Otherwise it adds the bundled symbol under its bundled key, so a later import of
-the same file reuses it. A group import treats the group the same way, by the group key
-that a new manifest version carries. It uses or adds a group only when a new symbol
-joins it, and with an old manifest, which has no key, it adds a new group. It needs
-update access on a reused group and refuses a group that is not a top-level
-`schematic_symbol` group. The Core refuses an import that lacks either access. A reused
-symbol stays in its group. Phase 2 changes the symbol importer to keep keys, and copies
-that an import made before phase 2 stay separate symbols.
+An import brings the custom symbols that its schematics use, and the enumerations that
+those symbols and the node bindings name, by the enumeration import rule of RFC 0112
+§4.6. Every symbol import, alone, in a group, or in a schematic, follows one rule. When
+the Core already has a symbol with a bundled key, the import uses it, needs retrieve
+access on it, and reports a warning status that names it if the two differ. The import
+then drops each node binding that names a state or command that the Core's copy lacks,
+each override of the wrong type, and each `CommandBinding` of a command that has a
+state, and the warning status names them. Otherwise it adds the bundled symbol under its
+bundled key, so a later import of the same file reuses it. A group import treats the
+group the same way, by the group key that a new manifest version carries. It uses or
+adds a group only when a new symbol joins it, and with an old manifest, which has no
+key, it adds a new group. It needs update access on a reused group and refuses a group
+that is not a top-level `schematic_symbol` group. The Core refuses an import that lacks
+either access. A reused symbol stays in its group. Phase 2 changes the symbol importer
+to keep keys, and copies that an import made before phase 2 stay separate symbols.
 
 A custom symbol holds only shapes. It starts from an SVG upload or a blank canvas, and
 the editor's drawing tools save SVG markup. A part names its shapes by `#id`, `.class`,
@@ -446,23 +450,24 @@ migration writes the default enumeration of each custom symbol with it. A symbol
 of an old file decodes the old state list beside the converted symbol, and its write
 step (`core/pkg/service/schematic/symbol/imex.go:45-55`) makes the enumeration with the
 same function in its transaction, as a schematic import does (RFC 0112 §4.6). A symbol
-export bundles each enumeration that its states name, also inside a schematic file, and
-an import reuses or adds each by the rule of RFC 0112 §4.6. Pluto draws `entry` paint
-from the start, so no migrated symbol changes its look. It moves the symbol editor and
-the clients to the new shape, and phase 3 redesigns the editor. Until phase 2 deletes
-them, it keeps `variant`, which picks the node variant on placement, and today's state
-shape, under its own name, for `state_overrides`. Phase 2 ships in one release with RFC
-0112 phase 21. Each family is redesigned after phase 5 in its own PR.
+file bundles each enumeration that its states name, and an import treats each by the
+enumeration import rule of RFC 0112 §4.6. Pluto draws `entry` paint from the start, so
+no migrated symbol changes its look. It moves the symbol editor and the clients to the
+new shape, and phase 3 redesigns the editor. Until phase 2 deletes them, it keeps
+`variant`, which picks the node variant on placement, and today's state shape, under its
+own name, for `state_overrides`. Phase 2 ships in one release with RFC 0112 phase 21.
+Each family is redesigned after phase 5 in its own PR.
 
 Phase 2 is one cutover of the stored node shape: a node variant with channel references,
 its checks with the Core list of built-ins and its route, the removal of the bindings
 and overrides that a symbol save orphans, a Core migration, an export that bundles a
-schematic's custom symbols with their keys, an import that keeps those keys, a renderer
-with its indicators, a form with the enumeration picker, and the deletion of 86
-variants. It is larger than a usual PR because no smaller step leaves one node shape in
-`main`. Phase 3 adds the save confirm, and phase 4 lists the removed bindings and
-overrides in it. Phase 5 starts with the WebKit benchmark, and no built-in moves until
-it passes at 1,000 moving parts.
+schematic's custom symbols and every enumeration that they and its bindings name, with
+their keys, an import that keeps those keys by RFC 0112 §4.6, a renderer with its
+indicators, a form with the enumeration picker, and the deletion of 86 variants. It is
+larger than a usual PR because no smaller step leaves one node shape in `main`. Phase 3
+adds the save confirm, and phase 4 lists the removed bindings and overrides in it. Phase
+5 starts with the WebKit benchmark, and no built-in moves until it passes at 1,000
+moving parts.
 
 | Phase | Scope                                                    | Touches                                                                                                                                                                        | Depends on |
 | ----- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
