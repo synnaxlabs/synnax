@@ -80,7 +80,7 @@ const Internal = ({ keys, target }: Menu.ContextMenuMenuProps) => {
   );
 };
 
-export const ContextMenu = (props: Menu.ContextMenuMenuProps) => (
+const ContextMenu = (props: Menu.ContextMenuMenuProps) => (
   <Errors.SuspenseBoundary loading={null}>
     <Internal {...props} />
   </Errors.SuspenseBoundary>
