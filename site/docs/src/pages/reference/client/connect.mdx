@@ -25,9 +25,9 @@ Core.
 ## Connect to Synnax Desktop
 
 Scripts on the same computer as Synnax Desktop can connect to its Core while it runs.
-Synnax Desktop saves the address of its Core in `~/.synnax/desktop.json` and an API key
-in the keychain of your operating system. The Python client reads both when you give no
-arguments:
+Synnax Desktop saves the address of its Core in `~/.synnax/desktop.json`, with the path
+of `synnax-desktop-key`, a program that prints the API key. When you give no arguments,
+the Python client reads the address and runs that program to get the key:
 
 ```python
 import synnax as sy
