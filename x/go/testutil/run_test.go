@@ -45,6 +45,17 @@ var _ = Describe("StartRun", func() {
 		Expect(blocked.Load()).To(BeTrue())
 	})
 
+	It("ends the run when stop is called", func() {
+		var returned atomic.Bool
+		stop := StartRun(func(ctx context.Context) error {
+			<-ctx.Done()
+			returned.Store(true)
+			return nil
+		})
+		stop()
+		Expect(returned.Load()).To(BeTrue())
+	})
+
 	It("accepts an error that satisfies the matchers", func() {
 		StartRun(func(ctx context.Context) error {
 			<-ctx.Done()

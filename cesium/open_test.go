@@ -24,6 +24,15 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var _ = Describe("Close", func() {
+	It("Should fail while Run runs", func(ctx SpecContext) {
+		// The cleanup closes db after Run returns, and asserts that it succeeds.
+		db := DeferClose(MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fs.NewMem()))))
+		StartRun(db.Run)
+		Expect(db.Close()).To(MatchError(ContainSubstring("while Run runs")))
+	})
+})
+
 var _ = Describe("Options", func() {
 	DescribeTable(
 		"Should reject an invalid option",

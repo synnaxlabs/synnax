@@ -66,7 +66,7 @@ var _ = Describe("Control", func() {
 				)
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
-					db = DeferClose(mustOpenDBOnFS(ctx, fs))
+					db = mustOpenDBOnFS(ctx, fs)
 				})
 				BeforeEach(func(ctx SpecContext) {
 					idxCh, dataCh = GenerateChannelKey(), GenerateChannelKey()
@@ -338,7 +338,7 @@ var _ = Describe("Control", func() {
 				}
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
-					db = DeferClose(mustOpenDBOnFS(ctx, fs))
+					db = mustOpenDBOnFS(ctx, fs)
 				})
 				BeforeEach(func(ctx SpecContext) { idx = createIndex(ctx) })
 

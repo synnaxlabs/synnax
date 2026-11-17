@@ -60,6 +60,7 @@ type DB struct {
 	controlUpdates controlObserver
 	historyChanges observe.Observer[HistoryChange]
 	closed         *atomic.Bool
+	running        atomic.Bool
 	mu             struct {
 		dbs struct {
 			unary   map[ChannelKey]unary.DB
@@ -152,6 +153,8 @@ func (db *DB) Metrics() Metrics {
 // buffer fills while Run is not running, and streamers do not start. Call Run once,
 // after Open and before Close.
 func (db *DB) Run(ctx context.Context) error {
+	db.running.Store(true)
+	defer db.running.Store(false)
 	sCtx, cancel := signal.WithCancel(
 		ctx,
 		signal.WithInstrumentation(db.Instrumentation),
@@ -162,14 +165,18 @@ func (db *DB) Run(ctx context.Context) error {
 	return errors.Skip(sCtx.Wait(), context.Canceled)
 }
 
-// Close closes the database. Call it only after Run returns. Close is not safe to call
-// with any other DB methods concurrently.
+// Close closes the database. Call it only after Run returns: while Run runs, Close
+// returns an error and closes nothing. Close is not safe to call with any other DB
+// methods concurrently.
 //
 // Writers still open when Close runs stop sending to streamers.
 //
 // If there is an error in closing the cesium database, the database will be marked as
 // closed regardless of whether an error occurred.
 func (db *DB) Close() error {
+	if db.running.Load() {
+		return errors.New("close called while Run runs")
+	}
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil
 	}

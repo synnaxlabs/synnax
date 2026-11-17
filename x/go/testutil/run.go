@@ -11,6 +11,7 @@ package testutil
 
 import (
 	"context"
+	"sync"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -20,11 +21,15 @@ import (
 
 // StartRun calls run in a goroutine and returns once that goroutine first blocks or
 // returns, so the goroutines that run starts before it blocks are in the baseline of a
-// later leak check. A DeferCleanup ends the context of run, waits for run to return,
+// later leak check. The returned stop ends the context of run, waits for run to return,
 // and asserts that its error satisfies every matcher, or is nil when there are no
-// matchers. The context derives from GinkgoT().Context(), so it outlives the setup node
-// that calls StartRun.
-func StartRun(run func(ctx context.Context) error, matchers ...types.GomegaMatcher) {
+// matchers. A DeferCleanup calls stop, and stop does nothing after its first call. The
+// context derives from GinkgoT().Context(), so it outlives the setup node that calls
+// StartRun.
+func StartRun(
+	run func(ctx context.Context) error,
+	matchers ...types.GomegaMatcher,
+) (stop func()) {
 	ginkgo.GinkgoHelper()
 	ctx, cancel := context.WithCancel(ginkgo.GinkgoT().Context())
 	errs := make(chan error, 1)
@@ -37,13 +42,15 @@ func StartRun(run func(ctx context.Context) error, matchers ...types.GomegaMatch
 	if len(matchers) > 0 {
 		matcher = gomega.SatisfyAll(matchers...)
 	}
-	ginkgo.DeferCleanup(func() {
+	stop = sync.OnceFunc(func() {
 		cancel()
 		var err error
 		gomega.Eventually(errs).Should(gomega.Receive(&err))
 		gomega.Expect(err).To(matcher)
 	})
+	ginkgo.DeferCleanup(stop)
 	gomega.Eventually(running).WithArguments(<-id).Should(gomega.BeFalse())
+	return stop
 }
 
 // running reports whether the goroutine with the given ID exists and is not blocked.

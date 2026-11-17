@@ -2744,7 +2744,7 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.WithFileSizeCap(80*telem.Byte),
 								cesium.WithInstrumentation(PanicLogger()),
 							))
-							StartRun(db2.Run)
+							stopDB2 := StartRun(db2.Run)
 
 							Expect(db2.CreateChannel(
 								ctx,
@@ -2879,6 +2879,7 @@ var _ = Describe("Writer Behavior", func() {
 							)
 
 							By("Closing an reopening the db")
+							stopDB2()
 							Expect(db2.Close()).To(Succeed())
 
 							db2 = MustOpen(cesium.Open(ctx, "size-capped-db",
