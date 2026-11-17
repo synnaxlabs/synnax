@@ -7,12 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import importlib
 import sys
 import sysconfig
 
 import pytest
-
-import synnax  # noqa: F401
 
 
 @pytest.mark.skipif(
@@ -24,6 +23,7 @@ def test_gil_stays_disabled_after_import() -> None:
     dependencies are imported. An extension module without free-threading support
     turns the GIL back on with only a warning.
     """
+    importlib.import_module("synnax")
     # mypy targets 3.12 until the floor rises, and its stubs add this only for 3.13.
     is_gil_enabled = vars(sys)["_is_gil_enabled"]
     assert not is_gil_enabled()
