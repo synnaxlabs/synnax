@@ -83,7 +83,7 @@ export const isReadable = ({ type, pointer }: icd.JSONField): boolean =>
 export const isIndexable = (field?: icd.JSONField): boolean =>
   field?.type === "timestamp" && field.default == null;
 
-/** The data types that a channel of a field of each kind cannot take. */
+/** @returns the data types that a channel of a field of the kind cannot take. */
 export const hiddenDataTypes = (kind: payload.Kind): DataType[] =>
   DataType.ALL.filter((dt) => !converts(kind, dt.toString()));
 
