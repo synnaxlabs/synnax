@@ -92,7 +92,7 @@ Look struct {
 Condition union on kind { equals { state string, values float64[] } }
 Paint union on kind { entry { state string }, node {}, color { color color.Ref } }
 Motion union on kind {
-    // rate: cycles per second, times the `by` state's fraction of its bounds
+    // rate: cycles per second, times the `by` number state's fraction of its bounds
     spin { rate telem.Rate = 0.5, by string? }
     flow { rate telem.Rate = 0.5, by string? }
     blink { period telem.TimeSpan = 1s }
@@ -138,11 +138,12 @@ indicator. The binding holds the number format, as each readout does today
 Looks apply in order, and a later look wins on each field it sets. Stale data keeps the
 last state's looks and adds the stale indicator. Pluto then draws pending, hover,
 pressed, and the hold fill. A symbol stores no indicators: Pluto draws the stale,
-unknown, and other indicators on top of the looks. A number state drives motion as a
-fraction of its bounds, clamped to 0 to 1, and the Core refuses bounds whose lower value
-is not below the upper. Motion stops while its state is stale or unknown, under the
-operating system's Reduce motion setting, and on a node with `motion_disabled`. A blink
-stays under three flashes per second.
+unknown, and other indicators on top of the looks. Only a number state drives motion,
+and the Core refuses a motion whose `state` or `by` names an enum state. A number state
+drives motion as a fraction of its bounds, clamped to 0 to 1, and the Core refuses
+bounds whose lower value is not below the upper. Motion stops while its state is stale
+or unknown, under the operating system's Reduce motion setting, and on a node with
+`motion_disabled`. A blink stays under three flashes per second.
 
 ### 4.3 Clicks and writes
 
