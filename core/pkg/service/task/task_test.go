@@ -87,6 +87,73 @@ func createRoutingKeys(
 	}
 }
 
+// openWatched opens the config store of watchedType on db. Its hash covers the message
+// of the status, read through stat, that the device field of a config names.
+func openWatched(
+	ctx context.Context,
+	db *gorp.DB,
+	stat *status.Service,
+) *config.Service[kafka.WriteConfig] {
+	GinkgoHelper()
+	return MustOpen(config.OpenService(ctx, config.ServiceConfig[kafka.WriteConfig]{
+		DB:          db,
+		Type:        watchedType,
+		Ladder:      kafkaversions.WriteConfigLadder,
+		SetEntryKey: (*kafka.WriteConfig).SetKey,
+		PatchEntry:  (*kafka.WriteConfig).Patch,
+		HashEntry:   (*kafka.WriteConfig).HashContent,
+		References: []gorp.Reference[uuid.UUID, kafka.WriteConfig]{
+			gorp.NewKeyReference(
+				gorp.KeyReferenceConfig[uuid.UUID, kafka.WriteConfig, string]{
+					Name:     "device",
+					Table:    "status",
+					OnDelete: gorp.Restrict,
+					Kind:     gorp.Use,
+					Targets: func(c *kafka.WriteConfig) []string {
+						return []string{string(c.Device)}
+					},
+				},
+			),
+		},
+		HashedTables: []string{"status"},
+		HashReferences: func(
+			ctx context.Context,
+			snap gorp.Snapshot,
+			c *kafka.WriteConfig,
+			h *content.Hash,
+		) error {
+			var st status.Status[any]
+			if err := stat.NewRetrieve[any]().
+				Where(status.MatchKeys[any](string(c.Device))).
+				Entry(&st).
+				Exec(ctx, snap); err != nil {
+				return err
+			}
+			h.String(st.Message)
+			return nil
+		},
+	}))
+}
+
+// setStatus stores an info status under key with the given message.
+func setStatus(
+	ctx context.Context,
+	db *gorp.DB,
+	stat *status.Service,
+	key, message string,
+) {
+	GinkgoHelper()
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return stat.NewWriter(tx).Set(ctx, &status.Status[any]{
+			Key:     key,
+			Name:    key,
+			Message: message,
+			Variant: status.VariantInfo,
+			Time:    telem.Now(),
+		})
+	})).To(Succeed())
+}
+
 var _ = Describe("Task", Ordered, func() {
 	var (
 		db          *gorp.DB
@@ -169,45 +236,7 @@ var _ = Describe("Task", Ordered, func() {
 				},
 			}),
 		)
-		watched := MustOpen(
-			config.OpenService(ctx, config.ServiceConfig[kafka.WriteConfig]{
-				DB:          db,
-				Type:        watchedType,
-				Ladder:      kafkaversions.WriteConfigLadder,
-				SetEntryKey: (*kafka.WriteConfig).SetKey,
-				PatchEntry:  (*kafka.WriteConfig).Patch,
-				HashEntry:   (*kafka.WriteConfig).HashContent,
-				References: []gorp.Reference[uuid.UUID, kafka.WriteConfig]{
-					gorp.NewKeyReference(
-						gorp.KeyReferenceConfig[uuid.UUID, kafka.WriteConfig, string]{
-							Name:     "device",
-							Table:    "status",
-							OnDelete: gorp.Restrict,
-							Kind:     gorp.Use,
-							Targets: func(c *kafka.WriteConfig) []string {
-								return []string{string(c.Device)}
-							},
-						},
-					),
-				},
-				HashReferences: func(
-					ctx context.Context,
-					snap gorp.Snapshot,
-					c *kafka.WriteConfig,
-					h *content.Hash,
-				) error {
-					var st status.Status[any]
-					if err := stat.NewRetrieve[any]().
-						Where(status.MatchKeys[any](string(c.Device))).
-						Entry(&st).
-						Exec(ctx, snap); err != nil {
-						return err
-					}
-					h.String(st.Message)
-					return nil
-				},
-			}),
-		)
+		watched := openWatched(ctx, db, stat)
 		configs = MustSucceed(config.NewRegistry(slices.Concat(
 			pd.Stores(),
 			at.Stores(),
@@ -1082,22 +1111,22 @@ var _ = Describe("Task", Ordered, func() {
 			}))
 		})
 
-		Describe("A write to a record that a config uses", func() {
-			var watched *task.Task
-			setWatched := func(ctx context.Context, message string) {
+		Describe("A config whose hash covers a record it uses", func() {
+			var (
+				watched *task.Task
+				store   config.Store
+			)
+			stored := func(ctx context.Context) string {
 				GinkgoHelper()
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return stat.NewWriter(tx).Set(ctx, &status.Status[any]{
-						Key:     "st-watch",
-						Name:    "st-watch",
-						Message: message,
-						Variant: status.VariantInfo,
-						Time:    telem.Now(),
-					})
-				})).To(Succeed())
+				return retrieve(ctx, watched.Key).ConfigHash
+			}
+			current := func(ctx context.Context) string {
+				GinkgoHelper()
+				return MustSucceed(store.Hash(ctx, db, watched.Key))
 			}
 			BeforeEach(func(ctx SpecContext) {
-				setWatched(ctx, "a")
+				store = MustBeOk(configs.Store(watchedType))
+				setStatus(ctx, db, stat, "st-watch", "a")
 				watched = &task.Task{
 					Type:   watchedType,
 					Rack:   testRack.Key,
@@ -1107,30 +1136,43 @@ var _ = Describe("Task", Ordered, func() {
 				createCommitted(ctx, watched)
 			})
 
-			It("Should store and broadcast the new config hash", func(
+			It("Should store a hash that covers the record on create", func(
+				ctx SpecContext,
+			) {
+				Expect(stored(ctx)).To(Equal(current(ctx)))
+			})
+
+			It("Should store a hash that covers the record on a config edit", func(
+				ctx SpecContext,
+			) {
+				setStatus(ctx, db, stat, "st-other", "b")
+				Expect(dispatch(ctx, watched.Key, "dk", []task.Action{
+					set([]string{"config", "device"}, "st-other"),
+				})).Error().ToNot(HaveOccurred())
+				Expect(stored(ctx)).ToNot(Equal(watched.ConfigHash))
+				Expect(stored(ctx)).To(Equal(current(ctx)))
+			})
+
+			It("Should store and broadcast a new hash when the record changes", func(
 				ctx SpecContext,
 			) {
 				frames := collect()
-				setWatched(ctx, "b")
-				stored := retrieve(ctx, watched.Key)
-				Expect(stored.ConfigHash).ToNot(Equal(watched.ConfigHash))
-				Expect(stored.ConfigHash).To(Equal(MustSucceed(
-					MustBeOk(configs.Store(watchedType)).Hash(ctx, db, watched.Key),
-				)))
+				setStatus(ctx, db, stat, "st-watch", "b")
+				Expect(stored(ctx)).ToNot(Equal(watched.ConfigHash))
+				Expect(stored(ctx)).To(Equal(current(ctx)))
 				Expect(*frames).To(HaveLen(1))
 				Expect((*frames)[0].Key).To(Equal(watched.Key))
 				Expect((*frames)[0].Actions).To(Equal([]task.Action{
-					set([]string{"config_hash"}, stored.ConfigHash),
+					set([]string{"config_hash"}, stored(ctx)),
 				}))
 			})
 
-			It("Should not broadcast when the config hash does not change", func(
+			It("Should not broadcast when the record's change leaves the hash", func(
 				ctx SpecContext,
 			) {
 				frames := collect()
-				setWatched(ctx, "a")
-				Expect(retrieve(ctx, watched.Key).ConfigHash).
-					To(Equal(watched.ConfigHash))
+				setStatus(ctx, db, stat, "st-watch", "a")
+				Expect(stored(ctx)).To(Equal(watched.ConfigHash))
 				Expect(*frames).To(BeEmpty())
 			})
 		})
@@ -2081,6 +2123,54 @@ var _ = Describe("Task", Ordered, func() {
 				).To(BeEmpty())
 			},
 		)
+	})
+})
+
+var _ = Describe("OpenService with a store that hashes used records", func() {
+	It("Should store the current config hash of each task", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+		roles := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
+		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+			DB:         db,
+			HostKey:    1,
+			Status:     stat,
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roles)),
+		}))
+		watched := openWatched(ctx, db, stat)
+		configs := MustSucceed(config.NewRegistry(watched))
+		open := func() (*task.Service, error) {
+			return task.OpenService(ctx, task.ServiceConfig{
+				DB:      db,
+				Rack:    racks,
+				Status:  stat,
+				ImEx:    imex.NewService(),
+				Configs: configs,
+			})
+		}
+		first := MustSucceed(open())
+		setStatus(ctx, db, stat, "st-watch", "a")
+		t := task.Task{
+			Type:   watchedType,
+			Name:   "Watched",
+			Config: msgpack.EncodedJSON{"device": "st-watch"},
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return first.NewWriter(tx).Create(ctx, &t)
+		})).To(Succeed())
+		row := t
+		row.Config, row.Status, row.ConfigHash = nil, nil, "stale"
+		Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&row).Exec(ctx, db)).
+			To(Succeed())
+		Expect(first.Close()).To(Succeed())
+		second := MustOpen(open())
+		var res task.Task
+		Expect(second.NewRetrieve().
+			Where(task.MatchKeys(t.Key)).
+			Entry(&res).
+			Exec(ctx, db)).To(Succeed())
+		Expect(res.ConfigHash).To(Equal(t.ConfigHash))
+		Expect(res.ConfigHash).To(Equal(MustSucceed(watched.Hash(ctx, db, t.Key))))
 	})
 })
 

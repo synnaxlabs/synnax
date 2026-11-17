@@ -171,11 +171,19 @@ func (t *Table[K, E]) delete(ctx context.Context, tx Tx, keys []K) error {
 	return w.Delete(ctx, keys...)
 }
 
-// watchesTargets implements registeredTable.
-func (t *Table[K, E]) watchesTargets() bool { return t.onTargetSet != nil }
+// watches implements registeredTable.
+func (t *Table[K, E]) watches(table string) bool {
+	_, ok := t.onTargetSet[table]
+	return ok
+}
 
 // targetSet implements registeredTable.
-func (t *Table[K, E]) targetSet(ctx context.Context, tx Tx, k string) error {
+func (t *Table[K, E]) targetSet(
+	ctx context.Context,
+	tx Tx,
+	k string,
+	table string,
+) error {
 	pk, err := key.Parse[K](k)
 	if err != nil {
 		return err
@@ -187,7 +195,7 @@ func (t *Table[K, E]) targetSet(ctx context.Context, tx Tx, k string) error {
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	return t.onTargetSet(ctx, tx, e)
+	return t.onTargetSet[table](ctx, tx, e)
 }
 
 // Dependents returns the entries of every open table that hold a reference to the entry
