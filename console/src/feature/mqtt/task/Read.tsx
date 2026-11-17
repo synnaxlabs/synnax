@@ -66,9 +66,6 @@ import {
 } from "@/feature/mqtt/task/sparkplug";
 import { SparkplugTagFields } from "@/feature/mqtt/task/SparkplugTagFields";
 import {
-  bindingDataType,
-  converts,
-  DEFAULT_DATA_TYPES,
   deployReadConfigZ,
   type PlainReadEntry,
   READ_SCHEMAS,
@@ -117,7 +114,7 @@ const SAMPLE_KINDS = {
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/telemetry" } as const;
 
 const isVariable = ({ type }: icd.JSONField): boolean =>
-  new DataType(DEFAULT_DATA_TYPES[type]).isVariable;
+  new DataType(ICD.DEFAULT_DATA_TYPES[type]).isVariable;
 
 /**
  * The fields of a topic share one index, which a variable-length channel cannot have.
@@ -428,7 +425,7 @@ const suit = (read: mqtt.ReadMessage, fields: icd.JSONField[]): mqtt.ReadMessage
       (b.field === read.index && index == null)
     )
       return [];
-    if (b.dataType === "" || converts(field.type, b.dataType)) return [b];
+    if (b.dataType === "" || ICD.converts(field.type, b.dataType)) return [b];
     return [{ ...b, dataType: "" }];
   });
   return { message: read.message, ...(index == null ? {} : { index }), bindings };
@@ -570,7 +567,7 @@ const TimestampFields: FC<TimestampFieldsProps> = ({ path, read, fields, device 
 
 /** The data types that a channel of a field of each kind can take. */
 const hiddenDataTypes = (kind: payload.Kind): DataType[] =>
-  DataType.ALL.filter((dt) => !converts(kind, dt.toString()));
+  DataType.ALL.filter((dt) => !ICD.converts(kind, dt.toString()));
 
 const UNREADABLE_TOOLTIP =
   "A bytes field needs a JSON pointer. Give it one in the message format.";
@@ -589,7 +586,7 @@ const Unbind = ({ path, kind, channel: key }: UnbindProps) => {
   const { set } = PForm.useContext();
   const dataType = Channel.useResultDataType({ key }).data?.toString();
   useEffect(() => {
-    if (dataType != null && !converts(kind, dataType)) set(path, 0);
+    if (dataType != null && !ICD.converts(kind, dataType)) set(path, 0);
   }, [dataType, kind]);
   return null;
 };
@@ -947,7 +944,7 @@ const FieldDetails: FC<FieldDetailsProps> = ({ path, read, field, format, device
               <Task.Payload.DataTypeField
                 path={readPath.bindings[i].dataType}
                 channel={bindings[i].channel}
-                defaultDataType={DEFAULT_DATA_TYPES[field.type]}
+                defaultDataType={ICD.DEFAULT_DATA_TYPES[field.type]}
                 hideDataTypes={hiddenDataTypes(field.type)}
               />
             </>
@@ -1762,14 +1759,14 @@ const configureMessage = async (
   const channels = fields.map((f, i) => {
     const binding = bindingOf(f);
     const isIndex = f.key === index;
-    const suited = binding.dataType !== "" && converts(f.type, binding.dataType);
+    const suited = binding.dataType !== "" && ICD.converts(f.type, binding.dataType);
     const dataType = suited ? binding.dataType : "";
     const ch = live.get(reused[i]);
     // An edit of the field's kind or index role since the last deploy needs a new
     // channel.
     const stale =
       ch != null &&
-      (!converts(f.type, ch.dataType.toString()) || ch.isIndex !== isIndex);
+      (!ICD.converts(f.type, ch.dataType.toString()) || ch.isIndex !== isIndex);
     if (stale && stored[f.pointer] === ch.key) delete stored[f.pointer];
     return {
       key: f.key,
@@ -1777,7 +1774,7 @@ const configureMessage = async (
       name: `${prefix}_${channel.escapeInvalidName(f.name)}`,
       dataType: isIndex
         ? DataType.TIMESTAMP.toString()
-        : bindingDataType({ dataType }, f.type),
+        : ICD.bindingDataType({ dataType }, f.type),
       channel: stale ? 0 : binding.channel,
       binding: { ...binding, dataType },
     };
