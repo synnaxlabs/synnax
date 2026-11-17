@@ -52,13 +52,14 @@ _PATH = re.compile(r"(?:^|\s)path:(\S+)")
 
 
 def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
-    """Answers a comment that mentions the bot: a reply on the thread of one of its
-    findings, or a comment on the pull request. Then answers each `@sedosaur dismiss` on
-    the pull request that has no answer yet, so a run also does the work of a run that
-    never finished. A writer's reply dismisses the finding of its thread. A writer's
-    comment binds to the one open finding its title names, and the answer records that
-    finding. Each dismissal resolves the finding's thread. When every finding of the
-    newest review of the head is then dismissed, a new check run scores the head 5/5.
+    """Answers a reply on the thread of one of the bot's findings, or a comment on the
+    pull request. A reply with no dismiss command gets the usage once per thread. Then
+    answers each `@sedosaur dismiss` on the pull request that has no answer yet, so a
+    run also does the work of a run that never finished. A writer's reply dismisses the
+    finding of its thread. A writer's comment binds to the one open finding its title
+    names, and the answer records that finding. Each dismissal resolves the finding's
+    thread. When every finding of the newest review of the head is then dismissed, a new
+    check run scores the head 5/5.
 
     :param comment: The database ID of the reply or the comment.
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
@@ -70,7 +71,8 @@ def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
     if not hits and issue_comment(t, gh, comment) is None:
         raise ValueError(f"comment {comment} is not on pull request {t.pr}")
     for thread, c in hits:
-        if command(c["body"]) is None:
+        told = any(_by(t, r) and r["body"] == USAGE for r in thread.replies)
+        if command(c["body"]) is None and not told:
             reply(gh, thread, USAGE)
     can = authority(t, gh)
     _sweep_threads(t, gh, found, can)
@@ -84,7 +86,7 @@ def _sweep_threads(t: Target, gh: GH, found: list[Thread], can: Authority) -> No
     for th in found:
         for i, r in enumerate(th.replies):
             later = th.replies[i + 1 :]
-            if command(r["body"]) is None or any(_by(t, c) for c in later):
+            if _by(t, r) or command(r["body"]) is None or any(_by(t, c) for c in later):
                 continue
             if not can(r):
                 reply(gh, th, REFUSED)
