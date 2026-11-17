@@ -148,12 +148,15 @@ func MergeLive(
 			}
 		}
 		t.Domains = domains
-		for ns := range referencedNamespaces(t, opts.Resolve) {
+		for name := range referencedNames(t, opts.Resolve) {
+			ns, _, _ := strings.Cut(name, ".")
 			if versionNS.MatchString(ns) {
 				continue
 			}
 			if live, _, ok := ParseDepNS(ns); ok {
 				referenced.Add(live)
+			} else if p, ok := importsOf[def.Version][name]; ok {
+				referenced.Add(p)
 			} else if p, ok := importsOf[def.Version][ns]; ok {
 				referenced.Add(p)
 			}
@@ -276,28 +279,23 @@ func checkErasedDocs(
 
 // liveImportList returns the sorted imports of a merged live file: each referenced
 // path, plus each live import that the file still uses. A live import in a namespace
-// that a referenced path takes stays only for a name in the live text that it alone
-// declares. It returns an error when two referenced paths share a namespace.
+// that referenced paths take stays only for a name in the live text that it declares
+// and they do not.
 func liveImportList(
 	own []string,
 	referenced, used, liveNames set.Set[string],
 	loader analyzer.FileLoader,
 ) ([]string, error) {
-	byNS := make(map[string]string)
-	for _, p := range slices.Sorted(maps.Keys(referenced)) {
+	takers := make(map[string][]string)
+	for p := range referenced {
 		ns := resourceOf(p)
-		if existing, ok := byNS[ns]; ok {
-			return nil, errors.Newf(
-				"namespace %s is ambiguous between %s and %s", ns, existing, p,
-			)
-		}
-		byNS[ns] = p
+		takers[ns] = append(takers[ns], p)
 	}
 	imports := referenced.Copy()
 	for _, p := range own {
 		ns := resourceOf(p)
-		taker, taken := byNS[ns]
-		if !taken {
+		taken := takers[ns]
+		if len(taken) == 0 {
 			if used.Contains(ns) {
 				imports.Add(p)
 			}
@@ -309,16 +307,20 @@ func liveImportList(
 				members = append(members, member)
 			}
 		}
-		if p == taker || len(members) == 0 {
+		if referenced.Contains(p) || len(members) == 0 {
 			continue
 		}
 		mine, err := declaredNames(loader, p)
 		if err != nil {
 			return nil, err
 		}
-		theirs, err := declaredNames(loader, taker)
-		if err != nil {
-			return nil, err
+		theirs := make(set.Set[string])
+		for _, t := range taken {
+			names, err := declaredNames(loader, t)
+			if err != nil {
+				return nil, err
+			}
+			theirs.Add(names.Slice()...)
 		}
 		if slices.ContainsFunc(members, func(m string) bool {
 			return mine.Contains(m) && !theirs.Contains(m)
@@ -349,8 +351,9 @@ func declaredNames(loader analyzer.FileLoader, path string) (set.Set[string], er
 }
 
 // importsByVersion maps each version of a chain to the live path of each dependency its
-// file imports, keyed by resource namespace. A declaration resolves the namespaces it
-// references through the imports of the file that declares it, inherited fields
+// file imports, keyed by resource namespace. When two imports share a namespace, it
+// keys each qualified name that they declare instead. A declaration resolves the names
+// it references through the imports of the file that declares it, inherited fields
 // included.
 func importsByVersion(r *Resolver, chain Chain) (map[int]map[string]string, error) {
 	m := make(map[int]map[string]string, len(chain.Numbers))
@@ -359,22 +362,48 @@ func importsByVersion(r *Resolver, chain Chain) (map[int]map[string]string, erro
 		if err != nil {
 			return nil, err
 		}
-		byNS := make(map[string]string, len(f.Pins)+len(f.LivePaths))
-		for p := range f.Pins {
-			byNS[resourceOf(p)] = p
+		byNS := make(map[string][]string, len(f.Pins)+len(f.LivePaths))
+		for _, p := range append(slices.Collect(maps.Keys(f.Pins)), f.LivePaths...) {
+			ns := resourceOf(p)
+			byNS[ns] = append(byNS[ns], p)
 		}
-		for _, p := range f.LivePaths {
-			byNS[resourceOf(p)] = p
+		paths := make(map[string]string, len(byNS))
+		for ns, ps := range byNS {
+			if len(ps) == 1 {
+				paths[ns] = ps[0]
+				continue
+			}
+			for _, p := range ps {
+				names, err := importedNames(r, f, p)
+				if err != nil {
+					return nil, err
+				}
+				for name := range names {
+					paths[ns+"."+name] = p
+				}
+			}
 		}
-		m[k] = byNS
+		m[k] = paths
 	}
 	return m, nil
 }
 
-// referencedNamespaces collects the namespace qualifiers a declaration's references
-// name: field types, defaults, extends, union variants (inline payloads included),
-// distinct bases, and alias targets.
-func referencedNamespaces(
+// importedNames returns the names that the import p of f declares: the pinned surface
+// for a versioned dependency, or the live schema's declarations.
+func importedNames(r *Resolver, f *File, p string) (set.Set[string], error) {
+	v, pinned := f.Pins[p]
+	if !pinned {
+		return declaredNames(r.loader, p)
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.surfaceNames(p, v)
+}
+
+// referencedNames collects the qualified names a declaration's references name: field
+// types, defaults, extends, union variants (inline payloads included), distinct bases,
+// and alias targets.
+func referencedNames(
 	t resolution.Type, resolve func(string) (resolution.Type, bool),
 ) set.Set[string] {
 	out := make(set.Set[string])
@@ -384,8 +413,8 @@ func referencedNamespaces(
 		if ref.TypeParam != nil {
 			return
 		}
-		if ns, _, found := strings.Cut(ref.Name, "."); found {
-			out.Add(ns)
+		if strings.Contains(ref.Name, ".") {
+			out.Add(ref.Name)
 		}
 		for _, a := range ref.TypeArgs {
 			walkRef(a)
@@ -394,8 +423,8 @@ func referencedNamespaces(
 	var walkValue func(v resolution.ExpressionValue)
 	walkValue = func(v resolution.ExpressionValue) {
 		if v.Kind == resolution.ValueKindIdent {
-			if ns, _, found := strings.Cut(v.IdentValue, "."); found {
-				out.Add(ns)
+			if strings.Contains(v.IdentValue, ".") {
+				out.Add(v.IdentValue)
 			}
 		}
 		for _, e := range v.Elements {

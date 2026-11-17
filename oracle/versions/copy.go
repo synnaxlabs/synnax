@@ -142,11 +142,11 @@ func copyParam(p resolution.TypeParam, rw func(string) string) resolution.TypePa
 // versionNS matches a chain-sibling namespace qualifier ("v0", "v12").
 var versionNS = regexp.MustCompile(`^v(0|[1-9][0-9]*)$`)
 
-// rewriter maps a resolved reference name's namespace qualifier: chain-sibling
-// qualifiers (vK) map to selfNS when it is non-empty, and dependency resource
-// qualifiers map through byNamespace. Unqualified names (primitives) pass
-// through untouched.
-func rewriter(selfNS string, byNamespace map[string]string) func(string) string {
+// rewriter maps a resolved reference name: chain-sibling qualifiers (vK) map to selfNS
+// when it is non-empty, a qualified name that rewrites holds maps to its value, and any
+// other dependency resource qualifier maps through rewrites. Unqualified names
+// (primitives) pass through untouched.
+func rewriter(selfNS string, rewrites map[string]string) func(string) string {
 	return func(name string) string {
 		i := strings.IndexByte(name, '.')
 		if i < 0 {
@@ -156,7 +156,10 @@ func rewriter(selfNS string, byNamespace map[string]string) func(string) string 
 		if selfNS != "" && versionNS.MatchString(prefix) {
 			return selfNS + name[i:]
 		}
-		if to, ok := byNamespace[prefix]; ok {
+		if to, ok := rewrites[name]; ok {
+			return to
+		}
+		if to, ok := rewrites[prefix]; ok {
 			return to + name[i:]
 		}
 		return name
@@ -164,11 +167,30 @@ func rewriter(selfNS string, byNamespace map[string]string) func(string) string 
 }
 
 // pinRewrites maps each pinned dependency's resource qualifier to its internal
-// pinned-surface namespace.
-func pinRewrites(pins map[string]int) map[string]string {
-	m := make(map[string]string, len(pins))
-	for live, v := range pins {
-		m[resourceOf(live)] = DepNS(live, v)
+// pinned-surface namespace. When two pins share a qualifier, it maps each qualified
+// name that their surfaces declare instead, so a name goes to the pin that declares it.
+func (r *Resolver) pinRewrites(pins map[string]int) (map[string]string, error) {
+	byNS := make(map[string][]string, len(pins))
+	for live := range pins {
+		ns := resourceOf(live)
+		byNS[ns] = append(byNS[ns], live)
 	}
-	return m
+	m := make(map[string]string, len(pins))
+	for ns, lives := range byNS {
+		if len(lives) == 1 {
+			m[ns] = DepNS(lives[0], pins[lives[0]])
+			continue
+		}
+		for _, live := range lives {
+			names, err := r.surfaceNames(live, pins[live])
+			if err != nil {
+				return nil, err
+			}
+			to := DepNS(live, pins[live])
+			for name := range names {
+				m[ns+"."+name] = to + "." + name
+			}
+		}
+	}
+	return m, nil
 }
