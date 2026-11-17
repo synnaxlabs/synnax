@@ -284,12 +284,16 @@ an input that its state's type picks, such as a menu of enumeration entries or a
 field, and the typed value stays in Pluto until sent. A command writes to the `command`
 channel of its state's `channel` source, or to its `local` value, or with no state, to
 its `CommandBinding` channel. An interaction whose commands have no channel takes no
-clicks. One Pluto function sends every write, from the node and the command key.
-Built-in states are `position`, `run`, `on`, and `level`, and built-in commands are
-`open`, `close`, `start`, `stop`, and `set`, which asks. The Core's code lists each
-built-in symbol by name, with its state keys and types, and its command keys with the
-state that each targets, and a read-only route returns the list. Pluto keeps the
-drawings. A shipped key never changes, and a shipped built-in name never changes.
+clicks. One Pluto function sends every write, from the node and the command key. Every
+clickable built-in has one enumeration state, `active`, which is 0 at rest and 1 when
+driven, and its built-in enumeration names the two values. Its two `fixed` commands are
+`deactivate`, which writes 0, and `activate`, which writes 1, named to match, such as
+Close and Open. A tank has the number state `level` and the command `set`, which asks.
+"Change symbol" between any two clickable built-ins keeps their channels. The Core's
+code lists each built-in symbol by name, with its state keys and types, and its command
+keys with the state that each targets, and a read-only route returns the list. Pluto
+keeps the drawings. A shipped key never changes, and a shipped built-in name never
+changes.
 
 ### 4.4 Edits and customization
 
@@ -347,33 +351,44 @@ only to those.
 
 Phase 2 migrates nodes by this table, and phase 1 migrates stored custom symbols.
 
-| Today              | `symbol`                                    | Bindings                                                        |
-| ------------------ | ------------------------------------------- | --------------------------------------------------------------- |
-| 44 static pictures | `builtin` of the variant                    | None                                                            |
-| 31 live toggles    | `builtin` of the variant                    | `position` or `run`                                             |
-| `solenoid_valve`   | `builtin`, a second one for `normally_open` | As a live toggle                                                |
-| 7 local toggles    | `builtin` of the variant                    | `position` from `local` `enabled`, `disabled` from `!clickable` |
-| `light`            | `builtin`                                   | `on` from `channel`, with `within` a differing `threshold`      |
-| `custom_actuator`  | `custom` of `spec_key`                      | `state` as a live toggle                                        |
-| `custom_static`    | `custom` of `spec_key`                      | `state` with no source                                          |
+| Today              | `symbol`                                    | Bindings                                                       |
+| ------------------ | ------------------------------------------- | -------------------------------------------------------------- |
+| 44 static pictures | `builtin` of the variant                    | None                                                           |
+| 31 live toggles    | `builtin` of the variant                    | `active`                                                       |
+| `solenoid_valve`   | `builtin`, a second one for `normally_open` | As a live toggle                                               |
+| 7 local toggles    | `builtin` of the variant                    | `active` from `local` `enabled`, `disabled` from `!clickable`  |
+| `light`            | `builtin`                                   | `active` from `channel`, with `within` a differing `threshold` |
+| `custom_actuator`  | `custom` of `spec_key`                      | `active` as a live toggle                                      |
+| `custom_static`    | `custom` of `spec_key`                      | `active` with no source                                        |
 
 A toggle's `channel` source reads `state_channel`, and its `command` is
 `command_channel`. A toggle with no `state_channel` gets a source with no `key`, so it
-draws its default entry, as today. Its first click sends the command for value 1, as
-today, and later clicks open the menu, because the command channel then disagrees with
-the state. Each built-in state with two entries ships `within` 0.9 to 1.1, so a toggle,
-and a light with no `threshold`, gets no binding `match`. A light whose `threshold`
-differs from those bounds gets it as its binding `match`, and an inverted `threshold` is
-swapped, as today's check swaps it. With these matches, each migrated toggle and light
-reads every number as it does today. The light's `on_color` moves to an enumeration.
-`stroke_color` becomes `color`, `staleness_color` goes, the time fields keep their
-values, and `state_overrides` become enumerations by RFC 0112 §4.6. The migration ends
-with `gorp.DanglingMigration`, as line plots do
-(`core/pkg/service/lineplot/migrate.go:24`), so the key of a deleted channel clears its
-channel or removes its `CommandBinding`. RFC 0112 phase 22 turns the region color looks
-of a custom symbol into `entry` looks, and gives each node whose overrides change its
-colors its own enumeration, or a copy of its symbol when an enumeration cannot carry
-them, so no node changes its look.
+draws its default entry, as today. Its first click sends `activate`, as today, and later
+clicks open the menu, because the command channel then disagrees with the state. Each
+built-in state with two entries ships `within` 0.9 to 1.1, so a toggle, and a light with
+no `threshold`, gets no binding `match`. A light whose `threshold` differs from those
+bounds gets it as its binding `match`, and an inverted `threshold` is swapped, as
+today's check swaps it. With these matches, each migrated toggle and light reads every
+number as it does today. The light's `on_color` moves to an enumeration. `stroke_color`
+becomes `color`, `staleness_color` goes, the time fields keep their values, and
+`state_overrides` become enumerations by RFC 0112 §4.6. The migration ends with
+`gorp.DanglingMigration`, as line plots do (`core/pkg/service/lineplot/migrate.go:24`),
+so the key of a deleted channel clears its channel or removes its `CommandBinding`. RFC
+0112 phase 22 turns the region color looks of a custom symbol into `entry` looks, and
+gives each node whose overrides change its colors its own enumeration, or a copy of its
+symbol when an enumeration cannot carry them, so no node changes its look.
+
+Each built-in gets the enumeration and command names of its family. A normally open
+`solenoid_valve` becomes a second built-in, whose Open is `deactivate` and writes 0.
+
+| Variants                                                                                                                                                                                                                                                             | Enumeration                           | Commands          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- | ----------------- |
+| 9 valves: `valve`, `angled_valve`, `ball_valve`, `butterfly_valve_one`, `butterfly_valve_two`, `four_way_valve`, `gate_valve`, `three_way_valve`, `three_way_ball_valve`; `solenoid_valve`; the 7 local valves                                                       | Valve: 0 Closed, 1 Open               | Close, Open       |
+| `solenoid_valve` with `normally_open`                                                                                                                                                                                                                                | Normally open valve: 0 Open, 1 Closed | Open, Close       |
+| 13 pumps and compressors: `pump`, `cavity_pump`, `diaphragm_pump`, `ejection_pump`, `piston_pump`, `screw_pump`, `vacuum_pump`, `compressor`, `centrifugal_compressor`, `ejector_compressor`, `liquid_ring_compressor`, `roller_vane_compressor`, `turbo_compressor` | Pump: 0 Stopped, 1 Running            | Stop, Start       |
+| 7 agitators and mixers: `agitator`, `cross_beam_agitator`, `flat_blade_agitator`, `helical_agitator`, `paddle_agitator`, `propeller_agitator`, `rotary_mixer`                                                                                                        | Pump: 0 Stopped, 1 Running            | Stop, Start       |
+| `switch`, `thruster`                                                                                                                                                                                                                                                 | Switch: 0 Off, 1 On                   | Turn off, Turn on |
+| `light`                                                                                                                                                                                                                                                              | Light: 0 Off, 1 On                    | None              |
 
 The migration and an import give a node whose custom symbol does not exist `missing`
 with the old key, and keep its bindings. Pluto draws today's "Missing custom symbol"
@@ -383,14 +398,14 @@ symbol keys (§4.4), only a symbol absent from both the import and the Core give
 adds a symbol with its key.
 
 In a stored custom symbol, `svg` becomes an `svg` drawing, each distinct pair of region
-key and selector set becomes a part, state `i` becomes value `i` of one state `state`
+key and selector set becomes a part, state `i` becomes value `i` of one state `active`
 with default 0, and each region color becomes a look on that value. A region key whose
 selectors differ between states becomes two parts with their own keys, and the looks
 follow the parts. A selector that is not a name resolves against the drawing, and each
 match gets a `data-region-id`. A stored actuator, and a static symbol that a
-`custom_actuator` node uses, get `within` 0.9 to 1.1 on `state`, the `fixed` commands
-`off` for value 0 and `on` for value 1, named Off and On, and `next` on the whole
-drawing.
+`custom_actuator` node uses, get `within` 0.9 to 1.1 on `active`, the `fixed` commands
+`deactivate` for value 0 and `activate` for value 1, named Off and On, and `next` on the
+whole drawing.
 
 ## 5 What this RFC does not cover
 
