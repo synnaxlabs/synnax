@@ -75,7 +75,8 @@ The errors page is generated from the kinds. `errors.mdx` has no item for each c
 - **Real messages**: `go generate` compiles the failing example, checks that it reports
   the code, and writes the message to `codes.gen.json`. The page shows that message, so
   no person names the `%s` values.
-- **Layout**: One heading for each band. Band 0 is not on the page.
+- **Layout**: One list in band order, warnings first in each band. Band 0 is not on the
+  page.
 - **Anchors**: The anchor of a code is the code in lowercase, such as `#e2001`.
 
 ### 2.4 Prior art

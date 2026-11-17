@@ -19,16 +19,24 @@ export interface Kind {
   example: string;
 }
 
-/**
- * Returns the Arc diagnostic kinds of a band, errors before warnings.
- * @param band - The first digit of the code.
- * @throws If no kind is in the band.
- */
-export const kinds = (band: number): Kind[] => {
-  const found = Object.entries(KINDS as Record<string, Omit<Kind, "code">>)
-    .filter(([code]) => code[1] === band.toString())
-    .map(([code, kind]) => ({ code, ...kind }))
-    .sort((a, b) => a.code.localeCompare(b.code));
-  if (found.length === 0) throw new Error(`no Arc diagnostic kind is in band ${band}`);
-  return found;
+/** The name of each band that the docs show, by the first digit of its codes. */
+export const BANDS: Record<string, string> = {
+  1: "Syntax",
+  2: "Types and expressions",
+  3: "Functions and statements",
+  4: "Names and modules",
+  5: "Flows, sequences, and stages",
 };
+
+// The band is first, then W before E.
+const order = (code: string): string =>
+  code[1] + (code[0] === "W" ? "0" : "1") + code.slice(2);
+
+/**
+ * Returns the Arc diagnostic kinds that the docs show, by band, warnings before errors.
+ */
+export const kinds = (): Kind[] =>
+  Object.entries(KINDS as Record<string, Omit<Kind, "code">>)
+    .filter(([code]) => code[1] in BANDS)
+    .map(([code, kind]) => ({ code, ...kind }))
+    .sort((a, b) => order(a.code).localeCompare(order(b.code)));

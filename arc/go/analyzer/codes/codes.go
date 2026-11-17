@@ -127,7 +127,7 @@ var (
 	NaNComparison = diagnostics.Kind{
 		Code:     "E2010",
 		Severity: protocol.DiagnosticSeverityError,
-		Message:  "%s with %s is always %t, use %s instead",
+		Message:  "comparison with %s using %s is always %t, use %s instead",
 	}
 	// TruthyCondition is a number or a string used as a condition.
 	TruthyCondition = diagnostics.Kind{

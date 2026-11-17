@@ -9,7 +9,7 @@
 // included in the file licenses/APL.txt.
 
 import Body from "@/components/problem/Body.astro";
-import { InlineCode } from "@/components/text/InlineCode";
+import Head from "@/components/problem/Head.astro";
 import { toAnchor } from "@/util/anchor";
 
 interface Props {
@@ -32,105 +32,22 @@ if ((message == null) === (symptom == null))
     throw new Error("Problem.Item needs exactly one of message or symptom");
 const titles = message == null ? [symptom as string] : [message].flat();
 const id = Astro.props.id ?? toAnchor(code ?? titles[0]).slice(0, 64);
-const SEVERITIES = { error: "Error", warning: "Warning" };
 ---
 
 <li class="problem" id={id}>
-    <div class="problem__head">
-        {severity != null && (
-            <span
-                class={`problem__severity problem__severity--${severity}`}
-                role="img"
-                aria-label={SEVERITIES[severity]}
-            />
-        )}
-        {(code != null || severity != null) && (
-            <span class="problem__label">
-                {code ?? SEVERITIES[severity as keyof typeof SEVERITIES]}
-            </span>
-        )}
-        <div class="problem__titles">
-            {titles.map((title) => (
-                <a
-                    class:list={[
-                        "problem__title",
-                        { "problem__title--message": message != null },
-                    ]}
-                    href={`#${id}`}
-                >
-                    {message != null ? title : <InlineCode text={title} />}
-                </a>
-            ))}
-        </div>
-    </div>
+    <Head
+        id={id}
+        titles={titles}
+        exact={message != null}
+        code={code}
+        severity={severity}
+    />
     <Body>
         <slot />
     </Body>
 </li>
 
 <style is:global>
-    .problem__head {
-        display: flex;
-        align-items: baseline;
-        gap: 1.5rem;
-    }
-
-    .problem__titles {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .problem__label {
-        font-size: var(--pluto-small-size);
-        font-weight: 500;
-        color: var(--pluto-gray-l8);
-    }
-
-    /* The dot is in the middle of the first line of the title. */
-    .problem__severity {
-        display: flex;
-        flex: none;
-        align-items: center;
-        align-self: flex-start;
-        height: var(--pluto-p-line-height);
-
-        &::before {
-            content: "";
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-        }
-    }
-
-    .problem__severity--error::before {
-        background: var(--pluto-error-z);
-    }
-
-    .problem__severity--warning::before {
-        background: var(--pluto-warning-z);
-    }
-
-    .problem__title {
-        display: block;
-        font-size: var(--pluto-p-size);
-        font-weight: 550;
-        line-height: var(--pluto-p-line-height);
-        color: var(--pluto-gray-l11);
-        text-decoration: none;
-        overflow-wrap: anywhere;
-
-        &:hover {
-            text-decoration: underline;
-            text-decoration-color: var(--pluto-gray-l6);
-        }
-    }
-
-    .problem__title--message {
-        font-family: "Geist Mono", monospace;
-        font-size: var(--pluto-small-size);
-        font-weight: 500;
-    }
-
     .problem > .problem__body {
         margin: 1.5rem 0 0;
     }

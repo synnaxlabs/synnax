@@ -373,7 +373,7 @@ func checkNaNComparison[T, O antlr.ParserRuleContext](
 		if op == "!=" {
 			check = "not " + check
 		}
-		d := codes.NaNComparison.At(ctx.AST, op, qid.GetText(), op == "!=", check)
+		d := codes.NaNComparison.At(ctx.AST, qid.GetText(), op, op == "!=", check)
 		if imported && len(operands) == 2 && (op == "==" || op == "!=") {
 			d = d.WithFix(ctx.AST, check+"("+sourceText(operands[1-i])+")")
 		}
@@ -673,11 +673,31 @@ func hasMultipleNamedOutputs(t basetypes.Type) bool {
 	return len(t.Outputs) > 1 || (len(t.Outputs) == 1 && !hasDefault)
 }
 
+// inDeclaredFunction reports whether scope is in the body of a func declaration. A flow
+// expression is also a function, but its variable reads become inputs.
+func inDeclaredFunction(scope *symbol.Symbol) bool {
+	fn, err := scope.ClosestAncestorOfKind(symbol.KindFunction)
+	if err != nil {
+		return false
+	}
+	_, ok := fn.AST.(parser.IFunctionDeclarationContext)
+	return ok
+}
+
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 	if head, tail := parser.PrimaryNameParts(ctx.AST); head != "" {
 		resolved, err := ctx.ResolveQualified(head, tail)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+			return
+		}
+		if resolved.Kind == symbol.KindVariable && resolved.AST != nil &&
+			resolved.IsComputed() && inDeclaredFunction(ctx.Scope) {
+			ctx.Diagnostics.Add(codes.NotConstant.Atf(
+				ctx.AST,
+				"cannot read '%s': its initializer is not a compile-time constant",
+				parser.PrimaryName(ctx.AST),
+			))
 			return
 		}
 		if tracksChannelRead(resolved) {

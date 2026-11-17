@@ -161,12 +161,18 @@ condition or a flow starts it.
 
 <Divider.Divider x />
 
-## Errors while it runs
+## Runtime errors
+
+A runtime error has no code and no line number. Examples are an integer division by zero
+and an index outside a series.
 
 | Where it runs | When a part of the automation has an error                                                             |
 | ------------- | ------------------------------------------------------------------------------------------------------ |
 | The Core      | Synnax drops the output of that part for the cycle, shows a warning, and keeps running.                |
 | A Driver      | Synnax stops the automation and shows an error. A warning, such as a skipped sample, does not stop it. |
+
+A failed `status.set` or `ranges` call shows a warning on both, and the automation keeps
+running.
 
 To choose where an automation runs, see
 [where an Arc automation runs](/reference/control/arc#where-an-arc-automation-runs).

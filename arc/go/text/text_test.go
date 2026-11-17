@@ -9279,7 +9279,7 @@ time.wait(duration=500ms) -> output`
 		)
 
 		It(
-			"Should reject a function body reading a variable whose initializer did not fold",
+			"Should reject a function body reading a variable whose initializer is not a constant",
 			func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
@@ -9300,14 +9300,14 @@ time.wait(duration=500ms) -> output`
 			func rd() {n u8} i64 { return k }
 			trig -> rd() -> out`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				ir, diagnostics := text.Analyze(
+				_, diagnostics := text.Analyze(
 					ctx,
 					parsedText,
 					NewRoot(nil, resolver...),
 				)
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				Expect(text.Compile(ctx, ir)).Error().To(MatchError(
-					ContainSubstring("not a compile-time constant"),
+				Expect(diagnostics.String()).To(ContainSubstring(
+					"3:33 error [E2006]: cannot read 'k': its initializer is not a " +
+						"compile-time constant",
 				))
 			},
 		)

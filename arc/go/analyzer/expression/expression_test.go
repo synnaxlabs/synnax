@@ -2174,16 +2174,36 @@ var _ = Describe("Expressions", func() {
 				Expect(d.Message).To(ContainSubstring(message))
 				Expect(d.Message).To(ContainSubstring("math.is_nan"))
 			},
-			Entry("==", "v == math.nan", "== with math.nan is always false"),
+			Entry(
+				"==",
+				"v == math.nan",
+				"comparison with math.nan using == is always false",
+			),
 			Entry(
 				"!=",
 				"v != math.nan",
-				"!= with math.nan is always true, use not math.is_nan instead",
+				"comparison with math.nan using != is always true, use not math.is_nan instead",
 			),
-			Entry("<", "v < math.nan", "< with math.nan is always false"),
-			Entry(">", "math.nan > v", "> with math.nan is always false"),
-			Entry("<=", "v <= -math.nan", "<= with math.nan is always false"),
-			Entry(">=", "w >= f32(math.nan)", ">= with math.nan is always false"),
+			Entry(
+				"<",
+				"v < math.nan",
+				"comparison with math.nan using < is always false",
+			),
+			Entry(
+				">",
+				"math.nan > v",
+				"comparison with math.nan using > is always false",
+			),
+			Entry(
+				"<=",
+				"v <= -math.nan",
+				"comparison with math.nan using <= is always false",
+			),
+			Entry(
+				">=",
+				"w >= f32(math.nan)",
+				"comparison with math.nan using >= is always false",
+			),
 			Entry("not on an ordered comparison with math.inf", "v < math.inf", ""),
 			Entry("left side", "math.nan == w", "always false"),
 			Entry("parentheses on the left", "(math.nan) == v", "always false"),
@@ -2250,12 +2270,12 @@ var _ = Describe("Expressions", func() {
 			Entry(
 				"an import alias",
 				"import math as m\nfunc f() {v f64} {\n    a := v == m.nan\n}",
-				"== with m.nan is always false, use m.is_nan instead",
+				"comparison with m.nan using == is always false, use m.is_nan instead",
 			),
 			Entry(
 				"a module without is_nan",
 				"import custom\nfunc f() {v f64} {\n    a := v != custom.missing\n}",
-				"!= with custom.missing is always true, "+
+				"comparison with custom.missing using != is always true, "+
 					"use not is_nan from the math module instead",
 			),
 		)

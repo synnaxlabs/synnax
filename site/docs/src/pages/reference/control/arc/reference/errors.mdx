@@ -6,14 +6,11 @@ description: "Look up each diagnostic that the Arc compiler reports, by its code
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Arc } from "@/components/arc";
-import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Arc compiler checks the code while you type, and the editor marks each problem. Each
-diagnostic has a line and a column, a severity, a code, a message, and sometimes a note.
-An error stops the automation from compiling. A warning does not. In a status, a
-diagnostic looks like this:
+The editor marks each problem while you type. An error stops the automation from
+compiling. A warning does not. In a status, a diagnostic looks like this:
 
 ```text
 5:14 error [E3001]: missing required argument for parameter 'y' of func 'add'
@@ -24,66 +21,8 @@ diagnostic looks like this:
 
 ## Diagnostic codes
 
-A code starts with `E` for an error or `W` for a warning. The first digit is the area of
-the language. Each code below has the message of its example. The message that you see
-can have different names and types.
+Select a message to see the problem and an example.
 
-### Syntax
+<Arc.Kinds />
 
-<Arc.Kinds band={1} />
-
-### Types and expressions
-
-<Arc.Kinds band={2} />
-
-### Functions and statements
-
-<Arc.Kinds band={3} />
-
-### Names and modules
-
-<Arc.Kinds band={4} />
-
-### Flows, sequences, and stages
-
-<Arc.Kinds band={5} />
-
-<Divider.Divider x />
-
-## Errors when the automation starts
-
-These errors come from the last compile step. The editor does not mark them, and they
-have no line number. They show in the status when the automation starts, after a prefix
-that names the place, such as:
-
-```text
-failed to compile function 'f' body: failed to compile return expression: float modulo not yet implemented
-```
-
-<Problem.List>
-
-<Problem.Item message={"float modulo not yet implemented"}>
-  <Problem.Cause>The code uses `%` on floats.</Problem.Cause>
-  <Problem.Fix>Use `%` on integers only.</Problem.Fix>
-</Problem.Item>
-<Problem.Item
-  message={"cannot read '<name>': its initializer is not a compile-time constant"}
->
-  <Problem.Cause>
-    A function reads a top-level variable whose value is not a constant, such as a
-    series or an expression.
-  </Problem.Cause>
-  <Problem.Fix>Declare the variable in the function or stage that uses it.</Problem.Fix>
-</Problem.Item>
-
-</Problem.List>
-
-<Divider.Divider x />
-
-## Errors while it runs
-
-Errors while an automation runs have no code. An example is an integer division by zero.
-On the Core, Synnax shows a warning and the automation keeps running. On a Driver, an
-error stops the automation. A failed `status.set` or `ranges` call shows a warning on
-both, and the automation keeps running. For the full rules, see
-[errors while it runs](/reference/control/arc/execution-model#errors-while-it-runs).
+A [runtime error](/reference/control/arc/execution-model#runtime-errors) has no code.

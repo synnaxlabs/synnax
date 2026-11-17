@@ -12,26 +12,32 @@ import { describe, expect, it } from "vitest";
 import { Arc } from "@/components/arc";
 
 describe("kinds", () => {
-  it("should return the kinds of a band with errors before warnings", () => {
-    const codes = Arc.kinds(4).map((kind) => kind.code);
-    expect(codes).toEqual([
-      "E4000",
-      "E4001",
-      "E4002",
-      "E4003",
-      "E4004",
-      "E4005",
-      "E4006",
-      "E4007",
-      "E4008",
-      "E4009",
-      "W4000",
-      "W4001",
+  it("should return the kinds by band, with warnings before errors", () => {
+    const codes = Arc.kinds().map((kind) => kind.code);
+    expect(codes.slice(0, 7)).toEqual([
+      "E1000",
+      "E1001",
+      "E1002",
+      "E1003",
+      "W2000",
+      "W2001",
+      "W2002",
     ]);
+    const from = codes.indexOf("E3013");
+    expect(codes.slice(from, from + 4)).toEqual(["E3013", "W4000", "W4001", "E4000"]);
+    expect(codes.at(-1)).toEqual("E5015");
+  });
+
+  it("should leave out the internal errors of band 0", () => {
+    expect(Arc.kinds().filter(({ code }) => code[1] === "0")).toEqual([]);
+  });
+
+  it("should name the band of each kind", () => {
+    for (const { code } of Arc.kinds()) expect(Arc.BANDS[code[1]]).toBeDefined();
   });
 
   it("should give a kind its severity, problem, example, and message", () => {
-    const kind = Arc.kinds(4).find(({ code }) => code === "W4000");
+    const kind = Arc.kinds().find(({ code }) => code === "W4000");
     expect(kind).toEqual({
       code: "W4000",
       severity: "warning",
@@ -42,12 +48,8 @@ describe("kinds", () => {
   });
 
   it("should give a kind with no example an empty message", () => {
-    const kind = Arc.kinds(1).find(({ code }) => code === "E1001");
+    const kind = Arc.kinds().find(({ code }) => code === "E1001");
     expect(kind?.message).toEqual("");
     expect(kind?.example).toEqual("");
-  });
-
-  it("should throw for a band that has no kind", () => {
-    expect(() => Arc.kinds(9)).toThrow("no Arc diagnostic kind is in band 9");
   });
 });

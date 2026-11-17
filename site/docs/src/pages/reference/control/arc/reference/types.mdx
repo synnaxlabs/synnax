@@ -183,7 +183,7 @@ func peak() f64 {
 - A negative slice bound counts from the end, so `data[0:-1]` drops the last element. A
   bound outside the series stops at the nearer end.
 - A negative index counts from the end. An index outside the series is an error. See
-  [errors while it runs](/reference/control/arc/execution-model#errors-while-it-runs).
+  [runtime errors](/reference/control/arc/execution-model#runtime-errors).
 - A top-level series is not a constant. Its declaration fails with
   `variable 'data' of type series f64 cannot have a computed initializer`.
 

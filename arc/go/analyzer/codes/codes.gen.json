@@ -115,13 +115,13 @@
   },
   "E2009": {
     "severity": "error",
-    "message": "invalid default value for input parameter x: cannot convert non-integer float 1.500000 to i32",
+    "message": "invalid default value for input parameter <name>",
     "problem": "A number literal is malformed, or it has no exact value in its type.",
     "example": "func f(x i32 = 1.5) {\n}"
   },
   "E2010": {
     "severity": "error",
-    "message": "== with math.nan is always false, use math.is_nan instead",
+    "message": "comparison with math.nan using == is always false, use math.is_nan instead",
     "problem": "A comparison has a NaN constant as an operand. NaN is not equal to, less than, or greater than a value, so the comparison always has the same result.",
     "example": "import math\n\nfunc f(x f64) u8 {\n    return x == math.nan\n}"
   },
@@ -379,7 +379,7 @@
   },
   "W2002": {
     "severity": "warning",
-    "message": "additive operation combines values with ~12 orders of magnitude difference (K vs pK); smaller value may lose precision",
+    "message": "values with units have a large difference in magnitude; smaller value may lose precision",
     "problem": "An operation on values with units can cause truncation or overflow.",
     "example": "func f() {\n    x := 1K + 1pK\n}"
   },

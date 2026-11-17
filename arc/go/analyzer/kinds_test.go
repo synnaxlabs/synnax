@@ -43,6 +43,8 @@ var _ = Describe("Diagnostic kinds", func() {
 			"func f() {\n x := \"a\" - \"b\"\n}", codes.InvalidOperand),
 		Entry("a cast that Arc does not convert",
 			"func f() {\n x := i32(\"a\")\n}", codes.InvalidCast),
+		Entry("a function that reads a variable with a computed initializer",
+			"k := 1 + 2\nfunc f() i64 {\n return k\n}", codes.NotConstant),
 		Entry("a literal with no exact value",
 			"func f(x i32 = 1.5) {\n}", codes.InvalidLiteral),
 		Entry("a literal that does not fit its type",
