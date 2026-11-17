@@ -313,21 +313,27 @@ saves details only after a connect that reads every file (§3.5), and the expiry
 writes no status for a certificate with no details. So the warning stays until the
 certificate first gets details, and the first expiry status after that replaces it.
 Details come from the reader once the key is in place, or earlier from a replace that
-picks the certificate file in the file browser. OPC UA and HTTP device settings have no
-Go type yet, so their migrations follow the EtherCAT device migration
-(`core/pkg/service/legacy/device/versions/v1/ethercat.go:30`). Each migration ships in
-the same PR as the code that reads the new field, so `main` keeps working.
+picks the certificate file in the file browser.
 
-The TypeScript and Python clients get `secrets` and `certificates` from Oracle, and the
-C++ client gets `resolve` and certificate retrieve for the Driver. A script makes a
-secret with `client.secrets.set(name=..., value=...)` and puts its key on the device.
+An empty field makes no item and stays empty, as an empty PagerDuty routing key does
+(`core/pkg/service/pagerduty/versions/v2/migrate.go:30`). So an anonymous MQTT broker
+keeps no password, an empty CA keeps the system roots, and an empty OPC UA client
+certificate still selects the Driver certificate. Each migration creates its items in
+its own transaction, as PagerDuty's `SecretMigration` does
+(`core/pkg/service/pagerduty/migrate.go:38`). Each migration ships in the same PR as the
+code that reads the new field, so `main` keeps working.
+
+The TypeScript and Python clients get `secrets` and `certificates` from Oracle. The C++
+client gets `resolve`, and certificate retrieve, create, and refresh, for the Driver. A
+script makes a secret with `client.secrets.set(name=..., value=...)` and puts its key on
+the device.
 
 ## 4 Implementation phases
 
 Phases 2 and 3 are the stores with no users, and Phase 4 their Console and first user.
 Phase 4 landed as eight PRs, #4434 to #4505. Phases 5 to 10 add file items, the two file
 browsers, and the certificate field. Phase 14 lets the Driver read items, before the
-first Driver integration moves. Each integration moves its secrets first and its
+first Driver integration moves. OPC UA and HTTP move their secrets first and their
 certificates second, and each migration ships with the change that reads the new field.
 Phase 19 needs only the certificate service, so it can start at any time.
 
@@ -343,14 +349,14 @@ Phase 19 needs only the certificate service, so it can start at any time.
 | 8     | Add the Core file browser                              | `core/pkg/service/file`, `core/pkg/service/certificate`, `core/pkg/service/layer.go`                                                                                                                                                                                    | 5          |
 | 9     | Add a certificate field to the Console                 | `console/src/platform/certificate`, `pluto/src/certificate`                                                                                                                                                                                                             | 4          |
 | 10    | Pick rack files in the secret and certificate fields   | `console/src/platform/secret`, `console/src/platform/certificate`, `console/src/feature/file`                                                                                                                                                                           | 7, 8, 9    |
-| 11    | Move the Kafka password and CA certificate to items    | `schemas/synnax`, `core/pkg/service/kafka`, `core/pkg/service/certificate`, `console/src/feature/kafka`, `client/ts`, `client/py`                                                                                                                                       | 5, 9       |
+| 11    | Move the Kafka password and CA certificate to items    | `schemas/synnax`, `core/pkg/service/kafka`, `core/pkg/service/certificate`, `core/pkg/service/layer.go`, `console/src/feature/kafka`, `client/ts`, `client/py`                                                                                                          | 5, 9       |
 | 12    | Add a client certificate to Kafka                      | `schemas/synnax`, `core/pkg/service/kafka`, `console/src/feature/kafka`, `client/ts`, `client/py`                                                                                                                                                                       | 11         |
-| 13    | Move MQTT to secrets and certificates                  | `schemas/synnax`, `core/pkg/service/mqtt`, `console/src/feature/mqtt`, `client/py`                                                                                                                                                                                      | 11         |
+| 13    | Move MQTT to secrets and certificates                  | `schemas/synnax`, `core/pkg/service/mqtt`, `core/pkg/service/layer.go`, `console/src/feature/mqtt`, `client/ts`, `client/py`                                                                                                                                            | 11         |
 | 14    | Read secrets and certificates in the Driver            | `client/cpp`, `driver/secret`, `driver/rack`, `core/pkg/service/secret`, `core/pkg/api/secret`, `core/pkg/api/certificate`                                                                                                                                              | 5, 7       |
-| 15    | Move the OPC UA password to a secret                   | `core/pkg/service/opcua`, `driver/opcua`, `console/src/feature/opcua`, `client/py`, `integration/tests`                                                                                                                                                                 | 14         |
-| 16    | Move OPC UA certificates to the certificate service    | `core/pkg/service/opcua`, `driver/opcua`, `console/src/feature/opcua`, `client/py`, `integration/tests`                                                                                                                                                                 | 9, 15      |
-| 17    | Move HTTP auth values to secrets                       | `core/pkg/service/http`, `driver/http`, `console/src/feature/http`, `client/py`, `integration/tests`                                                                                                                                                                    | 14         |
-| 18    | Add CA and client certificates to HTTP devices         | `driver/http`, `console/src/feature/http`, `client/py`                                                                                                                                                                                                                  | 9, 17      |
+| 15    | Move the OPC UA password to a secret                   | `schemas/synnax`, `core/pkg/service/opcua`, `core/pkg/service/layer.go`, `driver/opcua`, `console/src/feature/opcua`, `client/ts`, `client/py`, `client/cpp`, `integration/tests`                                                                                       | 14         |
+| 16    | Move OPC UA certificates to the certificate service    | `schemas/synnax`, `core/pkg/service/opcua`, `core/pkg/service/layer.go`, `driver/opcua`, `console/src/feature/opcua`, `client/ts`, `client/py`, `client/cpp`, `integration/tests`                                                                                       | 9, 15      |
+| 17    | Move HTTP auth values to secrets                       | `schemas/synnax`, `core/pkg/service/http`, `core/pkg/service/layer.go`, `driver/http`, `console/src/feature/http`, `client/ts`, `client/py`, `client/cpp`, `integration/tests`                                                                                          | 14         |
+| 18    | Add CA and client certificates to HTTP devices         | `schemas/synnax`, `core/pkg/service/http`, `driver/http`, `console/src/feature/http`, `client/ts`, `client/py`, `client/cpp`                                                                                                                                            | 9, 17      |
 | 19    | Report the expiry of the Core's own certificates       | `core/pkg/service/certificate`, `core/pkg/security/cert`, `core/pkg/service/layer.go`                                                                                                                                                                                   | 3          |
 
 ## 5 Resolved decisions
