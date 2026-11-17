@@ -57,7 +57,7 @@ void encode_record(std::string &buf, const Record &record) {
 }
 
 x::errors::Error fs_error(const std::string &msg, const std::error_code &ec) {
-    return x::errors::Error(ERROR, msg + ": " + ec.message());
+    return x::errors::Error(BASE_ERROR, msg + ": " + ec.message());
 }
 }
 
@@ -72,53 +72,50 @@ Writer::~Writer() {
 }
 
 std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig cfg) {
-    std::uint64_t size = HEADER_SIZE;
-    bool torn = false;
-    if (!std::filesystem::exists(cfg.path)) {
+    std::error_code ec;
+    const bool exists = std::filesystem::exists(cfg.path, ec);
+    if (ec) return {nullptr, fs_error("failed to stat " + cfg.path.string(), ec)};
+    if (!exists)
         if (auto err = create(cfg.path, encode_header(cfg.magic, cfg.flags)))
             return {nullptr, err};
-    } else {
-        auto [reader, err] = Reader::open({.path = cfg.path, .magic = cfg.magic});
-        if (err) return {nullptr, err};
-        if (reader->header.version != VERSION)
-            return {nullptr, x::errors::Error(UNKNOWN_VERSION, "cannot append")};
-        while (true) {
-            auto [record, r_err] = reader->next_record();
-            if (r_err) return {nullptr, r_err};
-            if (!record) break;
-        }
-        size = reader->pos();
-        torn = reader->torn();
-        reader.reset();
-        std::error_code ec;
-        if (torn) std::filesystem::resize_file(cfg.path, size, ec);
-        if (ec) return {nullptr, fs_error("failed to cut torn tail", ec)};
-    }
     auto [file, err] = File::open(cfg.path);
     if (err) return {nullptr, err};
-    if (torn) {
+    if (err = file->lock(); err) return {nullptr, err};
+    auto [reader, r_err] = Reader::open({.path = cfg.path, .magic = cfg.magic});
+    if (r_err) return {nullptr, r_err};
+    if (reader->header.version != VERSION)
+        return {nullptr, x::errors::Error(UNKNOWN_VERSION, "cannot append")};
+    while (true) {
+        auto [record, n_err] = reader->next_record();
+        if (n_err) return {nullptr, n_err};
+        if (!record) break;
+    }
+    const auto size = reader->pos();
+    const auto cut = reader->cut();
+    reader.reset();
+    if (cut > 0) {
+        if (err = file->truncate(size); err) return {nullptr, err};
         if (err = cfg.on_sync(file->sync()); err) return {nullptr, err};
     }
-    return {
-        std::unique_ptr<Writer>(new Writer(std::move(cfg), std::move(file), size)),
-        x::errors::NIL
-    };
-}
-
-x::errors::Error Writer::fail(const x::errors::Error &err) {
-    this->failed = err;
-    return err;
+    auto writer = std::unique_ptr<Writer>(
+        new Writer(std::move(cfg), std::move(file), size)
+    );
+    writer->cut_bytes = cut;
+    return {std::move(writer), x::errors::NIL};
 }
 
 x::errors::Error Writer::write(const Record &record) {
     if (this->failed) return this->failed;
     if ((record.type & ~SKIPPABLE) == 0)
-        return x::errors::Error(ERROR, "record type has no value");
+        return x::errors::Error(BASE_ERROR, "record type has no value");
     if (record.payload.size() > MAX_PAYLOAD)
-        return x::errors::Error(ERROR, "record payload is too large");
+        return x::errors::Error(BASE_ERROR, "record payload is too large");
     std::string buf;
     encode_record(buf, record);
-    if (auto err = this->file->write(buf)) return this->fail(err);
+    if (auto err = this->file->write(buf)) {
+        this->failed = err;
+        return err;
+    }
     this->size += buf.size();
     this->unsynced += buf.size();
     return this->sync_if_due();
@@ -133,25 +130,33 @@ x::errors::Error Writer::sync_if_due() {
 }
 
 x::errors::Error Writer::sync() {
-    if (this->failed || this->unsynced == 0) return this->failed;
-    // A failed fsync can drop the dirty pages, so a retry could report a false
-    // success.
-    if (auto err = this->cfg.on_sync(this->file->sync())) return this->fail(err);
-    this->unsynced = 0;
-    this->last_sync = this->cfg.now();
-    return x::errors::NIL;
+    if (this->file == nullptr || this->sync_failed) return this->failed;
+    if (this->unsynced > 0) {
+        if (auto err = this->cfg.on_sync(this->file->sync())) {
+            this->sync_failed = err;
+            if (!this->failed) this->failed = err;
+            return err;
+        }
+        this->unsynced = 0;
+        this->last_sync = this->cfg.now();
+    }
+    return this->failed;
 }
 
 x::errors::Error Writer::close() {
     if (this->file == nullptr) return this->failed;
     const auto err = this->sync();
     this->file.reset();
-    if (!this->failed) this->failed = x::errors::Error(ERROR, "writer is closed");
+    if (!this->failed) this->failed = x::errors::Error(BASE_ERROR, "writer is closed");
     return err;
 }
 
 std::uint64_t Writer::pos() const {
     return this->size;
+}
+
+std::uint64_t Writer::cut() const {
+    return this->cut_bytes;
 }
 
 Reader::Reader(ReaderConfig cfg): cfg(std::move(cfg)) {}
@@ -164,7 +169,7 @@ std::pair<std::unique_ptr<Reader>, x::errors::Error> Reader::open(ReaderConfig c
     if (ec) return {nullptr, fs_error("failed to stat " + path, ec)};
     reader->file.open(reader->cfg.path, std::ios::binary);
     if (!reader->file)
-        return {nullptr, x::errors::Error(ERROR, "failed to open " + path)};
+        return {nullptr, x::errors::Error(BASE_ERROR, "failed to open " + path)};
     std::array<char, HEADER_SIZE> buf{};
     if (reader->size < HEADER_SIZE || !reader->file.read(buf.data(), buf.size()))
         return {nullptr, x::errors::Error(CORRUPT, path + " has no full file start")};
@@ -189,42 +194,24 @@ std::pair<std::unique_ptr<Reader>, x::errors::Error> Reader::open(ReaderConfig c
     return {std::move(reader), x::errors::NIL};
 }
 
-bool Reader::zero_after(const std::uint64_t pos) {
-    std::array<char, 4096> buf{};
-    this->file.seekg(static_cast<std::streamoff>(pos));
-    for (auto left = this->size - pos; left > 0;) {
-        const auto n = std::min<std::uint64_t>(left, buf.size());
-        if (!this->file.read(buf.data(), static_cast<std::streamsize>(n))) return false;
-        if (std::any_of(buf.begin(), buf.begin() + n, [](char c) { return c != 0; }))
-            return false;
-        left -= n;
-    }
-    return true;
-}
-
 std::pair<std::optional<Record>, x::errors::Error> Reader::next_record() {
     auto &pos = this->cfg.pos;
-    if (this->torn_tail || pos == this->size) return {std::nullopt, x::errors::NIL};
+    if (this->cut_bytes > 0 || pos == this->size) return {std::nullopt, x::errors::NIL};
     std::array<char, RECORD_PREFIX_SIZE> prefix{};
-    if (this->size - pos < RECORD_PREFIX_SIZE ||
-        !this->file.read(prefix.data(), RECORD_PREFIX_SIZE)) {
-        this->torn_tail = true;
-        return {std::nullopt, x::errors::NIL};
-    }
+    bool valid = this->size - pos >= RECORD_PREFIX_SIZE &&
+                 this->file.read(prefix.data(), RECORD_PREFIX_SIZE);
     const auto len = get<std::uint32_t>(prefix.data());
     const auto end = pos + RECORD_PREFIX_SIZE + len;
     Record record{.type = static_cast<std::uint8_t>(prefix[8])};
-    bool valid = end <= this->size && len <= MAX_PAYLOAD;
+    if (valid) valid = len <= MAX_PAYLOAD && end <= this->size;
     if (valid) {
         record.payload.resize(len);
-        valid = static_cast<bool>(this->file.read(record.payload.data(), len)) &&
+        valid = this->file.read(record.payload.data(), len) &&
                 checksum(prefix.data(), record.type, record.payload) ==
                     get<std::uint32_t>(prefix.data() + 4);
     }
     if (!valid) {
-        if (end <= this->size && !this->zero_after(end))
-            return {std::nullopt, x::errors::Error(CORRUPT, "record fails checksum")};
-        this->torn_tail = true;
+        this->cut_bytes = this->size - pos;
         return {std::nullopt, x::errors::NIL};
     }
     if ((record.type & ~SKIPPABLE) == 0)
@@ -250,7 +237,7 @@ std::uint64_t Reader::pos() const {
     return this->cfg.pos;
 }
 
-bool Reader::torn() const {
-    return this->torn_tail;
+std::uint64_t Reader::cut() const {
+    return this->cut_bytes;
 }
 }
