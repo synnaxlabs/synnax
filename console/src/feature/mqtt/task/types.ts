@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, mqtt, type task } from "@synnaxlabs/client";
-import { DataType, json, payload, record } from "@synnaxlabs/x";
+import { json, payload, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { sparkplugIDZ } from "@/feature/mqtt/device/types";
@@ -75,45 +75,6 @@ export interface SparkplugReadEntry extends mqtt.SparkplugReadEntry {}
 export type ReadEntry = PlainReadEntry | SparkplugReadEntry;
 
 export interface ReadBinding extends mqtt.ReadBinding {}
-
-/** The data type of the channel that a field of each kind reads into by default. */
-export const DEFAULT_DATA_TYPES: Record<payload.Kind, string> = {
-  float: DataType.FLOAT64.toString(),
-  integer: DataType.INT64.toString(),
-  unsigned: DataType.UINT64.toString(),
-  boolean: DataType.UINT8.toString(),
-  string: DataType.STRING.toString(),
-  timestamp: DataType.TIMESTAMP.toString(),
-  json: DataType.JSON.toString(),
-  uuid: DataType.UUID.toString(),
-  bytes: DataType.BYTES.toString(),
-};
-
-/**
- * @returns whether the Core writes the values of a field kind to a channel of the data
- * type. A number or a boolean also writes to a float, and an unsigned number or a
- * boolean to any integer.
- */
-export const converts = (kind: payload.Kind, dataType: string): boolean => {
-  const to = payload.kindOf(dataType);
-  if (to === kind) return true;
-  switch (to) {
-    case "float":
-      return kind === "integer" || kind === "unsigned" || kind === "boolean";
-    case "integer":
-      return kind === "unsigned" || kind === "boolean";
-    case "unsigned":
-      return kind === "boolean";
-    default:
-      return false;
-  }
-};
-
-/** @returns the data type of the channel that deploying creates for a binding. */
-export const bindingDataType = (
-  { dataType }: Pick<ReadBinding, "dataType">,
-  kind: payload.Kind,
-): string => (dataType === "" ? DEFAULT_DATA_TYPES[kind] : dataType);
 
 const DEPLOY_SPARKPLUG_TAG_SHAPE = {
   group: sparkplugIDZ("Group").min(1, "Group is required"),
