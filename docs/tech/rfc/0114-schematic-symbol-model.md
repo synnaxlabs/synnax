@@ -273,14 +273,16 @@ with the unknown indicator. A blink stays under three flashes per second.
 
 ### 4.3 Clicks and writes
 
-`next` lists two `fixed` commands on one state whose values differ after the state's
-match, and the Core refuses any other list on save. It compares the last state value
-with each command value, both after the match, also while the state is stale. When the
-value equals one command's value, `next` sends the other command, so a click on an open
-valve sends Close. When the value equals neither, the value is unknown, a command is
-pending, or the command channel's value after the match disagrees with the state, `next`
-opens a menu of its commands. A `fixed` command writes its value. An `ask` command opens
-an input that its state's type picks, such as a menu of enumeration entries or a number
+`next` lists two `fixed` commands on one state whose values differ after the symbol's
+match for that state, and the Core refuses any other list on save. Command values belong
+to the symbol, so they pass through the symbol's match, and the state value passes
+through the node's match, which can replace it. `next` compares the last state value
+with each command value, also while the state is stale. When the value equals one
+command's value, `next` sends the other command, so a click on an open valve sends
+Close. When the value equals neither, the value is unknown, a command is pending, or the
+command channel's value after the symbol's match disagrees with the state, `next` opens
+a menu of its commands. A `fixed` command writes its value. An `ask` command opens an
+input that its state's type picks, such as a menu of enumeration entries or a number
 field, and the typed value stays in Pluto until sent. A command writes to the `command`
 channel of its state's `channel` source, or to its `local` value, or with no state, to
 its `CommandBinding` channel. An interaction whose commands have no channel takes no
@@ -288,12 +290,12 @@ clicks. One Pluto function sends every write, from the node and the command key.
 clickable built-in has one enumeration state, `active`, which is 0 at rest and 1 when
 driven, and its built-in enumeration names the two values. Its two `fixed` commands are
 `deactivate`, which writes 0, and `activate`, which writes 1, named to match, such as
-Close and Open. A tank has the number state `level` and the command `set`, which asks.
-"Change symbol" between any two clickable built-ins keeps their channels. The Core's
-code lists each built-in symbol by name, with its state keys and types, and its command
-keys with the state that each targets, and a read-only route returns the list. Pluto
-keeps the drawings. A shipped key never changes, and a shipped built-in name never
-changes.
+Close and Open. When `tank` moves into `symbol` (§4.0), it gets the number state `level`
+and the command `set`, which asks, and joins the Core list then. "Change symbol" between
+any two clickable built-ins keeps their channels. The Core's code lists each built-in
+symbol by name, with its state keys and types, and its command keys with the state that
+each targets, and a read-only route returns the list. Pluto keeps the drawings. A
+shipped key never changes, and a shipped built-in name never changes.
 
 ### 4.4 Edits and customization
 
@@ -399,13 +401,13 @@ adds a symbol with its key.
 
 In a stored custom symbol, `svg` becomes an `svg` drawing, each distinct pair of region
 key and selector set becomes a part, state `i` becomes value `i` of one state `active`
-with default 0, and each region color becomes a look on that value. A region key whose
-selectors differ between states becomes two parts with their own keys, and the looks
-follow the parts. A selector that is not a name resolves against the drawing, and each
-match gets a `data-region-id`. A stored actuator, and a static symbol that a
-`custom_actuator` node uses, get `within` 0.9 to 1.1 on `active`, the `fixed` commands
-`deactivate` for value 0 and `activate` for value 1, named Off and On, and `next` on the
-whole drawing.
+with default 0, the old state list stays on the symbol for RFC 0112 phase 22, and each
+region color becomes a look on that value. A region key whose selectors differ between
+states becomes two parts with their own keys, and the looks follow the parts. A selector
+that is not a name resolves against the drawing, and each match gets a `data-region-id`.
+A stored actuator, and a static symbol that a `custom_actuator` node uses, get `within`
+0.9 to 1.1 on `active`, the `fixed` commands `deactivate` for value 0 and `activate` for
+value 1, named Off and On, and `next` on the whole drawing.
 
 ## 5 What this RFC does not cover
 
@@ -426,9 +428,11 @@ outstanding. Phase 1 stores the `Spec` fields of §4.1 except `enumeration`, whi
 0112 phase 19 adds with the enumeration record, and adds the symbol checks of §4.4. It
 moves the symbol editor and the clients to the new shape, and phase 3 redesigns the
 editor. Until phase 2 deletes them, it keeps `variant`, which picks the node variant on
-placement, and today's state shape, under its own name, for `state_overrides`. Phase 2
-needs RFC 0112 phase 22, whose function its node migration calls, and ships with RFC
-0112 phases 19 to 22. Each family is redesigned after phase 5 in its own PR.
+placement, and today's state shape, under its own name, for `state_overrides` and for
+the old state list of each stored custom symbol, which RFC 0112 phase 22 reads for entry
+names. Phase 2 needs RFC 0112 phase 22, whose function its node migration calls, and
+ships with RFC 0112 phases 19 to 22. Each family is redesigned after phase 5 in its own
+PR.
 
 Phase 2 is one cutover of the stored node shape: a node variant with channel references,
 its checks with the Core list of built-ins and its route, the removal of the bindings
