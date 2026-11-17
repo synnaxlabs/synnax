@@ -278,7 +278,7 @@ jobs:
       - name: Run the examples
         if:
           inputs.test && inputs.examples_package != '' && runner.os == 'Linux' &&
-          inputs.core_image != ''
+          inputs.core_image != '' && !matrix.node
         shell: bash
         timeout-minutes: 5
         env:
