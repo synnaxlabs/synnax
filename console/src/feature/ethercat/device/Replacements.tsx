@@ -85,7 +85,7 @@ const Notification: Notifications.Notification = ({ status: st, silence }) => {
               status={status.keepVariants(variant, "loading")}
               onClick={() => update({ old: o.key, slave: slave.key })}
             >
-              {old.length === 1
+              {replace.old.length === 1
                 ? "Yes"
                 : `${o.name} at position ${o.properties.position}`}
             </Button.Button>

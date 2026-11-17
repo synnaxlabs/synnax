@@ -36,13 +36,13 @@ const SideEffect = (): null => {
   return null;
 };
 
-// Mounts inside the guard: tear-off reads the required project selectors, and the
-// Monaco preload waits until the workspace has started.
 const EtherCATReplaceSideEffect = (): null => {
   EtherCAT.Device.useListenForReplacements();
   return null;
 };
 
+// Mounts inside the guard: tear-off reads the required project selectors, and the
+// Monaco preload waits until the workspace has started.
 const ProjectSideEffect = (): null => {
   Panel.useTearOff();
   Code.usePreload();

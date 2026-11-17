@@ -699,8 +699,8 @@ describe("useReplace", () => {
       network: "eth0",
       position: 5,
       serial: 77,
-      switchedAt: 0,
     });
+    expect(kept.properties.switchedAt).toBeUndefined();
     await expect(client.devices.retrieve({ key: slave.key })).rejects.toThrow(
       NotFoundError,
     );

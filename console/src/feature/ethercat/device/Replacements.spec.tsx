@@ -48,6 +48,47 @@ const createPair = async () => {
   return { rack, model, old, slave };
 };
 
+/** Creates two old slaves, at positions 4 and 3, and a connected new slave. */
+const createTwoOld = async () => {
+  const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
+  const model = {
+    network: "eth0",
+    vendorId: Math.floor(Math.random() * 2 ** 31),
+    productCode: Math.floor(Math.random() * 2 ** 31),
+  };
+  const fourth = await createSlaveDevice(client, rack.key, {
+    ...model,
+    name: uniqueName("old"),
+    position: 4,
+  });
+  const third = await createSlaveDevice(client, rack.key, {
+    ...model,
+    name: uniqueName("old"),
+    position: 3,
+  });
+  const slave = await createSlaveDevice(
+    client,
+    rack.key,
+    { ...model, name: uniqueName("new"), position: 5, serial: 77 },
+    false,
+  );
+  await createReachedStatus(client, slave);
+  return { third, fourth, slave };
+};
+
+/** The answers that the prompt about the new slave with name offers, in order. */
+const findAnswers = async (name: string): Promise<string[]> =>
+  await waitFor(() => {
+    const prompt = screen
+      .getAllByRole("status")
+      .find((el) => within(el).queryByText(name) != null);
+    if (prompt == null) throw new Error(`No notification names ${name}`);
+    return within(prompt)
+      .getAllByRole("button")
+      .map((b) => (b.textContent ?? "").trim())
+      .filter((t) => t !== "No" && t !== "");
+  });
+
 const Listener = (): null => {
   EtherCAT.Device.useListenForReplacements();
   return null;
@@ -127,6 +168,43 @@ describe("useListenForReplacements", () => {
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
     expect(kept.properties.position).toEqual(3);
+  });
+
+  it("should name each old slave by position when several match", async () => {
+    await renderPrompt();
+    const { third, fourth, slave } = await createTwoOld();
+    expect(await findAnswers(slave.name)).toEqual([
+      `${third.name} at position 3`,
+      `${fourth.name} at position 4`,
+    ]);
+    fireEvent.click(
+      screen.getByRole("button", { name: `${fourth.name} at position 4` }),
+    );
+    await waitFor(async () =>
+      expect(
+        (
+          await client.devices.retrieve({
+            key: fourth.key,
+            schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+          })
+        ).properties,
+      ).toMatchObject({ serial: 77, position: 5 }),
+    );
+    const kept = await client.devices.retrieve({
+      key: third.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    expect(kept.properties.position).toEqual(3);
+  });
+
+  it("should keep naming the old slave that is left when another is back on the bus", async () => {
+    await renderPrompt();
+    const { third, fourth, slave } = await createTwoOld();
+    expect(await findAnswers(slave.name)).toHaveLength(2);
+    await createReachedStatus(client, third);
+    await waitFor(async () =>
+      expect(await findAnswers(slave.name)).toEqual([`${fourth.name} at position 4`]),
+    );
   });
 
   it("should offer no answer once the old module is back on the bus", async () => {
