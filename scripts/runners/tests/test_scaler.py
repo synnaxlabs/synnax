@@ -260,6 +260,15 @@ class TestScaler:
         )
         assert started(client) == [A]
 
+    def test_should_not_report_an_old_name_of_a_listed_instance_offline(self) -> None:
+        renamed = "ubuntu-tester-i-0aaa"
+        status = fleet_status(
+            {renamed: IDLE},
+            labels={A: LABELS, renamed: LABELS},
+            found={"i-0aaa": instance("running")},
+        )
+        assert status == {renamed: IDLE}
+
     def test_should_fail_when_github_refuses_the_delete(self, client: Client) -> None:
         server = Server(Clock())
         server.registered[A] = 7

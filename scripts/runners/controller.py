@@ -181,9 +181,13 @@ def fleet_status(
     listed: dict[str, int], *, labels: dict[str, set[str]], found: dict[str, dict]
 ) -> dict[str, int]:
     """The status GitHub lists for each runner, and offline for a runner GitHub does not
-    list that has an EC2 instance, such as one whose registration the scaler deleted."""
+    list whose EC2 instance no listed runner uses, such as one whose registration the
+    scaler deleted."""
+    used = {instance_for(r, found=found) for r in listed}
     return {
-        r: OFFLINE for r in labels if instance_for(r, found=found) is not None
+        r: OFFLINE
+        for r in labels
+        if (iid := instance_for(r, found=found)) is not None and iid not in used
     } | listed
 
 
