@@ -24,19 +24,17 @@ import { BindChannels, type BindChannelsProps } from "@/platform/task/BindChanne
 import { type Channel } from "@/platform/task/types";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 
-export interface ContextMenuItemProps<C extends Channel> {
-  keys: string[];
+export interface ContextMenuItemProps<C extends Channel> extends Pick<
+  Menu.ContextMenuMenuProps,
+  "keys" | "target"
+> {
   channels: C[];
-  /** The item the menu opened over. */
-  target: HTMLElement | null;
 }
 
-interface ContextMenuProps<C extends Channel> extends Pick<
-  Form.UseFieldListReturn<C>,
-  "data" | "remove"
-> {
-  keys: string[];
-  target: HTMLElement | null;
+interface ContextMenuProps<C extends Channel>
+  extends
+    Pick<Form.UseFieldListReturn<C>, "data" | "remove">,
+    Pick<Menu.ContextMenuMenuProps, "keys" | "target"> {
   allowTare?: (keys: string[], channels: C[]) => boolean;
   onDuplicate?: (channels: C[], keys: string[]) => void;
   onSelect: (keys: string[]) => void;

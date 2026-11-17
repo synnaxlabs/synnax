@@ -110,21 +110,20 @@ const PREFERENCES: position.LocationPreference[] = [
 export const useContextMenu = (): UseContextMenuReturn => {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [state, setMenuState] = useState<ContextMenuState>(INITIAL_STATE);
-  const targetRef = useRef<HTMLElement | null>(null);
   // The menu holds the focus while it is open, then gives it back to this element.
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
-  const clearTarget = () => {
-    targetRef.current?.removeAttribute(CONTEXT_OPEN_ATTRIBUTE);
-    targetRef.current = null;
-  };
-
-  // Clear the stamped target if the hook unmounts while a menu is open.
-  useEffect(() => clearTarget, [clearTarget]);
+  // Only the item the menu opened over holds the hover look, even when the menu acts
+  // on a wider selection.
+  const { target: stamped } = state;
+  useEffect(() => {
+    if (stamped == null) return;
+    stamped.setAttribute(CONTEXT_OPEN_ATTRIBUTE, "");
+    return () => stamped.removeAttribute(CONTEXT_OPEN_ATTRIBUTE);
+  }, [stamped]);
 
   const handleOpen: ContextMenuOpen = (e) => {
     const p = xy.construct(e);
-    clearTarget();
     const active = document.activeElement;
     if (active instanceof HTMLElement && menuRef.current?.contains(active) !== true)
       returnFocusRef.current = active;
@@ -140,13 +139,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
           .map((el) => el.dataset.menuKey ?? el.id)
           .filter((key) => key.length > 0),
       );
-      // Only the row the menu physically opened over holds the hover look, even
-      // when the menu acts on a wider selection.
-      if (target.classList.contains(CONTEXT_TARGET)) {
-        targetRef.current = target;
-        opened = target;
-        target.setAttribute(CONTEXT_OPEN_ATTRIBUTE, "");
-      }
+      if (target.classList.contains(CONTEXT_TARGET)) opened = target;
     }
     setMenuState({ visible: true, keys, position: p, cursor: p, target: opened });
   };
@@ -189,7 +182,6 @@ export const useContextMenu = (): UseContextMenuReturn => {
   }, [state.visible]);
 
   const hide = (returnFocus: boolean): void => {
-    clearTarget();
     const back = returnFocusRef.current;
     returnFocusRef.current = null;
     // An item that moved the focus, such as one that opened a modal, keeps it there.
