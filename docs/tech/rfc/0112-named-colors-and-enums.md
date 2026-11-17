@@ -125,15 +125,16 @@ look and no state color. It changes a look only through its enum, color, match, 
 and bounds. An edit to a built-in enum changes every symbol that uses it by default.
 
 Each state stores its match: `exact`, or `band`, which reads a value inside the band as
-1 and keeps other values. The migration writes the band 0.9 to 1.1 on every toggle
-(`DEFAULT_THRESHOLD`, `pluto/src/schematic/node/common/telem/telem.ts:16`), and a node
-can change it. Each enum state names the value of a default entry, such as Closed on a
-valve. A value that matches no entry, such as NaN or 0.5, and a state with a source but
-no data yet, draw the default entry, and Pluto adds the unknown mark. A 0 still shows
-its entry, and a state with no source draws its default entry with no mark. When no
-entry has the default value, `entry` paint goes on to the symbol color. Stale data keeps
-its entry and gets the stale mark, and `staleness_color` leaves `StalenessConfig` for
-every symbol.
+1 and every other number as 0, as today's threshold does. The migration writes the band
+0.9 to 1.1 on every toggle (`DEFAULT_THRESHOLD`,
+`pluto/src/schematic/node/common/telem/telem.ts:16`), and a node can change it. Each
+enum state names the value of a default entry, such as Closed on a valve. A state with a
+source but no data yet, NaN, and, with an `exact` match, a value that matches no entry,
+draw the default entry, and Pluto adds the unknown mark. With a band, 0.5 on a valve
+shows Closed with no mark, as today. A state with no source draws its default entry with
+no mark. When no entry has the default value, `entry` paint goes on to the symbol color.
+Stale data keeps its entry and gets the stale mark, and `staleness_color` leaves
+`StalenessConfig` for every symbol.
 
 The light gets the built-in "Light" enum (Off 0, On 1). Its threshold, or 0.9 to 1.1
 when it has none, becomes its band, and its `stroke_color` becomes the symbol color.
@@ -289,9 +290,10 @@ looks from the start. In phase 29, the Driver writes range colors
 14. **Built-ins keep a vibrant look**: Gray until abnormal changes every schematic.
 15. **Exact values, and a stored band for two-state states**: Selects and buttons write
     one value, so an entry is one value. Valves, pumps, and lights store today's band on
-    the state, so noisy feedback still reads as on, and an enum edit never switches a
-    valve to exact matches. The trade is real: 0.5 now shows the default entry with the
-    unknown mark, not off. Ranges belong to the `limit` type.
+    the state, so every number reads as today, and an enum edit never switches a valve
+    to exact matches. The trade is real: a valve stuck at 0.5 shows Closed with no mark,
+    as today, and only NaN or missing data gets the unknown mark. Ranges belong to the
+    `limit` type.
 16. **Entry values are `float64`**: Every state symbol reads and writes numbers, and a
     `float64` holds each integer state code exactly. A value of any channel type adds a
     type to each entry and a conversion to each match. The trade is real: a string
