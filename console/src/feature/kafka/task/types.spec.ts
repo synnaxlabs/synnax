@@ -12,6 +12,58 @@ import { describe, expect, it } from "vitest";
 import { Kafka } from "@/feature/kafka";
 
 describe("Kafka Task Types", () => {
+  describe("deployReadConfigZ", () => {
+    const ICD = "6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+    const createRecord = (recordKey: string, disabled = false) => ({
+      key: recordKey === "" ? "any" : recordKey,
+      recordKey,
+      disabled,
+      icd: ICD,
+      messages: [],
+    });
+    const valid = { device: "dev", topic: "t", records: [createRecord("")] };
+
+    it("should accept a complete config", () => {
+      expect(Kafka.Task.deployReadConfigZ.safeParse(valid).success).toBe(true);
+    });
+
+    it("should reject an empty topic", () => {
+      const result = Kafka.Task.deployReadConfigZ.safeParse({ ...valid, topic: "" });
+      expect(result.error?.issues[0].message).toBe("Topic is required");
+    });
+
+    it("should reject a config with every record disabled", () => {
+      const result = Kafka.Task.deployReadConfigZ.safeParse({
+        ...valid,
+        records: [createRecord("", true)],
+      });
+      expect(result.error?.issues[0].message).toBe(
+        "At least one record must be enabled",
+      );
+    });
+
+    it.each([
+      ["", "Only one record can read any key"],
+      ["pump", 'Record key "pump" is used by another record'],
+    ])("should reject two enabled records with the key %j", (recordKey, message) => {
+      const result = Kafka.Task.deployReadConfigZ.safeParse({
+        ...valid,
+        records: [createRecord(recordKey), { ...createRecord(recordKey), key: "b" }],
+      });
+      expect(result.error?.issues).toEqual([
+        expect.objectContaining({ message, path: ["records", 1, "recordKey"] }),
+      ]);
+    });
+
+    it("should accept a disabled record that shares a key with an enabled one", () => {
+      const result = Kafka.Task.deployReadConfigZ.safeParse({
+        ...valid,
+        records: [createRecord("pump"), { ...createRecord("pump", true), key: "b" }],
+      });
+      expect(result.success).toBe(true);
+    });
+  });
+
   describe("deployWriteConfigZ", () => {
     const valid = { device: "dev", topic: "t", channels: [{ key: "c1", channel: 1 }] };
 

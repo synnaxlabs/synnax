@@ -201,17 +201,10 @@ const uniqueName = (base: string, taken: icd.Message[]): string => {
   return `${base} ${n}`;
 };
 
-const createMessage = (
-  name: string,
-  match?: icd.JSONPayload["match"],
-): icd.Message => ({
+const createMessage = (name: string, match?: icd.JSONMatch): icd.Message => ({
   key: uuid.create(),
   name,
-  payload: {
-    format: "json",
-    fields: [],
-    ...(match == null ? {} : { match: ICD.createMatch(match.type, match.pointer) }),
-  },
+  payload: { format: "json", fields: [], ...(match == null ? {} : { match }) },
 });
 
 const recordOf = (icdKey: icd.Key, message: icd.MessageKey): ReadRecord =>
@@ -1063,7 +1056,7 @@ const Records: FC<RecordsProps> = ({
     const match = rule?.format === "json" ? rule.match : undefined;
     const message = createMessage(
       uniqueName(`${recordLabel(rec)} ${rec.messages.length + 1}`, held),
-      match ?? { type: "string", pointer: "" },
+      ICD.createMatch(match?.type ?? "string", match?.pointer ?? ""),
     );
     form.insert(PICD.formPath.messages, message, held.at(-1)?.key);
     ctx.set(path.messages, [
@@ -1375,8 +1368,7 @@ const boundMessage = (
 
 /**
  * Gives each field that a message reads a channel: the one it has, or a new one of the
- * binding's data type. A channel that is gone, or that no longer suits its field, is
- * replaced.
+ * binding's data type. A channel that no longer suits its field is replaced.
  */
 const configureMessage = async (
   client: Synnax,
@@ -1398,11 +1390,11 @@ const configureMessage = async (
     const suited = binding.dataType !== "" && ICD.converts(f.type, binding.dataType);
     const dataType = suited ? binding.dataType : "";
     const ch = live.get(binding.channel);
+    // An edit of the field's kind or index role since the last deploy needs a new
+    // channel.
     const stale =
-      binding.channel !== 0 &&
-      (ch == null ||
-        !ICD.converts(f.type, ch.dataType.toString()) ||
-        ch.isIndex !== isIndex);
+      ch != null &&
+      (!ICD.converts(f.type, ch.dataType.toString()) || ch.isIndex !== isIndex);
     return {
       key: f.key,
       pointer: f.pointer,
