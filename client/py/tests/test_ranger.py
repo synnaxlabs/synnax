@@ -8,8 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import re
-from collections.abc import Callable
-from typing import cast, override
+from typing import override
 from uuid import uuid4
 
 import numpy as np
@@ -21,7 +20,7 @@ from synnax import label, ranger
 from synnax.state import Latest, State
 from tests.channel import RetrieveCounter
 from x.strings import random_name
-from x.testutil import assert_eventually
+from x.testutil import assert_eventually, untyped
 
 
 class TestWhere:
@@ -201,7 +200,7 @@ class TestRangeClient:
 
     def test_retrieve_unnamed_parameter(self, client: sy.Synnax) -> None:
         """Should raise an error when unnamed parameters are passed in"""
-        retrieve = cast(Callable[..., object], client.ranges.retrieve)
+        retrieve = untyped(client.ranges.retrieve)
         with pytest.raises(sy.Error, match="only accepts named"):
             retrieve("cat")
 
@@ -801,17 +800,17 @@ class TestRangeRetrieveFilters:
     def test_one_with_limit(self, client: sy.Synnax) -> None:
         """Should reject one beside a limit, since a page could hide a match"""
         with pytest.raises(sy.ValidationError, match="cannot set a limit"):
-            client.ranges.retrieve(key=uuid4(), limit=1)  # type: ignore[call-overload]
+            untyped(client.ranges.retrieve)(key=uuid4(), limit=1)
 
     def test_none_field(self, client: sy.Synnax) -> None:
         """Should reject a field set to None, since it would select every range"""
         with pytest.raises(sy.ValidationError, match="name is None"):
-            client.ranges.retrieve(name=None)  # type: ignore[call-overload]
+            untyped(client.ranges.retrieve)(name=None)
 
     def test_unknown_field(self, client: sy.Synnax) -> None:
         """Should reject a field that is not a range filter line"""
         with pytest.raises(pydantic.ValidationError, match="nme"):
-            client.ranges.retrieve(nme="a")  # type: ignore[call-overload]
+            untyped(client.ranges.retrieve)(nme="a")
 
     def test_where(
         self,
