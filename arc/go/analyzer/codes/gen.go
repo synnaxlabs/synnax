@@ -137,10 +137,11 @@ func generate(k diagnostics.Kind) (kind, error) {
 			}
 		}
 	}
+	reported := report(k.Example, false)
 	return kind{}, errors.Newf(
 		"the example of %s does not report it:\n%s",
 		k.Code,
-		report(k.Example, false).String(),
+		reported.String(),
 	)
 }
 
