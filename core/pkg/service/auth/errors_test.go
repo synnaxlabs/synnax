@@ -17,11 +17,12 @@ import (
 )
 
 var _ = Describe("Errors", func() {
+	codec := errors.NewCodec(auth.ErrorProvider())
 	DescribeTable(
 		"Correctly encodes/decodes a network portable freighter error",
 		func(err error) {
-			pld := errors.Encode(err, false)
-			Expect(errors.Decode(pld)).To(MatchError(err))
+			pld := codec.Encode(err, false)
+			Expect(codec.Decode(pld)).To(MatchError(err))
 		},
 		Entry("InvalidCredentials", auth.ErrInvalidCredentials),
 		Entry("MissingCredentials", auth.ErrMissingCredentials),
@@ -33,15 +34,15 @@ var _ = Describe("Errors", func() {
 		Entry("Auth", auth.ErrAuth),
 	)
 	It("Should keep a denial distinct from a plain auth error", func() {
-		pld := errors.Encode(auth.ErrAccessDenied, false)
-		Expect(errors.Is(errors.Decode(pld), auth.ErrAccessDenied)).To(BeTrue())
-		pld = errors.Encode(auth.ErrAuth, false)
-		Expect(errors.Is(errors.Decode(pld), auth.ErrAccessDenied)).To(BeFalse())
+		pld := codec.Encode(auth.ErrAccessDenied, false)
+		Expect(errors.Is(codec.Decode(pld), auth.ErrAccessDenied)).To(BeTrue())
+		pld = codec.Encode(auth.ErrAuth, false)
+		Expect(errors.Is(codec.Decode(pld), auth.ErrAccessDenied)).To(BeFalse())
 	})
 	It("Should defer non-auth errors to other encoders", func() {
 		errTest := errors.New("test error")
-		pld := errors.Encode(errTest, false)
-		errDecoded := errors.Decode(pld)
+		pld := codec.Encode(errTest, false)
+		errDecoded := codec.Decode(pld)
 		Expect(errors.Is(errDecoded, auth.ErrAuth)).To(BeFalse())
 		Expect(errors.Is(errDecoded, errTest)).To(BeTrue())
 	})
