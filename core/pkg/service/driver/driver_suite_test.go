@@ -146,7 +146,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 						OnDelete: gorp.Restrict,
 						Kind:     gorp.Use,
 						Targets: func(c *kafka.WriteConfig) []string {
-							return []string{string(c.Device)}
+							return []string{c.Device}
 						},
 					},
 				),
@@ -160,7 +160,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			) error {
 				var st status.Status[any]
 				if err := statusSvc.NewRetrieve[any]().
-					Where(status.MatchKeys[any](string(c.Device))).
+					Where(status.MatchKeys[any](c.Device)).
 					Entry(&st).
 					Exec(ctx, snap); err != nil {
 					return err
