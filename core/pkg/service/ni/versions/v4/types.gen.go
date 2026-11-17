@@ -910,13 +910,6 @@ func (a *AOCurrentChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults. A default
-// group takes its defaults only when all of its members are zero.
-func (a *AOCurrentChannel) ApplyDefaults() {
-	a.MinMaxVal.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (a AOCurrentChannel) Validate() error {
@@ -943,13 +936,6 @@ func (AOFuncGenChannel) isAOChannelVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (a *AOFuncGenChannel) SetDefaults() {
 	a.WaveType = WaveTypeSine
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AOFuncGenChannel) ApplyDefaults() {
-	if a.WaveType == "" {
-		a.WaveType = WaveTypeSine
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -990,13 +976,6 @@ func (a *AOVoltageChannel) SetUngroupedDefaults() {
 // its values.
 func (a *AOVoltageChannel) DefaultGroups() {
 	a.MinMaxVal.DefaultGroups()
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults. A default
-// group takes its defaults only when all of its members are zero.
-func (a *AOVoltageChannel) ApplyDefaults() {
-	a.MinMaxVal.ApplyDefaults()
-	a.CustomScale.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1113,35 +1092,20 @@ func (u AOChannel) Type() AOChannelType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults. A default group takes its defaults only when all of its
-// members are zero.
-func (u *AOChannel) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case AOCurrentChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AOFuncGenChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case AOVoltageChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u AOChannel) Validate() error {
+	v := validate.New("AOChannel")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case AOCurrentChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AOFuncGenChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case AOVoltageChannel:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -1196,14 +1160,6 @@ type AnalogWriteConfig struct {
 	WriteConfig
 	// Channels are the analog output channels the task drives.
 	Channels []AOChannel `json:"channels" msgpack:"channels"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AnalogWriteConfig) ApplyDefaults() {
-	a.WriteConfig.ApplyDefaults()
-	for i := range a.Channels {
-		a.Channels[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
