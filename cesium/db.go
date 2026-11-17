@@ -58,7 +58,7 @@ type DB struct {
 	*options
 	relay *relay
 	// controlUpdates notifies subscribers of every control transfer the DB arbitrates.
-	controlUpdates observe.Observer[ControlUpdate]
+	controlUpdates controlObserver
 	historyChanges observe.Observer[HistoryChange]
 	closed         *atomic.Bool
 	mu             struct {
@@ -152,9 +152,7 @@ func (db *DB) Metrics() Metrics {
 //
 // Close is not safe to call with any other DB methods concurrently.
 //
-// Note that if this method is called while writers are still open on channels in the
-// database, a deadlock is caused since the signal context is closed while the writers
-// attempt to send to relay.
+// Writers still open when Close runs stop sending to streamers.
 //
 // If there is an error in closing the cesium database, the database will be marked as
 // closed regardless of whether an error occurred.

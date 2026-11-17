@@ -50,7 +50,6 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	db := &DB{
 		options:        o,
 		closed:         &atomic.Bool{},
-		controlUpdates: observe.New[ControlUpdate](),
 		historyChanges: observe.New[HistoryChange](),
 	}
 	db.mu.dbs.unary = make(map[channel.Key]unary.DB, len(info))

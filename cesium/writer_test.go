@@ -5663,3 +5663,29 @@ func openObservedStreamer(
 		cancel()
 	}
 }
+
+var _ = Describe("Writer after the DB closes", func() {
+	It("Should not block a write once the relay stops", func(ctx SpecContext) {
+		db := mustOpenDBOnFS(
+			ctx,
+			FileSystems["memFS"](),
+			cesium.WithRelayBufferSize(1),
+		)
+		key := GenerateChannelKey()
+		Expect(db.CreateChannel(ctx, virtualChannel(key, "boulder"))).To(Succeed())
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{key},
+		}))
+		Expect(db.Close()).To(Succeed())
+		written := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			defer close(written)
+			for v := range int64(4) {
+				MustSucceed(w.Write(telem.UnaryFrame(key, telem.NewSeriesV(v))))
+			}
+			Expect(w.Close()).To(Succeed())
+		}()
+		Eventually(written).Should(BeClosed())
+	})
+})
