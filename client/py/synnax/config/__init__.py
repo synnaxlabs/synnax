@@ -116,9 +116,6 @@ class PartialOptions(TypedDict, total=False):
     ca_cert: str
 
 
-_CREDENTIALS = ("api_key", "username", "password")
-
-
 # Values from env files and secrets often carry a trailing newline, and an empty value
 # usually means an unset variable in Docker Compose or CI.
 def _env(env: Mapping[str, str], name: str) -> str:
@@ -181,6 +178,11 @@ NO_OPTIONS_MSG = (
     "`sy login`, set SYNNAX_HOST, or give a host."
 )
 
+NO_CREDENTIALS_MSG = (
+    "No credentials were given. Set SYNNAX_API_KEY, or give an API key or a username "
+    "and password."
+)
+
 DESKTOP_NOT_RUNNING_MSG = (
     "Synnax Desktop is not running. Open it and try again. To connect to another "
     "Core, give a host and a port."
@@ -205,15 +207,16 @@ def load_options(
     """Chooses each option from the first source that sets it: the argument, then its
     SYNNAX_* environment variable, then the default. When no argument or variable
     gives a host, the Core that `sy login` saved, or else the Core that Synnax Desktop
-    saved, sets the options that no argument or variable sets. A username or password
-    argument replaces the API key of every other source.
+    saved, comes before the default. The credentials (api_key, username, password)
+    and the TLS options (secure, ca_cert) each come whole from the first source that
+    sets one of them.
 
     :param env: The environment variables, such as os.environ. Defaults to none.
     :param clusters: The saved logins. Defaults to those of the current user.
     :param desktop_file: The file where Synnax Desktop saves its options.
     :returns: The options, and whether they connect to the Core of Synnax Desktop.
     :raises ValidationError: If the environment variables are not valid, or if no
-        source gives a host.
+        source gives a host or credentials.
     :raises ConfigurationError: If no OS keychain is available to read the key of the
         saved login or of Synnax Desktop, or if an older Synnax Desktop left its key in
         the discovery file.
@@ -234,24 +237,37 @@ def load_options(
     if ca_cert is not None:
         given["ca_cert"] = ca_cert
     from_env = load_env_options(env or {})
-    if username or password:
-        from_env.pop("api_key", None)
-    chosen: dict[str, Any] = {**from_env, **given}
-    saved: dict[str, Any] = {}
-    if "host" not in chosen:
+    sources: list[Mapping[str, Any]] = [given, from_env]
+    if "host" not in given and "host" not in from_env:
         if clusters is None:
             clusters = default_clusters()
         cluster = clusters.get()
-        saved_opts = (
+        saved = (
             cluster.options
             if cluster is not None
             else load_desktop_options(clusters.keyring, desktop_file)
         )
-        if saved_opts is None:
+        if saved is None:
             raise ValidationError(NO_OPTIONS_MSG)
-        saved = saved_opts.model_dump()
-        if any(k in chosen for k in _CREDENTIALS):
-            for k in _CREDENTIALS:
-                del saved[k]
-    opts = Options.model_validate({"port": DEFAULT_PORT, **saved, **chosen})
+        sources.append(saved.model_dump())
+    opts = Options.model_validate({"port": DEFAULT_PORT, **_merge(sources)})
+    if not opts.api_key and not opts.username:
+        raise ValidationError(NO_CREDENTIALS_MSG)
     return opts, _saved_by_desktop(opts, desktop_file)
+
+
+# Each group comes whole from one source, so a password never pairs with another
+# source's key, and a CA certificate never outlives the TLS choice of its source.
+_GROUPS = (("api_key", "username", "password"), ("secure", "ca_cert"))
+
+
+def _merge(sources: list[Mapping[str, Any]]) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    for source in reversed(sources):
+        merged.update(source)
+    for group in _GROUPS:
+        for k in group:
+            merged.pop(k, None)
+        source = next((s for s in sources if any(k in s for k in group)), {})
+        merged.update({k: source[k] for k in group if k in source})
+    return merged

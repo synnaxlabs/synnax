@@ -24,6 +24,7 @@ from synnax.config import (
     DESKTOP_KEY_SERVICE,
     DESKTOP_NOT_RUNNING_MSG,
     KEYCHAIN_UNAVAILABLE_MSG,
+    NO_CREDENTIALS_MSG,
     NO_OPTIONS_MSG,
     OLD_DESKTOP_MSG,
     Cluster,
@@ -200,7 +201,6 @@ class TestLoadOptions:
             ("port", None, {}, 9090),
             ("api_key", "syk_arg", {"SYNNAX_API_KEY": "syk_env"}, "syk_arg"),
             ("api_key", None, {"SYNNAX_API_KEY": "syk_env"}, "syk_env"),
-            ("api_key", None, {}, ""),
             ("secure", False, {"SYNNAX_SECURE": "true"}, False),
             ("secure", None, {"SYNNAX_SECURE": "true"}, True),
             ("secure", None, {}, False),
@@ -221,7 +221,8 @@ class TestLoadOptions:
         """Should take each field from the argument, then the variable, then the
         default.
         """
-        args: dict[str, Any] = {} if field == "host" else {"host": "h"}
+        args: dict[str, Any] = {"host": "h", "api_key": "syk_k"}
+        args.pop(field, None)
         if arg is not None:
             args[field] = arg
         opts, _ = load_options(
@@ -262,10 +263,19 @@ class TestLoadOptions:
             ({}, {}, SAVED),
             ({"port": 2}, {}, SAVED.model_copy(update={"port": 2})),
             ({}, {"SYNNAX_PORT": "3"}, SAVED.model_copy(update={"port": 3})),
-            ({"secure": False}, {}, SAVED.model_copy(update={"secure": False})),
+            (
+                {"secure": False},
+                {},
+                SAVED.model_copy(update={"secure": False, "ca_cert": None}),
+            ),
             (
                 {},
-                {"SYNNAX_CA_CERT": "/env.crt"},
+                {"SYNNAX_SECURE": "false"},
+                SAVED.model_copy(update={"secure": False, "ca_cert": None}),
+            ),
+            (
+                {},
+                {"SYNNAX_SECURE": "true", "SYNNAX_CA_CERT": "/env.crt"},
                 SAVED.model_copy(update={"ca_cert": "/env.crt"}),
             ),
             (
@@ -291,7 +301,8 @@ class TestLoadOptions:
             "port-arg",
             "port-env",
             "secure-arg",
-            "ca-cert-env",
+            "secure-env",
+            "tls-env",
             "key-arg",
             "key-env",
             "password-arg",
@@ -326,11 +337,65 @@ class TestLoadOptions:
         )
         assert (opts.username, opts.password, opts.api_key) == ("", "", "syk_env")
 
+    @pytest.mark.parametrize(
+        ("args", "expected"),
+        [
+            ({"secure": True}, (True, None)),
+            ({"secure": False}, (False, None)),
+            ({"secure": True, "ca_cert": "/arg.crt"}, (True, "/arg.crt")),
+            ({}, (True, "/env.crt")),
+        ],
+        ids=["system-roots", "no-tls", "arg-cert", "env"],
+    )
+    def test_tls_from_one_source(
+        self,
+        clusters: Clusters,
+        desktop_file: Path,
+        args: dict[str, Any],
+        expected: tuple[bool, str | None],
+    ) -> None:
+        """Should take secure and ca_cert together from the first source that sets
+        one of them.
+        """
+        opts, _ = load_options(
+            host="h",
+            api_key="syk_k",
+            **args,
+            env={"SYNNAX_SECURE": "true", "SYNNAX_CA_CERT": "/env.crt"},
+            clusters=clusters,
+            desktop_file=desktop_file,
+        )
+        assert (opts.secure, opts.ca_cert) == expected
+
+    @pytest.mark.parametrize(
+        ("args", "env"),
+        [
+            ({"host": "h"}, {}),
+            ({}, {"SYNNAX_HOST": "h"}),
+            ({"host": "h", "password": "p"}, {}),
+        ],
+        ids=["host-arg", "host-env", "password-only"],
+    )
+    def test_no_credentials(
+        self,
+        clusters: Clusters,
+        desktop_file: Path,
+        args: dict[str, Any],
+        env: dict[str, str],
+    ) -> None:
+        """Should explain how to log in when no source gives credentials."""
+        with pytest.raises(ValidationError, match=NO_CREDENTIALS_MSG):
+            load_options(**args, env=env, clusters=clusters, desktop_file=desktop_file)
+
     def test_given_options(self, clusters: Clusters, desktop_file: Path) -> None:
         """Should use the given options, which Synnax Desktop did not save."""
         write_desktop_file(desktop_file, clusters.keyring, port=4321)
         opts, embedded = load_options(
-            host="h", port=1, clusters=clusters, desktop_file=desktop_file
+            host="h",
+            port=1,
+            api_key="syk_k",
+            clusters=clusters,
+            desktop_file=desktop_file,
         )
         assert (opts.host, opts.port, embedded) == ("h", 1, False)
 
@@ -415,11 +480,11 @@ class TestLoadOptions:
         clusters.set(Cluster(options=SAVED))
         write_desktop_file(desktop_file, clusters.keyring, port=4321)
         opts, embedded = load_options(
-            env={"SYNNAX_HOST": "core.lab"},
+            env=ENV,
             clusters=clusters,
             desktop_file=desktop_file,
         )
-        assert opts == Options(host="core.lab", port=9090)
+        assert opts == Options(host="core.lab", port=9090, api_key="syk_env")
         assert not embedded
 
     def test_saved_login_without_a_keychain(
