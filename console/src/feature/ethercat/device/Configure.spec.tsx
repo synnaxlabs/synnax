@@ -10,7 +10,7 @@
 import { device, type ethercat } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { strings, TimeStamp } from "@synnaxlabs/x";
+import { TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -81,6 +81,8 @@ interface SetupArgs {
   productCode?: number;
   revision?: number;
   switchedAt?: number;
+  networkName?: string;
+  position?: number;
   onStatuses?: (statuses: Status.NotificationSpec[]) => void;
 }
 
@@ -98,6 +100,8 @@ const setup = async ({
   productCode = 0,
   revision = 0,
   switchedAt,
+  networkName,
+  position,
   onStatuses,
 }: SetupArgs = {}) => {
   const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
@@ -126,6 +130,8 @@ const setup = async ({
       productCode,
       revision,
       switchedAt,
+      networkName,
+      ...(position == null ? {} : { position }),
     },
     configured,
   );
@@ -265,11 +271,17 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
     await screen.findByText(IDENTIFIER_FORMAT_ERROR);
   });
 
-  it("should fill the identifier from a suggestion", async () => {
-    const slave = await setup();
-    const [suggestion] = strings.createShortIdentifiers(slave.name);
-    fireEvent.click(findButton(suggestion));
-    expect(identifierInput().value).toEqual(suggestion);
+  it("should show the network name and slot of the slave", async () => {
+    await setup({ networkName: "Ethernet 2", position: 3 });
+    expect(screen.getByText("Ethernet 2, slot 3")).toBeTruthy();
+  });
+
+  it("should suggest identifiers from the slot and network of the slave", async () => {
+    await setup({ networkName: "Ethernet 2", position: 3 });
+    findButton("s3");
+    findButton("slot3");
+    fireEvent.click(findButton("e2_s3"));
+    expect(identifierInput().value).toEqual("e2_s3");
   });
 
   it("should report the make of a slave it configures for the first time", async () => {

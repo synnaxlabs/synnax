@@ -20,10 +20,11 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
-import { deep, strings, TimeSpan } from "@synnaxlabs/x";
+import { deep, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { clashMessage, findClash } from "@/feature/ethercat/device/identifier";
+import { formatLocation, suggestIdentifiers } from "@/feature/ethercat/device/location";
 import { SetupNote } from "@/feature/ethercat/device/SetupNote";
 import { SlaveSettings } from "@/feature/ethercat/device/SlaveSettings";
 import { StartupParameters } from "@/feature/ethercat/device/StartupParameters";
@@ -291,11 +292,18 @@ const NAME_INPUT_PROPS = {
 } as const;
 
 const General = (): ReactElement => {
-  const name = Form.useFieldValue(path.name);
+  const location = Form.useFieldValue(path.location);
+  const networkName =
+    Form.useFieldValue(path.properties.networkName, { optional: true }) ?? undefined;
+  const position = Form.useFieldValue(path.properties.position);
   const { set } = Form.useContext();
-  const ideas = strings.createShortIdentifiers(name ?? "");
+  const slot = { networkName, position };
+  const ideas = suggestIdentifiers(slot);
   return (
     <Form.Section title="General">
+      <Input.Item label="Location" padHelpText={false}>
+        <Text.Text>{formatLocation(location, slot)}</Text.Text>
+      </Input.Item>
       <Form.TextField
         path={path.properties.identifier}
         label="Identifier"
