@@ -156,6 +156,22 @@ var _ = Describe("Service", func() {
 			Expect(got.Variant).To(Equal(d.Variant))
 		})
 
+		It("Should reject a port the model does not have", func(ctx SpecContext) {
+			d := device.Device{Variant: device.T4Device{
+				Base: device.Base{
+					Rack:       rackKey,
+					Name:       "T4-0002",
+					Serial:     nextSerial(),
+					Connection: device.ConnectionUSB,
+				},
+				DigitalInput: map[device.T4DigitalPort]channel.Key{"DIO0": 5},
+			}}
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("invalid digital_input key: DIO0")),
+			))
+		})
+
 		It("Should keep a key the caller sets", func(ctx SpecContext) {
 			key := uuid.New()
 			d := device.Device{
