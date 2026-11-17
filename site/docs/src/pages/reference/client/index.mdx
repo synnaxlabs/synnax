@@ -152,3 +152,10 @@ with Core 0.61. The patch version can differ. When the major or minor version di
 the client prints a warning. When the TypeScript client cannot read the replies of the
 Core, its connection status shows
 [Core version not supported](/reference/client/troubleshooting#core-version-not-supported).
+
+The Python client is pure Python. It installs on each computer where its dependencies,
+such as numpy, pandas, and pydantic, have wheels. This includes Linux on ARM, such as a
+Raspberry Pi or an NVIDIA Jetson, where no Core or Driver runs.
+
+The Python client also runs on free-threaded Python 3.14t and later, which has no global
+interpreter lock, so its threads run in parallel.

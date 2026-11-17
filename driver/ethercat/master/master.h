@@ -35,6 +35,9 @@ namespace driver::ethercat::master {
 /// @brief the distributed clock epoch, 2000-01-01, as a Unix timestamp.
 inline const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
 
+/// @brief the most frames that a master keeps in flight after a send().
+constexpr size_t MAX_FRAMES_IN_FLIGHT = 3;
+
 /// @brief information about an available EtherCAT master or network.
 struct Info {
     /// @brief unique identifier for this master (e.g., "igh:0" or "eth0").
@@ -163,7 +166,12 @@ public:
     /// @brief stops cyclic communication and closes the master.
     virtual void deactivate() = 0;
 
-    /// @brief receives and processes input data from the EtherCAT network.
+    /// @brief receives the oldest frame that a send() sent and no receive() took, and
+    /// processes its inputs. Returns errors::FRAME_IN_FLIGHT when the frame has not
+    /// come back and the master keeps it in flight, so a later receive() takes it.
+    /// Each send(), failed or not, gets exactly one result other than FRAME_IN_FLIGHT,
+    /// in send order. With MAX_FRAMES_IN_FLIGHT frames in flight, the master drops the
+    /// oldest frame and returns an error in place of FRAME_IN_FLIGHT.
     [[nodiscard]] virtual x::errors::Error receive() = 0;
 
     /// @brief queues output data and sends to the EtherCAT network.
@@ -174,6 +182,13 @@ public:
     /// that returns errors::WORKING_COUNTER_ERROR. A lost frame can take more than the
     /// shares of the slaves that missed the cycle.
     [[nodiscard]] virtual std::optional<uint32_t> shortfall() const = 0;
+
+    /// @brief returns the positions, in ascending order, of the enabled slaves whose
+    /// inputs in the latest receive() hold no data: a slave that the frames of the
+    /// cycle found below SAFE-OP, or whose AL status did not come back. Empty when the
+    /// master reads no state in each cycle, or no frame came back. Valid until the next
+    /// receive(), and only on the thread that calls it.
+    [[nodiscard]] virtual std::span<const uint16_t> inputless() const = 0;
 
     /// @brief returns the distributed clock system time, as a Unix timestamp, at which
     /// the latest received frame passed the reference clock. Returns nullopt when no

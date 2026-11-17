@@ -6184,8 +6184,8 @@ var _ = Describe("Sequence", func() {
 				    return raw
 				}`, []int64{6, 8}),
 				Entry("a channel alias", `
-				a := raw
-				f(a * 2 + 1) -> out`, []int64{11, 15}),
+				r := raw
+				f(r * 2 + 1) -> out`, []int64{11, 15}),
 			)
 
 			It("Keeps a triggered call on its trigger alone", func(ctx SpecContext) {

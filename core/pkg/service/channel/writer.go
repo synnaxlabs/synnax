@@ -143,18 +143,8 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	// Opening the service clears the index of a calculated channel when it is missing.
 	if next.IsCalculated() && next.LocalIndex != 0 &&
 		!sameGroup(prev.Group, next.Group) {
-		var used set.Set[Key]
-		if used, err = w.usedIndexes(
-			ctx,
-			set.New(next.Index()),
-			set.New(key),
-		); err != nil {
+		if err = w.regroupIndex(ctx, key, next); err != nil {
 			return nil, err
-		}
-		if !used.Contains(next.Index()) {
-			if err = w.SetGroup(ctx, next.Group, next.Index()); err != nil {
-				return nil, err
-			}
 		}
 	}
 	var computed []Action
@@ -163,6 +153,19 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	}
 	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, computed)...)
 	return computed, nil
+}
+
+// regroupIndex moves the index of ch, the calculated channel with key, to the group of
+// ch unless another channel uses the index.
+func (w Writer) regroupIndex(ctx context.Context, key Key, ch Channel) error {
+	used, err := w.usedIndexes(ctx, set.New(ch.Index()), set.New(key))
+	if err != nil {
+		return err
+	}
+	if used.Contains(ch.Index()) {
+		return nil
+	}
+	return w.SetGroup(ctx, ch.Group, ch.Index())
 }
 
 // dataTypeAction returns the action that sets the data type of a channel to dt.
@@ -765,18 +768,7 @@ func (w Writer) allocateAndWrite(
 	newIndices []int,
 	minimal []channel.Channel,
 ) error {
-	externalNewCount := 0
-	for _, i := range newIndices {
-		if !channels[i].Internal && !channels[i].Virtual {
-			externalNewCount++
-		}
-	}
-	w.svc.mu.RLock()
-	count := w.svc.mu.externalNonVirtualSet.Size()
-	w.svc.mu.RUnlock()
-	if err := w.svc.cfg.Limit(
-		types.Uint20(int(count) + externalNewCount),
-	); err != nil {
+	if err := w.checkLimit(channels, newIndices); err != nil {
 		return err
 	}
 	toCreate := make([]Channel, 0, len(newIndices))
@@ -793,27 +785,7 @@ func (w Writer) allocateAndWrite(
 		}
 	}
 
-	// Link each calculated channel to its index channel by setting the calculated
-	// channel's LocalIndex to the index channel's assigned LocalKey. Applied to both
-	// the newly created channels and the full set (which includes existing ones).
-	indexKeyByName := make(map[string]LocalKey, len(channels))
-	for _, ch := range channels {
-		if ch.IsIndex {
-			indexKeyByName[ch.Name] = ch.LocalKey
-		}
-	}
-	linkCalculatedIndexes := func(chs []Channel) {
-		for i := range chs {
-			if !chs[i].IsCalculated() || chs[i].LocalIndex != 0 {
-				continue
-			}
-			if k, ok := indexKeyByName[chs[i].Name+calculatedIndexNameSuffix]; ok {
-				chs[i].LocalIndex = k
-			}
-		}
-	}
-	linkCalculatedIndexes(toCreate)
-	linkCalculatedIndexes(channels)
+	linkCalculatedIndexes(channels, toCreate)
 
 	externalCreatedKeys := make(Keys, 0, len(toCreate))
 	for _, ch := range toCreate {
@@ -822,16 +794,7 @@ func (w Writer) allocateAndWrite(
 		}
 	}
 	// A data channel's index must exist before the data channel is written.
-	slices.SortStableFunc(toCreate, func(a, b Channel) int {
-		switch {
-		case a.IsIndex == b.IsIndex:
-			return 0
-		case a.IsIndex:
-			return -1
-		default:
-			return 1
-		}
-	})
+	slices.SortStableFunc(toCreate, indexesFirst)
 	if err := w.svc.table.NewCreate().
 		Exclusive().
 		Entries(&toCreate).
@@ -850,6 +813,57 @@ func (w Writer) allocateAndWrite(
 	return nil
 }
 
+// checkLimit checks that the external, non-virtual channels at newIndices in channels
+// fit the channel limit.
+func (w Writer) checkLimit(channels []Channel, newIndices []int) error {
+	externalNewCount := 0
+	for _, i := range newIndices {
+		if !channels[i].Internal && !channels[i].Virtual {
+			externalNewCount++
+		}
+	}
+	w.svc.mu.RLock()
+	count := w.svc.mu.externalNonVirtualSet.Size()
+	w.svc.mu.RUnlock()
+	return w.svc.cfg.Limit(types.Uint20(int(count) + externalNewCount))
+}
+
+// linkCalculatedIndexes links each calculated channel without an index in channels and
+// toCreate to its index channel in channels, by setting the LocalIndex of the
+// calculated channel to the LocalKey of the index.
+func linkCalculatedIndexes(channels, toCreate []Channel) {
+	indexKeyByName := make(map[string]LocalKey, len(channels))
+	for _, ch := range channels {
+		if ch.IsIndex {
+			indexKeyByName[ch.Name] = ch.LocalKey
+		}
+	}
+	link := func(chs []Channel) {
+		for i := range chs {
+			if !chs[i].IsCalculated() || chs[i].LocalIndex != 0 {
+				continue
+			}
+			if k, ok := indexKeyByName[chs[i].Name+calculatedIndexNameSuffix]; ok {
+				chs[i].LocalIndex = k
+			}
+		}
+	}
+	link(toCreate)
+	link(channels)
+}
+
+// indexesFirst orders an index channel before a channel that is not an index.
+func indexesFirst(a, b Channel) int {
+	switch {
+	case a.IsIndex == b.IsIndex:
+		return 0
+	case a.IsIndex:
+		return -1
+	default:
+		return 1
+	}
+}
+
 // validateChannelNames rejects a create/rename request whose proposed names are not
 // identifiers, duplicate each other, or collide with an existing channel under a
 // different key. It leaves an empty name to Channel.Validate.
@@ -859,31 +873,8 @@ func (w Writer) validateChannelNames(
 	names []string,
 	skipExisting bool,
 ) error {
-	for i, name := range names {
-		if name != "" && !validate.IsIdentifier(name) {
-			return validate.PathedError(
-				errors.Wrapf(
-					validate.ErrValidation,
-					"channel name '%s' contains invalid characters. Only letters, digits, and underscores are allowed, and it cannot start with a digit",
-					name,
-				),
-				fmt.Sprintf("[%d]", i), "name",
-			)
-		}
-	}
-	namesSeen := make(set.Set[string], len(names))
-	for i, name := range names {
-		if namesSeen.Contains(name) {
-			return validate.PathedError(
-				errors.Wrapf(
-					validate.ErrValidation,
-					"duplicate channel name '%s' in request",
-					name,
-				),
-				fmt.Sprintf("[%d].name", i),
-			)
-		}
-		namesSeen.Add(name)
+	if err := validateNameSyntax(names); err != nil {
+		return err
 	}
 	if skipExisting {
 		return nil
@@ -914,6 +905,38 @@ func (w Writer) validateChannelNames(
 			),
 			fmt.Sprintf("[%d].name", i),
 		)
+	}
+	return nil
+}
+
+// validateNameSyntax rejects names that are not identifiers or that repeat. It
+// leaves an empty name to Channel.Validate.
+func validateNameSyntax(names []string) error {
+	for i, name := range names {
+		if name != "" && !validate.IsIdentifier(name) {
+			return validate.PathedError(
+				errors.Wrapf(
+					validate.ErrValidation,
+					"channel name '%s' contains invalid characters. Only letters, digits, and underscores are allowed, and it cannot start with a digit",
+					name,
+				),
+				fmt.Sprintf("[%d]", i), "name",
+			)
+		}
+	}
+	namesSeen := make(set.Set[string], len(names))
+	for i, name := range names {
+		if namesSeen.Contains(name) {
+			return validate.PathedError(
+				errors.Wrapf(
+					validate.ErrValidation,
+					"duplicate channel name '%s' in request",
+					name,
+				),
+				fmt.Sprintf("[%d].name", i),
+			)
+		}
+		namesSeen.Add(name)
 	}
 	return nil
 }

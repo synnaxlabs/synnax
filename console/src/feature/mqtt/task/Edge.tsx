@@ -64,9 +64,11 @@ const Properties = () => (
 
 const AUTHORITY_INPUT_PROPS = { bounds: { lower: 0, upper: 255 } } as const;
 
-const renderSelectChannel = Component.renderProp((p: PChannel.SelectSingleProps) => (
+const SelectChannel = (p: PChannel.SelectSingleProps) => (
   <PChannel.SelectSingle {...p} location="bottom" />
-));
+);
+
+const renderSelectChannel = Component.renderProp(SelectChannel);
 
 const TagListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;

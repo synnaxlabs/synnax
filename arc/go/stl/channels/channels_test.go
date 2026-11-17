@@ -1235,7 +1235,7 @@ var _ = Describe("Channel", func() {
 							fireCount(ctx, srcs[i]),
 						).To(Equal(1), "channel %d must fire once", i)
 						Expect(
-							(*progState.Node(keys[i]).Output(0)).Len(),
+							progState.Node(keys[i]).Output(0).Len(),
 						).To(Equal(int64(1)),
 							"channel %d must emit one sample, not the shared index buffer", i)
 						Expect(
@@ -1266,7 +1266,7 @@ var _ = Describe("Channel", func() {
 					Expect(
 						fireCount(ctx, src),
 					).To(Equal(1), "one data sample must fire once")
-					Expect((*progState.Node("s0").Output(0)).Len()).To(Equal(int64(1)))
+					Expect(progState.Node("s0").Output(0).Len()).To(Equal(int64(1)))
 					Expect(emittedValue("s0")).To(Equal(float32(42)))
 					Expect(
 						fireCount(ctx, src),

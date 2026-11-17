@@ -161,17 +161,32 @@ func (s *Service) ResolveKeyOrName(
 
 // SetTarget builds the status a by-key-or-name set should write: the first match, or a
 // new UUID-keyed status named keyOrName when nothing matched, with the new fields
-// applied. It clears the description, which explained the previous message.
-func SetTarget(matches []Status[any], keyOrName, message, variant string) Status[any] {
+// applied. It stamps t, or now when t is zero or later than now, and clears the
+// description, which explained the previous message. It returns false when the first
+// match is newer than t, and the caller must then not write the status. A match time
+// later than now never blocks a set.
+func SetTarget(
+	matches []Status[any],
+	keyOrName, message, variant string,
+	t telem.TimeStamp,
+) (Status[any], bool) {
+	// A clock ahead of the Core must not block later sets.
+	now := telem.Now()
+	if t.IsZero() || t.After(now) {
+		t = now
+	}
 	st := Status[any]{Key: uuid.New().String(), Name: keyOrName}
 	if len(matches) > 0 {
 		st = matches[0]
+		if !st.Time.After(now) && st.Time.After(t) {
+			return st, false
+		}
 	}
 	st.Message = message
 	st.Description = ""
 	st.Variant = Variant(variant)
-	st.Time = telem.Now()
-	return st
+	st.Time = t
+	return st, true
 }
 
 // SetByKeyOrName updates the first status matching keyOrName by key or name, creating a
@@ -191,12 +206,10 @@ func (s *Service) SetByKeyOrName(
 		if err != nil {
 			return err
 		}
-		st := SetTarget(matches, keyOrName, message, variant)
-		if err = s.NewWriter(tx).Set(ctx, &st); err != nil {
-			return err
-		}
+		// A zero time is now, which no stored status is newer than.
+		st, _ := SetTarget(matches, keyOrName, message, variant, 0)
 		key, multipleMatches = st.Key, len(matches) > 1
-		return nil
+		return s.NewWriter(tx).Set(ctx, &st)
 	}); err != nil {
 		return "", false, err
 	}

@@ -74,11 +74,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		unions := c.unions.Get(outputPath)
 
 		var filePath string
-		if len(structs) > 0 {
+		switch {
+		case len(structs) > 0:
 			filePath = structs[0].FilePath
-		} else if len(distinctTypes) > 0 {
+		case len(distinctTypes) > 0:
 			filePath = distinctTypes[0].FilePath
-		} else {
+		default:
 			filePath = unions[0].FilePath
 		}
 
