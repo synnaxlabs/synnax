@@ -175,11 +175,11 @@ const retype = async (
   ]);
 };
 
-/** Removes a field from the entry's message, in the ICD. */
 /** @returns the fields of the first message of an ICD. */
 const jsonFieldsOf = ({ messages: [first] }: icd.ICD): icd.JSONField[] =>
   first.payload.format === "json" ? first.payload.fields : [];
 
+/** Removes a field from the entry's message, in the ICD. */
 const removeField = async (
   { icd: key, messages }: MQTT.Task.PlainReadEntry,
   field: icd.JSONField,
