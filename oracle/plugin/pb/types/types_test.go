@@ -321,6 +321,37 @@ var _ = Describe("Plugin", func() {
 				)))
 			})
 
+			DescribeTable("Should fail on a repeated @pb reserved",
+				func(source string) {
+					_, diag := Analyze(source, "test", loader)
+					Expect(diag.String()).To(ContainSubstring(
+						"repeated @pb reserved: list every number on one line",
+					))
+				},
+				Entry("on a struct", `
+					@go output "core/pkg/service/auth"
+					@pb
+
+					Session struct {
+						key string
+						@pb reserved 2
+						@pb reserved 3
+					}
+				`),
+				Entry("on an inline union variant", `
+					@go output "core/pkg/service/arc"
+					@pb
+
+					Arc union on type {
+						automation {
+							program string
+							@pb reserved 2
+							@pb reserved 3
+						}
+					}
+				`),
+			)
+
 			It("Should fail on a number that is not a positive integer", func() {
 				req := MustGenerateRequest(`
 					@go output "core/pkg/service/auth"
