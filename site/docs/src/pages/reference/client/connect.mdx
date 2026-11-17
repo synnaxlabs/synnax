@@ -103,8 +103,8 @@ throws the same errors.
 
 </Client.Tabs>
 
-To keep credentials out of a script, read them from environment variables that you set.
-The clients read no environment variables by themselves.
+To keep credentials out of a script, give no host and set the
+[environment variables](#connect-with-environment-variables).
 
 <Divider.Divider x />
 
@@ -217,16 +217,20 @@ arguments.
 
 ## Connect with environment variables
 
-When you give no host, `sy.Synnax()` reads these environment variables. They take an API
+When you give no host, the client reads these environment variables. They take an API
 key, not a username and password.
 
-| Variable         | Value                                                 |
-| ---------------- | ----------------------------------------------------- |
-| `SYNNAX_HOST`    | The host of the Core. Required with `SYNNAX_API_KEY`. |
-| `SYNNAX_API_KEY` | An API key. Required with `SYNNAX_HOST`.              |
-| `SYNNAX_PORT`    | The port of the Core. The default is `9090`.          |
-| `SYNNAX_SECURE`  | `true` or `1` to use TLS. The default is `false`.     |
-| `SYNNAX_CA_CERT` | The path to the CA certificate of the Core, for TLS.  |
+| Variable         | Value                                                             |
+| ---------------- | ----------------------------------------------------------------- |
+| `SYNNAX_HOST`    | The host of the Core. Required with `SYNNAX_API_KEY`.             |
+| `SYNNAX_API_KEY` | An API key. Required with `SYNNAX_HOST`.                          |
+| `SYNNAX_PORT`    | The port of the Core. The default is `9090`.                      |
+| `SYNNAX_SECURE`  | `true` or `1` to use TLS. The default is `false`.                 |
+| `SYNNAX_CA_CERT` | The path to the CA certificate of the Core, for TLS. Python only. |
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
 
 ```bash
 export SYNNAX_HOST=core.example.com
@@ -244,6 +248,37 @@ The client uses the first source that it finds, in this order:
 When only one of `SYNNAX_HOST` and `SYNNAX_API_KEY` is set, or when `SYNNAX_PORT` or
 `SYNNAX_SECURE` has a value that is not valid, the client raises `sy.ValidationError`
 and names the variable.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+```
+
+```bash
+export SYNNAX_HOST=core.example.com
+export SYNNAX_API_KEY=syk_...
+node my_script.js
+```
+
+The client reads the variables in Node.js, Deno, and Bun. A browser has no environment
+variables, so give a host there. Deno needs the `--allow-env` flag.
+
+When you give no host, the client ignores the port, username, password, and token that
+you give. The constructor throws `ValidationError` in these conditions:
+
+- You give an API key and no host.
+- You give no host, and `SYNNAX_HOST` and `SYNNAX_API_KEY` are not set.
+- Only one of `SYNNAX_HOST` and `SYNNAX_API_KEY` is set.
+- `SYNNAX_PORT` or `SYNNAX_SECURE` has a value that is not valid.
+
+  </Fragment>
+
+</Client.Tabs>
 
 ### Connect without a keychain
 
@@ -452,7 +487,8 @@ A Node.js script does not exit until you close the client.
 <Field.List>
 
 <Field.Item name="host" id="typescript-host" type="string">
-  The hostname or IP address of the Core.
+  The hostname or IP address of the Core. Without it, the client reads the [environment
+  variables](#connect-with-environment-variables).
 </Field.Item>
 
 <Field.Item name="port" id="typescript-port" type="number | string">

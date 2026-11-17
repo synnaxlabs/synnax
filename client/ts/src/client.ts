@@ -31,7 +31,8 @@ import { color } from "@/color";
 import { connection } from "@/connection";
 import { control } from "@/control";
 import { device } from "@/device";
-import { errorsMiddleware, isConnectionError } from "@/errors";
+import { type Env, loadParams } from "@/env";
+import { errorsMiddleware, isConnectionError, ValidationError } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
 import { icd } from "@/icd";
@@ -108,6 +109,23 @@ const constructorParamsZ = synnaxParamsZ.refine(
 
 export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
 export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
+
+/**
+ * The parameters of the client constructor. Without a host, the client reads the
+ * SYNNAX_HOST, SYNNAX_PORT, SYNNAX_API_KEY, and SYNNAX_SECURE environment variables
+ * and ignores the given port, username, password, and token.
+ */
+export interface ConstructorParams extends Omit<SynnaxParams, "host" | "port"> {
+  host?: string;
+  port?: number | string;
+}
+
+const withEnv = (params: ConstructorParams, env?: Env): ConstructorParams => {
+  if (params.host != null && params.host !== "") return params;
+  if (params.apiKey != null) throw new ValidationError("give a host with an API key");
+  const { port, username, password, token, ...rest } = params;
+  return { ...rest, ...loadParams(env) };
+};
 
 /**
  * The authority a client logs in with: its credentials when both are given or its API
@@ -229,7 +247,8 @@ export default class Synnax extends framer.Client {
   readonly clientVersion: string = __VERSION__;
 
   /**
-   * @param props.host - Hostname of a node in the cluster.
+   * @param props.host - Hostname of a node in the cluster. Without it, the client
+   * reads the SYNNAX_* environment variables.
    * @param props.port - Port of the node in the cluster.
    * @param props.username - Username for authentication, with props.password.
    * @param props.password - Password for authentication, with props.username.
@@ -246,9 +265,14 @@ export default class Synnax extends framer.Client {
    * be configured to support TLS. Defaults to false. A Synnax client must be closed
    * when it is no longer needed. This stops the connection machine and closes the
    * change stream.
+   * @throws {ValidationError} If there is no host and the environment variables do not
+   * give one, or if they are not valid.
    */
-  constructor(params: SynnaxParams) {
-    const parsedParams = zod.parse(constructorParamsZ, params);
+  constructor(params: ConstructorParams = {}) {
+    const parsedParams = zod.parse(
+      constructorParamsZ,
+      withEnv(params, globalThis.process?.env),
+    );
     const { host, port, connectivityPollFrequency, clockSkewThreshold, secure, retry } =
       parsedParams;
     const address = new url.URL({ host, port: Number(port) });
