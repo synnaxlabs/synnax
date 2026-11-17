@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { loadParams } from "@/env";
+import { loadParams, resolveParams } from "@/env";
 import { ValidationError } from "@/errors";
 
 const ENV = { SYNNAX_HOST: "core.lab", SYNNAX_API_KEY: "syk_env" };
@@ -69,5 +69,39 @@ describe("loadParams", () => {
 
   it("should reject a runtime with no environment variables", () => {
     expect(() => loadParams(undefined)).toThrow(ValidationError);
+  });
+});
+
+describe("resolveParams", () => {
+  it("should read the environment variables when no host is given", () => {
+    const params = { host: undefined, name: "script" };
+    expect(resolveParams(params, ENV)).toEqual({
+      name: "script",
+      host: "core.lab",
+      port: 9090,
+      apiKey: "syk_env",
+      secure: false,
+    });
+  });
+
+  it("should read the environment variables when the host is empty", () => {
+    expect(resolveParams({ host: "" }, ENV).host).toEqual("core.lab");
+  });
+
+  it("should not read the environment variables when a host is given", () => {
+    const params = { host: "core.given", port: 9091, username: "u", password: "p" };
+    expect(resolveParams(params, { SYNNAX_PORT: "invalid" })).toBe(params);
+  });
+
+  it.each([
+    [{ port: 9090 }, "give a host with a port"],
+    [{ username: "u" }, "give a host with a username"],
+    [{ password: "p" }, "give a host with a password"],
+    [{ apiKey: "syk_key" }, "give a host with an API key"],
+    [{ token: "t" }, "give a host with a token"],
+    [{ secure: true }, "give a host with the secure option"],
+  ])("should reject %j with no host", (params, message) => {
+    expect(() => resolveParams(params, ENV)).toThrow(ValidationError);
+    expect(() => resolveParams(params, ENV)).toThrow(message);
   });
 });

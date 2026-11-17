@@ -11,12 +11,7 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import { type connection } from "@/connection";
-import {
-  DisconnectedError,
-  InvalidCredentialsError,
-  Synnax,
-  ValidationError,
-} from "@/index";
+import { DisconnectedError, InvalidCredentialsError, type Synnax } from "@/index";
 import { label } from "@/label";
 import {
   createTestClient,
@@ -35,15 +30,6 @@ const FAST_RETRY = {
   scale: 1,
   maxRetries: 2,
 };
-
-describe("constructor", () => {
-  it("should reject an API key with no host", () => {
-    expect(() => new Synnax({ apiKey: "syk_key" })).toThrow(ValidationError);
-    expect(() => new Synnax({ apiKey: "syk_key" })).toThrow(
-      "give a host with an API key",
-    );
-  });
-});
 
 describe("connect", () => {
   it("should await the client's first success", async () => {

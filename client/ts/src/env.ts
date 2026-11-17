@@ -20,6 +20,20 @@ export interface Params {
   secure: boolean;
 }
 
+const NEEDS_HOST = [
+  ["port", "a port"],
+  ["username", "a username"],
+  ["password", "a password"],
+  ["apiKey", "an API key"],
+  ["token", "a token"],
+  ["secure", "the secure option"],
+] as const;
+
+type Field = (typeof NEEDS_HOST)[number][0];
+
+/** Client parameters that can leave out the host. */
+export type Given = { host?: string } & Partial<Record<Field, unknown>>;
+
 const TRUE = ["1", "true", "yes"];
 const FALSE = ["", "0", "false", "no"];
 
@@ -55,4 +69,21 @@ export const loadParams = (env: Env = {}): Params => {
       `SYNNAX_SECURE must be true or false, not "${rawSecure}"`,
     );
   return { host, port, apiKey, secure };
+};
+
+/**
+ * Returns the params when they give a host. Else, returns them with the connection
+ * parameters of the environment variables (see loadParams).
+ * @param env - The environment variables, read only when the params give no host.
+ * @throws {ValidationError} If the params give a port, credentials, or the secure
+ * option with no host, or if the environment variables are not valid.
+ */
+export const resolveParams = <P extends Given>(
+  params: P,
+  env?: Env,
+): P | (P & Params) => {
+  if (params.host != null && params.host !== "") return params;
+  const given = NEEDS_HOST.find(([field]) => params[field] != null);
+  if (given != null) throw new ValidationError(`give a host with ${given[1]}`);
+  return { ...params, ...loadParams(env) };
 };

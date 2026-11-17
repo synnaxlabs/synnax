@@ -266,15 +266,12 @@ node my_script.js
 ```
 
 The client reads the variables in Node.js, Deno, and Bun. A browser has no environment
-variables, so give a host there. Deno needs the `--allow-env` flag.
+variables, so give a host there. In Deno, run the script with `--allow-env` when the
+client reads the variables. With a host, `--allow-net` alone is enough.
 
-When you give no host, the client ignores the port, username, password, and token that
-you give. The constructor throws `ValidationError` in these conditions:
-
-- You give an API key and no host.
-- You give no host, and `SYNNAX_HOST` and `SYNNAX_API_KEY` are not set.
-- Only one of `SYNNAX_HOST` and `SYNNAX_API_KEY` is set.
-- `SYNNAX_PORT` or `SYNNAX_SECURE` has a value that is not valid.
+With no host, give no port, credentials, or `secure`, because the variables set them.
+The constructor throws `ValidationError` when you give one of them with no host, when
+the variables give no host, or when a variable is not valid.
 
   </Fragment>
 
