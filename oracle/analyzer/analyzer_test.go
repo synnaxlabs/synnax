@@ -4612,27 +4612,108 @@ Node union on variant {
 
 		DescribeTable(
 			"Should reject a fixed-size array default of another size",
-			func(fieldDecl, msg string) {
-				source := "Pair = uint8[2]\n\nItem struct {\n\t" + fieldDecl + "\n}\n"
+			func(decl, msg string) {
+				source := "Pair = uint8[2]\n\n" +
+					"Point struct {\n\tcoords float64[3]\n}\n\n" +
+					decl + "\n"
 				_, diag := Analyze(source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring(msg))
 			},
 			Entry(
 				"fewer elements",
-				"coords float64[3] = [1.5]",
-				`default of field "coords" in "Item" has 1 elements, but its type `+
-					"holds exactly 3",
+				"Item struct {\n\tcoords float64[3] = [1.5]\n}",
+				`default of field "coords" in "Item" has an array of 1 elements, `+
+					"but its type holds exactly 3",
 			),
 			Entry(
 				"no elements",
-				"coords float64[3] = []",
-				"has 0 elements, but its type holds exactly 3",
+				"Item struct {\n\tcoords float64[3] = []\n}",
+				"has an array of 0 elements, but its type holds exactly 3",
 			),
 			Entry(
 				"an alias",
-				"pair Pair = [1, 2, 3]",
-				"has 3 elements, but its type holds exactly 2",
+				"Item struct {\n\tpair Pair = [1, 2, 3]\n}",
+				"has an array of 3 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"an array element",
+				"Item struct {\n\tpairs Pair[] = [[1, 2], [1]]\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a struct field",
+				"Item struct {\n\tpoint Point = { coords = [1.5] }\n}",
+				"has an array of 1 elements, but its type holds exactly 3",
+			),
+			Entry(
+				"a type parameter",
+				"Item struct<T extends uint8[2]> {\n\tvalue T = [1]\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"an element of a type parameter",
+				"Item struct<T extends Pair[]> {\n\tvalue T = [[1]]\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a field of a generic struct",
+				"Box struct<T> {\n\tv T\n}\n\n"+
+					"Item struct {\n\tb Box<uint8[2]> = { v = [1] }\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a field of a generic struct at its default",
+				"Box struct<T = uint8[2]> {\n\tv T\n}\n\n"+
+					"Item struct {\n\tb Box = { v = [1] }\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a field of a union variant",
+				"Shape union on kind {\n\tline {\n\t\tends Pair\n\t}\n}\n\n"+
+					"Item struct {\n\tshape Shape = { kind = \"line\", ends = [1] }\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a generic alias with a type argument",
+				"Wrap<T> = T\n\nItem struct {\n\tw Wrap<uint8[3]> = [1, 2]\n}",
+				"has an array of 2 elements, but its type holds exactly 3",
+			),
+			Entry(
+				"a generic distinct type with a type argument",
+				"Fixed<T> T\n\nItem struct {\n\tf Fixed<uint8[3]> = [1, 2]\n}",
+				"has an array of 2 elements, but its type holds exactly 3",
+			),
+			Entry(
+				"an element of a generic distinct type",
+				"Fixed<T> T\n\nItem struct {\n\tf Fixed<Pair[]> = [[1]]\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a generic alias at its default",
+				"Wrap<T = uint8[2]> = T\n\nItem struct {\n\tw Wrap = [1, 2, 3]\n}",
+				"has an array of 3 elements, but its type holds exactly 2",
+			),
+		)
+
+		DescribeTable(
+			"Should check a generic type against its type argument",
+			func(source string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry(
+				"a struct",
+				"Box struct<T> {\n\tv T\n}\n\n"+
+					"Item struct {\n\tb Box<uint8[3]> = { v = [1, 2, 3] }\n}\n",
+			),
+			Entry(
+				"a distinct type",
+				"Fixed<T> T\n\nItem struct {\n\tf Fixed<uint8[3]> = [1, 2, 3]\n}\n",
+			),
+			Entry(
+				"an alias",
+				"Wrap<T> = T\n\nItem struct {\n\tw Wrap<uint8[3]> = [1, 2, 3]\n}\n",
 			),
 		)
 	})
