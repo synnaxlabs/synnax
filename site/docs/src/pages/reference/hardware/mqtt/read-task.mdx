@@ -155,9 +155,10 @@ task.start()
 The options of a field read values that its type alone cannot:
 
 - **Default** -> the task writes the default when the payload has no value for the
-  field. No value means that the pointer finds nothing or `null`, or finds `""` for a
-  channel that is not a string or bytes channel. With no default, the task skips the
-  payload.
+  field. Scale and offset apply to the default as they do to a payload value. No value
+  means that the pointer finds nothing. Except on a JSON channel, `null` is also no
+  value, and so is `""` on a channel that is not a string or bytes channel. With no
+  default, the task skips the payload.
 - **Enum mapping** -> maps a text label in the payload, such as `ON`, to a value of the
   field's type, such as `1`.
 
@@ -400,16 +401,16 @@ In code, a topic is `PlainReadEntry`, of type `"plain"`. The `qos` values are
 
 A field of a message has these settings:
 
-| Setting                                   | Default | Notes                                                       |
-| ----------------------------------------- | ------- | ----------------------------------------------------------- |
-| Name <small>`name`</small>                |         | Unique in its message. The Console names channels after it. |
-| Pointer <small>`pointer`</small>          | Empty   | Such as `/motor/speed`. Empty reads the whole payload.      |
-| Type <small>`type`</small>                | Float   | See [field types](#field-types).                            |
-| Scale <small>`scale`</small>              | 1       | Multiplies the value. Needs a float channel.                |
-| Offset <small>`offset`</small>            | 0       | Added after the scale. Needs a float channel.               |
-| Units <small>`units`</small>              | Empty   | The engineering unit of the value.                          |
-| Default <small>`default`</small>          | None    | Written when the payload has no value. Set in **Optional**. |
-| Enum mapping <small>`enum_values`</small> | None    | Maps text labels to values of the type.                     |
+| Setting                                   | Default | Notes                                                                  |
+| ----------------------------------------- | ------- | ---------------------------------------------------------------------- |
+| Name <small>`name`</small>                |         | Unique in its message. The Console names channels after it.            |
+| Pointer <small>`pointer`</small>          | Empty   | Such as `/motor/speed`. Empty reads the whole payload.                 |
+| Type <small>`type`</small>                | Float   | See [field types](#field-types).                                       |
+| Scale <small>`scale`</small>              | 1       | Multiplies the value. Needs a float channel.                           |
+| Offset <small>`offset`</small>            | 0       | Added after the scale. Needs a float channel.                          |
+| Units <small>`units`</small>              | Empty   | The engineering unit of the value.                                     |
+| Default <small>`default`</small>          | None    | Scaled and written when the payload has no value. Set in **Optional**. |
+| Enum mapping <small>`enum_values`</small> | None    | Maps text labels to values of the type.                                |
 
 ### Field types
 
@@ -503,8 +504,8 @@ hold. The status is **Failed to configure task**, and its description gives the 
 </Problem.Cause>
 <Problem.Fix>
 
-Undo the edit. Or start the task again in the Console, which gives a field a new channel
-when its type no longer fits the old one.
+Undo the edit, then start the task again. Or, without the undo, start the task again in
+the Console, which gives a field a new channel when its type no longer fits the old one.
 
 </Problem.Fix>
 </Problem.Item>
