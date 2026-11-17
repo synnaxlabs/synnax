@@ -220,9 +220,11 @@ func (n *nodeImpl) resizeOutputs(maxLength int64) [][]string {
 			}
 			stringResults[i] = make([]string, 0, maxLength)
 		} else {
-			n.Output(i).Resize(maxLength)
+			out := n.Output(i)
+			*out = out.Resized(maxLength)
 		}
-		n.OutputTime(i).Resize(maxLength)
+		outTime := n.OutputTime(i)
+		*outTime = outTime.Resized(maxLength)
 	}
 	return stringResults
 }
@@ -363,9 +365,11 @@ func (n *nodeImpl) emitOutputs(ctx node.Context, stringResults [][]string) {
 			out := n.Output(j)
 			out.Data = telem.NewSeriesV(stringResults[j]...).Data
 		} else {
-			n.Output(j).Resize(int64(n.offsets[j]))
+			out := n.Output(j)
+			*out = out.Resized(int64(n.offsets[j]))
 		}
-		n.OutputTime(j).Resize(int64(n.offsets[j]))
+		outTime := n.OutputTime(j)
+		*outTime = outTime.Resized(int64(n.offsets[j]))
 		if n.offsets[j] > 0 {
 			n.Emit(ctx, j)
 		}

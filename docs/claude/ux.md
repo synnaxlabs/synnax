@@ -57,6 +57,17 @@ from another system. Text on a 15% tint of its status (badges, notes) uses
 step nearest the status color that reads on the tint: a darker step in light mode, and a
 lighter step or the base step in dark mode.
 
+### Series colors
+
+The Core ships 16 series colors for data, in a palette of named colors named "Series"
+(`core/pkg/service/color/builtin.go`). Each has a light and a dark value with 3:1
+contrast on the canvas of its theme. The first eight keep the old hues and stay apart
+under each color vision deficiency. The last eight fill the hue gaps and only pass the
+contrast check, so lines past the eighth can look alike to a color-blind user.
+
+A palette lists its colors in the order that a user sets by drag, as Figma lists styles.
+A new line takes the first series color in that order that no other line uses.
+
 ### Shape and size
 
 - Lyra's rem is 6 px. Write sizes in rem with the existing tokens. Round a fractional
@@ -320,6 +331,24 @@ bound, a log precision, or the line plot X channel.
   layout does not move. The arrow keys and the pointer move one highlight, and Enter
   picks the highlighted item.
 
+### Color picker
+
+- With named colors, two tabs split the picker's width: Library (`Icon.Library`) and
+  Custom (`Icon.Sliders`). It opens on Library while the value is linked or absent, and
+  on Custom while the value is a fixed color.
+- One 1.5rem inset holds the tab boxes, the search icon, the titles, and the swatches.
+  Swatches are 21 px with 1rem gaps across and down. Eight across set the width: 38rem.
+- Library has the select dialog's search under the tab bar's hairline, with a hairline
+  under it. Each palette sits under its title, which ends with the name of the hovered
+  color, else the linked one. Swatches have no tooltips.
+- A swatch shows the color's value for the current theme only.
+- An edit in Custom stores a fixed color and unlinks the value. There is no unlink
+  button.
+- An optional color puts a square Auto button at the right of the tab bar, on both tabs.
+- The saturation and brightness plane has the tiny radius.
+- The hex and alpha inputs pack into one control, and the alpha input keeps its opacity
+  icon. Hex codes use the code font, so every code takes the same width and fits.
+
 ### Menus and selects
 
 - Menus use 13 px text in 28 px items. This includes context menus, the filter menu, and
@@ -357,6 +386,11 @@ bound, a log precision, or the line plot X channel.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
   calls a duplicate "Copy".
 - An open select marks the current value and opens scrolled to it.
+- An open `Select.Multiple` and the line plot's Ranges select list their selected values
+  first, with no divider: their joined tint marks where they end. The order is set when
+  the select opens and holds while it stays open, so an item never moves under the
+  pointer. A search lists its matches in their own order. GitHub and GitLab do the same.
+  A filter menu keeps its own order.
 - The placeholder of an empty `shadow` or `text` multiple select is a text button. A
   click on it opens the select beside it, as a click on a tag does. The placeholder and
   the add button take the select's size, medium by default, so they stand a step above

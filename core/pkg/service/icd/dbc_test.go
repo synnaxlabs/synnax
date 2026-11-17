@@ -13,8 +13,8 @@ import (
 	"bytes"
 	"encoding/json/v2"
 	"fmt"
+	"io/fs"
 	"os"
-	"path/filepath"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -134,8 +134,9 @@ func toExpected(messages []icd.Message) []expectedMessage {
 
 func readFixture(name string) ([]byte, expectedFile) {
 	GinkgoHelper()
-	data := MustSucceed(os.ReadFile(filepath.Join("testdata", name+".dbc")))
-	raw := MustSucceed(os.ReadFile(filepath.Join("testdata", name+".expected.json")))
+	testdata := os.DirFS("testdata")
+	data := MustSucceed(fs.ReadFile(testdata, name+".dbc"))
+	raw := MustSucceed(fs.ReadFile(testdata, name+".expected.json"))
 	var want expectedFile
 	Expect(json.Unmarshal(raw, &want)).To(Succeed())
 	return data, want
@@ -144,12 +145,13 @@ func readFixture(name string) ([]byte, expectedFile) {
 // FuzzImportDBC checks that any input either imports with resolved references or fails
 // with a validation error, and never panics.
 func FuzzImportDBC(f *testing.F) {
-	paths, err := filepath.Glob(filepath.Join("testdata", "*.dbc"))
+	testdata := os.DirFS("testdata")
+	paths, err := fs.Glob(testdata, "*.dbc")
 	if err != nil {
 		f.Fatal(err)
 	}
 	for _, path := range paths {
-		data, err := os.ReadFile(path)
+		data, err := fs.ReadFile(testdata, path)
 		if err != nil {
 			f.Fatal(err)
 		}

@@ -19,6 +19,8 @@ export const pixelToPercent = (pixel: number, total: number): number =>
   (pixel / total) * 100;
 
 export const DEFAULT_DIMENSIONS: dimensions.Dimensions = { width: 40, height: 80 };
+export const DEFAULT_BOX_RADIUS = 3;
+export const DEFAULT_STROKE_WIDTH = 2;
 export const DEFAULT_RADIUS: border.Radius = border.constructRadius({
   x: 50,
   y: 10,

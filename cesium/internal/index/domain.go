@@ -357,11 +357,12 @@ func (i *Domain) Stamp(
 		}
 		err = span.EndWith(err, ErrDiscontinuous)
 	}()
-	if offset == 0 {
+	switch {
+	case offset == 0:
 		approx, err = i.zeroStamp(ctx, ref)
-	} else if offset < 0 {
+	case offset < 0:
 		approx, err = i.backwardStamp(ctx, ref, offset, continuous)
-	} else {
+	default:
 		approx, err = i.forwardStamp(ctx, ref, offset, continuous)
 	}
 	return approx, err

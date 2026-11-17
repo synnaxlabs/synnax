@@ -124,7 +124,6 @@ export const Symbol = ({
         onClickDelay={onClickDelay}
         inlineSize={inlineSize}
         readback={
-          stateChannel != null &&
           stateChannel !== 0 && (
             <Readback
               nodeKey={nodeKey}

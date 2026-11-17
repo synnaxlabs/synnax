@@ -267,13 +267,14 @@ func compileBinaryRelational(
 		return types.Type{}, err
 	}
 	var op string
-	if ctx.AST.LT(0) != nil {
+	switch {
+	case ctx.AST.LT(0) != nil:
 		op = "<"
-	} else if ctx.AST.GT(0) != nil {
+	case ctx.AST.GT(0) != nil:
 		op = ">"
-	} else if ctx.AST.LEQ(0) != nil {
+	case ctx.AST.LEQ(0) != nil:
 		op = "<="
-	} else if ctx.AST.GEQ(0) != nil {
+	case ctx.AST.GEQ(0) != nil:
 		op = ">="
 	}
 
