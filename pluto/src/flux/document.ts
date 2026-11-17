@@ -446,6 +446,12 @@ class DocumentStore<
     if (waited != null) this.waited = waited.catch(() => undefined);
     try {
       await waited;
+    } catch (e) {
+      tx.abort();
+      this.params.onError(e);
+      return false;
+    }
+    try {
       await tx.commit();
       return true;
     } catch (e) {
