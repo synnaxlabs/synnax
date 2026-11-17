@@ -33,7 +33,7 @@ func checkImportOrder(ctx acontext.Context[parser.IProgramContext]) {
 			continue
 		}
 		if sawNonImport {
-			ctx.Diagnostics.Add(codes.ImportDeclaration.Atf(
+			ctx.Diagnostics.Add(codes.ImportOrder.Atf(
 				stmt,
 				"import statements must appear before any other top-level declarations",
 			))
@@ -64,7 +64,7 @@ func collectImports(ctx acontext.Context[parser.IProgramContext]) {
 			Target: module,
 		}
 		if _, err := root.Add(ctx, alias); err != nil {
-			ctx.Diagnostics.Add(codes.ImportDeclaration.Atf(
+			ctx.Diagnostics.Add(codes.DuplicateImport.Atf(
 				entry.AST,
 				"duplicate import: %q is already imported",
 				entry.Alias,

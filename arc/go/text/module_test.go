@@ -149,7 +149,7 @@ var _ = Describe("Loader", func() {
 			sources["m"] = `func f() i64 { return 1 }`
 			diag := analyze(ctx, "import m\n\ntrig -> m.f() -> out")
 			Expect(diag.String()).To(
-				ContainSubstring(`[E4002]: 'f' is not exported by module "m"`),
+				ContainSubstring(`[E4003]: 'f' is not exported by module "m"`),
 			)
 		})
 

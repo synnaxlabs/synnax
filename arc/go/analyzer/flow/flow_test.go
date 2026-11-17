@@ -1237,7 +1237,7 @@ sequence main {
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					d := (*ctx.Diagnostics)[0]
-					Expect(d.Code).To(Equal(codes.ChannelDirection.Code))
+					Expect(d.Code).To(Equal(codes.ReadOnlyWrite.Code))
 					Expect(
 						d.Message,
 					).To(Equal("cannot write to channel-read variable v; it is read-only"))

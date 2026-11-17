@@ -747,6 +747,11 @@ var _ = Describe("Literal Parser", func() {
 			),
 		)
 
+		It("Should give a value that is not a constant its code", func() {
+			_, err := parse("x", types.I64())
+			Expect(diagnostics.Error(err, nil).Code).To(Equal(codes.NotConstant.Code))
+		})
+
 		DescribeTable(
 			"rejects a non-constant or out-of-range value",
 			func(text string, target types.Type, errSubstring string) {

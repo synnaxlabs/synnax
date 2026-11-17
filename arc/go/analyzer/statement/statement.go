@@ -889,7 +889,7 @@ func addHiddenLocal(
 func analyzeBreakStatement(ctx context.Context[parser.IBreakStatementContext]) {
 	_, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindLoop)
 	if err != nil {
-		ctx.Diagnostics.Add(codes.MisplacedStatement.Atf(
+		ctx.Diagnostics.Add(codes.BreakOutsideLoop.Atf(
 			ctx.AST,
 			"break can only be used inside a for loop",
 		))
@@ -899,7 +899,7 @@ func analyzeBreakStatement(ctx context.Context[parser.IBreakStatementContext]) {
 func analyzeContinueStatement(ctx context.Context[parser.IContinueStatementContext]) {
 	_, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindLoop)
 	if err != nil {
-		ctx.Diagnostics.Add(codes.MisplacedStatement.Atf(
+		ctx.Diagnostics.Add(codes.BreakOutsideLoop.Atf(
 			ctx.AST,
 			"continue can only be used inside a for loop",
 		))
@@ -911,7 +911,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	if err != nil {
 		enclosingScope, err = ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 		if err != nil {
-			ctx.Diagnostics.Add(codes.MisplacedStatement.Atf(
+			ctx.Diagnostics.Add(diagnostics.Errorf(
 				ctx.AST,
 				"return statement can only be used inside a function body",
 			))

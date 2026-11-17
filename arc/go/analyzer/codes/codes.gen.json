@@ -1,202 +1,332 @@
 {
   "E1000": {
     "severity": "error",
-    "message": ""
+    "message": "missing ')' at '}'",
+    "problem": "The syntax is not correct at that position.",
+    "example": "func f() {\n    x := (1 + 2\n}"
   },
   "E1001": {
     "severity": "error",
-    "message": ""
+    "message": "",
+    "problem": "The source text is larger than 1 MiB, or its nesting is deeper than the parser allows.",
+    "example": ""
   },
   "E1002": {
     "severity": "error",
-    "message": ""
+    "message": "placeholder '{}' must contain an expression",
+    "problem": "A string literal or a format placeholder is not valid.",
+    "example": "func f() str {\n    return f\"value {}\"\n}"
   },
   "E1003": {
     "severity": "error",
-    "message": "subtraction requires whitespace on both sides of '-'"
+    "message": "subtraction requires whitespace on both sides of '-'",
+    "problem": "A subtraction has no space on one side of the `-`.",
+    "example": "func f(a f64, b f64) f64 {\n    return a -b\n}"
   },
   "E2000": {
     "severity": "error",
-    "message": "integer %s by zero"
+    "message": "integer division by zero",
+    "problem": "An integer `/` or `%` divides by a zero that is made only of literals.",
+    "example": "func f() {\n    x := 1 / 0\n}"
   },
   "E2001": {
     "severity": "error",
-    "message": ""
+    "message": "type mismatch: cannot assign i32 to 'y' (type str)",
+    "problem": "A value has one type and the code needs a different type.",
+    "example": "func f() {\n    x i32 := 1\n    y str := x\n}"
   },
   "E2002": {
     "severity": "error",
-    "message": ""
+    "message": "invalid default value for input parameter x: unknown unit: zzz",
+    "problem": "A type name or a unit name does not exist.",
+    "example": "func f(x f64 = 5zzz) {\n}"
   },
   "E2003": {
     "severity": "error",
-    "message": ""
+    "message": "",
+    "problem": "The compiler cannot determine the type of a value from the code.",
+    "example": ""
+  },
+  "E2004": {
+    "severity": "error",
+    "message": "cannot use str in - operation",
+    "problem": "An operator or a statement does not support the type of a value.",
+    "example": "func f() {\n    x := \"a\" - \"b\"\n}"
   },
   "E2005": {
     "severity": "error",
-    "message": ""
+    "message": "cannot cast str to i32",
+    "problem": "A cast converts between two types that Arc cannot convert.",
+    "example": "func f() {\n    x := i32(\"a\")\n}"
   },
   "E2006": {
     "severity": "error",
-    "message": ""
+    "message": "variable 'samples' of type series f64 cannot have a computed initializer",
+    "problem": "The code needs a constant, and the value is one that the compiler cannot compute. A variable outside a function also needs a constant when its type has no zero value, such as a series.",
+    "example": "samples series f64 := [1.0, 2.0]"
   },
   "E2007": {
     "severity": "error",
-    "message": ""
+    "message": "constant 200 overflows i8",
+    "problem": "A constant does not fit its type.",
+    "example": "func f() {\n    x i8 := 100 + 100\n}"
   },
   "E2008": {
     "severity": "error",
-    "message": "constant %s overflows %s"
+    "message": "incompatible dimensions: time^1 vs length^1",
+    "problem": "An operation combines units of different dimensions, such as a time and a length.",
+    "example": "func f() {\n    x := 5s + 3m\n}"
   },
   "E2009": {
     "severity": "error",
-    "message": ""
+    "message": "invalid default value for input parameter x: cannot convert non-integer float 1.500000 to i32",
+    "problem": "A number literal is malformed, or it has no exact value in its type.",
+    "example": "func f(x i32 = 1.5) {\n}"
   },
   "E2010": {
     "severity": "error",
-    "message": "%s with %s is always %t, use %s instead"
-  },
-  "E2011": {
-    "severity": "error",
-    "message": ""
+    "message": "== with math.nan is always false, use math.is_nan instead",
+    "problem": "A comparison has a NaN constant as an operand. NaN is not equal to, less than, or greater than a value, so the comparison always has the same result.",
+    "example": "import math\n\nfunc f(x f64) u8 {\n    return x == math.nan\n}"
   },
   "E3000": {
     "severity": "error",
-    "message": ""
+    "message": "cannot call non-function x of type integer",
+    "problem": "The code calls a name that is not a function, or calls a function in a place that does not allow that call.",
+    "example": "func f() {\n    x := 1\n    y := x()\n}"
   },
   "E3001": {
     "severity": "error",
-    "message": "missing required argument for parameter '%s' of func '%s'"
+    "message": "missing required argument for parameter 'y' of func 'add'",
+    "problem": "A call has no argument for a parameter that has no default value.",
+    "example": "func add(x f64, y f64) f64 {\n    return x + y\n}\n\nfunc f() {\n    z := add(1.0)\n}"
   },
   "E3002": {
     "severity": "error",
-    "message": "too many arguments for func '%s': expected at most %d"
+    "message": "too many arguments for func 'add': expected at most 2",
+    "problem": "A call has more arguments than the function has parameters.",
+    "example": "func add(x f64, y f64) f64 {\n    return x + y\n}\n\nfunc f() {\n    z := add(1.0, 2.0, 3.0)\n}"
   },
   "E3003": {
     "severity": "error",
-    "message": ""
+    "message": "unknown parameter 'unknown' for func 'len'",
+    "problem": "A named argument has the same name as a different argument of the call, or the function has no parameter with that name.",
+    "example": "len(unknown=label) -> count"
   },
   "E3004": {
     "severity": "error",
-    "message": ""
+    "message": "period must be positive, got 0s",
+    "problem": "A constant argument has a value that the function does not accept.",
+    "example": "import time\n\ntime.interval(period=0ms) -> valve_cmd"
   },
   "E3005": {
     "severity": "error",
-    "message": ""
+    "message": "required input parameter b cannot follow optional input parameters",
+    "problem": "A parameter that has no default value comes after a parameter that has one.",
+    "example": "func f(a i32 = 1, b i32) {\n}"
   },
   "E3006": {
     "severity": "error",
-    "message": ""
+    "message": "cannot return a value from a function with no return type",
+    "problem": "A `return` has no value in a function that returns one, a `return` has a value in a function that returns none, or a path through a function ends with no `return`.",
+    "example": "func f() {\n    return 1\n}"
   },
   "E3007": {
     "severity": "error",
-    "message": ""
+    "message": "break can only be used inside a for loop",
+    "problem": "A `break` or a `continue` is not in a `for` loop.",
+    "example": "func f() {\n    break\n}"
   },
   "E3008": {
     "severity": "error",
-    "message": ""
+    "message": "stateful variables cannot be declared at the top level",
+    "problem": "A stateful variable is in a place that does not allow one, such as the top level of a program.",
+    "example": "count_total $= 0"
   },
   "E3009": {
     "severity": "error",
-    "message": ""
+    "message": "cannot assign to loop variable 'i'",
+    "problem": "An assignment has a target that does not accept it, such as a loop variable or a slice.",
+    "example": "func f() {\n    for i := range(3) {\n        i = 1\n    }\n}"
   },
   "E3010": {
     "severity": "error",
-    "message": ""
+    "message": "circular function call: a -> b -> a",
+    "problem": "A function calls itself through a circular chain of calls.",
+    "example": "func a() {\n    b()\n}\n\nfunc b() {\n    a()\n}"
   },
   "E4000": {
     "severity": "error",
-    "message": ""
+    "message": "unknown module \"pumps\"",
+    "problem": "An import names a module that does not exist, that does not compile, or that imports itself through a chain of imports.",
+    "example": "import pumps"
   },
   "E4001": {
     "severity": "error",
-    "message": ""
+    "message": "import statements must appear before any other top-level declarations",
+    "problem": "An import comes after other code.",
+    "example": "func f() {\n}\n\nimport time"
   },
   "E4002": {
     "severity": "error",
-    "message": ""
+    "message": "duplicate import: \"math\" is already imported",
+    "problem": "Two imports give the same name.",
+    "example": "import math\nimport math"
   },
   "E4003": {
     "severity": "error",
-    "message": ""
+    "message": "'open' is not exported by module \"valves\"",
+    "problem": "The code uses a member of a module, and the module does not export that member.",
+    "example": "import valves\n\nsensor -> valves.open() -> count"
   },
   "E4004": {
     "severity": "error",
-    "message": ""
+    "message": "undefined symbol: <name>",
+    "problem": "The name is not declared.",
+    "example": "func f() {\n    x := y\n}"
   },
   "E4005": {
     "severity": "error",
-    "message": ""
+    "message": "name x conflicts with existing variable at line 2, col 4",
+    "problem": "A declaration has a name that its scope already has.",
+    "example": "func f() {\n    x := 1\n    x := 2\n}"
+  },
+  "E4006": {
+    "severity": "error",
+    "message": "a module cannot have an authority block",
+    "problem": "A module has an authority block.",
+    "example": "authority 255"
+  },
+  "E4007": {
+    "severity": "error",
+    "message": "a module cannot have a top-level flow",
+    "problem": "A module has a top-level flow.",
+    "example": "sensor -> sensor_avg"
+  },
+  "E4008": {
+    "severity": "error",
+    "message": "export is only valid in a module",
+    "problem": "An `export` is in a file that is not a module.",
+    "example": "export func f() {\n}"
+  },
+  "E4009": {
+    "severity": "error",
+    "message": "an exported declaration needs a name",
+    "problem": "An exported declaration has no name.",
+    "example": "export sequence {\n    stage s {\n    }\n}"
   },
   "E5000": {
     "severity": "error",
-    "message": ""
+    "message": "multiple default authority values",
+    "problem": "An authority block is not before the first function, flow, or sequence, has two default values, names a channel two times, or has a value that is not from 0 to 255.",
+    "example": "authority 200\nauthority 100"
   },
   "E5001": {
     "severity": "error",
-    "message": ""
+    "message": "func 'source' has no return value but 'sink' expects an input parameter",
+    "problem": "An output or an input of a node in a flow cannot connect.",
+    "example": "func source() {\n}\n\nfunc sink() {v u8} {\n}\n\nsource() -> sink()"
   },
   "E5002": {
     "severity": "error",
-    "message": ""
+    "message": "'next' used outside of a sequence",
+    "problem": "A transition has a target that the code cannot reach from there, such as `next` outside a sequence or in the last stage.",
+    "example": "sensor > 10 => next"
   },
   "E5003": {
     "severity": "error",
-    "message": ""
+    "message": "'=>' cannot feed a routing table, use '->'",
+    "problem": "A `=>` sends values into `select` or into a routing table.",
+    "example": "sensor -> select() => {\n    true: 1 -> valve_cmd,\n    false: 0 -> valve_cmd\n}"
   },
   "E5004": {
     "severity": "error",
-    "message": ""
+    "message": "sequence 'main' has no steps",
+    "problem": "A sequence has no steps, or an inline stage or sequence in a routing table has a name.",
+    "example": "sequence main {\n}\n\nsensor > 10 => main"
   },
   "E5005": {
     "severity": "error",
-    "message": ""
+    "message": "parameter 'v' of func 'consumer' is bound by both a call-site argument and an upstream wire",
+    "problem": "A function input has two sources.",
+    "example": "func consumer() {v f64} {\n}\n\nsensor -> consumer(v=5.0)"
   },
   "E5006": {
     "severity": "error",
-    "message": ""
+    "message": "math.nan is not a channel",
+    "problem": "The code has a value where it needs a channel, or a channel where it needs a value.",
+    "example": "import math\n\nsensor -> math.nan"
   },
   "E5007": {
     "severity": "error",
-    "message": ""
+    "message": "cannot write to channel-read variable v; it is read-only",
+    "problem": "The code writes to a name that is read-only.",
+    "example": "sequence main {\n    stage first {\n        v := sensor * 2.0\n        1.0 -> v\n    }\n}"
   },
   "E5008": {
     "severity": "error",
-    "message": ""
+    "message": "output routing table must follow a func invocation",
+    "problem": "A routing table is malformed or out of place.",
+    "example": "func target(v f64) {\n}\n\nsensor -> {\n    v: target()\n}"
   },
   "E5009": {
     "severity": "error",
-    "message": ""
+    "message": "func 'split' does not have output 'middle'",
+    "problem": "A routing table names an output or a parameter that does not exist.",
+    "example": "func split() {v f64} (low f64, high f64) {\n    low = v\n    high = v\n}\n\nsensor -> split() -> {\n    low: 1.0 -> sensor_avg,\n    middle: 1.0 -> sensor_avg\n}"
   },
   "E5010": {
     "severity": "error",
-    "message": ""
+    "message": "",
+    "problem": "A set of flows feed each other in a loop, so no flow can run first.",
+    "example": ""
+  },
+  "E5011": {
+    "severity": "error",
+    "message": "",
+    "problem": "A program has more top-level variables than Arc allows.",
+    "example": ""
   },
   "W2000": {
     "severity": "warning",
-    "message": "non-boolean conditions are deprecated, use an explicit comparison like x != 0"
+    "message": "non-boolean conditions are deprecated, use an explicit comparison like x != 0",
+    "problem": "An `if` or a `=>` uses a non-boolean value as a condition.",
+    "example": "func f(x i32) {\n    if x {\n    }\n}"
   },
   "W2001": {
     "severity": "warning",
-    "message": "bool to %s is experimental; a future release may only allow bool to u8"
+    "message": "bool to i32 is experimental; a future release may only allow bool to u8",
+    "problem": "A cast converts a `bool` to a number type other than `u8`.",
+    "example": "func f() {\n    b := true\n    x := i32(b)\n}"
   },
-  "W2003": {
+  "W2002": {
     "severity": "warning",
-    "message": ""
+    "message": "additive operation combines values with ~12 orders of magnitude difference (K vs pK); smaller value may lose precision",
+    "problem": "An operation on values with units can cause truncation or overflow.",
+    "example": "func f() {\n    x := 1K + 1pK\n}"
   },
   "W3000": {
     "severity": "warning",
-    "message": ""
+    "message": "output 'out' is never assigned in function 'f'",
+    "problem": "A function has a named output, and no path through the function gives it a value.",
+    "example": "func f() (out i32) {\n}"
   },
   "W4000": {
     "severity": "warning",
-    "message": "imported module %q is unused"
+    "message": "imported module \"math\" is unused",
+    "problem": "The code imports a module and does not use it.",
+    "example": "import math"
   },
   "W4001": {
     "severity": "warning",
-    "message": "'%s' is deprecated, use '%s' instead"
+    "message": "'avg' is deprecated, use 'math.avg' instead",
+    "problem": "The code uses a name that has a replacement.",
+    "example": "sensor -> avg() -> sensor_avg"
   },
   "W5000": {
     "severity": "warning",
-    "message": "declare variables at the top of a stage or sequence"
+    "message": "declare variables at the top of a stage or sequence",
+    "problem": "A stage or a sequence declares a variable after one of its steps. Declare each variable before the first step.",
+    "example": "import time\n\nsequence main {\n    stage a {\n        true => next\n    }\n    t0 := time.now()\n    stage b {\n        time.wait(1s)\n    }\n}\n\ntrue => main"
   }
 }

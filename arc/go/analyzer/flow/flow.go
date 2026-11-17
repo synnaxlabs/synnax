@@ -90,7 +90,7 @@ func rejectTransitionIntoBranch[T antlr.ParserRuleContext](ctx context.Context[T
 		}
 		switch next := children[i+1].(type) {
 		case parser.IRoutingTableContext:
-			ctx.Diagnostics.Add(codes.FlowShape.Atf(op,
+			ctx.Diagnostics.Add(codes.FlowOperator.Atf(op,
 				"'=>' cannot feed a routing table, use '->'",
 			))
 		case parser.IFlowNodeContext:
@@ -98,7 +98,7 @@ func rejectTransitionIntoBranch[T antlr.ParserRuleContext](ctx context.Context[T
 			if fn == nil || parser.FunctionName(fn) != "select" {
 				continue
 			}
-			ctx.Diagnostics.Add(codes.FlowShape.Atf(op,
+			ctx.Diagnostics.Add(codes.FlowOperator.Atf(op,
 				"'=>' cannot feed select(), use '->'",
 			))
 		}
@@ -413,7 +413,7 @@ func analyzeIdentifier(
 	}
 	if prevNode != nil {
 		if sym.IsReactive() {
-			ctx.Diagnostics.Add(codes.ChannelDirection.Atf(ctx.AST,
+			ctx.Diagnostics.Add(codes.ReadOnlyWrite.Atf(ctx.AST,
 				"cannot write to channel-read variable %s; it is read-only", name))
 			return
 		}
@@ -693,7 +693,7 @@ func analyzeOutputRoutingTable(
 		outputName := entry.RoutingKey().GetText()
 
 		if _, exists := fnType.Type.Outputs.Get(outputName); !exists {
-			ctx.Diagnostics.Add(codes.RoutingTable.Atf(
+			ctx.Diagnostics.Add(codes.RoutingName.Atf(
 				entry,
 				"func '%s' does not have output '%s'",
 				fnName,
@@ -717,7 +717,7 @@ func analyzeOutputRoutingTable(
 			}
 
 			if _, exists := nextFuncType.Inputs.Get(targetParamName); !exists {
-				ctx.Diagnostics.Add(codes.RoutingTable.Atf(
+				ctx.Diagnostics.Add(codes.RoutingName.Atf(
 					entry,
 					"func '%s' does not have parameter '%s'",
 					parser.FunctionName(nextFunc),
@@ -867,7 +867,7 @@ func analyzeInputRoutingTable(
 
 		paramType, exists := fnType.Type.Inputs.Get(paramName)
 		if !exists {
-			ctx.Diagnostics.Add(codes.RoutingTable.Atf(
+			ctx.Diagnostics.Add(codes.RoutingName.Atf(
 				lastNode,
 				"func '%s' does not have parameter '%s'",
 				fnName,

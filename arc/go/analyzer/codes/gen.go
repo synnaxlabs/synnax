@@ -9,51 +9,190 @@
 
 //go:build ignore
 
-// Writes the table of kinds to codes.gen.json, which the docs site reads.
+// Writes the table of kinds to codes.gen.json, which the docs site reads. Each kind has
+// a Markdown file with its problem text and an Arc example that reports its code.
 package main
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/synnaxlabs/arc/analyzer/codes"
+	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	"go.lsp.dev/protocol"
 )
 
 type kind struct {
 	Severity string `json:"severity"`
 	Message  string `json:"message"`
+	Problem  string `json:"problem"`
+	Example  string `json:"example"`
 }
 
-var severities = map[protocol.DiagnosticSeverity]string{
-	protocol.DiagnosticSeverityError:   "error",
-	protocol.DiagnosticSeverityWarning: "warning",
+const fence = "```"
+
+var (
+	severities = map[protocol.DiagnosticSeverity]string{
+		protocol.DiagnosticSeverityError:   "error",
+		protocol.DiagnosticSeverityWarning: "warning",
+	}
+	// channels are the channels that an example can read and write.
+	channels = []symbol.Symbol{
+		channel("sensor", types.F64(), 1),
+		channel("valve_cmd", types.U8(), 2),
+		channel("count", types.I64(), 3),
+		channel("label", types.String(), 4),
+		channel("sensor_avg", types.F64(), 5),
+	}
+	// modules are the modules that an example can import.
+	modules = map[string]string{"valves": "func open() i64 {\n    return 1\n}\n"}
+	cfg     = parser.Config{AllowDashedNames: true}
+)
+
+func channel(name string, t types.Type, id int) symbol.Symbol {
+	return symbol.Symbol{
+		Name: name,
+		Kind: symbol.KindChannel,
+		Type: types.Chan(t),
+		ID:   id,
+	}
 }
 
-func fail(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, format+"\n", args...)
-	os.Exit(1)
+func newRoot() *symbol.Symbol {
+	loader := text.NewLoader(text.LoaderConfig{
+		Source: func(_ context.Context, path string) (text.Text, error) {
+			src, ok := modules[path]
+			if !ok {
+				return text.Text{}, errors.Wrapf(symbol.ErrModuleNotFound, "%q", path)
+			}
+			return text.Text{Raw: src}, nil
+		},
+		Ambient: stl.NewSymbols,
+	})
+	root := symbol.NewRoot(nil, stl.NewSymbols(), symbol.WithModules(loader))
+	for i := range channels {
+		ch := channels[i]
+		root.Parent.AddChild(&ch)
+	}
+	return root
+}
+
+// report returns each diagnostic that the compiler reports for source as a program or
+// as a module.
+func report(source string, module bool) diagnostics.Diagnostics {
+	parsed, diag := text.Parse(text.Text{Raw: source}, cfg)
+	if diag != nil && !diag.Ok() {
+		return *diag
+	}
+	analyze := text.Analyze
+	if module {
+		analyze = text.AnalyzeModule
+	}
+	_, diag = analyze(context.Background(), parsed, newRoot(), cfg)
+	if diag == nil {
+		return nil
+	}
+	return *diag
+}
+
+// read returns the title, problem text, and example of the Markdown file of code.
+func read(code diagnostics.ErrorCode) (title, problem, example string, err error) {
+	b, err := os.ReadFile(string(code) + ".md")
+	if err != nil {
+		return "", "", "", err
+	}
+	problem, rest, hasExample := strings.Cut(string(b), fence+"arc\n")
+	if hasExample {
+		if example, _, hasExample = strings.Cut(rest, fence); !hasExample {
+			return "", "", "", errors.Newf("%s.md has an example with no end", code)
+		}
+	}
+	if heading, body, ok := strings.Cut(problem, "\n"); ok {
+		if t, isHeading := strings.CutPrefix(heading, "# "); isHeading {
+			title, problem = strings.TrimSpace(t), body
+		}
+	}
+	problem = strings.Join(strings.Fields(problem), " ")
+	if problem == "" {
+		return "", "", "", errors.Newf("%s.md has no problem text", code)
+	}
+	return title, problem, strings.TrimRight(example, "\n"), nil
+}
+
+func generate(k diagnostics.Kind) (kind, error) {
+	severity, ok := severities[k.Severity]
+	if !ok {
+		return kind{}, errors.Newf(
+			"%s has a severity that the docs do not show",
+			k.Code,
+		)
+	}
+	title, problem, example, err := read(k.Code)
+	if err != nil {
+		return kind{}, err
+	}
+	out := kind{Severity: severity, Message: title, Problem: problem, Example: example}
+	if example == "" {
+		return out, nil
+	}
+	for _, module := range []bool{false, true} {
+		for _, d := range report(example, module) {
+			if d.Code == k.Code {
+				if title == "" {
+					out.Message = d.Message
+				}
+				return out, nil
+			}
+		}
+	}
+	return kind{}, errors.Newf(
+		"the example of %s does not report it:\n%s",
+		k.Code,
+		report(example, false).String(),
+	)
 }
 
 func main() {
-	kinds := make(map[diagnostics.ErrorCode]kind, len(codes.All))
+	var (
+		kinds  = make(map[diagnostics.ErrorCode]kind, len(codes.All))
+		failed bool
+	)
 	for _, k := range codes.All {
 		if _, ok := kinds[k.Code]; ok {
-			fail("two kinds have the code %s", k.Code)
+			fmt.Fprintf(os.Stderr, "two kinds have the code %s\n", k.Code)
+			failed = true
+			continue
 		}
-		severity, ok := severities[k.Severity]
-		if !ok {
-			fail("%s has a severity that the docs do not show", k.Code)
+		out, err := generate(k)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			failed = true
 		}
-		kinds[k.Code] = kind{Severity: severity, Message: k.Message}
+		kinds[k.Code] = out
 	}
-	b, err := json.MarshalIndent(kinds, "", "  ")
+	if failed {
+		os.Exit(1)
+	}
+	var b bytes.Buffer
+	enc := json.NewEncoder(&b)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	err := enc.Encode(kinds)
+	if err == nil {
+		err = os.WriteFile("codes.gen.json", b.Bytes(), 0o644)
+	}
 	if err != nil {
-		fail("failed to encode the kinds: %v", err)
-	}
-	if err = os.WriteFile("codes.gen.json", append(b, '\n'), 0o644); err != nil {
-		fail("failed to write the kinds: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to write the kinds: %v\n", err)
+		os.Exit(1)
 	}
 }

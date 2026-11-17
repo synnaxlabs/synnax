@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/sequence"
 	"github.com/synnaxlabs/arc/ir"
@@ -661,6 +662,26 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
+		)
+
+		It(
+			"Should give a named inline routing case body its code",
+			func(bCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
+				sequence main {
+					stage hold {
+						start_cmd -> select() -> {
+							true: stage my_stage { 1 -> abort_btn }
+						}
+					}
+				}
+			`))
+				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(*ctx.Diagnostics).ToNot(BeEmpty())
+				Expect((*ctx.Diagnostics)[0].Code).
+					To(Equal(codes.SequenceDeclaration.Code))
+			},
 		)
 
 		DescribeTable("Should reject named inline routing case bodies",

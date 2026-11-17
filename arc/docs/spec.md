@@ -140,7 +140,7 @@ TypeCast ::= Type '(' Expression ')'
 - Signed ↔ Unsigned keeps the bits, so `u8(i8(-1))` is `255`
 - Float → Integer truncates toward zero, saturates on overflow
 - Integer overflow uses two's-complement wrapping. An expression made only of integer
-  literals that overflows its type is a compile error (`E2008`).
+  literals that overflows its type is a compile error (`E2007`).
 - Numeric → `bool` is `x != 0`; `bool` → numeric is `1` or `0`
 - Numeric or `bool` → `str` renders text (`"3.14"`, `"true"`); no casts from `str`
 
@@ -817,7 +817,7 @@ These simplify implementation while maintaining expressiveness:
   dimensioned base
 - **Operands**: Non-`bool` logical operands
 - **Constants**: An expression made only of integer literals that overflows its type
-  (`E2008`), such as `x i8 := 100 + 100`, or that divides or takes a modulo by zero
+  (`E2007`), such as `x i8 := 100 + 100`, or that divides or takes a modulo by zero
   (`E2000`), such as `x := 1 / 0`. A negated literal is one signed value, so
   `x i8 := -128` fits. A cast passes a constant through only when the target type holds
   it. Float arithmetic follows IEEE 754 and is never a constant error.

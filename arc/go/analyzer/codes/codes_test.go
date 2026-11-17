@@ -42,9 +42,9 @@ var _ = Describe("All", func() {
 		}
 	})
 
-	It("Should match the generated file", func() {
+	It("Should have a problem text in the generated file for each kind", func() {
 		var generated map[diagnostics.ErrorCode]struct {
-			Message string `json:"message"`
+			Problem string `json:"problem"`
 		}
 		Expect(
 			json.Unmarshal(MustSucceed(os.ReadFile("codes.gen.json")), &generated),
@@ -52,7 +52,7 @@ var _ = Describe("All", func() {
 		Expect(generated).To(HaveLen(len(codes.All)))
 		for _, kind := range codes.All {
 			Expect(generated).To(HaveKey(kind.Code))
-			Expect(generated[kind.Code].Message).To(Equal(kind.Message))
+			Expect(generated[kind.Code].Problem).ToNot(BeEmpty(), string(kind.Code))
 		}
 	})
 })

@@ -63,27 +63,32 @@ var (
 	}
 	// InvalidOperand is an operator or statement on a type that it does not support.
 	InvalidOperand = diagnostics.Kind{
-		Code:     "E2005",
+		Code:     "E2004",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// InvalidCast is a cast between two types that Arc does not convert.
 	InvalidCast = diagnostics.Kind{
-		Code:     "E2006",
+		Code:     "E2005",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// NotConstant is a computed value where the code needs a constant.
 	NotConstant = diagnostics.Kind{
-		Code:     "E2007",
+		Code:     "E2006",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// ConstantOverflow is a constant that does not fit its type.
 	ConstantOverflow = diagnostics.Kind{
-		Code:     "E2008",
+		Code:     "E2007",
 		Severity: protocol.DiagnosticSeverityError,
 		Message:  "constant %s overflows %s",
 	}
 	// DimensionMismatch is an operation on units that have different dimensions.
 	DimensionMismatch = diagnostics.Kind{
+		Code:     "E2008",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// InvalidLiteral is a number literal that is malformed or has no exact value.
+	InvalidLiteral = diagnostics.Kind{
 		Code:     "E2009",
 		Severity: protocol.DiagnosticSeverityError,
 	}
@@ -92,11 +97,6 @@ var (
 		Code:     "E2010",
 		Severity: protocol.DiagnosticSeverityError,
 		Message:  "%s with %s is always %t, use %s instead",
-	}
-	// InvalidLiteral is a number literal that is malformed or has no exact value.
-	InvalidLiteral = diagnostics.Kind{
-		Code:     "E2011",
-		Severity: protocol.DiagnosticSeverityError,
 	}
 	// TruthyCondition is a number or a string used as a condition.
 	TruthyCondition = diagnostics.Kind{
@@ -112,7 +112,7 @@ var (
 	}
 	// UnitPrecisionLoss is a unit operation that can lose precision or overflow.
 	UnitPrecisionLoss = diagnostics.Kind{
-		Code:     "W2003",
+		Code:     "W2002",
 		Severity: protocol.DiagnosticSeverityWarning,
 	}
 
@@ -153,8 +153,8 @@ var (
 		Code:     "E3006",
 		Severity: protocol.DiagnosticSeverityError,
 	}
-	// MisplacedStatement is a break, continue, or return outside its construct.
-	MisplacedStatement = diagnostics.Kind{
+	// BreakOutsideLoop is a break or a continue that is not in a for loop.
+	BreakOutsideLoop = diagnostics.Kind{
 		Code:     "E3007",
 		Severity: protocol.DiagnosticSeverityError,
 	}
@@ -184,18 +184,18 @@ var (
 		Code:     "E4000",
 		Severity: protocol.DiagnosticSeverityError,
 	}
-	// ImportDeclaration is an import that is a duplicate or is out of place.
-	ImportDeclaration = diagnostics.Kind{
+	// ImportOrder is an import after a different top-level declaration.
+	ImportOrder = diagnostics.Kind{
 		Code:     "E4001",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// DuplicateImport is an import of a name that an earlier import already has.
+	DuplicateImport = diagnostics.Kind{
+		Code:     "E4002",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// NotExported is a reference to a member that its module does not export.
 	NotExported = diagnostics.Kind{
-		Code:     "E4002",
-		Severity: protocol.DiagnosticSeverityError,
-	}
-	// ModuleDeclaration is a declaration that a module, or a program, cannot hold.
-	ModuleDeclaration = diagnostics.Kind{
 		Code:     "E4003",
 		Severity: protocol.DiagnosticSeverityError,
 	}
@@ -207,6 +207,26 @@ var (
 	// SymbolRedefined is a declaration of a name that its scope already has.
 	SymbolRedefined = diagnostics.Kind{
 		Code:     "E4005",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// ModuleAuthority is an authority block in a module.
+	ModuleAuthority = diagnostics.Kind{
+		Code:     "E4006",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// ModuleFlow is a top-level flow in a module.
+	ModuleFlow = diagnostics.Kind{
+		Code:     "E4007",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// ExportOutsideModule is an export in a file that is not a module.
+	ExportOutsideModule = diagnostics.Kind{
+		Code:     "E4008",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// UnnamedExport is an export of a declaration that has no name.
+	UnnamedExport = diagnostics.Kind{
+		Code:     "E4009",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// UnusedImport is an imported module that nothing references.
@@ -237,8 +257,8 @@ var (
 		Code:     "E5002",
 		Severity: protocol.DiagnosticSeverityError,
 	}
-	// FlowShape is a flow statement with a missing node or the wrong operator.
-	FlowShape = diagnostics.Kind{
+	// FlowOperator is a => where the flow needs a ->.
+	FlowOperator = diagnostics.Kind{
 		Code:     "E5003",
 		Severity: protocol.DiagnosticSeverityError,
 	}
@@ -257,24 +277,29 @@ var (
 		Code:     "E5006",
 		Severity: protocol.DiagnosticSeverityError,
 	}
-	// ChannelDirection is a read or a write on a channel that does not allow it.
-	ChannelDirection = diagnostics.Kind{
+	// ReadOnlyWrite is a write to a name that the code can only read.
+	ReadOnlyWrite = diagnostics.Kind{
 		Code:     "E5007",
 		Severity: protocol.DiagnosticSeverityError,
 	}
-	// RoutingTable is a routing table that is malformed or names a missing port.
+	// RoutingTable is a routing table that is malformed or out of place.
 	RoutingTable = diagnostics.Kind{
 		Code:     "E5008",
 		Severity: protocol.DiagnosticSeverityError,
 	}
+	// RoutingName is a routing table entry that names a missing output or input.
+	RoutingName = diagnostics.Kind{
+		Code:     "E5009",
+		Severity: protocol.DiagnosticSeverityError,
+	}
 	// DataflowCycle is a set of flows that feed each other in a loop.
 	DataflowCycle = diagnostics.Kind{
-		Code:     "E5009",
+		Code:     "E5010",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// ChannelLimit is a program with more local channels than Arc allows.
 	ChannelLimit = diagnostics.Kind{
-		Code:     "E5010",
+		Code:     "E5011",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// DeclarationAfterStep is a variable declared after a step of its scope.
@@ -300,8 +325,8 @@ var All = []diagnostics.Kind{
 	NotConstant,
 	ConstantOverflow,
 	DimensionMismatch,
-	NaNComparison,
 	InvalidLiteral,
+	NaNComparison,
 	TruthyCondition,
 	BoolCast,
 	UnitPrecisionLoss,
@@ -312,28 +337,33 @@ var All = []diagnostics.Kind{
 	FuncArgValue,
 	ParamOrder,
 	ReturnValue,
-	MisplacedStatement,
+	BreakOutsideLoop,
 	StatefulVariable,
 	AssignmentTarget,
 	CircularCall,
 	OutputNeverAssigned,
 	ImportFailed,
-	ImportDeclaration,
+	ImportOrder,
+	DuplicateImport,
 	NotExported,
-	ModuleDeclaration,
 	SymbolUndefined,
 	SymbolRedefined,
+	ModuleAuthority,
+	ModuleFlow,
+	ExportOutsideModule,
+	UnnamedExport,
 	UnusedImport,
 	DeprecatedSymbol,
 	Authority,
 	FlowConnection,
 	TransitionTarget,
-	FlowShape,
+	FlowOperator,
 	SequenceDeclaration,
 	TriggerBinding,
 	ChannelExpected,
-	ChannelDirection,
+	ReadOnlyWrite,
 	RoutingTable,
+	RoutingName,
 	DataflowCycle,
 	ChannelLimit,
 	DeclarationAfterStep,

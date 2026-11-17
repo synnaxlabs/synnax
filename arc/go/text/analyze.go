@@ -515,13 +515,13 @@ func analyzeIdentifierByRole(
 		return flowNodeResult{transition: &intent}, true
 	default:
 		if isSink && sym.Root().UserDefined && sym.Root() != ctx.Scope.Root() {
-			ctx.Diagnostics.Add(codes.ChannelDirection.Atf(ctx.AST,
+			ctx.Diagnostics.Add(codes.ReadOnlyWrite.Atf(ctx.AST,
 				"cannot write to '%s': it belongs to an imported module", name))
 			return flowNodeResult{}, false
 		}
 		if rn := shell.varNodes[sym].readNode(sym); rn != nil {
 			if isSink && isExprReadVar(sym) {
-				ctx.Diagnostics.Add(codes.ChannelDirection.Atf(ctx.AST,
+				ctx.Diagnostics.Add(codes.ReadOnlyWrite.Atf(ctx.AST,
 					"cannot write to channel-read variable '%s'", name))
 				return flowNodeResult{}, false
 			}
@@ -2131,7 +2131,7 @@ func (p *flowChainProcessor) consumeTransition(
 	ast parser.IFlowNodeContext,
 ) bool {
 	if p.prevNode == nil {
-		p.ctx.Diagnostics.Add(codes.FlowShape.Atf(
+		p.ctx.Diagnostics.Add(diagnostics.Errorf(
 			ast, "transition target requires a source",
 		))
 		return false
@@ -2210,7 +2210,7 @@ func analyzeFlow(
 		}
 	}
 	if len(p.edges) < 1 && !p.transitionEmitted {
-		ctx.Diagnostics.Add(codes.FlowShape.Atf(
+		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
 			"flow statement requires at least two nodes",
 		))
@@ -2395,7 +2395,7 @@ func (p *inputParser) parseChannel(
 	if err := paramType.ChanDirection.CheckCompatibility(
 		sym.Type.ChanDirection,
 	); err != nil {
-		p.ctx.Diagnostics.Add(codes.ChannelDirection.Wrap(err, expr))
+		p.ctx.Diagnostics.Add(codes.ReadOnlyWrite.Wrap(err, expr))
 		return nil, paramType, false
 	}
 	// Top-level channel aliases cannot be rebound, so they collapse into
@@ -2523,7 +2523,7 @@ func analyzeOutputRoutingTable(
 	for _, entry := range ctx.AST.AllRoutingEntry() {
 		outputName := entry.RoutingKey().GetText()
 		if !sourceNode.Outputs.Has(outputName) {
-			ctx.Diagnostics.Add(codes.RoutingTable.Atf(
+			ctx.Diagnostics.Add(codes.RoutingName.Atf(
 				entry,
 				"node '%s' does not have output '%s'",
 				sourceNode.Key,
@@ -2574,7 +2574,7 @@ func analyzeOutputRoutingTable(
 			target := node.input
 			if isLast && targetParamName != "" {
 				if !node.node.Inputs.Has(targetParamName) {
-					ctx.Diagnostics.Add(codes.RoutingTable.Atf(
+					ctx.Diagnostics.Add(codes.RoutingName.Atf(
 						entry,
 						"node '%s' does not have input '%s'",
 						node.node.Key,
