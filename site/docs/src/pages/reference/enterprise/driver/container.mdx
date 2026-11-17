@@ -65,9 +65,17 @@ its directory must be writable. Put the directory on a volume:
 - The Driver creates a missing directory with mode `0700` and a missing state file with
   mode `0600`. It does not change the mode or owner of a directory or file that exists,
   such as a volume mount. Create the directory with the owner and mode you want before
-  the Driver starts, and make sure the user of the Driver can write to it.
+  the Driver starts, and make sure the user of the Driver can write to it. Without
+  `--state-file`, a Driver that runs as root and finds a `synnax` user gives a directory
+  that it creates to root and the `synnax` group with mode `0751`, and a file that it
+  creates to the `synnax` user with mode `0600`.
 - If the state file exists, the user of the Driver must own it, and other users must not
   be able to read it, or the Driver does not start. Set the file to mode `0600`.
+- With `fsGroup` and the default `fsGroupChangePolicy` of `Always`, the kubelet makes
+  the state file readable by the group at each mount, and the Driver does not start. Set
+  `fsGroupChangePolicy` to `OnRootMismatch`, or remove `fsGroup`, then run `chmod 600`
+  on the state file once. The new policy does not change a file that the kubelet already
+  made readable.
 - The directory and the file cannot be symbolic links. Do not mount the state file from
   a Kubernetes Secret or ConfigMap.
 - Driver 0.61.0 to 0.61.4 set the state file to mode `0600` at each start. Without
