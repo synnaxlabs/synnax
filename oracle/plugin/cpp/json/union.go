@@ -49,7 +49,7 @@ func (p *Plugin) processUnion(
 	u resolution.Type,
 	data *templateData,
 ) ([]serializerData, unionDispatchData) {
-	form := u.Form.(resolution.UnionForm)
+	form := resolution.MustForm[resolution.UnionForm](u)
 	name := domain.GetName(u, "cpp")
 	data.AddSystem("variant")
 
@@ -81,7 +81,7 @@ func (p *Plugin) processUnion(
 		}
 		if payload, ok := v.Type.Resolve(data.table); ok {
 			if v.Inline {
-				pform := payload.Form.(resolution.StructForm)
+				pform := resolution.MustForm[resolution.StructForm](payload)
 				for _, f := range append(slices.Clone(declared), pform.Fields...) {
 					s.Fields = append(s.Fields, p.processField(f, payload, data))
 				}

@@ -20,7 +20,7 @@ import (
 )
 
 var _ = Describe("Proof MessagePack", func() {
-	It("Should round trip a password proof", func(ctx SpecContext) {
+	It("Should round trip a password proof", func() {
 		proof := auth.Proof{Variant: auth.PasswordProof{
 			Credentials: auth.Credentials{Username: "jane", Password: "secret"},
 		}}
@@ -29,7 +29,7 @@ var _ = Describe("Proof MessagePack", func() {
 		Expect(msgpack.Codec.Decode(b, &decoded)).To(Succeed())
 		Expect(decoded).To(Equal(proof))
 	})
-	It("Should read the shape clients send", func(ctx SpecContext) {
+	It("Should read the shape clients send", func() {
 		b := MustSucceed(msgpack.Codec.Encode(map[string]string{
 			"method":   "password",
 			"username": "jane",
@@ -40,7 +40,7 @@ var _ = Describe("Proof MessagePack", func() {
 		creds := auth.Credentials{Username: "jane", Password: "secret"}
 		Expect(decoded.Variant).To(Equal(auth.PasswordProof{Credentials: creds}))
 	})
-	It("Should round trip an API key proof", func(ctx SpecContext) {
+	It("Should round trip an API key proof", func() {
 		proof := auth.Proof{Variant: auth.APIKeyProof{
 			APIKeyCredentials: auth.APIKeyCredentials{Key: "syk_abc"},
 		}}
@@ -49,23 +49,21 @@ var _ = Describe("Proof MessagePack", func() {
 		Expect(msgpack.Codec.Decode(b, &decoded)).To(Succeed())
 		Expect(decoded).To(Equal(proof))
 	})
-	It("Should reject an API key proof whose key is not a string", func(
-		ctx SpecContext,
-	) {
+	It("Should reject an API key proof whose key is not a string", func() {
 		b := MustSucceed(msgpack.Codec.Encode(
 			map[string]any{"method": "api_key", "key": []int{1}},
 		))
 		Expect(vmsgpack.Unmarshal(b, &auth.Proof{})).
 			To(MatchError(ContainSubstring("decoding string/bytes")))
 	})
-	It("Should reject an unknown method", func(ctx SpecContext) {
+	It("Should reject an unknown method", func() {
 		b := MustSucceed(
 			msgpack.Codec.Encode(map[string]string{"method": "magic"}),
 		)
 		Expect(vmsgpack.Unmarshal(b, &auth.Proof{})).
 			To(MatchError(validate.ErrValidation))
 	})
-	It("Should encode an empty proof as nil", func(ctx SpecContext) {
+	It("Should encode an empty proof as nil", func() {
 		b := MustSucceed(msgpack.Codec.Encode(auth.Proof{}))
 		var decoded auth.Proof
 		Expect(msgpack.Codec.Decode(b, &decoded)).To(Succeed())

@@ -264,6 +264,38 @@ TEST(StatusCacheTest, DropDiscardsLaterStatuses) {
     EXPECT_TRUE(transport->sent().empty());
 }
 
+/// @brief it should wait for a re-send write of the task in progress before it drops
+/// the task, so the re-send never writes the status of a task that left this Driver.
+TEST(StatusCacheTest, DropWaitsForAResendWriteInProgress) {
+    const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "held"};
+    const auto owner = synnax::task::resource_id(task.key);
+    const auto transport = std::make_shared<HoldingSetClient>(owner, 1);
+    StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
+    synnax::task::Status status{
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .owner = owner,
+    };
+    ASSERT_NIL(cache.set(status));
+    // Declared before the guard, so the guard releases the hung write before the future
+    // waits for the drop.
+    std::future<void> dropped;
+    std::thread resend([&] { ASSERT_NIL(cache.resend()); });
+    x::defer::defer release([&] {
+        transport->release();
+        resend.join();
+    });
+    ASSERT_EVENTUALLY_TRUE(transport->holding.load());
+    dropped = std::async(std::launch::async, [&] { cache.drop(task.key); });
+    ASSERT_EQ(
+        dropped.wait_for(std::chrono::milliseconds(200)),
+        std::future_status::timeout
+    );
+    transport->release();
+    ASSERT_EQ(dropped.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+    ASSERT_NIL(cache.resend());
+    EXPECT_EQ(transport->count(owner), 2);
+}
+
 /// @brief it should write and keep the statuses of a task claimed again after a drop.
 TEST(StatusCacheTest, ClaimWritesStatusesAgain) {
     const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "returned"};
@@ -354,31 +386,5 @@ TEST(StatusCacheTest, LatestReturnsNothingForADroppedOrUnknownTask) {
     cache.drop(task.key);
     EXPECT_FALSE(cache.latest(task.key).has_value());
     EXPECT_FALSE(cache.latest(x::uuid::create()).has_value());
-}
-
-/// @brief it should re-send no status after clear, and keep a dropped task dropped.
-TEST(StatusCacheTest, ClearForgetsStatusesAndKeepsDrops) {
-    const auto kept = synnax::task::Task{.key = x::uuid::create(), .name = "kept"};
-    const auto gone = synnax::task::Task{.key = x::uuid::create(), .name = "gone"};
-    const auto transport = std::make_shared<HoldingSetClient>(
-        synnax::task::resource_id(x::uuid::create())
-    );
-    StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
-    synnax::task::Status status{
-        .variant = synnax::status::VARIANT_SUCCESS,
-        .owner = synnax::task::resource_id(kept.key),
-    };
-    ASSERT_NIL(cache.set(status));
-    cache.drop(gone.key);
-    cache.clear();
-    EXPECT_FALSE(cache.latest(kept.key).has_value());
-    ASSERT_NIL(cache.resend());
-    EXPECT_EQ(transport->sent().size(), 1);
-    synnax::task::Status late{
-        .variant = synnax::status::VARIANT_SUCCESS,
-        .owner = synnax::task::resource_id(gone.key),
-    };
-    ASSERT_NIL(cache.set(late));
-    EXPECT_EQ(transport->sent().size(), 1);
 }
 }

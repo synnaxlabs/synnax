@@ -129,6 +129,15 @@ func findScopeAt(
 	return findScopeAtInternalPosition(symbols, fromProtocol(astPos))
 }
 
+// symbolAt returns the symbol at pos, or nil when no symbol resolves there.
+func (d *document) symbolAt(ctx context.Context, pos protocol.Position) *symbol.Symbol {
+	sym, err := d.resolveSymbolAtPosition(ctx, pos)
+	if err != nil {
+		return nil
+	}
+	return sym
+}
+
 func (d *document) resolveSymbolAtPosition(
 	ctx context.Context,
 	pos protocol.Position,

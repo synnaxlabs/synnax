@@ -1242,3 +1242,16 @@ var _ = Describe("Cycle stamps end-to-end runtime", func() {
 		},
 	)
 })
+
+var _ = Describe("Source limits", func() {
+	root := func() *symbol.Symbol { return symbol.NewRoot(nil, stl.NewSymbols()) }
+	It("Should return a diagnostic for nesting past the parser limit", func(
+		ctx SpecContext,
+	) {
+		n := 100_000
+		src := "func f() f64 { return " + strings.Repeat("(", n) + "1.0" +
+			strings.Repeat(")", n) + " }"
+		Expect(arc.CompileText(ctx, arc.Text{Raw: src}, root())).Error().
+			To(MatchError(ContainSubstring("nesting is deeper than the parser allows")))
+	})
+})

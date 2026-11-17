@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp/migrate"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v2"
+	"github.com/synnaxlabs/x/defaults"
 )
 
 // MigrateBase lifts the base of a v2 view to v3, with no icon or color.
@@ -28,8 +29,7 @@ func MigrateView(ctx context.Context, old v2.View) (View, error) {
 	if err != nil {
 		return View{}, err
 	}
-	v.ApplyDefaults()
-	return v, nil
+	return defaults.Fill(v), nil
 }
 
 // Migration moves each stored view to its v3 shape.

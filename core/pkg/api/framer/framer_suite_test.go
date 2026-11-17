@@ -114,17 +114,13 @@ func subjectCtx(ctx SpecContext, subject resource.ID) freighter.Context {
 	return fCtx
 }
 
-// createUserGranted creates a user that may take the action on the objects.
-func createUserGranted(
-	ctx SpecContext,
-	action access.Action,
-	objects ...resource.ID,
-) user.User {
+// createUserGranted creates a user that may retrieve the objects.
+func createUserGranted(ctx SpecContext, objects ...resource.ID) user.User {
 	GinkgoHelper()
 	u := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "api-framer-" + uuid.New().String(),
 	}))
-	actions := []access.Action{action}
+	actions := []access.Action{access.ActionRetrieve}
 	MustSucceed(
 		rbactestutil.Grant(ctx, db, rbacSvc, userSvc, u.Key, actions, objects...),
 	)

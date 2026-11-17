@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 
+from console.notifications import click_past
 from console.schematic.symbol import Properties, Symbol
 
 
@@ -67,7 +68,7 @@ class Valve(Symbol):
 
         # Navigate to Properties > Control tab
         self.open_properties_tab()
-        self.page.get_by_text("Control").last.click()
+        click_past(self.page.get_by_text("Control").last)
 
         if state_channel is not None:
             self.set_channel(section="State", channel_name=state_channel)

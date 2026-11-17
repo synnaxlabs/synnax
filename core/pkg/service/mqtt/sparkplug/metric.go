@@ -67,8 +67,11 @@ func (t DataType) bits() int {
 		return 16
 	case Int32, UInt32:
 		return 32
+	case Int64, UInt64:
+		return 64
+	case Float, Double, Boolean, String, DateTime, Text, UUID:
 	}
-	return 64
+	panic("bits of non-integer type " + t.String())
 }
 
 // Metric is one value of one tag.

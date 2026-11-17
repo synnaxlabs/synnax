@@ -13,6 +13,7 @@
 #include <format>
 #include <functional>
 #include <iterator>
+#include <span>
 #include <string_view>
 #include <thread>
 #include <tuple>
@@ -75,6 +76,9 @@ constexpr uint16_t DETECTED_MODULES_INDEX = 0xF050;
 /// The CoE identity object and the sub-index that holds the serial number.
 constexpr uint16_t IDENTITY_INDEX = 0x1018;
 constexpr uint8_t SERIAL_SUB_INDEX = 4;
+/// The largest serial number that the Core and the Console store exactly. A rounded
+/// serial number would match no saved device, so a larger one counts as none.
+constexpr uint64_t MAX_SERIAL = (uint64_t{1} << 53) - 1;
 /// The largest object a complete access read returns: sub-index 0 as 16 bits, then 255
 /// entries of four bytes.
 constexpr size_t MAX_OBJECT_SIZE = 2 + (255 * 4);
@@ -453,6 +457,12 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     session.input_sz = group.Ibytes;
     session.output_sz = group.Obytes;
     session.expected_wkc = (group.outputsWKC * 2) + group.inputsWKC;
+    session.state_reads.clear();
+    for (int i = 1; i <= this->api->context.slavecount; ++i)
+        if (const auto pos = static_cast<uint16_t>(i);
+            this->config(pos).enabled && this->record(pos).Ibits > 0)
+            session.state_reads.push_back(pos);
+    session.inputless.reserve(session.state_reads.size());
     // A slave can stop its process data task for good when the master reads its inputs
     // while it moves to SAFE-OP.
     session.process_data_held.store(true, std::memory_order_release);
@@ -501,6 +511,7 @@ x::errors::Error Master::receive() {
     auto &session = *this->session;
 
     session.shortfall.reset();
+    session.inputless.clear();
     if (session.held_err) return session.held_err;
     const int wkc = this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
 
@@ -512,6 +523,10 @@ x::errors::Error Master::receive() {
     }
     session.frame_sent_at = session.sent_at;
     this->frames.fetch_add(1, std::memory_order_release);
+    for (const auto pos: session.state_reads)
+        if (const auto state = this->api->al_status(pos) & 0x0F;
+            state != EC_STATE_SAFE_OP && state != EC_STATE_OPERATIONAL)
+            session.inputless.push_back(pos);
 
     if (wkc != session.expected_wkc) {
         if (wkc < session.expected_wkc)
@@ -577,6 +592,11 @@ x::errors::Error Master::send() {
 std::optional<uint32_t> Master::shortfall() const {
     if (!this->session) return std::nullopt;
     return this->session->shortfall;
+}
+
+std::span<const uint16_t> Master::inputless() const {
+    if (!this->session) return {};
+    return this->session->inputless;
 }
 
 std::optional<x::telem::TimeStamp> Master::dc_time() const {
@@ -728,9 +748,13 @@ void Master::populate_slaves() {
 
 void Master::read_serial(slave::DiscoveryResult &slave) {
     const auto pos = slave.properties.position;
-    if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) == 0) return;
+    // A nonzero SII serial number is the identity of saved devices.
+    if (slave.properties.serial != 0 ||
+        (this->record(pos).mbx_proto & ECT_MBXPROT_COE) == 0)
+        return;
     clear_errors(*this->api);
-    uint32_t serial = 0;
+    // CiA 301 gives the serial number 4 bytes, but IOLITE modules give it 8.
+    uint64_t serial = 0;
     int size = sizeof(serial);
     if (this->api->SDOread(
             pos,
@@ -741,7 +765,7 @@ void Master::read_serial(slave::DiscoveryResult &slave) {
             &serial,
             SDO_TIMEOUT
         ) > 0) {
-        if (serial != 0) slave.properties.serial = serial;
+        if (serial != 0 && serial <= MAX_SERIAL) slave.properties.serial = serial;
         return;
     }
     const auto failure = pop_sdo_failure(*this->api);

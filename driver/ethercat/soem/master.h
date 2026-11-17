@@ -120,6 +120,11 @@ class Master final : public master::Master {
         size_t output_sz = 0;
         /// @brief the working counter of a frame that every enabled slave handled.
         int expected_wkc = 0;
+        /// @brief the enabled slaves with inputs, in ascending order. Each cycle reads
+        /// their AL status in the frames of its process data.
+        std::vector<uint16_t> state_reads;
+        /// @brief what inputless() returns. Only the cycle uses it.
+        std::vector<uint16_t> inputless;
         /// @brief whether the enabled slaves' frames carry the reference clock time.
         bool has_dc = false;
         /// @brief the DC setup of each enabled slave in a DC mode.
@@ -214,6 +219,8 @@ public:
 
     [[nodiscard]] std::optional<uint32_t> shortfall() const override;
 
+    [[nodiscard]] std::span<const uint16_t> inputless() const override;
+
 private:
     /// @brief returns the record of the slave at pos in the SOEM slave table. Record 0
     /// describes the whole bus.
@@ -251,9 +258,10 @@ private:
     /// or the reason the read failed into its status.
     void read_settings(slave::DiscoveryResult &slave);
 
-    /// @brief reads the CoE serial number of the slave into its properties, or the
-    /// reason the read got no answer into its status. Keeps the SII serial number when
-    /// the slave answers the read with an error or gives serial number 0.
+    /// @brief reads the CoE serial number of a slave with SII serial number 0 into its
+    /// properties, or the reason the read got no answer into its status. Keeps serial
+    /// number 0 when the slave answers the read with an error, or gives a serial number
+    /// above 2^53 - 1.
     void read_serial(slave::DiscoveryResult &slave);
 
     /// @brief reads the identity and PDO layout of the slave at a position.

@@ -73,18 +73,6 @@ func newRouter(messages []JSONMessage) (*router, error) {
 		// rounded holds an integer rule for each float that one rounds to.
 		rounded = make(map[float64]integer)
 	)
-	// claimInteger is claim for an integer rule, which also meets a float rule that it
-	// rounds to.
-	claimInteger := func(k integer, message int) int {
-		taken := claim(r.integers, k, message)
-		if f, ok := r.floats[k.float()]; ok && taken < 0 {
-			taken = f
-		}
-		if _, ok := rounded[k.float()]; !ok {
-			rounded[k.float()] = k
-		}
-		return taken
-	}
 	for i, m := range messages {
 		if m.Payload.Match == nil {
 			if r.fallback >= 0 {
@@ -115,29 +103,8 @@ func newRouter(messages []JSONMessage) (*router, error) {
 				match.Base().Pointer,
 			)
 		}
-		var (
-			// taken is the message that already matches value, or -1.
-			taken int
-			value string
-		)
-		switch v := match.Variant.(type) {
-		case icd.StringJSONMatch:
-			taken, value = claim(r.strings, v.Value, i), strconv.Quote(v.Value)
-		case icd.BooleanJSONMatch:
-			taken, value = claim(r.booleans, v.Value, i), strconv.FormatBool(v.Value)
-		case icd.IntegerJSONMatch:
-			k := signedInteger(int64(v.Value))
-			taken, value = claimInteger(k, i), k.String()
-		case icd.UnsignedJSONMatch:
-			k := integer{bits: uint64(v.Value)}
-			taken, value = claimInteger(k, i), k.String()
-		case icd.FloatJSONMatch:
-			f := float64(v.Value)
-			taken, value = claim(r.floats, f, i), strconv.FormatFloat(f, 'g', -1, 64)
-			if k, ok := rounded[f]; ok && taken < 0 {
-				taken, value = r.integers[k], k.String()
-			}
-		default:
+		taken, value, typed := r.claimMatch(match, i, rounded)
+		if !typed {
 			return nil, errors.Wrapf(
 				validate.ErrValidation, "message %s: match type is required", m.Name,
 			)
@@ -154,6 +121,53 @@ func newRouter(messages []JSONMessage) (*router, error) {
 	}
 	r.ruled = first >= 0
 	return r, nil
+}
+
+// claimMatch maps the value of match to message. It returns the message that already
+// matches that value, or -1, and the value as text. typed is false when match has no
+// type. rounded holds an integer rule for each float that one rounds to.
+func (r *router) claimMatch(
+	match icd.JSONMatch,
+	message int,
+	rounded map[float64]integer,
+) (taken int, value string, typed bool) {
+	switch v := match.Variant.(type) {
+	case icd.StringJSONMatch:
+		return claim(r.strings, v.Value, message), strconv.Quote(v.Value), true
+	case icd.BooleanJSONMatch:
+		return claim(r.booleans, v.Value, message), strconv.FormatBool(v.Value), true
+	case icd.IntegerJSONMatch:
+		k := signedInteger(int64(v.Value))
+		return r.claimInteger(k, message, rounded), k.String(), true
+	case icd.UnsignedJSONMatch:
+		k := integer{bits: uint64(v.Value)}
+		return r.claimInteger(k, message, rounded), k.String(), true
+	case icd.FloatJSONMatch:
+		f := float64(v.Value)
+		taken = claim(r.floats, f, message)
+		if k, ok := rounded[f]; ok && taken < 0 {
+			return r.integers[k], k.String(), true
+		}
+		return taken, strconv.FormatFloat(f, 'g', -1, 64), true
+	}
+	return 0, "", false
+}
+
+// claimInteger is claim for an integer rule, which also meets a float rule that it
+// rounds to.
+func (r *router) claimInteger(
+	k integer,
+	message int,
+	rounded map[float64]integer,
+) int {
+	taken := claim(r.integers, k, message)
+	if f, ok := r.floats[k.float()]; ok && taken < 0 {
+		taken = f
+	}
+	if _, ok := rounded[k.float()]; !ok {
+		rounded[k.float()] = k
+	}
+	return taken
 }
 
 // claim maps key to message in m. It returns the message that already held key, or -1.

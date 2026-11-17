@@ -307,7 +307,7 @@ func convertNode(
 				}})
 				continue
 			}
-			tab, err := convertTaskTab(ctx, tx, taskKeyCandidates(slice, t.TabKey))
+			tab, err := convertTaskTab(tx, taskKeyCandidates(slice, t.TabKey))
 			if err != nil {
 				return nil, err
 			}
@@ -358,13 +358,9 @@ func taskKeyCandidates(slice legacySlice, tabKey string) []string {
 // the task's re-keyed UUID. A tab is a task tab exactly when one of its candidate
 // keys is in the staging map written by the task re-key migration; other tabs are
 // dropped.
-func convertTaskTab(
-	ctx context.Context,
-	tx gorp.Tx,
-	candidates []string,
-) (*Tab, error) {
+func convertTaskTab(tx gorp.Tx, candidates []string) (*Tab, error) {
 	for _, candidate := range candidates {
-		val, closer, err := tx.Get(ctx, []byte(task.LegacyKeyKVPrefix+candidate))
+		val, closer, err := tx.Get([]byte(task.LegacyKeyKVPrefix + candidate))
 		if err != nil {
 			if errors.Is(err, query.ErrNotFound) {
 				continue

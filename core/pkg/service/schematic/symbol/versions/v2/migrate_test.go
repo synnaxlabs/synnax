@@ -110,6 +110,24 @@ var _ = Describe("Migration", func() {
 
 		Expect(retrieveMigrated(ctx, db, seed.Key).Data.Scale).To(Equal(1.0))
 	})
+
+	It("Should give a stored zero scale the default", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		seed := seedV0(ctx, db, v0.Symbol{
+			Key:  uuid.New(),
+			Name: "zero",
+			Data: map[string]any{"svg": "<svg/>", "scale": 0.0},
+		})
+
+		Expect(retrieveMigrated(ctx, db, seed.Key).Data.Scale).To(Equal(1.0))
+	})
+
+	It("Should default the scale of a symbol without data", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		seed := seedV0(ctx, db, v0.Symbol{Key: uuid.New(), Name: "empty"})
+
+		Expect(retrieveMigrated(ctx, db, seed.Key).Data.Scale).To(Equal(1.0))
+	})
 })
 
 var _ = Describe("SpecFromConsole", func() {

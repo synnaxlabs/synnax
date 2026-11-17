@@ -9,9 +9,10 @@
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { type border, type deep, xy } from "@synnaxlabs/x";
+import { type border, type deep, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Border } from "@/schematic/node/common/border";
 import { PERCENT_BORDER_RADIUS_INPUT_PROPS } from "@/schematic/node/common/form/input";
 
 export interface RadiusFieldsProps {
@@ -23,10 +24,9 @@ export interface RadiusFieldsProps {
  * writing the pair into every corner. The stored shape carries corners because the
  * renderer clips against them; no symbol has ever varied the radius by corner.
  */
-export const RadiusFields = ({ path }: RadiusFieldsProps): ReactElement | null => {
-  const field = Base.useField(path, { optional: true });
-  if (field == null) return null;
-  const corner = field.value?.topLeft ?? xy.ZERO;
+export const RadiusFields = ({ path }: RadiusFieldsProps): ReactElement => {
+  const field = Base.useField(path);
+  const corner = (field.value ?? Border.DEFAULT_RADIUS).topLeft;
   const set = (next: xy.XY): void =>
     field.onChange({
       topLeft: next,
