@@ -482,6 +482,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1"+api.PathColorDispatch,
 		),
+		ColorRetrieveBuiltins: unary[struct{}, color.RetrieveBuiltinsResponse](
+			router,
+			"/api/v1/color/retrieve-builtins",
+		),
 
 		// RACK
 		RackCreate: unary[rack.CreateRequest, rack.CreateResponse](

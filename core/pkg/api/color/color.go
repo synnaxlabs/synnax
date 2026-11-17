@@ -121,6 +121,20 @@ func (s *Service) Retrieve(
 
 // DispatchRequest carries an action sequence to apply to one named color. DispatchKey
 // is echoed on the broadcast so the sender recognizes its own echo.
+type RetrieveBuiltinsResponse struct {
+	// Colors are the built-in named colors with their shipped values.
+	Colors []color.Named `json:"colors" msgpack:"colors"`
+}
+
+// RetrieveBuiltins returns the named colors that the Core ships, with their shipped
+// values. Any signed-in subject can read them.
+func (s *Service) RetrieveBuiltins(
+	context.Context,
+	struct{},
+) (RetrieveBuiltinsResponse, error) {
+	return RetrieveBuiltinsResponse{Colors: color.Builtins()}, nil
+}
+
 type DispatchRequest = actions.DispatchRequest[color.Key, color.Action]
 
 // Dispatch applies the actions to the named color atomically. Subscribers to the named

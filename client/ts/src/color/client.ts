@@ -47,7 +47,8 @@ export const DELETE_CHANNEL_NAME = "sy_color_delete";
 const createReqZ = z.object({ colors: namedZ.array(), dispatchKey: z.string() });
 const createResZ = z.object({ colors: namedZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
-const emptyResZ = z.object({});
+const retrieveBuiltinsResZ = z.object({ colors: namedZ.array() });
+const emptyZ = z.object({});
 
 const retrieveMultiParamsZ = filter.requestInputZ(
   retrieveRequestZ,
@@ -170,14 +171,23 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Na
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
       commit: async () =>
-        await this.unary.send(
-          "/color/delete",
-          { keys: keysArr },
-          deleteReqZ,
-          emptyResZ,
-        ),
+        await this.unary.send("/color/delete", { keys: keysArr }, deleteReqZ, emptyZ),
     });
     drop();
+  }
+
+  /**
+   * Returns the named colors that the Core ships, with their shipped values. A stored
+   * built-in can differ from its shipped values, because users can edit it.
+   */
+  async retrieveBuiltins(): Promise<Named[]> {
+    const res = await this.unary.send(
+      "/color/retrieve-builtins",
+      {},
+      emptyZ,
+      retrieveBuiltinsResZ,
+    );
+    return res.colors;
   }
 
   private async execRetrieve(params: RetrieveRequest): Promise<Named[]> {

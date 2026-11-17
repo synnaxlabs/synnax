@@ -111,6 +111,15 @@ describe("color.Client", () => {
     });
   });
 
+  describe("retrieveBuiltins", () => {
+    it("should return the shipped values of the built-in colors", async () => {
+      const builtins = await client.colors.retrieveBuiltins();
+      expect(builtins).toHaveLength(16);
+      expect(builtins[0].name).toEqual("Series 1");
+      expect(xcolor.hex(builtins[0].light)).toEqual("#dc136c");
+    });
+  });
+
   describe("store", () => {
     beforeAll(async () => {
       await client.connect();
