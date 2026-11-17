@@ -21,6 +21,7 @@ import { describe, expect, it } from "vitest";
 import {
   client,
   createPreloadedState,
+  pickNamedColor,
   renderLinePlot,
 } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
@@ -174,10 +175,7 @@ describe("lineplot/toolbar/Lines", () => {
     ).sort(color.compare);
     const { key, lineKey, result } = await renderLinesTab();
     await screen.findByText("Min/max");
-    const swatch = result.container.querySelector<HTMLElement>(".lyra-color-swatch");
-    if (swatch == null) throw new Error("line color swatch not found");
-    fireEvent.click(swatch);
-    fireEvent.click(await screen.findByRole("button", { name: series[2].name }));
+    await pickNamedColor(result.container, series[2].name);
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);
       expect(plot.lines.find((l) => l.key === lineKey)?.color).toEqual({
