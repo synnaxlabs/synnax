@@ -163,10 +163,13 @@ asks to confirm. The save carries the list that the user confirmed, and the Core
 it when the list or its control marks changed, so the dialog asks again. The custom
 `symbol.Ref` uses `@ref on_delete restrict`, so a custom symbol in use refuses the
 delete, and the dialog lists its schematics. An import brings the custom symbols that
-its schematics use. When the Core already has a symbol with a bundled key, the import
-uses the Core's symbol, and if the two differ, it reports a warning status that names
-the symbol. Otherwise it adds the bundled symbol under its bundled key, so a later
-import of the same file reuses it. A built-in file is never edited: a node changes a
+its schematics use. Every symbol import, alone, in a group, or in a schematic, follows
+one rule. When the Core already has a symbol with a bundled key, the import uses the
+Core's symbol, and if the two differ, it reports a warning status that names the symbol.
+Otherwise it adds the bundled symbol under its bundled key, so a later import of the
+same file reuses it. Phase 2 changes the symbol importer to keep keys, so a group import
+into the Core that exported it reuses its symbols. Copies that an import made before
+phase 2 stay separate symbols. A built-in file is never edited: a node changes a
 built-in through its label, color, size, rotation, enum, match, and default, and a site
 through RFC 0112 enums and named colors. "Duplicate as custom" stores the built-in's
 name in `origin`, and "Change symbol" moves nodes to another symbol by binding key.
