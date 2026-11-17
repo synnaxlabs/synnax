@@ -11,10 +11,11 @@
 
 A suppression is a `# type: ignore`, `# noqa`, or `# pyright: ignore` comment, a
 file-level directive such as `# ruff: noqa` or `# mypy: ignore-errors`, or a call to
-`typing.cast` under any name. Ruff and mypy only flag blanket or unused ones. The check
-reads comments from tokens and calls from the syntax tree, so a string that holds the
-text is not a finding. Only lines added to tracked files and the lines of untracked
-files count. Generated files are skipped: fix their generator instead.
+`typing.cast` under any name. Any use of `TYPE_CHECKING` counts too, since it hides
+imports from the runtime. Ruff and mypy only flag blanket or unused suppressions. The
+check reads comments and names from tokens and calls from the syntax tree, so a string
+that holds the text is not a finding. Only lines added to tracked files and the lines of
+untracked files count. Generated files are skipped: fix their generator instead.
 
     uv run --project scripts scripts/check_suppressions_py.py [--base REF]
 """
@@ -104,16 +105,29 @@ def check_source(source: str, *, path: str, lines: set[int]) -> list[Finding]:
     """Returns the suppressions on the given lines of one file."""
     if _generated(source):
         return []
+    tokens = [
+        t
+        for t in tokenize.generate_tokens(io.StringIO(source).readline)
+        if t.start[0] in lines
+    ]
     findings = [
         Finding(
             path=path,
             line=t.start[0],
             message=f"remove the `{m.group(0)}`; fix the type or the code",
         )
-        for t in tokenize.generate_tokens(io.StringIO(source).readline)
-        if t.type == tokenize.COMMENT
-        and t.start[0] in lines
-        and (m := _COMMENT.search(t.string))
+        for t in tokens
+        if t.type == tokenize.COMMENT and (m := _COMMENT.search(t.string))
+    ]
+    findings += [
+        Finding(
+            path=path,
+            line=t.start[0],
+            message="remove the `TYPE_CHECKING` guard; import at runtime and break "
+            "any import cycle instead",
+        )
+        for t in tokens
+        if t.type == tokenize.NAME and t.string == "TYPE_CHECKING"
     ]
     findings += [
         Finding(path=path, line=n, message="remove the `cast`; narrow the type instead")

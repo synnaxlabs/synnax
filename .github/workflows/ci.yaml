@@ -721,7 +721,7 @@ jobs:
         run: uv run --project scripts scripts/check_exports_py.py
 
   # Fails on the Python suppressions the change adds: `# type: ignore`, `# noqa`,
-  # `# pyright: ignore`, and `cast` calls. Suppressions already on the base pass.
+  # `# pyright: ignore`, `cast` calls, and `TYPE_CHECKING`. Ones on the base pass.
   suppressions-py:
     needs: changes
     if:
