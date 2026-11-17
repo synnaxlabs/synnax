@@ -90,7 +90,7 @@ func rejectTransitionIntoBranch[T antlr.ParserRuleContext](ctx context.Context[T
 		}
 		switch next := children[i+1].(type) {
 		case parser.IRoutingTableContext:
-			ctx.Diagnostics.Add(diagnostics.Errorf(op,
+			ctx.Diagnostics.Add(codes.FlowShape.Atf(op,
 				"'=>' cannot feed a routing table, use '->'",
 			))
 		case parser.IFlowNodeContext:
@@ -98,7 +98,7 @@ func rejectTransitionIntoBranch[T antlr.ParserRuleContext](ctx context.Context[T
 			if fn == nil || parser.FunctionName(fn) != "select" {
 				continue
 			}
-			ctx.Diagnostics.Add(diagnostics.Errorf(op,
+			ctx.Diagnostics.Add(codes.FlowShape.Atf(op,
 				"'=>' cannot feed select(), use '->'",
 			))
 		}
@@ -234,13 +234,13 @@ func resolveUpstreamType(
 			idSym.Type.Kind == types.KindChan
 		if idSym.Kind != symbol.KindChannel && !isChanVar {
 			ctx.Diagnostics.Add(
-				diagnostics.Errorf(prevIDNode, "%s is not a channel", idName),
+				codes.ChannelExpected.Atf(prevIDNode, "%s is not a channel", idName),
 			)
 			return types.Type{}, false
 		}
 		if idSym.Type.Kind != types.KindChan {
 			ctx.Diagnostics.Add(
-				diagnostics.Errorf(ctx.AST, "%s is not a valid channel", idName),
+				codes.ChannelExpected.Atf(ctx.AST, "%s is not a valid channel", idName),
 			)
 			return types.Type{}, false
 		}
@@ -320,7 +320,7 @@ func consultTrigger[T antlr.ParserRuleContext](
 	case target == "":
 		// TriggerOnly: the wire is pure activation; do not type-check its value.
 	case suppliedAtCallSite.Contains(target):
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.TriggerBinding.Atf(
 			ctx.AST,
 			"parameter '%s' of func '%s' is bound by both a call-site argument and an upstream wire",
 			target,
@@ -329,7 +329,7 @@ func consultTrigger[T antlr.ParserRuleContext](
 	default:
 		targetParam, ok := callSig.Inputs.Get(target)
 		if !ok {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.TriggerBinding.Atf(
 				ctx.AST,
 				"func '%s' declares trigger target '%s' but has no such parameter",
 				name,
@@ -404,7 +404,7 @@ func analyzeIdentifier(
 		sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindVariable ||
 		sym.Kind == symbol.KindStatefulVariable
 	if !isFlowNode {
-		d := diagnostics.Errorf(ctx.AST, "%s is not a channel", name)
+		d := codes.ChannelExpected.Atf(ctx.AST, "%s is not a channel", name)
 		if sym.Kind == symbol.KindFunction {
 			d = d.WithNote("use " + name + "() to instantiate the function")
 		}
@@ -413,7 +413,7 @@ func analyzeIdentifier(
 	}
 	if prevNode != nil {
 		if sym.IsReactive() {
-			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			ctx.Diagnostics.Add(codes.ChannelDirection.Atf(ctx.AST,
 				"cannot write to channel-read variable %s; it is read-only", name))
 			return
 		}
@@ -532,11 +532,11 @@ func resolveFuncOutput[T antlr.ParserRuleContext](
 		return out.Type
 	}
 	if len(fnType.Outputs) > 0 {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+		ctx.Diagnostics.Add(codes.FlowConnection.Atf(ctx.AST,
 			"func '%s' has named outputs and requires a routing table",
 			fnName))
 	} else {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+		ctx.Diagnostics.Add(codes.FlowConnection.Atf(ctx.AST,
 			"func '%s' has no return value but %s",
 			fnName, downstreamDesc))
 	}
@@ -577,7 +577,7 @@ func suppliedNames(
 func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 	flowStmt, ok := ctx.AST.GetParent().(parser.IFlowStatementContext)
 	if !ok {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.RoutingTable.Atf(
 			ctx.AST,
 			"routing table must be part of a flow statement",
 		))
@@ -587,7 +587,7 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 	tables := flowStmt.AllRoutingTable()
 
 	if len(tables) != 1 || tables[0] != ctx.AST {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.RoutingTable.Atf(
 			ctx.AST,
 			"unexpected routing table configuration",
 		))
@@ -620,7 +620,7 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 	} else if len(nodesBefore) > 0 {
 		analyzeOutputRoutingTable(ctx, nodesBefore, nodesAfter)
 	} else {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.RoutingTable.Atf(
 			ctx.AST,
 			"routing table must have associated flow nodes",
 		))
@@ -645,7 +645,7 @@ func analyzeOutputRoutingTable(
 	}
 
 	if PrevFunc == nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.RoutingTable.Atf(
 			ctx.AST,
 			"output routing table must follow a func invocation",
 		))
@@ -661,7 +661,7 @@ func analyzeOutputRoutingTable(
 	hasNamedOutputs := len(fnType.Type.Outputs) > 1 ||
 		(len(fnType.Type.Outputs) == 1 && !hasDefaultOutput)
 	if !hasNamedOutputs {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.RoutingTable.Atf(
 			ctx.AST,
 			"func '%s' does not have named outputs, cannot use routing table",
 			fnName,
@@ -693,7 +693,7 @@ func analyzeOutputRoutingTable(
 		outputName := entry.RoutingKey().GetText()
 
 		if _, exists := fnType.Type.Outputs.Get(outputName); !exists {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.RoutingTable.Atf(
 				entry,
 				"func '%s' does not have output '%s'",
 				fnName,
@@ -709,7 +709,7 @@ func analyzeOutputRoutingTable(
 			targetParamName = entry.IDENTIFIER().GetText()
 
 			if nextFunc == nil {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.Diagnostics.Add(codes.RoutingTable.Atf(
 					entry,
 					"parameter mapping requires a func after the routing table",
 				))
@@ -717,7 +717,7 @@ func analyzeOutputRoutingTable(
 			}
 
 			if _, exists := nextFuncType.Inputs.Get(targetParamName); !exists {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.Diagnostics.Add(codes.RoutingTable.Atf(
 					entry,
 					"func '%s' does not have parameter '%s'",
 					parser.FunctionName(nextFunc),
@@ -736,7 +736,7 @@ func analyzeOutputRoutingTable(
 		// receive a value. The entry must define its own source.
 		if len(flowNodes) == 1 && targetParamName == "" &&
 			!isInlineBody(flowNodes[0]) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.RoutingTable.Atf(
 				entry,
 				"routing entry must be a full statement, e.g. '%s: true => next' "+
 					"to transition or '%s: false -> some_chan' to send false",
@@ -829,7 +829,7 @@ func analyzeInputRoutingTable(
 
 	if nextFunc == nil {
 		ctx.Diagnostics.Add(
-			diagnostics.Errorf(
+			codes.RoutingTable.Atf(
 				ctx.AST,
 				"input routing table must precede a func invocation",
 			),
@@ -846,7 +846,7 @@ func analyzeInputRoutingTable(
 		flowNodes := entry.AllFlowNode()
 		if len(flowNodes) == 0 {
 			ctx.Diagnostics.Add(
-				diagnostics.Errorf(
+				codes.RoutingTable.Atf(
 					entry,
 					"routing entry must have at least one target",
 				),
@@ -856,7 +856,7 @@ func analyzeInputRoutingTable(
 
 		lastNode := flowNodes[len(flowNodes)-1]
 		if lastNode.Identifier() == nil {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.RoutingTable.Atf(
 				lastNode,
 				"last element in input routing entry must be a parameter name (identifier)",
 			))
@@ -867,7 +867,7 @@ func analyzeInputRoutingTable(
 
 		paramType, exists := fnType.Type.Inputs.Get(paramName)
 		if !exists {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.RoutingTable.Atf(
 				lastNode,
 				"func '%s' does not have parameter '%s'",
 				fnName,
@@ -928,7 +928,7 @@ func analyzeRoutingTargetWithParam(
 			if outType, ok := fnType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
 				outputType = outType.Type
 			} else if len(fnType.Type.Outputs) > 0 {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.Diagnostics.Add(codes.FlowConnection.Atf(
 					ctx.AST,
 					"func '%s' has named outputs and requires explicit output selection",
 					fnName,

@@ -19,15 +19,26 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("All", func() {
 	It("Should give each kind a code that no other kind has", func() {
 		seen := set.New[diagnostics.ErrorCode]()
 		for _, kind := range codes.All {
-			Expect(string(kind.Code)).To(MatchRegexp(`^(ARC|E|W)\d{4}$`))
+			Expect(string(kind.Code)).To(MatchRegexp(`^[EW][1-5]\d{3}$`))
 			Expect(seen.Contains(kind.Code)).To(BeFalse(), string(kind.Code))
 			seen.Add(kind.Code)
+		}
+	})
+
+	It("Should start each code with the letter of its severity", func() {
+		letters := map[protocol.DiagnosticSeverity]byte{
+			protocol.DiagnosticSeverityError:   'E',
+			protocol.DiagnosticSeverityWarning: 'W',
+		}
+		for _, kind := range codes.All {
+			Expect(kind.Code[0]).To(Equal(letters[kind.Severity]), string(kind.Code))
 		}
 	})
 

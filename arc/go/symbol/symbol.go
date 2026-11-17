@@ -430,7 +430,7 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 		if _, err := s.ClosestAncestorOfKind(KindFunction); err != nil {
 			child.ID = s.Root().addIndex()
 			if child.ID >= maxProgramLocalChannelKey {
-				return nil, errors.Newf(
+				return nil, codes.ChannelLimit.Errorf(
 					"program exceeds the maximum of %d program-local channels",
 					maxProgramLocalChannelKey,
 				)

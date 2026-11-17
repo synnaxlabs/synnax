@@ -624,7 +624,9 @@ flag -> select() => {
 }
 `}
 			Expect(arc.CompileText(ctx, t, root)).Error().To(
-				MatchError(ContainSubstring("'=>' cannot feed a routing table")),
+				MatchError(
+					ContainSubstring("[E5003]: '=>' cannot feed a routing table"),
+				),
 			)
 		},
 	)

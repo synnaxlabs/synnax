@@ -1,8 +1,4 @@
 {
-  "ARC4004": {
-    "severity": "warning",
-    "message": "declare variables at the top of a stage or sequence"
-  },
   "E1000": {
     "severity": "error",
     "message": ""
@@ -131,6 +127,50 @@
     "severity": "error",
     "message": ""
   },
+  "E5000": {
+    "severity": "error",
+    "message": ""
+  },
+  "E5001": {
+    "severity": "error",
+    "message": ""
+  },
+  "E5002": {
+    "severity": "error",
+    "message": ""
+  },
+  "E5003": {
+    "severity": "error",
+    "message": ""
+  },
+  "E5004": {
+    "severity": "error",
+    "message": ""
+  },
+  "E5005": {
+    "severity": "error",
+    "message": ""
+  },
+  "E5006": {
+    "severity": "error",
+    "message": ""
+  },
+  "E5007": {
+    "severity": "error",
+    "message": ""
+  },
+  "E5008": {
+    "severity": "error",
+    "message": ""
+  },
+  "E5009": {
+    "severity": "error",
+    "message": ""
+  },
+  "E5010": {
+    "severity": "error",
+    "message": ""
+  },
   "W2000": {
     "severity": "warning",
     "message": "non-boolean conditions are deprecated, use an explicit comparison like x != 0"
@@ -154,5 +194,9 @@
   "W4001": {
     "severity": "warning",
     "message": "'%s' is deprecated, use '%s' instead"
+  },
+  "W5000": {
+    "severity": "warning",
+    "message": "declare variables at the top of a stage or sequence"
   }
 }

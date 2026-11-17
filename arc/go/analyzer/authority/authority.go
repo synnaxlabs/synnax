@@ -49,7 +49,7 @@ func Analyze(
 			continue
 		}
 		if seenDeclaration {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.Authority.Atf(
 				authBlock,
 				"authority declaration must appear before function, flow, and sequence declarations",
 			))
@@ -59,7 +59,7 @@ func Analyze(
 		// Simple form: authority 200
 		if lit := authBlock.INTEGER_LITERAL(); lit != nil {
 			if hasDefault {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.Diagnostics.Add(codes.Authority.Atf(
 					authBlock,
 					"multiple default authority values",
 				))
@@ -91,7 +91,7 @@ func analyzeEntry(
 	if id := entry.IDENTIFIER(); id != nil {
 		name := id.GetText()
 		if seenChannels.Contains(name) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.Authority.Atf(
 				entry,
 				"duplicate authority for '%s'",
 				name,
@@ -122,7 +122,7 @@ func analyzeEntry(
 		config.Channels[uint32(sym.ID)] = v
 	} else {
 		if *hasDefault {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.Authority.Atf(
 				entry,
 				"multiple default authority values",
 			))
@@ -148,7 +148,7 @@ func parseAuthorityValue(
 ) (uint8, bool) {
 	v, err := strconv.ParseUint(text, 10, 64)
 	if err != nil || v > 255 {
-		diag.Add(diagnostics.Errorf(
+		diag.Add(codes.Authority.Atf(
 			node,
 			"authority value must be an integer in range 0-255, got '%s'",
 			text,

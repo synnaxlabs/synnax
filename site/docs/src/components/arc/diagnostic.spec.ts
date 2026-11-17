@@ -13,8 +13,8 @@ import { Arc } from "@/components/arc";
 
 describe("Arc.diagnostic", () => {
   it("should give the code, severity, and message of a kind", () => {
-    expect(Arc.diagnostic("ARC4004")).toEqual({
-      code: "ARC4004",
+    expect(Arc.diagnostic("W5000")).toEqual({
+      code: "W5000",
       severity: "warning",
       message: "declare variables at the top of a stage or sequence",
     });
@@ -44,8 +44,8 @@ describe("Arc.diagnostic", () => {
   });
 
   it("should throw for a code that no kind has", () => {
-    expect(() => Arc.diagnostic("ARC9999")).toThrow(
-      "no Arc diagnostic kind has the code ARC9999",
+    expect(() => Arc.diagnostic("E9999")).toThrow(
+      "no Arc diagnostic kind has the code E9999",
     );
   });
 
@@ -56,8 +56,8 @@ describe("Arc.diagnostic", () => {
   });
 
   it("should throw when a value has no verb", () => {
-    expect(() => Arc.diagnostic("ARC4004", ["<x>"])).toThrow(
-      "ARC4004 has a value with no verb",
+    expect(() => Arc.diagnostic("W5000", ["<x>"])).toThrow(
+      "W5000 has a value with no verb",
     );
   });
 });

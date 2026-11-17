@@ -222,9 +222,64 @@ var (
 		Message:  "'%s' is deprecated, use '%s' instead",
 	}
 
+	// Authority is an authority block that is malformed or out of place.
+	Authority = diagnostics.Kind{
+		Code:     "E5000",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// FlowConnection is a flow node with an output or input that cannot connect.
+	FlowConnection = diagnostics.Kind{
+		Code:     "E5001",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// TransitionTarget is a transition to a target that the code cannot reach.
+	TransitionTarget = diagnostics.Kind{
+		Code:     "E5002",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// FlowShape is a flow statement with a missing node or the wrong operator.
+	FlowShape = diagnostics.Kind{
+		Code:     "E5003",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// SequenceDeclaration is a sequence that is empty or has a name it cannot have.
+	SequenceDeclaration = diagnostics.Kind{
+		Code:     "E5004",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// TriggerBinding is a function input with two sources or a missing parameter.
+	TriggerBinding = diagnostics.Kind{
+		Code:     "E5005",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// ChannelExpected is a value where a channel is needed, or the reverse.
+	ChannelExpected = diagnostics.Kind{
+		Code:     "E5006",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// ChannelDirection is a read or a write on a channel that does not allow it.
+	ChannelDirection = diagnostics.Kind{
+		Code:     "E5007",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// RoutingTable is a routing table that is malformed or names a missing port.
+	RoutingTable = diagnostics.Kind{
+		Code:     "E5008",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// DataflowCycle is a set of flows that feed each other in a loop.
+	DataflowCycle = diagnostics.Kind{
+		Code:     "E5009",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// ChannelLimit is a program with more local channels than Arc allows.
+	ChannelLimit = diagnostics.Kind{
+		Code:     "E5010",
+		Severity: protocol.DiagnosticSeverityError,
+	}
 	// DeclarationAfterStep is a variable declared after a step of its scope.
 	DeclarationAfterStep = diagnostics.Kind{
-		Code:     "ARC4004",
+		Code:     "W5000",
 		Severity: protocol.DiagnosticSeverityWarning,
 		Message:  "declare variables at the top of a stage or sequence",
 	}
@@ -270,5 +325,16 @@ var All = []diagnostics.Kind{
 	SymbolRedefined,
 	UnusedImport,
 	DeprecatedSymbol,
+	Authority,
+	FlowConnection,
+	TransitionTarget,
+	FlowShape,
+	SequenceDeclaration,
+	TriggerBinding,
+	ChannelExpected,
+	ChannelDirection,
+	RoutingTable,
+	DataflowCycle,
+	ChannelLimit,
 	DeclarationAfterStep,
 }

@@ -110,7 +110,7 @@ func ResolveNodeTypes(
 			if p.Value != nil {
 				continue
 			}
-			diag.Add(diagnostics.Errorf(
+			diag.Add(codes.FlowConnection.Atf(
 				nil,
 				"node '%s' (%s) missing required input '%s'",
 				nodes[ni].Key,

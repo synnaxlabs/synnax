@@ -203,7 +203,7 @@ func registerInlineBody(
 		id, kind = d.IDENTIFIER(), "sequences"
 	}
 	if id != nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(decl,
+		ctx.Diagnostics.Add(codes.SequenceDeclaration.Atf(decl,
 			"inline routing case body %s must be anonymous; remove name %q",
 			kind, id.GetText()))
 		return nil

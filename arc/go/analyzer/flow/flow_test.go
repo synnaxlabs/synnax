@@ -617,6 +617,9 @@ source() -> sink()`))
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect(*ctx.Diagnostics).To(HaveLen(1))
 					Expect(
+						(*ctx.Diagnostics)[0].Code,
+					).To(Equal(codes.FlowConnection.Code))
+					Expect(
 						(*ctx.Diagnostics)[0].Message,
 					).To(Equal("func 'source' has no return value but 'sink' expects an input parameter"))
 				},
@@ -1103,8 +1106,10 @@ sensor_chan -> {
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					d := (*ctx.Diagnostics)[0]
+					Expect(d.Code).To(Equal(codes.RoutingTable.Code))
 					Expect(
-						(*ctx.Diagnostics)[0].Message,
+						d.Message,
 					).To(ContainSubstring("output routing table must follow a func invocation"))
 				},
 			)
@@ -1231,8 +1236,10 @@ sequence main {
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, localResolver...))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					d := (*ctx.Diagnostics)[0]
+					Expect(d.Code).To(Equal(codes.ChannelDirection.Code))
 					Expect(
-						(*ctx.Diagnostics)[0].Message,
+						d.Message,
 					).To(Equal("cannot write to channel-read variable v; it is read-only"))
 				},
 			)
@@ -3561,7 +3568,7 @@ var _ = Describe("Trigger call-site conflict", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-				"parameter 'v' of func 'consumer' is bound by both a call-site argument and an upstream wire",
+				"[E5005]: parameter 'v' of func 'consumer' is bound by both a call-site argument and an upstream wire",
 			))
 		},
 	)
