@@ -1216,6 +1216,50 @@ var _ = Describe("Sequence", func() {
 			Expect(lastU8(out, 103)).To(Equal(uint8(1)))
 		})
 
+		DescribeTable("Completes a step that writes 0",
+			func(ctx SpecContext, steps string, written uint32) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out_a":     {types.U8(), 201},
+					"out_b":     {types.U8(), 202},
+					"finished":  {types.U8(), 203},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    `+steps+`
+				    1 -> finished
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 201, DataType: telem.Uint8T},
+					channels.Digest{Key: 202, DataType: telem.Uint8T},
+					channels.Digest{Key: 203, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(lastU8(out, written)).To(Equal(uint8(0)))
+				Expect(lastU8(out, 203)).To(Equal(uint8(1)))
+			},
+			Entry("to a channel", "0 -> out_a", uint32(201)),
+			Entry("to a fixed alias", "sink := out_a\n0 -> sink", uint32(201)),
+			Entry(
+				"to a rebound alias",
+				"sink := out_a\nsink = out_b\n0 -> sink",
+				uint32(202),
+			),
+			Entry(
+				"to a literal variable by flow",
+				"d u8 := 1\n0 -> d\nd -> out_a",
+				uint32(201),
+			),
+			Entry(
+				"to a literal variable by assignment",
+				"d u8 := 1\nd = 0\nd -> out_a",
+				uint32(201),
+			),
+		)
+
 		It(
 			"Advances past steps whose terminal node outputs a string",
 			func(ctx SpecContext) {

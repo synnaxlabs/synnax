@@ -2681,14 +2681,21 @@ func addInlineMembers(scope *ir.Scope, members []ir.Member) {
 	scope.Strata[0] = append(scope.Strata[0], members...)
 }
 
-// autoWireTransition advances past a step, or completes a terminal one, when its
-// last node emits a truthy output, or ran without error if it has no outputs.
-func autoWireTransition(shell *shellBuilder, lastNode ir.Node, nextMemberKey string) {
+// autoWireTransition advances past a step, or completes a terminal one, when its last
+// node emits a value, truthy unless the step is a write, or runs with no outputs.
+func autoWireTransition(
+	shell *shellBuilder,
+	lastNode ir.Node,
+	nextMemberKey string,
+	write bool,
+) {
 	on := ir.Handle{Node: lastNode.Key, Param: ir.DoneParam}
 	kind := ir.EdgeKindContinuous
 	if len(lastNode.Outputs) > 0 {
 		on.Param = firstOutputParam(lastNode.Outputs)
-		kind = ir.EdgeKindConditional
+		if !write {
+			kind = ir.EdgeKindConditional
+		}
 	}
 	if nextMemberKey == "" {
 		shell.addCompletion(on, kind)
@@ -2815,7 +2822,9 @@ func analyzeSequence(
 			// firing-node's mark before the outer frame's evaluator sees
 			// it, preventing the cross-level jump from firing.
 			if !transitionEmitted && len(nodes) > 0 {
-				autoWireTransition(shell, nodes[len(nodes)-1], nextKey)
+				flowNodes := flowStmt.AllFlowNode()
+				write := flowNodes[len(flowNodes)-1].Identifier() != nil
+				autoWireTransition(shell, nodes[len(nodes)-1], nextKey, write)
 			}
 			continue
 		}
@@ -2834,7 +2843,7 @@ func analyzeSequence(
 			allNodes = append(allNodes, aNodes...)
 			allEdges = append(allEdges, aEdges...)
 			if len(aNodes) > 0 {
-				autoWireTransition(shell, aNodes[len(aNodes)-1], nextKey)
+				autoWireTransition(shell, aNodes[len(aNodes)-1], nextKey, true)
 			}
 			continue
 		}
@@ -2851,7 +2860,7 @@ func analyzeSequence(
 			child := flowScope(si.key, nodes)
 			scope.Steps = append(scope.Steps, ir.Member{Scope: &child})
 			allNodes = append(allNodes, nodes...)
-			autoWireTransition(shell, nodes[len(nodes)-1], nextKey)
+			autoWireTransition(shell, nodes[len(nodes)-1], nextKey, false)
 			continue
 		}
 
