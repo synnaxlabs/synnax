@@ -39,8 +39,9 @@ var _ = Describe("MigrateAnalogWriteConfig", func() {
 			got := MustSucceed(v4.MigrateAnalogWriteConfig(ctx, v3.AnalogWriteConfig{
 				Channels: []v3.AOChannel{funcGen(frequency)},
 			}))
-			Expect(got.Channels[0].Variant.(v4.AOFuncGenChannel).Frequency).
-				To(Equal(want))
+			ch, ok := got.Channels[0].Variant.(v4.AOFuncGenChannel)
+			Expect(ok).To(BeTrue())
+			Expect(ch.Frequency).To(Equal(want))
 		},
 		Entry("missing", 0.0, 1.0),
 		Entry("negative", -20.0, 1.0),
@@ -89,10 +90,12 @@ var _ = Describe("AnalogWriteMigration", func() {
 			Expect(gorp.NewRetrieve[uuid.UUID, v4.AnalogWriteConfig]().
 				Where(gorp.MatchKeys[uuid.UUID, v4.AnalogWriteConfig](stored.Key)).
 				Entry(&got).Exec(ctx, db)).To(Succeed())
-			Expect(got.Channels[0].Variant.(v4.AOFuncGenChannel).Frequency).
-				To(Equal(1.0))
-			Expect(got.Channels[1].Variant.(v4.AOFuncGenChannel).Frequency).
-				To(Equal(5.0))
+			first, ok := got.Channels[0].Variant.(v4.AOFuncGenChannel)
+			Expect(ok).To(BeTrue())
+			Expect(first.Frequency).To(Equal(1.0))
+			second, ok := got.Channels[1].Variant.(v4.AOFuncGenChannel)
+			Expect(ok).To(BeTrue())
+			Expect(second.Frequency).To(Equal(5.0))
 			entries := logs.FilterMessage("narrowed an NI channel field").All()
 			Expect(entries).To(HaveLen(1))
 			Expect(entries[0].ContextMap()).To(HaveKeyWithValue("field", "Frequency"))

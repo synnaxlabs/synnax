@@ -91,8 +91,9 @@ var _ = Describe("Ladders", func() {
 				msgpack.EncodedJSON{"channels": []any{channel}},
 			))
 			Expect(cfg.Channels).To(HaveLen(1))
-			Expect(cfg.Channels[0].Variant.(v4.AOFuncGenChannel).Frequency).
-				To(Equal(1.0))
+			ch, ok := cfg.Channels[0].Variant.(v4.AOFuncGenChannel)
+			Expect(ok).To(BeTrue())
+			Expect(ch.Frequency).To(Equal(1.0))
 			Expect(cfg.Validate()).To(Succeed())
 		},
 		Entry("v3 at 0 Hz", v3.Version, 0.0),
