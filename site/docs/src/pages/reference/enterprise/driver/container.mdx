@@ -32,7 +32,9 @@ synnax-driver start --standalone --disable-stdin-stop \
 </Note.Note>
 
 The Driver stops on SIGTERM, so `docker stop` and a Kubernetes pod shutdown stop it
-cleanly.
+cleanly. Run the Driver as the main process of the container: use the exec form of `CMD`
+or `ENTRYPOINT`, or `exec` in a wrapper script. A shell does not pass SIGTERM to the
+Driver.
 
 <Divider.Divider x />
 
