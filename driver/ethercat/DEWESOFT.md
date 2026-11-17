@@ -15,14 +15,17 @@ supplement, then generate it again.
 Each module stores the master that it sends data to. The catalog calls this object
 `mode`.
 
-- **`0x8020:09`** on most IOLITE analog modules, `0x8020:0A` on one. `0` is Synnax only
-  with DC sync on bus 1. `3`, where listed, is Synnax only with SM sync. `1` is dual:
-  DewesoftX on bus 1, and the Driver reads the same data on bus 2 (`shared_with`).
-- **`0x8020:07`** on the other modules. A value with `only_read_by` sends data that only
-  DewesoftX reads. Synnax gets nothing, and the scan says so.
+- **`0x8020:09`** on the IOLITE modules that have a dual mode, `0x8020:0A` on
+  product 254. `0` is Synnax only with DC sync on bus 1. `3`, where listed, is Synnax
+  only with SM sync. `1` is dual: DewesoftX on bus 1, and the Driver reads the same data
+  on bus 2 (`shared_with`).
+- **`0x8020:07`** on products 100 to 162. A value with `only_read_by` sends data that
+  only DewesoftX reads. Synnax gets nothing, and the scan says so.
+- **No mode** in the catalog for the 32xDO (product 251) and product 247.
 
-The catalog marks bus 2 with a revision bit, `second_bus` (`0x1000`), so the scan finds
-the bus without a read. Entries on `0x8020:07` have no such bit.
+On `0x8020:09` and `0x8020:0A`, the catalog marks bus 2 with a revision bit,
+`second_bus` (`0x1000`), so the scan finds the bus without a read. Entries on
+`0x8020:07` have no such bit.
 
 A new mode takes effect only at the next power restart. Until then the module keeps the
 old mode, and the scan shows "Waiting for a power restart".
@@ -69,7 +72,7 @@ then fails with "Fatal sync error" in SAFE-OP and gives no advice (SY-6230).
   value `3` with `assign_activate` `0`.
 - **6xSTG timing.** `assign_activate` `0x0300`, SYNC0 1 µs, SYNC1 1 s. Most other
   modules use `0x0700`. The SYNC1 register holds T1 - T0 plus the shift, so 1 s with a 1
-  ms SYNC0 reads 1.001 s.
+  ms SYNC0 and no shift reads 0.999 s.
 - **GATE buses.** The GATE lists one DC mode for each bus. The mode for the other bus
   refuses SAFE-OP with "Invalid DC SYNC configuration".
 - **16xAO and 16xLV.** Their ESI SYNC1 is 1000 bus cycles. It fits only at 233 Hz or
