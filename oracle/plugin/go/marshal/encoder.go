@@ -757,7 +757,6 @@ func (b *encoderBuilder) processOptional(
 	if f.Type.Name == "nil" {
 		return nil
 	}
-	ind := b.indent()
 	resolved, ok := b.resolveTypeRef(f.Type)
 	if !ok {
 		return errors.Newf("cannot resolve type %q (field=%s)", f.Type.Name, f.Name)
@@ -785,6 +784,17 @@ func (b *encoderBuilder) processOptional(
 	}
 
 	// Optional other (pointer to struct/primitive)
+	return b.processOptionalPointer(f, resolved, getPath, setPath)
+}
+
+// processOptionalPointer writes a presence bit for the optional pointer field f and,
+// when the pointer is not nil, the value it points to.
+func (b *encoderBuilder) processOptionalPointer(
+	f resolution.Field,
+	resolved resolution.Type,
+	getPath, setPath string,
+) error {
+	ind := b.indent()
 	goType, err := typemap.GoTypeRefName(f.Type, b.table, b.goTypeName)
 	if err != nil {
 		return err
@@ -912,17 +922,7 @@ func (b *encoderBuilder) processArray(
 
 	// Write a presence bit to distinguish nil from empty slices.
 	// When inside a optional guard, the slice is already known non-nil.
-	known := b.takeNonNil()
-	if !known {
-		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
-			ind+fmt.Sprintf("if %s != nil {", getPath),
-		)
-		b.decodeLines = append(b.decodeLines,
-			ind+"{ present, err := r.Bool(); if err != nil { return err }",
-			ind+"if present {",
-		)
-	}
+	known := b.openNilable(ind, getPath)
 
 	idx := b.loopIndex()
 	b.encodeLines = append(b.encodeLines,
@@ -952,10 +952,7 @@ func (b *encoderBuilder) processArray(
 
 	b.encodeLines = append(b.encodeLines, ind+"\t}")
 	b.decodeLines = append(b.decodeLines, ind+"\t}")
-	if !known {
-		b.encodeLines = append(b.encodeLines, ind+"}")
-		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
-	}
+	b.closeNilable(ind, known)
 	return nil
 }
 
@@ -983,17 +980,7 @@ func (b *encoderBuilder) processMap(
 
 	// Write a presence bit to distinguish nil from empty maps. When inside a optional
 	// guard, the map is already known non-nil.
-	known := b.takeNonNil()
-	if !known {
-		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
-			ind+fmt.Sprintf("if %s != nil {", getPath),
-		)
-		b.decodeLines = append(b.decodeLines,
-			ind+"{ present, err := r.Bool(); if err != nil { return err }",
-			ind+"if present {",
-		)
-	}
+	known := b.openNilable(ind, getPath)
 
 	b.encodeLines = append(b.encodeLines,
 		ind+fmt.Sprintf("\tw.Uint32(uint32(len(%s)))", getPath),
@@ -1023,11 +1010,112 @@ func (b *encoderBuilder) processMap(
 		ind+"\t\t"+setPath+"[key] = val",
 		ind+"\t}",
 	)
+	b.closeNilable(ind, known)
+	return nil
+}
+
+func (b *encoderBuilder) stringLeaf(ind, valPath, setPath, goTypeCast string) {
+	if goTypeCast != "" {
+		b.encodeLines = append(b.encodeLines,
+			ind+fmt.Sprintf("w.String(string(%s))", valPath))
+		b.decodeLine(
+			ind + fmt.Sprintf(
+				"{ rawV, err := r.String(); if err != nil { return err }; %s = %s(rawV) }",
+				setPath,
+				goTypeCast,
+			),
+		)
+	} else {
+		b.encodeLines = append(b.encodeLines,
+			ind+fmt.Sprintf("w.String(%s)", valPath))
+		b.decodeWithErr(
+			ind + fmt.Sprintf(
+				"if %s, err = r.String(); err != nil { return err }",
+				setPath,
+			),
+		)
+	}
+}
+
+func (b *encoderBuilder) bytesLeaf(ind, valPath, setPath string) {
+	// Write a presence bit to distinguish nil from empty byte slices. Inside an
+	// optional guard, the slice is already known non-nil.
+	if b.takeNonNil() {
+		b.encodeLines = append(b.encodeLines,
+			ind+fmt.Sprintf("w.WriteWithLen(%s)", valPath),
+		)
+		b.decodeLines = append(
+			b.decodeLines,
+			ind+setPath+", err = r.ReadWithLen(); if err != nil { return err }",
+		)
+		return
+	}
+	b.encodeLines = append(b.encodeLines,
+		ind+fmt.Sprintf("w.Bool(%s != nil)", valPath),
+		ind+fmt.Sprintf("if %s != nil {", valPath),
+		ind+fmt.Sprintf("\tw.WriteWithLen(%s)", valPath),
+		ind+"}",
+	)
+	b.decodeLines = append(
+		b.decodeLines,
+		ind+"{ present, err := r.Bool(); if err != nil { return err }",
+		ind+"if present {",
+		ind+fmt.Sprintf(
+			"\t%s, err = r.ReadWithLen(); if err != nil { return err }",
+			setPath,
+		),
+		ind+"} }",
+	)
+}
+
+func (b *encoderBuilder) boolLeaf(ind, valPath, setPath, goTypeCast string) {
+	if goTypeCast != "" {
+		b.encodeLines = append(b.encodeLines,
+			ind+fmt.Sprintf("w.Bool(bool(%s))", valPath))
+		b.decodeLine(
+			ind + fmt.Sprintf(
+				"{ rawV, err := r.Bool(); if err != nil { return err }; "+
+					"%s = %s(rawV) }",
+				setPath,
+				goTypeCast,
+			),
+		)
+	} else {
+		b.encodeLines = append(b.encodeLines,
+			ind+fmt.Sprintf("w.Bool(%s)", valPath))
+		b.decodeWithErr(
+			ind + fmt.Sprintf(
+				"if %s, err = r.Bool(); err != nil { return err }",
+				setPath,
+			),
+		)
+	}
+}
+
+// openNilable writes a presence bit that tells a nil value from an empty one, and opens
+// the block that holds a present value. It returns true without writing when an
+// optional guard already knows the value is non-nil.
+func (b *encoderBuilder) openNilable(ind, getPath string) bool {
+	known := b.takeNonNil()
+	if !known {
+		b.encodeLines = append(b.encodeLines,
+			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
+			ind+fmt.Sprintf("if %s != nil {", getPath),
+		)
+		b.decodeLines = append(b.decodeLines,
+			ind+"{ present, err := r.Bool(); if err != nil { return err }",
+			ind+"if present {",
+		)
+	}
+	return known
+}
+
+// closeNilable closes the block that openNilable opened.
+func (b *encoderBuilder) closeNilable(ind string, known bool) {
 	if !known {
 		b.encodeLines = append(b.encodeLines, ind+"}")
 		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
 	}
-	return nil
 }
 
 func (b *encoderBuilder) processLeaf(
@@ -1045,26 +1133,7 @@ func (b *encoderBuilder) processLeaf(
 
 	switch primName {
 	case "string":
-		if goTypeCast != "" {
-			b.encodeLines = append(b.encodeLines,
-				ind+fmt.Sprintf("w.String(string(%s))", valPath))
-			b.decodeLine(
-				ind + fmt.Sprintf(
-					"{ rawV, err := r.String(); if err != nil { return err }; %s = %s(rawV) }",
-					setPath,
-					goTypeCast,
-				),
-			)
-		} else {
-			b.encodeLines = append(b.encodeLines,
-				ind+fmt.Sprintf("w.String(%s)", valPath))
-			b.decodeWithErr(
-				ind + fmt.Sprintf(
-					"if %s, err = r.String(); err != nil { return err }",
-					setPath,
-				),
-			)
-		}
+		b.stringLeaf(ind, valPath, setPath, goTypeCast)
 
 	case "uuid":
 		b.encodeLines = append(b.encodeLines,
@@ -1093,57 +1162,10 @@ func (b *encoderBuilder) processLeaf(
 		)
 
 	case "bytes":
-		// Write a presence bit to distinguish nil from empty byte slices. Inside an
-		// optional guard, the slice is already known non-nil.
-		if b.takeNonNil() {
-			b.encodeLines = append(b.encodeLines,
-				ind+fmt.Sprintf("w.WriteWithLen(%s)", valPath),
-			)
-			b.decodeLines = append(
-				b.decodeLines,
-				ind+setPath+", err = r.ReadWithLen(); if err != nil { return err }",
-			)
-			break
-		}
-		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("w.Bool(%s != nil)", valPath),
-			ind+fmt.Sprintf("if %s != nil {", valPath),
-			ind+fmt.Sprintf("\tw.WriteWithLen(%s)", valPath),
-			ind+"}",
-		)
-		b.decodeLines = append(
-			b.decodeLines,
-			ind+"{ present, err := r.Bool(); if err != nil { return err }",
-			ind+"if present {",
-			ind+fmt.Sprintf(
-				"\t%s, err = r.ReadWithLen(); if err != nil { return err }",
-				setPath,
-			),
-			ind+"} }",
-		)
+		b.bytesLeaf(ind, valPath, setPath)
 
 	case "bool":
-		if goTypeCast != "" {
-			b.encodeLines = append(b.encodeLines,
-				ind+fmt.Sprintf("w.Bool(bool(%s))", valPath))
-			b.decodeLine(
-				ind + fmt.Sprintf(
-					"{ rawV, err := r.Bool(); if err != nil { return err }; "+
-						"%s = %s(rawV) }",
-					setPath,
-					goTypeCast,
-				),
-			)
-		} else {
-			b.encodeLines = append(b.encodeLines,
-				ind+fmt.Sprintf("w.Bool(%s)", valPath))
-			b.decodeWithErr(
-				ind + fmt.Sprintf(
-					"if %s, err = r.Bool(); err != nil { return err }",
-					setPath,
-				),
-			)
-		}
+		b.boolLeaf(ind, valPath, setPath, goTypeCast)
 
 	case "int8":
 		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Int8", "int8", "int8(%s)")

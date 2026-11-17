@@ -970,36 +970,48 @@ func (b *testValueBuilder) unionExpr(
 	if err != nil {
 		return "", err
 	}
+	payloadExprs, err := b.payloadExprs(actual, v, payload, inherited, declared)
+	if err != nil {
+		return "", err
+	}
+	embeds = append(embeds, payloadExprs...)
+	return fmt.Sprintf(
+		"%s{Variant: %s}", goType, b.formatComposite(variantType, embeds),
+	), nil
+}
+
+// payloadExprs returns the expressions that populate the payload of the union variant
+// v: its fields when the payload is inline, else the embedded payload struct.
+func (b *testValueBuilder) payloadExprs(
+	actual resolution.Type,
+	v resolution.UnionVariant,
+	payload resolution.Type,
+	inherited []resolution.TypeRef,
+	declared []resolution.Field,
+) ([]string, error) {
 	if v.Inline {
 		pform, ok := payload.Form.(resolution.StructForm)
 		if !ok {
-			return "", errors.Newf(
+			return nil, errors.Newf(
 				"union %s variant %q: inline payload is not a struct",
 				actual.Name,
 				v.Name,
 			)
 		}
-		fieldExprs, err := b.buildFieldExprs(append(
+		return b.buildFieldExprs(append(
 			slices.Clone(declared),
 			declaredFields(inherited, pform.Fields, b.table)...,
 		))
-		if err != nil {
-			return "", err
-		}
-		embeds = append(embeds, fieldExprs...)
-	} else if varName, ok := b.sharedVars[payload.QualifiedName]; ok &&
-		b.mode == modeFullyPopulated {
-		embeds = append(embeds, naming.GetGoName(payload)+": "+varName)
-	} else {
-		payloadExpr, err := b.valueExpr(payload, v.Type)
-		if err != nil {
-			return "", err
-		}
-		embeds = append(embeds, naming.GetGoName(payload)+": "+payloadExpr)
 	}
-	return fmt.Sprintf(
-		"%s{Variant: %s}", goType, b.formatComposite(variantType, embeds),
-	), nil
+	if varName, ok := b.sharedVars[payload.QualifiedName]; ok &&
+		b.mode == modeFullyPopulated {
+		return []string{naming.GetGoName(payload) + ": " + varName}, nil
+	}
+	payloadExpr, err := b.valueExpr(payload, v.Type)
+	if err != nil {
+		return nil, err
+	}
+	return []string{naming.GetGoName(payload) + ": " + payloadExpr}, nil
 }
 
 // baseEmbeds returns an embedded field expression for each resolved base of a union
