@@ -70,6 +70,7 @@ class _Lazy[T]:
     def __init__(self, build: Callable[["Synnax"], T]) -> None:
         self._build = build
         self._name = build.__name__
+        self._built: weakref.WeakKeyDictionary[Synnax, T] = weakref.WeakKeyDictionary()
 
     @overload
     def __get__(self, obj: None, owner: type) -> Self: ...
@@ -83,10 +84,11 @@ class _Lazy[T]:
         # After the first build, the value in the instance dict hides this
         # descriptor, so later reads take no lock.
         with obj._build_lock:
-            built = obj.__dict__
-            if self._name not in built:
-                built[self._name] = self._build(obj)
-            return built[self._name]  # type: ignore[no-any-return]
+            if obj not in self._built:
+                value = self._build(obj)
+                self._built[obj] = value
+                obj.__dict__[self._name] = value
+            return self._built[obj]
 
 
 class Synnax(framer.Client):
