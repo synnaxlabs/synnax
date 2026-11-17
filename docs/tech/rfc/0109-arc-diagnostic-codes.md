@@ -56,8 +56,7 @@ A kind is broad. All type mismatches share one code, as in the Rust compiler (`E
 
 - Each diagnostic that the compiler reports has a code, except the diagnostics of
   `arc/go/graph` (§3).
-- A check that fails only when the compiler has a defect panics. It has no code. The
-  compiler recovers the panic and reports one error with the message of the panic.
+- A check that fails only when the compiler has a defect panics. It has no code.
 - Each code has a report site. Four declared codes have none today. The review looks for
   a report site for each one, and removes a code that has none.
 - A diagnostic made from a Go error takes the code and the severity of its kind, also

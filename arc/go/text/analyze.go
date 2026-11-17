@@ -464,7 +464,9 @@ func analyzeInlineBody(
 ) (flowNodeResult, bool) {
 	synth := shell.synthByAST[decl]
 	if synth == nil {
-		panic(errors.New("internal: synth scope not registered for inline body"))
+		ctx.Diagnostics.Add(diagnostics.Errorf(decl,
+			"internal: synth scope not registered for inline body"))
+		return flowNodeResult{}, false
 	}
 	scope, ok := processInlineBody(ctx, synth, kg, shell)
 	if !ok {
@@ -1568,17 +1570,7 @@ func analyze(
 	root *symbol.Symbol,
 	module bool,
 	cfgs []parser.Config,
-) (program ir.IR, diag *diagnostics.Diagnostics) {
-	// A panic is a compiler defect. It must not stop the process that compiles.
-	defer func() {
-		if r := recover(); r != nil {
-			program = ir.IR{}
-			diag = &diagnostics.Diagnostics{diagnostics.Error(
-				errors.Newf("internal compiler error: %v", r),
-				nil,
-			)}
-		}
-	}()
+) (ir.IR, *diagnostics.Diagnostics) {
 	u, diag := analyzeUnit(ctx, t, root, module, cfgs)
 	return u.ir, diag
 }
@@ -1645,7 +1637,7 @@ func analyzeUnit(
 	bound := set.New[string]()
 	bindActivations(&i.Root, shell.activations, bound)
 	link(&i, units, shell, bound)
-	checkActivationsBound(shell.activations, bound)
+	checkActivationsBound(aCtx, shell.activations, bound)
 	if d := resolveAndStratify(aCtx, &i, deps, module); d != nil {
 		return unit{ir: i}, d
 	}
@@ -1708,12 +1700,14 @@ func appendRootNodes(i *ir.IR, members ir.Members, nodes []*ir.Node) ir.Members 
 // registered activation should bind. If one does not, something upstream
 // registered an activation without going through analyzeNamedRef.
 func checkActivationsBound(
+	aCtx acontext.Context[parser.IProgramContext],
 	activations map[string][]ir.Activation,
 	bound set.Set[string],
 ) {
 	for key := range activations {
 		if !bound.Contains(key) {
-			panic(errors.Newf(
+			aCtx.Diagnostics.Add(diagnostics.Errorf(
+				aCtx.AST,
 				"internal: activation target '%s' did not bind to any "+
 					"scope; this should have been rejected by analyzeNamedRef",
 				key,
@@ -2250,7 +2244,11 @@ func analyzeFlow(
 		}
 	}
 	if len(p.edges) < 1 && !p.transitionEmitted {
-		panic(errors.New("flow statement requires at least two nodes"))
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"flow statement requires at least two nodes",
+		))
+		return nil, nil, nil, false, false
 	}
 	return p.nodes, p.edges, p.inlineMembers, p.transitionEmitted, true
 }

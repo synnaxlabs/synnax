@@ -10,7 +10,6 @@
 package text_test
 
 import (
-	"context"
 	"slices"
 	"strings"
 
@@ -9976,28 +9975,4 @@ var _ = Describe("Module constants in node params", func() {
 			Expect(values).To(Equal([]any{"-Infinity"}))
 		},
 	)
-})
-
-type panickingResolver struct{}
-
-func (panickingResolver) Resolve(context.Context, string) (*symbol.Symbol, error) {
-	panic("resolver failure")
-}
-
-func (panickingResolver) Search(context.Context, string) ([]*symbol.Symbol, error) {
-	return nil, nil
-}
-
-var _ = Describe("A panic in analysis", func() {
-	It("Should become one diagnostic with no code", func(ctx SpecContext) {
-		parsed := MustSucceed(
-			text.Parse(text.Text{Raw: "func f() i64 {\n return k\n}"}),
-		)
-		program, diag := text.Analyze(ctx, parsed, NewRoot(panickingResolver{}))
-		Expect(program.Nodes).To(BeEmpty())
-		Expect(*diag).To(HaveLen(1))
-		Expect((*diag)[0].Code).To(BeEmpty())
-		Expect((*diag)[0].Message).
-			To(Equal("internal compiler error: resolver failure"))
-	})
 })
