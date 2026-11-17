@@ -30,7 +30,7 @@ var _ = Describe("All", func() {
 			codes.SymbolRedefined,
 		)
 		for _, kind := range codes.All {
-			Expect(string(kind.Code)).To(MatchRegexp(`^ARC\d{4}$`))
+			Expect(string(kind.Code)).To(MatchRegexp(`^(ARC|E|W)\d{4}$`))
 			Expect(seen.Contains(kind.Code)).To(BeFalse(), string(kind.Code))
 			seen.Add(kind.Code)
 		}

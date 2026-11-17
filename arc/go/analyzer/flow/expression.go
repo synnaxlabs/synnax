@@ -11,6 +11,7 @@ package flow
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
@@ -42,14 +43,16 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 			if strTerm := parser.StringTerminal(lit); strTerm != nil {
 				body, flags, ok := literal.StripQuotes(strTerm.GetText())
 				if !ok {
-					ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+					ctx.Diagnostics.Add(codes.InvalidStringLiteral.Atf(ctx.AST,
 						"invalid string literal: %s", strTerm.GetText()))
 					return
 				}
 				if flags.Format {
 					segs, err := literal.FmtStrSplit(body, flags)
 					if err != nil {
-						ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+						ctx.Diagnostics.Add(
+							codes.InvalidStringLiteral.Wrap(err, ctx.AST),
+						)
 						return
 					}
 					if literal.FmtStrHasPlaceholder(segs) {

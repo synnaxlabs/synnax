@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package codes defines diagnostic error codes for the Arc compiler.
-// Error codes follow the format ARC<category><number> where:
-//   - Category 2xxx: Type system errors
-//   - Category 3xxx: Function-related errors
-//   - Category 4xxx: Symbol/scope errors
-//   - Category 5xxx: Import errors
-//   - Category 6xxx: Constant expression errors
+// Package codes declares the diagnostic kinds of the Arc compiler.
 package codes
 
 //go:generate go run gen.go
@@ -37,6 +31,28 @@ const (
 )
 
 var (
+	// Syntax is source text that the parser rejects.
+	Syntax = diagnostics.Kind{
+		Code:     "E1000",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// SourceLimit is source text that is too large or too deeply nested to parse.
+	SourceLimit = diagnostics.Kind{
+		Code:     "E1001",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// InvalidStringLiteral is a malformed string literal or format placeholder.
+	InvalidStringLiteral = diagnostics.Kind{
+		Code:     "E1002",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// SubtractionSpacing is a binary minus with no space on one of its sides.
+	SubtractionSpacing = diagnostics.Kind{
+		Code:     "E1003",
+		Severity: protocol.DiagnosticSeverityError,
+		Message:  "subtraction requires whitespace on both sides of '-'",
+	}
+
 	// NaNComparison indicates a comparison with a NaN constant, which always has the
 	// same result.
 	NaNComparison = diagnostics.Kind{
@@ -111,6 +127,10 @@ var (
 
 // All is each kind of the table.
 var All = []diagnostics.Kind{
+	Syntax,
+	SourceLimit,
+	InvalidStringLiteral,
+	SubtractionSpacing,
 	NaNComparison,
 	TruthyCondition,
 	BoolCast,

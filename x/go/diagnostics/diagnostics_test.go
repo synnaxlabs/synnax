@@ -813,6 +813,32 @@ var _ = Describe("Diagnostics", func() {
 			})
 		})
 
+		Describe("Kind.Atf", func() {
+			It("Should give the diagnostic the message of the format", func() {
+				kind := diagnostics.Kind{
+					Code:     "TEST006",
+					Severity: protocol.DiagnosticSeverityWarning,
+				}
+				d := kind.Atf(
+					ruleCtxAt(&fakeToken{line: 3, column: 4, text: "x"}, nil),
+					"cannot use %s in %s",
+					"x",
+					"a loop",
+				)
+				Expect(d.Code).To(Equal(diagnostics.ErrorCode("TEST006")))
+				Expect(d.Severity).To(Equal(protocol.DiagnosticSeverityWarning))
+				Expect(d.Message).To(Equal("cannot use x in a loop"))
+				Expect(
+					d.Range.Start,
+				).To(Equal(protocol.Position{Line: 2, Character: 4}))
+			})
+
+			It("Should leave the range empty with no context", func() {
+				d := diagnostics.Kind{Code: "TEST007"}.Atf(nil, "too large")
+				Expect(d.Range).To(Equal(protocol.Range{}))
+			})
+		})
+
 		Describe("Kind.Wrap", func() {
 			It("Should give the diagnostic of an error the code and severity", func() {
 				kind := diagnostics.Kind{

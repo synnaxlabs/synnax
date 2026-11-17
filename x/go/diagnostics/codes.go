@@ -26,7 +26,7 @@ type Kind struct {
 	Code ErrorCode
 	// Severity is the severity of each diagnostic of the kind.
 	Severity protocol.DiagnosticSeverity
-	// Message is the message format. A kind that reports with Wrap has none.
+	// Message is the message format. A kind that reports with Atf or Wrap has none.
 	Message string
 }
 
@@ -36,6 +36,17 @@ func (k Kind) At(ctx antlr.ParserRuleContext, args ...any) Diagnostic {
 		Code:     k.Code,
 		Severity: k.Severity,
 		Message:  fmt.Sprintf(k.Message, args...),
+	}
+	d.SetRange(ctx)
+	return d
+}
+
+// Atf returns a diagnostic of the kind at ctx with the message of format and args.
+func (k Kind) Atf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
+	d := Diagnostic{
+		Code:     k.Code,
+		Severity: k.Severity,
+		Message:  fmt.Sprintf(format, args...),
 	}
 	d.SetRange(ctx)
 	return d

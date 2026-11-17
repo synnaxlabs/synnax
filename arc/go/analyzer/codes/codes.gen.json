@@ -42,5 +42,21 @@
   "ARC6002": {
     "severity": "error",
     "message": "integer %s by zero"
+  },
+  "E1000": {
+    "severity": "error",
+    "message": ""
+  },
+  "E1001": {
+    "severity": "error",
+    "message": ""
+  },
+  "E1002": {
+    "severity": "error",
+    "message": ""
+  },
+  "E1003": {
+    "severity": "error",
+    "message": "subtraction requires whitespace on both sides of '-'"
   }
 }
