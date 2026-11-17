@@ -107,12 +107,18 @@ std::pair<std::shared_ptr<x::kv::KV>, x::errors::Error>
 open_kv(x::args::Parser &parser) {
     const auto path = get_persisted_state_path(parser);
     if (auto err = state::prepare(path)) return {nullptr, err};
-    std::error_code ec;
-    const bool existed = fs::exists(path, ec);
-    if (ec)
+    const auto dir = fs::path(path).parent_path();
+    std::error_code dir_ec;
+    std::error_code file_ec;
+    const bool dir_existed = fs::exists(dir, dir_ec);
+    const bool file_existed = fs::exists(path, file_ec);
+    if (dir_ec || file_ec)
         return {
             nullptr,
-            x::errors::Error(STATE_ERROR, "failed to find state file: " + ec.message())
+            x::errors::Error(
+                STATE_ERROR,
+                "failed to find state file: " + (dir_ec ? dir_ec : file_ec).message()
+            )
         };
     auto [kv, err] = x::kv::JSONFile::open_file(
         x::kv::JSONFileConfig{
@@ -122,11 +128,10 @@ open_kv(x::args::Parser &parser) {
         }
     );
     if (err) return {kv, err};
-    // Root gives a default state file that this run created to the service user.
-    if (!existed && parser.field<std::string>("--state-file", "").empty())
-        if (auto sec_err = state::secure(path, false)) return {nullptr, sec_err};
-    // open_file follows links, so this refuses a link put in place of the file.
-    if (auto check_err = state::prepare(path)) return {nullptr, check_err};
+    // State that this run created is not the operator's, so root gives it to the Linux
+    // service user, as login does. An existing directory keeps its mode and owner.
+    if (parser.field<std::string>("--state-file", "").empty() && !file_existed)
+        if (auto sec_err = state::secure(path, !dir_existed)) return {nullptr, sec_err};
     return {kv, x::errors::NIL};
 }
 

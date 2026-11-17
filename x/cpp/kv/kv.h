@@ -9,6 +9,11 @@
 
 #pragma once
 
+#include <filesystem>
+#include <memory>
+#include <string>
+#include <utility>
+
 #include "nlohmann/json.hpp"
 
 #include "x/cpp/errors/errors.h"
@@ -33,7 +38,9 @@ struct JSONFileConfig {
     std::filesystem::path path;
     /// @brief the mode to set the directory to if it doesn't exist.
     std::filesystem::perms dir_mode;
-    /// @brief the mode to set the file to if it doesn't exist.
+    /// @brief the mode to give the file if it doesn't exist. On Unix, each write
+    /// replaces the file through a rename, keeps its owner and mode, and never follows
+    /// a link at path.
     std::filesystem::perms file_mode;
 };
 
@@ -41,6 +48,7 @@ struct JSONFileConfig {
 class JSONFile final : public KV {
     std::filesystem::path path;
     nlohmann::json data;
+    std::filesystem::perms file_mode;
 
 public:
     /// @brief opens the key-value store using the provided configuration. If the
@@ -57,6 +65,10 @@ public:
     /// @brief implements KV.
     errors::Error del(const std::string &key) override;
 
-    JSONFile(const std::string &path, nlohmann::json data);
+    JSONFile(
+        const std::string &path,
+        nlohmann::json data,
+        std::filesystem::perms file_mode
+    );
 };
 }
