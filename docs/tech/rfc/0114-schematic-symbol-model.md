@@ -163,10 +163,13 @@ asks to confirm. The save carries the list that the user confirmed, and the Core
 it when the list or its control marks changed, so the dialog asks again. The custom
 `symbol.Ref` uses `@ref on_delete restrict`, so a custom symbol in use refuses the
 delete, and the dialog lists its schematics. An import brings the custom symbols that
-its schematics use. A built-in file is never edited: a node changes a built-in through
-its label, color, size, rotation, enum, match, and default, and a site through RFC 0112
-enums and named colors. "Duplicate as custom" stores the built-in's name in `origin`,
-and "Change symbol" moves nodes to another symbol by binding key.
+its schematics use. When the Core already has a symbol with a bundled key, the import
+keeps the key and uses the Core's symbol, and if the two differ, it reports a warning
+status that names the symbol. Otherwise it mints a new key and points each node at it. A
+built-in file is never edited: a node changes a built-in through its label, color, size,
+rotation, enum, match, and default, and a site through RFC 0112 enums and named colors.
+"Duplicate as custom" stores the built-in's name in `origin`, and "Change symbol" moves
+nodes to another symbol by binding key.
 
 A custom symbol holds only shapes. It starts from an SVG upload or a blank canvas, and
 the editor's drawing tools save SVG markup. A part names its shapes by `#id`, `.class`,
@@ -197,9 +200,9 @@ time fields keep their values, and `state_overrides` become enums by RFC 0112 §
 
 The migration and an import give a node whose custom symbol does not exist `missing`
 with the old key, and keep its bindings. Pluto draws today's "Missing custom symbol"
-look, and "Change symbol" moves the node to another symbol. An import mints new symbol
-keys and points each node at the new key of the symbol that it brought, so only a symbol
-absent from the import gives `missing`. A key never comes back on its own.
+look, and "Change symbol" moves the node to another symbol. An import maps symbol keys
+by §4.4, so only a symbol absent from both the import and the Core gives `missing`. A
+key never comes back on its own.
 
 In a stored custom symbol, `svg` becomes an `svg` drawing, each region becomes a part,
 state `i` becomes value `i` of one state `state` with default 0, and each region color
@@ -225,21 +228,24 @@ two. The named color record (RFC 0112 phase 3) is merged, so phase 1 waits on no
 outstanding. Phase 1 stores the `Spec` fields of §4.1 except `enum`, which RFC 0112
 phase 19 adds with the enum record. Until phase 2 deletes them, it keeps `variant`,
 which picks the node variant on placement, and today's state shape, under its own name,
-for `state_overrides`. Phase 2 needs RFC 0112 phase 19 and ships with RFC 0112 phases 19
-to 22. Each family is redesigned after phase 5 in its own PR.
+for `state_overrides`. Phase 2 needs RFC 0112 phase 22, whose function its node
+migration calls, and ships with RFC 0112 phases 19 to 22. Each family is redesigned
+after phase 5 in its own PR.
 
-Phase 2 is one cutover of the stored node shape: a node variant, a Core migration, a
-renderer with its marks, a form, and the deletion of 86 variants. It is larger than a
-usual PR because no smaller step leaves one node shape in `main`. Phase 5 starts with
-the WebKit benchmark, and no built-in moves until it passes at 1,000 moving parts.
+Phase 2 is one cutover of the stored node shape: a node variant, a Core migration, an
+export that bundles a schematic's custom symbols with an import that maps their keys, a
+renderer with its marks, a form with the enum picker, and the deletion of 86 variants.
+It is larger than a usual PR because no smaller step leaves one node shape in `main`.
+Phase 5 starts with the WebKit benchmark, and no built-in moves until it passes at 1,000
+moving parts.
 
-| Phase | Scope                                                  | Touches                                                                                      | Depends on |
-| ----- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Store parts, states, commands, and looks on all specs  | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `pluto/src/schematic`                 | -          |
-| 2     | Replace equipment variants with one `symbol` variant   | `schemas/synnax`, `core/pkg/service/schematic`, `pluto/src/schematic`, `console/src/feature` | 1          |
-| 3     | Edit parts and looks, and duplicate built-ins          | `console/src/feature/schematic/symbol`                                                       | 1          |
-| 4     | Edit states, commands, and clicks, with a save confirm | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                  | 2, 3       |
-| 5     | Benchmark motion in WebKit, then draw it               | `pluto/src/schematic/node/common/custom`                                                     | 2          |
+| Phase | Scope                                                  | Touches                                                                                                               | Depends on |
+| ----- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Store parts, states, commands, and looks on all specs  | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `pluto/src/schematic`                                          | -          |
+| 2     | Replace equipment variants with one `symbol` variant   | `schemas/synnax`, `core/pkg/service/schematic`, `core/pkg/service/imex`, `pluto/src/schematic`, `console/src/feature` | 1          |
+| 3     | Edit parts and looks, and duplicate built-ins          | `console/src/feature/schematic/symbol`                                                                                | 1          |
+| 4     | Edit states, commands, and clicks, with a save confirm | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                           | 2, 3       |
+| 5     | Benchmark motion in WebKit, then draw it               | `pluto/src/schematic/node/common/custom`                                                                              | 2          |
 
 ## 7 Resolved decisions
 
@@ -278,6 +284,11 @@ the WebKit benchmark, and no built-in moves until it passes at 1,000 moving part
 16. **A click on stale data sends one command, as today**: A menu on stale data adds a
     step to each click while a task restarts. The trade is real: a stale reading can
     send the wrong command, and the user keeps one click.
+17. **An import reuses a symbol that the Core already has**: Each import of one template
+    then links to one symbol, so a save reaches all of its nodes, as today. A copy for
+    each import splits the nodes across duplicates. The trade is real: the bundled
+    design is not applied when the Core already has the symbol, and only a warning
+    reports the difference.
 
 ## 8 Open questions
 
