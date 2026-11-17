@@ -7,9 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
+from typing import Any, Protocol
 
-from keyring.backend import KeyringBackend
 from keyring.errors import InitError, KeyringLocked, NoKeyringError, PasswordDeleteError
 from pydantic import BaseModel
 
@@ -20,6 +19,18 @@ from synnax.options import Options
 
 class Cluster(BaseModel):
     options: Options
+
+
+class Keyring(Protocol):
+    """The OS keychain operations that Clusters uses. keyring.get_keyring() returns
+    one.
+    """
+
+    def get_password(self, service: str, username: str) -> str | None: ...
+
+    def set_password(self, service: str, username: str, password: str) -> None: ...
+
+    def delete_password(self, service: str, username: str) -> None: ...
 
 
 KEYCHAIN_UNAVAILABLE_MSG = (
@@ -58,9 +69,9 @@ class Clusters:
     """
 
     internal: File
-    keyring: KeyringBackend
+    keyring: Keyring
 
-    def __init__(self, config: File, keyring: KeyringBackend):
+    def __init__(self, config: File, keyring: Keyring):
         self.internal = config
         self.keyring = keyring
 

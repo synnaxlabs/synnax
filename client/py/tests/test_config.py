@@ -31,7 +31,7 @@ from synnax.config import (
 )
 from synnax.exceptions import ConfigurationError, ValidationError
 from synnax.options import Options
-from tests.memory_keyring import MemoryKeyring, no_keychain
+from tests.memory_keyring import MemoryKeyring, NoKeychain
 
 
 def write_desktop_file(path: Path, *, port: int, api_key: str = "syk_k_s") -> None:
@@ -271,7 +271,7 @@ class TestTryLoadOptions:
         write_desktop_file(desktop_file, port=4321)
         with pytest.raises(ConfigurationError, match=KEYCHAIN_UNAVAILABLE_MSG):
             try_load_options_if_none_provided(
-                clusters=Clusters(config, no_keychain()), desktop_file=desktop_file
+                clusters=Clusters(config, NoKeychain()), desktop_file=desktop_file
             )
 
     def test_desktop_without_a_keychain(
@@ -280,7 +280,7 @@ class TestTryLoadOptions:
         """Should use the Desktop file when no login is saved, with no keychain."""
         write_desktop_file(desktop_file, port=4321)
         opts, embedded = try_load_options_if_none_provided(
-            clusters=Clusters(File(config_dir=tmp_path), no_keychain()),
+            clusters=Clusters(File(config_dir=tmp_path), NoKeychain()),
             desktop_file=desktop_file,
         )
         assert (opts.port, embedded) == (4321, True)
