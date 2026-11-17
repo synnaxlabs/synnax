@@ -265,6 +265,7 @@ jobs:
       directory: alamos/ts
       macos: *full
       package: alamos
+      packed: true
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -410,6 +411,7 @@ jobs:
       coverage_flag: client-ts
       directory: client/ts
       package: client
+      packed: true
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -853,6 +855,7 @@ jobs:
       directory: freighter/ts
       freighter_image: ${{ needs.freighter-image.outputs.image }}
       package: freighter
+      packed: true
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -1275,6 +1278,7 @@ jobs:
       directory: x/ts
       macos: *full
       package: x
+      packed: true
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

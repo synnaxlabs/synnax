@@ -51,6 +51,11 @@ on:
         description: The pnpm package name
         required: true
         type: string
+      packed:
+        description: Whether to check the types of the packed package with attw
+        required: false
+        type: boolean
+        default: false
       shards:
         description: How many jobs split the test files on each OS, from 1 to 4
         required: false
@@ -180,6 +185,18 @@ jobs:
         env:
           PACKAGE: ${{ inputs.package }}
         run: pnpm lint:"$PACKAGE"
+
+      # The packages are ES modules only, so the profile skips CommonJS and node10.
+      - name: Check the packed types
+        if: matrix.lint && inputs.packed
+        shell: bash
+        env:
+          PACKAGE: ${{ inputs.package }}
+          DIRECTORY: ${{ inputs.directory }}
+        run: |
+          pnpm build:"$PACKAGE"
+          pnpm -C "$DIRECTORY" pack --pack-destination "$RUNNER_TEMP/packed"
+          pnpm exec attw --profile esm-only "$RUNNER_TEMP"/packed/*.tgz
 
       # Without a limit, a stuck mirror holds the merge queue for up to 6 hours.
       - name: Install browsers

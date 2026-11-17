@@ -162,6 +162,7 @@
     "knip:x": "knip --workspace x/ts"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "catalog:",
     "@prettier/plugin-xml": "catalog:",
     "knip": "catalog:",
     "prettier": "catalog:",
