@@ -107,13 +107,27 @@ std::pair<std::shared_ptr<x::kv::KV>, x::errors::Error>
 open_kv(x::args::Parser &parser) {
     const auto path = get_persisted_state_path(parser);
     if (auto err = state::prepare(path)) return {nullptr, err};
-    return x::kv::JSONFile::open_file(
+    std::error_code ec;
+    const bool existed = fs::exists(path, ec);
+    if (ec)
+        return {
+            nullptr,
+            x::errors::Error(STATE_ERROR, "failed to find state file: " + ec.message())
+        };
+    auto [kv, err] = x::kv::JSONFile::open_file(
         x::kv::JSONFileConfig{
             .path = path,
             .dir_mode = PERSISTED_STATE_DIR_PERMISSIONS,
             .file_mode = PERSISTED_STATE_FILE_PERMISSIONS,
         }
     );
+    if (err) return {kv, err};
+    // Root gives a default state file that this run created to the service user.
+    if (!existed && parser.field<std::string>("--state-file", "").empty())
+        if (auto sec_err = state::secure(path, false)) return {nullptr, sec_err};
+    // open_file follows links, so this refuses a link put in place of the file.
+    if (auto check_err = state::prepare(path)) return {nullptr, check_err};
+    return {kv, x::errors::NIL};
 }
 
 x::errors::Error rack::Config::load_persisted_state(x::args::Parser &args) {
