@@ -339,6 +339,13 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         }
     const auto masters = this->pool->enumerate();
     VLOG(1) << SCAN_LOG_PREFIX << "scanning " << masters.size() << " masters";
+    // A scan that ends early finds no filter to report.
+    const auto fail = [this](const x::errors::Error &err)
+        -> std::pair<std::vector<synnax::device::Device>, x::errors::Error> {
+        std::lock_guard lock(this->mu);
+        this->filtered.clear();
+        return {{}, err};
+    };
     std::vector<std::string> turned_off;
     {
         std::lock_guard lock(this->mu);
@@ -365,11 +372,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
                                         : this->pool->discover(key);
         // One permission covers every master (CAP_NET_RAW for SOEM, one udev rule for
         // all IgH devices), so the other masters fail the same way.
-        if (err.matches(errors::PERMISSION_DENIED)) {
-            std::lock_guard lock(this->mu);
-            this->filtered.clear();
-            return {{}, err};
-        }
+        if (err.matches(errors::PERMISSION_DENIED)) return fail(err);
         // The modules of a configured network can come back at any scan, as after a
         // power restart.
         if (err.matches(errors::NO_SLAVES_FOUND) &&
@@ -400,7 +403,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             continue;
         }
         const auto [engine, acquire_err] = this->pool->acquire(key);
-        if (acquire_err) return {{}, acquire_err};
+        if (acquire_err) return fail(acquire_err);
         const auto health = this->pool->health(key);
         const auto keys = slave_keys(slaves, key, stored, kept);
         bool rediscovery_needed = false;
