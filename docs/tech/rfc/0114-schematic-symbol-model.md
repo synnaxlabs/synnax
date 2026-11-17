@@ -273,22 +273,23 @@ with the unknown indicator. A blink stays under three flashes per second.
 
 ### 4.3 Clicks and writes
 
-`next` lists two `fixed` commands on one state with different values, and the Core
-refuses any other list on save. It compares the last state value after its match, also
-while the state is stale. When the value equals one command's value, `next` sends the
-other command, so a click on an open valve sends Close. When the value equals neither,
-the value is unknown, a command is pending, or the command channel disagrees with the
-state, `next` opens a menu of its commands. A `fixed` command writes its value. An `ask`
-command opens an input that its state's type picks, such as a menu of enumeration
-entries or a number field, and the typed value stays in Pluto until sent. A command
-writes to the `command` channel of its state's `channel` source, or to its `local`
-value, or with no state, to its `CommandBinding` channel. An interaction whose commands
-have no channel takes no clicks. One Pluto function sends every write, from the node and
-the command key. Built-in states are `position`, `run`, `on`, and `level`, and built-in
-commands are `open`, `close`, `start`, `stop`, and `set`, which asks. The Core's code
-lists each built-in symbol by name, with its state keys and types, and its command keys
-with the state that each targets, and a read-only route returns the list. Pluto keeps
-the drawings. A shipped key never changes, and a shipped built-in name never changes.
+`next` lists two `fixed` commands on one state whose values differ after the state's
+match, and the Core refuses any other list on save. It compares the last state value
+with each command value, both after the match, also while the state is stale. When the
+value equals one command's value, `next` sends the other command, so a click on an open
+valve sends Close. When the value equals neither, the value is unknown, a command is
+pending, or the command channel's value after the match disagrees with the state, `next`
+opens a menu of its commands. A `fixed` command writes its value. An `ask` command opens
+an input that its state's type picks, such as a menu of enumeration entries or a number
+field, and the typed value stays in Pluto until sent. A command writes to the `command`
+channel of its state's `channel` source, or to its `local` value, or with no state, to
+its `CommandBinding` channel. An interaction whose commands have no channel takes no
+clicks. One Pluto function sends every write, from the node and the command key.
+Built-in states are `position`, `run`, `on`, and `level`, and built-in commands are
+`open`, `close`, `start`, `stop`, and `set`, which asks. The Core's code lists each
+built-in symbol by name, with its state keys and types, and its command keys with the
+state that each targets, and a read-only route returns the list. Pluto keeps the
+drawings. A shipped key never changes, and a shipped built-in name never changes.
 
 ### 4.4 Edits and customization
 
@@ -304,7 +305,8 @@ named colors. "Duplicate as custom" copies a built-in into a new custom symbol, 
 "Change symbol" moves nodes to another symbol by binding key. Binding channels are Gorp
 references with `@ref on_delete detach`. A channel delete clears the channel of a
 `channel` source and keeps the binding with its enumeration, match, and format, and it
-removes a `CommandBinding`.
+removes a `CommandBinding`. A schematic import drops channel keys that name no channel
+the same way, as a line plot import does (`core/pkg/service/lineplot/imex.go:61`).
 
 The Core checks every save. It refuses a symbol with a duplicate key in a list, a key
 that names no part, state, or command, an `entry` paint or `equals` condition on a
@@ -315,21 +317,23 @@ of built-ins lets it check built-in nodes the same way. A `missing` node has no 
 so the Core checks its bindings when "Change symbol" moves it. When a symbol save
 removes a state or command, the save confirm lists the node bindings that it removes.
 When it changes the type of a state, the confirm lists the node overrides of the old
-type. The Core removes them in the same transaction.
+type. When it gives a command a state, the confirm lists the `CommandBinding`s of that
+command. The Core removes them in the same transaction.
 
 An import brings the custom symbols that its schematics use. Every symbol import, alone,
 in a group, or in a schematic, follows one rule. When the Core already has a symbol with
 a bundled key, the import uses it, needs retrieve access on it, and reports a warning
 status that names it if the two differ. The import then drops each node binding that
-names a state or command that the Core's copy lacks, and each override of the wrong
-type, and the warning status names them. Otherwise it adds the bundled symbol under its
-bundled key, so a later import of the same file reuses it. A group import treats the
-group the same way, by the group key that a new manifest version carries. It uses or
-adds a group only when a new symbol joins it, and with an old manifest, which has no
-key, it adds a new group. It needs update access on a reused group and refuses a group
-that is not a top-level `schematic_symbol` group. The Core refuses an import that lacks
-either access. A reused symbol stays in its group. Phase 2 changes the symbol importer
-to keep keys, and copies that an import made before phase 2 stay separate symbols.
+names a state or command that the Core's copy lacks, each override of the wrong type,
+and each `CommandBinding` of a command that has a state, and the warning status names
+them. Otherwise it adds the bundled symbol under its bundled key, so a later import of
+the same file reuses it. A group import treats the group the same way, by the group key
+that a new manifest version carries. It uses or adds a group only when a new symbol
+joins it, and with an old manifest, which has no key, it adds a new group. It needs
+update access on a reused group and refuses a group that is not a top-level
+`schematic_symbol` group. The Core refuses an import that lacks either access. A reused
+symbol stays in its group. Phase 2 changes the symbol importer to keep keys, and copies
+that an import made before phase 2 stay separate symbols.
 
 A custom symbol holds only shapes. It starts from an SVG upload or a blank canvas, and
 the editor's drawing tools save SVG markup. A part names its shapes by `#id`, `.class`,
@@ -363,10 +367,13 @@ differs from those bounds gets it as its binding `match`, and an inverted `thres
 swapped, as today's check swaps it. With these matches, each migrated toggle and light
 reads every number as it does today. The light's `on_color` moves to an enumeration.
 `stroke_color` becomes `color`, `staleness_color` goes, the time fields keep their
-values, and `state_overrides` become enumerations by RFC 0112 §4.6. RFC 0112 phase 22
-turns the region color looks of a custom symbol into `entry` looks, and gives each node
-whose overrides change its colors its own enumeration, or a copy of its symbol when an
-enumeration cannot carry them, so no node changes its look.
+values, and `state_overrides` become enumerations by RFC 0112 §4.6. The migration ends
+with `gorp.DanglingMigration`, as line plots do
+(`core/pkg/service/lineplot/migrate.go:24`), so the key of a deleted channel clears its
+channel or removes its `CommandBinding`. RFC 0112 phase 22 turns the region color looks
+of a custom symbol into `entry` looks, and gives each node whose overrides change its
+colors its own enumeration, or a copy of its symbol when an enumeration cannot carry
+them, so no node changes its look.
 
 The migration and an import give a node whose custom symbol does not exist `missing`
 with the old key, and keep its bindings. Pluto draws today's "Missing custom symbol"
